@@ -72,7 +72,13 @@
   var BUILTIN = {};
   'int float float32 float64 bool string void Type Any s8 s16 s32 s64 u8 u16 u32 u64 s128 u128 code Code'.split(' ').forEach(function (n) { BUILTIN[n] = true; });
 
-  function kindOf(it) { return it.kind === 'proc' ? 'proc' : it.kind === 'const' ? 'const' : it.kind === 'module' ? 'mod' : 'type'; }
+  function dot(cls, label) {
+    var d = el('span', 'dot ' + cls, '');
+    d.title = label;
+    d.setAttribute('role', 'img');
+    d.setAttribute('aria-label', label);
+    return d;
+  }
   function hrefOf(it) {
     if (it.kind === 'module') return base + 'api/' + it.module + '/';
     if (it.native) return base + 'api/' + it.module + '/#' + it.name.replace(/[^A-Za-z0-9_]/g, function (c) { return '-' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); });
@@ -204,12 +210,14 @@
       a.id = 'hit-' + i;
       a.setAttribute('role', 'option');
       a.setAttribute('aria-selected', i === picked ? 'true' : 'false');
-      a.appendChild(el('span', 'badge sm kind', kindOf(it)));
       var name = el('a', 'path', it.kind === 'module' ? it.title : it.title + '.' + it.name);
       name.href = hrefOf(it);
       a.appendChild(el('code', '', '')).appendChild(name);
-      if (it.experimental) a.appendChild(el('span', 'badge exp sm', 'Experimental'));
-      if (it.native) a.appendChild(el('span', 'badge sm foreign', 'Foreign'));
+      // Flags are dots here, coloured like the badges on the pages; the word is the tooltip.
+      if (it.native) a.appendChild(dot('foreign', 'foreign'));
+      if (it.experimental) a.appendChild(dot('exp', 'experimental'));
+      // The signature column already says what procedures, types and constants are.
+      if (it.kind === 'module') a.appendChild(el('span', 'what', 'module'));
       var sig = el('span', 'sig');
       sig.appendChild(sigNodes(it));
       a.appendChild(sig);

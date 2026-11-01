@@ -60,10 +60,10 @@ fn experimental_badge(experimental: bool, small: bool) -> &'static str {
     match (experimental, small) {
         (false, _) => "",
         (true, false) => {
-            "<span class=\"badge exp\" title=\"May change or go away\">Experimental</span>"
+            "<span class=\"badge exp\" title=\"May change or go away\">experimental</span>"
         }
         (true, true) => {
-            "<span class=\"badge exp sm\" title=\"May change or go away\">Experimental</span>"
+            "<span class=\"badge exp sm\" title=\"May change or go away\">experimental</span>"
         }
     }
 }
@@ -304,7 +304,7 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
         ));
     } else if item.kind != Kind::Procedure && item.kind != Kind::Constant {
         pills.push_str(&format!(
-            "<span class=\"badge sm kind\">{}</span>",
+            "<span class=\"badge sm\">{}</span>",
             item.kind.label()
         ));
     }
@@ -377,7 +377,7 @@ fn foreign_row(site: &Site, mi: usize, item: &Item, pills: &str, line: &str) -> 
         )
     };
     format!(
-        "<article class=\"row\" id=\"{id}\">\n<div class=\"row-head\"><span class=\"name\">{name}</span>{pills}<span class=\"badge sm foreign\" title=\"Declared by a foreign library this module binds\">Foreign</span>{platforms}</div>\n{line}{members}</article>\n",
+        "<article class=\"row\" id=\"{id}\">\n<div class=\"row-head\"><span class=\"name\">{name}</span>{pills}<span class=\"badge sm foreign\" title=\"Declared by a foreign library this module binds\">foreign</span>{platforms}</div>\n{line}{members}</article>\n",
         id = esc(&Site::slug(&item.name)),
         name = esc(&item.name),
         platforms = item_badges(m, item),
@@ -405,7 +405,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     let m = &site.modules[mi];
     let mut main = crumbs(site, m, None);
     main.push_str(&format!(
-        "<div class=\"titlebar\"><h1>{}</h1><span class=\"badge kind\">module</span><span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
+        "<div class=\"titlebar\"><h1>{}</h1><span class=\"badge\">module</span><span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
         esc(m.title()),
         esc(&site.source_url(&m.file, 1)),
     ));
@@ -856,14 +856,15 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
     let (source_file, source_line) = docs_place(item);
     let mut main = crumbs(site, m, Some(&item.name));
     let kind = match item.kind {
-        Kind::Procedure => format!(
-            "procedure &middot; {}",
-            plural(item.overloads.len().max(1), "overload")
+        Kind::Procedure if item.overloads.len() > 1 => format!(
+            "<span class=\"badge proc\">procedure</span><span class=\"badge\">{} overloads</span>",
+            item.overloads.len()
         ),
-        other => other.label().to_owned(),
+        Kind::Procedure => "<span class=\"badge proc\">procedure</span>".to_owned(),
+        other => format!("<span class=\"badge\">{}</span>", other.label()),
     };
     main.push_str(&format!(
-        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1><span class=\"badge kind\">{kind}</span>{experimental}{platforms}{since}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
+        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1>{kind}{experimental}{platforms}{since}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
         esc(&item.name),
         esc(&site.source_url(&source_file, source_line)),
         experimental = experimental_badge(item.experimental, false),
@@ -1086,7 +1087,7 @@ mod tests {
         let own = page.find("id=\"own\"").unwrap();
         let max = page.find("id=\"MAX\"").unwrap();
         assert!(own < max);
-        assert!(page[max..].contains("Foreign"));
+        assert!(page[max..].contains("class=\"badge sm foreign\""));
         assert!(page.contains("FAST"));
         assert!(!page.contains("href=\"/api/Vendor/MAX/\""));
         assert_eq!(site.item_href("Vendor", "MAX"), "/api/Vendor/#MAX");

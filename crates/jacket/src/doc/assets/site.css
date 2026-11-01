@@ -81,8 +81,11 @@ kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1p
 #results[hidden] { display: none; }
 #results .hit { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; color: var(--fg); text-decoration: none; }
 #results .hit[aria-selected="true"] { background: var(--sel); }
-#results .kind { width: 44px; flex: none; text-align: center; }
 #results .path { font-family: var(--mono); font-size: 13.5px; flex: none; }
+#results .what { font-size: 12px; color: var(--muted); flex: none; }
+#results .dot { --c: var(--muted); width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; margin-left: -4px; }
+#results .dot.foreign { --c: var(--foreign); }
+#results .dot.exp { --c: var(--warn); }
 #results .sig { flex: 1 1 auto; text-align: right; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 #results .sig .pname { color: var(--fg); font-weight: 500; }
 #results .empty { padding: 10px; color: var(--muted); font-size: 14px; }
@@ -138,7 +141,7 @@ h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
 /* Badges: one shape, coloured by kind. `--c` is the text colour; the background is a light tint of it. */
 .badge { --c: var(--muted); font-size: 12px; font-weight: 500; line-height: 1.6; color: var(--c); background: color-mix(in srgb, var(--c) var(--tint), transparent); border-radius: 6px; padding: 1px 8px; white-space: nowrap; }
 .badge.sm { font-size: 11px; padding: 0 7px; }
-.badge.kind { --c: var(--accent); }
+.badge.proc { --c: var(--accent); }
 .badge.foreign { --c: var(--foreign); }
 .badge.exp { --c: var(--warn); }
 .card-name .badge, .side a .badge { margin-left: 8px; font-weight: 400; vertical-align: 1px; }
