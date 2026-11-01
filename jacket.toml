@@ -305,7 +305,7 @@ modules = [
 [[doc.group]]
 name = "Compression and hashing"
 modules = [
-    "stdlib/Crc", "stdlib/Hash", "stdlib/md5", "stdlib/xxHash", "stdlib/meow_hash", "stdlib/lz4",
+    "stdlib/Crc", "stdlib/Hash", "stdlib/md5", "stdlib/xxHash", "stdlib/meow_hash", "stdlib/Extensions/Meow_Portable", "stdlib/lz4",
     "stdlib/Zip_File_Directory", "stdlib/Extensions/Deflate",
 ]
 
