@@ -269,7 +269,7 @@ name = "Files and OS"
 modules = [
     "stdlib/File", "stdlib/File_Utilities", "stdlib/File_Watcher", "stdlib/Process",
     "stdlib/System", "stdlib/Clipboard", "stdlib/Command_Line", "stdlib/Simple_Package",
-    "stdlib/Extensions/Args", "stdlib/Extensions/Environment", "stdlib/Extensions/Assets",
+    "stdlib/Extensions/Args", "stdlib/Extensions/Environment", "stdlib/Extensions/Assets", "stdlib/Extensions/Pty",
 ]
 
 [[doc.group]]
