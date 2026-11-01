@@ -24,13 +24,17 @@ use std::ffi::CStr;
 use std::path::{Path, PathBuf};
 
 /// LLVM instructions per codegen unit below which another thread does not pay for itself
-/// (each unit re-reads the whole module's bitcode).
-const INSTS_PER_UNIT: usize = 10_000;
+/// (each unit re-reads the whole module's bitcode). Splitting changes the code not at all, so
+/// the size is set by compile time alone. Machine code for an optimized 13,000-instruction
+/// module (a program that prints) took 127 ms in one piece; in 2, 3, 4, 6, 8, 10 units the
+/// whole build took 238, 224, 220, 228, 230, 236 ms against 291 ms for one, so a unit of about
+/// 3,500 is the best size and more units only add the cost of reading the module again.
+const INSTS_PER_UNIT: usize = 3_500;
 
 /// Each unit after the first holds its own copy of the module's declarations and debug
 /// information, so more units cost memory for little gain once the optimizer (which stays
 /// serial) dominates.
-const MAX_UNITS: usize = 4;
+const MAX_UNITS: usize = 8;
 
 /// How many units to split the optimized `module` into (1: don't).
 pub(crate) fn units_for(module: &Module, forced: Option<usize>) -> usize {
