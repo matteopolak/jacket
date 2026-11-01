@@ -349,13 +349,17 @@ impl<'a> Lexer<'a> {
 
     /// `.5` is a float literal unless the dot continues an expression (`x.5`, `1..5`).
     fn at_leading_dot_float(&self) -> bool {
+        // Nearly every call is at a token that is not a dot; decide that before looking back.
+        if self.peek(0) != b'.' || !self.peek(1).is_ascii_digit() {
+            return false;
+        }
         let after_operand = self.at > 0 && {
             let prev = self.src[self.at - 1];
             is_ident_char(prev)
                 || matches!(prev, b']' | b'.' | b'"')
                 || (prev == b')' && !self.closes_cast(self.at - 1))
         };
-        self.peek(0) == b'.' && self.peek(1).is_ascii_digit() && !after_operand
+        !after_operand
     }
 
     /// True if the `)` at `close` ends a `cast(...)` prefix, which takes an operand after it.
