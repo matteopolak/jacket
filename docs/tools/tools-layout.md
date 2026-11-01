@@ -39,7 +39,7 @@ Import them folder-qualified: `from toolkit.hashing import sha256_file`.
 |---|---|
 | `toolkit.repo` | `ROOT` (never recompute it from `__file__`), `git_files(*patterns)` (the index's paths), `cargo_target_dir()`, `cargo_binary()`, `jaifmt_path()`, `stdlib_env()` |
 | `toolkit.host` | `host_os()`, `host_cpu()`, `exe_name()`, `brew_prefix()` |
-| `toolkit.platforms` | `PLATFORMS`, `TRIPLES`, `WINDOWS_TRIPLES`, `MINGW_PREFIXES`: the `<os>-<cpu>` names and their compiler targets |
+| `toolkit.platforms` | `PLATFORMS`, `TRIPLES`, `WINDOWS_TRIPLES`, `MINGW_PREFIXES`: the `<os>-<cpu>` names and their compiler targets; `toolkit/test_platforms.py` fails when they disagree with `crates/jaic/src/target.rs` (OS and CPU names, Windows and Linux triples) |
 | `toolkit.hashing` | `sha256_file`, `sha256_bytes` |
 | `toolkit.download` | `fetch(url, ...)` with retries (the one download path; don't call `urllib` directly); `pinned(url, sha256, name)` caches under `~/.cache/jaic/` and exits on a digest mismatch |
 | `toolkit.process` | `run(command, ...)` (checked, echoes the command); `run_expect(...)` raises unless stdout, status and stderr match |
