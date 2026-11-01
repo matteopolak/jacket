@@ -25,7 +25,7 @@ impl Compiler {
         let is_shift = is_shift(op);
         for operand in [a, b] {
             if matches!(operand.kind, ast::ExprKind::Ifx { .. }) {
-                self.pr.ifx_operands.insert(operand.span);
+                self.set_ifx_operand(operand.span);
             }
         }
         let lhs_expected = if is_cmp {

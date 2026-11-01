@@ -18,6 +18,7 @@ mod binary;
 #[cfg(test)]
 mod body_failure_tests;
 pub mod body_probe;
+pub mod speculative;
 mod sync_world;
 use body_probe::{Probed, W};
 mod callable;
@@ -568,6 +569,7 @@ impl Compiler {
 
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         body_probe::init();
+        speculative::init();
         let cross_target = options.is_cross_build();
         let mut c = Compiler {
             pr: ProcState::default(),

@@ -83,6 +83,10 @@ impl Compiler {
         result
     }
 
+    pub(in crate::sema) fn lower_body_inner_for_speculation(&mut self, id: ProcId) -> Result<()> {
+        self.lower_body_inner(id)
+    }
+
     fn lower_body_inner(&mut self, id: ProcId) -> Result<()> {
         let Some(ProcTarget::Func(func_id)) = self.proc(id).target else {
             return Ok(());
@@ -179,7 +183,7 @@ impl Compiler {
             if param.discard {
                 if let Some(name) = param.name {
                     let e = self.add_const(scope, name, param.span, Value::Int(0), TypeId::S64);
-                    self.pr.discard_params.insert(e);
+                    self.set_discard_param(e);
                 }
                 continue;
             }
@@ -220,7 +224,7 @@ impl Compiler {
                     f.immutable.push((addr, Immutable::Argument));
                 }
                 if let Some(info) = &param.callable {
-                    self.pr.callable_entities.insert(e, info.clone());
+                    self.set_callable_entity(e, info.clone());
                 }
                 if param.using {
                     let mut entry = UsingEntry::Place {
@@ -335,6 +339,11 @@ impl Compiler {
             self.warn(warning);
         }
         if let Some(func_id) = func_id {
+            // A speculative body keeps its function until it is committed.
+            if crate::sema::speculative::active() {
+                crate::sema::speculative::deposit(func_id, func, storage_constants, span);
+                return Ok(());
+            }
             self.out
                 .runtime_storage_dependencies
                 .functions
@@ -442,7 +451,11 @@ impl Compiler {
             .map(|(_, v, t)| crate::sema::instance_key_value(&self.ty.types, v, *t))
             .collect();
         if let Some(&inst) = self.proc(id).instances.get(&key) {
-            self.meta.perf.poly_request(id, true, span);
+            if !crate::sema::speculative::defer(move |c, _| {
+                c.meta.perf.poly_request(id, true, span);
+            }) {
+                self.meta.perf.poly_request(id, true, span);
+            }
             return Ok(inst);
         }
         self.meta.perf.poly_request(id, false, span);

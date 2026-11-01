@@ -35,6 +35,9 @@ fn merge_values(target: &mut Vec<i64>, values: &[i64]) {
 
 impl Compiler {
     pub(super) fn finish_runtime_storage_entity(&mut self, id: scope::EntityId, values: &[i64]) {
+        if self.speculative_storage_entity(id, values) {
+            return;
+        }
         let known = self
             .out
             .runtime_storage_dependencies
@@ -47,6 +50,9 @@ impl Compiler {
     }
 
     pub(super) fn finish_runtime_storage_layout(&mut self, id: StructId, values: &[i64]) {
+        if self.speculative_storage_layout(id, values) {
+            return;
+        }
         let known = self
             .out
             .runtime_storage_dependencies

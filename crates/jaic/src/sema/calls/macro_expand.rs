@@ -37,7 +37,7 @@ impl Compiler {
         };
         if param.discard {
             let e = self.add_const(mscope, name, param.span, Value::Int(0), TypeId::S64);
-            self.pr.discard_params.insert(e);
+            self.set_discard_param(e);
             return Ok(());
         }
         if self.is_register_operand_type(param.ty, param.span) {
@@ -312,7 +312,7 @@ impl Compiler {
             false,
         );
         if let Some(info) = &param.callable {
-            self.pr.callable_entities.insert(e, info.clone());
+            self.set_callable_entity(e, info.clone());
         }
         // The argument's value when it is a constant: a literal or constant given, a
         // procedure, or a literal default (`var_name := "var"`).
@@ -356,7 +356,7 @@ impl Compiler {
                     && matches!(value, Value::Int(_))
                     && self.ty.types.is_integer(param.ty)))
         {
-            self.pr.local_consts.insert(e, (value.clone(), param.ty));
+            self.set_local_const(e, value.clone(), param.ty);
             // A constant argument the body never writes stays a constant.
             if matches!(
                 value,
@@ -368,7 +368,7 @@ impl Compiler {
                     | Value::Type(_)
             ) && !self.src.text_may_write(body, name)
             {
-                self.pr.const_macro_params.insert(e, (value, param.ty));
+                self.set_const_macro_param(e, value, param.ty);
             }
         }
         if param.using {

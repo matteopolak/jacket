@@ -139,6 +139,7 @@ writes! {
     SrcLibraryFiles "src.library_files",
     CachesDeclaringImports "caches.declaring_imports",
     CachesStdlibView "caches.stdlib_view",
+    NsCheckHandlerResolved "ns.check_handler_resolved",
     OldProcs "pr.procs[i], another body's procedure",
     OldEntities "ns.entities[i], older than the body",
     OldModuleScopes "ns.scopes[i], a root, module or file scope",
@@ -146,6 +147,12 @@ writes! {
 }
 
 const WN: usize = WRITE_NAMES.len();
+
+/// The name of the shared state write number `i` is counted under.
+pub fn write_name(i: usize) -> &'static str {
+    WRITE_NAMES[i]
+}
+
 
 /// A shared table with its writes counted: reading goes through `Deref`, anything that borrows it
 /// mutably (`push`, `insert`, `entry`, `get_mut`, indexing for assignment, passing `&mut`) goes
@@ -162,6 +169,67 @@ impl<T, const I: usize> Probed<T, I> {
 
     pub fn into_inner(self) -> T {
         self.0
+    }
+}
+
+/// Interning looks the type up first, so only a type that is new counts as a write (and makes a
+/// speculative body give up).
+impl<const I: usize> Probed<crate::types::Types, I> {
+    pub fn intern(&mut self, kind: crate::types::TypeKind) -> crate::types::TypeId {
+        if let Some(id) = self.0.find(&kind) {
+            return id;
+        }
+        write_at(I);
+        self.0.intern(kind)
+    }
+
+    pub fn pointer(&mut self, to: crate::types::TypeId) -> crate::types::TypeId {
+        self.intern(crate::types::TypeKind::Pointer(to))
+    }
+
+    pub fn array(
+        &mut self,
+        elem: crate::types::TypeId,
+        kind: crate::types::ArrayKind,
+    ) -> crate::types::TypeId {
+        self.intern(crate::types::TypeKind::Array {
+            elem,
+            kind,
+        })
+    }
+}
+
+impl<T, const I: usize> Probed<T, I> {
+    /// The table without counting a write: speculation changes entries only it can see, and
+    /// takes them out again (`speculative::journal`).
+    pub(super) fn quiet(&mut self) -> &mut T {
+        &mut self.0
+    }
+}
+
+impl<T, const I: usize> Probed<Vec<T>, I> {
+    /// Append an element that only the body being checked can see yet. Speculation allows it
+    /// (the arena is cut back to its length at the start of the body afterwards); any other
+    /// mutable borrow of the table aborts the speculative body.
+    #[inline(always)]
+    pub fn push_new(&mut self, value: T) {
+        if super::speculative::BUILT {
+            super::speculative::append_hit(I);
+        }
+        if COUNTING && ON.load(std::sync::atomic::Ordering::Relaxed) {
+            WRITES.with(|w| w.borrow_mut()[I] += 1);
+        }
+        self.0.push(value);
+    }
+
+    /// Take the elements from `at` on, without counting a write (speculation's rollback).
+    pub(super) fn split_off_tail(&mut self, at: usize) -> Vec<T> {
+        self.0.split_off(at)
+    }
+
+    /// Append elements without counting a write (speculation's commit).
+    pub(super) fn extend_tail(&mut self, tail: Vec<T>) {
+        self.0.extend(tail);
     }
 }
 
@@ -253,7 +321,7 @@ impl<T, P: std::slice::SliceIndex<[T]> + First, const I: usize> std::ops::IndexM
 {
     #[inline(always)]
     fn index_mut(&mut self, at: P) -> &mut Reached<T, P> {
-        write_at(I);
+        write_at_index(I, at.first());
         old_write(I, at.first());
         &mut self.0[at]
     }
@@ -350,6 +418,21 @@ pub const COUNTING: bool = cfg!(feature = "body-probe");
 
 #[inline(always)]
 fn write_at(i: usize) {
+    if super::speculative::BUILT {
+        super::speculative::write_hit(i, None);
+    }
+    if COUNTING && ON.load(std::sync::atomic::Ordering::Relaxed) {
+        WRITES.with(|w| w.borrow_mut()[i] += 1);
+    }
+}
+
+/// [`write_at`] for a write through an index: speculation lets the elements a body made itself
+/// be changed.
+#[inline(always)]
+fn write_at_index(i: usize, at: usize) {
+    if super::speculative::BUILT {
+        super::speculative::write_hit(i, Some(at));
+    }
     if COUNTING && ON.load(std::sync::atomic::Ordering::Relaxed) {
         WRITES.with(|w| w.borrow_mut()[i] += 1);
     }

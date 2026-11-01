@@ -94,12 +94,15 @@ impl Compiler {
             && op.ty() != TypeId::COMPILE_TIME
         {
             let ty = op.ty();
-            self.meta
-                .export
-                .expression_types
-                .entry(procedure)
-                .or_default()
-                .record(expr.span, ty);
+            // A speculative body keeps the log until it is committed.
+            if !crate::sema::speculative::log_expression(procedure, expr.span, ty) {
+                self.meta
+                    .export
+                    .expression_types
+                    .entry(procedure)
+                    .or_default()
+                    .record(expr.span, ty);
+            }
         }
         if self.ed.is_live()
             && let Ok(op) = &result

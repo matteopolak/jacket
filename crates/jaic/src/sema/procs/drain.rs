@@ -6,7 +6,29 @@ use crate::sema::ProcState;
 use crate::sema::scope::ScopeKind;
 use crate::sema::{Compiler, Diagnostic, ProcId, Result, ir};
 
+/// What one pass of `drain_bodies` collects.
+pub(in crate::sema) struct DrainPass {
+    /// How many procedures existed when the pass began: only their bodies count as progress.
+    existing: usize,
+    failed: Vec<(ProcId, Box<Diagnostic>)>,
+    final_failures: Vec<(ProcId, Box<Diagnostic>)>,
+    progress: bool,
+}
+
 impl Compiler {
+    /// Lower the body `id` just taken from the queue, noting how it went in `pass`.
+    pub(in crate::sema) fn drain_one(&mut self, id: ProcId, pass: &mut DrainPass) {
+        if self.proc(id).body_state != BodyState::Queued {
+            return;
+        }
+        let traps = self.ct.traps;
+        match self.lower_body(id) {
+            Ok(()) => pass.progress |= (id.0 as usize) < pass.existing,
+            Err(e) if self.ct.traps != traps => pass.final_failures.push((id, e)),
+            Err(e) => pass.failed.push((id, e)),
+        }
+    }
+
     /// Lower all queued procedure bodies.
     /// A body that fails is retried while other bodies still lower: one lowered later may
     /// declare what it needs (`#insert,scope(...)` into a file). The first error of a pass
@@ -19,20 +41,26 @@ impl Compiler {
         // what the failed run left behind, so they are final.
         let mut final_failures = Vec::new();
         loop {
-            let mut failed = Vec::new();
-            let mut progress = false;
-            let existing = self.pr.procs.len();
-            while let Some(id) = crate::sema::body_probe::next_body(&mut self.pr.body_queue) {
-                if self.proc(id).body_state != BodyState::Queued {
-                    continue;
-                }
-                let traps = self.ct.traps;
-                match self.lower_body(id) {
-                    Ok(()) => progress |= (id.0 as usize) < existing,
-                    Err(e) if self.ct.traps != traps => final_failures.push((id, e)),
-                    Err(e) => failed.push((id, e)),
+            let mut pass = DrainPass {
+                existing: self.pr.procs.len(),
+                failed: Vec::new(),
+                final_failures: std::mem::take(&mut final_failures),
+                progress: false,
+            };
+            if crate::sema::speculative::enabled() {
+                self.drain_speculatively(&mut pass);
+            } else {
+                while let Some(id) = crate::sema::body_probe::next_body(&mut self.pr.body_queue) {
+                    self.drain_one(id, &mut pass);
                 }
             }
+            let DrainPass {
+                mut failed,
+                final_failures: finals,
+                progress,
+                ..
+            } = pass;
+            final_failures = finals;
             if failed.is_empty() && final_failures.is_empty() {
                 return Ok(());
             }

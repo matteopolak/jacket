@@ -478,6 +478,7 @@ impl Compiler {
         if self.ns.check_handler_resolved {
             return Ok(());
         }
+        crate::sema::body_probe::write(crate::sema::body_probe::W::NsCheckHandlerResolved);
         self.ns.check_handler_resolved = true;
         let result = (|| {
             let Some(proc) =

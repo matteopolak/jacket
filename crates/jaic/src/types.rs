@@ -231,6 +231,11 @@ impl Types {
         id
     }
 
+    /// The id of an interned type, if there is one.
+    pub fn find(&self, kind: &TypeKind) -> Option<TypeId> {
+        self.intern.get(kind).copied()
+    }
+
     /// How many types are interned.
     pub fn type_count(&self) -> usize {
         self.kinds.len()

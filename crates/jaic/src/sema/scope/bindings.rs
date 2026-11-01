@@ -21,7 +21,7 @@ impl Compiler {
     ) -> ScopeId {
         let proc_depth = parent.map_or(0, |p| self.ns.scopes[p.0 as usize].proc_depth)
             + u32::from(kind == ScopeKind::Proc);
-        self.ns.scopes.push(Scope {
+        self.ns.scopes.push_new(Scope {
             kind,
             parent,
             inserted_into: None,
@@ -161,7 +161,7 @@ impl Compiler {
         .then(|| self.generated_placeholder(scope, name, span))
         .flatten();
         let id = EntityId(self.ns.entities.len() as u32);
-        self.ns.entities.push(Entity {
+        self.ns.entities.push_new(Entity {
             name,
             span,
             scope,

@@ -11,6 +11,16 @@ use crate::sema::{
 use crate::types::TypeKind;
 
 impl Compiler {
+    /// Remember the type a local declaration was given, for metaprograms reading the syntax tree.
+    fn note_local_decl_type(&mut self, key: (ast::AstId, usize), ty: TypeId) {
+        if crate::sema::speculative::defer(move |c, _| {
+            c.pr.local_decl_types.entry(key).or_insert(ty);
+        }) {
+            return;
+        }
+        self.pr.local_decl_types.entry(key).or_insert(ty);
+    }
+
     pub(super) fn check_local_decl(
         &mut self,
         f: &mut FnCtx,
@@ -126,7 +136,7 @@ impl Compiler {
             };
             self.ensure_storage_type(ty, span)?;
             // Metaprograms read local declaration types from the exported syntax tree.
-            self.pr.local_decl_types.entry((decl.id, i)).or_insert(ty);
+            self.note_local_decl_type((decl.id, i), ty);
             let size = self.size_of(ty, span)?;
             let mut align = self.align_of(ty, span)?;
             if let Some(a) = &decl.align() {
@@ -203,14 +213,14 @@ impl Compiler {
             };
             let e = self.add_entity(target, name.name, name.span, kind.clone(), false);
             if let Some(info) = callable {
-                self.pr.callable_entities.insert(e, info);
+                self.set_callable_entity(e, info);
             }
             self.debug_var(f, target, name.name, name.span, (ty, addr), 0);
             if target != scope {
                 // A backtick name is visible to the rest of the macro body too.
                 let alias = self.add_entity(scope, name.name, name.span, kind, false);
                 if let Some(info) = self.pr.callable_entities.get(&e).cloned() {
-                    self.pr.callable_entities.insert(alias, info);
+                    self.set_callable_entity(alias, info);
                 }
             }
             if decl.using {

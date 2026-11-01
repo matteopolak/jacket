@@ -257,6 +257,7 @@ impl Compiler {
     pub fn finish_program(&mut self) -> Result<()> {
         let result = self.finish_program_inner();
         super::body_probe::report();
+        super::speculative::report();
         self.diag.with_deferred_errors(result)
     }
 

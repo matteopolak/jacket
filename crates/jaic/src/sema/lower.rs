@@ -738,16 +738,7 @@ impl Compiler {
             Value::Bytes(agg) => {
                 let size = self.size_of(ty, span)?;
                 let align = self.align_of(ty, span)?;
-                let name = format!("const.{}", self.out.program.globals.len());
-                let global = self.out.program.add_global(ir::Global {
-                    name,
-                    size,
-                    align,
-                    init: agg.bytes.clone(),
-                    relocs: agg.relocs.clone(),
-                    read_only: true,
-                    export: None,
-                });
+                let global = self.out.const_global(size, align, agg);
                 if let Some(t) = self.ir_ty(ty) {
                     let addr = f.b.global_addr(global);
                     return Ok(f.b.load(t, addr));
@@ -828,9 +819,35 @@ impl TypeState {
 }
 
 impl Output {
+    /// A read-only global holding the image of an aggregate constant.
+    pub fn const_global(
+        &mut self,
+        size: u64,
+        align: u64,
+        agg: &super::value::Aggregate,
+    ) -> ir::GlobalId {
+        if let Some(g) = crate::sema::speculative::local_const(size, align, agg) {
+            return g;
+        }
+        let name = format!("const.{}", self.program.globals.len());
+        self.program.add_global(ir::Global {
+            name,
+            size,
+            align,
+            init: agg.bytes.clone(),
+            relocs: agg.relocs.clone(),
+            read_only: true,
+            export: None,
+        })
+    }
+
     /// Read-only global holding the bytes of a string literal.
     pub fn string_global(&mut self, bytes: &Arc<[u8]>) -> ir::GlobalId {
         if let Some(&g) = self.strings.get(bytes) {
+            return g;
+        }
+        // A speculative body asks for the global when it is committed.
+        if let Some(g) = crate::sema::speculative::local_string(bytes) {
             return g;
         }
         let mut init = bytes.to_vec();
