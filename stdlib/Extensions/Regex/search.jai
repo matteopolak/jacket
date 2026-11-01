@@ -26,8 +26,11 @@ build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
 
     engine, ok, error := build_programs(pool, pattern, options);
     if !ok {
+        // The message may live in the pool: copy it out before the pool goes.
+        error.message = copy_temporary_string(error.message);
         Memory_Pool.release(pool);
         free(pool);
+
         return null, false, error;
     }
 

@@ -52,7 +52,7 @@ Regex :: struct {
 
 // Why a pattern did not compile.
 Error :: struct {
-    message: string; // `unclosed group: expected `)``
+    message: string; // `unclosed group: expected `)``, in temporary storage
     offset: int; // byte offset in the pattern where the problem is
 }
 
