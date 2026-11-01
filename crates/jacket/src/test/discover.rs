@@ -8,7 +8,8 @@
 //! - the rest of the files below `tests/` are what those files `#load` or `#import`.
 //!
 //! The roots are `[test] paths` in jacket.toml, expanded by [`expand`] (only those the current
-//! directory is in, when it is in some), else the project's folder.
+//! directory is in, when it is in some), else the project's folder. Run from a folder below the
+//! project that has its own `tests/` (or `module.jai`), `jacket test` tests that folder.
 use jacket_config::{PathPattern, relative_text};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -255,8 +256,18 @@ pub fn expand(
     Ok(found.into_iter().collect())
 }
 
+/// The nearest folder from `cwd` up to, but not including, `project` that holds tests of its own
+/// (a `tests/` folder or a `module.jai`), so `jacket test` in an example folder tests that folder.
+fn enclosing_root(cwd: &Path, project: &Path) -> Option<PathBuf> {
+    cwd.ancestors()
+        .take_while(|dir| *dir != project && dir.starts_with(project))
+        .find(|dir| is_test_root(dir))
+        .map(Path::to_path_buf)
+}
+
 /// The roots to test: `explicit` folders if any, else `[test] paths` (narrowed to those `cwd` is
-/// in, when it is in some), else `project`.
+/// in, when it is in some), else the folder below `project` that `cwd` is in and that has tests
+/// of its own, else all of `[test] paths`, else `project`.
 pub fn roots(
     explicit: &[PathBuf],
     configured: &[PathBuf],
@@ -266,15 +277,18 @@ pub fn roots(
     if !explicit.is_empty() {
         return explicit.iter().map(|p| cwd.join(p)).collect();
     }
-    if configured.is_empty() {
-        return vec![project.to_path_buf()];
-    }
     let inside: Vec<PathBuf> = configured
         .iter()
         .filter(|root| cwd.starts_with(root))
         .cloned()
         .collect();
     if inside.is_empty() {
+        if let Some(own) = enclosing_root(cwd, project) {
+            return vec![own];
+        }
+        if configured.is_empty() {
+            return vec![project.to_path_buf()];
+        }
         return configured.to_vec();
     }
     // The innermost: inside `A/B` of roots `A` and `A/B`, only `A/B` runs.
@@ -373,6 +387,31 @@ mod tests {
             ),
             [PathBuf::from("/w/lib")]
         );
+    }
+
+    #[test]
+    fn a_folder_with_its_own_tests_below_the_project_is_the_root() {
+        let dir = std::env::temp_dir().join(format!("jacket-enclosing-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("ex/app/tests/sub")).unwrap();
+        std::fs::create_dir_all(dir.join("ex/other")).unwrap();
+        let app = dir.join("ex/app");
+        // Nothing configured: the folder, from itself or from inside its tests.
+        assert_eq!(roots(&[], &[], &dir, &app), vec![app.clone()]);
+        assert_eq!(
+            roots(&[], &[], &dir, &app.join("tests/sub")),
+            vec![app.clone()]
+        );
+        // Configured roots elsewhere do not hide it.
+        let configured = [dir.join("ex/other")];
+        assert_eq!(roots(&[], &configured, &dir, &app), vec![app.clone()]);
+        // A folder with no tests of its own, and the project itself, are unchanged.
+        assert_eq!(
+            roots(&[], &[], &dir, &dir.join("ex/other")),
+            vec![dir.clone()]
+        );
+        assert_eq!(roots(&[], &configured, &dir, &dir), configured);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
