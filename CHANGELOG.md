@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.32.0] - 2026-11-01
 
 ### New
 
@@ -15,11 +15,14 @@
 - The docs list the declarations of binding modules, such as `d3d12` and `nvidia_aftermath`, marked Foreign.
 - Module pages list their module parameters in a table at the top.
 - `jacket doc` is much faster on large binding modules: the standard library's docs build in seconds instead of minutes.
+- A module can skip all of its doc examples on a target with one `// test:` line in its `module.jai`.
 - `jaic -check` and `-interp` start faster and use less memory: native code generation now loads only when a build needs it.
 
 ### Fixed
 
 - An `Http` HEAD handler can set its own `Content-Length`.
+- Programs split into several codegen units no longer fail to link on Linux when a global and a procedure share a name.
+- On Windows, writing nothing to a child process succeeds, as it does elsewhere.
 
 ## [0.31.0] - 2026-10-31
 
