@@ -81,7 +81,12 @@ main :: () {
 
     set_repeating(stream, true);
     start_playing(stream);
-    sleep_milliseconds(100);
+    // The device may still be playing the silence queued during initialization.
+    // Render explicitly instead of assuming it consumes that queue within a fixed time.
+    properties := backend_init(config);
+    output: [8] s16;
+    fill_sample_buffer(.{ properties.num_channels * 2, cast(*u8) output.data });
+    // Shutdown joins the async worker before we inspect its priority hook's count.
     sound_player_shutdown();
     assert(released == 19 && last_streamed > 0 && priority_calls == 1);
     print("ok\n");
