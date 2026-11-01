@@ -105,29 +105,17 @@ pub fn fence(
     .then(|| doctest::standalone(&block, &module.id))
     .flatten()
     .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));
+    // Every example gets the same small buttons, whether it sits in a list row or on its own.
     let open = standalone.map_or_else(String::new, |href| {
-        if compact {
-            format!("<a class=\"btn sm\" href=\"{}\" aria-label=\"Open this example in the playground\" title=\"Open in the playground\">↗</a>", esc(&href))
-        } else {
-            format!("<a class=\"btn\" href=\"{}\">Open in playground ↗</a>", esc(&href))
-        }
+        format!("<a class=\"btn sm\" href=\"{}\" aria-label=\"Open this example in the playground\" title=\"Open in the playground\">↗</a>", esc(&href))
     });
+    let copy = "<button type=\"button\" class=\"btn sm js-only\" data-act=\"copy\" aria-label=\"Copy this example\" title=\"Copy\">Copy</button>";
     let run = match (&program, &note) {
         (Some(id), _) => format!(
-            "<button type=\"button\" class=\"btn {} js-only\" data-act=\"run\" data-program=\"{id}\">Run ▸</button>",
-            if compact {
-                "sm"
-            } else {
-                "primary"
-            }
+            "<button type=\"button\" class=\"btn sm js-only\" data-act=\"run\" data-program=\"{id}\">Run ▸</button>"
         ),
         (None, Some(why)) => format!(
-            "<button type=\"button\" class=\"btn {} js-only\" disabled title=\"{}\">Run ▸</button>",
-            if compact {
-                "sm"
-            } else {
-                "primary"
-            },
+            "<button type=\"button\" class=\"btn sm js-only\" disabled title=\"{}\">Run ▸</button>",
             esc(why)
         ),
         (None, None) => String::new(),
@@ -139,11 +127,11 @@ pub fn fence(
         });
     if compact {
         format!(
-            "<figure class=\"ex compact\"><div class=\"ex-row\"><pre class=\"code\"><code>{shown}</code></pre>{open}{run}</div>{note_html}<div class=\"ex-out\" hidden></div></figure>"
+            "<figure class=\"ex compact\"><div class=\"ex-row\"><pre class=\"code\"><code>{shown}</code></pre>{copy}{open}{run}</div>{note_html}<div class=\"ex-out\" hidden></div></figure>"
         )
     } else {
         format!(
-            "<figure class=\"ex\"><div class=\"ex-bar\"><span class=\"ex-title\">Example</span><span class=\"spacer\"></span><button type=\"button\" class=\"btn js-only\" data-act=\"copy\">Copy</button>{open}{run}</div><pre class=\"code\"><code>{shown}</code></pre>{note_html}<div class=\"ex-out\" hidden></div></figure>"
+            "<figure class=\"ex\"><div class=\"ex-bar\"><span class=\"ex-title\">Example</span><span class=\"spacer\"></span>{copy}{open}{run}</div><pre class=\"code\"><code>{shown}</code></pre>{note_html}<div class=\"ex-out\" hidden></div></figure>"
         )
     }
 }
