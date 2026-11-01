@@ -26,7 +26,11 @@ sed -n '1,7p' "$work/build.txt"
 echo "== smoke"
 set -- --smoke --threads "${THREADS:-3}"
 if [ -n "${FRAME:-}" ]; then set -- "$@" --smoke-frame "$FRAME"; fi
-if [ -n "${REQUIRE_GPU:-}" ]; then set -- "$@" --require-gpu; fi
-"$work/game3d" "$@"
+if [ "${FALLBACK_ADAPTER:-0}" = 1 ]; then set -- "$@" --fallback-adapter; fi
+if [ -n "${GPU_BACKEND:-}" ]; then set -- "$@" --gpu-backend "$GPU_BACKEND"; fi
+if [ "${REQUIRE_GPU:-0}" = 1 ]; then set -- "$@" --require-gpu; fi
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) game="$work/game3d.exe" ;; *) game="$work/game3d" ;; esac
+"$game" "$@"
+if [ -n "${FRAME:-}" ]; then [ -s "$FRAME" ] || { echo "smoke_game: missing frame: $FRAME" >&2; exit 1; }; fi
 
 echo "smoke_game: ok"

@@ -39,7 +39,7 @@ front door would hide them.
 
 | Script | What it does | Called by |
 | --- | --- | --- |
-| `fetch_wgpu_native.py` | Download the pinned wgpu-native release into target/native-libs/<os>-<arch>/. | tools |
+| `fetch_wgpu_native.py` | Download the pinned wgpu-native release into target/native-libs/<os>-<arch>/. | CI, tools |
 | `prepare_sdl_python_tests.py` | Prepare hash-pinned public C header inputs and explicit SDL test scratch. | CI, tools |
 | `run_sdl3.py` | Audit a packaged SDL3 runtime, then compile/run its Jai ABI and headless tests. | CI |
 | `run_webgpu_native.py` | Run stdlib/Extensions/WebGPU/tests/driven/headless.jai (or, with --test window, stdlib/Extensions/WebGPU/tests/driven/window.jai) natively: | CI |

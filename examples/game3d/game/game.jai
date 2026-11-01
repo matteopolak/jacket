@@ -87,7 +87,7 @@ run_game :: (cli: Cli) -> bool {
 
     defer game_shutdown(*game);
 
-    if !renderer_init(*game.renderer, window) return false;
+    if !renderer_init(*game.renderer, window, cli) return false;
 
     name := adapter_name(*game.renderer);
 

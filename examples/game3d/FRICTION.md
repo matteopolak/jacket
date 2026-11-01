@@ -15,6 +15,8 @@ Rough edges hit while writing game3d. Fixed ones name the commit subject; open o
 
 ## Open: stdlib
 
+- Software adapter selection already existed in WebGPU (`forceFallbackAdapter`, `backendType`); the game now exposes it. Linux/Vulkan and Windows/D3D12 runtime validation awaits the manual Dogfood GPU workflow; Mac type checks cannot establish driver behavior.
+
 - `Performance_Report` is a compiler plugin (`jaic ... +Performance_Report`), not a runtime profiler; the name suggests the second.
 - `WGPUAdapterInfo.vendor` is empty on Metal; only `device` carries the GPU's name.
 

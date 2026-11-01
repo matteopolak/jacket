@@ -62,6 +62,7 @@ Cli :: struct {
     smoke: bool;
     smoke_frame: string; @value=PNG
     smoke_ticks: int = 1800;
+    expect_pixel_scale: float; @value=SCALE
 }
 
 HELP :: Args.Help(Cli).{
@@ -81,6 +82,7 @@ HELP :: Args.Help(Cli).{
     smoke = "Run the scripted smoke session and exit",
     smoke_frame = "With --smoke: write the offscreen frame to this PNG",
     smoke_ticks = "With --smoke: simulation ticks to run",
+    expect_pixel_scale = "With --smoke: require rendering and this desktop DPI scale (0 only reports it)",
 };
 
 main :: () {

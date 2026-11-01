@@ -181,13 +181,23 @@ smoke_gpu :: (smoke: *Smoke, cli: Cli) -> bool {
 
     no_window: Window_Type; // zero: nothing to draw into, offscreen only
 
-    if !renderer_init(*game.renderer, no_window) {
+    if !renderer_init(*game.renderer, no_window, cli) {
         print("smoke: no usable GPU, skipping the rendering checks\n");
 
         return false;
     }
 
     r := *game.renderer;
+    info: WGPUAdapterInfo;
+
+    wgpuAdapterGetInfo(r.adapter, *info);
+    print("adapter: backend=%, type=%, fallback=%\n", info.backendType, info.adapterType, cli.fallback_adapter);
+    if cli.fallback_adapter check(smoke, info.adapterType == .CPU, "fallback adapter is not software: %", info.adapterType);
+    if cli.gpu_backend == .VULKAN check(smoke, info.backendType == .Vulkan, "expected Vulkan, got %", info.backendType);
+    if cli.gpu_backend == .D3D12 check(smoke, info.backendType == .D3D12, "expected D3D12, got %", info.backendType);
+    if cli.gpu_backend == .METAL check(smoke, info.backendType == .Metal, "expected Metal, got %", info.backendType);
+
+    wgpuAdapterInfoFreeMembers(info);
     name := adapter_name(r);
 
     print("GPU: %\n", name);

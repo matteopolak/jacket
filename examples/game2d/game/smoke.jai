@@ -5,6 +5,9 @@
 // A check that cannot run on this machine (no display, no audio device) says so and is skipped;
 // every check that runs must pass.
 
+GL :: #import "GL";
+Image_IO :: #import "Extensions/Image";
+
 Smoke :: struct {
     checks: s64;
     failures: s64;
@@ -188,7 +191,14 @@ check_pack :: (smoke: *Smoke, pack: *Assets, path: string, loose: *Assets) -> bo
         from_pack, packed_ok := asset_bytes(pack, name);
         from_disk, disk_ok := asset_bytes(loose, name);
 
-        same := packed_ok && disk_ok && XXH64_of(cast(string) from_pack) == XXH64_of(cast(string) from_disk);
+        // PNG's compressed representation may change while the image stays identical.
+        left, left_ok := Image_IO.decode_image_as(from_pack, .RGBA8);
+        right, right_ok := Image_IO.decode_image_as(from_disk, .RGBA8);
+
+        defer Image_IO.deinit(*left);
+        defer Image_IO.deinit(*right);
+        same := packed_ok && disk_ok && left_ok && right_ok && left.width == right.width && left.height == right.height && left.pixels.count == right.pixels.count;
+        if same for byte, index: left.pixels if byte != right.pixels[index] same = false;
 
         check(smoke, same, "% from the pack matches the file", name);
 
@@ -208,10 +218,23 @@ smoke_render :: (smoke: *Smoke, cli: Cli, assets: *Assets) -> Renderer, bool {
     renderer: Renderer;
 
     if !renderer_open_offscreen(*renderer, 2) {
-        skip(smoke, "no window or OpenGL here: the offscreen frame is not drawn");
+        if cli.expect_pixel_scale > 0 check(smoke, false, "a window and OpenGL are required for the scale check");
+        else skip(smoke, "no window or OpenGL here: the offscreen frame is not drawn");
 
         return renderer, false;
     }
+
+    scale := get_pixel_scale(renderer.window);
+
+    print("pixel_scale: %\n", scale);
+    check(smoke, scale >= 1, "desktop scale must be at least 1: %", scale);
+    if cli.expect_pixel_scale > 0 check(smoke, abs(scale - cli.expect_pixel_scale) < 0.01, "expected pixel scale %, got %", cli.expect_pixel_scale, scale);
+
+    pixel_w, pixel_h := get_pixel_dimensions(renderer.window);
+    viewport: [4] s32;
+
+    GL.gl.glGetIntegerv(GL.GL_VIEWPORT, viewport.data);
+    check(smoke, viewport[2] == pixel_w && viewport[3] == pixel_h, "window viewport % x % must match framebuffer % x %", viewport[2], viewport[3], pixel_w, pixel_h);
 
     loaded := load_texture(assets, *renderer.sheet, "sprites.png") && load_texture(assets, *renderer.font, "font.png", .NEAREST);
 
@@ -414,7 +437,7 @@ run_smoke :: (cli: Cli) -> bool {
 
     if !directory directory = join(#filepath, "assets");
 
-    scratch := tprint("%/game2d-smoke-%", ifx has_environment_variable("TMPDIR") then environment_variable("TMPDIR") else "/tmp", to_milliseconds(current_time_monotonic()));
+    scratch := tprint("%/game2d-smoke-%", ifx has_environment_variable("TMPDIR") then environment_variable("TMPDIR") else ifx has_environment_variable("TEMP") then environment_variable("TEMP") else "/tmp", to_milliseconds(current_time_monotonic()));
 
     make_directory_if_it_does_not_exist(scratch);
 

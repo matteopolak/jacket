@@ -90,3 +90,34 @@ ffmpeg -f lavfi -i "mandelbrot=size=160x96:rate=25:end_scale=0.05" -t 2 -an \
   on the main thread.
 
 Friction found while writing it is in `FRICTION.md`.
+
+## Software adapters and CI
+
+`--gpu-backend auto|vulkan|d3d12|metal` selects `WGPURequestAdapterOptions.backendType`;
+`--fallback-adapter` sets `forceFallbackAdapter`. Both options already exist in
+`Extensions/WebGPU`; the game passes them through without adding a second API. These flags
+also work in the windowed game. An unavailable backend returns no adapter rather than
+silently switching backends. The smoke checks the selected backend and requires a CPU
+adapter when fallback was requested.
+
+```sh
+GPU_BACKEND=vulkan FALLBACK_ADAPTER=1 REQUIRE_GPU=1 FRAME=frame.png bash examples/game3d/tools/smoke_game.sh
+# On Windows (Git Bash), use GPU_BACKEND=d3d12 for WARP.
+```
+
+The manual **Dogfood GPU** workflow (`.github/workflows/dogfood-gpu.yml`) builds jaic and
+native libraries on Ubuntu and Windows. Ubuntu installs `mesa-vulkan-drivers` and selects
+lavapipe's ICD through `VK_DRIVER_FILES`; Windows requests D3D12's WARP fallback.
+Neither needs a window. There is no skip path in these jobs: no adapter, a wrong backend,
+a non-CPU fallback, failed readback or a missing PNG fails the job.
+
+Look for `adapter: backend=Vulkan, type=CPU` on Linux and `backend=D3D12, type=CPU` on
+Windows, followed by the render coverage/checksum line and `smoke: ... checks, 0 failed`.
+Download each job's frame artifact: it should show coloured shapes and a floor rather
+than a blank background. Checksums need only repeat within one run; they need not match
+across backends. The intro centre must be coloured and its letterbox black.
+
+Change adapter policy in `game/render.jai`, flags in `game/main.jai`, and assertions in
+`game/smoke.jai`. The workflow reuses the repository's pinned compiler setup and native
+library builders; no GPU SDK is installed by the app itself. Linux/Windows runtime
+acceptance remains pending until this workflow runs on those systems.

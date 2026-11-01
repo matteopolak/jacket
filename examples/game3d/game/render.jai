@@ -60,11 +60,19 @@ Bucket :: struct {
 
 // Creates the device. With a window it also makes a surface and configures it; without one the
 // renderer can only draw offscreen. Returns false (and says why) when there is no usable GPU.
-renderer_init :: (r: *Renderer, window: Window_Type) -> bool {
+renderer_init :: (r: *Renderer, window: Window_Type, cli: Cli) -> bool {
     r.window = window;
     r.instance = wgpuCreateInstance(null);
 
     options: WGPURequestAdapterOptions;
+    options.forceFallbackAdapter = cast(u32) cli.fallback_adapter;
+
+    if cli.gpu_backend == {
+        case .AUTO;
+        case .VULKAN; options.backendType = .Vulkan;
+        case .D3D12; options.backendType = .D3D12;
+        case .METAL; options.backendType = .Metal;
+    }
 
     if window {
         r.surface = webgpu_create_surface(r.instance, window);

@@ -1,0 +1,112 @@
+name: Dogfood GPU
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: tools
+  CARGO_BUILD_JOBS: '3'
+  MESA_VERSION: 26.2.5
+  MESA_SHA256_X64: d1b713ca2a7fba47a50c058099f13c435ddb76a16a422c334e4d787f9755a31d
+  GALLIUM_DRIVER: llvmpipe
+
+jobs:
+  smoke:
+    name: ${{ matrix.app }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+        app: [game3d, game2d]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-unix
+        if: runner.os == 'Linux'
+        with:
+          alsa: 'true'
+      - uses: ./.github/actions/setup-windows
+        if: runner.os == 'Windows'
+        with:
+          cpu: x64
+          triple: x86_64-pc-windows-msvc
+      - uses: ./.github/actions/native-libs-cache
+      - name: Build jaic and the native libraries
+        run: |
+          flags=()
+          if [[ "$RUNNER_OS" == Windows ]]; then flags=(--no-default-features --features static-llvm); fi
+          cargo build --locked -j 3 -p jaic-cli "${flags[@]}"
+          python3 tools/native/build_native_libs.py --missing
+          {
+            if [[ "$RUNNER_OS" == Windows ]]; then
+              echo "JAIC=$PWD/target/x86_64-pc-windows-msvc/debug/jaic.exe"
+            else
+              echo "JAIC=$PWD/target/debug/jaic"
+            fi
+            echo "JAIC_STDLIB=$PWD/stdlib"
+            echo "JAIC_NATIVE_LIBS=$(python3 -c 'from native.build_native_libs import output_dir; print(output_dir())')"
+            # Keep the frame after the smoke script's temporary directory is removed.
+            echo "FRAME=$RUNNER_TEMP/${{ matrix.app }}.png"
+            echo "TMPDIR=$RUNNER_TEMP"
+          } >> "$GITHUB_ENV"
+      - name: Prepare software WebGPU
+        if: matrix.app == 'game3d'
+        run: |
+          python3 tools/bindings/fetch_wgpu_native.py
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            sudo apt-get install -y mesa-vulkan-drivers
+            icd=$(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json' -print -quit)
+            test -n "$icd"
+            echo "VK_DRIVER_FILES=$icd" >> "$GITHUB_ENV"
+            echo "GPU_BACKEND=vulkan" >> "$GITHUB_ENV"
+          else
+            echo "GPU_BACKEND=d3d12" >> "$GITHUB_ENV"
+          fi
+      - name: Pure DPI regression
+        if: matrix.app == 'game2d'
+        run: '"$JAIC" stdlib/Window_Creation/tests/dpi.jai -interp'
+      - name: Windows suggested DPI rectangle regression
+        if: matrix.app == 'game2d' && runner.os == 'Windows'
+        run: '"$JAIC" stdlib/Input/tests/windows-dpi.jai -interp'
+      - name: game3d software adapter smoke
+        if: matrix.app == 'game3d'
+        env:
+          REQUIRE_GPU: '1'
+          FALLBACK_ADAPTER: '1'
+        run: bash examples/game3d/tools/smoke_game.sh
+      - name: Install software OpenGL for Windows
+        if: matrix.app == 'game2d' && runner.os == 'Windows'
+        run: |
+          bash tools/ci/install_ci_mesa_windows.sh x64 "$RUNNER_TEMP/mesa"
+          echo "OPENGL_DRIVER_DIR=$RUNNER_TEMP/mesa" >> "$GITHUB_ENV"
+      - name: game2d X11 HiDPI smoke
+        if: matrix.app == 'game2d' && runner.os == 'Linux'
+        env:
+          EXPECT_PIXEL_SCALE: '2'
+        run: |
+          sudo apt-get install -y x11-xserver-utils
+          # -noreset retains xrdb's root property after xrdb disconnects.
+          xvfb-run -a -s '-screen 0 1920x1080x24 -noreset' bash -e -c '
+            printf "Xft.dpi: 192\n" | xrdb -merge
+            xrdb -query
+            bash examples/game2d/tools/smoke_game.sh
+          '
+      - name: game2d Windows DPI smoke
+        if: matrix.app == 'game2d' && runner.os == 'Windows'
+        # Hosted desktop defaults to 96 DPI. Mixed-monitor transitions require a real desktop.
+        env:
+          EXPECT_PIXEL_SCALE: '1'
+        run: bash examples/game2d/tools/smoke_game.sh
+      - name: Keep frame PNG
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.app }}-${{ matrix.os }}
+          path: ${{ runner.temp }}/${{ matrix.app }}.png
+          if-no-files-found: error

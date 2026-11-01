@@ -48,6 +48,13 @@ I :: #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = f
 
 INTRO_PATH :: "assets/intro.mpg";
 
+GPU_Backend :: enum {
+    AUTO;
+    VULKAN;
+    D3D12;
+    METAL;
+}
+
 Cli :: struct {
     entities: int = 768; @value=N @range(4,1024)
     threads: int = 3; @value=N @range(0,32)
@@ -58,6 +65,8 @@ Cli :: struct {
     smoke_ticks: int = 240; @value=N
     smoke_frame: string; @value=PNG
     require_gpu: bool;
+    fallback_adapter: bool;
+    gpu_backend: GPU_Backend; @value=BACKEND
     profile_seconds: int = 5; @value=N @range(1,3600)
 }
 
@@ -73,6 +82,8 @@ HELP :: Args.Help(Cli).{
     smoke_ticks = "With --smoke: simulation ticks to run",
     smoke_frame = "With --smoke: write the last offscreen frame to this PNG",
     require_gpu = "With --smoke: fail instead of skipping when there is no GPU",
+    fallback_adapter = "Request a software adapter (lavapipe or WARP)",
+    gpu_backend = "Backend to request (auto keeps the platform default)",
     profile_seconds = "Seconds between profile printouts while playing",
 };
 
