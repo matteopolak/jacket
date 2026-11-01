@@ -23,6 +23,10 @@ pub struct Drop {
     pub after: f64,
 }
 
+/// Lines a module may run fewer of without counting as a drop: timing (threads, the runner's
+/// CPU features) moves a few lines between runs, which in a small module is over the margin.
+const NOISE_LINES: f64 = 5.0;
+
 impl Baseline {
     /// What `modules` (rows of modules) cover.
     pub fn of(modules: &[Row]) -> Baseline {
@@ -81,12 +85,14 @@ impl Baseline {
     }
 
     /// The modules of `self` (the baseline) that `now` covers less of by more than `margin`
-    /// points, then the total if it does. A module `now` lacks or a baseline lacks is not
-    /// compared.
+    /// points and by more than [`NOISE_LINES`] lines, then the total if it does. A module `now`
+    /// lacks or a baseline lacks is not compared.
     pub fn drops(&self, now: &Baseline, margin: f64) -> Vec<Drop> {
         let mut found = Vec::new();
         let mut check = |name: &str, before: Tally, after: Tally| {
-            if after.percent() < before.percent() - margin {
+            // The lines `now` runs fewer of than it would at the baseline's share.
+            let short = before.percent() / 100.0 * after.total as f64 - after.hit as f64;
+            if after.percent() < before.percent() - margin && short > NOISE_LINES {
                 found.push(Drop {
                     name: name.to_string(),
                     before: before.percent(),
@@ -209,16 +215,16 @@ mod tests {
             module("B", 50, 100),
             module("C", 1, 2),
         ]);
-        // A loses 0.4 points, B loses 1, C is gone, D is new.
+        // A loses 0.4 points, B loses 10, C is gone, D is new.
         let after = Baseline::of(&[
             module("A", 897, 1000),
-            module("B", 49, 100),
+            module("B", 40, 100),
             module("D", 0, 5),
         ]);
         let drops = before.drops(&after, 0.5);
         let names: Vec<_> = drops.iter().map(|d| d.name.as_str()).collect();
         assert_eq!(names, ["B"]);
-        assert!((drops[0].before - 50.0).abs() < 1e-9 && (drops[0].after - 49.0).abs() < 1e-9);
+        assert!((drops[0].before - 50.0).abs() < 1e-9 && (drops[0].after - 40.0).abs() < 1e-9);
         // A module that lost 10 points drags the total down by as much here.
         let lower = Baseline::of(&[module("A", 80, 100)]);
         let names: Vec<_> = Baseline::of(&[module("A", 90, 100)])
@@ -228,6 +234,22 @@ mod tests {
             .collect();
         assert_eq!(names, ["A", "Total"]);
         assert!(before.drops(&before, 0.0).is_empty());
+    }
+
+    #[test]
+    fn a_few_lines_are_noise_even_when_they_are_over_the_margin() {
+        // 3 of 500 lines is 0.6 points; 3 more lines of new code that never ran is too.
+        let before = Baseline::of(&[module("Thread", 307, 500), module("New", 50, 100)]);
+        let now = Baseline::of(&[module("Thread", 304, 500), module("New", 50, 103)]);
+        assert!(before.drops(&now, 0.5).is_empty());
+        // 20 lines of new code that never ran is a drop although no line stopped running.
+        let grown = Baseline::of(&[module("Thread", 307, 500), module("New", 50, 120)]);
+        let names: Vec<_> = before
+            .drops(&grown, 0.5)
+            .into_iter()
+            .map(|d| d.name)
+            .collect();
+        assert_eq!(names, ["New", "Total"]);
     }
 
     #[test]
