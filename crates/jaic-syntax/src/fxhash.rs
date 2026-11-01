@@ -29,6 +29,26 @@ impl FxHasher {
     }
 }
 
+/// The one to seven bytes `rest` as a little-endian word, zero-padded. Overlapping loads from
+/// both ends do what a copy into a zeroed buffer would, without the call to `memcpy` that a
+/// copy of unknown length makes (names are mostly shorter than eight bytes past their last
+/// whole word).
+#[inline]
+fn tail_word(rest: &[u8]) -> u64 {
+    let n = rest.len();
+    if n >= 4 {
+        let first = u32::from_le_bytes([rest[0], rest[1], rest[2], rest[3]]) as u64;
+        let last = u32::from_le_bytes([rest[n - 4], rest[n - 3], rest[n - 2], rest[n - 1]]) as u64;
+        first | (last << ((n - 4) * 8))
+    } else if n >= 2 {
+        let first = u16::from_le_bytes([rest[0], rest[1]]) as u64;
+        let last = u16::from_le_bytes([rest[n - 2], rest[n - 1]]) as u64;
+        first | (last << ((n - 2) * 8))
+    } else {
+        rest[0] as u64
+    }
+}
+
 impl Hasher for FxHasher {
     #[inline]
     fn write(&mut self, bytes: &[u8]) {
@@ -37,10 +57,8 @@ impl Hasher for FxHasher {
             self.add(u64::from_le_bytes(*word));
         }
         if !rest.is_empty() {
-            let mut word = [0u8; 8];
-            word[..rest.len()].copy_from_slice(rest);
             // The tail's length goes in the top byte so `b"ab"` and `b"ab\0"` differ.
-            self.add(u64::from_le_bytes(word) ^ ((rest.len() as u64) << 56));
+            self.add(tail_word(rest) ^ ((rest.len() as u64) << 56));
         }
     }
 
@@ -93,5 +111,19 @@ mod tests {
         assert_ne!(of(""), of("\0"));
         assert_ne!(of("ab"), of("ab\0"));
         assert_eq!(of("same text"), of("same text"));
+    }
+
+    #[test]
+    fn a_tail_reads_as_a_zero_padded_word() {
+        let bytes = *b"\x01\x02\x03\x04\x05\x06\x07";
+        for n in 1..=7 {
+            let mut padded = [0u8; 8];
+            padded[..n].copy_from_slice(&bytes[..n]);
+            assert_eq!(
+                super::tail_word(&bytes[..n]),
+                u64::from_le_bytes(padded),
+                "{n}"
+            );
+        }
     }
 }
