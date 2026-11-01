@@ -4,6 +4,7 @@
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import signal
 import subprocess
@@ -40,7 +41,7 @@ def main():
         if result.returncode != -signal.SIGSEGV or result.stdout:
             raise RuntimeError(f"unexpected startup fault: {result.returncode}: {result.stdout}{result.stderr}")
         if enabled:
-            if "crash signal 11\nnative stack:\n" not in result.stderr:
+            if not re.search(r"crash signal 11( at 0x[0-9a-f]+)?\nnative stack:\n", result.stderr):
                 raise RuntimeError(f"startup failed to install crash handler: {result.stderr}")
         elif result.stderr:
             raise RuntimeError(f"disabled crash handler produced diagnostics: {result.stderr}")
