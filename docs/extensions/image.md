@@ -24,6 +24,7 @@ An `Image` is `width`, `height`, `format` and `pixels`, rows packed top to botto
 - **JPEG**: baseline, extended and progressive Huffman, 8-bit, any sampling factors 1-4, restart intervals. One component gives `GRAY8`, everything else `RGB8` (YCbCr, Adobe RGB, CMYK/YCCK). Arithmetic, 12-bit, lossless and hierarchical files are refused; EXIF orientation is not applied. Damaged data never goes out of bounds: truncated entropy data stays mid-grey, and a bad restart interval costs only its own MCUs.
 - **`convert`** has one loop per format pair from a single template. Gray from colour is Rec. 709 luma in fixed point; alpha is added as 255 and dropped without compositing.
 - **`resize`**: `NEAREST`, `BILINEAR`, or `BOX` (averages the exact area; best for big shrinks). Filtered modes are separable with weights summing to exactly one. Alpha is not premultiplied, so call `premultiply_alpha` first if transparent colours must not bleed. `crop` returns `ok = false` for an empty or outside rectangle; `flip_*` work in place; `rotate_90` returns a new image.
+- ICO: `decode_ico(data, entry = -1)` decodes one icon entry (PNG-compressed or 32/24-bit truecolor BMP) and picks the largest when `entry` is `-1`. Lives in `ico.jai`; `decode_image` doesn't detect ICO files, so call it directly.
 
 ## How to change it
 

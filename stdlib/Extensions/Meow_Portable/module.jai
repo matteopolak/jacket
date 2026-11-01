@@ -1,7 +1,6 @@
 // Portable byte-oriented Meow hash for targets without AES-NI.
 // @experimental
 
-// Hashes a byte slice with a caller-supplied or default Meow seed.
 // Hashes bytes with Meow 0.5, returning the low and high little-endian 64-bit lanes.
 // This scalar implementation works without AES-NI; it is slower than `MeowHash`.
 //

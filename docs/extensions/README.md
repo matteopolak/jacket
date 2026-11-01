@@ -17,8 +17,9 @@
 | `Regex` | Rust-`regex` syntax and semantics, linear time; `Regex.Static` patterns give typed groups | [regex](regex.md) |
 | `Json` | `to_json`/`from_json` generated from your types and `@json` notes | [json](json.md) |
 | `Variant` | tagged union whose cases are types: `variant`, `set`, `get`, `variant_switch`, equality, printing; Json encodes it | [variant](variant.md) |
-| `Image` | decode PNG, JPEG, QOI, BMP and PNM; encode PNG, QOI, BMP and PPM; convert, resize, crop, flip, rotate | [image](image.md) |
+| `Image` | decode PNG, JPEG, QOI, BMP, PNM and ICO entries; encode PNG, QOI, BMP and PPM; convert, resize, crop, flip, rotate | [image](image.md) |
 | `Deflate` | DEFLATE compression with zlib and gzip framing, CRC-32 and Adler-32 | [deflate](deflate.md) |
+| `Meow_Portable` | `hash_bytes`: the Meow hash in portable scalar code, same lanes as `meow_hash` on CPUs without AES-NI; `@experimental` | — |
 | `Assets` | `load_asset`: a program's files from disk natively, over `fetch` in the playground | [assets](assets.md) |
 | `Http` | sans-IO HTTP/1.x codec, plus a fiber server and client | [codec](http-codec.md), [server](http-server.md), [client](http-client.md) |
 | `SIMD` | portable fixed-width vectors | [simd](simd.md) |

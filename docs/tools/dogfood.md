@@ -7,6 +7,8 @@ Real applications written in Jai under `examples/`, to exercise the compiler, st
 - `examples/kvdb/`: a key-value database. `store/` (checksummed append-only log, recovery, compaction; md5, File), `protocol/` (line protocol, server and client on `Io` fibers), `main.jai` (`Extensions/Args` subcommands), and `tests/`, which `jacket test` runs in that folder. See its README.
 - `examples/sitegen/`: a static site generator. `markdown/` (a Markdown subset to HTML), `site/` (template, pages in a `Xar`, assets named by an `md5` digest, small images inlined with `Base64`, one `Flat_Pool` per build), `main.jai` (`Extensions/Args`), a `demo/` site, and `tests/`, which `jacket test` runs in that folder. See its README.
 - `examples/chat/`: a multi-room chat server, terminal client and command bot on `Io` fibers, with TLS, history recovery, a rate limiter, SMTP through `Mail` on an OS worker, and stats over `Shared_Memory_Channel`. `tests/` runs under `jacket test`. See its README.
+- `examples/chip8/`: a CHIP-8 and SUPER-CHIP interpreter. The CPU is a deterministic library (no files, clock or globals) checked by framebuffer hashes from `Extensions/Meow_Portable`; the window uses Simp and `Sound_Player`. See its README.
+- `examples/imageview/`: a folder image browser on `Extensions/UI`: thumbnail pages decoded on `Thread_Group` workers into a byte-capped LRU cache, zoom, pan, rotate, animation and export. See its README.
 - `examples/editor/`: a native text editor on `Extensions/UI` and `Extensions/Desktop` with a `jailsp` client. See [the editor doc](../extensions/ui-editor.md) and its README.
 - `examples/seek/`: a small grep. `search/` (file walk with `visit_files`, globs, `Extensions/Regex` or fixed-text matching, one `Thread_Group` job per file with a buffer per worker, output joined in path order), `main.jai` (`Extensions/Args`), and `tests/`, which `jacket test` runs in that folder. See its README.
 
@@ -24,6 +26,8 @@ sh examples/sitegen/tools/smoke.sh          # static site generator: builds the 
 sh examples/seek/tools/smoke.sh             # grep: every flag, -j 1 against -j 8, exit codes
 (cd examples/seek && jacket test)           # its unit tests
 T=$TMPDIR/editor sh examples/editor/tools/smoke.sh   # editor: builds it, runs --smoke
+sh examples/chip8/tools/smoke.sh            # chip8: golden hashes, seeded replay, window loop
+sh examples/imageview/tools/smoke.sh        # imageview: decode, workers, input, export
 sh examples/chat/tools/smoke.sh             # chat: rooms, DMs, bot, recovery, limiter, load, SMTP, TLS
 (cd examples/chat && jacket test)           # its unit tests
 ```
