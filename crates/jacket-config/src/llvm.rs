@@ -71,6 +71,20 @@ mod tests {
         let (major, minor) = (parts.next().unwrap(), parts.next().unwrap());
         assert_eq!(SYS_PREFIX_VAR, format!("LLVM_SYS_{major}{minor}_PREFIX"));
         assert_eq!(MAJOR, major);
+
+        // The inkwell feature names in the manifests spell the version too (`llvm23-1`).
+        let feature = format!("llvm{major}-{minor}");
+        for manifest in ["Cargo.toml", "crates/jaic-llvm/Cargo.toml"] {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .join(manifest);
+            let text = std::fs::read_to_string(&path).expect("manifest is readable");
+            assert!(
+                text.contains(&format!("\"{feature}\""))
+                    || text.contains(&format!("inkwell/{feature}-")),
+                "{manifest} must name the `{feature}` inkwell feature, as pins.json does"
+            );
+        }
     }
 
     #[test]
