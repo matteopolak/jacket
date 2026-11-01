@@ -30,6 +30,7 @@ import subprocess
 import sys
 
 import job_inputs
+from toolkit.platforms import WINDOWS_TRIPLES
 
 # A change to the workflow runs every area but OWN_PATHS_ONLY; the actions a job uses are among
 # its inputs.
@@ -222,19 +223,15 @@ def sanitizer_matrix(full, macos):
     return legs + ([dict(runner="macos-15", shard="1/1")] if full or macos else [])
 
 
+# The runner, Visual Studio arch and MinGW toolchain of each Windows CPU; the triple comes from
+# toolkit.platforms.
+_WINDOWS_HOSTS = {
+    "x64": dict(runner="windows-2025", vs_arch="amd64", mingw="MinGW-w64"),
+    "arm64": dict(runner="windows-11-arm", vs_arch="arm64", mingw="llvm-mingw"),
+}
 WINDOWS = {
-    "x64": dict(
-        runner="windows-2025",
-        triple="x86_64-pc-windows-msvc",
-        vs_arch="amd64",
-        mingw="MinGW-w64",
-    ),
-    "arm64": dict(
-        runner="windows-11-arm",
-        triple="aarch64-pc-windows-msvc",
-        vs_arch="arm64",
-        mingw="llvm-mingw",
-    ),
+    cpu: dict(host, triple=WINDOWS_TRIPLES[f"windows-{cpu}"])
+    for cpu, host in _WINDOWS_HOSTS.items()
 }
 
 
