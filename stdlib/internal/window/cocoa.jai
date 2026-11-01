@@ -136,7 +136,11 @@ application_windows :: () -> *void {
 
 argument_result_message :: (receiver: *void, selector: string, value: $T, $Result: Type) -> Result {
     Send :: #type (receiver: *void, selector: O.Selector, value: T) -> Result #c_call;
-    send := cast(Send) native_send;
+    send: Send;
+
+    #if CPU == .X64 && size_of(Result) > 16 send = cast(Send) native_send_stret;
+    else send = cast(Send) native_send;
+
     return send(receiver, O.selector(selector), value);
 }
 
