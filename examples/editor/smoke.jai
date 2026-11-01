@@ -72,6 +72,7 @@ main :: () {
     ed: Editor;
 
     open_editor(*ed, root);
+    free(ed.config_file.data);
     ed.config_file = copy_string(config);
 
     ui := headless(.{ width = 900, height = 600 });

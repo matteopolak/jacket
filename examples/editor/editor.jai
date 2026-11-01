@@ -66,7 +66,7 @@ Editor :: struct {
 
 // Start the editor on `root` (a directory) and open `file` if it is not empty.
 open_editor :: (ed: *Editor, root: string, file: string = "") {
-    ed.config_file = config_path();
+    ed.config_file = copy_string(config_path());
     ed.config = load_config(ed.config_file);
     ed.root = copy_string(root);
     ed.sidebar = ed.config.sidebar_width;
@@ -99,6 +99,7 @@ close_editor :: (ed: *Editor) {
     array_free(ed.search_marks);
     free_text_edit(*ed.search_query);
     free_text_edit(*ed.quick_open_path);
+    free(ed.config_file.data);
     free(ed.root.data);
     free(ed.status.data);
     free(ed.search_error.data);
@@ -604,4 +605,4 @@ absolute_path :: (path: string) -> string {
     cwd := get_working_directory();
     if path == "." return cwd;
     return tprint("%/%", cwd, path);
-}
+} @TempAllocates
