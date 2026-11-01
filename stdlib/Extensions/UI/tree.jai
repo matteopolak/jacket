@@ -94,6 +94,9 @@ Node_Events :: struct {
 // assert(ui.size.x == 640);
 // ```
 UI_State :: struct {
+    native_window: Window_Type; // valid only during run_app_with; zero for headless UIs
+    ime_active: bool;
+    ime_rect: Rect; // focused editable caret in logical window points
     text: Text_System;
     theme: Theme;
     root: *Node;
@@ -203,6 +206,7 @@ free_ui :: (ui: *UI_State) {
 begin_frame :: (ui: *UI_State) {
     ui.frame += 1;
     ui.wants_frame = false;
+    ui.ime_active = false;
     ui.wake_time = 0;
 
     reset(*ui.frame_pool);

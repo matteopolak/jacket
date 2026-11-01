@@ -17,6 +17,9 @@
 // ```
 Text_Edit :: struct {
     buffer: Text_Buffer;
+    composition: string; // transient marked text, outside the document and undo history
+    composing: bool;
+    composition_cursor: int; // byte position inside the marked text
     cursor: int; // byte offset of the caret
     anchor: int; // the other end of the selection (equal to `cursor` when nothing is selected)
     goal_x: float = -1; // x position vertical movement tries to keep; -1 when not set
@@ -97,6 +100,7 @@ Editor_Options :: struct {
 // free_text_edit(*edit);
 // ```
 free_text_edit :: (edit: *Text_Edit) {
+    free(edit.composition.data);
     free_buffer(*edit.buffer);
     edit.* = .{};
 }
@@ -113,6 +117,9 @@ free_text_edit :: (edit: *Text_Edit) {
 // assert(contents(*edit) == "one\ntwo");
 // ```
 set_contents :: (edit: *Text_Edit, text: string) {
+    free(edit.composition.data);
+    edit.composition = "";
+    edit.composing = false;
     set_text(*edit.buffer, text);
     edit.cursor = 0;
     edit.anchor = 0;
@@ -655,6 +662,43 @@ handle_key :: (ui: *UI_State, edit: *Text_Edit, event: Input_Event, style: Text_
     result: Key_Result;
     version := edit.buffer.version;
 
+    if event.kind == .COMPOSITION {
+        result.handled = true;
+        if options.read_only return result;
+
+        was_composing := edit.composing;
+
+        free(edit.composition.data);
+        edit.composition = "";
+        edit.composing = !event.commit && !event.cancel && event.composition.count > 0;
+
+        if event.commit {
+            if was_composing begin_group(*edit.buffer);
+            insert_text(edit, event.composition);
+            if was_composing end_group(*edit.buffer);
+        } else if !event.cancel {
+            edit.composition = copy_string(event.composition);
+            edit.composition_cursor = ifx event.composition_cursor < 0 then edit.composition.count else clamp(event.composition_cursor, 0, edit.composition.count);
+        }
+
+        result.changed = edit.buffer.version != version;
+
+        return result;
+    }
+
+    if edit.composing {
+        // Native IMEs consume navigation/confirmation; synthetic Escape cancels too.
+        if event.kind == .KEY && event.key == .ESCAPE {
+            free(edit.composition.data);
+            edit.composition = "";
+            edit.composing = false;
+        }
+
+        result.handled = true;
+
+        return result;
+    }
+
     if event.kind == .TEXT {
         if options.read_only return result;
 
@@ -967,6 +1011,7 @@ edit_widget :: (edit: *Text_Edit, options: Editor_Options, role: Role, loc: Sour
     // Painting happens after build returns, so stack-local mark arrays must be copied.
     paint.options.marks = NewArray(options.marks.count, Text_Mark,, frame_allocator(ui));
     for options.marks paint.options.marks[it_index] = it;
+
     node.paint_data = paint;
 
     events := events_of(ui, node);
@@ -995,6 +1040,12 @@ edit_widget :: (edit: *Text_Edit, options: Editor_Options, role: Role, loc: Sour
 
         // The caret blinks, so ask to be woken for the next change of phase.
         wake_in(ui, CARET_BLINK_SECONDS);
+    }
+
+    if !events.focused && edit.composing {
+        free(edit.composition.data);
+        edit.composition = "";
+        edit.composing = false;
     }
 
     // The pointer places the caret and drags a selection.
@@ -1034,6 +1085,7 @@ edit_widget :: (edit: *Text_Edit, options: Editor_Options, role: Role, loc: Sour
     }
 
     keep_caret_visible(ui, edit, inner, gutter, style, metrics, field);
+
     node.value = frame_string(ui, ifx field then contents(edit) else "");
     node.label = options.placeholder;
 
@@ -1204,6 +1256,33 @@ editor_paint :: (ui: *UI_State, node: *Node) {
         draw_text(ui, inner.x, inner.y, options.placeholder, muted);
     }
 
+    if paint.focused && !options.read_only {
+        offset := edit.cursor;
+        if edit.composing offset = min(edit.cursor, edit.anchor);
+
+        line := line_of_offset(*edit.buffer, offset);
+        x := text_left + text_offset_x(*ui.text, line_text(*edit.buffer, line), offset - line_start(*edit.buffer, line), style);
+
+        if edit.composing x += text_offset_x(*ui.text, edit.composition, edit.composition_cursor, style);
+
+        ui.ime_active = true;
+        ui.ime_rect = .{ x, inner.y + line * metrics.line_height - edit.scroll_y, 1, metrics.line_height };
+    }
+
+    // Preedit overlays the caret without changing the document, selection or undo history.
+    if paint.focused && edit.composing {
+        offset := min(edit.cursor, edit.anchor);
+        line := line_of_offset(*edit.buffer, offset);
+        ls := line_start(*edit.buffer, line);
+        x := text_left + text_offset_x(*ui.text, line_text(*edit.buffer, line), offset - ls, style);
+        y := inner.y + line * metrics.line_height - edit.scroll_y;
+        width := text_width(*ui.text, edit.composition, style);
+
+        draw_rect(ui, .{ x, y, max(width, 2), metrics.line_height }, t.background);
+        draw_text(ui, x, y, edit.composition, style);
+        draw_rect(ui, .{ x, y + metrics.line_height - 2, max(width, 2), 1 }, t.accent);
+    }
+
     // The caret, blinking while the editor has focus.
     if paint.focused {
         phase := cast(int) ((ui.now - edit.caret_time) / CARET_BLINK_SECONDS);
@@ -1213,6 +1292,11 @@ editor_paint :: (ui: *UI_State, node: *Node) {
             ls := line_start(*edit.buffer, caret_line);
             x := text_left + text_offset_x(*ui.text, line_text(*edit.buffer, caret_line), edit.cursor - ls, style);
             y := inner.y + caret_line * metrics.line_height - edit.scroll_y;
+
+            if edit.composing {
+                x = ui.ime_rect.x;
+                y = ui.ime_rect.y;
+            }
 
             draw_rect(ui, .{ x, y, 1.5, metrics.line_height }, t.caret);
         }

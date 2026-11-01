@@ -12,6 +12,7 @@ App_Options :: struct {
     height: int = 640;
     theme: Theme_Mode;
     fonts: bool = true; // load the platform's fonts
+    menus: [] Menu_Item; // borrowed until the app loop returns; native clicks send matching keys
     frame_limit: int; // stop after this many frames (0: run until the window closes); for smoke tests
 }
 
@@ -92,6 +93,13 @@ run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)
     window := create_window(options.width, options.height, options.title);
     if !window return false;
 
+    defer detach_text_input(window);
+    ui.native_window = window;
+    defer ui.native_window = WT.INVALID_WINDOW;
+    menu := create_native_menu(window, options.menus);
+
+    defer destroy_native_menu(menu);
+
     init(*ui.frame_pool, 256 * 1024 * 1024);
     ui.theme = default_theme(options.theme);
 
@@ -131,8 +139,15 @@ run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)
     defer pop_ui();
 
     while !ui.quit {
-        update_window_events();
+        update_events();
         ui.now = seconds_since_init();
+
+        while true {
+            action := poll_native_menu(menu);
+            if !action break;
+
+            send_menu_action(ui, options.menus, action);
+        }
 
         for get_window_resizes() {
             pixel_w, pixel_h = webgpu_window_size(window);
@@ -151,7 +166,17 @@ run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)
             send_mouse_move(ui, last_x, last_y);
         }
 
-        for events_this_frame translate_event(ui, it);
+        composition_index := 0;
+
+        for index: 0..events_this_frame.count {
+            while composition_index < composition_events.count && composition_events[composition_index].position == index {
+                event := composition_events[composition_index];
+                if event.window == window send_composition(ui, event.text, event.commit, event.cancel, event.cursor);
+                composition_index += 1;
+            }
+
+            if index < events_this_frame.count translate_event(ui, events_this_frame[index]);
+        }
 
         wanted := ui.input.events.count > 0 || ui.wants_frame || must_draw || (ui.wake_time > 0 && ui.now >= ui.wake_time);
 
@@ -163,6 +188,7 @@ run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)
         must_draw = false;
         reset_temporary_storage();
         frame(ui, app, build);
+        set_text_input_rect(window, ui.ime_active, ui.ime_rect.x, ui.ime_rect.y, ui.ime_rect.h);
 
         if present(renderer, ui, ui.theme.background) {
             frames += 1;
@@ -175,6 +201,32 @@ run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)
     }
 
     return true;
+}
+
+// Queues a native menu selection through the same input path as its shortcut. Items without
+// a key produce COMMAND events. Unknown IDs are ignored. Useful for headless menu tests too.
+//
+// ```jai
+// ui := headless();
+// defer free_ui(*ui);
+// #import "Extensions/Desktop";
+// items := Menu_Item.[.{menu = "File", title = "Open", action = 1, key = #char "O"}];
+// send_menu_action(*ui, items, 1);
+// assert(ui.input.events.count == 1);
+// ```
+send_menu_action :: (ui: *UI_State, items: [] Menu_Item, action: u16) {
+    for item: items if item.action == action {
+        if item.key {
+            mods := Modifiers.{ shift = item.shift };
+            #if OS == .MACOS mods.super = true;
+            else mods.ctrl = true;
+            send_key(ui, cast(Key_Code) item.key, mods);
+        } else {
+            send_command(ui, action);
+        }
+
+        return;
+    }
 }
 
 #scope_module
@@ -213,6 +265,8 @@ translate_event :: (ui: *UI_State, event: Event) {
             if primary(mods) && !mods.alt return;
 
             array_add(*ui.input.events, .{ kind = .TEXT, character = event.utf32, mods = mods });
+        case .WINDOW;
+            if event.window_event_type == .LOST_FOCUS ui.focus = 0;
         case .MOUSE_WHEEL;
             #if OS == .MACOS {
                 amount := -cast(float) event.wheel_delta;
@@ -253,3 +307,6 @@ copy_string_to_temp :: (text: string) -> string {
 // A wheel notch is 120 units on Windows and Linux; it scrolls this many points.
 WHEEL_NOTCH_UNITS :: 120.0;
 WHEEL_NOTCH_POINTS :: 40.0;
+
+#scope_file
+WT :: #import "Window_Type";

@@ -56,11 +56,14 @@ Input_Kind :: enum u8 {
     SCROLL;
     KEY; // a key press or auto-repeat, with the key in `key`
     TEXT; // typed text, as one code point in `character`
+    COMMAND; // a native menu item without a shortcut; its ID is in `action`
+    COMPOSITION; // marked UTF-8 text, or its commit/cancellation
 }
 
 // A queued input event. Keys use the `Input` module's `Key_Code` (letters are their upper case ASCII).
 Input_Event :: struct {
     kind: Input_Kind;
+    action: u16; // COMMAND action ID
     x: float;
     y: float;
     button: Mouse_Button;
@@ -70,6 +73,10 @@ Input_Event :: struct {
     mods: Modifiers;
     dx: float; // scroll amount in points
     dy: float;
+    composition: string; // owned by the input queue
+    composition_cursor: int = -1;
+    commit: bool;
+    cancel: bool;
 }
 
 // The pointer, modifiers and the keyboard events a frame sees.
@@ -242,9 +249,30 @@ send_text :: (ui: *UI_State, text: string) {
     }
 }
 
+// Queues a command from a menu item with no keyboard equivalent. Read its `action` in
+// `ui.input.keys` during the next frame. This also supports windowless menu-routing tests.
+send_command :: (ui: *UI_State, action: u16) {
+    array_add(*ui.input.events, .{ kind = .COMMAND, action = action });
+}
+
+// Queue marked UTF-8 text. Updates do not change the document; commit replaces the selection once.
+// `cancel` discards the preedit. The queue copies `text`, so the caller may release it immediately.
+//
+// ```jai
+// ui := headless();
+// defer free_ui(*ui);
+// send_composition(*ui, "かな");
+// send_composition(*ui, "仮名", commit = true);
+// ```
+send_composition :: (ui: *UI_State, text: string, commit: bool = false, cancel: bool = false, cursor: int = -1) {
+    array_add(*ui.input.events, .{ kind = .COMPOSITION, composition = copy_string(text), composition_cursor = cursor, commit = commit, cancel = cancel });
+}
+
 #scope_module
 
 free_input :: (input: *Input_State) {
+    for input.events free(it.composition.data);
+    for input.keys free(it.composition.data);
     array_free(input.events);
     array_free(input.keys);
 }
@@ -258,6 +286,8 @@ process_input :: (ui: *UI_State) {
     input.double_clicked = 0;
     input.scroll_dx = 0;
     input.scroll_dy = 0;
+    for input.keys free(it.composition.data);
+
     array_reset(*input.keys);
 
     for event: input.events {
@@ -302,7 +332,10 @@ process_input :: (ui: *UI_State) {
                 input.mods = event.mods;
                 array_add(*input.keys, event);
                 ui.wants_frame = true;
-            case .TEXT;
+            case .COMMAND;
+                array_add(*input.keys, event);
+            case .TEXT; #through;
+            case .COMPOSITION;
                 array_add(*input.keys, event);
                 ui.wants_frame = true;
         }
@@ -312,6 +345,8 @@ process_input :: (ui: *UI_State) {
 }
 
 finish_input :: (ui: *UI_State) {
+    for ui.input.keys free(it.composition.data);
+
     array_reset(*ui.input.keys);
     ui.input.scroll_dx = 0;
     ui.input.scroll_dy = 0;

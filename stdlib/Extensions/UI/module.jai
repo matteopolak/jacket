@@ -48,6 +48,7 @@
 #import "Extensions/WebGPU";
 #import "Window_Type";
 #import "Window_Creation";
+#import "Extensions/Desktop";
 #import "Clipboard";
 #import "Extensions/Image";
 
