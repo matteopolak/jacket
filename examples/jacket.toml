@@ -25,4 +25,4 @@ magic_number = "allow"
 
 # Examples with a `tests/` folder of their own, for `jacket test` run here. Run inside one, it tests just that example.
 [test]
-paths = ["kvdb", "sitegen"]
+paths = ["kvdb", "sitegen", "seek"]

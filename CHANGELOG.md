@@ -6,6 +6,7 @@
 
 - `examples/kvdb` is a key-value database: a checksummed append-only log with crash recovery and compaction, a CLI, and a TCP server.
 - `examples/sitegen` is a static site generator: Markdown pages and a template in, HTML out, assets published under content-hashed names, small images inlined as data URIs.
+- `examples/seek` is a small grep: regular expressions or fixed text, `--glob` filters, and a thread pool whose output is in path order whatever the thread count.
 
 ### Improved
 

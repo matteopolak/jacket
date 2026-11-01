@@ -356,6 +356,15 @@
       "stdout_contains": []
     },
     {
+      "id": "seek",
+      "directory": "examples/seek",
+      "main": "main.jai",
+      "title": "Parallel grep",
+      "summary": "Searches files for a regular expression or fixed text on a pool of threads and prints path:line:col: text in path order (native only: reads files and starts threads).",
+      "mode": "check",
+      "stdout_contains": []
+    },
+    {
       "id": "game2d",
       "directory": "examples/game2d",
       "main": "game/main.jai",

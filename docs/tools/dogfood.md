@@ -6,6 +6,7 @@ Real applications written in Jai under `examples/`, to exercise the compiler, st
 - `examples/game3d/`: one program (`game/main.jai`): `Soa` entities updated with `Extensions/SIMD`, a job system on `Thread` and `Atomics`, meshoptimizer meshes, WebGPU rendering, an MPEG-1 intro via `pl_mpeg`. See its README.
 - `examples/kvdb/`: a key-value database. `store/` (checksummed append-only log, recovery, compaction; md5, File), `protocol/` (line protocol, server and client on `Io` fibers), `main.jai` (`Extensions/Args` subcommands), and `tests/`, which `jacket test` runs in that folder. See its README.
 - `examples/sitegen/`: a static site generator. `markdown/` (a Markdown subset to HTML), `site/` (template, pages in a `Xar`, assets named by an `md5` digest, small images inlined with `Base64`, one `Flat_Pool` per build), `main.jai` (`Extensions/Args`), a `demo/` site, and `tests/`, which `jacket test` runs in that folder. See its README.
+- `examples/seek/`: a small grep. `search/` (file walk with `visit_files`, globs, `Extensions/Regex` or fixed-text matching, one `Thread_Group` job per file with a buffer per worker, output joined in path order), `main.jai` (`Extensions/Args`), and `tests/`, which `jacket test` runs in that folder. See its README.
 
 ## Running
 
@@ -18,6 +19,8 @@ sh examples/kvdb/tools/smoke.sh             # key-value database: CLI, recovery,
 (cd examples/kvdb && jacket test)           # its unit tests
 sh examples/sitegen/tools/smoke.sh          # static site generator: builds the demo site and checks it
 (cd examples/sitegen && jacket test)        # its unit tests
+sh examples/seek/tools/smoke.sh             # grep: every flag, -j 1 against -j 8, exit codes
+(cd examples/seek && jacket test)           # its unit tests
 ```
 
 The 2D game needs a display and OpenGL, the 3D game a WebGPU-capable GPU (no window), the server `initdb`/`pg_ctl`/`openssl` (`examples/game2d/tools/local_postgres.sh` starts a throwaway cluster).
