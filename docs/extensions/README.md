@@ -19,6 +19,8 @@
 | `Variant` | tagged union whose cases are types: `variant`, `set`, `get`, `variant_switch`, equality, printing; Json encodes it | [variant](variant.md) |
 | `Image` | decode PNG, JPEG, QOI, BMP, PNM and ICO entries; encode PNG, QOI, BMP and PPM; convert, resize, crop, flip, rotate | [image](image.md) |
 | `Deflate` | DEFLATE compression with zlib and gzip framing, CRC-32 and Adler-32 | [deflate](deflate.md) |
+| `Audio_Stream` | bounded, seekable decoding of WAV (PCM, IMA ADPCM) and Ogg Vorbis files into `s16` frames, with Vorbis tags; `@experimental` | [audio-stream](audio-stream.md) |
+| `Pty` | nonblocking pseudoterminal sessions on macOS and Linux: spawn, read, write, resize, reap; `@experimental` | [pty](pty.md) |
 | `Meow_Portable` | `hash_bytes`: the Meow hash in portable scalar code, same lanes as `meow_hash` on CPUs without AES-NI; `@experimental` | — |
 | `Assets` | `load_asset`: a program's files from disk natively, over `fetch` in the playground | [assets](assets.md) |
 | `Http` | sans-IO HTTP/1.x codec, plus a fiber server and client | [codec](http-codec.md), [server](http-server.md), [client](http-client.md) |

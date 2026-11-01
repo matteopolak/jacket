@@ -4,7 +4,7 @@ A CHIP-8 and SUPER-CHIP interpreter with a Simp/OpenGL window, keyboard input, a
 
 ```sh
 # From the repository root, with jaic/jacket on PATH and JAIC_STDLIB set:
-export T=/Volumes/LodestoneScratch/jai-targets/codex-chip8
+export T=$TMPDIR/chip8   # any build directory
 jaic examples/chip8/tools/asm/main.jai -exe "$T/chip8-asm"
 "$T/chip8-asm" examples/chip8/programs/paddle.asm "$T/paddle.ch8"
 jaic examples/chip8/main.jai -exe "$T/chip8"

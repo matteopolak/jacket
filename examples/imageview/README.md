@@ -14,7 +14,7 @@ sh examples/imageview/tools/smoke.sh
 
 Set `JAIC_STDLIB` to the repository's `stdlib`, put `jaic` and `jacket` in `PATH`, and set
 `JAIC_NATIVE_LIBS` if the compiler cannot locate native libraries. Set `T` to the desired
-build/smoke output directory (this task uses `/Volumes/LodestoneScratch/jai-targets/codex-imageview`).
+build/smoke output directory; the smoke defaults to `$TMPDIR/imageview`.
 The viewer needs the platform window, WebGPU, FreeType, and stb image/resize/write libraries.
 `--help` describes the CLI; `--cache-mb` accepts 1–512 MiB, default 32.
 

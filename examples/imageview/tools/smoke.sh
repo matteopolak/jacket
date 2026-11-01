@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/../../.."
-T=${T:-/Volumes/LodestoneScratch/jai-targets/codex-imageview}
+T=${T:-${TMPDIR:-/tmp}/imageview}
 JAIC=${JAIC:-jaic}
 if ! command -v "$JAIC" >/dev/null 2>&1; then
     echo 'skip: imageview smoke needs jaic in PATH'

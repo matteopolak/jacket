@@ -1,12 +1,15 @@
 // Bounded, seekable decoding of WAV PCM/IMA ADPCM and Ogg Vorbis files.
 // A reader owns its file and scratch block; it never loads the whole recording.
+// @experimental
 
 #import "Basic";
 #import "String";
 #import "File";
+#scope_file
 W :: #import "Wav_File";
 A :: #import "Adpcm";
 V :: #import "stb_vorbis";
+#scope_export
 
 // An open decoder. Keep it on one thread, close it before reuse, and do not copy it.
 // `position` and `frames` count frames, not individual interleaved channel samples.

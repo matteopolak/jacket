@@ -3,8 +3,7 @@
 A small native music player on `Extensions/UI`. It scans a folder recursively, sorts Vorbis tags by artist/album/title (filename when untagged), and plays a queue through `Sound_Player`. WAV PCM and IMA ADPCM and Ogg Vorbis are supported. Mono is duplicated to stereo; stereo stays stereo.
 
 ```sh
-export RUSTC_WRAPPER= T=/Volumes/LodestoneScratch/jai-targets/codex-music
-export CARGO_TARGET_DIR=$T/target JAIC_STDLIB=$PWD/stdlib PATH=$T/target/debug:$PATH
+# From the repository root, with jaic/jacket on PATH and JAIC_STDLIB set; T is any build directory.
 jaic examples/music/main.jai -exe "$T/music"
 "$T/music" ~/Music
 "$T/music" --generate "$T/demo"     # synthesize a one-second sweep and lyrics
