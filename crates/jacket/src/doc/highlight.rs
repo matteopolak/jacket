@@ -56,6 +56,16 @@ fn span(out: &mut String, class: &str, text: &str) {
 /// `code` as HTML. `link` gives the page of a procedure the example calls, so a call to
 /// `trim(...)` can lead to it.
 pub fn jai(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
+    tokens(code, link, false)
+}
+
+/// A short expression as HTML, such as a default value: `link` is asked about every name, not
+/// only the called ones.
+pub fn expr(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
+    tokens(code, link, true)
+}
+
+fn tokens(code: &str, link: &dyn Fn(&str) -> Option<String>, every_name: bool) -> String {
     let chars: Vec<(usize, char)> = code.char_indices().collect();
     let mut out = String::with_capacity(code.len() * 2);
     let mut i = 0;
@@ -106,7 +116,7 @@ pub fn jai(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
                 j += 1;
             }
             let word = &code[start..at(j)];
-            let called = chars.get(j).is_some_and(|&(_, d)| d == '(');
+            let called = every_name || chars.get(j).is_some_and(|&(_, d)| d == '(');
             if KEYWORDS.contains(&word) {
                 span(&mut out, "k", word);
             } else if TYPES.contains(&word) {

@@ -446,6 +446,11 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_default()
         });
+    site.breadcrumb = doc.breadcrumb.clone().unwrap_or_else(|| {
+        lib.file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    });
     site.description = doc
         .description
         .clone()

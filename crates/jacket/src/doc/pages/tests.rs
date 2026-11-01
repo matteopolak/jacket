@@ -188,11 +188,14 @@ fn module_parameters_have_a_section_before_the_items() {
         ty: "bool".into(),
         default: "false".into(),
         doc: "Checks more.".into(),
+        refs: Vec::new(),
     }];
     let page = module_page(&site, 1);
     let at = page.find("id=\"parameters\"").unwrap();
     assert!(at < page.find("id=\"constants\"").unwrap());
-    assert!(page.contains("STRICT := false"));
+    assert!(page.contains(
+        "<span class=\"pname\">STRICT</span><span class=\"colon\">: </span><span class=\"ty\">bool</span><span class=\"colon\"> = </span><span class=\"k\">false</span>"
+    ));
     assert!(page.contains("Checks more."));
     assert!(page.contains("href=\"#parameters\""));
     assert!(!module_page(&site, 0).contains("Module parameters"));

@@ -1,5 +1,6 @@
 //! The site as a whole: every module, where each page lives, and the links between them.
 use super::categories::Category;
+use super::highlight;
 use super::markdown::esc;
 use super::model::{Item, Kind, Module, Overload, Param, TypeRef};
 use std::cell::RefCell;
@@ -35,6 +36,8 @@ pub struct Site {
     pub logo: Option<String>,
     /// The heading of the extra pages (and their folder, as a slug); empty when there are none.
     pub pages_title: String,
+    /// The first breadcrumb, linking to the front page.
+    pub breadcrumb: String,
     /// Whether the site carries a browser compiler.
     pub runtime: bool,
     by_id: BTreeMap<String, usize>,
@@ -109,11 +112,11 @@ impl Site {
             .enumerate()
             .map(|(i, m)| (m.id.clone(), i))
             .collect();
-        // Where each documented type is declared, so a name the compiler resolved to a
+        // Where each documented item is declared, so a name the compiler resolved to a
         // declaration finds the page (or pages, when several modules re-export it).
         let mut decls: BTreeMap<(String, usize), Vec<(usize, String)>> = BTreeMap::new();
         for (m, module) in modules.iter().enumerate() {
-            for item in module.items.iter().filter(|i| i.kind.is_type()) {
+            for item in &module.items {
                 let here = std::iter::once((item.file.clone(), item.line))
                     .chain(item.also.iter().cloned());
                 for at in here {
@@ -147,6 +150,7 @@ impl Site {
             playground,
             logo: None,
             pages_title: String::new(),
+            breadcrumb: String::new(),
             runtime,
             by_id,
             bindings,
@@ -397,6 +401,27 @@ impl Site {
         out
     }
 
+    /// The documented declaration a written name (`Kind`, `Hash.Table`) was resolved to, if any:
+    /// its module and name.
+    fn resolved(&self, head: &str, refs: &[TypeRef], here: usize) -> Option<(usize, &str)> {
+        let r = refs.iter().find(|r| r.path == head)?;
+        let targets = self.decls.get(&(r.file.clone(), r.line))?;
+        let (m, name) = targets
+            .iter()
+            .find(|(m, _)| *m == here)
+            .or_else(|| targets.first())?;
+        Some((*m, name.as_str()))
+    }
+
+    /// An expression as written, such as a default value, highlighted, with each name the
+    /// compiler resolved to a documented declaration linked to its page.
+    pub fn expr_html(&self, code: &str, refs: &[TypeRef], here: usize) -> String {
+        highlight::expr(code, &|name| {
+            self.resolved(name, refs, here)
+                .map(|(m, item)| self.item_href(&self.modules[m].id, item))
+        })
+    }
+
     /// A written name: its longest start that the compiler resolved to a documented type is
     /// the link (`Kind` of `Kind.MEMBER`), and what follows is plain.
     fn path_out(&self, path: &str, refs: &[TypeRef], here: usize, marked: bool) -> String {
@@ -406,15 +431,9 @@ impl Site {
             .chain(std::iter::once(path.len()));
         for end in cuts.collect::<Vec<_>>().into_iter().rev() {
             let head = &path[..end];
-            if let Some(r) = refs.iter().find(|r| r.path == head)
-                && let Some(targets) = self.decls.get(&(r.file.clone(), r.line))
-                && let Some((m, name)) = targets
-                    .iter()
-                    .find(|(m, _)| *m == here)
-                    .or_else(|| targets.first())
-            {
+            if let Some((m, name)) = self.resolved(head, refs, here) {
                 if marked {
-                    let id = &self.modules[*m].id;
+                    let id = &self.modules[m].id;
                     let (hash, folder) = if self.is_binding(id, name) {
                         ("#", Self::slug(name))
                     } else {
@@ -424,7 +443,7 @@ impl Site {
                 }
                 return format!(
                     "<a class=\"ty\" href=\"{}\">{}</a>{}",
-                    esc(&self.item_href(&self.modules[*m].id, name)),
+                    esc(&self.item_href(&self.modules[m].id, name)),
                     esc(head),
                     esc(&path[end..])
                 );

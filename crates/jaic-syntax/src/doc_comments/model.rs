@@ -138,7 +138,7 @@ pub struct Param {
     pub ty: String,
     pub default: String,
     pub doc: String,
-    /// The declarations the names in `ty` stand for.
+    /// The declarations the names in `ty` and `default` stand for.
     pub refs: Vec<TypeRef>,
 }
 
@@ -203,6 +203,8 @@ pub struct Parameter {
     pub ty: String,
     pub default: String,
     pub doc: String,
+    /// The declarations the names in `ty` and `default` stand for.
+    pub refs: Vec<TypeRef>,
 }
 
 #[derive(Debug, Default)]
@@ -520,7 +522,7 @@ fn overload(
     let doc = docs::declaration(text, at).unwrap_or_default();
     let (mut params, mut returns, docs_text) = describe(header, text, at, &doc);
     for p in params.iter_mut().chain(returns.iter_mut()) {
-        p.refs = reader.type_refs(file, &p.ty);
+        p.refs = reader.type_refs(file, &format!("{} {}", p.ty, p.default));
     }
     let docs_line = docs::located_above(text, at).map_or(0, |d| d.line);
     let limit = reader
@@ -727,12 +729,16 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                             continue;
                         };
                         let written = |e: &crate::ast::Expr| slice(&text, e.span.start, e.span.end);
+                        let ty = p.ty.as_ref().map(written).unwrap_or_default();
+                        let default = p.default.as_ref().map(written).unwrap_or_default();
+                        let refs = reader.type_refs(&file, &format!("{ty} {default}"));
                         out.parameters.push(Parameter {
                             name: name.name.as_str().to_owned(),
-                            ty: p.ty.as_ref().map(written).unwrap_or_default(),
-                            default: p.default.as_ref().map(written).unwrap_or_default(),
+                            ty,
+                            default,
                             doc: docs::declaration(&text, name.span.start as usize)
                                 .unwrap_or_default(),
+                            refs,
                         });
                     }
                 }
@@ -1067,11 +1073,12 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             .parameters
             .iter()
             .map(|p| format!(
-                "{{\"name\":{},\"type\":{},\"default\":{},\"doc\":{}}}",
+                "{{\"name\":{},\"type\":{},\"default\":{},\"doc\":{}{}}}",
                 json(&p.name),
                 json(&p.ty),
                 json(&p.default),
-                json(&md(&p.doc))
+                json(&md(&p.doc)),
+                refs_json(&p.refs)
             ))
             .collect::<Vec<_>>()
             .join(","),

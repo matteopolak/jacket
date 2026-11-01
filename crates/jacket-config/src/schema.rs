@@ -372,6 +372,10 @@ pub struct Doc {
     /// The name in the header and page titles. Default: the library's folder name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// The first breadcrumb on every page, linking to the front page. Default: the library's
+    /// folder name (`stdlib` for the standard library).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub breadcrumb: Option<String>,
     /// The front page's description for search engines and link previews.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -624,6 +628,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
         "doc" => &[
             "path",
             "name",
+            "breadcrumb",
             "description",
             "logo",
             "repo",

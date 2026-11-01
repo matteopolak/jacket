@@ -173,6 +173,7 @@ paths = ["stdlib/**"]
 [doc]
 path = "stdlib"
 name = "Jacket"
+breadcrumb = "std"
 description = "API documentation for the Jai standard library that ships with Jacket."
 logo = "editors/vscode/images/icon.svg"
 repo = "https://github.com/matteopolak/jacket"

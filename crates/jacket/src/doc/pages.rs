@@ -157,16 +157,16 @@ fn item_badges(m: &Module, item: &Item) -> String {
     )
 }
 
-/// `Jacket / Android / Toolchain / item`: the site's name, then one crumb per level of the module's path, linked when
+/// `stdlib / Android / Toolchain / item`: the site's breadcrumb, then one crumb per level of the module's path, linked when
 /// that level is a page of its own.
 fn crumbs(site: &Site, m: &Module, last: Option<&str>) -> String {
     let mut out = format!(
         "<nav class=\"crumbs\" aria-label=\"Breadcrumb\"><a href=\"{}\">{}</a>",
         esc(&site.base),
-        esc(if site.name.is_empty() {
+        esc(if site.breadcrumb.is_empty() {
             "Home"
         } else {
-            &site.name
+            &site.breadcrumb
         })
     );
     let parts: Vec<&str> = m.id.split('/').collect();
@@ -622,7 +622,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
                 } else {
                     format!("{} := {}", p.name, p.default)
                 };
-                (name, p.ty.clone(), p.doc.clone(), Vec::new())
+                (name, p.ty.clone(), p.doc.clone(), p.refs.clone())
             })
             .collect();
         main.push_str(&definition_list(site, mi, &rows, ""));
@@ -730,11 +730,26 @@ fn definition_list(
         } else {
             format!(" id=\"{anchor}{}\"", esc(name))
         };
-        let typed = if ty.is_empty() {
+        // `name := default` carries a default, shown after the type: `name: T = default`.
+        let (name, default) = name.split_once(" := ").unwrap_or((name, ""));
+        let default = if default.is_empty() {
             String::new()
         } else {
             format!(
-                "<span class=\"colon\">: </span>{}",
+                "<span class=\"colon\">{}</span>{}",
+                if ty.is_empty() {
+                    " := "
+                } else {
+                    " = "
+                },
+                site.expr_html(default, refs, here)
+            )
+        };
+        let typed = if ty.is_empty() {
+            default
+        } else {
+            format!(
+                "<span class=\"colon\">: </span>{}{default}",
                 site.type_html(ty, refs, here)
             )
         };
@@ -837,11 +852,6 @@ fn overload_section(
                     p.name.clone()
                 } else {
                     format!("{} := {}", p.name, p.default)
-                };
-                let (name, ty) = if ty.is_empty() {
-                    (name, ty)
-                } else {
-                    (p.name.clone(), ty)
                 };
                 (name, ty, p.doc.clone(), p.refs.clone())
             })

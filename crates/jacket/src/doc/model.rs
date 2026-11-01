@@ -123,6 +123,8 @@ pub struct Parameter {
     pub ty: String,
     pub default: String,
     pub doc: String,
+    /// What the names in the type and the default resolve to.
+    pub refs: Vec<TypeRef>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -338,6 +340,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                 ty: text(p, "type"),
                 default: text(p, "default"),
                 doc: text(p, "doc"),
+                refs: type_refs(p, stdlib),
             })
             .collect(),
     };

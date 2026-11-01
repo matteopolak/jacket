@@ -34,7 +34,7 @@ Every page is `<path>/index.html` and every link ends in `/`, so a plain static 
 
 Modules are the folders of the library with a `module.jai`, minus `internal/`, `prelude/` and `tests/`. When the path is itself a module, its id is the folder name and the modules inside it are `name/sub`. A library's own folder is passed to `jaic` as `-import_dir`, so its modules can import each other.
 
-**Module parameters.** Each `#module_parameters` of the module's files becomes a "Module parameters" section before the items: name, type, default, and the doc comment above or after the parameter. Put one parameter per line so each has its own comment. They are not counted by `jaic -doc_gaps`.
+**Module parameters.** Each `#module_parameters` of the module's files becomes a "Module parameters" section before the items: name, type, default, and the doc comment above or after the parameter. Names in the type and the default link to what they resolve to, as procedure parameters do. Put one parameter per line so each has its own comment. They are not counted by `jaic -doc_gaps`.
 
 **Native bindings.** A file with a top-level `#foreign` procedure mirrors a native API (files under `internal/` don't count, and `#intrinsic` or `#compiler` procedures never make a file a binding). The model marks its declarations `"binding": true`; the module page lists them in the usual Procedures, Types and Constants sections after the module's own items, with a "Foreign" badge, and they have no item pages. A procedure with a body in such a file is not a binding: it gets a page like any other. `jaic -doc_gaps` skips every file with a bodiless top-level procedure, intrinsics included. Search includes bindings with a "Foreign" badge and ranks them below the library's own API. Their `since` label is left off.
 
@@ -52,6 +52,7 @@ The hosted docs redirect `/docs/jacket/playground` to the playground, so the sit
 [doc]
 path = "src/my_lib"                 # default: the jacket.toml's folder
 name = "my_lib"                     # header and titles; default: the folder name
+breadcrumb = "my_lib"               # first crumb on every page; default: the folder name
 description = "API docs for my_lib."
 logo = "assets/logo.svg"            # .svg or .png; default: none
 repo = "https://github.com/me/my_lib"   # Source links need it
