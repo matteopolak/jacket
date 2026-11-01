@@ -23,12 +23,47 @@ pub struct Site {
     by_id: BTreeMap<String, usize>,
     /// `Module/name` of each item declared by a native binding.
     bindings: jaic::fxhash::HashSet<String>,
+    /// `Module/name` of an item whose page folder is not its plain slug, because another item
+    /// of its module differs from it only in case (`Head` and `head`) and the two folders
+    /// would be one on a case-insensitive file system.
+    folders: BTreeMap<String, String>,
     /// A type name that is declared once across the library leads to its page.
     decls: BTreeMap<(String, usize), Vec<(usize, String)>>,
     /// Example programs, by the id in their file name.
     examples: RefCell<BTreeMap<String, String>>,
     /// Intra-doc links that lead nowhere, as `Module.item (from page)`.
     broken: RefCell<Vec<String>>,
+}
+
+/// Page folders for items whose slugs differ only in case from another item's in the same
+/// module. The first such item in source order whose name has no capitals keeps its slug (the
+/// lowercase name is the one people type); the others add their kind, then a number if needed.
+fn case_folders(modules: &[Module]) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    for m in modules {
+        let mut groups: BTreeMap<String, Vec<&Item>> = BTreeMap::new();
+        for item in m.items.iter().filter(|i| !i.binding) {
+            groups
+                .entry(Site::slug(&item.name).to_lowercase())
+                .or_default()
+                .push(item);
+        }
+        for (_, mut group) in groups.into_iter().filter(|(_, g)| g.len() > 1) {
+            group.sort_by_key(|i| i.name.chars().any(|c| c.is_ascii_uppercase()));
+            let mut taken = jaic::fxhash::HashSet::default();
+            taken.insert(Site::slug(&group[0].name).to_lowercase());
+            for item in &group[1..] {
+                let mut folder = format!("{}-{}", Site::slug(&item.name), item.kind.label());
+                let mut n = 2;
+                while !taken.insert(folder.to_lowercase()) {
+                    folder = format!("{}-{}-{n}", Site::slug(&item.name), item.kind.label());
+                    n += 1;
+                }
+                out.insert(format!("{}/{}", m.id, item.name), folder);
+            }
+        }
+    }
+    out
 }
 
 const BUILTIN_TYPES: &[&str] = &[
@@ -38,7 +73,7 @@ const BUILTIN_TYPES: &[&str] = &[
 
 impl Site {
     pub fn new(
-        modules: Vec<Module>,
+        mut modules: Vec<Module>,
         categories: Vec<String>,
         base: String,
         version: String,
@@ -46,6 +81,12 @@ impl Site {
         playground: String,
         runtime: bool,
     ) -> Site {
+        // Everything in an experimental module is experimental, wherever it is shown.
+        for m in modules.iter_mut().filter(|m| m.experimental) {
+            for item in &mut m.items {
+                item.experimental = true;
+            }
+        }
         let by_id = modules
             .iter()
             .enumerate()
@@ -72,6 +113,7 @@ impl Site {
                     .map(move |i| format!("{}/{}", m.id, i.name))
             })
             .collect();
+        let folders = case_folders(&modules);
         Site {
             modules,
             categories,
@@ -85,6 +127,7 @@ impl Site {
             runtime,
             by_id,
             bindings,
+            folders,
             decls,
             examples: RefCell::new(BTreeMap::new()),
             broken: RefCell::new(Vec::new()),
@@ -107,8 +150,16 @@ impl Site {
 
     /// The file of an item's page: every page is `index.html` in its own folder, so its address
     /// is the folder with no extension, and a plain static server serves it.
-    pub fn item_path(module: &str, name: &str) -> String {
-        format!("api/{module}/{}/index.html", Self::slug(name))
+    pub fn item_path(&self, module: &str, name: &str) -> String {
+        format!("api/{module}/{}/index.html", self.folder(module, name))
+    }
+
+    /// The folder of an item's page below its module's folder.
+    pub fn folder(&self, module: &str, name: &str) -> String {
+        self.folders
+            .get(&format!("{module}/{name}"))
+            .cloned()
+            .unwrap_or_else(|| Self::slug(name))
     }
 
     /// The folder name of an item: its name, with each character that is not safe in a file
@@ -140,7 +191,7 @@ impl Site {
         if self.is_binding(module, name) {
             return self.href(&format!("api/{module}/#{}", Self::slug(name)));
         }
-        self.href(&format!("api/{module}/{}/", Self::slug(name)))
+        self.href(&format!("api/{module}/{}/", self.folder(module, name)))
     }
 
     /// A link to `line` of a library file: at the commit the site was built from when that file is
@@ -311,16 +362,12 @@ impl Site {
             {
                 if marked {
                     let id = &self.modules[*m].id;
-                    let hash = if self.is_binding(id, name) {
-                        "#"
+                    let (hash, folder) = if self.is_binding(id, name) {
+                        ("#", Self::slug(name))
                     } else {
-                        ""
+                        ("", self.folder(id, name))
                     };
-                    return format!(
-                        "\u{1}{id}/{hash}{}\u{2}{head}\u{3}{}",
-                        Self::slug(name),
-                        &path[end..]
-                    );
+                    return format!("\u{1}{id}/{hash}{folder}\u{2}{head}\u{3}{}", &path[end..]);
                 }
                 return format!(
                     "<a class=\"ty\" href=\"{}\">{}</a>{}",
@@ -647,6 +694,37 @@ mod tests {
             signature_marked(&site, &o, 0),
             "(x: *\u{1}B/Thing\u{2}Thing\u{3})"
         );
+    }
+
+    #[test]
+    fn names_that_differ_only_in_case_get_their_own_folders() {
+        let item = |name: &str, kind| Item {
+            name: name.into(),
+            kind,
+            ..Item::default()
+        };
+        let site = Site::new(
+            vec![Module {
+                id: "Http".into(),
+                items: vec![
+                    item("Head", Kind::Struct),
+                    item("head", Kind::Procedure),
+                    item("HEAD", Kind::Constant),
+                    item("body", Kind::Procedure),
+                ],
+                ..Module::default()
+            }],
+            Vec::new(),
+            "/".into(),
+            "0.0.0".into(),
+            String::new(),
+            String::new(),
+            false,
+        );
+        assert_eq!(site.item_href("Http", "head"), "/api/Http/head/");
+        assert_eq!(site.item_href("Http", "Head"), "/api/Http/Head-struct/");
+        assert_eq!(site.item_href("Http", "HEAD"), "/api/Http/HEAD-constant/");
+        assert_eq!(site.item_href("Http", "body"), "/api/Http/body/");
     }
 
     #[test]

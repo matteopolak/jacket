@@ -94,6 +94,7 @@ pub(super) fn reconcile_refs(out: &mut Module) {
         for m in &mut item.members {
             m.refs.iter_mut().for_each(fix);
         }
+        item.refs.iter_mut().for_each(fix);
     }
 }
 

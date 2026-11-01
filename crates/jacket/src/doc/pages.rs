@@ -55,26 +55,71 @@ fn clip(text: &str, max: usize) -> String {
     format!("{cut}...")
 }
 
-/// The badge beside the name of a module or an item tagged `@experimental`.
+/// What the dots and badges for each flag say on hover.
+const EXPERIMENTAL_TIP: &str = "Experimental: may change or go away";
+
+const EXTENSION_TIP: &str = "Extension: not part of the standard library";
+
+/// The dot beside a sidebar entry that is experimental.
+fn experimental_dot(experimental: bool) -> String {
+    if experimental {
+        format!(
+            "<span class=\"dot exp\" role=\"img\" title=\"{EXPERIMENTAL_TIP}\" aria-label=\"{EXPERIMENTAL_TIP}\"></span>"
+        )
+    } else {
+        String::new()
+    }
+}
+
+/// The badge beside the name of a module from `Extensions/`, or of an item in one.
+fn extension_badge(m: &Module, small: bool) -> String {
+    if m.section() != "Extensions" {
+        return String::new();
+    }
+    let sm = if small {
+        " sm"
+    } else {
+        ""
+    };
+    format!("<span class=\"badge ext{sm}\" title=\"{EXTENSION_TIP}\">extension</span>")
+}
+
+/// The badge beside the name of a module or an item tagged `@experimental` (an item is, when its
+/// module is: `Site::new`).
 fn experimental_badge(experimental: bool, small: bool) -> &'static str {
     match (experimental, small) {
         (false, _) => "",
         (true, false) => {
-            "<span class=\"badge exp\" title=\"May change or go away\">experimental</span>"
+            "<span class=\"badge exp\" title=\"Experimental: may change or go away\">experimental</span>"
         }
         (true, true) => {
-            "<span class=\"badge exp sm\" title=\"May change or go away\">experimental</span>"
+            "<span class=\"badge exp sm\" title=\"Experimental: may change or go away\">experimental</span>"
         }
     }
 }
 
-fn badges(m: &Module) -> String {
-    let spans: String = m
-        .systems()
-        .iter()
-        .map(|n| format!("<span class=\"badge\">{}</span>", esc(n)))
-        .collect();
-    format!("<div class=\"badges\" aria-label=\"Platforms\">{spans}</div>\n")
+fn platforms_line(m: &Module) -> String {
+    let since = if m.since.is_empty() {
+        String::new()
+    } else {
+        format!("<span class=\"meta-sep\">·</span>{}", since_note(&m.since))
+    };
+    format!(
+        "<p class=\"meta\"><span class=\"meta-k\">Platforms</span>{}{since}</p>\n",
+        esc(&m.systems().join(", "))
+    )
+}
+
+/// "3 overloads", small and dim like the release note beside it.
+fn overloads_note(item: &Item) -> String {
+    if item.kind == Kind::Procedure && item.overloads.len() > 1 {
+        format!(
+            "<span class=\"since\">{} overloads</span>",
+            item.overloads.len()
+        )
+    } else {
+        String::new()
+    }
 }
 
 /// "since 0.24.0", small and dim; nothing when the release is unknown.
@@ -86,12 +131,17 @@ fn since_note(version: &str) -> String {
     }
 }
 
-/// Small badges for an item that is not available everywhere its module is.
+/// "macOS, Linux only", small and dim, for an item that is not available everywhere its module
+/// is.
 fn item_badges(m: &Module, item: &Item) -> String {
-    m.item_systems(item)
-        .iter()
-        .map(|n| format!("<span class=\"badge sm\">{}</span>", esc(n)))
-        .collect()
+    let systems = m.item_systems(item);
+    if systems.is_empty() {
+        return String::new();
+    }
+    format!(
+        "<span class=\"since\" title=\"Platforms\">{} only</span>",
+        esc(&systems.join(", "))
+    )
 }
 
 /// `std / Android / Toolchain / item`: one crumb per level of the module's path, linked when
@@ -146,11 +196,7 @@ fn module_link(site: &Site, m: &Module, current: Option<usize>, i: usize, depth:
             ""
         },
         esc(m.title()),
-        if m.experimental {
-            "<span class=\"badge exp sm\" title=\"Experimental\">exp</span>"
-        } else {
-            ""
-        }
+        experimental_dot(m.experimental)
     )
 }
 
@@ -194,10 +240,11 @@ fn card(site: &Site, m: &Module) -> String {
     let segs = blocks(site, &m.docs, &m.id);
     let summary = lead(&segs).map_or_else(String::new, |(_, html)| clip(&plain(&html), 140));
     format!(
-        "<li><a class=\"card\" href=\"{}\"><span class=\"card-name mono\">{}{}</span><span class=\"card-sum\">{}</span></a></li>\n",
+        "<li><a class=\"card\" href=\"{}\"><span class=\"card-name mono\">{}{}{}</span><span class=\"card-sum\">{}</span></a></li>\n",
         esc(&site.module_href(&m.id)),
         esc(m.title()),
         experimental_badge(m.experimental, true),
+        extension_badge(m, true),
         esc(&summary)
     )
 }
@@ -296,31 +343,28 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
     let md = item_docs(item);
     let segs = blocks(site, md, &from);
     let summary = lead(&segs).map_or_else(String::new, |(_, html)| html);
+    let overloads = overloads_note(item);
     let mut pills = String::new();
-    if item.kind == Kind::Procedure && item.overloads.len() > 1 {
-        pills.push_str(&format!(
-            "<span class=\"badge sm\">{} overloads</span>",
-            item.overloads.len()
-        ));
-    } else if item.kind != Kind::Procedure && item.kind != Kind::Constant {
+    if item.kind != Kind::Procedure && item.kind != Kind::Constant {
         pills.push_str(&format!(
             "<span class=\"badge sm\">{}</span>",
             item.kind.label()
         ));
     }
-    let line = match item.kind {
+    // Every overload gets a line of its own.
+    let lines: Vec<String> = match item.kind {
         Kind::Procedure => item
             .overloads
-            .first()
+            .iter()
             .map(|o| signature_line_html(site, o, mi))
-            .unwrap_or_default(),
-        _ => esc(&item_line(item)),
+            .collect(),
+        _ => vec![site.type_html(&item_line(item), &item.refs, mi)],
     };
-    let line = if line.is_empty() {
-        String::new()
-    } else {
-        format!("<div class=\"sig-line\">{line}</div>\n")
-    };
+    let line: String = lines
+        .iter()
+        .filter(|l| !l.is_empty())
+        .map(|l| format!("<div class=\"sig-line\">{l}</div>\n"))
+        .collect();
     let summary = if summary.is_empty() {
         String::new()
     } else {
@@ -334,7 +378,7 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
         return foreign_row(site, mi, item, &pills, &line);
     }
     format!(
-        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{experimental}{platforms}{since}</div>\n{line}{summary}{sample}</article>\n",
+        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{experimental}{overloads}{platforms}{since}</div>\n{line}{summary}{sample}</article>\n",
         name = esc(&item.name),
         href = esc(&site.item_href(&m.id, &item.name)),
         experimental = experimental_badge(item.experimental, true),
@@ -405,23 +449,13 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     let m = &site.modules[mi];
     let mut main = crumbs(site, m, None);
     main.push_str(&format!(
-        "<div class=\"titlebar\"><h1>{}</h1><span class=\"badge\">module</span><span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
+        "<div class=\"titlebar\"><h1>{}</h1><span class=\"badge\">module</span>{}{}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
         esc(m.title()),
+        extension_badge(m, false),
+        experimental_badge(m.experimental, false),
         esc(&site.source_url(&m.file, 1)),
     ));
-    main.push_str(&badges(m));
-    if m.experimental {
-        main.push_str(&format!(
-            "<p class=\"since-line\">{}</p>\n",
-            experimental_badge(true, false)
-        ));
-    }
-    if !m.since.is_empty() {
-        main.push_str(&format!(
-            "<p class=\"since-line\">{}</p>\n",
-            since_note(&m.since)
-        ));
-    }
+    main.push_str(&platforms_line(m));
     main.push_str(&format!(
         "<p class=\"import\"><code>#import \"{}\";</code></p>\n",
         esc(&m.id)
@@ -429,20 +463,14 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     let segs = blocks(site, &m.docs, &m.id);
     let mut description = String::new();
     if !segs.is_empty() {
-        // Show the text up to the first example, or two blocks; the rest waits behind a button.
-        let shown = segs
-            .iter()
-            .position(|s| matches!(s, Segment::Code { info, .. } if is_jai(info)))
-            .filter(|&i| i < 4)
-            .map_or(segs.len().min(2), |i| i + 1);
+        // A long description is shown faded past a height, with a button to expand it
+        // (`.fold` in site.js); without scripts it is shown whole.
         if let Some((_, html)) = lead(&segs) {
             description = clip(&plain(&html), 160);
         }
+        main.push_str("<div class=\"fold\">\n");
         let mut first = true;
-        for (i, seg) in segs.iter().enumerate() {
-            if i == shown {
-                main.push_str("<details class=\"more\"><summary><span class=\"when-closed\">Show more</span><span class=\"when-open\">Show less</span></summary>\n");
-            }
+        for seg in &segs {
             match seg {
                 Segment::Html(html) if first && html.starts_with("<p>") => {
                     main.push_str(&html.replacen("<p>", "<p class=\"lead\">", 1));
@@ -455,9 +483,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
                 } => main.push_str(&example::fence(site, m, (&m.file, 1), (info, code), false)),
             }
         }
-        if segs.len() > shown {
-            main.push_str("</details>\n");
-        }
+        main.push_str("</div>\n");
     }
 
     let mut outline: Vec<(String, String, bool)> = Vec::new();
@@ -651,6 +677,12 @@ fn overload_section(
         ""
     };
     let mut out = format!("<section id=\"o{}\"{class}>\n", n + 1);
+    if item.overloads.len() > 1 {
+        out.push_str(&format!(
+            "<div class=\"overload-head\"><a href=\"#o{0}\">Overload {0}</a></div>\n",
+            n + 1
+        ));
+    }
     out.push_str(&format!(
         "<pre class=\"sig\"><code>{}</code></pre>\n",
         signature_html(site, &item.name, o, mi)
@@ -828,14 +860,15 @@ fn item_side(site: &Site, mi: usize, item: &Item, anchors: &[(String, String)]) 
     for other in &same[from..to] {
         let here = other.name == item.name;
         out.push_str(&format!(
-            "<a href=\"{}\"{}>{}</a>\n",
+            "<a href=\"{}\"{}>{}{}</a>\n",
             esc(&site.item_href(&m.id, &other.name)),
             if here {
                 " aria-current=\"page\""
             } else {
                 ""
             },
-            esc(&other.name)
+            esc(&other.name),
+            experimental_dot(other.experimental)
         ));
     }
     out.push_str("</div>\n");
@@ -856,18 +889,16 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
     let (source_file, source_line) = docs_place(item);
     let mut main = crumbs(site, m, Some(&item.name));
     let kind = match item.kind {
-        Kind::Procedure if item.overloads.len() > 1 => format!(
-            "<span class=\"badge proc\">procedure</span><span class=\"badge\">{} overloads</span>",
-            item.overloads.len()
-        ),
         Kind::Procedure => "<span class=\"badge proc\">procedure</span>".to_owned(),
         other => format!("<span class=\"badge\">{}</span>", other.label()),
     };
     main.push_str(&format!(
-        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1>{kind}{experimental}{platforms}{since}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
+        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1>{kind}{extension}{experimental}{overloads}{platforms}{since}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
         esc(&item.name),
         esc(&site.source_url(&source_file, source_line)),
+        extension = extension_badge(m, false),
         experimental = experimental_badge(item.experimental, false),
+        overloads = overloads_note(item),
         platforms = item_badges(m, item),
         since = since_note(&item.since),
     ));
@@ -922,7 +953,7 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
             main.push_str(&format!(
                 "<pre class=\"sig\"><code><span class=\"fn\">{}</span> :: {}</code></pre>\n",
                 esc(&item.name),
-                esc(&item.value)
+                site.type_html(&item.value, &item.refs, mi)
             ));
         }
         if !item.members.is_empty() {
@@ -967,7 +998,7 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
             side_label: &format!("{} module", m.title()),
             main,
             toc: String::new(),
-            path: &Site::item_path(&m.id, &item.name),
+            path: &site.item_path(&m.id, &item.name),
         },
     )
 }
@@ -1013,7 +1044,20 @@ mod tests {
         assert!(!module_page(&site, 1).contains("<span class=\"badge exp\""));
         let page = item_page(&site, 0, &site.modules[0].items[0]);
         assert!(page.contains("<span class=\"badge exp\""));
-        assert!(!item_page(&site, 0, &site.modules[0].items[1]).contains(BADGE));
+        // An item in an experimental module is experimental too, tagged or not.
+        assert!(item_page(&site, 0, &site.modules[0].items[1]).contains(BADGE));
+        assert!(!item_page(&site, 1, &site.modules[1].items[1]).contains(BADGE));
+    }
+
+    #[test]
+    fn extension_modules_and_their_items_carry_a_badge() {
+        let site = site();
+        let ext = "<span class=\"badge ext\"";
+        assert!(module_page(&site, 0).contains(ext));
+        assert!(item_page(&site, 0, &site.modules[0].items[1]).contains(ext));
+        assert!(!module_page(&site, 1).contains(ext));
+        assert!(index_page(&site).contains("Moving<span class=\"badge exp sm\""));
+        assert!(index_page(&site).contains("<span class=\"badge ext sm\""));
     }
 
     #[test]
@@ -1022,9 +1066,11 @@ mod tests {
         let home = index_page(&site);
         assert!(home.contains("Moving<span class=\"badge exp sm\""));
         assert!(!home.contains("Steady<span"));
-        // In a module's list, only the tagged item has a badge in its row.
+        // In a module's list, only the tagged item has a badge in its row; the sidebar marks the
+        // experimental module with a dot.
         let list = module_page(&site, 1);
-        assert_eq!(list.matches("class=\"badge exp sm\"").count(), 2);
+        assert_eq!(list.matches("class=\"badge exp sm\"").count(), 1);
+        assert!(list.contains("Moving<span class=\"dot exp\""));
     }
 
     #[test]
@@ -1039,7 +1085,7 @@ mod tests {
             .map(|r| r[6].as_i64().unwrap())
             .collect();
         // Each module, then its items: moving, steady.
-        assert_eq!(flags, [1, 1, 0, 0, 1, 0]);
+        assert_eq!(flags, [1, 1, 1, 0, 1, 0]);
     }
 
     fn binding_site() -> Site {

@@ -82,6 +82,7 @@
   function hrefOf(it) {
     if (it.kind === 'module') return base + 'api/' + it.module + '/';
     if (it.native) return base + 'api/' + it.module + '/#' + it.name.replace(/[^A-Za-z0-9_]/g, function (c) { return '-' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); });
+    if (it.folder) return base + 'api/' + it.module + '/' + it.folder + '/';
     return base + 'api/' + it.module + '/' + it.name.replace(/[^A-Za-z0-9_]/g, function (c) { return '-' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); }) + '/';
   }
   function load() {
@@ -91,7 +92,7 @@
           var module = d.modules[r[0]];
           var title = module.split('/').pop();
           return {
-            module: module, title: title, name: r[1], kind: r[2], summary: r[3], sig: r[4], shapes: r[5], experimental: (r[6] & 1) === 1, native: (r[6] & 2) === 2,
+            module: module, title: title, name: r[1], kind: r[2], summary: r[3], sig: r[4], shapes: r[5], experimental: (r[6] & 1) === 1, native: (r[6] & 2) === 2, extension: module.indexOf('Extensions/') === 0, folder: r[7],
             lname: r[1].toLowerCase(), lpath: (title + '.' + r[1]).toLowerCase(), lsum: r[3].toLowerCase()
           };
         });
@@ -214,8 +215,9 @@
       name.href = hrefOf(it);
       a.appendChild(el('code', '', '')).appendChild(name);
       // Flags are dots here, coloured like the badges on the pages; the word is the tooltip.
-      if (it.native) a.appendChild(dot('foreign', 'foreign'));
-      if (it.experimental) a.appendChild(dot('exp', 'experimental'));
+      if (it.native) a.appendChild(dot('foreign', 'Foreign: a binding to a native library'));
+      if (it.extension) a.appendChild(dot('ext', 'Extension: not part of the standard library'));
+      if (it.experimental) a.appendChild(dot('exp', 'Experimental: may change or go away'));
       // The signature column already says what procedures, types and constants are.
       if (it.kind === 'module') a.appendChild(el('span', 'what', 'module'));
       var sig = el('span', 'sig');
@@ -539,4 +541,17 @@
     document.addEventListener('click', function (e) { if (!menu.contains(e.target)) set(false); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) { set(false); btn.focus(); } });
   })();
+
+  // A long block (.fold) shows its top, faded, with a button that expands it for good.
+  Array.prototype.forEach.call(document.querySelectorAll('.fold'), function (fold) {
+    if (fold.scrollHeight <= 440) return;
+    fold.classList.add('folded');
+    var btn = el('button', 'btn fold-btn', 'Show more');
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      fold.classList.remove('folded');
+      btn.remove();
+    });
+    fold.after(btn);
+  });
 })();

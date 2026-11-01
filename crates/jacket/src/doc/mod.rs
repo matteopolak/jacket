@@ -300,7 +300,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         for item in module.items.iter().filter(|i| !i.binding) {
             items += 1;
             add(
-                Site::item_path(&module.id, &item.name),
+                site.item_path(&module.id, &item.name),
                 pages::item_page(&site, mi, item),
             );
         }

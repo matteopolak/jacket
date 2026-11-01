@@ -99,6 +99,8 @@ pub struct Item {
     pub value: String,
     pub overloads: Vec<Overload>,
     pub members: Vec<Member>,
+    /// The declarations the names in `value` stand for.
+    pub refs: Vec<TypeRef>,
     /// The heading it is listed under on the module page; empty for none.
     /// Other declarations (file below `stdlib`, line) the item stands for: the same type
     /// declared in each branch of an `#if`.
@@ -173,8 +175,8 @@ impl Module {
             named.sort_by_key(|n| SYSTEMS.iter().position(|s| s == n));
             named
         };
-        if self.wasm && !out.contains(&"wasm") {
-            out.push("wasm");
+        if self.wasm && !out.contains(&"Wasm") {
+            out.push("Wasm");
         }
         out
     }
@@ -289,6 +291,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                 line: number(i, "line"),
                 docs: text(i, "docs"),
                 value: text(i, "value"),
+                refs: type_refs(i, stdlib),
                 binding: i.get("binding").and_then(Value::as_bool).unwrap_or(false),
                 overloads,
                 members: list(i, "members")
@@ -349,7 +352,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
 }
 
 /// The systems a badge can name, in the order they are shown.
-const SYSTEMS: [&str; 6] = ["macOS", "Linux", "Windows", "Android", "iOS", "wasm"];
+const SYSTEMS: [&str; 6] = ["macOS", "Linux", "Windows", "Android", "iOS", "Wasm"];
 
 /// The badge for the compiler's name of a system (`MACOS`).
 fn system_name(os: &str) -> Option<&'static str> {
@@ -359,7 +362,7 @@ fn system_name(os: &str) -> Option<&'static str> {
         "WINDOWS" => "Windows",
         "ANDROID" => "Android",
         "IOS" => "iOS",
-        "WASM" => "wasm",
+        "WASM" => "Wasm",
         _ => return None,
     })
 }
@@ -466,7 +469,7 @@ mod tests {
         assert!(module.item_systems(&module.items[0]).is_empty());
         assert_eq!(module.item_systems(&module.items[1]), ["Windows"]);
         module.wasm = true;
-        assert_eq!(module.systems(), ["macOS", "Linux", "Windows", "wasm"]);
+        assert_eq!(module.systems(), ["macOS", "Linux", "Windows", "Wasm"]);
         assert!(module.item_systems(&module.items[2]).is_empty());
         assert_eq!(module.item_systems(&module.items[1]), ["Windows"]);
     }

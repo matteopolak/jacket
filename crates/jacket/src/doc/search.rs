@@ -1,7 +1,8 @@
 //! The search index the page loads on first use: every item by name and every overload by the
 //! types it takes and returns, so `-> bool` and `string -> [] string` find procedures. The last
 //! column of an item is a bit set: 1 for `@experimental`, 2 for a native binding, which the page
-//! ranks below the hand-written API.
+//! ranks below the hand-written API. An item whose page folder is not its slug (it differs from
+//! another only in case) carries the folder as one more column.
 use super::markdown::{self, Segment, Settings, plain};
 use super::model::Kind;
 use super::site::{Site, item_line, signature_marked};
@@ -79,7 +80,7 @@ pub fn index(site: &Site) -> String {
                 Kind::Constant => "const",
                 _ => "type",
             };
-            items.push(json!([
+            let mut row = json!([
                 mi,
                 item.name,
                 kind,
@@ -90,7 +91,13 @@ pub fn index(site: &Site) -> String {
                 },
                 shapes,
                 u8::from(item.experimental) | (u8::from(item.binding) << 1)
-            ]));
+            ]);
+            // The page folder, when it is not the slug the page works out from the name.
+            let folder = site.folder(&m.id, &item.name);
+            if !item.binding && folder != Site::slug(&item.name) {
+                row.as_array_mut().unwrap().push(json!(folder));
+            }
+            items.push(row);
         }
     }
     json!({ "v": 1, "modules": modules, "items": items }).to_string()

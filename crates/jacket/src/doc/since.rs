@@ -118,6 +118,7 @@ mod tests {
                     since: String::new(),
                     experimental: false,
                     binding: false,
+                    refs: Vec::new(),
                 })
                 .collect(),
             category: String::new(),

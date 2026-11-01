@@ -26,12 +26,13 @@ fn why_not_run(site: &Site, block: &Block) -> Option<String> {
         return Some(format!("Doesn't run in the browser ({reason})."));
     }
     if !site.runtime {
-        return Some(
-            "This copy of the docs has no browser compiler, so it can't run examples.".into(),
-        );
+        return Some(NO_RUNTIME.into());
     }
     None
 }
+
+/// Shown only on the disabled Run button's hover, since it is the same for every example.
+const NO_RUNTIME: &str = "This copy of the docs has no browser compiler, so it can't run examples.";
 
 /// Why `jacket test` would skip the block on WebAssembly, which is what the browser runs.
 fn browser_skip(block: &Block) -> Option<String> {
@@ -146,7 +147,7 @@ pub fn fence(
         (None, None) => String::new(),
     };
     let note_html = note
-        .filter(|_| program.is_none())
+        .filter(|why| program.is_none() && why != NO_RUNTIME)
         .map_or_else(String::new, |why| {
             format!("<p class=\"ex-note\">{}</p>", esc(&why))
         });

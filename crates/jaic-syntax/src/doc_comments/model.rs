@@ -183,6 +183,8 @@ pub struct Item {
     pub members: Vec<Member>,
     /// What a constant is set to, as written.
     pub value: String,
+    /// The declarations the names in `value` stand for (`Close_Proc :: #type (...) -> Io_Error`).
+    pub refs: Vec<TypeRef>,
     /// The systems the `#if`s around it (and around what it names) limit it to; empty for any.
     pub platforms: Vec<String>,
     /// Whether its docs carry the `@experimental` tag (on the item or any overload).
@@ -602,13 +604,22 @@ fn members(decl: &Decl, text: &str) -> Vec<Member> {
 /// Whether a file declares foreign procedures, which mirrors a native API documented by its
 /// vendor; its declarations are listed as bindings.
 fn is_binding(parsed: &Parsed) -> bool {
-    ide_facts::top_level(&parsed.parse.file).iter().any(|item| {
-        matches!(item.kind, TopLevelKind::Decl(decl)
-            if decl.kind == DeclKind::Const
-                && ide_facts::decl_class(decl) == DeclClass::Procedure
-                && !matches!(decl.value.as_ref().map(|v| &v.kind),
-                    Some(ExprKind::Proc(lit)) if lit.body.is_some()))
-    })
+    ide_facts::top_level(&parsed.parse.file)
+        .iter()
+        .any(|item| matches!(item.kind, TopLevelKind::Decl(decl) if is_foreign_proc(decl)))
+}
+
+/// A procedure constant with no body: one a native library provides.
+pub(super) fn is_foreign_proc(decl: &Decl) -> bool {
+    decl.kind == DeclKind::Const
+        && ide_facts::decl_class(decl) == DeclClass::Procedure
+        && !has_body(decl)
+}
+
+/// A procedure written in Jai, which is never a binding even in a file that declares some.
+pub(super) fn has_body(decl: &Decl) -> bool {
+    matches!(decl.value.as_ref().map(|v| &v.kind),
+        Some(ExprKind::Proc(lit)) if lit.body.is_some())
 }
 
 /// The documentation model of the library in `dir`. `stdlib` is where the `internal/` modules
@@ -806,7 +817,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                         file: tfile.clone(),
                         line: reader.line_of(&target.text, tat),
                         docs: own_docs.unwrap_or_default(),
-                        binding,
+                        binding: binding && !has_body(tdecl),
                         ..Item::default()
                     };
                     if kind == "procedure" {
@@ -834,6 +845,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                             found.value = clip(tdecl.value.as_ref().map_or(String::new(), |v| {
                                 slice(&target.text, v.span.start, v.span.end)
                             }));
+                            found.refs = reader.type_refs(&tfile, &found.value);
                         }
                     }
                     found.platforms = os_names(if kind == "procedure" {
@@ -987,7 +999,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             })
             .collect();
         items.push(format!(
-            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"experimental\":{}{},\"overloads\":[{}],\"members\":[{}]{}}}",
+            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"experimental\":{}{},\"overloads\":[{}],\"members\":[{}]{}{}}}",
             json(&item.name),
             json(item.kind),
             path(&item.file),
@@ -1010,7 +1022,8 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
                         .collect::<Vec<_>>()
                         .join(",")
                 )
-            }
+            },
+            refs_json(&item.refs)
         ));
     }
     format!(
