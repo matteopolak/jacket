@@ -32,7 +32,7 @@ A test root is a folder with a `tests/` directory (`crates/jacket/src/test/disco
 | every other `tests/*.jai` | unit test file: all are `#load`ed into one program whose `@test` procedures are the tests |
 | a ```` ```jai ```` block in a doc comment of a library (a root with `module.jai`) | doc test |
 
-Other files below `tests/` are for what the tests `#load` or `#import`.
+Other files below `tests/` are for what the tests `#load` or `#import`. All unit test files are one program, so two of them cannot `#load` the same helper file (`module-already-loaded`); put shared helpers in a folder with a `module.jai` and `#import,dir` it from each.
 
 Two layouts:
 
