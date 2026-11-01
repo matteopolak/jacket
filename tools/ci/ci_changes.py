@@ -222,23 +222,6 @@ def sanitizer_matrix(full, macos):
     return legs + ([dict(runner="macos-15", shard="1/1")] if full or macos else [])
 
 
-def windows_stdlib_matrix(full):
-    """The legs of `windows-stdlib`: the fast tier skips the -O2 rerun and arm64, and splits x64
-    more finely."""
-    cpus = {
-        "x64": dict(runner="windows-2025", triple="x86_64-pc-windows-msvc", timeout=40),
-        "arm64": dict(
-            runner="windows-11-arm", triple="aarch64-pc-windows-msvc", timeout=80
-        ),
-    }
-    counts = {"x64": 2, "arm64": 2} if full else {"x64": 5}
-    return [
-        dict(cpu=cpu, shard=s, o2=full, **cpus[cpu])
-        for cpu in windows_cpus(full)
-        for s in shards(counts[cpu])
-    ]
-
-
 WINDOWS = {
     "x64": dict(
         runner="windows-2025",
@@ -253,6 +236,18 @@ WINDOWS = {
         mingw="llvm-mingw",
     ),
 }
+
+
+def windows_stdlib_matrix(full):
+    """The legs of `windows-stdlib`: the fast tier skips the -O2 rerun and arm64, and splits x64
+    more finely."""
+    timeouts = {"x64": 40, "arm64": 80}
+    counts = {"x64": 2, "arm64": 2} if full else {"x64": 5}
+    return [
+        dict(cpu=cpu, shard=s, o2=full, timeout=timeouts[cpu], **WINDOWS[cpu])
+        for cpu in windows_cpus(full)
+        for s in shards(counts[cpu])
+    ]
 
 
 def windows_cpus(full):
