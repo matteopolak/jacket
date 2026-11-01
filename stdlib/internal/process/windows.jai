@@ -83,7 +83,7 @@ deinit :: (pipe: *Process.Pipe) {
 //
 // ```jai,only(windows)
 // process: Process;
-// assert(create_process(*process, "cmd.exe", "/c", "exit 0"));
+// assert(create_process(*process, "cmd.exe", "/c", "exit 0", capture_and_return_output = true));
 // defer deinit(*process);
 // ok, written := write_to_process(*process, .[]);
 // assert(ok && written == 0);
