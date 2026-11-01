@@ -169,7 +169,6 @@ lex-unterminated-string
 library-directive
 library-name
 library-not-value
-missing-return-value-2
 mix-inline-holes
 modify-rejected-arguments
 module-directory-not-file
