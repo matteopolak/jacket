@@ -5,6 +5,7 @@
 ### Improved
 
 - `jacket test --doc --check-only --os <os>` type-checks the doc examples for another OS from any machine.
+- `jacket test --changed FILE` runs only the tests a change to FILE can affect.
 
 ## [0.32.0] - 2026-11-01
 

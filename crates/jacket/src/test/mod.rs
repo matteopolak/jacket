@@ -235,6 +235,7 @@ fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
         .path
         .iter_mut()
         .chain(args.coverage_include.iter_mut())
+        .chain(args.changed.iter_mut())
         .chain(outputs)
     {
         *path = cwd.join(&*path);
@@ -642,6 +643,16 @@ fn run_once(
                 ..case
             });
         }
+    }
+    if !args.changed.is_empty() {
+        let ctx = deps::Context {
+            roots: &roots,
+            root_flags: &root_flags,
+            work: &work,
+            toolchain: &toolchain,
+            bench,
+        };
+        selected = deps::narrow(selected, &args.changed, &ctx);
     }
     if let Some(in_part) = &in_part {
         selected = selected

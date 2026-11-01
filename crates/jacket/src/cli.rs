@@ -163,6 +163,11 @@ pub struct TestArgs {
     /// each), instead of the tests
     #[arg(long, requires = "list")]
     pub deps: bool,
+    /// Run only the tests a change to FILE can affect: those whose programs read it (as
+    /// `--list --deps` shows), the tests of a root it adds an unlisted file to, and tests whose
+    /// program does not compile. Repeat it for each changed file; it applies before `--partition`
+    #[arg(long, value_name = "FILE")]
+    pub changed: Vec<std::path::PathBuf>,
     /// Report which lines of the code the tests ran (unit tests, golden programs and doc
     /// examples), and write them as lcov
     #[arg(long, conflicts_with_all = ["list", "review"])]
