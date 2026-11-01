@@ -18,6 +18,7 @@ their path, so the import says the code is jaic-only:
 | `#import "Extensions/Byte_Search";` | Vectorized byte and substring search (`memchr`/`memmem`), linear time |
 | `#import "Extensions/Hash_Map";` | An opt-in hash map that stores each key once and probes sixteen slots per step (`Map.insert`, `find`, `get`, `entry`, `delete`) |
 | `#import "Extensions/Jai_Format";` | The Jai source formatter behind `jaifmt` (text in, text out) |
+| `#import "Extensions/Web";` | Compile-time HTML components, reusable page buffers, concurrent static-site writing and internal-link checks |
 | `#import "Extensions/WebGPU";` | The standard WebGPU C API (`webgpu.h`): wgpu-native natively, the page's WebGPU in the browser |
 | `#import "Extensions/Text_Buffer";` | An editable text buffer: piece table, line index, undo and redo, grapheme and word movement |
 | `#import "Extensions/Iprof_Trace";` | Optional Iprof invocation timelines, nested frame recording and portable JIPT trace files |

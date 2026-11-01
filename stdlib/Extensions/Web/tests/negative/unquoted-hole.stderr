@@ -1,0 +1,7 @@
+unquoted-hole.jai:15:25: error[metaprogram-report]: Web: value hole outside text or quoted attribute
+        html(*out, "<a href={name}></a>");
+                            ^
+../../module.jai:199:24: note: while running compile-time code started here
+        #insert,scope(loc) #run compile_template(t, loc);
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

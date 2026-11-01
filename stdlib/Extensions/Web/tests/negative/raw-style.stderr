@@ -1,0 +1,7 @@
+raw-style.jai:15:24: error[metaprogram-report]: Web: hole `{name}` has type string; script/style holes require Html
+        html(*out, "<style>{name}</style>");
+                           ^
+../../template.jai:61:13: note: while running compile-time code started here
+                #run compiler_report(tprint("Web: hole `{%}` has type %; script/style holes require Html", hole, T), location);
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

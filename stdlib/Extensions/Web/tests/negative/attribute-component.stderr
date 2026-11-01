@@ -1,0 +1,7 @@
+attribute-component.jai:15:28: error[metaprogram-report]: Web: component call inside tag or raw text
+        html(*out, "<a title=\"{Card()}\"></a>");
+                               ^
+../../module.jai:199:24: note: while running compile-time code started here
+        #insert,scope(loc) #run compile_template(t, loc);
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

@@ -1,0 +1,7 @@
+attribute-control.jai:15:28: error[metaprogram-report]: Web: control flow is only allowed in text or between attributes
+        html(*out, "<a title=\"{if true}x{end}\"></a>");
+                               ^
+../../module.jai:199:24: note: while running compile-time code started here
+        #insert,scope(loc) #run compile_template(t, loc);
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

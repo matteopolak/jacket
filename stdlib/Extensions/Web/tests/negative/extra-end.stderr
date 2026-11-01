@@ -1,0 +1,7 @@
+extra-end.jai:15:17: error[metaprogram-report]: Web: end with nothing open
+        html(*out, "{end}");
+                    ^
+../../module.jai:199:24: note: while running compile-time code started here
+        #insert,scope(loc) #run compile_template(t, loc);
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
