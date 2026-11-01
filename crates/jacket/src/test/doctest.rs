@@ -581,7 +581,7 @@ fn check_program(
             .push(format!("cannot write {}: {error}", source.display()));
         return checked;
     }
-    if matches!(block.mode, Mode::NoRun | Mode::CompileFail) {
+    if toolchain.check_only || matches!(block.mode, Mode::NoRun | Mode::CompileFail) {
         let output = toolchain
             .jaic_command()
             .arg(&source)
@@ -596,7 +596,7 @@ fn check_program(
                 "could not start `{}`: {error}",
                 toolchain.jaic.display()
             )),
-            Ok(output) if block.mode == Mode::NoRun && !output.status.success() => checked
+            Ok(output) if block.mode != Mode::CompileFail && !output.status.success() => checked
                 .problems
                 .push(format!("it does not compile:\n{}", compile_output(&output))),
             Ok(output) if block.mode == Mode::CompileFail && output.status.success() => checked

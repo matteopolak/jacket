@@ -42,6 +42,8 @@ pub struct Toolchain {
     /// Where the programs of this toolchain write what they ran (`JAIC_COVERAGE_DIR`), when
     /// they are built to run once.
     pub coverage_dir: Option<PathBuf>,
+    /// Doc examples are type-checked only, whatever their mode (`--check-only`).
+    pub check_only: bool,
 }
 
 impl Toolchain {
@@ -607,6 +609,7 @@ mod tests {
             os: "linux".into(),
             coverage: false,
             coverage_dir: None,
+            check_only: false,
         };
         let names = ["a".to_string()];
         let run = |accept| {
@@ -642,6 +645,7 @@ mod tests {
             os: os.into(),
             coverage: false,
             coverage_dir: None,
+            check_only: false,
         };
         assert!(targets_wasm(&toolchain("wasm", &[])));
         assert!(targets_wasm(&toolchain("linux", &["-q", "-os", "wasm"])));

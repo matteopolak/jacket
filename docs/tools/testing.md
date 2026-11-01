@@ -124,6 +124,8 @@ cargo test -p jaic-cli --test stdlib_targets
 
 Edit the list only after confirming the restriction is real (`skip Module`, `Module target: file: first error`). A platform-only module should stop on the wrong target with an `#assert`. A new target extends `TARGETS` in the test.
 
+The same CI step also runs `jacket test --doc --check-only --os <os>` for linux, macos, windows and wasm, which type-checks every doc example for each target ([Checking examples for another OS](jacket-test.md#checking-examples-for-another-os)).
+
 ## Objective-C selector check
 
 Selectors are strings, so a typo type-checks and fails at run time. `cargo test -p jaic-cli --test objc_selectors` reads literal `sel_registerName` calls: the argument count must equal the number of `:` (every host), and on macOS the method must exist (checked via the Objective-C runtime against `tests/compiler/objc-selectors.txt`). Pass selectors as literals. If a method only exists on newer macOS, list it in that file with a reason.

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Improved
+
+- `jacket test --doc --check-only --os <os>` type-checks the doc examples for another OS from any machine.
+
 ## [0.32.0] - 2026-11-01
 
 ### New

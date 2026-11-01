@@ -85,12 +85,15 @@ pub struct Case {
 impl Case {
     /// Whether it only compiles, so it runs on any target (compile-fail tests, `no_run` and
     /// `compile_fail` doc tests).
-    fn compiles_only(&self, roots: &[discover::Root]) -> bool {
+    fn compiles_only(&self, roots: &[discover::Root], check_only: bool) -> bool {
         match self.doc {
-            Some(doc) => !matches!(
-                roots[self.root].docs[doc].mode,
-                doctest::Mode::Run | doctest::Mode::ShouldFail
-            ),
+            Some(doc) => {
+                check_only
+                    || !matches!(
+                        roots[self.root].docs[doc].mode,
+                        doctest::Mode::Run | doctest::Mode::ShouldFail
+                    )
+            }
             None => self.kind == Kind::CompileFail,
         }
     }
@@ -540,6 +543,7 @@ fn run_once(
         os: os.clone(),
         coverage: args.coverage,
         coverage_dir: None,
+        check_only: args.check_only,
     };
     let cross = !args.interp && (os != host_os() || cpu != host_cpu());
     let cross_skip = (cross && toolchain.runner.is_empty())
@@ -578,7 +582,8 @@ fn run_once(
         &root_flags,
         &work,
         &toolchain,
-        list,
+        // Listing and checking doc examples need no test programs.
+        list || args.check_only,
         bench,
         settings.jobs.min(4),
     );
@@ -948,7 +953,7 @@ fn execute(
             .options
             .skip_reason(target, &plan.settings.needs)
             .or_else(|| {
-                (!case.compiles_only(&plan.roots))
+                (!case.compiles_only(&plan.roots, plan.toolchain.check_only))
                     .then(|| cross_skip.map(String::from))
                     .flatten()
             });

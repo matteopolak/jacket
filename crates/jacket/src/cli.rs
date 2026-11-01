@@ -258,6 +258,10 @@ pub struct TestArgs {
     /// Run only the doc tests: the `jai` code blocks in a library's doc comments
     #[arg(long, conflicts_with = "no_doc")]
     pub doc: bool,
+    /// Only type-check the doc examples, without building or running them: with `--os`, the
+    /// examples for that target from any machine
+    #[arg(long, requires = "doc")]
+    pub check_only: bool,
     /// Leave the doc tests out
     #[arg(long)]
     pub no_doc: bool,
