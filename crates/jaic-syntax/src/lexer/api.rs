@@ -4,11 +4,11 @@ use super::{Tok, Token};
 use crate::diagnostics::Diagnostic;
 use crate::source::{FileId, Span};
 
-/// How many tokens to make room for in `text`: Jai source averages four to five bytes per token.
+/// How many tokens to make room for in `text`: Jai source averages four to five bytes per token and dense generated code three.
 /// Reserving once (virtual memory the pages of which are untouched until used) avoids the vector
 /// doubling, which copies a block of 10 MiB or more for a large file.
 fn expected_tokens(text: &str) -> usize {
-    text.len() / 4 + 16
+    text.len() / 3 + 16
 }
 
 pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
