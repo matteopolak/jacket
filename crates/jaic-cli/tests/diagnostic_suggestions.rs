@@ -6,13 +6,9 @@ use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
-fn scratch(name: &str) -> TempDir {
-    TempDir::new(name)
-}
-
 /// `jaic -check` on `source`, with the diagnostics layout `layout` (empty for the plain one).
 fn check(name: &str, source: &str, layout: &str) -> String {
-    let dir = scratch(name);
+    let dir = TempDir::new(name);
     std::fs::write(dir.join("t.jai"), source).unwrap();
     let mut command = Command::new(JAIC);
     command

@@ -1,10 +1,11 @@
 //! Input file, build and command line mistakes and rich layouts.
-use super::{JAIC, assert_in_order, jaic, jaic_on, scratch, stderr};
+use super::{JAIC, assert_in_order, jaic, jaic_on, stderr};
 use std::process::Command;
+use test_support::TempDir;
 
 #[test]
 fn input_file_problems() {
-    let dir = scratch("input");
+    let dir = TempDir::new("input");
     std::fs::write(dir.join("game.jai"), "main :: () {}\n").unwrap();
     std::fs::create_dir_all(dir.join("proj")).unwrap();
     std::fs::write(dir.join("proj/first.jai"), "main :: () {}\n").unwrap();
@@ -50,7 +51,7 @@ fn input_file_problems() {
 
 #[test]
 fn build_problems_say_what_to_change() {
-    let dir = scratch("build");
+    let dir = TempDir::new("build");
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
     std::fs::write(dir.join("lib.jai"), "f :: () {}\n").unwrap();
     std::fs::create_dir_all(dir.join("out")).unwrap();
@@ -123,7 +124,7 @@ fn build_problems_say_what_to_change() {
 
 #[test]
 fn command_line_mistakes_explain_themselves() {
-    let dir = scratch("cli");
+    let dir = TempDir::new("cli");
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
     std::fs::write(dir.join("two.jai"), "main :: () {}\n").unwrap();
     let cases: &[(&[&str], &[&str])] = &[
@@ -225,7 +226,7 @@ fn command_line_mistakes_explain_themselves() {
 
 #[test]
 fn plugin_arguments_help_version_and_colour() {
-    let dir = scratch("cli-help");
+    let dir = TempDir::new("cli-help");
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
     // Options after a `+Plugin` are the plugin's own arguments, not mistakes.
     let output = jaic(
@@ -304,7 +305,7 @@ fn plugin_arguments_help_version_and_colour() {
 
 #[test]
 fn rich_layouts_on_request() {
-    let dir = scratch("rich");
+    let dir = TempDir::new("rich");
     let source =
         "#import \"Basic\";\nmain :: () {\n    counter := 1;\n    print(\"%\\n\", countr);\n}\n";
     std::fs::write(dir.join("u.jai"), source).unwrap();

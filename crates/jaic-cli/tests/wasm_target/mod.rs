@@ -13,11 +13,6 @@ fn node() -> Option<Command> {
     toolchain::node()
 }
 
-/// A scratch directory for one test.
-fn scratch(name: &str) -> TempDir {
-    TempDir::new(name)
-}
-
 /// Runs `jaic` with `args` in `dir`. `None` (the test is skipped) when there is no node or the
 /// build cannot find wasm-ld and the tests are not required.
 fn jaic(dir: &Path, args: &[&str]) -> Option<Output> {
@@ -80,7 +75,7 @@ fn imports(module: &Path) -> Vec<String> {
 /// all go through `wasi_snapshot_preview1`, the only module the program imports.
 #[test]
 fn wasm_hello_reads_stdin_and_exits_with_its_status() {
-    let dir = scratch("wasm-hello");
+    let dir = TempDir::new("wasm-hello");
     std::fs::write(
         dir.join("hello.jai"),
         r#"#import "Basic";
@@ -133,7 +128,7 @@ main :: () -> s32 {
 /// memory well past its first pages.
 #[test]
 fn wasm_allocation_heavy_program() {
-    let dir = scratch("wasm-program");
+    let dir = TempDir::new("wasm-program");
     let source = repo_root().join("tests/compiler/native/wasm/program.jai");
     let source = source.to_str().unwrap();
     let module = dir.join("program.wasm");
@@ -182,7 +177,7 @@ fn wasm_examples_run_as_wasi_commands() {
             .find(|c| c["id"] == id)
             .unwrap();
         let folder = repo_root().join("examples").join(id);
-        let dir = scratch(&format!("wasm-example-{id}"));
+        let dir = TempDir::new(&format!("wasm-example-{id}"));
         let module = dir.join(format!("{id}.wasm"));
         let main = folder.join("main.jai");
         if jaic(
@@ -229,7 +224,7 @@ fn wasm_examples_run_as_wasi_commands() {
 /// storage, including writes and subsequent reads from emitted WASI programs.
 #[test]
 fn wasm_temporary_directory_maps_real_host_storage() {
-    let dir = scratch("wasm-temporary-directory");
+    let dir = TempDir::new("wasm-temporary-directory");
     let temporary = dir.join("host-temporary");
     std::fs::create_dir(&temporary).unwrap();
     std::fs::write(
@@ -294,7 +289,7 @@ main :: () {
 /// of the public Thread module's legitimate desktop/Android target guard.
 #[test]
 fn threads_runtime_provider_runs_as_wasi_with_real_workers() {
-    let dir = scratch("wasm-threads-runtime");
+    let dir = TempDir::new("wasm-threads-runtime");
     let source = repo_root().join("tests/compiler/language/threads-runtime/main.jai");
     for (flag, name) in [("-O0", "unoptimized"), ("-O2", "optimized")] {
         let module = dir.join(format!("{name}.wasm"));
@@ -336,7 +331,7 @@ fn threads_runtime_provider_runs_as_wasi_with_real_workers() {
 /// an LLVM triple and features, and extra wasm-ld arguments.
 #[test]
 fn wasm_build_options_from_a_metaprogram() {
-    let dir = scratch("wasm-metaprogram");
+    let dir = TempDir::new("wasm-metaprogram");
     for name in ["build_wasi.jai", "program.jai"] {
         std::fs::copy(
             repo_root().join("tests/compiler/native/wasm").join(name),
@@ -362,7 +357,7 @@ fn wasm_build_options_from_a_metaprogram() {
 /// procedures are the module's exports, called by the host.
 #[test]
 fn wasm_bare_module_imports_and_exports() {
-    let dir = scratch("wasm-exports");
+    let dir = TempDir::new("wasm-exports");
     let source = repo_root().join("tests/compiler/native/wasm/exports.jai");
     let module = dir.join("exports.wasm");
     let args = [
@@ -409,7 +404,7 @@ fn wasm_bare_module_imports_and_exports() {
 /// (`tools/browser/check_jaifmt_wasm.mjs`, which CI also runs against native jaifmt).
 #[test]
 fn jaifmt_wasm_formats_the_golden_cases() {
-    let dir = scratch("wasm-jaifmt");
+    let dir = TempDir::new("wasm-jaifmt");
     let source = repo_root().join("jaifmt/wasm.jai");
     let module = dir.join("jaifmt.wasm");
     let args = [
@@ -445,7 +440,7 @@ fn jaifmt_wasm_formats_the_golden_cases() {
 /// `jaic jaifmt/build.jai - wasm` builds the same WASI module through the Compiler module.
 #[test]
 fn jaifmt_wasm_from_the_build_metaprogram() {
-    let dir = scratch("wasm-jaifmt-metaprogram");
+    let dir = TempDir::new("wasm-jaifmt-metaprogram");
     let build = repo_root().join("jaifmt/build.jai");
     let module = dir.join("jaifmt.wasm");
     let args = [
@@ -466,7 +461,7 @@ fn jaifmt_wasm_from_the_build_metaprogram() {
 /// Every corpus case the interpreter passes behaves the same as a WASI module.
 #[test]
 fn corpus_runs_as_wasm_like_the_interpreter() {
-    let dir = scratch("wasm-corpus");
+    let dir = TempDir::new("wasm-corpus");
     let (mut checked, mut failures) = (0, Vec::new());
     for case in corpus_cases() {
         let interp = Command::new(JAIC)

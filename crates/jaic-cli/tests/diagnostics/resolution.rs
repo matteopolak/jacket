@@ -1,9 +1,10 @@
 //! Unknown names, mismatches and missing modules and files.
-use super::{assert_in_order, jaic_on, scratch, stderr};
+use super::{assert_in_order, jaic_on, stderr};
+use test_support::TempDir;
 
 #[test]
 fn unknown_identifier_suggests_a_visible_name() {
-    let dir = scratch("unknown-name");
+    let dir = TempDir::new("unknown-name");
     let output = jaic_on(
         &dir,
         "u.jai",
@@ -39,7 +40,7 @@ fn unknown_identifier_suggests_a_visible_name() {
 
 #[test]
 fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
-    let dir = scratch("unknown-module-name");
+    let dir = TempDir::new("unknown-module-name");
     // A standard-library name without its `#import`.
     let output = jaic_on(
         &dir,
@@ -114,7 +115,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
 
 #[test]
 fn mismatches_point_at_the_value_and_say_what_was_expected() {
-    let dir = scratch("mismatch");
+    let dir = TempDir::new("mismatch");
     let cases: &[(&str, &[&str])] = &[
         (
             "main :: () {\n    x: int = \"hello\";\n}\n",
@@ -204,7 +205,7 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
 
 #[test]
 fn modify_without_polymorph_variables_is_reported_at_the_block() {
-    let dir = scratch("modify-without-polymorphs");
+    let dir = TempDir::new("modify-without-polymorphs");
     let cases: &[(&str, &[&str])] = &[
         (
             // Called: the error is the declaration's, not the call's.
@@ -246,7 +247,7 @@ fn modify_without_polymorph_variables_is_reported_at_the_block() {
 /// (or the folder, or the old `Jaic_Extensions`) says which import to write.
 #[test]
 fn an_extension_module_without_its_path_names_the_extensions_import() {
-    let dir = scratch("extension-module-path");
+    let dir = TempDir::new("extension-module-path");
     let cases: [(&str, &str); 4] = [
         (
             "Long_Double",
@@ -295,7 +296,7 @@ fn an_extension_module_without_its_path_names_the_extensions_import() {
 
 #[test]
 fn missing_module_lists_where_it_looked_and_a_close_name() {
-    let dir = scratch("missing-module");
+    let dir = TempDir::new("missing-module");
     let output = jaic_on(
         &dir,
         "m.jai",
@@ -348,7 +349,7 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
 
 #[test]
 fn missing_import_folder_names_its_path() {
-    let dir = scratch("missing-import-dir");
+    let dir = TempDir::new("missing-import-dir");
     std::fs::create_dir_all(dir.join("empty")).unwrap();
     for (source, expected) in [
         (
@@ -393,7 +394,7 @@ fn missing_import_folder_names_its_path() {
 
 #[test]
 fn missing_load_file_says_where_it_looked() {
-    let dir = scratch("missing-load");
+    let dir = TempDir::new("missing-load");
     std::fs::write(dir.join("helper.jai"), "helper :: () {}\n").unwrap();
     let output = jaic_on(
         &dir,

@@ -14,11 +14,6 @@ use std::process::{Command, Output};
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
-/// A scratch directory of its own for each test.
-fn scratch(name: &str) -> TempDir {
-    TempDir::new(name)
-}
-
 /// Write `source` as `dir/name` and run `jaic` on it with the mode option `mode` (`-check`,
 /// `-interp`, or empty for a build) and `args`.
 fn jaic_on(dir: &Path, name: &str, source: &str, mode: &str, args: &[&str]) -> Output {
@@ -63,7 +58,7 @@ fn assert_in_order(text: &str, needles: &[&str]) {
 /// percent sign, `%N` selects an argument, and a format that is not a literal is not checked.
 #[test]
 fn format_string_argument_count_is_checked() {
-    let dir = scratch("format-count");
+    let dir = TempDir::new("format-count");
     let check = |name: &str, body: &str| {
         let source = format!("#import \"Basic\";\nmain :: () {{\n    n := 1;\n{body}\n}}\n");
         jaic_on(&dir, name, &source, "-check", &[])
@@ -98,7 +93,7 @@ fn format_string_argument_count_is_checked() {
 
 #[test]
 fn statements_after_a_return_get_a_warning() {
-    let dir = scratch("after-return-warning");
+    let dir = TempDir::new("after-return-warning");
     let source = "\
 f :: (x: int) -> int {
     if x > 0 { return 1; x += 1; }
@@ -125,7 +120,7 @@ main :: () {
 
 #[test]
 fn a_float_literal_that_float32_changes_gets_a_warning() {
-    let dir = scratch("float32-rounding-warning");
+    let dir = TempDir::new("float32-rounding-warning");
     let source = "\
 main :: () {
     a := 12342345234.0;
@@ -151,7 +146,7 @@ main :: () {
 
 #[test]
 fn a_body_that_can_fall_off_its_end_gets_a_warning() {
-    let dir = scratch("missing-return-warning");
+    let dir = TempDir::new("missing-return-warning");
     let source = "\
 E :: enum { A; B; }
 open :: (x: int) -> int {
@@ -193,7 +188,7 @@ main :: () {
 
 #[test]
 fn a_switch_on_a_constant_checks_every_case() {
-    let dir = scratch("const-switch");
+    let dir = TempDir::new("const-switch");
     let source = "#import \"Basic\";\nMode :: enum { A; B; }\nM :: Mode.A;\nmain :: () {\n    if #complete M == {\n        case .A; print(\"a\\n\");\n        case .B; x: int = \"not an int\"; print(\"%\\n\", x);\n    }\n}\n";
     let output = jaic_on(&dir, "const_switch.jai", source, "-check", &[]);
     assert!(!output.status.success(), "{}", stderr(&output));
@@ -207,7 +202,7 @@ fn a_switch_on_a_constant_checks_every_case() {
 
 #[test]
 fn a_failed_initializer_reports_its_own_error_and_nothing_after_it() {
-    let dir = scratch("failed_initializer");
+    let dir = TempDir::new("failed_initializer");
     let source = "#import \"Basic\";\nhelper :: () {\n    owner := Nope.make();\n    size := owner.count + 1;\n    print(\"%\\n\", size);\n}\nmain :: () { helper(); }\n";
     let output = jaic_on(&dir, "main.jai", source, "-check", &[]);
     assert!(!output.status.success());
@@ -224,7 +219,7 @@ fn a_failed_initializer_reports_its_own_error_and_nothing_after_it() {
 /// that word, not the rest of the line.
 #[test]
 fn report_inside_a_string_underlines_the_word() {
-    let dir = scratch("report-in-string");
+    let dir = TempDir::new("report-in-string");
     // The line the report points at, and the carets under it.
     let report = |name: &str, text: &str, line: u32, column: u32| {
         let source = dir.join(name);
@@ -271,7 +266,7 @@ fn report_inside_a_string_underlines_the_word() {
 
 #[test]
 fn a_leniency_in_the_program_file_warns_with_the_note_and_the_exit_status_stays_zero() {
-    let dir = scratch("leniency-note");
+    let dir = TempDir::new("leniency-note");
     let output = jaic_on(
         &dir,
         "main.jai",
@@ -293,7 +288,7 @@ fn a_leniency_in_the_program_file_warns_with_the_note_and_the_exit_status_stays_
 
 #[test]
 fn a_leniency_in_an_imported_module_is_not_reported() {
-    let dir = scratch("leniency-module");
+    let dir = TempDir::new("leniency-module");
     std::fs::create_dir_all(dir.join("Lib")).unwrap();
     std::fs::write(
         dir.join("Lib/module.jai"),
@@ -317,7 +312,7 @@ fn a_leniency_in_an_imported_module_is_not_reported() {
 
 #[test]
 fn a_body_constant_used_above_its_declaration_is_an_error() {
-    let dir = scratch("use-before-declaration");
+    let dir = TempDir::new("use-before-declaration");
     let output = jaic_on(
         &dir,
         "main.jai",
@@ -339,7 +334,7 @@ fn a_body_constant_used_above_its_declaration_is_an_error() {
 
 #[test]
 fn a_body_constant_used_above_its_declaration_is_an_error_in_a_module_too() {
-    let dir = scratch("use-before-declaration-module");
+    let dir = TempDir::new("use-before-declaration-module");
     std::fs::create_dir_all(dir.join("Lib")).unwrap();
     std::fs::write(
         dir.join("Lib/module.jai"),

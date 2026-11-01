@@ -7,10 +7,6 @@ use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
-fn scratch(name: &str) -> TempDir {
-    TempDir::new(name)
-}
-
 fn run_on(dir: &Path, command: &str, source: &str) -> Output {
     let path = dir.join("case.jai");
     std::fs::write(&path, source).unwrap();
@@ -39,7 +35,7 @@ fn route_program(defs: &str, route: &str) -> String {
 /// The route is rejected with `message` as the first error, pointing at the `get(` call, and compilation stops there.
 #[track_caller]
 fn rejected(name: &str, defs: &str, route: &str, message: &str) {
-    let dir = scratch(name);
+    let dir = TempDir::new(name);
     let output = run_on(&dir, "-check", &route_program(defs, route));
     assert_eq!(
         output.status.code(),
@@ -65,7 +61,7 @@ fn rejected(name: &str, defs: &str, route: &str, message: &str) {
 
 #[test]
 fn a_valid_route_compiles() {
-    let dir = scratch("valid");
+    let dir = TempDir::new("valid");
     let source = route_program(
         "h :: (id: Path(\"id\", int)) -> User { return .{ id.value, \"Ada\" }; }",
         "\"/users/{id}\", h",
@@ -173,7 +169,7 @@ fn rest_must_be_the_last_segment() {
 /// errors above rely on it to point at the route.
 #[test]
 fn baked_caller_location_is_the_call_site() {
-    let dir = scratch("caller_location");
+    let dir = TempDir::new("caller_location");
     let output = run_on(
         &dir,
         "-interp",

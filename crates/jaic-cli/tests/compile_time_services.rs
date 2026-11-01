@@ -11,10 +11,6 @@ fn tests_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib/Extensions/Service/tests")
 }
 
-fn scratch(name: &str) -> TempDir {
-    TempDir::new(name)
-}
-
 fn jaic(dir: &Path, args: &[&str]) -> Output {
     Command::new(JAIC)
         .args(args)
@@ -54,7 +50,7 @@ fn every_status_reaches_compile_time_code() {
 
 #[test]
 fn a_crash_is_reported_with_the_service_output_and_not_retried_at_once() {
-    let dir = scratch("crash");
+    let dir = TempDir::new("crash");
     std::fs::write(
         dir.join("case.jai"),
         program(
@@ -79,7 +75,7 @@ fn a_crash_is_reported_with_the_service_output_and_not_retried_at_once() {
 
 #[test]
 fn an_unknown_result_is_an_error_in_a_build() {
-    let dir = scratch("unknown");
+    let dir = TempDir::new("unknown");
     std::fs::write(
         dir.join("case.jai"),
         program("#run Service.unknown(\"no database configured\");"),

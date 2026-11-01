@@ -8,10 +8,6 @@ use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
-fn scratch(name: &str) -> TempDir {
-    TempDir::new(name)
-}
-
 /// `jaic -check` on `source` in `dir` (as `t.jai`), with the diagnostics layout `layout` (empty
 /// for the plain one).
 fn check_in(dir: &Path, source: &str, layout: &str) -> String {
@@ -31,7 +27,7 @@ fn check_in(dir: &Path, source: &str, layout: &str) -> String {
 }
 
 fn check(name: &str, source: &str, layout: &str) -> String {
-    check_in(&scratch(name), source, layout)
+    check_in(&TempDir::new(name), source, layout)
 }
 
 #[track_caller]
@@ -125,7 +121,7 @@ fn a_module_member_from_another_module_suggests_that_module() {
 
 #[test]
 fn a_private_module_member_is_not_exported() {
-    let dir = scratch("member-private");
+    let dir = TempDir::new("member-private");
     std::fs::create_dir_all(dir.join("modules/Gadgets")).unwrap();
     std::fs::write(
         dir.join("modules/Gadgets/module.jai"),

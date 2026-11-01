@@ -1,9 +1,10 @@
 //! Runtime failures name the check and the call stack.
-use super::{assert_in_order, jaic_on, scratch, stderr};
+use super::{assert_in_order, jaic_on, stderr};
+use test_support::TempDir;
 
 #[test]
 fn runtime_bounds_check_names_the_check_and_the_call_stack() {
-    let dir = scratch("bounds");
+    let dir = TempDir::new("bounds");
     let output = jaic_on(
         &dir,
         "bounds.jai",
@@ -33,7 +34,7 @@ fn runtime_bounds_check_names_the_check_and_the_call_stack() {
 
 #[test]
 fn failure_inside_the_stdlib_points_at_the_users_call() {
-    let dir = scratch("stdlib-frame");
+    let dir = TempDir::new("stdlib-frame");
     let output = jaic_on(
         &dir,
         "copy.jai",
@@ -60,7 +61,7 @@ fn failure_inside_the_stdlib_points_at_the_users_call() {
 #[cfg(unix)]
 #[test]
 fn crash_in_native_code_names_the_foreign_call() {
-    let dir = scratch("native-crash");
+    let dir = TempDir::new("native-crash");
     let source = "libc :: #system_library \"libc\";\nstrlen :: (s: *u8) -> u64 #foreign libc;\nmeasure :: (p: *u8) -> u64 {\n    return strlen(p);\n}\nwork :: () {\n    n := measure(cast(*u8) 16);\n}\n";
     let run = jaic_on(
         &dir,
@@ -104,7 +105,7 @@ fn crash_in_native_code_names_the_foreign_call() {
 #[cfg(unix)]
 #[test]
 fn failure_in_a_procedure_called_from_c_says_where() {
-    let dir = scratch("callback-trap");
+    let dir = TempDir::new("callback-trap");
     let source = "libc :: #system_library \"libc\";\nqsort :: (base: *void, n: u64, size: u64, compare: (*void, *void) -> s32 #c_call) #foreign libc;\ncompare :: (a: *void, b: *void) -> s32 #c_call {\n    x: [2] s32;\n    i := 5;\n    return x[i];\n}\nmain :: () {\n    a := int.[3, 1, 2];\n    qsort(a.data, 3, 8, compare);\n}\n";
     let run = jaic_on(&dir, "callback.jai", source, "-interp", &[]);
     assert_eq!(run.status.code(), Some(1), "{}", stderr(&run));
@@ -123,7 +124,7 @@ fn failure_in_a_procedure_called_from_c_says_where() {
 #[cfg(unix)]
 #[test]
 fn crash_on_a_c_thread_is_not_blamed_on_another_call() {
-    let dir = scratch("native-crash-thread");
+    let dir = TempDir::new("native-crash-thread");
     let source = "libc :: #system_library \"libc\";\npthread_create :: (thread: *u64, attributes: *void, start: *void, argument: *void) -> s32 #foreign libc;\npthread_join :: (thread: u64, result: **void) -> s32 #foreign libc;\nmain :: () {\n    thread: u64;\n    pthread_create(*thread, null, cast(*void) 16, null);\n    pthread_join(thread, null);\n}\n";
     let run = jaic_on(&dir, "thread.jai", source, "-interp", &[]);
     let err = stderr(&run);
@@ -135,7 +136,7 @@ fn crash_on_a_c_thread_is_not_blamed_on_another_call() {
 // rules: cast.2 flow.27
 #[test]
 fn cast_and_switch_checks_say_which_value() {
-    let dir = scratch("value-checks");
+    let dir = TempDir::new("value-checks");
     let cast = jaic_on(
         &dir,
         "cast.jai",
@@ -208,7 +209,7 @@ fn cast_and_switch_checks_say_which_value() {
 
 #[test]
 fn null_pointer_and_missing_return_and_recursion() {
-    let dir = scratch("checks");
+    let dir = TempDir::new("checks");
     let null = jaic_on(
         &dir,
         "null.jai",
@@ -270,7 +271,7 @@ fn null_pointer_and_missing_return_and_recursion() {
 
 #[test]
 fn compile_time_failure_shows_user_code_and_the_run_site() {
-    let dir = scratch("run-site");
+    let dir = TempDir::new("run-site");
     let output = jaic_on(
         &dir,
         "ct.jai",
@@ -295,7 +296,7 @@ fn compile_time_failure_shows_user_code_and_the_run_site() {
 
 #[test]
 fn failed_assert_reports_the_users_line_not_debug_break() {
-    let dir = scratch("assert");
+    let dir = TempDir::new("assert");
     let output = jaic_on(
         &dir,
         "a.jai",
