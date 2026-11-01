@@ -338,8 +338,27 @@ fn run_jaic(command: &mut Command, toolchain: &Toolchain) -> Result<Vec<u8>, Str
     if output.status.success() {
         Ok(output.stdout)
     } else {
-        Err(compile_output(&output))
+        Err(failure_output(&output))
     }
+}
+
+/// What a failed compile printed: standard error, then the text on standard output. The plugin's
+/// records (the generated test table, the manifest) are protocol for jacket, not for the reader,
+/// and would bury the diagnostics under pages of generated code.
+fn failure_output(output: &std::process::Output) -> String {
+    failure_text(&output.stderr, &output.stdout)
+}
+
+fn failure_text(stderr: &[u8], stdout: &[u8]) -> String {
+    let mut demux = Demux::default();
+    let mut text = String::from_utf8_lossy(stderr).into_owned();
+    for piece in demux.feed(stdout) {
+        if let Piece::Text(bytes) = piece {
+            text.push_str(&String::from_utf8_lossy(&bytes));
+        }
+    }
+    text.push_str(&String::from_utf8_lossy(&demux.finish()));
+    text
 }
 
 /// The executable jaic reported writing, or `fallback`.
@@ -544,6 +563,13 @@ mod tests {
         assert_eq!(added_source(&found), "#scope_file\n\nx :: 1;");
         assert!(discovered(&found));
         assert!(!discovered(&records(b"nothing here\n")));
+    }
+
+    #[test]
+    fn a_failed_compile_shows_the_diagnostics_without_the_plugins_records() {
+        let stdout = b"printed\n\x02source\x1f#scope_file\x03\x02manifest\x1ftest\x1fadds\x03";
+        let shown = failure_text(b"error: type mismatch\n", stdout);
+        assert_eq!(shown, "error: type mismatch\nprinted\n");
     }
 
     #[test]
