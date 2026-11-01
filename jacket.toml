@@ -109,6 +109,8 @@ portable = ["stdlib/**"]
 "stdlib/internal/system/unix.jai" = ["linux", "macos"]
 "stdlib/internal/window/connection.jai" = ["linux"]
 "stdlib/internal/window/cocoa*.jai" = ["macos"]
+"stdlib/Extensions/Desktop/cocoa*.jai" = ["macos"]
+"stdlib/Extensions/Desktop/windows*.jai" = ["windows"]
 "stdlib/internal/window/win32-*.jai" = ["windows"]
 "stdlib/internal/clipboard/cocoa.jai" = ["macos"]
 "stdlib/internal/clipboard/linux.jai" = ["linux"]
@@ -290,7 +292,7 @@ modules = [
     "stdlib/GL", "stdlib/Simp", "stdlib/GetRect", "stdlib/GetRect_LeftHanded",
     "stdlib/Window_Creation", "stdlib/Window_Type", "stdlib/Input", "stdlib/Keymap",
     "stdlib/Gamepad", "stdlib/Gamepad/SDL_Input_Map", "stdlib/Icon", "stdlib/Ico_File",
-    "stdlib/ImGui", "stdlib/SDL", "stdlib/Extensions/SDL3", "stdlib/Extensions/UI",
+    "stdlib/ImGui", "stdlib/SDL", "stdlib/Extensions/SDL3", "stdlib/Extensions/UI", "stdlib/Extensions/Desktop",
     "stdlib/Extensions/Image", "stdlib/Extensions/WebGPU",
 ]
 
