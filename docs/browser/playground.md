@@ -33,7 +33,7 @@ A bundle (`tools/browser/build_scripting_wasm.py --output <dir>`) holds:
 ### Building and checking
 
 ```sh
-rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29
+rustup target add wasm32-unknown-unknown   # on the toolchain pinned in rust-toolchain.toml
 PYTHONPATH=tools python3 tools/browser/build_scripting_wasm.py --release --output target/scripting-runtime
 node tools/browser/check_scripting_wasm.mjs target/scripting-runtime/jai_wasm.wasm
 node tools/browser/check_jaifmt_wasm.mjs engine target/scripting-runtime

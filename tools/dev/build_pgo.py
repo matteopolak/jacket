@@ -164,7 +164,7 @@ def build_env(target, environ, target_dir, flags):
 def pgo_works(target):
     """Whether rustc's profile runtime produces usable profiles for `target`.
 
-    Not on arm64 Windows (nightly-2026-08-29): processes that merge into an existing .profraw
+    Not on arm64 Windows (with the pinned nightly): processes that merge into an existing .profraw
     crash in lprofMergeValueProfData, and with value profiling off the files they write are
     still rejected by llvm-profdata ("symbol name is empty"). That target gets a plain release
     build. See docs/tools/releases.md.
