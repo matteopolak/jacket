@@ -68,7 +68,8 @@ socket_init :: () -> bool {
 // address: sockaddr_in;
 // address.sin_family = AF_INET;
 // address.sin_port = htons(1);
-// address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+// #if OS == .WINDOWS address.sin_addr.S_un.S_addr = htonl(INADDR_LOOPBACK);
+// else address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 // length: socklen_t = size_of(sockaddr_in);
 // assert(connect(s, cast(*sockaddr) *address, length) != 0);
 // assert(get_last_socket_error() != 0);
