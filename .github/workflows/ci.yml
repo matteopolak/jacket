@@ -308,7 +308,9 @@ jobs:
         id: policy
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') }}
         # tools/run_tests.py discovers each tools/ folder (tools/ has no __init__.py), native_bindings/ and bench/ included.
+        # Some ask `jacket test --roots` for the test roots, so jacket is built first.
         run: |
+          cargo build --locked -p jacket -p jaic-cli
           python3 tools/run_tests.py
       # The checked-in native bindings must be exactly what the reviewed specs generate.
       - name: Generated bindings check

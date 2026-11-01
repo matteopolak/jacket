@@ -145,9 +145,9 @@
       "COPYING.txt": "222d3c20d95f7e0f6874c7908bbac8e931e829161108eefae1feae61560d761f"
     },
     "archive": {
-      "url": "https://www.libsdl.org/release/SDL2-2.0.1.tar.gz",
-      "sha256": "0ae7e902a26777614a011fe7053ca7e8b14843db3c42ca117564d208cf6732f0",
-      "root": "SDL2-2.0.1"
+      "url": "https://codeload.github.com/libsdl-org/SDL/tar.gz/refs/tags/release-2.0.1",
+      "sha256": "90f1d0159f4cd9599ac86725a9b5ee3cc9eb3697ca0d3790f33fac66c9ed539a",
+      "root": "SDL-release-2.0.1"
     }
   },
   "sdl2-runtime-oracle": {
