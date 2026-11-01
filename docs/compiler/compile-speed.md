@@ -39,6 +39,21 @@ Output matches a serial run. File ids are assigned when sema claims a file, not 
 
 Compile-time code is mostly standard-library code, so its cost is interpreted instructions (`-profile`). Fixing a stdlib path often beats tuning the interpreter: `String_Builder` appends and `array_resize` clearing (one `memset` for plain-data elements) cut one benchmark by two thirds. See [interpreter](interpreter.md#code-form).
 
+### Name lookup in sema
+
+On a 600k-line generated program a third of `-check` was `Compiler::lookup_full`. Every file of a module writes its own `#import "Basic";` into the module scope, so a program of 120 files has about 500 imports there, and a lookup of a procedure's name (which keeps going to find overloads) asked all of them. The fixes, each keeping the answer and the diagnostics the same:
+
+- **Each module once.** A scope with more than 16 imports gets an `import_plan` (`scope/lookup.rs`): the indices to ask, which are every filtered import and the first unfiltered import of each module. It is kept per `namespace_generation` in `NameCaches::import_plans`. Smaller scopes skip repeats inline. The editor's unused-import lint records each import, so it keeps asking all.
+- **A scope's imports holding a name is remembered even when the scope declares it** (`scope_misses`): it records that the imports, `using`s and implicit modules add nothing, whether or not `found` was empty.
+- Scopes with nothing pending (blocks and procedures) no longer pay for the "is this name final" pre-check.
+- `warn_declarations_hiding_imports` asks each imported module once per name instead of once per import.
+- `finalize_runtime_configuration` skips its walk over all reachable IR when the temporary storage size is the default and nothing was captured at another size.
+- `param_is_code` caches by procedure, type span and name; every call asked it of every parameter of every candidate through a full constant evaluation.
+
+Numbers (median of 9, `-check -serial_parse`, same machine, alternating runs): 600k generated lines 1.48 s to 1.12 s; with parallel parse 1.21 s to 0.85 s. Real code is dominated by parsing and file reads, and moves by 2-4% (all of `stdlib` with `-no_dce`, 0.38 s to 0.37 s). What is left in sema is flat: the biggest items are the remaining scope walk of `lookup_full` (about 9% on the generated program), first-time `signature` and `resolve_entity` work, and constant evaluation's per-call `FnCtx` (`thunk_ctx`, about 1.5%).
+
+To profile sema on one thread with inlined frames, build with `CARGO_PROFILE_RELEASE_DEBUG=1`, record with `xcrun xctrace record --template 'Time Profiler' --launch -- jaic -check -serial_parse main.jai` and symbolicate with `atos -i`; `sample` misses part of a short run.
+
 ### Rejected experiments
 
 - Skipping LiveDebugValues at `-O0` loses `frame variable` locations.
