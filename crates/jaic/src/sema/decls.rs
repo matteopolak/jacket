@@ -7,6 +7,7 @@ use super::{
     err, ir, lambda, procs,
 };
 use crate::diagnostics::Code;
+use crate::sema::speculative::FirstUse;
 use crate::types::{DistinctInfo, TypeKind};
 
 pub struct LibraryInfo {
@@ -69,19 +70,20 @@ impl Compiler {
             EntityState::Unresolved => {}
         }
         super::body_probe::bump(super::body_probe::C::EntResolve);
-        self.entity_mut(id).state = EntityState::Resolving;
+        let globals_before = super::speculative::local_globals_len();
+        self.set_entity_state(id, EntityState::Resolving, globals_before);
         let traps = self.ct.traps;
         crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsResolvingDepth);
         self.epochs.resolving_depth += 1;
-        let result = self.resolve_entity_inner(id);
+        let result = self.first_use(FirstUse::Entity(id), |c| c.resolve_entity_inner(id));
         crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsResolvingDepth);
         self.epochs.resolving_depth -= 1;
         match &result {
-            Ok(r) => self.entity_mut(id).state = EntityState::Done(r.clone()),
+            Ok(r) => self.set_entity_state(id, EntityState::Done(r.clone()), globals_before),
             Err(e) if self.ct.traps != traps => {
                 self.entity_mut(id).state = EntityState::Failed(e.clone());
             }
-            Err(_) => self.entity_mut(id).state = EntityState::Unresolved,
+            Err(_) => self.set_entity_state(id, EntityState::Unresolved, globals_before),
         }
         result
     }

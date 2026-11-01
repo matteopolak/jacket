@@ -7,6 +7,7 @@ use crate::lang_items::PreludeType;
 use crate::sema::SourceState;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, Resolved};
+use crate::sema::speculative::FirstUse;
 use crate::sema::{
     Arc, Compiler, Diagnostic, EntityId, HashMap, ProcId, Result, ScopeId, Span, Sym, TypeId,
     Value, ast, err, ir, value,
@@ -72,7 +73,7 @@ impl Compiler {
             return Ok(());
         }
         // Set while resolving, so the names it resolves cannot start the same decision again.
-        self.pr.procs[id.0 as usize].poly_checked = true;
+        self.proc_memo_mut(id).poly_checked = true;
         let header = self.proc(id).lit.header.clone();
         let scope = self.proc(id).scope;
         for p in &header.params {
@@ -81,12 +82,12 @@ impl Compiler {
             };
             match self.mentions_poly_struct_resolved(scope, t) {
                 Ok(true) => {
-                    self.pr.procs[id.0 as usize].is_poly = true;
+                    self.proc_memo_mut(id).is_poly = true;
                     break;
                 }
                 Ok(false) => {}
                 Err(_) => {
-                    self.pr.procs[id.0 as usize].poly_checked = false;
+                    self.proc_memo_mut(id).poly_checked = false;
                     return Ok(());
                 }
             }
@@ -193,6 +194,11 @@ impl Compiler {
         if let Some(sig) = &self.proc(id).sig {
             return Ok(sig.clone());
         }
+        self.first_use(FirstUse::Signature(id), |c| c.make_signature(id, span))
+    }
+
+    /// The part of `signature` that runs once: the procedure has no signature yet.
+    fn make_signature(&mut self, id: ProcId, span: Span) -> Result<Arc<Signature>> {
         crate::sema::body_probe::bump(crate::sema::body_probe::C::SigResolve);
         // A parameter naming a polymorphic struct bare (`f: *Table`) makes it polymorphic,
         // which must be known before its types are: `*Table` alone is a type too.
@@ -235,11 +241,12 @@ impl Compiler {
                 seen.push((name.name, name.span));
             }
         }
-        self.pr.procs[id.0 as usize].sig_resolving = true;
+        self.proc_memo_mut(id).sig_resolving = true;
         let result = self.build_signature(id);
-        self.pr.procs[id.0 as usize].sig_resolving = false;
+        self.proc_memo_mut(id).sig_resolving = false;
         let sig = Arc::new(result?);
-        self.pr.procs[id.0 as usize].sig = Some(sig.clone());
+        crate::sema::speculative::keep_signature_movable(&sig);
+        self.proc_memo_mut(id).sig = Some(sig.clone());
         Ok(sig)
     }
 

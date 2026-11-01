@@ -50,7 +50,9 @@ impl Compiler {
         }
         let module = self.scope(scope).module;
         let s = self.new_scope(scope::ScopeKind::Proc, Some(scope), module, None);
-        self.ns.thunk_scopes.insert(scope, s);
+        if !self.note_thunk_scope(scope, s) {
+            self.ns.thunk_scopes.insert(scope, s);
+        }
         s
     }
 

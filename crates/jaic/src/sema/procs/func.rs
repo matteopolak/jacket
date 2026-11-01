@@ -4,6 +4,7 @@ use crate::diagnostics::Code;
 use crate::ide::Recorder;
 use crate::ir::Ty;
 use crate::sema::lower::FnCtx;
+use crate::sema::speculative::FirstUse;
 use crate::sema::{
     Compiler, Diagnostic, FileId, ProcId, Result, ScopeId, Span, ast, err, ir, scope,
 };
@@ -15,6 +16,11 @@ impl Compiler {
         if let Some(t) = self.proc(id).target {
             return Ok(t);
         }
+        self.first_use(FirstUse::Target(id), |c| c.make_proc_target(id, span))
+    }
+
+    /// The part of `proc_func` that runs once: the procedure has no target yet.
+    fn make_proc_target(&mut self, id: ProcId, span: Span) -> Result<ProcTarget> {
         if self.proc(id).is_macro {
             return err(
                 Code::ProcMacro,
@@ -265,7 +271,7 @@ impl Compiler {
     }
 }
 
-fn lit_is_entry_point(header: &ast::ProcHeader) -> bool {
+pub(in crate::sema) fn lit_is_entry_point(header: &ast::ProcHeader) -> bool {
     header
         .flags
         .other

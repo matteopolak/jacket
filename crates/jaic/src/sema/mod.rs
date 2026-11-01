@@ -19,6 +19,8 @@ mod binary;
 mod body_failure_tests;
 pub mod body_probe;
 pub mod speculative;
+#[cfg(all(test, feature = "speculative-bodies"))]
+mod speculative_tests;
 mod sync_world;
 use body_probe::{Probed, W};
 mod callable;

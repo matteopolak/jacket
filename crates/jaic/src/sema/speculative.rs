@@ -14,7 +14,7 @@
 //! hooks compile to nothing and the flag only prints a notice.
 use super::body_probe::{self, W};
 use super::procs::BodyState;
-use super::scope::{Entity, EntityId, EntityKind, Scope, ScopeId, UsingEntry};
+use super::scope::{Entity, EntityId, EntityKind, EntityState, Scope, ScopeId, UsingEntry};
 use super::{Compiler, ProcId};
 use crate::fxhash::HashMap;
 use crate::ir;
@@ -23,11 +23,25 @@ use crate::types::StructId;
 use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
 
+/// A demand-driven step that does ordered work the first time something asks for it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum FirstUse {
+    /// Resolving a global entity.
+    Entity(EntityId),
+    /// Giving a procedure with a body its function and queueing the body.
+    Target(ProcId),
+    /// Working out a procedure's signature.
+    Signature(ProcId),
+}
+
 /// Whether this build can intercept writes at all.
 pub const BUILT: bool = cfg!(feature = "speculative-bodies");
 
 /// How many queued bodies one batch takes.
 const BATCH: usize = 64;
+
+/// How many entities one body's turn resolves ahead before it takes the serial path.
+const MAX_AHEAD: usize = 8;
 
 thread_local! {
     /// A speculative body is being checked.
@@ -48,6 +62,12 @@ thread_local! {
     static OPS: RefCell<Vec<Op>> = const { RefCell::new(Vec::new()) };
     /// The finished function.
     static DEPOSIT: RefCell<Option<Deposit>> = const { RefCell::new(None) };
+    /// The outermost global entity the body is resolving in place right now.
+    static FIRST_USE: Cell<Option<FirstUse>> = const { Cell::new(None) };
+    /// Procedures whose signature fields the body has filled in, in order.
+    static TOUCHED_PROCS: RefCell<Vec<ProcId>> = const { RefCell::new(Vec::new()) };
+    /// Scopes the body made a thunk scope for.
+    static THUNK_KEYS: RefCell<Vec<ScopeId>> = const { RefCell::new(Vec::new()) };
     static STATS: RefCell<Stats> = RefCell::new(Stats::default());
     static ON: Cell<bool> = const { Cell::new(false) };
 }
@@ -160,6 +180,7 @@ fn blocked_unless_own(table: usize, at: Option<usize>) {
     if MEMOS.contains(&table)
         || table == W::NsReexportVisiting as usize
         || table == W::PrLastCallMust as usize
+        || table == W::EpochsResolvingDepth as usize
         || (table == W::Ed as usize && IDLE_EDITOR.with(Cell::get))
     {
         return;
@@ -220,6 +241,14 @@ type Undo = Box<dyn FnOnce(&mut Compiler)>;
 
 /// A write to shared state a speculative body leaves for its commit.
 type Op = Box<dyn FnOnce(&mut Compiler, &Shift)>;
+
+/// How many globals the speculative body being checked has asked for so far (0 when none is).
+pub(super) fn local_globals_len() -> usize {
+    if !BUILT || !ACTIVE.with(Cell::get) {
+        return 0;
+    }
+    LOCAL_GLOBALS.with(|g| g.borrow().1.len())
+}
 
 /// Leave `op` for the commit of the speculative body being checked. `false`: not speculating, the
 /// caller makes the write itself.
@@ -332,6 +361,8 @@ pub(super) fn deposit(
 enum Reason {
     /// It wrote this shared table (a `body_probe::W` index).
     Wrote(usize),
+    /// It wrote this shared table while resolving an entity nobody had resolved yet.
+    Resolving(usize),
     /// Checking it reported an error.
     Failed,
     /// What it made cannot be moved to other ids yet.
@@ -357,6 +388,9 @@ struct Stats {
     serial_bodies: u64,
     scopes_moved: u64,
     entities_moved: u64,
+    /// Entities resolved at a body's turn, and bodies that committed after it.
+    resolved_ahead: u64,
+    recovered: u64,
 }
 
 /// What a finished speculative body made.
@@ -369,6 +403,8 @@ pub(super) struct Delta {
     deposit: Deposit,
     expressions: Vec<(ProcId, Span, crate::types::TypeId)>,
     ops: Vec<Op>,
+    /// The scopes it made a thunk scope for: another body may have made one for them since.
+    thunk_keys: Vec<ScopeId>,
     globals_base: usize,
     globals: Vec<LocalGlobal>,
     took: Duration,
@@ -376,7 +412,16 @@ pub(super) struct Delta {
 
 pub(super) enum Outcome {
     Ready(Box<Delta>),
-    Abandoned,
+    /// The body gave up. `Some`: while resolving this entity for the first time, which the body's
+    /// turn can resolve before checking it again.
+    Abandoned(Option<Resumable>),
+}
+
+/// An abandoned body that stopped inside the first run of `what`.
+pub(super) struct Resumable {
+    what: FirstUse,
+    reason: Reason,
+    took: Duration,
 }
 
 /// The parts of the world a serial body can change that a finished speculative body read.
@@ -393,127 +438,6 @@ impl Compiler {
             self.ct.executions,
             self.src.sources.len() as u64,
         ]
-    }
-
-    /// `local_consts[e] = (value, ty)` for a constant entity of the body being checked.
-    pub(super) fn set_local_const(
-        &mut self,
-        e: EntityId,
-        value: super::Value,
-        ty: crate::types::TypeId,
-    ) {
-        if active() {
-            let kept = value.clone();
-            journal(
-                move |c| {
-                    c.pr.local_consts.quiet().remove(&e);
-                },
-                move |c, shift| {
-                    c.pr.local_consts.insert(shift.entity(e), (kept, ty));
-                },
-            );
-            self.pr.local_consts.quiet().insert(e, (value, ty));
-            return;
-        }
-        self.pr.local_consts.insert(e, (value, ty));
-    }
-
-    /// A macro parameter `e` holds a constant argument the macro never writes.
-    pub(super) fn set_const_macro_param(
-        &mut self,
-        e: EntityId,
-        value: super::Value,
-        ty: crate::types::TypeId,
-    ) {
-        if active() {
-            let kept = value.clone();
-            journal(
-                move |c| {
-                    c.pr.const_macro_params.quiet().remove(&e);
-                },
-                move |c, shift| {
-                    c.pr.const_macro_params.insert(shift.entity(e), (kept, ty));
-                },
-            );
-            self.pr.const_macro_params.quiet().insert(e, (value, ty));
-            return;
-        }
-        self.pr.const_macro_params.insert(e, (value, ty));
-    }
-
-    /// Mark the parameter entity `e` as one whose value is discarded.
-    pub(super) fn set_discard_param(&mut self, e: EntityId) {
-        if active() {
-            journal(
-                move |c| {
-                    c.pr.discard_params.quiet().remove(&e);
-                },
-                move |c, shift| {
-                    c.pr.discard_params.insert(shift.entity(e));
-                },
-            );
-            self.pr.discard_params.quiet().insert(e);
-            return;
-        }
-        self.pr.discard_params.insert(e);
-    }
-
-    /// Remember what a callable parameter or alias `e` was declared as.
-    pub(super) fn set_callable_entity(
-        &mut self,
-        e: EntityId,
-        info: std::sync::Arc<super::ProcTypeParams>,
-    ) {
-        if active() {
-            let kept = info.clone();
-            journal(
-                move |c| {
-                    c.pr.callable_entities.quiet().remove(&e);
-                },
-                move |c, shift| {
-                    c.pr.callable_entities.insert(shift.entity(e), kept);
-                },
-            );
-            self.pr.callable_entities.quiet().insert(e, info);
-            return;
-        }
-        self.pr.callable_entities.insert(e, info);
-    }
-
-    /// The `ifx` at `span` is an operand of a binary operator.
-    pub(super) fn set_ifx_operand(&mut self, span: Span) {
-        if self.pr.ifx_operands.contains(&span) {
-            return;
-        }
-        if active() {
-            journal(
-                move |c| {
-                    c.pr.ifx_operands.quiet().remove(&span);
-                },
-                move |c, _| {
-                    c.pr.ifx_operands.insert(span);
-                },
-            );
-            self.pr.ifx_operands.quiet().insert(span);
-            return;
-        }
-        self.pr.ifx_operands.insert(span);
-    }
-
-    /// The call at `span` was made to `instance` of a polymorphic procedure.
-    pub(super) fn note_call_instance(&mut self, span: Span, instance: ProcId) {
-        let note = move |c: &mut Compiler, _: &Shift| {
-            let made = c.meta.export.call_instances.entry(span).or_default();
-            if !made.contains(&instance) {
-                made.push(instance);
-            }
-        };
-        if !defer(note) {
-            let made = self.meta.export.call_instances.entry(span).or_default();
-            if !made.contains(&instance) {
-                made.push(instance);
-            }
-        }
     }
 
     /// The shared state a body is not allowed to leave changed that no `Probed` hook watches:
@@ -669,7 +593,7 @@ impl Compiler {
                     .or_default()
                     .0 += 1;
             });
-            return Outcome::Abandoned;
+            return Outcome::Abandoned(None);
         }
         let bases = [self.ns.scopes.len(), self.ns.entities.len()];
         let fingerprint = cfg!(debug_assertions).then(|| self.spec_fingerprint());
@@ -684,6 +608,7 @@ impl Compiler {
         let type_probe = self.ed.type_probe;
         let sizes = (self.ty.defer_infos, self.ty.strict_sizes);
         let lookup_without_expansion = self.epochs.lookup_without_expansion;
+        let resolving_depth = self.epochs.resolving_depth;
         IDLE_EDITOR.with(|i| i.set(true));
         self.pr.procs[id.0 as usize].body_state = BodyState::Lowering;
         self.pr.lowering_depth += 1;
@@ -692,6 +617,9 @@ impl Compiler {
         OPS.with(|o| o.borrow_mut().clear());
         UNDO.with(|u| u.borrow_mut().clear());
         LOCAL_GLOBALS.with(|g| *g.borrow_mut() = (self.out.program.globals.len(), Vec::new()));
+        FIRST_USE.with(|f| f.set(None));
+        TOUCHED_PROCS.with(|t| t.borrow_mut().clear());
+        THUNK_KEYS.with(|t| t.borrow_mut().clear());
         BASES.with(|b| b.set(bases));
         ACTIVE.with(|a| a.set(true));
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -709,7 +637,11 @@ impl Compiler {
         self.ed.type_probe = type_probe;
         (self.ty.defer_infos, self.ty.strict_sizes) = sizes;
         self.epochs.lookup_without_expansion = lookup_without_expansion;
+        self.epochs.resolving_depth = resolving_depth;
         IDLE_EDITOR.with(|i| i.set(false));
+        if matches!(result, Ok(Ok(()))) && finished_active {
+            self.leave_proc_memos();
+        }
         let undo = UNDO.with(|u| std::mem::take(&mut *u.borrow_mut()));
         for undo in undo.into_iter().rev() {
             undo(self);
@@ -725,6 +657,11 @@ impl Compiler {
         let deposit = DEPOSIT.with(|d| d.borrow_mut().take());
         let bases_globals = LOCAL_GLOBALS.with(|g| g.borrow().0);
         let took = started.elapsed();
+        // What the body asked for before it stopped comes first in the serial order; running the
+        // step ahead would number its own globals before them.
+        let first_use = FIRST_USE
+            .with(Cell::take)
+            .filter(|_| LOCAL_GLOBALS.with(|g| g.borrow().1.is_empty()));
         let reason = match result {
             Ok(Ok(())) if finished_active => match deposit {
                 Some(deposit) => {
@@ -740,6 +677,7 @@ impl Compiler {
                             deposit,
                             expressions: EXPRESSIONS.with(|e| std::mem::take(&mut *e.borrow_mut())),
                             ops: OPS.with(|o| std::mem::take(&mut *o.borrow_mut())),
+                            thunk_keys: THUNK_KEYS.with(|t| std::mem::take(&mut *t.borrow_mut())),
                             globals_base: bases_globals,
                             globals: LOCAL_GLOBALS.with(|g| std::mem::take(&mut g.borrow_mut().1)),
                             took,
@@ -750,7 +688,14 @@ impl Compiler {
             },
             Ok(Ok(())) => unreachable!("a speculative body finished after being abandoned"),
             Ok(Err(_)) => Reason::Failed,
-            Err(payload) if payload.is::<Abandoned>() => Reason::Wrote(BLOCKER.with(Cell::get)),
+            Err(payload) if payload.is::<Abandoned>() => {
+                let table = BLOCKER.with(Cell::get);
+                if first_use.is_some() {
+                    Reason::Resolving(table)
+                } else {
+                    Reason::Wrote(table)
+                }
+            }
             Err(payload) => std::panic::resume_unwind(payload),
         };
         STATS.with(|s| {
@@ -760,7 +705,14 @@ impl Compiler {
             entry.1 += took;
             s.view_wasted += took;
         });
-        Outcome::Abandoned
+        Outcome::Abandoned(match (reason, first_use) {
+            (Reason::Resolving(_), Some(what)) => Some(Resumable {
+                what,
+                reason,
+                took,
+            }),
+            _ => None,
+        })
     }
 
     /// Install what a finished speculative body made, as the serial path would have.
@@ -775,6 +727,7 @@ impl Compiler {
             deposit,
             expressions,
             ops,
+            thunk_keys: _,
             globals_base,
             globals,
             took,
@@ -921,6 +874,91 @@ impl Compiler {
         }
     }
 
+    /// An earlier body made a thunk scope for a scope this body made one for too.
+    fn thunk_scope_taken(&self, delta: &Delta) -> bool {
+        delta.thunk_keys.iter().any(|key| {
+            (key.0 as usize) < delta.scopes_base && self.ns.thunk_scopes.contains_key(key)
+        })
+    }
+
+    /// Run `what` here, serially, as it would run inside a body lowered at this point. Returns
+    /// whether it is done now: an error is left to the serial path, which reports it.
+    fn run_first_use(&mut self, what: FirstUse) -> bool {
+        self.pr.lowering_depth += 1;
+        let done = match what {
+            FirstUse::Entity(e) => {
+                if matches!(self.entity(e).state, EntityState::Unresolved) {
+                    let _ = self.resolve_entity(e);
+                }
+                matches!(self.entity(e).state, EntityState::Done(_))
+            }
+            FirstUse::Target(p) => {
+                if self.proc(p).target.is_none() {
+                    let _ = self.proc_func(p, self.proc(p).span);
+                }
+                self.proc(p).target.is_some()
+            }
+            FirstUse::Signature(p) => {
+                if self.proc(p).sig.is_none() {
+                    let _ = self.signature(p, self.proc(p).span);
+                }
+                self.proc(p).sig.is_some()
+            }
+        };
+        self.pr.lowering_depth -= 1;
+        done
+    }
+
+    /// The body `id`, whose turn has come, stopped inside the first resolution of an entity.
+    /// Resolve that entity here, serially, where the serial path would have resolved it a little
+    /// later, and check the body again. Nothing the body did before it stopped is ordered
+    /// against the resolution: any write to an ordered table would have stopped it sooner.
+    /// Returns whether the body was committed.
+    fn resolve_ahead(&mut self, id: ProcId, mut stopped: Resumable) -> bool {
+        let mut history = Vec::new();
+        // The newest try is in `history` and was the last one made, so it is the body's outcome.
+        let mut last_is_final = true;
+        let committed = loop {
+            history.push((stopped.reason, stopped.took));
+            if history.len() > MAX_AHEAD || !self.run_first_use(stopped.what) {
+                break false;
+            }
+            STATS.with(|s| s.borrow_mut().resolved_ahead += 1);
+            match self.speculate_body(id) {
+                Outcome::Ready(delta) => {
+                    last_is_final = false;
+                    self.commit_body(*delta);
+                    STATS.with(|s| s.borrow_mut().recovered += 1);
+                    break true;
+                }
+                Outcome::Abandoned(Some(next)) if next.what != stopped.what => stopped = next,
+                // The same step again: running it ahead did not get the body any further.
+                Outcome::Abandoned(Some(_)) => {
+                    last_is_final = false;
+                    break false;
+                }
+                Outcome::Abandoned(None) => {
+                    last_is_final = false;
+                    break false;
+                }
+            }
+        };
+        // Each body counts once: by how it ended, not by the tries on the way.
+        let keep = usize::from(last_is_final);
+        let drop = history.len() - keep;
+        STATS.with(|s| {
+            let mut s = s.borrow_mut();
+            for (reason, took) in history.drain(..drop) {
+                if let Some(entry) = s.aborted.get_mut(&reason) {
+                    entry.0 -= 1;
+                    entry.1 = entry.1.saturating_sub(took);
+                }
+                s.view_wasted = s.view_wasted.saturating_sub(took);
+            }
+        });
+        committed
+    }
+
     /// Lower the queued bodies, a batch at a time, in the order the serial path would. A body is
     /// committed if it finished speculatively and nothing that could have changed what it read
     /// happened since; otherwise it runs serially.
@@ -945,19 +983,28 @@ impl Compiler {
                 self.speculate_top(&mut pending);
                 self.pr.body_queue.pop();
             }
-            if let Some((Outcome::Ready(delta), stamp)) = pending.remove(&id) {
-                let reason = (self.spec_stamp() != stamp).then_some(Reason::Invalidated);
-                let Some(reason) = reason else {
-                    self.commit_body(*delta);
-                    continue;
-                };
-                STATS.with(|s| {
-                    let mut s = s.borrow_mut();
-                    let entry = s.aborted.entry(reason).or_default();
-                    entry.0 += 1;
-                    entry.1 += delta.took;
-                    s.view_wasted += delta.took;
-                });
+            match pending.remove(&id) {
+                Some((Outcome::Ready(delta), stamp)) => {
+                    let reason = (self.spec_stamp() != stamp || self.thunk_scope_taken(&delta))
+                        .then_some(Reason::Invalidated);
+                    let Some(reason) = reason else {
+                        self.commit_body(*delta);
+                        continue;
+                    };
+                    STATS.with(|s| {
+                        let mut s = s.borrow_mut();
+                        let entry = s.aborted.entry(reason).or_default();
+                        entry.0 += 1;
+                        entry.1 += delta.took;
+                        s.view_wasted += delta.took;
+                    });
+                }
+                Some((Outcome::Abandoned(Some(stopped)), _)) => {
+                    if self.resolve_ahead(id, stopped) {
+                        continue;
+                    }
+                }
+                _ => {}
             }
             let started = Instant::now();
             self.drain_one(id, pass);
@@ -1003,6 +1050,31 @@ fn remap_using(using: &mut UsingEntry, shift: &Shift) {
     }
 }
 
+/// Abandon the speculative body if `sig` names a scope the body made: the signature outlives it.
+pub(super) fn keep_signature_movable(sig: &super::procs::Signature) {
+    if !active() {
+        return;
+    }
+    let base = BASES.with(Cell::get)[0] as u32;
+    fn callable(p: &super::ProcTypeParams, base: u32) -> bool {
+        p.scope.0 >= base || p.returns.iter().flatten().any(|r| callable(r, base))
+    }
+    let own = sig.scope.0 >= base
+        || sig
+            .params
+            .iter()
+            .filter_map(|p| p.callable.as_ref())
+            .any(|c| callable(c, base))
+        || sig
+            .return_callables
+            .iter()
+            .flatten()
+            .any(|c| callable(c, base));
+    if own {
+        abandon(W::PrProcs as usize);
+    }
+}
+
 /// Whether what a body made refers to things that cannot be moved by shifting scope and entity ids.
 fn immovable(scopes: &[Scope], entities: &[Entity], bases: [usize; 2]) -> Option<&'static str> {
     for scope in scopes {
@@ -1035,63 +1107,9 @@ fn immovable(scopes: &[Scope], entities: &[Entity], bases: [usize; 2]) -> Option
     None
 }
 
-/// Print the counters.
-pub fn report() {
-    if !enabled() || !body_probe::enabled() {
-        return;
-    }
-    STATS.with(|s| {
-        let s = s.borrow();
-        let aborted: u64 = s.aborted.values().map(|a| a.0).sum();
-        eprintln!(
-            "== speculative bodies: {} batches, {} bodies batched, {} committed, {} abandoned",
-            s.batches, s.batched, s.committed, aborted
-        );
-        let pct = |n: u64| 100.0 * n as f64 / s.batched.max(1) as f64;
-        eprintln!(
-            "  committed {:.1}% of batched; moved {} scopes, {} entities",
-            pct(s.committed),
-            s.scopes_moved,
-            s.entities_moved
-        );
-        eprintln!("-- abandoned by first blocker:");
-        let mut rows: Vec<_> = s.aborted.iter().collect();
-        rows.sort_by_key(|(_, (n, _))| std::cmp::Reverse(*n));
-        for (reason, (n, time)) in rows {
-            let name = match reason {
-                Reason::Wrote(i) => format!("wrote {}", body_probe::write_name(*i)),
-                Reason::Failed => "reported an error".into(),
-                Reason::Immovable(why) => format!("immovable: {why}"),
-                Reason::Invalidated => "invalidated by a serial body".into(),
-                Reason::LoweredMeanwhile => "lowered on demand by an earlier body".into(),
-                Reason::Unsupported => "not eligible".into(),
-            };
-            eprintln!(
-                "  {name:<44} {n:>8} ({:>4.1}%)  wasted {time:>10.3?}",
-                pct(*n)
-            );
-        }
-        let per = |t: Duration, n: u64| t.as_secs_f64() * 1e6 / n.max(1) as f64;
-        eprintln!("-- time:");
-        eprintln!(
-            "  view path, committed   {:>10.3?} ({:.1} us/body)",
-            s.view_time,
-            per(s.view_time, s.committed)
-        );
-        eprintln!(
-            "  view path, abandoned   {:>10.3?} ({:.1} us/body)",
-            s.view_wasted,
-            per(s.view_wasted, aborted)
-        );
-        eprintln!(
-            "  commit                 {:>10.3?} ({:.2} us/body)",
-            s.commit_time,
-            per(s.commit_time, s.committed)
-        );
-        eprintln!(
-            "  serial path (batched)  {:>10.3?} ({:.1} us/body)",
-            s.serial_time,
-            per(s.serial_time, s.serial_bodies)
-        );
-    });
-}
+mod journal;
+mod stats;
+
+pub use self::stats::report;
+#[cfg(all(test, feature = "speculative-bodies"))]
+pub(in crate::sema) use self::stats::{Counts, counts, force};
