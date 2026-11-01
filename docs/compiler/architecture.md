@@ -32,7 +32,7 @@ Sema is single-threaded. Parsing runs ahead on worker threads ([compile speed](c
 
 The symbol interner and `AstId` counter are process-wide, so their numbers follow thread timing. Nothing visible may depend on them (sort by spelling; `tools/differential/determinism.py --scramble` checks it). Workers parse with a placeholder file id and `ast::relocate` rewrites spans when sema claims the tree, so any new `Span` or `Ident` field in the AST must also be visited in `ast/relocate.rs`.
 
-[Parallel type checking](parallel-sema.md) describes the planned driver/worker split: one driver owns everything order-sensitive and merges worker results in serial order.
+[Parallel type checking](parallel-sema.md) describes the planned design: bodies are checked on several threads against shared insert-only tables, ids may come out in any order, and every place where id order reaches the output gets a stable key instead.
 
 ## How to change it
 
