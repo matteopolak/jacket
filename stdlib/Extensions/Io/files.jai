@@ -21,6 +21,8 @@ Io_File :: struct {
     position: s64;
     // Opened with `.APPEND`: every write goes to the end, whatever the offset.
     append: bool;
+    // `open_stream_file` restores these POSIX status flags before closing a duplicated stream.
+    restore_status_flags: s32 = -1;
 }
 
 // Opens `path`. Close the file with [close].
@@ -60,6 +62,44 @@ open_file :: (path: string, mode := File_Mode.READ) -> Io_File, Io_Error {
     file.append = mode == .APPEND;
 
     return file, .NONE;
+}
+
+// Opens a POSIX byte stream (a terminal, FIFO, or `/dev/stdin`) for non-blocking reads.
+// Unlike `open_file`, reads use the current position rather than pread. Close with `close`.
+// Windows returns `.UNSUPPORTED`. Closing leaves stdin open and restores its status flags when
+// the path duplicated a descriptor (`/dev/fd` on macOS). While open, that shared descriptor is
+// non-blocking too; do not read it elsewhere concurrently.
+//
+// ```jai,no_run
+// input, error := open_stream_file("/dev/stdin");
+// if error == .NONE {
+//     defer close(*input);
+//     lines := make_line_reader(reader_of(*input));
+//     defer free_line_reader(*lines);
+//     line, read_error := read_line(*lines);
+// }
+// ```
+open_stream_file :: (path: string) -> Io_File, Io_Error {
+    current_fiber();
+
+    #if OS == .WINDOWS {
+        return .{}, .UNSUPPORTED;
+    } else {
+        fd := sys_open(temp_c_string(path), O_RDONLY | O_NONBLOCK, 0);
+        if fd < 0 return .{}, error_from_result(fd);
+
+        // /dev/fd paths may duplicate a descriptor and ignore open's O_NONBLOCK flag.
+        flags := c_fcntl(cast(s32) fd, F_GETFL);
+        prepared := sys_nonblocking(cast(s32) fd);
+
+        if flags < 0 || prepared < 0 {
+            if flags >= 0 c_fcntl(cast(s32) fd, F_SETFL, flags);
+            sys_close(fd);
+            return .{}, .OTHER;
+        }
+
+        return .{ handle = .{ fd, .STREAM }, restore_status_flags = flags }, .NONE;
+    }
 }
 
 // Reads up to `buffer.count` bytes at the file's position. 0 at the end of the file.
@@ -278,6 +318,13 @@ file_size :: (file: *Io_File) -> s64, Io_Error {
 // file_delete("/tmp/jacket-io-close.txt");
 // ```
 close :: (file: *Io_File, now := false) -> Io_Error {
+    #if OS != .WINDOWS {
+        if file.restore_status_flags >= 0 {
+            c_fcntl(cast(s32) file.handle.fd, F_SETFL, file.restore_status_flags);
+            file.restore_status_flags = -1;
+        }
+    }
+
     if now {
         close_without_waiting(file.handle);
 
