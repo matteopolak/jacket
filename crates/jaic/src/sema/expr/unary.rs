@@ -146,7 +146,12 @@ impl Compiler {
                 ..
             } if self.is_memory_type(ty) => {
                 let key = (ty, agg.bytes.clone(), agg.relocs.clone());
-                let global = if let Some(&g) = self.out.const_addr_globals.get(&key) {
+                let found = self.out.const_addr_globals.get(&key).copied();
+                crate::sema::body_probe::lookup(
+                    crate::sema::body_probe::Lookup::ConstAddr,
+                    found.is_some(),
+                );
+                let global = if let Some(g) = found {
                     g
                 } else {
                     let size = self.size_of(ty, span)?;

@@ -450,7 +450,12 @@ impl Compiler {
             .iter()
             .map(|(_, v, t)| crate::sema::instance_key_value(&self.ty.types, v, *t))
             .collect();
-        if let Some(&inst) = self.proc(id).instances.get(&key) {
+        let existing = self.proc(id).instances.get(&key).copied();
+        crate::sema::body_probe::lookup(
+            crate::sema::body_probe::Lookup::Instances,
+            existing.is_some(),
+        );
+        if let Some(inst) = existing {
             if !crate::sema::speculative::defer(move |c, _| {
                 c.meta.perf.poly_request(id, true, span);
             }) {

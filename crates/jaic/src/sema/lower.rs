@@ -843,7 +843,9 @@ impl Output {
 
     /// Read-only global holding the bytes of a string literal.
     pub fn string_global(&mut self, bytes: &Arc<[u8]>) -> ir::GlobalId {
-        if let Some(&g) = self.strings.get(bytes) {
+        let found = self.strings.get(bytes).copied();
+        super::body_probe::lookup(super::body_probe::Lookup::Strings, found.is_some());
+        if let Some(g) = found {
             return g;
         }
         // A speculative body asks for the global when it is committed.

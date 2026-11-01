@@ -86,7 +86,12 @@ impl Compiler {
     }
 
     pub fn type_info_global(&mut self, ty: TypeId, span: Span) -> Result<ir::GlobalId> {
-        if let Some(&g) = self.ty.infos.get(&ty) {
+        let found = self.ty.infos.get(&ty).copied();
+        crate::sema::body_probe::lookup(
+            crate::sema::body_probe::Lookup::TypeInfos,
+            found.is_some(),
+        );
+        if let Some(g) = found {
             if !self.ty.in_snapshot && self.ty.snapshot_infos.contains(&ty) {
                 self.ty.snapshot_infos.remove(&ty);
             }

@@ -177,8 +177,10 @@ impl<T, const I: usize> Probed<T, I> {
 impl<const I: usize> Probed<crate::types::Types, I> {
     pub fn intern(&mut self, kind: crate::types::TypeKind) -> crate::types::TypeId {
         if let Some(id) = self.0.find(&kind) {
+            lookup(Lookup::Types, true);
             return id;
         }
+        lookup(Lookup::Types, false);
         write_at(I);
         self.0.intern(kind)
     }
@@ -244,6 +246,7 @@ impl<T, const I: usize> std::ops::Deref for Probed<T, I> {
 
     #[inline(always)]
     fn deref(&self) -> &T {
+        read_at(I);
         &self.0
     }
 }
@@ -310,6 +313,7 @@ impl<T, P: std::slice::SliceIndex<[T]> + First, const I: usize> std::ops::Index<
 
     #[inline(always)]
     fn index(&self, at: P) -> &Reached<T, P> {
+        read_at(I);
         &self.0[at]
     }
 }
@@ -438,6 +442,57 @@ fn write_at_index(i: usize, at: usize) {
     }
 }
 
+
+/// Tables looked up by key and added to on a miss, whose hit rate `-dev_body_probe` reports.
+#[derive(Clone, Copy)]
+pub enum Lookup {
+    Types,
+    Strings,
+    Packs,
+    ConstAddr,
+    TypeInfos,
+    Instances,
+}
+
+const LOOKUP_NAMES: [&str; 6] = [
+    "ty.types (intern)",
+    "out.strings",
+    "out.packs",
+    "out.const_addr_globals",
+    "ty.infos",
+    "ProcInfo.instances",
+];
+
+thread_local! {
+    /// Bodies being lowered right now, innermost included.
+    static DEPTH: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    /// Shared-table reads (`Deref`) made while a body is lowered, per `W`.
+    static READS: RefCell<[u64; WN]> = const { RefCell::new([0; WN]) };
+    /// Keyed lookups made while a body is lowered: hits and misses per `Lookup`.
+    static LOOKUPS: RefCell<[[u64; 2]; 6]> = const { RefCell::new([[0; 2]; 6]) };
+}
+
+#[inline(always)]
+fn read_at(i: usize) {
+    if COUNTING
+        && ON.load(std::sync::atomic::Ordering::Relaxed)
+        && DEPTH.with(std::cell::Cell::get) > 0
+    {
+        READS.with(|r| r.borrow_mut()[i] += 1);
+    }
+}
+
+/// Count one keyed lookup of `table` made inside a body, a hit or a miss (the miss adds the key).
+#[inline(always)]
+pub fn lookup(table: Lookup, hit: bool) {
+    if COUNTING
+        && ON.load(std::sync::atomic::Ordering::Relaxed)
+        && DEPTH.with(std::cell::Cell::get) > 0
+    {
+        LOOKUPS.with(|l| l.borrow_mut()[table as usize][!hit as usize] += 1);
+    }
+}
+
 static ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Read the knob once; `Compiler::new` calls this.
@@ -555,6 +610,8 @@ struct State {
     frames: Vec<Frame>,
     bodies: u64,
     touched: Vec<u64>,
+    /// Items each table grew by while bodies were lowered, nested bodies excluded (`NAMES`).
+    grown: Vec<u64>,
     /// Writes made by the bodies themselves (nested bodies excluded), per `W`.
     writes: Vec<u64>,
     /// Per mask of touched sets: bodies, self time.
@@ -628,10 +685,14 @@ pub fn begin(c: &Compiler, id: u32) {
         let mut s = s.borrow_mut();
         if s.touched.is_empty() {
             s.touched = vec![0; N];
+            s.grown = vec![0; N];
             s.writes = vec![0; WN];
         }
         s.bodies += 1;
+        // The snapshot's own reads are not the body's.
+        let depth = DEPTH.with(|d| d.replace(0));
         let start = snapshot(c, s.bumps, s.bodies);
+        DEPTH.with(|d| d.set(depth + 1));
         LIMITS.with(|l| l.set([0, start[C::Entities as usize] as usize, id as usize]));
         s.frames.push(Frame {
             start,
@@ -647,8 +708,10 @@ pub fn end(c: &Compiler) {
     STATE.with(|s| {
         let mut s = s.borrow_mut();
         let bumps = s.bumps;
+        let depth = DEPTH.with(|d| d.replace(0));
         // `bodies` already counts this one, which `begin` snapshotted before incrementing.
         let now = snapshot(c, bumps, s.bodies);
+        DEPTH.with(|d| d.set(depth - 1));
         let f = s.frames.pop().unwrap();
         LIMITS.with(|l| {
             l.set(s.frames.last().map_or([0, 0, usize::MAX], |p| {
@@ -680,6 +743,7 @@ pub fn end(c: &Compiler) {
             if own[i] > 0 {
                 s.touched[i] += 1;
             }
+            s.grown[i] += own[i];
         }
         for i in 0..WN {
             s.writes[i] += own[N0 + i];
@@ -700,7 +764,7 @@ pub fn report() {
         eprintln!("== body probe: {} lower_body calls (self time {:?})", s.bodies, s.total);
         eprintln!("-- bodies whose own lowering grew each table:");
         for i in 0..N0 {
-            eprintln!("  {:<20} {:>8} ({:.1}%)", NAMES[i], s.touched[i], 100.0 * s.touched[i] as f64 / s.bodies.max(1) as f64);
+            eprintln!("  {:<20} {:>8} ({:.1}%) grew by {}", NAMES[i], s.touched[i], 100.0 * s.touched[i] as f64 / s.bodies.max(1) as f64, s.grown[i]);
         }
         if COUNTING {
             eprintln!("-- in-place writes (mutable borrows of shared state) made while a body is lowered:");
@@ -716,6 +780,26 @@ pub fn report() {
                     s.writes[i]
                 );
             }
+            eprintln!("-- shared-table reads (`Deref`; includes len/iter) and keyed lookups made while a body is lowered:");
+            READS.with(|r| {
+                let r = r.borrow();
+                let mut rows: Vec<_> = (0..WN).filter(|&i| r[i] > 0).collect();
+                rows.sort_by_key(|&i| std::cmp::Reverse(r[i]));
+                for i in rows.into_iter().take(40) {
+                    eprintln!("  {:<30} {:>12} reads {:>12} writes", WRITE_NAMES[i], r[i], s.writes[i]);
+                }
+            });
+            LOOKUPS.with(|l| {
+                for (i, name) in LOOKUP_NAMES.iter().enumerate() {
+                    let [hit, miss] = l.borrow()[i];
+                    if hit + miss > 0 {
+                        eprintln!(
+                            "  lookup {:<24} {:>12} hits {:>10} misses ({:.2}% hit)",
+                            name, hit, miss, 100.0 * hit as f64 / (hit + miss) as f64
+                        );
+                    }
+                }
+            });
             let quiet: Vec<_> = (0..WN).filter(|&i| s.touched[N0 + i] == 0).map(|i| WRITE_NAMES[i]).collect();
             eprintln!("  never written by a body: {}", quiet.join(", "));
         } else {

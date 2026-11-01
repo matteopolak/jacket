@@ -262,7 +262,9 @@ impl Compiler {
                 .map(|r| (r.offset, r.target, r.addend))
                 .collect(),
         );
-        let data = if let Some(&g) = self.out.packs.get(&key) {
+        let found = self.out.packs.get(&key).copied();
+        crate::sema::body_probe::lookup(crate::sema::body_probe::Lookup::Packs, found.is_some());
+        let data = if let Some(g) = found {
             g
         } else {
             let g = self.out.program.add_global(ir::Global {
