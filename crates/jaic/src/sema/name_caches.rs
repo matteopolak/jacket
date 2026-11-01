@@ -9,7 +9,7 @@ use crate::fxhash::HashMap;
 use crate::intern::Sym;
 
 use super::stdlib_index::StdlibView;
-use super::{EntityId, ModuleId, ScopeId};
+use super::{EntityId, ModuleId, ProcId, ScopeId, Span};
 use crate::source::ImportSuggestion;
 
 /// What an import suggestion is looked up by.
@@ -43,6 +43,9 @@ pub struct NameCaches {
     /// The imports of a scope with many that a lookup has to ask (`Compiler::import_plan`), with
     /// the `namespace_generation` and import count they were made for.
     pub(in crate::sema) import_plans: HashMap<ScopeId, (u64, usize, Arc<[u32]>)>,
+    /// Whether a parameter written as a bare name has the type `Code`, by procedure, the span of
+    /// the type and its name. Only names that resolved to a type are kept.
+    pub(in crate::sema) param_is_code: HashMap<(ProcId, Span, Sym), bool>,
     /// Modules without any exported `using` member (here or re-exported), and the
     /// `namespace_generation` that holds for.
     pub(in crate::sema) using_member_free:

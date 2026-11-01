@@ -169,11 +169,24 @@ impl Compiler {
         let Some(ty) = &param.ty else {
             return false;
         };
-        if !matches!(ty.kind, ast::ExprKind::Ident(_)) {
+        let ast::ExprKind::Ident(name) = ty.kind else {
             return false;
+        };
+        // Every call asks this of each parameter of each candidate, and a name that resolved to
+        // a type keeps meaning it.
+        let key = (proc, ty.span, name);
+        if let Some(&is_code) = self.caches.param_is_code.get(&key) {
+            return is_code;
         }
         let scope = self.proc(proc).scope;
-        self.eval_type(scope, ty).ok() == Some(TypeId::CODE)
+        match self.eval_type(scope, ty) {
+            Ok(ty) => {
+                let is_code = ty == TypeId::CODE;
+                self.caches.param_is_code.insert(key, is_code);
+                is_code
+            }
+            Err(_) => false,
+        }
     }
 
     pub fn signature(&mut self, id: ProcId, span: Span) -> Result<Arc<Signature>> {
