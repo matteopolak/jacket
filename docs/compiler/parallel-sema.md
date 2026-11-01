@@ -1,6 +1,6 @@
 # Parallel type checking
 
-A design for checking procedure bodies on several threads. Sema itself is not parallel yet. What exists: a measurement probe (`sema/body_probe.rs`, `-dev_body_probe`), the `Send + Sync` conversion of the shared world (`sema/sync_world.rs`), and a one-thread prototype of the batch/abandon/commit protocol (`sema/speculative.rs`, [stage 1](#stage-1-one-thread-prototype)).
+A design for checking procedure bodies on several threads. Sema itself is not parallel yet. What exists: a measurement probe (`sema/body_probe.rs`, `-dev_body_probe`), the `Send + Sync` conversion of the shared world (`sema/sync_world.rs`), and a one-thread prototype of the batch/abandon/commit protocol (`sema/speculative.rs`, [stage 1](#stage-1-one-thread-prototype)), and [stage 2, part 1](#stage-2-part-1-first-uses): fewer abandoned bodies.
 
 On large `-check` runs most time is checking bodies (about 60% on a generated 60k-line program), so that is the target.
 
@@ -33,7 +33,7 @@ Realistic target: 1.5-1.8x from sema alone and 2-2.4x with parallel parse, at 1.
 
 0. (done) Audit in-place writes during `lower_body`; make the AST, values and signatures `Send + Sync`.
 1. (done) One-thread prototype of the view/delta/commit protocol; go or no-go on commit cost and abort rate. Result: go, see [stage 1](#stage-1-one-thread-prototype).
-2. Threads for a restricted subset.
+2. Fewer abandoned bodies, then threads for a restricted subset. Part 1 (done): first uses, see [below](#stage-2-part-1-first-uses). Part 2: provisional ids for new functions and types. Part 3: threads.
 3. Widen: interning, new procs, signatures and layouts resolved locally. Abort rate under 5%.
 4. Check unreferenced declarations the same way.
 
@@ -76,20 +76,53 @@ An unrelated finding: importing `Print_Vars` makes the order of the `type_info` 
 
 Go. The protocol costs under 1 us per committed body to commit and 3-9 us to check, against 30-50 us for a body on the serial path, so commit does not bound the speedup. The abort rate is high on real programs (55-78% abandoned) but concentrated: a handful of tables account for nearly all of it, and each is a table stage 3 already plans to make local. The numbers favour a program with many similar bodies; small programs commit under half.
 
-### What stage 2 has to widen first
+### What stage 2 had to widen first
 
-Order by share of abandoned bodies:
-
-1. First-use entity resolution (`ns.entities`): 22-40% everywhere. A body that is the first to name a global, a type or a procedure resolves it in place. Resolving it ahead of the batch, or resolving it into the delta, is the biggest single step.
-2. Resolution bookkeeping (`epochs.resolving_depth`, `ns.thunk_scopes`): 7-17% on small programs, from constants evaluated while checking a body.
-3. New procedures, signatures and types (`pr.procs`, `ty.types`, `ty.default_images`): up to 14% on library-heavy code.
-4. `out.program` and `meta.perf`: counters and program-level tables written as a side effect; they need to move into the delta.
-
-Compile-time execution stays serial.
+The stage 1 blockers by share of abandoned bodies: first-use entity resolution (22-40%), resolution bookkeeping (`epochs.resolving_depth`, `ns.thunk_scopes`, 7-17% on small programs), new procedures, signatures and types (up to 14%), and `out.program` / `meta.perf`. Compile-time execution stays serial.
 
 ### What is left
 
 Threads; a read-only view type in place of write interception on the whole `Compiler` (the per-thread caches and the non-`Sync` fields listed below go with it); batches sized by the work and not a fixed 64; and the three tables above.
+
+## Stage 2, part 1: first uses
+
+A first use is a demand-driven step that does work the first time something asks for it: resolving a global entity, working out a signature, giving a procedure its function and queueing its body (`proc_func`). A body that was first to ask used to be abandoned. Three changes, all in `sema/speculative.rs` and `sema/speculative/journal.rs`, with output unchanged:
+
+- **Into the delta.** The memo fields a first use fills in are changed in place for the rest of the body, put back when it ends, and replayed at its commit: the entity state (`set_entity_state`), a procedure's `poly_checked` / `is_poly` / `sig` (`proc_memo_mut`), and the thunk scope of a scope (`note_thunk_scope`). An entity resolved this way that asked for a provisional global, or a signature naming a scope the body made, still abandons the body. A thunk scope made by two bodies of a batch invalidates the later one (`thunk_scope_taken`), since the serial path would have made one. `epochs.resolving_depth` is scratch that the body restores.
+- **Run ahead at the body's turn.** Steps that write ordered tables cannot be replayed (a function id, a queued body, a new type). When a body is abandoned inside one (`first_use`), its turn runs that step serially, where the serial path would have run it a moment later, and checks the body again (`resolve_ahead`; at most `MAX_AHEAD` = 2 steps per body, and not when the same step comes back). A body that had already asked for a global before it stopped is not resumed: the step would number its globals first. The steps are the first run of `resolve_entity_inner`, `make_proc_target` (plain procedures with a body only) and `make_signature`.
+- **Counters.** Bodies abandoned inside a first use are listed as "wrote X while resolving an entity", and the summary says how many bodies committed on the first try and how many only after steps ran ahead.
+
+### Measured
+
+Same workloads and build as stage 1 (release, `-check`, one thread; load average 3-6 from other work, so times are rough). "Committed" is the share of batched bodies committed, with "first try" the part that needed no step run ahead.
+
+| Workload | Committed before | Committed after | First try after | Top remaining blockers (share of batched) |
+| --- | --- | --- | --- | --- |
+| `examples/game2d/game` | 25.2% | 35.5% | 26.6% | `ty.types` 10%, `out.program` 9% (+9% inside a first use), `meta.perf` 9%, invalidated 7%, `pr.procs` 9% |
+| `examples/ui-gallery` | 22.0% | 33.0% | 24.4% | `out.program` 15% (+8%), `ty.types` 15%, `meta.perf` 8%, invalidated 8% |
+| ~48 stdlib modules (`-no_dce`) | 46.5% | 59.9% | 52.6% | `out.program` 11%, `ty.types` 9%, `meta.perf` 8%, `ty.default_images` 4% |
+| 600k generated lines | 73.3% | 82.2% | 73.3% | `pr.procs` 7%, `meta.perf` 3%, `out.program` 3%, invalidated 2% |
+
+Per cause, as the share of batched bodies abandoned first at that table, before and after (game2d / ui-gallery / stdlib48 / 600k):
+
+| Cause | Before | After |
+| --- | --- | --- |
+| `ns.entities` (first-use entity) | 40 / 37 / 2 / 22% | 1.4 / 0.6 / 0 / 0% |
+| `epochs.resolving_depth` | 3 / 9 / 9 / 0% | 0 |
+| `ns.thunk_scopes` | 7 / 4 / 7 / 0.2% | 0 |
+| `pr.procs` (callee state, signatures) | 0 / 0 / 14 / 0% | 9 / 5 / 0.4 / 7% |
+
+Most first-use entities are procedures, so clearing `ns.entities` mostly moved the blocker to the next table: the first call of a procedure reserves its function (`out.program`) and queues its body, and its signature interns types (`ty.types`). Those cannot be replayed without provisional ids, so on the first try only 1-6 points more of the bodies commit; the rest are recovered at their turn, which on threads is serial work. `-check` wall time with the flag on is slower than stage 1 (600k lines: about 1.2s then, about 2s now, load-dependent) because a recovered body is checked up to three times; with the flag off it is unchanged (0.70s both, and `-emit_ir` of `game2d` and `ui-gallery` identical to the build before).
+
+The few percent of `ns.default_scopes` / `ns.overload_sets_checked` / `ty.default_images` blockers are untouched.
+
+### Identical output
+
+`-emit_ir` with and without the flag, built (not `-check`, which writes no IR), `@frozen.*` globals excluded: byte-identical on `game2d`, `ui-gallery`, the 600k-line program (350 MB), and the `basics`, `polymorphism`, `kvdb`, `threads` and `using-records` examples. A program importing about 48 stdlib modules and `examples/metaprogramming` differ only in the order of `type_info` globals, which also differs between two runs with the flag off; the sorted lines match for the stdlib program. `cargo test -p jaic` passes by default, with the feature, and with `JAIC_SPECULATIVE_BODIES=1`; the full `stdlib` suite has the same 22 local failures (missing probe libraries) with and without the flag.
+
+### What is next
+
+Part 2: make the blockers above replayable with provisional ids, as strings and constants already are. In order: function ids and queued bodies for `proc_func` (`out.program.funcs`, `pr.body_queue`, `func_procs`; the IR of the body names callees by id), then type interning (`ty.types`, `ty.default_images`: a body-local table of new types, merged at commit), then the instantiation counters (`meta.perf`) and `out.program` writes from `emit_call`. Until then threads would speed up only the first-try share. Part 3 adds the threads.
 
 ## Send and Sync of the shared world
 
@@ -109,7 +142,7 @@ Statics that stay global, and why: the symbol interner and record field names (a
 
 ## How to change it
 
-The probe hooks are `lower_body_uncached`, the `body_queue.push` sites, `resolve_entity`, `signature`, `layout_struct_with_runtime_dependencies` and `finish_program`. New shared tables need a delta/commit story before workers can touch them.
+The probe hooks are `lower_body_uncached`, the `body_queue.push` sites, `resolve_entity`, `signature`, `layout_struct_with_runtime_dependencies` and `finish_program`. New shared tables need a delta/commit story before workers can touch them. A memo that a first use fills in goes through `journal` (undo at the end of the body, replay at commit) in `speculative/journal.rs`; a new step that does ordered work gets wrapped in `first_use` so a body stopped inside it can be resumed.
 
 ## Configuration
 
