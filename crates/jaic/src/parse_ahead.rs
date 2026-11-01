@@ -188,8 +188,8 @@ mod imp {
             loop {
                 match state.entries.get_mut(path)? {
                     entry @ Entry::Queued => {
+                        // Left in the queue: a worker that pops it finds it taken and moves on.
                         *entry = Entry::Taken;
-                        state.queue.retain(|queued| queued != path);
                         return None;
                     }
                     Entry::Running => {
@@ -258,8 +258,11 @@ mod imp {
                             return;
                         }
                         if let Some(path) = state.queue.pop_front() {
-                            state.entries.insert(path.clone(), Entry::Running);
-                            break path;
+                            if let Some(entry @ Entry::Queued) = state.entries.get_mut(&path) {
+                                *entry = Entry::Running;
+                                break path;
+                            }
+                            continue;
                         }
                         state = self.work.wait(state).unwrap();
                     }
