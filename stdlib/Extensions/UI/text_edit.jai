@@ -1133,7 +1133,17 @@ editor_paint :: (ui: *UI_State, node: *Node) {
             x1 := text_left + text_width(*ui.text, string.{ to, text.data }, style);
 
             if mark.underline {
-                draw_rect(ui, .{ x0, y + metrics.line_height - 3, max(x1 - x0, 4), 2 }, mark.color);
+                // A four-point wave, clipped before emitting its one-point segments.
+                // Long offscreen diagnostic ranges must not grow the display list.
+                wave_end := min(x0 + max(x1 - x0, 4), rect.x + rect.w);
+                x := max(x0, rect.x);
+
+                while x < wave_end {
+                    phase := (cast(int) (x - x0)) & 3;
+                    drop := ifx phase <= 2 then phase else 1;
+                    draw_rect(ui, .{ x, y + metrics.line_height - 4 + drop, min(1.0, wave_end - x), 1 }, mark.color);
+                    x += 1;
+                }
             } else {
                 draw_rect(ui, .{ x0, y, max(x1 - x0, 4), metrics.line_height }, mark.color);
             }
