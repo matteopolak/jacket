@@ -9,7 +9,9 @@ here). A change to ci.yml runs every area except those in OWN_PATHS_ONLY; a chan
 action runs the jobs that use it. `*` matches within a directory, `**` across them.
 NARROW holds what is not about inputs: the macOS sanitizer leg runs on pushes only for the code
 that decides what the sanitized binaries are. Windows never runs on pull requests (see main).
-`code` is false when every changed file is prose (PROSE, minus the docs some test reads), so a
+`stdlib_changed` is the JSON list of changed files when only stdlib module sources and golden
+outputs changed on a pull request or a branch push (select_tests.py narrows the stdlib `jacket
+test` runs to the tests they can affect), else empty. `code` is false when every changed file is prose (PROSE, minus the docs some test reads), so a
 docs-only push skips the build and test jobs.
 
 It also writes `full=true|false` (the tier, see test_matrix) and the `test_matrix` and
@@ -319,6 +321,33 @@ PROSE = ["docs/**", "*.md", ".github/*.md"]
 READ_BY_TESTS = ["docs/specs/**", "docs/tools/jailint.md"]
 
 
+# What a change must be for the stdlib's `jacket test` runs to narrow to the tests it can affect
+# (select_tests.py asks jacket which): module sources and the expected output of golden tests.
+# Anything else, in or out of stdlib, runs every test. Integration branches run every test too.
+NARROW_STDLIB = [
+    "stdlib/**.jai",
+    "stdlib/**/tests/**.stdout",
+    "stdlib/**/tests/**.stderr",
+    "stdlib/**/tests/**.exit",
+]
+FULL_REFS = {"refs/heads/main", "refs/heads/staging"}
+# `jacket test --changed` takes one flag per file: a large change is not worth narrowing.
+NARROW_STDLIB_LIMIT = 100
+
+
+def stdlib_changed(files, env):
+    """The JSON list of changed files `jacket test --changed` narrows the stdlib runs to, or ""
+    (every test) unless this is a pull request or a push to a branch other than main whose
+    diff is only NARROW_STDLIB files."""
+    event = env.get("GITHUB_EVENT_NAME", "")
+    ref = env.get("GITHUB_REF", "refs/heads/main")
+    narrows = event == "pull_request" or (event == "push" and ref not in FULL_REFS)
+    if not files or len(files) > NARROW_STDLIB_LIMIT or not narrows:
+        return ""
+    rx = compile_patterns(NARROW_STDLIB)
+    return json.dumps(files) if all(rx.match(f) for f in files) else ""
+
+
 def regex(pattern):
     out = ""
     i = 0
@@ -396,7 +425,7 @@ def changed_files(env):
     else:
         return None
     result = subprocess.run(
-        ["git", "diff", "--name-only", spec], capture_output=True, text=True
+        ["git", "diff", "--name-only", "--no-renames", spec], capture_output=True, text=True
     )
     return result.stdout.split() if result.returncode == 0 else None
 
@@ -450,6 +479,7 @@ def main():
         event == "workflow_dispatch" and env.get("TIER", "full") != "fast"
     )
     lines.append(f"full={str(full).lower()}")
+    lines.append("stdlib_changed=" + stdlib_changed(files, env))
     lines.append("test_matrix=" + json.dumps(test_matrix(full)))
     lines.append("stdlib_matrix=" + json.dumps(stdlib_matrix(full)))
     macos_asan = "sanitizers-macos" in selected_jobs(results, env.get("JOBS", ""))

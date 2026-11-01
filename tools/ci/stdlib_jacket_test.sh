@@ -4,6 +4,9 @@
 # --partition), runs only that share of the tests, so the platform's legs can split them; `all` or unset runs them all.
 # Tests that open a window or use the clipboard (`needs(.DISPLAY)`) run: the platform has a display, which on Linux
 # is a virtual one (xvfb-run). The data files some tests read (ZIP, archive, MPEG and Meow fixtures) are written first.
+# JACKET_TEST_CHANGED, a JSON list of changed files (ci_changes.py sets it only for a change that cannot
+# reach beyond the stdlib's own modules), narrows every run to the tests those files can affect, before the
+# partition: tools/ci/select_tests.py asks jacket which. If it cannot, every test runs.
 # Every run happens; the exit status is non-zero if any failed.
 set -e
 ulimit -c 0
@@ -19,11 +22,28 @@ case "${JACKET_TEST_PARTITION:-all}" in
   all) ;;
   *) partition=(--partition "$JACKET_TEST_PARTITION") ;;
 esac
-"${display[@]}" "$jacket" test -q --needs display "${partition[@]}" || status=1
-"${display[@]}" "$jacket" test -q --needs display "${partition[@]}" --interp || status=1
-"${display[@]}" "$jacket" test -q --needs display "${partition[@]}" -- -O2 || status=1
+only=()
+if [[ -n "${JACKET_TEST_CHANGED:-}" ]]; then
+  names="$(mktemp)"
+  selection=0
+  python3 -B tools/ci/select_tests.py --jacket "$jacket" --out "$names" || selection=$?
+  if [[ $selection == 0 ]]; then
+    if [[ ! -s "$names" ]]; then
+      echo "stdlib_jacket_test: no stdlib test is affected by the change"
+      exit 0
+    fi
+    while IFS= read -r name; do only+=("$name"); done < "$names"
+    only+=(--exact)
+  fi
+fi
+run() {
+  "${display[@]}" "$jacket" test -q --needs display "${partition[@]}" "${only[@]}" "$@" || status=1
+}
+run
+run --interp
+run -- -O2
 if [[ "${WASM:-}" == true ]]; then
-  "${display[@]}" "$jacket" test -q --needs display "${partition[@]}" --interp -os wasm || status=1
-  "${display[@]}" "$jacket" test -q --needs display "${partition[@]}" -os wasm --runner "node --no-warnings tools/wasi_run.mjs" || status=1
+  run --interp -os wasm
+  run -os wasm --runner "node --no-warnings tools/wasi_run.mjs"
 fi
 exit $status

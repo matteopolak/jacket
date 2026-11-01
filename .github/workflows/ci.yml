@@ -51,6 +51,7 @@ jobs:
     outputs:
       jobs: ${{ steps.select.outputs.jobs }}
       full: ${{ steps.select.outputs.full }}
+      stdlib_changed: ${{ steps.select.outputs.stdlib_changed }}
       test_matrix: ${{ steps.select.outputs.test_matrix }}
       stdlib_matrix: ${{ steps.select.outputs.stdlib_matrix }}
       sanitizer_matrix: ${{ steps.select.outputs.sanitizer_matrix }}
@@ -67,6 +68,7 @@ jobs:
           EVENT_BEFORE: ${{ github.event.before }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
           JOBS: ${{ inputs.jobs }}
           TIER: ${{ inputs.tier }}
         run: python3 tools/ci/ci_changes.py
@@ -566,9 +568,12 @@ jobs:
         # Every stdlib module's tests (`[test] paths` in jacket.toml finds them), once per
         # platform: native, interpreted and native -O2, and with `wasm`, wasm interpreted and built.
         # `jacket_test` is `all`, or `hash:K/N`: this leg's share, which spreads them over the
-        # platform's tooling legs (tools/ci/stdlib_jacket_test.sh).
+        # platform's tooling legs (tools/ci/stdlib_jacket_test.sh). `stdlib_changed` is the list of
+        # changed files when only stdlib modules changed on a branch: only the tests they can
+        # affect run, then the partition splits those.
         if: ${{ always() && !cancelled() && matrix.jacket_test }}
         env:
+          JACKET_TEST_CHANGED: ${{ needs.changes.outputs.stdlib_changed }}
           WASM: ${{ matrix.wasm }}
           JACKET_TEST_PARTITION: ${{ matrix.jacket_test }}
         run: bash tools/ci/stdlib_jacket_test.sh

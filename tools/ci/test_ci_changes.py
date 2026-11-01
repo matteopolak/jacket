@@ -1,3 +1,4 @@
+import json
 import tempfile
 import textwrap
 import unittest
@@ -472,6 +473,48 @@ class Tiers(unittest.TestCase):
                     self.assertEqual(
                         shares, [f"hash:{k}/{count}" for k in range(1, count + 1)]
                     )
+
+
+class StdlibNarrowing(unittest.TestCase):
+    PR = {"GITHUB_EVENT_NAME": "pull_request"}
+
+    def narrowed(self, files, env=None):
+        return ci_changes.stdlib_changed(files, env or self.PR)
+
+    def test_module_sources_and_golden_outputs_narrow(self):
+        files = ["stdlib/Sort/module.jai", "stdlib/Sort/tests/a.stdout"]
+        self.assertEqual(json.loads(self.narrowed(files)), files)
+
+    def test_anything_else_runs_everything(self):
+        for other in [
+            "crates/jaic/src/lib.rs",
+            ".github/workflows/ci.yml",
+            "stdlib/Sort/native.c",
+            "stdlib/categories.toml",
+            "tools/ci/select_tests.py",
+        ]:
+            with self.subTest(other=other):
+                self.assertEqual(self.narrowed(["stdlib/Sort/module.jai", other]), "")
+
+    def test_main_and_staging_pushes_run_everything(self):
+        for ref in ["refs/heads/main", "refs/heads/staging"]:
+            env = {"GITHUB_EVENT_NAME": "push", "GITHUB_REF": ref}
+            self.assertEqual(self.narrowed(["stdlib/Sort/module.jai"], env), "")
+
+    def test_a_branch_push_narrows(self):
+        env = {"GITHUB_EVENT_NAME": "push", "GITHUB_REF": "refs/heads/topic"}
+        self.assertNotEqual(self.narrowed(["stdlib/Sort/module.jai"], env), "")
+
+    def test_scheduled_manual_and_undiffable_runs_run_everything(self):
+        for event in ["schedule", "workflow_dispatch", ""]:
+            env = {"GITHUB_EVENT_NAME": event}
+            self.assertEqual(self.narrowed(["stdlib/Sort/module.jai"], env), "")
+        self.assertEqual(self.narrowed(None), "")
+        self.assertEqual(self.narrowed([]), "")
+
+    def test_a_large_change_runs_everything(self):
+        files = [f"stdlib/M{k}/module.jai" for k in range(101)]
+        self.assertEqual(self.narrowed(files), "")
 
 
 if __name__ == "__main__":
