@@ -111,6 +111,9 @@ webgpu_wait :: (instance: WGPUInstance, done: *bool) {
 }
 
 // Requests an adapter (a GPU) and waits for it. Returns null, and logs why, when there is none.
+// Pass `WGPURequestAdapterOptions` to select `backendType` (for example `.Vulkan` or `.D3D12`)
+// and set `forceFallbackAdapter = 1` for software rendering (lavapipe or WARP). The default
+// null options leave selection to WebGPU; unsupported requests return null.
 //
 // ```jai,no_run
 // instance := wgpuCreateInstance(null);
