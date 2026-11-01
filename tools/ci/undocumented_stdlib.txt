@@ -1681,7 +1681,6 @@ Sound_Player.update_panning_helper
 Sound_Player.update_panning_helper_for_locked_output
 Sound_Player.update_panning_helper_for_many_channel_music
 Subtitles
-Thread
 Thread.Mutex_Tracking
 Thread.Per_OS_Condition_Variable_Type
 Thread.Per_OS_Critical_Section_Type
@@ -2242,4 +2241,3 @@ telemetry3.telemetry_start
 telemetry3.telemetry_start_gpuzone
 telemetry3.telemetry_stop
 telemetry3.telemetry_tick
-xxHash
