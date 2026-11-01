@@ -152,7 +152,7 @@ fn binding_site() -> Site {
 }
 
 #[test]
-fn foreign_declarations_follow_the_own_items_in_their_sections() {
+fn foreign_declarations_follow_the_own_items_and_have_pages() {
     let site = binding_site();
     let page = module_page(&site, 0);
     let own = page.find("id=\"own\"").unwrap();
@@ -160,8 +160,8 @@ fn foreign_declarations_follow_the_own_items_in_their_sections() {
     assert!(own < max);
     assert!(page[max..].contains("class=\"badge sm foreign\""));
     assert!(page.contains("FAST"));
-    assert!(!page.contains("href=\"/api/Vendor/MAX/\""));
-    assert_eq!(site.item_href("Vendor", "MAX"), "/api/Vendor/#MAX");
+    assert!(page.contains("href=\"/api/Vendor/MAX/\""));
+    assert_eq!(site.item_href("Vendor", "MAX"), "/api/Vendor/MAX/");
     assert_eq!(site.item_href("Vendor", "own"), "/api/Vendor/own/");
 }
 

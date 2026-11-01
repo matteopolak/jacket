@@ -366,3 +366,4 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 .row > .members .def dd p { margin: 0; }
 .row > .members.folded { max-height: 200px; }
 .row > .members + .fold-btn { margin: -22px auto 4px; }
+.row-head > a.muted { font-size: 12.5px; }

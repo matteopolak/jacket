@@ -436,11 +436,7 @@ fn outline_html(entries: &[Outline]) -> String {
 /// The outline lines of `items`, linking to their rows.
 fn outline_items(items: &[&Item]) -> impl Iterator<Item = Outline> {
     items.iter().map(|i| Outline {
-        id: if i.binding {
-            Site::slug(&i.name)
-        } else {
-            i.name.clone()
-        },
+        id: i.name.clone(),
         label: i.name.clone(),
         level: Level::Item,
     })
@@ -510,36 +506,26 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
         example::fence(site, m, (&file, line), (info, code), true)
     });
     let members = members_band(site, mi, item);
-    if item.binding {
-        return foreign_row(site, mi, item, &pills, &line, &members);
-    }
+    let (file, line_no) = docs_place(item);
     format!(
-        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{experimental}{overloads}{platforms}{since}</div>\n{line}{summary}{members}{sample}</article>\n",
+        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{foreign}{experimental}{overloads}{platforms}{since}{source}</div>\n{line}{summary}{members}{sample}</article>\n",
         name = esc(&item.name),
         href = esc(&site.item_href(&m.id, &item.name)),
+        foreign = foreign_badge(item),
         experimental = experimental_badge(item.experimental, true),
         platforms = item_badges(m, item),
         since = since_note(&item.since),
+        source = source_link(site, &file, line_no),
     )
 }
 
-/// A declaration of a foreign library the module binds. It has no page of its own, so the row
-/// is the whole entry: its signature, and a type's members.
-fn foreign_row(
-    site: &Site,
-    mi: usize,
-    item: &Item,
-    pills: &str,
-    line: &str,
-    members: &str,
-) -> String {
-    let m = &site.modules[mi];
-    format!(
-        "<article class=\"row\" id=\"{id}\">\n<div class=\"row-head\"><span class=\"name\">{name}</span>{pills}<span class=\"badge sm foreign\" title=\"Declared by a foreign library this module binds\">foreign</span>{platforms}</div>\n{line}{members}</article>\n",
-        id = esc(&Site::slug(&item.name)),
-        name = esc(&item.name),
-        platforms = item_badges(m, item),
-    )
+/// The "foreign" badge of a declaration from a native library the module binds.
+fn foreign_badge(item: &Item) -> &'static str {
+    if item.binding {
+        "<span class=\"badge sm foreign\" title=\"Declared by a foreign library this module binds\">foreign</span>"
+    } else {
+        ""
+    }
 }
 
 /// The docs a list shows for an item: its own, else its first overload's.
@@ -916,7 +902,7 @@ fn see_also(site: &Site, mi: usize, item: &Item) -> String {
         .items
         .iter()
         .filter(|i| {
-            !i.binding
+            i.binding == item.binding
                 && i.group == item.group
                 && i.kind.is_type() == item.kind.is_type()
                 && (i.kind == Kind::Procedure) == (item.kind == Kind::Procedure)
@@ -963,7 +949,7 @@ fn item_side(site: &Site, mi: usize, item: &Item, anchors: &[(String, String)]) 
         .items
         .iter()
         .filter(|i| {
-            !i.binding
+            i.binding == item.binding
                 && i.group == item.group
                 && (i.kind == Kind::Procedure) == (item.kind == Kind::Procedure)
                 && i.kind.is_type() == item.kind.is_type()
@@ -1025,9 +1011,10 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
         other => format!("<span class=\"badge\">{}</span>", other.label()),
     };
     main.push_str(&format!(
-        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1>{kind}{extension}{experimental}{overloads}{platforms}{since}{}</div>\n",
+        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1>{kind}{foreign}{extension}{experimental}{overloads}{platforms}{since}{}</div>\n",
         esc(&item.name),
         source_link(site, &source_file, source_line),
+        foreign = foreign_badge(item).replace(" sm", ""),
         extension = category_badge(site, m, false),
         experimental = experimental_badge(item.experimental, false),
         overloads = overloads_note(item),

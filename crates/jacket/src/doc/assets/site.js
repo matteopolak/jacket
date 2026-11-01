@@ -115,7 +115,6 @@
   }
   function hrefOf(it) {
     if (it.kind === 'module') return base + 'api/' + it.module + '/';
-    if (it.native) return base + 'api/' + it.module + '/#' + it.name.replace(/[^A-Za-z0-9_]/g, function (c) { return '-' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); });
     if (it.folder) return base + 'api/' + it.module + '/' + it.folder + '/';
     return base + 'api/' + it.module + '/' + it.name.replace(/[^A-Za-z0-9_]/g, function (c) { return '-' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); }) + '/';
   }
@@ -219,7 +218,7 @@
       if (m[1] !== undefined) {
         flush();
         var a = el('a', 'ty', m[2]);
-        a.href = base + 'api/' + m[1] + (m[1].indexOf('#') < 0 ? '/' : '');
+        a.href = base + 'api/' + m[1] + '/';
         out.appendChild(a);
         prev = m[2];
         continue;

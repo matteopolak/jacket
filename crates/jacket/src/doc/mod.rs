@@ -483,7 +483,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
     let mut items = 0;
     for (mi, module) in site.modules.iter().enumerate() {
         add(Site::module_path(&module.id), pages::module_page(&site, mi));
-        for item in module.items.iter().filter(|i| !i.binding) {
+        for item in &module.items {
             items += 1;
             add(
                 site.item_path(&module.id, &item.name),

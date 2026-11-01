@@ -98,7 +98,7 @@ pub fn index(site: &Site) -> String {
             ]);
             // The page folder, when it is not the slug the page works out from the name.
             let folder = site.folder(&m.id, &item.name);
-            if !item.binding && folder != Site::slug(&item.name) {
+            if folder != Site::slug(&item.name) {
                 row.as_array_mut().unwrap().push(json!(folder));
             }
             items.push(row);

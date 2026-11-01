@@ -41,8 +41,6 @@ pub struct Site {
     /// Whether the site carries a browser compiler.
     pub runtime: bool,
     by_id: BTreeMap<String, usize>,
-    /// `Module/name` of each item declared by a native binding.
-    bindings: jaic::fxhash::HashSet<String>,
     /// `Module/name` of an item whose page folder is not its plain slug, because another item
     /// of its module differs from it only in case (`Head` and `head`) and the two folders
     /// would be one on a case-insensitive file system.
@@ -62,7 +60,7 @@ fn case_folders(modules: &[Module]) -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
     for m in modules {
         let mut groups: BTreeMap<String, Vec<&Item>> = BTreeMap::new();
-        for item in m.items.iter().filter(|i| !i.binding) {
+        for item in &m.items {
             groups
                 .entry(Site::slug(&item.name).to_lowercase())
                 .or_default()
@@ -124,15 +122,6 @@ impl Site {
                 }
             }
         }
-        let bindings = modules
-            .iter()
-            .flat_map(|m| {
-                m.items
-                    .iter()
-                    .filter(|i| i.binding)
-                    .map(move |i| format!("{}/{}", m.id, i.name))
-            })
-            .collect();
         let folders = case_folders(&modules);
         Site {
             modules,
@@ -153,7 +142,6 @@ impl Site {
             breadcrumb: String::new(),
             runtime,
             by_id,
-            bindings,
             folders,
             decls,
             examples: RefCell::new(BTreeMap::new()),
@@ -208,16 +196,8 @@ impl Site {
         self.href(&format!("api/{id}/"))
     }
 
-    /// Whether `name` of `module` is a native binding, which has no page of its own.
-    pub fn is_binding(&self, module: &str, name: &str) -> bool {
-        self.bindings.contains(&format!("{module}/{name}"))
-    }
-
-    /// An item's page; a binding's place on its module's page.
+    /// An item's page.
     pub fn item_href(&self, module: &str, name: &str) -> String {
-        if self.is_binding(module, name) {
-            return self.href(&format!("api/{module}/#{}", Self::slug(name)));
-        }
         self.href(&format!("api/{module}/{}/", self.folder(module, name)))
     }
 
@@ -283,7 +263,6 @@ impl Site {
         };
         let href = self.item_href(module, &item.name);
         Some(match member {
-            Some(member) if item.binding && item.members.iter().any(|m| m.name == member) => href,
             Some(member) if item.members.iter().any(|m| m.name == member) => {
                 format!("{href}#m-{member}")
             }
@@ -434,12 +413,8 @@ impl Site {
             if let Some((m, name)) = self.resolved(head, refs, here) {
                 if marked {
                     let id = &self.modules[m].id;
-                    let (hash, folder) = if self.is_binding(id, name) {
-                        ("#", Self::slug(name))
-                    } else {
-                        ("", self.folder(id, name))
-                    };
-                    return format!("\u{1}{id}/{hash}{folder}\u{2}{head}\u{3}{}", &path[end..]);
+                    let folder = self.folder(id, name);
+                    return format!("\u{1}{id}/{folder}\u{2}{head}\u{3}{}", &path[end..]);
                 }
                 return format!(
                     "<a class=\"ty\" href=\"{}\">{}</a>{}",

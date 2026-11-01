@@ -112,7 +112,7 @@ pub struct Item {
     pub since: String,
     /// Tagged `@experimental` in its docs.
     pub experimental: bool,
-    /// Declared by a native binding: listed on the module page, with no page of its own.
+    /// Declared by a native binding: badged "foreign" and listed after the module's own items.
     pub binding: bool,
 }
 
