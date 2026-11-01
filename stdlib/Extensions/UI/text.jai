@@ -74,6 +74,7 @@ Text_System :: struct {
     fonts: [..] *Font; // 0 is SANS, 1 is MONO, the rest are fallbacks for missing glyphs
     glyphs: Table(u64, Glyph);
     metrics: Table(u64, Font_Metrics);
+    kerning: Table(u64, float); // pair adjustments in device pixels
     atlas: Atlas;
     scale: float = 1; // device pixels per point
 }
@@ -233,6 +234,7 @@ free_text_system :: (text: *Text_System) {
     array_free(text.fonts);
     deinit(*text.glyphs);
     deinit(*text.metrics);
+    deinit(*text.kerning);
     array_free(text.atlas.pixels);
     text.* = .{};
 }
@@ -290,7 +292,7 @@ font_metrics :: (text: *Text_System, slot: Font_Slot, size: float) -> Font_Metri
     return result;
 }
 
-// The width in points of `string` drawn with `style`, without kerning.
+// The width in points of `string` drawn with `style`, including pair kerning for SANS.
 //
 // - text: the text system holding the fonts.
 // - string_to_measure: the UTF-8 text to measure.
@@ -304,14 +306,55 @@ font_metrics :: (text: *Text_System, slot: Font_Slot, size: float) -> Font_Metri
 text_width :: (text: *Text_System, string_to_measure: string, style: Text_Style) -> float {
     total := 0.0;
     i := 0;
+    previous: u32;
 
     while i < string_to_measure.count {
         code, size := decode_at(string_to_measure, i);
-        total += glyph_advance(text, code, style);
+        total += pair_kerning(text, previous, code, style) + glyph_advance(text, code, style);
+        previous = code;
         i += size;
     }
 
     return total;
+}
+
+// Pair adjustment in points. MONO, controls, missing glyphs and cross-face fallback pairs return zero.
+// Results are cached by pixel size and Unicode pair; scale conversion happens on every lookup.
+//
+// ```jai
+// ui := headless();
+// defer free_ui(*ui);
+// assert(pair_kerning(*ui.text, #char "A", #char "V", .{ font = .MONO }) == 0);
+// ```
+pair_kerning :: (text: *Text_System, left: u32, right: u32, style: Text_Style) -> float {
+    if style.font == .MONO || left < 32 || right < 32 return 0;
+
+    index := font_index(text, style.font);
+    font := text.fonts[index];
+
+    if !font || !font.face return 0;
+
+    pixels := pixel_size(text, style.size);
+    if pixels > 65535 return 0;
+
+    key := (cast(u64) pixels << 42) | ((cast(u64) left) << 21) | cast(u64) right;
+    cached := table_find_pointer(*text.kerning, key);
+
+    if cached return cached.* / text.scale;
+
+    a := FT_Get_Char_Index(font.face, left);
+    b := FT_Get_Char_Index(font.face, right);
+    adjustment := 0.0;
+
+    if a != 0 && b != 0 {
+        FT_Set_Pixel_Sizes(font.face, 0, cast(FT_UInt) pixels);
+        delta: FT_Vector;
+        if FT_Get_Kerning(font.face, a, b, 0, *delta) == 0 adjustment = delta.x / 64.0;
+    }
+
+    table_set(*text.kerning, key, adjustment);
+
+    return adjustment / text.scale;
 }
 
 // Horizontal advance of one code point in points (a tab is four spaces).
@@ -337,6 +380,27 @@ glyph_advance :: (text: *Text_System, code: u32, style: Text_Style) -> float {
     return glyph.advance / text.scale;
 }
 
+// Caret position in points at a UTF-8 byte boundary, including the pair adjustment to the next glyph.
+// Use the whole line so a caret before V in AV sits where V is drawn, rather than at the unkerned A advance.
+//
+// ```jai
+// ui := headless();
+// defer free_ui(*ui);
+// assert(text_offset_x(*ui.text, "abc", 2, .{ size = 10 }) == 12);
+// ```
+text_offset_x :: (text: *Text_System, line: string, offset: int, style: Text_Style) -> float {
+    offset = clamp(offset, 0, line.count);
+    width := text_width(text, string.{ offset, line.data }, style);
+
+    if offset > 0 && offset < line.count {
+        left := decode_at(line, previous_code_point(line, offset));
+        right := decode_at(line, offset);
+        width += pair_kerning(text, left, right, style);
+    }
+
+    return width;
+}
+
 // The byte offset in `string_to_measure` of the grapheme boundary nearest to horizontal position `x`.
 //
 // - text: the text system holding the fonts.
@@ -354,15 +418,26 @@ index_at_x :: (text: *Text_System, string_to_measure: string, style: Text_Style,
     if x <= 0 return 0;
 
     position := 0.0;
+    pen := 0.0;
     i := 0;
+    previous: u32;
 
     while i < string_to_measure.count {
         next := next_grapheme(string_to_measure, i);
-        width := text_width(text, string.{ next - i, string_to_measure.data + i }, style);
+        j := i;
 
-        if x < position + width / 2 return i;
+        while j < next {
+            code, bytes := decode_at(string_to_measure, j);
+            pen += pair_kerning(text, previous, code, style) + glyph_advance(text, code, style);
+            previous = code;
+            j += bytes;
+        }
 
-        position += width;
+        boundary := pen;
+        if next < string_to_measure.count boundary += pair_kerning(text, previous, decode_at(string_to_measure, next), style);
+        if x < (position + boundary) / 2 return i;
+
+        position = boundary;
         i = next;
     }
 

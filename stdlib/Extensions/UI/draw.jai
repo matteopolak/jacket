@@ -134,11 +134,15 @@ draw_text_baseline :: (ui: *UI_State, x: float, baseline: float, text: string, s
     scale := ui.text.scale;
     pen := x;
     i := 0;
+    previous: u32;
 
     while i < text.count {
         code, size := decode_at(text, i);
 
         i += size;
+
+        pen += pair_kerning(*ui.text, previous, code, style);
+        previous = code;
 
         if code == #char "\t" {
             pen += 4 * glyph_advance(*ui.text, #char " ", style);

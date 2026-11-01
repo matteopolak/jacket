@@ -462,8 +462,7 @@ move_vertically :: (ui: *UI_State, edit: *Text_Edit, lines: int, style: Text_Sty
     start := line_start(buffer, line);
 
     if edit.goal_x < 0 {
-        prefix := text_range(buffer, start, edit.cursor);
-        edit.goal_x = text_width(*ui.text, prefix, style);
+        edit.goal_x = text_offset_x(*ui.text, line_text(buffer, line), edit.cursor - start, style);
     }
 
     target := line + lines;
@@ -1077,8 +1076,7 @@ keep_caret_visible :: (ui: *UI_State, edit: *Text_Edit, inner: Rect, gutter: flo
     if top < edit.scroll_y edit.scroll_y = top;
     if top + metrics.line_height > edit.scroll_y + view_h edit.scroll_y = top + metrics.line_height - view_h;
 
-    prefix := text_range(*edit.buffer, line_start(*edit.buffer, line), edit.cursor);
-    x := text_width(*ui.text, prefix, style);
+    x := text_offset_x(*ui.text, line_text(*edit.buffer, line), edit.cursor - line_start(*edit.buffer, line), style);
     view_w := inner.w - gutter - 8;
 
     if x < edit.scroll_x edit.scroll_x = max(x - SCROLL_MARGIN, 0);
@@ -1129,8 +1127,8 @@ editor_paint :: (ui: *UI_State, node: *Node) {
 
             from := max(mark.start, ls) - ls;
             to := min(mark.end, le) - ls;
-            x0 := text_left + text_width(*ui.text, string.{ from, text.data }, style);
-            x1 := text_left + text_width(*ui.text, string.{ to, text.data }, style);
+            x0 := text_left + text_offset_x(*ui.text, text, from, style);
+            x1 := text_left + text_offset_x(*ui.text, text, to, style);
 
             if mark.underline {
                 // A four-point wave, clipped before emitting its one-point segments.
@@ -1153,8 +1151,8 @@ editor_paint :: (ui: *UI_State, node: *Node) {
         if sel_end > sel_start && sel_end > ls && sel_start <= le {
             from := max(sel_start, ls) - ls;
             to := min(sel_end, le) - ls;
-            x0 := text_left + text_width(*ui.text, string.{ from, text.data }, style);
-            x1 := text_left + text_width(*ui.text, string.{ to, text.data }, style);
+            x0 := text_left + text_offset_x(*ui.text, text, from, style);
+            x1 := text_left + text_offset_x(*ui.text, text, to, style);
 
             if sel_end > le x1 += glyph_advance(*ui.text, #char " ", style) / 2;
 
@@ -1174,9 +1172,11 @@ editor_paint :: (ui: *UI_State, node: *Node) {
             if span.start < position || span.end > text.count || span.end <= span.start continue;
 
             if span.start > position {
+                x = text_left + text_offset_x(*ui.text, text, position, style);
                 x += draw_text(ui, x, y, string.{ span.start - position, text.data + position }, style);
             }
 
+            x = text_left + text_offset_x(*ui.text, text, span.start, style);
             coloured := style;
             coloured.color = span.color;
             x += draw_text(ui, x, y, string.{ span.end - span.start, text.data + span.start }, coloured);
@@ -1184,6 +1184,7 @@ editor_paint :: (ui: *UI_State, node: *Node) {
         }
 
         if position < text.count {
+            x = text_left + text_offset_x(*ui.text, text, position, style);
             draw_text(ui, x, y, string.{ text.count - position, text.data + position }, style);
         }
 
@@ -1210,8 +1211,7 @@ editor_paint :: (ui: *UI_State, node: *Node) {
 
         if solid || phase % 2 == 0 {
             ls := line_start(*edit.buffer, caret_line);
-            prefix := text_range(*edit.buffer, ls, edit.cursor);
-            x := text_left + text_width(*ui.text, prefix, style);
+            x := text_left + text_offset_x(*ui.text, line_text(*edit.buffer, caret_line), edit.cursor - ls, style);
             y := inner.y + caret_line * metrics.line_height - edit.scroll_y;
 
             draw_rect(ui, .{ x, y, 1.5, metrics.line_height }, t.caret);
