@@ -344,6 +344,10 @@ const OPT_INSTS_PER_UNIT: usize = 20_000;
 /// peak memory to about the modules in flight (a 500k-line program peaked 37% lower).
 const MAX_UNIT_INSTS: usize = 100_000;
 
+/// Unoptimized units per core at most. A Mac with efficiency cores finishes equal shares at very
+/// different times; with several units per thread the fast cores take more of them.
+const UNITS_PER_CORE: usize = 3;
+
 /// Most modules an unoptimized build is divided into.
 const MAX_UNOPT_UNITS: usize = 64;
 
@@ -351,7 +355,7 @@ const MAX_UNOPT_UNITS: usize = 64;
 const MAX_OPT_UNITS: usize = 8;
 
 /// How many modules to split codegen into: `-codegen_units` when set, otherwise one
-/// per 5,000 IR instructions (at most one per core) for unoptimized builds and one per 20,000
+/// per 5,000 IR instructions (at most three per core) for unoptimized builds and one per 20,000
 /// for optimized ones, which are divided by who calls whom and keep copies of small callees for
 /// inlining (`partition.rs`). Sanitized builds stay whole, even under `-codegen_units`: on
 /// Intel macOS the linker records only the first sanitized unit in the debug map, and the reports
@@ -378,7 +382,12 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
         }
         // A program past `MAX_UNIT_INSTS` per core gets more units than threads, so a module
         // is written and dropped (`emit_objects`) before all of the program is in memory.
-        let by_size = (insts / INSTS_PER_UNIT).clamp(1, cores);
+        let most = if cores > 1 {
+            cores * UNITS_PER_CORE
+        } else {
+            1
+        };
+        let by_size = (insts / INSTS_PER_UNIT).clamp(1, most);
         return by_size.max(insts / MAX_UNIT_INSTS).min(MAX_UNOPT_UNITS);
     }
     // Optimized builds split before the optimizer only when it is worth the code it loses
