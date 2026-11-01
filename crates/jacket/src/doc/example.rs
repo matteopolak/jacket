@@ -4,6 +4,7 @@ use super::highlight;
 use super::markdown::esc;
 use super::model::Module;
 use super::site::Site;
+use super::view::Example;
 use crate::test::doctest::{self, Block, Mode};
 use crate::test::options::Target;
 use sha2::{Digest, Sha256};
@@ -87,25 +88,33 @@ fn block(info: &str, code: &str, file: &str, line: usize) -> Option<Block> {
 }
 
 /// A code block that is not an example: highlighted when it is Jai (or says nothing).
-pub fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> String {
+pub fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> Example {
     let lang = info.split([',', ' ']).next().unwrap_or("");
     let body = if lang.is_empty() || lang == "jai" {
         highlight::jai(code.trim_end(), &|name| site.call_link(module, name))
     } else {
         esc(code.trim_end())
     };
-    format!("<figure class=\"ex plain\"><pre class=\"code\"><code>{body}</code></pre></figure>")
+    Example {
+        plain: true,
+        compact: false,
+        code_html: body,
+        id: None,
+        note: None,
+        show_note: false,
+        playground_url: None,
+    }
 }
 
 /// A fenced block of a doc comment: an example with buttons when it is ```` ```jai ````, else
 /// plain code. `file` and `line` say where the comment is, for the program's header.
-pub fn fence(
+pub fn view(
     site: &Site,
     module: &Module,
     (file, line): (&str, usize),
     (info, code): (&str, &str),
     compact: bool,
-) -> String {
+) -> Example {
     let Some(block) = block(info, code, file, line) else {
         return plain_code(site, module, info, code);
     };
@@ -125,9 +134,32 @@ pub fn fence(
         .then(|| doctest::standalone(&block, &module.id))
         .flatten()
         .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));
-    // Every example gets the same small buttons, whether it sits in a list row or on its own.
-    let open = standalone.map_or_else(String::new, |href| {
-        format!("<a class=\"btn sm\" href=\"{}\" aria-label=\"Open this example in the playground\" title=\"Open in the playground\">↗</a>", esc(&href))
+    let show_note = note
+        .as_ref()
+        .is_some_and(|why| program.is_none() && why != NO_RUNTIME);
+    Example {
+        plain: false,
+        compact,
+        code_html: shown,
+        id: program,
+        note,
+        show_note,
+        playground_url: standalone,
+    }
+}
+
+/// Markup for a fully resolved example, with no model or compiler access.
+pub fn render(example: &Example) -> String {
+    let shown = &example.code_html;
+    if example.plain {
+        return format!(
+            "<figure class=\"ex plain\"><pre class=\"code\"><code>{shown}</code></pre></figure>"
+        );
+    }
+    let program = &example.id;
+    let note = &example.note;
+    let open = example.playground_url.as_ref().map_or_else(String::new, |href| {
+        format!("<a class=\"btn sm\" href=\"{}\" aria-label=\"Open this example in the playground\" title=\"Open in the playground\">↗</a>", esc(href))
     });
     let copy = "<button type=\"button\" class=\"btn sm js-only\" data-act=\"copy\" aria-label=\"Copy this example\" title=\"Copy\">Copy</button>";
     // Shown once the text has been edited, so the original can be had back.
@@ -147,11 +179,12 @@ pub fn fence(
         (None, None) => String::new(),
     };
     let note_html = note
-        .filter(|why| program.is_none() && why != NO_RUNTIME)
+        .as_ref()
+        .filter(|_| example.show_note)
         .map_or_else(String::new, |why| {
-            format!("<p class=\"ex-note\">{}</p>", esc(&why))
+            format!("<p class=\"ex-note\">{}</p>", esc(why))
         });
-    if compact {
+    if example.compact {
         format!(
             "<figure class=\"ex compact\"><div class=\"ex-row\"><pre class=\"code\"><code>{shown}</code></pre>{reset}{copy}{open}{run}</div>{note_html}<div class=\"ex-out\" hidden></div></figure>"
         )

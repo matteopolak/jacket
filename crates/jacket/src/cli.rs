@@ -299,6 +299,9 @@ pub struct DocArgs {
     /// Where to write the site
     #[arg(long, value_name = "DIR", default_value = "target/doc-site")]
     pub out: std::path::PathBuf,
+    /// Also write the resolved JSON view model (including with --check)
+    #[arg(long, value_name = "DIR")]
+    pub emit_input: Option<std::path::PathBuf>,
     /// The path the site is served under, with the slashes around it (`/docs/jacket/`)
     #[arg(long, value_name = "PATH", default_value = "/")]
     pub base_url: String,

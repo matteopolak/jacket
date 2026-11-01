@@ -1,5 +1,21 @@
 use super::super::categories::Category;
+use super::super::model::{Item, Kind, Module};
+use super::super::site::Site;
+use super::super::view;
 use super::*;
+
+fn index_page(site: &Site) -> String {
+    let shared = view::site(site);
+    render(&shared, &shared.index)
+}
+
+fn module_page(site: &Site, mi: usize) -> String {
+    render(&view::site(site), &view::module(site, mi).page)
+}
+
+fn item_page(site: &Site, mi: usize, item: &Item) -> String {
+    render(&view::site(site), &view::item(site, mi, item))
+}
 
 fn site() -> Site {
     let item = |name: &str, experimental| Item {

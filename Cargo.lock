@@ -339,6 +339,7 @@ dependencies = [
  "pulldown-cmark",
  "regex-lite",
  "semver",
+ "serde",
  "serde_json",
  "sha2",
  "test-support",

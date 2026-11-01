@@ -16,6 +16,7 @@ mod search;
 mod shell;
 mod since;
 mod site;
+mod view;
 
 use crate::cli::DocArgs;
 use crate::{test::stdlib::stdlib_dir, tools};
@@ -479,23 +480,40 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         files.push((format!("assets/{name}"), bytes));
     }
     let mut add = |path: String, text: String| files.push((path, text.into_bytes()));
-    add("index.html".into(), pages::index_page(&site));
-    let mut items = 0;
-    for (mi, module) in site.modules.iter().enumerate() {
-        add(Site::module_path(&module.id), pages::module_page(&site, mi));
-        for item in &module.items {
-            items += 1;
-            add(
-                site.item_path(&module.id, &item.name),
-                pages::item_page(&site, mi, item),
-            );
-        }
-    }
+    let mut shared = view::site(&site);
+    let mut guides = Vec::new();
     if !doc.page.is_empty() {
         let prefix = git_state(&config_dir).map(|g| g.prefix).unwrap_or_default();
-        for (path, html) in guide::pages(&site, &config_dir, &prefix, &doc.page)? {
-            add(path, html);
+        guides = view::guide::pages(&site, &mut shared, &config_dir, &prefix, &doc.page)?;
+    }
+    add("index.html".into(), pages::render(&shared, &shared.index));
+    let mut input = Vec::new();
+    let mut items = 0;
+    for mi in 0..site.modules.len() {
+        let module = view::module(&site, mi);
+        add(
+            module.page.path.clone(),
+            pages::render(&shared, &module.page),
+        );
+        for item in &module.items {
+            items += 1;
+            add(item.path.clone(), pages::render(&shared, item));
         }
+        if args.emit_input.is_some() {
+            input.push((format!("modules/{mi}.json"), json_bytes(&module)?));
+        }
+    }
+    if let Some(index) = &shared.guides_index {
+        add(index.path.clone(), pages::render(&shared, index));
+    }
+    for (n, guide) in guides.iter().enumerate() {
+        add(guide.path.clone(), pages::render(&shared, guide));
+        if args.emit_input.is_some() {
+            input.push((format!("guides/{n}.json"), json_bytes(guide)?));
+        }
+    }
+    if args.emit_input.is_some() {
+        input.push(("site.json".into(), json_bytes(&shared)?));
     }
     add("search-index.json".into(), search::index(&site));
     // One entry, so the version menu stays plain text; a host with several versions replaces it.
@@ -542,6 +560,9 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         .filter(|i| i.kind == Kind::Procedure && !i.binding)
         .count();
     let total: usize = files.iter().map(|(_, bytes)| bytes.len()).sum();
+    if let Some(dir) = &args.emit_input {
+        write_site(dir, &input, None)?;
+    }
     if !args.check {
         write_site(&args.out, &files, args.runtime.as_deref())?;
     }
@@ -565,6 +586,10 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         return Ok(ExitCode::from(1));
     }
     Ok(ExitCode::SUCCESS)
+}
+
+fn json_bytes(value: &impl serde::Serialize) -> Result<Vec<u8>, String> {
+    serde_json::to_vec(value).map_err(|e| format!("cannot serialize documentation view: {e}"))
 }
 
 /// Replaces `out` with `files`, and copies the browser compiler in when there is one.

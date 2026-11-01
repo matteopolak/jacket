@@ -580,6 +580,7 @@ Arguments:
 
 Options:
       --out <DIR>             Where to write the site [default: target/doc-site]
+      --emit-input <DIR>      Also write the resolved JSON view model (including with --check)
       --base-url <PATH>       The path the site is served under, with the slashes around it (`/docs/jacket/`) [default: /]
       --name <NAME>           The name in the header and page titles, over `[doc] name` [default: the folder's name]
       --version <VERSION>     The version shown in the header [default: none]
