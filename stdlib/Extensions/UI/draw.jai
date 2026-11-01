@@ -11,6 +11,7 @@
 // ```
 Draw_Kind :: enum u8 {
     RECT; // a filled, optionally rounded and bordered rectangle
+    IMAGE; // an RGBA8 raster, borrowed until rendering finishes
     GLYPH; // a quad sampling the glyph atlas, tinted with `color`
     CLIP; // sets the clip rectangle for what follows
 }
@@ -31,6 +32,7 @@ Draw_Cmd :: struct {
     border_color: Color;
     radius: float;
     border: float;
+    image: Image; // borrowed RGBA8 pixels for IMAGE
     uv: Vector4; // u0, v0, u1, v1 for a glyph
 }
 
@@ -237,4 +239,23 @@ paint_node :: (ui: *UI_State, node: *Node) {
     for node.children paint_node(ui, it);
 
     if clip pop_clip(ui);
+}
+
+#scope_export
+
+// Draw borrowed, straight-alpha RGBA8 pixels stretched into `rect`. Keep the pixels alive until
+// presentation or readback finishes. Clipping and logical display scaling apply as for rectangles.
+//
+// ```jai
+// Raster :: #import "Extensions/Image";
+// image := Raster.make_image(2, 2, .RGBA8);
+// defer Raster.deinit(*image);
+// ui := headless();
+// defer free_ui(*ui);
+// draw_image(*ui, .{0, 0, 20, 20}, image);
+// ```
+draw_image :: (ui: *UI_State, rect: Rect, image: Image) {
+    if rect.w <= 0 || rect.h <= 0 || image.width <= 0 || image.height <= 0 return;
+    if image.format != .RGBA8 || image.pixels.count != cast(s64) image.width * image.height * 4 return;
+    array_add(*ui.draw.cmds, .{ kind = .IMAGE, rect = rect, image = image, color = .{ 1, 1, 1, 1 }, uv = .{ 0, 0, 1, 1 } });
 }

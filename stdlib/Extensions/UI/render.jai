@@ -47,6 +47,7 @@ Batch :: struct {
     y: int;
     w: int;
     h: int;
+    image: int = -1;
 }
 
 // Pixels read back from an offscreen render: rows top to bottom, 4 bytes per pixel (R, G, B, A).
@@ -337,6 +338,11 @@ struct VOut {
 @fragment fn fs(in: VOut) -> @location(0) vec4f {
     let inst = insts[in.idx];
 
+    if (inst.params.z > 1.5) {
+        let c = textureSampleLevel(atlas, samp, in.uv, 0.0);
+        return vec4f(c.rgb * c.a, c.a);
+    }
+
     if (inst.params.z > 0.5) {
         let a = textureSampleLevel(atlas, samp, in.uv, 0.0).r * inst.color.a;
         return vec4f(inst.color.rgb * a, a);
@@ -476,6 +482,10 @@ encode :: (r: *Renderer, ui: *UI_State, view: WGPUTextureView, clear: Color) {
 
     current := Batch.{ 0, 0, 0, 0, r.width, r.height };
 
+    pictures: [..] Image;
+
+    defer array_free(pictures);
+
     for cmd: ui.draw.cmds {
         if cmd.kind == .CLIP {
             if current.count > 0 array_add(*r.batches, current);
@@ -489,12 +499,29 @@ encode :: (r: *Renderer, ui: *UI_State, view: WGPUTextureView, clear: Color) {
             continue;
         }
 
+        if cmd.kind == .IMAGE {
+            if current.count > 0 array_add(*r.batches, current);
+
+            current.first = r.staged.count;
+            current.count = 0;
+            current.image = pictures.count;
+            array_add(*pictures, cmd.image);
+        } else if current.image >= 0 {
+            if current.count > 0 array_add(*r.batches, current);
+            current.first = r.staged.count;
+            current.count = 0;
+            current.image = -1;
+        }
+
         instance: Instance_Data;
         instance.rect = .{ cmd.rect.x * scale, cmd.rect.y * scale, cmd.rect.w * scale, cmd.rect.h * scale };
         instance.color = cmd.color;
         instance.border_color = cmd.border_color;
 
-        if cmd.kind == .GLYPH {
+        if cmd.kind == .IMAGE {
+            instance.uv = cmd.uv;
+            instance.params = .{ 0, 0, 2, 0 };
+        } else if cmd.kind == .GLYPH {
             instance.uv = cmd.uv;
             instance.params = .{ 0, 0, 1, 0 };
         } else {
@@ -546,9 +573,64 @@ encode :: (r: *Renderer, ui: *UI_State, view: WGPUTextureView, clear: Color) {
     wgpuRenderPassEncoderSetPipeline(pass, r.pipeline);
     wgpuRenderPassEncoderSetBindGroup(pass, 0, r.bind_group, 0, null);
 
+    textures: [..] WGPUTexture;
+    views: [..] WGPUTextureView;
+    bindings: [..] WGPUBindGroup;
+
+    defer {
+        for bindings wgpuBindGroupRelease(it);
+        for views wgpuTextureViewRelease(it);
+        for textures wgpuTextureRelease(it);
+
+        array_free(bindings);
+        array_free(views);
+        array_free(textures);
+    }
+
+    for picture: pictures {
+        desc: WGPUTextureDescriptor;
+        desc.usage = .TextureBinding | .CopyDst;
+        desc.dimension = ._2D;
+        desc.size = .{ cast(u32) picture.width, cast(u32) picture.height, 1 };
+        desc.format = .RGBA8Unorm;
+        texture := wgpuDeviceCreateTexture(r.device, *desc);
+        picture_view := wgpuTextureCreateView(texture, null);
+        destination: WGPUTexelCopyTextureInfo;
+        destination.texture = texture;
+        destination.aspect = .All;
+        layout: WGPUTexelCopyBufferLayout;
+        layout.bytesPerRow = cast(u32) picture.width * 4;
+        layout.rowsPerImage = cast(u32) picture.height;
+        wgpuQueueWriteTexture(r.queue, *destination, picture.pixels.data, cast(u64) picture.pixels.count, *layout, *desc.size);
+        entries: [4] WGPUBindGroupEntry;
+        entries[0].binding = 0;
+        entries[0].buffer = r.uniforms;
+        entries[0].size = 16;
+        entries[1].binding = 1;
+        entries[1].buffer = r.instances;
+        entries[1].size = cast(u64) (r.instance_capacity * size_of(Instance_Data));
+        entries[2].binding = 2;
+        entries[2].textureView = picture_view;
+        entries[3].binding = 3;
+        entries[3].sampler = r.sampler;
+        binding_desc: WGPUBindGroupDescriptor;
+        binding_desc.layout = wgpuRenderPipelineGetBindGroupLayout(r.pipeline, 0);
+        binding_desc.entryCount = 4;
+        binding_desc.entries = entries.data;
+        binding := wgpuDeviceCreateBindGroup(r.device, *binding_desc);
+
+        wgpuBindGroupLayoutRelease(binding_desc.layout);
+        array_add(*textures, texture);
+        array_add(*views, picture_view);
+        array_add(*bindings, binding);
+    }
+
     for batch: r.batches {
         if batch.w <= 0 || batch.h <= 0 continue;
 
+        binding := ifx batch.image >= 0 then bindings[batch.image] else r.bind_group;
+
+        wgpuRenderPassEncoderSetBindGroup(pass, 0, binding, 0, null);
         wgpuRenderPassEncoderSetScissorRect(pass, cast(u32) batch.x, cast(u32) batch.y, cast(u32) batch.w, cast(u32) batch.h);
         wgpuRenderPassEncoderDraw(pass, 4, cast(u32) batch.count, 0, cast(u32) batch.first);
     }
