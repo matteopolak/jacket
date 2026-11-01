@@ -1,6 +1,7 @@
 //! Shared helpers for the workspace's Rust tests. A dev-dependency only (`publish = false`).
 //!
 //! - [`tmp`]: per-test scratch directories that clean up after themselves.
+//! - [`determinism`]: run `jaic` under several symbol-number scrambles and compare.
 //! - [`process`]: run a child process and fail with its output unless it succeeds.
 //! - [`toolchain`]: find clang, `wasm-ld`, `node` and MinGW, and skip a test when one is absent.
 //! - [`repo`]: paths inside the repository.
@@ -16,6 +17,7 @@
 //! links) must not use it at all: linking both builds defines the interpreter's fiber
 //! routines twice, which fails on Linux. Put such a test under `crates/jaic/tests/`.
 
+pub mod determinism;
 pub mod ir;
 pub mod plugin;
 pub mod process;
