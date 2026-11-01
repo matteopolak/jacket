@@ -4,24 +4,15 @@ use super::{Tok, Token};
 use crate::diagnostics::Diagnostic;
 use crate::source::{FileId, Span};
 
+/// How many tokens to make room for in `text`: Jai source averages four to five bytes per token.
+/// Reserving once (virtual memory the pages of which are untouched until used) avoids the vector
+/// doubling, which copies a block of 10 MiB or more for a large file.
+fn expected_tokens(text: &str) -> usize {
+    text.len() / 4 + 16
+}
+
 pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
-    let mut lx = Lexer {
-        file,
-        text,
-        src: text.as_bytes(),
-        at: 0,
-        // Jai source averages four to five bytes per token. Reserving once (virtual memory the
-        // pages of which are untouched until used) avoids the vector doubling to a 12 MiB
-        // block for a 25k-line file and copying at every step.
-        out: Vec::with_capacity(text.len() / 4 + 16),
-        newline: true,
-        regions: None,
-        comments: None,
-        unclosed: false,
-        platform: None,
-        braces: Vec::new(),
-        opaque_braces: 0,
-    };
+    let mut lx = Lexer::new(file, text, expected_tokens(text));
     lx.run()?;
     Ok(lx.out)
 }
@@ -77,20 +68,8 @@ pub fn lex_for_target(
     text: &str,
     target: PlatformTarget,
 ) -> Result<Vec<Token>, Diagnostic> {
-    let mut lx = Lexer {
-        file,
-        text,
-        src: text.as_bytes(),
-        at: 0,
-        out: Vec::with_capacity(text.len() / 4 + 16),
-        newline: true,
-        regions: None,
-        comments: None,
-        unclosed: false,
-        platform: Some(target),
-        braces: Vec::new(),
-        opaque_braces: 0,
-    };
+    let mut lx = Lexer::new(file, text, expected_tokens(text));
+    lx.platform = Some(target);
     lx.run()?;
     Ok(lx.out)
 }
@@ -98,20 +77,7 @@ pub fn lex_for_target(
 /// Editor-only lexing. Retain good tokens, report lexical errors, and restart after
 /// the malformed literal's line. Offsets always refer to the original UTF-8 text.
 pub fn lex_ide(file: FileId, text: &str) -> (Vec<Token>, Vec<Diagnostic>) {
-    let mut lx = Lexer {
-        file,
-        text,
-        src: text.as_bytes(),
-        at: 0,
-        out: Vec::with_capacity(text.len() / 4 + 16),
-        newline: true,
-        regions: None,
-        comments: None,
-        unclosed: false,
-        platform: None,
-        braces: Vec::new(),
-        opaque_braces: 0,
-    };
+    let mut lx = Lexer::new(file, text, expected_tokens(text));
     let errors = lx.recover();
     (lx.out, errors)
 }
@@ -148,20 +114,8 @@ impl Comment {
 /// stream is exactly `lex_ide`'s; comments inside strings are never reported, and an
 /// unterminated block comment is returned with `terminated: false` besides its error.
 pub fn lex_with_trivia(file: FileId, text: &str) -> (Vec<Token>, Vec<Comment>, Vec<Diagnostic>) {
-    let mut lx = Lexer {
-        file,
-        text,
-        src: text.as_bytes(),
-        at: 0,
-        out: Vec::with_capacity(text.len() / 4 + 16),
-        newline: true,
-        regions: None,
-        comments: Some(Vec::new()),
-        unclosed: false,
-        platform: None,
-        braces: Vec::new(),
-        opaque_braces: 0,
-    };
+    let mut lx = Lexer::new(file, text, expected_tokens(text));
+    lx.comments = Some(Vec::new());
     let errors = lx.recover();
     (lx.out, lx.comments.unwrap_or_default(), errors)
 }
@@ -192,20 +146,8 @@ impl Lexed {
 /// Verified literal/comment boundaries for incremental IDE lexical recovery.
 /// No tokens or semantic facts from an older version are reused.
 pub fn lexical_regions(file: FileId, text: &str) -> Result<Vec<Span>, Diagnostic> {
-    let mut lx = Lexer {
-        file,
-        text,
-        src: text.as_bytes(),
-        at: 0,
-        out: Vec::new(),
-        newline: true,
-        regions: Some(Vec::new()),
-        comments: None,
-        unclosed: false,
-        platform: None,
-        braces: Vec::new(),
-        opaque_braces: 0,
-    };
+    let mut lx = Lexer::new(file, text, 0);
+    lx.regions = Some(Vec::new());
     lx.run()?;
     Ok(lx.regions.unwrap())
 }

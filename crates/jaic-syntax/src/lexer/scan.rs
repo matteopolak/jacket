@@ -63,6 +63,24 @@ pub(crate) fn is_ident_char(c: u8) -> bool {
 }
 
 impl<'a> Lexer<'a> {
+    /// A lexer over `text` with room for `tokens` tokens.
+    pub(super) fn new(file: FileId, text: &'a str, tokens: usize) -> Self {
+        Lexer {
+            file,
+            text,
+            src: text.as_bytes(),
+            at: 0,
+            out: Vec::with_capacity(tokens),
+            newline: true,
+            regions: None,
+            comments: None,
+            unclosed: false,
+            platform: None,
+            braces: Vec::new(),
+            opaque_braces: 0,
+        }
+    }
+
     /// Run to the end, restarting after each error; the errors in order.
     pub(super) fn recover(&mut self) -> Vec<Diagnostic> {
         let text = self.text;
