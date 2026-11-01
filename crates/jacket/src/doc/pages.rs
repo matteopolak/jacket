@@ -801,7 +801,7 @@ fn overload_section(
     let mut out = format!("<section id=\"o{}\"{class}>\n", n + 1);
     if item.overloads.len() > 1 {
         out.push_str(&format!(
-            "<div class=\"overload-head\"><a href=\"#o{0}\">Overload {0}</a></div>\n",
+            "<div class=\"overload-head\"><a href=\"#o{0}\">overload {0}</a></div>\n",
             n + 1
         ));
     }
