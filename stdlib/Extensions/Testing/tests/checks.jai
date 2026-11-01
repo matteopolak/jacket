@@ -35,6 +35,14 @@ different_numbers_fail :: () {
     expect_equal(3, 4);
 } @test @should_fail(want:)
 
+a_message_leads_the_difference :: () {
+    expect_equal(3, 4, "point");
+} @test @should_fail(point)
+
+a_message_is_not_needed_to_pass :: () {
+    expect_equal(3, 3, "never shown");
+} @test
+
 different_strings_point_at_the_first_difference :: () {
     expect_equal("abcd", "abXd");
 } @test @should_fail(byte)

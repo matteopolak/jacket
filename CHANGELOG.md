@@ -11,6 +11,7 @@
 - `jacket test --doc --check-only --os <os>` type-checks the doc examples for another OS from any machine.
 - `jacket test --changed FILE` runs only the tests a change to FILE can affect.
 - `jacket test` in a folder that has its own `tests/` folder below the project tests that folder.
+- `expect_equal` takes an optional message.
 
 ### Fixed
 

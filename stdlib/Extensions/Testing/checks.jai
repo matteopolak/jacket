@@ -24,14 +24,17 @@ expect :: (condition: bool, message := "", loc := #caller_location) -> bool {
 // expect_equal(2 + 2, 4);
 // expect_equal("abc", "abc");
 // expect_equal(s32.[1, 2, 3], s32.[1, 2, 3]);
+// expect_equal(2 + 2, 4, "cut point 3"); // on failure, the message leads the difference
 // ```
 //
 // - got: the value under test.
 // - want: the value it must equal.
+// - message: what to say before the difference, such as which case of a loop failed.
 // - loc: where the check is written, shown when it fails. Leave the default.
-expect_equal :: (got: $T, want: $U, loc := #caller_location) -> bool {
+expect_equal :: (got: $T, want: $U, message := "", loc := #caller_location) -> bool {
     if values_equal(got, want) return true;
-    report_failure(loc, describe_difference(got, want));
+    difference := describe_difference(got, want);
+    report_failure(loc, ifx message then tprint("%: %", message, difference) else difference);
     return false;
 }
 
@@ -117,7 +120,7 @@ require :: (condition: bool, message := "", loc := #caller_location) #expand {
 // - want: the value it must equal.
 // - loc: where the check is written, shown when it fails. Leave the default.
 require_equal :: (got: $T, want: $U, loc := #caller_location) #expand {
-    if !expect_equal(got, want, loc) `return;
+    if !expect_equal(got, want, loc = loc) `return;
 }
 
 // `expect_near`, then returns from the calling procedure on a failure.

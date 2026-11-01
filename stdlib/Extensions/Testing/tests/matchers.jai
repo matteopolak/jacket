@@ -17,7 +17,7 @@ passing :: (value: $T, matcher: Matcher, loc := #caller_location) {
 }
 
 failing :: (value: $T, matcher: Matcher, message: string, loc := #caller_location) {
-    expect_equal(explain(value, matcher), message, loc);
+    expect_equal(explain(value, matcher), message, loc = loc);
 }
 
 assert_that_returns_whether_it_held :: () {
