@@ -9,14 +9,7 @@ import subprocess
 from pathlib import Path
 
 from bench.results import machine_info, sh
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open('rb') as handle:
-        for block in iter(lambda: handle.read(1 << 20), b''):
-            digest.update(block)
-    return digest.hexdigest()
+from toolkit.hashing import sha256_file
 
 
 def tree_sha256(directory: Path) -> str:

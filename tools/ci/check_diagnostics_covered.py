@@ -22,9 +22,8 @@ The untested codes recorded in `tools/ci/untested_codes.txt` are the known gap; 
 
 import argparse
 import re
-import subprocess
 import sys
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, git_files
 
 CATALOG = "crates/jaic-syntax/src/diagnostics/catalog.rs"
 ALLOWLIST = ROOT / "tools/ci/untested_codes.txt"
@@ -47,11 +46,6 @@ TEXT_SUFFIXES = (
     ".stderr",
     ".stdout",
 )
-
-
-def tracked(patterns):
-    out = subprocess.check_output(["git", "ls-files", "-z", "--", *patterns], cwd=ROOT)
-    return [p.decode() for p in out.split(b"\0") if p]
 
 
 def is_test_path(path: str) -> bool:
@@ -81,7 +75,7 @@ def catalog_codes(text: str):
 def corpus() -> str:
     """All text a test may expect a code in, with Rust string escapes read back."""
     parts = []
-    for path in tracked(["tests", "crates", "tools", "editors", "stdlib"]):
+    for path in git_files("tests", "crates", "tools", "editors", "stdlib"):
         in_src = (
             path.startswith("crates/")
             and "/src/" in path

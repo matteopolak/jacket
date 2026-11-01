@@ -18,10 +18,9 @@ and `repo_output.output_dir()` for scratch. Setting the variable for a child pro
 
 import ast
 import re
-import subprocess
 import sys
 
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, git_files
 
 MAX_LINES = 1200
 
@@ -40,11 +39,6 @@ BUILD_PATH_ALLOWED = {
 TARGET_ENV = "CARGO_TARGET_DIR"
 
 BANNER = re.compile(r"^\s*(//|#)\s*[-=*#~]{3,}\s*$")
-
-
-def tracked(patterns):
-    out = subprocess.check_output(["git", "ls-files", "-z", "--", *patterns], cwd=ROOT)
-    return [p.decode() for p in out.split(b"\0") if p]
 
 
 def line_count(text):
@@ -138,18 +132,18 @@ def build_path_problems(source: str, name: str = "") -> list[str]:
 
 def main():
     counts, errors = {}, []
-    for path in tracked(["*.rs"]):
+    for path in git_files("*.rs"):
         if (ROOT / path).is_file():
             counts[path] = line_count(
                 (ROOT / path).read_text(encoding="utf-8", errors="replace")
             )
     errors += check_lengths(counts)
-    for path in tracked(["*.rs", "*.py"]):
+    for path in git_files("*.rs", "*.py"):
         if (ROOT / path).is_file():
             errors += check_banners(
                 path, (ROOT / path).read_text(encoding="utf-8", errors="replace")
             )
-    for path in tracked(["tools/*.py"]):
+    for path in git_files("tools/*.py"):
         if (ROOT / path).is_file():
             for problem in build_path_problems(
                 (ROOT / path).read_text(encoding="utf-8"), path

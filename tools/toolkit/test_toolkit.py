@@ -13,7 +13,7 @@ from toolkit.cli import add_jaic_argument, default_jaic
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.process import run, run_expect
 from toolkit.host import brew_prefix, exe_name, host_cpu, host_os
-from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path, stdlib_env
+from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, git_files, jaifmt_path, stdlib_env
 
 PY = sys.executable
 
@@ -74,6 +74,18 @@ class Repo(unittest.TestCase):
         env = stdlib_env(EXTRA="1")
         self.assertEqual(env["JAIC_STDLIB"], str(ROOT / "stdlib"))
         self.assertEqual(env["EXTRA"], "1")
+
+    def test_git_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            (root / "a.rs").write_text("")
+            (root / "b.py").write_text("")
+            subprocess.run(["git", "add", "a.rs"], cwd=root, check=True)
+            self.assertEqual(git_files(root=root), ["a.rs"])
+            self.assertEqual(git_files("*.py", root=root), [])
+            self.assertEqual(sorted(git_files(root=root, untracked=True)), ["a.rs", "b.py"])
+            self.assertEqual(git_files("*.py", root=root, untracked=True), ["b.py"])
 
 
 class RunExpect(unittest.TestCase):

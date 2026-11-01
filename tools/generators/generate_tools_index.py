@@ -17,9 +17,8 @@ import argparse
 import ast
 from pathlib import Path
 import re
-import subprocess
 import sys
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, git_files
 
 OUTPUTS = ["tools/README.md"]
 
@@ -48,10 +47,7 @@ front door would hide them.
 
 def tracked_files(root):
     """Repo-relative paths of the tracked and not-ignored files."""
-    out = subprocess.check_output(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=root
-    )
-    return sorted(Path(name) for name in out.decode().split("\0") if name)
+    return sorted(Path(name) for name in git_files(root=root, untracked=True))
 
 
 def entry_points(root, files):

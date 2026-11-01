@@ -37,7 +37,7 @@ Import them folder-qualified: `from toolkit.hashing import sha256_file`.
 
 | Module | What it gives |
 |---|---|
-| `toolkit.repo` | `ROOT` (never recompute it from `__file__`), `cargo_target_dir()`, `cargo_binary()`, `jaifmt_path()`, `stdlib_env()` |
+| `toolkit.repo` | `ROOT` (never recompute it from `__file__`), `git_files(*patterns)` (the index's paths), `cargo_target_dir()`, `cargo_binary()`, `jaifmt_path()`, `stdlib_env()` |
 | `toolkit.host` | `host_os()`, `host_cpu()`, `exe_name()`, `brew_prefix()` |
 | `toolkit.platforms` | `PLATFORMS`, `TRIPLES`, `WINDOWS_TRIPLES`, `MINGW_PREFIXES`: the `<os>-<cpu>` names and their compiler targets |
 | `toolkit.hashing` | `sha256_file`, `sha256_bytes` |

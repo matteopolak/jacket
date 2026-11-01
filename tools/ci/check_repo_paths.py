@@ -17,10 +17,9 @@ docs/README.md through the links of the index pages (a folder's README.md lists 
 
 import functools
 import re
-import subprocess
 import sys
 from pathlib import Path
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, git_files
 
 TOP = (
     "docs",
@@ -91,11 +90,6 @@ def header(text):
             closed = quote in lines[i]
             i += 1
     return "\n".join(out)
-
-
-def tracked():
-    out = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
-    return [p.decode() for p in out.split(b"\0") if p]
 
 
 def skipped(rel):
@@ -266,7 +260,7 @@ def headed(rel):
 def run():
     errors = check_index()
     crates = crate_roots()
-    for rel in tracked():
+    for rel in git_files():
         if rel.startswith("tools/ci/") and "check_repo_paths" in rel:
             continue
         path = ROOT / rel

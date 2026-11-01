@@ -14,7 +14,6 @@ Usage:
 """
 
 import argparse
-import hashlib
 import json
 import os
 import platform
@@ -28,6 +27,7 @@ import zipfile
 from pathlib import Path
 
 from toolkit.download import fetch as http_fetch
+from toolkit.hashing import sha256_file
 from toolkit.host import exe_name
 from toolkit.lsp import Lsp
 
@@ -50,14 +50,6 @@ def asset_name(name: str) -> str:
 
 def exe(tool: str) -> str:
     return exe_name(tool)
-
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def parse_sums(text: str) -> dict[str, str]:
@@ -106,7 +98,7 @@ def verified(tag: str, pattern: str, dest: Path) -> Path:
     expected = sums.get(path.name)
     if expected is None:
         raise SystemExit(f"SHA256SUMS has no line for {path.name}")
-    actual = sha256(path)
+    actual = sha256_file(path)
     if actual != expected:
         raise SystemExit(
             f"{path.name}: sha256 {actual} does not match SHA256SUMS ({expected})"
@@ -420,7 +412,7 @@ def vsix_store(tag: str, dest: Path) -> None:
         raise SystemExit(
             f"the Open VSX package.json says {version}, expected {editor_version}"
         )
-    same = sha256(fetched) == sha256(path)
+    same = sha256_file(fetched) == sha256_file(path)
     print(
         f"Open VSX {editor_version}: package.json ok; identical to the release asset: {same}"
     )
