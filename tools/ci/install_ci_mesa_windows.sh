@@ -17,7 +17,7 @@ case "$cpu" in
 esac
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
+curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 --retry 5 --retry-all-errors --retry-delay 5 \
   "https://github.com/mmozeiko/build-mesa/releases/download/$MESA_VERSION/mesa-llvmpipe-$cpu-$MESA_VERSION.7z" \
   -o "$work/mesa.7z"
 echo "$sha  $work/mesa.7z" | sha256sum --check --strict -

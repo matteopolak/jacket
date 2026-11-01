@@ -25,7 +25,7 @@ apt_configure /etc/apt
 
 task_temp=$(mktemp -d)
 trap 'rm -rf "$task_temp"' EXIT
-curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
+curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 --retry 5 --retry-all-errors --retry-delay 5 \
   https://apt.llvm.org/llvm-snapshot.gpg.key -o "$task_temp/key.asc"
 fingerprints=$(gpg --batch --show-keys --with-colons "$task_temp/key.asc" \
   | awk -F: '$1 == "pub" { primary=1; next } primary && $1 == "fpr" { print $10; primary=0 }')

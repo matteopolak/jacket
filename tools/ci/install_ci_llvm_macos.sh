@@ -33,7 +33,7 @@ if [[ "$(uname -m)" == x86_64 ]]; then
     tools="${RUNNER_TEMP:-/tmp}/micromamba"
     prefix="${RUNNER_TEMP:-/tmp}/llvm-$llvm_version"
     mkdir -p "$tools"
-    curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
+    curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 --retry 5 --retry-all-errors --retry-delay 5 \
         "https://conda.anaconda.org/conda-forge/osx-64/$micromamba_package" -o "$tools/$micromamba_package"
     echo "$micromamba_sha256  $tools/$micromamba_package" | shasum -a 256 -c -
     tar -xjf "$tools/$micromamba_package" -C "$tools" bin/micromamba
