@@ -30,6 +30,7 @@ pub(super) struct Tuning {
     /// The `-dev_*` flags, for studying the compiler (unlisted in `-help`).
     pub body_probe: bool,
     pub body_fifo: bool,
+    pub speculative_bodies: bool,
     pub no_sink: bool,
     pub no_flow: bool,
     pub dump_ops: Option<String>,
@@ -90,6 +91,7 @@ pub(super) fn knobs(cli: &Cli) -> jaic::knobs::Knobs {
         coverage: cli.coverage && cli.mode == Mode::Interp,
         body_probe: t.body_probe,
         body_fifo: t.body_fifo,
+        speculative_bodies: t.speculative_bodies,
         no_sink: t.no_sink,
         no_flow: t.no_flow,
         dump_ops: t.dump_ops.clone(),
@@ -194,6 +196,10 @@ const OPTIONS: &[CliOption] = &[
     CliOption::new(
         &["-dev_body_fifo"],
         Action::Switch(|cli| &mut cli.tuning.body_fifo),
+    ),
+    CliOption::new(
+        &["-dev_speculative_bodies"],
+        Action::Switch(|cli| &mut cli.tuning.speculative_bodies),
     ),
     CliOption::new(
         &["-dev_no_sink"],

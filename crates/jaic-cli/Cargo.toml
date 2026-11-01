@@ -37,6 +37,7 @@ static-llvm = ["llvm", "dep:jaic-llvm", "jaic-llvm/static", "mimalloc"]
 lazy-llvm = ["llvm", "mimalloc"]
 # Count in-place writes to shared compiler state for `-dev_body_probe`.
 body-probe = ["jaic/body-probe"]
+speculative-bodies = ["jaic/speculative-bodies"]
 # mimalloc under the memory-limit counter instead of the system allocator (on with either LLVM
 # feature; `--no-default-features` alone keeps the system allocator).
 mimalloc = ["dep:mimalloc"]

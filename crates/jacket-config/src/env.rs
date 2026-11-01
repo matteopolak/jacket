@@ -261,6 +261,11 @@ vars! {
         default: "unset: a test whose tool is missing skips",
         summary: "`1`, or a comma list of tool names: a missing tool fails the test instead of skipping it. Always on under `CI`.",
     }
+    SPECULATIVE_BODIES {
+        name: "JAIC_SPECULATIVE_BODIES", group: Testing, readers: [Jaic, Tests],
+        default: "unset",
+        summary: "When set, checks queued bodies speculatively first, like `-dev_speculative_bodies` (only in a `jaic` built with the `speculative-bodies` feature).",
+    }
     TEST_TMPDIR {
         name: "JAIC_TEST_TMPDIR", group: Testing, readers: [Tests],
         default: "the system temporary directory",

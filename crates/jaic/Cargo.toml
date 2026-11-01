@@ -10,6 +10,9 @@ description = "Jai compiler core: lexer, parser, demand-driven semantic analysis
 # Count the in-place writes shared compiler state takes while a body is checked
 # (`-dev_body_probe`, docs/compiler/parallel-sema.md). Off: no cost.
 body-probe = []
+# Intercept the writes a body makes to shared compiler state so `-dev_speculative_bodies` can
+# abandon a body that would make one (docs/compiler/parallel-sema.md). Off: no cost.
+speculative-bodies = []
 
 [dependencies]
 rayon.workspace = true

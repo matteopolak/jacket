@@ -40,6 +40,8 @@ pub struct Knobs {
     pub body_probe: bool,
     /// `-dev_body_fifo`: lower queued bodies first-in-first-out.
     pub body_fifo: bool,
+    /// `-dev_speculative_bodies`: check queued bodies speculatively first (`sema/speculative.rs`).
+    pub speculative_bodies: bool,
     /// `-dev_no_sink`, `-dev_no_flow`: turn off interpreter passes (`interp/code.rs`).
     pub no_sink: bool,
     pub no_flow: bool,
