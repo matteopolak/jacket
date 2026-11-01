@@ -561,7 +561,7 @@ impl<'a> Lexer<'a> {
                     Tok::Float(f64::from_bits(value as u64))
                 });
             }
-            return Ok(Tok::Int(value));
+            return Ok(Tok::Int(value as u64));
         }
         let mut text = String::new();
         let mut is_float = false;
@@ -601,7 +601,7 @@ impl<'a> Lexer<'a> {
                 .map_err(|_| self.err(Code::LexInvalidFloatLiteral, start, "invalid float literal"))
         } else {
             match text.parse::<u128>() {
-                Ok(v) if v <= u64::MAX as u128 => Ok(Tok::Int(v)),
+                Ok(v) if v <= u64::MAX as u128 => Ok(Tok::Int(v as u64)),
                 _ => Err(self.err(Code::LexIntegerTooBig, start, INTEGER_TOO_BIG)),
             }
         }

@@ -31,7 +31,9 @@ pub enum Tok {
     Directive(Sym),
     /// `@name` or `@"text"`, stored without the at-sign.
     Note(Arc<str>),
-    Int(u128),
+    /// Every literal the lexer accepts fits 64 bits (a larger one is `LexIntegerTooBig`); the
+    /// narrow value keeps `Tok` from being 16-byte aligned, which would make a `Token` 48 bytes.
+    Int(u64),
     Float(f64),
     Str(Arc<[u8]>),
     Punct(P),

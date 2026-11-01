@@ -177,7 +177,7 @@ impl Parser<'_> {
                 }),
                 Tok::Int(index) => {
                     self.bump();
-                    AsmPin::Index(index)
+                    AsmPin::Index(u128::from(index))
                 }
                 _ => return Err(self.expected("register name or number", "after `===`")),
             })

@@ -539,7 +539,7 @@ impl Parser<'_> {
             Tok::Int(v) => {
                 self.bump();
                 let text = self.literal_text(span);
-                Ok(mk(ExprKind::int_literal(v, text), span))
+                Ok(mk(ExprKind::int_literal(u128::from(v), text), span))
             }
             Tok::Float(v) => {
                 self.bump();
