@@ -274,7 +274,7 @@ For float lanes a NaN is unequal to everything, itself included."""
             other = "factor: a.type" if scalar else "b: T"
             expression = "factor" if scalar else "b.data[it]"
             text = f"The lane-wise {'smaller' if operation == 'min' else 'larger'} of " + ("two vectors." if not scalar else "each lane and `factor`.")
-            text += f" With a NaN lane the answer depends on the operand order, as in scalar code."
+            text += " With a NaN lane the answer depends on the operand order, as in scalar code."
             if not scalar:
                 text += f"""
 
