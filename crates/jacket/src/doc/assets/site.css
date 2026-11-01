@@ -81,7 +81,7 @@ kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1p
 #results[hidden] { display: none; }
 #results .hit { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; color: var(--fg); text-decoration: none; }
 #results .hit[aria-selected="true"] { background: var(--sel); }
-#results .path { font-family: var(--mono); font-size: 13.5px; flex: none; }
+#results .path { color: var(--fg); font-family: var(--mono); font-size: 13.5px; flex: none; }
 #results .what { font-size: 12px; color: var(--muted); flex: none; }
 #results .dot { --c: var(--muted); width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; margin-left: -4px; }
 #results .dot.foreign { --c: var(--foreign); }
@@ -128,7 +128,7 @@ main { flex: 999 1 560px; min-width: 0; max-width: 860px; padding: 48px 0 120px;
 /* Page furniture */
 .crumbs { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
 .crumbs a { color: var(--muted); }
-.titlebar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 10px; }
+.titlebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 10px; }
 h1 { margin: 0; font-size: 36px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 700; overflow-wrap: anywhere; }
 h1.mono { font-size: 30px; font-weight: 500; line-height: 1.2; }
 h1.page-title { margin-bottom: 14px; }
