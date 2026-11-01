@@ -87,7 +87,7 @@ impl Compiler {
 
     pub fn type_info_global(&mut self, ty: TypeId, span: Span) -> Result<ir::GlobalId> {
         if let Some(&g) = self.ty.infos.get(&ty) {
-            if !self.ty.in_snapshot {
+            if !self.ty.in_snapshot && self.ty.snapshot_infos.contains(&ty) {
                 self.ty.snapshot_infos.remove(&ty);
             }
             return Ok(g);
