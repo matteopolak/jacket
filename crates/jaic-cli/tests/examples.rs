@@ -48,6 +48,7 @@ const PROGRAMS: &[(&str, &[&str], &str)] = &[
     ("imageview/main.jai", NATIVE, NO_WINDOW),
     ("chip8/main.jai", NATIVE, NO_WINDOW),
     ("chip8/tools/asm/main.jai", NATIVE, NO_FILES),
+    ("music/main.jai", NATIVE, NO_WINDOW),
     ("game2d/game/main.jai", NATIVE, NO_WINDOW),
     ("game3d/game/main.jai", NATIVE, NO_WINDOW),
     ("game2d/server/main.jai", NATIVE, NO_SOCKETS),

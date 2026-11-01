@@ -409,6 +409,15 @@
       "summary": "Browse, zoom, rotate and export images through Extensions/UI.",
       "mode": "check",
       "args": []
+    },
+    {
+      "id": "music",
+      "directory": "examples/music",
+      "main": "main.jai",
+      "title": "Music player",
+      "summary": "A streaming WAV and Vorbis player with a library, queue, worker waveform and synced lyrics (native only: needs a window).",
+      "mode": "check",
+      "stdout_contains": []
     }
   ]
 }
