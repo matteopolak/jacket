@@ -29,7 +29,11 @@ unsupported_and_failed_dialogs_use_the_right_prompt :: (t: *Test) {
 } @test
 
 save_as_only_changes_identity_after_success :: (t: *Test) {
-    root := temp_dir(t);
+    // Documents keep canonical paths, and the temporary folder may sit behind a symlink.
+    root, root_ok := get_absolute_path(temp_dir(t));
+
+    defer free(root);
+    expect(root_ok);
     original := tprint("%/original.txt", root);
     renamed := tprint("%/renamed.txt", root);
 
