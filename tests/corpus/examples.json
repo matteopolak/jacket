@@ -101,7 +101,7 @@
         " A metaprogram",
         "Fibonacci, computed by the compiler: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181]",
         "compiled for WebAssembly: you are probably in a browser",
-        "  JUPITER pulls at 24.8 m/s²",
+        "  JUPITER pulls at 24.8 m/s\u00b2",
         "Is this running at compile time? false. And during #run? true",
         "  counting to 1000 took 1000 steps",
         "  Collatz from 6: 6 3 10 5 16 8 4 2 1",
@@ -379,6 +379,15 @@
       "main": "game/main.jai",
       "title": "3D arena scene",
       "summary": "A WebGPU scene with worker-thread jobs, SIMD entities and meshoptimizer meshes (native only: needs a GPU).",
+      "mode": "check",
+      "stdout_contains": []
+    },
+    {
+      "id": "chat",
+      "directory": "examples/chat",
+      "main": "main.jai",
+      "title": "Fiber chat",
+      "summary": "Multi-room chat with persisted history, terminal client, bot, load tool, shared-memory stats and mention digests.",
       "mode": "check",
       "stdout_contains": []
     }

@@ -136,3 +136,4 @@ dogfood:
     sh examples/sitegen/tools/smoke.sh
     sh examples/seek/tools/smoke.sh
     sh examples/editor/tools/smoke.sh
+    sh examples/chat/tools/smoke.sh
