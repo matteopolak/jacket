@@ -16,8 +16,9 @@ At `-O0` the target machine uses FastISel, because GlobalISel was a third of cod
 
 `emit_objects` splits a large program into units, one LLVM context and module per thread.
 
-- Count: one for sanitized builds, wasm, `-emit_ir` and `output_*` options. Otherwise `-codegen_units`, else one per 5,000 IR instructions (20,000 optimised, at most 8), capped at the core count for optimised builds and at three per core (`UNITS_PER_CORE`) for unoptimised ones, so that fast cores take more units than slow ones. A huge unoptimised program gets more units than threads (up to 64) so modules are freed as they finish and peak memory stays low.
+- Count: one for sanitized builds, wasm, `-emit_ir` and `output_*` options. Otherwise `-codegen_units`, else one per 5,000 IR instructions (20,000 optimised, at most 8), capped at the core count for optimised builds and at three per core (`UNITS_PER_CORE`) for unoptimised ones, so that fast cores take more units than slow ones (the optimised numbers are chosen by runtime: [compile speed](../compiler/compile-speed.md#optimized-builds)). A huge unoptimised program gets more units than threads (up to 64) so modules are freed as they finish and peak memory stays low.
 - Unoptimised: functions go largest first to the least loaded unit. Optimised: divided by call graph (below).
+- An optimised build also gets a module of code that runs only on failure, built without optimization (below).
 - Each module defines its own functions and declares what it uses. A lookup by name (`libc_call`, `llvm.*`) must call `declare_named` first or LLVM renames the later symbol and the link fails. Internal symbols another unit uses become hidden external; use `Backend::internal_linkage` for new ones.
 - Objects are `path`, `path.1.o`, ...; the CLI links and deletes them. `-o x.o` stays one module.
 
@@ -28,7 +29,9 @@ At `-O0` the target machine uses FastISel, because GlobalISel was a third of cod
 - The cost is a few percent more instructions in search-heavy code, none in numeric code. Raise `IMPORT_MAX` or the budget to trade compile time for inlining.
 - `inline_cuts` stops one driver function (`main`, a test runner) from absorbing the program: past `INLINE_CAP` (4,000 estimated instructions) its largest inlinable callees are marked `noinline`.
 
-**Splitting after the optimizer** (`split.rs`). A program too small to divide is optimised as one module, then machine code generation runs in parallel (one unit per 10,000 instructions, at most 4). `strip_body` must delete whole blocks, not instructions one at a time, or debug records land on the wrong function and LLVM crashes now and then.
+**Dead and cold code** (`partition::classify`). Code reached from the entry points (`main`, `#program_export`s and the check reporter) is live; the rest (procedures only compile-time code ran) is not lowered at all. Live code reached only through a procedure with the `@Cold` note, or through the check reporter every failed check calls, is cold. Cold code goes to a module of its own, written at `-O0` (no passes, FastISel) while the others run the pipeline; calls into it are never inlined, and the `@Cold` procedures and the check reporter are marked `cold` so the optimizer moves the calling branches out of line. An empty `main` pulled in the whole `print` machinery through `assert` (22,000 IR instructions); with `assert_helper` and the default assertion handler marked `@Cold`, 90% of that is cold. A program with less than `COLD_MIN` (2,000) cold instructions keeps them in the optimised modules. This applies when the build would be split anyway: not for `-codegen_units 1`, sanitizers, IR output or wasm.
+
+**Splitting after the optimizer** (`split.rs`). A program too small to divide is optimised as one module, then machine code generation runs in parallel (one unit per 3,500 LLVM instructions, at most 8). The code is the same whatever the count, so the size is set by compile time (numbers in the constant's comment). `strip_body` must delete whole blocks, not instructions one at a time, or debug records land on the wrong function and LLVM crashes now and then.
 
 ### Lowering rules (`lower.rs`)
 
@@ -51,6 +54,7 @@ Turns `ByteLookup` and `SignMask` ([intrinsics](../language/intrinsics.md#native
 - New instruction set: `Feature` variants and `cpu_features` in `simd/features.rs` with a test, then the path in the architecture file guarded by `cx.target.has(..)`, more specific first.
 - New SIMD intrinsic: the `ir::Intrinsic` variant with sema and interpreter parts, then `generic::<name>`, a dispatch function and a call in `lower.rs`. A mistyped LLVM intrinsic fails at lowering, but one the target cannot select fails only in codegen: check with `-emit_ir` and build an object.
 - Debug info is in `debuginfo.rs`; `lower.rs` only calls its hooks.
+- To make a library procedure cold, give it `@Cold` after its body; the note sets `Func::cold`, read by `partition::classify`. Only mark code that runs on failure and ends the program or is otherwise never in a loop.
 - Module-level things (a global, a constructor list) are emitted once in unit 0. A new way for lowered code to refer to another function or global must be added to `partition::references`.
 - Testing units: CI runs `JACKET_TEST_CODEGEN_UNITS=4 cargo test -p jaic-cli --test native --test optimized_split --test debug_info --test embedded_data`. With several units `-emit_ir` writes `x.n.ll` per unit; tests reading IR must read every part (`read_ir_parts`) or pin `-codegen_units 1`. `-dev_split_units 4` forces the post-optimizer split.
 - Windows: `#program_export` is `dllexport` ([Windows](windows.md)). WebAssembly: foreign procedures become imports ([wasm target](wasm-target.md)).
@@ -58,7 +62,7 @@ Turns `ByteLookup` and `SignMask` ([intrinsics](../language/intrinsics.md#native
 ## Configuration
 
 - `-dev_verify_ir`, `-codegen_units N` (`-no_split` is 1, for whole-program optimisation), `-dev_split_units N`, `[experimental] codegen_units` in `jacket.toml`.
-- Constants: `INSTS_PER_UNIT`, `UNITS_PER_CORE`, `OPT_INSTS_PER_UNIT`, `MAX_OPT_UNITS` (`emit.rs`), `MAX_UNITS` (`split.rs`), `IMPORT_MAX`, `IMPORT_BUDGET_PERCENT`, `INLINE_CAP`, `INLINE_SMALL` (`partition.rs`).
+- Constants: `INSTS_PER_UNIT`, `UNITS_PER_CORE`, `OPT_INSTS_PER_UNIT`, `MAX_OPT_UNITS`, `COLD_MIN` (`emit.rs`), `INSTS_PER_UNIT`, `MAX_UNITS` (`split.rs`), `IMPORT_MAX`, `IMPORT_BUDGET_PERCENT`, `INLINE_CAP`, `INLINE_SMALL` (`partition.rs`). Measurements behind them: [compile speed](../compiler/compile-speed.md#optimized-builds).
 - `-O0..-O3`, `-emit_ir file.ll`, `-no_debug_info`, `-sanitize` ([sanitizers](sanitizers.md)), `-os`, `-target triple`.
 - Building needs `llvm-sys` (or `LLVM_PREFIX`) pointing at the pinned LLVM ([LLVM setup](../tools/llvm-setup.md)).
 

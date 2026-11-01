@@ -107,6 +107,18 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     .create_enum_attribute(Attribute::get_named_enum_kind_id(name), 0),
             );
         }
+        if func.cold
+            || self
+                .program
+                .check_failed
+                .is_some_and(|id| id.0 as usize == i)
+        {
+            f.add_attribute(
+                AttributeLoc::Function,
+                self.ctx
+                    .create_enum_attribute(Attribute::get_named_enum_kind_id("cold"), 0),
+            );
+        }
         if let Some(extra) = &func.target_features
             && let Some(all) = crate::simd::function_features(self.arch, &self.features, extra)
         {

@@ -336,7 +336,15 @@ pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<
 /// IR instructions per codegen unit below which splitting does not pay for itself.
 pub(super) const INSTS_PER_UNIT: usize = 5_000;
 
-/// The same for optimized builds, whose modules also run the optimizer.
+/// The same for optimized builds, whose modules also run the optimizer. This is chosen by
+/// runtime, not compile time: dividing before the optimizer loses inlining across modules, and
+/// the loss is visible in real programs. Measured with `-codegen_units` on the runtime-project
+/// benchmarks (minimum of 25 runs against the default): `jaison` ran 1.03x at 2 modules and
+/// 1.07x at 4 and 8, `jai-xml` 1.00x at 2 and 1.03x at 4 and 8; raising the import budget to
+/// 40% or 100% did not recover it. Compile time keeps falling with more modules (a 20,000
+/// instruction program: 249 ms of codegen in 1 module, 126 in 2, 69 in 4, 54 in 8), so
+/// splitting a program of this size more finely is only for code that does not need the
+/// speed; `partition::classify` does that for failure code.
 const OPT_INSTS_PER_UNIT: usize = 20_000;
 
 /// IR instructions per unoptimized module above which a program gets more units than threads:
@@ -351,7 +359,10 @@ const UNITS_PER_CORE: usize = 3;
 /// Most modules an unoptimized build is divided into.
 const MAX_UNOPT_UNITS: usize = 64;
 
-/// Most modules an optimized build is divided into before the optimizer.
+/// Most modules an optimized build is divided into before the optimizer. Capped by runtime like
+/// `OPT_INSTS_PER_UNIT`: `examples/game2d` (290,000 instructions) took 684 ms of codegen at 8
+/// modules and 602 ms at 10 on a 10-core machine, but the programs that measure the loss are
+/// smaller, so the cap stays where it was verified.
 const MAX_OPT_UNITS: usize = 8;
 
 /// How many modules to split codegen into: `-codegen_units` when set, otherwise one
@@ -360,7 +371,7 @@ const MAX_OPT_UNITS: usize = 8;
 /// inlining (`partition.rs`). Sanitized builds stay whole, even under `-codegen_units`: on
 /// Intel macOS the linker records only the first sanitized unit in the debug map, and the reports
 /// lose the other units' lines.
-fn codegen_units(program: &Program, options: &Options) -> usize {
+fn codegen_units(program: &Program, options: &Options, cold_weight: usize) -> usize {
     if options.sanitize.any() || options.codegen.single_unit {
         return 1;
     }
@@ -374,7 +385,14 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
     {
         return 1;
     }
-    let insts: usize = program.funcs.iter().flatten().map(func_weight).sum();
+    // The cold module (`can_carve_cold`) is not optimized and not counted.
+    let insts: usize = program
+        .funcs
+        .iter()
+        .flatten()
+        .map(func_weight)
+        .sum::<usize>()
+        .saturating_sub(cold_weight);
     let cores = jaic::pool::threads();
     if options.opt_level == OptLevel::O0 {
         if options.codegen.split_modules == Some(false) {
@@ -400,6 +418,24 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
 }
 
 
+/// IR instructions of cold code below which it stays in the optimized modules: a module of its
+/// own costs a little to set up, link and delete.
+const COLD_MIN: usize = 2_000;
+
+/// Whether the code that runs only on failure may go to a module that is not optimized
+/// (`partition::Graph`). Not where the build stays whole or reads its IR back.
+fn can_carve_cold(options: &Options) -> bool {
+    options.opt_level != OptLevel::O0
+        && !options.sanitize.any()
+        && !options.codegen.single_unit
+        && options.codegen.units != Some(1)
+        && options.emit_ir.is_none()
+        && options.codegen.ir_after.is_none()
+        && options.codegen.bitcode_after.is_none()
+        && options.codegen.bitcode_before.is_none()
+        && !options.target.is_some_and(jaic::target::Target::is_wasm)
+}
+
 /// The functions kept out of their callers in an optimized build (`partition::inline_cuts`).
 pub(super) fn inline_cuts(program: &Program, options: &Options) -> Vec<bool> {
     if options.opt_level == OptLevel::O0 {
@@ -418,9 +454,19 @@ pub fn emit_objects(
     // WASI programs that start threads run them as green threads (`green.rs`).
     let instrumented = green::instrument(program);
     let program = instrumented.as_ref().unwrap_or(program);
-    let units = codegen_units(program, options);
     let cuts = inline_cuts(program, options);
-    if units == 1 {
+    let graph = (options.opt_level != OptLevel::O0)
+        .then(|| partition::Graph::new(program, can_carve_cold(options)))
+        .map(|g| {
+            if g.cold_weight < COLD_MIN {
+                g.without_cold()
+            } else {
+                g
+            }
+        });
+    let cold_weight = graph.as_ref().map_or(0, |g| g.cold_weight);
+    let units = codegen_units(program, options, cold_weight);
+    if units == 1 && cold_weight == 0 {
         // A program too small to divide before the optimizer is optimized whole and only
         // machine code generation is split, unless `-codegen_units` asked for exactly one
         // unit. The objects then differ from one module's only in how many there are.
@@ -430,23 +476,39 @@ pub fn emit_objects(
             && options.codegen.units.is_none();
         return emit_module(program, options, path, None, split, true, &cuts);
     }
-    let plan = if options.opt_level == OptLevel::O0 {
-        partition::flat(program, units)
-    } else {
-        partition::plan(program, units)
+    let plan = match graph {
+        Some(graph) => partition::plan(program, &graph, units),
+        None => partition::flat(program, units),
     };
-    let paths: Vec<PathBuf> = (0..units)
+    // Nothing optimizes the module of cold code, and a build option that adds passes at `-O0`
+    // does not apply to it.
+    let cold_options = plan.cold_unit.map(|_| {
+        let mut cold = options.clone();
+        cold.opt_level = OptLevel::O0;
+        cold.codegen.o0_passes = None;
+        cold
+    });
+    let total = plan.imports.len();
+    let paths: Vec<PathBuf> = (0..total)
         .map(|u| {
             if u == 0 {
                 return path.to_path_buf();
             }
+            // `split::emit` names the pieces of unit 0 `path.1.o`, `path.2.o`...
+            let cold = plan.cold_unit == Some(u as u32);
             let mut name = path.to_path_buf().into_os_string();
-            name.push(format!(".{u}.o"));
+            name.push(if cold {
+                ".cold.o".to_string()
+            } else {
+                format!(".{u}.o")
+            });
             PathBuf::from(name)
         })
         .collect();
-    jaic::pool::units(
-        units,
+    // With one optimized module, its machine code is still generated in parallel.
+    let split_hot = units == 1 && options.codegen.units.is_none() && !options.sanitize.any();
+    let written = jaic::pool::units(
+        total,
         |u| {
             let shard = Shard {
                 plan: &plan,
@@ -454,12 +516,18 @@ pub fn emit_objects(
             };
             // The last modules to start are kept alive, since the process links and exits next;
             // earlier ones are freed so their memory serves the units still to come.
-            let leak = u + jaic::pool::threads() >= units;
-            emit_module(program, options, &paths[u], Some(shard), false, leak, &cuts).map(drop)
+            let leak = u + jaic::pool::threads() >= total;
+            let options = match &cold_options {
+                Some(cold) if plan.cold_unit == Some(u as u32) => cold,
+                _ => options,
+            };
+            let split = split_hot && u == 0 && plan.cold_unit.is_some();
+            emit_module(program, options, &paths[u], Some(shard), split, leak, &cuts)
         },
         || {},
     )
     .into_iter()
-    .collect::<Result<Vec<()>, String>>()?;
+    .collect::<Result<Vec<Vec<PathBuf>>, String>>()?;
+    let paths: Vec<PathBuf> = written.into_iter().flatten().collect();
     Ok(paths)
 }

@@ -125,6 +125,29 @@ Peak memory of `game2d` went from 383 MB to 326 MB (smaller modules).
 
 **Proposal: cache stdlib object code.** Most of `game2d`'s IR is library code that does not change between builds. A cache keyed by a hash of each unit's functions (IR, types and debug info they reference) could skip codegen for them. Today it cannot be done safely: internal symbols are named `name.<function index>`, so adding one function renames everything after it; the unit plan (`partition::flat`) depends on the whole program; and debug-map objects must stay where the debugger finds them. It needs content-based symbol names and a stable per-module split first (for example one unit per stdlib module), then a cache directory with the object per module hash. It would pay in an edit-compile loop and not at all for a first build; measure how much of a typical program is library code before building it.
 
+### Optimized builds
+
+`game2d` at `-O2` (10-core Apple machine): front end 108 ms, codegen 770 ms, link 87 ms, debug info 45 ms. Per module (8 of them, balanced to within 10%): lowering 70 ms, the optimizer 270-390 ms, machine code 300-370 ms. LLVM's own timing of the whole program on one thread: InstCombine 15%, the inliner 8%, SROA 6%; instruction selection is 38% of machine code. No pass stands out, and turning off loop or SLP vectorization, unrolling or merging functions each moved the optimizer by under 5%. What helped was doing less work and using idle cores:
+
+- **Dead code is not lowered.** About 15% of the IR of `game2d` is code only compile-time execution ran. A split build now lowers only what the entry points reach (`partition::classify`): lowering 72 ms to 57 ms per module, and the modules are balanced on real work.
+- **Failure code is built without optimization.** Procedures with the `@Cold` note (`assert_helper`, the default assertion handler) and the check reporter, and what only they reach, form a module written at `-O0`. An empty `main` carried 22,000 IR instructions, 90% of it the `print` machinery behind `assert`.
+- **Machine code is split finer.** One optimized module's code generation is split by size at 3,500 instructions, not 10,000. Measured on a 13,000-instruction module, whole build: 1 unit 291 ms, 2: 238, 3: 224, 4: 220, 6: 228, 8: 230, 10: 236.
+
+Best of 9 alternating builds, load average 6-7 from another job (so absolute numbers are higher than on an idle machine; the pairs are what matter), total and codegen in ms:
+
+| Program | before total (codegen) | after total (codegen) |
+| --- | --- | --- |
+| `main :: () {}` | 317 (250) | 85 (22) |
+| `print` and recursion, 13 lines | 320 (258) | 227 (162) |
+| `examples/game2d/game` | 963 (726) | 864 (636) |
+| `examples/ui-gallery` | 525 (305) | 507 (287) |
+| 10,000 generated lines | 313 (222) | 309 (217) |
+| 2,500 generated lines | 344 (268) | 344 (268) |
+
+The runtime benchmarks (`benchmarks/runtime`, `runtime-projects`, 15 runs, one binary built by each compiler, interleaved) are within noise: ratios 0.98x to 1.03x, with `jaison` 1.02x (range 0.385-0.513 for both). The allocation counts of `tools/bench/gate.py` are unchanged.
+
+**More modules before the optimizer: measured and rejected.** Compile time keeps improving with the count (`game2d` codegen, 7 runs each: 8 modules 684 ms, 9: 631, 10: 635, 20: 618; a 20,000-instruction program, 9 runs: 1 module 249 ms, 2: 126, 4: 69, 8: 54), but the programs run slower. Building the runtime projects with `-codegen_units` and taking the minimum of 25 runs against the default: `jaison` 1.03x at 2, 1.07x at 4 and 8; `jai-xml` 1.00x at 2, 1.03x at 4 and 8. A larger import budget (40% or 100% of a module, copies up to 400 or 1,000 instructions) did not recover it. So `OPT_INSTS_PER_UNIT` (20,000) and `MAX_OPT_UNITS` (8) stay. Other things measured: `llc -fast-isel` at `-O2` cuts machine code time by a quarter and makes the code 2.4% larger, not tried; an inline threshold of 100 cuts the optimizer by 15% and the code by 15%, a runtime risk not taken; `-time-passes` inside the threaded build is useless (a global lock), measure a single-module `-emit_ir` file with `opt` and `llc` instead.
+
 ### Rejected experiments
 
 - Skipping LiveDebugValues at `-O0` loses `frame variable` locations.

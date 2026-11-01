@@ -50,6 +50,10 @@ pub struct Func {
     /// The procedure was declared `inline` or `no_inline`: native code always or never inlines
     /// it.
     pub inline: InlineHint,
+    /// Declared with the `@Cold` note: it runs when something has gone wrong (a failed assertion
+    /// or check). Native code gives it, and what only it reaches, an unoptimized module
+    /// of its own (`jaic-llvm/src/partition.rs`).
+    pub cold: bool,
     /// CPU features (`"avx2,bmi2"`) this function's native code may use beyond the build's,
     /// from `#target_features`. The interpreter ignores them.
     pub target_features: Option<String>,

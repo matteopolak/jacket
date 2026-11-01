@@ -164,7 +164,7 @@ runtime_support_assertion_failed :: (loc: Source_Code_Location, message: string)
     c_abort();
 
     return false;
-}
+} @Cold
 
 runtime_support_default_logger :: (message: string, data: *void, info: Log_Info) {
     to_error := (info.common_flags & .ERROR) != 0;

@@ -2,7 +2,7 @@
 // yourself only to report a failed check of your own.
 assert_helper :: (message := "", args: ..Any, loc := #caller_location) -> bool #no_debug {
     return context.assertion_failed(loc, tprint(message, ..args));
-}
+} @Cold
 
 #if ENABLE_ASSERT {
     // Stops the program with a message when `arg` is false. `message` can hold `%` markers filled from `args`, the same way

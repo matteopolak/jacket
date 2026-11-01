@@ -22,7 +22,7 @@ Notes are stored, never interpreted {#note.11}:
 | on a struct or union (`S :: struct @thing {`) | `type_info(S).notes`, `Code_Struct.notes` {#note.8} |
 | on an enum (`enum_flags @Hi {`) | `Code_Enum.notes` only {#note.9}; `Type_Info_Enum` has no notes {#note.10} |
 
-The two notes on procedures the compiler reads are `@PrintLike` (checks a format string against its arguments) and `@Interpolates` ([inline holes](interpolates.md)).
+The notes on procedures the compiler reads are `@PrintLike` (checks a format string against its arguments), `@Interpolates` ([inline holes](interpolates.md)) and `@Cold` (the procedure runs only when something has gone wrong, such as a failed assertion: native builds compile it, and code only it reaches, without optimization to save build time; behaviour is the same).
 
 ## `#must` and `#discard`
 

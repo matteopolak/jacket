@@ -169,3 +169,55 @@ fn a_function_that_would_absorb_its_callees_keeps_the_largest_out() {
     assert_eq!(kept_out("o0.ll"), 0);
     assert!(kept_out("o2.ll") > 0);
 }
+
+/// Code that runs only on failure (`@Cold` procedures, the check reporter, and what only they
+/// reach) is built in a module of its own without optimization. Failures still report through it:
+/// a failed `assert` prints its message and a failed null check traps.
+#[test]
+fn failure_paths_work_from_the_unoptimized_module() {
+    let source = r#"#import "Basic";
+
+report :: (code: s64) -> bool { print("reported %\n", code); return true; } @Cold
+
+main :: () {
+    args := get_command_line_arguments();
+    if args.count > 1 && args[1] == "cold" report(7);
+    if args.count > 1 && args[1] == "assert" assert(args.count == 0, "bad %", args.count);
+    if args.count > 1 && args[1] == "null" { p: *s64; p.* = 1; }
+    print("done\n");
+}
+"#;
+    let dir = TempDir::new("optimized-cold");
+    std::fs::write(dir.join("main.jai"), source).unwrap();
+    let exe = dir.join(if cfg!(windows) {
+        "out.exe"
+    } else {
+        "out"
+    });
+    let build = jaic()
+        .args(["main.jai", "-O2", "-exe"])
+        .arg(&exe)
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let run = |arg: &str| Command::new(&exe).arg(arg).output().unwrap();
+    let ok = run("none");
+    assert!(ok.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&ok.stdout).replace("\r\n", "\n"),
+        "done\n"
+    );
+    let cold = run("cold");
+    assert!(cold.status.success());
+    assert!(String::from_utf8_lossy(&cold.stdout).contains("reported 7"));
+    let failed = run("assert");
+    assert!(!failed.status.success());
+    assert!(String::from_utf8_lossy(&failed.stderr).contains("assertion failed: bad 2"));
+    let null = run("null");
+    assert!(!null.status.success());
+}

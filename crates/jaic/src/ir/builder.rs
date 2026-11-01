@@ -34,6 +34,7 @@ impl Builder {
             null_checks: false,
             trusted: Vec::new(),
             inline: InlineHint::Default,
+            cold: false,
             target_features: None,
             debug: None,
         };

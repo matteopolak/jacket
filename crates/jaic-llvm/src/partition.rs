@@ -76,6 +76,7 @@ pub(crate) fn flat(program: &Program, units: usize) -> Plan {
         global_shared: vec![true; program.globals.len()],
         imports: vec![Vec::new(); units],
         global_imports: vec![Vec::new(); units],
+        cold_unit: None,
     }
 }
 
@@ -112,12 +113,151 @@ fn references(func: &Func, nf: usize, foreign_func: &[Option<u32>], out: &mut Ve
     out.dedup();
 }
 
-/// Divide `program` among `units` modules.
-pub(crate) fn plan(program: &Program, units: usize) -> Plan {
+/// The reference graph of a program and which of its functions and globals are cold.
+pub(crate) struct Graph {
+    /// The weight of each node, and the nodes each one refers to (functions first, then globals).
+    weight: Vec<usize>,
+    refs: Vec<Vec<u32>>,
+    /// Nodes the program's entry points reach (`classify`): the rest is not lowered.
+    live: Vec<bool>,
+    /// Nodes only reached through a cold function (`classify`).
+    cold: Vec<bool>,
+    /// IR instructions in the cold functions.
+    pub(crate) cold_weight: usize,
+}
+
+impl Graph {
+    /// The same graph with nothing cold.
+    pub(crate) fn without_cold(mut self) -> Self {
+        self.cold.fill(false);
+        self.cold_weight = 0;
+        self
+    }
+
+    /// `carve` false leaves every node hot.
+    pub(crate) fn new(program: &Program, carve: bool) -> Self {
+        let foreign_func = foreign_exports(program);
+        let (weight, refs) = reference_graph(program, &foreign_func);
+        let (live, cold) = if carve {
+            classify(program, &refs)
+        } else {
+            (vec![true; refs.len()], vec![false; refs.len()])
+        };
+        let nf = program.funcs.len();
+        let cold_weight = (0..nf)
+            .filter(|&n| live[n] && cold[n])
+            .map(|n| weight[n])
+            .sum();
+        Self {
+            weight,
+            refs,
+            live,
+            cold,
+            cold_weight,
+        }
+    }
+}
+
+/// Which nodes are live and which are cold.
+///
+/// Live nodes are those the entry points (`#program_export`s, which include `main`, and the
+/// check reporter that the backend calls itself) reach. The program also holds code only
+/// compile-time execution ran; nothing refers to it and it is not lowered.
+///
+/// Cold nodes run only when something has gone wrong: those reached from a function declared
+/// `@Cold` (or the check reporter, which every failed check calls) and not from the entry points
+/// without passing through one. Being cold changes only how much work the compiler spends on a
+/// node (`plan`), never what the program does.
+fn classify(program: &Program, refs: &[Vec<u32>]) -> (Vec<bool>, Vec<bool>) {
+    let nf = program.funcs.len();
+    let nodes = refs.len();
+    let mut entry = vec![false; nodes];
+    for (i, func) in program.funcs.iter().enumerate() {
+        if func.as_ref().is_some_and(|f| f.cold) {
+            entry[i] = true;
+        }
+    }
+    if let Some(id) = program.check_failed {
+        entry[id.0 as usize] = true;
+    }
+    // Reach from `starts`, never stepping onto a cold function unless `through_entries`.
+    let reach = |starts: &[u32], through_entries: bool| -> Vec<bool> {
+        let mut seen = vec![false; nodes];
+        let mut stack: Vec<u32> = starts.to_vec();
+        for &s in starts {
+            seen[s as usize] = true;
+        }
+        while let Some(n) = stack.pop() {
+            for &t in &refs[n as usize] {
+                if !seen[t as usize] && (through_entries || !entry[t as usize]) {
+                    seen[t as usize] = true;
+                    stack.push(t);
+                }
+            }
+        }
+        seen
+    };
+    let mut roots: Vec<u32> = Vec::new();
+    for (i, func) in program.funcs.iter().enumerate() {
+        if func
+            .as_ref()
+            .is_some_and(|f| matches!(f.linkage, Linkage::Export(_)))
+        {
+            roots.push(i as u32);
+        }
+    }
+    for (j, g) in program.globals.iter().enumerate() {
+        if g.export.is_some() {
+            roots.push((nf + j) as u32);
+        }
+    }
+    let hot = reach(&roots, false);
+    let mut all = roots;
+    all.extend((0..nodes as u32).filter(|&n| entry[n as usize]));
+    let live = reach(&all, true);
+    let cold = (0..nodes).map(|n| live[n] && !hot[n]).collect();
+    (live, cold)
+}
+
+/// Divide `program` among `units` modules, and the cold part of it (if there is any) into one
+/// more, `Plan::cold_unit`.
+pub(crate) fn plan(program: &Program, graph: &Graph, units: usize) -> Plan {
     let nf = program.funcs.len();
     let nodes = nf + program.globals.len();
-    let foreign_func = foreign_exports(program);
-    let (weight, refs) = reference_graph(program, &foreign_func);
+    let Graph {
+        weight: full_weight,
+        refs: full_refs,
+        live,
+        cold,
+        cold_weight,
+    } = graph;
+    let cold_unit = (*cold_weight > 0).then_some(units as u32);
+    let total_units = units + usize::from(cold_unit.is_some());
+
+    // The hot part is divided on its own: dead and cold nodes drop out of the graph.
+    let hot = |n: usize| live[n] && !cold[n];
+    let weight: Vec<usize> = (0..nodes)
+        .map(|n| {
+            if hot(n) {
+                full_weight[n]
+            } else {
+                0
+            }
+        })
+        .collect();
+    let refs: Vec<Vec<u32>> = (0..nodes)
+        .map(|n| {
+            if hot(n) {
+                full_refs[n]
+                    .iter()
+                    .copied()
+                    .filter(|&t| hot(t as usize))
+                    .collect()
+            } else {
+                Vec::new()
+            }
+        })
+        .collect();
     let (order, parent) = referrer_forest(&refs, nodes);
     let (group, group_weight) = cut_groups(&order, &parent, &weight, units);
 
@@ -131,7 +271,14 @@ pub(crate) fn plan(program: &Program, units: usize) -> Plan {
         bin[g as usize] = unit as u32;
         load[unit] += group_weight[g as usize];
     }
-    let owner: Vec<u32> = group.iter().map(|&g| bin[g as usize]).collect();
+    let owner: Vec<u32> = (0..nodes)
+        .map(|n| match cold_unit {
+            _ if !live[n] => NONE,
+            Some(unit) if cold[n] => unit,
+            _ => bin[group[n] as usize],
+        })
+        .collect();
+    let (weight, refs) = (full_weight, full_refs);
 
     // What the linker has to see: whatever another module refers to, and what the outside does.
     let mut shared = vec![false; nodes];
@@ -150,8 +297,8 @@ pub(crate) fn plan(program: &Program, units: usize) -> Plan {
             shared[nf + j] = true;
         }
     }
-    let mut need: Vec<Vec<bool>> = vec![vec![false; nodes]; units];
-    for n in 0..nodes {
+    let mut need: Vec<Vec<bool>> = vec![vec![false; nodes]; total_units];
+    for n in (0..nodes).filter(|&n| live[n]) {
         let k = owner[n] as usize;
         for &r in &refs[n] {
             if owner[r as usize] as usize != k {
@@ -161,7 +308,15 @@ pub(crate) fn plan(program: &Program, units: usize) -> Plan {
         }
     }
 
-    let mut imports = choose_imports(program, &weight, &refs, &owner, &mut shared, &mut need);
+    let mut imports = choose_imports(
+        program,
+        weight,
+        refs,
+        &owner,
+        &mut shared,
+        &mut need,
+        (cold_unit, cold),
+    );
     let global_imports: Vec<Vec<u32>> = imports
         .iter()
         .map(|v| {
@@ -181,6 +336,7 @@ pub(crate) fn plan(program: &Program, units: usize) -> Plan {
         func_shared: shared[..nf].to_vec(),
         global_shared: shared[nf..].to_vec(),
         imports,
+        cold_unit,
     }
 }
 
@@ -367,6 +523,7 @@ fn choose_imports(
     owner: &[u32],
     shared: &mut [bool],
     need: &mut [Vec<bool>],
+    (cold_unit, cold): (Option<u32>, &[bool]),
 ) -> Vec<Vec<u32>> {
     let nf = program.funcs.len();
     let nodes = owner.len();
@@ -380,6 +537,10 @@ fn choose_imports(
                 .is_some_and(|f| f.inline == jaic::ir::InlineHint::Always)
     };
     let importable = |n: usize| -> bool {
+        // Cold code is never inlined: its callers keep calling the unoptimized module.
+        if cold[n] {
+            return false;
+        }
         if n >= nf {
             // Constant data folds into the code that reads it; a zero default value turns a copy
             // into a memset.
@@ -395,7 +556,7 @@ fn choose_imports(
             && (weight[n] <= IMPORT_MAX || always_inline(n))
     };
     let mut owned_weight = vec![0usize; units];
-    for n in 0..nodes {
+    for n in (0..nodes).filter(|&n| owner[n] != NONE) {
         owned_weight[owner[n] as usize] += weight[n];
     }
     let mut imports: Vec<Vec<u32>> = vec![Vec::new(); units];
@@ -403,6 +564,10 @@ fn choose_imports(
     // functions with the most callers per instruction first.
     let mut callers = vec![0u32; nodes];
     for k in 0..units {
+        // The cold module is not optimized, so a copy would only be lowered and thrown away.
+        if cold_unit == Some(k as u32) {
+            continue;
+        }
         let budget = owned_weight[k] * IMPORT_BUDGET_PERCENT / 100;
         let mut used = 0usize;
         callers.fill(0);

@@ -24,6 +24,9 @@ pub struct Plan {
     pub imports: Vec<Vec<u32>>,
     /// The same for read-only globals, which the optimizer may fold loads from.
     pub global_imports: Vec<Vec<u32>>,
+    /// The module holding the code that runs only on failure (`partition::cold_nodes`); the
+    /// emitter builds it without optimization.
+    pub cold_unit: Option<u32>,
 }
 
 /// Which part of the program a module holds when codegen is split across modules.
