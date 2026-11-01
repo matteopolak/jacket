@@ -10,9 +10,10 @@ Rough edges hit while writing seek. Fixed ones name the commit subject; open one
 
 - Every seek worker compiled the pattern again, since a `Regex.Regex` has a mutable search cache. Fixed by "feat(regex): clone a compiled pattern for another thread": `Regex.clone(*re)` shares the programs and has a cache of its own, and seek compiles once and clones per worker. The test is `stdlib/Extensions/Regex/tests/clone.jai`.
 
+- A leak found by `jacket test` was reported at `remember` in `tracking.jai` when the allocating call went through more than a few library procedures (`join`). Fixed by "fix(testing): report a leak at the line in the test that allocated": the allocation records its first frame outside the standard library when it is made. The test is `crates/jacket/tests/leak_report.rs`.
+
 ## Open
 
 - `Thread_Group_Proc` gets the `Thread` rather than the worker's index: seek reaches it through `thread.worker_info.worker_index` in each job. (The `worker_start` hook is given the index.)
 - `visit_files` has a callback and a `user_data`, with no way to stop the walk early or to see why a directory failed (`had_error` only). seek reports "cannot read" without the reason.
 - `file_list(path, recursive = true)` has the same limits sitegen found: unsorted, full paths with the folder as typed. seek uses `visit_files` and sorts itself with `Sort.quick_sort`.
-- `jacket test` keeps output in one allocation-tracked world, so a test that builds a big string with `join` without `,, temp` fails as a leak. That is the framework doing its job, but the message names `remember` in `tracking.jai`, not the line in the test that allocated; the allocation site would be what a reader needs.

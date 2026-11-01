@@ -1,0 +1,14 @@
+--- joins_and_forgets (FAIL) ---
+  tests/leaks.jai:7:
+    leaked 15 bytes in 1 allocation made here in joins_and_forgets
+    7 | text := join(..parts, ", ");
+
+--- allocates_and_forgets (FAIL) ---
+  tests/leaks.jai:11:
+    leaked 32 bytes in 1 allocation made here in allocates_and_forgets
+    11 | alloc(32);
+
+--- grows_an_array_and_forgets (FAIL) ---
+  tests/leaks.jai:16:
+    leaked 64 bytes in 1 allocation made here in grows_an_array_and_forgets
+    16 | array_add(*items, 1);

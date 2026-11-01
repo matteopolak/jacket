@@ -16,12 +16,14 @@ Tracker :: struct {
     bad_free: bool; // Set once, so a test fails at its first bad free only.
 }
 
-SITE_FRAMES :: 6;
-
+// Where an allocation was made, found when it was made: `site` is the first frame outside the standard library (the line
+// in the program or test that asked for the memory), and `fallback` the first frame outside this file, for memory the
+// standard library allocated on its own.
 Live_Allocation :: struct {
     memory: *void;
     size: s64;
-    frames: [SITE_FRAMES] Frame;
+    site: Frame;
+    fallback: Frame;
 }
 
 Frame :: struct {
@@ -47,7 +49,7 @@ finish_tracking :: (tracker: *Tracker, test_location: Source_Code_Location, repo
     unlock(tracker);
     if !report_leaks || !tracker.live_count return;
 
-    // Group the leaks by the first frame outside the standard library.
+    // Group the leaks by the line that asked for the memory.
     Site :: struct {
         location: Source_Code_Location;
         procedure: string;
@@ -98,7 +100,7 @@ unlock :: (tracker: *Tracker) {
     atomic_exchange(*tracker.lock, 0);
 }
 
-// The library's own frames (allocation helpers, `array_add`, this module) are skipped.
+// The library's own frames (allocation helpers, `array_add`, this module) are skipped when looking for the line that allocated.
 STDLIB_ROOT :: #run stdlib_root();
 
 stdlib_root :: () -> string {
@@ -123,24 +125,30 @@ stdlib_root :: () -> string {
     return string.{ cut, path.data };
 }
 
+// The library's own code, not the tests that live in its folders: a leak in a test of the library is reported at the test.
 in_stdlib :: (file: string) -> bool {
     if file.count < STDLIB_ROOT.count return false;
-    return string.{ STDLIB_ROOT.count, file.data } == STDLIB_ROOT;
+    if string.{ STDLIB_ROOT.count, file.data } != STDLIB_ROOT return false;
+
+    below := string.{ file.count - STDLIB_ROOT.count, file.data + STDLIB_ROOT.count };
+
+    return !has_part(below, "/tests/") && !has_part(below, "\\tests\\");
+}
+
+has_part :: (text: string, part: string) -> bool {
+    for start: 0..text.count - part.count {
+        if string.{ part.count, text.data + start } == part return true;
+    }
+
+    return false;
 }
 
 site_of :: (allocation: Live_Allocation) -> (Source_Code_Location, string) {
-    first: Frame;
+    frame := allocation.site;
+    if !frame.info frame = allocation.fallback;
+    if !frame.info return .{}, "";
 
-    for allocation.frames {
-        if !it.info break;
-        if !first.info first = it;
-        if in_stdlib(it.info.location.fully_pathed_filename) continue;
-        return .{ it.info.location.fully_pathed_filename, it.line, 0 }, it.info.name;
-    }
-
-    if first.info return .{ first.info.location.fully_pathed_filename, first.line, 0 }, first.info.name;
-
-    return .{}, "";
+    return .{ frame.info.location.fully_pathed_filename, frame.line, 0 }, frame.info.name;
 }
 
 hash_pointer :: (memory: *void) -> u64 {
@@ -183,11 +191,23 @@ remember :: (tracker: *Tracker, memory: *void, size: s64) {
     slot := *tracker.live[slot_of(tracker, memory)];
     slot.memory = memory;
     slot.size = size;
+    slot.site = .{};
+    slot.fallback = .{};
+
     frame := context.stack_trace;
 
-    for 0..SITE_FRAMES - 1 {
-        if !frame break;
-        slot.frames[it] = .{ frame.info, frame.line_number };
+    while frame {
+        if frame.info && frame.info.location.fully_pathed_filename != #file {
+            here := Frame.{ frame.info, frame.line_number };
+
+            if !slot.fallback.info slot.fallback = here;
+
+            if !in_stdlib(frame.info.location.fully_pathed_filename) {
+                slot.site = here;
+                break;
+            }
+        }
+
         frame = frame.next;
     }
 
