@@ -1,11 +1,41 @@
-/// Device pixels per window coordinate unit; window sizes here are already in pixels.
+/// Desktop DPI scale from Xft.dpi, or a rounded screen-size estimate. Sizes and input remain pixels.
 //
 // ```jai,no_run
 // window := create_window(800, 600, "scale");
-// pixels := cast(int) (800 * get_pixel_scale(window));
+// scale := get_pixel_scale(window); // metadata for UI/font sizing; dimensions are already pixels
 // ```
 get_pixel_scale :: (win: Window) -> float {
-    return 1;
+    if win == None return 1;
+
+    display := Connection.get_display();
+    if !display return 1;
+
+    // Read the root property rather than XResourceManagerString's connection-time
+    // snapshot so xrdb changes are visible on the next query.
+    resource := XInternAtom(display, "RESOURCE_MANAGER", 1);
+    actual: Atom;
+    format: s32;
+    count, remaining: u64;
+    bytes: *u8;
+
+    if resource && XGetWindowProperty(display, XDefaultRootWindow(display), resource, 0, 16384, 0, XA_STRING, *actual, *format, *count, *remaining, *bytes) == 0 {
+        defer if bytes XFree(bytes);
+
+        if actual == XA_STRING && format == 8 && remaining == 0 {
+            dpi := xft_dpi(string.{ cast(s64) count, bytes });
+            if dpi > 0 return dpi_scale(dpi);
+        }
+    }
+
+    attributes: XWindowAttributes;
+    if XGetWindowAttributes(display, win, *attributes) == 0 return 1;
+
+    millimeters := XWidthMMOfScreen(attributes.screen);
+    if millimeters <= 0 return 1;
+
+    dpi := cast(float) XWidthOfScreen(attributes.screen) * 25.4 / cast(float) millimeters;
+
+    return dpi_scale(dpi, true);
 }
 
 // Where the window's drawing area is on the screen and how big it is: `x, y, width, height, success`.

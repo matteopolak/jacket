@@ -1,11 +1,12 @@
-/// Device pixels per window coordinate unit; window sizes here are already in pixels.
+/// Desktop DPI scale relative to 96 DPI. Window sizes and input coordinates remain device pixels.
 //
 // ```jai,no_run
 // window := create_window(800, 600, "scale");
-// pixels := cast(int) (800 * get_pixel_scale(window));
+// scale := get_pixel_scale(window); // metadata for UI/font sizing; dimensions are already pixels
 // ```
 get_pixel_scale :: (hwnd: Windows.HWND) -> float {
-    return 1;
+    if !hwnd return 1;
+    return dpi_scale(cast(float) window_dpi(hwnd));
 }
 
 // Where the window's drawing area is on the screen and how big it is: `x, y, width, height, success`.
@@ -73,3 +74,6 @@ get_mouse_pointer_position :: inline (right_handed := false) -> x: int, y: int, 
 desktop_bottom :: () -> s32 {
     return Windows.GetSystemMetrics(Windows.SM_YVIRTUALSCREEN) + Windows.GetSystemMetrics(Windows.SM_CYVIRTUALSCREEN);
 }
+
+#scope_module
+window_dpi :: (window: Windows.HWND) -> u32 #foreign user32 "GetDpiForWindow";

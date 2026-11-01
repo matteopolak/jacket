@@ -81,6 +81,8 @@ Window_Type :: WT.Window_Type;
 }
 
 #scope_module
+#load "../internal/window/dpi.jai";
+
 DEFAULT_WINDOW_CREATION_COLOR :: float.[0.15, 0.15, 0.2];
 
 #if OS == .LINUX {

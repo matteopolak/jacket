@@ -112,6 +112,14 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
         return 0;
     }
 
+    // WM_DPICHANGED supplies an outer rectangle in device pixels. Applying it
+    // produces the usual WM_SIZE record; Input has no separate scale event.
+    if message == 0x02e0 {
+        suggested := cast(*RECT) lParam;
+        if suggested SetWindowPos(hwnd, null, suggested.left, suggested.top, suggested.right - suggested.left, suggested.bottom - suggested.top, SWP_NOZORDER | SWP_NOACTIVATE);
+        return 0;
+    }
+
     if message == WM_SIZE {
         window_minimized = wParam == SIZE_MINIMIZED;
         bits := cast(u64) (lParam & 0xffffffff);

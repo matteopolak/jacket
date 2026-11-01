@@ -19,6 +19,13 @@
 create_window :: (width: int, height: int, window_name: string, window_x := -1, window_y := -1, parent: Window_Type = null, background_color_rgb := DEFAULT_WINDOW_CREATION_COLOR, wanted_msaa := DEFAULT_MSAA) -> Windows.HWND {
     if width <= 0 || height <= 0 return null;
 
+    // Must precede the first HWND. An embedding process may already own its DPI policy;
+    // Windows refuses a second choice, in which case we preserve that policy.
+    if !dpi_awareness_attempted {
+        set_dpi_awareness(Windows.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        dpi_awareness_attempted = true;
+    }
+
     instance := Windows.GetModuleHandleW(null);
     if !instance return null;
 
@@ -148,3 +155,7 @@ window_class_name := u16.[67, 108, 101, 97, 110, 114, 111, 111, 109, 87, 105, 11
 #scope_file
 
 ERROR_CLASS_ALREADY_EXISTS :: 1410;
+
+#scope_module
+dpi_awareness_attempted := false;
+set_dpi_awareness :: (value: Windows.DPI_AWARENESS_CONTEXT) -> s32 #foreign user32 "SetProcessDpiAwarenessContext";
