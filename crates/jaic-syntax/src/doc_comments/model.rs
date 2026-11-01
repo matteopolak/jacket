@@ -235,10 +235,26 @@ struct Reader<'a> {
     anywhere: HashMap<String, Option<(PathBuf, usize)>>,
     /// Where a name written in a file leads, found once.
     refs: HashMap<(PathBuf, String), Option<(PathBuf, usize)>>,
+    /// Where each line starts in a file's text, keyed by the text's address: `files` keeps
+    /// every text it read alive, so an address names one text for the reader's whole life.
+    lines: HashMap<(usize, usize), Rc<Vec<usize>>>,
 }
 
-fn line_of(text: &str, at: usize) -> usize {
-    text[..at].matches('\n').count() + 1
+impl Reader<'_> {
+    /// The line `at` is on, counting from 1.
+    fn line_of(&mut self, text: &str, at: usize) -> usize {
+        let starts = self
+            .lines
+            .entry((text.as_ptr() as usize, text.len()))
+            .or_insert_with(|| {
+                Rc::new(
+                    std::iter::once(0)
+                        .chain(text.match_indices('\n').map(|(i, _)| i + 1))
+                        .collect(),
+                )
+            });
+        starts.partition_point(|&start| start <= at)
+    }
 }
 
 impl Reader<'_> {
@@ -330,7 +346,7 @@ impl Reader<'_> {
             }
         }
         let text = self.files.text(&found)?;
-        Some((found, line_of(&text, at)))
+        Some((found, self.line_of(&text, at)))
     }
 
     /// The declaration an alias at `at` of `file` finally names (itself when it names nothing
@@ -511,7 +527,7 @@ fn overload(
         .unwrap_or(EVERY_OS);
     Overload {
         file: file.to_path_buf(),
-        line: line_of(text, at),
+        line: reader.line_of(text, at),
         signature: slice(text, header.span.start, header.span.end),
         params,
         returns,
@@ -597,6 +613,51 @@ fn is_binding(parsed: &Parsed) -> bool {
 
 /// The documentation model of the library in `dir`. `stdlib` is where the `internal/` modules
 /// and other imports are found.
+/// A file's top level with its constants found by name and by where a name starts, so each item
+/// of a large binding file costs a lookup rather than a pass over the whole file.
+struct TopIndex<'a> {
+    tops: Vec<ide_facts::TopLevel<'a>>,
+    /// The first declaration with a name starting at an offset.
+    at: HashMap<usize, &'a Decl>,
+    /// Each constant declaring a name, in source order, with its visibility.
+    named: HashMap<&'a str, Vec<(&'a Decl, Visibility)>>,
+}
+
+impl<'a> TopIndex<'a> {
+    fn new(parsed: &'a Parsed) -> Self {
+        let tops = ide_facts::top_level(&parsed.parse.file);
+        let mut at: HashMap<usize, &'a Decl> = HashMap::default();
+        let mut named: HashMap<&'a str, Vec<(&'a Decl, Visibility)>> = HashMap::default();
+        for t in &tops {
+            let TopLevelKind::Decl(d) = t.kind else {
+                continue;
+            };
+            for n in &d.names {
+                at.entry(n.span.start as usize).or_insert(d);
+            }
+            if d.kind == DeclKind::Const {
+                let mut seen: Vec<&str> = Vec::new();
+                for n in &d.names {
+                    let name = n.name.as_str();
+                    if !seen.contains(&name) {
+                        seen.push(name);
+                        named.entry(name).or_default().push((d, t.visibility));
+                    }
+                }
+            }
+        }
+        Self {
+            tops,
+            at,
+            named,
+        }
+    }
+
+    fn constants(&self, name: &str) -> &[(&'a Decl, Visibility)] {
+        self.named.get(name).map_or(&[], Vec::as_slice)
+    }
+}
+
 pub fn module(dir: &Path, stdlib: &Path) -> Module {
     let mut own = Vec::new();
     super::own_files(dir, true, &mut own);
@@ -608,6 +669,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
         library: own.iter().map(|f| super::canonical(f)).collect(),
         anywhere: HashMap::default(),
         refs: HashMap::default(),
+        lines: HashMap::default(),
     };
     // The module's own file first, so items come in the order it lists them.
     own.sort_by_key(|f| super::canonical(f) != module_file);
@@ -633,7 +695,8 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
         let base = file.parent().unwrap_or(Path::new(".")).to_path_buf();
         let mut first_statement = None;
         let mut loads = Vec::new();
-        for item in ide_facts::top_level(&parsed.parse.file) {
+        let index = TopIndex::new(&parsed);
+        for item in &index.tops {
             first_statement.get_or_insert(item.span.start as usize);
             match item.kind {
                 TopLevelKind::Load(path, _) => loads.push(base.join(path)),
@@ -682,16 +745,14 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                     let binding = *binding_files
                         .entry(tfile.clone())
                         .or_insert_with(|| is_binding(&target));
-                    let tname = ide_facts::top_level(&target.parse.file)
-                        .into_iter()
-                        .find_map(|t| match t.kind {
-                            TopLevelKind::Decl(d)
-                                if d.names.iter().any(|n| n.span.start as usize == tat) =>
-                            {
-                                Some(d)
-                            }
-                            _ => None,
-                        });
+                    let elsewhere;
+                    let tindex = if Rc::ptr_eq(&target, &parsed) {
+                        &index
+                    } else {
+                        elsewhere = TopIndex::new(&target);
+                        &elsewhere
+                    };
+                    let tname = tindex.at.get(&tat).copied();
                     let Some(tdecl) = tname else {
                         // An alias of something this reader cannot find: a plain constant.
                         let value = decl
@@ -705,7 +766,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                                 name: name.name.as_str().to_owned(),
                                 kind: "constant",
                                 file: file.clone(),
-                                line: line_of(&text, at),
+                                line: reader.line_of(&text, at),
                                 docs: own_docs.unwrap_or_default(),
                                 value: clip(value),
                                 binding,
@@ -728,48 +789,30 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                         .copied()
                         .unwrap_or(EVERY_OS);
                     // A name declared in each branch of an `#if` is available wherever one is.
-                    let target_limit = ide_facts::top_level(&target.parse.file)
-                        .into_iter()
-                        .filter_map(|t| match t.kind {
-                            TopLevelKind::Decl(d)
-                                if d.kind == DeclKind::Const
-                                    && d.names.iter().any(|n| {
-                                        n.name.as_str() == tdecl.names[0].name.as_str()
-                                    }) =>
-                            {
-                                Some(
-                                    target
-                                        .limits
-                                        .get(&d.names[0].span.start)
-                                        .copied()
-                                        .unwrap_or(EVERY_OS),
-                                )
-                            }
-                            _ => None,
+                    let target_limit = tindex
+                        .constants(tdecl.names[0].name.as_str())
+                        .iter()
+                        .map(|(d, _)| {
+                            target
+                                .limits
+                                .get(&d.names[0].span.start)
+                                .copied()
+                                .unwrap_or(EVERY_OS)
                         })
                         .fold(0, |acc, mask| acc | mask);
                     let mut found = Item {
                         name: name.name.as_str().to_owned(),
                         kind,
                         file: tfile.clone(),
-                        line: line_of(&target.text, tat),
+                        line: reader.line_of(&target.text, tat),
                         docs: own_docs.unwrap_or_default(),
                         binding,
                         ..Item::default()
                     };
                     if kind == "procedure" {
                         // Every declaration of the name in the target's file is an overload.
-                        for sibling in ide_facts::top_level(&target.parse.file) {
-                            let TopLevelKind::Decl(d) = sibling.kind else {
-                                continue;
-                            };
-                            if d.kind != DeclKind::Const
-                                || !d
-                                    .names
-                                    .iter()
-                                    .any(|n| n.name.as_str() == tdecl.names[0].name.as_str())
-                                || sibling.visibility == Visibility::File
-                            {
+                        for &(d, visibility) in tindex.constants(tdecl.names[0].name.as_str()) {
+                            if visibility == Visibility::File {
                                 continue;
                             }
                             if let Some(header) = ide_facts::decl_header(d) {

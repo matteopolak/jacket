@@ -9,13 +9,25 @@ use crate::source::FileId;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-/// Reads files of a library and the standard library, each once.
+/// Reads and parses files of a library and the standard library, each once.
 pub(super) struct Files<'a> {
     stdlib: &'a Path,
     texts: HashMap<PathBuf, Option<Arc<str>>>,
+    tops: HashMap<PathBuf, Option<Arc<Top>>>,
+}
+
+/// The top level of one file: what its names stand for, and the files it brings in.
+struct Top {
+    /// The first declaration or named import of each name.
+    names: HashMap<String, Name>,
+    /// Loaded files, in order.
+    loads: Vec<PathBuf>,
+    /// Modules imported without a name, in order.
+    unnamed: Vec<PathBuf>,
 }
 
 /// What one name at the top of a file stands for.
+#[derive(Clone)]
 enum Name {
     /// A constant declared in this file, at this offset.
     Decl(PathBuf, usize),
@@ -28,6 +40,7 @@ impl<'a> Files<'a> {
         Self {
             stdlib,
             texts: HashMap::default(),
+            tops: HashMap::default(),
         }
     }
 
@@ -57,37 +70,62 @@ impl<'a> Files<'a> {
         candidates.into_iter().find(|p| p.is_file())
     }
 
+    /// The top level of `file`, parsed the first time it is asked for.
+    fn top(&mut self, file: &Path) -> Option<Arc<Top>> {
+        if let Some(top) = self.tops.get(file) {
+            return top.clone();
+        }
+        let top = self.read(file).map(|text| {
+            let parsed = crate::parser::parse_file_ide(FileId(0), &text);
+            let base = file.parent().unwrap_or(Path::new("."));
+            let mut top = Top {
+                names: HashMap::default(),
+                loads: Vec::new(),
+                unnamed: Vec::new(),
+            };
+            for item in ide_facts::top_level(&parsed.file) {
+                match item.kind {
+                    TopLevelKind::Decl(decl) => {
+                        for n in &decl.names {
+                            top.names
+                                .entry(n.name.as_str().to_owned())
+                                .or_insert_with(|| {
+                                    Name::Decl(file.to_path_buf(), n.span.start as usize)
+                                });
+                        }
+                    }
+                    TopLevelKind::Import(import) => {
+                        let found = self.imported(base, &import.source);
+                        match (&import.name, found) {
+                            (Some(n), Some(found)) => {
+                                top.names
+                                    .entry(n.name.as_str().to_owned())
+                                    .or_insert(Name::Module(found));
+                            }
+                            (None, Some(found)) => top.unnamed.push(found),
+                            (_, None) => {}
+                        }
+                    }
+                    TopLevelKind::Load(path, _) => top.loads.push(base.join(path)),
+                    TopLevelKind::Assert(_) | TopLevelKind::ModuleParameters(_) => {}
+                }
+            }
+            Arc::new(top)
+        });
+        self.tops.insert(file.to_path_buf(), top.clone());
+        top
+    }
+
     /// What `name` is at the top level of `file` or of a file it loads.
     fn top_level(&mut self, file: &Path, name: &str, depth: usize) -> Option<Name> {
-        let text = self.read(file)?;
-        let parsed = crate::parser::parse_file_ide(FileId(0), &text);
-        let base = file.parent().unwrap_or(Path::new("."));
-        let mut loads = Vec::new();
-        for item in ide_facts::top_level(&parsed.file) {
-            match item.kind {
-                TopLevelKind::Decl(decl) => {
-                    if let Some(found) = decl.names.iter().find(|n| n.name.as_str() == name) {
-                        return Some(Name::Decl(file.to_path_buf(), found.span.start as usize));
-                    }
-                }
-                TopLevelKind::Import(import) => {
-                    if import
-                        .name
-                        .as_ref()
-                        .is_some_and(|n| n.name.as_str() == name)
-                        && let Some(found) = self.imported(base, &import.source)
-                    {
-                        return Some(Name::Module(found));
-                    }
-                }
-                TopLevelKind::Load(path, _) => loads.push(base.join(path)),
-                TopLevelKind::Assert(_) | TopLevelKind::ModuleParameters(_) => {}
-            }
+        let top = self.top(file)?;
+        if let Some(found) = top.names.get(name) {
+            return Some(found.clone());
         }
         if depth == 0 {
             return None;
         }
-        loads
+        top.loads
             .iter()
             .find_map(|loaded| self.top_level(loaded, name, depth - 1))
     }
@@ -114,29 +152,16 @@ impl Files<'_> {
         let [name] = path else {
             return None;
         };
-        let text = self.read(&file)?;
-        let parsed = crate::parser::parse_file_ide(FileId(0), &text);
-        let base = file.parent().unwrap_or(Path::new("."));
-        let mut loads = Vec::new();
-        let mut unnamed = Vec::new();
-        for item in ide_facts::top_level(&parsed.file) {
-            match item.kind {
-                TopLevelKind::Import(import) if import.name.is_none() => {
-                    unnamed.extend(self.imported(base, &import.source));
-                }
-                TopLevelKind::Load(path, _) => loads.push(base.join(path)),
-                _ => {}
-            }
-        }
-        for module in unnamed {
-            if let Some(Name::Decl(owner, at)) = self.top_level(&module, name, LOAD_DEPTH) {
+        let top = self.top(&file)?;
+        for module in &top.unnamed {
+            if let Some(Name::Decl(owner, at)) = self.top_level(module, name, LOAD_DEPTH) {
                 return Some((owner, at));
             }
         }
         if depth == 0 {
             return None;
         }
-        loads
+        top.loads
             .iter()
             .find_map(|loaded| self.type_site_in(loaded, path, depth - 1))
     }
