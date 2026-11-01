@@ -6,6 +6,23 @@ get_display :: () -> *X11.Display {
         if initialized == 0 return null;
 
         X11.x_global_display = X11.XOpenDisplay(null);
+
+        // An X server under load, such as a shared Xvfb with many clients connecting at once,
+        // sometimes refuses a connection that succeeds a moment later. Only the first attempt in
+        // the process waits, so a machine with no display does not slow down every frame.
+        retries := CONNECT_RETRIES;
+        if connect_tried retries = 0;
+
+        connect_tried = true;
+        delay: s32 = CONNECT_RETRY_FIRST_MILLISECONDS;
+
+        for 1..retries {
+            if X11.x_global_display break;
+
+            Basic.sleep_milliseconds(delay);
+            delay *= 2;
+            X11.x_global_display = X11.XOpenDisplay(null);
+        }
     }
 
     return X11.x_global_display;
@@ -49,6 +66,9 @@ pointer_motion :: (window: X11.Window, x: s32, y: s32) -> int, int {
 }
 
 #scope_module
+CONNECT_RETRIES :: 6;
+CONNECT_RETRY_FIRST_MILLISECONDS :: 10;
+
 X11 :: #import "X11";
 Basic :: #import "Basic";
 
@@ -60,3 +80,4 @@ Resource :: struct {
 }
 
 resources: [..] Resource;
+connect_tried := false;
