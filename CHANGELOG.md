@@ -13,6 +13,7 @@
 - Docs pages are titled "Name — Jacket", and fields, members and parameters sit in one aligned card.
 - The docs list the declarations of binding modules, such as `d3d12` and `nvidia_aftermath`, marked Foreign.
 - Module pages list their module parameters in a table at the top.
+- `jacket doc` is much faster on large binding modules: the standard library's docs build in seconds instead of minutes.
 - `jaic -check` and `-interp` start faster and use less memory: native code generation now loads only when a build needs it.
 
 ### Fixed
