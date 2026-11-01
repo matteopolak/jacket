@@ -7,7 +7,7 @@
 //! the program has settled, so it does not depend on the name being used.
 use crate::diagnostics::Code;
 use crate::sema::scope::{EntityId, Found, Resolved, ScopeId, ScopeKind, filter_name};
-use crate::sema::{Compiler, Diagnostic, ModuleId, Sym, Value};
+use crate::sema::{Compiler, Diagnostic, HashSet, ModuleId, Sym, Value, ast};
 use crate::types::TypeId;
 
 /// What a procedure declaration is told apart by.
@@ -37,6 +37,20 @@ impl Compiler {
                     .filter(|&s| s == scope || self.scope(s).kind == ScopeKind::Module)
                     .collect()
             };
+            // Each module an unfiltered import names is asked once, however many files import it.
+            let mut plain: HashSet<ModuleId> = HashSet::default();
+            let mut imports: Vec<(ModuleId, ScopeId, usize)> = Vec::new();
+            for &reached in &reaching {
+                for (i, entry) in self.scope(reached).imports.iter().enumerate() {
+                    let Some(module) = entry.module else {
+                        continue;
+                    };
+                    if matches!(entry.filter, ast::UsingFilter::None) && !plain.insert(module) {
+                        continue;
+                    }
+                    imports.push((module, reached, i));
+                }
+            }
             let mut names: Vec<(Sym, Vec<EntityId>)> = self
                 .scope(scope)
                 .names
@@ -45,12 +59,17 @@ impl Compiler {
                 .collect();
             names.sort_by_key(|(name, _)| name.as_str());
             for (name, ids) in names {
-                self.warn_if_imports_export(&reaching, name, &ids);
+                self.warn_if_imports_export(&imports, name, &ids);
             }
         }
     }
 
-    fn warn_if_imports_export(&mut self, reaching: &[ScopeId], name: Sym, ids: &[EntityId]) {
+    fn warn_if_imports_export(
+        &mut self,
+        reaching: &[(ModuleId, ScopeId, usize)],
+        name: Sym,
+        ids: &[EntityId],
+    ) {
         let own: Vec<EntityId> = ids
             .iter()
             .copied()
@@ -66,16 +85,13 @@ impl Compiler {
             return;
         };
         let mut imported: Vec<(ModuleId, Sym)> = Vec::new();
-        for &scope in reaching {
-            for entry in &self.scope(scope).imports {
-                let (Some(module), Some(target)) =
-                    (entry.module, filter_name(Some(&entry.filter), name))
-                else {
-                    continue;
-                };
-                if !imported.contains(&(module, target)) {
-                    imported.push((module, target));
-                }
+        for &(module, scope, index) in reaching {
+            let Some(target) = filter_name(Some(&self.scope(scope).imports[index].filter), name)
+            else {
+                continue;
+            };
+            if !imported.contains(&(module, target)) {
+                imported.push((module, target));
             }
         }
         for (module, target) in imported {
