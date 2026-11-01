@@ -557,7 +557,7 @@ ssl_home_directory :: () -> string {
 
         return tprint("%/.postgresql", home);
     }
-}
+} @TempAllocates
 
 is_regular_file :: (path: string) -> bool {
     if !Typed_Files.file_exists(path) return false;
@@ -688,7 +688,7 @@ load_ssl_files :: (config: *Config, info: Conninfo, use_environment: bool, root_
     config.ssl_key_file = copy_string(key_file);
 
     return "";
-}
+} @TempAllocates
 
 // The PEM lists in a file, ready to be put one after the other.
 add_crls :: (lists: *String_Builder, text: string) {
@@ -700,7 +700,7 @@ add_crls :: (lists: *String_Builder, text: string) {
 
 private_key_permissions :: (path: string) -> string {
     return tprint("private key file \"%\" has group or world access; file must have permissions u=rw (0600) or less if owned by the current user, or permissions u=rw,g=r (0640) or less if owned by root", path);
-}
+} @TempAllocates
 
 ssl_mode_name :: (mode: Ssl_Mode) -> string {
     if mode == {

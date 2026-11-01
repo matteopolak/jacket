@@ -314,6 +314,7 @@ tracking_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *v
             }
 
             return parent.proc(mode, size, old_size, old_memory, parent.data);
+        case; // Other members deliberately do nothing.
     }
 
     return parent.proc(mode, size, old_size, old_memory, parent.data);

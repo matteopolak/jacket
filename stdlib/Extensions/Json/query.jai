@@ -206,6 +206,7 @@ scalar_kind :: (g: *Gen, info: *Type_Info, style: Enum_Style) -> Pair_Kind {
         case .BOOL; return .BOOL;
         case .STRING; return .TEXT;
         case .ENUM; return ifx style.as_number then Pair_Kind.NUMBER else Pair_Kind.TEXT;
+        case; // Other members deliberately do nothing.
     }
 
     return .UNKNOWN;

@@ -44,7 +44,7 @@ get_android_target_triple :: (cpu: CPU_Tag) -> triple: string, triple_with_sdk: 
     }
 
     return triple, tprint("%%", triple, ANDROID_SDK_LEVEL);
-}
+} @TempAllocates
 
 get_ndk_paths :: () -> NDK_Paths {
     found, root := android_find_ndk_path();

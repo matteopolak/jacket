@@ -94,7 +94,7 @@ inspect :: (request: *Request, body: *Body) -> string {
     agent, _ := header(request, "User-Agent");
 
     return tprint("% % body=[%] auth=[%] ctype=[%] custom=[%] agent=[%]", request.method_text, request.target, string.{ bytes.count, bytes.data }, auth, ctype, custom, agent);
-}
+} @TempAllocates
 
 moved :: (request: *Request) -> Response {
     return redirect("/inspect?moved=1", 301);

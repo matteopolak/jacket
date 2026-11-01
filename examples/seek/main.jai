@@ -2,7 +2,7 @@
 // `path:line:col: text` for every line that matches, in path order. README.md is the guide.
 //
 //     jaic examples/seek/main.jai -exe seek
-//     ./seek TODO examples
+//     ./seek needle examples
 //     ./seek -i --glob '*.jai' 'fn(ish)?' src
 //     ./seek -c -F 'a.b' notes.txt
 //

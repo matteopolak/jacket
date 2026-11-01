@@ -70,6 +70,7 @@ message :: (p: *C.Metaprogram_Plugin, message: *C.Message) {
             complete := cast(*C.Message_Complete) message;
 
             print("Example_Plugin complete: %\n", complete.error_code);
+        case; // Other members deliberately do nothing.
     }
 }
 

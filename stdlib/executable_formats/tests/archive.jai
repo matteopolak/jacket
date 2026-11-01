@@ -67,8 +67,8 @@ run_cases :: () {
 
     for 9..content.count - 1 {
         truncated: string = .{ it, content.data };
-        parsed, bad := E.parse_ar(truncated, "truncated.a");
-        assert(!parsed && bad.files.count == 0 && bad.content.count == 0);
+        truncated_parsed, bad := E.parse_ar(truncated, "truncated.a");
+        assert(!truncated_parsed && bad.files.count == 0 && bad.content.count == 0);
     }
 
     assert((cast(*Type_Info_Struct) type_info(E.Archive)).name == "Archive");

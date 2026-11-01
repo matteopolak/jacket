@@ -1,7 +1,6 @@
 #import "Basic";
 
 // A struct value parameter may declare a type variable: `struct (x: $T)`.
-
 Thing :: struct(x: $T) {
     y := x;
 }

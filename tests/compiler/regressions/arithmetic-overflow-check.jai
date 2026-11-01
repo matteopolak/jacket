@@ -10,7 +10,7 @@
 // A program whose `work` procedure runs `body`, after `prefix` (top-level declarations).
 program :: (prefix: string, body: string) -> string {
     return tprint("#import \"Basic\";\n%\nwork :: () {\n%\n}\n#run work();\n", prefix, body);
-}
+} @TempAllocates
 
 // Compile and run `source` in a workspace with the given overflow mode; a failing `assert` or a fatal
 // overflow would fail that workspace's compile and so the whole test.

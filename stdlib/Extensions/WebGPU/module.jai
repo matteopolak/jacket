@@ -310,7 +310,7 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
     webgpu_wait(instance, *state.done);
 
     return state.type, copy_temporary_string(message_text(*state.message));
-}
+} @TempAllocates
 
 // --- Surfaces and frames ------------------------------------------------------------------------
 
@@ -407,6 +407,7 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
         case .ETC2RGB8A1UnormSrgb; #through;
         case .ETC2RGBA8UnormSrgb;
             return true;
+        case; // Other members deliberately do nothing.
     }
 
     // The ASTC sRGB formats are the odd values from ASTC4x4UnormSrgb on.

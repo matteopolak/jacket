@@ -1253,6 +1253,7 @@ end_of_input :: (s: *Scanner) -> Scan_Result, Prompt {
 
         case .DOLLAR;
             return .INCOMPLETE, .DOLLAR_QUOTE;
+        case; // Other members deliberately do nothing.
     }
 
     return .INCOMPLETE, .SINGLE_QUOTE;

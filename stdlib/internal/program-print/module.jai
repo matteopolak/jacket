@@ -891,6 +891,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             }
 
             return true;
+        case; // Other members deliberately do nothing.
     }
 
     return false;

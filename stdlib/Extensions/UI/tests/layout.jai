@@ -175,6 +175,7 @@
                     node := label(it.name);
                     counter := state(node, int);
                     counter.* += 1;
+                    // jailint: allow(temp_storage_escape): node text is read during this frame before frame temporary storage is reset.
                     node.value = tprint("%", counter.*);
                 }
             }

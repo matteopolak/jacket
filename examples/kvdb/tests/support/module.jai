@@ -9,7 +9,7 @@
 
 log_path :: (t: *Test, name := "kvdb.log") -> string {
     return tprint("%/%", temp_dir(t), name);
-}
+} @TempAllocates
 
 // The log's bytes; they are in temporary storage.
 log_bytes :: (path: string) -> string {

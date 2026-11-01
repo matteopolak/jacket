@@ -24,7 +24,7 @@ a_big_tree :: (t: *Test) -> string {
     }
 
     return root;
-}
+} @TempAllocates
 
 the_thread_count_does_not_change_the_output :: (t: *Test) {
     root := a_big_tree(t);

@@ -283,7 +283,6 @@ sleep_running :: (nanoseconds: u64) -> bool #c_call {
 
 // The pthread calls. Handles are `Green_Thread` pointers; a mutex keeps its owner and lock
 // count in the first bytes of a `pthread_mutex_t`. Every mutex is recursive.
-
 Green_Mutex :: struct {
     owner: *Green_Thread;
     depth: s64;

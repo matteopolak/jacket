@@ -160,9 +160,9 @@ decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Layers 
         value, error := Json_Module.from_json(type_of(out.value), document, module_json_options(layers, T.OPTIONS));
 
         if error.kind != .NONE {
-            why := tprint("at %: %", Json_Module.json_path_text(error), error.message);
+            json_why := tprint("at %: %", Json_Module.json_path_text(error), error.message);
             Json_Module.free_json(*error);
-            return why;
+            return json_why;
         }
 
         out.value = value;
@@ -285,7 +285,7 @@ decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Layers 
         #assert false "Postgres cannot decode into this type";
         return "";
     }
-}
+} @TempAllocates
 
 is_text_like :: (oid: u32) -> bool {
     o := cast(Oid) oid;
@@ -328,7 +328,7 @@ type_name :: (oid: u32) -> string {
     if element_oid(oid) return tprint("%[]", type_name(element_oid(oid)));
 
     return tprint("type %", oid);
-}
+} @TempAllocates
 
 decode_array_binary :: (bytes: [] u8, out: *[] $Element, json: *Json_Layers) -> string {
     r := Cursor.{ data = bytes };
@@ -382,7 +382,7 @@ decode_array_binary :: (bytes: [] u8, out: *[] $Element, json: *Json_Layers) -> 
     out.* = result;
 
     return "";
-}
+} @TempAllocates
 
 decode_array_text :: (text: string, oid: u32, out: *[] $Element, json: *Json_Layers) -> string {
     element := element_oid(oid);
@@ -456,7 +456,7 @@ decode_array_text :: (text: string, oid: u32, out: *[] $Element, json: *Json_Lay
     out.* = items;
 
     return "";
-}
+} @TempAllocates
 
 unescape_array_element :: (text: string) -> string {
     out := alloc_string(text.count);
@@ -700,7 +700,7 @@ numeric_binary :: (text: string) -> string, string {
     for first..last - 1 put_u16(*out, cast(u16) groups[it]);
 
     return cast(string) out, "";
-}
+} @TempAllocates
 
 // "2024-01-31" or "2024-01-31 BC", "infinity", "-infinity".
 parse_date_text :: (text: string) -> s32, bool {
@@ -960,7 +960,7 @@ encode_param :: (value: Any) -> Param, string {
     param, why := encode_binary(value);
 
     return param, why;
-}
+} @TempAllocates
 
 // The binary form and OID of a non-null scalar.
 encode_binary :: (value: Any) -> Param, string {
@@ -1040,7 +1040,7 @@ encode_binary :: (value: Any) -> Param, string {
     }
 
     return .{ oid = xx oid, format = .BINARY, data = cast(string) out }, "";
-}
+} @TempAllocates
 
 // A one-dimensional binary array: dimensions, has-nulls, element OID, length, lower bound, then
 // each element as a length and its binary form.
@@ -1128,7 +1128,7 @@ encode_array :: (value: Any) -> Param, string {
     put_bytes(*out, cast([] u8) elements);
 
     return .{ oid = array_oid, format = .BINARY, data = cast(string) out }, "";
-}
+} @TempAllocates
 
 is_nullable :: ($T: Type) -> bool {
     return is_nullable_info(type_info(T));
@@ -1173,7 +1173,7 @@ json_document :: (bytes: [] u8, format: Format, oid: u32) -> string, string {
     if oid == xx Oid.JSONB || is_text_like(oid) return text, "";
 
     return "", tprint("% is not json", type_name(oid));
-}
+} @TempAllocates
 
 // The text of a `Json(T)` passed as `Any`, written by its `write` member.
 json_parameter_text :: (value: Any) -> string, string {
@@ -1242,7 +1242,7 @@ encode_enum_array :: (value: Any) -> Param, string {
     append(*builder, "}");
 
     return .{ data = builder_to_string(*builder) }, "";
-}
+} @TempAllocates
 
 // The label of a Jai enum value, as a Postgres enum spells it.
 enum_value_label :: (value: Any) -> string, bool {

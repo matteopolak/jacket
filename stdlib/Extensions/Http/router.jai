@@ -221,7 +221,7 @@ router_add :: (router: *Router, route: *Route) -> string {
     array_add(*router.routes, route);
 
     return "";
-}
+} @TempAllocates
 
 router_free :: (router: *Router) {
     free_node_children(*router.root);

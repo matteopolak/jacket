@@ -364,4 +364,4 @@ per_unit :: (total: s64, iterations: s64) -> string {
     thousandths := cast(s64) (value * 1000.0 + 0.5);
 
     return tprint("%.%%%", thousandths / 1000, (thousandths / 100) % 10, (thousandths / 10) % 10, thousandths % 10);
-}
+} @TempAllocates

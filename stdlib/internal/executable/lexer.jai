@@ -278,6 +278,7 @@ make_string_constant :: (lexer: *Lexer, end_char: s16) -> *Token {
             }
 
             token.type = .STRING;
+            // jailint: allow(temp_storage_escape): decoded token text shares the current parse temporary-storage lifetime.
             token.string_value = B.copy_temporary_string(.{ bytes.count, bytes.data });
             set_end_of_token(lexer, token);
 

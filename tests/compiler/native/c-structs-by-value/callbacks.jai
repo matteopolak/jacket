@@ -6,7 +6,7 @@ structs :: #library "libstructs";
 #load "types.jai";
 
 combine :: (v: V2, b: Big, s: Small) -> V2 #c_call {
-    return .{ v.x + xx b.a + xx s.a, v.y + xx b.d + xx s.b };
+    return .{ v.x + cast(float32) b.a + xx s.a, v.y + cast(float32) b.d + xx s.b };
 }
 
 scale :: (b: Big, k: s32) -> Big #c_call {
@@ -27,7 +27,7 @@ mixed_back :: (a: float64, b: s32, c: float, d: s64, e: float64, g: s16) -> Mixe
 }
 
 v2_back :: (a: float, b: s64, c: float64, d: s32) -> V2 #c_call {
-    return .{ a + xx b, xx (c + xx d) };
+    return .{ a + xx b, cast(float32) (c + xx d) };
 }
 
 narrow_back :: (a: s64, b: s64, c: s64, d: s64, e: s64, f: s64, g: s64, h: s64,

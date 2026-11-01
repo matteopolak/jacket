@@ -83,7 +83,7 @@ schema_problem :: (file: string) -> string {
     if current != recorded return tprint("% is stale: run the pg tool's generate", SCHEMA);
 
     return "";
-}
+} @TempAllocates
 
 // The hash a generated file records in its header, or an empty string.
 //

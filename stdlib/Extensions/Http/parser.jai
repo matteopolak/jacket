@@ -366,6 +366,7 @@ parse :: (p: *Parser, data: [] u8) -> consumed: int, event: Event {
             event.data = data;
 
             return data.count, event;
+        case; // Other members deliberately do nothing.
     }
 
     return parse_chunked(p, data);
@@ -404,6 +405,7 @@ parse_eof :: (p: *Parser) -> Event {
 
                 return event;
             }
+        case; // Other members deliberately do nothing.
     }
 
     return fail(p, .UNEXPECTED_EOF, "the connection closed inside a message");
@@ -1140,6 +1142,7 @@ note_header :: (p: *Parser, id: Header_Name, value: string) -> bool {
 
                 p.expect_continue = true;
             }
+        case; // Other members deliberately do nothing.
     }
 
     if p.content_length_seen && p.encoding_seen {

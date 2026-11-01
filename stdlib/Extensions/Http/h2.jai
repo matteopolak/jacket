@@ -585,6 +585,7 @@ h2_dispatch :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2_E
         case .GOAWAY; return h2_on_goaway(conn, header, payload);
         case .WINDOW_UPDATE; return h2_on_window_update(conn, header, payload);
         case .PUSH_PROMISE; return .PROTOCOL_ERROR; // we never allow push
+        case; // Other members deliberately do nothing.
     }
 
     // A frame of a type we do not know is skipped.

@@ -69,7 +69,7 @@ gp_nm_path :: () -> string {
     if OS == .MACOS return gp_xcrun_find("llvm-nm");
 
     return "";
-}
+} @TempAllocates
 
 // A C compiler to ask for its system include directories, and whether it is clang (only clang
 // takes --target): the path recorded when the helpers were built from a checkout, else clang or
@@ -87,7 +87,7 @@ gp_compiler_path :: () -> string, bool {
     }
 
     return gp_find_program(.["cc", "gcc"]), false;
-}
+} @TempAllocates
 
 // The path a checkout's build recorded in `file`, when there is one.
 gp_configured_path :: (file: string) -> string, bool {
@@ -100,7 +100,7 @@ gp_configured_path :: (file: string) -> string, bool {
     if !ok || !gp_valid_text(contents) return "", false;
 
     return copy_temporary_string(contents), true;
-}
+} @TempAllocates
 
 gp_xcrun_find :: (tool: string) -> string {
     status, output, errors, timed_out := GP_Process.run_command("/usr/bin/xcrun", "--find", tool, capture_and_return_output = true, timeout_ms = 30000);
@@ -113,7 +113,7 @@ gp_xcrun_find :: (tool: string) -> string {
     while output.count > 0 && (output[output.count - 1] == #char "\n" || output[output.count - 1] == #char "\r") output = GP_String.slice(output, 0, output.count - 1);
 
     return copy_temporary_string(output);
-}
+} @TempAllocates
 
 // The first of `names` found in a PATH directory, as a temporary string; empty when none is.
 gp_find_program :: (names: [] string) -> string {
@@ -133,7 +133,7 @@ gp_find_program :: (names: [] string) -> string {
     }
 
     return "";
-}
+} @TempAllocates
 
 gp_symbols_content :: (content: string, diagnostic_path: string) -> bool, [] string {
     if content.count < 0 || (content.count > 0 && !content.data) {

@@ -60,7 +60,7 @@ build_and_print :: () -> string {
     compiler_destroy_workspace(w);
 
     return tprint("%\n%\n", single, typed);
-}
+} @TempAllocates
 
 literals :: () -> string {
     source := "a\"b";

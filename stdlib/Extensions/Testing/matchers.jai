@@ -573,7 +573,7 @@ show :: (value: Any) -> string {
     if !shown.type return "";
     if shown.type.type == .STRING return quoted((cast(*string) shown.value_pointer).*);
     return tprint("%", shown);
-}
+} @TempAllocates
 
 // What the matcher asks of a value, to follow "expected V to".
 phrase :: (matcher: Matcher) -> string {
@@ -604,7 +604,7 @@ phrase :: (matcher: Matcher) -> string {
     }
 
     return "";
-}
+} @TempAllocates
 
 phrases :: (matchers: [] Matcher) -> string {
     builder: String_Builder;
@@ -650,7 +650,8 @@ failure_message :: (original: Any, matcher: Matcher, negated: bool) -> string {
                     return tprint("expected % to %\n  [%]: %", show(actual), phrase(matcher), it, failure_message(item, matcher.children[0], false));
                 }
             }
+        case; // Other members deliberately do nothing.
     }
 
     return tprint("expected % % %", show(actual), ifx negated then "not to" else "to", phrase(matcher));
-}
+} @TempAllocates

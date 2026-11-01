@@ -290,6 +290,7 @@ engine_submit :: (scheduler: *Scheduler, op: *Op) -> bool {
             scheduler.pending += 1;
 
             return false;
+        case; // Other members deliberately do nothing.
     }
 
     op.result = -E_UNSUPPORTED;
@@ -448,7 +449,6 @@ error_from_result :: (result: s64) -> Io_Error {
 
 // Completions that belong to the engine itself rather than a fiber: the wake-up pipe resolver
 // threads write to (resolver.jai) and the eventfd of the file pool (files_pool.jai).
-
 internal_completion :: (scheduler: *Scheduler, op: *Op) {
     if op.tag == .POOL_WAKE pool_wake_completed(scheduler, op);
     else wake_completed(scheduler, op);

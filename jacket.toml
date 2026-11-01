@@ -26,6 +26,14 @@ max_complexity = 100
 
 # Off-by-default rules this repository holds itself to.
 [lint.rules]
+shadowed_local = "warn"
+lossy_xx = "warn"
+neg_cmp_float = "warn"
+large_stack_array = "warn"
+todo_marker = "warn"
+detached_doc_comment = "warn"
+incomplete_enum_switch = "warn"
+temp_storage_escape = "warn"
 excessive_nesting = "warn"
 leaked_allocation = "warn"
 cognitive_complexity = "warn"
@@ -44,6 +52,11 @@ rules = { float_equality = "allow" }
 [[lint.overrides]]
 paths = ["tests/corpus/positive/case-selection.jai"]
 rules = { single_case_switch = "allow" }
+
+# This hash-pinned fixture specifically tests lexical shadowing during code insertion.
+[[lint.overrides]]
+paths = ["tests/corpus/positive/source-code-capture.jai"]
+rules = { shadowed_local = "allow" }
 
 # Tests, regressions and benchmarks write the flagged shapes on purpose: hand-written copy loops,
 # one-element arrays, wide shifts and unsigned bounds are the inputs under test.

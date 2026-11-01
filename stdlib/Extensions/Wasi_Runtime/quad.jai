@@ -393,6 +393,7 @@ narrow :: (low: u64, high: u64, format: Fused_Format) -> float64 #no_context {
         case .ZERO; return from_bits(sign);
         case .INFINITE; return from_bits(sign | 0x7ff0_0000_0000_0000);
         case .NAN; return from_bits(sign | 0x7ff8_0000_0000_0000 | ((high & QUAD_FRACTION_HIGH) << 4) | (low >> 60));
+        case; // Other members deliberately do nothing.
     }
 
     value: Wide;

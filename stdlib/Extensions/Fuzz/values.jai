@@ -22,6 +22,7 @@ can_fill :: (info: *Type_Info) -> bool {
             }
 
             return true;
+        case; // Other members deliberately do nothing.
     }
 
     return false;
@@ -38,6 +39,7 @@ has_pointer :: (info: *Type_Info) -> bool {
                 if m.flags & .CONSTANT continue;
                 if has_pointer(m.type) return true;
             }
+        case; // Other members deliberately do nothing.
     }
 
     return false;
@@ -87,6 +89,7 @@ fill :: (r: *Rng, info: *Type_Info, dst: *u8) {
                 if m.flags & .CONSTANT continue;
                 fill(r, m.type, dst + m.offset_in_bytes);
             }
+        case; // Other members deliberately do nothing.
     }
 }
 

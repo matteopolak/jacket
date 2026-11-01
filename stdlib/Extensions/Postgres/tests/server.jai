@@ -747,6 +747,7 @@ Script_Log :: struct {
 
 log_copy :: (hooks: *Pg.Script_Hooks, copy: *Pg.Copy_Info) {
     log := cast(*Script_Log) hooks;
+    // jailint: allow(temp_storage_escape): the test checks these callback records in the same fiber before any scratch reset.
     array_add(*log.lines, tprint("copy % %", ifx copy.incoming then "in" else "out", copy.format));
 }
 
@@ -761,6 +762,7 @@ log_result :: (hooks: *Pg.Script_Hooks, result: *Pg.Result) {
         }
     }
 
+    // jailint: allow(temp_storage_escape): the test checks these callback records in the same fiber before any scratch reset.
     array_add(*log.lines, line);
 }
 

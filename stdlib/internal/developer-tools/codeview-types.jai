@@ -603,6 +603,7 @@ cv_describe_record :: (types: [] *Codeview_Type, ids: [] *Codeview_Type, type: *
             defer free(arguments);
 
             return sprint("% %", result, arguments), true;
+        case; // Other members deliberately do nothing.
     }
 
     return "", false;

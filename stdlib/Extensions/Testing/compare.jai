@@ -50,6 +50,7 @@ values_equal :: (left: Any, right: Any) -> bool {
             }
 
             return true;
+        case; // Other members deliberately do nothing.
     }
 
     if ta.runtime_size != tb.runtime_size return false;
@@ -81,7 +82,7 @@ describe_difference :: (got: Any, want: Any) -> string {
     }
 
     return builder_to_string(*builder,, temp);
-}
+} @TempAllocates
 
 #scope_module
 
@@ -193,7 +194,7 @@ first_member_difference :: (a: Any, b: Any) -> string {
     }
 
     return "";
-}
+} @TempAllocates
 
 MAX_LISTED :: 10;
 

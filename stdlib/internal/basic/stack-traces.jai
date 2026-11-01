@@ -111,4 +111,4 @@ validate_trace :: (node: *Stack_Trace_Node) {
 
 frame_string :: (node: *Stack_Trace_Node) -> string {
     return tprint("'%' at %:%", node.info.name, node.info.location.fully_pathed_filename, node.line_number);
-}
+} @TempAllocates

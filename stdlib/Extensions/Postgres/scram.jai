@@ -288,7 +288,7 @@ scram_secret :: (password: string, iterations := 4096) -> string {
     server_key := Hmac.hmac_sha256(salted_text, "Server Key");
 
     return tprint("SCRAM-SHA-256$%:%$%:%", iterations, Base64.base64_encode(string.{ salt.count, salt.data },, temp), Base64.base64_encode(string.{ 32, stored_key.data },, temp), Base64.base64_encode(string.{ 32, server_key.data },, temp));
-}
+} @TempAllocates
 
 // The client-final-message for a server-first-message, and the signature the server must prove it
 // knows in its final message. `binding` is the GS2 header (plus the certificate hash for -PLUS),
@@ -320,7 +320,7 @@ scram_client_proof :: (password: string, client_first_bare: string, binding: str
     final := tprint("%,p=%", without_proof, Base64.base64_encode(string.{ 32, proof.data },, temp));
 
     return final, signature;
-}
+} @TempAllocates
 
 // How many times a SCRAM exchange ran PBKDF2 in this process: cache hits do not count.
 scram_pbkdf2_runs :: () -> s64 {
@@ -341,4 +341,4 @@ md5_secret :: (password: string, user: string) -> string {
     defer free(hash);
 
     return tprint("md5%", hash);
-}
+} @TempAllocates

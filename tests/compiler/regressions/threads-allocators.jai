@@ -89,7 +89,7 @@ churn :: (thread: *Thread) -> s64 {
 
 expected_note :: (index: s64, round: s64) -> string {
     return tprint("thread % round %", index, round);
-}
+} @TempAllocates
 
 main :: () {
     shared_debug_allocator = get_overwriting_allocator();

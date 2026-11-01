@@ -36,7 +36,7 @@ make_token :: (source: *Token_Source) -> string {
     unlock(*source.lock);
 
     return tprint("%%", FormatInt.{ value = high, base = 16, minimum_digits = 16 }, FormatInt.{ value = low, base = 16, minimum_digits = 16 });
-}
+} @TempAllocates
 
 #scope_file
 

@@ -160,7 +160,7 @@ server_url :: (server: *Server) -> string {
     }
 
     return tprint("%://%", ifx server.app.config.tls then "https" else "http", Io.address_to_string(address));
-}
+} @TempAllocates
 
 // Starts the graceful shutdown: no new connections, idle ones close, requests in progress finish
 // (up to `config.shutdown_timeout`, then the connections are cut). Returns at once; `wait`

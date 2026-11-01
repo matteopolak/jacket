@@ -81,8 +81,8 @@ main :: () { // jailint: allow(cognitive_complexity)
     Y: [16] s32;
 
     for 0..15 {
-        X[it] = xx (it * 3 - 20);
-        Y[it] = xx (10 - it * 2);
+        X[it] = cast(s32) (it * 3 - 20);
+        Y[it] = cast(s32) (10 - it * 2);
     }
 
     Y[5] = X[5];
@@ -320,7 +320,7 @@ main :: () { // jailint: allow(cognitive_complexity)
         check("ptestmd", t, e);
         check("ptestnmd", tn, ~e & 0xffff);
         #asm AVX512CD { kmovw kv:, mask; pbroadcastmw2d bm:, kv; movdqu32 [po], bm; }
-        for 0..15 want[it] = xx mask;
+        for 0..15 want[it] = cast(s32) mask;
 
         check_s32("pbroadcastmw2d", out, want);
     }
@@ -332,7 +332,7 @@ main :: () { // jailint: allow(cognitive_complexity)
         pbytes, pwords := bytes.data, words.data;
         big: [16] s32;
 
-        for 0..15 big[it] = xx ((it - 8) * 40);
+        for 0..15 big[it] = cast(s32) ((it - 8) * 40);
 
         pbig := big.data;
 
@@ -398,12 +398,12 @@ main :: () { // jailint: allow(cognitive_complexity)
     // Scatter and gather with a mask (EVEX forms clear the mask).
     {
         table: [32] s32;
-        for 0..31 table[it] = xx (1000 + it);
+        for 0..31 table[it] = cast(s32) (1000 + it);
 
         pt := table.data;
         idx: [16] s32;
 
-        for 0..15 idx[it] = xx (31 - it * 2);
+        for 0..15 idx[it] = cast(s32) (31 - it * 2);
 
         pi := idx.data;
         mask: u64 = 0xf0f0;

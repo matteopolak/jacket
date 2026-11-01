@@ -16,6 +16,7 @@ CRC_TABLE :: #run -> [256] u32 {
 SIZE :: 400;
 
 PRODUCTS :: #run -> [SIZE * SIZE] u32 {
+    // jailint: allow(large_stack_array): the compile-time benchmark deliberately constructs a large fixed constant table.
     table: [SIZE * SIZE] u32;
 
     for row: 0..SIZE - 1 {

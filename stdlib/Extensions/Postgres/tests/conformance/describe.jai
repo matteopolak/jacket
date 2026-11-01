@@ -659,7 +659,7 @@ table_title :: (t: *Table_Info) -> string {
     kind: string = .{ 1, *t.relkind };
 
     return tprint("?%? %", kind, qualified);
-}
+} @TempAllocates
 
 add_column_headers :: (cont: *Content, l: *Column_Layout) {
     add_header(cont, "Column");
@@ -690,7 +690,7 @@ default_column_text :: (res: *Pg.Result, row: s64, l: *Column_Layout) -> string 
     if generated == #char "v" return tprint("generated always as (%)", cell(res, row, l.attrdef));
 
     return cell(res, row, l.attrdef);
-}
+} @TempAllocates
 
 storage_text :: (storage: u8) -> string {
     if storage == #char "p" return "plain";
@@ -1048,7 +1048,7 @@ index_footer_line :: (result: *Pg.Result, i: s64) -> string {
     if is_true(result, i, 10) line = tprint("% REPLICA IDENTITY", line);
 
     return line;
-}
+} @TempAllocates
 
 add_index_footers :: (cont: *Content, oid: string) -> bool {
     b := new_sql();
@@ -1194,7 +1194,7 @@ policy_footer_line :: (result: *Pg.Result, i: s64) -> string {
     if !is_null(result, i, 4) line = tprint("%\n      WITH CHECK (%)", line, cell(result, i, 4));
 
     return line;
-}
+} @TempAllocates
 
 add_policy_footers :: (cont: *Content, oid: string, rowsecurity: bool, forcerowsecurity: bool) -> bool {
     b := new_sql();
@@ -1238,7 +1238,7 @@ statistics_footer_line :: (result: *Pg.Result, i: s64) -> string {
     if !is_null(result, i, 8) && cell(result, i, 8) != "-1" line = tprint("%; STATISTICS %", line, cell(result, i, 8));
 
     return line;
-}
+} @TempAllocates
 
 add_statistics_footers :: (cont: *Content, oid: string) -> bool {
     b := new_sql();
@@ -1298,7 +1298,7 @@ publication_footer_query :: (oid: string) -> string {
     }
 
     return tprint("SELECT pubname\n     , NULL\n     , NULL\nFROM pg_catalog.pg_publication p\n     JOIN pg_catalog.pg_publication_namespace pn ON p.oid = pn.pnpubid\n     JOIN pg_catalog.pg_class pc ON pc.relnamespace = pn.pnnspid\nWHERE pc.oid ='%' and pg_catalog.pg_relation_is_publishable('%')\nUNION\nSELECT pubname\n     , pg_catalog.pg_get_expr(pr.prqual, c.oid)\n     , (CASE WHEN pr.prattrs IS NOT NULL THEN\n         (SELECT pg_catalog.string_agg(attname, ', ')\n           FROM pg_catalog.generate_series(0, pg_catalog.array_upper(pr.prattrs::pg_catalog.int2[], 1)) s,\n                pg_catalog.pg_attribute\n          WHERE attrelid = pr.prrelid AND attnum = prattrs[s])\n        ELSE NULL END) FROM pg_catalog.pg_publication p\n     JOIN pg_catalog.pg_publication_rel pr ON p.oid = pr.prpubid\n     JOIN pg_catalog.pg_class c ON c.oid = pr.prrelid\n%", oid, oid, tail);
-}
+} @TempAllocates
 
 add_publication_footers :: (cont: *Content, oid: string) -> bool {
     result := psql_exec(publication_footer_query(oid));
@@ -3024,7 +3024,7 @@ list_ts_configs :: (pattern: Pattern, verbose: bool) -> bool {
 
 fdw_options :: (column: string) -> string {
     return tprint("CASE WHEN % IS NULL THEN '' ELSE   '(' || pg_catalog.array_to_string(ARRAY(SELECT   pg_catalog.quote_ident(option_name) ||  ' ' ||   pg_catalog.quote_literal(option_value)  FROM   pg_catalog.pg_options_to_table(%)),  ', ') || ')'   END", column, column);
-}
+} @TempAllocates
 
 list_foreign_data_wrappers :: (pattern: Pattern, verbose: bool) -> bool {
     b := new_sql();

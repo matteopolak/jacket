@@ -272,7 +272,7 @@ type_label :: (info: *Type_Info) -> string {
         case .ANY; return "`Any`";
         case; return "that type";
     }
-}
+} @TempAllocates
 
 // Reads the `@json(...)` options of one member. Reports bad ones and says whether all were fine.
 read_leaf :: (plan: *Plan, leaf: *Leaf, member: *Type_Info_Struct_Member, struct_rule: Rename_Rule, optional_from_struct: bool, flatten: *bool) -> bool {
@@ -574,13 +574,13 @@ address_of :: (expression: string) -> string {
     if ends_with(expression, ".*") return slice(expression, 0, expression.count - 2);
 
     return tprint("*%", expression);
-}
+} @TempAllocates
 
 owner_type :: (base: string, owner: string) -> string {
     if !owner.count return "T";
 
     return tprint("type_of(%.%)", base, owner);
-}
+} @TempAllocates
 
 // ---- encoding ----
 
@@ -740,7 +740,7 @@ skip_condition :: (g: *Gen, leaf: *Leaf, value: string) -> string {
     fail(g, "`skip_serializing_if=null` needs a pointer or a Json_Value");
 
     return "false";
-}
+} @TempAllocates
 
 // The condition that `key` equals `text`: a length test, then whole words compared against
 // constants built here, so no bytes are walked at run time. (Little-endian loads, which every
@@ -868,6 +868,7 @@ owns_memory :: (info: *Type_Info) -> bool {
             if array.array_type == .FIXED return owns_memory(array.element_type);
 
             return true;
+        case; // Other members deliberately do nothing.
     }
 
     return false;
@@ -958,6 +959,7 @@ emit_free :: (g: *Gen, out: *String_Builder, target: string, info: *Type_Info, d
 
                 print(out, "{\ndefault_%: type_of(%);\nfree_json_fields(%, *default_%);\n}\n", id, target, address_of(target), id);
             }
+        case; // Other members deliberately do nothing.
     }
 }
 
@@ -1072,7 +1074,7 @@ type_label_text :: (info: *Type_Info) -> string {
     }
 
     return "that type";
-}
+} @TempAllocates
 
 emit_decode_enum :: (g: *Gen, target: string, info: *Type_Info_Enum, style: Enum_Style, on_fail: string) {
     out := *g.out;

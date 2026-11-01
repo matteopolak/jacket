@@ -20,7 +20,7 @@ demo_basics :: () {
 
     // Sized integers convert explicitly with `cast`; `xx` casts to whatever is expected.
     byte := cast,trunc(u8) 300; // keeps the low byte: 44
-    small: s16 = xx crew;
+    small: s16 = cast(s16) crew;
 
     print("cast,trunc(u8) 300 = %, small = %, light speed = % km/s\n", byte, small, LIGHT_SPEED / 1000);
 

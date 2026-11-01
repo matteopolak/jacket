@@ -92,6 +92,7 @@ counting_allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_
             tally.bytes += size;
         case .FREE;
             tally.frees += 1;
+        case; // Other members deliberately do nothing.
     }
 
     heap := context.default_allocator;

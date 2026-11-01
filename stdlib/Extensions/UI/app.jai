@@ -222,6 +222,7 @@ translate_event :: (ui: *UI_State, event: Event) {
 
             if event.key_code == .UNKNOWN send_scroll(ui, amount, 0);
             else send_scroll(ui, 0, amount);
+        case; // Other members deliberately do nothing.
     }
 }
 

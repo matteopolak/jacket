@@ -3,7 +3,6 @@
 
 // Opening a workspace builds descriptors for the Compiler module's records. They enter the type
 // table in declaration order, whichever thread parsed a spelling first.
-
 drive :: () {
     workspace := compiler_create_workspace("order");
     options := get_build_options(workspace);

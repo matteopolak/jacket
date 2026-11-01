@@ -50,7 +50,7 @@ Counter :: struct {
 
 path_float :: (x: Path("x", float64)) -> string {
     return tprint("%", x.value);
-}
+} @TempAllocates
 
 path_bool :: (flag: Path("flag", bool)) -> string {
     return ifx flag.value then "yes" else "no";
@@ -58,11 +58,11 @@ path_bool :: (flag: Path("flag", bool)) -> string {
 
 path_enum :: (color: Path("color", Color)) -> string {
     return tprint("%", color.value);
-}
+} @TempAllocates
 
 path_small :: (n: Path("n", s8)) -> string {
     return tprint("%", n.value);
-}
+} @TempAllocates
 
 path_string :: (s: Path("s", string)) -> string {
     return s.value;
@@ -70,17 +70,17 @@ path_string :: (s: Path("s", string)) -> string {
 
 params :: (key: Params(Key)) -> string {
     return tprint("% %", key.temporary.org, key.temporary.id);
-}
+} @TempAllocates
 
 // ---- Query
 
 search :: (query: Query(Search)) -> string {
     return tprint("q=% size=% tags=% color=%", query.temporary.q, query.temporary.page_size, query.temporary.tags.count, query.temporary.color);
-}
+} @TempAllocates
 
 strict :: (query: Query(Strict)) -> string {
     return tprint("a=%", query.temporary.a);
-}
+} @TempAllocates
 
 // ---- Json
 
@@ -102,7 +102,7 @@ sum_numbers :: (body: Json([] int)) -> int {
 
 login :: (form: Form(Login)) -> string {
     return tprint("%:%", form.temporary.user, form.temporary.remember);
-}
+} @TempAllocates
 
 need_agent :: (agent: Header("user-agent", string)) -> string {
     return agent.value;
@@ -110,7 +110,7 @@ need_agent :: (agent: Header("user-agent", string)) -> string {
 
 need_count :: (count: Header("x-count", int)) -> string {
     return tprint("%", count.value + 1);
-}
+} @TempAllocates
 
 maybe_trace :: (trace: Header_Optional("x-trace", string)) -> string {
     return ifx trace.present then tprint("trace=%", trace.value) else "no trace";
@@ -122,7 +122,7 @@ raw_bytes :: (body: *Body) -> string, Http_Error {
     if error.kind != .NONE return "", error;
 
     return tprint("% bytes", bytes.count), .{};
-}
+} @TempAllocates
 
 raw_text :: (body: *Body) -> string, Http_Error {
     bytes, error := read_all(body);
@@ -130,24 +130,25 @@ raw_text :: (body: *Body) -> string, Http_Error {
     if error.kind != .NONE return "", error;
 
     return tprint("<%>", string.{ bytes.count, bytes.data }), .{};
-}
+} @TempAllocates
 
 about_request :: (request: *Request) -> string {
     agent, _ := header(request, "x-agent");
     q, has_q := query_param(request, "q");
     return tprint("% % q=%/% agent=% peer=%", request.method_text, request.path, has_q, q, agent, request.peer.family);
-}
+} @TempAllocates
 
 bump :: (counter: *State(Counter)) -> string {
     counter.hits += 1;
     return tprint("% %", counter.label, counter.hits);
-}
+} @TempAllocates
 
 mixed :: (id: Path("id", int), query: Query(Search), body: Json(Point), counter: *State(Counter), request: *Request) -> string {
     return tprint("id=% q=% x=% label=% method=%", id.value, query.temporary.q, body.temporary.x, counter.label, request.method_text);
-}
+} @TempAllocates
 
 counter: Counter;
+
 app: App;
 
 extractors :: (api: *Client) {

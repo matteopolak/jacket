@@ -97,6 +97,7 @@ collect_metrics :: (tc: Typechecked(Code_Procedure_Body)) -> (metrics: Metrics) 
 
                 if file && file == source_file increment_metric(*metrics.same_file_calls);
                 if module && module == source_module increment_metric(*metrics.same_module_calls);
+            case; // Other members deliberately do nothing.
         }
     }
 

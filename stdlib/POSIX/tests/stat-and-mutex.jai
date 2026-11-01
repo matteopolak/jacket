@@ -37,7 +37,7 @@ check :: () -> string {
     if guarded.guard != 0x0123_4567_89ab_cdef return "mutex overwrote its neighbour";
 
     return "";
-}
+} @TempAllocates
 
 main :: () {
     failure := check();

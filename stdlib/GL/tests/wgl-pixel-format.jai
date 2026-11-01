@@ -17,6 +17,7 @@ Fake :: struct {
 }
 
 note :: (fake: *Fake, text: string) {
+    // jailint: allow(temp_storage_escape): the fake log is checked synchronously without resetting temporary storage.
     fake.log = tprint("%1%2 ", fake.log, text);
 }
 

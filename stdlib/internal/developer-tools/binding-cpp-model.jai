@@ -200,7 +200,7 @@ custom_cpp_out_name :: (arguments: [] *Declaration) -> string {
     }
 
     return tprint("out_result_%", arguments.count);
-}
+} @TempAllocates
 
 emit_custom_cpp_jai :: (builder: *String_Builder, declaration: *Function, get_arguments: Get_Function_Arguments_For_Printing_Func) -> bool {
     if !declaration.type || !declaration.type.type_of_function return false;

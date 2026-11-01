@@ -19,6 +19,7 @@ look_holds :: (look: Look, text: string, pos: int) -> bool {
             if pos == text.count || text[pos] == #char "\r" return true;
 
             return text[pos] == #char "\n" && (pos == 0 || text[pos - 1] != #char "\r");
+        case; // Other members deliberately do nothing.
     }
 
     before, after: bool;
@@ -44,6 +45,7 @@ look_holds :: (look: Look, text: string, pos: int) -> bool {
         case .WORD_START_HALF_ASCII; return !before;
         case .WORD_END_HALF; #through;
         case .WORD_END_HALF_ASCII; return !after;
+        case; // Other members deliberately do nothing.
     }
 
     return false;

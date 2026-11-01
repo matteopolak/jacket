@@ -171,6 +171,7 @@ decode_image :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Im
         case .QOI; return decode_qoi(data, max_pixels);
         case .BMP; return decode_bmp(data, max_pixels);
         case .PNM; return decode_pnm(data, max_pixels);
+        case; // Other members deliberately do nothing.
     }
 
     return .{}, false, "not a PNG, JPEG, QOI, BMP or PNM image";

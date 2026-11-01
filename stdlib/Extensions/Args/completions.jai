@@ -181,7 +181,7 @@ zsh_value_action :: (option: Option_Spec) -> string {
     if option.choices.count return tprint("(%)", join(..option.choices, " ",, temp));
     if wants_files(option) return "_files";
     return " ";
-}
+} @TempAllocates
 
 zsh_script :: (root: *Command_Spec) -> string {
     out: String_Builder;

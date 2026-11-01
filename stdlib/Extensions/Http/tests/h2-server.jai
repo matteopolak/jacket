@@ -41,7 +41,7 @@ size_of_body :: (body: *Body) -> string, Http_Error {
     if error.kind != .NONE return "", error;
 
     return tprint("%", bytes.count), .{};
-}
+} @TempAllocates
 
 describe :: (request: *Request) -> string {
     host, _ := header(request, "Host");
@@ -49,7 +49,7 @@ describe :: (request: *Request) -> string {
     custom, _ := header(request, "X-Custom");
 
     return tprint("% % host=% cookie=% custom=% version=%", request.method_text, request.target, host, cookie, custom, request.version);
-}
+} @TempAllocates
 
 BIG :: 300 * 1024 + 5;
 
@@ -411,6 +411,7 @@ read_results :: (peer: *Peer, exchange: *Exchange, wait_for: [] u32, millisecond
                 }
 
                 if (header.flags & H2_END_STREAM) != 0 result.ended = true;
+            case; // Other members deliberately do nothing.
         }
     }
 }

@@ -11,7 +11,6 @@
 // Each stb library allocates from its own C runtime, which on Windows is a static one with its own
 // heap, so a buffer goes back to the library that made it: stbi_image_free for stb_image's.
 // stb_image_write exports no free, so its few compressed streams here are left allocated.
-
 stb_compress :: (data: [] u8, quality: s32) -> [] u8 {
     length: s32;
     packed := stbi_zlib_compress(data.data, cast(s32) data.count, *length, quality);

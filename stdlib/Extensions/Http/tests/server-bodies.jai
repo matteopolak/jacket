@@ -34,7 +34,7 @@ checksum :: (body: *Body) -> string, Http_Error {
     }
 
     return tprint("% bytes sum %", size, total), .{};
-}
+} @TempAllocates
 
 streamed_json :: (body: *Body) -> string, Http_Error {
     point, error := read_json(body, Point);
@@ -42,11 +42,11 @@ streamed_json :: (body: *Body) -> string, Http_Error {
     if error.kind != .NONE return "", error;
 
     return tprint("%,%", point.x, point.y), .{};
-}
+} @TempAllocates
 
 buffered_json :: (body: Json(Point)) -> string {
     return tprint("%;%", body.temporary.x, body.temporary.y);
-}
+} @TempAllocates
 
 refuses :: (body: *Body) -> Http_Error {
     return forbidden("no uploads");
@@ -62,11 +62,11 @@ whole :: (body: *Body) -> string, Http_Error {
     if error.kind != .NONE return "", error;
 
     return tprint("%", bytes.count), .{};
-}
+} @TempAllocates
 
 declared :: (body: *Body) -> string {
     return tprint("%", body.content_length);
-}
+} @TempAllocates
 
 make_point :: (body: Json(Point)) -> Response {
     return created(body.temporary, tprint("/points/%", body.temporary.x));
@@ -81,7 +81,9 @@ ticker :: (stream: *Stream, data: *void) {
         if !send_chunk(stream, tprint("tick %\n", it)) return;
     }
 
-    big: [100_000] u8;
+    big := NewArray(100_000, u8);
+
+    defer array_free(big);
 
     for *big it.* = #char "z";
 

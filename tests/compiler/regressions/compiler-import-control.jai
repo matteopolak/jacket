@@ -34,6 +34,7 @@ build :: (source: string, remap: bool, answer: (w: Workspace, m: *Message_Failed
                 result.errors += 1;
             case .COMPLETE;
                 result.error_code = xx (cast(*Message_Complete) message).error_code;
+            case; // Other members deliberately do nothing.
         }
 
         if message.kind == .COMPLETE break;

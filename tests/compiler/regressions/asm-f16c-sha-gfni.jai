@@ -385,17 +385,17 @@ check_f16c :: () {
         }
 
         expect("cvtps2ph zero mask", cast(u64) (dst[1] == 0 && dst[2] == 0x4000), 1);
-        back: [16] float32;
-        for *back it.* = -1;
+        wide_back: [16] float32;
+        for *wide_back it.* = -1;
 
-        pb := back.data;
+        pb := wide_back.data;
 
         #asm AVX512F {
             vcvtph2ps.z vb:, [ph];
             movups [pb], vb;
         }
 
-        expect("cvtph2ps zmm", cast(u64) (back[2] == 2 && back[15] == 15 && back[1] == -1706.0 / 32768.0), 1);
+        expect("cvtph2ps zmm", cast(u64) (wide_back[2] == 2 && wide_back[15] == 15 && wide_back[1] == -1706.0 / 32768.0), 1);
     }
 }
 

@@ -161,6 +161,7 @@ observe_at :: (run: Run, input: string, positions: [] int, error: *Parse_Error =
                     append(*out, "E\n");
 
                     stopped = true;
+                case; // Other members deliberately do nothing.
             }
         }
     }
@@ -260,6 +261,7 @@ drive :: (d: *Driver, input: string) {
             case .NEED_MORE; return;
             case .ERROR; return;
             case .SWITCHED; return;
+            case; // Other members deliberately do nothing.
         }
     }
 }

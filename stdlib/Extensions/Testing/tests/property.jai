@@ -74,7 +74,6 @@ called_by_hand :: (t: *Test) {
 } @test
 
 // Failures: the counterexample is as small as the property allows.
-
 integers_shrink_to_the_boundary :: (n: s64) {
     expect(n < 1000, "n is too big");
 } @test @property @should_fail(integers_shrink_to_the_boundary(1000))

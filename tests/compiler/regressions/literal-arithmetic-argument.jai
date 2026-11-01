@@ -26,6 +26,7 @@ main :: () {
     ok := false;
 
     {
+        // jailint: allow(shadowed_local): this regression checks declaration shadowing and scope.
         ok, value:, extra := three();
         assert(ok && value == 7 && extra == 0.5);
     }

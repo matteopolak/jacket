@@ -2,7 +2,6 @@
 #import "Basic";
 
 // `type_of(field)` in a procedure nested inside a struct names the field's type.
-
 Thing :: struct {
     x: float;
     z: s16;

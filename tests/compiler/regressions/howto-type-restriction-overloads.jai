@@ -2,7 +2,6 @@
 
 // `$T/Base` only matches types that are `Base` or have it as an `#as` base, so a second
 // overload restricted to an unrelated struct gets the other calls.
-
 Entity :: struct {
     id: s32;
     name: string;

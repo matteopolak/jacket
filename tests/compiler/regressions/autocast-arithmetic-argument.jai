@@ -14,6 +14,7 @@ place :: (s: string) -> s64 {
 
 main :: () {
     h: float = 7.5;
+    // jailint: allow(lossy_xx): the regression specifically checks inferred narrowing with xx.
     assert(place(xx (h * 2), xx (h / 2) + 1) == 15004);
     print("ok\n");
 }

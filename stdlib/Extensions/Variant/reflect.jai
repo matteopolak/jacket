@@ -125,6 +125,7 @@ free_value :: (info: *Type_Info, p: *void) {
             free_struct(cast(*Type_Info_Struct) info, p);
         case .VARIANT;
             free_value((cast(*Type_Info_Variant) info).variant_of, p);
+        case; // Other members deliberately do nothing.
     }
 }
 

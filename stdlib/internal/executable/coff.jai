@@ -311,7 +311,7 @@ get_section_name :: (coff: Coff, header: Coff_Section_Header) -> string, bool {
     }
 
     return get_string_table_entry(coff, offset);
-}
+} @TempAllocates
 
 #scope_file
 B :: #import "Basic";

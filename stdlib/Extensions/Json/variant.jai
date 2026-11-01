@@ -51,7 +51,7 @@ case_name :: (info: *Type_Info) -> string {
     append(*builder, ")");
 
     return builder_to_string(*builder,, temp);
-}
+} @TempAllocates
 
 // Whether a case is written as a bare number, string or bool, so that a variant of such cases can
 // do without tags.
@@ -82,6 +82,7 @@ reaches_variant :: (info: *Type_Info) -> bool {
 
                 return reaches_variant(element);
             }
+        case; // Other members deliberately do nothing.
     }
 
     return false;
@@ -223,7 +224,7 @@ tag_list :: (tags: [] string) -> string {
 // The pointer to case `k` of the variant `value` as a declaration: `name := cast(*Case) ...;`.
 case_pointer :: (g: *Gen, name: string, value: string, k: int) -> string {
     return tprint("% := cast(*type_of(%).case_type_%) %.payload.data;\n", name, value, k, value);
-}
+} @TempAllocates
 
 // ---- encoding ----
 

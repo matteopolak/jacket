@@ -69,7 +69,7 @@
         }
 
         return tprint("server certificate for \"%\" (and % other name%) does not match host name \"%\"", first, examined - 1, ifx examined == 2 then "" else "s", host);
-    }
+    } @TempAllocates
 
     // The address `host` stands for and true, or false when `host` is a name.
     //

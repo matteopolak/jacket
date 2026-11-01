@@ -10,7 +10,7 @@
 // The folder the test's files go in.
 tree :: (t: *Test) -> string {
     return tprint("%/tree", temp_dir(t));
-}
+} @TempAllocates
 
 // Writes `text` to `relative` under `root`, making the folders on the way.
 add_file :: (root: string, relative: string, text: string) {
@@ -37,7 +37,7 @@ a_small_tree :: (t: *Test) -> string {
     add_file(root, ".hidden/e.txt", "needle in hiding\n");
 
     return root;
-}
+} @TempAllocates
 
 // The options for searching `pattern` in the folder `root`. Change fields before `run_search`.
 // The paths are in temporary storage.

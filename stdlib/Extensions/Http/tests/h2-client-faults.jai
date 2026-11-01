@@ -267,7 +267,7 @@ fetch_one :: (job: Job) {
     response, error := get(*api, job.path);
 
     if error.kind != .NONE {
-        job.body.* = tprint("error: %", error_text(error));
+        job.body.* = sprint("error: %", error_text(error));
 
         return;
     }

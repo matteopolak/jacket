@@ -347,11 +347,11 @@ run :: (args: [] string) -> s64 {
     }
 
     if psql.single_transaction {
-        error := Pg.execute_script(psql.db, "START TRANSACTION");
+        transaction_error := Pg.execute_script(psql.db, "START TRANSACTION");
 
-        if error.kind != .NONE {
-            print_error_raw(build_error_message(error, "", true));
-            Pg.free_error(*error);
+        if transaction_error.kind != .NONE {
+            print_error_raw(build_error_message(transaction_error, "", true));
+            Pg.free_error(*transaction_error);
             return EXIT_FAILURE;
         }
     }
@@ -392,11 +392,11 @@ run :: (args: [] string) -> s64 {
 
     if psql.single_transaction && psql.db {
         command := ifx psql.on_error_stop && result != EXIT_SUCCESS then "ROLLBACK" else "COMMIT";
-        error := Pg.execute_script(psql.db, command);
+        transaction_error := Pg.execute_script(psql.db, command);
 
-        if error.kind != .NONE {
-            print_error_raw(build_error_message(error, "", true));
-            Pg.free_error(*error);
+        if transaction_error.kind != .NONE {
+            print_error_raw(build_error_message(transaction_error, "", true));
+            Pg.free_error(*transaction_error);
             return EXIT_FAILURE;
         }
     }
@@ -705,7 +705,7 @@ connection_error_text :: (config: Pg.Config, error: Pg.Pg_Error) -> string {
     }
 
     return tprint("%: %", where, error.message);
-}
+} @TempAllocates
 
 sync_connection_variables :: () {
     c := psql.db;
@@ -735,7 +735,6 @@ standard_strings :: () -> bool {
 
 // Output. stdout and stderr are written straight through, unbuffered, so that their order in a
 // file both are redirected to matches psql's.
-
 write_fd :: (fd: s32, text: string) {
     at := 0;
     while at < text.count {
@@ -1057,7 +1056,7 @@ canonical_path :: (path: string) -> string {
     if !joined return ".";
 
     return joined;
-}
+} @TempAllocates
 
 branch_active :: (l: *Loop) -> bool {
     if !l.levels.count return true;
@@ -1332,6 +1331,7 @@ send_query :: (sql: string, copies_expected: s64) -> bool {
         if psql.db.status == {
             case .FAILED; command = "ROLLBACK TO pg_psql_temporary_savepoint";
             case .IN_TRANSACTION; if !savepoint_gone command = "RELEASE pg_psql_temporary_savepoint";
+            case; // Other members deliberately do nothing.
         }
 
         if command {
@@ -1491,7 +1491,7 @@ print_timing :: (microseconds: s64) {
         text := tprint("%", value);
         while text.count < width text = tprint("0%", text);
         return text;
-    }
+    } @TempAllocates
 
     text := tprint("Time: %.% ms", microseconds / 1000, pad(microseconds % 1000, 3));
 
@@ -1746,6 +1746,7 @@ run_extended_alone :: (sql: string, hooks: *Query_Hooks) -> Pg.Pg_Error {
         case .PARSE; error = Pg.pipeline_prepare(p, psql.stmt_name, sql);
         case .CLOSE; error = Pg.pipeline_close_statement(p, psql.stmt_name);
         case .BIND_NAMED; error = Pg.pipeline_execute_prepared_text(p, psql.stmt_name, params);
+        case; // Other members deliberately do nothing.
     }
 
     if error.kind == .NONE error = Pg.pipeline_sync(p);
@@ -2095,6 +2096,7 @@ read_pipeline_results :: (requested: s64, everything := false) -> bool {
                 psql.pipe_available -= 1;
                 remaining -= 1;
                 pipeline_step_done();
+            case; // Other members deliberately do nothing.
         }
 
         update_pipeline_variables();
@@ -3591,7 +3593,7 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
 
             if found && begins_with(arg, "|") {
                 psql.gpipe = copy_string(advance(arg, 1));
-                psql.gfile = tprint("%/psql-pipe-%", ifx environment_variable("TMPDIR") then environment_variable("TMPDIR") else "/tmp", POSIX.getpid());
+                psql.gfile = sprint("%/psql-pipe-%", ifx environment_variable("TMPDIR") then environment_variable("TMPDIR") else "/tmp", POSIX.getpid());
             } else if found {
                 psql.gfile = arg;
             }
@@ -4135,7 +4137,7 @@ repeat_char :: (c: u8, n: s64) -> string {
     text := talloc_string(n);
     for 0..n - 1 text[it] = c;
     return text;
-}
+} @TempAllocates
 
 pset_apply :: (option: string, value: string, has_value: bool, quiet: bool) -> bool {
     o := *psql.popt;
@@ -4153,7 +4155,7 @@ pset_apply :: (option: string, value: string, has_value: bool, quiet: bool) -> b
         case "border";
             if has_value {
                 n, ok := string_to_int(value);
-                o.border = xx ifx ok then n else 0;
+                o.border = cast,trunc(s32) ifx ok then n else 0;
             }
 
             if !quiet write_out(tprint("Border style is %.\n", o.border));
@@ -4251,7 +4253,7 @@ pset_apply :: (option: string, value: string, has_value: bool, quiet: bool) -> b
         case "columns";
             if has_value {
                 n, ok := string_to_int(value);
-                o.columns = xx ifx ok then n else 0;
+                o.columns = cast,trunc(s32) ifx ok then n else 0;
             }
 
             if !quiet {

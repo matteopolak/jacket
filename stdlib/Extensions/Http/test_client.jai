@@ -219,7 +219,7 @@ test_base :: (data: *void) -> string {
     if error != .NONE return "";
 
     return server_url(host.server);
-}
+} @TempAllocates
 
 test_open :: (data: *void, url: Url) -> Link, Io.Io_Error {
     target := cast(*Test_Target) data;

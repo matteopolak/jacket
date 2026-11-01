@@ -42,7 +42,7 @@ measure :: (work: () -> void) -> float64 {
 
 fixed :: (value: float64, digits: int) -> string {
     return tprint("%", FormatFloat.{ value = value, trailing_width = digits });
-}
+} @TempAllocates
 
 // ---- Content -------------------------------------------------------------------------------
 

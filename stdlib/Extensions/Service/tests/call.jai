@@ -11,15 +11,17 @@ UPPER :: #run tprint("%services/upper.jai", #filepath);
 ask :: (request: string) -> string {
     status, reply := Service.call(UPPER, request);
     return tprint("% %", status, reply);
-}
+} @TempAllocates
 
 GREETING :: #run ask("hello");
+
 AGAIN :: #run ask("again"); // the same worker answers
 FAILED :: #run ask("fail:no table");
 GONE :: #run ask("gone:no database");
 
 MISSING :: #run -> string {
     status := Service.call(tprint("%missing.jai", #filepath), "x");
+    // jailint: allow(temp_storage_escape): the compiler consumes this text before the compile-time evaluation ends.
     return tprint("%", status);
 };
 

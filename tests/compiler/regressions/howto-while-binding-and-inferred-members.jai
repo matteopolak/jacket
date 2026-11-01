@@ -1,7 +1,6 @@
 #import "Basic";
 
 // `.MEMBER == x`, enum-typed struct parameters, and `while name := value`.
-
 Stuff :: enum {
     FIRST;
     SECOND;

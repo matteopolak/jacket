@@ -159,7 +159,7 @@ measure :: (pool: *Flat_Pool, work: () -> void) -> float64 {
 
 number :: (value: float64, digits: int) -> string {
     return tprint("%", FormatFloat.{ value = value, trailing_width = digits });
-}
+} @TempAllocates
 
 report :: (what: string, megabytes: float64, scalar: float64, scan: float64, indexed: float64) {
     print("  % scalar % MB/s, vector % (x%), vector + index % (x%)\n", what, number(megabytes / scalar, 0), number(megabytes / scan, 0), number(scalar / scan, 2), number(megabytes / indexed, 0), number(scalar / indexed, 2));

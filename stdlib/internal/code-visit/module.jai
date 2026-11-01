@@ -185,6 +185,7 @@ get_subexpressions :: (node: *C.Code_Node, pointers: *[..] *C.Code_Node) {
 
             add(pointers, n.module_parameters_call);
             add(pointers, n.program_parameters_call);
+        case; // Other members deliberately do nothing.
     }
 }
 

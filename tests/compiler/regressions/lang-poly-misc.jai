@@ -12,6 +12,7 @@ pair :: () -> int, int {
 // A body may shadow its parameters.
 shadow :: (dest: int, value: int) -> int {
     // jailint: allow(redundant_alias)
+    // jailint: allow(shadowed_local): this regression checks declaration shadowing and scope.
     dest := value + 1;
     return dest;
 }

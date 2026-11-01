@@ -3,7 +3,6 @@ S :: #import "Sort";
 
 // Comparators that break the strict weak order must not make the sort leave the array or hang.
 // Each of these gives answers that disagree with themselves, so the partition scans meet nonsense.
-
 always_first :: (a: s64, b: s64) -> s64 {
     return -1;
 }

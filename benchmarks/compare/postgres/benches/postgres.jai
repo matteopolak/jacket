@@ -83,7 +83,7 @@ url_for :: (tls: bool) -> string {
     url := environment_variable("PG_BENCH_URL");
     if !url url = DEFAULT_URL;
     return tprint("%?sslmode=%", url, ifx tls then "require" else "disable");
-}
+} @TempAllocates
 
 require_ok :: (ok: bool, what: string) {
     if !ok {
@@ -316,7 +316,7 @@ drain :: (p: *Pg.Pipeline) {
 bulk_insert_copy__jacket :: (b: *Bench) {
     rows: [ROWS] Sink;
     for *rows {
-        it.id = xx it_index;
+        it.id = cast(s32) it_index;
         it.name = "name-value";
         it.qty = xx (it_index % 100);
         it.price = it_index * 1.5;

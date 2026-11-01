@@ -58,6 +58,7 @@ main :: () {
     // NaN is unordered.
     nan := zero / zero;
 
+    // jailint: allow(neg_cmp_float): NaN unordered comparisons are the behavior under test.
     assert(nan != nan && !(nan == nan) && !(nan < one) && !(nan >= one));
     // Implicit conversions follow float64's: small integers, float32 and literals.
     small_int: s8 = -5;

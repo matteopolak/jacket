@@ -28,10 +28,12 @@ build_table :: () -> Table {
     entries := NewArray(3, Entry);
 
     for *entry, index: entries {
+        // jailint: allow(temp_storage_escape): the compiler serializes the returned table before compile-time storage is reset.
         entry.label = tprint("entry-%", index);
         entry.level = cast(Level) index;
         entry.weight = 0.5 * cast(float64) (index + 1);
         tags := NewArray(index + 1, string);
+        // jailint: allow(temp_storage_escape): the compiler serializes the returned table before compile-time storage is reset.
         for *tag, tag_index: tags tag.* = tprint("t%", tag_index);
 
         entry.tags = tags;

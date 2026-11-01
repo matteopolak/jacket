@@ -373,7 +373,6 @@ wasi_fmaf :: (a: float32, b: float32, c: float32) -> float32 #c_call {
 }
 
 // The other exact functions: wasm has instructions for most, and fmod is exact by nature.
-
 floor_instruction :: (x: float64) -> float64 #intrinsic "llvm.floor.f64";
 ceil_instruction :: (x: float64) -> float64 #intrinsic "llvm.ceil.f64";
 sqrt_instruction :: (x: float64) -> float64 #intrinsic "llvm.sqrt.f64";

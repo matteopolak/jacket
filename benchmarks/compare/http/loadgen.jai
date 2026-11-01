@@ -125,9 +125,9 @@ exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
     while head_end < 0 {
         if filled == buffer.count return result;
 
-        count, error := Io.read(conn, array_view(buffer, filled, buffer.count - filled));
-        if error != .NONE || count == 0 {
-            result.why = tprint("read of the head after % bytes: %", filled, ifx error != .NONE then tprint("%", error) else "closed by the server");
+        count, read_error := Io.read(conn, array_view(buffer, filled, buffer.count - filled));
+        if read_error != .NONE || count == 0 {
+            result.why = tprint("read of the head after % bytes: %", filled, ifx read_error != .NONE then tprint("%", read_error) else "closed by the server");
             return result;
         }
 
@@ -161,8 +161,8 @@ exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
         while filled - head_end < length {
             if filled == buffer.count return result;
 
-            count, error := Io.read(conn, array_view(buffer, filled, buffer.count - filled));
-            if error != .NONE || count == 0 return result;
+            count, read_error := Io.read(conn, array_view(buffer, filled, buffer.count - filled));
+            if read_error != .NONE || count == 0 return result;
 
             filled += count;
         }
@@ -173,8 +173,8 @@ exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
         while true {
             if filled == buffer.count return result;
 
-            count, error := Io.read(conn, array_view(buffer, filled, buffer.count - filled));
-            if error != .NONE return result;
+            count, read_error := Io.read(conn, array_view(buffer, filled, buffer.count - filled));
+            if read_error != .NONE return result;
             if count == 0 break;
 
             filled += count;
@@ -320,6 +320,7 @@ main :: () {
     start := now_ns();
 
     for *workers {
+        // jailint: allow(temp_storage_escape): main joins every worker before its address storage can be reset.
         it.address = address;
         it.connections = connections / threads + ifx it_index < connections % threads then 1 else 0;
         it.warmup_end = start + warmup_ms * 1_000_000;

@@ -6,7 +6,7 @@
 
 fail :: (code: int, what: string) {
     print("FAIL %: %\n", code, what);
-    exit(xx code);
+    exit(cast(s32) code);
 }
 
 Kind :: enum {

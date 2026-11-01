@@ -41,6 +41,7 @@ method_name :: (method: Method) -> string {
         case .OPTIONS; return "OPTIONS";
         case .TRACE; return "TRACE";
         case .PATCH; return "PATCH";
+        case; // Other members deliberately do nothing.
     }
 
     return "";
@@ -481,6 +482,7 @@ error_status :: (kind: Parse_Error_Kind) -> int {
         case .HEADERS_TOO_LARGE; return 431;
         case .TOO_MANY_HEADERS; return 431;
         case .BODY_TOO_LARGE; return 413;
+        case; // Other members deliberately do nothing.
     }
 
     return 400;

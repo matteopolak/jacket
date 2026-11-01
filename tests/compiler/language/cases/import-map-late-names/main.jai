@@ -14,6 +14,7 @@ using,map(prefix_net) Net :: #import "Net_Pack";
 
 prefix_net :: (names: [] string) {
     for *names {
+        // jailint: allow(temp_storage_escape): the compiler consumes mapped names during this compile-time callback.
         if begins_with(it.*, "NET_") it.* = tprint("SDLNet_%", slice(it.*, 4, it.*.count - 4));
     }
 }

@@ -17,6 +17,14 @@ blank_line_before_return = true
 max_complexity = 100
 
 [lint.rules]
+shadowed_local = "warn"
+lossy_xx = "warn"
+neg_cmp_float = "warn"
+large_stack_array = "warn"
+todo_marker = "warn"
+detached_doc_comment = "warn"
+incomplete_enum_switch = "warn"
+temp_storage_escape = "warn"
 excessive_nesting = "warn"
 leaked_allocation = "warn"
 cognitive_complexity = "warn"

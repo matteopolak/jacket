@@ -38,7 +38,7 @@ gm_vtable_slot_name :: (function: *Function, index: int, table: *Struct) -> stri
     }
 
     return name;
-}
+} @TempAllocates
 
 // The members of a vtable record, counting those it reaches through the parent table it embeds.
 gm_vtable_member_count :: (table: *Struct) -> int {

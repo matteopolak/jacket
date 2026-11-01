@@ -268,6 +268,7 @@ run_command :: (r: *Runner) {
                 level.state = ifx value && ok then If_State.TRUE else .FALSE;
             case .IGNORED;
                 discard_branch(r, level);
+            case; // Other members deliberately do nothing.
         }
     } else if name == "else" && r.levels.count > 0 {
         record = true;
@@ -282,6 +283,7 @@ run_command :: (r: *Runner) {
             case .IGNORED;
                 discard_branch(r, level);
                 level.state = .ELSE_FALSE;
+            case; // Other members deliberately do nothing.
         }
     } else if name == "endif" && r.levels.count > 0 {
         record = true;
@@ -657,7 +659,7 @@ test_backslash_commands :: () {
 
 fake_shell :: (command: string, data: *void) -> string, bool {
     return tprint("<%>\n", command), true;
-}
+} @TempAllocates
 
 test_conditionals :: () {
     expect("\\if true\nselect 1;\n\\endif", "C\\if|true", "Qselect 1;", "C\\endif");

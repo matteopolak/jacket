@@ -223,7 +223,7 @@ safe_name :: (name: string) -> string {
     }
 
     return tprint("%~%", trimmed_dots(result), formatInt(hash & 0xffffff, base = 16, minimum_digits = 6));
-}
+} @TempAllocates
 
 trimmed_dots :: (name: string) -> string {
     result := name;
@@ -286,6 +286,7 @@ write_value :: (builder: *String_Builder, value: Any, depth: s64) {
         case .PROCEDURE;
             append(builder, ifx (cast(**void) value.value_pointer).* then "<pointer>" else "null");
             return;
+        case; // Other members deliberately do nothing.
     }
 
     print_to_builder(builder, "%", value);

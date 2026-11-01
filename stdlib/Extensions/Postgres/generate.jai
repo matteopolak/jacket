@@ -105,7 +105,7 @@ migrated_catalog :: (config: Config, migrations_folder: string) -> Catalog, hash
     if catalog_error.kind != .NONE return .{}, "", tprint("reading the catalog: %", error_text(catalog_error));
 
     return catalog, hash, "";
-}
+} @TempAllocates
 
 // The text of `db/schema.jai` for a catalog made from migrations with this schema hash, or a
 // problem such as a column that cannot be a field name. Laid out as the formatter would.
@@ -391,7 +391,7 @@ assign_names :: (catalog: Catalog) -> Names, problem: string {
     }
 
     return .{ enums, relations }, "";
-}
+} @TempAllocates
 
 #scope_file
 
@@ -418,14 +418,14 @@ claim :: (taken: *[..] string, candidates: ..string) -> string {
     }
 
     return "";
-}
+} @TempAllocates
 
 // Types outside `public` start with their schema, so `audit.events` cannot meet `public.events`.
 schema_prefix :: (schema: string) -> string {
     if schema == "public" return "";
 
     return tprint("%_", pascal_case(schema));
-}
+} @TempAllocates
 
 word_name :: (name: string) -> bool {
     if !name.count return false;
@@ -455,7 +455,7 @@ pascal_case :: (name: string) -> string {
     if out.count && is_digit(out[0]) return tprint("T_%", out);
 
     return out;
-}
+} @TempAllocates
 
 // `blog_posts` as `blog_post`: one English plural, enough for table names.
 singular :: (word: string) -> string {
@@ -469,7 +469,7 @@ singular :: (word: string) -> string {
     if word.count > 1 && ends_with(word, "s") return slice(word, 0, word.count - 1);
 
     return word;
-}
+} @TempAllocates
 
 // "table.column", with the schema in front when it is not `public`: how `Json_Columns` names a
 // column.
@@ -477,7 +477,7 @@ json_key :: (relation: Catalog_Relation, column: Catalog_Column) -> string {
     if relation.schema == "public" return tprint("%.%", relation.name, column.name);
 
     return tprint("%.%.%", relation.schema, relation.name, column.name);
-}
+} @TempAllocates
 
 // ---- output ----
 
@@ -491,7 +491,7 @@ pg_type_text :: (base: string) -> string {
     if array_find(MODULE_TYPES, text) return tprint("Pg.%", text);
 
     return text;
-}
+} @TempAllocates
 
 #scope_export
 
@@ -524,7 +524,7 @@ field_type :: (relation: Catalog_Relation, column: Catalog_Column, catalog: Cata
     if column.nullable text = tprint("Pg.Nullable(%)", text);
 
     return text, "";
-}
+} @TempAllocates
 
 #scope_file
 
@@ -546,7 +546,7 @@ relation_name :: (key: Catalog_Foreign_Key, taken: [] string, columns: [] Catalo
     while !name_is_free(tprint("%_%", fallback, n), taken, columns) n += 1;
 
     return tprint("%_%", fallback, n);
-}
+} @TempAllocates
 
 name_is_free :: (name: string, taken: [] string, columns: [] Catalog_Column) -> bool {
     return !array_find(taken, name) && !column_called(columns, name);
@@ -639,4 +639,4 @@ append_relation :: (builder: *String_Builder, catalog: Catalog, names: Names, in
     append(builder, "}\n");
 
     return "";
-}
+} @TempAllocates

@@ -76,7 +76,7 @@ parse_request :: (line: string) -> Request, string {
     }
 
     return request, "";
-}
+} @TempAllocates
 
 // Runs `request` and appends the reply, one or more lines each ending in a line break, to `out`.
 execute :: (store: *Store, request: Request, out: *String_Builder) -> Outcome {

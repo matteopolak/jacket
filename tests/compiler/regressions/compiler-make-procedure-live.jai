@@ -39,6 +39,7 @@ bodies_of :: (live: bool) -> [] string {
             case .COMPLETE;
                 assert((cast(*Message_Complete) message).error_code == .NONE);
                 break;
+            case; // Other members deliberately do nothing.
         }
     }
 

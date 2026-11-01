@@ -121,6 +121,7 @@ copy_size :: (value: *void, info: *Type_Info) -> s64 {
             if !pointer || !target || target.runtime_size <= 0 return 0;
 
             return align_copy_size(target.runtime_size) + copy_size(pointer, target);
+        case; // Other members deliberately do nothing.
     }
 
     return 0;
@@ -179,6 +180,7 @@ copy_into :: (value: *void, info: *Type_Info, cursor: **u8) {
             cursor.* += align_copy_size(target.runtime_size);
 
             copy_into(pointer.*, target, cursor);
+        case; // Other members deliberately do nothing.
     }
 }
 

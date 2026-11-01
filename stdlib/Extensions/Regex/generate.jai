@@ -67,7 +67,7 @@ is_static :: (R: Type) -> bool, string {
     }
 
     return false, tprint("expected a Regex.Static(\"...\") type, not %; for a pattern made at run time, pass *re from Regex.compile", R);
-}
+} @TempAllocates
 
 report_pattern_error :: (pattern: string, message: string, offset: int) {
     pointer := tprint("%^", repeat_char(#char " ", offset));
@@ -144,6 +144,7 @@ collect_groups :: (node: *Node, optional: bool, plans: *[..] Field_Plan) {
             for node.children collect_groups(it, optional, plans);
         case .ALTERNATE;
             for node.children collect_groups(it, true, plans);
+        case; // Other members deliberately do nothing.
     }
 }
 
@@ -420,6 +421,7 @@ digit_run :: (node: *Node) -> ok: bool, lo: int, hi: int {
             }
 
             return true, lo, hi;
+        case; // Other members deliberately do nothing.
     }
 
     return false, 0, 0;

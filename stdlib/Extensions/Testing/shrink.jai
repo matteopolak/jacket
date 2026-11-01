@@ -82,6 +82,7 @@ deep_copy :: (info: *Type_Info, source: *void, destination: *void) {
             }
         case .VARIANT;
             deep_copy((cast(*Type_Info_Variant) info).variant_of, source, destination);
+        case; // Other members deliberately do nothing.
     }
 }
 
@@ -99,7 +100,7 @@ copy_of :: (info: *Type_Info, source: *void) -> *void {
     copy_bytes(block, source, info.runtime_size);
 
     return block;
-}
+} @TempAllocates
 
 // The values smaller than the one at `value`, as new blocks, smallest first.
 smaller_values :: (info: *Type_Info, value: *void, custom: [] Custom_Generator) -> Blocks {
@@ -145,6 +146,7 @@ smaller_values :: (info: *Type_Info, value: *void, custom: [] Custom_Generator) 
             }
         case .VARIANT;
             return smaller_values((cast(*Type_Info_Variant) info).variant_of, value, custom);
+        case; // Other members deliberately do nothing.
     }
 
     return blocks;
@@ -345,7 +347,7 @@ array_block :: (info: *Type_Info_Array, count: s64, data: *void) -> *void {
     }
 
     return block;
-}
+} @TempAllocates
 
 smaller_arrays :: (blocks: *Blocks, info: *Type_Info_Array, value: *void, custom: [] Custom_Generator) {
     element_type, count, data := array_view(Any.{ info, value });
@@ -392,4 +394,4 @@ copy_elements :: (data: *void, from: s64, to: s64, stride: s64) -> *void {
     copy_bytes(block, data + from * stride, (to - from) * stride);
 
     return block;
-}
+} @TempAllocates

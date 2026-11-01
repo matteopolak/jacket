@@ -162,7 +162,7 @@ error_text :: (error: Client_Error) -> string {
     if error.kind == .TRANSPORT && error.transport != .NONE return tprint("%: %", error.detail, error.transport);
 
     return error.detail;
-}
+} @TempAllocates
 
 // Releases the strings an error from the client holds.
 //
@@ -1100,7 +1100,7 @@ absolute_url :: (client: *Client, text: string) -> string, Client_Error {
     if text.count == 0 || text[0] == #char "/" return tprint("%%", base, text), .{};
 
     return tprint("%/%", base, text), .{};
-}
+} @TempAllocates
 
 // The request's headers and, for every name it does not set, the client's default.
 with_default_headers :: (client: *Client, headers: [] Header_Field) -> [] Header_Field {
@@ -1157,7 +1157,7 @@ resolve_location :: (base: string, location: string) -> string {
     directory := slice(url.path, 0, slash + 1);
 
     return tprint("%%%", origin, directory, location);
-}
+} @TempAllocates
 
 host_with_port :: (url: Url) -> string {
     host := ifx url.ipv6 then tprint("[%]", url.host) else url.host;
@@ -1165,7 +1165,7 @@ host_with_port :: (url: Url) -> string {
     if url.port == default_port(url) return host;
 
     return tprint("%:%", host, url.port);
-}
+} @TempAllocates
 
 // One request on one connection (a pooled one when there is one), and its response head.
 exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header_Field, body: [] u8, max_response_size: int, note: Request_Note) -> Client_Response, Client_Error {
@@ -1468,7 +1468,6 @@ build_response :: (status: int, reason: string, headers: [] Header_Field, note: 
 // parser positioned at the start of the body, and the bytes read past the head. It sits on the
 // heap so every copy of the `Client_Response` shares it. It reads through the connection's `Io.Reader`
 // procedures only, so it does not care what the connection is.
-
 Body_Source :: struct {
     // The connection, and what it is pooled under.
     stream: Link;
@@ -1862,7 +1861,7 @@ peek_body :: (response: *Client_Response) -> string, string {
     source.has_stored = true;
 
     return string.{ source.stored.count, source.stored.data }, "";
-}
+} @TempAllocates
 
 // Gives up the connection of an unread body: reads and drops a short rest so the connection can
 // be pooled, else closes it.

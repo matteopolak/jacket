@@ -3,7 +3,6 @@
 
 // `using` on an anonymous struct literal, `using` on a global variable declaration, and
 // `#this` inside a macro (the procedure the macro expanded into).
-
 Ice_Cream :: struct {
     flavor: string;
     num_scoops: int;

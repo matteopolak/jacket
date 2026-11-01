@@ -23,7 +23,7 @@ scratch_directory :: (name: string) -> string {
     assert(make_directory_if_it_does_not_exist(dir), "cannot create the scratch directory %", dir);
 
     return dir;
-}
+} @TempAllocates
 
 // Logs from now on with `dir` shown as `<scratch>`. The directory name carries the process id, so
 // a program that prints a message naming a file inside it (`Bindings_Generator: wrote <path>`) would

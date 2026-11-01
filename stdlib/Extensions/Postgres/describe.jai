@@ -30,7 +30,7 @@ server_too_old :: (db: *Connection, request: Describe_Request) -> string {
     if major >= request.min_server_version return "";
 
     return tprint("the server is PostgreSQL %, but this project needs at least % (MIN_SERVER_VERSION)", major, request.min_server_version);
-}
+} @TempAllocates
 
 // The request as JSON text.
 //
@@ -253,6 +253,7 @@ begin_with_setup :: (db: *Connection, request: Describe_Request, stale: *Migrati
 
         failed = it_index;
         stale.* = migration_failure(it.name, it.index, part, part, error);
+        // jailint: allow(temp_storage_escape): describe_value serializes this path in the same fiber before its scratch is reset.
         stale.file = migration_file(request.migrations, it.name);
 
         break;
@@ -290,6 +291,7 @@ begin_with_setup :: (db: *Connection, request: Describe_Request, stale: *Migrati
     if stale.line == 0 {
         part := slice(request.setup, marks[failed].start, marks[failed].length);
         stale.* = locate_failing_statement(db, stale.name, stale.index, part, original, stale.*);
+        // jailint: allow(temp_storage_escape): describe_value serializes this path in the same fiber before its scratch is reset.
         stale.file = migration_file(request.migrations, stale.name);
     }
 
@@ -302,7 +304,7 @@ migration_file :: (folder: string, name: string) -> string {
     if !folder return tprint("%.sql", name);
 
     return join(folder, "/", name, ".sql",, temp);
-}
+} @TempAllocates
 
 failure_json :: (failure: Migration_Failure, folder: string) -> Json_Value {
     object := json_object();
@@ -589,14 +591,14 @@ base_name :: (types: *Described_Types, oid: u32) -> string {
     if !type.builtin return "extension";
 
     return type.name;
-}
+} @TempAllocates
 
 shown_name :: (types: *Described_Types, oid: u32) -> string {
     type := find_type(types, oid);
     if !type return tprint("oid%", oid);
 
     return type.shown;
-}
+} @TempAllocates
 
 types_entry :: (types: *Described_Types, oid: u32) -> Query_Type {
     return .{ shown_name(types, oid), base_name(types, oid) };

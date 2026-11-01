@@ -6,7 +6,7 @@
 
 name_of :: (name: Path("name", string)) -> string {
     return tprint("name=%", name.value);
-}
+} @TempAllocates
 
 static_new :: () -> string {
     return "static new";
@@ -14,15 +14,15 @@ static_new :: () -> string {
 
 by_id :: (id: Path("id", int)) -> string {
     return tprint("id=%", id.value);
-}
+} @TempAllocates
 
 user_post :: (user: Path("user", int), post: Path("post", string)) -> string {
     return tprint("user=% post=%", user.value, post.value);
-}
+} @TempAllocates
 
 file_rest :: (path: Rest("path")) -> string {
     return tprint("rest=%", path.value);
-}
+} @TempAllocates
 
 file_exact :: () -> string {
     return "exact file";

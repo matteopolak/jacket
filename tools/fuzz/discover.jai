@@ -97,10 +97,11 @@ type_text :: (info: *Type_Info, exported: [] string) -> string {
             if array.array_type == .VIEW return tprint("[] %", text);
 
             return tprint("[%] %", array.array_count, text);
+        case; // Other members deliberately do nothing.
     }
 
     return "";
-}
+} @TempAllocates
 
 Target_Proc :: struct {
     name: string;

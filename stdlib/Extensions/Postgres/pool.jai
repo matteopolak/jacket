@@ -418,6 +418,7 @@ begin_transaction :: (c: *Connection, isolation: Isolation, read_only: bool) -> 
         case .READ_COMMITTED; sql = "begin isolation level read committed";
         case .REPEATABLE_READ; sql = "begin isolation level repeatable read";
         case .SERIALIZABLE; sql = "begin isolation level serializable";
+        case; // Other members deliberately do nothing.
     }
 
     if read_only sql = tprint("% read only", sql);

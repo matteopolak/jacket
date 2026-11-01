@@ -14,6 +14,7 @@ seen_count := 0;
 
 // code.3: `#insert -> string { ... }` runs at compile time, at top level as well.
 #insert -> string {
+    // jailint: allow(temp_storage_escape): the compiler consumes this text before the compile-time evaluation ends.
     return tprint("GENERATED_% :: %;", "SQUARE", 9 * 9);
 }
 
@@ -57,7 +58,7 @@ log: [..] string;
 
 make_decl :: (name: string) -> string {
     return tprint("% :: 42;\n", name);
-}
+} @TempAllocates
 
 #insert #run make_decl("ANSWER");
 

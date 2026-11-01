@@ -68,7 +68,7 @@ through_channel :: () -> string {
     Io.free_channel(channel);
 
     return tprint("got %", value);
-}
+} @TempAllocates
 
 through_backend :: (state: *State(World)) -> string, Http_Error {
     response, error := get(state.other, "/hello");
@@ -86,7 +86,7 @@ through_backend :: (state: *State(World)) -> string, Http_Error {
     if read_error.kind != .NONE return "", internal_error("the backend said: %", error_text(read_error));
 
     return tprint("backend: %", text), .{};
-}
+} @TempAllocates
 
 length_of :: (body: *Body) -> int, Http_Error {
     bytes, error := read_all(body);
@@ -124,7 +124,7 @@ go_home :: () -> Response {
 
 who :: (request: *Request) -> string {
     return peer_text(request);
-}
+} @TempAllocates
 
 token :: (token: Header("x-token", string)) -> string {
     return token.value;

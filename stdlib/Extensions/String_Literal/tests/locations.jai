@@ -10,9 +10,10 @@ where :: (code: Code, byte: int) -> string {
     literal := cast(*Code_Literal) compiler_get_nodes(code);
     location, ok := String_Literal.location_of_byte(literal, byte);
     return tprint("%:%:%", ok, location.line_number, location.character_number);
-}
+} @TempAllocates
 
 PLAIN_CODE :: #code "SELECT id FROM users";
+
 ESCAPED_CODE :: #code "a\tb\x41\u00e9 \"q\" z";
 EIGHT_CODE :: #code "\U0001F600!";
 

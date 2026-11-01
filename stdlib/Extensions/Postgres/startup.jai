@@ -342,7 +342,7 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
         if error.alert > 0 return tprint("SSL error: % alert %", ifx is_sslv3_alert(error.alert) then "ssl/tls" else "tlsv1", replace(Tls.alert_name(error.alert), "_", " ",, temp));
 
         return tprint("SSL error: %", Tls.error_text(error));
-    }
+    } @TempAllocates
 }
 
 // The alerts OpenSSL words as "ssl/tls alert ..." (those of SSL 3.0); the others it calls TLS 1.0's.

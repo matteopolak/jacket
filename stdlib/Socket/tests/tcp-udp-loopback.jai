@@ -191,7 +191,7 @@ check_fd_set :: () {
         buffer: [64] u8;
 
         message.msg_control = buffer.data;
-        message.msg_controllen = xx (header_size - 1);
+        message.msg_controllen = cast(u32) (header_size - 1);
         assert(CMSG_FIRSTHDR(*message) == null, "a control buffer smaller than a header");
         message.msg_controllen = xx buffer.count;
         first := CMSG_FIRSTHDR(*message);

@@ -47,7 +47,7 @@ Schema_Description :: struct {
 Migration_Proposal :: struct {
     sql: string;
     changes: s64; // statements that change the schema
-    todos: s64; // `-- TODO:` comments for what it could not express
+    todos: s64; // review comments for changes it could not express
 }
 
 // Reads the catalog of the migrations' schema database (see schema_databases.jai), compares it
@@ -68,7 +68,7 @@ diff_schema :: (config: Config, migrations_folder: string, schema_file: string) 
     if catalog_problem return .{}, catalog_problem;
 
     return propose_migration(catalog, description);
-}
+} @TempAllocates
 
 // The structs and enums of `db/schema.jai`, which must have the shape `generate` writes: one
 // declaration per line of the form `Name :: struct @note(...) {`, then `name: Type; @note` per
@@ -157,7 +157,7 @@ parse_schema_text :: (text: string) -> Schema_Description, problem: string {
     }
 
     return .{ structs = structs, enums = enums }, "";
-}
+} @TempAllocates
 
 // Compares the structs with the catalog and writes the SQL that would bring the migrated schema
 // to what the structs say. See docs/postgres/diff.md for what it covers.
@@ -259,7 +259,7 @@ sql_type_of_text :: (text: string, refs: [] Enum_Ref) -> string {
     for refs if it.type_name == type return qualified(it.schema, it.name);
 
     return "";
-}
+} @TempAllocates
 
 // How an enum of the file is called in Postgres.
 Enum_Ref :: struct {
@@ -385,7 +385,7 @@ parse_enum :: (name: string, doc: string, body: [] string, first_line: s64) -> S
     declared.labels = labels;
 
     return declared, "";
-}
+} @TempAllocates
 
 parse_struct :: (name: string, schema: string, table: string, notes: [] string, body: [] string, first_line: s64) -> Schema_Struct, problem: string {
     declared: Schema_Struct;
@@ -440,7 +440,7 @@ parse_struct :: (name: string, schema: string, table: string, notes: [] string, 
     declared.fields = fields;
 
     return declared, "";
-}
+} @TempAllocates
 
 // `Member_Role` as `member_role`.
 snake_case :: (name: string) -> string {
@@ -479,11 +479,11 @@ unwrap_nullable :: (text: string) -> string, bool {
 
 quote :: (name: string) -> string {
     return tprint("\"%\"", name);
-}
+} @TempAllocates
 
 qualified :: (schema: string, name: string) -> string {
     return tprint("\"%\".\"%\"", schema, name);
-}
+} @TempAllocates
 
 sql_literal :: (text: string) -> string {
     builder: String_Builder;
@@ -621,7 +621,7 @@ column_definition :: (p: *Proposal_Builder, owner: string, field: Schema_Field) 
     if field.generated line_todo(p, tprint("%.%: make it a generated column (@pg_generated)", owner, quote(field.name)));
 
     return tprint("% %%", quote(field.name), sql, ifx nullable then "" else " not null");
-}
+} @TempAllocates
 
 propose_create :: (p: *Proposal_Builder, declared: Schema_Struct) {
     need_schema(p, declared.schema);

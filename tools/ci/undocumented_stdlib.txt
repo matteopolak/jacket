@@ -867,7 +867,6 @@ Extensions/Regex.word_char_after
 Extensions/Regex.word_char_before
 Extensions/SDL3
 Extensions/Testing/Discovery.get_plugin
-Extensions/Wasi_Runtime.Green_Mutex
 Extensions/Wasi_Runtime.Green_Thread
 Extensions/Wasi_Runtime.Thread_Status
 Extensions/Wasi_Runtime.add_thread
@@ -2047,7 +2046,6 @@ pl_mpeg.buffer_align
 pl_mpeg.buffer_create_with_capacity
 pl_mpeg.buffer_create_with_file
 pl_mpeg.buffer_create_with_filename
-pl_mpeg.buffer_create_with_memory
 pl_mpeg.buffer_destroy
 pl_mpeg.buffer_discard_read_bytes
 pl_mpeg.buffer_find_start_code

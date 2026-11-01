@@ -79,7 +79,7 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
     if depth > 0 return false, tprint("line %: this array or table is never closed", statement_line);
 
     return true, "";
-}
+} @TempAllocates
 
 // The keys of a `[a.b]` (or `[[a.b]]`) header line.
 parse_table_header :: (header: string) -> [..] string, bool {
@@ -130,7 +130,7 @@ apply_pair :: (config: *Format_Config, table: [] string, statement: string, line
     if keys.count == first return apply_inline_table(config, value, line_number);
 
     return apply_setting(config, keys, first, value, line_number);
-}
+} @TempAllocates
 
 // The settings in `{ key = value, ... }`, the value of `format` itself.
 apply_inline_table :: (config: *Format_Config, value: string, line_number: int) -> bool, string {
@@ -158,7 +158,7 @@ apply_inline_table :: (config: *Format_Config, value: string, line_number: int) 
     }
 
     return true, "";
-}
+} @TempAllocates
 
 // Applies `keys` from `first` on as the path of one format setting: a single name is a setting, a
 // dotted path names something the formatter does not have.
@@ -168,7 +168,7 @@ apply_setting :: (config: *Format_Config, keys: [] string, first: int, value: st
     array_add(*config.unknown_keys, dotted(keys, first));
 
     return true, "";
-}
+} @TempAllocates
 
 // `keys` from `first` on, joined by dots.
 dotted :: (keys: [] string, first: int) -> string {
@@ -315,7 +315,7 @@ apply_key :: (config: *Format_Config, key: string, value: string, line_number: i
     }
 
     return true, "";
-}
+} @TempAllocates
 
 // `line 0: message` -> `message`, for settings that did not come from a file.
 without_line_prefix :: (message: string) -> string {
@@ -349,7 +349,7 @@ unknown_setting_note :: (key: string, file: string) -> string {
     if best >= 0 return tprint("%; did you mean `format.%`?", note, FORMAT_KEYS[best]);
 
     return note;
-}
+} @TempAllocates
 
 // Is `path` (absolute) ignored by `config`? Globs are relative to the config's directory:
 // `*` matches within one path component, `**` across components, `?` one character.

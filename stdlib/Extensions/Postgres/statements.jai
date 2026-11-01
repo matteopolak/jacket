@@ -303,7 +303,7 @@ compare_columns :: (columns: [] Column, expected: string) -> string {
     }
 
     return "";
-}
+} @TempAllocates
 
 // Moves the columns a Describe returned into the cached statement, in the format the results use.
 keep_description :: (entry: *Cached_Statement, description: *Result) {

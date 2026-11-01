@@ -153,7 +153,7 @@ check_equivalent :: (before: string, after: string) -> bool, string {
     }
 
     return true, "";
-}
+} @TempAllocates
 
 // The parser looks at line breaks in a few places only: a line starting with `*`, `-`, `+` or
 // `<<` right after a `}` begins a new statement, and a directive on a new line ends a
@@ -1223,7 +1223,7 @@ run :: (f: *Formatter) -> bool, string {
     if f.emitted_any put(f, f.newline);
 
     return true, "";
-}
+} @TempAllocates
 
 // Writes the line break(s) and indentation before token i, which starts a line.
 start_line :: (f: *Formatter, i: int) -> bool, string {
@@ -1348,7 +1348,7 @@ line_indent :: (f: *Formatter, i: int) -> indent: int, ok: bool, message: string
     }
 
     return indent, true, "";
-}
+} @TempAllocates
 
 closes :: (open: string, close: string) -> bool {
     if close == "}" return open == "{" || open == ".{";
@@ -1454,7 +1454,7 @@ track :: (f: *Formatter, i: int) -> bool, string {
     }
 
     return true, "";
-}
+} @TempAllocates
 
 opens_switch :: (f: *Formatter, i: int) -> bool {
     p := f.prev_sig;
@@ -1504,6 +1504,7 @@ classify :: (f: *Formatter, i: int) -> Context_Kind {
             if text == ".*" || text == "---" || text == ")" || text == "]" || text == "}" return .OPERAND; // refined by `track`
 
             return .OPERATOR;
+        case; // Other members deliberately do nothing.
     }
 
     return .UNKNOWN;

@@ -92,6 +92,7 @@ message :: (plugin: *Metaprogram_Plugin, m: *Message) {
                 discovery.added = true;
                 finish_discovery(discovery);
             }
+        case; // Other members deliberately do nothing.
     }
 }
 
@@ -162,7 +163,7 @@ bench_note_problem :: (notes: [] *Code_Note) -> string {
     }
 
     return "";
-}
+} @TempAllocates
 
 collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
     for typechecked.declarations {

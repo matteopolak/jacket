@@ -96,6 +96,7 @@ name_of_backend :: (backend: Backend) -> string {
         case .KQUEUE; return "kqueue";
         case .IOCP; return "iocp";
         case .IORING; return "ioring";
+        case; // Other members deliberately do nothing.
     }
 
     return "none";

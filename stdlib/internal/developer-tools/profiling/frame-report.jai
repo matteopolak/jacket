@@ -101,6 +101,7 @@ create_report :: () -> *Report {
     profile_report.records.count = 0;
     average := get_value(*frame_time);
 
+    // jailint: allow(temp_storage_escape): the entire report explicitly lives only until reset_temporary_storage.
     profile_report.title = tprint("% ms/frame (% FPS)", average * 1000, ifx average > 0 then 1 / average else 0.0);
     profile_report.title_right = ifx display_frame == 0 then "current frame" else tprint("% frames ago", display_frame);
     profile_report.header = .["", "self (ms)", "hier (ms)", "calls", "heat"];

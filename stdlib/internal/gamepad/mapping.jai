@@ -41,7 +41,7 @@ get_guid_string :: (bustype: s16, vendor: s16, product: s16, version: s16) -> te
     }
 
     return result;
-}
+} @TempAllocates
 
 // Parses one SDL mapping line. Returns the mapping and whether the line was valid. The caller owns
 // the result: free it with `deinit`.

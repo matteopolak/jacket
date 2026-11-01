@@ -40,6 +40,7 @@ demo_files :: () {
         census.lines += lines;
         if lines > census.longest_lines {
             census.longest_lines = lines;
+            // jailint: allow(temp_storage_escape): the census is printed in this call before any temporary-storage reset.
             census.longest_name = copy_temporary_string(info.short_name);
         }
     });

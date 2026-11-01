@@ -41,7 +41,7 @@ size_of_body :: (body: *Body) -> string, Http_Error {
     if error.kind != .NONE return "", error;
 
     return tprint("%", bytes.count), .{};
-}
+} @TempAllocates
 
 produce :: (stream: *Stream, data: *void) {
     for 1..5 {

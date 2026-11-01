@@ -118,6 +118,7 @@ starts_with_text_start :: (node: *Node) -> bool {
             return true;
         case .REPEAT;
             return node.min > 0 && starts_with_text_start(node.children[0]);
+        case; // Other members deliberately do nothing.
     }
 
     return false;

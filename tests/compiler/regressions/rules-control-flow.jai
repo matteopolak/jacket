@@ -225,6 +225,7 @@ main :: () {
     if c == {
         case .RED; array_add(*out, "red");
         case .GREEN; array_add(*out, "green");
+        case; // Other members deliberately do nothing.
     }
 
     assert(out.count == 1 && out[0] == "red", "no fall through");

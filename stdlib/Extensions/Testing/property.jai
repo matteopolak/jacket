@@ -494,6 +494,7 @@ unsupported :: (info: *Type_Info) -> string {
             }
 
             return "";
+        case; // Other members deliberately do nothing.
     }
 
     return "give it a @generate procedure";
@@ -547,11 +548,13 @@ make_value :: (maker: *Maker, info: *Type_Info, destination: *void) {
             if !pointee || pointee.type == .VOID || rng_chance(rng, 4) {
                 target.* = null;
             } else {
+                // jailint: allow(temp_storage_escape): generated values intentionally live only for the current property trial.
                 target.* = talloc(max(pointee.runtime_size, 1));
                 make_value(maker, pointee, target.*);
             }
         case .VARIANT;
             make_value(maker, (cast(*Type_Info_Variant) info).variant_of, destination);
+        case; // Other members deliberately do nothing.
     }
 }
 

@@ -288,6 +288,7 @@ length_from :: (program: *Program, lengths: [] int, start: u32) -> int {
                     array_add(*stack, .{ inst.next, false });
                 case .RANGES;
                     for t: 0..cast(s64) inst.alt - 1 array_add(*stack, .{ program.transitions[inst.next + t].next, false });
+                case; // Other members deliberately do nothing.
             }
 
             continue;
@@ -312,6 +313,7 @@ length_from :: (program: *Program, lengths: [] int, start: u32) -> int {
 
                     result = n + 1;
                 }
+            case; // Other members deliberately do nothing.
         }
 
         lengths[step.at] = result;

@@ -872,6 +872,7 @@ result_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory:
         case .FREE;
             // Freed with the result.
             return null;
+        case; // Other members deliberately do nothing.
     }
 
     return null;

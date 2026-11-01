@@ -22,4 +22,4 @@ area :: (body: Body) -> float {
 
 describe :: (body: Body) -> string {
     return tprint("% (%)", body.name, body.shape);
-}
+} @TempAllocates

@@ -30,13 +30,13 @@ get_username :: () -> string, success: bool {
     success, account := get_passwd_for_user();
     if !success || !account.pw_name return "", false;
     return temporary_copy(to_string(account.pw_name)), true;
-}
+} @TempAllocates
 
 get_home_directory :: (username := "") -> string, success: bool {
     success, account := get_passwd_for_user(username);
     if !success || !account.pw_dir return "", false;
     return temporary_copy(to_string(account.pw_dir)), true;
-}
+} @TempAllocates
 
 get_machinename :: () -> string {
     capacity: s64 = 256;
@@ -66,7 +66,7 @@ get_machinename :: () -> string {
     }
 
     return "";
-}
+} @TempAllocates
 
 get_path_of_running_executable :: () -> string {
     #if OS == .MACOS {
@@ -120,7 +120,7 @@ get_path_of_running_executable :: () -> string {
     }
 
     return "";
-}
+} @TempAllocates
 
 get_number_of_processors :: ($type: Processor_Query_Type = .PERFORMANCE_LOGICAL) -> count: s32 {
     #if OS == .MACOS {
@@ -156,12 +156,12 @@ get_error_string :: (error_code: P.OS_Error_Code) -> string {
     description := c_strerror(cast(s32) error_code);
     if !description return "";
     return temporary_copy(to_string(description));
-}
+} @TempAllocates
 
 get_error_value_and_string :: () -> (error_code: P.OS_Error_Code, description: string) {
     code := P.errno();
     return code, get_error_string(code);
-}
+} @TempAllocates
 
 get_passwd_for_user :: (username := "") -> (success: bool, p: P.passwd) {
     name := temp_c_string(username);
@@ -206,7 +206,7 @@ temporary_copy :: (source: string) -> string {
     result := talloc_string(source.count);
     memcpy(result.data, source.data, source.count);
     return result;
-}
+} @TempAllocates
 
 #if OS == .MACOS {
     c_executable_path :: (buffer: *u8, size: *u32) -> s32 #foreign libc "_NSGetExecutablePath";

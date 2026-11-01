@@ -28,12 +28,14 @@ verify :: () -> bool {
     captured :: #code result := source;
 
     {
+        // jailint: allow(shadowed_local): this regression checks declaration shadowing and scope.
         source := 11;
         #insert captured;
         if result != 7 return false;
     }
 
     {
+        // jailint: allow(shadowed_local): this regression checks declaration shadowing and scope.
         source := 11;
         #insert,scope() captured;
         if result != 11 return false;

@@ -24,6 +24,7 @@ main :: () {
     assert(type_of(total) == int && total == 4);
 
     shown: float32 = 3.5;
+    // jailint: allow(lossy_xx): the regression specifically checks inferred narrowing with xx.
     pixel: s64 = xx shown + 1;
 
     assert(pixel == 4);

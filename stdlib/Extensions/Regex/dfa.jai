@@ -582,6 +582,7 @@ fingerprint :: (program: *Program) -> sets: [..][256] bool, exact: bool {
                 case .SAVE; #through;
                 case .LOOK;
                     array_add(*stack, inst.next);
+                case; // Other members deliberately do nothing.
             }
         }
 
@@ -677,6 +678,7 @@ bytes_before :: (program: *Program, required: [256] bool) -> [256] bool, ok: boo
             case .SAVE; #through;
             case .LOOK;
                 array_add(*stack, inst.next);
+            case; // Other members deliberately do nothing.
         }
     }
 
@@ -736,6 +738,7 @@ look_holds_between :: (look: Look, left: int, right: int) -> bool {
         case .END_LINE; return right == CONTEXT_EDGE || right == CONTEXT_LF;
         case .START_LINE_CRLF; return left == CONTEXT_EDGE || left == CONTEXT_LF || (left == CONTEXT_CR && right != CONTEXT_LF);
         case .END_LINE_CRLF; return right == CONTEXT_EDGE || right == CONTEXT_CR || (right == CONTEXT_LF && left != CONTEXT_CR);
+        case; // Other members deliberately do nothing.
     }
 
     // Next to non-ASCII bytes, the search passes the word-ness of whole characters, which only
@@ -757,6 +760,7 @@ look_holds_between :: (look: Look, left: int, right: int) -> bool {
         case .WORD_START_HALF_ASCII; return !before;
         case .WORD_END_HALF; #through;
         case .WORD_END_HALF_ASCII; return !after;
+        case; // Other members deliberately do nothing.
     }
 
     return false;
@@ -862,6 +866,7 @@ dfa_compute :: (d: *Dfa, s: u32, cls: int) -> u32 {
                     array_add(*d.stack, inst.next);
                 case .SAVE;
                     array_add(*d.stack, inst.next);
+                case; // Other members deliberately do nothing.
             }
         }
     }

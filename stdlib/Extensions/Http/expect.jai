@@ -630,13 +630,13 @@ checked_body :: (response: Client_Response) -> string, string {
     local := response;
 
     return peek_body(*local);
-}
+} @TempAllocates
 
 status_label :: (status: int) -> string {
     if status == 0 return "no response";
 
     return tprint("% %", status, status_reason(status));
-}
+} @TempAllocates
 
 header_matches :: (name: string, actual: string, expected: string) -> bool {
     if actual == expected return true;

@@ -806,7 +806,6 @@ wasi_closedir :: (stream: *Directory_Stream) -> s32 #c_call {
 
 // Streams: a `FILE` is a descriptor and two flags. Nothing is buffered, so `fflush` has nothing
 // to do and a stream's position is its descriptor's.
-
 Stream :: struct {
     fd: s32;
     at_end: bool;

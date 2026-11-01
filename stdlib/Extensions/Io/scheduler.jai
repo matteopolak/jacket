@@ -618,7 +618,6 @@ cancel_fiber :: (fiber: *Fiber) {
 
 // Timers: a binary heap ordered by deadline, then by creation order. A fiber knows its slot, so
 // a canceled sleep leaves the heap at once.
-
 timer_less :: (a: Timer, b: Timer) -> bool {
     if a.deadline != b.deadline return a.deadline < b.deadline;
 
@@ -791,7 +790,6 @@ cancel_all :: (scheduler: *Scheduler) {
 // The wait step: what the scheduler does when no fiber is ready. It hands the operations the
 // fibers queued to the engine, waits for completions for at most the time to the next timer
 // (forever when there is none), and lets the engine `wake` the fibers they belong to.
-
 wait_step :: (scheduler: *Scheduler) {
     if scheduler.ready_head return;
 

@@ -60,7 +60,7 @@ database_open :: (db: *Database, url: string, pool_size: int) -> string {
     if error.kind != .NONE return tprint("cannot create the schema: %", Pg.error_text(error));
 
     return "";
-}
+} @TempAllocates
 
 pool_of_thread :: (db: *Database) -> *Pg.Pool, Pg.Pg_Error {
     lock(*db.lock);
