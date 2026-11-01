@@ -95,9 +95,10 @@ impl Compiler {
             let known_miss = stable
                 && self.caches.scope_misses.get(&key) == Some(&generation)
                 && self.ns.reexport_visiting.is_empty();
-            let try_remember =
-                stable && !known_miss && found.is_empty() && self.ns.reexport_visiting.is_empty();
+            let try_remember = stable && !known_miss && self.ns.reexport_visiting.is_empty();
             let mut cacheable = try_remember;
+            // Did the usings, imports or implicit modules of this scope hold the name at all?
+            let mut contributed = false;
             if !known_miss {
                 // Entries added while these are searched are not seen by this lookup.
                 for k in 0..self.scope(sid).usings.len() {
@@ -109,7 +110,9 @@ impl Compiler {
                             continue;
                         };
                         let m = *m;
-                        if let Some(result) = self.merge_module_lookup(&mut found, m, target)? {
+                        if let Some(result) =
+                            self.merge_module_lookup(&mut found, m, target, &mut contributed)?
+                        {
                             return Ok(result);
                         }
                     } else {
@@ -174,7 +177,8 @@ impl Compiler {
                             continue;
                         };
                         let before = found.len();
-                        let result = self.merge_module_lookup(&mut found, module, target)?;
+                        let result =
+                            self.merge_module_lookup(&mut found, module, target, &mut contributed)?;
                         if result.is_some() || found.len() > before {
                             self.ide_note_import_use(sid, i);
                         }
@@ -193,20 +197,22 @@ impl Compiler {
                             continue;
                         }
                         if let Some(result) =
-                            self.merge_module_lookup(&mut found, implicit, name)?
+                            self.merge_module_lookup(&mut found, implicit, name, &mut contributed)?
                         {
                             return Ok(result);
                         }
                     }
                 }
-                if mid_mapping && found.is_empty() {
-                    crate::sema::body_probe::write(
-                        crate::sema::body_probe::W::EpochsInProgressMisses,
-                    );
-                    self.epochs.in_progress_misses += 1;
+                if mid_mapping && !contributed {
+                    if found.is_empty() {
+                        crate::sema::body_probe::write(
+                            crate::sema::body_probe::W::EpochsInProgressMisses,
+                        );
+                        self.epochs.in_progress_misses += 1;
+                    }
                     cacheable = false;
                 }
-                if cacheable && found.is_empty() && self.epochs.namespace_generation == generation {
+                if cacheable && !contributed && self.epochs.namespace_generation == generation {
                     self.caches.scope_misses.insert(key, generation);
                 }
             }

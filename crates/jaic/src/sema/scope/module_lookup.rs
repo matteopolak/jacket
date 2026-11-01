@@ -360,11 +360,21 @@ impl Compiler {
         found: &mut Vec<EntityId>,
         module: ModuleId,
         name: Sym,
+        contributed: &mut bool,
     ) -> Result<Option<Found>> {
         Ok(match self.module_lookup(module, name)? {
-            Found::Entities(ids) => (!ids.is_empty() && self.collect(found, ids))
-                .then(|| Found::Entities(std::mem::take(found))),
-            Found::Using(entry, member) => found.is_empty().then_some(Found::Using(entry, member)),
+            Found::Entities(ids) => {
+                if ids.is_empty() {
+                    return Ok(None);
+                }
+                *contributed = true;
+                self.collect(found, ids)
+                    .then(|| Found::Entities(std::mem::take(found)))
+            }
+            Found::Using(entry, member) => {
+                *contributed = true;
+                found.is_empty().then_some(Found::Using(entry, member))
+            }
         })
     }
 }
