@@ -108,7 +108,7 @@ fn platforms_line(m: &Module) -> String {
         format!("<span class=\"meta-sep\">·</span>{}", since_note(&m.since))
     };
     format!(
-        "<p class=\"meta\"><span class=\"meta-k\">Platforms</span>{}{since}</p>\n",
+        "<p class=\"meta\">Available on {}{since}</p>\n",
         esc(&m.systems().join(", "))
     )
 }
@@ -152,7 +152,7 @@ fn item_badges(m: &Module, item: &Item) -> String {
         return String::new();
     }
     format!(
-        "<span class=\"since\" title=\"Platforms\">{} only</span>",
+        "<span class=\"since\" title=\"Available only on these systems\">{} only</span>",
         esc(&systems.join(", "))
     )
 }
