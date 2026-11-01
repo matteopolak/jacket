@@ -50,7 +50,7 @@ impl Toolchain {
     /// What a jaic run is told of its standard library.
     pub fn jaic_env(&self) -> Vec<(String, String)> {
         vec![(
-            "JAIC_STDLIB".into(),
+            jacket_config::env::STDLIB.name.into(),
             self.stdlib.to_string_lossy().into_owned(),
         )]
     }
@@ -58,7 +58,7 @@ impl Toolchain {
     /// A command that runs this toolchain's jaic with its standard library.
     pub fn jaic_command(&self) -> Command {
         let mut command = Command::new(&self.jaic);
-        command.env("JAIC_STDLIB", &self.stdlib);
+        command.env(jacket_config::env::STDLIB.name, &self.stdlib);
         command
     }
 }
@@ -216,7 +216,7 @@ pub fn unit(
         .args(root_flags)
         .arg("-exe")
         .arg(&exe)
-        .env("JAIC_REPORT_EXE", &report);
+        .env(jacket_config::env::REPORT_EXE.name, &report);
     if toolchain.coverage {
         command.arg("-coverage");
     }

@@ -225,7 +225,7 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
         let run_dir = plan.coverage.as_ref().map(coverage::Coverage::run_dir);
         if let Some(dir) = &run_dir {
             invocation.env.push((
-                "JAIC_COVERAGE_DIR".into(),
+                jacket_config::env::COVERAGE_DIR.name.into(),
                 dir.to_string_lossy().into_owned(),
             ));
         }

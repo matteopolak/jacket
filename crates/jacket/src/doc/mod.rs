@@ -82,7 +82,7 @@ fn read_models(jaic: &Path, stdlib: &Path, ids: &[String]) -> Result<Vec<Module>
                         break;
                     };
                     let output = Command::new(jaic)
-                        .env("JAIC_STDLIB", stdlib)
+                        .env(jacket_config::env::STDLIB.name, stdlib)
                         .arg("-doc_model")
                         .arg(stdlib.join(id))
                         .output();
@@ -143,7 +143,7 @@ fn builds_for_wasm(jaic: &Path, stdlib: &Path, module: &Module, n: usize) -> boo
     let program = format!("#import \"{}\";\nmain :: () {{}}\n", module.id);
     let ok = std::fs::write(&file, program).is_ok()
         && Command::new(jaic)
-            .env("JAIC_STDLIB", stdlib)
+            .env(jacket_config::env::STDLIB.name, stdlib)
             .args(["-check", "-no_dce", "-os", "wasm"])
             .arg(&file)
             .output()

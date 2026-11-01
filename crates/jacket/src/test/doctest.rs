@@ -109,7 +109,7 @@ pub fn blocks(
     seen: &mut BTreeSet<PathBuf>,
 ) -> Vec<Block> {
     let output = Command::new(jaic)
-        .env("JAIC_STDLIB", stdlib)
+        .env(jacket_config::env::STDLIB.name, stdlib)
         .arg("-doc_comments")
         .arg(dir)
         .output();

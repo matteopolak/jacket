@@ -34,7 +34,7 @@ pub fn mode_with(
     if quiet {
         return Mode::Off;
     }
-    match env("JAIC_PROGRESS").as_deref() {
+    match env(jacket_config::env::PROGRESS.name).as_deref() {
         Some("off") => return Mode::Off,
         Some("plain") => return Mode::Plain,
         Some("live") => return Mode::Live,

@@ -140,7 +140,7 @@ fn run_jaic(check: bool, args: &[OsString], ctx: &compile::Context) -> ExitCode 
 fn project_name_env(ctx: &compile::Context) -> Vec<(&'static str, OsString)> {
     ctx.loaded
         .and_then(|loaded| loaded.dir().file_name())
-        .map(|name| ("JACKET_PROJECT", name.to_os_string()))
+        .map(|name| (jacket_config::env::PROJECT.name, name.to_os_string()))
         .into_iter()
         .collect()
 }
@@ -162,7 +162,10 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
     // The build may be a metaprogram that names its own executable, so ask jaic what it wrote.
     let report = std::env::temp_dir().join(format!("jacket-exe-{}.txt", std::process::id()));
     let _ = std::fs::remove_file(&report);
-    env.push(("JAIC_REPORT_EXE", report.clone().into_os_string()));
+    env.push((
+        jacket_config::env::REPORT_EXE.name,
+        report.clone().into_os_string(),
+    ));
     let started = tools::status(jaic.as_os_str(), &argv, &env);
     let reported = std::fs::read_to_string(&report).ok();
     let _ = std::fs::remove_file(&report);

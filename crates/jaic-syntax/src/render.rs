@@ -181,7 +181,7 @@ pub fn detect_with(
             let v = v.to_ascii_lowercase();
             v.contains("utf-8") || v.contains("utf8")
         });
-    let layout = match env("JAIC_DIAGNOSTICS").as_deref() {
+    let layout = match env(jacket_config::env::DIAGNOSTICS.name).as_deref() {
         Some("plain") => Layout::Plain,
         Some("ascii") => Layout::Ascii,
         Some("unicode") => Layout::Unicode,

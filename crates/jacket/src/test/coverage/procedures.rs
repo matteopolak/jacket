@@ -57,7 +57,7 @@ pub fn list(
     let dirs = std::env::join_paths(folders)
         .map_err(|e| format!("cannot pass the coverage folders to jaic: {e}"))?;
     let output = Command::new(jaic)
-        .env("JAIC_STDLIB", stdlib)
+        .env(jacket_config::env::STDLIB.name, stdlib)
         .arg("-procedures")
         .arg(dirs)
         .args(flags)

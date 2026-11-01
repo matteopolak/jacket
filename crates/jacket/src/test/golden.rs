@@ -102,7 +102,12 @@ fn coverage_env(toolchain: &Toolchain) -> Vec<(String, String)> {
     toolchain
         .coverage_dir
         .iter()
-        .map(|dir| ("JAIC_COVERAGE_DIR".to_string(), path_text(dir)))
+        .map(|dir| {
+            (
+                jacket_config::env::COVERAGE_DIR.name.to_string(),
+                path_text(dir),
+            )
+        })
         .chain(toolchain.jaic_env())
         .collect()
 }
@@ -156,14 +161,14 @@ fn built(
         .args(root_flags)
         .arg("-exe")
         .arg(&exe)
-        .env("JAIC_REPORT_EXE", &report)
+        .env(jacket_config::env::REPORT_EXE.name, &report)
         .current_dir(work);
     if toolchain.coverage {
         command.arg("-coverage");
     }
     // A program that builds and runs others at compile time reports what they ran too.
     if let Some(dir) = &toolchain.coverage_dir {
-        command.env("JAIC_COVERAGE_DIR", dir);
+        command.env(jacket_config::env::COVERAGE_DIR.name, dir);
     }
     let output = command
         .output()
