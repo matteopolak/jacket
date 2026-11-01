@@ -965,6 +965,9 @@ edit_widget :: (edit: *Text_Edit, options: Editor_Options, role: Role, loc: Sour
     paint := New(Editor_Paint,, frame_allocator(ui));
     paint.edit = edit;
     paint.options = options;
+    // Painting happens after build returns, so stack-local mark arrays must be copied.
+    paint.options.marks = NewArray(options.marks.count, Text_Mark,, frame_allocator(ui));
+    for options.marks paint.options.marks[it_index] = it;
     node.paint_data = paint;
 
     events := events_of(ui, node);
