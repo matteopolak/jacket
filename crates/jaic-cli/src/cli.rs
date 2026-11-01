@@ -254,6 +254,8 @@ pub(super) struct Cli {
     pub(super) tuning: tuning::Tuning,
     /// `-no_backtrace_on_crash`: no crash handler in the target program.
     pub(super) no_backtrace_on_crash: bool,
+    /// `-backtrace_on_crash`: install the crash handler without a metaprogram asking for it.
+    pub(super) backtrace_on_crash: bool,
     /// `-add` and `-run` strings.
     pub(super) added: Vec<Added>,
     /// Arguments after `-`, for the metaprogram (`compiler_get_command_line`).

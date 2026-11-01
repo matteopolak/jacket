@@ -37,7 +37,7 @@ Supported options:
 - `-x64` selects the x64 backend; `-llvm` selects LLVM. `-no_inline` disables inlining, `-no_dce` disables dead-code elimination, `-no_split` disables LLVM split modules, and `-output_ir` enables LLVM IR output before optimization and regular LLVM IR output.
 - `-quiet` suppresses compiler text output; `-no_color` disables ANSI color; `-msvc_format` selects Visual Studio diagnostic formatting; `-natvis` selects Natvis-compatible debug type names.
 - `-debug_for` enables stepping into `for` expansion macros. `-debugger` enables the interactive compile-time debugger in this and the target workspace.
-- `-no_backtrace_on_crash` sets crash backtrace handling off for the target workspace.
+- `-no_backtrace_on_crash` sets crash backtrace handling off for the target workspace. `-backtrace_on_crash` sets it on (`jacket test` passes it); with both, off wins.
 - `-no_check` omits the `Check` plugin. `-no_check_bindings` configures that plugin not to check module bindings; `-check_bindings` explicitly enables that check. Binding checks are on by default when `Check` is loaded.
 - `-context_size N` sets the target context maximum when `N` parses as an integer, is at least `size_of(Context_Base)`, and is no greater than `0x40000` bytes. Invalid values are reported and ignored; the source does not mark these diagnostics as fatal.
 - `-verbose` enables additional argument, inferred-output, working-directory and build summaries. The public global `verbose` defaults to false.

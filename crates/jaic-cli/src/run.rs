@@ -265,6 +265,9 @@ pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<
     options.eval_step_flag = Some("-run_budget");
     // Only native output has a use for variable and type descriptions.
     options.debug_info = cli.mode == Mode::Build && !cli.no_debug_info;
+    if cli.backtrace_on_crash && options.os != TargetOs::Wasm {
+        options.backtrace_on_crash = true;
+    }
     if cli.no_backtrace_on_crash {
         options.backtrace_on_crash = false;
     }
@@ -369,6 +372,9 @@ fn requested_settings(cli: &Cli, options: &Options) -> BuildSettings {
     }
     if cli.no_debug_info {
         settings.emit_debug_info = Some(false);
+    }
+    if cli.backtrace_on_crash {
+        settings.backtrace_on_crash = Some(true);
     }
     if cli.no_backtrace_on_crash {
         settings.backtrace_on_crash = Some(false);

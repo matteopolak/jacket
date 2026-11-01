@@ -300,6 +300,15 @@ pub(super) const OPTIONS: &[CliOption] = {
             "generate code as one module instead of several",
         ),
         CliOption::new(
+            &["-backtrace_on_crash"],
+            Action::Switch(|cli| &mut cli.backtrace_on_crash),
+        )
+        .help(
+            Output,
+            "-backtrace_on_crash",
+            "install the crash handler (a metaprogram's setting wins; -no_backtrace_on_crash overrides)",
+        ),
+        CliOption::new(
             &["-no_backtrace_on_crash"],
             Action::Switch(|cli| &mut cli.no_backtrace_on_crash),
         )

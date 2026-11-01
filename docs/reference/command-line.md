@@ -38,6 +38,7 @@ output (building only):
   -O0, -O1, -O2, -O3        pick the LLVM optimization level directly
   -no_inline                do not inline procedures
   -no_split                 generate code as one module instead of several
+  -backtrace_on_crash       install the crash handler (a metaprogram's setting wins; -no_backtrace_on_crash overrides)
   -no_backtrace_on_crash    leave the crash handler out of the program
   -emit_ir <file.ll>        also write the LLVM IR
   -no_debug_info            leave out native debug information
