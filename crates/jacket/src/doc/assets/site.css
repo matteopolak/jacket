@@ -308,13 +308,8 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 }
 .foot a { color: var(--muted); }
 
-/* The native API of a binding module: collapsed, one line per declaration. */
-details.native { margin-bottom: 22px; }
-details.native > summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--link); }
-details.native h3 { font-size: 14px; margin: 22px 0 8px; }
-.nlist { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 6px 0; }
-.nrow { font-size: 13px; line-height: 1.6; padding: 2px 16px; color: var(--muted); overflow-wrap: anywhere; }
-.nrow b { color: var(--fg); font-weight: 500; }
-.nrow:target { background: var(--sunken); }
-details.nrow > summary { cursor: pointer; }
-.nmembers { padding: 4px 0 6px 20px; }
+/* The fields or members of a foreign type, folded inside its row. */
+.row details.members { margin-top: 10px; }
+.row details.members > summary { cursor: pointer; width: fit-content; font-size: 13px; color: var(--muted); }
+.row details.members > summary:hover { color: var(--fg); }
+.row details.members[open] > summary { margin-bottom: 10px; }

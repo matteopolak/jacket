@@ -209,7 +209,7 @@
       name.href = hrefOf(it);
       a.appendChild(el('code', '', '')).appendChild(name);
       if (it.experimental) a.appendChild(el('span', 'badge exp sm', 'Experimental'));
-      if (it.native) a.appendChild(el('span', 'badge sm', 'Native'));
+      if (it.native) a.appendChild(el('span', 'badge sm', 'Foreign'));
       var sig = el('span', 'sig');
       sig.appendChild(sigNodes(it));
       a.appendChild(sig);
@@ -387,14 +387,14 @@
     if (name) window.open(name.href, '_blank');
   });
 
-  // A link to a native declaration points inside collapsed sections; open them and scroll there.
+  // A link into folded members opens them and scrolls there.
   function openTarget() {
     var id = decodeURIComponent(location.hash.slice(1));
     var target = id ? document.getElementById(id) : null;
     if (!target) return;
     var opened = false;
     for (var node = target; node; node = node.parentElement) {
-      if (node.tagName === 'DETAILS' && !node.open && (node.classList.contains('native') || node.classList.contains('nrow'))) { node.open = true; opened = true; }
+      if (node.tagName === 'DETAILS' && !node.open) { node.open = true; opened = true; }
     }
     if (opened) target.scrollIntoView();
   }

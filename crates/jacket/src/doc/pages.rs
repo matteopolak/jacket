@@ -330,6 +330,9 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
         let (file, line) = docs_place(item);
         example::fence(site, m, (&file, line), (info, code), true)
     });
+    if item.binding {
+        return foreign_row(site, mi, item, &pills, &line);
+    }
     format!(
         "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{experimental}{platforms}{since}</div>\n{line}{summary}{sample}</article>\n",
         name = esc(&item.name),
@@ -337,6 +340,47 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
         experimental = experimental_badge(item.experimental, true),
         platforms = item_badges(m, item),
         since = since_note(&item.since),
+    )
+}
+
+/// A declaration of a foreign library the module binds. It has no page of its own, so the row
+/// is the whole entry: its signature, and a type's members folded below it.
+fn foreign_row(site: &Site, mi: usize, item: &Item, pills: &str, line: &str) -> String {
+    let m = &site.modules[mi];
+    let members = if item.members.is_empty() {
+        String::new()
+    } else {
+        let enumerated = matches!(item.kind, Kind::Enum | Kind::EnumFlags);
+        let rows: Vec<_> = item
+            .members
+            .iter()
+            .map(|f| {
+                let ty = if enumerated {
+                    String::new()
+                } else {
+                    f.ty.clone()
+                };
+                (f.name.clone(), ty, f.doc.clone(), f.refs.clone())
+            })
+            .collect();
+        format!(
+            "<details class=\"members\"><summary>{}</summary>\n{}</details>\n",
+            plural(
+                item.members.len(),
+                if enumerated {
+                    "member"
+                } else {
+                    "field"
+                }
+            ),
+            definition_list(site, mi, &rows, "")
+        )
+    };
+    format!(
+        "<article class=\"row\" id=\"{id}\">\n<div class=\"row-head\"><span class=\"name\">{name}</span>{pills}<span class=\"badge sm\" title=\"Declared by a foreign library this module binds\">Foreign</span>{platforms}</div>\n{line}{members}</article>\n",
+        id = esc(&Site::slug(&item.name)),
+        name = esc(&item.name),
+        platforms = item_badges(m, item),
     )
 }
 
@@ -434,11 +478,13 @@ pub fn module_page(site: &Site, mi: usize) -> String {
             .collect();
         main.push_str(&definition_list(site, mi, &rows, ""));
     }
-    let procs: Vec<&Item> = m
-        .items
-        .iter()
-        .filter(|i| i.kind == Kind::Procedure && !i.binding)
-        .collect();
+    // Each section lists the module's own items first, then those of a foreign library it binds.
+    let section = |keep: &dyn Fn(&Item) -> bool| -> Vec<&Item> {
+        let mut items: Vec<&Item> = m.items.iter().filter(|i| keep(i)).collect();
+        items.sort_by_key(|i| i.binding);
+        items
+    };
+    let procs = section(&|i| i.kind == Kind::Procedure);
     if !procs.is_empty() {
         main.push_str(&heading(2, "procedures", "Procedures"));
         outline.push(("procedures".into(), "Procedures".into(), false));
@@ -461,6 +507,17 @@ pub fn module_page(site: &Site, mi: usize) -> String {
                 }
                 main.push_str("</section>\n");
             }
+            if procs.iter().any(|p| p.binding) {
+                main.push_str(&format!(
+                    "<section class=\"group\">\n{}",
+                    heading(3, "g-foreign", "Foreign")
+                ));
+                outline.push(("g-foreign".into(), "Foreign".into(), true));
+                for p in procs.iter().filter(|p| p.binding) {
+                    main.push_str(&row(site, mi, p));
+                }
+                main.push_str("</section>\n");
+            }
         } else {
             main.push_str("<section class=\"group\">\n");
             for p in &procs {
@@ -469,11 +526,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
             main.push_str("</section>\n");
         }
     }
-    let types: Vec<&Item> = m
-        .items
-        .iter()
-        .filter(|i| i.kind.is_type() && !i.binding)
-        .collect();
+    let types = section(&|i| i.kind.is_type());
     if !types.is_empty() {
         main.push_str(&heading(2, "types", "Types"));
         outline.push(("types".into(), "Types".into(), false));
@@ -483,11 +536,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
         }
         main.push_str("</section>\n");
     }
-    let constants: Vec<&Item> = m
-        .items
-        .iter()
-        .filter(|i| i.kind == Kind::Constant && !i.binding)
-        .collect();
+    let constants = section(&|i| i.kind == Kind::Constant);
     if !constants.is_empty() {
         main.push_str(&heading(2, "constants", "Constants"));
         outline.push(("constants".into(), "Constants".into(), false));
@@ -496,12 +545,6 @@ pub fn module_page(site: &Site, mi: usize) -> String {
             main.push_str(&row(site, mi, c));
         }
         main.push_str("</section>\n");
-    }
-    let native = native_section(site, mi);
-    if !native.is_empty() {
-        main.push_str(&heading(2, "native", "Native API"));
-        outline.push(("native".into(), "Native API".into(), false));
-        main.push_str(&native);
     }
     render(
         site,
@@ -516,91 +559,6 @@ pub fn module_page(site: &Site, mi: usize) -> String {
         },
     )
 }
-
-/// The declarations of the module's native bindings, collapsed: one line each, with the members
-/// of a type folded below it. They have no pages of their own.
-fn native_section(site: &Site, mi: usize) -> String {
-    let m = &site.modules[mi];
-    let all: Vec<&Item> = m.items.iter().filter(|i| i.binding).collect();
-    if all.is_empty() {
-        return String::new();
-    }
-    let procs: Vec<&&Item> = all.iter().filter(|i| i.kind == Kind::Procedure).collect();
-    let types: Vec<&&Item> = all.iter().filter(|i| i.kind.is_type()).collect();
-    let constants: Vec<&&Item> = all.iter().filter(|i| i.kind == Kind::Constant).collect();
-    let mut out = format!(
-        "<details class=\"native\" id=\"native-list\"><summary>Show {} native declarations</summary>\n<p class=\"muted\">Declared by the binding; the library that provides them documents what they do.</p>\n",
-        all.len()
-    );
-    let mut part = |label: &str, items: &[&&Item], line: &dyn Fn(&Item) -> String| {
-        if items.is_empty() {
-            return;
-        }
-        out.push_str(&format!(
-            "<h3>{label} <span class=\"muted\">{}</span></h3>\n<div class=\"nlist\">\n",
-            items.len()
-        ));
-        for item in items {
-            out.push_str(&line(item));
-        }
-        out.push_str("</div>\n");
-    };
-    let id = |item: &Item| esc(&Site::slug(&item.name));
-    part("Procedures", &procs, &|item| {
-        let sig = item
-            .overloads
-            .first()
-            .map(|o| signature_line_html(site, o, mi))
-            .unwrap_or_default();
-        format!(
-            "<div class=\"nrow mono\" id=\"{}\"><b>{}</b>{sig}</div>\n",
-            id(item),
-            esc(&item.name)
-        )
-    });
-    part("Types", &types, &|item| {
-        let label = item.kind.label();
-        if item.members.is_empty() {
-            return format!(
-                "<div class=\"nrow mono\" id=\"{}\"><b>{}</b> <span class=\"muted\">{} {}</span></div>\n",
-                id(item),
-                esc(&item.name),
-                label,
-                esc(&item.value)
-            );
-        }
-        let enumerated = matches!(item.kind, Kind::Enum | Kind::EnumFlags);
-        let mut rows = String::new();
-        for member in &item.members {
-            let (sep, ty) = if member.ty.is_empty() {
-                ("", String::new())
-            } else if enumerated {
-                (" :: ", esc(&member.ty))
-            } else {
-                (": ", site.type_html(&member.ty, &member.refs, mi))
-            };
-            rows.push_str(&format!("<div>{}{sep}{ty}</div>", esc(&member.name)));
-        }
-        format!(
-            "<details class=\"nrow mono\" id=\"{}\"><summary><b>{}</b> <span class=\"muted\">{label}, {}</span></summary><div class=\"nmembers\">{rows}</div></details>\n",
-            id(item),
-            esc(&item.name),
-            plural(item.members.len(), "member")
-        )
-    });
-    part("Constants", &constants, &|item| {
-        format!(
-            "<div class=\"nrow mono\" id=\"{}\"><b>{}</b> <span class=\"muted\">{}</span></div>\n",
-            id(item),
-            esc(&item.name),
-            esc(&item_line(item))
-        )
-    });
-    out.push_str("</details>\n");
-    out
-}
-
-// An item.
 
 fn plural(n: usize, one: &str) -> String {
     if n == 1 {
@@ -1111,14 +1069,15 @@ mod tests {
     }
 
     #[test]
-    fn native_declarations_are_collapsed_on_the_module_page() {
+    fn foreign_declarations_follow_the_own_items_in_their_sections() {
         let site = binding_site();
         let page = module_page(&site, 0);
-        let native = page.find("<details class=\"native\"").unwrap();
-        assert!(page.find("id=\"own\"").unwrap() < native);
-        assert!(page[native..].contains("id=\"MAX\""));
-        assert!(page[native..].contains("FAST"));
-        assert!(!page[..native].contains("id=\"MAX\""));
+        let own = page.find("id=\"own\"").unwrap();
+        let max = page.find("id=\"MAX\"").unwrap();
+        assert!(own < max);
+        assert!(page[max..].contains("Foreign"));
+        assert!(page.contains("FAST"));
+        assert!(!page.contains("href=\"/api/Vendor/MAX/\""));
         assert_eq!(site.item_href("Vendor", "MAX"), "/api/Vendor/#MAX");
         assert_eq!(site.item_href("Vendor", "own"), "/api/Vendor/own/");
     }
