@@ -455,8 +455,12 @@ make_directory_if_it_does_not_exist :: (name: string, recursive := false) -> dir
     if !Native_Path.is_valid(name) return false;
 
     if recursive {
-        parent := Strings.path_strip_filename(name);
-        if parent.count > 1 && parent != name {
+        // `a/b/` names the same folder as `a/b`, and its parent is `a`.
+        folder := Strings.trim_right(name, "/\\");
+        if folder.count == 0 folder = name;
+
+        parent := Strings.path_strip_filename(folder);
+        if parent.count > 1 && parent != folder {
             parent = Strings.trim_right(parent, "/\\");
             if parent.count > 0 && !make_directory_if_it_does_not_exist(parent, true) return false;
         }
