@@ -837,7 +837,6 @@ Extensions/Regex.START_INDEX
 Extensions/Regex.Skip_Kind
 Extensions/Regex.Transition
 Extensions/Regex.backtrack_fits
-Extensions/Regex.build_engine
 Extensions/Regex.can_match_empty
 Extensions/Regex.captures_of
 Extensions/Regex.collect_groups
