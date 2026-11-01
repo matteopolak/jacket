@@ -2,10 +2,8 @@
 D :: #import "Default_Allocator";
 
 // Freeing and resizing blocks must not cost time proportional to the number of live blocks:
-// a tree of many nodes is freed oldest first. A walk per lookup would need billions of steps at this
-// count, far beyond the limit even for the interpreter on a slow Windows runner (200000 blocks took
-// 26 s there, 1 s elsewhere).
-COUNT :: 50000;
+// a tree of 200000 nodes is freed oldest first.
+COUNT :: 200000;
 
 main :: () {
     start := current_time_monotonic();
