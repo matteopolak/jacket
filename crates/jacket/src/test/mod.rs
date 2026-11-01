@@ -522,8 +522,8 @@ fn run_once(
             .map(|flag| flag.to_string_lossy().into_owned()),
     );
     flags.extend(args.jaic_args.iter().cloned());
-    if !args.interp && !bench {
-        flags.insert(0, "-backtrace_on_crash".into()); // a crash reports its address and stack
+    if !args.interp && !bench && matches!(os.as_str(), "windows" | "linux" | "macos") {
+        flags.insert(0, "-backtrace_on_crash".into()); // the only targets with a crash handler
     }
     if bench && !args.list && (args.interp || os == "wasm") {
         return fail("`jacket bench` measures native builds: drop `--interp` and `-os wasm`");
