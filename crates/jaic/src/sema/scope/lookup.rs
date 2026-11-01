@@ -47,15 +47,22 @@ impl Compiler {
         let mut current = Some(scope);
         while let Some(sid) = current {
             // A name this scope already binds to a non-procedure is final (another
-            // declaration would be a redefinition): pending items need not run first.
-            let settled = self.scope(sid).names.get(&name).is_some_and(|ids| {
-                ids.iter().any(|&e| {
-                    !matches!(self.entity(e).kind, EntityKind::Placeholder)
-                        && !self.entity_is_overloadable(e)
-                })
-            });
-            if !settled && !self.epochs.lookup_without_expansion {
-                self.expand_pending(sid)?;
+            // declaration would be a redefinition): pending items need not run first. Only
+            // module and file scopes have pending items.
+            let pending = {
+                let s = self.scope(sid);
+                s.pending_done < s.pending.len()
+            };
+            if pending && !self.epochs.lookup_without_expansion {
+                let settled = self.scope(sid).names.get(&name).is_some_and(|ids| {
+                    ids.iter().any(|&e| {
+                        !matches!(self.entity(e).kind, EntityKind::Placeholder)
+                            && !self.entity_is_overloadable(e)
+                    })
+                });
+                if !settled {
+                    self.expand_pending(sid)?;
+                }
             }
             if let Some(ids) = self.scope(sid).names.get(&name) {
                 let mut ids = self.diag.bound_entities(ids);
