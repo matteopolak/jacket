@@ -67,13 +67,14 @@ front door would hide them.
 | `check_repo_paths.py` | Fail when a doc or a tool/config header names a repo path that does not exist. | tools |
 | `check_source_style.py` | Fail when a tracked Rust file is too long or a Rust or Python file carries a banner comment. | tools |
 | `check_stdlib_docs.py` | Fail when a public standard-library declaration has no doc comment (docs/tools/stdlib-doc-gaps.md). | tools |
-| `ci_changes.py` | Decide which path-gated CI jobs run, and write `<area>=true\|false` lines to $GITHUB_OUTPUT. | CI |
+| `ci_changes.py` | Decide which path-gated CI jobs run, and write `<area>=true\|false` lines to $GITHUB_OUTPUT. | CI, tools |
 | `install_pinned.py` | Install a tool at the version .github/pins.json pins, verifying what it downloads. | CI, tools |
 | `job_inputs.py` | The files each CI job reads, computed from the workflow instead of listed by hand. | tools |
 | `package_bindings_helpers.py` | Put the native helpers Bindings_Generator needs into a release archive's native-libs/<platform>. | CI, tools |
 | `pins.py` | Keep the tool versions that the workflows spell out equal to .github/pins.json. | CI, tools |
 | `release_smoke.py` | Pieces of the post-release smoke test (.github/workflows/release-smoke.yml, docs/tools/release-smoke.md). | CI |
 | `run_miri.py` | Run Miri on the parts of the compiler that handle raw memory and need nothing from the operating system. | CI |
+| `select_tests.py` | List the stdlib tests a change can affect, for the `jacket test` CI steps. | tools |
 | `toolchain_manifest.py` | Write `toolchain-manifest.json`: which toolchain release the editors download, and each archive's SHA-256. | CI |
 
 ## `corpus/`
