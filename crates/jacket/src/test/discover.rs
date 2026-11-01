@@ -180,15 +180,15 @@ impl Root {
         let mut bench = jai_files(&dir.join("benches"));
         bench.extend(unit.iter().filter(|file| holds_bench(file)).cloned());
         Root {
-            bench,
-            docs,
-            module,
-            library,
-            compile_fail,
             dir,
             label,
+            library,
             unit,
             golden,
+            compile_fail,
+            bench,
+            module,
+            docs,
         }
     }
 
@@ -308,7 +308,7 @@ mod tests {
             line: 1,
             code: String::new(),
             mode: super::super::doctest::Mode::Run,
-            options: Default::default(),
+            options: super::super::options::TestOptions::default(),
             problems: Vec::new(),
         };
         let mut docs = vec![block("M#1"), block("M.f#1")];
