@@ -54,10 +54,36 @@ Numbers (median of 9, `-check -serial_parse`, same machine, alternating runs): 6
 
 To profile sema on one thread with inlined frames, build with `CARGO_PROFILE_RELEASE_DEBUG=1`, record with `xcrun xctrace record --template 'Time Profiler' --launch -- jaic -check -serial_parse main.jai` and symbolicate with `atos -i`; `sample` misses part of a short run.
 
+### Lexer, interner and parse-ahead
+
+Lex and parse are about a quarter of a serial `-check` of the 600k-line generated program (20 MB, 5.9M tokens), so the lexer is tuned on its own (an in-process harness that lexes every file on a fresh thread and takes the minimum of 21 rounds). What changed:
+
+- **The interner hashes a spelling once.** The shards and each thread's cache are the same flat open-addressing `Table` (`intern.rs`) that stores the hash, so a miss in the cache, a hit in a shard and a grow never hash again. Slots are picked from the top bits of a multiply: `FxHasher`'s low bits clustered under linear probing and made it slower than the maps it replaced. A thread's first lex of a file was paying for three hashes and repeated rehashes of its cache (every parse worker starts cold): 162 ms to 105 ms for the 120 files.
+- **`at_leading_dot_float` checks for `.digit` first.** It ran for every punctuation token and scanned back over parentheses (`closes_cast`) before looking at the byte.
+- **A `Token` is 40 bytes, not 48.** `Tok::Int` holds a `u64` (the lexer rejects larger literals); a `u128` made the whole enum 16-byte aligned.
+- **Punctuation is matched with one masked word compare** instead of a `memcmp` call per candidate.
+- **`FxHasher` reads a key's last one to seven bytes with two overlapping loads**, not a variable-length copy that called `memcpy` for every identifier.
+- **Identifiers, blank runs and line comments are scanned with slice loops.**
+
+Together lexing the 120 files went from 125 ms to 75 ms (warm) and lex plus parse from 289 ms to 240 ms; the parser itself is unchanged at about 165 ms. On the whole compile, medians of 11 alternating runs, `-check`:
+
+| Program | serial before | serial after | default before | default after |
+| --- | --- | --- | --- | --- |
+| 600k generated lines | 1.02 s | 0.93 s | 0.78 s | 0.77 s |
+| most of `stdlib`, `-no_dce` | 0.195 s | 0.190 s | 0.163 s | 0.159 s |
+| `examples/game2d/game` | 0.137 s | 0.132 s | 0.110 s | 0.106 s |
+
+**Parse-ahead is not the bottleneck in real programs.** Timing every `claim`: the stdlib program waits 10 ms in total (of 150 ms), `game2d` 2 ms; relocation costs 3 ms. Only the generated program, with 120 files of 5,000 lines asked for within 100 ms of each other, waits (55 ms, 8%), because four workers cannot parse that fast; 8 workers saved 2%. About 9% of claims come back empty because the file is loaded a second time into another module (a new `FileId` and `AstId`s, so it is parsed again on the sema thread). A claimed file stays in the queue and the worker that pops it skips it, instead of an O(queue) scan.
+
+What is left is mostly spread thin: `Lexer::push` and `skip_trivia` (about 6% and 7% of lex plus parse), allocation and freeing of AST nodes (about 10%), `Table::find`, and the parser's lookahead scans (`tagged_member_ahead`, `paren_starts_header`, about 4% together). Ideas too large for a pass: a per-thread interner that numbers symbols locally and merges (drops the shard locks, but `Sym` order and `Sym` equality across threads would need a translation step); parsing a second instance of a file once and cloning the tree with fresh `AstId`s; giving workers the final `FileId` so `relocate` (2% of the generated program) disappears; and an arena for AST nodes.
+
 ### Rejected experiments
 
 - Skipping LiveDebugValues at `-O0` loses `frame variable` locations.
 - Removing the parse mutex in `split.rs` raises memory for no gain.
+- Queuing a parsed file's imports at the front of the parse queue (depth first, as sema loads them) did not change how long `claim` waits.
+- Comparing identifiers in the interner with word loads instead of `memcmp` was within noise.
+- `-parse_threads` above 4 saves 2% on the generated program and nothing on real ones, so the default stays.
 - Running `ld` directly instead of through `cc` saves about 10 ms and needs the SDK path re-derived.
 - Overlapping codegen with the front end: nothing in `Program` is final until the workspace completes, because metaprograms can still change it.
 
