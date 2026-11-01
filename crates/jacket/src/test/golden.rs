@@ -22,6 +22,8 @@ pub struct Checked {
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
     pub timed_out: bool,
+    /// The program died of a fault.
+    pub crashed: bool,
     pub accepted: Vec<PathBuf>,
 }
 
@@ -390,6 +392,7 @@ pub fn golden(
         checked.problems.push("it timed out".into());
         return checked;
     }
+    checked.crashed = outcome.ending.crashed();
     let code = match outcome.ending {
         Ending::Exited(code) => Some(code),
         _ => None,

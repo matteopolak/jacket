@@ -55,6 +55,22 @@ fn text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).into_owned()
 }
 
+/// A crashed test's output is cut to this many trailing lines per stream.
+const CRASH_TAIL_LINES: usize = 64;
+
+/// The last `keep` lines of `text`, after a note of how many came before.
+fn tail(text: &str, keep: usize) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    if lines.len() <= keep {
+        return text.to_string();
+    }
+    let skipped = lines.len() - keep;
+    format!(
+        "[{skipped} earlier lines omitted]\n{}",
+        lines[skipped..].join("\n")
+    )
+}
+
 fn indent(text: &str, by: &str) -> String {
     text.lines()
         .map(|l| format!("{by}{l}"))
@@ -325,9 +341,15 @@ impl Reporter {
         if self.capture {
             for (name, bytes) in [("stdout", &outcome.stdout), ("stderr", &outcome.stderr)] {
                 let text = text(bytes);
-                if !text.trim().is_empty() {
-                    out.push_str(&format!("  {name}:\n{}\n", indent(text.trim_end(), "    ")));
+                if text.trim().is_empty() {
+                    continue;
                 }
+                let shown = if outcome.crashed {
+                    tail(text.trim_end(), CRASH_TAIL_LINES)
+                } else {
+                    text.trim_end().to_string()
+                };
+                out.push_str(&format!("  {name}:\n{}\n", indent(&shown, "    ")));
             }
         }
         if let Some(temp) = &outcome.kept_temp {
@@ -517,6 +539,18 @@ fn junit(cases: &[Case], outcomes: &[Outcome], elapsed: Duration) -> String {
 mod tests {
     use super::*;
     use crate::test::options::TestOptions;
+
+    #[test]
+    fn tail_keeps_the_last_lines() {
+        let text = (1..=100)
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let cut = tail(&text, 64);
+        assert!(cut.starts_with("[36 earlier lines omitted]\n37\n"), "{cut}");
+        assert!(cut.ends_with("\n100"));
+        assert_eq!(tail("a\nb", 64), "a\nb");
+    }
 
     #[test]
     fn junit_lists_failures_and_skips() {

@@ -8,6 +8,7 @@
 
 ### Improved
 
+- A `jacket test` program killed by a signal shows its last 64 lines of output and a native stack with the fault address.
 - `jacket test --doc --check-only --os <os>` type-checks the doc examples for another OS from any machine.
 - `jacket test --changed FILE` runs only the tests a change to FILE can affect.
 - `jacket test` in a folder that has its own `tests/` folder below the project tests that folder.

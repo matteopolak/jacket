@@ -320,6 +320,9 @@ fn keep_folder(plan: &Plan, status: Status, folder: &Path) -> bool {
 
 pub fn ending_text(ending: &Ending) -> String {
     match ending {
+        Ending::Exited(code) if ending.crashed() => {
+            format!("crashed with exception {:#010X}", *code as u32)
+        }
         Ending::Exited(code) => format!("exited with status {code}"),
         Ending::Signal(signal) => format!("was killed by signal {signal}{}", signal_name(*signal)),
         Ending::TimedOut => "timed out".into(),
@@ -375,6 +378,7 @@ fn resolve(case: &Case, index: usize, raw: &exec::Raw, ending: Option<&Ending>) 
             Status::Pass
         }
         (None, Some(ending)) => {
+            outcome.crashed = ending.crashed();
             outcome.problems.push(format!(
                 "the test program {} during the test",
                 ending_text(ending)
@@ -511,6 +515,7 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     outcome.problems = checked.problems;
     outcome.stdout = checked.stdout;
     outcome.stderr = checked.stderr;
+    outcome.crashed = checked.crashed;
     expectations(case, &mut outcome);
     outcome
 }
@@ -537,6 +542,7 @@ mod tests {
             Status::Pass
         );
         let crashed = resolve(&plain, 0, &raw(None), Some(&Ending::Signal(11)));
+        assert!(crashed.crashed);
         assert_eq!(crashed.status, Status::Fail);
         assert!(crashed.problems[0].contains("SIGSEGV"));
         assert_eq!(

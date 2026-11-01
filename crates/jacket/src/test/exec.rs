@@ -454,6 +454,18 @@ pub fn run_child(
     outcome
 }
 
+impl Ending {
+    /// Whether the process died of a fault: a signal, or on Windows an exception status such as
+    /// `0xC0000005`.
+    pub fn crashed(&self) -> bool {
+        match self {
+            Ending::Signal(_) => true,
+            Ending::Exited(code) => cfg!(windows) && (*code as u32) >> 28 == 0xC,
+            _ => false,
+        }
+    }
+}
+
 fn ending_of(status: std::process::ExitStatus) -> Ending {
     #[cfg(unix)]
     {

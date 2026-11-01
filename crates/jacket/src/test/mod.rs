@@ -135,6 +135,7 @@ pub struct Outcome {
     pub subtests: Vec<Subtest>,
     pub skip_reason: Option<String>,
     pub attempts: u32,
+    pub crashed: bool, // the process died of a fault; its output tails are shown
     /// The test's temporary folder, kept because it failed.
     pub kept_temp: Option<PathBuf>,
 }
@@ -152,6 +153,7 @@ impl Outcome {
             subtests: Vec::new(),
             skip_reason: None,
             attempts: 1,
+            crashed: false,
             kept_temp: None,
         }
     }
@@ -520,6 +522,9 @@ fn run_once(
             .map(|flag| flag.to_string_lossy().into_owned()),
     );
     flags.extend(args.jaic_args.iter().cloned());
+    if !args.interp && !bench {
+        flags.insert(0, "-backtrace_on_crash".into()); // a crash reports its address and stack
+    }
     if bench && !args.list && (args.interp || os == "wasm") {
         return fail("`jacket bench` measures native builds: drop `--interp` and `-os wasm`");
     }
