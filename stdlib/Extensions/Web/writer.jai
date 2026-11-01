@@ -62,11 +62,16 @@ write_page :: (w: *Writer, path: string, out: *Out) -> bool {
     if path.count && !ends_with(path, "/") return writer_error(w, "page path must end in /", path);
 
     file := tprint("%index.html", path);
-    data := "";
+    // Trusted Html fragments may contain links too. Scan the complete page so a dry run
+    // checks exactly the same attributes a written page contains.
+    text := to_string(out);
+    links: [..] string;
+    links.allocator = temp;
+    if out.record_links collect_page_links(text, *links);
 
-    if !w.dry_run data = to_string(out);
+    data := ifx w.dry_run then "" else text;
 
-    return write_output(w, file, data, out.links);
+    return write_output(w, file, data, links);
 }
 
 // Writes an asset, which also counts as a link target. Returns false and collects any error.
@@ -218,4 +223,69 @@ ensure_folder :: (w: *Writer, directory: string) -> bool {
     Maps.insert(*w.folders, save(*w.pool, directory), true);
 
     return true;
+}
+
+// Attributes in trusted fragments count too, with case-insensitive HTML names.
+collect_page_links :: (html: string, links: *[..] string) {
+    i := 0;
+    while i < html.count {
+        if !html_space(html[i]) {
+            i += 1;
+            continue;
+        }
+
+        start := i + 1;
+        count := 0;
+
+        if attribute_at(html, start, "href") count = 4;
+        else if attribute_at(html, start, "src") count = 3;
+
+        if count == 0 {
+            i += 1;
+            continue;
+        }
+
+        at := start + count;
+        while at < html.count && html_space(html[at]) at += 1;
+
+        if at >= html.count || html[at] != #char "=" {
+            i += 1;
+            continue;
+        }
+
+        at += 1;
+        while at < html.count && html_space(html[at]) at += 1;
+
+        if at >= html.count || (html[at] != #char "\"" && html[at] != #char "'") {
+            i += 1;
+            continue;
+        }
+
+        quote := html[at];
+
+        at += 1;
+        end := find_index_from_left(html, quote, at);
+        if end < 0 break;
+
+        link := slice(html, at, end - at);
+        if contains(link, "&amp;") {
+            replaced, _ := replace(link, "&amp;", "&");
+            link = copy_temporary_string(replaced);
+            free(replaced);
+        }
+
+        array_add(links, link);
+        i = end + 1;
+    }
+}
+
+attribute_at :: (html: string, at: int, name: string) -> bool {
+    if at + name.count >= html.count return false;
+    for c, n: name if (html[at + n] | 32) != c return false;
+    next := html[at + name.count];
+    return next == #char "=" || html_space(next);
+}
+
+html_space :: (c: u8) -> bool {
+    return c == 32 || c == 9 || c == 10 || c == 13;
 }

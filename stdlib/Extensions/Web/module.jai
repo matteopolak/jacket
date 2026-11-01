@@ -20,7 +20,8 @@
 Html :: #type,distinct string;
 
 // Reusable page storage. Do not copy it after use; each rendering thread owns one.
-// `links` expire at reset. Disable `record_links` to skip recording.
+// Borrow link strings until the next append; the link list expires at reset.
+// Disable `record_links` to skip recording.
 // ```jai
 // out: Out;
 // defer deinit(*out);
@@ -29,17 +30,15 @@ Html :: #type,distinct string;
 // assert(bytes(*out).count == 0);
 // ```
 Out :: struct {
-    builder: String_Builder;
+    data: [..] u8;
     links: [..] string;
     record_links := true;
-    pool: Arena.Pool;
-    flat: [..] u8;
     link: [..] u8;
-    cached: [..] Cached_Block;
-    backing: Allocator;
+    link_start: int;
+    offsets: [..] Link_Offset;
 }
 
-// Clears a page while retaining pooled blocks and array capacity for the next page.
+// Clears a page while retaining array capacity for the next page.
 // ```jai
 // out: Out;
 // defer deinit(*out);
@@ -49,11 +48,11 @@ Out :: struct {
 // assert(to_string(*out) == "new");
 // ```
 reset :: (out: *Out) {
-    B.free_buffers(*out.builder);
-    Arena.reset(*out.pool);
+    out.data.count = 0;
     out.links.count = 0;
-    out.flat.count = 0;
+    out.offsets.count = 0;
     out.link.count = 0;
+    out.link_start = 0;
 }
 
 // Releases the page's storage.
@@ -63,13 +62,9 @@ reset :: (out: *Out) {
 // deinit(*out);
 // ```
 deinit :: (out: *Out) {
-    B.free_buffers(*out.builder);
-    Arena.release(*out.pool);
-    for block: out.cached out.backing.proc(.FREE, 0, block.size, block.data, out.backing.data);
-
-    array_free(out.cached);
+    array_free(out.data);
     array_free(out.links);
-    array_free(out.flat);
+    array_free(out.offsets);
     array_free(out.link);
 }
 
@@ -81,9 +76,7 @@ deinit :: (out: *Out) {
 // assert(to_string(*out) == "<br>");
 // ```
 append :: (out: *Out, s: string) {
-    prepare(out);
-    out.builder.allocator = .{ Arena.pool_allocator_proc, *out.pool };
-    B.append(*out.builder, s);
+    array_add(*out.data, ..(cast([] u8) s));
 }
 
 // Appends a byte range verbatim.
@@ -132,7 +125,7 @@ append_html :: (out: *Out, s: Html) {
     append(out, cast(string) s);
 }
 
-// A borrowed contiguous view, valid until the next bytes, to_string, reset or deinit.
+// A borrowed contiguous view, valid until the next append, reset or deinit.
 // ```jai
 // out: Out;
 // defer deinit(*out);
@@ -140,16 +133,7 @@ append_html :: (out: *Out, s: Html) {
 // assert(bytes(*out).count == 3);
 // ```
 bytes :: (out: *Out) -> [] u8 {
-    out.flat.count = 0;
-    if out.builder.initialized {
-        buffer := B.get_base_buffer(*out.builder);
-        while buffer {
-            array_add(*out.flat, ..(cast([] u8) string.{ buffer.count, B.get_buffer_data(buffer) }));
-            buffer = buffer.next;
-        }
-    }
-
-    return out.flat;
+    return out.data;
 }
 
 // A borrowed string with the same lifetime as bytes.
@@ -238,45 +222,8 @@ save :: (pool: *Arena.Pool, s: string) -> string {
     return result;
 }
 
-// The pool normally frees oversized blocks at reset. Cache its backing allocations as well,
-// so large pages and long links have the same warm reuse as small ones.
-Cached_Block :: struct {
-    data: *void;
-    size: int;
-    available: bool;
-}
-
-prepare :: (out: *Out) {
-    if out.backing.proc return;
-    out.backing = context.allocator;
-    out.pool.block_allocator = .{ retain_block, out };
-}
-
-retain_block :: (mode: Allocator_Mode, size: s64, old_size: s64, memory: *void, data: *void) -> *void {
-    out := cast(*Out) data;
-
-    if mode == .ALLOCATE {
-        for *block: out.cached {
-            if block.available && block.size >= size {
-                block.available = false;
-                return block.data;
-            }
-        }
-
-        result := out.backing.proc(.ALLOCATE, size, 0, null, out.backing.data);
-        if result array_add(*out.cached, .{ result, size, false });
-
-        return result;
-    }
-
-    if mode == .FREE {
-        for *block: out.cached if block.data == memory {
-            block.available = true;
-            return null;
-        }
-
-        assert(false, "Web: pool returned an unknown backing block");
-    }
-
-    return null;
+// Offsets remain valid when the owning byte array grows; links are rebased after growth.
+Link_Offset :: struct {
+    start: int;
+    count: int;
 }

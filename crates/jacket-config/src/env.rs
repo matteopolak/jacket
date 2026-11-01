@@ -363,14 +363,19 @@ vars! {
         summary: "The executable extensions tried when a test looks a tool up on Windows.",
     }
     HOME {
-        name: "HOME", group: Standard, readers: [Jaic],
+        name: "HOME", group: Standard, readers: [Jaic, Jacket],
         default: "unset",
         summary: "Locates the user cache when neither `JAIC_CACHE_DIR` nor `XDG_CACHE_HOME` is set.",
     }
     XDG_CACHE_HOME {
-        name: "XDG_CACHE_HOME", group: Standard, readers: [Jaic],
+        name: "XDG_CACHE_HOME", group: Standard, readers: [Jaic, Jacket],
         default: "unset",
         summary: "The user cache root; `jaic` uses its `jaic` folder.",
+    }
+    LOCALAPPDATA {
+        name: "LOCALAPPDATA", group: Standard, readers: [Jacket],
+        default: "unset",
+        summary: "The Windows user cache root; jacket caches its compiled documentation theme here.",
     }
     CI {
         name: "CI", group: Standard, readers: [Jaic, Jacket, Tests],

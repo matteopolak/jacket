@@ -217,25 +217,28 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
     assert_eq!(
         keys,
         [
+            "assets",
             "base",
             "categories",
-            "css_url",
             "footer_version",
             "format",
             "groups",
+            "guide_files",
             "guides",
             "guides_index",
             "header_links",
             "index",
             "logo",
+            "module_files",
             "name",
             "nav",
             "repo",
-            "script_url",
-            "version"
+            "resolve_links",
+            "version",
+            "written_files"
         ]
     );
-    assert_eq!(shared["format"], 1);
+    assert_eq!(shared["format"], 2);
     assert_eq!(shared["index"]["content"]["kind"], "index");
     assert_eq!(shared["index"]["sidebar"]["kind"], "modules");
     let bundle = serde_json::to_value(module(&site, 0)).unwrap();
@@ -246,7 +249,7 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
             .keys()
             .map(String::as_str)
             .collect::<Vec<_>>(),
-        ["id", "items", "page"]
+        ["id", "items", "nav", "page"]
     );
     let content = &bundle["page"]["content"];
     assert_eq!(content["kind"], "module");

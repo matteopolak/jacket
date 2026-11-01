@@ -1,7 +1,7 @@
 missing-end.jai:15:34: error[metaprogram-report]: Web: missing end
         html(*out, "{if true}<p>x</p>");
                                      ^
-../../module.jai:199:24: note: while running compile-time code started here
+../../module.jai:183:24: note: while running compile-time code started here
         #insert,scope(loc) #run compile_template(t, loc);
                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

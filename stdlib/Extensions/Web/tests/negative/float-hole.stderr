@@ -1,7 +1,7 @@
 float-hole.jai:15:20: error[metaprogram-report]: Web: hole `{1.25}` has unsupported type float32
         html(*out, "<p>{1.25}</p>");
                        ^
-../../template.jai:71:13: note: while running compile-time code started here
+../../template.jai:81:13: note: while running compile-time code started here
                 #run compiler_report(tprint("Web: hole `{%}` has unsupported type %", hole, T), location);
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

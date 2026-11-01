@@ -366,6 +366,9 @@ pub struct Experimental {
 /// The site `jacket doc` writes. Paths and patterns are relative to the file.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Doc {
+    /// Theme files that replace or extend the embedded documentation theme, relative to jacket.toml.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
     /// The library: a module (a folder with `module.jai`) or a folder of modules.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
@@ -626,6 +629,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "profile",
         ],
         "doc" => &[
+            "theme",
             "path",
             "name",
             "breadcrumb",

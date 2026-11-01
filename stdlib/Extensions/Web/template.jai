@@ -19,7 +19,7 @@ Template :: struct {
     // assert(out.links[0] == "/");
     // ```
     begin :: (out: *Out) {
-        out.link.count = 0;
+        out.link_start = out.link.count;
     }
     // Records unescaped link bytes when recording is enabled.
     // ```jai
@@ -31,9 +31,17 @@ Template :: struct {
     // assert(out.links[0] == "/");
     // ```
     piece :: (out: *Out, s: string) {
-        if out.record_links array_add(*out.link, ..(cast([] u8) s));
+        if !out.record_links return;
+
+        before := out.link.data;
+
+        array_add(*out.link, ..(cast([] u8) s));
+
+        if before != out.link.data {
+            for offset, i: out.offsets out.links[i] = string.{ offset.count, out.link.data + offset.start };
+        }
     }
-    // Saves the recorded link into the page arena.
+    // Saves an offset into the page's link bytes; earlier links survive growth.
     // ```jai
     // out: Out;
     // defer deinit(*out);
@@ -43,8 +51,10 @@ Template :: struct {
     // assert(out.links[0] == "/");
     // ```
     finish :: (out: *Out) {
-        prepare(out);
-        if out.record_links array_add(*out.links, save(*out.pool, cast(string) out.link));
+        if !out.record_links return;
+        count := out.link.count - out.link_start;
+        array_add(*out.offsets, .{ out.link_start, count });
+        array_add(*out.links, string.{ count, out.link.data + out.link_start });
     }
     // Appends a typed template hole; unsupported types report at location.
     // ```jai
@@ -329,6 +339,12 @@ control :: (g: *Generator, h: string, at: int) -> bool {
     s := *g.scan;
     // A tag name immediately before a control has finished, e.g. <a{if x} ...
     if s.mode == .NAME s.mode = .BETWEEN;
+
+    // A boolean attribute ends at a control boundary, e.g. {if x} open{end}.
+    if s.mode == .ATTRIBUTE || s.mode == .AFTER_ATTRIBUTE {
+        s.mode = .BETWEEN;
+        s.attribute = "";
+    }
 
     if s.mode != .TEXT && s.mode != .BETWEEN {
         fail(g, at, "control flow is only allowed in text or between attributes");

@@ -158,15 +158,6 @@ fn cards(site: &Site) -> Vec<CardCategory> {
         .collect()
 }
 
-/// A short content hash for asset URLs, so a redeployed site never pairs new pages with a cached
-/// stylesheet or script.
-fn stamp(text: &str) -> String {
-    let hash = text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
-        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
-    });
-    format!("{:08x}", hash >> 32)
-}
-
 pub fn site(site: &Site) -> SiteView {
     let mut header_links = Vec::new();
     if !site.pages_title.is_empty() {
@@ -182,7 +173,7 @@ pub fn site(site: &Site) -> SiteView {
         });
     }
     SiteView {
-        format: 1,
+        format: 2,
         name: site.name.clone(),
         base: site.base.clone(),
         version: site.version.clone(),
@@ -227,8 +218,11 @@ pub fn site(site: &Site) -> SiteView {
                 categories: cards(site),
             },
         },
-        css_url: site.href(&format!("assets/site.css?v={}", stamp(super::super::STYLE))),
-        script_url: site.href(&format!("assets/site.js?v={}", stamp(super::super::SCRIPT))),
+        module_files: Vec::new(),
+        guide_files: Vec::new(),
+        written_files: Vec::new(),
+        assets: Vec::new(),
+        resolve_links: true,
         footer_version: env!("CARGO_PKG_VERSION").into(),
     }
 }
@@ -599,6 +593,39 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
     {
         outline.clear();
     }
+    // Resolve each peer list once. Item pages carry only a group and window offsets.
+    let mut peers: std::collections::BTreeMap<_, Vec<&Item>> = std::collections::BTreeMap::new();
+    for item in &m.items {
+        peers.entry(peer_key(item)).or_default().push(item);
+    }
+    let groups: Vec<_> = peers.values().collect();
+    let group_of: std::collections::BTreeMap<_, _> =
+        peers.keys().enumerate().map(|(n, key)| (*key, n)).collect();
+    let nav = groups
+        .iter()
+        .map(|same| {
+            same.iter()
+                .map(|i| NavLink {
+                    href: site.item_href(&m.id, &i.name),
+                    label: i.name.clone(),
+                    title: None,
+                    depth: 0,
+                    current: false,
+                    experimental: i.experimental,
+                })
+                .collect()
+        })
+        .collect();
+    let items = m
+        .items
+        .iter()
+        .map(|i| {
+            let group = group_of[&peer_key(i)];
+            let same = groups[group];
+            let at = same.iter().position(|p| p.name == i.name).unwrap_or(0);
+            item(site, mi, i, group, same, at)
+        })
+        .collect();
     ModuleView {
         id: m.id.clone(),
         page: PageView {
@@ -631,7 +658,8 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                 sections,
             },
         },
-        items: m.items.iter().map(|i| item(site, mi, i)).collect(),
+        items,
+        nav,
     }
 }
 
@@ -706,19 +734,16 @@ fn overload(
     }
 }
 
-fn same_items<'a>(m: &'a Module, item: &Item) -> Vec<&'a Item> {
-    m.items
-        .iter()
-        .filter(|i| {
-            i.binding == item.binding
-                && i.group == item.group
-                && i.kind.is_type() == item.kind.is_type()
-                && (i.kind == Kind::Procedure) == (item.kind == Kind::Procedure)
-        })
-        .collect()
+fn peer_key(item: &Item) -> (bool, &str, bool, bool) {
+    (
+        item.binding,
+        &item.group,
+        item.kind.is_type(),
+        item.kind == Kind::Procedure,
+    )
 }
 
-fn see_also(site: &Site, mi: usize, item: &Item) -> Vec<Link> {
+fn see_also(site: &Site, mi: usize, item: &Item, same: &[&Item], at: usize) -> Vec<Link> {
     let m = &site.modules[mi];
     let mut found: Vec<(String, String)> = Vec::new();
     let mut raw = item_docs(item).to_owned();
@@ -741,8 +766,7 @@ fn see_also(site: &Site, mi: usize, item: &Item) -> Vec<Link> {
         }
         rest = &tail[end..];
     }
-    let same = same_items(m, item);
-    if let Some(at) = same.iter().position(|i| i.name == item.name) {
+    {
         for i in [at.wrapping_sub(2), at.wrapping_sub(1), at + 1, at + 2] {
             if let Some(other) = same.get(i)
                 && found.len() < 6
@@ -762,7 +786,7 @@ fn see_also(site: &Site, mi: usize, item: &Item) -> Vec<Link> {
         .collect()
 }
 
-pub fn item(site: &Site, mi: usize, item: &Item) -> PageView {
+fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usize) -> PageView {
     let m = &site.modules[mi];
     let from = format!("{}.{}", m.id, item.name);
     let own = blocks(site, &item.docs, &from);
@@ -818,15 +842,13 @@ pub fn item(site: &Site, mi: usize, item: &Item) -> PageView {
             label: members_label.clone(),
         });
     }
-    let also = see_also(site, mi, item);
+    let also = see_also(site, mi, item, same, at);
     if !also.is_empty() {
         anchors.push(Link {
             href: "#see".into(),
             label: "See also".into(),
         });
     }
-    let same = same_items(m, item);
-    let at = same.iter().position(|i| i.name == item.name).unwrap_or(0);
     let (start, end) = if same.len() > 40 {
         let start = at.saturating_sub(20);
         (start, (start + 40).min(same.len()))
@@ -853,17 +875,10 @@ pub fn item(site: &Site, mi: usize, item: &Item) -> PageView {
                 label: m.title().into(),
             },
             heading,
-            items: same[start..end]
-                .iter()
-                .map(|i| NavLink {
-                    href: site.item_href(&m.id, &i.name),
-                    label: i.name.clone(),
-                    title: None,
-                    depth: 0,
-                    current: i.name == item.name,
-                    experimental: i.experimental,
-                })
-                .collect(),
+            nav,
+            start,
+            end,
+            current: at,
             anchors,
         },
         outline: Vec::new(),

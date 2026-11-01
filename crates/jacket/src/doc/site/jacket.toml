@@ -1,0 +1,5 @@
+[project]
+entry = "main.jai"
+
+[test]
+paths = ["tests"]

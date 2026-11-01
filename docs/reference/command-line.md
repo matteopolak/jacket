@@ -581,6 +581,8 @@ Arguments:
 Options:
       --out <DIR>             Where to write the site [default: target/doc-site]
       --emit-input <DIR>      Also write the resolved JSON view model (including with --check)
+      --theme <DIR>           Theme source overrides, over `[doc] theme`; relative to the current directory
+      --timings               Print time spent building models, views, compiling the theme, rendering and writing
       --base-url <PATH>       The path the site is served under, with the slashes around it (`/docs/jacket/`) [default: /]
       --name <NAME>           The name in the header and page titles, over `[doc] name` [default: the folder's name]
       --version <VERSION>     The version shown in the header [default: none]

@@ -235,14 +235,16 @@ large_page_storage_is_reused :: () {
     for *text it.* = #char "x";
 
     html(*out, "<a href=\"{text}\">{text}</a>");
-    first := out.cached.count;
+    first := out.data.allocated;
+    link_capacity := out.link.allocated;
 
     reset(*out);
 
     for 1..10 {
         html(*out, "<a href=\"{text}\">{text}</a>");
         expect_equal(out.links[0], text);
-        expect_equal(out.cached.count, first);
+        expect_equal(out.data.allocated, first);
+        expect_equal(out.link.allocated, link_capacity);
         reset(*out);
     }
 } @test
@@ -275,4 +277,56 @@ writer_errors_and_dry_run :: () {
 compact_lexical_edges :: () {
     expect_equal(compact_js("  let r = /['\"/]/;  \n  // drop\n  next();\n"), "let r = /['\"/]/;  \nnext();\n");
     expect_equal(compact_js("  /* start\n  // keep\n  end */\n  next();\n"), "/* start\n  // keep\n  end */\nnext();\n");
+} @test
+
+boolean_attribute_controls :: () {
+    out: Out;
+
+    defer deinit(*out);
+    yes := true;
+
+    html(*out, "<details{if yes} open{end}><summary>x</summary></details><input{if !yes} disabled{else} required{end}>");
+    expect_equal(to_string(*out), "<details open><summary>x</summary></details><input required>");
+} @test
+
+links_survive_buffer_growth :: () {
+    out: Out;
+    defer deinit(*out);
+    for n: 0..1000 html(*out, "<a href=\"/page/{n}/\">x</a>");
+    for n: 0..1000 expect_equal(out.links[n], tprint("/page/%/", n));
+} @test
+
+trusted_fragment_links_are_checked :: () {
+    out: Out;
+
+    defer deinit(*out);
+    html(*out, "<main>{cast(Html) (\"<a href=\\\"/missing/\\\">raw</a>\")}</main>");
+    w := writer_init("unused", "/", true);
+
+    defer deinit(*w);
+    expect(write_page(*w, "", *out));
+    problems := check_links(*w);
+
+    defer {
+        for problems free(it);
+        array_free(problems);
+    }
+
+    expect_equal(problems.count, 1);
+} @test
+
+trusted_attributes_are_case_insensitive :: () {
+    out: Out;
+
+    defer deinit(*out);
+    append_html(*out, cast(Html) ("<img SrC = '/pic.png'><a HREF=\"/?a=1&amp;b=2\">home</a>"));
+    w := writer_init("unused", "/", true);
+
+    defer deinit(*w);
+    expect(write_page(*w, "", *out));
+    expect(write_file(*w, "pic.png", ""));
+    problems := check_links(*w);
+
+    defer array_free(problems);
+    expect_equal(problems.count, 0);
 } @test

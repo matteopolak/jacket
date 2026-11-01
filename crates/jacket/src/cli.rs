@@ -302,6 +302,12 @@ pub struct DocArgs {
     /// Also write the resolved JSON view model (including with --check)
     #[arg(long, value_name = "DIR")]
     pub emit_input: Option<std::path::PathBuf>,
+    /// Theme source overrides, over `[doc] theme`; relative to the current directory
+    #[arg(long, value_name = "DIR")]
+    pub theme: Option<std::path::PathBuf>,
+    /// Print time spent building models, views, compiling the theme, rendering and writing
+    #[arg(long)]
+    pub timings: bool,
     /// The path the site is served under, with the slashes around it (`/docs/jacket/`)
     #[arg(long, value_name = "PATH", default_value = "/")]
     pub base_url: String,

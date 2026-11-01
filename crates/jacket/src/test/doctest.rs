@@ -390,7 +390,7 @@ pub(crate) fn standalone(block: &Block, module: &str) -> Option<String> {
 }
 
 /// A program with a hole for the example's text, so a page can run what a reader edited. The
-/// parts around the hole are fixed; the script in `doc/assets/site.js` fills it the same way
+/// parts around the hole are fixed; the script in `doc/site/assets/site.js` fills it the same way
 /// from the JSON form.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Template {

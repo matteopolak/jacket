@@ -35,8 +35,8 @@ EXE = exe_name("")
 TARGET = cargo_target_dir(resolve=True)
 
 # What CI formats and lints: every Jai tree the repository owns.
-JAI_DIRS = ["stdlib", "tests", "benchmarks", "tools", "jaifmt", "examples"]
-JAI_LINT_DIRS = ["stdlib", "examples", "tools", "jaifmt", "tests", "benchmarks"]
+JAI_DIRS = ["stdlib", "tests", "benchmarks", "tools", "jaifmt", "examples", "crates/jacket/src/doc/site"]
+JAI_LINT_DIRS = ["stdlib", "examples", "tools", "jaifmt", "tests", "benchmarks", "crates/jacket/src/doc/site"]
 JAIFMT_SOURCES = ["jaifmt", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/Args"]
 # What a jailint binary is built from; the pre-commit hook uses an existing one only when cargo is unavailable, and then only if none of these is newer.
 JAILINT_SOURCES = ["crates/jailint", "crates/jaic", "crates/jaic-syntax", "crates/jaic-cli", "stdlib/prelude/module.jai", "Cargo.lock"]

@@ -148,53 +148,6 @@ pub fn view(
     }
 }
 
-/// Markup for a fully resolved example, with no model or compiler access.
-pub fn render(example: &Example) -> String {
-    let shown = &example.code_html;
-    if example.plain {
-        return format!(
-            "<figure class=\"ex plain\"><pre class=\"code\"><code>{shown}</code></pre></figure>"
-        );
-    }
-    let program = &example.id;
-    let note = &example.note;
-    let open = example.playground_url.as_ref().map_or_else(String::new, |href| {
-        format!("<a class=\"btn sm\" href=\"{}\" aria-label=\"Open this example in the playground\" title=\"Open in the playground\">↗</a>", esc(href))
-    });
-    let copy = "<button type=\"button\" class=\"btn sm js-only\" data-act=\"copy\" aria-label=\"Copy this example\" title=\"Copy\">Copy</button>";
-    // Shown once the text has been edited, so the original can be had back.
-    let reset = if program.is_some() {
-        "<button type=\"button\" class=\"btn sm js-only\" data-act=\"reset\" hidden title=\"Put the original example back\">Reset</button>"
-    } else {
-        ""
-    };
-    let run = match (&program, &note) {
-        (Some(id), _) => format!(
-            "<button type=\"button\" class=\"btn sm js-only\" data-act=\"run\" data-program=\"{id}\">Run ▸</button>"
-        ),
-        (None, Some(why)) => format!(
-            "<button type=\"button\" class=\"btn sm js-only\" disabled title=\"{}\">Run ▸</button>",
-            esc(why)
-        ),
-        (None, None) => String::new(),
-    };
-    let note_html = note
-        .as_ref()
-        .filter(|_| example.show_note)
-        .map_or_else(String::new, |why| {
-            format!("<p class=\"ex-note\">{}</p>", esc(why))
-        });
-    if example.compact {
-        format!(
-            "<figure class=\"ex compact\"><div class=\"ex-row\"><pre class=\"code\"><code>{shown}</code></pre>{reset}{copy}{open}{run}</div>{note_html}<div class=\"ex-out\" hidden></div></figure>"
-        )
-    } else {
-        format!(
-            "<figure class=\"ex\"><div class=\"ex-bar\"><span class=\"ex-title\">Example</span><span class=\"spacer\"></span>{reset}{copy}{open}{run}</div><pre class=\"code\"><code>{shown}</code></pre>{note_html}<div class=\"ex-out\" hidden></div></figure>"
-        )
-    }
-}
-
 /// The file name an example program is stored under: a digest of its text.
 pub fn program_id(text: &str) -> String {
     let digest = Sha256::digest(text.as_bytes());

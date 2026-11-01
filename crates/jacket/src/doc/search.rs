@@ -111,3 +111,7 @@ pub fn index(site: &Site) -> String {
         .collect();
     json!({ "v": 1, "modules": modules, "cats": cats, "items": items }).to_string()
 }
+
+#[cfg(test)]
+#[path = "search_tests.rs"]
+mod legacy_tests;

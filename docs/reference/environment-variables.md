@@ -78,7 +78,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `FORCE_COLOR` | Anything but `0` turns colour on even when output is not a terminal. | unset | jaic, jailint |
 | `GITHUB_ACTIONS` | Set by GitHub Actions: tests that need a capable filesystem stop skipping. | unset | tests |
 | `GITHUB_TOKEN` | Sent with `jacket upgrade`'s release lookups, which raises GitHub's rate limit. | unset | jacket |
-| `HOME` | Locates the user cache when neither `JAIC_CACHE_DIR` nor `XDG_CACHE_HOME` is set. | unset | jaic |
+| `HOME` | Locates the user cache when neither `JAIC_CACHE_DIR` nor `XDG_CACHE_HOME` is set. | unset | jaic, jacket |
 | `INSTA_UPDATE` | `always` rewrites the test snapshots instead of failing on a difference. | unset | tests |
 | `LANG` | See `LC_ALL`. | unset | jaic, jailint |
 | `LC_ALL` | With `LC_CTYPE` and `LANG`: a UTF-8 locale selects the Unicode diagnostic layout. | unset | jaic, jailint |
@@ -87,6 +87,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `LIBRARY_PATH` | Extra library directories compile-time code may load native libraries from on Windows. | unset | jaic |
 | `LLVM_PREFIX` | The LLVM install to use when the `llvm-sys` variable above is unset. CI sets both. | `llvm-config --prefix`, then Homebrew's `llvm@<major>` or `/usr/lib/llvm-<major>` | jaic, jacket |
 | `LLVM_SYS_231_PREFIX` | The LLVM install jaic is built against; its `bin/` supplies `clang`, `wasm-ld` and the LLVM tools. The name carries the LLVM version (`LLVM_SYS_<major><minor>_PREFIX`). | unset | jaic, jacket |
+| `LOCALAPPDATA` | The Windows user cache root; jacket caches its compiled documentation theme here. | unset | jacket |
 | `MACOSX_DEPLOYMENT_TARGET` | The macOS version native output targets. When it is set, jaic links through `cc` instead of calling `ld` itself. | the SDK's | jaic |
 | `NO_COLOR` | Any value turns colour off. | unset | jaic, jacket, jailint |
 | `PATH` | Where tools such as the linker, `clang` and `wasm-ld` are searched for. | the process's | jaic, jacket, jailsp, tests |
@@ -98,4 +99,4 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `SystemRoot` | Locates the Windows system tools `jacket upgrade` uses. | `C:\Windows` | jacket |
 | `TERM` | `dumb` turns colour, layout characters and the live status line off. | unset | jaic, jacket, jailint |
 | `WT_SESSION` | Set by Windows Terminal; it gets the Unicode diagnostic layout. | unset | jaic, jailint |
-| `XDG_CACHE_HOME` | The user cache root; `jaic` uses its `jaic` folder. | unset | jaic |
+| `XDG_CACHE_HOME` | The user cache root; `jaic` uses its `jaic` folder. | unset | jaic, jacket |

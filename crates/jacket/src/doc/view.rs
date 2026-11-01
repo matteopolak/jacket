@@ -2,8 +2,6 @@
 use serde::Serialize;
 mod build;
 pub mod guide;
-#[cfg(test)]
-pub use build::item;
 pub use build::{module, site};
 
 #[derive(Serialize)]
@@ -21,8 +19,11 @@ pub struct SiteView {
     pub guides: Vec<GuideLink>,
     pub index: PageView,
     pub guides_index: Option<PageView>,
-    pub css_url: String,
-    pub script_url: String,
+    pub module_files: Vec<String>,
+    pub guide_files: Vec<String>,
+    pub written_files: Vec<String>,
+    pub assets: Vec<String>,
+    pub resolve_links: bool,
     pub footer_version: String,
 }
 
@@ -62,6 +63,7 @@ pub struct ModuleView {
     pub id: String,
     pub page: PageView,
     pub items: Vec<PageView>,
+    pub nav: Vec<Vec<NavLink>>,
 }
 
 #[derive(Serialize)]
@@ -84,7 +86,10 @@ pub enum Sidebar {
     Item {
         back: Link,
         heading: String,
-        items: Vec<NavLink>,
+        nav: usize,
+        start: usize,
+        end: usize,
+        current: usize,
         anchors: Vec<Link>,
     },
     Guides {

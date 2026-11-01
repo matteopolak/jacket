@@ -77,8 +77,9 @@ jobs:
         run: cargo fetch --locked
       - name: Build the browser compiler
         run: python3 tools/browser/build_scripting_wasm.py --release --output target/doc-runtime
-      - name: Build jacket and jaic without the native backend
-        run: cargo build --release --locked --offline -p jacket -p jaic-cli --no-default-features
+      - uses: ./.github/actions/setup-llvm
+      - name: Build jacket and jaic
+        run: cargo build --release --locked --offline -p jacket -p jaic-cli
       - name: Build the site
         env:
           VERSION: ${{ steps.pick.outputs.version }}
