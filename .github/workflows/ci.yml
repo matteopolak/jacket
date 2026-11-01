@@ -1296,7 +1296,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.timeout }}
     env:
-      JAIC: target/${{ matrix.triple }}/debug/jaic.exe
+      # A release build: the interpreter runs the tests' programs, and a debug build of it is
+      # about six times slower on Windows (docs/tools/testing.md).
+      JAIC: target/${{ matrix.triple }}/release/jaic.exe
       MESA_DIR: target/mesa-driver
       JAIC_TEST_FONT_PATH: C:\Windows\Fonts\arial.ttf
     defaults:
@@ -1320,8 +1322,8 @@ jobs:
       - uses: ./.github/actions/native-libs-cache
       - name: Build jaic with the LLVM backend
         run: |
-          cargo build --locked -p jaic-cli --no-default-features --features static-llvm
-          cargo build --locked -p jacket
+          cargo build --locked --release -p jaic-cli --no-default-features --features static-llvm
+          cargo build --locked --release -p jacket
       - uses: ./.github/actions/windows-provider
         with:
           cpu: ${{ matrix.cpu }}
