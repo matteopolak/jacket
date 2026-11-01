@@ -17,6 +17,7 @@
 ### Fixed
 
 - A compile error in a test program is no longer followed by pages of the generated test table.
+- `Http.close_idle_connections` also closes idle HTTP/2 connections, so a TLS config can be freed after it; before, a pooled HTTP/2 connection could read the freed config and crash.
 
 ## [0.32.0] - 2026-11-01
 
