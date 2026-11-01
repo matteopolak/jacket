@@ -8,6 +8,7 @@
 
 ### Improved
 
+- Docs examples can be edited in place and run.
 - Most standard library procedures now have a description and an example, and experimental modules carry an "Experimental" badge.
 - The README and the docs pages are shorter and easier to read.
 - Docs pages are titled "Name — Jacket", and fields, members and parameters sit in one aligned card.

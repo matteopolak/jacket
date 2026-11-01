@@ -59,6 +59,20 @@ fn base64url(bytes: &[u8]) -> String {
     out
 }
 
+/// Whether the playground can show the example on its own.
+fn standalone_ok(block: &Block, module: &str) -> bool {
+    browser_skip(block).is_none()
+        && matches!(block.mode, Mode::Run | Mode::NoRun)
+        && doctest::standalone(block, module).is_some()
+}
+
+fn template_json(t: &doctest::Template) -> serde_json::Value {
+    serde_json::json!({
+        "head": t.head, "middle": t.middle, "tail": t.tail,
+        "wrapped": t.wrapped, "pad": t.pad_blank,
+    })
+}
+
 /// The block a fence describes, or `None` when the fence is not Jai.
 fn block(info: &str, code: &str, file: &str, line: usize) -> Option<Block> {
     let mut lines = vec![format!("```{info}")];
@@ -98,18 +112,29 @@ pub fn fence(
     let note = why_not_run(site, &block);
     let program = (note.is_none()).then(|| {
         let text = doctest::generate(&block, &module.id).0;
-        site.add_example(&text)
+        let parts = serde_json::json!({
+            "run": template_json(&doctest::generate_template(&block, &module.id)),
+            "open": standalone_ok(&block, &module.id)
+                .then(|| template_json(&doctest::standalone_template(&block, &module.id))),
+            "playground": site.playground,
+        });
+        site.add_example(&text, parts.to_string())
     });
-    let standalone = (browser_skip(&block).is_none()
-        && matches!(block.mode, Mode::Run | Mode::NoRun))
-    .then(|| doctest::standalone(&block, &module.id))
-    .flatten()
-    .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));
+    let standalone = standalone_ok(&block, &module.id)
+        .then(|| doctest::standalone(&block, &module.id))
+        .flatten()
+        .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));
     // Every example gets the same small buttons, whether it sits in a list row or on its own.
     let open = standalone.map_or_else(String::new, |href| {
         format!("<a class=\"btn sm\" href=\"{}\" aria-label=\"Open this example in the playground\" title=\"Open in the playground\">↗</a>", esc(&href))
     });
     let copy = "<button type=\"button\" class=\"btn sm js-only\" data-act=\"copy\" aria-label=\"Copy this example\" title=\"Copy\">Copy</button>";
+    // Shown once the text has been edited, so the original can be had back.
+    let reset = if program.is_some() {
+        "<button type=\"button\" class=\"btn sm js-only\" data-act=\"reset\" hidden title=\"Put the original example back\">Reset</button>"
+    } else {
+        ""
+    };
     let run = match (&program, &note) {
         (Some(id), _) => format!(
             "<button type=\"button\" class=\"btn sm js-only\" data-act=\"run\" data-program=\"{id}\">Run ▸</button>"
@@ -127,11 +152,11 @@ pub fn fence(
         });
     if compact {
         format!(
-            "<figure class=\"ex compact\"><div class=\"ex-row\"><pre class=\"code\"><code>{shown}</code></pre>{copy}{open}{run}</div>{note_html}<div class=\"ex-out\" hidden></div></figure>"
+            "<figure class=\"ex compact\"><div class=\"ex-row\"><pre class=\"code\"><code>{shown}</code></pre>{reset}{copy}{open}{run}</div>{note_html}<div class=\"ex-out\" hidden></div></figure>"
         )
     } else {
         format!(
-            "<figure class=\"ex\"><div class=\"ex-bar\"><span class=\"ex-title\">Example</span><span class=\"spacer\"></span>{copy}{open}{run}</div><pre class=\"code\"><code>{shown}</code></pre>{note_html}<div class=\"ex-out\" hidden></div></figure>"
+            "<figure class=\"ex\"><div class=\"ex-bar\"><span class=\"ex-title\">Example</span><span class=\"spacer\"></span>{reset}{copy}{open}{run}</div><pre class=\"code\"><code>{shown}</code></pre>{note_html}<div class=\"ex-out\" hidden></div></figure>"
         )
     }
 }

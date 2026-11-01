@@ -281,10 +281,118 @@
     }
     return runtime;
   }
-  function program(id) {
-    if (!texts[id]) texts[id] = fetch(base + 'examples/' + id + '.jai').then(function (r) { return r.text(); });
+  // An example's program is stored as the parts around its text (examples/<id>.json), so the
+  // text a reader edited can be put back in. `fill` is `Template::fill` of doctest.rs.
+  function parts(id) {
+    if (!texts[id]) texts[id] = fetch(base + 'examples/' + id + '.json').then(function (r) { return r.json(); });
     return texts[id];
   }
+  function fill(t, code) {
+    var lines = code.replace(/\r/g, '').split('\n');
+    if (lines[lines.length - 1] === '') lines.pop();
+    var out = t.head;
+    if (t.wrapped) {
+      var body = [];
+      lines.forEach(function (l) {
+        if (/^\s*#(import|load)/.test(l)) out += l.replace(/^\s+/, '') + '\n'; else body.push(l);
+      });
+      out += t.middle;
+      body.forEach(function (l) { out += (l !== '' || t.pad ? '    ' : '') + l + '\n'; });
+    } else {
+      lines.forEach(function (l) { out += l + '\n'; });
+      out += t.middle;
+    }
+    return out + t.tail;
+  }
+  function base64url(text) {
+    var bytes = new TextEncoder().encode(text), bin = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  // Editable examples: a textarea sits over the highlighted code and shows through it. The code
+  // is coloured again as you type, by the same rules as highlight.rs (minus the links).
+  var KW = {}, TY = {};
+  'if else then for while return defer using struct enum enum_flags union cast xx inline break continue case remove true false null ifx push_context context operator interface'.split(' ').forEach(function (w) { KW[w] = 'k'; });
+  'int float float32 float64 bool string void Type Any s8 s16 s32 s64 u8 u16 u32 u64 u128 s128 assert'.split(' ').forEach(function (w) { TY[w] = 't'; });
+  function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function highlight(code) {
+    var re = /\/\/[^\n]*|"(?:[^"\\]|\\[\s\S])*"?|#[A-Za-z_][A-Za-z0-9_]*|\d(?:[A-Za-z0-9_]|\.(?!\.))*|[A-Za-z_][A-Za-z0-9_]*|[\s\S]/g;
+    return code.replace(re, function (m) {
+      var cls = m.charAt(0) === '/' && m.charAt(1) === '/' ? 'c' : m.charAt(0) === '"' ? 's' : m.charAt(0) === '#' && m.length > 1 ? 'd' : /^\d/.test(m) ? 'n' : KW[m] || TY[m];
+      return cls ? '<span class="' + cls + '">' + escapeHtml(m) + '</span>' : escapeHtml(m);
+    });
+  }
+  function editable(figure) {
+    var runButton = figure.querySelector('button[data-act="run"][data-program]');
+    var pre = figure.querySelector('pre.code');
+    if (!runButton || !pre || figure.querySelector('.ed')) return;
+    var code = pre.querySelector('code');
+    var original = pre.textContent;
+    var originalHtml = code.innerHTML;
+    var reset = figure.querySelector('button[data-act="reset"]');
+    var open = figure.querySelector('a.btn[href]');
+    var openHref = open && open.getAttribute('href');
+    var wrap = el('div', 'ed');
+    pre.parentNode.insertBefore(wrap, pre);
+    wrap.appendChild(pre);
+    var area = el('textarea');
+    area.value = original;
+    area.spellcheck = false;
+    area.wrap = 'off';
+    area.setAttribute('autocapitalize', 'off');
+    area.setAttribute('autocomplete', 'off');
+    area.setAttribute('aria-label', 'Example code, editable');
+    wrap.appendChild(area);
+    var escaped = false;
+    function changed() {
+      var text = area.value;
+      var edited = text !== original;
+      code.innerHTML = edited ? highlight(text) + (/\n$/.test(text) ? ' ' : '') : originalHtml;
+      if (reset) reset.hidden = !edited;
+      if (open) {
+        if (!edited) open.setAttribute('href', openHref);
+        else parts(runButton.getAttribute('data-program')).then(function (p) {
+          if (p.open && area.value === text) open.setAttribute('href', p.playground + '#code=' + base64url(fill(p.open, text)));
+        });
+      }
+    }
+    function insert(text) {
+      area.focus();
+      if (!document.execCommand || !document.execCommand('insertText', false, text)) {
+        area.setRangeText(text, area.selectionStart, area.selectionEnd, 'end');
+        changed();
+      }
+    }
+    area.addEventListener('input', changed);
+    area.addEventListener('scroll', function () { pre.scrollLeft = area.scrollLeft; pre.scrollTop = area.scrollTop; });
+    area.addEventListener('keydown', function (e) {
+      var plain = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+      if (e.key === 'Tab' && plain && !escaped) {
+        e.preventDefault();
+        insert('    ');
+      } else if (e.key === 'Enter' && plain) {
+        // Keep the indentation of the line you were on.
+        var before = area.value.slice(0, area.selectionStart);
+        var indent = /^[ \t]*/.exec(before.slice(before.lastIndexOf('\n') + 1))[0];
+        e.preventDefault();
+        insert('\n' + indent);
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        if (!runButton.disabled) run(runButton);
+      }
+      // Escape lets the next Tab leave the box, so the keyboard is never stuck in it.
+      escaped = e.key === 'Escape';
+    });
+    area.addEventListener('blur', function () { escaped = false; });
+    if (reset) reset.addEventListener('click', function () {
+      area.value = original;
+      changed();
+      area.focus();
+    });
+    figure.__text = function () { return area.value; };
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('figure.ex'), editable);
   function ask(request, limit) {
     return new Promise(function (resolve, reject) {
       if (!worker) worker = new Worker(base + 'assets/run-worker.js', { type: 'module' });
@@ -324,8 +432,9 @@
     var id = button.getAttribute('data-program');
     button.disabled = true;
     report(out, 'busy', worker ? 'Compiling...' : 'Loading the compiler (the first run takes a moment)...');
-    Promise.all([program(id), runtimeUrls()]).then(function (got) {
-      return ask({ program: got[0], engine: got[1].engine, wasm: got[1].wasm }, 60000);
+    var text = figure.__text ? figure.__text() : figure.querySelector('pre.code').textContent;
+    Promise.all([parts(id), runtimeUrls()]).then(function (got) {
+      return ask({ program: fill(got[0].run, text), engine: got[1].engine, wasm: got[1].wasm }, 60000);
     }).then(function (done) {
       var r = done.result;
       var ms = Math.max(1, Math.round(done.ms));
@@ -342,7 +451,7 @@
   }
   function copy(button) {
     var figure = button.closest('figure');
-    var text = figure.querySelector('pre.code').textContent;
+    var text = figure.__text ? figure.__text() : figure.querySelector('pre.code').textContent;
     var done = function () {
       var old = button.textContent;
       button.textContent = 'Copied';

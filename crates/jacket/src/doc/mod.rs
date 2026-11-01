@@ -322,8 +322,8 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         include_str!("../../../../editors/vscode/images/icon.svg").to_owned(),
     );
     let examples = site.examples();
-    for (id, program) in &examples {
-        add(format!("examples/{id}.jai"), program.clone());
+    for (id, parts) in &examples {
+        add(format!("examples/{id}.json"), parts.clone());
     }
     if site.runtime {
         add(

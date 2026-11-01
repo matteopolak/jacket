@@ -15,7 +15,9 @@ Flags are in the [command-line reference](../reference/command-line.md). Without
 
 1. **Facts from the compiler.** `jaic -doc_model <dir>` (`crates/jaic-syntax/src/doc_comments/model.rs`) reads a library with the language server's parser and prints a JSON model: public constants, aliases followed to their targets, overloads, parameter and result types, doc comments with links resolved, fields and members, platform limits, and for each type name the declaration the compiler resolved it to. Docs are found by the same rules as hover.
 2. **Pages.** `crates/jacket/src/doc/` turns the model into HTML: `pages.rs` (index, module and item pages), `categories.rs`, `links.rs` (link checking), `site.rs` (where pages live, signatures), `markdown.rs`, `highlight.rs`, `guide.rs` (renders `docs/reference/*.md`), `search.rs`, `shell.rs`. A type name links to the item the compiler resolved it to, never by matching the name.
-3. **Examples.** A ```` ```jai ```` fence is read by the function `jacket test` uses (`test::doctest::fenced`), so options like `ignore`, `no_run` and `skip_on(wasm)` mean the same. The Run button fetches `examples/<id>.jai`, the program `jacket test` builds, and runs it in a worker with a step budget. "Open in playground" goes to `<playground-url>#code=<base64url of the program>`.
+3. **Examples.** A ```` ```jai ```` fence is read by the function `jacket test` uses (`test::doctest::fenced`), so options like `ignore`, `no_run` and `skip_on(wasm)` mean the same. The Run button fetches `examples/<id>.json` and runs the program in a worker with a step budget. That file holds the program `jacket test` builds as the text around the example (`head`, `middle`, `tail`, from `doctest::generate_template`), plus the same for the playground program (`open`) and the playground URL. The page puts the example's current text into the hole (`fill` in `site.js` mirrors `Template::fill`, and a unit test keeps both equal to `generate` and `standalone`). "Open in playground" goes to `<playground-url>#code=<base64url of the program>`.
+
+   Examples with a Run button are editable: a transparent textarea lies over the highlighted `<pre>`, and `site.js` colours the text again as you type with a small copy of `highlight.rs`'s rules (no call links once edited). Tab inserts four spaces (Escape, then Tab, leaves the box), Enter keeps the indent, Ctrl/Cmd+Enter runs. Reset shows once the text differs. Run, Copy and the playground link all use the edited text. Without JavaScript the code is the plain highlighted block.
 4. **Search.** `search-index.json` loads on the first keystroke. A query matches by name; one with `->` matches overload types (`string -> [] string`).
 
 Every page is `<path>/index.html` and every link ends in `/`, so a plain static server needs no rewrite rules. Characters that can't be in a file name become `-` plus a hex code (`operator-3c`). `--check` fails on internal links ending in `.html`, links to files that weren't written, and an item and module sharing a folder.
@@ -25,7 +27,7 @@ Every page is `<path>/index.html` and every link ends in `/`, so a plain static 
 | `index.html` | modules, by category |
 | `api/<Module>/index.html`, `api/<Module>/<name>/index.html` | a module; an item |
 | `tools/<page>/index.html` | the reference pages |
-| `examples/<id>.jai` | programs the Run buttons run |
+| `examples/<id>.json` | the parts of each example's program, for Run and the playground link |
 | `runtime/`, `runtime.json` | the browser compiler (`--runtime`) and where pages look for it |
 | `assets/` | `site.css`, `site.js`, `run-worker.js`, the logo |
 

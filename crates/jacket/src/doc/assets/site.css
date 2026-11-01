@@ -226,12 +226,19 @@ pre.sig { margin: 0 0 20px; padding: 14px 18px; background: var(--sunken); borde
 .ex { margin: 0 0 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--sunken); overflow: hidden; }
 .ex-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--hair); font-size: 12px; color: var(--muted); }
 .ex-title { font-weight: 500; }
-.ex .code { margin: 0; padding: 16px 18px; font-size: 13.5px; line-height: 1.7; }
+.ex .code, .ex .ed textarea { margin: 0; padding: 16px 18px; font-size: 13.5px; line-height: 1.7; }
 .ex .code code { white-space: pre; }
 .code { margin: 0 0 16px; }
 
-.ex.compact .code { padding: 0; font-size: 13px; flex: 1 1 auto; min-width: 0; }
+.ex.compact .code, .ex.compact .ed textarea { padding: 0; font-size: 13px; }
+.ex.compact .code, .ex.compact .ed { flex: 1 1 auto; min-width: 0; }
 .ex-row { display: flex; align-items: flex-start; gap: 8px; padding: 10px 10px 10px 16px; }
+/* An editable example: the textarea lies over the coloured code and shows through it. */
+.ed { position: relative; }
+.ed .code { overflow: hidden; }
+.ed textarea { position: absolute; inset: 0; width: 100%; height: 100%; box-sizing: border-box; border: 0; border-radius: 0; background: transparent; color: transparent; caret-color: var(--fg); font-family: var(--mono); resize: none; overflow-x: auto; overflow-y: hidden; white-space: pre; tab-size: 4; outline: none; }
+.ed textarea::selection { background: var(--sel); color: transparent; }
+.ex:has(.ed textarea:focus-visible) { border-color: var(--link); }
 .ex-note { margin: 0; padding: 8px 16px; border-top: 1px solid var(--hair); font-size: 13px; color: var(--muted); background: var(--sunken); }
 .ex-out { border-top: 1px solid var(--hair); padding: 10px 18px; font-family: var(--mono); font-size: 12.5px; color: var(--ok); background: var(--okbg); }
 .ex-out[hidden] { display: none; }
@@ -243,6 +250,7 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 .btn.sm { background: var(--sunken); flex: none; padding: 3px 8px; }
 .btn.primary { color: var(--link); background: var(--sel); border-color: transparent; font-weight: 500; padding: 4px 12px; }
 .btn.sm[data-act="run"] { font-weight: 600; padding: 3px 10px; }
+.btn[hidden] { display: none; }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* Syntax */
@@ -278,8 +286,9 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
   .site-nav { gap: 14px; flex-wrap: wrap; }
   .search-wrap { order: 5; flex-basis: 100%; }
   .ex-row { flex-wrap: wrap; }
-  .ex-row .code { flex-basis: 100%; }
-  .ex .code { padding: 14px; }
+  .ex-row .code, .ex-row .ed { flex-basis: 100%; }
+  .ex .code, .ex .ed textarea { padding: 14px; }
+  .ex.compact .code, .ex.compact .ed textarea { padding: 0; }
   #results .sig { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {

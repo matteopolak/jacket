@@ -389,6 +389,123 @@ pub(crate) fn standalone(block: &Block, module: &str) -> Option<String> {
     Some(out)
 }
 
+/// A program with a hole for the example's text, so a page can run what a reader edited. The
+/// parts around the hole are fixed; the script in `doc/assets/site.js` fills it the same way
+/// from the JSON form.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Template {
+    pub head: String,
+    pub middle: String,
+    pub tail: String,
+    /// The text is the body of a procedure: its `#import` and `#load` lines go after the head
+    /// and the rest is indented. Otherwise it goes in as written.
+    pub wrapped: bool,
+    /// Whether an empty line of an indented body gets the indent too.
+    pub pad_blank: bool,
+}
+
+impl Template {
+    #[cfg(test)]
+    fn fill(&self, code: &str) -> String {
+        let mut out = self.head.clone();
+        if self.wrapped {
+            let (header, body): (Vec<&str>, Vec<&str>) = code.lines().partition(|l| {
+                let t = l.trim_start();
+                t.starts_with("#import") || t.starts_with("#load")
+            });
+            for line in header {
+                out.push_str(line.trim_start());
+                out.push('\n');
+            }
+            out.push_str(&self.middle);
+            for line in body {
+                if !line.is_empty() || self.pad_blank {
+                    out.push_str("    ");
+                }
+                out.push_str(line);
+                out.push('\n');
+            }
+        } else {
+            for line in code.lines() {
+                out.push_str(line);
+                out.push('\n');
+            }
+            out.push_str(&self.middle);
+        }
+        out.push_str(&self.tail);
+        out
+    }
+}
+
+/// The imports a program for `module` starts with unless `code` has them.
+fn default_imports(code: &str, module: &str) -> String {
+    let mut out = String::new();
+    if !imports(code, "Basic") {
+        out.push_str("#import \"Basic\";\n");
+    }
+    if !imports(code, module) {
+        out.push_str(&format!("#import \"{module}\";\n"));
+    }
+    out
+}
+
+/// `generate` with the example's text left open.
+pub(crate) fn generate_template(block: &Block, module: &str) -> Template {
+    let mut head = format!(
+        "// Written by `jacket test`: the example at {}:{}.\n",
+        block.file.display(),
+        block.line
+    );
+    head.push_str(&default_imports(&block.code, module));
+    let wrapped = !has_main(&block.code);
+    let intro = "__jacket_doc_testing :: #import \"Extensions/Testing\";\n\
+                 __jacket_doc_example :: (t: *__jacket_doc_testing.Test) {\n";
+    let tail = format!(
+        "}}\n\
+         {ENTRY_POINT} :: () {{\n    \
+         __jacket_doc_testing.run_example(__jacket_doc_example);\n}}\n\
+         #run {{\n    \
+         C :: #import \"Compiler\";\n    \
+         options := C.get_build_options();\n    \
+         options.entry_point_name = \"{ENTRY_POINT}\";\n    \
+         C.set_build_options(options);\n}}\n"
+    );
+    Template {
+        head,
+        middle: if wrapped {
+            intro.into()
+        } else {
+            format!("{intro}    main();\n")
+        },
+        tail,
+        wrapped,
+        pad_blank: true,
+    }
+}
+
+/// `standalone` with the example's text left open. It exists for every example; whether to offer
+/// it is the caller's call (see `standalone`).
+pub(crate) fn standalone_template(block: &Block, module: &str) -> Template {
+    let head = default_imports(&block.code, module);
+    if has_main(&block.code) {
+        Template {
+            head,
+            middle: String::new(),
+            tail: String::new(),
+            wrapped: false,
+            pad_blank: false,
+        }
+    } else {
+        Template {
+            head,
+            middle: "\nmain :: () {\n".into(),
+            tail: "}\n".into(),
+            wrapped: true,
+            pad_blank: false,
+        }
+    }
+}
+
 /// `text` with each `.../doc.jai:N` that came from the doc comment written as its place there.
 fn relabel(text: &str, lines: &[u32], file: &Path) -> String {
     const NAME: &str = "doc.jai:";
@@ -537,6 +654,32 @@ mod tests {
             .collect();
         assert_eq!(summary, [(2, Mode::NoRun, false), (8, Mode::Run, true)]);
         assert_eq!(blocks[1].1.problems, ["unknown option `bogus` (ignored)"]);
+    }
+
+    #[test]
+    fn templates_fill_to_the_programs_they_stand_for() {
+        let cases = [
+            "#import \"Math\";\n\nx := 1;\nprint(\"%\\n\", x);\n",
+            "main :: () {\n    print(\"hi\\n\");\n}\n",
+        ];
+        for code in cases {
+            let lines: Vec<&str> = ["```jai"]
+                .into_iter()
+                .chain(code.lines())
+                .chain(["```"])
+                .collect();
+            let (_, mut block) = fenced(&lines).remove(0);
+            block.file = PathBuf::from("stdlib/a.jai");
+            block.line = 3;
+            assert_eq!(
+                generate_template(&block, "Text").fill(&block.code),
+                generate(&block, "Text").0
+            );
+            assert_eq!(
+                Some(standalone_template(&block, "Text").fill(&block.code)),
+                standalone(&block, "Text")
+            );
+        }
     }
 
     #[test]

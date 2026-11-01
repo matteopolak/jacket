@@ -221,11 +221,10 @@ impl Site {
 
     // Examples.
 
-    pub fn add_example(&self, program: &str) -> String {
+    /// Keeps the parts of an example's program (`parts`, JSON) under the digest of `program`.
+    pub fn add_example(&self, program: &str, parts: String) -> String {
         let id = super::example::program_id(program);
-        self.examples
-            .borrow_mut()
-            .insert(id.clone(), program.to_owned());
+        self.examples.borrow_mut().insert(id.clone(), parts);
         id
     }
 
