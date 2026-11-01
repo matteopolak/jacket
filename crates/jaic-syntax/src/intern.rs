@@ -8,13 +8,16 @@
 //! - New spellings go through one of `SHARDS` maps, picked by hash, under its mutex. The number is
 //!   taken from `NEXT`, so numbers are unique but their order follows thread timing.
 //! - Each thread keeps a cache of the symbols it has seen (`LOCAL`), so after warm-up an intern is
-//!   one hash lookup in a thread-local map, as it was when the interner was per thread.
+//!   one hash lookup in a thread-local table, as it was when the interner was per thread.
+//! - A spelling is hashed once. The shards and the caches are the same open-addressing `Table`,
+//!   which stores each hash, so neither a miss in the cache nor a hit in a shard hashes again,
+//!   and growing a table moves entries without touching the spellings.
 //!
 //! **Publication.** A slot is written before its shard unlocks, and a thread gets a `Sym` only
 //! from that shard (under the lock), from its own cache (filled from the shard), or from another
 //! thread through something that synchronises (a lock, a join, a channel). Each of those orders
 //! the slot's writes before any `as_str`, so the slot fields can be relaxed atomics.
-use crate::fxhash::{FxHasher, HashMap};
+use crate::fxhash::FxHasher;
 use std::cell::RefCell;
 use std::fmt;
 use std::hash::{BuildHasher, BuildHasherDefault};
@@ -40,17 +43,98 @@ struct Slot {
 }
 
 type Segment = [Slot; SEGMENT];
-type Map = HashMap<&'static str, Sym>;
+
+/// A symbol's number marking a free place in a `Table` (never a real one: there are at most
+/// `SEGMENT * SEGMENTS` of those).
+const FREE: u32 = u32::MAX;
+
+#[derive(Clone, Copy)]
+struct Entry {
+    hash: u64,
+    text: &'static str,
+    sym: Sym,
+}
+
+/// Spellings to symbols: open addressing with linear probing, at most half full.
+struct Table {
+    entries: Vec<Entry>,
+    len: usize,
+}
+
+impl Table {
+    const fn new() -> Table {
+        Table {
+            entries: Vec::new(),
+            len: 0,
+        }
+    }
+
+    fn find(&self, hash: u64, text: &str) -> Option<Entry> {
+        let mask = self.entries.len().checked_sub(1)?;
+        let mut at = self.home(hash);
+        loop {
+            let entry = &self.entries[at];
+            if entry.sym.0 == FREE {
+                return None;
+            }
+            if entry.hash == hash && entry.text == text {
+                return Some(*entry);
+            }
+            at = (at + 1) & mask;
+        }
+    }
+
+    /// Where probing for `hash` starts. The multiply spreads the whole hash into the top bits,
+    /// which the index takes: the low bits of `FxHasher` alone cluster badly under linear probing.
+    fn home(&self, hash: u64) -> usize {
+        (hash.wrapping_mul(0x9e37_79b9_7f4a_7c15) >> (64 - self.entries.len().trailing_zeros()))
+            as usize
+    }
+
+    /// Adds an entry whose spelling is not in the table.
+    fn insert(&mut self, entry: Entry) {
+        if (self.len + 1) * 2 > self.entries.len() {
+            self.grow();
+        }
+        self.place(entry);
+        self.len += 1;
+    }
+
+    fn place(&mut self, entry: Entry) {
+        let mask = self.entries.len() - 1;
+        let mut at = self.home(entry.hash);
+        while self.entries[at].sym.0 != FREE {
+            at = (at + 1) & mask;
+        }
+        self.entries[at] = entry;
+    }
+
+    fn grow(&mut self) {
+        let free = Entry {
+            hash: 0,
+            text: "",
+            sym: Sym(FREE),
+        };
+        let capacity = (self.entries.len() * 2).max(64);
+        let old = std::mem::replace(&mut self.entries, vec![free; capacity]);
+        for entry in old.into_iter().filter(|entry| entry.sym.0 != FREE) {
+            self.place(entry);
+        }
+    }
+
+    fn clear(&mut self) {
+        *self = Table::new();
+    }
+}
 
 static TABLE: [AtomicPtr<Segment>; SEGMENTS] = [const { AtomicPtr::new(null_mut()) }; SEGMENTS];
 
-static SHARD: [Mutex<Map>; SHARDS] =
-    [const { Mutex::new(Map::with_hasher(BuildHasherDefault::new())) }; SHARDS];
+static SHARD: [Mutex<Table>; SHARDS] = [const { Mutex::new(Table::new()) }; SHARDS];
 
 static NEXT: AtomicU32 = AtomicU32::new(0);
 
 thread_local! {
-    static LOCAL: RefCell<HashMap<&'static str, Sym>> = RefCell::default();
+    static LOCAL: RefCell<Table> = const { RefCell::new(Table::new()) };
 }
 
 impl Sym {
@@ -64,16 +148,17 @@ impl Sym {
     }
 
     fn lookup(text: &str, leak: impl FnOnce() -> &'static str) -> Sym {
+        let hash = BuildHasherDefault::<FxHasher>::new().hash_one(text);
         LOCAL.with_borrow_mut(|local| {
-            if let Some(&sym) = local.get(text) {
-                return sym;
+            if let Some(entry) = local.find(hash, text) {
+                return entry.sym;
             }
-            let (spelling, sym) = global(text, leak);
-            if local.len() >= LOCAL_LIMIT {
+            let entry = global(hash, text, leak);
+            if local.len >= LOCAL_LIMIT {
                 local.clear();
             }
-            local.insert(spelling, sym);
-            sym
+            local.insert(entry);
+            entry.sym
         })
     }
 
@@ -99,14 +184,13 @@ impl Sym {
     }
 }
 
-/// The symbol for `text` from its shard, numbering it (and leaking the spelling) the first time.
-fn global(text: &str, leak: impl FnOnce() -> &'static str) -> (&'static str, Sym) {
-    let hash = BuildHasherDefault::<FxHasher>::new().hash_one(text);
+/// The entry for `text` from its shard, numbering it (and leaking the spelling) the first time.
+fn global(hash: u64, text: &str, leak: impl FnOnce() -> &'static str) -> Entry {
     let mut shard = SHARD[(hash >> 58) as usize % SHARDS]
         .lock()
         .unwrap_or_else(PoisonError::into_inner);
-    if let Some((&spelling, &sym)) = shard.get_key_value(text) {
-        return (spelling, sym);
+    if let Some(entry) = shard.find(hash, text) {
+        return entry;
     }
     let spelling = leak();
     let mut gap = 0;
@@ -118,9 +202,13 @@ fn global(text: &str, leak: impl FnOnce() -> &'static str) -> (&'static str, Sym
     slot.ptr
         .store(spelling.as_ptr().cast_mut(), Ordering::Relaxed);
     slot.len.store(spelling.len() as u32, Ordering::Relaxed);
-    let sym = Sym(index);
-    shard.insert(spelling, sym);
-    (spelling, sym)
+    let entry = Entry {
+        hash,
+        text: spelling,
+        sym: Sym(index),
+    };
+    shard.insert(entry);
+    entry
 }
 
 /// The slot for symbol number `index`, installing its segment if this is the first.
