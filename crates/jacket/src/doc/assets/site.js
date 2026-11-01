@@ -204,12 +204,12 @@
       a.id = 'hit-' + i;
       a.setAttribute('role', 'option');
       a.setAttribute('aria-selected', i === picked ? 'true' : 'false');
-      a.appendChild(el('span', 'kind', kindOf(it)));
+      a.appendChild(el('span', 'badge sm kind', kindOf(it)));
       var name = el('a', 'path', it.kind === 'module' ? it.title : it.title + '.' + it.name);
       name.href = hrefOf(it);
       a.appendChild(el('code', '', '')).appendChild(name);
       if (it.experimental) a.appendChild(el('span', 'badge exp sm', 'Experimental'));
-      if (it.native) a.appendChild(el('span', 'badge sm', 'Foreign'));
+      if (it.native) a.appendChild(el('span', 'badge sm foreign', 'Foreign'));
       var sig = el('span', 'sig');
       sig.appendChild(sigNodes(it));
       a.appendChild(sig);
