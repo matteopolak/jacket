@@ -1,6 +1,6 @@
 //! LLVM types for IR types, signatures and their attributes.
 use super::Backend;
-use super::plan::{Lowered, ParamAttr, ParamPlan, RetPlan};
+use super::plan::{Lowered, ParamAttr, ParamPlan, RET_INDEX, RetPlan};
 use inkwell::AddressSpace;
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::types::{
@@ -80,6 +80,16 @@ impl<'ctx> Backend<'ctx, '_> {
             }
             None => RetPlan::Scalars(sig.returns.clone()),
         };
+        // FastISel on AArch64 hands any function whose result is a bare `i8` or `i16` to the
+        // slow instruction selector. Both sides of a Jai-convention call are ours, so the
+        // callee can promise the extension. C results are left alone: a C callee need not
+        // extend, and the attribute would let the caller assume it did.
+        if sig.conv == Conv::Jai
+            && self.arch.is_aarch64()
+            && matches!(&ret, RetPlan::Scalars(tys) if matches!(tys.as_slice(), [Ty::I8 | Ty::I16]))
+        {
+            attrs.push((RET_INDEX, ParamAttr::ZeroExt));
+        }
         let mut params = Vec::new();
         let mut budget = abi::RegBudget::new(
             self.arch,
@@ -181,6 +191,14 @@ impl<'ctx> Backend<'ctx, '_> {
     ) {
         for &(index, attr) in &lowered.attrs {
             let (name, size, align) = match attr {
+                ParamAttr::ZeroExt => {
+                    let kind = Attribute::get_named_enum_kind_id("zeroext");
+                    add(
+                        AttributeLoc::Return,
+                        self.ctx.create_enum_attribute(kind, 0),
+                    );
+                    continue;
+                }
                 ParamAttr::Sret(size) => ("sret", size, 0),
                 ParamAttr::ByVal(size, align) => ("byval", size, align),
                 ParamAttr::InReg => {

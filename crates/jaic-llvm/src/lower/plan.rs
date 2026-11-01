@@ -139,7 +139,12 @@ pub(super) enum ParamAttr {
     Sret(u64),
     ByVal(u64, u64),
     InReg,
+    /// The callee zero-extends a narrow result to 32 bits (see [`RET_INDEX`]).
+    ZeroExt,
 }
+
+/// The `attrs` index that stands for the return value instead of a parameter.
+pub(super) const RET_INDEX: u32 = u32::MAX;
 
 pub(super) struct Lowered<'ctx> {
     pub(super) fn_ty: FunctionType<'ctx>,
