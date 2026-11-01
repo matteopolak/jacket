@@ -1,6 +1,6 @@
 # Parallel type checking
 
-A design for checking procedure bodies on several threads. Sema itself is not parallel yet. What exists: a measurement probe (`sema/body_probe.rs`, `-dev_body_probe`), the `Send + Sync` conversion of the shared world (`sema/sync_world.rs`), and a one-thread prototype of the batch/abandon/commit protocol (`sema/speculative.rs`, [stage 1](#stage-1-one-thread-prototype)), and [stage 2, part 1](#stage-2-part-1-first-uses): fewer abandoned bodies.
+A design for checking procedure bodies on several threads. Sema itself is not parallel yet. What exists: a measurement probe (`sema/body_probe.rs`, `-dev_body_probe`), the `Send + Sync` conversion of the shared world (`sema/sync_world.rs`), and a one-thread prototype of the batch/abandon/commit protocol (`sema/speculative.rs`, [stage 1](#stage-1-one-thread-prototype)), [stage 2, part 1](#stage-2-part-1-first-uses) (fewer abandoned bodies) and [part 2](#stage-2-part-2-provisional-functions) (provisional function ids).
 
 On large `-check` runs most time is checking bodies (about 60% on a generated 60k-line program), so that is the target.
 
@@ -33,7 +33,7 @@ Realistic target: 1.5-1.8x from sema alone and 2-2.4x with parallel parse, at 1.
 
 0. (done) Audit in-place writes during `lower_body`; make the AST, values and signatures `Send + Sync`.
 1. (done) One-thread prototype of the view/delta/commit protocol; go or no-go on commit cost and abort rate. Result: go, see [stage 1](#stage-1-one-thread-prototype).
-2. Fewer abandoned bodies, then threads for a restricted subset. Part 1 (done): first uses, see [below](#stage-2-part-1-first-uses). Part 2: provisional ids for new functions and types. Part 3: threads.
+2. Fewer abandoned bodies, then threads for a restricted subset. Part 1 (done): first uses, see [below](#stage-2-part-1-first-uses). Part 2 (functions done, types and procedures not): provisional ids, see [below](#stage-2-part-2-provisional-functions). Part 3: threads.
 3. Widen: interning, new procs, signatures and layouts resolved locally. Abort rate under 5%.
 4. Check unreferenced declarations the same way.
 
@@ -122,7 +122,71 @@ The few percent of `ns.default_scopes` / `ns.overload_sets_checked` / `ty.defaul
 
 ### What is next
 
-Part 2: make the blockers above replayable with provisional ids, as strings and constants already are. In order: function ids and queued bodies for `proc_func` (`out.program.funcs`, `pr.body_queue`, `func_procs`; the IR of the body names callees by id), then type interning (`ty.types`, `ty.default_images`: a body-local table of new types, merged at commit), then the instantiation counters (`meta.perf`) and `out.program` writes from `emit_call`. Until then threads would speed up only the first-try share. Part 3 adds the threads.
+Part 2 made function ids replayable, see [below](#stage-2-part-2-provisional-functions); types and procedures are left. Until then threads would speed up only the first-try share. Part 3 adds the threads.
+
+## Stage 2, part 2: provisional functions
+
+The first call of a procedure gives it an IR function and queues its body (`make_proc_target`). A speculative body now does that with a provisional id and leaves the real work for its commit. Same output, `sema/speculative/funcs.rs` plus a few lines in `procs/func.rs`.
+
+### How it works
+
+- **Provisional ids.** `proc_func_in_code` (used by `emit_call` for a call and `lower.rs` for a procedure's address, the two places that only put the id in IR) lets a speculative body reserve a function: the id is the program's function count when the body began plus the body's own count, the target and `Queued` state are set in place and undone when the body ends. The name and signature wait in a list. Foreign symbols (`#foreign`, `#elsewhere`, llvm intrinsics) get the same treatment (`ForeignId`).
+- **Anywhere else a provisional id would leak.** `proc_func` (constants and relocations, `check_failed`, imports) still has to be the first to reserve: a body that finds a provisional target through it is abandoned (`refuse_provisional`), and one that is first to ask stops and is resumed at its turn as in part 1.
+- **Commit.** Before the IR is rewritten, the commit walks the body's list in order. A procedure that has no target gets a real function (`reserve_func_with_sig`, so ids come out in serial order); one that has a target by now (an earlier body of the batch, or a serial body, called it first) keeps it and the body's call is pointed there. Then `remap_func_ids` rewrites `Call`, `FuncAddr` and `ForeignAddr`, and the deferred op for each fresh function queues the body, sets the target and fills `func_procs`/`func_targets`, in the order the serial path would have.
+- **Run ahead.** A body that already reserved a function is not resumed at a first use: the step would number its function before it.
+
+### Measured
+
+Same workloads and build as part 1 (release, `-check`, one thread, load average 3-5 from other work). Committed / first try, before and after:
+
+| Workload | Committed | First try |
+| --- | --- | --- |
+| `examples/game2d/game` | 35.5% -> 40.9% | 26.6% -> 27.3% |
+| `examples/ui-gallery` | 33.0% -> 38.5% | 24.4% -> 24.8% |
+| ~48 stdlib modules (`-no_dce`) | 59.9% -> 63.3% | 52.6% -> 58.6% |
+| 600k generated lines | 82.2% -> 83.8% | 73.3% -> 73.3% |
+
+Share of batched bodies abandoned first at each table (game2d / ui-gallery / stdlib48 / 600k; "in a first use" included):
+
+| Table | Before | After |
+| --- | --- | --- |
+| `out.program` | 18.0 / 23.1 / 11.9 / 3.2% | 6.1 / 12.7 / 6.1 / 0.1% |
+| `pr.procs` | 9.4 / 4.6 / 0.4 / 6.8% | 14.3 / 7.4 / 0.7 / 8.1% |
+| `ty.types` | 12.5 / 16.8 / 9.9 / 1.9% | 13.0 / 18.1 / 11.3 / 2.1% |
+| `meta.perf` | 8.5 / 8.4 / 8.0 / 3.1% | 8.6 / 8.8 / 8.3 / 3.2% |
+| `ty.default_images` | 4.0 / 3.3 / 4.3 / 0% | 4.0 / 3.5 / 4.4 / 0% |
+| invalidated by a serial body | 7.0 / 7.9 / 2.1 / 2.3% | 7.2 / 7.9 / 2.4 / 2.3% |
+
+First-try commits barely moved because the bodies that cleared `out.program` stop at the next table: a callee's first call also needs its signature (`ty.types`, the procedure type) and often its `ProcInfo` (`pr.procs`, first-use declarations and `meta.perf` instances). What is left under `out.program` is `#modify` blocks, `#library` declarations and a few address-of constants.
+
+`-check` wall time, best of 5, load average about 3 (ms; flag off / flag on, part 1 then now):
+
+| Workload | Flag off | Flag on |
+| --- | --- | --- |
+| game2d | 111 / 111 | 246 -> 232 |
+| ui-gallery | 66 / 67 | 117 -> 115 |
+| stdlib48 | 108 / 109 | 194 -> 173 |
+| 600k | 709 / 718 | 1873 -> 1570 |
+
+Flag off is unchanged. Flag on is still about twice as slow on one thread, for the reason in part 1: a recovered body is checked up to three times.
+
+### Run ahead
+
+Dropping it (`MAX_AHEAD` 0) gives back the committed share but not the first try (game2d 41% -> 27%, 600k 84% -> 73%) and saves a fifth of the flag-on wall time (game2d 232 -> 187 ms, 600k 1570 -> 1250 ms). Limiting it to one step per body saves 3-6%. It stays at 2 for now, because the point of the prototype is to count, but note what it is worth with threads: a recovered body is checked again at its own turn, which is serial work, so it saves nothing over the serial path. Only the first-try share can speed up. Before threads, either drop run-ahead or put a recovered body back into a later batch instead of checking it at its turn.
+
+### Identical output
+
+`-emit_ir` with and without the flag, `@frozen.*` globals excluded: byte-identical on `game2d`, `ui-gallery`, the 600k-line program (350 MB) and the `basics`, `polymorphism`, `kvdb`, `threads`, `using-records`, `compile-time-record`, `type-variants` and `memory` examples. The ~48 stdlib module program has identical function IR in the same order; `type_info` globals and the strings and debug ids numbered after them differ, as they do between two runs with the flag off. `examples/metaprogramming` differs in the order of some `__init_*` functions and of `__command_line_arguments` against `__runtime_support_disable_stack_trace`, and that also varies between runs with the flag off. `cargo test -p jaic` passes by default, with the feature and with `JAIC_SPECULATIVE_BODIES=1`; the full `stdlib` suite has the same 22 local failures with and without the flag.
+
+### What is next: types and procedures
+
+The remaining top blockers need ids in tables other than the program's, and that is wider than the speculative module:
+
+- **Types** (`ty.types`, `ty.default_images`, ~13-18%): about half the writes are `finish_signature` interning a callee's procedure type, the rest pointer, array and slice types from type expressions and `&`. A body would append to `Types` in place and cut it back as it does the scope arena, and the commit would intern the same kinds in order. The cost is the remap: a `TypeId` can sit in anything the body leaves (the expression log, entity kinds and states, `Signature` memos, `ProcTypeParams`, deferred ops that capture a type, `Value`s) and, worse, in the bytes of a constant (a `Type` field). That needs a `TypeKind`/`Value` visitor in `types.rs` and `value.rs`, and a rule that a provisional type never reaches constant bytes or IR immediates (it would abandon at `type_info_global`, the one place a type becomes data).
+- **Procedures** (`pr.procs`, `meta.perf`, ~15-23%): a first use of a procedure declaration (`new_proc` in `resolve_entity_inner`) and each polymorphic instantiation push a `ProcInfo`. The same arena approach works, but a `ProcId` is stored in entity states (`Value::Proc`), `instances` maps of older procedures and the perf lists, and two bodies that resolve the same entity or ask for the same instance both create a `ProcInfo`: the commit has to keep the first and map the other's id to it, so ids no longer shift by one constant. The function ids above already do that mapping; `Shift` would carry it for procedures and types too.
+- **Invalidated** (7%): a serial body between check and commit changed the stamp (namespace generation, files, compile-time runs). A batch that stops at such a body would not waste the bodies behind it.
+
+Part 3 (threads) is worth starting only after the first-try share is high, or after recovered bodies stop being checked at their turn.
 
 ## Send and Sync of the shared world
 
@@ -142,7 +206,7 @@ Statics that stay global, and why: the symbol interner and record field names (a
 
 ## How to change it
 
-The probe hooks are `lower_body_uncached`, the `body_queue.push` sites, `resolve_entity`, `signature`, `layout_struct_with_runtime_dependencies` and `finish_program`. New shared tables need a delta/commit story before workers can touch them. A memo that a first use fills in goes through `journal` (undo at the end of the body, replay at commit) in `speculative/journal.rs`; a new step that does ordered work gets wrapped in `first_use` so a body stopped inside it can be resumed.
+The probe hooks are `lower_body_uncached`, the `body_queue.push` sites, `resolve_entity`, `signature`, `layout_struct_with_runtime_dependencies` and `finish_program`. New shared tables need a delta/commit story before workers can touch them. A memo that a first use fills in goes through `journal` (undo at the end of the body, replay at commit) in `speculative/journal.rs`; a new step that does ordered work gets wrapped in `first_use` so a body stopped inside it can be resumed. An id the body hands out (function, foreign symbol, global) is provisional, starts after the table's end, and is remapped by `Shift` at commit (`speculative/funcs.rs`); anything that would keep such an id past the body must go through `refuse_provisional` or be remapped there.
 
 ## Configuration
 
