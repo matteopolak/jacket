@@ -10,7 +10,9 @@ Choices that matter:
 
 - **FastISel at `-O0`** (`use_fast_isel`, `jaic-llvm/src/lib.rs`). LLVM's default instruction selector dominated codegen.
 - **Lazy declarations**: a codegen unit declares only the symbols it references. Look up symbols by name only after `declare_named`, and don't iterate the whole program per unit.
-- **Units of 5,000 instructions** (`INSTS_PER_UNIT`). Total work matters more than balance.
+- **Units of 5,000 instructions** (`INSTS_PER_UNIT`), up to three per core (`UNITS_PER_CORE`). Total work matters, and so does balance on a Mac with efficiency cores; see below.
+- **Narrow results are extended** so FastISel keeps the function (`zeroext` on `i8`/`i16` Jai results, AArch64).
+- **Direct `ld` on macOS** for plain executable links ([native linking](../native/native-linking.md)).
 - **Verifier off in release** (`-dev_verify_ir` turns it on), no LLVM value names, no `dsymutil` at `-O0` on macOS.
 - **Cheap null checks** (`lower::NullFacts`): a compare and branch to a shared helper, skipped for a pointer already checked in the same block.
 - **Real paths are remembered** (`SourceState::canon`); only paths that resolved are kept, since a metaprogram can write a file later.
@@ -91,6 +93,38 @@ What is left is mostly spread thin: `Lexer::push` and `skip_trivia` (about 6% an
 - **Per-thread interner.** A worker takes a shard lock only when its own cache has not seen a spelling: 181k times for the generated program, 29 ms summed over five threads including the timer's own cost, so under 1% of wall time. Numbering locally would add a translation walk over every tree, the same size as `relocate`, which is more than the locks cost. Not built.
 
 
+### Debug build: codegen and link
+
+`examples/game2d/game` at `-O0` (340k IR instructions, 10-core Apple machine with 4 performance and 6 efficiency cores) took 300 ms: front end 107, codegen 108, link 75. Numbers are best of 13 alternating runs of the old and new `jaic` at load average 8 to 10 (a background macOS service and another build); a quiet machine shows larger gains for the unit change.
+
+| Program | total before | total after | codegen | link |
+| --- | --- | --- | --- | --- |
+| hello world | 55 ms | 46 ms | 9 to 9 | 26 to 17 |
+| `game2d` | 326 ms | 296 ms | 103 to 93 | 79 to 72 |
+| `ui-gallery` | 190 ms | 175 ms | 34 to 33 | 88 to 80 |
+| `editor` | 256 ms | 236 ms | 75 to 62 | 90 to 83 |
+| generated 60k lines | 293 ms | 253 ms | 125 to 100 | 33 to 24 |
+
+Peak memory of `game2d` went from 383 MB to 326 MB (smaller modules).
+
+**Where codegen time goes.** One unit for all of `game2d` took 300 ms of CPU: building LLVM IR on the Rust side 43 ms (14%) and LLVM's code generator 257 ms. The total CPU is the same for 1, 10 or 40 units (0.78 s to 0.90 s of user time), so wall time is parallel efficiency. With equal shares per core, the units on efficiency cores finished last (per unit: lower 40 to 65 ms, emit 40 to 50 ms, in parallel, against 5 to 9 ms and 20 to 25 ms for units that started later). Three units per core let the fast cores take more of them: `game2d` codegen 108 ms at 10 units, 92 at 20, 85 at 30 to 60. Hello world (4 units) did not change at 6, 8 or 10. A build with one thread keeps one unit.
+
+**FastISel fallbacks.** `llc -O0 -fast-isel -fast-isel-report-on-fallback` on the `-emit_ir` output showed 953 of 2,751 functions in `game2d` going through SelectionDAG. 876 of the first-missed instructions were `ret i8 ...`: AArch64's FastISel only selects a narrow return when the result is marked `zeroext` or `signext`. Marking Jai-convention results `zeroext` leaves 174 fallbacks, 13% of the IR, nearly all functions that return several values (`ret { i64, i64 }`, `extractvalue` of a call). Instruction selection fell from 1.73 G to 1.16 G instructions and a one-unit build from 297 to 281 ms (-5%). C-convention results are not marked: a C callee need not extend, and the call site would assume it did.
+
+**Link.** `ld` alone takes 67 of the 75 ms. A trivial program links in 10 ms; `game2d`'s ten objects add about 15; the rest is reading `.tbd` files for the frameworks (`AppKit` pulls in `Foundation`, whose `.tbd` is 5.6 MB, and the private frameworks they re-export): with `-framework AppKit` the link is 69 ms, without it 25. The frameworks are all needed (every one that still links without it is re-exported by AppKit, so dropping it from the command saves nothing). `ui-gallery` links a large static `libwgpu_native.a`. Going to `ld` without `cc` saves 5 to 8 ms, 15% of a hello world.
+
+**Measured and rejected (debug builds).**
+
+- `ld` flags `-dead_strip` (+2 ms), `-S`, `-no_deduplicate`, `-no_compact_unwind`, `-no_function_starts`, `-no_uuid`, `-fixup_chains`, `-ld_classic`: within 1 ms of the default.
+- Fewer or more objects: link time at 10, 30 and 60 objects is 82, 78 and 81 ms (noise).
+- `-lm` and `libclang_rt.osx.a` on the `ld` line: no measurable cost, but `cc` passes them, so the direct command does too.
+- `ld64.lld` (Homebrew LLD) on `game2d`: 63 ms against 69 for Apple's `ld`, the same `.tbd` parsing; not installed by default.
+- Skipping `LiveDebugValues`: 13% of LLVM's time, mostly spent on functions with nothing to track, but no option turns it off per function; `--livedebugvalues-input-dbg-value-limit=0` leaves the object byte-identical. Functions that fell back to SelectionDAG need it for locations in later blocks.
+- Line tables only: `opt -passes=strip-nonlinetable-debuginfo` before `llc` saves 6%, and `-no_debug_info` 33% of codegen CPU. Both lose `frame variable` or the line tables backtraces use, so debug info stays.
+- `-codegen_units` above 30 for `game2d`: no further gain (85, 86, 85 ms at 30, 40, 60).
+
+**Proposal: cache stdlib object code.** Most of `game2d`'s IR is library code that does not change between builds. A cache keyed by a hash of each unit's functions (IR, types and debug info they reference) could skip codegen for them. Today it cannot be done safely: internal symbols are named `name.<function index>`, so adding one function renames everything after it; the unit plan (`partition::flat`) depends on the whole program; and debug-map objects must stay where the debugger finds them. It needs content-based symbol names and a stable per-module split first (for example one unit per stdlib module), then a cache directory with the object per module hash. It would pay in an edit-compile loop and not at all for a first build; measure how much of a typical program is library code before building it.
+
 ### Rejected experiments
 
 - Skipping LiveDebugValues at `-O0` loses `frame variable` locations.
@@ -98,7 +132,6 @@ What is left is mostly spread thin: `Lexer::push` and `skip_trivia` (about 6% an
 - Queuing a parsed file's imports at the front of the parse queue (depth first, as sema loads them) did not change how long `claim` waits.
 - Comparing identifiers in the interner with word loads instead of `memcmp` was within noise.
 - `-parse_threads` above 4 saves 2% on the generated program and nothing on real ones, so the default stays.
-- Running `ld` directly instead of through `cc` saves about 10 ms and needs the SDK path re-derived.
 - Overlapping codegen with the front end: nothing in `Program` is final until the workspace completes, because metaprograms can still change it.
 
 ### Allocator
