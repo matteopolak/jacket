@@ -1,7 +1,8 @@
 // Fibers and non-blocking IO. [io_run] starts a scheduler on the calling thread; inside it [spawn]
 // starts fibers, which wait for sleeps, channels, sockets and files without blocking the thread.
 // [make_channel], [Wait_Group] and [Fiber_Mutex] coordinate fibers, [tcp_listen], [accept] and
-// [connect] do TCP, and [Reader] and [Writer] give files, sockets and pipes one shape.
+// [connect] do TCP, and [Reader] and [Writer] give files, sockets and pipes one shape. A
+// [Line_Reader] reads any of them a line at a time.
 // @experimental
 //
 // ```jai
@@ -58,6 +59,7 @@
 #load "pipe.jai";
 #load "files.jai";
 #load "stream.jai";
+#load "lines.jai";
 #load "json.jai";
 #load "runtime.jai";
 #load "interrupt.jai";

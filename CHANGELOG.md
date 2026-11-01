@@ -12,6 +12,7 @@
 - `jacket test --changed FILE` runs only the tests a change to FILE can affect.
 - `jacket test` in a folder that has its own `tests/` folder below the project tests that folder.
 - `expect_equal` takes an optional message.
+- `Extensions/Io` has `Line_Reader`, `make_line_reader` and `read_line`, a buffered line reader with a length limit.
 
 ### Fixed
 
