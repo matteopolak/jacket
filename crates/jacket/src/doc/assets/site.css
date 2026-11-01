@@ -160,7 +160,7 @@ main ul, main ol { color: var(--fg2); padding-left: 22px; margin: 0 0 14px; }
 main code { background: var(--sunken); border-radius: 4px; padding: 1px 5px; }
 main pre code, .sig code, .row-head code { background: none; padding: 0; }
 main h2 + h3 { margin-top: 0; }
-.fold.folded { max-height: 360px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent); }
+.js .fold:not(.open) { max-height: 360px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent); }
 .btn.fold-btn { display: flex; width: fit-content; position: relative; z-index: 1; margin: -22px auto 28px; background: var(--surface); font-size: 13px; font-weight: 500; padding: 6px 18px; border-radius: 999px; box-shadow: 0 1px 3px var(--shadow); }
 .btn.fold-btn:hover { color: var(--fg); }
 
@@ -364,6 +364,6 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 .row > .members .def dt { font-size: 13px; }
 .row > .members .def dd { font-size: 13.5px; }
 .row > .members .def dd p { margin: 0; }
-.row > .members.folded { max-height: 200px; }
+.js .row > .members:not(.open) { max-height: 200px; }
 .row > .members + .fold-btn { margin: -22px auto 4px; }
 .row-head > a.muted { font-size: 12.5px; }

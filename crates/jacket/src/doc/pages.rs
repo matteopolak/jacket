@@ -442,6 +442,10 @@ fn outline_items(items: &[&Item]) -> impl Iterator<Item = Outline> {
     })
 }
 
+/// Ends every `.fold`, so a short one is opened before the page first paints. Without it, a
+/// long one would show whole until `site.js` ran (`fold` in `shell.rs`).
+const FOLD: &str = "<script>fold()</script>";
+
 /// A type's fields or enum members as a full-width band of its row, folded when long.
 fn members_band(site: &Site, mi: usize, item: &Item) -> String {
     if item.members.is_empty() {
@@ -461,7 +465,7 @@ fn members_band(site: &Site, mi: usize, item: &Item) -> String {
         })
         .collect();
     format!(
-        "<div class=\"fold members\" data-fold=\"240\">\n{}</div>\n",
+        "<div class=\"fold members\" data-fold=\"240\">\n{}{FOLD}</div>\n",
         definition_list(site, mi, &rows, "")
     )
 }
@@ -583,6 +587,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
                 } => main.push_str(&example::fence(site, m, (&m.file, 1), (info, code), false)),
             }
         }
+        main.push_str(FOLD);
         main.push_str("</div>\n");
     }
 

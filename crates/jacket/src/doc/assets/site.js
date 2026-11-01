@@ -548,6 +548,11 @@
     var opened = false;
     for (var node = target; node; node = node.parentElement) {
       if (node.tagName === 'DETAILS' && !node.open) { node.open = true; opened = true; }
+      if (node.classList.contains('fold') && !node.classList.contains('open')) {
+        node.classList.add('open');
+        if (node.nextElementSibling && node.nextElementSibling.classList.contains('fold-btn')) node.nextElementSibling.remove();
+        opened = true;
+      }
     }
     if (opened) target.scrollIntoView();
   }
@@ -576,14 +581,13 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) { set(false); btn.focus(); } });
   })();
 
-  // A long block (.fold) shows its top, faded, with a button that expands it for good.
-  Array.prototype.forEach.call(document.querySelectorAll('.fold'), function (fold) {
-    if (fold.scrollHeight <= (+fold.getAttribute('data-fold') || 440)) return;
-    fold.classList.add('folded');
+  // A long block (.fold) shows its top, faded, with a button that expands it for good. CSS folds
+  // every block from the first paint; the inline fold() at the end of each one opened those that fit.
+  Array.prototype.forEach.call(document.querySelectorAll('.fold:not(.open)'), function (fold) {
     var btn = el('button', 'btn fold-btn', 'Show more');
     btn.type = 'button';
     btn.addEventListener('click', function () {
-      fold.classList.remove('folded');
+      fold.classList.add('open');
       btn.remove();
     });
     fold.after(btn);

@@ -3,7 +3,9 @@ use super::markdown::esc;
 use super::site::Site;
 
 /// Runs before the page paints, so a saved theme does not flash the other one first.
-const EARLY: &str = "(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('jacket-docs-theme');if(t==='light'||t==='dark')d.setAttribute('data-theme',t)}catch(e){}})()";
+/// It also defines `fold()`, which the script at the end of each `.fold` calls: a block CSS folds by
+/// default is opened when it fits.
+const EARLY: &str = "window.fold=function(){var f=document.currentScript.parentElement;if(f.scrollHeight<=(+f.getAttribute('data-fold')||440))f.classList.add('open')};(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('jacket-docs-theme');if(t==='light'||t==='dark')d.setAttribute('data-theme',t)}catch(e){}})()";
 
 /// Runs right after the sidebar, before first paint: puts the sidebar back where it was on the
 /// page before, and only moves it when the current entry is out of view.
