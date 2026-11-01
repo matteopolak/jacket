@@ -190,6 +190,22 @@ impl Compiler {
         })
     }
 
+    /// Can the reachable-code walk of `target_runtime_storage_usage` change an answer? Only
+    /// when the size is not the default, or some dependency was captured at another size.
+    fn runtime_storage_usage_matters(&self, size: i64) -> bool {
+        let dependencies = &self.out.runtime_storage_dependencies;
+        size != DEFAULT_TEMPORARY_STORAGE_SIZE
+            || !self.out.no_reset_globals.is_empty()
+            || dependencies
+                .entities
+                .values()
+                .any(|values| values.iter().any(|&v| v != size))
+            || dependencies
+                .functions
+                .values()
+                .any(|(values, _)| values.iter().any(|&v| v != size))
+    }
+
     /// Compile-time inspection or an unused declaration must not opt an older
     /// runtime into a configuration protocol its target code never reads.
     fn target_runtime_storage_usage(&mut self) -> Result<RuntimeStorageUsage> {
@@ -336,7 +352,7 @@ impl Compiler {
         }
         let target_runtime =
             has_runtime && self.options.runtime_support && self.options.runtime_initialization;
-        let usage = if target_runtime {
+        let usage = if target_runtime && self.runtime_storage_usage_matters(size) {
             self.target_runtime_storage_usage()?
         } else {
             RuntimeStorageUsage::default()
