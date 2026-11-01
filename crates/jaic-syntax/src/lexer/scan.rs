@@ -407,9 +407,11 @@ impl<'a> Lexer<'a> {
 
     fn ident(&mut self) -> &'a str {
         let s = self.at;
-        while self.at < self.src.len() && is_ident_char(self.src[self.at]) {
-            self.at += 1;
-        }
+        let rest = &self.src[s..];
+        self.at += rest
+            .iter()
+            .position(|&c| !is_ident_char(c))
+            .unwrap_or(rest.len());
         // Identifiers end at an ASCII byte (or the end), so this is a char boundary.
         self.text.get(s..self.at).unwrap_or("?")
     }
@@ -450,20 +452,26 @@ impl<'a> Lexer<'a> {
 
     fn skip_trivia(&mut self) -> Result<(), Diagnostic> {
         loop {
+            // Blanks and newlines are nearly all of the trivia: step over a run in one loop.
+            let rest = &self.src[self.at..];
+            let mut run = 0;
+            while let Some(&c) = rest.get(run) {
+                match c {
+                    b'\n' => self.newline = true,
+                    b' ' | b'\t' | b'\r' | 0x0c | 0x0b => {}
+                    _ => break,
+                }
+                run += 1;
+            }
+            self.at += run;
             let c = self.peek(0);
-            if c == b'\n' {
-                self.newline = true;
-                self.at += 1;
-            } else if c == b' ' || c == b'\t' || c == b'\r' || c == 0x0c || c == 0x0b {
-                self.at += 1;
-            } else if c == 0xc2 && self.peek(1) == 0xa0 {
+            if c == 0xc2 && self.peek(1) == 0xa0 {
                 // U+00A0 (no-break space) separates tokens like a space.
                 self.at += 2;
             } else if c == b'/' && self.peek(1) == b'/' {
                 let start = self.at;
-                while self.at < self.src.len() && self.src[self.at] != b'\n' {
-                    self.at += 1;
-                }
+                let rest = &self.src[start..];
+                self.at += rest.iter().position(|&c| c == b'\n').unwrap_or(rest.len());
                 if let Some(regions) = self.regions.as_mut() {
                     regions.push(Span::new(self.file, start, self.at));
                 }
