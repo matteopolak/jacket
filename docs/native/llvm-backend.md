@@ -16,7 +16,7 @@ At `-O0` the target machine uses FastISel, because GlobalISel was a third of cod
 
 `emit_objects` splits a large program into units, one LLVM context and module per thread.
 
-- Count: one for sanitized builds, wasm, `-emit_ir` and `output_*` options. Otherwise `-codegen_units`, else one per 5,000 IR instructions (20,000 optimised, at most 8), capped at the core count. A huge unoptimised program gets more units than threads (up to 64) so modules are freed as they finish and peak memory stays low.
+- Count: one for sanitized builds, wasm, `-emit_ir` and `output_*` options. Otherwise `-codegen_units`, else one per 5,000 IR instructions (20,000 optimised, at most 8), capped at the core count for optimised builds and at three per core (`UNITS_PER_CORE`) for unoptimised ones, so that fast cores take more units than slow ones. A huge unoptimised program gets more units than threads (up to 64) so modules are freed as they finish and peak memory stays low.
 - Unoptimised: functions go largest first to the least loaded unit. Optimised: divided by call graph (below).
 - Each module defines its own functions and declares what it uses. A lookup by name (`libc_call`, `llvm.*`) must call `declare_named` first or LLVM renames the later symbol and the link fails. Internal symbols another unit uses become hidden external; use `Backend::internal_linkage` for new ones.
 - Objects are `path`, `path.1.o`, ...; the CLI links and deletes them. `-o x.o` stays one module.
@@ -33,6 +33,7 @@ At `-O0` the target machine uses FastISel, because GlobalISel was a third of cod
 ### Lowering rules (`lower.rs`)
 
 - Every function has `"frame-pointer"="non-leaf"` so frame-pointer stack walks see jaic frames.
+- On AArch64 a Jai-convention function returning one `i8` or `i16` gets `zeroext` on the result (`lower_sig`). FastISel sends a function with a bare narrow result to the slow instruction selector; C-convention results stay as they are, because a C callee need not extend and the attribute would let the caller assume it did.
 - Each IR `Val` is an SSA value; blocks are emitted so the likely successor falls through, and check failure blocks go to the end. `Slot`s are allocas in the first block. Pointers are opaque.
 - Integer semantics match the interpreter: division by zero traps, `INT_MIN / -1` wraps, shifts of `>= bits` give 0, float-to-int saturates.
 - Globals are packed structs of byte runs and relocations. Every foreign call is an indirect call typed from its `Sig`.
@@ -57,7 +58,7 @@ Turns `ByteLookup` and `SignMask` ([intrinsics](../language/intrinsics.md#native
 ## Configuration
 
 - `-dev_verify_ir`, `-codegen_units N` (`-no_split` is 1, for whole-program optimisation), `-dev_split_units N`, `[experimental] codegen_units` in `jacket.toml`.
-- Constants: `INSTS_PER_UNIT`, `OPT_INSTS_PER_UNIT`, `MAX_OPT_UNITS` (`lib.rs`), `MAX_UNITS` (`split.rs`), `IMPORT_MAX`, `IMPORT_BUDGET_PERCENT`, `INLINE_CAP`, `INLINE_SMALL` (`partition.rs`).
+- Constants: `INSTS_PER_UNIT`, `UNITS_PER_CORE`, `OPT_INSTS_PER_UNIT`, `MAX_OPT_UNITS` (`emit.rs`), `MAX_UNITS` (`split.rs`), `IMPORT_MAX`, `IMPORT_BUDGET_PERCENT`, `INLINE_CAP`, `INLINE_SMALL` (`partition.rs`).
 - `-O0..-O3`, `-emit_ir file.ll`, `-no_debug_info`, `-sanitize` ([sanitizers](sanitizers.md)), `-os`, `-target triple`.
 - Building needs `llvm-sys` (or `LLVM_PREFIX`) pointing at the pinned LLVM ([LLVM setup](../tools/llvm-setup.md)).
 
