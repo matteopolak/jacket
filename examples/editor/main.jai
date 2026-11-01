@@ -2,11 +2,28 @@
 // a folder (the current one by default) or on a file's folder with the file open. See
 // docs/extensions/ui-editor.md.
 
-#load "editor.jai";
+#load "smoke-session.jai";
+Args :: #import "Extensions/Args";
+
+Cli :: struct {
+    target: string = "."; @positional
+    smoke: bool;
+}
+
+HELP :: Args.Help(Cli).{
+    about = "Jacket editor with jailsp language features. Set JAI_EDITOR_SERVER to a server path or off.",
+    target = "Folder or file to open (default: current directory)",
+    smoke = "Run the non-interactive headless editor and live LSP checks",
+};
 
 main :: () {
-    args := get_command_line_arguments();
-    target := ifx args.count > 1 then args[1] else ".";
+    cli, _ := Args.parse(Cli, HELP);
+    if cli.smoke {
+        run_smoke(environment_variable("EDITOR_SMOKE_GPU") == "1");
+        return;
+    }
+
+    target := absolute_path(cli.target);
     root := target;
     file := "";
 
@@ -27,5 +44,5 @@ main :: () {
     open_editor(*ed, root, file);
     defer close_editor(*ed);
 
-    if !run_app(.{ title = "Jacket editor", width = 1100, height = 720 }, *ed, build) exit(1);
+    if !run_app(.{ title = "Jacket editor", menus = editor_menus, width = 1100, height = 720 }, *ed, build) exit(1);
 }

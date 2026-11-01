@@ -14,10 +14,16 @@
 #import "Extensions/Environment";
 #import "Extensions/Text_Buffer";
 
+Lsp :: #import,dir "lsp";
+Str :: #import "String";
+Fmt :: #import "Extensions/Jai_Format";
+
 Re :: #import "Extensions/Regex";
 
 #load "config.jai";
 #load "highlight.jai";
+#load "language.jai";
+#load "native.jai";
 
 // One open file.
 Document :: struct {
@@ -25,6 +31,11 @@ Document :: struct {
     name: string;
     edit: Text_Edit;
     saved_version: int; // the buffer version that is on disk
+    lsp_version: int = -1;
+    lsp_text: string;
+    diagnostics: Json_Value;
+    diagnostic_version: int = -1;
+    diagnostic_marks: [..] Text_Mark;
     close_armed: bool; // closing a document with unsaved changes needs a second request
 }
 
@@ -48,6 +59,7 @@ Editor :: struct {
     tree_dirty: bool = true;
     watcher: File_Watcher(Editor);
     watching: bool;
+    watcher_initialized: bool;
     sidebar: float = 240;
 
     search_open: bool;
@@ -60,7 +72,21 @@ Editor :: struct {
 
     quick_open_open: bool;
     quick_open_path: Text_Edit;
+    prompt_kind: Dialog_Kind;
 
+    language: Lsp.Client;
+    hover: string;
+    hover_doc: *Document;
+    hover_cursor: int;
+    hover_version: int;
+    completions: Json_Value;
+    completion_doc: *Document;
+    completion_version: int;
+    completion_start: int;
+    completion_end: int;
+    completion_filter: Text_Edit;
+    back_path: string;
+    back_cursor: int;
     status: string;
 }
 
@@ -73,20 +99,32 @@ open_editor :: (ed: *Editor, root: string, file: string = "") {
     ed.search_query.single_line = true;
     ed.quick_open_path.single_line = true;
 
-    if init(*ed.watcher, on_file_change, ed) {
+    ed.watcher_initialized = init(*ed.watcher, on_file_change, ed);
+    if ed.watcher_initialized {
         ed.watching = add_directories(*ed.watcher, root);
     }
 
+    server := environment_variable("JAI_EDITOR_SERVER");
+    if !server.count server = "jailsp";
+    if server == "off" || !Lsp.start(*ed.language, server, root) set_status(ed, "jailsp not found: language features unavailable");
+    else set_status(ed, "Starting jailsp");
+
+    ed.completion_filter.single_line = true;
     if file.count open_document(ed, file);
 }
 
 // Save the configuration and release everything.
 close_editor :: (ed: *Editor) {
+    Lsp.stop(*ed.language);
+    free(ed.hover);
+    free(ed.back_path);
+    free_json(*ed.completions);
+    free_text_edit(*ed.completion_filter);
     ed.config.sidebar_width = ed.sidebar;
     ed.config.last_root = ed.root;
     save_config(ed.config, ed.config_file);
 
-    if ed.watching deinit(*ed.watcher);
+    if ed.watcher_initialized deinit(*ed.watcher);
 
     for ed.docs close_document_data(it);
 
@@ -122,6 +160,8 @@ is_dirty :: (doc: *Document) -> bool {
 open_document :: (ed: *Editor, path: string) -> *Document {
     full := path;
     if !is_absolute(path) full = tprint("%/%", ed.root, path);
+
+    full = absolute_path(full);
 
     for doc, i: ed.docs {
         if doc.path == full {
@@ -168,6 +208,9 @@ save_document :: (ed: *Editor) -> bool {
     }
 
     doc.saved_version = doc.edit.buffer.version;
+    sync_language(ed);
+    if doc.lsp_version >= 0 Lsp.send(*ed.language, "textDocument/didSave", tprint("{\"textDocument\":{\"uri\":%}}", Lsp.quote(Lsp.uri(doc.path))));
+
     set_status(ed, tprint("Saved %", doc.name));
     ed.tree_dirty = true;
 
@@ -185,6 +228,12 @@ close_active :: (ed: *Editor) {
         return;
     }
 
+    if doc.lsp_version >= 0 {
+        Lsp.cancel_document(*ed.language, Lsp.uri(doc.path));
+        Lsp.send(*ed.language, "textDocument/didClose", tprint("{\"textDocument\":{\"uri\":%}}", Lsp.quote(Lsp.uri(doc.path))));
+    }
+
+    clear_language_popup(ed);
     close_document_data(doc);
     array_ordered_remove_by_index(*ed.docs, ed.active);
     if ed.active >= ed.docs.count ed.active = ed.docs.count - 1;
@@ -202,7 +251,9 @@ set_status :: (ed: *Editor, text: string) {
 build :: (ed: *Editor) {
     ui := current_ui();
 
+    update_language(ed);
     handle_shortcuts(ed, ui);
+    language_keys(ed, ui);
     process_watcher(ed, ui);
 
     if ed.tree_dirty rebuild_tree(ed);
@@ -225,10 +276,14 @@ handle_shortcuts :: (ed: *Editor, ui: *UI_State) {
         if event.kind != .KEY || !primary(event.mods) continue;
 
         if event.key == {
-            case cast(Key_Code) #char "S"; save_document(ed);
+            case cast(Key_Code) #char "S";
+                if event.mods.shift request_path(ed, ui, .SAVE);
+                else save_document(ed);
             case cast(Key_Code) #char "W"; close_active(ed);
-            case cast(Key_Code) #char "O"; ed.quick_open_open = !ed.quick_open_open;
-            case cast(Key_Code) #char "F"; ed.search_open = !ed.search_open;
+            case cast(Key_Code) #char "O";
+                request_path(ed, ui, ifx event.mods.shift then .FOLDER else .OPEN);
+            case cast(Key_Code) #char "F"; if !event.mods.shift ed.search_open = !ed.search_open;
+            case cast(Key_Code) #char "L"; ed.config.line_numbers = !ed.config.line_numbers;
         }
     }
 }
@@ -240,16 +295,17 @@ quick_open_overlay :: (ed: *Editor) {
 
     for column(.{ padding = 60, align = .CENTER }) {
         for panel(.{ padding = 12, gap = 8, width = 520, radius = t.radius, border = 1, border_color = t.outline }) {
-            label("Open file (absolute, or relative to the folder)", .{ muted = true });
+            label(ifx ed.prompt_kind == .SAVE then "Save as (absolute, or relative to the folder)" else ifx ed.prompt_kind == .FOLDER then "Open folder" else "Open file (absolute, or relative to the folder)", .{ muted = true });
             _, submitted := text_field(*ed.quick_open_path, .{ placeholder = "path/to/file.jai" });
 
             if submitted {
                 path := contents(*ed.quick_open_path);
 
                 if path.count {
-                    open_document(ed, path);
-                    ed.quick_open_open = false;
-                    set_contents(*ed.quick_open_path, "");
+                    if use_selected_path(ed, ed.prompt_kind, path) {
+                        ed.quick_open_open = false;
+                        set_contents(*ed.quick_open_path, "");
+                    }
                 }
             }
 
@@ -310,7 +366,14 @@ editor_pane :: (ed: *Editor) {
             if ed.search_open search_bar(ed, doc);
 
             options := Editor_Options.{ line_numbers = ed.config.line_numbers, size = ed.config.font_size, highlight = highlight_jai, marks = ed.search_marks, tab_width = ed.config.tab_width };
+            marks: [..] Text_Mark;
+            marks.allocator = temp;
+            for ed.search_marks array_add(*marks, it);
+            for doc.diagnostic_marks array_add(*marks, it);
+
+            options.marks = marks;
             text_editor(*doc.edit, options);
+            language_panel(ed, doc);
             doc.close_armed = doc.close_armed && is_dirty(doc);
         }
 
@@ -456,6 +519,9 @@ step_match :: (ed: *Editor, doc: *Document, direction: int) {
 }
 
 close_document_data :: (doc: *Document) {
+    free(doc.lsp_text);
+    free_json(*doc.diagnostics);
+    array_free(doc.diagnostic_marks);
     free_text_edit(*doc.edit);
     free(doc.path.data);
     free(doc.name.data);
@@ -600,9 +666,13 @@ parent_directory :: (path: string) -> string {
 
 // `path` made absolute against the working directory.
 absolute_path :: (path: string) -> string {
+    push_allocator(temp);
+    canonical, ok := get_absolute_path(path);
+    if ok return canonical;
     if is_absolute(path) return path;
 
     cwd := get_working_directory();
     if path == "." return cwd;
+
     return tprint("%/%", cwd, path);
 } @TempAllocates

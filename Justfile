@@ -135,3 +135,4 @@ dogfood:
     sh examples/kvdb/tools/smoke.sh
     sh examples/sitegen/tools/smoke.sh
     sh examples/seek/tools/smoke.sh
+    sh examples/editor/tools/smoke.sh

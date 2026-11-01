@@ -28,6 +28,25 @@ Modules used: Basic, Math, Hash_Table, Flat_Pool, File, File_Utilities, File_Wat
 - An interpreted run of the smoke test takes about a second once the binary is warm: the front end is under 0.1 s and the rest is the interpreter encoding the PNG of the GPU frame. Fixed by "perf(basic): clear zero-default arrays with one memset": `array_resize` and `NewArray` called `Initialize` once per element, which was half of the interpreted instructions. A first run of a freshly built `jaic` can still wait on the system for tens of seconds before it starts working; use `-check` while editing.
 - Fixed by "perf(image): pick PNG row filters from a sample": the interpreted smoke run spent most of its time in the PNG encoder (row filtering about 58%, the match finder about 25%). Rows now score Sub, Up, Average and Paeth at 256 sampled positions and filter only with the winner (Sub and Up eight bytes at a time), and long matches no longer insert every position. The interpreter executes 325 million instructions instead of 1,060 million and the run takes about 0.7 s instead of 1.15 s.
 
-## Not done
+## Fixed in the combined editor
 
-LSP client for jailsp, native menus and file dialogs (the open prompt stands in), IME and text shaping/kerning, accessibility export, a browser target.
+- "fix(ui): retain editor marks until frame painting": stack-local diagnostic/search mark arrays outlived the build callback. UI now snapshots them in the frame allocator; a mutation-after-declaration regression and the wave test cover the lifetime.
+
+- "fix(ui): render diagnostic underlines as clipped waves": underlines now match their documented wave shape and clip to the viewport; headless display-list tests cover them.
+- "feat(ui): cache proportional font kerning in text layout": measuring, drawing, selection and hit-testing share cached pair adjustments; real Arial and MONO tests cover the policy.
+- "fix(window): use the struct return ABI for Cocoa argument messages": large return values with an argument use objc_msgSend_stret on x64, matching the existing zero-argument helper. A display-free NSValue round trip covers the helper.
+- "feat(desktop): add opt-in native menus dialogs and text services": native integrations live entirely in Extensions, with direct AppKit callbacks, menu validation and event ordering tests. Input and Window_Creation retain their existing public declarations.
+- "feat(ui): route desktop menus and IME composition through the app loop": menus enter the ordinary shortcut path once; preedit remains outside the document, commits form one undo group, and empty updates cancel composition. Widget and command routing tests cover these paths.
+- "feat(editor): combine language services native desktop and text input": the editor retains one session and one document model for all three branches. Save As retires the old LSP URI and opens the new identity only after a successful write. The configuration path remains owned across frames.
+
+## Open
+
+- Accessibility export and browser target remain unimplemented.
+- jailsp has no formatting method; the editor calls Extensions/Jai_Format with the nearest jacket.toml.
+- Completion snippets/additionalTextEdits need an edit transaction model. Hover is plain text on F1; completion uses a filter/click list; definition has one return location.
+- X11 composition is not implemented. Pair kerning is not HarfBuzz shaping, contextual forms or bidirectional layout. Some faces expose no legacy pair adjustments.
+- Preedit is a single-line overlay. Surrounding-text attributed-substring queries, reconversion and replacement ranges outside the active selection are not implemented.
+- Native menus have no separators, enabled predicates, checkmarks or nested submenus. Windows uses the older shell folder browser, which ignores the starting-directory hint.
+- The fallback Save As prompt writes the entered path directly, without native overwrite confirmation.
+- AppKit activation is denied in this sandbox. Native menu/dialog appearance, Japanese/Chinese input, candidate selection and screen geometry need a desktop session. Windows and Linux runtime behavior is unverified on this Mac.
+- File-watcher directory registration is denied here; smoke explicitly invalidates the tree. Native watcher delivery remains unverified. GPU screenshot checks are optional and no successful rendered appearance is claimed.
