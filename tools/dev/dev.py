@@ -286,6 +286,11 @@ def cmd_lint(args) -> int:
         fix = ["--fix", "--allow-dirty", "--allow-staged"] if args.fix else []
         failed |= bool(run(["cargo", "clippy", "-j", args.jobs, "--workspace", "--all-targets",
                             "--locked", *fix, "--", "-D", "warnings"]))
+        # The dev-only features compile away by default, so lint them too or they rot.
+        if not args.fix:
+            failed |= bool(run(["cargo", "clippy", "-j", args.jobs, "-p", "jaic", "--all-targets",
+                                "--locked", "--features", "body-probe,speculative-bodies",
+                                "--", "-D", "warnings"]))
     return int(failed)
 
 
