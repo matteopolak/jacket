@@ -75,7 +75,21 @@ Together lexing the 120 files went from 125 ms to 75 ms (warm) and lex plus pars
 
 **Parse-ahead is not the bottleneck in real programs.** Timing every `claim`: the stdlib program waits 10 ms in total (of 150 ms), `game2d` 2 ms; relocation costs 3 ms. Only the generated program, with 120 files of 5,000 lines asked for within 100 ms of each other, waits (55 ms, 8%), because four workers cannot parse that fast; 8 workers saved 2%. About 9% of claims come back empty because the file is loaded a second time into another module (a new `FileId` and `AstId`s, so it is parsed again on the sema thread). A claimed file stays in the queue and the worker that pops it skips it, instead of an O(queue) scan.
 
-What is left is mostly spread thin: `Lexer::push` and `skip_trivia` (about 6% and 7% of lex plus parse), allocation and freeing of AST nodes (about 10%), `Table::find`, and the parser's lookahead scans (`tagged_member_ahead`, `paren_starts_header`, about 4% together). Ideas too large for a pass: a per-thread interner that numbers symbols locally and merges (drops the shard locks, but `Sym` order and `Sym` equality across threads would need a translation step); parsing a second instance of a file once and cloning the tree with fresh `AstId`s; giving workers the final `FileId` so `relocate` (2% of the generated program) disappears; and an arena for AST nodes.
+What is left is mostly spread thin: `Lexer::push` and `skip_trivia` (about 6% and 7% of lex plus parse), allocation and freeing of AST nodes (about 10%), `Table::find`, and the parser's lookahead scans (`tagged_member_ahead`, `paren_starts_header`, about 4% together). Five larger redesigns were tried or bounded and none is worth it; see below.
+
+**Larger redesigns, measured.** Release builds, best of 10 (20 where marked) alternating runs of the old and new `jaic`, `-check` unless noted, load average 2.5 to 3.5 (one 10-run pass reached 3.7 at its start). The workloads are the 600k generated lines (`tools/benchgen.py --lines 600000 --files 120 --seed 1`), `examples/game2d/game`, `examples/ui-gallery` and `benchmarks/compile/stdlib-imports.jai`.
+
+| Redesign | Result | 600k generated | game2d | ui-gallery | stdlib |
+| --- | --- | --- | --- | --- | --- |
+| Queue `#load`/`#import` from the token stream, right after lexing | rejected | 0.698 s to 0.685 s (-1.8%); full build -3.0% | 0.096 s to 0.097 s (+1.7%) | +0.8% | 0.0318 s to 0.0339 s (+6.7%, median +3.2%, 20 runs) |
+| Bump arena for worker allocations (global allocator, free is a no-op) | rejected | 0.707 s to 0.695 s (-1.7%, median -0.7%); `-serial_parse` +2.5% | +1.8% | +1.6% | +2.8% |
+
+- **Early discovery.** The token scan only sees imports outside braces, so it queues what parsing would have queued a moment later. It helps the one workload that starves the workers (168 ms of 840 ms waiting in `claim`) and costs 1 to 2 ms on the others (the second scan, the second `canonical`, and a different queue order). Real programs wait 5 to 10 ms in total, so there is little to win.
+- **Arena.** Worker parses go faster on the big program, but every `dealloc` in the process now compares the pointer with the arena range, which costs 2 to 3% on the other workloads and on the serial path. Dropped trees would also never return memory.
+- **Final `FileId` up front.** `relocate` costs 17 to 27 ms of the generated program (2 to 3%) and at most 2 ms elsewhere. A file's id is its position in sema's load order, and debug info, spans and the type table follow it, so a worker that guessed the id would make output depend on timing. Reserving ids when a parent is declared would be deterministic, but workers are far ahead of sema and have usually parsed the file already, and unused reservations leave holes in the file table. Not built.
+- **Clone a second instance.** Re-parsing a file loaded into another module (two files per workload) takes 0.2 to 0.7 ms in total, under 1.3% on every workload; a clone would need `Clone` plus an `AstId` rewrite and cost part of that. Not built.
+- **Per-thread interner.** A worker takes a shard lock only when its own cache has not seen a spelling: 181k times for the generated program, 29 ms summed over five threads including the timer's own cost, so under 1% of wall time. Numbering locally would add a translation walk over every tree, the same size as `relocate`, which is more than the locks cost. Not built.
+
 
 ### Rejected experiments
 
