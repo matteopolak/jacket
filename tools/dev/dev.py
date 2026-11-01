@@ -648,8 +648,9 @@ def check_shell(hook: Hook, shell: list[str]) -> None:
         hook_warn("shellcheck not found; skipping the shell lint check")
         return
     hook.say("shellcheck")
-    # The staged copies, so the findings are about what will be committed.
-    status, output = run_captured(["shellcheck", *shell], cwd=hook.tmp)
+    # The staged copies, so the findings are about what will be committed. A sourced file is often
+    # not staged, so SC1091 (cannot follow it) is left to CI, which checks every script together.
+    status, output = run_captured(["shellcheck", "-e", "SC1091", *shell], cwd=hook.tmp)
     if status:
         hook.fail("shellcheck <files>", output)
 
