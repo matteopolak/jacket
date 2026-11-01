@@ -1,4 +1,3 @@
-// jailint: allow-file(magic_number) // the Rec. 709 luma weights
 // Pixel format conversion. One loop per (source, destination) pair, instantiated from a single
 // template so each is straight-line code over the pixels.
 

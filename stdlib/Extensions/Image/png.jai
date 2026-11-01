@@ -1,4 +1,3 @@
-// jailint: allow-file(magic_number) // chunk offsets, Adam7 tables and filter arithmetic
 // PNG: signature, then chunks of length, type, data and CRC-32. The image data is the zlib stream
 // formed by the IDAT chunks, holding filtered scanlines (each a filter-type byte and the row).
 

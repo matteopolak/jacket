@@ -1,4 +1,3 @@
-// jailint: allow-file(magic_number) // decimal digit arithmetic of the PNM header
 // PNM: P2/P3 (text) and P5/P6 (binary) graymaps and pixmaps.
 
 // Decodes a PGM (P2, P5) to `GRAY8` or a PPM (P3, P6) to `RGB8`. Samples are scaled to 8 bits.

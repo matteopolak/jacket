@@ -1,4 +1,3 @@
-// jailint: allow-file(magic_number) // offsets and field widths of the BMP headers
 // BMP: file header, a DIB header (OS/2 core, BITMAPINFOHEADER, V4, V5), an optional palette or
 // channel masks, then rows padded to four bytes, bottom row first unless the height is negative.
 

@@ -1,4 +1,3 @@
-// jailint: allow-file(magic_number) // image sizes and synthetic content constants are the workload
 // Throughput of the Image module in megapixels per second (MP/s), against stb_image,
 // stb_image_write and stb_image_resize where they have a counterpart. Native only (stb is C).
 //

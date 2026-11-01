@@ -24,15 +24,11 @@ exclude = [
 # line; lower it as they are split.
 max_complexity = 100
 
-# Time units read as themselves (`seconds * 60`, `ns / 1_000_000_000`).
-magic_number_allow = [60, 24, 1_000_000, 1_000_000_000]
-
 # Off-by-default rules this repository holds itself to.
 [lint.rules]
 excessive_nesting = "warn"
 leaked_allocation = "warn"
 cognitive_complexity = "warn"
-magic_number = "warn"
 platform_leak = "warn"
 
 # Exact float comparisons in library code are checked; tests compare exact results on purpose.
@@ -48,129 +44,6 @@ rules = { float_equality = "allow" }
 [[lint.overrides]]
 paths = ["tests/corpus/positive/case-selection.jai"]
 rules = { single_case_switch = "allow" }
-
-# Numbers that are the content rather than a choice. Each override names the files that still
-# need it; the named constants and the character literals of the other files are in the code.
-
-# Benchmark and library benchmark workloads: sizes, seeds and iteration counts are the content of the program.
-[[lint.overrides]]
-paths = [
-    "benchmarks/compile/constant-tables.jai",
-    "benchmarks/compile/run-loops.jai",
-    "benchmarks/interp-loops-long.jai",
-    "benchmarks/interp-loops.jai",
-    "benchmarks/runtime-projects/jai-xml.jai",
-    "benchmarks/runtime-projects/jaison.jai",
-    "benchmarks/runtime/matrix.jai",
-    "benchmarks/runtime/merge-sort.jai",
-    "benchmarks/runtime/nbody.jai",
-    "benchmarks/runtime/open-hash.jai",
-    "benchmarks/bench/**",
-    "benchmarks/stdlib/byte-search.jai",
-    "benchmarks/compare/**",
-    "benchmarks/stdlib/log-scan.jai",
-    "stdlib/Extensions/Http/bench/bench.jai",
-    "stdlib/Extensions/Http/bench/client_bench.jai",
-    "stdlib/Extensions/Http/bench/server_bench.jai",
-    "stdlib/Extensions/Image/bench/jpeg_bench.jai",
-    "stdlib/Extensions/Io/bench/files.jai",
-    "stdlib/Extensions/Json/bench/bench.jai",
-]
-rules = { magic_number = "allow" }
-
-# Binary file formats and wire protocols: field offsets, tags, sizes and magic values are the format.
-[[lint.overrides]]
-paths = [
-    "stdlib/Extensions/Deflate/stream.jai",
-    "stdlib/Extensions/Http/h2_frame.jai",
-    "stdlib/Extensions/Http/hpack.jai",
-    "stdlib/Extensions/Image/jpeg.jai",
-    "stdlib/Extensions/Image/jpeg_huffman.jai",
-    "stdlib/Extensions/Image/jpeg_output.jai",
-    "stdlib/Extensions/Image/jpeg_scan.jai",
-    "stdlib/internal/android-toolchain/adb-process.jai",
-    "stdlib/internal/android-toolchain/android-manifest-writer.jai",
-    "stdlib/internal/android-toolchain/android-manifest.jai",
-    "stdlib/internal/android-toolchain/apk-signing-assembly.jai",
-    "stdlib/internal/android-toolchain/apk-signing-digest.jai",
-    "stdlib/internal/android-toolchain/asn1-diagnostics.jai",
-    "stdlib/internal/android-toolchain/asn1-tags.jai",
-    "stdlib/internal/android-toolchain/asn1-values.jai",
-    "stdlib/internal/android-toolchain/jks-decryption.jai",
-    "stdlib/internal/android-toolchain/jks-generation.jai",
-    "stdlib/internal/archive/android-apk.jai",
-    "stdlib/internal/archive/android-zip-wire.jai",
-    "stdlib/internal/archive/android-zip-writer.jai",
-    "stdlib/internal/archive/zip-directory.jai",
-    "stdlib/internal/audio/adpcm.jai",
-    "stdlib/internal/audio/loading.jai",
-    "stdlib/internal/audio/panning.jai",
-    "stdlib/internal/audio/wav.jai",
-    "stdlib/internal/developer-tools/codeview-symbol-parser.jai",
-    "stdlib/internal/developer-tools/codeview-types.jai",
-    "stdlib/internal/developer-tools/debug-formats/dwarf-line-wire.jai",
-    "stdlib/internal/developer-tools/dwarf-frame.jai",
-    "stdlib/internal/developer-tools/profiling/graphics.jai",
-    "stdlib/internal/executable/coff.jai",
-    "stdlib/internal/executable/lexer.jai",
-    "stdlib/internal/executable/macho.jai",
-    "stdlib/internal/executable/relocations.jai",
-    "stdlib/internal/executable/tbd.jai",
-    "stdlib/internal/executable/universal.jai",
-    "stdlib/internal/media/mpeg/audio.jai",
-    "stdlib/internal/media/mpeg/idct.jai",
-    "stdlib/internal/media/mpeg/motion.jai",
-    "stdlib/internal/media/mpeg/pixels.jai",
-    "stdlib/internal/media/mpeg/program.jai",
-    "stdlib/internal/media/mpeg/reconstruction.jai",
-    "stdlib/internal/media/mpeg/synthesis.jai",
-    "stdlib/internal/resource-wire/ico-encode.jai",
-]
-rules = { magic_number = "allow" }
-
-# Float, checksum and number-formatting algorithms: the constants come from the published algorithm.
-[[lint.overrides]]
-paths = [
-    "stdlib/Extensions/Deflate/checksum.jai",
-    "stdlib/Extensions/Deflate/deflate.jai",
-    "stdlib/Extensions/Deflate/inflate.jai",
-    "stdlib/Extensions/Json/number.jai",
-    "stdlib/internal/basic/binary-to-decimal.jai",
-    "stdlib/internal/basic/decimal-to-binary.jai",
-    "stdlib/internal/basic/format-float.jai",
-    "stdlib/internal/basic/numeric-conversion.jai",
-    "stdlib/internal/crypto/sha.jai",
-    "stdlib/internal/hash/md5.jai",
-    "stdlib/internal/hash/meow/finalize.jai",
-    "stdlib/internal/numerics/color/module.jai",
-    "stdlib/internal/numerics/math_scalar.jai",
-    "stdlib/internal/numerics/ui_editor.jai",
-    "stdlib/internal/random/pcg.jai",
-]
-rules = { magic_number = "allow" }
-
-# The WebAssembly runtime: opcodes, section ids and limits are defined by the specification.
-[[lint.overrides]]
-paths = [
-    "stdlib/Extensions/Wasi_Runtime/elementary.jai",
-    "stdlib/Extensions/Wasi_Runtime/math.jai",
-    "stdlib/Extensions/Wasi_Runtime/module.jai",
-    "stdlib/Extensions/Wasi_Runtime/quad.jai",
-]
-rules = { magic_number = "allow" }
-
-# Operating system bindings: the values are the platform API's.
-[[lint.overrides]]
-paths = [
-    "stdlib/Windows/wrappers.jai",
-    "stdlib/X11/wrappers.jai",
-]
-rules = { magic_number = "allow" }
-
-# Staged copies of the files above and generated bindings that the developer checks lint.
-[[lint.overrides]]
-paths = ["target/**"]
-rules = { magic_number = "allow" }
 
 # Tests, regressions and benchmarks write the flagged shapes on purpose: hand-written copy loops,
 # one-element arrays, wide shifts and unsigned bounds are the inputs under test.

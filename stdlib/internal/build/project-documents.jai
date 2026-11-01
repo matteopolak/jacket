@@ -37,7 +37,7 @@ pg_identifier :: (name: string) -> string {
     for byte, index: digest {
         if index == 16 break;
 
-        if index == 4 || index == 6 || index == 8 || index == 10 { // jailint: allow(magic_number): byte offsets of the GUID group boundaries
+        if index == 4 || index == 6 || index == 8 || index == 10 {
             result[at] = #char "-";
             at += 1;
         }

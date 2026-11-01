@@ -1,4 +1,3 @@
-// jailint: allow-file(magic_number) // the QOI header and op encodings
 // QOI ("Quite OK Image"): 14-byte header, a stream of one-to-five byte ops, 8-byte end marker.
 
 // Decodes a QOI file to `RGB8` (3 channels) or `RGBA8` (4 channels).
