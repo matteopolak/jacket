@@ -11,6 +11,9 @@ Engine :: struct {
     onepass: OnePass; // the one-pass capture table, if the pattern has one (onepass.ok)
     fixed_length := -1; // every match is this many bytes long: no need to look for the start
     pool: *Memory_Pool.Pool; // holds the parse tree, the programs and this struct; null for an engine built at compile time
+    // Clones (`clone`) copy the programs and the one-pass table by value, which shares what they point to, and have DFAs of their own.
+    origin: *Engine; // for a clone: the engine whose pool holds the shared parts; null for an engine from `compile`
+    refs: s64; // on the origin: the origin itself plus its live clones; the last one to be freed releases the pool
     frozen: bool; // built at compile time: both DFAs are complete and the programs are constants
 }
 
@@ -29,6 +32,7 @@ build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
     }
 
     engine.pool = pool;
+    engine.refs = 1;
 
     dfa_init(*engine.forward, *engine.program, false);
     dfa_init(*engine.backward, *engine.reverse, true);

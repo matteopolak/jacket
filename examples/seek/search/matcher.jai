@@ -1,5 +1,5 @@
 // A pattern, ready to look for in lines. A matcher keeps scratch space and a regex search cache,
-// so it belongs to one thread: every worker makes its own.
+// so it belongs to one thread: every worker takes its own with `clone_matcher`.
 
 Matcher :: struct {
     fixed: bool;
@@ -29,6 +29,18 @@ make_matcher :: (options: Options) -> Matcher, error: string {
     matcher.regex = regex;
 
     return matcher, "";
+}
+
+// A matcher for another thread. It shares the compiled pattern and has scratch space of its own.
+clone_matcher :: (matcher: *Matcher) -> Matcher {
+    clone := matcher.*;
+
+    clone.needle = copy_string(matcher.needle);
+    clone.folded = .{};
+
+    if !matcher.fixed && matcher.regex.engine clone.regex = Regex.clone(*matcher.regex);
+
+    return clone;
 }
 
 free_matcher :: (matcher: *Matcher) {

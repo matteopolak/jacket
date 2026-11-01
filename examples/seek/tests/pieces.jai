@@ -89,6 +89,24 @@ a_regex_matcher_finds_the_first_match :: (t: *Test) {
     expect_equal(find_in_line(*matcher, "no digits"), -1);
 } @test
 
+a_cloned_matcher_finds_what_the_original_does :: (t: *Test) {
+    regex, _ := make_matcher(.{ pattern = "[0-9]+" });
+    fixed, _ := make_matcher(.{ pattern = "ab", fixed = true, ignore_case = true });
+    regex_clone := clone_matcher(*regex);
+    fixed_clone := clone_matcher(*fixed);
+
+    // The clones outlive the matchers they came from.
+    free_matcher(*regex);
+    free_matcher(*fixed);
+
+    expect_equal(find_in_line(*regex_clone, "xxAB 12"), 5);
+    expect_equal(find_in_line(*regex_clone, "none"), -1);
+    expect_equal(find_in_line(*fixed_clone, "xxAB 12"), 2);
+    expect_equal(find_in_line(*fixed_clone, "none"), -1);
+    free_matcher(*regex_clone);
+    free_matcher(*fixed_clone);
+} @test
+
 a_bad_regex_is_explained :: (t: *Test) {
     _, problem := make_matcher(.{ pattern = "a(" });
 

@@ -16,6 +16,7 @@
 - `jacket test` in a folder that has its own `tests/` folder below the project tests that folder.
 - `expect_equal` takes an optional message.
 - `Thread.wait_for_all(*group)` blocks until every piece of work added to a `Thread_Group` has run, and `group.worker_start` runs a callback on each worker thread before its first job.
+- `Regex.clone(*re)` makes a regex for another thread that shares the compiled pattern and has its own search cache.
 - `Extensions/Io` has `Line_Reader`, `make_line_reader` and `read_line`, a buffered line reader with a length limit.
 
 ### Fixed

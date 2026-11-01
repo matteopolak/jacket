@@ -37,9 +37,9 @@ Both runtime and `Static` patterns support `is_match`, `find`, `find_all`, `capt
 - One-pass rules: `explore`, `fill_state`. Never accept a conflicting pattern; a wrong table shows up in the differential test or the `fill_slots` assert.
 - Skips: `dfa_skip` and its constants. A skip may only move to positions where no match can start; if unsure return `state = UNKNOWN`.
 - Keep `tests/differential.jai` passing (`tests/data/differential_cases.jai`); set `DEFAULT_STATE_LIMIT` to 3 temporarily to force the Pike VM. Regenerate the corpus with `tools/corpus/gen_regex_corpus.py` (see `--help`). Unicode data: [Regex Unicode tables](../tools/regex-unicode-tables.md).
-- Gotchas: runtime `Regex` values share a mutable DFA cache, so use one per thread. Lazily built `Static` engines share a global cache.
+- Gotchas: runtime `Regex` values share a mutable DFA cache, so give each thread a `Regex.clone` (the programs and one-pass table are shared by reference count, the DFAs are not). `begin_once` guards the tables built on first use (word characters, case folding), which every thread shares. Lazily built `Static` engines share a global cache.
 
-`Options` (run time): `case_insensitive`, `multi_line`, `dot_all`, `swap_greed`, `ignore_space`, `crlf`, `unicode` (default on); inline flags `(?imsxRU-u)` also work. Limits: `DEFAULT_STATE_LIMIT`, `STATIC_STATE_LIMIT`, `ONEPASS_STATE_LIMIT`, `MAX_NESTING` (250). Depends on [Byte_Search](byte-search.md). Tests are in `stdlib/Extensions/Regex/tests/`.
+`Options` (run time): `case_insensitive`, `multi_line`, `dot_all`, `swap_greed`, `ignore_space`, `crlf`, `unicode` (default on); inline flags `(?imsxRU-u)` also work. Limits: `DEFAULT_STATE_LIMIT`, `STATIC_STATE_LIMIT`, `ONEPASS_STATE_LIMIT`, `MAX_NESTING` (250). Depends on [Byte_Search](byte-search.md) and Atomics. Tests are in `stdlib/Extensions/Regex/tests/`.
 
 ## Compared with the community libraries
 

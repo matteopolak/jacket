@@ -41,8 +41,8 @@ Options :: struct {
     unicode := true; // u: classes and \b are Unicode-aware; off, they are ASCII and match bytes
 }
 
-// A compiled pattern from [compile]. Copies share the compiled program and the search cache,
-// which is not safe to use from two threads at once: give each thread its own compile.
+// A compiled pattern from [compile]. Plain copies of the struct share the compiled program and the search cache, which is not
+// safe to use from two threads at once: give each thread its own [clone].
 Regex :: struct {
     pattern: string;
     group_count: int; // capture groups, not counting group 0 (the whole match)
@@ -100,7 +100,50 @@ compile :: (pattern: string, options := Options.{}) -> Regex, ok: bool, Error {
     return re, true, .{};
 }
 
-// Releases everything [compile] allocated for the regex: the parsed pattern, both programs and the search tables.
+// A regex for another thread: it shares the compiled pattern (parse, programs and one-pass table) with `re` and has a search
+// cache of its own, so it costs far less than a second [compile]. Free it with [free_regex], like any other regex.
+//
+// Clone before the threads start, or from the thread that owns `re`: `re` must not be freed while `clone` runs. After that,
+// the regexes can be freed in any order and on any thread; the shared part goes with the last one. Memory for the clone and its
+// cache comes from `context.allocator`, so free it with the same allocator.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("[0-9]+");
+// copy := Regex.clone(*re);
+// Regex.free_regex(*re);   // the clone keeps the pattern alive
+// assert(Regex.is_match(*copy, "room 101"));
+// Regex.free_regex(*copy);
+// ```
+clone :: (re: *Regex) -> Regex {
+    result := re.*;
+    if !re.engine return result;
+
+    origin := re.engine;
+    if origin.origin origin = origin.origin;
+
+    assert(origin.refs > 0 && !origin.frozen, "Regex.clone: the regex was freed or is not from compile");
+    atomic_increment(*origin.refs);
+
+    engine := New(Engine);
+    engine.pattern = origin.pattern;
+    engine.program = origin.program;
+    engine.reverse = origin.reverse;
+    engine.onepass = origin.onepass;
+    engine.fixed_length = origin.fixed_length;
+    engine.origin = origin;
+
+    dfa_init(*engine.forward, *engine.program, false);
+    dfa_init(*engine.backward, *engine.reverse, true);
+
+    result.engine = engine;
+
+    return result;
+}
+
+// Releases everything [compile] allocated for the regex: the parsed pattern, both programs and the search tables. For a regex
+// made by [clone], that is its own search cache, and the pattern goes when the last regex sharing it is freed.
 //
 // ```jai
 // Regex :: #import "Extensions/Regex";
@@ -117,17 +160,27 @@ free_regex :: (re: *Regex) {
 
     dfa_free(*engine.forward);
     dfa_free(*engine.backward);
-    onepass_free(*engine.onepass);
+    re.engine = null;
+
+    origin := engine;
+
+    if engine.origin {
+        origin = engine.origin;
+        free(engine);
+    }
+
+    // The shared part goes with the last regex that uses it.
+    if !atomic_decrement(*origin.refs) return;
+
+    onepass_free(*origin.onepass);
 
     // A compiled engine lives in its own pool, the engine itself included.
-    if engine.pool {
-        pool := engine.pool;
+    if origin.pool {
+        pool := origin.pool;
 
         Memory_Pool.release(pool);
         free(pool);
     }
-
-    re.engine = null;
 } @FreesArgument
 
 // Whether captures for this pattern are found in a single scan, which makes [captures] faster.
@@ -720,6 +773,7 @@ fill_struct :: ($pattern: string, engine: *Engine, text: string, s: int, e: int,
 }
 
 #import "Basic";
+#import "Atomics";
 #import "String";
 #import "Hash_Table";
 #import "Compiler";

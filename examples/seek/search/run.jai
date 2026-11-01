@@ -28,7 +28,7 @@ run_search :: (options: Options) -> Report {
         return report;
     }
 
-    free_matcher(*checked);
+    defer free_matcher(*checked);
 
     files, walk_errors := list_files(options);
 
@@ -39,7 +39,7 @@ run_search :: (options: Options) -> Report {
 
     defer free_jobs(jobs);
 
-    workers := scan_all(options, jobs);
+    workers := scan_all(options, jobs, *checked);
 
     report.output = join_output(jobs, workers);
     report.errors = collect_errors(walk_errors, jobs);
@@ -74,6 +74,7 @@ Worker :: struct {
 
 Shared :: struct {
     options: *Options;
+    template: *Matcher; // the pattern, compiled once; each worker clones it
     workers: [] Worker;
 }
 
@@ -95,13 +96,14 @@ free_jobs :: (jobs: [] Job) {
 }
 
 // Scans every job on `options.jobs` threads (fewer when there are fewer files) and returns the
-// workers, whose buffers the jobs refer to.
-scan_all :: (options: Options, jobs: [] Job) -> [] Worker {
+// workers, whose buffers the jobs refer to. `template` is the options' pattern, made once; every
+// worker works with a clone of it.
+scan_all :: (options: Options, jobs: [] Job, template: *Matcher) -> [] Worker {
     if jobs.count == 0 return .[];
 
     count := cast(s32) min(max(options.jobs, 1), jobs.count);
     options_copy := options;
-    shared := Shared.{ options = *options_copy, workers = NewArray(count, Worker) };
+    shared := Shared.{ options = *options_copy, template = template, workers = NewArray(count, Worker) };
 
     group: Thread_Group;
 
@@ -119,11 +121,11 @@ scan_all :: (options: Options, jobs: [] Job) -> [] Worker {
     return shared.workers;
 }
 
-// Runs on each worker thread before its first job: the worker's matcher is made here.
+// Runs on each worker thread before its first job: the worker takes its matcher here.
 start_worker :: (group: *Thread_Group, thread: *Thread, worker_index: s32) {
     shared := cast(*Shared) group.data;
 
-    shared.workers[worker_index].matcher, _ = make_matcher(shared.options.*);
+    shared.workers[worker_index].matcher = clone_matcher(shared.template);
 }
 
 scan_job :: (group: *Thread_Group, thread: *Thread, work: *void) -> Thread_Continue_Status {

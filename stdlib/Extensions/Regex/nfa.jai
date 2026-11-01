@@ -78,12 +78,12 @@ word_char_before :: (text: string, pos: int) -> bool {
 }
 
 is_word_char :: (c: u32) -> bool {
-    if !word_table_ready {
+    if begin_once(*word_state) {
         // The table outlives every regex, so it must not come from the pool of the one that first needed it.
         push_allocator(context.default_allocator);
 
         word_table = unicode_perl_word();
-        word_table_ready = true;
+        finish_once(*word_state);
     }
 
     lo, hi := 0, word_table.count - 1;
@@ -245,7 +245,7 @@ backtrack_fits :: (program: *Program, span: int) -> bool {
 #scope_file
 
 word_table: [..] Char_Range;
-word_table_ready := false;
+word_state: s32;
 
 Frame :: struct {
     pc: u32;

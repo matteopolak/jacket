@@ -3,11 +3,31 @@
 // docs/tools/regex-unicode-tables.md) as compact text and are decoded one set at a time.
 
 #import "Basic";
+#import "Atomics";
 #import "Sort";
 
 #load "unicode_data.jai";
 
 #scope_module
+
+// Tables built on first use are shared by every thread. `begin_once(*state)` is true for the one caller that has to build
+// the table, and only after that caller's `finish_once` do the others (waiting here) and later callers see a complete table.
+// `state` starts at zero.
+begin_once :: (state: *s32) -> bool {
+    if atomic_read(state) == 2 return false;
+
+    won, _ := compare_and_swap(state, cast(s32) 0, cast(s32) 1);
+    if won return true;
+
+    // The builder is only a table-sized loop away.
+    while atomic_read(state) != 2 {}
+
+    return false;
+}
+
+finish_once :: (state: *s32) {
+    atomic_write(state, cast(s32) 2);
+}
 
 // An inclusive span of code points.
 Char_Range :: struct {
@@ -363,12 +383,12 @@ Fold_Entry :: struct {
 
 fold_entries: [..] Fold_Entry;
 fold_others: [..] u32;
-fold_loaded := false;
+fold_state: s32;
 
 load_fold_table :: () {
-    if fold_loaded return;
+    if !begin_once(*fold_state) return;
 
-    fold_loaded = true;
+    defer finish_once(*fold_state);
 
     // The table outlives every regex, so it must not come from the pool of the one that first needed it.
     push_allocator(context.default_allocator);
