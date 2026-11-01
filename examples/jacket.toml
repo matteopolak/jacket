@@ -31,4 +31,4 @@ cognitive_complexity = "warn"
 
 # Examples with a `tests/` folder of their own, for `jacket test` run here. Run inside one, it tests just that example.
 [test]
-paths = ["kvdb", "sitegen", "seek", "editor", "chat"]
+paths = ["kvdb", "sitegen", "seek", "editor", "chat", "chip8"]

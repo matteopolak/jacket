@@ -137,3 +137,4 @@ dogfood:
     sh examples/seek/tools/smoke.sh
     sh examples/editor/tools/smoke.sh
     sh examples/chat/tools/smoke.sh
+    sh examples/chip8/tools/smoke.sh

@@ -390,6 +390,15 @@
       "summary": "Multi-room chat with persisted history, terminal client, bot, load tool, shared-memory stats and mention digests.",
       "mode": "check",
       "stdout_contains": []
+    },
+    {
+      "id": "chip8",
+      "directory": "examples/chip8",
+      "main": "main.jai",
+      "title": "CHIP-8 emulator",
+      "summary": "A deterministic CHIP-8/SUPER-CHIP interpreter with a Simp window and a small assembler.",
+      "mode": "check",
+      "stdout_contains": []
     }
   ]
 }
