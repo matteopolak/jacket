@@ -168,3 +168,160 @@ ignore = ["tests/corpus/**", "stdlib/Extensions/Jai_Format/tests/fixtures/**", "
 # `jacket test` runs every folder under stdlib that has a `tests/` folder or a `module.jai`
 # (see docs/tools/jacket-test.md). Run inside one, it runs only that one.
 paths = ["stdlib/**"]
+
+# `jacket doc` with no path documents this. Patterns match module folders, as elsewhere here.
+[doc]
+path = "stdlib"
+name = "Jacket"
+description = "API documentation for the Jai standard library that ships with Jacket."
+logo = "editors/vscode/images/icon.svg"
+repo = "https://github.com/matteopolak/jacket"
+since = "crates/jacket/src/doc/since.tsv"
+pages_title = "Tools"
+
+# A module goes under the last category that matches it.
+[[doc.category]]
+name = "Standard library"
+modules = ["stdlib/**"]
+
+[[doc.category]]
+name = "Extensions"
+modules = ["stdlib/Extensions/**"]
+badge = "extension"
+tip = "Extension: not part of the standard library"
+color = "#1f7a8c"
+color_dark = "#6cc4d4"
+
+[[doc.page]]
+file = "docs/reference/command-line.md"
+name = "Command line"
+summary = "Every flag of jaic, jailint, and jacket, as their --help prints it."
+
+[[doc.page]]
+file = "docs/reference/environment-variables.md"
+name = "Environment variables"
+summary = "What each JAIC_ and JACKET_ variable does and who reads it."
+
+[[doc.page]]
+file = "docs/reference/lint-rules.md"
+name = "Lint rules"
+summary = "Every jailint rule with its group and default level."
+
+# Every module is in one group; `jacket doc --check` fails on one that is not, and on a pattern
+# that matches no module. A module goes in the last group that matches it.
+[[doc.group]]
+name = "Core"
+modules = [
+    "stdlib/Basic", "stdlib/Runtime_Support", "stdlib/Runtime_Support_Crash_Handler",
+    "stdlib/Remap_Context", "stdlib/Reflection", "stdlib/Soa", "stdlib/Relative_Pointers",
+    "stdlib/Deep_Copy", "stdlib/Extensions/Variant",
+]
+
+[[doc.group]]
+name = "Math and numbers"
+modules = [
+    "stdlib/Math", "stdlib/Sloppy_Math", "stdlib/Float16", "stdlib/Random", "stdlib/PCG",
+    "stdlib/Bit_Operations", "stdlib/SIMD", "stdlib/Srgb", "stdlib/Color_Interpolation",
+    "stdlib/Extensions/SIMD", "stdlib/Extensions/Long_Double",
+]
+
+[[doc.group]]
+name = "Memory and allocators"
+modules = [
+    "stdlib/Memory", "stdlib/Default_Allocator", "stdlib/Flat_Pool", "stdlib/Pool",
+    "stdlib/Overwriting_Allocator", "stdlib/Unmapping_Allocator", "stdlib/rpmalloc",
+]
+
+[[doc.group]]
+name = "Data structures and sorting"
+modules = [
+    "stdlib/Bit_Array", "stdlib/Bucket_Array", "stdlib/Hash_Table", "stdlib/Xar", "stdlib/Sort",
+    "stdlib/IntroSort", "stdlib/RadixSort", "stdlib/Extensions/Hash_Map",
+]
+
+[[doc.group]]
+name = "Text and formats"
+modules = [
+    "stdlib/String", "stdlib/Unicode", "stdlib/Base64", "stdlib/Print_Color",
+    "stdlib/Text_File_Handler", "stdlib/Subtitles", "stdlib/Extensions/Json",
+    "stdlib/Extensions/Regex", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/Text_Buffer",
+    "stdlib/Extensions/Byte_Search", "stdlib/Extensions/String_Literal",
+]
+
+[[doc.group]]
+name = "Files and OS"
+modules = [
+    "stdlib/File", "stdlib/File_Utilities", "stdlib/File_Watcher", "stdlib/Process",
+    "stdlib/System", "stdlib/Clipboard", "stdlib/Command_Line", "stdlib/Simple_Package",
+    "stdlib/Extensions/Args", "stdlib/Extensions/Environment", "stdlib/Extensions/Assets",
+]
+
+[[doc.group]]
+name = "Threads and concurrency"
+modules = [
+    "stdlib/Thread", "stdlib/Atomics", "stdlib/Shared_Memory_Channel", "stdlib/Extensions/Io",
+    "stdlib/Extensions/Io_Uring",
+]
+
+[[doc.group]]
+name = "Networking"
+modules = [
+    "stdlib/Socket", "stdlib/Curl", "stdlib/Mail", "stdlib/Extensions/Http",
+    "stdlib/Extensions/Tls", "stdlib/Extensions/Postgres",
+]
+
+[[doc.group]]
+name = "Graphics and windows"
+modules = [
+    "stdlib/GL", "stdlib/Simp", "stdlib/GetRect", "stdlib/GetRect_LeftHanded",
+    "stdlib/Window_Creation", "stdlib/Window_Type", "stdlib/Input", "stdlib/Keymap",
+    "stdlib/Gamepad", "stdlib/Gamepad/SDL_Input_Map", "stdlib/Icon", "stdlib/Ico_File",
+    "stdlib/ImGui", "stdlib/SDL", "stdlib/Extensions/SDL3", "stdlib/Extensions/UI",
+    "stdlib/Extensions/Image", "stdlib/Extensions/WebGPU",
+]
+
+[[doc.group]]
+name = "Audio and video"
+modules = [
+    "stdlib/Adpcm", "stdlib/Sound_Player", "stdlib/Wav_File", "stdlib/stb_vorbis", "stdlib/pl_mpeg",
+]
+
+[[doc.group]]
+name = "Compression and hashing"
+modules = [
+    "stdlib/Crc", "stdlib/Hash", "stdlib/md5", "stdlib/xxHash", "stdlib/meow_hash", "stdlib/lz4",
+    "stdlib/Zip_File_Directory", "stdlib/Extensions/Deflate",
+]
+
+[[doc.group]]
+name = "Debugging, profiling and testing"
+modules = [
+    "stdlib/Debug", "stdlib/Debug_Info", "stdlib/Print_Vars", "stdlib/Iprof",
+    "stdlib/Performance_Report", "stdlib/telemetry3", "stdlib/Treemap",
+    "stdlib/Protocol_For_Memory_Visualization", "stdlib/Extensions/Testing",
+    "stdlib/Extensions/Testing/Discovery", "stdlib/Extensions/Fuzz",
+]
+
+[[doc.group]]
+name = "Compiler and metaprogramming"
+modules = [
+    "stdlib/Compiler", "stdlib/Check", "stdlib/Code_Visit", "stdlib/Rewrite", "stdlib/Autorun",
+    "stdlib/Default_Metaprogram", "stdlib/Minimal_Metaprogram", "stdlib/Metaprogram_Plugins",
+    "stdlib/Example_Plugin", "stdlib/BuildCpp", "stdlib/Bindings_Generator",
+    "stdlib/Generate_C_Header", "stdlib/Jai_Lexer", "stdlib/Project_Generator",
+    "stdlib/MacOS_Bundler", "stdlib/Codex", "stdlib/Program_Print", "stdlib/Machine_X64",
+    "stdlib/executable_formats", "stdlib/linux_build", "stdlib/Extensions/Service",
+]
+
+[[doc.group]]
+name = "Platform bindings"
+modules = [
+    "stdlib/Android/AAudio", "stdlib/Android/EGL", "stdlib/Android/Toolchain", "stdlib/Android",
+    "stdlib/Linux", "stdlib/Windows", "stdlib/macOS", "stdlib/iOS", "stdlib/Objective_C",
+    "stdlib/Objective_C/AppKit", "stdlib/POSIX", "stdlib/X11", "stdlib/Metal", "stdlib/Vulkan",
+    "stdlib/d3d11", "stdlib/d3d12", "stdlib/d3d_compiler", "stdlib/dxc_compiler", "stdlib/dxgi",
+    "stdlib/nvidia_aftermath", "stdlib/MojoShader", "stdlib/freetype", "stdlib/meshoptimizer",
+    "stdlib/nvtt", "stdlib/stb_image", "stdlib/stb_image_resize", "stdlib/stb_image_write",
+    "stdlib/Windows_Registry", "stdlib/Windows_Resources", "stdlib/Windows_Utf8",
+    "stdlib/Wasi_Numeric_Runtime", "stdlib/Extensions/Wasi_Runtime",
+]

@@ -288,27 +288,42 @@ pub struct TestArgs {
     pub jaic_args: Vec<String>,
 }
 
-/// `jacket doc`: where the site goes and where it will be served from.
+/// `jacket doc`: what to document, how the site names itself, and where it will be served from.
 #[derive(clap::Args, Clone, Debug)]
 pub struct DocArgs {
+    /// A library to document: a module (a folder with `module.jai`) or a folder of modules.
+    /// Settings come from `[doc]` in its `jacket.toml` [default: `[doc] path` of the nearest
+    /// `jacket.toml`, else the standard library]
+    #[arg(value_name = "PATH")]
+    pub path: Option<std::path::PathBuf>,
     /// Where to write the site
     #[arg(long, value_name = "DIR", default_value = "target/doc-site")]
     pub out: std::path::PathBuf,
     /// The path the site is served under, with the slashes around it (`/docs/jacket/`)
     #[arg(long, value_name = "PATH", default_value = "/")]
     pub base_url: String,
+    /// The name in the header and page titles, over `[doc] name` [default: the folder's name]
+    #[arg(long, value_name = "NAME")]
+    pub name: Option<String>,
+    /// The version shown in the header [default: none]
+    #[arg(long = "version", id = "doc_version", value_name = "VERSION")]
+    pub version: Option<String>,
+    /// An SVG or PNG for the header and the page icon, over `[doc] logo` [default: none]
+    #[arg(long, value_name = "FILE")]
+    pub logo: Option<std::path::PathBuf>,
+    /// The repository's web address, over `[doc] repo`; Source links go to
+    /// `<URL>/blob/<ref>/<file>` [default: none, and no Source links]
+    #[arg(long, value_name = "URL")]
+    pub repo: Option<String>,
     /// A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so
     /// the Run buttons work; without it they are shown disabled
     #[arg(long, value_name = "DIR")]
     pub runtime: Option<std::path::PathBuf>,
-    /// Where "open in playground" and the Playground link go
-    #[arg(
-        long,
-        value_name = "URL",
-        default_value = "https://matteopolak.com/playground/jacket"
-    )]
-    pub playground_url: String,
-    /// The tag or branch Source links point at [default: v<this version>]
+    /// Where "open in playground" and the Playground link go, over `[doc] playground`
+    /// [default: none, and no links]
+    #[arg(long, value_name = "URL")]
+    pub playground_url: Option<String>,
+    /// The tag, branch or commit Source links point at [default: the checkout's commit]
     #[arg(long, value_name = "REF")]
     pub source_ref: Option<String>,
     /// Document only these modules (`String`, `Extensions/Http`); repeatable

@@ -1,71 +1,122 @@
-//! Which category each module is listed under, read from `stdlib/categories.toml`.
-use std::collections::BTreeMap;
-use std::path::Path;
+//! Where each module is listed: under which `[[doc.category]]` heading and in which
+//! `[[doc.group]]`, both matched against the module's folder by the patterns of `jacket.toml`.
+use jacket_config::pattern::PathPattern;
+use jacket_config::schema::{DocCategory, DocGroup};
 
-pub struct Categories {
-    /// Category names, in the order the file lists them.
-    pub order: Vec<String>,
-    of: BTreeMap<String, String>,
+/// A heading modules are listed under, with the badge they and their items carry.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Category {
+    pub name: String,
+    /// Badge text; empty for none.
+    pub badge: String,
+    pub tip: String,
+    pub color: String,
+    pub color_dark: String,
 }
 
-impl Categories {
-    /// The category of the module `id`.
-    pub fn of(&self, id: &str) -> &str {
-        self.of.get(id).map_or("", String::as_str)
-    }
+/// Where each module goes, in the order of the ids given.
+pub struct Layout {
+    pub categories: Vec<Category>,
+    /// Group names, in display order.
+    pub groups: Vec<String>,
+    /// For each module: its category's index, and its group (empty for none).
+    pub of: Vec<(Option<usize>, String)>,
+}
 
-    /// Reads `categories.toml` from `stdlib` and checks it against `ids`, every module there is.
-    pub fn load(stdlib: &Path, ids: &[String]) -> Result<Categories, String> {
-        let path = stdlib.join("categories.toml");
-        let text = std::fs::read_to_string(&path)
-            .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
-        Categories::parse(&text, ids).map_err(|e| format!("{}:\n  {e}", path.display()))
+/// Whether `color` is safe to put in a stylesheet: a `#` hex colour or a plain name.
+fn plain_color(color: &str) -> bool {
+    match color.strip_prefix('#') {
+        Some(hex) => {
+            matches!(hex.len(), 3 | 4 | 6 | 8) && hex.chars().all(|c| c.is_ascii_hexdigit())
+        }
+        None => !color.is_empty() && color.chars().all(|c| c.is_ascii_alphabetic()),
     }
+}
 
-    pub fn parse(text: &str, ids: &[String]) -> Result<Categories, String> {
-        let value: toml::Table = text.parse().map_err(|e| format!("{e}"))?;
-        let mut order: Vec<String> = Vec::new();
-        let mut of: BTreeMap<String, String> = BTreeMap::new();
-        let mut problems: Vec<String> = Vec::new();
-        let tables = value
-            .get("category")
-            .and_then(toml::Value::as_array)
-            .map_or(&[][..], Vec::as_slice);
-        for table in tables {
-            let Some(name) = table.get("name").and_then(toml::Value::as_str) else {
-                problems.push("a [[category]] has no `name`".to_owned());
-                continue;
-            };
-            if order.iter().any(|n| n == name) {
-                problems.push(format!("category `{name}` is declared twice"));
-                continue;
-            }
-            order.push(name.to_owned());
-            let modules = table
-                .get("modules")
-                .and_then(toml::Value::as_array)
-                .map_or(&[][..], Vec::as_slice);
-            for module in modules.iter().filter_map(toml::Value::as_str) {
-                if !ids.iter().any(|id| id == module) {
-                    problems.push(format!("`{module}` (in `{name}`) is not a module"));
-                } else if let Some(first) = of.insert(module.to_owned(), name.to_owned()) {
-                    problems.push(format!("`{module}` is in both `{first}` and `{name}`"));
-                }
+/// The index of the last entry whose patterns match `folder`.
+fn last_match<'a>(entries: impl Iterator<Item = &'a [PathPattern]>, folder: &str) -> Option<usize> {
+    let mut found = None;
+    for (i, patterns) in entries.enumerate() {
+        if patterns.iter().any(|p| p.is_match(folder)) {
+            found = Some(i);
+        }
+    }
+    found
+}
+
+/// Lays out the modules whose folders (relative to the `jacket.toml`, `/`-separated) are
+/// `folders`, named `ids` in messages.
+pub fn layout(
+    categories: &[DocCategory],
+    groups: &[DocGroup],
+    ids: &[String],
+    folders: &[String],
+) -> Result<Layout, String> {
+    let mut problems = Vec::new();
+    let mut out = Vec::with_capacity(categories.len());
+    for c in categories {
+        let mut color = c.color.clone().unwrap_or_default();
+        let mut color_dark = c.color_dark.clone().unwrap_or_else(|| color.clone());
+        for (key, value) in [("color", &mut color), ("color_dark", &mut color_dark)] {
+            if !value.is_empty() && !plain_color(value) {
+                problems.push(format!(
+                    "category `{}`: `{key}` `{value}` is not a `#rrggbb` colour or a colour name",
+                    c.name
+                ));
+                value.clear();
             }
         }
-        for id in ids {
-            if !of.contains_key(id) {
-                problems.push(format!("module `{id}` has no category"));
-            }
-        }
-        if problems.is_empty() {
-            Ok(Categories {
-                order,
-                of,
-            })
+        out.push(Category {
+            name: c.name.clone(),
+            badge: c.badge.clone().unwrap_or_default(),
+            tip: c.tip.clone().unwrap_or_else(|| c.name.clone()),
+            color,
+            color_dark,
+        });
+    }
+    let mut names: Vec<String> = Vec::new();
+    for g in groups {
+        if names.contains(&g.name) {
+            problems.push(format!("group `{}` is declared twice", g.name));
         } else {
-            Err(problems.join("\n  "))
+            names.push(g.name.clone());
         }
+    }
+    let unused = |kind: &str, name: &str, patterns: &[PathPattern]| {
+        patterns
+            .iter()
+            .filter(|p| !folders.iter().any(|f| p.is_match(f)))
+            .map(|p| format!("`{p}` (in {kind} `{name}`) matches no module"))
+            .collect::<Vec<_>>()
+    };
+    for c in categories {
+        problems.extend(unused("category", &c.name, &c.modules));
+    }
+    for g in groups {
+        problems.extend(unused("group", &g.name, &g.modules));
+    }
+    let mut of = Vec::with_capacity(folders.len());
+    for (id, folder) in ids.iter().zip(folders) {
+        let category = last_match(categories.iter().map(|c| c.modules.as_slice()), folder);
+        let group = last_match(groups.iter().map(|g| g.modules.as_slice()), folder);
+        let group = match group {
+            Some(g) => groups[g].name.clone(),
+            None if groups.is_empty() => String::new(),
+            None => {
+                problems.push(format!("module `{id}` ({folder}) is in no group"));
+                String::new()
+            }
+        };
+        of.push((category, group));
+    }
+    if problems.is_empty() {
+        Ok(Layout {
+            categories: out,
+            groups: names,
+            of,
+        })
+    } else {
+        Err(problems.join("\n  "))
     }
 }
 
@@ -73,30 +124,69 @@ impl Categories {
 mod tests {
     use super::*;
 
-    fn ids(names: &[&str]) -> Vec<String> {
+    fn strings(names: &[&str]) -> Vec<String> {
         names.iter().map(|n| (*n).to_owned()).collect()
     }
 
-    #[test]
-    fn every_module_gets_its_category() {
-        let text = "[[category]]\nname = \"A\"\nmodules = [\"X\"]\n[[category]]\nname = \"B\"\nmodules = [\"Y\"]\n";
-        let c = Categories::parse(text, &ids(&["X", "Y"])).unwrap();
-        assert_eq!(c.order, ["A", "B"]);
-        assert_eq!(c.of("Y"), "B");
+    fn patterns(p: &[&str]) -> Vec<PathPattern> {
+        p.iter().map(|p| PathPattern::new(p).unwrap()).collect()
+    }
+
+    fn category(name: &str, p: &[&str]) -> DocCategory {
+        DocCategory {
+            name: name.into(),
+            modules: patterns(p),
+            ..DocCategory::default()
+        }
+    }
+
+    fn group(name: &str, p: &[&str]) -> DocGroup {
+        DocGroup {
+            name: name.into(),
+            modules: patterns(p),
+        }
     }
 
     #[test]
-    fn a_missing_or_unknown_module_is_an_error() {
-        let text = "[[category]]\nname = \"A\"\nmodules = [\"X\", \"Z\"]\n";
-        let err = Categories::parse(text, &ids(&["X", "Y"])).err().unwrap();
-        assert!(err.contains("`Z` (in `A`) is not a module"), "{err}");
-        assert!(err.contains("module `Y` has no category"), "{err}");
+    fn the_last_matching_category_wins() {
+        let ids = strings(&["Basic", "Extensions/Json"]);
+        let folders = strings(&["lib/Basic", "lib/Extensions/Json"]);
+        let cats = [
+            category("Library", &["lib/**"]),
+            category("Extensions", &["lib/Extensions/**"]),
+        ];
+        let l = layout(&cats, &[], &ids, &folders).unwrap();
+        assert_eq!(l.of, [(Some(0), String::new()), (Some(1), String::new())]);
+        assert_eq!(l.categories[1].tip, "Extensions");
     }
 
     #[test]
-    fn a_module_cannot_be_listed_twice() {
-        let text = "[[category]]\nname = \"A\"\nmodules = [\"X\"]\n[[category]]\nname = \"B\"\nmodules = [\"X\"]\n";
-        let err = Categories::parse(text, &ids(&["X"])).err().unwrap();
-        assert!(err.contains("both `A` and `B`"), "{err}");
+    fn with_groups_every_module_needs_one() {
+        let ids = strings(&["A", "B"]);
+        let err = layout(&[], &[group("G", &["A", "Z"])], &ids, &ids)
+            .err()
+            .unwrap();
+        assert!(
+            err.contains("`Z` (in group `G`) matches no module"),
+            "{err}"
+        );
+        assert!(err.contains("module `B` (B) is in no group"), "{err}");
+    }
+
+    #[test]
+    fn a_module_folder_pattern_takes_the_modules_inside_it() {
+        let ids = strings(&["Android", "Android/Toolchain"]);
+        let l = layout(&[], &[group("Platform", &["Android"])], &ids, &ids).unwrap();
+        assert_eq!(l.of[1].1, "Platform");
+    }
+
+    #[test]
+    fn colours_must_be_plain() {
+        let mut c = category("X", &["A"]);
+        c.color = Some("red;}body{".into());
+        let err = layout(&[c], &[], &strings(&["A"]), &strings(&["A"]))
+            .err()
+            .unwrap();
+        assert!(err.contains("not a `#rrggbb` colour"), "{err}");
     }
 }

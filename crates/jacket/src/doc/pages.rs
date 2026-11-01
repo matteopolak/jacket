@@ -58,8 +58,6 @@ fn clip(text: &str, max: usize) -> String {
 /// What the dots and badges for each flag say on hover.
 const EXPERIMENTAL_TIP: &str = "Experimental: may change or go away";
 
-const EXTENSION_TIP: &str = "Extension: not part of the standard library";
-
 /// The dot beside a sidebar entry that is experimental.
 fn experimental_dot(experimental: bool) -> String {
     if experimental {
@@ -71,17 +69,22 @@ fn experimental_dot(experimental: bool) -> String {
     }
 }
 
-/// The badge beside the name of a module from `Extensions/`, or of an item in one.
-fn extension_badge(m: &Module, small: bool) -> String {
-    if m.section() != "Extensions" {
+/// The badge of the category `m` is listed under, beside its name or an item's.
+fn category_badge(site: &Site, m: &Module, small: bool) -> String {
+    let Some(c) = site.badge_of(m) else {
         return String::new();
-    }
+    };
+    let category = &site.categories[c];
     let sm = if small {
         " sm"
     } else {
         ""
     };
-    format!("<span class=\"badge ext{sm}\" title=\"{EXTENSION_TIP}\">extension</span>")
+    format!(
+        "<span class=\"badge cat-{c}{sm}\" title=\"{}\">{}</span>",
+        esc(&category.tip),
+        esc(&category.badge)
+    )
 }
 
 /// The badge beside the name of a module or an item tagged `@experimental` (an item is, when its
@@ -123,6 +126,16 @@ fn overloads_note(item: &Item) -> String {
 }
 
 /// "since 0.24.0", small and dim; nothing when the release is unknown.
+/// The Source link at the right of a title, if the site knows where the source is.
+fn source_link(site: &Site, file: &str, line: usize) -> String {
+    site.source_url(file, line).map_or_else(String::new, |url| {
+        format!(
+            "<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a>",
+            esc(&url)
+        )
+    })
+}
+
 fn since_note(version: &str) -> String {
     if version.is_empty() {
         String::new()
@@ -144,12 +157,17 @@ fn item_badges(m: &Module, item: &Item) -> String {
     )
 }
 
-/// `std / Android / Toolchain / item`: one crumb per level of the module's path, linked when
+/// `Jacket / Android / Toolchain / item`: the site's name, then one crumb per level of the module's path, linked when
 /// that level is a page of its own.
 fn crumbs(site: &Site, m: &Module, last: Option<&str>) -> String {
     let mut out = format!(
-        "<nav class=\"crumbs\" aria-label=\"Breadcrumb\"><a href=\"{}\">std</a>",
-        esc(&site.base)
+        "<nav class=\"crumbs\" aria-label=\"Breadcrumb\"><a href=\"{}\">{}</a>",
+        esc(&site.base),
+        esc(if site.name.is_empty() {
+            "Home"
+        } else {
+            &site.name
+        })
     );
     let parts: Vec<&str> = m.id.split('/').collect();
     let mut path = String::new();
@@ -200,37 +218,72 @@ fn module_link(site: &Site, m: &Module, current: Option<usize>, i: usize, depth:
     )
 }
 
-/// The modules by section and category. Each category folds; the current module's is open.
+/// The modules of each category, in display order: those under no heading first, with an
+/// empty name.
+fn by_category(site: &Site) -> Vec<(&str, Vec<usize>)> {
+    let mut out = vec![("", Vec::new())];
+    out.extend(
+        site.categories
+            .iter()
+            .map(|c| (c.name.as_str(), Vec::new())),
+    );
+    for (i, m) in site.modules.iter().enumerate() {
+        out[m.category.map_or(0, |c| c + 1)].1.push(i);
+    }
+    out.retain(|(_, members)| !members.is_empty());
+    out
+}
+
+/// `members` split by group, in the groups' order; one unnamed group when there are none.
+fn by_group<'a>(site: &'a Site, members: &[usize]) -> Vec<(&'a str, Vec<usize>)> {
+    if site.groups.is_empty() {
+        return vec![("", members.to_vec())];
+    }
+    site.groups
+        .iter()
+        .map(|g| {
+            let of: Vec<usize> = members
+                .iter()
+                .copied()
+                .filter(|&i| site.modules[i].group == *g)
+                .collect();
+            (g.as_str(), of)
+        })
+        .filter(|(_, of)| !of.is_empty())
+        .collect()
+}
+
+/// The modules by category and group. Each group folds; the current module's is open.
 fn modules_side(site: &Site, current: Option<usize>) -> String {
     let mut out = String::new();
-    for section in ["Standard library", "Extensions"] {
-        out.push_str(&format!("<div class=\"nav-h\">{section}</div>\n"));
-        for category in &site.categories {
-            let members: Vec<(usize, &Module)> = site
-                .modules
+    for (category, members) in by_category(site) {
+        if !category.is_empty() {
+            out.push_str(&format!("<div class=\"nav-h\">{}</div>\n", esc(category)));
+        }
+        for (group, of) in by_group(site, &members) {
+            let links: String = of
                 .iter()
-                .enumerate()
-                .filter(|(_, m)| m.section() == section && m.category == *category)
+                .map(|&i| {
+                    let m = &site.modules[i];
+                    // Count the parents listed alongside, so Android/Toolchain sits under Android.
+                    let depth = of
+                        .iter()
+                        .filter(|&&p| m.id.starts_with(&format!("{}/", site.modules[p].id)))
+                        .count();
+                    module_link(site, m, current, i, depth)
+                })
                 .collect();
-            if members.is_empty() {
+            if group.is_empty() {
+                out.push_str(&format!("<div class=\"nav-list\">\n{links}</div>\n"));
                 continue;
             }
-            let open = members.iter().any(|(i, _)| current == Some(*i));
+            let open = of.iter().any(|&i| current == Some(i));
             out.push_str(&format!(
-                "<details class=\"nav-cat\" data-key=\"{key}\"{open}><summary>{name}</summary>\n<div class=\"nav-list\">\n",
-                key = esc(&format!("{section}/{category}")),
+                "<details class=\"nav-cat\" data-key=\"{key}\"{open}><summary>{name}</summary>\n<div class=\"nav-list\">\n{links}</div>\n</details>\n",
+                key = esc(&format!("{category}/{group}")),
                 open = if open { " open" } else { "" },
-                name = esc(category)
+                name = esc(group)
             ));
-            for &(i, m) in &members {
-                // Count the parents listed alongside, so Android/Toolchain sits under Android.
-                let depth = members
-                    .iter()
-                    .filter(|(_, p)| m.id.starts_with(&format!("{}/", p.id)))
-                    .count();
-                out.push_str(&module_link(site, m, current, i, depth));
-            }
-            out.push_str("</div>\n</details>\n");
         }
     }
     out
@@ -244,30 +297,25 @@ fn card(site: &Site, m: &Module) -> String {
         esc(&site.module_href(&m.id)),
         esc(m.title()),
         experimental_badge(m.experimental, true),
-        extension_badge(m, true),
+        category_badge(site, m, true),
         esc(&summary)
     )
 }
 
 pub fn index_page(site: &Site) -> String {
     let mut main = String::new();
-    for section in ["Standard library", "Extensions"] {
-        main.push_str(&format!("<h2 class=\"section\">{section}</h2>\n"));
-        for category in &site.categories {
-            let members: Vec<&Module> = site
-                .modules
-                .iter()
-                .filter(|m| m.section() == section && m.category == *category)
-                .collect();
-            if members.is_empty() {
-                continue;
+    for (category, members) in by_category(site) {
+        if !category.is_empty() {
+            main.push_str(&format!("<h2 class=\"section\">{}</h2>\n", esc(category)));
+        }
+        for (group, of) in by_group(site, &members) {
+            main.push_str("<section class=\"cat\">\n");
+            if !group.is_empty() {
+                main.push_str(&format!("<h3>{}</h3>\n", esc(group)));
             }
-            main.push_str(&format!(
-                "<section class=\"cat\">\n<h3>{}</h3>\n<ul class=\"cards\">\n",
-                esc(category)
-            ));
-            for m in members {
-                main.push_str(&card(site, m));
+            main.push_str("<ul class=\"cards\">\n");
+            for &i in &of {
+                main.push_str(&card(site, &site.modules[i]));
             }
             main.push_str("</ul>\n</section>\n");
         }
@@ -275,8 +323,8 @@ pub fn index_page(site: &Site) -> String {
     render(
         site,
         &Page {
-            title: "Standard library — Jacket",
-            description: "API documentation for the Jai standard library that ships with Jacket.",
+            title: &site.title("API documentation"),
+            description: &site.description,
             side: modules_side(site, None),
             side_label: "Modules",
             main,
@@ -449,11 +497,11 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     let m = &site.modules[mi];
     let mut main = crumbs(site, m, None);
     main.push_str(&format!(
-        "<div class=\"titlebar\"><h1>{}</h1><span class=\"badge\">module</span>{}{}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
+        "<div class=\"titlebar\"><h1>{}</h1><span class=\"badge\">module</span>{}{}{}</div>\n",
         esc(m.title()),
-        extension_badge(m, false),
+        category_badge(site, m, false),
         experimental_badge(m.experimental, false),
-        esc(&site.source_url(&m.file, 1)),
+        source_link(site, &m.file, 1),
     ));
     main.push_str(&platforms_line(m));
     main.push_str(&format!(
@@ -575,7 +623,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     render(
         site,
         &Page {
-            title: &format!("{} — Jacket", m.title()),
+            title: &site.title(m.title()),
             description: &description,
             side: modules_side(site, Some(mi)),
             side_label: "Modules",
@@ -893,10 +941,10 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
         other => format!("<span class=\"badge\">{}</span>", other.label()),
     };
     main.push_str(&format!(
-        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1>{kind}{extension}{experimental}{overloads}{platforms}{since}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
+        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1>{kind}{extension}{experimental}{overloads}{platforms}{since}{}</div>\n",
         esc(&item.name),
-        esc(&site.source_url(&source_file, source_line)),
-        extension = extension_badge(m, false),
+        source_link(site, &source_file, source_line),
+        extension = category_badge(site, m, false),
         experimental = experimental_badge(item.experimental, false),
         overloads = overloads_note(item),
         platforms = item_badges(m, item),
@@ -992,7 +1040,7 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
     render(
         site,
         &Page {
-            title: &format!("{}.{} — Jacket", m.title(), item.name),
+            title: &site.title(&format!("{}.{}", m.title(), item.name)),
             description: &description,
             side: item_side(site, mi, item, &anchors),
             side_label: &format!("{} module", m.title()),
@@ -1004,172 +1052,4 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn site() -> Site {
-        let item = |name: &str, experimental| Item {
-            name: name.into(),
-            kind: Kind::Constant,
-            docs: "A value.".into(),
-            experimental,
-            ..Item::default()
-        };
-        let module = |id: &str, experimental| Module {
-            id: id.into(),
-            docs: "A module.".into(),
-            category: "General".into(),
-            experimental,
-            items: vec![item("moving", true), item("steady", false)],
-            ..Module::default()
-        };
-        Site::new(
-            vec![module("Extensions/Moving", true), module("Steady", false)],
-            vec!["General".into()],
-            "/".into(),
-            "0.0.0".into(),
-            String::new(),
-            String::new(),
-            false,
-        )
-    }
-
-    const BADGE: &str = "badge exp";
-
-    #[test]
-    fn the_experimental_badge_is_beside_what_is_tagged() {
-        let site = site();
-        let moving = module_page(&site, 0);
-        assert!(moving.contains("<span class=\"badge exp\""));
-        assert!(!module_page(&site, 1).contains("<span class=\"badge exp\""));
-        let page = item_page(&site, 0, &site.modules[0].items[0]);
-        assert!(page.contains("<span class=\"badge exp\""));
-        // An item in an experimental module is experimental too, tagged or not.
-        assert!(item_page(&site, 0, &site.modules[0].items[1]).contains(BADGE));
-        assert!(!item_page(&site, 1, &site.modules[1].items[1]).contains(BADGE));
-    }
-
-    #[test]
-    fn extension_modules_and_their_items_carry_a_badge() {
-        let site = site();
-        let ext = "<span class=\"badge ext\"";
-        assert!(module_page(&site, 0).contains(ext));
-        assert!(item_page(&site, 0, &site.modules[0].items[1]).contains(ext));
-        assert!(!module_page(&site, 1).contains(ext));
-        assert!(index_page(&site).contains("Moving<span class=\"badge exp sm\""));
-        assert!(index_page(&site).contains("<span class=\"badge ext sm\""));
-    }
-
-    #[test]
-    fn lists_mark_experimental_modules_and_items() {
-        let site = site();
-        let home = index_page(&site);
-        assert!(home.contains("Moving<span class=\"badge exp sm\""));
-        assert!(!home.contains("Steady<span"));
-        // In a module's list, only the tagged item has a badge in its row; the sidebar marks the
-        // experimental module with a dot.
-        let list = module_page(&site, 1);
-        assert_eq!(list.matches("class=\"badge exp sm\"").count(), 1);
-        assert!(list.contains("Moving<span class=\"dot exp\""));
-    }
-
-    #[test]
-    fn search_results_carry_the_flag() {
-        let site = site();
-        let index: serde_json::Value =
-            serde_json::from_str(&super::super::search::index(&site)).unwrap();
-        let flags: Vec<i64> = index["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|r| r[6].as_i64().unwrap())
-            .collect();
-        // Each module, then its items: moving, steady.
-        assert_eq!(flags, [1, 1, 1, 0, 1, 0]);
-    }
-
-    fn binding_site() -> Site {
-        let native = |name: &str, kind, value: &str| Item {
-            name: name.into(),
-            kind,
-            value: value.into(),
-            binding: true,
-            ..Item::default()
-        };
-        let mode = Item {
-            members: vec![super::super::model::Member {
-                name: "FAST".into(),
-                ty: "1".into(),
-                ..Default::default()
-            }],
-            ..native("Mode", Kind::Enum, "")
-        };
-        let own = Item {
-            name: "own".into(),
-            kind: Kind::Constant,
-            docs: "Ours.".into(),
-            ..Item::default()
-        };
-        Site::new(
-            vec![Module {
-                id: "Vendor".into(),
-                category: "General".into(),
-                items: vec![own, native("MAX", Kind::Constant, "8"), mode],
-                ..Module::default()
-            }],
-            vec!["General".into()],
-            "/".into(),
-            "0.0.0".into(),
-            String::new(),
-            String::new(),
-            false,
-        )
-    }
-
-    #[test]
-    fn foreign_declarations_follow_the_own_items_in_their_sections() {
-        let site = binding_site();
-        let page = module_page(&site, 0);
-        let own = page.find("id=\"own\"").unwrap();
-        let max = page.find("id=\"MAX\"").unwrap();
-        assert!(own < max);
-        assert!(page[max..].contains("class=\"badge sm foreign\""));
-        assert!(page.contains("FAST"));
-        assert!(!page.contains("href=\"/api/Vendor/MAX/\""));
-        assert_eq!(site.item_href("Vendor", "MAX"), "/api/Vendor/#MAX");
-        assert_eq!(site.item_href("Vendor", "own"), "/api/Vendor/own/");
-    }
-
-    #[test]
-    fn native_declarations_are_searchable_but_flagged() {
-        let site = binding_site();
-        let index: serde_json::Value =
-            serde_json::from_str(&super::super::search::index(&site)).unwrap();
-        let flags: Vec<i64> = index["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|r| r[6].as_i64().unwrap())
-            .collect();
-        // The module, then own, MAX, Mode.
-        assert_eq!(flags, [0, 0, 2, 2]);
-    }
-
-    #[test]
-    fn module_parameters_have_a_section_before_the_items() {
-        let mut site = site();
-        site.modules[1].parameters = vec![super::super::model::Parameter {
-            name: "STRICT".into(),
-            ty: "bool".into(),
-            default: "false".into(),
-            doc: "Checks more.".into(),
-        }];
-        let page = module_page(&site, 1);
-        let at = page.find("id=\"parameters\"").unwrap();
-        assert!(at < page.find("id=\"constants\"").unwrap());
-        assert!(page.contains("STRICT := false"));
-        assert!(page.contains("Checks more."));
-        assert!(page.contains("href=\"#parameters\""));
-        assert!(!module_page(&site, 0).contains("Module parameters"));
-    }
-}
+mod tests;

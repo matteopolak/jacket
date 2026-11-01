@@ -1,7 +1,8 @@
 //! The search index the page loads on first use: every item by name and every overload by the
 //! types it takes and returns, so `-> bool` and `string -> [] string` find procedures. The last
-//! column of an item is a bit set: 1 for `@experimental`, 2 for a native binding, which the page
-//! ranks below the hand-written API. An item whose page folder is not its slug (it differs from
+//! column of an item is a bit set: 1 for `@experimental`, 2 for a native binding (which the page
+//! ranks below the hand-written API); above those, one more than the index in `cats` of the
+//! badge its module's category carries, 0 for none. An item whose page folder is not its slug (it differs from
 //! another only in case) carries the folder as one more column.
 use super::markdown::{self, Segment, Settings, plain};
 use super::model::Kind;
@@ -47,6 +48,9 @@ pub fn index(site: &Site) -> String {
     let modules: Vec<Value> = site.modules.iter().map(|m| json!(m.id)).collect();
     let mut items: Vec<Value> = Vec::new();
     for (mi, m) in site.modules.iter().enumerate() {
+        let badge = site
+            .badge_of(m)
+            .map_or(0, |c| u32::try_from(c + 1).unwrap_or(0) << 2);
         items.push(json!([
             mi,
             "",
@@ -54,7 +58,7 @@ pub fn index(site: &Site) -> String {
             summary(site, &m.docs, &m.id),
             "",
             [],
-            u8::from(m.experimental)
+            u32::from(m.experimental) | badge
         ]));
         for item in &m.items {
             let docs = if item.docs.is_empty() {
@@ -90,7 +94,7 @@ pub fn index(site: &Site) -> String {
                     _ => item_line(item),
                 },
                 shapes,
-                u8::from(item.experimental) | (u8::from(item.binding) << 1)
+                u32::from(item.experimental) | (u32::from(item.binding) << 1) | badge
             ]);
             // The page folder, when it is not the slug the page works out from the name.
             let folder = site.folder(&m.id, &item.name);
@@ -100,5 +104,10 @@ pub fn index(site: &Site) -> String {
             items.push(row);
         }
     }
-    json!({ "v": 1, "modules": modules, "items": items }).to_string()
+    let cats: Vec<Value> = site
+        .categories
+        .iter()
+        .map(|c| json!([c.badge, c.tip]))
+        .collect();
+    json!({ "v": 1, "modules": modules, "cats": cats, "items": items }).to_string()
 }

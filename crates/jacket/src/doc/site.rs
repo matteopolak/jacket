@@ -1,4 +1,5 @@
 //! The site as a whole: every module, where each page lives, and the links between them.
+use super::categories::Category;
 use super::markdown::esc;
 use super::model::{Item, Kind, Module, Overload, Param, TypeRef};
 use std::cell::RefCell;
@@ -6,18 +7,34 @@ use std::collections::BTreeMap;
 
 pub struct Site {
     pub modules: Vec<Module>,
-    /// Category names, in display order.
-    pub categories: Vec<String>,
+    /// The headings modules are listed under, in display order; empty for one plain list.
+    pub categories: Vec<Category>,
+    /// Group names, in display order.
+    pub groups: Vec<String>,
     /// Where the site is served: `/docs/jacket/`.
     pub base: String,
+    /// The name in the header and page titles.
+    pub name: String,
+    /// The front page's description.
+    pub description: String,
+    /// The header's version; empty for none.
     pub version: String,
+    /// What Source links point at when the commit does not match; empty for none.
     pub source_ref: String,
     /// The commit the library was built from, when it is a clean checkout of this repository.
     pub commit: Option<String>,
-    /// Files below `stdlib/` with uncommitted changes, whose line numbers the commit does not match.
+    /// Files of the library with uncommitted changes, whose line numbers the commit does not match.
     pub dirty: std::collections::BTreeSet<String>,
+    /// The repository's web address; empty for none, and then pages have no Source links.
     pub repo: String,
+    /// Where the library's folder is in the repository, with a trailing slash (`stdlib/`).
+    pub source_prefix: String,
+    /// The playground's address; empty for none.
     pub playground: String,
+    /// The logo's file below `assets/`, if the site has one.
+    pub logo: Option<String>,
+    /// The heading of the extra pages (and their folder, as a slug); empty when there are none.
+    pub pages_title: String,
     /// Whether the site carries a browser compiler.
     pub runtime: bool,
     by_id: BTreeMap<String, usize>,
@@ -74,7 +91,7 @@ const BUILTIN_TYPES: &[&str] = &[
 impl Site {
     pub fn new(
         mut modules: Vec<Module>,
-        categories: Vec<String>,
+        groups: Vec<String>,
         base: String,
         version: String,
         source_ref: String,
@@ -116,14 +133,20 @@ impl Site {
         let folders = case_folders(&modules);
         Site {
             modules,
-            categories,
+            categories: Vec::new(),
+            groups,
             base,
+            name: String::new(),
+            description: String::new(),
             version,
             source_ref,
             commit: None,
             dirty: std::collections::BTreeSet::new(),
-            repo: "https://github.com/matteopolak/jacket".into(),
+            repo: String::new(),
+            source_prefix: String::new(),
             playground,
+            logo: None,
+            pages_title: String::new(),
             runtime,
             by_id,
             bindings,
@@ -195,13 +218,43 @@ impl Site {
     }
 
     /// A link to `line` of a library file: at the commit the site was built from when that file is
-    /// unchanged there, else at the version's tag.
-    pub fn source_url(&self, file: &str, line: usize) -> String {
+    /// unchanged there, else at the source ref. None without a repository or anything to point at.
+    pub fn source_url(&self, file: &str, line: usize) -> Option<String> {
+        if self.repo.is_empty() {
+            return None;
+        }
         let at = match &self.commit {
             Some(commit) if !self.dirty.contains(file) => commit,
-            _ => &self.source_ref,
+            _ if !self.source_ref.is_empty() => &self.source_ref,
+            _ => return None,
         };
-        format!("{}/blob/{at}/stdlib/{file}#L{line}", self.repo)
+        Some(format!(
+            "{}/blob/{at}/{}{file}#L{line}",
+            self.repo, self.source_prefix
+        ))
+    }
+
+    /// The category of `m` that has a badge, as its index.
+    pub fn badge_of(&self, m: &Module) -> Option<usize> {
+        m.category
+            .filter(|&c| self.categories.get(c).is_some_and(|c| !c.badge.is_empty()))
+    }
+
+    /// The folder of the extra pages: `tools/` for `Tools`.
+    pub fn pages_dir(&self) -> String {
+        format!(
+            "{}/",
+            Site::slug(&self.pages_title.to_lowercase().replace(' ', "-"))
+        )
+    }
+
+    /// A page title: `what — name`.
+    pub fn title(&self, what: &str) -> String {
+        if self.name.is_empty() {
+            what.to_owned()
+        } else {
+            format!("{what} — {}", self.name)
+        }
     }
 
     // Links in doc comments.

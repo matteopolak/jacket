@@ -135,8 +135,10 @@ pub struct Module {
     pub docs_line: usize,
     pub platforms: Vec<String>,
     pub items: Vec<Item>,
-    /// From `stdlib/categories.toml`; set once every module is read.
-    pub category: String,
+    /// The `[[doc.category]]` it is listed under, as an index; set once every module is read.
+    pub category: Option<usize>,
+    /// The `[[doc.group]]` it is in; empty for none.
+    pub group: String,
     /// Whether the module builds for `-os wasm` and has something to use there.
     pub wasm: bool,
     /// The release its items first appeared in, when they all did after the oldest one known.
@@ -150,15 +152,6 @@ impl Module {
     /// `Http` for `Extensions/Http`.
     pub fn title(&self) -> &str {
         self.id.rsplit('/').next().unwrap_or(&self.id)
-    }
-
-    /// The heading of the sidebar and the home page it is listed under.
-    pub fn section(&self) -> &'static str {
-        if self.id.starts_with("Extensions/") {
-            "Extensions"
-        } else {
-            "Standard library"
-        }
     }
 
     /// The systems it is for, in the order the badges show them: the targets it asserts, else
@@ -333,7 +326,8 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
             .filter_map(|p| p.as_str().map(str::to_owned))
             .collect(),
         items,
-        category: String::new(),
+        category: None,
+        group: String::new(),
         wasm: false,
         since: String::new(),
         experimental: v.get("experimental").and_then(Value::as_bool) == Some(true),

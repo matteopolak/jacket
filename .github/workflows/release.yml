@@ -309,7 +309,7 @@ jobs:
       - name: Build jacket and jaic without the native backend
         run: cargo build --release --locked --offline -p jacket -p jaic-cli --no-default-features
       - name: Build the site
-        run: target/release/jacket doc --base-url /docs/jacket/ --source-ref "v$VERSION" --runtime target/doc-runtime --out target/doc-site
+        run: target/release/jacket doc --base-url /docs/jacket/ --version "$VERSION" --source-ref "v$VERSION" --playground-url https://matteopolak.com/playground/jacket --runtime target/doc-runtime --out target/doc-site
       - name: Pack it
         run: |
           mkdir -p dist-docs

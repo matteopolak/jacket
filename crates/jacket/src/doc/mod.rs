@@ -19,8 +19,10 @@ mod site;
 
 use crate::cli::DocArgs;
 use crate::{test::stdlib::stdlib_dir, tools};
+use jacket_config::schema::Doc;
 use model::{Kind, Module};
 use site::Site;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use std::sync::Mutex;
@@ -68,8 +70,22 @@ fn discover(dir: &Path, prefix: &str, out: &mut Vec<String>) {
     }
 }
 
-/// `jaic -doc_model` for each of `ids`, a few at a time.
-fn read_models(jaic: &Path, stdlib: &Path, ids: &[String]) -> Result<Vec<Module>, String> {
+/// `-import_dir root`, so a library's modules find each other; nothing for the standard library.
+fn import_dir(stdlib: &Path, root: &Path) -> Vec<std::ffi::OsString> {
+    if root == stdlib {
+        Vec::new()
+    } else {
+        vec!["-import_dir".into(), root.as_os_str().to_owned()]
+    }
+}
+
+/// `jaic -doc_model` for each of `ids` (module folders below `root`), a few at a time.
+fn read_models(
+    jaic: &Path,
+    stdlib: &Path,
+    root: &Path,
+    ids: &[String],
+) -> Result<Vec<Module>, String> {
     let next = AtomicUsize::new(0);
     let found: Mutex<Vec<Result<Module, String>>> = Mutex::new(Vec::new());
     let threads = std::thread::available_parallelism().map_or(2, |n| n.get().min(4));
@@ -83,14 +99,15 @@ fn read_models(jaic: &Path, stdlib: &Path, ids: &[String]) -> Result<Vec<Module>
                     };
                     let output = Command::new(jaic)
                         .env(jacket_config::env::STDLIB.name, stdlib)
+                        .args(import_dir(stdlib, root))
                         .arg("-doc_model")
-                        .arg(stdlib.join(id))
+                        .arg(root.join(id))
                         .output();
                     let result = match output {
                         Ok(o) if o.status.success() => {
-                            model::parse(id, &String::from_utf8_lossy(&o.stdout), stdlib).map(
+                            model::parse(id, &String::from_utf8_lossy(&o.stdout), root).map(
                                 |mut module| {
-                                    module.wasm = builds_for_wasm(jaic, stdlib, &module, i);
+                                    module.wasm = builds_for_wasm(jaic, stdlib, root, &module, i);
                                     module
                                 },
                             )
@@ -123,7 +140,7 @@ fn read_models(jaic: &Path, stdlib: &Path, ids: &[String]) -> Result<Vec<Module>
 /// Whether `module` can be imported when the target is wasm, and most of its items exist there.
 /// Found by checking a program that imports it, so a module that asserts another system, or
 /// leaves everything to other systems, is out. `n` keeps the scratch files of threads apart.
-fn builds_for_wasm(jaic: &Path, stdlib: &Path, module: &Module, n: usize) -> bool {
+fn builds_for_wasm(jaic: &Path, stdlib: &Path, root: &Path, module: &Module, n: usize) -> bool {
     let asserted_elsewhere =
         !module.platforms.is_empty() && !module.platforms.iter().any(|p| p == "WASM");
     let there = module
@@ -145,6 +162,7 @@ fn builds_for_wasm(jaic: &Path, stdlib: &Path, module: &Module, n: usize) -> boo
         && Command::new(jaic)
             .env(jacket_config::env::STDLIB.name, stdlib)
             .args(["-check", "-no_dce", "-os", "wasm"])
+            .args(import_dir(stdlib, root))
             .arg(&file)
             .output()
             .is_ok_and(|o| o.status.success());
@@ -188,13 +206,20 @@ fn indented_code_warnings(modules: &[Module]) -> Vec<String> {
     out
 }
 
-/// The commit of the checkout `stdlib` is the `stdlib/` folder of, and the files below it that
-/// differ from it. Nothing when it is not such a checkout, or `git` is missing.
-fn git_state(stdlib: &Path) -> (Option<String>, std::collections::BTreeSet<String>) {
+/// Where `dir` is in its git checkout, with a trailing slash (`stdlib/`), the checkout's commit,
+/// and the files below `dir` that differ from it. Nothing when `dir` is not in a checkout, or
+/// `git` is missing.
+struct GitState {
+    prefix: String,
+    commit: String,
+    dirty: std::collections::BTreeSet<String>,
+}
+
+fn git_state(dir: &Path) -> Option<GitState> {
     let git = |args: &[&str]| -> Option<String> {
         let out = Command::new("git")
             .arg("-C")
-            .arg(stdlib)
+            .arg(dir)
             .args(args)
             .output()
             .ok()?;
@@ -202,37 +227,36 @@ fn git_state(stdlib: &Path) -> (Option<String>, std::collections::BTreeSet<Strin
             .success()
             .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
     };
-    let none = (None, std::collections::BTreeSet::new());
-    let Some(prefix) = git(&["rev-parse", "--show-prefix"]) else {
-        return none;
-    };
-    if prefix.trim() != "stdlib/" {
-        return none;
-    }
-    let Some(commit) = git(&["rev-parse", "HEAD"]) else {
-        return none;
-    };
-    let Some(status) = git(&[
+    let prefix = git(&["rev-parse", "--show-prefix"])?.trim().to_owned();
+    let commit = git(&["rev-parse", "HEAD"])?.trim().to_owned();
+    let status = git(&[
         "status",
         "--porcelain",
         "-z",
         "--untracked-files=all",
         "--",
         ".",
-    ]) else {
-        return none;
-    };
+    ])?;
     let mut dirty = std::collections::BTreeSet::new();
     let mut entries = status.split('\0').filter(|e| e.len() > 3);
     while let Some(entry) = entries.next() {
+        // Paths are relative to the checkout's top, whatever folder git ran in.
         let path = &entry[3..];
-        dirty.insert(path.trim_start_matches("stdlib/").to_owned());
+        dirty.insert(
+            path.strip_prefix(prefix.as_str())
+                .unwrap_or(path)
+                .to_owned(),
+        );
         // A rename lists the old name next.
         if entry.starts_with('R') || entry.as_bytes().get(1) == Some(&b'R') {
             entries.next();
         }
     }
-    (Some(commit.trim().to_owned()), dirty)
+    Some(GitState {
+        prefix,
+        commit,
+        dirty,
+    })
 }
 
 fn base_path(text: &str) -> Result<String, String> {
@@ -244,29 +268,142 @@ fn base_path(text: &str) -> Result<String, String> {
     Ok(text.to_owned())
 }
 
+/// What a run documents: the folder its modules' ids are relative to, and their ids.
+struct Library {
+    /// The folder holding the modules.
+    root: PathBuf,
+    ids: Vec<String>,
+}
+
+/// The library at `path`: a module (its folder has a `module.jai`), with the modules below it,
+/// or a folder of modules.
+fn library(path: &Path) -> Result<Library, String> {
+    let mut ids = Vec::new();
+    let root = if path.join("module.jai").is_file() {
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or_else(|| format!("{} has no folder name", path.display()))?
+            .to_owned();
+        ids.push(name.clone());
+        discover(path, &name, &mut ids);
+        path.parent()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| format!("{} has no parent folder", path.display()))?
+    } else {
+        discover(path, "", &mut ids);
+        path.to_path_buf()
+    };
+    if ids.is_empty() {
+        return Err(format!(
+            "no modules in {}: a module is a folder with a module.jai",
+            path.display()
+        ));
+    }
+    Ok(Library {
+        root,
+        ids,
+    })
+}
+
+fn canonical(path: &Path) -> Result<PathBuf, String> {
+    path.canonicalize()
+        .map_err(|e| format!("cannot read {}: {e}", path.display()))
+}
+
+/// The folder to document and the `[doc]` settings for it, with the folder of their
+/// `jacket.toml`. Without a path, the `[doc]` of the nearest `jacket.toml` names the library,
+/// else it is the bundled standard library. With one, the nearest `jacket.toml` above it
+/// applies only when its `[doc]` is for that folder.
+fn target(
+    path: Option<&Path>,
+    stdlib: &Path,
+    cwd: &Path,
+) -> Result<(PathBuf, Doc, PathBuf), String> {
+    let start = match path {
+        Some(path) => canonical(&cwd.join(path))?,
+        None => cwd.to_path_buf(),
+    };
+    let from = if start.is_dir() {
+        start.clone()
+    } else {
+        start
+            .parent()
+            .map_or_else(|| start.clone(), Path::to_path_buf)
+    };
+    let loaded = jacket_config::load(&jacket_config::Disk, &from).map_err(|e| e.to_string())?;
+    for note in loaded.iter().flat_map(|l| &l.notes) {
+        eprintln!("{note}");
+    }
+    let found = loaded.filter(|l| !l.config.doc.is_empty()).map(|l| {
+        let dir = l.dir().to_path_buf();
+        let lib = dir.join(l.config.doc.path.as_deref().unwrap_or("."));
+        (lib, l.config.doc, dir)
+    });
+    match (path, found) {
+        (None, Some((lib, doc, dir))) => Ok((canonical(&lib)?, doc, dir)),
+        (None, None) => Ok((stdlib.to_path_buf(), Doc::default(), stdlib.to_path_buf())),
+        (Some(_), Some((lib, doc, dir))) if lib.canonicalize().ok().as_ref() == Some(&start) => {
+            Ok((start, doc, dir))
+        }
+        (Some(_), _) => Ok((start.clone(), Doc::default(), start)),
+    }
+}
+
+/// The logo file's name below `assets/` and its bytes.
+fn read_logo(file: &Path) -> Result<(String, Vec<u8>), String> {
+    let ext = file
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase);
+    let ext = match ext.as_deref() {
+        Some(ext @ ("svg" | "png")) => ext.to_owned(),
+        _ => return Err(format!("logo {} is not an .svg or .png", file.display())),
+    };
+    let bytes =
+        std::fs::read(file).map_err(|e| format!("cannot read the logo {}: {e}", file.display()))?;
+    Ok((format!("logo.{ext}"), bytes))
+}
+
 fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
     let base = base_path(&args.base_url)?;
     let jaic = tools::locate(tools::JAIC)?;
     let stdlib = stdlib_dir(&jaic, cwd)?;
-    let root = stdlib
-        .parent()
-        .map(Path::to_path_buf)
-        .ok_or_else(|| "the standard library has no parent folder".to_owned())?;
-    let mut ids = Vec::new();
-    discover(&stdlib, "", &mut ids);
-    let categories = categories::Categories::load(&stdlib, &ids)?;
+    let (lib, doc, config_dir) = target(args.path.as_deref(), &stdlib, cwd)?;
+    let Library {
+        root,
+        mut ids,
+    } = library(&lib)?;
+    // Module folders as the patterns of `jacket.toml` see them.
+    let folders: Vec<String> = ids
+        .iter()
+        .map(|id| {
+            let folder = root.join(id);
+            jacket_config::slashed(folder.strip_prefix(&config_dir).unwrap_or(&folder))
+        })
+        .collect();
+    let layout = categories::layout(&doc.category, &doc.group, &ids, &folders).map_err(|e| {
+        format!(
+            "[doc] in {}:\n  {e}",
+            config_dir.join("jacket.toml").display()
+        )
+    })?;
+    let place: BTreeMap<String, (Option<usize>, String)> =
+        ids.iter().cloned().zip(layout.of).collect();
     let filtered = !args.modules.is_empty();
     if filtered {
         if let Some(unknown) = args.modules.iter().find(|m| !ids.contains(m)) {
-            return Err(format!("no module `{unknown}` in {}", stdlib.display()));
+            return Err(format!("no module `{unknown}` in {}", root.display()));
         }
         ids.retain(|id| args.modules.contains(id));
     }
-    let mut modules = read_models(&jaic, &stdlib, &ids)?;
+    let mut modules = read_models(&jaic, &stdlib, &root, &ids)?;
     for module in &mut modules {
-        module.category = categories.of(&module.id).to_owned();
+        if let Some((category, group)) = place.get(&module.id) {
+            module.category = *category;
+            module.group.clone_from(group);
+        }
     }
-    since::assign(&mut modules, env!("CARGO_PKG_VERSION"));
     if let Some(runtime) = &args.runtime {
         for file in ["jai_wasm.wasm", "engine.mjs"] {
             if !runtime.join(file).is_file() {
@@ -274,24 +411,68 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             }
         }
     }
-    let version = env!("CARGO_PKG_VERSION").to_owned();
+    let version = args.version.clone().unwrap_or_default();
+    if let Some(since) = &doc.since
+        && !version.is_empty()
+    {
+        let file = config_dir.join(since);
+        let text = std::fs::read_to_string(&file)
+            .map_err(|e| format!("cannot read {}: {e}", file.display()))?;
+        since::assign(&text, &mut modules, &version);
+    }
+    let pick = |flag: &Option<String>, setting: &Option<String>| {
+        flag.clone()
+            .or_else(|| setting.clone())
+            .unwrap_or_default()
+            .trim_end_matches('/')
+            .to_owned()
+    };
     let mut site = Site::new(
         modules,
-        categories.order.clone(),
+        layout.groups,
         base,
         version.clone(),
-        args.source_ref
-            .clone()
-            .unwrap_or_else(|| format!("v{version}")),
-        args.playground_url.trim_end_matches('/').to_owned(),
+        args.source_ref.clone().unwrap_or_default(),
+        pick(&args.playground_url, &doc.playground),
         args.runtime.is_some(),
     );
-
-    if args.source_ref.is_none() {
-        (site.commit, site.dirty) = git_state(&stdlib);
+    site.categories = layout.categories;
+    site.name = args
+        .name
+        .clone()
+        .or_else(|| doc.name.clone())
+        .unwrap_or_else(|| {
+            lib.file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        });
+    site.description = doc
+        .description
+        .clone()
+        .unwrap_or_else(|| format!("API documentation for {}.", site.name));
+    site.repo = pick(&args.repo, &doc.repo);
+    let logo = match (&args.logo, &doc.logo) {
+        (Some(file), _) => Some(read_logo(&cwd.join(file))?),
+        (None, Some(file)) => Some(read_logo(&config_dir.join(file))?),
+        (None, None) => None,
+    };
+    site.logo = logo.as_ref().map(|(name, _)| name.clone());
+    if !doc.page.is_empty() {
+        site.pages_title = doc.pages_title.clone().unwrap_or_else(|| "Guides".into());
+    }
+    if let Some(state) = git_state(&root) {
+        site.source_prefix = state.prefix;
+        // A given ref wins; else the checkout's commit, for the files it matches.
+        if args.source_ref.is_none() {
+            site.commit = Some(state.commit);
+            site.dirty = state.dirty;
+        }
     }
 
     let mut files: Vec<(String, Vec<u8>)> = Vec::new();
+    if let Some((name, bytes)) = logo {
+        files.push((format!("assets/{name}"), bytes));
+    }
     let mut add = |path: String, text: String| files.push((path, text.into_bytes()));
     add("index.html".into(), pages::index_page(&site));
     let mut items = 0;
@@ -305,22 +486,23 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             );
         }
     }
-    for (path, html) in guide::pages(&site, &root)? {
-        add(path, html);
+    if !doc.page.is_empty() {
+        let prefix = git_state(&config_dir).map(|g| g.prefix).unwrap_or_default();
+        for (path, html) in guide::pages(&site, &config_dir, &prefix, &doc.page)? {
+            add(path, html);
+        }
     }
     add("search-index.json".into(), search::index(&site));
     // One entry, so the version menu stays plain text; a host with several versions replaces it.
-    add(
-        "versions.json".into(),
-        serde_json::json!([{ "version": version, "url": "./" }]).to_string(),
-    );
+    if !version.is_empty() {
+        add(
+            "versions.json".into(),
+            serde_json::json!([{ "version": version, "url": "./" }]).to_string(),
+        );
+    }
     add("assets/site.css".into(), STYLE.to_owned());
     add("assets/site.js".into(), SCRIPT.to_owned());
     add("assets/run-worker.js".into(), WORKER.to_owned());
-    add(
-        "assets/logo.svg".into(),
-        include_str!("../../../../editors/vscode/images/icon.svg").to_owned(),
-    );
     let examples = site.examples();
     for (id, parts) in &examples {
         add(format!("examples/{id}.json"), parts.clone());

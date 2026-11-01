@@ -121,7 +121,7 @@ pub fn fence(
         });
         site.add_example(&text, parts.to_string())
     });
-    let standalone = standalone_ok(&block, &module.id)
+    let standalone = (standalone_ok(&block, &module.id) && !site.playground.is_empty())
         .then(|| doctest::standalone(&block, &module.id))
         .flatten()
         .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));

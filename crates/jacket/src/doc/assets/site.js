@@ -66,6 +66,7 @@
   var input = document.getElementById('q');
   var box = document.getElementById('results');
   var items = null;
+  var cats = [];
   var loading = null;
   var hits = [];
   var picked = -1;
@@ -88,11 +89,12 @@
   function load() {
     if (!loading) {
       loading = fetch(base + 'search-index.json').then(function (r) { return r.json(); }).then(function (d) {
+        cats = d.cats || [];
         items = d.items.map(function (r) {
           var module = d.modules[r[0]];
           var title = module.split('/').pop();
           return {
-            module: module, title: title, name: r[1], kind: r[2], summary: r[3], sig: r[4], shapes: r[5], experimental: (r[6] & 1) === 1, native: (r[6] & 2) === 2, extension: module.indexOf('Extensions/') === 0, folder: r[7],
+            module: module, title: title, name: r[1], kind: r[2], summary: r[3], sig: r[4], shapes: r[5], experimental: (r[6] & 1) === 1, native: (r[6] & 2) === 2, cat: (r[6] >> 2) - 1, folder: r[7],
             lname: r[1].toLowerCase(), lpath: (title + '.' + r[1]).toLowerCase(), lsum: r[3].toLowerCase()
           };
         });
@@ -216,7 +218,7 @@
       a.appendChild(el('code', '', '')).appendChild(name);
       // Flags are dots here, coloured like the badges on the pages; the word is the tooltip.
       if (it.native) a.appendChild(dot('foreign', 'Foreign: a binding to a native library'));
-      if (it.extension) a.appendChild(dot('ext', 'Extension: not part of the standard library'));
+      if (it.cat >= 0 && cats[it.cat]) a.appendChild(dot('cat-' + it.cat, cats[it.cat][1]));
       if (it.experimental) a.appendChild(dot('exp', 'Experimental: may change or go away'));
       // The signature column already says what procedures, types and constants are.
       if (it.kind === 'module') a.appendChild(el('span', 'what', 'module'));

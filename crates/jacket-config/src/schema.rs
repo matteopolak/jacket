@@ -21,6 +21,8 @@ pub struct Config {
     pub postgres: Postgres,
     #[serde(default, skip_serializing_if = "Test::is_empty")]
     pub test: Test,
+    #[serde(default, skip_serializing_if = "Doc::is_empty")]
+    pub doc: Doc,
 }
 
 /// A string or a list of strings (`entry = "main.jai"` is a list of one).
@@ -361,6 +363,85 @@ pub struct Experimental {
     pub codegen_units: Option<usize>,
 }
 
+/// The site `jacket doc` writes. Paths and patterns are relative to the file.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Doc {
+    /// The library: a module (a folder with `module.jai`) or a folder of modules.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    /// The name in the header and page titles. Default: the library's folder name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// The front page's description for search engines and link previews.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// An `.svg` or `.png` for the header and the tab icon.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logo: Option<String>,
+    /// The repository web address, for Source links (`https://github.com/o/r`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repo: Option<String>,
+    /// The playground address examples open in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playground: Option<String>,
+    /// A file of the releases items first appeared in (see `jacket doc`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<String>,
+    /// Headings the modules are listed under, in order; a module goes under the last one that
+    /// matches it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub category: Vec<DocCategory>,
+    /// Folding groups inside each heading, in order; a module goes in the last one that
+    /// matches it. When there are any, every module must be in one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub group: Vec<DocGroup>,
+    /// The heading of the extra pages, and the header link to them. Default: `Guides`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pages_title: Option<String>,
+    /// Markdown files rendered as extra pages.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub page: Vec<DocPage>,
+}
+
+/// A heading of `[doc]`, with the badge its modules and their items carry.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct DocCategory {
+    pub name: String,
+    /// Patterns of module folders.
+    #[serde(default)]
+    pub modules: Vec<PathPattern>,
+    /// The badge text; none for no badge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub badge: Option<String>,
+    /// What the badge says on hover. Default: the name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tip: Option<String>,
+    /// The badge colour (`#1f7a8c`), and the one for dark themes (default: `color`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color_dark: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct DocGroup {
+    pub name: String,
+    /// Patterns of module folders.
+    #[serde(default)]
+    pub modules: Vec<PathPattern>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct DocPage {
+    /// The Markdown file.
+    pub file: String,
+    /// Its name in the sidebar and title.
+    pub name: String,
+    /// One line for the pages' index.
+    #[serde(default)]
+    pub summary: String,
+}
+
 /// Read by the Postgres module while it compiles typed queries, not by `jacket`; environment
 /// variables (`JACKET_PG_MANAGED`, `JACKET_PG_MANAGED_VERSION`) win over these.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
@@ -490,7 +571,8 @@ is_empty!(
     Experimental,
     Portability,
     Postgres,
-    Test
+    Test,
+    Doc
 );
 
 /// The keys each table accepts, to suggest the near one for a misspelling. A test keeps these in
@@ -505,6 +587,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "experimental",
             "postgres",
             "test",
+            "doc",
         ],
         "project" => &["entry", "import_path"],
         "toolchain" => &["version"],
@@ -538,6 +621,22 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "needs",
             "profile",
         ],
+        "doc" => &[
+            "path",
+            "name",
+            "description",
+            "logo",
+            "repo",
+            "playground",
+            "since",
+            "category",
+            "group",
+            "pages_title",
+            "page",
+        ],
+        "doc.category" => &["name", "modules", "badge", "tip", "color", "color_dark"],
+        "doc.group" => &["name", "modules"],
+        "doc.page" => &["file", "name", "summary"],
         profile if profile.starts_with("test.profile.") => TEST_RUN_KEYS,
         _ => &[],
     }
@@ -576,6 +675,7 @@ pub(crate) fn misplaced_home(key: &str) -> Option<(&'static str, &'static str)> 
         "experimental",
         "postgres",
         "test",
+        "doc",
     ]
     .into_iter()
     .find_map(|table| {

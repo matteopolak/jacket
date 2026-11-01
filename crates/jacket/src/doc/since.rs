@@ -1,9 +1,8 @@
-//! The release each item first appeared in. `since.tsv` is written by
-//! `tools/generators/generate_doc_since.py` from the release tags; see `docs/tools/jacket-doc.md`.
+//! The release each item first appeared in, from the file `[doc] since` names. The standard
+//! library's, `since.tsv` here, is written by `tools/generators/generate_doc_since.py` from the
+//! release tags; see `docs/tools/jacket-doc.md`.
 use super::model::Module;
 use std::collections::BTreeMap;
-
-const DATA: &str = include_str!("since.tsv");
 
 /// Marks the items of the oldest release the data covers: older than anything known.
 const OLDER: &str = "-";
@@ -53,8 +52,8 @@ fn read(text: &str) -> Data {
 /// data has no row for is new in it, unless it is a release the data already covers (then the
 /// source is a development version and shows nothing). Items first seen in the oldest covered
 /// release show nothing either.
-pub fn assign(modules: &mut [Module], built: &str) {
-    apply(&read(DATA), modules, built);
+pub fn assign(text: &str, modules: &mut [Module], built: &str) {
+    apply(&read(text), modules, built);
 }
 
 fn apply(data: &Data, modules: &mut [Module], built: &str) {
@@ -121,7 +120,8 @@ mod tests {
                     refs: Vec::new(),
                 })
                 .collect(),
-            category: String::new(),
+            category: None,
+            group: String::new(),
             wasm: false,
             since: String::new(),
             experimental: false,
@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn the_checked_in_data_reads() {
-        let data = read(DATA);
+        let data = read(include_str!("since.tsv"));
         assert!(data.covered.len() > 1);
         assert!(data.versions.contains_key("String"));
     }

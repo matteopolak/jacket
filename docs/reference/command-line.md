@@ -573,14 +573,21 @@ Options:
 ```text
 Build the standard library's API documentation as a static website
 
-Usage: jacket doc [OPTIONS]
+Usage: jacket doc [OPTIONS] [PATH]
+
+Arguments:
+  [PATH]  A library to document: a module (a folder with `module.jai`) or a folder of modules. Settings come from `[doc]` in its `jacket.toml` [default: `[doc] path` of the nearest `jacket.toml`, else the standard library]
 
 Options:
       --out <DIR>             Where to write the site [default: target/doc-site]
       --base-url <PATH>       The path the site is served under, with the slashes around it (`/docs/jacket/`) [default: /]
+      --name <NAME>           The name in the header and page titles, over `[doc] name` [default: the folder's name]
+      --version <VERSION>     The version shown in the header [default: none]
+      --logo <FILE>           An SVG or PNG for the header and the page icon, over `[doc] logo` [default: none]
+      --repo <URL>            The repository's web address, over `[doc] repo`; Source links go to `<URL>/blob/<ref>/<file>` [default: none, and no Source links]
       --runtime <DIR>         A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so the Run buttons work; without it they are shown disabled
-      --playground-url <URL>  Where "open in playground" and the Playground link go [default: https://matteopolak.com/playground/jacket]
-      --source-ref <REF>      The tag or branch Source links point at [default: v<this version>]
+      --playground-url <URL>  Where "open in playground" and the Playground link go, over `[doc] playground` [default: none, and no links]
+      --source-ref <REF>      The tag, branch or commit Source links point at [default: the checkout's commit]
       --module <NAME>         Document only these modules (`String`, `Extensions/Http`); repeatable
       --check                 Build and check the links without writing the site
       --allow-broken-links    Report broken intra-doc links as warnings instead of failing

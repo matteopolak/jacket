@@ -230,6 +230,12 @@ fn known_keys_match_the_structs() {
              flaky_fails = true\nrunner = \"node\"\nneeds = [\"network\"]\n\
              [test.profile.ci]\njobs = 1\n",
         ),
+        (
+            "doc",
+            "path = \"a\"\nname = \"b\"\ndescription = \"c\"\nlogo = \"d\"\nrepo = \"e\"\nplayground = \"f\"\n\
+             since = \"g\"\npages_title = \"h\"\n[[doc.category]]\nname = \"i\"\n[[doc.group]]\nname = \"j\"\n\
+             [[doc.page]]\nfile = \"k\"\nname = \"l\"\n",
+        ),
     ];
     let mut tops: Vec<&str> = Vec::new();
     for (name, body) in sections {

@@ -489,7 +489,7 @@ class StdlibNarrowing(unittest.TestCase):
             "crates/jaic/src/lib.rs",
             ".github/workflows/ci.yml",
             "stdlib/Sort/native.c",
-            "stdlib/categories.toml",
+            "jacket.toml",
             "tools/ci/select_tests.py",
         ]:
             with self.subTest(other=other):

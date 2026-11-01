@@ -88,6 +88,10 @@ timeout = 120                   # seconds per test
 [test.profile.ci]               # jacket test --profile ci
 retries = 2
 
+[doc]                           # jacket doc's site, see jacket-doc.md
+path = "src/my_lib"
+repo = "https://github.com/me/my_lib"
+
 [postgres]                      # read by Extensions/Postgres
 managed = true
 
