@@ -46,16 +46,17 @@ set_build_options_dc :: (options: Build_Options_During_Compile, w: Workspace = -
 
 // Adds the source file `filename` to workspace `w`, as if it were passed on the command line.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // #import "File";
 //
 // #run {
-//     write_entire_file("extra.jai", "extra :: 1;");
+//     path := tprint("%/extra.jai", #filepath);
+//     write_entire_file(path, "extra :: 1;");
 //     w := compiler_create_workspace("from file");
 //     options := get_build_options(w);
 //     options.output_type = .NO_OUTPUT;
 //     set_build_options(options, w);
-//     add_build_file("extra.jai", w);
+//     add_build_file(path, w);
 // }
 //
 // main :: () {}
