@@ -171,6 +171,8 @@ update :: (record_data: bool) {
     last_update_time = cast(float64) now * profile_nominal_seconds;
 
     if record_data && !paused {
+        Profile_Trace.emit(2, "", now, profile_nominal_seconds);
+
         for response, i: times_to_reach_90_percent {
             precomputed_factors[i] = ifx update_index < NUM_THROWAWAY_UPDATES then 0 else Profile_Math.pow(0.1, elapsed / response);
         }

@@ -165,6 +165,7 @@ Profile_Activation :: struct {
 }
 
 Profile_Pool :: #import "Pool";
+Profile_Trace :: #import "Extensions/Iprof_Trace/observer";
 
 profile_pool: Profile_Pool.Pool;
 profile_ready: bool;
@@ -264,6 +265,7 @@ profile_push :: (zone: *Zone, cached: *Zone_Profiling_Data) -> *Zone_Profiling_D
     profile_activations[profile_activation_count] = .{ node, now };
     profile_activation_count += 1;
     stack = node;
+    Profile_Trace.emit(0, zone.name, now, profile_nominal_seconds);
 
     return node;
 }
@@ -293,6 +295,7 @@ profile_zone_end :: () {
     now := profile_now();
 
     assert(now >= stack.t_self_start && now >= activation.hierarchical_start);
+    Profile_Trace.emit(1, "", now, profile_nominal_seconds);
     stack.total_self_ticks += now - stack.t_self_start;
     stack.total_hier_ticks += now - activation.hierarchical_start;
     stack = stack.parent;
