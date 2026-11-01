@@ -24,8 +24,11 @@ pub fn report() {
             s.entities_moved
         );
         eprintln!(
-            "  {} first-use steps run at a body's turn; {} bodies committed after that",
-            s.resolved_ahead, s.recovered
+            "  {} first-use steps run at a body's turn; {} bodies committed after that, {} ({:.1}%) on the first try",
+            s.resolved_ahead,
+            s.recovered,
+            s.committed - s.recovered,
+            pct(s.committed - s.recovered)
         );
         eprintln!("-- abandoned by first blocker:");
         let mut rows: Vec<_> = s.aborted.iter().collect();

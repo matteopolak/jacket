@@ -41,7 +41,7 @@ pub const BUILT: bool = cfg!(feature = "speculative-bodies");
 const BATCH: usize = 64;
 
 /// How many entities one body's turn resolves ahead before it takes the serial path.
-const MAX_AHEAD: usize = 8;
+const MAX_AHEAD: usize = 2;
 
 thread_local! {
     /// A speculative body is being checked.
