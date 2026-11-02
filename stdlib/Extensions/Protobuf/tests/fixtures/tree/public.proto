@@ -1,0 +1,4 @@
+syntax='proto3';
+package demo.api;
+import 'model/export.proto';
+message PublicUser { demo.model.Item item=1; }

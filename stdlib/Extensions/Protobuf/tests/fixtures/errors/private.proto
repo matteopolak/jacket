@@ -1,0 +1,3 @@
+syntax='proto3';
+import '../tree/model/nested/item.proto';
+message Private {}

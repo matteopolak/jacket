@@ -4,7 +4,7 @@
 // Import with a name: `Proto :: #import "Extensions/Protobuf";`.
 // Decoded allocations belong to context.allocator and are released by `Proto.free`.
 
-// Why decoding stopped. Offsets are measured from the start of the input.
+// Why encoding or decoding stopped. Decode offsets are measured from the start of input.
 Error_Kind :: enum u8 {
     NONE;
     TRUNCATED;
@@ -19,7 +19,7 @@ Error_Kind :: enum u8 {
     FIELD_ZERO;
 }
 
-// A decoding failure. The owned path names a field, including repeated indices.
+// An encoding or decoding failure. The owned path names a field, including repeated indices.
 Error :: struct {
     kind: Error_Kind;
     offset: s64;
@@ -48,36 +48,46 @@ Map_Entry :: struct(K: Type, V: Type) {
     value: V;
 }
 
-// Encodes a generated message into one exact-sized allocation from context.allocator.
-encode :: (value: $T) -> [] u8 {
+// Encodes into one exact-sized allocation; TOO_LARGE returns no bytes before allocation.
+encode :: (value: $T) -> [] u8, Error {
     cache: [..] u32;
 
     defer array_free(cache);
     count := T.proto_size(*value, *cache);
+    if count > 2147483647 return .{}, .{ kind = .TOO_LARGE };
+
     result := NewArray(count, u8);
     w := Writer.{ bytes = result, cache = cache };
 
     write_message(*w, *value);
     assert(w.pos == count);
 
-    return result;
+    return result, .{};
 }
 
 // Appends a generated message to a resizable byte array.
-encode_into :: (out: *[..] u8, value: $T) {
-    bytes := encode(value);
+encode_into :: (out: *[..] u8, value: $T) -> Error {
+    bytes, error := encode(value);
+    if error.kind != .NONE return error;
+
     defer Basic.free(bytes.data);
     array_add(out, ..bytes);
+
+    return .{};
 }
 
 // Appends a generated message to a String_Builder.
-encode_into :: (out: *String_Builder, value: $T) {
-    bytes := encode(value);
+encode_into :: (out: *String_Builder, value: $T) -> Error {
+    bytes, error := encode(value);
+    if error.kind != .NONE return error;
+
     defer Basic.free(bytes.data);
     append(out, string.{ bytes.count, bytes.data });
+
+    return .{};
 }
 
-// Computes the encoded byte length without allocating the output buffer.
+// Computes the encoded byte length without allocating output, saturating at 2 GiB.
 size :: (value: $T) -> s64 {
     cache: [..] u32;
     defer array_free(cache);
@@ -123,6 +133,7 @@ beside :: (path: string, loc := #caller_location) -> string {
 }
 
 #load "wire.jai";
+#load "fields.jai";
 
 #scope_module
 Basic :: #import "Basic";

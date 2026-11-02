@@ -1,4 +1,4 @@
-../../Schema/module.jai:86:9: error[metaprogram-report]: IMPORT_PATHS is not supported yet
+../../Schema/module.jai:96:9: error[metaprogram-report]: choose exactly one of PATH, TEXT or DIR
     #insert #run proto_generate_schema();
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: reported for <text.proto>:1:1

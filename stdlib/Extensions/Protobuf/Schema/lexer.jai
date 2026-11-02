@@ -13,6 +13,7 @@ proto_Token :: struct {
     text: string;
     line: s64;
     column: s64;
+    path: string;
 }
 
 proto_Schema :: struct {
@@ -24,11 +25,16 @@ proto_Schema :: struct {
     package: string;
     roots: [..] *proto_Node;
     nodes: [..] *proto_Node;
+    imports: [..] proto_Import;
+    sources: [..] *proto_Source;
+    source: *proto_Source;
 }
 
 proto_schema_fail :: (s: *proto_Schema, token: proto_Token, message: string) {
     if s.error.message.count return;
-    s.error = .{ message = message, path = s.options.path, line = token.line, column = token.column };
+    path := token.path;
+    if !path.count path = s.options.path;
+    s.error = .{ message = message, path = path, line = token.line, column = token.column };
 }
 
 proto_letter :: (c: u8) -> bool {
@@ -67,7 +73,7 @@ proto_lex :: (s: *proto_Schema) { // jailint: allow(cognitive_complexity)
         }
 
         start := i;
-        tok := proto_Token.{ line = line, column = column };
+        tok := proto_Token.{ line = line, column = column, path = s.options.path };
 
         if c == #char "/" && i + 1 < s.text.count && s.text[i + 1] == #char "/" {
             while i < s.text.count && s.text[i] != 10 {
@@ -191,7 +197,7 @@ proto_lex :: (s: *proto_Schema) { // jailint: allow(cognitive_complexity)
         array_add(*s.tokens, tok);
     }
 
-    array_add(*s.tokens, .{ kind = .END, line = line, column = column });
+    array_add(*s.tokens, .{ kind = .END, line = line, column = column, path = s.options.path });
 }
 
 proto_peek :: (s: *proto_Schema) -> proto_Token {

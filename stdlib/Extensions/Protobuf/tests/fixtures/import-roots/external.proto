@@ -1,0 +1,3 @@
+syntax='proto3';
+package external;
+message Remote { string name=1; }

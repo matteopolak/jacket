@@ -1,4 +1,4 @@
-../../Schema/module.jai:86:9: error[metaprogram-report]: unknown type 'Missing'
+../../Schema/module.jai:96:9: error[metaprogram-report]: unknown type 'Missing'
     #insert #run proto_generate_schema();
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: reported for <text.proto>:1:30

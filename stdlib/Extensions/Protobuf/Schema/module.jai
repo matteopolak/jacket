@@ -1,4 +1,4 @@
-// Compile-time proto3 schemas, or call protobuf_generate to obtain Jai source.
+// Compile-time proto3 schema graphs, or call protobuf_generate to obtain Jai source.
 // @experimental
 //
 // `Api :: #import "Extensions/Protobuf/Schema"(TEXT = "syntax = 'proto3'; message Ping {}");`
@@ -8,9 +8,9 @@
     PATH := "",
     // Inline schema text. Omit PATH when using TEXT.
     TEXT := "",
-    // Reserved for directory generation in a later phase.
+    // Recursively generate every .proto under one directory into a shared module.
     DIR := "",
-    // Reserved for imports in a later phase (semicolon-separated search paths).
+    // Semicolon-separated import search paths, after the importing file directory.
     IMPORT_PATHS := "",
     // Map container, defaulting to Extensions/Hash_Map.
     MAP := Map_Mode.HASH_MAP,
@@ -37,6 +37,10 @@ Map_Mode :: enum {
 // Configuration for the standalone source generator. path is used in diagnostics.
 Generate_Options :: struct {
     path: string = "<text.proto>";
+    // Additional import roots, separated by semicolons.
+    import_paths: string;
+    // Generate a complete directory tree instead of the supplied text.
+    dir: string;
     map: Map_Mode = .HASH_MAP;
     map_module: string;
     map_type: string;
@@ -45,7 +49,8 @@ Generate_Options :: struct {
     strip_enum_prefix: bool;
 }
 
-// Schema failure at a one-based line and column. message is owned by context.allocator.
+// Schema failure at a one-based line and column. Free message with Basic.free;
+// path shares its allocation and remains valid until message is freed.
 Schema_Error :: struct {
     message: string;
     path: string;
@@ -53,7 +58,8 @@ Schema_Error :: struct {
     column: s64;
 }
 
-// Generates Jai source for one proto3 schema. Free the source or error.message with Basic.free.
+// Generates one module for a proto3 schema and its imports, or options.dir.
+// Free the source or error.message with Basic.free.
 // Parsing scratch uses temp; returned text and error messages use context.allocator.
 protobuf_generate :: (text: string, options := Generate_Options.{}) -> string, Schema_Error {
     allocator := context.allocator;
@@ -61,16 +67,20 @@ protobuf_generate :: (text: string, options := Generate_Options.{}) -> string, S
     push_allocator(temp);
     s := proto_Schema.{ text = text, options = options };
 
-    proto_lex(*s);
-    if !s.error.message.count proto_parse_schema(*s);
+    proto_load_graph(*s);
     if !s.error.message.count proto_resolve_schema(*s);
 
     if s.error.message.count {
         error := s.error;
+        combined := proto_schema_format("%\0%", error.message, error.path);
 
         {
             push_allocator(allocator);
-            error.message = copy_string(error.message);
+            // One owned allocation keeps imported paths alive alongside the message.
+            storage := copy_string(combined);
+
+            error.path = slice(storage, error.message.count + 1, error.path.count);
+            error.message = slice(storage, 0, error.message.count);
         }
 
         return "", error;
@@ -89,32 +99,25 @@ protobuf_generate :: (text: string, options := Generate_Options.{}) -> string, S
 #load "parser.jai";
 #load "resolve.jai";
 #load "emit.jai";
+#load "imports.jai";
+#load "well_known/schemas.jai";
 
 #scope_module
 
 proto_generate_schema :: () -> string {
     options := Generate_Options.{ path = PATH, map = MAP, map_module = MAP_MODULE,
         map_type = MAP_TYPE, map_insert = MAP_INSERT, map_deinit = MAP_DEINIT,
-        strip_enum_prefix = STRIP_ENUM_PREFIX };
+        strip_enum_prefix = STRIP_ENUM_PREFIX, import_paths = IMPORT_PATHS, dir = DIR };
     if !options.path.count options.path = "<text.proto>";
 
-    if DIR.count {
-        compiler_report(options.path, 1, 1, "DIR is not supported yet");
-        return "";
-    }
-
-    if IMPORT_PATHS.count {
-        compiler_report(options.path, 1, 1, "IMPORT_PATHS is not supported yet");
-        return "";
-    }
-
-    if PATH.count && TEXT.count {
-        compiler_report(options.path, 1, 1, "choose exactly one of PATH or TEXT");
+    count := cast(s64) (PATH.count != 0) + cast(s64) (TEXT.count != 0) + cast(s64) (DIR.count != 0);
+    if count > 1 {
+        compiler_report(options.path, 1, 1, "choose exactly one of PATH, TEXT or DIR");
         return "";
     }
 
     // Without a source this module exposes the standalone generator API.
-    if !PATH.count && !TEXT.count return "";
+    if !count return "";
 
     text := TEXT;
 
@@ -137,3 +140,5 @@ proto_generate_schema :: () -> string {
 #import "String";
 #import "Compiler";
 #import "File";
+#import "File_Utilities";
+Sorting :: #import "Sort";

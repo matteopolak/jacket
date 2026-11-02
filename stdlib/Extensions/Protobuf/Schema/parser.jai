@@ -20,6 +20,8 @@ proto_Node :: struct {
     reserved_names: [..] string;
     allow_alias: bool;
     synthetic: bool;
+    package: string;
+    source: *proto_Source;
 }
 
 proto_Enum_Value :: struct {
@@ -63,6 +65,8 @@ proto_new_node :: (s: *proto_Schema, parent: *proto_Node, kind: proto_Node_Kind,
     node.token = token;
     node.name = token.text;
     node.parent = parent;
+    node.package = s.package;
+    node.source = s.source;
     scope := s.package;
     if parent scope = parent.full;
 
@@ -345,8 +349,18 @@ proto_parse_schema :: (s: *proto_Schema) {
 
             proto_expect(s, ";");
         } else if tok.text == "edition" proto_schema_fail(s, tok, "editions are not supported yet");
-        else if tok.text == "import" proto_schema_fail(s, tok, "imports are not supported yet");
-        else if tok.text == "extend" proto_schema_fail(s, tok, "extensions are not supported yet");
+        else if tok.text == "import" {
+            entry := proto_Import.{ token = tok };
+            entry.public = proto_eat(s, "public");
+            if !entry.public proto_eat(s, "weak");
+
+            path := proto_take(s);
+            if path.kind != .STRING proto_schema_fail(s, path, "expected import path string");
+
+            entry.name = path.text;
+            proto_expect(s, ";");
+            array_add(*s.imports, entry);
+        } else if tok.text == "extend" proto_schema_fail(s, tok, "extensions are not supported yet");
         else if tok.text == "package" {
             if s.package.count || s.nodes.count {
                 proto_schema_fail(s, tok, "package must precede type declarations");

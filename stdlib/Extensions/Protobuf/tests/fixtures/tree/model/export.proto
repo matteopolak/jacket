@@ -1,0 +1,4 @@
+syntax='proto3';
+package demo.model;
+import public 'nested/item.proto';
+message Envelope { Item item=1; }

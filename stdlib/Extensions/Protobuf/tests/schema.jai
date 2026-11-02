@@ -32,7 +32,7 @@ END;
     defer free(output);
     expect(contains(output, "hello :: struct"));
     expect(contains(output, "world :: struct"));
-    expect(contains(output, "type_: proto_runtime.Optional(string)"));
+    expect(contains(output, "type_: proto_r.Optional(string)"));
     expect(contains(output, "json(rename="));
     expect(contains(output, "OK :: 1"));
     item: Resolved.a.b.Outer;

@@ -1,0 +1,5 @@
+syntax='proto3';
+package demo.api;
+import 'model/export.proto';
+import weak 'model/nested/../nested/item.proto';
+message Request { demo.model.Envelope envelope=1; .demo.model.Item item=2; }

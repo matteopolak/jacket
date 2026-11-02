@@ -1,4 +1,4 @@
-// Wire kinds used by generated scalar operations. MESSAGE is handled by generated procedures.
+// Wire kinds specialized by generated field operations.
 Scalar :: enum {
     INT32;
     INT64;
@@ -16,6 +16,7 @@ Scalar :: enum {
     STRING;
     BYTES;
     ENUM;
+    MESSAGE;
 }
 
 // Decoder state shared by nested generated messages; end bounds only decrease for a child.
@@ -431,7 +432,7 @@ scalar_bits :: (value: $T, $kind: Scalar) -> u64 {
 
 // Wire type for a scalar kind.
 scalar_wire :: (kind: Scalar) -> u64 {
-    if kind == .STRING || kind == .BYTES return 2;
+    if kind == .MESSAGE || kind == .STRING || kind == .BYTES return 2;
     if kind == .FIXED64 || kind == .SFIXED64 || kind == .DOUBLE return 1;
     if kind == .FIXED32 || kind == .SFIXED32 || kind == .FLOAT return 5;
     return 0;

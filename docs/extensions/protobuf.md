@@ -27,7 +27,19 @@ Import the runtime with a name (`Proto ::`). A plain `#import` puts `encode`, `f
 `Extensions/Protobuf/Schema` takes exactly one of:
 
 - `PATH`: a `.proto` file, absolute or relative to the compiler's working directory. `Proto.beside("x.proto")` makes it relative to the calling file.
+- `DIR`: every `.proto` under a folder, into one module.
 - `TEXT`: the schema itself.
+
+```jai
+Api :: #import "Extensions/Protobuf/Schema"(DIR = #run Proto.beside("proto"));
+using Api.acme.billing;            // Invoice, Invoice.Line, Currency ...
+```
+
+Imports are looked up next to the importing file, then in `IMPORT_PATHS` (`;`-separated folders). `import public` re-exports; a plain import's own imports stay private. A cycle is an error at the `import` line.
+
+`google/protobuf/*.proto` (`timestamp`, `duration`, `any`, `empty`, `wrappers`, `struct`, `field_mask`) are built in: they need no files and win over files on disk. They are plain messages with no helper procs; `Any` becomes `Any_`.
+
+Each import of the Schema module is its own set of types. A `.proto` that two imports both pull in gives two distinct copies of its types, so when types must be shared, use one `DIR` import, or one `PATH` that imports the rest.
 
 Other parameters:
 
@@ -35,6 +47,7 @@ Other parameters:
 | --- | --- | --- |
 | `MAP` | `.HASH_MAP` | map type: `.HASH_MAP` (`Extensions/Hash_Map`), `.TABLE` (`Hash_Table`), `.ARRAY` (`[..] Proto.Map_Entry(K, V)`, wire order, duplicates kept), `.CUSTOM` |
 | `MAP_MODULE`, `MAP_TYPE`, `MAP_INSERT`, `MAP_DEINIT` | | with `.CUSTOM`: a module whose polymorphic `TYPE(K, V)` has an insert `(*map, key, value)`, a deinit, and a `for_expansion` that gives the key as `it_index` |
+| `IMPORT_PATHS` | | extra folders to search for imports |
 | `STRIP_ENUM_PREFIX` | `false` | `Status.STATUS_ACTIVE` becomes `Status.ACTIVE` |
 
 `package a.b;` puts the types in nested namespaces: `Api.a.b.Person`. Nested messages and enums are constants inside their parent: `Person.Address`.
@@ -66,8 +79,8 @@ Setting a oneof: `c.via.which = .EMAIL; c.via.email = "ada@example.com";`. Free 
 
 | Proc | Does |
 | --- | --- |
-| `encode(value)` | one exact-size allocation |
-| `encode_into(*[..] u8 or *String_Builder, value)` | appends |
+| `encode(value)` | bytes and `Error`: one exact-size allocation, or `.TOO_LARGE` past 2 GiB - 1 |
+| `encode_into(*[..] u8 or *String_Builder, value)` | appends; on error the destination is unchanged |
 | `size(value)` | encoded size in bytes |
 | `decode(T, bytes, options)` | value plus `Error`; a failed decode frees what it made and returns zero |
 | `merge(*value, bytes, options)` | protobuf merge: scalars replace, repeated append, messages merge, map keys replace |
@@ -85,15 +98,15 @@ Setting a oneof: `c.via.which = .EMAIL; c.via.email = "ada@example.com";`. Free 
 
 ## Not supported yet
 
-- proto2, editions, imports, `DIR` and the well-known types: each gives a schema error.
+- proto2 and editions: a schema error.
 - Groups and `extend` in a schema. Unknown groups on the wire are skipped correctly.
 - `service` blocks are read and skipped.
 - The proto3 JSON mapping and the text format.
 
 ## How it works
 
-- **Generation:** `Schema/module.jai` runs `#insert #run` over the module parameters. The pipeline is lexer → parser → `resolve.jai` (scoping, names, checks) → `emit.jai`.
-- **Generated code:** each message gets constants `proto_size`, `proto_encode`, `proto_merge`, `proto_free` and `proto_equal`. `Proto.encode(T)` calls `T.proto_encode`, so one runtime serves every schema module.
+- **Generation:** `Schema/module.jai` runs `#insert #run` over the module parameters. Each file is lexed and parsed, and imports are loaded into one graph, deduplicated by real path. Then `resolve.jai` handles scoping, names and checks, and `emit.jai` writes the Jai.
+- **Generated code:** each message gets constants `proto_size`, `proto_encode`, `proto_merge`, `proto_free` and `proto_equal`. `Proto.encode(T)` calls `T.proto_encode`, so one runtime serves every schema module. A field is one call to a polymorphic runtime helper (`size_field`, `encode_field`...) with the tag folded to a constant. Map entries share one `Entry_Codec(K, V, ...)`.
 - **Encoding:** a size pass fills a cache of nested message sizes, then one exact-size write runs front to back.
 - **Decoding:** a loop per message checks tags in field order, then falls back to a switch on the field number. Every length is checked against the bytes left before anything is sliced or allocated.
 
@@ -103,4 +116,6 @@ Setting a oneof: `c.via.which = .EMAIL; c.via.email = "ada@example.com";`. Free 
 - **Schema checks and naming:** `Schema/resolve.jai`.
 - **What a message generates:** `Schema/emit.jai`.
 - **Wire primitives, bounds, depth and UTF-8:** `wire.jai`.
+- **Well-known types:** `Schema/well_known/schemas.jai`, as our own text.
+- **Generated size:** keep it small. Every program that imports a schema compiles what `emit.jai` writes, so new per-field logic goes into a runtime helper, not into the generated text.
 - **Tests:** `stdlib/Extensions/Protobuf/tests/` (hex fixtures, spec cases and Fuzz properties), with schema errors in `negative/`.

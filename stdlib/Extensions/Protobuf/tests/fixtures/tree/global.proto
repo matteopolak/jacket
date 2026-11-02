@@ -1,0 +1,3 @@
+syntax='proto3';
+import 'model/nested/item.proto';
+message Global { demo.model.Item item=1; }

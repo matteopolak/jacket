@@ -2,10 +2,49 @@
 
 proto_SCALARS :: string.["int32", "int64", "uint32", "uint64", "sint32", "sint64", "fixed32", "fixed64", "sfixed32", "sfixed64", "float", "double", "bool", "string", "bytes"];
 proto_JAI_TYPES :: string.["s32", "s64", "u32", "u64", "s32", "s64", "u32", "u64", "s32", "s64", "float32", "float64", "bool", "string", "[] u8"];
-proto_KEYWORDS :: " if else for while loop break continue return defer using struct union enum enum_flags flags type Type true false null cast autocast xx new delete remove then case inline no_inline bake sizeof size_of type_of type_info align_of void bool int s8 s16 s32 s64 u8 u16 u32 u64 float float32 float64 string Any Context Code it it_index operator push_context push_allocator context reschedule yield assert debug print log ";
+proto_KEYWORDS :: string.["if", "else", "for", "while", "loop", "break", "continue", "return", "defer", "using", "struct", "union", "enum", "enum_flags", "flags", "type", "Type", "true", "false", "null", "cast", "autocast", "xx", "new", "delete", "remove", "then", "case", "inline", "no_inline", "bake", "sizeof", "size_of", "type_of", "type_info", "align_of", "void", "bool", "int", "s8", "s16", "s32", "s64", "u8", "u16", "u32", "u64", "float", "float32", "float64", "string", "Any", "Context", "Code", "it", "it_index", "operator", "push_context", "push_allocator", "context", "reschedule", "yield", "assert", "debug", "print", "log"];
+
+// Buckets index the fixed keyword list. Exact comparison handles hash collisions.
+proto_KEYWORD_BUCKETS :: #run -> [128] s64 {
+    result: [128] s64;
+    for *result it.* = -1;
+
+    for proto_KEYWORDS {
+        bucket := (it.count * 17 + cast(s64) it[0] * 3 + it[it.count - 1]) % result.count;
+        result[bucket] = it_index;
+    }
+
+    return result;
+};
+
+proto_KEYWORD_PREVIOUS :: #run -> [proto_KEYWORDS.count] s64 {
+    heads: [128] s64;
+    for *heads it.* = -1;
+
+    result: [proto_KEYWORDS.count] s64;
+
+    for proto_KEYWORDS {
+        bucket := (it.count * 17 + cast(s64) it[0] * 3 + it[it.count - 1]) % heads.count;
+        result[it_index] = heads[bucket];
+        heads[bucket] = it_index;
+    }
+
+    return result;
+};
 
 proto_jai_name :: (name: string) -> string {
-    if name == "_unknown" || begins_with(name, "proto_") || contains(proto_KEYWORDS, proto_schema_format(" % ", name)) return proto_schema_format("%_", name);
+    if name == "_unknown" || begins_with(name, "proto_") return proto_schema_format("%_", name);
+
+    if name.count {
+        bucket := (name.count * 17 + cast(s64) name[0] * 3 + name[name.count - 1]) % proto_KEYWORD_BUCKETS.count;
+        index := proto_KEYWORD_BUCKETS[bucket];
+
+        while index >= 0 {
+            if name == proto_KEYWORDS[index] return proto_schema_format("%_", name);
+            index = proto_KEYWORD_PREVIOUS[index];
+        }
+    }
+
     return name;
 }
 
@@ -46,19 +85,19 @@ proto_snake_upper :: (name: string) -> string {
     return builder_to_string(*b);
 }
 
-proto_find_type :: (s: *proto_Schema, initial_scope: string, input_name: string) -> *proto_Node {
+proto_find_type :: (s: *proto_Schema, initial_scope: string, input_name: string, source: *proto_Source) -> *proto_Node {
     scope := initial_scope;
     name := input_name;
 
     if begins_with(name, ".") {
         name = slice(name, 1, name.count - 1);
-        for s.nodes if it.full == name && !it.synthetic return it;
+        for s.nodes if it.full == name && !it.synthetic && proto_visible(source, it.source) return it;
         return null;
     }
 
     while true {
         full := proto_join_name(scope, name);
-        for s.nodes if it.full == full && !it.synthetic return it;
+        for s.nodes if it.full == full && !it.synthetic && proto_visible(source, it.source) return it;
         if !scope.count break;
 
         last: s64 = -1;
@@ -86,6 +125,7 @@ proto_field_type :: (f: *proto_Field) -> string {
 }
 
 proto_field_kind :: (f: *proto_Field) -> string {
+    if proto_is_message(f) return "MESSAGE";
     if f.target return "ENUM";
     return proto_upper(f.scalar);
 }
@@ -108,23 +148,31 @@ proto_field_wire :: (f: *proto_Field) -> s64 {
 proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complexity)
     if s.options.map == .CUSTOM {
         if !s.options.map_module.count || !s.options.map_type.count || !s.options.map_insert.count || !s.options.map_deinit.count {
-            proto_schema_fail(s, s.tokens[0], "CUSTOM maps require MAP_MODULE, MAP_TYPE, MAP_INSERT and MAP_DEINIT");
+            proto_schema_fail(s, .{ path = s.options.path, line = 1, column = 1 }, "CUSTOM maps require MAP_MODULE, MAP_TYPE, MAP_INSERT and MAP_DEINIT");
             return;
         }
     }
 
     // These names are the public generator API and module parameters in this same scope.
     reserved_api :: string.["Map_Mode", "Generate_Options", "Schema_Error", "protobuf_generate", "PATH", "TEXT", "DIR", "IMPORT_PATHS", "MAP", "MAP_MODULE", "MAP_TYPE", "MAP_INSERT", "MAP_DEINIT", "STRIP_ENUM_PREFIX"];
-    root_package := s.package;
 
-    for root_package if it == #char "." {
-        root_package = slice(root_package, 0, it_index);
-        break;
-    }
+    for root: s.roots {
+        root_package := root.package;
+        for root_package if it == #char "." {
+            root_package = slice(root_package, 0, it_index);
+            break;
+        }
 
-    for reserved_api {
-        if root_package == it proto_schema_fail(s, s.tokens[0], "package name is reserved by the Schema module API");
-        if !s.package.count for node: s.roots if node.name == it proto_schema_fail(s, node.token, "type name is reserved by the Schema module API");
+        for reserved_api {
+            if root_package == it proto_schema_fail(s, root.token, "package name is reserved by the Schema module API");
+            if !root.package.count && root.name == it proto_schema_fail(s, root.token, "type name is reserved by the Schema module API");
+        }
+
+        package_prefix := proto_schema_format("%.", root.full);
+
+        for other: s.roots {
+            if other.package == root.full || begins_with(other.package, package_prefix) proto_schema_fail(s, other.token, "package and type have the same name");
+        }
     }
 
     for node: s.nodes {
@@ -195,7 +243,7 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
             for proto_SCALARS if it == f.type_name f.scalar = it;
 
             if !f.scalar.count {
-                f.target = proto_find_type(s, node.full, f.type_name);
+                f.target = proto_find_type(s, node.full, f.type_name, node.source);
                 if !f.target proto_schema_fail(s, f.token, proto_schema_format("unknown type '%'", f.type_name));
             }
 

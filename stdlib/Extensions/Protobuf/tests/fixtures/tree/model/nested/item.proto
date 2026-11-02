@@ -1,0 +1,3 @@
+syntax='proto3';
+package demo.model;
+message Item { uint64 id=1; }
