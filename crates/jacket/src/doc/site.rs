@@ -168,13 +168,24 @@ impl Site {
     }
 
     pub fn module_path(id: &str) -> String {
-        format!("api/{id}/index.html")
+        format!("api/{id}.html")
     }
 
-    /// The file of an item's page: every page is `index.html` in its own folder, so its address
-    /// is the folder with no extension, and a plain static server serves it.
+    /// The file of an item's page, in its module's folder. Its address is the same without
+    /// `.html`, which GitHub Pages and the dev servers look up.
     pub fn item_path(&self, module: &str, name: &str) -> String {
-        format!("api/{module}/{}/index.html", self.folder(module, name))
+        format!("api/{module}/{}.html", self.folder(module, name))
+    }
+
+    /// The address of a page from its file: the path without `.html`, and the front page
+    /// (`index.html`) at the base URL itself.
+    pub fn page_href(&self, path: &str) -> String {
+        let stem = path.strip_suffix(".html").unwrap_or(path);
+        self.href(if stem == "index" {
+            ""
+        } else {
+            stem
+        })
     }
 
     /// The folder of an item's page below its module's folder.
@@ -201,12 +212,12 @@ impl Site {
 
     /// A link to a module's page.
     pub fn module_href(&self, id: &str) -> String {
-        self.href(&format!("api/{id}/"))
+        self.href(&format!("api/{id}"))
     }
 
     /// An item's page.
     pub fn item_href(&self, module: &str, name: &str) -> String {
-        self.href(&format!("api/{module}/{}/", self.folder(module, name)))
+        self.href(&format!("api/{module}/{}", self.folder(module, name)))
     }
 
     /// A link to `line` of a library file: at the commit the site was built from when that file is
@@ -232,9 +243,9 @@ impl Site {
             .filter(|&c| self.categories.get(c).is_some_and(|c| !c.badge.is_empty()))
     }
 
-    /// The folder of the extra pages: `tools/` for `Tools`.
+    /// The folder of the extra pages: `tools` for `Tools`.
     pub fn pages_dir(&self) -> String {
-        format!("{}/", super::markdown::slug(&self.pages_title))
+        super::markdown::slug(&self.pages_title)
     }
 
     /// A page title: `what — name`.
@@ -308,7 +319,7 @@ impl Site {
                 let id = format!("{}/{}", module.id, item.name);
                 if self.by_id.contains_key(&id) {
                     found.push(format!(
-                        "`{}` is both an item and a module (api/{id}/ would hold both pages)",
+                        "`{}` is both an item and a module (api/{id}.html would hold both pages)",
                         item.name
                     ));
                 }
@@ -764,7 +775,7 @@ mod tests {
         // Written the same in module A, but resolved to the other module's type.
         assert_eq!(
             site.type_html("*Thing", &to_b, 0),
-            "*<a class=\"ty\" href=\"/api/B/Thing/\">Thing</a>"
+            "*<a class=\"ty\" href=\"/api/B/Thing\">Thing</a>"
         );
         // Not resolved to anything documented: no link, whatever else is named `Thing`.
         assert_eq!(site.type_html("*Thing", &[], 0), "*Thing");
@@ -776,7 +787,7 @@ mod tests {
         }];
         assert_eq!(
             site.type_html(":= Thing.ONE", &member, 1),
-            ":= <a class=\"ty\" href=\"/api/A/Thing/\">Thing</a>.ONE"
+            ":= <a class=\"ty\" href=\"/api/A/Thing\">Thing</a>.ONE"
         );
         // The search index carries the same choice as a marker, whatever the base address is.
         let o = Overload {
@@ -819,10 +830,10 @@ mod tests {
             String::new(),
             false,
         );
-        assert_eq!(site.item_href("Http", "head"), "/api/Http/head/");
-        assert_eq!(site.item_href("Http", "Head"), "/api/Http/Head-struct/");
-        assert_eq!(site.item_href("Http", "HEAD"), "/api/Http/HEAD-constant/");
-        assert_eq!(site.item_href("Http", "body"), "/api/Http/body/");
+        assert_eq!(site.item_href("Http", "head"), "/api/Http/head");
+        assert_eq!(site.item_href("Http", "Head"), "/api/Http/Head-struct");
+        assert_eq!(site.item_href("Http", "HEAD"), "/api/Http/HEAD-constant");
+        assert_eq!(site.item_href("Http", "body"), "/api/Http/body");
     }
 
     #[test]
@@ -846,8 +857,8 @@ mod tests {
             String::new(),
             false,
         );
-        assert_eq!(site.item_href("Http", "Head"), "/api/Http/Head/");
-        assert_eq!(site.item_href("Http", "head"), "/api/Http/head-struct/");
+        assert_eq!(site.item_href("Http", "Head"), "/api/Http/Head");
+        assert_eq!(site.item_href("Http", "head"), "/api/Http/head-struct");
     }
 
     #[test]

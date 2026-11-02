@@ -55,7 +55,7 @@ fn metadata_covers_every_page_kind_and_version() {
     pages.extend(module.items);
     let mut guide = view::site(&site).index;
     guide.title = site.title("Guide");
-    guide.path = "guides/guide/index.html".into();
+    guide.path = "guides/guide.html".into();
     guide.content = Content::Guide {
         segments: vec![],
     };
@@ -128,8 +128,8 @@ fn metadata_covers_every_page_kind_and_version() {
     assert!(pages[0].head.noindex);
     metadata.base = "/docs/versions/1/".into();
     assert_eq!(
-        metadata.url("api/String/index.html", true),
-        "https://example.com/docs/versions/2/api/String/"
+        metadata.url("api/String.html", true),
+        "https://example.com/docs/versions/2/api/String"
     );
     metadata.origin.clear();
     metadata.image.clear();

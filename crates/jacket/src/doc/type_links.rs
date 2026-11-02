@@ -332,8 +332,8 @@ mod tests {
         assert_eq!(
             site.unlinked_types(),
             [
-                "api/Test/use/index.html (use): `Missing`",
-                "api/Test/use/index.html (use): `Other`"
+                "api/Test/use.html (use): `Missing`",
+                "api/Test/use.html (use): `Other`"
             ]
         );
     }
@@ -426,7 +426,7 @@ mod tests {
         ];
         assert!(
             site.type_html("Alias", &refs, 0)
-                .contains("/api/Test/Color/")
+                .contains("/api/Test/Color")
         );
         assert!(
             site.type_out("Alias", &refs, 0, true)
@@ -434,7 +434,7 @@ mod tests {
         );
         assert!(
             site.type_html("Alias", &refs[2..], 0)
-                .contains("/api/Test/Vector/")
+                .contains("/api/Test/Vector")
         );
         let branch = [TypeRef {
             path: "Vector".into(),

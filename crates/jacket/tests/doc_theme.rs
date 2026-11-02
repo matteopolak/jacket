@@ -114,9 +114,9 @@ mod doc {
                 .unwrap()
                 .contains("Tiny")
         );
-        let module = std::fs::read_to_string(temp.join("site/api/Tiny/index.html")).unwrap();
-        assert!(module.contains("href=\"/api/Tiny/answer/\""));
-        let item = std::fs::read_to_string(temp.join("site/api/Tiny/answer/index.html")).unwrap();
+        let module = std::fs::read_to_string(temp.join("site/api/Tiny.html")).unwrap();
+        assert!(module.contains("href=\"/api/Tiny/answer\""));
+        let item = std::fs::read_to_string(temp.join("site/api/Tiny/answer.html")).unwrap();
         assert!(item.contains("The answer."));
         let icons = std::fs::read(temp.join("site/assets/icons.svg")).unwrap();
         let stamp = icons.iter().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
@@ -162,7 +162,7 @@ mod doc {
         assert_eq!(compile_error.status.code(), Some(2));
         assert!(String::from_utf8_lossy(&compile_error.stderr).contains("parts.jai"));
         // A link in trusted prose must be checked by the Jai writer as well.
-        temp.write("broken.md", "# Guide\n\n[Missing](/missing/)\n");
+        temp.write("broken.md", "# Guide\n\n[Missing](/missing)\n");
         temp.write(
             "jacket.toml",
             "[doc]\npath = 'lib'\n[[doc.page]]\nfile = 'broken.md'\nname = 'Broken'\n",
@@ -175,7 +175,7 @@ mod doc {
             String::from_utf8_lossy(&broken.stderr)
         );
         assert!(
-            message.contains("/missing/` leads to no written file"),
+            message.contains("/missing` leads to no written file"),
             "{message}"
         );
     }
@@ -233,11 +233,11 @@ mod doc {
             );
             let pages = [
                 ("index.html", "Tiny std"),
-                ("api/String/index.html", "String — Tiny std"),
-                ("api/String/trim/index.html", "String.trim — Tiny std"),
-                ("rules/index.html", "Rules — Tiny std"),
-                ("rules/one/index.html", "one — Tiny std"),
-                ("guides/guide/index.html", "Guide — Tiny std"),
+                ("api/String.html", "String — Tiny std"),
+                ("api/String/trim.html", "String.trim — Tiny std"),
+                ("rules.html", "Rules — Tiny std"),
+                ("rules/one.html", "one — Tiny std"),
+                ("guides/guide.html", "Guide — Tiny std"),
                 ("404.html", "Page not found — Tiny std"),
             ];
             for (path, title) in pages {
@@ -269,7 +269,12 @@ mod doc {
                     head.contains("content=\"noindex\""),
                     version == "1" || path == "404.html"
                 );
-                let folder = path.strip_suffix("index.html").unwrap_or(path);
+                let folder = path.strip_suffix(".html").unwrap_or(path);
+                let folder = if folder == "index" {
+                    ""
+                } else {
+                    folder
+                };
                 let target = if version == "1" {
                     format!("https://example.com/versions/2/{folder}")
                 } else {
@@ -291,19 +296,19 @@ mod doc {
                         .unwrap();
                     assert_eq!(breadcrumbs["itemListElement"][0]["name"], "std");
                     assert_eq!(breadcrumbs["itemListElement"][1]["name"], "String");
-                    if path.contains("/trim/") {
+                    if path.contains("/trim") {
                         assert_eq!(data[0]["@type"], "TechArticle");
                         assert_eq!(breadcrumbs["itemListElement"][2]["name"], "trim");
                     }
                 }
                 if path == "404.html" {
                     // Absolute from the base URL, so it works at any depth on any host.
-                    assert!(page.contains("href=\"/api/String/\""));
+                    assert!(page.contains("href=\"/api/String\""));
                     assert!(!page.contains("href=\"https://example.com/api/"));
                 }
             }
             let sitemap = std::fs::read_to_string(temp.join("site/sitemap.xml")).unwrap();
-            assert!(sitemap.contains("https://example.com/api/String/trim/"));
+            assert!(sitemap.contains("https://example.com/api/String/trim"));
             assert!(!sitemap.contains("404.html"));
             assert_eq!(
                 std::fs::read_to_string(temp.join("site/robots.txt")).unwrap(),

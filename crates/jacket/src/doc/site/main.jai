@@ -70,11 +70,11 @@ write_view :: (out: *Out, view: *Page_View, module: *Module_View, run: *Run, nav
         return;
     }
     path := view.path;
-    if path.count && !ends_with(path, "index.html") {
+    if path.count && !ends_with(path, ".html") {
         print("invalid page path %\n", path);
         exit(2);
     }
-    if path.count path = slice(path, 0, path.count - 10);
+    if path.count path = slice(path, 0, path.count - 5);
     write_page(run.writer, path, out);
     reset(out);
 }
@@ -201,7 +201,7 @@ validate_page :: (page: *Page_View, module: *Module_View) {
     if page.content.which == .CONTENT_ITEM {
         if page.sidebar.which != .SIDEBAR_ITEM bad_input("item page needs item sidebar");
     } else if page.sidebar.which != .SIDEBAR_MODULES bad_input("page needs module sidebar");
-    if !page.not_found && page.path.count && (!relative_file(page.path) || !ends_with(page.path, "/index.html")) bad_input("invalid page path");
+    if !page.not_found && page.path.count && (!relative_file(page.path) || !ends_with(page.path, ".html")) bad_input("invalid page path");
     side := get_pointer(*page.sidebar, Sidebar_Item);
     if side {
         if !module || side.nav < 0 || side.nav >= module.nav.count bad_input("invalid nav group");

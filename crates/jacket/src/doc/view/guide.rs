@@ -32,7 +32,7 @@ struct Page {
     md: String,
     /// The file it came from, from the repository root, for resolving its links.
     repo: String,
-    /// Where it is written: `tools/command-line/index.html`.
+    /// Where it is written: `tools/command-line.html`.
     path: String,
     /// The sidebar heading it is under.
     heading: String,
@@ -197,7 +197,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
             let stem = Path::new(&page.file)
                 .file_stem()
                 .map_or_else(|| page.name.clone(), |s| s.to_string_lossy().into_owned());
-            let folder = format!("{}{}/", site.pages_dir(), markdown::slug(&stem));
+            let folder = format!("{}/{}", site.pages_dir(), markdown::slug(&stem));
             let repo = repo_path(&format!("{prefix}x"), &page.file);
             out.files.insert(repo.clone(), site.href(&folder));
             links.push(link(&site.href(&folder), &page.name));
@@ -205,7 +205,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
                 name: page.name.clone(),
                 md: read(dir, &page.file)?,
                 repo,
-                path: format!("{folder}index.html"),
+                path: format!("{folder}.html"),
                 heading: site.pages_title.clone(),
             });
         }
@@ -222,7 +222,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
     for section in sections {
         let md = read(dir, &section.file)?;
         let repo = repo_path(&format!("{prefix}x"), &section.file);
-        let folder = format!("{}/", markdown::slug(&section.name));
+        let folder = markdown::slug(&section.name);
         let (intro, groups) = split(&md);
         let overview = site.href(&folder);
         out.files.insert(repo.clone(), overview.clone());
@@ -233,7 +233,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
                 name: section.name.clone(),
                 md,
                 repo,
-                path: format!("{folder}index.html"),
+                path: format!("{folder}.html"),
                 heading: section.name.clone(),
             });
             continue;
@@ -261,7 +261,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
             let mut links = Vec::new();
             for (name, body) in &g.entries {
                 let id = markdown::slug(name);
-                let page = format!("{folder}{id}/");
+                let page = format!("{folder}/{id}");
                 out.anchors
                     .insert((repo.clone(), id.clone()), site.href(&page));
                 let lead = first_paragraph(body);
@@ -275,7 +275,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
                     name: name.clone(),
                     md: format!("# {name}\n\n{}", promote(body)),
                     repo: repo.clone(),
-                    path: format!("{page}index.html"),
+                    path: format!("{page}.html"),
                     heading: section.name.clone(),
                 });
             }
@@ -293,7 +293,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
             name: section.name.clone(),
             md: summary,
             repo,
-            path: format!("{folder}index.html"),
+            path: format!("{folder}.html"),
             heading: section.name.clone(),
         });
         out.nav.push(nav);
@@ -449,19 +449,19 @@ impl Guides {
     /// The page to link a header button to: the first `[[doc.page]]`, else the overview of the
     /// section named like `pages_title`.
     pub fn first_href(&self, site: &Site) -> Option<String> {
-        let overview = format!("{}index.html", site.pages_dir());
+        let overview = format!("{}.html", site.pages_dir());
         self.pages
             .iter()
             .find(|p| p.heading == site.pages_title && p.path != overview)
             .or_else(|| self.pages.iter().find(|p| p.path == overview))
-            .map(|p| site.href(p.path.trim_end_matches("index.html")))
+            .map(|p| site.page_href(&p.path))
     }
 
     pub fn pages(&self, site: &Site, nav: &[NavCategory]) -> Vec<PageView> {
         self.pages
             .iter()
             .map(|page| {
-                let href = site.href(page.path.trim_end_matches("index.html"));
+                let href = site.page_href(&page.path);
                 let here = &page.repo;
                 let resolve = |dest: &str| -> Option<String> {
                     if dest.contains("://") || dest.starts_with('/') {

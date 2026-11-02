@@ -68,8 +68,10 @@ jacket doc --out site
 The build prints a line like `jacket doc: 2 modules, 6 items (3 procedures), written to site`. Open `site/index.html` through a static server (links are absolute, so opening the files directly won't style them):
 
 ```sh
-python3 -m http.server --directory site
+npx serve site
 ```
+
+The server has to find `/api/Basic/print` in `api/Basic/print.html`, which `python3 -m http.server` does not.
 
 ## Writing doc comments
 

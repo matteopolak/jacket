@@ -156,11 +156,11 @@ fn foreign_rows_follow_own_rows_and_have_item_pages() {
         ["own", "MAX"]
     );
     assert!(!rows[0].foreign && rows[1].foreign);
-    assert_eq!(rows[1].href, "/docs/api/Vendor/Nested/MAX/");
+    assert_eq!(rows[1].href, "/docs/api/Vendor/Nested/MAX");
     let page = bundle
         .items
         .iter()
-        .find(|p| p.path == "api/Vendor/Nested/MAX/index.html")
+        .find(|p| p.path == "api/Vendor/Nested/MAX.html")
         .unwrap();
     let Content::Item {
         title,
@@ -271,7 +271,7 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
     assert_eq!(bundle["items"][0]["sidebar"]["kind"], "item");
     assert_eq!(
         bundle["items"][0]["sidebar"]["back"]["href"],
-        "/docs/api/Vendor/Nested/"
+        "/docs/api/Vendor/Nested"
     );
 }
 
@@ -394,20 +394,20 @@ fn a_declaration_links_private_and_prelude_types_and_not_itself() {
     assert!(row.lines_html.is_empty() && row.members.is_empty());
     let declaration = &row.declaration_html;
     assert!(
-        declaration.contains("<a href=\"/docs/api/Io/Waiter/\">Waiter</a>"),
+        declaration.contains("<a href=\"/docs/api/Io/Waiter\">Waiter</a>"),
         "{declaration}"
     );
     assert!(
-        declaration.contains("<a href=\"/docs/api/prelude/Allocator/\">Allocator</a>"),
+        declaration.contains("<a href=\"/docs/api/prelude/Allocator\">Allocator</a>"),
         "{declaration}"
     );
-    assert!(!declaration.contains("api/Io/Channel/"), "{declaration}");
+    assert!(!declaration.contains("api/Io/Channel"), "{declaration}");
     assert!(declaration.contains("<span class=\"k\">struct</span>"));
     // Only a field with something to say keeps a row of the table.
     let page = bundle
         .items
         .iter()
-        .find(|p| p.path == "api/Io/Channel/index.html")
+        .find(|p| p.path == "api/Io/Channel.html")
         .unwrap();
     let Content::Item {
         members,
@@ -429,7 +429,7 @@ fn a_private_type_has_a_page_but_is_in_no_list() {
     let bundle = module(&site, 0);
     assert_eq!(bundle.items.len(), 2);
     let page = &bundle.items[1];
-    assert_eq!(page.path, "api/Io/Waiter/index.html");
+    assert_eq!(page.path, "api/Io/Waiter.html");
     let Content::Item {
         private,
         title,
@@ -469,7 +469,7 @@ fn a_private_type_has_a_page_but_is_in_no_list() {
         "{:?}",
         site.unlinked_types()
     );
-    assert_eq!(site.item_href("Io", "Waiter"), "/docs/api/Io/Waiter/");
+    assert_eq!(site.item_href("Io", "Waiter"), "/docs/api/Io/Waiter");
 }
 
 #[test]

@@ -5,6 +5,14 @@
   var root = document.documentElement;
   var base = document.body.getAttribute('data-base') || '/';
 
+  // Pages have no trailing slash. An old link that has one lands on the 404 page, which sends it on.
+  if (document.body.getAttribute('data-page') === '404.html') {
+    var old = location.pathname;
+    if (old.length > base.length && old.slice(-1) === '/' && old.indexOf(base) === 0) {
+      location.replace(old.slice(0, -1) + location.search + location.hash);
+      return;
+    }
+  }
 
   // Theme: system, light or dark, remembered in this browser.
   var KEY = 'jacket-docs-theme';
@@ -192,9 +200,9 @@
     return d;
   }
   function hrefOf(it) {
-    if (it.kind === 'module') return base + 'api/' + it.module + '/';
-    if (it.folder) return base + 'api/' + it.module + '/' + it.folder + '/';
-    return base + 'api/' + it.module + '/' + it.name.replace(/[^A-Za-z0-9_]/g, function (c) { return '-' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); }) + '/';
+    if (it.kind === 'module') return base + 'api/' + it.module;
+    if (it.folder) return base + 'api/' + it.module + '/' + it.folder;
+    return base + 'api/' + it.module + '/' + it.name.replace(/[^A-Za-z0-9_]/g, function (c) { return '-' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); });
   }
   function load() {
     if (!loading) {
@@ -740,7 +748,7 @@
     if (!a || !a.href || (a.target && a.target !== '_self') || a.hasAttribute('download')) return null;
     var u = new URL(a.href, location.href);
     if (u.origin !== siteRoot.origin || u.pathname.indexOf(siteRoot.pathname) !== 0) return null;
-    if (!/(\/|\.html)$/.test(u.pathname) || u.pathname.indexOf('/assets/') >= 0) return null;
+    if (!/(\/|\.html|\/[^\/.]*)$/.test(u.pathname) || /\/(assets|runtime)\//.test(u.pathname)) return null;
     return u;
   }
   function fetchPage(href) {

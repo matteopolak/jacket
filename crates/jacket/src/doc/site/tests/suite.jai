@@ -109,7 +109,7 @@ foreign_declarations_follow_the_own_items_and_have_pages :: () {
     expect(own >= 0 && max > own);
     expect(contains(advance(page, max), "class=\"badge sm foreign\""));
     expect(contains(page, "FAST"));
-    expect(contains(page, "href=\"/api/Vendor/MAX/\""));
+    expect(contains(page, "href=\"/api/Vendor/MAX\""));
 } @test
 
 module_parameters_have_a_section_before_the_items :: () {
@@ -169,8 +169,8 @@ sidebar_windows_and_toc :: () {
     side.start = 1;
     page := render(*site, *moving.items[1], *moving);
     defer free(page);
-    expect(!contains(page, "href=\"/api/Extensions/Moving/moving/\""));
-    expect(contains(page, "href=\"/api/Extensions/Moving/steady/\" aria-current=\"page\""));
+    expect(!contains(page, "href=\"/api/Extensions/Moving/moving\""));
+    expect(contains(page, "href=\"/api/Extensions/Moving/steady\" aria-current=\"page\""));
     out: Out;
     defer deinit(*out);
     items := Outline_Item.[.{ id = "a", label = "A" }, .{ id = "b", label = "B" }];
@@ -237,12 +237,12 @@ icons_put_the_fragment_after_the_stamp :: () {
 shared_item_navigation_keeps_a_focused_fallback_window :: () {
     links: [12] Nav_Link;
     for *link, n: links {
-        link.href = tprint("/api/Test/item%/", n);
+        link.href = tprint("/api/Test/item%", n);
         link.label = tprint("item%", n);
     }
     groups := [] Nav_Link.[links];
     module: Module_View;
-    module.page.path = "api/Test/index.html";
+    module.page.path = "api/Test.html";
     module.nav = groups;
     writer := writer_init("unused", "/", dry_run = true);
     defer deinit(*writer);
@@ -264,7 +264,7 @@ shared_item_navigation_keeps_a_focused_fallback_window :: () {
     text := to_string(*out);
     expect(!contains(text, ">item3<"));
     expect(contains(text, ">item4<"));
-    expect(contains(text, "href=\"/api/Test/item6/\" aria-current=\"page\""));
+    expect(contains(text, "href=\"/api/Test/item6\" aria-current=\"page\""));
     expect(contains(text, ">item8<"));
     expect(!contains(text, ">item9<"));
     reset(*out);
@@ -286,12 +286,12 @@ shared_navigation_urls_track_the_written_bytes :: () {
     links := NewArray(8, Nav_Link);
     defer array_free(links);
     for *link, n: links {
-        link.href = tprint("/api/Test/item%/", n);
+        link.href = tprint("/api/Test/item%", n);
         link.label = tprint("item%", n);
     }
     groups := [] Nav_Link.[links, links];
     module: Module_View;
-    module.page.path = "api/Test/index.html";
+    module.page.path = "api/Test.html";
     module.nav = groups;
     side := Sidebar_Item.{ start = 0, end = 8, current = 4 };
     writer := writer_init("unused", "/", dry_run = true);
@@ -351,12 +351,12 @@ a_type_shows_its_declaration_on_its_row_and_page :: () {
     }
     expect(contains(list, "<div class=\"fold members\" data-fold=\"240\">\n<pre class=\"sig decl\"><code><span class=\"fn\">Queue</span> :: <span class=\"k\">struct</span>(T: Type) {"));
     expect(!contains(list, "class=\"sig-line\""));
-    expect(contains(list, "<a href=\"/api/prelude/Allocator/\">Allocator</a>"));
+    expect(contains(list, "<a href=\"/api/prelude/Allocator\">Allocator</a>"));
     declaration := find_index_from_left(page, "<section id=\"declaration\">");
     meta := find_index_from_left(page, "<div class=\"meta\">");
     fields := find_index_from_left(page, "<section id=\"members\">");
     expect(meta >= 0 && declaration > meta && fields > declaration);
-    expect(contains(page, "<a href=\"/api/Types/Waiter/\">Waiter</a>"));
+    expect(contains(page, "<a href=\"/api/Types/Waiter\">Waiter</a>"));
     expect(contains(page, "Who waits."));
     expect(contains(page, "<a href=\"#declaration\">Declaration</a>"));
     expect(!contains(page, "Not exported"));

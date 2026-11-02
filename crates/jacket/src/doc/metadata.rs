@@ -71,7 +71,12 @@ impl Metadata {
             None
         };
         let folder = version.map_or_else(String::new, |v| format!("versions/{v}/"));
-        let path = path.strip_suffix("index.html").unwrap_or(path);
+        let path = path.strip_suffix(".html").unwrap_or(path);
+        let path = if path == "index" {
+            ""
+        } else {
+            path
+        };
         let archived = format!("versions/{}/", self.version);
         let base = if version.is_some() {
             self.base.strip_suffix(&archived).unwrap_or(&self.base)

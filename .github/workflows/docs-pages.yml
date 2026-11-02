@@ -90,7 +90,7 @@ jobs:
       - name: Check documentation accessibility
         run: |
           PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py
-          python3 -m http.server 8000 --directory target/doc-site &
+          python3 tools/dev/doc_serve.py --port 8000 --directory target/doc-site &
           SERVER_PID=$!
           trap 'kill "$SERVER_PID"' EXIT
           node tools/dev/doc_a11y.mjs http://127.0.0.1:8000/

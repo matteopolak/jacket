@@ -89,7 +89,7 @@ try {
   const index = await (await get('search-index.json')).json();
   const foreign = index.items.find(row => (row[6] & 2) !== 0 && row[2] !== 'module');
   assert(foreign, 'No foreign item in the site');
-  const foreignPath = `api/${index.modules[foreign[0]]}/${foreign[7] || foreign[1].replace(/[^A-Za-z0-9_]/g, c => '-' + c.charCodeAt(0).toString(16).padStart(2, '0'))}/`;
+  const foreignPath = `api/${index.modules[foreign[0]]}/${foreign[7] || foreign[1].replace(/[^A-Za-z0-9_]/g, c => '-' + c.charCodeAt(0).toString(16).padStart(2, '0'))}`;
   const home = await (await get('')).text();
   const publication = home.match(/property="og:url" content="([^"]+)"/)?.[1];
   if (publication && new URL(publication).origin !== base.origin) {
@@ -101,7 +101,7 @@ try {
   const guides = await (await get(guidesPath)).text();
   const guide = guides.match(/<a class="card" href="([^"]+)"/)?.[1];
   assert(guide, 'No guide page');
-  const pages = ['', 'api/String/', 'api/Basic/print/', foreignPath, guide, '404.html'];
+  const pages = ['', 'api/String', 'api/Basic/print', foreignPath, guide, '404.html'];
   await cdp('Page.enable');
   await cdp('Runtime.enable');
   let failures = 0, runs = 0;

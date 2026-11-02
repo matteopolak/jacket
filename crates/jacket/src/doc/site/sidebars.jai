@@ -74,7 +74,7 @@ ItemNav :: (out: *Out, side: *Sidebar_Item, module: *Module_View) {
 // The view still describes the full window. Only the no-JS fallback is shortened.
 ItemNavPath :: (module: *Module_View, group: int) -> string {
     path := module.page.path;
-    return tprint("assets/nav/%%.html", slice(path, 0, path.count - 10), group);
+    return tprint("assets/nav/%/%.html", slice(path, 0, path.count - 5), group);
 }
 
 ItemNavList :: (out: *Out, side: *Sidebar_Item, module: *Module_View, nav_stamps: [] string) {
