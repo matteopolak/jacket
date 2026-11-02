@@ -1,4 +1,5 @@
 // jaic -O2 bench.jai -exe <scratch>/bench; bench [--generation-only]
+// bench <workload> [encode|decode [short]] isolates operations for profiling.
 // Generation is also measured with jaic -interp bench.jai -- --generation-only.
 #import "Basic";
 Proto :: #import "Extensions/Protobuf";
@@ -42,7 +43,7 @@ counting :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *
 // Optional workload and operation filters keep profiler stacks isolated.
 workload: string;
 operation: string;
-profile_once: bool;
+profile_short: bool;
 
 measure :: (name: string, value: $T, iterations: s64) {
     if workload.count && workload != name return;
@@ -54,7 +55,7 @@ measure :: (name: string, value: $T, iterations: s64) {
 
     if operation.count {
         count := iterations;
-        if profile_once count = ifx name == "mixed" then 10000 else ifx name == "string-logs" then 20 else 5;
+        if profile_short count = ifx name == "mixed" then 10000 else ifx name == "string-logs" then 20 else 5;
 
         for 0..count - 1 {
             if operation == "encode" {
@@ -251,11 +252,24 @@ main :: () {
     if args.count > 1 workload = args[1];
     if args.count > 2 operation = args[2];
 
-    profile_once = args.count > 3 && args[3] == "once";
+    profile_short = args.count > 3 && args[3] == "short";
 
     // A large multiplier is useful when attaching a sampling profiler.
     multiplier: s64 = 1;
     if operation.count multiplier = 100;
+
+    spans: Api.Spans;
+
+    if !workload.count || workload == "spans" {
+        spans = spans_workload();
+        encoded, error := Proto.encode(spans);
+
+        assert(error.kind == .NONE);
+        print("spans encoded bytes: %\n", encoded.count);
+        free(encoded.data);
+    }
+
+    defer Proto.free(*spans);
 
     if !workload.count || workload == "mixed" {
         child := Api.Leaf.{ x = 42, label = "nested" };
@@ -264,7 +278,7 @@ main :: () {
         for 0..3 array_add(*mixed.children, child);
 
         defer array_free(mixed.children);
-        measure("mixed", mixed, 200000 * multiplier);
+        measure("mixed", mixed, 1000000 * multiplier);
     }
 
     if !workload.count || workload == "packed-1MiB" {
@@ -272,7 +286,7 @@ main :: () {
         for i: 0..262143 array_add(*packed.numbers, cast(u32) i);
 
         defer array_free(packed.numbers);
-        measure("packed-1MiB", packed, 300 * multiplier);
+        measure("packed-1MiB", packed, 11000 * multiplier);
     }
 
     if !workload.count || workload == "deep-64" {
@@ -280,7 +294,7 @@ main :: () {
         for i: 0..63 nodes[i].next = *nodes[i + 1];
 
         nodes[64].value = "leaf";
-        measure("deep-64", nodes[0], 10000 * multiplier);
+        measure("deep-64", nodes[0], 30000 * multiplier);
     }
 
     if !workload.count || workload == "string-logs" {
@@ -288,16 +302,10 @@ main :: () {
         for 0..999 array_add(*logs.entries, .{ time = "2026-11-02T12:00:00Z", level = "INFO", source = "api/request", text = "Request completed successfully with a useful response" });
 
         defer array_free(logs.entries);
-        measure("string-logs", logs, 500 * multiplier);
+        measure("string-logs", logs, 1000 * multiplier);
     }
 
-    if !workload.count || workload == "spans" {
-        spans := spans_workload();
-
-        defer Proto.free(*spans);
-        print("spans encoded bytes: %\n", Proto.size(spans));
-        measure("spans", spans, 100 * multiplier);
-    }
+    measure("spans", spans, 200 * multiplier);
 
     if !workload.count generation();
 }
