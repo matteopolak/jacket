@@ -12,6 +12,7 @@ use jaic::source::Span;
 // Helpers shared by several rules; they are not rules themselves.
 mod frees;
 mod lifetime_cfg;
+mod lifetime_movement;
 mod lifetime_places;
 mod lifetime_summary;
 mod local_scopes;

@@ -245,7 +245,7 @@ table_find_pointer :: (table: *Table, key: table.Key_Type) -> *table.Value_Type 
     entry := find_entry(table, key);
     if !entry return null;
     return *entry.value;
-}
+} @BorrowsElement(0,1,0)
 
 // ```jai
 // table: Table(int, string);
@@ -360,7 +360,7 @@ table_remove :: (table: *Table, key: table.Key_Type) -> (success: bool, value: t
     table.count -= 1;
 
     return true, value;
-}
+} @RemovesElement(1)
 
 // Removes every entry with this key and returns how many there were.
 //
@@ -385,7 +385,7 @@ table_remove_multiple :: (table: *Table, key: table.Key_Type) -> (num_removed: s
     }
 
     return count;
-}
+} @RemovesElement(1)
 
 // Finds the value for `key`, adding a zero-initialized one if there is none. Returns a pointer to it and whether it was just added.
 //
@@ -429,7 +429,7 @@ table_reset_keeping_memory :: (using table: *Table) {
     memset(entries.data, 0, entries.count * size_of(table.Entry));
     count = 0;
     slots_filled = 0;
-}
+} @ResetsElements
 
 // Removes every entry and frees the slot array through the table's allocator. The table is usable again afterwards and
 // allocates from scratch.

@@ -294,6 +294,23 @@ impl Compiler {
             y
         };
         let val = f.b.bin(ir_op, t, x, y);
+        if !f.type_only
+            && matches!(ir_op, ir::BinOp::Add | ir::BinOp::Sub)
+            && self.ty.types.is_integer(ty)
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::IntegerBinary {
+                    value: val,
+                    left: x,
+                    right: y,
+                    op: ir_op,
+                    left_constant: None,
+                    right_constant: None,
+                },
+            );
+        }
         if self.options.arithmetic_overflow_check != 0
             && !f.checks_off.no_aoc()
             && !f.type_only

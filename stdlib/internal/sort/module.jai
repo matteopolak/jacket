@@ -88,7 +88,7 @@ insertion_sort :: (array: [] $T, f: (T, T) -> $R) {
 quick_sort :: (array: [] $T, f: (T, T) -> $R) -> [] T {
     intro_sort(array, f);
     return array;
-}
+} @MovesElements(sort)
 
 // Sorts `array` in place by the key `f` gives for each element, and returns it.
 //
@@ -96,7 +96,7 @@ quick_sort :: (array: [] $T, f: (T, T) -> $R) -> [] T {
 quick_sort :: (array: [] $T, f: (T) -> $R) -> [] T {
     sort_by_key(array, f);
     return array;
-}
+} @MovesElements(sort)
 
 compare_floats :: (a: float, b: float) -> s64 {
     // NaN is placed after every number and ties only with other NaNs, so the order is total.

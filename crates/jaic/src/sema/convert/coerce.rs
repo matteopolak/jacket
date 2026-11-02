@@ -86,6 +86,7 @@ impl Compiler {
                 f.b.store(Ty::I64, view, count);
                 let data = f.b.ptr_offset(view, 8);
                 f.b.store(Ty::Ptr, data, addr);
+                f.lifetime_view(view, addr, from, to, span);
                 Ok(Operand::Value {
                     ty: to,
                     val: view,

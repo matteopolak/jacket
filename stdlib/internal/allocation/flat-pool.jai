@@ -118,7 +118,7 @@ Flat_Pool :: struct {
         current_point = cast(*u8) end;
 
         return cast(*void) aligned;
-    }
+    } @BorrowsElement(0,unknown,0)
 
     // Rewinds the pool to the start, keeping its committed pages for reuse. Pointers from `get` are invalid afterwards.
     //
@@ -134,7 +134,7 @@ Flat_Pool :: struct {
         assert(current_point >= memory_base && current_point <= first_uncommitted_page, "invalid flat-pool allocated extent");
         if overwrite_memory || OVERWRITE_ALL_POOLS_ON_RESET memset(memory_base, 0xcc, current_point - memory_base);
         current_point = memory_base;
-    }
+    } @ResetsElements
 
     // Gives the pool's whole address range back to the system.
     fini :: (using pool: *Flat_Pool) {

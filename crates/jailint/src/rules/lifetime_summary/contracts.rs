@@ -11,31 +11,63 @@ pub(super) fn seed(compiler: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) 
         if valid.contains_key(&id) {
             summary.normal_return = Some(false);
         }
-        for (note, kind, storage) in [
-            ("GrowsArray", Kind::Resize, true),
-            ("FreesArgument", Kind::Free, false),
-            ("Closes", Kind::Free, false),
-        ] {
-            if compiler.proc_has_note(id, note) {
-                let effect = Effect {
-                    target: Path {
-                        root: Root::Parameter(0),
-                        steps: if storage {
-                            vec![Step::Storage]
-                        } else {
-                            Vec::new()
-                        },
-                    },
-                    kind,
-                    guard: None,
-                };
-                summary
-                    .may
-                    .insert(effect.clone(), vec![compiler.pr.procs[i].span]);
+        for (formal, mutation) in super::lifetime_movement::contracts(compiler, id) {
+            let effect = Effect {
+                target: Path {
+                    root: Root::Parameter(formal),
+                    steps: vec![Step::Storage],
+                },
+                kind: Kind::Mutation(mutation),
+                guard: None,
+            };
+            summary
+                .may
+                .insert(effect.clone(), vec![compiler.pr.procs[i].span]);
+            if mutation.guaranteed() {
                 summary
                     .guaranteed
                     .insert(effect, vec![compiler.pr.procs[i].span]);
             }
+        }
+        if compiler.proc_has_note(id, "GrowsArray") {
+            let effect = Effect {
+                target: Path {
+                    root: Root::Parameter(0),
+                    steps: vec![Step::Storage],
+                },
+                kind: Kind::Resize,
+                guard: None,
+            };
+            summary
+                .may
+                .insert(effect.clone(), vec![compiler.pr.procs[i].span]);
+            summary
+                .guaranteed
+                .insert(effect, vec![compiler.pr.procs[i].span]);
+        }
+        if let Some(formal) = super::lifetime_movement::released_formal(compiler, id) {
+            let effect = Effect {
+                target: Path {
+                    root: Root::Parameter(formal),
+                    steps: Vec::new(),
+                },
+                kind: Kind::Free,
+                guard: None,
+            };
+            summary
+                .may
+                .insert(effect.clone(), vec![compiler.pr.procs[i].span]);
+            summary
+                .guaranteed
+                .insert(effect, vec![compiler.pr.procs[i].span]);
+        }
+        for (formal, key, result) in super::lifetime_movement::borrowed(compiler, id) {
+            let path = Path {
+                root: Root::Parameter(formal),
+                steps: vec![Step::Storage],
+            };
+            summary.returns.insert(result, (path.clone(), None));
+            summary.elements.insert(result, (path, key));
         }
         for (note, root) in [
             ("Allocates", Root::Heap),

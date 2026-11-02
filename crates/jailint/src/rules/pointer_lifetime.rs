@@ -10,5 +10,5 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 };
 
 fn check(cx: &Cx, out: &mut Vec<Finding>) {
-    super::lifetime_cfg::check(cx, out);
+    super::lifetime_cfg::check(cx, out, false);
 }

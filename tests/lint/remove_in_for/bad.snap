@@ -4,6 +4,8 @@ source: crates/jailint/tests/rules.rs
 error[remove_in_for]: `array_unordered_remove_by_index` changes `xs` while this `for` walks it
   --> tests/lint/remove_in_for/bad.jai:9:20
    |
+ 8 |     for xs {
+   |         -- this collection's cursor advances after removal
  9 |         if it == 2 array_unordered_remove_by_index(*xs, it_index);
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
@@ -16,6 +18,8 @@ help: the element moved into the freed slot is skipped; use `remove it;` (or loo
 error[remove_in_for]: `array_ordered_remove_by_index` changes `xs` while this `for` walks it
   --> tests/lint/remove_in_for/bad.jai:12:20
    |
+11 |     for xs {
+   |         -- this collection's cursor advances after removal
 12 |         if it == 3 array_ordered_remove_by_index(*xs, it_index);
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
@@ -28,11 +32,27 @@ help: the element moved into the freed slot is skipped; use `remove it;` (or loo
 error[remove_in_for]: `drop_at` changes `values` while this `for` walks it
   --> tests/lint/remove_in_for/bad.jai:26:9
    |
+25 |     for values {
+   |         ------ this collection's cursor advances after removal
 26 |         drop_at(*values, it_index);
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < values`)
    |
 26 ~         remove it;
+   |
+   = note: `remove_in_for` is `deny` by default
+
+error[remove_in_for]: `erase_at` changes `values` while this `for` walks it
+  --> tests/lint/remove_in_for/bad.jai:38:9
+   |
+37 |     for values {
+   |         ------ this collection's cursor advances after removal
+38 |         erase_at(*values, it_index);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < values`)
+   |
+38 ~         remove it;
    |
    = note: `remove_in_for` is `deny` by default

@@ -24,6 +24,8 @@ pub(super) struct Places {
     pub data: HashMap<usize, (usize, jaic::source::Span)>,
     pub descriptor_fields: HashMap<usize, usize>,
     children: HashMap<usize, Vec<usize>>,
+    parents: Vec<Option<usize>>,
+    stable_parameters: jaic::fxhash::HashSet<Val>,
 }
 
 impl Places {
@@ -51,6 +53,68 @@ impl Places {
                 };
                 let id = *globals.entry(key).or_insert_with(|| this.place(v, ty));
                 this.values.insert((v, ty), id);
+            }
+        }
+        // A single, unexposed pointer slot is an immutable SSA source for this body.
+        // Repeated loads must project from the same holder, including pointer parameters.
+        let mut pointer_stores = HashMap::<Val, Vec<(Val, usize, usize)>>::default();
+        let exposed_slots: jaic::fxhash::HashSet<_> = events
+            .iter()
+            .filter_map(|e| match **e {
+                Event::Address {
+                    place, ..
+                } => Some(place),
+                _ => None,
+            })
+            .collect();
+        for (block, b) in body.blocks.iter().enumerate() {
+            for (ordinal, event) in b.events.iter().enumerate() {
+                if let Event::Store {
+                    place,
+                    value,
+                    ty,
+                    ..
+                } = *event
+                    && compiler.ty.types.is_pointer(ty)
+                {
+                    pointer_stores
+                        .entry(place)
+                        .or_default()
+                        .push((value, block, ordinal));
+                }
+            }
+        }
+        for (block, b) in body.blocks.iter().enumerate() {
+            for (ordinal, event) in b.events.iter().enumerate() {
+                if let Event::Parameter {
+                    incoming,
+                    place,
+                    ty,
+                    ..
+                } = *event
+                    && compiler.ty.types.is_pointer(ty)
+                    && !exposed_slots.contains(&place)
+                    && pointer_stores.get(&place).is_some_and(|s| s.len() == 1)
+                {
+                    this.stable_parameters.insert(incoming);
+                    let root = this.place(incoming, ty);
+                    this.values.insert((place, ty), root);
+                }
+                if let Event::Load {
+                    place,
+                    value,
+                    ty,
+                    ..
+                } = *event
+                    && compiler.ty.types.is_pointer(ty)
+                    && !exposed_slots.contains(&place)
+                    && let Some([(source, from, at)]) =
+                        pointer_stores.get(&place).map(Vec::as_slice)
+                    && ((*from == block && *at < ordinal) || (*from == 0 && block != 0))
+                {
+                    let source = this.place(*source, ty);
+                    this.values.insert((value, ty), source);
+                }
             }
         }
         for event in &events {
@@ -95,6 +159,7 @@ impl Places {
                     base_ty,
                     result_ty,
                     index: Some(index),
+                    ..
                 } => {
                     let parent = this.place(base, base_ty);
                     let element = this.project(parent, Projection::Element(index));
@@ -141,6 +206,7 @@ impl Places {
         let parent = (!path.is_empty()).then(|| self.intern(root, path[..path.len() - 1].to_vec()));
         let id = self.paths.len();
         self.paths.push((root, path.clone()));
+        self.parents.push(parent);
         self.ids.insert((root, path), id);
         if let Some(parent) = parent {
             self.children.entry(parent).or_default().push(id);
@@ -176,6 +242,26 @@ impl Places {
     pub fn unresolved(&self, place: usize) -> bool {
         self.paths[place].1.contains(&Projection::Deref)
             || self.indirect.iter().any(|&base| self.contains(base, place))
+    }
+
+    pub fn stable_projection(&self, place: usize) -> bool {
+        let ((root, _), path) = &self.paths[place];
+        self.stable_parameters.contains(root)
+            && path.first() == Some(&Projection::Deref)
+            && path.iter().filter(|p| **p == Projection::Deref).count() == 1
+            && !self.indirect.iter().any(|&base| self.contains(base, place))
+    }
+
+    pub fn ancestors(&self, place: usize) -> impl Iterator<Item = usize> + '_ {
+        std::iter::successors(self.parents[place], |&p| self.parents[p])
+    }
+
+    pub fn existing(&self, value: Val, ty: TypeId) -> Option<usize> {
+        self.values.get(&(value, ty)).copied()
+    }
+
+    pub fn lookup(&self, other: &Self, place: usize) -> Option<usize> {
+        self.ids.get(&other.paths[place]).copied()
     }
 
     pub fn descendants(&self, parent: usize) -> Vec<usize> {

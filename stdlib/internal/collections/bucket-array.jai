@@ -64,14 +64,14 @@ bucket_array_add :: (using array: *Bucket_Array, item: array.type) -> Bucket_Loc
     pointer, locator := find_and_occupy_empty_slot(array, false);
     pointer.* = item;
     return locator, pointer;
-}
+} @ElementResult(0,0,1)
 
 bucket_array_find_pointer :: (using array: *Bucket_Array, locator: Bucket_Locator) -> *array.type {
     assert(locator.bucket_index < all_buckets.count);
     bucket := all_buckets[locator.bucket_index];
     assert(locator.slot_index >= 0 && locator.slot_index < array.items_per_bucket && bucket.occupied[locator.slot_index]);
     return bucket.data.data + locator.slot_index;
-}
+} @BorrowsElement(0,1,0)
 
 operator *[] :: (using array: Bucket_Array, index: int) -> *array.type {
     assert(index >= 0);
@@ -100,7 +100,7 @@ bucket_array_remove :: (using array: *Bucket_Array, locator: Bucket_Locator) {
     bucket.lowest_maybe_not_occupied = min(bucket.lowest_maybe_not_occupied, locator.slot_index);
     bucket.count -= 1;
     array.count -= 1;
-}
+} @RemovesElement(1)
 
 bucket_array_reset :: (using array: *Bucket_Array) {
     for bucket: all_buckets allocator.proc(.FREE, 0, size_of(array.My_Bucket), bucket, allocator.data);

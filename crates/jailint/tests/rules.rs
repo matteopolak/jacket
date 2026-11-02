@@ -553,3 +553,48 @@ fn lifetime_resources_cover_cleanup_scopes_watermarks_and_handles() {
     let (lints, text) = lint(&good, &levels);
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
 }
+
+#[test]
+fn lifetime_movements_preserve_element_identity() {
+    let case = repo().join("tests/lint/pointer_lifetime/movement");
+    let bad = case.join("bad.jai");
+    let (lints, text) = lint(&bad, &[("pointer_lifetime", Level::Warn)]);
+    assert_eq!(lints.len(), 13, "{}", rendered(&lints, &text, &bad));
+    test_support::assert_snapshot_in!(&case, "movement", rendered(&lints, &text, &bad));
+    let good = case.join("good.jai");
+    let (lints, text) = lint(&good, &[("pointer_lifetime", Level::Warn)]);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
+}
+
+#[test]
+fn lifetime_logical_slots_and_bounded_moves() {
+    let case = repo().join("tests/lint/pointer_lifetime/movement");
+    let bad = case.join("containers-bad.jai");
+    let (lints, text) = lint(&bad, &[("pointer_lifetime", Level::Warn)]);
+    assert_eq!(lints.len(), 10, "{}", rendered(&lints, &text, &bad));
+    test_support::assert_snapshot_in!(&case, "containers", rendered(&lints, &text, &bad));
+    let good = case.join("containers-good.jai");
+    let (lints, text) = lint(&good, &[("pointer_lifetime", Level::Warn)]);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
+}
+
+#[test]
+fn lifetime_iteration_and_resizable_migration() {
+    for (rule, expected) in [("pointer_into_resizable", 4), ("remove_in_for", 4)] {
+        let case = repo().join("tests/lint").join(rule);
+        let bad = case.join("bad.jai");
+        let (lints, text) = lint(&bad, &[(rule, Level::Warn)]);
+        assert_eq!(lints.len(), expected, "{}", rendered(&lints, &text, &bad));
+        let good = case.join("good.jai");
+        let (lints, text) = lint(&good, &[(rule, Level::Warn)]);
+        assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
+    }
+}
+
+#[test]
+fn lifetime_fixed_array_views_distinguish_stack_from_persistent_literals() {
+    let path = repo().join("tests/lint/pointer_lifetime/movement/stack-views.jai");
+    let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    assert!(lints[0].start < text.find("good_persistent_literal").unwrap());
+}

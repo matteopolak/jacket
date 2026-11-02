@@ -40,6 +40,19 @@ impl Compiler {
         } else {
             self.convert(f, rhs, TypeId::S64, Site::opaque(span))?
         };
+        let delta = match &rhs {
+            Operand::Const {
+                value: crate::sema::Value::Int(i),
+                ..
+            } => {
+                if op == BinOp::Sub {
+                    i.checked_neg()
+                } else {
+                    Some(*i)
+                }
+            }
+            _ => None,
+        };
         let (_, idx) = self.rvalue(f, rhs, span)?;
         let pointee = self.ty.types.pointee(lty).unwrap();
         let size = if pointee == TypeId::VOID {
@@ -53,7 +66,20 @@ impl Compiler {
             off = f.b.un(ir::UnOp::Neg, Ty::I64, off);
         }
         let value = f.b.ptr_add(base, off);
-        f.lifetime_copy(value, base);
+        if !f.type_only
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::Offset {
+                    value,
+                    source: base,
+                    stride: pointee,
+                    offset: delta,
+                    span,
+                },
+            );
+        }
         Ok(Operand::Value {
             ty: lty,
             val: value,

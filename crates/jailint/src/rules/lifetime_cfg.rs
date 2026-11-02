@@ -15,13 +15,37 @@ use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
 use std::collections::{BTreeMap, VecDeque};
 
+mod build;
+mod diagnostics;
 pub(super) mod resources;
+use build::build;
+mod iteration;
+use super::lifetime_movement::{
+    Action, Mutation, Selector,
+    facts::{Facts, Site},
+};
+pub(super) use iteration::check as check_iteration;
+
 
 #[derive(Clone)]
 enum Op {
     Nop,
     Use(usize, Span),
     Borrow(usize, usize, Span),
+    ElementBorrow(usize, usize, Selector, Option<i128>, Span),
+    Mutate(usize, Mutation, Span),
+    ForgetElement(usize),
+    Iteration {
+        region: usize,
+        index: usize,
+        reverse: bool,
+        name: jaic::intern::Sym,
+        index_name: jaic::intern::Sym,
+        span: Span,
+        advance: bool,
+    },
+    IterationMutation(usize, Mutation, Span),
+    IndexWrite(usize),
     PointerLoad(usize, usize, usize, Span),
     Copy(Vec<(usize, usize)>),
     Replace(usize),
@@ -49,6 +73,7 @@ struct Model {
 const UNKNOWN: u8 = 1;
 const LIVE: u8 = 2;
 const DEAD: u8 = 4;
+const POSITION_UNKNOWN: u8 = 8;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Cell {
@@ -92,252 +117,7 @@ fn view(cx: &Cx, ty: TypeId) -> bool {
 }
 
 
-fn build(
-    cx: &Cx,
-    body: &LifetimeBody,
-    places: &mut Places,
-    cells: &mut Cells,
-    summaries: &Summaries,
-    chains: &mut HashMap<(Span, usize), Vec<Span>>,
-) -> Vec<Block> {
-    let mut resolver = Resolver::new(cx.compiler, body, &summaries.procs);
-    let resources = resources::Builder::new(cx, body, summaries);
-    let mut grown = HashMap::default();
-    let mut blocks: Vec<_> = body
-        .blocks
-        .iter()
-        .map(|_| Block {
-            op: Op::Nop,
-            next: Vec::new(),
-            site: None,
-        })
-        .collect();
-    let mut ranges = vec![Vec::new(); body.blocks.len()];
-    for range in &body.source_ranges {
-        ranges[range.block].push(range);
-    }
-    for (i, block) in body.blocks.iter().enumerate() {
-        let mut previous = i;
-        let mut range_index = 0;
-        for (ordinal, event) in block.events.iter().enumerate() {
-            while ranges[i]
-                .get(range_index)
-                .is_some_and(|r| r.end_event <= ordinal)
-            {
-                range_index += 1;
-            }
-            let site = ranges[i]
-                .get(range_index)
-                .filter(|r| r.first_event <= ordinal && ordinal < r.end_event)
-                .map(|r| r.site);
-            let mut ops = Vec::new();
-            match *event {
-                Event::ReadMemory {
-                    value,
-                    span,
-                } => ops.push(Op::Use(cells.id(Cell::Value(value)), span)),
-                Event::Use {
-                    place,
-                    ty,
-                    span,
-                } => {
-                    let p = places.place(place, ty);
-                    ops.push(Op::Use(cells.id(Cell::Place(p)), span));
-                }
-                Event::Borrow {
-                    value,
-                    region,
-                    region_ty,
-                    span,
-                } => {
-                    let r = places.place(region, region_ty);
-                    let target = cells.id(Cell::Value(value));
-                    if resizable(cx, places, r) {
-                        ops.push(Op::Borrow(target, r, span));
-                    } else {
-                        ops.push(Op::Copy(vec![(target, cells.id(Cell::Place(r)))]));
-                    }
-                }
-                Event::Load {
-                    place,
-                    value,
-                    ty,
-                    span,
-                } => {
-                    let p = places.place(place, ty);
-                    let target = cells.id(Cell::Value(value));
-                    if let Some(&(r, at)) = places.data.get(&p) {
-                        if resizable(cx, places, r) {
-                            ops.push(Op::Borrow(target, r, at));
-                        } else {
-                            ops.push(Op::Copy(vec![(target, cells.id(Cell::Place(r)))]));
-                        }
-                    } else if cx.compiler.ty.types.is_pointer(ty)
-                        || view(cx, ty)
-                        || resources.resource_load(value)
-                    {
-                        ops.push(Op::PointerLoad(target, cells.id(Cell::Place(p)), p, span));
-                    } else {
-                        ops.push(Op::Copy(vec![(target, cells.id(Cell::Place(p)))]));
-                    }
-                }
-                Event::Store {
-                    place,
-                    value,
-                    ty,
-                    ..
-                } => {
-                    let p = places.place(place, ty);
-                    let source = places.place(value, ty);
-                    if places.unresolved(p) {
-                        ops.push(Op::Barrier);
-                    }
-                    ops.push(Op::Replace(p));
-                    if let Some(&r) = places.descriptor_fields.get(&p) {
-                        ops.push(Op::Replace(r));
-                    }
-                    let target = cells.id(Cell::Place(p));
-                    if cx.compiler.ty.types.is_pointer(ty) {
-                        ops.push(Op::Copy(vec![(target, cells.id(Cell::Value(value)))]));
-                    } else {
-                        let mut copies = vec![(target, cells.id(Cell::Place(source)))];
-                        for (dst, src) in places.copied_fields(p, source) {
-                            copies.push((cells.id(Cell::Place(dst)), cells.id(Cell::Place(src))));
-                        }
-                        ops.push(Op::Copy(copies));
-                    }
-                    if let Some(&(parent, _)) = places.data.get(&p)
-                        && places.types.get(&parent).is_some_and(|&ty| view(cx, ty))
-                    {
-                        ops.push(Op::Copy(vec![(
-                            cells.id(Cell::Place(parent)),
-                            cells.id(Cell::Value(value)),
-                        )]));
-                    }
-                }
-                Event::Copy {
-                    value,
-                    source,
-                } => ops.push(Op::Copy(vec![(
-                    cells.id(Cell::Value(value)),
-                    cells.id(Cell::Value(source)),
-                )])),
-                Event::View {
-                    value,
-                    source,
-                    from,
-                    to,
-                    span,
-                } => {
-                    let source = places.place(source, from);
-                    let target = cells.id(Cell::Value(value));
-                    if resizable(cx, places, source) {
-                        ops.push(Op::Borrow(target, source, span));
-                    } else {
-                        ops.push(Op::Copy(vec![(target, cells.id(Cell::Place(source)))]));
-                    }
-                    let target_place = places.place(value, to);
-                    ops.push(Op::Copy(vec![(
-                        cells.id(Cell::Place(target_place)),
-                        target,
-                    )]));
-                }
-                Event::Grow {
-                    region,
-                    ty,
-                    span,
-                } => {
-                    let r = places.place(region, ty);
-                    grown.insert(span, r);
-                    ops.push(Op::Grow(r, span));
-                }
-                Event::Call {
-                    callee,
-                    ref args,
-                    ref results,
-                    span,
-                    expands: false,
-                    ..
-                } => {
-                    for (effect, _) in resolver.effects(callee, args, &summaries.procs, false) {
-                        if effect.kind != Kind::Write {
-                            continue;
-                        }
-                        if let Some(id) = resolver.materialize(&effect.target) {
-                            let p = places.import(&resolver.places, id);
-                            ops.push(Op::Replace(
-                                places.data.get(&p).map_or(p, |(owner, _)| *owner),
-                            ));
-                        }
-                    }
-                    for (effect, chain) in resolver.effects(callee, args, &summaries.procs, true) {
-                        if effect.kind != Kind::Resize || effect.guard.is_some() {
-                            continue;
-                        }
-                        if let Some(id) = resolver.materialize(&effect.target) {
-                            let r = places.import(&resolver.places, id);
-                            if grown.get(&span) != Some(&r) {
-                                ops.push(Op::Grow(r, span));
-                                chains.insert((span, r), chain);
-                            }
-                        }
-                    }
-                    for &(_, value, _) in results {
-                        if let Some(path) = resolver.value(value, &summaries.procs)
-                            && let Some(id) = resolver.materialize(&path)
-                        {
-                            let r = places.import(&resolver.places, id);
-                            ops.push(Op::Borrow(cells.id(Cell::Value(value)), r, span));
-                        }
-                    }
-                    if summaries
-                        .procs
-                        .get(&callee)
-                        .is_some_and(|s| s.normal_return == Some(false))
-                    {
-                        ops.push(Op::Stop);
-                    }
-                }
-                Event::Barrier => ops.push(Op::Barrier),
-                _ => {}
-            }
-            let extra = resources.operations(event, places, cells, &mut resolver);
-            if matches!(event, Event::Store { .. }) {
-                ops.splice(0..0, extra.into_iter().map(Op::Resource));
-            } else {
-                ops.extend(extra.into_iter().map(Op::Resource));
-            }
-            for op in ops {
-                let index = blocks.len();
-                blocks.push(Block {
-                    op,
-                    next: Vec::new(),
-                    site,
-                });
-                if !matches!(blocks[previous].op, Op::Stop) {
-                    blocks[previous].next.push(index);
-                }
-                previous = index;
-            }
-        }
-        if block.normal_return && !matches!(blocks[previous].op, Op::Stop) {
-            let index = blocks.len();
-            blocks.push(Block {
-                op: Op::Resource(resources::Op::Exit),
-                next: Vec::new(),
-                site: None,
-            });
-            blocks[previous].next.push(index);
-            previous = index;
-        }
-        if !matches!(blocks[previous].op, Op::Stop) {
-            blocks[previous].next.clone_from(&block.successors);
-        }
-    }
-    blocks
-}
-
-pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
+pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
     let Some(facts) = cx.compiler.ed.facts() else {
         return;
     };
@@ -390,6 +170,8 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let blocks = build(cx, body, &mut places, &mut cells, summaries, &mut chains);
         let mut names = HashMap::default();
         let mut allowed_addresses = HashSet::default();
+        let mut derived_addresses = HashSet::default();
+        let mut resolver = Resolver::new(cx.compiler, body, &summaries.procs);
         for event in body.blocks.iter().flat_map(|b| &b.events) {
             match event {
                 Event::Expression {
@@ -411,14 +193,13 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     .is_some_and(|s| !s.may.is_empty() || !s.returns.is_empty()) =>
                 {
                     for arg in args.iter().filter(|a| {
-                        if summaries.procs[callee].unknown_write.contains(&a.formal)
-                            || summaries.procs[callee].escapes.contains(&a.formal)
-                        {
+                        if summaries.procs[callee].unknown_write.contains(&a.formal) {
                             return false;
                         }
 
                         summaries.procs[callee].may.keys().any(|e| {
-                            e.kind == Kind::Resize && e.target.root == Root::Parameter(a.formal)
+                            matches!(e.kind, Kind::Resize | Kind::Mutation(_))
+                                && e.target.root == Root::Parameter(a.formal)
                         }) || summaries.procs[callee].returns.values().any(|(p, _)| {
                             p.root == Root::Parameter(a.formal)
                                 && p.steps
@@ -428,6 +209,12 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     }) {
                         if let LifetimeOperand::Value(place) = arg.operand {
                             allowed_addresses.insert((place, arg.span));
+                            if let Some(path) = resolver.value(place, &summaries.procs)
+                                && let Some(id) = resolver.materialize(&path)
+                            {
+                                derived_addresses
+                                    .insert((places.import(&resolver.places, id), arg.span));
+                            }
                         }
                     }
                 }
@@ -443,8 +230,11 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     place,
                     ty,
                     span,
-                } if !allowed_addresses.contains(&(*place, *span)) => {
-                    Some(places.place(*place, *ty))
+                } => {
+                    let p = places.place(*place, *ty);
+                    (!allowed_addresses.contains(&(*place, *span))
+                        && !derived_addresses.contains(&(p, *span)))
+                    .then_some(p)
                 }
                 _ => None,
             })
@@ -471,7 +261,13 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             chains,
         };
         for (origin, block) in model.blocks.iter().enumerate() {
-            if let Op::Borrow(_, region, _) | Op::PointerLoad(_, _, region, _) = block.op {
+            if let Op::Borrow(_, region, _)
+            | Op::ElementBorrow(_, region, ..)
+            | Op::PointerLoad(_, _, region, _) = block.op
+            {
+                if resizable_only && !resizable(cx, &model.places, region) {
+                    continue;
+                }
                 if matches!(block.op, Op::PointerLoad(..))
                     && !model
                         .blocks
@@ -480,7 +276,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 {
                     continue;
                 }
-                if model.places.unresolved(region) {
+                if model.places.unresolved(region) && !model.places.stable_projection(region) {
                     *rejected_candidates.entry("indirect-region").or_default() += 1;
                     continue;
                 }
@@ -504,7 +300,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         Projection::Deref => {}
                     }
                 }
-                solved += usize::from(solve(cx, &model, origin, &name, out));
+                solved += usize::from(solve(cx, &model, origin, &name, out, resizable_only));
             }
         }
     }
@@ -529,6 +325,7 @@ fn solve(
     candidate: usize,
     region_name: &str,
     out: &mut Vec<Finding>,
+    resizable_only: bool,
 ) -> bool {
     let Model {
         blocks,
@@ -536,12 +333,16 @@ fn solve(
         cells,
         exposed,
         forward,
-        chains,
+        chains: _,
     } = model;
-    let (Op::Borrow(first, region, origin) | Op::PointerLoad(first, _, region, origin)) =
-        blocks[candidate].op
-    else {
-        return false;
+    let (first, region, _origin, element) = match blocks[candidate].op {
+        Op::Borrow(first, region, origin) | Op::PointerLoad(first, _, region, origin) => {
+            (first, region, origin, None)
+        }
+        Op::ElementBorrow(first, region, index, length, origin) => {
+            (first, region, origin, Some((index, length)))
+        }
+        _ => return false,
     };
     // Only retain cells reachable by copying this origin. Unrelated scalar loads/stores
     // do not multiply per-candidate state memory.
@@ -578,7 +379,7 @@ fn solve(
     while let Some(i) = queue.pop_front() {
         let mut state = states[i].clone().unwrap();
         match &blocks[i].op {
-            Op::Borrow(target, _, _) => {
+            Op::Borrow(target, _, _) | Op::ElementBorrow(target, ..) => {
                 if let Some(&cell) = relevant.get(target) {
                     state[cell] = if i == candidate {
                         LIVE
@@ -622,18 +423,46 @@ fn solve(
             Op::Replace(p) if places.contains(*p, region) => {
                 for cell in &mut state {
                     *cell = (*cell & DEAD)
-                        | if *cell & (LIVE | UNKNOWN) != 0 {
+                        | if *cell & (LIVE | POSITION_UNKNOWN | UNKNOWN) != 0 {
                             UNKNOWN
                         } else {
                             0
                         };
                 }
             }
+            Op::Mutate(r, mutation, _) if *r == region && element.is_some() && !resizable_only => {
+                let (selector, length) = element.unwrap();
+                if super::lifetime_movement::invalidates(*mutation, selector, length) {
+                    for cell in &mut state {
+                        if *cell & LIVE != 0 {
+                            *cell = (*cell & !LIVE) | DEAD;
+                        }
+                    }
+                } else if matches!(selector, Selector::Last | Selector::CountDelta(_)) {
+                    for cell in &mut state {
+                        if *cell & LIVE != 0 {
+                            *cell = (*cell & !LIVE) | POSITION_UNKNOWN;
+                        }
+                    }
+                }
+            }
+            Op::ForgetElement(target) if element.is_some() => {
+                if let Some(&cell) = relevant.get(target)
+                    && state[cell] & LIVE != 0
+                {
+                    state[cell] = (state[cell] & !LIVE) | POSITION_UNKNOWN;
+                }
+            }
+            Op::Replace(p)
+                if places.unresolved(*p) && places.paths[*p].0 != places.paths[region].0 =>
+            {
+                state.fill(UNKNOWN);
+            }
             Op::Barrier => state.fill(UNKNOWN),
             Op::Grow(r, _) if *r == region => {
                 for cell in &mut state {
-                    if *cell & LIVE != 0 {
-                        *cell = (*cell & !LIVE) | DEAD;
+                    if *cell & (LIVE | POSITION_UNKNOWN) != 0 {
+                        *cell = (*cell & !(LIVE | POSITION_UNKNOWN)) | DEAD;
                     }
                 }
             }
@@ -660,81 +489,15 @@ fn solve(
             }
         }
     }
-    for (i, block) in blocks.iter().enumerate() {
-        let Op::Use(id, at) = block.op else {
-            continue;
-        };
-        let source = at;
-        let at = if at.file == cx.file {
-            at
-        } else if let Some(site) = block.site.filter(|s| s.file == cx.file) {
-            site
-        } else {
-            continue;
-        };
-        let Some(&cell) = relevant.get(&id) else {
-            continue;
-        };
-        if states[i].as_ref().is_none_or(|s| s[cell] != DEAD) {
-            continue;
-        }
-        let growths = invalidation_cut(blocks, &states, &relevant, i, cell, region);
-        if growths.is_empty() {
-            continue;
-        }
-        let explanation = if growths.len() == 1 {
-            format!(
-                "`{}` points into `{region_name}`, which may be resized: {}",
-                cx.src(at),
-                cx.compiler.src.sources.snippet(growths[0]).trim()
-            )
-        } else {
-            format!(
-                "`{}` points into `{region_name}`; every path to this use passes one of {} invalidating calls",
-                cx.src(at),
-                growths.len()
-            )
-        };
-        let mut report = finding(
-            at,
-            explanation,
-            Some("take the pointer again after growth, or store an index instead".into()),
-        );
-        report.label = Some("pointer used here after its storage was invalidated".into());
-        if source != at {
-            report
-                .secondary
-                .push((source, "expanded code uses the pointer here".into()));
-        }
-        report
-            .secondary
-            .push((origin, "pointer derived here".into()));
-        for growth in growths {
-            if let Some(chain) = chains.get(&(growth, region)) {
-                for &site in chain {
-                    if site == Span::NONE {
-                        report
-                            .message
-                            .push_str(" (inferred chain truncated in the middle)");
-                    } else if site != growth {
-                        report
-                            .secondary
-                            .push((site, "invalidation inferred through this call".into()));
-                    }
-                }
-            }
-            report
-                .secondary
-                .push((growth, format!("`{region_name}` storage invalidated here")));
-        }
-        if !out.iter().any(|f| {
-            f.start >= at.start as usize
-                && f.end <= at.end as usize
-                && f.secondary == report.secondary
-        }) {
-            out.push(report);
-        }
-    }
+    out.extend(diagnostics::emit(
+        cx,
+        model,
+        candidate,
+        &states,
+        &relevant,
+        region_name,
+        resizable_only,
+    ));
     true
 }
 
@@ -748,6 +511,7 @@ fn invalidation_cut(
     use_at: usize,
     use_cell: usize,
     region: usize,
+    element: Option<(Selector, Option<i128>)>,
 ) -> Vec<Span> {
     let mut incoming = vec![Vec::new(); blocks.len()];
     for (from, block) in blocks
@@ -767,9 +531,22 @@ fn invalidation_cut(
             continue;
         }
         match &blocks[i].op {
-            Op::Grow(id, at) if *id == region => {
+            Op::Grow(id, at) | Op::Mutate(id, _, at)
+                if *id == region
+                    && match blocks[i].op {
+                        Op::Mutate(_, m, _) => element.is_some_and(|(s, len)| {
+                            super::lifetime_movement::invalidates(m, s, len)
+                        }),
+                        _ => true,
+                    } =>
+            {
                 let before = states[i].as_ref().unwrap()[cell];
-                if before & LIVE != 0 {
+                let live = if matches!(blocks[i].op, Op::Mutate(..)) {
+                    LIVE
+                } else {
+                    LIVE | POSITION_UNKNOWN
+                };
+                if before & live != 0 {
                     spans.push(*at);
                 }
                 if before & DEAD == 0 {
@@ -793,7 +570,11 @@ fn invalidation_cut(
                 };
                 cell = source;
             }
-            Op::Borrow(target, _, _) if relevant.get(target) == Some(&cell) => continue,
+            Op::Borrow(target, _, _) | Op::ElementBorrow(target, ..)
+                if relevant.get(target) == Some(&cell) =>
+            {
+                continue;
+            }
             Op::Barrier => continue,
             _ => {}
         }

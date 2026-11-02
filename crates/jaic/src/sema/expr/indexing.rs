@@ -405,11 +405,24 @@ impl Compiler {
                     base_ty: bty,
                     result_ty: elem,
                     index: lifetime_index,
+                    subscript: idx,
                 },
             );
         }
-        if self.ty.types.is_pointer(bty) {
-            f.lifetime_copy(addr, data);
+        if self.ty.types.is_pointer(bty)
+            && !f.type_only
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::Offset {
+                    value: addr,
+                    source: data,
+                    stride: elem,
+                    offset: lifetime_index,
+                    span,
+                },
+            );
         }
         if !f.type_only
             && self.ty.types.is_pointer(bty)

@@ -1,0 +1,159 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[pointer_lifetime]: `p` refers to an element in `t` whose identity is invalidated on every path to this use
+   --> tests/lint/pointer_lifetime/movement/containers-bad.jai:15:10
+    |
+ 13 |     p := H.table_find_pointer(*t, 7);
+    |          --------------------------- pointer derived here
+ 14 |     H.table_remove(*t, 7);
+    |     --------------------- `t` element moved or removed here
+ 15 |     sink(p);
+    |          ^ pointer used here after its element was moved or removed
+    |
+   ::: [repo]/stdlib/internal/collections/hash-table.jai:351:17
+    |
+351 | table_remove :: (table: *Table, key: table.Key_Type) -> (success: bool, value: table.Value_Type) {
+    |                 ---------------------------------------------------------------------------------- invalidation inferred through this call
+    |
+    = help: take the pointer again after the operation, or keep a stable key instead
+
+warning[pointer_lifetime]: `p` refers to an element in `t` whose identity is invalidated on every path to this use
+   --> tests/lint/pointer_lifetime/movement/containers-bad.jai:22:10
+    |
+ 20 |     p := H.table_find_pointer(*t, 7);
+    |          --------------------------- pointer derived here
+ 21 |     H.table_reset_keeping_memory(*t);
+    |     -------------------------------- `t` element moved or removed here
+ 22 |     sink(p);
+    |          ^ pointer used here after its element was moved or removed
+    |
+   ::: [repo]/stdlib/internal/collections/hash-table.jai:428:31
+    |
+428 | table_reset_keeping_memory :: (using table: *Table) {
+    |                               ----------------------- invalidation inferred through this call
+    |
+    = help: take the pointer again after the operation, or keep a stable key instead
+
+warning[pointer_lifetime]: `p` refers to an element in `b` whose identity is invalidated on every path to this use
+   --> tests/lint/pointer_lifetime/movement/containers-bad.jai:29:10
+    |
+ 27 |     locator, p := B.bucket_array_add(*b, 7);
+    |                   ------------------------- pointer derived here
+ 28 |     B.bucket_array_remove(*b, locator);
+    |     ---------------------------------- `b` element moved or removed here
+ 29 |     sink(p);
+    |          ^ pointer used here after its element was moved or removed
+    |
+   ::: [repo]/stdlib/internal/collections/bucket-array.jai:93:24
+    |
+ 93 | bucket_array_remove :: (using array: *Bucket_Array, locator: Bucket_Locator) {
+    |                        ------------------------------------------------------- invalidation inferred through this call
+    |
+    = help: take the pointer again after the operation, or keep a stable key instead
+
+warning[pointer_lifetime]: `p` refers to an element in `b` whose identity is invalidated on every path to this use
+   --> tests/lint/pointer_lifetime/movement/containers-bad.jai:36:10
+    |
+ 34 |     p := B.bucket_array_find_pointer(*b, locator);
+    |          ---------------------------------------- pointer derived here
+ 35 |     B.bucket_array_remove(*b, locator);
+    |     ---------------------------------- `b` element moved or removed here
+ 36 |     sink(p);
+    |          ^ pointer used here after its element was moved or removed
+    |
+   ::: [repo]/stdlib/internal/collections/bucket-array.jai:93:24
+    |
+ 93 | bucket_array_remove :: (using array: *Bucket_Array, locator: Bucket_Locator) {
+    |                        ------------------------------------------------------- invalidation inferred through this call
+    |
+    = help: take the pointer again after the operation, or keep a stable key instead
+
+warning[pointer_lifetime]: `p` refers to an element in `pool` whose identity is invalidated on every path to this use
+   --> tests/lint/pointer_lifetime/movement/containers-bad.jai:43:10
+    |
+ 41 |     p := cast(*int) P.get(*pool, 8);
+    |                     --------------- pointer derived here
+ 42 |     P.reset(*pool);
+    |     -------------- `pool` element moved or removed here
+ 43 |     sink(p);
+    |          ^ pointer used here after its element was moved or removed
+    |
+   ::: [repo]/stdlib/internal/allocation/pool.jai:177:10
+    |
+177 | reset :: (using pool: *Pool) {
+    |          --------------------- invalidation inferred through this call
+    |
+    = help: take the pointer again after the operation, or keep a stable key instead
+
+warning[pointer_lifetime]: `p` refers to an element in `pool` whose identity is invalidated on every path to this use
+   --> tests/lint/pointer_lifetime/movement/containers-bad.jai:50:10
+    |
+ 48 |     p := cast(*int) F.get(*pool, 8);
+    |                     --------------- pointer derived here
+ 49 |     F.reset(*pool);
+    |     -------------- `pool` element moved or removed here
+ 50 |     sink(p);
+    |          ^ pointer used here after its element was moved or removed
+    |
+   ::: [repo]/stdlib/internal/allocation/flat-pool.jai:132:14
+    |
+132 |     reset :: (using pool: *Flat_Pool, overwrite_memory := false) {
+    |              ----------------------------------------------------- invalidation inferred through this call
+    |
+    = help: take the pointer again after the operation, or keep a stable key instead
+
+warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
+  --> tests/lint/pointer_lifetime/movement/containers-bad.jai:57:10
+   |
+55 |     p := *a[1];
+   |          ----- pointer derived here
+56 |     swap(*a[1], *a[3]);
+   |     ------------------ `a` element moved or removed here
+57 |     sink(p);
+   |          ^ pointer used here after its element was moved or removed
+   |
+   = help: take the pointer again after the operation, or keep a stable key instead
+
+warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
+  --> tests/lint/pointer_lifetime/movement/containers-bad.jai:65:10
+   |
+60 | reverse :: (a: [] int) {} @MovesElements(reverse)
+   |            -------------- invalidation inferred through this call
+   ...
+63 |     p := *a[0];
+   |          ----- pointer derived here
+64 |     reverse(a);
+   |     ---------- `a` element moved or removed here
+65 |     sink(p);
+   |          ^ pointer used here after its element was moved or removed
+   |
+   = help: take the pointer again after the operation, or keep a stable key instead
+
+warning[pointer_lifetime]: `q` refers to an element in `a` whose identity is invalidated on every path to this use
+  --> tests/lint/pointer_lifetime/movement/containers-bad.jai:74:10
+   |
+71 |     q := p + 1;
+   |          ----- pointer derived here
+   ...
+73 |     swap(*a[1], *a[3]);
+   |     ------------------ `a` element moved or removed here
+74 |     sink(q);
+   |          ^ pointer used here after its element was moved or removed
+   |
+   = help: take the pointer again after the operation, or keep a stable key instead
+
+warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
+  --> tests/lint/pointer_lifetime/movement/containers-bad.jai:86:10
+   |
+79 |     swap(*a[first], *a[second]);
+   |     --------------------------- invalidation inferred through this call
+   ...
+84 |     p := *a[1];
+   |          ----- pointer derived here
+85 |     swap_indices(a, 1, 3);
+   |     --------------------- `a` element moved or removed here
+86 |     sink(p);
+   |          ^ pointer used here after its element was moved or removed
+   |
+   = help: take the pointer again after the operation, or keep a stable key instead

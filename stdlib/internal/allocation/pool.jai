@@ -158,7 +158,7 @@ get :: (using pool: *Pool, nbytes: s64) -> *void {
     current_pos = result + nbytes;
 
     return result;
-}
+} @BorrowsElement(0,unknown,0)
 
 // Gives all memory back to the pool: oversized blocks are freed, ordinary blocks are kept for reuse (or freed too, with
 // `free_memblocks_on_reset`).
@@ -203,7 +203,7 @@ reset :: (using pool: *Pool) {
     current_memblock = null;
     current_pos = null;
     bytes_left = 0;
-}
+} @ResetsElements
 
 // Resets the pool and frees all its blocks through `block_allocator`. The pool can be used again; it takes new blocks on the next `get`.
 //
@@ -222,7 +222,7 @@ release :: (using pool: *Pool) {
     }
 
     unused_memblocks = null;
-} @FreesArgument
+} @ResetsElements @FreesArgument
 
 // How much the pool has handed out: the bytes used in ordinary blocks (including their headers and alignment padding) and the number of oversized blocks.
 //

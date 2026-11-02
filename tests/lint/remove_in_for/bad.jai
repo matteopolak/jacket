@@ -26,3 +26,15 @@ noted_remover :: () {
         drop_at(*values, it_index);
     }
 }
+
+erase_at :: (array: *[..] int, index: int) {
+    array_unordered_remove_by_index(array, index);
+}
+
+unnoted_remover :: () {
+    values: [..] int;
+
+    for values {
+        erase_at(*values, it_index);
+    }
+}

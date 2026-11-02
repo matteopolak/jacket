@@ -166,11 +166,16 @@ impl<'a> Builder<'a> {
                     callee,
                     args,
                     ..
-                } if cx.compiler.proc_has_note(*callee, "FreesArgument")
-                    || cx.compiler.proc_has_note(*callee, "Closes") =>
+                } if crate::rules::lifetime_movement::released_formal(cx.compiler, *callee)
+                    .is_some() =>
                 {
-                    if let Some(a) = args.iter().find(|a| a.formal == 0)
-                        && let LifetimeOperand::Value(v) = a.operand
+                    if let Some(a) = args.iter().find(|a| {
+                        Some(a.formal)
+                            == crate::rules::lifetime_movement::released_formal(
+                                cx.compiler,
+                                *callee,
+                            )
+                    }) && let LifetimeOperand::Value(v) = a.operand
                     {
                         released_values.insert(v);
                     }
@@ -257,6 +262,31 @@ impl<'a> Builder<'a> {
                     ops.push(Op::Seed {
                         cell: cells.id(Cell::Value(*place)),
                         origin: Origin::Stack(ScopeId(u32::MAX)),
+                        span: *span,
+                    });
+                }
+            }
+            Event::View {
+                value,
+                source,
+                from,
+                to,
+                span,
+            } if matches!(
+                cx.compiler.ty.types.kind(*from),
+                TypeKind::Array {
+                    kind: jaic::types::ArrayKind::Fixed(_),
+                    ..
+                }
+            ) =>
+            {
+                let p = places.place(*source, *from);
+                if !places.unresolved(p)
+                    && let Some(scope) = self.locals.get(&places.paths[p].0.0).copied()
+                {
+                    ops.push(Op::Seed {
+                        cell: cells.id(Cell::Place(places.place(*value, *to))),
+                        origin: Origin::Stack(scope),
                         span: *span,
                     });
                 }
@@ -373,6 +403,7 @@ impl<'a> Builder<'a> {
                 value,
                 ty,
                 span,
+                ..
             } => {
                 let p = places.place(*place, *ty);
                 if self.long_lived(places, p) {
@@ -455,9 +486,10 @@ impl<'a> Builder<'a> {
         let mut ops = Vec::new();
 
         let c = cx.compiler;
-        let frees = c.proc_has_note(*callee, "FreesArgument") || c.proc_has_note(*callee, "Closes");
-        if frees
-            && let Some(arg) = args.iter().find(|a| a.formal == 0)
+        let released_formal = crate::rules::lifetime_movement::released_formal(c, *callee);
+        let frees = released_formal.is_some();
+        if let Some(formal) = released_formal
+            && let Some(arg) = args.iter().find(|a| a.formal == formal)
             && let Some(cell) = operand_cell(cx, places, cells, arg)
         {
             let contents = c.ty.types.pointee(arg.ty).is_some_and(|ty| {
@@ -475,7 +507,12 @@ impl<'a> Builder<'a> {
         }
         if !frees && let Some(summary) = summaries.procs.get(callee) {
             for effect in summary.guaranteed.keys().filter(|e| {
-                e.kind == EffectKind::Free && e.guard.is_none() && e.target.steps.is_empty()
+                e.kind == EffectKind::Free
+                    && e.guard.is_none_or(|(formal, constant)| {
+                        args.iter()
+                            .any(|a| a.formal == formal && a.constant == Some(constant))
+                    })
+                    && e.target.steps.is_empty()
             }) {
                 if let Root::Parameter(formal) = effect.target.root
                     && let Some(arg) = args.iter().find(|a| a.formal == formal)
@@ -677,7 +714,10 @@ fn analyze(cx: &Cx) -> Reports {
         for (candidate, block) in model.blocks.iter().enumerate() {
             if matches!(
                 block.op,
-                CfgOp::Resource(Op::Seed { .. }) | CfgOp::PointerLoad(..) | CfgOp::Borrow(..)
+                CfgOp::Resource(Op::Seed { .. })
+                    | CfgOp::PointerLoad(..)
+                    | CfgOp::Borrow(..)
+                    | CfgOp::ElementBorrow(..)
             ) {
                 if let Some((_, _, _, Some(region))) = self::candidate(block) {
                     let reason = if model.places.unresolved(region) {
@@ -760,7 +800,9 @@ fn candidate(block: &Block) -> Option<(usize, Origin, Span, Option<usize>)> {
         CfgOp::PointerLoad(cell, _, region, span) => {
             Some((cell, Origin::Incoming, span, Some(region)))
         }
-        CfgOp::Borrow(cell, region, span) => Some((cell, Origin::Incoming, span, Some(region))),
+        CfgOp::Borrow(cell, region, span) | CfgOp::ElementBorrow(cell, region, _, _, span) => {
+            Some((cell, Origin::Incoming, span, Some(region)))
+        }
         _ => None,
     }
 }
@@ -819,6 +861,7 @@ fn solve(cx: &Cx, body: &LifetimeBody, model: &Model, seed: usize, out: &mut Rep
         let mut state = states[i].clone().unwrap();
         match &model.blocks[i].op {
             CfgOp::Borrow(target, _, _)
+            | CfgOp::ElementBorrow(target, ..)
             | CfgOp::Resource(Op::Seed {
                 cell: target, ..
             }) => {

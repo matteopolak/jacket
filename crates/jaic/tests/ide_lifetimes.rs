@@ -255,7 +255,7 @@ fn field_identity_keeps_types_when_machine_addresses_overlap() {
         if base == result && base_ty != result_ty
     )));
     assert!(events(b).any(|e| matches!(e, Event::View { .. })));
-    assert!(events(b).any(|e| matches!(e, Event::Copy { .. })));
+    assert!(events(b).any(|e| matches!(e, Event::Offset { offset: Some(1), stride, .. } if *stride == jaic::types::TypeId::S64)));
     assert!(events(b).any(|e| matches!(e, Event::Load { .. })));
     assert!(events(b).any(|e| matches!(e, Event::Store { .. })));
 }
@@ -423,4 +423,11 @@ fn baked_temporary_strings_own_static_bytes() {
         true,
         false,
     );
+}
+
+#[test]
+fn relative_pointer_syntax_has_no_selected_type_in_this_compiler() {
+    // The lifetime lint cannot add a language feature: `*~T` is rejected by sema.
+    let c = compile("main :: () { p: *~s32; }", true, true);
+    assert!(!bodies(&c).any(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main"));
 }

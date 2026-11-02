@@ -241,7 +241,7 @@ array_insert_at :: (array: *[..] $T, item: T, index: int) {
 
     array.data[index] = item;
     array.count += 1;
-} @GrowsArray
+} @GrowsArray @MovesElements(insert,2)
 
 // Removes the element at `index` and shifts the later ones down, keeping their order.
 //
@@ -265,7 +265,7 @@ array_ordered_remove_by_index :: inline (array_pointer: *[] $T, index: s64) {
     }
 
     array_pointer.count -= 1;
-} @RemovesFromArray
+} @RemovesFromArray(ordered,1)
 
 // Removes the element at `index` by moving the last element into its place, in constant time.
 //
@@ -284,7 +284,7 @@ array_unordered_remove_by_index :: inline (array_pointer: *[] $T, index: s64) {
     assert(index >= 0 && index < array_pointer.count);
     array_pointer.count -= 1;
     array_pointer.data[index] = array_pointer.data[array_pointer.count];
-} @RemovesFromArray
+} @RemovesFromArray(unordered,1)
 
 // Removes the first element equal to `item` (by `==`), keeping the order of the rest.
 //
@@ -378,7 +378,7 @@ pop :: (array: *[] $T) -> T {
     result := peek(array.*);
     array.count -= 1;
     return result;
-}
+} @RemovesFromArray(last)
 
 // Empties the array but keeps its storage, so refilling it up to the old capacity allocates nothing.
 //

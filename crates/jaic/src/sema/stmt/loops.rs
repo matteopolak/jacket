@@ -528,6 +528,46 @@ impl Compiler {
         by_pointer && !by_value
     }
 
+    /// Select the iterator's address or its per-iteration scalar copy.
+    fn collection_iteration_value(
+        &mut self,
+        f: &mut FnCtx,
+        elem: TypeId,
+        elem_addr: ir::Val,
+        by_pointer: bool,
+        region: (ir::Val, TypeId),
+        span: Span,
+    ) -> Result<(TypeId, ir::Val)> {
+        let esize = self.size_of(elem, span)?;
+        let (caddr, cty) = region;
+        Ok(if by_pointer {
+            if let Some(record) = &mut f.lifetimes {
+                record.push(
+                    f.b.current,
+                    crate::ide::lifetimes::LifetimeEvent::Borrow {
+                        value: elem_addr,
+                        region: caddr,
+                        region_ty: cty,
+                        span,
+                    },
+                );
+            }
+            let pt = self.ty.types.pointer(elem);
+            (pt, self.spill(f, pt, elem_addr, span)?)
+        } else if self.is_memory_type(elem) {
+            // A by-value `it` over aggregates names the element itself: `*it` is the
+            // element's address and stays valid after the loop, but nothing can be written
+            // through `it`.
+            f.immutable.push((elem_addr, Immutable::Iterator));
+            (elem, elem_addr)
+        } else {
+            // A scalar element is copied into `it`, which then outlives a `remove`.
+            let copy = f.b.alloca(esize.max(1), self.align_of(elem, span)?.max(1));
+            f.b.copy(copy, elem_addr, esize);
+            (elem, copy)
+        })
+    }
+
     /// `for x: collection`: an array, a view, or a struct with a `for_expansion`.
     fn check_for_collection(
         &mut self,
@@ -682,34 +722,21 @@ impl Compiler {
         let s = f.b.iconst(Ty::I64, esize);
         let off = f.b.bin(ir::BinOp::Mul, Ty::I64, i, s);
         let elem_addr = f.b.ptr_add(data, off);
-        let (it_ty, it_addr) = if for_.by_pointer {
-            if let Some(record) = &mut f.lifetimes
-                && record.resizable.contains_key(&caddr)
-            {
-                record.push(
-                    f.b.current,
-                    crate::ide::lifetimes::LifetimeEvent::Borrow {
-                        value: elem_addr,
-                        region: caddr,
-                        region_ty: cty,
-                        span: iterated,
-                    },
-                );
-            }
-            let pt = self.ty.types.pointer(elem);
-            (pt, self.spill(f, pt, elem_addr, span)?)
-        } else if self.is_memory_type(elem) {
-            // A by-value `it` over aggregates names the element itself: `*it` is the
-            // element's address and stays valid after the loop, but nothing can be written
-            // through `it`.
-            f.immutable.push((elem_addr, Immutable::Iterator));
-            (elem, elem_addr)
-        } else {
-            // A scalar element is copied into `it`, which then outlives a `remove`.
-            let copy = f.b.alloca(esize.max(1), self.align_of(elem, span)?.max(1));
-            f.b.copy(copy, elem_addr, esize);
-            (elem, copy)
-        };
+        f.lifetime_iteration(
+            (caddr, cty),
+            (idx, it_name, index_name),
+            for_.reverse,
+            iterated,
+            Some((elem_addr, elem, i)),
+        );
+        let (it_ty, it_addr) = self.collection_iteration_value(
+            f,
+            elem,
+            elem_addr,
+            for_.by_pointer,
+            (caddr, cty),
+            iterated,
+        )?;
         if !for_.by_pointer
             && !self.is_memory_type(elem)
             && let Some(record) = &mut f.lifetimes
@@ -774,6 +801,13 @@ impl Compiler {
         result?;
         f.b.jump(step);
         f.b.switch_to(step);
+        f.lifetime_iteration(
+            (caddr, cty),
+            (idx, it_name, index_name),
+            for_.reverse,
+            iterated,
+            None,
+        );
         f.lifetime_scope_end(loop_scope, span);
         self.mark_loop_step(f, scope, lp.span);
         let i = f.b.load(Ty::I64, idx);

@@ -76,6 +76,7 @@ pub enum LifetimeEvent {
         value: Val,
         ty: TypeId,
         span: Span,
+        constant: Option<u64>,
     },
     Load {
         place: Val,
@@ -93,12 +94,28 @@ pub enum LifetimeEvent {
         value: Val,
         source: Val,
     },
+    Offset {
+        value: Val,
+        source: Val,
+        stride: TypeId,
+        offset: Option<i128>,
+        span: Span,
+    },
+    IntegerBinary {
+        value: Val,
+        left: Val,
+        right: Val,
+        op: ir::BinOp,
+        left_constant: Option<u64>,
+        right_constant: Option<u64>,
+    },
     Index {
         base: Val,
         result: Val,
         base_ty: TypeId,
         result_ty: TypeId,
         index: Option<i128>,
+        subscript: Val,
     },
     View {
         value: Val,
@@ -106,6 +123,17 @@ pub enum LifetimeEvent {
         from: TypeId,
         to: TypeId,
         span: Span,
+    },
+    /// Selected collection-loop cursor; `advance` is emitted on its actual step edge.
+    Iteration {
+        region: Val,
+        ty: TypeId,
+        index: Val,
+        reverse: bool,
+        name: crate::intern::Sym,
+        index_name: crate::intern::Sym,
+        span: Span,
+        advance: bool,
     },
     ReadMemory {
         value: Val,
@@ -190,6 +218,24 @@ pub enum LifetimeEvent {
 
 impl LifetimeEvent {
     fn resolve_constants(&mut self, constants: &HashMap<Val, u64>) {
+        match self {
+            Self::Store {
+                value,
+                constant,
+                ..
+            } => *constant = constants.get(value).copied(),
+            Self::IntegerBinary {
+                left,
+                right,
+                left_constant,
+                right_constant,
+                ..
+            } => {
+                *left_constant = constants.get(left).copied();
+                *right_constant = constants.get(right).copied();
+            }
+            _ => {}
+        }
         let (Self::Call {
             args, ..
         }
@@ -351,6 +397,50 @@ impl Compiler {
 }
 
 impl FnCtx {
+    /// Collection-loop metadata at the body entry (`element`) or its step edge (`None`).
+    pub(crate) fn lifetime_iteration(
+        &mut self,
+        region: (Val, TypeId),
+        cursor: (Val, crate::intern::Sym, crate::intern::Sym),
+        reverse: bool,
+        span: Span,
+        element: Option<(Val, TypeId, Val)>,
+    ) {
+        if self.type_only {
+            return;
+        }
+        let Some(record) = &mut self.lifetimes else {
+            return;
+        };
+        if let Some((result, result_ty, subscript)) = element {
+            record.push(
+                self.b.current,
+                LifetimeEvent::Index {
+                    base: region.0,
+                    base_ty: region.1,
+                    result,
+                    result_ty,
+                    subscript,
+                    index: None,
+                },
+            );
+        }
+        record.push(
+            self.b.current,
+            LifetimeEvent::Iteration {
+                region: region.0,
+                ty: region.1,
+                index: cursor.0,
+                name: cursor.1,
+                index_name: cursor.2,
+                reverse,
+                span,
+                advance: element.is_none(),
+            },
+        );
+    }
+
+
     pub(crate) fn lifetime_store(&mut self, place: Val, value: Val, ty: TypeId, span: Span) {
         if !self.type_only
             && let Some(record) = &mut self.lifetimes
@@ -362,6 +452,7 @@ impl FnCtx {
                     value,
                     ty,
                     span,
+                    constant: None,
                 },
             );
         }
