@@ -1,0 +1,39 @@
+syntax = "proto3";
+package sample.api;
+option java_package = 'example';
+message All {
+  enum Status { option allow_alias = true; STATUS_NONE = 0; STATUS_ACTIVE = 1; STATUS_ALIAS = 1; }
+  message Child { int32 x = 1; string label = 2; Child next = 3; int32 y = 4; }
+  int32 i32 = 1;
+  int64 i64 = 2;
+  uint32 u32 = 3;
+  uint64 u64 = 4;
+  sint32 s32 = 5;
+  sint64 s64 = 6;
+  fixed32 f32 = 7;
+  fixed64 f64 = 8;
+  sfixed32 sf32 = 9;
+  sfixed64 sf64 = 10;
+  float f = 11;
+  double d = 12;
+  bool b = 13;
+  string text = 14;
+  bytes data = 15;
+  Status status = 16;
+  optional int32 present = 17;
+  Child child = 18;
+  repeated sint32 packed = 19;
+  repeated Status unpacked = 20 [packed = false];
+  repeated string labels = 21;
+  repeated Child children = 22;
+  map<string, Child> records = 23;
+  map<int32, Status> statuses = 24;
+  oneof via { string email = 25; string phone = 26; Child post = 27; int32 code = 28; }
+  int32 type = 29 [json_name='kind', deprecated=true];
+  int32 proto_x = 30;
+  int32 _unknown = 31;
+  reserved 32 to 40, 50;
+  reserved "retired";
+  .sample.api.All.Child absolute = 41;
+}
+service Ignored { rpc Fetch (All) returns (All) { option (example.value) = { key: 'value' }; } }

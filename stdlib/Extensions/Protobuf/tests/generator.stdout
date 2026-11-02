@@ -1,0 +1,76 @@
+// Generated from proto3 by Extensions/Protobuf/Schema.
+#scope_module
+proto_basic_module :: #import "Basic";
+proto_runtime :: #import "Extensions/Protobuf";
+proto_variant_module :: #import "Extensions/Variant";
+proto_map_module :: #import "Extensions/Hash_Map";
+#scope_export
+// Proto3 message.
+Ping :: struct {
+// Schema field 1.
+id: u64;
+// Preserved unknown wire fields.
+_unknown: [..] u8;
+// Internal size pass and preorder cache.
+proto_size :: (value: *Ping, cache: *[..] u32) -> s64 {
+slot := cache.count;
+proto_basic_module.array_add(cache, 0);
+n: s64;
+if value.id != 0 {
+n += proto_runtime.varint_size(8);
+n += proto_runtime.scalar_size(value.id, .UINT64);
+}
+n += value._unknown.count;
+proto_basic_module.assert(n <= 2147483647);
+cache.data[slot] = cast(u32) n;
+return n;
+}
+// Internal exact-size write pass.
+proto_encode :: (value: *Ping, w: *proto_runtime.Writer) {
+if value.id != 0 {
+proto_runtime.write_varint(w, 8);
+proto_runtime.write_scalar(w, value.id, .UINT64);
+}
+proto_runtime.write_bytes(w, value._unknown);
+}
+// Releases all owned message allocations and resets fields.
+proto_free :: (value: *Ping) {
+proto_basic_module.array_free(value._unknown);
+value.* = .{};
+}
+// Deep equality including unknown wire bytes.
+proto_equal :: (a: *Ping, b: *Ping) -> bool {
+if a.id != b.id return false;
+return proto_runtime.bytes_equal(a._unknown, b._unknown);
+}
+// Reads one occurrence of field 1.
+proto_read_1 :: (value: *Ping, r: *proto_runtime.Reader, wire: u64) -> bool {
+if wire != 0 return false;
+if !proto_runtime.read_scalar(r, *value.id, .UINT64) return proto_runtime.field_error(r, "id");
+return true;
+}
+// Generated bounded wire loop; common tags precede the field-number fallback.
+proto_merge :: (value: *Ping, r: *proto_runtime.Reader) -> bool {
+while proto_runtime.remaining(r) > 0 {
+start := r.pos;
+tag := proto_runtime.read_tag(r);
+if r.error.kind != .NONE return false;
+if tag == 8 {
+if !proto_read_1(value, r, tag & 7) return false;
+continue;
+}
+handled := false;
+if tag >> 3 == {
+case 1; handled = proto_read_1(value, r, tag & 7);
+}
+if r.error.kind != .NONE return false;
+if handled continue;
+if !proto_runtime.skip(r, tag) return false;
+if !r.options.discard_unknown {
+raw: [] u8 = .{r.pos - start, r.bytes.data + start};
+proto_basic_module.array_add(*value._unknown, ..raw);
+}
+}
+return true;
+}
+}

@@ -1,0 +1,5 @@
+../../Schema/module.jai:86:9: error[metaprogram-report]: repeated, optional and map fields are not allowed in a oneof
+    #insert #run proto_generate_schema();
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: reported for <text.proto>:1:40
+
