@@ -270,8 +270,17 @@ varint_size :: (value: u64) -> s64 {
     return 10;
 }
 
-// Writes a varint into the exact-sized output buffer.
-write_varint :: (w: *Writer, input: u64) {
+// Writes a varint into the exact-sized output buffer. One-byte values (tags, short
+// lengths, small numbers) stay inline at the call site.
+write_varint :: inline (w: *Writer, value: u64) {
+    if value < 128 {
+        w.bytes.data[w.pos] = cast(u8) value;
+        w.pos += 1;
+    } else write_long_varint(w, value);
+}
+
+// The multi-byte path of write_varint.
+write_long_varint :: (w: *Writer, input: u64) {
     value := input;
 
     // Room for the longest varint means the loop below needs no per-byte check.
@@ -325,9 +334,11 @@ read_fixed :: (r: *Reader, width: s64) -> u64 {
     return result;
 }
 
-// Writes the low width bytes in little-endian order.
-write_fixed :: (w: *Writer, value: u64, width: s64) {
-    for i: 0..width - 1 w.bytes[w.pos + i] = cast(u8) ((value >> cast(u64) (8 * i)) & 255);
+// Writes the low width bytes in little-endian order. Every supported target (x64, arm64,
+// wasm) is little endian, so this is one store.
+write_fixed :: inline (w: *Writer, value: u64, $width: s64) {
+    bits := value;
+    memcpy(w.bytes.data + w.pos, *bits, width);
     w.pos += width;
 }
 
@@ -424,10 +435,27 @@ allocate_bytes :: (count: s64) -> [] u8 {
     return .{ count, data };
 }
 
-// Appends bytes to a sized output buffer.
-write_bytes :: (w: *Writer, bytes: [] u8) {
-    if bytes.count memcpy(w.bytes.data + w.pos, bytes.data, bytes.count);
-    w.pos += bytes.count;
+// Appends bytes to a sized output buffer. Up to 16 bytes are copied with two overlapping
+// fixed-size moves, which compile to plain loads and stores instead of a memcpy call.
+write_bytes :: inline (w: *Writer, bytes: [] u8) {
+    n := bytes.count;
+    to := w.bytes.data + w.pos;
+    from := bytes.data;
+
+    if n > 16 memcpy(to, from, n);
+    else if n >= 8 {
+        memcpy(to, from, 8);
+        memcpy(to + n - 8, from + n - 8, 8);
+    } else if n >= 4 {
+        memcpy(to, from, 4);
+        memcpy(to + n - 4, from + n - 4, 4);
+    } else if n {
+        to[0] = from[0];
+        to[n / 2] = from[n / 2];
+        to[n - 1] = from[n - 1];
+    }
+
+    w.pos += n;
 }
 
 // Writes a message using its preorder size entry (no back-patching).
