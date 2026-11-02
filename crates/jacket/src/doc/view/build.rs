@@ -90,8 +90,8 @@ fn category(site: &Site, m: &Module) -> Option<Badge> {
     })
 }
 
-fn nav(site: &Site, current: Option<usize>) -> Vec<NavCategory> {
-    by_category(site)
+pub(super) fn nav(site: &Site, current: Option<usize>) -> Vec<NavCategory> {
+    let mut out: Vec<NavCategory> = by_category(site)
         .into_iter()
         .map(|(category, members)| NavCategory {
             label: category.into(),
@@ -123,7 +123,9 @@ fn nav(site: &Site, current: Option<usize>) -> Vec<NavCategory> {
                 })
                 .collect(),
         })
-        .collect()
+        .collect();
+    out.extend(site.extra_nav.iter().cloned());
+    out
 }
 
 fn modules_sidebar(site: &Site, current: Option<usize>) -> Sidebar {
@@ -164,9 +166,9 @@ fn cards(site: &Site) -> Vec<CardCategory> {
 
 pub fn site(site: &Site) -> SiteView {
     let mut header_links = Vec::new();
-    if !site.pages_title.is_empty() {
+    if let Some(href) = &site.pages_href {
         header_links.push(Link {
-            href: site.href(&site.pages_dir()),
+            href: href.clone(),
             label: site.pages_title.clone(),
         });
     }
@@ -177,7 +179,7 @@ pub fn site(site: &Site) -> SiteView {
         });
     }
     SiteView {
-        format: 4,
+        format: 5,
         name: site.name.clone(),
         site_name: site.name.clone(),
         base: site.base.clone(),
@@ -210,8 +212,6 @@ pub fn site(site: &Site) -> SiteView {
             .collect(),
         groups: site.groups.clone(),
         nav: nav(site, None),
-        guides: Vec::new(),
-        guides_index: None,
         not_found: None,
         index: PageView {
             head: PageHead::default(),

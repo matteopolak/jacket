@@ -50,7 +50,7 @@ jacket lint --fix        # lint, applying safe fixes
 jacket doc               # build the API docs site
 ```
 
-`jacket build`, `check` and `run` take the same flags as the compiler, `jaic`, and also read your project's `jacket.toml`. `jaic hello.jai -o -os windows` is the direct form; run `jaic -help` for every option. See [jacket](docs/tools/jacket.md) and the [command-line reference](docs/reference/command-line.md).
+`jacket build`, `check` and `run` take the same flags as the compiler, `jaic`, and also read your project's `jacket.toml`. `jaic hello.jai -o -os windows` is the direct form; run `jaic -help` for every option. See [jacket](docs/tools/jacket.md) and the [command-line reference](docs/reference/tools.md#compiling).
 
 ## Contributing
 

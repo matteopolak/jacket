@@ -29,7 +29,7 @@ A missing library fails at link time with a hint (`link_failure`, `linker_not_ru
 - `JAIC_NATIVE_LIBS`: where third-party static archives are searched; default `native-libs/<os>-<arch>` (release) or `target/native-libs/<os>-<arch>` ([native libraries](../tools/native-libs.md)).
 - `JAIC_LINKER`, `JAIC_AR`: override the linker or archiver.
 - `DEVELOPER_DIR`, `SDKROOT`, `MACOSX_DEPLOYMENT_TARGET`: Xcode selection for the direct `ld` (the last two turn it off).
-- Flags: [command line](../reference/command-line.md).
+- Flags: [command line](../reference/tools.md#compiling).
 
 ## Dependencies
 

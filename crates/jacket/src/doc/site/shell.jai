@@ -131,8 +131,7 @@ Render :: (out: *Out, site: *Site_View, view: *Page_View, module: *Module_View =
     content0 := get_pointer(c, Content_Index);
     content1 := get_pointer(c, Content_Module);
     content2 := get_pointer(c, Content_Item);
-    content3 := get_pointer(c, Content_GuidesIndex);
-    content4 := get_pointer(c, Content_Guide);
+    content3 := get_pointer(c, Content_Guide);
     if content0 {
         page := Page(Content_Index).{ site, view, content0, module, nav_stamps };
         Layout(out, *page);
@@ -143,10 +142,7 @@ Render :: (out: *Out, site: *Site_View, view: *Page_View, module: *Module_View =
         page := Page(Content_Item).{ site, view, content2, module, nav_stamps };
         Layout(out, *page);
     } else if content3 {
-        page := Page(Content_GuidesIndex).{ site, view, content3, module, nav_stamps };
-        Layout(out, *page);
-    } else if content4 {
-        page := Page(Content_Guide).{ site, view, content4, module, nav_stamps };
+        page := Page(Content_Guide).{ site, view, content3, module, nav_stamps };
         Layout(out, *page);
     }
 }

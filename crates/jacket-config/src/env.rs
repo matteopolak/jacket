@@ -3,8 +3,8 @@
 //! A variable is declared once in `vars!` below with its name, meaning, default and readers, and
 //! is read through its constant (`env::STDLIB.os()`). Nothing else may call `std::env::var` or
 //! `var_os`: clippy's `disallowed-methods` (root `clippy.toml`) rejects it outside this module,
-//! so a misspelt name cannot silently do nothing. `docs/reference/environment-variables.md` is
-//! generated from [`ALL`] (`tools/generators/generate_reference_docs.py`).
+//! so a misspelt name cannot silently do nothing. The environment variables page of
+//! `docs/reference/tools.md` is generated from [`ALL`] (`tools/generators/generate_reference_docs.py`).
 //!
 //! The tests keep the table honest: every `"JAIC_*"`, `"JACKET_*"` and `"JAI_*"` string literal in
 //! the Rust sources must be a declared name, and names are unique.

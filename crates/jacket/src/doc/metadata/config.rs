@@ -84,10 +84,6 @@ pub fn prepare(
     shared.index.title.clone_from(&metadata.name);
     metadata.apply(&mut shared.index);
     urls.push(metadata.url("", false));
-    if let Some(page) = &mut shared.guides_index {
-        metadata.apply(page);
-        urls.push(metadata.url(&page.path, false));
-    }
     let mut not_found = view::site(site).index;
     not_found.not_found = true;
     not_found.path = "404.html".into();

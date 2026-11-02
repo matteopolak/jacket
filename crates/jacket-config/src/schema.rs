@@ -446,9 +446,12 @@ pub struct Doc {
     /// The heading of the extra pages, and the header link to them. Default: `Guides`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pages_title: Option<String>,
-    /// Markdown files rendered as extra pages.
+    /// Markdown files rendered as extra pages, listed under `pages_title` in the sidebar.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub page: Vec<DocPage>,
+    /// Markdown files split into one page per `###` heading, each its own sidebar heading.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub section: Vec<DocSection>,
 }
 
 /// A heading of `[doc]`, with the badge its modules and their items carry.
@@ -485,9 +488,16 @@ pub struct DocPage {
     pub file: String,
     /// Its name in the sidebar and title.
     pub name: String,
-    /// One line for the pages' index.
-    #[serde(default)]
-    pub summary: String,
+}
+
+/// A sidebar heading made from one Markdown file: the text before its first `##` is the
+/// overview page, each `##` a folding group and each `###` a page of its own.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct DocSection {
+    /// The Markdown file.
+    pub file: String,
+    /// The sidebar heading; its folder is this as a slug (`Lint rules` is `lint-rules/`).
+    pub name: String,
 }
 
 /// Read by the Postgres module while it compiles typed queries, not by `jacket`; environment
@@ -689,10 +699,12 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "group",
             "pages_title",
             "page",
+            "section",
         ],
         "doc.category" => &["name", "modules", "badge", "tip", "color", "color_dark"],
         "doc.group" => &["name", "modules"],
-        "doc.page" => &["file", "name", "summary"],
+        "doc.page" => &["file", "name"],
+        "doc.section" => &["file", "name"],
         profile if profile.starts_with("test.profile.") => TEST_RUN_KEYS,
         _ => &[],
     }

@@ -196,12 +196,16 @@ mod doc {
             return;
         }
         let temp = TempDir::new("doc-metadata");
-        temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\nbreadcrumb='std'\nurl='https://example.com'\nsite_name='Tiny std'\nog_image='https://example.com/og.png'\ncanonical_version='2'\n[[doc.page]]\nfile='guide.md'\nname='Guide'\n");
+        temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\nbreadcrumb='std'\nurl='https://example.com'\nsite_name='Tiny std'\nog_image='https://example.com/og.png'\ncanonical_version='2'\n[[doc.page]]\nfile='guide.md'\nname='Guide'\n[[doc.section]]\nfile='rules.md'\nname='Rules'\n");
         temp.write(
             "lib/String/module.jai",
             "// Strings.\n\n// Trim & compare.\ntrim :: 42;\n",
         );
         temp.write("guide.md", "# Guide\n\nA short guide.\n");
+        temp.write(
+            "rules.md",
+            "# Rules\n\nEvery rule.\n\n## Group\n\n### one\n\nThe first rule.\n",
+        );
         let run = |version: &str| {
             Command::new(jacket)
                 .args([
@@ -231,7 +235,8 @@ mod doc {
                 ("index.html", "Tiny std"),
                 ("api/String/index.html", "String — Tiny std"),
                 ("api/String/trim/index.html", "String.trim — Tiny std"),
-                ("guides/index.html", "Guides — Tiny std"),
+                ("rules/index.html", "Rules — Tiny std"),
+                ("rules/one/index.html", "one — Tiny std"),
                 ("guides/guide/index.html", "Guide — Tiny std"),
                 ("404.html", "Page not found — Tiny std"),
             ];

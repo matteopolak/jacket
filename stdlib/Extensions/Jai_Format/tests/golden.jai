@@ -88,6 +88,7 @@ main :: () {
     check_config_parsing();
     check_toml_forms();
     check_self_formatted();
+    check_rules_page();
 
     if failures {
         print("% jaifmt golden failures\n", failures);
@@ -112,6 +113,58 @@ report_difference :: (name: string, expected: string, actual: string) {
     }
 
     fail("%.out.jai differs", name);
+}
+
+// docs/tools/jaifmt-rules.md: every ```` ```jai after ```` block is what the ```` ```jai before ````
+// block above it formats to, with the settings written after `after` (`indent_width=2`).
+RULES_PAGE :: "../../../../docs/tools/jaifmt-rules.md";
+
+check_rules_page :: () {
+    text, ok := read_entire_file(RULES_PAGE);
+    if !ok {
+        fail("cannot read %", RULES_PAGE);
+        return;
+    }
+
+    // Odd pieces are the insides of fences: the info line, then the code.
+    pieces := split(text, "```");
+    pairs := 0;
+    i := 1;
+
+    while i + 2 < pieces.count {
+        before := pieces[i];
+        after := pieces[i + 2];
+
+        if !begins_with(before, "jai before\n") || !begins_with(after, "jai after") {
+            i += 2;
+            continue;
+        }
+
+        info, code := split_line(after);
+        _, input := split_line(before);
+        config: Format_Config;
+
+        for word: split(info, " ") {
+            if word == "jai" || word == "after" || word == "" continue;
+            set, message := format_apply_setting(*config, word);
+            if !set fail("%: %: %", RULES_PAGE, word, message);
+        }
+
+        output, formatted, error := format_source(input, config);
+        if !formatted fail("%: %", RULES_PAGE, error);
+        else if output != code report_difference(tprint("% (%)", RULES_PAGE, info), code, output);
+
+        pairs += 1;
+        i += 4;
+    }
+
+    if pairs < 15 fail("% has % before/after pairs; expected every rule and setting", RULES_PAGE, pairs);
+}
+
+split_line :: (s: string) -> first: string, rest: string {
+    found, first, rest := split_from_left(s, #char "\n");
+    if !found return s, "";
+    return first, rest;
 }
 
 // Input that cannot be formatted safely is refused, not mangled.

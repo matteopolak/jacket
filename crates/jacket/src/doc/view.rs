@@ -17,9 +17,7 @@ pub struct SiteView {
     pub categories: Vec<Category>,
     pub groups: Vec<String>,
     pub nav: Vec<NavCategory>,
-    pub guides: Vec<GuideLink>,
     pub index: PageView,
-    pub guides_index: Option<PageView>,
     pub not_found: Option<PageView>,
     pub module_files: Vec<String>,
     pub guide_files: Vec<String>,
@@ -51,13 +49,6 @@ pub struct Category {
 pub struct Link {
     pub href: String,
     pub label: String,
-}
-
-#[derive(Serialize, Clone)]
-pub struct GuideLink {
-    pub href: String,
-    pub label: String,
-    pub summary: String,
 }
 
 #[derive(Serialize)]
@@ -107,10 +98,6 @@ pub enum Sidebar {
         end: usize,
         current: usize,
         anchors: Vec<Link>,
-    },
-    Guides {
-        heading: String,
-        links: Vec<NavLink>,
     },
 }
 
@@ -164,10 +151,6 @@ pub enum Content {
         members_label: String,
         members: Vec<Definition>,
         see_also: Vec<Link>,
-    },
-    GuidesIndex {
-        title: String,
-        cards: Vec<GuideLink>,
     },
     Guide {
         segments: Vec<DocSegment>,
@@ -281,9 +264,23 @@ pub struct OverloadView {
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum DocSegment {
-    Html { prose_html: String },
-    Example { example: Example },
-    Code { code_html: String },
+    Html {
+        prose_html: String,
+    },
+    Example {
+        example: Example,
+    },
+    Code {
+        code_html: String,
+        /// Not Jai (a usage line, shell output): long lines wrap instead of scrolling.
+        wrap: bool,
+    },
+    /// Code before and after formatting, side by side; `settings` the after side used.
+    Compare {
+        before_html: String,
+        after_html: String,
+        settings: String,
+    },
 }
 
 #[derive(Serialize)]

@@ -30,7 +30,7 @@ What `jacket` adds is the project:
 
 ## Commands
 
-`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench` and `doc` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md) and [jacket doc](jacket-doc.md). `new`, `init`, `config`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [command-line reference](../reference/command-line.md).
+`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench` and `doc` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md) and [jacket doc](jacket-doc.md). `new`, `init`, `config`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [tools reference](../reference/tools.md).
 
 Tools are found next to the `jacket` executable (symlinks followed), else on `PATH`.
 
@@ -112,4 +112,4 @@ Precedence: command-line flags, then `jacket.toml`, then defaults. Unknown keys 
 
 ## Dependencies
 
-`serde`, `toml`, `toml_edit`, `clap`, `serde_json`. `upgrade` needs `curl` and `tar` on `PATH`. The tools it fronts are separate programs. Environment variables are in the [reference](../reference/environment-variables.md).
+`serde`, `toml`, `toml_edit`, `clap`, `serde_json`. `upgrade` needs `curl` and `tar` on `PATH`. The tools it fronts are separate programs. Environment variables are in the [reference](../reference/tools.md#environment-variables).

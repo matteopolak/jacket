@@ -13,9 +13,7 @@ Site_View :: struct {
     categories: [] Category;
     groups: [] string;
     nav: [] Nav_Category;
-    guides: [] Guide_Link;
     index: Page_View;
-    guides_index: *Page_View;
     not_found: *Page_View; @json(default)
     css_url: string; @json(default)
     script_url: string; @json(default)
@@ -51,12 +49,6 @@ Link :: struct {
     label: string;
 }
 
-Guide_Link :: struct {
-    href: string;
-    label: string;
-    summary: string;
-}
-
 Module_View :: struct {
     id: string;
     page: Page_View;
@@ -81,9 +73,9 @@ Page_View :: struct {
     description: string;
     path: string;
     side_label: string;
-    sidebar: Sidebar; @json(tag=kind,tags=modules,item,guides)
+    sidebar: Sidebar; @json(tag=kind,tags=modules,item)
     outline: [] Outline; @json(tag=kind,tags=heading,items)
-    content: Content; @json(tag=kind,tags=index,module,item,guides_index,guide)
+    content: Content; @json(tag=kind,tags=index,module,item,guide)
 }
 
 Sidebar_Modules :: struct {
@@ -100,12 +92,7 @@ Sidebar_Item :: struct {
     anchors: [] Link;
 }
 
-Sidebar_Guides :: struct {
-    heading: string;
-    links: [] Nav_Link;
-}
-
-Sidebar :: Variant(Sidebar_Modules, Sidebar_Item, Sidebar_Guides);
+Sidebar :: Variant(Sidebar_Modules, Sidebar_Item);
 
 Nav_Category :: struct {
     label: string;
@@ -138,7 +125,7 @@ Content_Module :: struct {
     available: string;
     since: string;
     import: string;
-    docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code)
+    docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
     parameters: [] Definition;
     sections: [] Section;
 }
@@ -147,7 +134,7 @@ Content_Item :: struct {
     crumbs: [] Crumb;
     title: Title;
     summary_html: string;
-    docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code)
+    docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
     overloads: [] Overload_View;
     value_html: string;
     members_label: string;
@@ -155,16 +142,11 @@ Content_Item :: struct {
     see_also: [] Link;
 }
 
-Content_GuidesIndex :: struct {
-    title: string;
-    cards: [] Guide_Link;
-}
-
 Content_Guide :: struct {
-    segments: [] Doc_Segment; @json(tag=kind,tags=html,example,code)
+    segments: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
 }
 
-Content :: Variant(Content_Index, Content_Module, Content_Item, Content_GuidesIndex, Content_Guide);
+Content :: Variant(Content_Index, Content_Module, Content_Item, Content_Guide);
 
 Card_Category :: struct {
     label: string;
@@ -251,10 +233,10 @@ Overload_View :: struct {
     label: *string;
     card: bool;
     signature_html: string;
-    prose: [] Doc_Segment; @json(tag=kind,tags=html,example,code)
+    prose: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
     parameters: [] Definition;
     returns: [] Definition;
-    examples: [] Doc_Segment; @json(tag=kind,tags=html,example,code)
+    examples: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
 }
 
 DocSegment_Html :: struct {
@@ -267,9 +249,16 @@ DocSegment_Example :: struct {
 
 DocSegment_Code :: struct {
     code_html: string;
+    wrap: bool;
 }
 
-Doc_Segment :: Variant(DocSegment_Html, DocSegment_Example, DocSegment_Code);
+DocSegment_Compare :: struct {
+    before_html: string;
+    after_html: string;
+    settings: string;
+}
+
+Doc_Segment :: Variant(DocSegment_Html, DocSegment_Example, DocSegment_Code, DocSegment_Compare);
 
 Example :: struct {
     plain: bool;

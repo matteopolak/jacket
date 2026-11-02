@@ -2,7 +2,7 @@
 
 ## What it is
 
-Every environment variable the Rust tools read is declared once, in `jacket_config::env` (`crates/jacket-config/src/env.rs`): its name, meaning, what happens when it is unset, and which programs read it. [The reference page](../reference/environment-variables.md) is generated from that table.
+Every environment variable the Rust tools read is declared once, in `jacket_config::env` (`crates/jacket-config/src/env.rs`): its name, meaning, what happens when it is unset, and which programs read it. [The reference page](../reference/tools.md#environment-variables) is generated from that table.
 
 `jacket-config` is where it lives because every tool already depends on it (`jaic`, `jailint`, `jailsp`, `jacket`, the test harnesses and the fuzz harness), and `jacket` does not depend on `jaic`.
 

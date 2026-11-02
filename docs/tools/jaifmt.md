@@ -16,6 +16,8 @@ Paths are files or directories (searched for `*.jai`, skipping dot-directories a
 
 `jaifmt/build.jai` builds with `set_optimization(.OPTIMIZED)` and needs real `jaic`, not `-check`. CI, Nix and the tests use `jaic jaifmt/main.jai -O2`, which keeps the checks.
 
+[Formatting](jaifmt-rules.md) shows every rule and setting with the code before and after. Its ```` ```jai after ```` blocks are checked: the golden test (`Jai_Format/tests/golden.jai`) formats each ```` ```jai before ```` block with the settings named after `after` and fails if the output differs, so change the page when you change the output.
+
 ## How it works
 
 `stdlib/Extensions/Jai_Format/` holds:

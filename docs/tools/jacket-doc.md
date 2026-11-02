@@ -10,7 +10,7 @@ jacket doc --module String --module Basic   # just these, for a quick look
 jacket doc --check                          # build in memory and check links only
 ```
 
-Flags are in the [command-line reference](../reference/command-line.md). Without `--runtime` the Run buttons are disabled and say why. Serve the output with any static server (`python3 -m http.server --directory target/doc-site`); links are absolute from `--base-url`, so opening files from disk won't style.
+Flags are in the [command-line reference](../reference/tools.md#documentation). Without `--runtime` the Run buttons are disabled and say why. Serve the output with any static server (`python3 -m http.server --directory target/doc-site`); links are absolute from `--base-url`, so opening files from disk won't style.
 
 ## How it works
 
@@ -30,7 +30,8 @@ Every page is `<path>/index.html` and every link ends in `/`, so a plain static 
 | --- | --- |
 | `index.html` | modules, by category |
 | `api/<Module>/index.html`, `api/<Module>/<name>/index.html` | a module; an item |
-| `<pages_title>/<page>/index.html` | the `[[doc.page]]` pages (`tools/` for the stdlib) |
+| `<pages_title>/<page>/index.html` | the `[[doc.page]]` pages |
+| `<section>/index.html`, `<section>/<heading>/index.html` | a `[[doc.section]]`: its overview and one page per `###` |
 | `examples/<id>.json` | the parts of each example's program, for Run and the playground link |
 | `runtime/`, `runtime.json` | the browser compiler (`--runtime`) and where pages look for it |
 | `assets/` | `site.css`, `site.js`, `sidebar.js`, `run-worker.js`, `icons.svg` (the icon sprite), `categories.css`, `favicon.svg`, the logo, the social image. Pages link the CSS, scripts and sprite with `?v=<content hash>`, so they can be cached for a long time |
@@ -63,7 +64,7 @@ logo = "assets/logo.svg"            # .svg or .png; default: none
 repo = "https://github.com/me/my_lib"   # Source links need it
 playground = "https://example.com/play"  # default: none, and no playground links
 since = "notes/since.tsv"           # "since X" labels; used only with --version
-pages_title = "Guides"              # heading and folder of the extra pages
+pages_title = "Guides"              # sidebar heading and folder of the [[doc.page]] pages
 url = "https://docs.example.com"    # canonical origin: canonical links, og:url, sitemap.xml, robots.txt
 og_image = "assets/social.png"      # a file (copied to assets/) or a URL; 1200x630 suits most sites
 site_name = "my_lib"                # og:site_name; default: name
@@ -89,15 +90,24 @@ color_dark = "#e0b26a"              # default: color
 name = "Core"
 modules = ["src/my_lib/Core", "src/my_lib/Util"]
 
+# Extra pages, listed under `pages_title` in the sidebar. The header's link goes to the first.
 [[doc.page]]
 file = "notes/guide.md"
 name = "Guide"
-summary = "Getting started."
+
+# A sidebar heading of its own, split from one file (see "Sections" below).
+[[doc.section]]
+file = "notes/recipes.md"
+name = "Recipes"
 ```
 
 A pattern matching a module's folder also matches the modules inside it. `jacket doc` fails on a pattern that matches no module, a module in no group (when there are groups), and a colour that is not `#hex` or a plain name. The header shows the version, repository button, playground link and pages link only when set.
 
-The standard library's `[doc]` sits in the root `jacket.toml`: categories "Standard library" (`stdlib/**`) and "Extensions" (`stdlib/Extensions/**`, teal "extension" badge), the topic groups, and the Tools pages from `docs/reference/`. Add new stdlib modules to a group there.
+The standard library's `[doc]` sits in the root `jacket.toml`: categories "Standard library" (`stdlib/**`) and "Extensions" (`stdlib/Extensions/**`, teal "extension" badge), the topic groups, and the "Tools", "Lint rules" and "Format rules" sections (generated into `docs/reference/` and `docs/tools/jaifmt-rules.md`). Add new stdlib modules to a group there.
+
+**Sections.** A `[[doc.section]]` file is split at its headings: the text before the first `##` (plus each `##`'s own text and a list of its pages) is the overview at `<name as a slug>/`, each `##` is a folding group in the sidebar, and each `###` is a page at `<section>/<heading slug>/` titled with the heading. A `###` before any `##` goes in a group with no label. Inside a page, `####` and `#####` headings move up to `##` and `###`, so they reach its outline. The header link (`pages_title`) goes to the first `[[doc.page]]`, else to the overview of the section with that name. A link to `#heading` or `file.md#heading` of a split file goes to that heading's page. The extra pages and sections come after the module categories in every page's sidebar (`view/guide.rs`, `Site::extra_nav`).
+
+**Before and after.** Two fences in a row, ```` ```jai before ```` then ```` ```jai after ````, render as one block split by a line ("Before", "After"), stacked under 700px. Words after `after` are shown as the settings used (`indent_width=2` reads "After, with `indent_width = 2`"). Jai fences on these pages are highlighted and scroll sideways; other fences are plain and wrap long lines (usage lines, shell output).
 
 ## Page metadata
 

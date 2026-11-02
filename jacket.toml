@@ -210,20 +210,17 @@ tip = "Extension: not part of the standard library"
 color = "#1d7282"
 color_dark = "#6cc4d4"
 
-[[doc.page]]
-file = "docs/reference/command-line.md"
-name = "Command line"
-summary = "Every flag of jaic, jailint, and jacket, as their --help prints it."
+[[doc.section]]
+file = "docs/reference/tools.md"
+name = "Tools"
 
-[[doc.page]]
-file = "docs/reference/environment-variables.md"
-name = "Environment variables"
-summary = "What each JAIC_ and JACKET_ variable does and who reads it."
-
-[[doc.page]]
+[[doc.section]]
 file = "docs/reference/lint-rules.md"
 name = "Lint rules"
-summary = "Every jailint rule with its group and default level."
+
+[[doc.section]]
+file = "docs/tools/jaifmt-rules.md"
+name = "Format rules"
 
 # Every module is in one group; `jacket doc --check` fails on one that is not, and on a pattern
 # that matches no module. A module goes in the last group that matches it.

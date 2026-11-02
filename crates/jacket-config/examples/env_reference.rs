@@ -1,4 +1,5 @@
-//! Prints `docs/reference/environment-variables.md` from the table in `jacket_config::env`.
+//! Prints the environment variables page of `docs/reference/tools.md` from the table in
+//! `jacket_config::env`.
 //! `tools/generators/generate_reference_docs.py` runs it.
 use jacket_config::env::{ALL, Group};
 use std::fmt::Write;

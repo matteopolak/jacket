@@ -483,6 +483,10 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         if !doc.page.is_empty() {
             site.pages_title = doc.pages_title.clone().unwrap_or_else(|| "Guides".into());
         }
+        let prefix = git_state(&config_dir).map(|g| g.prefix).unwrap_or_default();
+        let extra = view::guide::collect(&site, &config_dir, &prefix, &doc.page, &doc.section)?;
+        site.pages_href = extra.first_href(&site);
+        site.extra_nav.clone_from(&extra.nav);
         if let Some(state) = git_state(&root) {
             site.source_prefix = state.prefix;
             // A given ref wins; else the checkout's commit, for the files it matches.
@@ -502,11 +506,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         let view_start = std::time::Instant::now();
         let mut shared = view::site(&site);
         let mut input = Vec::new();
-        let mut guides = Vec::new();
-        if !doc.page.is_empty() {
-            let prefix = git_state(&config_dir).map(|g| g.prefix).unwrap_or_default();
-            guides = view::guide::pages(&site, &mut shared, &config_dir, &prefix, &doc.page)?;
-        }
+        let mut guides = extra.pages(&site, &shared.nav);
         let metadata::Publication {
             metadata,
             mut urls,

@@ -33,10 +33,6 @@ HTML
     ));
 }
 
-RenderSidebar :: (out: *Out, side: *Sidebar_Guides) {
-    html(out, "<div class=\"nav-h\">{esc(side.heading)}</div>\n<ul class=\"nav-list\">\n{for link: side.links}{NavLink(*link)}{end}</ul>\n");
-}
-
 RenderOutline :: (out: *Out, entries: [] Outline) {
     if entries.count == 0 return;
     html(out, "<div class=\"toc-h\">On this page</div>\n<ul>\n{for e: entries}{OutlineEntry(*e)}{end}</ul>\n");

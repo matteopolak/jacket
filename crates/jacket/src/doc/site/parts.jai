@@ -92,10 +92,23 @@ Segments :: (out: *Out, segments: [] Doc_Segment) {
         h0 := get_pointer(s, DocSegment_Html);
         e1 := get_pointer(s, DocSegment_Example);
         c2 := get_pointer(s, DocSegment_Code);
+        d3 := get_pointer(s, DocSegment_Compare);
         if h0 append_html(out, cast(Html) h0.prose_html);
         else if e1 ExampleBlock(out, *e1.example);
         else if c2 {
-            html(out, "<pre class=\"code\"><code>{cast(Html) c2.code_html}</code></pre>\n");
-        }
+            class := ifx c2.wrap then "code wrap" else "code";
+            html(out, "<pre class=\"{class}\"><code>{cast(Html) c2.code_html}</code></pre>\n");
+        } else if d3 Compare(out, d3);
     }
+}
+
+// Code before and after formatting, side by side; stacked on narrow screens.
+Compare :: (out: *Out, c: *DocSegment_Compare) {
+    html(out, #string HTML
+<div class="compare">
+<figure><figcaption>Before</figcaption><pre class="code"><code>{cast(Html) c.before_html}</code></pre></figure>
+<figure><figcaption>After{if c.settings.count}, with <code>{esc(c.settings)}</code>{end}</figcaption><pre class="code"><code>{cast(Html) c.after_html}</code></pre></figure>
+</div>
+HTML
+    );
 }

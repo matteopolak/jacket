@@ -94,7 +94,7 @@ main :: () {
     }
     site := read_view(Site_View, tprint("%/site.json", args[1]));
     defer free_json(*site);
-    if site.format != 4 {
+    if site.format != 5 {
         print("unsupported site format %\n", site.format);
         exit(2);
     }
@@ -155,7 +155,6 @@ main :: () {
     defer array_free(jobs);
     array_add(*jobs, .{ page = *site.index });
     if site.not_found array_add(*jobs, .{ page = site.not_found });
-    if site.guides_index array_add(*jobs, .{ page = site.guides_index });
     for *guide: guides array_add(*jobs, .{ page = *guide.view });
     for *bundle: modules {
         count := bundle.view.items.count;
@@ -196,9 +195,7 @@ relative_file :: (path: string) -> bool {
 validate_page :: (page: *Page_View, module: *Module_View) {
     if page.content.which == .CONTENT_ITEM {
         if page.sidebar.which != .SIDEBAR_ITEM bad_input("item page needs item sidebar");
-    } else if page.content.which == .CONTENT_INDEX || page.content.which == .CONTENT_MODULE {
-        if page.sidebar.which != .SIDEBAR_MODULES bad_input("API page needs module sidebar");
-    } else if page.sidebar.which != .SIDEBAR_GUIDES bad_input("guide page needs guide sidebar");
+    } else if page.sidebar.which != .SIDEBAR_MODULES bad_input("page needs module sidebar");
     if !page.not_found && page.path.count && (!relative_file(page.path) || !ends_with(page.path, "/index.html")) bad_input("invalid page path");
     side := get_pointer(*page.sidebar, Sidebar_Item);
     if side {

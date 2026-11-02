@@ -11,7 +11,7 @@ jaic main.jai -o               # optimized build
 jaic main.jai -os windows -cpu arm64
 ```
 
-Options go before or after the file. `jaic -help` lists every option; the full table is the [command-line reference](../reference/command-line.md). [`jacket`](jacket.md) runs `jaic` with your arguments plus the project's entry file and settings. Other source files come in through `#load` and `#import`.
+Options go before or after the file. `jaic -help` lists every option; the full table is the [command-line reference](../reference/tools.md#compiling). [`jacket`](jacket.md) runs `jaic` with your arguments plus the project's entry file and settings. Other source files come in through `#load` and `#import`.
 
 ## Options worth knowing
 
@@ -68,7 +68,7 @@ With `-interp`, a program that runs to the end exits with its own status. See [d
 
 ## Configuration
 
-Environment variables (`JAIC_MEMORY_LIMIT`, `JAIC_DIAGNOSTICS`, `JAIC_PROGRESS`, `JACKET_PROJECT`, `NO_COLOR`, ...) are in the [environment variable reference](../reference/environment-variables.md).
+Environment variables (`JAIC_MEMORY_LIMIT`, `JAIC_DIAGNOSTICS`, `JAIC_PROGRESS`, `JACKET_PROJECT`, `NO_COLOR`, ...) are in the [environment variable reference](../reference/tools.md#environment-variables).
 
 ## How to change it
 

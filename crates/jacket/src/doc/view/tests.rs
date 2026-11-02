@@ -224,8 +224,6 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
             "format",
             "groups",
             "guide_files",
-            "guides",
-            "guides_index",
             "header_links",
             "index",
             "logo",
@@ -240,7 +238,7 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
             "written_files"
         ]
     );
-    assert_eq!(shared["format"], 4);
+    assert_eq!(shared["format"], 5);
     assert_eq!(shared["index"]["content"]["kind"], "index");
     assert_eq!(shared["index"]["sidebar"]["kind"], "modules");
     let bundle = serde_json::to_value(module(&site, 0)).unwrap();

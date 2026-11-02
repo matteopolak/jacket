@@ -36,6 +36,10 @@ pub struct Site {
     pub logo: Option<String>,
     /// The heading of the extra pages (and their folder, as a slug); empty when there are none.
     pub pages_title: String,
+    /// The first extra page, for the header link.
+    pub pages_href: Option<String>,
+    /// Sidebar headings of the extra pages, after the modules'.
+    pub extra_nav: Vec<super::view::NavCategory>,
     /// The first breadcrumb, linking to the front page.
     pub breadcrumb: String,
     /// Whether the site carries a browser compiler.
@@ -139,6 +143,8 @@ impl Site {
             playground,
             logo: None,
             pages_title: String::new(),
+            pages_href: None,
+            extra_nav: Vec::new(),
             breadcrumb: String::new(),
             runtime,
             by_id,
@@ -226,10 +232,7 @@ impl Site {
 
     /// The folder of the extra pages: `tools/` for `Tools`.
     pub fn pages_dir(&self) -> String {
-        format!(
-            "{}/",
-            Site::slug(&self.pages_title.to_lowercase().replace(' ', "-"))
-        )
+        format!("{}/", super::markdown::slug(&self.pages_title))
     }
 
     /// A page title: `what — name`.

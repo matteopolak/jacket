@@ -18,7 +18,7 @@ $ jacket test
      Summary [   0.120s] 11 tests run: 10 passed, 1 failed, 1 skipped
 ```
 
-Exit status: 0 when every test passed (or was skipped, or failed under `@xfail`), 1 when a test failed, 2 when nothing matched, the tests didn't compile, or the command line or `jacket.toml` was wrong. Every flag is in the [command-line reference](../reference/command-line.md).
+Exit status: 0 when every test passed (or was skipped, or failed under `@xfail`), 1 when a test failed, 2 when nothing matched, the tests didn't compile, or the command line or `jacket.toml` was wrong. Every flag is in the [command-line reference](../reference/tools.md#testing).
 
 ## Where tests are
 
