@@ -9,17 +9,11 @@ set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
 app=$(dirname "$here")
-jaic=${JAIC:-jaic}
+smoke_name=seek
+# shellcheck source=examples/tools/smoke-common.sh
+. "$here/../../tools/smoke-common.sh"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/seek-smoke.XXXXXX")
-trap 'rm -rf "$work"' EXIT INT TERM
-
-fail() {
-    echo "smoke: FAILED: $*" >&2
-    exit 1
-}
-
-"$jaic" "$app/main.jai" -exe "$work/seek" >/dev/null || fail "the program does not build"
+smoke_build "$app/main.jai" -exe "$work/seek" >/dev/null || fail "the program does not build"
 seek="$work/seek"
 
 tree="$work/tree"

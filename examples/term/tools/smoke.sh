@@ -1,9 +1,10 @@
 #!/bin/sh
 set -eu
-cd "$(dirname "$0")/../../.."
-: "${T:?set T to an external build directory}"
-mkdir -p "$T/tmp"
-export TMPDIR="$T/tmp"
+here=$(cd "$(dirname "$0")" && pwd)
+smoke_name=term
+# shellcheck source=examples/tools/smoke-common.sh
+. "$here/../../tools/smoke-common.sh"
+cd "$here/../../.."
 case $(uname -s) in
     Darwin|Linux) ;;
     *) echo 'skip term: PTY requires macOS or Linux'; exit 0 ;;
@@ -15,5 +16,5 @@ if command -v python3 >/dev/null 2>&1; then
         exit 0
     fi
 fi
-"${JAIC:-jaic}" examples/term/main.jai -exe "$T/term"
+smoke_build examples/term/main.jai -exe "$T/term"
 "$T/term" --smoke --frame "${FRAME:-$T/term-frame.png}"

@@ -9,17 +9,11 @@ set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
 app=$(dirname "$here")
-jaic=${JAIC:-jaic}
+smoke_name=sitegen
+# shellcheck source=examples/tools/smoke-common.sh
+. "$here/../../tools/smoke-common.sh"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/sitegen-smoke.XXXXXX")
-trap 'rm -rf "$work"' EXIT INT TERM
-
-fail() {
-    echo "smoke: FAILED: $*" >&2
-    exit 1
-}
-
-"$jaic" "$app/main.jai" -exe "$work/sitegen" >/dev/null || fail "the program does not build"
+smoke_build "$app/main.jai" -exe "$work/sitegen" >/dev/null || fail "the program does not build"
 
 "$work/sitegen" "$app/demo" "$work/public" >"$work/first.log" 2>&1 || fail "the demo site does not build"
 grep -q "wrote 3 pages and 3 assets" "$work/first.log" || fail "unexpected summary: $(cat "$work/first.log")"

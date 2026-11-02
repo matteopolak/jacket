@@ -1,14 +1,12 @@
 #!/bin/sh
 # Generated assets and all build products stay in the caller's external target directory.
 set -eu
-cd "$(dirname "$0")/../../.."
-: "${T:?set T to an external build directory}"
-JAIC=${JAIC:-jaic}
-mkdir -p "$T/tmp"
-export TMPDIR="$T/tmp"
-work=$(mktemp -d "$T/tmp/music-smoke.XXXXXX")
-trap 'rm -rf "$work"' EXIT INT TERM
-"$JAIC" examples/music/main.jai -exe "$T/music"
+here=$(cd "$(dirname "$0")" && pwd)
+smoke_name=music
+# shellcheck source=examples/tools/smoke-common.sh
+. "$here/../../tools/smoke-common.sh"
+cd "$here/../../.."
+smoke_build examples/music/main.jai -exe "$T/music"
 "$T/music" --generate "$work"
 "$T/music" --smoke "$work" > "$work/result"
 cat "$work/result"

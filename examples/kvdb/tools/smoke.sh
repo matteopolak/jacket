@@ -9,21 +9,9 @@ set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
 app=$(dirname "$here")
-jaic=${JAIC:-jaic}
-
-work=$(mktemp -d "${TMPDIR:-/tmp}/kvdb-smoke.XXXXXX")
-server_pid=""
-
-cleanup() {
-    if [ -n "$server_pid" ]; then kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true; fi
-    rm -rf "$work"
-}
-trap cleanup EXIT INT TERM
-
-fail() {
-    echo "smoke: FAILED: $*" >&2
-    exit 1
-}
+smoke_name=kvdb
+# shellcheck source=examples/tools/smoke-common.sh
+. "$here/../../tools/smoke-common.sh"
 
 expect() {
     # expect WHAT WANT GOT
@@ -31,7 +19,7 @@ expect() {
 }
 
 echo "== build"
-"$jaic" "$app/main.jai" -exe "$work/kvdb" -quiet || fail "kvdb does not build"
+smoke_build "$app/main.jai" -exe "$work/kvdb" -quiet || fail "kvdb does not build"
 
 kvdb="$work/kvdb"
 export KVDB_FILE="$work/data.log"
