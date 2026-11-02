@@ -404,6 +404,32 @@ utf8_boundaries :: () {
         expect_equal(decoded.text, it);
     }
 
+    // Prefixes put multibyte sequences and invalid tails on both sides of each word boundary.
+    for prefix: 0..17 {
+        for valid {
+            bytes := NewArray(prefix + it.count, u8);
+
+            defer free(bytes.data);
+            memset(bytes.data, 97, prefix);
+            if it.count memcpy(bytes.data + prefix, it.data, it.count);
+
+            expect(Proto.valid_utf8(bytes));
+        }
+
+        bad := string.["c080", "eda080", "f4908080", "c2", "80", "f5808080", "e282", "f09f98"];
+        for bad {
+            tail := hex(it);
+
+            defer free(tail.data);
+            bytes := NewArray(prefix + tail.count, u8);
+
+            defer free(bytes.data);
+            memset(bytes.data, 97, prefix);
+            memcpy(bytes.data + prefix, tail.data, tail.count);
+            expect(!Proto.valid_utf8(bytes));
+        }
+    }
+
     invalid := string.["7202c080", "7203eda080", "7204f4908080", "7201c2", "720180", "7204f5808080"];
     for invalid {
         _, error := from_hex(M, it);

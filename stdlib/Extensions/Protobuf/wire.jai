@@ -411,6 +411,21 @@ bytes_equal :: (a: [] u8, b: [] u8) -> bool {
 // Strict UTF-8 validation: rejects overlong encodings, surrogate code points and > U+10FFFF.
 valid_utf8 :: (bytes: [] u8) -> bool {
     i: s64;
+    // Skip the ASCII prefix in complete unaligned words, then use the strict scalar
+    // validator for the tail and non-ASCII text. Short strings pay one prefix check.
+    while bytes.count - i >= 8 {
+        word: u64;
+        memcpy(*word, bytes.data + i, 8);
+        if (word & 0x8080808080808080) != 0 break;
+        i += 8;
+    }
+
+    if bytes.count - i >= 4 {
+        word: u32;
+        memcpy(*word, bytes.data + i, 4);
+        if (word & 0x80808080) == 0 i += 4;
+    }
+
     while i < bytes.count {
         a := bytes[i];
 
