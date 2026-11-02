@@ -13,7 +13,7 @@ from toolkit.repo import ROOT, cargo_target_dir
 
 OWN = [
     "stdlib/File_Watcher/module.jai",
-    "stdlib/internal/watching/portable-model.jai",
+    "stdlib/internal/watching/model.jai",
     "stdlib/internal/watching/portable.jai",
     "stdlib/internal/watching/inotify.jai",
     "stdlib/internal/watching/windows.jai",

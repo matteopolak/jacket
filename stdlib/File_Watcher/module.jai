@@ -13,10 +13,11 @@
 // assert(!init(*watcher, on_change, merge_window_seconds = -1)); // refused, nothing to release
 // ```
 
+#if OS == .MACOS || OS == .LINUX || OS == .WINDOWS #load "../internal/watching/model.jai";
+
 #if OS == .MACOS {
     #load "../internal/watching/mac.jai";
 } else #if OS == .LINUX || OS == .WINDOWS {
-    #load "../internal/watching/portable-model.jai";
     #load "../internal/watching/portable.jai";
     #if OS == .LINUX #load "../internal/watching/inotify.jai";
     #if OS == .WINDOWS #load "../internal/watching/windows.jai";
