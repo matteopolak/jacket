@@ -5,6 +5,7 @@ import argparse
 from collections import Counter, defaultdict
 from dataclasses import replace
 import json
+from toolkit import coverage_json
 from pathlib import Path
 import re
 import subprocess
@@ -713,7 +714,7 @@ def main():
         else:
             entry.write_text(entry_code)
     path = ROOT / 'tools/native_bindings/coverage.json'
-    serialized = json.dumps({'format': 1, 'note': 'Statuses describe source dispositions, not native verification. Manual bodies may remain unverified on unavailable targets. Unresolved entries are not implemented.', 'modules': all_ledger}, indent=2) + '\n'
+    serialized = coverage_json.dumps({'format': 1, 'note': 'Statuses describe source dispositions, not native verification. Manual bodies may remain unverified on unavailable targets. Unresolved entries are not implemented.', 'modules': all_ledger})
     if args.check:
         if not path.exists() or path.read_text() != serialized:
             stale.append(str(path.relative_to(ROOT)))

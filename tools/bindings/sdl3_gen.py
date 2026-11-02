@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from toolkit import coverage_json
 import re
 import subprocess
 from bindings import sdl3_coverage as coverage
@@ -951,7 +952,7 @@ def main():
     ledger["source"] = json.loads((ROOT / "tools/native/native-libs.json").read_text())[
         "sources"
     ]["sdl3"]
-    files[OUT / "coverage.json"] = json.dumps(ledger, indent=2, sort_keys=True) + "\n"
+    files[OUT / "coverage.json"] = coverage_json.dumps(ledger, sort_keys=True)
     files[OUT / "inventory.json"] = (
         json.dumps(inventory, indent=2, sort_keys=True) + "\n"
     )
