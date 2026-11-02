@@ -249,18 +249,27 @@ lex :: (src: string) -> Lex_Result { // jailint: allow(cognitive_complexity)
                         depth += 1;
                     } else if d == #char ")" {
                         if depth > 0 depth -= 1;
+                    } else if depth > 0 && d == #char "\"" {
+                        // A string inside the parentheses is one piece, whatever it holds.
+                        at += 1;
+                        while at < src.count && src[at] != #char "\"" && src[at] != #char "\n" {
+                            if src[at] == #char "\\" at += 1;
+                            at += 1;
+                        }
+                    } else if depth > 0 && d == #char "\n" {
+                        break;
                     } else if depth == 0 && (d == #char " " || d == #char "\t" || d == #char "\n" || d == #char "\r" || d == 0x0c) {
-                        // The compiler's lexer ends a note at whitespace and nowhere else
-                        // (`@a!=b` and `@x;` are one note each), so the formatter must too:
-                        // splitting earlier would space out what the compiler reads as one.
+                        // The compiler's lexer ends a note at whitespace outside its parentheses
+                        // (`@a!=b` and `@x;` are one note each, `@skip_on(.A, reason = "x y")`
+                        // is one too), so the formatter must too: splitting earlier would space
+                        // out what the compiler reads as one.
                         break;
                     }
 
                     at += 1;
                 }
 
-                // An open `(` swallows the rest of the file, trailing whitespace included, which
-                // the formatter must trim: refuse it like an unbalanced bracket.
+                // A `(` that does not close on its line is refused, as the compiler does.
                 if depth > 0 fail("unterminated note", tok.start);
             }
 
