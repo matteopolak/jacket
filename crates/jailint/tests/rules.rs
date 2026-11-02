@@ -453,3 +453,15 @@ fn stack_array_limit_comes_from_the_settings() {
     let (lints, _) = lint_with(&file, &levels, config(1 << 20));
     assert!(lints.is_empty(), "{lints:?}");
 }
+
+#[test]
+fn lifetime_regions_views_copies_and_nested_generations() {
+    let case = repo().join("tests/lint/pointer_lifetime");
+    let bad = case.join("regions-bad.jai");
+    let (lints, text) = lint(&bad, &[("pointer_lifetime", Level::Warn)]);
+    assert_eq!(lints.len(), 18, "{}", rendered(&lints, &text, &bad));
+    test_support::assert_snapshot_in!(&case, "regions", rendered(&lints, &text, &bad));
+    let good = case.join("regions-good.jai");
+    let (lints, text) = lint(&good, &[("pointer_lifetime", Level::Warn)]);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
+}

@@ -287,6 +287,8 @@ pub struct FnCtx {
     pub b: Builder,
     pub(crate) lifetimes: Option<Box<crate::ide::lifetimes::LifetimeRecording>>,
     pub(crate) lifetime_nonuses: [Option<Span>; 2],
+    pub(crate) lifetime_comparing: bool,
+    pub(crate) lifetime_metadata_base: Option<Span>,
     pub proc: Option<ProcId>,
     pub runtime_storage_constants: Vec<i64>,
     /// Current `context` pointer (absent in #`c_call/#no_context` code).
@@ -464,6 +466,8 @@ impl FnCtx {
             b: Builder::new(name, sig),
             lifetimes: None,
             lifetime_nonuses: [None; 2],
+            lifetime_comparing: false,
+            lifetime_metadata_base: None,
             proc: None,
             runtime_storage_constants: Vec::new(),
             context: None,
@@ -599,14 +603,43 @@ impl Compiler {
             Operand::Value {
                 ty,
                 val,
-            } => Ok((ty, val)),
+            } => {
+                if self.ir_ty(ty).is_none()
+                    && !f.type_only
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    record.push(
+                        f.b.current,
+                        crate::ide::lifetimes::LifetimeEvent::Load {
+                            place: val,
+                            value: val,
+                            ty,
+                            span,
+                        },
+                    );
+                }
+                Ok((ty, val))
+            }
             Operand::Place {
                 ty,
                 addr,
-            } => match self.ir_ty(ty) {
-                Some(t) => Ok((ty, f.b.load(t, addr))),
-                None => Ok((ty, addr)),
-            },
+            } => {
+                let value = self.ir_ty(ty).map_or(addr, |t| f.b.load(t, addr));
+                if !f.type_only
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    record.push(
+                        f.b.current,
+                        crate::ide::lifetimes::LifetimeEvent::Load {
+                            place: addr,
+                            value,
+                            ty,
+                            span,
+                        },
+                    );
+                }
+                Ok((ty, value))
+            }
             Operand::Const {
                 ty,
                 value,
@@ -763,7 +796,7 @@ impl Compiler {
         val: Val,
         span: Span,
     ) -> Result<()> {
-        f.lifetime_store(addr, val, span);
+        f.lifetime_store(addr, val, ty, span);
         if let Some(t) = self.ir_ty(ty) {
             f.b.store(t, addr, val);
         } else {

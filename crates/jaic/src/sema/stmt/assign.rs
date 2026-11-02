@@ -622,7 +622,7 @@ impl Compiler {
             let tmp = f.b.alloca(size.max(1), align);
             f.b.copy(tmp, v, size);
             f.b.copy(addr, tmp, size);
-            f.lifetime_store(addr, v, span);
+            f.lifetime_store(addr, v, ty, span);
         } else {
             self.store_value(f, ty, addr, v, span)?;
         }

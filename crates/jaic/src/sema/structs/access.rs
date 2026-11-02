@@ -17,12 +17,12 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let receiver = crate::ide::lifetimes::LifetimeOperand::of(&base);
+        let base_ty = base.ty();
+        let indirect = self.ty.types.is_pointer(base_ty);
+        let descriptor_ty = self.ty.types.pointee(base_ty).unwrap_or(base_ty);
         let descriptor = matches!(
-            self.ty.types.kind(base.ty()),
-            TypeKind::Array {
-                kind: ArrayKind::Resizable,
-                ..
-            }
+            self.ty.types.kind(descriptor_ty),
+            TypeKind::Array { .. } | TypeKind::String
         );
         let result = self.member_access_inner(f, scope, base, name, span);
         if !f.type_only
@@ -30,12 +30,22 @@ impl Compiler {
             && let Some(record) = &mut f.lifetimes
         {
             use crate::ide::lifetimes::{LifetimeEvent, LifetimeOperand};
-            let field = LifetimeOperand::of(op);
-            if descriptor
-                && let (LifetimeOperand::Place(base), LifetimeOperand::Place(field)) =
-                    (receiver, field)
+            if self
+                .ty
+                .types
+                .as_struct(self.ty.types.repr_struct(descriptor_ty))
+                .is_some_and(|st| {
+                    let info = self.ty.types.struct_info(st);
+                    info.is_union || info.fields.iter().any(|field| field.overlay)
+                })
             {
-                record.descriptor_fields.insert(field, base);
+                record.push(f.b.current, LifetimeEvent::Barrier);
+            }
+            let field = LifetimeOperand::of(op);
+            if let (LifetimeOperand::Place(base), LifetimeOperand::Place(field)) = (receiver, field)
+                && let Some(region) = record.elements.get(&base).copied()
+            {
+                record.elements.insert(field, region);
             }
             record.push(
                 f.b.current,
@@ -43,6 +53,10 @@ impl Compiler {
                     base: receiver,
                     result: field,
                     name,
+                    indirect,
+                    descriptor,
+                    base_ty,
+                    result_ty: op.ty(),
                     span,
                 },
             );

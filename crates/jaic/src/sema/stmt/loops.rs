@@ -684,9 +684,17 @@ impl Compiler {
         let elem_addr = f.b.ptr_add(data, off);
         let (it_ty, it_addr) = if for_.by_pointer {
             if let Some(record) = &mut f.lifetimes
-                && record.resizable.contains(&caddr)
+                && record.resizable.contains_key(&caddr)
             {
-                record.borrows.insert(elem_addr, (caddr, iterated));
+                record.push(
+                    f.b.current,
+                    crate::ide::lifetimes::LifetimeEvent::Borrow {
+                        value: elem_addr,
+                        region: caddr,
+                        region_ty: cty,
+                        span: iterated,
+                    },
+                );
             }
             let pt = self.ty.types.pointer(elem);
             (pt, self.spill(f, pt, elem_addr, span)?)

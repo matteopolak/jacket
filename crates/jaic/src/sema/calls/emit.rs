@@ -76,12 +76,13 @@ impl Compiler {
                 if grows
                     && let Some(arg) = args.iter().find(|a| a.formal == 0)
                     && let LifetimeOperand::Value(region) = arg.operand
-                    && record.resizable.contains(&region)
+                    && record.resizable.contains_key(&region)
                 {
                     record.push(
                         f.b.current,
                         LifetimeEvent::Grow {
                             region,
+                            ty: record.resizable[&region],
                             span,
                         },
                     );
@@ -93,6 +94,24 @@ impl Compiler {
                         args,
                         span,
                         expands: is_macro,
+                        results: match &result {
+                            Ok(Operand::Value {
+                                val,
+                                ty,
+                            }) => vec![(0, *val, *ty)],
+                            Ok(Operand::Multi(ops)) => ops
+                                .iter()
+                                .enumerate()
+                                .filter_map(|(index, op)| match op {
+                                    Operand::Value {
+                                        val,
+                                        ty,
+                                    } => Some((index, *val, *ty)),
+                                    _ => None,
+                                })
+                                .collect(),
+                            _ => Vec::new(),
+                        },
                     },
                 );
             }

@@ -52,9 +52,11 @@ impl Compiler {
         if op == BinOp::Sub {
             off = f.b.un(ir::UnOp::Neg, Ty::I64, off);
         }
+        let value = f.b.ptr_add(base, off);
+        f.lifetime_copy(value, base);
         Ok(Operand::Value {
             ty: lty,
-            val: f.b.ptr_add(base, off),
+            val: value,
         })
     }
 

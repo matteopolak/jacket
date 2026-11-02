@@ -235,6 +235,17 @@ impl Compiler {
                     None => addr,
                 }
             };
+            if !f.type_only
+                && let Some(record) = &mut f.lifetimes
+            {
+                record.push(
+                    f.b.current,
+                    crate::ide::lifetimes::LifetimeEvent::Return {
+                        value: v,
+                        index: i,
+                    },
+                );
+            }
             // A `void` result is checked like the others but leaves nothing to return.
             if ty == TypeId::VOID {
                 continue;

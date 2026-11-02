@@ -152,7 +152,7 @@ impl Compiler {
         // A bare target names a place; it does not read the previous pointer value.
         // Scope this to the exact expression, so indirect/indexed targets still read bases.
         let saved = f.lifetime_nonuses;
-        if f.lifetimes.is_some() && matches!(target.kind, ast::ExprKind::Ident(_)) {
+        if f.lifetimes.is_some() {
             f.lifetime_nonuses = [Some(target.span), None];
         }
         let result = self.check_expr(f, scope, target, None);
@@ -268,13 +268,17 @@ impl Compiler {
             return Ok(Operand::int(s[*i as usize] as i128, TypeId::U8));
         }
         let bty = base_op.ty();
+        let lifetime_index = match &index_op {
+            Operand::Const {
+                value: Value::Int(i),
+                ..
+            } => Some(*i),
+            _ => None,
+        };
         let lifetime_region = if !f.type_only
             && matches!(
                 self.ty.types.kind(bty),
-                TypeKind::Array {
-                    kind: ArrayKind::Resizable,
-                    ..
-                }
+                TypeKind::Array { .. } | TypeKind::String
             ) {
             match &base_op {
                 Operand::Place {
@@ -392,7 +396,39 @@ impl Compiler {
         if let Some(record) = &mut f.lifetimes
             && let Some(region) = lifetime_region
         {
-            record.elements.insert(addr, region);
+            record.elements.insert(addr, (region, bty));
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::Index {
+                    base: region,
+                    result: addr,
+                    base_ty: bty,
+                    result_ty: elem,
+                    index: lifetime_index,
+                },
+            );
+        }
+        if self.ty.types.is_pointer(bty) {
+            f.lifetime_copy(addr, data);
+        }
+        if !f.type_only
+            && self.ty.types.is_pointer(bty)
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::ReadMemory {
+                    value: data,
+                    span,
+                },
+            );
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::Indirect {
+                    place: addr,
+                    ty: elem,
+                },
+            );
         }
         Ok(Operand::Place {
             ty: elem,

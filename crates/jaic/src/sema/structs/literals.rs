@@ -214,6 +214,31 @@ impl Compiler {
         self.init_default(f, ty, tmp, span)?;
         for (path, mty, op, vspan) in values {
             let at = self.apply_path(f, tmp, &path);
+            if !f.type_only
+                && let Some(record) = &mut f.lifetimes
+                && let [PathStep::Offset(offset)] = path.as_slice()
+                && let Some((Some(name), _, _)) = members
+                    .iter()
+                    .find(|(_, member_ty, off)| member_ty == &mty && off == offset)
+            {
+                use crate::ide::lifetimes::{LifetimeEvent, LifetimeOperand};
+                record.push(
+                    f.b.current,
+                    LifetimeEvent::Field {
+                        base: LifetimeOperand::Place(tmp),
+                        result: LifetimeOperand::Place(at),
+                        name: *name,
+                        indirect: false,
+                        descriptor: matches!(
+                            self.ty.types.kind(ty),
+                            TypeKind::Array { .. } | TypeKind::String
+                        ),
+                        base_ty: ty,
+                        result_ty: mty,
+                        span: vspan,
+                    },
+                );
+            }
             let (_, v) = self.rvalue(f, op, vspan)?;
             self.store_value(f, mty, at, v, vspan)?;
         }

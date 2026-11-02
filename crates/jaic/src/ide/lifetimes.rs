@@ -1,7 +1,7 @@
 //! Optional semantic lifetime sidecar. Events are emitted in lowering order, in the
 //! checker's actual blocks. No AST control flow is reconstructed by consumers.
 use crate::ast::{self, ExprKind as E};
-use crate::fxhash::{HashMap, HashSet};
+use crate::fxhash::HashMap;
 use crate::ir::{self, Val};
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, EntityId, ProcId};
@@ -61,25 +61,72 @@ pub enum LifetimeEvent {
     },
     Use {
         place: Val,
+        ty: TypeId,
         span: Span,
     },
     Address {
         place: Val,
+        ty: TypeId,
         span: Span,
     },
-    Set {
+    Store {
         place: Val,
-        source: Option<(Val, Span)>,
+        value: Val,
+        ty: TypeId,
         span: Span,
+    },
+    Load {
+        place: Val,
+        value: Val,
+        ty: TypeId,
+        span: Span,
+    },
+    Borrow {
+        value: Val,
+        region: Val,
+        region_ty: TypeId,
+        span: Span,
+    },
+    Copy {
+        value: Val,
+        source: Val,
+    },
+    Index {
+        base: Val,
+        result: Val,
+        base_ty: TypeId,
+        result_ty: TypeId,
+        index: Option<i128>,
+    },
+    View {
+        value: Val,
+        source: Val,
+        from: TypeId,
+        to: TypeId,
+        span: Span,
+    },
+    ReadMemory {
+        value: Val,
+        span: Span,
+    },
+    Indirect {
+        place: Val,
+        ty: TypeId,
+    },
+    Return {
+        value: Val,
+        index: usize,
     },
     Call {
         callee: ProcId,
         args: Vec<LifetimeArgument>,
         span: Span,
         expands: bool,
+        results: Vec<(usize, Val, TypeId)>,
     },
     Grow {
         region: Val,
+        ty: TypeId,
         span: Span,
     },
     /// Unknown memory writes cannot establish a must proof.
@@ -100,6 +147,10 @@ pub enum LifetimeEvent {
         base: LifetimeOperand,
         result: LifetimeOperand,
         name: crate::intern::Sym,
+        indirect: bool,
+        descriptor: bool,
+        base_ty: TypeId,
+        result_ty: TypeId,
         span: Span,
     },
 }
@@ -123,10 +174,8 @@ pub struct LifetimeBody {
 #[derive(Default)]
 pub(crate) struct LifetimeRecording {
     pub blocks: Vec<LifetimeBlock>,
-    pub borrows: HashMap<Val, (Val, Span)>,
-    pub resizable: HashSet<Val>,
-    pub descriptor_fields: HashMap<Val, Val>,
-    pub elements: HashMap<Val, Val>,
+    pub resizable: HashMap<Val, TypeId>,
+    pub elements: HashMap<Val, (Val, TypeId)>,
     pub calls: Vec<LifetimeCallRecording>,
 }
 
@@ -180,13 +229,26 @@ impl Compiler {
                     ..
                 }
             ) {
-                record.resizable.insert(place);
+                record.resizable.insert(place, op.ty());
             }
-            if matches!(expr.kind, E::Ident(_)) && !f.lifetime_nonuses.contains(&Some(expr.span)) {
+            let comparison_reads_storage = f.lifetime_comparing
+                && matches!(
+                    self.ty.types.kind(op.ty()),
+                    TypeKind::String
+                        | TypeKind::Array {
+                            kind: ArrayKind::View,
+                            ..
+                        }
+                );
+            let nonuse = f.lifetime_nonuses.contains(&Some(expr.span)) && !comparison_reads_storage;
+            let metadata_only =
+                f.lifetime_metadata_base == Some(expr.span) && !self.ty.types.is_pointer(op.ty());
+            if matches!(expr.kind, E::Ident(_) | E::Member(..)) && !nonuse && !metadata_only {
                 record.push(
                     block,
                     LifetimeEvent::Use {
                         place,
+                        ty: op.ty(),
                         span: expr.span,
                     },
                 );
@@ -199,28 +261,58 @@ impl Compiler {
 }
 
 impl FnCtx {
-    pub(crate) fn lifetime_store(&mut self, addr: Val, val: Val, span: Span) {
-        if self.type_only {
-            return;
-        }
-        if let Some(record) = &mut self.lifetimes {
-            if let Some(region) = record.descriptor_fields.get(&addr).copied() {
-                record.push(
-                    self.b.current,
-                    LifetimeEvent::Set {
-                        place: region,
-                        source: None,
-                        span,
-                    },
-                );
-            }
-            let source = record.borrows.get(&val).copied();
+    pub(crate) fn lifetime_store(&mut self, place: Val, value: Val, ty: TypeId, span: Span) {
+        if !self.type_only
+            && let Some(record) = &mut self.lifetimes
+        {
             record.push(
                 self.b.current,
-                LifetimeEvent::Set {
-                    place: addr,
-                    source,
+                LifetimeEvent::Store {
+                    place,
+                    value,
+                    ty,
                     span,
+                },
+            );
+        }
+    }
+
+    pub(crate) fn lifetime_view(
+        &mut self,
+        value: Val,
+        source: Val,
+        from: TypeId,
+        to: TypeId,
+        span: Span,
+    ) {
+        if !self.type_only
+            && let Some(record) = &mut self.lifetimes
+        {
+            record.push(
+                self.b.current,
+                LifetimeEvent::View {
+                    value,
+                    source,
+                    from,
+                    to,
+                    span,
+                },
+            );
+        }
+    }
+
+    pub(crate) fn lifetime_copy(&mut self, value: Val, source: Val) {
+        if value == source {
+            return;
+        }
+        if !self.type_only
+            && let Some(record) = &mut self.lifetimes
+        {
+            record.push(
+                self.b.current,
+                LifetimeEvent::Copy {
+                    value,
+                    source,
                 },
             );
         }
@@ -243,8 +335,14 @@ impl LifetimeBody {
                             .iter()
                             .map(|event| match event {
                                 LifetimeEvent::Call {
-                                    args, ..
-                                } => args.capacity() * std::mem::size_of::<LifetimeArgument>(),
+                                    args,
+                                    results,
+                                    ..
+                                } => {
+                                    args.capacity() * std::mem::size_of::<LifetimeArgument>()
+                                        + results.capacity()
+                                            * std::mem::size_of::<(usize, Val, TypeId)>()
+                                }
                                 LifetimeEvent::Expansion {
                                     output, ..
                                 } => output.capacity() * std::mem::size_of::<Span>(),

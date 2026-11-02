@@ -230,3 +230,65 @@ fn assignment_targets_and_comparisons_are_not_reads_but_their_operands_are() {
         assert_eq!(count, expected, "{fragment}");
     }
 }
+
+#[test]
+fn field_identity_keeps_types_when_machine_addresses_overlap() {
+    let c = compile(
+        r"
+        Box :: struct { values: [..] int; p: *int; }
+        probe :: () {
+            box: Box;
+            view: [] int = box.values;
+            box.p = box.values.data;
+            q := box.p + 1;
+        }
+        main :: () { probe(); }
+        ",
+        true,
+        false,
+    );
+    let b = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "probe")
+        .unwrap();
+    assert!(events(b).any(|e| matches!(e,
+        Event::Field { base: LifetimeOperand::Place(base), result: LifetimeOperand::Place(result), base_ty, result_ty, .. }
+        if base == result && base_ty != result_ty
+    )));
+    assert!(events(b).any(|e| matches!(e, Event::View { .. })));
+    assert!(events(b).any(|e| matches!(e, Event::Copy { .. })));
+    assert!(events(b).any(|e| matches!(e, Event::Load { .. })));
+    assert!(events(b).any(|e| matches!(e, Event::Store { .. })));
+}
+
+#[test]
+fn field_targets_pointer_equality_and_view_metadata_are_not_memory_reads() {
+    let source = r#"
+        Box :: struct { p: *int; }
+        main :: () {
+            box: Box; q: *int; v: [] int; s: string;
+            box.p = q;
+            same := box.p == null;
+            value := box.p.*;
+            count := v.count;
+            element := v[0];
+            compared := s == "x";
+        }
+    "#;
+    let c = compile(source, true, false);
+    let b = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
+        .unwrap();
+    for (fragment, expected) in [
+        ("box.p = q", 1),
+        ("box.p == null", 0),
+        ("box.p.*", 1),
+        ("v.count", 0),
+        ("v[0]", 1),
+        ("s == \"x\"", 1),
+    ] {
+        let start = source.find(fragment).unwrap() as u32;
+        let count = events(b).filter(|e| matches!(e, Event::Use { span, ty, .. } if span.start >= start && span.end <= start + fragment.len() as u32 &&
+                (c.ty.types.is_pointer(*ty) || matches!(c.ty.types.kind(*ty), jaic::types::TypeKind::String | jaic::types::TypeKind::Array { kind: jaic::types::ArrayKind::View, .. })))).count();
+        assert_eq!(count, expected, "{fragment}");
+    }
+}

@@ -12,6 +12,7 @@ use jaic::source::Span;
 // Helpers shared by several rules; they are not rules themselves.
 mod frees;
 mod lifetime_cfg;
+mod lifetime_places;
 mod local_scopes;
 
 pub(crate) use unused_parameter::RunState;

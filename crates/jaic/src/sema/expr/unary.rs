@@ -124,11 +124,20 @@ impl Compiler {
                         f.b.current,
                         crate::ide::lifetimes::LifetimeEvent::Address {
                             place: addr,
+                            ty,
                             span,
                         },
                     );
-                    if let Some(region) = record.elements.get(&addr).copied() {
-                        record.borrows.insert(addr, (region, span));
+                    if let Some((region, region_ty)) = record.elements.get(&addr).copied() {
+                        record.push(
+                            f.b.current,
+                            crate::ide::lifetimes::LifetimeEvent::Borrow {
+                                value: addr,
+                                region,
+                                region_ty,
+                                span,
+                            },
+                        );
                     }
                 }
                 Ok(Operand::Value {
@@ -222,6 +231,24 @@ impl Compiler {
         let Some(pointee) = pointee else {
             return Err(Box::new(self.cannot_dereference(ty, a.span, span)));
         };
+        if !f.type_only
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::ReadMemory {
+                    value: v,
+                    span: a.span,
+                },
+            );
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::Indirect {
+                    place: v,
+                    ty: pointee,
+                },
+            );
+        }
         // `<< ptr` on a `*void` is a `void` place (it prints as `void`).
         Ok(Operand::Place {
             ty: pointee,

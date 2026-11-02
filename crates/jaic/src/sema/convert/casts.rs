@@ -485,6 +485,7 @@ impl Compiler {
             self.ty.types.kind(tr).clone(),
         ) {
             let (_, addr) = self.address_of(f, op, span)?;
+            f.lifetime_view(addr, addr, from, to, span);
             return Ok(Operand::Value {
                 ty: to,
                 val: addr,
@@ -507,6 +508,7 @@ impl Compiler {
             || (to == TypeId::STRING && is_bytes_view(self, from))
         {
             let (_, addr) = self.address_of(f, op, span)?;
+            f.lifetime_view(addr, addr, from, to, span);
             return Ok(Operand::Place {
                 ty: to,
                 addr,

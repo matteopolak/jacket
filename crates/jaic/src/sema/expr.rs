@@ -76,10 +76,18 @@ impl Compiler {
         expected: Option<TypeId>,
     ) -> Result<Operand> {
         let nonuses = f.lifetimes.as_ref().map(|_| f.lifetime_nonuses);
+        let comparing = f.lifetime_comparing;
+        let metadata_base = f.lifetime_metadata_base;
+        if nonuses.is_some()
+            && let E::Member(base, _) = &expr.kind
+        {
+            f.lifetime_metadata_base = Some(base.span);
+        }
         if nonuses.is_some()
             && let E::Binary(BinOp::Eq | BinOp::Ne, a, b) = &expr.kind
         {
-            f.lifetime_nonuses = [a, b].map(|e| matches!(e.kind, E::Ident(_)).then_some(e.span));
+            f.lifetime_nonuses = [a, b].map(|e| Some(e.span));
+            f.lifetime_comparing = true;
         }
         self.ed.sketch_tried(expr.span);
         let mut result = self.check_expr_kind(f, scope, expr, expected);
@@ -110,6 +118,7 @@ impl Compiler {
                     .record(expr.span, ty);
             }
         }
+        f.lifetime_metadata_base = metadata_base;
         if self.ed.is_live()
             && let Ok(op) = &result
         {
@@ -121,6 +130,7 @@ impl Compiler {
         }
         if let Some(saved) = nonuses {
             f.lifetime_nonuses = saved;
+            f.lifetime_comparing = comparing;
         }
         result
     }

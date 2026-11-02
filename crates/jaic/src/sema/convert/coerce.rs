@@ -103,6 +103,7 @@ impl Compiler {
             ) => {
                 // A resizable array starts with (count, data): reuse its prefix.
                 let (_, addr) = self.address_of(f, op, span)?;
+                f.lifetime_view(addr, addr, from, to, span);
                 Ok(Operand::Value {
                     ty: to,
                     val: addr,
@@ -163,9 +164,11 @@ impl Compiler {
                 // address as it is.
                 let offset = self.as_offset(*inner, *target).unwrap_or(0);
                 let (_, v) = self.rvalue(f, op, span)?;
+                let val = f.b.ptr_offset(v, offset);
+                f.lifetime_copy(val, v);
                 Ok(Operand::Value {
                     ty: to,
-                    val: f.b.ptr_offset(v, offset),
+                    val,
                 })
             }
             // `*Wrapper` → the value of its `#as` member (`#as id: u32`).
@@ -214,6 +217,9 @@ impl Compiler {
         let fsigned = self.ty.types.int_info(from).is_some_and(|(_, s)| s);
         let tsigned = self.ty.types.int_info(to).is_some_and(|(_, s)| s);
         let val = numeric_conv(f, v, ft, tt, fsigned, tsigned);
+        if self.ty.types.is_pointer(from) && self.ty.types.is_pointer(to) {
+            f.lifetime_copy(val, v);
+        }
         Ok(Operand::Value {
             ty: to,
             val,
