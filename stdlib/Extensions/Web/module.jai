@@ -183,6 +183,8 @@ html :: (destination: *Out, $t: string, loc := #caller_code) #expand {
     #insert,scope(loc) #run compile_template(t, loc);
 }
 
+#assert OS != .WASM "Extensions/Web writes pages from worker threads, and WebAssembly has none";
+
 #load "template.jai";
 #load "writer.jai";
 #load "parallel.jai";

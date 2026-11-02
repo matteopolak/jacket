@@ -1,6 +1,10 @@
 // Native menus, file dialogs and opt-in text services for desktop windows.
 // @experimental
 
+// test: skip_on(.WASM, reason = "Extensions/Desktop drives native windows")
+
+#assert OS != .WASM "Extensions/Desktop drives native windows, and WebAssembly has none";
+
 #import "Basic";
 WT :: #import "Window_Type";
 

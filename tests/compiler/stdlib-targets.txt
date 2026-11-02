@@ -141,6 +141,7 @@ nvidia_aftermath macos-arm64: nvidia_aftermath/module.jai: #assert failed: nvidi
 nvidia_aftermath macos-x64: nvidia_aftermath/module.jai: #assert failed: nvidia_aftermath requires its documented native platform
 nvidia_aftermath wasm: nvidia_aftermath/module.jai: #assert failed: nvidia_aftermath requires its documented native platform
 nvtt wasm: nvtt/module.jai: #assert failed: nvtt requires its documented native platform
+Extensions/Desktop wasm: Extensions/Desktop/module.jai: #assert failed: Extensions/Desktop drives native windows, and WebAssembly has none
 Extensions/Io wasm: Extensions/Io/module.jai: #assert failed: Extensions/Io needs fibers, and WebAssembly code cannot switch stacks
 Extensions/Io_Uring macos-arm64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
 Extensions/Io_Uring macos-x64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
@@ -157,3 +158,4 @@ Extensions/Wasi_Runtime macos-arm64: Extensions/Wasi_Runtime/module.jai: #assert
 Extensions/Wasi_Runtime macos-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Extensions/Wasi_Runtime windows-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Extensions/Wasi_Runtime windows-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Web wasm: Extensions/Web/module.jai: #assert failed: Extensions/Web writes pages from worker threads, and WebAssembly has none
