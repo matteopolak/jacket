@@ -56,3 +56,70 @@ fuzz_protobuf_damaged :: (r: *Rng) {
     Target.free(*back);
     Target.free(*be);
 }
+
+// Accepted JSON prints, and what it prints reads back to the same message and text.
+fuzz_protobuf_json :: (r: *Rng) {
+    seeds :: string.[
+        "{\"id\":\"-5\",\"text\":\"a\",\"payload\":\"AQ==\",\"words\":[1,2],\"numbers\":[-3],\"choices\":[\"B\",0],\"states\":{\"k\":\"A\"},\"next\":{\"name\":\"n\"},\"group\":{},\"child\":{\"id\":1}}",
+        "{\"choice\":3,\"next\":{\"next\":{\"states\":{\"\":\"B\"}}},\"id\":1e3}",
+    ];
+
+    input := gen(r, string);
+
+    // Damaged valid documents reach deeper than arbitrary text.
+    if gen(r, bool) {
+        input = copy_string(seeds[gen(r, u8) % seeds.count],, temp);
+        index := cast(s64) (gen(r, u32) % cast(u32) input.count);
+        input[index] ^= gen(r, u8);
+        input.count = cast(s64) (gen(r, u32) % cast(u32) (input.count + 1));
+    }
+
+    options := Target.Json_Options.{ max_depth = 16 };
+    value, error := Target.from_json(Proto_Fuzz.M, input, options);
+
+    defer Target.free(*value);
+    defer Target.free(*error);
+    if error.kind != .NONE return;
+
+    text, te := Target.to_json(value);
+
+    defer free(text);
+    defer Target.free(*te);
+    assert(te.kind == .NONE);
+    back, be := Target.from_json(Proto_Fuzz.M, text, options);
+
+    defer Target.free(*back);
+    defer Target.free(*be);
+    assert(be.kind == .NONE);
+    again, ae := Target.to_json(back);
+
+    defer free(again);
+    defer Target.free(*ae);
+    assert(again == text);
+}
+
+// Decoded binary messages print as JSON that reads back to the same text.
+fuzz_protobuf_json_from_binary :: (r: *Rng) {
+    input := gen(r, string);
+    value, error := Target.decode(Proto_Fuzz.M, .{ input.count, input.data }, .{ max_depth = 16, max_size = 65536 });
+
+    defer Target.free(*value);
+    defer Target.free(*error);
+    if error.kind != .NONE return;
+
+    text, te := Target.to_json(value);
+
+    defer free(text);
+    defer Target.free(*te);
+    assert(te.kind == .NONE);
+    back, be := Target.from_json(Proto_Fuzz.M, text, .{ max_depth = 40 });
+
+    defer Target.free(*back);
+    defer Target.free(*be);
+    assert(be.kind == .NONE);
+    again, ae := Target.to_json(back);
+
+    defer free(again);
+    defer Target.free(*ae);
+    assert(again == text);
+}
