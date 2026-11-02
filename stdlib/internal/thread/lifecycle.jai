@@ -215,7 +215,7 @@ thread_deinit :: (thread: *Thread) {
     release_thread_state(state);
     thread.index = 0;
     #if SET_THREAD_NAMES && SET_NAME_INSIDE_THREAD thread.c_name = null;
-} @FreesArgument
+}
 
 #scope_module
 Init_Handler :: #type (thread: *Thread);
