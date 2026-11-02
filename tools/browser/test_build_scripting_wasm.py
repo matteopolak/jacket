@@ -9,9 +9,20 @@ import unittest
 from unittest.mock import patch
 import build_scripting_wasm as wasm
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
 
 class ScriptingWasmBuildTests(unittest.TestCase):
+    def test_raymarch_bundle_contains_shared_scene(self):
+        root = ROOT
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            files, _ = wasm.stage_example(root / "examples/raymarch-gpu", output,
+                                          "raymarch-gpu", "main.jai")
+            self.assertIn("scene.jai", files)
+            self.assertEqual((output / "raymarch-gpu/scene.jai").read_bytes(),
+                             (root / "examples/raymarch-gpu/scene.jai").read_bytes())
+
     def test_metadata_target_drives_build_staging_and_receipt(self):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary).resolve()
