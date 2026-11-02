@@ -196,3 +196,28 @@ pub(super) fn borrowed(compiler: &Compiler, proc: ProcId) -> Vec<(usize, Selecto
         })
         .collect()
 }
+
+/// Possible logical invalidation. Exact negative facts remain useful in strict mode.
+pub(super) fn possibly_invalidates(m: Mutation, index: Selector, length: Option<i128>) -> bool {
+    use Selector::{Constant as C, CountDelta, Last};
+    if invalidates(m, index, length) {
+        return true;
+    }
+    match (m.action, index, m.first) {
+        (Action::Count, C(i), C(n)) => i >= n,
+        (Action::Count, _, CountDelta(n)) if n >= 0 => false,
+        (Action::Ordered | Action::Insert, C(i), C(n)) => i >= n,
+        (Action::Unordered, C(i), C(n)) => i == n || length.is_none_or(|len| i == len - 1),
+        (Action::Key, C(i), C(n)) => i == n,
+        (Action::Swap, _, a) if a != Selector::Unknown && a == m.second => false,
+        (Action::Swap, C(i), C(n)) => match m.second {
+            C(j) => i == n || i == j,
+            _ => true,
+        },
+        (Action::Reverse, C(i), _) => length.is_none_or(|n| i != n - 1 - i),
+        (Action::Pop, C(i), _) => length.is_none_or(|n| i == n - 1),
+        (Action::Sort, _, _) => length.is_none_or(|n| n > 1),
+        (Action::Count, Last, Last) => true,
+        _ => true,
+    }
+}

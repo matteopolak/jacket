@@ -10,6 +10,7 @@ use jaic::source::{FileId, LineIndex, Span};
 use jaic::types::TypeId;
 
 pub(crate) struct Cx<'a> {
+    pub lifetime_mode: jacket_config::LifetimeMode,
     pub compiler: &'a Compiler,
     pub file: FileId,
     pub text: &'a str,
@@ -89,6 +90,7 @@ impl<'a> Cx<'a> {
             imports,
             doc_links: Vec::new(),
             complete: true,
+            lifetime_mode: jacket_config::LifetimeMode::Must,
             max_nesting: crate::config::DEFAULT_MAX_NESTING,
             max_complexity: crate::config::DEFAULT_MAX_COMPLEXITY,
             max_arguments: crate::config::DEFAULT_MAX_ARGUMENTS,

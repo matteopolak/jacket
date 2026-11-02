@@ -15,7 +15,10 @@ use jaic::types::{TypeId, TypeKind};
 use std::collections::{BTreeMap, VecDeque};
 use std::rc::Rc;
 
+mod calls;
 mod diagnostics;
+mod retained;
+mod retained_witness;
 use diagnostics::{Proof, emit};
 
 #[derive(Clone, Copy, Debug)]
@@ -25,6 +28,7 @@ pub(super) enum Origin {
     Stack(ScopeId),
     Statement(Span),
     Incoming,
+    Until(ProcId),
 }
 
 #[derive(Clone)]
@@ -62,6 +66,19 @@ pub(super) enum Op {
     Mark(usize),
     Restore(usize, Span),
     Exit,
+    MayFree {
+        cell: usize,
+        span: Span,
+    },
+    MayRegion {
+        region: usize,
+        cells: Vec<usize>,
+        span: Span,
+    },
+    MayReset(Span),
+    MayRestore(usize, Span),
+    Advance(ProcId, Span),
+    MayAdvance(ProcId, Span),
 }
 
 #[derive(Default)]
@@ -108,6 +125,7 @@ fn value_cell(cx: &Cx, places: &mut Places, cells: &mut Cells, value: Val, ty: T
 
 struct Call<'a> {
     callee: &'a ProcId,
+    event: &'a Event,
     args: &'a [LifetimeArgument],
     results: &'a [(usize, Val, TypeId)],
     span: &'a Span,
@@ -178,6 +196,28 @@ impl<'a> Builder<'a> {
                     }) && let LifetimeOperand::Value(v) = a.operand
                     {
                         released_values.insert(v);
+                    }
+                }
+                Event::IndirectCall {
+                    callee,
+                    args,
+                    allocator: false,
+                    ..
+                } => {
+                    let targets = summaries.targets.get(body.procedure, *callee);
+                    for e in targets
+                        .procedures
+                        .iter()
+                        .filter_map(|p| summaries.procs.get(p))
+                        .flat_map(|s| s.may.keys())
+                        .filter(|e| e.kind == EffectKind::Free && e.target.steps.is_empty())
+                    {
+                        if let Root::Parameter(formal) = e.target.root
+                            && let Some(arg) = args.iter().find(|a| a.formal == formal)
+                            && let LifetimeOperand::Value(v) = arg.operand
+                        {
+                            released_values.insert(v);
+                        }
                     }
                 }
                 _ => {}
@@ -427,6 +467,7 @@ impl<'a> Builder<'a> {
                 ops.extend(self.call(
                     Call {
                         callee,
+                        event,
                         args,
                         results,
                         span,
@@ -437,173 +478,31 @@ impl<'a> Builder<'a> {
                 ));
             }
             Event::IndirectCall {
-                allocator: true,
+                allocator: false,
                 args,
                 results,
                 span,
                 ..
             } => {
-                if args.first().and_then(|a| a.constant) == Some(0) {
-                    for &(_, value, ty) in results {
-                        ops.push(Op::Seed {
-                            cell: value_cell(cx, places, cells, value, ty),
-                            origin: Origin::Heap,
-                            span: *span,
-                        });
-                    }
-                } else if args.first().and_then(|a| a.constant) == Some(2)
-                    && let Some(arg) = args.iter().find(|a| a.formal == 3)
-                    && let Some(cell) = operand_cell(cx, places, cells, arg)
-                {
-                    ops.push(Op::Free {
-                        cell,
-                        span: *span,
-                        callee: ProcId(u32::MAX),
-                        contents: false,
-                    });
-                }
+                const INDIRECT: ProcId = ProcId(u32::MAX);
+                ops.extend(self.call(
+                    Call {
+                        callee: &INDIRECT,
+                        event,
+                        args,
+                        results,
+                        span,
+                    },
+                    places,
+                    cells,
+                    resolver,
+                ));
             }
+            Event::IndirectCall {
+                allocator: true, ..
+            } => ops.extend(self.allocation(event, places, cells, resolver)),
             _ => {}
         }
-        ops
-    }
-
-    fn call(
-        &self,
-        call: Call<'_>,
-        places: &mut Places,
-        cells: &mut Cells,
-        resolver: &mut Resolver<'_>,
-    ) -> Vec<Op> {
-        let Call {
-            callee,
-            args,
-            results,
-            span,
-        } = call;
-        let cx = self.cx;
-        let summaries = self.summaries;
-        let mut ops = Vec::new();
-
-        let c = cx.compiler;
-        let released_formal = crate::rules::lifetime_movement::released_formal(c, *callee);
-        let frees = released_formal.is_some();
-        if let Some(formal) = released_formal
-            && let Some(arg) = args.iter().find(|a| a.formal == formal)
-            && let Some(cell) = operand_cell(cx, places, cells, arg)
-        {
-            let contents = c.ty.types.pointee(arg.ty).is_some_and(|ty| {
-                matches!(
-                    c.ty.types.kind(c.ty.types.repr_struct(ty)),
-                    TypeKind::Struct(_)
-                )
-            });
-            ops.push(Op::Free {
-                cell,
-                span: *span,
-                callee: *callee,
-                contents,
-            });
-        }
-        if !frees && let Some(summary) = summaries.procs.get(callee) {
-            for effect in summary.guaranteed.keys().filter(|e| {
-                e.kind == EffectKind::Free
-                    && e.guard.is_none_or(|(formal, constant)| {
-                        args.iter()
-                            .any(|a| a.formal == formal && a.constant == Some(constant))
-                    })
-                    && e.target.steps.is_empty()
-            }) {
-                if let Root::Parameter(formal) = effect.target.root
-                    && let Some(arg) = args.iter().find(|a| a.formal == formal)
-                    && let Some(cell) = operand_cell(cx, places, cells, arg)
-                {
-                    ops.push(Op::Free {
-                        cell,
-                        span: *span,
-                        callee: *callee,
-                        contents: false,
-                    });
-                }
-            }
-        }
-        for (effect, _) in resolver.effects(*callee, args, &summaries.procs, true) {
-            if effect.kind == EffectKind::ResetTemporary && effect.guard.is_none() {
-                ops.push(Op::Reset(*span));
-            }
-            if effect.kind == EffectKind::RestoreTemporary
-                && effect.guard.is_none()
-                && let Some(p) = resolver.materialize(&effect.target)
-            {
-                let p = places.import(&resolver.places, p);
-                ops.push(Op::Restore(cells.id(Cell::Place(p)), *span));
-            }
-            if effect.kind == EffectKind::Free
-                && effect.guard.is_none()
-                && let Some(p) = resolver.materialize(&effect.target)
-            {
-                let region = places.import(&resolver.places, p);
-                ops.push(Op::FreeRegion {
-                    region,
-                    cell: cells.id(Cell::Place(region)),
-                    span: *span,
-                });
-            }
-        }
-        for &(_, value, ty) in results {
-            let origin = resolver
-                .value(value, &summaries.procs)
-                .and_then(|path| match path.root {
-                    Root::Heap => Some(Origin::Heap),
-                    Root::Temporary => Some(Origin::Temporary),
-                    _ => None,
-                });
-            if let Some(origin) = origin {
-                ops.push(Op::Seed {
-                    cell: value_cell(cx, places, cells, value, ty),
-                    origin,
-                    span: *span,
-                });
-            }
-            if c.proc_has_note(*callee, "TemporaryStorageMark")
-                || resolver
-                    .value(value, &summaries.procs)
-                    .is_some_and(|p| p.root == Root::Watermark)
-            {
-                ops.push(Op::Mark(value_cell(cx, places, cells, value, ty)));
-            }
-        }
-        if c.proc_has_note(*callee, "ResetsTemporaryStorage") {
-            ops.push(Op::Reset(*span));
-        }
-        if c.proc_has_note(*callee, "RestoresTemporaryStorage")
-            && let Some(arg) = args.iter().find(|a| a.formal == 0)
-            && let Some(cell) = operand_cell(cx, places, cells, arg)
-        {
-            ops.push(Op::Restore(cell, *span));
-        }
-        if c.proc_has_note(*callee, "AddsToArray") && args.len() >= 2 {
-            let array = args.iter().find(|a| a.formal == 0);
-            let value = args.iter().find(|a| a.formal == 1);
-            if let (Some(array), Some(value)) = (array, value)
-                && let LifetimeOperand::Value(v) | LifetimeOperand::Place(v) = array.operand
-            {
-                let ty = c.ty.types.pointee(array.ty).unwrap_or(array.ty);
-                let p = places.place(v, ty);
-                if self.long_lived(places, p)
-                    && let Some(cell) = operand_cell(cx, places, cells, value)
-                {
-                    ops.push(Op::Escape {
-                        cell,
-                        span: value.span,
-                        pointer: places.unresolved(p),
-                        target: cells.id(Cell::Place(p)),
-                        store: false,
-                    });
-                }
-            }
-        }
-
         ops
     }
 }
@@ -690,6 +589,71 @@ fn analyze(cx: &Cx) -> Reports {
                 }
             }
         }
+        for event in body.blocks.iter().flat_map(|b| &b.events) {
+            if let Event::IndirectCall {
+                callee,
+                args,
+                allocator: false,
+                ..
+            } = event
+            {
+                let targets = summaries.targets.get(body.procedure, *callee);
+                for arg in args {
+                    if (!targets.unknown || cx.lifetime_mode == jacket_config::LifetimeMode::Strict)
+                        && let LifetimeOperand::Value(v) = arg.operand
+                    {
+                        safe_addresses.insert((v, arg.span));
+                    }
+                }
+            }
+            if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
+                && let Event::Call {
+                    args, ..
+                } = event
+            {
+                for arg in args {
+                    if let LifetimeOperand::Value(v) = arg.operand {
+                        safe_addresses.insert((v, arg.span));
+                    }
+                }
+            }
+        }
+        let mut read_only_addresses = HashSet::default();
+        let mut uncertain_addresses = HashSet::default();
+        let resolver = Resolver::new(cx.compiler, body, &summaries.procs, &summaries.targets);
+        for event in body.blocks.iter().flat_map(|b| &b.events) {
+            let (Event::Call {
+                args,
+                expands: false,
+                ..
+            }
+            | Event::IndirectCall {
+                args, ..
+            }) = event
+            else {
+                continue;
+            };
+            let targets = resolver.call_targets(event);
+            for arg in args {
+                if let LifetimeOperand::Value(v) = arg.operand
+                    && let Some(p) = resolver.stored_address(v, &mut HashSet::default())
+                {
+                    let p = places.import(&resolver.places, p);
+                    if !targets.unknown
+                        && targets.procedures.iter().all(|p| {
+                            summaries
+                                .procs
+                                .get(p)
+                                .is_some_and(|s| !s.unknown_write.contains(&arg.formal))
+                        })
+                    {
+                        read_only_addresses.insert(p);
+                    } else {
+                        uncertain_addresses.insert(p);
+                    }
+                }
+            }
+        }
         let exposed = body
             .blocks
             .iter()
@@ -699,7 +663,11 @@ fn analyze(cx: &Cx) -> Reports {
                     place,
                     ty,
                     span,
-                } if !safe_addresses.contains(&(*place, *span)) => Some(places.place(*place, *ty)),
+                } if !safe_addresses.contains(&(*place, *span)) => {
+                    let p = places.place(*place, *ty);
+                    (!read_only_addresses.contains(&p) || uncertain_addresses.contains(&p))
+                        .then_some(p)
+                }
                 _ => None,
             })
             .collect();
@@ -848,14 +816,18 @@ fn solve(cx: &Cx, body: &LifetimeBody, model: &Model, seed: usize, out: &mut Rep
                 cell, ..
             },
         ) => index(cell).is_some(),
+        CfgOp::Task(super::tasks::Op::Start {
+            ref cells, ..
+        }) => cells.iter().any(|c| index(*c).is_some()),
         _ => false,
     }) {
         return false;
     }
     let width = relevant.len();
     let born = width * 2;
+    let tokens = retained::tokens(model, born + 1);
     let mut states = vec![None; model.blocks.len()];
-    states[0] = Some(vec![UNKNOWN; born + 1]);
+    states[0] = Some(vec![UNKNOWN; born + 1 + tokens.len()]);
     let mut queue = VecDeque::from([0]);
     while let Some(i) = queue.pop_front() {
         let mut state = states[i].clone().unwrap();
@@ -865,6 +837,11 @@ fn solve(cx: &Cx, body: &LifetimeBody, model: &Model, seed: usize, out: &mut Rep
             | CfgOp::Resource(Op::Seed {
                 cell: target, ..
             }) => {
+                if i == seed && matches!(origin_kind, Origin::Heap | Origin::Temporary) {
+                    // Each execution creates a new generation. Retain already-dead aliases,
+                    // but do not make old live aliases refer to this fresh allocation.
+                    retained::new_generation(&mut state, width);
+                }
                 if let Some(target) = index(*target) {
                     state[target] = if i == seed {
                         LIVE
@@ -929,10 +906,21 @@ fn solve(cx: &Cx, body: &LifetimeBody, model: &Model, seed: usize, out: &mut Rep
                 }
             }
             CfgOp::Barrier => state[..width].fill(UNKNOWN),
-            CfgOp::Resource(op) if kills(cx, op, origin_kind, region, &state, &index) => {
+            CfgOp::Resource(op) if kills(cx, op, origin_kind, region, &state[..=born], &index) => {
                 for value in &mut state[..width] {
                     if *value & LIVE != 0 {
-                        *value = (*value & !LIVE) | DEAD;
+                        *value = if matches!(
+                            op,
+                            Op::MayFree { .. }
+                                | Op::MayRegion { .. }
+                                | Op::MayReset(_)
+                                | Op::MayRestore(..)
+                                | Op::MayAdvance(..)
+                        ) {
+                            *value | DEAD
+                        } else {
+                            (*value & !LIVE) | DEAD
+                        };
                     }
                 }
             }
@@ -945,6 +933,7 @@ fn solve(cx: &Cx, body: &LifetimeBody, model: &Model, seed: usize, out: &mut Rep
                     };
                 }
             }
+            CfgOp::Task(op) => retained::transfer(cx, op, &tokens, &index, &mut state),
             _ => {}
         }
         for (key, &id) in &model.cells.ids {
@@ -956,16 +945,23 @@ fn solve(cx: &Cx, body: &LifetimeBody, model: &Model, seed: usize, out: &mut Rep
             }
         }
         for &next in &model.blocks[i].next {
+            let mut outgoing = state.clone();
+            if let CfgOp::Decision(_, yes, _, Some(token)) = model.blocks[i].op
+                && next == yes
+                && let Some(&at) = tokens.get(&token)
+            {
+                outgoing[at] = UNKNOWN;
+            }
             let changed = if let Some(previous) = &mut states[next] {
                 let mut changed = false;
-                for (old, &new) in previous.iter_mut().zip(&state) {
+                for (old, &new) in previous.iter_mut().zip(&outgoing) {
                     let joined = *old | new;
                     changed |= joined != *old;
                     *old = joined;
                 }
                 changed
             } else {
-                states[next] = Some(state.clone());
+                states[next] = Some(outgoing);
                 true
             };
             if changed {
@@ -973,19 +969,19 @@ fn solve(cx: &Cx, body: &LifetimeBody, model: &Model, seed: usize, out: &mut Rep
             }
         }
     }
-    emit(
-        Proof {
-            cx,
-            body,
-            model,
-            kind: origin_kind,
-            origin,
-            region,
-            relevant: &relevant,
-            states: &states,
-        },
-        out,
-    );
+    let proof = Proof {
+        cx,
+        body,
+        model,
+        kind: origin_kind,
+        seed,
+        origin,
+        region,
+        relevant: &relevant,
+        states: &states,
+    };
+    emit(proof, out);
+    retained::emit(proof, &tokens, out);
     true
 }
 
@@ -997,27 +993,71 @@ fn kills(
     state: &[u8],
     index: &impl Fn(usize) -> Option<usize>,
 ) -> bool {
-    match *op {
+    match op {
+        Op::MayFree {
+            cell, ..
+        } => {
+            cx.lifetime_mode == jacket_config::LifetimeMode::Strict
+                && !matches!(origin, Origin::Stack(_) | Origin::Statement(_))
+                && index(*cell).is_some_and(|c| state[c] & LIVE != 0)
+        }
+        Op::MayRegion {
+            region: r,
+            cells,
+            ..
+        } => {
+            cx.lifetime_mode == jacket_config::LifetimeMode::Strict
+                && !matches!(origin, Origin::Stack(_) | Origin::Statement(_))
+                && (region == Some(*r)
+                    || cells
+                        .iter()
+                        .any(|c| index(*c).is_some_and(|n| state[n] & LIVE != 0)))
+        }
+        Op::MayReset(_) => {
+            cx.lifetime_mode == jacket_config::LifetimeMode::Strict
+                && matches!(origin, Origin::Temporary)
+        }
+        Op::MayRestore(cell, _) => {
+            cx.lifetime_mode == jacket_config::LifetimeMode::Strict
+                && matches!(origin, Origin::Temporary)
+                && index(*cell).is_some_and(|c| state[c + (state.len() - 1) / 2] & DEAD != 0)
+        }
+        Op::Advance(p, _) | Op::MayAdvance(p, _) => matches!(origin, Origin::Until(id) if id == *p),
         Op::Free {
             cell, ..
         } => {
             !matches!(origin, Origin::Stack(_) | Origin::Statement(_))
-                && index(cell).is_some_and(|c| state[c] == LIVE)
+                && index(*cell).is_some_and(|c| {
+                    if cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
+                        state[c] & LIVE != 0
+                    } else {
+                        state[c] == LIVE
+                    }
+                })
         }
         Op::FreeRegion {
             region: r,
             cell,
             ..
-        } => region == Some(r) || index(cell).is_some_and(|c| state[c] == LIVE),
+        } => {
+            region == Some(*r)
+                || index(*cell).is_some_and(|c| {
+                    if cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
+                        state[c] & LIVE != 0
+                    } else {
+                        state[c] == LIVE
+                    }
+                })
+        }
         Op::Reset(_) => matches!(origin, Origin::Temporary),
         Op::Restore(cell, _) => {
             matches!(origin, Origin::Temporary)
-                && index(cell).is_some_and(|c| state[c + (state.len() - 1) / 2] == DEAD)
+                && index(*cell).is_some_and(|c| state[c + (state.len() - 1) / 2] == DEAD)
         }
         Op::ScopeEnd(parent, _) => {
-            matches!(origin, Origin::Stack(child) if inside(cx, child, parent))
+            matches!(origin, Origin::Stack(child) if inside(cx, child, *parent))
         }
-        Op::StatementEnd(span) => matches!(origin, Origin::Statement(at) if contains(span, at)),
+        Op::StatementEnd(span) => matches!(origin, Origin::Statement(at) if contains(*span, at)),
         _ => false,
     }
 }

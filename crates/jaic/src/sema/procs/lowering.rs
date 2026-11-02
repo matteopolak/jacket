@@ -413,6 +413,7 @@ impl Compiler {
                     record.push(
                         f.b.current,
                         crate::ide::lifetimes::LifetimeEvent::Return {
+                            constant: None,
                             value: v,
                             index: i,
                             ty: rt,

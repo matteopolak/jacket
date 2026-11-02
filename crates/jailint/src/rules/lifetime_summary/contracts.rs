@@ -11,6 +11,32 @@ pub(super) fn seed(compiler: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) 
         if valid.contains_key(&id) {
             summary.normal_return = Some(false);
         }
+        if compiler.proc_has_note(id, "ValidUntilNextCall") {
+            summary.returns.insert(
+                0,
+                (
+                    Path {
+                        root: Root::Until(id),
+                        steps: Vec::new(),
+                    },
+                    None,
+                ),
+            );
+            let effect = Effect {
+                target: Path {
+                    root: Root::Until(id),
+                    steps: Vec::new(),
+                },
+                kind: Kind::Advance,
+                guard: None,
+            };
+            summary
+                .may
+                .insert(effect.clone(), vec![compiler.pr.procs[i].span]);
+            summary
+                .guaranteed
+                .insert(effect, vec![compiler.pr.procs[i].span]);
+        }
         for (formal, mutation) in super::lifetime_movement::contracts(compiler, id) {
             let effect = Effect {
                 target: Path {

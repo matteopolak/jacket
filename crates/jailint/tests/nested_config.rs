@@ -88,3 +88,38 @@ fn a_nested_config_applies_when_listed_alone() {
     let root = tree("nested-config-alone");
     assert!(flagged(&root, &["nested"]).is_empty());
 }
+
+
+#[test]
+fn nested_lifetime_mode_and_invocation_override() {
+    let root = tree("nested-lifetime-modes");
+    std::fs::write(
+        root.join("jacket.toml"),
+        "[lint.lifetimes]\nmode = \"must\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("nested/jacket.toml"),
+        "[lint.lifetimes]\nmode = \"strict\"\n",
+    )
+    .unwrap();
+    let mut base = Config::find_on_disk(&root.join("top/main.jai"))
+        .unwrap()
+        .unwrap();
+    base.discover = true;
+    let configs = jailint::config::Configs::new(&base);
+    assert_eq!(
+        configs.at(&root.join("top/main.jai")).lifetime_mode,
+        Some(jacket_config::LifetimeMode::Must)
+    );
+    assert_eq!(
+        configs.at(&root.join("nested/main.jai")).lifetime_mode,
+        Some(jacket_config::LifetimeMode::Strict)
+    );
+    base.flag_lifetime_mode = Some(jacket_config::LifetimeMode::Must);
+    let configs = jailint::config::Configs::new(&base);
+    assert_eq!(
+        configs.at(&root.join("nested/main.jai")).lifetime_mode,
+        Some(jacket_config::LifetimeMode::Must)
+    );
+}

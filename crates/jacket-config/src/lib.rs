@@ -17,8 +17,8 @@ pub mod schema;
 
 pub use pattern::{PathPattern, PatternError, relative_text};
 pub use schema::{
-    Config, Experimental, FORMAT_SETTINGS, Fallback, Format, Kind, Lint, LintOverride, Portability,
-    Project, Setting, Test, TestRun, Toolchain,
+    Config, Experimental, FORMAT_SETTINGS, Fallback, Format, Kind, LifetimeMode, Lifetimes, Lint,
+    LintOverride, Portability, Project, Setting, Test, TestRun, Toolchain,
 };
 
 /// The configuration file name.

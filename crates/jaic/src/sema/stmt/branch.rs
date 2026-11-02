@@ -99,6 +99,7 @@ impl Compiler {
         } else {
             done
         };
+        f.lifetime_branch(c, cond.span, then_block, else_block);
         f.b.branch(c, then_block, else_block);
         f.b.switch_to(then_block);
         self.check_scoped(f, scope, then_branch)?;
@@ -210,6 +211,7 @@ impl Compiler {
                 let (_, cval) = self.rvalue(f, c, cv.span)?;
                 let eq = self.runtime_equal(f, vty, val, cval, cv.span)?;
                 let next = f.b.new_block();
+                f.lifetime_branch(eq, cv.span, bodies[i], next);
                 f.b.branch(eq, bodies[i], next);
                 f.b.switch_to(next);
             }

@@ -1,0 +1,67 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); all 2 targets of `f` invalidate this storage: grow, other_grow
+  --> tests/lint/pointer_lifetime/strict/calls.jai:25:10
+   |
+ 3 | grow :: (xs: *[..] int) {} @GrowsArray
+   |         ------------------ possible procedure target
+   |         ------------------ invalidation inferred through this call
+ 4 | other_grow :: (xs: *[..] int) {} @GrowsArray
+   |               ------------------ possible procedure target
+   ...
+22 |     p := *xs[0];
+   |          ------ pointer derived here
+   ...
+24 |     f(*xs);
+   |     ------ `xs` storage invalidated here
+25 |     sink(p);
+   |          ^ pointer used here after its storage was invalidated
+   |
+   = help: take the pointer again after growth, or store an index instead
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); all 1 targets of `f` invalidate this storage: grow
+  --> tests/lint/pointer_lifetime/strict/calls.jai:72:10
+   |
+ 3 | grow :: (xs: *[..] int) {} @GrowsArray
+   |         ------------------ possible procedure target
+   |         ------------------ invalidation inferred through this call
+   ...
+69 |     p := *xs[0];
+   |          ------ pointer derived here
+   ...
+71 |     f(*xs);
+   |     ------ `xs` storage invalidated here
+72 |     sink(p);
+   |          ^ pointer used here after its storage was invalidated
+   |
+   = help: take the pointer again after growth, or store an index instead
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); all 1 targets of `f` invalidate this storage: grow
+  --> tests/lint/pointer_lifetime/strict/calls.jai:85:10
+   |
+ 3 | grow :: (xs: *[..] int) {} @GrowsArray
+   |         ------------------ possible procedure target
+   |         ------------------ invalidation inferred through this call
+   ...
+82 |     p := *xs[0];
+   |          ------ pointer derived here
+   ...
+84 |     f(*xs);
+   |     ------ `xs` storage invalidated here
+85 |     sink(p);
+   |          ^ pointer used here after its storage was invalidated
+   |
+   = help: take the pointer again after growth, or store an index instead
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: COMPILED(*xs)
+   --> tests/lint/pointer_lifetime/strict/calls.jai:114:10
+    |
+112 |     p := *xs[0];
+    |          ------ pointer derived here
+113 |     COMPILED(*xs);
+    |     ------------- `xs` storage invalidated here
+114 |     sink(p);
+    |          ^ pointer used here after its storage was invalidated
+    |
+    = help: take the pointer again after growth, or store an index instead

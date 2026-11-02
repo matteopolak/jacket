@@ -17,6 +17,20 @@ pub enum LifetimeOperand {
 }
 
 impl LifetimeOperand {
+    /// A checked call result, including callable metadata around a procedure value.
+    pub(crate) fn result(op: &Operand) -> Option<(Val, TypeId)> {
+        match op {
+            Operand::Callable {
+                operand, ..
+            } => Self::result(operand),
+            Operand::Value {
+                val,
+                ty,
+            } => Some((*val, *ty)),
+            _ => None,
+        }
+    }
+
     pub(crate) fn of(op: &Operand) -> Self {
         match op {
             Operand::Callable {
@@ -144,6 +158,7 @@ pub enum LifetimeEvent {
         ty: TypeId,
     },
     Return {
+        constant: Option<u64>,
         value: Val,
         index: usize,
         ty: TypeId,
@@ -169,6 +184,18 @@ pub enum LifetimeEvent {
     },
     StatementEnd {
         span: Span,
+    },
+    Procedure {
+        value: Val,
+        callee: ProcId,
+        ty: TypeId,
+        span: Span,
+    },
+    Branch {
+        condition: Val,
+        span: Span,
+        then_block: usize,
+        else_block: usize,
     },
     Call {
         callee: ProcId,
@@ -220,6 +247,11 @@ impl LifetimeEvent {
     fn resolve_constants(&mut self, constants: &HashMap<Val, u64>) {
         match self {
             Self::Store {
+                value,
+                constant,
+                ..
+            }
+            | Self::Return {
                 value,
                 constant,
                 ..
@@ -397,6 +429,28 @@ impl Compiler {
 }
 
 impl FnCtx {
+    pub(crate) fn lifetime_branch(
+        &mut self,
+        condition: Val,
+        span: Span,
+        then_block: ir::BlockId,
+        else_block: ir::BlockId,
+    ) {
+        if !self.type_only
+            && let Some(record) = &mut self.lifetimes
+        {
+            record.push(
+                self.b.current,
+                LifetimeEvent::Branch {
+                    condition,
+                    span,
+                    then_block: then_block.0 as usize,
+                    else_block: else_block.0 as usize,
+                },
+            );
+        }
+    }
+
     /// Collection-loop metadata at the body entry (`element`) or its step edge (`None`).
     pub(crate) fn lifetime_iteration(
         &mut self,

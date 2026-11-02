@@ -97,22 +97,17 @@ impl Compiler {
                         span,
                         expands: is_macro,
                         results: match &result {
-                            Ok(Operand::Value {
-                                val,
-                                ty,
-                            }) => vec![(0, *val, *ty)],
                             Ok(Operand::Multi(ops)) => ops
                                 .iter()
                                 .enumerate()
-                                .filter_map(|(index, op)| match op {
-                                    Operand::Value {
-                                        val,
-                                        ty,
-                                    } => Some((index, *val, *ty)),
-                                    _ => None,
+                                .filter_map(|(i, op)| {
+                                    LifetimeOperand::result(op).map(|(v, t)| (i, v, t))
                                 })
                                 .collect(),
-                            _ => Vec::new(),
+                            Ok(op) => LifetimeOperand::result(op)
+                                .map(|(v, t)| vec![(0, v, t)])
+                                .unwrap_or_default(),
+                            Err(_) => Vec::new(),
                         },
                     },
                 );
@@ -750,22 +745,16 @@ impl Compiler {
             && let Some(record) = &mut f.lifetimes
         {
             let results = match &result {
-                Operand::Value {
-                    val,
-                    ty,
-                } => vec![(0, *val, *ty)],
                 Operand::Multi(ops) => ops
                     .iter()
                     .enumerate()
-                    .filter_map(|(i, op)| match op {
-                        Operand::Value {
-                            val,
-                            ty,
-                        } => Some((i, *val, *ty)),
-                        _ => None,
+                    .filter_map(|(i, op)| {
+                        crate::ide::lifetimes::LifetimeOperand::result(op).map(|(v, t)| (i, v, t))
                     })
                     .collect(),
-                _ => Vec::new(),
+                op => crate::ide::lifetimes::LifetimeOperand::result(op)
+                    .map(|(v, t)| vec![(0, v, t)])
+                    .unwrap_or_default(),
             };
             record.push(
                 f.b.current,

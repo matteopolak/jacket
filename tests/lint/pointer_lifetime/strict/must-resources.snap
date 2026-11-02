@@ -1,0 +1,51 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[use_after_free]: `p` is used after the call above freed it
+  --> tests/lint/pointer_lifetime/strict/resources.jai:56:10
+   |
+49 |     p := alloc();
+   |          ------- storage derived here
+   ...
+55 |     f(p);
+   |     ---- storage invalidated here
+56 |     sink(p);
+   |          ^
+   |
+   = help: free it after its last use, or give it a new value before using it again
+
+warning[use_after_free]: `h` is used after the call above freed it
+  --> tests/lint/pointer_lifetime/strict/resources.jai:82:16
+   |
+80 |     close_handle(owner, h);
+   |     ---------------------- storage derived here
+   |     ---------------------- storage invalidated here
+   ...
+82 |     use_handle(h);
+   |                ^
+   |
+   = help: free it after its last use, or give it a new value before using it again
+
+warning[use_after_free]: `p` is used after its foreign valid-until contract expired
+  --> tests/lint/pointer_lifetime/strict/resources.jai:88:10
+   |
+86 |     p := provider();
+   |          ---------- storage derived here
+87 |     provider();
+   |     ---------- storage invalidated here
+88 |     sink(p);
+   |          ^
+   |
+   = help: copy the borrowed data before the next provider call, or obtain a new result
+
+warning[use_after_free]: `p` is used after its foreign valid-until contract expired
+   --> tests/lint/pointer_lifetime/strict/resources.jai:94:10
+    |
+ 92 |     p := provider();
+    |          ---------- storage derived here
+ 93 |     refresh();
+    |     --------- storage invalidated here
+ 94 |     sink(p);
+    |          ^
+    |
+    = help: copy the borrowed data before the next provider call, or obtain a new result

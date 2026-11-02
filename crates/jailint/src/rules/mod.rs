@@ -15,6 +15,7 @@ mod lifetime_cfg;
 mod lifetime_movement;
 mod lifetime_places;
 mod lifetime_summary;
+mod lifetime_targets;
 mod local_scopes;
 
 pub(crate) use unused_parameter::RunState;

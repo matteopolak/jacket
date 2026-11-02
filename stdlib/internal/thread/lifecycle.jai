@@ -122,7 +122,7 @@ thread_start :: (thread: *Thread) {
 
         if signal_semaphore(*thread.suspended_semaphore) state.started = true;
     }
-}
+} @StartsBorrower(0)
 
 // Whether `thread` has finished.
 //
@@ -163,7 +163,7 @@ thread_is_done :: (thread: *Thread, milliseconds: s32 = 0) -> bool {
         if status == .ERROR context.logger("thread completion wait failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
         return status == .SUCCESS && read_done(thread);
     }
-}
+} @CompletesBorrower(0)
 
 // What `thread_deinit` says when the thread is still running or was never started.
 DEINIT_UNFINISHED :: "thread_deinit needs a thread that has finished: wait for it first with thread_is_done(*thread, -1), which blocks until it ends";
@@ -215,7 +215,7 @@ thread_deinit :: (thread: *Thread) {
     release_thread_state(state);
     thread.index = 0;
     #if SET_THREAD_NAMES && SET_NAME_INSIDE_THREAD thread.c_name = null;
-}
+} @EndsBorrower(0)
 
 #scope_module
 Init_Handler :: #type (thread: *Thread);

@@ -126,6 +126,10 @@ pub fn lint_files(
         let suppressions = suppress::Suppressions::new(&text, &tokens, &comments, &ast);
         let mut cx = syntax::Cx::new(compiler, &text, &ast, &tokens, &comments, imports, &run);
         cx.complete = complete;
+        cx.lifetime_mode = config
+            .flag_lifetime_mode
+            .or(config.lifetime_mode)
+            .unwrap_or_default();
         cx.max_nesting = config.max_nesting();
         cx.magic_numbers = config.magic_numbers();
         cx.max_complexity = config

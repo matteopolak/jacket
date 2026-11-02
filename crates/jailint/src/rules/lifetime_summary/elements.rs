@@ -5,6 +5,37 @@ use super::{
 };
 
 impl Resolver<'_> {
+    pub(in crate::rules) fn stored_address(
+        &self,
+        value: Val,
+        seen: &mut HashSet<Val>,
+    ) -> Option<usize> {
+        if seen.len() >= 24 || !seen.insert(value) {
+            return None;
+        }
+        let defs = self.values.get(&value)?;
+        let mut result = None;
+        for def in defs {
+            let p = match def {
+                Def::Address(p) => *p,
+                Def::Copy(v) => self.stored_address(*v, seen)?,
+                Def::Load(p, _) => {
+                    let [v] = self.writes.get(p)?.as_slice() else {
+                        return None;
+                    };
+                    self.stored_address(*v, seen)?
+                }
+                _ => return None,
+            };
+            if result.is_some_and(|old| old != p) {
+                return None;
+            }
+            result = Some(p);
+        }
+        seen.remove(&value);
+        result
+    }
+
     pub(super) fn swap_effect(
         &self,
         event: &super::Event,

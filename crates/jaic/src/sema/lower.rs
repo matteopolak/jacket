@@ -768,10 +768,24 @@ impl Compiler {
             }
             Value::Proc(p) => {
                 let func = self.proc_func_in_code(*p, span)?;
-                Ok(match func {
+                let value = match func {
                     procs::ProcTarget::Func(id) => f.b.func_addr(id),
                     procs::ProcTarget::Foreign(id) => f.b.foreign_addr(id),
-                })
+                };
+                if !f.type_only
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    record.push(
+                        f.b.current,
+                        crate::ide::lifetimes::LifetimeEvent::Procedure {
+                            value,
+                            callee: *p,
+                            ty,
+                            span,
+                        },
+                    );
+                }
+                Ok(value)
             }
             Value::Bytes(agg) => {
                 let size = self.size_of(ty, span)?;

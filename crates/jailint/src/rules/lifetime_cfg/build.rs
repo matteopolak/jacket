@@ -1,8 +1,8 @@
 //! Lower selected events into common storage, resource and logical-element operations.
 use super::{
-    Action, Block, Cell, Cells, Cx, Event, Facts, HashMap, Kind, LifetimeBody, LifetimeOperand,
-    Mutation, Op, Places, Resolver, Selector, Site, Span, Summaries, TypeId, resizable, resources,
-    view,
+    Action, Block, Cell, Cells, Cx, Event, Facts, HashMap, HashSet, Kind, LifetimeBody,
+    LifetimeOperand, Mutation, Op, Places, Resolver, Selector, Site, Span, Summaries, TypeId,
+    resizable, resources, view,
 };
 
 pub(super) fn build(
@@ -13,13 +13,16 @@ pub(super) fn build(
     summaries: &Summaries,
     chains: &mut HashMap<(Span, usize), Vec<Span>>,
 ) -> Vec<Block> {
+    let mut resolver = Resolver::new(cx.compiler, body, &summaries.procs, &summaries.targets);
+    let tasks = super::tasks::Builder::new(cx, body, summaries, places, &mut resolver);
     let mut builder = Builder {
         cx,
         places,
         cells,
         summaries,
         chains,
-        resolver: Resolver::new(cx.compiler, body, &summaries.procs),
+        resolver,
+        tasks,
         resources: resources::Builder::new(cx, body, summaries),
         elements: Facts::new(cx.compiler, body),
         grown: HashMap::default(),
@@ -98,6 +101,7 @@ struct Builder<'a> {
     resources: resources::Builder<'a>,
     elements: Facts<'a>,
     grown: HashMap<Span, usize>,
+    tasks: super::tasks::Builder,
 }
 
 impl Builder<'_> {
@@ -107,12 +111,29 @@ impl Builder<'_> {
             Event::Call {
                 expands: false,
                 ..
+            } | Event::IndirectCall {
+                allocator: false,
+                ..
             }
         ) {
             self.call(event, at)
         } else {
             self.memory(event, at)
         };
+        ops.extend(self.returns(event, at));
+        ops.extend(
+            self.tasks
+                .operations(
+                    self.cx,
+                    event,
+                    at,
+                    &self.elements,
+                    (self.places, self.cells),
+                    &mut self.resolver,
+                )
+                .into_iter()
+                .map(Op::Task),
+        );
         let extra = self
             .resources
             .operations(event, self.places, self.cells, &mut self.resolver);
@@ -132,10 +153,22 @@ impl Builder<'_> {
             elements,
             grown,
             resources,
+            tasks,
             ..
         } = self;
         let mut ops = Vec::new();
         match *event {
+            Event::Branch {
+                condition,
+                span,
+                then_block,
+                else_block,
+            } => ops.push(Op::Decision(
+                span,
+                then_block,
+                else_block,
+                tasks.completion(condition, elements, at),
+            )),
             Event::Iteration {
                 region,
                 ty,
@@ -328,20 +361,25 @@ impl Builder<'_> {
     }
 
     fn call(&mut self, event: &Event, at: Site) -> Vec<Op> {
-        let Event::Call {
-            callee,
-            ref args,
-            ref results,
-            span,
-            ..
-        } = *event
-        else {
-            return Vec::new();
+        let (args, _results, span, direct) = match event {
+            Event::Call {
+                callee,
+                args,
+                results,
+                span,
+                ..
+            } => (args, results, *span, Some(*callee)),
+            Event::IndirectCall {
+                args,
+                results,
+                span,
+                ..
+            } => (args, results, *span, None),
+            _ => return Vec::new(),
         };
         let Self {
             cx,
             places,
-            cells,
             resolver,
             summaries,
             elements,
@@ -350,8 +388,11 @@ impl Builder<'_> {
             ..
         } = self;
         let mut ops = Vec::new();
+        if direct.is_none() {
+            ops.push(Op::Indirect(resolver.call_targets(event), span));
+        }
 
-        if cx.compiler.proc_has_note(callee, "SwapsArguments") {
+        if direct.is_some_and(|callee| cx.compiler.proc_has_note(callee, "SwapsArguments")) {
             let position = |formal| {
                 args.iter()
                     .find(|a| a.formal == formal)
@@ -379,7 +420,40 @@ impl Builder<'_> {
                 ));
             }
         }
-        for (effect, _) in resolver.effects(callee, args, &summaries.procs, false) {
+        let guaranteed = resolver.call_effects(event, &summaries.procs, true);
+        let mut may = resolver.call_effects(event, &summaries.procs, false);
+        may.extend(
+            resolver
+                .unknown_effects(event, &summaries.procs)
+                .into_iter()
+                .map(|e| (e, vec![span])),
+        );
+        for (effect, chain) in may {
+            if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
+                && !guaranteed.iter().any(|(e, _)| e == &effect)
+                && let Some(id) = resolver.materialize(&effect.target)
+            {
+                let region = places.import(&resolver.places, id);
+                match effect.kind {
+                    Kind::Resize => ops.push(Op::MayGrow(region, span)),
+                    Kind::Unknown => ops.push(Op::MayReach(region, span)),
+                    Kind::Mutation(mut m) => {
+                        let p = elements.places.lookup(places, region);
+                        let resolve = |s| {
+                            if let Selector::Local(v) = s {
+                                elements.selector(v, p, at)
+                            } else {
+                                s
+                            }
+                        };
+                        m.first = resolve(m.first);
+                        m.second = resolve(m.second);
+                        ops.push(Op::MayMutate(region, m, span));
+                    }
+                    _ => {}
+                }
+                chains.entry((span, region)).or_insert(chain);
+            }
             if let Kind::Mutation(mutation) = effect.kind
                 && effect.guard.is_none()
                 && let Some(id) = resolver.materialize(&effect.target)
@@ -397,7 +471,7 @@ impl Builder<'_> {
                 ));
             }
         }
-        for (effect, chain) in resolver.effects(callee, args, &summaries.procs, true) {
+        for (effect, chain) in guaranteed {
             if let Kind::Mutation(mut mutation) = effect.kind
                 && effect.guard.is_none()
                 && let Some(id) = resolver.materialize(&effect.target)
@@ -424,7 +498,74 @@ impl Builder<'_> {
                 }
             }
         }
-        for &(_, value, _) in results {
+        if resolver.call_stops(event, &summaries.procs) {
+            ops.push(Op::Stop);
+        }
+        ops
+    }
+
+    fn returns(&mut self, event: &Event, at: Site) -> Vec<Op> {
+        let (results, span) = match event {
+            Event::Call {
+                results,
+                span,
+                expands: false,
+                ..
+            }
+            | Event::IndirectCall {
+                results,
+                span,
+                ..
+            } => (results, *span),
+            _ => return Vec::new(),
+        };
+        let Self {
+            cx,
+            places,
+            cells,
+            resolver,
+            summaries,
+            elements,
+            ..
+        } = self;
+        let mut resized = HashSet::default();
+        for (e, _) in resolver.call_effects(event, &summaries.procs, false) {
+            if e.kind == Kind::Resize
+                && let Some(p) = resolver.materialize(&e.target)
+            {
+                resized.insert(places.import(&resolver.places, p));
+            }
+        }
+        let allocator_resize = matches!(event, Event::IndirectCall { allocator: true, args, .. } if args.first().and_then(|a| a.constant) == Some(1));
+        let mut ops = Vec::new();
+        for &(index, value, ty) in results {
+            let target = cells.id(Cell::Value(value));
+            if let Some(arg) = resolver.passthrough(event, index, &summaries.procs) {
+                if let LifetimeOperand::Value(source) = arg.operand {
+                    ops.push(Op::Copy(vec![(target, cells.id(Cell::Value(source)))]));
+                }
+            } else if let Some(path) = resolver.value(value, &summaries.procs)
+                && let Some(p) = resolver.materialize(&path)
+            {
+                let region = places.import(&resolver.places, p);
+                if cx.compiler.ty.types.is_pointer(ty)
+                    && places
+                        .types
+                        .get(&region)
+                        .is_some_and(|&t| cx.compiler.ty.types.is_pointer(t))
+                    && !allocator_resize
+                    && !resized.contains(&region)
+                {
+                    ops.push(Op::PointerLoad(
+                        target,
+                        cells.id(Cell::Place(region)),
+                        region,
+                        span,
+                    ));
+                } else {
+                    ops.push(Op::Borrow(target, region, span));
+                }
+            }
             if let Some((path, key)) = resolver.element(value, &summaries.procs)
                 && let Some(id) = resolver.materialize(&path)
             {
@@ -439,30 +580,9 @@ impl Builder<'_> {
                         }),
                     other => other,
                 };
-                ops.push(Op::ElementBorrow(
-                    cells.id(Cell::Value(value)),
-                    region,
-                    key,
-                    None,
-                    span,
-                ));
-                continue;
-            }
-            if let Some(path) = resolver.value(value, &summaries.procs)
-                && let Some(id) = resolver.materialize(&path)
-            {
-                let r = places.import(&resolver.places, id);
-                ops.push(Op::Borrow(cells.id(Cell::Value(value)), r, span));
+                ops.push(Op::LogicalBorrow(target, region, key, None, span));
             }
         }
-        if summaries
-            .procs
-            .get(&callee)
-            .is_some_and(|s| s.normal_return == Some(false))
-        {
-            ops.push(Op::Stop);
-        }
-
         ops
     }
 }

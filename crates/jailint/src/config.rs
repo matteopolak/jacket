@@ -100,6 +100,9 @@ impl Category {
 
 #[derive(Clone, Debug, Default)]
 pub struct Config {
+    pub lifetime_mode: Option<jacket_config::LifetimeMode>,
+    /// Invocation-level setting, preserved across nested configuration discovery.
+    pub flag_lifetime_mode: Option<jacket_config::LifetimeMode>,
     /// Levels set for rules and categories (by name); a rule's own entry wins over its
     /// category's, and anything unset keeps its default.
     pub levels: HashMap<String, Level>,
@@ -428,6 +431,7 @@ impl Config {
             magic_number_allow: lint.magic_number_allow.clone(),
             magic_number_min: lint.magic_number_min,
             magic_number_in_tests: lint.magic_number_in_tests,
+            lifetime_mode: lint.lifetimes.as_ref().map(|l| l.mode),
             ..Config::default()
         };
         config.levels = levels(&lint.rules)?;
@@ -510,6 +514,10 @@ impl Config {
         config.flags.clone_from(&self.flags);
         config.deny_warnings = self.deny_warnings;
         config.discover = true;
+        if self.flag_lifetime_mode.is_some() {
+            config.flag_lifetime_mode = self.flag_lifetime_mode;
+            config.lifetime_mode = self.flag_lifetime_mode;
+        }
         if self.flag_max_nesting.is_some() {
             config.max_nesting = self.flag_max_nesting;
             config.flag_max_nesting = self.flag_max_nesting;
@@ -691,6 +699,29 @@ mod tests {
         assert!(parse("[[lint.overrides]]\nrules = { lossy_xx = \"warn\" }\n").is_err());
         assert!(
             parse("[[lint.overrides]]\npaths = [\"a\"]\nrules = { lossy = \"warn\" }\n").is_err()
+        );
+    }
+
+    #[test]
+    fn lifetime_mode_survives_discovery_with_flag_precedence() {
+        let strict = parse("[lint.lifetimes]\nmode = \"strict\"\n").unwrap();
+        assert_eq!(
+            strict.lifetime_mode,
+            Some(jacket_config::LifetimeMode::Strict)
+        );
+        assert!(parse("[lint.lifetimes]\nmode = \"optimistic\"\n").is_err());
+        let base = Config {
+            flag_lifetime_mode: Some(jacket_config::LifetimeMode::Must),
+            ..Config::default()
+        };
+        let merged = base.invocation_over(strict);
+        assert_eq!(
+            merged.lifetime_mode,
+            Some(jacket_config::LifetimeMode::Must)
+        );
+        assert_eq!(
+            merged.flag_lifetime_mode,
+            Some(jacket_config::LifetimeMode::Must)
         );
     }
 

@@ -87,6 +87,7 @@ impl Compiler {
         if matches!(cond.kind, ast::ExprKind::Bool(true)) {
             f.b.jump(body_block);
         } else {
+            f.lifetime_branch(c, cond.span, body_block, exit);
             f.b.branch(c, body_block, exit);
         }
         f.b.switch_to(body_block);
@@ -404,6 +405,7 @@ impl Compiler {
                 end
             },
         );
+        f.lifetime_branch(c, a.span.to(b.span), body_block, exit);
         f.b.branch(c, body_block, exit);
         f.b.switch_to(body_block);
         let names = [it_name, index_name];
@@ -470,6 +472,7 @@ impl Compiler {
             },
         );
         let advance = f.b.new_block();
+        f.lifetime_branch(at_end, a.span.to(b.span), exit, advance);
         f.b.branch(at_end, exit, advance);
         f.b.switch_to(advance);
         let one = f.b.iconst(t, 1);
@@ -576,6 +579,7 @@ impl Compiler {
         lp: &ForLoop,
         c: &ast::Expr,
     ) -> Result<()> {
+        let condition_span = c.span;
         let ForLoop {
             for_,
             span,
@@ -710,6 +714,7 @@ impl Compiler {
             }
         };
         let c = in_range(f);
+        f.lifetime_branch(c, condition_span, body_block, exit);
         f.b.branch(c, body_block, exit);
         f.b.switch_to(body_block);
         let data = if fixed.is_some() {
@@ -824,6 +829,7 @@ impl Compiler {
         );
         f.b.store(Ty::I64, idx, next);
         let c = in_range(f);
+        f.lifetime_branch(c, condition_span, body_block, exit);
         f.b.branch(c, body_block, exit);
         f.b.switch_to(exit);
         f.lifetime_scope_end(loop_scope, span);

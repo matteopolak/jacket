@@ -12,6 +12,7 @@ pub(super) struct Proof<'a> {
     pub(super) body: &'a LifetimeBody,
     pub(super) model: &'a Model,
     pub(super) kind: Origin,
+    pub(super) seed: usize,
     pub(super) origin: Span,
     pub(super) region: Option<usize>,
     pub(super) relevant: &'a HashMap<usize, usize>,
@@ -28,6 +29,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
         region,
         relevant,
         states,
+        ..
     } = proof;
     let index = |cell: usize| relevant.get(&cell).copied();
     let frees: Vec<_> = model
@@ -79,7 +81,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
         ];
         match &block.op {
             CfgOp::Use(cell, at)
-                if index(*cell).is_some_and(|c| state[c] == DEAD)
+                if index(*cell).is_some_and(|c| super::super::dead(cx, state[c]))
                     && !frees.iter().any(|&span| contains(span, *at)) =>
             {
                 let witnesses = witnesses(model, states, relevant, i, kind, region, cx);
@@ -120,7 +122,18 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                             .into(),
                     ),
                 );
-                if witnesses.len() > 1 {
+                if matches!(kind, Origin::Until(_)) {
+                    f.message =
+                        format!("`{name}` is used after its foreign valid-until contract expired");
+                    f.help = Some("copy the borrowed data before the next provider call, or obtain a new result".into());
+                }
+                if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
+                    && state[index(*cell).unwrap()] != DEAD
+                {
+                    f.message =
+                        format!("strict mode: `{name}` may be used after release along a bad path");
+                }
+                if witnesses.len() > 1 && state[index(*cell).unwrap()] == DEAD {
                     f.message.push_str(&format!(
                         "; every path passes one of these {} invalidating calls",
                         witnesses.len()
@@ -134,7 +147,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 span,
                 callee,
                 ..
-            }) if index(*cell).is_some_and(|c| state[c] == DEAD) => {
+            }) if index(*cell).is_some_and(|c| super::super::dead(cx, state[c])) => {
                 let witnesses = witnesses(model, states, relevant, i, kind, region, cx);
                 if witnesses.is_empty() {
                     continue;
@@ -189,7 +202,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 cell,
                 span,
                 ..
-            }) if index(*cell).is_some_and(|c| state[c] == DEAD) => {
+            }) if index(*cell).is_some_and(|c| super::super::dead(cx, state[c])) => {
                 let witnesses = witnesses(model, states, relevant, i, kind, region, cx);
                 if witnesses.is_empty() || witnesses.iter().all(|(_, site)| *site == *span) {
                     continue;
@@ -211,6 +224,9 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
             ) => proof.escape(i, *cell, span, out),
             _ => {}
         }
+        if cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
+            proof.decorate(i, before, out);
+        }
         if let Some(site) = mapped {
             let raw = primary.unwrap();
             for (findings, from) in [
@@ -231,6 +247,98 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
 }
 
 impl Proof<'_> {
+    fn decorate(&self, at: usize, before: [usize; 4], out: &mut Reports) {
+        if before
+            == [
+                out.use_after_free.len(),
+                out.double_free.len(),
+                out.returned_local_address.len(),
+                out.temp_storage_escape.len(),
+            ]
+        {
+            return;
+        }
+        let (CfgOp::Use(cell, _)
+        | CfgOp::Resource(
+            Op::Free {
+                cell, ..
+            }
+            | Op::FreeRegion {
+                cell, ..
+            }
+            | Op::Return {
+                cell, ..
+            }
+            | Op::Escape {
+                cell, ..
+            },
+        )) = self.model.blocks[at].op
+        else {
+            return;
+        };
+        let Some(&dense) = self.relevant.get(&cell) else {
+            return;
+        };
+        let witnesses = witnesses(
+            self.model,
+            self.states,
+            self.relevant,
+            at,
+            self.kind,
+            self.region,
+            self.cx,
+        );
+        let spans: Vec<_> = witnesses.iter().map(|(_, s)| *s).collect();
+        let (decisions, count) = super::super::witness::strict_path(
+            self.model,
+            self.states,
+            self.relevant,
+            self.seed,
+            at,
+            dense,
+            &spans,
+        );
+        let may = self.states[at]
+            .as_ref()
+            .is_some_and(|s| !matches!(s[dense], LIVE | DEAD));
+        for (findings, start) in [
+            &mut out.use_after_free,
+            &mut out.double_free,
+            &mut out.returned_local_address,
+            &mut out.temp_storage_escape,
+        ]
+        .into_iter()
+        .zip(before)
+        {
+            for f in &mut findings[start..] {
+                if may {
+                    f.fix = None;
+                    if !f.message.starts_with("strict mode:") {
+                        f.message =
+                            format!("strict mode: possible lifetime violation: {}", f.message);
+                    }
+                }
+                f.message
+                    .push_str(&format!("; shortest bad path shown ({count})"));
+                for &(span, taken) in &decisions {
+                    f.secondary.push((
+                        span,
+                        format!("shortest bad path takes this condition as {taken}"),
+                    ));
+                }
+                super::super::witness::targets(self.cx, self.model, &spans, f);
+                if witnesses.iter().any(|(i, _)| {
+                    matches!(
+                        self.model.blocks[*i].op,
+                        CfgOp::Resource(Op::MayFree { .. } | Op::MayRegion { .. })
+                    )
+                }) {
+                    f.message.push_str("; release is possible, not guaranteed");
+                }
+            }
+        }
+    }
+
     fn escape(&self, i: usize, cell: usize, span: &Span, out: &mut Reports) {
         let Self {
             cx,
@@ -241,6 +349,7 @@ impl Proof<'_> {
             region,
             relevant,
             states,
+            ..
         } = *self;
         let block = &model.blocks[i];
         let state = states[i].as_ref().unwrap();
@@ -249,7 +358,11 @@ impl Proof<'_> {
         let Some(cell) = index(cell) else {
             return;
         };
-        if !matches!(state[cell], LIVE | DEAD) {
+        if if cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
+            state[cell] & (LIVE | DEAD) == 0
+        } else {
+            !matches!(state[cell], LIVE | DEAD)
+        } {
             return;
         }
 
@@ -315,7 +428,7 @@ impl Proof<'_> {
             f.secondary
                 .push((origin, "temporary storage allocated here".into()));
             push(&mut out.temp_storage_escape, f);
-        } else if state[cell] == DEAD {
+        } else if super::super::dead(cx, state[cell]) {
             let witnesses = witnesses(model, states, relevant, i, kind, region, cx);
             let mut f = finding(*span,"this returns storage released by deferred cleanup".into(),Some("transfer ownership to the caller, or return a copy made outside the released storage".into()));
             label(&mut f, origin, &witnesses);
@@ -367,7 +480,7 @@ fn witnesses(
             continue;
         };
         if let CfgOp::Resource(op) = &model.blocks[i].op
-            && kills(cx, op, kind, region, state, &index)
+            && kills(cx, op, kind, region, &state[..=relevant.len() * 2], &index)
         {
             let (Op::Free {
                 span: site, ..
@@ -375,6 +488,16 @@ fn witnesses(
             | Op::FreeRegion {
                 span: site, ..
             }
+            | Op::MayFree {
+                span: site, ..
+            }
+            | Op::MayRegion {
+                span: site, ..
+            }
+            | Op::Advance(_, site)
+            | Op::MayAdvance(_, site)
+            | Op::MayReset(site)
+            | Op::MayRestore(_, site)
             | Op::Reset(site)
             | Op::Restore(_, site)
             | Op::ScopeEnd(_, site)

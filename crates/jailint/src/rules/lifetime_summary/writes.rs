@@ -39,7 +39,7 @@ impl Resolver<'_> {
         let mut writes = Vec::new();
         let mut unknown_write = HashSet::default();
         let mut escapes = HashSet::default();
-        let live = returning_blocks(body, all);
+        let live = returning_blocks(body, all, self.targets);
         for event in body
             .blocks
             .iter()
@@ -82,9 +82,11 @@ impl Resolver<'_> {
                         && !owned
                         && resolved.as_ref().is_none_or(|target| match target.root {
                             Root::Local(root) => !self.owned.contains(&root),
-                            Root::Parameter(_) | Root::Heap | Root::Temporary | Root::Watermark => {
-                                true
-                            }
+                            Root::Parameter(_)
+                            | Root::Heap
+                            | Root::Temporary
+                            | Root::Watermark
+                            | Root::Until(_) => true,
                         })
                     {
                         let restored = resolved.as_ref().and_then(|target| {
@@ -119,21 +121,28 @@ impl Resolver<'_> {
                     }
                 }
                 Event::Call {
-                    callee,
                     args,
                     span,
                     expands: false,
                     ..
+                }
+                | Event::IndirectCall {
+                    args,
+                    span,
+                    allocator: false,
+                    ..
                 } => {
-                    if let Some(called) = all.get(callee) {
-                        unknown_write.extend(self.argument_dependencies(
-                            &called.unknown_write,
-                            args,
-                            all,
-                        ));
-                        escapes.extend(self.argument_dependencies(&called.escapes, args, all));
+                    for callee in self.call_targets(event).procedures {
+                        if let Some(called) = all.get(&callee) {
+                            unknown_write.extend(self.argument_dependencies(
+                                &called.unknown_write,
+                                args,
+                                all,
+                            ));
+                            escapes.extend(self.argument_dependencies(&called.escapes, args, all));
+                        }
                     }
-                    for (effect, witness) in self.effects(*callee, args, all, false) {
+                    for (effect, witness) in self.call_effects(event, all, false) {
                         if effect.kind == Kind::Write && effect.exported() {
                             writes.push((effect, chain(*span, &witness)));
                         }

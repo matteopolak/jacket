@@ -14,6 +14,9 @@ use jaic::types::{ArrayKind, TypeId, TypeKind};
 mod contracts;
 mod elements;
 mod flow;
+mod indirect;
+mod infer;
+mod reads;
 #[cfg(test)]
 mod tests;
 mod writes;
@@ -37,6 +40,7 @@ pub(super) enum Root {
     Heap,
     Temporary,
     Watermark,
+    Until(ProcId),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -60,6 +64,8 @@ pub(super) enum Kind {
     Resize,
     Free,
     Write,
+    Unknown,
+    Advance,
     ResetTemporary,
     RestoreTemporary,
     Mutation(Mutation),
@@ -74,6 +80,8 @@ pub(super) struct Effect {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) struct Summary {
+    pub reads: HashSet<Path>,
+    pub may_reads: HashSet<Path>,
     pub unknown_write: HashSet<usize>,
     pub escapes: HashSet<usize>,
     pub normal_return: Option<bool>,
@@ -85,6 +93,7 @@ pub(super) struct Summary {
 
 #[derive(Default)]
 pub(super) struct Summaries {
+    pub targets: super::lifetime_targets::Universe,
     pub procs: HashMap<ProcId, Summary>,
     pub sccs: usize,
     pub iterations: usize,
@@ -98,7 +107,8 @@ enum Def {
     Borrow(usize),
     Parameter(usize),
     Call(ProcId, Vec<LifetimeArgument>, usize),
-    Resize(Vec<LifetimeArgument>),
+    Resize(Val, Vec<LifetimeArgument>),
+    Indirect(Val, Vec<LifetimeArgument>, usize),
 }
 
 pub(super) struct Resolver<'a> {
@@ -110,6 +120,8 @@ pub(super) struct Resolver<'a> {
     params: HashMap<usize, (usize, TypeId)>,
     exposed: HashSet<usize>,
     owned: HashSet<usize>,
+    targets: &'a super::lifetime_targets::Universe,
+    indirect_types: HashMap<Val, TypeId>,
 }
 
 
@@ -125,6 +137,7 @@ impl<'a> Resolver<'a> {
         compiler: &'a Compiler,
         body: &'a LifetimeBody,
         all: &HashMap<ProcId, Summary>,
+        targets: &'a super::lifetime_targets::Universe,
     ) -> Self {
         let mut this = Self {
             places: Places::new(compiler, body),
@@ -135,8 +148,22 @@ impl<'a> Resolver<'a> {
             params: HashMap::default(),
             exposed: HashSet::default(),
             owned: HashSet::default(),
+            targets,
+            indirect_types: body
+                .blocks
+                .iter()
+                .flat_map(|b| &b.events)
+                .filter_map(|e| match e {
+                    Event::IndirectCall {
+                        callee,
+                        ty,
+                        ..
+                    } => Some((*callee, *ty)),
+                    _ => None,
+                })
+                .collect(),
         };
-        let live = returning_blocks(body, all);
+        let live = returning_blocks(body, all, targets);
         for e in body
             .blocks
             .iter()
@@ -287,6 +314,7 @@ impl<'a> Resolver<'a> {
                 }
                 Event::IndirectCall {
                     allocator: true,
+                    callee,
                     args,
                     results,
                     ..
@@ -295,7 +323,22 @@ impl<'a> Resolver<'a> {
                         this.values
                             .entry(v)
                             .or_default()
-                            .push(Def::Resize(args.clone()));
+                            .push(Def::Resize(*callee, args.clone()));
+                    }
+                }
+                Event::IndirectCall {
+                    callee,
+                    args,
+                    results,
+                    allocator: false,
+                    ..
+                } => {
+                    for &(index, v, _) in results {
+                        this.values.entry(v).or_default().push(Def::Indirect(
+                            *callee,
+                            args.clone(),
+                            index,
+                        ));
                     }
                 }
                 _ => {}
@@ -354,14 +397,14 @@ impl<'a> Resolver<'a> {
                     }
                     Def::Address(p) | Def::Borrow(p) => place(r, *p, seen, out),
                     Def::Copy(value) => walk(r, *value, seen, out),
-                    Def::Call(_, args, _) => {
+                    Def::Call(_, args, _) | Def::Indirect(_, args, _) => {
                         for arg in args {
                             if let Some(v) = value(arg) {
                                 walk(r, v, seen, out);
                             }
                         }
                     }
-                    Def::Resize(args) => {
+                    Def::Resize(_, args) => {
                         if let Some(v) = args.get(3).and_then(value) {
                             walk(r, v, seen, out);
                         }
@@ -399,7 +442,7 @@ impl<'a> Resolver<'a> {
                     }
                 }
                 Def::Copy(value) => self.return_guard(*value, all, visiting)?,
-                Def::Resize(args) => {
+                Def::Resize(_, args) => {
                     if args.first()?.constant == Some(0) {
                         None
                     } else {
@@ -413,6 +456,10 @@ impl<'a> Resolver<'a> {
                     } else {
                         None
                     }
+                }
+                Def::Indirect(callee, args, index) => {
+                    self.indirect_return(*callee, args, *index, all, &mut HashSet::default(), 0)?;
+                    None
                 }
                 Def::Address(_) | Def::Borrow(_) | Def::Parameter(_) => None,
             };
@@ -510,13 +557,17 @@ impl<'a> Resolver<'a> {
                     }
                     self.substitute(path, args, summaries, visiting, depth + 1)?
                 }
-                Def::Resize(args) => {
+                Def::Indirect(callee, args, index) => {
+                    self.indirect_return(*callee, args, *index, summaries, visiting, depth + 1)?
+                }
+                Def::Resize(callee, args) => {
                     let mode = args.first()?;
                     if mode.constant == Some(0) {
-                        Path {
-                            root: Root::Heap,
-                            steps: Vec::new(),
-                        }
+                        self.indirect_return(*callee, args, 0, summaries, visiting, depth + 1)
+                            .unwrap_or(Path {
+                                root: Root::Heap,
+                                steps: Vec::new(),
+                            })
                     } else {
                         if mode.constant.is_some_and(|c| c != 1) {
                             return None;
@@ -562,11 +613,10 @@ impl<'a> Resolver<'a> {
                     root: Root::Local(root_id),
                     steps: vec![Step::Storage],
                 };
-            } else {
-                let [source] = self.writes.get(&root_id)?.as_slice() else {
-                    return None;
-                };
+            } else if let Some([source]) = self.writes.get(&root_id).map(Vec::as_slice) {
                 path = self.trace(*source, summaries, visiting, depth + 1)?;
+            } else {
+                path = self.trace(root.0, summaries, visiting, depth + 1)?;
             }
             rest = &rest[1..];
         } else if let Some((formal, ty)) = self.params.get(&root_id) {
@@ -588,7 +638,11 @@ impl<'a> Resolver<'a> {
                 && let Some(from) = self.trace(*source, summaries, visiting, depth + 1)
                 && (matches!(
                     from.root,
-                    Root::Parameter(_) | Root::Heap | Root::Temporary | Root::Watermark
+                    Root::Parameter(_)
+                        | Root::Heap
+                        | Root::Temporary
+                        | Root::Watermark
+                        | Root::Until(_)
                 ) || matches!(
                     self.compiler.ty.types.kind(root.1),
                     TypeKind::Array {
@@ -640,6 +694,9 @@ impl<'a> Resolver<'a> {
         depth: usize,
     ) -> Option<Path> {
         let v = value(arg)?;
+        if let Some(p) = self.stored_address(v, &mut HashSet::default()) {
+            return self.location(p, all, visiting, depth + 1);
+        }
         if let Some(target) = self.compiler.ty.types.pointee(arg.ty) {
             let mut selected = None;
             for def in self.values.get(&v).into_iter().flatten() {
@@ -669,8 +726,11 @@ impl<'a> Resolver<'a> {
         depth: usize,
     ) -> Option<Path> {
         let Root::Parameter(formal) = path.root else {
-            return matches!(path.root, Root::Heap | Root::Temporary | Root::Watermark)
-                .then(|| path.clone());
+            return matches!(
+                path.root,
+                Root::Heap | Root::Temporary | Root::Watermark | Root::Until(_)
+            )
+            .then(|| path.clone());
         };
         let arg = args.iter().find(|a| a.formal == formal)?;
         self.argument_trace(arg, summaries, visiting, depth + 1)?
@@ -766,165 +826,6 @@ impl<'a> Resolver<'a> {
                 })
             })
             .collect()
-    }
-
-    fn infer(&self, prior: &Summary, all: &HashMap<ProcId, Summary>) -> Summary {
-        let body = self.body;
-        let live = returning_blocks(body, all);
-        let mut next = prior.clone();
-        let swap_facts = body.blocks.iter().flat_map(|b| &b.events).any(|e| matches!(e, Event::Call { callee, .. } if self.compiler.proc_has_note(*callee, "SwapsArguments"))).then(|| crate::rules::lifetime_movement::facts::Facts::new(self.compiler, body));
-        let mut effects = vec![Vec::new(); body.blocks.len()];
-        for (b, block) in body
-            .blocks
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| live.contains(i))
-        {
-            for (ordinal, event) in block.events.iter().enumerate() {
-                if let Some(effect) = swap_facts.as_ref().and_then(|f| {
-                    self.swap_effect(
-                        event,
-                        all,
-                        f,
-                        crate::rules::lifetime_movement::facts::Site {
-                            block: b,
-                            event: ordinal,
-                        },
-                    )
-                }) {
-                    let span = match event {
-                        Event::Call {
-                            span, ..
-                        } => *span,
-                        _ => Span::NONE,
-                    };
-                    insert(&mut next.may, effect.clone(), vec![span]);
-                    effects[b].push((effect, vec![span]));
-                }
-                if let Some(effect) = self.count_effect(event, all) {
-                    let span = match event {
-                        Event::Store {
-                            span, ..
-                        } => *span,
-                        _ => Span::NONE,
-                    };
-                    insert(&mut next.may, effect.clone(), vec![span]);
-                    effects[b].push((effect, vec![span]));
-                }
-                match event {
-                    Event::Call {
-                        callee,
-                        args,
-                        span,
-                        expands: false,
-                        ..
-                    } => {
-                        for (effect, witness) in self.effects(*callee, args, all, false) {
-                            if effect.exported() {
-                                insert(&mut next.may, effect, chain(*span, &witness));
-                            }
-                        }
-                        for (effect, witness) in self.effects(*callee, args, all, true) {
-                            effects[b].push((effect, chain(*span, &witness)));
-                        }
-                    }
-                    Event::IndirectCall {
-                        allocator: true,
-                        args,
-                        span,
-                        ..
-                    } => {
-                        for effect in self.allocator(args, all) {
-                            if effect.exported() {
-                                insert(&mut next.may, effect.clone(), vec![*span]);
-                            }
-                            effects[b].push((effect, vec![*span]));
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-        let keys: HashSet<_> = effects
-            .iter()
-            .flatten()
-            .map(|(effect, _)| effect.clone())
-            .collect();
-        for effect in keys {
-            if !effect.exported() {
-                continue;
-            }
-            if let Some(witness) = guaranteed(body, &effects, &effect) {
-                insert(&mut next.guaranteed, effect, witness);
-            }
-        }
-        let mut returns = HashMap::default();
-        let mut elements = HashMap::default();
-        for event in body
-            .blocks
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| live.contains(i))
-            .flat_map(|(_, b)| &b.events)
-        {
-            if let Event::Return {
-                value,
-                index,
-                ..
-            } = event
-            {
-                let element = self.element(*value, all).filter(|(p, s)| {
-                    matches!(p.root, Root::Parameter(_))
-                        && !matches!(s, Selector::Local(_) | Selector::Unknown)
-                });
-                elements
-                    .entry(*index)
-                    .and_modify(|old| {
-                        if old != &element {
-                            *old = None;
-                        }
-                    })
-                    .or_insert(element);
-                let path = self
-                    .trace(*value, all, &mut HashSet::default(), 0)
-                    .filter(|p| {
-                        matches!(
-                            p.root,
-                            Root::Parameter(_) | Root::Heap | Root::Temporary | Root::Watermark
-                        )
-                    })
-                    .zip(self.return_guard(*value, all, &mut HashSet::default()));
-                returns
-                    .entry(*index)
-                    .and_modify(|previous| {
-                        if previous != &path {
-                            *previous = None;
-                        }
-                    })
-                    .or_insert(path);
-            }
-        }
-        for (index, element) in elements {
-            if let Some(e) = element {
-                next.elements.insert(index, e);
-            }
-        }
-        for (index, path) in returns {
-            if let Some(path) = path {
-                if !lifetime_movement::borrowed(self.compiler, self.body.procedure).is_empty()
-                    || self
-                        .compiler
-                        .proc_has_note(self.body.procedure, "TempAllocates")
-                    || self
-                        .compiler
-                        .proc_has_note(self.body.procedure, "Allocates")
-                {
-                    continue;
-                }
-                next.returns.insert(index, path);
-            }
-        }
-        next
     }
 
     pub fn materialize(&mut self, path: &Path) -> Option<usize> {
@@ -1028,6 +929,7 @@ impl Effect {
     fn exported(&self) -> bool {
         matches!(self.target.root, Root::Parameter(_))
             || (self.kind == Kind::ResetTemporary && self.target.root == Root::Temporary)
+            || (self.kind == Kind::Advance && matches!(self.target.root, Root::Until(_)))
     }
 }
 
@@ -1038,7 +940,7 @@ impl Summaries {
         loop {
             let mut changed = false;
             for (&id, body) in valid {
-                let mut resolver = Resolver::new(compiler, body, &self.procs);
+                let mut resolver = Resolver::new(compiler, body, &self.procs, &self.targets);
                 let Writes {
                     effects: writes,
                     unknown: unknown_write,
@@ -1079,6 +981,7 @@ impl Summaries {
             .map(|(&id, body)| (id, body))
             .collect();
         let mut all = contracts::seed(compiler, &valid);
+        all.targets = super::lifetime_targets::Universe::build(compiler, &valid);
         // Tarjan's pop order is bottom-up for caller -> callee edges.
         let mut ids: Vec<_> = valid.keys().copied().collect();
         ids.sort_by_key(|id| id.0);
@@ -1091,12 +994,8 @@ impl Summaries {
                         .blocks
                         .iter()
                         .flat_map(|b| &b.events)
-                        .filter_map(|e| match e {
-                            Event::Call {
-                                callee, ..
-                            } if valid.contains_key(callee) => Some(*callee),
-                            _ => None,
-                        })
+                        .flat_map(|e| indirect::edges(e, id, &all.targets))
+                        .filter(|p| valid.contains_key(p))
                         .collect(),
                 )
             })
@@ -1110,7 +1009,7 @@ impl Summaries {
                 let mut changed = false;
                 for id in &component {
                     if all.procs[id].normal_return == Some(false)
-                        && !returning_blocks(valid[id], &all.procs).is_empty()
+                        && !returning_blocks(valid[id], &all.procs, &all.targets).is_empty()
                     {
                         all.procs.get_mut(id).unwrap().normal_return = Some(true);
                         changed = true;
@@ -1125,7 +1024,7 @@ impl Summaries {
                 for id in &component {
                     all.iterations += 1;
                     let body = valid[id];
-                    let resolver = Resolver::new(compiler, body, &all.procs);
+                    let resolver = Resolver::new(compiler, body, &all.procs, &all.targets);
                     let next = resolver.infer(&all.procs[id], &all.procs);
                     if next != all.procs[id] {
                         all.procs.insert(*id, next);

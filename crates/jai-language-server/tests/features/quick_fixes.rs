@@ -376,3 +376,69 @@ fn lifetime_secondary_labels_are_related_locations_on_the_wire() {
     );
     assert!(related[0]["message"].as_str().unwrap().contains("derived"));
 }
+
+#[test]
+fn strict_lifetime_configuration_is_applied_to_open_documents() {
+    let source = "#import \"Basic\";\ngrow :: (xs: *[..] int) {} @GrowsArray\nprobe :: (flag: bool) {\n    xs: [..] int;\n    array_add(*xs, 1);\n    p := *xs[0];\n    if flag grow(*xs);\n    x := p.*;\n}\nmain :: () { probe(true); }\n";
+    let mut json = opened(source);
+    let settings = |mode: &str| {
+        format!("[lint.rules]\npointer_lifetime = \"warn\"\n[lint.lifetimes]\nmode = \"{mode}\"\n")
+    };
+    let messages = notify(
+        &mut json,
+        "textDocument/didOpen",
+        serde_json::json!({"textDocument": {
+            "uri": "file:///lsp-test/jacket.toml", "languageId": "toml", "version": 1, "text": settings("strict")
+        }}),
+    );
+    let diagnostics = messages
+        .iter()
+        .find(|m| m["params"]["uri"] == uri().as_str())
+        .unwrap()["params"]["diagnostics"]
+        .as_array()
+        .unwrap();
+    let lifetime = diagnostics
+        .iter()
+        .find(|d| d["code"] == "pointer_lifetime")
+        .unwrap();
+    assert!(
+        lifetime["message"]
+            .as_str()
+            .unwrap()
+            .contains("shortest bad path"),
+        "{lifetime}"
+    );
+    assert!(
+        lifetime["relatedInformation"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|label| label["message"]
+                .as_str()
+                .unwrap()
+                .contains("condition as true"))
+    );
+    let messages = notify(
+        &mut json,
+        "textDocument/didChange",
+        serde_json::json!({"textDocument": {
+        "uri": "file:///lsp-test/jacket.toml", "version": 2
+    }, "contentChanges": [{"text": settings("must")}]}),
+    );
+    assert!(messages.is_empty(), "settings apply on save");
+    let messages = notify(
+        &mut json,
+        "textDocument/didSave",
+        serde_json::json!({"textDocument": {"uri": "file:///lsp-test/jacket.toml"}}),
+    );
+    let diagnostics = messages
+        .iter()
+        .find(|m| m["params"]["uri"] == uri().as_str())
+        .unwrap()["params"]["diagnostics"]
+        .as_array()
+        .unwrap();
+    assert!(
+        diagnostics.iter().all(|d| d["code"] != "pointer_lifetime"),
+        "{diagnostics:?}"
+    );
+}

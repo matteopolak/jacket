@@ -1,5 +1,5 @@
 //! On-demand cut witnesses and labelled source locations.
-use super::{Cx, DEAD, Finding, HashMap, Model, Op, Span, finding, invalidation_cut};
+use super::{Cx, Finding, HashMap, Model, Op, Span, dead, finding, invalidation_cut};
 
 pub(super) fn emit(
     cx: &Cx,
@@ -16,7 +16,8 @@ pub(super) fn emit(
         Op::Borrow(_, region, origin) | Op::PointerLoad(_, _, region, origin) => {
             (region, origin, None)
         }
-        Op::ElementBorrow(_, region, index, length, origin) => {
+        Op::ElementBorrow(_, region, index, length, origin)
+        | Op::LogicalBorrow(_, region, index, length, origin) => {
             (region, origin, Some((index, length)))
         }
         _ => return Vec::new(),
@@ -37,11 +38,11 @@ pub(super) fn emit(
         let Some(&cell) = relevant.get(&id) else {
             continue;
         };
-        if states[i].as_ref().is_none_or(|s| s[cell] != DEAD) {
+        if states[i].as_ref().is_none_or(|s| !dead(cx, s[cell])) {
             continue;
         }
         let growths = invalidation_cut(
-            blocks,
+            model,
             states,
             relevant,
             i,
@@ -61,7 +62,14 @@ pub(super) fn emit(
                 .iter()
                 .any(|b| matches!(b.op, Op::Mutate(_, m, span) if span == *at && element.is_some_and(|(s, len)| crate::rules::lifetime_movement::invalidates(m, s, len))))
         });
-        let explanation = if logical {
+        let explanation = if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
+            && states[i].as_ref().is_some_and(|s| s[cell] != super::DEAD)
+        {
+            format!(
+                "strict mode: `{}` may outlive the storage or element it refers to along a bad path",
+                cx.src(at)
+            )
+        } else if logical {
             format!(
                 "`{}` refers to an element in `{region_name}` whose identity is invalidated on every path to this use",
                 cx.src(at)
@@ -115,6 +123,29 @@ pub(super) fn emit(
         report
             .secondary
             .push((origin, "pointer derived here".into()));
+        super::witness::targets(cx, model, &growths, &mut report);
+        if cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
+            let (decisions, count) =
+                super::witness::strict_path(model, states, relevant, candidate, i, cell, &growths);
+            report
+                .message
+                .push_str(&format!("; shortest bad path shown ({count})"));
+            for (site, taken) in decisions {
+                report.secondary.push((
+                    site,
+                    format!("shortest bad path takes this condition as {taken}"),
+                ));
+            }
+            if growths.iter().any(|s| {
+                blocks
+                    .iter()
+                    .any(|b| matches!(b.op, Op::MayReach(_, at) if at == *s))
+            }) {
+                report.message.push_str(
+                    "; unknown or foreign code may invalidate storage reachable from its arguments",
+                );
+            }
+        }
         for growth in growths {
             if let Some(chain) = chains.get(&(growth, region)) {
                 for &site in chain {

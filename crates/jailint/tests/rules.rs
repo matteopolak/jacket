@@ -598,3 +598,147 @@ fn lifetime_fixed_array_views_distinguish_stack_from_persistent_literals() {
     assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
     assert!(lints[0].start < text.find("good_persistent_literal").unwrap());
 }
+
+#[test]
+fn lifetime_finite_targets_and_open_world_modes() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/calls.jai");
+    let levels = [("pointer_lifetime", Level::Warn)];
+    let (must, text) = lint(&path, &levels);
+    assert_eq!(must.len(), 4, "{}", rendered(&must, &text, &path));
+    let (strict, text) = lint_with(
+        &path,
+        &levels,
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(strict.len(), 9, "{}", rendered(&strict, &text, &path));
+    test_support::assert_snapshot_in!(
+        path.parent().unwrap(),
+        "must-calls",
+        rendered(&must, &text, &path)
+    );
+    test_support::assert_snapshot_in!(
+        path.parent().unwrap(),
+        "strict-calls",
+        rendered(&strict, &text, &path)
+    );
+}
+
+#[test]
+fn lifetime_strict_resources_and_foreign_contracts() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/resources.jai");
+    let levels = [
+        ("use_after_free", Level::Warn),
+        ("double_free", Level::Warn),
+    ];
+    let (must, text) = lint(&path, &levels);
+    assert_eq!(must.len(), 4, "{}", rendered(&must, &text, &path));
+    let (strict, text) = lint_with(
+        &path,
+        &levels,
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(strict.len(), 9, "{}", rendered(&strict, &text, &path));
+    test_support::assert_snapshot_in!(
+        path.parent().unwrap(),
+        "must-resources",
+        rendered(&must, &text, &path)
+    );
+    test_support::assert_snapshot_in!(
+        path.parent().unwrap(),
+        "strict-resources",
+        rendered(&strict, &text, &path)
+    );
+}
+
+#[test]
+fn lifetime_allocator_backing_is_inferred_from_selected_returns() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/backing.jai");
+    let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    assert!(lints[0].start < text.find("metadata_is_not_backing").unwrap());
+}
+
+#[test]
+fn lifetime_started_borrowers_end_at_completion() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/tasks.jai");
+    let levels = [
+        ("use_after_free", Level::Warn),
+        ("returned_local_address", Level::Warn),
+    ];
+    let (lints, text) = lint(&path, &levels);
+    assert_eq!(lints.len(), 3, "{}", rendered(&lints, &text, &path));
+    let good = text.find("good_finish").unwrap();
+    assert!(
+        lints.iter().all(|l| l.start < good),
+        "{}",
+        rendered(&lints, &text, &path)
+    );
+    let (strict, text) = lint_with(
+        &path,
+        &levels,
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(strict.len(), 5, "{}", rendered(&strict, &text, &path));
+    test_support::assert_snapshot_in!(
+        path.parent().unwrap(),
+        "strict-tasks",
+        rendered(&strict, &text, &path)
+    );
+}
+
+#[test]
+fn lifetime_stdlib_thread_retains_data_until_successful_wait() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/thread.jai");
+    let (lints, text) = lint(
+        &path,
+        &[
+            ("use_after_free", Level::Warn),
+            ("returned_local_address", Level::Warn),
+        ],
+    );
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    assert!(lints[0].start < text.find("finish_first").unwrap());
+}
+
+#[test]
+fn lifetime_strict_witnesses_count_alternatives_and_bound_loops() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/paths.jai");
+    let levels = [("pointer_lifetime", Level::Warn)];
+    let (must, text) = lint(&path, &levels);
+    assert!(must.is_empty(), "{}", rendered(&must, &text, &path));
+    let (strict, text) = lint_with(
+        &path,
+        &levels,
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(strict.len(), 2, "{}", rendered(&strict, &text, &path));
+    assert!(
+        strict[0].message.contains("1 other bad path"),
+        "{}",
+        strict[0].message
+    );
+    assert!(
+        strict[1]
+            .message
+            .contains("infinitely many additional bad walks"),
+        "{}",
+        strict[1].message
+    );
+    test_support::assert_snapshot_in!(
+        path.parent().unwrap(),
+        "strict-paths",
+        rendered(&strict, &text, &path)
+    );
+}

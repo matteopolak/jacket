@@ -82,6 +82,10 @@ fn run() -> Result<ExitCode, String> {
         eprintln!("jailint: {note}");
     }
     config.discover = args.config.is_none();
+    if let Some(mode) = args.lifetime_mode {
+        config.lifetime_mode = Some(mode);
+        config.flag_lifetime_mode = Some(mode);
+    }
     if args.max_nesting.is_some() {
         config.max_nesting = args.max_nesting;
         config.flag_max_nesting = args.max_nesting;

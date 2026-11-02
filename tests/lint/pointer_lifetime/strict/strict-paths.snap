@@ -1,0 +1,33 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element it refers to along a bad path; shortest bad path shown (1 other bad path)
+  --> tests/lint/pointer_lifetime/strict/paths.jai:13:13
+   |
+ 8 |     p := *xs[0];
+   |          ------ pointer derived here
+   ...
+10 |     if first grow(*xs);
+   |        ----- shortest bad path takes this condition as true
+   |              --------- `xs` storage invalidated here
+11 |     else if second grow(*xs);
+   |                    --------- `xs` storage invalidated here
+   ...
+13 |     consume(p);
+   |             ^ pointer used here after its storage was invalidated
+   |
+   = help: take the pointer again after growth, or store an index instead
+
+warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element it refers to along a bad path; shortest bad path shown (infinitely many additional bad walks through a loop)
+  --> tests/lint/pointer_lifetime/strict/paths.jai:20:13
+   |
+18 |     p := *xs[0];
+   |          ------ pointer derived here
+19 |     while again grow(*xs);
+   |           ----- shortest bad path takes this condition as true
+   |           ----- shortest bad path takes this condition as false
+   |                 --------- `xs` storage invalidated here
+20 |     consume(p);
+   |             ^ pointer used here after its storage was invalidated
+   |
+   = help: take the pointer again after growth, or store an index instead

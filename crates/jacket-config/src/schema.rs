@@ -73,8 +73,37 @@ pub struct Toolchain {
     pub version: Option<String>,
 }
 
+/// Whether lifetime diagnostics require an invalidation on every path or any path.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LifetimeMode {
+    #[default]
+    Must,
+    Strict,
+}
+
+impl std::str::FromStr for LifetimeMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "must" => Ok(Self::Must),
+            "strict" => Ok(Self::Strict),
+            _ => Err("expected `must` or `strict`".into()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Lifetimes {
+    #[serde(default)]
+    pub mode: LifetimeMode,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Lint {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lifetimes: Option<Lifetimes>,
     /// Patterns of paths not to lint, relative to the file.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exclude: Vec<PathPattern>,
@@ -611,6 +640,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
         "project" => &["entry", "import_path"],
         "toolchain" => &["version"],
         "lint" => &[
+            "lifetimes",
             "exclude",
             "max_nesting",
             "max_complexity",
@@ -624,6 +654,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "overrides",
             "portability",
         ],
+        "lint.lifetimes" => &["mode"],
         "lint.portability" => &["targets", "portable", "platforms"],
         "format" => FORMAT_KEYS,
         "experimental" => &["parse_threads", "serial_parse", "codegen_units"],

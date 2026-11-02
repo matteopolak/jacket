@@ -4,8 +4,37 @@ use super::{Effect, Event, HashMap, HashSet, LifetimeBody, MAX_CHAIN, ProcId, Sp
 pub(super) fn returning_blocks(
     body: &LifetimeBody,
     all: &HashMap<ProcId, Summary>,
+    targets: &crate::rules::lifetime_targets::Universe,
 ) -> HashSet<usize> {
-    let stopped: Vec<_> = body.blocks.iter().map(|b| b.events.iter().any(|e| matches!(e, Event::Call { callee, expands: false, .. } if all.get(callee).is_some_and(|s| s.normal_return == Some(false))))).collect();
+    let stopped: Vec<_> = body
+        .blocks
+        .iter()
+        .map(|b| {
+            b.events.iter().any(|e| match e {
+                Event::Call {
+                    callee,
+                    expands: false,
+                    ..
+                } => all
+                    .get(callee)
+                    .is_some_and(|s| s.normal_return == Some(false)),
+                Event::IndirectCall {
+                    callee,
+                    allocator: false,
+                    ..
+                } => {
+                    let set = targets.get(body.procedure, *callee);
+                    !set.unknown
+                        && !set.procedures.is_empty()
+                        && set
+                            .procedures
+                            .iter()
+                            .all(|p| all.get(p).is_some_and(|s| s.normal_return == Some(false)))
+                }
+                _ => false,
+            })
+        })
+        .collect();
     let mut forward = HashSet::default();
     let mut queue = std::collections::VecDeque::from([0]);
     while let Some(i) = queue.pop_front() {

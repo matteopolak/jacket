@@ -20,6 +20,7 @@ pub struct Args {
     pub config: Option<PathBuf>,
     pub levels: Vec<(String, Level)>,
     pub max_nesting: Option<usize>,
+    pub lifetime_mode: Option<jacket_config::LifetimeMode>,
     pub verbose: bool,
     /// `--compile-time-budget`: blocks one compile-time evaluation may run (0: no limit).
     pub compile_time_budget: Option<u64>,
@@ -85,6 +86,9 @@ struct Own {
     /// Blocks `excessive_nesting` allows (default: `[lint] max_nesting` in `jacket.toml`, else 6)
     #[arg(long, value_name = "n", value_parser = number::<usize>("--max-nesting", "a whole number", "6"))]
     max_nesting: Option<usize>,
+    /// Lifetime proof mode (default: [lint.lifetimes] mode, else must)
+    #[arg(long, value_name = "must|strict")]
+    lifetime_mode: Option<jacket_config::LifetimeMode>,
     /// Steps (loop iterations and calls) one compile-time evaluation may run before it fails (default: 100000000; 0:
     /// no limit)
     #[arg(long, value_name = "steps", value_parser = number::<u64>("--compile-time-budget", "a whole number", "50000000"))]
@@ -292,6 +296,7 @@ pub fn parse(argv: impl IntoIterator<Item = String>) -> Result<Option<Args>, Str
         config: own.config,
         levels: levels(&matches),
         max_nesting: own.max_nesting,
+        lifetime_mode: own.lifetime_mode,
         verbose: own.verbose,
         compile_time_budget: own.compile_time_budget,
         check_time_limit: own.check_time_limit,
@@ -305,6 +310,16 @@ mod tests {
 
     fn parse_all(args: &[&str]) -> Result<Option<Args>, String> {
         parse(args.iter().map(ToString::to_string))
+    }
+
+    #[test]
+    fn lifetime_mode_is_validated() {
+        let args = parse_all(&["--lifetime-mode", "strict"]).unwrap().unwrap();
+        assert_eq!(
+            args.lifetime_mode,
+            Some(jacket_config::LifetimeMode::Strict)
+        );
+        assert!(parse_all(&["--lifetime-mode", "optimistic"]).is_err());
     }
 
     #[test]
