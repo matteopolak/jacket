@@ -356,6 +356,11 @@ impl Compiler {
             if spread {
                 f.b.intrinsic(ir::Intrinsic::Memcpy, vec![cursor, source, bytes], &[]);
             } else {
+                if !f.type_only
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    record.stack_subplaces.push(cursor);
+                }
                 self.store_value(f, elem, cursor, source, span)?;
             }
             cursor = f.b.ptr_add(cursor, bytes);
@@ -490,6 +495,11 @@ impl Compiler {
                     let op = self.convert(f, op, elem, args[a].site())?;
                     let (_, v) = self.rvalue(f, op, span)?;
                     let at = f.b.ptr_offset(base, size * i as u64);
+                    if !f.type_only
+                        && let Some(record) = &mut f.lifetimes
+                    {
+                        record.stack_subplaces.push(at);
+                    }
                     self.store_value(f, elem, at, v, span)?;
                 }
                 let view = f.b.alloca(16, 8);

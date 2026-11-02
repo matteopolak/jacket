@@ -1,7 +1,7 @@
 //! Optional semantic lifetime sidecar. Events are emitted in lowering order, in the
 //! checker's actual blocks. No AST control flow is reconstructed by consumers.
 use crate::ast::{self, ExprKind as E};
-use crate::fxhash::HashMap;
+use crate::fxhash::{HashMap, HashSet};
 use crate::ir::{self, Val};
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, EntityId, ProcId};
@@ -118,6 +118,29 @@ pub enum LifetimeEvent {
     Return {
         value: Val,
         index: usize,
+        ty: TypeId,
+        span: Span,
+    },
+    Local {
+        place: Val,
+        ty: TypeId,
+        scope: crate::sema::ScopeId,
+        name: crate::intern::Sym,
+        span: Span,
+    },
+    ScopeEnd {
+        scope: crate::sema::ScopeId,
+        span: Span,
+    },
+    BoxAny {
+        value: Val,
+        place: Val,
+        ty: TypeId,
+        temporary: bool,
+        span: Span,
+    },
+    StatementEnd {
+        span: Span,
     },
     Call {
         callee: ProcId,
@@ -192,6 +215,15 @@ pub struct LifetimeBlock {
     pub normal_return: bool,
 }
 
+/// A contiguous run emitted while expanding code at a caller's source location.
+#[derive(Clone, Debug)]
+pub struct LifetimeSourceRange {
+    pub block: usize,
+    pub first_event: usize,
+    pub end_event: usize,
+    pub site: Span,
+}
+
 /// A successful real body only. `ProcId` distinguishes polymorphic instantiations;
 /// keeping its Arc also lets consumers reject an obsolete retry's record.
 #[derive(Clone, Debug)]
@@ -201,6 +233,7 @@ pub struct LifetimeBody {
     pub blocks: Vec<LifetimeBlock>,
     /// Stack slots selected by lowering, including anonymous argument/literal spills.
     pub stack_places: Vec<Val>,
+    pub source_ranges: Vec<LifetimeSourceRange>,
 }
 
 /// Mutable only while this `FnCtx` is being checked; discarded on error.
@@ -210,6 +243,11 @@ pub(crate) struct LifetimeRecording {
     pub resizable: HashMap<Val, TypeId>,
     pub elements: HashMap<Val, (Val, TypeId)>,
     pub calls: Vec<LifetimeCallRecording>,
+    pub cleanup_flags: HashSet<Val>,
+    pub stack_subplaces: Vec<Val>,
+    pub source_site: Option<Span>,
+    pub source_ranges: Vec<LifetimeSourceRange>,
+    pub last_source_range: HashMap<usize, usize>,
 }
 
 pub(crate) struct LifetimeCallRecording {
@@ -223,7 +261,26 @@ impl LifetimeRecording {
             self.blocks.len().max(block.0 as usize + 1),
             LifetimeBlock::default,
         );
-        self.blocks[block.0 as usize].events.push(event);
+        let block = block.0 as usize;
+        let ordinal = self.blocks[block].events.len();
+        if let Some(site) = self.source_site {
+            let last = self.last_source_range.get(&block).copied().filter(|&i| {
+                self.source_ranges[i].site == site && self.source_ranges[i].end_event == ordinal
+            });
+            if let Some(last) = last {
+                self.source_ranges[last].end_event += 1;
+            } else {
+                let i = self.source_ranges.len();
+                self.source_ranges.push(LifetimeSourceRange {
+                    block,
+                    first_event: ordinal,
+                    end_event: ordinal + 1,
+                    site,
+                });
+                self.last_source_range.insert(block, i);
+            }
+        }
+        self.blocks[block].events.push(event);
     }
 }
 
@@ -356,7 +413,8 @@ impl LifetimeBody {
     /// Retained vector payload/capacity (including nested argument/expansion vectors).
     /// Excludes shared syntax, `HashMap` buckets and allocator rounding; not process RSS.
     pub fn vector_bytes(&self) -> usize {
-        self.stack_places.capacity() * std::mem::size_of::<Val>()
+        self.source_ranges.capacity() * std::mem::size_of::<LifetimeSourceRange>()
+            + self.stack_places.capacity() * std::mem::size_of::<Val>()
             + self.blocks.capacity() * std::mem::size_of::<LifetimeBlock>()
             + self
                 .blocks
@@ -452,6 +510,7 @@ impl Compiler {
                         .for_each_successor(|b| out.successors.push(b.0 as usize));
                 }
             }
+            record.prune_cleanup_edges(&f.b.func, &constants);
             let facts = self.ed.facts_mut().unwrap();
             let ids = facts
                 .lifetime_files
@@ -466,6 +525,7 @@ impl Compiler {
                     procedure: id,
                     syntax: syntax.clone(),
                     blocks: record.blocks,
+                    source_ranges: record.source_ranges,
                     stack_places: f
                         .b
                         .func
@@ -481,9 +541,149 @@ impl Compiler {
                             } => Some(*dst),
                             _ => None,
                         })
+                        .chain(record.stack_subplaces)
                         .collect(),
                 },
             );
+        }
+    }
+}
+
+
+impl LifetimeRecording {
+    /// Internal activation slots cannot alias user memory. Propagate only these flags so
+    /// an unconditionally registered caller-owned macro defer keeps its must edge.
+    fn prune_cleanup_edges(&mut self, func: &ir::Func, constants: &HashMap<Val, u64>) {
+        if self.cleanup_flags.is_empty() {
+            return;
+        }
+        let slots: HashMap<_, _> = self
+            .cleanup_flags
+            .iter()
+            .enumerate()
+            .map(|(i, &v)| (v, i))
+            .collect();
+        let mut states = vec![None; self.blocks.len()];
+        states[0] = Some(vec![1u8; slots.len()]);
+        let mut queue = std::collections::VecDeque::from([0]);
+        while let Some(i) = queue.pop_front() {
+            let mut state = states[i].clone().unwrap();
+            let loads = cleanup_loads(&func.blocks[i].insts, &mut state, &slots, constants);
+            let successors = match func.blocks[i].term {
+                ir::Term::Branch {
+                    cond,
+                    then_block,
+                    else_block,
+                } => match loads.get(&cond) {
+                    Some(2) => vec![else_block.0 as usize],
+                    Some(4) => vec![then_block.0 as usize],
+                    _ => self.blocks[i].successors.clone(),
+                },
+                _ => self.blocks[i].successors.clone(),
+            };
+            for next in successors {
+                let changed = if let Some(previous) = &mut states[next] {
+                    let mut changed = false;
+                    for (old, &new) in previous.iter_mut().zip(&state) {
+                        let joined = *old | new;
+                        changed |= joined != *old;
+                        *old = joined;
+                    }
+                    changed
+                } else {
+                    states[next] = Some(state.clone());
+                    true
+                };
+                if changed {
+                    queue.push_back(next);
+                }
+            }
+        }
+        for (i, state) in states.into_iter().enumerate() {
+            let Some(mut state) = state else {
+                continue;
+            };
+            let loads = cleanup_loads(&func.blocks[i].insts, &mut state, &slots, constants);
+            if let ir::Term::Branch {
+                cond,
+                then_block,
+                else_block,
+            } = func.blocks[i].term
+            {
+                match loads.get(&cond) {
+                    Some(2) => self.blocks[i].successors = vec![else_block.0 as usize],
+                    Some(4) => self.blocks[i].successors = vec![then_block.0 as usize],
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+
+impl FnCtx {
+    pub(crate) fn lifetime_scope_end(&mut self, scope: crate::sema::ScopeId, span: Span) {
+        if !self.type_only
+            && let Some(record) = &mut self.lifetimes
+        {
+            record.push(
+                self.b.current,
+                LifetimeEvent::ScopeEnd {
+                    scope,
+                    span,
+                },
+            );
+        }
+    }
+}
+
+fn cleanup_loads(
+    insts: &[ir::Inst],
+    state: &mut [u8],
+    slots: &HashMap<Val, usize>,
+    constants: &HashMap<Val, u64>,
+) -> HashMap<Val, u8> {
+    let mut loads = HashMap::default();
+    for inst in insts {
+        match inst {
+            ir::Inst::Store {
+                addr,
+                value,
+                ..
+            } => {
+                if let Some(&slot) = slots.get(addr) {
+                    state[slot] = constants
+                        .get(value)
+                        .map_or(1, |v| 2 << usize::from(*v != 0));
+                }
+            }
+            ir::Inst::Load {
+                addr,
+                dst,
+                ..
+            } => {
+                if let Some(&slot) = slots.get(addr) {
+                    loads.insert(*dst, state[slot]);
+                }
+            }
+            _ => {}
+        }
+    }
+    loads
+}
+
+
+impl FnCtx {
+    pub(crate) fn lifetime_enter_site(&mut self, site: Option<Span>) -> Option<Span> {
+        let record = self.lifetimes.as_mut()?;
+        let previous = record.source_site;
+        record.source_site = previous.or(site);
+        previous
+    }
+
+    pub(crate) fn lifetime_restore_site(&mut self, site: Option<Span>) {
+        if let Some(record) = &mut self.lifetimes {
+            record.source_site = site;
         }
     }
 }

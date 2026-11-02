@@ -63,15 +63,3 @@ main :: () {
         print("%\n", it);
     }
 }
-
-dispose_quietly :: (memory: *void) {
-    free(memory);
-}
-
-unnoted_release :: () {
-    buffer := alloc(8);
-
-    for 1..2 {
-        defer dispose_quietly(buffer);
-    }
-}

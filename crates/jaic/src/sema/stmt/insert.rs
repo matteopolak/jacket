@@ -159,6 +159,7 @@ impl Compiler {
             {
                 f.caller_code_macros = Some(f.macros.len());
             }
+            let previous_lifetime_site = f.lifetime_enter_site(Some(span));
             let result = match &*body {
                 ast::CodeBody::Expr(e) => self.check_expr(f, inner, e, None).map(|_| ()),
                 ast::CodeBody::Stmt(stmt) => self
@@ -179,6 +180,7 @@ impl Compiler {
                     )
                     .and_then(|()| self.ide_require_parsed_body(b.span)),
             };
+            f.lifetime_restore_site(previous_lifetime_site);
             f.caller_code_macros = saved_caller_code;
             // Only a brace-less payload declares in the receiving lexical block.
             // Its wrapper supplies captured lookup without adding a lexical boundary.
@@ -200,7 +202,10 @@ impl Compiler {
                 },
             );
         }
-        self.check_block_stmts(f, scope, &stmts)
+        let previous_lifetime_site = f.lifetime_enter_site(Some(span));
+        let result = self.check_block_stmts(f, scope, &stmts);
+        f.lifetime_restore_site(previous_lifetime_site);
+        result
     }
 
     /// Whether `scope` is `outer` or lexically inside it.

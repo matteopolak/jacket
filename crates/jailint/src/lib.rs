@@ -211,7 +211,7 @@ pub fn lint_files(
 }
 
 /// What a rule reports, before the level and suppressions are applied.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct Finding {
     pub start: usize,
     pub end: usize,

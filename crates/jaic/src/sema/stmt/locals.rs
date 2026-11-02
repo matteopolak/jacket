@@ -212,6 +212,20 @@ impl Compiler {
                 depth,
             };
             let e = self.add_entity(target, name.name, name.span, kind.clone(), false);
+            if !f.type_only
+                && let Some(record) = &mut f.lifetimes
+            {
+                record.push(
+                    f.b.current,
+                    crate::ide::lifetimes::LifetimeEvent::Local {
+                        place: addr,
+                        ty,
+                        scope: target,
+                        name: name.name,
+                        span: name.span,
+                    },
+                );
+            }
             if let Some(info) = callable {
                 self.set_callable_entity(e, info);
             }

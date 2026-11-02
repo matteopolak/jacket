@@ -28,7 +28,7 @@ get_capabilities :: (b: Allocator) -> (caps: Allocator_Caps, name: string) {
 // ```
 free :: (memory: *void) {
     allocator_call(context.allocator, .FREE, 0, 0, memory);
-} @FreesArgument
+}
 
 // Resizes a block from `alloc` to `size` bytes and returns the block, which may have moved. `old_size` is the size it has
 // now. The first `min(size, old_size)` bytes are kept.

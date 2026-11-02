@@ -6,6 +6,7 @@ error[returned_local_address]: this returns the address of the local `count`, wh
    |
  9 |     return *count;
    |            ^^^^^^
+   |            ------ stack storage borrowed here
    |
    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
    = note: `returned_local_address` is `deny` by default
@@ -15,6 +16,7 @@ error[returned_local_address]: this returns the address of the local `p`, which 
    |
 14 |     return *p.y;
    |            ^^^^
+   |            ---- stack storage borrowed here
    |
    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
    = note: `returned_local_address` is `deny` by default
@@ -24,6 +26,7 @@ error[returned_local_address]: this returns the address of the local `buffer`, w
    |
 19 |     return *buffer[i];
    |            ^^^^^^^^^^
+   |            ---------- stack storage borrowed here
    |
    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
    = note: `returned_local_address` is `deny` by default
@@ -33,6 +36,17 @@ error[returned_local_address]: this returns the data of the local `buffer`, whic
    |
 24 |     return xx buffer.data;
    |               ^^^^^^^^^^^
+   |               ----------- stack storage borrowed here
+   |
+   = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
+   = note: `returned_local_address` is `deny` by default
+
+error[returned_local_address]: this returns the address of the local `n`, which is gone once the procedure returns
+  --> tests/lint/returned_local_address/bad.jai:36:12
+   |
+36 |     return *n;
+   |            ^^
+   |            -- stack storage borrowed here
    |
    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
    = note: `returned_local_address` is `deny` by default

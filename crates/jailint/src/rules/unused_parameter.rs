@@ -312,6 +312,8 @@ fn canonical(cx: &Cx, path: &Path) -> PathBuf {
 /// a rule learned about the file system outlives it (a file edited between runs is read anew).
 #[derive(Default)]
 pub(crate) struct RunState {
+    pub(super) resource_reports:
+        RefCell<HashMap<FileId, Rc<super::lifetime_cfg::resources::Reports>>>,
     pub(super) lifetimes: std::cell::OnceCell<super::lifetime_summary::Summaries>,
     /// The definitions of the `.jai` files around a directory, by directory.
     variants: RefCell<HashMap<PathBuf, Rc<Variants>>>,

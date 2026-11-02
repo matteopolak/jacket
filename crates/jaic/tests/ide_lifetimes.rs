@@ -337,3 +337,90 @@ fn argument_snapshots_before_later_calls_keep_load_and_default_facts() {
     assert!(b.blocks.iter().any(|b| b.normal_return));
     assert!(!b.stack_places.is_empty());
 }
+
+#[test]
+fn caller_owned_cleanup_and_any_backing_storage_keep_semantic_lifetimes() {
+    let c = compile(
+        r#"
+        #import "Basic";
+        always :: () -> string {
+            auto_release_temp();
+            return tprint("released");
+        }
+        maybe :: (flag: bool) -> string {
+            if flag auto_release_temp();
+            return tprint("possibly released");
+        }
+        number :: () -> int { return 7; }
+        boxes :: () {
+            local := 3;
+            a: Any = local;
+            b: Any = number();
+        }
+        main :: () {}
+        "#,
+        true,
+        false,
+    );
+    let exits_without_cleanup = |body: &LifetimeBody| {
+        let mut seen = jaic::fxhash::HashSet::default();
+        let mut queue = std::collections::VecDeque::from([0]);
+        while let Some(i) = queue.pop_front() {
+            if !seen.insert(i)
+                || body.blocks[i]
+                    .events
+                    .iter()
+                    .any(|e| matches!(e, Event::Cleanup { .. }))
+            {
+                continue;
+            }
+            if body.blocks[i].normal_return {
+                return true;
+            }
+            queue.extend(&body.blocks[i].successors);
+        }
+        false
+    };
+    let get = |name| {
+        bodies(&c)
+            .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == name)
+            .unwrap()
+    };
+    assert!(!exits_without_cleanup(get("always")));
+    assert!(exits_without_cleanup(get("maybe")));
+    assert!(events(get("always")).any(|e| matches!(
+        e,
+        Event::Return {
+            ty: jaic::types::TypeId::STRING,
+            ..
+        }
+    )));
+    let boxes: Vec<_> = events(get("boxes"))
+        .filter_map(|e| match e {
+            Event::BoxAny {
+                temporary, ..
+            } => Some(*temporary),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(boxes, [false, true]);
+}
+
+#[test]
+fn baked_temporary_strings_own_static_bytes() {
+    compile(
+        r#"
+        #import "Basic";
+        baked := tprint("baked %", 7);
+        #run {
+            saved := baked;
+            reset_temporary_storage();
+            assert(saved == "baked 7");
+            assert(baked == "baked 7");
+        }
+        main :: () {}
+        "#,
+        true,
+        false,
+    );
+}

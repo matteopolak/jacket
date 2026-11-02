@@ -30,10 +30,6 @@ copy :: () -> Point {
     return p;
 }
 
-parameter :: (n: int) -> *int {
-    return *n;
-}
-
 main :: () {
     print("%\n", global_counter());
     point: Point;
@@ -42,5 +38,4 @@ main :: () {
     print("%\n", element(.[1, 2], 1));
     print("%\n", fresh());
     print("%\n", copy());
-    print("%\n", parameter(1));
 }

@@ -220,6 +220,7 @@ impl Compiler {
             ));
         }
         let mut scalars = Vec::new();
+        let mut returned = Vec::new();
         for (i, &ty) in types.iter().enumerate() {
             let v = if let Some(op) = ops.get(i) {
                 let at = spans.get(i).copied().unwrap_or(Site::opaque(span));
@@ -235,17 +236,15 @@ impl Compiler {
                     None => addr,
                 }
             };
-            if !f.type_only
-                && let Some(record) = &mut f.lifetimes
-            {
-                record.push(
-                    f.b.current,
-                    crate::ide::lifetimes::LifetimeEvent::Return {
-                        value: v,
-                        index: i,
-                    },
-                );
-            }
+            returned.push((
+                f.return_outs[i].unwrap_or(v),
+                i,
+                ty,
+                values.get(i).map_or_else(
+                    || spans.get(i).map_or(span, |at| at.span),
+                    |arg| uncast_return_span(&arg.value),
+                ),
+            ));
             // A `void` result is checked like the others but leaves nothing to return.
             if ty == TypeId::VOID {
                 continue;
@@ -263,6 +262,21 @@ impl Compiler {
             }
         }
         self.emit_defers(f, 0, span)?;
+        if !f.type_only
+            && let Some(record) = &mut f.lifetimes
+        {
+            for (value, index, ty, span) in returned {
+                record.push(
+                    f.b.current,
+                    crate::ide::lifetimes::LifetimeEvent::Return {
+                        value,
+                        index,
+                        ty,
+                        span,
+                    },
+                );
+            }
+        }
         let mut rets = Vec::new();
         for (v, saved) in scalars {
             rets.push(match saved {
@@ -286,6 +300,7 @@ impl Compiler {
                 // Keep only earlier cleanups visible to a return in deferred code.
                 f.defers.truncate(i);
                 let entry = &saved[i];
+                let previous_lifetime_site = f.lifetime_enter_site(entry.lifetime_site);
                 let after = entry.active.map(|active| {
                     let run = f.b.new_block();
                     let after = f.b.new_block();
@@ -331,6 +346,7 @@ impl Compiler {
                         result?;
                     }
                 }
+                f.lifetime_restore_site(previous_lifetime_site);
                 if let Some(after) = after {
                     if !f.b.is_terminated() {
                         f.b.jump(after);
@@ -345,4 +361,15 @@ impl Compiler {
         f.restore_context_binding(saved_context);
         result
     }
+}
+
+
+fn uncast_return_span(mut value: &ast::Expr) -> Span {
+    while let ast::ExprKind::Cast {
+        value: inner, ..
+    } = &value.kind
+    {
+        value = inner;
+    }
+    value.span
 }

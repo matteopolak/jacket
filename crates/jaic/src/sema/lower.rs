@@ -276,6 +276,7 @@ pub enum DeferAction {
 pub struct DeferEntry {
     pub action: DeferAction,
     pub active: Option<Val>,
+    pub lifetime_site: Option<Span>,
     pub scope: ScopeId,
     /// For a `` `defer `` in a macro: the caller's scope, where backtick names in the
     /// deferred code resolve once the macro has returned.

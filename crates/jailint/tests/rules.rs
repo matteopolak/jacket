@@ -492,3 +492,64 @@ fn lifetime_summaries_work_when_a_module_is_checked_alone() {
     assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &file));
     test_support::assert_snapshot_in!(&case, "module", rendered(&lints, &text, &file));
 }
+
+#[test]
+fn lifetime_resource_migration_preserves_existing_cases() {
+    let mut failures = Vec::new();
+    for (rule, expected) in [
+        ("use_after_free", 4),
+        ("double_free", 3),
+        ("returned_local_address", 5),
+        ("temp_storage_escape", 4),
+    ] {
+        let case = repo().join("tests/lint").join(rule);
+        for (file, count) in [("bad.jai", expected), ("good.jai", 0)] {
+            let path = case.join(file);
+            let (lints, text) = lint(&path, &[(rule, Level::Warn)]);
+            if lints.len() != count {
+                failures.push(format!(
+                    "{rule}/{file}: expected {count}, got {}\n{}",
+                    lints.len(),
+                    rendered(&lints, &text, &path)
+                ));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn lifetime_resources_cover_cleanup_scopes_watermarks_and_handles() {
+    let case = repo().join("tests/lint/pointer_lifetime/resources");
+    let levels = [
+        ("use_after_free", Level::Warn),
+        ("double_free", Level::Warn),
+        ("returned_local_address", Level::Warn),
+        ("temp_storage_escape", Level::Warn),
+    ];
+    let bad = case.join("bad.jai");
+    let (lints, text) = lint(&bad, &levels);
+    assert_eq!(
+        lints.iter().filter(|l| l.rule == "use_after_free").count(),
+        9
+    );
+    assert_eq!(lints.iter().filter(|l| l.rule == "double_free").count(), 3);
+    assert_eq!(
+        lints
+            .iter()
+            .filter(|l| l.rule == "returned_local_address")
+            .count(),
+        9
+    );
+    assert_eq!(
+        lints
+            .iter()
+            .filter(|l| l.rule == "temp_storage_escape")
+            .count(),
+        1
+    );
+    test_support::assert_snapshot_in!(&case, "resources", rendered(&lints, &text, &bad));
+    let good = case.join("good.jai");
+    let (lints, text) = lint(&good, &levels);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
+}

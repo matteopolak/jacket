@@ -27,6 +27,7 @@ impl Compiler {
         if op.ty() == TypeId::ANY {
             return Ok(op);
         }
+        let temporary = !matches!(op, Operand::Place { .. });
         let (ty, addr) = match op {
             Operand::Type(t) => {
                 self.require_value_type(t, span)?;
@@ -52,6 +53,20 @@ impl Compiler {
         f.b.store(Ty::Ptr, any, ti);
         let vp = f.b.ptr_offset(any, 8);
         f.b.store(Ty::Ptr, vp, addr);
+        if !f.type_only
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::BoxAny {
+                    value: any,
+                    place: addr,
+                    ty,
+                    temporary,
+                    span,
+                },
+            );
+        }
         Ok(Operand::Value {
             ty: TypeId::ANY,
             val: any,

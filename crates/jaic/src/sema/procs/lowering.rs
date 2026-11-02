@@ -195,7 +195,9 @@ impl Compiler {
             // values, so the procedure works on its own copy: `advance(*s, 1)` on a `string`
             // parameter must not move the caller's string.
             let addr = self.spill(&mut f, param.ty, incoming, param.span)?;
-            if let Some(record) = &mut f.lifetimes {
+            if !f.type_only
+                && let Some(record) = &mut f.lifetimes
+            {
                 let formal = header
                     .params
                     .iter()
@@ -385,10 +387,41 @@ impl Compiler {
         if f.named_results.iter().all(Option::is_some) {
             let mut values = Vec::new();
             for (i, &rt) in f.return_types.clone().iter().enumerate() {
+                let addr = f.named_results[i].unwrap();
+                let v = if let Some(t) = self.ir_ty(rt) {
+                    let v = f.b.load(t, addr);
+                    if !f.type_only
+                        && let Some(record) = &mut f.lifetimes
+                    {
+                        record.push(
+                            f.b.current,
+                            crate::ide::lifetimes::LifetimeEvent::Load {
+                                place: addr,
+                                value: v,
+                                ty: rt,
+                                span,
+                            },
+                        );
+                    }
+                    v
+                } else {
+                    addr
+                };
+                if !f.type_only
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    record.push(
+                        f.b.current,
+                        crate::ide::lifetimes::LifetimeEvent::Return {
+                            value: v,
+                            index: i,
+                            ty: rt,
+                            span,
+                        },
+                    );
+                }
                 if f.return_outs[i].is_none() {
-                    let t = self.ir_ty(rt).unwrap();
-                    let addr = f.named_results[i].unwrap();
-                    values.push(f.b.load(t, addr));
+                    values.push(v);
                 }
             }
             f.b.ret(values);

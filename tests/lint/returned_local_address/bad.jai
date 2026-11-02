@@ -30,3 +30,8 @@ main :: () {
     print("%\n", slot(3));
     print("%\n", scratch());
 }
+
+// A value parameter belongs to this stack frame too.
+parameter :: (n: int) -> *int {
+    return *n;
+}

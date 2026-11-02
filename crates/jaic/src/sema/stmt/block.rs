@@ -81,6 +81,11 @@ impl Compiler {
             let at = frame.defer_depth.position();
             let caller = frame.caller_cleanup_serial;
             let active = f.b.entry_zeroed_slot(Ty::I8, 1, 1);
+            if !f.type_only
+                && let Some(record) = &mut f.lifetimes
+            {
+                record.cleanup_flags.insert(active);
+            }
             let yes = f.b.iconst(Ty::I8, 1);
             f.b.store(Ty::I8, active, yes);
             entry.active = Some(active);
@@ -335,6 +340,7 @@ impl Compiler {
         }
         if !f.b.is_terminated() {
             self.emit_defers(f, depth.position(), stmt.span)?;
+            f.lifetime_scope_end(inner, stmt.span);
         }
         f.truncate_defers(depth.position());
         Ok(())
@@ -347,7 +353,7 @@ impl Compiler {
             let debug_scope = self.debug_scope(f, scope, line, col);
             f.b.loc(span.file.0, line, col, debug_scope);
         }
-        match &stmt.kind {
+        let result = match &stmt.kind {
             S::Decl(decl) => self.check_local_decl(f, scope, decl),
             S::Case(_) => err(
                 Code::ParseCaseOutsideSwitch,
@@ -507,7 +513,20 @@ impl Compiler {
             | S::Through
             | S::Directive(_)
             | S::Empty => Ok(()),
+        };
+        if result.is_ok()
+            && !f.type_only
+            && !f.b.is_terminated()
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::StatementEnd {
+                    span,
+                },
+            );
         }
+        result
     }
 
     /// `push_context ... defer`: switch the context now and restore it when the scope ends.
@@ -531,6 +550,7 @@ impl Compiler {
             },
             scope,
             active: None,
+            lifetime_site: f.lifetimes.as_ref().and_then(|r| r.source_site),
             caller_scope: None,
         };
         self.register_defer(f, entry, defer.backtick);
@@ -564,6 +584,7 @@ impl Compiler {
                 saved_slot,
             },
             active: None,
+            lifetime_site: f.lifetimes.as_ref().and_then(|r| r.source_site),
             scope,
             caller_scope: None,
         });
@@ -665,6 +686,7 @@ impl Compiler {
         let entry = DeferEntry {
             action: DeferAction::Statement(body.clone()),
             active: None,
+            lifetime_site: f.lifetimes.as_ref().and_then(|r| r.source_site),
             scope,
             caller_scope: f.macros.last().filter(|_| backtick).map(|m| m.caller_scope),
         };

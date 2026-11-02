@@ -483,7 +483,9 @@ impl Compiler {
         });
         // Backticks inside this expansion refer to its caller, not to a running `` `defer ``.
         let saved_backtick = f.backtick_scope.take();
+        let previous_lifetime_site = f.lifetime_enter_site(Some(span));
         let result = self.check_block_stmts(f, mscope, &body.stmts);
+        f.lifetime_restore_site(previous_lifetime_site);
         f.backtick_scope = saved_backtick;
         let frame = f.macros.pop().unwrap();
         if let Err(mut error) = result {
@@ -497,10 +499,27 @@ impl Compiler {
         }
         f.truncate_defers(frame.defer_depth.position());
         f.b.switch_to(exit);
+        f.lifetime_scope_end(mscope, span);
         let mut values = Vec::new();
         for (i, (rt, addr)) in result_slots.into_iter().enumerate() {
             let v = match self.ir_ty(rt) {
-                Some(t) => f.b.load(t, addr),
+                Some(t) => {
+                    let v = f.b.load(t, addr);
+                    if !f.type_only
+                        && let Some(record) = &mut f.lifetimes
+                    {
+                        record.push(
+                            f.b.current,
+                            crate::ide::lifetimes::LifetimeEvent::Load {
+                                place: addr,
+                                value: v,
+                                ty: rt,
+                                span,
+                            },
+                        );
+                    }
+                    v
+                }
                 None => addr,
             };
             values.push(

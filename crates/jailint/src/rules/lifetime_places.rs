@@ -23,6 +23,7 @@ pub(super) struct Places {
     /// A built-in descriptor's data field, not a user field named data.
     pub data: HashMap<usize, (usize, jaic::source::Span)>,
     pub descriptor_fields: HashMap<usize, usize>,
+    children: HashMap<usize, Vec<usize>>,
 }
 
 impl Places {
@@ -31,6 +32,27 @@ impl Places {
         // Lowering emits each projection after its base. Definitions precede their uses even
         // when a later block is checked before an earlier block's cleanup is filled in.
         let events: Vec<_> = body.blocks.iter().flat_map(|b| &b.events).collect();
+        let mut globals = HashMap::default();
+        for event in &events {
+            if let Event::Expression {
+                operand: LifetimeOperand::Place(v),
+                ty,
+                entity: Some(entity),
+                ..
+            } = **event
+                && let jaic::sema::scope::EntityState::Done(jaic::sema::scope::Resolved::Global {
+                    storage,
+                    ..
+                }) = compiler.entity(entity).state
+            {
+                let key = match storage {
+                    jaic::ir::Storage::Data(id) => (false, id.0, ty),
+                    jaic::ir::Storage::Foreign(id) => (true, id.0, ty),
+                };
+                let id = *globals.entry(key).or_insert_with(|| this.place(v, ty));
+                this.values.insert((v, ty), id);
+            }
+        }
         for event in &events {
             match **event {
                 Event::Field {
@@ -116,9 +138,13 @@ impl Places {
         if let Some(&id) = self.ids.get(&(root, path.clone())) {
             return id;
         }
+        let parent = (!path.is_empty()).then(|| self.intern(root, path[..path.len() - 1].to_vec()));
         let id = self.paths.len();
         self.paths.push((root, path.clone()));
         self.ids.insert((root, path), id);
+        if let Some(parent) = parent {
+            self.children.entry(parent).or_default().push(id);
+        }
         id
     }
 
@@ -152,20 +178,39 @@ impl Places {
             || self.indirect.iter().any(|&base| self.contains(base, place))
     }
 
+    pub fn descendants(&self, parent: usize) -> Vec<usize> {
+        let mut result = Vec::new();
+        let mut queue = self.children.get(&parent).cloned().unwrap_or_default();
+        while let Some(id) = queue.pop() {
+            result.push(id);
+            if let Some(children) = self.children.get(&id) {
+                queue.extend(children);
+            }
+        }
+        result
+    }
+
     pub fn copied_fields(&mut self, target: usize, source: usize) -> Vec<(usize, usize)> {
-        let n = self.paths.len();
-        let depth = self.paths[target].1.len();
         let mut pairs = Vec::new();
-        for id in 0..n {
-            if id != target && self.contains(target, id) {
+        // Either side can introduce the field: a returned aggregate's output buffer
+        // need not have an explicit member expression in this body.
+        for (from, to, reverse) in [(target, source, false), (source, target, true)] {
+            let depth = self.paths[from].1.len();
+            for id in self.descendants(from) {
                 let suffix = self.paths[id].1[depth..].to_vec();
-                let mut other = source;
+                let mut other = to;
                 for projection in suffix {
                     other = self.project(other, projection);
                 }
-                pairs.push((id, other));
+                pairs.push(if reverse {
+                    (other, id)
+                } else {
+                    (id, other)
+                });
             }
         }
+        pairs.sort_unstable();
+        pairs.dedup();
         pairs
     }
 }

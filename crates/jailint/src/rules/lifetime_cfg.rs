@@ -15,6 +15,8 @@ use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
 use std::collections::{BTreeMap, VecDeque};
 
+pub(super) mod resources;
+
 #[derive(Clone)]
 enum Op {
     Nop,
@@ -26,11 +28,13 @@ enum Op {
     Grow(usize, Span),
     Barrier,
     Stop,
+    Resource(resources::Op),
 }
 
 struct Block {
     op: Op,
     next: Vec<usize>,
+    site: Option<Span>,
 }
 
 struct Model {
@@ -97,6 +101,7 @@ fn build(
     chains: &mut HashMap<(Span, usize), Vec<Span>>,
 ) -> Vec<Block> {
     let mut resolver = Resolver::new(cx.compiler, body, &summaries.procs);
+    let resources = resources::Builder::new(cx, body, summaries);
     let mut grown = HashMap::default();
     let mut blocks: Vec<_> = body
         .blocks
@@ -104,11 +109,27 @@ fn build(
         .map(|_| Block {
             op: Op::Nop,
             next: Vec::new(),
+            site: None,
         })
         .collect();
+    let mut ranges = vec![Vec::new(); body.blocks.len()];
+    for range in &body.source_ranges {
+        ranges[range.block].push(range);
+    }
     for (i, block) in body.blocks.iter().enumerate() {
         let mut previous = i;
-        for event in &block.events {
+        let mut range_index = 0;
+        for (ordinal, event) in block.events.iter().enumerate() {
+            while ranges[i]
+                .get(range_index)
+                .is_some_and(|r| r.end_event <= ordinal)
+            {
+                range_index += 1;
+            }
+            let site = ranges[i]
+                .get(range_index)
+                .filter(|r| r.first_event <= ordinal && ordinal < r.end_event)
+                .map(|r| r.site);
             let mut ops = Vec::new();
             match *event {
                 Event::ReadMemory {
@@ -151,7 +172,10 @@ fn build(
                         } else {
                             ops.push(Op::Copy(vec![(target, cells.id(Cell::Place(r)))]));
                         }
-                    } else if cx.compiler.ty.types.is_pointer(ty) {
+                    } else if cx.compiler.ty.types.is_pointer(ty)
+                        || view(cx, ty)
+                        || resources.resource_load(value)
+                    {
                         ops.push(Op::PointerLoad(target, cells.id(Cell::Place(p)), p, span));
                     } else {
                         ops.push(Op::Copy(vec![(target, cells.id(Cell::Place(p)))]));
@@ -173,7 +197,7 @@ fn build(
                         ops.push(Op::Replace(r));
                     }
                     let target = cells.id(Cell::Place(p));
-                    if view(cx, ty) || cx.compiler.ty.types.is_pointer(ty) {
+                    if cx.compiler.ty.types.is_pointer(ty) {
                         ops.push(Op::Copy(vec![(target, cells.id(Cell::Value(value)))]));
                     } else {
                         let mut copies = vec![(target, cells.id(Cell::Place(source)))];
@@ -277,17 +301,34 @@ fn build(
                 Event::Barrier => ops.push(Op::Barrier),
                 _ => {}
             }
+            let extra = resources.operations(event, places, cells, &mut resolver);
+            if matches!(event, Event::Store { .. }) {
+                ops.splice(0..0, extra.into_iter().map(Op::Resource));
+            } else {
+                ops.extend(extra.into_iter().map(Op::Resource));
+            }
             for op in ops {
                 let index = blocks.len();
                 blocks.push(Block {
                     op,
                     next: Vec::new(),
+                    site,
                 });
                 if !matches!(blocks[previous].op, Op::Stop) {
                     blocks[previous].next.push(index);
                 }
                 previous = index;
             }
+        }
+        if block.normal_return && !matches!(blocks[previous].op, Op::Stop) {
+            let index = blocks.len();
+            blocks.push(Block {
+                op: Op::Resource(resources::Op::Exit),
+                next: Vec::new(),
+                site: None,
+            });
+            blocks[previous].next.push(index);
+            previous = index;
         }
         if !matches!(blocks[previous].op, Op::Stop) {
             blocks[previous].next.clone_from(&block.successors);
@@ -623,9 +664,14 @@ fn solve(
         let Op::Use(id, at) = block.op else {
             continue;
         };
-        if at.file != cx.file {
+        let source = at;
+        let at = if at.file == cx.file {
+            at
+        } else if let Some(site) = block.site.filter(|s| s.file == cx.file) {
+            site
+        } else {
             continue;
-        }
+        };
         let Some(&cell) = relevant.get(&id) else {
             continue;
         };
@@ -655,6 +701,11 @@ fn solve(
             Some("take the pointer again after growth, or store an index instead".into()),
         );
         report.label = Some("pointer used here after its storage was invalidated".into());
+        if source != at {
+            report
+                .secondary
+                .push((source, "expanded code uses the pointer here".into()));
+        }
         report
             .secondary
             .push((origin, "pointer derived here".into()));

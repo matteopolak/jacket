@@ -64,6 +64,10 @@ fn allocator_mode_guards_distinguish_allocate_resize_and_free() {
             .any(|e| e.kind == Kind::Free)
     );
     assert!(get("probe_conditional").guaranteed.is_empty());
+    assert!(get("free").guaranteed.keys().any(|e| e.kind == Kind::Free
+        && e.guard.is_none()
+        && e.target.root == Root::Parameter(0)
+        && e.target.steps.is_empty()));
     let table_effects: Vec<_> =
         c.pr.procs
             .iter()

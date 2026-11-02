@@ -710,6 +710,21 @@ impl Compiler {
             f.b.copy(copy, elem_addr, esize);
             (elem, copy)
         };
+        if !for_.by_pointer
+            && !self.is_memory_type(elem)
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::Local {
+                    place: it_addr,
+                    ty: it_ty,
+                    scope: loop_scope,
+                    name: it_name,
+                    span: iterated,
+                },
+            );
+        }
         self.declare_loop_vars(
             f,
             loop_scope,
@@ -759,6 +774,7 @@ impl Compiler {
         result?;
         f.b.jump(step);
         f.b.switch_to(step);
+        f.lifetime_scope_end(loop_scope, span);
         self.mark_loop_step(f, scope, lp.span);
         let i = f.b.load(Ty::I64, idx);
         let one = f.b.iconst(Ty::I64, 1);
@@ -776,6 +792,7 @@ impl Compiler {
         let c = in_range(f);
         f.b.branch(c, body_block, exit);
         f.b.switch_to(exit);
+        f.lifetime_scope_end(loop_scope, span);
         Ok(())
     }
 

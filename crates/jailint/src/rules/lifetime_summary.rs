@@ -10,6 +10,7 @@ use jaic::sema::{Compiler, ProcId, procs::BodyState};
 use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
 
+mod contracts;
 mod flow;
 #[cfg(test)]
 mod tests;
@@ -30,6 +31,9 @@ pub(super) enum Step {
 pub(super) enum Root {
     Parameter(usize),
     Local(usize),
+    Heap,
+    Temporary,
+    Watermark,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -53,6 +57,8 @@ pub(super) enum Kind {
     Resize,
     Free,
     Write,
+    ResetTemporary,
+    RestoreTemporary,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -177,6 +183,17 @@ impl<'a> Resolver<'a> {
                     ..
                 } => {
                     let p = this.places.place(*place, *ty);
+                    if value == place && compiler.ir_ty(*ty).is_none() {
+                        // An aggregate rvalue is its address. Preserve plain aggregate
+                        // copies, but do not add a self-reference to a call's SSA result.
+                        if !this.values.get(value).is_some_and(|defs| {
+                            defs.iter()
+                                .any(|d| matches!(d, Def::Call(..) | Def::Resize(..)))
+                        }) {
+                            this.values.entry(*value).or_default().push(Def::Address(p));
+                        }
+                        continue;
+                    }
                     this.values
                         .entry(*value)
                         .or_default()
@@ -353,7 +370,13 @@ impl<'a> Resolver<'a> {
                     }
                 }
                 Def::Copy(value) => self.return_guard(*value, all, visiting)?,
-                Def::Resize(args) => self.mode_guard(args.first()?, 1, all)?,
+                Def::Resize(args) => {
+                    if args.first()?.constant == Some(0) {
+                        None
+                    } else {
+                        self.mode_guard(args.first()?, 1, all)?
+                    }
+                }
                 Def::Call(callee, args, index) => {
                     let (_, condition) = all.get(callee)?.returns.get(index)?;
                     if let Some((formal, expected)) = condition {
@@ -460,10 +483,17 @@ impl<'a> Resolver<'a> {
                 }
                 Def::Resize(args) => {
                     let mode = args.first()?;
-                    if mode.constant.is_some_and(|c| c != 1) {
-                        return None;
+                    if mode.constant == Some(0) {
+                        Path {
+                            root: Root::Heap,
+                            steps: Vec::new(),
+                        }
+                    } else {
+                        if mode.constant.is_some_and(|c| c != 1) {
+                            return None;
+                        }
+                        self.trace(value(args.get(3)?)?, summaries, visiting, depth + 1)?
                     }
-                    self.trace(value(args.get(3)?)?, summaries, visiting, depth + 1)?
                 }
             };
             if result.as_ref().is_some_and(|old| old != &path) {
@@ -527,7 +557,10 @@ impl<'a> Resolver<'a> {
                 && let Some([source]) = self.writes.get(&root_id).map(Vec::as_slice)
                 && *source != root.0
                 && let Some(from) = self.trace(*source, summaries, visiting, depth + 1)
-                && matches!(from.root, Root::Parameter(_))
+                && matches!(
+                    from.root,
+                    Root::Parameter(_) | Root::Heap | Root::Temporary | Root::Watermark
+                )
             {
                 path = from;
             }
@@ -601,7 +634,8 @@ impl<'a> Resolver<'a> {
         depth: usize,
     ) -> Option<Path> {
         let Root::Parameter(formal) = path.root else {
-            return None;
+            return matches!(path.root, Root::Heap | Root::Temporary | Root::Watermark)
+                .then(|| path.clone());
         };
         let arg = args.iter().find(|a| a.formal == formal)?;
         self.argument_trace(arg, summaries, visiting, depth + 1)?
@@ -712,7 +746,7 @@ impl<'a> Resolver<'a> {
                         ..
                     } => {
                         for (effect, witness) in self.effects(*callee, args, all, false) {
-                            if matches!(effect.target.root, Root::Parameter(_)) {
+                            if effect.exported() {
                                 insert(&mut next.may, effect, chain(*span, &witness));
                             }
                         }
@@ -727,7 +761,7 @@ impl<'a> Resolver<'a> {
                         ..
                     } => {
                         for effect in self.allocator(args, all) {
-                            if matches!(effect.target.root, Root::Parameter(_)) {
+                            if effect.exported() {
                                 insert(&mut next.may, effect.clone(), vec![*span]);
                             }
                             effects[b].push((effect, vec![*span]));
@@ -743,7 +777,7 @@ impl<'a> Resolver<'a> {
             .map(|(effect, _)| effect.clone())
             .collect();
         for effect in keys {
-            if !matches!(effect.target.root, Root::Parameter(_)) {
+            if !effect.exported() {
                 continue;
             }
             if let Some(witness) = guaranteed(body, &effects, &effect) {
@@ -761,11 +795,17 @@ impl<'a> Resolver<'a> {
             if let Event::Return {
                 value,
                 index,
+                ..
             } = event
             {
                 let path = self
                     .trace(*value, all, &mut HashSet::default(), 0)
-                    .filter(|p| matches!(p.root, Root::Parameter(_)))
+                    .filter(|p| {
+                        matches!(
+                            p.root,
+                            Root::Parameter(_) | Root::Heap | Root::Temporary | Root::Watermark
+                        )
+                    })
                     .zip(self.return_guard(*value, all, &mut HashSet::default()));
                 returns
                     .entry(*index)
@@ -779,6 +819,15 @@ impl<'a> Resolver<'a> {
         }
         for (index, path) in returns {
             if let Some(path) = path {
+                if self
+                    .compiler
+                    .proc_has_note(self.body.procedure, "TempAllocates")
+                    || self
+                        .compiler
+                        .proc_has_note(self.body.procedure, "Allocates")
+                {
+                    continue;
+                }
                 next.returns.insert(index, path);
             }
         }
@@ -861,7 +910,9 @@ impl<'a> Resolver<'a> {
                         && !owned
                         && resolved.as_ref().is_none_or(|target| match target.root {
                             Root::Local(root) => !self.owned.contains(&root),
-                            Root::Parameter(_) => true,
+                            Root::Parameter(_) | Root::Heap | Root::Temporary | Root::Watermark => {
+                                true
+                            }
                         })
                     {
                         let restored = resolved.as_ref().and_then(|target| {
@@ -911,9 +962,7 @@ impl<'a> Resolver<'a> {
                         escapes.extend(self.argument_dependencies(&called.escapes, args, all));
                     }
                     for (effect, witness) in self.effects(*callee, args, all, false) {
-                        if effect.kind == Kind::Write
-                            && matches!(effect.target.root, Root::Parameter(_))
-                        {
+                        if effect.kind == Kind::Write && effect.exported() {
                             writes.push((effect, chain(*span, &witness)));
                         }
                     }
@@ -1008,6 +1057,13 @@ fn chain(site: Span, rest: &[Span]) -> Vec<Span> {
     result
 }
 
+impl Effect {
+    fn exported(&self) -> bool {
+        matches!(self.target.root, Root::Parameter(_))
+            || (self.kind == Kind::ResetTemporary && self.target.root == Root::Temporary)
+    }
+}
+
 impl Summaries {
     fn propagate_writes(&mut self, compiler: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) {
         // Returns are stable before writes are classified. A RESIZE result stored back
@@ -1055,41 +1111,7 @@ impl Summaries {
             })
             .map(|(&id, body)| (id, body))
             .collect();
-        let mut all = Self::default();
-        for (i, _) in compiler.pr.procs.iter().enumerate() {
-            let id = ProcId(i as u32);
-            let mut summary = Summary::default();
-            if valid.contains_key(&id) {
-                summary.normal_return = Some(false);
-            }
-            for (note, kind, storage) in [
-                ("GrowsArray", Kind::Resize, true),
-                ("FreesArgument", Kind::Free, false),
-                ("Closes", Kind::Free, false),
-            ] {
-                if compiler.proc_has_note(id, note) {
-                    let effect = Effect {
-                        target: Path {
-                            root: Root::Parameter(0),
-                            steps: if storage {
-                                vec![Step::Storage]
-                            } else {
-                                Vec::new()
-                            },
-                        },
-                        kind,
-                        guard: None,
-                    };
-                    summary
-                        .may
-                        .insert(effect.clone(), vec![compiler.pr.procs[i].span]);
-                    summary
-                        .guaranteed
-                        .insert(effect, vec![compiler.pr.procs[i].span]);
-                }
-            }
-            all.procs.insert(id, summary);
-        }
+        let mut all = contracts::seed(compiler, &valid);
         // Tarjan's pop order is bottom-up for caller -> callee edges.
         let mut ids: Vec<_> = valid.keys().copied().collect();
         ids.sort_by_key(|id| id.0);

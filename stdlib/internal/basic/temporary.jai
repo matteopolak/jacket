@@ -223,7 +223,7 @@ get_temporary_storage_mark :: inline () -> Temporary_Storage_State {
     ts := cast(*Temporary_Storage_Paged_Alloc) context.temporary_storage;
     if !ts return .{};
     return .{ ts.overflow_pages, ts.current_page_bytes_occupied, ts.total_bytes_occupied };
-}
+} @TemporaryStorageMark
 
 // Rewinds temporary storage to `state`, a value from `get_temporary_storage_mark`. Everything allocated since then is gone.
 //
@@ -253,7 +253,7 @@ set_temporary_storage_mark :: inline (state: Temporary_Storage_State, loc := #ca
     ts.current_page_bytes_occupied = state.current_page_bytes_occupied;
     ts.total_bytes_occupied = state.total_bytes_occupied;
     ts.last_set_mark_location = loc;
-}
+} @RestoresTemporaryStorage
 
 // Rewinds temporary storage to where it is now when the enclosing scope ends. Put it at the top of a procedure that makes
 // temporary strings so its callers don't pile them up.
@@ -299,7 +299,7 @@ reset_temporary_storage :: (_ts: *Temporary_Storage) {
 // ```
 reset_temporary_storage :: () {
     reset_temporary_storage(context.temporary_storage);
-}
+} @ResetsTemporaryStorage
 
 #scope_file
 TEMPORARY_ALIGNMENT :: 8;

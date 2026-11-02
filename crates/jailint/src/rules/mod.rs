@@ -269,9 +269,32 @@ pub(crate) fn calls_noted(cx: &Cx, callee: &Expr, name: &str) -> bool {
     };
     // Of an overload set, the one this call chose says what the call means.
     if let Some(chosen) = cx.compiler.ide_resolved_overload(span, &procs) {
-        return has_note(cx, chosen, name);
+        return note_or_inferred_release(cx, chosen, name);
     }
-    !procs.is_empty() && procs.iter().all(|&p| has_note(cx, p, name))
+    !procs.is_empty() && procs.iter().all(|&p| note_or_inferred_release(cx, p, name))
+}
+
+// The remaining defer frontend consumes the same inferred release contract while its
+// source-edit policy remains independent of region solving.
+fn note_or_inferred_release(cx: &Cx, proc: ProcId, note: &str) -> bool {
+    if has_note(cx, proc, note) {
+        return true;
+    }
+    note == "FreesArgument"
+        && cx
+            .run
+            .lifetimes
+            .get_or_init(|| lifetime_summary::Summaries::build(cx.compiler))
+            .procs
+            .get(&proc)
+            .is_some_and(|s| {
+                s.guaranteed.keys().any(|e| {
+                    e.kind == lifetime_summary::Kind::Free
+                        && e.guard.is_none()
+                        && e.target.root == lifetime_summary::Root::Parameter(0)
+                        && e.target.steps.is_empty()
+                })
+            })
 }
 
 /// Some statement inside `stmt` (itself included, nested procedures not entered) satisfies `f`.

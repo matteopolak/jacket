@@ -1,0 +1,262 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[use_after_free]: `q` is used after the call above freed it
+  --> tests/lint/pointer_lifetime/resources/bad.jai:17:18
+   |
+14 |     p := New(int);
+   |          -------- storage derived here
+   ...
+16 |     release_inferred(p);
+   |     ------------------- storage invalidated here
+17 |     print("%\n", q.*);
+   |                  ^
+   |
+   = help: free it after its last use, or give it a new value before using it again
+
+warning[use_after_free]: `p` is used after the call above freed it; every path passes one of these 2 invalidating calls
+  --> tests/lint/pointer_lifetime/resources/bad.jai:24:18
+   |
+21 |     p := New(int);
+   |          -------- storage derived here
+22 |     if flag free(p);
+   |             ------- storage invalidated here
+23 |     else free(p);
+   |          ------- storage invalidated here
+24 |     print("%\n", p.*);
+   |                  ^
+   |
+   = help: free it after its last use, or give it a new value before using it again
+
+warning[use_after_free]: this returns storage released by deferred cleanup
+  --> tests/lint/pointer_lifetime/resources/bad.jai:30:12
+   |
+28 |     p := New(int);
+   |          -------- storage derived here
+29 |     defer free(p);
+   |           ------- storage invalidated here
+30 |     return p;
+   |            ^
+   |
+   = help: transfer ownership to the caller, or return a copy made outside the released storage
+
+warning[use_after_free]: `text` is used after the call above freed it
+  --> tests/lint/pointer_lifetime/resources/bad.jai:36:18
+   |
+34 |     text := tprint("temporary");
+   |             ------------------- storage derived here
+35 |     reset_temporary_storage();
+   |     ------------------------- storage invalidated here
+36 |     print("%\n", text);
+   |                  ^^^^
+   |
+   = help: free it after its last use, or give it a new value before using it again
+
+warning[use_after_free]: `text` is used after the call above freed it
+  --> tests/lint/pointer_lifetime/resources/bad.jai:43:18
+   |
+41 |     text := tprint("after mark");
+   |             -------------------- storage derived here
+42 |     set_temporary_storage_mark(mark);
+   |     -------------------------------- storage invalidated here
+43 |     print("%\n", text);
+   |                  ^^^^
+   |
+   = help: free it after its last use, or give it a new value before using it again
+
+warning[use_after_free]: this returns storage released by deferred cleanup
+   --> tests/lint/pointer_lifetime/resources/bad.jai:48:12
+    |
+ 48 |     return tprint("released by defer");
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |            --------------------------- storage derived here
+    |
+   ::: [repo]/stdlib/internal/basic/temporary.jai:271:12
+    |
+271 |     `defer set_temporary_storage_mark(mark, loc);
+    |            ------------------------------------- storage invalidated here
+    |
+    = help: transfer ownership to the caller, or return a copy made outside the released storage
+
+warning[use_after_free]: `handle` is used after the call above freed it
+  --> tests/lint/pointer_lifetime/resources/bad.jai:54:18
+   |
+53 |     close_handle(handle);
+   |     -------------------- storage derived here
+   |     -------------------- storage invalidated here
+54 |     print("%\n", handle);
+   |                  ^^^^^^
+   |
+   = help: free it after its last use, or give it a new value before using it again
+
+warning[double_free]: `handle` is freed a second time
+  --> tests/lint/pointer_lifetime/resources/bad.jai:60:5
+   |
+59 |     close_handle(handle);
+   |     -------------------- storage derived here
+   |     -------------------- storage invalidated here
+60 |     close_handle(handle);
+   |     ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: remove the second call, or assign `handle` a new value in between
+
+warning[double_free]: `q` is freed a second time
+  --> tests/lint/pointer_lifetime/resources/bad.jai:67:5
+   |
+64 |     p := New(int);
+   |          -------- storage derived here
+   ...
+66 |     free(p);
+   |     ------- storage invalidated here
+67 |     free(q);
+   |     ^^^^^^^
+   |
+help: remove the second call, or assign `q` a new value in between
+   |
+67 -     free(q);
+   |
+
+warning[returned_local_address]: this pointer refers to stack storage whose lifetime has ended
+  --> tests/lint/pointer_lifetime/resources/bad.jai:78:18
+   |
+73 |     {
+   |     - storage invalidated here
+   ...
+75 |         p = *value;
+   |             ------ storage derived here
+   ...
+78 |     print("%\n", p.*);
+   |                  ^
+   |
+   = help: keep the value in the enclosing scope, or copy it into caller-owned storage
+
+warning[returned_local_address]: the address of the local `it` escapes into storage that outlives it
+  --> tests/lint/pointer_lifetime/resources/bad.jai:83:26
+   |
+83 |     for values escaped = *it;
+   |                          ^^^
+   |                          --- stack storage borrowed here
+   |
+   = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
+
+warning[returned_local_address]: this returns the address of the local `value`, which is gone once the procedure returns
+   --> tests/lint/pointer_lifetime/resources/bad.jai:92:12
+    |
+ 88 |     return *value;
+    |            ------ stack storage borrowed here
+    ...
+ 92 |     return macro_pointer();
+    |            ^^^^^^^^^^^^^^^
+    |
+    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
+
+warning[returned_local_address]: the address of the local `value` escapes into storage that outlives it
+   --> tests/lint/pointer_lifetime/resources/bad.jai:97:17
+    |
+ 97 |     saved_any = value;
+    |                 ^^^^^
+    |                 ----- stack storage borrowed here
+    |
+    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
+
+warning[returned_local_address]: this pointer refers to stack storage whose lifetime has ended
+   --> tests/lint/pointer_lifetime/resources/bad.jai:102:18
+    |
+101 |     local: Any = get_number();
+    |     ------------------------- storage invalidated here
+    |                  ------------ storage derived here
+102 |     print("%\n", local);
+    |                  ^^^^^
+    |
+    = help: keep the value in the enclosing scope, or copy it into caller-owned storage
+
+warning[returned_local_address]: this returns the address of the local `value`, which is gone once the procedure returns
+   --> tests/lint/pointer_lifetime/resources/bad.jai:110:12
+    |
+110 |     return *value;
+    |            ^^^^^^
+    |            ------ stack storage borrowed here
+    |
+    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
+
+warning[temp_storage_escape]: `alias` holds temporary storage, which is reset, but it is returned here
+   --> tests/lint/pointer_lifetime/resources/bad.jai:116:12
+    |
+114 |     text := tprint("forwarded");
+    |             ------------------- temporary storage allocated here
+    ...
+116 |     return alias;
+    |            ^^^^^
+    |
+    = help: copy it (`copy_string`), or declare this procedure `@TempAllocates` so its callers know
+
+warning[returned_local_address]: this returns the address of the local `local`, which is gone once the procedure returns
+   --> tests/lint/pointer_lifetime/resources/bad.jai:129:12
+    |
+128 |     holder.value = *local;
+    |                    ------ stack storage borrowed here
+129 |     return holder;
+    |            ^^^^^^
+    |
+    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
+
+warning[returned_local_address]: this returns the address of the local `local`, which is gone once the procedure returns
+   --> tests/lint/pointer_lifetime/resources/bad.jai:140:12
+    |
+139 |     holder.value = local;
+    |                    ----- stack storage borrowed here
+140 |     return holder;
+    |            ^^^^^^
+    |
+    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
+
+warning[use_after_free]: `alias` is used after the call above freed it
+   --> tests/lint/pointer_lifetime/resources/bad.jai:153:18
+    |
+149 |     holder.value = New(int);
+    |                    -------- storage derived here
+    ...
+152 |     release_field(*holder);
+    |     ---------------------- storage invalidated here
+153 |     print("%\n", alias.*);
+    |                  ^^^^^
+    |
+    = help: free it after its last use, or give it a new value before using it again
+
+warning[returned_local_address]: this returns the address of the local `value`, which is gone once the procedure returns
+   --> tests/lint/pointer_lifetime/resources/bad.jai:157:12
+    |
+157 |     return value;
+    |            ^^^^^
+    |            ----- stack storage borrowed here
+    |
+    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
+
+warning[double_free]: this call frees storage that was already released
+   --> tests/lint/pointer_lifetime/resources/bad.jai:164:5
+    |
+162 |     holder.value = New(int);
+    |                    -------- storage derived here
+163 |     release_field(*holder);
+    |     ---------------------- storage invalidated here
+164 |     release_field(*holder);
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: remove the second call, or initialize the released field with a new allocation first
+
+warning[use_after_free]: `pointer` is used after the call above freed it
+   --> tests/lint/pointer_lifetime/resources/bad.jai:169:5
+    |
+168 |     pointer := New(int);
+    |                -------- storage derived here
+169 |     free_and_read(pointer);
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: [repo]/tests/lint/pointer_lifetime/resources/macros.jai:4:5
+    |
+  4 |     free(pointer);
+    |     ------------- storage invalidated here
+  5 |     print("%\n", pointer.*);
+    |                  ------- expanded code uses the storage here
+    |
+    = help: free it after its last use, or give it a new value before using it again

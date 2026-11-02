@@ -4,6 +4,11 @@ source: crates/jailint/tests/rules.rs
 error[double_free]: `node` is freed a second time
   --> tests/lint/double_free/bad.jai:11:5
    |
+ 8 |     node := New(Node);
+   |             --------- storage derived here
+   ...
+10 |     free(node);
+   |     ---------- storage invalidated here
 11 |     free(node);
    |     ^^^^^^^^^^
    |
@@ -16,6 +21,11 @@ help: remove the second call, or assign `node` a new value in between
 error[double_free]: `text` is freed a second time
   --> tests/lint/double_free/bad.jai:17:5
    |
+13 |     text := copy_string("hello");
+   |             -------------------- storage derived here
+   ...
+16 |     free(text);
+   |     ---------- storage invalidated here
 17 |     free(text);
    |     ^^^^^^^^^^
    |
@@ -28,6 +38,11 @@ help: remove the second call, or assign `text` a new value in between
 error[double_free]: `items` is freed a second time
   --> tests/lint/double_free/bad.jai:22:5
    |
+19 |     items := array_copy(int.[1, 2, 3]);
+   |              ------------------------- storage derived here
+   ...
+21 |     array_free(items);
+   |     ----------------- storage invalidated here
 22 |     array_free(items);
    |     ^^^^^^^^^^^^^^^^^
    |

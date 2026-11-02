@@ -4,6 +4,9 @@ source: crates/jailint/tests/rules.rs
 error[use_after_free]: `holder` is used after the call above freed it
   --> tests/lint/use_after_free/bad.jai:23:22
    |
+22 |     release_holder(holder);
+   |     ---------------------- storage derived here
+   |     ---------------------- storage invalidated here
 23 |     print("was %\n", holder.name);
    |                      ^^^^^^
    |
@@ -13,6 +16,9 @@ error[use_after_free]: `holder` is used after the call above freed it
 error[use_after_free]: `node` is used after the call above freed it
   --> tests/lint/use_after_free/bad.jai:31:34
    |
+30 |     free(node);
+   |     ---------- storage invalidated here
+   |          ---- storage derived here
 31 |     print("freed node held %\n", node.value);
    |                                  ^^^^
    |
@@ -22,6 +28,11 @@ error[use_after_free]: `node` is used after the call above freed it
 error[use_after_free]: `text` is used after the call above freed it
   --> tests/lint/use_after_free/bad.jai:36:18
    |
+33 |     text := copy_string("hello");
+   |             -------------------- storage derived here
+   ...
+35 |     free(text);
+   |     ---------- storage invalidated here
 36 |     print("%\n", text);
    |                  ^^^^
    |
@@ -31,6 +42,11 @@ error[use_after_free]: `text` is used after the call above freed it
 error[use_after_free]: `other` is used after the call above freed it
   --> tests/lint/use_after_free/bad.jai:41:12
    |
+38 |     other := New(Node);
+   |              --------- storage derived here
+   ...
+40 |     free(other);
+   |     ----------- storage invalidated here
 41 |     report(other);
    |            ^^^^^
    |
