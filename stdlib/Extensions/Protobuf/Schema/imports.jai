@@ -25,9 +25,10 @@ proto_import_path :: (s: *proto_Schema, from: string, name: string) -> string {
     array_add(*candidates, proto_schema_format("%/%", directory, name));
     for split(s.options.import_paths, ";") if it.count array_add(*candidates, proto_schema_format("%/%", it, name));
 
+    // An absolute path is not proof the file exists: on Windows it never checks.
     for candidates {
         path, ok := get_absolute_path(it);
-        if ok return path;
+        if ok && file_exists(path) return path;
     }
 
     return "";
