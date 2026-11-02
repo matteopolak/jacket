@@ -1,7 +1,7 @@
 //! Guide input loading and link resolution.
 use super::super::markdown::{self, Segment, Settings, esc};
 use super::super::site::Site;
-use super::{Content, DocSegment, GuideLink, NavLink, PageView, Sidebar, SiteView};
+use super::{Content, DocSegment, GuideLink, NavLink, PageHead, PageView, Sidebar, SiteView};
 use jacket_config::schema::DocPage;
 use std::path::Path;
 
@@ -68,7 +68,7 @@ pub fn pages(
         .collect();
     shared.guides.clone_from(&cards);
     shared.guides_index = Some(PageView {
-        head_html: String::new(),
+        head: PageHead::default(),
         not_found: false,
         title: site.title(&site.pages_title),
         description: format!("{} for {}.", site.pages_title, site.name),
@@ -147,7 +147,7 @@ pub fn pages(
             })
             .unwrap_or_else(|| page.summary.clone());
         out.push(PageView {
-            head_html: String::new(),
+            head: PageHead::default(),
             not_found: false,
             title: site.title(&page.name),
             description,

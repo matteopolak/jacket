@@ -72,22 +72,30 @@ fn metadata_covers_every_page_kind_and_version() {
         metadata.apply(page);
         assert!(titles.insert(page.title.clone()));
         assert_eq!(page.description, "Some & text");
-        // A 404 is served at many URLs, so it has no canonical one.
+        // A 404 is served at many URLs, so neither URL identifies it.
+        assert_eq!(page.head.canonical.is_empty(), page.not_found);
+        assert_eq!(page.head.url.is_empty(), page.not_found);
+        if !page.not_found {
+            assert_eq!(page.head.url, metadata.url(&page.path, false));
+            assert_eq!(page.head.canonical, metadata.url(&page.path, true));
+        }
         assert_eq!(
-            page.head_html.contains("rel=\"canonical\""),
-            !page.not_found
+            page.head.og_type,
+            if page.path.is_empty() {
+                "website"
+            } else {
+                "article"
+            }
         );
-        assert!(
-            page.head_html
-                .contains(&format!("content=\"{}\"", esc(&page.title)))
+        assert_eq!(page.head.image, metadata.image);
+        assert_eq!(page.head.twitter_card, "summary_large_image");
+        assert_eq!(page.head.noindex, page.not_found);
+        assert_eq!(
+            page.head.json_ld.is_empty(),
+            !matches!(page.content, Content::Module { .. } | Content::Item { .. })
         );
-        assert!(page.head_html.contains("og:description"));
-        assert!(page.head_html.contains("og:url"));
-        assert!(page.head_html.contains("og:image"));
-        assert!(page.head_html.contains("summary_large_image"));
-        if let Some((_, tail)) = page.head_html.split_once("application/ld+json\">") {
-            let json = tail.split_once("</script>").unwrap().0;
-            let data: serde_json::Value = serde_json::from_str(json).unwrap();
+        if !page.head.json_ld.is_empty() {
+            let data: serde_json::Value = serde_json::from_str(&page.head.json_ld).unwrap();
             let (Content::Module {
                 crumbs, ..
             }
@@ -113,12 +121,11 @@ fn metadata_covers_every_page_kind_and_version() {
     }
     metadata.canonical_version = Some("2".into());
     metadata.apply(&mut pages[0]);
-    assert!(
-        pages[0]
-            .head_html
-            .contains("https://example.com/docs/versions/2/")
+    assert_eq!(
+        pages[0].head.canonical,
+        "https://example.com/docs/versions/2/"
     );
-    assert!(pages[0].head_html.contains("content=\"noindex\""));
+    assert!(pages[0].head.noindex);
     metadata.base = "/docs/versions/1/".into();
     assert_eq!(
         metadata.url("api/String/index.html", true),
@@ -127,10 +134,11 @@ fn metadata_covers_every_page_kind_and_version() {
     metadata.origin.clear();
     metadata.image.clear();
     metadata.apply(&mut pages[0]);
-    assert!(!pages[0].head_html.contains("rel=\"canonical\""));
-    assert!(!pages[0].head_html.contains("og:url"));
+    assert!(pages[0].head.canonical.is_empty());
+    assert!(pages[0].head.url.is_empty());
+    assert!(pages[0].head.image.is_empty());
     assert!(metadata.files(&[], None).is_empty());
-    assert!(pages[0].head_html.contains("content=\"summary\""));
+    assert_eq!(pages[0].head.twitter_card, "summary");
 }
 
 #[test]
@@ -178,15 +186,9 @@ fn publication_origins_and_json_are_safe() {
     let mut page = view::module(&site(), 0).items.remove(0);
     page.title = "</script>\"&".into();
     metadata().apply(&mut page);
-    let json = page
-        .head_html
-        .split_once("application/ld+json\">")
-        .unwrap()
-        .1
-        .split_once("</script>")
-        .unwrap()
-        .0;
+    let json = &page.head.json_ld;
     assert!(!json.contains("</"));
+    assert!(json.contains("<\\/script>"));
     let data: serde_json::Value = serde_json::from_str(json).unwrap();
     assert_eq!(data[0]["headline"], page.title);
 }

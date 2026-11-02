@@ -33,7 +33,7 @@ Every page is `<path>/index.html` and every link ends in `/`, so a plain static 
 | `<pages_title>/<page>/index.html` | the `[[doc.page]]` pages (`tools/` for the stdlib) |
 | `examples/<id>.json` | the parts of each example's program, for Run and the playground link |
 | `runtime/`, `runtime.json` | the browser compiler (`--runtime`) and where pages look for it |
-| `assets/` | `site.css`, `site.js`, `sidebar.js`, `run-worker.js`, `icons.svg` (the icon sprite), `categories.css`, `favicon.svg`, the logo, the social image |
+| `assets/` | `site.css`, `site.js`, `sidebar.js`, `run-worker.js`, `icons.svg` (the icon sprite), `categories.css`, `favicon.svg`, the logo, the social image. Pages link the CSS, scripts and sprite with `?v=<content hash>`, so they can be cached for a long time |
 | `404.html` | search and the module list; links are absolute from `--base-url`, so it works at any depth |
 | `sitemap.xml`, `robots.txt` | with `[doc] url` only; past 50,000 URLs or 50 MB, `sitemap.xml` is an index of `sitemap-1.xml`, … |
 
@@ -99,7 +99,9 @@ The standard library's `[doc]` sits in the root `jacket.toml`: categories "Stand
 
 ## Page metadata
 
-Every page gets a title made from `[doc] name` and `breadcrumb` (`String.trim — Jacket std`, `String — Jacket std`; the index is the name alone), a description from the summary (plain text, at most 155 characters), `lang`, `theme-color` for both schemes, a favicon, Open Graph and Twitter tags. Item pages carry `TechArticle` JSON-LD, and pages with a breadcrumb a `BreadcrumbList`. Without `[doc] url` there is no canonical, `og:url`, sitemap or `robots.txt`, and `jacket doc` warns once.
+Every page gets a title made from `[doc] name` and `breadcrumb` (`String.trim — Jacket std`, `String — Jacket std`; the index is the name alone), a description from the summary (plain text, at most 155 characters), `lang`, `theme-color` for both schemes, a favicon, Open Graph and Twitter tags. Item pages carry `TechArticle` JSON-LD, and pages with a breadcrumb a `BreadcrumbList`. Without `[doc] url` there is no canonical, `og:url`, sitemap or `robots.txt`, and `jacket doc` warns once. A page with an empty description gets no description tags, and `404.html` has no canonical or `og:url`.
+
+Rust works out these facts (`metadata.rs`, into each page's `head` in the view) and `HeadMeta` in `shell.jai` writes the tags, leaving out any that are empty.
 
 Versions: the current release lives at `<url><base>`, older ones at `<url><base>versions/<version>/` (built with that as `--base-url`). With `canonical_version` set and different from `--version`, each page's canonical points at the same path under that version, and the page is `noindex`.
 
@@ -141,7 +143,7 @@ CI runs `jacket doc --check` when the stdlib, the compiler or the docs change, s
 - **A fact the compiler should supply:** `model.rs` in `doc_comments/` and the JSON it prints, then `doc/model.rs`.
 - **Layout and colours:** `doc/site/assets/site.css` (colours are custom properties at the top, with a dark set; run `test_doc_palette.py` after changing one). Behaviour: `doc/site/assets/site.js`, which only adds to pages that read fine without it.
 - **Markup** is the Jai theme: `shell.jai` (head, header, footer, the layout), `sidebars.jai`, `index.jai`, `module.jai`, `item.jai`, `guides.jai`, `examples.jai`, `parts.jai` (badges, crumbs, Source links). A new value on a page goes in `view.rs`, `view/build.rs` and `contract.jai` together. Markup tests are in `site/tests/suite.jai` with JSON fixtures; `cargo test -p jacket doc::` runs them (they need a built `jaic` beside `jacket`, and are skipped otherwise), and so does `jacket test --path crates/jacket/src/doc/site`.
-- **Your own theme:** `[doc] theme = "folder"` (or `--theme`). Each file there replaces the built-in file at the same path, and new files are added, so overriding `assets/site.css` or `item.jai` is enough. A compile error in an override is printed as jaic reports it. `jacket doc --emit-input in/` writes the view, so you can see what a template gets. Compare two builds with `python3 tools/dev/doc_diff.py OLD NEW`.
+- **Your own theme:** `[doc] theme = "folder"` (or `--theme`). Each file there replaces the built-in file at the same path, and new files are added (hidden files such as `.DS_Store` are skipped), so overriding `assets/site.css` or `item.jai` is enough. A compile error in an override is printed as jaic reports it. `jacket doc --emit-input in/` writes the view, so you can see what a template gets. Compare two builds with `python3 tools/dev/doc_diff.py OLD NEW`.
 - **Module page grouping** is by declaring file (`bytes.jai` is "Bytes"). Words with their own casing go in `WORDS` in `model.rs`.
 - **Source links** need `repo`. They go to the commit `jacket doc` was built from when the library is in a git checkout (a file with uncommitted changes gets none); `--source-ref` overrides. Outside a checkout and without `--source-ref` there are no Source links.
 - **Versions menu:** `versions.json` lists one version; a site hosting several replaces it with one entry each.

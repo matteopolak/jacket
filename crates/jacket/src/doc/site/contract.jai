@@ -4,6 +4,7 @@
 Site_View :: struct {
     format: u32;
     name: string;
+    site_name: string;
     base: string;
     version: string;
     logo: *Logo;
@@ -20,6 +21,7 @@ Site_View :: struct {
     script_url: string; @json(default)
     categories_url: string; @json(default)
     sidebar_url: string; @json(default)
+    icons_url: string; @json(default)
     footer_version: string;
     module_files: [] string;
     guide_files: [] string;
@@ -62,9 +64,19 @@ Module_View :: struct {
     nav: [][] Nav_Link;
 }
 
+Page_Head :: struct {
+    url: string;
+    canonical: string;
+    og_type: string;
+    image: string;
+    twitter_card: string;
+    noindex: bool;
+    json_ld: string;
+}
+
 Page_View :: struct {
     title: string;
-    head_html: string; @json(default)
+    head: Page_Head;
     not_found: bool; @json(default)
     description: string;
     path: string;

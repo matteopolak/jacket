@@ -92,7 +92,7 @@ main :: () {
     }
     site := read_view(Site_View, tprint("%/site.json", args[1]));
     defer free_json(*site);
-    if site.format != 2 {
+    if site.format != 3 {
         print("unsupported site format %\n", site.format);
         exit(2);
     }
@@ -118,6 +118,7 @@ main :: () {
         write_file(*w, path, data);
         if path == "assets/site.css" site.css_url = copy_string(tprint("%assets/site.css?v=%", site.base, content_stamp(data)));
         if path == "assets/site.js" site.script_url = copy_string(tprint("%assets/site.js?v=%", site.base, content_stamp(data)));
+        if path == "assets/icons.svg" site.icons_url = copy_string(tprint("%assets/icons.svg?v=%", site.base, content_stamp(data)));
         if path == "assets/sidebar.js" site.sidebar_url = copy_string(tprint("%assets/sidebar.js?v=%", site.base, content_stamp(data)));
     }
     category_out: Out;

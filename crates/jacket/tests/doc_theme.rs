@@ -31,7 +31,7 @@ mod doc {
             return;
         };
         let output = Command::new(jacket)
-            .args(["test", "-j", "3", "--path"])
+            .args(["test", "-j", "2", "--path"])
             .arg(repo().join("crates/jacket/src/doc/site"))
             .env("JAIC_STDLIB", repo().join("stdlib"))
             .output()
@@ -118,6 +118,14 @@ mod doc {
         assert!(module.contains("href=\"/api/Tiny/answer/\""));
         let item = std::fs::read_to_string(temp.join("site/api/Tiny/answer/index.html")).unwrap();
         assert!(item.contains("The answer."));
+        let icons = std::fs::read(temp.join("site/assets/icons.svg")).unwrap();
+        let stamp = icons.iter().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
+            (hash ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3)
+        }) >> 32;
+        for icon in ["search", "system"] {
+            assert!(item.contains(&format!("href=\"/assets/icons.svg?v={stamp:08x}#{icon}\"")));
+        }
+        assert!(!item.contains("assets/icons.svg#"));
         assert!(run(&["--check"]).status.success());
         temp.write("theme/assets/site.css", "body{color:green}");
         temp.write("theme/assets/extra.txt", "extra");
@@ -245,11 +253,11 @@ mod doc {
                     "og:description",
                     "og:site_name",
                     "og:type",
-                    "og:url",
                     "og:image",
                 ] {
                     assert!(head.contains(property), "{path}: {property}");
                 }
+                assert_eq!(head.contains("og:url"), path != "404.html");
                 assert!(head.contains("summary_large_image"));
                 assert!(head.contains("rel=\"icon\""));
                 assert_eq!(

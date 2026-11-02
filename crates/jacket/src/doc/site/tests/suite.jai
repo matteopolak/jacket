@@ -188,3 +188,57 @@ sidebar_windows_and_toc :: () {
     expect(contains(to_string(*out), "class=\"extra\""));
     expect(contains(to_string(*out), "Show all 6"));
 } @test
+
+head_metadata_escapes_attributes_and_preserves_json :: () {
+    site := fixture(Site_View, "site");
+    view := fixture(Page_View, "head");
+    defer {
+        free_json(*site);
+        free_json(*view);
+    }
+    out: Out;
+    defer deinit(*out);
+    HeadMeta(*out, *site, *view);
+    text := to_string(*out);
+    expect(contains(text, "<meta name=\"description\" content=\"A &lt;description&gt; &amp; &quot;quote&quot;\">"));
+    expect(contains(text, "<meta property=\"og:title\" content=\"&lt;/script&gt;&quot;&amp;\">"));
+    expect(contains(text, "<meta property=\"og:description\" content=\"A &lt;description&gt; &amp; &quot;quote&quot;\">"));
+    expect(contains(text, "<meta property=\"og:site_name\" content=\"fixture &amp; &quot;docs&quot;\">"));
+    expect(contains(text, "<meta property=\"og:type\" content=\"article&quot;&amp;\">"));
+    expect(contains(text, "<meta property=\"og:url\" content=\"https://example.com/?a=1&amp;b=&quot;url&quot;\">"));
+    expect(contains(text, "<meta property=\"og:image\" content=\"https://example.com/image?x=&quot;&amp;\">"));
+    expect(contains(text, "<meta name=\"twitter:card\" content=\"summary_large_image&quot;&amp;\">"));
+    expect(contains(text, "<link rel=\"canonical\" href=\"https://example.com/?a=1&amp;b=&quot;canonical&quot;\">"));
+    expect(contains(text, "<meta name=\"robots\" content=\"noindex\">"));
+    expect(contains(text, tprint("<script type=\"application/ld+json\">%</script>", view.head.json_ld)));
+    expect(contains(text, "<\\/script>"));
+    // The shell actually dispatches through HeadMeta too.
+    page := render(*site, *view);
+    defer free(page);
+    expect(contains(page, text));
+} @test
+
+head_metadata_omits_unset_values :: () {
+    site: Site_View;
+    view: Page_View;
+    out: Out;
+    defer deinit(*out);
+    HeadMeta(*out, *site, *view);
+    expect_equal(to_string(*out), "");
+    view.head.twitter_card = "summary";
+    HeadMeta(*out, *site, *view);
+    expect_equal(to_string(*out), "<meta name=\"twitter:card\" content=\"summary\">");
+} @test
+
+icons_put_the_fragment_after_the_stamp :: () {
+    site := fixture(Site_View, "site");
+    defer free_json(*site);
+    site.icons_url = copy_string("/assets/icons.svg?v=12345678");
+    site.repo = copy_string("https://example.com");
+    page := render(*site, *site.index);
+    defer free(page);
+    for name: string.["search", "system", "chevron", "repo"] {
+        expect(contains(page, tprint("href=\"/assets/icons.svg?v=12345678#%\"", name)));
+    }
+    expect(!contains(page, "assets/icons.svg#"));
+} @test

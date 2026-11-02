@@ -5,8 +5,8 @@ use super::super::model::{Item, Kind, Module, Overload, TypeRef};
 use super::super::site::{Site, item_line, signature_html, signature_line_html};
 use super::{
     Badge, Card, CardCategory, CardGroup, Category, Content, Crumb, Definition, DocSegment, Link,
-    Logo, ModuleView, NavCategory, NavGroup, NavLink, Outline, OutlineItem, OverloadView, PageView,
-    Row, RowGroup, Section, Sidebar, SiteView, Title,
+    Logo, ModuleView, NavCategory, NavGroup, NavLink, Outline, OutlineItem, OverloadView, PageHead,
+    PageView, Row, RowGroup, Section, Sidebar, SiteView, Title,
 };
 
 pub(super) fn blocks(site: &Site, md: &str, from: &str) -> Vec<Segment> {
@@ -177,8 +177,9 @@ pub fn site(site: &Site) -> SiteView {
         });
     }
     SiteView {
-        format: 2,
+        format: 3,
         name: site.name.clone(),
+        site_name: site.name.clone(),
         base: site.base.clone(),
         version: site.version.clone(),
         logo: site.logo.as_ref().map(|file| Logo {
@@ -213,7 +214,7 @@ pub fn site(site: &Site) -> SiteView {
         guides_index: None,
         not_found: None,
         index: PageView {
-            head_html: String::new(),
+            head: PageHead::default(),
             not_found: false,
             title: site.name.clone(),
             description: site.description.clone(),
@@ -636,7 +637,7 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
     ModuleView {
         id: m.id.clone(),
         page: PageView {
-            head_html: String::new(),
+            head: PageHead::default(),
             not_found: false,
             title: site.title(&m.id.replace('/', ".")),
             description,
@@ -874,7 +875,7 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
         "Constants".into()
     };
     PageView {
-        head_html: String::new(),
+        head: PageHead::default(),
         not_found: false,
         title: site.title(&format!("{}.{}", m.id.replace('/', "."), item.name)),
         description: summary_html.clone(),

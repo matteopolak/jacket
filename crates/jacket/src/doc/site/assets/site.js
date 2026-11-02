@@ -17,7 +17,7 @@
     themeButton.setAttribute('aria-label', text);
     themeButton.title = text;
     var icon = document.querySelector('#theme-icon use');
-    if (icon) icon.setAttribute('href', base + 'assets/icons.svg#' + theme());
+    if (icon) icon.setAttribute('href', icon.getAttribute('href').split('#')[0] + '#' + theme());
   }
   if (themeButton) {
     labelTheme();

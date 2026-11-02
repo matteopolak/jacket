@@ -235,11 +235,12 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
             "not_found",
             "repo",
             "resolve_links",
+            "site_name",
             "version",
             "written_files"
         ]
     );
-    assert_eq!(shared["format"], 2);
+    assert_eq!(shared["format"], 3);
     assert_eq!(shared["index"]["content"]["kind"], "index");
     assert_eq!(shared["index"]["sidebar"]["kind"], "modules");
     let bundle = serde_json::to_value(module(&site, 0)).unwrap();

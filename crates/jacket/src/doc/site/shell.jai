@@ -17,8 +17,7 @@ Layout :: (out: *Out, page: *Page($C)) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(page.view.title)}</title>
-<meta name="description" content="{esc(page.view.description)}">
-{cast(Html) page.view.head_html}
+{HeadMeta(page.site, page.view)}
 <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b1b1f" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
@@ -43,18 +42,33 @@ HTML
     );
 }
 
+// Rust resolves publication facts; the theme owns their HTML and attribute escaping.
+HeadMeta :: (out: *Out, site: *Site_View, view: *Page_View) {
+    html(out, "{if view.description.count}<meta name=\"description\" content=\"{esc(view.description)}\">\n{end}");
+    html(out, "{if view.title.count}<meta property=\"og:title\" content=\"{esc(view.title)}\">{end}");
+    html(out, "{if view.description.count}<meta property=\"og:description\" content=\"{esc(view.description)}\">{end}");
+    html(out, "{if site.site_name.count}<meta property=\"og:site_name\" content=\"{esc(site.site_name)}\">{end}");
+    html(out, "{if view.head.og_type.count}<meta property=\"og:type\" content=\"{esc(view.head.og_type)}\">{end}");
+    html(out, "{if view.head.url.count}<meta property=\"og:url\" content=\"{esc(view.head.url)}\">{end}");
+    html(out, "{if view.head.image.count}<meta property=\"og:image\" content=\"{esc(view.head.image)}\">{end}");
+    html(out, "{if view.head.twitter_card.count}<meta name=\"twitter:card\" content=\"{esc(view.head.twitter_card)}\">{end}");
+    html(out, "{if view.head.canonical.count}<link rel=\"canonical\" href=\"{esc(view.head.canonical)}\">{end}");
+    html(out, "{if view.head.noindex}<meta name=\"robots\" content=\"noindex\">{end}");
+    html(out, "{if view.head.json_ld.count}<script type=\"application/ld+json\">{cast(Html) view.head.json_ld}</script>{end}");
+}
+
 Header :: (out: *Out, site: *Site_View, path: string = "") {
     html(out, #run trim(#string HTML
 <header class="top"><div class="top-in">
 <a class="logo" href="{cast(Html) site.base}" aria-label="{esc(site.name)} API documentation">{LogoImage(site)}<span class="wordmark">{esc(site.name)}</span></a>
 <div class="search-wrap js-only">
 <label class="sr" for="q">Search the docs</label>
-<div class="search"><svg aria-hidden="true" width="16" height="16"><use href="{cast(Html) site.base}assets/icons.svg#search"/></svg><input id="q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list"><kbd>/</kbd></div>
+<div class="search"><svg aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#search"/></svg><input id="q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list"><kbd>/</kbd></div>
 <div id="results" aria-live="polite" role="listbox" aria-label="Search results" hidden></div>
 </div>
 <nav class="site-nav" aria-label="Site">
 <a href="{cast(Html) site.base}"{if path.count == 0} aria-current="page"{end}>API</a>{HeaderLinks(site)}
-{Version(site)}<button type="button" id="theme" class="icon-btn js-only" aria-label="Theme: system (click to change)" title="Theme: system (click to change)"><svg id="theme-icon" aria-hidden="true" width="16" height="16"><use href="{cast(Html) site.base}assets/icons.svg#system"/></svg></button>
+{Version(site)}<button type="button" id="theme" class="icon-btn js-only" aria-label="Theme: system (click to change)" title="Theme: system (click to change)"><svg id="theme-icon" aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#system"/></svg></button>
 {Repository(site)}</nav>
 </div></header>
 HTML
@@ -75,14 +89,14 @@ HeaderLinks :: (out: *Out, site: *Site_View) {
 
 Version :: (out: *Out, site: *Site_View) {
     html(out, #run trim(#string HTML
-{if site.version.count}<div class="ver"><button type="button" id="ver" aria-haspopup="menu" aria-expanded="false" aria-controls="ver-menu" disabled>{esc(site.version)}<svg aria-hidden="true" width="12" height="12"><use href="{cast(Html) site.base}assets/icons.svg#chevron"/></svg></button><div id="ver-menu" class="ver-menu" role="menu" hidden></div></div>
+{if site.version.count}<div class="ver"><button type="button" id="ver" aria-haspopup="menu" aria-expanded="false" aria-controls="ver-menu" disabled>{esc(site.version)}<svg aria-hidden="true" width="12" height="12"><use href="{esc(site.icons_url)}#chevron"/></svg></button><div id="ver-menu" class="ver-menu" role="menu" hidden></div></div>
 {end}
 HTML
     ));
 }
 
 Repository :: (out: *Out, site: *Site_View) {
-    html(out, "{if site.repo.count}<a class=\"icon-btn\" href=\"{esc(site.repo)}\" aria-label=\"Repository\" title=\"Repository\"><svg aria-hidden=\"true\" width=\"16\" height=\"16\" fill=\"currentColor\"><use href=\"{cast(Html) site.base}assets/icons.svg#repo\"/></svg></a>\n{end}");
+    html(out, "{if site.repo.count}<a class=\"icon-btn\" href=\"{esc(site.repo)}\" aria-label=\"Repository\" title=\"Repository\"><svg aria-hidden=\"true\" width=\"16\" height=\"16\" fill=\"currentColor\"><use href=\"{esc(site.icons_url)}#repo\"/></svg></a>\n{end}");
 }
 
 Footer :: (out: *Out, site: *Site_View) {

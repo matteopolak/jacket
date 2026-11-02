@@ -80,6 +80,7 @@ pub fn prepare(
         canonical_version: doc.canonical_version.clone(),
     };
     let mut urls = Vec::new();
+    shared.site_name.clone_from(&metadata.name);
     shared.index.title.clone_from(&metadata.name);
     metadata.apply(&mut shared.index);
     urls.push(metadata.url("", false));

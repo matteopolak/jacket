@@ -8,6 +8,7 @@ pub use build::{module, site};
 pub struct SiteView {
     pub format: u32,
     pub name: String,
+    pub site_name: String,
     pub base: String,
     pub version: String,
     pub logo: Option<Logo>,
@@ -67,9 +68,21 @@ pub struct ModuleView {
     pub nav: Vec<Vec<NavLink>>,
 }
 
+/// What `<head>` says about a page beyond its title and description. Empty strings are left out.
+#[derive(Serialize, Default)]
+pub struct PageHead {
+    pub url: String,
+    pub canonical: String,
+    pub og_type: String,
+    pub image: String,
+    pub twitter_card: String,
+    pub noindex: bool,
+    pub json_ld: String,
+}
+
 #[derive(Serialize)]
 pub struct PageView {
-    pub head_html: String,
+    pub head: PageHead,
     pub not_found: bool,
     pub title: String,
     pub description: String,

@@ -83,54 +83,35 @@ impl Metadata {
 
     pub fn apply(&self, page: &mut PageView) {
         page.description = description(&page.description);
-        let url = self.url(&page.path, false);
-        let canonical = self.url(&page.path, true);
-        let mut head = String::new();
-        let mut meta = |key: &str, value: &str| {
-            head.push_str(&format!(
-                "<meta property=\"{key}\" content=\"{}\">",
-                esc(value)
-            ));
+        page.head.url = if page.not_found {
+            String::new()
+        } else {
+            self.url(&page.path, false)
         };
-        meta("og:title", &page.title);
-        meta("og:description", &page.description);
-        meta("og:site_name", &self.name);
-        meta(
-            "og:type",
-            if page.path.is_empty() {
-                "website"
-            } else {
-                "article"
-            },
-        );
-        if !url.is_empty() {
-            meta("og:url", &url);
+        page.head.canonical = if page.not_found {
+            String::new()
+        } else {
+            self.url(&page.path, true)
+        };
+        page.head.og_type = if page.path.is_empty() {
+            "website"
+        } else {
+            "article"
         }
-        if !self.image.is_empty() {
-            meta("og:image", &self.image);
+        .into();
+        page.head.image.clone_from(&self.image);
+        page.head.twitter_card = if self.image.is_empty() {
+            "summary"
+        } else {
+            "summary_large_image"
         }
-        head.push_str(&format!(
-            "<meta name=\"twitter:card\" content=\"{}\">",
-            if self.image.is_empty() {
-                "summary"
-            } else {
-                "summary_large_image"
-            }
-        ));
-        if !canonical.is_empty() && !page.not_found {
-            head.push_str(&format!(
-                "<link rel=\"canonical\" href=\"{}\">",
-                esc(&canonical)
-            ));
-        }
-        if page.not_found
+        .into();
+        page.head.noindex = page.not_found
             || self
                 .canonical_version
                 .as_deref()
-                .is_some_and(|v| v != self.version)
-        {
-            head.push_str("<meta name=\"robots\" content=\"noindex\">");
-        }
+                .is_some_and(|v| v != self.version);
+        let url = &page.head.url;
         let mut data = Vec::new();
         let crumbs = match &page.content {
             Content::Item {
@@ -159,7 +140,7 @@ impl Metadata {
                 .enumerate()
                 .map(|(i, c)| {
                     let href = c.href.as_ref().map_or_else(
-                        || url.clone(),
+                        || url.to_owned(),
                         |h| {
                             if h.starts_with("http://") || h.starts_with("https://") {
                                 h.clone()
@@ -173,12 +154,11 @@ impl Metadata {
                 .collect();
             data.push(json!({"@context":"https://schema.org", "@type":"BreadcrumbList", "itemListElement":entries}));
         }
-        if !data.is_empty() {
-            head.push_str("<script type=\"application/ld+json\">");
-            head.push_str(&serde_json::to_string(&data).unwrap().replace("</", "<\\/"));
-            head.push_str("</script>");
-        }
-        page.head_html = head;
+        page.head.json_ld = if data.is_empty() {
+            String::new()
+        } else {
+            serde_json::to_string(&data).unwrap().replace("</", "<\\/")
+        };
     }
 }
 
