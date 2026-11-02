@@ -14,7 +14,7 @@ pub use self::filesystem::{
 };
 pub(super) use self::loading::FileLoadState;
 pub use self::parameters::ParameterContract;
-use super::scope::{EntityKind, ScopeKind};
+use super::scope::{EntityKind, EntityState, ScopeKind};
 use super::{Compiler, EntityId, ModuleId, PathBuf, Result, ScopeId, Span, ast};
 use crate::paths::normalize;
 use crate::sema::SourceState;
@@ -55,9 +55,18 @@ impl Compiler {
             // an import only once it resolved: one that failed (in a nested call whose caller
             // went on) is tried, and reports its error, again.
             let mut index = self.ns.named_imports_done;
+            // An import whose own arguments are being evaluated (`W :: #import "M"(DIR = #run
+            // f())`, where `f` needs Context) is skipped like an unnamed import that is loading,
+            // and the mark stays before it so a later pass loads it.
+            let mut skipped = None;
             while index < self.ns.entities.len() {
                 let id = EntityId(index as u32);
                 let e = self.entity(id);
+                if matches!(e.state, EntityState::Resolving) {
+                    skipped.get_or_insert(index);
+                    index += 1;
+                    continue;
+                }
                 let required_library = match &e.kind {
                     EntityKind::Decl {
                         decl, ..
@@ -81,7 +90,8 @@ impl Compiler {
                     self.resolve_entity(id)?;
                 }
                 index += 1;
-                self.ns.named_imports_done = self.ns.named_imports_done.max(index);
+                self.ns.named_imports_done =
+                    self.ns.named_imports_done.max(skipped.unwrap_or(index));
             }
             // Deferred items wait until no body is mid-lowering (an outer `expand_all`).
             let lowering = self
