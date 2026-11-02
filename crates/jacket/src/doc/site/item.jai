@@ -29,7 +29,7 @@ HTML
 
 Side :: (out: *Out, page: *Page(Content_Item)) {
     side := get_pointer(*page.view.sidebar, Sidebar_Item);
-    RenderSidebar(out, side, page.module);
+    RenderSidebar(out, side, page.module, page.nav_stamps);
 }
 
 Toc :: (out: *Out, page: *Page(Content_Item)) {

@@ -4,6 +4,7 @@ Page :: struct($C: Type) {
     view: *Page_View;
     content: *C;
     module: *Module_View;
+    nav_stamps: [] string;
 }
 
 EARLY :: "window.fold=function(){var f=document.currentScript.parentElement;if(f.scrollHeight<=(+f.getAttribute('data-fold')||440))f.classList.add('open')};(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('jacket-docs-theme');if(t==='light'||t==='dark')d.setAttribute('data-theme',t)}catch(e){}})()";
@@ -125,7 +126,7 @@ CategoryStyle :: (out: *Out, site: *Site_View) {
     html(out, "{cast(Html) l}{cast(Html) d}");
 }
 
-Render :: (out: *Out, site: *Site_View, view: *Page_View, module: *Module_View = null) {
+Render :: (out: *Out, site: *Site_View, view: *Page_View, module: *Module_View = null, nav_stamps: [] string = .[]) {
     c := *view.content;
     content0 := get_pointer(c, Content_Index);
     content1 := get_pointer(c, Content_Module);
@@ -133,19 +134,19 @@ Render :: (out: *Out, site: *Site_View, view: *Page_View, module: *Module_View =
     content3 := get_pointer(c, Content_GuidesIndex);
     content4 := get_pointer(c, Content_Guide);
     if content0 {
-        page := Page(Content_Index).{ site, view, content0, module };
+        page := Page(Content_Index).{ site, view, content0, module, nav_stamps };
         Layout(out, *page);
     } else if content1 {
-        page := Page(Content_Module).{ site, view, content1, module };
+        page := Page(Content_Module).{ site, view, content1, module, nav_stamps };
         Layout(out, *page);
     } else if content2 {
-        page := Page(Content_Item).{ site, view, content2, module };
+        page := Page(Content_Item).{ site, view, content2, module, nav_stamps };
         Layout(out, *page);
     } else if content3 {
-        page := Page(Content_GuidesIndex).{ site, view, content3, module };
+        page := Page(Content_GuidesIndex).{ site, view, content3, module, nav_stamps };
         Layout(out, *page);
     } else if content4 {
-        page := Page(Content_Guide).{ site, view, content4, module };
+        page := Page(Content_Guide).{ site, view, content4, module, nav_stamps };
         Layout(out, *page);
     }
 }

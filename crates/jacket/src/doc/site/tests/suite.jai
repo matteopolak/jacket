@@ -242,3 +242,102 @@ icons_put_the_fragment_after_the_stamp :: () {
     }
     expect(!contains(page, "assets/icons.svg#"));
 } @test
+
+shared_item_navigation_keeps_a_focused_fallback_window :: () {
+    links: [12] Nav_Link;
+    for *link, n: links {
+        link.href = tprint("/api/Test/item%/", n);
+        link.label = tprint("item%", n);
+    }
+    groups := [] Nav_Link.[links];
+    module: Module_View;
+    module.page.path = "api/Test/index.html";
+    module.nav = groups;
+    writer := writer_init("unused", "/", dry_run = true);
+    defer deinit(*writer);
+    nav_out: Out;
+    defer deinit(*nav_out);
+    stamps := WriteItemNav(*nav_out, *module, *writer);
+    defer {
+        for stamp: stamps free(stamp);
+        free(stamps.data);
+    }
+    side := Sidebar_Item.{ start = 0, end = 12, current = 6 };
+    out: Out;
+    defer deinit(*out);
+    ItemNavList(*out, *side, *module, stamps);
+    expect(contains(to_string(*out), tprint("data-source=\"assets/nav/api/Test/0.html?v=%\"", stamps[0])));
+    expect(contains(to_string(*out), "data-start=\"0\" data-end=\"12\" data-first=\"4\""));
+    reset(*out);
+    ItemNav(*out, *side, *module);
+    text := to_string(*out);
+    expect(!contains(text, ">item3<"));
+    expect(contains(text, ">item4<"));
+    expect(contains(text, "href=\"/api/Test/item6/\" aria-current=\"page\""));
+    expect(contains(text, ">item8<"));
+    expect(!contains(text, ">item9<"));
+    reset(*out);
+    side.current = 0;
+    ItemNav(*out, *side, *module);
+    expect(contains(to_string(*out), ">item2<"));
+    expect(!contains(to_string(*out), ">item3<"));
+    reset(*out);
+    side.start = 9;
+    side.current = 11;
+    ItemNavList(*out, *side, *module, stamps);
+    expect(!contains(to_string(*out), "data-source"));
+    ItemNav(*out, *side, *module);
+    expect(contains(to_string(*out), ">item9<"));
+    expect(contains(to_string(*out), "aria-current=\"page\">item11<"));
+} @test
+
+shared_navigation_urls_track_the_written_bytes :: () {
+    links: [8] Nav_Link;
+    for *link, n: links {
+        link.href = tprint("/api/Test/item%/", n);
+        link.label = tprint("item%", n);
+    }
+    groups := [] Nav_Link.[links, links];
+    module: Module_View;
+    module.page.path = "api/Test/index.html";
+    module.nav = groups;
+    side := Sidebar_Item.{ start = 0, end = 8, current = 4 };
+    writer := writer_init("unused", "/", dry_run = true);
+    changed_writer := writer_init("unused", "/", dry_run = true);
+    defer {
+        deinit(*writer);
+        deinit(*changed_writer);
+    }
+    out: Out;
+    defer deinit(*out);
+    stamps := WriteItemNav(*out, *module, *writer);
+    defer {
+        for stamp: stamps free(stamp);
+        free(stamps.data);
+    }
+    // Independently render the complete shared file, not just the inline window.
+    for link: links NavLink(*out, *link);
+    expect_equal(stamps[0], content_stamp(to_string(*out)));
+    reset(*out);
+    ItemNavList(*out, *side, *module, stamps);
+    before := copy_string(to_string(*out));
+    defer free(before);
+    expect(contains(before, tprint("data-source=\"assets/nav/api/Test/0.html?v=%\"", stamps[0])));
+    reset(*out);
+    changed_links := links;
+    // This row is outside the fallback, but changing it must still change the URL.
+    changed_links[0].label = "renamed";
+    groups[0] = changed_links;
+    changed := WriteItemNav(*out, *module, *changed_writer);
+    defer {
+        for stamp: changed free(stamp);
+        free(changed.data);
+    }
+    expect(stamps[0] != changed[0]);
+    expect_equal(stamps[1], changed[1]);
+    ItemNavList(*out, *side, *module, changed);
+    after := to_string(*out);
+    expect(contains(after, tprint("data-source=\"assets/nav/api/Test/0.html?v=%\"", changed[0])));
+    expect(before != after);
+    expect(writer.errors.count == 0 && changed_writer.errors.count == 0);
+} @test

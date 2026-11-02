@@ -19,12 +19,11 @@ HTML
     ));
 }
 
-RenderSidebar :: (out: *Out, side: *Sidebar_Item, module: *Module_View) {
+RenderSidebar :: (out: *Out, side: *Sidebar_Item, module: *Module_View, nav_stamps: [] string) {
     html(out, #run trim(#string HTML
 <a class="back" href="{esc(side.back.href)}">&larr; {esc(side.back.label)}</a>
 <div class="nav-h">{esc(side.heading)}</div>
-<ul class="nav-list mono">
-{ItemNav(side, module)}</ul>
+{ItemNavList(side, module, nav_stamps)}
 {if side.anchors.count}<div class="nav-h">On this page</div>
 <ul class="nav-list">
 {for a: side.anchors}<li><a href="{esc(a.href)}">{esc(a.label)}</a></li>
@@ -66,9 +65,38 @@ PageToc :: (out: *Out, view: *Page_View) {
 ItemNav :: (out: *Out, side: *Sidebar_Item, module: *Module_View) {
     assert(module != null);
     links := module.nav[side.nav];
-    for n: side.start..side.end - 1 {
+    first := side.start;
+    if side.end - side.start > 5 first = max(side.start, side.current - 2);
+    last := side.end;
+    if side.end - side.start > 5 last = min(side.end, side.current + 3);
+    for n: first..last - 1 {
         link := links[n];
         link.current = n == side.current;
         NavLink(out, *link);
     }
+}
+
+// The view still describes the full window. Only the no-JS fallback is shortened.
+ItemNavPath :: (module: *Module_View, group: int) -> string {
+    path := module.page.path;
+    return tprint("assets/nav/%%.html", slice(path, 0, path.count - 10), group);
+}
+
+ItemNavList :: (out: *Out, side: *Sidebar_Item, module: *Module_View, nav_stamps: [] string) {
+    assert(side.end - side.start <= 5 || nav_stamps.count == module.nav.count);
+    html(out, "<ul class=\"nav-list mono\"{if side.end - side.start > 5} data-source=\"{esc(ItemNavPath(module, side.nav))}?v={esc(nav_stamps[side.nav])}\" data-start=\"{side.start}\" data-end=\"{side.end}\" data-first=\"{max(side.start, side.current - 2)}\"{end}>\n{ItemNav(side, module)}</ul>");
+}
+
+// One file per module/group, shared by every item page in that group.
+// Returned stamps own their storage and outlive the temporary render buffer.
+WriteItemNav :: (out: *Out, module: *Module_View, writer: *Writer) -> [] string {
+    stamps := NewArray(module.nav.count, string);
+    for links, group: module.nav {
+        for link: links NavLink(out, *link);
+        data := to_string(out);
+        stamps[group] = copy_string(content_stamp(data));
+        write_file(writer, ItemNavPath(module, group), data);
+        reset(out);
+    }
+    return stamps;
 }

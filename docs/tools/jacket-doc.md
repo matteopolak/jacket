@@ -155,6 +155,7 @@ CI runs `jacket doc --check` when the stdlib, the compiler or the docs change, s
 - **Small text.** "N overloads", "since X" and "<systems> only" are plain small text (`.since`), joined by a `·`.
 - **Overloads.** Module rows list every overload's signature. On an item page with several overloads, each is a card headed "Overload N", with the signature, parameter and result tables and examples as full-width bands.
 - **Linked types.** Signatures, fields, and the values of type aliases and constants link each type to its page (`Item.refs` from the model, `Site::type_html`).
+- **Item sidebar.** An item page's sidebar lists the other items in its group. The page itself holds up to five of them, around the current one, and `sidebar.js` fills in the rest from `assets/nav/<module path><group>.html`. Every item page in that group shares this file, which is stamped with `?v=` like the other assets. Without JS the five links and the back link are what you get. This keeps pages about a third smaller (`ItemNavList` and `WriteItemNav` in `sidebars.jai`).
 - **Long blocks.** A `.fold` taller than 440px (module descriptions) shows its top with a faded edge and a "Show more" button; `site.js` adds the button and removes it once the block is expanded.
 
 ## Configuration

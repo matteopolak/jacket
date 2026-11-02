@@ -18,6 +18,7 @@ read_view :: ($T: Type, path: string) -> T {
 // Each module owns a pool, populated by exactly one decoder. Rendering only borrows it.
 Module_Data :: struct {
     view: Module_View;
+    nav_stamps: [] string;
     pool: Arena.Pool;
 }
 
@@ -37,6 +38,7 @@ Job :: struct {
     page: *Page_View;
     start: int;
     end: int;
+    nav_stamps: [] string;
 }
 
 Run :: struct {
@@ -56,9 +58,9 @@ load_job :: (out: *Out, job: *Load_Job, run: *Run) {
     }
 }
 
-write_view :: (out: *Out, view: *Page_View, module: *Module_View, run: *Run) {
+write_view :: (out: *Out, view: *Page_View, module: *Module_View, run: *Run, nav_stamps: [] string) {
     validate_page(view, module);
-    Render(out, run.site, view, module);
+    Render(out, run.site, view, module, nav_stamps);
     if view.not_found {
         // The root 404 is also served for missing paths at any depth; its links are
         // absolute from the base URL, so they work there too.
@@ -77,9 +79,9 @@ write_view :: (out: *Out, view: *Page_View, module: *Module_View, run: *Run) {
 }
 
 render_job :: (out: *Out, job: *Job, run: *Run) {
-    if job.page write_view(out, job.page, job.module, run);
+    if job.page write_view(out, job.page, job.module, run, job.nav_stamps);
     if job.module {
-        for n: job.start..job.end - 1 write_view(out, *job.module.items[n], job.module, run);
+        for n: job.start..job.end - 1 write_view(out, *job.module.items[n], job.module, run, job.nav_stamps);
     }
 }
 
@@ -131,7 +133,11 @@ main :: () {
     modules := NewArray(site.module_files.count, Module_Data);
     guides := NewArray(site.guide_files.count, Guide_Data);
     defer {
-        for *modules Arena.release(*it.pool);
+        for *modules {
+            for stamp: it.nav_stamps free(stamp);
+            free(it.nav_stamps.data);
+            Arena.release(*it.pool);
+        }
         for *guides Arena.release(*it.pool);
         free(modules.data);
         free(guides.data);
@@ -142,6 +148,9 @@ main :: () {
     for path, n: site.guide_files array_add(*loads, .{ tprint("%/%", args[1], path), null, *guides[n] });
     // Bounded decoding avoids a large JSON file monopolizing a render worker.
     render_parallel(loads, load_job, *run, threads = 3);
+    nav_out: Out;
+    for *bundle: modules bundle.nav_stamps = WriteItemNav(*nav_out, *bundle.view, *w);
+    deinit(*nav_out);
     jobs: [..] Job;
     defer array_free(jobs);
     array_add(*jobs, .{ page = *site.index });
@@ -155,7 +164,7 @@ main :: () {
             end := min(start + 128, count);
             page: *Page_View;
             if start == 0 page = *bundle.view.page;
-            array_add(*jobs, .{ *bundle.view, page, start, end });
+            array_add(*jobs, .{ *bundle.view, page, start, end, bundle.nav_stamps });
             if end == count break;
             start = end;
         }
