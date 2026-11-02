@@ -13,22 +13,14 @@ Storage_Block :: struct {
 Storage_Allocator :: struct {
     parent: Allocator;
     storage: **Storage_Block;
+    hot: *Storage_Block;
 }
 
 // Ignores individual frees into owned blocks, delegating every other operation.
 storage_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *void) -> *void {
     scope := cast(*Storage_Allocator) data;
 
-    if mode == .FREE && old {
-        block := scope.storage.*;
-        address := cast(u64) old;
-
-        while block {
-            first := cast(u64) (block + 1);
-            if address >= first && address < first + cast(u64) block.count return null;
-            block = block.next;
-        }
-    }
+    if mode == .FREE && old && retains_pointer(scope, old) return null;
 
     return scope.parent.proc(mode, size, old_size, old, scope.parent.data);
 }
@@ -248,9 +240,34 @@ free_owned_pointer :: inline (pointer: *void) {
     allocator := context.allocator;
     if allocator.proc == storage_allocator {
         scope := cast(*Storage_Allocator) allocator.data;
-        if owns_payload(scope.storage.*, pointer) return;
+        if retains_pointer(scope, pointer) return;
         allocator = scope.parent;
     }
 
     allocator.proc(.FREE, 0, 0, pointer, allocator.data);
+}
+
+// Consecutive field releases usually hit the same chunk. Cache that interval so
+// payload frees do not walk the structural-block list for every string.
+retains_pointer :: inline (scope: *Storage_Allocator, pointer: *void) -> bool {
+    address := cast(u64) pointer;
+    hot := scope.hot;
+
+    if hot {
+        first := cast(u64) (hot + 1);
+        if address >= first && address < first + cast(u64) hot.count return true;
+    }
+
+    block := scope.storage.*;
+    while block {
+        first := cast(u64) (block + 1);
+        if address >= first && address < first + cast(u64) block.count {
+            scope.hot = block;
+            return true;
+        }
+
+        block = block.next;
+    }
+
+    return false;
 }
