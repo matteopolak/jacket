@@ -350,7 +350,15 @@ fn definitions(
         .collect()
 }
 
-fn members(site: &Site, mi: usize, item: &Item, anchor: &str) -> Vec<Definition> {
+/// The fields or members the page lists: all of them, or with the declaration shown only the
+/// ones with a description.
+fn members(
+    site: &Site,
+    mi: usize,
+    item: &Item,
+    anchor: &str,
+    described_only: bool,
+) -> Vec<Definition> {
     let enumerated = matches!(item.kind, Kind::Enum | Kind::EnumFlags);
     definitions(
         site,
@@ -358,6 +366,7 @@ fn members(site: &Site, mi: usize, item: &Item, anchor: &str) -> Vec<Definition>
         &item
             .members
             .iter()
+            .filter(|f| !described_only || !f.doc.is_empty())
             .map(|f| {
                 (
                     f.name.clone(),
@@ -375,6 +384,14 @@ fn members(site: &Site, mi: usize, item: &Item, anchor: &str) -> Vec<Definition>
     )
 }
 
+/// A struct, union or enum as written, highlighted and linked; empty for anything else.
+fn declaration(site: &Site, mi: usize, item: &Item) -> String {
+    if item.declaration.is_empty() {
+        return String::new();
+    }
+    site.declaration_html(&item.declaration, &item.decl_refs, mi, &item.name)
+}
+
 fn row(site: &Site, mi: usize, item: &Item) -> Row {
     let m = &site.modules[mi];
     let segs = blocks(site, item_docs(item), &format!("{}.{}", m.id, item.name));
@@ -388,7 +405,10 @@ fn row(site: &Site, mi: usize, item: &Item) -> Row {
         }
         _ => None,
     });
-    let lines = if item.kind == Kind::Procedure {
+    let declaration_html = declaration(site, mi, item);
+    let lines = if !declaration_html.is_empty() {
+        Vec::new()
+    } else if item.kind == Kind::Procedure {
         item.overloads
             .iter()
             .map(|o| signature_line_html(site, o, mi))
@@ -412,7 +432,12 @@ fn row(site: &Site, mi: usize, item: &Item) -> Row {
         source_url: site.source_url(file, line),
         lines_html: lines.into_iter().filter(|s| !s.is_empty()).collect(),
         summary_html: lead(&segs).map_or_else(String::new, |(_, h)| h),
-        members: members(site, mi, item, ""),
+        members: if declaration_html.is_empty() {
+            members(site, mi, item, "", false)
+        } else {
+            Vec::new()
+        },
+        declaration_html,
         example: sample,
     }
 }
@@ -604,7 +629,7 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
     let groups: Vec<_> = peers.values().collect();
     let group_of: std::collections::BTreeMap<_, _> =
         peers.keys().enumerate().map(|(n, key)| (*key, n)).collect();
-    let nav = groups
+    let mut nav: Vec<Vec<NavLink>> = groups
         .iter()
         .map(|same| {
             same.iter()
@@ -619,7 +644,12 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                 .collect()
         })
         .collect();
-    let items = m
+    // Pages of types the module does not export list no neighbours, and no list has them.
+    let private_nav = nav.len();
+    if !m.private.is_empty() {
+        nav.push(Vec::new());
+    }
+    let mut items: Vec<PageView> = m
         .items
         .iter()
         .map(|i| {
@@ -629,6 +659,22 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
             item(site, mi, i, group, same, at)
         })
         .collect();
+    items.extend(m.private.iter().map(|i| {
+        let mut page = item(site, mi, i, private_nav, &[], 0);
+        if let Content::Item {
+            private, ..
+        } = &mut page.content
+        {
+            *private = true;
+        }
+        if let Sidebar::Item {
+            heading, ..
+        } = &mut page.sidebar
+        {
+            heading.clear();
+        }
+        page
+    }));
     ModuleView {
         id: m.id.clone(),
         page: PageView {
@@ -656,7 +702,12 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                 },
                 platforms: platforms(m),
                 since: m.since.clone(),
-                import: m.id.clone(),
+                import: if m.implicit {
+                    String::new()
+                } else {
+                    m.id.clone()
+                },
+                implicit: m.implicit,
                 docs: segments(site, m, &m.file, 1, &segs),
                 parameters,
                 sections,
@@ -838,10 +889,12 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
             }
         }
     }
+    let declaration_html = declaration(site, mi, item);
+    // With the declaration shown, the fields table is for the ones with something to say.
     let member_defs = if item.kind == Kind::Procedure {
         Vec::new()
     } else {
-        members(site, mi, item, "m-")
+        members(site, mi, item, "m-", !declaration_html.is_empty())
     };
     let members_label = if matches!(item.kind, Kind::Enum | Kind::EnumFlags) {
         "Members"
@@ -849,6 +902,12 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
         "Fields"
     }
     .to_owned();
+    if !declaration_html.is_empty() {
+        anchors.push(Link {
+            href: "#declaration".into(),
+            label: "Declaration".into(),
+        });
+    }
     if !member_defs.is_empty() {
         anchors.push(Link {
             href: "#members".into(),
@@ -922,6 +981,8 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
             },
             docs: segments(site, m, file, line, &remaining),
             overloads: overload_views,
+            private: false,
+            declaration_html,
             value_html: if item.kind != Kind::Procedure && !item.value.is_empty() {
                 site.type_html(&item.value, &item.refs, mi)
             } else {

@@ -56,16 +56,34 @@ fn span(out: &mut String, class: &str, text: &str) {
 /// `code` as HTML. `link` gives the page of a procedure the example calls, so a call to
 /// `trim(...)` can lead to it.
 pub fn jai(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
-    tokens(code, link, false)
+    tokens(code, &|w| link(w).map(|h| (w.len(), h)), Names::Called)
 }
 
 /// A short expression as HTML, such as a default value: `link` is asked about every name, not
 /// only the called ones.
 pub fn expr(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
-    tokens(code, link, true)
+    tokens(code, &|w| link(w).map(|h| (w.len(), h)), Names::Every)
 }
 
-fn tokens(code: &str, link: &dyn Fn(&str) -> Option<String>, every_name: bool) -> String {
+/// A declaration as written: `link` is asked about each written path (`Hash.Table`) that is not
+/// being declared, and answers how much of its start (`Hash.Table`, or only `Hash`) leads to a
+/// page, and where.
+pub fn declaration(code: &str, link: &dyn Fn(&str) -> Option<(usize, String)>) -> String {
+    tokens(code, link, Names::Paths)
+}
+
+/// Which names `tokens` offers to its resolver.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Names {
+    /// Those a call is made to.
+    Called,
+    /// All of them.
+    Every,
+    /// All of them as paths, except the ones the code declares.
+    Paths,
+}
+
+fn tokens(code: &str, link: &dyn Fn(&str) -> Option<(usize, String)>, names: Names) -> String {
     let chars: Vec<(usize, char)> = code.char_indices().collect();
     let mut out = String::with_capacity(code.len() * 2);
     let mut i = 0;
@@ -116,15 +134,45 @@ fn tokens(code: &str, link: &dyn Fn(&str) -> Option<String>, every_name: bool) -
                 j += 1;
             }
             let word = &code[start..at(j)];
-            let called = every_name || chars.get(j).is_some_and(|&(_, d)| d == '(');
             if KEYWORDS.contains(&word) {
                 span(&mut out, "k", word);
-            } else if TYPES.contains(&word) {
+                i = j;
+                continue;
+            }
+            if TYPES.contains(&word) {
                 span(&mut out, "t", word);
-            } else if let Some(href) = called.then(|| link(word)).flatten() {
-                out.push_str(&format!("<a href=\"{}\">{}</a>", esc(&href), esc(word)));
-            } else {
-                out.push_str(&esc(word));
+                i = j;
+                continue;
+            }
+            // The rest of a written path: `Hash.Table`.
+            while names == Names::Paths
+                && chars.get(j).is_some_and(|&(_, d)| d == '.')
+                && chars.get(j + 1).is_some_and(|&(_, d)| ident_start(d))
+            {
+                j += 1;
+                while j < chars.len() && ident_char(chars[j].1) {
+                    j += 1;
+                }
+            }
+            let path = &code[start..at(j)];
+            let declared = code[at(j)..]
+                .trim_start_matches([' ', '\t'])
+                .starts_with(':');
+            let wanted = match names {
+                Names::Called => chars.get(j).is_some_and(|&(_, d)| d == '('),
+                Names::Every => true,
+                Names::Paths => !declared,
+            };
+            match wanted.then(|| link(path)).flatten() {
+                Some((len, href)) if len <= path.len() && path.is_char_boundary(len) => {
+                    out.push_str(&format!(
+                        "<a href=\"{}\">{}</a>{}",
+                        esc(&href),
+                        esc(&path[..len]),
+                        esc(&path[len..])
+                    ));
+                }
+                _ => out.push_str(&esc(path)),
             }
             i = j;
         } else {
@@ -138,6 +186,33 @@ fn tokens(code: &str, link: &dyn Fn(&str) -> Option<String>, every_name: bool) -
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn declarations_link_written_paths_but_not_what_they_declare() {
+        let html = declaration(
+            "Box :: struct(T: Type) {\n    next: *Box(T);\n    table: Hash.Table(int, T);\n    tag: Hash.Kind.ONE;\n}",
+            &|path| match path {
+                "Box" => Some((3, "/Box/".into())),
+                "Hash.Table" => Some((10, "/Table/".into())),
+                "Hash.Kind.ONE" => Some((9, "/Kind/".into())),
+                _ => None,
+            },
+        );
+        // `Box ::` declares, `*Box(T)` names.
+        assert!(!html.contains("Box</a> ::"), "{html}");
+        assert!(html.contains("*<a href=\"/Box/\">Box</a>(T)"), "{html}");
+        assert!(
+            html.contains("<a href=\"/Table/\">Hash.Table</a>("),
+            "{html}"
+        );
+        assert!(
+            html.contains("<a href=\"/Kind/\">Hash.Kind</a>.ONE"),
+            "{html}"
+        );
+        // The field named like a type is not linked either.
+        assert!(html.contains("table: "), "{html}");
+        assert!(html.contains("<span class=\"k\">struct</span>"), "{html}");
+    }
 
     #[test]
     fn tokens_get_classes_and_calls_link() {

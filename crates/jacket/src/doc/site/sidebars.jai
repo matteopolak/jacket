@@ -22,9 +22,9 @@ HTML
 RenderSidebar :: (out: *Out, side: *Sidebar_Item, module: *Module_View, nav_stamps: [] string) {
     html(out, #run trim(#string HTML
 <a class="back" href="{esc(side.back.href)}">&larr; {esc(side.back.label)}</a>
-<div class="nav-h">{esc(side.heading)}</div>
-{ItemNavList(side, module, nav_stamps)}
-{if side.anchors.count}<div class="nav-h">On this page</div>
+{if side.heading.count}<div class="nav-h">{esc(side.heading)}</div>
+{end}{if side.end > side.start}{ItemNavList(side, module, nav_stamps)}
+{end}{if side.anchors.count}<div class="nav-h">On this page</div>
 <ul class="nav-list">
 {for a: side.anchors}<li><a href="{esc(a.href)}">{esc(a.label)}</a></li>
 {end}</ul>

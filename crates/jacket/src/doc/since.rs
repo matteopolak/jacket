@@ -100,6 +100,8 @@ mod tests {
             docs: String::new(),
             docs_line: 0,
             platforms: Vec::new(),
+            private: Vec::new(),
+            implicit: false,
             items: names
                 .iter()
                 .map(|n| Item {
@@ -119,6 +121,8 @@ mod tests {
                     experimental: false,
                     binding: false,
                     refs: Vec::new(),
+                    declaration: String::new(),
+                    decl_refs: Vec::new(),
                 })
                 .collect(),
             category: None,

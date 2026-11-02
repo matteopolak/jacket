@@ -206,6 +206,8 @@ validate_page :: (page: *Page_View, module: *Module_View) {
     if side {
         if !module || side.nav < 0 || side.nav >= module.nav.count bad_input("invalid nav group");
         links := module.nav[side.nav];
-        if side.start < 0 || side.end < side.start || side.end > links.count || side.current < side.start || side.current >= side.end bad_input("invalid nav window");
+        // A page of a type the module does not export has no neighbours to list.
+        empty := side.start == side.end;
+        if side.start < 0 || side.end < side.start || side.end > links.count || (!empty && (side.current < side.start || side.current >= side.end)) bad_input("invalid nav window");
     }
 }

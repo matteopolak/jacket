@@ -1,5 +1,5 @@
 use super::super::categories;
-use super::super::model::{Item, Kind, Member, Module, Parameter};
+use super::super::model::{Item, Kind, Member, Module, Parameter, TypeRef};
 use super::super::site::Site;
 use super::*;
 
@@ -304,4 +304,193 @@ fn grouped_procedures_list_each_item_once() {
         .flat_map(|g| g.rows.iter().map(|r| r.id.as_str()))
         .collect();
     assert_eq!(rows, ["open", "play", "SDL_Init"]);
+}
+
+fn declared_site() -> Site {
+    let reference = |path: &str, file: &str, line: usize, private: bool| TypeRef {
+        path: path.into(),
+        file: file.into(),
+        line,
+        private,
+    };
+    Site::new(
+        vec![
+            Module {
+                id: "Io".into(),
+                items: vec![Item {
+                    name: "Channel".into(),
+                    kind: Kind::Struct,
+                    file: "Io/channel.jai".into(),
+                    line: 5,
+                    scope: vec!["T".into()],
+                    declaration: "Channel :: struct(T: Type) {\n    senders: Waiter;\n    allocator: Allocator;\n    next: *Channel(T);\n}".into(),
+                    decl_refs: vec![
+                        reference("Waiter", "Io/sync.jai", 3, true),
+                        reference("Allocator", "prelude/allocation.jai", 31, true),
+                        reference("Channel", "Io/channel.jai", 5, false),
+                    ],
+                    members: vec![
+                        Member {
+                            name: "senders".into(),
+                            ty: "Waiter".into(),
+                            refs: vec![reference("Waiter", "Io/sync.jai", 3, true)],
+                            ..Member::default()
+                        },
+                        Member {
+                            name: "allocator".into(),
+                            ty: "Allocator".into(),
+                            refs: vec![reference("Allocator", "prelude/allocation.jai", 31, true)],
+                            doc: "Where it allocates.".into(),
+                        },
+                    ],
+                    ..Item::default()
+                }],
+                private: vec![Item {
+                    name: "Waiter".into(),
+                    kind: Kind::Struct,
+                    file: "Io/sync.jai".into(),
+                    line: 3,
+                    declaration: "Waiter :: struct {\n    ticket: int;\n}".into(),
+                    ..Item::default()
+                }],
+                ..Module::default()
+            },
+            Module {
+                id: "prelude".into(),
+                implicit: true,
+                items: vec![Item {
+                    name: "Allocator".into(),
+                    kind: Kind::Struct,
+                    file: "prelude/allocation.jai".into(),
+                    line: 31,
+                    declaration: "Allocator :: struct {\n    data: *void;\n}".into(),
+                    ..Item::default()
+                }],
+                ..Module::default()
+            },
+        ],
+        Vec::new(),
+        "/docs/".into(),
+        "0.32.0".into(),
+        String::new(),
+        String::new(),
+        false,
+    )
+}
+
+#[test]
+fn a_declaration_links_private_and_prelude_types_and_not_itself() {
+    let site = declared_site();
+    let bundle = module(&site, 0);
+    let Content::Module {
+        sections, ..
+    } = &bundle.page.content
+    else {
+        panic!()
+    };
+    assert_eq!(sections.len(), 1);
+    assert_eq!(sections[0].groups[0].rows.len(), 1);
+    let row = &sections[0].groups[0].rows[0];
+    assert!(row.lines_html.is_empty() && row.members.is_empty());
+    let declaration = &row.declaration_html;
+    assert!(
+        declaration.contains("<a href=\"/docs/api/Io/Waiter/\">Waiter</a>"),
+        "{declaration}"
+    );
+    assert!(
+        declaration.contains("<a href=\"/docs/api/prelude/Allocator/\">Allocator</a>"),
+        "{declaration}"
+    );
+    assert!(!declaration.contains("api/Io/Channel/"), "{declaration}");
+    assert!(declaration.contains("<span class=\"k\">struct</span>"));
+    // Only a field with something to say keeps a row of the table.
+    let page = bundle
+        .items
+        .iter()
+        .find(|p| p.path == "api/Io/Channel/index.html")
+        .unwrap();
+    let Content::Item {
+        members,
+        declaration_html,
+        private,
+        ..
+    } = &page.content
+    else {
+        panic!()
+    };
+    assert!(!private && !declaration_html.is_empty());
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0].name, "allocator");
+}
+
+#[test]
+fn a_private_type_has_a_page_but_is_in_no_list() {
+    let site = declared_site();
+    let bundle = module(&site, 0);
+    assert_eq!(bundle.items.len(), 2);
+    let page = &bundle.items[1];
+    assert_eq!(page.path, "api/Io/Waiter/index.html");
+    let Content::Item {
+        private,
+        title,
+        declaration_html,
+        ..
+    } = &page.content
+    else {
+        panic!()
+    };
+    assert!(*private && title.label == "Waiter" && declaration_html.contains("ticket"));
+    // Its sidebar has no neighbours to list, and the shared lists hold only the exported type.
+    let Sidebar::Item {
+        nav,
+        start,
+        end,
+        heading,
+        ..
+    } = &page.sidebar
+    else {
+        panic!()
+    };
+    assert!(heading.is_empty() && start == end);
+    assert!(bundle.nav[*nav].is_empty());
+    let listed: Vec<_> = bundle
+        .nav
+        .iter()
+        .flatten()
+        .map(|l| l.label.as_str())
+        .collect();
+    assert_eq!(listed, ["Channel"]);
+    let outline = serde_json::to_string(&bundle.page.outline).unwrap();
+    assert!(!outline.contains("Waiter"));
+    let search = super::super::search::index(&site);
+    assert!(!search.contains("Waiter"));
+    assert!(
+        site.unlinked_types().is_empty(),
+        "{:?}",
+        site.unlinked_types()
+    );
+    assert_eq!(site.item_href("Io", "Waiter"), "/docs/api/Io/Waiter/");
+}
+
+#[test]
+fn the_prelude_page_has_nothing_to_import() {
+    let site = declared_site();
+    let bundle = module(&site, 1);
+    let Content::Module {
+        import,
+        implicit,
+        ..
+    } = &bundle.page.content
+    else {
+        panic!()
+    };
+    assert!(*implicit && import.is_empty());
+    let io = module(&site, 0);
+    let Content::Module {
+        import, ..
+    } = &io.page.content
+    else {
+        panic!()
+    };
+    assert_eq!(import, "Io");
 }

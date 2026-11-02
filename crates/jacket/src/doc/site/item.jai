@@ -1,8 +1,11 @@
 Main :: (out: *Out, page: *Page(Content_Item)) {
     c := page.content;
     html(out, #run trim(#string HTML
-{Crumbs(c.crumbs)}{PageTitle(*c.title)}<div class="meta">{PlatformList(c.platforms)}</div>
-{if c.value_html.count}<pre class="sig"><code><span class="fn">{esc(c.title.label)}</span> :: {cast(Html) c.value_html}</code></pre>
+{Crumbs(c.crumbs)}{PageTitle(*c.title)}{if c.private}<p class="unexported">Not exported. Code outside this module cannot name it; it is here because exported types use it.</p>
+{end}<div class="meta">{PlatformList(c.platforms)}</div>
+{if c.declaration_html.count}<section id="declaration">
+<h2 class="sr">Declaration</h2><pre class="sig decl"><code>{cast(Html) c.declaration_html}</code></pre></section>
+{end}{if c.value_html.count}<pre class="sig"><code><span class="fn">{esc(c.title.label)}</span> :: {cast(Html) c.value_html}</code></pre>
 {end}{if c.summary_html.count}<p class="lead">{cast(Html) c.summary_html}</p>
 {end}{Segments(c.docs)}{for o: c.overloads}{Overload(*o)}{end}{if c.members.count}<section id="members">
 <h2>{cast(Html) c.members_label}</h2>

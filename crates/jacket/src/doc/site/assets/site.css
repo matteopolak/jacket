@@ -411,6 +411,10 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 .js .row > .members:not(.open) { max-height: 200px; }
 .js .row > .members:not(.open) { max-height: 200px; }
 .row > .members + .fold-btn { margin: -22px auto 4px; }
+/* A written declaration fills the band the fields table does. */
+.row > .members > pre.sig { margin: 0; padding: 12px var(--px); background: none; border: solid var(--border); border-width: 1px 0 0; border-radius: 0; }
+.row > .members:not(:last-child) > pre.sig { border-bottom-width: 1px; }
+.unexported { margin: -2px 0 12px; font-size: 13.5px; color: var(--muted); }
 .row-head > a.muted { font-size: 12.5px; }
 
 /* Keyboard entry and narrow layouts retain visible focus and local overflow. */

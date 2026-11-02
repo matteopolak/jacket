@@ -135,7 +135,9 @@ pub enum Content {
         title: Title,
         platforms: Vec<Platform>,
         since: String,
+        /// What `#import` takes; empty for the prelude, which every program gets.
         import: String,
+        implicit: bool,
         docs: Vec<DocSegment>,
         parameters: Vec<Definition>,
         sections: Vec<Section>,
@@ -147,6 +149,10 @@ pub enum Content {
         summary_html: String,
         docs: Vec<DocSegment>,
         overloads: Vec<OverloadView>,
+        /// A type no code outside its module can name.
+        private: bool,
+        /// A struct, union or enum as written, with its type names linked; empty for others.
+        declaration_html: String,
         value_html: String,
         members_label: String,
         members: Vec<Definition>,
@@ -230,6 +236,7 @@ pub struct Row {
     pub source_url: Option<String>,
     pub lines_html: Vec<String>,
     pub summary_html: String,
+    pub declaration_html: String,
     pub members: Vec<Definition>,
     pub example: Option<Example>,
 }

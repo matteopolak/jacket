@@ -25,7 +25,7 @@ impl Site {
                     }
                 }
             }
-            for item in &module.items {
+            for item in module.items.iter().chain(&module.private) {
                 let mut scope = module_scope.clone();
                 scope.extend(item.scope.iter().cloned());
                 let mut check = |text: &str, refs: &[TypeRef], is_type: bool, locals: &[String]| {

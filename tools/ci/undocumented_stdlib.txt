@@ -2118,7 +2118,6 @@ pl_mpeg.video_process_macroblock
 pl_mpeg.video_rewind
 pl_mpeg.video_set_no_delay
 pl_mpeg.video_set_time
-prelude
 prelude.Allocator
 prelude.Allocator_Caps
 prelude.Any_Struct

@@ -241,7 +241,7 @@ one_page = true
 [[doc.group]]
 name = "Core"
 modules = [
-    "stdlib/Basic", "stdlib/Runtime_Support", "stdlib/Runtime_Support_Crash_Handler",
+    "stdlib/prelude", "stdlib/Basic", "stdlib/Runtime_Support", "stdlib/Runtime_Support_Crash_Handler",
     "stdlib/Remap_Context", "stdlib/Reflection", "stdlib/Soa", "stdlib/Relative_Pointers",
     "stdlib/Deep_Copy", "stdlib/Extensions/Variant",
 ]

@@ -116,6 +116,10 @@ pub struct Item {
     pub experimental: bool,
     /// Declared by a native binding: badged "foreign" and listed after the module's own items.
     pub binding: bool,
+    /// A struct, union or enum as written, without comments; empty for anything else.
+    pub declaration: String,
+    /// The declarations the type names in `declaration` stand for.
+    pub decl_refs: Vec<TypeRef>,
 }
 
 /// A parameter of a module (`#module_parameters`).
@@ -139,6 +143,11 @@ pub struct Module {
     pub docs_line: usize,
     pub platforms: Vec<String>,
     pub items: Vec<Item>,
+    /// Types that items name but the module does not export: they have pages, so the types
+    /// that name them can link there, but no list, search or sitemap has them.
+    pub private: Vec<Item>,
+    /// Every program gets it without importing it.
+    pub implicit: bool,
     /// The `[[doc.category]]` it is listed under, as an index; set once every module is read.
     pub category: Option<usize>,
     /// The `[[doc.group]]` it is in; empty for none.
@@ -261,7 +270,11 @@ fn list<'a>(v: &'a Value, key: &str) -> &'a [Value] {
 }
 
 fn type_refs(v: &Value, stdlib: &Path) -> Vec<TypeRef> {
-    list(v, "refs")
+    type_refs_of(v, "refs", stdlib)
+}
+
+fn type_refs_of(v: &Value, key: &str, stdlib: &Path) -> Vec<TypeRef> {
+    list(v, key)
         .iter()
         .filter_map(|r| {
             let r = r.as_array()?;
@@ -297,10 +310,13 @@ fn below(stdlib: &Path, file: &str) -> String {
         .replace('\\', "/")
 }
 
+/// An item and whether the module exports it.
+type Flagged = (bool, Item);
+
 /// The module `id` from what `jaic -doc_model` printed.
 pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
     let v: Value = serde_json::from_str(json).map_err(|e| format!("{id}: {e}"))?;
-    let items = list(&v, "items")
+    let (private, items): (Vec<Flagged>, Vec<Flagged>) = list(&v, "items")
         .iter()
         .map(|i| {
             let overloads: Vec<Overload> = list(i, "overloads")
@@ -318,7 +334,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                         .collect(),
                 })
                 .collect();
-            Item {
+            let item = Item {
                 name: text(i, "name"),
                 kind: Kind::parse(&text(i, "kind")),
                 file: below(stdlib, &text(i, "file")),
@@ -351,6 +367,8 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                         ))
                     })
                     .collect(),
+                declaration: text(i, "declaration"),
+                decl_refs: type_refs_of(i, "decl_refs", stdlib),
                 group: String::new(),
                 platforms: list(i, "platforms")
                     .iter()
@@ -358,9 +376,17 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                     .collect(),
                 since: String::new(),
                 experimental: i.get("experimental").and_then(Value::as_bool) == Some(true),
-            }
+            };
+            (
+                i.get("private").and_then(Value::as_bool) == Some(true),
+                item,
+            )
         })
-        .collect();
+        .partition(|(private, _)| *private);
+    let (private, items): (Vec<Item>, Vec<Item>) = (
+        private.into_iter().map(|(_, i)| i).collect(),
+        items.into_iter().map(|(_, i)| i).collect(),
+    );
     let mut module = Module {
         id: id.to_owned(),
         file: below(stdlib, &text(&v, "file")),
@@ -371,6 +397,8 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
             .filter_map(|p| p.as_str().map(str::to_owned))
             .collect(),
         items,
+        private,
+        implicit: v.get("implicit").and_then(Value::as_bool) == Some(true),
         category: None,
         group: String::new(),
         wasm: false,

@@ -1,6 +1,6 @@
 //! Publication metadata is resolved before rendering, so themes need no URL or JSON logic.
 use super::markdown::{esc, plain};
-use super::view::{Content, PageView};
+use super::view::{Content, ModuleView, PageView};
 use serde_json::json;
 mod config;
 pub use config::{Publication, prepare};
@@ -79,6 +79,21 @@ impl Metadata {
             &self.base
         };
         format!("{}{base}{folder}{path}", self.origin)
+    }
+
+    /// [`Self::apply`] to a module's pages. The first `exported` item pages are listed in
+    /// `urls`; the rest are pages of types the module does not export, which only links lead to.
+    pub fn apply_module(&self, module: &mut ModuleView, exported: usize, urls: &mut Vec<String>) {
+        self.apply(&mut module.page);
+        urls.push(self.url(&module.page.path, false));
+        for (n, page) in module.items.iter_mut().enumerate() {
+            self.apply(page);
+            if n < exported {
+                urls.push(self.url(&page.path, false));
+            } else {
+                page.head.noindex = true;
+            }
+        }
     }
 
     pub fn apply(&self, page: &mut PageView) {

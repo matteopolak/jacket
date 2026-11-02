@@ -129,6 +129,7 @@ Content_Module :: struct {
     platforms: [] Platform;
     since: string;
     import: string;
+    implicit: bool;
     docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
     parameters: [] Definition;
     sections: [] Section;
@@ -141,6 +142,8 @@ Content_Item :: struct {
     summary_html: string;
     docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
     overloads: [] Overload_View;
+    private: bool;
+    declaration_html: string;
     value_html: string;
     members_label: string;
     members: [] Definition;
@@ -211,6 +214,7 @@ Row :: struct {
     source_url: *string;
     lines_html: [] string;
     summary_html: string;
+    declaration_html: string;
     members: [] Definition;
     example: *Example;
 }

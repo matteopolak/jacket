@@ -2,7 +2,9 @@ Main :: (out: *Out, page: *Page(Content_Module)) {
     c := page.content;
     html(out, #run trim(#string HTML
 {Crumbs(c.crumbs)}{PageTitle(*c.title)}<div class="meta">{PlatformList(c.platforms)}{if c.since.count}<span class="meta-sep">·</span>{Since(c.since)}{end}</div>
-<p class="import"><code><span class="d">#import</span> <span class="s">"{esc(c.import)}"</span>;</code></p>
+{if c.implicit}<p class="import">Every program imports this module; there is nothing to write.</p>
+{else}<p class="import"><code><span class="d">#import</span> <span class="s">"{esc(c.import)}"</span>;</code></p>
+{end}
 {if c.docs.count}<div class="fold">
 {Segments(c.docs)}<script>fold()</script></div>
 {end}{if c.parameters.count}{Heading(2, "parameters", "Module parameters")}{Definitions(c.parameters)}{end}{for s: c.sections}{Heading(2, s.id, s.label)}{for g: s.groups}<section class="group">
@@ -18,6 +20,8 @@ ItemRow :: (out: *Out, r: *Row) {
 <div class="row-head"><a class="name" href="{esc(r.href)}">{esc(r.id)}</a>{if r.kind_badge.count}<span class="badge sm">{esc(r.kind_badge)}</span>{end}{ForeignBadge(r.foreign, true)}{ExperimentalBadge(r.experimental, true)}{Overloads(r.overloads)}{Missing(r.platforms)}{Since(r.since)}{Source(r.source_url)}</div>
 {for line: r.lines_html}<div class="sig-line">{cast(Html) line}</div>
 {end}{if r.summary_html.count}<p class="summary">{cast(Html) r.summary_html}</p>
+{end}{if r.declaration_html.count}<div class="fold members" data-fold="240">
+<pre class="sig decl"><code>{cast(Html) r.declaration_html}</code></pre><script>fold()</script></div>
 {end}{if r.members.count}<div class="fold members" data-fold="240">
 {Definitions(r.members)}<script>fold()</script></div>
 {end}{if r.example}{ExampleBlock(r.example)}{end}</article>

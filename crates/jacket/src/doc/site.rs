@@ -64,14 +64,16 @@ fn case_folders(modules: &[Module]) -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
     for m in modules {
         let mut groups: BTreeMap<String, Vec<&Item>> = BTreeMap::new();
-        for item in &m.items {
+        for item in m.items.iter().chain(&m.private) {
             groups
                 .entry(Site::slug(&item.name).to_lowercase())
                 .or_default()
                 .push(item);
         }
+        let private = |item: &Item| m.private.iter().any(|p| std::ptr::eq(p, item));
         for (_, mut group) in groups.into_iter().filter(|(_, g)| g.len() > 1) {
-            group.sort_by_key(|i| i.name.chars().any(|c| c.is_ascii_uppercase()));
+            // A page that is not exported gives way: it never changes where a documented one is.
+            group.sort_by_key(|i| (private(i), i.name.chars().any(|c| c.is_ascii_uppercase())));
             let mut taken = jaic::fxhash::HashSet::default();
             taken.insert(Site::slug(&group[0].name).to_lowercase());
             for item in &group[1..] {
@@ -118,7 +120,7 @@ impl Site {
         // declaration finds the page (or pages, when several modules re-export it).
         let mut decls: BTreeMap<(String, usize), Vec<(usize, String)>> = BTreeMap::new();
         for (m, module) in modules.iter().enumerate() {
-            for item in &module.items {
+            for item in module.items.iter().chain(&module.private) {
                 let here = std::iter::once((item.file.clone(), item.line))
                     .chain(item.also.iter().cloned());
                 for at in here {
@@ -276,7 +278,17 @@ impl Site {
         let href = self.item_href(module, &item.name);
         Some(match member {
             Some(member) if item.members.iter().any(|m| m.name == member) => {
-                format!("{href}#m-{member}")
+                // With the declaration shown, only a field with a description has its own row.
+                let described = item.declaration.is_empty()
+                    || item
+                        .members
+                        .iter()
+                        .any(|m| m.name == member && !m.doc.is_empty());
+                if described {
+                    format!("{href}#m-{member}")
+                } else {
+                    format!("{href}#declaration")
+                }
             }
             Some(member) => {
                 self.broken
@@ -292,7 +304,7 @@ impl Site {
     pub fn path_clashes(&self) -> Vec<String> {
         let mut found = Vec::new();
         for module in &self.modules {
-            for item in &module.items {
+            for item in module.items.iter().chain(&module.private) {
                 let id = format!("{}/{}", module.id, item.name);
                 if self.by_id.contains_key(&id) {
                     found.push(format!(
@@ -414,6 +426,27 @@ impl Site {
         highlight::expr(code, &|name| {
             self.resolved(name, refs, here)
                 .map(|(m, item)| self.item_href(&self.modules[m].id, item))
+        })
+    }
+
+    /// A struct, union or enum as written, highlighted, with each name the compiler resolved to
+    /// a type that has a page linked to it. `own` is the item itself, whose name stays plain.
+    pub fn declaration_html(&self, code: &str, refs: &[TypeRef], here: usize, own: &str) -> String {
+        highlight::declaration(code, &|path| {
+            let cuts = path
+                .match_indices('.')
+                .map(|(i, _)| i)
+                .chain(std::iter::once(path.len()));
+            for end in cuts.collect::<Vec<_>>().into_iter().rev() {
+                let Some((m, name)) = self.resolved(&path[..end], refs, here) else {
+                    continue;
+                };
+                if m == here && name == own {
+                    return None;
+                }
+                return Some((end, self.item_href(&self.modules[m].id, name)));
+            }
+            None
         })
     }
 
@@ -790,6 +823,31 @@ mod tests {
         assert_eq!(site.item_href("Http", "Head"), "/api/Http/Head-struct/");
         assert_eq!(site.item_href("Http", "HEAD"), "/api/Http/HEAD-constant/");
         assert_eq!(site.item_href("Http", "body"), "/api/Http/body/");
+    }
+
+    #[test]
+    fn a_page_that_is_not_exported_never_moves_an_exported_one() {
+        let item = |name: &str, kind| Item {
+            name: name.into(),
+            kind,
+            ..Item::default()
+        };
+        let site = Site::new(
+            vec![Module {
+                id: "Http".into(),
+                items: vec![item("Head", Kind::Struct)],
+                private: vec![item("head", Kind::Struct)],
+                ..Module::default()
+            }],
+            Vec::new(),
+            "/".into(),
+            "0.0.0".into(),
+            String::new(),
+            String::new(),
+            false,
+        );
+        assert_eq!(site.item_href("Http", "Head"), "/api/Http/Head/");
+        assert_eq!(site.item_href("Http", "head"), "/api/Http/head-struct/");
     }
 
     #[test]

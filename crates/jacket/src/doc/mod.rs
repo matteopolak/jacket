@@ -50,7 +50,7 @@ fn discover(dir: &Path, prefix: &str, out: &mut Vec<String>) {
         .flatten()
         .filter(|e| e.path().is_dir())
         .filter_map(|e| e.file_name().into_string().ok())
-        .filter(|n| !n.starts_with('.') && !matches!(n.as_str(), "internal" | "prelude" | "tests"))
+        .filter(|n| !n.starts_with('.') && !matches!(n.as_str(), "internal" | "tests"))
         .collect();
     names.sort();
     for name in names {
@@ -516,12 +516,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         let mut items = 0;
         for mi in 0..site.modules.len() {
             let mut module = view::module(&site, mi);
-            metadata.apply(&mut module.page);
-            urls.push(metadata.url(&module.page.path, false));
-            for page in &mut module.items {
-                metadata.apply(page);
-                urls.push(metadata.url(&page.path, false));
-            }
+            metadata.apply_module(&mut module, site.modules[mi].items.len(), &mut urls);
             items += module.items.len();
             let file = format!("modules/{mi}.json");
             input.push((file.clone(), json_bytes(&module)?));

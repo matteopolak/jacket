@@ -334,3 +334,84 @@ shared_navigation_urls_track_the_written_bytes :: () {
     expect(before != after);
     expect(writer.errors.count == 0 && changed_writer.errors.count == 0);
 } @test
+
+a_type_shows_its_declaration_on_its_row_and_page :: () {
+    site := fixture(Site_View, "site");
+    types := fixture(Module_View, "types");
+    defer {
+        free_json(*site);
+        free_json(*types);
+    }
+    site.categories_url = copy_string("/assets/categories.css?v=00000000");
+    list := render(*site, *types.page, *types);
+    page := render(*site, *types.items[0], *types);
+    defer {
+        free(list);
+        free(page);
+    }
+    expect(contains(list, "<div class=\"fold members\" data-fold=\"240\">\n<pre class=\"sig decl\"><code><span class=\"fn\">Queue</span> :: <span class=\"k\">struct</span>(T: Type) {"));
+    expect(!contains(list, "class=\"sig-line\""));
+    expect(contains(list, "<a href=\"/api/prelude/Allocator/\">Allocator</a>"));
+    declaration := find_index_from_left(page, "<section id=\"declaration\">");
+    meta := find_index_from_left(page, "<div class=\"meta\">");
+    fields := find_index_from_left(page, "<section id=\"members\">");
+    expect(meta >= 0 && declaration > meta && fields > declaration);
+    expect(contains(page, "<a href=\"/api/Types/Waiter/\">Waiter</a>"));
+    expect(contains(page, "Who waits."));
+    expect(contains(page, "<a href=\"#declaration\">Declaration</a>"));
+    expect(!contains(page, "Not exported"));
+} @test
+
+a_type_the_module_does_not_export_has_a_page_with_no_neighbours :: () {
+    site := fixture(Site_View, "site");
+    types := fixture(Module_View, "types");
+    defer {
+        free_json(*site);
+        free_json(*types);
+    }
+    site.categories_url = copy_string("/assets/categories.css?v=00000000");
+    list := render(*site, *types.page, *types);
+    page := render(*site, *types.items[1], *types);
+    defer {
+        free(list);
+        free(page);
+    }
+    expect(!contains(list, "id=\"Waiter\""));
+    title := find_index_from_left(page, "<h1 class=\"mono\">Waiter</h1>");
+    note := find_index_from_left(page, "Not exported.");
+    expect(title >= 0 && note > title && note < find_index_from_left(page, "<div class=\"meta\">"));
+    expect(contains(page, "<section id=\"declaration\">"));
+    expect(!contains(page, "nav-list mono"));
+    expect(!contains(page, "<div class=\"nav-h\">Types</div>"));
+    writer := writer_init("unused", "/", dry_run = true);
+    defer deinit(*writer);
+    nav_out: Out;
+    defer deinit(*nav_out);
+    stamps := WriteItemNav(*nav_out, *types, *writer);
+    defer {
+        for stamp: stamps free(stamp);
+        free(stamps.data);
+    }
+    expect(stamps.count == 2 && writer.errors.count == 0);
+} @test
+
+the_prelude_is_imported_by_every_program :: () {
+    site := fixture(Site_View, "site");
+    steady := fixture(Module_View, "steady");
+    prelude := fixture(Module_View, "prelude");
+    defer {
+        free_json(*site);
+        free_json(*steady);
+        free_json(*prelude);
+    }
+    site.categories_url = copy_string("/assets/categories.css?v=00000000");
+    other := render(*site, *steady.page, *steady);
+    implicit := render(*site, *prelude.page, *prelude);
+    defer {
+        free(other);
+        free(implicit);
+    }
+    expect(contains(other, "<span class=\"d\">#import</span> <span class=\"s\">\"Steady\"</span>;"));
+    expect(!contains(implicit, "#import"));
+    expect(contains(implicit, "Every program imports this module"));
+} @test
