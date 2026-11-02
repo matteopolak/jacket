@@ -484,14 +484,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             site.pages_title = doc.pages_title.clone().unwrap_or_else(|| "Guides".into());
         }
         let prefix = git_state(&config_dir).map(|g| g.prefix).unwrap_or_default();
-        let extra = view::guide::collect(
-            &site,
-            &config_dir,
-            &prefix,
-            doc.home.as_deref(),
-            &doc.page,
-            &doc.section,
-        )?;
+        let extra = view::guide::collect(&site, &config_dir, &prefix, &doc)?;
         site.pages_href = extra.first_href(&site);
         site.extra_nav.clone_from(&extra.nav);
         if let Some(state) = git_state(&root) {

@@ -6,7 +6,7 @@ use super::super::site::Site;
 use super::{
     Content, DocSegment, NavCategory, NavGroup, NavLink, Outline, PageHead, PageView, Sidebar,
 };
-use jacket_config::schema::{DocPage, DocSection};
+use jacket_config::schema::{Doc, DocSection};
 use jaic::fxhash::HashMap;
 use std::path::Path;
 
@@ -172,14 +172,8 @@ fn promote(body: &str) -> String {
 
 /// Reads every page and works out the sidebar headings. `prefix` is the config folder's path in
 /// the repository.
-pub fn collect(
-    site: &Site,
-    dir: &Path,
-    prefix: &str,
-    home: Option<&str>,
-    pages: &[DocPage],
-    sections: &[DocSection],
-) -> Result<Guides, String> {
+pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guides, String> {
+    let (home, pages, sections) = (doc.home.as_deref(), &doc.page[..], &doc.section[..]);
     let mut out = Guides {
         pages: Vec::new(),
         nav: Vec::new(),
