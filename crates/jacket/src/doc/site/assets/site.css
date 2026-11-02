@@ -275,7 +275,6 @@ main .overload > h3 + .defs { margin-top: 0; margin-bottom: 0; border-radius: 0;
 .ed .code { overflow: hidden; }
 .ed textarea { position: absolute; inset: 0; width: 100%; height: 100%; box-sizing: border-box; border: 0; border-radius: 0; background: transparent; color: transparent; caret-color: var(--fg); font-family: var(--mono); resize: none; overflow-x: auto; overflow-y: hidden; white-space: pre; tab-size: 4; outline: none; }
 .ed textarea::selection { background: var(--sel); color: transparent; }
-.ex:has(.ed textarea:focus-visible) { border-color: var(--link); }
 .ex-note { margin: 0; padding: 8px 16px; border-top: 1px solid var(--hair); font-size: 13px; color: var(--muted); background: var(--sunken); }
 .ex-out { border-top: 1px solid var(--hair); padding: 10px 18px; font-family: var(--mono); font-size: 12.5px; color: var(--ok); background: var(--okbg); }
 .ex-out[hidden] { display: none; }
@@ -378,7 +377,6 @@ pre, table, .defs { max-width: 100%; overflow-x: auto; }
 .cards { grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); }
 .search-wrap, .search, .search input { min-width: 0; max-width: 100%; }
 :focus-visible { scroll-margin-top: 160px; }
-.ed textarea:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 
 .nav-list { list-style: none; margin: 0; padding: 0; }
