@@ -14,6 +14,7 @@ mod search;
 mod since;
 mod site;
 mod theme;
+mod type_links;
 mod view;
 
 use crate::cli::DocArgs;
@@ -360,6 +361,22 @@ fn read_logo(file: &Path) -> Result<(String, Vec<u8>), String> {
     Ok((format!("logo.{ext}"), bytes))
 }
 
+/// Partial module builds omit external pages, so only a full site can validate its links.
+fn link_status(args: &DocArgs, broken: &[String], unlinked: &[String], filtered: bool) -> ExitCode {
+    if !unlinked.is_empty() && !filtered {
+        eprintln!("jacket: error: {} unlinked type name(s)", unlinked.len());
+        return ExitCode::from(1);
+    }
+    if !broken.is_empty() && !args.allow_broken_links && !filtered {
+        eprintln!(
+            "jacket: error: {} broken intra-doc link(s); fix the doc comment or pass --allow-broken-links",
+            broken.len()
+        );
+        return ExitCode::from(1);
+    }
+    ExitCode::SUCCESS
+}
+
 fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
     let total_start = std::time::Instant::now();
     let mut accounted = std::time::Duration::ZERO;
@@ -550,6 +567,10 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         if !problems.is_empty() {
             return Ok(ExitCode::from(1));
         }
+        let unlinked = site.unlinked_types();
+        for name in &unlinked {
+            eprintln!("jacket: warning: unlinked type in {name}");
+        }
         let broken = site.broken_links();
         for link in &broken {
             eprintln!("jacket: warning: intra-doc link to `{link}` leads nowhere");
@@ -592,14 +613,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
                 format!(", written to {}", args.out.display())
             }
         );
-        if !broken.is_empty() && !args.allow_broken_links && !filtered {
-            eprintln!(
-                "jacket: error: {} broken intra-doc link(s); fix the doc comment or pass --allow-broken-links",
-                broken.len()
-            );
-            return Ok(ExitCode::from(1));
-        }
-        Ok(ExitCode::SUCCESS)
+        Ok(link_status(args, &broken, &unlinked, filtered))
     })();
     if args.timings {
         eprintln!(

@@ -1,11 +1,12 @@
 //! Finding what an alias names from the library's own files, for `jaic -doc_comments`: the
 //! rule for which declaration supplies an alias's docs is [`docs::docs_site`]; this is only the
 //! resolver that reads files instead of asking the type checker.
-use crate::ast::ImportSource;
+use crate::ast::{ImportSource, UsingFilter};
 use crate::docs::Resolver;
 use crate::fxhash::HashMap;
 use crate::parser::ide_facts::{self, TopLevelKind};
 use crate::source::FileId;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -14,6 +15,7 @@ pub(super) struct Files<'a> {
     stdlib: &'a Path,
     texts: HashMap<PathBuf, Option<Arc<str>>>,
     tops: HashMap<PathBuf, Option<Arc<Top>>>,
+    loaders: HashMap<PathBuf, Vec<PathBuf>>,
 }
 
 /// The top level of one file: what its names stand for, and the files it brings in.
@@ -23,7 +25,7 @@ struct Top {
     /// Loaded files, in order.
     loads: Vec<PathBuf>,
     /// Modules imported without a name, in order.
-    unnamed: Vec<PathBuf>,
+    unnamed: Vec<(PathBuf, UsingFilter)>,
 }
 
 /// What one name at the top of a file stands for.
@@ -41,7 +43,14 @@ impl<'a> Files<'a> {
             stdlib,
             texts: HashMap::default(),
             tops: HashMap::default(),
+            loaders: HashMap::default(),
         }
+    }
+
+    /// These modules supply language and implementation declarations, not public pages.
+    pub(super) fn unpublished(&self, file: &Path) -> bool {
+        file.starts_with(self.stdlib.join("prelude"))
+            || file.starts_with(self.stdlib.join("internal"))
     }
 
     fn read(&mut self, file: &Path) -> Option<Arc<str>> {
@@ -56,7 +65,7 @@ impl<'a> Files<'a> {
         let candidates: Vec<PathBuf> = match source {
             ImportSource::File(path) => vec![base.join(&**path)],
             ImportSource::Module(name) => {
-                let local = base.join(&**name);
+                let local = base.join("modules").join(&**name);
                 let stdlib = self.stdlib.join(&**name);
                 vec![
                     local.with_extension("jai"),
@@ -67,7 +76,10 @@ impl<'a> Files<'a> {
             }
             ImportSource::Dir(_) | ImportSource::String(_) => return None,
         };
-        candidates.into_iter().find(|p| p.is_file())
+        candidates
+            .into_iter()
+            .find(|p| p.is_file())
+            .map(|p| super::canonical(&p))
     }
 
     /// The top level of `file`, parsed the first time it is asked for.
@@ -83,7 +95,24 @@ impl<'a> Files<'a> {
                 loads: Vec::new(),
                 unnamed: Vec::new(),
             };
-            for item in ide_facts::top_level(&parsed.file) {
+            let tops = ide_facts::top_level(&parsed.file);
+            // Bindings in a #module_parameters body are in scope in its defaults and types.
+            let bodies: Vec<_> = tops
+                .iter()
+                .filter_map(|item| match item.kind {
+                    TopLevelKind::ModuleParameters(params) => {
+                        params.body.as_ref().map(|body| crate::ast::File {
+                            stmts: body.stmts.clone(),
+                            ..parsed.file.clone()
+                        })
+                    }
+                    _ => None,
+                })
+                .collect();
+            for item in tops
+                .into_iter()
+                .chain(bodies.iter().flat_map(ide_facts::top_level))
+            {
                 match item.kind {
                     TopLevelKind::Decl(decl) => {
                         for n in &decl.names {
@@ -98,15 +127,25 @@ impl<'a> Files<'a> {
                         let found = self.imported(base, &import.source);
                         match (&import.name, found) {
                             (Some(n), Some(found)) => {
+                                if let Some(filter) = &import.using {
+                                    top.unnamed.push((found.clone(), filter.clone()));
+                                }
                                 top.names
                                     .entry(n.name.as_str().to_owned())
                                     .or_insert(Name::Module(found));
                             }
-                            (None, Some(found)) => top.unnamed.push(found),
+                            (None, Some(found)) => top.unnamed.push((found, UsingFilter::None)),
                             (_, None) => {}
                         }
                     }
-                    TopLevelKind::Load(path, _) => top.loads.push(base.join(path)),
+                    TopLevelKind::Load(path, _) => {
+                        let loaded = super::canonical(&base.join(path));
+                        self.loaders
+                            .entry(loaded.clone())
+                            .or_default()
+                            .push(file.to_path_buf());
+                        top.loads.push(loaded);
+                    }
                     TopLevelKind::Assert(_) | TopLevelKind::ModuleParameters(_) => {}
                 }
             }
@@ -118,6 +157,19 @@ impl<'a> Files<'a> {
 
     /// What `name` is at the top level of `file` or of a file it loads.
     fn top_level(&mut self, file: &Path, name: &str, depth: usize) -> Option<Name> {
+        self.top_level_in(file, name, depth, &mut BTreeSet::new())
+    }
+
+    fn top_level_in(
+        &mut self,
+        file: &Path,
+        name: &str,
+        depth: usize,
+        seen: &mut BTreeSet<(PathBuf, String)>,
+    ) -> Option<Name> {
+        if !seen.insert((file.to_path_buf(), name.to_owned())) {
+            return None;
+        }
         let top = self.top(file)?;
         if let Some(found) = top.names.get(name) {
             return Some(found.clone());
@@ -125,9 +177,30 @@ impl<'a> Files<'a> {
         if depth == 0 {
             return None;
         }
-        top.loads
+        if let Some(found) = top
+            .loads
             .iter()
-            .find_map(|loaded| self.top_level(loaded, name, depth - 1))
+            .find_map(|loaded| self.top_level_in(loaded, name, depth - 1, seen))
+        {
+            return Some(found);
+        }
+        top.unnamed.iter().find_map(|(module, filter)| {
+            let original = match filter {
+                UsingFilter::None => name,
+                UsingFilter::Only(names) if names.iter().any(|n| n.name.as_str() == name) => name,
+                UsingFilter::Except(names) if !names.iter().any(|n| n.name.as_str() == name) => {
+                    name
+                }
+                UsingFilter::Map(names) => names
+                    .iter()
+                    .find(|(_, to)| to.name.as_str() == name)?
+                    .0
+                    .name
+                    .as_str(),
+                _ => return None,
+            };
+            self.top_level_in(module, original, depth - 1, seen)
+        })
     }
 }
 
@@ -136,39 +209,40 @@ impl Files<'_> {
     /// imports (`Mod.Type`), and for a lone name also through the modules it imports without a
     /// name (`#import "Basic";`), whose exports are in scope.
     pub(super) fn type_site(&mut self, file: &Path, path: &[String]) -> Option<(PathBuf, usize)> {
-        self.type_site_in(file, path, LOAD_DEPTH)
+        self.scope_site(file, path, &mut BTreeSet::new())
     }
 
-    fn type_site_in(
+    fn scope_site(
         &mut self,
         file: &Path,
         path: &[String],
-        depth: usize,
+        seen: &mut BTreeSet<PathBuf>,
     ) -> Option<(PathBuf, usize)> {
-        let file = file.to_path_buf();
-        if let Some(found) = self.resolve(&file, 0, path) {
-            return Some(found);
-        }
-        let [name] = path else {
-            return None;
-        };
-        let top = self.top(&file)?;
-        for module in &top.unnamed {
-            if let Some(Name::Decl(owner, at)) = self.top_level(module, name, LOAD_DEPTH) {
-                return Some((owner, at));
-            }
-        }
-        if depth == 0 {
+        if !seen.insert(file.to_path_buf()) {
             return None;
         }
-        top.loads
-            .iter()
-            .find_map(|loaded| self.type_site_in(loaded, path, depth - 1))
+        self.resolve(&file.to_path_buf(), 0, path).or_else(|| {
+            // A loaded file shares the loading module's scope, including sibling declarations.
+            let owners = self.loaders.get(file).cloned().unwrap_or_default();
+            owners
+                .iter()
+                .find_map(|owner| self.scope_site(owner, path, seen))
+        })
+    }
+
+    pub(super) fn implicit_site(&mut self, path: &[String]) -> Option<(PathBuf, usize)> {
+        ["prelude", "Runtime_Support"].iter().find_map(|module| {
+            self.resolve(
+                &crate::paths::module_entry(&self.stdlib.join(module)),
+                0,
+                path,
+            )
+        })
     }
 }
 
 /// Files loaded from files loaded from ... are looked through this deep.
-const LOAD_DEPTH: usize = 4;
+const LOAD_DEPTH: usize = 32;
 
 impl Resolver<PathBuf> for Files<'_> {
     fn text(&mut self, file: &PathBuf) -> Option<Arc<str>> {

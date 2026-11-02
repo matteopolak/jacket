@@ -84,7 +84,7 @@ fn case_folders(modules: &[Module]) -> BTreeMap<String, String> {
     out
 }
 
-const BUILTIN_TYPES: &[&str] = &[
+pub(super) const BUILTIN_TYPES: &[&str] = &[
     "int", "float", "float32", "float64", "bool", "string", "void", "Type", "Any", "s8", "s16",
     "s32", "s64", "u8", "u16", "u32", "u64", "s128", "u128", "code", "Code",
 ];
@@ -340,7 +340,7 @@ impl Site {
     /// `type_html`, or with `marked` the plain text of the type where each link is
     /// `\u{1}Module/item\u{2}Name\u{3}` and nothing is escaped, which is how the search index
     /// carries links without carrying their addresses.
-    fn type_out(&self, ty: &str, refs: &[TypeRef], here: usize, marked: bool) -> String {
+    pub(super) fn type_out(&self, ty: &str, refs: &[TypeRef], here: usize, marked: bool) -> String {
         let mut out = String::new();
         let chars: Vec<(usize, char)> = ty.char_indices().collect();
         let mut i = 0;
@@ -392,8 +392,12 @@ impl Site {
     /// The documented declaration a written name (`Kind`, `Hash.Table`) was resolved to, if any:
     /// its module and name.
     fn resolved(&self, head: &str, refs: &[TypeRef], here: usize) -> Option<(usize, &str)> {
-        let r = refs.iter().find(|r| r.path == head)?;
-        let targets = self.decls.get(&(r.file.clone(), r.line))?;
+        // References with the same written path are ordered alias hops. Skip private
+        // aliases and thin re-exports until a declaration with a page is reached.
+        let targets = refs
+            .iter()
+            .filter(|r| r.path == head)
+            .find_map(|r| self.decls.get(&(r.file.clone(), r.line)))?;
         let (m, name) = targets
             .iter()
             .find(|(m, _)| *m == here)
@@ -719,6 +723,7 @@ mod tests {
             path: "Thing".into(),
             file: "B/thing.jai".into(),
             line: 3,
+            private: false,
         }];
         // Written the same in module A, but resolved to the other module's type.
         assert_eq!(
@@ -731,6 +736,7 @@ mod tests {
             path: "Thing".into(),
             file: "A/thing.jai".into(),
             line: 3,
+            private: false,
         }];
         assert_eq!(
             site.type_html(":= Thing.ONE", &member, 1),

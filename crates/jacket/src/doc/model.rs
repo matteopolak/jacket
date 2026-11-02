@@ -20,6 +20,7 @@ pub struct TypeRef {
     pub path: String,
     pub file: String,
     pub line: usize,
+    pub private: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -97,6 +98,7 @@ pub struct Item {
     pub line: usize,
     pub docs: String,
     pub value: String,
+    pub scope: Vec<String>,
     pub overloads: Vec<Overload>,
     pub members: Vec<Member>,
     /// The declarations the names in `value` stand for.
@@ -231,6 +233,7 @@ fn type_refs(v: &Value, stdlib: &Path) -> Vec<TypeRef> {
                 path: r.first()?.as_str()?.to_owned(),
                 file: below(stdlib, r.get(1)?.as_str()?),
                 line: r.get(2)?.as_u64()? as usize,
+                private: r.get(3).and_then(Value::as_bool).unwrap_or(false),
             })
         })
         .collect()
@@ -286,6 +289,10 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                 line: number(i, "line"),
                 docs: text(i, "docs"),
                 value: text(i, "value"),
+                scope: list(i, "scope")
+                    .iter()
+                    .filter_map(|n| n.as_str().map(str::to_owned))
+                    .collect(),
                 refs: type_refs(i, stdlib),
                 binding: i.get("binding").and_then(Value::as_bool).unwrap_or(false),
                 overloads,

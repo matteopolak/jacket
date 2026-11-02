@@ -1,3 +1,4 @@
+use super::super::refs::type_paths;
 use super::*;
 
 fn library(tag: &str, files: &[(&str, &str)]) -> PathBuf {
@@ -8,7 +9,7 @@ fn library(tag: &str, files: &[(&str, &str)]) -> PathBuf {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, text).unwrap();
     }
-    dir
+    dir.canonicalize().unwrap()
 }
 
 #[test]
@@ -39,11 +40,14 @@ fn names_in_types_are_resolved_to_declarations() {
             .find(|r| r.path == name)
             .map(|r| (r.file.clone(), r.line))
     };
-    // The alias and the written `Shapes.Point` both lead to the struct itself.
-    assert_eq!(
-        at(&params[0], "Point"),
-        Some((point.file.clone(), point.line))
+    // The alias chain retains the first hop and then the struct itself.
+    assert!(
+        params[0]
+            .refs
+            .iter()
+            .any(|r| r.file == point.file && r.line == point.line)
     );
+    assert_eq!(at(&params[0], "Point"), Some((dir.join("module.jai"), 3)));
     assert_eq!(
         at(&params[1], "Shapes.Point"),
         Some((point.file.clone(), point.line))
@@ -239,4 +243,213 @@ fn a_procedure_comment_belongs_to_its_overload() {
     // An alias keeps its own comment.
     assert_eq!(item("twice").docs, "Another name.");
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn imported_type_aliases_keep_their_identity_and_ordered_resolution_chain() {
+    let dir = library(
+        "imported-type-aliases",
+        &[
+            (
+                "Shapes/module.jai",
+                "// A point.\nPoint :: struct { x: int; }\nBox :: struct(T: Type) { value: T; }\nPixel :: Box(int);\n",
+            ),
+            (
+                "Paint/module.jai",
+                "S :: #import \"Shapes\";\n// A color.\nColor :: S.Point;\nSpecial :: S.Box(int);\nPixel_Color :: S.Pixel;\nuse :: (a: Color, b: Hidden) {}\n#scope_file\nHidden :: Middle;\nMiddle :: Color;\n",
+            ),
+        ],
+    );
+    let model = module(&dir.join("Paint"), &dir);
+    let color = model.items.iter().find(|i| i.name == "Color").unwrap();
+    assert_eq!(color.kind, "type");
+    assert_eq!(color.file, dir.join("Paint/module.jai"));
+    assert_eq!(color.line, 3);
+    assert_eq!(color.value, "S.Point");
+    assert_eq!(
+        model
+            .items
+            .iter()
+            .find(|i| i.name == "Special")
+            .unwrap()
+            .kind,
+        "type"
+    );
+    let pixel = model
+        .items
+        .iter()
+        .find(|i| i.name == "Pixel_Color")
+        .unwrap();
+    assert_eq!(pixel.kind, "type");
+    assert_eq!(pixel.file, dir.join("Paint/module.jai"));
+    assert_eq!(pixel.value, "S.Pixel");
+    let params = &model
+        .items
+        .iter()
+        .find(|i| i.name == "use")
+        .unwrap()
+        .overloads[0]
+        .params;
+    let sites = |p: &Param| {
+        p.refs
+            .iter()
+            .map(|r| (r.file.clone(), r.line))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        sites(&params[0]),
+        [
+            (dir.join("Paint/module.jai"), 3),
+            (dir.join("Shapes/module.jai"), 2)
+        ]
+    );
+    assert_eq!(
+        sites(&params[1]),
+        [
+            (dir.join("Paint/module.jai"), 8),
+            (dir.join("Paint/module.jai"), 9),
+            (dir.join("Paint/module.jai"), 3),
+            (dir.join("Shapes/module.jai"), 2)
+        ]
+    );
+    assert!(!model.items.iter().any(|i| i.name == "Hidden"));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn type_aliases_in_conditional_branches_share_a_documented_item() {
+    let dir = library(
+        "alias-branches",
+        &[(
+            "module.jai",
+            "Point :: struct {}\n#if OS == .MACOS {\n// A color.\nColor :: Point;\n} else {\n// A color.\nColor :: Point;\n}\nuse :: (c: Color) {}\n",
+        )],
+    );
+    let model = module(&dir, &dir);
+    let color = model.items.iter().find(|i| i.name == "Color").unwrap();
+    assert_eq!(color.kind, "type");
+    assert_eq!(color.also, [(dir.join("module.jai"), 7)]);
+    assert!(color.platforms.is_empty());
+    let refs = &model
+        .items
+        .iter()
+        .find(|i| i.name == "use")
+        .unwrap()
+        .overloads[0]
+        .params[0]
+        .refs;
+    assert_eq!(
+        (refs[0].file.clone(), refs[0].line),
+        (color.file.clone(), color.line)
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn type_resolution_uses_module_search_roots_and_the_loading_module_scope() {
+    let dir = library(
+        "module-scopes",
+        &[
+            ("Input/module.jai", "Key :: enum { ENTER; }\n"),
+            (
+                "Provider/module.jai",
+                "#load \"fields.jai\";\nShared :: struct {}\n",
+            ),
+            (
+                "Provider/fields.jai",
+                "Record :: struct { key: Key; value: Shared; }\n#import \"Input\";\n",
+            ),
+            (
+                "Consumer/module.jai",
+                "#import \"Input\";\nP :: #import \"Provider\";\nRecord :: P.Record;\nuse :: (k: Key, r: Record) {}\n",
+            ),
+            // A sibling file does not shadow an import (even on case-insensitive file systems).
+            ("Consumer/input.jai", "Unrelated :: struct {}\n"),
+        ],
+    );
+    let model = module(&dir.join("Consumer"), &dir);
+    let record = model.items.iter().find(|i| i.name == "Record").unwrap();
+    assert_eq!(record.members[0].refs[0].file, dir.join("Input/module.jai"));
+    assert_eq!(
+        record.members[1].refs[0].file,
+        dir.join("Provider/module.jai")
+    );
+    let use_ = model.items.iter().find(|i| i.name == "use").unwrap();
+    assert_eq!(
+        use_.overloads[0].params[0].refs[0].file,
+        dir.join("Input/module.jai")
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn type_values_are_classified_by_resolution_and_procedure_types_merge_branches() {
+    let dir = library(
+        "type-values",
+        &[(
+            "module.jai",
+            "Word :: u32;\nPointer :: *Word;\nRecord :: struct(T: Type) {}\nInstance :: Record(int);\nvalue :: 4;\ncopy :: value;\n#if OS == .MACOS {\nCallback :: #type (x: Word);\n} else {\nCallback :: #type (x: Pointer);\n}\n",
+        )],
+    );
+    let model = module(&dir, &dir);
+    for name in ["Word", "Pointer", "Instance", "Callback"] {
+        assert_eq!(
+            model.items.iter().find(|i| i.name == name).unwrap().kind,
+            "type",
+            "{name}"
+        );
+    }
+    assert_eq!(
+        model.items.iter().find(|i| i.name == "copy").unwrap().kind,
+        "constant"
+    );
+    assert_eq!(
+        model
+            .items
+            .iter()
+            .find(|i| i.name == "Callback")
+            .unwrap()
+            .also
+            .len(),
+        1
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn using_reexports_respect_filters_and_parameter_helpers_have_no_item_page() {
+    let dir = library(
+        "using-filters",
+        &[
+            (
+                "Common/module.jai",
+                "Point :: struct {}\nHidden :: struct {}\n",
+            ),
+            (
+                "Facade/module.jai",
+                "using,only(Point) Names :: #import \"Common\";\n",
+            ),
+            (
+                "Consumer/module.jai",
+                "#import \"Facade\";\n#module_parameters(MODE := Mode.ONE) { Mode :: enum { ONE; } }\nuse :: (p: Point, hidden: Hidden) {}\n",
+            ),
+        ],
+    );
+    let model = module(&dir.join("Consumer"), &dir);
+    let refs = &model.parameters[0].refs;
+    assert!(refs.iter().any(|r| r.path == "Mode" && r.private));
+    let params = &model
+        .items
+        .iter()
+        .find(|i| i.name == "use")
+        .unwrap()
+        .overloads[0]
+        .params;
+    assert_eq!(params[0].refs[0].file, dir.join("Common/module.jai"));
+    assert!(params[1].refs.is_empty());
+    assert_eq!(
+        type_paths("string.[\"Point\", \"escaped \\\" Hidden\"]"),
+        [vec!["string"]]
+    );
+    std::fs::remove_dir_all(dir).unwrap();
 }

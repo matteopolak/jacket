@@ -1,16 +1,18 @@
 //! Names written in types, and the declarations they resolve to: what lets the site link a type
 //! in a signature to the right page. The reading is `Reader::type_refs` in `model.rs`.
-use super::model::{Module, json, path};
-use std::collections::BTreeSet;
+use super::model::{json, path};
 use std::path::PathBuf;
 
-/// A name written in a type and the declaration it resolves to.
+/// One hop of a written name's alias chain. Repeated paths are ordered nearest first;
+/// the site chooses the first hop whose declaration has a page.
 #[derive(Debug, Default)]
 pub struct TypeRef {
     /// As written: `Table` or `Hash.Table`.
     pub path: String,
     pub file: PathBuf,
     pub line: usize,
+    /// This hop belongs to a private/internal/prelude or module-parameter helper scope.
+    pub private: bool,
 }
 
 /// Types the language provides, which have no declaration to link to.
@@ -27,6 +29,21 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
+        // Literal text is data, even when it happens to spell a declaration's name.
+        if c == '"' {
+            i += 1;
+            while i < chars.len() {
+                if chars[i] == '\\' {
+                    i = (i + 2).min(chars.len());
+                } else if chars[i] == '"' {
+                    i += 1;
+                    break;
+                } else {
+                    i += 1;
+                }
+            }
+            continue;
+        }
         if c.is_ascii_digit() {
             while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
                 i += 1;
@@ -61,43 +78,6 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
     out
 }
 
-/// A type declared once per target (`#if OS == .MACOS` and its other branch) is one item, which
-/// stands for the declaration that is documented. A name that resolved to a branch that is not
-/// documented (a binding's, say) is pointed at the item of that name.
-pub(super) fn reconcile_refs(out: &mut Module) {
-    let documented: Vec<(String, PathBuf, usize)> = out
-        .items
-        .iter()
-        .filter(|i| matches!(i.kind, "struct" | "union" | "enum" | "enum_flags" | "type"))
-        .map(|i| (i.name.clone(), i.file.clone(), i.line))
-        .collect();
-    let known: BTreeSet<(PathBuf, usize)> = out
-        .items
-        .iter()
-        .flat_map(|i| std::iter::once((i.file.clone(), i.line)).chain(i.also.iter().cloned()))
-        .collect();
-    let fix = |r: &mut TypeRef| {
-        if r.path.contains('.') || known.contains(&(r.file.clone(), r.line)) {
-            return;
-        }
-        if let Some((_, file, line)) = documented.iter().find(|(name, ..)| *name == r.path) {
-            r.file = file.clone();
-            r.line = *line;
-        }
-    };
-    for item in &mut out.items {
-        for o in &mut item.overloads {
-            for p in o.params.iter_mut().chain(o.returns.iter_mut()) {
-                p.refs.iter_mut().for_each(fix);
-            }
-        }
-        for m in &mut item.members {
-            m.refs.iter_mut().for_each(fix);
-        }
-        item.refs.iter_mut().for_each(fix);
-    }
-}
-
 /// `,"refs":[["Hash.Table","Hash_Table/table.jai",12]]`, or nothing when no name resolved.
 pub(super) fn refs_json(refs: &[TypeRef]) -> String {
     if refs.is_empty() {
@@ -105,7 +85,15 @@ pub(super) fn refs_json(refs: &[TypeRef]) -> String {
     }
     let rows: Vec<String> = refs
         .iter()
-        .map(|r| format!("[{},{},{}]", json(&r.path), path(&r.file), r.line))
+        .map(|r| {
+            format!(
+                "[{},{},{},{}]",
+                json(&r.path),
+                path(&r.file),
+                r.line,
+                r.private
+            )
+        })
         .collect();
     format!(",\"refs\":[{}]", rows.join(","))
 }

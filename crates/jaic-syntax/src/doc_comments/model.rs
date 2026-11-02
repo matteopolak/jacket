@@ -7,7 +7,9 @@
 //! the kind, signature and docs of its target; docs written on the alias itself win. Procedures
 //! declared several times under one name are the overloads of one item.
 use super::forward::Files;
-use super::refs::{BUILTIN_TYPES, TypeRef, reconcile_refs, refs_json, type_paths};
+#[path = "model_resolution.rs"]
+mod resolution;
+use super::refs::{TypeRef, refs_json};
 use crate::ast::{
     BinOp, Decl, DeclKind, EnumItem, Expr, ExprKind, File, ProcHeader, Stmt, StmtKind, StructKind,
     UnOp,
@@ -183,6 +185,8 @@ pub struct Item {
     pub members: Vec<Member>,
     /// What a constant is set to, as written.
     pub value: String,
+    /// Struct parameters whose names are bound locally rather than documented items.
+    pub scope: Vec<String>,
     /// The declarations the names in `value` stand for (`Close_Proc :: #type (...) -> Io_Error`).
     pub refs: Vec<TypeRef>,
     /// The systems the `#if`s around it (and around what it names) limit it to; empty for any.
@@ -226,7 +230,11 @@ struct Parsed {
     parse: IdeParse,
     /// Declarations limited by an `#if` on `OS`; see [`limits`].
     limits: HashMap<u32, u8>,
+    private: BTreeSet<usize>,
 }
+
+/// Ordered declaration identities and whether each hop has no independent public page.
+type RefChain = Vec<(PathBuf, usize, bool)>;
 
 struct Reader<'a> {
     files: Files<'a>,
@@ -238,7 +246,7 @@ struct Reader<'a> {
     /// What a name leads to anywhere in the library, found once.
     anywhere: HashMap<String, Option<(PathBuf, usize)>>,
     /// Where a name written in a file leads, found once.
-    refs: HashMap<(PathBuf, String), Option<(PathBuf, usize)>>,
+    refs: HashMap<(PathBuf, String), RefChain>,
     /// Where each line starts in a file's text, keyed by the text's address: `files` keeps
     /// every text it read alive, so an address names one text for the reader's whole life.
     lines: HashMap<(usize, usize), Rc<Vec<usize>>>,
@@ -261,6 +269,28 @@ impl Reader<'_> {
     }
 }
 
+/// Parameter-body helpers validate an import's arguments; they do not have item pages.
+fn parameter_helper_sites(file: &File) -> Vec<usize> {
+    let mut sites = Vec::new();
+    for item in ide_facts::top_level(file) {
+        if let TopLevelKind::ModuleParameters(params) = item.kind
+            && let Some(body) = &params.body
+        {
+            crate::ast::walk::walk(&body.stmts, &mut |node, _| {
+                if let Some(Stmt {
+                    kind: StmtKind::Decl(d),
+                    ..
+                }) = node.stmt()
+                {
+                    sites.extend(d.names.iter().map(|n| n.span.start as usize));
+                }
+                true
+            });
+        }
+    }
+    sites
+}
+
 impl Reader<'_> {
     fn parsed(&mut self, file: &Path) -> Option<Rc<Parsed>> {
         if let Some(found) = self.parsed.get(file) {
@@ -269,6 +299,17 @@ impl Reader<'_> {
         let loaded = self.files.text(&file.to_path_buf()).map(|text| {
             let parse = parse_file_ide(FileId(0), &text);
             Rc::new(Parsed {
+                private: ide_facts::top_level(&parse.file)
+                    .iter()
+                    .filter(|item| item.visibility != Visibility::Export)
+                    .filter_map(|item| match item.kind {
+                        TopLevelKind::Decl(d) => Some(d.names.iter()),
+                        _ => None,
+                    })
+                    .flatten()
+                    .map(|n| n.span.start as usize)
+                    .chain(parameter_helper_sites(&parse.file))
+                    .collect(),
                 limits: limits(&parse.file),
                 text,
                 parse,
@@ -276,100 +317,6 @@ impl Reader<'_> {
         });
         self.parsed.insert(file.to_path_buf(), loaded.clone());
         loaded
-    }
-
-    /// The declarations the names written in `ty` (in `file`) stand for. A name that is not
-    /// declared anywhere the reader can see (a type parameter, a builtin) has none. For
-    /// `Kind.MEMBER` that is the declaration of `Kind`.
-    fn type_refs(&mut self, file: &Path, ty: &str) -> Vec<TypeRef> {
-        let mut out: Vec<TypeRef> = Vec::new();
-        for path in type_paths(ty) {
-            if path.len() == 1 && BUILTIN_TYPES.contains(&path[0].as_str()) {
-                continue;
-            }
-            for len in (1..=path.len()).rev() {
-                let written = path[..len].join(".");
-                if out.iter().any(|r| r.path == written) {
-                    break;
-                }
-                let key = (file.to_path_buf(), written.clone());
-                let found = if let Some(found) = self.refs.get(&key) {
-                    found.clone()
-                } else {
-                    let found = self.declaration_of(file, &path[..len]);
-                    self.refs.insert(key, found.clone());
-                    found
-                };
-                if let Some((file, line)) = found {
-                    out.push(TypeRef {
-                        path: written,
-                        file,
-                        line,
-                    });
-                    break;
-                }
-            }
-        }
-        out
-    }
-
-    /// Where `path` is declared, looking from `file`, then from the library's entry, then in
-    /// every file of the library.
-    fn locate(&mut self, file: &Path, path: &[String]) -> Option<(PathBuf, usize)> {
-        let entry = self.module_file.clone();
-        if let Some(found) = [file, entry.as_path()]
-            .into_iter()
-            .find_map(|from| self.files.type_site(from, path))
-        {
-            return Some(found);
-        }
-        let key = path.join(".");
-        if let Some(found) = self.anywhere.get(&key) {
-            return found.clone();
-        }
-        let all = self.library.clone();
-        let found = all.iter().find_map(|from| self.files.type_site(from, path));
-        self.anywhere.insert(key, found.clone());
-        found
-    }
-
-    /// Where `path`, written in `file`, is declared, after following aliases. A library's files
-    /// share their names, so an alias whose target is named in another file is followed from
-    /// the library's other files.
-    fn declaration_of(&mut self, file: &Path, path: &[String]) -> Option<(PathBuf, usize)> {
-        let (mut found, mut at) = self.locate(file, path)?;
-        for _ in 0..MAX_HOPS {
-            (found, at) = self.target(&found, at);
-            let text = self.files.text(&found)?;
-            let Some(next) = docs::alias_target(&text, at) else {
-                break;
-            };
-            match self.locate(&found, &next) {
-                Some(then) if then != (found.clone(), at) => (found, at) = then,
-                _ => break,
-            }
-        }
-        let text = self.files.text(&found)?;
-        Some((found, self.line_of(&text, at)))
-    }
-
-    /// The declaration an alias at `at` of `file` finally names (itself when it names nothing
-    /// that can be found).
-    fn target(&mut self, file: &Path, at: usize) -> (PathBuf, usize) {
-        let (mut file, mut at) = (file.to_path_buf(), at);
-        for _ in 0..MAX_HOPS {
-            let Some(text) = self.files.text(&file) else {
-                break;
-            };
-            let Some(path) = docs::alias_target(&text, at) else {
-                break;
-            };
-            match self.files.resolve(&file, at, &path) {
-                Some(next) if next != (file.clone(), at) => (file, at) = next,
-                _ => break,
-            }
-        }
-        (file, at)
     }
 }
 
@@ -384,6 +331,13 @@ fn slice(text: &str, start: u32, end: u32) -> String {
 }
 
 fn class_kind(decl: &Decl) -> &'static str {
+    // A header without a body is a procedure type, not a callable overload.
+    if matches!(
+        decl.value.as_ref().map(|v| &v.kind),
+        Some(ExprKind::ProcType(_))
+    ) {
+        return "type";
+    }
     match ide_facts::decl_class(decl) {
         DeclClass::Procedure => "procedure",
         DeclClass::Struct => match decl.value.as_ref().map(|v| &v.kind) {
@@ -666,6 +620,22 @@ impl<'a> TopIndex<'a> {
     }
 }
 
+/// The parameter names of a parameterized struct, which its members may refer to.
+fn struct_params(decl: &Decl) -> Vec<String> {
+    let Some(Expr {
+        kind: ExprKind::Struct(lit),
+        ..
+    }) = &decl.value
+    else {
+        return Vec::new();
+    };
+    lit.params
+        .iter()
+        .filter_map(|p| p.name.as_ref())
+        .map(|n| n.name.as_str().to_owned())
+        .collect()
+}
+
 pub fn module(dir: &Path, stdlib: &Path) -> Module {
     let mut own = Vec::new();
     super::own_files(dir, true, &mut own);
@@ -799,7 +769,25 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                         );
                         continue;
                     };
-                    let kind = class_kind(tdecl);
+                    let mut kind = class_kind(tdecl);
+                    let target_is_type =
+                        matches!(kind, "struct" | "union" | "enum" | "enum_flags" | "type")
+                            || (kind == "constant"
+                                && tdecl.value.as_ref().is_some_and(|value| {
+                                    reader.value_is_type(&tfile, value, MAX_HOPS)
+                                }));
+                    let alias_type = (tfile != file || tat != at)
+                        && target_is_type
+                        && name.name != tdecl.names[0].name;
+                    if alias_type
+                        || (kind == "constant"
+                            && decl
+                                .value
+                                .as_ref()
+                                .is_some_and(|value| reader.value_is_type(&file, value, MAX_HOPS)))
+                    {
+                        kind = "type";
+                    }
                     let alias_limit = parsed
                         .limits
                         .get(&name.span.start)
@@ -829,7 +817,25 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                             || (binding && ide_facts::decl_class(tdecl) != DeclClass::Procedure),
                         ..Item::default()
                     };
-                    if kind == "procedure" {
+                    if !alias_type && (tfile != file || tat != at) {
+                        // A thin re-export represents both declaration identities. This also
+                        // lets references written in the provider's files find its public page.
+                        found.also.push((file.clone(), reader.line_of(&text, at)));
+                    }
+                    found.scope = struct_params(tdecl);
+                    if alias_type {
+                        found.file.clone_from(&file);
+                        found.line = reader.line_of(&text, at);
+                        found.value = clip(
+                            decl.value
+                                .as_ref()
+                                .map_or(String::new(), |v| slice(&text, v.span.start, v.span.end)),
+                        );
+                        found.refs = reader.type_refs(&file, &found.value);
+                        if found.docs.is_empty() {
+                            found.docs = docs::declaration(&target.text, tat).unwrap_or_default();
+                        }
+                    } else if kind == "procedure" {
                         // The comment above a procedure (not an alias of one) is its first
                         // overload's, which carries it with the parameter lines taken out.
                         if tfile == file && tat == at {
@@ -846,12 +852,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                             }
                         }
                     } else {
-                        found.members = members(tdecl, &target.text);
-                        if matches!(kind, "struct" | "union") {
-                            for m in &mut found.members {
-                                m.refs = reader.type_refs(&tfile, &m.ty);
-                            }
-                        }
+                        reader.item_members(&tfile, &target.text, tdecl, &mut found);
                         if found.docs.is_empty() {
                             found.docs = docs::declaration(&target.text, tat).unwrap_or_default();
                         }
@@ -890,30 +891,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
         }
     }
     take_experimental(&mut out);
-    type_instances(&mut out);
-    reconcile_refs(&mut out);
     out
-}
-
-/// Marks a constant whose value instantiates one of the module's own structs, like
-/// `u8x16 :: Vector(u8, 16)`, as the type it is.
-fn type_instances(module: &mut Module) {
-    let structs: BTreeSet<String> = module
-        .items
-        .iter()
-        .filter(|i| matches!(i.kind, "struct" | "union"))
-        .map(|i| i.name.clone())
-        .collect();
-    for item in &mut module.items {
-        let callee = item
-            .value
-            .strip_suffix(')')
-            .and_then(|v| v.split_once('('))
-            .map(|(callee, _)| callee.trim());
-        if item.kind == "constant" && callee.is_some_and(|c| structs.contains(c)) {
-            item.kind = "type";
-        }
-    }
 }
 
 /// Moves the `@experimental` tag lines out of the docs and into the flags.
@@ -938,6 +916,7 @@ fn add(out: &mut Module, names: &mut Vec<String>, item: Item) {
         if have.kind != "procedure" && (&have.file, have.line) != (&item.file, item.line) {
             have.also.push((item.file.clone(), item.line));
         }
+        have.also.extend(item.also);
         if have.kind == "procedure" && item.kind == "procedure" {
             for o in item.overloads {
                 if !have
@@ -1035,7 +1014,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             })
             .collect();
         items.push(format!(
-            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"experimental\":{}{},\"overloads\":[{}],\"members\":[{}]{}{}}}",
+            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"experimental\":{}{},\"overloads\":[{}],\"members\":[{}]{}{},\"scope\":[{}]}}",
             json(&item.name),
             json(item.kind),
             path(&item.file),
@@ -1059,7 +1038,8 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
                         .join(",")
                 )
             },
-            refs_json(&item.refs)
+            refs_json(&item.refs),
+            item.scope.iter().map(|n| json(n)).collect::<Vec<_>>().join(",")
         ));
     }
     format!(
