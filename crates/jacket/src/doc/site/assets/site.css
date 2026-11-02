@@ -232,6 +232,9 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
   .side { flex-basis: 272px; max-width: 272px; }
 }
 @media (min-width: 1280px) {
+  /* The outline is parsed after the page, so its column is held open until it arrives; the text never reflows. */
+  .wrap[data-toc]::after { content: ""; flex: 0 0 224px; }
+  .wrap:has(> .toc)::after { display: none; }
   .toc { display: block; flex: 0 0 224px; position: sticky; top: 61px; align-self: flex-start; max-height: calc(100vh - 61px); overflow-y: auto; padding: 48px 0 24px; }
 }
 

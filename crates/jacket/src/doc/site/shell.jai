@@ -29,7 +29,7 @@ Layout :: (out: *Out, page: *Page($C)) {
 <body data-base="{cast(Html) page.site.base}" data-page="{esc(page.view.path)}">
 <a class="skip" href="#main-content">Skip to content</a>
 {Header(page.site, page.view.path)}
-<div class="wrap">
+<div class="wrap"{if page.view.outline.count} data-toc{end}>
 <details class="side" open><summary>{esc(page.view.side_label)}</summary>
 <nav aria-label="{esc(page.view.side_label)}" data-nav="{esc(page.view.side_label)}">
 {Side(page)}</nav></details>
@@ -37,7 +37,7 @@ Layout :: (out: *Out, page: *Page($C)) {
 <main id="main-content" tabindex="-1">
 {Main(page)}</main>
 {Toc(page)}<script>jacketPage(true)</script></div>
-{Footer(page.site)}</body>
+{Footer(page.site)}<script>jacketRestore()</script></body>
 </html>
 HTML
     );

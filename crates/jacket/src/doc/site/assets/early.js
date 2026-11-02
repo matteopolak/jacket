@@ -46,6 +46,9 @@
       return response.text();
     }).then(function (text) {
       if (!list.isConnected) return;
+      // Measured while the placeholder padding still stands in for the missing rows.
+      var current = list.querySelector('[aria-current="page"]');
+      var top = current && current.getBoundingClientRect().top;
       var template = document.createElement('template');
       template.innerHTML = text;
       var rows = template.content.querySelectorAll('li');
@@ -55,8 +58,6 @@
       list.removeAttribute('data-source');
       if (rows.length < end) { list.removeAttribute('style'); return; }
       list.setAttribute('data-loaded', source);
-      var current = list.querySelector('[aria-current="page"]');
-      var top = current && current.getBoundingClientRect().top;
       var before = document.createDocumentFragment(), after = document.createDocumentFragment();
       for (var i = start; i < end; i++) {
         if (i < first) before.appendChild(rows[i]);
@@ -78,16 +79,32 @@
   }
   window.jacketSide = setup;
 
+  // The footer is parsed after jacketPage, so a position near the bottom is cut short there.
+  // jacketRestore runs once the page is whole and puts it right, unless the reader has moved.
+  var restore = null;
+  window.jacketRestore = function () {
+    if (restore && Math.abs(restore.y - restore.at) > 1 && Math.abs(window.scrollY - restore.at) < 1) {
+      window.scrollTo({ top: restore.y, behavior: 'instant' });
+    }
+    restore = null;
+  };
+
   window.jacketPage = function (load) {
     // Measure every fold first, then change them, so the page lays out once.
     var shut = Array.prototype.slice.call(document.querySelectorAll('main .fold:not(.open)'));
     shut.filter(function (f) {
       return f.scrollHeight <= (+f.getAttribute('data-fold') || 440);
     }).forEach(function (f) { f.classList.add('open'); });
+    // A fold that fits has no use for its button. Dropping it here, not when site.js loads, matters:
+    // `.members:last-child` rules would otherwise change the block's padding a moment after paint.
+    Array.prototype.forEach.call(document.querySelectorAll('main .fold.open + .fold-btn'), function (b) { b.remove(); });
     if (load) {
       var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
       var y = history.state && history.state.y;
-      if (y && nav && nav.type !== 'navigate') window.scrollTo({ top: y, behavior: 'instant' });
+      if (y && nav && nav.type !== 'navigate') {
+        window.scrollTo({ top: y, behavior: 'instant' });
+        restore = { y: y, at: window.scrollY };
+      }
     }
     tocLists();
   };
@@ -130,6 +147,11 @@
       }
     }
   }
+  // The menu starts closed on a phone. Closing it here, before the first paint, keeps the page
+  // from jumping when site.js does the same, and means a restored scroll is measured against the
+  // page as it stays.
+  var menu = document.querySelector('details.side');
+  if (menu && !wide()) menu.open = false;
   var st = null;
   try { st = JSON.parse(sessionStorage.getItem('jacket-docs-side') || 'null'); } catch (e) {}
   setup(st);

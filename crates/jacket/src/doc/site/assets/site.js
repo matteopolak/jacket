@@ -862,6 +862,8 @@
     swapSide(doc);
     var main = document.getElementById('main-content'), next = doc.getElementById('main-content');
     main.replaceWith(document.importNode(next, true));
+    var wrap = document.querySelector('.wrap'), nextWrap = doc.querySelector('.wrap');
+    if (wrap && nextWrap) wrap.toggleAttribute('data-toc', nextWrap.hasAttribute('data-toc'));
     var toc = document.querySelector('.wrap > .toc'), nextToc = doc.querySelector('.wrap > .toc');
     if (toc) toc.remove();
     if (nextToc) document.getElementById('main-content').after(document.importNode(nextToc, true));
