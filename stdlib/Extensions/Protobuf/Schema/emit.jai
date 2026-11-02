@@ -8,42 +8,66 @@ proto_emit_schema :: (s: *proto_Schema, b: *String_Builder) {
     if s.options.map == .CUSTOM proto_emit(b, "proto_m :: #import \"%\";\n", s.options.map_module);
 
     append(b, "#scope_export\n");
-    proto_emit_namespace(s, b, "");
+    proto_emit_packages(s, b);
 }
 
-proto_emit_namespace :: (s: *proto_Schema, b: *String_Builder, prefix: string) {
-    namespaces: [..] string;
+// A package level: its own types and nested packages, in order of first declaration.
+proto_Namespace :: struct {
+    name: string;
+    items: [..] proto_Namespace_Item;
+}
+
+proto_Namespace_Item :: struct {
+    node: *proto_Node;
+    child: *proto_Namespace;
+}
+
+proto_emit_packages :: (s: *proto_Schema, b: *String_Builder) {
+    top: proto_Namespace;
+    levels: proto_symbols.Map(string, *proto_Namespace);
 
     for root: s.roots {
-        if root.package == prefix {
-            proto_emit_node(s, b, root);
+        level := *top;
+        rest := root.package;
+
+        while rest.count {
+            part := rest;
+
+            for rest if it == #char "." {
+                part.count = it_index;
+                break;
+            }
+
+            // Package text is shared by every root of the package, so the prefix is a slice of it.
+            path := slice(root.package, 0, root.package.count - rest.count + part.count);
+            child, added := proto_symbols.entry(*levels, path);
+
+            if added {
+                child.* = New(proto_Namespace);
+                child.*.name = part;
+                array_add(*level.items, .{ child = child.* });
+            }
+
+            level = child.*;
+            rest = slice(rest, part.count, rest.count - part.count);
+            if rest.count rest = slice(rest, 1, rest.count - 1);
+        }
+
+        array_add(*level.items, .{ node = root });
+    }
+
+    proto_emit_namespace(s, b, *top);
+}
+
+proto_emit_namespace :: (s: *proto_Schema, b: *String_Builder, level: *proto_Namespace) {
+    for level.items {
+        if it.node {
+            proto_emit_node(s, b, it.node);
             continue;
         }
 
-        rest := root.package;
-
-        if prefix.count {
-            head := proto_schema_format("%.", prefix);
-            if !begins_with(rest, head) continue;
-            rest = slice(rest, head.count, rest.count - head.count);
-        }
-
-        if !rest.count continue;
-
-        part := rest;
-
-        for rest if it == #char "." {
-            part = slice(rest, 0, it_index);
-            break;
-        }
-
-        seen := false;
-        for namespaces if it == part seen = true;
-        if seen continue;
-
-        array_add(*namespaces, part);
-        proto_emit(b, "% :: struct {\n", proto_jai_name(part));
-        proto_emit_namespace(s, b, proto_join_name(prefix, part));
+        proto_emit(b, "% :: struct {\n", proto_jai_name(it.child.name));
+        proto_emit_namespace(s, b, it.child);
         append(b, "}\n");
     }
 }
@@ -433,102 +457,53 @@ proto_emit_merge :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {
 // Specialize literal templates once, so generating a schema does not scan every output byte.
 // Arguments remain a small string/s64-only formatter, rather than the reflective Basic printer.
 proto_emit :: (b: *String_Builder, $template: string, args: ..Any) {
-    #insert -> string {
-        code: String_Builder;
-        start: s64;
-        argument: s64;
-
-        for template {
-            if it != #char "%" continue;
-            print(*code, "append(b, %);\nproto_emit_argument(b, args[%]);\n", proto_quote(slice(template, start, it_index - start)), argument);
-            argument += 1;
-            start = it_index + 1;
-        }
-
-        print(*code, "append(b, %);\nassert(args.count == %);\n", proto_quote(slice(template, start, template.count - start)), argument);
-
-        return builder_to_string(*code);
-    };
-}
-
-proto_emit_argument :: (b: *String_Builder, arg: Any) {
-    if arg.type.type == .STRING {
-        append(b, (cast(*string) arg.value_pointer).*);
-        return;
-    }
-
-    assert(arg.type.type == .INTEGER && arg.type.runtime_size == 8);
-    value := (cast(*s64) arg.value_pointer).*;
-    digits: [20] u8;
-    end := digits.count;
-    negative := value < 0;
-    bits: u64;
-
-    if negative bits = cast(u64) -value;
-    else bits = cast(u64) value;
-
-    while true {
-        end -= 1;
-        digits[end] = cast(u8) (bits % 10) + #char "0";
-        bits /= 10;
-        if !bits break;
-    }
-
-    if negative {
-        end -= 1;
-        digits[end] = #char "-";
-    }
-
-    append(b, string.{ digits.count - end, digits.data + end });
+    #insert #run proto_format_code(template, "out := cast(*u8) ensure_contiguous_space(b, n);\nif !out return;\n");
+    advance_through_ensured_space(b, n);
 }
 
 // Exact allocation for small internal names/expressions, avoiding a 4 KiB builder per name.
 proto_schema_format :: ($template: string, args: ..Any) -> string {
-    n: s64;
+    #insert #run proto_format_code(template, "out := cast(*u8) alloc(n);\n");
+    return .{ n, out };
+}
 
-    #insert -> string {
-        b: String_Builder;
-        literals := template.count;
-        count: s64;
+// Code that sizes the formatted text as `n`, runs `destination` to get `out`, then fills it.
+// Each '%' takes the next string or s64 argument.
+proto_format_code :: (template: string, destination: string) -> string {
+    b: String_Builder;
+    literals := template.count;
+    count: s64;
 
-        for template if it == #char "%" {
-            literals -= 1;
-            count += 1;
-        }
+    for template if it == #char "%" {
+        literals -= 1;
+        count += 1;
+    }
 
-        print(*b, "n = %;\n", literals);
-        for i: 0..count - 1 print(*b, "n += proto_argument_size(args[%]);\n", i);
+    print(*b, "n := %;\n", literals);
+    for i: 0..count - 1 print(*b, "n += proto_argument_size(args[%]);\n", i);
 
-        return builder_to_string(*b);
-    };
+    append(*b, destination);
+    append(*b, "pos: s64;\n");
 
-    result := string.{ n, cast(*u8) alloc(n) };
-    pos: s64;
+    start, argument: s64;
 
-    #insert -> string {
-        b: String_Builder;
-        start, argument: s64;
+    for template {
+        if it != #char "%" continue;
 
-        for template {
-            if it != #char "%" continue;
+        literal := slice(template, start, it_index - start);
+        if literal.count print(*b, "memcpy(out + pos, %.data, %); pos += %;\n", proto_quote(literal), literal.count, literal.count);
 
-            literal := slice(template, start, it_index - start);
-            if literal.count print(*b, "memcpy(result.data + pos, %.data, %); pos += %;\n", proto_quote(literal), literal.count, literal.count);
+        print(*b, "pos += proto_argument_write(out + pos, args[%]);\n", argument);
+        argument += 1;
+        start = it_index + 1;
+    }
 
-            print(*b, "pos += proto_argument_write(result.data + pos, args[%]);\n", argument);
-            argument += 1;
-            start = it_index + 1;
-        }
+    literal := slice(template, start, template.count - start);
+    if literal.count print(*b, "memcpy(out + pos, %.data, %);\n", proto_quote(literal), literal.count);
 
-        literal := slice(template, start, template.count - start);
-        if literal.count print(*b, "memcpy(result.data + pos, %.data, %);\n", proto_quote(literal), literal.count);
+    print(*b, "assert(args.count == %);\n", argument);
 
-        print(*b, "assert(args.count == %);\n", argument);
-
-        return builder_to_string(*b);
-    };
-
-    return result;
+    return builder_to_string(*b);
 }
 
 proto_argument_size :: (arg: Any) -> s64 {

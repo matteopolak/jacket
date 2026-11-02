@@ -174,6 +174,24 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
     // These names are the public generator API and module parameters in this same scope.
     reserved_api :: string.["Map_Mode", "Generate_Options", "Schema_Error", "protobuf_generate", "PATH", "TEXT", "DIR", "IMPORT_PATHS", "MAP", "MAP_MODULE", "MAP_TYPE", "MAP_INSERT", "MAP_DEINIT", "STRIP_ENUM_PREFIX"];
 
+    // Every package and each of its dotted ancestors, mapped to the first root declared under it.
+    package_roots: proto_symbols.Map(string, *proto_Node);
+
+    for root: s.roots {
+        package := root.package;
+
+        while package.count {
+            first, added := proto_symbols.entry(*package_roots, package);
+            if added first.* = root;
+
+            last: s64 = -1;
+            for package if it == #char "." last = it_index;
+            if last < 0 break;
+
+            package.count = last;
+        }
+    }
+
     for root: s.roots {
         root_package := root.package;
         for root_package if it == #char "." {
@@ -186,11 +204,8 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
             if !root.package.count && root.name == it proto_schema_fail(s, root.token, "type name is reserved by the Schema module API");
         }
 
-        package_prefix := proto_schema_format("%.", root.full);
-
-        for other: s.roots {
-            if other.package == root.full || begins_with(other.package, package_prefix) proto_schema_fail(s, other.token, "package and type have the same name");
-        }
+        other := proto_symbols.find(*package_roots, root.full);
+        if other proto_schema_fail(s, other.*.token, "package and type have the same name");
     }
 
     for node: s.nodes {

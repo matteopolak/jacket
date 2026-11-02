@@ -30,6 +30,10 @@ proto_Schema :: struct {
     source: *proto_Source;
     names: proto_symbols.Map(string, *proto_Node);
     jai_names: proto_symbols.Map(string, *proto_Node);
+    source_paths: proto_symbols.Map(string, *proto_Source);
+    // Import lookups: by folder-relative candidate, and by name in the import roots.
+    nearby_paths: proto_symbols.Map(string, string);
+    import_roots: proto_symbols.Map(string, string);
 }
 
 proto_schema_fail :: (s: *proto_Schema, token: proto_Token, message: string) {
@@ -54,66 +58,89 @@ proto_hex_digit :: (c: u8) -> s64 {
     return -1;
 }
 
+// Bytes that continue an identifier: letters, digits and '_'.
+proto_WORD_BYTES :: #run -> [256] bool {
+    result: [256] bool;
+    for c: 0..255 result[c] = proto_letter(cast(u8) c) || proto_digit(cast(u8) c);
+    return result;
+};
+
+// Whether the 8 bytes at data hold either byte, tested a word at a time (comments are most of a schema).
+proto_word_has :: (data: *u8, a: u8, b: u8) -> bool {
+    ONES: u64 : 0x0101_0101_0101_0101;
+    HIGHS: u64 : 0x8080_8080_8080_8080;
+    word: u64;
+
+    memcpy(*word, data, 8);
+    x := word ^ (ONES * a);
+    y := word ^ (ONES * b);
+
+    return ((x - ONES) & ~x & HIGHS) | ((y - ONES) & ~y & HIGHS) != 0;
+}
+
 proto_lex :: (s: *proto_Schema) { // jailint: allow(cognitive_complexity)
     i: s64;
     line: s64 = 1;
-    column: s64 = 1;
+    // Columns count bytes from the start of the line.
+    line_start: s64;
+    // Unchecked reads: every index below is compared with size first.
+    data := s.text.data;
+    size := s.text.count;
+    words := proto_WORD_BYTES.data;
 
-    while i < s.text.count && !s.error.message.count {
-        c := s.text[i];
-        if c == 10 {
-            line += 1;
-            column = 1;
-            i += 1;
-            continue;
-        }
+    while i < size && !s.error.message.count {
+        c := data[i];
 
-        if c == 32 || c == 9 || c == 13 {
-            column += 1;
+        if c == 32 || c == 9 || c == 13 || c == 10 {
             i += 1;
+
+            if c == 10 {
+                line += 1;
+                line_start = i;
+            }
+
             continue;
         }
 
         start := i;
-        tok := proto_Token.{ line = line, column = column, path = s.options.path };
+        tok := proto_Token.{ line = line, column = start - line_start + 1, path = s.options.path };
 
-        if c == #char "/" && i + 1 < s.text.count && s.text[i + 1] == #char "/" {
-            while i < s.text.count && s.text[i] != 10 {
-                i += 1;
-                column += 1;
-            }
-
+        if c == #char "/" && i + 1 < size && data[i + 1] == #char "/" {
+            while i + 8 <= size && !proto_word_has(data + i, 10, 10) i += 8;
+            while i < size && data[i] != 10 i += 1;
             continue;
         }
 
-        if c == #char "/" && i + 1 < s.text.count && s.text[i + 1] == #char "*" {
+        if c == #char "/" && i + 1 < size && data[i + 1] == #char "*" {
             i += 2;
-            column += 2;
 
-            while i + 1 < s.text.count && !(s.text[i] == #char "*" && s.text[i + 1] == #char "/") {
-                if s.text[i] == 10 {
+            while i + 1 < size && !(data[i] == #char "*" && data[i + 1] == #char "/") {
+                if i + 8 <= size && !proto_word_has(data + i, #char "*", 10) {
+                    i += 8;
+                    continue;
+                }
+
+                if data[i] == 10 {
                     line += 1;
-                    column = 0;
+                    line_start = i + 1;
                 }
 
                 i += 1;
-                column += 1;
             }
 
-            if i + 1 >= s.text.count {
+            if i + 1 >= size {
                 proto_schema_fail(s, tok, "unterminated comment");
                 break;
             }
 
             i += 2;
-            column += 2;
             continue;
         }
 
         if proto_letter(c) {
             tok.kind = .IDENT;
-            while i < s.text.count && (proto_letter(s.text[i]) || proto_digit(s.text[i])) i += 1;
-            tok.text = slice(s.text, start, i - start);
+            while i < size && words[data[i]] i += 1;
+            tok.text = .{ i - start, data + start };
         } else if proto_digit(c) {
             tok.kind = .NUMBER;
 
@@ -128,6 +155,18 @@ proto_lex :: (s: *proto_Schema) { // jailint: allow(cognitive_complexity)
         } else if c == 34 || c == 39 {
             tok.kind = .STRING;
             i += 1;
+
+            // Literals without escapes are slices of the source.
+            end := i;
+            while end < size && data[end] != c && data[end] != 92 && data[end] != 10 && data[end] != 13 end += 1;
+
+            if end < size && data[end] == c {
+                tok.text = .{ end - i, data + i };
+                i = end + 1;
+                array_add(*s.tokens, tok);
+                continue;
+            }
+
             b: String_Builder;
 
             while i < s.text.count && s.text[i] != c {
@@ -195,11 +234,10 @@ proto_lex :: (s: *proto_Schema) { // jailint: allow(cognitive_complexity)
             i += 1;
         }
 
-        column += i - start;
         array_add(*s.tokens, tok);
     }
 
-    array_add(*s.tokens, .{ kind = .END, line = line, column = column, path = s.options.path });
+    array_add(*s.tokens, .{ kind = .END, line = line, column = i - line_start + 1, path = s.options.path });
 }
 
 proto_peek :: (s: *proto_Schema) -> proto_Token {
@@ -213,8 +251,9 @@ proto_take :: (s: *proto_Schema) -> proto_Token {
 }
 
 proto_eat :: (s: *proto_Schema, text: string) -> bool {
-    if proto_peek(s).text != text || proto_peek(s).kind == .END return false;
-    proto_take(s);
+    token := *s.tokens[s.pos];
+    if token.kind == .END || token.text != text return false;
+    s.pos += 1;
     return true;
 }
 

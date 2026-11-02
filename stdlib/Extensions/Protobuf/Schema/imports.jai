@@ -17,33 +17,45 @@ proto_Source :: struct {
 
 // Canonical disk paths coalesce relative paths, '..' and symlink aliases.
 proto_import_path :: (s: *proto_Schema, from: string, name: string) -> string {
-    candidates: [..] string;
     directory := path_strip_filename(from);
-
     if !directory.count directory = ".";
 
-    array_add(*candidates, proto_schema_format("%/%", directory, name));
-    for split(s.options.import_paths, ";") if it.count array_add(*candidates, proto_schema_format("%/%", it, name));
+    // Files in one folder share their answers for the folder-relative candidate.
+    candidate := proto_schema_format("%/%", directory, name);
+    nearby, fresh := proto_symbols.entry(*s.nearby_paths, candidate);
 
-    // An absolute path is not proof the file exists: on Windows it never checks.
-    for candidates {
-        path, ok := get_absolute_path(it);
-        if ok && file_exists(path) return path;
+    if fresh nearby.* = proto_existing_path(candidate);
+    if nearby.*.count return nearby.*;
+
+    // The import roots give the same answer for a name wherever it is imported from.
+    found, added := proto_symbols.entry(*s.import_roots, name);
+
+    if added {
+        for split(s.options.import_paths, ";") if it.count {
+            found.* = proto_existing_path(proto_schema_format("%/%", it, name));
+            if found.*.count break;
+        }
     }
 
+    return found.*;
+}
+
+// An absolute path is not proof the file exists: on Windows it never checks.
+proto_existing_path :: (candidate: string) -> string {
+    path, ok := get_absolute_path(candidate);
+    if ok && file_exists(path) return path;
     return "";
 }
 
 proto_load_source :: (s: *proto_Schema, path: string, text: string, token: proto_Token) -> *proto_Source {
-    for s.sources if it.path == path {
-        if it.active proto_schema_fail(s, token, proto_schema_format("import cycle through '%'", path));
-        return it;
-    }
+    known := proto_known_source(s, path, token);
+    if known return known;
 
     source := New(proto_Source);
     source.path = path;
     source.active = true;
     array_add(*s.sources, source);
+    proto_symbols.insert(*s.source_paths, path, source);
     local := proto_Schema.{ text = text, options = s.options, source = source };
     local.options.path = path;
     proto_lex(*local);
@@ -61,7 +73,14 @@ proto_load_source :: (s: *proto_Schema, path: string, text: string, token: proto
         child_text: string;
         ok: bool;
 
-        if child_path.count child_text, ok = read_entire_file(child_path);
+        if child_path.count {
+            // A file already loaded is not read again.
+            entry.source = proto_known_source(s, child_path, entry.token);
+            if s.error.message.count return source;
+            if entry.source continue;
+
+            child_text, ok = read_entire_file(child_path);
+        }
 
         if !ok {
             child_text = proto_well_known(entry.name);
@@ -82,6 +101,13 @@ proto_load_source :: (s: *proto_Schema, path: string, text: string, token: proto
     array_add(*s.roots, ..local.roots);
 
     return source;
+}
+
+proto_known_source :: (s: *proto_Schema, path: string, token: proto_Token) -> *proto_Source {
+    found := proto_symbols.find(*s.source_paths, path);
+    if !found return null;
+    if found.*.active proto_schema_fail(s, token, proto_schema_format("import cycle through '%'", path));
+    return found.*;
 }
 
 proto_load_graph :: (s: *proto_Schema) {
