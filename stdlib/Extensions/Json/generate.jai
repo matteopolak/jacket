@@ -160,6 +160,7 @@ Option :: struct {
     name: string;
     value: string;
     has_value: bool;
+    quoted: bool;
 }
 
 read_options :: (notes: [] string) -> [..] Option {
@@ -173,7 +174,7 @@ read_options :: (notes: [] string) -> [..] Option {
         rest := slice(note, "json(".count, note.count - "json(".count - ")".count);
 
         while rest.count {
-            found, piece, after := split_from_left(rest, #char ",");
+            found, piece, after := split_note_option(rest);
 
             if !found {
                 piece = rest;
@@ -187,6 +188,14 @@ read_options :: (notes: [] string) -> [..] Option {
                 option.name = slice(piece, 0, equals);
                 option.value = slice(piece, equals + 1, piece.count - equals - 1);
                 option.has_value = true;
+                if begins_with(option.value, "\"") {
+                    option.quoted = true;
+                    push_allocator(temp);
+                    decoded, error := from_json(string, option.value);
+                    if error.kind != .NONE compiler_report("Json: invalid quoted option value in @json");
+
+                    option.value = decoded;
+                }
             } else {
                 option.name = piece;
             }
@@ -274,6 +283,34 @@ type_label :: (info: *Type_Info) -> string {
     }
 } @TempAllocates
 
+// An opaque quoted note can carry JSON strings containing commas, quotes or spaces.
+// Keep unquoted `tags=a,b` working by splitting only outside a quoted value.
+split_note_option :: (text: string) -> bool, string, string {
+    quoted := false;
+    escaped := false;
+
+    for text {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        if quoted && it == #char "\\" {
+            escaped = true;
+            continue;
+        }
+
+        if it == #char "\"" {
+            quoted = !quoted;
+            continue;
+        }
+
+        if !quoted && it == #char "," return true, slice(text, 0, it_index), slice(text, it_index + 1, text.count - it_index - 1);
+    }
+
+    return false, text, "";
+}
+
 // Reads the `@json(...)` options of one member. Reports bad ones and says whether all were fine.
 read_leaf :: (plan: *Plan, leaf: *Leaf, member: *Type_Info_Struct_Member, struct_rule: Rename_Rule, optional_from_struct: bool, flatten: *bool) -> bool {
     ok := true;
@@ -287,7 +324,7 @@ read_leaf :: (plan: *Plan, leaf: *Leaf, member: *Type_Info_Struct_Member, struct
         name := option.name;
 
         if name == "rename" {
-            if !option.has_value || !option.value.count {
+            if !option.has_value || (!option.value.count && !option.quoted) {
                 complain(plan.type_name, member.name, "`rename=` needs a name, as in `@json(rename=userId)`");
                 ok = false;
             } else {
