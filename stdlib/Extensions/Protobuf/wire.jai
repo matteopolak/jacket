@@ -81,6 +81,39 @@ remaining :: (r: *Reader) -> s64 {
 read_varint :: (r: *Reader) -> u64 {
     result: u64;
 
+    // With ten bytes in view a varint cannot run off the end, so one check covers every byte.
+    if remaining(r) >= 10 {
+        p := r.bytes.data + r.pos;
+        byte := p.*;
+
+        if byte < 128 {
+            r.pos += 1;
+            return cast(u64) byte;
+        }
+
+        result = cast(u64) (byte & 127);
+
+        for 1..8 {
+            byte = (p + it).*;
+            result |= (cast(u64) (byte & 127)) << cast(u64) (7 * it);
+
+            if byte < 128 {
+                r.pos += it + 1;
+                return result;
+            }
+        }
+
+        byte = (p + 9).*;
+        r.pos += 10;
+
+        if byte > 1 {
+            fail(r, .VARINT_TOO_LONG);
+            return 0;
+        }
+
+        return result | ((cast(u64) byte) << 63);
+    }
+
     {
         if remaining(r) <= 0 {
             fail(r, .TRUNCATED);
@@ -240,6 +273,23 @@ varint_size :: (value: u64) -> s64 {
 // Writes a varint into the exact-sized output buffer.
 write_varint :: (w: *Writer, input: u64) {
     value := input;
+
+    // Room for the longest varint means the loop below needs no per-byte check.
+    if w.bytes.count - w.pos >= 10 {
+        p := w.bytes.data + w.pos;
+
+        while value >= 128 {
+            p.* = cast(u8) ((value & 127) | 128);
+            p += 1;
+            value >>= 7;
+        }
+
+        p.* = cast(u8) value;
+        w.pos = (p - w.bytes.data) + 1;
+
+        return;
+    }
+
     while value >= 128 {
         w.bytes[w.pos] = cast(u8) ((value & 127) | 128);
         w.pos += 1;
