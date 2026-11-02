@@ -92,6 +92,29 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .set_linkage(Linkage::AvailableExternally);
         }
         self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
+        // The frontend already uses these guarantees to omit null checks. Map IR
+        // parameters through the ABI plan: C aggregates may expand or disappear.
+        let mut index = u32::from(matches!(lowered.ret, super::plan::RetPlan::Sret));
+        for (param, plan) in lowered.params.iter().enumerate() {
+            use super::plan::ParamPlan;
+            match plan {
+                ParamPlan::Scalar(jaic::ir::Ty::Ptr)
+                    if func.trusted.contains(&jaic::ir::Val(param as u32)) =>
+                {
+                    f.add_attribute(
+                        AttributeLoc::Param(index),
+                        self.ctx
+                            .create_enum_attribute(Attribute::get_named_enum_kind_id("nonnull"), 0),
+                    );
+                }
+                _ => {}
+            }
+            index += match plan {
+                ParamPlan::Dropped => 0,
+                ParamPlan::Agg(_, jaic::abi::Passing::Registers(pieces)) => pieces.len() as u32,
+                _ => 1,
+            };
+        }
         let inline = match func.inline {
             jaic::ir::InlineHint::Always => Some("alwaysinline"),
             jaic::ir::InlineHint::Never => Some("noinline"),
