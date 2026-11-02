@@ -470,7 +470,7 @@ free_oneof :: (v: *$V) {
             else if info.type == .ARRAY kind = "BYTES";
             else continue;
 
-            print(*b, "if cast(s64) v.which == % free_field(*v.%, .%);\n", it_index + 1, it, kind);
+            print(*b, "if cast(s64) v.which == % free_field(*v.%, .%);\n", it_index, it, kind);
         }
 
         return builder_to_string(*b);
@@ -484,7 +484,7 @@ read_oneof :: (r: *Reader, v: *$V, $selected: V.Which, $kind: Scalar, wire: u64,
     if wire != scalar_wire(kind) return false;
 
     #insert -> string {
-        name := V.case_names[cast(s64) selected - 1];
+        name := V.case_names[cast(s64) selected];
         b: String_Builder;
 
         if kind == .MESSAGE || kind == .GROUP {
@@ -510,11 +510,13 @@ equal_oneof :: (a: *$V, b: *V) -> bool {
             info := V.case_infos[it_index];
             kind := "INT32";
 
+            if info.type == .VOID continue;
+
             if info.type == .POINTER kind = "MESSAGE";
             else if info.type == .STRING kind = "STRING";
             else if info.type == .ARRAY kind = "BYTES";
 
-            print(*out, "if cast(s64) a.which == % return equal_field(a.%, b.%, .%);\n", it_index + 1, it, it, kind);
+            print(*out, "if cast(s64) a.which == % return equal_field(a.%, b.%, .%);\n", it_index, it, it, kind);
         }
 
         return builder_to_string(*out);

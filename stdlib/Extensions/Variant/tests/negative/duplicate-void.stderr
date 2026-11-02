@@ -1,0 +1,7 @@
+../../layout.jai:215:13: error[metaprogram-report]: Variant(void, s64, void): two cases would both be tagged .NONE. Name the cases yourself: `Variant(struct { a: void; b: void; })`
+                compiler_report(tprint("%: two cases would both be tagged .%. Name the cases yourself: `Variant(struct { a: %; b: %; })`", title, tag_of(case .name), cast(Type) case .info, cast(Type) other.info));
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../module.jai:60:13: note: while running compile-time code started here
+        #insert -> string {
+                ^^^^^^^^^^^
+

@@ -1,5 +1,5 @@
-// free_variant releases what the live case owns and leaves the variant empty; printing writes the
-// payload.
+// free_variant releases what the live case owns and resets the variant to its zero value; printing
+// writes the payload.
 //
 //     jaic stdlib/Extensions/Variant/tests/ownership.jai -interp
 
@@ -51,7 +51,7 @@ freeing :: () {
         text := variant(Variant(int, string), copy_string("owned"));
 
         free_variant(*text);
-        cleared = cleared && text.which == .NONE;
+        cleared = cleared && text.which == .S64 && text.s64_ == 0;
 
         // Freeing twice, or freeing a number, is harmless.
         free_variant(*text);
@@ -59,7 +59,7 @@ freeing :: () {
         number := variant(Variant(int, string), 5);
 
         free_variant(*number);
-        cleared = cleared && number.which == .NONE;
+        cleared = cleared && number.which == .S64 && number.s64_ == 0;
 
         list: [..] string;
 
@@ -69,7 +69,7 @@ freeing :: () {
         strings := variant(Mixed, list);
 
         free_variant(*strings);
-        cleared = cleared && strings.which == .NONE;
+        cleared = cleared && strings.which == .EMPTY;
 
         named := Named.{ name = copy_string("n") };
 
@@ -79,13 +79,13 @@ freeing :: () {
         in_struct := variant(Mixed, named);
 
         free_variant(*in_struct);
-        cleared = cleared && in_struct.which == .NONE;
+        cleared = cleared && in_struct.which == .EMPTY;
 
         // A variant inside a variant, and a string inside that.
         deep := variant(Outer, variant(Inner, copy_string("deep")));
 
         free_variant(*deep);
-        cleared = cleared && deep.which == .NONE;
+        cleared = cleared && deep.which == .S64 && deep.s64_ == 0;
 
         numbers: [..] int;
 
@@ -107,7 +107,7 @@ freeing :: () {
     }
 
     check(tally.outstanding == 0, tprint("free_variant left % blocks allocated", tally.outstanding));
-    check(cleared, "a freed variant holds no case");
+    check(cleared, "a freed variant is back to its zero value");
 }
 
 // Views and pointers are not owned: free_variant must leave what they point to alone.
@@ -125,7 +125,7 @@ borrowed :: () {
     // Not freed here: a literal was never allocated. Resetting is the caller's job.
     literal = .{};
 
-    check(literal.which == .NONE, "a variant can be reset by assigning the zero value");
+    check(literal.which == .S64 && literal.s64_ == 0, "a variant can be reset by assigning the zero value");
 }
 
 printing :: () {

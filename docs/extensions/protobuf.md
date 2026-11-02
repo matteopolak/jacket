@@ -71,7 +71,7 @@ Schema errors point at the `.proto` file, line and column. Different parameters 
 | proto2 `group` | a nested message, delimited on the wire |
 | `repeated T` | `[..] T`; packed by default in proto3 and editions, expanded in proto2, both forms decoded |
 | `map<K, V>` | set by `MAP` |
-| `oneof` | `Variant(struct { ... })` with `which == .NONE` when unset |
+| `oneof` | `Variant(struct { none: void; ... })` with `which == .NONE` when unset |
 
 Field names that are Jai keywords get a trailing `_` (`type_`). `json_name` becomes `@json(rename=...)`, so `Extensions/Json` uses it. Every message keeps unknown fields in `_unknown` and writes them back on encode.
 

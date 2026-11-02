@@ -1,7 +1,7 @@
-../../layout.jai:189:17: error[metaprogram-report]: Variant(s64, [..] string): `[..] string` has no name to give its case. Name the cases: `Variant(struct { name: [..] string; ... })`
+../../layout.jai:194:17: error[metaprogram-report]: Variant(s64, [..] string): `[..] string` has no name to give its case. Name the cases: `Variant(struct { name: [..] string; ... })`
                     compiler_report(tprint("%: `%` has no name to give its case. Name the cases: `Variant(struct { name: %; ... })`", title, it, it));
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-../../module.jai:50:13: note: while running compile-time code started here
+../../module.jai:60:13: note: while running compile-time code started here
         #insert -> string {
                 ^^^^^^^^^^^
 

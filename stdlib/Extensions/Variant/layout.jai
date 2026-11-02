@@ -25,6 +25,8 @@ alignment_of :: (info: *Type_Info) -> s64 {
         case .ENUM; #through;
         case .BOOL;
             return max_of(1, info.runtime_size);
+        case .VOID;
+            return 1;
         case;
             return 8;
     }
@@ -58,7 +60,7 @@ type_list_text :: (types: [] Type) -> string {
 }
 
 // Names a struct may not use for a case, because the Variant declares them itself.
-RESERVED_NAMES :: string.["which", "payload", "types", "none", "case_count", "case_names", "case_infos", "payload_size", "payload_align"];
+RESERVED_NAMES :: string.["which", "payload", "types", "case_count", "case_names", "case_infos", "payload_size", "payload_align"];
 
 is_upper :: (c: u8) -> bool {
     return c >= #char "A" && c <= #char "Z";
@@ -114,9 +116,12 @@ tag_of :: (name: string) -> string {
     return builder_to_string(*builder,, temp);
 }
 
-// The field name a case of a type list gets, or "" when the type has no name to give.
+// The field name a case of a type list gets, or "" when the type has no name to give. `void` is
+// the case `none`.
 derived_name :: (info: *Type_Info) -> string {
     if info.type == {
+        case .VOID;
+            return "none";
         case .STRUCT;
             name := (cast(*Type_Info_Struct) info).name;
 
@@ -232,8 +237,8 @@ declare_variant :: (types: ..Type) -> string {
 
     builder: String_Builder;
 
-    print(*builder, "Which :: enum % {\n    NONE :: 0;\n", ifx cases.count < 256 then "u8" else "u16");
-    for cases print(*builder, "    % :: %;\n", tag_of(it.name), it_index + 1);
+    print(*builder, "Which :: enum % {\n", ifx cases.count < 256 then "u8" else "u16");
+    for cases print(*builder, "    % :: %;\n", tag_of(it.name), it_index);
 
     append(*builder, "}\n");
 
@@ -260,10 +265,12 @@ declare_variant :: (types: ..Type) -> string {
 
     append(*builder, ");\n");
 
-    append(*builder, "which: Which;\nunion {\n");
-    for cases print(*builder, "    %: case_type_%;\n", it.name, it_index);
+    // The payload bytes come first and the cases are left uninitialized, so a Variant that is
+    // not set starts as case 0 with every payload byte zero, whatever defaults the case types have.
+    append(*builder, "which: Which;\nunion {\n    payload: [payload_size] u8 #align payload_align;\n");
+    for cases print(*builder, "    %: case_type_%%;\n", it.name, it_index, ifx it.info.type == .VOID then "" else " = ---");
 
-    append(*builder, "    payload: [payload_size] u8 #align payload_align;\n}\n");
+    append(*builder, "}\n");
 
     return builder_to_string(*builder,, temp);
 }
@@ -325,6 +332,36 @@ case_of :: ($V: Type, $T: Type, user: string) -> s32 {
 
         if found < 0 {
             compiler_report(tprint("%: `%` is not a case of `%`. The cases are %", user, T, variant_title(V), case_list_text(V)));
+        }
+
+        return found;
+    }
+}
+
+// The position of the `void` case of `V`, or -1 after reporting why there is none (or why it is
+// ambiguous). `user` names the procedure that asked.
+void_case_of :: ($V: Type, user: string) -> s32 {
+    #if !#run is_variant_type(type_info(V)) {
+        compiler_report(tprint("%: `%` is not a Variant", user, V));
+
+        return -1;
+    } else {
+        found: s32 = -1;
+
+        for V.case_infos {
+            if it.type != .VOID continue;
+
+            if found >= 0 {
+                compiler_report(tprint("%: `%` has more than one `void` case (%). Set the case by name instead: `v.which = .%;`", user, variant_title(V), case_list_text(V), tag_of(V.case_names[found])));
+
+                return -1;
+            }
+
+            found = cast(s32) it_index;
+        }
+
+        if found < 0 {
+            compiler_report(tprint("%: `%` has no `void` case. Add one: `Variant(void, ...)`, or a field `none: void;` in the named form. The cases are %", user, variant_title(V), case_list_text(V)));
         }
 
         return found;

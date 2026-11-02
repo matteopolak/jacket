@@ -40,10 +40,9 @@
 | Was | Now |
 | --- | --- |
 | `Variant(A, B)` cases picked by type only; a type could appear once | cases have names and UPPER_CASE tags: `Variant(struct { email: string; phone: string; })`, or `Variant(Leaf, *Branch)` named `leaf` and `branch` |
-| `v.index` (0 = first case), `variant_index(v)` | `v.which` (`.NONE` when empty, then `.LEAF`, `.BRANCH`...); the tag is a `u8` |
+| `v.index` (0 = first case), `variant_index(v)` | `v.which` (`.LEAF`, `.BRANCH`... numbered from 0); the tag is a `u8`. A `void` case (`Variant(void, Leaf)`, tag `.NONE`) is the case with no payload; `variant(V)` and `set(*v)` select it |
 | `variant_switch(v, handlers...)` | `if #complete v.which == { case .LEAF; ... }` with `v.leaf` |
 | `is(v, Leaf)`, `get(v, Leaf)`, `unwrap(v, Leaf)`, `variant_type(v)` | `v.which == .LEAF` and the field `v.leaf`; `get_pointer`, `set` and `variant` stay |
-| a zeroed Variant held its first case | it holds no case; Json writes and reads it as `null` |
 | Json tagged variants with the type name (`{"Circle":...}`) | with the case name (`{"circle":...}`) |
 
 ## [0.32.0] - 2026-11-01

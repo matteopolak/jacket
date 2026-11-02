@@ -39,7 +39,7 @@ offset_of_member :: (info: *Type_Info_Struct, name: string) -> s64 {
     return offset;
 }
 
-// The live case of the Variant at `p`: -1 for NONE, else its position among the cases.
+// The live case of the Variant at `p`: its position among the cases.
 live_case :: (info: *Type_Info_Struct, p: *void) -> s64 {
     for info.members {
         if it.name != "which" continue;
@@ -49,13 +49,13 @@ live_case :: (info: *Type_Info_Struct, p: *void) -> s64 {
         if it.type.runtime_size == 1 tag = (cast(*u8) (cast(*u8) p + it.offset_in_bytes)).*;
         else tag = (cast(*u16) (cast(*u8) p + it.offset_in_bytes)).*;
 
-        return tag - 1;
+        return tag;
     }
 
     return -1;
 }
 
-// Sets the Variant at `p` to NONE without looking at its payload.
+// Makes case 0 the live case of the Variant at `p` without looking at its payload.
 clear_which :: (info: *Type_Info_Struct, p: *void) {
     for info.members {
         if it.name == "which" memset(cast(*u8) p + it.offset_in_bytes, 0, it.type.runtime_size);
@@ -117,8 +117,7 @@ structs_equal :: (info: *Type_Info_Struct, a: *void, b: *void) -> bool {
         cases := variant_case_infos(info);
         payload := offset_of_member(info, "payload");
 
-        if first < 0 return true;
-        if first >= cases.count return false;
+        if first < 0 || first >= cases.count return false;
 
         return values_equal(cases[first], cast(*u8) a + payload, cast(*u8) b + payload);
     }
@@ -188,7 +187,8 @@ free_struct :: (info: *Type_Info_Struct, p: *void) {
     }
 }
 
-// Frees the live case of the Variant at `p`, then sets it to NONE with a zeroed payload.
+// Frees the live case of the Variant at `p`, then resets it to the zero value: case 0 with a
+// zeroed payload.
 free_variant_value :: (info: *Type_Info, p: *void) {
     struct_info := cast(*Type_Info_Struct) info;
     cases := variant_case_infos(info);

@@ -35,7 +35,7 @@ construction :: () {
 
     w: Number_Or_Text;
 
-    check(w.which == .NONE, "the zero value is NONE");
+    check(w.which == .S64 && w.s64_ == 0, "the zero value is the first case, zeroed");
 
     set(*w, "hi");
 
@@ -95,14 +95,13 @@ switching :: () {
         if i == 3 set(*s, Empty.{});
 
         if #complete s.which == {
-            case .NONE; hit = tprint("%n", hit);
             case .CIRCLE; hit = tprint("%c%", hit, s.circle.radius);
             case .RECT; hit = tprint("%r%", hit, s.rect.width * s.rect.height);
             case .EMPTY; hit = tprint("%e", hit);
         }
     }
 
-    check(hit == "nc2r12e", "every case, NONE included");
+    check(hit == "c0c2r12e", "every case, the zero value first");
 
     // The cases are fields: writing one is seen by the helpers.
     s.which = .RECT;
@@ -120,7 +119,7 @@ naming :: () {
 
     c: Contact;
 
-    check(c.which == .NONE, "a fresh variant is NONE");
+    check(c.which == .EMAIL && c.email == "", "a fresh variant is its first case");
 
     c.which = .PHONE;
     c.phone = "555";
@@ -134,7 +133,7 @@ naming :: () {
     check(Mixed.case_names[2] == "http_server", "an acronym");
     check(Mixed.case_names[3] == "branch_node", "a pointer takes its target's name");
     check(Mixed.case_names[4] == "s64_" && Mixed.case_names[5] == "string_" && Mixed.case_names[6] == "bool_", "built-in types get a trailing _");
-    check(cast(s64) Mixed.Which.HTTP_SERVER == 3 && cast(s64) Mixed.Which.S64 == 5, "tags count from 1 in case order");
+    check(cast(s64) Mixed.Which.HTTP_REQUEST == 0 && cast(s64) Mixed.Which.HTTP_SERVER == 2 && cast(s64) Mixed.Which.S64 == 4, "tags count from 0 in case order");
 
     m: Mixed;
 
@@ -175,7 +174,7 @@ equality :: () {
     none_a: Number_Or_Text;
     none_b: Number_Or_Text;
 
-    check(none_a == none_b && none_a != a, "two NONEs are equal");
+    check(none_a == none_b && none_a != a, "two zero values are equal");
 
     first := variant(Number_Or_Text, copy_string("same text"));
     second := variant(Number_Or_Text, copy_string("same text"));

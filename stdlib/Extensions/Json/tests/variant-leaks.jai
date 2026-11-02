@@ -85,7 +85,7 @@ decode_and_release :: (text: string, label: string, expectation: Expectation) {
         if succeeded {
             free_json(*value);
         } else {
-            default_result = value.label.count == 0 && value.many.count == 0 && value.external.which == .NONE && value.by_name.count == 0;
+            default_result = value.label.count == 0 && value.many.count == 0 && value.external.which == .EMPTY && value.by_name.count == 0;
             free_json(*error);
         }
     }
@@ -149,7 +149,7 @@ releasing :: () {
         value := from_json(Plain, DOCUMENT);
 
         free_json(*value);
-        cleared = value.external.which == .NONE && value.internal.which == .NONE && value.adjacent.which == .NONE && value.loose.which == .NONE && value.scalar.which == .NONE && value.many.count == 0 && value.maybe.state == .MISSING;
+        cleared = value.external.which == .EMPTY && value.internal.which == .NAMED && value.adjacent.which == .EMPTY && value.loose.which == .NAMED && value.scalar.which == .S64 && value.many.count == 0 && value.maybe.state == .MISSING;
 
         free_json(*value);
     }

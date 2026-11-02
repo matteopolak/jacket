@@ -9,6 +9,10 @@
 // ```
 //
 // `@json(tags=circle,rect)` names the tags instead of using the case types' names.
+//
+// A `void` case has no payload. It is `null` when the variant is untagged and the tag alone
+// otherwise: `"none"`, `{"kind": "none"}`, `{"t": "none"}`. Decoding also takes `null` for it in
+// every form, and a variant without a `void` case rejects `null`.
 
 #scope_module
 
@@ -68,6 +72,18 @@ case_name :: (info: *Type_Info) -> string {
 
     return builder_to_string(*builder,, temp);
 } @TempAllocates
+
+// Whether a case has no payload.
+is_void_case :: (info: *Type_Info) -> bool {
+    return info.type == .VOID;
+}
+
+// The first `void` case, or -1.
+first_void_case :: (cases: [] *Type_Info) -> int {
+    for cases if is_void_case(it) return it_index;
+
+    return -1;
+}
 
 // Whether a case is written as a bare number, string or bool, so that a variant of such cases can
 // do without tags.
@@ -187,7 +203,7 @@ variant_mode :: (g: *Gen, cases: [] *Type_Info, style: Enum_Style) -> Variant_Mo
 
     if style.tag.count {
         for cases {
-            if !is_plain_struct(it) {
+            if !is_void_case(it) && !is_plain_struct(it) {
                 fail(g, tprint("`tag=%` needs every case to be a struct, and `%` is %. Use `tag=%,content=c` to tag a case that is not a struct", style.tag, case_name(it), type_label(it), style.tag));
 
                 break;
@@ -199,7 +215,7 @@ variant_mode :: (g: *Gen, cases: [] *Type_Info, style: Enum_Style) -> Variant_Mo
 
     if shares_a_type(cases) return .EXTERNAL;
 
-    for cases if !is_scalar_case(it) return .EXTERNAL;
+    for cases if !is_scalar_case(it) && !is_void_case(it) return .EXTERNAL;
 
     return .UNTAGGED;
 }
@@ -277,7 +293,27 @@ emit_encode_variant :: (g: *Gen, value: string, info: *Type_Info, style: Enum_St
         pointer := tprint("case_%_%", id, k);
         first := tprint("first_%_%", id, k);
 
-        print(out, "%if cast(s64) %.which == % {\n", ifx k then "else " else "", value, k + 1);
+        print(out, "%if cast(s64) %.which == % {\n", ifx k then "else " else "", value, k);
+
+        if is_void_case(case_info) {
+            if mode == {
+                case .UNTAGGED;
+                    print(out, "json_write_null(w);\n");
+                case .EXTERNAL;
+                    print(out, "json_write_raw(w, %);\n", json_literal(tags[k]));
+                case .INTERNAL; #through;
+                case .ADJACENT;
+                    print(out, "json_begin_object(w);\nfirst_%_% := true;\n", id, k);
+                    emit_key(g, first, style.tag);
+                    print(out, "json_write_raw(w, %);\n", json_literal(tags[k]));
+                    print(out, "json_end_object(w, %);\n", first);
+            }
+
+            print(out, "}\n");
+
+            continue;
+        }
+
         append(out, case_pointer(g, pointer, value, k));
 
         if mode == {
@@ -325,14 +361,14 @@ emit_free_variant :: (g: *Gen, out: *String_Builder, target: string, info: *Type
 
             pointer := tprint("case_%_%", id, k);
 
-            print(out, "if cast(s64) %.which == % {\n", target, k + 1);
+            print(out, "if cast(s64) %.which == % {\n", target, k);
             append(out, case_pointer(g, pointer, target, k));
             emit_free(g, out, tprint("%.*", pointer), case_info, "");
             print(out, "}\n");
         }
     }
 
-    print(out, "%.which = .NONE;\nmemset(%.payload.data, 0, %.payload.count);\n}\n", target, target, target);
+    print(out, "%.which = cast(type_of(%.which)) 0;\nmemset(%.payload.data, 0, %.payload.count);\n}\n", target, target, target, target);
 }
 
 // ---- decoding ----
@@ -357,16 +393,22 @@ emit_find_tag :: (g: *Gen, id: int, tag_key: string, tags: [] string, on_fail: s
 }
 
 // Starts case `k` from its declared defaults and decodes it in place; on success the variant holds
-// it.
+// it. A `void` case is read as `null`.
 emit_decode_case :: (g: *Gen, value: string, id: int, k: int, case_info: *Type_Info, style: Enum_Style, on_fail: string) {
     out := *g.out;
     slot := tprint("slot_%_%", id, k);
+
+    if is_void_case(case_info) {
+        print(out, "{\nif !json_read_null(r) { % }\n%.which = cast(type_of(%.which)) %;\n}\n", on_fail, value, value, k);
+
+        return;
+    }
 
     print(out, "{\n");
     append(out, case_pointer(g, slot, value, k));
     print(out, "init_%_%: type_of(%.*);\n%.* = init_%_%;\n", id, k, slot, slot, id, k);
     emit_decode(g, tprint("%.*", slot), case_info, style, on_fail);
-    print(out, "%.which = cast(type_of(%.which)) %;\n}\n", value, value, k + 1);
+    print(out, "%.which = cast(type_of(%.which)) %;\n}\n", value, value, k);
 }
 
 emit_decode_variant :: (g: *Gen, target: string, info: *Type_Info, style: Enum_Style, on_fail: string) {
@@ -381,10 +423,16 @@ emit_decode_variant :: (g: *Gen, target: string, info: *Type_Info, style: Enum_S
     inner := payload_style(style);
 
     // Whatever the variant held before (its declared default) is replaced, not released.
-    print(out, "{\n%.which = .NONE;\nmemset(%.payload.data, 0, %.payload.count);\n", target, target, target);
+    print(out, "{\n%.which = cast(type_of(%.which)) 0;\nmemset(%.payload.data, 0, %.payload.count);\n", target, target, target, target);
 
-    // `null` is the variant that holds no case.
-    print(out, "if json_next_is_null(r) {\nif !json_read_null(r) { % }\n} else {\n", on_fail);
+    // `null` is the `void` case, when there is one.
+    void_case := first_void_case(cases);
+
+    if void_case >= 0 {
+        print(out, "if json_next_is_null(r) {\nif !json_read_null(r) { % }\n%.which = cast(type_of(%.which)) %;\n} else {\n", on_fail, target, target, void_case);
+    } else {
+        print(out, "{\n");
+    }
 
     // What a failure after a case was read releases.
     cleanup: String_Builder;
@@ -397,6 +445,31 @@ emit_decode_variant :: (g: *Gen, target: string, info: *Type_Info, style: Enum_S
         case .UNTAGGED;
             emit_decode_untagged(g, target, id, cases, inner, on_fail);
         case .EXTERNAL;
+            // A `void` case is written as its tag alone.
+            if void_case >= 0 {
+                print(out, "if json_next_is_string(r) {\nstart_% := r.pos;\nname_%, ok_% := json_read_name(r);\nif !ok_% { % }\nwhich_% := -1;\n", id, id, id, id, on_fail, id);
+
+                voids: [..] string;
+
+                for cases if is_void_case(it) array_add(*voids, tags[it_index]);
+
+                for cases {
+                    if !is_void_case(it) continue;
+
+                    print(out, "if name_% == % { which_% = %; }\n", id, jai_quote(tags[it_index]), id, it_index);
+                }
+
+                print(out, "if which_% < 0 { json_fail_at(r, .UNKNOWN_VARIANT, tprint(\"unknown variant `%`, expected one of: %\", name_%), start_%); % }\n", id, "%", tag_list(voids), id, id, on_fail);
+
+                for cases {
+                    if !is_void_case(it) continue;
+
+                    print(out, "if which_% == % { %.which = cast(type_of(%.which)) %; }\n", id, it_index, target, target, it_index);
+                }
+
+                print(out, "} else {\n");
+            }
+
             print(out, "first_% := true;\nif !json_begin_object(r) { % }\n", id, on_fail);
             print(out, "key_%, status_% := json_object_next(r, *first_%);\nif status_% == .ERROR { % }\n", id, id, id, id, on_fail);
             print(out, "if status_% == .END { json_fail(r, .TYPE, \"expected an object with one key naming the variant\"); % }\n", id, on_fail);
@@ -416,6 +489,8 @@ emit_decode_variant :: (g: *Gen, target: string, info: *Type_Info, style: Enum_S
 
             print(out, "_, status2_% := json_object_next(r, *first_%);\nif status2_% == .ERROR { % }\n", id, id, id, fail);
             print(out, "if status2_% != .END { json_fail(r, .TYPE, \"expected an object with exactly one key naming the variant\"); % }\n", id, fail);
+
+            if void_case >= 0 print(out, "}\n");
         case .INTERNAL;
             emit_find_tag(g, id, style.tag, tags, on_fail);
 
@@ -423,9 +498,16 @@ emit_decode_variant :: (g: *Gen, target: string, info: *Type_Info, style: Enum_S
                 slot := tprint("slot_%_%", id, k);
 
                 print(out, "if which_% == % {\n", id, k);
+
+                if is_void_case(case_info) {
+                    print(out, "if !json_decode_unit_tagged(r, %) { % }\n%.which = cast(type_of(%.which)) %;\n}\n", jai_quote(style.tag), on_fail, target, target, k);
+
+                    continue;
+                }
+
                 append(out, case_pointer(g, slot, target, k));
                 print(out, "init_%_%: type_of(%.*);\n%.* = init_%_%;\n", id, k, slot, slot, id, k);
-                print(out, "if !json_decode_tagged(r, %, %) { % }\n%.which = cast(type_of(%.which)) %;\n}\n", slot, jai_quote(style.tag), on_fail, target, target, k + 1);
+                print(out, "if !json_decode_tagged(r, %, %) { % }\n%.which = cast(type_of(%.which)) %;\n}\n", slot, jai_quote(style.tag), on_fail, target, target, k);
             }
         case .ADJACENT;
             emit_find_tag(g, id, style.tag, tags, on_fail);
@@ -446,7 +528,16 @@ emit_decode_variant :: (g: *Gen, target: string, info: *Type_Info, style: Enum_S
 
             print(out, "} else if r.deny_unknown { json_unknown_field(r, key_%); % }\n", id, fail);
             print(out, "else if !json_skip_value(r) { % }\n}\n", fail);
-            print(out, "if !read_% { json_missing_field(r, %); % }\n", id, jai_quote(style.content), fail);
+            // A `void` case has no content.
+            print(out, "if !read_% {\n", id);
+
+            for case_info, k: cases {
+                if !is_void_case(case_info) continue;
+
+                print(out, "if which_% == % { %.which = cast(type_of(%.which)) %; } else ", id, k, target, target, k);
+            }
+
+            print(out, "{ json_missing_field(r, %); % }\n}\n", jai_quote(style.content), fail);
     }
 
     print(out, "}\n}\n");
@@ -469,6 +560,9 @@ emit_decode_untagged :: (g: *Gen, target: string, id: int, cases: [] *Type_Info,
     print(out, "mark_% := json_mark(r);\nwhy_%: String_Builder;\nwhy_%.allocator = temp;\ndone_% := false;\n", id, id, id, id);
 
     for case_info, k: cases {
+        // `null` was taken as the `void` case before any attempt.
+        if is_void_case(case_info) continue;
+
         print(out, "CT_%_% :: type_of(%).case_type_%;\n", id, k, target, k);
         print(out, "attempt_%_% :: (r: *Json_Reader, out: *CT_%_%) -> bool {\n", id, k, id, k);
 
@@ -491,7 +585,7 @@ emit_decode_untagged :: (g: *Gen, target: string, id: int, cases: [] *Type_Info,
         print(out, "memset(%.payload.data, 0, %.payload.count);\n", target, target);
         append(out, case_pointer(g, slot, target, k));
         print(out, "init_%_%: CT_%_%;\n%.* = init_%_%;\n", id, k, id, k, slot, id, k);
-        print(out, "if attempt_%_%(r, %) {\n%.which = cast(type_of(%.which)) %;\ndone_% = true;\n} else json_note_attempt(r, *why_%, %, mark_%);\n}\n", id, k, slot, target, target, k + 1, id, id, jai_quote(case_name(case_info)), id);
+        print(out, "if attempt_%_%(r, %) {\n%.which = cast(type_of(%.which)) %;\ndone_% = true;\n} else json_note_attempt(r, *why_%, %, mark_%);\n}\n", id, k, slot, target, target, k, id, id, jai_quote(case_name(case_info)), id);
     }
 
     print(out, "if !done_% {\njson_fail_at(r, .TYPE, tprint(\"no variant of `%` matched: %\", builder_to_string(*why_%,, temp)), mark_%.pos);\n%\n}\n", id, name, "%", id, id, on_fail);
@@ -518,6 +612,36 @@ json_rewind :: (r: *Json_Reader, mark: Json_Mark) {
     r.depth = mark.depth;
     r.key_start = mark.key_start;
     r.path.count = mark.path;
+}
+
+// Whether the next value is a string, without consuming it.
+json_next_is_string :: (r: *Json_Reader) -> bool {
+    return json_peek(r) == #char "\"";
+}
+
+// Reads the object of a `void` case of an internally tagged variant: nothing but the tag, whose
+// value was already looked at, and members to skip.
+json_decode_unit_tagged :: (r: *Json_Reader, tag_key: string) -> bool {
+    if !json_begin_object(r) return false;
+
+    first := true;
+
+    while true {
+        name, status := json_object_next(r, *first);
+
+        if status == .ERROR return false;
+        if status == .END return true;
+
+        if name != tag_key && r.deny_unknown {
+            json_unknown_field(r, name);
+
+            return false;
+        }
+
+        if !json_skip_value(r) return false;
+    }
+
+    return true;
 }
 
 // Looks in the object at the reader for the member `key`, which must be a string, and returns it

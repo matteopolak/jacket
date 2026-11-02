@@ -92,11 +92,11 @@ top_level :: () {
     check(pretty == "{\n  \"circle\": {\n    \"radius\": 3\n  }\n}", "pretty output");
     check(decode(Shape, pretty) == circle, "pretty output decodes");
 
-    // The zero value holds no case.
+    // The zero value is the first case; without a void case there is no null.
     zero: Shape;
 
-    check(encode(zero) == "null", "the zero value");
-    check(decode(Shape, "null").which == .NONE, "null decodes to no case");
+    check(encode(zero) == "{\"circle\":{\"radius\":0}}", "the zero value");
+    check(failure(Shape, "null").kind == .TYPE, "null is not a variant without a void case");
 
     // Cases of the same type are told apart by their tags, never left untagged.
     Contact :: Variant(struct {
@@ -340,7 +340,7 @@ nesting :: () {
 
     free_json(*tree);
 
-    check(tree.which == .NONE, "freeing a tree empties it");
+    check(tree.which == .GROUP && tree.group.items.count == 0, "freeing a tree resets it");
 
     // A variant as the case of another.
     nested := decode(Tree, "{\"leaf_or_count\":{\"s64\":9}}");
@@ -491,7 +491,7 @@ defaults :: () {
 
     config := decode(Config, "{\"name\":\"n\"}");
 
-    check(config.shape.which == .NONE && config.count == 0, "a variant left out keeps its zero value");
+    check(config.shape == Shape.{} && config.count == 0, "a variant left out keeps its zero value");
 
     // Required when nothing says otherwise.
     Required :: struct {
@@ -522,7 +522,7 @@ freeing :: () {
 
     free_json(*owner);
 
-    check(owner.text.which == .NONE && owner.list.which == .NONE && owner.shape.which == .NONE, "free_json zeroes the variants");
+    check(owner.text.which == .S64 && owner.list.which == .EMPTY && owner.shape.which == .CIRCLE, "free_json resets the variants");
 
     free_json(*owner);
 
@@ -536,7 +536,7 @@ freeing :: () {
 
     free_json(*defaulted);
 
-    check(defaulted.other.which == .NONE, "a decoded variant is freed");
+    check(defaulted.other.which == .S64, "a decoded variant is freed");
 }
 
 top_level_free :: () {
@@ -546,7 +546,7 @@ top_level_free :: () {
 
     free_json(*text);
 
-    check(text.which == .NONE, "a top-level variant is freed and zeroed");
+    check(text.which == .S64 && text.s64_ == 0, "a top-level variant is freed and reset");
 }
 
 main :: () {

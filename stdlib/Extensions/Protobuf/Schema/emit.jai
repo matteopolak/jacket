@@ -117,7 +117,7 @@ proto_emit_node :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {
     }
 
     for name: node.oneofs {
-        proto_emit(b, "%: proto_v.Variant(struct {\n", proto_jai_name(name));
+        proto_emit(b, "%: proto_v.Variant(struct {\nnone: void;\n", proto_jai_name(name));
 
         for node.fields if it.oneof == name {
             proto_emit(b, "%: %;", it.jai, proto_field_type(it));
