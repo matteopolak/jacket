@@ -274,6 +274,22 @@ Code meant to build everywhere that imports a module asserting an operating syst
 ### pointer_into_resizable
 A resizable array that outgrows its storage gets a new block and frees the old one, so a pointer taken into the old block dangles.
 
+### pointer_lifetime
+@experimental. Off by default (`-W pointer_lifetime` turns it on). The successor to `pointer_into_resizable`: it follows the checked control flow, so it sees every branch, loop, `defer`, labelled jump, `#if` choice and macro expansion the compiler took, per polymorphic instance.
+
+It fires only when every path to a use of `p := *xs[i]` passes a `@GrowsArray` call on `xs` (`array_add`, `array_reserve`, ...) after `p` was taken. A path that re-takes the pointer, replaces `xs`, or runs inline assembly makes the use unknown, and unknown is quiet. The finding points at the use, with labels at the derivation and at the last invalidating call on each path:
+
+```
+12 |     p := *xs[0];
+   |          ------ pointer derived here
+14 |     grow(*xs);
+   |     --------- `xs` storage invalidated here
+15 |     sink(p);
+   |          ^ pointer used here after its storage was invalidated
+```
+
+Not yet covered: pointers stored in fields or copied through other variables, and callees that grow an array without `@GrowsArray`. `JAILINT_LIFETIME_STATS=1` prints per-file counts of bodies analysed and why others were skipped.
+
 ### print_in_module
 A file belongs to a module when it or a directory above it holds a `module.jai`, with no `tests` or `test` folder in between (those hold programs that use the module).
 

@@ -28,11 +28,14 @@ Say what is wrong in the user's terms, point at the user's own code (the wrong a
 - `-A <code>` hides a warning, `-W` warns (default), `-D` makes it an error; `-D warnings` and `-A leniencies` work on groups; the last flag wins.
 - `jacket explain <code>` prints a code's text; with no argument it lists all codes.
 - A `Suggestion` is one fix as edits, read by the CLI, quick fixes and the playground alike.
+- Secondary labels (`with_secondary_label(span, text)`) mark other places that explain the error, such as where a pointer was taken. They render as `---` underlines in the same snippet as the primary span, even in `plain`; editors show them as related information. Notes stay `note:` lines.
+- Suggestions and secondary labels share one optional box (`Diagnostic::details`), so a parser `Result<_, Diagnostic>` stays small. Read them with `suggestions()` / `secondary_labels()`; `clear_suggestions()` drops fixes and keeps labels.
 - Rendering (`render.rs`, one renderer for all tools): `plain` when not a terminal (stable; tests match it), `ascii`, `unicode`, and `msvc` for `-msvc_format`. `jailsp` and the playground always use plain.
 - Warnings print before any error and do not change the exit status unless denied. Format strings are checked against argument counts for print-like procedures.
 - Runtime failures: the interpreter returns a `Trap` with the unwound frames, and `trap_diagnostic` makes the innermost user frame the location. Wording lives in `ir::check_message`, keyed by `ir::CheckReason`, and executables print the same text.
 - A fault inside foreign code run by `-interp` or `#run` is caught by a signal handler (`interp/crash.rs`) that prints the call and exits 121. Wild-pointer loads in compile-time code are caught by `interp/guard.rs` (macOS arm64, Linux x86-64/arm64).
 - An error found while expanding an `#expand` macro is reported at the macro call, with a note `in the expansion of `name`` at the place in the macro body (`at_macro_call` in `sema/calls/macro_expand.rs`). Nested expansions end at the outermost call. Errors in the arguments keep their own place. A macro that returns from its caller (`` `return ``) into a procedure that needs a value gets a `help:` saying so.
+- Code lexed or parsed from a substring (string interpolation) remaps spans afterwards; remap secondary labels too (`map_secondary_spans`).
 - Command-line mistakes are diagnostics with the codes `cli-usage` and `cli-failure`, with closest-match suggestions.
 - `Types::name` shortens long string arguments of polymorphic structs; `Types::full_name` keeps them.
 
@@ -46,6 +49,7 @@ Say what is wrong in the user's terms, point at the user's own code (the wrong a
 - Code never matches message text: sema and editors react to `Diagnostic::code` and `data` (`Data::Scope`, `Data::Module`). Rewording is free, but update tests that match text (`tests/corpus/manifest.json`, `parser/tests.rs`, CLI and language-server tests).
 - Renaming or splitting a code breaks `-A`/`-D` users: move the old name to `RETIRED`.
 - New runtime check: an `ir::CheckReason` variant with wording in `ir::check_message` (and `runtime_support_check_failed`), raised with `Interp::check_trap`. Helps key off `Trap::kind`.
+- Lint findings carry labels as `Finding::secondary`; `jailint` maps spans in generated `#insert` code back to the insert site and shares the file text (`SecondaryLabel`).
 - The plain layout must stay byte-for-byte stable (`tests/lint/*/bad.snap`). Tools call `render::set_style(detect(choice))` once.
 
 ## Configuration

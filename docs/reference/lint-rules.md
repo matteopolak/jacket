@@ -18,7 +18,7 @@ A rule's category sets its default level. Name a category wherever a rule name w
 
 ## Rules
 
-104 rules.
+105 rules.
 
 | Rule | Category | Default | Finds |
 | --- | --- | --- | --- |
@@ -87,6 +87,7 @@ A rule's category sets its default level. Name a category wherever a rule name w
 | [`no_effect`](../tools/jailint.md#no_effect) | suspicious | warn | a statement that computes a value and drops it (`x == 5;`) |
 | [`platform_leak`](../tools/jailint.md#platform_leak) | restriction | allow | portable code imports something that asserts an operating system it is not built for |
 | [`pointer_into_resizable`](../tools/jailint.md#pointer_into_resizable) | suspicious | warn | a pointer into a resizable array used after a `@GrowsArray` call may have moved the array (`p := *xs[i]; array_add(*xs, v); use(p);`) |
+| [`pointer_lifetime`](../tools/jailint.md#pointer_lifetime) | restriction | allow | experimental must-analysis of array pointers across branches and loops |
 | [`print_in_module`](../tools/jailint.md#print_in_module) | restriction | allow | a module writes to the program's output |
 | [`push_in_static_if`](../tools/jailint.md#push_in_static_if) | suspicious | warn | a scoped push directly in an `#if` arm, which lasts past the arm |
 | [`range_past_count`](../tools/jailint.md#range_past_count) | correctness | deny | `for i: 0..xs.count` indexing `xs[i]`, one past the end |
