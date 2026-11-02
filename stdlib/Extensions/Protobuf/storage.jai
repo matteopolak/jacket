@@ -6,6 +6,15 @@ Storage_Block :: struct {
     parent: Allocator;
     arena: [] u8;
     arena_limit: s64;
+    arena_block: *Storage_Block;
+    scrap: *Scrap;
+}
+
+// A dead region of the arena (an outgrown array buffer or a block tail) that later
+// small allocations are served from. The link lives inside the dead memory itself.
+Scrap :: struct {
+    next: *Scrap;
+    size: s64;
 }
 
 // Allocator scope used while replacing/freeing fields: interior payload pointers are
@@ -127,8 +136,13 @@ owns_payload :: (block: *Storage_Block, pointer: *void) -> bool {
     return false;
 }
 
+// Larger blocks would strand too much unused tail when a decode ends.
+MAX_ARENA_BLOCK :: 524288;
+
 // Allocates arrays and message objects from a stable per-decode arena. Array
 // allocators retain this heap header, never a Reader or another stack variable.
+// Growing the newest allocation extends it in place; any other outgrown buffer
+// becomes scrap that later allocations are carved from, so growth leaves no dead space.
 structure_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *void) -> *void {
     root := cast(*Storage_Block) data;
 
@@ -136,21 +150,100 @@ structure_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *vo
     if mode != .ALLOCATE && mode != .RESIZE return root.parent.proc(mode, size, old_size, old, root.parent.data);
 
     needed := (size + 15) & ~15;
-    if root.arena.count < needed {
-        capacity := max(needed, root.arena_limit);
 
-        root.arena_limit *= 2;
-        block := cast(*Storage_Block) root.parent.proc(.ALLOCATE, size_of(Storage_Block) + capacity, 0, null, root.parent.data);
-        block.* = .{ next = root.next, count = capacity };
-        root.next = block;
-        root.arena = .{ capacity, cast(*u8) (block + 1) };
+    if old && old_size {
+        held := (old_size + 15) & ~15;
+
+        if cast(u64) old + cast(u64) held == cast(u64) root.arena.data {
+            extra := needed - held;
+
+            if extra <= root.arena.count {
+                root.arena.data += extra;
+                root.arena.count -= extra;
+                return old;
+            }
+
+            // The only occupant of a block can be grown by resizing the block itself.
+            if root.arena_block && old == cast(*void) (root.arena_block + 1) return grow_block(root, needed);
+        }
+
+        result := arena_take(root, needed);
+
+        memcpy(result, old, min(size, old_size));
+        arena_scrap(root, old, held);
+
+        return result;
+    }
+
+    return arena_take(root, needed);
+}
+
+// Resizes the current block, which holds exactly one array, and relinks it.
+grow_block :: (root: *Storage_Block, needed: s64) -> *void {
+    block := root.arena_block;
+    previous := root;
+
+    while previous.next != block previous = previous.next;
+
+    grown := cast(*Storage_Block) root.parent.proc(.RESIZE, size_of(Storage_Block) + needed, size_of(Storage_Block) + block.count, block, root.parent.data);
+
+    previous.next = grown;
+    grown.count = needed;
+    root.arena_block = grown;
+    root.arena = .{ 0, cast(*u8) (grown + 1) + needed };
+
+    return grown + 1;
+}
+
+// Records a dead region; regions too small to hold the link are simply lost.
+arena_scrap :: inline (root: *Storage_Block, memory: *void, size: s64) {
+    if size < size_of(Scrap) return;
+
+    node := cast(*Scrap) memory;
+
+    node.* = .{ next = root.scrap, size = size };
+    root.scrap = node;
+}
+
+// Bump-allocates from the current region, moving to a scrap region or a new block when full.
+arena_take :: (root: *Storage_Block, needed: s64) -> *void {
+    if root.arena.count < needed {
+        arena_scrap(root, root.arena.data, root.arena.count);
+
+        found: *Scrap;
+        link := *root.scrap;
+        scanned := 0;
+
+        while link.* && scanned < 8 {
+            if link.*.size >= needed {
+                found = link.*;
+                link.* = found.next;
+                break;
+            }
+
+            link = *link.*.next;
+            scanned += 1;
+        }
+
+        if found {
+            root.arena = .{ found.size, cast(*u8) found };
+            root.arena_block = null;
+        } else {
+            capacity := max(needed, root.arena_limit);
+
+            root.arena_limit = min(root.arena_limit * 2, MAX_ARENA_BLOCK);
+            block := cast(*Storage_Block) root.parent.proc(.ALLOCATE, size_of(Storage_Block) + capacity, 0, null, root.parent.data);
+            block.* = .{ next = root.next, count = capacity };
+            root.next = block;
+            root.arena = .{ capacity, cast(*u8) (block + 1) };
+            root.arena_block = block;
+        }
     }
 
     result := root.arena.data;
 
     root.arena.data += needed;
     root.arena.count -= needed;
-    if old && old_size memcpy(result, old, min(size, old_size));
 
     return result;
 }

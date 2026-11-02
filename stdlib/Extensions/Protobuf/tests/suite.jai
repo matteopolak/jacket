@@ -636,3 +636,38 @@ payload_unknown_storage :: () {
     Proto.free(*value);
     Proto.free(*again);
 } @test
+
+// Interleaved repeated fields force in-place growth, block resizing and scrap reuse.
+arena_growth_roundtrip :: () {
+    source: M;
+
+    for 0..2999 {
+        array_add(*source.labels, copy_string("label"));
+        array_add(*source.children, .{ label = copy_string("child") });
+    }
+
+    encoded, ee := Proto.encode(source);
+
+    require(ee.kind == .NONE);
+    defer free(encoded.data);
+
+    for 0..1 {
+        value, error := Proto.decode(M, encoded);
+
+        require(error.kind == .NONE);
+        expect_equal(value.labels.count, 3000);
+        expect_equal(value.children.count, 3000);
+        expect_equal(value.children[2999].label, "child");
+        expect(Proto.equal(source, value));
+
+        // Merging appends more elements to arrays that live in earlier arena blocks.
+        merged := Proto.merge(*value, encoded);
+
+        require(merged.kind == .NONE);
+        expect_equal(value.labels.count, 6000);
+        expect_equal(value.labels[5999], "label");
+        Proto.free(*value);
+    }
+
+    Proto.free(*source);
+} @test
