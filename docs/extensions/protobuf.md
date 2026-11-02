@@ -191,19 +191,21 @@ A nightly job in `.github/workflows/fuzz.yml` fuzzes the binary and JSON decoder
 | Workload | Jacket | `borrow` | `borrow` + `skip_utf8` | jai-protobuf | C++ |
 | --- | --- | --- | --- | --- | --- |
 | encode mixed (83 B) | 98 ns | | | 250 ns | 106 ns |
-| decode mixed | 256 ns | 244 ns | 234 ns | 127 ns | 380 ns |
+| decode mixed | 151 ns | 132 ns | 127 ns | 129 ns² | 380 ns |
 | encode 1 MiB packed | 13.6 µs | | | 13.6 µs | 29.4 µs |
-| decode 1 MiB packed | 13.9 µs | 13.5 µs | | 13.6 µs | 18.8 µs |
+| decode 1 MiB packed | 13.6 µs | 13.5 µs | | 13.4 µs² | 18.8 µs |
 | encode 64-deep | 1.48 µs | | | n/a¹ | 0.89 µs |
-| decode 64-deep | 1.95 µs | 1.84 µs | 1.97 µs | n/a¹ | 2.48 µs |
+| decode 64-deep | 1.47 µs | 1.46 µs | 1.47 µs | n/a¹ | 2.48 µs |
 | encode logs (98 KB) | 23.9 µs | | | 69.8 µs | 33.9 µs |
-| decode logs | 77.0 µs | 59.2 µs | 50.0 µs | 37.3 µs | 130 µs |
+| decode logs | 40.1 µs | 27.7 µs | 22.1 µs | 36.3 µs² | 130 µs |
 | encode 2,000 spans (574 KB) | 392 µs | | | 1.14 ms | 405 µs |
-| decode 2,000 spans | 1.23 ms | 1.11 ms | 844 µs | 620 µs | 1.68 ms |
+| decode 2,000 spans | 745 µs | 637 µs | 415 µs | 576 µs² | 1.68 ms |
 
 ¹ A message that contains itself doesn't compile in jai-protobuf.
 
-Jacket encodes two to three times as fast as jai-protobuf, except packed numbers, where both copy at memory speed. jai-protobuf decodes strings faster: it always points them into the input, and skips UTF-8 checks and unknown fields. A Jacket decode of the spans makes 18 allocations (14 with `borrow`); jai-protobuf makes 5,346 and C++ 57,931. `borrow` with `skip_utf8` is the closest match to what jai-protobuf does, and closes most of the decode gap. A program that encodes and decodes one message adds 89 KiB to an `-O2` executable, against 26 KiB for jai-protobuf, and compiles in about the same time.
+² jai-protobuf decodes less: strings always point into the input, unknown fields are dropped, and it doesn't check UTF-8 or required fields, accepts field 0 and stray end-group tags, and has no depth limit. `borrow` + `skip_utf8` is the closest Jacket decode.
+
+Jacket encodes two to three times as fast as jai-protobuf, except packed numbers, where both copy at memory speed. A Jacket decode of the spans makes 18 allocations (14 with `borrow`); jai-protobuf makes 5,346 and C++ 57,931. A program that encodes and decodes one message adds 89 KiB to an `-O2` executable, against 26 KiB for jai-protobuf, and compiles in about the same time.
 
 | Feature | Jacket | jai-protobuf |
 | --- | --- | --- |
