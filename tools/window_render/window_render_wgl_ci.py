@@ -159,23 +159,6 @@ def deploy_driver(driver, machine, directories):
     return records
 
 
-def wgl_lint_paths(library, cases):
-    # Entry files retain loaded implementation lint in its real module context.
-    # Directory inputs would recursively promote unrelated platform tests to roots.
-    paths = [library / name / "module.jai" for name in
-             ["Window_Type", "Window_Creation", "Input", "Keymap", "Gamepad", "Gamepad/SDL_Input_Map", "Simp", "Srgb", "Clipboard"]]
-    paths += [library / "internal/rendering/window-contexts.jai",
-              library / "internal/window/lifecycle.jai",
-              library / "internal/input/native-fields.jai",
-              library / "internal/input/windows-devices/module.jai"]
-    # Retain the existing valid Windows/portable tests previously found inside
-    # these module directories; unrelated Cocoa/Linux roots are not WGL inputs.
-    paths += [library / name for name in
-              ["Input/tests/windows-device-decoding.jai", "Input/tests/signed-native-fields.jai",
-               "Simp/tests/glyph-atlas.jai", "Simp/tests/texture-packing.jai"]]
-    return paths + [ROOT / WINDOW_RENDER_TESTS[case] for case in cases]
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_jaic_argument(parser, required=True)
