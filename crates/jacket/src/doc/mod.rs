@@ -514,17 +514,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         let mut shared = view::site(&site);
         let mut input = Vec::new();
         let mut guides = extra.pages(&site, &shared.nav);
-        // The home file is the front page: it keeps the front page's place, title and sidebar.
-        if let Some(i) = guides.iter().position(|g| g.path == view::guide::HOME) {
-            let mut home = guides.remove(i);
-            let index = &mut shared.index;
-            home.path = String::new();
-            home.title.clone_from(&index.title);
-            home.description.clone_from(&index.description);
-            home.side_label.clone_from(&index.side_label);
-            std::mem::swap(&mut home.sidebar, &mut index.sidebar);
-            *index = home;
-        }
+        use_home(&mut guides, &mut shared.index);
         let metadata::Publication {
             metadata,
             mut urls,
@@ -728,6 +718,21 @@ fn write_site(
         }
     }
     Ok(())
+}
+
+
+/// Makes the home file the front page: it keeps the front page's place, title and sidebar.
+fn use_home(guides: &mut Vec<view::PageView>, index: &mut view::PageView) {
+    let Some(i) = guides.iter().position(|g| g.path == view::guide::HOME) else {
+        return;
+    };
+    let mut home = guides.remove(i);
+    home.path = String::new();
+    home.title.clone_from(&index.title);
+    home.description.clone_from(&index.description);
+    home.side_label.clone_from(&index.side_label);
+    std::mem::swap(&mut home.sidebar, &mut index.sidebar);
+    *index = home;
 }
 
 #[cfg(test)]
