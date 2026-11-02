@@ -59,7 +59,8 @@ encode :: (value: $T) -> [] u8, Error {
     count := T.proto_size(*value, *cache);
     if count > 2147483647 return .{}, .{ kind = .TOO_LARGE };
 
-    result := NewArray(count, u8);
+    // The exact-size writer initializes the complete output.
+    result := allocate_bytes(count);
     w := Writer.{ bytes = result, cache = cache };
 
     write_message(*w, *value);

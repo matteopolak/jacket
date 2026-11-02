@@ -362,6 +362,14 @@ skip :: (r: *Reader, tag: u64) -> bool {
     return r.error.kind == .NONE;
 }
 
+// Allocates byte storage whose caller must completely initialize before exposing it.
+allocate_bytes :: (count: s64) -> [] u8 {
+    if !count return .{};
+    data := cast(*u8) alloc(count);
+    assert(data != null);
+    return .{ count, data };
+}
+
 // Appends bytes to a sized output buffer.
 write_bytes :: (w: *Writer, bytes: [] u8) {
     if bytes.count memcpy(w.bytes.data + w.pos, bytes.data, bytes.count);
@@ -529,7 +537,8 @@ read_scalar :: (r: *Reader, value: *$T, $kind: Scalar) -> bool {
         free_scalar(value, kind);
 
         if !r.options.borrow {
-            owned := NewArray(n, u8);
+            // The following copy initializes every byte; avoid clearing it first.
+            owned := allocate_bytes(n);
             if n memcpy(owned.data, bytes.data, n);
             bytes = owned;
         }
