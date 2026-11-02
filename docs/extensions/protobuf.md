@@ -1,6 +1,6 @@
 # Protobuf
 
-Protocol Buffers in the binary wire format. Give it a `.proto` schema and the Jai types and their encoders and decoders are generated at compile time. No `protoc`, no build file. proto3, proto2 and editions 2023/2024; it passes Google's binary conformance suite.
+Protocol Buffers in the binary wire format and the proto3 JSON mapping. Give it a `.proto` schema and the Jai types and their encoders and decoders are generated at compile time. No `protoc`, no build file. proto3, proto2 and editions 2023/2024; it passes Google's binary and JSON conformance suites.
 
 ```jai
 Proto :: #import "Extensions/Protobuf";
@@ -88,6 +88,9 @@ Setting a oneof: `c.via.which = .EMAIL; c.via.email = "ada@example.com";`. Free 
 | `merge(*value, bytes, options)` | protobuf merge: scalars replace, repeated append, messages merge, map keys replace |
 | `free(*value)`, `free(*error)` | safe to call twice |
 | `equal(a, b)` | deep, including unknown fields |
+| `to_json(value, options)` | proto3 JSON text and `Error` |
+| `write_json(*String_Builder, value, options)` | appends the JSON |
+| `from_json(T, text, options)`, `merge_json(*value, text, options)` | read proto3 JSON; a failed read frees what it made |
 
 `Decode_Options`:
 
@@ -96,6 +99,28 @@ Setting a oneof: `c.via.which = .EMAIL; c.via.email = "ada@example.com";`. Free 
 - `borrow`: strings and bytes point into the input, which must outlive the value. `free` leaves them alone, so any allocator works.
 - `discard_unknown`.
 - `skip_utf8`: accept `string` fields without checking that they're UTF-8. Faster on text-heavy messages, but a string may then hold any bytes, so keep the check for input you don't trust.
+
+### JSON
+
+```jai
+text, error := Proto.to_json(person);
+back, read_error := Proto.from_json(Api.Person, text);
+```
+
+Output follows the proto3 JSON mapping: lowerCamelCase keys (or `json_name`), 64-bit integers as strings, enums by name, bytes as base64, and fields in declaration order. Fields with implicit presence print only when non-default. Input also takes the `.proto` field names, numbers for enums, and quoted or plain numbers.
+
+The well-known types use their own forms: Timestamp as RFC 3339, Duration as `"1.500s"`, FieldMask as one string, the wrappers as bare values, and Struct, Value and ListValue as plain JSON. An Any prints `@type` and the message's fields, so the reader needs to know its types: pass `registry = Api.proto_registry` (each schema module generates one, listing every message).
+
+`Json_Options`:
+
+- `emit_defaults`: print default and empty fields too.
+- `proto_names`: keys are the `.proto` names.
+- `enum_numbers`: enums print as numbers.
+- `pretty`: indent by two spaces.
+- `ignore_unknown_fields`: skip unknown keys and unknown enum names instead of failing.
+- `max_depth` (100), `registry`.
+
+JSON costs nothing until a program calls it: the codec for a message is built from its Jai type on first use, and a schema module only adds a few notes and the registry.
 
 ### Memory
 
@@ -106,14 +131,14 @@ A copying decode allocates a handful of blocks, not one allocation per field. St
 - Assigning a field directly is fine if the new value is your own allocation from the same allocator. To take a string or bytes from another decoded message, copy it with `Proto.set_string(*owner, *owner.field, value)` or `Proto.set_bytes`. A replaced value that lives in a block is never freed early.
 - A message you build by hand frees field by field, as before.
 
-`Error` has `kind` (`.TRUNCATED`, `.BAD_TAG`, `.BAD_WIRE_TYPE`, `.BAD_GROUP`, `.VARINT_TOO_LONG`, `.TOO_DEEP`, `.TOO_LARGE`, `.BAD_UTF8`, `.FIELD_ZERO`...), `offset` and `path` (`address.lines[2]`).
+`Error` has `kind` (`.TRUNCATED`, `.BAD_TAG`, `.BAD_WIRE_TYPE`, `.BAD_GROUP`, `.VARINT_TOO_LONG`, `.TOO_DEEP`, `.TOO_LARGE`, `.BAD_UTF8`, `.FIELD_ZERO`, and for JSON `.BAD_JSON`, `.BAD_VALUE`, `.UNKNOWN_FIELD`, `.DUPLICATE_FIELD`, `.UNKNOWN_TYPE`), `offset`, `path` (`address.lines[2]`) and, from JSON, a `message`.
 
 ## Not supported yet
 
 - Typed extensions: `extensions` ranges are accepted and `extend` blocks are skipped, so extension values arrive in `_unknown` and round-trip unchanged.
 - Editions newer than 2024. Unknown features are a schema error; custom feature extensions (`pb.cpp`...) are ignored.
-- `service` blocks are read and skipped.
-- The proto3 JSON mapping and the text format.
+- `service` blocks are read and skipped. gRPC is planned as a separate Extensions module.
+- Not planned: the text format and reflection.
 
 ## Syntax and features
 
@@ -132,11 +157,13 @@ proto2 and proto3 are fixed defaults for these. In editions, `option features.x 
 
 `benchmarks/compare/protobuf/conformance/testee.jai` runs Google's `conformance_test_runner` against this module. It generates the test messages from a protobuf checkout given at build time: `jaic -O2 testee.jai -add 'PROTOBUF_ROOT :: "/path/to/protobuf";'`.
 
-The runner is upstream code, so it runs only inside the `tools/bench` sandbox. It runs with `--maximum_edition 2024 --enforce_recommended --failure_list failure_list.txt`. Every binary test passes (2,863), proto2, proto3 and editions alike. The one listed failure is the UTF-8 check on an extension string, since extensions are untyped. JSON and text-format tests are skipped.
+The runner is upstream code, so it runs only inside the `tools/bench` sandbox. It runs with `--maximum_edition 2024 --enforce_recommended --failure_list failure_list.txt`. Every binary test passes (2,863), proto2, proto3 and editions alike. Every JSON test passes too, in both directions (5,783 tests in all). The listed failures are the UTF-8 check on an extension string and two JSON tests that name an extension as a key, since extensions are untyped. Text-format tests are skipped.
 
 `stdlib/Extensions/Protobuf/bench/bench.jai`, built with `-O2`, covers four shapes: a mixed message, 1 MiB of packed numbers, 64 levels of nesting, and string-heavy logs. Running it with `-interp -- --generation-only` times generation instead. A 100-message, 1,000-line schema generates in about 190 ms in the interpreter and about 4 KB of Jai per 9-field message.
 
-A nightly job in `.github/workflows/fuzz.yml` fuzzes the decoder under ASan (`tools/fuzz/properties/Protobuf.jai`).
+JSON is close to `Extensions/Json` reading the same data into a plain struct. On the string-heavy logs it decodes at about 770 MB/s (Extensions/Json: about 670 MB/s) with 7 allocations against 4,010, and encodes at about 1.6 GB/s, roughly 1.4 times slower than Extensions/Json.
+
+A nightly job in `.github/workflows/fuzz.yml` fuzzes the binary and JSON decoders under ASan (`tools/fuzz/properties/Protobuf.jai`).
 
 ## Compared with jai-protobuf and C++
 
@@ -176,7 +203,9 @@ Jacket encodes about twice as fast as jai-protobuf, except packed numbers, where
 | merge | ✅ | ✅ |
 | equality | ✅ | ❌ |
 | copying or borrowed strings | ✅ both | ⚠️ borrowed only |
-| JSON, text format, reflection, services | ❌ | ❌ |
+| proto3 JSON | ✅ | ❌ |
+| text format, reflection | not planned | ❌ |
+| services | gRPC planned as a separate module | ❌ |
 | extensions | ⚠️ kept as unknown fields | ❌ |
 
 ## Real-world schemas

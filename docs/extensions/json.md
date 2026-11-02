@@ -23,6 +23,7 @@ free_json(*user);                               // values, Json_Value, Json_Erro
 - `Json_Source { data, fill }` gives a document in pieces; Json gathers it in one buffer before decoding. `Io.read_json` and the HTTP client's `read_json` build one (Json doesn't import Io).
 - Integers are exact over their range (`.OUT_OF_RANGE` otherwise). Floats print as the shortest round-trip string and decode correctly rounded; NaN and infinity encode as `null`. Supported: strings, bools, enums (by name), arrays, pointers, nested and recursive structs, `Hash_Table` with string keys, `Json_Value`, `Variant`. No 128-bit integers.
 - Parsing is strict RFC 8259 (no BOM, trailing commas, lone surrogates, bad UTF-8). A failed decode frees what it allocated and returns a default `T`.
+- A decoder written by hand drives a `Json_Reader` directly: `json_reader_init(*r, text)`, the `json_read_*` and `json_begin_*` procedures, `json_read_number` for a number's checked text, then `json_reader_error` on failure and `json_reader_free`. [Protobuf](protobuf.md)'s JSON mapping reads this way.
 - `free_json` is generated per type (`generate_freer`). It skips fields still holding their declared default and resets what it frees, so a second call is harmless. Never call it on values that weren't decoded.
 
 | `@json(...)` | Where | Effect |
