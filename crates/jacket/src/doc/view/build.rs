@@ -545,18 +545,30 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
             continue;
         }
         outline.push(outline_heading(id, label, false));
+        // Procedures split by group, with foreign bindings in a group of their own, so each
+        // item is listed once.
         let mut names = Vec::new();
         if id == "procedures" {
-            for i in &items {
-                if !i.group.is_empty() && !names.contains(&i.group.as_str()) {
+            for i in items.iter().filter(|i| !i.binding) {
+                if !names.contains(&i.group.as_str()) {
                     names.push(i.group.as_str());
                 }
             }
         }
+        let bindings = items.iter().any(|i| i.binding);
         let mut groups = Vec::new();
-        if names.len() > 1 {
+        if names.len() > 1 || (bindings && names.iter().any(|n| !n.is_empty())) {
             for name in names {
-                let selected: Vec<_> = items.iter().copied().filter(|i| i.group == name).collect();
+                let selected: Vec<_> = items
+                    .iter()
+                    .copied()
+                    .filter(|i| !i.binding && i.group == name)
+                    .collect();
+                let name = if name.is_empty() {
+                    "Other"
+                } else {
+                    name
+                };
                 groups.push(group(
                     site,
                     mi,
@@ -568,7 +580,7 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                     &mut outline,
                 ));
             }
-            if items.iter().any(|i| i.binding) {
+            if bindings {
                 let selected: Vec<_> = items.iter().copied().filter(|i| i.binding).collect();
                 groups.push(group(
                     site,

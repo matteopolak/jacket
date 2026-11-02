@@ -276,3 +276,34 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
         "/docs/api/Vendor/Nested/"
     );
 }
+
+#[test]
+fn grouped_procedures_list_each_item_once() {
+    let procedure = |name: &str, group: &str, binding: bool| Item {
+        name: name.into(),
+        kind: Kind::Procedure,
+        group: group.into(),
+        binding,
+        ..Item::default()
+    };
+    let mut site = fixture();
+    site.modules[1].items = vec![
+        procedure("open", "Window", false),
+        procedure("play", "Audio", false),
+        procedure("SDL_Init", "Window", true),
+    ];
+    let bundle = module(&site, 1);
+    let Content::Module {
+        sections, ..
+    } = &bundle.page.content
+    else {
+        panic!()
+    };
+    let procedures = sections.iter().find(|s| s.id == "procedures").unwrap();
+    let rows: Vec<_> = procedures
+        .groups
+        .iter()
+        .flat_map(|g| g.rows.iter().map(|r| r.id.as_str()))
+        .collect();
+    assert_eq!(rows, ["open", "play", "SDL_Init"]);
+}
