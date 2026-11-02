@@ -220,3 +220,23 @@ fn module_parameters_come_with_their_docs() {
     assert!(json.contains("\"parameters\":[{\"name\":\"STRICT\""));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_procedure_comment_belongs_to_its_overload() {
+    let dir = library(
+        "proc-docs",
+        &[(
+            "module.jai",
+            "// Scales a number.\n//\n// - by: the factor.\nscale :: (n: int, by: int) -> int { return n * by; }\n\n// Another name.\ntwice :: scale;\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+    // Shown once: the overload keeps the prose and moves the list into the parameters.
+    assert_eq!(item("scale").docs, "");
+    assert_eq!(item("scale").overloads[0].docs, "Scales a number.");
+    assert_eq!(item("scale").overloads[0].params[1].doc, "the factor.");
+    // An alias keeps its own comment.
+    assert_eq!(item("twice").docs, "Another name.");
+    let _ = std::fs::remove_dir_all(&dir);
+}

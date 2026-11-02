@@ -830,6 +830,11 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                         ..Item::default()
                     };
                     if kind == "procedure" {
+                        // The comment above a procedure (not an alias of one) is its first
+                        // overload's, which carries it with the parameter lines taken out.
+                        if tfile == file && tat == at {
+                            found.docs.clear();
+                        }
                         // Every declaration of the name in the target's file is an overload.
                         for &(d, visibility) in tindex.constants(tdecl.names[0].name.as_str()) {
                             if visibility == Visibility::File {
