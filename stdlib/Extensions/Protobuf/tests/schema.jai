@@ -100,3 +100,36 @@ namespace_collisions :: () {
     defer free(encoded_choice.data);
     expect(encoded_choice.count == 2 && encoded_choice[0] == 24);
 } @test
+
+strip_prefix_keeps_names_aliases_use :: () {
+    source :: "syntax='proto3'; enum Mode { option allow_alias = true; MODE_UNSPECIFIED = 0; UNSPECIFIED = 0; MODE_FAST = 1; FAST = 1; MODE_SLOW = 2; }";
+    output, error := Schema.protobuf_generate(source, .{ strip_enum_prefix = true });
+
+    require(error.message.count == 0);
+    defer free(output);
+    expect(contains(output, "MODE_UNSPECIFIED :: 0"));
+    expect(contains(output, "UNSPECIFIED :: 0"));
+    expect(contains(output, "MODE_FAST :: 1"));
+    expect(contains(output, "SLOW :: 2"));
+    expect(!contains(output, "MODE_SLOW"));
+} @test
+
+built_in_option_and_type_schemas :: () {
+    source :: #string END
+syntax = 'proto3';
+import 'google/protobuf/descriptor.proto';
+import 'google/protobuf/api.proto';
+import 'google/protobuf/type.proto';
+extend google.protobuf.FieldOptions { string label = 50001; }
+extend google.protobuf.MethodOptions { string route = 50002; }
+message M { string a = 1 [(label) = 'x']; google.protobuf.Api api = 2; google.protobuf.Field.Kind kind = 3; }
+END;
+    output, error := Schema.protobuf_generate(source);
+
+    defer free(error.message);
+    require(error.message.count == 0);
+    defer free(output);
+    expect(contains(output, "FieldOptions :: struct"));
+    expect(contains(output, "Api :: struct"));
+    expect(contains(output, "SourceContext :: struct"));
+} @test

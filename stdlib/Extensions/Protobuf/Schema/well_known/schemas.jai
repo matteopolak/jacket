@@ -39,6 +39,66 @@ message Value {
 }
 message ListValue { repeated Value values=1; }
 END;
+    if path == "google/protobuf/source_context.proto" return "syntax='proto3'; package google.protobuf; message SourceContext { string file_name=1; }";
+    if path == "google/protobuf/type.proto" return #string END
+syntax='proto3';
+package google.protobuf;
+import 'google/protobuf/any.proto';
+import 'google/protobuf/source_context.proto';
+enum Syntax { SYNTAX_PROTO2=0; SYNTAX_PROTO3=1; SYNTAX_EDITIONS=2; }
+message Type {
+  string name=1; repeated Field fields=2; repeated string oneofs=3; repeated Option options=4;
+  SourceContext source_context=5; Syntax syntax=6; string edition=7;
+}
+message Field {
+  enum Kind {
+    TYPE_UNKNOWN=0; TYPE_DOUBLE=1; TYPE_FLOAT=2; TYPE_INT64=3; TYPE_UINT64=4; TYPE_INT32=5;
+    TYPE_FIXED64=6; TYPE_FIXED32=7; TYPE_BOOL=8; TYPE_STRING=9; TYPE_GROUP=10; TYPE_MESSAGE=11;
+    TYPE_BYTES=12; TYPE_UINT32=13; TYPE_ENUM=14; TYPE_SFIXED32=15; TYPE_SFIXED64=16;
+    TYPE_SINT32=17; TYPE_SINT64=18;
+  }
+  enum Cardinality { CARDINALITY_UNKNOWN=0; CARDINALITY_OPTIONAL=1; CARDINALITY_REQUIRED=2; CARDINALITY_REPEATED=3; }
+  Kind kind=1; Cardinality cardinality=2; int32 number=3; string name=4; string type_url=6;
+  int32 oneof_index=7; bool packed=8; repeated Option options=9; string json_name=10; string default_value=11;
+}
+message Enum {
+  string name=1; repeated EnumValue enumvalue=2; repeated Option options=3;
+  SourceContext source_context=4; Syntax syntax=5; string edition=6;
+}
+message EnumValue { string name=1; int32 number=2; repeated Option options=3; }
+message Option { string name=1; Any value=2; }
+END;
+    if path == "google/protobuf/api.proto" return #string END
+syntax='proto3';
+package google.protobuf;
+import 'google/protobuf/source_context.proto';
+import 'google/protobuf/type.proto';
+message Api {
+  string name=1; repeated Method methods=2; repeated Option options=3; string version=4;
+  SourceContext source_context=5; repeated Mixin mixins=6; Syntax syntax=7;
+}
+message Method {
+  string name=1; string request_type_url=2; bool request_streaming=3; string response_type_url=4;
+  bool response_streaming=5; repeated Option options=6; Syntax syntax=7;
+}
+message Mixin { string name=1; string root=2; }
+END;
+    // Only the option messages, so schemas can declare custom options. Put the full
+    // descriptor.proto on the import path to use the descriptor types themselves.
+    if path == "google/protobuf/descriptor.proto" return #string END
+syntax='proto2';
+package google.protobuf;
+message FileOptions { extensions 1000 to max; }
+message MessageOptions { extensions 1000 to max; }
+message FieldOptions { extensions 1000 to max; }
+message OneofOptions { extensions 1000 to max; }
+message EnumOptions { extensions 1000 to max; }
+message EnumValueOptions { extensions 1000 to max; }
+message ServiceOptions { extensions 1000 to max; }
+message MethodOptions { extensions 1000 to max; }
+message ExtensionRangeOptions { extensions 1000 to max; }
+message FeatureSet { extensions 1000 to max; }
+END;
 
     return "";
 }

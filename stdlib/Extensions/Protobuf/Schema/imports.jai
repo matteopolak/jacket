@@ -56,16 +56,18 @@ proto_load_source :: (s: *proto_Schema, path: string, text: string, token: proto
 
     source.imports = local.imports;
     for *entry: source.imports {
-        builtin := proto_well_known(entry.name);
-        child_path := proto_schema_format("<builtin:%>", entry.name);
-        child_text := builtin;
+        // A file found on disk wins; the built-in well-known copies fill in when there is none.
+        child_path := proto_import_path(s, path, entry.name);
+        child_text: string;
+        ok: bool;
 
-        if !builtin.count {
-            child_path = proto_import_path(s, path, entry.name);
-            ok: bool;
-            if child_path.count child_text, ok = read_entire_file(child_path);
+        if child_path.count child_text, ok = read_entire_file(child_path);
 
-            if !ok {
+        if !ok {
+            child_text = proto_well_known(entry.name);
+            child_path = proto_schema_format("<builtin:%>", entry.name);
+
+            if !child_text.count {
                 proto_schema_fail(s, entry.token, proto_schema_format("cannot read import '%'", entry.name));
                 return source;
             }

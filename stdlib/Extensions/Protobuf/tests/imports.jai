@@ -137,3 +137,15 @@ well_known_round_trip :: () {
     defer Proto.free(*back);
     expect(Proto.equal(dynamic, back));
 } @test
+
+file_on_import_path_beats_built_in :: () {
+    root := Proto.beside("fixtures/disk-wins");
+
+    defer free(root);
+    output, error := Schema.protobuf_generate("syntax='proto3'; import 'google/protobuf/empty.proto'; message M { google.protobuf.Empty e=1; }", .{ import_paths = root });
+
+    defer free(error.message);
+    require(error.message.count == 0);
+    defer free(output);
+    expect(contains(output, "OnlyOnDisk :: struct"));
+} @test

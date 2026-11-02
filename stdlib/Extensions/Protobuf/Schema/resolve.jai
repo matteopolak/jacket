@@ -210,7 +210,15 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
             for *v: node.values {
                 original_name := v.name;
 
-                if s.options.strip_enum_prefix && begins_with(v.name, prefix) && v.name.count > prefix.count && !proto_digit(v.name[prefix.count]) v.name = slice(v.name, prefix.count, v.name.count - prefix.count);
+                if s.options.strip_enum_prefix && begins_with(v.name, prefix) && v.name.count > prefix.count && !proto_digit(v.name[prefix.count]) {
+                    stripped := slice(v.name, prefix.count, v.name.count - prefix.count);
+
+                    // Keep the full name when another value already uses the short one (aliases often do).
+                    taken := false;
+
+                    for other: node.values if other.name == stripped taken = true;
+                    if !taken v.name = stripped;
+                }
 
                 v.name = proto_jai_name(v.name);
                 if v.value < -2147483648 || v.value > 2147483647 proto_schema_fail(s, v.token, "enum value exceeds s32");
