@@ -1,0 +1,5 @@
+../../Schema/module.jai:95:9: error[metaprogram-report]: duplicate extension number
+    #insert #run proto_generate_schema();
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: reported for $STDLIB/Extensions/Protobuf/tests/fixtures/extensions/clash.proto:3:15
+

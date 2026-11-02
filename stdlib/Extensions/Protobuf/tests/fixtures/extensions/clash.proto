@@ -1,0 +1,3 @@
+syntax = "proto2";
+import "base.proto";
+extend Base { optional string second = 100; }

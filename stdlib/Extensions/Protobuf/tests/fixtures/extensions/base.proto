@@ -1,0 +1,3 @@
+syntax = "proto2";
+message Base { extensions 100 to 110; }
+extend Base { optional int32 first = 100; }
