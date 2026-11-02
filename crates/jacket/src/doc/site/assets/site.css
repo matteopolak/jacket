@@ -218,7 +218,7 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 /* A marked item reads bold, from a bold copy of its name laid over it. Showing the copy only
    swaps colours, which needs no layout: on a big page each layout after a scroll is costly. */
 .toc li a[data-t] { position: relative; }
-.toc li a[data-t]::after { content: attr(data-t) / ""; position: absolute; inset: 5px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: transparent; pointer-events: none; }
+.toc li a[data-t]::after { content: attr(data-t) / ""; position: absolute; inset: 0; padding: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: transparent; pointer-events: none; }
 .toc li a.active { color: transparent; }
 .toc li a.active::after { color: var(--link); }
 @media (forced-colors: active) { .toc li a[data-t]::after { content: none; } .toc li a.active { font-weight: 600; } }
