@@ -269,6 +269,13 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_portable_watcher.py` | Build and execute the real FSEvents watcher tests against the production stdlib (macOS). | tools |
 | `portable_data_context_lint.py` | Strict public-context lint of the unchanged portable-data source inventory. | tools |
 
+## `protobuf_schemas/`
+
+| Script | What it does | Called by |
+| --- | --- | --- |
+| `fetch.py` | Fetch the pinned real-world `.proto` sets used to test `Extensions/Protobuf/Schema`. | tools |
+| `measure.py` | Measure schema generation of `Extensions/Protobuf/Schema` on the pinned real-world sets. | tools |
+
 ## `stdlib/`
 
 | Script | What it does | Called by |

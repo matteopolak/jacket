@@ -1,0 +1,107 @@
+{
+  "sources": {
+    "onnx": {"repo": "onnx/onnx", "commit": "0a253103157926201618657bdc40d8c3c7fc756a"},
+    "otel": {"repo": "open-telemetry/opentelemetry-proto", "commit": "169f2f2c7c1550c364d5eecb05d1b6163a011b06"},
+    "googleapis": {"repo": "googleapis/googleapis", "commit": "4a5e0c5f4116f213ba5495c72c72fb2f1e6ad984"},
+    "envoy": {"repo": "envoyproxy/envoy", "commit": "4c43cfc09b14ca6c7ae2a27d852fe87674420712"},
+    "pgv": {"repo": "envoyproxy/protoc-gen-validate", "commit": "414042a5ff2e98dc47f8161937316a25b1da5bba"},
+    "xds": {"repo": "cncf/xds", "commit": "dba9d589def2cd10099a3a64887d859188c2f57a"},
+    "k8s-api": {"repo": "kubernetes/api", "commit": "f4451c0ccd1bde156948d5dbd11190b530b73f33"},
+    "k8s-apimachinery": {"repo": "kubernetes/apimachinery", "commit": "b26d01364f13520dfdecb540fc63253be5b76662"},
+    "prometheus-client-model": {"repo": "prometheus/client_model", "commit": "7c1a1b81eba301a47b3a7586810af31171f71a9b"},
+    "cel-spec": {"repo": "google/cel-spec", "commit": "21ec6f4e52e8d694687ff9ed7408d3eccbb955d7"},
+    "protobuf": {"repo": "protocolbuffers/protobuf", "commit": "bbe8d1453a434300f1ffed0e314ab4ed8a6bdd5b"},
+    "tensorflow": {"repo": "tensorflow/tensorflow", "commit": "8fcfe8f863ef2669d401327ba0568cdc70833355"}
+  },
+  "sets": {
+    "descriptor": {
+      "tree_sha256": "cced3d578c5b0f2409479f6154e67ec871cd5772ee69a574fe6c28a0221696c9",
+      "mounts": [
+        {"source": "protobuf", "src": "src/google/protobuf/", "dst": "google/protobuf/", "match": "descriptor.proto", "flat": true},
+        {"source": "protobuf", "src": "src/google/protobuf/", "dst": "google/protobuf/", "match": "api.proto", "flat": true},
+        {"source": "protobuf", "src": "src/google/protobuf/", "dst": "google/protobuf/", "match": "type.proto", "flat": true},
+        {"source": "protobuf", "src": "src/google/protobuf/", "dst": "google/protobuf/", "match": "source_context.proto", "flat": true}
+      ],
+      "variants": [
+        {"name": "descriptor", "path": "google/protobuf/descriptor.proto", "import_paths": ["."], "types": ["google.protobuf.FileDescriptorSet", "google.protobuf.FileDescriptorProto", "google.protobuf.FeatureSet"]}
+      ]
+    },
+    "onnx": {
+      "tree_sha256": "753558c82b93f8dc3ff51650cd3421fefbe5ed7f402126c2f606cfc815dd9f07",
+      "mounts": [{"source": "onnx", "src": "onnx/", "dst": "onnx/", "flat": true}],
+      "variants": [
+        {"name": "onnx", "path": "onnx/onnx.proto", "import_paths": ["."], "types": ["onnx.ModelProto", "onnx.GraphProto", "onnx.TensorProto"]},
+        {"name": "onnx-ml", "path": "onnx/onnx-ml.proto", "import_paths": ["."], "types": ["onnx.ModelProto", "onnx.GraphProto", "onnx.TensorProto"]}
+      ]
+    },
+    "opentelemetry": {
+      "tree_sha256": "4bbc3a34c3c33dc3987eedefcda6d67f9ed1705b86bf944c213712ad9cf1e7e4",
+      "mounts": [{"source": "otel", "src": "opentelemetry/", "dst": "opentelemetry/"}],
+      "variants": [
+        {"name": "opentelemetry", "dir": "opentelemetry", "import_paths": ["."], "types": ["opentelemetry.proto.trace.v1.Span", "opentelemetry.proto.metrics.v1.Metric", "opentelemetry.proto.logs.v1.LogRecord", "opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest"]}
+      ]
+    },
+    "googleapis": {
+      "tree_sha256": "33ff0f404ae0cf82d84236f73f8d93391d0928910cf2913ab475662438f4599f",
+      "mounts": [
+        {"source": "googleapis", "src": "google/", "dst": "google/", "exclude": ["google/cloud/", "google/ads/", "google/ai/", "google/maps/", "google/devtools/", "google/analytics/", "google/shopping/", "google/chat/", "google/apps/", "google/firestore/", "google/bigtable/", "google/monitoring/", "google/container/", "google/datastore/", "google/storage/", "google/identity/", "google/search/", "google/area120/", "google/home/"]}
+      ],
+      "variants": [
+        {"name": "spanner", "needs_descriptor": true, "path": "google/spanner/v1/spanner.proto", "import_paths": ["."], "types": ["google.spanner.v1.Session", "google.spanner.v1.ExecuteSqlRequest", "google.spanner.v1.ResultSet"]},
+        {"name": "googleapis-dir", "needs_descriptor": true, "dir": "google", "import_paths": ["."], "types": ["google.pubsub.v1.Topic", "google.spanner.v1.Session", "google.longrunning.Operation", "google.rpc.Status", "google.type_.Date"]},
+        {"name": "spanner-dir", "needs_descriptor": true, "dir": "google/spanner", "import_paths": ["."], "types": ["google.spanner.v1.Session", "google.spanner.v1.ExecuteSqlRequest", "google.spanner.admin.database.v1.Database", "google.spanner.admin.instance.v1.Instance"]},
+        {"name": "spanner-admin-database", "needs_descriptor": true, "path": "google/spanner/admin/database/v1/spanner_database_admin.proto", "import_paths": ["."], "types": ["google.spanner.admin.database.v1.Database", "google.spanner.admin.database.v1.CreateDatabaseRequest"]},
+        {"name": "pubsub", "needs_descriptor": true, "path": "google/pubsub/v1/pubsub.proto", "import_paths": ["."], "types": ["google.pubsub.v1.Topic", "google.pubsub.v1.Subscription", "google.pubsub.v1.PubsubMessage"]}
+      ]
+    },
+    "envoy": {
+      "tree_sha256": "d22a8ce6aab859a54715837e3fc8fb6c37e1305f6a26bb59634d8d4841e22ffc",
+      "mounts": [
+        {"source": "envoy", "src": "api/envoy/", "dst": "envoy/"},
+        {"source": "xds", "src": "xds/", "dst": "xds/"},
+        {"source": "xds", "src": "udpa/", "dst": "udpa/"},
+        {"source": "pgv", "src": "validate/", "dst": "validate/"},
+        {"source": "googleapis", "src": "google/api/", "dst": "google/api/"},
+        {"source": "googleapis", "src": "google/rpc/", "dst": "google/rpc/"},
+        {"source": "googleapis", "src": "google/type/", "dst": "google/type/"},
+        {"source": "googleapis", "src": "google/longrunning/", "dst": "google/longrunning/"},
+        {"source": "googleapis", "src": "google/logging/type/", "dst": "google/logging/type/"},
+        {"source": "otel", "src": "opentelemetry/", "dst": "opentelemetry/"},
+        {"source": "prometheus-client-model", "src": "io/", "dst": "io/"},
+        {"source": "cel-spec", "src": "proto/cel/expr/", "dst": "cel/expr/"}
+      ],
+      "variants": [
+        {"name": "envoy-api-dir", "needs_descriptor": true, "dir": "envoy", "import_paths": ["."], "types": ["envoy.config.bootstrap.v3.Bootstrap", "envoy.service.discovery.v3.DiscoveryRequest", "envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"]},
+        {"name": "envoy-config-dir", "needs_descriptor": true, "dir": "envoy/config", "import_paths": ["."], "types": ["envoy.config.bootstrap.v3.Bootstrap", "envoy.config.route.v3.RouteConfiguration", "envoy.config.listener.v3.Listener"]},
+        {"name": "envoy-bootstrap", "needs_descriptor": true, "path": "envoy/config/bootstrap/v3/bootstrap.proto", "import_paths": ["."], "types": ["envoy.config.bootstrap.v3.Bootstrap", "envoy.config.core.v3.Node", "envoy.config.cluster.v3.Cluster"]}
+      ]
+    },
+    "k8s": {
+      "tree_sha256": "dec5bbfad81ba1dcbc486df8756d9d9ffa7e7263984b3aa242a0f317c9684a56",
+      "mounts": [
+        {"source": "k8s-api", "src": "", "dst": "k8s.io/api/", "match": "generated.proto"},
+        {"source": "k8s-apimachinery", "src": "pkg/", "dst": "k8s.io/apimachinery/pkg/", "match": "generated.proto"}
+      ],
+      "variants": [
+        {"name": "k8s-all-dir", "dir": "k8s.io", "import_paths": ["."], "types": ["k8s.io.api.core.v1.Pod", "k8s.io.api.apps.v1.Deployment", "k8s.io.api.batch.v1.Job"]},
+        {"name": "k8s-core-v1", "path": "k8s.io/api/core/v1/generated.proto", "import_paths": ["."], "types": ["k8s.io.api.core.v1.Pod", "k8s.io.api.core.v1.Service", "k8s.io.api.core.v1.ConfigMap"]}
+      ]
+    },
+    "tensorflow": {
+      "tree_sha256": "4da0a3631d4e13b92e10ddbade4e5a3d79d60b44aab3123951b6738071f5ac50",
+      "mounts": [
+        {"source": "tensorflow", "src": "tensorflow/core/framework/", "dst": "tensorflow/core/framework/", "flat": true},
+        {"source": "tensorflow", "src": "tensorflow/core/protobuf/", "dst": "tensorflow/core/protobuf/", "flat": true},
+        {"source": "tensorflow", "src": "tensorflow/core/example/", "dst": "tensorflow/core/example/", "flat": true},
+        {"source": "tensorflow", "src": "tensorflow/core/util/", "dst": "tensorflow/core/util/", "flat": true},
+        {"source": "tensorflow", "src": "third_party/xla/third_party/tsl/tsl/protobuf/", "dst": "tsl/protobuf/", "flat": true},
+        {"source": "tensorflow", "src": "third_party/xla/xla/tsl/protobuf/", "dst": "xla/tsl/protobuf/", "flat": true}
+      ],
+      "variants": [
+        {"name": "tensorflow-framework", "dir": "tensorflow/core/framework", "import_paths": ["."], "types": ["tensorflow.GraphDef", "tensorflow.NodeDef", "tensorflow.TensorProto"]},
+        {"name": "tensorflow-config", "path": "tensorflow/core/protobuf/config.proto", "import_paths": ["."], "types": ["tensorflow.ConfigProto", "tensorflow.RunOptions"]},
+        {"name": "tensorflow-meta-graph", "path": "tensorflow/core/protobuf/meta_graph.proto", "import_paths": ["."], "types": ["tensorflow.MetaGraphDef", "tensorflow.SaverDef"]}
+      ]
+    }
+  }
+}
