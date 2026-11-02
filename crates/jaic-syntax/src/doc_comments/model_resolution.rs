@@ -30,12 +30,13 @@ impl Reader<'_> {
                     found
                 };
                 if !found.is_empty() {
-                    for (file, line, private) in found {
+                    for (file, line, private, at) in found {
                         out.push(TypeRef {
                             path: written.clone(),
                             private,
                             file,
                             line,
+                            at,
                         });
                     }
                     break;
@@ -99,7 +100,7 @@ impl Reader<'_> {
                 || self
                     .parsed(&site.0)
                     .is_some_and(|p| p.private.contains(&site.1));
-            chain.push((site.0.clone(), self.line_of(&text, site.1), private));
+            chain.push((site.0.clone(), self.line_of(&text, site.1), private, site.1));
             let Some(next) =
                 docs::alias_target(&text, site.1).and_then(|path| self.locate(&site.0, &path))
             else {
@@ -191,6 +192,7 @@ impl Reader<'_> {
                             path: path.join("."),
                             file: item.file.clone(),
                             line: item.line,
+                            at: 0,
                             private: false,
                         },
                     );

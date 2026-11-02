@@ -453,3 +453,122 @@ fn using_reexports_respect_filters_and_parameter_helpers_have_no_item_page() {
     );
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn a_type_item_carries_its_declaration_without_comments() {
+    let dir = library(
+        "declaration",
+        &[(
+            "module.jai",
+            "// A channel.\nChannel :: struct(T: Type, N := 4) {\n    // The queue.\n    buffer: *T; // trailing\n    url := \"http://x\"; // not a comment inside the string\n\n    /* block\n       comment */\n    \n    count: int @Counted;\n    next: *Channel(T);\n}\n\nMode :: enum u8 {\n    // Slow.\n    SLOW :: 0;\n    FAST :: 1; // quick\n}\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+    assert_eq!(
+        item("Channel").declaration,
+        "Channel :: struct(T: Type, N := 4) {\n    buffer: *T;\n    url := \"http://x\";\n\n    count: int @Counted;\n    next: *Channel(T);\n}"
+    );
+    assert_eq!(
+        item("Mode").declaration,
+        "Mode :: enum u8 {\n    SLOW :: 0;\n    FAST :: 1;\n}"
+    );
+    // Struct parameters, field names and notes are not references to anything.
+    assert!(item("Channel").decl_refs.iter().all(|r| r.path != "T"));
+    let json = to_json(&model, &|_| None);
+    assert!(json.contains("\"declaration\":\"Channel :: struct(T: Type, N := 4) {\\n"));
+    assert!(!json.contains("trailing"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn comment_stripping_keeps_slashes_in_strings() {
+    use super::declaration::without_comments;
+    assert_eq!(
+        without_comments("a :: \"// kept\"; // gone\n// whole line\nb :: 1; /* x */ c :: 2;\n"),
+        "a :: \"// kept\";\nb :: 1;  c :: 2;"
+    );
+}
+
+#[test]
+fn private_types_a_public_item_names_become_private_items() {
+    let dir = library(
+        "private-types",
+        &[
+            (
+                "module.jai",
+                "#load \"sync.jai\";\n\n// A queue.\nQueue :: struct(T: Type) {\n    senders: Waiter;\n    items: [] T;\n    kind: Sort_Mode;\n}\n\nuse :: (q: *Queue(int)) -> Ticket {}\n\n#scope_module\n\nSort_Mode :: enum { UP; DOWN; }\nUnused :: struct { x: int; }\n",
+            ),
+            (
+                "sync.jai",
+                "#scope_module\n\n// How waiters line up.\nWaiter :: struct {\n    ticket: Ticket;\n    holder: *Holder;\n}\n\nTicket :: union { n: int; }\n\nHolder :: #type (n: int);\n\n#scope_file\n\nUnreachable :: struct {}\n",
+            ),
+        ],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let private: Vec<_> = model
+        .items
+        .iter()
+        .filter(|i| i.private)
+        .map(|i| (i.name.as_str(), i.kind))
+        .collect();
+    assert_eq!(
+        private,
+        [
+            ("Waiter", "struct"),
+            ("Ticket", "union"),
+            ("Sort_Mode", "enum")
+        ]
+    );
+    let queue = model.items.iter().find(|i| i.name == "Queue").unwrap();
+    let waiter = model.items.iter().find(|i| i.name == "Waiter").unwrap();
+    assert!(!queue.private);
+    // The declaration's names lead to the private types' declarations.
+    let at = |r: &TypeRef| (r.file.clone(), r.line);
+    assert!(
+        queue
+            .decl_refs
+            .iter()
+            .any(|r| r.path == "Waiter" && at(r) == (waiter.file.clone(), waiter.line))
+    );
+    assert_eq!(waiter.docs, "How waiters line up.");
+    assert!(waiter.declaration.starts_with("Waiter :: struct {"));
+    // Only what is named is included, and private items do not take part in doc links.
+    assert!(
+        model
+            .items
+            .iter()
+            .all(|i| i.name != "Unused" && i.name != "Unreachable")
+    );
+    let json = to_json(&model, &|_| None);
+    assert_eq!(json.matches("\"private\":true").count(), 3);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_prelude_is_an_implicit_module() {
+    let dir = library(
+        "implicit",
+        &[
+            (
+                "prelude/module.jai",
+                "// Always there.\n\nAllocator :: struct { data: *void; }\n",
+            ),
+            (
+                "Other/module.jai",
+                "Thing :: struct { allocator: Allocator; }\n",
+            ),
+        ],
+    );
+    let stdlib = dir.clone();
+    let prelude = module(&dir.join("prelude"), &stdlib);
+    assert!(prelude.implicit);
+    let thing = module(&dir.join("Other"), &stdlib);
+    assert!(!thing.implicit);
+    let field = &thing.items[0].members[0];
+    // The field's type leads to the prelude's declaration.
+    assert_eq!(field.refs.len(), 1);
+    assert!(field.refs[0].file.ends_with("prelude/module.jai"));
+    assert!(to_json(&prelude, &|_| None).contains("\"implicit\":true"));
+    let _ = std::fs::remove_dir_all(&dir);
+}

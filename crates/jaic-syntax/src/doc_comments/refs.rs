@@ -11,6 +11,8 @@ pub struct TypeRef {
     pub path: String,
     pub file: PathBuf,
     pub line: usize,
+    /// Where the declared name starts in `file`, 0 when it is not known.
+    pub at: usize,
     /// This hop belongs to a private/internal/prelude or module-parameter helper scope.
     pub private: bool,
 }
@@ -80,6 +82,11 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
 
 /// `,"refs":[["Hash.Table","Hash_Table/table.jai",12]]`, or nothing when no name resolved.
 pub(super) fn refs_json(refs: &[TypeRef]) -> String {
+    refs_named("refs", refs)
+}
+
+/// [`refs_json`] under another key.
+pub(super) fn refs_named(key: &str, refs: &[TypeRef]) -> String {
     if refs.is_empty() {
         return String::new();
     }
@@ -95,5 +102,5 @@ pub(super) fn refs_json(refs: &[TypeRef]) -> String {
             )
         })
         .collect();
-    format!(",\"refs\":[{}]", rows.join(","))
+    format!(",\"{key}\":[{}]", rows.join(","))
 }

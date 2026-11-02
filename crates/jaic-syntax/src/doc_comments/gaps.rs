@@ -185,7 +185,7 @@ mod tests {
             &[
                 (
                     "module.jai",
-                    "// A module.\n\nImpl :: #import,file \"impl.jai\";\n\n// Has an example.\n//\n// ```jai\n// documented();\n// ```\ndocumented :: () {}\n\nbare :: () {}\n\n// Types.\nPoint :: struct { x: int; }\n\nMode :: enum { A; }\n\nforwarded :: Impl.forwarded;\n\nmissing :: Impl.missing;\n\nCONSTANT :: 3;\n\n#scope_module\n\nhidden :: () {}\n\n#scope_file\n\nprivate :: () {}\n",
+                    "// A module.\n\nImpl :: #import,file \"impl.jai\";\n\n// Has an example.\n//\n// ```jai\n// documented();\n// ```\ndocumented :: () {}\n\nbare :: () {}\n\n// Types.\nPoint :: struct { x: int; }\n\nMode :: enum { A; }\n\nforwarded :: Impl.forwarded;\n\nmissing :: Impl.missing;\n\nCONSTANT :: 3;\n\n#scope_module\n\nhidden :: () {}\n\nHidden_Type :: struct { x: int; }\n\n#scope_file\n\nprivate :: () {}\n",
                 ),
                 (
                     "impl.jai",
@@ -202,7 +202,7 @@ mod tests {
         assert!(module.contains(&("enum", "Mode", false, false)));
         assert!(module.contains(&("alias", "forwarded", true, false)));
         assert!(module.contains(&("alias", "missing", false, false)));
-        for hidden in ["hidden", "private", "CONSTANT"] {
+        for hidden in ["hidden", "Hidden_Type", "private", "CONSTANT"] {
             assert!(module.iter().all(|r| r.1 != hidden), "{hidden} is listed");
         }
         let _ = std::fs::remove_dir_all(dir);

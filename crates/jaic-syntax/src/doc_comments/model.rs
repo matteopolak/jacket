@@ -7,9 +7,11 @@
 //! the kind, signature and docs of its target; docs written on the alias itself win. Procedures
 //! declared several times under one name are the overloads of one item.
 use super::forward::Files;
+#[path = "model_declaration.rs"]
+mod declaration;
 #[path = "model_resolution.rs"]
 mod resolution;
-use super::refs::{TypeRef, refs_json};
+use super::refs::{TypeRef, refs_json, refs_named};
 use crate::ast::{
     BinOp, Decl, DeclKind, EnumItem, Expr, ExprKind, File, ProcHeader, Stmt, StmtKind, StructKind,
     UnOp,
@@ -197,6 +199,13 @@ pub struct Item {
     pub binding: bool,
     /// Other declarations of the name (one per branch of an `#if`) that this item stands for.
     pub also: Vec<(PathBuf, usize)>,
+    /// A struct, union or enum as written (`Channel :: struct(T: Type) { ... }`), without its
+    /// comments.
+    pub declaration: String,
+    /// The declarations the type names in `declaration` stand for.
+    pub decl_refs: Vec<TypeRef>,
+    /// Not exported: a type that public items name, which cannot be named outside the module.
+    pub private: bool,
 }
 
 /// A parameter of the module (`#module_parameters`).
@@ -214,6 +223,8 @@ pub struct Parameter {
 #[derive(Debug, Default)]
 pub struct Module {
     pub file: PathBuf,
+    /// Every program gets it without importing it (the prelude).
+    pub implicit: bool,
     pub docs: String,
     pub docs_line: usize,
     /// The targets the module asserts it builds for (`MACOS`), empty for any.
@@ -234,7 +245,7 @@ struct Parsed {
 }
 
 /// Ordered declaration identities and whether each hop has no independent public page.
-type RefChain = Vec<(PathBuf, usize, bool)>;
+type RefChain = Vec<(PathBuf, usize, bool, usize)>;
 
 struct Reader<'a> {
     files: Files<'a>,
@@ -656,6 +667,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
     let mut seen = BTreeSet::new();
     let mut out = Module {
         file: module_file.clone(),
+        implicit: super::canonical(dir) == super::canonical(&stdlib.join("prelude")),
         ..Module::default()
     };
     let mut names: Vec<String> = Vec::new();
@@ -853,6 +865,9 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                         }
                     } else {
                         reader.item_members(&tfile, &target.text, tdecl, &mut found);
+                        if matches!(kind, "struct" | "union" | "enum" | "enum_flags") {
+                            reader.item_declaration(&tfile, &target.text, tdecl, &mut found);
+                        }
                         if found.docs.is_empty() {
                             found.docs = docs::declaration(&target.text, tat).unwrap_or_default();
                         }
@@ -890,6 +905,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
             }
         }
     }
+    reader.add_private_types(&mut out, &mut names);
     take_experimental(&mut out);
     out
 }
@@ -1013,8 +1029,22 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
                 )
             })
             .collect();
+        let written = format!(
+            "{}{}{}",
+            if item.declaration.is_empty() {
+                String::new()
+            } else {
+                format!(",\"declaration\":{}", json(&item.declaration))
+            },
+            refs_named("decl_refs", &item.decl_refs),
+            if item.private {
+                ",\"private\":true"
+            } else {
+                ""
+            }
+        );
         items.push(format!(
-            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"experimental\":{}{},\"overloads\":[{}],\"members\":[{}]{}{},\"scope\":[{}]}}",
+            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"experimental\":{}{},\"overloads\":[{}],\"members\":[{}]{}{},\"scope\":[{}]{}}}",
             json(&item.name),
             json(item.kind),
             path(&item.file),
@@ -1039,12 +1069,14 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
                 )
             },
             refs_json(&item.refs),
-            item.scope.iter().map(|n| json(n)).collect::<Vec<_>>().join(",")
+            item.scope.iter().map(|n| json(n)).collect::<Vec<_>>().join(","),
+            written
         ));
     }
     format!(
-        "{{\"file\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n]}}\n",
+        "{{\"file\":{},\"implicit\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n]}}\n",
         path(&model.file),
+        model.implicit,
         json(&md(&model.docs)),
         model.docs_line,
         model
@@ -1089,7 +1121,12 @@ pub fn print(dir: &Path, stdlib: &Path) -> String {
             crate::paths::module_key,
         )
     };
-    let own: BTreeSet<&str> = model.items.iter().map(|i| i.name.as_str()).collect();
+    let own: BTreeSet<&str> = model
+        .items
+        .iter()
+        .filter(|i| !i.private)
+        .map(|i| i.name.as_str())
+        .collect();
     let resolve = |names: &[String]| -> Option<String> {
         let first = names.first()?;
         if own.contains(first.as_str()) {
