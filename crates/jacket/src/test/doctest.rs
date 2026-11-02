@@ -9,7 +9,7 @@
 //! so a failed `assert` or `expect` fails the doc test. Options follow `jai` on the fence:
 //! `ignore`, `no_run`, `compile_fail`, `should_fail`, and the notes of a test (`only(linux)`).
 use super::build::{Toolchain, compile_output};
-use super::exec::{Ending, Live};
+use super::exec::{Ending, Failure, Live};
 use super::golden::{self, Checked};
 use super::jobs::ending_text;
 use super::options::TestOptions;
@@ -558,7 +558,32 @@ pub fn check(
         let text = relabel(&String::from_utf8_lossy(stream), &lines, &block.file);
         *stream = text.into_bytes();
     }
+    if !checked.passed {
+        checked.failures.extend(assertion_failure(
+            &format!("doc: {}", block.name),
+            &String::from_utf8_lossy(&checked.stderr),
+        ));
+    }
     checked
+}
+
+/// The failed `assert` an example's standard error names (`FILE:LINE: assertion failed: TEXT`,
+/// as the default handler prints it), as a failure that shows the line like a test's does.
+fn assertion_failure(test: &str, stderr: &str) -> Option<Failure> {
+    const MARK: &str = ": assertion failed";
+    let (place, rest) = stderr.lines().find_map(|l| l.split_once(MARK))?;
+    let (file, line) = place.rsplit_once(':')?;
+    let message = rest.trim_start_matches(':').trim();
+    Some(Failure {
+        test: test.to_owned(),
+        file: file.to_owned(),
+        line: line.parse().ok()?,
+        message: if message.is_empty() {
+            "assertion failed".into()
+        } else {
+            format!("assertion failed: {message}")
+        },
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -637,6 +662,32 @@ fn check_program(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failed_assert_in_an_example_is_a_failure_with_its_place() {
+        let stderr = "x\n/lib/module.jai:7: assertion failed: \nstack trace:\n  assertion_failed at r.jai:383\n";
+        let failure = assertion_failure("doc: M.f#1", stderr).unwrap();
+        assert_eq!(
+            (
+                failure.file.as_str(),
+                failure.line,
+                failure.message.as_str()
+            ),
+            ("/lib/module.jai", 7, "assertion failed")
+        );
+        assert_eq!(failure.test, "doc: M.f#1");
+        let with_text = "C:\\lib\\module.jai:9: assertion failed: n is 2\n";
+        let failure = assertion_failure("t", with_text).unwrap();
+        assert_eq!(
+            (
+                failure.file.as_str(),
+                failure.line,
+                failure.message.as_str()
+            ),
+            ("C:\\lib\\module.jai", 9, "assertion failed: n is 2")
+        );
+        assert!(assertion_failure("t", "exited with status 1\n").is_none());
+    }
 
     #[test]
     fn records_become_blocks() {

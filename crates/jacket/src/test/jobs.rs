@@ -513,6 +513,7 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     let mut outcome = Outcome::new(index, status);
     outcome.duration = started.elapsed();
     outcome.problems = checked.problems;
+    outcome.failures = checked.failures;
     outcome.stdout = checked.stdout;
     outcome.stderr = checked.stderr;
     outcome.crashed = checked.crashed;

@@ -300,6 +300,8 @@ impl Reporter {
                 .unwrap_or_default()
         });
         let text = lines.get((line as usize).checked_sub(1)?)?.trim();
+        // A doc example's line is a comment line: show the code.
+        let text = text.strip_prefix("//").map_or(text, str::trim_start);
         (!text.is_empty()).then(|| text.to_string())
     }
 

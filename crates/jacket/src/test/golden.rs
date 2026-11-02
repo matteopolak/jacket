@@ -25,6 +25,8 @@ pub struct Checked {
     /// The program died of a fault.
     pub crashed: bool,
     pub accepted: Vec<PathBuf>,
+    /// Failed checks the program reported, shown like a unit test's.
+    pub failures: Vec<exec::Failure>,
 }
 
 fn normalized(bytes: &[u8]) -> String {
