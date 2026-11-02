@@ -18,6 +18,11 @@ hash-pinned axe-core and installed Chrome (`CHROME_PATH` overrides discovery). I
 in both themes at desktop and 320px widths. `PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py`
 checks palette contrast. Both run in the documentation publishing workflow.
 
+`node tools/dev/doc_layout.mjs http://127.0.0.1:8000/` checks the same site for layout shift: a sample of
+page kinds (or `--all`) loaded, reloaded, left and returned to, and swapped in by the site's navigator, at
+1280px and 375px in both themes, failing on any layout shift or any element that moves after the first
+frame. It runs in the same workflow step.
+
 `node editors/vscode/scripts/build.ts doc-image` regenerates the documentation social PNG with the
 extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 
