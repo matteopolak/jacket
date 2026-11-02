@@ -309,11 +309,16 @@ impl Compiler {
         if let Some(addr) = self.ct.context {
             return Ok(addr);
         }
-        let Ok(ty) = self.context_type(span) else {
-            // Early bootstrap queries can run before the context declarations
-            // are ready. Zero is valid for those queries, but is not a reusable
-            // context once later runs load the runtime support.
-            return Ok(0);
+        let ty = match self.context_type(span) {
+            Ok(ty) => ty,
+            // Once the runtime support is loaded the context can be built, so a failure is a
+            // real error from loading what it needs (a named import whose own `#run` failed).
+            // Running on with no context would trap at the first allocation and hide it.
+            Err(error) if self.ns.runtime_support.is_some() => return Err(error),
+            // Early bootstrap queries can run before the context declarations are ready.
+            // Zero is valid for those queries, but is not a reusable context once later runs
+            // load the runtime support.
+            Err(_) => return Ok(0),
         };
         let size = self.size_of(ty, span)?;
         let align = self.align_of(ty, span)?;
