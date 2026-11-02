@@ -111,6 +111,7 @@ Options:
   -W <rule>                          Warn on a rule
   -D <rule>                          Deny a rule; `-D warnings` makes every warning an error
       --max-nesting <n>              Blocks `excessive_nesting` allows (default: `[lint] max_nesting` in `jacket.toml`, else 6)
+      --lifetime-mode <must|strict>  Lifetime proof mode (default: [lint.lifetimes] mode, else must)
       --compile-time-budget <steps>  Steps (loop iterations and calls) one compile-time evaluation may run before it fails (default: 100000000; 0: no limit)
       --check-time-limit <seconds>   Seconds each program may take to check before its check stops with partial results; every program gets the whole limit, and the run as a whole has none (default: 10; 0: no limit)
       --manifest <file>              Write JSON source-check coverage and actual target contexts

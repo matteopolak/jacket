@@ -25,6 +25,9 @@ With lint facts on (`IdeFacts::lint`), each checked body also records a compact 
 - Dependency bodies are recorded too: `jailint` infers each procedure's effects on its parameters from them (`lifetime_summary.rs`, callee-first over call-graph cycles). Call records keep each argument's type and constant value, and indirect calls through `Allocator.proc` are marked so allocate, resize and free modes can be told apart. Each body also lists its stack slots (owned storage, not escapes) and which blocks return normally.
 - Reads that are not uses are skipped in O(1): a bare name as an assignment target or an `==`/`!=` operand is marked on the `FnCtx` before it is checked (`lifetime_nonuses`), so no later pass filters events.
 - A struct and its first field share an address, so the lint keys places by address and checked type.
+- Resource facts: local, scope and statement ends, by-value parameter copies, `Any` backing places versus spilled temporaries, and returns recorded after cleanup runs (with the value captured before it). A macro `defer` the caller owns is marked definite or conditional. Expanded macro and `#insert` events map back to the caller's source, so findings anchor at the call.
+- Element facts: selected subscripts, integer `+`/`-` with constants, pointer offsets with their stride, and `for` entry and advance, so the lint can tell which slot a pointer or cursor names.
+- Call targets: procedure addresses and callable results keep their finite set of possible procedures; anything else is Unknown. Runtime `if`/`switch`/`while`/`for` decisions keep their spans so strict findings can print the path.
 - To add a fact, record it where the checked operands are known (`FnCtx::lifetime_store` for any store), never by re-reading source text.
 
 ## How to change it

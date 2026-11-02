@@ -57,10 +57,10 @@ To change what a rule recognises, annotate the declaration; the linter has no na
 | --- | --- | --- |
 | `@UseResult` | `unused_result` | calling it as a statement is a mistake |
 | `@ReturnsSmaller`, `@ReturnsLarger` | `min_max` | returns the smaller or larger of two arguments |
-| `@RemovesFromArray` | `remove_in_for` | removes elements from the array its first argument points to |
+| `@RemovesFromArray` | `remove_in_for`, lifetime rules | removes elements; `(ordered,1)`/`(unordered,1)` name the index argument, `(last)` pops |
 | `@GrowsArray` | `pointer_into_resizable` | may reallocate the resizable array its first argument points to |
 | `@AddsToArray` | `useless_resizable` | adds one element to that array |
-| `@FreesArgument` | `defer_in_loop`, `use_after_free`, `double_free` | the first argument's memory or resource is gone after the call |
+| `@FreesArgument` | `defer_in_loop`, lifetime rules | an argument's memory is gone after the call (the first, or `@FreesArgument(1)`) |
 | `@Allocates` | `leaked_allocation`, `leaked_temporary` | the result is newly allocated and the caller owns it |
 | `@TakesByteCount` | `element_count_as_bytes` | the last argument is a byte count |
 | `@Locks`, `@Unlocks` | `unpaired_lock` | takes or gives back the lock its first argument names |
@@ -72,6 +72,19 @@ To change what a rule recognises, annotate the declaration; the linter has no na
 | `@AppendsString` | `format_push_string` | adds its second argument to the builder in its first |
 | `@TempAllocates` | `temp_storage_escape` | the result lives in temporary storage |
 | `@Opens`, `@Closes` | `unclosed_resource` | acquires or gives back a resource |
+
+Most lifetime effects are inferred from procedure bodies, so the notes below are only needed where a body can't say it: foreign procedures, sorts and other "may" effects, and logical meaning a body hides. They are read by the [lifetime rules](#lifetime-rules).
+
+| Note | Meaning |
+| --- | --- |
+| `@MovesElements(insert,2)`, `(swap,i,j)`, `(reverse)`, `(sort)` | moves elements inside the array argument; pointers to moved slots now see other elements |
+| `@SwapsArguments` | swaps what its two pointer arguments point to |
+| `@RemovesElement(k)`, `@ResetsElements` | removes the entry with key argument `k`, or all entries (tables, pools) |
+| `@BorrowsElement(c,k,r)`, `@ElementResult(c,k,r)` | the result (or result `r`) points at the entry for key `k` (or `unknown`) in container `c` |
+| `@TemporaryStorageMark`, `@RestoresTemporaryStorage`, `@ResetsTemporaryStorage` | saves, restores or resets the temporary-storage watermark |
+| `@NoLifetimeEffects` | a foreign or opaque procedure that frees, moves and keeps nothing it is given |
+| `@ValidUntilNextCall` | the returned pointer dies at the next call of the same procedure |
+| `@RegistersBorrower(r,cb,data)`, `@StartsBorrower(r)`, `@CompletesBorrower(r)`, `@EndsBorrower(r)` | a worker `r` keeps `data` for callback `cb` from start until it completes or ends |
 
 ## Rules
 
@@ -131,7 +144,7 @@ The loop body's scope ends every iteration, so `defer free(buffer)` frees an out
 A top-level procedure, struct or enum with a blank line between its declaration and a comment above that reads as a sentence (three or more words.
 
 ### double_free
-The same walk as `use_after_free`: a statement-level `@FreesArgument` call on a local or parameter, then, as the next thing that mentions it in the block, a statement-level call of the *same* procedure on it (`free(p); free(p);`, `close(f); close(f);`).
+A value freed or closed on every path, then freed or closed again (`free(p); free(p);`, `close(f); close(f);`), through copies and wrappers. See [lifetime rules](#lifetime-rules).
 
 ### dropped_result
 A declaration or assignment whose right side is one call that returns more values than the left side names, where the first dropped value, the one right after the last kept, is a `bool`: `value := parse(text);` quietly turns a failed parse into `0`.
@@ -272,7 +285,7 @@ An expression statement containing no call. The editor offers the likely intent:
 Code meant to build everywhere that imports a module asserting an operating system it is not built for (`#assert OS == .LINUX || OS == .MACOS` in `POSIX`), found only when someone builds for that system.
 
 ### pointer_into_resizable
-A resizable array that outgrows its storage gets a new block and frees the old one, so a pointer taken into the old block dangles.
+A resizable array that outgrows its storage gets a new block and frees the old one, so a pointer taken into the old block dangles. Uses the [lifetime engine](#lifetime-rules); `pointer_lifetime` also covers removals and moves.
 
 ### pointer_lifetime
 @experimental. Off by default (`-W pointer_lifetime` turns it on). The successor to `pointer_into_resizable`: it follows the checked control flow, so it sees every branch, loop, `defer`, labelled jump, `#if` choice and macro expansion the compiler took, per polymorphic instance.
@@ -291,6 +304,23 @@ It fires only when every path to a use of `p := *xs[i]` passes a call that grows
 The pointer is followed through copies: other locals, struct fields, pointer arithmetic, casts, and views or strings made from the array (`v: []int = xs;` then `v.data`). `*outer[0].inner[0]` points into the inner array, so growing `outer` leaves it alone; `*outer[0].inner` points into `outer` and is invalidated. A `@GrowsArray` call that returns a pointer into its argument (`p := array_add(*xs);`) counts as a fresh derivation. Reading `v.count` or replacing `v.data` after growth is not a use.
 
 Anything reached through a pointer the lint can't resolve (a heap field a callee could rebind, an overlapping union field) is unknown, so it stays quiet. A callee that keeps or writes through a pointer argument in a way the lint can't follow makes only that argument unknown. `JAILINT_LIFETIME_STATS=1` prints per-file counts of bodies analysed and why others were skipped.
+
+### Lifetime rules
+
+`use_after_free`, `double_free`, `returned_local_address`, `temp_storage_escape`, `pointer_into_resizable`, `remove_in_for` and `pointer_lifetime` share one engine over the checked control flow. They differ only in which storage they watch: heap blocks, stack frames, temporary storage, array buffers, element slots, workers. Each finding labels where the pointer came from and what invalidated it.
+
+**Must and strict.** By default (`must`) a rule fires only when every path invalidates. `strict` also reports "may" effects (growth only when full, conditional frees, sorts) and anything a foreign or unknown procedure could do to an argument it was given:
+
+```toml
+[lint.lifetimes]
+mode = "strict"     # default "must"
+```
+
+`--lifetime-mode strict` overrides the file. Strict findings show one shortest path with its branch choices and how many other paths lead there ("infinitely many" around a loop).
+
+**Indirect calls.** A procedure value with a known set of targets (a local, a constant, a factory's result) counts as calling all of them: an effect is certain only if every target has it. A parameter or a mutable global could be anything, so in must mode it proves nothing.
+
+**Threads.** A worker given data with `thread_init`-style calls keeps it until it completes or is deinitialized. Freeing that data first, or letting it go out of scope, is a finding. Races are out of scope.
 
 ### print_in_module
 A file belongs to a module when it or a directory above it holds a `module.jai`, with no `tests` or `test` folder in between (those hold programs that use the module).
@@ -311,10 +341,10 @@ Aliases like `c_long` differ per platform, so the value must be declared with th
 Fires when a member is taken from the dereference of an expression whose type is a pointer to a struct or union.
 
 ### remove_in_for
-The loop steps past the element moved into the removed slot.
+The loop steps past the element moved into the removed slot. Fires when a removal at the cursor reaches the loop's step on every path; `break`, `return` or writing the index yourself stops it. Removal inferred through a wrapper counts.
 
 ### returned_local_address
-Only variables declared in the body: parameters are left alone.
+Covers locals, by-value parameters (the copy is the callee's), `for` variables and views of local fixed arrays, through copies, fields and `Any`. Literals the compiler keeps alive are fine.
 
 ### reversed_range
 Counting down is `for < i: 0..10`. The fix changes behaviour, so it is editor-only.
@@ -338,7 +368,7 @@ One case of one value, plus at most a default case.
 Literals are read-only and equal literals share storage, so the write is a runtime error (interpreter) or a crash (native).
 
 ### temp_storage_escape
-Off by default: handing back a temporary string from a helper is a common, documented convention.
+Off by default: handing back a temporary string from a helper is a common, documented convention. Fires when temporary memory is kept past a reset or a restored mark (`auto_release_temp`) that frees it. Values baked at compile time are copied out, so a `tprint` in a constant is fine.
 
 ### todo_marker
 A marker is `TODO`, `FIXME`, `XXX` or `HACK` in capitals, standing alone (`TODO:` and `(FIXME)` count; `todo`, `TODOS` and `AUTODOC` do not).
@@ -392,7 +422,7 @@ A name in a `// jailint: allow(...)`, `allow-file(...)` or `@jailint_allow(...)`
 A name that appears anywhere else in its block is never reported (covers `#if`-excluded code and `#asm`).
 
 ### use_after_free
-A local or parameter that is the first argument of a statement-level `@FreesArgument` call (`free(p);`, not `free(p.data)` or `array_free(*xs)`) and is read by a later statement of the same block before anything gives it a new value.
+A pointer read after every path to it freed its storage: `free(p)`, `array_free(*xs)` then `xs.data`, a wrapper that frees, a `defer` that already ran. See [lifetime rules](#lifetime-rules).
 
 ### useless_format
 Fires on a call of a procedure noted `@FormatsToString` (the library's `tprint` and `sprint`) whose format is exactly `"%"` and whose single value is a `string`.
