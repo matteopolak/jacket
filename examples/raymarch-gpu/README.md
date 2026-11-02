@@ -7,9 +7,10 @@ and Edge; other browsers skip it), and natively it opens a window.
 ## Map
 
 - [main.jai](main.jai): Calls the section.
-- [raymarch_gpu.jai](raymarch_gpu.jai): The WebGPU setup, the frame loop and the shader.
+- [raymarch_gpu.jai](raymarch_gpu.jai): The WebGPU setup and the frame loop.
+- [scene.jai](scene.jai): The WGSL shader, shared with `examples/webgpu-raymarch`.
 - [browser_canvas.jai](browser_canvas.jai): The browser's canvas and input.
 
 ## Things to try
 
-- Edit the WGSL shader: its `palette` function colors the scene.
+- Edit the WGSL shader in `scene.jai`: its `palette` function colors the scene.

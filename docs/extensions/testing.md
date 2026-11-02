@@ -63,6 +63,7 @@ reversing_twice_is_the_identity :: (items: [] s64) {
 - Case naming and argument spreading: `case_names`, `label_source`, `call_source` in `cases.jai` (they run in `#insert`).
 - New note: `crates/jacket/src/test/options.rs`, except `@allow_leaks`, which Discovery also turns into a `Test_Flags` bit. New record kind: `record` in `runner.jai`, `Demux` and `State` in `crates/jacket/src/test/exec.rs`.
 - Benchmarks (`@bench`) live in `bench.jai` and run under [jacket bench](../tools/jacket-bench.md). `black_box` is a compiler intrinsic ([intrinsics](../language/intrinsics.md)).
+- Extensions tests that count allocations (leak and ownership scenarios in Deflate, Image, Json, Variant) load `stdlib/Extensions/test-support/counting-allocator.jai`; it is test-only, not a module.
 - The module's own tests are in `stdlib/Extensions/Testing/tests`; run `jacket test` there, natively, with `--interp`, and for wasm.
 
 Needs `Basic`, `Compiler`, `File`, `String`, and jaic's plugin support (`add_build_string`).

@@ -107,7 +107,7 @@ sh examples/editor/tools/smoke.sh
 (cd stdlib/Extensions/UI && jacket test -j 3)
 ```
 
-The smoke script requires external build directory `T` and runs the real binary's `--smoke`:
+The smoke script builds into `T` (a removed temporary directory when unset) and runs the real binary's `--smoke`:
 editing, search, clipboard, config, menu routing/dialog fallback, Save As, composition/undo,
 real-font kerning, and live diagnostics/hover/definition/completion/synchronization/formatting.
 Absent jailsp skips live checks; `EDITOR_REQUIRE_LSP=1` makes it required for a direct run.

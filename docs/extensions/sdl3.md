@@ -4,11 +4,13 @@
 
 ## How it works
 
-- `tools/bindings/sdl3_gen.py` reads every declaration reached by `SDL.h`, `SDL_main.h` and `SDL_vulkan.h` for each target and writes `<os>-<cpu>.jai`. Structs keep field order, enums use full C member names, callbacks are `#c_call`, C strings are `*u8`, variadics use `args: ..Any`.
+- `tools/bindings/sdl3_gen.py` reads every declaration reached by `SDL.h`, `SDL_main.h` and `SDL_vulkan.h` for each target and writes one declaration body per OS (`declarations-<os>.jai`). `<os>-<cpu>.jai` is a one-line shim that loads it, so module loads and `contracts-<os>-<cpu>.jsonl` stay per profile; the generator fails if the architectures of an OS produce different bodies. Structs keep field order, enums use full C member names, callbacks are `#c_call`, C strings are `*u8`, variadics use `args: ..Any`.
 - Event `.type` is a `u32` while `SDL_EventType` is an enum: write `cast(u32) SDL_EVENT_USER`.
 - Macros and inline helpers go through `JAI_SDL3_` wrappers built into the native library (`tools/native/sdl3/macros.json`).
 - Not bound: `va_list` procedures, preprocessor macros, `SDL_main` (`SDL_RunApp` is available), mobile/console/WebAssembly declarations, `SDL3_test`. Vulkan has forward declarations only.
 - Clang computes constants and emits size/alignment/offset `#assert`s per target.
+- Layout tests in `tests/` follow the same split: `driven/layout-<os>.jai` and a POSIX or Windows C body (`c-layout-posix.h`, `c-layout-windows.h`), with a per-profile wrapper for each target.
+- `coverage.json` holds one declaration per line, written by `tools/toolkit/coverage_json.py` (shared with `tools/native_bindings/coverage.json`). Use `python3 -m json.tool` for an expanded view.
 - Native libraries: `PYTHONPATH=tools python3 tools/native/build_native_libs.py SDL3 --platform <platform>` (CMake builder `tools/bindings/sdl3_native.py`). `jaic` finds the static archive via `JAIC_NATIVE_LIBS` or `target/native-libs/<platform>`; `link-<os>.jai` names the OS libraries. `jaic -interp` loads the shared library by absolute path.
 - Windows builds need Visual Studio C tools; set `CMAKE_GENERATOR*` to choose a toolchain.
 

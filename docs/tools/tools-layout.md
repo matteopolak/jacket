@@ -43,6 +43,7 @@ Import them folder-qualified: `from toolkit.hashing import sha256_file`.
 | `toolkit.hashing` | `sha256_file`, `sha256_bytes` |
 | `toolkit.download` | `fetch(url, ...)` with retries (the one download path; don't call `urllib` directly); `pinned(url, sha256, name)` caches under `~/.cache/jaic/` and exits on a digest mismatch |
 | `toolkit.process` | `run(command, ...)` (checked, echoes the command); `run_expect(...)` raises unless stdout, status and stderr match |
+| `toolkit.coverage_json` | `dumps(value)`: the coverage ledger format, one declaration per line |
 | `toolkit.cli` | `add_jaic_argument(parser)`: the shared `--jaic` option |
 
 Add a helper to `toolkit/` when a third script needs it, with a test in `toolkit/test_toolkit.py`. Folder-specific helpers stay in the folder. Scratch output goes through `repo_output.output_dir()`, never `ROOT / "target"`; `check_source_style.py` enforces this. Script file names are `snake_case`.

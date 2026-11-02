@@ -12,7 +12,7 @@ format  := webgpu_surface_format(surface, adapter);  // pass srgb = true only if
 webgpu_present(surface);
 ```
 
-Examples: `webgpu-triangle` and `webgpu-raymarch` (native only), `webgpu-compute`, and `textured-cube` (depth, a PNG loaded with [Assets](assets.md) and decoded with [Image](image.md)), which runs natively and in the playground.
+Examples: `webgpu-triangle` and `webgpu-raymarch` (native only), `webgpu-compute`, and `textured-cube` (depth, a PNG loaded with [Assets](assets.md) and decoded with [Image](image.md)), which runs natively and in the playground. `webgpu-raymarch` and `raymarch-gpu` share one WGSL scene, `examples/raymarch-gpu/scene.jai`.
 
 | Where | Backend | Surface |
 | --- | --- | --- |

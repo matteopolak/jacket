@@ -31,7 +31,7 @@
 
 - Review: `INSTA_UPDATE=always cargo test -p jailint -p jaic`, then read the diff (or `cargo insta review`).
 - New lint case: add `bad.jai`, run with `INSTA_UPDATE=always`, review `bad.snap`.
-- A helper used by one test belongs in that test.
+- A helper used by one test belongs in that test. `crates/jacket/tests/support/installed.rs` holds the scratch directory and unpacked-archive helpers its installed-binary tests share.
 - `jacket test` goldens (`--accept`) are a separate workflow.
 
 ## Configuration

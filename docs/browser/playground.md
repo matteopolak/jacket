@@ -52,6 +52,7 @@ Each example has a case in `tests/corpus/examples.json`. With `bundle: true` it 
 
 To add one: create `examples/<name>/main.jai`, add a row to `PROGRAMS` in `crates/jaic-cli/tests/examples.rs` and a case to `tests/corpus/examples.json` (`stdout_contains`; for the browser also `bundle: true`, `title`, `summary`, `args: ["-os", "wasm"]`). Gotchas:
 
+- A workspace may `#load` a file from another example (`raymarch-gpu` loads its own `scene.jai`, which `webgpu-raymarch` shares); staging copies the loaded file with it.
 - All files of a workspace share one global scope, so helper names must be distinct (`scale` collides with `Math`'s).
 - A section that shows a failure sits behind a constant the reader flips (`BREAK_ON_PURPOSE`) so the default run stays green.
 - Keep it browser-safe (no processes, sockets, windows or native libraries), short-running (auto-run reruns on every edit) and run `jaic jaifmt/main.jai -interp -- --check "$PWD/examples"`.

@@ -35,6 +35,6 @@ Resize preserves overlapping cells, clamps cursors and clears scrollback rather 
 
 ## Configuration and dependencies
 
-Builds need the repository compiler and standard library, FreeType, and the UI/WebGPU native libraries. Interactive use needs a native display and GPU; headless parser/PTY checks do not. UI chooses system fonts; its `JAI_UI_FONT` and `JAI_UI_MONO_FONT` overrides also apply here. `$SHELL` must be an executable path. `T` controls smoke build outputs, `JAIC` selects its compiler, `FRAME` selects its PNG path, and `REQUIRE_GPU=1` makes an unavailable adapter fail the smoke.
+Builds need the repository compiler and standard library, FreeType, and the UI/WebGPU native libraries. Interactive use needs a native display and GPU; headless parser/PTY checks do not. UI chooses system fonts; its `JAI_UI_FONT` and `JAI_UI_MONO_FONT` overrides also apply here. `$SHELL` must be an executable path. `T` sets the smoke build directory (a removed temporary directory when unset), `JAIC` selects its compiler, `FRAME` selects its PNG path, and `REQUIRE_GPU=1` makes an unavailable adapter fail the smoke.
 
 The smoke script probes for a real PTY and skips when the device is unavailable. Missing GPUs skip only the GPU path; a successful adapter must pass readback and PNG checks. Tests generate their byte streams and shell output, with no external assets.
