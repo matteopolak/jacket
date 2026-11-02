@@ -1,5 +1,6 @@
 // jaic -O2 bench.jai -exe <scratch>/bench; bench [--generation-only]
-// bench <workload> [encode|decode [short]] isolates operations for profiling.
+// bench [workload] [encode|decode [short]] [--borrow] isolates operations/modes.
+// packed-varints is an optional workload for repeated-field pre-count experiments.
 // Generation is also measured with jaic -interp bench.jai -- --generation-only.
 #import "Basic";
 Proto :: #import "Extensions/Protobuf";
@@ -9,6 +10,7 @@ syntax="proto3";
 message Leaf { int32 x=1; string label=2; }
 message Mixed { uint64 id=1; string name=2; Leaf child=3; repeated Leaf children=4; bytes data=5; bool active=6; }
 message Packed { repeated fixed32 numbers=1; }
+message Varints { repeated uint64 numbers=1; }
 message Deep { Deep next=1; string value=2; }
 message Log { string time=1; string level=2; string source=3; string text=4; }
 message Logs { repeated Log entries=1; }
@@ -23,21 +25,70 @@ message Span {
 message Spans { repeated Span spans=1; }
 END);
 
+// Allocation headers are used only for the single counted operation, outside timing.
 Counter :: struct {
     parent: Allocator;
     allocations: s64;
     bytes: s64;
+    live: s64;
+    peak: s64;
+    input: [] u8;
+}
+
+borrow: bool;
+
+inside :: (p: *void, input: [] u8) -> bool {
+    return input.data && cast(u64) p >= cast(u64) input.data && cast(u64) p <= cast(u64) input.data + cast(u64) input.count;
 }
 
 counting :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *void) -> *void {
     c := cast(*Counter) data;
+    if mode == .FREE && inside(old, c.input) return null;
+
+    memory := cast(*u8) old;
+    previous: s64;
+
+    if memory {
+        memory -= 16;
+        previous = (cast(*s64) memory).*;
+    }
+
+    if mode == .FREE {
+        c.live -= previous;
+        return c.parent.proc(mode, 0, previous + 16, memory, c.parent.data);
+    }
 
     if mode == .ALLOCATE || mode == .RESIZE {
         c.allocations += 1;
         c.bytes += size;
+        c.live += size - previous;
+        // Track client-visible live bytes; backend realloc scratch is excluded.
+        c.peak = max(c.peak, c.live);
+        result := cast(*u8) c.parent.proc(mode, size + 16, previous + 16, memory, c.parent.data);
+
+        assert(result != null);
+        (cast(*s64) result).* = size;
+
+        return result + 16;
     }
 
     return c.parent.proc(mode, size, old_size, old, c.parent.data);
+}
+
+// Borrow's existing contract requires an allocator that ignores frees of the input.
+Borrow_Filter :: struct {
+    parent: Allocator;
+    input: [] u8;
+}
+
+filter_borrow :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *void) -> *void {
+    f := cast(*Borrow_Filter) data;
+    if mode == .FREE && inside(old, f.input) return null;
+    return f.parent.proc(mode, size, old_size, old, f.parent.data);
+}
+
+bench_decode :: ($T: Type, input: [] u8) -> T, Proto.Error {
+    return Proto.decode(T, input, .{ borrow = borrow });
 }
 
 // Optional workload and operation filters keep profiler stacks isolated.
@@ -53,79 +104,92 @@ measure :: (name: string, value: $T, iterations: s64) {
     assert(error.kind == .NONE);
     defer free(encoded.data);
 
-    if operation.count {
-        count := iterations;
-        if profile_short count = ifx name == "mixed" then 10000 else ifx name == "string-logs" then 20 else 5;
+    filter := Borrow_Filter.{ parent = context.allocator, input = encoded };
+    timing_context := context;
 
-        for 0..count - 1 {
-            if operation == "encode" {
-                bytes, ee := Proto.encode(value);
-                assert(ee.kind == .NONE);
-                free(bytes.data);
-            } else {
-                decoded, de := Proto.decode(T, encoded);
-                assert(de.kind == .NONE);
-                Proto.free(*decoded);
+    if borrow timing_context.allocator = .{ filter_borrow, *filter };
+
+    push_context timing_context {
+        if operation.count {
+            count := iterations;
+            if profile_short count = ifx name == "mixed" then 10000 else ifx name == "string-logs" then 20 else 5;
+
+            for 0..count - 1 {
+                if operation == "encode" {
+                    bytes, ee := Proto.encode(value);
+                    assert(ee.kind == .NONE);
+                    free(bytes.data);
+                } else {
+                    decoded, de := bench_decode(T, encoded);
+                    assert(de.kind == .NONE);
+                    Proto.free(*decoded);
+                }
             }
+
+            return;
         }
 
-        return;
+        start := current_time_monotonic();
+
+        for 0..iterations - 1 {
+            bytes, ee := Proto.encode(value);
+            assert(ee.kind == .NONE && bytes.count == encoded.count);
+            free(bytes.data);
+        }
+
+        encode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
+
+        start = current_time_monotonic();
+
+        for 0..iterations - 1 {
+            decoded, de := bench_decode(T, encoded);
+            assert(de.kind == .NONE);
+            Proto.free(*decoded);
+        }
+
+        decode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
+
+        start = current_time_monotonic();
+        checksum: s64;
+        for 0..iterations - 1 checksum += Proto.size(value);
+
+        size_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
+
+        assert(checksum == encoded.count * iterations);
+        c := Counter.{ parent = context.allocator };
+        ctx := context;
+        ctx.allocator = .{ counting, *c };
+        enc_allocs, enc_bytes, dec_allocs, dec_bytes, dec_peak: s64;
+
+        push_context ctx {
+            bytes, ee := Proto.encode(value);
+
+            assert(ee.kind == .NONE);
+            enc_allocs = c.allocations;
+            enc_bytes = c.bytes;
+            free(bytes.data);
+            c.allocations = 0;
+            c.bytes = 0;
+            assert(c.live == 0);
+            c.peak = 0;
+            if borrow c.input = encoded;
+
+            decoded, de := bench_decode(T, encoded);
+
+            assert(de.kind == .NONE);
+            dec_allocs = c.allocations;
+            dec_bytes = c.bytes;
+            dec_peak = c.peak;
+            Proto.free(*decoded);
+            assert(c.live == 0);
+        }
+
+        print("% bytes=% encode_ns=% decode_ns=% size_ns=% encode_MB_s=% decode_MB_s=% encode_allocs=% encode_alloc_bytes=% decode_allocs=% decode_alloc_bytes=% decode_peak_bytes=%\n",
+            name, encoded.count, encode_ns, decode_ns, size_ns,
+            cast(float64) encoded.count * 1000 / max(encode_ns, 1),
+            cast(float64) encoded.count * 1000 / max(decode_ns, 1),
+            enc_allocs, enc_bytes, dec_allocs, dec_bytes, dec_peak);
     }
-
-    start := current_time_monotonic();
-
-    for 0..iterations - 1 {
-        bytes, ee := Proto.encode(value);
-        assert(ee.kind == .NONE && bytes.count == encoded.count);
-        free(bytes.data);
-    }
-
-    encode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
-
-    start = current_time_monotonic();
-
-    for 0..iterations - 1 {
-        decoded, de := Proto.decode(T, encoded);
-        assert(de.kind == .NONE);
-        Proto.free(*decoded);
-    }
-
-    decode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
-
-    start = current_time_monotonic();
-    checksum: s64;
-    for 0..iterations - 1 checksum += Proto.size(value);
-
-    size_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
-
-    assert(checksum == encoded.count * iterations);
-    c := Counter.{ parent = context.allocator };
-    ctx := context;
-    ctx.allocator = .{ counting, *c };
-    enc_allocs, enc_bytes, dec_allocs, dec_bytes: s64;
-
-    push_context ctx {
-        bytes, ee := Proto.encode(value);
-
-        assert(ee.kind == .NONE);
-        enc_allocs = c.allocations;
-        enc_bytes = c.bytes;
-        free(bytes.data);
-        c.allocations = 0;
-        c.bytes = 0;
-        decoded, de := Proto.decode(T, encoded);
-
-        assert(de.kind == .NONE);
-        dec_allocs = c.allocations;
-        dec_bytes = c.bytes;
-        Proto.free(*decoded);
-    }
-
-    print("% bytes=% encode_ns=% decode_ns=% size_ns=% encode_MB_s=% decode_MB_s=% encode_allocs=% encode_alloc_bytes=% decode_allocs=% decode_alloc_bytes=%\n",
-        name, encoded.count, encode_ns, decode_ns, size_ns,
-        cast(float64) encoded.count * 1000 / max(encode_ns, 1),
-        cast(float64) encoded.count * 1000 / max(decode_ns, 1),
-        enc_allocs, enc_bytes, dec_allocs, dec_bytes);
 }
 
 generation :: () {
@@ -249,10 +313,22 @@ main :: () {
         return;
     }
 
-    if args.count > 1 workload = args[1];
-    if args.count > 2 operation = args[2];
+    positional: s64;
 
-    profile_short = args.count > 3 && args[3] == "short";
+    for arg: args {
+        if it_index == 0 continue;
+
+        if arg == "--borrow" {
+            borrow = true;
+            continue;
+        }
+
+        if positional == 0 workload = arg;
+        else if positional == 1 operation = arg;
+        else if positional == 2 profile_short = arg == "short";
+
+        positional += 1;
+    }
 
     // A large multiplier is useful when attaching a sampling profiler.
     multiplier: s64 = 1;
@@ -303,6 +379,13 @@ main :: () {
 
         defer array_free(logs.entries);
         measure("string-logs", logs, 1000 * multiplier);
+    }
+
+    if workload == "packed-varints" {
+        packed: Api.Varints;
+        for i: 0..262143 array_add(*packed.numbers, cast(u64) i);
+        defer array_free(packed.numbers);
+        measure("packed-varints", packed, 100 * multiplier);
     }
 
     measure("spans", spans, 200 * multiplier);
