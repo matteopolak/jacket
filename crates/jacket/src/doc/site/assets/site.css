@@ -163,6 +163,7 @@ main h2 + h3 { margin-top: 0; }
 .js .fold:not(.open) { max-height: 360px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent); }
 .btn.fold-btn { display: flex; width: fit-content; position: relative; z-index: 1; margin: -22px auto 28px; background: var(--surface); font-size: 13px; font-weight: 500; padding: 6px 18px; border-radius: 999px; box-shadow: 0 1px 3px var(--shadow); }
 .btn.fold-btn:hover { color: var(--fg); }
+.fold:focus { outline: none; }
 
 /* Lists of items */
 .group { margin-bottom: 40px; }

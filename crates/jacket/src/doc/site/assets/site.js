@@ -688,8 +688,9 @@
     if (!sizing) { sizing = true; requestAnimationFrame(scrollable); }
   });
 
-  // Long blocks have a preview and a disclosure button; focus moving into the clipped part
-  // opens the block, so a focused link is never hidden. The early fold() script opens the
+  // Long blocks have a preview and a "Show more" button. Opening is one-way: the button goes
+  // away and the block stays open for the visit. Focus moving into the clipped part opens
+  // the block too, so a focused link is never hidden. The early fold() script opens the
   // first few blocks that fit while the page loads; the rest are measured here in one pass,
   // since measuring each block as it arrives lays the page out once per block.
   var shut = Array.prototype.slice.call(document.querySelectorAll('.fold:not(.open)'));
@@ -701,15 +702,17 @@
   shut.forEach(function (fold, i) {
     var btn = el('button', 'btn fold-btn', 'Show more');
     if (!fold.id) fold.id = 'fold-' + i;
-    btn.setAttribute('aria-controls', fold.id); btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', fold.id);
     btn.type = 'button';
+    function open() { fold.classList.add('open'); btn.remove(); }
     btn.addEventListener('click', function () {
-      var open = fold.classList.toggle('open');
-      btn.setAttribute('aria-expanded', String(open)); btn.textContent = open ? 'Show less' : 'Show more';
+      // Keep keyboard focus in place of the removed button.
+      fold.tabIndex = -1;
+      open();
+      fold.focus({ preventScroll: true });
     });
     fold.addEventListener('focusin', function () {
-      if (fold.classList.contains('open')) return;
-      fold.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); btn.textContent = 'Show less';
+      if (!fold.classList.contains('open')) open();
     });
     fold.after(btn);
   });
