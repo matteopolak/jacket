@@ -50,8 +50,7 @@ OutlineEntry :: (out: *Out, e: *Outline) {
     } else if list1 {
         html(out, #string HTML
 <li class="items"><ul>
-{for i: list1.items}<li{if i.extra} class="extra"{end}><a href="#{esc(i.id)}">{esc(i.label)}</a></li>
-{end}{if list1.show_all}<li class="more js-only"><button type="button">Show all {list1.show_all.*}</button></li>
+{for i: list1.items}<li><a href="#{esc(i.id)}">{esc(i.label)}</a></li>
 {end}</ul></li>
 HTML
     );

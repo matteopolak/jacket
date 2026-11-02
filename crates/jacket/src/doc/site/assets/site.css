@@ -32,15 +32,16 @@
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 html { interpolate-size: allow-keywords; -webkit-text-size-adjust: 100%; scroll-padding-top: 76px; scrollbar-gutter: stable; }
 
-/* Scrollbars: thin, the colour of the theme, and their gutter always reserved so a page that
-   gains or loses one does not move. */
-html, .side, .side > nav, .toc, pre, .sig-line, .guide table, #results {
-  scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; scrollbar-gutter: stable;
+/* Scrollbars: 6px, the colour of the theme, and their gutter always reserved so a page that
+   gains or loses one does not move. Firefox has no width control, so it gets its thin bar. */
+@supports not selector(::-webkit-scrollbar) {
+  html, .side, .side > nav, .toc, pre, .ed textarea, .sig-line, .guide table, #search-results { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
 }
-html::-webkit-scrollbar, .side::-webkit-scrollbar, .side > nav::-webkit-scrollbar, pre::-webkit-scrollbar, .sig-line::-webkit-scrollbar, .guide table::-webkit-scrollbar, #results::-webkit-scrollbar { width: 8px; height: 8px; }
-html::-webkit-scrollbar-track, .side::-webkit-scrollbar-track, .side > nav::-webkit-scrollbar-track, pre::-webkit-scrollbar-track, .sig-line::-webkit-scrollbar-track, .guide table::-webkit-scrollbar-track, #results::-webkit-scrollbar-track { background: transparent; }
-html::-webkit-scrollbar-thumb, .side::-webkit-scrollbar-thumb, .side > nav::-webkit-scrollbar-thumb, pre::-webkit-scrollbar-thumb, .sig-line::-webkit-scrollbar-thumb, .guide table::-webkit-scrollbar-thumb, #results::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
-html::-webkit-scrollbar-thumb:hover, .side::-webkit-scrollbar-thumb:hover, .side > nav::-webkit-scrollbar-thumb:hover, pre::-webkit-scrollbar-thumb:hover, #results::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); background-clip: content-box; }
+html, .side, .side > nav, .toc, pre, .sig-line, .guide table, #search-results { scrollbar-gutter: stable; }
+html::-webkit-scrollbar, .side::-webkit-scrollbar, .side > nav::-webkit-scrollbar, .toc::-webkit-scrollbar, pre::-webkit-scrollbar, .ed textarea::-webkit-scrollbar, .sig-line::-webkit-scrollbar, .guide table::-webkit-scrollbar, #search-results::-webkit-scrollbar { width: 6px; height: 6px; }
+html::-webkit-scrollbar-track, .side::-webkit-scrollbar-track, .side > nav::-webkit-scrollbar-track, .toc::-webkit-scrollbar-track, pre::-webkit-scrollbar-track, .ed textarea::-webkit-scrollbar-track, .sig-line::-webkit-scrollbar-track, .guide table::-webkit-scrollbar-track, #search-results::-webkit-scrollbar-track { background: transparent; }
+html::-webkit-scrollbar-thumb, .side::-webkit-scrollbar-thumb, .side > nav::-webkit-scrollbar-thumb, .toc::-webkit-scrollbar-thumb, pre::-webkit-scrollbar-thumb, .ed textarea::-webkit-scrollbar-thumb, .sig-line::-webkit-scrollbar-thumb, .guide table::-webkit-scrollbar-thumb, #search-results::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 6px; border: 1px solid transparent; background-clip: content-box; }
+html::-webkit-scrollbar-thumb:hover, .side::-webkit-scrollbar-thumb:hover, .side > nav::-webkit-scrollbar-thumb:hover, .toc::-webkit-scrollbar-thumb:hover, pre::-webkit-scrollbar-thumb:hover, .ed textarea::-webkit-scrollbar-thumb:hover, #search-results::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); background-clip: content-box; }
 body { margin: 0; font-family: var(--sans); font-size: 15.5px; line-height: 1.7; color: var(--fg); background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; }
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -63,12 +64,12 @@ html:not(.js) .js-only { display: none !important; }
 .wordmark { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
 /* The version menu: plain text in the nav; the chevron and menu only show when there are other versions to pick. */
 .ver { position: relative; }
-#ver { display: inline-flex; align-items: center; gap: 4px; font: inherit; color: var(--fg2); background: none; border: 0; padding: 4px 0; cursor: pointer; }
-#ver:disabled { cursor: default; }
-#ver:disabled svg { display: none; }
-#ver:not(:disabled):hover, #ver[aria-expanded="true"] { color: var(--fg); }
-#ver svg { color: var(--muted); transition: transform 0.15s; }
-#ver[aria-expanded="true"] svg { transform: rotate(180deg); }
+#ver-button { display: inline-flex; align-items: center; gap: 4px; font: inherit; color: var(--fg2); background: none; border: 0; padding: 4px 0; cursor: pointer; }
+#ver-button:disabled { cursor: default; }
+#ver-button:disabled svg { display: none; }
+#ver-button:not(:disabled):hover, #ver-button[aria-expanded="true"] { color: var(--fg); }
+#ver-button svg { color: var(--muted); transition: transform 0.15s; }
+#ver-button[aria-expanded="true"] svg { transform: rotate(180deg); }
 .ver-menu { position: absolute; top: calc(100% + 10px); right: -12px; min-width: 160px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 32px var(--shadow); z-index: 7; }
 .ver-menu a { display: block; padding: 6px 10px; border-radius: 6px; color: var(--fg2); font-weight: 400; white-space: nowrap; }
 .ver-menu a:hover { color: var(--fg); background: var(--sel); text-decoration: none; }
@@ -80,21 +81,21 @@ html:not(.js) .js-only { display: none !important; }
 .search input:focus { border-color: var(--link); outline: none; box-shadow: 0 0 0 3px var(--sel); }
 kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; background: var(--sunken); }
 .search kbd { position: absolute; right: 10px; top: 7px; }
-#results { position: absolute; top: 46px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 640px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow); padding: 6px; z-index: 6; }
-#results[hidden] { display: none; }
-#results .hit { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; color: var(--fg); text-decoration: none; }
-#results .hit[aria-selected="true"] { background: var(--sel); }
-#results .path { color: var(--fg); font-family: var(--mono); font-size: 13.5px; flex: none; }
-#results .what { font-size: 12px; color: var(--muted); flex: none; }
+#search-results { position: absolute; top: 46px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 640px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow); padding: 6px; z-index: 6; }
+#search-results[hidden] { display: none; }
+#search-results .hit { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; color: var(--fg); text-decoration: none; }
+#search-results .hit[aria-selected="true"] { background: var(--sel); }
+#search-results .path { color: var(--fg); font-family: var(--mono); font-size: 13.5px; flex: none; }
+#search-results .what { font-size: 12px; color: var(--muted); flex: none; }
 .dot { --c: var(--muted); display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; cursor: help; }
 .dot.foreign { --c: var(--foreign); }
 .dot.exp { --c: var(--warn); }
-#results .dot { margin-left: -4px; }
+#search-results .dot { margin-left: -4px; }
 .side a .dot { margin-left: 7px; vertical-align: 1px; }
-#results .sig { flex: 1 1 auto; text-align: right; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-#results .sig .pname { color: var(--fg); font-weight: 500; }
-#results .empty { padding: 10px; color: var(--muted); font-size: 14px; }
-#results .tips { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 10px 4px; border-top: 1px solid var(--hair); margin-top: 4px; font-size: 12px; color: var(--muted); }
+#search-results .sig { flex: 1 1 auto; text-align: right; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#search-results .sig .pname { color: var(--fg); font-weight: 500; }
+#search-results .empty { padding: 10px; color: var(--muted); font-size: 14px; }
+#search-results .tips { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 10px 4px; border-top: 1px solid var(--hair); margin-top: 4px; font-size: 12px; color: var(--muted); }
 .site-nav { display: flex; align-items: center; gap: 20px; font-size: 14px; font-weight: 500; }
 .site-nav a { color: var(--fg2); }
 .site-nav a[aria-current="page"] { color: var(--fg); }
@@ -194,18 +195,27 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 
 /* The outline on the right of a module page, wide screens only */
 .toc { display: none; }
-/* Same rhythm as the left sidebar: a heading, plain rows, and nested lists hung off a guide line. */
-.toc-h { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); margin: 0 0 8px; padding: 0 10px; }
+/* Drawn like the left sidebar: plain rows, and item lists that fold under their heading. */
+.toc-h { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); margin: 0 0 6px; padding: 0 10px; }
 .toc ul { list-style: none; margin: 0; padding: 0; }
-.toc li a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--fg2); font-size: 13.5px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.toc li.sub a { font-size: 13px; color: var(--muted); padding: 3px 10px 3px 20px; }
-.toc li.items > ul { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 10px 10px; padding-left: 8px; border-left: 1px solid color-mix(in srgb, var(--muted) 30%, transparent); }
-.toc li.items a { padding: 2px 8px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.toc li a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--fg2); font-size: 13.5px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toc li.sub a { padding-left: 20px; font-size: 13.5px; }
+.toc li.has-list { display: flex; align-items: center; }
+.toc li.has-list > a { flex: 1; min-width: 0; }
+.toc .tog { flex: none; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-right: 4px; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; }
+.toc .tog::after { content: ""; width: 5px; height: 5px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); transform: rotate(45deg); }
+.js .toc li.has-list:has(+ li.items:not(.open)) .tog::after { transform: rotate(-45deg); }
+.toc .tog:hover::after { border-color: var(--fg); }
+.toc li.items { display: grid; grid-template-rows: 1fr; }
+.toc.ready li.items, .toc.ready .tog::after { transition: grid-template-rows 0.18s ease-out, opacity 0.18s ease-out, visibility 0.18s, transform 0.18s ease-out; }
+/* With JS a list starts closed; the script opens the one being read. */
+.js .toc li:not(.items) + li.items:not(.open) { grid-template-rows: 0fr; opacity: 0; visibility: hidden; }
+.toc li.items > ul { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 1px; margin: 2px 0 10px 10px; padding-left: 8px; border-left: 1px solid var(--hair); }
+.js .toc li:not(.items) + li.items:not(.open) > ul { margin-top: 0; margin-bottom: 0; }
 .toc li.sub + li.items > ul { margin-left: 20px; }
-.js .toc li.items li.extra, .toc li.more[hidden] { display: none; }
-.toc li.more button { display: block; padding: 2px 8px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
-.toc li.more button:hover, .toc li a:hover { color: var(--fg); text-decoration: none; }
-.toc li a.active { color: var(--link); background: var(--sel); }
+.toc li.items a { padding: 3px 10px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.toc li a:hover { color: var(--fg); text-decoration: none; }
+.toc li a.active { color: var(--link); }
 @media (min-width: 1200px) {
   .wrap, .top-in { max-width: 1520px; }
   .side { flex-basis: 272px; max-width: 272px; }
@@ -268,6 +278,8 @@ main .overload > h3 + .defs { margin-top: 0; margin-bottom: 0; border-radius: 0;
 
 .ex.compact .code, .ex.compact .ed textarea { padding: 0; font-size: 13px; }
 .ex.compact .code, .ex.compact .ed { flex: 1 1 auto; min-width: 0; }
+/* The editor's scrollbar sits on top of the code below it, so a compact example keeps room for it. */
+.ex.compact .ed .code { padding-bottom: 8px; }
 .ex-row { display: flex; align-items: flex-start; gap: 8px; padding: 10px 10px 10px 16px; }
 /* An editable example: the textarea lies over the coloured code and shows through it. */
 .ed { position: relative; }
@@ -324,7 +336,7 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
   .ex-row .code, .ex-row .ed { flex-basis: 100%; }
   .ex .code, .ex .ed textarea { padding: 14px; }
   .ex.compact .code, .ex.compact .ed textarea { padding: 0; }
-  #results .sig { display: none; }
+  #search-results .sig { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .nav-cat::details-content, .nav-cat > summary::after { transition: none; }
@@ -380,9 +392,9 @@ pre, table, .defs { max-width: 100%; overflow-x: auto; }
 
 .nav-list { list-style: none; margin: 0; padding: 0; }
 
-.toc li a, .toc li.more button, .site-nav a { min-height: 24px; }
+.toc li a, .toc .tog, .site-nav a { min-height: 24px; }
 /* Selected options have a cue in addition to colour. */
-#results .hit[aria-selected="true"] { outline: 2px solid var(--link); outline-offset: -2px; }
+#search-results .hit[aria-selected="true"] { outline: 2px solid var(--link); outline-offset: -2px; }
 .toc li a.active, .ver-menu a[aria-current="true"] { font-weight: 600; }
 h2 .anchor, h3 .anchor { display: inline-flex; min-width: 24px; min-height: 24px; align-items: center; justify-content: center; }
 .titlebar > a, .row-head > a { min-height: 24px; display: inline-flex; align-items: center; }

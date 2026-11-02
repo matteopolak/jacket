@@ -181,12 +181,11 @@ sidebar_windows_and_toc :: () {
     expect(contains(page, "href=\"/api/Extensions/Moving/steady/\" aria-current=\"page\""));
     out: Out;
     defer deinit(*out);
-    count := 6;
-    items := Outline_Item.[.{ id = "a", label = "A" }, .{ id = "b", label = "B", extra = true }];
-    entry := variant(Outline, Outline_Items.{ items, *count });
+    items := Outline_Item.[.{ id = "a", label = "A" }, .{ id = "b", label = "B" }];
+    entry := variant(Outline, Outline_Items.{ items });
     OutlineEntry(*out, *entry);
-    expect(contains(to_string(*out), "class=\"extra\""));
-    expect(contains(to_string(*out), "Show all 6"));
+    expect(contains(to_string(*out), "<li class=\"items\"><ul>"));
+    expect(contains(to_string(*out), "<li><a href=\"#b\">B</a></li>"));
 } @test
 
 head_metadata_escapes_attributes_and_preserves_json :: () {

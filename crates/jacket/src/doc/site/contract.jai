@@ -289,7 +289,6 @@ Outline_Heading :: struct {
 
 Outline_Items :: struct {
     items: [] Outline_Item;
-    show_all: *int;
 }
 
 Outline :: Variant(Outline_Heading, Outline_Items);
@@ -297,5 +296,4 @@ Outline :: Variant(Outline_Heading, Outline_Items);
 Outline_Item :: struct {
     id: string;
     label: string;
-    extra: bool;
 }

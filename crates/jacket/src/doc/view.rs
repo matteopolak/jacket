@@ -307,7 +307,6 @@ pub enum Outline {
     },
     Items {
         items: Vec<OutlineItem>,
-        show_all: Option<usize>,
     },
 }
 
@@ -315,7 +314,6 @@ pub enum Outline {
 pub struct OutlineItem {
     pub id: String,
     pub label: String,
-    pub extra: bool,
 }
 
 

@@ -27,14 +27,14 @@ Layout :: (out: *Out, page: *Page($C)) {
 <link rel="stylesheet" href="{cast(Html) page.site.categories_url}"><script src="{cast(Html) page.site.script_url}" defer></script>
 </head>
 <body data-base="{cast(Html) page.site.base}" data-page="{esc(page.view.path)}">
-<a class="skip" href="#main">Skip to content</a>
+<a class="skip" href="#main-content">Skip to content</a>
 {Header(page.site, page.view.path)}
 <div class="wrap">
 <details class="side" open><summary>{esc(page.view.side_label)}</summary>
 <nav aria-label="{esc(page.view.side_label)}" data-nav="{esc(page.view.side_label)}">
 {Side(page)}</nav></details>
 <script src="{cast(Html) page.site.sidebar_url}"></script>
-<main id="main" tabindex="-1">
+<main id="main-content" tabindex="-1">
 {Main(page)}</main>
 {Toc(page)}</div>
 {Footer(page.site)}</body>
@@ -64,12 +64,12 @@ Header :: (out: *Out, site: *Site_View, path: string = "") {
 <a class="logo" href="{cast(Html) site.base}" aria-label="{esc(site.name)} API documentation">{LogoImage(site)}<span class="wordmark">{esc(site.name)}</span></a>
 <div class="search-wrap js-only">
 <label class="sr" for="q">Search the docs</label>
-<div class="search"><svg aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#search"/></svg><input id="q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list"><kbd>/</kbd></div>
-<div id="results" aria-live="polite" role="listbox" aria-label="Search results" hidden></div>
+<div class="search"><svg aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#search"/></svg><input id="search-q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list"><kbd>/</kbd></div>
+<div id="search-results" aria-live="polite" role="listbox" aria-label="Search results" hidden></div>
 </div>
 <nav class="site-nav" aria-label="Site">
 <a href="{cast(Html) site.base}"{if path.count == 0} aria-current="page"{end}>API</a>{HeaderLinks(site)}
-{Version(site)}<button type="button" id="theme" class="icon-btn js-only" aria-label="Theme: system (click to change)" title="Theme: system (click to change)"><svg id="theme-icon" aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#system"/></svg></button>
+{Version(site)}<button type="button" id="theme-toggle" class="icon-btn js-only" aria-label="Theme: system (click to change)" title="Theme: system (click to change)"><svg id="theme-icon" aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#system"/></svg></button>
 {Repository(site)}</nav>
 </div></header>
 HTML
@@ -90,7 +90,7 @@ HeaderLinks :: (out: *Out, site: *Site_View) {
 
 Version :: (out: *Out, site: *Site_View) {
     html(out, #run trim(#string HTML
-{if site.version.count}<div class="ver"><button type="button" id="ver" aria-haspopup="menu" aria-expanded="false" aria-controls="ver-menu" disabled>{esc(site.version)}<svg aria-hidden="true" width="12" height="12"><use href="{esc(site.icons_url)}#chevron"/></svg></button><div id="ver-menu" class="ver-menu" role="menu" hidden></div></div>
+{if site.version.count}<div class="ver"><button type="button" id="ver-button" aria-haspopup="menu" aria-expanded="false" aria-controls="ver-menu" disabled>{esc(site.version)}<svg aria-hidden="true" width="12" height="12"><use href="{esc(site.icons_url)}#chevron"/></svg></button><div id="ver-menu" class="ver-menu" role="menu" hidden></div></div>
 {end}
 HTML
     ));

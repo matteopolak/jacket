@@ -94,7 +94,7 @@ main :: () {
     }
     site := read_view(Site_View, tprint("%/site.json", args[1]));
     defer free_json(*site);
-    if site.format != 3 {
+    if site.format != 4 {
         print("unsupported site format %\n", site.format);
         exit(2);
     }

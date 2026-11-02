@@ -177,7 +177,7 @@ pub fn site(site: &Site) -> SiteView {
         });
     }
     SiteView {
-        format: 3,
+        format: 4,
         name: site.name.clone(),
         site_name: site.name.clone(),
         base: site.base.clone(),
@@ -460,14 +460,11 @@ fn outline_items(items: &[&Item]) -> Outline {
     Outline::Items {
         items: items
             .iter()
-            .enumerate()
-            .map(|(n, i)| OutlineItem {
+            .map(|i| OutlineItem {
                 id: i.name.clone(),
                 label: i.name.clone(),
-                extra: n >= 5,
             })
             .collect(),
-        show_all: (items.len() > 5).then_some(items.len()),
     }
 }
 

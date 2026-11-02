@@ -9,7 +9,7 @@
   // Theme: system, light or dark, remembered in this browser.
   var KEY = 'jacket-docs-theme';
   var ORDER = ['system', 'light', 'dark'];
-  var themeButton = document.getElementById('theme');
+  var themeButton = document.getElementById('theme-toggle');
   function theme() { return root.getAttribute('data-theme') || 'system'; }
   function labelTheme() {
     if (!themeButton) return;
@@ -52,61 +52,78 @@
     d.addEventListener('toggle', state); state();
   });
 
-  // The outline on the right marks the heading being read.
+  // The outline on the right marks every item on screen. Its item lists fold like the
+  // sidebar's groups: lists with a section on screen are open, the rest closed, and a list
+  // the reader opened stays open. Without JS every list is open.
   var toc = document.querySelectorAll('.toc a[href^="#"]');
   if (toc.length) {
     var marks = Array.prototype.map.call(toc, function (a) {
       return { a: a, h: document.getElementById(a.getAttribute('href').slice(1)) };
     }).filter(function (m) { return m.h; });
+    var groups = [];
+    var fold = function () {
+      groups.forEach(function (g) {
+        var open = g.user === null ? g.seen : g.user;
+        g.l.classList.toggle('open', open);
+        g.b.setAttribute('aria-expanded', String(open));
+      });
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('.toc li.items'), function (l, n) {
+      var head = l.previousElementSibling;
+      if (!head || head.classList.contains('items')) return;
+      var list = l.querySelector('ul');
+      list.id = 'outline-list-' + n;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tog';
+      b.setAttribute('aria-controls', list.id);
+      b.setAttribute('aria-label', 'Show ' + head.textContent.trim());
+      head.classList.add('has-list');
+      head.appendChild(b);
+      var g = { l: l, b: b, head: head, user: null, seen: false };
+      b.addEventListener('click', function () {
+        g.user = !g.l.classList.contains('open');
+        fold();
+      });
+      groups.push(g);
+    });
+    var rail = document.querySelector('.toc');
+    var shown = '';
     var pending = false;
     var mark = function () {
       pending = false;
       if (!marks.length) return;
-      var now = marks[0];
-      marks.forEach(function (m) { if (m.h.getBoundingClientRect().top <= 100) now = m; });
-      // At the end of the page the last short sections never reach the top; mark the last one in view.
-      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
-        marks.forEach(function (m) { if (m.h.getBoundingClientRect().top < window.innerHeight) now = m; });
-      }
-      marks.forEach(function (m) { m.a.classList.toggle('active', m === now); if (m === now) m.a.setAttribute('aria-current', 'location'); else m.a.removeAttribute('aria-current'); });
-      if (now === shown) return;
-      shown = now;
-      // The list of items the reader is in (or the one right below its heading) shows a few
-      // around the current one; the others show their first few, unless the reader opened them.
-      var li = now.a.closest('li');
-      var list = li.closest('li.items') || (li.nextElementSibling && li.nextElementSibling.classList.contains('items') ? li.nextElementSibling : null);
-      Array.prototype.forEach.call(document.querySelectorAll('.toc li.items'), function (l) {
-        var rows = l.querySelectorAll('li:not(.more)');
-        var all = l.hasAttribute('data-pinned');
-        var at = l === list ? Array.prototype.indexOf.call(rows, li) : -1;
-        var from = at < 0 ? 0 : Math.max(0, Math.min(at - 3, rows.length - 8));
-        var to = at < 0 ? 5 : from + 8;
-        var hidden = 0;
-        Array.prototype.forEach.call(rows, function (r, i) {
-          var out = !all && (i < from || i >= to);
-          r.classList.toggle('extra', out);
-          if (out) hidden++;
-        });
-        var more = l.querySelector('li.more');
-        if (more) { more.hidden = !hidden && !all; more.firstChild.textContent = all ? 'Show fewer' : 'Show all ' + rows.length; }
+      // Every section with some part on screen is marked. A section runs from its heading to
+      // the next one in the outline; the sticky header covers the top 70px.
+      var end = document.documentElement.getBoundingClientRect().bottom;
+      var tops = marks.map(function (m) { return m.h.getBoundingClientRect().top; });
+      var seen = marks.filter(function (m, i) {
+        var bottom = i + 1 < marks.length ? tops[i + 1] : end;
+        return bottom > 70 && tops[i] < window.innerHeight;
       });
-      var rail = document.querySelector('.toc');
-      var a = now.a.getBoundingClientRect(), r = rail.getBoundingClientRect();
+      if (!seen.length) seen = [marks[0]];
+      var key = seen.map(function (m) { return marks.indexOf(m); }).join(',');
+      if (key === shown) return;
+      shown = key;
+      // Only item names are coloured; headings just open their lists.
+      var lit = seen.filter(function (m) { return m.a.closest('li.items'); });
+      marks.forEach(function (m) {
+        m.a.classList.toggle('active', lit.indexOf(m) >= 0);
+        if (m === seen[0]) m.a.setAttribute('aria-current', 'location'); else m.a.removeAttribute('aria-current');
+      });
+      // A list is in view when one of its items is, or the heading right above it is.
+      groups.forEach(function (g) {
+        var was = g.seen;
+        g.seen = seen.some(function (m) { var li = m.a.closest('li'); return li === g.head || g.l.contains(li); });
+        // A list the reader closed opens again once they have moved on and come back.
+        if (was && !g.seen && g.user === false) g.user = null;
+      });
+      fold();
+      // Animate folding only after the first layout, so a page load doesn't show lists closing.
+      if (!rail.classList.contains('ready')) requestAnimationFrame(function () { rail.classList.add('ready'); });
+      var a = seen[0].a.getBoundingClientRect(), r = rail.getBoundingClientRect();
       if (a.top < r.top || a.bottom > r.bottom) rail.scrollTop += a.top - r.top - r.height / 3;
     };
-    var shown = null;
-    Array.prototype.forEach.call(document.querySelectorAll('.toc li.more button'), function (b) {
-      var list = b.closest('li.items').querySelector('ul'); list.id = 'outline-list-' + Array.prototype.indexOf.call(document.querySelectorAll('.toc li.more button'), b);
-      b.setAttribute('aria-controls', list.id); b.setAttribute('aria-expanded', 'false');
-      b.addEventListener('click', function () {
-        var l = b.closest('li.items');
-        var expanded = !l.hasAttribute('data-pinned');
-        if (expanded) l.setAttribute('data-pinned', ''); else l.removeAttribute('data-pinned');
-        b.setAttribute('aria-expanded', String(expanded));
-        shown = null;
-        mark();
-      });
-    });
     window.addEventListener('scroll', function () {
       if (!pending) { pending = true; requestAnimationFrame(mark); }
     }, { passive: true });
@@ -114,8 +131,8 @@
   }
 
   // Search.
-  var input = document.getElementById('q');
-  var box = document.getElementById('results');
+  var input = document.getElementById('search-q');
+  var box = document.getElementById('search-results');
   var items = null;
   var cats = [];
   var loading = null;
@@ -578,7 +595,7 @@
 
   // Version menu. versions.json is [{"version": "0.31.0", "url": "../0.31.0/"}, ...]; a relative url is read from versions.json's folder.
   (function () {
-    var btn = document.getElementById('ver'), menu = document.getElementById('ver-menu');
+    var btn = document.getElementById('ver-button'), menu = document.getElementById('ver-menu');
     if (!btn || !menu) return;
     var listUrl = new URL(base + 'versions.json', location.href);
     fetch(listUrl).then(function (r) { return r.ok ? r.json() : []; }).then(function (list) {

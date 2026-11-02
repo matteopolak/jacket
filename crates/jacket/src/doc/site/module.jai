@@ -2,7 +2,7 @@ Main :: (out: *Out, page: *Page(Content_Module)) {
     c := page.content;
     html(out, #run trim(#string HTML
 {Crumbs(c.crumbs)}{PageTitle(*c.title)}<p class="meta">Available on {esc(c.available)}{if c.since.count}<span class="meta-sep">·</span>{Since(c.since)}{end}</p>
-<p class="import"><code>#import "{esc(c.import)}";</code></p>
+<p class="import"><code><span class="d">#import</span> <span class="s">"{esc(c.import)}"</span>;</code></p>
 {if c.docs.count}<div class="fold">
 {Segments(c.docs)}<script>fold()</script></div>
 {end}{if c.parameters.count}{Heading(2, "parameters", "Module parameters")}{Definitions(c.parameters)}{end}{for s: c.sections}{Heading(2, s.id, s.label)}{for g: s.groups}<section class="group">
