@@ -3,6 +3,8 @@
 proto_Node_Kind :: enum {
     MESSAGE;
     ENUM;
+    // An extension field: one field in `fields`, declared as a child of its scope.
+    EXTENSION;
 }
 
 proto_Node :: struct {
@@ -18,6 +20,13 @@ proto_Node :: struct {
     values: [..] proto_Enum_Value;
     reserved: [..] proto_Range;
     reserved_names: [..] string;
+    extension_ranges: [..] proto_Range;
+    // On a message: the extension nodes that extend it.
+    extensions: [..] *proto_Node;
+    // On a message: decoding it must look inside unknown fields for extension values to check.
+    checks_extensions: bool;
+    // On a message: it, or something it contains, has a UTF-8 checked string.
+    verifies: bool;
     allow_alias: bool;
     synthetic: bool;
     has_required: bool;
@@ -62,6 +71,8 @@ proto_Field :: struct {
     default_value: string;
     has_default: bool;
     default_string: bool;
+    extendee_name: string;
+    extendee: *proto_Node;
 }
 
 proto_join_name :: (a: string, b: string) -> string {
@@ -232,7 +243,7 @@ proto_parse_reserved :: (s: *proto_Schema, node: *proto_Node) {
     }
 }
 
-proto_parse_field :: (s: *proto_Schema, node: *proto_Node, oneof: string = "") {
+proto_parse_field :: (s: *proto_Schema, node: *proto_Node, oneof: string = "", extending: string = "") {
     field := New(proto_Field);
     field.token = proto_peek(s);
     field.oneof = oneof;
@@ -245,6 +256,11 @@ proto_parse_field :: (s: *proto_Schema, node: *proto_Node, oneof: string = "") {
 
     if oneof.count && (field.repeated || field.optional || proto_peek(s).text == "map") {
         proto_schema_fail(s, field.token, "repeated, optional and map fields are not allowed in a oneof");
+        return;
+    }
+
+    if extending.count && (field.required || proto_peek(s).text == "map") {
+        proto_schema_fail(s, field.token, "extensions cannot be required or maps");
         return;
     }
 
@@ -299,7 +315,55 @@ proto_parse_field :: (s: *proto_Schema, node: *proto_Node, oneof: string = "") {
         field.map_entry = entry;
     }
 
+    if extending.count {
+        field.extendee_name = extending;
+        token := name_token;
+        token.text = field.name;
+        holder := proto_new_node(s, node, .EXTENSION, token);
+
+        array_add(*holder.fields, field);
+
+        return;
+    }
+
     array_add(*node.fields, field);
+}
+
+// Parses `extend Name { fields }`; each field becomes an extension node in the enclosing scope.
+proto_parse_extend :: (s: *proto_Schema, scope: *proto_Node) {
+    extendee := proto_qualified(s);
+
+    if !proto_expect(s, "{") return;
+
+    while !s.error.message.count && !proto_eat(s, "}") {
+        if proto_peek(s).kind == .END {
+            proto_schema_fail(s, proto_peek(s), "unterminated extend block");
+            return;
+        }
+
+        if !proto_eat(s, ";") proto_parse_field(s, scope, "", extendee);
+    }
+}
+
+// Parses the ranges of `extensions 1, 5 to 9, 100 to max [options];`.
+proto_parse_extension_ranges :: (s: *proto_Schema, node: *proto_Node) {
+    while !s.error.message.count {
+        first := proto_number(s);
+        last := first;
+
+        if proto_eat(s, "to") {
+            if proto_eat(s, "max") last = 536870911;
+            else last = proto_number(s);
+        }
+
+        if first > last proto_schema_fail(s, proto_peek(s), "extension range is reversed");
+
+        array_add(*node.extension_ranges, .{ first, last });
+
+        if proto_peek(s).text == "[" proto_skip_balanced(s, "[", "]");
+        if proto_eat(s, ";") break;
+        if !proto_expect(s, ",") break;
+    }
 }
 
 proto_parse_node :: (s: *proto_Schema, parent: *proto_Node, kind: proto_Node_Kind, group_token := proto_Token.{}) {
@@ -385,16 +449,12 @@ proto_parse_node :: (s: *proto_Schema, parent: *proto_Node, kind: proto_Node_Kin
         }
 
         if proto_eat(s, "extend") {
-            proto_qualified(s);
-            proto_skip_balanced(s, "{", "}");
+            proto_parse_extend(s, node);
             continue;
         }
 
         if proto_eat(s, "extensions") {
-            while !s.error.message.count && !proto_eat(s, ";") {
-                if proto_take(s).kind == .END proto_schema_fail(s, tok, "unterminated extension range");
-            }
-
+            proto_parse_extension_ranges(s, node);
             continue;
         }
 
@@ -446,8 +506,7 @@ proto_parse_schema :: (s: *proto_Schema) {
             proto_expect(s, ";");
             array_add(*s.imports, entry);
         } else if tok.text == "extend" {
-            proto_qualified(s);
-            proto_skip_balanced(s, "{", "}");
+            proto_parse_extend(s, null);
         } else if tok.text == "package" {
             if s.package.count || s.nodes.count {
                 proto_schema_fail(s, tok, "package must precede type declarations");

@@ -87,6 +87,11 @@ proto_map_type :: (s: *proto_Schema, f: *proto_Field) -> string {
 proto_emit_node :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {
     if node.synthetic return;
 
+    if node.kind == .EXTENSION {
+        proto_emit_extension(b, node);
+        return;
+    }
+
     if node.kind == .ENUM {
         proto_emit(b, "% :: enum s32 {\n", proto_jai_name(node.name));
         for node.values proto_emit(b, "% :: %;\n", it.name, it.value);
@@ -459,7 +464,26 @@ proto_emit_merge :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {
         append(b, "continue;\n");
     }
 
-    append(b, "}\nif !proto_r.skip_unknown(r, tag) return false;\n}\nreturn true;\n}\n");
+    if node.checks_extensions append(b, "}\nif !proto_skip_unknown(r, tag) return false;\n}\nreturn true;\n}\n");
+    else append(b, "}\nif !proto_r.skip_unknown(r, tag) return false;\n}\nreturn true;\n}\n");
+    if node.checks_extensions proto_emit_extension_checks(b, node);
+}
+
+// Keeps an unmatched field, then validates it if it is a known extension holding a checked string.
+proto_emit_extension_checks :: (b: *String_Builder, node: *proto_Node) {
+    append(b, "proto_skip_unknown :: (r: *proto_r.Reader, tag: u64) -> bool {\nif !proto_r.skip_unknown(r, tag) return false;\nnumber := tag >> 3;\n");
+
+    for e: node.extensions {
+        f := e.fields[0];
+        if f.wire_kind != "STRING" && !(proto_is_message(f) && f.target.verifies) continue;
+
+        element := "string";
+        if f.target element = f.target.jai;
+
+        proto_emit(b, "if number == % return proto_r.check_extension(r, tag, .%, %, %);\n", f.number, proto_field_kind(f), element, proto_quote(e.full));
+    }
+
+    append(b, "return true;\n}\n");
 }
 
 // Specialize literal templates once, so generating a schema does not scan every output byte.
@@ -614,12 +638,18 @@ proto_map_mode :: (s: *proto_Schema) -> string {
 
 // Schema defaults live in the Optional payload; presence remains false.
 proto_emit_default :: (b: *String_Builder, f: *proto_Field) {
-    if !f.optional || proto_is_message(f) || f.repeated || f.map_entry return;
+    value := proto_default_value(f);
+    if value.count proto_emit(b, " = .{value = %}", value);
+}
+
+// The Jai expression for a scalar field's default, or empty when the zero value is right.
+proto_default_value :: (f: *proto_Field) -> string {
+    if !f.optional || proto_is_message(f) || f.repeated || f.map_entry return "";
 
     value := f.default_value;
 
     if !f.has_default {
-        if !f.target || !f.target.values.count return;
+        if !f.target || !f.target.values.count return "";
         value = proto_schema_format("cast(%) %", proto_field_type(f), f.target.values[0].value);
     } else if f.default_string {
         value = proto_quote(value);
@@ -628,7 +658,27 @@ proto_emit_default :: (b: *String_Builder, f: *proto_Field) {
     else if value == "-inf" value = proto_schema_format("cast(%) #run proto_r.float_default(true, false)", proto_field_type(f));
     else if value == "nan" value = proto_schema_format("cast(%) #run proto_r.float_default(false, true)", proto_field_type(f));
 
-    proto_emit(b, " = .{value = %}", value);
+    return value;
+}
+
+// One extension constant. The extendee, element type and kind are type arguments, so the
+// runtime helpers are shared and the constant stays a line of data.
+proto_emit_extension :: (b: *String_Builder, node: *proto_Node) {
+    f := node.fields[0];
+    element := proto_field_type(f);
+
+    if f.target element = f.target.jai;
+
+    mode := "Extension";
+    if f.repeated mode = "Repeated_Extension";
+
+    proto_emit(b, "% :: proto_r.%(%, %, .%).{number = %, name = %", proto_jai_name(node.name), mode, f.extendee.jai, element, proto_field_kind(f), f.number, proto_quote(node.full));
+    if f.repeated && proto_packable(f) && f.packed append(b, ", packed = true");
+
+    value := proto_default_value(f);
+    if value.count proto_emit(b, ", default = %", value);
+
+    append(b, "};\n");
 }
 
 proto_emit_check :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {

@@ -173,6 +173,7 @@ beside :: (path: string, loc := #caller_location) -> string {
 #load "wire.jai";
 #load "fields.jai";
 #load "json.jai";
+#load "extensions.jai";
 
 #scope_module
 Basic :: #import "Basic";

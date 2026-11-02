@@ -92,7 +92,7 @@ proto_find_type :: (s: *proto_Schema, initial_scope: string, input_name: string,
     if begins_with(name, ".") {
         name = slice(name, 1, name.count - 1);
         found := proto_symbols.find(*s.names, name);
-        if found && !found.*.synthetic && proto_visible(source, found.*.source) return found.*;
+        if found && !found.*.synthetic && found.*.kind != .EXTENSION && proto_visible(source, found.*.source) return found.*;
 
         return null;
     }
@@ -101,7 +101,7 @@ proto_find_type :: (s: *proto_Schema, initial_scope: string, input_name: string,
         full := proto_join_name(scope, name);
         found := proto_symbols.find(*s.names, full);
 
-        if found && !found.*.synthetic && proto_visible(source, found.*.source) return found.*;
+        if found && !found.*.synthetic && found.*.kind != .EXTENSION && proto_visible(source, found.*.source) return found.*;
 
         if !scope.count break;
 
@@ -322,7 +322,7 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
         changed = false;
 
         for node: s.nodes {
-            if node.has_required continue;
+            if node.has_required || node.kind == .EXTENSION continue;
 
             for f: node.fields {
                 target := f.target;
@@ -337,6 +337,90 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
         }
     }
 
+    proto_resolve_extensions(s);
+}
+
+// Resolves each extension's extendee and checks its number against the extendee's ranges.
+// Extensions of one message share a number space across every file of the schema.
+proto_resolve_extensions :: (s: *proto_Schema) {
+    taken: proto_symbols.Map(string, *proto_Node);
+
+    for node: s.nodes {
+        if node.kind != .EXTENSION continue;
+
+        f := node.fields[0];
+        scope := node.package;
+
+        if node.parent scope = node.parent.full;
+
+        f.extendee = proto_find_type(s, scope, f.extendee_name, node.source);
+
+        if !f.extendee {
+            proto_schema_fail(s, f.token, proto_schema_format("unknown extendee '%'", f.extendee_name));
+            return;
+        }
+
+        if f.extendee.kind != .MESSAGE {
+            proto_schema_fail(s, f.token, proto_schema_format("extendee '%' is not a message", f.extendee_name));
+            return;
+        }
+
+        in_range := false;
+        for f.extendee.extension_ranges if f.number >= it.first && f.number <= it.last in_range = true;
+
+        if !in_range {
+            proto_schema_fail(s, f.token, proto_schema_format("field number % is not in an extension range of '%'", f.number, f.extendee.full));
+            return;
+        }
+
+        _, added := proto_symbols.entry(*taken, proto_schema_format("%/%", f.extendee.full, f.number));
+
+        if !added {
+            proto_schema_fail(s, f.token, "duplicate extension number");
+            return;
+        }
+
+        array_add(*f.extendee.extensions, node);
+    }
+
+    // A message needs extension checks when one of its extensions holds a checked string,
+    // directly or in a message that has one. `verifies` is that property for any message.
+    changed := true;
+
+    while changed {
+        changed = false;
+
+        for node: s.nodes {
+            if node.kind != .MESSAGE continue;
+
+            if !node.checks_extensions {
+                for e: node.extensions {
+                    f := e.fields[0];
+
+                    if f.wire_kind == "STRING" || (proto_is_message(f) && f.target.verifies) {
+                        node.checks_extensions = true;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if node.verifies continue;
+
+            found := node.checks_extensions;
+
+            for f: node.fields {
+                target := f.target;
+                if f.map_entry target = f.map_entry;
+                if f.wire_kind == "STRING" || (target && target.kind == .MESSAGE && target.verifies) found = true;
+            }
+
+            if found {
+                node.verifies = true;
+                changed = true;
+            }
+        }
+    }
 }
 
 // Variant reserves its layout members and strips one trailing underscore from tags.

@@ -92,6 +92,14 @@ proto_resolve_features :: (s: *proto_Schema) {
             if !node.synthetic && !f.repeated && !f.map_entry && !f.oneof.count && f.features.presence != "IMPLICIT" f.optional = true;
             if !f.explicit_packed f.packed = f.features.repeated == "PACKED";
             if f.group f.features.message = "DELIMITED";
+
+            // An extension is always a singly declared field with explicit presence.
+            if node.kind == .EXTENSION {
+                if f.features.presence == "LEGACY_REQUIRED" proto_schema_fail(s, f.token, "extensions cannot be required");
+                f.features.presence = "EXPLICIT";
+                f.required = false;
+                f.optional = !f.repeated;
+            }
         }
     }
 }
