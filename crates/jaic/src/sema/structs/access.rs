@@ -16,6 +16,48 @@ impl Compiler {
         name: Sym,
         span: Span,
     ) -> Result<Operand> {
+        let receiver = crate::ide::lifetimes::LifetimeOperand::of(&base);
+        let descriptor = matches!(
+            self.ty.types.kind(base.ty()),
+            TypeKind::Array {
+                kind: ArrayKind::Resizable,
+                ..
+            }
+        );
+        let result = self.member_access_inner(f, scope, base, name, span);
+        if !f.type_only
+            && let Ok(op) = &result
+            && let Some(record) = &mut f.lifetimes
+        {
+            use crate::ide::lifetimes::{LifetimeEvent, LifetimeOperand};
+            let field = LifetimeOperand::of(op);
+            if descriptor
+                && let (LifetimeOperand::Place(base), LifetimeOperand::Place(field)) =
+                    (receiver, field)
+            {
+                record.descriptor_fields.insert(field, base);
+            }
+            record.push(
+                f.b.current,
+                LifetimeEvent::Field {
+                    base: receiver,
+                    result: field,
+                    name,
+                    span,
+                },
+            );
+        }
+        result
+    }
+
+    fn member_access_inner(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        base: Operand,
+        name: Sym,
+        span: Span,
+    ) -> Result<Operand> {
         match base {
             Operand::Type(t) => return self.type_member(f, scope, t, name, span),
             Operand::Module(m) => {

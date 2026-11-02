@@ -116,10 +116,26 @@ impl Compiler {
             Operand::Place {
                 ty,
                 addr,
-            } => Ok(Operand::Value {
-                ty: self.ty.types.pointer(ty),
-                val: addr,
-            }),
+            } => {
+                if !f.type_only
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    record.push(
+                        f.b.current,
+                        crate::ide::lifetimes::LifetimeEvent::Address {
+                            place: addr,
+                            span,
+                        },
+                    );
+                    if let Some(region) = record.elements.get(&addr).copied() {
+                        record.borrows.insert(addr, (region, span));
+                    }
+                }
+                Ok(Operand::Value {
+                    ty: self.ty.types.pointer(ty),
+                    val: addr,
+                })
+            }
             Operand::Procs(p) if p.len() == 1 => {
                 let op = Operand::Procs(p);
                 let parameters = self.callable_operand_parameters(&op)?;

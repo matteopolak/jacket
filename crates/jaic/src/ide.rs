@@ -11,6 +11,7 @@ mod editor;
 mod facts;
 mod hover;
 pub mod interval;
+pub mod lifetimes;
 pub mod lint_compile;
 mod member_notes;
 pub mod meta;

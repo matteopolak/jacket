@@ -251,6 +251,23 @@ impl Compiler {
             return Ok(Operand::int(s[*i as usize] as i128, TypeId::U8));
         }
         let bty = base_op.ty();
+        let lifetime_region = if !f.type_only
+            && matches!(
+                self.ty.types.kind(bty),
+                TypeKind::Array {
+                    kind: ArrayKind::Resizable,
+                    ..
+                }
+            ) {
+            match &base_op {
+                Operand::Place {
+                    addr, ..
+                } => Some(*addr),
+                _ => None,
+            }
+        } else {
+            None
+        };
         // `operator []` when one matches, else `operator *[]` dereferenced.
         let getter = self.try_index_operator_overload(f, scope, "[]", &base_op, &index_op, span);
         if let Ok(Some(result)) = getter {
@@ -355,6 +372,11 @@ impl Compiler {
         } else {
             f.b.ptr_add(data, off)
         };
+        if let Some(record) = &mut f.lifetimes
+            && let Some(region) = lifetime_region
+        {
+            record.elements.insert(addr, region);
+        }
         Ok(Operand::Place {
             ty: elem,
             addr,

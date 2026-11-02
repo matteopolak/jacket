@@ -264,7 +264,7 @@ impl Compiler {
     }
 
     /// Emit deferred statements registered above `depth`, innermost first.
-    pub fn emit_defers(&mut self, f: &mut FnCtx, depth: usize, _span: Span) -> Result<()> {
+    pub fn emit_defers(&mut self, f: &mut FnCtx, depth: usize, span: Span) -> Result<()> {
         if f.defers.len() <= depth {
             return Ok(());
         }
@@ -285,6 +285,23 @@ impl Compiler {
                     f.b.store(Ty::I8, active, no);
                     after
                 });
+                if !f.type_only
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    let deferred = match &entry.action {
+                        DeferAction::Statement(stmt) => Some(stmt.span),
+                        DeferAction::RestoreContext {
+                            ..
+                        } => None,
+                    };
+                    record.push(
+                        f.b.current,
+                        crate::ide::lifetimes::LifetimeEvent::Cleanup {
+                            exit: span,
+                            deferred,
+                        },
+                    );
+                }
                 match &entry.action {
                     DeferAction::RestoreContext {
                         previous,

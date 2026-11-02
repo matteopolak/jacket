@@ -775,6 +775,16 @@
               "default": "warn",
               "markdownDescription": "a pointer into a resizable array used after a `@GrowsArray` call may have moved the array (`p := *xs[i]; array_add(*xs, v); use(p);`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#pointer_into_resizable)"
             },
+            "pointer_lifetime": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "experimental must-analysis of array pointers across branches and loops (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#pointer_lifetime)"
+            },
             "print_in_module": {
               "type": "string",
               "enum": [

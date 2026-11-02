@@ -160,6 +160,9 @@ pub struct IdeFacts {
     by_position: std::cell::RefCell<RefIndex>,
     /// Lint mode (`jailint`): also record the facts below.
     pub lint: bool,
+    /// Successful per-instantiation semantic CFGs; absent unless lint recording is on.
+    pub lifetime_bodies: HashMap<ProcId, super::lifetimes::LifetimeBody>,
+    pub(crate) lifetime_files: HashMap<FileId, Vec<ProcId>>,
     /// Workspace trust is withheld: no compile-time code runs (`call_thunk` refuses with
     /// `DiagnosticKind::Untrusted`), so `#run` results, computed `#insert`s and build
     /// metaprograms stay unknown.
@@ -255,6 +258,18 @@ pub struct IdeCast {
 }
 
 impl IdeFacts {
+    /// Successful records for one source file, without scanning all imported instances.
+    pub fn lifetime_bodies_in(
+        &self,
+        file: FileId,
+    ) -> impl Iterator<Item = &super::lifetimes::LifetimeBody> {
+        self.lifetime_files
+            .get(&file)
+            .into_iter()
+            .flatten()
+            .filter_map(|id| self.lifetime_bodies.get(id))
+    }
+
     /// Whether `r` (one of `refs`) was recorded by a sketch, with stand-in types.
     pub fn sketched(&self, r: &IdeRef) -> bool {
         self.sketch_from.as_ref().is_some_and(|mark| {

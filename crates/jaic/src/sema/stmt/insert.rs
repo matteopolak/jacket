@@ -76,6 +76,22 @@ impl Compiler {
                 return self.insert_for_body(f, frame_index, replacements, span);
             }
             let body = self.pr.codes[code.0 as usize].clone();
+            if !f.type_only
+                && let Some(record) = &mut f.lifetimes
+            {
+                let output = match &*body {
+                    ast::CodeBody::Expr(e) => vec![e.span],
+                    ast::CodeBody::Stmt(s) => vec![s.span],
+                    ast::CodeBody::Block(b) => b.stmts.iter().map(|s| s.span).collect(),
+                };
+                record.push(
+                    f.b.current,
+                    crate::ide::lifetimes::LifetimeEvent::Expansion {
+                        site: span,
+                        output,
+                    },
+                );
+            }
             // Inserted code resolves names where it was written, unless `,scope()` names
             // the insertion site or `,scope(other_code)` another code's scope.
             let code_scope = match target {
@@ -173,6 +189,17 @@ impl Compiler {
             return Ok(());
         }
         let stmts = self.insert_stmts_from(op, value.span)?;
+        if !f.type_only
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::Expansion {
+                    site: span,
+                    output: stmts.iter().map(|s| s.span).collect(),
+                },
+            );
+        }
         self.check_block_stmts(f, scope, &stmts)
     }
 

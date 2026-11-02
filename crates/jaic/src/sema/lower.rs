@@ -285,6 +285,7 @@ pub struct DeferEntry {
 /// State for lowering one procedure body (or a compile-time thunk).
 pub struct FnCtx {
     pub b: Builder,
+    pub(crate) lifetimes: Option<Box<crate::ide::lifetimes::LifetimeRecording>>,
     pub proc: Option<ProcId>,
     pub runtime_storage_constants: Vec<i64>,
     /// Current `context` pointer (absent in #`c_call/#no_context` code).
@@ -460,6 +461,7 @@ impl FnCtx {
         };
         Self {
             b: Builder::new(name, sig),
+            lifetimes: None,
             proc: None,
             runtime_storage_constants: Vec::new(),
             context: None,
@@ -759,6 +761,7 @@ impl Compiler {
         val: Val,
         span: Span,
     ) -> Result<()> {
+        f.lifetime_store(addr, val, span);
         if let Some(t) = self.ir_ty(ty) {
             f.b.store(t, addr, val);
         } else {

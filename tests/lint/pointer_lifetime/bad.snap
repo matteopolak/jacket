@@ -2,65 +2,137 @@
 source: crates/jailint/tests/rules.rs
 ---
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
-  --> tests/lint/pointer_lifetime/bad.jai:13:10
+  --> tests/lint/pointer_lifetime/bad.jai:15:10
    |
-13 |     sink(p);
+15 |     sink(p);
    |          ^
    |
-   = help: pointer derived at line 11; invalidating call at line 12; take the pointer again after growth
+   = help: pointer derived at line 12; invalidating call at line 14; take the pointer again after growth
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
-  --> tests/lint/pointer_lifetime/bad.jai:22:10
+  --> tests/lint/pointer_lifetime/bad.jai:27:10
    |
-22 |     sink(p);
+27 |     sink(p);
    |          ^
    |
-   = help: pointer derived at line 19; invalidating call at line 20; take the pointer again after growth
+   = help: pointer derived at line 22; invalidating call at line 24; take the pointer again after growth
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
-  --> tests/lint/pointer_lifetime/bad.jai:31:14
+  --> tests/lint/pointer_lifetime/bad.jai:38:14
    |
-31 |         sink(p);
+38 |         sink(p);
    |              ^
    |
-   = help: pointer derived at line 28; invalidating call at line 30; take the pointer again after growth
+   = help: pointer derived at line 34; invalidating call at line 37; take the pointer again after growth
 
 warning[pointer_lifetime]: `it` points into `xs`, which may be resized: grow(*xs)
-  --> tests/lint/pointer_lifetime/bad.jai:40:14
-   |
-40 |         sink(it);
-   |              ^^
-   |
-   = help: pointer derived at line 38; invalidating call at line 39; take the pointer again after growth
-
-warning[pointer_lifetime]: `item` points into `xs`, which may be resized: grow(*xs)
   --> tests/lint/pointer_lifetime/bad.jai:49:14
    |
-49 |         sink(item);
-   |              ^^^^
+49 |         sink(it);
+   |              ^^
    |
    = help: pointer derived at line 47; invalidating call at line 48; take the pointer again after growth
 
+warning[pointer_lifetime]: `item` points into `xs`, which may be resized: grow(*xs)
+  --> tests/lint/pointer_lifetime/bad.jai:60:14
+   |
+60 |         sink(item);
+   |              ^^^^
+   |
+   = help: pointer derived at line 58; invalidating call at line 59; take the pointer again after growth
+
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
-  --> tests/lint/pointer_lifetime/bad.jai:63:10
+  --> tests/lint/pointer_lifetime/bad.jai:77:10
    |
-63 |     sink(p);
+77 |     sink(p);
    |          ^
    |
-   = help: pointer derived at line 57; invalidating call at line 59; take the pointer again after growth
+   = help: pointer derived at line 69; invalidating call at line 72; take the pointer again after growth
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add(*xs, 2)
-  --> tests/lint/pointer_lifetime/bad.jai:82:10
-   |
-82 |     sink(p);
-   |          ^
-   |
-   = help: pointer derived at line 80; invalidating call at line 81; take the pointer again after growth
+   --> tests/lint/pointer_lifetime/bad.jai:98:10
+    |
+ 98 |     sink(p);
+    |          ^
+    |
+    = help: pointer derived at line 95; invalidating call at line 97; take the pointer again after growth
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add(*xs, 2)
-  --> tests/lint/pointer_lifetime/bad.jai:91:10
-   |
-91 |     sink(p);
-   |          ^
-   |
-   = help: pointer derived at line 89; invalidating call at line 90; take the pointer again after growth
+   --> tests/lint/pointer_lifetime/bad.jai:109:10
+    |
+109 |     sink(p);
+    |          ^
+    |
+    = help: pointer derived at line 106; invalidating call at line 108; take the pointer again after growth
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
+   --> tests/lint/pointer_lifetime/bad.jai:120:10
+    |
+120 |     sink(p);
+    |          ^
+    |
+    = help: pointer derived at line 117; invalidating call at line 119; take the pointer again after growth
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(xs = *xs)
+   --> tests/lint/pointer_lifetime/bad.jai:135:10
+    |
+135 |     sink(p);
+    |          ^
+    |
+    = help: pointer derived at line 132; invalidating call at line 134; take the pointer again after growth
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow_many(*xs, ..rest)
+   --> tests/lint/pointer_lifetime/bad.jai:148:10
+    |
+148 |     sink(p);
+    |          ^
+    |
+    = help: pointer derived at line 144; invalidating call at line 147; take the pointer again after growth
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
+   --> tests/lint/pointer_lifetime/bad.jai:162:10
+    |
+162 |     sink(p);
+    |          ^
+    |
+    = help: pointer derived at line 155; invalidating call at line 158; take the pointer again after growth
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
+   --> tests/lint/pointer_lifetime/bad.jai:175:10
+    |
+175 |     sink(p);
+    |          ^
+    |
+    = help: pointer derived at line 169; invalidating call at line 172; take the pointer again after growth
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
+   --> tests/lint/pointer_lifetime/bad.jai:194:10
+    |
+194 |     sink(p);
+    |          ^
+    |
+    = help: pointer derived at line 182; invalidating call at line 185; take the pointer again after growth
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
+   --> tests/lint/pointer_lifetime/bad.jai:207:10
+    |
+207 |     sink(p);
+    |          ^
+    |
+    = help: pointer derived at line 203; invalidating call at line 206; take the pointer again after growth
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
+   --> tests/lint/pointer_lifetime/bad.jai:221:21
+    |
+221 |     if enabled sink(p);
+    |                     ^
+    |
+    = help: pointer derived at line 218; invalidating call at line 220; take the pointer again after growth
+
+warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
+   --> tests/lint/pointer_lifetime/bad.jai:231:10
+    |
+231 |     sink(p);
+    |          ^
+    |
+    = help: pointer derived at line 228; invalidating call at line 1; take the pointer again after growth

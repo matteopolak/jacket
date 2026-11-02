@@ -121,6 +121,9 @@ impl Compiler {
             None => "typecheck".into(),
         };
         let mut f = FnCtx::new(name, ir_sig, file);
+        if !crate::sema::speculative::active() {
+            self.lifetime_begin_body(&mut f, id);
+        }
         f.proc = Some(id);
         f.checks_off = header.flags.checks_off();
         if !self.options.array_bounds_check {
@@ -192,6 +195,23 @@ impl Compiler {
             // values, so the procedure works on its own copy: `advance(*s, 1)` on a `string`
             // parameter must not move the caller's string.
             let addr = self.spill(&mut f, param.ty, incoming, param.span)?;
+            if let Some(record) = &mut f.lifetimes {
+                let formal = header
+                    .params
+                    .iter()
+                    .position(|p| p.span == param.span)
+                    .expect("runtime formal");
+                record.push(
+                    f.b.current,
+                    crate::ide::lifetimes::LifetimeEvent::Parameter {
+                        formal,
+                        place: addr,
+                        incoming,
+                        ty: param.ty,
+                        span: param.span,
+                    },
+                );
+            }
             if let Some(name) = param.name {
                 self.debug_var(
                     &mut f,
@@ -316,6 +336,7 @@ impl Compiler {
         if !f.b.is_terminated() {
             self.emit_fallthrough_return(&mut f, body.span)?;
         }
+        self.lifetime_finish_body(&mut f, id, &lit);
         let storage_constants = f.runtime_storage_constants;
         let func = f.b.finish();
         if owes_result {

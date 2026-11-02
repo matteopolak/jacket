@@ -107,6 +107,7 @@ impl Compiler {
         if self.ed.is_live()
             && let Ok(op) = &result
         {
+            self.lifetime_expression(f, expr, op);
             self.ide_note_expr(expr, op);
             if self.ed.sketching() {
                 self.ide_note_sketch_type(expr.span, op);

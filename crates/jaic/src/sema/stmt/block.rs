@@ -374,6 +374,16 @@ impl Compiler {
                 rhs,
             } => {
                 let result = self.check_assign(f, scope, *op, lhs, rhs, span);
+                if matches!(op, ast::AssignOp::Assign)
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    for target in lhs.iter().filter(|e| matches!(e.kind, E::Ident(_))) {
+                        for block in &mut record.blocks {
+                            block.events.retain(|event| !matches!(event,
+                                crate::ide::lifetimes::LifetimeEvent::Use { span, .. } if *span == target.span));
+                        }
+                    }
+                }
                 self.ide_note_assign(scope, lhs, span);
                 result
             }
@@ -603,6 +613,17 @@ impl Compiler {
         }
         let taken = self.body_static_condition(f, scope, cond)?;
         f.static_taken.insert(span, taken);
+        if !f.type_only
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::StaticChoice {
+                    span,
+                    taken,
+                },
+            );
+        }
         self.ide_note_branches(boxed, taken);
         self.check_block_stmts(
             f,

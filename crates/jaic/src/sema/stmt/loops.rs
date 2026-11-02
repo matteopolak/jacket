@@ -683,6 +683,11 @@ impl Compiler {
         let off = f.b.bin(ir::BinOp::Mul, Ty::I64, i, s);
         let elem_addr = f.b.ptr_add(data, off);
         let (it_ty, it_addr) = if for_.by_pointer {
+            if let Some(record) = &mut f.lifetimes
+                && record.resizable.contains(&caddr)
+            {
+                record.borrows.insert(elem_addr, (caddr, iterated));
+            }
             let pt = self.ty.types.pointer(elem);
             (pt, self.spill(f, pt, elem_addr, span)?)
         } else if self.is_memory_type(elem) {

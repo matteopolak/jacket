@@ -37,7 +37,66 @@ impl Compiler {
             }
         });
         let is_macro = self.proc(proc).is_macro;
+        let lifetime_call = !f.type_only && f.lifetimes.is_some();
+        if lifetime_call && let Some(record) = &mut f.lifetimes {
+            use crate::ide::lifetimes::{LifetimeArgument, LifetimeOperand};
+            let mut mapped = Vec::new();
+            for (formal, slot) in c.slots.iter().enumerate() {
+                let indices: &[usize] = match slot {
+                    Slot::Arg(i) | Slot::Spread(i) => std::slice::from_ref(i),
+                    Slot::Variadic(list) => list,
+                    Slot::Default => &[],
+                };
+                for &i in indices {
+                    mapped.push(LifetimeArgument {
+                        formal,
+                        span: args[i].span,
+                        operand: args[i]
+                            .op
+                            .as_ref()
+                            .map_or(LifetimeOperand::Other, LifetimeOperand::of),
+                        named: args[i].name.is_some(),
+                        spread: args[i].spread,
+                    });
+                }
+            }
+            record
+                .calls
+                .push(crate::ide::lifetimes::LifetimeCallRecording {
+                    args: mapped,
+                    parameter_spans: header.params.iter().map(|p| p.span).collect(),
+                });
+        }
+        let grows = lifetime_call && self.proc_has_note(proc, "GrowsArray");
         let result = self.emit_call_inner(f, scope, c, args, span);
+        if lifetime_call && let Some(record) = &mut f.lifetimes {
+            use crate::ide::lifetimes::{LifetimeEvent, LifetimeOperand};
+            let args = record.calls.pop().expect("selected call frame").args;
+            if result.is_ok() {
+                if grows
+                    && let Some(arg) = args.iter().find(|a| a.formal == 0)
+                    && let LifetimeOperand::Value(region) = arg.operand
+                    && record.resizable.contains(&region)
+                {
+                    record.push(
+                        f.b.current,
+                        LifetimeEvent::Grow {
+                            region,
+                            span,
+                        },
+                    );
+                }
+                record.push(
+                    f.b.current,
+                    LifetimeEvent::Call {
+                        callee: proc,
+                        args,
+                        span,
+                        expands: is_macro,
+                    },
+                );
+            }
+        }
         let result = match (result, variant) {
             (
                 Ok(Operand::Value {
@@ -288,6 +347,28 @@ impl Compiler {
     }
 
     pub(super) fn param_value(
+        &mut self,
+        f: &mut FnCtx,
+        sig: &Signature,
+        param: &procs::ParamInfo,
+        slot: &Slot,
+        args: &[CallArg],
+        span: Span,
+    ) -> Result<ir::Val> {
+        let value = self.param_value_inner(f, sig, param, slot, args, span)?;
+        if !f.type_only
+            && let Some(record) = &mut f.lifetimes
+            && let Some(call) = record.calls.last_mut()
+            && let Some(formal) = call.parameter_spans.iter().position(|s| *s == param.span)
+        {
+            for arg in call.args.iter_mut().filter(|a| a.formal == formal) {
+                arg.operand = crate::ide::lifetimes::LifetimeOperand::Value(value);
+            }
+        }
+        Ok(value)
+    }
+
+    fn param_value_inner(
         &mut self,
         f: &mut FnCtx,
         sig: &Signature,
