@@ -137,6 +137,68 @@ The runner is upstream code, so it runs only inside the `tools/bench` sandbox. I
 
 A nightly job in `.github/workflows/fuzz.yml` fuzzes the decoder under ASan (`tools/fuzz/properties/Protobuf.jai`).
 
+## Compared with jai-protobuf and C++
+
+`benchmarks/compare/protobuf/benches/protobuf.jai` (`tools/bench/library_compare.py protobuf`, see [library comparisons](../tools/library-comparisons.md)) runs the same schema and values through Jacket and jai-protobuf, after checking that each library decodes the other's bytes. `benchmarks/compare/protobuf/cpp/build.py` runs the same shapes through Google's C++ library. Apple M5, 16 GB, `-O2`; times per call:
+
+| Workload | Jacket | Jacket `borrow` | jai-protobuf | C++ |
+| --- | --- | --- | --- | --- |
+| encode mixed (83 B) | 124 ns | | 310 ns | 106 ns |
+| decode mixed | 266 ns | 297 ns | 163 ns | 380 ns |
+| encode 1 MiB packed | 13.7 µs | | 14.8 µs | 29.4 µs |
+| decode 1 MiB packed | 13.4 µs | 14.2 µs | 14.5 µs | 18.8 µs |
+| encode 64-deep | 1.42 µs | | n/a¹ | 0.89 µs |
+| decode 64-deep | 2.03 µs | 2.41 µs | n/a¹ | 2.48 µs |
+| encode logs (98 KB) | 34.8 µs | | 70.2 µs | 33.9 µs |
+| decode logs | 82.3 µs | 70.7 µs | 37.6 µs | 130 µs |
+| encode 2,000 spans (574 KB) | 724 µs | | 1.42 ms | 405 µs |
+| decode 2,000 spans | 1.43 ms | 1.19 ms | 536 µs | 1.68 ms |
+
+¹ A message that contains itself doesn't compile in jai-protobuf.
+
+Jacket encodes about twice as fast as jai-protobuf, except packed numbers, where both copy at memory speed. jai-protobuf decodes strings faster: it always points them into the input, and skips UTF-8 checks and unknown fields. A Jacket decode of the spans makes 18 allocations; jai-protobuf and `borrow` make 5,346, and C++ 57,931. A program that encodes and decodes one message adds 89 KiB to an `-O2` executable, against 26 KiB for jai-protobuf, and compiles in about the same time.
+
+| Feature | Jacket | jai-protobuf |
+| --- | --- | --- |
+| proto3 | ✅ | ✅ |
+| proto2: presence, defaults, closed enums | ✅ | ⚠️ defaults only |
+| editions 2023/2024 | ✅ | ⚠️ parsed as proto3 |
+| groups | ✅ | ❌ |
+| oneof, maps, packed and unpacked | ✅ | ✅ |
+| recursive messages | ✅ | ⚠️ only through `repeated` |
+| imports, whole folders | ✅ | ✅ |
+| well-known types without the files | ✅ | ❌ |
+| unknown fields kept | ✅ | ❌ |
+| required-field check | ✅ | ❌ |
+| UTF-8 check | ✅ | ❌ |
+| malformed input rejected | ✅ | ⚠️ accepts stray groups and field 0; no depth limit |
+| merge | ✅ | ✅ |
+| equality | ✅ | ❌ |
+| copying or borrowed strings | ✅ both | ⚠️ borrowed only |
+| JSON, text format, reflection, services | ❌ | ❌ |
+| extensions | ⚠️ kept as unknown fields | ❌ |
+
+## Real-world schemas
+
+`tools/protobuf_schemas` fetches hash-pinned public schemas into a cache and generates each one (Apple M5, interpreter generation, then an `-O2` build of a program that encodes and decodes a message):
+
+| Schema | Generate | `-O2` build | Jai emitted | protoc C++ |
+| --- | --- | --- | --- | --- |
+| ONNX | 9 ms | 0.8 s | 0.1 MB | 1.3 MB |
+| OpenTelemetry | 31 ms | 0.7 s | 0.2 MB | 2.5 MB |
+| Pub/Sub | 31 ms | 0.9 s | 0.3 MB | 5.4 MB |
+| TensorFlow framework | 43 ms | 1.1 s | 0.3 MB | 4.6 MB |
+| Kubernetes core/v1 | 62 ms | 3.1 s | 0.8 MB | 13.3 MB |
+| googleapis, 299 files | 1.6 s | 1.9 s | 6.7 MB | 114 MB |
+| Envoy API, 824 files | 2-3 s | 9.0 s | 5.6 MB | 97 MB |
+
+All 25 variants in `schemas.json` generate, compile and round-trip. jai-protobuf builds `descriptor.proto` and the TensorFlow config; the others stop on recursive messages, packages repeated across files, or fields named like Jai types (`float`).
+
+```sh
+python3 -I tools/protobuf_schemas/fetch.py
+python3 -I tools/protobuf_schemas/measure.py --jaic target/release/jaic --json out.json
+```
+
 ## How it works
 
 - **Generation:** `Schema/module.jai` runs `#insert #run` over the module parameters. Each file is lexed and parsed, and imports are loaded into one graph, deduplicated by real path. Then `resolve.jai` handles scoping, names and checks, and `emit.jai` writes the Jai.
