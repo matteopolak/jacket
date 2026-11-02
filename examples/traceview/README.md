@@ -3,8 +3,7 @@
 A small native viewer for Iprof recordings: frame duration bars, a flame view with actual invocation offsets, per-zone calls/self/total/average/maximum, case-sensitive search, and a second frame as a comparison baseline. Times are nanoseconds. Recursive invocations count individually in totals; self time subtracts direct children.
 
 ```sh
-export T=/Volumes/LodestoneScratch/jai-targets/codex-traceview
-export JAIC_STDLIB=$PWD/stdlib PATH=$T/target/debug:$PATH
+# With jaic on PATH and JAIC_STDLIB set; T is any build directory.
 jaic examples/traceview/tools/record/main.jai -exe "$T/record"
 "$T/record" "$T/work.jipt"
 jaic examples/traceview/main.jai -exe "$T/traceview"

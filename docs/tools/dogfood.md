@@ -11,6 +11,7 @@ Real applications written in Jai under `examples/`, to exercise the compiler, st
 - `examples/imageview/`: a folder image browser on `Extensions/UI`: thumbnail pages decoded on `Thread_Group` workers into a byte-capped LRU cache, zoom, pan, rotate, animation and export. See its README.
 - `examples/music/`: a music player on `Extensions/UI`: recursive library scan sorted by Vorbis tags, a queue through `Sound_Player`, streaming via `Extensions/Audio_Stream`, a waveform computed on a worker and synced `.lrc` lyrics. See its README.
 - `examples/term/`: a VT terminal emulator on `Extensions/Pty` and `Extensions/UI`: cell grid, attributes, alternate screen, titles and resize. macOS and Linux; Windows only type-checks. See its README.
+- `examples/traceview/`: a viewer for `Extensions/Iprof_Trace` recordings: frame bars, a flame view, per-zone statistics, search and frame comparison. `examples/traceview/tools/record/` writes a sample trace. See its README.
 - `examples/editor/`: a native text editor on `Extensions/UI` and `Extensions/Desktop` with a `jailsp` client. See [the editor doc](../extensions/ui-editor.md) and its README.
 - `examples/seek/`: a small grep. `search/` (file walk with `visit_files`, globs, `Extensions/Regex` or fixed-text matching, one `Thread_Group` job per file with a buffer per worker, output joined in path order), `main.jai` (`Extensions/Args`), and `tests/`, which `jacket test` runs in that folder. See its README.
 
@@ -32,11 +33,12 @@ sh examples/chip8/tools/smoke.sh            # chip8: golden hashes, seeded repla
 sh examples/imageview/tools/smoke.sh        # imageview: decode, workers, input, export
 T=$TMPDIR/music sh examples/music/tools/smoke.sh   # music: tags, sorting, muted device playback and seek
 T=$TMPDIR/term sh examples/term/tools/smoke.sh     # term: PTY, input, resize, grid, one FreeType frame
+T=$TMPDIR/traceview sh examples/traceview/tools/smoke.sh   # traceview: selection, sorting, search, comparison
 sh examples/chat/tools/smoke.sh             # chat: rooms, DMs, bot, recovery, limiter, load, SMTP, TLS
 (cd examples/chat && jacket test)           # its unit tests
 ```
 
-The 2D game needs a display and OpenGL, the 3D game a WebGPU-capable GPU (no window), the server `initdb`/`pg_ctl`/`openssl` (`examples/game2d/tools/local_postgres.sh` starts a throwaway cluster).
+The 2D game needs a display and OpenGL, the 3D game a WebGPU-capable GPU (no window; `--fallback-adapter` and `--gpu-backend auto|vulkan|d3d12|metal` pick a software or specific adapter), the server `initdb`/`pg_ctl`/`openssl` (`examples/game2d/tools/local_postgres.sh` starts a throwaway cluster).
 
 ## How to change it
 
@@ -47,4 +49,13 @@ Add an app as `examples/<name>/` with its own smoke script and `FRICTION.md`, th
 - `JAIC`: compiler to use. `JAIC_NATIVE_LIBS`: native library directory.
 - `DATABASE_URL`: server database; `WITH_GAME=1` also runs the game smoke against it.
 - `SERVER_URL`, `SERVER_ROOTS`: point the game smoke at a running backend (and the certificate to trust).
-- game3d: `FRAME` (PNG to keep), `REQUIRE_GPU=1` (fail without a GPU), `THREADS` (default 3).
+- game3d: `FRAME` (PNG to keep), `REQUIRE_GPU=1` (fail without a GPU), `THREADS` (default 3), `FALLBACK_ADAPTER=1`, `GPU_BACKEND`.
+- game2d: `EXPECT_PIXEL_SCALE` (or `--expect-pixel-scale`) fails the smoke when the desktop scale differs.
+
+## GPU workflow
+
+`.github/workflows/dogfood-gpu.yml` is dispatch-only. It runs both games on Ubuntu 24.04 and Windows 2025 without a GPU: game3d on lavapipe (Vulkan) and WARP (D3D12) through the fallback adapter, game2d under Xvfb at `Xft.dpi: 192` (expects scale 2) and on the Windows desktop (scale 1) with the pinned Mesa OpenGL DLL. Each job uploads its frame as a PNG; a missing frame fails the job.
+
+```sh
+gh workflow run dogfood-gpu.yml --ref main
+```

@@ -70,6 +70,8 @@ Saved_Window_Info :: struct {}
 
 This module creates and queries native windows on Windows, Linux, macOS, and Android. The selected target determines the native handle type and `Saved_Window_Info` layout. Dimension and mouse queries return success indicators; `right_handed` selects the vertical coordinate orientation where supported. Windows ignores `wanted_msaa`; macOS ignores `parent`, `background_color_rgb`, and `wanted_msaa`. Platform-specific fullscreen behavior and dependencies follow the selected native window system.
 
+Desktop scale: macOS reports the backing scale (window sizes are points). Windows and X11 window sizes are device pixels, and the scale is the desktop DPI / 96: `GetDpiForWindow` on Windows, `Xft.dpi` from the X resource database on X11 (falling back to the screen's physical size, rounded to a whole scale). Explicit DPI keeps fractions (120 → 1.25), values outside 48–768 are ignored, and the scale never drops below 1. Windows asks for per-monitor-v2 awareness before its first window unless the process already chose one, and `Input` applies the rectangle `WM_DPICHANGED` suggests when a window moves between monitors. The shared rules are in `internal/window/dpi.jai`.
+
 ## Module parameters
 
 ```jai

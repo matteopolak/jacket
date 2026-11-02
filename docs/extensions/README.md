@@ -21,6 +21,7 @@
 | `Deflate` | DEFLATE compression with zlib and gzip framing, CRC-32 and Adler-32 | [deflate](deflate.md) |
 | `Audio_Stream` | bounded, seekable decoding of WAV (PCM, IMA ADPCM) and Ogg Vorbis files into `s16` frames, with Vorbis tags; `@experimental` | [audio-stream](audio-stream.md) |
 | `Pty` | nonblocking pseudoterminal sessions on macOS and Linux: spawn, read, write, resize, reap; `@experimental` | [pty](pty.md) |
+| `Iprof_Trace` | records Iprof zones as nested per-frame timelines and saves/loads them in a small binary format (`.jipt`); `@experimental` | [iprof-trace](iprof-trace.md) |
 | `Meow_Portable` | `hash_bytes`: the Meow hash in portable scalar code, same lanes as `meow_hash` on CPUs without AES-NI; `@experimental` | — |
 | `Assets` | `load_asset`: a program's files from disk natively, over `fetch` in the playground | [assets](assets.md) |
 | `Http` | sans-IO HTTP/1.x codec, plus a fiber server and client | [codec](http-codec.md), [server](http-server.md), [client](http-client.md) |
