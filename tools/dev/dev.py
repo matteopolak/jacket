@@ -451,10 +451,11 @@ def cmd_test(args) -> int:
     return int(failed)
 
 
-def run_captured(cmd: list[str], cwd: Path = ROOT, stdin: str | None = None) -> tuple[int, str]:
+def run_captured(cmd: list[str], cwd: Path = ROOT, stdin: str | None = None,
+                 env: dict[str, str] | None = None) -> tuple[int, str]:
     """Run `cmd`, returning its exit status and its output (stdout and stderr together)."""
     try:
-        done = subprocess.run(cmd, cwd=cwd, input=stdin, capture_output=True, text=True)
+        done = subprocess.run(cmd, cwd=cwd, input=stdin, capture_output=True, text=True, env=env)
     except OSError as error:
         return 127, f"{cmd[0]}: {error}\n"
     return done.returncode, done.stdout + done.stderr
@@ -556,17 +557,20 @@ def hook_jaic(hook: Hook) -> Path | None:
 
 
 def hook_jaifmt(hook: Hook) -> str | None:
-    """target/jaifmt when built from this checkout (rebuilt when stale), else jaifmt on PATH."""
+    """target/jaifmt built from this checkout (rebuilt when stale), else None. Never another checkout's build or an
+    installed jaifmt: their rules can differ from this checkout's and fail files that are formatted."""
     out = jaifmt_path()
     jaic = hook_jaic(hook)
     if jaic is not None and stale_jaifmt(out, jaic):
         hook.say("rebuilding jaifmt")
         if not rebuild_jaifmt(jaic, quiet=True):
-            hook_warn("could not rebuild jaifmt; using the existing one")
-    if out.is_file() and built_elsewhere(out):
-        hook_warn(f"{out} was built from another checkout and could not be rebuilt here; using jaifmt on PATH")
-        return shutil.which("jaifmt")
-    return str(out) if out.is_file() else shutil.which("jaifmt")
+            hook_warn(f"could not rebuild {out} with {jaic}")
+    if not out.is_file():
+        return None
+    if built_elsewhere(out):
+        hook_warn(f"{out} was built from another checkout ({jaifmt_stamp(out).read_text().strip()})")
+        return None
+    return str(out)
 
 
 def hook_jailint(hook: Hook) -> str | None:
@@ -588,7 +592,7 @@ def check_jai(hook: Hook, jai: list[str]) -> None:
     if not hook.skipped("jaifmt"):
         jaifmt = hook_jaifmt(hook)
         if jaifmt is None:
-            hook_warn("jaifmt not found (build jaifmt into the cargo target directory, see "
+            hook_warn("no jaifmt built from this checkout (`python3 tools/dev/dev.py build`, see "
                       "docs/tools/development.md#pre-commit-hook); skipping the Jai format check")
         else:
             hook.say("jaifmt --check")
@@ -636,7 +640,9 @@ def check_rust(hook: Hook, rust: list[str]) -> None:
         if not spacing.is_file():
             hook_warn("tools/dev/rust_item_spacing.py not found; skipping the Rust item spacing check")
         else:
-            status, output = run_captured([sys.executable, str(spacing), "--check", *rust], cwd=hook.tmp)
+            # It runs in the export, so a relative PYTHONPATH from the caller would not find toolkit/.
+            env = dict(os.environ, PYTHONPATH=str(ROOT / "tools"))
+            status, output = run_captured([sys.executable, str(spacing), "--check", *rust], cwd=hook.tmp, env=env)
             if status:
                 hook.fail("python3 tools/dev/rust_item_spacing.py <files>", output.replace(f"{hook.tmp}/", ""))
 
