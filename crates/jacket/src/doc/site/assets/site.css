@@ -1,17 +1,17 @@
 /* Jacket API docs. Colours are custom properties; "system" follows the browser, the theme button picks light or dark. */
 :root {
-  --bg: #fafafa; --glass: rgba(250, 250, 250, 0.9); --surface: #fdfdfd; --sunken: #f3f3f5;
-  --fg: #2f2f35; --fg2: #56565e; --muted: #6a6a74; --border: #ebebee; --hair: #f1f1f3;
-  --link: #4a63c8; --accent: #4a63c8; --sel: #f0f2fa; --type: #36766f; --str: #8d6032; --kw: #70589f;
+  --bg: #fafafa; --glass: rgba(250, 250, 250, 0.94); --surface: #fdfdfd; --sunken: #f3f3f5;
+  --fg: #2f2f35; --fg2: #56565e; --muted: #696973; --border: #ebebee; --hair: #f1f1f3; --control: #8c8c8e;
+  --link: #4a63c8; --accent: #4860c4; --sel: #f0f2fa; --type: #36766f; --str: #8d6032; --kw: #70589f;
   --ok: #2f7d4d; --okbg: #f4f9f6; --err: #b3463d; --errbg: #fcf5f4; --shadow: rgba(24, 24, 27, 0.08);
-  --warn: #8a5a12; --warnbg: #fbf1dd; --foreign: #b3463d; --tint: 11%; --scroll: #dcdce0; --scroll-hover: #b8b8bf;
+  --warn: #8a5a12; --warnbg: #fbf1dd; --foreign: #b2453d; --tint: 11%; --scroll: #dcdce0; --scroll-hover: #b8b8bf;
   --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   color-scheme: light;
 }
 :root[data-theme="dark"] {
-  --bg: #1b1b1f; --glass: rgba(27, 27, 31, 0.88); --surface: #1e1e22; --sunken: #161619;
-  --fg: #d4d4d8; --fg2: #b0b0b8; --muted: #8f8f98; --border: #2a2a2f; --hair: #242428;
+  --bg: #1b1b1f; --glass: rgba(27, 27, 31, 0.9); --surface: #1e1e22; --sunken: #161619;
+  --fg: #d4d4d8; --fg2: #b0b0b8; --muted: #9b9ba3; --border: #2a2a2f; --hair: #242428; --control: #69696c;
   --link: #a1abf0; --accent: #8e99e6; --sel: #262a40; --type: #7fbfb3; --str: #cfae86; --kw: #ae9ddb;
   --ok: #6dc98f; --okbg: #1a2620; --err: #e5877f; --errbg: #2b2020; --shadow: rgba(0, 0, 0, 0.4);
   --warn: #e0b26a; --warnbg: #2e2619; --foreign: #ec8a80; --tint: 17%; --scroll: #38383e; --scroll-hover: #4c4c54;
@@ -19,8 +19,8 @@
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
-    --bg: #1b1b1f; --glass: rgba(27, 27, 31, 0.88); --surface: #1e1e22; --sunken: #161619;
-    --fg: #d4d4d8; --fg2: #b0b0b8; --muted: #8f8f98; --border: #2a2a2f; --hair: #242428;
+    --bg: #1b1b1f; --glass: rgba(27, 27, 31, 0.9); --surface: #1e1e22; --sunken: #161619;
+    --fg: #d4d4d8; --fg2: #b0b0b8; --muted: #9b9ba3; --border: #2a2a2f; --hair: #242428; --control: #69696c;
     --link: #a1abf0; --accent: #8e99e6; --sel: #262a40; --type: #7fbfb3; --str: #cfae86; --kw: #ae9ddb;
     --ok: #6dc98f; --okbg: #1a2620; --err: #e5877f; --errbg: #2b2020; --shadow: rgba(0, 0, 0, 0.4);
     --warn: #e0b26a; --warnbg: #2e2619; --foreign: #ec8a80; --tint: 17%; --scroll: #38383e; --scroll-hover: #4c4c54;
@@ -74,7 +74,7 @@ html:not(.js) .js-only { display: none !important; }
 .search-wrap { flex: 1 1 320px; position: relative; display: flex; justify-content: center; }
 .search { position: relative; width: 100%; max-width: 560px; }
 .search svg { position: absolute; left: 12px; top: 11px; color: var(--muted); pointer-events: none; }
-.search input { width: 100%; font-size: 14px; padding: 8px 40px 8px 36px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.search input { width: 100%; font-size: 14px; padding: 8px 40px 8px 36px; border: 1px solid var(--control); border-radius: 10px; background: var(--surface); }
 .search input:focus { border-color: var(--link); outline: none; box-shadow: 0 0 0 3px var(--sel); }
 kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; background: var(--sunken); }
 .search kbd { position: absolute; right: 10px; top: 7px; }
@@ -97,9 +97,6 @@ kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1p
 .site-nav a { color: var(--fg2); }
 .site-nav a[aria-current="page"] { color: var(--fg); }
 .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--fg2); cursor: pointer; }
-.icon-btn .i-light, .icon-btn .i-dark { display: none; }
-:root[data-theme="light"] .icon-btn .i-system, :root[data-theme="dark"] .icon-btn .i-system { display: none; }
-:root[data-theme="light"] .icon-btn .i-light, :root[data-theme="dark"] .icon-btn .i-dark { display: block; }
 
 /* Layout */
 .wrap { flex: 1 0 auto; width: 100%; max-width: 1400px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; gap: 0 56px; align-items: flex-start; }
@@ -117,7 +114,7 @@ kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1p
 .nav-cat { margin: 0; }
 .nav-cat > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; padding: 6px 10px; border-radius: 6px; color: var(--fg2); font-size: 13.5px; line-height: 1.5; }
 .nav-cat > summary::-webkit-details-marker { display: none; }
-.nav-cat > summary::after { content: ""; flex: none; width: 5px; height: 5px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); opacity: 0.7; transform: rotate(-45deg); transition: transform 0.18s ease-out; }
+.nav-cat > summary::after { content: ""; flex: none; width: 5px; height: 5px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); transform: rotate(-45deg); transition: transform 0.18s ease-out; }
 .nav-cat[open] > summary::after { transform: rotate(45deg); }
 .nav-cat > summary:hover { color: var(--fg); }
 .nav-cat > .nav-list { margin: 2px 0 10px 10px; padding-left: 8px; border-left: 1px solid var(--hair); font-size: 13px; }
@@ -202,7 +199,7 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 .toc li.items a { padding: 1px 12px 1px 24px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
 .toc li.sub + li.items a, .toc li.sub + li.items button { padding-left: 36px; }
 .js .toc li.items li.extra, .toc li.more[hidden] { display: none; }
-.toc li.more button { display: block; padding: 1px 12px 1px 24px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11.5px; opacity: 0.8; cursor: pointer; }
+.toc li.more button { display: block; padding: 1px 12px 1px 24px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11.5px; cursor: pointer; }
 .toc li.more button:hover { color: var(--fg); }
 .toc li a:hover { color: var(--fg); text-decoration: none; }
 .toc li a.active { color: var(--link); }
@@ -367,3 +364,24 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 .js .row > .members:not(.open) { max-height: 200px; }
 .row > .members + .fold-btn { margin: -22px auto 4px; }
 .row-head > a.muted { font-size: 12.5px; }
+
+/* Keyboard entry and narrow layouts retain visible focus and local overflow. */
+.skip { position: fixed; top: 8px; left: 8px; z-index: 20; padding: 8px 12px; color: var(--fg); background: var(--bg); border: 2px solid var(--link); transform: translateY(-200%); }
+.skip:focus { transform: none; }
+main { overflow-wrap: anywhere; }
+pre, table, .defs { max-width: 100%; overflow-x: auto; }
+.cards { grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); }
+.search-wrap, .search, .search input { min-width: 0; max-width: 100%; }
+:focus-visible { scroll-margin-top: 160px; }
+.ed textarea:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+.nav-list { list-style: none; margin: 0; padding: 0; }
+
+.toc li a, .toc li.more button, .site-nav a { min-height: 24px; }
+/* Text links and selected options have a cue in addition to colour. */
+main p a, main dd a, .prose a, .sig a, .sig-line a, main li a:not(.card):not(.pill) { text-decoration: underline; text-underline-offset: 3px; }
+#results .hit[aria-selected="true"] { outline: 2px solid var(--link); outline-offset: -2px; }
+.toc li a.active, .ver-menu a[aria-current="true"] { font-weight: 600; }
+h2 .anchor, h3 .anchor { display: inline-flex; min-width: 24px; min-height: 24px; align-items: center; justify-content: center; }
+.titlebar > a, .row-head > a { min-height: 24px; display: inline-flex; align-items: center; }

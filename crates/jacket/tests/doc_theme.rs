@@ -128,7 +128,7 @@ mod doc {
         assert!(run(&[]).status.success());
         assert_eq!(
             std::fs::read_to_string(temp.join("site/assets/site.css")).unwrap(),
-            "body{color:green}"
+            "body{color:green}\n"
         );
         assert_eq!(
             std::fs::read_to_string(temp.join("site/assets/extra.txt")).unwrap(),
@@ -147,7 +147,7 @@ mod doc {
         assert!(run(&["--theme", "flag-theme"]).status.success());
         assert_eq!(
             std::fs::read_to_string(temp.join("site/assets/site.css")).unwrap(),
-            "body{color:blue}"
+            "body{color:blue}\n"
         );
         temp.write("bad-theme/parts.jai", "this is not valid Jai");
         let compile_error = run(&["--theme", "bad-theme"]);
@@ -170,5 +170,132 @@ mod doc {
             message.contains("/missing/` leads to no written file"),
             "{message}"
         );
+    }
+
+    #[test]
+    fn heads_match_page_kinds_and_publication_version() {
+        let _serial = RUN
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let jacket = Path::new(env!("CARGO_BIN_EXE_jacket"));
+        if !jacket
+            .parent()
+            .unwrap()
+            .join(format!("jaic{}", std::env::consts::EXE_SUFFIX))
+            .is_file()
+        {
+            return;
+        }
+        let temp = TempDir::new("doc-metadata");
+        temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\nbreadcrumb='std'\nurl='https://example.com'\nsite_name='Tiny std'\nog_image='https://example.com/og.png'\ncanonical_version='2'\n[[doc.page]]\nfile='guide.md'\nname='Guide'\n");
+        temp.write(
+            "lib/String/module.jai",
+            "// Strings.\n\n// Trim & compare.\ntrim :: 42;\n",
+        );
+        temp.write("guide.md", "# Guide\n\nA short guide.\n");
+        let run = |version: &str| {
+            Command::new(jacket)
+                .args([
+                    "doc",
+                    "--version",
+                    version,
+                    "--out",
+                    "site",
+                    "--emit-input",
+                    "input",
+                ])
+                .current_dir(&temp)
+                .env("JAIC_STDLIB", repo.join("stdlib"))
+                .env("XDG_CACHE_HOME", temp.join("cache"))
+                .output()
+                .unwrap()
+        };
+        for version in ["2", "1"] {
+            let output = run(version);
+            assert!(
+                output.status.success(),
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let pages = [
+                ("index.html", "Tiny std"),
+                ("api/String/index.html", "String — Tiny std"),
+                ("api/String/trim/index.html", "String.trim — Tiny std"),
+                ("guides/index.html", "Guides — Tiny std"),
+                ("guides/guide/index.html", "Guide — Tiny std"),
+                ("404.html", "Page not found — Tiny std"),
+            ];
+            for (path, title) in pages {
+                let page = std::fs::read_to_string(temp.join("site").join(path)).unwrap();
+                let head = page.split_once("</head>").unwrap().0;
+                assert!(head.contains(&format!("<title>{title}</title>")), "{head}");
+                let description = head
+                    .split_once("name=\"description\" content=\"")
+                    .unwrap()
+                    .1
+                    .split('"')
+                    .next()
+                    .unwrap();
+                assert!(description.chars().count() <= 155);
+                assert!(!description.contains(['<', '>']));
+                for property in [
+                    "og:title",
+                    "og:description",
+                    "og:site_name",
+                    "og:type",
+                    "og:url",
+                    "og:image",
+                ] {
+                    assert!(head.contains(property), "{path}: {property}");
+                }
+                assert!(head.contains("summary_large_image"));
+                assert!(head.contains("rel=\"icon\""));
+                assert_eq!(
+                    head.contains("content=\"noindex\""),
+                    version == "1" || path == "404.html"
+                );
+                let folder = path.strip_suffix("index.html").unwrap_or(path);
+                let target = if version == "1" {
+                    format!("https://example.com/versions/2/{folder}")
+                } else {
+                    format!("https://example.com/{folder}")
+                };
+                // A 404 is served at many URLs, so it has no canonical one.
+                assert_eq!(
+                    head.contains(&format!("rel=\"canonical\" href=\"{target}\"")),
+                    path != "404.html"
+                );
+                if let Some((_, json)) = head.split_once("application/ld+json\">") {
+                    let data: serde_json::Value =
+                        serde_json::from_str(json.split_once("</script>").unwrap().0).unwrap();
+                    let breadcrumbs = data
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|d| d["@type"] == "BreadcrumbList")
+                        .unwrap();
+                    assert_eq!(breadcrumbs["itemListElement"][0]["name"], "std");
+                    assert_eq!(breadcrumbs["itemListElement"][1]["name"], "String");
+                    if path.contains("/trim/") {
+                        assert_eq!(data[0]["@type"], "TechArticle");
+                        assert_eq!(breadcrumbs["itemListElement"][2]["name"], "trim");
+                    }
+                }
+                if path == "404.html" {
+                    // Absolute from the base URL, so it works at any depth on any host.
+                    assert!(page.contains("href=\"/api/String/\""));
+                    assert!(!page.contains("href=\"https://example.com/api/"));
+                }
+            }
+            let sitemap = std::fs::read_to_string(temp.join("site/sitemap.xml")).unwrap();
+            assert!(sitemap.contains("https://example.com/api/String/trim/"));
+            assert!(!sitemap.contains("404.html"));
+            assert_eq!(
+                std::fs::read_to_string(temp.join("site/robots.txt")).unwrap(),
+                "Sitemap: https://example.com/sitemap.xml\n"
+            );
+        }
     }
 }

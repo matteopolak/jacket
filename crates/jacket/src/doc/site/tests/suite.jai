@@ -26,6 +26,8 @@ the_experimental_badge_is_beside_what_is_tagged :: () {
         free_json(*moving);
         free_json(*steady);
     }
+    // main.jai stamps asset URLs; the fixture has none.
+    site.categories_url = copy_string("/assets/categories.css?v=00000000");
     a := render(*site, *moving.page, *moving);
     b := render(*site, *steady.page, *steady);
     tagged := render(*site, *moving.items[0], *moving);
@@ -54,6 +56,8 @@ a_category_badge_marks_its_modules_and_their_items :: () {
         free_json(*moving);
         free_json(*steady);
     }
+    // main.jai stamps asset URLs; the fixture has none.
+    site.categories_url = copy_string("/assets/categories.css?v=00000000");
     a := render(*site, *moving.page, *moving);
     item := render(*site, *moving.items[1], *moving);
     b := render(*site, *steady.page, *steady);
@@ -70,7 +74,11 @@ a_category_badge_marks_its_modules_and_their_items :: () {
     expect(!contains(b, badge));
     expect(contains(home, "Moving<span class=\"badge exp sm\""));
     expect(contains(home, "<span class=\"badge cat-1 sm\""));
-    expect(contains(home, ".cat-1{--c:#1f7a8c}"));
+    expect(contains(home, "<link rel=\"stylesheet\" href=\"/assets/categories.css?v=00000000\">"));
+    colors: Out;
+    defer deinit(*colors);
+    CategoryStyle(*colors, *site);
+    expect(contains(to_string(*colors), ".cat-1{--c:#1f7a8c}"));
     expect(contains(home, "<h2 class=\"section\">Extensions</h2>"));
 } @test
 

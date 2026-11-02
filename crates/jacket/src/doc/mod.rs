@@ -8,6 +8,7 @@ mod categories;
 mod example;
 mod highlight;
 mod markdown;
+mod metadata;
 mod model;
 mod search;
 mod since;
@@ -489,22 +490,36 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             let prefix = git_state(&config_dir).map(|g| g.prefix).unwrap_or_default();
             guides = view::guide::pages(&site, &mut shared, &config_dir, &prefix, &doc.page)?;
         }
+        let metadata::Publication {
+            metadata,
+            mut urls,
+            image_file,
+        } = metadata::prepare(args, &doc, &config_dir, cwd, &site, &mut shared)?;
         let mut items = 0;
         for mi in 0..site.modules.len() {
-            let module = view::module(&site, mi);
+            let mut module = view::module(&site, mi);
+            metadata.apply(&mut module.page);
+            urls.push(metadata.url(&module.page.path, false));
+            for page in &mut module.items {
+                metadata.apply(page);
+                urls.push(metadata.url(&page.path, false));
+            }
             items += module.items.len();
             let file = format!("modules/{mi}.json");
             input.push((file.clone(), json_bytes(&module)?));
             shared.module_files.push(file);
         }
-        for (n, guide) in guides.iter().enumerate() {
+        for (n, guide) in guides.iter_mut().enumerate() {
+            metadata.apply(guide);
+            urls.push(metadata.url(&guide.path, false));
             let file = format!("guides/{n}.json");
             input.push((file.clone(), json_bytes(guide)?));
             shared.guide_files.push(file);
         }
         let view_elapsed = view_start.elapsed();
         let examples = site.examples();
-        let files = auxiliary_files(&site, logo, &version, &examples);
+        let mut files = auxiliary_files(&site, logo, &version, &examples);
+        files.extend(metadata.files(&urls, image_file));
         shared.written_files = files.iter().map(|(path, _)| path.clone()).collect();
         if site.runtime {
             shared

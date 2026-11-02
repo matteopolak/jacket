@@ -85,6 +85,15 @@ jobs:
           VERSION: ${{ steps.pick.outputs.version }}
           REF: ${{ inputs.source_ref || steps.pick.outputs.ref }}
         run: target/release/jacket doc --base-url / --version "$VERSION" --source-ref "$REF" --playground-url https://matteopolak.com/playground/jacket --runtime target/doc-runtime --out target/doc-site
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24'}
+      - name: Check documentation accessibility
+        run: |
+          PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py
+          python3 -m http.server 8000 --directory target/doc-site &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID"' EXIT
+          node tools/dev/doc_a11y.mjs http://127.0.0.1:8000/
       - name: Pack it for the release
         if: inputs.pack
         env:

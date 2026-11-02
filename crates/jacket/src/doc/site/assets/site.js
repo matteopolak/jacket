@@ -16,6 +16,8 @@
     var text = 'Theme: ' + theme() + ' (click to change)';
     themeButton.setAttribute('aria-label', text);
     themeButton.title = text;
+    var icon = document.querySelector('#theme-icon use');
+    if (icon) icon.setAttribute('href', base + 'assets/icons.svg#' + theme());
   }
   if (themeButton) {
     labelTheme();
@@ -29,7 +31,7 @@
     });
   }
 
-  // The side navigation starts closed on a phone. On a wide screen an inline script right after
+  // The side navigation starts closed on a phone. On a wide screen the blocking script right after
   // it has already put it back where it was. Its place and open groups are kept for the next page.
   var side = document.querySelector('details.side');
   if (side) {
@@ -43,6 +45,13 @@
     });
   }
 
+  Array.prototype.forEach.call(document.querySelectorAll('.nav-cat'), function (d, i) {
+    var summary = d.querySelector('summary'), list = d.querySelector('.nav-list');
+    list.id = 'nav-group-' + i; summary.setAttribute('aria-controls', list.id);
+    function state() { summary.setAttribute('aria-expanded', String(d.open)); }
+    d.addEventListener('toggle', state); state();
+  });
+
   // The outline on the right marks the heading being read.
   var toc = document.querySelectorAll('.toc a[href^="#"]');
   if (toc.length) {
@@ -52,9 +61,10 @@
     var pending = false;
     var mark = function () {
       pending = false;
+      if (!marks.length) return;
       var now = marks[0];
       marks.forEach(function (m) { if (m.h.getBoundingClientRect().top <= 100) now = m; });
-      marks.forEach(function (m) { m.a.classList.toggle('active', m === now); });
+      marks.forEach(function (m) { m.a.classList.toggle('active', m === now); if (m === now) m.a.setAttribute('aria-current', 'location'); else m.a.removeAttribute('aria-current'); });
       if (now === shown) return;
       shown = now;
       // The list of items the reader is in (or the one right below its heading) shows a few
@@ -74,7 +84,7 @@
           if (out) hidden++;
         });
         var more = l.querySelector('li.more');
-        if (more) { more.hidden = !hidden; more.firstChild.textContent = 'Show all ' + rows.length; }
+        if (more) { more.hidden = !hidden && !all; more.firstChild.textContent = all ? 'Show fewer' : 'Show all ' + rows.length; }
       });
       var rail = document.querySelector('.toc');
       var a = now.a.getBoundingClientRect(), r = rail.getBoundingClientRect();
@@ -82,9 +92,13 @@
     };
     var shown = null;
     Array.prototype.forEach.call(document.querySelectorAll('.toc li.more button'), function (b) {
+      var list = b.closest('li.items').querySelector('ul'); list.id = 'outline-list-' + Array.prototype.indexOf.call(document.querySelectorAll('.toc li.more button'), b);
+      b.setAttribute('aria-controls', list.id); b.setAttribute('aria-expanded', 'false');
       b.addEventListener('click', function () {
         var l = b.closest('li.items');
-        l.setAttribute('data-pinned', '');
+        var expanded = !l.hasAttribute('data-pinned');
+        if (expanded) l.setAttribute('data-pinned', ''); else l.removeAttribute('data-pinned');
+        b.setAttribute('aria-expanded', String(expanded));
         shown = null;
         mark();
       });
@@ -110,7 +124,7 @@
     var d = el('span', 'dot ' + cls, '');
     d.title = label;
     d.setAttribute('role', 'img');
-    d.setAttribute('aria-label', label);
+    d.setAttribute('aria-label', label); d.appendChild(el('span', 'sr', label));
     return d;
   }
   function hrefOf(it) {
@@ -217,8 +231,7 @@
       var t = m[0];
       if (m[1] !== undefined) {
         flush();
-        var a = el('a', 'ty', m[2]);
-        a.href = base + 'api/' + m[1] + '/';
+        var a = el('span', 'ty', m[2]);
         out.appendChild(a);
         prev = m[2];
         continue;
@@ -238,15 +251,15 @@
   function show() {
     box.textContent = '';
     if (!hits.length) {
-      box.appendChild(el('div', 'empty', 'No matches.'));
+      var empty = el('div', 'empty', 'No matches.'); empty.setAttribute('role', 'option'); empty.setAttribute('aria-disabled', 'true'); box.appendChild(empty);
     }
     hits.forEach(function (it, i) {
       var a = el('div', 'hit');
       a.id = 'hit-' + i;
       a.setAttribute('role', 'option');
       a.setAttribute('aria-selected', i === picked ? 'true' : 'false');
-      var name = el('a', 'path', it.kind === 'module' ? it.title : it.title + '.' + it.name);
-      name.href = hrefOf(it);
+      var name = el('span', 'path', it.kind === 'module' ? it.title : it.title + '.' + it.name);
+      a.setAttribute('aria-label', (it.kind === 'module' ? it.title : it.title + '.' + it.name) + ': ' + it.summary);
       a.appendChild(el('code', '', '')).appendChild(name);
       // Flags are dots here, coloured like the badges on the pages; the word is the tooltip.
       if (it.native) a.appendChild(dot('foreign', 'Foreign: a binding to a native library'));
@@ -261,7 +274,7 @@
     });
     var tips = el('div', 'tips');
     ['↑↓ to move', '↵ to open', 'type -> bool to search by return type'].forEach(function (t) { tips.appendChild(el('span', '', t)); });
-    box.appendChild(tips);
+    tips.setAttribute('role', 'option'); tips.setAttribute('aria-disabled', 'true'); box.appendChild(tips);
     box.hidden = false;
     input.setAttribute('aria-expanded', 'true');
     if (picked >= 0) input.setAttribute('aria-activedescendant', 'hit-' + picked); else input.removeAttribute('aria-activedescendant');
@@ -273,7 +286,7 @@
   }
   function update() {
     var q = input.value.trim();
-    if (!q) { hide(); return; }
+    if (!q) { hits = []; picked = -1; hide(); return; }
     load().then(function () {
       if (input.value.trim() !== q) return;
       hits = (q.indexOf('->') >= 0 ? bySignature(q) : byName(q)).slice(0, 12);
@@ -293,7 +306,7 @@
       } else if (e.key === 'Enter') {
         if (picked >= 0 && hits[picked]) { e.preventDefault(); window.location.href = hrefOf(hits[picked]); }
       } else if (e.key === 'Escape') {
-        if (!box.hidden) hide(); else input.blur();
+        e.preventDefault(); hide();
       }
     });
     box.addEventListener('click', function (e) {
@@ -320,7 +333,7 @@
   function runtimeUrls() {
     if (!runtime) {
       runtime = fetch(base + 'runtime.json').then(function (r) { return r.json(); }).then(function (c) {
-        return { engine: new URL(c.engine, location.origin + base).href, wasm: new URL(c.wasm, location.origin + base).href };
+        return { engine: new URL(c.engine, new URL(base, location.href).href).href, wasm: new URL(c.wasm, new URL(base, location.href).href).href };
       });
     }
     return runtime;
@@ -554,7 +567,7 @@
         opened = true;
       }
     }
-    if (opened) target.scrollIntoView();
+    if (opened) target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: no-preference)').matches ? 'smooth' : 'instant' });
   }
   window.addEventListener('hashchange', openTarget);
   openTarget();
@@ -569,26 +582,58 @@
       var current = btn.textContent.trim();
       list.forEach(function (v) {
         var a = document.createElement('a');
-        a.href = new URL(v.url, listUrl).href; a.textContent = v.version; a.setAttribute('role', 'menuitem');
+        a.href = new URL(v.url, listUrl).href; a.textContent = v.version; a.setAttribute('role', 'menuitem'); a.tabIndex = -1;
         if (v.version === current) a.setAttribute('aria-current', 'true');
         menu.appendChild(a);
       });
       btn.disabled = false;
     }).catch(function () {});
     function set(open) { menu.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
-    btn.addEventListener('click', function (e) { e.stopPropagation(); set(menu.hidden); });
+    function openAt(last) { set(true); var links = menu.querySelectorAll('a'); if (links.length) links[last ? links.length - 1 : 0].focus(); }
+    btn.addEventListener('click', function (e) { e.stopPropagation(); if (menu.hidden) openAt(false); else set(false); });
+    btn.addEventListener('keydown', function (e) {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].indexOf(e.key) < 0) return;
+      e.preventDefault(); openAt(e.key === 'ArrowUp');
+    });
+    menu.addEventListener('keydown', function (e) {
+      if (e.key === ' ') { e.preventDefault(); document.activeElement.click(); return; }
+      var links = Array.prototype.slice.call(menu.querySelectorAll('a'));
+      var i = links.indexOf(document.activeElement);
+      if (e.key === 'Tab') { set(false); btn.focus(); return; }
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].indexOf(e.key) < 0) return;
+      e.preventDefault();
+      var n = e.key === 'Home' ? 0 : e.key === 'End' ? links.length - 1 : (i + (e.key === 'ArrowUp' ? -1 : 1) + links.length) % links.length;
+      links[n].focus();
+    });
     document.addEventListener('click', function (e) { if (!menu.contains(e.target)) set(false); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) { set(false); btn.focus(); } });
   })();
 
-  // A long block (.fold) shows its top, faded, with a button that expands it for good. CSS folds
-  // every block from the first paint; the inline fold() at the end of each one opened those that fit.
+  // A code block wider than its column scrolls on its own; give it a tab stop so the keyboard
+  // can scroll it too.
+  function scrollable() {
+    Array.prototype.forEach.call(document.querySelectorAll('main pre'), function (pre) {
+      if (pre.scrollWidth > pre.clientWidth) pre.tabIndex = 0; else pre.removeAttribute('tabindex');
+    });
+  }
+  scrollable();
+  window.addEventListener('resize', scrollable);
+
+  // Long blocks have a preview and a disclosure button; focus moving into the clipped part
+  // opens the block, so a focused link is never hidden. The early fold() script already
+  // opened blocks that fit.
   Array.prototype.forEach.call(document.querySelectorAll('.fold:not(.open)'), function (fold) {
     var btn = el('button', 'btn fold-btn', 'Show more');
+    if (!fold.id) fold.id = 'fold-' + Array.prototype.indexOf.call(document.querySelectorAll('.fold'), fold);
+    btn.setAttribute('aria-controls', fold.id); btn.setAttribute('aria-expanded', 'false');
     btn.type = 'button';
     btn.addEventListener('click', function () {
-      fold.classList.add('open');
-      btn.remove();
+      var open = fold.classList.toggle('open');
+      btn.setAttribute('aria-expanded', String(open)); btn.textContent = open ? 'Show less' : 'Show more';
+    });
+    fold.addEventListener('focusin', function () {
+      if (fold.classList.contains('open')) return;
+      fold.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); btn.textContent = 'Show less';
     });
     fold.after(btn);
   });

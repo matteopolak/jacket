@@ -10,10 +10,14 @@ use super::{
 };
 
 pub(super) fn blocks(site: &Site, md: &str, from: &str) -> Vec<Segment> {
+    blocks_at(site, md, from, 2)
+}
+
+fn blocks_at(site: &Site, md: &str, from: &str, shift: usize) -> Vec<Segment> {
     markdown::segments(
         md,
         &Settings {
-            heading_shift: 2,
+            heading_shift: shift,
             heading_ids: false,
             link: &|d| site.doc_link(d, from),
         },
@@ -207,8 +211,11 @@ pub fn site(site: &Site) -> SiteView {
         nav: nav(site, None),
         guides: Vec::new(),
         guides_index: None,
+        not_found: None,
         index: PageView {
-            title: site.title("API documentation"),
+            head_html: String::new(),
+            not_found: false,
+            title: site.name.clone(),
             description: site.description.clone(),
             path: String::new(),
             side_label: "Modules".into(),
@@ -484,8 +491,8 @@ fn group(
 
 pub fn module(site: &Site, mi: usize) -> ModuleView {
     let m = &site.modules[mi];
-    let mut segs = blocks(site, &m.docs, &m.id);
-    let description = lead(&segs).map_or_else(String::new, |(_, h)| clip(&plain(&h), 160));
+    let mut segs = blocks_at(site, &m.docs, &m.id, 1);
+    let description = lead(&segs).map_or_else(String::new, |(_, h)| h);
     let mut first = true;
     for s in &mut segs {
         if let Segment::Html(h) = s
@@ -629,7 +636,9 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
     ModuleView {
         id: m.id.clone(),
         page: PageView {
-            title: site.title(m.title()),
+            head_html: String::new(),
+            not_found: false,
+            title: site.title(&m.id.replace('/', ".")),
             description,
             path: Site::module_path(&m.id),
             side_label: "Modules".into(),
@@ -789,7 +798,7 @@ fn see_also(site: &Site, mi: usize, item: &Item, same: &[&Item], at: usize) -> V
 fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usize) -> PageView {
     let m = &site.modules[mi];
     let from = format!("{}.{}", m.id, item.name);
-    let own = blocks(site, &item.docs, &from);
+    let own = blocks_at(site, &item.docs, &from, 1);
     let (file, line) = docs_place(item);
     let lead_owner = lead(&own).is_some();
     let summary_segs = if lead_owner {
@@ -865,8 +874,10 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
         "Constants".into()
     };
     PageView {
-        title: site.title(&format!("{}.{}", m.title(), item.name)),
-        description: clip(&plain(&summary_html), 160),
+        head_html: String::new(),
+        not_found: false,
+        title: site.title(&format!("{}.{}", m.id.replace('/', "."), item.name)),
+        description: summary_html.clone(),
         path: site.item_path(&m.id, &item.name),
         side_label: format!("{} module", m.title()),
         sidebar: Sidebar::Item {

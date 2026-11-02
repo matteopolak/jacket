@@ -11,6 +11,7 @@ callers, so a docs-only change cannot make the index stale.
 
 There is deliberately no single front-door script: job selection (docs/tools/ci-job-selection.md) reads the
 script paths out of the workflows' `run:` lines, and one front door would hide them.
+
 """
 
 import argparse
@@ -42,6 +43,14 @@ Docs do not count.
 
 There is no single front-door script on purpose: CI job selection reads script paths out of the workflows, and one
 front door would hide them.
+
+`node tools/dev/doc_a11y.mjs http://127.0.0.1:8000/` checks a served documentation site with
+hash-pinned axe-core and installed Chrome (`CHROME_PATH` overrides discovery). It checks six page kinds
+in both themes at desktop and 320px widths. `PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py`
+checks palette contrast. Both run in the documentation publishing workflow.
+
+`node editors/vscode/scripts/build.ts doc-image` regenerates the documentation social PNG with the
+extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 """
 
 

@@ -579,6 +579,8 @@ Arguments:
   [PATH]  A library to document: a module (a folder with `module.jai`) or a folder of modules. Settings come from `[doc]` in its `jacket.toml` [default: `[doc] path` of the nearest `jacket.toml`, else the standard library]
 
 Options:
+      --site-url <URL>        Canonical site origin, over `[doc] url`
+      --og-image <IMAGE>      Social preview image URL or file, over `[doc] og_image`
       --out <DIR>             Where to write the site [default: target/doc-site]
       --emit-input <DIR>      Also write the resolved JSON view model (including with --check)
       --theme <DIR>           Theme source overrides, over `[doc] theme`; relative to the current directory

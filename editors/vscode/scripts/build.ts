@@ -3,6 +3,7 @@
 //   node scripts/build.ts icon [--check]      images/icon.{svg,png} and the two file icons, from one glyph:
 //                                             the playground's Jai file icon, a rounded tile with a `J` cut
 //                                             out (16x16 units, even-odd fill); PNG rendered with resvg
+//   node scripts/build.ts doc-image [--check]  1200×630 documentation social image from images/icon.svg
 //   node scripts/build.ts schemas [--check]   schemas/jacket.schema.json from jailint's
 //                                             rules (crates/jailint/src/rules) and the keys the
 //                                             config parsers accept, so a new rule or key is completed and
@@ -82,6 +83,18 @@ async function icon(check: boolean) {
     writeFileSync(join(root, "images/icon.png"), png);
     console.log(`icon colour ${oklchToHex(ICON)}; wrote ${Object.keys(iconFiles).join(", ")}, images/icon.png`);
   }
+}
+
+async function docImage(check: boolean) {
+  const { Resvg } = await import("@resvg/resvg-js");
+  const logo = readFileSync(join(root, "images/icon.svg"), "utf8");
+  const centered = logo.replace('<svg ', '<svg x="440" y="155" ').replace('width="16" height="16"', 'width="320" height="320"');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="#1b1b1f"/>${centered}</svg>`;
+  const png = new Resvg(svg).render().asPng();
+  const file = join(root, "images/doc-og.png");
+  if (check) {
+    if (!readFileSync(file).equals(png)) { console.error("images/doc-og.png is stale"); process.exitCode = 1; }
+  } else writeFileSync(file, png);
 }
 
 // ---- schemas ---------------------------------------------------------------------------------
@@ -336,9 +349,10 @@ function license() {
 const [command, ...flags] = process.argv.slice(2);
 const check = flags.includes("--check");
 if (command === "icon") await icon(check);
+else if (command === "doc-image") await docImage(check);
 else if (command === "schemas") schemas(check);
 else if (command === "license") license();
 else {
-  console.error("usage: node scripts/build.ts icon|schemas [--check] | license");
+  console.error("usage: node scripts/build.ts icon|doc-image|schemas [--check] | license");
   process.exit(2);
 }

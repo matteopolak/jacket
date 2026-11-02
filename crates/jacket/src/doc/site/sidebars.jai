@@ -1,6 +1,6 @@
 NavLink :: (out: *Out, link: *Nav_Link) {
     html(out, #string HTML
-<a href="{esc(link.href)}"{if link.title} title="{esc(link.title.*)}"{end}{if link.depth > 0} style="--depth:{link.depth}"{end}{if link.current} aria-current="page"{end}>{esc(link.label)}{ExperimentalDot(link.experimental)}</a>
+<li><a href="{esc(link.href)}"{if link.title} title="{esc(link.title.*)}"{end}{if link.depth > 0} style="--depth:{link.depth}"{end}{if link.current} aria-current="page"{end}>{esc(link.label)}{ExperimentalDot(link.experimental)}</a></li>
 HTML
     );
 }
@@ -9,11 +9,11 @@ RenderSidebar :: (out: *Out, side: *Sidebar_Modules) {
     html(out, #run trim(#string HTML
 {for c: side.categories}{if c.label.count}<div class="nav-h">{esc(c.label)}</div>
 {end}{for g: c.groups}{if g.label.count}<details class="nav-cat" data-key="{esc(g.key)}"{if g.open} open{end}><summary>{esc(g.label)}</summary>
-<div class="nav-list">
-{for link: g.links}{NavLink(*link)}{end}</div>
+<ul class="nav-list">
+{for link: g.links}{NavLink(*link)}{end}</ul>
 </details>
-{else}<div class="nav-list">
-{for link: g.links}{NavLink(*link)}{end}</div>
+{else}<ul class="nav-list">
+{for link: g.links}{NavLink(*link)}{end}</ul>
 {end}{end}{end}
 HTML
     ));
@@ -23,19 +23,19 @@ RenderSidebar :: (out: *Out, side: *Sidebar_Item, module: *Module_View) {
     html(out, #run trim(#string HTML
 <a class="back" href="{esc(side.back.href)}">&larr; {esc(side.back.label)}</a>
 <div class="nav-h">{esc(side.heading)}</div>
-<div class="nav-list mono">
-{ItemNav(side, module)}</div>
+<ul class="nav-list mono">
+{ItemNav(side, module)}</ul>
 {if side.anchors.count}<div class="nav-h">On this page</div>
-<div class="nav-list">
-{for a: side.anchors}<a href="{esc(a.href)}">{esc(a.label)}</a>
-{end}</div>
+<ul class="nav-list">
+{for a: side.anchors}<li><a href="{esc(a.href)}">{esc(a.label)}</a></li>
+{end}</ul>
 {end}
 HTML
     ));
 }
 
 RenderSidebar :: (out: *Out, side: *Sidebar_Guides) {
-    html(out, "<div class=\"nav-h\">{esc(side.heading)}</div>\n<div class=\"nav-list\">\n{for link: side.links}{NavLink(*link)}{end}</div>\n");
+    html(out, "<div class=\"nav-h\">{esc(side.heading)}</div>\n<ul class=\"nav-list\">\n{for link: side.links}{NavLink(*link)}{end}</ul>\n");
 }
 
 RenderOutline :: (out: *Out, entries: [] Outline) {
@@ -60,7 +60,7 @@ HTML
 }
 
 PageToc :: (out: *Out, view: *Page_View) {
-    html(out, "{if view.outline.count}<aside class=\"toc\" aria-label=\"On this page\">\n{RenderOutline(view.outline)}</aside>\n{end}");
+    html(out, "{if view.outline.count}<nav class=\"toc\" aria-label=\"On this page\">\n{RenderOutline(view.outline)}</nav>\n{end}");
 }
 
 ItemNav :: (out: *Out, side: *Sidebar_Item, module: *Module_View) {

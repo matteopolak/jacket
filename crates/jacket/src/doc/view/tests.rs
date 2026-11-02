@@ -232,6 +232,7 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
             "module_files",
             "name",
             "nav",
+            "not_found",
             "repo",
             "resolve_links",
             "version",

@@ -49,11 +49,27 @@ pub fn plain(html: &str) -> String {
             _ => {}
         }
     }
-    out.replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&amp;", "&")
+    let mut decoded = String::new();
+    let mut rest = out.as_str();
+    while let Some(at) = rest.find('&') {
+        decoded.push_str(&rest[..at]);
+        rest = &rest[at..];
+        if let Some(end) = rest.find(';').filter(|&n| n <= 32) {
+            let entity = &rest[..=end];
+            // CommonMark decodes the full HTML named/numeric entity table.
+            for event in pulldown_cmark::Parser::new(entity) {
+                if let pulldown_cmark::Event::Text(text) = event {
+                    decoded.push_str(&text);
+                }
+            }
+            rest = &rest[end + 1..];
+        } else {
+            decoded.push('&');
+            rest = &rest[1..];
+        }
+    }
+    decoded.push_str(rest);
+    decoded
 }
 
 fn level(shift: usize, base: HeadingLevel) -> HeadingLevel {

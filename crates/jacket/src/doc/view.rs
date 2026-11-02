@@ -19,6 +19,7 @@ pub struct SiteView {
     pub guides: Vec<GuideLink>,
     pub index: PageView,
     pub guides_index: Option<PageView>,
+    pub not_found: Option<PageView>,
     pub module_files: Vec<String>,
     pub guide_files: Vec<String>,
     pub written_files: Vec<String>,
@@ -68,6 +69,8 @@ pub struct ModuleView {
 
 #[derive(Serialize)]
 pub struct PageView {
+    pub head_html: String,
+    pub not_found: bool,
     pub title: String,
     pub description: String,
     pub path: String,

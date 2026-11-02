@@ -186,6 +186,8 @@ paths = ["stdlib/**"]
 
 # `jacket doc` with no path documents this. Patterns match module folders, as elsewhere here.
 [doc]
+url = "https://jacket.matteopolak.com"
+og_image = "editors/vscode/images/doc-og.png"
 path = "stdlib"
 name = "Jacket"
 breadcrumb = "std"
@@ -205,7 +207,7 @@ name = "Extensions"
 modules = ["stdlib/Extensions/**"]
 badge = "extension"
 tip = "Extension: not part of the standard library"
-color = "#1f7a8c"
+color = "#1d7282"
 color_dark = "#6cc4d4"
 
 [[doc.page]]

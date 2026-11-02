@@ -366,6 +366,18 @@ pub struct Experimental {
 /// The site `jacket doc` writes. Paths and patterns are relative to the file.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Doc {
+    /// Canonical origin of the published site.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    /// Social preview image: a URL or a file relative to jacket.toml.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub og_image: Option<String>,
+    /// Social site name; defaults to name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site_name: Option<String>,
+    /// Preferred version; other versions use noindex.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canonical_version: Option<String>,
     /// Theme files that replace or extend the embedded documentation theme, relative to jacket.toml.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
@@ -629,6 +641,10 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "profile",
         ],
         "doc" => &[
+            "url",
+            "og_image",
+            "site_name",
+            "canonical_version",
             "theme",
             "path",
             "name",

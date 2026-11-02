@@ -23,14 +23,70 @@ pub struct Layout {
     pub of: Vec<(Option<usize>, String)>,
 }
 
-/// Whether `color` is safe to put in a stylesheet: a `#` hex colour or a plain name.
-fn plain_color(color: &str) -> bool {
-    match color.strip_prefix('#') {
-        Some(hex) => {
-            matches!(hex.len(), 3 | 4 | 6 | 8) && hex.chars().all(|c| c.is_ascii_hexdigit())
+/// CSS named colours from <https://www.w3.org/TR/css-color-4/#named-colors>.
+/// Alpha colours are composited against the page before calculating relative luminance.
+fn channels(color: &str) -> Option<[f64; 4]> {
+    let named;
+    let hex = if let Some(hex) = color.strip_prefix('#') {
+        hex
+    } else {
+        named = color.to_ascii_lowercase();
+        if named == "transparent" {
+            return Some([0.0; 4]);
         }
-        None => !color.is_empty() && color.chars().all(|c| c.is_ascii_alphabetic()),
+        include_str!("categories/colors.tsv")
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once('\t')?;
+                (name == named).then_some(&value[1..])
+            })?
+    };
+    if !matches!(hex.len(), 3 | 4 | 6 | 8) || !hex.is_ascii() {
+        return None;
     }
+    let mut rgba = [1.0; 4];
+    let width = if hex.len() <= 4 {
+        1
+    } else {
+        2
+    };
+    for (i, value) in rgba.iter_mut().enumerate().take(hex.len() / width) {
+        let n = u8::from_str_radix(&hex[i * width..(i + 1) * width], 16).ok()?;
+        *value = f64::from(n)
+            / if width == 1 {
+                15.0
+            } else {
+                255.0
+            };
+    }
+    Some(rgba)
+}
+
+fn luminance(rgb: &[f64]) -> f64 {
+    rgb.iter()
+        .zip([0.2126, 0.7152, 0.0722])
+        .map(|(&v, weight)| {
+            weight
+                * if v <= 0.04045 {
+                    v / 12.92
+                } else {
+                    ((v + 0.055) / 1.055).powf(2.4)
+                }
+        })
+        .sum()
+}
+
+fn contrast(color: &str, background: &str) -> Option<f64> {
+    let color = channels(color)?;
+    let bg = channels(background)?;
+    let rgb: Vec<_> = color[..3]
+        .iter()
+        .zip(bg)
+        .map(|(&c, b)| c * color[3] + b * (1.0 - color[3]))
+        .collect();
+    let a = luminance(&rgb);
+    let b = luminance(&bg[..3]);
+    Some((a.max(b) + 0.05) / (a.min(b) + 0.05))
 }
 
 /// The index of the last entry whose patterns match `folder`.
@@ -58,12 +114,22 @@ pub fn layout(
         let mut color = c.color.clone().unwrap_or_default();
         let mut color_dark = c.color_dark.clone().unwrap_or_else(|| color.clone());
         for (key, value) in [("color", &mut color), ("color_dark", &mut color_dark)] {
-            if !value.is_empty() && !plain_color(value) {
+            if !value.is_empty() && channels(value).is_none() {
                 problems.push(format!(
                     "category `{}`: `{key}` `{value}` is not a `#rrggbb` colour or a colour name",
                     c.name
                 ));
                 value.clear();
+            }
+        }
+        for (key, value, bg) in [
+            ("color", &color, "#fafafa"),
+            ("color_dark", &color_dark, "#1b1b1f"),
+        ] {
+            if let Some(ratio) = contrast(value, bg)
+                && ratio < 4.5
+            {
+                problems.push(format!("category `{}`: `{key}` `{value}` has contrast {ratio:.3}:1 against {bg}; needs 4.5:1", c.name));
             }
         }
         out.push(Category {
@@ -178,6 +244,23 @@ mod tests {
         let ids = strings(&["Android", "Android/Toolchain"]);
         let l = layout(&[], &[group("Platform", &["Android"])], &ids, &ids).unwrap();
         assert_eq!(l.of[1].1, "Platform");
+    }
+
+    #[test]
+    fn contrast_checks_hex_names_and_alpha() {
+        assert!((contrast("black", "#ffffff").unwrap() - 21.0).abs() < 0.001);
+        assert_eq!(contrast("#0000", "#ffffff"), Some(1.0));
+        assert!(contrast("#123f", "#fafafa").unwrap() > 4.5);
+        assert!(contrast("LightGoldenRodYellow", "#fafafa").unwrap() < 4.5);
+        assert_eq!(channels("madeup"), None);
+        let mut c = category("X", &["A"]);
+        c.color = Some("#fff".into());
+        c.color_dark = Some("#000".into());
+        let error = layout(&[c], &[], &strings(&["A"]), &strings(&["A"]))
+            .err()
+            .unwrap();
+        assert!(error.contains("1.044:1"), "{error}");
+        assert!(error.contains("color_dark"), "{error}");
     }
 
     #[test]

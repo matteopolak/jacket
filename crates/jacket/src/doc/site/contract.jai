@@ -15,8 +15,11 @@ Site_View :: struct {
     guides: [] Guide_Link;
     index: Page_View;
     guides_index: *Page_View;
+    not_found: *Page_View; @json(default)
     css_url: string; @json(default)
     script_url: string; @json(default)
+    categories_url: string; @json(default)
+    sidebar_url: string; @json(default)
     footer_version: string;
     module_files: [] string;
     guide_files: [] string;
@@ -61,6 +64,8 @@ Module_View :: struct {
 
 Page_View :: struct {
     title: string;
+    head_html: string; @json(default)
+    not_found: bool; @json(default)
     description: string;
     path: string;
     side_label: string;

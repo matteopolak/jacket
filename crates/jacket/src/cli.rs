@@ -291,6 +291,12 @@ pub struct TestArgs {
 /// `jacket doc`: what to document, how the site names itself, and where it will be served from.
 #[derive(clap::Args, Clone, Debug)]
 pub struct DocArgs {
+    /// Canonical site origin, over `[doc] url`
+    #[arg(long, value_name = "URL")]
+    pub site_url: Option<String>,
+    /// Social preview image URL or file, over `[doc] og_image`
+    #[arg(long, value_name = "IMAGE")]
+    pub og_image: Option<String>,
     /// A library to document: a module (a folder with `module.jai`) or a folder of modules.
     /// Settings come from `[doc]` in its `jacket.toml` [default: `[doc] path` of the nearest
     /// `jacket.toml`, else the standard library]

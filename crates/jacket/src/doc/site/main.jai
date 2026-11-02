@@ -59,6 +59,13 @@ load_job :: (out: *Out, job: *Load_Job, run: *Run) {
 write_view :: (out: *Out, view: *Page_View, module: *Module_View, run: *Run) {
     validate_page(view, module);
     Render(out, run.site, view, module);
+    if view.not_found {
+        // The root 404 is also served for missing paths at any depth; its links are
+        // absolute from the base URL, so they work there too.
+        write_file(run.writer, "404.html", to_string(out));
+        reset(out);
+        return;
+    }
     path := view.path;
     if path.count && !ends_with(path, "index.html") {
         print("invalid page path %\n", path);
@@ -104,11 +111,21 @@ main :: () {
             print("cannot read theme asset %\n", path);
             exit(2);
         }
-        defer free(data);
+        original := data;
+        defer free(original);
+        if path == "assets/site.css" data = compact_css(data);
+        if path == "assets/site.js" || path == "assets/sidebar.js" data = compact_js(data);
         write_file(*w, path, data);
         if path == "assets/site.css" site.css_url = copy_string(tprint("%assets/site.css?v=%", site.base, content_stamp(data)));
         if path == "assets/site.js" site.script_url = copy_string(tprint("%assets/site.js?v=%", site.base, content_stamp(data)));
+        if path == "assets/sidebar.js" site.sidebar_url = copy_string(tprint("%assets/sidebar.js?v=%", site.base, content_stamp(data)));
     }
+    category_out: Out;
+    CategoryStyle(*category_out, *site);
+    categories := to_string(*category_out);
+    site.categories_url = copy_string(tprint("%assets/categories.css?v=%", site.base, content_stamp(categories)));
+    write_file(*w, "assets/categories.css", categories);
+    deinit(*category_out);
     run := Run.{ *site, *w };
     modules := NewArray(site.module_files.count, Module_Data);
     guides := NewArray(site.guide_files.count, Guide_Data);
@@ -127,6 +144,7 @@ main :: () {
     jobs: [..] Job;
     defer array_free(jobs);
     array_add(*jobs, .{ page = *site.index });
+    if site.not_found array_add(*jobs, .{ page = site.not_found });
     if site.guides_index array_add(*jobs, .{ page = site.guides_index });
     for *guide: guides array_add(*jobs, .{ page = *guide.view });
     for *bundle: modules {
@@ -171,7 +189,7 @@ validate_page :: (page: *Page_View, module: *Module_View) {
     } else if is(page.content, Content_Index) || is(page.content, Content_Module) {
         if !is(page.sidebar, Sidebar_Modules) bad_input("API page needs module sidebar");
     } else if !is(page.sidebar, Sidebar_Guides) bad_input("guide page needs guide sidebar");
-    if page.path.count && (!relative_file(page.path) || !ends_with(page.path, "/index.html")) bad_input("invalid page path");
+    if !page.not_found && page.path.count && (!relative_file(page.path) || !ends_with(page.path, "/index.html")) bad_input("invalid page path");
     side := get_pointer(*page.sidebar, Sidebar_Item);
     if side {
         if !module || side.nav < 0 || side.nav >= module.nav.count bad_input("invalid nav group");

@@ -22,7 +22,7 @@ esc :: (s: string) -> Html {
 
 ExperimentalDot :: (out: *Out, enabled: bool) {
     html(out, #run trim(#string HTML
-{if enabled}<span class="dot exp" role="img" title="Experimental: may change or go away" aria-label="Experimental: may change or go away"></span>{end}
+{if enabled}<span class="dot exp" role="img" title="Experimental: may change or go away" aria-label="Experimental: may change or go away"><span class="sr">Experimental</span></span>{end}
 HTML
     ));
 }

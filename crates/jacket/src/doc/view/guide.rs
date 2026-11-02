@@ -1,5 +1,5 @@
 //! Guide input loading and link resolution.
-use super::super::markdown::{self, Segment, Settings, esc, plain};
+use super::super::markdown::{self, Segment, Settings, esc};
 use super::super::site::Site;
 use super::{Content, DocSegment, GuideLink, NavLink, PageView, Sidebar, SiteView};
 use jacket_config::schema::DocPage;
@@ -68,6 +68,8 @@ pub fn pages(
         .collect();
     shared.guides.clone_from(&cards);
     shared.guides_index = Some(PageView {
+        head_html: String::new(),
+        not_found: false,
         title: site.title(&site.pages_title),
         description: format!("{} for {}.", site.pages_title, site.name),
         path: format!("{}index.html", site.pages_dir()),
@@ -140,12 +142,13 @@ pub fn pages(
         let description = segs
             .iter()
             .find_map(|s| match s {
-                Segment::Html(h) if h.starts_with("<p>") => Some(plain(h)),
+                Segment::Html(h) if h.starts_with("<p>") => Some(h.clone()),
                 _ => None,
             })
             .unwrap_or_else(|| page.summary.clone());
-        let description: String = description.chars().take(160).collect();
         out.push(PageView {
+            head_html: String::new(),
+            not_found: false,
             title: site.title(&page.name),
             description,
             path: page_path(site, page),
