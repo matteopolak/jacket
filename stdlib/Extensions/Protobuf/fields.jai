@@ -183,7 +183,7 @@ Entry_Codec :: struct(K: Type, V: Type, key_kind: Scalar, value_kind: Scalar) {
                     if !read_message(r, entry.value) return field_error(r, "value");
                 } else {
                     if !read_scalar(r, *entry.value, value_kind) return field_error(r, "value");
-                    if r.enum_rejected entry.invalid_enum = true;
+                    #if value_kind == .CLOSED_ENUM if r.enum_rejected entry.invalid_enum = true;
                 }
             } else if !skip(r, tag) return false;
         }
@@ -216,7 +216,9 @@ read_optional :: inline (r: *Reader, value: *Optional($T), $kind: Scalar, wire: 
         value.value = item;
     } else if !read_field(r, *value.value, kind, wire, path) return false;
 
-    if !r.enum_rejected value.has = true;
+    #if kind == .CLOSED_ENUM {
+        if !r.enum_rejected value.has = true;
+    } else value.has = true;
 
     return true;
 }
@@ -266,22 +268,31 @@ read_repeated :: (r: *Reader, values: *[..] $T, $kind: Scalar, wire: u64, path: 
 
     if wire != scalar_wire(kind) return false;
 
-    item: T;
-    ok: bool;
+    // A message is decoded straight into its new slot rather than copied in afterwards.
+    // Nothing else appends to this array meanwhile, so the slot stays put.
+    #if kind == .MESSAGE || kind == .GROUP {
+        slot := add_decoded(r, values);
 
-    #if kind == .GROUP ok = read_group(r, *item);
-    else #if kind == .MESSAGE ok = read_message(r, *item);
-    else ok = read_scalar(r, *item, kind);
+        #if kind == .GROUP decoded := read_group(r, slot);
+        else decoded := read_message(r, slot);
 
-    if !ok {
-        #if (kind == .MESSAGE || kind == .GROUP) release_entry(r, *item);
-        else release_scalar(r, *item, kind);
-        return field_error(r, path, values.count);
+        if !decoded {
+            release_entry(r, slot);
+            values.count -= 1;
+            return field_error(r, path, values.count);
+        }
+    } else {
+        item: T;
+
+        if !read_scalar(r, *item, kind) {
+            release_scalar(r, *item, kind);
+            return field_error(r, path, values.count);
+        }
+
+        #if kind == .CLOSED_ENUM {
+            if !r.enum_rejected append_decoded(r, values, item);
+        } else append_decoded(r, values, item);
     }
-
-    #if kind == .CLOSED_ENUM {
-        if !r.enum_rejected append_decoded(r, values, item);
-    } else append_decoded(r, values, item);
 
     return true;
 }

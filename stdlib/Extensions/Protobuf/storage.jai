@@ -294,6 +294,18 @@ append_decoded :: inline (r: *Reader, values: *[..] $T, value: T) {
     push_context ctx array_add(values, value);
 }
 
+// Appends a zeroed element for the decoder to fill, with the same allocator as append_decoded.
+add_decoded :: inline (r: *Reader, values: *[..] $T) -> *T {
+    if values.allocator.proc return array_add(values);
+
+    slot: *T;
+    ctx := context;
+    ctx.allocator = decode_allocator(r);
+    push_context ctx slot = array_add(values);
+
+    return slot;
+}
+
 // Moves an independently decoded child's storage into the enclosing message before
 // merging it. Stable arena headers remain alive until the enclosing owner is freed.
 absorb_storage :: (r: *Reader, child: **Storage_Block) {

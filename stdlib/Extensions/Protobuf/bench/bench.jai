@@ -1,5 +1,5 @@
 // jaic -O2 bench.jai -exe <scratch>/bench; bench [--generation-only]
-// bench [workload] [encode|decode [short]] [--borrow] isolates operations/modes.
+// bench [workload] [encode|decode [short]] [--borrow] [--skip-utf8] isolates operations/modes.
 // `string-logs-json` and `spans-json` time proto3 JSON next to Extensions/Json on plain
 // structs holding the same data.
 // packed-varints is an optional workload for repeated-field pre-count experiments.
@@ -39,6 +39,7 @@ Counter :: struct {
 }
 
 borrow: bool;
+skip_utf8: bool;
 
 counting :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *void) -> *void {
     c := cast(*Counter) data;
@@ -73,7 +74,7 @@ counting :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *
 }
 
 bench_decode :: ($T: Type, input: [] u8) -> T, Proto.Error {
-    return Proto.decode(T, input, .{ borrow = borrow });
+    return Proto.decode(T, input, .{ borrow = borrow, skip_utf8 = skip_utf8 });
 }
 
 // Optional workload and operation filters keep profiler stacks isolated.
@@ -465,6 +466,11 @@ main :: () {
 
         if arg == "--borrow" {
             borrow = true;
+            continue;
+        }
+
+        if arg == "--skip-utf8" {
+            skip_utf8 = true;
             continue;
         }
 

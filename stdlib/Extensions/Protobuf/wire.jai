@@ -72,13 +72,27 @@ field_error :: (r: *Reader, name: string, index: s64 = -1) -> bool {
 }
 
 // Remaining bytes within the active message or packed field.
-remaining :: (r: *Reader) -> s64 {
+remaining :: inline (r: *Reader) -> s64 {
     if r.end < 0 return r.bytes.count - r.pos;
     return r.end - r.pos;
 }
 
-// Reads a bounded unsigned varint, rejecting overflow in the tenth byte.
-read_varint :: (r: *Reader) -> u64 {
+// Reads a bounded unsigned varint. One-byte values stay inline at the call site.
+read_varint :: inline (r: *Reader) -> u64 {
+    if remaining(r) > 0 {
+        byte := (r.bytes.data + r.pos).*;
+
+        if byte < 128 {
+            r.pos += 1;
+            return byte;
+        }
+    }
+
+    return read_long_varint(r);
+}
+
+// The multi-byte path of read_varint, rejecting overflow in the tenth byte.
+read_long_varint :: (r: *Reader) -> u64 {
     result: u64;
 
     // With ten bytes in view a varint cannot run off the end, so one check covers every byte.
@@ -319,15 +333,17 @@ unzigzag :: (value: u64) -> s64 {
     return (cast(s64) (value >> 1)) ^ (-cast(s64) (value & 1));
 }
 
-// Reads a little-endian fixed-width integer without unaligned loads.
-read_fixed :: (r: *Reader, width: s64) -> u64 {
+// Reads a little-endian fixed-width integer.
+read_fixed :: inline (r: *Reader, width: s64) -> u64 {
     if remaining(r) < width {
         fail(r, .TRUNCATED);
         return 0;
     }
 
+    // Every supported target is little endian, so this is one unaligned load.
     result: u64;
-    for i: 0..width - 1 result |= (cast(u64) r.bytes[r.pos + i]) << cast(u64) (8 * i);
+
+    memcpy(*result, r.bytes.data + r.pos, width);
 
     r.pos += width;
 
@@ -342,8 +358,25 @@ write_fixed :: inline (w: *Writer, value: u64, $width: s64) {
     w.pos += width;
 }
 
-// Reads and checks a length before any slice or allocation. Size limits precede truncation.
-read_length :: (r: *Reader) -> s64 {
+// Reads and checks a length before any slice or allocation. A one-byte length that fits
+// stays inline; anything else, including every failure, takes read_long_length.
+read_length :: inline (r: *Reader) -> s64 {
+    left := remaining(r);
+
+    if left > 0 {
+        n := cast(s64) (r.bytes.data + r.pos).*;
+
+        if n < 128 && n < left && n <= r.options.max_size {
+            r.pos += 1;
+            return n;
+        }
+    }
+
+    return read_long_length(r);
+}
+
+// Size limits precede truncation.
+read_long_length :: (r: *Reader) -> s64 {
     n := read_varint(r);
 
     if r.error.kind != .NONE return 0;
@@ -361,8 +394,23 @@ read_length :: (r: *Reader) -> s64 {
     return cast(s64) n;
 }
 
-// Validates a protobuf tag before narrowing it.
-read_tag :: (r: *Reader) -> u64 {
+// Validates a protobuf tag before narrowing it. A one-byte tag can't be too long or too
+// large, so it only needs a nonzero field and a known wire type.
+read_tag :: inline (r: *Reader) -> u64 {
+    if remaining(r) > 0 {
+        byte := (r.bytes.data + r.pos).*;
+
+        if byte < 128 && byte >= 8 && (byte & 7) < 6 {
+            r.pos += 1;
+            return byte;
+        }
+    }
+
+    return read_long_tag(r);
+}
+
+// The multi-byte path of read_tag, and every failure.
+read_long_tag :: (r: *Reader) -> u64 {
     start := r.pos;
     tag := read_varint(r);
 
@@ -488,7 +536,7 @@ read_message :: (r: *Reader, value: *$T) -> bool {
         r.depth -= 1;
     }
 
-    if r.storage absorb_storage(r, *value.proto_storage);
+    if r.storage && value.proto_storage absorb_storage(r, *value.proto_storage);
 
     return T.proto_merge(value, r);
 }
@@ -607,7 +655,8 @@ free_scalar :: (value: *$T, $kind: Scalar) {
 
 // Reads a scalar payload, replacing an owned string or byte buffer only after validation.
 read_scalar :: (r: *Reader, value: *$T, $kind: Scalar) -> bool {
-    r.enum_rejected = false;
+    // Only closed enums can be rejected, and only their readers look at the flag.
+    #if kind == .CLOSED_ENUM r.enum_rejected = false;
     start := r.pos;
 
     #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES {
@@ -618,7 +667,7 @@ read_scalar :: (r: *Reader, value: *$T, $kind: Scalar) -> bool {
         bytes: [] u8 = .{ n, r.bytes.data + r.pos };
 
         #if kind == .STRING if !r.options.skip_utf8 && !valid_utf8(bytes) return fail(r, .BAD_UTF8);
-        release_scalar(r, value, kind);
+        if value.data release_scalar(r, value, kind);
 
         if !r.options.borrow {
             // The following copy initializes every byte; avoid clearing it first.
@@ -705,7 +754,7 @@ read_group :: (r: *Reader, value: *$T) -> bool {
         r.depth -= 1;
     }
 
-    if r.storage absorb_storage(r, *value.proto_storage);
+    if r.storage && value.proto_storage absorb_storage(r, *value.proto_storage);
     if !T.proto_merge(value, r) return false;
     if !r.group_ended return fail(r, .TRUNCATED);
 
