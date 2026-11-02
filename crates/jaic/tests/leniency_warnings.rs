@@ -632,3 +632,25 @@ fn a_positional_literal_missing_a_member_without_a_default_is_an_error() {
     let error = result.expect_err("a member without a default needs a value");
     assert_eq!(error.message, "not enough values in this struct literal");
 }
+
+#[test]
+fn whitespace_inside_a_notes_parentheses_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Code::NoteWithSpaces,
+        "S :: struct { a: s64; @help(\"two words\") }
+        main :: () { s: S; }",
+        "S :: struct { a: s64; @help(\"two words\") }
+        go :: () { s: S; }",
+    );
+    assert!(
+        text.contains("`@help(\"two words\")` has whitespace inside its parentheses"),
+        "{text}"
+    );
+    let found = warnings(
+        "S :: struct { a: s64; @range(1,64) @help(\")\") }
+        main :: () { s: S; }",
+        &[],
+        Code::NoteWithSpaces,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}

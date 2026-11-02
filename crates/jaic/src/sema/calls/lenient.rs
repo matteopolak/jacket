@@ -388,6 +388,12 @@ impl Compiler {
                     ),
                     None,
                 ),
+                Code::NoteWithSpaces => (
+                    format!("`{text}` has whitespace inside its parentheses"),
+                    "the official compiler ends a note at the first whitespace",
+                    Some("write the note without spaces, such as `@range(1,64)`".to_string()),
+                    None,
+                ),
                 _ => continue,
             };
             let Some(mut d) = self.leniency_warning(module, found.span, found.kind, message) else {

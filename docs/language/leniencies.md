@@ -43,6 +43,7 @@ A program that compiles without these warnings also compiles with the official c
 | `procedure-cast-to-integer` | `cast(u64) some_procedure` | `cast(u64) cast(*void) some_procedure` |
 | `address-of-macro-constant` | `*x` in a macro whose parameter the call binds to a constant | `copy := x;` and take `*copy` |
 | `positional-literal-defaults` | `.{1, 2}` for a struct whose trailing members have defaults | `.{1, 2, 7}` or `.{a = 1, b = 2}` |
+| `note-with-spaces` | `@skip_on(.MACOS, reason = "x y")` | a note without whitespace: `@range(1,64)` |
 
 `declaration-hides-import` is rejected in the program whether or not it is used; in an imported module the same code compiles, and jaic prefers the module's own declaration. A namespaced import never clashes. See [procedures](procedures.md) and [scoping](scoping.md).
 

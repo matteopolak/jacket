@@ -200,10 +200,15 @@ impl<'a> Lexer<'a> {
                     continue;
                 }
                 while self.at < self.src.len() && !self.src[self.at].is_ascii_whitespace() {
-                    self.at += 1;
+                    if self.src[self.at] == b'(' {
+                        // A call-style note reads to its matching `)`, spaces and all.
+                        self.note_parens(start)?;
+                    } else {
+                        self.at += 1;
+                    }
                 }
                 let text = &self.src[from..self.at];
-                // `@help("two words")`: the note stops at the space, and the leftover quote
+                // `@help"two words"`: the note stops at the space, and the leftover quote
                 // would start a string.
                 #[expect(
                     clippy::naive_bytecount,
@@ -213,13 +218,11 @@ impl<'a> Lexer<'a> {
                 if odd_quotes {
                     return Err(self
                         .err(
-                            Code::LexNoteEndsFirst,
+                            Code::LexUnterminatedNote,
                             start,
-                            "a note ends at the first whitespace, so it cannot be quoted",
+                            "a quote in a note is not closed before the next whitespace",
                         )
-                        .with_help(
-                            "write the note without spaces, such as `@help_text` or `@range(1,64)`",
-                        ));
+                        .with_help("put the text in parentheses, such as `@help(\"two words\")`"));
                 }
                 let note: Arc<str> = String::from_utf8_lossy(text).into();
                 self.push(Tok::Note(note), start);
@@ -239,6 +242,34 @@ impl<'a> Lexer<'a> {
                 }
             }
         }
+    }
+
+    /// Steps over the parenthesised part of a note, from its `(` to the matching `)`: nested
+    /// parentheses count and a string literal inside is skipped whole. It must close on its line.
+    fn note_parens(&mut self, start: usize) -> Result<(), Diagnostic> {
+        let mut depth = 0usize;
+        while self.at < self.src.len() && self.src[self.at] != b'\n' {
+            match self.src[self.at] {
+                b'(' => depth += 1,
+                b')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        self.at += 1;
+                        return Ok(());
+                    }
+                }
+                b'"' => self.at = skip_string(self.src, self.at + 1).min(self.src.len() - 1),
+                _ => {}
+            }
+            self.at += 1;
+        }
+        Err(self
+            .err(
+                Code::LexUnterminatedNote,
+                start,
+                "a note's `(` is not closed on its line",
+            )
+            .with_help("close the parenthesis, or write the note without one"))
     }
 
     /// Follows the nesting of braces so a file-level `#if` can be recognized, and steps over

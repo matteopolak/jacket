@@ -539,6 +539,22 @@ mod tests {
     }
 
     #[test]
+    fn a_note_with_spaces_in_its_parentheses_applies() {
+        let notes = [
+            "skip_on(.MACOS, reason = \"needs a real display\")".to_string(),
+            "only(.LINUX, .MACOS)".to_string(),
+        ];
+        let (options, warnings) = TestOptions::default().with_notes(&notes);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(options.skip_on.len(), 1);
+        assert_eq!(
+            options.skip_on[0].reason.as_deref(),
+            Some("needs a real display")
+        );
+        assert_eq!(options.only[0].names, ["linux", "macos"]);
+    }
+
+    #[test]
     fn a_compile_fail_note_can_name_the_text_the_diagnostics_contain() {
         let notes = ["compile_fail(\"tool failed\")".to_string()];
         let (options, warnings) = TestOptions::default().with_notes(&notes);

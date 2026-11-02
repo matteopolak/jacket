@@ -215,6 +215,8 @@ catalog! {
             "`*x` of a macro parameter that the call binds to a number or bool constant";
         PositionalLiteralDefaults = "positional-literal-defaults", Warning,
             "`.{1, 2}` that leaves trailing members with defaults to those defaults";
+        NoteWithSpaces = "note-with-spaces", Warning,
+            "a note with whitespace inside its parentheses: `@skip_on(.MACOS, reason = \"x y\")`";
     }
 
     "checks" => {
@@ -285,8 +287,8 @@ catalog! {
     }
 
     "lexer" => {
-        LexNoteEndsFirst = "lex-note-ends-first", Error,
-            "a note ends at the first whitespace, so it cannot be quoted";
+        LexUnterminatedNote = "lex-unterminated-note", Error,
+            "a note's `(` or quote is not closed";
         LexUnexpectedCharacter = "lex-unexpected-character", Error,
             "unexpected character `<…>`";
         LexUnterminatedBlockComment = "lex-unterminated-block-comment", Error,
@@ -1031,7 +1033,7 @@ impl Code {
     }
 
     /// The leniency codes, in the order `docs/language/leniencies.md` lists them.
-    pub const LENIENCIES: [Code; 24] = [
+    pub const LENIENCIES: [Code; 25] = [
         Code::OperatorOutOfScope,
         Code::HidesImport,
         Code::NamespacedForExpansion,
@@ -1056,6 +1058,7 @@ impl Code {
         Code::ProcedureCastToInteger,
         Code::AddressOfMacroConstant,
         Code::PositionalLiteralDefaults,
+        Code::NoteWithSpaces,
     ];
 
     /// Whether this is one of the [`Code::LENIENCIES`].

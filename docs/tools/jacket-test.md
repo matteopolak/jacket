@@ -75,7 +75,7 @@ The [testing guide](../guides/testing.md) has examples of tests, checks, `@cases
 | `@check_only` | golden: only type-check |
 | `@compile_fail` | file header only: the file is a compile-fail test |
 
-`mode = .NATIVE` (or `.INTERP`) and `cpu = .ARM64` (or `.X64`) narrow a call: `skip_on(.WINDOWS, cpu = .ARM64)`, `only(.WASM, mode = .INTERP)`. Without names they mean any OS. A header may hold several calls; every `only(...)` must pass. Under `-os wasm` the CPU is `wasm`, so `only(.X64)` never runs a test as wasm. An unknown note is a warning and is ignored.
+`mode = .NATIVE` (or `.INTERP`) and `cpu = .ARM64` (or `.X64`) narrow a call: `skip_on(.WINDOWS, cpu = .ARM64)`, `only(.WASM, mode = .INTERP)`. Without names they mean any OS. A header may hold several calls; every `only(...)` must pass. Under `-os wasm` the CPU is `wasm`, so `only(.X64)` never runs a test as wasm. An unknown note is a warning and is ignored. Spaces inside a note's parentheses work (`@skip_on(.MACOS, reason = "needs a display")`) but jaic warns that the official compiler rejects them (`note-with-spaces`); a `// test:` line takes them silently.
 
 ### Golden and compile-fail tests
 

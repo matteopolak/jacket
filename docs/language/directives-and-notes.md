@@ -12,7 +12,7 @@ Source markers that change how a declaration or statement is treated: directive 
 
 ## Notes
 
-A note is `@` plus every character up to whitespace: `@short=j`, `@range(1,64)`. A touching `;` or `{` belongs to the note, so member notes go after the semicolon (`a: int; @tag`). `@help("two words")` is an error. `@"?text"` is one string note.
+A note is `@` plus every character up to whitespace: `@short=j`, `@range(1,64)`. A touching `;` or `{` belongs to the note, so member notes go after the semicolon (`a: int; @tag`). Spaces inside a note's parentheses are accepted as a leniency (`@help("two words")`, with a `note-with-spaces` warning): the note reads to the matching `)`, and the parenthesis must close on its line. `@"?text"` is one string note.
 
 Notes are stored, never interpreted {#note.11}:
 

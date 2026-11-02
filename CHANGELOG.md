@@ -11,6 +11,7 @@
 
 ### Improved
 
+- A note may hold spaces inside its parentheses (`@skip_on(.MACOS, reason = "x y")`); jaic warns that the official compiler does not accept it.
 - A `jacket test` program killed by a signal shows its last 64 lines of output and a native stack with the fault address.
 - `jacket test --doc --check-only --os <os>` type-checks the doc examples for another OS from any machine.
 - `jacket test --changed FILE` runs only the tests a change to FILE can affect.

@@ -137,6 +137,26 @@ mod tests {
     }
 
     #[test]
+    fn a_call_style_note_reads_to_its_closing_parenthesis() {
+        let t = kinds("@skip_on(.MACOS, reason = \"a ) b\") @a((b c)d) x");
+        assert!(matches!(&t[0], Tok::Note(n) if &**n == "skip_on(.MACOS, reason = \"a ) b\")"));
+        assert!(matches!(&t[1], Tok::Note(n) if &**n == "a((b c)d)"));
+        assert_eq!(t[2], Tok::Ident(Sym::intern("x")));
+    }
+
+    #[test]
+    fn a_note_parenthesis_must_close_on_its_line() {
+        for text in ["@note(", "@note(a b\nc)", "@note(\"a)"] {
+            let error = lex(FileId(0), text).unwrap_err();
+            assert_eq!(
+                error.code,
+                crate::diagnostics::Code::LexUnterminatedNote,
+                "{text:?}"
+            );
+        }
+    }
+
+    #[test]
     fn leading_dot_floats() {
         let t = kinds("x := .5; y := a.b; z := 1..2;");
         assert_eq!(t[2], Tok::Float(0.5));

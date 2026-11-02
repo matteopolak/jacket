@@ -228,7 +228,7 @@ A failing input is shrunk to a small one, and the report gives the seed:
 
 ### Options
 
-Notes after the body change how a test runs. A note can't contain spaces, so write `reason="paths"` without them. The `// test:` line below takes spaces.
+Notes after the body change how a test runs. Spaces inside a note's parentheses work (`@skip_on(.MACOS, reason = "needs a display")`), but jaic warns that the official compiler rejects them; write `reason="paths"` to stay portable. The `// test:` line below takes spaces without a warning.
 
 ```jai
 reads_the_registry :: () {

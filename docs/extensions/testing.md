@@ -19,7 +19,7 @@ splits_on_commas :: (t: *Test) {
 } @test @timeout(5)
 ```
 
-A test is a file-level procedure taking nothing or a `*Test` (or the arguments of its `@cases`/`@property`) with `@test` after its body. Further notes set options for `jacket test` (`@timeout(5)`, `@only(.LINUX,.MACOS)`, `@should_fail`, `@xfail`, `@allow_leaks`; see [jacket test](../tools/jacket-test.md#writing-tests)). Notes can't contain spaces.
+A test is a file-level procedure taking nothing or a `*Test` (or the arguments of its `@cases`/`@property`) with `@test` after its body. Further notes set options for `jacket test` (`@timeout(5)`, `@only(.LINUX,.MACOS)`, `@should_fail`, `@xfail`, `@allow_leaks`; see [jacket test](../tools/jacket-test.md#writing-tests)). Spaces inside a note's parentheses work but warn, as a leniency.
 
 ## How it works
 

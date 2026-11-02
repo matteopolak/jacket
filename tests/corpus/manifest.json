@@ -3241,17 +3241,17 @@
       }
     },
     {
-      "id": "note-call-style-with-spaces",
-      "source": "negative/note-call-style-with-spaces.jai",
-      "sha256": "59a472450d8c7a0dd79d290dff5c49a31c21b1fd38ddea85d78bb87f962d666a",
+      "id": "note-call-style-unterminated",
+      "source": "negative/note-call-style-unterminated.jai",
+      "sha256": "8cc3d58fe7ecfb746f92c3752eb649aec5a01b6a87dc7a1f9005b39dffbda7b1",
       "suite": "negative",
-      "feature": "a note with a space inside parentheses is cut at the space",
+      "feature": "a note whose parenthesis is never closed on its line",
       "kind": "negative",
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "a note ends at the first whitespace",
-        "code": "lex-note-ends-first"
+        "check": "a note's parenthesis closes on its line",
+        "code": "lex-unterminated-note"
       }
     },
     {

@@ -398,6 +398,12 @@ impl<'a> Parser<'a> {
         while let Tok::Note(text) = self.tok() {
             let text = text.clone();
             let span = self.bump();
+            // A plain note's span is its `@` and its text; a quoted `@"..."` is longer.
+            if (span.end - span.start) as usize == text.len() + 1
+                && text.contains(|c: char| c.is_ascii_whitespace())
+            {
+                self.note_lenient(Code::NoteWithSpaces, span);
+            }
             notes.push(Note {
                 text,
                 span,
