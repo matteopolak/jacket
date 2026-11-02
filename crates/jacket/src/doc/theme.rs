@@ -55,6 +55,13 @@ fn read_tree(root: &Path, dir: &Path, files: &mut BTreeMap<String, Vec<u8>>) -> 
         std::fs::read_dir(dir).map_err(|e| format!("cannot read {}: {e}", dir.display()))?
     {
         let path = entry.map_err(|e| e.to_string())?.path();
+        // Hidden files are skipped as build.rs skips them in the embedded theme.
+        if path
+            .file_name()
+            .is_some_and(|n| n.to_string_lossy().starts_with('.'))
+        {
+            continue;
+        }
         let meta = std::fs::symlink_metadata(&path).map_err(|e| e.to_string())?;
         if meta.file_type().is_symlink() {
             return Err(format!(
@@ -320,6 +327,23 @@ mod tests {
         let mut disk = BTreeMap::new();
         read_tree(&root, &root, &mut disk).unwrap();
         assert_eq!(Theme::new(None).unwrap().files, disk);
+    }
+
+    #[test]
+    fn hidden_files_are_not_theme_files() {
+        assert!(
+            FILES
+                .iter()
+                .all(|(name, _)| name.split('/').all(|part| !part.starts_with('.')))
+        );
+        let temp = TempDir::new("doc-hidden");
+        std::fs::create_dir_all(temp.path().join(".vscode")).unwrap();
+        std::fs::write(temp.path().join(".vscode/settings.json"), "{}").unwrap();
+        std::fs::write(temp.path().join(".DS_Store"), "x").unwrap();
+        std::fs::write(temp.path().join("extra.jai"), "").unwrap();
+        let mut files = BTreeMap::new();
+        read_tree(temp.path(), temp.path(), &mut files).unwrap();
+        assert_eq!(files.keys().collect::<Vec<_>>(), ["extra.jai"]);
     }
 
     #[test]

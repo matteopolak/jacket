@@ -6,6 +6,13 @@ use std::path::Path;
 fn collect(root: &Path, dir: &Path, files: &mut Vec<String>) {
     for entry in std::fs::read_dir(dir).expect("read doc theme") {
         let path = entry.expect("theme entry").path();
+        // Editor and OS droppings (`.DS_Store`, `.vscode/`) are not part of the theme.
+        if path
+            .file_name()
+            .is_some_and(|n| n.to_string_lossy().starts_with('.'))
+        {
+            continue;
+        }
         if path.is_dir() {
             collect(root, &path, files);
         } else {
