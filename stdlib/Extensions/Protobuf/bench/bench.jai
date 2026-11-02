@@ -1,9 +1,13 @@
 // jaic -O2 bench.jai -exe <scratch>/bench; bench [--generation-only]
 // bench [workload] [encode|decode [short]] [--borrow] isolates operations/modes.
+// `string-logs-json` and `spans-json` time proto3 JSON next to Extensions/Json on plain
+// structs holding the same data.
 // packed-varints is an optional workload for repeated-field pre-count experiments.
 // Generation is also measured with jaic -interp bench.jai -- --generation-only.
 #import "Basic";
 Proto :: #import "Extensions/Protobuf";
+Json :: #import "Extensions/Json";
+#import "Base64";
 Schema :: #import "Extensions/Protobuf/Schema";
 Api :: #import "Extensions/Protobuf/Schema"(TEXT = #string END
 syntax="proto3";
@@ -163,6 +167,174 @@ measure :: (name: string, value: $T, iterations: s64) {
         cast(float64) encoded.count * 1000 / max(encode_ns, 1),
         cast(float64) encoded.count * 1000 / max(decode_ns, 1),
         enc_allocs, enc_bytes, dec_allocs, dec_bytes, dec_peak);
+}
+
+// The same data as plain structs for Extensions/Json; bytes travel as base64 text.
+Plain_Log :: struct {
+    time: string;
+    level: string;
+    source: string;
+    text: string;
+}
+
+Plain_Logs :: struct {
+    entries: [..] Plain_Log;
+}
+
+Plain_Attribute :: struct {
+    key: string;
+    value: string;
+    number: s64;
+}
+
+Plain_Event :: struct {
+    time_ns: u64;
+    name: string;
+    attributes: [..] Plain_Attribute;
+}
+
+Plain_Span :: struct {
+    trace_id: string;
+    span_id: string;
+    parent_id: string;
+    name: string;
+    kind: Api.Kind;
+    start_ns: u64;
+    end_ns: u64;
+    attributes: [..] Plain_Attribute;
+    events: [..] Plain_Event;
+    status: u32;
+}
+
+Plain_Spans :: struct {
+    spans: [..] Plain_Span;
+}
+
+plain_logs :: (logs: Api.Logs) -> Plain_Logs {
+    result: Plain_Logs;
+    for logs.entries array_add(*result.entries, .{ copy_string(it.time), copy_string(it.level), copy_string(it.source), copy_string(it.text) });
+    return result;
+}
+
+plain_attributes :: (attributes: [..] Api.Attribute) -> [..] Plain_Attribute {
+    result: [..] Plain_Attribute;
+    for attributes array_add(*result, .{ copy_string(it.key), copy_string(it.value), it.number });
+    return result;
+}
+
+plain_spans :: (spans: Api.Spans) -> Plain_Spans {
+    result: Plain_Spans;
+
+    for spans.spans {
+        span: Plain_Span;
+        span.trace_id = base64_encode(cast(string) it.trace_id);
+        span.span_id = base64_encode(cast(string) it.span_id);
+        span.parent_id = base64_encode(cast(string) it.parent_id);
+        span.name = copy_string(it.name);
+        span.kind = it.kind;
+        span.start_ns = it.start_ns;
+        span.end_ns = it.end_ns;
+        span.attributes = plain_attributes(it.attributes);
+        for event: it.events array_add(*span.events, .{ event.time_ns, copy_string(event.name), plain_attributes(event.attributes) });
+
+        span.status = it.status;
+        array_add(*result.spans, span);
+    }
+
+    return result;
+}
+
+// Proto3 JSON of a generated message against Extensions/Json on a plain struct.
+measure_json :: (name: string, value: $T, plain: $P, iterations: s64) {
+    if workload.count && workload != name return;
+
+    text, error := Proto.to_json(value);
+
+    assert(error.kind == .NONE);
+    defer free(text);
+    plain_text := Json.to_json(plain);
+
+    defer free(plain_text);
+
+    start := current_time_monotonic();
+
+    for 0..iterations - 1 {
+        out := Proto.to_json(value);
+        assert(out.count == text.count);
+        free(out);
+    }
+
+    encode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
+
+    start = current_time_monotonic();
+
+    for 0..iterations - 1 {
+        decoded, de := Proto.from_json(T, text);
+        assert(de.kind == .NONE);
+        Proto.free(*decoded);
+    }
+
+    decode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
+
+    start = current_time_monotonic();
+
+    for 0..iterations - 1 {
+        out := Json.to_json(plain);
+        assert(out.count == plain_text.count);
+        free(out);
+    }
+
+    plain_encode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
+
+    start = current_time_monotonic();
+
+    for 0..iterations - 1 {
+        decoded, de := Json.from_json(P, plain_text);
+        assert(de.kind == .NONE);
+        Json.free_json(*decoded);
+    }
+
+    plain_decode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
+
+    c := Counter.{ parent = context.allocator };
+    ctx := context;
+    ctx.allocator = .{ counting, *c };
+    counts: [4] s64;
+
+    push_context ctx {
+        out := Proto.to_json(value);
+
+        counts[0] = c.allocations;
+        free(out);
+        c.allocations = 0;
+
+        decoded := Proto.from_json(T, text);
+
+        counts[1] = c.allocations;
+        Proto.free(*decoded);
+        c.allocations = 0;
+
+        plain_out := Json.to_json(plain);
+
+        counts[2] = c.allocations;
+        free(plain_out);
+        c.allocations = 0;
+
+        plain_decoded := Json.from_json(P, plain_text);
+
+        counts[3] = c.allocations;
+        Json.free_json(*plain_decoded);
+        assert(c.live == 0);
+    }
+
+    mb :: (bytes: s64, ns: s64) -> float64 {
+        return cast(float64) bytes * 1000 / max(ns, 1);
+    }
+
+    print("% bytes=% encode_ns=% decode_ns=% encode_MB_s=% decode_MB_s=% encode_allocs=% decode_allocs=%\n",
+        name, text.count, encode_ns, decode_ns, mb(text.count, encode_ns), mb(text.count, decode_ns), counts[0], counts[1]);
+    print("%-plain bytes=% encode_ns=% decode_ns=% encode_MB_s=% decode_MB_s=% encode_allocs=% decode_allocs=%\n",
+        name, plain_text.count, plain_encode_ns, plain_decode_ns, mb(plain_text.count, plain_encode_ns), mb(plain_text.count, plain_decode_ns), counts[2], counts[3]);
 }
 
 generation :: () {
@@ -346,12 +518,17 @@ main :: () {
         measure("deep-64", nodes[0], 30000 * multiplier);
     }
 
-    if !workload.count || workload == "string-logs" {
+    if !workload.count || workload == "string-logs" || workload == "string-logs-json" {
         logs: Api.Logs;
         for 0..999 array_add(*logs.entries, .{ time = "2026-11-02T12:00:00Z", level = "INFO", source = "api/request", text = "Request completed successfully with a useful response" });
 
         defer array_free(logs.entries);
         measure("string-logs", logs, 1000 * multiplier);
+
+        plain := plain_logs(logs);
+
+        defer Json.free_json(*plain);
+        measure_json("string-logs-json", logs, plain, 300 * multiplier);
     }
 
     if workload == "packed-varints" {
@@ -362,6 +539,14 @@ main :: () {
     }
 
     measure("spans", spans, 200 * multiplier);
+
+    if !workload.count || workload == "spans-json" {
+        if !spans.spans.count spans = spans_workload();
+        plain := plain_spans(spans);
+
+        defer Json.free_json(*plain);
+        measure_json("spans-json", spans, plain, 50 * multiplier);
+    }
 
     if !workload.count generation();
 }
