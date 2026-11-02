@@ -235,7 +235,7 @@ json_write_fields :: (o: *Json_Out, v: *$T, first: *bool) -> bool {
 }
 
 // One field: skipped when absent (or default, for implicit presence), else its key and value.
-json_put :: (o: *Json_Out, first: *bool, value: *$T, key: string, name: string, $flags: Json_Flags, names: [] string) -> bool {
+json_put :: inline (o: *Json_Out, first: *bool, value: *$T, key: string, name: string, $flags: Json_Flags, names: [] string) -> bool {
     info :: #run type_info(T);
 
     #if #run json_is_optional(type_info(T)) {
@@ -345,7 +345,7 @@ json_key_text :: (buffer: *[24] u8, key: $K) -> string {
 }
 
 // A value of a field, repeated element or map value.
-json_value :: (o: *Json_Out, value: *$T, $flags: Json_Flags, names: [] string) -> bool {
+json_value :: inline (o: *Json_Out, value: *$T, $flags: Json_Flags, names: [] string) -> bool {
     w := *o.w;
     info :: #run type_info(T);
 
@@ -404,9 +404,10 @@ json_write_enum :: (o: *Json_Out, value: $T, $flags: Json_Flags, names: [] strin
 
 BASE64 :: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
+// Standard padded base64 in quotes, written in stack-sized pieces.
 json_write_base64 :: (w: *Json.Json_Writer, bytes: [] u8) {
-    count := 2 + (bytes.count + 2) / 3 * 4;
-    text := cast(*u8) alloc(count,, temp);
+    buffer: [256] u8 = ---;
+    text := buffer.data;
     pos := 0;
 
     text[pos] = #char "\"";
@@ -415,6 +416,11 @@ json_write_base64 :: (w: *Json.Json_Writer, bytes: [] u8) {
     i := 0;
 
     while i + 3 <= bytes.count {
+        if pos > buffer.count - 8 {
+            Json.json_write_raw(w, .{ pos, text });
+            pos = 0;
+        }
+
         n := ((cast(u32) bytes[i]) << 16) | ((cast(u32) bytes[i + 1]) << 8) | bytes[i + 2];
 
         text[pos] = BASE64[n >> 18];
@@ -440,7 +446,7 @@ json_write_base64 :: (w: *Json.Json_Writer, bytes: [] u8) {
 
     text[pos] = #char "\"";
 
-    Json.json_write_raw(w, .{ count, text });
+    Json.json_write_raw(w, .{ pos + 1, text });
 }
 
 json_write_any_body :: (o: *Json_Out, v: *$T, first: *bool) -> bool {

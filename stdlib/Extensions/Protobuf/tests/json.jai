@@ -106,6 +106,21 @@ json_scalars :: () {
     // null is absence.
     round_trip(Api.demo.All, "{\"i32\": null, \"inner\": null, \"nums\": null, \"byName\": null, \"color\": null}", "{}");
 
+    // Long bytes print in pieces and read back whole.
+    long: Api.demo.All;
+    long.data = NewArray(1001, u8);
+    for *long.data it.* = cast,trunc(u8) (it_index * 7);
+
+    defer Proto.free(*long);
+    long_text := Proto.to_json(long);
+
+    defer free(long_text);
+    expect(long_text.count == 1347);
+    long_back, long_error := Proto.from_json(Api.demo.All, long_text);
+
+    defer Proto.free(*long_back);
+    expect(long_error.kind == .NONE && Proto.equal(long, long_back));
+
     rejects(Api.demo.All, "{\"i32\": 2147483648}", .BAD_VALUE, "i32");
     rejects(Api.demo.All, "{\"u32\": -1}", .BAD_VALUE);
     rejects(Api.demo.All, "{\"i64\": \"9223372036854775808\"}", .BAD_VALUE);
