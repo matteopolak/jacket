@@ -15,7 +15,7 @@
 //! type. `memcpy` assumes the two do not overlap, which two different arrays do not, but a
 //! pointer or slice can alias: that is for the author to check, so there is no fix.
 use crate::Finding;
-use crate::syntax::{Cx, is_path};
+use crate::syntax::{Cx, is_path, only_statement};
 use jaic::ast::walk::walk;
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, For, ForOver, Stmt, StmtKind as S};
 use jaic::intern::Sym;
@@ -43,17 +43,6 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             }
             true
         });
-    }
-}
-
-/// The single statement of the loop body, braces or not.
-fn only_statement(body: &Stmt) -> Option<&Stmt> {
-    match &body.kind {
-        S::Block(b) => match b.stmts.as_slice() {
-            [one] => only_statement(one),
-            _ => None,
-        },
-        _ => Some(body),
     }
 }
 

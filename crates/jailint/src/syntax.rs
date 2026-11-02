@@ -515,3 +515,14 @@ impl Recorded for Compiler {
         self.ed.facts().is_some_and(|i| i.used.contains(&e))
     }
 }
+
+/// The single statement within nested braces, or the unbraced statement.
+pub(crate) fn only_statement(body: &Stmt) -> Option<&Stmt> {
+    match &body.kind {
+        S::Block(b) => match b.stmts.as_slice() {
+            [one] => only_statement(one),
+            _ => None,
+        },
+        _ => Some(body),
+    }
+}

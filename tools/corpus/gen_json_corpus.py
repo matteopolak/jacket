@@ -12,7 +12,7 @@ from pathlib import Path as _Path
 import argparse
 import os
 
-from generators.jai_codegen import write_or_check
+from generators.jai_codegen import literal, write_or_check
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "stdlib", "Extensions", "Json", "tests", "fixtures")
 SOURCE = os.path.join(ROOT, "JSONTestSuite", "test_parsing")
@@ -21,26 +21,6 @@ OUTPUT = os.path.join(ROOT, "suite_cases.jai")
 OUTPUTS = [
     "stdlib/Extensions/Json/tests/fixtures/suite_cases.jai",
 ]
-
-
-def literal(data: bytes) -> str:
-    out = ['"']
-
-    for b in data:
-        c = chr(b)
-
-        if c == '"':
-            out.append('\\"')
-        elif c == "\\":
-            out.append("\\\\")
-        elif 0x20 <= b < 0x7F and c != "%":
-            out.append(c)
-        else:
-            out.append("\\x%02x" % b)
-
-    out.append('"')
-
-    return "".join(out)
 
 
 def main():

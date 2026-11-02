@@ -23,7 +23,7 @@ import json
 import os
 import re
 
-from generators.jai_codegen import write_or_check
+from generators.jai_codegen import literal, write_or_check
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "stdlib", "Extensions", "Http", "tests", "fixtures")
 SOURCE = os.path.join(ROOT, "llhttp")
@@ -49,26 +49,6 @@ if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "http
 OUTPUTS = [
     "stdlib/Extensions/Http/tests/fixtures/llhttp_cases.jai",
 ]
-
-
-def literal(data: bytes) -> str:
-    out = ['"']
-
-    for b in data:
-        c = chr(b)
-
-        if c == '"':
-            out.append('\\"')
-        elif c == "\\":
-            out.append("\\\\")
-        elif 0x20 <= b < 0x7F and c != "%":
-            out.append(c)
-        else:
-            out.append("\\x%02x" % b)
-
-    out.append('"')
-
-    return "".join(out)
 
 
 def expand_input(text: str) -> bytes:

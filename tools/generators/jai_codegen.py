@@ -43,3 +43,23 @@ def emit_generated(path, source, formatter=DEFAULT_FORMATTER, check=False):
     if repeated != formatted:
         raise ValueError(f"repository formatter is not idempotent for {path}")
     write_or_check(path, formatted, check)
+
+
+def literal(data: bytes) -> str:
+    out = ['"']
+
+    for b in data:
+        c = chr(b)
+
+        if c == '"':
+            out.append('\\"')
+        elif c == "\\":
+            out.append("\\\\")
+        elif 0x20 <= b < 0x7F and c != "%":
+            out.append(c)
+        else:
+            out.append("\\x%02x" % b)
+
+    out.append('"')
+
+    return "".join(out)

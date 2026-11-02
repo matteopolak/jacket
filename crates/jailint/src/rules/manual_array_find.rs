@@ -21,7 +21,7 @@
 //! reverse, or with a custom iterator are left alone, as are searches that compare a member
 //! (`it.id == key`), which need a comparison function. No fix.
 use crate::Finding;
-use crate::syntax::Cx;
+use crate::syntax::{Cx, only_statement};
 use jaic::ast::walk::walk;
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, For, ForOver, Stmt, StmtKind as S};
 use jaic::intern::Sym;
@@ -49,17 +49,6 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             }
             true
         });
-    }
-}
-
-/// The body's one statement, braces or not.
-fn only_statement(body: &Stmt) -> Option<&Stmt> {
-    match &body.kind {
-        S::Block(b) => match b.stmts.as_slice() {
-            [one] => only_statement(one),
-            _ => None,
-        },
-        _ => Some(body),
     }
 }
 
