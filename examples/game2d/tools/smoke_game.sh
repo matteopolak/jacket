@@ -50,7 +50,12 @@ if [ -n "${EXPECT_PIXEL_SCALE:-}" ]; then set -- "$@" --expect-pixel-scale "$EXP
 if [ -n "${FRAME:-}" ]; then set -- "$@" --smoke-frame "$FRAME"; fi
 if [ -n "${SERVER_URL:-}" ]; then set -- "$@" --server "$SERVER_URL"; fi
 if [ -n "${SERVER_ROOTS:-}" ]; then set -- "$@" --roots "$SERVER_ROOTS"; fi
-"$game" "$@"
+"$game" "$@" || {
+    status=$?
+    # 127 from a Windows executable means a DLL it imports was not found.
+    if [ "$status" = 127 ] && command -v llvm-objdump >/dev/null; then llvm-objdump -p "$game" | grep "DLL Name" >&2; fi
+    exit "$status"
+}
 
 echo "== autoplay"
 # The whole game loop with a scripted player: title, a match, a death, a retry, the save file, and
