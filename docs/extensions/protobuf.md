@@ -190,8 +190,8 @@ Jacket encodes about twice as fast as jai-protobuf, except packed numbers, where
 | Pub/Sub | 31 ms | 0.9 s | 0.3 MB | 5.4 MB |
 | TensorFlow framework | 43 ms | 1.1 s | 0.3 MB | 4.6 MB |
 | Kubernetes core/v1 | 62 ms | 3.1 s | 0.8 MB | 13.3 MB |
-| googleapis, 299 files | 1.6 s | 1.9 s | 6.7 MB | 114 MB |
-| Envoy API, 824 files | 2-3 s | 9.0 s | 5.6 MB | 97 MB |
+| googleapis, 299 files | 0.6 s | 1.9 s | 6.7 MB | 114 MB |
+| Envoy API, 824 files | 0.7 s | 9.0 s | 5.6 MB | 97 MB |
 
 All 25 variants in `schemas.json` generate, compile and round-trip. jai-protobuf builds `descriptor.proto` and the TensorFlow config; the others stop on recursive messages, packages repeated across files, or fields named like Jai types (`float`).
 
