@@ -8,28 +8,7 @@
 #load "helpers/common.jai";
 #load "fixtures/png_cases.jai";
 
-Tally :: struct {
-    outstanding: s64;
-    largest: s64;
-}
-
-tally_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
-    tally := cast(*Tally) data;
-    backing := context.default_allocator;
-    result := backing.proc(mode, size, old_size, old_memory, backing.data);
-
-    if mode == .ALLOCATE && result {
-        tally.outstanding += 1;
-        if size > tally.largest tally.largest = size;
-    } else if mode == .RESIZE && result {
-        if !old_memory tally.outstanding += 1;
-        if size > tally.largest tally.largest = size;
-    } else if mode == .FREE && old_memory {
-        tally.outstanding -= 1;
-    }
-
-    return result;
-}
+#load "../../test-support/counting-allocator.jai";
 
 Expectation :: enum {
     SUCCEEDS;

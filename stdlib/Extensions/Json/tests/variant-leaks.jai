@@ -20,25 +20,7 @@ check :: (condition: bool, what: string, loc := #caller_location) {
     failures += 1;
 }
 
-Tally :: struct {
-    outstanding: int;
-}
-
-tally_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
-    tally := cast(*Tally) data;
-    backing := context.default_allocator;
-    result := backing.proc(mode, size, old_size, old_memory, backing.data);
-
-    if mode == .ALLOCATE && result {
-        tally.outstanding += 1;
-    } else if mode == .RESIZE && result && !old_memory {
-        tally.outstanding += 1;
-    } else if mode == .FREE && old_memory {
-        tally.outstanding -= 1;
-    }
-
-    return result;
-}
+#load "../../test-support/counting-allocator.jai";
 
 Named :: struct {
     name: string;
