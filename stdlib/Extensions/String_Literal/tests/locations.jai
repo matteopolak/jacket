@@ -37,11 +37,11 @@ OUTSIDE :: #run where(PLAIN_CODE, 99);
 main :: () {
     expect("plain", PLAIN, "true:15:29");
     // a, \t, b, \x41, \u00e9 (two bytes), space, \", q, \", space, z: byte 11 is `z`.
-    expect("escaped", ESCAPED, "true:16:45");
-    expect("eight", EIGHT, "true:17:32");
+    expect("escaped", ESCAPED, "true:17:45");
+    expect("eight", EIGHT, "true:18:32");
     expect("end", END_AT, "true:15:42");
-    expect("here", HERE, "true:21:4");
-    expect("percent", PERCENT, "true:25:4");
+    expect("here", HERE, "true:22:4");
+    expect("percent", PERCENT, "true:26:4");
     expect("outside", OUTSIDE, "false:15:21");
     if failures exit(1);
 

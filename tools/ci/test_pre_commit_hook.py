@@ -288,7 +288,7 @@ class PreCommitHookTests(unittest.TestCase):
         sh(["git", "add", "a.jai"], self.repo)
         result = self.commit()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("jaifmt not found", result.stderr)
+        self.assertIn("no jaifmt built", result.stderr)
         self.assertIn("jailint not found", result.stderr)
 
     def test_item_spacing_is_checked(self):

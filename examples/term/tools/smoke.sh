@@ -2,8 +2,8 @@
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 smoke_name=term
-# shellcheck source=examples/tools/smoke-common.sh
-. "$here/../../tools/smoke-common.sh"
+# shellcheck source=tools/dev/smoke-common.sh
+. "$here/../../../tools/dev/smoke-common.sh"
 cd "$here/../../.."
 case $(uname -s) in
     Darwin|Linux) ;;

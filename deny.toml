@@ -10,11 +10,12 @@ version = 2
 # A yanked crate is an error: the lock file pins exact versions, so a yank is an actionable signal.
 yanked = "deny"
 ignore = [
-    # pulldown-cmark's wikilink parsing (`Options::ENABLE_WIKILINKS`) grows exponentially on a
-    # crafted link. jaic parses doc comments with `Options::empty()` (jaic::docs), so the option
-    # is never on. The fix (0.13.5) is not 14 days old yet (tools/ci/check_dependency_age.py);
-    # update the crate and drop this entry once it is.
+    # pulldown-cmark's wikilink parsing (`Options::ENABLE_WIKILINKS`) grows exponentially, or
+    # quadratically with nested image wikilinks, on a crafted link. Nothing here turns that option
+    # on. The fixes are not 14 days old yet (tools/ci/check_dependency_age.py); update the crate
+    # and drop these entries once they are.
     "RUSTSEC-2026-0414",
+    "RUSTSEC-2026-0433",
 ]
 
 [licenses]

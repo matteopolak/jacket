@@ -3,8 +3,8 @@
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 smoke_name=music
-# shellcheck source=examples/tools/smoke-common.sh
-. "$here/../../tools/smoke-common.sh"
+# shellcheck source=tools/dev/smoke-common.sh
+. "$here/../../../tools/dev/smoke-common.sh"
 cd "$here/../../.."
 smoke_build examples/music/main.jai -exe "$T/music"
 "$T/music" --generate "$work"

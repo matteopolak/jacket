@@ -10,8 +10,8 @@ set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 app=$(dirname "$here")
 smoke_name=kvdb
-# shellcheck source=examples/tools/smoke-common.sh
-. "$here/../../tools/smoke-common.sh"
+# shellcheck source=tools/dev/smoke-common.sh
+. "$here/../../../tools/dev/smoke-common.sh"
 
 expect() {
     # expect WHAT WANT GOT

@@ -1,7 +1,7 @@
 ../../layout.jai:202:13: error[metaprogram-report]: Variant(struct { which: s64; other: string; }): a case cannot be named `which`, the Variant uses that name itself
                 compiler_report(tprint("%: a case cannot be named `%`, the Variant uses that name itself", title, it));
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-../../module.jai:47:13: note: while running compile-time code started here
+../../module.jai:50:13: note: while running compile-time code started here
         #insert -> string {
                 ^^^^^^^^^^^
 

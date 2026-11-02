@@ -89,8 +89,8 @@ async function docImage(check: boolean) {
   const { Resvg } = await import("@resvg/resvg-js");
   const logo = readFileSync(join(root, "images/icon.svg"), "utf8");
   const centered = logo.replace('<svg ', '<svg x="440" y="155" ').replace('width="16" height="16"', 'width="320" height="320"');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="#1b1b1f"/>${centered}</svg>`;
-  const png = new Resvg(svg).render().asPng();
+  const page = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="#1b1b1f"/>${centered}</svg>`;
+  const png = new Resvg(page).render().asPng();
   const file = join(root, "images/doc-og.png");
   if (check) {
     if (!readFileSync(file).equals(png)) { console.error("images/doc-og.png is stale"); process.exitCode = 1; }

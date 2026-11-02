@@ -3,8 +3,8 @@
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 smoke_name=editor
-# shellcheck source=examples/tools/smoke-common.sh
-. "$here/../../tools/smoke-common.sh"
+# shellcheck source=tools/dev/smoke-common.sh
+. "$here/../../../tools/dev/smoke-common.sh"
 cd "$here/../../.."
 if command -v jailsp >/dev/null 2>&1; then
     JAI_EDITOR_SERVER=$(command -v jailsp)

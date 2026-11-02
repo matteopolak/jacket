@@ -46,7 +46,7 @@ Add an app as `examples/<name>/` with its own smoke script and `FRICTION.md`, th
 
 ## Configuration
 
-- `T`: build directory for the smoke scripts that take one (seek, sitegen, kvdb, editor, music, term). Unset, they use a temporary directory under `${TMPDIR:-/tmp}` and remove it on exit; a given `T` is kept. `examples/tools/smoke-common.sh` does this and builds with `-j 2`.
+- `T`: build directory for the smoke scripts that take one (seek, sitegen, kvdb, editor, music, term). Unset, they use a temporary directory under `${TMPDIR:-/tmp}` and remove it on exit; a given `T` is kept. `tools/dev/smoke-common.sh` does this and builds with `-j 2`.
 - `JAIC`: compiler to use. `JAIC_NATIVE_LIBS`: native library directory.
 - `DATABASE_URL`: server database; `WITH_GAME=1` also runs the game smoke against it.
 - `SERVER_URL`, `SERVER_ROOTS`: point the game smoke at a running backend (and the certificate to trust).
