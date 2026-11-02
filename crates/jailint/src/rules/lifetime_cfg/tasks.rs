@@ -124,7 +124,8 @@ impl Builder {
                         registration.opaque = true;
                         continue;
                     };
-                    registration.opaque |= !s.unknown_write.is_empty()
+                    registration.opaque |= cx.compiler.pr.procs[proc.0 as usize].lit.body.is_none()
+                        || !s.unknown_write.is_empty()
                         || !s.escapes.is_empty()
                         || s.may
                             .keys()

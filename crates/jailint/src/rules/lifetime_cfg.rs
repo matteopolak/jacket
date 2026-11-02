@@ -165,7 +165,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
     let summaries = cx
         .run
         .lifetimes
-        .get_or_init(|| Summaries::build(cx.compiler));
+        .get_or_init(|| Summaries::build_for(cx.compiler, &cx.run.lifetime_files));
     // Hash iteration order must not affect the order of diagnostics.
     let mut selected: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
     selected.sort_by_key(|b| b.procedure.0);

@@ -61,6 +61,17 @@ pub struct LifetimeArgument {
 
 #[derive(Clone, Debug)]
 pub enum LifetimeEvent {
+    /// Runtime context selection, including caller-owned conditional macro defers.
+    ContextSet {
+        value: Val,
+    },
+    ContextRead {
+        value: Val,
+    },
+    ContextAlias {
+        value: Val,
+        source: Val,
+    },
     /// A local/field/view's real per-instantiation identity and checked type.
     Expression {
         span: Span,
@@ -671,23 +682,7 @@ impl Compiler {
                     syntax: syntax.clone(),
                     blocks: record.blocks,
                     source_ranges: record.source_ranges,
-                    stack_places: f
-                        .b
-                        .func
-                        .blocks
-                        .iter()
-                        .flat_map(|b| &b.insts)
-                        .filter_map(|inst| match inst {
-                            ir::Inst::SlotAddr {
-                                dst, ..
-                            }
-                            | ir::Inst::StackAlloc {
-                                dst, ..
-                            } => Some(*dst),
-                            _ => None,
-                        })
-                        .chain(record.stack_subplaces)
-                        .collect(),
+                    stack_places: stack_places(&f.b.func, record.stack_subplaces),
                 },
             );
         }
@@ -831,4 +826,42 @@ impl FnCtx {
             record.source_site = site;
         }
     }
+}
+
+/// Anonymous literal/argument stores use raw address arithmetic instead of member events.
+/// Only addresses derived from this activation's allocations qualify, never loaded pointers.
+fn stack_places(func: &ir::Func, subplaces: Vec<Val>) -> Vec<Val> {
+    let mut stack: HashSet<Val> = subplaces.into_iter().collect();
+    let instructions: Vec<_> = func.blocks.iter().flat_map(|b| &b.insts).collect();
+    for instruction in &instructions {
+        if let ir::Inst::SlotAddr {
+            dst, ..
+        }
+        | ir::Inst::StackAlloc {
+            dst, ..
+        } = **instruction
+        {
+            stack.insert(dst);
+        }
+    }
+    loop {
+        let mut changed = false;
+        for instruction in &instructions {
+            if let ir::Inst::PtrAdd {
+                dst,
+                base,
+                ..
+            } = **instruction
+                && stack.contains(&base)
+            {
+                changed |= stack.insert(dst);
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    let mut stack: Vec<_> = stack.into_iter().collect();
+    stack.sort_unstable_by_key(|v| v.0);
+    stack
 }

@@ -783,7 +783,7 @@
                 "deny"
               ],
               "default": "allow",
-              "markdownDescription": "experimental must-analysis of array pointers across branches and loops (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#pointer_lifetime)"
+              "markdownDescription": "a pointer used after its storage moves or its element becomes invalid (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#pointer_lifetime)"
             },
             "print_in_module": {
               "type": "string",

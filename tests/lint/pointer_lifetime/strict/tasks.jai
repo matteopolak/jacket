@@ -104,3 +104,19 @@ good_conditional_read_is_not_a_must_borrow :: () {
     release(p);
     finish(*job);
 }
+
+lib :: #library "c";
+CWork :: #type (job: *Job) #c_call;
+
+register_foreign :: (job: *Job, work: CWork) {} @RegistersBorrower(0,1,0)
+foreign_callback :: (job: *Job) #foreign lib "lifetime_unavailable_worker"; @NoLifetimeEffects
+
+foreign_read_contract_is_not_a_no_read_contract :: () {
+    p := make();
+    job: Job;
+    job.payload = p;
+    register_foreign(*job, foreign_callback);
+    start(*job);
+    release(p);
+    finish(*job);
+}

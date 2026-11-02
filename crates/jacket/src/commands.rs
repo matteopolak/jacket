@@ -248,6 +248,10 @@ pub fn explain(code: Option<&str>) -> ExitCode {
         print!("{}", explain_one(code));
         return ExitCode::SUCCESS;
     }
+    if let Some(rule) = jailint::RULES.iter().find(|r| r.name == name) {
+        print!("{}", rule.explanation());
+        return ExitCode::SUCCESS;
+    }
     if RETIRED.contains(&name) {
         println!("`{name}` is retired: no diagnostic uses it any more.");
         return ExitCode::SUCCESS;
@@ -257,7 +261,8 @@ pub fn explain(code: Option<&str>) -> ExitCode {
         Code::ALL
             .iter()
             .map(|code| code.name())
-            .chain(RETIRED.iter().copied()),
+            .chain(RETIRED.iter().copied())
+            .chain(jailint::RULES.iter().map(|r| r.name)),
     );
     match near {
         Some(near) => fail(format!(
@@ -322,7 +327,14 @@ fn explain_list() -> String {
         }
         text.push('\n');
     }
-    text.push_str("`jacket explain <code>` says more about one.\n");
+    text.push_str("lint rules\n");
+    let mut rules: Vec<_> = jailint::RULES.iter().collect();
+    rules.sort_by_key(|r| r.name);
+    let width = rules.iter().map(|r| r.name.len()).max().unwrap_or(0);
+    for rule in rules {
+        text.push_str(&format!("  {:width$}  {}\n", rule.name, rule.summary));
+    }
+    text.push_str("\n`jacket explain <code>` says more about one.\n");
     text
 }
 

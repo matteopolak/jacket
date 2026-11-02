@@ -212,6 +212,7 @@ impl Compiler {
             let addr = f.b.alloca(size, align);
             let (_, from) = self.address_of(f, current, span)?;
             f.b.copy(addr, from, size);
+            f.lifetime_store(addr, from, ctx_ty, span);
             Operand::Place {
                 ty: ctx_ty,
                 addr,
@@ -538,7 +539,7 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         let addr = self.push_context_addr(f, scope, &defer.context, defer.bare, span)?;
-        let previous = f.current_context();
+        let previous = f.lifetime_current_context();
         let saved_slot = f.b.entry_zeroed_slot(Ty::Ptr, 8, 8);
         let saved = previous.unwrap_or_else(|| f.b.iconst(Ty::Ptr, 0));
         f.b.store(Ty::Ptr, saved_slot, saved);
@@ -573,7 +574,7 @@ impl Compiler {
         } = boxed;
         let depth = f.mark_defers();
         let addr = self.push_context_addr(f, scope, context, *bare, span)?;
-        let saved = f.current_context();
+        let saved = f.lifetime_current_context();
         let saved_slot = f.b.entry_zeroed_slot(Ty::Ptr, 8, 8);
         let previous = saved.unwrap_or_else(|| f.b.iconst(Ty::Ptr, 0));
         f.b.store(Ty::Ptr, saved_slot, previous);

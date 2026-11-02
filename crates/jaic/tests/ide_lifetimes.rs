@@ -431,3 +431,49 @@ fn relative_pointer_syntax_has_no_selected_type_in_this_compiler() {
     let c = compile("main :: () { p: *~s32; }", true, true);
     assert!(!bodies(&c).any(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main"));
 }
+
+
+#[test]
+fn clearing_lifetimes_releases_bodies_and_their_file_index() {
+    let mut c = compile(POLY, true, false);
+    let file = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "poly")
+        .unwrap()
+        .syntax
+        .header
+        .span
+        .file;
+    let facts = c.ed.facts_mut().unwrap();
+    assert!(facts.lifetime_bodies_in(file).next().is_some());
+    let refs = facts.refs.len();
+    facts.clear_lifetimes();
+    assert_eq!(facts.lifetime_bodies.capacity(), 0);
+    assert!(facts.lifetime_bodies_in(file).next().is_none());
+    assert_eq!(facts.refs.len(), refs);
+    facts.clear_lifetimes();
+}
+
+#[test]
+fn runtime_context_selection_and_restoration_are_recorded() {
+    let c = compile(
+        r#"
+#import "Basic";
+main :: () {
+    push_context {
+        local: int;
+        push_context { context.logger_data = *local; }
+        context.logger_data = *local;
+    }
+}
+"#,
+        true,
+        false,
+    );
+    let body = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
+        .unwrap();
+    assert!(events(body).any(|e| matches!(e, Event::ContextSet { .. })));
+    assert!(events(body).any(|e| matches!(e, Event::ContextRead { .. })));
+    assert!(events(body).any(|e| matches!(e, Event::ContextAlias { .. })));
+    assert!(events(body).any(|e| matches!(e, Event::Store { ty, .. } if matches!(c.ty.types.kind(*ty), jaic::types::TypeKind::Struct(_)))));
+}

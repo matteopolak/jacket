@@ -15,7 +15,7 @@ impl Compiler {
         overrides: &[ast::Arg],
         span: Span,
     ) -> Result<ir::Val> {
-        let Some(current) = f.current_context() else {
+        let Some(current) = f.lifetime_current_context() else {
             return err(
                 Code::CallContextArguments,
                 span,

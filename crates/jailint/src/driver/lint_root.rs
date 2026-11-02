@@ -150,6 +150,9 @@ pub(super) fn lint_root(
             }
             lints.extend(found);
         }
+        if options.jobs == 1 {
+            crate::facts::profile_retained(&mut compiler, root.path(), complete);
+        }
         // Drop the compiler now: they hold the workspace registry, which held them.
         drop(compiler);
     }

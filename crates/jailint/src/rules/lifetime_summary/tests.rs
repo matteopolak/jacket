@@ -103,3 +103,27 @@ fn allocator_mode_guards_distinguish_allocate_resize_and_free() {
             .all(|s| s.guaranteed.keys().any(|e| e.kind == Kind::Resize))
     );
 }
+
+#[test]
+fn prefix_compaction_preserves_independent_allocation_effects() {
+    for kind in [Kind::Resize, Kind::Free] {
+        let mut effects = HashMap::default();
+        let parent = Effect {
+            target: Path {
+                root: Root::Parameter(0),
+                steps: vec![Step::Storage],
+            },
+            kind,
+            guard: None,
+        };
+        let mut child = parent.clone();
+        child.target.steps.extend([Step::Element(0), Step::Storage]);
+        insert(&mut effects, child.clone(), Vec::new());
+        insert(&mut effects, parent.clone(), Vec::new());
+        assert!(effects.contains_key(&parent));
+        assert!(
+            effects.contains_key(&child),
+            "an outer allocation does not subsume a nested allocation"
+        );
+    }
+}

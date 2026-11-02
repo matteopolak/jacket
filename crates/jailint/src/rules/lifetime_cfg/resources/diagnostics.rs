@@ -215,6 +215,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 Op::Return {
                     cell,
                     span,
+                    ..
                 }
                 | Op::Escape {
                     cell,
@@ -395,7 +396,20 @@ impl Proof<'_> {
                 .push((origin, "stack storage borrowed here".into()));
             push(&mut out.returned_local_address, f);
         } else if matches!(kind, Origin::Temporary)
-            && (!returning || !cx.compiler.proc_has_note(body.procedure, "TempAllocates"))
+            && (!returning
+                || !(crate::rules::lifetime_movement::notes(cx.compiler, body.procedure)
+                    .any(|n| n.text.trim() == "TempAllocates")
+                    || crate::rules::lifetime_movement::result_indices(
+                        cx.compiler,
+                        body.procedure,
+                        "TempAllocates",
+                    )
+                    .contains(&match block.op {
+                        CfgOp::Resource(Op::Return {
+                            result, ..
+                        }) => result,
+                        _ => usize::MAX,
+                    })))
         {
             let name = expression_name(cx, body, *span);
             let (message, help) = if returning {

@@ -92,3 +92,29 @@ fn a_mistyped_code_suggests_the_nearest() {
         stderr(&far)
     );
 }
+
+
+#[test]
+fn every_lint_has_an_explanation_and_example() {
+    for rule in jailint::RULES {
+        let output = explain(&[rule.name]);
+        assert!(
+            output.status.success(),
+            "{}: {}",
+            rule.name,
+            stderr(&output)
+        );
+        let text = stdout(&output);
+        assert!(text.starts_with(rule.name), "{}: {text}", rule.name);
+        assert!(text.contains("Example:"), "{}: {text}", rule.name);
+        assert!(text.contains("```jai"), "{}: {text}", rule.name);
+    }
+    let output = explain(&["warning[pointer_lifetime]"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout(&output).contains("--lifetime-mode"));
+    let output = explain(&[]);
+    let text = stdout(&output);
+    for rule in jailint::RULES {
+        assert!(text.contains(rule.name), "missing {}", rule.name);
+    }
+}

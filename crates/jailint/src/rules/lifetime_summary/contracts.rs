@@ -1,12 +1,26 @@
 //! Explicit contracts seed inference; stronger return contracts take precedence over bodies.
 use super::{
-    Compiler, Effect, HashMap, Kind, LifetimeBody, Path, ProcId, Root, Step, Summaries, Summary,
+    Compiler, Effect, HashMap, HashSet, Kind, LifetimeBody, Path, ProcId, Root, Step, Summaries,
+    Summary,
 };
 
-pub(super) fn seed(compiler: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) -> Summaries {
+pub(super) fn seed(
+    compiler: &Compiler,
+    valid: &HashMap<ProcId, &LifetimeBody>,
+    needed: Option<&HashSet<ProcId>>,
+) -> Summaries {
     let mut all = Summaries::default();
-    for (i, _) in compiler.pr.procs.iter().enumerate() {
-        let id = ProcId(i as u32);
+    let mut ids: Vec<_> = needed.map_or_else(
+        || {
+            (0..compiler.pr.procs.len())
+                .map(|i| ProcId(i as u32))
+                .collect()
+        },
+        |ids| ids.iter().copied().collect(),
+    );
+    ids.sort_unstable_by_key(|p| p.0);
+    for id in ids {
+        let i = id.0 as usize;
         let mut summary = Summary::default();
         if valid.contains_key(&id) {
             summary.normal_return = Some(false);
@@ -99,12 +113,12 @@ pub(super) fn seed(compiler: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) 
             ("Allocates", Root::Heap),
             ("TempAllocates", Root::Temporary),
         ] {
-            if compiler.proc_has_note(id, note) {
+            for index in super::lifetime_movement::result_indices(compiler, id, note) {
                 summary.returns.insert(
-                    0,
+                    index,
                     (
                         Path {
-                            root,
+                            root: root.clone(),
                             steps: Vec::new(),
                         },
                         None,

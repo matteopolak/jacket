@@ -9,8 +9,6 @@ impl Resolver<'_> {
         let body = self.body;
         let live = returning_blocks(body, all, self.targets);
         let mut next = prior.clone();
-        next.reads.extend(self.reads(all, true));
-        next.may_reads.extend(self.reads(all, false));
         let swap_facts = body.blocks.iter().flat_map(|b| &b.events).any(|e| matches!(e, Event::Call { callee, .. } if self.compiler.proc_has_note(*callee, "SwapsArguments"))).then(|| crate::rules::lifetime_movement::facts::Facts::new(self.compiler, body));
         let mut effects = vec![Vec::new(); body.blocks.len()];
         for (b, block) in body
@@ -182,15 +180,18 @@ impl Resolver<'_> {
         }
         for (index, path) in returns {
             if let Some(path) = path {
-                if self
-                    .compiler
-                    .proc_has_note(self.body.procedure, "ValidUntilNextCall")
-                    || self
+                if index == 0
+                    && self
                         .compiler
-                        .proc_has_note(self.body.procedure, "TempAllocates")
-                    || self
-                        .compiler
-                        .proc_has_note(self.body.procedure, "Allocates")
+                        .proc_has_note(self.body.procedure, "ValidUntilNextCall")
+                    || ["TempAllocates", "Allocates"].iter().any(|note| {
+                        super::lifetime_movement::result_indices(
+                            self.compiler,
+                            self.body.procedure,
+                            note,
+                        )
+                        .contains(&index)
+                    })
                 {
                     continue;
                 }

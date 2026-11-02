@@ -335,6 +335,17 @@ impl Compiler {
                         saved_slot,
                     } => {
                         let previous_ptr = f.b.load(Ty::Ptr, *saved_slot);
+                        if !f.type_only
+                            && let (Some(record), Some(source)) = (&mut f.lifetimes, previous)
+                        {
+                            record.push(
+                                f.b.current,
+                                crate::ide::lifetimes::LifetimeEvent::ContextAlias {
+                                    value: previous_ptr,
+                                    source: *source,
+                                },
+                            );
+                        }
                         f.set_context(Some(previous_ptr));
                         f.restore_context_binding(*previous);
                     }

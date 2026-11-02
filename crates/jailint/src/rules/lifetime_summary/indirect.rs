@@ -144,9 +144,7 @@ pub(super) fn edges(
             ..
         } => vec![*callee],
         Event::IndirectCall {
-            callee,
-            allocator: false,
-            ..
+            callee, ..
         } => targets.get(procedure, *callee).ordered(),
         _ => Vec::new(),
     }

@@ -50,6 +50,7 @@ pub(in crate::rules) struct Facts<'a> {
     compiler: &'a Compiler,
     body: &'a LifetimeBody,
     defs: HashMap<Val, Vec<Def>>,
+    roots: HashMap<Val, usize>,
     stores: HashMap<usize, Vec<(Val, Site)>>,
     counts: HashMap<usize, usize>,
     data: HashMap<usize, (usize, TypeId)>,
@@ -67,6 +68,7 @@ impl<'a> Facts<'a> {
             compiler,
             body,
             defs: HashMap::default(),
+            roots: HashMap::default(),
             stores: HashMap::default(),
             counts: HashMap::default(),
             data: HashMap::default(),
@@ -201,6 +203,11 @@ impl<'a> Facts<'a> {
                     .extend(writes.iter().map(|(_, site)| *site));
             }
         }
+        for (p, ((value, _), path)) in this.places.paths.iter().enumerate() {
+            if path.is_empty() {
+                this.roots.entry(*value).or_insert(p);
+            }
+        }
         this
     }
 
@@ -216,7 +223,10 @@ impl<'a> Facts<'a> {
         let [(value, site)] = self.stores.get(&p)?.as_slice() else {
             return None;
         };
-        if !Self::before(*site, at) || self.exposed.iter().any(|&e| self.places.contains(e, p)) {
+        if !Self::before(*site, at)
+            || self.exposed.contains(&p)
+            || self.places.ancestors(p).any(|a| self.exposed.contains(&a))
+        {
             return None;
         }
         if self.descendant_writes.get(&p).is_some_and(|writes| {
@@ -281,11 +291,7 @@ impl<'a> Facts<'a> {
                 }
             }
             None => {
-                let p = self
-                    .places
-                    .paths
-                    .iter()
-                    .position(|((v, _), path)| *v == value && path.is_empty());
+                let p = self.roots.get(&value).copied();
                 if let Some(p) = p
                     && let Some(source) = self.single_store(p, at)
                 {

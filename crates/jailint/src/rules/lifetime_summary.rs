@@ -17,6 +17,7 @@ mod flow;
 mod indirect;
 mod infer;
 mod reads;
+mod selected;
 #[cfg(test)]
 mod tests;
 mod writes;
@@ -905,11 +906,27 @@ struct Writes {
     escapes: HashSet<usize>,
 }
 
-fn insert(map: &mut HashMap<Effect, Vec<Span>>, effect: Effect, chain: Vec<Span>) {
+fn insert(map: &mut HashMap<Effect, Vec<Span>>, effect: Effect, chain: Vec<Span>) -> bool {
+    // Unknown reaches everything below its target; a parent write already forgets all
+    // descendant places. Retain an antichain instead of enumerating redundant recursive
+    // field paths. Allocation-specific resize/free effects deliberately do not use this.
+    let covers = |a: &Effect, b: &Effect| {
+        a.kind == b.kind
+            && (a.guard.is_none() || a.guard == b.guard)
+            && a.target.root == b.target.root
+            && b.target.steps.starts_with(&a.target.steps)
+    };
+    if matches!(effect.kind, Kind::Unknown | Kind::Write) {
+        if map.keys().any(|old| *old != effect && covers(old, &effect)) {
+            return false;
+        }
+        map.retain(|old, _| *old == effect || !covers(&effect, old));
+    }
     let prefer = map.get(&effect).is_none_or(|old| chain.len() < old.len());
     if prefer {
         map.insert(effect, chain);
     }
+    prefer
 }
 
 fn chain(site: Span, rest: &[Span]) -> Vec<Span> {
@@ -951,13 +968,15 @@ impl Summaries {
                 summary.unknown_write.extend(unknown_write);
                 summary.escapes.extend(escapes);
                 changed |= previous != summary.unknown_write.len() + summary.escapes.len();
+                let before = summary.may.len();
+                summary.may.retain(|e, _| !matches!(e.target.root, Root::Parameter(p) if e.kind == Kind::Write && summary.unknown_write.contains(&p)));
+                changed |= before != summary.may.len();
                 for (effect, witness) in writes {
-                    if let std::collections::hash_map::Entry::Vacant(entry) =
-                        summary.may.entry(effect)
+                    if matches!(effect.target.root, Root::Parameter(p) if effect.kind == Kind::Write && summary.unknown_write.contains(&p))
                     {
-                        entry.insert(witness);
-                        changed = true;
+                        continue;
                     }
+                    changed |= insert(&mut summary.may, effect, witness);
                 }
             }
             if !changed {
@@ -966,11 +985,17 @@ impl Summaries {
         }
     }
 
+    #[cfg(test)]
     pub fn build(compiler: &Compiler) -> Self {
+        Self::build_for(compiler, &HashSet::default())
+    }
+
+    pub fn build_for(compiler: &Compiler, files: &HashSet<jaic::source::FileId>) -> Self {
+        let started = std::time::Instant::now();
         let Some(facts) = compiler.ed.facts() else {
             return Self::default();
         };
-        let valid: HashMap<_, _> = facts
+        let mut valid: HashMap<_, _> = facts
             .lifetime_bodies
             .iter()
             .filter(|(id, body)| {
@@ -980,7 +1005,8 @@ impl Summaries {
             })
             .map(|(&id, body)| (id, body))
             .collect();
-        let mut all = contracts::seed(compiler, &valid);
+        let needed = selected::retain(&mut valid, files);
+        let mut all = contracts::seed(compiler, &valid, needed.as_ref());
         all.targets = super::lifetime_targets::Universe::build(compiler, &valid);
         // Tarjan's pop order is bottom-up for caller -> callee edges.
         let mut ids: Vec<_> = valid.keys().copied().collect();
@@ -1003,6 +1029,17 @@ impl Summaries {
         let components = sccs(&ids, &graph);
         all.sccs = components.len();
         for component in components {
+            if jacket_config::env::LIFETIME_STATS.is_set()
+                && (component.len() > 1 || graph[&component[0]].contains(&component[0]))
+            {
+                eprintln!(
+                    "lifetime-summary-scc {:?}",
+                    component
+                        .iter()
+                        .map(|p| (p.0, compiler.pr.procs[p.0 as usize].name.as_str()))
+                        .collect::<Vec<_>>()
+                );
+            }
             // Least fixed point for normal-return reachability, before guarantees. A
             // recursive cycle with no returning base must not make later caller uses live.
             loop {
@@ -1036,10 +1073,17 @@ impl Summaries {
                 }
             }
         }
+        if jacket_config::env::LIFETIME_STATS.is_set() {
+            eprintln!("lifetime-summary-writes-begin bodies={}", valid.len());
+        }
         all.propagate_writes(compiler, &valid);
         if jacket_config::env::LIFETIME_STATS.is_set() {
+            eprintln!("lifetime-summary-writes-end");
+        }
+        let read_summaries = reads::solve(compiler, &valid, &graph, &mut all);
+        if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!(
-                "lifetime-summary-stats bodies={} sccs={} iterations={} may={} guaranteed={}",
+                "lifetime-summary-stats bodies={} sccs={} iterations={} may={} guaranteed={} read_summaries={} wall_ms={:.3}",
                 valid.len(),
                 all.sccs,
                 all.iterations,
@@ -1047,7 +1091,9 @@ impl Summaries {
                 all.procs
                     .values()
                     .map(|s| s.guaranteed.len())
-                    .sum::<usize>()
+                    .sum::<usize>(),
+                read_summaries,
+                started.elapsed().as_secs_f64() * 1000.0
             );
         }
         all

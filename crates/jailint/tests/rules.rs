@@ -667,8 +667,12 @@ fn lifetime_strict_resources_and_foreign_contracts() {
 fn lifetime_allocator_backing_is_inferred_from_selected_returns() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/backing.jai");
     let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
-    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
-    assert!(lints[0].start < text.find("metadata_is_not_backing").unwrap());
+    assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
+    assert!(
+        lints
+            .iter()
+            .all(|l| l.start < text.find("metadata_is_not_backing").unwrap())
+    );
 }
 
 #[test]
@@ -694,7 +698,7 @@ fn lifetime_started_borrowers_end_at_completion() {
             ..Config::default()
         },
     );
-    assert_eq!(strict.len(), 5, "{}", rendered(&strict, &text, &path));
+    assert_eq!(strict.len(), 6, "{}", rendered(&strict, &text, &path));
     test_support::assert_snapshot_in!(
         path.parent().unwrap(),
         "strict-tasks",
@@ -747,5 +751,47 @@ fn lifetime_strict_witnesses_count_alternatives_and_bound_loops() {
         path.parent().unwrap(),
         "strict-paths",
         rendered(&strict, &text, &path)
+    );
+}
+
+#[test]
+fn lifetime_demand_summaries_follow_imported_returned_procedures() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/import-targets.jai");
+    let (lints, text) = lint(&path, &[("pointer_lifetime", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+}
+
+#[test]
+fn lifetime_recursive_reach_uses_a_prefix_antichain() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/recursive-reach.jai");
+    let levels = [("pointer_lifetime", Level::Warn)];
+    let (must, text) = lint(&path, &levels);
+    assert!(must.is_empty(), "{}", rendered(&must, &text, &path));
+    let (strict, text) = lint_with(
+        &path,
+        &levels,
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(strict.len(), 1, "{}", rendered(&strict, &text, &path));
+}
+
+#[test]
+fn lifetime_context_selection_and_indexed_return_contracts() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/context-and-results.jai");
+    let levels = [
+        ("returned_local_address", Level::Warn),
+        ("temp_storage_escape", Level::Warn),
+    ];
+    let (findings, text) = lint(&path, &levels);
+    assert_eq!(findings.len(), 5, "{}", rendered(&findings, &text, &path));
+    assert!(
+        findings
+            .iter()
+            .all(|f| f.start > text.find("escaping ::").unwrap()),
+        "{}",
+        rendered(&findings, &text, &path)
     );
 }

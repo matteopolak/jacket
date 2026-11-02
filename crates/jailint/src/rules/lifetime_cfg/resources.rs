@@ -17,6 +17,7 @@ use std::rc::Rc;
 
 mod calls;
 mod diagnostics;
+mod quiescent;
 mod retained;
 mod retained_witness;
 use diagnostics::{Proof, emit};
@@ -52,6 +53,7 @@ pub(super) enum Op {
     Return {
         cell: usize,
         span: Span,
+        result: usize,
     },
     Escape {
         cell: usize,
@@ -88,6 +90,7 @@ pub(crate) struct Reports {
     pub returned_local_address: Vec<Finding>,
     pub temp_storage_escape: Vec<Finding>,
     external_primary: usize,
+    fast_quiet: usize,
 }
 
 pub(crate) fn reports(cx: &Cx) -> Rc<Reports> {
@@ -339,6 +342,7 @@ impl<'a> Builder<'a> {
             } => {
                 let p = places.place(*region, *region_ty);
                 if let Some(scope) = self.locals.get(&places.paths[p].0.0).copied()
+                    && !places.unresolved(p)
                     && matches!(
                         cx.compiler.ty.types.kind(*region_ty),
                         TypeKind::Array {
@@ -373,7 +377,9 @@ impl<'a> Builder<'a> {
                 ) =>
             {
                 let p = places.place(*base, *base_ty);
-                if let Some(scope) = self.locals.get(&places.paths[p].0.0).copied() {
+                if let Some(scope) = self.locals.get(&places.paths[p].0.0).copied()
+                    && !places.unresolved(p)
+                {
                     ops.push(Op::Seed {
                         cell: cells.id(Cell::Value(*value)),
                         origin: Origin::Stack(scope),
@@ -420,6 +426,7 @@ impl<'a> Builder<'a> {
             } => ops.push(Op::StatementEnd(*span)),
             Event::Return {
                 value,
+                index,
                 ty,
                 span,
                 ..
@@ -427,6 +434,7 @@ impl<'a> Builder<'a> {
                 ops.push(Op::Return {
                     cell: value_cell(cx, places, cells, *value, *ty),
                     span: *span,
+                    result: *index,
                 });
                 if cx.compiler.ir_ty(*ty).is_none() {
                     let parent = places.place(*value, *ty);
@@ -434,6 +442,7 @@ impl<'a> Builder<'a> {
                         ops.push(Op::Return {
                             cell: cells.id(Cell::Place(child)),
                             span: *span,
+                            result: *index,
                         });
                     }
                 }
@@ -515,7 +524,7 @@ fn analyze(cx: &Cx) -> Reports {
     let summaries = cx
         .run
         .lifetimes
-        .get_or_init(|| Summaries::build(cx.compiler));
+        .get_or_init(|| Summaries::build_for(cx.compiler, &cx.run.lifetime_files));
     let mut bodies: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
     bodies.sort_by_key(|b| b.procedure.0);
     let mut checked_bodies = 0;
@@ -679,6 +688,7 @@ fn analyze(cx: &Cx) -> Reports {
             forward,
             chains,
         };
+        let observable = quiescent::observable(&model);
         for (candidate, block) in model.blocks.iter().enumerate() {
             if matches!(
                 block.op,
@@ -704,7 +714,14 @@ fn analyze(cx: &Cx) -> Reports {
                         continue;
                     }
                 }
-                solved += usize::from(solve(cx, body, &model, candidate, &mut reports));
+                solved += usize::from(solve(
+                    cx,
+                    body,
+                    &model,
+                    candidate,
+                    &observable,
+                    &mut reports,
+                ));
             }
         }
     }
@@ -724,7 +741,7 @@ fn analyze(cx: &Cx) -> Reports {
             entries
         };
         eprintln!(
-            "lifetime-resource-stats file={} bodies={checked_bodies} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?} use_after_free={} double_free={} stack_escapes={} temp_escapes={} external_primary={}",
+            "lifetime-resource-stats file={} bodies={checked_bodies} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?} use_after_free={} double_free={} stack_escapes={} temp_escapes={} external_primary={} fast_quiet={}",
             cx.compiler.src.sources.get(cx.file).path,
             rank(rejected),
             rank(rejected_candidates),
@@ -732,7 +749,8 @@ fn analyze(cx: &Cx) -> Reports {
             reports.double_free.len(),
             reports.returned_local_address.len(),
             reports.temp_storage_escape.len(),
-            reports.external_primary
+            reports.external_primary,
+            reports.fast_quiet
         );
     }
     reports
@@ -775,7 +793,14 @@ fn candidate(block: &Block) -> Option<(usize, Origin, Span, Option<usize>)> {
     }
 }
 
-fn solve(cx: &Cx, body: &LifetimeBody, model: &Model, seed: usize, out: &mut Reports) -> bool {
+fn solve(
+    cx: &Cx,
+    body: &LifetimeBody,
+    model: &Model,
+    seed: usize,
+    observable: &[bool],
+    out: &mut Reports,
+) -> bool {
     let Some((first, origin_kind, origin, region)) = candidate(&model.blocks[seed]) else {
         return false;
     };
@@ -822,6 +847,10 @@ fn solve(cx: &Cx, body: &LifetimeBody, model: &Model, seed: usize, out: &mut Rep
         _ => false,
     }) {
         return false;
+    }
+    if quiescent::quiet(cx, model, origin_kind, region, &relevant, observable) {
+        out.fast_quiet += 1;
+        return true;
     }
     let width = relevant.len();
     let born = width * 2;

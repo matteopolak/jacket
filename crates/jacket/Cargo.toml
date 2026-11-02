@@ -12,6 +12,7 @@ name = "jacket"
 path = "src/main.rs"
 
 [dependencies]
+jailint = { path = "../jailint" }
 jacket-config = { path = "../jacket-config" }
 jaic = { path = "../jaic" }
 clap = { version = "=4.6.4", features = ["derive"] }

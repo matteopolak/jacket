@@ -6,6 +6,8 @@ use jaic::intern::Sym;
 use jaic::ir::Val;
 use jaic::types::TypeId;
 
+mod context;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) enum Projection {
     Field(Sym),
@@ -34,6 +36,28 @@ impl Places {
         // Lowering emits each projection after its base. Definitions precede their uses even
         // when a later block is checked before an earlier block's cleanup is filled in.
         let events: Vec<_> = body.blocks.iter().flat_map(|b| &b.events).collect();
+        let contexts = context::aliases(body);
+        for event in &events {
+            let typed = match **event {
+                Event::Expression {
+                    operand: LifetimeOperand::Place(v),
+                    ty,
+                    ..
+                } => Some((v, ty)),
+                Event::Field {
+                    base: LifetimeOperand::Place(v),
+                    base_ty,
+                    ..
+                } => Some((v, base_ty)),
+                _ => None,
+            };
+            if let Some((value, ty)) = typed
+                && let Some(&source) = contexts.get(&value)
+            {
+                let id = this.place(source, ty);
+                this.values.insert((value, ty), id);
+            }
+        }
         let mut globals = HashMap::default();
         for event in &events {
             if let Event::Expression {

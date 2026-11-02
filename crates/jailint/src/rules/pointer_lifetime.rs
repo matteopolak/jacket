@@ -1,11 +1,11 @@
-//! Opt-in phase-one CFG analysis. See `lifetime_cfg` for its deliberately bounded coverage.
+//! Pointer and logical-element lifetime checks over the selected semantic CFG.
 use crate::Finding;
 use crate::syntax::Cx;
 
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "pointer_lifetime",
     category: crate::config::Category::Restriction,
-    summary: "experimental must-analysis of array pointers across branches and loops",
+    summary: "a pointer used after its storage moves or its element becomes invalid",
     check,
 };
 

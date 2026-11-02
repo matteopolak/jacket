@@ -74,6 +74,24 @@ pub(super) fn parameters<'a>(text: &'a str, name: &str) -> Option<Vec<&'a str>> 
     Some(args.split(',').map(str::trim).collect())
 }
 
+/// Result positions named by an ownership contract; an unindexed note means result zero.
+pub(super) fn result_indices(compiler: &Compiler, proc: ProcId, name: &str) -> Vec<usize> {
+    let mut indices = Vec::new();
+    for note in notes(compiler, proc) {
+        let Some(args) = parameters(&note.text, name) else {
+            continue;
+        };
+        if args.is_empty() {
+            indices.push(0);
+        } else {
+            indices.extend(args.iter().filter_map(|a| a.parse::<usize>().ok()));
+        }
+    }
+    indices.sort_unstable();
+    indices.dedup();
+    indices
+}
+
 pub(super) fn released_formal(compiler: &Compiler, proc: ProcId) -> Option<usize> {
     notes(compiler, proc).find_map(|n| {
         let args =

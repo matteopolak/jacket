@@ -284,7 +284,7 @@ impl Compiler {
             ),
             E::Context => {
                 let ty = self.context_type(span)?;
-                let Some(ctx) = f.current_context() else {
+                let Some(ctx) = f.lifetime_current_context() else {
                     return err(
                         Code::ContextNotAvailable,
                         span,

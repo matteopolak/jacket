@@ -233,7 +233,7 @@ impl Compiler {
             let (overrides, plain): (Vec<ast::Arg>, Vec<ast::Arg>) =
                 args.iter().cloned().partition(|a| a.context);
             let ctx = self.context_with_overrides(f, scope, &overrides, span)?;
-            let saved = f.current_context();
+            let saved = f.lifetime_current_context();
             f.set_context(Some(ctx));
             let result = self.check_call(f, scope, callee, &plain, expected, span);
             f.set_context(saved);

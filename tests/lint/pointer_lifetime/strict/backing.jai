@@ -34,6 +34,19 @@ backing_released :: () {
     read(cast(*u8) p);
 }
 
+backing_released_before_allocator_definition :: () {
+    backing := make();
+    arena: Arena;
+    arena.base = backing;
+    a: Allocator;
+    a.proc = late_allocator;
+    a.data = *arena;
+    p := a.proc(.ALLOCATE, 8, 0, null, a.data);
+
+    release(backing);
+    read(cast(*u8) p);
+}
+
 metadata_is_not_backing :: () {
     metadata := make();
     arena: Arena;
@@ -45,4 +58,9 @@ metadata_is_not_backing :: () {
 
     release(metadata);
     read(cast(*u8) p);
+}
+
+late_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
+    area := cast(*Arena) data;
+    return area.base;
 }

@@ -91,7 +91,9 @@ pub fn lint_files(
 ) -> Vec<Lint> {
     let mut out = Vec::new();
     let mut module_facts = rules::unused_import::ModuleFacts::default();
-    let run = rules::RunState::default();
+    let mut run = rules::RunState::default();
+    run.lifetime_files.extend(files.iter().copied());
+    let time_lifetimes = jacket_config::env::LIFETIME_STATS.is_set();
     if !compiler.ed.facts().is_some_and(|ide| ide.lint) {
         return out;
     }
@@ -151,7 +153,26 @@ pub fn lint_files(
         cx.doc_links = doc_links;
         for &(rule, level) in &wanted {
             let mut found = Vec::new();
+            let started = (time_lifetimes
+                && matches!(
+                    rule.name,
+                    "pointer_lifetime"
+                        | "pointer_into_resizable"
+                        | "remove_in_for"
+                        | "use_after_free"
+                        | "double_free"
+                        | "temp_storage_escape"
+                        | "returned_local_address"
+                ))
+            .then(std::time::Instant::now);
             (rule.check)(&cx, &mut found);
+            if let Some(started) = started {
+                eprintln!(
+                    "lifetime-rule-time file={path} rule={} wall_ms={:.3}",
+                    rule.name,
+                    started.elapsed().as_secs_f64() * 1000.0
+                );
+            }
             for f in found {
                 if suppressions.allows_rule(rule, f.start) {
                     continue;

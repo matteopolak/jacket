@@ -397,12 +397,39 @@ impl FnCtx {
         )
     }
 
+    /// Capture an address used as a semantic place or saved for runtime restoration.
+    /// Ordinary implicit ABI context arguments need no additional sidecar event.
+    pub fn lifetime_current_context(&mut self) -> Option<Val> {
+        let value = self.current_context()?;
+        if !self.type_only
+            && let Some(record) = &mut self.lifetimes
+        {
+            record.push(
+                self.b.current,
+                crate::ide::lifetimes::LifetimeEvent::ContextRead {
+                    value,
+                },
+            );
+        }
+        Some(value)
+    }
+
     pub fn set_context(&mut self, context: Option<Val>) {
         let slot = *self
             .context_slot
             .get_or_insert_with(|| self.b.entry_zeroed_slot(Ty::Ptr, 8, 8));
         let value = context.unwrap_or_else(|| self.b.iconst(Ty::Ptr, 0));
         self.b.store(Ty::Ptr, slot, value);
+        if !self.type_only
+            && let Some(record) = &mut self.lifetimes
+        {
+            record.push(
+                self.b.current,
+                crate::ide::lifetimes::LifetimeEvent::ContextSet {
+                    value,
+                },
+            );
+        }
         self.context = context;
     }
 

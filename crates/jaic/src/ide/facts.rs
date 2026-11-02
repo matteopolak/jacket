@@ -378,6 +378,13 @@ impl IdeFacts {
         self
     }
 
+    /// Release selected lifetime bodies and their file index together, retaining other facts.
+    /// This also permits measuring their incremental retained allocation separately.
+    pub fn clear_lifetimes(&mut self) {
+        self.lifetime_bodies = HashMap::default();
+        self.lifetime_files = HashMap::default();
+    }
+
     pub fn new(roots: Vec<IdeRoot>) -> Self {
         Self {
             roots,

@@ -126,11 +126,17 @@ macro_rules! vars {
 }
 
 vars! {
-    /// Coverage counters for the experimental pointer lifetime rule.
+    /// Exact retained-fact measurements with the dedicated counted-allocator example.
+    LIFETIME_MEMORY {
+        name: "JAILINT_LIFETIME_MEMORY", group: Settings, readers: [Jailint, Tests],
+        default: "No destructive retained-fact profiling.",
+        summary: "With the lifetime_memory example and one worker, measure selected lifetime facts separately from all other lint facts after each compiler finishes linting.",
+    }
+    /// Coverage counters for the lifetime rules.
     LIFETIME_STATS {
         name: "JAILINT_LIFETIME_STATS", group: Settings, readers: [Jailint],
         default: "No lifetime coverage counters.",
-        summary: "Print per-file body, CFG and candidate counts for the experimental pointer lifetime rule.",
+        summary: "Print per-file body, CFG, candidate and rejection counts for the lifetime rules.",
     }
     STDLIB {
         name: "JAIC_STDLIB", group: Settings, readers: [Jaic, Jacket, Jailint, Jailsp, Tests],

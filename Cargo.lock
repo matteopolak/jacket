@@ -336,6 +336,7 @@ dependencies = [
  "clap",
  "jacket-config",
  "jaic",
+ "jailint",
  "pulldown-cmark",
  "regex-lite",
  "semver",

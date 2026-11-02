@@ -12,6 +12,7 @@ use jaic::source::Span;
 // Helpers shared by several rules; they are not rules themselves.
 mod frees;
 mod lifetime_cfg;
+mod lifetime_help;
 mod lifetime_movement;
 mod lifetime_places;
 mod lifetime_summary;
@@ -30,6 +31,31 @@ pub struct RuleInfo {
 }
 
 impl RuleInfo {
+    /// Why this rule reports a finding, with an executable regression example.
+    pub fn explanation(&self) -> String {
+        if let Some(text) = lifetime_help::explain(self.name) {
+            return text.to_owned();
+        }
+        let (source, example) =
+            explanation_source(self.name).expect("registered rule has an example");
+        let prose = source
+            .lines()
+            .take_while(|line| line.starts_with("//!"))
+            .map(|line| {
+                line.strip_prefix("//! ")
+                    .unwrap_or_else(|| line.trim_start_matches("//!"))
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!(
+            "{}\n\nDefault: {} ({})\n\n{}\n\n{prose}\n\nExample:\n```jai\n{example}```\n",
+            self.name,
+            self.default().as_str(),
+            self.category.as_str(),
+            self.summary
+        )
+    }
+
     /// The level the rule has when nothing configures it: its category's.
     pub fn default(&self) -> Level {
         self.category.level()
@@ -43,6 +69,13 @@ macro_rules! rules {
         /// The rules, in the order `--list` shows them. A rule is added by writing its module
         /// here; the module exports its own [`RuleInfo`] as `INFO`.
         pub static RULES: &[RuleInfo] = &[$($name::INFO),*];
+
+        fn explanation_source(name: &str) -> Option<(&'static str, &'static str)> {
+            match name {
+                $(stringify!($name) => Some((include_str!(concat!(stringify!($name), ".rs")), include_str!(concat!("../../../../tests/lint/", stringify!($name), "/bad.jai")))),)*
+                _ => None,
+            }
+        }
 
         /// The module of each rule in [`RULES`], for the test that names agree.
         #[cfg(test)]
@@ -286,7 +319,9 @@ fn note_or_inferred_release(cx: &Cx, proc: ProcId, note: &str) -> bool {
         && cx
             .run
             .lifetimes
-            .get_or_init(|| lifetime_summary::Summaries::build(cx.compiler))
+            .get_or_init(|| {
+                lifetime_summary::Summaries::build_for(cx.compiler, &cx.run.lifetime_files)
+            })
             .procs
             .get(&proc)
             .is_some_and(|s| {
