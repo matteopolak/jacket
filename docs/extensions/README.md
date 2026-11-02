@@ -16,7 +16,7 @@
 | `Args` | typed, compile-time-generated command-line parser (clap-like); `jaifmt` uses it | [args](args.md) |
 | `Regex` | Rust-`regex` syntax and semantics, linear time; `Regex.Static` patterns give typed groups | [regex](regex.md) |
 | `Json` | `to_json`/`from_json` generated from your types and `@json` notes | [json](json.md) |
-| `Variant` | tagged union whose cases are types: `variant`, `set`, `get`, `variant_switch`, equality, printing; Json encodes it | [variant](variant.md) |
+| `Variant` | tagged union with named cases and a `which` tag: `variant`, `set`, `get_pointer`, equality, printing; Json encodes it | [variant](variant.md) |
 | `Image` | decode PNG, JPEG, QOI, BMP, PNM and ICO entries; encode PNG, QOI, BMP and PPM; convert, resize, crop, flip, rotate | [image](image.md) |
 | `Deflate` | DEFLATE compression with zlib and gzip framing, CRC-32 and Adler-32 | [deflate](deflate.md) |
 | `Audio_Stream` | bounded, seekable decoding of WAV (PCM, IMA ADPCM) and Ogg Vorbis files into `s16` frames, with Vorbis tags; `@experimental` | [audio-stream](audio-stream.md) |

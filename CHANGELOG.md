@@ -21,6 +21,8 @@
 
 ### Fixed
 
+- A `#insert` or `#run` reading the type info of a pointer to a struct not laid out yet sees the struct's kind and name; before, it could see a blank `u0` once another compile-time run had happened.
+- A baked parameter's type may name a type bound by an earlier parameter: `(c: $C, $e: C.E)`.
 - `make_directory_if_it_does_not_exist("a/b/", recursive = true)` creates the missing parents on Linux and macOS; before, a name ending in a slash failed unless the parent was already there.
 - A leak found by `jacket test` is reported at the line in the test that allocated; before, memory made through several library calls (`join`) was reported at the tracker itself.
 - A compile error in a test program is no longer followed by pages of the generated test table.
@@ -29,6 +31,17 @@
 - A program with several identical-overload errors, or a `using` that clashes with several block constants, reports the first one declared on every run; before, which came first could vary.
 - The namespaces suggested for an unknown name are listed in import order on every run.
 - `Regex.free_regex` frees everything `Regex.compile` allocated; before, the parsed pattern and both programs leaked, and so did a pattern that failed to compile.
+
+### Breaking changes
+
+| Was | Now |
+| --- | --- |
+| `Variant(A, B)` cases picked by type only; a type could appear once | cases have names and UPPER_CASE tags: `Variant(struct { email: string; phone: string; })`, or `Variant(Leaf, *Branch)` named `leaf` and `branch` |
+| `v.index` (0 = first case), `variant_index(v)` | `v.which` (`.NONE` when empty, then `.LEAF`, `.BRANCH`...); the tag is a `u8` |
+| `variant_switch(v, handlers...)` | `if #complete v.which == { case .LEAF; ... }` with `v.leaf` |
+| `is(v, Leaf)`, `get(v, Leaf)`, `unwrap(v, Leaf)`, `variant_type(v)` | `v.which == .LEAF` and the field `v.leaf`; `get_pointer`, `set` and `variant` stay |
+| a zeroed Variant held its first case | it holds no case; Json writes and reads it as `null` |
+| Json tagged variants with the type name (`{"Circle":...}`) | with the case name (`{"circle":...}`) |
 
 ## [0.32.0] - 2026-11-01
 

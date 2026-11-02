@@ -17,10 +17,49 @@ Raw_View :: struct {
     data: *u8;
 }
 
-offset_of_member :: (info: *Type_Info_Struct, name: string) -> s64 {
-    for info.members if it.name == name return it.offset_in_bytes;
+// The offset and type of the field `name`, looking inside unnamed unions and structs too.
+find_member :: (info: *Type_Info_Struct, name: string) -> offset: s64, type: *Type_Info {
+    for info.members {
+        if it.flags & .CONSTANT continue;
+        if it.name == name return it.offset_in_bytes, it.type;
 
-    return 0;
+        if it.name.count == 0 && it.type.type == .STRUCT {
+            inner, type := find_member(cast(*Type_Info_Struct) it.type, name);
+
+            if type return it.offset_in_bytes + inner, type;
+        }
+    }
+
+    return 0, null;
+}
+
+offset_of_member :: (info: *Type_Info_Struct, name: string) -> s64 {
+    offset := find_member(info, name);
+
+    return offset;
+}
+
+// The live case of the Variant at `p`: -1 for NONE, else its position among the cases.
+live_case :: (info: *Type_Info_Struct, p: *void) -> s64 {
+    for info.members {
+        if it.name != "which" continue;
+
+        tag: s64;
+
+        if it.type.runtime_size == 1 tag = (cast(*u8) (cast(*u8) p + it.offset_in_bytes)).*;
+        else tag = (cast(*u16) (cast(*u8) p + it.offset_in_bytes)).*;
+
+        return tag - 1;
+    }
+
+    return -1;
+}
+
+// Sets the Variant at `p` to NONE without looking at its payload.
+clear_which :: (info: *Type_Info_Struct, p: *void) {
+    for info.members {
+        if it.name == "which" memset(cast(*u8) p + it.offset_in_bytes, 0, it.type.runtime_size);
+    }
 }
 
 bytes_equal :: (a: *void, b: *void, size: s64) -> bool {
@@ -71,17 +110,17 @@ elements_equal :: (element: *Type_Info, a: *void, b: *void, count: s64) -> bool 
 
 structs_equal :: (info: *Type_Info_Struct, a: *void, b: *void) -> bool {
     if is_variant_type(info) {
-        first := cast(*s32) a;
-        second := cast(*s32) b;
+        first := live_case(info, a);
 
-        if first.* != second.* return false;
+        if first != live_case(info, b) return false;
 
         cases := variant_case_infos(info);
         payload := offset_of_member(info, "payload");
 
-        if first.* < 0 || first.* >= cases.count return false;
+        if first < 0 return true;
+        if first >= cases.count return false;
 
-        return values_equal(cases[first.*], cast(*u8) a + payload, cast(*u8) b + payload);
+        return values_equal(cases[first], cast(*u8) a + payload, cast(*u8) b + payload);
     }
 
     if (info.textual_flags & .UNION) != 0 return bytes_equal(a, b, info.runtime_size);
@@ -149,24 +188,24 @@ free_struct :: (info: *Type_Info_Struct, p: *void) {
     }
 }
 
-// Frees the live case of the Variant at `p`, then zeroes it.
+// Frees the live case of the Variant at `p`, then sets it to NONE with a zeroed payload.
 free_variant_value :: (info: *Type_Info, p: *void) {
     struct_info := cast(*Type_Info_Struct) info;
     cases := variant_case_infos(info);
     payload := cast(*u8) p + offset_of_member(struct_info, "payload");
-    index := cast(*s32) p;
+    live := live_case(struct_info, p);
 
-    if index.* >= 0 && index.* < cases.count free_value(cases[index.*], payload);
+    if live >= 0 && live < cases.count free_value(cases[live], payload);
 
     memset(payload, 0, cases_size(struct_info));
-    index.* = 0;
+    clear_which(struct_info, p);
 }
 
 // The size of the payload bytes of a Variant.
 cases_size :: (info: *Type_Info_Struct) -> s64 {
-    for info.members {
-        if it.name == "payload" return (cast(*Type_Info_Array) it.type).array_count;
-    }
+    _, type := find_member(info, "payload");
 
-    return 0;
+    if !type return 0;
+
+    return (cast(*Type_Info_Array) type).array_count;
 }

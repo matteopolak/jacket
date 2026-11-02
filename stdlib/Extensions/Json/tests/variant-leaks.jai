@@ -35,7 +35,13 @@ Listed :: struct {
 Empty :: struct {}
 
 // Cases that own memory at every depth.
-Payload :: Variant(Empty, Named, Listed, string, [..] string);
+Payload :: Variant(struct {
+    empty: Empty;
+    named: Named;
+    listed: Listed;
+    text: string;
+    list: [..] string;
+});
 
 Scalars :: Variant(s64, string, bool);
 
@@ -52,7 +58,7 @@ Plain :: struct {
     last: string;
 }
 
-DOCUMENT :: "{ \"label\": \"a label with an escape \\n inside\", \"external\": {\"Named\": {\"name\": \"external name\", \"tags\": [\"t1\", \"t2\"]}}, \"internal\": {\"kind\": \"Listed\", \"items\": [\"i1\", \"i2\"], \"extra\": \"more\"}, \"adjacent\": {\"c\": {\"items\": [\"a1\", \"a2\"], \"extra\": \"x\"}, \"t\": \"Listed\"}, \"loose\": {\"items\": [\"l1\"], \"extra\": \"loose text\"}, \"scalar\": \"a string scalar\", \"many\": [{\"string\": \"s1\"}, {\"Empty\": {}}, {\"[..] string\": [\"m1\", \"m2\"]}, {\"Named\": {\"name\": \"n\", \"tags\": []}}], \"maybe\": {\"string\": \"maybe text\"}, \"by_name\": {\"k\": {\"Listed\": {\"items\": [\"b1\"], \"extra\": \"e\"}}, \"k2\": {\"string\": \"again\"}, \"k\": {\"string\": \"replaced\"}}, \"last\": \"last text\" }";
+DOCUMENT :: "{ \"label\": \"a label with an escape \\n inside\", \"external\": {\"named\": {\"name\": \"external name\", \"tags\": [\"t1\", \"t2\"]}}, \"internal\": {\"kind\": \"listed\", \"items\": [\"i1\", \"i2\"], \"extra\": \"more\"}, \"adjacent\": {\"c\": {\"items\": [\"a1\", \"a2\"], \"extra\": \"x\"}, \"t\": \"listed\"}, \"loose\": {\"items\": [\"l1\"], \"extra\": \"loose text\"}, \"scalar\": \"a string scalar\", \"many\": [{\"text\": \"s1\"}, {\"empty\": {}}, {\"list\": [\"m1\", \"m2\"]}, {\"named\": {\"name\": \"n\", \"tags\": []}}], \"maybe\": {\"text\": \"maybe text\"}, \"by_name\": {\"k\": {\"listed\": {\"items\": [\"b1\"], \"extra\": \"e\"}}, \"k2\": {\"text\": \"again\"}, \"k\": {\"text\": \"replaced\"}}, \"last\": \"last text\" }";
 
 Expectation :: enum {
     SUCCEEDS;
@@ -79,7 +85,7 @@ decode_and_release :: (text: string, label: string, expectation: Expectation) {
         if succeeded {
             free_json(*value);
         } else {
-            default_result = value.label.count == 0 && value.many.count == 0 && value.external.index == 0 && value.by_name.count == 0;
+            default_result = value.label.count == 0 && value.many.count == 0 && value.external.which == .NONE && value.by_name.count == 0;
             free_json(*error);
         }
     }
@@ -116,19 +122,19 @@ sweep :: () {
 
 shapes :: () {
     // Wrong tags and shapes after the payload has been read.
-    decode_and_release("{\"external\": {\"Named\": {\"name\": \"n\"}, \"Empty\": {}}}", "two keys", .FAILS);
-    decode_and_release("{\"external\": {\"Listed\": {\"items\": [\"a\"], \"extra\": 1}}}", "a bad field after strings", .FAILS);
-    decode_and_release("{\"internal\": {\"items\": [\"a\", \"b\"], \"kind\": \"Named\", \"name\": \"n\"}}", "a missing field at the end of a case", .FAILS);
+    decode_and_release("{\"external\": {\"named\": {\"name\": \"n\"}, \"empty\": {}}}", "two keys", .FAILS);
+    decode_and_release("{\"external\": {\"listed\": {\"items\": [\"a\"], \"extra\": 1}}}", "a bad field after strings", .FAILS);
+    decode_and_release("{\"internal\": {\"items\": [\"a\", \"b\"], \"kind\": \"named\", \"name\": \"n\"}}", "a missing field at the end of a case", .FAILS);
     decode_and_release("{\"internal\": {\"items\": [\"a\"], \"extra\": \"x\", \"kind\": \"Unknown\"}}", "an unknown internal tag", .FAILS);
-    decode_and_release("{\"adjacent\": {\"t\": \"Named\", \"c\": {\"name\": \"n\", \"tags\": [\"a\"]}, \"c\": {\"name\": \"m\"}}}", "a repeated content", .FAILS);
+    decode_and_release("{\"adjacent\": {\"t\": \"named\", \"c\": {\"name\": \"n\", \"tags\": [\"a\"]}, \"c\": {\"name\": \"m\"}}}", "a repeated content", .FAILS);
     decode_and_release("{\"adjacent\": {\"c\": {\"name\": \"n\", \"tags\": [\"a\"]}, \"t\": \"Nowhere\"}}", "an unknown adjacent tag after the content", .FAILS);
-    decode_and_release("{\"adjacent\": {\"t\": \"Named\", \"c\": {\"name\": \"n\"}, \"other\": [1,", "an unfinished adjacent object", .FAILS);
+    decode_and_release("{\"adjacent\": {\"t\": \"named\", \"c\": {\"name\": \"n\"}, \"other\": [1,", "an unfinished adjacent object", .FAILS);
     decode_and_release("{\"loose\": {\"name\": 5}}", "no untagged case fits", .FAILS);
     decode_and_release("{\"loose\": {\"items\": [\"a\", 2]}}", "an untagged case that fails after allocating", .FAILS);
     decode_and_release("{\"scalar\": []}", "no scalar fits", .FAILS);
-    decode_and_release("{\"many\": [{\"string\": \"ok\"}, {\"string\": 3}]}", "a bad element after a good one", .FAILS);
-    decode_and_release("{\"maybe\": {\"Listed\": {\"items\": [\"a\"], \"extra\": []}}}", "a bad Json_Maybe payload", .FAILS);
-    decode_and_release("{\"by_name\": {\"a\": {\"[..] string\": [\"x\", 1]}}}", "a bad table payload", .FAILS);
+    decode_and_release("{\"many\": [{\"text\": \"ok\"}, {\"text\": 3}]}", "a bad element after a good one", .FAILS);
+    decode_and_release("{\"maybe\": {\"listed\": {\"items\": [\"a\"], \"extra\": []}}}", "a bad Json_Maybe payload", .FAILS);
+    decode_and_release("{\"by_name\": {\"a\": {\"list\": [\"x\", 1]}}}", "a bad table payload", .FAILS);
 }
 
 // free_json on what decoded: the live case of each variant is released, the variant zeroed, and a
@@ -143,7 +149,7 @@ releasing :: () {
         value := from_json(Plain, DOCUMENT);
 
         free_json(*value);
-        cleared = value.external.index == 0 && value.internal.index == 0 && value.adjacent.index == 0 && value.loose.index == 0 && value.scalar.index == 0 && value.many.count == 0 && value.maybe.state == .MISSING;
+        cleared = value.external.which == .NONE && value.internal.which == .NONE && value.adjacent.which == .NONE && value.loose.which == .NONE && value.scalar.which == .NONE && value.many.count == 0 && value.maybe.state == .MISSING;
 
         free_json(*value);
     }

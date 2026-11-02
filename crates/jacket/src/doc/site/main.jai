@@ -194,11 +194,11 @@ relative_file :: (path: string) -> bool {
 }
 
 validate_page :: (page: *Page_View, module: *Module_View) {
-    if is(page.content, Content_Item) {
-        if !is(page.sidebar, Sidebar_Item) bad_input("item page needs item sidebar");
-    } else if is(page.content, Content_Index) || is(page.content, Content_Module) {
-        if !is(page.sidebar, Sidebar_Modules) bad_input("API page needs module sidebar");
-    } else if !is(page.sidebar, Sidebar_Guides) bad_input("guide page needs guide sidebar");
+    if page.content.which == .CONTENT_ITEM {
+        if page.sidebar.which != .SIDEBAR_ITEM bad_input("item page needs item sidebar");
+    } else if page.content.which == .CONTENT_INDEX || page.content.which == .CONTENT_MODULE {
+        if page.sidebar.which != .SIDEBAR_MODULES bad_input("API page needs module sidebar");
+    } else if page.sidebar.which != .SIDEBAR_GUIDES bad_input("guide page needs guide sidebar");
     if !page.not_found && page.path.count && (!relative_file(page.path) || !ends_with(page.path, "/index.html")) bad_input("invalid page path");
     side := get_pointer(*page.sidebar, Sidebar_Item);
     if side {

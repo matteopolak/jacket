@@ -1,58 +1,63 @@
-// A tagged union whose cases are types. [variant] and [set] store a value, [is], [get] and
-// [unwrap] read it back, and `variant_switch` runs a handler per case.
+// A tagged union. Each case has a name and a type; two cases may share a type. `which` says
+// which case is live, and the zero value is `.NONE`.
 //
 // ```jai
 // #import "Extensions/Variant";
 //
-// Number_Or_Text :: Variant(s64, string);
+// Contact :: Variant(struct { email: string; phone: string; });   // named cases
+// Tree    :: Variant(Leaf, *Branch);                               // cases named after their types
 //
-// v := variant(Number_Or_Text, 42);       // the case is the type of the value
-// w: Number_Or_Text;                      // zeroed first case
-// set(*w, "hi");                          // switches case
+// c: Contact;                             // c.which == .NONE
+// c.which = .PHONE; c.phone = "555";      // the cases are fields
 //
-// if is(v, s64) print("%\n", unwrap(v, s64));
+// t: Tree;
+// set(*t, Leaf.{ 1 });                    // by type, when only one case has it
+// if t.which == .LEAF print("%\n", t.leaf);
 //
-// variant_switch(v,                       // every case needs a handler, checked at compile time
-//     (it: *s64)    { print("number %\n", it.*); },
-//     (it: *string) { print("text %\n", it.*); },
-// );
+// if #complete c.which == {
+//     case .NONE;
+//     case .EMAIL; print("mail %\n", c.email);
+//     case .PHONE; print("call %\n", c.phone);
+// }
 // ```
 //
-// Two cases of one type are not allowed: wrap each in its own struct.
+// A type list names each case after its type: `HttpRequest` and `Http_Request` become
+// `http_request`, `*Branch` becomes `branch`, and a built-in type gets a trailing `_` (`s64_`,
+// `string_`). The tag is the name in upper case without that `_`: `.HTTP_REQUEST`, `.S64`.
 
 #scope_export
 
-// A value that holds one of `types` at a time. A fresh one holds a zeroed first case; it takes
-// the size of the largest case.
+// A value that holds one of its cases at a time, or none. It is the tag plus the largest case:
+// `which` is a `u8` enum (`u16` past 255 cases), and the cases share the bytes after it.
 //
 // ```jai
 // #import "Extensions/Variant";
 //
 // Id :: Variant(s64, string);
 // id: Id;
-// assert(is(id, s64) && variant_index(id) == 0);
-// set(*id, "abc");
-// assert(variant_index(id) == 1);
+// assert(id.which == .NONE);
+// id.which = .STRING;
+// id.string_ = "abc";
+// assert(id.string_ == "abc");
 // ```
 Variant :: struct($types: ..Type) {
-    // The position of the live case in `types`.
-    index: s32;
-
-    // Declares payload_size, payload_align, case_count, case_infos, case_type_0 ... and the
-    // `payload` bytes themselves. Rejects an empty or repeated list of cases.
+    // Declares the `Which` enum (NONE and one tag per case), case_count, case_names, case_infos,
+    // case_type_0 ..., payload_size and payload_align, then the `which` field and a union of one
+    // field per case with the `payload` bytes. Rejects an empty list and clashing names.
     #insert -> string {
         return declare_variant(..types);
     };
 }
 
-// Makes a Variant holding `value`; its type picks the case.
+// Makes a Variant holding `value`; its type picks the case, which must be the only case of that
+// type.
 //
 // ```jai
 // #import "Extensions/Variant";
 //
 // Id :: Variant(s64, string);
 // id := variant(Id, "abc");
-// assert(is(id, string));
+// assert(id.which == .STRING);
 // ```
 variant :: ($V: Type, value: $T) -> V {
     CASE :: #run case_of(V, T, "variant");
@@ -64,8 +69,8 @@ variant :: ($V: Type, value: $T) -> V {
     return result;
 }
 
-// Stores `value` as the live case, replacing whatever was there without releasing it (see
-// free_variant). It is a compile-time error when `T` is not a case.
+// Stores `value` in the case of type `T` and makes it live, replacing whatever was there without
+// releasing it (see free_variant). `T` must be the type of exactly one case.
 //
 // ```jai
 // #import "Extensions/Variant";
@@ -74,17 +79,14 @@ variant :: ($V: Type, value: $T) -> V {
 // id: Id;
 // set(*id, "abc");
 // set(*id, cast(s64) 7);
-// assert(unwrap(id, s64) == 7);
+// assert(id.which == .S64 && id.s64_ == 7);
 // ```
 set :: (v: *$V/Variant, value: $T) {
     CASE :: #run case_of(V, T, "set");
 
     #if CASE >= 0 {
-        #assert size_of(T) <= V.payload_size "Variant: a case does not fit its payload";
-        #assert align_of(T) <= V.payload_align "Variant: a case is aligned more strictly than its payload";
-
         memset(v.payload.data, 0, V.payload_size);
-        v.index = CASE;
+        v.which = cast(V.Which) (CASE + 1);
 
         #if size_of(T) > 0 {
             slot := cast(*T) v.payload.data;
@@ -93,71 +95,7 @@ set :: (v: *$V/Variant, value: $T) {
     }
 }
 
-// Whether the live case is `T`.
-//
-// ```jai
-// #import "Extensions/Variant";
-//
-// id := variant(Variant(s64, string), "abc");
-// assert(is(id, string) && !is(id, s64));
-// ```
-is :: (v: $V/Variant, $T: Type) -> bool {
-    CASE :: #run case_of(V, T, "is");
-
-    return v.index == CASE;
-}
-
-// The position of the live case in the type's case list.
-//
-// ```jai
-// #import "Extensions/Variant";
-//
-// id := variant(Variant(s64, string), "abc");
-// assert(variant_index(id) == 1);
-// ```
-variant_index :: (v: $V/Variant) -> s32 {
-    return v.index;
-}
-
-// The type of the live case.
-//
-// ```jai
-// #import "Extensions/Variant";
-//
-// id := variant(Variant(s64, string), "abc");
-// assert(variant_type(id) == string);
-// ```
-variant_type :: (v: $V/Variant) -> Type {
-    return V.types[v.index];
-}
-
-// A copy of the `T` payload and true; a zeroed `T` and false when another case is live.
-//
-// ```jai
-// #import "Extensions/Variant";
-//
-// id := variant(Variant(s64, string), "abc");
-// text, ok := get(id, string);
-// assert(ok && text == "abc");
-// _, ok = get(id, s64);
-// assert(!ok);
-// ```
-get :: (v: $V/Variant, $T: Type) -> T, bool {
-    CASE :: #run case_of(V, T, "get");
-
-    result: T;
-
-    if v.index != CASE return result, false;
-
-    #if size_of(T) > 0 {
-        slot := cast(*T) v.payload.data;
-        result = slot.*;
-    }
-
-    return result, true;
-}
-
-// A pointer to the `T` payload inside the variant, or null when another case is live. It stays
+// A pointer to the `T` case inside the variant, or null when another case is live. It stays
 // valid until the variant is set again, freed or moved.
 //
 // ```jai
@@ -166,44 +104,19 @@ get :: (v: $V/Variant, $T: Type) -> T, bool {
 // id := variant(Variant(s64, string), cast(s64) 1);
 // number := get_pointer(*id, s64);
 // number.* += 1;
-// assert(unwrap(id, s64) == 2);
+// assert(id.s64_ == 2);
 // assert(get_pointer(*id, string) == null);
 // ```
 get_pointer :: (v: *$V/Variant, $T: Type) -> *T {
     CASE :: #run case_of(V, T, "get_pointer");
 
-    if v.index != CASE return null;
+    if cast(s64) v.which != CASE + 1 return null;
 
     return cast(*T) v.payload.data;
 }
 
-// The `T` payload; asserts that `T` is the live case. Use [get] when the case is not certain.
-//
-// ```jai
-// #import "Extensions/Variant";
-//
-// id := variant(Variant(s64, string), cast(s64) 5);
-// assert(unwrap(id, s64) == 5);
-// ```
-unwrap :: (v: $V/Variant, $T: Type) -> T {
-    CASE :: #run case_of(V, T, "unwrap");
-
-    if v.index != CASE {
-        assert(false, tprint("unwrap: the Variant holds `%`, not `%`", V.types[v.index], T));
-    }
-
-    result: T;
-
-    #if size_of(T) > 0 {
-        slot := cast(*T) v.payload.data;
-        result = slot.*;
-    }
-
-    return result;
-}
-
-// The live case is equal: the same index and equal payloads. Strings compare by content, arrays
-// element by element, structs member by member; pointers by address.
+// The same case is live and its values are equal. Strings compare by content, arrays element by
+// element, structs member by member; pointers by address. Two NONEs are equal.
 //
 // ```jai
 // #import "Extensions/Variant";
@@ -213,9 +126,10 @@ unwrap :: (v: $V/Variant, $T: Type) -> T {
 // assert(variant(Id, "a") != variant(Id, cast(s64) 1));
 // ```
 operator == :: (a: $V/Variant, b: V) -> bool {
-    if a.index != b.index return false;
+    if a.which != b.which return false;
+    if a.which == .NONE return true;
 
-    return values_equal(V.case_infos[a.index], a.payload.data, b.payload.data);
+    return values_equal(V.case_infos[cast(s64) a.which - 1], a.payload.data, b.payload.data);
 }
 
 // The negation of `==`.
@@ -225,15 +139,15 @@ operator != :: (a: $V/Variant, b: V) -> bool {
 
 // Releases the memory the live case owns, with `free`: strings, resizable arrays (and what their
 // elements own), and the same inside structs and nested variants. Views (`[] T`) and pointers are
-// not owned and are left alone. Then the variant is zeroed: its first case, zeroed. Only use it
-// on payloads that came from the allocator, not string literals.
+// not owned and are left alone. Then the variant is NONE. Only use it on cases that came from the
+// allocator, not string literals.
 //
 // ```jai
 // #import "Extensions/Variant";
 //
 // id := variant(Variant(s64, string), copy_string("owned"));
 // free_variant(*id);
-// assert(is(id, s64));
+// assert(id.which == .NONE);
 // ```
 free_variant :: (v: *$V/Variant) {
     free_variant_value(type_info(V), v);
@@ -244,7 +158,7 @@ free_variant :: (v: *$V/Variant) {
 // Basic prints a struct member by member, with no hook for a type of its own. Its one hook is
 // `context.print_style.struct_printer`, which Math uses for vectors; this is Variant's.
 
-// A `Print_Style` `struct_printer` that writes a Variant as its live payload, and passes everything
+// A `Print_Style` `struct_printer` that writes a Variant as its live case (`none` for NONE), and passes everything
 // else to the printer that was installed before use_variant_printing (or declines).
 variant_struct_printer :: (builder: *String_Builder, any: Any, data: *void) -> bool {
     if any.type && is_variant_type(any.type) {
@@ -279,7 +193,7 @@ use_variant_printing :: () {
     style.struct_printer_data = null;
 }
 
-// The payload as text, allocated with `context.allocator`.
+// The live case as text (`none` for NONE), allocated with `context.allocator`.
 //
 // ```jai
 // #import "Extensions/Variant";
@@ -309,14 +223,27 @@ is_variant_type :: (info: *Type_Info) -> bool {
     if info.type != .STRUCT return false;
 
     found_infos := false;
-    found_payload := false;
+    found_which := false;
 
     for (cast(*Type_Info_Struct) info).members {
         if it.name == "case_infos" && (it.flags & .CONSTANT) != 0 found_infos = true;
-        if it.name == "payload" found_payload = true;
+        if it.name == "which" found_which = true;
     }
 
-    return found_infos && found_payload;
+    return found_infos && found_which;
+}
+
+// The names of the cases of a Variant, in order.
+variant_case_names :: (info: *Type_Info) -> [] string {
+    for (cast(*Type_Info_Struct) info).members {
+        if it.name != "case_names" || it.offset_into_constant_storage < 0 continue;
+
+        storage := (cast(*Type_Info_Struct) info).constant_storage;
+
+        return (cast(*[] string) (storage.data + it.offset_into_constant_storage)).*;
+    }
+
+    return .[];
 }
 
 // The types of the cases of a Variant, in order.
@@ -336,7 +263,6 @@ variant_case_infos :: (info: *Type_Info) -> [] *Type_Info {
 
 #load "layout.jai";
 #load "reflect.jai";
-#load "switch.jai";
 
 #scope_module
 
@@ -347,13 +273,17 @@ append_payload :: (builder: *String_Builder, any: Any) {
     info := cast(*Type_Info_Struct) any.type;
     base := cast(*u8) any.value_pointer;
     cases := variant_case_infos(info);
-    payload: s64;
+    payload := offset_of_member(info, "payload");
 
-    for info.members if it.name == "payload" payload = it.offset_in_bytes;
+    index := live_case(info, base);
 
-    index := (cast(*s32) base).*;
+    if index < 0 {
+        append(builder, "none");
 
-    if index < 0 || index >= cases.count {
+        return;
+    }
+
+    if index >= cases.count {
         append(builder, "(invalid variant)");
 
         return;

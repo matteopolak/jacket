@@ -76,26 +76,40 @@ contains :: (haystack: string, needle: string) -> bool {
 top_level :: () {
     circle := variant(Shape, Circle.{ 3 });
 
-    check(encode(circle) == "{\"Circle\":{\"radius\":3}}", "externally tagged by default");
-    check(encode(variant(Shape, Rect.{ 1, 2 })) == "{\"Rect\":{\"width\":1,\"height\":2}}", "a second case");
-    check(encode(variant(Shape, Empty.{})) == "{\"Empty\":{}}", "a case without a payload");
+    check(encode(circle) == "{\"circle\":{\"radius\":3}}", "externally tagged by default");
+    check(encode(variant(Shape, Rect.{ 1, 2 })) == "{\"rect\":{\"width\":1,\"height\":2}}", "a second case");
+    check(encode(variant(Shape, Empty.{})) == "{\"empty\":{}}", "a case without a payload");
 
-    check(decode(Shape, "{\"Circle\":{\"radius\":3}}") == circle, "decodes what it encodes");
-    check(decode(Shape, "{\"Rect\":{\"width\":1,\"height\":2}}") == variant(Shape, Rect.{ 1, 2 }), "decodes the second case");
-    check(decode(Shape, " { \"Empty\" : { } } ") == variant(Shape, Empty.{}), "whitespace everywhere");
+    check(decode(Shape, "{\"circle\":{\"radius\":3}}") == circle, "decodes what it encodes");
+    check(decode(Shape, "{\"rect\":{\"width\":1,\"height\":2}}") == variant(Shape, Rect.{ 1, 2 }), "decodes the second case");
+    check(decode(Shape, " { \"empty\" : { } } ") == variant(Shape, Empty.{}), "whitespace everywhere");
 
     // Members in a different order, and fields the type does not have.
-    check(decode(Shape, "{\"Rect\":{\"height\":2,\"extra\":null,\"width\":1}}") == variant(Shape, Rect.{ 1, 2 }), "a payload in another order");
+    check(decode(Shape, "{\"rect\":{\"height\":2,\"extra\":null,\"width\":1}}") == variant(Shape, Rect.{ 1, 2 }), "a payload in another order");
 
     pretty := to_json(circle, pretty = true,, temp);
 
-    check(pretty == "{\n  \"Circle\": {\n    \"radius\": 3\n  }\n}", "pretty output");
+    check(pretty == "{\n  \"circle\": {\n    \"radius\": 3\n  }\n}", "pretty output");
     check(decode(Shape, pretty) == circle, "pretty output decodes");
 
-    // The zero value is the first case.
+    // The zero value holds no case.
     zero: Shape;
 
-    check(encode(zero) == "{\"Circle\":{\"radius\":0}}", "the zero value");
+    check(encode(zero) == "null", "the zero value");
+    check(decode(Shape, "null").which == .NONE, "null decodes to no case");
+
+    // Cases of the same type are told apart by their tags, never left untagged.
+    Contact :: Variant(struct {
+        email: string;
+        phone: string;
+    });
+
+    phone: Contact;
+    phone.which = .PHONE;
+    phone.phone = "555";
+
+    check(encode(phone) == "{\"phone\":\"555\"}", "two string cases are tagged");
+    check(decode(Contact, "{\"phone\":\"555\"}").which == .PHONE, "and decode by tag");
 }
 
 scalars :: () {
@@ -119,7 +133,7 @@ scalars :: () {
 
     // Not every case a scalar: tagged.
     check(encode(variant(Int_Or_Circle, 4)) == "{\"s64\":4}", "a scalar among structs is tagged by its type's name");
-    check(encode(variant(Int_Or_Circle, Circle.{ 2 })) == "{\"Circle\":{\"radius\":2}}", "and so is the struct");
+    check(encode(variant(Int_Or_Circle, Circle.{ 2 })) == "{\"circle\":{\"radius\":2}}", "and so is the struct");
     check(decode(Int_Or_Circle, "{\"s64\":4}") == variant(Int_Or_Circle, 4), "decodes it");
 }
 
@@ -142,7 +156,7 @@ forms :: () {
 
     text := encode(holder);
 
-    check(text == "{\"internal\":{\"kind\":\"Rect\",\"width\":1,\"height\":2},\"adjacent\":{\"t\":\"Circle\",\"c\":{\"radius\":3}},\"untagged\":{\"width\":4,\"height\":5},\"named\":{\"none\":{}},\"plain\":{\"Circle\":{\"radius\":6}}}", "all five forms in one struct");
+    check(text == "{\"internal\":{\"kind\":\"rect\",\"width\":1,\"height\":2},\"adjacent\":{\"t\":\"circle\",\"c\":{\"radius\":3}},\"untagged\":{\"width\":4,\"height\":5},\"named\":{\"none\":{}},\"plain\":{\"circle\":{\"radius\":6}}}", "all five forms in one struct");
 
     back := decode(Holder, text);
 
@@ -157,19 +171,19 @@ forms :: () {
 
 orders :: () {
     // The tag can be anywhere in an internally tagged object.
-    check(decode(Holder_Internal, "{\"shape\":{\"kind\":\"Rect\",\"width\":1,\"height\":2}}").shape == variant(Shape, Rect.{ 1, 2 }), "the tag first");
-    check(decode(Holder_Internal, "{\"shape\":{\"width\":1,\"height\":2,\"kind\":\"Rect\"}}").shape == variant(Shape, Rect.{ 1, 2 }), "the tag last");
-    check(decode(Holder_Internal, "{\"shape\":{\"width\":1,\"kind\":\"Rect\",\"height\":2}}").shape == variant(Shape, Rect.{ 1, 2 }), "the tag between fields");
-    check(decode(Holder_Internal, "{\"shape\":{\"kind\":\"Empty\"}}").shape == variant(Shape, Empty.{}), "a case without fields");
-    check(decode(Holder_Internal, "{\"shape\":{\"radius\":4,\"kind\":\"Circle\",\"unknown\":[1,{\"a\":2}]}}").shape == variant(Shape, Circle.{ 4 }), "unknown fields are skipped");
+    check(decode(Holder_Internal, "{\"shape\":{\"kind\":\"rect\",\"width\":1,\"height\":2}}").shape == variant(Shape, Rect.{ 1, 2 }), "the tag first");
+    check(decode(Holder_Internal, "{\"shape\":{\"width\":1,\"height\":2,\"kind\":\"rect\"}}").shape == variant(Shape, Rect.{ 1, 2 }), "the tag last");
+    check(decode(Holder_Internal, "{\"shape\":{\"width\":1,\"kind\":\"rect\",\"height\":2}}").shape == variant(Shape, Rect.{ 1, 2 }), "the tag between fields");
+    check(decode(Holder_Internal, "{\"shape\":{\"kind\":\"empty\"}}").shape == variant(Shape, Empty.{}), "a case without fields");
+    check(decode(Holder_Internal, "{\"shape\":{\"radius\":4,\"kind\":\"circle\",\"unknown\":[1,{\"a\":2}]}}").shape == variant(Shape, Circle.{ 4 }), "unknown fields are skipped");
 
     // The content can come before the tag in an adjacently tagged object.
-    check(decode(Holder_Adjacent, "{\"shape\":{\"t\":\"Circle\",\"c\":{\"radius\":4}}}").shape == variant(Shape, Circle.{ 4 }), "the tag first");
-    check(decode(Holder_Adjacent, "{\"shape\":{\"c\":{\"radius\":4},\"t\":\"Circle\"}}").shape == variant(Shape, Circle.{ 4 }), "the content first");
-    check(decode(Holder_Adjacent, "{\"shape\":{\"other\":1,\"t\":\"Empty\",\"c\":{}}}").shape == variant(Shape, Empty.{}), "unknown keys are skipped");
+    check(decode(Holder_Adjacent, "{\"shape\":{\"t\":\"circle\",\"c\":{\"radius\":4}}}").shape == variant(Shape, Circle.{ 4 }), "the tag first");
+    check(decode(Holder_Adjacent, "{\"shape\":{\"c\":{\"radius\":4},\"t\":\"circle\"}}").shape == variant(Shape, Circle.{ 4 }), "the content first");
+    check(decode(Holder_Adjacent, "{\"shape\":{\"other\":1,\"t\":\"empty\",\"c\":{}}}").shape == variant(Shape, Empty.{}), "unknown keys are skipped");
 
     // A tag with an escape is a tag all the same.
-    check(decode(Holder_Adjacent, "{\"shape\":{\"t\":\"C\\u0069rcle\",\"c\":{\"radius\":1}}}").shape == variant(Shape, Circle.{ 1 }), "an escaped tag");
+    check(decode(Holder_Adjacent, "{\"shape\":{\"t\":\"c\\u0069rcle\",\"c\":{\"radius\":1}}}").shape == variant(Shape, Circle.{ 1 }), "an escaped tag");
 }
 
 Holder_Internal :: struct {
@@ -206,10 +220,10 @@ rules :: () {
 
     check(back.first_shape == holder.first_shape && back.second_shape == holder.second_shape && back.third_shape == holder.third_shape, "renamed tags decode");
 
-    error := failure(Snake_Holder, "{\"first_shape\":{\"Circle\":{\"radius\":1}},\"second_shape\":{},\"third_shape\":{}}");
+    error := failure(Snake_Holder, "{\"first_shape\":{\"circle\":{\"radius\":1}},\"second_shape\":{\"kind\":\"rect\",\"width\":2,\"height\":3},\"third_shape\":{\"empty\":{}}}");
 
-    check(error.kind == .UNKNOWN_VARIANT, "the type's own name is no longer a tag");
-    check(contains(error.message, "circle, rect, empty"), "and the message lists the renamed tags");
+    check(error.kind == .UNKNOWN_VARIANT, "the case's own name is no longer a tag");
+    check(contains(error.message, "CIRCLE, RECT, EMPTY"), "and the message lists the renamed tags");
 
     free_json(*error);
 }
@@ -233,7 +247,7 @@ untagged :: () {
     // A case that fails halfway leaves nothing behind (see variant-leaks), and the next starts fresh.
     holder := decode(Holder_Pair, "{\"value\":{\"left\":1,\"right\":2}}");
 
-    check(unwrap(holder.value, Pair).left == 1 && unwrap(holder.value, Pair).right == 2, "a failed case does not disturb the next");
+    check(holder.value.pair.left == 1 && holder.value.pair.right == 2, "a failed case does not disturb the next");
 }
 
 Holder_Pair :: struct {
@@ -254,7 +268,7 @@ containers :: () {
         fixed: [2] Number_Or_Text;
     }
 
-    text := "{\"list\":[{\"Circle\":{\"radius\":1}},{\"Empty\":{}},{\"Rect\":{\"width\":2,\"height\":3}}],\"by_name\":{\"a\":{\"Empty\":{}},\"b\":{\"Circle\":{\"radius\":9}}},\"maybe\":{\"Rect\":{\"width\":4,\"height\":5}},\"pointer\":{\"Circle\":{\"radius\":6}},\"fixed\":[1,\"x\"]}";
+    text := "{\"list\":[{\"circle\":{\"radius\":1}},{\"empty\":{}},{\"rect\":{\"width\":2,\"height\":3}}],\"by_name\":{\"a\":{\"empty\":{}},\"b\":{\"circle\":{\"radius\":9}}},\"maybe\":{\"rect\":{\"width\":4,\"height\":5}},\"pointer\":{\"circle\":{\"radius\":6}},\"fixed\":[1,\"x\"]}";
 
     many := decode(Many, text);
 
@@ -266,9 +280,9 @@ containers :: () {
 
     again := encode(many);
 
-    check(contains(again, "\"list\":[{\"Circle\":{\"radius\":1}},{\"Empty\":{}},{\"Rect\":{\"width\":2,\"height\":3}}]"), "the array encodes");
-    check(contains(again, "\"maybe\":{\"Rect\":{\"width\":4,\"height\":5}}"), "the Json_Maybe encodes");
-    check(contains(again, "\"pointer\":{\"Circle\":{\"radius\":6}}"), "the pointer encodes");
+    check(contains(again, "\"list\":[{\"circle\":{\"radius\":1}},{\"empty\":{}},{\"rect\":{\"width\":2,\"height\":3}}]"), "the array encodes");
+    check(contains(again, "\"maybe\":{\"rect\":{\"width\":4,\"height\":5}}"), "the Json_Maybe encodes");
+    check(contains(again, "\"pointer\":{\"circle\":{\"radius\":6}}"), "the pointer encodes");
     check(contains(again, "\"fixed\":[1,\"x\"]"), "the fixed array encodes");
 
     free_json(*many);
@@ -288,7 +302,7 @@ containers :: () {
         by_name: Table(string, Shape); @json(tag=t,content=c)
     }
 
-    tagged := decode(Tagged, "{\"list\":[{\"kind\":\"Circle\",\"radius\":1},{\"kind\":\"Empty\"}],\"by_name\":{\"x\":{\"t\":\"Rect\",\"c\":{\"width\":1,\"height\":1}}}}");
+    tagged := decode(Tagged, "{\"list\":[{\"kind\":\"circle\",\"radius\":1},{\"kind\":\"empty\"}],\"by_name\":{\"x\":{\"t\":\"rect\",\"c\":{\"width\":1,\"height\":1}}}}");
 
     check(tagged.list.count == 2 && tagged.list[0] == variant(Shape, Circle.{ 1 }), "the tag note applies to the elements");
     check(table_find_pointer(*tagged.by_name, "x").* == variant(Shape, Rect.{ 1, 1 }), "the note applies to the table values");
@@ -306,29 +320,32 @@ Group :: struct {
     items: [..] Leaf_Or_Count;
 }
 
-Tree :: Variant(Group, Leaf_Or_Count);
+Tree :: Variant(struct {
+    group: Group;
+    leaf_or_count: Leaf_Or_Count;
+});
 
 nesting :: () {
     // A variant in a struct in a variant, and a variant as the case of another. (A variant cannot
     // contain itself: the compiler resolves a variadic type's arguments before the type.)
-    text := "{\"Group\":{\"items\":[{\"Leaf\":{\"name\":\"a\"}},{\"s64\":5}]}}";
+    text := "{\"group\":{\"items\":[{\"leaf\":{\"name\":\"a\"}},{\"s64\":5}]}}";
 
     tree := decode(Tree, text);
-    group := unwrap(tree, Group);
+    group := tree.group;
 
     check(group.items.count == 2, "the group has two items");
-    check(unwrap(group.items[0], Leaf).name == "a", "the first item is a leaf");
-    check(unwrap(group.items[1], s64) == 5, "the second item is a count");
+    check(group.items[0].leaf.name == "a", "the first item is a leaf");
+    check(group.items[1].s64_ == 5, "the second item is a count");
     check(encode(tree) == text, "the tree round trips");
 
     free_json(*tree);
 
-    check(tree.index == 0, "freeing a tree zeroes it");
+    check(tree.which == .NONE, "freeing a tree empties it");
 
     // A variant as the case of another.
-    nested := decode(Tree, "{\"Variant(Leaf, s64)\":{\"s64\":9}}");
+    nested := decode(Tree, "{\"leaf_or_count\":{\"s64\":9}}");
 
-    check(nested.index == 1 && unwrap(unwrap(nested, Leaf_Or_Count), s64) == 9, "a variant inside a variant");
+    check(nested.which == .LEAF_OR_COUNT && nested.leaf_or_count.s64_ == 9, "a variant inside a variant");
 
     free_json(*nested);
 }
@@ -337,7 +354,7 @@ errors :: () {
     error := failure(Shape, "{\"Triangle\":{}}");
 
     check(error.kind == .UNKNOWN_VARIANT, "an unknown tag");
-    check(error.message == "unknown variant `Triangle`, expected one of: Circle, Rect, Empty", "names the tag and the choices");
+    check(error.message == "unknown variant `Triangle`, expected one of: circle, rect, empty", "names the tag and the choices");
     check(error.offset == 1 && error.line == 1 && error.column == 2, "points at the tag");
 
     free_json(*error);
@@ -345,7 +362,7 @@ errors :: () {
     error = failure(Holder_Internal, "{\"shape\":{\"kind\":\"Oval\",\"radius\":1}}");
 
     check(error.kind == .UNKNOWN_VARIANT && error.path == "shape", "an unknown internal tag, in a path");
-    check(contains(error.message, "`Oval`") && contains(error.message, "Circle, Rect, Empty"), "an unknown internal tag, in a message");
+    check(contains(error.message, "`Oval`") && contains(error.message, "circle, rect, empty"), "an unknown internal tag, in a message");
 
     free_json(*error);
 
@@ -373,19 +390,19 @@ errors :: () {
 
     free_json(*error);
 
-    error = failure(Holder_Adjacent, "{\"shape\":{\"t\":\"Circle\"}}");
+    error = failure(Holder_Adjacent, "{\"shape\":{\"t\":\"circle\"}}");
 
     check(error.kind == .MISSING_FIELD && contains(error.message, "`c`"), "no content");
 
     free_json(*error);
 
-    error = failure(Holder_Adjacent, "{\"shape\":{\"t\":\"Circle\",\"c\":{\"radius\":1},\"c\":{\"radius\":2}}}");
+    error = failure(Holder_Adjacent, "{\"shape\":{\"t\":\"circle\",\"c\":{\"radius\":1},\"c\":{\"radius\":2}}}");
 
     check(error.kind == .DUPLICATE_FIELD, "two contents");
 
     free_json(*error);
 
-    value, duplicates := from_json(Holder_Adjacent, "{\"shape\":{\"t\":\"Circle\",\"c\":{\"radius\":1},\"c\":{\"radius\":2}}}", Json_Options.{ duplicate_keys = .LAST });
+    value, duplicates := from_json(Holder_Adjacent, "{\"shape\":{\"t\":\"circle\",\"c\":{\"radius\":1},\"c\":{\"radius\":2}}}", Json_Options.{ duplicate_keys = .LAST });
 
     check(duplicates.kind == .NONE && value.shape == variant(Shape, Circle.{ 2 }), "the last content wins with duplicate_keys = .LAST");
 
@@ -395,31 +412,31 @@ errors :: () {
 
     free_json(*error);
 
-    error = failure(Shape, "{\"Circle\":{\"radius\":1},\"Rect\":{}}");
+    error = failure(Shape, "{\"circle\":{\"radius\":1},\"rect\":{}}");
 
     check(error.kind == .TYPE && contains(error.message, "exactly one key"), "two keys for an externally tagged variant");
 
     free_json(*error);
 
-    error = failure(Shape, "\"Circle\"");
+    error = failure(Shape, "\"circle\"");
 
     check(error.kind == .TYPE, "a string for an externally tagged variant");
 
     free_json(*error);
 
-    error = failure(Shape, "{\"Rect\":{\"width\":1,\"height\":\"tall\"}}");
+    error = failure(Shape, "{\"rect\":{\"width\":1,\"height\":\"tall\"}}");
 
-    check(error.kind == .TYPE && error.path == "Rect.height", "a bad payload: the path goes through the tag");
+    check(error.kind == .TYPE && error.path == "rect.height", "a bad payload: the path goes through the tag");
 
     free_json(*error);
 
-    error = failure(Holder_Internal, "{\"shape\":{\"kind\":\"Rect\",\"width\":1,\"height\":\"tall\"}}");
+    error = failure(Holder_Internal, "{\"shape\":{\"kind\":\"rect\",\"width\":1,\"height\":\"tall\"}}");
 
     check(error.kind == .TYPE && error.path == "shape.height", "a bad internally tagged payload");
 
     free_json(*error);
 
-    error = failure(Holder_Adjacent, "{\"shape\":{\"t\":\"Rect\",\"c\":{\"width\":true}}}");
+    error = failure(Holder_Adjacent, "{\"shape\":{\"t\":\"rect\",\"c\":{\"width\":true}}}");
 
     check(error.kind == .TYPE && error.path == "shape.c.width", "a bad adjacently tagged payload");
 
@@ -427,17 +444,17 @@ errors :: () {
 
     strict := Json_Options.{ deny_unknown_fields = true };
 
-    strict_value, strict_error := from_json(Holder_Internal, "{\"shape\":{\"kind\":\"Circle\",\"radius\":1,\"extra\":2}}", strict);
+    strict_value, strict_error := from_json(Holder_Internal, "{\"shape\":{\"kind\":\"circle\",\"radius\":1,\"extra\":2}}", strict);
 
     check(strict_error.kind == .UNKNOWN_FIELD && strict_error.path == "shape", "deny_unknown_fields reaches an internally tagged case, but not its tag");
 
     free_json(*strict_error);
 
-    strict_value, strict_error = from_json(Holder_Internal, "{\"shape\":{\"kind\":\"Circle\",\"radius\":1}}", strict);
+    strict_value, strict_error = from_json(Holder_Internal, "{\"shape\":{\"kind\":\"circle\",\"radius\":1}}", strict);
 
     check(strict_error.kind == .NONE, "the tag is not an unknown field");
 
-    adjacent_value, adjacent_error := from_json(Holder_Adjacent, "{\"shape\":{\"t\":\"Circle\",\"c\":{\"radius\":1},\"extra\":2}}", strict);
+    adjacent_value, adjacent_error := from_json(Holder_Adjacent, "{\"shape\":{\"t\":\"circle\",\"c\":{\"radius\":1},\"extra\":2}}", strict);
 
     check(adjacent_error.kind == .UNKNOWN_FIELD, "deny_unknown_fields reaches an adjacently tagged variant");
 
@@ -446,7 +463,7 @@ errors :: () {
     free_json(*adjacent_value);
 
     // The tag key is no unknown field, and a decoder still needs the fields it has.
-    error = failure(Holder_Internal, "{\"shape\":{\"kind\":\"Rect\",\"width\":1}}");
+    error = failure(Holder_Internal, "{\"shape\":{\"kind\":\"rect\",\"width\":1}}");
 
     check(error.kind == .MISSING_FIELD && contains(error.message, "`height`"), "a missing field of an internally tagged case");
 
@@ -458,7 +475,7 @@ errors :: () {
 
     free_json(*error);
 
-    error = failure(Shape, "{\"Circle\":{\"radius\":1}} 7");
+    error = failure(Shape, "{\"circle\":{\"radius\":1}} 7");
 
     check(error.kind == .SYNTAX, "trailing data");
 
@@ -474,7 +491,7 @@ defaults :: () {
 
     config := decode(Config, "{\"name\":\"n\"}");
 
-    check(config.shape.index == 0 && config.count == 0, "a variant left out keeps its zero value");
+    check(config.shape.which == .NONE && config.count == 0, "a variant left out keeps its zero value");
 
     // Required when nothing says otherwise.
     Required :: struct {
@@ -492,17 +509,20 @@ defaults :: () {
 freeing :: () {
     Owner :: struct {
         text: Variant(s64, string);
-        list: Variant(Empty, [..] string);
+        list: Variant(struct {
+            empty: Empty;
+            list: [..] string;
+        });
         shape: Shape;
     }
 
-    owner := decode(Owner, "{\"text\":\"owned\",\"list\":{\"[..] string\":[\"a\",\"b\"]},\"shape\":{\"Empty\":{}}}");
+    owner := decode(Owner, "{\"text\":\"owned\",\"list\":{\"list\":[\"a\",\"b\"]},\"shape\":{\"empty\":{}}}");
 
-    check(unwrap(owner.text, string) == "owned" && unwrap(owner.list, [..] string).count == 2, "decoded");
+    check(owner.text.string_ == "owned" && owner.list.list.count == 2, "decoded");
 
     free_json(*owner);
 
-    check(owner.text.index == 0 && owner.list.index == 0 && owner.shape.index == 0, "free_json zeroes the variants");
+    check(owner.text.which == .NONE && owner.list.which == .NONE && owner.shape.which == .NONE, "free_json zeroes the variants");
 
     free_json(*owner);
 
@@ -516,17 +536,17 @@ freeing :: () {
 
     free_json(*defaulted);
 
-    check(defaulted.other.index == 0, "a decoded variant is freed");
+    check(defaulted.other.which == .NONE, "a decoded variant is freed");
 }
 
 top_level_free :: () {
     text := decode(Number_Or_Text, "\"standalone\"");
 
-    check(unwrap(text, string) == "standalone", "a top-level variant");
+    check(text.string_ == "standalone", "a top-level variant");
 
     free_json(*text);
 
-    check(text.index == 0, "a top-level variant is freed and zeroed");
+    check(text.which == .NONE, "a top-level variant is freed and zeroed");
 }
 
 main :: () {

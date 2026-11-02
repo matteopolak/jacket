@@ -54,16 +54,16 @@ Runtime `Json_Options`:
 
 ### Variants
 
-A [`Variant`](variant.md) is encoded by its live case, named by its type name (run through `rename_all`).
+A [`Variant`](variant.md) is encoded by its live case, tagged with the case's field name (`circle`, or `s64` for the `s64_` case) run through `rename_all`. A Variant holding no case is `null`, and `null` decodes to no case.
 
 | Form | Note | Text for `Circle{ radius = 1 }` |
 | --- | --- | --- |
-| externally tagged (default) | none | `{"Circle":{"radius":1}}` |
-| internally tagged | `@json(tag=kind)`, every case a struct | `{"kind":"Circle","radius":1}` |
-| adjacently tagged | `@json(tag=t,content=c)` | `{"t":"Circle","c":{"radius":1}}` |
-| untagged | `@json(untagged)`; default when every case is a scalar or enum | `{"radius":1}` |
+| externally tagged (default) | none | `{"circle":{"radius":1}}` |
+| internally tagged | `@json(tag=kind)`, every case a struct | `{"kind":"circle","radius":1}` |
+| adjacently tagged | `@json(tag=t,content=c)` | `{"t":"circle","c":{"radius":1}}` |
+| untagged | `@json(untagged)`; default when every case is a scalar or enum of a different type | `{"radius":1}` |
 
-`@json(tags=circle,rect)` names the tags in case order. Decoding finds an internal tag anywhere in the object. An unknown tag is `.UNKNOWN_VARIANT` listing the choices; a missing tag is `.MISSING_FIELD`. An untagged variant tries each case in order and the first that decodes wins. Variants may hold pointers to themselves. Bad notes are compile errors.
+`@json(tags=circle,rect)` names the tags in case order. Decoding finds an internal tag anywhere in the object. An unknown tag is `.UNKNOWN_VARIANT` listing the choices; a missing tag is `.MISSING_FIELD`. An untagged variant tries each case in order and the first that decodes wins, so two cases of one type must be tagged. Variants may hold pointers to themselves. Bad notes are compile errors.
 
 ### Query and form text
 

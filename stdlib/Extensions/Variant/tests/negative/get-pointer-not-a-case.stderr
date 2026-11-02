@@ -1,7 +1,7 @@
-../../layout.jai:116:13: error[metaprogram-report]: get_pointer: `u8` is not a case of `Variant(s64, string)`. The cases are s64, string
-                compiler_report(tprint("%: `%` is not a case of `%`. The cases are %", user, T, variant_name(V), type_list_text(V.types)));
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-../../module.jai:173:13: note: while running compile-time code started here
+../../layout.jai:327:13: error[metaprogram-report]: get_pointer: `u8` is not a case of `Variant(s64, string)`. The cases are .S64 (s64), .STRING (string)
+                compiler_report(tprint("%: `%` is not a case of `%`. The cases are %", user, T, variant_title(V), case_list_text(V)));
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../module.jai:111:13: note: while running compile-time code started here
         CASE :: #run case_of(V, T, "get_pointer");
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

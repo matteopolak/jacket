@@ -48,7 +48,7 @@ round_trip :: () {
 
     text := to_json(root,, temp);
 
-    check(text == "{\"Branch\":{\"children\":[{\"Leaf\":{\"value\":1}},{\"Branch\":{\"children\":[{\"Leaf\":{\"value\":2}}]}}]}}", tprint("encoded as %", text));
+    check(text == "{\"branch\":{\"children\":[{\"leaf\":{\"value\":1}},{\"branch\":{\"children\":[{\"leaf\":{\"value\":2}}]}}]}}", tprint("encoded as %", text));
 
     decoded, error := from_json(Tree, text);
 

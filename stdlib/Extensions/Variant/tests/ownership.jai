@@ -1,4 +1,4 @@
-// free_variant releases what the live case owns and zeroes the variant; printing writes the
+// free_variant releases what the live case owns and leaves the variant empty; printing writes the
 // payload.
 //
 //     jaic stdlib/Extensions/Variant/tests/ownership.jai -interp
@@ -22,12 +22,24 @@ Named :: struct {
     count: int;
 }
 
-Inner :: Variant(string, [..] int);
+Inner :: Variant(struct {
+    text: string;
+    numbers: [..] int;
+});
+
 Outer :: Variant(int, Inner, Named);
 
 Empty :: struct {}
 
-Mixed :: Variant(Empty, string, [..] string, Named, Outer, [2] string, [] int);
+Mixed :: Variant(struct {
+    empty: Empty;
+    text: string;
+    list: [..] string;
+    named: Named;
+    outer: Outer;
+    pair: [2] string;
+    view: [] int;
+});
 
 freeing :: () {
     tally: Tally;
@@ -39,7 +51,7 @@ freeing :: () {
         text := variant(Variant(int, string), copy_string("owned"));
 
         free_variant(*text);
-        cleared = cleared && text.index == 0 && unwrap(text, int) == 0;
+        cleared = cleared && text.which == .NONE;
 
         // Freeing twice, or freeing a number, is harmless.
         free_variant(*text);
@@ -47,7 +59,7 @@ freeing :: () {
         number := variant(Variant(int, string), 5);
 
         free_variant(*number);
-        cleared = cleared && number.index == 0 && unwrap(number, int) == 0;
+        cleared = cleared && number.which == .NONE;
 
         list: [..] string;
 
@@ -57,7 +69,7 @@ freeing :: () {
         strings := variant(Mixed, list);
 
         free_variant(*strings);
-        cleared = cleared && strings.index == 0;
+        cleared = cleared && strings.which == .NONE;
 
         named := Named.{ name = copy_string("n") };
 
@@ -67,13 +79,13 @@ freeing :: () {
         in_struct := variant(Mixed, named);
 
         free_variant(*in_struct);
-        cleared = cleared && in_struct.index == 0;
+        cleared = cleared && in_struct.which == .NONE;
 
         // A variant inside a variant, and a string inside that.
         deep := variant(Outer, variant(Inner, copy_string("deep")));
 
         free_variant(*deep);
-        cleared = cleared && deep.index == 0;
+        cleared = cleared && deep.which == .NONE;
 
         numbers: [..] int;
 
@@ -95,7 +107,7 @@ freeing :: () {
     }
 
     check(tally.outstanding == 0, tprint("free_variant left % blocks allocated", tally.outstanding));
-    check(cleared, "a freed variant is zeroed: its first case, zeroed");
+    check(cleared, "a freed variant holds no case");
 }
 
 // Views and pointers are not owned: free_variant must leave what they point to alone.
@@ -113,7 +125,7 @@ borrowed :: () {
     // Not freed here: a literal was never allocated. Resetting is the caller's job.
     literal = .{};
 
-    check(literal.index == 0, "a variant can be reset by assigning the zero value");
+    check(literal.which == .NONE, "a variant can be reset by assigning the zero value");
 }
 
 printing :: () {

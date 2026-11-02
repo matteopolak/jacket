@@ -40,7 +40,7 @@ leaf :: (value: s64) -> *Tree {
 }
 
 sum :: (tree: *Tree) -> s64 {
-    if is(tree.*, Leaf) return unwrap(tree.*, Leaf).value;
+    if tree.which == .LEAF return tree.leaf.value;
 
     total: s64;
     branch := get_pointer(tree, Branch);
@@ -79,9 +79,8 @@ tree :: () {
     set(root, branch);
 
     check(sum(root) == 33, "a tree sums through its pointers");
-    check(is(root.*, Branch) && !is(root.*, Leaf), "the root is a branch");
+    check(root.which == .BRANCH, "the root is a branch");
     check(size_of(Tree) >= size_of(Branch), "the payload holds the largest case");
-    check(variant_type(root.*) == Branch, "variant_type of a recursive variant");
 
     free_variant(root);
 }
@@ -107,8 +106,8 @@ nodes :: () {
     root := variant(Node, outer);
 
     check(depth(*root) == 2, "lists nest through pointers");
-    check(unwrap(a.*, s64) == 5, "a number inside a list");
-    check(unwrap(b.*, string) == "text", "text inside a list");
+    check(a.s64_ == 5, "a number inside a list");
+    check(b.string_ == "text", "text inside a list");
     check(root == root, "a recursive variant equals itself");
 }
 

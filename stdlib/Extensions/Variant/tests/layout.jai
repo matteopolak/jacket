@@ -1,5 +1,5 @@
-// The size and alignment of a Variant: an `index: s32` and payload bytes as large as the largest
-// case and aligned for the strictest one.
+// The size and alignment of a Variant: a one-byte `which` and payload bytes as large as the
+// largest case and aligned for the strictest one.
 //
 //     jaic stdlib/Extensions/Variant/tests/layout.jai -interp
 
@@ -31,11 +31,9 @@ Triple :: struct {
 
 // Where a Variant's payload sits and what it is aligned to.
 payload_offset :: ($V: Type) -> s64 {
-    info := cast(*Type_Info_Struct) type_info(V);
+    v: V;
 
-    for info.members if it.name == "payload" return it.offset_in_bytes;
-
-    return -1;
+    return cast(s64) v.payload.data - cast(s64) *v;
 }
 
 aligned_at :: (address: *void, alignment: s64) -> bool {
@@ -45,31 +43,41 @@ aligned_at :: (address: *void, alignment: s64) -> bool {
 sizes :: () {
     check(size_of(Variant(s64, string)) == 24, "Variant(s64, string) is 24 bytes");
     check(align_of(Variant(s64, string)) == 8, "Variant(s64, string) is 8-aligned");
-    check(payload_offset(Variant(s64, string)) == 8, "the payload follows the index and padding");
+    check(payload_offset(Variant(s64, string)) == 8, "the payload follows the tag and padding");
+    check(size_of(Variant(s64, string).Which) == 1, "a few cases need a one-byte tag");
 
     check(size_of(Variant(u8, float64)) == 16, "Variant(u8, float64) is 16 bytes");
     check(align_of(Variant(u8, float64)) == 8, "Variant(u8, float64) is 8-aligned");
     check(payload_offset(Variant(u8, float64)) == 8, "float64 aligns the payload to 8");
 
-    check(size_of(Variant(u8)) == 8, "Variant(u8): index, a byte and padding");
-    check(align_of(Variant(u8)) == 4, "Variant(u8) is as aligned as its index");
-    check(payload_offset(Variant(u8)) == 4, "Variant(u8): no padding before the payload");
+    check(size_of(Variant(u8)) == 2, "Variant(u8): the tag and a byte");
+    check(align_of(Variant(u8)) == 1, "Variant(u8) is byte-aligned");
+    check(payload_offset(Variant(u8)) == 1, "Variant(u8): no padding before the payload");
 
-    check(size_of(Variant(u8, u16)) == 8 && align_of(Variant(u8, u16)) == 4, "Variant(u8, u16)");
-    check(payload_offset(Variant(u8, u16)) == 4, "a 2-aligned payload sits right after the index");
+    check(size_of(Variant(u8, u16)) == 4 && align_of(Variant(u8, u16)) == 2, "Variant(u8, u16)");
+    check(payload_offset(Variant(u8, u16)) == 2, "a 2-aligned payload sits right after the tag");
 
     check(size_of(Variant(u8, u32)) == 8 && payload_offset(Variant(u8, u32)) == 4, "Variant(u8, u32)");
-    check(size_of(Variant(Empty)) == 8, "a case without a payload still has one byte of storage");
-    check(size_of(Variant(Empty, Small)) == 8, "Variant(Empty, Small)");
+    check(size_of(Variant(Empty)) == 2, "a case without a payload still has one byte of storage");
+    check(size_of(Variant(Empty, Small)) == 2, "Variant(Empty, Small)");
 
     check(size_of(Variant(Wide, u8)) == 24, "a struct with padding of its own");
     check(payload_offset(Variant(Wide, u8)) == 8, "a struct case aligns the payload to its strictest member");
 
-    check(size_of(Variant(Triple, u8)) == 12, "a fixed array of u16 is 2-aligned and 6 bytes");
-    check(size_of(Variant([4] u8, bool)) == 8, "a fixed array of bytes");
+    check(size_of(Variant(Triple, u8)) == 8, "a fixed array of u16 is 2-aligned and 6 bytes");
+    check(size_of(Variant(struct {
+        bytes: [4] u8;
+        flag: bool;
+    })) == 5, "a fixed array of bytes");
 
-    check(size_of(Variant([..] int, string)) == 8 + size_of([..] int), "a resizable array is the largest case");
-    check(size_of(Variant(*void, bool)) == 16, "a pointer");
+    check(size_of(Variant(struct {
+        list: [..] int;
+        text: string;
+    })) == 8 + size_of([..] int), "a resizable array is the largest case");
+    check(size_of(Variant(struct {
+        pointer: *void;
+        flag: bool;
+    })) == 16, "a pointer");
 
     // A variant inside a variant is aligned for its own payload.
     check(size_of(Variant(Variant(u8, float64), u8)) == 24, "a nested variant");
@@ -104,23 +112,23 @@ placement :: () {
     // The strictest case really is stored whole.
     set(*value, cast(float64) 2.5);
 
-    check(unwrap(value, float64) == 2.5, "a float64 round trips");
+    check(value.float64_ == 2.5, "a float64 round trips");
 
     set(*value, cast(u8) 200);
 
-    check(unwrap(value, u8) == 200, "a u8 round trips");
+    check(value.u8_ == 200, "a u8 round trips");
 
     wide: Variant(Wide, u8);
 
     set(*wide, Wide.{ 7, 8.5 });
 
-    check(unwrap(wide, Wide).first == 7 && unwrap(wide, Wide).second == 8.5, "a padded struct round trips");
+    check(wide.wide.first == 7 && wide.wide.second == 8.5, "a padded struct round trips");
 
     triple: Variant(Triple, u8);
 
     set(*triple, Triple.{ .[1, 2, 3] });
 
-    check(unwrap(triple, Triple).values[2] == 3, "a fixed array of u16 round trips");
+    check(triple.triple.values[2] == 3, "a fixed array of u16 round trips");
 }
 
 main :: () {

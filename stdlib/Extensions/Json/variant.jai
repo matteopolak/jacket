@@ -34,8 +34,24 @@ variant_cases :: (info: *Type_Info) -> [] *Type_Info {
     return Variant_Lib.variant_case_infos(info);
 }
 
-// The name a case has by default as a tag: the type as written. A variant inside a variant is
-// spelled out from its own cases.
+// The tag case `k` gets by default: its field name, without the `_` a built-in type's case ends in.
+case_tag :: (info: *Type_Info, k: int) -> string {
+    name := Variant_Lib.variant_case_names(info)[k];
+
+    if name.count > 1 && name[name.count - 1] == #char "_" name.count -= 1;
+
+    return name;
+}
+
+// Whether two cases have the same type, so that only a tag can tell them apart.
+shares_a_type :: (cases: [] *Type_Info) -> bool {
+    for a, i: cases for j : i + 1..cases.count - 1 if cases[j] == a return true;
+
+    return false;
+}
+
+// A case's type as written, for messages. A variant inside a variant is spelled out from its own
+// cases.
 case_name :: (info: *Type_Info) -> string {
     if !is_variant(info) return tprint("%", cast(Type) info);
 
@@ -161,7 +177,12 @@ payload_style :: (style: Enum_Style) -> Enum_Style {
 }
 
 variant_mode :: (g: *Gen, cases: [] *Type_Info, style: Enum_Style) -> Variant_Mode {
-    if style.untagged return .UNTAGGED;
+    if style.untagged {
+        if shares_a_type(cases) fail(g, "`untagged` cannot tell apart two cases of the same type. Drop `untagged` so each case is written with its tag");
+
+        return .UNTAGGED;
+    }
+
     if style.tag.count && style.content.count return .ADJACENT;
 
     if style.tag.count {
@@ -176,12 +197,14 @@ variant_mode :: (g: *Gen, cases: [] *Type_Info, style: Enum_Style) -> Variant_Mo
         return .INTERNAL;
     }
 
+    if shares_a_type(cases) return .EXTERNAL;
+
     for cases if !is_scalar_case(it) return .EXTERNAL;
 
     return .UNTAGGED;
 }
 
-variant_tags :: (g: *Gen, cases: [] *Type_Info, style: Enum_Style) -> [..] string {
+variant_tags :: (g: *Gen, info: *Type_Info, cases: [] *Type_Info, style: Enum_Style) -> [..] string {
     tags: [..] string;
 
     if style.tags.count {
@@ -193,7 +216,7 @@ variant_tags :: (g: *Gen, cases: [] *Type_Info, style: Enum_Style) -> [..] strin
 
         for style.tags array_add(*tags, it);
     } else {
-        for cases array_add(*tags, apply_rule(case_name(it), style.variant_rule));
+        for cases array_add(*tags, apply_rule(case_tag(info, it_index), style.variant_rule));
     }
 
     for tag, i: tags {
@@ -241,7 +264,7 @@ emit_encode_variant :: (g: *Gen, value: string, info: *Type_Info, style: Enum_St
     out := *g.out;
     cases := variant_cases(info);
     mode := variant_mode(g, cases, style);
-    tags := variant_tags(g, cases, style);
+    tags := variant_tags(g, info, cases, style);
 
     if !g.ok return;
 
@@ -254,7 +277,7 @@ emit_encode_variant :: (g: *Gen, value: string, info: *Type_Info, style: Enum_St
         pointer := tprint("case_%_%", id, k);
         first := tprint("first_%_%", id, k);
 
-        print(out, "%if %.index == % {\n", ifx k then "else " else "", value, k);
+        print(out, "%if cast(s64) %.which == % {\n", ifx k then "else " else "", value, k + 1);
         append(out, case_pointer(g, pointer, value, k));
 
         if mode == {
@@ -302,14 +325,14 @@ emit_free_variant :: (g: *Gen, out: *String_Builder, target: string, info: *Type
 
             pointer := tprint("case_%_%", id, k);
 
-            print(out, "if %.index == % {\n", target, k);
+            print(out, "if cast(s64) %.which == % {\n", target, k + 1);
             append(out, case_pointer(g, pointer, target, k));
             emit_free(g, out, tprint("%.*", pointer), case_info, "");
             print(out, "}\n");
         }
     }
 
-    print(out, "%.index = 0;\nmemset(%.payload.data, 0, %.payload.count);\n}\n", target, target, target);
+    print(out, "%.which = .NONE;\nmemset(%.payload.data, 0, %.payload.count);\n}\n", target, target, target);
 }
 
 // ---- decoding ----
@@ -343,14 +366,14 @@ emit_decode_case :: (g: *Gen, value: string, id: int, k: int, case_info: *Type_I
     append(out, case_pointer(g, slot, value, k));
     print(out, "init_%_%: type_of(%.*);\n%.* = init_%_%;\n", id, k, slot, slot, id, k);
     emit_decode(g, tprint("%.*", slot), case_info, style, on_fail);
-    print(out, "%.index = %;\n}\n", value, k);
+    print(out, "%.which = cast(type_of(%.which)) %;\n}\n", value, value, k + 1);
 }
 
 emit_decode_variant :: (g: *Gen, target: string, info: *Type_Info, style: Enum_Style, on_fail: string) {
     out := *g.out;
     cases := variant_cases(info);
     mode := variant_mode(g, cases, style);
-    tags := variant_tags(g, cases, style);
+    tags := variant_tags(g, info, cases, style);
 
     if !g.ok return;
 
@@ -358,7 +381,10 @@ emit_decode_variant :: (g: *Gen, target: string, info: *Type_Info, style: Enum_S
     inner := payload_style(style);
 
     // Whatever the variant held before (its declared default) is replaced, not released.
-    print(out, "{\n%.index = 0;\nmemset(%.payload.data, 0, %.payload.count);\n", target, target, target);
+    print(out, "{\n%.which = .NONE;\nmemset(%.payload.data, 0, %.payload.count);\n", target, target, target);
+
+    // `null` is the variant that holds no case.
+    print(out, "if json_next_is_null(r) {\nif !json_read_null(r) { % }\n} else {\n", on_fail);
 
     // What a failure after a case was read releases.
     cleanup: String_Builder;
@@ -399,7 +425,7 @@ emit_decode_variant :: (g: *Gen, target: string, info: *Type_Info, style: Enum_S
                 print(out, "if which_% == % {\n", id, k);
                 append(out, case_pointer(g, slot, target, k));
                 print(out, "init_%_%: type_of(%.*);\n%.* = init_%_%;\n", id, k, slot, slot, id, k);
-                print(out, "if !json_decode_tagged(r, %, %) { % }\n%.index = %;\n}\n", slot, jai_quote(style.tag), on_fail, target, k);
+                print(out, "if !json_decode_tagged(r, %, %) { % }\n%.which = cast(type_of(%.which)) %;\n}\n", slot, jai_quote(style.tag), on_fail, target, target, k + 1);
             }
         case .ADJACENT;
             emit_find_tag(g, id, style.tag, tags, on_fail);
@@ -423,7 +449,7 @@ emit_decode_variant :: (g: *Gen, target: string, info: *Type_Info, style: Enum_S
             print(out, "if !read_% { json_missing_field(r, %); % }\n", id, jai_quote(style.content), fail);
     }
 
-    print(out, "}\n");
+    print(out, "}\n}\n");
 }
 
 // Tries each case in order on the same text: a case that fails leaves nothing behind (its decoder
@@ -465,7 +491,7 @@ emit_decode_untagged :: (g: *Gen, target: string, id: int, cases: [] *Type_Info,
         print(out, "memset(%.payload.data, 0, %.payload.count);\n", target, target);
         append(out, case_pointer(g, slot, target, k));
         print(out, "init_%_%: CT_%_%;\n%.* = init_%_%;\n", id, k, id, k, slot, id, k);
-        print(out, "if attempt_%_%(r, %) {\n%.index = %;\ndone_% = true;\n} else json_note_attempt(r, *why_%, %, mark_%);\n}\n", id, k, slot, target, k, id, id, jai_quote(case_name(case_info)), id);
+        print(out, "if attempt_%_%(r, %) {\n%.which = cast(type_of(%.which)) %;\ndone_% = true;\n} else json_note_attempt(r, *why_%, %, mark_%);\n}\n", id, k, slot, target, target, k + 1, id, id, jai_quote(case_name(case_info)), id);
     }
 
     print(out, "if !done_% {\njson_fail_at(r, .TYPE, tprint(\"no variant of `%` matched: %\", builder_to_string(*why_%,, temp)), mark_%.pos);\n%\n}\n", id, name, "%", id, id, on_fail);
@@ -539,7 +565,7 @@ json_note_attempt :: (r: *Json_Reader, why: *String_Builder, name: string, mark:
 
 // Whether two variants of the same type hold the same bytes.
 json_variant_unchanged :: (a: *$V, b: *V) -> bool {
-    if a.index != b.index return false;
+    if a.which != b.which return false;
 
     return memcmp(a.payload.data, b.payload.data, a.payload.count) == 0;
 }

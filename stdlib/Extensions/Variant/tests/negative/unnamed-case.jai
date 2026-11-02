@@ -2,8 +2,7 @@
 #import "Basic";
 #import "Extensions/Variant";
 
+// An array type has no name to give its case.
 main :: () {
-    v: Variant(s64, string);
-
-    print("%\n", unwrap(v, s32));
+    v: Variant(s64, [..] string);
 }
