@@ -9,6 +9,7 @@ proto_emit_schema :: (s: *proto_Schema, b: *String_Builder) {
 
     append(b, "#scope_export\n");
     proto_emit_packages(s, b);
+    proto_emit_registry(s, b);
 }
 
 // A package level: its own types and nested packages, in order of first declaration.
@@ -116,11 +117,17 @@ proto_emit_node :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {
         append(b, "\n");
     }
 
+    // JSON prints fields in declaration order, so a oneof member declared before a plain field
+    // says where it goes.
+    last_plain := -1;
+    for node.fields if !it.oneof.count last_plain = it_index;
+
     for name: node.oneofs {
         proto_emit(b, "%: proto_v.Variant(struct {\nnone: void;\n", proto_jai_name(name));
 
         for node.fields if it.oneof == name {
             proto_emit(b, "%: %;", it.jai, proto_field_type(it));
+            if it_index < last_plain proto_emit(b, " @proto_at_%", it_index);
             proto_emit_field_notes(b, it);
             append(b, "\n");
         }
@@ -133,6 +140,7 @@ proto_emit_node :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {
     }
 
     append(b, "_unknown: [..] u8;\nproto_storage: *proto_r.Storage_Block; @json(skip)\n");
+    proto_emit_json_support(s, b, node);
     proto_emit_size(s, b, node);
     proto_emit_encode(s, b, node);
     proto_emit_free(s, b, node);
@@ -589,7 +597,9 @@ proto_quote :: (text: string, json := false) -> string {
 proto_emit_field_notes :: (b: *String_Builder, f: *proto_Field) {
     if f.deprecated append(b, " @deprecated");
 
-    if f.has_json_name && f.json_name != f.jai {
+    proto_emit_json_notes(b, f);
+
+    if f.has_json_name {
         // Quote the whole note so arbitrary json_name text cannot become Jai source.
         note := proto_schema_format("json(rename=%)", proto_quote(f.json_name, true));
         proto_emit(b, " @%", proto_quote(note));
@@ -642,4 +652,73 @@ proto_emit_check :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {
     }
 
     append(b, "return true;\n}\n");
+}
+
+// What the JSON mapping can't read from a field's Jai type: its .proto name when Jai renamed
+// it, and for enums whether they are closed, NullValue, or have renamed values.
+proto_emit_json_notes :: (b: *String_Builder, f: *proto_Field) {
+    if f.jai != f.name proto_emit(b, " @%", proto_quote(proto_schema_format("proto_name=%", f.name)));
+
+    target := f.target;
+    if f.map_entry target = f.map_entry.fields[1].target;
+    if !target || target.kind != .ENUM return;
+
+    if target.full == "google.protobuf.NullValue" append(b, " @proto_null");
+    if target.features.enums == "CLOSED" append(b, " @proto_closed");
+
+    renamed := false;
+    for target.values if it.token.text != it.name renamed = true;
+    if !renamed return;
+
+    names: String_Builder;
+
+    append(*names, "proto_enum=");
+
+    for target.values {
+        if it_index append(*names, ",");
+        append(*names, it.token.text);
+    }
+
+    proto_emit(b, " @%", proto_quote(builder_to_string(*names)));
+}
+
+// Well-known types are marked for their special JSON forms; a CUSTOM map gets an insert the
+// JSON reader can call.
+proto_emit_json_support :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {
+    if begins_with(node.full, "google.protobuf.") {
+        name := slice(node.full, 16, node.full.count - 16);
+        kind := "";
+
+        if name == "Timestamp" kind = "TIMESTAMP";
+        else if name == "Duration" kind = "DURATION";
+        else if name == "FieldMask" kind = "FIELD_MASK";
+        else if name == "Struct" kind = "STRUCT";
+        else if name == "Value" kind = "VALUE";
+        else if name == "ListValue" kind = "LIST_VALUE";
+        else if name == "Any" kind = "ANY";
+        else if name == "Empty" kind = "EMPTY";
+        else if name == "DoubleValue" || name == "FloatValue" || name == "Int64Value" || name == "UInt64Value" || name == "Int32Value" || name == "UInt32Value" || name == "BoolValue" || name == "StringValue" || name == "BytesValue" kind = "WRAPPER";
+
+        if kind.count proto_emit(b, "proto_well_known :: proto_r.Well_Known.%;\n", kind);
+    }
+
+    if s.options.map != .CUSTOM return;
+
+    for node.fields if it.map_entry {
+        proto_emit(b, "proto_map_insert :: (m: *$M, k: $K, v: $V) { proto_m.%(m, k, v); }\n", s.options.map_insert);
+        break;
+    }
+}
+
+// Every message of the schema by its full name, for the JSON form of google.protobuf.Any.
+// Nothing here is compiled unless a program reads proto_registry.
+proto_emit_registry :: (s: *proto_Schema, b: *String_Builder) {
+    append(b, "proto_registry :: proto_r.Json_Type.[\n");
+
+    for s.nodes {
+        if it.kind != .MESSAGE || it.synthetic continue;
+        proto_emit(b, ".{\"%\", proto_r.Json_Any(%).run},\n", it.full, it.jai);
+    }
+
+    append(b, "];\n");
 }

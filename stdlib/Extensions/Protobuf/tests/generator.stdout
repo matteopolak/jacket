@@ -52,3 +52,6 @@ return true;
 }
 proto_has_required :: false;
 }
+proto_registry :: proto_r.Json_Type.[
+.{"Ping", proto_r.Json_Any(Ping).run},
+];

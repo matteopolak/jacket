@@ -172,7 +172,7 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
     }
 
     // These names are the public generator API and module parameters in this same scope.
-    reserved_api :: string.["Map_Mode", "Generate_Options", "Schema_Error", "protobuf_generate", "PATH", "TEXT", "DIR", "IMPORT_PATHS", "MAP", "MAP_MODULE", "MAP_TYPE", "MAP_INSERT", "MAP_DEINIT", "STRIP_ENUM_PREFIX"];
+    reserved_api :: string.["Map_Mode", "Generate_Options", "Schema_Error", "protobuf_generate", "PATH", "TEXT", "DIR", "IMPORT_PATHS", "MAP", "MAP_MODULE", "MAP_TYPE", "MAP_INSERT", "MAP_DEINIT", "STRIP_ENUM_PREFIX", "proto_registry"];
 
     // Every package and each of its dotted ancestors, mapped to the first root declared under it.
     package_roots: proto_symbols.Map(string, *proto_Node);
