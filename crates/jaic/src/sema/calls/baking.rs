@@ -9,6 +9,36 @@ use crate::diagnostics::Code;
 use crate::layout;
 
 impl Compiler {
+    /// The scope a baked parameter's type and default are read in: the definition scope, plus
+    /// the bindings made so far.
+    pub(super) fn bindings_scope(
+        &mut self,
+        def_scope: ScopeId,
+        bindings: &[(Sym, Value, TypeId)],
+        span: Span,
+    ) -> ScopeId {
+        let mut scope = def_scope;
+        if !bindings.is_empty() {
+            // One scope per set of bindings, so a lambda default
+            // (`$compare := (a, b) => a == b`) is the same procedure on every
+            // call and the instance is found again.
+            let key = (def_scope, bindings.iter().map(|b| b.1.clone()).collect());
+            scope = if let Some(&s) = self.ns.default_scopes.get(&key) {
+                s
+            } else {
+                let s = self.new_hidden_scope(def_scope);
+                // Not written at the call: recording them there would make the call's
+                // text look like a declaration of `T` to hover and go to definition.
+                for (n, v, t) in bindings {
+                    self.new_const(s, *n, span, v.clone(), *t);
+                }
+                self.ns.default_scopes.insert(key, s);
+                s
+            };
+        }
+        scope
+    }
+
     /// The value of a defaulted baked parameter. A declared type naming earlier bindings
     /// (`$compare: (T, T) -> bool = ...`) is read in a scope holding them.
     pub(crate) fn baked_default(
@@ -33,25 +63,7 @@ impl Compiler {
                 return Ok((value, ty));
             }
         }
-        let mut scope = def_scope;
-        if !bindings.is_empty() {
-            // One scope per set of bindings, so a lambda default
-            // (`$compare := (a, b) => a == b`) is the same procedure on every
-            // call and the instance is found again.
-            let key = (def_scope, bindings.iter().map(|b| b.1.clone()).collect());
-            scope = if let Some(&s) = self.ns.default_scopes.get(&key) {
-                s
-            } else {
-                let s = self.new_hidden_scope(def_scope);
-                // Not written at the call: recording them there would make the call's
-                // text look like a declaration of `T` to hover and go to definition.
-                for (n, v, t) in bindings {
-                    self.new_const(s, *n, span, v.clone(), *t);
-                }
-                self.ns.default_scopes.insert(key, s);
-                s
-            };
-        }
+        let scope = self.bindings_scope(def_scope, bindings, span);
         let declared = match &param.ty {
             Some(t) if !procs::has_poly(t) => Some(self.eval_type(scope, t)?),
             _ => None,

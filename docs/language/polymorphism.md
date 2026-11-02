@@ -24,6 +24,7 @@ The results in the comments: `$T` inferred from an argument {#poly.2}, an explic
 ## Inference and restrictions
 
 - A constant parameter with a declared bool, number or enum type (`$N: s32`) takes its argument as a runtime parameter does, so `f(true)` or `f("x")` is an error.
+- A constant parameter's type may name an earlier parameter's binding: `($c: $C, $e: C.E)` reads `C.E` once `C` is bound.
 - Struct parameters can bind variables inside their type (`struct (x: [$N] $T)`); the bound variables join the instance key {#poly.12}. They may be variadic (`struct(types: ..Type)`).
 - `$T/Entity` matches `Entity` or a struct with it as an `#as` base {#poly.13}. A failed match lets other overloads win {#poly.14}. On an array or slice element, `$T` takes any element type {#poly.21}.
 - A `$T/.[A, B]` restriction (or `Name :: Type.[A, B]`) admits only the listed types.

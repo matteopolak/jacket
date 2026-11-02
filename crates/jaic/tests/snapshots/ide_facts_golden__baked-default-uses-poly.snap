@@ -2,7 +2,7 @@
 source: crates/jaic/tests/ide_facts_golden.rs
 ---
 ## errors (0)
-## refs (60)
+## refs (63)
 tests/compiler/regressions/baked-default-uses-poly.jai:114..117 Entity(E(arr@tests/compiler/regressions/baked-default-uses-poly.jai:114)) [] *s64 decl=true
 tests/compiler/regressions/baked-default-uses-poly.jai:123..124 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:123)) Type decl=false
 tests/compiler/regressions/baked-default-uses-poly.jai:123..124 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:123)) Type decl=true
@@ -11,8 +11,11 @@ tests/compiler/regressions/baked-default-uses-poly.jai:132..133 Entity(E(T@tests
 tests/compiler/regressions/baked-default-uses-poly.jai:132..133 Type(T(*s64)) Type decl=false
 tests/compiler/regressions/baked-default-uses-poly.jai:136..143 Entity(E(compare@tests/compiler/regressions/baked-default-uses-poly.jai:136)) (*s64, *s64) -> bool decl=true
 tests/compiler/regressions/baked-default-uses-poly.jai:146..147 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:123)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:146..147 Type(T(*s64)) Type decl=false
 tests/compiler/regressions/baked-default-uses-poly.jai:149..150 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:123)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:149..150 Type(T(*s64)) Type decl=false
 tests/compiler/regressions/baked-default-uses-poly.jai:155..159 Entity(E(bool@-)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:155..159 Type(T(bool)) Type decl=false
 tests/compiler/regressions/baked-default-uses-poly.jai:183..186 Entity(E(int@-)) Type decl=false
 tests/compiler/regressions/baked-default-uses-poly.jai:183..186 Type(T(s64)) Type decl=false
 tests/compiler/regressions/baked-default-uses-poly.jai:197..200 Entity(E(arr@tests/compiler/regressions/baked-default-uses-poly.jai:114)) [] *s64 decl=false
@@ -89,10 +92,14 @@ tests/compiler/regressions/baked-default-uses-poly.jai:334..340 1
 tests/compiler/regressions/baked-default-uses-poly.jai:350..477 1
 tests/compiler/regressions/baked-default-uses-poly.jai:497..625 1
 ## dead_runs (0)
-## exprs (66)
+## exprs (70)
 tests/compiler/regressions/baked-default-uses-poly.jai:119..124 Type false false
 tests/compiler/regressions/baked-default-uses-poly.jai:122..124 Type false false
 tests/compiler/regressions/baked-default-uses-poly.jai:132..133 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:145..159 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:146..147 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:149..150 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:155..159 Type false false
 tests/compiler/regressions/baked-default-uses-poly.jai:183..186 Type false false
 tests/compiler/regressions/baked-default-uses-poly.jai:197..200 [] *s64 false false
 tests/compiler/regressions/baked-default-uses-poly.jai:204..211 (compile-time entity) false false

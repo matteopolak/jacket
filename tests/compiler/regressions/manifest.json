@@ -151,6 +151,16 @@
     ]
   },
   {
+    "name": "baked-parameter-dependent-type",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
     "name": "baked-struct-restriction",
     "unsupported_modes": [
       "wasm-interp",

@@ -116,6 +116,7 @@ impl Compiler {
     ) -> Result<()> {
         let def_scope = st.def_scope;
         let span = st.span;
+        let type_scope = self.bindings_scope(def_scope, &st.bindings, span);
         let args = st.args;
         let slots = st.slots;
         if param.baked && param.variadic {
@@ -165,7 +166,7 @@ impl Compiler {
             // `$c: Code` takes the argument expression itself, unevaluated.
             if let Some(t) = &param.ty
                 && !procs::has_poly(t)
-                && self.eval_type(def_scope, t).ok() == Some(TypeId::CODE)
+                && self.eval_type(type_scope, t).ok() == Some(TypeId::CODE)
                 && let Some(id) = self.quote_code_arg(arg)
             {
                 st.bindings.push((name, Value::Code(id), TypeId::CODE));
@@ -177,7 +178,7 @@ impl Compiler {
                 // `.{...}` / `.X` for a baked parameter: check against its declared
                 // type, or the type of its default (`$info := Info.{}`).
                 let declared = match (&param.ty, &param.default) {
-                    (Some(t), _) if !procs::has_poly(t) => Some(self.eval_type(def_scope, t)?),
+                    (Some(t), _) if !procs::has_poly(t) => Some(self.eval_type(type_scope, t)?),
                     (None, Some(d)) => Some(self.eval_const(def_scope, d, None)?.ty()),
                     _ => None,
                 };
@@ -219,7 +220,7 @@ impl Compiler {
                 // A view-typed parameter (`$words: [] string`) takes an array argument as a view
                 // too, so the bound constant is the `(count, data)` pair and not the array.
                 (Some(t), _) if !procs::has_poly(t) => self
-                    .eval_type(def_scope, t)
+                    .eval_type(type_scope, t)
                     .ok()
                     .filter(|&dt| self.is_scalar_constant_type(dt) || self.is_view_type(dt)),
                 // `$flag := true` is a `bool`: an untyped parameter has the type of its default.
@@ -251,7 +252,7 @@ impl Compiler {
                 )
                 && let Some(t) = &param.ty
                 && !procs::has_poly(t)
-                && let Ok(dt) = self.eval_type(def_scope, t)
+                && let Ok(dt) = self.eval_type(type_scope, t)
                 && dt != TypeId::TYPE
                 && dt != TypeId::CODE
             {
@@ -322,7 +323,7 @@ impl Compiler {
             // The declared type may itself be polymorphic (`$T: Type`), or mention
             // another parameter's binding (`$compare: (T, T) -> bool`).
             let ty = match &param.ty {
-                Some(t) if !procs::has_poly(t) => match self.eval_type(def_scope, t) {
+                Some(t) if !procs::has_poly(t) => match self.eval_type(type_scope, t) {
                     Ok(ty) => ty,
                     // The declared type names an earlier binding (`$help: Help(T)`).
                     Err(_) => value_ty,
