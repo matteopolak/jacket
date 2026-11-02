@@ -503,6 +503,7 @@ impl Body {
             dst,
             base,
             offset,
+            inbounds: false,
         });
         dst
     }
@@ -733,6 +734,7 @@ fn emit_prologue(
                     dst,
                     base: frame,
                     offset,
+                    inbounds: false,
                 });
             }
             other => entry.push(other),
@@ -895,6 +897,7 @@ fn emit_frame_alloc(
         dst: end,
         base: dst,
         offset: size,
+        inbounds: false,
     });
     let remaining = body.val(Ty::I64);
     insts.push(Inst::Bin {

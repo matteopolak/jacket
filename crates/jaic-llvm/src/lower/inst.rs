@@ -304,6 +304,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 dst,
                 base,
                 offset,
+                inbounds,
             } => {
                 let base_val = *base;
                 let base = self.get_ptr(st, *base)?;
@@ -313,7 +314,15 @@ impl<'ctx> Backend<'ctx, '_> {
                 } else {
                     off
                 };
-                let p = self.gep(base, off)?;
+                let p = if *inbounds {
+                    #[allow(unsafe_code)]
+                    // SAFETY: the frontend retained a live allocation and an in-object offset.
+                    unsafe {
+                        b.build_in_bounds_gep(self.ctx.i8_type(), base, &[off], "")?
+                    }
+                } else {
+                    self.gep(base, off)?
+                };
                 if st.nonnull[base_val.0 as usize] {
                     st.nonnull[dst.0 as usize] = true;
                 } else if st.null_checks

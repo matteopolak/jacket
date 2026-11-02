@@ -136,6 +136,7 @@ impl Interp {
                 dst,
                 base,
                 offset,
+                ..
             } => vals[dst.0 as usize] = vals[base.0 as usize].wrapping_add(vals[offset.0 as usize]),
             Inst::Copy {
                 dst,

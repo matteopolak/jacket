@@ -298,6 +298,7 @@ impl Compiler {
         if check {
             self.note_check_handler(span)?;
         }
+        let mut checked_fixed_count = None;
         let (elem, data) = match self.ty.types.kind(self.ty.types.repr(bty)).clone() {
             TypeKind::Array {
                 elem,
@@ -305,6 +306,7 @@ impl Compiler {
             } => {
                 let (_, addr) = self.address_of(f, base_op, span)?;
                 if check {
+                    checked_fixed_count = Some(n);
                     let count = f.b.iconst(Ty::I64, n);
                     f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
                 }
@@ -348,9 +350,14 @@ impl Compiler {
         let size = self.size_of(elem, span)?;
         let s = f.b.iconst(Ty::I64, size);
         let off = f.b.bin(ir::BinOp::Mul, Ty::I64, idx, s);
+        let addr = if let Some(bytes) = checked_fixed_count.and_then(|n| n.checked_mul(size)) {
+            f.b.checked_array_addr(data, off, bytes, size)
+        } else {
+            f.b.ptr_add(data, off)
+        };
         Ok(Operand::Place {
             ty: elem,
-            addr: f.b.ptr_add(data, off),
+            addr,
         })
     }
 }

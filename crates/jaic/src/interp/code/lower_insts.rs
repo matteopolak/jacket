@@ -179,6 +179,7 @@ impl Builder<'_> {
                 dst,
                 base,
                 offset,
+                ..
             } => self.ptr_add(dst, base, offset),
             Inst::Copy {
                 dst,

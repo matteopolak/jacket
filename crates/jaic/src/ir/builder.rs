@@ -12,6 +12,9 @@ pub struct Builder {
     terminated: crate::fxhash::HashSet<BlockId>,
     /// The last `loc` marker, for `repeat_loc`.
     last_loc: Option<(u32, u32, u32, u32)>,
+    /// Bytes remaining in a known live stack allocation. Loads, casts and raw
+    /// arithmetic deliberately do not propagate this proof.
+    object_bytes: crate::fxhash::HashMap<Val, u64>,
 }
 
 impl Builder {
@@ -43,6 +46,7 @@ impl Builder {
             current: BlockId(0),
             terminated: crate::fxhash::HashSet::default(),
             last_loc: None,
+            object_bytes: crate::fxhash::HashMap::default(),
         }
     }
 
@@ -91,6 +95,7 @@ impl Builder {
         let slot = self.slot(size, align);
         let addr = self.new_val(Ty::Ptr);
         let zero = self.new_val(ty);
+        self.object_bytes.insert(addr, size);
         self.func.blocks[0].insts.splice(
             0..0,
             [
@@ -206,6 +211,8 @@ impl Builder {
             dst,
             slot,
         });
+        self.object_bytes
+            .insert(dst, self.func.slots[slot.0 as usize].size);
         dst
     }
 
@@ -269,12 +276,20 @@ impl Builder {
     }
 
     pub fn ptr_add(&mut self, base: Val, offset: Val) -> Val {
+        self.ptr_add_with_proof(base, offset, None)
+    }
+
+    fn ptr_add_with_proof(&mut self, base: Val, offset: Val, remaining: Option<u64>) -> Val {
         let dst = self.new_val(Ty::Ptr);
         self.push(Inst::PtrAdd {
             dst,
             base,
             offset,
+            inbounds: remaining.is_some(),
         });
+        if let Some(bytes) = remaining {
+            self.object_bytes.insert(dst, bytes);
+        }
         dst
     }
 
@@ -283,7 +298,28 @@ impl Builder {
             return base;
         }
         let off = self.iconst(Ty::I64, offset);
-        self.ptr_add(base, off)
+        let remaining = self
+            .object_bytes
+            .get(&base)
+            .and_then(|n| n.checked_sub(offset));
+        self.ptr_add_with_proof(base, off, remaining)
+    }
+
+    /// Called only after a fixed-array bounds check. The allocation must also
+    /// cover the entire declared array, so a forged/nullable array place is plain.
+    pub fn checked_array_addr(
+        &mut self,
+        base: Val,
+        offset: Val,
+        bytes: u64,
+        elem_size: u64,
+    ) -> Val {
+        let remaining = self
+            .object_bytes
+            .get(&base)
+            .filter(|&&n| n >= bytes)
+            .map(|_| elem_size);
+        self.ptr_add_with_proof(base, offset, remaining)
     }
 
     pub fn copy(&mut self, dst: Val, src: Val, size: u64) {
@@ -369,5 +405,59 @@ impl Builder {
             }
         }
         self.func
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pointer_proofs_require_allocation_extent_and_do_not_cross_raw_operations() {
+        let mut b = Builder::new(
+            "provenance".into(),
+            Sig {
+                params: vec![Ty::Ptr],
+                returns: vec![],
+                conv: super::super::Conv::Jai,
+                c_varargs: false,
+                c_fixed: 0,
+                c_abi: None,
+            },
+        );
+        let base = b.alloca(24, 8);
+        let field = b.ptr_offset(base, 8);
+        b.ptr_offset(field, 8);
+        b.ptr_offset(base, 25);
+        let null = b.iconst(Ty::Ptr, 0);
+        b.ptr_offset(null, 8);
+        b.ptr_offset(b.param(0), 8);
+        let off = b.iconst(Ty::I64, 8);
+        let raw = b.ptr_add(base, off);
+        b.ptr_offset(raw, 8);
+        let int = b.conv(ConvOp::Bitcast, Ty::Ptr, Ty::I64, base);
+        let cast = b.conv(ConvOp::Bitcast, Ty::I64, Ty::Ptr, int);
+        b.ptr_offset(cast, 8);
+        b.checked_array_addr(base, off, 24, 8);
+        b.checked_array_addr(base, off, 32, 8);
+        b.checked_array_addr(null, off, 24, 8);
+        let hints: Vec<_> = b
+            .finish()
+            .blocks
+            .iter()
+            .flat_map(|block| &block.insts)
+            .filter_map(|inst| match inst {
+                Inst::PtrAdd {
+                    inbounds, ..
+                } => Some(*inbounds),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            hints,
+            [
+                true, true, false, false, false, false, false, false, true, false, false
+            ]
+        );
     }
 }

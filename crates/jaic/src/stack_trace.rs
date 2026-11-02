@@ -269,6 +269,7 @@ impl Emit<'_> {
             dst,
             base,
             offset,
+            inbounds: false,
         });
         dst
     }

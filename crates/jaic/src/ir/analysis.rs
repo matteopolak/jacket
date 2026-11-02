@@ -140,6 +140,7 @@ pub fn inst_vals(inst: &Inst, def: &mut impl FnMut(Val), use_: &mut impl FnMut(V
             dst,
             base,
             offset,
+            ..
         } => {
             use_(*base);
             use_(*offset);

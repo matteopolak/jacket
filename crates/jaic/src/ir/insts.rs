@@ -315,11 +315,13 @@ pub enum Inst {
         addr: Val,
         value: Val,
     },
-    /// `dst = base + offset` (bytes).
+    /// `dst = base + offset` (bytes). Only LLVM consumes the provenance hint.
     PtrAdd {
         dst: Val,
         base: Val,
         offset: Val,
+        /// Frontend proof that the result stays within the base allocation (or one past).
+        inbounds: bool,
     },
     /// Allocate runtime-sized, aligned storage until the current procedure returns.
     StackAlloc {
