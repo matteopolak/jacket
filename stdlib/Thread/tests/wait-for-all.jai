@@ -46,6 +46,7 @@ main :: () {
         W :: #import "Windows";
         mutex: T.Mutex;
         changed: T.Condition_Variable;
+
         T.init(*mutex);
         T.init(*changed);
         T.lock(*mutex);

@@ -85,6 +85,7 @@ main :: () {
     // Render explicitly instead of assuming it consumes that queue within a fixed time.
     properties := backend_init(config);
     output: [8] s16;
+
     fill_sample_buffer(.{ properties.num_channels * 2, cast(*u8) output.data });
     // Shutdown joins the async worker before we inspect its priority hook's count.
     sound_player_shutdown();
