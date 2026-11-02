@@ -84,7 +84,10 @@ ItemNavPath :: (module: *Module_View, group: int) -> string {
 
 ItemNavList :: (out: *Out, side: *Sidebar_Item, module: *Module_View, nav_stamps: [] string) {
     assert(side.end - side.start <= 5 || nav_stamps.count == module.nav.count);
-    html(out, "<ul class=\"nav-list mono\"{if side.end - side.start > 5} data-source=\"{esc(ItemNavPath(module, side.nav))}?v={esc(nav_stamps[side.nav])}\" data-start=\"{side.start}\" data-end=\"{side.end}\" data-first=\"{max(side.start, side.current - 2)}\"{end}>\n{ItemNav(side, module)}</ul>");
+    first := max(side.start, side.current - 2);
+    last := min(side.end, side.current + 3);
+    // `--before`/`--after` reserve the rows the script fills in, so the list keeps its height.
+    html(out, "<ul class=\"nav-list mono\"{if side.end - side.start > 5} data-source=\"{esc(ItemNavPath(module, side.nav))}?v={esc(nav_stamps[side.nav])}\" data-start=\"{side.start}\" data-end=\"{side.end}\" data-first=\"{first}\" style=\"--before:{first - side.start};--after:{side.end - last}\"{end}>\n{ItemNav(side, module)}</ul>");
 }
 
 // One file per module/group, shared by every item page in that group.

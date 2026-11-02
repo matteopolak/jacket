@@ -36,7 +36,7 @@
     var rows = template.content.querySelectorAll('li');
     var start = +list.getAttribute('data-start'), end = +list.getAttribute('data-end');
     var first = +list.getAttribute('data-first'), count = list.children.length;
-    if (rows.length < end) return;
+    if (rows.length < end) { list.removeAttribute('style'); return; }
     var current = list.querySelector('[aria-current="page"]');
     var top = current && current.getBoundingClientRect().top;
     var before = document.createDocumentFragment(), after = document.createDocumentFragment();
@@ -47,10 +47,14 @@
     // Keep the existing nodes, including keyboard focus and aria-current.
     list.insertBefore(before, list.firstChild);
     list.appendChild(after);
+    list.removeAttribute('style');
     if (wide()) {
       if (!moved && s.scrollTop === initialScroll && st) s.scrollTop = st.t;
       else if (current) s.scrollTop += current.getBoundingClientRect().top - top;
       reveal();
     }
-  }).catch(function () { /* The inline window and back link remain usable. */ });
+  }).catch(function () {
+    // The inline window and back link remain usable.
+    list.removeAttribute('style');
+  });
 })();
