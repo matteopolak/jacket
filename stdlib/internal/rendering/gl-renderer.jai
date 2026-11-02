@@ -159,7 +159,9 @@ get_pixel_dimensions :: (window: Window_Type) -> (width: s32, height: s32) {
     return cast(s32) (width * scale + 0.5), cast(s32) (height * scale + 0.5);
 }
 
-/// Device pixels per window coordinate unit (2 on a Retina display).
+/// Desktop backing/DPI scale (2 on a Retina display or a 192 DPI desktop).
+// Cocoa dimensions are points; Win32/X11 dimensions already use pixels, so do not multiply them
+// by this value. Use `get_pixel_dimensions` to obtain the framebuffer size.
 //
 // ```jai,no_run,skip_on(wasm)
 // #import "Window_Creation";
@@ -261,7 +263,7 @@ set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32) {
     immediate_flush();
     assert(x1 >= x0 && y1 >= y0);
 
-    // Window targets take logical coordinates; the scissor box is in device pixels.
+    // Convert Cocoa points to device pixels. Win32/X11 window coordinates are already pixels.
     if !immediate_state.texture_render_target {
         scale := framebuffer_scale(immediate_state.current_window_info.pixel_scale);
 

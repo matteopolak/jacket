@@ -45,12 +45,12 @@ Texture :: struct {
 
 Window_Info_Platform_Specific :: struct {}
 
-// What Simp knows about a window it draws into: its size in window units, the `pixel_scale` (device pixels
-// per unit) and the sample count.
+// What Simp knows about a window it draws into: its size in native window units, the desktop
+// backing/DPI scale and the sample count. Cocoa uses points; Win32 and X11 use device pixels.
 Window_Info :: struct {
     window: Window_Type;
     window_width, window_height: s32; // in window coordinate units (what the application draws in)
-    pixel_scale: float = 1; // device pixels per unit; the framebuffer is window size times this
+    pixel_scale: float = 1; // Cocoa pixels per point, or desktop DPI / 96 on Win32 and X11
     wanted_msaa: s32;
     msaa: s32;
 
