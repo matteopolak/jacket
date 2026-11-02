@@ -362,6 +362,27 @@ fn read_logo(file: &Path) -> Result<(String, Vec<u8>), String> {
 }
 
 /// Partial module builds omit external pages, so only a full site can validate its links.
+/// Prints intra-doc links that lead nowhere and doc-comment links that name nothing, and returns
+/// them all. The second kind are errors unless `lenient`.
+fn report_broken_links(site: &Site, lenient: bool) -> Vec<String> {
+    let mut broken = site.broken_links();
+    for link in &broken {
+        eprintln!("jacket: warning: intra-doc link to `{link}` leads nowhere");
+    }
+    let severity = if lenient {
+        "warning"
+    } else {
+        "error"
+    };
+    for module in &site.modules {
+        for link in &module.unresolved {
+            eprintln!("jacket: {severity}: {link} names nothing");
+            broken.push(link.clone());
+        }
+    }
+    broken
+}
+
 fn link_status(args: &DocArgs, broken: &[String], unlinked: &[String], filtered: bool) -> ExitCode {
     if !unlinked.is_empty() && !filtered {
         eprintln!("jacket: error: {} unlinked type name(s)", unlinked.len());
@@ -567,21 +588,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         for name in &unlinked {
             eprintln!("jacket: warning: unlinked type in {name}");
         }
-        let mut broken = site.broken_links();
-        for link in &broken {
-            eprintln!("jacket: warning: intra-doc link to `{link}` leads nowhere");
-        }
-        let severity = if args.allow_broken_links || filtered {
-            "warning"
-        } else {
-            "error"
-        };
-        for module in &site.modules {
-            for link in &module.unresolved {
-                eprintln!("jacket: {severity}: {link} names nothing");
-                broken.push(link.clone());
-            }
-        }
+        let broken = report_broken_links(&site, args.allow_broken_links || filtered);
         let unfenced = indented_code_warnings(&site.modules);
         for warning in &unfenced {
             eprintln!("jacket: warning: {warning}");
