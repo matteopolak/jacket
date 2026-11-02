@@ -101,7 +101,7 @@ Repository :: (out: *Out, site: *Site_View) {
 }
 
 Footer :: (out: *Out, site: *Site_View) {
-    html(out, "<footer class=\"foot\"><div>Made with jacket doc {cast(Html) site.footer_version}</div></footer>\n");
+    html(out, "<footer class=\"foot\"><div>made with <a href=\"https://github.com/matteopolak/jacket\">jacket doc</a> {cast(Html) site.footer_version}</div></footer>\n");
 }
 
 CategoryStyle :: (out: *Out, site: *Site_View) {

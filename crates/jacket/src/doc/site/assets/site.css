@@ -75,7 +75,7 @@ html:not(.js) .js-only { display: none !important; }
 .ver-menu a:hover { color: var(--fg); background: var(--sel); text-decoration: none; }
 .ver-menu a[aria-current="true"] { color: var(--link); }
 .search-wrap { flex: 1 1 320px; position: relative; display: flex; justify-content: center; }
-.search { position: relative; width: 100%; max-width: 560px; }
+.search { position: relative; width: 100%; max-width: min(560px, 100%); min-width: 0; }
 .search svg { position: absolute; left: 12px; top: 11px; color: var(--muted); pointer-events: none; }
 .search input { width: 100%; font-size: 14px; padding: 8px 40px 8px 36px; border: 1px solid var(--control); border-radius: 10px; background: var(--surface); }
 .search input:focus { border-color: var(--link); outline: none; box-shadow: 0 0 0 3px var(--sel); }
@@ -386,7 +386,7 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 main { overflow-wrap: anywhere; }
 pre, table, .defs { max-width: 100%; overflow-x: auto; }
 .cards { grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); }
-.search-wrap, .search, .search input { min-width: 0; max-width: 100%; }
+.search-wrap, .search input { min-width: 0; max-width: 100%; }
 :focus-visible { scroll-margin-top: 160px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 
