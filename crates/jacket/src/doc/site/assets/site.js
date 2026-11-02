@@ -485,7 +485,11 @@
       }
     }
     area.addEventListener('input', changed);
-    area.addEventListener('scroll', function () { pre.scrollLeft = area.scrollLeft; pre.scrollTop = area.scrollTop; });
+    // On phones the textarea is drawn scaled (site.css, --k), so its scroll offsets are too.
+    area.addEventListener('scroll', function () {
+      var k = parseFloat(getComputedStyle(wrap).getPropertyValue('--k')) || 1;
+      pre.scrollLeft = area.scrollLeft * k; pre.scrollTop = area.scrollTop * k;
+    });
     area.addEventListener('keydown', function (e) {
       var plain = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
       if (e.key === 'Tab' && plain && !escaped) {
