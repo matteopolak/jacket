@@ -781,12 +781,37 @@ def sync_generated_file(path, data, check):
         path.write_bytes(payload)
 
 
+def share_declarations(files):
+    """Compare independently extracted targets before replacing them with load shims."""
+    for system in ("macos", "linux", "windows"):
+        paths = [OUT / f"{system}-{cpu}.jai" for cpu in ("x64", "arm64")]
+        bodies = [files[path] for path in paths]
+        if bodies[0] != bodies[1]:
+            raise ValueError(f"SDL3 declarations differ between {system} targets; split before sharing")
+        name = f"declarations-{system}.jai"
+        files[OUT / name] = bodies[0]
+        for path in paths:
+            files[path] = f'// Generated profile shim; target evidence remains in contracts-{path.stem}.jsonl.\n#load "{name}";\n'
+
+
+def existing_declarations():
+    """Repackage checked-in extraction without requiring a local SDK. No ABI claims."""
+    files = {}
+    for profile in TARGETS:
+        path = OUT / f"{profile}.jai"
+        data = path.read_text()
+        match = re.fullmatch(r'// Generated profile shim;[^\n]*\n#load "([^"/]+)";\n', data)
+        files[path] = (OUT / match[1]).read_text() if match else data
+    share_declarations(files)
+    return files
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--source",
         type=Path,
-        required=True,
+        required=False,
         help="verified extracted SDL3-3.4.18 source",
     )
     p.add_argument("--clang", default="clang")
@@ -796,7 +821,15 @@ def main():
         type=Path,
         help="source-built repository jaifmt; normalize every generated Jai output using jacket.toml",
     )
+    p.add_argument("--share-existing", action="store_true",
+                   help="repackage checked-in target extraction without an SDK (no ABI verification)")
     a = p.parse_args()
+    if a.share_existing:
+        for path, data in existing_declarations().items():
+            sync_generated_file(path, data, a.check)
+        return
+    if a.source is None:
+        p.error("--source is required unless --share-existing is used")
     # Accept only headers from the pinned archive, not an arbitrary system installation.
     import tarfile
 
@@ -956,6 +989,7 @@ def main():
     files[OUT / "inventory.json"] = (
         json.dumps(inventory, indent=2, sort_keys=True) + "\n"
     )
+    share_declarations(files)
     for path, data in files.items():
         if a.jaifmt and path.suffix == ".jai":
             result = subprocess.run(

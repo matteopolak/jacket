@@ -11,6 +11,19 @@ from toolkit.hashing import sha256_bytes, sha256_file
 
 
 class Types(unittest.TestCase):
+    def test_shared_declarations_reject_target_divergence(self):
+        files = {gen.OUT / f"{profile}.jai": "same" for profile in gen.TARGETS}
+        files[gen.OUT / "linux-arm64.jai"] = "different"
+        with self.assertRaisesRegex(ValueError, "declarations differ"):
+            gen.share_declarations(files)
+
+    def test_shared_declarations_preserve_each_profile(self):
+        files = gen.existing_declarations()
+        for profile in gen.TARGETS:
+            system = profile.split("-")[0]
+            self.assertIn(f'#load "declarations-{system}.jai";', files[gen.OUT / f"{profile}.jai"])
+            self.assertTrue(files[gen.OUT / f"declarations-{system}.jai"])
+
     def test_anonymous_record_paths_normalize_native_and_clang_separators(self):
         source = gen.Path("cache/SDL3")
         location = (source.resolve() / "include/SDL3/SDL_gamepad.h").as_posix()
@@ -203,7 +216,7 @@ class Types(unittest.TestCase):
             wrapper = (
                 gen.ROOT / f"tools/native/sdl3/inline-windows-{cpu}.c"
             ).read_text()
-            jai = (gen.OUT / f"windows-{cpu}.jai").read_text()
+            jai = gen.existing_declarations()[gen.OUT / "declarations-windows.jai"]
             for operation in ("mul", "add"):
                 name = f"SDL_size_{operation}_check_overflow"
                 self.assertIn("JAI_SDL3_" + name + "(", wrapper)

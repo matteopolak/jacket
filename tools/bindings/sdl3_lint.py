@@ -65,6 +65,8 @@ def main():
             (sdl / "macros.jai", "macros.jai"),
             (sdl / f"tests/driven/layout-{profile}.jai", "abi.jai"),
         ]
+        system = profile.split("-")[0]
+        pairs.append((sdl / f"declarations-{system}.jai", f"declarations-{system}.jai"))
         # The link file is loaded in place, not copied (see `sdl`).
         link = (sdl / f"link-{profile.split('-')[0]}.jai").as_posix()
         for source, name in pairs:

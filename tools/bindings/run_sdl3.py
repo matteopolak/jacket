@@ -63,7 +63,7 @@ def audit(native, plat):
     library = ctypes.CDLL(str(native / filename))
     library.SDL_GetVersion.restype = ctypes.c_int
     assert library.SDL_GetVersion() == 3004018
-    text = (ROOT / f"stdlib/Extensions/SDL3/{plat}.jai").read_text() + (
+    text = (ROOT / f"stdlib/Extensions/SDL3/declarations-{plat.split('-')[0]}.jai").read_text() + (
         ROOT / "stdlib/Extensions/SDL3/macros.jai"
     ).read_text()
     symbols = []
