@@ -15,11 +15,14 @@ Flags are in the [command-line reference](../reference/command-line.md). Without
 ## How it works
 
 1. **Facts from the compiler.** `jaic -doc_model <dir>` (`crates/jaic-syntax/src/doc_comments/model.rs`) reads a library with the language server's parser and prints a JSON model: public constants, aliases followed to their targets, overloads, parameter and result types, doc comments with links resolved, fields and members, platform limits, and for each type name the declaration the compiler resolved it to. Docs are found by the same rules as hover.
-2. **Pages.** `crates/jacket/src/doc/` turns the model into HTML: `pages.rs` (index, module and item pages), `categories.rs`, `links.rs` (link checking), `site.rs` (where pages live, signatures), `markdown.rs`, `highlight.rs`, `guide.rs` (the `[[doc.page]]` Markdown pages), `search.rs`, `shell.rs`. A type name links to the item the compiler resolved it to, never by matching the name.
-3. **Examples.** A ```` ```jai ```` fence is read by the function `jacket test` uses (`test::doctest::fenced`), so options like `ignore`, `no_run` and `skip_on(wasm)` mean the same. The Run button fetches `examples/<id>.json` and runs the program in a worker with a step budget. That file holds the program `jacket test` builds as the text around the example (`head`, `middle`, `tail`, from `doctest::generate_template`), plus the same for the playground program (`open`) and the playground URL. The page puts the example's current text into the hole (`fill` in `site.js` mirrors `Template::fill`, and a unit test keeps both equal to `generate` and `standalone`). "Open in playground" goes to `<playground-url>#code=<base64url of the program>`.
+2. **The view (Rust).** `crates/jacket/src/doc/` works out everything a page shows and writes it as JSON: `site.json`, `modules/<n>.json` (a module page and its item pages) and `guides/<n>.json`. This is the *view*: `view.rs` (the structs), `view/build.rs`, `site.rs` (where pages live, signatures, links), `categories.rs`, `markdown.rs`, `highlight.rs`, `search.rs`, `since.rs`, `metadata.rs` (titles, descriptions, Open Graph, JSON-LD, sitemap). Prose, highlighted code and linked signatures arrive as ready HTML in `*_html` fields; everything else (rows, badges, crumbs, sidebars, outlines, example buttons) is plain data. A type name links to the item the compiler resolved it to, never by matching the name.
+3. **The pages (Jai).** The theme in `crates/jacket/src/doc/site/` is a Jai program on [Extensions/Web](../extensions/web.md). It reads the view, renders every page with `render_parallel` (a job per module, big modules split into chunks), copies the assets, and runs the link check. Components are procedures named after what they draw (`ItemRow`, `Crumbs`, `RenderSidebar`); each page kind supplies its own `Side`, `Main` and `Toc`. `contract.jai` mirrors `view.rs`; both sides check `format`.
+4. **Examples.** A ```` ```jai ```` fence is read by the function `jacket test` uses (`test::doctest::fenced`), so options like `ignore`, `no_run` and `skip_on(wasm)` mean the same. The Run button fetches `examples/<id>.json` and runs the program in a worker with a step budget. That file holds the program `jacket test` builds as the text around the example (`head`, `middle`, `tail`, from `doctest::generate_template`), plus the same for the playground program (`open`) and the playground URL. The page puts the example's current text into the hole (`fill` in `site.js` mirrors `Template::fill`, and a unit test keeps both equal to `generate` and `standalone`). "Open in playground" goes to `<playground-url>#code=<base64url of the program>`.
 
    Examples with a Run button are editable: a transparent textarea lies over the highlighted `<pre>`, and `site.js` colours the text again as you type with a small copy of `highlight.rs`'s rules (no call links once edited). Tab inserts four spaces (Escape, then Tab, leaves the box), Enter keeps the indent, Ctrl/Cmd+Enter runs. Reset shows once the text differs. Run, Copy and the playground link all use the edited text. Without JavaScript the code is the plain highlighted block.
-4. **Search.** `search-index.json` loads on the first keystroke. A query matches by name; one with `->` matches overload types (`string -> [] string`).
+5. **Search.** `search-index.json` loads on the first keystroke. A query matches by name; one with `->` matches overload types (`string -> [] string`).
+
+**Running the theme.** The theme's files are embedded in `jacket` (`crates/jacket/build.rs`). On first use `jacket doc` writes them to `<user cache>/jacket/doc-site/<key>/` and compiles them with `jaic -o`; the key hashes the jacket and jaic versions, the theme files, any overrides and `stdlib/Extensions/Web`, so later runs reuse the binary. The user cache is `~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or `~/.cache` on Linux, `%LOCALAPPDATA%` on Windows. A `jaic` without the native backend runs the theme with `-interp` instead, with a warning: it is much slower. The view goes to a temporary folder that is deleted afterwards; `--emit-input <dir>` keeps it. Rust still writes `search-index.json`, `examples/`, `versions.json`, `runtime/` and the logo. The stdlib site builds in about 10 s (`--timings` shows the phases).
 
 Every page is `<path>/index.html` and every link ends in `/`, so a plain static server needs no rewrite rules. Characters that can't be in a file name become `-` plus a hex code (`operator-3c`). Names that differ only in case (`Head`, `head`) would share a folder on macOS and Windows, so the lowercase one keeps its name and the others add their kind (`Head-struct`); the search index carries such a folder as an extra column (`case_folders` in `site.rs`). `--check` fails on internal links ending in `.html`, links to files that weren't written, and an item and module sharing a folder.
 
@@ -30,7 +33,9 @@ Every page is `<path>/index.html` and every link ends in `/`, so a plain static 
 | `<pages_title>/<page>/index.html` | the `[[doc.page]]` pages (`tools/` for the stdlib) |
 | `examples/<id>.json` | the parts of each example's program, for Run and the playground link |
 | `runtime/`, `runtime.json` | the browser compiler (`--runtime`) and where pages look for it |
-| `assets/` | `site.css`, `site.js`, `run-worker.js`, the logo |
+| `assets/` | `site.css`, `site.js`, `sidebar.js`, `run-worker.js`, `icons.svg` (the icon sprite), `categories.css`, `favicon.svg`, the logo, the social image |
+| `404.html` | search and the module list; links are absolute from `--base-url`, so it works at any depth |
+| `sitemap.xml`, `robots.txt` | with `[doc] url` only; past 50,000 URLs or 50 MB, `sitemap.xml` is an index of `sitemap-1.xml`, … |
 
 Modules are the folders of the library with a `module.jai`, minus `internal/`, `prelude/` and `tests/`. When the path is itself a module, its id is the folder name and the modules inside it are `name/sub`. A library's own folder is passed to `jaic` as `-import_dir`, so its modules can import each other.
 
@@ -57,6 +62,11 @@ repo = "https://github.com/me/my_lib"   # Source links need it
 playground = "https://example.com/play"  # default: none, and no playground links
 since = "notes/since.tsv"           # "since X" labels; used only with --version
 pages_title = "Guides"              # heading and folder of the extra pages
+url = "https://docs.example.com"    # canonical origin: canonical links, og:url, sitemap.xml, robots.txt
+og_image = "assets/social.png"      # a file (copied to assets/) or a URL; 1200x630 suits most sites
+site_name = "my_lib"                # og:site_name; default: name
+canonical_version = "1.4.0"         # other versions point their canonical here and get noindex
+theme = "doc-theme"                 # files that replace or extend the built-in theme
 
 # Sidebar and index headings, in order. A module goes under the last category that matches
 # its folder; with none, modules are listed with no heading.
@@ -87,6 +97,29 @@ A pattern matching a module's folder also matches the modules inside it. `jacket
 
 The standard library's `[doc]` sits in the root `jacket.toml`: categories "Standard library" (`stdlib/**`) and "Extensions" (`stdlib/Extensions/**`, teal "extension" badge), the topic groups, and the Tools pages from `docs/reference/`. Add new stdlib modules to a group there.
 
+## Page metadata
+
+Every page gets a title made from `[doc] name` and `breadcrumb` (`String.trim — Jacket std`, `String — Jacket std`; the index is the name alone), a description from the summary (plain text, at most 155 characters), `lang`, `theme-color` for both schemes, a favicon, Open Graph and Twitter tags. Item pages carry `TechArticle` JSON-LD, and pages with a breadcrumb a `BreadcrumbList`. Without `[doc] url` there is no canonical, `og:url`, sitemap or `robots.txt`, and `jacket doc` warns once.
+
+Versions: the current release lives at `<url><base>`, older ones at `<url><base>versions/<version>/` (built with that as `--base-url`). With `canonical_version` set and different from `--version`, each page's canonical points at the same path under that version, and the page is `noindex`.
+
+## Accessibility
+
+The site targets WCAG 2.2 AA:
+
+- **Structure:** landmarks, a skip link, one `h1` per page, and real lists and buttons.
+- **Keyboard:**
+  - Search is a combobox (arrows, Enter, Escape).
+  - The version menu is a menu button.
+  - Folds and nav categories set `aria-expanded`.
+  - Focus moving into a folded block opens it.
+  - A wide code block gets a tab stop so it can be scrolled.
+- **Motion and zoom:** smooth scrolling only without reduced motion; layouts work at 320px.
+- **Contrast:**
+  - `tools/dev/test_doc_palette.py` checks every colour token in `site.css` in both themes: 4.5:1 for text, 3:1 for the search field's border.
+  - `jacket doc` rejects a `[doc.category]` `color`/`color_dark` under 4.5:1 and prints the measured ratio.
+- **CI:** `tools/dev/doc_a11y.mjs <url>` runs axe-core on six pages, in both themes, at 1280px and 320px. It needs Chrome (`CHROME_PATH` to override); `docs-pages.yml` runs it after the build.
+
 ## Publishing
 
 The stdlib site is served by GitHub Pages at https://jacket.matteopolak.com. `.github/workflows/docs-pages.yml` builds it with `jacket doc --base-url / --version <version> --source-ref <tag> --playground-url <playground> --runtime <bundle>`:
@@ -106,15 +139,17 @@ CI runs `jacket doc --check` when the stdlib, the compiler or the docs change, s
 
 - **What a page says** comes from the doc comment ([doc comments](../compiler/doc-comments.md)). Document parameters with `- name: text` or a comment on the parameter.
 - **A fact the compiler should supply:** `model.rs` in `doc_comments/` and the JSON it prints, then `doc/model.rs`.
-- **Layout and colours:** `doc/assets/site.css` (colours are custom properties at the top, with a dark set). Behaviour: `doc/assets/site.js`, which only adds to pages that read fine without it. Markup: `pages.rs`, `example.rs`, `shell.rs`, `guide.rs`.
+- **Layout and colours:** `doc/site/assets/site.css` (colours are custom properties at the top, with a dark set; run `test_doc_palette.py` after changing one). Behaviour: `doc/site/assets/site.js`, which only adds to pages that read fine without it.
+- **Markup** is the Jai theme: `shell.jai` (head, header, footer, the layout), `sidebars.jai`, `index.jai`, `module.jai`, `item.jai`, `guides.jai`, `examples.jai`, `parts.jai` (badges, crumbs, Source links). A new value on a page goes in `view.rs`, `view/build.rs` and `contract.jai` together. Markup tests are in `site/tests/suite.jai` with JSON fixtures; `cargo test -p jacket doc::` runs them (they need a built `jaic` beside `jacket`, and are skipped otherwise), and so does `jacket test --path crates/jacket/src/doc/site`.
+- **Your own theme:** `[doc] theme = "folder"` (or `--theme`). Each file there replaces the built-in file at the same path, and new files are added, so overriding `assets/site.css` or `item.jai` is enough. A compile error in an override is printed as jaic reports it. `jacket doc --emit-input in/` writes the view, so you can see what a template gets. Compare two builds with `python3 tools/dev/doc_diff.py OLD NEW`.
 - **Module page grouping** is by declaring file (`bytes.jai` is "Bytes"). Words with their own casing go in `WORDS` in `model.rs`.
 - **Source links** need `repo`. They go to the commit `jacket doc` was built from when the library is in a git checkout (a file with uncommitted changes gets none); `--source-ref` overrides. Outside a checkout and without `--source-ref` there are no Source links.
 - **Versions menu:** `versions.json` lists one version; a site hosting several replaces it with one entry each.
 - **"Since" versions.** `since 0.24.0` labels come from the file `[doc] since` names, and only when `--version` is given; the stdlib's is `crates/jacket/src/doc/since.tsv`. `tools/generators/generate_doc_since.py` writes it from the release tags; `check_generated.py` only validates it. An item with no row is new in the version being built. After a release is tagged, run `python3 tools/generators/generate_doc_since.py` and commit the file (it adds only new tags; `--full` rereads all).
 - **Indented code** in a doc comment is a plain code block and never run; `jacket doc` warns for each. Use ```` ```jai ````; `jai,ignore` for fragments that can't stand alone, `jai,no_run` for complete ones needing a file or network.
-- **Platforms.** A module page has an "Available on macOS, Linux, Windows" line under its title, listing the systems it asserts (`#assert OS == ...`), else macOS, Linux and Windows, plus Wasm when it builds for `-os wasm` (`platforms_line` in `pages.rs`). An item shows "<systems> only" as small text only when an `#if OS` makes it available on fewer systems than its module (`limits`/`holds_on` in `model.rs`, `Module::item_systems` in `doc/model.rs`).
-- **Foreign rows.** `foreign_badge` in `pages.rs`; the search flag is bit 2 of an index row's last column (`search.rs`, `site.js`). Every row on a module page also has its own Source link (`row` in `pages.rs`).
-- **Experimental and category badges.** A doc comment line that is exactly `@experimental` adds an amber badge (`experimental_badge` in `pages.rs`); every item of an experimental module inherits it (`Site::new`). A category with a `badge` puts it on its modules and their items (`category_badge`), coloured by a small `<style>` each page carries (`category_style` in `shell.rs`, classes `.cat-N`). Sidebars and search show these as coloured dots with a hover title (`experimental_dot`, `.dot` in `site.css`). In the search index, a row's flags hold one more than the badge's category index above the low two bits, and `cats` lists each category's badge and tip.
+- **Platforms.** A module page has an "Available on macOS, Linux, Windows" line under its title, listing the systems it asserts (`#assert OS == ...`), else macOS, Linux and Windows, plus Wasm when it builds for `-os wasm` (`platforms_line` in `view/build.rs`). An item shows "<systems> only" as small text only when an `#if OS` makes it available on fewer systems than its module (`limits`/`holds_on` in `model.rs`, `Module::item_systems` in `doc/model.rs`).
+- **Foreign rows.** `ForeignBadge` in `parts.jai`; the search flag is bit 2 of an index row's last column (`search.rs`, `site.js`). Every row on a module page also has its own Source link (`ItemRow` in `module.jai`).
+- **Experimental and category badges.** A doc comment line that is exactly `@experimental` adds an amber badge (`ExperimentalBadge` in `parts.jai`); every item of an experimental module inherits it (`Site::new`). A category with a `badge` puts it on its modules and their items (`CategoryBadge`), coloured by `assets/categories.css` (`CategoryStyle` in `shell.jai`, classes `.cat-N`). Sidebars and search show these as coloured dots with a hover title and hidden text (`.dot` in `site.css`). In the search index, a row's flags hold one more than the badge's category index above the low two bits, and `cats` lists each category's badge and tip.
 - **Small text.** "N overloads", "since X" and "<systems> only" are plain small text (`.since`), joined by a `·`.
 - **Overloads.** Module rows list every overload's signature. On an item page with several overloads, each is a card headed "Overload N", with the signature, parameter and result tables and examples as full-width bands.
 - **Linked types.** Signatures, fields, and the values of type aliases and constants link each type to its page (`Item.refs` from the model, `Site::type_html`).
@@ -134,9 +169,13 @@ CI runs `jacket doc --check` when the stdlib, the compiler or the docs change, s
 | `--module` | all | build only these; broken links are then warnings |
 | `--check` | off | build and check, write nothing |
 | `--allow-broken-links` | off | warn instead of failing |
+| `--site-url`, `--og-image` | `[doc] url`, `og_image` | override `[doc]` |
+| `--theme` | `[doc] theme` | theme override folder, relative to the current folder |
+| `--emit-input` | off | also write the view JSON to this folder |
+| `--timings` | off | print each phase's time to stderr |
 
 `JAIC_STDLIB` picks the standard library, as for `jacket test`; the default is the `stdlib/` of the project you run it in. The `[doc]` keys are listed above.
 
 ## Dependencies
 
-`jaic` (`-doc_model`), `jacket-config` (the `[doc]` schema and path patterns), `pulldown-cmark`, `sha2`, and `crates/jacket/src/test/doctest.rs`. The Run button needs module workers and WebAssembly; the compiler's wasm build is `crates/jai-wasm`.
+`jaic` (`-doc_model`, and compiling the theme), `stdlib/Extensions/Web` and `Extensions/Json` (the theme), `jacket-config` (the `[doc]` schema and path patterns), `pulldown-cmark`, `serde_json`, `sha2`, and `crates/jacket/src/test/doctest.rs`. The Run button needs module workers and WebAssembly; the compiler's wasm build is `crates/jai-wasm`.
