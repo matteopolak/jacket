@@ -451,3 +451,75 @@ utf8_extensions :: () {
     defer Proto.free(*plain);
     expect(e10.kind == .NONE);
 } @test
+
+// JSON prints a set extension as `"[full.name]"` after the regular fields and reads it back.
+json_extensions :: () {
+    m: Base;
+
+    defer Proto.free(*m);
+
+    m.id = .{ true, 1 };
+    Proto.set(*m, Api.ext.count, 5);
+    Proto.set(*m, Api.ext.label, "hi");
+    Proto.set(*m, Api.ext.blob, u8.[1, 2]);
+    Proto.set(*m, Api.ext.inner, Api.ext.Inner.{ n = .{ true, 2 } });
+    Proto.set(*m, Api.ext.nums, s32.[1, 2]);
+    Proto.set(*m, Api.ext.tags, string.["a", "b"]);
+    Proto.set(*m, Api.ext.kind, .B);
+    Proto.add(*m, Api.ext.inners, Api.ext.Inner.{ s = .{ true, "x" } });
+    Proto.set(*m, Api.ext.Holder.nested, 4);
+
+    text, error := Proto.to_json(m);
+
+    defer free(text);
+    require(error.kind == .NONE);
+    expect_equal(text, "{\"id\":1,\"[ext.count]\":5,\"[ext.label]\":\"hi\",\"[ext.blob]\":\"AQI=\",\"[ext.inner]\":{\"n\":2},\"[ext.nums]\":[1,2],\"[ext.tags]\":[\"a\",\"b\"],\"[ext.kind]\":\"B\",\"[ext.inners]\":[{\"s\":\"x\"}],\"[ext.Holder.nested]\":4}");
+
+    back, failure := Proto.from_json(Base, text);
+
+    defer Proto.free(*back);
+    require(failure.kind == .NONE);
+    expect(Proto.equal(m, back));
+    expect(Proto.get(*back, Api.ext.label) == "hi");
+
+    // Without extensions nothing extra is printed; null leaves an extension absent.
+    plain, plain_error := Proto.to_json(Base.{ id = .{ true, 3 } });
+
+    defer free(plain);
+    expect(plain_error.kind == .NONE && plain == "{\"id\":3}");
+
+    empty, e1 := Proto.from_json(Base, "{\"[ext.count]\": null, \"[ext.nums]\": null}");
+
+    defer Proto.free(*empty);
+    expect(e1.kind == .NONE && !empty._unknown.count);
+
+    // Unknown names, duplicates and bad values fail like regular fields.
+    rejects :: (text: string, kind: Proto.Error_Kind, path := "", options := Proto.Json_Options.{}, loc := #caller_location) {
+        value, error := Proto.from_json(Base, text, options);
+
+        defer Proto.free(*value);
+        defer Proto.free(*error);
+        expect(error.kind == kind, tprint("% at %: %", error.kind, error.path, error.message), loc = loc);
+        if path.count expect_equal(error.path, path, loc = loc);
+    }
+
+    rejects("{\"[ext.missing]\": 1}", .UNKNOWN_FIELD);
+    rejects("{\"ext.count\": 1}", .UNKNOWN_FIELD);
+    rejects("{\"[ext.count]\": 1, \"[ext.count]\": 2}", .DUPLICATE_FIELD);
+    rejects("{\"[ext.count]\": \"x\"}", .BAD_VALUE, "\"[ext.count]\"");
+    rejects("{\"[ext.nums]\": [1, null]}", .BAD_JSON, "\"[ext.nums]\"[1]");
+    rejects("{\"[ext.inner]\": {\"n\": true}}", .BAD_JSON, "\"[ext.inner]\".n");
+
+    lenient, e2 := Proto.from_json(Base, "{\"[ext.missing]\": 1, \"[ext.count]\": 6}", .{ ignore_unknown_fields = true });
+
+    defer Proto.free(*lenient);
+    expect(e2.kind == .NONE && Proto.get(*lenient, Api.ext.count) == 6);
+
+    // A message value missing a required field can't be stored.
+    Needs :: #import "Extensions/Protobuf/Schema"(TEXT = "syntax='proto2'; message B { extensions 10 to 20; } message N { required int32 a = 1; } extend B { optional N n = 10; }");
+    needs, e3 := Proto.from_json(Needs.B, "{\"[n]\": {}}");
+
+    defer Proto.free(*needs);
+    defer Proto.free(*e3);
+    expect(e3.kind == .BAD_VALUE && e3.path == "\"[n]\"", tprint("% at %: %", e3.kind, e3.path, e3.message));
+} @test
