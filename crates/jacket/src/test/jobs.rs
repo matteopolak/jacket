@@ -490,6 +490,8 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
             &plan.toolchain,
             &plan.stdlib,
             plan.settings.accept,
+            // A missing golden is a first run's to write; CI must never write what it checks.
+            !jacket_config::env::CI.is_set(),
         )
     };
     if let (Some(coverage), Some(dir)) = (&plan.coverage, &run_dir) {
@@ -514,6 +516,7 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     outcome.duration = started.elapsed();
     outcome.problems = checked.problems;
     outcome.failures = checked.failures;
+    outcome.created = checked.created;
     outcome.stdout = checked.stdout;
     outcome.stderr = checked.stderr;
     outcome.crashed = checked.crashed;

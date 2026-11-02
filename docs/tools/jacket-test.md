@@ -85,6 +85,8 @@ A program that must fault at run time is a golden test with `// test: should_fai
 
 A compile-fail test is checked with `jaic name.jai -check -quiet -no_color` from its folder and passes when the diagnostics equal `name.stderr`, with the folder written `$DIR` and the standard library `$STDLIB`. `// test: compile_fail("text")` takes no `.stderr` and passes when the diagnostics contain the text.
 
+A compile-fail test with no `.stderr` yet gets one on its first run, from what the compiler printed, and the run says `CREATED <file>`; check it and commit it. With the `CI` environment variable set the missing file is a failure instead, so CI never writes what it checks. (A `.jai` file below `tests/` with no expected file at all is not a test.)
+
 `--accept` writes the output into the expected files instead of comparing (`.stdout`, the `.stderr`/`.exit` files that exist, or `.stderr` for compile-fail), and replaces snapshots. Narrow it with filters: `jacket test --accept --exact NAME`; a bare `--accept` rewrites every golden output.
 
 ### Snapshots

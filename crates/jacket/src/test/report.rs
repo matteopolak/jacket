@@ -247,6 +247,7 @@ impl Reporter {
                 if self.quiet
                     && matches!(outcome.status, Status::Pass | Status::Skip | Status::XFail)
                 {
+                    self.created(outcome);
                     return;
                 }
                 let time = if outcome.status == Status::Skip {
@@ -264,7 +265,19 @@ impl Reporter {
                     line.push_str(&format!(" (passed on try {})", outcome.attempts));
                 }
                 eprintln!("{line}");
+                self.created(outcome);
             }
+        }
+    }
+
+    /// A line for each expected-output file the case wrote because it was missing.
+    fn created(&self, outcome: &Outcome) {
+        for file in &outcome.created {
+            let word = self.paint("1;32", &format!("{:>12}", "CREATED"));
+            eprintln!(
+                "{word} {} (new expected output; check it and commit it)",
+                self.shown(&file.to_string_lossy())
+            );
         }
     }
 
@@ -283,6 +296,7 @@ impl Reporter {
                 "test": f.test, "file": f.file, "line": f.line, "message": f.message,
             })).collect::<Vec<_>>(),
             "problems": outcome.problems,
+            "created": outcome.created,
             "subtests": outcome.subtests.iter().map(|s| json!({
                 "name": s.name, "status": s.status, "duration": s.duration.as_secs_f64(),
             })).collect::<Vec<_>>(),

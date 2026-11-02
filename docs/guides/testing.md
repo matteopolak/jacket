@@ -358,6 +358,8 @@ main :: () {
 jacket test --accept needs_text     # writes needs_text.stderr
 ```
 
+A first run writes a missing `.stderr` by itself and prints `CREATED` with its path, so `--accept` is for changing one that exists. When the `CI` environment variable is set, a missing file fails the test instead.
+
 ```text
 needs_text.jai:4:13: error[call-mismatch]: in call to `slugify`: argument of type `s64` does not match parameter type `string`
         slugify(42);

@@ -27,6 +27,8 @@ pub struct Checked {
     pub accepted: Vec<PathBuf>,
     /// Failed checks the program reported, shown like a unit test's.
     pub failures: Vec<exec::Failure>,
+    /// Expected-output files written because they did not exist yet.
+    pub created: Vec<PathBuf>,
 }
 
 fn normalized(bytes: &[u8]) -> String {
@@ -489,7 +491,8 @@ pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
 }
 
 /// Type-checks the compile-fail test `source`: it must fail, printing its `.stderr` (or, with
-/// `compile_fail(text)`, diagnostics that contain the text).
+/// `compile_fail(text)`, diagnostics that contain the text). A missing `.stderr` is written from
+/// what the compiler printed when `create_missing` (a first run; not under CI), else it fails.
 pub fn compile_fail(
     source: &Path,
     options: &TestOptions,
@@ -497,6 +500,7 @@ pub fn compile_fail(
     toolchain: &Toolchain,
     stdlib: &Path,
     accept: bool,
+    create_missing: bool,
 ) -> Checked {
     // From the test's folder, diagnostics name the file without a path.
     let dir = source.parent().unwrap_or(Path::new("."));
@@ -538,6 +542,8 @@ pub fn compile_fail(
         }
     } else if expected.is_file() || accept {
         expect_text(&expected, &got, "the diagnostics", accept, &mut checked);
+    } else if create_missing && std::fs::write(&expected, &got).is_ok() {
+        checked.created.push(expected);
     } else {
         checked.problems.push(format!(
             "{} is missing; `jacket test --accept` writes it from these diagnostics:\n{got}",
