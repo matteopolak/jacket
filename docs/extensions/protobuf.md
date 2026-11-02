@@ -93,12 +93,13 @@ Setting a oneof: `c.via.which = .EMAIL; c.via.email = "ada@example.com";`. Free 
 
 - `max_depth` (100).
 - `max_size` (2 GiB - 1).
-- `borrow`: strings and bytes point into the input, which must outlive the value. Use an arena and reset it instead of calling `free`, as with Json.
+- `borrow`: strings and bytes point into the input, which must outlive the value. `free` leaves them alone, so any allocator works.
 - `discard_unknown`.
+- `skip_utf8`: accept `string` fields without checking that they're UTF-8. Faster on text-heavy messages, but a string may then hold any bytes, so keep the check for input you don't trust.
 
 ### Memory
 
-A copying decode allocates a handful of blocks, not one allocation per field. Strings and bytes are copied into chunks that grow with the input (never more than the bytes left to read), and repeated fields and nested messages come from an arena owned by the top-level message. Decoding 2,000 tracing spans makes 18 allocations.
+A copying decode allocates a handful of blocks, not one allocation per field. Strings and bytes are copied into chunks that grow with the input (never more than the bytes left to read), and repeated fields and nested messages come from an arena owned by the top-level message. Decoding 2,000 tracing spans makes 18 allocations; a `borrow` decode uses the same arena and makes 14.
 
 - Free only the top-level value. Nested messages, repeated fields and decoded strings are views into its blocks: don't free them, and don't move them into another message.
 - `merge` and decoding into an existing value add blocks; values from earlier decodes stay valid until `free`.
@@ -156,7 +157,7 @@ A nightly job in `.github/workflows/fuzz.yml` fuzzes the decoder under ASan (`to
 
 ¹ A message that contains itself doesn't compile in jai-protobuf.
 
-Jacket encodes about twice as fast as jai-protobuf, except packed numbers, where both copy at memory speed. jai-protobuf decodes strings faster: it always points them into the input, and skips UTF-8 checks and unknown fields. A Jacket decode of the spans makes 18 allocations; jai-protobuf and `borrow` make 5,346, and C++ 57,931. A program that encodes and decodes one message adds 89 KiB to an `-O2` executable, against 26 KiB for jai-protobuf, and compiles in about the same time.
+Jacket encodes about twice as fast as jai-protobuf, except packed numbers, where both copy at memory speed. jai-protobuf decodes strings faster: it always points them into the input, and skips UTF-8 checks and unknown fields. A Jacket decode of the spans makes 18 allocations (14 with `borrow`); jai-protobuf makes 5,346 and C++ 57,931. `borrow` with `skip_utf8` is the closest match to what jai-protobuf does. A program that encodes and decodes one message adds 89 KiB to an `-O2` executable, against 26 KiB for jai-protobuf, and compiles in about the same time.
 
 | Feature | Jacket | jai-protobuf |
 | --- | --- | --- |
