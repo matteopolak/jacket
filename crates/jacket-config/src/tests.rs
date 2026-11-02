@@ -232,7 +232,8 @@ fn known_keys_match_the_structs() {
         ),
         (
             "doc",
-            "path = \"a\"\nname = \"b\"\nbreadcrumb = \"m\"\ndescription = \"c\"\nlogo = \"d\"\nrepo = \"e\"\nplayground = \"f\"\n\
+            "url = \"n\"\nog_image = \"o\"\nsite_name = \"p\"\ncanonical_version = \"q\"\ntheme = \"r\"\n\
+             path = \"a\"\nname = \"b\"\nbreadcrumb = \"m\"\ndescription = \"c\"\nlogo = \"d\"\nrepo = \"e\"\nplayground = \"f\"\n\
              since = \"g\"\npages_title = \"h\"\n[[doc.category]]\nname = \"i\"\n[[doc.group]]\nname = \"j\"\n\
              [[doc.page]]\nfile = \"k\"\nname = \"l\"\n",
         ),
