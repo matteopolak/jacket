@@ -64,6 +64,10 @@
       if (!marks.length) return;
       var now = marks[0];
       marks.forEach(function (m) { if (m.h.getBoundingClientRect().top <= 100) now = m; });
+      // At the end of the page the last short sections never reach the top; mark the last one in view.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+        marks.forEach(function (m) { if (m.h.getBoundingClientRect().top < window.innerHeight) now = m; });
+      }
       marks.forEach(function (m) { m.a.classList.toggle('active', m === now); if (m === now) m.a.setAttribute('aria-current', 'location'); else m.a.removeAttribute('aria-current'); });
       if (now === shown) return;
       shown = now;
