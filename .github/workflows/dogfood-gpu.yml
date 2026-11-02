@@ -55,6 +55,12 @@ jobs:
             echo "FRAME=$RUNNER_TEMP/${{ matrix.app }}.png"
             echo "TMPDIR=$RUNNER_TEMP"
           } >> "$GITHUB_ENV"
+      # Native Windows programs link the crash runtime; this builds it and puts its DLL on PATH.
+      - uses: ./.github/actions/windows-provider
+        if: runner.os == 'Windows'
+        with:
+          cpu: x64
+          triple: x86_64-pc-windows-msvc
       - name: Prepare software WebGPU
         if: matrix.app == 'game3d'
         run: |
