@@ -51,14 +51,53 @@ Map_Entry :: struct(K: Type, V: Type) {
     value: V;
 }
 
+// The first sizes of an encode live in the encoder's own frame; only a message tree
+// with more than 64 length-delimited messages makes the size cache touch the heap.
+Size_Seed :: struct {
+    slots: [64] u32 = ---;
+    parent: Allocator;
+    first: *void;
+}
+
+// Points a size cache at the seed's inline slots.
+seed_cache :: inline (seed: *Size_Seed, cache: *[..] u32) {
+    seed.parent = context.allocator;
+    seed.first = seed.slots.data;
+    cache.allocator = .{ size_seed_allocator, seed };
+}
+
+size_seed_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *void) -> *void {
+    seed := cast(*Size_Seed) data;
+    slots := seed.first;
+    parent := seed.parent;
+
+    if mode == .FREE {
+        if old == slots return null;
+        return parent.proc(mode, size, old_size, old, parent.data);
+    }
+
+    if mode != .ALLOCATE && mode != .RESIZE return parent.proc(mode, size, old_size, old, parent.data);
+    if size <= size_of(type_of(seed.slots)) && (!old || old == slots) return slots;
+
+    if old == slots {
+        result := parent.proc(.ALLOCATE, size, 0, null, parent.data);
+        memcpy(result, slots, min(old_size, size));
+        return result;
+    }
+
+    return parent.proc(mode, size, old_size, old, parent.data);
+}
+
 // Encodes into one exact-sized allocation; TOO_LARGE returns no bytes before allocation.
 encode :: (value: $T) -> [] u8, Error {
     r := Reader.{ options = .{ max_depth = 2147483647 } };
 
     #if T.proto_has_required if !T.proto_check(*value, *r) return .{}, r.error;
 
+    seed: Size_Seed;
     cache: [..] u32;
 
+    seed_cache(*seed, *cache);
     defer array_free(cache);
     count := T.proto_size(*value, *cache);
     if count > 2147483647 return .{}, .{ kind = .TOO_LARGE };
@@ -97,8 +136,12 @@ encode_into :: (out: *String_Builder, value: $T) -> Error {
 
 // Computes the encoded byte length without allocating output, saturating at 2 GiB.
 size :: (value: $T) -> s64 {
+    seed: Size_Seed;
     cache: [..] u32;
+
+    seed_cache(*seed, *cache);
     defer array_free(cache);
+
     return T.proto_size(*value, *cache);
 }
 
