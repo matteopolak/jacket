@@ -294,7 +294,7 @@ format_file :: (path: string, explicit_config: *Format_Config, options: Options,
     totals.long_lines += long_lines;
 
     if options.verbose && long_lines {
-        print_error("jaifmt: %: % lines over % columns (%max_width/)\n", shown(path), long_lines, config.max_width, RULES_URL);
+        print_error("jaifmt: %: % lines over % columns (%#max_width)\n", shown(path), long_lines, config.max_width, RULES_URL);
     }
 
     if output == source return;

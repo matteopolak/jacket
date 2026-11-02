@@ -72,14 +72,11 @@ a_category_badge_marks_its_modules_and_their_items :: () {
     expect(contains(a, badge));
     expect(contains(item, badge));
     expect(!contains(b, badge));
-    expect(contains(home, "Moving<span class=\"badge exp sm\""));
-    expect(contains(home, "<span class=\"badge cat-1 sm\""));
     expect(contains(home, "<link rel=\"stylesheet\" href=\"/assets/categories.css?v=00000000\">"));
     colors: Out;
     defer deinit(*colors);
     CategoryStyle(*colors, *site);
     expect(contains(to_string(*colors), ".cat-1{--c:#1f7a8c}"));
-    expect(contains(home, "<h2 class=\"section\">Extensions</h2>"));
 } @test
 
 lists_mark_experimental_modules_and_items :: () {
@@ -89,18 +86,13 @@ lists_mark_experimental_modules_and_items :: () {
         free_json(*site);
         free_json(*steady);
     }
-    home := render(*site, *site.index);
     list := render(*site, *steady.page, *steady);
-    defer {
-        free(home);
-        free(list);
-    }
-    expect(contains(home, "Moving<span class=\"badge exp sm\""));
-    expect(!contains(home, "Steady<span"));
+    defer free(list);
     first := find_index_from_left(list, "class=\"badge exp sm\"");
     expect(first >= 0);
     expect(find_index_from_left(list, "class=\"badge exp sm\"", first + 1) < 0);
     expect(contains(list, "Moving<span class=\"dot exp\""));
+    expect(contains(list, "<button type=\"button\" class=\"pf full\" data-pf=\"macOS\""));
 } @test
 
 foreign_declarations_follow_the_own_items_and_have_pages :: () {
@@ -291,7 +283,7 @@ shared_item_navigation_keeps_a_focused_fallback_window :: () {
 } @test
 
 shared_navigation_urls_track_the_written_bytes :: () {
-    links: [8] Nav_Link;
+    links := NewArray(8, Nav_Link, allocator = temp);
     for *link, n: links {
         link.href = tprint("/api/Test/item%/", n);
         link.label = tprint("item%", n);

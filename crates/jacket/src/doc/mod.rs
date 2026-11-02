@@ -484,7 +484,14 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             site.pages_title = doc.pages_title.clone().unwrap_or_else(|| "Guides".into());
         }
         let prefix = git_state(&config_dir).map(|g| g.prefix).unwrap_or_default();
-        let extra = view::guide::collect(&site, &config_dir, &prefix, &doc.page, &doc.section)?;
+        let extra = view::guide::collect(
+            &site,
+            &config_dir,
+            &prefix,
+            doc.home.as_deref(),
+            &doc.page,
+            &doc.section,
+        )?;
         site.pages_href = extra.first_href(&site);
         site.extra_nav.clone_from(&extra.nav);
         if let Some(state) = git_state(&root) {
@@ -507,6 +514,17 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         let mut shared = view::site(&site);
         let mut input = Vec::new();
         let mut guides = extra.pages(&site, &shared.nav);
+        // The home file is the front page: it keeps the front page's place, title and sidebar.
+        if let Some(i) = guides.iter().position(|g| g.path == view::guide::HOME) {
+            let mut home = guides.remove(i);
+            let index = &mut shared.index;
+            home.path = String::new();
+            home.title.clone_from(&index.title);
+            home.description.clone_from(&index.description);
+            home.side_label.clone_from(&index.side_label);
+            std::mem::swap(&mut home.sidebar, &mut index.sidebar);
+            *index = home;
+        }
         let metadata::Publication {
             metadata,
             mut urls,

@@ -38,6 +38,7 @@ class Mentions(unittest.TestCase):
             self.check("[a](a.md#top) [w](https://x/y.md) [p](print)", doc_dir=docs), []
         )
         self.assertEqual(self.check("[b](b.md)", doc_dir=docs), ["x: dead link b.md"])
+        self.assertEqual(self.check("```md\n[b](b.md)\n```", doc_dir=docs), [])
 
     def test_docs_ignore_module_relative_test_paths(self):
         self.assertEqual(

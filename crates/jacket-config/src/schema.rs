@@ -420,6 +420,10 @@ pub struct Doc {
     /// folder name (`stdlib` for the standard library).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub breadcrumb: Option<String>,
+    /// A Markdown file for the front page, relative to jacket.toml. Without one the front page
+    /// shows the name and description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub home: Option<String>,
     /// The front page's description for search engines and link previews.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -498,6 +502,10 @@ pub struct DocSection {
     pub file: String,
     /// The sidebar heading; its folder is this as a slug (`Lint rules` is `lint-rules/`).
     pub name: String,
+    /// Keep the whole file on one page; its `###` headings become anchors on it instead of
+    /// pages of their own.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub one_page: bool,
 }
 
 /// Read by the Postgres module while it compiles typed queries, not by `jacket`; environment

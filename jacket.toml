@@ -192,10 +192,11 @@ path = "stdlib"
 name = "Jacket"
 breadcrumb = "std"
 description = "API documentation for the Jai standard library that ships with Jacket."
+home = "docs/reference/home.md"
 logo = "editors/vscode/images/icon.svg"
 repo = "https://github.com/matteopolak/jacket"
 since = "crates/jacket/src/doc/since.tsv"
-pages_title = "Tools"
+pages_title = "Guides"
 
 # A module goes under the last category that matches it.
 [[doc.category]]
@@ -210,6 +211,18 @@ tip = "Extension: not part of the standard library"
 color = "#1d7282"
 color_dark = "#6cc4d4"
 
+[[doc.page]]
+file = "docs/guides/testing.md"
+name = "Testing"
+
+[[doc.page]]
+file = "docs/guides/benchmarking.md"
+name = "Benchmarking"
+
+[[doc.page]]
+file = "docs/guides/documenting.md"
+name = "Documenting a library"
+
 [[doc.section]]
 file = "docs/reference/tools.md"
 name = "Tools"
@@ -221,6 +234,7 @@ name = "Lint rules"
 [[doc.section]]
 file = "docs/tools/jaifmt-rules.md"
 name = "Format rules"
+one_page = true
 
 # Every module is in one group; `jacket doc --check` fails on one that is not, and on a pattern
 # that matches no module. A module goes in the last group that matches it.

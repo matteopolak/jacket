@@ -128,13 +128,12 @@ pub struct NavLink {
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Content {
-    Index {
-        categories: Vec<CardCategory>,
-    },
+    /// The front page when `[doc] home` names no file, and the 404 page.
+    Index {},
     Module {
         crumbs: Vec<Crumb>,
         title: Title,
-        available: String,
+        platforms: Vec<Platform>,
         since: String,
         import: String,
         docs: Vec<DocSegment>,
@@ -143,6 +142,7 @@ pub enum Content {
     },
     Item {
         crumbs: Vec<Crumb>,
+        platforms: Vec<Platform>,
         title: Title,
         summary_html: String,
         docs: Vec<DocSegment>,
@@ -157,25 +157,12 @@ pub enum Content {
     },
 }
 
+/// One system on a module page: `state` is `full`, `partial` or `none`, and `tip` says it in words.
 #[derive(Serialize)]
-pub struct CardCategory {
-    pub label: String,
-    pub groups: Vec<CardGroup>,
-}
-
-#[derive(Serialize)]
-pub struct CardGroup {
-    pub label: String,
-    pub cards: Vec<Card>,
-}
-
-#[derive(Serialize)]
-pub struct Card {
-    pub href: String,
-    pub label: String,
-    pub experimental: bool,
-    pub category: Option<Badge>,
-    pub summary_html: String,
+pub struct Platform {
+    pub name: String,
+    pub state: String,
+    pub tip: String,
 }
 
 #[derive(Serialize)]
@@ -201,7 +188,6 @@ pub struct Title {
     pub category: Option<Badge>,
     pub experimental: bool,
     pub overloads: Option<usize>,
-    pub platforms: String,
     pub since: String,
     pub source_url: Option<String>,
     pub mono: bool,
@@ -238,7 +224,10 @@ pub struct Row {
     pub foreign: bool,
     pub experimental: bool,
     pub overloads: Option<usize>,
-    pub platforms: String,
+    /// Systems the module runs on that this item does not.
+    pub platforms: Vec<String>,
+    /// `platforms` as `|macOS|Linux|`, for the module page filter. Empty when there are none.
+    pub off: String,
     pub since: String,
     pub source_url: Option<String>,
     pub lines_html: Vec<String>,

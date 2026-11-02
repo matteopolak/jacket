@@ -38,6 +38,9 @@ struct Page {
     heading: String,
 }
 
+/// The path of the `[doc] home` page among the guides, until it takes the front page's place.
+pub const HOME: &str = "index.html";
+
 /// Every extra page and the sidebar headings that list them.
 pub struct Guides {
     pages: Vec<Page>,
@@ -173,6 +176,7 @@ pub fn collect(
     site: &Site,
     dir: &Path,
     prefix: &str,
+    home: Option<&str>,
     pages: &[DocPage],
     sections: &[DocSection],
 ) -> Result<Guides, String> {
@@ -182,6 +186,17 @@ pub fn collect(
         files: HashMap::default(),
         anchors: HashMap::default(),
     };
+    if let Some(file) = home {
+        let repo = repo_path(&format!("{prefix}x"), file);
+        out.files.insert(repo.clone(), site.href(""));
+        out.pages.push(Page {
+            name: site.name.clone(),
+            md: read(dir, file)?,
+            repo,
+            path: HOME.into(),
+            heading: String::new(),
+        });
+    }
     if !pages.is_empty() {
         let mut links = Vec::new();
         for page in pages {
@@ -217,6 +232,18 @@ pub fn collect(
         let (intro, groups) = split(&md);
         let overview = site.href(&folder);
         out.files.insert(repo.clone(), overview.clone());
+        if section.one_page {
+            // One page: the sidebar links to each heading on it.
+            nav_one_page(&mut out, section, &repo, &overview, &groups);
+            out.pages.push(Page {
+                name: section.name.clone(),
+                md,
+                repo,
+                path: format!("{folder}index.html"),
+                heading: section.name.clone(),
+            });
+            continue;
+        }
         let mut nav = NavCategory {
             label: section.name.clone(),
             groups: vec![NavGroup {
@@ -280,6 +307,50 @@ pub fn collect(
     Ok(out)
 }
 
+/// The sidebar of a `one_page` section: the page, then each `##` group's headings as anchors.
+fn nav_one_page(
+    out: &mut Guides,
+    section: &DocSection,
+    repo: &str,
+    overview: &str,
+    groups: &[Group],
+) {
+    let mut nav = NavCategory {
+        label: section.name.clone(),
+        groups: vec![NavGroup {
+            label: String::new(),
+            key: format!("{}/", section.name),
+            open: true,
+            links: vec![link(overview, "Overview")],
+        }],
+    };
+    for g in groups {
+        let mut anchor = |name: &str| {
+            let id = markdown::slug(name);
+            let href = format!("{overview}#{id}");
+            out.anchors.insert((repo.to_string(), id), href.clone());
+            href
+        };
+        if !g.name.is_empty() {
+            anchor(&g.name);
+        }
+        let links: Vec<NavLink> = g
+            .entries
+            .iter()
+            .map(|(name, _)| link(&anchor(name), name))
+            .collect();
+        if !links.is_empty() {
+            nav.groups.push(NavGroup {
+                label: g.name.clone(),
+                key: format!("{}/{}", section.name, g.name),
+                open: false,
+                links,
+            });
+        }
+    }
+    out.nav.push(nav);
+}
+
 /// `nav` with the link to `href` marked, and its group open.
 fn marked(nav: &[NavCategory], href: &str) -> Vec<NavCategory> {
     let mut nav = nav.to_vec();
@@ -326,10 +397,11 @@ fn outline(md: &str) -> Vec<Outline> {
 /// A fence's code, coloured when it is Jai.
 fn code_html(info: &str, code: &str) -> String {
     let code = code.trim_end();
-    if info.split([' ', ',']).next() == Some("jai") {
+    let lang = info.split([' ', ',']).next().unwrap_or("");
+    if lang == "jai" {
         highlight::jai(code, &|_| None)
     } else {
-        esc(code)
+        highlight::other(lang, code).unwrap_or_else(|| esc(code))
     }
 }
 
@@ -424,6 +496,17 @@ impl Guides {
                     }
                     if let Some(to) = self.files.get(&target) {
                         return Some(format!("{to}{anchor}"));
+                    }
+                    // A module's folder or its `module.jai` opens its API page.
+                    let module = site.modules.iter().find(|m| {
+                        let file = format!("{}{}", site.source_prefix, m.file);
+                        file == target
+                            || file
+                                .rsplit_once('/')
+                                .is_some_and(|(dir, _)| dir == target.trim_end_matches('/'))
+                    });
+                    if let Some(m) = module {
+                        return Some(format!("{}{anchor}", site.module_href(&m.id)));
                     }
                     let at = if site.source_ref.is_empty() {
                         site.commit.as_deref()?

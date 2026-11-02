@@ -1,12 +1,12 @@
 //! Resolve compiler models, links, prose and layout into template inputs.
 use super::super::example;
-use super::super::markdown::{self, Segment, Settings, plain};
-use super::super::model::{Item, Kind, Module, Overload, TypeRef};
+use super::super::markdown::{self, Segment, Settings};
+use super::super::model::{Item, Kind, Module, Overload, Support, TypeRef};
 use super::super::site::{Site, item_line, signature_html, signature_line_html};
 use super::{
-    Badge, Card, CardCategory, CardGroup, Category, Content, Crumb, Definition, DocSegment, Link,
-    Logo, ModuleView, NavCategory, NavGroup, NavLink, Outline, OutlineItem, OverloadView, PageHead,
-    PageView, Row, RowGroup, Section, Sidebar, SiteView, Title,
+    Badge, Category, Content, Crumb, Definition, DocSegment, Link, Logo, ModuleView, NavCategory,
+    NavGroup, NavLink, Outline, OutlineItem, OverloadView, PageHead, PageView, Platform, Row,
+    RowGroup, Section, Sidebar, SiteView, Title,
 };
 
 pub(super) fn blocks(site: &Site, md: &str, from: &str) -> Vec<Segment> {
@@ -34,18 +34,6 @@ pub(super) fn lead(segments: &[Segment]) -> Option<(usize, String)> {
             ..
         } => None,
     })
-}
-
-fn clip(text: &str, max: usize) -> String {
-    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if text.chars().count() <= max {
-        return text;
-    }
-    let cut: String = text.chars().take(max).collect();
-    format!(
-        "{}...",
-        cut.rsplit_once(' ').map_or(cut.as_str(), |(a, _)| a)
-    )
 }
 
 fn by_category(site: &Site) -> Vec<(&str, Vec<usize>)> {
@@ -128,40 +116,48 @@ pub(super) fn nav(site: &Site, current: Option<usize>) -> Vec<NavCategory> {
     out
 }
 
+fn platforms(m: &Module) -> Vec<Platform> {
+    chips(m.support(), |name, s| match s {
+        Support::Full => format!("Everything works on {name}"),
+        Support::Partial(1) => format!("1 item is not available on {name}"),
+        Support::Partial(n) => format!("{n} items are not available on {name}"),
+        Support::None => format!("Not available on {name}"),
+    })
+}
+
+fn off(missing: &[&str]) -> String {
+    if missing.is_empty() {
+        String::new()
+    } else {
+        format!("|{}|", missing.join("|"))
+    }
+}
+
+fn chips(
+    support: Vec<(&'static str, Support)>,
+    tip: impl Fn(&str, Support) -> String,
+) -> Vec<Platform> {
+    support
+        .into_iter()
+        .map(|(name, s)| {
+            let state = match s {
+                Support::Full => "full",
+                Support::Partial(_) => "partial",
+                Support::None => "none",
+            };
+            Platform {
+                name: name.into(),
+                state: state.into(),
+                tip: tip(name, s),
+            }
+        })
+        .collect()
+}
+
 fn modules_sidebar(site: &Site, current: Option<usize>) -> Sidebar {
     Sidebar::Modules {
         categories: nav(site, current),
     }
-}
-
-fn cards(site: &Site) -> Vec<CardCategory> {
-    by_category(site)
-        .into_iter()
-        .map(|(label, members)| CardCategory {
-            label: label.into(),
-            groups: by_group(site, &members)
-                .into_iter()
-                .map(|(label, of)| CardGroup {
-                    label: label.into(),
-                    cards: of
-                        .iter()
-                        .map(|&i| {
-                            let m = &site.modules[i];
-                            let summary = lead(&blocks(site, &m.docs, &m.id))
-                                .map_or_else(String::new, |(_, h)| clip(&plain(&h), 140));
-                            Card {
-                                href: site.module_href(&m.id),
-                                label: m.title().into(),
-                                experimental: m.experimental,
-                                category: category(site, m),
-                                summary_html: markdown::esc(&summary),
-                            }
-                        })
-                        .collect(),
-                })
-                .collect(),
-        })
-        .collect()
 }
 
 pub fn site(site: &Site) -> SiteView {
@@ -222,9 +218,7 @@ pub fn site(site: &Site) -> SiteView {
             side_label: "Modules".into(),
             sidebar: modules_sidebar(site, None),
             outline: Vec::new(),
-            content: Content::Index {
-                categories: cards(site),
-            },
+            content: Content::Index {},
         },
         module_files: Vec::new(),
         guide_files: Vec::new(),
@@ -421,7 +415,8 @@ fn row(site: &Site, mi: usize, item: &Item) -> Row {
         foreign: item.binding,
         experimental: item.experimental,
         overloads: overloads(item),
-        platforms: m.item_systems(item).join(", "),
+        off: off(&m.item_missing(item)),
+        platforms: m.item_missing(item).into_iter().map(String::from).collect(),
         since: item.since.clone(),
         source_url: site.source_url(file, line),
         lines_html: lines.into_iter().filter(|s| !s.is_empty()).collect(),
@@ -664,12 +659,11 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                     category: category(site, m),
                     experimental: m.experimental,
                     overloads: None,
-                    platforms: String::new(),
                     since: String::new(),
                     source_url: site.source_url(&m.file, 1),
                     mono: false,
                 },
-                available: m.systems().join(", "),
+                platforms: platforms(m),
                 since: m.since.clone(),
                 import: m.id.clone(),
                 docs: segments(site, m, &m.file, 1, &segs),
@@ -914,6 +908,10 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
         outline: Vec::new(),
         content: Content::Item {
             crumbs: crumbs(site, m, Some(&item.name)),
+            platforms: chips(m.item_support(item), |name, s| match s {
+                Support::None => format!("{} is not available on {name}", item.name),
+                _ => format!("{} works on {name}", item.name),
+            }),
             title: Title {
                 label: item.name.clone(),
                 kind: item.kind.label().into(),
@@ -922,7 +920,6 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
                 category: category(site, m),
                 experimental: item.experimental,
                 overloads: overloads(item),
-                platforms: m.item_systems(item).join(", "),
                 since: item.since.clone(),
                 source_url: site.source_url(file, line),
                 mono: true,

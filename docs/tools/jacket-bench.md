@@ -2,27 +2,7 @@
 
 The benchmark runner for procedures with a `@bench` note. It builds them optimized, measures each in its own process, and reports in the manner of criterion: time per iteration with a bootstrap confidence interval, the change against a saved baseline with a p-value and a verdict, and outliers. Discovery, `-E` filters, notes such as `@only`, and `--format` are those of [`jacket test`](jacket-test.md).
 
-```jai
-#import "Hash";
-#import "Extensions/Testing";
-
-hashing :: (b: *Bench) {
-    set_bytes(b, 16);
-
-    for 0..b.iterations - 1 {
-        text := black_box("0123456789abcdef");
-        black_box(fnv1a_hash(text.data, text.count));
-    }
-} @bench @samples(40)
-```
-
-```
-$ jacket bench --path benchmarks/bench --baseline main
-fnv1a                   time:   [41.24 41.30 41.37 ns]
-                        thrpt:  [1.939 1.943 1.946 GB/s]
-                        change: [-0.41% -0.19% +0.05%] (p = 0.12 > 0.05)
-                        No change in performance detected.
-```
+How to write and read benchmarks is in the [benchmarking guide](../guides/benchmarking.md); this page covers how the runner works.
 
 Exit status: 0; 1 when a benchmark failed or regressed past `--max-regression`; 2 for a usage error, a missing baseline or a build that does not compile.
 
@@ -40,26 +20,11 @@ Exit status: 0; 1 when a benchmark failed or regressed past `--max-regression`; 
 - **Statistics** (`crates/jacket/src/test/bench_stats.rs`, seeded, so one record gives one report): time is the least-squares slope through the origin; intervals are 95% bootstrap intervals; outliers use Tukey's fences. A baseline comparison is *regressed* or *improved* when p is below `--significance` and the whole interval lies beyond `--noise-threshold`, *within noise* when only p passes, and *no change* otherwise.
 - Setup before the loop runs once per sample; call `reset_timer(b)` after it to leave it out.
 
-Helpers in `Extensions/Testing`:
+The helpers (`black_box`, `set_bytes`, `set_items`, `reset_timer`) and the notes (`@samples`, `@min_time`, `@only`, `@skip_on`, `@needs`, `@timeout`) are in the [guide](../guides/benchmarking.md#writing-a-benchmark).
 
-| | |
-| --- | --- |
-| `black_box(value)` | returns `value`, hidden from the optimizer. Wrap inputs inside the loop and the results too, or the work is hoisted or dropped |
-| `set_bytes(b, n)` / `set_items(b, n)` | report MB/s or items/s |
-| `reset_timer(b)` | restart the clock and the allocation count |
-| `@samples(N)`, `@min_time(MS)` | per-benchmark samples and sampling time |
+### Baselines and JSON
 
-`@only`, `@skip_on`, `@needs` and `@timeout(SECONDS)` work as in `jacket test`.
-
-### Baselines
-
-- `--save-baseline NAME` writes `target/bench-baselines/NAME.json`, with the raw samples.
-- `--baseline NAME` compares by benchmark name and adds `change:` lines (a missing one shows `new`). A baseline with another `schema` is refused; save it again.
-- `--max-regression PCT` (needs `--baseline`) exits 1 when a benchmark regressed by more than PCT percent.
-
-### JSON (`--format json`, and the baseline file)
-
-One object on standard output; progress goes to standard error. `schema` changes when a field is removed or changes meaning. Each entry in `results` has `name`, `file`, `line`, `mode` (`linear` or `flat`), `time_ns`, `mean_ns`, `median_ns` (each `{low, estimate, high}`), `r_squared`, `outliers`, `mb_per_s`, `items_per_s`, `allocs_per_iteration`, the raw `sample_iterations`/`sample_ns`, and with `--baseline` a `baseline` object (`change`, `change_percent`, `p_value`, `verdict`). Times are ns per iteration; `change` is a fraction.
+`--save-baseline NAME` writes `target/bench-baselines/NAME.json`; `--baseline NAME` compares by benchmark name, and a baseline with another `schema` is refused. `--format json` writes the same object to standard output, with progress on standard error. `schema` changes when a field is removed or changes meaning; the fields are listed in the [guide](../guides/benchmarking.md#json). Times are ns per iteration; `change` is a fraction.
 
 ## How to change it
 

@@ -93,7 +93,7 @@ pub fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> Examp
     let body = if lang.is_empty() || lang == "jai" {
         highlight::jai(code.trim_end(), &|name| site.call_link(module, name))
     } else {
-        esc(code.trim_end())
+        highlight::other(lang, code.trim_end()).unwrap_or_else(|| esc(code.trim_end()))
     };
     Example {
         plain: true,

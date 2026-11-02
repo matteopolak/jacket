@@ -33,7 +33,7 @@ Layout :: (out: *Out, page: *Page($C)) {
 <details class="side" open><summary>{esc(page.view.side_label)}</summary>
 <nav aria-label="{esc(page.view.side_label)}" data-nav="{esc(page.view.side_label)}">
 {Side(page)}</nav></details>
-<script src="{cast(Html) page.site.sidebar_url}"></script>
+<script>{cast(Html) page.site.sidebar_js}</script>
 <main id="main-content" tabindex="-1">
 {Main(page)}</main>
 {Toc(page)}</div>

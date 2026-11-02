@@ -1,4 +1,4 @@
-//! Syntax colours for Jai code on the site: keywords, types, strings, numbers, comments and
+//! Syntax colours for code on the site. Jai: keywords, types, strings, numbers, comments and
 //! `#directives`. It looks at one token at a time, which is enough for ten lines of example.
 use super::markdown::esc;
 
@@ -151,5 +151,216 @@ mod tests {
         assert!(html.contains("<span class=\"t\">int</span>"));
         assert!(html.contains("<span class=\"n\">0x1F</span>"));
         assert!(html.contains("<span class=\"d\">#char</span>"));
+    }
+}
+
+/// `code` as HTML when `lang` is a shell or TOML; `None` for other languages, which stay plain.
+pub fn other(lang: &str, code: &str) -> Option<String> {
+    match lang {
+        "sh" | "bash" | "shell" | "zsh" | "console" | "powershell" | "ps1" | "pwsh" => {
+            Some(code.lines().map(shell_line).collect::<Vec<_>>().join("\n"))
+        }
+        "toml" => Some(code.lines().map(toml_line).collect::<Vec<_>>().join("\n")),
+        _ => None,
+    }
+}
+
+/// The end of a quoted string starting at `start` (the quote), past the closing quote.
+fn quoted(chars: &[char], start: usize) -> usize {
+    let quote = chars[start];
+    let mut i = start + 1;
+    while i < chars.len() && chars[i] != quote {
+        if chars[i] == '\\' && quote == '"' {
+            i += 1;
+        }
+        i += 1;
+    }
+    (i + 1).min(chars.len())
+}
+
+/// One line of a shell session: the command name of each pipeline step, flags, variables, strings
+/// and comments. A leading `$ ` prompt is kept as written.
+fn shell_line(line: &str) -> String {
+    let chars: Vec<char> = line.chars().collect();
+    let text = |a: usize, b: usize| chars[a..b].iter().collect::<String>();
+    let mut out = String::new();
+    let mut i = 0;
+    let mut command = true;
+    while i < chars.len() {
+        let c = chars[i];
+        let at_word = i == 0 || chars[i - 1].is_whitespace();
+        if c == '#' && at_word {
+            span(&mut out, "c", &text(i, chars.len()));
+            break;
+        }
+        if c == '"' || c == '\'' {
+            let end = quoted(&chars, i);
+            span(&mut out, "s", &text(i, end));
+            i = end;
+            command = false;
+            continue;
+        }
+        if c == '$'
+            && chars
+                .get(i + 1)
+                .is_some_and(|n| ident_start(*n) || *n == '{')
+        {
+            let mut end = i + 1;
+            while end < chars.len() && (ident_char(chars[end]) || matches!(chars[end], '{' | '}')) {
+                end += 1;
+            }
+            span(&mut out, "n", &text(i, end));
+            // `FOO=$HOME cmd`: the value of an assignment comes before the command.
+            command = command && i > 0 && chars[i - 1] == '=';
+            i = end;
+            continue;
+        }
+        if c == '|' || c == ';' || c == '&' {
+            out.push_str(&esc(&c.to_string()));
+            command = true;
+            i += 1;
+            continue;
+        }
+        if c.is_whitespace() {
+            out.push(c);
+            i += 1;
+            continue;
+        }
+        let mut end = i;
+        while end < chars.len()
+            && !chars[end].is_whitespace()
+            && !matches!(chars[end], '|' | ';' | '"' | '\'' | '$')
+        {
+            end += 1;
+        }
+        let word = text(i, end);
+        if command && word == "$" {
+            out.push_str(&esc(&word));
+        } else if command && !word.contains('=') {
+            span(&mut out, "k", &word);
+            command = false;
+        } else if word.starts_with('-') && at_word {
+            span(&mut out, "d", &word);
+        } else {
+            out.push_str(&esc(&word));
+        }
+        i = end;
+    }
+    out
+}
+
+/// One line of TOML: table headers, keys, strings, numbers, booleans and comments.
+fn toml_line(line: &str) -> String {
+    let chars: Vec<char> = line.chars().collect();
+    let text = |a: usize, b: usize| chars[a..b].iter().collect::<String>();
+    let mut out = String::new();
+    let trimmed = line.trim_start();
+    let lead = chars.len() - trimmed.chars().count();
+    out.push_str(&text(0, lead));
+    let mut i = lead;
+    if trimmed.starts_with('[') {
+        let end = chars[i..]
+            .iter()
+            .position(|&c| c == ']')
+            .map_or(chars.len(), |p| {
+                let mut e = i + p + 1;
+                if chars.get(e) == Some(&']') {
+                    e += 1;
+                }
+                e
+            });
+        span(&mut out, "t", &text(i, end));
+        i = end;
+    } else if let Some(eq) = chars[i..].iter().position(|&c| c == '=') {
+        let key = text(i, i + eq);
+        let name = key.trim_end();
+        if !name.is_empty() && !name.starts_with('#') {
+            span(&mut out, "d", name);
+            out.push_str(&key[name.len()..]);
+            i += eq;
+        }
+    }
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '#' {
+            span(&mut out, "c", &text(i, chars.len()));
+            break;
+        }
+        if c == '"' || c == '\'' {
+            let end = quoted(&chars, i);
+            span(&mut out, "s", &text(i, end));
+            i = end;
+            continue;
+        }
+        if c.is_ascii_digit()
+            || ((c == '-' || c == '+') && chars.get(i + 1).is_some_and(char::is_ascii_digit))
+        {
+            let mut end = i + 1;
+            while end < chars.len()
+                && (chars[end].is_ascii_alphanumeric()
+                    || matches!(chars[end], '.' | '_' | ':' | '-'))
+            {
+                end += 1;
+            }
+            span(&mut out, "n", &text(i, end));
+            i = end;
+            continue;
+        }
+        if ident_start(c) {
+            let mut end = i;
+            while end < chars.len() && ident_char(chars[end]) {
+                end += 1;
+            }
+            let word = text(i, end);
+            if word == "true" || word == "false" {
+                span(&mut out, "k", &word);
+            } else {
+                out.push_str(&esc(&word));
+            }
+            i = end;
+            continue;
+        }
+        out.push_str(&esc(&c.to_string()));
+        i += 1;
+    }
+    out
+}
+
+#[cfg(test)]
+mod other_tests {
+    use super::other;
+
+    #[test]
+    fn shell_marks_commands_flags_strings_and_comments() {
+        let html = other(
+            "sh",
+            "jacket test --exact 'a b' | head # first\nFOO=$HOME ls",
+        )
+        .unwrap();
+        assert!(html.contains("<span class=\"k\">jacket</span>"));
+        assert!(html.contains("<span class=\"d\">--exact</span>"));
+        assert!(
+            html.contains("<span class=\"s\">&#39;a b&#39;</span>")
+                || html.contains("<span class=\"s\">'a b'</span>")
+        );
+        assert!(html.contains("<span class=\"k\">head</span>"));
+        assert!(html.contains("<span class=\"c\"># first</span>"));
+        assert!(html.contains("<span class=\"n\">$HOME</span>"));
+        assert!(html.contains("<span class=\"k\">ls</span>"));
+    }
+
+    #[test]
+    fn toml_marks_tables_keys_and_values() {
+        let html = other(
+            "toml",
+            "[[doc.page]]\nname = \"Guide\" # shown\nwidth = 2\nok = true",
+        )
+        .unwrap();
+        assert!(html.contains("<span class=\"t\">[[doc.page]]</span>"));
+        assert!(html.contains("<span class=\"d\">name</span> = <span class=\"s\">"));
+        assert!(html.contains("<span class=\"c\"># shown</span>"));
+        assert!(html.contains("<span class=\"n\">2</span>"));
+        assert!(html.contains("<span class=\"k\">true</span>"));
+        assert!(other("text", "x").is_none());
     }
 }

@@ -98,6 +98,17 @@ def skipped(rel):
     )
 
 
+def unfenced(text):
+    """`text` without its fenced code blocks."""
+    out, fenced = [], False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+        elif not fenced:
+            out.append(line)
+    return "\n".join(out)
+
+
 def check_text(name, text, root=ROOT, doc_dir=None):
     """Errors for the paths `text` mentions; `doc_dir` also checks markdown link targets.
 
@@ -117,7 +128,8 @@ def check_text(name, text, root=ROOT, doc_dir=None):
         ):
             errors.append(f"{name}: missing path {token}")
     if doc_dir is not None:
-        for target in LINK.findall(text):
+        # Links inside fenced code are examples, not links.
+        for target in LINK.findall(unfenced(text)):
             if (
                 "://" in target
                 or target.startswith(("mailto:", "/"))

@@ -1,6 +1,6 @@
 # `jacket test`
 
-The test runner for Jai projects. It builds a folder's tests once, runs each test in its own process (in parallel), and reports as text, JSON lines or JUnit XML. Tests are written with the [`Testing` module](../extensions/testing.md); golden-output and compile-fail files need no module.
+The test runner for Jai projects. It builds a folder's tests once, runs each test in its own process (in parallel), and reports as text, JSON lines or JUnit XML. Tests are written with the [`Testing` module](../extensions/testing.md); golden-output and compile-fail files need no module. How to use it is in the [testing guide](../guides/testing.md); this page is the reference and how it works.
 
 ```
 $ jacket test
@@ -47,15 +47,7 @@ Doc examples of `stdlib/internal/*` modules are not run from there: a program ca
 
 ## Writing tests
 
-```jai
-#import "Extensions/Testing";
-
-parses_numbers :: () {
-    expect_equal(parse_int("42"), 42);
-} @test
-```
-
-Notes go after the body. A golden or compile-fail file, or every test of a unit file, takes the same options from `// test:` lines at the top of the file:
+The [testing guide](../guides/testing.md) has examples of tests, checks, `@cases` and `@property`. Notes go after the body. A golden or compile-fail file, or every test of a unit file, takes the same options from `// test:` lines at the top of the file:
 
 ```jai
 // test: only(.LINUX,.MACOS) timeout(10)
@@ -97,33 +89,13 @@ A compile-fail test is checked with `jaic name.jai -check -quiet -no_color` from
 
 ### Snapshots
 
-`expect_snapshot` compares a value with a stored snapshot (`__snapshots__/NAME.snap` beside the test file). A differing or missing snapshot fails the test and writes `NAME.snap.new`. `--accept` replaces the snapshots in place. `--review` runs nothing; in a terminal it shows each `.snap.new` as a diff and asks `[a]ccept, [r]eject, [s]kip, [q]uit`, otherwise it lists them and exits 1 if any exist.
+`expect_snapshot` stores `__snapshots__/NAME.snap` beside the test file; a differing or missing snapshot fails the test and writes `NAME.snap.new`. `--accept` replaces snapshots in place and `--review` (`review.rs`) goes through the `.snap.new` files. Usage is in the [guide](../guides/testing.md#snapshots).
 
 ### Doc tests
 
 Examples in a library's doc comments are tests (`crates/jacket/src/test/doctest.rs`). The comment is the `//` run or block comment directly above a constant declaration, or the run that opens `module.jai`. jacket gets them from `jaic -doc_comments DIR`. An alias without its own comment forwards to its target, so an example runs once.
 
-```jai
-// The pieces of `s` between each `separator`.
-//
-// ```jai
-// parts := split("a,b,c", ",");
-// assert(parts.count == 3 && parts[1] == "b");
-// ```
-split :: Impl.split;
-```
-
-Each block is a program importing `Basic` and the library. A block with a file-level `main` is used as is; otherwise its lines become a procedure body with `#import`/`#load` lines moved to file level. A failed `assert`, `expect` or `require` fails the test. Only fences starting with `jai` are tests:
-
-| Fence | The doc test |
-| --- | --- |
-| ```` ```jai ```` | built and run; must exit 0 |
-| ```` ```jai,no_run ```` | only type-checked |
-| ```` ```jai,compile_fail ```` | must fail to type-check |
-| ```` ```jai,should_fail ```` | built and run; must fail |
-| ```` ```jai,ignore ```` | skipped |
-
-The notes above also work as options without the `@`: ```` ```jai,only(linux, macos) ````, `skip_on(wasm)`, `needs(...)`, `timeout(...)`. A `// test:` line in its own comment run at the top of the library's `module.jai` (after the module docs, with a blank line on each side) applies to every doc test of the library, so a module with no wasm target writes `// test: skip_on(.WASM, reason = "needs threads")` once instead of annotating each fence. It is a header like a test file's, so it is not part of the module docs. Doc tests are named `doc: Module.symbol#N`. `--doc` runs only doc tests, `--no-doc` leaves them out.
+Each block is a program importing `Basic` and the library. A block with a file-level `main` is used as is; otherwise its lines become a procedure body with `#import`/`#load` lines moved to file level. A failed `assert`, `expect` or `require` fails the test. Only fences starting with `jai` are tests; the options (`no_run`, `compile_fail`, `should_fail`, `ignore`) are in the [guide](../guides/testing.md#doc-tests). The notes above also work as options without the `@`: ```` ```jai,only(linux, macos) ````, `skip_on(wasm)`, `needs(...)`, `timeout(...)`. A `// test:` line in its own comment run at the top of the library's `module.jai` (after the module docs, with a blank line on each side) applies to every doc test of the library, so a module with no wasm target writes `// test: skip_on(.WASM, reason = "needs threads")` once instead of annotating each fence. It is a header like a test file's, so it is not part of the module docs. Doc tests are named `doc: Module.symbol#N`. `--doc` runs only doc tests, `--no-doc` leaves them out.
 
 ### Checking examples for another OS
 
@@ -137,18 +109,7 @@ The target decides which examples take part: `only(...)` and `skip_on(...)` note
 
 ## Running
 
-```sh
-jacket test parse split           # tests whose name contains parse or split
-jacket test --exact name          # whole names; name/sub runs one subtest
-jacket test -E 'module(Sort) and not kind(property)'
-jacket test --list                # names and kinds, runs nothing (--format json for editors)
-jacket test --interp              # in jaic's interpreter
-jacket test -os wasm --interp     # in jaic's wasm sandbox
-jacket test -os wasm --runner "node --no-warnings tools/wasi_run.mjs"
-jacket test -- -O2                # flags after -- go to every jaic run
-jacket test --watch               # rerun when a .jai file changes
-jacket test --coverage            # see below
-```
+Examples of every flag are in the [guide](../guides/testing.md#running-tests).
 
 - Each unit test runs as `tests --run NAME` in its own process, `-j` at a time (default: the machine's threads). `@slow` tests start first, `@serial` ones run last, alone. With `--interp` or `--no-isolation`, tests are batched `-j` ways per process, because every `-interp` process compiles again; a crash fails that test and a new process picks up at the next one.
 - A test's output is captured and shown with its failure (`--no-capture` streams it, one test at a time). A test past its timeout has its process group killed and is `TIMEOUT`. `--quiet` prints only failures and the summary.
@@ -175,7 +136,7 @@ Operators, tightest first: `not` / `!`, `and` / `&`, `or` / `|`; parentheses gro
 
 ### Seeds
 
-Property tests start from a seed. `--seed N` sets it; otherwise one number is drawn per run and shared (each test mixes in its name). A failing property prints `rerun: jacket test --seed N --exact 'name'`.
+`--seed N` sets the property-test seed; otherwise one number is drawn per run and each test mixes in its name. See the [guide](../guides/testing.md#many-inputs).
 
 ### Which standard library
 
@@ -211,34 +172,6 @@ Baselines keep coverage from dropping: `--coverage-record FILE` writes per-modul
 
 `kind` is `test`, `golden`, `compile_fail`, `doc` or `bench` (`subtest` for `@cases` cases in `list`). `--junit FILE` also writes JUnit XML. The VS Code extension and `jailsp` are built on this JSON ([VS Code extension](vscode-extension.md)); the fields are a format others read, so add freely and change or remove only with a changelog line.
 
-## Matchers
-
-`assert_that(value, matcher)` (`Extensions/Testing`, `matchers.jai`) reports at the caller's line, lets the test go on and returns whether it held; `require_that` returns from the test instead.
-
-```jai
-assert_that(count, is(3));
-assert_that(name, all_of(starts_with("jac"), has_length(6)));
-assert_that(ports, has_item(between(8000, 8999)));
-require_that(users, each(not_null()));
-```
-
-| Matcher | Holds when |
-| --- | --- |
-| `is(want)` | equal by value (the `expect_equal` rules) |
-| `not(m)`, `all_of(m...)`, `any_of(m...)` | `m` doesn't hold / every / at least one holds |
-| `greater_than(v)`, `at_least(v)`, `less_than(v)`, `at_most(v)` | orders that way against `v` |
-| `between(low, high)` | `low <= value <= high` |
-| `near(want, tolerance)` | within tolerance; NaN is never near |
-| `contains(part)` | a string holds the substring, or an array the element |
-| `starts_with(x)`, `ends_with(x)` | a string or array begins / ends with `x` |
-| `is_empty()`, `has_length(n)` | a string or array has no / `n` elements |
-| `has_item(m)`, `each(m)` | some / every element matches (`each` holds for an empty array) |
-| `is_null()`, `not_null()` | a pointer or procedure is / isn't null |
-| `is_true()`, `is_false()` | a `bool` is that value |
-| `of_type(T)` | the value's type is exactly `T` |
-
-A matcher that can't apply to the value does not hold. `explain(value, matcher)` returns the failure message (empty when it holds). To add a matcher, add a `Matcher_Kind`, a constructor, and a case each in `holds` and `phrase` (and `failure_message`) in `matchers.jai`, then a passing and a failing line in `tests/matchers.jai`.
-
 ## How it works
 
 Per root, `jacket` writes `tests.jai` (one `#load` per unit test file) into a work folder under the temp directory and compiles it:
@@ -271,6 +204,7 @@ Design choices:
 - **A note:** `TestOptions::apply` and `skip_reason` in `options.rs`, then `jobs.rs` (`resolve`, `expectations`); list it in the table above.
 - **A filter predicate:** `Parser::predicate` and `eval` in `filter.rs`, and `expr_selects`/`kinds_of` in `mod.rs`.
 - **A kind of file test:** `Root::read` (`discover.rs`), a `Kind`, and a runner in `golden.rs`.
+- **A matcher:** add a `Matcher_Kind`, a constructor, and a case each in `holds`, `phrase` and `failure_message` in `stdlib/Extensions/Testing/matchers.jai`, then a passing and a failing line in `tests/matchers.jai`; list it in the [guide](../guides/testing.md#matchers).
 - **Doc tests:** `crates/jaic-syntax/src/doc_comments.rs` decides what counts; fence options and the generated program are in `doctest.rs`.
 - **Coverage:** `coverage/` (`mod.rs`, `dwarf.rs`, `procedures.rs`, `report.rs`, `baseline.rs`, `html.rs`).
 - **Scheduling, processes, output:** `jobs.rs`, `exec.rs`, `report.rs`; watching is `watch.rs`; snapshot review is `review.rs`.

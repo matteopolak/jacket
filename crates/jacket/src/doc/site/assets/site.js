@@ -45,16 +45,21 @@
     });
   }
 
-  Array.prototype.forEach.call(document.querySelectorAll('.nav-cat'), function (d, i) {
-    var summary = d.querySelector('summary'), list = d.querySelector('.nav-list');
-    list.id = 'nav-group-' + i; summary.setAttribute('aria-controls', list.id);
-    function state() { summary.setAttribute('aria-expanded', String(d.open)); }
-    d.addEventListener('toggle', state); state();
-  });
+  function sideGroups() {
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-cat'), function (d, i) {
+      var summary = d.querySelector('summary'), list = d.querySelector('.nav-list');
+      list.id = 'nav-group-' + i; summary.setAttribute('aria-controls', list.id);
+      function state() { summary.setAttribute('aria-expanded', String(d.open)); }
+      d.addEventListener('toggle', state); state();
+    });
+  }
+  sideGroups();
 
   // The outline on the right marks every item on screen. Its item lists fold like the
   // sidebar's groups: lists with a section on screen are open, the rest closed, and a list
-  // the reader opened stays open. Without JS every list is open.
+  // the reader opened stays open. Without JS every list is open. `signal` ends its listeners
+  // when another page is swapped in.
+  function outline(signal) {
   var toc = document.querySelectorAll('.toc a[href^="#"]');
   if (toc.length) {
     var marks = Array.prototype.map.call(toc, function (a) {
@@ -168,8 +173,9 @@
     };
     window.addEventListener('scroll', function () {
       if (!pending) { pending = true; requestAnimationFrame(mark); }
-    }, { passive: true });
+    }, { passive: true, signal: signal });
     mark();
+  }
   }
 
   // Search.
@@ -516,7 +522,6 @@
     });
     figure.__text = function () { return area.value; };
   }
-  Array.prototype.forEach.call(document.querySelectorAll('figure.ex'), editable);
   function ask(request, limit) {
     return new Promise(function (resolve, reject) {
       if (!worker) worker = new Worker(base + 'assets/run-worker.js', { type: 'module' });
@@ -637,7 +642,6 @@
     if (opened) target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: no-preference)').matches ? 'smooth' : 'instant' });
   }
   window.addEventListener('hashchange', openTarget);
-  openTarget();
 
   // Version menu. versions.json is [{"version": "0.31.0", "url": "../0.31.0/"}, ...]; a relative url is read from versions.json's folder.
   (function () {
@@ -679,7 +683,7 @@
   // A code block wider than its column scrolls on its own; give it a tab stop so the keyboard
   // can scroll it too.
   // All widths are read before any tab stop changes, so this lays the page out once.
-  var pres = document.querySelectorAll('main pre'), sizing = false;
+  var pres = [], sizing = false;
   function scrollable() {
     sizing = false;
     var wide = Array.prototype.map.call(pres, function (pre) { return pre.scrollWidth > pre.clientWidth; });
@@ -687,7 +691,6 @@
       if (wide[i]) pre.tabIndex = 0; else pre.removeAttribute('tabindex');
     });
   }
-  scrollable();
   window.addEventListener('resize', function () {
     if (!sizing) { sizing = true; requestAnimationFrame(scrollable); }
   });
@@ -697,6 +700,7 @@
   // the block too, so a focused link is never hidden. The early fold() script opens the
   // first few blocks that fit while the page loads; the rest are measured here in one pass,
   // since measuring each block as it arrives lays the page out once per block.
+  function folds() {
   var shut = Array.prototype.slice.call(document.querySelectorAll('.fold:not(.open)'));
   var fits = shut.map(function (f) { return f.scrollHeight <= (+f.getAttribute('data-fold') || 440); });
   shut = shut.filter(function (f, i) {
@@ -720,4 +724,229 @@
     });
     fold.after(btn);
   });
+  }
+
+  // What each page sets up for its own content. It runs again when another page is swapped in.
+  var page = null;
+  function setupPage() {
+    if (page) page.abort();
+    page = new AbortController();
+    outline(page.signal);
+    Array.prototype.forEach.call(document.querySelectorAll('figure.ex'), editable);
+    pres = document.querySelectorAll('main pre');
+    scrollable();
+    folds();
+    platformFilter();
+    openTarget();
+  }
+
+  // On a module page, a platform chip shows only the items that work on that system. Clicking it
+  // again, or Show all, brings the rest back.
+  function platformFilter() {
+    var chips = document.querySelectorAll('main button.pf[data-pf]');
+    if (!chips.length) return;
+    var meta = chips[0].closest('.meta');
+    var status = document.createElement('span');
+    status.className = 'pf-status';
+    status.hidden = true;
+    meta.appendChild(status);
+    function apply(on) {
+      Array.prototype.forEach.call(chips, function (c) {
+        c.setAttribute('aria-pressed', String(c.getAttribute('data-pf') === on));
+      });
+      var hidden = 0;
+      Array.prototype.forEach.call(document.querySelectorAll('main article.row'), function (r) {
+        var off = !!on && (r.getAttribute('data-off') || '').indexOf('|' + on + '|') >= 0;
+        r.classList.toggle('pf-off', off);
+        if (off) hidden++;
+      });
+      // Hide groups and headings left with nothing in them.
+      Array.prototype.forEach.call(document.querySelectorAll('main section.group'), function (g) {
+        g.classList.toggle('pf-off', !!on && !g.querySelector('article.row:not(.pf-off)'));
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('main h2'), function (h) {
+        var n = h.nextElementSibling;
+        if (!n || !n.matches('section.group')) return;
+        var any = false;
+        for (; n && n.matches('section.group'); n = n.nextElementSibling) if (!n.classList.contains('pf-off')) any = true;
+        h.classList.toggle('pf-off', !any);
+      });
+      status.hidden = !on;
+      status.textContent = '';
+      if (on) {
+        status.append(hidden === 1 ? '1 item hidden · ' : hidden + ' items hidden · ');
+        var all = document.createElement('button');
+        all.type = 'button';
+        all.textContent = 'Show all';
+        all.addEventListener('click', function () { apply(null); });
+        status.appendChild(all);
+      }
+    }
+    Array.prototype.forEach.call(chips, function (c) {
+      c.addEventListener('click', function () {
+        apply(c.getAttribute('aria-pressed') === 'true' ? null : c.getAttribute('data-pf'));
+      });
+    });
+  }
+  setupPage();
+
+  // Moving between pages of the site fetches the next page and swaps in its content, so the
+  // header and sidebar stay where they are. A link is fetched once the pointer rests on it, so
+  // most clicks find the page ready. Anything unexpected falls back to a normal page load.
+  var pages = new Map();
+  function jump(y) { window.scrollTo({ top: y, behavior: 'instant' }); }
+  var siteRoot = new URL(base, location.href);
+  function bare(href) { var u = new URL(href, location.href); u.hash = ''; return u.href; }
+  function inSite(a) {
+    if (!a || !a.href || (a.target && a.target !== '_self') || a.hasAttribute('download')) return null;
+    var u = new URL(a.href, location.href);
+    if (u.origin !== siteRoot.origin || u.pathname.indexOf(siteRoot.pathname) !== 0) return null;
+    if (!/(\/|\.html)$/.test(u.pathname) || u.pathname.indexOf('/assets/') >= 0) return null;
+    return u;
+  }
+  function fetchPage(href) {
+    var key = bare(href);
+    var got = pages.get(key);
+    if (!got) {
+      got = fetch(key).then(function (r) {
+        if (!r.ok || !/html/.test(r.headers.get('content-type') || '')) throw new Error('not a page');
+        return r.text();
+      }).then(function (text) { return new DOMParser().parseFromString(text, 'text/html'); });
+      got.catch(function () { pages.delete(key); });
+      pages.set(key, got);
+      // Keep the few most recent pages.
+      if (pages.size > 40) pages.delete(pages.keys().next().value);
+    }
+    return got;
+  }
+  if (window.fetch && window.DOMParser && history.pushState) {
+    history.scrollRestoration = 'manual';
+    var rest = null;
+    var hover = function (e) {
+      var u = inSite(e.target.closest && e.target.closest('a[href]'));
+      if (!u || bare(u.href) === bare(location.href)) return;
+      clearTimeout(rest);
+      rest = setTimeout(function () { fetchPage(u.href); }, e.type === 'pointerover' ? 65 : 0);
+    };
+    document.addEventListener('pointerover', hover, { passive: true });
+    document.addEventListener('pointerout', function () { clearTimeout(rest); }, { passive: true });
+    document.addEventListener('touchstart', hover, { passive: true });
+    document.addEventListener('focusin', hover);
+
+    var remember = function () {
+      try { history.replaceState({ y: window.scrollY }, ''); } catch (e) { /* too many calls: skip one */ }
+    };
+    var saving = null;
+    window.addEventListener('scroll', function () {
+      clearTimeout(saving);
+      saving = setTimeout(remember, 150);
+    }, { passive: true });
+    window.addEventListener('pagehide', remember);
+    var entry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+    if (history.state && history.state.y && entry && entry.type !== 'navigate') jump(history.state.y);
+
+    var going = 0;
+    var go = function (href, push, keyboard) {
+      var n = ++going;
+      var slow = setTimeout(function () { root.classList.add('loading'); }, 150);
+      fetchPage(href).then(function (doc) {
+        if (n !== going) return;
+        if (doc.body.getAttribute('data-base') !== document.body.getAttribute('data-base')) throw new Error('another site');
+        if (push) {
+          remember();
+          history.pushState({ y: 0 }, '', href);
+        }
+        swap(doc);
+        var id = decodeURIComponent(new URL(href).hash.slice(1));
+        var target = id && document.getElementById(id);
+        // A new page starts where it should be, without the smooth scroll the page has.
+        if (!push && history.state) jump(history.state.y || 0);
+        else if (target) target.scrollIntoView({ behavior: 'instant' });
+        else jump(0);
+        if (keyboard) document.getElementById('main-content').focus({ preventScroll: true });
+      }).catch(function () {
+        if (n === going) location.assign(href);
+      }).then(function () {
+        clearTimeout(slow);
+        if (n === going) root.classList.remove('loading');
+      });
+    };
+    document.addEventListener('click', function (e) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var u = inSite(e.target.closest && e.target.closest('a[href]'));
+      if (!u) return;
+      if (bare(u.href) === bare(location.href)) {
+        // The page that is already open: a heading link scrolls as usual, the page itself goes
+        // back to the top without loading again.
+        if (u.hash) return;
+        e.preventDefault();
+        if (u.href !== location.href) history.pushState({ y: 0 }, '', u.href);
+        window.scrollTo(0, 0);
+        return;
+      }
+      e.preventDefault();
+      go(u.href, true, e.detail === 0);
+    });
+    window.addEventListener('popstate', function () {
+      // Back or forward within the page that is shown: only the scroll changes.
+      if (document.body.getAttribute('data-shown') === bare(location.href)) {
+        if (history.state) jump(history.state.y || 0);
+        return;
+      }
+      go(location.href, false, false);
+    });
+    document.body.setAttribute('data-shown', bare(location.href));
+  }
+
+  // Puts `doc`'s page in place of this one, keeping the header and, where it is the same list,
+  // the sidebar.
+  function swap(doc) {
+    document.title = doc.title;
+    ['meta[name="description"]', 'link[rel="canonical"]'].forEach(function (sel) {
+      var old = document.head.querySelector(sel), next = doc.head.querySelector(sel);
+      if (old && next) old.replaceWith(document.importNode(next, true));
+    });
+    document.body.setAttribute('data-page', doc.body.getAttribute('data-page') || '');
+    document.body.setAttribute('data-shown', bare(location.href));
+    // The header's links stay; only which one is current changes.
+    var here = doc.querySelectorAll('.site-nav > a');
+    Array.prototype.forEach.call(document.querySelectorAll('.site-nav > a'), function (a, i) {
+      var current = here[i] && here[i].getAttribute('aria-current');
+      if (current) a.setAttribute('aria-current', current); else a.removeAttribute('aria-current');
+    });
+    swapSide(doc);
+    var main = document.getElementById('main-content'), next = doc.getElementById('main-content');
+    main.replaceWith(document.importNode(next, true));
+    var toc = document.querySelector('.wrap > .toc'), nextToc = doc.querySelector('.wrap > .toc');
+    if (toc) toc.remove();
+    if (nextToc) document.getElementById('main-content').after(document.importNode(nextToc, true));
+    setupPage();
+  }
+
+  // The next page's sidebar replaces this one in the same frame, keeping the groups the reader
+  // opened and its scroll. A long group this one already has in full is moved across, so it never
+  // shrinks back to the rows around the current link.
+  function swapSide(doc) {
+    var side = document.querySelector('details.side'), nav = side && side.querySelector('nav');
+    var next = doc.querySelector('details.side nav');
+    if (!nav || !next) return;
+    var open = Array.prototype.map.call(nav.querySelectorAll('details.nav-cat[open]'), function (d) { return d.getAttribute('data-key'); });
+    var state = { k: nav.getAttribute('data-nav'), t: side.scrollTop, o: open };
+    next = document.importNode(next, true);
+    Array.prototype.forEach.call(next.querySelectorAll('[data-source]'), function (list) {
+      var source = list.getAttribute('data-source');
+      var full = nav.querySelector('[data-loaded="' + source + '"]');
+      if (!full) return;
+      var href = bare(location.href);
+      Array.prototype.forEach.call(full.querySelectorAll('a'), function (a) {
+        if (bare(a.href) === href) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+      });
+      list.replaceWith(full);
+    });
+    var label = doc.querySelector('details.side > summary');
+    if (label) side.querySelector('summary').textContent = label.textContent;
+    nav.replaceWith(next);
+    if (window.jacketSide) window.jacketSide(state);
+    sideGroups();
+  }
 })();

@@ -178,9 +178,39 @@ impl Module {
         out
     }
 
-    /// The badges for `item`: the systems it is available on, when that is fewer than its
-    /// module's. Empty when it matches the module.
-    pub fn item_systems(&self, item: &Item) -> Vec<&'static str> {
+    /// Every system a module page lists, with how well this module runs there: the desktop
+    /// systems and Wasm always, Android and iOS when the module names them. A system is partial
+    /// when some items are missing on it; the count is how many.
+    pub fn support(&self) -> Vec<(&'static str, Support)> {
+        let ours = self.systems();
+        SYSTEMS
+            .iter()
+            .copied()
+            .filter(|s| !matches!(*s, "Android" | "iOS") || ours.contains(s))
+            .map(|s| {
+                if !ours.contains(&s) {
+                    return (s, Support::None);
+                }
+                let missing = self
+                    .items
+                    .iter()
+                    .filter(|it| self.item_missing(it).contains(&s))
+                    .count();
+                (
+                    s,
+                    if missing == 0 {
+                        Support::Full
+                    } else {
+                        Support::Partial(missing)
+                    },
+                )
+            })
+            .collect()
+    }
+
+    /// The systems its module runs on that `item` does not, in badge order. Empty when it runs
+    /// everywhere its module does.
+    pub fn item_missing(&self, item: &Item) -> Vec<&'static str> {
         if item.platforms.is_empty() {
             return Vec::new();
         }
@@ -189,17 +219,23 @@ impl Module {
             .iter()
             .filter_map(|p| system_name(p))
             .collect();
-        let ours = self.systems();
-        let shown: Vec<&'static str> = ours
-            .iter()
-            .copied()
-            .filter(|s| theirs.contains(s))
-            .collect();
-        if shown.len() == ours.len() {
-            Vec::new()
-        } else {
-            shown
-        }
+        self.systems()
+            .into_iter()
+            .filter(|s| !theirs.contains(s))
+            .collect()
+    }
+
+    /// The systems an item page lists, the same ones as its module's page, each full or none.
+    pub fn item_support(&self, item: &Item) -> Vec<(&'static str, Support)> {
+        let missing = self.item_missing(item);
+        self.support()
+            .into_iter()
+            .map(|(s, module)| match module {
+                Support::None => (s, Support::None),
+                _ if missing.contains(&s) => (s, Support::None),
+                _ => (s, Support::Full),
+            })
+            .collect()
     }
 
     pub fn item(&self, name: &str) -> Option<&Item> {
@@ -356,6 +392,15 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
 }
 
 /// The systems a badge can name, in the order they are shown.
+/// How well a module runs on one system.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Support {
+    Full,
+    /// Available, but this many items are not.
+    Partial(usize),
+    None,
+}
+
 const SYSTEMS: [&str; 6] = ["macOS", "Linux", "Windows", "Android", "iOS", "Wasm"];
 
 /// The badge for the compiler's name of a system (`MACOS`).
@@ -470,11 +515,17 @@ mod tests {
 {"name":"all","kind":"procedure","file":"/s/File/a.jai","line":3,"docs":"","value":"","platforms":["MACOS","LINUX","WINDOWS","WASM"],"overloads":[],"members":[]}]}"#;
         let mut module = parse("File", json, Path::new("/s")).unwrap();
         assert_eq!(module.systems(), ["macOS", "Linux", "Windows"]);
-        assert!(module.item_systems(&module.items[0]).is_empty());
-        assert_eq!(module.item_systems(&module.items[1]), ["Windows"]);
+        assert!(module.item_missing(&module.items[0]).is_empty());
+        assert_eq!(module.item_missing(&module.items[1]), ["macOS", "Linux"]);
         module.wasm = true;
         assert_eq!(module.systems(), ["macOS", "Linux", "Windows", "Wasm"]);
-        assert!(module.item_systems(&module.items[2]).is_empty());
-        assert_eq!(module.item_systems(&module.items[1]), ["Windows"]);
+        assert!(module.item_missing(&module.items[2]).is_empty());
+        assert_eq!(
+            module.item_missing(&module.items[1]),
+            ["macOS", "Linux", "Wasm"]
+        );
+        let support = module.item_support(&module.items[1]);
+        assert_eq!(support[2], ("Windows", Support::Full));
+        assert_eq!(support[0], ("macOS", Support::None));
     }
 }

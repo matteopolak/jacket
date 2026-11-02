@@ -47,8 +47,18 @@ Overloads :: (out: *Out, count: *int) {
     html(out, "{if count}<span class=\"since\">{count.*} overloads</span>{end}");
 }
 
-Platforms :: (out: *Out, platforms: string) {
-    html(out, "{if platforms.count}<span class=\"since\" title=\"Available only on these systems\">{esc(platforms)} only</span>{end}");
+// A chip per system with how well it is supported. On a module page the supported ones are
+// buttons that show only the items available there.
+PlatformList :: (out: *Out, platforms: [] Platform, filter: bool) {
+    html(out, #string HTML
+<ul class="platforms" aria-label="Platforms">{for p: platforms}<li>{if filter && p.state != "none"}<button type="button" class="pf {cast(Html) p.state}" data-pf="{esc(p.name)}" aria-pressed="false" title="{esc(p.tip)}. Click to show only what works there"><span class="pf-dot" aria-hidden="true"></span>{esc(p.name)}<span class="sr">: {esc(p.tip)}</span></button>{else}<span class="pf {cast(Html) p.state}" title="{esc(p.tip)}"><span class="pf-dot" aria-hidden="true"></span>{esc(p.name)}<span class="sr">: {esc(p.tip)}</span></span>{end}</li>{end}</ul>
+HTML
+    );
+}
+
+// The systems an item misses that its module runs on.
+Missing :: (out: *Out, platforms: [] string) {
+    html(out, "{for p: platforms}<span class=\"pf none sm\" title=\"Not available on {esc(p)}\"><span class=\"pf-dot\" aria-hidden=\"true\"></span>{esc(p)}<span class=\"sr\">: not available</span></span>{end}");
 }
 
 Source :: (out: *Out, url: *string) {
@@ -64,7 +74,7 @@ HTML
 
 PageTitle :: (out: *Out, t: *Title) {
     html(out, #string HTML
-<div class="titlebar"><h1{if t.mono} class="mono"{end}>{esc(t.label)}</h1>{if t.procedure}<span class="badge proc">procedure</span>{else}<span class="badge">{esc(t.kind)}</span>{end}{ForeignBadge(t.foreign, false)}{CategoryBadge(t.category, false)}{ExperimentalBadge(t.experimental, false)}{Overloads(t.overloads)}{Platforms(t.platforms)}{Since(t.since)}{Source(t.source_url)}</div>
+<div class="titlebar"><h1{if t.mono} class="mono"{end}>{esc(t.label)}</h1>{if t.procedure}<span class="badge proc">procedure</span>{else}<span class="badge">{esc(t.kind)}</span>{end}{ForeignBadge(t.foreign, false)}{CategoryBadge(t.category, false)}{ExperimentalBadge(t.experimental, false)}{Overloads(t.overloads)}{Since(t.since)}{Source(t.source_url)}</div>
 HTML
     );
 }

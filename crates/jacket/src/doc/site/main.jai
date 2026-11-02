@@ -117,11 +117,15 @@ main :: () {
         defer free(original);
         if path == "assets/site.css" data = compact_css(data);
         if path == "assets/site.js" || path == "assets/sidebar.js" data = compact_js(data);
+        if path == "assets/sidebar.js" {
+            // Inlined into every page, so it runs before the sidebar is first painted.
+            site.sidebar_js = copy_string(data);
+            continue;
+        }
         write_file(*w, path, data);
         if path == "assets/site.css" site.css_url = copy_string(tprint("%assets/site.css?v=%", site.base, content_stamp(data)));
         if path == "assets/site.js" site.script_url = copy_string(tprint("%assets/site.js?v=%", site.base, content_stamp(data)));
         if path == "assets/icons.svg" site.icons_url = copy_string(tprint("%assets/icons.svg?v=%", site.base, content_stamp(data)));
-        if path == "assets/sidebar.js" site.sidebar_url = copy_string(tprint("%assets/sidebar.js?v=%", site.base, content_stamp(data)));
     }
     category_out: Out;
     CategoryStyle(*category_out, *site);

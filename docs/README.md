@@ -33,6 +33,8 @@ One page per topic in [language/](language/): [modules](language/modules-and-imp
 
 ## Tools and editors
 
+Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [documenting a library](guides/documenting.md). The docs site's [front page](reference/home.md).
+
 [jacket](tools/jacket.md), [jacket test](tools/jacket-test.md), [jacket doc](tools/jacket-doc.md), [jacket bench](tools/jacket-bench.md), [jaifmt](tools/jaifmt.md) ([rules](tools/jaifmt-rules.md)), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md), [environment variables](tools/environment.md).
 
 ## Standard library

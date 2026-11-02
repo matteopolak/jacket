@@ -18,7 +18,7 @@ Site_View :: struct {
     css_url: string; @json(default)
     script_url: string; @json(default)
     categories_url: string; @json(default)
-    sidebar_url: string; @json(default)
+    sidebar_js: string; @json(default)
     icons_url: string; @json(default)
     footer_version: string;
     module_files: [] string;
@@ -115,14 +115,18 @@ Nav_Link :: struct {
     experimental: bool;
 }
 
-Content_Index :: struct {
-    categories: [] Card_Category;
+Platform :: struct {
+    name: string;
+    state: string;
+    tip: string;
 }
+
+Content_Index :: struct {}
 
 Content_Module :: struct {
     crumbs: [] Crumb;
     title: Title;
-    available: string;
+    platforms: [] Platform;
     since: string;
     import: string;
     docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
@@ -132,6 +136,7 @@ Content_Module :: struct {
 
 Content_Item :: struct {
     crumbs: [] Crumb;
+    platforms: [] Platform;
     title: Title;
     summary_html: string;
     docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
@@ -148,23 +153,6 @@ Content_Guide :: struct {
 
 Content :: Variant(Content_Index, Content_Module, Content_Item, Content_Guide);
 
-Card_Category :: struct {
-    label: string;
-    groups: [] Card_Group;
-}
-
-Card_Group :: struct {
-    label: string;
-    cards: [] Card;
-}
-
-Card :: struct {
-    href: string;
-    label: string;
-    experimental: bool;
-    category: *Badge;
-    summary_html: string;
-}
 
 Badge :: struct {
     class: string;
@@ -186,7 +174,6 @@ Title :: struct {
     category: *Badge;
     experimental: bool;
     overloads: *int;
-    platforms: string;
     since: string;
     source_url: *string;
     mono: bool;
@@ -219,7 +206,8 @@ Row :: struct {
     foreign: bool;
     experimental: bool;
     overloads: *int;
-    platforms: string;
+    platforms: [] string;
+    off: string;
     since: string;
     source_url: *string;
     lines_html: [] string;
