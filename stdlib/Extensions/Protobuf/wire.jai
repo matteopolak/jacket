@@ -37,6 +37,10 @@ Reader :: struct {
     enum_tag: u64;
     enum_rejected: bool;
     suppress_enum_unknown: bool;
+    storage: **Storage_Block;
+    payload: [] u8;
+    chunk_size: s64;
+
 }
 
 // Exact output buffer and preorder nested-message sizes used by generated encoders.
@@ -406,6 +410,8 @@ read_message :: (r: *Reader, value: *$T) -> bool {
         r.depth -= 1;
     }
 
+    if r.storage absorb_storage(r, *value.proto_storage);
+
     return T.proto_merge(value, r);
 }
 
@@ -516,7 +522,7 @@ write_scalar :: (w: *Writer, value: $T, $kind: Scalar) {
 // Releases an owned scalar payload; numeric values need no allocation.
 free_scalar :: (value: *$T, $kind: Scalar) {
     #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES {
-        Basic.free(value.data);
+        free_owned_pointer(value.data);
         value.* = .{};
     }
 }
@@ -534,11 +540,11 @@ read_scalar :: (r: *Reader, value: *$T, $kind: Scalar) -> bool {
         bytes: [] u8 = .{ n, r.bytes.data + r.pos };
 
         #if kind == .STRING if !valid_utf8(bytes) return fail(r, .BAD_UTF8);
-        free_scalar(value, kind);
+        release_scalar(r, value, kind);
 
         if !r.options.borrow {
             // The following copy initializes every byte; avoid clearing it first.
-            owned := allocate_bytes(n);
+            owned := payload_bytes(r, n);
             if n memcpy(owned.data, bytes.data, n);
             bytes = owned;
         }
@@ -569,14 +575,14 @@ read_scalar :: (r: *Reader, value: *$T, $kind: Scalar) -> bool {
                 if !r.suppress_enum_unknown && !r.options.discard_unknown && r.unknown {
                     tag := r.enum_tag;
                     while tag >= 128 {
-                        array_add(r.unknown, cast(u8) ((tag & 127) | 128));
+                        append_unknown_byte(r, cast(u8) ((tag & 127) | 128));
                         tag >>= 7;
                     }
 
-                    array_add(r.unknown, cast(u8) tag);
+                    append_unknown_byte(r, cast(u8) tag);
                     raw: [] u8 = .{ r.pos - start, r.bytes.data + start };
 
-                    array_add(r.unknown, ..raw);
+                    append_unknown(r, raw);
                 }
 
                 return true;
@@ -618,6 +624,7 @@ read_group :: (r: *Reader, value: *$T) -> bool {
         r.depth -= 1;
     }
 
+    if r.storage absorb_storage(r, *value.proto_storage);
     if !T.proto_merge(value, r) return false;
     if !r.group_ended return fail(r, .TRUNCATED);
 
@@ -659,7 +666,7 @@ skip_unknown :: (r: *Reader, tag: u64) -> bool {
 
     if !r.options.discard_unknown && r.unknown {
         raw: [] u8 = .{ r.pos - start, r.bytes.data + start };
-        array_add(r.unknown, ..raw);
+        append_unknown(r, raw);
     }
 
     return true;

@@ -124,7 +124,7 @@ free_field :: inline (value: *$T, $kind: Scalar) {
         if value.* {
             Message :: type_of(value.*.*);
             Message.proto_free(value.*);
-            Basic.free(value.*);
+            free_owned_pointer(value.*);
             value.* = null;
         }
     } else free_scalar(value, kind);
@@ -135,6 +135,7 @@ Entry_Codec :: struct(K: Type, V: Type, key_kind: Scalar, value_kind: Scalar) {
     key: K;
     value: V = #run entry_default(V);
     invalid_enum: bool;
+    proto_storage: *Storage_Block;
     proto_has_required :: false;
 
     proto_check :: (entry: *Entry_Codec, r: *Reader) -> bool {
@@ -178,7 +179,7 @@ Entry_Codec :: struct(K: Type, V: Type, key_kind: Scalar, value_kind: Scalar) {
                 if !read_scalar(r, *entry.key, key_kind) return field_error(r, "key");
             } else if tag == 16 + scalar_wire(value_kind) {
                 #if value_kind == .MESSAGE {
-                    if !entry.value entry.value = New(type_of(entry.value.*));
+                    if !entry.value entry.value = new_message(r, type_of(entry.value.*));
                     if !read_message(r, entry.value) return field_error(r, "value");
                 } else {
                     if !read_scalar(r, *entry.value, value_kind) return field_error(r, "value");
@@ -196,7 +197,7 @@ read_field :: inline (r: *Reader, value: *$T, $kind: Scalar, wire: u64, path: st
     if wire != scalar_wire(kind) return false;
 
     #if (kind == .MESSAGE || kind == .GROUP) {
-        if !value.* value.* = New(type_of(value.*.*));
+        if !value.* value.* = new_message(r, type_of(value.*.*));
         #if kind == .GROUP ok := read_group(r, value.*);
         else ok := read_message(r, value.*);
         if !ok return field_error(r, path);
@@ -211,7 +212,7 @@ read_optional :: inline (r: *Reader, value: *Optional($T), $kind: Scalar, wire: 
     #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES {
         item: T;
         if !read_field(r, *item, kind, wire, path) return false;
-        if value.has free_scalar(*value.value, kind);
+        if value.has release_scalar(r, *value.value, kind);
         value.value = item;
     } else if !read_field(r, *value.value, kind, wire, path) return false;
 
@@ -255,8 +256,8 @@ read_repeated :: (r: *Reader, values: *[..] $T, $kind: Scalar, wire: u64, path: 
                 if !read_scalar(r, *item, kind) return field_error(r, path, values.count);
 
                 #if kind == .CLOSED_ENUM {
-                    if !r.enum_rejected array_add(values, item);
-                } else array_add(values, item);
+                    if !r.enum_rejected append_decoded(r, values, item);
+                } else append_decoded(r, values, item);
             }
 
             return true;
@@ -273,14 +274,14 @@ read_repeated :: (r: *Reader, values: *[..] $T, $kind: Scalar, wire: u64, path: 
     else ok = read_scalar(r, *item, kind);
 
     if !ok {
-        #if (kind == .MESSAGE || kind == .GROUP) T.proto_free(*item);
-        else free_scalar(*item, kind);
+        #if (kind == .MESSAGE || kind == .GROUP) release_entry(r, *item);
+        else release_scalar(r, *item, kind);
         return field_error(r, path, values.count);
     }
 
     #if kind == .CLOSED_ENUM {
-        if !r.enum_rejected array_add(values, item);
-    } else array_add(values, item);
+        if !r.enum_rejected append_decoded(r, values, item);
+    } else append_decoded(r, values, item);
 
     return true;
 }
@@ -395,19 +396,19 @@ read_map :: (r: *Reader, map: *$T, $E: Type, $mode: Map_Storage, wire: u64, path
     entry: E;
     start := r.tag_start;
 
-    defer E.proto_free(*entry);
+    defer release_entry(r, *entry);
     if !read_message(r, *entry) return field_error(r, path);
 
     if entry.invalid_enum {
         if !r.options.discard_unknown && r.unknown {
             raw: [] u8 = .{ r.pos - start, r.bytes.data + start };
-            array_add(r.unknown, ..raw);
+            append_unknown(r, raw);
         }
 
         return true;
     }
 
-    #if E.value_kind == .MESSAGE if !entry.value entry.value = New(type_of(entry.value.*));
+    #if E.value_kind == .MESSAGE if !entry.value entry.value = new_message(r, type_of(entry.value.*));
 
     #if mode == .ARRAY array_add(map, .{ entry.key, entry.value });
     else {
@@ -415,8 +416,8 @@ read_map :: (r: *Reader, map: *$T, $E: Type, $mode: Map_Storage, wire: u64, path
         else p := proto_tables.table_find_pointer(map, entry.key);
 
         if p {
-            free_field(p, E.value_kind);
-            free_field(*entry.key, E.key_kind);
+            release_field(r, p, E.value_kind);
+            release_field(r, *entry.key, E.key_kind);
 
             p.* = entry.value;
             entry.value = .{};
@@ -487,11 +488,11 @@ read_oneof :: (r: *Reader, v: *$V, $selected: V.Which, $kind: Scalar, wire: u64,
         b: String_Builder;
 
         if kind == .MESSAGE || kind == .GROUP {
-            print(*b, "if v.which != selected { free_oneof(v); v.which = selected; }\nreturn read_field(r, *v.%, kind, wire, path);\n", name);
+            print(*b, "if v.which != selected { release_oneof(r, v); v.which = selected; }\nreturn read_field(r, *v.%, kind, wire, path);\n", name);
         } else {
             print(*b, "item: type_of(v.%);\nif !read_scalar(r, *item, kind) return field_error(r, path);\n", name);
             if kind == .CLOSED_ENUM append(*b, "if r.enum_rejected return true;\n");
-            print(*b, "free_oneof(v);\nv.which = selected;\nv.% = item;\nreturn true;\n", name);
+            print(*b, "release_oneof(r, v);\nv.which = selected;\nv.% = item;\nreturn true;\n", name);
         }
 
         return builder_to_string(*b);

@@ -108,7 +108,7 @@ proto_emit_node :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {
         append(b, "];\n");
     }
 
-    append(b, "_unknown: [..] u8;\n");
+    append(b, "_unknown: [..] u8;\nproto_storage: *proto_r.Storage_Block; @json(skip)\n");
     proto_emit_size(s, b, node);
     proto_emit_encode(s, b, node);
     proto_emit_free(s, b, node);
@@ -216,7 +216,7 @@ proto_emit_item_free :: (b: *String_Builder, f: *proto_Field, expr: string) {
 }
 
 proto_emit_free :: (s: *proto_Schema, b: *String_Builder, node: *proto_Node) {
-    proto_emit(b, "proto_free :: (v: *%) {\n", node.jai);
+    proto_emit(b, "proto_free :: proto_r.free_message;\nproto_release :: (v: *%) {\n", node.jai);
     for name: node.oneofs proto_emit(b, "proto_r.free_oneof(*v.%);\n", proto_jai_name(name));
 
     for f: node.fields {
@@ -347,14 +347,13 @@ proto_emit_read_field :: (s: *proto_Schema, b: *String_Builder, node: *proto_Nod
     proto_emit(b, "if wire != % return false;\n", proto_field_wire(f));
 
     if f.map_entry {
-        proto_emit(b, "entry: %;\ndefer %.proto_free(*entry);\nif !proto_r.read_message(r, *entry) return proto_r.field_error(r, \"%\");\n", proto_entry_type(f), proto_entry_type(f), f.name);
+        proto_emit(b, "entry: %;\ndefer proto_r.release_entry(r, *entry);\nif !proto_r.read_message(r, *entry) return proto_r.field_error(r, \"%\");\n", proto_entry_type(f), f.name);
 
         if s.options.map == .ARRAY {
             proto_emit(b, "proto_b.array_add(*v.%, .{entry.key, entry.value});\nentry.key = .{}; entry.value = .{};\n", f.jai);
         } else {
             proto_emit(b, "for old, key: v.% {\nif key == entry.key {\nprevious := old;\n", f.jai);
-            proto_emit_item_free(b, f.map_entry.fields[1], "previous");
-            proto_emit_item_free(b, f.map_entry.fields[0], "entry.key");
+            proto_emit(b, "proto_r.release_field(r, *previous, .%);\nproto_r.release_field(r, *entry.key, .%);\n", proto_field_kind(f.map_entry.fields[1]), proto_field_kind(f.map_entry.fields[0]));
             append(b, "entry.key = key;\n");
             proto_emit_map_insert(s, b, f);
             append(b, "entry.key = .{}; entry.value = .{};\nreturn true;\n}\n}\n");

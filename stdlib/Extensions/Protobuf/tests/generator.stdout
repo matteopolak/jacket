@@ -8,6 +8,7 @@ proto_m :: #import "Extensions/Hash_Map";
 Ping :: struct {
 id: u64;
 _unknown: [..] u8;
+proto_storage: *proto_r.Storage_Block; @json(skip)
 proto_size :: (v: *Ping, c: *[..] u32) -> s64 {
 slot := c.count;
 proto_b.array_add(c, 0);
@@ -21,7 +22,8 @@ proto_encode :: (v: *Ping, w: *proto_r.Writer) {
 proto_r.encode_field(w, v.id, .UINT64, 8);
 proto_r.write_bytes(w, v._unknown);
 }
-proto_free :: (v: *Ping) {
+proto_free :: proto_r.free_message;
+proto_release :: (v: *Ping) {
 proto_b.array_free(v._unknown);
 v.* = .{};
 }

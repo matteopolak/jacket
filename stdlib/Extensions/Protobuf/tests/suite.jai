@@ -501,3 +501,138 @@ other_schema_properties :: () {
         expect(Proto.equal(list, decoded));
     }
 } @test
+
+payload_decode_ownership :: () {
+    bytes := hex("72036162637a020102aa0103646566b2010512036b6964f80101");
+    value, error := Proto.decode(M, bytes);
+
+    require(error.kind == .NONE);
+    free(bytes.data);
+    expect_equal(value.text, "abc");
+    expect_equal(value.labels[0], "def");
+    expect_equal(value.children[0].label, "kid");
+    expect_equal(value.data.count, 2);
+    expect_equal(value._unknown.count, 0); // Field 31 is a known, renamed field.
+    Proto.free(*value);
+    Proto.free(*value);
+} @test
+
+payload_merge_keeps_backing :: () {
+    value, error := from_hex(M, "7203666f6f");
+
+    require(error.kind == .NONE);
+    old := value.text;
+    bytes := hex("7203626172aa010178");
+
+    defer free(bytes.data);
+    merged := Proto.merge(*value, bytes);
+
+    require(merged.kind == .NONE);
+    expect_equal(value.text, "bar");
+    expect_equal(old, "foo"); // Replaced block slices remain valid until owner free.
+    expect_equal(value.labels[0], "x");
+    Proto.free(*value);
+} @test
+
+payload_redecode_existing :: () {
+    value, error := from_hex(M, "aa010178");
+
+    require(error.kind == .NONE);
+    bytes := hex("aa01017972017a");
+
+    defer free(bytes.data);
+
+    for 0..7 {
+        merged := Proto.merge(*value, bytes);
+        require(merged.kind == .NONE);
+    }
+
+    expect_equal(value.labels.count, 9);
+    expect_equal(value.text, "z");
+    Proto.free(*value);
+} @test
+
+payload_hand_replacements :: () {
+    value, error := from_hex(M, "72036162637a020102");
+
+    require(error.kind == .NONE);
+    value.text = copy_string("assigned");
+    value.data = NewArray(3, u8);
+    Proto.free(*value);
+} @test
+
+payload_setters_copy_other_decode :: () {
+    value, error := from_hex(M, "72036162637a020102");
+
+    require(error.kind == .NONE);
+    other, oe := from_hex(M, "72036465667a020304");
+
+    require(oe.kind == .NONE);
+    Proto.set_string(*value, *value.text, other.text);
+    Proto.set_bytes(*value, *value.data, other.data);
+    Proto.free(*other);
+    expect_equal(value.text, "def");
+    expect_equal(value.data[0], 3);
+    Proto.set_string(*value, *value.text, value.text);
+    Proto.set_bytes(*value, *value.data, value.data);
+    Proto.free(*value);
+} @test
+
+payload_hand_built_free :: () {
+    value: M;
+    value.text = copy_string("hand");
+    value.data = NewArray(3, u8);
+    value.child = New(C);
+    value.child.label = copy_string("nested");
+    array_add(*value.labels, copy_string("repeated"));
+    array_add(*value.children, .{ label = copy_string("child") });
+    array_add(*value._unknown, 8);
+    array_add(*value._unknown, 1);
+    Proto.free(*value);
+    Proto.free(*value);
+} @test
+
+payload_independent_child_merge :: () {
+    child, ce := from_hex(C, "12036f6c64");
+
+    require(ce.kind == .NONE);
+    value: M;
+    value.child = New(C);
+    value.child.* = child; // Move the independently owning message, not a slice.
+    child = .{};
+    bytes := hex("92010512036e6577");
+
+    defer free(bytes.data);
+    merged := Proto.merge(*value, bytes);
+
+    require(merged.kind == .NONE);
+    expect_equal(value.child.label, "new");
+    Proto.free(*value);
+} @test
+
+payload_unknown_storage :: () {
+    // Unknown field 100, then a known string; repeat merge grows unknown storage.
+    bytes := hex("a20603616263720178");
+
+    defer free(bytes.data);
+    value, error := Proto.decode(M, bytes);
+
+    require(error.kind == .NONE);
+
+    for 0..5 {
+        merged := Proto.merge(*value, bytes);
+        require(merged.kind == .NONE);
+    }
+
+    expect_equal(value._unknown.count, 42);
+    encoded, ee := Proto.encode(value);
+
+    require(ee.kind == .NONE);
+    defer free(encoded.data);
+    again, ae := Proto.decode(M, encoded);
+
+    require(ae.kind == .NONE);
+    expect(Proto.equal(value, again));
+    Proto.free(*value);
+    Proto.free(*again);
+} @test

@@ -2,6 +2,10 @@
 //
 // Import with a name: `Proto :: #import "Extensions/Protobuf";`.
 // Decoded allocations belong to context.allocator and are released by `Proto.free`.
+// Copy decode owns shared payload/container blocks at the top-level message. Free that
+// owner, and treat its nested values as views. Use set_string/set_bytes to copy a field
+// from another decoded owner. Directly assigned strings/bytes must be individually owned
+// allocations (or use a no-op-free arena for the whole message).
 
 // Why encoding or decoding stopped. Decode offsets are measured from the start of input.
 Error_Kind :: enum u8 {
@@ -109,9 +113,14 @@ decode :: ($T: Type, bytes: [] u8, options := Decode_Options.{}) -> T, Error {
 // Merges wire data into a generated message. On failure the successfully merged prefix remains
 // owned by value and must be freed. Strings and scalar values replace; message values merge.
 merge :: (value: *$T, bytes: [] u8, options := Decode_Options.{}) -> Error {
-    r := Reader.{ bytes = bytes, options = options };
-    if bytes.count > options.max_size || options.max_size < 0 fail(*r, .TOO_LARGE);
-    else if T.proto_merge(value, *r) {
+    r := Reader.{ bytes = bytes, options = options, storage = *value.proto_storage };
+
+    if bytes.count > options.max_size || options.max_size < 0 {
+        fail(*r, .TOO_LARGE);
+        return r.error;
+    }
+
+    if T.proto_merge(value, *r) {
         r.depth = 0;
         #if T.proto_has_required T.proto_check(value, *r);
     }
@@ -147,3 +156,5 @@ beside :: (path: string, loc := #caller_location) -> string {
 Basic :: #import "Basic";
 #import "Basic";
 #import "String";
+
+#load "storage.jai";
