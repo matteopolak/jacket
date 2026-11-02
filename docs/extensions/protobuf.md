@@ -100,6 +100,25 @@ Setting a oneof: `c.via.which = .EMAIL; c.via.email = "ada@example.com";`. Free 
 - `discard_unknown`.
 - `skip_utf8`: accept `string` fields without checking that they're UTF-8. Faster on text-heavy messages, but a string may then hold any bytes, so keep the check for input you don't trust.
 
+### Extensions
+
+Each `extend` field becomes a constant, in its package or inside the message that declares it. Its value lives in the extended message's unknown fields, so decode, encode, merge and equality carry it with no extra work:
+
+```jai
+Proto.set(*base, Api.ext.label, "hi");
+label, found := Proto.get(*base, Api.ext.label);
+Proto.add(*base, Api.ext.nums, 3);
+nums := Proto.get(*base, Api.ext.nums);   // [..] s32
+defer Proto.free(*nums);
+```
+
+- `get` returns the value and whether it was there (the `[default = ...]` when absent); a repeated extension returns every element, packed or not. The last scalar wins and message occurrences merge.
+- `set`, `add` and `clear` rewrite the unknown bytes; `has` tests for a value.
+- Strings and bytes from `get` point into the message's unknown fields: valid until the message changes or is freed. Free a message value with `Proto.free`.
+- Extension strings are UTF-8 checked while decoding, like normal fields.
+- The schema checks extension numbers against the `extensions` ranges and rejects duplicates, across imports too.
+- `discard_unknown` drops extension values, and `message_set_wire_format` is not supported.
+
 ### JSON
 
 ```jai
@@ -135,7 +154,7 @@ A copying decode allocates a handful of blocks, not one allocation per field. St
 
 ## Not supported yet
 
-- Typed extensions: `extensions` ranges are accepted and `extend` blocks are skipped, so extension values arrive in `_unknown` and round-trip unchanged.
+- Extensions in JSON: an `[pkg.extension]` key is an unknown field.
 - Editions newer than 2024. Unknown features are a schema error; custom feature extensions (`pb.cpp`...) are ignored.
 - `service` blocks are read and skipped. gRPC is planned as a separate Extensions module.
 - Not planned: the text format and reflection.
@@ -157,7 +176,7 @@ proto2 and proto3 are fixed defaults for these. In editions, `option features.x 
 
 `benchmarks/compare/protobuf/conformance/testee.jai` runs Google's `conformance_test_runner` against this module. It generates the test messages from a protobuf checkout given at build time: `jaic -O2 testee.jai -add 'PROTOBUF_ROOT :: "/path/to/protobuf";'`.
 
-The runner is upstream code, so it runs only inside the `tools/bench` sandbox. It runs with `--maximum_edition 2024 --enforce_recommended --failure_list failure_list.txt`. Every binary test passes (2,863), proto2, proto3 and editions alike. Every JSON test passes too, in both directions (5,783 tests in all). The listed failures are the UTF-8 check on an extension string and two JSON tests that name an extension as a key, since extensions are untyped. Text-format tests are skipped.
+The runner is upstream code, so it runs only inside the `tools/bench` sandbox. It runs with `--maximum_edition 2024 --enforce_recommended --failure_list failure_list.txt`. Every binary test passes (2,864), proto2, proto3 and editions alike, and so does every JSON test in both directions (5,784 tests in all) except the two listed ones, which name an extension as a JSON key. Text-format tests are skipped.
 
 `stdlib/Extensions/Protobuf/bench/bench.jai`, built with `-O2`, covers four shapes: a mixed message, 1 MiB of packed numbers, 64 levels of nesting, and string-heavy logs. Running it with `-interp -- --generation-only` times generation instead. A 100-message, 1,000-line schema generates in about 190 ms in the interpreter and about 4 KB of Jai per 9-field message.
 
@@ -206,7 +225,7 @@ Jacket encodes about twice as fast as jai-protobuf, except packed numbers, where
 | proto3 JSON | ✅ | ❌ |
 | text format, reflection | not planned | ❌ |
 | services | gRPC planned as a separate module | ❌ |
-| extensions | ⚠️ kept as unknown fields | ❌ |
+| extensions | ✅ | ❌ |
 
 ## Real-world schemas
 

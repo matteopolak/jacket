@@ -4,7 +4,7 @@
 
 ### New
 
-- `Extensions/Protobuf` reads and writes Protocol Buffers: `Extensions/Protobuf/Schema` turns `.proto` files (proto3, proto2 or editions 2023/2024; one file, a folder tree or text, with imports and the well-known types built in) into Jai types and encoders at compile time, with `Proto.encode`, `decode`, `merge`, `equal` and `free`, and the proto3 JSON mapping (`to_json`, `from_json`). It passes Google's binary and JSON conformance suites, generates googleapis, Envoy, Kubernetes and TensorFlow schemas, and a decode makes a few allocations rather than one per field.
+- `Extensions/Protobuf` reads and writes Protocol Buffers: `Extensions/Protobuf/Schema` turns `.proto` files (proto3, proto2 or editions 2023/2024; one file, a folder tree or text, with imports and the well-known types built in) into Jai types and encoders at compile time, with `Proto.encode`, `decode`, `merge`, `equal` and `free`, the proto3 JSON mapping (`to_json`, `from_json`), and typed extensions (`get`, `set`, `has`, `clear`, `add`). It passes Google's binary and JSON conformance suites, generates googleapis, Envoy, Kubernetes and TensorFlow schemas, and a decode makes a few allocations rather than one per field.
 - `examples/kvdb` is a key-value database: a checksummed append-only log with crash recovery and compaction, a CLI, and a TCP server.
 - `examples/sitegen` is a static site generator: Markdown pages and a template in, HTML out, assets published under content-hashed names, small images inlined as data URIs.
 - `examples/seek` is a small grep: regular expressions or fixed text, `--glob` filters, and a thread pool whose output is in path order whatever the thread count.
