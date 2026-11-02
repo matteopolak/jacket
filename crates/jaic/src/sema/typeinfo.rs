@@ -180,12 +180,15 @@ impl Compiler {
         }
         let desc = self.type_info_struct_type(ty, span)?;
         let (size, align) = (self.size_of(desc, span)?, self.align_of(desc, span)?);
+        // Until the layout is done, code that runs early still sees what kind of type this is
+        // and its name, with `runtime_size` -1.
+        let early = self.early_struct_info(ty, desc, size, span)?;
         let g = self.out.program.add_global(ir::Global {
             name: format!("type_info.{}", self.ty.types.full_name(ty)),
             size,
             align,
-            init: Vec::new(),
-            relocs: Vec::new(),
+            init: early.bytes,
+            relocs: early.relocs,
             read_only: true,
             export: None,
         });

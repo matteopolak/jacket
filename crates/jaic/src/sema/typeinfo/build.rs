@@ -109,6 +109,44 @@ impl Compiler {
         Ok(agg)
     }
 
+    /// The part of a struct's record that is known before its layout: the kind, the name and
+    /// a `runtime_size` of -1.
+    pub(super) fn early_struct_info(
+        &mut self,
+        ty: TypeId,
+        desc: TypeId,
+        size: u64,
+        span: Span,
+    ) -> Result<Aggregate> {
+        let mut agg = Aggregate {
+            bytes: vec![0; size as usize],
+            relocs: Vec::new(),
+        };
+        let kind = self.ty.types.kind(ty).clone();
+        self.set_field(
+            &mut agg,
+            desc,
+            "type",
+            Value::Int(descriptor_of(&kind).1),
+            span,
+        )?;
+        self.set_field(&mut agg, desc, "runtime_size", Value::Int(-1), span)?;
+        if let TypeKind::Struct(s) = kind {
+            let name = match self.ty.types.struct_info(s).name.as_str() {
+                "struct" | "union" => String::new(),
+                name => name.to_string(),
+            };
+            self.set_field(
+                &mut agg,
+                desc,
+                "name",
+                Value::String(name.as_bytes().into()),
+                span,
+            )?;
+        }
+        Ok(agg)
+    }
+
     /// `textual_flags`, `nontextual_flags`, `status_flags` and the notes written on struct `s`.
     fn type_info_struct_flags(
         &mut self,
