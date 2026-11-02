@@ -50,6 +50,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             // `for i: a..b` → `for < i: b..a`: the `<` goes right after `for`.
             let after_for = s.span.start as usize + "for".len();
             out.push(Finding {
+                secondary: Vec::new(),
                 start: lo.span.start as usize,
                 end: hi.span.end as usize,
                 message: format!("the range `{lo_text}..{hi_text}` is empty: ranges count up"),

@@ -327,3 +327,52 @@ fn an_import_fix_follows_the_check_diagnostic_it_is_asked_for() {
     );
     assert!(all.is_empty(), "{all:?}");
 }
+
+#[test]
+fn lifetime_secondary_labels_are_related_locations_on_the_wire() {
+    let source = "#import \"Basic\";\ngrow :: (xs: *[..] int) {} @GrowsArray\nprobe :: (flag: bool) {\n    xs: [..] int;\n    array_add(*xs, 1);\n    /* 🦀 */ p := *xs[0];\n    if flag grow(*xs);\n    else grow(*xs);\n    x := p.*;\n}\nmain :: () { probe(true); }\n";
+    let mut json = opened(source);
+    let messages = notify(
+        &mut json,
+        "textDocument/didOpen",
+        serde_json::json!({
+            "textDocument": {"uri": "file:///lsp-test/jacket.toml", "languageId": "toml", "version": 1,
+            "text": "[lint.rules]\npointer_lifetime = \"warn\"\n"}
+        }),
+    );
+    let diagnostics = messages
+        .iter()
+        .find(|m| m["params"]["uri"] == uri().as_str())
+        .unwrap()["params"]["diagnostics"]
+        .as_array()
+        .unwrap();
+    let diagnostic = diagnostics
+        .iter()
+        .find(|d| d["code"] == "pointer_lifetime")
+        .unwrap();
+    let related = diagnostic["relatedInformation"].as_array().unwrap();
+    assert_eq!(related.len(), 3, "{diagnostic}");
+    assert!(
+        diagnostic["message"]
+            .as_str()
+            .unwrap()
+            .contains("every path")
+    );
+    assert_eq!(
+        related
+            .iter()
+            .map(|r| r["location"]["range"]["start"]["line"].as_u64().unwrap())
+            .collect::<Vec<_>>(),
+        [5, 6, 7]
+    );
+    assert!(
+        related
+            .iter()
+            .all(|r| r["location"]["uri"] == uri().as_str())
+    );
+    assert_eq!(
+        related[0]["location"]["range"]["start"],
+        serde_json::to_value(at_nth(source, "*xs[0]", 0, 0)).unwrap()
+    );
+    assert!(related[0]["message"].as_str().unwrap().contains("derived"));
+}

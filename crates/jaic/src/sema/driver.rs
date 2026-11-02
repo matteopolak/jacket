@@ -854,6 +854,9 @@ impl Diagnostics {
     fn with_deferred_errors<T>(&mut self, result: Result<T>) -> Result<T> {
         result.map_err(|mut e| {
             for d in std::mem::take(&mut self.deferred_errors) {
+                for (span, message) in d.secondary_labels() {
+                    e = Box::new((*e).with_secondary_label(*span, message.clone()));
+                }
                 e.notes.push((
                     d.span,
                     format!("a top-level item failed earlier: {}", d.message),

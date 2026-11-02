@@ -342,6 +342,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         }
         let (a, b) = cx.statement_removal(u.span);
         out.push(Finding {
+            secondary: Vec::new(),
             start: u.span.start as usize,
             end: u.span.end as usize,
             message: format!("unused import {}", u.text),

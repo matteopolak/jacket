@@ -104,7 +104,18 @@ impl Session {
             },
             code: DiagnosticCode::Lint(l.rule),
             message,
-            related: Vec::new(),
+            related: l
+                .secondary
+                .iter()
+                .filter_map(|label| {
+                    let at = self.location_in(&label.path, &label.text, label.start, label.end)?;
+                    Some(crate::model::RelatedInformation {
+                        uri: at.uri,
+                        range: at.range,
+                        message: label.message.clone(),
+                    })
+                })
+                .collect(),
         })
     }
 

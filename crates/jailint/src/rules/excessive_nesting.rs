@@ -74,6 +74,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             out.push(Finding {
+                secondary: Vec::new(),
                 start: header.start as usize,
                 end: header.end as usize,
                 message: format!(

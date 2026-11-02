@@ -66,6 +66,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let commented =
                 cx.has_comment_between(body.span.start as usize, first.span.end as usize);
             out.push(Finding {
+                secondary: Vec::new(),
                 start: w.cond.span.start as usize,
                 end: w.cond.span.end as usize,
                 message: "this loop leaves on its first statement; the test belongs in the `while`"

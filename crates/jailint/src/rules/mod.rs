@@ -387,6 +387,7 @@ pub(crate) fn finding(span: Span, message: String, help: Option<String>) -> Find
         end: span.end as usize,
         message,
         label: None,
+        secondary: Vec::new(),
         help,
         fix: None,
     }
@@ -414,6 +415,7 @@ pub(crate) fn suggesting(
     edits: Vec<Edit>,
 ) -> Finding {
     Finding {
+        secondary: Vec::new(),
         start: span.start as usize,
         end: span.end as usize,
         message,
@@ -437,6 +439,7 @@ pub(crate) fn replacing(
     machine_applicable: bool,
 ) -> Finding {
     Finding {
+        secondary: Vec::new(),
         start: span.start as usize,
         end: span.end as usize,
         message,

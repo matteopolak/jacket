@@ -76,6 +76,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         jaic::ast::ForOver::Collection(c) => c.span.end,
                     };
                     out.push(Finding {
+                        secondary: Vec::new(),
                         start: inner.span.start as usize,
                         end: header_end as usize,
                         message: format!(

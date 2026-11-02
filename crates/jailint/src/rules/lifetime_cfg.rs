@@ -197,14 +197,10 @@ fn solve(
     out: &mut Vec<Finding>,
 ) {
     let mut states = vec![0u8; blocks.len()];
-    // Evidence is independent from the lattice, so two branches can invalidate at different
-    // calls and still establish DEAD. A source-order witness suffices for this spike.
-    let mut witnesses: Vec<Option<Span>> = vec![None; blocks.len()];
     states[0] = UNKNOWN;
     let mut queue = VecDeque::from([0]);
     while let Some(i) = queue.pop_front() {
         let mut state = states[i];
-        let mut witness = witnesses[i];
         match blocks[i].op {
             Op::Set(id, r, at) if id == pointer => {
                 state = if r == Some(region) && at == origin {
@@ -212,28 +208,22 @@ fn solve(
                 } else {
                     UNKNOWN
                 };
-                witness = None;
             }
             Op::Set(id, _, _) if id == region || id == pointer => {
                 state = UNKNOWN;
-                witness = None;
             }
             Op::Barrier => {
                 state = UNKNOWN;
-                witness = None;
             }
-            Op::Grow(id, at) if id == region && state & LIVE != 0 => {
+            Op::Grow(id, _) if id == region && state & LIVE != 0 => {
                 state = (state & !LIVE) | DEAD;
-                witness = Some(at);
             }
             _ => {}
         }
         for &next in &blocks[i].next {
             let joined = states[next] | state;
-            let evidence = witnesses[next].or(witness);
-            if joined != states[next] || evidence != witnesses[next] {
+            if joined != states[next] {
                 states[next] = joined;
-                witnesses[next] = evidence;
                 queue.push_back(next);
             }
         }
@@ -243,17 +233,72 @@ fn solve(
             && let Op::Use(id, at) = b.op
             && id == pointer
         {
-            let Some(growth) = witnesses[i] else {
-                continue;
-            };
-            let line = |s: Span| cx.compiler.src.sources.get(s.file).line_col(s.start).0;
             if at.file != cx.file {
                 continue;
             }
-            out.push(finding(at, format!("`{}` points into `{}`, which may be resized: {}",
-                cx.src(at), region_name, cx.compiler.src.sources.snippet(growth).trim()),
-                Some(format!("pointer derived at line {}; invalidating call at line {}; take the pointer again after growth",
-                    line(origin), line(growth)))));
+            let growths = invalidation_cut(blocks, &states, i, region);
+            if growths.is_empty() {
+                continue;
+            }
+            let explanation = if growths.len() == 1 {
+                format!(
+                    "`{}` points into `{region_name}`, which may be resized: {}",
+                    cx.src(at),
+                    cx.compiler.src.sources.snippet(growths[0]).trim()
+                )
+            } else {
+                format!(
+                    "`{}` points into `{region_name}`; every path to this use passes one of {} invalidating calls",
+                    cx.src(at),
+                    growths.len()
+                )
+            };
+            let mut report = finding(
+                at,
+                explanation,
+                Some("take the pointer again after growth, or store an index instead".into()),
+            );
+            report.label = Some("pointer used here after its storage was invalidated".into());
+            report
+                .secondary
+                .push((origin, "pointer derived here".into()));
+            for growth in growths {
+                report
+                    .secondary
+                    .push((growth, format!("`{region_name}` storage invalidated here")));
+            }
+            out.push(report);
         }
     }
+}
+
+
+/// Collect the last invalidator on every reachable incoming path. The DEAD proof is
+/// established by the lattice first; this traversal only explains it. Allocate predecessors
+/// and visited bits on demand for a diagnostic, rather than witness sets at every CFG node.
+fn invalidation_cut(blocks: &[Block], states: &[u8], use_at: usize, region: Val) -> Vec<Span> {
+    let mut incoming = vec![Vec::new(); blocks.len()];
+    for (from, block) in blocks.iter().enumerate().filter(|(i, _)| states[*i] != 0) {
+        for &to in &block.next {
+            incoming[to].push(from);
+        }
+    }
+    let mut seen = vec![false; blocks.len()];
+    let mut queue = VecDeque::from([use_at]);
+    let mut spans = Vec::new();
+    while let Some(i) = queue.pop_front() {
+        if std::mem::replace(&mut seen[i], true) {
+            continue;
+        }
+        if let Op::Grow(id, at) = blocks[i].op
+            && id == region
+        {
+            spans.push(at);
+        } else {
+            queue.extend(incoming[i].iter().copied());
+        }
+    }
+    spans.sort_unstable_by_key(|s| (s.file.0, s.start, s.end));
+    spans.dedup();
+    spans
 }

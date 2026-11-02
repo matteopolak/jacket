@@ -295,7 +295,7 @@ pub struct Report<'a> {
     pub compact: bool,
 }
 
-impl Report<'_> {
+impl<'a> Report<'a> {
     /// The name printed in brackets.
     fn shown_name(&self) -> &'static str {
         self.name.unwrap_or_else(|| self.code.name())
@@ -349,6 +349,15 @@ impl Report<'_> {
     #[must_use]
     pub fn note(mut self, message: impl Into<String>) -> Self {
         self.notes.push(message.into());
+        self
+    }
+
+    /// An explicitly labelled secondary location uses the shared snippet in plain output too.
+    /// Located notes retain the historical compact rendering unless a caller asks for labels.
+    #[must_use]
+    pub fn with_secondary_label(mut self, label: Label<'a>) -> Self {
+        self.secondary.push(label);
+        self.compact = false;
         self
     }
 

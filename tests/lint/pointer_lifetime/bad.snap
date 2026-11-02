@@ -4,135 +4,227 @@ source: crates/jailint/tests/rules.rs
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
   --> tests/lint/pointer_lifetime/bad.jai:15:10
    |
+12 |     p := *xs[0];
+   |          ------ pointer derived here
+   ...
+14 |     grow(*xs);
+   |     --------- `xs` storage invalidated here
 15 |     sink(p);
-   |          ^
+   |          ^ pointer used here after its storage was invalidated
    |
-   = help: pointer derived at line 12; invalidating call at line 14; take the pointer again after growth
+   = help: take the pointer again after growth, or store an index instead
 
-warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
+warning[pointer_lifetime]: `p` points into `xs`; every path to this use passes one of 2 invalidating calls
   --> tests/lint/pointer_lifetime/bad.jai:27:10
    |
+22 |     p := *xs[0];
+   |          ------ pointer derived here
+   ...
+24 |     if flag grow(*xs);
+   |             --------- `xs` storage invalidated here
+25 |     else grow(*xs);
+   |          --------- `xs` storage invalidated here
+   ...
 27 |     sink(p);
-   |          ^
+   |          ^ pointer used here after its storage was invalidated
    |
-   = help: pointer derived at line 22; invalidating call at line 24; take the pointer again after growth
+   = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
   --> tests/lint/pointer_lifetime/bad.jai:38:14
    |
+34 |     p := *xs[0];
+   |          ------ pointer derived here
+   ...
+37 |         grow(*xs);
+   |         --------- `xs` storage invalidated here
 38 |         sink(p);
-   |              ^
+   |              ^ pointer used here after its storage was invalidated
    |
-   = help: pointer derived at line 34; invalidating call at line 37; take the pointer again after growth
+   = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `it` points into `xs`, which may be resized: grow(*xs)
   --> tests/lint/pointer_lifetime/bad.jai:49:14
    |
+47 |     for *xs {
+   |          -- pointer derived here
+48 |         grow(*xs);
+   |         --------- `xs` storage invalidated here
 49 |         sink(it);
-   |              ^^
+   |              ^^ pointer used here after its storage was invalidated
    |
-   = help: pointer derived at line 47; invalidating call at line 48; take the pointer again after growth
+   = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `item` points into `xs`, which may be resized: grow(*xs)
   --> tests/lint/pointer_lifetime/bad.jai:60:14
    |
+58 |     for *item: xs {
+   |                -- pointer derived here
+59 |         grow(*xs);
+   |         --------- `xs` storage invalidated here
 60 |         sink(item);
-   |              ^^^^
+   |              ^^^^ pointer used here after its storage was invalidated
    |
-   = help: pointer derived at line 58; invalidating call at line 59; take the pointer again after growth
+   = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
   --> tests/lint/pointer_lifetime/bad.jai:77:10
    |
+69 |     p := *xs[0];
+   |          ------ pointer derived here
+   ...
+72 |         grow(*xs);
+   |         --------- `xs` storage invalidated here
+   ...
 77 |     sink(p);
-   |          ^
+   |          ^ pointer used here after its storage was invalidated
    |
-   = help: pointer derived at line 69; invalidating call at line 72; take the pointer again after growth
+   = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add(*xs, 2)
    --> tests/lint/pointer_lifetime/bad.jai:98:10
     |
+ 95 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+ 97 |     array_add(*xs, 2);
+    |     ----------------- `xs` storage invalidated here
  98 |     sink(p);
-    |          ^
+    |          ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 95; invalidating call at line 97; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add(*xs, 2)
    --> tests/lint/pointer_lifetime/bad.jai:109:10
     |
+106 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+108 |     array_add(*xs, 2);
+    |     ----------------- `xs` storage invalidated here
 109 |     sink(p);
-    |          ^
+    |          ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 106; invalidating call at line 108; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
    --> tests/lint/pointer_lifetime/bad.jai:120:10
     |
+117 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+119 |     #if INVALIDATE grow(*xs);
+    |                    --------- `xs` storage invalidated here
 120 |     sink(p);
-    |          ^
+    |          ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 117; invalidating call at line 119; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(xs = *xs)
    --> tests/lint/pointer_lifetime/bad.jai:135:10
     |
+132 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+134 |     grow(xs = *xs);
+    |     -------------- `xs` storage invalidated here
 135 |     sink(p);
-    |          ^
+    |          ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 132; invalidating call at line 134; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow_many(*xs, ..rest)
    --> tests/lint/pointer_lifetime/bad.jai:148:10
     |
+144 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+147 |     grow_many(*xs, ..rest);
+    |     ---------------------- `xs` storage invalidated here
 148 |     sink(p);
-    |          ^
+    |          ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 144; invalidating call at line 147; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead
 
-warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
+warning[pointer_lifetime]: `p` points into `xs`; every path to this use passes one of 2 invalidating calls
    --> tests/lint/pointer_lifetime/bad.jai:162:10
     |
+155 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+158 |         case 1; grow(*xs);
+    |                 --------- `xs` storage invalidated here
+159 |         case; grow(*xs);
+    |               --------- `xs` storage invalidated here
+    ...
 162 |     sink(p);
-    |          ^
+    |          ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 155; invalidating call at line 158; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
    --> tests/lint/pointer_lifetime/bad.jai:175:10
     |
+169 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+172 |         defer grow(*xs);
+    |               --------- `xs` storage invalidated here
+    ...
 175 |     sink(p);
-    |          ^
+    |          ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 169; invalidating call at line 172; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
    --> tests/lint/pointer_lifetime/bad.jai:194:10
     |
+182 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+185 |         grow(*xs);
+    |         --------- `xs` storage invalidated here
+    ...
 194 |     sink(p);
-    |          ^
+    |          ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 182; invalidating call at line 185; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
    --> tests/lint/pointer_lifetime/bad.jai:207:10
     |
+203 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+206 |     grow(*xs);
+    |     --------- `xs` storage invalidated here
 207 |     sink(p);
-    |          ^
+    |          ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 203; invalidating call at line 206; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
    --> tests/lint/pointer_lifetime/bad.jai:221:21
     |
+218 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+220 |     grow(*xs);
+    |     --------- `xs` storage invalidated here
 221 |     if enabled sink(p);
-    |                     ^
+    |                     ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 218; invalidating call at line 220; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
    --> tests/lint/pointer_lifetime/bad.jai:231:10
     |
+228 |     p := *xs[0];
+    |          ------ pointer derived here
+    ...
+230 |     #insert "grow(*xs);";
+    |             ------------ `xs` storage invalidated here
 231 |     sink(p);
-    |          ^
+    |          ^ pointer used here after its storage was invalidated
     |
-    = help: pointer derived at line 228; invalidating call at line 1; take the pointer again after growth
+    = help: take the pointer again after growth, or store an index instead

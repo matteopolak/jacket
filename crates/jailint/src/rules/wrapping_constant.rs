@@ -126,6 +126,7 @@ fn check_operand(
     };
     let (start, end) = cx.whole(other);
     out.push(Finding {
+        secondary: Vec::new(),
         start: constant.span.start as usize,
         end: constant.span.end as usize,
         message,

@@ -83,6 +83,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 fn report(cx: &Cx, cast: &Expr, ty: &str, rest: &str, out: &mut Vec<Finding>) {
     let help = "remove the cast".to_string();
     out.push(Finding {
+        secondary: Vec::new(),
         start: cast.span.start as usize,
         end: cast.span.end as usize,
         message: format!(

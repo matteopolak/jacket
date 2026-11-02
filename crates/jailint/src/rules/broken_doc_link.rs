@@ -140,6 +140,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             ),
         };
         out.push(Finding {
+            secondary: Vec::new(),
             start: b.start,
             end: b.end,
             message: format!("`{}` doesn't resolve to a declaration", b.shown),

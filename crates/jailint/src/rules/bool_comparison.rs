@@ -61,6 +61,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let written = cx.whole_src(e).trim();
             let help = format!("write `{replacement}`");
             out.push(Finding {
+                secondary: Vec::new(),
                 start: e.span.start as usize,
                 end: e.span.end as usize,
                 message: format!("comparing a bool with `{lit}`: `{written}`"),

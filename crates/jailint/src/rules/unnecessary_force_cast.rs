@@ -64,6 +64,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let start = e.span.start as usize + at;
             let help = "remove `,force`: the plain cast does the same".to_string();
             out.push(Finding {
+                secondary: Vec::new(),
                 start: e.span.start as usize,
                 end: ty.span.end as usize,
                 message: format!(

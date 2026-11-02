@@ -49,6 +49,27 @@ pub fn render(
         message: lint.label.clone(),
         lines: Some(lines),
     });
+    let related_paths: Vec<_> = lint
+        .secondary
+        .iter()
+        .map(|label| {
+            if label.path == lint.path {
+                path.clone()
+            } else {
+                SourcePath::from(label.path.as_str())
+            }
+        })
+        .collect();
+    for (label, path) in lint.secondary.iter().zip(&related_paths) {
+        report = report.with_secondary_label(Label {
+            path,
+            text: &label.text,
+            start: label.start,
+            end: label.end,
+            message: Some(label.message.clone()),
+            lines: None,
+        });
+    }
     if let Some(help) = &lint.help {
         report.help.push(Help {
             message: help.clone(),

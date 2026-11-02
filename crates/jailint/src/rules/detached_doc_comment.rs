@@ -80,6 +80,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let gap_from = end + cx.text[end..at].find('\n').map_or(0, |n| n + 1);
         let gap_to = jaic::source::line_start(cx.text, at);
         out.push(Finding {
+            secondary: Vec::new(),
             start: last.span.start as usize,
             end,
             message: format!(

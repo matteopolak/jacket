@@ -46,6 +46,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             };
             let near = closest(name);
             out.push(Finding {
+                secondary: Vec::new(),
                 start,
                 end: start + name.len(),
                 message: format!("`{name}` is not a jailint rule, so this comment allows nothing"),

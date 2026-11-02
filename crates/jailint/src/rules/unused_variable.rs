@@ -149,6 +149,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     )
                 };
                 out.push(Finding {
+                    secondary: Vec::new(),
                     start: name.span.start as usize,
                     end: name.span.end as usize,
                     message: format!("unused variable `{}`", name.name),

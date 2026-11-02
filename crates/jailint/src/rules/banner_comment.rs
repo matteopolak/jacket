@@ -36,6 +36,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         }
         let (start, end) = cx.statement_removal(c.span);
         out.push(Finding {
+            secondary: Vec::new(),
             start: c.span.start as usize,
             end: c.span.end as usize,
             message: "this comment is only a line of rule characters".into(),

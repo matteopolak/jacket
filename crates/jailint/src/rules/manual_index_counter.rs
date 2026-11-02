@@ -228,6 +228,7 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
         }
         let help = format!("use `{index_name}` instead of counting by hand");
         out.push(Finding {
+            secondary: Vec::new(),
             start: decl_name_span.start as usize,
             end: decl_name_span.end as usize,
             message: format!("`{name}` always equals `{index_name}` of the loop that follows"),

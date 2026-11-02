@@ -89,6 +89,7 @@ fn report(cx: &Cx, whole: &Expr, child: &Expr, outer: BinOp, inner: BinOp) -> Fi
         op_text(inner)
     );
     Finding {
+        secondary: Vec::new(),
         start: whole.span.start as usize,
         end: whole.span.end as usize,
         message: if arithmetic(outer) {

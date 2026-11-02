@@ -220,6 +220,7 @@ fn leak_lint(
             to,
             ..
         } => Lint {
+            secondary: Vec::new(),
             rule: rule.name,
             level: configs.at(from).level_at(rule, from),
             path: from.to_string_lossy().into_owned(),
@@ -240,6 +241,7 @@ fn leak_lint(
         Leak::Own {
             assert,
         } => Lint {
+            secondary: Vec::new(),
             rule: rule.name,
             level: configs.at(&assert.path).level_at(rule, &assert.path),
             path: assert.path.to_string_lossy().into_owned(),

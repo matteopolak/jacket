@@ -36,6 +36,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         }
         let (span, name) = super::proc_label(p);
         out.push(Finding {
+            secondary: Vec::new(),
             start: span.start as usize,
             end: span.end as usize,
             message: format!(

@@ -87,6 +87,7 @@ mod tests {
 
     fn lint(edits: &[(usize, usize)]) -> Lint {
         Lint {
+            secondary: Vec::new(),
             rule: "test",
             level: crate::config::Level::Warn,
             path: String::new(),

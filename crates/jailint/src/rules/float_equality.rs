@@ -40,6 +40,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let same = cx.same_tokens(a, b);
             if float(a) && float(b) && !same {
                 out.push(Finding {
+                    secondary: Vec::new(),
                     start: e.span.start as usize,
                     end: e.span.end as usize,
                     message: "comparing floats for exact equality".into(),

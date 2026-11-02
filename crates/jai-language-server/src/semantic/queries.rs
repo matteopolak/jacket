@@ -276,7 +276,12 @@ impl Analysis {
         let here = d.span.file == file;
         // A diagnostic elsewhere shows at its first note in this file, with that note's text.
         let at_note = (!here)
-            .then(|| d.notes.iter().find(|(span, _)| span.file == file))
+            .then(|| {
+                d.secondary_labels()
+                    .iter()
+                    .chain(&d.notes)
+                    .find(|(span, _)| span.file == file)
+            })
             .flatten();
         let (span, base) = match at_note {
             Some((span, note)) => (*span, format!("{}\n{note}", d.message)),
@@ -285,7 +290,7 @@ impl Analysis {
         };
         let mut display = base.clone();
         let mut related = Vec::new();
-        for (span, note) in &d.notes {
+        for (span, note) in d.secondary_labels().iter().chain(&d.notes) {
             if at_note.is_some_and(|(at, _)| at == span) {
                 continue;
             }

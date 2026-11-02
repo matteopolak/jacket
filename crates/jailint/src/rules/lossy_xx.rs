@@ -68,6 +68,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             ) && !target.contains(' ');
             let help = format!("write `cast({target})` to make the conversion visible");
             out.push(Finding {
+                secondary: Vec::new(),
                 start: e.span.start as usize,
                 end: e.span.end as usize,
                 message: format!(

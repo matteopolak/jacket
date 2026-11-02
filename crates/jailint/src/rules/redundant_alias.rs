@@ -291,6 +291,7 @@ fn returned(
 
 fn push(span: Span, message: String, help: String, edits: Vec<Edit>, out: &mut Vec<Finding>) {
     out.push(Finding {
+        secondary: Vec::new(),
         start: span.start as usize,
         end: span.end as usize,
         message,

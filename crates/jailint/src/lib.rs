@@ -21,7 +21,8 @@ pub use config::{Config, Level};
 pub use rules::{RULES, RuleInfo};
 
 use jaic::sema::Compiler;
-use jaic::source::FileId;
+use jaic::source::{FileId, Span};
+use std::sync::Arc;
 
 /// One replacement in the linted file: bytes `start..end` become `text`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -41,6 +42,17 @@ pub struct Fix {
     pub machine_applicable: bool,
 }
 
+/// A labelled source location retained after its compiler is dropped. Text shares the
+/// compiler's source allocation, so multiple labels never copy an entire file.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SecondaryLabel {
+    pub path: String,
+    pub text: Arc<str>,
+    pub start: usize,
+    pub end: usize,
+    pub message: String,
+}
+
 /// A finding.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Lint {
@@ -57,6 +69,7 @@ pub struct Lint {
     pub help: Option<String>,
     /// Further facts, printed as `note:` lines after the advice.
     pub notes: Vec<String>,
+    pub secondary: Vec<SecondaryLabel>,
     pub fix: Option<Fix>,
 }
 
@@ -143,6 +156,25 @@ pub fn lint_files(
                     label: f.label,
                     help: f.help,
                     notes: Vec::new(),
+                    secondary: f
+                        .secondary
+                        .iter()
+                        .filter_map(|(span, message)| {
+                            // Generated inserts are explained at their writable source site.
+                            let mut span = *span;
+                            while let Some(site) = compiler.src.insert_sites.get(&span.file) {
+                                span = *site;
+                            }
+                            let source = compiler.src.sources.try_get(span.file)?;
+                            Some(SecondaryLabel {
+                                path: source.path.to_string(),
+                                text: source.text.clone(),
+                                start: span.start as usize,
+                                end: span.end as usize,
+                                message: message.clone(),
+                            })
+                        })
+                        .collect(),
                     fix: f.fix,
                 });
             }
@@ -167,6 +199,7 @@ pub fn lint_files(
                     label: None,
                     help: Some("nothing it covers is reported any more; remove it".into()),
                     notes: Vec::new(),
+                    secondary: Vec::new(),
                     fix: None,
                 });
             }
@@ -185,5 +218,6 @@ pub(crate) struct Finding {
     pub message: String,
     pub label: Option<String>,
     pub help: Option<String>,
+    pub secondary: Vec<(Span, String)>,
     pub fix: Option<Fix>,
 }

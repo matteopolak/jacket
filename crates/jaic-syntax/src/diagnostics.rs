@@ -45,6 +45,13 @@ pub enum Data {
     Module(u32),
 }
 
+/// Optional diagnostic details share one allocation to keep parser errors small.
+#[derive(Clone, Debug, Default)]
+pub struct DiagnosticDetails {
+    suggestions: Suggestions,
+    secondary: Vec<(Span, String)>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Diagnostic {
     pub code: Code,
@@ -52,7 +59,7 @@ pub struct Diagnostic {
     pub span: Span,
     pub message: String,
     pub data: Data,
-    /// Text under the primary span's carets (outside the plain layout). Boxed, as `fixes`
+    /// Text under the primary span's carets in snippet layouts. Boxed, as `fixes`
     /// is, to keep `Result<_, Diagnostic>` small.
     pub label: Option<Box<str>>,
     /// Related locations; a note whose span has no file (`Span::NONE`) prints as text only.
@@ -60,9 +67,9 @@ pub struct Diagnostic {
     pub notes: Vec<(Span, String)>,
     /// `help:` lines printed last: how to fix the problem, when that is clear.
     pub help: Vec<String>,
-    /// Changes that fix the problem, in a form tools can apply. Each prints as a `help:` line
-    /// before the plain ones in `help`; editors offer each as a quick fix.
-    pub suggestions: Option<Box<Suggestions>>,
+    /// Suggestions and explicit secondary labels, allocated only when present. Use the
+    /// accessors so removing a suggestion never removes source labels.
+    pub details: Option<Box<DiagnosticDetails>>,
 }
 
 impl Diagnostic {
@@ -77,7 +84,7 @@ impl Diagnostic {
             label: None,
             notes: Vec::new(),
             help: Vec::new(),
-            suggestions: None,
+            details: None,
         }
     }
 
@@ -101,6 +108,30 @@ impl Diagnostic {
     }
 
     #[must_use]
+    pub fn with_secondary_label(mut self, span: Span, message: impl Into<String>) -> Self {
+        self.details
+            .get_or_insert_default()
+            .secondary
+            .push((span, message.into()));
+        self
+    }
+
+    pub fn secondary_labels(&self) -> &[(Span, String)] {
+        self.details
+            .as_deref()
+            .map_or(&[], |details| &details.secondary)
+    }
+
+    /// Remap labels when a lexer/parser reports against a substring of the real source.
+    pub fn map_secondary_spans(&mut self, mut map: impl FnMut(Span) -> Span) {
+        if let Some(details) = &mut self.details {
+            for (span, _) in &mut details.secondary {
+                *span = map(*span);
+            }
+        }
+    }
+
+    #[must_use]
     pub fn with_note(mut self, span: Span, message: impl Into<String>) -> Self {
         self.notes.push((span, message.into()));
         self
@@ -114,13 +145,26 @@ impl Diagnostic {
 
     /// The changes that fix the problem, in the order they were added.
     pub fn suggestions(&self) -> &[Suggestion] {
-        self.suggestions.as_deref().map_or(&[], |s| &s.0)
+        self.details
+            .as_deref()
+            .map_or(&[], |details| &details.suggestions.0)
+    }
+
+    /// Remove fixes without losing explicit source labels.
+    pub fn clear_suggestions(&mut self) {
+        if let Some(details) = &mut self.details {
+            details.suggestions.0.clear();
+        }
     }
 
     /// A change that fixes the problem (see [`Suggestion`]).
     #[must_use]
     pub fn with_suggestion(mut self, suggestion: Suggestion) -> Self {
-        self.suggestions.get_or_insert_default().0.push(suggestion);
+        self.details
+            .get_or_insert_default()
+            .suggestions
+            .0
+            .push(suggestion);
         self
     }
 
@@ -165,6 +209,12 @@ impl Diagnostic {
         let mut report = Report::new(self.code, self.message.clone());
         report.severity = self.severity;
         report.primary = label(self.span, self.label.as_deref().map(String::from));
+        for (span, message) in self.secondary_labels() {
+            match label(*span, Some(message.clone())) {
+                Some(label) => report = report.with_secondary_label(label),
+                None => report.notes.push(message.clone()),
+            }
+        }
         for (span, note) in &self.notes {
             match label(*span, Some(note.clone())) {
                 Some(l) => report.secondary.push(l),

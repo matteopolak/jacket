@@ -191,10 +191,11 @@ impl Compiler {
         };
         let remap = |mut d: Diagnostic| {
             d.span = moved(d.span);
+            d.map_secondary_spans(moved);
             for note in &mut d.notes {
                 note.0 = moved(note.0);
             }
-            d.suggestions = None;
+            d.clear_suggestions();
             Box::new(d)
         };
         let mut tokens = lexer::lex(file, text).map_err(remap)?;
@@ -206,7 +207,7 @@ impl Compiler {
             kept.push(token);
         }
         parser::parse_expression(text, kept).map_err(|mut d| {
-            d.suggestions = None;
+            d.clear_suggestions();
             Box::new(d)
         })
     }

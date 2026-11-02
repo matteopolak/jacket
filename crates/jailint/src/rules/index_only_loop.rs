@@ -339,6 +339,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         }
     });
     Some(Finding {
+        secondary: Vec::new(),
         start: stmt.span.start as usize,
         end: hi_end,
         message,

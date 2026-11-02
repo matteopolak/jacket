@@ -72,6 +72,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 .find('*')
                 .map_or(gap.end as usize, |i| gap.start as usize + i + 1);
             out.push(Finding {
+                secondary: Vec::new(),
                 start: gap.start as usize,
                 end: star,
                 message: format!(

@@ -164,6 +164,7 @@ fn examine(
     }
     let help = format!("write `{replacement}`, which is the same `float32`");
     out.push(Finding {
+        secondary: Vec::new(),
         start: e.span.start as usize,
         end: e.span.end as usize,
         message: format!("`{text}` has {written} significant digits, but a `float32` keeps {kept}"),
