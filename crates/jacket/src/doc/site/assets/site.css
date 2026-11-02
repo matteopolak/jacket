@@ -44,6 +44,8 @@ html::-webkit-scrollbar-thumb:hover, .side::-webkit-scrollbar-thumb:hover, .side
 body { margin: 0; font-family: var(--sans); font-size: 15.5px; line-height: 1.7; color: var(--fg); background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; }
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
+/* Names in code never underline. */
+code a:hover, .ty:hover, .mono a:hover { text-decoration: none; }
 code, .mono { font-family: var(--mono); }
 code { font-size: 0.9em; }
 button, select, input { font: inherit; color: inherit; }
@@ -382,8 +384,7 @@ pre, table, .defs { max-width: 100%; overflow-x: auto; }
 .nav-list { list-style: none; margin: 0; padding: 0; }
 
 .toc li a, .toc li.more button, .site-nav a { min-height: 24px; }
-/* Text links and selected options have a cue in addition to colour. */
-main p a, main dd a, .prose a, .sig a, .sig-line a, main li a:not(.card):not(.pill) { text-decoration: underline; text-underline-offset: 3px; }
+/* Selected options have a cue in addition to colour. */
 #results .hit[aria-selected="true"] { outline: 2px solid var(--link); outline-offset: -2px; }
 .toc li a.active, .ver-menu a[aria-current="true"] { font-weight: 600; }
 h2 .anchor, h3 .anchor { display: inline-flex; min-width: 24px; min-height: 24px; align-items: center; justify-content: center; }
