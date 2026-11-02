@@ -194,25 +194,24 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 
 /* The outline on the right of a module page, wide screens only */
 .toc { display: none; }
-.toc-h { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); margin: 0 0 10px; padding-left: 12px; }
-.toc ul { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--border); }
-.toc li a { display: block; padding: 3px 12px; color: var(--muted); font-size: 13px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.toc > ul > li > a { color: var(--fg2); }
-.toc li.sub a { padding-left: 24px; font-size: 12.5px; color: var(--muted); }
-.toc li.items > ul { border-left: 0; }
-.toc li.items a { padding: 1px 12px 1px 24px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
-.toc li.sub + li.items a, .toc li.sub + li.items button { padding-left: 36px; }
+/* Same rhythm as the left sidebar: a heading, plain rows, and nested lists hung off a guide line. */
+.toc-h { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); margin: 0 0 8px; padding: 0 10px; }
+.toc ul { list-style: none; margin: 0; padding: 0; }
+.toc li a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--fg2); font-size: 13.5px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toc li.sub a { font-size: 13px; color: var(--muted); padding: 3px 10px 3px 20px; }
+.toc li.items > ul { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 10px 10px; padding-left: 8px; border-left: 1px solid color-mix(in srgb, var(--muted) 30%, transparent); }
+.toc li.items a { padding: 2px 8px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.toc li.sub + li.items > ul { margin-left: 20px; }
 .js .toc li.items li.extra, .toc li.more[hidden] { display: none; }
-.toc li.more button { display: block; padding: 1px 12px 1px 24px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11.5px; cursor: pointer; }
-.toc li.more button:hover { color: var(--fg); }
-.toc li a:hover { color: var(--fg); text-decoration: none; }
-.toc li a.active { color: var(--link); }
+.toc li.more button { display: block; padding: 2px 8px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.toc li.more button:hover, .toc li a:hover { color: var(--fg); text-decoration: none; }
+.toc li a.active { color: var(--link); background: var(--sel); }
 @media (min-width: 1200px) {
   .wrap, .top-in { max-width: 1520px; }
   .side { flex-basis: 272px; max-width: 272px; }
 }
 @media (min-width: 1280px) {
-  .toc { display: block; flex: 0 0 188px; position: sticky; top: 61px; align-self: flex-start; max-height: calc(100vh - 61px); overflow-y: auto; padding: 48px 0 24px; }
+  .toc { display: block; flex: 0 0 224px; position: sticky; top: 61px; align-self: flex-start; max-height: calc(100vh - 61px); overflow-y: auto; padding: 48px 0 24px; }
 }
 
 /* Item pages */
