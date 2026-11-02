@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+enum Kind { KIND_UNSPECIFIED = 0; KIND_SERVER = 1; KIND_CLIENT = 2; KIND_INTERNAL = 3; }
+message Attribute { string key = 1; string value = 2; int64 number = 3; }
+message Event { fixed64 time_ns = 1; string name = 2; repeated Attribute attributes = 3; }
+message Span {
+  bytes trace_id = 1; bytes span_id = 2; bytes parent_id = 3;
+  string name = 4; Kind kind = 5;
+  fixed64 start_ns = 6; fixed64 end_ns = 7;
+  repeated Attribute attributes = 8; repeated Event events = 9;
+  uint32 status = 10;
+}
+message Spans { repeated Span spans = 1; }
