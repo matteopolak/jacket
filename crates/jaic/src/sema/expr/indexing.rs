@@ -140,7 +140,24 @@ impl Compiler {
             }
             return self.index_operand(f, scope, base_op, index_op, index.span, target.span);
         }
-        self.check_expr(f, scope, target, None)
+        self.check_place_expr(f, scope, target)
+    }
+
+    pub(in crate::sema) fn check_place_expr(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        target: &ast::Expr,
+    ) -> Result<Operand> {
+        // A bare target names a place; it does not read the previous pointer value.
+        // Scope this to the exact expression, so indirect/indexed targets still read bases.
+        let saved = f.lifetime_nonuses;
+        if f.lifetimes.is_some() && matches!(target.kind, ast::ExprKind::Ident(_)) {
+            f.lifetime_nonuses = [Some(target.span), None];
+        }
+        let result = self.check_expr(f, scope, target, None);
+        f.lifetime_nonuses = saved;
+        result
     }
 
     pub(super) fn check_index(

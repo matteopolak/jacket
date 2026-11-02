@@ -198,3 +198,35 @@ fn type_only_probe_does_not_emit_runtime_effects() {
         .unwrap();
     assert!(!events(b).any(|e| matches!(e, Event::Grow { .. } | Event::Call { .. })));
 }
+
+
+#[test]
+fn assignment_targets_and_comparisons_are_not_reads_but_their_operands_are() {
+    let source = r"
+        main :: () {
+            p: *int; q: *int; pp := *p;
+            p = q;
+            p, q = q, p;
+            p += 1;
+            pp.* = q;
+            same := p == q;
+            other := p.* == q.*;
+        }
+    ";
+    let c = compile(source, true, false);
+    let b = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
+        .unwrap();
+    for (fragment, expected) in [
+        ("p = q", 1),
+        ("p, q = q, p", 2),
+        ("p += 1", 1),
+        ("pp.* = q", 2),
+        ("p == q", 0),
+        ("p.* == q.*", 2),
+    ] {
+        let start = source.find(fragment).unwrap() as u32;
+        let count = events(b).filter(|e| matches!(e, Event::Use { span, .. } if span.start >= start && span.end <= start + fragment.len() as u32)).count();
+        assert_eq!(count, expected, "{fragment}");
+    }
+}

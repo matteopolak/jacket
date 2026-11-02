@@ -758,7 +758,7 @@ impl Compiler {
             // `xx` and inferred members follow it (`v.x, v.y = 42, 108;`, `= xx a, xx b;`).
             let target = match &l.kind {
                 E::Ident(name) if name.as_str() == "_" => None,
-                _ => match self.check_expr(f, scope, l, None)? {
+                _ => match self.check_place_expr(f, scope, l)? {
                     Operand::Place {
                         ty, ..
                     } => Some(ty),

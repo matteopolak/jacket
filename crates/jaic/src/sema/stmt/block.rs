@@ -374,16 +374,6 @@ impl Compiler {
                 rhs,
             } => {
                 let result = self.check_assign(f, scope, *op, lhs, rhs, span);
-                if matches!(op, ast::AssignOp::Assign)
-                    && let Some(record) = &mut f.lifetimes
-                {
-                    for target in lhs.iter().filter(|e| matches!(e.kind, E::Ident(_))) {
-                        for block in &mut record.blocks {
-                            block.events.retain(|event| !matches!(event,
-                                crate::ide::lifetimes::LifetimeEvent::Use { span, .. } if *span == target.span));
-                        }
-                    }
-                }
                 self.ide_note_assign(scope, lhs, span);
                 result
             }

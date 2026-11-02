@@ -75,6 +75,12 @@ impl Compiler {
         expr: &ast::Expr,
         expected: Option<TypeId>,
     ) -> Result<Operand> {
+        let nonuses = f.lifetimes.as_ref().map(|_| f.lifetime_nonuses);
+        if nonuses.is_some()
+            && let E::Binary(BinOp::Eq | BinOp::Ne, a, b) = &expr.kind
+        {
+            f.lifetime_nonuses = [a, b].map(|e| matches!(e.kind, E::Ident(_)).then_some(e.span));
+        }
         self.ed.sketch_tried(expr.span);
         let mut result = self.check_expr_kind(f, scope, expr, expected);
         if matches!(expr.kind, E::Ident(..) | E::Member(..)) {
@@ -112,6 +118,9 @@ impl Compiler {
             if self.ed.sketching() {
                 self.ide_note_sketch_type(expr.span, op);
             }
+        }
+        if let Some(saved) = nonuses {
+            f.lifetime_nonuses = saved;
         }
         result
     }

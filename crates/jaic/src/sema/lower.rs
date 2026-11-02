@@ -286,6 +286,7 @@ pub struct DeferEntry {
 pub struct FnCtx {
     pub b: Builder,
     pub(crate) lifetimes: Option<Box<crate::ide::lifetimes::LifetimeRecording>>,
+    pub(crate) lifetime_nonuses: [Option<Span>; 2],
     pub proc: Option<ProcId>,
     pub runtime_storage_constants: Vec<i64>,
     /// Current `context` pointer (absent in #`c_call/#no_context` code).
@@ -462,6 +463,7 @@ impl FnCtx {
         Self {
             b: Builder::new(name, sig),
             lifetimes: None,
+            lifetime_nonuses: [None; 2],
             proc: None,
             runtime_storage_constants: Vec::new(),
             context: None,

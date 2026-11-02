@@ -182,7 +182,7 @@ impl Compiler {
             ) {
                 record.resizable.insert(place);
             }
-            if matches!(expr.kind, E::Ident(_)) {
+            if matches!(expr.kind, E::Ident(_)) && !f.lifetime_nonuses.contains(&Some(expr.span)) {
                 record.push(
                     block,
                     LifetimeEvent::Use {
@@ -194,17 +194,6 @@ impl Compiler {
         }
         if matches!(expr.kind, E::Asm(_)) {
             record.push(block, LifetimeEvent::Barrier);
-        }
-        // Reading a raw pointer for a simple null/equality check does not access storage.
-        if let E::Binary(ast::BinOp::Eq | ast::BinOp::Ne, a, b) = &expr.kind {
-            for e in [a, b] {
-                if matches!(e.kind, E::Ident(_))
-                    && let Some(block) = record.blocks.get_mut(block.0 as usize)
-                {
-                    block.events.retain(|event|
-                        !matches!(event, LifetimeEvent::Use { span, .. } if *span == e.span));
-                }
-            }
         }
     }
 }
