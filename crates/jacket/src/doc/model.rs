@@ -159,6 +159,9 @@ pub struct Module {
     /// Tagged `@experimental` in its opening comment.
     pub experimental: bool,
     pub parameters: Vec<Parameter>,
+    /// Links in its doc comments that read as intra-doc links and name nothing, as
+    /// `file:line: [text]`.
+    pub unresolved: Vec<String>,
 }
 
 impl Module {
@@ -414,6 +417,17 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                 refs: type_refs(p, stdlib),
             })
             .collect(),
+        unresolved: list(&v, "unresolved")
+            .iter()
+            .map(|u| {
+                format!(
+                    "{}:{}: {}",
+                    below(stdlib, &text(u, "file")),
+                    number(u, "line"),
+                    text(u, "text")
+                )
+            })
+            .collect(),
     };
     assign_groups(&mut module);
     Ok(module)
@@ -533,6 +547,13 @@ mod tests {
         assert_eq!(title_case("jks-generation"), "JKS generation");
         assert_eq!(title_case("self-test"), "Self test");
         assert_eq!(title_case("utf8_tables"), "UTF8 tables");
+    }
+
+    #[test]
+    fn links_that_name_nothing_keep_their_place() {
+        let json = r#"{"file":"/s/String/module.jai","docs":"","docs_line":1,"platforms":[],"items":[],"unresolved":[{"file":"/s/String/module.jai","line":7,"text":"[Gone]"}]}"#;
+        let module = parse("String", json, Path::new("/s")).unwrap();
+        assert_eq!(module.unresolved, ["String/module.jai:7: [Gone]"]);
     }
 
     #[test]

@@ -1193,6 +1193,7 @@ pub use forward::{Resolver, alias_target, docs_site};
 mod located;
 pub use located::{Located, located_above, opening};
 mod items;
+pub mod unresolved;
 pub use items::without_items;
 
 #[cfg(test)]

@@ -131,6 +131,7 @@ mod tests {
             since: String::new(),
             experimental: false,
             parameters: Vec::new(),
+            unresolved: Vec::new(),
         }
     }
 

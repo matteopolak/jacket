@@ -995,9 +995,30 @@ fn params_json(list: &[Param]) -> String {
 /// The model as JSON. `resolve` gives a URL for a link's names, as for [`docs::markdown`]; docs
 /// come out as Markdown with the links it knows rewritten.
 pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) -> String {
-    let md = |doc: &str| docs::linked(doc, resolve);
+    let known: Vec<&str> = model
+        .items
+        .iter()
+        .filter(|i| !i.private)
+        .map(|i| i.name.as_str())
+        .collect();
+    let missed = std::cell::RefCell::new(Vec::<String>::new());
+    // `file` and `line` say where the comment is, for the links that lead nowhere.
+    let md_at = |doc: &str, file: &Path, line: usize, listed: bool| {
+        if listed {
+            for text in docs::unresolved::unresolved(doc, resolve, &known) {
+                let at = docs::unresolved::located_line(file, line, &text);
+                missed.borrow_mut().push(format!(
+                    "{{\"file\":{},\"line\":{at},\"text\":{}}}",
+                    path(file),
+                    json(&text)
+                ));
+            }
+        }
+        docs::linked(doc, resolve)
+    };
     let mut items = Vec::new();
     for item in &model.items {
+        let listed = !item.private;
         let overloads: Vec<String> = item
             .overloads
             .iter()
@@ -1009,7 +1030,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
                     json(&o.signature),
                     params_json(&o.params),
                     params_json(&o.returns),
-                    json(&md(&o.docs)),
+                    json(&md_at(&o.docs, &o.file, if o.docs_line > 0 { o.docs_line } else { o.line }, listed)),
                     o.docs_line,
                     o.flags.iter().map(|f| json(f)).collect::<Vec<_>>().join(","),
                     o.platforms.iter().map(|f| json(f)).collect::<Vec<_>>().join(",")
@@ -1024,7 +1045,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
                     "{{\"name\":{},\"type\":{},\"doc\":{}{}}}",
                     json(&m.name),
                     json(&m.ty),
-                    json(&md(&m.doc)),
+                    json(&md_at(&m.doc, &item.file, item.line, listed)),
                     refs_json(&m.refs)
                 )
             })
@@ -1049,7 +1070,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             json(item.kind),
             path(&item.file),
             item.line,
-            json(&md(&item.docs)),
+            json(&md_at(&item.docs, &item.file, item.line, listed)),
             json(&item.value),
             item.platforms.iter().map(|f| json(f)).collect::<Vec<_>>().join(","),
             item.experimental,
@@ -1074,10 +1095,15 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
         ));
     }
     format!(
-        "{{\"file\":{},\"implicit\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n]}}\n",
+        "{{\"file\":{},\"implicit\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n],\"unresolved\":[{}]}}\n",
         path(&model.file),
         model.implicit,
-        json(&md(&model.docs)),
+        json(&md_at(
+            &model.docs,
+            &model.file,
+            model.docs_line.max(1),
+            true
+        )),
         model.docs_line,
         model
             .platforms
@@ -1094,12 +1120,13 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
                 json(&p.name),
                 json(&p.ty),
                 json(&p.default),
-                json(&md(&p.doc)),
+                json(&md_at(&p.doc, &model.file, model.docs_line.max(1), true)),
                 refs_json(&p.refs)
             ))
             .collect::<Vec<_>>()
             .join(","),
-        items.join(",\n")
+        items.join(",\n"),
+        missed.borrow().join(",")
     )
 }
 

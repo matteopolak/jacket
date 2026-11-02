@@ -572,3 +572,32 @@ fn the_prelude_is_an_implicit_module() {
     assert!(to_json(&prelude, &|_| None).contains("\"implicit\":true"));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn links_that_name_nothing_are_listed_with_their_line() {
+    let dir = library(
+        "unresolved",
+        &[(
+            "module.jai",
+            "// A module.\n\n// Cuts. See [cut], [missing_thing] and [Gone.item]; also [Hash.key] and [x].\n//\n// The [nonexistent_one] size.\ncut :: (n: int) {}\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let own = |names: &[String]| (names == ["cut"]).then(|| "jaidoc:m/cut".to_owned());
+    let json = to_json(&model, &own);
+    let tail = json.split("\"unresolved\":").nth(1).unwrap();
+    // `[cut]` resolves and `[x]` is prose; the rest name nothing.
+    for (line, text) in [
+        (3, "[missing_thing]"),
+        (3, "[Gone.item]"),
+        (3, "[Hash.key]"),
+        (5, "[nonexistent_one]"),
+    ] {
+        assert!(
+            tail.contains(&format!("\"line\":{line},\"text\":\"{text}\"")),
+            "{text} in {tail}"
+        );
+    }
+    assert!(!tail.contains("[cut]") && !tail.contains("[x]"), "{tail}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -567,9 +567,20 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         for name in &unlinked {
             eprintln!("jacket: warning: unlinked type in {name}");
         }
-        let broken = site.broken_links();
+        let mut broken = site.broken_links();
         for link in &broken {
             eprintln!("jacket: warning: intra-doc link to `{link}` leads nowhere");
+        }
+        let severity = if args.allow_broken_links || filtered {
+            "warning"
+        } else {
+            "error"
+        };
+        for module in &site.modules {
+            for link in &module.unresolved {
+                eprintln!("jacket: {severity}: {link} names nothing");
+                broken.push(link.clone());
+            }
         }
         let unfenced = indented_code_warnings(&site.modules);
         for warning in &unfenced {
