@@ -277,7 +277,7 @@ A resizable array that outgrows its storage gets a new block and frees the old o
 ### pointer_lifetime
 @experimental. Off by default (`-W pointer_lifetime` turns it on). The successor to `pointer_into_resizable`: it follows the checked control flow, so it sees every branch, loop, `defer`, labelled jump, `#if` choice and macro expansion the compiler took, per polymorphic instance.
 
-It fires only when every path to a use of `p := *xs[i]` passes a `@GrowsArray` call on `xs` (`array_add`, `array_reserve`, ...) after `p` was taken. A path that re-takes the pointer, replaces `xs`, or runs inline assembly makes the use unknown, and unknown is quiet. The finding points at the use, with labels at the derivation and at the last invalidating call on each path:
+It fires only when every path to a use of `p := *xs[i]` passes a call that grows `xs` after `p` was taken. What a procedure does to its arguments is inferred from its body and the bodies it calls (through allocator calls, wrappers and recursion), so `push :: (s: *Stack, v: int) { array_add(*s.items, v); }` counts as growing `s.items` with no note. A call grows only if it does so on every path that returns; one that grows only when out of capacity is a "may", which strict mode will report. `@GrowsArray` still works as a stated contract. When the growth is several calls deep, the finding lists the chain (up to seven calls, eliding the middle). A path that re-takes the pointer, replaces `xs`, or runs inline assembly makes the use unknown, and unknown is quiet. The finding points at the use, with labels at the derivation and at the last invalidating call on each path:
 
 ```
 12 |     p := *xs[0];
@@ -290,7 +290,7 @@ It fires only when every path to a use of `p := *xs[i]` passes a `@GrowsArray` c
 
 The pointer is followed through copies: other locals, struct fields, pointer arithmetic, casts, and views or strings made from the array (`v: []int = xs;` then `v.data`). `*outer[0].inner[0]` points into the inner array, so growing `outer` leaves it alone; `*outer[0].inner` points into `outer` and is invalidated. A `@GrowsArray` call that returns a pointer into its argument (`p := array_add(*xs);`) counts as a fresh derivation. Reading `v.count` or replacing `v.data` after growth is not a use.
 
-Anything reached through a pointer the lint can't resolve (a heap field a callee could rebind, an overlapping union field) is unknown, so it stays quiet. Not yet covered: callees that grow an array without `@GrowsArray`. `JAILINT_LIFETIME_STATS=1` prints per-file counts of bodies analysed and why others were skipped.
+Anything reached through a pointer the lint can't resolve (a heap field a callee could rebind, an overlapping union field) is unknown, so it stays quiet. A callee that keeps or writes through a pointer argument in a way the lint can't follow makes only that argument unknown. `JAILINT_LIFETIME_STATS=1` prints per-file counts of bodies analysed and why others were skipped.
 
 ### print_in_module
 A file belongs to a module when it or a directory above it holds a `module.jai`, with no `tests` or `test` folder in between (those hold programs that use the module).
