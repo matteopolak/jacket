@@ -718,9 +718,13 @@ def cmd_precommit(args) -> int:
         if done.returncode:
             hook_warn("could not export the staged files; skipping the checks")
             return 0
-        for cfg in ("jacket.toml", "rustfmt.toml", "rust-toolchain.toml"):
+        # Config the tools read, as staged. A folder's own jacket.toml (a theme's, a package's) sets its
+        # jaifmt rules, so every one goes along, not just the root's.
+        configs = run_captured(["git", "-c", "core.quotepath=off", "ls-files", "--", "*jacket.toml"])[1].split("\n")
+        for cfg in (*filter(None, configs), "rustfmt.toml", "rust-toolchain.toml"):
             status, text = run_captured(["git", "show", f":{cfg}"])
             if status == 0:
+                (hook.tmp / cfg).parent.mkdir(parents=True, exist_ok=True)
                 (hook.tmp / cfg).write_text(text)
         if jai:
             check_jai(hook, jai)
