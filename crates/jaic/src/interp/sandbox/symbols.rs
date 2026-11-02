@@ -140,6 +140,14 @@ raw_enum! {
 raw_enum! {
     /// A Win32 procedure the sandbox implements itself.
     pub(in crate::interp) enum WinFn by name {
+        FlushFileBuffers = "FlushFileBuffers",
+        CopyFileW = "CopyFileW",
+        CreateHardLinkW = "CreateHardLinkW",
+        GetFinalPathNameByHandleW = "GetFinalPathNameByHandleW",
+        GetFileAttributesExW = "GetFileAttributesExW",
+        GetFileInformationByHandleEx = "GetFileInformationByHandleEx",
+        MapViewOfFile = "MapViewOfFile",
+        UnmapViewOfFile = "UnmapViewOfFile",
         GetLastError = "GetLastError",
         SetLastError = "SetLastError",
         MultiByteToWideChar = "MultiByteToWideChar",

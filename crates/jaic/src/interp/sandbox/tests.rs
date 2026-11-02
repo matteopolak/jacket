@@ -351,7 +351,7 @@ fn windows_process_creation_is_access_denied() {
         "CreatePipe",
         "CreateFileMappingW",
     ] {
-        h.last_error = 0;
+        h.windows.last_error = 0;
         assert_eq!(call(&mut h, symbol, &[0; 10]), 0, "{symbol}");
         assert_eq!(call(&mut h, "GetLastError", &[]), 5, "{symbol}");
     }

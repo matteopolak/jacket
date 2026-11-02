@@ -573,13 +573,14 @@ impl Compiler {
         body_probe::init();
         speculative::init();
         let cross_target = options.is_cross_build();
+        let windows_target = options.os == crate::target::TargetOs::Windows;
         let mut c = Compiler {
             pr: ProcState::default(),
             caches: NameCaches::default(),
             ns: Namespaces::default(),
             ty: TypeState::default(),
             src: SourceState::new(fs),
-            out: Output::new(cross_target),
+            out: Output::new(cross_target, windows_target),
             meta: MetaState::default(),
             epochs: Epochs::default(),
             diag: Diagnostics::default(),

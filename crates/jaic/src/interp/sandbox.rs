@@ -18,7 +18,7 @@ use std::path::Path;
 
 mod dirs;
 mod files;
-mod guest;
+pub(super) mod guest;
 mod memory;
 mod numeric;
 mod objc;
@@ -26,7 +26,7 @@ mod process;
 mod sockets;
 mod stdin;
 mod streams;
-mod symbols;
+pub(super) mod symbols;
 #[cfg(test)]
 mod tests;
 mod time;
@@ -34,18 +34,18 @@ mod windows;
 
 use guest::{
     copy, fill, read_bytes, read_i64, read_u8, read_u64, write_bytes, write_i32, write_u8,
-    write_u16, write_u32, write_u64, write_units,
+    write_u16, write_u32, write_u64,
 };
 use symbols::{LibcFn, SandboxFn};
 
 use super::errno::{EBADF, EEXIST, EINVAL, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM};
 
 const O_ACCMODE: u64 = 3;
-const O_WRONLY: u64 = 1;
-const O_RDWR: u64 = 2;
-const O_CREAT: u64 = 0o100;
-const O_EXCL: u64 = 0o200;
-const O_TRUNC: u64 = 0o1000;
+pub(super) const O_WRONLY: u64 = 1;
+pub(super) const O_RDWR: u64 = 2;
+pub(super) const O_CREAT: u64 = 0o100;
+pub(super) const O_EXCL: u64 = 0o200;
+pub(super) const O_TRUNC: u64 = 0o1000;
 const O_APPEND: u64 = 0o2000;
 const S_IFDIR: u32 = 0o040_000;
 const S_IFREG: u32 = 0o100_000;
@@ -200,12 +200,12 @@ impl SandboxFs {
     }
 }
 
-fn join(dir: &str, name: &str) -> String {
+pub(super) fn join(dir: &str, name: &str) -> String {
     format!("{}/{}", dir.trim_end_matches('/'), name)
 }
 
 /// Resolve `path` against `cwd` and drop `.`/`..` components.
-fn absolute(cwd: &str, path: &str) -> String {
+pub(super) fn absolute(cwd: &str, path: &str) -> String {
     let full = if path.starts_with('/') {
         path.to_string()
     } else {
@@ -267,9 +267,7 @@ pub struct SandboxHost {
     darwin_files: bool,
     errno_cell: u64,
     /// Windows' `GetLastError`.
-    last_error: u64,
-    /// `FindFirstFileW` handle -> the entries left to return.
-    finds: HashMap<u64, Vec<(String, bool)>>,
+    windows: super::windows::WindowsCalls,
     /// `strerror` results by error number; they stay valid for the whole run, like libc's.
     error_texts: HashMap<u64, u64>,
     stdin: stdin::Stdin,
@@ -318,6 +316,7 @@ impl SandboxHost {
     /// them are left dangling in program memory.
     pub fn release_memory(&mut self) {
         self.allocations = HashMap::default();
+        self.windows = super::windows::WindowsCalls::default();
     }
 
     /// Back the sandbox's file system with `base` (read-only) and start in `cwd`.
@@ -587,14 +586,14 @@ impl Host for SandboxHost {
         &mut self,
         symbol: &str,
         args: &[u64],
-        _sig: &ir::Sig,
+        sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
         // Linux x86-64 reaches the stat family through syscall(2) (stdlib/POSIX/wrappers.jai).
         let (fun, args) = match stat_syscall(symbol, args) {
             Some(fun) => (fun, args.get(1..).unwrap_or_default()),
             None => match SandboxFn::lookup(symbol)? {
                 SandboxFn::Windows(fun) => {
-                    return self.windows_foreign(fun, args).map(|r| Ok(vec![r]));
+                    return self.windows_foreign(fun, args, sig).map(|r| Ok(vec![r]));
                 }
                 SandboxFn::Objc(fun) => {
                     return Some(Ok(vec![self.objc_foreign(fun, args)]));

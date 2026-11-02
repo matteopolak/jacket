@@ -1,469 +1,159 @@
-//! The Windows calls a sandboxed program makes when it targets Windows (the editor checks a
-//! build metaprogram for every target on any host).
-//!
-//! They run on the same in-memory file system, descriptors and clock as the C library calls.
-//! A file handle is its descriptor plus [`HANDLE_BASE`] (so no handle is null or
-//! `INVALID_HANDLE_VALUE`), text is UTF-16 converted from and to UTF-8 whatever the code page,
-//! and failures set the error `GetLastError` returns.
+//! In-memory backing for the shared Windows call layer.
 use super::symbols::WinFn;
-use super::{
-    BASE_MTIME, EBADF, EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM, Host, O_CREAT, O_EXCL,
-    O_RDWR, O_TRUNC, O_WRONLY, SandboxHost, absolute, fill, join, read_bytes, read_u8, write_u32,
-    write_u64, write_units,
-};
-use crate::interp::word_or_zero;
-
-const HANDLE_BASE: u64 = 0x1_0000;
-const INVALID_HANDLE_VALUE: u64 = u64::MAX;
-const INVALID_FILE_ATTRIBUTES: u64 = 0xFFFF_FFFF;
-const FILE_ATTRIBUTE_DIRECTORY: u32 = 0x10;
-const FILE_ATTRIBUTE_NORMAL: u32 = 0x80;
-const GENERIC_READ: u64 = 0x8000_0000;
-const GENERIC_WRITE: u64 = 0x4000_0000;
-const ERROR_FILE_NOT_FOUND: u64 = 2;
-const ERROR_PATH_NOT_FOUND: u64 = 3;
-const ERROR_ACCESS_DENIED: u64 = 5;
-const ERROR_INVALID_HANDLE: u64 = 6;
-const ERROR_NO_MORE_FILES: u64 = 18;
-const ERROR_FILE_EXISTS: u64 = 80;
-const ERROR_INVALID_PARAMETER: u64 = 87;
-const ERROR_DIR_NOT_EMPTY: u64 = 145;
-const ERROR_ALREADY_EXISTS: u64 = 183;
-
-/// `WIN32_FIND_DATAW`: attributes, three times, size, two reserved words, then the name.
-const FIND_DATA_SIZE: usize = 592;
-
-const FIND_DATA_NAME: u64 = 44;
-
-/// `QueryPerformanceFrequency`: ticks of 100 ns, like the system's own.
-const PERFORMANCE_FREQUENCY: u64 = 10_000_000;
-
-/// The Windows error for a C library errno.
-fn windows_error(errno: u64) -> u64 {
-    match errno {
-        ENOENT => ERROR_FILE_NOT_FOUND,
-        EEXIST => ERROR_FILE_EXISTS,
-        EBADF => ERROR_INVALID_HANDLE,
-        ENOTEMPTY => ERROR_DIR_NOT_EMPTY,
-        EISDIR | EPERM => ERROR_ACCESS_DENIED,
-        ENOTDIR => ERROR_PATH_NOT_FOUND,
-        _ => ERROR_INVALID_PARAMETER,
-    }
-}
-
-/// The bytes of `count` units of `size` bytes at `ptr`; a count of -1 reads up to and
-/// including a zero unit.
-fn counted(ptr: u64, count: i64, size: usize) -> Vec<u8> {
-    if ptr == 0 {
-        return Vec::new();
-    }
-    let units = if count >= 0 {
-        count as usize
-    } else {
-        let mut n = 0;
-        while (0..size as u64).any(|i| read_u8(ptr + (n * size) as u64 + i) != 0) {
-            n += 1;
-        }
-        n + 1
-    };
-    read_bytes(ptr, units * size)
-}
-
-/// Write `units` to `out` (room for `room` of them) the Windows way: a room of 0 asks for
-/// the count only, and too little room writes nothing and returns 0.
-fn put_counted<T: Copy>(units: &[T], out: u64, room: i64) -> u64 {
-    if room == 0 {
-        return units.len() as u64;
-    }
-    if out == 0 || (room as usize) < units.len() {
-        return 0;
-    }
-    write_units(out, units);
-    units.len() as u64
-}
-
-/// The UTF-16 text at `ptr` up to its terminator.
-fn wide_string(ptr: u64) -> String {
-    let wide = counted(ptr, -1, 2);
-    let units: Vec<u16> = wide
-        .as_chunks::<2>()
-        .0
-        .iter()
-        .map(|c| u16::from_le_bytes(*c))
-        .take_while(|&u| u != 0)
-        .collect();
-    String::from_utf16_lossy(&units)
-}
-
-/// Write `text` and a terminator to `out` (room for `room` units) the way
-/// `GetCurrentDirectoryW` does: the length without the terminator, or the room it needs.
-fn put_wide_path(text: &str, out: u64, room: u64) -> u64 {
-    let mut wide: Vec<u16> = text.encode_utf16().collect();
-    if out == 0 || room as usize <= wide.len() {
-        return (wide.len() + 1) as u64;
-    }
-    let n = wide.len() as u64;
-    wide.push(0);
-    put_counted(&wide, out, room as i64);
-    n
-}
+use super::{BASE_MTIME, EEXIST, ENOENT, Host, SandboxHost};
+use crate::interp::windows::{FileDetails, WindowsBackend};
 
 impl SandboxHost {
-    /// A Windows path argument, resolved like the C library's.
-    fn wide_path(&self, ptr: u64) -> String {
-        let path = crate::paths::to_slash(&wide_string(ptr));
-        absolute(
-            if self.cwd.is_empty() {
-                "/"
+    pub(super) fn windows_foreign(
+        &mut self,
+        fun: WinFn,
+        args: &[u64],
+        sig: &crate::ir::Sig,
+    ) -> Option<u64> {
+        let mut calls = std::mem::take(&mut self.windows);
+        let result = calls.foreign(self, fun, args, sig);
+        self.windows = calls;
+        result
+    }
+}
+
+impl WindowsBackend for SandboxHost {
+    fn details(&self, path: &str) -> Option<FileDetails> {
+        let dir = self.fs.is_dir(path);
+        if !dir && !self.fs.exists_file(path) {
+            return None;
+        }
+        let time = BASE_MTIME * 10_000_000 + 116_444_736_000_000_000;
+        let written = self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME) * 10_000_000
+            + 116_444_736_000_000_000;
+        Some(FileDetails {
+            attributes: if dir {
+                0x10
             } else {
-                &self.cwd
+                0x80
             },
-            &path,
-        )
+            size: self.fs.file_size(path) as u64,
+            created: time,
+            accessed: time,
+            written,
+            identity: [1, self.fs.inode(path), 0],
+        })
     }
-
-    fn fail(&mut self, error: u64) -> u64 {
-        self.last_error = error;
-        0
+    fn fd_details(&self, fd: i64) -> Option<FileDetails> {
+        self.details(&self.fds.get(&fd)?.path)
     }
-
-    /// `BOOL` for a result whose error is an errno.
-    fn win_result(&mut self, result: Result<(), u64>) -> u64 {
-        match result {
-            Ok(()) => 1,
-            Err(errno) => self.fail(windows_error(errno)),
-        }
+    fn canonical(&self, fd: i64) -> Option<String> {
+        Some(self.fds.get(&fd)?.path.clone())
     }
-
-    fn handle_fd(&self, handle: u64) -> Option<i64> {
-        let fd = handle.checked_sub(HANDLE_BASE)? as i64;
-        (fd <= 2 || self.fds.contains_key(&fd)).then_some(fd)
+    fn contents(&self, fd: i64) -> Option<Vec<u8>> {
+        self.fs.files.get(&self.fds.get(&fd)?.path).cloned()
     }
-
-    /// Fill a `WIN32_FIND_DATAW` at `out` for `name` in `dir`.
-    fn fill_find_data(&self, dir: &str, name: &str, is_dir: bool, out: u64) {
-        fill(out, 0, FIND_DATA_SIZE);
-        let attributes = if is_dir {
-            FILE_ATTRIBUTE_DIRECTORY
+    fn flush(&mut self, fd: i64) -> Result<(), u64> {
+        if self.fds.contains_key(&fd) {
+            Ok(())
         } else {
-            FILE_ATTRIBUTE_NORMAL
-        };
-        write_u32(out, attributes);
-        if !is_dir {
-            let size = self.fs.file_size(&join(dir, name)) as u64;
-            write_u32(out + 28, (size >> 32) as u32);
-            write_u32(out + 32, size as u32);
+            Err(super::EBADF)
         }
-        let mut wide: Vec<u16> = name.encode_utf16().take(259).collect();
-        wide.push(0);
-        put_counted(&wide, out + FIND_DATA_NAME, 260);
     }
-
-    /// The Windows calls; `None` for any other symbol.
-    pub(super) fn windows_foreign(&mut self, fun: WinFn, args: &[u64]) -> Option<u64> {
-        self.windows_text_and_time(fun, args)
-            .or_else(|| self.windows_paths(fun, args))
-            .or_else(|| self.windows_handles(fun, args))
+    fn copy_file(&mut self, from: &str, to: &str) -> Result<(), u64> {
+        if !self.fs.load(from) {
+            return Err(ENOENT);
+        }
+        if !self.parent_exists(to) {
+            return Err(ENOENT);
+        }
+        let bytes = self.fs.files[from].clone();
+        self.fs.removed.remove(to);
+        self.fs.files.insert(to.into(), bytes);
+        self.fs.changed(to);
+        Ok(())
     }
-
-    /// Error codes, code page conversion and the clocks.
-    fn windows_text_and_time(&mut self, fun: WinFn, args: &[u64]) -> Option<u64> {
-        let arg = |i: usize| word_or_zero(args, i);
-        Some(match fun {
-            WinFn::GetLastError => self.last_error,
-            WinFn::SetLastError => {
-                self.last_error = arg(0) as u32 as u64;
-                0
-            }
-            // Every code page is taken as UTF-8.
-            WinFn::MultiByteToWideChar => {
-                let text = counted(arg(2), arg(3) as i32 as i64, 1);
-                let wide: Vec<u16> = String::from_utf8_lossy(&text).encode_utf16().collect();
-                put_counted(&wide, arg(4), arg(5) as i32 as i64)
-            }
-            WinFn::WideCharToMultiByte => {
-                let wide = counted(arg(2), arg(3) as i32 as i64, 2);
-                let units: Vec<u16> = wide
-                    .as_chunks::<2>()
-                    .0
-                    .iter()
-                    .map(|c| u16::from_le_bytes(*c))
-                    .collect();
-                let text = String::from_utf16_lossy(&units).into_bytes();
-                put_counted(&text, arg(4), arg(5) as i32 as i64)
-            }
-            WinFn::GetSystemTimeAsFileTime | WinFn::GetSystemTimePreciseAsFileTime => {
-                // FILETIME: 100 ns ticks since 1601.
-                self.clock_ns += 1_000;
-                let ns = self.clock_ns + BASE_MTIME * 1_000_000_000;
-                write_u64(arg(0), ns / 100 + 116_444_736_000_000_000);
-                0
-            }
-            WinFn::QueryPerformanceCounter => {
-                self.clock_ns += 1_000;
-                write_u64(arg(0), self.clock_ns / 100);
-                1
-            }
-            WinFn::QueryPerformanceFrequency => {
-                write_u64(arg(0), PERFORMANCE_FREQUENCY);
-                1
-            }
-            _ => return None,
-        })
+    fn hard_link(&mut self, from: &str, to: &str) -> Result<(), u64> {
+        if self.fs.exists_file(to) || self.fs.is_dir(to) {
+            return Err(EEXIST);
+        }
+        self.copy_file(from, to)?;
+        let inode = self.fs.inode(from);
+        self.fs.inodes.insert(from.into(), inode);
+        self.fs.inodes.insert(to.into(), inode);
+        Ok(())
     }
-
-    /// Directories and file names.
-    fn windows_paths(&mut self, fun: WinFn, args: &[u64]) -> Option<u64> {
-        let arg = |i: usize| word_or_zero(args, i);
-        Some(match fun {
-            WinFn::GetCurrentDirectoryW => {
-                let cwd = if self.cwd.is_empty() {
-                    "/"
-                } else {
-                    &self.cwd
-                };
-                put_wide_path(cwd, arg(1), arg(0) as u32 as u64)
-            }
-            WinFn::SetCurrentDirectoryW => {
-                let path = self.wide_path(arg(0));
-                if !self.fs.is_dir(&path) {
-                    return Some(self.fail(ERROR_PATH_NOT_FOUND));
-                }
-                self.cwd = path;
-                1
-            }
-            WinFn::GetFullPathNameW => {
-                let path = self.wide_path(arg(0));
-                if arg(3) != 0 {
-                    write_u64(arg(3), 0);
-                }
-                put_wide_path(&path, arg(2), arg(1) as u32 as u64)
-            }
-            WinFn::GetFileAttributesW => {
-                let path = self.wide_path(arg(0));
-                if self.fs.is_dir(&path) {
-                    FILE_ATTRIBUTE_DIRECTORY as u64
-                } else if self.fs.exists_file(&path) {
-                    FILE_ATTRIBUTE_NORMAL as u64
-                } else {
-                    self.last_error = ERROR_FILE_NOT_FOUND;
-                    INVALID_FILE_ATTRIBUTES
-                }
-            }
-            WinFn::CreateDirectoryW => {
-                let path = self.wide_path(arg(0));
-                if self.fs.is_dir(&path) || self.fs.exists_file(&path) {
-                    return Some(self.fail(ERROR_ALREADY_EXISTS));
-                }
-                if !self.parent_exists(&path) {
-                    return Some(self.fail(ERROR_PATH_NOT_FOUND));
-                }
-                self.fs.removed.remove(&path);
-                self.fs.dirs.insert(path);
-                1
-            }
-            WinFn::RemoveDirectoryW => {
-                let path = self.wide_path(arg(0));
-                let result = self.remove_dir(&path);
-                self.win_result(result)
-            }
-            WinFn::DeleteFileW => {
-                let path = self.wide_path(arg(0));
-                if !self.fs.exists_file(&path) {
-                    return Some(self.fail(ERROR_FILE_NOT_FOUND));
-                }
-                self.fs.files.remove(&path);
-                self.fs.forget(&path);
-                self.fs.removed.insert(path);
-                1
-            }
-            WinFn::MoveFileExW | WinFn::MoveFileW => {
-                let (from, to) = (self.wide_path(arg(0)), self.wide_path(arg(1)));
-                // Without MOVEFILE_REPLACE_EXISTING an existing target stays.
-                if (fun == WinFn::MoveFileW || arg(2) & 1 == 0) && self.fs.exists_file(&to) {
-                    return Some(self.fail(ERROR_ALREADY_EXISTS));
-                }
-                let result = self.rename_file(&from, &to);
-                self.win_result(result)
-            }
-            _ => return None,
-        })
+    fn cwd(&self) -> String {
+        if self.cwd.is_empty() {
+            "/".into()
+        } else {
+            self.cwd.clone()
+        }
     }
-
-    /// File handles, the standard handles, directory searches, and what the sandbox refuses.
-    fn windows_handles(&mut self, fun: WinFn, args: &[u64]) -> Option<u64> {
-        let arg = |i: usize| word_or_zero(args, i);
-        Some(match fun {
-            WinFn::CreateFileW => {
-                let path = self.wide_path(arg(0));
-                let access = arg(1) & (GENERIC_READ | GENERIC_WRITE);
-                let mut flags = match access {
-                    GENERIC_WRITE => O_WRONLY,
-                    a if a == GENERIC_READ | GENERIC_WRITE => O_RDWR,
-                    _ => 0,
-                };
-                flags |= match arg(4) {
-                    1 => O_CREAT | O_EXCL,  // CREATE_NEW
-                    2 => O_CREAT | O_TRUNC, // CREATE_ALWAYS
-                    4 => O_CREAT,           // OPEN_ALWAYS
-                    5 => O_TRUNC,           // TRUNCATE_EXISTING
-                    _ => 0,                 // OPEN_EXISTING
-                };
-                match self.open_file(path, flags) {
-                    Ok(fd) => fd as u64 + HANDLE_BASE,
-                    Err(errno) => {
-                        self.last_error = windows_error(errno);
-                        INVALID_HANDLE_VALUE
-                    }
-                }
-            }
-            WinFn::GetStdHandle => match arg(0) as u32 {
-                0xFFFF_FFF6 => HANDLE_BASE,     // STD_INPUT_HANDLE
-                0xFFFF_FFF5 => HANDLE_BASE + 1, // STD_OUTPUT_HANDLE
-                0xFFFF_FFF4 => HANDLE_BASE + 2, // STD_ERROR_HANDLE
-                _ => INVALID_HANDLE_VALUE,
-            },
-            WinFn::CloseHandle => {
-                if self.finds.remove(&arg(0)).is_some() {
-                    self.allocations.remove(&arg(0));
-                    return Some(1);
-                }
-                match self.handle_fd(arg(0)) {
-                    Some(fd) if fd > 2 => {
-                        self.fds.remove(&fd);
-                        1
-                    }
-                    Some(_) => 1,
-                    None => self.fail(ERROR_INVALID_HANDLE),
-                }
-            }
-            WinFn::ReadFile => {
-                let Some(n) = self
-                    .handle_fd(arg(0))
-                    .and_then(|fd| self.read_fd(fd, arg(1), arg(2) as u32 as usize))
-                else {
-                    return Some(self.fail(ERROR_INVALID_HANDLE));
-                };
-                if arg(3) != 0 {
-                    write_u32(arg(3), n as u32);
-                }
-                1
-            }
-            WinFn::WriteFile => {
-                let len = arg(2) as u32 as usize;
-                let bytes = counted(arg(1), len as i64, 1);
-                let written = match self.handle_fd(arg(0)) {
-                    Some(fd @ (1 | 2)) => {
-                        self.write(&bytes, fd == 2);
-                        Some(len)
-                    }
-                    Some(fd) => self.write_fd(fd, &bytes),
-                    None => None,
-                };
-                let Some(n) = written else {
-                    return Some(self.fail(ERROR_INVALID_HANDLE));
-                };
-                if arg(3) != 0 {
-                    write_u32(arg(3), n as u32);
-                }
-                1
-            }
-            WinFn::GetFileSizeEx => {
-                let Some(len) = self.handle_fd(arg(0)).and_then(|fd| self.file_len(fd)) else {
-                    return Some(self.fail(ERROR_INVALID_HANDLE));
-                };
-                write_u64(arg(1), len as u64);
-                1
-            }
-            WinFn::SetFilePointerEx => {
-                let Some(pos) = self
-                    .handle_fd(arg(0))
-                    .and_then(|fd| self.seek(fd, arg(1) as i64, arg(3)))
-                else {
-                    return Some(self.fail(ERROR_INVALID_PARAMETER));
-                };
-                if arg(2) != 0 {
-                    write_u64(arg(2), pos as u64);
-                }
-                1
-            }
-            WinFn::FindFirstFileW | WinFn::FindFirstFileExW => {
-                // `dir/*`, `dir/*.*` or one exact name.
-                let pattern = self.wide_path(arg(0));
-                let out = if fun == WinFn::FindFirstFileExW {
-                    arg(2)
-                } else {
-                    arg(1)
-                };
-                let (dir, name) = pattern.rsplit_once('/').unwrap_or(("/", &pattern));
-                let dir = if dir.is_empty() {
-                    "/"
-                } else {
-                    dir
-                };
-                let mut entries: Vec<(String, bool)> = if name == "*" || name == "*.*" {
-                    let mut all = vec![(".".to_string(), true), ("..".to_string(), true)];
-                    all.extend(self.fs.list(dir));
-                    all
-                } else {
-                    let path = join(dir, name);
-                    if self.fs.is_dir(&path) {
-                        vec![(name.to_string(), true)]
-                    } else if self.fs.exists_file(&path) {
-                        vec![(name.to_string(), false)]
-                    } else {
-                        Vec::new()
-                    }
-                };
-                if entries.is_empty() || !self.fs.is_dir(dir) {
-                    self.last_error = ERROR_FILE_NOT_FOUND;
-                    return Some(INVALID_HANDLE_VALUE);
-                }
-                let (first, is_dir) = entries.remove(0);
-                self.fill_find_data(dir, &first, is_dir, out);
-                let handle = self.alloc(16);
-                let rest = entries
-                    .into_iter()
-                    .rev()
-                    .map(|(n, d)| (join(dir, &n), d))
-                    .collect();
-                self.finds.insert(handle, rest);
-                handle
-            }
-            WinFn::FindNextFileW => {
-                let Some(next) = self.finds.get_mut(&arg(0)).map(Vec::pop) else {
-                    return Some(self.fail(ERROR_INVALID_HANDLE));
-                };
-                let Some((path, is_dir)) = next else {
-                    return Some(self.fail(ERROR_NO_MORE_FILES));
-                };
-                let (dir, name) = path.rsplit_once('/').unwrap_or(("/", &path));
-                let dir = if dir.is_empty() {
-                    "/"
-                } else {
-                    dir
-                };
-                self.fill_find_data(dir, name, is_dir, arg(1));
-                1
-            }
-            WinFn::FindClose => {
-                if self.finds.remove(&arg(0)).is_none() {
-                    return Some(self.fail(ERROR_INVALID_HANDLE));
-                }
-                self.allocations.remove(&arg(0));
-                1
-            }
-            // Nothing a sandboxed program runs may start another process or share memory
-            // with one (see `pipe` and `shm_open`).
-            WinFn::CreatePipe
-            | WinFn::CreateProcessW
-            | WinFn::CreateProcessA
-            | WinFn::CreateFileMappingW
-            | WinFn::CreateFileMappingA
-            | WinFn::OpenFileMappingW
-            | WinFn::OpenFileMappingA => self.fail(ERROR_ACCESS_DENIED),
-
-            _ => return None,
-        })
+    fn set_cwd(&mut self, path: String) -> Result<(), u64> {
+        self.cwd = path;
+        Ok(())
+    }
+    fn is_dir(&self, path: &str) -> bool {
+        self.fs.is_dir(path)
+    }
+    fn exists_file(&self, path: &str) -> bool {
+        self.fs.exists_file(path)
+    }
+    fn list(&self, path: &str) -> Vec<(String, bool)> {
+        self.fs.list(path)
+    }
+    fn create_dir(&mut self, path: &str) -> Result<(), u64> {
+        if self.fs.is_dir(path) || self.fs.exists_file(path) {
+            return Err(EEXIST);
+        }
+        if !self.parent_exists(path) {
+            return Err(ENOENT);
+        }
+        self.fs.removed.remove(path);
+        self.fs.dirs.insert(path.into());
+        Ok(())
+    }
+    fn delete_file(&mut self, path: &str) -> Result<(), u64> {
+        if !self.fs.exists_file(path) {
+            return Err(ENOENT);
+        }
+        self.fs.files.remove(path);
+        self.fs.forget(path);
+        self.fs.removed.insert(path.into());
+        Ok(())
+    }
+    fn remove_dir(&mut self, path: &str) -> Result<(), u64> {
+        self.remove_dir(path)
+    }
+    fn rename_file(&mut self, from: &str, to: &str) -> Result<(), u64> {
+        self.rename_file(from, to)
+    }
+    fn open_file(&mut self, path: String, flags: u64) -> Result<i64, u64> {
+        self.open_file(path, flags)
+    }
+    fn has_fd(&self, fd: i64) -> bool {
+        self.fds.contains_key(&fd)
+    }
+    fn close_fd(&mut self, fd: i64) {
+        self.fds.remove(&fd);
+    }
+    fn read_fd(&mut self, fd: i64, out: u64, count: usize) -> Option<usize> {
+        self.read_fd(fd, out, count)
+    }
+    fn write_fd(&mut self, fd: i64, bytes: &[u8]) -> Option<usize> {
+        self.write_fd(fd, bytes)
+    }
+    fn file_len(&self, fd: i64) -> Option<usize> {
+        self.file_len(fd)
+    }
+    fn seek(&mut self, fd: i64, offset: i64, whence: u64) -> Option<i64> {
+        self.seek(fd, offset, whence)
+    }
+    fn write(&mut self, bytes: &[u8], stderr: bool) {
+        Host::write(self, bytes, stderr);
+    }
+    fn wall_ns(&mut self) -> u64 {
+        self.clock_ns += 1_000;
+        self.clock_ns + BASE_MTIME * 1_000_000_000
+    }
+    fn monotonic_ns(&mut self) -> u64 {
+        self.clock_ns += 1_000;
+        self.clock_ns
     }
 }

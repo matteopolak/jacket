@@ -47,9 +47,10 @@ pub struct Output {
 
 impl Output {
     /// An empty program built for another platform than this compiler's when `cross_target`.
-    pub(in crate::sema) fn new(cross_target: bool) -> Self {
+    pub(in crate::sema) fn new(cross_target: bool, windows_target: bool) -> Self {
         let mut out = Self::default();
         out.program.cross_target = cross_target;
+        out.program.windows_target = windows_target;
         out
     }
 

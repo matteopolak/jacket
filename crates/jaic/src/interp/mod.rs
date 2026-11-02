@@ -46,6 +46,8 @@ mod thread_sync;
 mod threads;
 mod threads_inline;
 mod trap;
+mod windows;
+mod windows_native;
 pub(super) use self::arith::{bin_total, cmp_shifted, divides, shift_of};
 use self::arith::{conv, int_bin, mask};
 use self::calls::{FrameExit, suspended};
@@ -143,6 +145,7 @@ pub struct Interp {
     /// What each foreign procedure's calls do (`foreign_effects`); 0 until looked at.
     foreign_flags: Vec<u8>,
     libraries: HashMap<usize, Option<native::Library>>,
+    windows: windows_native::NativeWindows,
     /// `#compiler` procedures handled by the compiler, indexed by `FuncId` (checked on every call).
     pub hooks: Vec<Option<Hook>>,
     pub(crate) public_bindings: Vec<crate::build::public_api::Binding>,
@@ -337,6 +340,7 @@ impl Interp {
             retired: Vec::new(),
             foreign_addrs: Vec::new(),
             libraries: HashMap::default(),
+            windows: windows_native::NativeWindows::default(),
             hooks: Vec::new(),
             public_bindings: Vec::new(),
             public_api_state: crate::build::public_api::State::default(),
@@ -420,6 +424,7 @@ impl Interp {
     /// again is made anew); nothing may be running.
     pub fn release_code(&mut self) {
         self.closed = true;
+        self.windows = windows_native::NativeWindows::default();
         self.frames = Vec::new();
         self.retired = Vec::new();
         self.globals = Vec::new();

@@ -104,6 +104,8 @@ pub struct Program {
     /// Target OS/CPU differ from the compiler host. Target link requirements
     /// must not initialize during an unrelated compile-time host foreign call.
     pub cross_target: bool,
+    /// Windows API calls in native compile-time evaluation need host backing on other OSes.
+    pub windows_target: bool,
     pub funcs: Vec<Option<Func>>,
     pub func_names: Vec<String>,
     /// Each function's signature as soon as it is reserved for a procedure, before its body

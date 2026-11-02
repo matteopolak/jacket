@@ -8,7 +8,7 @@
 //! says so; the stand-ins call them instead of dereferencing raw addresses themselves.
 
 /// The byte at `addr`.
-pub(super) fn read_u8(addr: u64) -> u8 {
+pub(in crate::interp) fn read_u8(addr: u64) -> u8 {
     // SAFETY: see the module documentation.
     unsafe { *(addr as *const u8) }
 }
@@ -21,7 +21,7 @@ pub(super) fn read_u32(addr: u64) -> u32 {
 }
 
 /// The unaligned `u64` at `addr`.
-pub(super) fn read_u64(addr: u64) -> u64 {
+pub(in crate::interp) fn read_u64(addr: u64) -> u64 {
     // SAFETY: see the module documentation.
     unsafe { std::ptr::read_unaligned(addr as *const u64) }
 }
@@ -33,7 +33,7 @@ pub(super) fn read_i64(addr: u64) -> i64 {
 }
 
 /// A copy of the `len` bytes at `addr`.
-pub(super) fn read_bytes(addr: u64, len: usize) -> Vec<u8> {
+pub(in crate::interp) fn read_bytes(addr: u64, len: usize) -> Vec<u8> {
     if len == 0 {
         // A zero-length read may pass a null address, which a slice must not hold.
         return Vec::new();
@@ -55,7 +55,7 @@ pub(super) fn write_u16(addr: u64, value: u16) {
 }
 
 /// Stores the unaligned `u32` `value` at `addr`.
-pub(super) fn write_u32(addr: u64, value: u32) {
+pub(in crate::interp) fn write_u32(addr: u64, value: u32) {
     // SAFETY: see the module documentation.
     unsafe { std::ptr::write_unaligned(addr as *mut u32, value) }
 }
@@ -67,20 +67,20 @@ pub(super) fn write_i32(addr: u64, value: i32) {
 }
 
 /// Stores the unaligned `u64` `value` at `addr`.
-pub(super) fn write_u64(addr: u64, value: u64) {
+pub(in crate::interp) fn write_u64(addr: u64, value: u64) {
     // SAFETY: see the module documentation.
     unsafe { std::ptr::write_unaligned(addr as *mut u64, value) }
 }
 
 /// Stores `bytes` at `addr`.
-pub(super) fn write_bytes(addr: u64, bytes: &[u8]) {
+pub(in crate::interp) fn write_bytes(addr: u64, bytes: &[u8]) {
     // SAFETY: see the module documentation; `bytes` is host memory, so it cannot overlap.
     unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), addr as *mut u8, bytes.len()) };
 }
 
 /// Stores `units` at `addr`, which need not be aligned for `T`: a name inside a structure the
 /// program laid out is as aligned as the program made it.
-pub(super) fn write_units<T: Copy>(addr: u64, units: &[T]) {
+pub(in crate::interp) fn write_units<T: Copy>(addr: u64, units: &[T]) {
     // SAFETY: see the module documentation; `units` is host memory, so it cannot overlap. The copy
     // is of bytes, so `addr` has no alignment to keep.
     unsafe {
@@ -99,7 +99,7 @@ pub(super) fn copy(dst: u64, src: u64, len: usize) {
 }
 
 /// Sets the `len` bytes at `dst` to `byte`.
-pub(super) fn fill(dst: u64, byte: u8, len: usize) {
+pub(in crate::interp) fn fill(dst: u64, byte: u8, len: usize) {
     // SAFETY: see the module documentation.
     unsafe { std::ptr::write_bytes(dst as *mut u8, byte, len) };
 }
