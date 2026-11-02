@@ -4,7 +4,7 @@
 render_large :: (out: *Out, job: *int, w: *Writer) {
     // One 10 KB constant append, with a value and recorded internal link.
     html(out, "<!doctype html><html><body><h1>Page {job.*}</h1><a href=\"/\">home</a><pre>{PAYLOAD}</pre></body></html>");
-    assert(write_page(w, tprint("pages/%/", job.*), out));
+    assert(write_page(w, tprint("pages/%", job.*), out));
 }
 
 PAYLOAD :: #run -> string {

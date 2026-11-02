@@ -48,20 +48,21 @@ deinit :: (w: *Writer) {
     Threads.destroy(*w.mutex);
 }
 
-// Writes a folder's index.html and copies its unescaped links into writer-owned storage.
-// Paths are relative, empty for the root, or end in `/`; each page path has one producer.
+// Writes a page as `<path>.html` (the root page, with an empty path, as `index.html`) and copies
+// its unescaped links into writer-owned storage. Paths are relative and have no trailing `/` or
+// `.html`, so a page is served at its path without an extension; each page path has one producer.
 // ```jai
 // w := writer_init("unused", "/", true);
 // defer deinit(*w);
 // out: Out;
 // defer deinit(*out);
 // html(*out, "<p>Hi</p>");
-// assert(write_page(*w, "api/", *out));
+// assert(write_page(*w, "api", *out));
 // ```
 write_page :: (w: *Writer, path: string, out: *Out) -> bool {
-    if path.count && !ends_with(path, "/") return writer_error(w, "page path must end in /", path);
+    if ends_with(path, "/") || ends_with(path, ".html") return writer_error(w, "page path must have no trailing / or .html", path);
 
-    file := tprint("%index.html", path);
+    file := ifx path.count then tprint("%.html", path) else "index.html";
     // Trusted Html fragments may contain links too. Scan the complete page so a dry run
     // checks exactly the same attributes a written page contains.
     text := to_string(out);
@@ -133,9 +134,11 @@ check_links :: (w: *Writer, resolve := true) -> [..] string {
             message := "";
 
             if ends_with(target, ".html") message = tprint("%: link `%` ends in .html", path, link);
+            else if ends_with(target, "/") message = tprint("%: link `%` ends in /", path, link);
             else if resolve {
                 file := target;
-                if target.count == 0 || ends_with(target, "/") file = tprint("%index.html", target);
+                if target.count == 0 file = "index.html";
+                else if !Maps.find(*w.files, file) file = tprint("%.html", target);
                 if !Maps.find(*w.files, file) message = tprint("%: link `%` leads to no written file", path, link);
             }
 

@@ -87,17 +87,17 @@ controls_and_links :: () {
     expect_equal(to_string(*out), "<a href=\"x?a=1&amp;b=2\">a</a>");
 } @test
 
-folder_links_resolve_to_their_index :: () {
+page_links_resolve_to_their_file :: () {
     w := writer_init("unused", "/d/", true);
 
     defer deinit(*w);
     out: Out;
 
     defer deinit(*out);
-    html(*out, "<a href=\"/d/api/A/\">A</a><a href=\"/d/\">home</a>");
+    html(*out, "<a href=\"/d/api/A\">A</a><a href=\"/d/\">home</a>");
     expect(write_page(*w, "", *out));
     reset(*out);
-    expect(write_page(*w, "api/A/", *out));
+    expect(write_page(*w, "api/A", *out));
     problems := check_links(*w);
 
     defer array_free(problems);
@@ -111,7 +111,7 @@ html_and_dangling_links_are_reported :: () {
     out: Out;
 
     defer deinit(*out);
-    html(*out, "<a href=\"/d/api/A.html\">A</a><a href=\"/d/api/B/\">B</a><a href=\"https://x.test/a.html\">x</a><a href=\"/d/api/B/\">duplicate</a>");
+    html(*out, "<a href=\"/d/api/A.html\">A</a><a href=\"/d/api/B\">B</a><a href=\"https://x.test/a.html\">x</a><a href=\"/d/api/B\">duplicate</a><a href=\"/d/api/C/\">C</a>");
     expect(write_page(*w, "", *out));
     problems := check_links(*w);
 
@@ -120,9 +120,10 @@ html_and_dangling_links_are_reported :: () {
         array_free(problems);
     }
 
-    expect_equal(problems.count, 2);
+    expect_equal(problems.count, 3);
     expect_equal(problems[0], "index.html: link `/d/api/A.html` ends in .html");
-    expect_equal(problems[1], "index.html: link `/d/api/B/` leads to no written file");
+    expect_equal(problems[1], "index.html: link `/d/api/B` leads to no written file");
+    expect_equal(problems[2], "index.html: link `/d/api/C/` ends in /");
     partial := check_links(*w, resolve = false);
 
     defer {
@@ -130,7 +131,7 @@ html_and_dangling_links_are_reported :: () {
         array_free(partial);
     }
 
-    expect_equal(partial.count, 1);
+    expect_equal(partial.count, 2);
 } @test
 
 link_rules_and_assets :: () {
@@ -153,7 +154,7 @@ link_rules_and_assets :: () {
 
 render_page :: (out: *Out, n: *int, w: *Writer) {
     html(out, "<p>{n.*}</p><a href=\"/d/\">home</a>");
-    assert(write_page(w, tprint("%/", n.*), out));
+    assert(write_page(w, tprint("%", n.*), out));
 }
 
 parallel_matches_serial :: () {
@@ -181,8 +182,8 @@ parallel_matches_serial :: () {
     expect_equal(parallel.errors.count, 0);
 
     for jobs {
-        a, ok_a := F.read_entire_file(tprint("%/serial/%/index.html", directory, it),, temp);
-        b, ok_b := F.read_entire_file(tprint("%/parallel/%/index.html", directory, it),, temp);
+        a, ok_a := F.read_entire_file(tprint("%/serial/%.html", directory, it),, temp);
+        b, ok_b := F.read_entire_file(tprint("%/parallel/%.html", directory, it),, temp);
         expect(ok_a && ok_b);
         expect_equal(a, b);
     }
