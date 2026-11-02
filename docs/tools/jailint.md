@@ -288,7 +288,9 @@ It fires only when every path to a use of `p := *xs[i]` passes a `@GrowsArray` c
    |          ^ pointer used here after its storage was invalidated
 ```
 
-Not yet covered: pointers stored in fields or copied through other variables, and callees that grow an array without `@GrowsArray`. `JAILINT_LIFETIME_STATS=1` prints per-file counts of bodies analysed and why others were skipped.
+The pointer is followed through copies: other locals, struct fields, pointer arithmetic, casts, and views or strings made from the array (`v: []int = xs;` then `v.data`). `*outer[0].inner[0]` points into the inner array, so growing `outer` leaves it alone; `*outer[0].inner` points into `outer` and is invalidated. A `@GrowsArray` call that returns a pointer into its argument (`p := array_add(*xs);`) counts as a fresh derivation. Reading `v.count` or replacing `v.data` after growth is not a use.
+
+Anything reached through a pointer the lint can't resolve (a heap field a callee could rebind, an overlapping union field) is unknown, so it stays quiet. Not yet covered: callees that grow an array without `@GrowsArray`. `JAILINT_LIFETIME_STATS=1` prints per-file counts of bodies analysed and why others were skipped.
 
 ### print_in_module
 A file belongs to a module when it or a directory above it holds a `module.jai`, with no `tests` or `test` folder in between (those hold programs that use the module).
