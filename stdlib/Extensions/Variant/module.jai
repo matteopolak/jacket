@@ -4,6 +4,9 @@
 // ```jai
 // #import "Extensions/Variant";
 //
+// Leaf   :: struct { value: s64; }
+// Branch :: struct { children: [..] *Tree; }
+//
 // Contact :: Variant(struct { email: string; phone: string; });   // named cases
 // Tree    :: Variant(Leaf, *Branch);                               // cases named after their types
 //
