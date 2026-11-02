@@ -8,7 +8,7 @@
 - A `Func` is `Block`s of `Inst`s, each ending in one `Term` (`Jump`, `Branch`, `Switch`, `Ret`, `Unreachable`).
 - `Conv::Jai` passes an optional context pointer, then parameters (aggregates by pointer to a caller-owned copy), then one out-pointer per aggregate result. `Conv::C` is the platform ABI ([C ABI](../native/c-abi.md)).
 - `Program` holds lazily lowered functions, globals (bytes plus relocations), foreigns, the globals reset before `main`, the stack-trace layout and [debug info](../native/debug-info.md) tables.
-- `Func::trusted` lists values never null (context pointer, stack-trace addresses, incoming aggregate parameters) so native code skips null checks. `Func::inline` becomes `alwaysinline` / `noinline`.
+- `Func::trusted` lists values never null (context pointer, stack-trace addresses, incoming aggregate parameters) so native code skips null checks and marks such parameters `nonnull`. `Inst::PtrAdd { inbounds }` is set only by the builder's allocation proof ([LLVM backend](../native/llvm-backend.md)). `Func::inline` becomes `alwaysinline` / `noinline`.
 
 ## How to change it
 

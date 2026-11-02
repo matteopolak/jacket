@@ -42,6 +42,10 @@ At `-O0` the target machine uses FastISel, because GlobalISel was a third of cod
 - Globals are packed structs of byte runs and relocations. Every foreign call is an indirect call typed from its `Sig`.
 - Unoptimised code inlines small copies, skips guards for constant divisors, and drops null checks it has already proven in the same block (`NullFacts`). A new instruction that writes a slot, changes a pointer or lets a slot address escape must update or reset the facts. See [compile speed](../compiler/compile-speed.md).
 - `Conv::C` signatures use the real C convention for aggregates: [C ABI](c-abi.md).
+- Pointer facts come from the frontend, never from guessing:
+  - A parameter in `Func::trusted` (the context, incoming aggregates) gets `nonnull`. Its index is mapped through the ABI plan (`lower/symbols.rs`), because a C aggregate may become several registers or disappear. User pointer parameters stay plain: Jai pointers may be null, and a Jai aggregate parameter may alias another argument, so there is no `noalias`.
+  - A `PtrAdd` gets `inbounds` only when `ir::Builder` proved it stays inside a live stack allocation: an offset into a slot that fits, or an element address after a fixed-array bounds check. Loads, casts and raw pointer arithmetic drop the proof.
+  - Adding a fact LLVM can rely on turns a wrong fact into undefined behaviour. Keep each one backed by a frontend guarantee and an IR test (`llvm_pointer_facts.rs`, `llvm_inbounds.rs`).
 
 ### SIMD lowering (`simd/`)
 
