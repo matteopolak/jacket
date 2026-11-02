@@ -117,10 +117,10 @@ main :: () {
         original := data;
         defer free(original);
         if path == "assets/site.css" data = compact_css(data);
-        if path == "assets/site.js" || path == "assets/sidebar.js" data = compact_js(data);
-        if path == "assets/sidebar.js" {
-            // Inlined into every page, so it runs before the sidebar is first painted.
-            site.sidebar_js = copy_string(data);
+        if path == "assets/site.js" || path == "assets/early.js" data = compact_js(data);
+        if path == "assets/early.js" {
+            // Inlined into every page, so it runs before the page is first painted.
+            site.early_js = copy_string(data);
             continue;
         }
         write_file(*w, path, data);

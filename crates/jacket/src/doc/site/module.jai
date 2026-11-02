@@ -6,7 +6,7 @@ Main :: (out: *Out, page: *Page(Content_Module)) {
 {else}<p class="import"><code><span class="d">#import</span> <span class="s">"{esc(c.import)}"</span>;</code></p>
 {end}
 {if c.docs.count}<div class="fold">
-{Segments(c.docs)}<script>fold()</script></div>
+{Segments(c.docs)}<script>fold()</script></div><button type="button" class="btn fold-btn">Show more</button>
 {end}{if c.parameters.count}{Heading(2, "parameters", "Module parameters")}{Definitions(c.parameters)}{end}{for s: c.sections}{Heading(2, s.id, s.label)}{for g: s.groups}<section class="group">
 {if g.heading}{Heading(3, g.heading.href, g.heading.label)}{end}{for r: g.rows}{ItemRow(*r)}{end}</section>
 {end}{end}
@@ -21,9 +21,9 @@ ItemRow :: (out: *Out, r: *Row) {
 {for line: r.lines_html}<div class="sig-line">{cast(Html) line}</div>
 {end}{if r.summary_html.count}<p class="summary">{cast(Html) r.summary_html}</p>
 {end}{if r.declaration_html.count}<div class="fold members" data-fold="240">
-<pre class="sig decl"><code>{cast(Html) r.declaration_html}</code></pre><script>fold()</script></div>
+<pre class="sig decl"><code>{cast(Html) r.declaration_html}</code></pre><script>fold()</script></div><button type="button" class="btn fold-btn">Show more</button>
 {end}{if r.members.count}<div class="fold members" data-fold="240">
-{Definitions(r.members)}<script>fold()</script></div>
+{Definitions(r.members)}<script>fold()</script></div><button type="button" class="btn fold-btn">Show more</button>
 {end}{if r.example}{ExampleBlock(r.example)}{end}</article>
 HTML
     );

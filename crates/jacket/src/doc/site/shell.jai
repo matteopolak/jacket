@@ -33,10 +33,10 @@ Layout :: (out: *Out, page: *Page($C)) {
 <details class="side" open><summary>{esc(page.view.side_label)}</summary>
 <nav aria-label="{esc(page.view.side_label)}" data-nav="{esc(page.view.side_label)}">
 {Side(page)}</nav></details>
-<script>{cast(Html) page.site.sidebar_js}</script>
+<script>{cast(Html) page.site.early_js}</script>
 <main id="main-content" tabindex="-1">
 {Main(page)}</main>
-{Toc(page)}</div>
+{Toc(page)}<script>jacketPage(true)</script></div>
 {Footer(page.site)}</body>
 </html>
 HTML

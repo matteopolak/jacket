@@ -1,7 +1,12 @@
-// Inlined right after the sidebar, so the sidebar is put back before the first paint: its open
-// groups and scroll from the last page, then the current link in view. A long group shows only
-// the rows around the current one until its full list arrives. site.js calls jacketSide again
-// when it swaps in another page's sidebar.
+// Inlined into every page, so what it does is in place before the first paint.
+//
+// Right after the sidebar it puts the sidebar back: its open groups and scroll from the last page,
+// then the current link in view. A long group shows only the rows around the current one until
+// its full list arrives. site.js calls jacketSide again when it swaps in another page's sidebar.
+//
+// jacketPage runs after the content and the outline: it opens the folds that fit, puts a reload
+// or Back back where it was, and opens the outline lists of the sections on screen. site.js
+// calls it again for a swapped-in page.
 (function () {
   function wide() { return matchMedia('(min-width:900px)').matches; }
   function reveal(s) {
@@ -72,6 +77,59 @@
     });
   }
   window.jacketSide = setup;
+
+  window.jacketPage = function (load) {
+    // Measure every fold first, then change them, so the page lays out once.
+    var shut = Array.prototype.slice.call(document.querySelectorAll('main .fold:not(.open)'));
+    shut.filter(function (f) {
+      return f.scrollHeight <= (+f.getAttribute('data-fold') || 440);
+    }).forEach(function (f) { f.classList.add('open'); });
+    if (load) {
+      var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+      var y = history.state && history.state.y;
+      if (y && nav && nav.type !== 'navigate') window.scrollTo({ top: y, behavior: 'instant' });
+    }
+    tocLists();
+  };
+  // Adds the fold buttons to the outline and opens the lists of the sections on screen, the same
+  // ones site.js keeps open while scrolling.
+  function tocLists() {
+    var toc = document.querySelector('.toc');
+    if (!toc) return;
+    var marks = [];
+    Array.prototype.forEach.call(toc.querySelectorAll('li.items'), function (l, n) {
+      var head = l.previousElementSibling;
+      if (!head || head.classList.contains('items')) return;
+      var list = l.querySelector('ul');
+      list.id = 'outline-list-' + n;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tog';
+      b.setAttribute('aria-controls', list.id);
+      b.setAttribute('aria-expanded', 'false');
+      b.setAttribute('aria-label', 'Show ' + head.textContent.trim());
+      head.classList.add('has-list');
+      head.appendChild(b);
+    });
+    Array.prototype.forEach.call(toc.querySelectorAll('a[href^="#"]'), function (a) {
+      var h = document.getElementById(a.getAttribute('href').slice(1));
+      if (h) marks.push({ a: a, top: h.getBoundingClientRect().top });
+    });
+    var a = 0, b = -1;
+    marks.forEach(function (m, i) {
+      if (m.top <= 70) a = i;
+      if (m.top <= window.innerHeight - 1) b = i;
+    });
+    for (var i = a; i <= b; i++) {
+      var li = marks[i].a.closest('li');
+      var l = li.classList.contains('has-list') ? li.nextElementSibling : li.closest('li.items');
+      if (l && !l.classList.contains('open')) {
+        l.classList.add('open');
+        var t = l.previousElementSibling.querySelector('.tog');
+        if (t) t.setAttribute('aria-expanded', 'true');
+      }
+    }
+  }
   var st = null;
   try { st = JSON.parse(sessionStorage.getItem('jacket-docs-side') || 'null'); } catch (e) {}
   setup(st);

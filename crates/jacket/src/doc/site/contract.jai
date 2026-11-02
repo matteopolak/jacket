@@ -18,7 +18,7 @@ Site_View :: struct {
     css_url: string; @json(default)
     script_url: string; @json(default)
     categories_url: string; @json(default)
-    sidebar_js: string; @json(default)
+    early_js: string; @json(default)
     icons_url: string; @json(default)
     footer_version: string;
     module_files: [] string;

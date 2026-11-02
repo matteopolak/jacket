@@ -135,8 +135,9 @@ main { flex: 999 1 560px; min-width: 0; max-width: 860px; padding: 48px 0 120px;
 .titlebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 6px; margin-bottom: 10px; }
 .titlebar h1 { margin-right: 10px; }
 .titlebar .since { margin-left: 4px; }
-h1 { margin: 0; font-size: 36px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 700; overflow-wrap: anywhere; }
-h1.mono { font-size: 30px; font-weight: 500; line-height: 1.2; }
+/* Module and item titles share one line height, so the chips below sit at the same place. */
+h1 { margin: 0; font-size: 32px; line-height: 40px; letter-spacing: -0.02em; font-weight: 700; overflow-wrap: anywhere; }
+h1.mono { font-size: 30px; font-weight: 500; }
 h1.page-title { margin-bottom: 14px; }
 h2 { margin: 56px 0 14px; font-size: 22px; letter-spacing: -0.01em; font-weight: 650; }
 h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
@@ -174,8 +175,9 @@ main code { background: var(--sunken); border-radius: 4px; padding: 1px 5px; }
 main pre code, .sig code, .row-head code { background: none; padding: 0; }
 main h2 + h3 { margin-top: 0; }
 .js .fold:not(.open) { max-height: 360px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent); }
-.btn.fold-btn { display: flex; width: fit-content; position: relative; z-index: 1; margin: -22px auto 28px; background: var(--surface); font-size: 13px; font-weight: 500; padding: 6px 18px; border-radius: 999px; box-shadow: 0 1px 3px var(--shadow); }
+.btn.fold-btn { display: none; width: fit-content; position: relative; z-index: 1; margin: -22px auto 28px; background: var(--surface); font-size: 13px; font-weight: 500; padding: 6px 18px; border-radius: 999px; box-shadow: 0 1px 3px var(--shadow); }
 .btn.fold-btn:hover { color: var(--fg); }
+.js .fold:not(.open) + .btn.fold-btn { display: flex; }
 .fold:focus { outline: none; }
 
 /* Lists of items */
@@ -346,8 +348,8 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
   .side[open] > summary { margin-bottom: 12px; }
   .side > nav { max-height: 50vh; overflow-y: auto; }
   main { flex-basis: 100%; padding-top: 24px; }
-  h1 { font-size: 30px; }
-  h1.mono { font-size: 24px; }
+  h1 { font-size: 27px; line-height: 34px; }
+  h1.mono { font-size: 25px; }
 }
 @media (max-width: 599px) {
   .defs { grid-template-columns: minmax(0, 1fr); }

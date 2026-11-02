@@ -77,20 +77,15 @@
       moved = true;
     };
     var groupOf = new Map();
-    Array.prototype.forEach.call(document.querySelectorAll('.toc li.items'), function (l, n) {
+    Array.prototype.forEach.call(document.querySelectorAll('.toc li.items'), function (l) {
       var head = l.previousElementSibling;
       if (!head || head.classList.contains('items')) return;
       var list = l.querySelector('ul');
-      list.id = 'outline-list-' + n;
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'tog';
-      b.setAttribute('aria-controls', list.id);
-      b.setAttribute('aria-expanded', 'false');
-      b.setAttribute('aria-label', 'Show ' + head.textContent.trim());
-      head.classList.add('has-list');
-      head.appendChild(b);
-      var g = { l: l, b: b, user: null, seen: false, open: false };
+      // early.js added the button and opened the lists on screen.
+      var b = head.querySelector('.tog');
+      if (!b) return;
+      var open = l.classList.contains('open');
+      var g = { l: l, b: b, user: null, seen: open, open: open };
       b.addEventListener('click', function () {
         g.user = !g.open;
         setOpen(g);
@@ -695,23 +690,16 @@
     if (!sizing) { sizing = true; requestAnimationFrame(scrollable); }
   });
 
-  // Long blocks have a preview and a "Show more" button. Opening is one-way: the button goes
-  // away and the block stays open for the visit. Focus moving into the clipped part opens
-  // the block too, so a focused link is never hidden. The early fold() script opens the
-  // first few blocks that fit while the page loads; the rest are measured here in one pass,
-  // since measuring each block as it arrives lays the page out once per block.
+  // A long block shows its top and a Show more button. early.js has already opened the blocks
+  // that fit; the button is in the HTML, so nothing moves when this runs. Focus inside a block,
+  // from Tab or a search result, opens it too, so a focused link is never hidden.
   function folds() {
-  var shut = Array.prototype.slice.call(document.querySelectorAll('.fold:not(.open)'));
-  var fits = shut.map(function (f) { return f.scrollHeight <= (+f.getAttribute('data-fold') || 440); });
-  shut = shut.filter(function (f, i) {
-    if (fits[i]) f.classList.add('open');
-    return !fits[i];
-  });
-  shut.forEach(function (fold, i) {
-    var btn = el('button', 'btn fold-btn', 'Show more');
+  Array.prototype.forEach.call(document.querySelectorAll('main .fold'), function (fold, i) {
+    var btn = fold.nextElementSibling;
+    if (!btn || !btn.classList.contains('fold-btn')) return;
+    if (fold.classList.contains('open')) { btn.remove(); return; }
     if (!fold.id) fold.id = 'fold-' + i;
     btn.setAttribute('aria-controls', fold.id);
-    btn.type = 'button';
     function open() { fold.classList.add('open'); btn.remove(); }
     btn.addEventListener('click', function () {
       // Keep keyboard focus in place of the removed button.
@@ -722,7 +710,6 @@
     fold.addEventListener('focusin', function () {
       if (!fold.classList.contains('open')) open();
     });
-    fold.after(btn);
   });
   }
 
@@ -794,8 +781,6 @@
       saving = setTimeout(remember, 150);
     }, { passive: true });
     window.addEventListener('pagehide', remember);
-    var entry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
-    if (history.state && history.state.y && entry && entry.type !== 'navigate') jump(history.state.y);
 
     var going = 0;
     var go = function (href, push, keyboard) {
@@ -872,6 +857,8 @@
     var toc = document.querySelector('.wrap > .toc'), nextToc = doc.querySelector('.wrap > .toc');
     if (toc) toc.remove();
     if (nextToc) document.getElementById('main-content').after(document.importNode(nextToc, true));
+    // Inline scripts in the new content don't run; this does their work.
+    window.jacketPage(false);
     setupPage();
   }
 
