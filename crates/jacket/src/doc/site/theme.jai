@@ -3,7 +3,6 @@
 #import "Extensions/Web";
 #import "Extensions/Json";
 F :: #import "File";
-Arena :: #import "Pool";
 
 #load "contract.jai";
 #load "shell.jai";

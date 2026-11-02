@@ -1,4 +1,5 @@
 #load "theme.jai";
+Arena :: #import "Pool";
 
 read_view :: ($T: Type, path: string) -> T {
     text, ok := F.read_entire_file(path, log_errors = false);

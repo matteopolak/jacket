@@ -283,7 +283,8 @@ shared_item_navigation_keeps_a_focused_fallback_window :: () {
 } @test
 
 shared_navigation_urls_track_the_written_bytes :: () {
-    links := NewArray(8, Nav_Link, allocator = temp);
+    links := NewArray(8, Nav_Link);
+    defer array_free(links);
     for *link, n: links {
         link.href = tprint("/api/Test/item%/", n);
         link.label = tprint("item%", n);
@@ -315,7 +316,8 @@ shared_navigation_urls_track_the_written_bytes :: () {
     defer free(before);
     expect(contains(before, tprint("data-source=\"assets/nav/api/Test/0.html?v=%\"", stamps[0])));
     reset(*out);
-    changed_links := links;
+    changed_links := array_copy(links);
+    defer array_free(changed_links);
     // This row is outside the fallback, but changing it must still change the URL.
     changed_links[0].label = "renamed";
     groups[0] = changed_links;
