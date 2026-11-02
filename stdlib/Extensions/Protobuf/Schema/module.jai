@@ -1,5 +1,4 @@
-// Compile-time proto3 schema graphs, or call protobuf_generate to obtain Jai source.
-// @experimental
+// Compile-time protobuf schema graphs, or call protobuf_generate to obtain Jai source.
 //
 // `Api :: #import "Extensions/Protobuf/Schema"(TEXT = "syntax = 'proto3'; message Ping {}");`
 
@@ -58,7 +57,7 @@ Schema_Error :: struct {
     column: s64;
 }
 
-// Generates one module for a proto3 schema and its imports, or options.dir.
+// Generates one module for a protobuf schema and its imports, or options.dir.
 // Free the source or error.message with Basic.free.
 // Parsing scratch uses temp; returned text and error messages use context.allocator.
 protobuf_generate :: (text: string, options := Generate_Options.{}) -> string, Schema_Error {
@@ -97,6 +96,7 @@ protobuf_generate :: (text: string, options := Generate_Options.{}) -> string, S
 
 #load "lexer.jai";
 #load "parser.jai";
+#load "features.jai";
 #load "resolve.jai";
 #load "emit.jai";
 #load "imports.jai";
@@ -142,3 +142,5 @@ proto_generate_schema :: () -> string {
 #import "File";
 #import "File_Utilities";
 Sorting :: #import "Sort";
+
+proto_symbols :: #import "Extensions/Hash_Map";

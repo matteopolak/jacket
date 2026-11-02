@@ -1,5 +1,5 @@
-../../Schema/module.jai:96:9: error[metaprogram-report]: groups are not supported yet
+../../Schema/module.jai:95:9: error[metaprogram-report]: unknown feature 'features.future'
     #insert #run proto_generate_schema();
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-note: reported for <text.proto>:1:30
+note: reported for <text.proto>:1:56
 

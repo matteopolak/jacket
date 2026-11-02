@@ -91,13 +91,18 @@ proto_find_type :: (s: *proto_Schema, initial_scope: string, input_name: string,
 
     if begins_with(name, ".") {
         name = slice(name, 1, name.count - 1);
-        for s.nodes if it.full == name && !it.synthetic && proto_visible(source, it.source) return it;
+        found := proto_symbols.find(*s.names, name);
+        if found && !found.*.synthetic && proto_visible(source, found.*.source) return found.*;
+
         return null;
     }
 
     while true {
         full := proto_join_name(scope, name);
-        for s.nodes if it.full == full && !it.synthetic && proto_visible(source, it.source) return it;
+        found := proto_symbols.find(*s.names, full);
+
+        if found && !found.*.synthetic && proto_visible(source, found.*.source) return found.*;
+
         if !scope.count break;
 
         last: s64 = -1;
@@ -125,8 +130,17 @@ proto_field_type :: (f: *proto_Field) -> string {
 }
 
 proto_field_kind :: (f: *proto_Field) -> string {
-    if proto_is_message(f) return "MESSAGE";
+    if f.wire_kind.count return f.wire_kind;
+
+    if proto_is_message(f) {
+        if f.features.message == "DELIMITED" return "GROUP";
+        return "MESSAGE";
+    }
+
+    if f.target && f.target.features.enums == "CLOSED" return "CLOSED_ENUM";
+    if f.scalar == "string" && f.features.utf8 == "NONE" return "RAW_STRING";
     if f.target return "ENUM";
+
     return proto_upper(f.scalar);
 }
 
@@ -139,13 +153,17 @@ proto_packable :: (f: *proto_Field) -> bool {
 }
 
 proto_field_wire :: (f: *proto_Field) -> s64 {
+    if proto_is_message(f) && f.features.message == "DELIMITED" return 3;
     if proto_is_message(f) || f.map_entry || f.scalar == "string" || f.scalar == "bytes" return 2;
     if f.scalar == "fixed64" || f.scalar == "sfixed64" || f.scalar == "double" return 1;
     if f.scalar == "fixed32" || f.scalar == "sfixed32" || f.scalar == "float" return 5;
+
     return 0;
 }
 
 proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complexity)
+    proto_resolve_features(s);
+
     if s.options.map == .CUSTOM {
         if !s.options.map_module.count || !s.options.map_type.count || !s.options.map_insert.count || !s.options.map_deinit.count {
             proto_schema_fail(s, .{ path = s.options.path, line = 1, column = 1 }, "CUSTOM maps require MAP_MODULE, MAP_TYPE, MAP_INSERT and MAP_DEINIT");
@@ -177,14 +195,15 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
 
     for node: s.nodes {
         node.jai = proto_qualified_jai(node.full);
+        if proto_symbols.find(*s.names, node.full) || proto_symbols.find(*s.jai_names, node.jai) proto_schema_fail(s, node.token, "duplicate type name after Jai renaming");
+        proto_symbols.insert(*s.names, node.full, node);
+        proto_symbols.insert(*s.jai_names, node.jai, node);
+    }
 
-        for other: s.nodes {
-            if other == node break;
-            if node.full == other.full || node.jai == other.jai proto_schema_fail(s, node.token, "duplicate type name after Jai renaming");
-        }
+    for node: s.nodes {
 
         if node.kind == .ENUM {
-            if !node.values.count || node.values[0].value != 0 proto_schema_fail(s, node.token, "the first proto3 enum value must be zero");
+            if !node.values.count || (node.features.enums == "OPEN" && node.values[0].value != 0) proto_schema_fail(s, node.token, "the first proto3 enum value must be zero");
 
             prefix := proto_schema_format("%_", proto_snake_upper(node.name));
 
@@ -247,6 +266,21 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
                 if !f.target proto_schema_fail(s, f.token, proto_schema_format("unknown type '%'", f.type_name));
             }
 
+            if f.has_default && (f.repeated || f.oneof.count || proto_is_message(f) || !f.optional) proto_schema_fail(s, f.token, "defaults require explicit scalar presence");
+
+            if f.target && f.target.kind == .ENUM && f.has_default {
+                found := false;
+
+                for f.target.values if it.token.text == f.default_value {
+                    f.default_value = proto_schema_format("cast(%) %", proto_field_type(f), it.value);
+                    found = true;
+                    break;
+                }
+
+                if !found proto_schema_fail(s, f.token, "unknown enum default");
+            }
+
+            f.wire_kind = proto_field_kind(f);
             if node.synthetic && f.number == 1 && (f.target || f.scalar == "float" || f.scalar == "double" || f.scalar == "bytes") proto_schema_fail(s, f.token, "invalid map key type");
             if f.explicit_packed && (!f.repeated || !proto_packable(f)) proto_schema_fail(s, f.token, "packed applies only to repeated scalar or enum fields");
 
@@ -259,6 +293,27 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
             }
         }
     }
+
+    changed := true;
+    while changed {
+        changed = false;
+
+        for node: s.nodes {
+            if node.has_required continue;
+
+            for f: node.fields {
+                target := f.target;
+                if f.map_entry target = f.map_entry;
+
+                if f.required || (target && target.has_required) {
+                    node.has_required = true;
+                    changed = true;
+                    break;
+                }
+            }
+        }
+    }
+
 }
 
 // Variant reserves its layout members and strips one trailing underscore from tags.

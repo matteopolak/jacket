@@ -1,4 +1,4 @@
-../../Schema/module.jai:96:9: error[metaprogram-report]: choose exactly one of PATH, TEXT or DIR
+../../Schema/module.jai:95:9: error[metaprogram-report]: choose exactly one of PATH, TEXT or DIR
     #insert #run proto_generate_schema();
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: reported for <text.proto>:1:1

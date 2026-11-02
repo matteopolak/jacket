@@ -21,9 +21,11 @@ tag_size :: (tag: s64) -> s64 {
 
 // Tests implicit field presence; forced presence also encodes scalar defaults.
 has_field :: inline (value: $T, $kind: Scalar, force := false) -> bool {
-    #if kind == .MESSAGE return value != null;
-    else #if kind == .STRING || kind == .BYTES return force || value.count != 0;
+    #if (kind == .MESSAGE || kind == .GROUP) return value != null;
+    else #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES return force || value.count != 0;
     else #if kind == .BOOL return force || value;
+    else #if kind == .FLOAT return force || (cast(*u32) *value).* != 0;
+    else #if kind == .DOUBLE return force || (cast(*u64) *value).* != 0;
     else return force || value != 0;
 }
 
@@ -33,9 +35,10 @@ size_field :: inline (value: $T, $kind: Scalar, $tag: s64, cache: *[..] u32, for
 
     if !has_field(value, kind, force) return 0;
 
-    #if kind == .MESSAGE {
+    #if (kind == .MESSAGE || kind == .GROUP) {
         n := size_message(value, cache);
-        return TAG_SIZE + varint_size(cast(u64) n) + n;
+        #if kind == .GROUP return TAG_SIZE * 2 + n;
+        else return TAG_SIZE + varint_size(cast(u64) n) + n;
     } else return TAG_SIZE + scalar_size(value, kind);
 }
 
@@ -50,9 +53,10 @@ encode_field :: inline (w: *Writer, value: $T, $kind: Scalar, $tag: s64, force :
 
     write_tag(w, tag);
 
-    #if kind == .MESSAGE {
-        write_varint(w, w.cache[w.next]);
+    #if (kind == .MESSAGE || kind == .GROUP) {
+        #if kind != .GROUP write_varint(w, w.cache[w.next]);
         write_message(w, value);
+        #if kind == .GROUP write_tag(w, tag + 1);
     } else write_scalar(w, value, kind);
 }
 
@@ -74,11 +78,15 @@ size_repeated :: inline (values: [] $T, $kind: Scalar, $tag: s64, $packed: bool,
 
     #if packed {
         if !values.count return 0;
-        for values n += scalar_size(it, kind);
+
+        #if kind == .FIXED32 || kind == .SFIXED32 || kind == .FLOAT n = values.count * 4;
+        else #if kind == .FIXED64 || kind == .SFIXED64 || kind == .DOUBLE n = values.count * 8;
+        else for values n += scalar_size(it, kind);
+
         return TAG_SIZE + varint_size(cast(u64) n) + n;
     } else {
         for values {
-            #if kind == .MESSAGE n += size_field(*it, kind, tag, cache, true);
+            #if (kind == .MESSAGE || kind == .GROUP) n += size_field(*it, kind, tag, cache, true);
             else n += size_field(it, kind, tag, cache, true);
         }
 
@@ -92,20 +100,27 @@ encode_repeated :: inline (w: *Writer, values: [] $T, $kind: Scalar, $tag: s64, 
         if !values.count return;
 
         n: s64;
-        for values n += scalar_size(it, kind);
+
+        #if kind == .FIXED32 || kind == .SFIXED32 || kind == .FLOAT n = values.count * 4;
+        else #if kind == .FIXED64 || kind == .SFIXED64 || kind == .DOUBLE n = values.count * 8;
+        else for values n += scalar_size(it, kind);
 
         write_tag(w, tag);
         write_varint(w, cast(u64) n);
-        for values write_scalar(w, it, kind);
+
+        // Every supported target (x64, arm64, wasm) is little endian.
+        #if kind == .FIXED32 || kind == .SFIXED32 || kind == .FLOAT || kind == .FIXED64 || kind == .SFIXED64 || kind == .DOUBLE {
+            write_bytes(w, .{ n, cast(*u8) values.data });
+        } else for values write_scalar(w, it, kind);
     } else for values {
-        #if kind == .MESSAGE encode_field(w, *it, kind, tag, true);
+        #if (kind == .MESSAGE || kind == .GROUP) encode_field(w, *it, kind, tag, true);
         else encode_field(w, it, kind, tag, true);
     }
 }
 
 // Releases a scalar or optional message pointer.
 free_field :: inline (value: *$T, $kind: Scalar) {
-    #if kind == .MESSAGE {
+    #if (kind == .MESSAGE || kind == .GROUP) {
         if value.* {
             Message :: type_of(value.*.*);
             Message.proto_free(value.*);
@@ -118,7 +133,14 @@ free_field :: inline (value: *$T, $kind: Scalar) {
 // Shared map-entry codec; it never stores unknown fields or emits synthetic schema types.
 Entry_Codec :: struct(K: Type, V: Type, key_kind: Scalar, value_kind: Scalar) {
     key: K;
-    value: V;
+    value: V = #run entry_default(V);
+    invalid_enum: bool;
+    proto_has_required :: false;
+
+    proto_check :: (entry: *Entry_Codec, r: *Reader) -> bool {
+        #if value_kind == .MESSAGE return check_message(entry.value, r);
+        else return true;
+    }
 
     proto_size :: (entry: *Entry_Codec, cache: *[..] u32) -> s64 {
         slot := cache.count;
@@ -142,6 +164,11 @@ Entry_Codec :: struct(K: Type, V: Type, key_kind: Scalar, value_kind: Scalar) {
     }
 
     proto_merge :: (entry: *Entry_Codec, r: *Reader) -> bool {
+        suppressed := r.suppress_enum_unknown;
+
+        #if value_kind == .CLOSED_ENUM r.suppress_enum_unknown = true;
+        defer r.suppress_enum_unknown = suppressed;
+
         while remaining(r) > 0 {
             tag := read_tag(r);
 
@@ -153,7 +180,10 @@ Entry_Codec :: struct(K: Type, V: Type, key_kind: Scalar, value_kind: Scalar) {
                 #if value_kind == .MESSAGE {
                     if !entry.value entry.value = New(type_of(entry.value.*));
                     if !read_message(r, entry.value) return field_error(r, "value");
-                } else if !read_scalar(r, *entry.value, value_kind) return field_error(r, "value");
+                } else {
+                    if !read_scalar(r, *entry.value, value_kind) return field_error(r, "value");
+                    if r.enum_rejected entry.invalid_enum = true;
+                }
             } else if !skip(r, tag) return false;
         }
 
@@ -165,9 +195,11 @@ Entry_Codec :: struct(K: Type, V: Type, key_kind: Scalar, value_kind: Scalar) {
 read_field :: inline (r: *Reader, value: *$T, $kind: Scalar, wire: u64, path: string) -> bool {
     if wire != scalar_wire(kind) return false;
 
-    #if kind == .MESSAGE {
+    #if (kind == .MESSAGE || kind == .GROUP) {
         if !value.* value.* = New(type_of(value.*.*));
-        if !read_message(r, value.*) return field_error(r, path);
+        #if kind == .GROUP ok := read_group(r, value.*);
+        else ok := read_message(r, value.*);
+        if !ok return field_error(r, path);
     } else if !read_scalar(r, value, kind) return field_error(r, path);
 
     return true;
@@ -175,18 +207,43 @@ read_field :: inline (r: *Reader, value: *$T, $kind: Scalar, wire: u64, path: st
 
 // Reads an explicitly present scalar, setting presence only after success.
 read_optional :: inline (r: *Reader, value: *Optional($T), $kind: Scalar, wire: u64, path: string) -> bool {
-    if !read_field(r, *value.value, kind, wire, path) return false;
-    value.has = true;
+    // The absent payload may be a static schema default, so never free it.
+    #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES {
+        item: T;
+        if !read_field(r, *item, kind, wire, path) return false;
+        if value.has free_scalar(*value.value, kind);
+        value.value = item;
+    } else if !read_field(r, *value.value, kind, wire, path) return false;
+
+    if !r.enum_rejected value.has = true;
+
     return true;
 }
 
 // Reads packed or expanded repeated occurrences, preserving bounds and index paths.
 read_repeated :: (r: *Reader, values: *[..] $T, $kind: Scalar, wire: u64, path: string) -> bool {
-    #if kind != .MESSAGE && kind != .STRING && kind != .BYTES {
+    #if kind != .MESSAGE && kind != .GROUP && kind != .RAW_STRING && kind != .STRING && kind != .BYTES {
         if wire == 2 {
             n := read_length(r);
 
             if r.error.kind != .NONE return field_error(r, path);
+
+            #if kind == .FIXED32 || kind == .SFIXED32 || kind == .FLOAT || kind == .FIXED64 || kind == .SFIXED64 || kind == .DOUBLE {
+                WIDTH :: size_of(T);
+                if n % WIDTH {
+                    fail(r, .TRUNCATED);
+                    return field_error(r, path, values.count + n / WIDTH);
+                }
+
+                old_count := values.count;
+
+                array_resize(values, old_count + n / WIDTH, false);
+                if n memcpy(values.data + old_count, r.bytes.data + r.pos, n);
+
+                r.pos += n;
+
+                return true;
+            }
 
             old_end := r.end;
 
@@ -196,7 +253,10 @@ read_repeated :: (r: *Reader, values: *[..] $T, $kind: Scalar, wire: u64, path: 
             while remaining(r) > 0 {
                 item: T;
                 if !read_scalar(r, *item, kind) return field_error(r, path, values.count);
-                array_add(values, item);
+
+                #if kind == .CLOSED_ENUM {
+                    if !r.enum_rejected array_add(values, item);
+                } else array_add(values, item);
             }
 
             return true;
@@ -208,23 +268,26 @@ read_repeated :: (r: *Reader, values: *[..] $T, $kind: Scalar, wire: u64, path: 
     item: T;
     ok: bool;
 
-    #if kind == .MESSAGE ok = read_message(r, *item);
+    #if kind == .GROUP ok = read_group(r, *item);
+    else #if kind == .MESSAGE ok = read_message(r, *item);
     else ok = read_scalar(r, *item, kind);
 
     if !ok {
-        #if kind == .MESSAGE T.proto_free(*item);
+        #if (kind == .MESSAGE || kind == .GROUP) T.proto_free(*item);
         else free_scalar(*item, kind);
         return field_error(r, path, values.count);
     }
 
-    array_add(values, item);
+    #if kind == .CLOSED_ENUM {
+        if !r.enum_rejected array_add(values, item);
+    } else array_add(values, item);
 
     return true;
 }
 
 // Compares scalar values or optional message pointers by content.
 equal_field :: inline (a: $T, b: T, $kind: Scalar) -> bool {
-    #if kind == .MESSAGE {
+    #if (kind == .MESSAGE || kind == .GROUP) {
         if (a == null) != (b == null) return false;
         M :: type_of(a.*);
         return !a || M.proto_equal(a, b);
@@ -242,7 +305,7 @@ equal_repeated :: (a: [] $T, b: [] T, $kind: Scalar) -> bool {
     if a.count != b.count return false;
 
     for a {
-        #if kind == .MESSAGE {
+        #if (kind == .MESSAGE || kind == .GROUP) {
             if !T.proto_equal(*it, *b[it_index]) return false;
         } else if !equal_field(it, b[it_index], kind) return false;
     }
@@ -252,8 +315,8 @@ equal_repeated :: (a: [] $T, b: [] T, $kind: Scalar) -> bool {
 
 // Releases every repeated element and its container.
 free_repeated :: (values: *[..] $T, $kind: Scalar) {
-    #if kind == .MESSAGE for *values.* T.proto_free(it);
-    else #if kind == .STRING || kind == .BYTES for *values.* free_scalar(it, kind);
+    #if (kind == .MESSAGE || kind == .GROUP) for *values.* T.proto_free(it);
+    else #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES for *values.* free_scalar(it, kind);
     array_free(values.*);
 }
 
@@ -330,9 +393,21 @@ read_map :: (r: *Reader, map: *$T, $E: Type, $mode: Map_Storage, wire: u64, path
     if wire != 2 return false;
 
     entry: E;
+    start := r.tag_start;
 
     defer E.proto_free(*entry);
     if !read_message(r, *entry) return field_error(r, path);
+
+    if entry.invalid_enum {
+        if !r.options.discard_unknown && r.unknown {
+            raw: [] u8 = .{ r.pos - start, r.bytes.data + start };
+            array_add(r.unknown, ..raw);
+        }
+
+        return true;
+    }
+
+    #if E.value_kind == .MESSAGE if !entry.value entry.value = New(type_of(entry.value.*));
 
     #if mode == .ARRAY array_add(map, .{ entry.key, entry.value });
     else {
@@ -364,3 +439,85 @@ proto_maps :: #import "Extensions/Hash_Map";
 proto_tables :: #import "Hash_Table";
 #import "Extensions/Hash_Map";
 #import "Hash_Table";
+
+#scope_module
+
+entry_default :: ($T: Type) -> T {
+    #if type_info(T).type == .ENUM {
+        info := cast(*Type_Info_Enum) type_info(T);
+        if info.values.count return cast(T) info.values[0];
+    }
+
+    value: T;
+
+    return value;
+}
+
+#scope_export
+
+// Frees the selected protobuf oneof case and resets its presence.
+free_oneof :: (v: *$V) {
+    #insert -> string {
+        b: String_Builder;
+
+        for V.case_names {
+            info := V.case_infos[it_index];
+            kind := "INT32";
+
+            if info.type == .POINTER kind = "MESSAGE";
+            else if info.type == .STRING kind = "STRING";
+            else if info.type == .ARRAY kind = "BYTES";
+            else continue;
+
+            print(*b, "if cast(s64) v.which == % free_field(*v.%, .%);\n", it_index + 1, it, kind);
+        }
+
+        return builder_to_string(*b);
+    };
+
+    v.* = .{};
+}
+
+// Reads a oneof occurrence without changing the selected case for a rejected closed enum.
+read_oneof :: (r: *Reader, v: *$V, $selected: V.Which, $kind: Scalar, wire: u64, path: string) -> bool {
+    if wire != scalar_wire(kind) return false;
+
+    #insert -> string {
+        name := V.case_names[cast(s64) selected - 1];
+        b: String_Builder;
+
+        if kind == .MESSAGE || kind == .GROUP {
+            print(*b, "if v.which != selected { free_oneof(v); v.which = selected; }\nreturn read_field(r, *v.%, kind, wire, path);\n", name);
+        } else {
+            print(*b, "item: type_of(v.%);\nif !read_scalar(r, *item, kind) return field_error(r, path);\n", name);
+            if kind == .CLOSED_ENUM append(*b, "if r.enum_rejected return true;\n");
+            print(*b, "free_oneof(v);\nv.which = selected;\nv.% = item;\nreturn true;\n", name);
+        }
+
+        return builder_to_string(*b);
+    };
+}
+
+// Compares the selected case and its payload, with no field-name reflection at runtime.
+equal_oneof :: (a: *$V, b: *V) -> bool {
+    if a.which != b.which return false;
+
+    #insert -> string {
+        out: String_Builder;
+
+        for V.case_names {
+            info := V.case_infos[it_index];
+            kind := "INT32";
+
+            if info.type == .POINTER kind = "MESSAGE";
+            else if info.type == .STRING kind = "STRING";
+            else if info.type == .ARRAY kind = "BYTES";
+
+            print(*out, "if cast(s64) a.which == % return equal_field(a.%, b.%, .%);\n", it_index + 1, it, it, kind);
+        }
+
+        return builder_to_string(*out);
+    };
+
+    return true;
+}

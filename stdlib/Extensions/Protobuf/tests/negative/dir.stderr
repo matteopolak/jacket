@@ -1,4 +1,4 @@
-../../Schema/module.jai:96:9: error[metaprogram-report]: cannot read schema directory
+../../Schema/module.jai:95:9: error[metaprogram-report]: cannot read schema directory
     #insert #run proto_generate_schema();
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: reported for unused:1:1

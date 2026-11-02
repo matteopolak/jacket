@@ -10,6 +10,8 @@ proto_Import :: struct {
 proto_Source :: struct {
     path: string;
     active: bool;
+    syntax: string;
+    features: proto_Features;
     imports: [..] proto_Import;
 }
 

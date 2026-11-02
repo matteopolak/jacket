@@ -17,6 +17,9 @@ Scalar :: enum {
     BYTES;
     ENUM;
     MESSAGE;
+    GROUP;
+    CLOSED_ENUM;
+    RAW_STRING;
 }
 
 // Decoder state shared by nested generated messages; end bounds only decrease for a child.
@@ -27,6 +30,13 @@ Reader :: struct {
     depth: s64;
     options: Decode_Options;
     error: Error;
+    group: u64;
+    group_ended: bool;
+    unknown: *[..] u8;
+    tag_start: s64;
+    enum_tag: u64;
+    enum_rejected: bool;
+    suppress_enum_unknown: bool;
 }
 
 // Exact output buffer and preorder nested-message sizes used by generated encoders.
@@ -288,9 +298,16 @@ read_length :: (r: *Reader) -> s64 {
 
 // Validates a protobuf tag before narrowing it.
 read_tag :: (r: *Reader) -> u64 {
+    start := r.pos;
     tag := read_varint(r);
 
     if r.error.kind != .NONE return 0;
+
+    // A tag is a 32-bit varint: at most 5 bytes, even when the extra bytes are zero padding.
+    if r.pos - start > 5 {
+        fail(r, .BAD_TAG);
+        return 0;
+    }
 
     if tag >> 3 == 0 {
         fail(r, .FIELD_ZERO);
@@ -365,12 +382,19 @@ read_message :: (r: *Reader, value: *$T) -> bool {
     if r.depth >= r.options.max_depth return fail(r, .TOO_DEEP);
 
     old_end := r.end;
+    old_group := r.group;
+    old_ended := r.group_ended;
+
+    r.group = 0;
+    r.group_ended = false;
 
     r.end = r.pos + n;
     r.depth += 1;
 
     defer {
         r.end = old_end;
+        r.group = old_group;
+        r.group_ended = old_ended;
         r.depth -= 1;
     }
 
@@ -426,21 +450,23 @@ scalar_bits :: (value: $T, $kind: Scalar) -> u64 {
     else #if kind == .BOOL {
         if value return 1;
         else return 0;
-    } else #if kind == .INT32 || kind == .INT64 || kind == .ENUM || kind == .SFIXED32 || kind == .SFIXED64 return cast,trunc(u64) cast(s64) value;
+    } else #if kind == .INT32 || kind == .INT64 || kind == .ENUM || kind == .CLOSED_ENUM || kind == .SFIXED32 || kind == .SFIXED64 return cast,trunc(u64) cast(s64) value;
     else return cast(u64) value;
 }
 
 // Wire type for a scalar kind.
 scalar_wire :: (kind: Scalar) -> u64 {
-    if kind == .MESSAGE || kind == .STRING || kind == .BYTES return 2;
+    if kind == .GROUP return 3;
+    if kind == .MESSAGE || kind == .STRING || kind == .RAW_STRING || kind == .BYTES return 2;
     if kind == .FIXED64 || kind == .SFIXED64 || kind == .DOUBLE return 1;
     if kind == .FIXED32 || kind == .SFIXED32 || kind == .FLOAT return 5;
+
     return 0;
 }
 
 // Encoded scalar payload length, without its field tag.
 scalar_size :: (value: $T, $kind: Scalar) -> s64 {
-    #if kind == .STRING || kind == .BYTES return varint_size(cast(u64) value.count) + value.count;
+    #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES return varint_size(cast(u64) value.count) + value.count;
     else {
         wire := scalar_wire(kind);
         if wire == 1 return 8;
@@ -451,7 +477,7 @@ scalar_size :: (value: $T, $kind: Scalar) -> s64 {
 
 // Writes a scalar payload without its tag.
 write_scalar :: (w: *Writer, value: $T, $kind: Scalar) {
-    #if kind == .STRING || kind == .BYTES {
+    #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES {
         write_varint(w, cast(u64) value.count);
         write_bytes(w, .{ value.count, value.data });
     } else {
@@ -466,7 +492,7 @@ write_scalar :: (w: *Writer, value: $T, $kind: Scalar) {
 
 // Releases an owned scalar payload; numeric values need no allocation.
 free_scalar :: (value: *$T, $kind: Scalar) {
-    #if kind == .STRING || kind == .BYTES {
+    #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES {
         Basic.free(value.data);
         value.* = .{};
     }
@@ -474,7 +500,10 @@ free_scalar :: (value: *$T, $kind: Scalar) {
 
 // Reads a scalar payload, replacing an owned string or byte buffer only after validation.
 read_scalar :: (r: *Reader, value: *$T, $kind: Scalar) -> bool {
-    #if kind == .STRING || kind == .BYTES {
+    r.enum_rejected = false;
+    start := r.pos;
+
+    #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES {
         n := read_length(r);
 
         if r.error.kind != .NONE return false;
@@ -509,7 +538,104 @@ read_scalar :: (r: *Reader, value: *$T, $kind: Scalar) -> bool {
             value.* = (cast(*T) *narrow).*;
         } else #if kind == .DOUBLE value.* = (cast(*T) *bits).*;
         else #if kind == .BOOL value.* = bits != 0;
-        else value.* = cast,trunc(T) bits;
+        else {
+            candidate := cast,trunc(T) bits;
+            #if kind == .CLOSED_ENUM if !enum_known(candidate) {
+                r.enum_rejected = true;
+                if !r.suppress_enum_unknown && !r.options.discard_unknown && r.unknown {
+                    tag := r.enum_tag;
+                    while tag >= 128 {
+                        array_add(r.unknown, cast(u8) ((tag & 127) | 128));
+                        tag >>= 7;
+                    }
+
+                    array_add(r.unknown, cast(u8) tag);
+                    raw: [] u8 = .{ r.pos - start, r.bytes.data + start };
+
+                    array_add(r.unknown, ..raw);
+                }
+
+                return true;
+            }
+
+            value.* = candidate;
+        }
+    }
+
+    return true;
+}
+
+// Tests declared enum numbers; specialization makes the membership table constant.
+enum_known :: (value: $T) -> bool {
+    #insert -> string {
+        info := cast(*Type_Info_Enum) type_info(T);
+        b: String_Builder;
+        for info.values print(*b, "if cast(s32) value == % return true;\n", it);
+        return builder_to_string(*b);
+    };
+
+    return false;
+}
+
+// Reads a typed group with a matching end tag and the same recursion budget as messages.
+read_group :: (r: *Reader, value: *$T) -> bool {
+    if r.depth >= r.options.max_depth return fail(r, .TOO_DEEP);
+
+    old := r.group;
+    ended := r.group_ended;
+
+    r.group = r.enum_tag >> 3;
+    r.group_ended = false;
+    r.depth += 1;
+
+    defer {
+        r.group = old;
+        r.group_ended = ended;
+        r.depth -= 1;
+    }
+
+    if !T.proto_merge(value, r) return false;
+    if !r.group_ended return fail(r, .TRUNCATED);
+
+    return true;
+}
+
+// Recursively checks required presence after merging all occurrences.
+check_message :: (value: *$T, r: *Reader) -> bool {
+    if !value return true;
+    if r.depth >= r.options.max_depth return fail(r, .TOO_DEEP);
+
+    r.depth += 1;
+    defer r.depth -= 1;
+
+    #if T.proto_has_required return T.proto_check(value, r);
+    else return true;
+}
+
+// Constructs special floating schema defaults during generation, preserving IEEE values.
+float_default :: (negative: bool, nan: bool) -> float64 {
+    bits: u64 = 0x7ff0000000000000;
+    if negative bits |= 0x8000000000000000;
+    if nan bits |= 0x8000000000000;
+    return (cast(*float64) *bits).*;
+}
+
+// Completes a typed group only when its end tag matches the active field.
+end_group :: (r: *Reader, tag: u64) -> bool {
+    if !r.group || tag >> 3 != r.group return fail(r, .BAD_GROUP);
+    r.group_ended = true;
+    return true;
+}
+
+// Skips and retains an unmatched complete field from the current message.
+skip_unknown :: (r: *Reader, tag: u64) -> bool {
+    start := r.tag_start;
+
+    if !skip(r, tag) return false;
+
+    if !r.options.discard_unknown && r.unknown {
+        raw: [] u8 = .{ r.pos - start, r.bytes.data + start };
+        array_add(r.unknown, ..raw);
     }
 
     return true;

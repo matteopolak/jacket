@@ -1,6 +1,6 @@
 # Protobuf
 
-Protocol Buffers in the binary wire format. Give it a `.proto` schema and the Jai types and their encoders and decoders are generated at compile time. No `protoc`, no build file. `@experimental`.
+Protocol Buffers in the binary wire format. Give it a `.proto` schema and the Jai types and their encoders and decoders are generated at compile time. No `protoc`, no build file. proto3, proto2 and editions 2023/2024; it passes Google's binary conformance suite.
 
 ```jai
 Proto :: #import "Extensions/Protobuf";
@@ -64,10 +64,12 @@ Schema errors point at the `.proto` file, line and column. Different parameters 
 | `uint32` `fixed32` / `uint64` `fixed64` | `u32` / `u64` |
 | `float` `double` `bool` | `float32` `float64` `bool` |
 | `string` / `bytes` | `string` (UTF-8 checked on decode) / `[] u8` |
-| enum | `enum s32`; an unknown number is kept as the value |
+| enum | `enum s32`; an open enum keeps an unknown number as the value, a closed enum (proto2, `enum_type = CLOSED`) puts it in the unknown fields |
 | message field | `*T`; null means absent |
-| `optional` scalar | `Proto.Optional(T)`: `has`, `value` |
-| `repeated T` | `[..] T`; packed by default, both forms decoded |
+| `optional` scalar (proto3), explicit presence (proto2, editions) | `Proto.Optional(T)`: `has`, `value`; `[default = x]` sets `value` while `has` stays false |
+| `required` / `LEGACY_REQUIRED` | the plain type; checked on decode and encode (`.MISSING_REQUIRED` with the path) |
+| proto2 `group` | a nested message, delimited on the wire |
+| `repeated T` | `[..] T`; packed by default in proto3 and editions, expanded in proto2, both forms decoded |
 | `map<K, V>` | set by `MAP` |
 | `oneof` | `Variant(struct { ... })` with `which == .NONE` when unset |
 
@@ -98,10 +100,33 @@ Setting a oneof: `c.via.which = .EMAIL; c.via.email = "ada@example.com";`. Free 
 
 ## Not supported yet
 
-- proto2 and editions: a schema error.
-- Groups and `extend` in a schema. Unknown groups on the wire are skipped correctly.
+- Typed extensions: `extensions` ranges are accepted and `extend` blocks are skipped, so extension values arrive in `_unknown` and round-trip unchanged.
+- Editions newer than 2024. Unknown features are a schema error; custom feature extensions (`pb.cpp`...) are ignored.
 - `service` blocks are read and skipped.
 - The proto3 JSON mapping and the text format.
+
+## Syntax and features
+
+`syntax = "proto3"`, `syntax = "proto2"` and `edition = "2023"` or `"2024"` all resolve to one set of features per field:
+
+- `field_presence`: `EXPLICIT`, `IMPLICIT` or `LEGACY_REQUIRED`.
+- `enum_type`: `OPEN` or `CLOSED`.
+- `repeated_field_encoding`: `PACKED` or `EXPANDED`.
+- `utf8_validation`: `VERIFY` or `NONE`. Strings are checked in proto3 and editions, not in proto2.
+- `message_encoding`: `LENGTH_PREFIXED` or `DELIMITED`, the group encoding.
+- `json_format`: read and ignored.
+
+proto2 and proto3 are fixed defaults for these. In editions, `option features.x = ...` on a file, message, field, oneof or enum overrides them for everything inside.
+
+## Conformance and speed
+
+`benchmarks/compare/protobuf/conformance/testee.jai` runs Google's `conformance_test_runner` against this module. It generates the test messages from a protobuf checkout given at build time: `jaic -O2 testee.jai -add 'PROTOBUF_ROOT :: "/path/to/protobuf";'`.
+
+The runner is upstream code, so it runs only inside the `tools/bench` sandbox. It runs with `--maximum_edition 2024 --enforce_recommended --failure_list failure_list.txt`. Every binary test passes (2,863), proto2, proto3 and editions alike. The one listed failure is the UTF-8 check on an extension string, since extensions are untyped. JSON and text-format tests are skipped.
+
+`stdlib/Extensions/Protobuf/bench/bench.jai`, built with `-O2`, covers four shapes: a mixed message, 1 MiB of packed numbers, 64 levels of nesting, and string-heavy logs. Running it with `-interp -- --generation-only` times generation instead. A 100-message, 1,000-line schema generates in about 190 ms in the interpreter and about 4 KB of Jai per 9-field message.
+
+A nightly job in `.github/workflows/fuzz.yml` fuzzes the decoder under ASan (`tools/fuzz/properties/Protobuf.jai`).
 
 ## How it works
 
@@ -114,6 +139,7 @@ Setting a oneof: `c.via.which = .EMAIL; c.via.email = "ada@example.com";`. Free 
 
 - **Grammar:** `Schema/lexer.jai` and `Schema/parser.jai`.
 - **Schema checks and naming:** `Schema/resolve.jai`.
+- **Features and syntax defaults:** `Schema/features.jai`. A new edition is a new set of defaults there.
 - **What a message generates:** `Schema/emit.jai`.
 - **Wire primitives, bounds, depth and UTF-8:** `wire.jai`.
 - **Well-known types:** `Schema/well_known/schemas.jai`, as our own text.

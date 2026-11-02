@@ -28,6 +28,8 @@ proto_Schema :: struct {
     imports: [..] proto_Import;
     sources: [..] *proto_Source;
     source: *proto_Source;
+    names: proto_symbols.Map(string, *proto_Node);
+    jai_names: proto_symbols.Map(string, *proto_Node);
 }
 
 proto_schema_fail :: (s: *proto_Schema, token: proto_Token, message: string) {

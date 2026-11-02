@@ -180,7 +180,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | Script | What it does | Called by |
 | --- | --- | --- |
 | `crash_summary.py` | Write what a fuzz run found to the job summary, so nobody downloads the artifact to see it. | CI |
-| `stdlib_fuzz.py` | Fuzzes the exported procedures of stdlib modules with arguments generated from their types. | - |
+| `stdlib_fuzz.py` | Fuzzes the exported procedures of stdlib modules with arguments generated from their types. | CI |
 | `sync_targets.py` | Generate the fuzz target listings from fuzz/targets.json, or check that they are current. | - |
 
 ## `generators/`

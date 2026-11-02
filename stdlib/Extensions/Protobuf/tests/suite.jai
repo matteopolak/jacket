@@ -244,8 +244,8 @@ maps_all_modes :: () {
 } @test
 
 wire_errors :: () {
-    inputs := string.["0001", "808080801000", "0e", "0f", "0c", "0b", "0b14", "7201ff", "8080808080808080808000", "80808080808080808002", "720500", "ba0103080112"];
-    kinds := Proto.Error_Kind.[.FIELD_ZERO, .BAD_TAG, .BAD_WIRE_TYPE, .BAD_WIRE_TYPE, .BAD_GROUP, .TRUNCATED, .BAD_GROUP, .BAD_UTF8, .VARINT_TOO_LONG, .VARINT_TOO_LONG, .TRUNCATED, .TRUNCATED];
+    inputs := string.["0001", "808080801000", "0e", "0f", "0c", "0b", "0b14", "7201ff", "8080808080808080808000", "80808080808080808002", "720500", "ba0103080112", "88808080800000"];
+    kinds := Proto.Error_Kind.[.FIELD_ZERO, .BAD_TAG, .BAD_WIRE_TYPE, .BAD_WIRE_TYPE, .BAD_GROUP, .TRUNCATED, .BAD_GROUP, .BAD_UTF8, .VARINT_TOO_LONG, .VARINT_TOO_LONG, .TRUNCATED, .TRUNCATED, .BAD_TAG];
 
     for inputs {
         value, error := from_hex(M, it);

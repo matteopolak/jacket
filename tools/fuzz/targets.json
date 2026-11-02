@@ -50,5 +50,10 @@
     },
     "hooks": "properties/Image.jai",
     "known": {}
+  },
+  "Extensions/Protobuf": {
+    "allow": ["decode"],
+    "hooks": "properties/Protobuf.jai",
+    "known": {}
   }
 }

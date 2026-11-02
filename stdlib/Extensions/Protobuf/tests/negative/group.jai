@@ -1,5 +1,5 @@
 // test: compile_fail
 #import "Basic";
-Api :: #import "Extensions/Protobuf/Schema"(TEXT = "syntax='proto3'; message M { group G=1 { int32 a=2; } }");
+Api :: #import "Extensions/Protobuf/Schema"(TEXT = "edition='2023'; message M { int32 x=1 [features.future=BAD]; }");
 
 main :: () {}

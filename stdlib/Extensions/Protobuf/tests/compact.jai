@@ -52,3 +52,66 @@ compact_generation :: () {
     expect(!contains(source, "proto_map_1_ :: struct"));
     expect(!contains(source, "for *item: value.n"));
 } @test
+
+packed_fixed_bulk_bounds_and_append :: () {
+    Fixed :: #import "Extensions/Protobuf/Schema"(TEXT = "syntax='proto3'; message M { repeated fixed32 a=1; repeated sfixed64 b=2; repeated float c=3; repeated double d=4; }");
+    // Packed and expanded occurrences must append in order.
+    bytes := u8.[10, 8, 1, 0, 0, 0, 255, 255, 255, 255, 13, 2, 0, 0, 0, 18, 8, 255, 255, 255, 255, 255, 255, 255, 255, 26, 4, 0, 0, 128, 63, 34, 8, 0, 0, 0, 0, 0, 0, 240, 63];
+    m, error := Proto.decode(Fixed.M, bytes);
+
+    require(error.kind == .NONE);
+    defer Proto.free(*m);
+    expect(m.a.count == 3 && m.a[0] == 1 && m.a[1] == 0xffffffff && m.a[2] == 2);
+    expect(m.b.count == 1 && m.b[0] == -1);
+    expect(m.c.count == 1 && m.c[0] == 1 && m.d.count == 1 && m.d[0] == 1);
+    encoded, ee := Proto.encode(m);
+
+    require(ee.kind == .NONE);
+    defer free(encoded.data);
+    back, be := Proto.decode(Fixed.M, encoded);
+
+    require(be.kind == .NONE);
+    defer Proto.free(*back);
+    expect(Proto.equal(m, back));
+
+    for width: 4..8 {
+        if width != 4 && width != 8 continue;
+
+        for count: 1..width - 1 {
+            bad: [10] u8;
+            bad[0] = ifx width == 4 then 10 else 18;
+            bad[1] = cast(u8) count;
+            _, de := Proto.decode(Fixed.M, .{ count + 2, bad.data });
+
+            expect(de.kind == .TRUNCATED);
+            Proto.free(*de);
+        }
+    }
+} @test
+
+wrong_wire_oneof_does_not_switch :: () {
+    Choice :: #import "Extensions/Protobuf/Schema"(TEXT = "syntax='proto3'; message M { oneof x { string s=1; int32 n=2; } }");
+    bytes := u8.[10, 1, 120, 18, 1, 0]; // field 2 has the wrong wire type
+    m, error := Proto.decode(Choice.M, bytes);
+
+    require(error.kind == .NONE);
+    defer Proto.free(*m);
+    expect(m.x.which == .S && m.x.s == "x" && m._unknown.count == 3);
+} @test
+
+implicit_negative_zero_is_present :: () {
+    Floating :: #import "Extensions/Protobuf/Schema"(TEXT = "syntax='proto3'; message M { float f=1; double d=2; }");
+    bytes := u8.[13, 0, 0, 0, 128, 17, 0, 0, 0, 0, 0, 0, 0, 128];
+    m, error := Proto.decode(Floating.M, bytes);
+
+    require(error.kind == .NONE);
+    defer Proto.free(*m);
+    encoded, ee := Proto.encode(m);
+
+    require(ee.kind == .NONE);
+    defer free(encoded.data);
+    expect(Proto.bytes_equal(encoded, bytes));
+    positive: Floating.M;
+
+    expect(Proto.size(positive) == 0);
+} @test

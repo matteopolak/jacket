@@ -20,8 +20,11 @@ proto_Node :: struct {
     reserved_names: [..] string;
     allow_alias: bool;
     synthetic: bool;
+    has_required: bool;
     package: string;
     source: *proto_Source;
+    features: proto_Features;
+    oneof_features: [..] proto_Features;
 }
 
 proto_Enum_Value :: struct {
@@ -42,6 +45,7 @@ proto_Field :: struct {
     type_name: string;
     target: *proto_Node;
     scalar: string;
+    wire_kind: string;
     number: s64;
     repeated: bool;
     optional: bool;
@@ -52,6 +56,12 @@ proto_Field :: struct {
     has_json_name: bool;
     deprecated: bool;
     map_entry: *proto_Node;
+    features: proto_Features;
+    required: bool;
+    group: bool;
+    default_value: string;
+    has_default: bool;
+    default_string: bool;
 }
 
 proto_join_name :: (a: string, b: string) -> string {
@@ -127,7 +137,20 @@ proto_option_name :: (s: *proto_Schema) -> string {
         return proto_schema_format("(%)", name);
     }
 
-    return proto_qualified(s);
+    name := proto_identifier(s).text;
+
+    while proto_eat(s, ".") {
+        if proto_eat(s, "(") {
+            proto_qualified(s);
+            proto_expect(s, ")");
+            while proto_eat(s, ".") proto_identifier(s);
+            return "features.(custom)";
+        }
+
+        name = proto_join_name(name, proto_identifier(s).text);
+    }
+
+    return name;
 }
 
 proto_parse_options :: (s: *proto_Schema, field: *proto_Field) {
@@ -138,6 +161,32 @@ proto_parse_options :: (s: *proto_Schema, field: *proto_Field) {
 
         proto_expect(s, "=");
         value := proto_peek(s);
+
+        if begins_with(name, "features.") proto_parse_feature(s, *field.features, name);
+
+        if name == "default" {
+            field.has_default = true;
+            field.default_string = value.kind == .STRING;
+            field.default_value = value.text;
+
+            if value.kind == .STRING {
+                b: String_Builder;
+
+                append(*b, value.text);
+
+                while s.tokens[s.pos + 1].kind == .STRING {
+                    proto_take(s);
+                    append(*b, proto_peek(s).text);
+                }
+
+                field.default_value = builder_to_string(*b);
+            }
+
+            if value.text == "-" || value.text == "+" {
+                proto_take(s);
+                field.default_value = proto_schema_format("%%", value.text, proto_peek(s).text);
+            }
+        }
 
         if name == "packed" {
             field.packed = value.text == "true";
@@ -161,7 +210,7 @@ proto_parse_options :: (s: *proto_Schema, field: *proto_Field) {
 
 proto_parse_reserved :: (s: *proto_Schema, node: *proto_Node) {
     while !s.error.message.count {
-        if proto_peek(s).kind == .STRING array_add(*node.reserved_names, proto_take(s).text);
+        if proto_peek(s).kind == .STRING || proto_peek(s).kind == .IDENT array_add(*node.reserved_names, proto_take(s).text);
         else {
             first := proto_number(s);
             last := first;
@@ -190,8 +239,8 @@ proto_parse_field :: (s: *proto_Schema, node: *proto_Node, oneof: string = "") {
     if proto_eat(s, "repeated") field.repeated = true;
     else if proto_eat(s, "optional") field.optional = true;
     else if proto_eat(s, "required") {
-        proto_schema_fail(s, field.token, "required fields are not supported yet (proto2)");
-        return;
+        field.required = true;
+        field.optional = true;
     }
 
     if oneof.count && (field.repeated || field.optional || proto_peek(s).text == "map") {
@@ -199,10 +248,7 @@ proto_parse_field :: (s: *proto_Schema, node: *proto_Node, oneof: string = "") {
         return;
     }
 
-    if proto_eat(s, "group") {
-        proto_schema_fail(s, field.token, "groups are not supported yet");
-        return;
-    }
+    field.group = proto_eat(s, "group");
 
     key: string;
     value: string;
@@ -216,13 +262,22 @@ proto_parse_field :: (s: *proto_Schema, node: *proto_Node, oneof: string = "") {
         proto_expect(s, ",");
         value = proto_qualified(s);
         proto_expect(s, ">");
-    } else field.type_name = proto_qualified(s);
+    } else if !field.group field.type_name = proto_qualified(s);
 
-    field.name = proto_identifier(s).text;
+    name_token := proto_identifier(s);
+
+    field.name = name_token.text;
+    if field.group field.type_name = field.name;
+
     proto_expect(s, "=");
     field.number = proto_number(s);
     proto_parse_options(s, field);
-    proto_expect(s, ";");
+
+    if field.group {
+        field.name = copy_string(field.name);
+        for *field.name it.* = to_lower(it.*);
+        proto_parse_node(s, node, .MESSAGE, name_token);
+    } else proto_expect(s, ";");
 
     if is_map {
         tok := field.token;
@@ -247,8 +302,11 @@ proto_parse_field :: (s: *proto_Schema, node: *proto_Node, oneof: string = "") {
     array_add(*node.fields, field);
 }
 
-proto_parse_node :: (s: *proto_Schema, parent: *proto_Node, kind: proto_Node_Kind) {
-    node := proto_new_node(s, parent, kind, proto_identifier(s));
+proto_parse_node :: (s: *proto_Schema, parent: *proto_Node, kind: proto_Node_Kind, group_token := proto_Token.{}) {
+    token := group_token;
+    if !token.text.count token = proto_identifier(s);
+
+    node := proto_new_node(s, parent, kind, token);
 
     if !proto_expect(s, "{") return;
 
@@ -271,6 +329,7 @@ proto_parse_node :: (s: *proto_Schema, parent: *proto_Node, kind: proto_Node_Kin
 
             proto_expect(s, "=");
             if name == "allow_alias" node.allow_alias = proto_peek(s).text == "true";
+            if begins_with(name, "features.") proto_parse_feature(s, *node.features, name);
 
             proto_skip_option_value(s);
             proto_expect(s, ";");
@@ -305,12 +364,18 @@ proto_parse_node :: (s: *proto_Schema, parent: *proto_Node, kind: proto_Node_Kin
             name := proto_identifier(s).text;
 
             array_add(*node.oneofs, name);
+            array_add(*node.oneof_features, .{});
+            oneof_index := node.oneofs.count - 1;
+
             proto_expect(s, "{");
 
             while !s.error.message.count && !proto_eat(s, "}") {
                 if proto_eat(s, "option") {
-                    proto_option_name(s);
+                    feature_name := proto_option_name(s);
+
                     proto_expect(s, "=");
+                    if begins_with(feature_name, "features.") proto_parse_feature(s, *node.oneof_features[oneof_index], feature_name);
+
                     proto_skip_option_value(s);
                     proto_expect(s, ";");
                 } else if !proto_eat(s, ";") proto_parse_field(s, node, name);
@@ -319,9 +384,18 @@ proto_parse_node :: (s: *proto_Schema, parent: *proto_Node, kind: proto_Node_Kin
             continue;
         }
 
-        if tok.text == "extend" || tok.text == "extensions" {
-            proto_schema_fail(s, tok, "extensions are not supported yet");
-            break;
+        if proto_eat(s, "extend") {
+            proto_qualified(s);
+            proto_skip_balanced(s, "{", "}");
+            continue;
+        }
+
+        if proto_eat(s, "extensions") {
+            while !s.error.message.count && !proto_eat(s, ";") {
+                if proto_take(s).kind == .END proto_schema_fail(s, tok, "unterminated extension range");
+            }
+
+            continue;
         }
 
         proto_parse_field(s, node);
@@ -330,6 +404,8 @@ proto_parse_node :: (s: *proto_Schema, parent: *proto_Node, kind: proto_Node_Kin
 
 proto_parse_schema :: (s: *proto_Schema) {
     syntax_seen := false;
+
+    s.source.syntax = "proto2";
 
     while !s.error.message.count && proto_peek(s).kind != .END {
         tok := proto_take(s);
@@ -344,12 +420,21 @@ proto_parse_schema :: (s: *proto_Schema) {
             syntax_seen = true;
             proto_expect(s, "=");
             value := proto_take(s);
-            if value.text == "proto2" proto_schema_fail(s, value, "proto2 is not supported yet");
-            else if value.kind != .STRING || value.text != "proto3" proto_schema_fail(s, value, "expected syntax = 'proto3'");
+            if value.kind != .STRING || (value.text != "proto3" && value.text != "proto2") proto_schema_fail(s, value, "expected syntax = 'proto2' or 'proto3'");
 
+            s.source.syntax = value.text;
             proto_expect(s, ";");
-        } else if tok.text == "edition" proto_schema_fail(s, tok, "editions are not supported yet");
-        else if tok.text == "import" {
+        } else if tok.text == "edition" {
+            if syntax_seen proto_schema_fail(s, tok, "duplicate syntax or edition declaration");
+
+            syntax_seen = true;
+            proto_expect(s, "=");
+            value := proto_take(s);
+            if value.kind != .STRING || (value.text != "2023" && value.text != "2024") proto_schema_fail(s, value, "supported editions are 2023 and 2024");
+
+            s.source.syntax = value.text;
+            proto_expect(s, ";");
+        } else if tok.text == "import" {
             entry := proto_Import.{ token = tok };
             entry.public = proto_eat(s, "public");
             if !entry.public proto_eat(s, "weak");
@@ -360,8 +445,10 @@ proto_parse_schema :: (s: *proto_Schema) {
             entry.name = path.text;
             proto_expect(s, ";");
             array_add(*s.imports, entry);
-        } else if tok.text == "extend" proto_schema_fail(s, tok, "extensions are not supported yet");
-        else if tok.text == "package" {
+        } else if tok.text == "extend" {
+            proto_qualified(s);
+            proto_skip_balanced(s, "{", "}");
+        } else if tok.text == "package" {
             if s.package.count || s.nodes.count {
                 proto_schema_fail(s, tok, "package must precede type declarations");
                 break;
@@ -372,8 +459,11 @@ proto_parse_schema :: (s: *proto_Schema) {
         } else if tok.text == "message" proto_parse_node(s, null, .MESSAGE);
         else if tok.text == "enum" proto_parse_node(s, null, .ENUM);
         else if tok.text == "option" {
-            proto_option_name(s);
+            name := proto_option_name(s);
+
             proto_expect(s, "=");
+            if begins_with(name, "features.") proto_parse_feature(s, *s.source.features, name);
+
             proto_skip_option_value(s);
             proto_expect(s, ";");
         } else if tok.text == "service" {
@@ -382,5 +472,4 @@ proto_parse_schema :: (s: *proto_Schema) {
         } else proto_schema_fail(s, tok, "expected syntax, package, option, message, enum or service");
     }
 
-    if !syntax_seen && !s.error.message.count proto_schema_fail(s, s.tokens[0], "proto2 is not supported yet; specify syntax = 'proto3'");
 }
