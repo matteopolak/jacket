@@ -293,6 +293,55 @@ json_put_map :: (o: *Json_Out, first: *bool, map: *$M, key: string, name: string
     return true;
 }
 
+// A set extension, keyed `"[full.name]"`. The extendee lists its extensions as `proto_extension_N`
+// constants; `key` is the quoted key, built at compile time.
+json_put_extension :: (o: *Json_Out, first: *bool, v: *$E, extension: Extension(E, $T, $kind), key: string) -> bool {
+    value, found := get(v, extension);
+    if !found return true;
+
+    #if kind == .MESSAGE || kind == .GROUP defer free_message(*value);
+
+    json_key(o, first, key, key);
+    if !json_value(o, *value, json_extension_flags(kind), .[]) return json_write_path(o, slice(key, 1, key.count - 2));
+
+    return true;
+}
+
+json_put_extension :: (o: *Json_Out, first: *bool, v: *$E, extension: Repeated_Extension(E, $T, $kind), key: string) -> bool {
+    values := get(v, extension);
+
+    defer {
+        #if kind == .MESSAGE || kind == .GROUP for *values T.proto_free(it);
+        array_free(values);
+    }
+
+    if !values.count return true;
+
+    json_key(o, first, key, key);
+    Json.json_begin_array(*o.w);
+    inner := true;
+
+    for *values {
+        Json.json_item(*o.w, *inner);
+        if !json_value(o, it, json_extension_flags(kind), .[]) return json_write_path(o, slice(key, 1, key.count - 2), it_index);
+    }
+
+    Json.json_end_array(*o.w, inner);
+
+    return true;
+}
+
+json_extension_flags :: ($kind: Scalar) -> Json_Flags {
+    #if kind == .CLOSED_ENUM return .CLOSED;
+    else return 0;
+}
+
+// The JSON key of an extension, `[full.name]`, quoted for writing.
+json_extension_key :: (name: string, quoted: bool) -> string {
+    if quoted return sprint("\"[%]\"", name);
+    return sprint("[%]", name);
+}
+
 json_write_map_body :: (o: *Json_Out, map: *$M, $flags: Json_Flags, names: [] string) -> bool {
     Json.json_begin_object(*o.w);
     inner := true;
@@ -721,6 +770,55 @@ json_read_array :: (i: *Json_In, values: *[..] $E, $flags: Json_Flags, names: []
     }
 
     return true;
+}
+
+// An extension key's value. `null` leaves the extension alone; a message is encoded into the
+// extendee's unknown fields, so it must have its required fields.
+json_get_extension :: (i: *Json_In, v: *$E, extension: Extension(E, $T, $kind)) -> bool {
+    r := *i.r;
+    if Json.json_next_is_null(r) return Json.json_read_null(r);
+
+    item: T;
+
+    #if kind == .MESSAGE || kind == .GROUP defer release_entry(*i.pr, *item);
+    else #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES defer release_scalar(*i.pr, *item, kind);
+
+    if !json_read_item(i, *item, json_extension_flags(kind), .[]) return false;
+
+    if i.skipped {
+        i.skipped = false;
+        return true;
+    }
+
+    error := set(v, extension, item);
+    if error.kind == .NONE return true;
+
+    json_free_error(*error);
+
+    return Json.json_fail(r, .INVALID_VALUE, "the extension's message doesn't encode");
+}
+
+json_get_extension :: (i: *Json_In, v: *$E, extension: Repeated_Extension(E, $T, $kind)) -> bool {
+    r := *i.r;
+    if Json.json_next_is_null(r) return Json.json_read_null(r);
+
+    values: [..] T;
+    values.allocator = context.allocator;
+
+    defer {
+        #if kind == .MESSAGE || kind == .GROUP for *values release_entry(*i.pr, it);
+        else #if kind == .STRING || kind == .RAW_STRING || kind == .BYTES for *values release_scalar(*i.pr, it, kind);
+        array_free(values);
+    }
+
+    if !json_read_array(i, *values, json_extension_flags(kind), .[]) return false;
+
+    error := set(v, extension, values);
+    if error.kind == .NONE return true;
+
+    json_free_error(*error);
+
+    return Json.json_fail(r, .INVALID_VALUE, "the extension's message doesn't encode");
 }
 
 Json_Map_Mode :: enum u8 {
@@ -1802,15 +1900,35 @@ json_writer_code :: (T: Type) -> string {
         }
     }
 
+    extensions := json_extensions(T);
+
+    if extensions.count {
+        append(*b, "if v._unknown.count {\n");
+        for extensions print(*b, "if !json_put_extension(o, first, v, T.%1, #run json_extension_key(T.%1.name, true)) return false;\n", it);
+        append(*b, "}\n");
+    }
+
     append(*b, "return true;\n");
 
     return builder_to_string(*b);
 }
 
+// The extendee's `proto_extension_N` constants, which the Schema module emits only for
+// messages that have extensions.
+json_extensions :: (T: Type) -> [..] string {
+    names: [..] string;
+    info := cast(*Type_Info_Struct) type_info(T);
+
+    for info.members if it.flags & .CONSTANT && begins_with(it.name, "proto_extension_") array_add(*names, it.name);
+
+    return names;
+}
+
 json_reader_code :: (T: Type, in_any: bool) -> string {
     plan, oneof_count := json_plan(T);
+    extensions := json_extensions(T);
     b: String_Builder;
-    words := (plan.count + oneof_count + 63) / 64;
+    words := (plan.count + oneof_count + extensions.count + 63) / 64;
 
     if !words words = 1;
 
@@ -1849,7 +1967,14 @@ json_reader_code :: (T: Type, in_any: bool) -> string {
         append(*b, "}\n");
     }
 
-    append(*b, "if field < 0 { if !json_unknown(i, key) return false; continue; }\nok := true;\nif field == {\n");
+    append(*b, "if field < 0 {\n");
+
+    for extensions {
+        print(*b, "if key == #run json_extension_key(T.%1.name, false) {\nif !json_seen(i, seen.data, %2, key) return false;\n", it, plan.count + oneof_count + it_index);
+        print(*b, "if !json_get_extension(i, v, T.%1) { Json.json_path_key(r, #run json_extension_key(T.%1.name, false)); return false; }\ncontinue;\n}\n", it);
+    }
+
+    append(*b, "if !json_unknown(i, key) return false;\ncontinue;\n}\nok := true;\nif field == {\n");
 
     oneofs: [..] string;
 

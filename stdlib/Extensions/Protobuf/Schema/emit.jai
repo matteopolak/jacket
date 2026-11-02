@@ -752,6 +752,9 @@ proto_emit_json_support :: (s: *proto_Schema, b: *String_Builder, node: *proto_N
         if kind.count proto_emit(b, "proto_well_known :: proto_r.Well_Known.%;\n", kind);
     }
 
+    // JSON prints and reads the extensions this schema declares as `[full.name]` keys.
+    for node.extensions proto_emit(b, "proto_extension_% :: %;\n", it_index, it.jai);
+
     if s.options.map != .CUSTOM return;
 
     for node.fields if it.map_entry {

@@ -1,5 +1,1 @@
 # Conformance tests expected to fail, each with the reason. Only features out of scope belong here.
-
-# Extensions have no JSON names yet, so a `[pkg.extension]` key is an unknown field.
-Recommended.Proto2.JsonInput.FieldNameExtension.JsonOutput
-Recommended.Editions_Proto2.JsonInput.FieldNameExtension.JsonOutput
