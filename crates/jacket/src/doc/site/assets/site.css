@@ -264,7 +264,7 @@ main .overload > h3 + .defs { margin-top: 0; margin-bottom: 0; border-radius: 0;
 .ex-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--hair); font-size: 12px; color: var(--muted); }
 .ex-title { font-weight: 500; }
 .ex .code, .ex .ed textarea { margin: 0; padding: 16px 18px; font-size: 13.5px; line-height: 1.7; }
-.ex .code code { white-space: pre; }
+.ex .code code { white-space: pre; font-size: inherit; }
 .code { margin: 0 0 16px; }
 
 .ex.compact .code, .ex.compact .ed textarea { padding: 0; font-size: 13px; }
