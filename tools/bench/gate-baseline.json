@@ -3,34 +3,34 @@
   "platforms": {
     "linux-x86_64": {
       "gen-10k/check": {
-        "alloc_blocks": 739906,
-        "alloc_bytes": 134763048,
-        "instructions": 580194084
+        "alloc_blocks": 763022,
+        "alloc_bytes": 137147600,
+        "instructions": 591965522
       },
       "gen-2k/build": {
-        "alloc_blocks": 626656,
-        "alloc_bytes": 118167695,
-        "instructions": 1479602216
+        "alloc_blocks": 643697,
+        "alloc_bytes": 119805247,
+        "instructions": 1487920505
       },
       "gen-2k/check": {
-        "alloc_blocks": 527012,
-        "alloc_bytes": 110833234,
-        "instructions": 414451372
+        "alloc_blocks": 544052,
+        "alloc_bytes": 112470506,
+        "instructions": 421387694
       },
       "gen-2k/meta": {
-        "alloc_blocks": 1060827,
-        "alloc_bytes": 238327313,
-        "instructions": 937991901
+        "alloc_blocks": 1092315,
+        "alloc_bytes": 241196901,
+        "instructions": 949854719
       },
       "hello/build": {
-        "alloc_blocks": 419037,
-        "alloc_bytes": 96139955,
-        "instructions": 815275079
+        "alloc_blocks": 432965,
+        "alloc_bytes": 97406535,
+        "instructions": 822111048
       },
       "hello/check": {
-        "alloc_blocks": 365221,
-        "alloc_bytes": 92236073,
-        "instructions": 287434795
+        "alloc_blocks": 379149,
+        "alloc_bytes": 93502653,
+        "instructions": 293260191
       }
     }
   }
