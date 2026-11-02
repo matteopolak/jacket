@@ -11,6 +11,12 @@ from toolkit.hashing import sha256_bytes, sha256_file
 
 
 class Types(unittest.TestCase):
+    def test_shared_layouts_reject_target_divergence(self):
+        files = gen.existing_layouts()
+        files[gen.OUT / "tests/driven/layout-linux-arm64.jai"] = "different"
+        with self.assertRaisesRegex(ValueError, "layout assertions differ"):
+            gen.share_layouts(files)
+
     def test_shared_declarations_reject_target_divergence(self):
         files = {gen.OUT / f"{profile}.jai": "same" for profile in gen.TARGETS}
         files[gen.OUT / "linux-arm64.jai"] = "different"

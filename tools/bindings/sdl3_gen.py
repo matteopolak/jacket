@@ -794,6 +794,38 @@ def share_declarations(files):
             files[path] = f'// Generated profile shim; target evidence remains in contracts-{path.stem}.jsonl.\n#load "{name}";\n'
 
 
+def share_layouts(files):
+    """Retain six wrappers/check runs; share only byte-identical assertion bodies."""
+    tests = OUT / "tests"
+    groups = [(tests / "driven" / f"layout-{system}.jai",
+               [tests / "driven" / f"layout-{system}-{cpu}.jai" for cpu in ("x64", "arm64")])
+              for system in ("macos", "linux", "windows")]
+    groups += [(tests / f"c-layout-{family}.h",
+                [tests / f"c-layout-{profile}.h" for profile in TARGETS
+                 if (profile.startswith("windows")) == (family == "windows")])
+               for family in ("posix", "windows")]
+    for shared, paths in groups:
+        bodies = [files[path] for path in paths]
+        if any(body != bodies[0] for body in bodies[1:]):
+            raise ValueError(f"SDL3 layout assertions differ for {shared.name}; split before sharing")
+        files[shared] = bodies[0]
+        for path in paths:
+            directive = "#load" if path.suffix == ".jai" else "#include"
+            end = ";" if path.suffix == ".jai" else ""
+            files[path] = f'// Generated per-profile layout checks.\n{directive} "{shared.name}"{end}\n'
+
+
+def existing_layouts():
+    files = {}
+    for profile in TARGETS:
+        for path in (OUT / f"tests/driven/layout-{profile}.jai", OUT / f"tests/c-layout-{profile}.h"):
+            data = path.read_text()
+            match = re.fullmatch(r'// Generated per-profile layout checks.\n#(?:load|include) "([^"/]+)";?\n', data)
+            files[path] = (path.parent / match[1]).read_text() if match else data
+    share_layouts(files)
+    return files
+
+
 def existing_declarations():
     """Repackage checked-in extraction without requiring a local SDK. No ABI claims."""
     files = {}
@@ -825,7 +857,7 @@ def main():
                    help="repackage checked-in target extraction without an SDK (no ABI verification)")
     a = p.parse_args()
     if a.share_existing:
-        for path, data in existing_declarations().items():
+        for path, data in {**existing_declarations(), **existing_layouts()}.items():
             sync_generated_file(path, data, a.check)
         return
     if a.source is None:
@@ -990,6 +1022,7 @@ def main():
         json.dumps(inventory, indent=2, sort_keys=True) + "\n"
     )
     share_declarations(files)
+    share_layouts(files)
     for path, data in files.items():
         if a.jaifmt and path.suffix == ".jai":
             result = subprocess.run(
