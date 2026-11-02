@@ -920,6 +920,47 @@ json_read_float32 :: (r: *Json_Reader, out: *float32) -> bool {
     return true;
 }
 
+// A number's text, checked against the JSON grammar but not converted, for types the readers
+// above don't cover (exact decimals, 128-bit integers).
+json_read_number :: (r: *Json_Reader) -> string, bool {
+    if !starts_number(json_peek(r)) return "", wrong_type(r, "a number");
+
+    return scan_number(r);
+}
+
+// Starts a reader over `text` for a decoder written by hand instead of generated from a type.
+// Read with the procedures above, then call json_reader_error for a failure and
+// json_reader_free in any case.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "[1, 2]");
+// defer json_reader_free(*r);
+// total: s64;
+// first := true;
+// ok := json_begin_array(*r);
+// while ok && json_array_next(*r, *first) == .ITEM {
+//     n: s64;
+//     ok = json_read_signed(*r, *n, 0, 10, "digit");
+//     total += n;
+// }
+// assert(ok && total == 3);
+// ```
+json_reader_init :: (r: *Json_Reader, text: string, options := Json_Options.{}) {
+    reader_init(r, text, options);
+}
+
+// Releases a reader's scratch space. Its error is not released: take it with json_reader_error.
+json_reader_free :: (r: *Json_Reader) {
+    reader_free(r);
+} @FreesArgument
+
+// The reader's error with its line, column and path filled in; the caller owns it and frees it
+// with free_json.
+json_reader_error :: (r: *Json_Reader) -> Json_Error {
+    return finish_error(r);
+}
+
 // Checks the next value and moves past it without keeping anything.
 json_skip_value :: (r: *Json_Reader) -> bool {
     c := json_peek(r);
