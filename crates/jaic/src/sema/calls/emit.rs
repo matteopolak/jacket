@@ -50,6 +50,8 @@ impl Compiler {
                 for &i in indices {
                     mapped.push(LifetimeArgument {
                         formal,
+                        ty: args[i].op.as_ref().map_or(TypeId::VOID, Operand::ty),
+                        constant: None,
                         span: args[i].span,
                         operand: args[i]
                             .op
@@ -380,8 +382,20 @@ impl Compiler {
             && let Some(call) = record.calls.last_mut()
             && let Some(formal) = call.parameter_spans.iter().position(|s| *s == param.span)
         {
+            if !call.args.iter().any(|a| a.formal == formal) {
+                call.args.push(crate::ide::lifetimes::LifetimeArgument {
+                    formal,
+                    ty: param.ty,
+                    constant: None,
+                    span: param.span,
+                    operand: crate::ide::lifetimes::LifetimeOperand::Value(value),
+                    named: false,
+                    spread: false,
+                });
+            }
             for arg in call.args.iter_mut().filter(|a| a.formal == formal) {
                 arg.operand = crate::ide::lifetimes::LifetimeOperand::Value(value);
+                arg.ty = param.ty;
             }
         }
         Ok(value)
@@ -649,6 +663,19 @@ impl Compiler {
             );
             return Err(self.with_type_note(d, ty));
         }
+        let mut mapped = Vec::new();
+        let allocator = if f.lifetimes.is_some() && !f.type_only {
+            self.preload_type(crate::sema::PreludeType::Allocator, span)
+                .ok()
+                .and_then(|t| self.ty.types.as_struct(t))
+                .is_some_and(|st| {
+                    self.ty.types.struct_info(st).fields.iter().any(|field| {
+                        field.name.is_some_and(|n| n.as_str() == "proc") && field.ty == ty
+                    })
+                })
+        } else {
+            false
+        };
         let mut values = Vec::new();
         if !pt.no_context {
             // Without a context (e.g. inside #c_call code) the callee receives null.
@@ -661,12 +688,24 @@ impl Compiler {
         for (i, &param_ty) in pt.params.iter().enumerate() {
             let op = self.arg_operand(f, &args[i], Some(param_ty))?;
             let op = self.convert(f, op, param_ty, args[i].site())?;
-            if self.is_memory_type(param_ty) {
+            let value = if self.is_memory_type(param_ty) {
                 let (_, a) = self.address_of(f, op, span)?;
-                values.push(a);
+                a
             } else {
                 let (_, v) = self.rvalue(f, op, span)?;
-                values.push(v);
+                v
+            };
+            values.push(value);
+            if f.lifetimes.is_some() && !f.type_only {
+                mapped.push(crate::ide::lifetimes::LifetimeArgument {
+                    formal: i,
+                    ty: param_ty,
+                    constant: None,
+                    span: args[i].span,
+                    operand: crate::ide::lifetimes::LifetimeOperand::Value(value),
+                    named: args[i].name.is_some(),
+                    spread: args[i].spread,
+                });
             }
         }
         let mut sig = self.ir_sig(ty, span)?;
@@ -696,7 +735,41 @@ impl Compiler {
             values,
             &returns,
         );
-        Ok(self.call_results(f, &pt.returns, results, outs, &result_parameters))
+        let result = self.call_results(f, &pt.returns, results, outs, &result_parameters);
+        if !f.type_only
+            && let Some(record) = &mut f.lifetimes
+        {
+            let results = match &result {
+                Operand::Value {
+                    val,
+                    ty,
+                } => vec![(0, *val, *ty)],
+                Operand::Multi(ops) => ops
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, op)| match op {
+                        Operand::Value {
+                            val,
+                            ty,
+                        } => Some((i, *val, *ty)),
+                        _ => None,
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            };
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::IndirectCall {
+                    callee,
+                    ty,
+                    args: mapped,
+                    results,
+                    allocator,
+                    span,
+                },
+            );
+        }
+        Ok(result)
     }
 }
 

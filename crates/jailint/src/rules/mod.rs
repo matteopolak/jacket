@@ -13,6 +13,7 @@ use jaic::source::Span;
 mod frees;
 mod lifetime_cfg;
 mod lifetime_places;
+mod lifetime_summary;
 mod local_scopes;
 
 pub(crate) use unused_parameter::RunState;

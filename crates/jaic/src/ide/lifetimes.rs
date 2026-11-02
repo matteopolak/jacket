@@ -37,6 +37,8 @@ impl LifetimeOperand {
 #[derive(Clone, Debug)]
 pub struct LifetimeArgument {
     pub formal: usize,
+    pub ty: TypeId,
+    pub constant: Option<u64>,
     pub span: Span,
     pub operand: LifetimeOperand,
     pub named: bool,
@@ -124,6 +126,14 @@ pub enum LifetimeEvent {
         expands: bool,
         results: Vec<(usize, Val, TypeId)>,
     },
+    IndirectCall {
+        callee: Val,
+        ty: TypeId,
+        args: Vec<LifetimeArgument>,
+        results: Vec<(usize, Val, TypeId)>,
+        allocator: bool,
+        span: Span,
+    },
     Grow {
         region: Val,
         ty: TypeId,
@@ -155,10 +165,31 @@ pub enum LifetimeEvent {
     },
 }
 
+impl LifetimeEvent {
+    fn resolve_constants(&mut self, constants: &HashMap<Val, u64>) {
+        let (Self::Call {
+            args, ..
+        }
+        | Self::IndirectCall {
+            args, ..
+        }) = self
+        else {
+            return;
+        };
+        for arg in args {
+            arg.constant = match arg.operand {
+                LifetimeOperand::Value(value) => constants.get(&value).copied(),
+                _ => None,
+            };
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct LifetimeBlock {
     pub events: Vec<LifetimeEvent>,
     pub successors: Vec<usize>,
+    pub normal_return: bool,
 }
 
 /// A successful real body only. `ProcId` distinguishes polymorphic instantiations;
@@ -168,6 +199,8 @@ pub struct LifetimeBody {
     pub procedure: ProcId,
     pub syntax: Arc<ast::ProcLit>,
     pub blocks: Vec<LifetimeBlock>,
+    /// Stack slots selected by lowering, including anonymous argument/literal spills.
+    pub stack_places: Vec<Val>,
 }
 
 /// Mutable only while this `FnCtx` is being checked; discarded on error.
@@ -323,7 +356,8 @@ impl LifetimeBody {
     /// Retained vector payload/capacity (including nested argument/expansion vectors).
     /// Excludes shared syntax, `HashMap` buckets and allocator rounding; not process RSS.
     pub fn vector_bytes(&self) -> usize {
-        self.blocks.capacity() * std::mem::size_of::<LifetimeBlock>()
+        self.stack_places.capacity() * std::mem::size_of::<Val>()
+            + self.blocks.capacity() * std::mem::size_of::<LifetimeBlock>()
             + self
                 .blocks
                 .iter()
@@ -335,6 +369,11 @@ impl LifetimeBody {
                             .iter()
                             .map(|event| match event {
                                 LifetimeEvent::Call {
+                                    args,
+                                    results,
+                                    ..
+                                }
+                                | LifetimeEvent::IndirectCall {
                                     args,
                                     results,
                                     ..
@@ -388,6 +427,10 @@ impl Compiler {
                     })
                     .collect();
             for (out, block) in record.blocks.iter_mut().zip(&f.b.func.blocks) {
+                out.normal_return = matches!(block.term, ir::Term::Ret(_));
+                for event in &mut out.events {
+                    event.resolve_constants(&constants);
+                }
                 if let ir::Term::Branch {
                     cond,
                     then_block,
@@ -423,6 +466,22 @@ impl Compiler {
                     procedure: id,
                     syntax: syntax.clone(),
                     blocks: record.blocks,
+                    stack_places: f
+                        .b
+                        .func
+                        .blocks
+                        .iter()
+                        .flat_map(|b| &b.insts)
+                        .filter_map(|inst| match inst {
+                            ir::Inst::SlotAddr {
+                                dst, ..
+                            }
+                            | ir::Inst::StackAlloc {
+                                dst, ..
+                            } => Some(*dst),
+                            _ => None,
+                        })
+                        .collect(),
                 },
             );
         }

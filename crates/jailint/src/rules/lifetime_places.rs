@@ -134,6 +134,19 @@ impl Places {
         a == b && pb.starts_with(pa)
     }
 
+    pub fn import(&mut self, other: &Self, id: usize) -> usize {
+        let (root, path) = &other.paths[id];
+        let target = self.intern(*root, path.clone());
+        if let Some(&ty) = other.types.get(&id) {
+            self.types.insert(target, ty);
+        }
+        if let Some(&(owner, span)) = other.data.get(&id) {
+            let owner = self.import(other, owner);
+            self.data.insert(target, (owner, span));
+        }
+        target
+    }
+
     pub fn unresolved(&self, place: usize) -> bool {
         self.paths[place].1.contains(&Projection::Deref)
             || self.indirect.iter().any(|&base| self.contains(base, place))

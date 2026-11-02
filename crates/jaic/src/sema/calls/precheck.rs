@@ -177,9 +177,23 @@ impl Compiler {
             let size = self.size_of(ty, span)?;
             let align = self.align_of(ty, span)?;
             let copy = f.b.alloca(size.max(1), align);
+            f.lifetime_store(copy, addr, ty, span);
             f.b.copy(copy, addr, size);
             copy
         };
+        if !f.type_only
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::Load {
+                    place: addr,
+                    value: val,
+                    ty,
+                    span,
+                },
+            );
+        }
         Ok(Operand::Value {
             ty,
             val,

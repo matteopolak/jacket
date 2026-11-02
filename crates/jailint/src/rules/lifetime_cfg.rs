@@ -4,12 +4,13 @@
 use super::{
     finding,
     lifetime_places::{Places, Projection},
+    lifetime_summary::{Kind, Resolver, Root, Step, Summaries},
 };
 use crate::{Finding, syntax::Cx};
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::ide::lifetimes::{LifetimeBody, LifetimeEvent as Event, LifetimeOperand};
 use jaic::ir::Val;
-use jaic::sema::{ProcId, procs::BodyState};
+use jaic::sema::procs::BodyState;
 use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
 use std::collections::{BTreeMap, VecDeque};
@@ -19,10 +20,12 @@ enum Op {
     Nop,
     Use(usize, Span),
     Borrow(usize, usize, Span),
+    PointerLoad(usize, usize, usize, Span),
     Copy(Vec<(usize, usize)>),
     Replace(usize),
     Grow(usize, Span),
     Barrier,
+    Stop,
 }
 
 struct Block {
@@ -36,6 +39,7 @@ struct Model {
     exposed: HashSet<usize>,
     blocks: Vec<Block>,
     forward: Vec<Vec<usize>>,
+    chains: HashMap<(Span, usize), Vec<Span>>,
 }
 
 const UNKNOWN: u8 = 1;
@@ -84,134 +88,15 @@ fn view(cx: &Cx, ty: TypeId) -> bool {
 }
 
 
-/// Step 3's local return proof: all returns must trace through single-assignment values
-/// to a descriptor's built-in data field. Unknown producers, multiple writes and cycles
-/// fail closed. No container name or return type implies provenance.
-fn returned_storage(cx: &Cx, body: &LifetimeBody, index: usize) -> Option<usize> {
-    let mut places = Places::new(cx.compiler, body);
-    let mut parameters = HashMap::default();
-    let mut writes: HashMap<usize, Vec<Val>> = HashMap::default();
-    let mut values: HashMap<Val, Vec<Cell>> = HashMap::default();
-    let mut returns = Vec::new();
-    let mut parameter_places = Vec::new();
-    let mut exposed_parameters = HashSet::default();
-    for event in body.blocks.iter().flat_map(|b| &b.events) {
-        match *event {
-            Event::Parameter {
-                formal,
-                place,
-                ty,
-                ..
-            } => {
-                let p = places.place(place, ty);
-                parameters.insert(places.project(p, Projection::Deref), formal);
-                parameter_places.push(p);
-            }
-            Event::Store {
-                place,
-                value,
-                ty,
-                ..
-            } => {
-                let p = places.place(place, ty);
-                writes.entry(p).or_default().push(value);
-            }
-            Event::Load {
-                place,
-                value,
-                ty,
-                ..
-            } => {
-                let p = places.place(place, ty);
-                values.entry(value).or_default().push(Cell::Place(p));
-            }
-            Event::Address {
-                place,
-                ty,
-                ..
-            } => {
-                exposed_parameters.insert(places.place(place, ty));
-            }
-            Event::Copy {
-                value,
-                source,
-            } => {
-                values.entry(value).or_default().push(Cell::Value(source));
-            }
-            Event::Return {
-                value,
-                index: i,
-            } if i == index => returns.push(value),
-            _ => {}
-        }
-    }
-    if parameter_places
-        .iter()
-        .any(|p| exposed_parameters.contains(p) || writes.get(p).is_none_or(|w| w.len() != 1))
-    {
-        return None;
-    }
-    fn trace(
-        key: Cell,
-        places: &Places,
-        parameters: &HashMap<usize, usize>,
-        writes: &HashMap<usize, Vec<Val>>,
-        values: &HashMap<Val, Vec<Cell>>,
-        visiting: &mut HashSet<Cell>,
-    ) -> Option<usize> {
-        if !visiting.insert(key) {
-            return None;
-        }
-        let result = match key {
-            Cell::Place(p) if places.data.contains_key(&p) => {
-                parameters.get(&places.data[&p].0).copied()
-            }
-            Cell::Place(p) => match writes.get(&p)?.as_slice() {
-                [v] => trace(
-                    Cell::Value(*v),
-                    places,
-                    parameters,
-                    writes,
-                    values,
-                    visiting,
-                ),
-                _ => None,
-            },
-            Cell::Value(v) => match values.get(&v)?.as_slice() {
-                [key] => trace(*key, places, parameters, writes, values, visiting),
-                _ => None,
-            },
-        };
-        visiting.remove(&key);
-        result
-    }
-    let mut formal = None;
-    for value in returns {
-        let result = trace(
-            Cell::Value(value),
-            &places,
-            &parameters,
-            &writes,
-            &values,
-            &mut HashSet::default(),
-        )?;
-        if formal.is_some_and(|f| f != result) {
-            return None;
-        }
-        formal = Some(result);
-    }
-    // Deliberately restricted to the existing growth contract in this step. SCC summaries,
-    // including projected returns and unknown callees, replace this local proof in step 4.
-    formal
-}
-
 fn build(
     cx: &Cx,
     body: &LifetimeBody,
     places: &mut Places,
     cells: &mut Cells,
-    returns: &mut HashMap<(ProcId, usize), Option<usize>>,
+    summaries: &Summaries,
+    chains: &mut HashMap<(Span, usize), Vec<Span>>,
 ) -> Vec<Block> {
+    let mut resolver = Resolver::new(cx.compiler, body, &summaries.procs);
     let mut grown = HashMap::default();
     let mut blocks: Vec<_> = body
         .blocks
@@ -256,7 +141,7 @@ fn build(
                     place,
                     value,
                     ty,
-                    ..
+                    span,
                 } => {
                     let p = places.place(place, ty);
                     let target = cells.id(Cell::Value(value));
@@ -266,6 +151,8 @@ fn build(
                         } else {
                             ops.push(Op::Copy(vec![(target, cells.id(Cell::Place(r)))]));
                         }
+                    } else if cx.compiler.ty.types.is_pointer(ty) {
+                        ops.push(Op::PointerLoad(target, cells.id(Cell::Place(p)), p, span));
                     } else {
                         ops.push(Op::Copy(vec![(target, cells.id(Cell::Place(p)))]));
                     }
@@ -342,32 +229,49 @@ fn build(
                 }
                 Event::Call {
                     callee,
+                    ref args,
                     ref results,
                     span,
+                    expands: false,
                     ..
-                } if cx.compiler.proc_has_note(callee, "GrowsArray") => {
-                    if let Some(callee_body) = cx
-                        .compiler
-                        .ed
-                        .facts()
-                        .and_then(|f| f.lifetime_bodies.get(&callee))
-                    {
-                        let info = &cx.compiler.pr.procs[callee.0 as usize];
-                        if info.body_state != BodyState::Done
-                            || !std::sync::Arc::ptr_eq(&info.lit, &callee_body.syntax)
-                        {
+                } => {
+                    for (effect, _) in resolver.effects(callee, args, &summaries.procs, false) {
+                        if effect.kind != Kind::Write {
                             continue;
                         }
-                        for &(index, value, _) in results {
-                            if *returns
-                                .entry((callee, index))
-                                .or_insert_with(|| returned_storage(cx, callee_body, index))
-                                == Some(0)
-                                && let Some(&r) = grown.get(&span)
-                            {
-                                ops.push(Op::Borrow(cells.id(Cell::Value(value)), r, span));
+                        if let Some(id) = resolver.materialize(&effect.target) {
+                            let p = places.import(&resolver.places, id);
+                            ops.push(Op::Replace(
+                                places.data.get(&p).map_or(p, |(owner, _)| *owner),
+                            ));
+                        }
+                    }
+                    for (effect, chain) in resolver.effects(callee, args, &summaries.procs, true) {
+                        if effect.kind != Kind::Resize || effect.guard.is_some() {
+                            continue;
+                        }
+                        if let Some(id) = resolver.materialize(&effect.target) {
+                            let r = places.import(&resolver.places, id);
+                            if grown.get(&span) != Some(&r) {
+                                ops.push(Op::Grow(r, span));
+                                chains.insert((span, r), chain);
                             }
                         }
+                    }
+                    for &(_, value, _) in results {
+                        if let Some(path) = resolver.value(value, &summaries.procs)
+                            && let Some(id) = resolver.materialize(&path)
+                        {
+                            let r = places.import(&resolver.places, id);
+                            ops.push(Op::Borrow(cells.id(Cell::Value(value)), r, span));
+                        }
+                    }
+                    if summaries
+                        .procs
+                        .get(&callee)
+                        .is_some_and(|s| s.normal_return == Some(false))
+                    {
+                        ops.push(Op::Stop);
                     }
                 }
                 Event::Barrier => ops.push(Op::Barrier),
@@ -379,11 +283,15 @@ fn build(
                     op,
                     next: Vec::new(),
                 });
-                blocks[previous].next.push(index);
+                if !matches!(blocks[previous].op, Op::Stop) {
+                    blocks[previous].next.push(index);
+                }
                 previous = index;
             }
         }
-        blocks[previous].next.clone_from(&block.successors);
+        if !matches!(blocks[previous].op, Op::Stop) {
+            blocks[previous].next.clone_from(&block.successors);
+        }
     }
     blocks
 }
@@ -415,7 +323,10 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         }
     }
     let mut bytes = 0;
-    let mut returns = HashMap::default();
+    let summaries = cx
+        .run
+        .lifetimes
+        .get_or_init(|| Summaries::build(cx.compiler));
     // Hash iteration order must not affect the order of diagnostics.
     let mut selected: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
     selected.sort_by_key(|b| b.procedure.0);
@@ -434,7 +345,8 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         bytes += body.vector_bytes();
         let mut places = Places::new(cx.compiler, body);
         let mut cells = Cells::default();
-        let blocks = build(cx, body, &mut places, &mut cells, &mut returns);
+        let mut chains = HashMap::default();
+        let blocks = build(cx, body, &mut places, &mut cells, summaries, &mut chains);
         let mut names = HashMap::default();
         let mut allowed_addresses = HashSet::default();
         for event in body.blocks.iter().flat_map(|b| &b.events) {
@@ -452,8 +364,27 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     callee,
                     args,
                     ..
-                } if cx.compiler.proc_has_note(*callee, "GrowsArray") => {
-                    for arg in args.iter().filter(|a| a.formal == 0) {
+                } if summaries
+                    .procs
+                    .get(callee)
+                    .is_some_and(|s| !s.may.is_empty() || !s.returns.is_empty()) =>
+                {
+                    for arg in args.iter().filter(|a| {
+                        if summaries.procs[callee].unknown_write.contains(&a.formal)
+                            || summaries.procs[callee].escapes.contains(&a.formal)
+                        {
+                            return false;
+                        }
+
+                        summaries.procs[callee].may.keys().any(|e| {
+                            e.kind == Kind::Resize && e.target.root == Root::Parameter(a.formal)
+                        }) || summaries.procs[callee].returns.values().any(|(p, _)| {
+                            p.root == Root::Parameter(a.formal)
+                                && p.steps
+                                    .iter()
+                                    .any(|s| matches!(s, Step::Storage | Step::Deref))
+                        })
+                    }) {
                         if let LifetimeOperand::Value(place) = arg.operand {
                             allowed_addresses.insert((place, arg.span));
                         }
@@ -480,10 +411,14 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         cfgs += 1;
         let mut forward = vec![Vec::new(); cells.ids.len()];
         for block in &blocks {
-            if let Op::Copy(ref pairs) = block.op {
-                for &(target, source) in pairs {
-                    forward[source].push(target);
+            match &block.op {
+                Op::Copy(pairs) => {
+                    for &(target, source) in pairs {
+                        forward[source].push(target);
+                    }
                 }
+                Op::PointerLoad(target, source, _, _) => forward[*source].push(*target),
+                _ => {}
             }
         }
         let model = Model {
@@ -492,9 +427,18 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             exposed,
             blocks,
             forward,
+            chains,
         };
         for (origin, block) in model.blocks.iter().enumerate() {
-            if let Op::Borrow(_, region, _) = block.op {
+            if let Op::Borrow(_, region, _) | Op::PointerLoad(_, _, region, _) = block.op {
+                if matches!(block.op, Op::PointerLoad(..))
+                    && !model
+                        .blocks
+                        .iter()
+                        .any(|b| matches!(b.op, Op::Grow(r, _) if r == region))
+                {
+                    continue;
+                }
                 if model.places.unresolved(region) {
                     *rejected_candidates.entry("indirect-region").or_default() += 1;
                     continue;
@@ -551,8 +495,11 @@ fn solve(
         cells,
         exposed,
         forward,
+        chains,
     } = model;
-    let Op::Borrow(first, region, origin) = blocks[candidate].op else {
+    let (Op::Borrow(first, region, origin) | Op::PointerLoad(first, _, region, origin)) =
+        blocks[candidate].op
+    else {
         return false;
     };
     // Only retain cells reachable by copying this origin. Unrelated scalar loads/stores
@@ -596,6 +543,23 @@ fn solve(
                         LIVE
                     } else {
                         UNKNOWN
+                    };
+                }
+            }
+            Op::PointerLoad(target, source, _, _) => {
+                if let Some(&cell) = relevant.get(target) {
+                    let source = relevant
+                        .get(source)
+                        .map_or(UNKNOWN, |&source| state[source]);
+                    state[cell] = if i == candidate {
+                        (source & !UNKNOWN)
+                            | if source & UNKNOWN != 0 {
+                                LIVE
+                            } else {
+                                0
+                            }
+                    } else {
+                        source
                     };
                 }
             }
@@ -695,6 +659,19 @@ fn solve(
             .secondary
             .push((origin, "pointer derived here".into()));
         for growth in growths {
+            if let Some(chain) = chains.get(&(growth, region)) {
+                for &site in chain {
+                    if site == Span::NONE {
+                        report
+                            .message
+                            .push_str(" (inferred chain truncated in the middle)");
+                    } else if site != growth {
+                        report
+                            .secondary
+                            .push((site, "invalidation inferred through this call".into()));
+                    }
+                }
+            }
             report
                 .secondary
                 .push((growth, format!("`{region_name}` storage invalidated here")));
@@ -758,6 +735,12 @@ fn invalidation_cut(
                     };
                     cell = source;
                 }
+            }
+            Op::PointerLoad(target, source, _, _) if relevant.get(target) == Some(&cell) => {
+                let Some(&source) = relevant.get(source) else {
+                    continue;
+                };
+                cell = source;
             }
             Op::Borrow(target, _, _) if relevant.get(target) == Some(&cell) => continue,
             Op::Barrier => continue,

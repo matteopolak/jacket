@@ -25,7 +25,7 @@
 //! compared as written (`xs` and `xs` or `s.items` and `s.items`). The rule is quiet when the
 //! growing statement can leave the block early (`return`, `break`, `continue`, `remove`), when
 //! the pointer is assigned to again, or when the procedure is a macro.
-use super::{any_stmt, calls_noted, finding, statement_lists};
+use super::{any_stmt, finding, statement_lists};
 use crate::Finding;
 use crate::syntax::Cx;
 use jaic::ast::walk::{Node, walk, walk_node};
@@ -188,4 +188,26 @@ fn reassigned(list: &[Stmt], name: Sym) -> bool {
         !found
     });
     found
+}
+
+// During migration this frontend also consumes inferred growth contracts. Step 6 replaces
+// the remaining statement walk with the shared engine; redundant declaration notes need
+// not stay solely to feed this older frontend in the meantime.
+fn calls_noted(cx: &Cx, callee: &Expr, name: &str) -> bool {
+    if super::calls_noted(cx, callee, name) {
+        return true;
+    }
+    let summaries = cx
+        .run
+        .lifetimes
+        .get_or_init(|| super::lifetime_summary::Summaries::build(cx.compiler));
+    super::callee_procs(cx, callee).iter().any(|id| {
+        summaries.procs.get(id).is_some_and(|s| {
+            s.guaranteed.keys().any(|e| {
+                e.kind == super::lifetime_summary::Kind::Resize
+                    && e.target.root == super::lifetime_summary::Root::Parameter(0)
+                    && e.target.steps == [super::lifetime_summary::Step::Storage]
+            })
+        })
+    })
 }

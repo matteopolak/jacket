@@ -18,7 +18,7 @@
 array_reserve :: inline (array: *[..] $T, desired_items: s64) {
     array_reserve(cast(*Resizable_Array) array, desired_items, size_of(T));
     assert(cast(u64) array.data % align_of(T) == 0, "allocator returned storage with insufficient alignment");
-} @GrowsArray
+}
 
 // The untyped form of `array_reserve`, for code that only knows the element size in bytes.
 array_reserve :: inline (array: *Resizable_Array, desired_items: s64, element_size: s64) {

@@ -292,3 +292,48 @@ fn field_targets_pointer_equality_and_view_metadata_are_not_memory_reads() {
         assert_eq!(count, expected, "{fragment}");
     }
 }
+
+#[test]
+fn argument_snapshots_before_later_calls_keep_load_and_default_facts() {
+    let c = compile(
+        r#"
+        #import "Basic";
+        later :: () -> int { return 0; }
+        take :: (p: *int, n: int, mode: Allocator_Mode = .RESIZE) {}
+        main :: () { p: *int; take(p, later()); }
+        "#,
+        true,
+        false,
+    );
+    let b = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
+        .unwrap();
+    let list: Vec<_> = events(b).collect();
+    let (call_at, args) = list
+        .iter()
+        .enumerate()
+        .find_map(|(i, e)| match e {
+            Event::Call {
+                callee,
+                args,
+                ..
+            } if c.pr.procs[callee.0 as usize].name.as_str() == "take" => Some((i, args)),
+            _ => None,
+        })
+        .unwrap();
+    let LifetimeOperand::Value(first) = args.iter().find(|a| a.formal == 0).unwrap().operand else {
+        panic!("argument value");
+    };
+    let load = list
+        .iter()
+        .position(|e| matches!(e, Event::Load { value, .. } if *value == first))
+        .unwrap();
+    let later = list.iter().position(|e| matches!(e, Event::Call { callee, .. } if c.pr.procs[callee.0 as usize].name.as_str() == "later")).unwrap();
+    assert!(load < later && later < call_at);
+    assert_eq!(
+        args.iter().find(|a| a.formal == 2).unwrap().constant,
+        Some(1)
+    );
+    assert!(b.blocks.iter().any(|b| b.normal_return));
+    assert!(!b.stack_places.is_empty());
+}

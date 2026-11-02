@@ -1,0 +1,149 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[pointer_lifetime]: `p` points into `a`, which may be resized: push(*a)
+  --> tests/lint/pointer_lifetime/summaries-bad.jai:23:10
+   |
+ 3 | grow :: (a: *[..] int) {} @GrowsArray
+   |         ----------------- invalidation inferred through this call
+   ...
+ 5 |     grow(a);
+   |     ------- invalidation inferred through this call
+   ...
+ 9 |     wrapper(a);
+   |     ---------- invalidation inferred through this call
+   ...
+20 |     p := *a[0];
+   |          ----- pointer derived here
+   ...
+22 |     push(*a);
+   |     -------- `a` storage invalidated here
+23 |     sink(p);
+   |          ^ pointer used here after its storage was invalidated
+   |
+   = help: take the pointer again after growth, or store an index instead
+
+warning[pointer_lifetime]: `p` points into `b.entries`, which may be resized: field_wrapper(*b)
+  --> tests/lint/pointer_lifetime/summaries-bad.jai:42:10
+   |
+ 3 | grow :: (a: *[..] int) {} @GrowsArray
+   |         ----------------- invalidation inferred through this call
+   ...
+32 |     grow(*b.entries);
+   |     ---------------- invalidation inferred through this call
+   ...
+39 |     p := *b.entries[0];
+   |          ------------- pointer derived here
+   ...
+41 |     field_wrapper(*b);
+   |     ----------------- `b.entries` storage invalidated here
+42 |     sink(p);
+   |          ^ pointer used here after its storage was invalidated
+   |
+   = help: take the pointer again after growth, or store an index instead
+
+warning[pointer_lifetime]: `p` points into `s.memory`, which may be resized: primitive_wrapper(*s, context.allocator)
+  --> tests/lint/pointer_lifetime/summaries-bad.jai:63:10
+   |
+50 |     s.memory = cast(*int) allocator.proc(.RESIZE, 16, 8, s.memory, allocator.data);
+   |                           -------------------------------------------------------- invalidation inferred through this call
+   ...
+54 |     resize(s, allocator);
+   |     -------------------- invalidation inferred through this call
+   ...
+60 |     p := s.memory;
+   |     ------------- pointer derived here
+   ...
+62 |     primitive_wrapper(*s, context.allocator);
+   |     ---------------------------------------- `s.memory` storage invalidated here
+63 |     sink(p);
+   |          ^ pointer used here after its storage was invalidated
+   |
+   = help: take the pointer again after growth, or store an index instead
+
+warning[pointer_lifetime]: `p` points into `b.entries`, which may be resized: grow(*b.entries)
+  --> tests/lint/pointer_lifetime/summaries-bad.jai:77:10
+   |
+74 |     p := lookup(*b);
+   |          ---------- pointer derived here
+   ...
+76 |     grow(*b.entries);
+   |     ---------------- `b.entries` storage invalidated here
+77 |     sink(p);
+   |          ^ pointer used here after its storage was invalidated
+   |
+   = help: take the pointer again after growth, or store an index instead
+
+warning[pointer_lifetime]: `p` points into `a`, which may be resized: left(*a, 2)
+   --> tests/lint/pointer_lifetime/summaries-bad.jai:98:10
+    |
+  3 | grow :: (a: *[..] int) {} @GrowsArray
+    |         ----------------- invalidation inferred through this call
+    ...
+ 83 |     grow(a);
+    |     ------- invalidation inferred through this call
+    ...
+ 95 |     p := *a[0];
+    |          ----- pointer derived here
+    ...
+ 97 |     left(*a, 2);
+    |     ----------- `a` storage invalidated here
+ 98 |     sink(p);
+    |          ^ pointer used here after its storage was invalidated
+    |
+    = help: take the pointer again after growth, or store an index instead
+
+warning[pointer_lifetime]: `p` points into `a`, which may be resized: level9(*a) (inferred chain truncated in the middle)
+   --> tests/lint/pointer_lifetime/summaries-bad.jai:144:10
+    |
+  3 | grow :: (a: *[..] int) {} @GrowsArray
+    |         ----------------- invalidation inferred through this call
+    ...
+102 |     grow(a);
+    |     ------- invalidation inferred through this call
+    ...
+106 |     level1(a);
+    |     --------- invalidation inferred through this call
+    ...
+126 |     level6(a);
+    |     --------- invalidation inferred through this call
+    ...
+130 |     level7(a);
+    |     --------- invalidation inferred through this call
+    ...
+134 |     level8(a);
+    |     --------- invalidation inferred through this call
+    ...
+141 |     p := *a[0];
+    |          ----- pointer derived here
+    ...
+143 |     level9(*a);
+    |     ---------- `a` storage invalidated here
+144 |     sink(p);
+    |          ^ pointer used here after its storage was invalidated
+    |
+    = help: take the pointer again after growth, or store an index instead
+
+warning[pointer_lifetime]: `p` points into `a`, which may be resized: cut(*a, flag)
+   --> tests/lint/pointer_lifetime/summaries-bad.jai:159:10
+    |
+  3 | grow :: (a: *[..] int) {} @GrowsArray
+    |         ----------------- invalidation inferred through this call
+    ...
+  5 |     grow(a);
+    |     ------- invalidation inferred through this call
+    ...
+148 |     if flag grow(a);
+    |             ------- invalidation inferred through this call
+149 |     else wrapper(a);
+    |          ---------- invalidation inferred through this call
+    ...
+156 |     p := *a[0];
+    |          ----- pointer derived here
+    ...
+158 |     cut(*a, flag);
+    |     ------------- `a` storage invalidated here
+159 |     sink(p);
+    |          ^ pointer used here after its storage was invalidated
+    |
+    = help: take the pointer again after growth, or store an index instead

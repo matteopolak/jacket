@@ -465,3 +465,30 @@ fn lifetime_regions_views_copies_and_nested_generations() {
     let (lints, text) = lint(&good, &[("pointer_lifetime", Level::Warn)]);
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
 }
+
+#[test]
+fn lifetime_parameter_summaries_compose_fields_allocators_and_recursion() {
+    let case = repo().join("tests/lint/pointer_lifetime");
+    let bad = case.join("summaries-bad.jai");
+    let (lints, text) = lint(&bad, &[("pointer_lifetime", Level::Warn)]);
+    assert_eq!(lints.len(), 7, "{}", rendered(&lints, &text, &bad));
+    assert!(
+        lints
+            .iter()
+            .any(|l| l.message.contains("truncated in the middle"))
+    );
+    assert!(lints.iter().all(|l| l.secondary.len() <= 9));
+    test_support::assert_snapshot_in!(&case, "summaries", rendered(&lints, &text, &bad));
+    let good = case.join("summaries-good.jai");
+    let (lints, text) = lint(&good, &[("pointer_lifetime", Level::Warn)]);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
+}
+
+#[test]
+fn lifetime_summaries_work_when_a_module_is_checked_alone() {
+    let case = repo().join("tests/lint/pointer_lifetime/summary-module");
+    let file = case.join("module.jai");
+    let (lints, text) = lint(&file, &[("pointer_lifetime", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &file));
+    test_support::assert_snapshot_in!(&case, "module", rendered(&lints, &text, &file));
+}
