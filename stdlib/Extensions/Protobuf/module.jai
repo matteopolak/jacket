@@ -29,14 +29,16 @@ Error :: struct {
     path: string;
 }
 
-// Limits for decode and merge. With borrow, the input must outlive the result. As with Json,
-// use an arena or temp allocator whose free is a no-op and reset it instead of freeing the
-// result; failed decodes also release borrowed slices through that allocator.
+// Limits for decode and merge. With borrow, strings and bytes point into the input, which
+// must outlive the result; `free` knows not to release them.
 Decode_Options :: struct {
     max_depth: s64 = 100;
     max_size: s64 = 2147483647;
     borrow := false;
     discard_unknown := false;
+    // Accept `string` fields without checking that they are UTF-8. Faster on text-heavy
+    // messages, but a string may then hold any bytes; leave it off for untrusted input.
+    skip_utf8 := false;
 }
 
 // Explicit scalar presence, including a present default value.

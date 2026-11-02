@@ -548,6 +548,46 @@ decode_spans__borrow :: (b: *Bench) {
     });
 } @bench
 
+// ---------------------------------------------------------------------------------- jacket, unchecked
+// `borrow` without the UTF-8 check of string fields: the closest Jacket decode to jai-protobuf's,
+// which neither copies nor checks strings.
+
+decode_mixed__unchecked :: (b: *Bench) {
+    prepare();
+    looped(b, "decode_mixed__unchecked", our_mixed_bytes.count, () {
+        value, error := Proto.decode(Api.Mixed, black_box(our_mixed_bytes), .{ borrow = true, skip_utf8 = true });
+        black_box(value);
+        require(error.kind == .NONE);
+    });
+} @bench
+
+decode_deep__unchecked :: (b: *Bench) {
+    prepare();
+    looped(b, "decode_deep__unchecked", our_deep_bytes.count, () {
+        value, error := Proto.decode(Api.Deep, black_box(our_deep_bytes), .{ borrow = true, skip_utf8 = true });
+        black_box(value);
+        require(error.kind == .NONE);
+    });
+} @bench
+
+decode_logs__unchecked :: (b: *Bench) {
+    prepare();
+    looped(b, "decode_logs__unchecked", our_logs_bytes.count, () {
+        value, error := Proto.decode(Api.Logs, black_box(our_logs_bytes), .{ borrow = true, skip_utf8 = true });
+        black_box(value);
+        require(error.kind == .NONE);
+    });
+} @bench
+
+decode_spans__unchecked :: (b: *Bench) {
+    prepare();
+    looped(b, "decode_spans__unchecked", our_spans_bytes.count, () {
+        value, error := Proto.decode(Api.Spans, black_box(our_spans_bytes), .{ borrow = true, skip_utf8 = true });
+        black_box(value);
+        require(error.kind == .NONE);
+    });
+} @bench
+
 // ---------------------------------------------------------------------------------- jai-protobuf
 // Deep is missing: a message that contains itself does not compile (fields are stored by value).
 

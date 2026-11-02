@@ -32,19 +32,12 @@ Counter :: struct {
     bytes: s64;
     live: s64;
     peak: s64;
-    input: [] u8;
 }
 
 borrow: bool;
 
-inside :: (p: *void, input: [] u8) -> bool {
-    return input.data && cast(u64) p >= cast(u64) input.data && cast(u64) p <= cast(u64) input.data + cast(u64) input.count;
-}
-
 counting :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *void) -> *void {
     c := cast(*Counter) data;
-    if mode == .FREE && inside(old, c.input) return null;
-
     memory := cast(*u8) old;
     previous: s64;
 
@@ -75,18 +68,6 @@ counting :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *
     return c.parent.proc(mode, size, old_size, old, c.parent.data);
 }
 
-// Borrow's existing contract requires an allocator that ignores frees of the input.
-Borrow_Filter :: struct {
-    parent: Allocator;
-    input: [] u8;
-}
-
-filter_borrow :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void, data: *void) -> *void {
-    f := cast(*Borrow_Filter) data;
-    if mode == .FREE && inside(old, f.input) return null;
-    return f.parent.proc(mode, size, old_size, old, f.parent.data);
-}
-
 bench_decode :: ($T: Type, input: [] u8) -> T, Proto.Error {
     return Proto.decode(T, input, .{ borrow = borrow });
 }
@@ -104,92 +85,84 @@ measure :: (name: string, value: $T, iterations: s64) {
     assert(error.kind == .NONE);
     defer free(encoded.data);
 
-    filter := Borrow_Filter.{ parent = context.allocator, input = encoded };
-    timing_context := context;
+    if operation.count {
+        count := iterations;
+        if profile_short count = ifx name == "mixed" then 10000 else ifx name == "string-logs" then 20 else 5;
 
-    if borrow timing_context.allocator = .{ filter_borrow, *filter };
-
-    push_context timing_context {
-        if operation.count {
-            count := iterations;
-            if profile_short count = ifx name == "mixed" then 10000 else ifx name == "string-logs" then 20 else 5;
-
-            for 0..count - 1 {
-                if operation == "encode" {
-                    bytes, ee := Proto.encode(value);
-                    assert(ee.kind == .NONE);
-                    free(bytes.data);
-                } else {
-                    decoded, de := bench_decode(T, encoded);
-                    assert(de.kind == .NONE);
-                    Proto.free(*decoded);
-                }
+        for 0..count - 1 {
+            if operation == "encode" {
+                bytes, ee := Proto.encode(value);
+                assert(ee.kind == .NONE);
+                free(bytes.data);
+            } else {
+                decoded, de := bench_decode(T, encoded);
+                assert(de.kind == .NONE);
+                Proto.free(*decoded);
             }
-
-            return;
         }
 
-        start := current_time_monotonic();
-
-        for 0..iterations - 1 {
-            bytes, ee := Proto.encode(value);
-            assert(ee.kind == .NONE && bytes.count == encoded.count);
-            free(bytes.data);
-        }
-
-        encode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
-
-        start = current_time_monotonic();
-
-        for 0..iterations - 1 {
-            decoded, de := bench_decode(T, encoded);
-            assert(de.kind == .NONE);
-            Proto.free(*decoded);
-        }
-
-        decode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
-
-        start = current_time_monotonic();
-        checksum: s64;
-        for 0..iterations - 1 checksum += Proto.size(value);
-
-        size_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
-
-        assert(checksum == encoded.count * iterations);
-        c := Counter.{ parent = context.allocator };
-        ctx := context;
-        ctx.allocator = .{ counting, *c };
-        enc_allocs, enc_bytes, dec_allocs, dec_bytes, dec_peak: s64;
-
-        push_context ctx {
-            bytes, ee := Proto.encode(value);
-
-            assert(ee.kind == .NONE);
-            enc_allocs = c.allocations;
-            enc_bytes = c.bytes;
-            free(bytes.data);
-            c.allocations = 0;
-            c.bytes = 0;
-            assert(c.live == 0);
-            c.peak = 0;
-            if borrow c.input = encoded;
-
-            decoded, de := bench_decode(T, encoded);
-
-            assert(de.kind == .NONE);
-            dec_allocs = c.allocations;
-            dec_bytes = c.bytes;
-            dec_peak = c.peak;
-            Proto.free(*decoded);
-            assert(c.live == 0);
-        }
-
-        print("% bytes=% encode_ns=% decode_ns=% size_ns=% encode_MB_s=% decode_MB_s=% encode_allocs=% encode_alloc_bytes=% decode_allocs=% decode_alloc_bytes=% decode_peak_bytes=%\n",
-            name, encoded.count, encode_ns, decode_ns, size_ns,
-            cast(float64) encoded.count * 1000 / max(encode_ns, 1),
-            cast(float64) encoded.count * 1000 / max(decode_ns, 1),
-            enc_allocs, enc_bytes, dec_allocs, dec_bytes, dec_peak);
+        return;
     }
+
+    start := current_time_monotonic();
+
+    for 0..iterations - 1 {
+        bytes, ee := Proto.encode(value);
+        assert(ee.kind == .NONE && bytes.count == encoded.count);
+        free(bytes.data);
+    }
+
+    encode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
+
+    start = current_time_monotonic();
+
+    for 0..iterations - 1 {
+        decoded, de := bench_decode(T, encoded);
+        assert(de.kind == .NONE);
+        Proto.free(*decoded);
+    }
+
+    decode_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
+
+    start = current_time_monotonic();
+    checksum: s64;
+    for 0..iterations - 1 checksum += Proto.size(value);
+
+    size_ns := to_nanoseconds(current_time_monotonic() - start) / iterations;
+
+    assert(checksum == encoded.count * iterations);
+    c := Counter.{ parent = context.allocator };
+    ctx := context;
+    ctx.allocator = .{ counting, *c };
+    enc_allocs, enc_bytes, dec_allocs, dec_bytes, dec_peak: s64;
+
+    push_context ctx {
+        bytes, ee := Proto.encode(value);
+
+        assert(ee.kind == .NONE);
+        enc_allocs = c.allocations;
+        enc_bytes = c.bytes;
+        free(bytes.data);
+        c.allocations = 0;
+        c.bytes = 0;
+        assert(c.live == 0);
+        c.peak = 0;
+
+        decoded, de := bench_decode(T, encoded);
+
+        assert(de.kind == .NONE);
+        dec_allocs = c.allocations;
+        dec_bytes = c.bytes;
+        dec_peak = c.peak;
+        Proto.free(*decoded);
+        assert(c.live == 0);
+    }
+
+    print("% bytes=% encode_ns=% decode_ns=% size_ns=% encode_MB_s=% decode_MB_s=% encode_allocs=% encode_alloc_bytes=% decode_allocs=% decode_alloc_bytes=% decode_peak_bytes=%\n",
+        name, encoded.count, encode_ns, decode_ns, size_ns,
+        cast(float64) encoded.count * 1000 / max(encode_ns, 1),
+        cast(float64) encoded.count * 1000 / max(decode_ns, 1),
+        enc_allocs, enc_bytes, dec_allocs, dec_bytes, dec_peak);
 }
 
 generation :: () {

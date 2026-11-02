@@ -40,7 +40,7 @@ Reader :: struct {
     storage: **Storage_Block;
     payload: [] u8;
     chunk_size: s64;
-
+    borrow_recorded: bool;
 }
 
 // Exact output buffer and preorder nested-message sizes used by generated encoders.
@@ -617,7 +617,7 @@ read_scalar :: (r: *Reader, value: *$T, $kind: Scalar) -> bool {
 
         bytes: [] u8 = .{ n, r.bytes.data + r.pos };
 
-        #if kind == .STRING if !valid_utf8(bytes) return fail(r, .BAD_UTF8);
+        #if kind == .STRING if !r.options.skip_utf8 && !valid_utf8(bytes) return fail(r, .BAD_UTF8);
         release_scalar(r, value, kind);
 
         if !r.options.borrow {
@@ -625,6 +625,9 @@ read_scalar :: (r: *Reader, value: *$T, $kind: Scalar) -> bool {
             owned := payload_bytes(r, n);
             if n memcpy(owned.data, bytes.data, n);
             bytes = owned;
+        } else if !r.borrow_recorded {
+            add_borrowed(r);
+            r.borrow_recorded = true;
         }
 
         value.count = n;

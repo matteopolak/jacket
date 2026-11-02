@@ -1,8 +1,11 @@
 // One top-level decode owns the blocks used by all its children. A header and its
 // payload share one allocation; only actual field bytes are copied into payload chunks.
+// A borrowed decode adds a block that records its input, so fields pointing there are
+// never freed either.
 Storage_Block :: struct {
     next: *Storage_Block;
     count: s64;
+    borrowed: [] u8;
     parent: Allocator;
     arena: [] u8;
     arena_limit: s64;
@@ -34,8 +37,8 @@ storage_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old: *void
     return scope.parent.proc(mode, size, old_size, old, scope.parent.data);
 }
 
-// Adds one bounded payload allocation to the current top-level message's storage.
-add_storage :: (r: *Reader, count: s64) -> [] u8 {
+// Links a new block of count payload bytes into the current top-level message's storage.
+add_block :: (r: *Reader, count: s64) -> *Storage_Block {
     block := cast(*Storage_Block) alloc(size_of(Storage_Block) + count);
     block.* = .{ count = count, parent = context.allocator, arena_limit = min(16384, r.bytes.count * 8) };
 
@@ -44,7 +47,27 @@ add_storage :: (r: *Reader, count: s64) -> [] u8 {
         r.storage.*.next = block;
     } else r.storage.* = block;
 
+    return block;
+}
+
+// Adds one bounded payload allocation to the current top-level message's storage.
+add_storage :: (r: *Reader, count: s64) -> [] u8 {
+    block := add_block(r, count);
     return .{ count, cast(*u8) (block + 1) };
+}
+
+// Records a borrowed input: its strings and bytes are views that free must skip.
+add_borrowed :: (r: *Reader) {
+    add_block(r, 0).borrowed = r.bytes;
+}
+
+// Tests whether a pointer lies in a block's payload or in its borrowed input.
+holds :: inline (block: *Storage_Block, address: u64) -> bool {
+    first := cast(u64) (block + 1);
+    if address >= first && address < first + cast(u64) block.count return true;
+
+    input := cast(u64) block.borrowed.data;
+    return address >= input && address < input + cast(u64) block.borrowed.count;
 }
 
 // Places one field in a geometrically grown chunk bounded by unread input bytes.
@@ -123,13 +146,12 @@ release_oneof :: (r: *Reader, value: *$T) {
     push_context ctx free_oneof(value);
 }
 
-// Tests whether a field aliases any payload block in this owner.
+// Tests whether a field aliases any payload block or borrowed input of this owner.
 owns_payload :: (block: *Storage_Block, pointer: *void) -> bool {
     address := cast(u64) pointer;
 
     while block {
-        first := cast(u64) (block + 1);
-        if address >= first && address < first + cast(u64) block.count return true;
+        if holds(block, address) return true;
         block = block.next;
     }
 
@@ -248,14 +270,14 @@ arena_take :: (root: *Storage_Block, needed: s64) -> *void {
     return result;
 }
 
-// Produces the stable allocator only when a structural allocation is needed.
+// Produces the stable allocator only when a structural allocation is needed. Borrowed
+// decodes use it too: only string and bytes payloads differ between the two modes.
 decode_allocator :: inline (r: *Reader) -> Allocator {
-    if r.options.borrow return context.allocator;
     if !r.storage.* add_storage(r, 0);
     return .{ structure_allocator, r.storage.* };
 }
 
-// Constructs a singular message in decode storage (or the ordinary borrow allocator).
+// Constructs a singular message in decode storage.
 new_message :: inline (r: *Reader, $T: Type) -> *T {
     return New(T,, decode_allocator(r));
 }
@@ -346,15 +368,11 @@ retains_pointer :: inline (scope: *Storage_Allocator, pointer: *void) -> bool {
     address := cast(u64) pointer;
     hot := scope.hot;
 
-    if hot {
-        first := cast(u64) (hot + 1);
-        if address >= first && address < first + cast(u64) hot.count return true;
-    }
+    if hot && holds(hot, address) return true;
 
     block := scope.storage.*;
     while block {
-        first := cast(u64) (block + 1);
-        if address >= first && address < first + cast(u64) block.count {
+        if holds(block, address) {
             scope.hot = block;
             return true;
         }
