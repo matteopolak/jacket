@@ -92,7 +92,7 @@ lists_mark_experimental_modules_and_items :: () {
     expect(first >= 0);
     expect(find_index_from_left(list, "class=\"badge exp sm\"", first + 1) < 0);
     expect(contains(list, "Moving<span class=\"dot exp\""));
-    expect(contains(list, "<button type=\"button\" class=\"pf full\" data-pf=\"macOS\""));
+    expect(contains(list, "<li class=\"pf full\""));
 } @test
 
 foreign_declarations_follow_the_own_items_and_have_pages :: () {

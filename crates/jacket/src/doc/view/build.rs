@@ -125,14 +125,6 @@ fn platforms(m: &Module) -> Vec<Platform> {
     })
 }
 
-fn off(missing: &[&str]) -> String {
-    if missing.is_empty() {
-        String::new()
-    } else {
-        format!("|{}|", missing.join("|"))
-    }
-}
-
 fn chips(
     support: Vec<(&'static str, Support)>,
     tip: impl Fn(&str, Support) -> String,
@@ -415,7 +407,6 @@ fn row(site: &Site, mi: usize, item: &Item) -> Row {
         foreign: item.binding,
         experimental: item.experimental,
         overloads: overloads(item),
-        off: off(&m.item_missing(item)),
         platforms: m.item_missing(item).into_iter().map(String::from).collect(),
         since: item.since.clone(),
         source_url: site.source_url(file, line),

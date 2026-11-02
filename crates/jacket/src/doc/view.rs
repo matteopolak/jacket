@@ -226,8 +226,6 @@ pub struct Row {
     pub overloads: Option<usize>,
     /// Systems the module runs on that this item does not.
     pub platforms: Vec<String>,
-    /// `platforms` as `|macOS|Linux|`, for the module page filter. Empty when there are none.
-    pub off: String,
     pub since: String,
     pub source_url: Option<String>,
     pub lines_html: Vec<String>,

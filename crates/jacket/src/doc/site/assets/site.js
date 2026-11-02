@@ -736,58 +736,10 @@
     pres = document.querySelectorAll('main pre');
     scrollable();
     folds();
-    platformFilter();
     openTarget();
   }
 
-  // On a module page, a platform chip shows only the items that work on that system. Clicking it
-  // again, or Show all, brings the rest back.
-  function platformFilter() {
-    var chips = document.querySelectorAll('main button.pf[data-pf]');
-    if (!chips.length) return;
-    var meta = chips[0].closest('.meta');
-    var status = document.createElement('span');
-    status.className = 'pf-status';
-    status.hidden = true;
-    meta.appendChild(status);
-    function apply(on) {
-      Array.prototype.forEach.call(chips, function (c) {
-        c.setAttribute('aria-pressed', String(c.getAttribute('data-pf') === on));
-      });
-      var hidden = 0;
-      Array.prototype.forEach.call(document.querySelectorAll('main article.row'), function (r) {
-        var off = !!on && (r.getAttribute('data-off') || '').indexOf('|' + on + '|') >= 0;
-        r.classList.toggle('pf-off', off);
-        if (off) hidden++;
-      });
-      // Hide groups and headings left with nothing in them.
-      Array.prototype.forEach.call(document.querySelectorAll('main section.group'), function (g) {
-        g.classList.toggle('pf-off', !!on && !g.querySelector('article.row:not(.pf-off)'));
-      });
-      Array.prototype.forEach.call(document.querySelectorAll('main h2'), function (h) {
-        var n = h.nextElementSibling;
-        if (!n || !n.matches('section.group')) return;
-        var any = false;
-        for (; n && n.matches('section.group'); n = n.nextElementSibling) if (!n.classList.contains('pf-off')) any = true;
-        h.classList.toggle('pf-off', !any);
-      });
-      status.hidden = !on;
-      status.textContent = '';
-      if (on) {
-        status.append(hidden === 1 ? '1 item hidden · ' : hidden + ' items hidden · ');
-        var all = document.createElement('button');
-        all.type = 'button';
-        all.textContent = 'Show all';
-        all.addEventListener('click', function () { apply(null); });
-        status.appendChild(all);
-      }
-    }
-    Array.prototype.forEach.call(chips, function (c) {
-      c.addEventListener('click', function () {
-        apply(c.getAttribute('aria-pressed') === 'true' ? null : c.getAttribute('data-pf'));
-      });
-    });
-  }
+
   setupPage();
 
   // Moving between pages of the site fetches the next page and swaps in its content, so the

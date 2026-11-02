@@ -1,7 +1,7 @@
 Main :: (out: *Out, page: *Page(Content_Item)) {
     c := page.content;
     html(out, #run trim(#string HTML
-{Crumbs(c.crumbs)}{PageTitle(*c.title)}<div class="meta">{PlatformList(c.platforms, false)}</div>
+{Crumbs(c.crumbs)}{PageTitle(*c.title)}<div class="meta">{PlatformList(c.platforms)}</div>
 {if c.value_html.count}<pre class="sig"><code><span class="fn">{esc(c.title.label)}</span> :: {cast(Html) c.value_html}</code></pre>
 {end}{if c.summary_html.count}<p class="lead">{cast(Html) c.summary_html}</p>
 {end}{Segments(c.docs)}{for o: c.overloads}{Overload(*o)}{end}{if c.members.count}<section id="members">

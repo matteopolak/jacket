@@ -47,11 +47,10 @@ Overloads :: (out: *Out, count: *int) {
     html(out, "{if count}<span class=\"since\">{count.*} overloads</span>{end}");
 }
 
-// A chip per system with how well it is supported. On a module page the supported ones are
-// buttons that show only the items available there.
-PlatformList :: (out: *Out, platforms: [] Platform, filter: bool) {
+// A chip per system with how well it is supported.
+PlatformList :: (out: *Out, platforms: [] Platform) {
     html(out, #string HTML
-<ul class="platforms" aria-label="Platforms">{for p: platforms}<li>{if filter && p.state != "none"}<button type="button" class="pf {cast(Html) p.state}" data-pf="{esc(p.name)}" aria-pressed="false" title="{esc(p.tip)}. Click to show only what works there"><span class="pf-dot" aria-hidden="true"></span>{esc(p.name)}<span class="sr">: {esc(p.tip)}</span></button>{else}<span class="pf {cast(Html) p.state}" title="{esc(p.tip)}"><span class="pf-dot" aria-hidden="true"></span>{esc(p.name)}<span class="sr">: {esc(p.tip)}</span></span>{end}</li>{end}</ul>
+<ul class="platforms" aria-label="Platforms">{for p: platforms}<li class="pf {cast(Html) p.state}" title="{esc(p.tip)}"><span class="pf-dot" aria-hidden="true"></span>{esc(p.name)}<span class="sr">: {esc(p.tip)}</span></li>{end}</ul>
 HTML
     );
 }

@@ -207,7 +207,6 @@ Row :: struct {
     experimental: bool;
     overloads: *int;
     platforms: [] string;
-    off: string;
     since: string;
     source_url: *string;
     lines_html: [] string;
