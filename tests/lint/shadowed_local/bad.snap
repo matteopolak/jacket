@@ -8,6 +8,7 @@ warning[shadowed_local]: `count` shadows the variable of that name declared on l
    |         ^^^^^
    |
    = help: rename one of them; an assignment here no longer reaches the outer one
+   = note: see https://jacket.matteopolak.com/lint-rules/shadowed_local/
 
 warning[shadowed_local]: `total` shadows the variable of that name declared on line 13
   --> tests/lint/shadowed_local/bad.jai:16:9
@@ -16,6 +17,7 @@ warning[shadowed_local]: `total` shadows the variable of that name declared on l
    |         ^^^^^
    |
    = help: rename one of them; an assignment here no longer reaches the outer one
+   = note: see https://jacket.matteopolak.com/lint-rules/shadowed_local/
 
 warning[shadowed_local]: `total` shadows the variable of that name declared on line 13
   --> tests/lint/shadowed_local/bad.jai:21:9
@@ -24,6 +26,7 @@ warning[shadowed_local]: `total` shadows the variable of that name declared on l
    |         ^^^^^
    |
    = help: rename one of them; an assignment here no longer reaches the outer one
+   = note: see https://jacket.matteopolak.com/lint-rules/shadowed_local/
 
 warning[shadowed_local]: `result` shadows the variable of that name declared on line 29
   --> tests/lint/shadowed_local/bad.jai:33:13
@@ -32,3 +35,4 @@ warning[shadowed_local]: `result` shadows the variable of that name declared on 
    |             ^^^^^^
    |
    = help: rename one of them; an assignment here no longer reaches the outer one
+   = note: see https://jacket.matteopolak.com/lint-rules/shadowed_local/

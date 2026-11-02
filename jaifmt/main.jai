@@ -128,6 +128,10 @@ main :: () {
         print_error("\n");
     }
 
+    if options.check && totals.changed {
+        print_error("%help%: run again without --check to format them; each rule is described at %\n", color_on(HELP_COLOR), color_off(), RULES_URL);
+    }
+
     if totals.errors exit(2);
     if options.check && totals.changed exit(1);
 
@@ -140,6 +144,9 @@ fatal_usage :: (message: string, help := "") {
 }
 
 // Errors go to stderr as `error: ...`, then an optional `help: ...` line.
+// The formatting rules on the documentation site, one page per rule and setting.
+RULES_URL :: "https://jacket.matteopolak.com/format-rules/";
+
 report_error :: (message: string, help := "") {
     print_error("%error%: %\n", color_on(ERROR_COLOR), color_off(), message);
     if help.count print_error("%help%: %\n", color_on(HELP_COLOR), color_off(), help);
@@ -287,7 +294,7 @@ format_file :: (path: string, explicit_config: *Format_Config, options: Options,
     totals.long_lines += long_lines;
 
     if options.verbose && long_lines {
-        print_error("jaifmt: %: % lines over % columns\n", shown(path), long_lines, config.max_width);
+        print_error("jaifmt: %: % lines over % columns (%max_width/)\n", shown(path), long_lines, config.max_width, RULES_URL);
     }
 
     if output == source return;
@@ -418,7 +425,8 @@ config_for_directory :: (directory: string) -> *Format_Config, ok: bool, error: 
 
             config, file, ok, error := format_find_config(owner, read_config_file, owner);
 
-            entry.config.* = config;
+            // Only `file` is temporary; the settings are heap copies.
+            entry.config.* = config; // jailint: allow(temp_storage_escape)
             entry.ok = ok;
 
             if !ok {

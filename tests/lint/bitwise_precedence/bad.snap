@@ -12,6 +12,7 @@ help: `<<` binds first here: write `(1 << n)`
  7 ~     mask := (1 << n) - 1;
    |
    = note: `bitwise_precedence` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bitwise_precedence/
 
 warning[bitwise_precedence]: `|` and `<<` share a level in Jai and apply left to right; C would apply `<<` first
   --> tests/lint/bitwise_precedence/bad.jai:8:12
@@ -24,6 +25,7 @@ help: `|` binds first here: write `(flags | 1)`
  8 ~     set := (flags | 1) << 3;
    |
    = note: `bitwise_precedence` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bitwise_precedence/
 
 warning[bitwise_precedence]: `&` binds tighter than `+` in Jai, unlike in C
   --> tests/lint/bitwise_precedence/bad.jai:9:12
@@ -36,6 +38,7 @@ help: `&` binds first here: write `(x & 0xFF)`
  9 ~     low := (x & 0xFF) + 1;
    |
    = note: `bitwise_precedence` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bitwise_precedence/
 
 warning[bitwise_precedence]: `^` and `&` share a level in Jai and apply left to right; C would apply `&` first
   --> tests/lint/bitwise_precedence/bad.jai:10:14
@@ -48,6 +51,7 @@ help: `^` binds first here: write `(flags ^ flags)`
 10 ~     mixed := (flags ^ flags) & 4;
    |
    = note: `bitwise_precedence` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bitwise_precedence/
 
 warning[bitwise_precedence]: `|` and `<<` share a level in Jai and apply left to right; C would apply `<<` first
   --> tests/lint/bitwise_precedence/bad.jai:11:15
@@ -60,6 +64,7 @@ help: `|` binds first here: write `(n << 8 | flags)`
 11 ~     packed := (n << 8 | flags) << 4;
    |
    = note: `bitwise_precedence` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bitwise_precedence/
 
 warning[bitwise_precedence]: `>>` binds tighter than `*` in Jai, unlike in C
   --> tests/lint/bitwise_precedence/bad.jai:13:59
@@ -72,3 +77,4 @@ help: `>>` binds first here: write `(2 >> 1)`
 13 ~     print("% % % % % %\n", mask, set, low, mixed, packed, n * (2 >> 1));
    |
    = note: `bitwise_precedence` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bitwise_precedence/

@@ -12,6 +12,7 @@ help: write `clamp(x, 0, 100)`
  8 ~     a := clamp(x, 0, 100);
    |
    = note: `manual_clamp` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp/
 
 warning[manual_clamp]: `x` is kept between `0` and `LIMIT` by hand
   --> tests/lint/manual_clamp/bad.jai:9:10
@@ -24,6 +25,7 @@ help: write `clamp(x, 0, LIMIT)`
  9 ~     b := clamp(x, 0, LIMIT);
    |
    = note: `manual_clamp` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp/
 
 warning[manual_clamp]: `x` is kept between `0` and `100` by hand
   --> tests/lint/manual_clamp/bad.jai:10:10
@@ -36,6 +38,7 @@ help: write `clamp(x, 0, 100)`
 10 ~     c := clamp(x, 0, 100);
    |
    = note: `manual_clamp` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp/
 
 warning[manual_clamp]: `f` is kept between `0.0` and `1.0` by hand
   --> tests/lint/manual_clamp/bad.jai:11:10
@@ -48,6 +51,7 @@ help: write `clamp(f, 0.0, 1.0)`
 11 ~     d := clamp(f, 0.0, 1.0);
    |
    = note: `manual_clamp` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp/
 
 warning[manual_clamp]: `x` is kept between `0` and `100` by hand
   --> tests/lint/manual_clamp/bad.jai:13:5
@@ -65,6 +69,7 @@ help: write `clamp(x, 0, 100)`
 13 +     x = clamp(x, 0, 100);
    |
    = note: `manual_clamp` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp/
 
 warning[manual_clamp]: `x` is kept between `0` and `LIMIT` by hand
   --> tests/lint/manual_clamp/bad.jai:19:5
@@ -79,6 +84,7 @@ help: write `clamp(x, 0, LIMIT)`
 19 +     x = clamp(x, 0, LIMIT);
    |
    = note: `manual_clamp` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp/
 
 warning[manual_clamp]: `x` is kept between `0` and `255` by hand
   --> tests/lint/manual_clamp/bad.jai:22:10
@@ -91,6 +97,7 @@ help: write `clamp(x, 0, 255)`
 22 ~     e := clamp(x, 0, 255);
    |
    = note: `manual_clamp` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp/
 
 warning[manual_clamp]: `f` is kept between `0.0` and `1.0` by hand
   --> tests/lint/manual_clamp/bad.jai:23:10
@@ -103,3 +110,4 @@ help: write `clamp(f, 0.0, 1.0)`
 23 ~     g := clamp(f, 0.0, 1.0);
    |
    = note: `manual_clamp` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp/

@@ -8,6 +8,7 @@ warning[magic_number]: magic number `37` in a comparison
    |                  ^^
    |
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `8640` in an assignment
   --> tests/lint/magic_number/bad.jai:7:31
@@ -16,6 +17,7 @@ warning[magic_number]: magic number `8640` in an assignment
    |                               ^^^^
    |
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `45` in an assignment
   --> tests/lint/magic_number/bad.jai:9:16
@@ -24,6 +26,7 @@ warning[magic_number]: magic number `45` in an assignment
    |                ^^
    |
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `1.37` in arithmetic
   --> tests/lint/magic_number/bad.jai:10:23
@@ -32,6 +35,7 @@ warning[magic_number]: magic number `1.37` in arithmetic
    |                       ^^^^
    |
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `-13` in a comparison
   --> tests/lint/magic_number/bad.jai:11:19
@@ -40,6 +44,7 @@ warning[magic_number]: magic number `-13` in a comparison
    |                   ^^^
    |
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `3600` in arithmetic
   --> tests/lint/magic_number/bad.jai:13:24
@@ -48,6 +53,7 @@ warning[magic_number]: magic number `3600` in arithmetic
    |                        ^^^^
    |
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `0.3` in arithmetic
   --> tests/lint/magic_number/bad.jai:16:17
@@ -56,6 +62,7 @@ warning[magic_number]: magic number `0.3` in arithmetic
    |                 ^^^
    |
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `47` in a comparison
   --> tests/lint/magic_number/bad.jai:16:41
@@ -64,6 +71,7 @@ warning[magic_number]: magic number `47` in a comparison
    |                                         ^^
    |
    = help: if this is a character, write `#char "/"`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `97` in a comparison
   --> tests/lint/magic_number/bad.jai:22:41
@@ -75,6 +83,7 @@ help: write the character: `#char "a"`
    |
 22 ~     return text.count > 0 && text[0] >= #char "a";
    |
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `34` in a comparison
   --> tests/lint/magic_number/bad.jai:27:23
@@ -86,6 +95,7 @@ help: write the character: `#char "\""`
    |
 27 ~     for text if it == #char "\"" quotes += 1;
    |
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `92` in a comparison
   --> tests/lint/magic_number/bad.jai:31:20
@@ -97,6 +107,7 @@ help: write the character: `#char "\\"`
    |
 31 ~         if last == #char "\\" quotes += 1;
    |
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `9` in a comparison
   --> tests/lint/magic_number/bad.jai:39:23
@@ -108,6 +119,7 @@ help: write the character: `#char "\t"`
    |
 39 ~     for text if it == #char "\t" tabs += 1;
    |
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `65` in a comparison
   --> tests/lint/magic_number/bad.jai:45:43
@@ -116,6 +128,7 @@ warning[magic_number]: magic number `65` in a comparison
    |                                           ^^
    |
    = help: if this is a character, write `#char "A"`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
 
 warning[magic_number]: magic number `88` in a comparison
   --> tests/lint/magic_number/bad.jai:61:42
@@ -124,3 +137,4 @@ warning[magic_number]: magic number `88` in a comparison
    |                                          ^^
    |
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/

@@ -13,6 +13,7 @@ help: remove it, or assert the condition it stands in for
  4 - 
    |
    = note: `assert_constant` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/assert_constant/
 
 warning[assert_constant]: `#assert true` can never fail
   --> tests/lint/assert_constant/bad.jai:12:1
@@ -26,6 +27,7 @@ help: remove it, or assert the condition it stands in for
 13 - 
    |
    = note: `assert_constant` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/assert_constant/
 
 warning[assert_constant]: `assert(true)` can never fail
   --> tests/lint/assert_constant/bad.jai:17:5
@@ -38,6 +40,7 @@ help: remove it, or assert the condition it stands in for
 17 -     assert(true);
    |
    = note: `assert_constant` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/assert_constant/
 
 warning[assert_constant]: `assert(true)` can never fail
   --> tests/lint/assert_constant/bad.jai:18:5
@@ -50,6 +53,7 @@ help: remove it, or assert the condition it stands in for
 18 -     assert(true, "always holds");
    |
    = note: `assert_constant` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/assert_constant/
 
 warning[assert_constant]: `assert(true)` can never fail
   --> tests/lint/assert_constant/bad.jai:19:5
@@ -62,6 +66,7 @@ help: remove it, or assert the condition it stands in for
 19 -     assert(true, "x is %", x);
    |
    = note: `assert_constant` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/assert_constant/
 
 warning[assert_constant]: `assert(true)` can never fail
   --> tests/lint/assert_constant/bad.jai:20:5
@@ -71,6 +76,7 @@ warning[assert_constant]: `assert(true)` can never fail
    |
    = help: remove it, or assert the condition it stands in for
    = note: `assert_constant` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/assert_constant/
 
 warning[assert_constant]: `assert(true)` can never fail
   --> tests/lint/assert_constant/bad.jai:21:14
@@ -80,3 +86,4 @@ warning[assert_constant]: `assert(true)` can never fail
    |
    = help: remove it, or assert the condition it stands in for
    = note: `assert_constant` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/assert_constant/

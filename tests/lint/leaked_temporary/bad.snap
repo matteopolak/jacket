@@ -9,6 +9,7 @@ warning[leaked_temporary]: the memory `sprint` allocates is only compared and ne
    |
    = help: keep it in a local and `defer free` it, or use a temporary-storage procedure such as `tprint`
    = note: `leaked_temporary` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/leaked_temporary/
 
 warning[leaked_temporary]: the memory `join` allocates is only measured and never freed
   --> tests/lint/leaked_temporary/bad.jai:12:12
@@ -18,6 +19,7 @@ warning[leaked_temporary]: the memory `join` allocates is only measured and neve
    |
    = help: keep it in a local and `defer free` it, or use a temporary-storage procedure such as `tprint`
    = note: `leaked_temporary` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/leaked_temporary/
 
 warning[leaked_temporary]: the memory `sprint` allocates is only indexed and never freed
   --> tests/lint/leaked_temporary/bad.jai:17:12
@@ -27,6 +29,7 @@ warning[leaked_temporary]: the memory `sprint` allocates is only indexed and nev
    |
    = help: keep it in a local and `defer free` it, or use a temporary-storage procedure such as `tprint`
    = note: `leaked_temporary` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/leaked_temporary/
 
 warning[leaked_temporary]: the memory `sprint` allocates is only printed and never freed
   --> tests/lint/leaked_temporary/bad.jai:22:18
@@ -36,3 +39,4 @@ warning[leaked_temporary]: the memory `sprint` allocates is only printed and nev
    |
    = help: keep it in a local and `defer free` it, or use a temporary-storage procedure such as `tprint`
    = note: `leaked_temporary` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/leaked_temporary/

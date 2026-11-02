@@ -12,3 +12,4 @@ help: start its name with `_` if the signature must stay, or remove it
  5 ~ set_title :: (handle: int, _flags: int) {
    |
    = note: `unused_parameter` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_parameter/

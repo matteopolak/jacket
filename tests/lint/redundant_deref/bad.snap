@@ -12,6 +12,7 @@ help: write `q.x`: member access already looks through the pointer
 17 ~     q.x = 5;
    |
    = note: `redundant_deref` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_deref/
 
 warning[redundant_deref]: `q.*` is not needed to reach `x`
   --> tests/lint/redundant_deref/bad.jai:19:13
@@ -24,6 +25,7 @@ help: write `q.x`: member access already looks through the pointer
 19 ~     sum := q.x + q.*.y;
    |
    = note: `redundant_deref` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_deref/
 
 warning[redundant_deref]: `q.*` is not needed to reach `y`
   --> tests/lint/redundant_deref/bad.jai:19:21
@@ -36,6 +38,7 @@ help: write `q.y`: member access already looks through the pointer
 19 ~     sum := q.*.x + q.y;
    |
    = note: `redundant_deref` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_deref/
 
 warning[redundant_deref]: `l.*` is not needed to reach `start`
   --> tests/lint/redundant_deref/bad.jai:24:13
@@ -48,6 +51,7 @@ help: write `l.start`: member access already looks through the pointer
 24 ~     sum += l.start.x + l.*.end.*.y;
    |
    = note: `redundant_deref` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_deref/
 
 warning[redundant_deref]: `l.*` is not needed to reach `end`
   --> tests/lint/redundant_deref/bad.jai:24:27
@@ -60,6 +64,7 @@ help: write `l.end`: member access already looks through the pointer
 24 ~     sum += l.*.start.x + l.end.*.y;
    |
    = note: `redundant_deref` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_deref/
 
 warning[redundant_deref]: `l.*.end.*` is not needed to reach `y`
   --> tests/lint/redundant_deref/bad.jai:24:33
@@ -72,3 +77,4 @@ help: write `l.*.end.y`: member access already looks through the pointer
 24 ~     sum += l.*.start.x + l.*.end.y;
    |
    = note: `redundant_deref` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_deref/

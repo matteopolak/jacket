@@ -12,6 +12,7 @@ help: write `ready`
  9 ~     if ready print("ready\n");
    |
    = note: `bool_comparison` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison/
 
 warning[bool_comparison]: comparing a bool with `false`: `ready != false`
   --> tests/lint/bool_comparison/bad.jai:10:8
@@ -24,6 +25,7 @@ help: write `ready`
 10 ~     if ready print("still ready\n");
    |
    = note: `bool_comparison` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison/
 
 warning[bool_comparison]: comparing a bool with `false`: `false == ready`
   --> tests/lint/bool_comparison/bad.jai:11:8
@@ -36,6 +38,7 @@ help: write `!ready`
 11 ~     if !ready print("not ready\n");
    |
    = note: `bool_comparison` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison/
 
 warning[bool_comparison]: comparing a bool with `false`: `is_ready() == false`
   --> tests/lint/bool_comparison/bad.jai:13:16
@@ -48,6 +51,7 @@ help: write `!is_ready()`
 13 ~     waiting := !is_ready();
    |
    = note: `bool_comparison` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison/
 
 warning[bool_comparison]: comparing a bool with `false`: `(a < b) == false`
   --> tests/lint/bool_comparison/bad.jai:16:9
@@ -60,6 +64,7 @@ help: write `!(a < b)`
 16 ~     if !(a < b) print("not less\n");
    |
    = note: `bool_comparison` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison/
 
 warning[bool_comparison]: comparing a bool with `true`: `(a < b) == true`
   --> tests/lint/bool_comparison/bad.jai:17:9
@@ -72,3 +77,4 @@ help: write `(a < b)`
 17 ~     if (a < b) print("less\n");
    |
    = note: `bool_comparison` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison/

@@ -12,6 +12,7 @@ help: to count down, write `for < ...: 0..10`
  5 ~     for < i: 0..10 print("%\n", i);
    |
    = note: `reversed_range` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/reversed_range/
 
 error[reversed_range]: the range `xs.count - 1..0` is empty: ranges count up
   --> tests/lint/reversed_range/bad.jai:6:12
@@ -24,3 +25,4 @@ help: to count down, write `for < ...: 0..xs.count - 1`
  6 ~     for < i: 0..xs.count - 1 print("%\n", xs[i]);
    |
    = note: `reversed_range` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/reversed_range/

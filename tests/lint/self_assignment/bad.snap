@@ -12,6 +12,7 @@ help: this does nothing; was another value or target meant? (after `using`, both
 11 ~ 
    |
    = note: `self_assignment` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/self_assignment/
 
 warning[self_assignment]: `s.height` is assigned to itself
   --> tests/lint/self_assignment/bad.jai:12:5
@@ -24,3 +25,4 @@ help: this does nothing; was another value or target meant? (after `using`, both
 12 ~ 
    |
    = note: `self_assignment` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/self_assignment/

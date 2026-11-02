@@ -12,6 +12,7 @@ help: write `x`
  5 ~     a := x;
    |
    = note: `identity_op` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/identity_op/
 
 warning[identity_op]: `1 * x` is just `x`: `*` with this operand changes nothing
   --> tests/lint/identity_op/bad.jai:6:10
@@ -24,6 +25,7 @@ help: write `x`
  6 ~     b := x;
    |
    = note: `identity_op` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/identity_op/
 
 warning[identity_op]: `x - 0` is just `x`: `-` with this operand changes nothing
   --> tests/lint/identity_op/bad.jai:7:10
@@ -36,6 +38,7 @@ help: write `x`
  7 ~     c := x;
    |
    = note: `identity_op` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/identity_op/
 
 warning[identity_op]: `(x | 0)` is just `x`: `|` with this operand changes nothing
   --> tests/lint/identity_op/bad.jai:8:11
@@ -48,6 +51,7 @@ help: write `x`
  8 ~     d := x * 2;
    |
    = note: `identity_op` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/identity_op/
 
 warning[identity_op]: `(x + x + 0)` is just `(x + x)`: `+` with this operand changes nothing
   --> tests/lint/identity_op/bad.jai:9:11
@@ -60,3 +64,4 @@ help: write `(x + x)`
  9 ~     e := (x + x) * 3;
    |
    = note: `identity_op` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/identity_op/

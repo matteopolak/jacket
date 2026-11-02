@@ -9,3 +9,4 @@ warning[infinite_loop]: this loop's condition never changes inside it
    |
    = help: nothing in the loop assigns `i` or `values`, and it has no `break` or `return`: once entered it never ends
    = note: `infinite_loop` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/infinite_loop/

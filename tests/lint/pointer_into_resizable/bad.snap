@@ -15,6 +15,7 @@ warning[pointer_into_resizable]: `first` points into `items`, which `array_add` 
    |
    = help: take the pointer again after the array has grown, or keep the index instead
    = note: `pointer_into_resizable` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_into_resizable/
 
 warning[pointer_into_resizable]: `slot` points into `storage.items`, which `array_reserve` may have moved by now
   --> tests/lint/pointer_into_resizable/bad.jai:29:12
@@ -37,6 +38,7 @@ warning[pointer_into_resizable]: `slot` points into `storage.items`, which `arra
    |
    = help: take the pointer again after the array has grown, or keep the index instead
    = note: `pointer_into_resizable` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_into_resizable/
 
 warning[pointer_into_resizable]: `last` points into `items`, which `array_add` may have moved by now
   --> tests/lint/pointer_into_resizable/bad.jai:41:5
@@ -52,6 +54,7 @@ warning[pointer_into_resizable]: `last` points into `items`, which `array_add` m
    |
    = help: take the pointer again after the array has grown, or keep the index instead
    = note: `pointer_into_resizable` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_into_resizable/
 
 warning[pointer_into_resizable]: `it` points into `items`, which `array_add` may have moved by now
   --> tests/lint/pointer_into_resizable/bad.jai:55:9
@@ -65,3 +68,4 @@ warning[pointer_into_resizable]: `it` points into `items`, which `array_add` may
    |
    = help: take the pointer again after the array has grown, or keep the index instead
    = note: `pointer_into_resizable` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_into_resizable/

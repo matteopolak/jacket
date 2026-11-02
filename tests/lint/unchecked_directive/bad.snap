@@ -8,6 +8,7 @@ warning[unchecked_directive]: `#no_abc` has no comment saying why it is needed
    |                               ^^^^^^^
    |
    = help: add a `//` comment on this line or the line above: why the checks are not needed here
+   = note: see https://jacket.matteopolak.com/lint-rules/unchecked_directive/
 
 warning[unchecked_directive]: `#asm` has no comment saying why it is needed
   --> tests/lint/unchecked_directive/bad.jai:13:9
@@ -16,6 +17,7 @@ warning[unchecked_directive]: `#asm` has no comment saying why it is needed
    |         ^^^^
    |
    = help: add a `//` comment on this line or the line above: what the assembly does that Jai cannot
+   = note: see https://jacket.matteopolak.com/lint-rules/unchecked_directive/
 
 warning[unchecked_directive]: `#no_abc` has no comment saying why it is needed
   --> tests/lint/unchecked_directive/bad.jai:22:5
@@ -24,6 +26,7 @@ warning[unchecked_directive]: `#no_abc` has no comment saying why it is needed
    |     ^^^^^^^
    |
    = help: add a `//` comment on this line or the line above: why the checks are not needed here
+   = note: see https://jacket.matteopolak.com/lint-rules/unchecked_directive/
 
 warning[unchecked_directive]: `#no_aoc` has no comment saying why it is needed
   --> tests/lint/unchecked_directive/bad.jai:26:14
@@ -32,3 +35,4 @@ warning[unchecked_directive]: `#no_aoc` has no comment saying why it is needed
    |              ^^^^^^^
    |
    = help: add a `//` comment on this line or the line above: why the checks are not needed here
+   = note: see https://jacket.matteopolak.com/lint-rules/unchecked_directive/

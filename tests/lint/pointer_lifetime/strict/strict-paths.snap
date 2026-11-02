@@ -17,6 +17,7 @@ warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element i
    |             ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
 
 warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element it refers to along a bad path; shortest bad path shown (infinitely many additional bad walks through a loop)
   --> tests/lint/pointer_lifetime/strict/paths.jai:20:13
@@ -31,3 +32,4 @@ warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element i
    |             ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/

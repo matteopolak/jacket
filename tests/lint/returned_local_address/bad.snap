@@ -10,6 +10,7 @@ error[returned_local_address]: this returns the address of the local `count`, wh
    |
    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
    = note: `returned_local_address` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 error[returned_local_address]: this returns the address of the local `p`, which is gone once the procedure returns
   --> tests/lint/returned_local_address/bad.jai:14:12
@@ -20,6 +21,7 @@ error[returned_local_address]: this returns the address of the local `p`, which 
    |
    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
    = note: `returned_local_address` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 error[returned_local_address]: this returns the address of the local `buffer`, which is gone once the procedure returns
   --> tests/lint/returned_local_address/bad.jai:19:12
@@ -30,6 +32,7 @@ error[returned_local_address]: this returns the address of the local `buffer`, w
    |
    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
    = note: `returned_local_address` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 error[returned_local_address]: this returns the data of the local `buffer`, which is gone once the procedure returns
   --> tests/lint/returned_local_address/bad.jai:24:15
@@ -40,6 +43,7 @@ error[returned_local_address]: this returns the data of the local `buffer`, whic
    |
    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
    = note: `returned_local_address` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 error[returned_local_address]: this returns the address of the local `n`, which is gone once the procedure returns
   --> tests/lint/returned_local_address/bad.jai:36:12
@@ -50,3 +54,4 @@ error[returned_local_address]: this returns the address of the local `n`, which 
    |
    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
    = note: `returned_local_address` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/

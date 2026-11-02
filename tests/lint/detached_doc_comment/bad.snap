@@ -11,6 +11,7 @@ help: remove the blank line to document it
    |
  4 - 
    |
+   = note: see https://jacket.matteopolak.com/lint-rules/detached_doc_comment/
 
 warning[detached_doc_comment]: this comment is separated from `weight` by a blank line, so it is not its doc comment
   --> tests/lint/detached_doc_comment/bad.jai:14:1
@@ -22,6 +23,7 @@ help: remove the blank line to document it
    |
 16 - 
    |
+   = note: see https://jacket.matteopolak.com/lint-rules/detached_doc_comment/
 
 warning[detached_doc_comment]: this comment is separated from `Turn` by a blank line, so it is not its doc comment
   --> tests/lint/detached_doc_comment/bad.jai:22:1
@@ -33,3 +35,4 @@ help: remove the blank line to document it
    |
 23 - 
    |
+   = note: see https://jacket.matteopolak.com/lint-rules/detached_doc_comment/

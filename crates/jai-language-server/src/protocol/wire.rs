@@ -63,7 +63,7 @@ pub(super) fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         value["tags"] = json!([1]);
     }
     if let DiagnosticCode::Lint(rule) = diagnostic.code {
-        value["codeDescription"] = json!({ "href": crate::lints::rule_url(rule) });
+        value["codeDescription"] = json!({ "href": jailint::rule_url(rule) });
     }
     value
 }

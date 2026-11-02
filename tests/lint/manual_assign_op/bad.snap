@@ -12,6 +12,7 @@ help: write `total += 5`
  9 ~     total += 5;
    |
    = note: `manual_assign_op` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_assign_op/
 
 warning[manual_assign_op]: `s.score` is updated with `*` spelled out
   --> tests/lint/manual_assign_op/bad.jai:11:5
@@ -24,6 +25,7 @@ help: write `s.score *= 2`
 11 ~     s.score *= 2;
    |
    = note: `manual_assign_op` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_assign_op/
 
 warning[manual_assign_op]: `mask` is updated with `|` spelled out
   --> tests/lint/manual_assign_op/bad.jai:13:5
@@ -36,6 +38,7 @@ help: write `mask |= 1`
 13 ~     mask |= 1;
    |
    = note: `manual_assign_op` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_assign_op/
 
 warning[manual_assign_op]: `f` is updated with `-` spelled out
   --> tests/lint/manual_assign_op/bad.jai:15:5
@@ -48,3 +51,4 @@ help: write `f -= 0.5`
 15 ~     f -= 0.5;
    |
    = note: `manual_assign_op` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_assign_op/

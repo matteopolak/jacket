@@ -9,6 +9,7 @@ warning[unused_private_declaration]: `LIMIT` is private to this file and nothing
    |
    = help: delete it, or put it under `#scope_export` if another file should use it
    = note: `unused_private_declaration` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_private_declaration/
 
 warning[unused_private_declaration]: `Counter` is private to this file and nothing in the file uses it
   --> tests/lint/unused_private_declaration/bad.jai:11:1
@@ -18,6 +19,7 @@ warning[unused_private_declaration]: `Counter` is private to this file and nothi
    |
    = help: delete it, or put it under `#scope_export` if another file should use it
    = note: `unused_private_declaration` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_private_declaration/
 
 warning[unused_private_declaration]: `orphan_count` is private to this file and nothing in the file uses it
   --> tests/lint/unused_private_declaration/bad.jai:15:1
@@ -27,6 +29,7 @@ warning[unused_private_declaration]: `orphan_count` is private to this file and 
    |
    = help: delete it, or put it under `#scope_export` if another file should use it
    = note: `unused_private_declaration` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_private_declaration/
 
 warning[unused_private_declaration]: `clamp_index` is private to this file and nothing in the file uses it
   --> tests/lint/unused_private_declaration/bad.jai:21:1
@@ -36,6 +39,7 @@ warning[unused_private_declaration]: `clamp_index` is private to this file and n
    |
    = help: delete it, or put it under `#scope_export` if another file should use it
    = note: `unused_private_declaration` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_private_declaration/
 
 warning[unused_private_declaration]: `spin` is private to this file and nothing in the file uses it
   --> tests/lint/unused_private_declaration/bad.jai:25:1
@@ -45,6 +49,7 @@ warning[unused_private_declaration]: `spin` is private to this file and nothing 
    |
    = help: delete it, or put it under `#scope_export` if another file should use it
    = note: `unused_private_declaration` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_private_declaration/
 
 warning[unused_private_declaration]: `Mode` is private to this file and nothing in the file uses it
   --> tests/lint/unused_private_declaration/bad.jai:30:1
@@ -54,3 +59,4 @@ warning[unused_private_declaration]: `Mode` is private to this file and nothing 
    |
    = help: delete it, or put it under `#scope_export` if another file should use it
    = note: `unused_private_declaration` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_private_declaration/

@@ -9,3 +9,4 @@ warning[shadowed_it]: this loop's `it` hides the `it` of the loop on line 5, whi
    |
    = help: name one of the iterators: `for name: ...`
    = note: `shadowed_it` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/shadowed_it/

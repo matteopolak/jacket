@@ -9,6 +9,7 @@ warning[unused_suppression]: `todo_marker` allows nothing here
    |
    = help: nothing it covers is reported any more; remove it
    = note: `unused_suppression` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_suppression/
 
 warning[unused_suppression]: `float_equality` allows nothing here
   --> tests/lint/unused_suppression/bad.jai:9:40
@@ -18,6 +19,7 @@ warning[unused_suppression]: `float_equality` allows nothing here
    |
    = help: nothing it covers is reported any more; remove it
    = note: `unused_suppression` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_suppression/
 
 warning[unused_suppression]: `float_equality` allows nothing here
   --> tests/lint/unused_suppression/bad.jai:12:39
@@ -27,6 +29,7 @@ warning[unused_suppression]: `float_equality` allows nothing here
    |
    = help: nothing it covers is reported any more; remove it
    = note: `unused_suppression` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_suppression/
 
 warning[unused_suppression]: `unused_variable` allows nothing here
   --> tests/lint/unused_suppression/bad.jai:19:3
@@ -36,3 +39,4 @@ warning[unused_suppression]: `unused_variable` allows nothing here
    |
    = help: nothing it covers is reported any more; remove it
    = note: `unused_suppression` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_suppression/

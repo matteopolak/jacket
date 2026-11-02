@@ -12,6 +12,7 @@ help: `= ---` leaves `total` holding whatever was in memory: give it a value fir
  8 ~     total: int;
    |
    = note: `uninit_read` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/uninit_read/
 
 error[uninit_read]: `buffer` is read here before anything is written to it
   --> tests/lint/uninit_read/bad.jai:15:12
@@ -24,6 +25,7 @@ help: `= ---` leaves `buffer` holding whatever was in memory: give it a value fi
 14 ~     buffer: [64] u8;
    |
    = note: `uninit_read` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/uninit_read/
 
 error[uninit_read]: `p` is read here before anything is written to it
   --> tests/lint/uninit_read/bad.jai:20:18
@@ -36,3 +38,4 @@ help: `= ---` leaves `p` holding whatever was in memory: give it a value first, 
 19 ~     p: Point;
    |
    = note: `uninit_read` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/uninit_read/

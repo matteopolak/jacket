@@ -9,6 +9,7 @@ warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, 
    |                     -------------------- temporary storage allocated here
    |
    = help: copy it first (`copy_string`) so it outlives the reset
+   = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape/
 
 warning[temp_storage_escape]: `name` holds temporary storage, which is reset, but it is kept in a place reached through a pointer
   --> tests/lint/temp_storage_escape/bad.jai:18:18
@@ -19,6 +20,7 @@ warning[temp_storage_escape]: `name` holds temporary storage, which is reset, bu
    |                  ^^^^
    |
    = help: copy it first (`copy_string`) so it outlives the reset
+   = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape/
 
 warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, but it is kept in a global
   --> tests/lint/temp_storage_escape/bad.jai:22:26
@@ -28,6 +30,7 @@ warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, 
    |                          ------------------ temporary storage allocated here
    |
    = help: copy it first (`copy_string`) so it outlives the reset
+   = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape/
 
 warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, but it is returned here
   --> tests/lint/temp_storage_escape/bad.jai:26:12
@@ -37,3 +40,4 @@ warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, 
    |            ----------------- temporary storage allocated here
    |
    = help: copy it (`copy_string`), or declare this procedure `@TempAllocates` so its callers know
+   = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape/

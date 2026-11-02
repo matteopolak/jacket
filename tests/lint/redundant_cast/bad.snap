@@ -12,6 +12,7 @@ help: remove the cast
  5 ~     y := x;
    |
    = note: `redundant_cast` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_cast/
 
 warning[redundant_cast]: `count` is already `s64`
   --> tests/lint/redundant_cast/bad.jai:7:10
@@ -24,6 +25,7 @@ help: remove the cast
  7 ~     z := count;
    |
    = note: `redundant_cast` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_cast/
 
 warning[redundant_cast]: `w` is already `u8`
   --> tests/lint/redundant_cast/bad.jai:9:13
@@ -36,3 +38,4 @@ help: remove the cast
  9 ~     v: u8 = w;
    |
    = note: `redundant_cast` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_cast/

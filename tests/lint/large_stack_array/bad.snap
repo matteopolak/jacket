@@ -8,3 +8,4 @@ warning[large_stack_array]: `scratch` is 1 MiB on the stack, past the limit of 6
    |     ^^^^^^^
    |
    = help: allocate it (`NewArray`, `alloc`), use a resizable array, or keep it in a global
+   = note: see https://jacket.matteopolak.com/lint-rules/large_stack_array/

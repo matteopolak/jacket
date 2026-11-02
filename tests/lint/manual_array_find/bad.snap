@@ -9,6 +9,7 @@ warning[manual_array_find]: this loop looks for `wanted` in `names` by hand
    |
    = help: `array_find(names, wanted)` returns whether it was found, and the index after that
    = note: `manual_array_find` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_array_find/
 
 warning[manual_array_find]: this loop looks for `wanted` in `values` by hand
   --> tests/lint/manual_array_find/bad.jai:23:5
@@ -18,6 +19,7 @@ warning[manual_array_find]: this loop looks for `wanted` in `values` by hand
    |
    = help: `found, index := array_find(values, wanted);` returns whether it was found and where
    = note: `manual_array_find` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_array_find/
 
 warning[manual_array_find]: this loop looks for `wanted` in `values` by hand
   --> tests/lint/manual_array_find/bad.jai:37:5
@@ -27,3 +29,4 @@ warning[manual_array_find]: this loop looks for `wanted` in `values` by hand
    |
    = help: `found, index := array_find(values, wanted);` returns whether it was found and where
    = note: `manual_array_find` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_array_find/

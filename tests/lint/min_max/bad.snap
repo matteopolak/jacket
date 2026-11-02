@@ -12,6 +12,7 @@ help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
  5 ~     a := clamp(x, 0, 100);
    |
    = note: `min_max` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/min_max/
 
 error[min_max]: this is always `100`: the bounds are swapped
   --> tests/lint/min_max/bad.jai:6:10
@@ -24,6 +25,7 @@ help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
  6 ~     b := clamp(x, 0, 100);
    |
    = note: `min_max` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/min_max/
 
 error[min_max]: this is always `0`: the bounds are swapped
   --> tests/lint/min_max/bad.jai:22:12
@@ -36,3 +38,4 @@ help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
 22 ~     return clamp(n, 0, 100);
    |
    = note: `min_max` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/min_max/

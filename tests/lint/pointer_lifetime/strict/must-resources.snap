@@ -13,6 +13,7 @@ warning[use_after_free]: `p` is used after the call above freed it
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: `h` is used after the call above freed it
   --> tests/lint/pointer_lifetime/strict/resources.jai:82:16
@@ -25,6 +26,7 @@ warning[use_after_free]: `h` is used after the call above freed it
    |                ^
    |
    = help: free it after its last use, or give it a new value before using it again
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: `p` is used after its foreign valid-until contract expired
   --> tests/lint/pointer_lifetime/strict/resources.jai:88:10
@@ -37,6 +39,7 @@ warning[use_after_free]: `p` is used after its foreign valid-until contract expi
    |          ^
    |
    = help: copy the borrowed data before the next provider call, or obtain a new result
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: `p` is used after its foreign valid-until contract expired
    --> tests/lint/pointer_lifetime/strict/resources.jai:94:10
@@ -49,3 +52,4 @@ warning[use_after_free]: `p` is used after its foreign valid-until contract expi
     |          ^
     |
     = help: copy the borrowed data before the next provider call, or obtain a new result
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/

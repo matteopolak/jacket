@@ -14,6 +14,7 @@
 //! 5 ~         total += it;
 //!   |
 //!   = note: `index_only_loop` is `warn` by default
+//!   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
 //! ```
 //!
 //! On a terminal it gains context lines, multi-line spans, colour and (with UTF-8) box drawing.
@@ -92,5 +93,8 @@ pub fn render(
             default.as_str()
         ));
     }
+    report
+        .notes
+        .push(format!("see {}", crate::rule_url(lint.rule)));
     report.render_with(*style)
 }

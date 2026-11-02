@@ -9,3 +9,4 @@ warning[platform_leak]: POSIX is not available on windows
    |
    = help: guard the import with an `#if OS ==` check, or list this file under `[lint.portability.platforms]`
    = note: the `#assert` at stdlib/POSIX/module.jai:1:9 fails on windows: POSIX requires its documented native platform
+   = note: see https://jacket.matteopolak.com/lint-rules/platform_leak/

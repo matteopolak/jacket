@@ -17,6 +17,7 @@ warning[pointer_lifetime]: `p` refers to an element in `t` whose identity is inv
     |                 ---------------------------------------------------------------------------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
+    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
 
 warning[pointer_lifetime]: `p` refers to an element in `t` whose identity is invalidated on every path to this use
    --> tests/lint/pointer_lifetime/movement/containers-bad.jai:22:10
@@ -34,6 +35,7 @@ warning[pointer_lifetime]: `p` refers to an element in `t` whose identity is inv
     |                               ----------------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
+    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
 
 warning[pointer_lifetime]: `p` refers to an element in `b` whose identity is invalidated on every path to this use
    --> tests/lint/pointer_lifetime/movement/containers-bad.jai:29:10
@@ -51,6 +53,7 @@ warning[pointer_lifetime]: `p` refers to an element in `b` whose identity is inv
     |                        ------------------------------------------------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
+    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
 
 warning[pointer_lifetime]: `p` refers to an element in `b` whose identity is invalidated on every path to this use
    --> tests/lint/pointer_lifetime/movement/containers-bad.jai:36:10
@@ -68,6 +71,7 @@ warning[pointer_lifetime]: `p` refers to an element in `b` whose identity is inv
     |                        ------------------------------------------------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
+    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
 
 warning[pointer_lifetime]: `p` refers to an element in `pool` whose identity is invalidated on every path to this use
    --> tests/lint/pointer_lifetime/movement/containers-bad.jai:43:10
@@ -85,6 +89,7 @@ warning[pointer_lifetime]: `p` refers to an element in `pool` whose identity is 
     |          --------------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
+    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
 
 warning[pointer_lifetime]: `p` refers to an element in `pool` whose identity is invalidated on every path to this use
    --> tests/lint/pointer_lifetime/movement/containers-bad.jai:50:10
@@ -102,6 +107,7 @@ warning[pointer_lifetime]: `p` refers to an element in `pool` whose identity is 
     |              ----------------------------------------------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
+    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
 
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/containers-bad.jai:57:10
@@ -114,6 +120,7 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
    |          ^ pointer used here after its element was moved or removed
    |
    = help: take the pointer again after the operation, or keep a stable key instead
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
 
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/containers-bad.jai:65:10
@@ -129,6 +136,7 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
    |          ^ pointer used here after its element was moved or removed
    |
    = help: take the pointer again after the operation, or keep a stable key instead
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
 
 warning[pointer_lifetime]: `q` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/containers-bad.jai:74:10
@@ -142,6 +150,7 @@ warning[pointer_lifetime]: `q` refers to an element in `a` whose identity is inv
    |          ^ pointer used here after its element was moved or removed
    |
    = help: take the pointer again after the operation, or keep a stable key instead
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
 
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/containers-bad.jai:86:10
@@ -157,3 +166,4 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
    |          ^ pointer used here after its element was moved or removed
    |
    = help: take the pointer again after the operation, or keep a stable key instead
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/

@@ -9,6 +9,7 @@ warning[broken_doc_link]: `[Mode.OF]` doesn't resolve to a declaration
    |
    = help: link a declaration that is in scope, or leave out the brackets if this is not a link
    = note: `broken_doc_link` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link/
 
 warning[broken_doc_link]: `[Point.LIMT]` doesn't resolve to a declaration
   --> tests/lint/broken_doc_link/bad.jai:12:13
@@ -21,6 +22,7 @@ help: did you mean `LIMIT`?
 12 ~     // Past [Point.LIMIT] it clips; see also [Point.z].
    |
    = note: `broken_doc_link` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link/
 
 warning[broken_doc_link]: `[Point.z]` doesn't resolve to a declaration
   --> tests/lint/broken_doc_link/bad.jai:12:45
@@ -30,6 +32,7 @@ warning[broken_doc_link]: `[Point.z]` doesn't resolve to a declaration
    |
    = help: link a declaration that is in scope, or leave out the brackets if this is not a link
    = note: `broken_doc_link` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link/
 
 warning[broken_doc_link]: `[Point.xx]` doesn't resolve to a declaration
   --> tests/lint/broken_doc_link/bad.jai:14:21
@@ -39,6 +42,7 @@ warning[broken_doc_link]: `[Point.xx]` doesn't resolve to a declaration
    |
    = help: link a declaration that is in scope, or leave out the brackets if this is not a link
    = note: `broken_doc_link` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link/
 
 warning[broken_doc_link]: `[prnt]` doesn't resolve to a declaration
   --> tests/lint/broken_doc_link/bad.jai:17:40
@@ -51,6 +55,7 @@ help: did you mean `print`?
 17 ~ // Scales a [Point] and prints it with [print], or [`print_it()`](print_it).
    |
    = note: `broken_doc_link` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link/
 
 warning[broken_doc_link]: `[print_it]` doesn't resolve to a declaration
   --> tests/lint/broken_doc_link/bad.jai:17:51
@@ -60,6 +65,7 @@ warning[broken_doc_link]: `[print_it]` doesn't resolve to a declaration
    |
    = help: link a declaration that is in scope, or leave out the brackets if this is not a link
    = note: `broken_doc_link` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link/
 
 warning[broken_doc_link]: `[the-missing](gone)` doesn't resolve to a declaration
   --> tests/lint/broken_doc_link/bad.jai:20:6
@@ -69,6 +75,7 @@ warning[broken_doc_link]: `[the-missing](gone)` doesn't resolve to a declaration
    |
    = help: link a declaration that is in scope, or leave out the brackets if this is not a link
    = note: `broken_doc_link` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link/
 
 warning[broken_doc_link]: `[Strings.joyn]` doesn't resolve to a declaration
   --> tests/lint/broken_doc_link/bad.jai:20:40
@@ -81,6 +88,7 @@ help: did you mean `join`?
 20 ~ // A [the-missing](gone) and a missing [Strings.join] and [Nowhere.thing].
    |
    = note: `broken_doc_link` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link/
 
 warning[broken_doc_link]: `[Nowhere.thing]` doesn't resolve to a declaration
   --> tests/lint/broken_doc_link/bad.jai:20:59
@@ -90,3 +98,4 @@ warning[broken_doc_link]: `[Nowhere.thing]` doesn't resolve to a declaration
    |
    = help: link a declaration that is in scope, or leave out the brackets if this is not a link
    = note: `broken_doc_link` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link/

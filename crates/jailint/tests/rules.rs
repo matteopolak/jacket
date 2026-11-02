@@ -134,14 +134,21 @@ fn every_rule_has_cases() {
 
 #[test]
 fn every_rule_is_documented() {
-    // Each rule has its own section, whose anchor editors link to (`codeDescription` of the
-    // language server's diagnostics). The table of rules is generated: docs/reference/lint-rules.md.
+    // Each rule has its own section, which becomes the page `jailint::rule_url` links findings
+    // and editor diagnostics to (through the generated docs/reference/lint-rules.md).
     let doc = std::fs::read_to_string(repo().join("docs/tools/jailint.md"))
         .expect("docs/tools/jailint.md is readable");
     for r in RULES {
         assert!(
             doc.contains(&format!("\n### {}\n", r.name)),
             "docs/tools/jailint.md needs a `### {}` section",
+            r.name
+        );
+        assert!(
+            r.name
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_'),
+            "`{}`: the docs site keeps only lowercase letters, digits and `_` of a heading in its page path",
             r.name
         );
     }

@@ -115,6 +115,11 @@ fn jaifmt_builds_and_formats() {
     assert_eq!(check.status.code(), Some(1));
     // Paths below the current directory are shown relative to it.
     assert_eq!(String::from_utf8_lossy(&check.stdout), "src/a.jai:2\n");
+    // The hint goes to stderr, so the list stays machine-readable.
+    assert!(
+        String::from_utf8_lossy(&check.stderr)
+            .contains("https://jacket.matteopolak.com/format-rules/")
+    );
     assert_eq!(read("src/a.jai"), messy);
 
     let rewrite = fmt(&["src"]);

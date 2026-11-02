@@ -16,6 +16,7 @@ help: list the values together: `case .PNG, .JPEG;`
 13 +         case .PNG, .JPEG;
 14 +             return "image";
    |
+   = note: see https://jacket.matteopolak.com/lint-rules/identical_case_bodies/
 
 warning[identical_case_bodies]: `case .MP3` does the same as `case .WAV`
   --> tests/lint/identical_case_bodies/bad.jai:19:9
@@ -32,6 +33,7 @@ help: list the values together: `case .WAV, .MP3;`
 17 +         case .WAV, .MP3;
 18 +             return "audio";
    |
+   = note: see https://jacket.matteopolak.com/lint-rules/identical_case_bodies/
 
 warning[identical_case_bodies]: `case 2` does the same as `case 1`
   --> tests/lint/identical_case_bodies/bad.jai:37:9
@@ -55,3 +57,4 @@ help: list the values together: `case 1, 2;`
 35 +         case 5;
 36 +             result += 5;
    |
+   = note: see https://jacket.matteopolak.com/lint-rules/identical_case_bodies/

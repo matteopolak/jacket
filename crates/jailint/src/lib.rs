@@ -18,6 +18,12 @@ mod suppress;
 pub mod syntax;
 
 pub use config::{Config, Level};
+
+/// The page of `rule` on the documentation site. Findings and editor diagnostics link to it.
+pub fn rule_url(rule: &str) -> String {
+    format!("https://jacket.matteopolak.com/lint-rules/{rule}/")
+}
+
 pub use rules::{RULES, RuleInfo};
 
 use jaic::sema::Compiler;

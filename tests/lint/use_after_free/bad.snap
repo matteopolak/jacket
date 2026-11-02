@@ -12,6 +12,7 @@ error[use_after_free]: `holder` is used after the call above freed it
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: `use_after_free` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 error[use_after_free]: `node` is used after the call above freed it
   --> tests/lint/use_after_free/bad.jai:31:34
@@ -24,6 +25,7 @@ error[use_after_free]: `node` is used after the call above freed it
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: `use_after_free` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 error[use_after_free]: `text` is used after the call above freed it
   --> tests/lint/use_after_free/bad.jai:36:18
@@ -38,6 +40,7 @@ error[use_after_free]: `text` is used after the call above freed it
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: `use_after_free` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 error[use_after_free]: `other` is used after the call above freed it
   --> tests/lint/use_after_free/bad.jai:41:12
@@ -52,3 +55,4 @@ error[use_after_free]: `other` is used after the call above freed it
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: `use_after_free` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/

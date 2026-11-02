@@ -20,10 +20,6 @@ use std::path::Path;
 /// The kind of the action that applies every safe fix in a document.
 pub const FIX_ALL_KIND: &str = "source.fixAll.jailint";
 
-/// Where each rule is documented.
-pub fn rule_url(rule: &str) -> String {
-    format!("https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#{rule}")
-}
 
 /// A settings file (`jacket.toml`) rather than a Jai document.
 pub(crate) fn is_config(uri: &DocumentUri) -> bool {

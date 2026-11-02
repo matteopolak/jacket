@@ -12,6 +12,7 @@ help: receive the flag, or write `, _` to show it is ignored on purpose
 15 ~     value, _ := parse("x");
    |
    = note: `dropped_result` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/dropped_result/
 
 warning[dropped_result]: `parse` returns 2 values but this keeps 1; the next value is a `bool`, which usually says whether the call worked
   --> tests/lint/dropped_result/bad.jai:17:13
@@ -24,6 +25,7 @@ help: receive the flag, or write `, _` to show it is ignored on purpose
 17 ~     total, _ = parse("7");
    |
    = note: `dropped_result` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/dropped_result/
 
 warning[dropped_result]: `lookup` returns 3 values but this keeps 2; the next value is a `bool`, which usually says whether the call worked
   --> tests/lint/dropped_result/bad.jai:20:21
@@ -36,6 +38,7 @@ help: receive the flag, or write `, _` to show it is ignored on purpose
 20 ~     name, number, _ := lookup(2);
    |
    = note: `dropped_result` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/dropped_result/
 
 warning[dropped_result]: `callback` returns 2 values but this keeps 1; the next value is a `bool`, which usually says whether the call worked
   --> tests/lint/dropped_result/bad.jai:23:14
@@ -48,3 +51,4 @@ help: receive the flag, or write `, _` to show it is ignored on purpose
 23 ~     other, _ := callback("1");
    |
    = note: `dropped_result` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/dropped_result/
