@@ -71,10 +71,15 @@ impl SandboxHost {
                     let mut entries = vec![(".".to_string(), true), ("..".to_string(), true)];
                     entries.extend(self.fs.list(&path));
                     let handle = self.alloc(16);
-                    let entry = self.alloc(280);
+                    let entry = self.alloc(if self.darwin_files {
+                        1048
+                    } else {
+                        280
+                    });
                     self.dirs.insert(
                         handle,
                         DirStream {
+                            darwin: self.darwin_files,
                             entries,
                             next: 0,
                             entry,
@@ -95,19 +100,28 @@ impl SandboxHost {
                     let (name, dir) = stream.entries[stream.next].clone();
                     stream.next += 1;
                     let entry = stream.entry;
-                    fill(entry, 0, 280);
+                    let (size, kind_at, name_at, capacity) = if stream.darwin {
+                        (1048, 20, 21, 1023)
+                    } else {
+                        (280, 18, 19, 255)
+                    };
+                    fill(entry, 0, size);
                     write_u64(entry, stream.next as u64); // d_ino
-                    write_u64(entry + 8, stream.next as u64); // d_off
-                    write_u16(entry + 16, 280);
+                    write_u64(entry + 8, stream.next as u64); // d_off / d_seekoff
+                    write_u16(entry + 16, size as u16);
+                    let name = &name.as_bytes()[..name.len().min(capacity)];
+                    if stream.darwin {
+                        write_u16(entry + 18, name.len() as u16);
+                    }
                     write_u8(
-                        entry + 18,
+                        entry + kind_at,
                         if dir {
                             4
                         } else {
                             8
                         },
                     );
-                    write_bytes(entry + 19, &name.as_bytes()[..name.len().min(255)]);
+                    write_bytes(entry + name_at, name);
                     entry
                 }
                 _ => 0,

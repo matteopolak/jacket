@@ -126,6 +126,7 @@ impl LintCompile {
             report,
             limits,
         } = setup;
+        host.borrow_mut().set_file_target(options.os);
         let mut options = options;
         options.eval_step_limit = Some(limits.eval_steps);
         if let Some(seconds) = limits.seconds {
@@ -139,7 +140,10 @@ impl LintCompile {
             options: options.clone(),
             backend: None,
             command_line: Vec::new(),
-            make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
+            make_host: Box::new(move |os| {
+                workspace_host.borrow_mut().set_file_target(os);
+                Box::new(SharedHost(workspace_host.clone()))
+            }),
             report,
             observer,
         });

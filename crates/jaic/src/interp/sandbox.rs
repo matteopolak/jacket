@@ -234,6 +234,7 @@ struct OpenFile {
 }
 
 struct DirStream {
+    darwin: bool,
     entries: Vec<(String, bool)>,
     next: usize,
     /// Host address of the `dirent` returned by `readdir`.
@@ -262,6 +263,8 @@ pub struct SandboxHost {
     /// `FILE*` handle address -> descriptor.
     streams: HashMap<u64, i64>,
     dirs: HashMap<u64, DirStream>,
+    /// Darwin stat/dirent layouts for sandboxed host-target metaprograms.
+    darwin_files: bool,
     errno_cell: u64,
     /// Windows' `GetLastError`.
     last_error: u64,
@@ -286,6 +289,12 @@ pub struct SandboxHost {
 }
 
 impl SandboxHost {
+    /// Select the POSIX file-record layout of code running on this host. Wasm uses the
+    /// library's Linux-compatible records. Call before running a different target's code.
+    pub fn set_file_target(&mut self, os: crate::target::TargetOs) {
+        self.darwin_files = os == crate::target::TargetOs::MacOS;
+    }
+
     /// Stop all code running on this host `limit` from now: the check it belongs to has a
     /// wall-clock limit. Does nothing on a host without a clock (the browser's).
     pub fn stop_after(&mut self, limit: std::time::Duration) {
@@ -483,11 +492,26 @@ impl SandboxHost {
         } else {
             return Err(ENOENT);
         };
-        // Linux x86-64 `struct stat`.
+        // Both supported records occupy 144 bytes, but their fields differ.
         fill(out, 0, 144);
         let put = |off: u64, v: u64, width: usize| {
             write_bytes(out + off, &v.to_le_bytes()[..width]);
         };
+        let mtime = self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME);
+        if self.darwin_files {
+            put(0, 1, 4); // st_dev
+            put(4, u64::from(mode), 2);
+            put(6, links, 2);
+            put(8, self.fs.inode(path), 8);
+            for off in [32, 48, 64, 80] {
+                put(off, mtime, 8);
+            }
+            put(96, size as u64, 8);
+            put(104, (size as u64).div_ceil(512), 8);
+            put(112, 4096, 4);
+            return Ok(());
+        }
+        // Linux x86-64 `struct stat` (also the stdlib's wasm record).
         put(0, 1, 8); // st_dev
         put(8, self.fs.inode(path), 8); // st_ino
         put(16, links, 8); // st_nlink
@@ -495,7 +519,6 @@ impl SandboxHost {
         put(48, size as u64, 8);
         put(56, 4096, 8); // st_blksize
         put(64, (size as u64).div_ceil(512), 8); // st_blocks
-        let mtime = self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME);
         for off in [72, 88, 104] {
             put(off, mtime, 8);
         }

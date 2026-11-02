@@ -869,3 +869,39 @@ fn stdin_end_marker_is_consumed_by_the_read_that_finds_nothing() {
     assert_eq!(call(&mut h, "getchar", &[]), b'y' as u64);
     assert_eq!(call(&mut h, "feof", &[stream]), 0);
 }
+
+#[test]
+fn darwin_file_records_match_stat_and_dirent_layouts() {
+    let mut h = host();
+    h.set_file_target(crate::target::TargetOs::MacOS);
+    let root = cstring("/tmp");
+    let mut st = [0xa5_u8; 160];
+    assert_eq!(
+        call(
+            &mut h,
+            "stat",
+            &[root.as_ptr() as u64, st.as_mut_ptr() as u64]
+        ),
+        0
+    );
+    assert_eq!(
+        u16::from_le_bytes(st[4..6].try_into().unwrap()) & 0xf000,
+        S_IFDIR as u16
+    );
+    assert_eq!(u16::from_le_bytes(st[6..8].try_into().unwrap()), 1);
+    assert_eq!(u64::from_le_bytes(st[96..104].try_into().unwrap()), 4096);
+    assert!(st[144..].iter().all(|&byte| byte == 0xa5));
+    let stream = call(&mut h, "opendir", &[root.as_ptr() as u64]);
+    assert_ne!(stream, 0);
+    let entry = call(&mut h, "readdir", &[stream]);
+    assert_eq!(read_u8(entry + 20), 4);
+    assert_eq!(cstr(entry + 21), ".");
+    assert_eq!(read_u8(entry + 18), 1);
+    assert_eq!(call(&mut h, "closedir", &[stream]), 0);
+    // Switching back preserves the sandbox's Linux/wasm layout.
+    h.set_file_target(crate::target::TargetOs::Wasm);
+    assert_eq!(
+        stat_of(&mut h, "stat", root.as_ptr() as u64).unwrap().0 & 0xf000,
+        S_IFDIR
+    );
+}
