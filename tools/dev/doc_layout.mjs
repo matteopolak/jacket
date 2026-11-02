@@ -7,8 +7,9 @@
 // Options: --parallel N (tabs), --only SUBSTRING (page filter), --every N (with --all, every Nth page),
 // --widths 1280,375, --script-delay MS (hold site.js back so a frame paints first; 0 turns it off),
 // --verbose (list every scenario), --dump (print every recorded frame).
-// Time: about 3.5 s per page/width/theme with 3 tabs, so --all (about 7,600 pages) takes over a day;
-// use --every 50 for a spread of about 150 pages in 40 minutes.
+// Time: about 3.5 s per page/width/theme with 3 tabs, so --all (about 32,000 pages) takes days;
+// use --every 600 for a spread of about 55 pages in 14 minutes. Serve the site like GitHub Pages
+// (tools/dev/doc_serve.py): pages have no trailing slash and a missing path gets 404.html.
 // No npm install: Node's built-in WebSocket speaks the Chrome DevTools Protocol to headless Chrome
 // (CHROME_PATH overrides discovery).
 //
@@ -282,6 +283,9 @@ function compare(run, { ignoreY = false, label }) {
     for (const [, a, b] of groups) {
       for (const key of Object.keys(a)) {
         if (a[key] === null && f.loading) continue;
+        // The browser may paint between the sidebar and the inline script that restores its scroll;
+        // that frame is mid-parse and cannot be avoided from the page.
+        if (f.loading && (key === 'sideScroll' || key === 'sideCurrent')) continue;
         // A sticky box sits a little differently at another scroll position; that is not a move.
         if ((key === 'side' || key === 'toc') && differs(f.y, final.y)) continue;
         if (differs(a[key], b[key], !f.loading)) diffs.push(`${key} was ${JSON.stringify(a[key])?.slice(0, 120)}, settles at ${JSON.stringify(b[key])?.slice(0, 120)}`);
@@ -345,7 +349,7 @@ const click = (selectorExpression) => `(() => {
 })()`;
 const SIDE_OTHER = `(() => {
   const cur = document.querySelector('details.side nav [aria-current="page"]');
-  const links = Array.from(document.querySelectorAll('details.side nav a[href]')).filter(a => /(\\/|\\.html)$/.test(a.pathname) && !a.href.includes('#'));
+  const links = Array.from(document.querySelectorAll('details.side nav a[href]')).filter(a => !a.href.includes('#'));
   const i = links.indexOf(cur);
   return links.find((a, n) => n > i && a !== cur && a.getAttribute('aria-current') !== 'page') || links.find(a => a !== cur);
 })()`;
@@ -420,13 +424,27 @@ async function runCombo(tab, page, width, theme) {
   });
 
   await guard('back', async () => {
-    const other = page === '' ? 'guides/testing/' : '';
+    const other = page === '' ? 'guides/testing' : '';
     await tab.goto(new URL(other, base).href);
     await tab.history(-1);
     const rec = await tab.read();
     const problems = analyse(rec);
     if (tab.exceptions.length) problems.push(`script errors: ${tab.exceptions.join('; ')}`);
     record('back', problems, { frames: frames(rec) });
+  });
+
+  // An old link with a trailing slash lands on 404.html, which sends it on to the real page.
+  if (page !== '' && page !== '404.html') await guard('old slash URL', async () => {
+    await tab.goto(url + '/');
+    let landed = false;
+    for (let i = 0; i < 200 && !landed; i++) {
+      landed = await tab.evaluate(`location.pathname === ${JSON.stringify(new URL(url).pathname)} && document.readyState === 'complete'`).catch(() => false);
+      if (!landed) await delay(25);
+    }
+    assert(landed, 'the 404 page did not redirect to the page without the slash');
+    await tab.settle();
+    const rec = await tab.read();
+    record('old slash URL', analyse(rec), { frames: frames(rec) });
   });
 
   // In-page swaps start from a fresh load of the page.
@@ -472,14 +490,14 @@ async function pagesToCheck() {
   const sample = [
     ['home', ''],
     ['guide', listed.find(p => p.startsWith('guides/'))],
-    ['one-page rules (Format)', 'format-rules/'],
-    ['lint rules', 'lint-rules/'],
-    ['tool page', listed.find(p => p.startsWith('tools/') && p !== 'tools/')],
-    ['small module', 'api/Base64/'],
-    ['big module (Basic)', 'api/Basic/'],
-    ['big module (Io)', 'api/Extensions/Io/'],
-    ['item', 'api/Basic/print/'],
-    ['private type', 'api/Extensions/Io/Waiter/'],
+    ['one-page rules (Format)', 'format-rules'],
+    ['lint rules', 'lint-rules'],
+    ['tool page', listed.find(p => p.startsWith('tools/'))],
+    ['small module', 'api/Base64'],
+    ['big module (Basic)', 'api/Basic'],
+    ['big module (Io)', 'api/Extensions/Io'],
+    ['item', 'api/Basic/print'],
+    ['private type', 'api/Extensions/Io/Waiter'],
     ['404', '404.html'],
   ];
   const pages = [];
