@@ -107,7 +107,24 @@ def run(name: str, args: argparse.Namespace) -> dict:
                                 stdout=subprocess.PIPE, stderr=None, text=True)
         if result.returncode not in (0, 1):
             sys.exit(f'library_compare: jacket bench exited with {result.returncode}')
-        return json.loads(result.stdout)
+        document = json.loads(result.stdout)
+        collect_side_files(project, document)
+        return document
+
+
+def collect_side_files(project: Path, document: dict) -> None:
+    """A benchmark process runs in the project folder and the runner keeps only its timing record, so a
+    benchmark that has more to say writes files there: `allocs-NAME.tsv` (`NAME<TAB>allocations<TAB>bytes` for one
+    call, counted in a pass of its own) and `notes.txt` (what its pre-timing checks found)."""
+    allocations = {}
+    for path in sorted(project.glob('allocs-*.tsv')):
+        name, count, size = path.read_text(encoding='utf-8').split()
+        allocations[name] = {'allocs': int(count), 'bytes': int(size)}
+    if allocations:
+        document['allocations'] = allocations
+    notes = project / 'notes.txt'
+    if notes.is_file():
+        document['notes'] = notes.read_text(encoding='utf-8').strip()
 
 
 def write_shims(scratch: Path, source: Path) -> Path | None:
@@ -157,7 +174,29 @@ def scaled(ns: float) -> str:
     return f'{ns / 1e9:.3g} s'
 
 
-def report(document: dict, libraries: list[str], per_item: bool = False) -> str:
+def throughput(result: dict) -> str:
+    """MB/s from `set_bytes` (or items/s from `set_items`) of one result."""
+    if result.get('mb_per_s'):
+        return f"{result['mb_per_s']:.0f} MB/s"
+    if result.get('items_per_s'):
+        return f"{result['items_per_s']:.3g} items/s"
+    return ''
+
+
+def allocation_report(document: dict, libraries: list[str]) -> str:
+    """Allocations (and bytes) of one call, a row per workload, a column per library."""
+    rows: dict[str, dict[str, dict]] = {}
+    for name, value in document.get('allocations', {}).items():
+        workload, _, library = name.rpartition(SEPARATOR)
+        rows.setdefault(workload, {})[library] = value
+    lines = ['| Allocations per call | ' + ' | '.join(libraries) + ' |', '| --- |' + ' --- |' * len(libraries)]
+    for workload, by_library in rows.items():
+        cells = [f"{v['allocs']:,} ({v['bytes']:,} B)" if (v := by_library.get(library)) else 'n/a' for library in libraries]
+        lines.append(f'| {workload} | ' + ' | '.join(cells) + ' |')
+    return '\n'.join(lines)
+
+
+def report(document: dict, libraries: list[str], per_item: bool = False, with_throughput: bool = False) -> str:
     """One table: a row per workload, a column per library (time per iteration with its 95% interval,
     and the ratio to the first library)."""
     rows: dict[str, dict[str, dict]] = {}
@@ -178,6 +217,8 @@ def report(document: dict, libraries: list[str], per_item: bool = False) -> str:
             if per_item and items:
                 t = {key: value / items for key, value in t.items()}
             cell = f"{scaled(t['estimate'])} ({scaled(t['low'])} to {scaled(t['high'])})"
+            if with_throughput and throughput(result):
+                cell += f' {throughput(result)}'
             if base is not None and library != libraries[0]:
                 cell += f" {result['time_ns']['estimate'] / base['time_ns']['estimate']:.2f}x"
             cells.append(cell)
@@ -192,6 +233,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument('--upstream', default=str(ROOT / 'corpus' / 'upstream'), help='the community sources')
     parser.add_argument('--libraries', default='jacket', help='comma-separated, first is the baseline of the ratios')
     parser.add_argument('--per-item', action='store_true', help='divide each time by the items one iteration handles')
+    parser.add_argument('--throughput', action='store_true', help='add MB/s (benchmarks that call set_bytes) to each cell')
     parser.add_argument('--json', help='also write the jacket bench document here')
     parser.add_argument('--out', help='write the Markdown table here')
     parser.add_argument('--bench-arguments', default='', help='more arguments for jacket bench, as one quoted string (a filter, --samples)')
@@ -202,7 +244,12 @@ def main(argv: list[str]) -> int:
     document = run(args.name, args)
     if args.json:
         Path(args.json).write_text(json.dumps(document, indent=1), encoding='utf-8')
-    text = report(document, args.libraries.split(','), args.per_item)
+    libraries = args.libraries.split(',')
+    text = report(document, libraries, args.per_item, args.throughput)
+    if document.get('allocations'):
+        text += '\n\n' + allocation_report(document, libraries)
+    if document.get('notes'):
+        text += '\n\n```\n' + document['notes'] + '\n```'
     header = '\n'.join(f'- {k}: {v}' for k, v in machine().items())
     output = f'{header}\n\n{text}\n'
     if args.out:
