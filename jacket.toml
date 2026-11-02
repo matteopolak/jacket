@@ -302,6 +302,7 @@ modules = [
 name = "Audio and video"
 modules = [
     "stdlib/Adpcm", "stdlib/Sound_Player", "stdlib/Wav_File", "stdlib/stb_vorbis", "stdlib/pl_mpeg",
+    "stdlib/Extensions/Audio_Stream",
 ]
 
 [[doc.group]]
@@ -317,7 +318,8 @@ modules = [
     "stdlib/Debug", "stdlib/Debug_Info", "stdlib/Print_Vars", "stdlib/Iprof",
     "stdlib/Performance_Report", "stdlib/telemetry3", "stdlib/Treemap",
     "stdlib/Protocol_For_Memory_Visualization", "stdlib/Extensions/Testing",
-    "stdlib/Extensions/Testing/Discovery", "stdlib/Extensions/Fuzz",
+    "stdlib/Extensions/Testing/Discovery", "stdlib/Extensions/Fuzz", "stdlib/Extensions/Iprof_Trace",
+    "stdlib/Extensions/Iprof_Trace/observer",
 ]
 
 [[doc.group]]
