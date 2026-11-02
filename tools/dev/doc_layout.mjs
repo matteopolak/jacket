@@ -220,6 +220,9 @@ class Tab {
     // The OS scheme follows the theme, so nothing is caught mid-transition between the two.
     await this.cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
     await this.cdp('Storage.clearDataForOrigin', { origin: base.origin, storageTypes: 'local_storage,session_storage' });
+    // A new size reaches matchMedia a moment later; a load right away can still see the old one.
+    await this.evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
+    await delay(100);
   }
   // Runs `trigger`, which must start a document load, and waits for the new document to be whole.
   async load(trigger) {
