@@ -126,6 +126,12 @@ macro_rules! vars {
 }
 
 vars! {
+    /// Coverage counters for the experimental pointer lifetime rule.
+    LIFETIME_STATS {
+        name: "JAILINT_LIFETIME_STATS", group: Settings, readers: [Jailint],
+        default: "No lifetime coverage counters.",
+        summary: "Print per-file body, CFG and candidate counts for the experimental pointer lifetime rule.",
+    }
     STDLIB {
         name: "JAIC_STDLIB", group: Settings, readers: [Jaic, Jacket, Jailint, Jailsp, Tests],
         default: "the `stdlib/` next to the executable, else the checkout's",

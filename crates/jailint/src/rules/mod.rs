@@ -11,6 +11,7 @@ use jaic::source::Span;
 
 // Helpers shared by several rules; they are not rules themselves.
 mod frees;
+mod lifetime_cfg;
 mod local_scopes;
 
 pub(crate) use unused_parameter::RunState;
@@ -111,6 +112,7 @@ rules! {
     no_effect,
     pub(crate) platform_leak,
     pointer_into_resizable,
+    pointer_lifetime,
     print_in_module,
     push_in_static_if,
     range_past_count,
