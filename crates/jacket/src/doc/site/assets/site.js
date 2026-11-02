@@ -60,14 +60,18 @@
     var marks = Array.prototype.map.call(toc, function (a) {
       return { a: a, h: document.getElementById(a.getAttribute('href').slice(1)) };
     }).filter(function (m) { return m.h; });
+    // Each mark knows its group, so a scroll touches only what is on screen, never the whole
+    // outline: big modules have thousands of entries.
     var groups = [];
-    var fold = function () {
-      groups.forEach(function (g) {
-        var open = g.user === null ? g.seen : g.user;
-        g.l.classList.toggle('open', open);
-        g.b.setAttribute('aria-expanded', String(open));
-      });
+    var setOpen = function (g) {
+      var open = g.user === null ? g.seen : g.user;
+      if (open === g.open) return;
+      g.open = open;
+      g.l.classList.toggle('open', open);
+      g.b.setAttribute('aria-expanded', String(open));
+      moved = true;
     };
+    var groupOf = new Map();
     Array.prototype.forEach.call(document.querySelectorAll('.toc li.items'), function (l, n) {
       var head = l.previousElementSibling;
       if (!head || head.classList.contains('items')) return;
@@ -77,52 +81,90 @@
       b.type = 'button';
       b.className = 'tog';
       b.setAttribute('aria-controls', list.id);
+      b.setAttribute('aria-expanded', 'false');
       b.setAttribute('aria-label', 'Show ' + head.textContent.trim());
       head.classList.add('has-list');
       head.appendChild(b);
-      var g = { l: l, b: b, head: head, user: null, seen: false };
+      var g = { l: l, b: b, user: null, seen: false, open: false };
       b.addEventListener('click', function () {
-        g.user = !g.l.classList.contains('open');
-        fold();
+        g.user = !g.open;
+        setOpen(g);
       });
+      groupOf.set(head, g);
+      Array.prototype.forEach.call(list.children, function (li) { groupOf.set(li, g); });
       groups.push(g);
     });
+    marks.forEach(function (m) {
+      var li = m.a.closest('li');
+      m.g = groupOf.get(li) || null;
+      m.item = !!(m.g && li.parentNode.parentNode === m.g.l);
+      if (m.item) m.a.setAttribute('data-t', m.a.textContent);
+    });
     var rail = document.querySelector('.toc');
-    var shown = '';
+    var from = -1, to = -1, first = true, moved = false;
+    var still = window.matchMedia('(prefers-reduced-motion: reduce)');
     var pending = false;
+    // The first mark whose heading is below y (marks follow the page order).
+    var below = function (y) {
+      var lo = 0, hi = marks.length;
+      while (lo < hi) {
+        var mid = (lo + hi) >> 1;
+        if (marks[mid].h.getBoundingClientRect().top > y) hi = mid; else lo = mid + 1;
+      }
+      return lo;
+    };
+    // The rail scroll that puts entries a..b in its middle.
+    var centre = function (a, b) {
+      var top = marks[a].a.getBoundingClientRect().top, end = marks[b].a.getBoundingClientRect().bottom;
+      var r = rail.getBoundingClientRect();
+      return Math.round(rail.scrollTop + (top + end) / 2 - (r.top + r.bottom) / 2);
+    };
+    // Keep the marked entries in the middle of the rail, gliding there as the page scrolls.
+    var glide = function (want) {
+      if (Math.abs(want - rail.scrollTop) > 1) rail.scrollTo({ top: want, behavior: first || still.matches ? 'instant' : 'smooth' });
+      first = false;
+    };
     var mark = function () {
       pending = false;
       if (!marks.length) return;
       // Every section with some part on screen is marked. A section runs from its heading to
       // the next one in the outline; the sticky header covers the top 70px.
-      var end = document.documentElement.getBoundingClientRect().bottom;
-      var tops = marks.map(function (m) { return m.h.getBoundingClientRect().top; });
-      var seen = marks.filter(function (m, i) {
-        var bottom = i + 1 < marks.length ? tops[i + 1] : end;
-        return bottom > 70 && tops[i] < window.innerHeight;
-      });
-      if (!seen.length) seen = [marks[0]];
-      var key = seen.map(function (m) { return marks.indexOf(m); }).join(',');
-      if (key === shown) return;
-      shown = key;
-      // Only item names are coloured; headings just open their lists.
-      var lit = seen.filter(function (m) { return m.a.closest('li.items'); });
-      marks.forEach(function (m) {
-        m.a.classList.toggle('active', lit.indexOf(m) >= 0);
-        if (m === seen[0]) m.a.setAttribute('aria-current', 'location'); else m.a.removeAttribute('aria-current');
-      });
-      // A list is in view when one of its items is, or the heading right above it is.
-      groups.forEach(function (g) {
-        var was = g.seen;
-        g.seen = seen.some(function (m) { var li = m.a.closest('li'); return li === g.head || g.l.contains(li); });
+      var a = Math.max(0, below(70) - 1);
+      var b = Math.max(a, below(window.innerHeight - 1) - 1);
+      if (a === from && b === to) return;
+      // Read where the rail should scroll before changing any class. Marking an entry never
+      // moves the others, so these positions stay right, and the frame lays out only once.
+      var want = centre(a, b);
+      moved = false;
+      var seen = [];
+      var i;
+      for (i = from; i >= 0 && i <= to; i++) {
+        if (i < a || i > b) {
+          marks[i].a.classList.remove('active');
+          if (marks[i].g) marks[i].g.seen = false;
+        }
+      }
+      if (from >= 0) marks[from].a.removeAttribute('aria-current');
+      for (i = a; i <= b; i++) {
+        // Only item names are coloured; headings just open their lists.
+        if (marks[i].item) marks[i].a.classList.add('active');
+        if (marks[i].g) { marks[i].g.seen = true; seen.push(marks[i].g); }
+      }
+      marks[a].a.setAttribute('aria-current', 'location');
+      for (i = from; i >= 0 && i <= to; i++) {
+        var g = marks[i].g;
         // A list the reader closed opens again once they have moved on and come back.
-        if (was && !g.seen && g.user === false) g.user = null;
-      });
-      fold();
+        if (g && !g.seen && g.user === false) g.user = null;
+        if (g) setOpen(g);
+      }
+      seen.forEach(setOpen);
+      from = a;
+      to = b;
       // Animate folding only after the first layout, so a page load doesn't show lists closing.
       if (!rail.classList.contains('ready')) requestAnimationFrame(function () { rail.classList.add('ready'); });
-      var a = seen[0].a.getBoundingClientRect(), r = rail.getBoundingClientRect();
-      if (a.top < r.top || a.bottom > r.bottom) rail.scrollTop += a.top - r.top - r.height / 3;
+      // A list opening or closing does move entries, so then the rail is placed a frame later.
+      if (moved) requestAnimationFrame(function () { glide(centre(from, to)); });
+      else glide(want);
     };
     window.addEventListener('scroll', function () {
       if (!pending) { pending = true; requestAnimationFrame(mark); }
@@ -632,20 +674,33 @@
 
   // A code block wider than its column scrolls on its own; give it a tab stop so the keyboard
   // can scroll it too.
+  // All widths are read before any tab stop changes, so this lays the page out once.
+  var pres = document.querySelectorAll('main pre'), sizing = false;
   function scrollable() {
-    Array.prototype.forEach.call(document.querySelectorAll('main pre'), function (pre) {
-      if (pre.scrollWidth > pre.clientWidth) pre.tabIndex = 0; else pre.removeAttribute('tabindex');
+    sizing = false;
+    var wide = Array.prototype.map.call(pres, function (pre) { return pre.scrollWidth > pre.clientWidth; });
+    Array.prototype.forEach.call(pres, function (pre, i) {
+      if (wide[i]) pre.tabIndex = 0; else pre.removeAttribute('tabindex');
     });
   }
   scrollable();
-  window.addEventListener('resize', scrollable);
+  window.addEventListener('resize', function () {
+    if (!sizing) { sizing = true; requestAnimationFrame(scrollable); }
+  });
 
   // Long blocks have a preview and a disclosure button; focus moving into the clipped part
-  // opens the block, so a focused link is never hidden. The early fold() script already
-  // opened blocks that fit.
-  Array.prototype.forEach.call(document.querySelectorAll('.fold:not(.open)'), function (fold) {
+  // opens the block, so a focused link is never hidden. The early fold() script opens the
+  // first few blocks that fit while the page loads; the rest are measured here in one pass,
+  // since measuring each block as it arrives lays the page out once per block.
+  var shut = Array.prototype.slice.call(document.querySelectorAll('.fold:not(.open)'));
+  var fits = shut.map(function (f) { return f.scrollHeight <= (+f.getAttribute('data-fold') || 440); });
+  shut = shut.filter(function (f, i) {
+    if (fits[i]) f.classList.add('open');
+    return !fits[i];
+  });
+  shut.forEach(function (fold, i) {
     var btn = el('button', 'btn fold-btn', 'Show more');
-    if (!fold.id) fold.id = 'fold-' + Array.prototype.indexOf.call(document.querySelectorAll('.fold'), fold);
+    if (!fold.id) fold.id = 'fold-' + i;
     btn.setAttribute('aria-controls', fold.id); btn.setAttribute('aria-expanded', 'false');
     btn.type = 'button';
     btn.addEventListener('click', function () {

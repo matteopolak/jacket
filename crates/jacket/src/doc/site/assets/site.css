@@ -215,7 +215,13 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 .toc li.sub + li.items > ul { margin-left: 20px; }
 .toc li.items a { padding: 3px 10px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
 .toc li a:hover { color: var(--fg); text-decoration: none; }
-.toc li a.active { color: var(--link); }
+/* A marked item reads bold, from a bold copy of its name laid over it. Showing the copy only
+   swaps colours, which needs no layout: on a big page each layout after a scroll is costly. */
+.toc li a[data-t] { position: relative; }
+.toc li a[data-t]::after { content: attr(data-t) / ""; position: absolute; inset: 5px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: transparent; pointer-events: none; }
+.toc li a.active { color: transparent; }
+.toc li a.active::after { color: var(--link); }
+@media (forced-colors: active) { .toc li a[data-t]::after { content: none; } .toc li a.active { font-weight: 600; } }
 @media (min-width: 1200px) {
   .wrap, .top-in { max-width: 1520px; }
   .side { flex-basis: 272px; max-width: 272px; }
@@ -395,6 +401,6 @@ pre, table, .defs { max-width: 100%; overflow-x: auto; }
 .toc li a, .toc .tog, .site-nav a { min-height: 24px; }
 /* Selected options have a cue in addition to colour. */
 #search-results .hit[aria-selected="true"] { outline: 2px solid var(--link); outline-offset: -2px; }
-.toc li a.active, .ver-menu a[aria-current="true"] { font-weight: 600; }
+.ver-menu a[aria-current="true"] { font-weight: 600; }
 h2 .anchor, h3 .anchor { display: inline-flex; min-width: 24px; min-height: 24px; align-items: center; justify-content: center; }
 .titlebar > a, .row-head > a { min-height: 24px; display: inline-flex; align-items: center; }

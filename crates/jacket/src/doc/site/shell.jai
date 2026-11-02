@@ -7,7 +7,7 @@ Page :: struct($C: Type) {
     nav_stamps: [] string;
 }
 
-EARLY :: "window.fold=function(){var f=document.currentScript.parentElement;if(f.scrollHeight<=(+f.getAttribute('data-fold')||440))f.classList.add('open')};(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('jacket-docs-theme');if(t==='light'||t==='dark')d.setAttribute('data-theme',t)}catch(e){}})()";
+EARLY :: "window.fold=function(){if(++fold.n>6)return;var f=document.currentScript.parentElement;if(f.scrollHeight<=(+f.getAttribute('data-fold')||440))f.classList.add('open')};fold.n=0;(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('jacket-docs-theme');if(t==='light'||t==='dark')d.setAttribute('data-theme',t)}catch(e){}})()";
 
 
 Layout :: (out: *Out, page: *Page($C)) {
