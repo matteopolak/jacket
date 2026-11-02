@@ -2,6 +2,7 @@
 // Regenerate with tools/native_bindings/generate.py; do not hand-edit.
 
 #scope_file
+#import "POSIX";
 
 libaaudio :: #library,system "aaudio"; @native(external)
 #scope_export

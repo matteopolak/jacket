@@ -10,7 +10,7 @@ IMPORTS = {
     'dxgi': ['Windows'], 'Linux': ['POSIX'], 'Metal': ['Objective_C'],
     'Objective_C': [], 'macOS': ['POSIX', 'Objective_C'], 'nvidia_aftermath': ['Windows', 'd3d12'],
     'X11': ['POSIX'], 'Android': ['POSIX'],
-    'Android/AAudio': [], 'Android/EGL': ['Android'],
+    'Android/AAudio': ['POSIX'], 'Android/EGL': ['Android'],
     'Vulkan': [],
 }
 
