@@ -31,15 +31,16 @@ def cargo(*args):
 
 
 def example(package, name):
-    """The stdout of `cargo run --example name` in `package`."""
+    """The stdout of `cargo run --example name` in `package`. Cargo's own messages go to the terminal: a failed build
+    (an unwritable target directory, a stale lock file) is otherwise only an exit status."""
     result = subprocess.run(["cargo", "run", "--locked", "-q", "-p", package, "--example", name],
-                            cwd=ROOT, check=True, capture_output=True, text=True)
+                            cwd=ROOT, check=True, stdout=subprocess.PIPE, text=True)
     return result.stdout
 
 
 def help_text(program, *args):
     """The help `program` prints, trailing blanks stripped."""
-    result = subprocess.run([str(cargo_binary(program)), *args], cwd=ROOT, check=True, capture_output=True, text=True)
+    result = subprocess.run([str(cargo_binary(program)), *args], cwd=ROOT, check=True, stdout=subprocess.PIPE, text=True)
     return "\n".join(line.rstrip() for line in result.stdout.strip().splitlines())
 
 
