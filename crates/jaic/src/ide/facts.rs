@@ -65,8 +65,11 @@ impl IdeRoot {
 pub struct IdeFacts {
     /// Per-analysis missing filesystem discovery; never a placeholder or failed module body.
     pub(super) missing_modules: HashMap<(ScopeId, Span), IdeMissingModule>,
-    /// The sources facts are recorded for.
-    pub(super) roots: Vec<IdeRoot>,
+    /// The folders and files facts are recorded under, as a set so a path is matched by
+    /// looking up each of its ancestors rather than comparing against every root.
+    pub(super) under: HashSet<PathBuf>,
+    /// Whether in-memory sources are recorded.
+    pub(super) virtual_root: bool,
     /// Files recorded wherever they are: the open documents, as `FileSystem::canonical` keys.
     pub(super) files: Vec<PathBuf>,
     pub(super) wanted: HashMap<FileId, bool>,
@@ -386,10 +389,16 @@ impl IdeFacts {
     }
 
     pub fn new(roots: Vec<IdeRoot>) -> Self {
-        Self {
-            roots,
-            ..Self::default()
+        let mut facts = Self::default();
+        for root in roots {
+            match root {
+                IdeRoot::Under(path) => {
+                    facts.under.insert(path);
+                }
+                IdeRoot::Virtual => facts.virtual_root = true,
+            }
         }
+        facts
     }
 }
 

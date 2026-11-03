@@ -1,6 +1,6 @@
 //! Recording references, entities and missing modules as the checker visits them.
 use super::facts::{
-    IdeCast, IdeExprFact, IdeMissingModule, IdeMissingModuleEpoch, IdeRef, IdeRoot, IdeWhat,
+    IdeCast, IdeExprFact, IdeMissingModule, IdeMissingModuleEpoch, IdeRef, IdeWhat,
 };
 use crate::ast;
 use crate::diagnostics::Diagnostic;
@@ -158,15 +158,14 @@ impl Compiler {
             return false;
         };
         match &source.path {
-            SourcePath::Virtual(_) => ide.roots.contains(&IdeRoot::Virtual),
+            SourcePath::Virtual(_) => ide.virtual_root,
             SourcePath::File(path) => {
                 // Identity, not spelling: `./a`, `a//b/../b`, a symlink or another case of a
                 // folder name one file.
                 let key = self.src.fs.canonical(path);
-                ide.roots.iter().any(|r| match r {
-                    IdeRoot::Under(root) => path.starts_with(root) || key.starts_with(root),
-                    IdeRoot::Virtual => false,
-                }) || ide.files.contains(&key)
+                // `starts_with(root)` holds exactly when `root` is one of the ancestors.
+                let under = |p: &Path| p.ancestors().any(|a| ide.under.contains(a));
+                under(path) || under(&key) || ide.files.contains(&key)
             }
         }
     }
