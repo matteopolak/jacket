@@ -163,9 +163,9 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
  88 |     sink(p);
     |          ^ pointer used here after its element was moved or removed
     |
-   ::: [repo]/stdlib/internal/basic/arrays.jai:377:8
+   ::: [repo]/stdlib/internal/basic/arrays.jai:379:8
     |
-377 | pop :: (array: *[] $T) -> T {
+379 | pop :: (array: *[] $T) -> T {
     |        ---------------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
@@ -181,9 +181,9 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
  95 |     sink(p);
     |          ^ pointer used here after its element was moved or removed
     |
-   ::: [repo]/stdlib/internal/basic/arrays.jai:259:41
+   ::: [repo]/stdlib/internal/basic/arrays.jai:261:41
     |
-259 | array_ordered_remove_by_index :: inline (array_pointer: *[] $T, index: s64) {
+261 | array_ordered_remove_by_index :: inline (array_pointer: *[] $T, index: s64) {
     |                                         ------------------------------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
@@ -212,9 +212,9 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
 109 |     sink(p);
     |          ^ pointer used here after its element was moved or removed
     |
-   ::: [repo]/stdlib/internal/basic/arrays.jai:396:5
+   ::: [repo]/stdlib/internal/basic/arrays.jai:398:5
     |
-396 |     array.count = 0;
+398 |     array.count = 0;
     |     --------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
