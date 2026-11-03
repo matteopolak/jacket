@@ -107,7 +107,10 @@ run_smoke :: (gpu_frame: bool = false) {
 
     shortcut(*ui, *ed, #char "S");
     check(!is_dirty(doc), "Cmd+S clears the modified flag");
-    check(begins_with(read_text(hello), "// header\nmain"), "Cmd+S wrote the file");
+    saved_file := read_text(hello);
+
+    defer free(saved_file);
+    check(begins_with(saved_file, "// header\nmain"), "Cmd+S wrote the file");
 
     // IME preedit is transient; only the committed text enters the buffer and undo history.
     saved := copy_string(contents(*doc.edit));
@@ -133,7 +136,10 @@ run_smoke :: (gpu_frame: bool = false) {
     // Undo and redo.
     shortcut(*ui, *ed, #char "Z");
     check(is_dirty(doc), "undo makes the saved text stale");
-    check(contents(*doc.edit) != read_text(hello), "undo changed the text");
+    after_undo := read_text(hello);
+
+    defer free(after_undo);
+    check(contents(*doc.edit) != after_undo, "undo changed the text");
     press(*ui, *ed, cast(Key_Code) #char "Z", .{ ctrl = true, super = true, shift = true });
 
     // Clipboard: select all, copy, then paste at the end.
