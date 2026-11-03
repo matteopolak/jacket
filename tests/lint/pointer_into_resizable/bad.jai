@@ -14,6 +14,7 @@ element_then_add :: () -> int {
     defer array_free(items);
 
     array_add(*items, .{ 1 });
+    items.count = items.allocated;
     first := *items[0];
 
     array_add(*items, .{ 2 });
@@ -35,6 +36,7 @@ added_then_added :: () -> int {
     defer array_free(items);
 
     last := array_add(*items);
+    items.count = items.allocated;
 
     array_add(*items, .{ 5 });
 

@@ -1076,7 +1076,7 @@ fn solve(
         }
         for &next in &model.blocks[i].next {
             let mut outgoing = state.clone();
-            if let CfgOp::Decision(_, yes, _, Some(token)) = model.blocks[i].op
+            if let CfgOp::Decision(_, yes, _, Some(token), _) = model.blocks[i].op
                 && next == yes
                 && let Some(&at) = tokens.get(&token)
             {

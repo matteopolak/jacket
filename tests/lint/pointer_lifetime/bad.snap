@@ -88,159 +88,159 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add(*xs, 2)
-   --> tests/lint/pointer_lifetime/bad.jai:98:10
+   --> tests/lint/pointer_lifetime/bad.jai:99:10
     |
  95 |     p := *xs[0];
     |          ------ pointer derived here
     ...
- 97 |     array_add(*xs, 2);
+ 98 |     array_add(*xs, 2);
     |     ----------------- `xs` storage invalidated here
- 98 |     sink(p);
+ 99 |     sink(p);
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add(*xs, 2)
-   --> tests/lint/pointer_lifetime/bad.jai:109:10
+   --> tests/lint/pointer_lifetime/bad.jai:111:10
     |
-106 |     p := *xs[0];
+107 |     p := *xs[0];
     |          ------ pointer derived here
     ...
-108 |     array_add(*xs, 2);
+110 |     array_add(*xs, 2);
     |     ----------------- `xs` storage invalidated here
-109 |     sink(p);
+111 |     sink(p);
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
-   --> tests/lint/pointer_lifetime/bad.jai:120:10
+   --> tests/lint/pointer_lifetime/bad.jai:122:10
     |
-117 |     p := *xs[0];
+119 |     p := *xs[0];
     |          ------ pointer derived here
     ...
-119 |     #if INVALIDATE grow(*xs);
+121 |     #if INVALIDATE grow(*xs);
     |                    --------- `xs` storage invalidated here
-120 |     sink(p);
+122 |     sink(p);
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(xs = *xs)
-   --> tests/lint/pointer_lifetime/bad.jai:135:10
+   --> tests/lint/pointer_lifetime/bad.jai:137:10
     |
-132 |     p := *xs[0];
+134 |     p := *xs[0];
     |          ------ pointer derived here
     ...
-134 |     grow(xs = *xs);
+136 |     grow(xs = *xs);
     |     -------------- `xs` storage invalidated here
-135 |     sink(p);
+137 |     sink(p);
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow_many(*xs, ..rest)
-   --> tests/lint/pointer_lifetime/bad.jai:148:10
+   --> tests/lint/pointer_lifetime/bad.jai:150:10
     |
-144 |     p := *xs[0];
+146 |     p := *xs[0];
     |          ------ pointer derived here
     ...
-147 |     grow_many(*xs, ..rest);
+149 |     grow_many(*xs, ..rest);
     |     ---------------------- `xs` storage invalidated here
-148 |     sink(p);
+150 |     sink(p);
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`; every path to this use passes one of 2 invalidating calls
-   --> tests/lint/pointer_lifetime/bad.jai:162:10
+   --> tests/lint/pointer_lifetime/bad.jai:164:10
     |
-155 |     p := *xs[0];
+157 |     p := *xs[0];
     |          ------ pointer derived here
     ...
-158 |         case 1; grow(*xs);
+160 |         case 1; grow(*xs);
     |                 --------- `xs` storage invalidated here
-159 |         case; grow(*xs);
+161 |         case; grow(*xs);
     |               --------- `xs` storage invalidated here
     ...
-162 |     sink(p);
+164 |     sink(p);
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
-   --> tests/lint/pointer_lifetime/bad.jai:175:10
+   --> tests/lint/pointer_lifetime/bad.jai:177:10
     |
-169 |     p := *xs[0];
+171 |     p := *xs[0];
     |          ------ pointer derived here
     ...
-172 |         defer grow(*xs);
+174 |         defer grow(*xs);
     |               --------- `xs` storage invalidated here
     ...
-175 |     sink(p);
+177 |     sink(p);
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
-   --> tests/lint/pointer_lifetime/bad.jai:194:10
+   --> tests/lint/pointer_lifetime/bad.jai:196:10
     |
-182 |     p := *xs[0];
+184 |     p := *xs[0];
     |          ------ pointer derived here
     ...
-185 |         grow(*xs);
+187 |         grow(*xs);
     |         --------- `xs` storage invalidated here
     ...
-194 |     sink(p);
+196 |     sink(p);
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
-   --> tests/lint/pointer_lifetime/bad.jai:207:10
+   --> tests/lint/pointer_lifetime/bad.jai:209:10
     |
-203 |     p := *xs[0];
+205 |     p := *xs[0];
     |          ------ pointer derived here
     ...
-206 |     grow(*xs);
+208 |     grow(*xs);
     |     --------- `xs` storage invalidated here
-207 |     sink(p);
+209 |     sink(p);
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
-   --> tests/lint/pointer_lifetime/bad.jai:221:21
+   --> tests/lint/pointer_lifetime/bad.jai:223:21
     |
-218 |     p := *xs[0];
+220 |     p := *xs[0];
     |          ------ pointer derived here
     ...
-220 |     grow(*xs);
+222 |     grow(*xs);
     |     --------- `xs` storage invalidated here
-221 |     if enabled sink(p);
+223 |     if enabled sink(p);
     |                     ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: grow(*xs)
-   --> tests/lint/pointer_lifetime/bad.jai:231:10
+   --> tests/lint/pointer_lifetime/bad.jai:233:10
     |
-228 |     p := *xs[0];
+230 |     p := *xs[0];
     |          ------ pointer derived here
     ...
-230 |     #insert "grow(*xs);";
+232 |     #insert "grow(*xs);";
     |             ------------ `xs` storage invalidated here
-231 |     sink(p);
+233 |     sink(p);
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead

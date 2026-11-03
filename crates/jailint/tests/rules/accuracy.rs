@@ -51,3 +51,38 @@ fn lifetime_destroy_labels_the_original_allocation() {
         .unwrap();
     assert_eq!(&text[origin.start..origin.end], "New(Box)");
 }
+
+#[test]
+fn lifetime_counted_loops_exclude_zero_iteration_bypasses() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/counted-growth.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (lints, text) = lint_with(
+            &path,
+            &[("pointer_lifetime", Level::Warn)],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(
+            lints.len(),
+            if mode == jacket_config::LifetimeMode::Must {
+                1
+            } else {
+                4
+            },
+            "{}",
+            rendered(&lints, &text, &path)
+        );
+        assert!(lints[0].start < text.find("empty_range").unwrap());
+        assert!(
+            lints
+                .iter()
+                .all(|l| l.start < text.find("empty_range").unwrap()
+                    || l.start > text.find("few_adds").unwrap())
+        );
+    }
+}

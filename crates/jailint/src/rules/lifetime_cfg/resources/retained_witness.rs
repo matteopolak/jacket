@@ -23,7 +23,7 @@ pub(super) fn path(model: &Model, start: usize, end: usize, token: Token) -> Opt
             continue;
         }
         for &next in &model.blocks[block].next {
-            if matches!(model.blocks[block].op, CfgOp::Decision(_, yes, _, Some(t)) if t == token && next == yes)
+            if matches!(model.blocks[block].op, CfgOp::Decision(_, yes, _, Some(t), _) if t == token && next == yes)
             {
                 continue;
             }
@@ -52,7 +52,7 @@ pub(super) fn path(model: &Model, start: usize, end: usize, token: Token) -> Opt
     let decisions = path
         .windows(2)
         .filter_map(|pair| match model.blocks[pair[0]].op {
-            CfgOp::Decision(span, yes, no, _) if pair[1] == yes || pair[1] == no => {
+            CfgOp::Decision(span, yes, no, _, _) if pair[1] == yes || pair[1] == no => {
                 Some((span, pair[1] == yes))
             }
             _ => None,

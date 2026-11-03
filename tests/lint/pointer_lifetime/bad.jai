@@ -94,6 +94,7 @@ library_call :: () {
     array_add(*xs, 1);
     p := *xs[0];
 
+    xs.count = xs.allocated;
     array_add(*xs, 2);
     sink(p);
 }
@@ -105,6 +106,7 @@ cleanup_does_not_hide_growth :: () {
     defer array_free(xs);
     p := *xs[0];
 
+    xs.count = xs.allocated;
     array_add(*xs, 2);
     sink(p);
 }

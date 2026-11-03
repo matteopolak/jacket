@@ -1,11 +1,11 @@
 //! Immutable private predicates shared by repeated lifetime branch tests.
-use super::{HashMap, LifetimeBlock, LifetimeEvent, Span, Val, ir, private_byte_flags};
+use super::{HashMap, LifetimeBlock, LifetimeEvent, Val, ir, private_byte_flags};
 
 pub(super) fn immutable_boolean_branches(
     func: &ir::Func,
     blocks: &[LifetimeBlock],
     constants: &HashMap<Val, u64>,
-) -> Vec<(Span, Val, bool)> {
+) -> Vec<(Val, Val, bool)> {
     let mut flags = private_byte_flags(func);
     flags.retain(|flag| {
         func.blocks
@@ -26,13 +26,11 @@ pub(super) fn immutable_boolean_branches(
         let origins = boolean_load_origins(&ir.insts, &slots, constants);
         for event in &block.events {
             if let LifetimeEvent::Branch {
-                condition,
-                span,
-                ..
+                condition, ..
             } = event
                 && let Some(&(slot, inverted)) = origins.get(condition)
             {
-                out.push((*span, flags[slot], inverted));
+                out.push((*condition, flags[slot], inverted));
             }
         }
     }

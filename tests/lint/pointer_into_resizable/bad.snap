@@ -2,15 +2,15 @@
 source: crates/jailint/tests/rules.rs
 ---
 warning[pointer_into_resizable]: `first` points into `items`, which `array_add` may have moved by now
-  --> tests/lint/pointer_into_resizable/bad.jai:22:12
+  --> tests/lint/pointer_into_resizable/bad.jai:23:12
    |
-17 |     first := *items[0];
+18 |     first := *items[0];
    |              --------- pointer derived here
    ...
-19 |     array_add(*items, .{ 2 });
+20 |     array_add(*items, .{ 2 });
    |     ------------------------- `items` storage invalidated here
    ...
-22 |     return first.value;
+23 |     return first.value;
    |            ^^^^^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after the array has grown, or keep the index instead
@@ -18,14 +18,14 @@ warning[pointer_into_resizable]: `first` points into `items`, which `array_add` 
    = note: see https://jacket.matteopolak.com/lint-rules/pointer_into_resizable
 
 warning[pointer_into_resizable]: `slot` points into `storage.items`, which `array_reserve` may have moved by now
-  --> tests/lint/pointer_into_resizable/bad.jai:29:12
+  --> tests/lint/pointer_into_resizable/bad.jai:30:12
    |
-26 |     slot := *store.items[0].value;
+27 |     slot := *store.items[0].value;
    |             --------------------- pointer derived here
-27 |     array_reserve(*store.items, 1000);
+28 |     array_reserve(*store.items, 1000);
    |     --------------------------------- `storage.items` storage invalidated here
    ...
-29 |     return slot.*;
+30 |     return slot.*;
    |            ^^^^ pointer used here after its storage was invalidated
    |
   ::: [repo]/stdlib/internal/basic/arrays.jai:19:5
@@ -41,15 +41,15 @@ warning[pointer_into_resizable]: `slot` points into `storage.items`, which `arra
    = note: see https://jacket.matteopolak.com/lint-rules/pointer_into_resizable
 
 warning[pointer_into_resizable]: `last` points into `items`, which `array_add` may have moved by now
-  --> tests/lint/pointer_into_resizable/bad.jai:41:5
+  --> tests/lint/pointer_into_resizable/bad.jai:43:5
    |
-37 |     last := array_add(*items);
+38 |     last := array_add(*items);
    |             ----------------- pointer derived here
    ...
-39 |     array_add(*items, .{ 5 });
+41 |     array_add(*items, .{ 5 });
    |     ------------------------- `items` storage invalidated here
    ...
-41 |     last.value = 3;
+43 |     last.value = 3;
    |     ^^^^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after the array has grown, or keep the index instead
@@ -57,13 +57,13 @@ warning[pointer_into_resizable]: `last` points into `items`, which `array_add` m
    = note: see https://jacket.matteopolak.com/lint-rules/pointer_into_resizable
 
 warning[pointer_into_resizable]: `it` points into `items`, which `array_add` may have moved by now
-  --> tests/lint/pointer_into_resizable/bad.jai:55:9
+  --> tests/lint/pointer_into_resizable/bad.jai:57:9
    |
-53 |     for *items {
+55 |     for *items {
    |          ----- pointer derived here
-54 |         array_add(*items, .{ 2 });
+56 |         array_add(*items, .{ 2 });
    |         ------------------------- `items` storage invalidated here
-55 |         it.value += 1;
+57 |         it.value += 1;
    |         ^^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after the array has grown, or keep the index instead

@@ -15,6 +15,7 @@ safe_moved_address :: () -> bool {
     array_add(*values, 1);
     pointer := *values[0];
 
+    values.count = values.allocated;
     array_add(*values, 2);
 
     return compare(pointer);
@@ -26,6 +27,7 @@ bad_moved_read :: () -> int {
     array_add(*values, 1);
     pointer := *values[0];
 
+    values.count = values.allocated;
     array_add(*values, 2);
 
     return read(pointer);

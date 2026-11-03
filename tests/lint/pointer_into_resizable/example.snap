@@ -2,15 +2,15 @@
 source: crates/jailint/tests/rules.rs
 ---
 warning[pointer_into_resizable]: `first` points into `items`, which `array_add` may have moved by now
-  --> tests/lint/pointer_into_resizable/example.jai:17:18
+  --> tests/lint/pointer_into_resizable/example.jai:18:18
    |
-13 |     first := *items[0];
+14 |     first := *items[0];
    |              --------- pointer derived here
    ...
-15 |     array_add(*items, .{ 2 });
+16 |     array_add(*items, .{ 2 });
    |     ------------------------- `items` storage invalidated here
    ...
-17 |     print("%\n", first.value);
+18 |     print("%\n", first.value);
    |                  ^^^^^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after the array has grown, or keep the index instead

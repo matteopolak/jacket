@@ -2,15 +2,15 @@
 source: crates/jailint/tests/rules.rs
 ---
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add(*xs, 2)
-  --> tests/lint/pointer_lifetime/example.jai:13:18
+  --> tests/lint/pointer_lifetime/example.jai:14:18
    |
- 9 |     p := *xs[0];
+10 |     p := *xs[0];
    |          ------ pointer derived here
    ...
-11 |     array_add(*xs, 2);
+12 |     array_add(*xs, 2);
    |     ----------------- `xs` storage invalidated here
    ...
-13 |     print("%\n", p.*);
+14 |     print("%\n", p.*);
    |                  ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead

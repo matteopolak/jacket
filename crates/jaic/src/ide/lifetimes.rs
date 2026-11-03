@@ -11,7 +11,9 @@ use std::sync::Arc;
 
 mod addresses;
 mod booleans;
+mod controls;
 pub use addresses::LifetimeAddressCast;
+pub use controls::LifetimeControls;
 
 #[derive(Clone, Copy, Debug)]
 pub enum LifetimeOperand {
@@ -374,7 +376,8 @@ pub struct LifetimeBody {
     /// Selected primitive comparisons used by the recorded control flow.
     pub comparisons: Vec<LifetimeComparison>,
     /// Branch predicates on private byte slots written exactly once.
-    pub boolean_branches: Vec<(Span, Val, bool)>,
+    pub boolean_branches: Vec<(Val, Val, bool)>,
+    pub controls: LifetimeControls,
     /// Pointer/integer bitcasts, retained independently of executable instructions.
     pub address_casts: Vec<LifetimeAddressCast>,
     /// Global addresses used by this body; immutable relocations live in `lifetime_globals`.
@@ -699,7 +702,8 @@ impl LifetimeBody {
         self.context_types.capacity() * std::mem::size_of::<TypeId>()
             + self.source_ranges.capacity() * std::mem::size_of::<LifetimeSourceRange>()
             + self.comparisons.capacity() * std::mem::size_of::<LifetimeComparison>()
-            + self.boolean_branches.capacity() * std::mem::size_of::<(Span, Val, bool)>()
+            + self.boolean_branches.capacity() * std::mem::size_of::<(Val, Val, bool)>()
+            + self.controls.vector_bytes()
             + self.globals.capacity() * std::mem::size_of::<(Val, ir::GlobalId)>()
             + self.address_casts.capacity() * std::mem::size_of::<LifetimeAddressCast>()
             + self.slot_aliases.capacity() * std::mem::size_of::<(Val, Val)>()
@@ -852,6 +856,7 @@ impl Compiler {
                     globals,
                     address_casts: addresses::capture(&f.b.func),
                     boolean_branches,
+                    controls: controls::capture(&f.b.func),
                     comparisons: f
                         .b
                         .func

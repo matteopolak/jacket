@@ -169,7 +169,7 @@ pub(super) fn strict_path(
     let decisions = path
         .windows(2)
         .filter_map(|pair| match model.blocks[nodes[pair[0]].block].op {
-            Op::Decision(span, yes, no, _) => {
+            Op::Decision(span, yes, no, _, _) => {
                 let next = nodes[pair[1]].block;
                 if next == yes {
                     Some((span, true))

@@ -10,6 +10,7 @@ main :: () {
     defer array_free(items);
 
     array_add(*items, .{ 1 });
+    items.count = items.allocated;
     first := *items[0];
 
     array_add(*items, .{ 2 });

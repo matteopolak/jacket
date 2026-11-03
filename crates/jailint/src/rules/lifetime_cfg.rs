@@ -17,7 +17,9 @@ use std::collections::{BTreeMap, VecDeque};
 
 mod build;
 mod capacity;
+mod controls;
 mod diagnostics;
+mod paths;
 pub(super) mod resources;
 
 fn dead(cx: &Cx, state: u8) -> bool {
@@ -42,7 +44,8 @@ pub(super) use iteration::check as check_iteration;
 #[derive(Clone)]
 enum Op {
     Nop,
-    Decision(Span, usize, usize, Option<tasks::Token>),
+    Control(usize),
+    Decision(Span, usize, usize, Option<tasks::Token>, Val),
     Indirect(super::lifetime_targets::Set, Span),
     Use(usize, Span),
     ObserveValue(usize, Span),

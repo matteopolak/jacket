@@ -92,6 +92,7 @@ string_view :: () {
 returned_growth_pointer :: () {
     xs: [..] int;
     p := array_add(*xs);
+    xs.count = xs.allocated;
     array_add(*xs, 1);
     sink(p);
 }
