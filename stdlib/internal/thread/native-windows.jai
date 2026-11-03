@@ -16,7 +16,7 @@ init :: (using m: *Mutex, desired_name := "", desired_order: Mutex_Order = -1) {
 // Releases the resources of a mutex. It must be unlocked.
 destroy :: (using m: *Mutex) {
     W.DeleteCriticalSection(*csection);
-} @FreesArgument
+}
 
 // Takes the mutex, waiting until no other thread holds it. Pair every `lock` with an `unlock`.
 lock :: (using m: *Mutex) {
@@ -54,7 +54,7 @@ init :: (using cv: *Condition_Variable, desired_name := "") {
 destroy :: (using cv: *Condition_Variable) {
     // Win32 condition variables have no destruction API or allocated resource.
     condition_variable = .{};
-} @FreesArgument
+}
 
 // Waits on a raw operating-system condition variable, giving up after `wait_time_ms` (never, when negative). Prefer
 // `wait`.
@@ -106,7 +106,7 @@ destroy :: (s: *Semaphore) {
     closed := W.CloseHandle(s.event);
     if !windows_thread_check(closed != 0, "semaphore destruction failed") return;
     s.event = null;
-} @FreesArgument
+}
 
 // Adds one count to the semaphore, waking a thread blocked in `wait_for`.
 signal :: (s: *Semaphore) {

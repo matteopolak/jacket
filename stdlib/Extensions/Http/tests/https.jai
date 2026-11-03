@@ -794,6 +794,7 @@ main :: () {
     server_config := make_server_config("server");
 
     app.config.tls = *server_config;
+    defer app.config.tls = null;
 
     run_server(*app, round_trips);
     run_server(*app, certificate_failures);
@@ -808,6 +809,7 @@ main :: () {
 
     impatient_app.config.header_timeout = 400;
     impatient_app.config.tls = *server_config;
+    defer impatient_app.config.tls = null;
 
     run_server(*impatient_app, bad_handshakes);
 
@@ -816,6 +818,7 @@ main :: () {
     wrong_config := make_server_config("wrong_name");
 
     wrong_name_app.config.tls = *wrong_config;
+    defer wrong_name_app.config.tls = null;
 
     run_server(*wrong_name_app, wrong_name);
 
@@ -824,6 +827,7 @@ main :: () {
     expired_config := make_server_config("expired");
 
     expired_app.config.tls = *expired_config;
+    defer expired_app.config.tls = null;
 
     run_server(*expired_app, expired);
 
@@ -832,6 +836,7 @@ main :: () {
     auth_config := make_server_config("server", "ca", true);
 
     client_auth_app.config.tls = *auth_config;
+    defer client_auth_app.config.tls = null;
 
     run_server(*client_auth_app, client_certificates);
 
@@ -840,6 +845,7 @@ main :: () {
 
     logging_app.config.log_requests = true;
     logging_app.config.tls = *server_config;
+    defer logging_app.config.tls = null;
 
     run_server(*logging_app, ragged_clients);
 

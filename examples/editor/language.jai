@@ -365,4 +365,4 @@ read_format_file :: (path: string) -> string, bool {
 editor_format_config :: (path: string) -> Fmt.Format_Config, string, bool, string {
     push_allocator(temp);
     return Fmt.format_find_config(parent_directory(path), read_format_file);
-}
+} @TempAllocates(1,3)

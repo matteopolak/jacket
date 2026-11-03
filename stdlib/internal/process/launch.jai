@@ -197,7 +197,7 @@ deinit :: (process: *Process) {
     close_pipe(*process.error);
     process.pid = 0;
     #if OS == .MACOS close_fd(*process.kevent_queue);
-} @FreesArgument
+}
 
 // Closes one pipe of a process, for instance `process.input` so that a child reading its standard input sees the end of the file
 // while its output can still be read. The pipe is marked at its end. Safe on a pipe that is already closed or never opened;
@@ -226,7 +226,7 @@ deinit :: (process: *Process) {
 // ```
 deinit :: (pipe: *Process.Pipe) {
     close_pipe(pipe);
-} @FreesArgument
+}
 
 #scope_module
 cancel_or_report :: (process: *Process) {
@@ -239,7 +239,7 @@ cancel_or_report :: (process: *Process) {
 close_pipe :: (pipe: *Process.Pipe) {
     close_fd(*pipe.handle);
     pipe.eof = true;
-} @FreesArgument
+}
 
 find_state :: (process: *Process) -> *Process_State {
     registry_acquire();
@@ -262,7 +262,7 @@ close_fd :: (fd: *s32) {
         fd.* = -1;
         if result != 0 context.logger("process descriptor close failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
     }
-} @FreesArgument
+}
 
 wait_child :: (pid: P.pid_t, status: *s32, flags: s32) -> P.pid_t #no_context {
     while true {

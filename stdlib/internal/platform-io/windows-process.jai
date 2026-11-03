@@ -154,7 +154,7 @@ terminate :: (child: *Child) -> bool {
 
 close_input :: (child: *Child) {
     close_stream(*child.input);
-} @FreesArgument
+}
 
 initialize_pipe :: (pipe: *Stream, is_input: bool) -> success: bool, client_handle: W.HANDLE = W.INVALID_HANDLE_VALUE {
     return pipe_pair(pipe, is_input);
@@ -162,7 +162,7 @@ initialize_pipe :: (pipe: *Stream, is_input: bool) -> success: bool, client_hand
 
 destroy_pipe :: (pipe: *Stream) {
     close_stream(pipe);
-} @FreesArgument
+}
 
 read_pipe :: (pipe: *Stream, buffer: [] u8) -> success: bool, bytes_read: int {
     ok, count := begin_read(pipe, buffer);
@@ -184,7 +184,7 @@ destroy :: (child: *Child) {
     if child.info.hProcess checked_close(child.info.hProcess);
 
     child.info = .{};
-} @FreesArgument
+}
 
 write_input :: (child: *Child, data: [] u8) -> bool, s64 {
     stream := *child.input;
@@ -416,7 +416,7 @@ close_stream :: (stream: *Stream) {
 
     stream.* = .{};
     stream.eof = true;
-} @FreesArgument
+}
 
 begin_read :: (stream: *Stream, buffer: [] u8) -> bool, s64 {
     if stream.eof || buffer.count == 0 return true, 0;

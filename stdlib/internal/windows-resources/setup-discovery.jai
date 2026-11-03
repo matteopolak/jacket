@@ -56,7 +56,7 @@ discover_setup_instances :: () -> string, string {
     }
 
     return "", "";
-}
+} @TempAllocates(0,1)
 
 #scope_file
 Files :: #import "File";

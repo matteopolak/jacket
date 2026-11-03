@@ -466,7 +466,7 @@ normal_type :: (text: string) -> string {
     }
 
     return out;
-}
+} @TempAllocates(0)
 
 // The type without a `Nullable(...)` wrapper, and whether there was one.
 unwrap_nullable :: (text: string) -> string, bool {
@@ -475,7 +475,7 @@ unwrap_nullable :: (text: string) -> string, bool {
     if begins_with(type, "Nullable(") && ends_with(type, ")") return slice(type, 9, type.count - 10), true;
 
     return type, false;
-}
+} @TempAllocates(0)
 
 quote :: (name: string) -> string {
     return tprint("\"%\"", name);

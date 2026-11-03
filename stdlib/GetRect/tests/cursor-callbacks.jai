@@ -16,7 +16,9 @@ main :: () {
     left: Left_Widget;
 
     expected_right = *right;
+    defer expected_right = null;
     expected_left = *left;
+    defer expected_left = null;
     G.draw_procs.set_pointer_image = right_cursor;
     L.draw_procs.set_pointer_image = left_cursor;
     G.getrect_set_pointer_image(.LOCKED, *right);

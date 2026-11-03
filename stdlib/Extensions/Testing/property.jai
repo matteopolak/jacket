@@ -548,7 +548,7 @@ make_value :: (maker: *Maker, info: *Type_Info, destination: *void) {
             if !pointee || pointee.type == .VOID || rng_chance(rng, 4) {
                 target.* = null;
             } else {
-                // jailint: allow(temp_storage_escape): generated values intentionally live only for the current property trial.
+                // generated values intentionally live only for the current property trial.
                 target.* = talloc(max(pointee.runtime_size, 1));
                 make_value(maker, pointee, target.*);
             }

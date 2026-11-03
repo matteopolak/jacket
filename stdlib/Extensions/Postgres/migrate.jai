@@ -100,7 +100,7 @@ read_migrations :: (folder: string, relative_to := "") -> [] Migration, problem:
     }
 
     return migrations, "";
-} @TempAllocates
+} @TempAllocates(1)
 
 // The schema hash: SHA-256 chained over each migration's name and digest, in order, so it changes
 // when any file is renamed, edited, added or removed. Hex.

@@ -59,7 +59,7 @@ main :: () {
 
         #if OS == .WINDOWS {
             protected: W.MEMORY_BASIC_INFORMATION;
-            if W.VirtualQuery(grown, *protected, size_of(type_of(protected))) == 0 exit(13);
+            if W.VirtualQuery(grown, *protected, size_of(type_of(protected))) == 0 exit(13); // jailint: allow(use_after_free)
             if protected.State != W.MEM_COMMIT || protected.Protect != W.PAGE_READONLY exit(14);
         }
     }

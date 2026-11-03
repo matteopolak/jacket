@@ -210,7 +210,7 @@ close :: (channel: *Channel($T)) {
 
         wake(waiter.fiber);
     }
-} @FreesArgument
+}
 
 // Waits for a number of tasks, as many as were `add`ed and have not yet been `done`.
 //

@@ -238,7 +238,7 @@ close :: (stream: *Pipe_Stream, now := false) -> Io_Error {
     }
 
     return .NONE;
-} @FreesArgument
+}
 
 #scope_module
 

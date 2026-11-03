@@ -25,6 +25,7 @@ main :: () {
     widget: Widget;
 
     expected_widget = *widget;
+    defer expected_widget = null;
     G.draw_procs.set_pointer_image = caller_cursor;
     G.getrect_set_pointer_image(.LOCKED, *widget);
     assert(callback_count == 1);

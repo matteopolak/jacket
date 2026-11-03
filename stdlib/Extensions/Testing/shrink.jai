@@ -150,7 +150,7 @@ smaller_values :: (info: *Type_Info, value: *void, custom: [] Custom_Generator) 
     }
 
     return blocks;
-}
+} @TempAllocates(0)
 
 add_integer :: (blocks: *Blocks, info: *Type_Info_Integer, value: Integer) {
     block := talloc(max(info.runtime_size, 1));

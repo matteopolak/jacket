@@ -302,7 +302,7 @@ free_buffers :: (using builder: *String_Builder) {
     current_buffer = null;
     initialized = false;
     failed = false;
-} @FreesArgument @Closes
+}
 
 // Empties `builder` and frees its extra buffers so it can be used again.
 //
@@ -328,7 +328,7 @@ reset :: (using builder: *String_Builder) {
     init_string_builder(builder, subsequent_buffer_size);
 
     #if ENABLE_ASSERT get_base_buffer(builder).ensured_count = ensured;
-} @Closes
+}
 
 // The text in `builder` as a new string, allocated with the context allocator (not the builder's). You free it. The builder
 // is emptied afterwards unless `do_reset` is `false`. `extra_bytes_to_prepend` leaves that many unwritten bytes in front of
@@ -361,7 +361,7 @@ builder_to_string :: (builder: *String_Builder, extra_bytes_to_prepend := 0, do_
     if do_reset reset(builder);
 
     return result;
-} @Allocates @Closes
+} @Allocates
 
 // Writes the text in `builder` to standard output, or standard error with `to_standard_error`, and returns the byte count.
 // The builder is emptied afterwards unless `do_reset` is `false`.
@@ -388,7 +388,7 @@ write_builder :: (using builder: *String_Builder, do_reset := true, to_standard_
     if do_reset reset(builder);
 
     return total;
-} @WritesOutput @Closes
+} @WritesOutput
 
 #scope_file
 grow_builder :: (using builder: *String_Builder, minimum_capacity: s64) -> bool {

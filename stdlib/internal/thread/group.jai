@@ -263,7 +263,7 @@ free_work_list :: (list: *Work_List, allocator: Allocator) {
     list.count = 0;
     destroy(*list.semaphore);
     destroy(*list.mutex);
-} @FreesArgument
+}
 
 // Adds `delta` to the group's count of unfinished work and returns the new count.
 add_outstanding :: (group: *Thread_Group, delta: s64) -> s64 {

@@ -142,7 +142,7 @@
 
         // "192.0.2.1:0"
         return string.{ text.count - 2, text.data };
-    }
+    } @TempAllocates(0)
 
     // A name from the certificate against the host: equal without regard to case, or a wildcard
     // `*.rest` for a host with exactly one more label in front of `.rest`.

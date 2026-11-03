@@ -60,8 +60,9 @@ main :: () {
     assert(grown != null && grown != memory && wrapper.table.count == 1 && grown[0] == 19 && grown[36] == 42);
     assert_write_faults(memory);
     allocator.proc(.FREE, 0, 0, grown, allocator.data);
-    assert(wrapper.table.count == 0 && grown[0] == 19);
-    assert_write_faults(grown);
+    // This debugging allocator deliberately retains read access after FREE.
+    assert(wrapper.table.count == 0 && grown[0] == 19); // jailint: allow(use_after_free)
+    assert_write_faults(grown); // jailint: allow(use_after_free, unused_suppression)
     threads: [4] T.Thread;
     for *thread: threads {
         thread.data = *allocator;

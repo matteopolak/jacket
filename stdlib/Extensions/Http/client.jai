@@ -182,7 +182,7 @@ free_error :: (error: *Client_Error) {
     }
 
     error.* = .{};
-} @FreesArgument
+}
 
 // How a client reaches a server. Both procedures run on a fiber of the running scheduler.
 Transport :: struct {
@@ -334,7 +334,7 @@ close :: (response: *Client_Response, now := false) {
     if response.storage free(response.storage);
 
     response.* = .{};
-} @FreesArgument
+}
 
 // Sends `request` and returns once the status line and headers have arrived. The response is
 // whatever the server answered (a 404 is a response, not an error); the body is read from it with
@@ -1577,7 +1577,7 @@ release_buffer :: (source: *Body_Source) {
     free(source.buffer.data);
 
     source.buffer = .[];
-} @FreesArgument
+}
 
 // Frees the memory of a source, or puts it back in the pool; the connection must be released first.
 discard_source :: (source: *Body_Source) {
@@ -1908,7 +1908,7 @@ release_source :: (source: *Body_Source) {
 
     // Whatever is left over is not worth waiting for.
     drop_connection(source);
-} @FreesArgument
+}
 
 // A connection held by a response that was neither read nor closed is part of the scheduler's
 // list. There is a bounded number of those: the oldest is closed when a new one would pass it.

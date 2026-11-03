@@ -334,9 +334,12 @@ main :: () {
     check(Tls.tls_config_init(*old_config).kind == .NONE, "server config");
 
     app.config.tls = *h2_config;
+    defer app.config.tls = null;
     quiet.config.tls = *h2_config;
+    defer quiet.config.tls = null;
     quiet.config.http2 = false;
     legacy.config.tls = *old_config;
+    defer legacy.config.tls = null;
 
     run_server(*app, shared_connection);
     run_server(*legacy, http1_server);

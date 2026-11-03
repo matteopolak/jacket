@@ -1173,7 +1173,7 @@ json_document :: (bytes: [] u8, format: Format, oid: u32) -> string, string {
     if oid == xx Oid.JSONB || is_text_like(oid) return text, "";
 
     return "", tprint("% is not json", type_name(oid));
-} @TempAllocates
+} @TempAllocates(1)
 
 // The text of a `Json(T)` passed as `Any`, written by its `write` member.
 json_parameter_text :: (value: Any) -> string, string {

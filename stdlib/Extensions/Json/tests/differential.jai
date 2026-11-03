@@ -49,7 +49,7 @@ run :: (text: string, simd: bool) -> Outcome {
     }
 
     return outcome;
-}
+} @TempAllocates(0)
 
 compared := 0;
 

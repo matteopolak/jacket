@@ -171,7 +171,7 @@ close_and_reset :: (s: *Socket, loc := #caller_location) {
         if status != 0 report_error();
         s.* = INVALID_SOCKET;
     }
-} @FreesArgument
+}
 
 // Adds `fd` to `set`. A socket already in the set is not added twice, and a full set (`fd_array.count` sockets, 64 by
 // default) ignores further sockets without an error.

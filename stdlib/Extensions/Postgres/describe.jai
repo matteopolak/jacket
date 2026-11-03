@@ -253,7 +253,7 @@ begin_with_setup :: (db: *Connection, request: Describe_Request, stale: *Migrati
 
         failed = it_index;
         stale.* = migration_failure(it.name, it.index, part, part, error);
-        // jailint: allow(temp_storage_escape): describe_value serializes this path in the same fiber before its scratch is reset.
+        // describe_value serializes this path in the same fiber before its scratch is reset.
         stale.file = migration_file(request.migrations, it.name);
 
         break;
@@ -291,7 +291,7 @@ begin_with_setup :: (db: *Connection, request: Describe_Request, stale: *Migrati
     if stale.line == 0 {
         part := slice(request.setup, marks[failed].start, marks[failed].length);
         stale.* = locate_failing_statement(db, stale.name, stale.index, part, original, stale.*);
-        // jailint: allow(temp_storage_escape): describe_value serializes this path in the same fiber before its scratch is reset.
+        // describe_value serializes this path in the same fiber before its scratch is reset.
         stale.file = migration_file(request.migrations, stale.name);
     }
 
@@ -602,7 +602,7 @@ shown_name :: (types: *Described_Types, oid: u32) -> string {
 
 types_entry :: (types: *Described_Types, oid: u32) -> Query_Type {
     return .{ shown_name(types, oid), base_name(types, oid) };
-}
+} @TempAllocates(0)
 
 Table_Attribute :: struct {
     table_oid: u32;
@@ -841,7 +841,7 @@ column_entry :: (types: *Described_Types, attributes: *Table_Attributes, plan: *
     if entry.forced == .NULLABLE entry.nullable = true;
 
     return entry;
-}
+} @TempAllocates(0)
 
 // The alias syntax: `name`, `name!` (never NULL), `name?` (may be NULL), and `name: Jai_Type`
 // after either. The suffix and the type are stripped from the field name.

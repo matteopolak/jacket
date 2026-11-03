@@ -109,7 +109,7 @@ is :: (want: $T) -> Matcher {
 // - matcher: the matcher to turn around.
 not :: (matcher: Matcher) -> Matcher {
     return .{ kind = .NOT, children = copy_matchers(.[matcher]) };
-}
+} @TempAllocates(0)
 
 // Every matcher holds.
 //
@@ -120,7 +120,7 @@ not :: (matcher: Matcher) -> Matcher {
 // - matchers: the matchers that must all hold.
 all_of :: (matchers: ..Matcher) -> Matcher {
     return .{ kind = .ALL_OF, children = copy_matchers(matchers) };
-}
+} @TempAllocates(0)
 
 // At least one matcher holds.
 //
@@ -131,7 +131,7 @@ all_of :: (matchers: ..Matcher) -> Matcher {
 // - matchers: the matchers, one of which must hold.
 any_of :: (matchers: ..Matcher) -> Matcher {
     return .{ kind = .ANY_OF, children = copy_matchers(matchers) };
-}
+} @TempAllocates(0)
 
 // The value is greater than `limit`. Numbers of any width compare by value, strings byte by byte.
 //
@@ -264,7 +264,7 @@ has_length :: (count: s64) -> Matcher {
 // - matcher: must hold for at least one element.
 has_item :: (matcher: Matcher) -> Matcher {
     return .{ kind = .HAS_ITEM, children = copy_matchers(.[matcher]) };
-}
+} @TempAllocates(0)
 
 // An array whose every element `matcher` holds for (an empty array qualifies).
 //
@@ -275,7 +275,7 @@ has_item :: (matcher: Matcher) -> Matcher {
 // - matcher: must hold for every element.
 each :: (matcher: Matcher) -> Matcher {
     return .{ kind = .EACH, children = copy_matchers(.[matcher]) };
-}
+} @TempAllocates(0)
 
 // A pointer that is null.
 //
@@ -295,7 +295,7 @@ is_null :: () -> Matcher {
 // ```
 not_null :: () -> Matcher {
     return not(is_null());
-}
+} @TempAllocates
 
 // A bool that is true.
 //
@@ -342,7 +342,7 @@ copy_matchers :: (matchers: [] Matcher) -> [] Matcher {
     for matchers copied[it_index] = it;
 
     return copied;
-}
+} @TempAllocates(0)
 
 // What `Any` holds, however many Any wrappers and variants are around it.
 unwrapped :: (original: Any) -> Any {

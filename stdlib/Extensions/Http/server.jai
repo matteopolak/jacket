@@ -147,7 +147,7 @@ start :: (app: *App, reuse_port := false) -> *Server, Serve_Error {
     Io.spawn(accept_loop, server);
 
     return server, .{};
-}
+} @TempAllocates(1)
 
 // The `http://host:port` (`https://` with `config.tls`) the server is reachable at (a wildcard
 // address shows as 127.0.0.1).
@@ -312,7 +312,7 @@ server_tls :: (app: *App) -> *Tls.Tls_Config, *Tls.Tls_Config, Serve_Error {
     }
 
     return copy, copy, .{};
-}
+} @TempAllocates(2)
 
 free_own_tls :: (copy: *Tls.Tls_Config) {
     if !copy return;
@@ -1011,7 +1011,7 @@ serve :: (app: *App) -> Serve_Error {
     failure.message = tprint("cannot listen on %: %", app.config.address, state.error);
 
     return failure;
-}
+} @TempAllocates(0)
 
 #scope_module
 

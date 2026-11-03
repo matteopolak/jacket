@@ -82,7 +82,9 @@ main :: () {
     count := W.GetModuleFileNameW(library, path.data, cast(s32) path.count);
 
     required(library != null && count > 0 && count < path.count, "loaded opengl32 module identity");
-    utf8: [131072] u8;
+    utf8 := NewArray(131072, u8);
+
+    defer free(utf8.data);
     bytes := W.WideCharToMultiByte(65001, 0, path.data, count, utf8.data, cast(s32) utf8.count, null, null);
 
     required(bytes > 0, "module path UTF-8 conversion");

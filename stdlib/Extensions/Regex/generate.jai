@@ -67,7 +67,7 @@ is_static :: (R: Type) -> bool, string {
     }
 
     return false, tprint("expected a Regex.Static(\"...\") type, not %; for a pattern made at run time, pass *re from Regex.compile", R);
-} @TempAllocates
+} @TempAllocates(1)
 
 report_pattern_error :: (pattern: string, message: string, offset: int) {
     pointer := tprint("%^", repeat_char(#char " ", offset));
@@ -116,7 +116,12 @@ plan_groups :: (pattern: string) -> [..] Field_Plan, ok: bool {
 
         name := copy_string(it.name);
         if name[0] >= #char "a" && name[0] <= #char "z" name[0] -= 32;
-        for other: used if other == name name = tprint("%_Value", name);
+
+        for other: used if other == name {
+            replacement := sprint("%_Value", name);
+            free(name);
+            name = replacement;
+        }
 
         it.type_name = name;
         array_add(*used, name);

@@ -53,11 +53,12 @@ main :: () {
     context = saved;
     if errors == 0 exit(4);
     if !H.table_contains(*owner.table, memory) exit(5);
-    if restore(memory) != 0 exit(6);
+    if restore(memory) != 0 exit(6); // jailint: allow(use_after_free, unused_suppression)
 
     errors = 0;
     context = scoped;
-    allocator.proc(.FREE, 0, 0, memory, allocator.data);
+    // The earlier FREE failed protection validation and retained ownership; retry it.
+    allocator.proc(.FREE, 0, 0, memory, allocator.data); // jailint: allow(double_free)
     context = saved;
     if errors != 0 || H.table_contains(*owner.table, memory) exit(7);
 

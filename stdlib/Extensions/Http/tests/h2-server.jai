@@ -1031,6 +1031,7 @@ main :: () {
     check(Tls.tls_config_init(*server_config).kind == .NONE, "server config");
 
     app.config.tls = *server_config;
+    defer app.config.tls = null;
     app.config.max_head_size = 128 * 1024;
 
     run_server(*app, basic_requests);
@@ -1046,6 +1047,7 @@ main :: () {
     get(*small_app, "/ping", ping);
 
     small_app.config.tls = *server_config;
+    defer small_app.config.tls = null;
     small_app.config.h2_max_streams = 2;
 
     run_server(*small_app, stream_limit);

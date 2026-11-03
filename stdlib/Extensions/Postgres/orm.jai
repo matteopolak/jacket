@@ -1006,7 +1006,6 @@ orm_related_column :: (sql: *Orm_Sql, node: *Code_Node, path: [] string, as_docu
 
     saved_type, saved_outer := sql.T, sql.outer;
 
-    // jailint: allow(temp_storage_escape): the alias is used synchronously and sql.outer is restored before returning.
     sql.T, sql.outer = target, alias;
 
     append(*sql.builder, "(select ");
@@ -1702,7 +1701,7 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
     }
 
     return sql;
-}
+} @TempAllocates(0)
 
 // One selected column of `each`: a column, a json document cut down to the keys the loop reads
 // (`jsonb_each` keeps a key holding null apart from a missing one), or a related field.

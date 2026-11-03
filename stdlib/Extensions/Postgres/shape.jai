@@ -100,7 +100,7 @@ row_shape :: (sql: string, call: Code, sql_index: s64) -> string {
     if problem report_at(prepared.sql_node, problem);
 
     return shape;
-}
+} @TempAllocates(0)
 
 // Row type identity. When every column is read straight from one table under its own name
 // (`select *`, `returning *`), the query returns that table's struct from db/schema.jai instead of

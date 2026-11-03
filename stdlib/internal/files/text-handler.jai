@@ -97,7 +97,7 @@ deinit :: (using x: *Text_File_Handler) {
     if file_data_to_free.data free(file_data_to_free);
     file_data_to_free = "";
     file_data = "";
-} @FreesArgument
+}
 
 // Removes the first line from `sp` and returns it, and whether there was one. A line ends at `\n`, `\r` or
 // `\r\n`. Nothing is trimmed or skipped: empty lines and comments come out as they are. At the end of

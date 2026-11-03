@@ -38,6 +38,7 @@ main :: () {
     input.arguments = string.["-x", "c"];
     input.overlays = S.Source_Overlay.[.{ filename = filename, contents = source }];
     context._bindings_generator_session.parse_input = *input;
+    defer context._bindings_generator_session.parse_input = null;
     native_name := to_c_string(filename);
     language_flag := to_c_string("-x");
     language := to_c_string("c");

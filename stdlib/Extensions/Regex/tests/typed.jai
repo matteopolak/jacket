@@ -33,7 +33,13 @@ Setting :: struct {
     on: bool;
 }
 
+Enum_Collision :: Regex.Static("(?<kind>cat|dog)(?<Kind>x|y)");
+
 types :: () {
+    collision, collision_ok := Regex.parse(Enum_Collision, "catx");
+
+    check(collision_ok && collision.kind == .CAT && collision.Kind == .X, "owned enum names survive a generated-name collision");
+
     date: Date.Groups;
 
     check(type_of(date.year) == u16 && type_of(date.month) == u8, "fixed digit counts give the smallest integer");

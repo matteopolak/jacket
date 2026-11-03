@@ -705,6 +705,12 @@ test_errors :: () {
     };
 
     db.user_data = *notices;
+
+    defer {
+        db.on_notice = null;
+        db.user_data = null;
+    }
+
     assert_ok(Pg.execute_script(db, "do $$ begin raise notice 'hello from plpgsql'; end $$"), "notice");
     assert(notices == 1);
 }

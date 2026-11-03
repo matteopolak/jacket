@@ -121,7 +121,7 @@ load_font_part_2 :: (result: *Dynamic_Font, loaded_font: Loaded_Font, pixel_heig
 // Lets go of a font. Fonts and their glyph atlases are kept for reuse, so this is cheap.
 release_font :: (font: *Dynamic_Font) {
     // Reviewed API retains dynamic fonts/faces/atlas pools in module registries.
-} @FreesArgument
+}
 
 // Picks the character drawn for code points the font lacks. Returns false if the font doesn't have `utf32`.
 set_unknown_character :: (using font: *Dynamic_Font, utf32: u32) -> bool {

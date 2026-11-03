@@ -109,7 +109,7 @@ parse_template :: (template: string) -> Template {
     }
 
     return result;
-}
+} @TempAllocates(0)
 
 is_identifier :: (name: string) -> bool {
     if name.count == 0 return false;
@@ -236,7 +236,7 @@ router_free :: (router: *Router) {
     array_reset(*router.root.routes);
     array_reset(*router.root.statics);
     router.root = .{};
-} @FreesArgument
+}
 
 free_node_children :: (node: *Node) {
     for node.statics {
@@ -257,7 +257,7 @@ free_node_children :: (node: *Node) {
         array_reset(*node.rest.routes);
         free(node.rest);
     }
-} @FreesArgument
+}
 
 // The route of `node` for `method`. A HEAD request is served by the GET route when there is no
 // HEAD one.

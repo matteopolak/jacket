@@ -62,7 +62,7 @@ create_process :: (process: *Process, args: ..string, working_directory := "", c
 // ```
 deinit :: (process: *Process) {
     Engine.destroy(process);
-} @FreesArgument
+}
 
 // Closes one pipe of a process, for instance `process.input` so that a child reading its standard input sees the end of the file.
 // The pipe is marked at its end. Safe on a pipe that is already closed.
@@ -76,7 +76,7 @@ deinit :: (process: *Process) {
 // ```
 deinit :: (pipe: *Process.Pipe) {
     Engine.destroy_pipe(pipe);
-} @FreesArgument
+}
 
 // Writes `data` to the child's standard input and returns `(success, bytes_written)`. It waits until the pipe has taken everything.
 // It fails with the number of bytes that did go in when the pipe is closed, or the child has closed its end. Empty data succeeds with `0`.
@@ -174,7 +174,7 @@ W :: #import "internal/bindings/windows-api";
 
 close_pipe :: (pipe: *Process.Pipe) {
     deinit(pipe);
-} @FreesArgument
+}
 
 cancel_or_report :: (process: *Process) {
     if !kill_process(process) context.logger("process termination failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });

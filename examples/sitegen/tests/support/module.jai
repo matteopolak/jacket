@@ -15,7 +15,7 @@ Fixture :: struct {
 
 fixture :: (t: *Test) -> Fixture {
     return .{ src = tprint("%/src", temp_dir(t)), out = tprint("%/out", temp_dir(t)) };
-}
+} @TempAllocates(0)
 
 // Writes `text` to `relative` in the source folder, making the folders on the way.
 add_source :: (site: Fixture, relative: string, text: string) {

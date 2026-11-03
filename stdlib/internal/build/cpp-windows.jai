@@ -5,7 +5,7 @@ default_compiler :: (cpp: bool) -> string {
     native := find_msvc_compiler();
     if native.count > 0 return native;
     return default_clang_compiler(cpp);
-}
+} @TempAllocates(0)
 
 default_clang_compiler :: (_cpp: bool) -> string {
     name := "clang-cl.exe";
@@ -51,7 +51,7 @@ default_clang_compiler :: (_cpp: bool) -> string {
     }
 
     return name;
-}
+} @TempAllocates(0)
 
 default_archiver :: () -> string {
     compiler := default_compiler(false);
@@ -61,7 +61,7 @@ default_archiver :: () -> string {
     if directory.count > 0 return tprint("%/llvm-lib.exe", directory);
 
     return "llvm-lib.exe";
-}
+} @TempAllocates(0)
 
 environment_tool :: (name: string, fallback: string) -> string {
     key, converted := Wide.utf8_to_wide(name);
@@ -84,7 +84,7 @@ environment_tool :: (name: string, fallback: string) -> string {
     if !ok return fallback;
 
     return copy_temporary_string(value);
-}
+} @TempAllocates(0)
 
 create_intermediate_directory :: (basename: string) -> string, bool {
     for 0..63 {
@@ -177,7 +177,7 @@ find_msvc_compiler :: () -> string {
     }
 
     return "";
-}
+} @TempAllocates(0)
 
 // Orders version strings and paths that contain them: runs of digits compare as numbers, so
 // `14.100` is newer than `14.99`.
@@ -321,7 +321,7 @@ windows_sdk_root :: () -> string {
     }
 
     return "";
-}
+} @TempAllocates(0)
 
 HOST_ARM64 :: #run,host -> bool {
     return CPU == .ARM64;

@@ -460,7 +460,7 @@ table_reset :: (using table: *Table) {
 // ```
 deinit :: (table: *Table) {
     table_reset(table);
-} @FreesArgument
+}
 
 // Lets a table be used in a `for` loop: `it` is the value and `it_index` the key.
 //

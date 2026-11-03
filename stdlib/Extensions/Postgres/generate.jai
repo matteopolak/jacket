@@ -62,7 +62,7 @@ generate_schema :: (config: Config, migrations_folder: string) -> source: string
     if problem return "", problem;
 
     return schema_source(catalog, hash);
-}
+} @TempAllocates(1)
 
 // The catalog of the migrations in `migrations_folder` and their schema hash, read from the
 // schema database on the server `config` names (built first when there is none); or what went
@@ -153,7 +153,7 @@ schema_source :: (catalog: Catalog, hash: string) -> source: string, problem: st
     }
 
     return builder_to_string(*builder), "";
-}
+} @TempAllocates(1)
 
 // Everything the generator needs from a migrated database.
 //

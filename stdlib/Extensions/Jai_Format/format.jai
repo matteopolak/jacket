@@ -59,7 +59,7 @@ format_text :: (src: string, config: Format_Config) -> Format_Result {
     result.ok = true;
 
     return result;
-}
+} @TempAllocates(0)
 
 // Lexes both texts and compares them: identical tokens (kind and text) in the same order, the
 // same comments up to whitespace, the same adjacency inside directive flags, and a line break

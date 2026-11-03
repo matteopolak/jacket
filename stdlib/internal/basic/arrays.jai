@@ -438,7 +438,7 @@ array_free :: (array: [..] $T) {
 array_reset :: (array: *[] $T) {
     array_free(array.*);
     array.* = .{};
-} @FreesArgument
+}
 
 // Frees a dynamic array through its own allocator and sets it to empty, which also forgets that allocator.
 //
@@ -451,7 +451,7 @@ array_reset :: (array: *[] $T) {
 array_reset :: (array: *[..] $T) {
     array_free(array.*);
     array.* = .{};
-} @FreesArgument
+}
 
 // Sets the count of an array to `new_count`, growing the storage if needed.
 //

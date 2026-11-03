@@ -650,7 +650,7 @@ release_texture_framebuffers :: (texture: u32) {
     }
 
     Contexts.restore(previous);
-} @FreesArgument
+}
 
 vertex_attribute :: (location: s32, components: s32, offset: int) {
     if location < 0 return;

@@ -98,7 +98,7 @@ compile :: (pattern: string, options := Options.{}) -> Regex, ok: bool, Error {
     re.names = engine.program.names;
 
     return re, true, .{};
-}
+} @TempAllocates(2)
 
 // A regex for another thread: it shares the compiled pattern (parse, programs and one-pass table) with `re` and has a search
 // cache of its own, so it costs far less than a second [compile]. Free it with [free_regex], like any other regex.

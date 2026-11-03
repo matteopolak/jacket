@@ -51,7 +51,7 @@ destroy :: (using m: *Mutex) {
     result := P.pthread_mutex_destroy(*csection);
     if !sdk_ok(result, "pthread mutex destruction failed") return;
     #if THREAD_DEBUG initialized = false;
-} @FreesArgument
+}
 
 // Takes the mutex, waiting until no other thread holds it. Pair every `lock` with an `unlock`.
 //
@@ -98,7 +98,7 @@ destroy :: (using cv: *Condition_Variable) {
     result := P.pthread_cond_destroy(*condition_variable);
     if !sdk_ok(result, "pthread condition destruction failed") return;
     #if THREAD_DEBUG initialized = false;
-} @FreesArgument
+}
 
 // Locks the raw operating-system critical section behind a `Mutex`. Prefer `lock`.
 csection_lock :: (csection: *Per_OS_Critical_Section_Type) #expand {
@@ -201,7 +201,7 @@ init :: (s: *Semaphore, initial_value: s32 = 0) {
 // Releases the resources of a semaphore.
 destroy :: (s: *Semaphore) {
     destroy_semaphore(s);
-} @FreesArgument
+}
 
 // Adds one count to the semaphore, waking a thread blocked in `wait_for`.
 //
@@ -331,7 +331,7 @@ destroy_semaphore :: (s: *Semaphore) -> bool {
     }
 
     return true;
-} @FreesArgument
+}
 
 absolute_timeout :: (milliseconds: s32) -> P.timespec, bool #no_context {
     value: P.timespec;

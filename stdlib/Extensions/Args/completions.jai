@@ -22,7 +22,7 @@ identifier :: (name: string) -> string {
     }
 
     return result;
-}
+} @TempAllocates(0)
 
 // Visits every command with the names leading to it ("tool", "build", ...).
 Command_Visit :: struct {
@@ -73,7 +73,7 @@ command_key :: (program: string, path: [] string) -> string {
     key := identifier(program);
     for path key = tprint("%__%", key, identifier(it));
     return key;
-}
+} @TempAllocates(0)
 
 takes_value :: (option: Option_Spec) -> bool {
     return option.kind == .VALUE || option.kind == .LIST;

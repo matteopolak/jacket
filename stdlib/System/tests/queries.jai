@@ -1,5 +1,4 @@
 // Native account and machine queries.
-#import "Basic";
 #import "Extensions/Testing";
 
 account_queries_find_the_user_and_reject_a_missing_one :: () {
@@ -63,6 +62,8 @@ the_last_error_is_reported_with_a_description :: () {
 #scope_file
 
 #if OS != .WASM {
+    #import "Basic";
+
     S :: #import "System";
 
     #if OS == .WINDOWS W :: #import "Windows";

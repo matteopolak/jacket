@@ -166,7 +166,7 @@ close_and_reset :: (s: *Socket, loc := #caller_location) {
         if P.close(s.*) != 0 report_error();
         s.* = INVALID_SOCKET;
     }
-} @FreesArgument
+}
 
 FD_BITS_ELEMENT_TYPE :: type_of(fd_set.fds_bits[0]);
 

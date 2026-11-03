@@ -222,7 +222,7 @@ close_and_reset :: (s: *Socket, loc := #caller_location) {
         if Wasi.close(s.*) != 0 report_error();
         s.* = INVALID_SOCKET;
     }
-} @FreesArgument
+}
 
 FD_BITS_ELEMENT_TYPE :: type_of(fd_set.fds_bits[0]);
 
@@ -282,9 +282,7 @@ parse_ipv4 :: (text: string, destination: *void) -> bool {
 
     if text.count == 0 return false;
 
-    for 0..text.count - 1 {
-        c := text[it];
-
+    for c: text {
         if c >= 48 && c <= 57 {
             value = value * 10 + (cast(s64) c - 48);
             digits += 1;
@@ -382,8 +380,8 @@ parse_ipv6 :: (text: string, destination: *void) -> bool {
         result = groups;
     } else {
         if count >= 8 return false;
-        if gap > 0 for 0..gap - 1 result[it] = groups[it];
-        if count > gap for 0..count - gap - 1 result[8 - (count - gap) + it] = groups[gap + it];
+        if gap > 0 memcpy(result.data, groups.data, gap * size_of(u16));
+        if count > gap memcpy(result.data + 8 - (count - gap), groups.data + gap, (count - gap) * size_of(u16));
     }
 
     for 0..7 {

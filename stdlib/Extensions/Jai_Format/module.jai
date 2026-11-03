@@ -184,7 +184,7 @@ Format_File_Reader :: #type (path: string) -> text: string, ok: bool;
 format_find_config :: (directory: string, read: Format_File_Reader, stop := "") -> config: Format_Config, file: string, ok: bool, error: string {
     config, file, ok, error := find_config(directory, read, stop);
     return config, file, ok, error;
-}
+} @TempAllocates(1,3)
 
 // `a/b/c` -> `a/b`; `/a` -> `/`; `a` -> "".
 //

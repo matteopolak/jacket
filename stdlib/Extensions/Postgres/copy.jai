@@ -473,7 +473,7 @@ copy_next_chunk :: (hooks: *Script_Hooks, copy: *Copy_Info) -> data: string, don
             why := put_copy_value(*state.buffer, Any.{ it.member.type, row + it.member.offset_in_bytes }, it.json_text);
 
             if why {
-                // jailint: allow(temp_storage_escape): copy_in consumes and copies this error in the same fiber before its scratch storage is reset.
+                // copy_in consumes and copies this error in the same fiber before its scratch storage is reset.
                 state.problem = tprint("row %, member %: %", state.next + 1, it.member.name, why);
                 return "", false, state.problem;
             }

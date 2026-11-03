@@ -113,6 +113,7 @@ main :: () {
     overlapping := Vbap_Arc.[.{ .FRONT_LEFT, .FRONT_RIGHT, .{} }, .{ .FRONT_LEFT, .CENTER, .{} }];
 
     arcs = overlapping;
+    defer arcs = .{};
     scale = .{};
     add_vbap_gain_for_direction(*scale, .{ 0.1, 1 }, 1);
     assert(scale.source_scale_for_this_output_index[2] > 0 && scale.source_scale_for_this_output_index[1] == 0, "select greatest minimum, not first covering arc");

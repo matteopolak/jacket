@@ -331,6 +331,11 @@ Iocp_State :: struct {
                     result = -error;
                 }
 
+            case .CLOSE;
+                // Close finishes in iocp_submit and never owns a completion packet.
+                assert(false, "a synchronous close reached the IOCP completion queue");
+                return;
+
             case .CONNECT;
                 if error == 0 {
                     win_set_socket_option(op.handle.fd, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, null, 0);
