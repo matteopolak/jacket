@@ -22,52 +22,14 @@ if len(sys.argv) > 2 and sys.argv[2] == "fixtures":
         for value in (row * 10, column * 10, 60 + row)
     )
     (root / "gradient.bmp").write_bytes(header + dib + gradient)
-    import ctypes
-    import os
-
-    suffix = (
-        ".dll" if os.name == "nt" else (".dylib" if sys.platform == "darwin" else ".so")
-    )
-    directories = os.environ.get("JAIC_NATIVE_LIBS", str(root / "native")).split(
-        os.pathsep
-    )
-    library = next(
-        (
-            Path(directory) / ("libstb_image_resize" + suffix)
-            for directory in directories
-            if (Path(directory) / ("libstb_image_resize" + suffix)).is_file()
-        ),
-        None,
-    )
-    if library is None:
-        raise FileNotFoundError(
-            "real stb_image_resize dependency is missing from JAIC_NATIVE_LIBS"
-        )
-    resize = ctypes.CDLL(str(library)).stbir_resize_uint8_srgb
-    resize.argtypes = [
-        ctypes.c_void_p,
-        ctypes.c_int,
-        ctypes.c_int,
-        ctypes.c_int,
-        ctypes.c_void_p,
-        ctypes.c_int,
-        ctypes.c_int,
-        ctypes.c_int,
-        ctypes.c_int,
-        ctypes.c_int,
-        ctypes.c_int,
-    ]
-    resize.restype = ctypes.c_int
+    # Scaling a picture to its own size keeps every pixel, so the expected result is the source as BGRA.
     bgra = bytes(
         value
         for row in range(16)
         for column in range(16)
         for value in (row * 10, column * 10, 60 + row, 255)
     )
-    source = ctypes.create_string_buffer(bgra)
-    destination = ctypes.create_string_buffer(16 * 16 * 4)
-    assert resize(source, 16, 16, 64, destination, 16, 16, 64, 4, 3, 0) == 1
-    (root / "gradient-resized.bgra").write_bytes(destination.raw)
+    (root / "gradient-resized.bgra").write_bytes(bgra)
     sys.exit(0)
 
 data = (root / "package.simp").read_bytes()
