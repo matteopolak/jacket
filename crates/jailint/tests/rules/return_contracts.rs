@@ -148,7 +148,7 @@ fn lifetime_reconstructed_temporary_descriptors_taint_the_caller() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/reconstructed-descriptor.jai");
     for (mode, expected) in [
         (jacket_config::LifetimeMode::Must, 1),
-        (jacket_config::LifetimeMode::Strict, 2),
+        (jacket_config::LifetimeMode::Strict, 3),
     ] {
         let (findings, text) = lint_with(
             &path,

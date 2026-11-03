@@ -52,7 +52,18 @@ impl Resolver<'_> {
                     let Some(s) = all.get(callee) else {
                         continue;
                     };
-                    if s.may_return_fields.contains(&(*index, steps.clone())) {
+                    let descriptor_data = matches!(projections, [Projection::Field(name)] if name.as_str() == "data")
+                        && matches!(
+                            self.compiler.ty.types.kind(ty),
+                            super::TypeKind::String
+                                | super::TypeKind::Array {
+                                    kind: super::ArrayKind::View | super::ArrayKind::Resizable,
+                                    ..
+                                }
+                        );
+                    if s.may_return_fields.contains(&(*index, steps.clone()))
+                        || descriptor_data && s.may_returns.contains(index)
+                    {
                         return true;
                     }
                     if let Some(path) = s.return_fields.get(&(*index, steps.clone())) {

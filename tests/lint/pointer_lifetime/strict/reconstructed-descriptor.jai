@@ -12,8 +12,13 @@ mixed_view :: (flag: bool) -> string {
     return string.{ text.count, text.data };
 }
 
+forwarded_mixed_view :: (flag: bool) -> string {
+    text := mixed_view(flag);
+    return string.{ text.count, text.data };
+}
+
 durable_view :: () -> string {
-    return copy_string(modified_view(true));
+    return copy_string(forwarded_mixed_view(false));
 }
 
 saved: string;
@@ -22,6 +27,7 @@ main :: () {
     saved = modified_view(true);
     saved = mixed_view(true);
     saved = durable_view();
+    saved = forwarded_mixed_view(true);
 }
 
 view_of :: (text: string) -> string {

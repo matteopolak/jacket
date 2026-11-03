@@ -55,6 +55,18 @@ fn returned_descriptors_join_storage_origins_across_return_slots() {
         "{:?}",
         after.procs[&mixed]
     );
+    let forwarded = ProcId(
+        c.pr.procs
+            .iter()
+            .position(|p| p.name.as_str() == "forwarded_mixed_view")
+            .unwrap() as u32,
+    );
+    assert!(!after.procs[&forwarded].returns.contains_key(&0));
+    assert!(
+        after.procs[&forwarded].may_returns.contains(&0),
+        "{:?}",
+        after.procs[&forwarded]
+    );
     let durable = ProcId(
         c.pr.procs
             .iter()

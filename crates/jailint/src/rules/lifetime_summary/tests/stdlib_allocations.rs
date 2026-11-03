@@ -49,5 +49,17 @@ fn postgres_generated_row_shapes_use_temporary_results() {
                 "{name} windows={windows}: {summary:?}"
             );
         }
+        let address = ProcId(
+            c.pr.procs
+                .iter()
+                .position(|p| p.name.as_str() == "address_text")
+                .unwrap() as u32,
+        );
+        assert!(c.ed.facts().unwrap().lifetime_bodies.contains_key(&address));
+        assert!(
+            summaries.procs[&address].may_returns.contains(&0),
+            "address_text windows={windows}: {:?}",
+            summaries.procs[&address]
+        );
     }
 }
