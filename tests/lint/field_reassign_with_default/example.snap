@@ -1,0 +1,17 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[field_reassign_with_default]: `config` is made with its defaults and then its fields set
+  --> tests/lint/field_reassign_with_default/example.jai:10:5
+   |
+10 |     config: Config;
+   |     ^^^^^^
+   |
+help: set the fields in a struct literal where the variable is declared
+   |
+10 -     config: Config;
+11 -     config.width = 100;
+12 -     config.title = title;
+10 +     config := Config.{ width = 100, title = title };
+   |
+   = note: see https://jacket.matteopolak.com/lint-rules/field_reassign_with_default/

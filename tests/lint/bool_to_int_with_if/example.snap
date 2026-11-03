@@ -1,0 +1,14 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
+  --> tests/lint/bool_to_int_with_if/example.jai:5:14
+   |
+ 5 |     count := ifx ready then 1 else 0;
+   |              ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write `cast(s64) ready`
+   |
+ 5 ~     count := cast(s64) ready;
+   |
+   = note: see https://jacket.matteopolak.com/lint-rules/bool_to_int_with_if/

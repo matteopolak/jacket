@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[using_pollution]: `using style` brings in `count`, which is already in scope
+  --> tests/lint/using_pollution/example.jai:8:22
+   |
+ 8 | draw :: (count: int, using style: Style) -> int {
+   |                      ^^^^^^^^^^^^^^^^^^
+   |
+   = help: list the members that are meant (`using,only(...)`) or write `name.member`
+   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution/

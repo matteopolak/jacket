@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[shadowed_local]: `count` shadows the variable of that name declared on line 3
+  --> tests/lint/shadowed_local/example.jai:5:9
+   |
+ 5 |         count := 10;
+   |         ^^^^^
+   |
+   = help: rename one of them; an assignment here no longer reaches the outer one
+   = note: see https://jacket.matteopolak.com/lint-rules/shadowed_local/

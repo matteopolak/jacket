@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[magic_number]: magic number `86400` in arithmetic
+  --> tests/lint/magic_number/example.jai:4:20
+   |
+ 4 |     return start + 86400;
+   |                    ^^^^^
+   |
+   = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/

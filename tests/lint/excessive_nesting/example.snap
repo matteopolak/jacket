@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
+  --> tests/lint/excessive_nesting/example.jai:12:52
+   |
+12 |                             if x + y + z == target {
+   |                                                    ^
+   |
+   = help: return or `continue` early, or move the inner part into its own procedure
+   = note: see https://jacket.matteopolak.com/lint-rules/excessive_nesting/

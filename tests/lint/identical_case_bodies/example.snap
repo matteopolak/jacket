@@ -1,0 +1,19 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[identical_case_bodies]: `case .JPEG` does the same as `case .PNG`
+  --> tests/lint/identical_case_bodies/example.jai:13:9
+   |
+13 |         case .JPEG;
+   |         ^^^^^^^^^^
+   |
+help: list the values together: `case .PNG, .JPEG;`
+   |
+11 -         case .PNG;
+12 -             return "image";
+13 -         case .JPEG;
+14 -             return "image";
+11 +         case .PNG, .JPEG;
+12 +             return "image";
+   |
+   = note: see https://jacket.matteopolak.com/lint-rules/identical_case_bodies/

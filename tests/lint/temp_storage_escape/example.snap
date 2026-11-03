@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, but it is kept in a global
+  --> tests/lint/temp_storage_escape/example.jai:6:21
+   |
+ 6 |     current_label = tprint("item %", id);
+   |                     ^^^^^^^^^^^^^^^^^^^^
+   |                     -------------------- temporary storage allocated here
+   |
+   = help: copy it first (`copy_string`) so it outlives the reset
+   = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape/

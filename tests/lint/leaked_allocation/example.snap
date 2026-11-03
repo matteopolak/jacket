@@ -1,0 +1,16 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[leaked_allocation]: `parser` holds memory from `New` that is never freed, returned or handed on
+  --> tests/lint/leaked_allocation/example.jai:8:5
+   |
+ 8 |     parser := New(Parser);
+   |     ^^^^^^
+   |
+help: free it when done, for example `defer free(parser);` right after this line
+   |
+ 8 -     parser := New(Parser);
+ 8 +     parser := New(Parser);
+ 9 +     defer free(parser);
+   |
+   = note: see https://jacket.matteopolak.com/lint-rules/leaked_allocation/

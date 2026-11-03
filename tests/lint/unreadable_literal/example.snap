@@ -1,0 +1,14 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unreadable_literal]: `1000000` is hard to read without separators
+  --> tests/lint/unreadable_literal/example.jai:3:12
+   |
+ 3 | TIMEOUT :: 1000000;
+   |            ^^^^^^^
+   |
+help: write `1_000_000`
+   |
+ 3 ~ TIMEOUT :: 1_000_000;
+   |
+   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal/
