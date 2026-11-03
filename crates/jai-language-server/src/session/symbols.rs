@@ -155,7 +155,7 @@ impl Session {
         Ok(found.or_else(|| self.hole_word(uri, byte)))
     }
 
-    pub(super) fn bindings(
+    pub(crate) fn bindings(
         &self,
         uri: &DocumentUri,
         position: Position,

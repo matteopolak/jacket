@@ -65,6 +65,18 @@ impl JsonSession {
                 let found = self.session.type_definition(&document, position);
                 locations_wire(&found.map_err(domain)?)
             }
+            Request::LinkedEditingRange => {
+                let (document, position) = at(params)?;
+                let ranges = self
+                    .session
+                    .linked_editing_ranges(&document, position)
+                    .map_err(domain)?;
+                if ranges.is_empty() {
+                    Value::Null
+                } else {
+                    json!({ "ranges": ranges, "wordPattern": "[A-Za-z_][A-Za-z0-9_]*" })
+                }
+            }
             Request::Declaration => {
                 let (document, position) = at(params)?;
                 let found = self.session.declaration(&document, position);

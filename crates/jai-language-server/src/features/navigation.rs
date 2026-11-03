@@ -32,6 +32,48 @@ impl Session {
             .collect())
     }
 
+    /// The ranges that are edited together when the name at `position` is: a local variable,
+    /// parameter or loop name and every use of it, which the check recorded. Nothing else is
+    /// linked (a name with other declarations in scope, a member, a global), and nothing without
+    /// a compile of the text, so typing in a name only links it once the check has caught up.
+    pub fn linked_editing_ranges(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+    ) -> Result<Vec<Range>, Error> {
+        let (key, doc) = self.document_entry(uri)?;
+        let rows = self.bindings(key, position)?;
+        let [(target, row)] = rows[..] else {
+            return Ok(Vec::new());
+        };
+        if !row.local || target != key {
+            return Ok(Vec::new());
+        }
+        let name = row.name.as_str();
+        let found = self.references(key, position, true)?;
+        let mut ranges = Vec::with_capacity(found.len());
+        for location in &found {
+            if location.uri != key.as_str() || location.range.start.line != location.range.end.line
+            {
+                return Ok(Vec::new());
+            }
+            let start = doc.index.byte(&doc.text, location.range.start);
+            let end = doc.index.byte(&doc.text, location.range.end);
+            if doc.text.get(start..end) != Some(name) {
+                return Ok(Vec::new());
+            }
+            ranges.push(location.range);
+        }
+        let on_name = ranges
+            .iter()
+            .any(|r| r.start <= position && position <= r.end);
+        Ok(if on_name {
+            ranges
+        } else {
+            Vec::new()
+        })
+    }
+
     /// The name at `position`, when it can be renamed: the check recorded what it names (a
     /// struct field or enum member only when its declaration is in the project's files).
     pub fn prepare_rename(
