@@ -141,6 +141,26 @@ describe("Jai extension", () => {
     await vscode.commands.executeCommand("workbench.action.files.revert");
   });
 
+  it("formats a selection through the server", async () => {
+    const document = await open("unformatted.jai");
+    // Two untidy statements; only the first is selected.
+    const mess = new vscode.WorkspaceEdit();
+    mess.replace(document.uri, document.lineAt(1).range, "x:=1;");
+    mess.replace(document.uri, document.lineAt(6).range, "x.*+=1;");
+    assert.ok(await vscode.workspace.applyEdit(mess));
+    const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>("vscode.executeFormatRangeProvider", document.uri, new vscode.Range(1, 0, 1, 3), {
+      tabSize: 4,
+      insertSpaces: true,
+    });
+    assert.ok(edits && edits.length > 0, "the server formats the selection");
+    const fix = new vscode.WorkspaceEdit();
+    fix.set(document.uri, edits);
+    assert.ok(await vscode.workspace.applyEdit(fix));
+    assert.equal(document.lineAt(1).text, "    x := 1;");
+    assert.equal(document.lineAt(6).text, "x.*+=1;", "the other statement is left alone");
+    await vscode.commands.executeCommand("workbench.action.files.revert");
+  });
+
   it("leaves files jacket.toml ignores alone", async () => {
     const document = await open(path.join("sub", "ignored.jai"));
     const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>("vscode.executeFormatDocumentProvider", document.uri, {

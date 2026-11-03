@@ -257,7 +257,7 @@
           "type": "string",
           "default": "",
           "scope": "machine-overridable",
-          "markdownDescription": "Path to `jaifmt`. Empty: `jaifmt` on `PATH`, then next to `jaic`, then the downloaded toolchain."
+          "markdownDescription": "Path to `jaifmt`, which the language server runs for Format Document and Format Selection. Empty: `jaifmt` on `PATH`, then next to `jaic`, then the downloaded toolchain."
         },
         "jai.jacket.path": {
           "type": "string",

@@ -5,11 +5,10 @@
 ## How it works
 
 ```
-src/extension.ts         activation, LanguageClient, restart, jacket.toml sync, formatter
+src/extension.ts         activation, LanguageClient, restart, jacket.toml sync
 src/discovery.ts         finding jailsp, jaic, jaifmt
 src/toolchain.ts         archive per platform, checksums, download, versioned install
 src/toolchainManager.ts  prompts, progress, remembered answers
-src/jaifmt.ts            ignore query, minimal edit, jaifmt --stdin
 src/commands.ts          Run/Build/Check File as tasks
 src/testing.ts           test explorer and Run/Debug Test lens commands
 src/testEvents.ts, testTree.ts, testProcess.ts   `jacket test --format json` handling
@@ -22,7 +21,7 @@ scripts/build.ts schemas writes the jailint, jaifmt and jacket.toml JSON schemas
 - **Language client.** Starts `jailsp` over stdio. `JAIC_STDLIB` comes from `jai.stdlib.path`, `JAIC_PRELUDE` from `jai.stdlib.prelude`; entry files, module folders and lint levels from the nearest `jacket.toml`, whose edits apply on save. Tool-path and prelude settings restart the server; live settings update it in place.
 - **Binary discovery.** `jailsp`: `jai.server.path`, `PATH`, next to `jaic`, downloaded toolchain. `jaic` and `jaifmt` likewise. A configured path that doesn't exist is an error naming the setting. With `jai.toolchain.preferDownloaded`, the download comes before `PATH`. If the `jailsp` on `PATH` is older than the extension's, it warns once per `path@version`.
 - **Toolchain download.** With nothing found, `jai.toolchain.autoDownload` decides. The archive (`RELEASE_ASSETS`) is checked against `toolchain-manifest.json` ([releases](releases.md#toolchain-manifest)), unpacked with system `tar`, and installed under `<globalStorage>/toolchain/<version>/`; old versions are deleted after the new one lands.
-- **Formatting.** The extension runs `jaifmt --stdin` in the document's folder, after asking `jaifmt --is-ignored <file>`. It returns one edit covering the changed span.
+- **Formatting.** Format Document, Format Selection and format on save all go to `jailsp`'s formatting providers, which run `jaifmt` (see [the language server](../compiler/language-server.md)). The extension only finds `jaifmt` (`jai.formatter.path`, `PATH`, next to `jaic`, the downloaded toolchain) and sends the path as the server's `formatter.path` setting. A format that fails is logged in the *Jai Language Server* output, not shown as a popup.
 - **Test explorer.** Lists with `jacket test --list --format json` (files, tests, `@cases` cases), relists on save, and runs `jacket test --format json --exact NAME...`, mapping events as they stream. A failed check becomes a message at its file and line. Needs a trusted workspace. `jailsp` also puts *Run test* and *Debug test* lenses over each `@test`; *Debug* only shows a message, since there is no Jai debug configuration.
 - **Commands.** *Run/Build/Check File* run `jaic <file> [-interp|-check] <jai.run.arguments>` as a task. `source.fixAll.jailint` works with `editor.codeActionsOnSave`.
 

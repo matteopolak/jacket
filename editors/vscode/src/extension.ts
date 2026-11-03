@@ -9,7 +9,6 @@ import { EXPANSION_SCHEME, ExpansionDocuments } from "./expansion";
 import { LimitPopups, type LimitNotice } from "./limitPopups";
 import { limitSettings, vscodeLimitUi } from "./limitUi";
 import { toolEnvironment as configuredEnvironment } from "./toolEnvironment";
-import { CONFIG_FILE, isIgnored, minimalReplacement, runJaifmt } from "./jaifmt";
 import { acceptedKey, probeVersion, staleMessage, staleToolchain } from "./pathVersion";
 import { withToolFolder } from "./testProcess";
 import { JacketTests, type JacketTool, type LensArgument } from "./testing";
@@ -115,7 +114,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
     tests,
     vscode.commands.registerCommand("jai.runTest", (argument: LensArgument) => tests.runLens(argument, false)),
     vscode.commands.registerCommand("jai.debugTest", (argument: LensArgument) => tests.runLens(argument, true)),
-    vscode.languages.registerDocumentFormattingEditProvider({ language: "jai" }, { provideDocumentFormattingEdits: formatDocument }),
     vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.contentChanges.length > 0) limitPopups.edited(event.document.uri.toString());
     }),
@@ -282,11 +280,25 @@ function isSettingsFile(document: vscode.TextDocument): boolean {
   return document.uri.scheme === "file" && path.basename(document.uri.fsPath) === SETTINGS_FILE;
 }
 
+/**
+ * The `jaifmt` jailsp runs: the setting, else the one found on PATH, next to the compiler or in the
+ * downloaded toolchain. A setting that names nothing is passed as written, so jailsp reports it.
+ */
+function formatterPath(): string {
+  try {
+    return findFormatter(settings(), nodeEnvironment(), installed?.dir)?.path ?? "";
+  } catch (error) {
+    if (error instanceof MissingConfiguredTool) return settings().formatterPath ?? "";
+    throw error;
+  }
+}
+
 /** The settings jailsp reads, as `initializationOptions` (the shape of the `jai` section). */
 function serverSettings(): {
   completion: { autoImport: boolean; callSnippets: string };
   inlayHints: { closingBraceMinLines: number };
   tests: { codeLens: boolean };
+  formatter: { path: string };
   compileTime: ReturnType<typeof limitSettings>;
   trusted: boolean;
 } {
@@ -298,6 +310,8 @@ function serverSettings(): {
     },
     inlayHints: { closingBraceMinLines: config.get<number>("inlayHints.closingBraceMinLines", 25) },
     tests: { codeLens: config.get<boolean>("tests.codeLens", true) },
+    // jailsp answers formatting by running jaifmt; empty: it looks next to itself, then on PATH.
+    formatter: { path: formatterPath() },
     // The limits on compile-time code are the user's: machine-scoped, so a workspace cannot raise them.
     compileTime: limitSettings(),
     // Untrusted workspaces: jailsp runs no `#run`, build metaprogram or computed `#insert`.
@@ -354,45 +368,4 @@ function syncSettingsFiles(): vscode.Disposable[] {
       }
     }),
   ];
-}
-
-// --- Formatting -----------------------------------------------------------------------------
-// jailsp has no textDocument/formatting, so the extension runs `jaifmt --stdin` itself.
-
-async function formatDocument(document: vscode.TextDocument, _options: vscode.FormattingOptions, token: vscode.CancellationToken): Promise<vscode.TextEdit[]> {
-  const formatter = locate(() => findFormatter(settings(), nodeEnvironment(), installed?.dir));
-  if (!formatter) {
-    void vscode.window.showWarningMessage("Jai: jaifmt was not found. Set jai.formatter.path, put jaifmt on PATH, or run \"Jai: Download Toolchain\".");
-    return [];
-  }
-  const fileDir =
-    document.uri.scheme === "file"
-      ? path.dirname(document.uri.fsPath)
-      : (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? os.homedir());
-  if (document.uri.scheme === "file" && (await isIgnored(formatter.path, document.uri.fsPath))) {
-    log.info(`not formatting ${document.uri.fsPath}: ignored by the format config`);
-    return [];
-  }
-  const before = document.getText();
-  let result;
-  try {
-    result = await runJaifmt(formatter.path, before, fileDir, token);
-  } catch (error) {
-    log.error(`running ${formatter.path}: ${String(error)}`);
-    void vscode.window.showErrorMessage(`Jai: could not run jaifmt (${formatter.path}): ${String(error)}`);
-    return [];
-  }
-  if (token.isCancellationRequested) return [];
-  if (!result.ok) {
-    // Unbalanced brackets or text that does not lex: jaifmt leaves it alone and says why.
-    const reason = result.stderr.trim().split(/\r?\n/).join(" ") || `exit status ${result.code}`;
-    log.warn(`jaifmt: ${reason}`);
-    vscode.window.setStatusBarMessage(`$(warning) jaifmt: ${reason.replace(/^(jaifmt: )?(<stdin>:)?/, "")}`, 8000);
-    if (/jacket\.toml/.test(reason)) void vscode.window.showErrorMessage(`Jai: ${reason} (${CONFIG_FILE})`);
-    return [];
-  }
-  const change = minimalReplacement(before, result.stdout);
-  if (!change) return [];
-  const range = new vscode.Range(document.positionAt(change.start), document.positionAt(change.end));
-  return [vscode.TextEdit.replace(range, change.text)];
 }
