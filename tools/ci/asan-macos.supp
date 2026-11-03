@@ -1,0 +1,2 @@
+# CoreGraphics PDF lexer: suppress intercepted libc accesses from this frame only.
+interceptor_via_fun:pdf_lexer_scan

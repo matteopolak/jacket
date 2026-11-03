@@ -22,6 +22,17 @@ if [[ "$(uname -s)" == Linux ]] && command -v xvfb-run > /dev/null; then
   display=(xvfb-run -a -s "-screen 0 1280x1024x24")
 fi
 paths=()
+if [[ "$(uname -s)" == Darwin ]]; then
+  # CoreGraphics' PDF font lexer over-reads in an ASan-intercepted libc call.
+  # Suppress that external stack frame only; instrumented Jai accesses still fail.
+  suppressions="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/asan-macos.supp"
+  export ASAN_OPTIONS="$ASAN_OPTIONS:suppressions=$suppressions"
+  # Homebrew SDL2 is SDL2-compat: under ASan its pre-main SDL3 loader can fail,
+  # opening a blocking NSAlert in dllinit -> error_dialog -> runModal. A C-only
+  # SDL-linked program reproduces it. Even an early return in a Jai test is too late.
+  # Keep these modules covered by normal runs and by Linux ASan.
+  paths+=(-E 'not module(SDL) and not module(Gamepad)')
+fi
 if [[ "$level" == O2 ]]; then
   while read -r module; do
     [[ -z "$module" || "$module" == \#* ]] && continue
