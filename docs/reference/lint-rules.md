@@ -1472,7 +1472,7 @@ Operands are typed before the cast, so the integers divide first.
 
 ### leaked_temporary
 
-Finds an `@Allocates` result that is only compared, measured, indexed or printed, so nothing can free it.
+Finds an inferred owned result that is only compared, measured, indexed or printed, so nothing can free it.
 
 Category `suspicious`, `warn` by default.
 
@@ -4683,7 +4683,7 @@ Locals live on the stack, which is small (a thread's is often 1 MiB or less) and
 
 ### leaked_allocation
 
-Finds a local holding memory from an `@Allocates` call that is never freed, returned or handed on.
+Finds a local holding inferred owned storage that is never freed, returned or handed on.
 
 Category `pedantic`, `allow` by default.
 
