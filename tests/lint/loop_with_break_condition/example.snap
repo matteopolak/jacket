@@ -1,0 +1,17 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[loop_with_break_condition]: this loop leaves on its first statement; the test belongs in the `while`
+  --> tests/lint/loop_with_break_condition/example.jai:6:11
+   |
+ 6 |     while true {
+   |           ^^^^
+   |
+help: write `while i < 10` and drop the `if`
+   |
+ 6 -     while true {
+ 7 -         if i >= 10 break;
+ 6 +     while i < 10 {
+   |
+   = note: `loop_with_break_condition` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition/

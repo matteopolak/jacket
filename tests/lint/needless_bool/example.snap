@@ -1,0 +1,17 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[needless_bool]: this `if` returns its own condition as a `bool`
+  --> tests/lint/needless_bool/example.jai:4:5
+   |
+ 4 |     if n > 0 return true;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write `return n > 0;`
+   |
+ 4 -     if n > 0 return true;
+ 5 -     else return false;
+ 4 +     return n > 0;
+   |
+   = note: `needless_bool` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/needless_bool/

@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[int_plus_one]: `count >= limit + 1` is a strict comparison written with `1`
+  --> tests/lint/int_plus_one/example.jai:4:12
+   |
+ 4 |     return count >= limit + 1;
+   |            ^^^^^^^^^^^^^^^^^^
+   |
+help: write `count > limit`
+   |
+ 4 ~     return count > limit;
+   |
+   = note: `int_plus_one` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one/

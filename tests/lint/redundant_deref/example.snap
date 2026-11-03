@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[redundant_deref]: `q.*` is not needed to reach `x`
+  --> tests/lint/redundant_deref/example.jai:12:19
+   |
+12 |     print("%\n", q.*.x + q.y);
+   |                   ^^
+   |
+help: write `q.x`: member access already looks through the pointer
+   |
+12 ~     print("%\n", q.x + q.y);
+   |
+   = note: `redundant_deref` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_deref/

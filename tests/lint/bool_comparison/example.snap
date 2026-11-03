@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[bool_comparison]: comparing a bool with `true`: `ready == true`
+  --> tests/lint/bool_comparison/example.jai:6:8
+   |
+ 6 |     if ready == true print("ready\n");
+   |        ^^^^^^^^^^^^^
+   |
+help: write `ready`
+   |
+ 6 ~     if ready print("ready\n");
+   |
+   = note: `bool_comparison` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison/

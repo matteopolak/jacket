@@ -1,0 +1,16 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[index_only_loop]: `i` is only used to index `xs`
+  --> tests/lint/index_only_loop/example.jai:6:5
+   |
+ 6 |     for i: 0..xs.count - 1 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: loop over the elements: `for xs` and `it`
+   |
+ 6 ~     for xs {
+ 7 ~         total += it;
+   |
+   = note: `index_only_loop` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/

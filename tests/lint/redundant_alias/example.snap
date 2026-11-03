@@ -1,0 +1,17 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[redundant_alias]: `result` is returned right after it is declared
+  --> tests/lint/redundant_alias/example.jai:4:5
+   |
+ 4 |     result := n * n;
+   |     ^^^^^^
+   |
+help: return the value directly
+   |
+ 4 -     result := n * n;
+ 5 -     return result;
+ 4 +     return n * n;
+   |
+   = note: `redundant_alias` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias/

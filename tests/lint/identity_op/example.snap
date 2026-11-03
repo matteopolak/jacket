@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[identity_op]: `count * 1` is just `count`: `*` with this operand changes nothing
+  --> tests/lint/identity_op/example.jai:4:12
+   |
+ 4 |     return count * 1;
+   |            ^^^^^^^^^
+   |
+help: write `count`
+   |
+ 4 ~     return count;
+   |
+   = note: `identity_op` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/identity_op/
