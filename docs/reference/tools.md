@@ -241,6 +241,7 @@ jaifmt [OPTIONS] [PATHS]...
 | --- | --- |
 | `--[no-]check` | Do not write; list the files that would change and exit with 1 |
 | `--[no-]stdin` | Format standard input to standard output |
+| `--range <START:END>` | With --stdin: format only the top-level statements the byte range START:END touches and copy the rest unchanged |
 | `--config <FILE>` | Use this jacket.toml instead of the nearest one |
 | `--is-ignored <FILE>` | Print nothing; exit 0 when FILE is ignored by the nearest config's ignore list, 1 when it is not (for editors) |
 | `--set <KEY=VALUE>` | Set one [format] key, written as in jacket.toml (--set indent_width=2); implies --no-config. `jacket fmt` passes every resolved setting this way |

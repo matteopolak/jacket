@@ -14,7 +14,7 @@
 #import "Extensions/Jai_Format";
 
 CASES :: "fixtures";
-SOURCES :: string.["../module.jai", "../lexer.jai", "../config.jai", "../format.jai", "golden.jai", "../../../../jaifmt/main.jai"];
+SOURCES :: string.["../module.jai", "../lexer.jai", "../config.jai", "../format.jai", "../range.jai", "golden.jai", "../../../../jaifmt/main.jai"];
 
 failures := 0;
 
@@ -83,6 +83,7 @@ main :: () {
         if expected != output report_difference(base, expected, output);
     }
 
+    check_ranges(bless);
     check_refusals();
     check_equivalence_guard();
     check_config_parsing();
@@ -396,6 +397,55 @@ check_toml_forms :: () {
         if accepted fail("bad jacket.toml accepted: %", it);
     }
 
+}
+
+// Each range-fixtures/<name>.in.jai is formatted over the bytes in <name>.range (START:END) and
+// compared with <name>.out.jai. Text outside the touched statements must come back unchanged.
+check_ranges :: (bless: bool) {
+    cases := 0;
+
+    for file_list("range-fixtures") {
+        if !ends_with(it, ".in.jai") continue;
+
+        base := slice(it, 0, it.count - ".in.jai".count);
+        input, _ := read_entire_file(tprint("%.in.jai", base));
+        range_text, _ := read_entire_file(tprint("%.range", base));
+        spec := trim(range_text);
+        parts := split(spec, ":");
+        from := string_to_int(parts[0]);
+        to := string_to_int(parts[1]);
+
+        output, ok, error := format_range(input, from, to);
+
+        if !ok {
+            fail("range %: %", base, error);
+            continue;
+        }
+
+        cases += 1;
+
+        again, again_ok := format_range(output, from, to);
+        if !again_ok || again != output fail("range %: formatting the range again changed it", base);
+
+        expected_path := tprint("%.out.jai", base);
+
+        if bless {
+            write_entire_file(expected_path, output.data, output.count);
+            continue;
+        }
+
+        expected, found := read_entire_file(expected_path, log_errors = false);
+        if !found fail("range %: missing %.out.jai (run with --bless)", base, base);
+        else if output != expected fail("range %: output differs\n--- expected\n%\n--- got\n%", base, expected, output);
+    }
+
+    if cases < 4 fail("expected the range cases in range-fixtures, found %", cases);
+
+    _, bad_ok := format_range("a :: 1;\n", 5, 2);
+    if bad_ok fail("a reversed range was accepted");
+
+    _, past_ok := format_range("a :: 1;\n", 0, 99);
+    if past_ok fail("a range past the end was accepted");
 }
 
 // The formatter is written in the style it enforces.

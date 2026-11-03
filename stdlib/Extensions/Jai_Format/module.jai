@@ -77,6 +77,23 @@ format_source :: (text: string, config: Format_Config = .{}) -> result: string, 
     return formatted.output, true, "";
 }
 
+// Formats only the top-level statements that the byte range `from` to `to` touches, and returns
+// the whole text with everything outside them untouched. The range snaps outward to whole
+// statements (and to the lines they share with their neighbours); an empty range selects the
+// statement it sits in, and a range that touches none, or sits after a `// jaifmt: off`, changes
+// nothing.
+//
+// ```jai
+// text := "a::1;\nb  ::  2;\nc  ::  3;\n";
+// formatted, ok, error := format_range(text, 8, 8);
+// assert(ok && formatted == "a::1;\nb :: 2;\nc  ::  3;\n");
+// ```
+format_range :: (text: string, from: s64, to: s64, config: Format_Config = .{}) -> result: string, ok: bool, error: string {
+    formatted := format_range_text(text, from, to, config);
+    if !formatted.ok return "", false, formatted.error;
+    return formatted.output, true, "";
+}
+
 // Parses the `[format]` section of jacket.toml text (see the docs for the keys). Other tables are
 // skipped; without a `[format]` section the result is the default config. Bad values are errors,
 // reported as `line N: ...`; unknown keys are dropped and listed in `unknown_keys`.
@@ -237,3 +254,4 @@ format_count_long_lines :: (text: string, max_width: int) -> int {
 #load "config.jai";
 #load "format.jai";
 #load "project.jai";
+#load "range.jai";

@@ -8,6 +8,7 @@ jacket fmt --check                         # CI: list files that would change, e
 jaic jaifmt/build.jai                      # build target/jaifmt (add `- wasm` for jaifmt.wasm)
 target/jaifmt stdlib tests                 # rewrite in place
 target/jaifmt --stdin < in.jai > out.jai   # editors
+target/jaifmt --stdin --range 120:240 < in.jai > out.jai   # only the statements bytes 120..240 touch
 ```
 
 In a project use `jacket fmt`. For each file it finds the nearest `jacket.toml`, drops files its `ignore` patterns match, groups files by resolved settings and runs `jaifmt --no-config --set key=value ...` once per group. Standalone `jaifmt` (editors, the browser) reads `[format]` with its own small TOML reader (`config.jai`); `--no-config` skips that and `--set KEY=VALUE` overrides one key.
@@ -26,6 +27,7 @@ Paths are files or directories (searched for `*.jai`, skipping dot-directories a
 - `format.jai`: `plan_lines` decides line breaks, then the emit loop writes each line with indentation from a stack of frames and zero or one space between tokens (`spacing_rule`).
 - `config.jai`: `[format]` parsing and ignore globs, for standalone use and the browser.
 - `project.jai`: the upward search for the governing `jacket.toml`.
+- `range.jai`: `--range` / `format_range`. The file is lexed and cut into top-level statements (ending at a `;`, at a `}` that closes a body without `;`, `else` or a note after it, or at a `#scope_*` line). Statements the byte range overlaps are formatted as a text of their own and spliced back; everything else is copied byte for byte. The region grows to take statements that share a line with it, and an empty range picks the statement it sits in. A range in no statement, or after a `// jaifmt: off`, changes nothing. Blank lines between the region and its neighbours are kept as written, and an error is reported against the region, not the file.
 
 Behaviour in short:
 
@@ -72,7 +74,7 @@ config, ok, error := parse_config(toml_text);
 formatted, ok, error := format_source(source, config);   // free `formatted`; on failure it is ""
 ```
 
-Also `format_find_config`, `format_is_ignored` (set `config.root` first), `format_tokens_equivalent` and `format_glob_match`. `Format_Config` fields mirror the TOML keys.
+`format_range(source, from, to, config)` formats only the statements a byte range touches. Also `format_find_config`, `format_is_ignored` (set `config.root` first), `format_tokens_equivalent` and `format_glob_match`. `Format_Config` fields mirror the TOML keys.
 
 ## Browser
 

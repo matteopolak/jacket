@@ -1,0 +1,9 @@
+a::1;
+b  ::  2;
+main::(){
+x:=1;
+foo( 1,2 );
+}
+c  ::  3;
+
+// trailing  note
