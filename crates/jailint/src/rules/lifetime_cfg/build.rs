@@ -1,19 +1,20 @@
 //! Lower selected events into common storage, resource and logical-element operations.
 use super::{
     Action, Block, Cell, Cells, Cx, Event, Facts, HashMap, HashSet, Kind, LifetimeBody,
-    LifetimeOperand, Mutation, Op, Places, Resolver, Selector, Site, Span, Summaries, TypeId,
-    resizable, resources, view,
+    LifetimeOperand, Mutation, Op, Places, Prepared, Resolver, Selector, Site, Span, Summaries,
+    TypeId, resizable, resources, view,
 };
 
 pub(super) fn build(
     cx: &Cx,
     body: &LifetimeBody,
+    prepared: &Prepared<'_>,
     places: &mut Places,
     cells: &mut Cells,
     summaries: &Summaries,
     chains: &mut HashMap<(Span, usize), Vec<Span>>,
 ) -> Vec<Block> {
-    let mut resolver = Resolver::for_body(cx.compiler, body, summaries);
+    let mut resolver = Resolver::for_prepared(cx.compiler, body, prepared, summaries);
     let tasks = super::tasks::Builder::new(cx, body, summaries, places, &mut resolver);
     let resources = resources::Builder::new(cx, body, summaries, places);
     let mut builder = Builder {

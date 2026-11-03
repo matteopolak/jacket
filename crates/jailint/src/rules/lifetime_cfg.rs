@@ -4,7 +4,7 @@
 use super::{
     finding,
     lifetime_places::{Places, Projection},
-    lifetime_summary::{Kind, Resolver, Root, Step, Summaries},
+    lifetime_summary::{Kind, Prepared, Resolver, Root, Step, Summaries},
 };
 use crate::{Finding, syntax::Cx};
 use jaic::fxhash::{HashMap, HashSet};
@@ -140,6 +140,30 @@ fn view(cx: &Cx, ty: TypeId) -> bool {
 }
 
 
+/// Places whose address is taken without a call that is known to keep it valid.
+fn unallowed_addresses(
+    body: &LifetimeBody,
+    places: &mut Places,
+    allowed: &HashSet<(Val, Span)>,
+    derived: &HashSet<(usize, Span)>,
+) -> HashSet<usize> {
+    body.blocks
+        .iter()
+        .flat_map(|b| &b.events)
+        .filter_map(|event| match event {
+            Event::Address {
+                place,
+                ty,
+                span,
+            } => {
+                let p = places.place(*place, *ty);
+                (!allowed.contains(&(*place, *span)) && !derived.contains(&(p, *span))).then_some(p)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
 pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
     let Some(facts) = cx.compiler.ed.facts() else {
         return;
@@ -206,11 +230,20 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
         let mut places = Places::new(cx.compiler, body);
         let mut cells = Cells::default();
         let mut chains = HashMap::default();
-        let blocks = build(cx, body, &mut places, &mut cells, summaries, &mut chains);
+        let defs = Prepared::for_body(cx.compiler, body, summaries);
+        let blocks = build(
+            cx,
+            body,
+            &defs,
+            &mut places,
+            &mut cells,
+            summaries,
+            &mut chains,
+        );
         let mut names = HashMap::default();
         let mut allowed_addresses = HashSet::default();
         let mut derived_addresses = HashSet::default();
-        let mut resolver = Resolver::for_body(cx.compiler, body, summaries);
+        let mut resolver = Resolver::for_prepared(cx.compiler, body, &defs, summaries);
         for event in body.blocks.iter().flat_map(|b| &b.events) {
             match event {
                 Event::Expression {
@@ -294,24 +327,8 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                 _ => {}
             }
         }
-        let exposed: HashSet<_> = body
-            .blocks
-            .iter()
-            .flat_map(|b| &b.events)
-            .filter_map(|event| match event {
-                Event::Address {
-                    place,
-                    ty,
-                    span,
-                } => {
-                    let p = places.place(*place, *ty);
-                    (!allowed_addresses.contains(&(*place, *span))
-                        && !derived_addresses.contains(&(p, *span)))
-                    .then_some(p)
-                }
-                _ => None,
-            })
-            .collect();
+        let exposed =
+            unallowed_addresses(body, &mut places, &allowed_addresses, &derived_addresses);
         cfgs += 1;
         let mut forward = vec![Vec::new(); cells.ids.len()];
         for block in &blocks {

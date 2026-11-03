@@ -192,9 +192,10 @@ fn needed(
 }
 
 
-pub(super) fn solve(
-    compiler: &super::Compiler,
-    valid: &HashMap<ProcId, &super::LifetimeBody>,
+pub(super) fn solve<'a>(
+    cache: &mut super::prepared::Cache<'a>,
+    compiler: &'a super::Compiler,
+    valid: &HashMap<ProcId, &'a super::LifetimeBody>,
     graph: &HashMap<ProcId, Vec<ProcId>>,
     all: &mut super::Summaries,
 ) -> usize {
@@ -212,8 +213,10 @@ pub(super) fn solve(
             let mut changed = false;
             for id in &component {
                 let resolver = resolvers.entry(*id).or_insert_with(|| {
-                    Resolver::new(
+                    Resolver::cached(
+                        cache,
                         compiler,
+                        *id,
                         valid[id],
                         &all.procs,
                         &all.targets,

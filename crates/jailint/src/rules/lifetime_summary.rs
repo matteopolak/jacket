@@ -28,6 +28,7 @@ mod observable;
 mod ordering;
 mod origins;
 mod possible;
+mod prepared;
 mod primitives;
 mod reads;
 mod return_fields;
@@ -41,6 +42,7 @@ mod tests;
 mod writes;
 use flow::{acyclic, guaranteed, returning_blocks, sccs};
 pub(super) use ordering::Ordering;
+pub(super) use prepared::Prepared;
 pub(super) use reads::address_query;
 
 const MAX_PATH: usize = 8;
@@ -174,26 +176,16 @@ pub(super) struct Resolver<'a> {
     return_definitions: std::cell::OnceCell<(HashSet<usize>, HashSet<usize>)>,
     may_field_origins: std::cell::RefCell<HashMap<FieldQuery, bool>>,
     field_origins: std::cell::RefCell<HashMap<FieldQuery, Path>>,
-    write_sources: HashMap<usize, Val>,
-    nullable_sources: HashMap<usize, Val>,
     observable_calls: observable::Calls<'a>,
     ordering_base: Option<Ordering>,
     rounded_address_base: Option<usize>,
-    // Calls in expansions can share both a callee SSA value and a source span.
-    interfaces: HashMap<*const Event, Summary>,
-    address_casts: HashMap<Val, &'a jaic::ide::lifetimes::LifetimeAddressCast>,
     comparisons: std::cell::OnceCell<HashMap<Val, &'a jaic::ide::lifetimes::LifetimeComparison>>,
     return_cuts: std::cell::RefCell<HashMap<usize, bool>>,
     return_contracts: HashMap<usize, (Path, Option<(usize, u64)>)>,
     compiler: &'a Compiler,
     body: &'a LifetimeBody,
-    values: HashMap<Val, Vec<Def<'a>>>,
-    writes: HashMap<usize, Vec<Val>>,
-    params: HashMap<usize, (usize, TypeId)>,
-    exposed: HashSet<usize>,
-    owned: HashSet<usize>,
+    core: std::rc::Rc<prepared::Core<'a>>,
     targets: &'a super::lifetime_targets::Universe,
-    indirect_types: HashMap<Val, TypeId>,
 }
 
 
@@ -204,259 +196,7 @@ fn value(arg: &LifetimeArgument) -> Option<Val> {
     }
 }
 
-impl<'a> Resolver<'a> {
-    pub fn for_body(
-        compiler: &'a Compiler,
-        body: &'a LifetimeBody,
-        summaries: &'a Summaries,
-    ) -> Self {
-        Self::new(
-            compiler,
-            body,
-            &summaries.procs,
-            &summaries.targets,
-            &summaries.allocators,
-        )
-    }
-
-    pub fn new(
-        compiler: &'a Compiler,
-        body: &'a LifetimeBody,
-        all: &HashMap<ProcId, Summary>,
-        targets: &'a super::lifetime_targets::Universe,
-        allocators: &'a allocators::Allocators,
-    ) -> Self {
-        let mut this = Self {
-            places: Places::new(compiler, body),
-            allocators,
-            context: allocator_context::Context::default(),
-            allocation_mode: std::cell::Cell::new(false),
-            return_mode: std::cell::Cell::new(false),
-            return_definitions: std::cell::OnceCell::new(),
-            may_field_origins: std::cell::RefCell::new(HashMap::default()),
-            field_origins: std::cell::RefCell::new(HashMap::default()),
-            write_sources: HashMap::default(),
-            nullable_sources: HashMap::default(),
-            observable_calls: observable::Calls::build(compiler, body, all),
-            ordering_base: all.get(&body.procedure).and_then(|s| s.ordering),
-            rounded_address_base: None,
-            interfaces: interfaces::collect(body),
-            address_casts: body.address_casts.iter().map(|c| (c.value, c)).collect(),
-            comparisons: std::cell::OnceCell::new(),
-            return_cuts: std::cell::RefCell::new(HashMap::default()),
-            return_contracts: all
-                .get(&body.procedure)
-                .map(|s| s.returns.clone())
-                .unwrap_or_default(),
-            compiler,
-            body,
-            values: HashMap::default(),
-            writes: HashMap::default(),
-            params: HashMap::default(),
-            exposed: HashSet::default(),
-            owned: HashSet::default(),
-            targets,
-            indirect_types: body
-                .blocks
-                .iter()
-                .flat_map(|b| &b.events)
-                .filter_map(|e| match e {
-                    Event::IndirectCall {
-                        callee,
-                        ty,
-                        ..
-                    } => Some((*callee, *ty)),
-                    _ => None,
-                })
-                .collect(),
-        };
-        let live = returning_blocks(body, all, targets);
-        for e in body
-            .blocks
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| live.contains(*i))
-            .flat_map(|(_, b)| &b.events)
-        {
-            match e {
-                Event::Expression {
-                    operand: LifetimeOperand::Place(v),
-                    ty,
-                    entity: Some(id),
-                    ..
-                } if matches!(
-                    compiler.entity(*id).kind,
-                    jaic::sema::scope::EntityKind::Local { .. }
-                ) =>
-                {
-                    let p = this.places.place(*v, *ty);
-                    this.owned.insert(this.places.root_of(p));
-                }
-                Event::Parameter {
-                    formal,
-                    place,
-                    incoming,
-                    ty,
-                    ..
-                } => {
-                    let p = this.places.place(*place, *ty);
-                    this.params.insert(p, (*formal, *ty));
-                    this.owned.insert(p);
-                    this.values
-                        .entry(*incoming)
-                        .or_default()
-                        .push(Def::Parameter(*formal));
-                }
-                Event::Load {
-                    place,
-                    value,
-                    ty,
-                    ..
-                } => {
-                    let p = this.places.place(*place, *ty);
-                    if value == place && compiler.ir_ty(*ty).is_none() {
-                        // An aggregate rvalue is its address. Preserve plain aggregate
-                        // copies, but do not add a self-reference to a call's SSA result.
-                        if !this.values.get(value).is_some_and(|defs| {
-                            defs.iter()
-                                .any(|d| matches!(d, Def::Call(..) | Def::Resize(..)))
-                        }) {
-                            this.values.entry(*value).or_default().push(Def::Address(p));
-                        }
-                        continue;
-                    }
-                    this.values
-                        .entry(*value)
-                        .or_default()
-                        .push(Def::Load(p, *ty));
-                }
-                Event::Store {
-                    place,
-                    value,
-                    ty,
-                    ..
-                } => {
-                    let p = this.places.place(*place, *ty);
-                    this.writes.entry(p).or_default().push(*value);
-                    if compiler.ir_ty(*ty).is_none()
-                        && place != value
-                        && !this.values.contains_key(place)
-                    {
-                        this.values.insert(*place, vec![Def::Address(p)]);
-                    }
-                }
-                Event::Copy {
-                    value,
-                    source,
-                }
-                | Event::Offset {
-                    value,
-                    source,
-                    ..
-                } if value != source => this
-                    .values
-                    .entry(*value)
-                    .or_default()
-                    .push(Def::Copy(*source)),
-                Event::Address {
-                    place,
-                    ty,
-                    ..
-                } => {
-                    let p = this.places.place(*place, *ty);
-                    this.values.entry(*place).or_default().push(Def::Address(p));
-                    this.exposed.insert(p);
-                }
-                Event::View {
-                    value,
-                    source,
-                    from,
-                    to,
-                    ..
-                } => {
-                    if compiler.ty.types.is_pointer(*from) && compiler.ty.types.is_pointer(*to) {
-                        if value != source {
-                            this.values
-                                .entry(*value)
-                                .or_default()
-                                .push(Def::Copy(*source));
-                        }
-                    } else {
-                        let p = this.places.place(*source, *from);
-                        let target = this.places.place(*value, *to);
-                        if target != p {
-                            this.values.entry(*value).or_default().push(Def::Borrow(p));
-                        }
-                    }
-                }
-                Event::Borrow {
-                    value,
-                    region,
-                    region_ty,
-                    ..
-                } => {
-                    let p = this.places.place(*region, *region_ty);
-                    this.values.entry(*value).or_default().push(Def::Borrow(p));
-                }
-                Event::Index {
-                    base,
-                    result,
-                    base_ty,
-                    ..
-                } => {
-                    let p = this.places.place(*base, *base_ty);
-                    this.values.entry(*result).or_default().push(Def::Borrow(p));
-                }
-                Event::Call {
-                    callee,
-                    args,
-                    results,
-                    ..
-                } => {
-                    for &(i, v, _) in results {
-                        this.values
-                            .entry(v)
-                            .or_default()
-                            .push(Def::Call(*callee, args, i));
-                    }
-                }
-                Event::IndirectCall {
-                    allocator: true,
-                    callee,
-                    args,
-                    results,
-                    ..
-                } => {
-                    for &(_, v, _) in results {
-                        this.values
-                            .entry(v)
-                            .or_default()
-                            .push(Def::Resize(*callee, args));
-                    }
-                }
-                Event::IndirectCall {
-                    callee,
-                    args,
-                    results,
-                    allocator: false,
-                    ..
-                } => {
-                    for &(index, v, _) in results {
-                        this.values
-                            .entry(v)
-                            .or_default()
-                            .push(Def::Indirect(*callee, args, index));
-                    }
-                }
-                _ => {}
-            }
-        }
-        this.finish_definition_index();
-        this.rounded_address_base = this.rounded_address(all);
-        this.refresh_context(all);
-        this
-    }
-
+impl Resolver<'_> {
     pub fn value(&self, v: Val, summaries: &HashMap<ProcId, Summary>) -> Option<Path> {
         if self
             .return_guard(v, summaries, &mut HashSet::default())?
@@ -1005,6 +745,7 @@ impl Summaries {
                 )
             })
             .collect();
+        let mut cache = prepared::Cache::default();
         let components = sccs(&ids, &graph);
         all.sccs = components.len();
         for component in &components {
@@ -1043,8 +784,10 @@ impl Summaries {
                 for id in component {
                     all.iterations += 1;
                     let resolver = resolvers.entry(*id).or_insert_with(|| {
-                        Resolver::new(
+                        Resolver::cached(
+                            &mut cache,
                             compiler,
+                            *id,
                             valid[id],
                             &all.procs,
                             &all.targets,
@@ -1065,13 +808,13 @@ impl Summaries {
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-begin bodies={}", valid.len());
         }
-        all.propagate_writes(compiler, &valid, &components, &graph);
+        all.propagate_writes(&mut cache, compiler, &valid, &components, &graph);
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-end");
         }
-        reads::foreground::solve(compiler, &valid, &graph, &mut all);
-        reads::solve_queries(compiler, &valid, &graph, &mut all);
-        let read_summaries = reads::solve(compiler, &valid, &graph, &mut all);
+        reads::foreground::solve(&mut cache, compiler, &valid, &graph, &mut all);
+        reads::solve_queries(&mut cache, compiler, &valid, &graph, &mut all);
+        let read_summaries = reads::solve(&mut cache, compiler, &valid, &graph, &mut all);
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!(
                 "lifetime-summary-stats bodies={} sccs={} iterations={} may={} guaranteed={} read_summaries={} wall_ms={:.3}",

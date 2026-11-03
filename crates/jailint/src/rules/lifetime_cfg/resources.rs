@@ -2,7 +2,7 @@
 //! Each candidate follows only its copy closure; joins preserve uncertainty.
 use super::{Block, Cell, Cells, DEAD, LIVE, Model, Op as CfgOp, UNKNOWN, build};
 use crate::rules::lifetime_places::Places;
-use crate::rules::lifetime_summary::{Kind as EffectKind, Resolver, Root, Summaries};
+use crate::rules::lifetime_summary::{Kind as EffectKind, Prepared, Resolver, Root, Summaries};
 use crate::{Finding, syntax::Cx};
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::ide::lifetimes::{
@@ -687,7 +687,16 @@ fn analyze(cx: &Cx) -> Reports {
         }
         let mut cells = Cells::default();
         let mut chains = HashMap::default();
-        let blocks = build(cx, body, &mut places, &mut cells, summaries, &mut chains);
+        let prepared = Prepared::for_body(cx.compiler, body, summaries);
+        let blocks = build(
+            cx,
+            body,
+            &prepared,
+            &mut places,
+            &mut cells,
+            summaries,
+            &mut chains,
+        );
         if trace {
             eprintln!(
                 "lifetime-resource-body cfg proc={} blocks={} cells={} wall_ms={:.3}",
@@ -709,7 +718,7 @@ fn analyze(cx: &Cx) -> Reports {
                 _ => {}
             }
         }
-        let exposed = addresses::exposed(cx, body, summaries, &mut places);
+        let exposed = addresses::exposed(cx, body, &prepared, summaries, &mut places);
         if trace {
             eprintln!(
                 "lifetime-resource-body addresses proc={} wall_ms={:.3}",

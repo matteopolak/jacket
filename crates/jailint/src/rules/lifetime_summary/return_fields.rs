@@ -4,10 +4,14 @@ use super::{
     Selector, Step, Summary, TypeId, TypeKind, Val, value,
 };
 
-impl Resolver<'_> {
-    pub(super) fn finish_definition_index(&mut self) {
-        let stack: HashSet<_> = self.body.stack_places.iter().copied().collect();
-        for (id, ((value, _), path)) in self.places.paths.iter().enumerate() {
+impl super::prepared::Core<'_> {
+    pub(super) fn finish_definition_index(
+        &mut self,
+        body: &super::LifetimeBody,
+        places: &super::Places,
+    ) {
+        let stack: HashSet<_> = body.stack_places.iter().copied().collect();
+        for (id, ((value, _), path)) in places.paths.iter().enumerate() {
             if path.is_empty() && stack.contains(value) {
                 self.owned.insert(id);
             }
@@ -20,8 +24,7 @@ impl Resolver<'_> {
                 values.iter().all(|v| *v == first).then_some((p, first))
             })
             .collect();
-        let empty_descriptors: HashMap<_, _> = self
-            .body
+        let empty_descriptors: HashMap<_, _> = body
             .blocks
             .iter()
             .flat_map(|b| &b.events)
@@ -43,11 +46,10 @@ impl Resolver<'_> {
                 let mut selected = None;
                 for &source in sources {
                     let empty = empty_descriptors.get(&source).is_some_and(|ty| {
-                        self.places.existing(source, *ty).is_none_or(|p| {
-                            !self.exposed.contains(&self.places.root_of(p))
+                        places.existing(source, *ty).is_none_or(|p| {
+                            !self.exposed.contains(&places.root_of(p))
                                 && !self.writes.contains_key(&p)
-                                && !self
-                                    .places
+                                && !places
                                     .descendants(p)
                                     .iter()
                                     .any(|p| self.writes.contains_key(p))
@@ -65,7 +67,9 @@ impl Resolver<'_> {
             })
             .collect();
     }
+}
 
+impl Resolver<'_> {
     pub(in crate::rules) fn storage_fields(
         &self,
         ty: TypeId,

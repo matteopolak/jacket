@@ -1,12 +1,13 @@
 //! Exposure proofs use typed argument addresses, preserving distinct offset-zero fields.
 use super::{
-    Cx, EffectKind, Event, HashSet, LifetimeBody, LifetimeOperand, Places, Resolver, Root,
-    Summaries,
+    Cx, EffectKind, Event, HashSet, LifetimeBody, LifetimeOperand, Places, Prepared, Resolver,
+    Root, Summaries,
 };
 
 pub(super) fn exposed(
     cx: &Cx,
     body: &LifetimeBody,
+    prepared: &Prepared<'_>,
     summaries: &Summaries,
     places: &mut Places,
 ) -> HashSet<usize> {
@@ -63,7 +64,7 @@ pub(super) fn exposed(
     }
     let mut read_only_addresses = HashSet::default();
     let mut uncertain_addresses = HashSet::default();
-    let mut resolver = Resolver::for_body(cx.compiler, body, summaries);
+    let mut resolver = Resolver::for_prepared(cx.compiler, body, prepared, summaries);
     for event in body.blocks.iter().flat_map(|b| &b.events) {
         let (Event::Call {
             args,

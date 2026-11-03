@@ -16,7 +16,7 @@ pub(super) enum Projection {
     Deref,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct Places {
     pub paths: Vec<((Val, TypeId), Vec<Projection>)>,
     root_ids: HashMap<(Val, TypeId), usize>,

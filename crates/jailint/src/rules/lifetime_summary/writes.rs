@@ -185,10 +185,11 @@ impl Resolver<'_> {
 }
 
 impl super::Summaries {
-    pub(super) fn propagate_writes(
+    pub(super) fn propagate_writes<'a>(
         &mut self,
-        compiler: &super::Compiler,
-        valid: &HashMap<ProcId, &super::LifetimeBody>,
+        cache: &mut super::prepared::Cache<'a>,
+        compiler: &'a super::Compiler,
+        valid: &HashMap<ProcId, &'a super::LifetimeBody>,
         components: &[Vec<ProcId>],
         graph: &HashMap<ProcId, Vec<ProcId>>,
     ) {
@@ -200,8 +201,10 @@ impl super::Summaries {
                 let mut changed = false;
                 for id in component {
                     let resolver = resolvers.entry(*id).or_insert_with(|| {
-                        Resolver::new(
+                        Resolver::cached(
+                            cache,
                             compiler,
+                            *id,
                             valid[id],
                             &self.procs,
                             &self.targets,

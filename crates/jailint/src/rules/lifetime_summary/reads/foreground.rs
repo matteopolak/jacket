@@ -94,9 +94,10 @@ impl Resolver<'_> {
     }
 }
 
-pub(in crate::rules) fn solve(
-    compiler: &Compiler,
-    valid: &HashMap<ProcId, &jaic::ide::lifetimes::LifetimeBody>,
+pub(in crate::rules) fn solve<'a>(
+    cache: &mut super::super::prepared::Cache<'a>,
+    compiler: &'a Compiler,
+    valid: &HashMap<ProcId, &'a jaic::ide::lifetimes::LifetimeBody>,
     graph: &HashMap<ProcId, Vec<ProcId>>,
     all: &mut Summaries,
 ) {
@@ -109,8 +110,10 @@ pub(in crate::rules) fn solve(
             let mut changed = false;
             for id in &component {
                 let resolver = resolvers.entry(*id).or_insert_with(|| {
-                    Resolver::new(
+                    Resolver::cached(
+                        cache,
                         compiler,
+                        *id,
                         valid[id],
                         &all.procs,
                         &all.targets,

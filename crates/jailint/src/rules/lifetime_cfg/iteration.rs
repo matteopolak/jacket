@@ -5,6 +5,7 @@ use super::{
     finding,
 };
 use crate::rules::lifetime_movement::Action;
+use crate::rules::lifetime_summary::Prepared;
 
 pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let Some(facts) = cx.compiler.ed.facts() else {
@@ -22,9 +23,11 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             continue;
         }
         let mut places = Places::new(cx.compiler, body);
+        let prepared = Prepared::for_body(cx.compiler, body, summaries);
         let blocks = build(
             cx,
             body,
+            &prepared,
             &mut places,
             &mut Cells::default(),
             summaries,

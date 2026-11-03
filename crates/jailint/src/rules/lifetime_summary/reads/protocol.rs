@@ -52,9 +52,10 @@ pub(in crate::rules) fn address_query(
 
 // A wrapper preserves query semantics only when the queried formal is never accessed,
 // retained, returned, written, or passed to a possibly invalidating operation.
-pub(in crate::rules::lifetime_summary) fn solve(
-    compiler: &Compiler,
-    valid: &super::HashMap<ProcId, &jaic::ide::lifetimes::LifetimeBody>,
+pub(in crate::rules::lifetime_summary) fn solve<'a>(
+    cache: &mut super::super::prepared::Cache<'a>,
+    compiler: &'a Compiler,
+    valid: &super::HashMap<ProcId, &'a jaic::ide::lifetimes::LifetimeBody>,
     graph: &super::HashMap<ProcId, Vec<ProcId>>,
     all: &mut super::super::Summaries,
 ) {
@@ -94,8 +95,10 @@ pub(in crate::rules::lifetime_summary) fn solve(
                     continue;
                 }
                 let resolver = resolvers.entry(*id).or_insert_with(|| {
-                    Resolver::new(
+                    Resolver::cached(
+                        cache,
                         compiler,
+                        *id,
                         valid[id],
                         &all.procs,
                         &all.targets,
