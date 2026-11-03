@@ -29,7 +29,7 @@ from pathlib import Path
 from toolkit import llvm
 from toolkit.process import run as toolkit_run
 from toolkit.host import exe_name
-from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path
+from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path, stdlib_env
 from repo_output import output_dir
 
 EXE = exe_name("")
@@ -264,6 +264,62 @@ def cmd_docs(args) -> int:
     if not args.serve:
         return 0
     return run([sys.executable, "tools/dev/doc_serve.py", "--port", args.port, "--directory", str(site)])
+
+
+def example_programs() -> dict[str, Path]:
+    """Every program under examples/, by name: a folder with a `main.jai` (`chip8`, `game2d/game`), or a
+    file with a top-level `main` in a folder without one (`http/client`)."""
+    root = ROOT / "examples"
+    found = {}
+    for main in root.rglob("main.jai"):
+        if "tests" not in main.relative_to(root).parts:
+            found[main.parent.relative_to(root).as_posix()] = main
+    for folder in {f.parent for f in root.rglob("*.jai")}:
+        if not (folder / "main.jai").exists() and "tests" not in folder.relative_to(root).parts:
+            for file in folder.glob("*.jai"):
+                if re.search(r"^main :: ", file.read_text(encoding="utf-8"), re.M):
+                    found[file.relative_to(root).with_suffix("").as_posix()] = file
+    return dict(sorted(found.items()))
+
+
+def example_summary(entry: Path) -> str:
+    """The first line of the program's leading comment, else of its README's first paragraph."""
+    for line in entry.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("//"):
+            break
+        if line.strip("/ "):
+            return line.strip("/ ")
+    readme = entry.parent / "README.md"
+    if readme.exists():
+        for line in readme.read_text(encoding="utf-8").splitlines():
+            if line.strip() and not line.startswith("#"):
+                return line.strip()
+    return ""
+
+
+def cmd_run_example(args) -> int:
+    programs = example_programs()
+    if not args.name:
+        width = max(map(len, programs))
+        for name, entry in programs.items():
+            summary, room = example_summary(entry), 100 - width
+            if len(summary) > room:
+                summary = summary[:room - 1].rsplit(" ", 1)[0] + "…"
+            print(f"{name:<{width}}  {summary}".rstrip())
+        return 0
+    name = args.name.strip("/")
+    entry = programs.get(name) or programs.get(f"{name}/game")
+    if entry is None:
+        print(f"just run-example: no example named {name!r}; `just run-example` lists them", file=sys.stderr)
+        return 1
+    if cargo_build(["--release", "-p", "jaic-cli"], args.jobs):
+        return 1
+    exe = output_dir("examples", exe_name(name.replace("/", "-")))
+    exe.parent.mkdir(parents=True, exist_ok=True)
+    if toolkit_run([str(cargo_binary("jaic", "release")), str(entry), "-exe", str(exe)], cwd=ROOT,
+                   env=stdlib_env(), check=False).returncode:
+        return 1
+    return toolkit_run([str(exe), *args.program_args], cwd=ROOT, env=stdlib_env(), check=False).returncode
 
 
 def cmd_fmt(args) -> int:
@@ -775,7 +831,7 @@ def cmd_precommit(args) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    for name, fn in (("build", cmd_build), ("docs", cmd_docs), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor),
+    for name, fn in (("build", cmd_build), ("docs", cmd_docs), ("run-example", cmd_run_example), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor),
                      ("nvim", cmd_nvim), ("vscode-try", cmd_vscode_try), ("test", cmd_test),
                      ("repo-checks", cmd_repo_checks), ("precommit", cmd_precommit), ("hooks", cmd_hooks)):
         p = sub.add_parser(name)
@@ -786,6 +842,9 @@ def main() -> int:
         if name == "build":
             p.add_argument("--no-native", action="store_true",
                            help="skip the native libraries and Bindings_Generator helpers")
+        if name == "run-example":
+            p.add_argument("name", nargs="?", default="", help="default: list the examples")
+            p.add_argument("program_args", nargs=argparse.REMAINDER)
         if name == "docs":
             p.add_argument("--wasm", action="store_true", help="build the browser compiler so Run buttons work")
             p.add_argument("--serve", action="store_true")

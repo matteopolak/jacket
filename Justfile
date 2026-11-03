@@ -108,6 +108,12 @@ wasm *args:
 docs wasm="false" serve="false" port="8000" jobs=default_jobs:
     {{ py }} tools/dev/dev.py docs -j {{ jobs }} --port {{ port }} {{ if wasm == "true" { "--wasm" } else { "" } }} {{ if serve == "true" { "--serve" } else { "" } }}
 
+# Build and run one program from examples/ with the release jaic, passing ARGS (after `--`) to it; with no name, list them.
+[group('web')]
+[arg("jobs", long, short="j")]
+run-example jobs=default_jobs name="" *args:
+    @{{ py }} tools/dev/dev.py run-example -j {{ jobs }} {{ name }} {{ args }}
+
 # Summarize a `samply record --save-only --unstable-presymbolicate` profile (docs/tools/benchmarks.md#profiling): hot functions by self and inclusive samples.
 [group('test')]
 profile-report profile *args:
