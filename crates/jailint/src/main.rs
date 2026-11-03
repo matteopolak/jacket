@@ -117,6 +117,13 @@ fn run() -> Result<ExitCode, String> {
         return Err(message);
     }
     let stdlib = jaic::canonicalize(&stdlib).unwrap_or(stdlib);
+    // A whole stdlib scan includes modules for other operating systems. Keep their notes,
+    // while actual lint findings still determine failure below. Explicit files stay strict.
+    let allow_incomplete = args.allow_incomplete
+        || args
+            .paths
+            .iter()
+            .any(|path| path.is_dir() && jaic::canonicalize(path).is_ok_and(|path| path == stdlib));
     let mut compiler_options = jaic::sema::Options::host();
     args.common.target.apply(&mut compiler_options)?;
     let limits = args.limits();
@@ -195,7 +202,7 @@ fn run() -> Result<ExitCode, String> {
     drop(out);
     // Under --allow-incomplete these are expected (other targets' modules, files only their
     // module loads), so one count stands in for the list unless -v asks for it.
-    if args.allow_incomplete && !args.verbose {
+    if allow_incomplete && !args.verbose {
         if !outcome.incomplete.is_empty() {
             eprintln!(
                 "jailint: {} did not compile completely on this target; bodies that failed were not linted (-v lists them)",
@@ -256,7 +263,7 @@ fn run() -> Result<ExitCode, String> {
         );
     }
     Ok(
-        if errors > 0 || (!args.allow_incomplete && !outcome.incomplete.is_empty()) {
+        if errors > 0 || (!allow_incomplete && !outcome.incomplete.is_empty()) {
             ExitCode::from(1)
         } else {
             ExitCode::SUCCESS

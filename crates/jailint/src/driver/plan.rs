@@ -20,10 +20,66 @@ fn expand(path: &Path, config: &Configs, out: &mut BTreeSet<PathBuf>) {
     }
     if path.is_dir() {
         let files = jaic::paths::jai_files_under(path, &mut |p| config.excluded(&canonical(p)));
-        out.extend(files.iter().map(|f| canonical(f)));
+        out.extend(
+            files
+                .iter()
+                .filter(|f| !expected_failure(f))
+                .map(|f| canonical(f)),
+        );
     } else if path.is_file() {
         out.insert(canonical(path));
     }
+}
+
+/// Negative and fault fixtures intentionally violate the rules a directory scan checks.
+/// Explicit file arguments remain available for investigating one of these fixtures.
+fn expected_failure(path: &Path) -> bool {
+    let source = std::fs::read_to_string(path).unwrap_or_default();
+    for line in source
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let Some(comment) = line.strip_prefix("//") else {
+            break;
+        };
+        let Some(notes) = comment.trim().strip_prefix("test:") else {
+            continue;
+        };
+        // Only note names at the top level count; quoted failure messages may contain spaces
+        // or the name of another note.
+        let (mut depth, mut quoted, mut escaped) = (0usize, false, false);
+        let mut start = 0;
+        for (at, ch) in notes.char_indices().chain([(notes.len(), ' ')]) {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if quoted && ch == '\\' {
+                escaped = true;
+                continue;
+            }
+            if ch == '"' {
+                quoted = !quoted;
+            }
+            if !quoted {
+                if ch == '(' {
+                    depth += 1;
+                }
+                if ch == ')' {
+                    depth = depth.saturating_sub(1);
+                }
+                if ch.is_whitespace() && depth == 0 {
+                    let name = notes[start..at].split('(').next().unwrap_or("");
+                    if matches!(name, "compile_fail" | "should_fail" | "xfail") {
+                        return true;
+                    }
+                    start = at + ch.len_utf8();
+                }
+            }
+        }
+    }
+    false
 }
 
 /// What the import folders of a program rooted at `path` are made of: the `import_path` of the

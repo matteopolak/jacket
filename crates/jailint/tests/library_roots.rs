@@ -201,3 +201,56 @@ fn call_rules_follow_declaration_notes_through_generic_aliases() {
         result.lints
     );
 }
+
+#[test]
+fn stdlib_scan_skips_expected_failures_and_keeps_real_findings_fatal() {
+    let root = fixture("stdlib-scan");
+    let tests = root.join("stdlib/Thing/tests");
+    std::fs::create_dir_all(&tests).unwrap();
+    std::fs::write(root.join("stdlib/Thing/module.jai"), "").unwrap();
+    for (name, note) in [
+        ("negative", "compile_fail"),
+        ("fault", "should_fail(\"boom\")"),
+        ("known", "xfail(\"broken\")"),
+    ] {
+        std::fs::write(
+            tests.join(format!("{name}.jai")),
+            format!("// test: {note}\nmain :: () {{ unavailable_call(); }}"),
+        )
+        .unwrap();
+    }
+    // A platform-only module still produces an informative note.
+    std::fs::write(
+        root.join("stdlib/internal/tools/platform.jai"),
+        "bad :: () { unavailable_platform(); }",
+    )
+    .unwrap();
+    let run = || {
+        Command::new(env!("CARGO_BIN_EXE_jailint"))
+            .env("JAIC_STDLIB", root.join("stdlib"))
+            .args(["-D", "warnings", "-j", "2"])
+            .arg(root.join("stdlib"))
+            .output()
+            .unwrap()
+    };
+    let output = run();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(
+        stderr.contains("1 program did not compile completely"),
+        "{stderr}"
+    );
+    std::fs::write(
+        root.join("stdlib/Thing/module.jai"),
+        "work :: () { lost := 1; }",
+    )
+    .unwrap();
+    let output = run();
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("unused variable `lost`"));
+}
