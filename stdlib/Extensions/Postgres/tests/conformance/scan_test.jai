@@ -659,7 +659,7 @@ test_backslash_commands :: () {
 
 fake_shell :: (command: string, data: *void) -> string, bool {
     return tprint("<%>\n", command), true;
-} @TempAllocates
+}
 
 test_conditionals :: () {
     expect("\\if true\nselect 1;\n\\endif", "C\\if|true", "Qselect 1;", "C\\endif");

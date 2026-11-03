@@ -71,7 +71,7 @@ case_name :: (info: *Type_Info) -> string {
     append(*builder, ")");
 
     return builder_to_string(*builder,, temp);
-} @TempAllocates
+}
 
 // Whether a case has no payload.
 is_void_case :: (info: *Type_Info) -> bool {
@@ -263,7 +263,7 @@ tag_list :: (tags: [] string) -> string {
 // The pointer to case `k` of the variant `value` as a declaration: `name := cast(*Case) ...;`.
 case_pointer :: (g: *Gen, name: string, value: string, k: int) -> string {
     return tprint("% := cast(*type_of(%).case_type_%) %.payload.data;\n", name, value, k, value);
-} @TempAllocates
+}
 
 // ---- encoding ----
 

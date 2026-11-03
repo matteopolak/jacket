@@ -44,4 +44,4 @@ json_fill :: (data: *void, buffer: [] u8) -> s64, string {
     if error != .NONE return 0, tprint("reading failed: %", error);
 
     return count, "";
-} @TempAllocates
+}

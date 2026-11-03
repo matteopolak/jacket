@@ -190,12 +190,12 @@ decode_stb :: (data: [] u8) -> bool {
 fixed :: (value: float64) -> string {
     scaled := cast(s64) (value * 10.0 + 0.5);
     return tprint("%.%", scaled / 10, scaled % 10);
-} @TempAllocates
+}
 
 fixed2 :: (value: float64) -> string {
     scaled := cast(s64) (value * 100.0 + 0.5);
     return tprint("%.%%", scaled / 100, (scaled / 10) % 10, scaled % 10);
-} @TempAllocates
+}
 
 report :: (c: Case) {
     megapixels := cast(float64) c.width * c.height / 1.0e6;
@@ -220,7 +220,7 @@ report :: (c: Case) {
 pad :: (s: string, width: s64) -> string {
     if s.count >= width return s;
     return tprint("%%", s, repeat(" ", width - s.count,, temp));
-} @TempAllocates
+}
 
 repeat :: (s: string, count: s64) -> string {
     builder: String_Builder;

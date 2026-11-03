@@ -32,7 +32,7 @@ jai_type_of :: (base: string) -> string {
 
     // text, varchar, bpchar, name, enums, citext and every other type read as their text form.
     return "string";
-} @TempAllocates
+}
 
 // Types whose binary form `get` decodes; a statement with any other column is fetched as text.
 binary_decodable :: (base: string) -> bool {
@@ -57,7 +57,7 @@ field_type_text :: (column: Query_Column) -> string {
     if column.nullable && !begins_with(text, "Nullable(") return tprint("Nullable(%)", text);
 
     return text;
-} @TempAllocates
+}
 
 valid_field_name :: (name: string) -> bool {
     if !name.count return false;
@@ -90,7 +90,7 @@ row_shape_text :: (entry: Query_Entry) -> string, problem: string {
     }
 
     return builder_to_string(*builder,, temp), "";
-} @TempAllocates
+}
 
 // The entry points the macros call inside #run.
 row_shape :: (sql: string, call: Code, sql_index: s64) -> string {
@@ -100,7 +100,7 @@ row_shape :: (sql: string, call: Code, sql_index: s64) -> string {
     if problem report_at(prepared.sql_node, problem);
 
     return shape;
-} @TempAllocates(0)
+}
 
 // Row type identity. When every column is read straight from one table under its own name
 // (`select *`, `returning *`), the query returns that table's struct from db/schema.jai instead of
@@ -113,7 +113,7 @@ row_table_exists :: (sql: string, call: Code, sql_index: s64) -> string {
     if !name return "false";
 
     return tprint("#exists(%)", name);
-} @TempAllocates
+}
 
 row_table_type :: (sql: string, call: Code, sql_index: s64, exists: bool) -> string {
     if !exists return "void";
@@ -156,7 +156,7 @@ scalar_type :: (sql: string, call: Code, sql_index: s64) -> string {
     }
 
     return field_type_text(prepared.entry.columns[0]);
-} @TempAllocates
+}
 
 rewritten_sql :: (sql: string, call: Code, sql_index: s64, project_file := "") -> string {
     return prepare_query(sql, call, sql_index, project_file).rewrite.sql;
@@ -340,7 +340,7 @@ field_accepts :: (column: Query_Column, info: *Type_Info) -> string {
     }
 
     return "";
-} @TempAllocates
+}
 
 value_fits :: (base: string, info: *Type_Info) -> bool {
     if is_json_info(info) || info == type_info(Json_Raw) return base == "json" || base == "jsonb";

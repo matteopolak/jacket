@@ -334,7 +334,7 @@ tprint :: (format_string: string, args: ..Any) -> string {
     push_allocator(temp);
 
     return builder_to_string(*builder);
-} @UseResult @PrintLike @FormatsToString @TempAllocates
+} @UseResult @PrintLike @FormatsToString
 
 // Writes the byte `_c` to standard output.
 //

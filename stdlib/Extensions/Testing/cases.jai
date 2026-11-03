@@ -233,4 +233,4 @@ tidy :: (label: string, index: s64) -> string {
     if limit < label.count name = tprint("%...", name);
 
     return name;
-} @TempAllocates
+}

@@ -716,7 +716,7 @@ lanes_are_valid :: (T: Type, N: int) -> bool, string {
     if N * info.runtime_size > 64 return false, tprint("SIMD: % lanes of % make % bytes; a vector holds at most 64", N, T, N * info.runtime_size);
 
     return true, "";
-} @TempAllocates
+}
 
 lane_bits :: (T: Type) -> Type {
     size := (cast(*Type_Info) T).runtime_size;
@@ -731,7 +731,7 @@ is_vector :: (V: Type) -> bool, string {
     info := cast(*Type_Info) V;
     if info.type == .STRUCT && (cast(*Type_Info_Struct) info).polymorph_source_struct == type_info(Vector) return true, "";
     return false, tprint("SIMD: expected a Vector type, not %", V);
-} @TempAllocates
+}
 
 is_byte_vector :: (V: Type) -> bool, string {
     ok, message := is_vector(V);
@@ -741,13 +741,13 @@ is_byte_vector :: (V: Type) -> bool, string {
     if lanes.element_type == type_info(u8) return true, "";
 
     return false, tprint("SIMD: a string loads into a vector of u8, not %", V);
-} @TempAllocates
+}
 
 is_mask :: (M: Type) -> bool, string {
     info := cast(*Type_Info) M;
     if info.type == .STRUCT && (cast(*Type_Info_Struct) info).polymorph_source_struct == type_info(Mask) return true, "";
     return false, tprint("SIMD: expected a Mask type, not %", M);
-} @TempAllocates
+}
 
 signed_max :: inline ($T: Type) -> T {
     return cast,no_check(T) (((cast(u64) 1) << (size_of(T) * 8 - 1)) - 1);
@@ -781,7 +781,7 @@ compare_body :: (operator: string) -> string {
     for 0..N - 1 result.lanes[it] = ifx a.lanes[it] %1 b.lanes[it] then ~cast(type_of(result.lanes[0])) 0 else 0;
     return result;
 JAI, operator);
-} @TempAllocates
+}
 
 // A mask's lanes are all ones or all zeros, so its 64-bit words can stand in for the lanes:
 // fewer, wider operations than one per lane.

@@ -132,7 +132,7 @@ measure :: (work: () -> void) -> float64 {
 
 number :: (value: float64, digits: int) -> string {
     return tprint("%", FormatFloat.{ value = value, trailing_width = digits });
-} @TempAllocates
+}
 
 input: [] u8;
 

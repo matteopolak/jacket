@@ -155,7 +155,7 @@ adb_devices :: (return_only_ready_devices := false) -> bool, [] Adb_Device {
     memcpy(storage, devices.data, devices.count * size_of(Adb_Device));
 
     return true, .{ devices.count, storage };
-} @TempAllocates(1)
+}
 
 #scope_module
 #import "Basic";

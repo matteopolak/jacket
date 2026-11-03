@@ -155,7 +155,7 @@ system_verify :: (chain: [][] u8, server_name: string, data: *void) -> string {
     if status.error == 0 return "";
 
     return windows_verify_message(status.error);
-} @TempAllocates(0)
+}
 
 windows_verify_message :: (code: u32) -> string {
     if code == {
@@ -171,4 +171,4 @@ windows_verify_message :: (code: u32) -> string {
     }
 
     return tprint("Windows rejected the certificate chain (0x%)", FormatInt.{ value = code, base = 16 });
-} @TempAllocates(0)
+}

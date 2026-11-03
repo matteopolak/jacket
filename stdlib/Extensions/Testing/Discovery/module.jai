@@ -163,7 +163,7 @@ bench_note_problem :: (notes: [] *Code_Note) -> string {
     }
 
     return "";
-} @TempAllocates
+}
 
 collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
     for typechecked.declarations {

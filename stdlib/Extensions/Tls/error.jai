@@ -55,7 +55,7 @@ detail :: (error: *Tls_Error) -> string {
     if error.detail_count == 0 return "";
 
     return copy_temporary_string(string.{ error.detail_count, error.detail_bytes.data });
-} @TempAllocates
+}
 
 // The name of an alert description ("unknown_ca"), or "" for a number the module does not know.
 //
@@ -132,7 +132,7 @@ error_text :: (error: Tls_Error) -> string {
     if text.count return tprint("%: %", what, text);
 
     return what;
-} @TempAllocates
+}
 
 #scope_module
 
@@ -168,7 +168,7 @@ library_message :: (code: s32) -> string {
     while length < buffer.count && buffer[length] != 0 length += 1;
 
     return copy_temporary_string(string.{ length, buffer.data });
-} @TempAllocates
+}
 
 from_library :: (kind: Tls_Error_Kind, code: s32) -> Tls_Error {
     return make_error(kind, library_message(code), code);

@@ -20,7 +20,7 @@ get_username :: () -> string, success: bool {
     }
 
     return "", false;
-} @TempAllocates
+}
 
 get_home_directory :: (username := "") -> string, success: bool {
     if username.count > 0 return account_profile(username);
@@ -52,7 +52,7 @@ get_home_directory :: (username := "") -> string, success: bool {
     }
 
     return "", false;
-} @TempAllocates
+}
 
 get_machinename :: () -> string {
     capacity: u32 = 256;
@@ -73,7 +73,7 @@ get_machinename :: () -> string {
     }
 
     return "";
-} @TempAllocates
+}
 
 get_path_of_running_executable :: () -> string {
     capacity: s32 = 256;
@@ -97,7 +97,7 @@ get_path_of_running_executable :: () -> string {
     }
 
     return "";
-} @TempAllocates
+}
 
 get_error_string :: (error_code: W.OS_Error_Code) -> string {
     buffer: *u16;
@@ -110,12 +110,12 @@ get_error_string :: (error_code: W.OS_Error_Code) -> string {
     if !ok return "";
 
     return result;
-} @TempAllocates
+}
 
 get_error_value_and_string :: () -> (error_code: W.OS_Error_Code, description: string) {
     code := W.GetLastError();
     return code, get_error_string(code);
-} @TempAllocates
+}
 
 read_cpu_counter :: inline () -> u64 {
     #if CPU == .X64 return rdtsc();
@@ -226,7 +226,7 @@ temporary_text :: (text: *u16, count: s64) -> string, bool {
     if !ok return "", false;
     defer free(result);
     return copy_temporary_string(result), true;
-} @TempAllocates
+}
 
 close_native_handle :: (handle: W.HANDLE) {
     assert(W.CloseHandle(handle) != 0, "native handle cleanup failed");
@@ -313,4 +313,4 @@ account_profile :: (username: string) -> string, bool {
     }
 
     return "", false;
-} @TempAllocates
+}

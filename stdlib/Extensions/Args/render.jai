@@ -99,7 +99,7 @@ positional_label :: (positional: Option_Spec) -> string {
     if positional.required return tprint("<%>", name);
 
     return tprint("[%]", name);
-} @TempAllocates
+}
 
 // `jaifmt [OPTIONS] [PATHS]...` for the command at the end of `path`.
 usage_line :: (root: *Command_Spec, path: [] string) -> string {

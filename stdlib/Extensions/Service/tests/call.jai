@@ -11,7 +11,7 @@ UPPER :: #run tprint("%services/upper.jai", #filepath);
 ask :: (request: string) -> string {
     status, reply := Service.call(UPPER, request);
     return tprint("% %", status, reply);
-} @TempAllocates
+}
 
 GREETING :: #run ask("hello");
 

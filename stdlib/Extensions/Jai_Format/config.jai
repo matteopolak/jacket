@@ -80,7 +80,7 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
     if depth > 0 return false, tprint("line %: this array or table is never closed", statement_line);
 
     return true, "";
-} @TempAllocates
+}
 
 // The keys of a `[a.b]` (or `[[a.b]]`) header line.
 parse_table_header :: (header: string) -> [..] string, bool {
@@ -135,7 +135,7 @@ apply_pair :: (config: *Format_Config, table: [] string, statement: string, line
     if keys.count == first return apply_inline_table(config, value, line_number, doc);
 
     return apply_setting(config, keys, first, value, line_number, doc);
-} @TempAllocates
+}
 
 // Whether `keys` start with `doc.format`.
 is_doc_format :: (keys: [] string) -> bool {
@@ -168,7 +168,7 @@ apply_inline_table :: (config: *Format_Config, value: string, line_number: int, 
     }
 
     return true, "";
-} @TempAllocates
+}
 
 // Applies `keys` from `first` on as the path of one format setting: a single name is a setting, a
 // dotted path names something the formatter does not have.
@@ -185,7 +185,7 @@ apply_setting :: (config: *Format_Config, keys: [] string, first: int, value: st
     }
 
     return true, "";
-} @TempAllocates
+}
 
 // Records one `doc.format` override after checking the value as `[format]` would; a key that is
 // not one of DOC_FORMAT_KEYS is dropped into `config.unknown_keys`.
@@ -204,7 +204,7 @@ apply_doc_key :: (config: *Format_Config, key: string, value: string, line_numbe
     array_add(*config.doc_format, Doc_Setting.{ copy_string(key), copy_string(value) });
 
     return true, "";
-} @TempAllocates
+}
 
 is_doc_format_key :: (key: string) -> bool {
     for DOC_FORMAT_KEYS if it == key return true;
@@ -368,7 +368,7 @@ apply_key :: (config: *Format_Config, key: string, value: string, line_number: i
     }
 
     return true, "";
-} @TempAllocates
+}
 
 // `line 0: message` -> `message`, for settings that did not come from a file.
 without_line_prefix :: (message: string) -> string {
@@ -417,7 +417,7 @@ unknown_setting_note :: (key: string, file: string) -> string {
     if best >= 0 return tprint("%; did you mean `%%`?", note, prefix, keys[best]);
 
     return note;
-} @TempAllocates
+}
 
 // Is `path` (absolute) ignored by `config`? Globs are relative to the config's directory:
 // `*` matches within one path component, `**` across components, `?` one character.

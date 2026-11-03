@@ -142,7 +142,7 @@ admin_home :: () -> string {
 
 admin_user :: (id: Path("id", int)) -> string {
     return tprint("admin user %", id.value);
-} @TempAllocates
+}
 
 v1_ping :: () -> string {
     return "pong";
@@ -150,7 +150,7 @@ v1_ping :: () -> string {
 
 org_order :: (org: Path("org", string), id: Path("id", int)) -> string {
     return tprint("% %", org.value, id.value);
-} @TempAllocates
+}
 
 org_both :: (order: Params(Order)) -> Order {
     return order.temporary;

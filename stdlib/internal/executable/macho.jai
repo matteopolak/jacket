@@ -138,11 +138,11 @@ get_section_data :: (macho: Mach_O, section: *Section_64) -> [] u8 {
 
 get_section_name :: (section: Section_64) -> string {
     return B.copy_temporary_string(string_from_zero_padded_array(section.sectname));
-} @TempAllocates
+}
 
 get_segment_name :: (section: Section_64) -> string {
     return B.copy_temporary_string(string_from_zero_padded_array(section.segname));
-} @TempAllocates
+}
 
 string_from_zero_padded_array :: (padded: [] u8) -> string {
     for padded if it == 0 return .{ it_index, padded.data };

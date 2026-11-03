@@ -336,7 +336,7 @@ orm_table :: (T: Type) -> string, problem: string {
     }
 
     return "", tprint("% has no @pg_table note: the ORM works on the structs of db/schema.jai", T);
-} @TempAllocates
+}
 
 orm_columns :: (T: Type) -> [] *Type_Info_Struct_Member {
     info := cast(*Type_Info_Struct) type_info(T);
@@ -845,7 +845,7 @@ parameter_cast :: (T: Type) -> string {
     if info == type_info(Numeric) return "numeric";
 
     return "";
-} @TempAllocates
+}
 
 orm_expression :: (sql: *Orm_Sql, node: *Code_Node) {
     if sql.problem return;
@@ -1084,7 +1084,7 @@ orm_relation :: (T: Type, name: string) -> Orm_Relation, problem: string {
     }
 
     return relation, "";
-} @TempAllocates
+}
 
 // `it.settings.theme`: a key of a `Json(T)` column, by `T`'s json names. A string leaf is read as
 // text (`->>`); any other leaf is cast from its text. `as_document` keeps the leaf a jsonb
@@ -1701,7 +1701,7 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
     }
 
     return sql;
-} @TempAllocates(0)
+}
 
 // One selected column of `each`: a column, a json document cut down to the keys the loop reads
 // (`jsonb_each` keeps a key holding null apart from a missing one), or a related field.
@@ -1778,7 +1778,7 @@ orm_project_file :: (call: Code) -> string {
 // `, project_file = "<the caller's file>"`, the last argument of a statement the ORM writes.
 orm_project_argument :: (call: Code) -> string {
     return tprint(", project_file = %", jai_string(orm_project_file(call),, temp));
-} @TempAllocates
+}
 
 // The row type of a `select`: `T`, or `Partial(T, fields)`.
 orm_select_row :: (fields: string) -> string {
@@ -1886,7 +1886,7 @@ orm_prelude :: (builder: *String_Builder, sql: *Orm_Sql) {
 // A parameter's Jai text, inserted where the call was written.
 orm_insert_text :: (text: string) -> string {
     return tprint("(#insert,scope(call) %)", jai_string(text,, temp));
-} @TempAllocates
+}
 
 // Parameter `index` as an argument: its text where the filter was written, through its wrap.
 orm_argument :: (sql: *Orm_Sql, index: s64) -> string {
@@ -2238,7 +2238,7 @@ orm_lateral_copies :: ($Target: Type, name: string, type_name: string) -> string
 
 orm_relation_alias :: (entry: Orm_Read_Entry) -> string {
     return tprint("orm__%__%", entry.relation, entry.name);
-} @TempAllocates
+}
 
 orm_relation_target_name :: (T: Type, name: string) -> string {
     relation := orm_relation(T, name);
@@ -2483,7 +2483,7 @@ orm_copy_code :: (T: Type) -> string {
     statement := tprint("copy % (%) from stdin (format binary)", table, builder_to_string(*names,, temp));
 
     return tprint("stored, error := copy_in(db, %, values, .[%]);\nreturn stored, error;\n", jai_string(statement,, temp), builder_to_string(*members,, temp));
-} @TempAllocates
+}
 
 orm_insert_code :: (T: Type, call: Code) -> string {
     table, problem := orm_table(T);

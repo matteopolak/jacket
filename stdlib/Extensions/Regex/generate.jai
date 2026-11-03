@@ -67,7 +67,7 @@ is_static :: (R: Type) -> bool, string {
     }
 
     return false, tprint("expected a Regex.Static(\"...\") type, not %; for a pattern made at run time, pass *re from Regex.compile", R);
-} @TempAllocates(1)
+}
 
 report_pattern_error :: (pattern: string, message: string, offset: int) {
     pointer := tprint("%^", repeat_char(#char " ", offset));

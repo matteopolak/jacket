@@ -234,7 +234,7 @@ bad_pairs_detail :: (what: string, failure: Json_Error, pairs: [] Pair) -> strin
     }
 
     return tprint("% `%`: %", what, failure.path, failure.message);
-} @TempAllocates
+}
 
 // The value a handler returned, as a response
 
@@ -330,7 +330,7 @@ value_info :: (info: *Type_Info) -> *Type_Info {
 
 route_name :: (method: Method, template: string) -> string {
     return tprint("%s %s", method_name(method), template);
-} @TempAllocates
+}
 
 // A problem with a route, reported at the line that registered it.
 report :: (loc: Source_Code_Location, method: Method, template: string, message: string) {

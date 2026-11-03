@@ -82,7 +82,7 @@ describe_difference :: (got: Any, want: Any) -> string {
     }
 
     return builder_to_string(*builder,, temp);
-} @TempAllocates
+}
 
 #scope_module
 
@@ -194,7 +194,7 @@ first_member_difference :: (a: Any, b: Any) -> string {
     }
 
     return "";
-} @TempAllocates
+}
 
 MAX_LISTED :: 10;
 

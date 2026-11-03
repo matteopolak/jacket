@@ -30,7 +30,7 @@ server_too_old :: (db: *Connection, request: Describe_Request) -> string {
     if major >= request.min_server_version return "";
 
     return tprint("the server is PostgreSQL %, but this project needs at least % (MIN_SERVER_VERSION)", major, request.min_server_version);
-} @TempAllocates
+}
 
 // The request as JSON text.
 //
@@ -304,7 +304,7 @@ migration_file :: (folder: string, name: string) -> string {
     if !folder return tprint("%.sql", name);
 
     return join(folder, "/", name, ".sql",, temp);
-} @TempAllocates
+}
 
 failure_json :: (failure: Migration_Failure, folder: string) -> Json_Value {
     object := json_object();
@@ -591,18 +591,18 @@ base_name :: (types: *Described_Types, oid: u32) -> string {
     if !type.builtin return "extension";
 
     return type.name;
-} @TempAllocates
+}
 
 shown_name :: (types: *Described_Types, oid: u32) -> string {
     type := find_type(types, oid);
     if !type return tprint("oid%", oid);
 
     return type.shown;
-} @TempAllocates
+}
 
 types_entry :: (types: *Described_Types, oid: u32) -> Query_Type {
     return .{ shown_name(types, oid), base_name(types, oid) };
-} @TempAllocates(0)
+}
 
 Table_Attribute :: struct {
     table_oid: u32;
@@ -841,7 +841,7 @@ column_entry :: (types: *Described_Types, attributes: *Table_Attributes, plan: *
     if entry.forced == .NULLABLE entry.nullable = true;
 
     return entry;
-} @TempAllocates(0)
+}
 
 // The alias syntax: `name`, `name!` (never NULL), `name?` (may be NULL), and `name: Jai_Type`
 // after either. The suffix and the type are stripped from the field name.

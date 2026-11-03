@@ -7,7 +7,7 @@ content_stamp :: (data: string) -> string {
     hash: u64 = 0xcbf29ce484222325;
     for data hash = (hash ^ cast(u64) it) * 0x100000001b3;
     return tprint("%", formatInt(hash >> 32, base = 16, minimum_digits = 8));
-} @TempAllocates
+}
 
 // Stamps a byte slice, including embedded zero bytes.
 // ```jai
@@ -16,7 +16,7 @@ content_stamp :: (data: string) -> string {
 // ```
 content_stamp :: (data: [] u8) -> string {
     return content_stamp(cast(string) data);
-} @TempAllocates
+}
 
 // Removes CSS block comments and blank/edge whitespace, preserving quoted strings.
 // The result is in temporary storage; comments become spaces to keep tokens separate.
@@ -52,7 +52,7 @@ compact_css :: (text: string) -> string {
     }
 
     return compact_lines(builder_to_string(*b,, temp), false);
-} @TempAllocates
+}
 
 // Drops indentation, blank lines and whole-line // comments, preserving other JS bytes.
 // Multiline strings, template literals and block comments are kept verbatim internally.
@@ -61,7 +61,7 @@ compact_css :: (text: string) -> string {
 // ```
 compact_js :: (text: string) -> string {
     return compact_lines(text, true);
-} @TempAllocates
+}
 
 #scope_module
 
@@ -149,7 +149,7 @@ compact_lines :: (text: string, js: bool) -> string {
     }
 
     return builder_to_string(*b,, temp);
-} @TempAllocates
+}
 
 regex_prefix :: (c: u8) -> bool {
     for byte: "=(:,[!&|?;{}" if c == byte return true;

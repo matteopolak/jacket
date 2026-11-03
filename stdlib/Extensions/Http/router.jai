@@ -109,7 +109,7 @@ parse_template :: (template: string) -> Template {
     }
 
     return result;
-} @TempAllocates(0)
+}
 
 is_identifier :: (name: string) -> bool {
     if name.count == 0 return false;
@@ -221,7 +221,7 @@ router_add :: (router: *Router, route: *Route) -> string {
     array_add(*router.routes, route);
 
     return "";
-} @TempAllocates
+}
 
 router_free :: (router: *Router) {
     free_node_children(*router.root);

@@ -123,7 +123,7 @@ answer :: (request_text: string) -> Service.Status, string {
     }
 
     return .FAILED, "unreachable";
-} @TempAllocates
+}
 
 // The managed server this service process owns (managed.jai). It is started by the first request
 // that needs it and then reused; `start_managed` takes a lock, so two services (two compiles, or

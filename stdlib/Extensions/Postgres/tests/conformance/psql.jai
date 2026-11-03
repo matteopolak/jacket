@@ -705,7 +705,7 @@ connection_error_text :: (config: Pg.Config, error: Pg.Pg_Error) -> string {
     }
 
     return tprint("%: %", where, error.message);
-} @TempAllocates
+}
 
 sync_connection_variables :: () {
     c := psql.db;
@@ -1056,7 +1056,7 @@ canonical_path :: (path: string) -> string {
     if !joined return ".";
 
     return joined;
-} @TempAllocates
+}
 
 branch_active :: (l: *Loop) -> bool {
     if !l.levels.count return true;
@@ -1491,7 +1491,7 @@ print_timing :: (microseconds: s64) {
         text := tprint("%", value);
         while text.count < width text = tprint("0%", text);
         return text;
-    } @TempAllocates
+    }
 
     text := tprint("Time: %.% ms", microseconds / 1000, pad(microseconds % 1000, 3));
 
@@ -4137,7 +4137,7 @@ repeat_char :: (c: u8, n: s64) -> string {
     text := talloc_string(n);
     for 0..n - 1 text[it] = c;
     return text;
-} @TempAllocates
+}
 
 pset_apply :: (option: string, value: string, has_value: bool, quiet: bool) -> bool {
     o := *psql.popt;

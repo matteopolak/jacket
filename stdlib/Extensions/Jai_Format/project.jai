@@ -27,7 +27,7 @@ find_config :: (directory: string, read: Format_File_Reader, stop := "") -> conf
     }
 
     return .{}, "", true, "";
-} @TempAllocates(1,3)
+}
 
 // `a/b/c` -> `a/b`; `/a` -> `/`; `a` -> "".
 parent_directory_of :: (path: string) -> string {

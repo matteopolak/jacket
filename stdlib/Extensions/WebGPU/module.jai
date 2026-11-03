@@ -313,7 +313,7 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
     webgpu_wait(instance, *state.done);
 
     return state.type, copy_temporary_string(message_text(*state.message));
-} @TempAllocates
+}
 
 // --- Surfaces and frames ------------------------------------------------------------------------
 

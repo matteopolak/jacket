@@ -398,7 +398,7 @@ format_microseconds :: (nanoseconds: s64) -> string {
     tenths := (nanoseconds + 50) / 100;
 
     return tprint("%.%", tenths / 10, tenths % 10);
-} @TempAllocates
+}
 
 parse_int :: (text: string) -> int {
     value := 0;

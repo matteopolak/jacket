@@ -106,4 +106,4 @@ system_verify :: (chain: [][] u8, server_name: string, data: *void) -> string {
     }
 
     return copy_temporary_string(c_text(buffer.data));
-} @TempAllocates
+}

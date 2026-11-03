@@ -198,7 +198,7 @@ text_of :: (result: *Pg.Result, row: s64, column: s64) -> string {
 
 quote_identifier :: (name: string) -> string {
     return tprint("\"%\"", replace(name, "\"", "\"\"",, temp));
-} @TempAllocates
+}
 
 check_column :: (db: *Pg.Connection, schema: string, table: string, column: string) {
     check: Check;
@@ -717,7 +717,7 @@ report :: () {
 
 row_text :: (name: string, values: string, distinct: string, nulls: string, skipped: string, failures: string) -> string {
     return tprint("%1%2%3%4%5%6", pad(name, 14), pad(values, 10), pad(distinct, 10), pad(nulls, 8), pad(skipped, 9), failures);
-} @TempAllocates
+}
 
 pad :: (text: string, width: s64) -> string {
     if text.count >= width return text;
@@ -726,4 +726,4 @@ pad :: (text: string, width: s64) -> string {
     memset(padding.data, #char " ", padding.count);
 
     return tprint("%1%2", text, padding);
-} @TempAllocates
+}

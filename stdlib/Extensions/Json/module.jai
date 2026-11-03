@@ -224,7 +224,7 @@ error_text :: (error: Json_Error) -> string {
     if error.path.count return tprint("% at line %, column % (%)", error.message, error.line, error.column, error.path);
 
     return tprint("% at line %, column %", error.message, error.line, error.column);
-} @TempAllocates
+}
 
 // Releases the `message` and `path` of an error and clears it.
 free_json :: (error: *Json_Error) {

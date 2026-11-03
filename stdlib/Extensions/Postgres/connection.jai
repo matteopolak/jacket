@@ -320,7 +320,7 @@ session_mismatch :: (c: *Connection, wanted: Target_Session_Attrs) -> string {
     if wanted == .READ_ONLY return ifx read_only || in_standby == "on" then "" else "session is not read-only";
 
     return "";
-} @TempAllocates
+}
 
 close_transport :: (c: *Connection, now: bool) {
     #if TLS {

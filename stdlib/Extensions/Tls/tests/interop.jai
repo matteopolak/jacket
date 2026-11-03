@@ -298,7 +298,7 @@ FileOps :: #import "File";
         if !has(page, "Secure Renegotiation") && !has(page, "New, TLS") return "the page does not look like s_server's";
 
         return "";
-    } @TempAllocates
+    }
 
     check_client :: (client_config: *Tls.Tls_Config, version_flag: string, expected_version: string, certificate: string) {
         problem := "";

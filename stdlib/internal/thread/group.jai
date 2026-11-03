@@ -134,7 +134,7 @@ get_completed_work :: (group: *Thread_Group) -> [] *void {
     memcpy(result.data, collected.data, collected.count * size_of(*void));
 
     return result;
-} @TempAllocates
+}
 
 // Stops the workers after they finish what is queued and frees the group. Returns `false` if they did not all stop within
 // `timeout_milliseconds` (-1 waits as long as it takes).

@@ -225,7 +225,7 @@ safe_name :: (name: string) -> string {
     }
 
     return tprint("%~%", trimmed_dots(result), formatInt(hash & 0xffffff, base = 16, minimum_digits = 6));
-} @TempAllocates
+}
 
 trimmed_dots :: (name: string) -> string {
     result := name;

@@ -202,7 +202,7 @@ sqlstate_text :: (code: Sqlstate) -> string {
     text := talloc_string(SQLSTATE_LENGTH);
     for 0..SQLSTATE_LENGTH - 1 text[it] = cast,trunc(u8) ((cast(u64) code) >> (8 * it));
     return text;
-} @TempAllocates
+}
 
 // The code with only its class kept: `sqlstate_class(.UNIQUE_VIOLATION) == .INTEGRITY_CONSTRAINT_VIOLATION`.
 //

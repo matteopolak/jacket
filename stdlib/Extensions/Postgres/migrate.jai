@@ -100,7 +100,7 @@ read_migrations :: (folder: string, relative_to := "") -> [] Migration, problem:
     }
 
     return migrations, "";
-} @TempAllocates(1)
+}
 
 // The schema hash: SHA-256 chained over each migration's name and digest, in order, so it changes
 // when any file is renamed, edited, added or removed. Hex.
@@ -412,7 +412,7 @@ describe_failure :: (failure: Migration_Failure) -> string {
     if failure.line > 0 return tprint("migration %.sql failed at line %: %", failure.name, failure.line, failure.message);
 
     return tprint("migration %.sql failed: %", failure.name, failure.message);
-} @TempAllocates
+}
 
 #scope_file
 

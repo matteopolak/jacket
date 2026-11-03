@@ -79,7 +79,7 @@ type_label :: (info: *Type_Info) -> string {
         case .ANY; return "`Any`";
         case; return "that type";
     }
-} @TempAllocates
+}
 
 is_number :: (text: string) -> bool {
     start := 0;
@@ -451,7 +451,7 @@ display_name :: (field: *Field) -> string {
     }
 
     return tprint("--%", field.long);
-} @TempAllocates
+}
 
 range_literal :: (field: *Field) -> string {
     if !field.has_range return "NO_RANGE";
@@ -462,7 +462,7 @@ range_literal :: (field: *Field) -> string {
     if kind == .FLOAT return tprint("Range.{ present = true, flo = %, fhi = %, text = % }", field.range_lo, field.range_hi, text);
 
     return tprint("Range.{ present = true, lo = %, hi = %, text = % }", field.range_lo, field.range_hi, text);
-} @TempAllocates
+}
 
 // The statements that convert `value` (a string variable in scope) into `destination`, with
 // `display` naming the option in errors; on failure they return `failure`.
@@ -476,7 +476,7 @@ store_statement :: (field: *Field, destination: string, display: string, failure
     }
 
     return tprint("if !store_value(state, %, value, %, %) return %;\n", display, destination, range_literal(field), failure);
-} @TempAllocates
+}
 
 generate_command :: (analysis: *Analysis, has_version: bool) -> string { // jailint: allow(cognitive_complexity)
     out: String_Builder;

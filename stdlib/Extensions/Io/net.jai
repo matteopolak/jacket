@@ -221,7 +221,7 @@ address_to_string :: (address: Address) -> string {
     print_to_builder(*builder, "]:%", address.port);
 
     return builder_to_string(*builder, do_reset = true,, temp);
-} @TempAllocates
+}
 
 // The system's error number behind the last failed IO call of the running fiber.
 last_platform_code :: () -> s32 {

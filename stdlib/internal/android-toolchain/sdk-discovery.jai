@@ -33,7 +33,7 @@ is_adb_installed :: () -> bool, string {
     if !F.file_exists(path) return false, "";
 
     return true, copy_temporary_string(path);
-} @TempAllocates
+}
 
 #scope_module
 #import "Basic";

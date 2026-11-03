@@ -49,7 +49,7 @@ scramble :: (text: string, secret: string) -> string {
     }
 
     return .{ count = text.count, data = data };
-} @TempAllocates(0)
+}
 
 #scope_file
 using #import "Basic";

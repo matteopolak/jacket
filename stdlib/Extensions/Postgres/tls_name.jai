@@ -69,7 +69,7 @@
         }
 
         return tprint("server certificate for \"%\" (and % other name%) does not match host name \"%\"", first, examined - 1, ifx examined == 2 then "" else "s", host);
-    } @TempAllocates
+    }
 
     // The address `host` stands for and true, or false when `host` is a name.
     //
@@ -142,7 +142,7 @@
 
         // "192.0.2.1:0"
         return string.{ text.count - 2, text.data };
-    } @TempAllocates(0)
+    }
 
     // A name from the certificate against the host: equal without regard to case, or a wildcard
     // `*.rest` for a host with exactly one more label in front of `.rest`.

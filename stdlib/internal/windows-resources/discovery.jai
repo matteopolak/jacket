@@ -1,6 +1,6 @@
 find_windows_kit_root :: (version: string) -> string {
     return registry_text("SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots", version);
-} @TempAllocates(0)
+}
 
 find_windows_kit_root :: () -> (root: string, windows_version: s32) {
     ten := find_windows_kit_root("KitsRoot10");
@@ -31,7 +31,7 @@ find_visual_studio_in_a_ridiculous_garbage_way :: () -> (library_path := "", lin
     }
 
     return "", "";
-} @TempAllocates(0,1)
+}
 
 #scope_file
 R :: #import "internal/windows-registry/abi";
@@ -83,7 +83,7 @@ registry_text :: (key_name: string, value_name: string) -> string {
     }
 
     return "";
-} @TempAllocates(0)
+}
 
 close_registry_key :: (key: W.HKEY) {
     status := R.RegCloseKey(key);

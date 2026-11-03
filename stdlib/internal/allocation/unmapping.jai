@@ -110,7 +110,7 @@ Wrapper_Allocation :: struct {
 
     error_description :: (code: OS_Error_Code) -> string {
         return S.get_error_string(code);
-    } @TempAllocates(0)
+    }
 } else {
     P :: #import "internal/bindings/posix-api";
 

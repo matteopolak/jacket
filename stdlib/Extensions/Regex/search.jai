@@ -43,7 +43,7 @@ build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
     engine.fixed_length = fixed_length(*engine.program);
 
     return engine, true, .{};
-} @TempAllocates(2)
+}
 
 // Parses the pattern and compiles both programs into an engine, allocating all of it from `pool`.
 build_programs :: (pool: *Memory_Pool.Pool, pattern: string, options: Options) -> *Engine, bool, Error {

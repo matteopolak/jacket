@@ -54,7 +54,7 @@ convert_float_literal :: (c_value: string) -> value: string, success: bool {
     if trailing_dot return tprint("%0%", mantissa, slice(c_value, exponent_start, index - exponent_start)), true;
 
     return slice(c_value, 0, index), true;
-} @TempAllocates
+}
 
 convert_literal_value :: (c_value: string) -> value: string, success: bool, was_string := false {
     if !c_value return "", false, false;
@@ -120,7 +120,7 @@ convert_literal_value :: (c_value: string) -> value: string, success: bool, was_
     if index == 0 || !is_valid_int_literal_suffix(slice(c_value, index, c_value.count - index)) return "", false, false;
 
     return slice(c_value, 0, index), true, false;
-} @TempAllocates
+}
 
 #scope_file
 #import "Basic";

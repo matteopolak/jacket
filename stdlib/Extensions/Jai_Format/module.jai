@@ -149,7 +149,7 @@ format_apply_setting :: (config: *Format_Config, assignment: string) -> ok: bool
     if !ok return false, without_line_prefix(message);
 
     return true, "";
-} @TempAllocates
+}
 
 // The warning for an entry of `config.unknown_keys` found in the file `file`, with a suggestion
 // when a known key is close.
@@ -162,7 +162,7 @@ format_apply_setting :: (config: *Format_Config, assignment: string) -> ok: bool
 // ```
 format_unknown_setting_note :: (key: string, file: string) -> string {
     return unknown_setting_note(key, file);
-} @TempAllocates
+}
 
 // Whether `before` and `after` are the same program as far as the compiler can tell: the same
 // tokens, comments and the line breaks and adjacency the parser depends on. `format_source`
@@ -224,7 +224,7 @@ Format_File_Reader :: #type (path: string) -> text: string, ok: bool;
 format_find_config :: (directory: string, read: Format_File_Reader, stop := "") -> config: Format_Config, file: string, ok: bool, error: string {
     config, file, ok, error := find_config(directory, read, stop);
     return config, file, ok, error;
-} @TempAllocates(1,3)
+}
 
 // `a/b/c` -> `a/b`; `/a` -> `/`; `a` -> "".
 //

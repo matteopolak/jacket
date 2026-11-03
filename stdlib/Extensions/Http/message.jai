@@ -57,7 +57,7 @@ app_state :: (request: *Request, $T: Type) -> *T {
 // `1.2.3.4:5678` or `[::1]:5678`.
 peer_text :: (request: *Request) -> string {
     return Io.address_to_string(request.peer);
-} @TempAllocates
+}
 
 // Responses
 
@@ -434,7 +434,7 @@ error_text :: (error: Http_Error) -> string {
     }
 
     return error.detail;
-} @TempAllocates
+}
 
 // The response for an error: what `app.on_error` returns, or the problem document. Middleware use
 // it to answer without calling `next`.

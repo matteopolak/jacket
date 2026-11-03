@@ -513,7 +513,7 @@ forward_search :: (test: string, scalar: string) -> string {
     }
     return -1;
 JAI, test, scalar);
-} @TempAllocates
+}
 
 // The backward byte searches: the same loop from `end` down.
 backward_search :: (test: string, scalar: string) -> string {
@@ -561,7 +561,7 @@ backward_search :: (test: string, scalar: string) -> string {
     }
     return -1;
 JAI, test, scalar);
-} @TempAllocates
+}
 
 sum_lanes :: (sums: Vector(u8, $N)) -> int {
     total := 0;
@@ -585,7 +585,7 @@ dispatch :: (name: string, params: string, args: string, result: string, setup: 
 
 %7
 JAI, name, params, args, result, setup, body, wrappers(name, params, args, result, short));
-} @TempAllocates
+}
 
 // The part of dispatch that does not depend on the search: the two versions, the table and the
 // public procedure, around a `<name>_body` written by hand.
@@ -611,7 +611,7 @@ wrappers :: (name: string, params: string, args: string, result: string, short: 
     return %1_table(%3);
 }
 JAI, name, params, args, result, short);
-} @TempAllocates
+}
 
 count_loop :: () -> string {
     return #string JAI

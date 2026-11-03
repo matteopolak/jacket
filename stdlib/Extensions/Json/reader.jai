@@ -134,7 +134,7 @@ describe_byte :: (c: u8) -> string {
     if c >= 0x20 && c < 0x7f return tprint("`%`", string.{ 1, *c });
 
     return tprint("byte 0x%", FormatInt.{ value = c, base = 16, minimum_digits = 2 });
-} @TempAllocates
+}
 
 // "a string", "an object"...: what kind of value starts with `c`, or "" if none does.
 value_name :: (c: u8) -> string {

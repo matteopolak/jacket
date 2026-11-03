@@ -579,7 +579,7 @@ join_template :: (prefix: string, template: string) -> string {
     if ends_with(prefix, "/") && begins_with(template, "/") return tprint("%%", prefix, slice(template, 1, template.count - 1));
 
     return tprint("%%", prefix, template);
-} @TempAllocates
+}
 
 register_route :: (app: *App, method: Method, template: string, handler: Handler, middleware: [] Middleware, max_body: s64) {
     route := New(Route);

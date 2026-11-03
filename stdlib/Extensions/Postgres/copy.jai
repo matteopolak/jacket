@@ -551,4 +551,4 @@ put_copy_value :: (out: *[..] u8, value: Any, json_text: bool) -> string {
     put_bytes(out, bytes);
 
     return "";
-} @TempAllocates
+}

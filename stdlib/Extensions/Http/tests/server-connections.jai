@@ -18,7 +18,7 @@ echo_text :: (body: *Body) -> string, Http_Error {
     if error.kind != .NONE return "", error;
 
     return tprint("%:%", bytes.count, string.{ bytes.count, bytes.data }), .{};
-} @TempAllocates
+}
 
 slow_entered := 0;
 

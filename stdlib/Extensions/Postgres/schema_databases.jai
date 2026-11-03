@@ -64,7 +64,7 @@ SCHEMA_DATABASES_KEPT :: 3;
 // - hash: the schema hash of a set of migrations.
 schema_database_name :: (hash: string) -> string {
     return tprint("jacket_%", slice(hash, 0, 12));
-} @TempAllocates
+}
 
 // Picks (and builds when it is time) the schema database for the migrations in `folder`. `db` is
 // connected to the server's own database and `config` is how it was reached.
@@ -159,7 +159,7 @@ schema_target :: (state: *Schema_Databases, db: *Connection, config: Config, fol
     }
 
     return .{ database = schema_database_name(hashes[best]), setup = builder_to_string(*builder), setup_marks = marks }, "";
-} @TempAllocates
+}
 
 // Drops schema databases beyond the newest `SCHEMA_DATABASES_KEPT`. One still in use (by another
 // editor, say) is left for next time.
@@ -255,7 +255,7 @@ build_schema_database :: (db: *Connection, config: Config, migrations: [] Migrat
     }
 
     return "", .{}, "";
-} @TempAllocates
+}
 
 drop_built :: (db: *Connection, name: string) {
     error := execute_script(db, tprint("drop database if exists \"%\"", name));

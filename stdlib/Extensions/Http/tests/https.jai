@@ -32,7 +32,7 @@ echo_size :: (body: *Body) -> string, Http_Error {
     if error.kind != .NONE return "", error;
 
     return tprint("%", bytes.count), .{};
-} @TempAllocates
+}
 
 // Built once, before any server runs: filling 3 MB in the interpreter takes seconds on a slow machine,
 // which must not count against a request.
@@ -625,7 +625,7 @@ start_ragged :: (state: *Ragged, mode: Ragged_Mode, config: *Tls.Tls_Config) -> 
     Io.spawn(ragged_server, state);
 
     return tprint("https://%", Io.address_to_string(address));
-} @TempAllocates
+}
 
 stop_ragged :: (state: *Ragged) {
     Io.close(state.listener);

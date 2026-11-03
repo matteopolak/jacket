@@ -281,7 +281,7 @@ type_label :: (info: *Type_Info) -> string {
         case .ANY; return "`Any`";
         case; return "that type";
     }
-} @TempAllocates
+}
 
 // An opaque quoted note can carry JSON strings containing commas, quotes or spaces.
 // Keep unquoted `tags=a,b` working by splitting only outside a quoted value.
@@ -611,13 +611,13 @@ address_of :: (expression: string) -> string {
     if ends_with(expression, ".*") return slice(expression, 0, expression.count - 2);
 
     return tprint("*%", expression);
-} @TempAllocates
+}
 
 owner_type :: (base: string, owner: string) -> string {
     if !owner.count return "T";
 
     return tprint("type_of(%.%)", base, owner);
-} @TempAllocates
+}
 
 // ---- encoding ----
 
@@ -777,7 +777,7 @@ skip_condition :: (g: *Gen, leaf: *Leaf, value: string) -> string {
     fail(g, "`skip_serializing_if=null` needs a pointer or a Json_Value");
 
     return "false";
-} @TempAllocates
+}
 
 // The condition that `key` equals `text`: a length test, then whole words compared against
 // constants built here, so no bytes are walked at run time. (Little-endian loads, which every
@@ -1111,7 +1111,7 @@ type_label_text :: (info: *Type_Info) -> string {
     }
 
     return "that type";
-} @TempAllocates
+}
 
 emit_decode_enum :: (g: *Gen, target: string, info: *Type_Info_Enum, style: Enum_Style, on_fail: string) {
     out := *g.out;

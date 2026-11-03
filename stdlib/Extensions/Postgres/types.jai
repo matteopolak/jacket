@@ -319,7 +319,7 @@ uuid_text :: (u: Uuid) -> string {
     }
 
     return out;
-} @TempAllocates
+}
 
 // The integer part of a numeric; false for NaN, the infinities, or one out of range. A fraction
 // is truncated toward zero.

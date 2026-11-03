@@ -493,7 +493,7 @@ lower :: (s: string) -> string {
     result := copy_temporary_string(s);
     for *result if it.* >= 65 && it.* <= 90 it.* += 32;
     return result;
-} @TempAllocates
+}
 
 raw_close :: (text: string, i: int, tag: string) -> bool {
     if !begins_with(advance(text, i), "</") return false;

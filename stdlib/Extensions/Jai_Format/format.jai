@@ -70,7 +70,7 @@ format_text :: (src: string, config: Format_Config) -> Format_Result {
     result.ok = true;
 
     return result;
-} @TempAllocates(0)
+}
 
 // Lexes both texts and compares them: identical tokens (kind and text) in the same order, the
 // same comments up to whitespace, the same adjacency inside directive flags, and a line break
@@ -164,7 +164,7 @@ check_equivalent :: (before: string, after: string) -> bool, string {
     }
 
     return true, "";
-} @TempAllocates
+}
 
 // The parser looks at line breaks in a few places only: a line starting with `*`, `-`, `+` or
 // `<<` right after a `}` begins a new statement, and a directive on a new line ends a
@@ -1234,7 +1234,7 @@ run :: (f: *Formatter) -> bool, string {
     if f.emitted_any put(f, f.newline);
 
     return true, "";
-} @TempAllocates
+}
 
 // Writes the line break(s) and indentation before token i, which starts a line.
 start_line :: (f: *Formatter, i: int) -> bool, string {
@@ -1359,7 +1359,7 @@ line_indent :: (f: *Formatter, i: int) -> indent: int, ok: bool, message: string
     }
 
     return indent, true, "";
-} @TempAllocates
+}
 
 closes :: (open: string, close: string) -> bool {
     if close == "}" return open == "{" || open == ".{";
@@ -1465,7 +1465,7 @@ track :: (f: *Formatter, i: int) -> bool, string {
     }
 
     return true, "";
-} @TempAllocates
+}
 
 opens_switch :: (f: *Formatter, i: int) -> bool {
     p := f.prev_sig;

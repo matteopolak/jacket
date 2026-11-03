@@ -19,7 +19,7 @@ calendar_to_string :: (ct: Calendar_Time) -> string {
     calendar_clock(bytes.data, *count, ct);
 
     return copy_temporary_string(.{ count, bytes.data });
-} @TempAllocates
+}
 
 // Spells `ct` in ISO 8601 form such as `1970-01-01T00:00:00.000Z`, in temporary storage.
 //
@@ -43,7 +43,7 @@ calendar_to_iso_string :: (ct: Calendar_Time) -> string {
     if ct.time_zone == .UTC calendar_literal(bytes.data, *count, "Z");
 
     return copy_temporary_string(.{ count, bytes.data });
-} @TempAllocates
+}
 
 #scope_file
 calendar_months :: string.["January", "February", "March", "April", "May", "June",

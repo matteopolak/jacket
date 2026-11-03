@@ -146,7 +146,7 @@ derived_name :: (info: *Type_Info) -> string {
         case;
             return "";
     }
-} @TempAllocates
+}
 
 // The cases written as `struct { a: A; b: B; }`: one argument, a struct without a name.
 is_named_form :: (types: [] Type) -> bool {

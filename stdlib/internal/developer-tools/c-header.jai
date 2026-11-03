@@ -238,7 +238,7 @@ header_type_name :: (info: *Header_Info, ti: *Type_Info) -> string, bool {
     }
 
     return candidate, true;
-} @TempAllocates
+}
 
 header_persist_name :: (name: string, owner: Allocator) -> string {
     push_allocator(owner);
@@ -317,7 +317,7 @@ header_declarator :: (info: *Header_Info, ti: *Type_Info, name: string, function
     } else return "", header_error("unsupported reflected C ABI type");
 
     return tprint("% %", base, name), true;
-} @TempAllocates
+}
 
 header_define_type :: (info: *Header_Info, builder: *String_Builder, ti: *Type_Info, done: *[..] *Type_Info, active: *[..] *Type_Info) -> bool {
     if !ti return header_error("missing reflected type");
