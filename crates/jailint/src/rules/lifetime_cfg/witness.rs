@@ -2,7 +2,7 @@
 //! crossed. BFS picks a shortest witness; a trimmed DAG counts alternatives, or a cycle
 //! establishes infinitely many walks. None of this memory is retained in the fixed point.
 use super::resources::Op as Resource;
-use super::{Cx, Finding, HashMap, Model, Op, Span, VecDeque};
+use super::{Cx, Finding, HashMap, HashSet, Model, Op, Span, VecDeque};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 struct Node {
@@ -166,6 +166,7 @@ pub(super) fn strict_path(
         path.push(p);
         id = p;
     }
+    let mut seen_decisions = HashSet::default();
     let decisions = path
         .windows(2)
         .filter_map(|pair| match model.blocks[nodes[pair[0]].block].op {
@@ -181,6 +182,7 @@ pub(super) fn strict_path(
             }
             _ => None,
         })
+        .filter(|decision| seen_decisions.insert(*decision))
         .collect();
     (decisions, alternatives(&edges, &terminal))
 }

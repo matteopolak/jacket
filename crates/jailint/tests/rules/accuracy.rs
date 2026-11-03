@@ -124,3 +124,26 @@ fn lifetime_possible_temporary_results_are_checked_at_the_caller() {
     assert_eq!(strict.len(), 1, "{}", rendered(&strict, &text, &path));
     assert!(strict[0].start > text.find("retain_result").unwrap());
 }
+
+#[test]
+fn lifetime_repeated_branches_do_not_repeat_identical_witness_labels() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/counted-growth.jai");
+    let (lints, text) = lint_with(
+        &path,
+        &[("pointer_lifetime", Level::Warn)],
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(lints.len(), 4, "{}", rendered(&lints, &text, &path));
+    for lint in lints {
+        let mut seen = jaic::fxhash::HashSet::default();
+        for label in lint.secondary {
+            assert!(
+                seen.insert((label.path, label.start, label.end, label.message)),
+                "duplicate witness label"
+            );
+        }
+    }
+}

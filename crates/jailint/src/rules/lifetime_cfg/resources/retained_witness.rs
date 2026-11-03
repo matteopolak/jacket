@@ -1,6 +1,6 @@
 //! Shortest path from a particular start to release, excluding completion edges.
 use super::super::tasks::{Op as Task, Token};
-use super::{CfgOp, HashMap, Model, Span, VecDeque};
+use super::{CfgOp, HashMap, HashSet, Model, Span, VecDeque};
 
 type Witness = (Vec<(Span, bool)>, String, usize);
 
@@ -49,6 +49,7 @@ pub(super) fn path(model: &Model, start: usize, end: usize, token: Token) -> Opt
         current = p;
     }
     path.reverse();
+    let mut seen_decisions = HashSet::default();
     let decisions = path
         .windows(2)
         .filter_map(|pair| match model.blocks[pair[0]].op {
@@ -57,6 +58,7 @@ pub(super) fn path(model: &Model, start: usize, end: usize, token: Token) -> Opt
             }
             _ => None,
         })
+        .filter(|decision| seen_decisions.insert(*decision))
         .collect();
     Some((
         decisions,
