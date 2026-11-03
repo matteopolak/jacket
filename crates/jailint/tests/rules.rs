@@ -5,6 +5,11 @@
 //! - `bad.fixed.jai`, when present, is `bad.jai` with the machine-applicable fixes applied.
 //!   It stays a Jai file because `fixed_cases_are_clean` lints it again.
 //! - `good.jai` must produce nothing for that rule.
+//! - `example.jai` is the short, realistic case the rule's documentation page shows: exactly one
+//!   finding of that rule, snapshotted as `example.snap` (which the page embeds). The optional
+//!   `example-fixed.jai` is the same code fixed, and must produce nothing. An `example.toml`
+//!   (a `jacket.toml`) sets what the example needs, such as a lower `max_complexity`; the page
+//!   shows it.
 //!
 //! `tests/lint/suppressed/` holds code every rule would fire on, silenced in source: it must
 //! produce nothing with every rule enabled.
@@ -125,8 +130,9 @@ fn every_rule_has_cases() {
     for r in RULES {
         assert!(
             dir.join(r.name).join("bad.jai").is_file()
-                && dir.join(r.name).join("good.jai").is_file(),
-            "tests/lint/{}/ needs bad.jai and good.jai",
+                && dir.join(r.name).join("good.jai").is_file()
+                && dir.join(r.name).join("example.jai").is_file(),
+            "tests/lint/{}/ needs bad.jai, good.jai and example.jai (the case its docs page shows)",
             r.name
         );
     }
@@ -180,6 +186,37 @@ fn rules_match_their_cases(part: usize) {
             expect_file(&fixed_path, &fixed);
         } else {
             assert!(!fixed_path.exists(), "{} has no fixes to apply", r.name);
+        }
+        let example = case.join("example.jai");
+        let settings = case.join("example.toml");
+        let (lints, text) = if settings.exists() {
+            let mut config = Config::load(&settings).expect("example.toml is valid");
+            config.magic_number_in_tests = Some(true);
+            lint_with(&example, &case_levels(r.name, level), config)
+        } else {
+            lint(&example, &case_levels(r.name, level))
+        };
+        assert!(
+            lints.len() == 1 && lints[0].rule == r.name,
+            "{} example.jai must produce exactly one finding of the rule:\n{}",
+            r.name,
+            rendered(&lints, &text, &example)
+        );
+        test_support::assert_snapshot_in!(&case, "example", rendered(&lints, &text, &example));
+        let example_fixed = case.join("example-fixed.jai");
+        if example_fixed.exists() {
+            let (lints, text) = if settings.exists() {
+                let config = Config::load(&settings).expect("example.toml is valid");
+                lint_with(&example_fixed, &case_levels(r.name, level), config)
+            } else {
+                lint(&example_fixed, &case_levels(r.name, level))
+            };
+            assert!(
+                lints.is_empty(),
+                "{} example-fixed.jai still produces findings:\n{}",
+                r.name,
+                rendered(&lints, &text, &example_fixed)
+            );
         }
         let good = case.join("good.jai");
         let (lints, text) = lint(&good, &case_levels(r.name, level));

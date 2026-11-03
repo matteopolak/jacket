@@ -3,7 +3,7 @@
 //! runs it. `jacket doc` turns each `###` into a page of its own.
 use jaic::fxhash::HashMap;
 use jailint::RULES;
-use jailint::config::Category;
+use jailint::config::{Category, Level};
 use std::fmt::Write;
 
 /// The `### <name>` sections of the hand-written page, by name.
@@ -31,6 +31,55 @@ fn sections(md: &str) -> HashMap<String, String> {
     }
     if let Some((name, body)) = current {
         out.insert(name, body);
+    }
+    out
+}
+
+/// The repository root.
+const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
+
+/// The rule's example for its page: the code of `tests/lint/<rule>/example.jai`, the finding
+/// `example.snap` records for it (the test in `crates/jailint/tests/rules.rs` keeps that
+/// snapshot current), and the fixed code when there is one.
+fn example(rule: &jailint::RuleInfo) -> String {
+    let dir = format!("{ROOT}/tests/lint/{}", rule.name);
+    let read = |name: &str| {
+        std::fs::read_to_string(format!("{dir}/{name}"))
+            .unwrap_or_else(|e| panic!("tests/lint/{}/{name}: {e}", rule.name))
+    };
+    let code = read("example.jai");
+    let snap = read("example.snap");
+    // The snapshot is an insta file: a front matter, then the text.
+    let body = snap
+        .strip_prefix("---\n")
+        .and_then(|s| s.split_once("\n---\n"))
+        .map_or(snap.as_str(), |(_, body)| body);
+    let shown = format!("tests/lint/{}/example.jai", rule.name);
+    let finding: Vec<String> = body
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("= note: see http"))
+        .map(|l| l.replace(&shown, "example.jai"))
+        .collect();
+    let intro = if rule.default() == Level::Allow {
+        "Example (off by default; shown with the rule enabled):"
+    } else {
+        "Example:"
+    };
+    let mut out = format!("{intro}\n\n```jai\n{}\n```\n\n", code.trim_end());
+    if let Ok(settings) = std::fs::read_to_string(format!("{dir}/example.toml")) {
+        let _ = write!(
+            out,
+            "Shown with these settings:\n\n```toml\n{}\n```\n\n",
+            settings.trim_end()
+        );
+    }
+    let _ = write!(
+        out,
+        "```diagnostic\n{}\n```\n",
+        finding.join("\n").trim_end()
+    );
+    if let Ok(fixed) = std::fs::read_to_string(format!("{dir}/example-fixed.jai")) {
+        let _ = write!(out, "\nFixed:\n\n```jai\n{}\n```\n", fixed.trim_end());
     }
     out
 }
@@ -120,6 +169,7 @@ fn main() {
                 rule.category.as_str(),
                 rule.default().as_str(),
             );
+            let _ = write!(out, "\n{}", example(rule));
             if let Some(text) = prose.get(rule.name) {
                 let text = relink(text.trim(), &names);
                 if !text.is_empty() {

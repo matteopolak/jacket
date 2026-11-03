@@ -509,6 +509,7 @@ The repository's own `jacket.toml` excludes negative compiler cases, lint `bad` 
 1. Create `crates/jailint/src/rules/<name>.rs` with a doc comment (what, why, exactly when), `pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>)` and `pub(crate) const INFO: super::RuleInfo` (name, default level, summary).
 2. Add `<name>` to the `rules!` list in `rules/mod.rs`. The editor schema build reads the same list.
 3. Add `tests/lint/<name>/bad.jai` and `good.jai` (whole programs with `main`), then run `INSTA_UPDATE=always cargo test -p jailint` and read the output.
+   Also add `example.jai`, the 5 to 15 line program the rule's page shows: realistic code with exactly one finding of the rule (the test enforces it, and writes `example.snap`). `example-fixed.jai` is the same code fixed, and must produce nothing. An `example.toml` (a `jacket.toml`) holds settings the example needs, such as a lower `max_complexity`. The page embeds the code and `example.snap` when the reference is generated, so the diagnostic is never typed by hand; an off-by-default rule is linted with itself enabled.
 4. Run it over the repository and the upstream corpus with `-W <name>` and check every hit. A rule that is sometimes wrong costs more trust than it earns.
 5. Add a `### <name>` section here, then regenerate the reference: `PYTHONPATH=tools python3 tools/generators/generate_reference_docs.py`.
 
