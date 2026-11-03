@@ -303,7 +303,7 @@
                 "deny"
               ],
               "default": "deny",
-              "markdownDescription": "two `@FreesArgument` calls on the same variable with nothing in between (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#double_free)"
+              "markdownDescription": "two calls that free the same variable with nothing in between (`free(p); free(p);`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#double_free)"
             },
             "dropped_result": {
               "type": "string",
@@ -943,7 +943,7 @@
                 "deny"
               ],
               "default": "allow",
-              "markdownDescription": "a `@TempAllocates` result (`tprint`, `talloc`) stored in a global or through a pointer, or returned (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#temp_storage_escape)"
+              "markdownDescription": "temporary storage (`tprint`, `talloc`, or a procedure returning it) stored in a global or through a pointer, or returned (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#temp_storage_escape)"
             },
             "todo_marker": {
               "type": "string",
@@ -1143,7 +1143,7 @@
                 "deny"
               ],
               "default": "deny",
-              "markdownDescription": "a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#use_after_free)"
+              "markdownDescription": "a variable read after a call freed it (`free(p); use(p);`, or a wrapper that frees) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#use_after_free)"
             },
             "using_pollution": {
               "type": "string",

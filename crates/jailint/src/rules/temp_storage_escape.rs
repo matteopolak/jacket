@@ -5,7 +5,7 @@ use crate::{Finding, syntax::Cx};
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "temp_storage_escape",
     category: crate::config::Category::Pedantic,
-    summary: "a `@TempAllocates` result (`tprint`, `talloc`) stored in a global or through a pointer, or returned",
+    summary: "temporary storage (`tprint`, `talloc`, or a procedure returning it) stored in a global or through a pointer, or returned",
     check,
 };
 

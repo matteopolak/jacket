@@ -5,7 +5,7 @@ use crate::{Finding, syntax::Cx};
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "use_after_free",
     category: crate::config::Category::Correctness,
-    summary: "a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`)",
+    summary: "a variable read after a call freed it (`free(p); use(p);`, or a wrapper that frees)",
     check,
 };
 

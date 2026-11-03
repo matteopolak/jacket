@@ -244,7 +244,7 @@ The `defer` must be a single `@FreesArgument` call on a local.
 
 ### double_free
 
-Finds two `@FreesArgument` calls on the same variable with nothing in between.
+Finds two calls that free the same variable with nothing in between (`free(p); free(p);`).
 
 Category `correctness`, `deny` by default.
 
@@ -828,7 +828,7 @@ The first mention after the declaration, in the same block, decides; a write any
 
 ### use_after_free
 
-Finds a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`).
+Finds a variable read after a call freed it (`free(p); use(p);`, or a wrapper that frees).
 
 Category `correctness`, `deny` by default.
 
@@ -4939,7 +4939,7 @@ A variable declaration (`name := ...`, `name: T`) in a nested block, loop body o
 
 ### temp_storage_escape
 
-Finds a `@TempAllocates` result (`tprint`, `talloc`) stored in a global or through a pointer, or returned.
+Finds temporary storage (`tprint`, `talloc`, or a procedure returning it) stored in a global or through a pointer, or returned.
 
 Category `pedantic`, `allow` by default.
 

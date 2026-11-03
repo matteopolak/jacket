@@ -5,7 +5,7 @@ use crate::{Finding, syntax::Cx};
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "double_free",
     category: crate::config::Category::Correctness,
-    summary: "two `@FreesArgument` calls on the same variable with nothing in between",
+    summary: "two calls that free the same variable with nothing in between (`free(p); free(p);`)",
     check,
 };
 
