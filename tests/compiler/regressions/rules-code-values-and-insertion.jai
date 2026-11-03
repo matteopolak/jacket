@@ -64,6 +64,7 @@ make_decl :: (name: string) -> string {
 
 twice_with_defer :: (c: Code) #expand {
     for 0..1 {
+        // jailint: allow(temp_storage_escape): the log is read before the next reset in this test.
         defer array_add(*log, tprint("d%", it));
         #insert,scope() c;
     }

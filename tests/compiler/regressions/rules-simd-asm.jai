@@ -280,7 +280,7 @@ main :: () {
         b: [16] s32;
 
         for 0..15 {
-            a[it] = xx it;
+            a[it] = cast(s32) it;
             b[it] = 8;
         }
 

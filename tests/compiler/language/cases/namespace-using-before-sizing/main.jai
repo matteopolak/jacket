@@ -13,6 +13,8 @@ using Space;
 
 main :: () {
     entry := Entry.{ id = 5 };
+
+    // jailint: allow(returned_local_address): main outlives every use of the registry entry.
     registry.items[0] = *entry;
     assert(registry.items[0].id == 5, "a global sized before `using Space;` names what that brings in");
     print("ok\n");

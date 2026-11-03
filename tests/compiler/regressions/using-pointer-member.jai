@@ -20,6 +20,7 @@ f :: () {
 main :: () {
     p: P;
 
+    // jailint: allow(returned_local_address): main outlives every use of the editor pointer.
     editors.active = *p;
     array_add(*p.ids, 1);
     f();

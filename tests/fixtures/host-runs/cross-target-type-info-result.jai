@@ -14,6 +14,7 @@ make :: () -> Holder {
     h.info = type_info(float32);
     array_add(*h.values, 3);
 
+    // jailint: allow(returned_local_address): the test checks that a compile-time result keeps the boxed value.
     return h;
 }
 

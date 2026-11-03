@@ -14,13 +14,14 @@ using,map(prefix_net) Net :: #import "Net_Pack";
 
 prefix_net :: (names: [] string) {
     for *names {
-        // jailint: allow(temp_storage_escape): the compiler consumes mapped names during this compile-time callback.
         if begins_with(it.*, "NET_") it.* = tprint("SDLNet_%", slice(it.*, 4, it.*.count - 4));
     }
 }
 
 main :: () {
     address := SDLNet_Address.{ port = 8080 };
+
+    // jailint: allow(returned_local_address): main outlives every use of the peer address.
     peer.address = *address;
     assert(SDLNet_port_of(peer.address) == 8080, "mapped names resolve in types declared before the import");
     print("ok\n");
