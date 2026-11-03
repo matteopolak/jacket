@@ -47,6 +47,8 @@ rustPlatform.buildRustPackage {
       ../crates
       ../stdlib
       ../examples
+      # jailint embeds each rule's `bad.jai` to show on its documentation page.
+      (lib.fileset.fileFilter (file: file.name == "bad.jai") ../tests/lint)
     ];
   };
 
