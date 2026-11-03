@@ -78,14 +78,16 @@ compare_all_cuts :: (run: Run, input: string, name: string) {
     http_use_simd = true;
     whole := observe(run, input, .{});
 
-    check(observe(run, input, .{ -1 }) == whole, tprint("% differs byte by byte", name));
+    defer free(whole);
+
+    check(observe(run, input, .{ -1 },, temp) == whole, tprint("% differs byte by byte", name));
 
     for 1..3 {
         cuts := random_cuts(input.count, 2 + random(5));
 
         defer array_reset(*cuts);
 
-        if observe_at(run, input, cuts) != whole {
+        if observe_at(run, input, cuts,, temp) != whole {
             check(false, tprint("% differs when cut at %", name, cuts));
 
             break;
@@ -94,6 +96,8 @@ compare_all_cuts :: (run: Run, input: string, name: string) {
 
     http_use_simd = false;
     scalar := observe(run, input, .{});
+
+    defer free(scalar);
 
     http_use_simd = true;
 

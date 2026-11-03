@@ -75,7 +75,7 @@ same :: (text: string, label: string) {
 
     check(error_a.kind == error_b.kind && error_a.offset == error_b.offset && error_a.path == error_b.path && error_a.message == error_b.message, tprint("% typed errors differ", label));
 
-    if error_a.kind == .NONE check(to_json(typed_a) == to_json(typed_b), tprint("% typed values differ", label));
+    if error_a.kind == .NONE check(to_json(typed_a,, temp) == to_json(typed_b,, temp), tprint("% typed values differ", label));
 }
 
 Fuzz_Target :: struct {

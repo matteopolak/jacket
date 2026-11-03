@@ -40,36 +40,36 @@ text :: (value: float64) -> string {
 }
 
 printing :: () {
-    check(text(0.1) == "0.1", "0.1");
-    check(text(0.1 + 0.2) == "0.30000000000000004", "0.1 + 0.2");
-    check(text(1.0) == "1.0", "an integral float keeps a point");
-    check(text(100.0) == "100.0", "100");
-    check(text(123456789.0) == "123456789.0", "123456789");
-    check(text(1.0e20) == "100000000000000000000.0", "1e20");
-    check(text(1.0e21) == "1e21", "1e21");
-    check(text(1.5e300) == "1.5e300", "1.5e300");
-    check(text(1.0e-6) == "0.000001", "1e-6");
-    check(text(1.0e-7) == "1e-7", "1e-7");
-    check(text(1.25e-9) == "1.25e-9", "1.25e-9");
-    check(text(-2.5) == "-2.5", "negative");
-    check(text(0.0) == "0.0", "zero");
-    check(text(-0.0) == "-0.0", "negative zero");
-    check(text(5.0e-324) == "5e-324", "smallest subnormal");
-    check(text(1.7976931348623157e308) == "1.7976931348623157e308", "largest");
-    check(text(9007199254740993.0) == "9007199254740992.0", "2^53 + 1 rounds");
+    check(text(0.1,, temp) == "0.1", "0.1");
+    check(text(0.1 + 0.2,, temp) == "0.30000000000000004", "0.1 + 0.2");
+    check(text(1.0,, temp) == "1.0", "an integral float keeps a point");
+    check(text(100.0,, temp) == "100.0", "100");
+    check(text(123456789.0,, temp) == "123456789.0", "123456789");
+    check(text(1.0e20,, temp) == "100000000000000000000.0", "1e20");
+    check(text(1.0e21,, temp) == "1e21", "1e21");
+    check(text(1.5e300,, temp) == "1.5e300", "1.5e300");
+    check(text(1.0e-6,, temp) == "0.000001", "1e-6");
+    check(text(1.0e-7,, temp) == "1e-7", "1e-7");
+    check(text(1.25e-9,, temp) == "1.25e-9", "1.25e-9");
+    check(text(-2.5,, temp) == "-2.5", "negative");
+    check(text(0.0,, temp) == "0.0", "zero");
+    check(text(-0.0,, temp) == "-0.0", "negative zero");
+    check(text(5.0e-324,, temp) == "5e-324", "smallest subnormal");
+    check(text(1.7976931348623157e308,, temp) == "1.7976931348623157e308", "largest");
+    check(text(9007199254740993.0,, temp) == "9007199254740992.0", "2^53 + 1 rounds");
 
     one: float32 = 0.1;
 
-    check(to_json(one) == "0.1", "float32 0.1 is short");
-    check(to_json(cast(float32) 16777216) == "16777216.0", "float32 2^24");
-    check(to_json(cast(float32) 3.4028235e38) == "3.4028235e38", "float32 max");
-    check(to_json(cast(float32) 1.0e-45) == "1e-45", "float32 smallest");
-    check(to_json(cast(float32) 0.3) == "0.3", "float32 0.3");
+    check(to_json(one,, temp) == "0.1", "float32 0.1 is short");
+    check(to_json(cast(float32) 16777216,, temp) == "16777216.0", "float32 2^24");
+    check(to_json(cast(float32) 3.4028235e38,, temp) == "3.4028235e38", "float32 max");
+    check(to_json(cast(float32) 1.0e-45,, temp) == "1e-45", "float32 smallest");
+    check(to_json(cast(float32) 0.3,, temp) == "0.3", "float32 0.3");
 
     zero: float64 = 0;
 
-    check(to_json(zero / zero) == "null", "NaN is null");
-    check(to_json(1.0 / zero) == "null" && to_json(-1.0 / zero) == "null", "infinity is null");
+    check(to_json(zero / zero,, temp) == "null", "NaN is null");
+    check(to_json(1.0 / zero,, temp) == "null" && to_json(-1.0 / zero,, temp) == "null", "infinity is null");
 }
 
 parsing :: () {
@@ -187,6 +187,8 @@ random_round_trips :: (count: int) {
             bad += 1;
         } else {
             trimmed := to_json(value);
+
+            defer free(trimmed);
 
             while trimmed.count > 1 && trimmed[trimmed.count - 1] == #char "0" && trimmed[trimmed.count - 2] != #char "." trimmed.count -= 1;
 

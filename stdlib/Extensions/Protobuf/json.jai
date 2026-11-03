@@ -1892,11 +1892,11 @@ json_writer_code :: (T: Type) -> string {
     for plan {
         if it.oneof.count {
             forced := ifx it.flags == "0" then "Json_Flags.FORCE" else tprint("% | .FORCE", it.flags);
-            print(*b, "if cast(s64) v.%.which == % && !json_put(o, first, *v.%, %, %, %, %) return false;\n", it.oneof, it.index, it.access, json_jai_literal(it.json, true), json_jai_literal(it.proto, true), forced, it.names);
+            print(*b, "if cast(s64) v.%.which == % && !json_put(o, first, *v.%, %, %, %, %) return false;\n", it.oneof, it.index, it.access, json_jai_literal(it.json, true,, temp), json_jai_literal(it.proto, true,, temp), forced, it.names);
         } else if it.is_map {
-            print(*b, "if !json_put_map(o, first, *v.%, %, %, %, %) return false;\n", it.access, json_jai_literal(it.json, true), json_jai_literal(it.proto, true), it.flags, it.names);
+            print(*b, "if !json_put_map(o, first, *v.%, %, %, %, %) return false;\n", it.access, json_jai_literal(it.json, true,, temp), json_jai_literal(it.proto, true,, temp), it.flags, it.names);
         } else {
-            print(*b, "if !json_put(o, first, *v.%, %, %, %, %) return false;\n", it.access, json_jai_literal(it.json, true), json_jai_literal(it.proto, true), it.flags, it.names);
+            print(*b, "if !json_put(o, first, *v.%, %, %, %, %) return false;\n", it.access, json_jai_literal(it.json, true,, temp), json_jai_literal(it.proto, true,, temp), it.flags, it.names);
         }
     }
 
@@ -1953,12 +1953,12 @@ json_reader_code :: (T: Type, in_any: bool) -> string {
 
             for plan {
                 if it.json.count == length {
-                    print(*b, "% key == % field = %;\n", word, json_jai_literal(it.json, false), it_index);
+                    print(*b, "% key == % field = %;\n", word, json_jai_literal(it.json, false,, temp), it_index);
                     word = "else if";
                 }
 
                 if it.proto.count == length && it.proto != it.json {
-                    print(*b, "% key == % field = %;\n", word, json_jai_literal(it.proto, false), it_index);
+                    print(*b, "% key == % field = %;\n", word, json_jai_literal(it.proto, false,, temp), it_index);
                     word = "else if";
                 }
             }
@@ -1996,7 +1996,7 @@ json_reader_code :: (T: Type, in_any: bool) -> string {
             else print(*b, "ok = json_get(i, *v.%, %, %);\n", it.access, it.flags, it.names);
         }
 
-        print(*b, "if !ok { Json.json_path_key(r, %); return false; }\n", json_jai_literal(it.json, false));
+        print(*b, "if !ok { Json.json_path_key(r, %); return false; }\n", json_jai_literal(it.json, false,, temp));
     }
 
     append(*b, "}\n}\nreturn true;\n");

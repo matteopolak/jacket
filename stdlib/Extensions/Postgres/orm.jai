@@ -695,7 +695,7 @@ orm_load_code :: (T: Type, name: string, kind: Orm_Relation_Kind, target: string
 
     append(*builder, "}\n");
 
-    print_to_builder(*builder, "orm_rows, orm_error := query_as(Orm_Target, db, #run orm_load_sql(Orm_Target, %, Orm_Key_Types)", jai_string(join(..relation.target_columns, ",",, temp)));
+    print_to_builder(*builder, "orm_rows, orm_error := query_as(Orm_Target, db, #run orm_load_sql(Orm_Target, %, Orm_Key_Types)", jai_string(join(..relation.target_columns, ",",, temp),, temp));
     for relation.own_columns print_to_builder(*builder, ", cast([] Orm_K%1) orm_keys_%1", it_index);
 
     append(*builder, project);
@@ -1777,7 +1777,7 @@ orm_project_file :: (call: Code) -> string {
 
 // `, project_file = "<the caller's file>"`, the last argument of a statement the ORM writes.
 orm_project_argument :: (call: Code) -> string {
-    return tprint(", project_file = %", jai_string(orm_project_file(call)));
+    return tprint(", project_file = %", jai_string(orm_project_file(call),, temp));
 } @TempAllocates
 
 // The row type of a `select`: `T`, or `Partial(T, fields)`.
@@ -1819,7 +1819,7 @@ orm_partial_body :: (T: Type, fields: string) -> string {
     builder.allocator = temp;
 
     for name: split(list, ",",, temp) {
-        print_to_builder(*builder, "%: #run orm_member_type(T, %);", name, jai_string(name));
+        print_to_builder(*builder, "%: #run orm_member_type(T, %);", name, jai_string(name,, temp));
         for member_of(T, name).notes print_to_builder(*builder, " @%", it);
         append(*builder, "\n");
     }
@@ -1852,7 +1852,7 @@ orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set
     orm_prelude(*builder, *sql);
 
     kind_text := tprint(".%", kind);
-    sql_text := tprint("#run orm_sql_text(T, %, where, %, %, %, %, %, %, Orm_Types, Orm_Relations, %)", kind_text, ifx kind == .SELECT then "order_by" else "where", ifx kind == .UPDATE then "set" else "where", desc, limit, offset, jai_string(from_sql), jai_string(columns));
+    sql_text := tprint("#run orm_sql_text(T, %, where, %, %, %, %, %, %, Orm_Types, Orm_Relations, %)", kind_text, ifx kind == .SELECT then "order_by" else "where", ifx kind == .UPDATE then "set" else "where", desc, limit, offset, jai_string(from_sql,, temp), jai_string(columns,, temp));
 
     if kind == .SELECT print_to_builder(*builder, "orm_result, orm_error := query_as(%, db, %", orm_select_row(fields), sql_text);
     else print_to_builder(*builder, "orm_result, orm_error := execute(db, %", sql_text);
@@ -1885,7 +1885,7 @@ orm_prelude :: (builder: *String_Builder, sql: *Orm_Sql) {
 
 // A parameter's Jai text, inserted where the call was written.
 orm_insert_text :: (text: string) -> string {
-    return tprint("(#insert,scope(call) %)", jai_string(text));
+    return tprint("(#insert,scope(call) %)", jai_string(text,, temp));
 } @TempAllocates
 
 // Parameter `index` as an argument: its text where the filter was written, through its wrap.
@@ -1950,14 +1950,14 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
             if !entry.lateral array_add(*preload, index);
         } else if entry.relation {
             relation_index := array_find_index(sql.relation_names, orm_relation_target_name(T, entry.relation));
-            print_to_builder(*builder, "Orm_F% :: #run orm_member_type(Orm_R%, %);\n", index, relation_index, jai_string(entry.name));
+            print_to_builder(*builder, "Orm_F% :: #run orm_member_type(Orm_R%, %);\n", index, relation_index, jai_string(entry.name,, temp));
             array_add_if_unique(*relations, entry.relation);
         } else if entry.pruned {
-            print_to_builder(*builder, "Orm_D% :: #run orm_json_document_type(T, %);\n", index, jai_string(entry.name));
+            print_to_builder(*builder, "Orm_D% :: #run orm_json_document_type(T, %);\n", index, jai_string(entry.name,, temp));
             print_to_builder(*builder, "Orm_Doc% :: struct {\n", index);
 
             for entry.fields {
-                print_to_builder(*builder, "    %1: type_of(Orm_D%2.%1) = #run orm_initial_value(Orm_D%2, %3, type_of(Orm_D%2.%1));", it, index, jai_string(it));
+                print_to_builder(*builder, "    %1: type_of(Orm_D%2.%1) = #run orm_initial_value(Orm_D%2, %3, type_of(Orm_D%2.%1));", it, index, jai_string(it,, temp));
                 for orm_json_document_notes(T, entry.name, it) print_to_builder(*builder, " @%", it);
                 append(*builder, "\n");
             }
@@ -1973,7 +1973,7 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
             entry := orm_read_entry(it);
 
             if entry.lateral {
-                print_to_builder(*builder, "    #insert #run orm_lateral_fields(Orm_M%1, %2, \"Orm_M%1\");\n", it_index, jai_string(entry.name));
+                print_to_builder(*builder, "    #insert #run orm_lateral_fields(Orm_M%1, %2, \"Orm_M%1\");\n", it_index, jai_string(entry.name,, temp));
                 continue;
             }
 
@@ -1985,7 +1985,7 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
                 nullable := orm_is_nullable(orm_member_type(T, entry.name));
                 print_to_builder(*builder, "    %: %Json(Orm_Doc%)%;\n", entry.name, ifx nullable then "Nullable(" else "", it_index, ifx nullable then ")" else "");
             } else {
-                print_to_builder(*builder, "    %: #run orm_member_type(T, %);\n", entry.name, jai_string(entry.name));
+                print_to_builder(*builder, "    %: #run orm_member_type(T, %);\n", entry.name, jai_string(entry.name,, temp));
             }
         }
 
@@ -2015,7 +2015,7 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
         alias := orm_relation_alias(entry);
 
         if entry.lateral {
-            print_to_builder(*copies, "        #insert #run orm_lateral_copies(Orm_M%1, %2, \"Orm_M%1\");\n", it_index, jai_string(entry.name));
+            print_to_builder(*copies, "        #insert #run orm_lateral_copies(Orm_M%1, %2, \"Orm_M%1\");\n", it_index, jai_string(entry.name,, temp));
             continue;
         }
 
@@ -2039,7 +2039,7 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
 
     row_type := ifx columns then "Orm_Partial" else "T";
 
-    print_to_builder(*builder, "orm_rows, orm_error := query_as(%, q.db, #run orm_sql_text(T, .SELECT, where, order_by, where, %, %, %, %, Orm_Types, Orm_Relations, %)", row_type, desc, limit, offset, jai_string(from_sql), jai_string(columns));
+    print_to_builder(*builder, "orm_rows, orm_error := query_as(%, q.db, #run orm_sql_text(T, .SELECT, where, order_by, where, %, %, %, %, Orm_Types, Orm_Relations, %)", row_type, desc, limit, offset, jai_string(from_sql,, temp), jai_string(columns,, temp));
     for sql.parameters print_to_builder(*builder, ", %", orm_argument(*sql, it_index));
 
     append(*builder, orm_project_argument(call));
@@ -2082,7 +2082,7 @@ JAI);
         for preload {
             name := orm_read_entry(entries[it]).name;
             print_to_builder(*builder, "    orm_many_%1: Loaded_Many(Orm_M%2);\n    defer free_loaded(*orm_many_%1);\n", it, it);
-            print_to_builder(*builder, "    if !orm_failed {\n        orm_load_error: Pg_Error;\n        orm_many_%1, orm_load_error = orm_load_many_as(q.db, orm_parents, %2, Orm_M%1, %3);\n", it, jai_string(name), jai_string(orm_project_file(call)));
+            print_to_builder(*builder, "    if !orm_failed {\n        orm_load_error: Pg_Error;\n        orm_many_%1, orm_load_error = orm_load_many_as(q.db, orm_parents, %2, Orm_M%1, %3);\n", it, jai_string(name,, temp), jai_string(orm_project_file(call),, temp));
             append(*builder, "        if orm_load_error.kind != .NONE {\n            if q.error q.error.* = orm_load_error;\n            orm_failed = true;\n        }\n    }\n");
         }
 
@@ -2482,7 +2482,7 @@ orm_copy_code :: (T: Type) -> string {
 
     statement := tprint("copy % (%) from stdin (format binary)", table, builder_to_string(*names,, temp));
 
-    return tprint("stored, error := copy_in(db, %, values, .[%]);\nreturn stored, error;\n", jai_string(statement), builder_to_string(*members,, temp));
+    return tprint("stored, error := copy_in(db, %, values, .[%]);\nreturn stored, error;\n", jai_string(statement,, temp), builder_to_string(*members,, temp));
 } @TempAllocates
 
 orm_insert_code :: (T: Type, call: Code) -> string {
@@ -2532,7 +2532,7 @@ orm_insert_code :: (T: Type, call: Code) -> string {
     builder: String_Builder;
     builder.allocator = temp;
 
-    print_to_builder(*builder, "rows, error := query_as(T, db, %1%2%3);\n", jai_string(statement), builder_to_string(*values,, temp), orm_project_argument(call));
+    print_to_builder(*builder, "rows, error := query_as(T, db, %1%2%3);\n", jai_string(statement,, temp), builder_to_string(*values,, temp), orm_project_argument(call));
     append(*builder, "row: T;\n");
     append(*builder, "if error.kind != .NONE return row, error;\n");
     append(*builder, "detached := Rows(T).{ result = detach_to_temp(*rows.result), map = rows.map };\n");

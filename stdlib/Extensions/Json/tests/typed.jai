@@ -184,7 +184,7 @@ types :: () {
     found2, entries := table_find(*back.w, "k");
 
     check(found2 && entries.count == 1 && entries[0].zip == 1, "table of arrays");
-    check(to_json(back) == text, "encoding the decoded value gives the same text");
+    check(to_json(back,, temp) == text, "encoding the decoded value gives the same text");
 
     check(contains(text, "\"m\":\"SUPER_USER\""), "enum by name");
     check(contains(text, "\"n\":7"), "as_number");
@@ -260,21 +260,21 @@ attributes :: () {
     wrapper, error7 := from_json(Wrapper, "[1,2,3]");
 
     check(error7.kind == .NONE && wrapper.inner.count == 3, "transparent decode");
-    check(to_json(wrapper) == "[1,2,3]", "transparent encode");
+    check(to_json(wrapper,, temp) == "[1,2,3]", "transparent encode");
 
     skips: Skips;
     skips.both = 1;
     skips.only_out = 2;
     skips.only_in = 3;
     skips.visible = 4;
-    check(to_json(skips) == "{\"only_out\":2,\"visible\":4}", tprint("skip_serializing_if and skip: %", to_json(skips)));
+    check(to_json(skips,, temp) == "{\"only_out\":2,\"visible\":4}", tprint("skip_serializing_if and skip: %", to_json(skips,, temp)));
     skips.zero = 1;
     skips.flag = true;
     n := 5;
 
     skips.maybe = *n;
     array_add(*skips.items, 1);
-    check(to_json(skips) == "{\"only_out\":2,\"zero\":1,\"maybe\":5,\"flag\":true,\"items\":[1],\"visible\":4}", tprint("skip_serializing_if keeps non-empty values: %", to_json(skips)));
+    check(to_json(skips,, temp) == "{\"only_out\":2,\"zero\":1,\"maybe\":5,\"flag\":true,\"items\":[1],\"visible\":4}", tprint("skip_serializing_if keeps non-empty values: %", to_json(skips,, temp)));
 
     _, error8 := from_json(Skips, "{\"both\":9,\"only_out\":9,\"only_in\":8,\"visible\":1}");
 
@@ -317,14 +317,14 @@ Upper :: struct @json(rename_all=UPPERCASE) {
 }
 
 rules :: () {
-    check(to_json(Camel.{}) == "{\"displayName\":0,\"httpServer\":0}", "camelCase");
-    check(to_json(Pascal.{}) == "{\"DisplayName\":0}", "PascalCase");
-    check(to_json(Snake.{}) == "{\"display_name\":0,\"http_server\":0,\"parse2_json\":0}", tprint("snake_case: %", to_json(Snake.{})));
-    check(to_json(Kebab.{}) == "{\"display-name\":0}", "kebab-case");
-    check(to_json(Screaming.{}) == "{\"DISPLAY_NAME\":0}", "SCREAMING_SNAKE_CASE");
-    check(to_json(Screaming_Kebab.{}) == "{\"DISPLAY-NAME\":0}", "SCREAMING-KEBAB-CASE");
-    check(to_json(Lower.{}) == "{\"display_name\":0}", "lowercase");
-    check(to_json(Upper.{}) == "{\"DISPLAY_NAME\":0}", "UPPERCASE");
+    check(to_json(Camel.{},, temp) == "{\"displayName\":0,\"httpServer\":0}", "camelCase");
+    check(to_json(Pascal.{},, temp) == "{\"DisplayName\":0}", "PascalCase");
+    check(to_json(Snake.{},, temp) == "{\"display_name\":0,\"http_server\":0,\"parse2_json\":0}", tprint("snake_case: %", to_json(Snake.{},, temp)));
+    check(to_json(Kebab.{},, temp) == "{\"display-name\":0}", "kebab-case");
+    check(to_json(Screaming.{},, temp) == "{\"DISPLAY_NAME\":0}", "SCREAMING_SNAKE_CASE");
+    check(to_json(Screaming_Kebab.{},, temp) == "{\"DISPLAY-NAME\":0}", "SCREAMING-KEBAB-CASE");
+    check(to_json(Lower.{},, temp) == "{\"display_name\":0}", "lowercase");
+    check(to_json(Upper.{},, temp) == "{\"DISPLAY_NAME\":0}", "UPPERCASE");
 }
 
 errors :: () {
@@ -407,7 +407,7 @@ values :: () {
     json_set(*v, "list", list);
     json_set(*v, "name", json_string("replaced"));
 
-    check(to_json(v) == "{\"name\":\"replaced\",\"n\":-5,\"f\":2.5,\"list\":[true,null]}", to_json(v));
+    check(to_json(v,, temp) == "{\"name\":\"replaced\",\"n\":-5,\"f\":2.5,\"list\":[true,null]}", to_json(v));
 
     n, ok := json_as_s64(json_get(*v, "n"));
 
@@ -424,7 +424,7 @@ values :: () {
 
     big, error := from_json(Json_Value, "[123456789012345678901234567890, 18446744073709551615]");
 
-    check(error.kind == .NONE && to_json(big) == "[123456789012345678901234567890,18446744073709551615]", "big integers keep their digits");
+    check(error.kind == .NONE && to_json(big,, temp) == "[123456789012345678901234567890,18446744073709551615]", "big integers keep their digits");
     u, ok4 := json_as_u64(json_at(*big, 1));
 
     check(ok4 && u == 18446744073709551615, "u64");
@@ -435,7 +435,7 @@ values :: () {
     builder: String_Builder;
 
     write_json(*builder, v);
-    check(builder_to_string(*builder,, temp) == to_json(v), "write_json");
+    check(builder_to_string(*builder,, temp) == to_json(v,, temp), "write_json");
 
     free_json(*v);
     free_json(*big);
@@ -470,6 +470,8 @@ strings :: () {
 
     invalid := "a\xffb";
     out := to_json(invalid);
+
+    defer free(out);
 
     check(out == "\"a\xef\xbf\xbdb\"", "invalid UTF-8 is replaced when encoding");
 }

@@ -523,7 +523,7 @@ proto_format_code :: (template: string, destination: string) -> string {
         if it != #char "%" continue;
 
         literal := slice(template, start, it_index - start);
-        if literal.count print(*b, "memcpy(out + pos, %.data, %); pos += %;\n", proto_quote(literal), literal.count, literal.count);
+        if literal.count print(*b, "memcpy(out + pos, %.data, %); pos += %;\n", proto_quote(literal,, temp), literal.count, literal.count);
 
         print(*b, "pos += proto_argument_write(out + pos, args[%]);\n", argument);
         argument += 1;
@@ -531,7 +531,7 @@ proto_format_code :: (template: string, destination: string) -> string {
     }
 
     literal := slice(template, start, template.count - start);
-    if literal.count print(*b, "memcpy(out + pos, %.data, %);\n", proto_quote(literal), literal.count);
+    if literal.count print(*b, "memcpy(out + pos, %.data, %);\n", proto_quote(literal,, temp), literal.count);
 
     print(*b, "assert(args.count == %);\n", argument);
 

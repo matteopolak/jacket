@@ -138,17 +138,17 @@ capturing :: () {
 replacing :: () {
     re := compiled("(?<first>\\w+) (?<second>\\w+)");
 
-    check(Regex.replace(*re, "hello world, big cat", "$second $first") == "world hello, big cat", "replace");
-    check(Regex.replace_all(*re, "hello world, big cat", "${second}_$1") == "world_hello, cat_big", "replace_all");
-    check(Regex.replace_all(*re, "a b", "$$1") == "$1", "a literal dollar");
-    check(Regex.replace_all(*re, "a b", "$3|$nope|") == "||", "missing groups give nothing");
+    check(Regex.replace(*re, "hello world, big cat", "$second $first",, temp) == "world hello, big cat", "replace");
+    check(Regex.replace_all(*re, "hello world, big cat", "${second}_$1",, temp) == "world_hello, cat_big", "replace_all");
+    check(Regex.replace_all(*re, "a b", "$$1",, temp) == "$1", "a literal dollar");
+    check(Regex.replace_all(*re, "a b", "$3|$nope|",, temp) == "||", "missing groups give nothing");
     digits := compiled("\\d");
 
-    check(Regex.replace_n(*digits, "1a2b3", "#", 2) == "#a#b3", "replace_n");
-    check(Regex.replace_all(*digits, "none", "#") == "none", "no matches");
+    check(Regex.replace_n(*digits, "1a2b3", "#", 2,, temp) == "#a#b3", "replace_n");
+    check(Regex.replace_all(*digits, "none", "#",, temp) == "none", "no matches");
     empty := compiled("");
 
-    check(Regex.replace_all(*empty, "aé", "-") == "-a-é-", "empty matches between characters");
+    check(Regex.replace_all(*empty, "aé", "-",, temp) == "-a-é-", "empty matches between characters");
 
     comma := compiled("\\s*,\\s*");
     parts := Regex.split(*comma, "a , b,,c");

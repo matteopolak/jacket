@@ -206,10 +206,12 @@ describe_head :: (out: *String_Builder, parser: *Parser) {
 observe_every_cut :: (run: Run, input: string, name: string) -> string {
     whole := observe(run, input, .{});
 
-    check(observe(run, input, .{ -1 }) == whole, tprint("% differs byte by byte", name));
+    check(observe(run, input, .{ -1 },, temp) == whole, tprint("% differs byte by byte", name));
 
     for 1..input.count - 1 {
         got := observe(run, input, .{ it });
+
+        defer free(got);
 
         if got != whole {
             check(false, tprint("% differs when split at %", name, it));

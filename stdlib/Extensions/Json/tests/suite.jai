@@ -33,7 +33,7 @@ run_suite :: () {
             // What was accepted must survive a round trip through the encoder.
             again := to_json(value);
             second, error2 := from_json(Json_Value, again);
-            check(error2.kind == .NONE && to_json(second) == again, tprint("% does not round trip", it.name));
+            check(error2.kind == .NONE && to_json(second,, temp) == again, tprint("% does not round trip", it.name));
         }
 
         if begins_with(it.name, "y_") {

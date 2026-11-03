@@ -179,7 +179,7 @@ apply_setting :: (config: *Format_Config, keys: [] string, first: int, value: st
     }
 
     if doc {
-        array_add(*config.unknown_keys, copy_string(tprint("doc.format.%", dotted(keys, first))));
+        array_add(*config.unknown_keys, copy_string(tprint("doc.format.%", dotted(keys, first,, temp))));
     } else {
         array_add(*config.unknown_keys, dotted(keys, first));
     }

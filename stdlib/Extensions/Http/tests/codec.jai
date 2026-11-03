@@ -126,6 +126,8 @@ test_request_bodies :: () {
     chunked_text := tprint("PUT /a HTTP/1.1\r\nTransfer-Encoding: Chunked\r\n\r\n1\r\na\r\nFf\r\n%\r\n0\r\n\r\n", text_of(filler));
     whole := observe_every_cut(request_run(), chunked_text, "chunks");
 
+    defer free(whole);
+
     check(whole.count > 0 && whole[whole.count - 2] == #char "C", "chunked request completes");
 
     // A body that is shorter than it says is not an end.
@@ -271,8 +273,8 @@ test_responses :: () {
     check(h.ends == 1 && body_text(h) == "Wikipedia" && h.parser.trailers.count == 1 && h.parser.trailers[0].value == "abc", "chunked response");
 
     // Reason phrases are optional.
-    check(observe(response_run(), "HTTP/1.1 204\r\n\r\n", .{}) == "S\x01204\x01\x011.1\nD\nC\n", "no reason");
-    check(observe(response_run(), "HTTP/1.1 200 \r\nContent-Length: 0\r\n\r\n", .{}) == "S\x01200\x01\x011.1\nH\x01Content-Length\x010\nD\nC\n", "an empty reason");
+    check(observe(response_run(), "HTTP/1.1 204\r\n\r\n", .{},, temp) == "S\x01204\x01\x011.1\nD\nC\n", "no reason");
+    check(observe(response_run(), "HTTP/1.1 200 \r\nContent-Length: 0\r\n\r\n", .{},, temp) == "S\x01200\x01\x011.1\nH\x01Content-Length\x010\nD\nC\n", "an empty reason");
 
     // 101 and CONNECT tunnels switch protocols.
     i := make_driver(.RESPONSE);
@@ -625,8 +627,12 @@ test_simd_parity :: () {
         http_use_simd = true;
         vector := observe_every_cut(request_run(), it, "vector scan");
 
+        defer free(vector);
+
         http_use_simd = false;
         scalar := observe_every_cut(request_run(), it, "scalar scan");
+
+        defer free(scalar);
 
         http_use_simd = true;
 

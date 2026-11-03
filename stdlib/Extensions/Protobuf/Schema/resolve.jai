@@ -311,7 +311,7 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
 
                 for other: node.fields {
                     if other == f break;
-                    if other.oneof == f.oneof && proto_oneof_tag(proto_oneof_name(other.name)) == proto_oneof_tag(f.jai) proto_schema_fail(s, f.token, "duplicate oneof tag after Jai renaming");
+                    if other.oneof == f.oneof && proto_oneof_tag(proto_oneof_name(other.name),, temp) == proto_oneof_tag(f.jai,, temp) proto_schema_fail(s, f.token, "duplicate oneof tag after Jai renaming");
                 }
             }
         }
@@ -440,7 +440,7 @@ proto_oneof_name :: (name: string) -> string {
     }
 
     if begins_with(result, "case_type_") result = proto_schema_format("%_", result);
-    if proto_oneof_tag(result) == "NONE" result = proto_schema_format("%_", result);
+    if proto_oneof_tag(result,, temp) == "NONE" result = proto_schema_format("%_", result);
 
     return result;
 }

@@ -27,6 +27,8 @@ fail :: (format: string, args: ..Any) {
 
 main :: () {
     args := get_command_line_arguments();
+
+    defer free(args.data);
     bless := args.count > 1 && args[1] == "--bless";
 
     names: [..] string;

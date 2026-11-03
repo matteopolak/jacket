@@ -126,8 +126,8 @@ searching :: () {
 
     check(found && m.text == "αβγ", "find with a Unicode class");
     check(Regex.find_all(Regex.Static("\\d+"), "1 22 333").count == 3, "find_all");
-    check(Regex.replace(Regex.Static("\\d"), "a1b2", "#") == "a#b2", "replace");
-    check(Regex.replace_all(Regex.Static("(?<w>\\w+)@"), "a@ bb@ c", "<$w>") == "<a> <bb> c", "replace_all");
+    check(Regex.replace(Regex.Static("\\d"), "a1b2", "#",, temp) == "a#b2", "replace");
+    check(Regex.replace_all(Regex.Static("(?<w>\\w+)@"), "a@ bb@ c", "<$w>",, temp) == "<a> <bb> c", "replace_all");
     parts := Regex.split(Regex.Static("\\s*,\\s*"), "a , b,c");
 
     check(parts.count == 3 && parts[1] == "b", "split");

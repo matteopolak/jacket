@@ -201,6 +201,8 @@ built_blocks :: () {
 
     codes := canonical_codes(literal_lengths);
 
+    defer free(codes.data);
+
     put_code(*b, codes[97], 2);
     put_code(*b, codes[257], 2);
     put(*b, 0, 1); // distance code 0, the only code

@@ -229,6 +229,8 @@ code_errors :: () {
     put_dynamic_header(*b, true, lits, u8.[0]);
     codes := canonical_codes(lits);
 
+    defer free(codes.data);
+
     put_code(*b, codes[97], 2);
     put_code(*b, codes[257], 2);
     put(*b, 0, 8);

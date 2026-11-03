@@ -355,7 +355,7 @@ refresh :: (db: *Pg.Connection, path: string, id: string, schema_hash: string, s
     // The schema hash alone does not make an entry differ.
     probe := fresh;
     probe.schema_hash = old.schema_hash;
-    same := Json.to_json(Pg.entry_to_json(probe)) == Json.to_json(Pg.entry_to_json(old));
+    same := Json.to_json(Pg.entry_to_json(probe),, temp) == Json.to_json(Pg.entry_to_json(old),, temp);
 
     if same && fresh.schema_hash == old.schema_hash return false;
 

@@ -219,7 +219,7 @@ report :: (c: Case) {
 
 pad :: (s: string, width: s64) -> string {
     if s.count >= width return s;
-    return tprint("%%", s, repeat(" ", width - s.count));
+    return tprint("%%", s, repeat(" ", width - s.count,, temp));
 } @TempAllocates
 
 repeat :: (s: string, count: s64) -> string {
