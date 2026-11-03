@@ -116,7 +116,6 @@ exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
 
     if error != .NONE {
         result.why = tprint("write: %", error);
-        // jailint: allow(temp_storage_escape): the caller copies `why` before temporary storage is reset.
         return result;
     }
 
@@ -129,7 +128,6 @@ exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
         count, read_error := Io.read(conn, array_view(buffer, filled, buffer.count - filled));
         if read_error != .NONE || count == 0 {
             result.why = tprint("read of the head after % bytes: %", filled, ifx read_error != .NONE then tprint("%", read_error) else "closed by the server");
-            // jailint: allow(temp_storage_escape): the caller copies `why` before temporary storage is reset.
             return result;
         }
 
@@ -147,7 +145,6 @@ exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
 
     if head.count < 12 || head[9] != #char "2" {
         result.why = tprint("status line: %", string.{ min(head.count, 20), head.data });
-        // jailint: allow(temp_storage_escape): the caller copies `why` before temporary storage is reset.
         return result;
     }
 

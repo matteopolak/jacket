@@ -196,7 +196,7 @@ fn lifetime_reconstructed_temporary_descriptors_taint_the_caller() {
         assert!(
             findings
                 .iter()
-                .all(|f| f.start > text.find("main ::").unwrap()),
+                .all(|f| f.start > text.find("retain ::").unwrap()),
             "{}",
             rendered(&findings, &text, &path)
         );
@@ -255,7 +255,7 @@ fn lifetime_nested_aggregate_copies_keep_individual_field_origins() {
             rendered(&findings, &text, &path)
         );
         assert!(
-            findings[0].start > text.find("main ::").unwrap(),
+            findings[0].start > text.find("retain ::").unwrap(),
             "{}",
             rendered(&findings, &text, &path)
         );
@@ -307,7 +307,7 @@ fn lifetime_http_response_origins_reach_the_actual_caller() {
         assert!(
             findings
                 .iter()
-                .all(|f| f.start > text.find("main ::").unwrap()),
+                .all(|f| f.start > text.find("retain ::").unwrap()),
             "{}",
             rendered(&findings, &text, &path)
         );

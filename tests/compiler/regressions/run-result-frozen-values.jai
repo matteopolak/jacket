@@ -20,7 +20,6 @@ make_settings :: () -> Settings {
     s.boxed = 42;
     s.info = type_info(int);
 
-    // jailint: allow(returned_local_address): the test checks that a compile-time result keeps the boxed value.
     return s;
 }
 

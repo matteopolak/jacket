@@ -26,7 +26,7 @@ mixed_saved: string;
 durable_saved: string;
 forwarded_saved: string;
 
-main :: () {
+retain :: () {
     saved = modified_view(true);
     mixed_saved = mixed_view(true);
     durable_saved = durable_view();
@@ -50,3 +50,5 @@ dangling_view :: () {
     reset_temporary_storage();
     print("%", old_temporary[0]);
 }
+
+main :: () { retain(); }

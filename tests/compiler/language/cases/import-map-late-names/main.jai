@@ -21,7 +21,6 @@ prefix_net :: (names: [] string) {
 main :: () {
     address := SDLNet_Address.{ port = 8080 };
 
-    // jailint: allow(returned_local_address): main outlives every use of the peer address.
     peer.address = *address;
     assert(SDLNet_port_of(peer.address) == 8080, "mapped names resolve in types declared before the import");
     print("ok\n");

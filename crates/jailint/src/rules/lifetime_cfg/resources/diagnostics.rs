@@ -384,13 +384,28 @@ impl Proof<'_> {
             return;
         }
 
+        // Temporary allocations remain live until reset. A root run's readable
+        // stack result is frozen immediately, before another activation reuses it.
+        if cx.run.lifetimes.get().is_some_and(|s| {
+            matches!(kind, Origin::Temporary)
+                && state[cell] & DEAD == 0
+                && s.compile_time_only.contains(&body.procedure)
+                || returning
+                    && matches!(kind, Origin::Stack(_) | Origin::Statement(_))
+                    && s.frozen_returns.contains(&body.procedure)
+        }) {
+            return;
+        }
         if matches!(kind, Origin::Stack(_) | Origin::Statement(_)) {
+            if !returning && entrypoint_storage(cx, body, kind) {
+                return;
+            }
             if let CfgOp::Resource(Op::Escape {
                 target,
                 store,
                 ..
             }) = block.op
-                && !escape_survives(cx, model, i, target, store, kind, false)
+                && !escape_survives(cx, model, i, target, store, kind, Retention::AllPaths)
             {
                 return;
             }
@@ -413,7 +428,7 @@ impl Proof<'_> {
                 .push((origin, "stack storage borrowed here".into()));
             push(&mut out.returned_local_address, f);
         } else if matches!(kind, Origin::Temporary)
-            && temporary_store_retained(cx, model, i, &block.op)
+            && temporary_store_retained(cx, body, model, i, &block.op)
             && !matches!(
                 block.op,
                 CfgOp::Resource(Op::Escape {
@@ -619,21 +634,43 @@ fn statement_call(body: &LifetimeBody, site: Span) -> bool {
 }
 
 
-fn temporary_store_retained(cx: &Cx, model: &Model, at: usize, op: &CfgOp) -> bool {
+fn temporary_store_retained(
+    cx: &Cx,
+    body: &LifetimeBody,
+    model: &Model,
+    at: usize,
+    op: &CfgOp,
+) -> bool {
     let CfgOp::Resource(Op::Escape {
         target,
-        pointer: false,
-        store: true,
+        store,
         ..
     }) = op
     else {
         return true;
     };
-    // Clearing a concrete sink on every path before reset/return avoids retention.
-    // Unknown writes do not prove a clear, and one retained path keeps the finding.
-    escape_survives(cx, model, at, *target, true, Origin::Temporary, true)
+    // A concrete sink must be cleared before reset or before returning to a caller.
+    // The process entry has no caller after its final exit, but resets still matter.
+    escape_survives(
+        cx,
+        model,
+        at,
+        *target,
+        *store,
+        Origin::Temporary,
+        if entrypoint_activation(cx, body) {
+            Retention::UntilProcessExit
+        } else {
+            Retention::AnyPath
+        },
+    )
 }
 
+enum Retention {
+    AllPaths,
+    AnyPath,
+    UntilProcessExit,
+}
 
 fn escape_survives(
     cx: &Cx,
@@ -642,8 +679,10 @@ fn escape_survives(
     target: usize,
     store: bool,
     kind: Origin,
-    any_path: bool,
+    retention: Retention,
 ) -> bool {
+    let any_path = !matches!(retention, Retention::AllPaths);
+    let process_exit = matches!(retention, Retention::UntilProcessExit);
     let target_place = match model.cells.values[target] {
         super::Cell::Place(place) => Some(place),
         super::Cell::Value(_) => None,
@@ -697,7 +736,15 @@ fn escape_survives(
             {
                 return true;
             }
+            CfgOp::Resource(Op::Restore(_, _) | Op::MayRestore(_, _))
+                if process_exit && matches!(kind, Origin::Temporary) && kept =>
+            {
+                return true;
+            }
             CfgOp::Resource(Op::Exit) => {
+                if process_exit {
+                    continue;
+                }
                 if !kept && !any_path {
                     return false;
                 }
@@ -883,4 +930,62 @@ fn descriptor_data_place(cx: &Cx, model: &Model, place: usize) -> bool {
                 ..
             }
     )
+}
+
+/// Only the selected process entry's outer activation lasts until process exit.
+/// A nested lexical scope, or a callable/recursive entry, still has an ordinary lifetime.
+fn entrypoint_storage(cx: &Cx, body: &LifetimeBody, kind: Origin) -> bool {
+    let Origin::Stack(scope) = kind else {
+        return false;
+    };
+    let mut scope = &cx.compiler.ns.scopes[scope.0 as usize];
+    if scope.kind == jaic::sema::scope::ScopeKind::Block
+        && let Some(parent) = scope.parent
+    {
+        scope = &cx.compiler.ns.scopes[parent.0 as usize];
+    }
+    scope.kind == jaic::sema::scope::ScopeKind::Proc
+        && scope.proc == Some(body.procedure)
+        && entrypoint_activation(cx, body)
+}
+
+fn entrypoint_activation(cx: &Cx, body: &LifetimeBody) -> bool {
+    let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
+    let selected = cx.compiler.pr.entry_point == Some(body.procedure)
+        || cx.compiler.pr.entry_point.is_none()
+            && proc.name.as_str() == cx.compiler.options.entry_point
+            && Some(cx.compiler.ns.scopes[proc.scope.0 as usize].module)
+                == cx.compiler.ns.main_module;
+    if !cx.compiler.options.runtime_entry_point
+        || !selected
+        || proc.export.is_some()
+        || proc.sig.as_ref().is_none_or(|s| !s.params.is_empty())
+    {
+        return false;
+    }
+    let Some(facts) = cx.compiler.ed.facts() else {
+        return false;
+    };
+    let summaries = cx.run.lifetimes.get().unwrap();
+    !facts.lifetime_bodies.values().any(|caller| {
+        caller
+            .blocks
+            .iter()
+            .flat_map(|b| &b.events)
+            .any(|e| match e {
+                Event::Call {
+                    callee, ..
+                } => *callee == body.procedure,
+                Event::IndirectCall {
+                    callee,
+                    allocator: false,
+                    ..
+                } => summaries
+                    .targets
+                    .get(caller.procedure, *callee)
+                    .procedures
+                    .contains(&body.procedure),
+                _ => false,
+            })
+    })
 }

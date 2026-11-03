@@ -12,7 +12,6 @@ FIXED :: #run,host -> [3] int {
 
 VIEW :: #run,host -> [] int {
     values: [3] int = .[2, 3, 7];
-    // jailint: allow(returned_local_address): the test checks that the host transfers the returned view.
     return values;
 };
 

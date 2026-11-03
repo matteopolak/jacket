@@ -14,7 +14,6 @@ seen_count := 0;
 
 // code.3: `#insert -> string { ... }` runs at compile time, at top level as well.
 #insert -> string {
-    // jailint: allow(temp_storage_escape): the compiler consumes this text before the compile-time evaluation ends.
     return tprint("GENERATED_% :: %;", "SQUARE", 9 * 9);
 }
 
@@ -64,7 +63,6 @@ make_decl :: (name: string) -> string {
 
 twice_with_defer :: (c: Code) #expand {
     for 0..1 {
-        // jailint: allow(temp_storage_escape): the log is read before the next reset in this test.
         defer array_add(*log, tprint("d%", it));
         #insert,scope() c;
     }

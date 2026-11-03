@@ -22,7 +22,7 @@ saved: Result;
 owned_saved: Result;
 output_saved: Result;
 
-main :: () {
+retain :: () {
     saved = assemble();
     owned_saved = durable_nested();
     owned_saved = replaced_nested();
@@ -67,3 +67,5 @@ scoped_allocator :: () -> string {
 
     return result;
 }
+
+main :: () { retain(); }

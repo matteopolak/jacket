@@ -15,7 +15,6 @@ Mode :: enum {
 main :: () {
     state: Backend_State;
     state.frames = 3;
-    // jailint: allow(returned_local_address): main outlives every use of the context pointer.
     context.backend_state = *state;
     assert(MODE_COUNT == 3);
     assert(backend_ready());

@@ -19,6 +19,7 @@ mod allocators;
 mod captures;
 mod contracts;
 mod elements;
+mod execution;
 mod flow;
 mod indirect;
 mod infer;
@@ -146,6 +147,8 @@ impl Summary {
 
 #[derive(Default)]
 pub(super) struct Summaries {
+    pub compile_time_only: HashSet<ProcId>,
+    pub frozen_returns: HashSet<ProcId>,
     pub call_sites: HashSet<Span>,
     pub allocators: allocators::Allocators,
     pub targets: super::lifetime_targets::Universe,
@@ -742,6 +745,8 @@ impl Summaries {
             .collect();
         all.allocators = allocators;
         all.targets = super::lifetime_targets::Universe::build(compiler, &valid);
+        (all.compile_time_only, all.frozen_returns) =
+            execution::compile_time_only(compiler, &all.targets);
         // Tarjan's pop order is bottom-up for caller -> callee edges.
         let mut ids: Vec<_> = valid.keys().copied().collect();
         ids.sort_by_key(|id| id.0);

@@ -147,3 +147,60 @@ fn lifetime_repeated_branches_do_not_repeat_identical_witness_labels() {
         }
     }
 }
+
+#[test]
+fn lifetime_entrypoint_storage_lasts_until_process_exit() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/entrypoint-retention.jai");
+    let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+    assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
+    assert!(!lints.iter().any(|l| text[l.start..l.end].contains("outer")));
+}
+
+#[test]
+fn lifetime_compile_time_results_are_frozen_before_the_run_ends() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/frozen-retention.jai");
+    let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
+}
+
+#[test]
+fn lifetime_runtime_calls_keep_ordinary_stack_lifetimes() {
+    for name in [
+        "mixed-run-retention",
+        "frozen-callback-retention",
+        "callable-entrypoint-retention",
+    ] {
+        let path = repo().join(format!("tests/lint/pointer_lifetime/strict/{name}.jai"));
+        let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+        assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    }
+}
+
+#[test]
+fn lifetime_frozen_results_still_reject_explicit_temporary_resets() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/frozen-reset-retention.jai");
+    let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
+}
+
+#[test]
+fn lifetime_entrypoint_temporaries_only_need_to_survive_until_process_exit() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/entrypoint-temporary-retention.jai");
+    let (lints, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    assert!(lints[0].start > text.find("retain ::").unwrap());
+}
+
+#[test]
+fn lifetime_custom_runtimes_do_not_get_process_entry_lifetimes() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/entrypoint-retention.jai");
+    let mut options = jaic::sema::Options::host();
+    options.runtime_entry_point = false;
+    let (lints, text) = lint_target(
+        &path,
+        &[("returned_local_address", Level::Warn)],
+        Config::default(),
+        options,
+    );
+    assert_eq!(lints.len(), 3, "{}", rendered(&lints, &text, &path));
+}

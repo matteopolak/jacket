@@ -17,8 +17,10 @@ returned_payload :: () -> Envelope {
     return result;
 }
 
-main :: () {
+retain :: () {
     saved_payload = returned_payload();
     json_saved = Http.json(42);
     problem_saved = Http.problem_response(null, Http.http_error(400, "bad request"));
 }
+
+main :: () { retain(); }

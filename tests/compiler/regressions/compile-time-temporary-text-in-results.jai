@@ -10,7 +10,6 @@ one_label :: () -> Label {
     label: Label;
     label.text = tprint("entry-%", 2);
 
-    // jailint: allow(temp_storage_escape): the test checks that compile-time results keep this text.
     return label;
 }
 
@@ -18,7 +17,6 @@ many_labels :: () -> [] Label {
     labels := NewArray(2, Label);
     labels[1].text = tprint("entry-%", 3);
 
-    // jailint: allow(temp_storage_escape): the test checks that compile-time results keep this text.
     return labels;
 }
 
@@ -27,7 +25,6 @@ words :: () -> [] string {
     result[0] = tprint("a%", 1);
     result[1] = tprint("b%", 2);
 
-    // jailint: allow(temp_storage_escape): the test checks that compile-time results keep this text.
     return result;
 }
 
