@@ -44,6 +44,45 @@ pub struct Member {
     pub refs: Vec<TypeRef>,
 }
 
+impl Item {
+    /// For each member, the line of `declaration` that declares it: a line at the body's own
+    /// indentation that starts with the name (or with a list of names, `a, b: int`). `None` when the line is not found, and for every
+    /// member when a line holds an unfinished string.
+    pub fn member_lines(&self) -> Vec<Option<usize>> {
+        let lines: Vec<&str> = self.declaration.split('\n').collect();
+        let none = vec![None; self.members.len()];
+        if lines.iter().any(|l| l.matches('"').count() % 2 == 1) {
+            return none;
+        }
+        let indent = |l: &str| l.len() - l.trim_start().len();
+        let Some(base) = lines
+            .iter()
+            .skip(1)
+            .find(|l| !l.trim().is_empty())
+            .map(|l| indent(l))
+        else {
+            return none;
+        };
+        let mut from = 1;
+        self.members
+            .iter()
+            .map(|m| {
+                let found = (from..lines.len()).find(|&i| {
+                    let written = lines[i].trim_start();
+                    let written = written.strip_prefix("using ").unwrap_or(written);
+                    let head = written.split([':', ';', '=']).next().unwrap_or_default();
+                    indent(lines[i]) == base
+                        && !m.name.is_empty()
+                        && head.split(',').any(|name| name.trim() == m.name)
+                });
+                // `a, b: int;` declares both on one line.
+                from = found.unwrap_or(from);
+                found
+            })
+            .collect()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Kind {
     #[default]

@@ -630,6 +630,13 @@
     if (name) window.open(name.href, '_blank');
   });
 
+  // Clicking a field's line in a declaration links to it.
+  document.addEventListener('click', function (e) {
+    var line = e.target.closest && e.target.closest('.decl .fl');
+    if (!line || e.target.closest('a') || String(getSelection()) || location.hash === '#' + line.id) return;
+    location.hash = line.id;
+  });
+
   // A link into folded members opens them and scrolls there.
   function openTarget() {
     var id = decodeURIComponent(location.hash.slice(1));

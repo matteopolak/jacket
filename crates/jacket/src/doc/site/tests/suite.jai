@@ -354,10 +354,11 @@ a_type_shows_its_declaration_on_its_row_and_page :: () {
     expect(contains(list, "<a href=\"/api/prelude/Allocator\">Allocator</a>"));
     declaration := find_index_from_left(page, "<section id=\"declaration\">");
     meta := find_index_from_left(page, "<div class=\"meta\">");
-    fields := find_index_from_left(page, "<section id=\"members\">");
-    expect(meta >= 0 && declaration > meta && fields > declaration);
+    expect(meta >= 0 && declaration > meta);
+    // Fields are described in the declaration, so there is no table or outline entry for them.
+    expect(!contains(page, "<section id=\"members\">"));
+    expect(contains(page, "<span class=\"fc\" style=\"--i:4\">// Who waits, as <code>Waiter</code>.</span><span class=\"fl\" style=\"--i:4\" id=\"m-senders\">"));
     expect(contains(page, "<a href=\"/api/Types/Waiter\">Waiter</a>"));
-    expect(contains(page, "Who waits."));
     expect(contains(page, "<a href=\"#declaration\">Declaration</a>"));
     expect(!contains(page, "Not exported"));
 } @test

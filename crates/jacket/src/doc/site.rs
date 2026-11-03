@@ -289,12 +289,14 @@ impl Site {
         let href = self.item_href(module, &item.name);
         Some(match member {
             Some(member) if item.members.iter().any(|m| m.name == member) => {
-                // With the declaration shown, only a field with a description has its own row.
-                let described = item.declaration.is_empty()
-                    || item
-                        .members
-                        .iter()
-                        .any(|m| m.name == member && !m.doc.is_empty());
+                // With the declaration shown, a field has an anchor on its line there, or a row
+                // when it has a description; any other field is only in the declaration.
+                let lines = item.member_lines();
+                let described =
+                    item.declaration.is_empty()
+                        || item.members.iter().zip(&lines).any(|(m, line)| {
+                            m.name == member && (line.is_some() || !m.doc.is_empty())
+                        });
                 if described {
                     format!("{href}#m-{member}")
                 } else {

@@ -323,7 +323,7 @@ fn declared_site() -> Site {
                     file: "Io/channel.jai".into(),
                     line: 5,
                     scope: vec!["T".into()],
-                    declaration: "Channel :: struct(T: Type) {\n    senders: Waiter;\n    allocator: Allocator;\n    next: *Channel(T);\n}".into(),
+                    declaration: "Channel :: struct(T: Type) {\n    senders: Waiter;\n    allocator: Allocator;\n    next: *Channel(T);\n    limit: int;\n}".into(),
                     decl_refs: vec![
                         reference("Waiter", "Io/sync.jai", 3, true),
                         reference("Allocator", "prelude/allocation.jai", 31, true),
@@ -340,7 +340,13 @@ fn declared_site() -> Site {
                             name: "allocator".into(),
                             ty: "Allocator".into(),
                             refs: vec![reference("Allocator", "prelude/allocation.jai", 31, true)],
-                            doc: "Where it allocates.".into(),
+                            doc: "Where it allocates, see `Allocator`.".into(),
+                        },
+                        Member {
+                            name: "limit".into(),
+                            ty: "int".into(),
+                            doc: "How many it holds. Zero means no limit.\n\n```jai\nlimit = 4;\n```".into(),
+                            ..Member::default()
                         },
                     ],
                     ..Item::default()
@@ -403,7 +409,7 @@ fn a_declaration_links_private_and_prelude_types_and_not_itself() {
     );
     assert!(!declaration.contains("api/Io/Channel"), "{declaration}");
     assert!(declaration.contains("<span class=\"k\">struct</span>"));
-    // Only a field with something to say keeps a row of the table.
+    // A short description is a comment above its field; only one that does not fit keeps a row.
     let page = bundle
         .items
         .iter()
@@ -419,8 +425,45 @@ fn a_declaration_links_private_and_prelude_types_and_not_itself() {
         panic!()
     };
     assert!(!private && !declaration_html.is_empty());
+    assert!(declaration_html.contains(
+        "<span class=\"fc\" style=\"--i:4\">// Where it allocates, see <code>Allocator</code>.</span><span class=\"fl\" style=\"--i:4\" id=\"m-allocator\">"
+    ), "{declaration_html}");
+    assert!(declaration_html.contains("<span class=\"fl\" style=\"--i:4\" id=\"m-senders\">"));
+    assert!(declaration_html.contains("// How many it holds.</span>"));
+    assert!(!declaration_html.contains("limit = 4"));
+    // The full text of the long one is in the table, anchored on its line instead.
     assert_eq!(members.len(), 1);
-    assert_eq!(members[0].name, "allocator");
+    assert_eq!(members[0].name, "limit");
+    assert!(members[0].id.is_none());
+    assert!(members[0].doc_html.contains("limit = 4;"));
+}
+
+#[test]
+fn a_page_without_a_fields_table_has_no_fields_entry_in_its_outline() {
+    let mut site = declared_site();
+    site.modules[0].items[0]
+        .members
+        .retain(|m| m.name != "limit");
+    let bundle = module(&site, 0);
+    let page = bundle
+        .items
+        .iter()
+        .find(|p| p.path == "api/Io/Channel.html")
+        .unwrap();
+    let Content::Item {
+        members, ..
+    } = &page.content
+    else {
+        panic!()
+    };
+    assert!(members.is_empty());
+    let Sidebar::Item {
+        anchors, ..
+    } = &page.sidebar
+    else {
+        panic!()
+    };
+    assert!(anchors.iter().all(|a| a.href != "#members"));
 }
 
 #[test]

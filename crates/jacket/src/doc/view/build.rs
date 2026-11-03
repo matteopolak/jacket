@@ -290,6 +290,36 @@ fn segments(site: &Site, m: &Module, file: &str, line: usize, segs: &[Segment]) 
         .collect()
 }
 
+/// A doc comment as the inline HTML of a description: one paragraph, links resolved, a code
+/// block as a code span.
+fn inline_html(site: &Site, doc: &str) -> String {
+    if doc.is_empty() {
+        return String::new();
+    }
+    markdown::segments(
+        doc,
+        &Settings {
+            heading_shift: 3,
+            heading_ids: false,
+            link: &|d| site.doc_link(d, "a parameter"),
+        },
+    )
+    .iter()
+    .map(|s| match s {
+        Segment::Html(h) => h
+            .trim_end()
+            .strip_prefix("<p>")
+            .and_then(|r| r.strip_suffix("</p>"))
+            .unwrap_or(h)
+            .to_owned(),
+        Segment::Code {
+            code, ..
+        } => format!("<code>{}</code>", markdown::esc(code.trim())),
+    })
+    .collect::<Vec<_>>()
+    .join(" ")
+}
+
 fn definitions(
     site: &Site,
     mi: usize,
@@ -299,32 +329,7 @@ fn definitions(
     rows.iter()
         .map(|(raw, ty, doc, refs)| {
             let (name, default) = raw.split_once(" := ").unwrap_or((raw, ""));
-            let doc_html = if doc.is_empty() {
-                String::new()
-            } else {
-                markdown::segments(
-                    doc,
-                    &Settings {
-                        heading_shift: 3,
-                        heading_ids: false,
-                        link: &|d| site.doc_link(d, "a parameter"),
-                    },
-                )
-                .iter()
-                .map(|s| match s {
-                    Segment::Html(h) => h
-                        .trim_end()
-                        .strip_prefix("<p>")
-                        .and_then(|r| r.strip_suffix("</p>"))
-                        .unwrap_or(h)
-                        .to_owned(),
-                    Segment::Code {
-                        code, ..
-                    } => format!("<code>{}</code>", markdown::esc(code.trim())),
-                })
-                .collect::<Vec<_>>()
-                .join(" ")
-            };
+            let doc_html = inline_html(site, doc);
             Definition {
                 id: (!anchor.is_empty()).then(|| format!("{anchor}{raw}")),
                 name: name.into(),
@@ -350,14 +355,13 @@ fn definitions(
         .collect()
 }
 
-/// The fields or members the page lists: all of them, or with the declaration shown only the
-/// ones with a description.
+/// The fields or members the page lists in a table: those `keep` accepts.
 fn members(
     site: &Site,
     mi: usize,
     item: &Item,
     anchor: &str,
-    described_only: bool,
+    keep: &dyn Fn(usize) -> bool,
 ) -> Vec<Definition> {
     let enumerated = matches!(item.kind, Kind::Enum | Kind::EnumFlags);
     definitions(
@@ -366,8 +370,9 @@ fn members(
         &item
             .members
             .iter()
-            .filter(|f| !described_only || !f.doc.is_empty())
-            .map(|f| {
+            .enumerate()
+            .filter(|(k, _)| keep(*k))
+            .map(|(_, f)| {
                 (
                     f.name.clone(),
                     if enumerated {
@@ -382,6 +387,105 @@ fn members(
             .collect::<Vec<_>>(),
         anchor,
     )
+}
+
+/// What of `doc` is written above a field in the declaration, and whether that is all of it: a
+/// single paragraph of prose is, anything longer or with a code block is cut to its first
+/// sentence.
+fn comment_text(site: &Site, doc: &str) -> (String, bool) {
+    let segments = blocks_at(site, doc, "a parameter", 3);
+    let [Segment::Html(h)] = segments.as_slice() else {
+        let first = doc.trim_start();
+        if first.starts_with("```") || first.starts_with("    ") {
+            return (String::new(), false);
+        }
+        return (first_sentence(doc), false);
+    };
+    let plain = h.matches("<p>").count() == 1
+        && !["<pre", "<ul", "<ol", "<table", "<blockquote", "<h"]
+            .iter()
+            .any(|tag| h.contains(tag));
+    if plain {
+        (doc.to_owned(), true)
+    } else {
+        (first_sentence(doc), false)
+    }
+}
+
+fn first_sentence(doc: &str) -> String {
+    let paragraph = doc.trim().split("\n\n").next().unwrap_or_default();
+    let paragraph = paragraph.split_whitespace().collect::<Vec<_>>().join(" ");
+    match paragraph.find(". ") {
+        Some(end) => paragraph[..=end].to_owned(),
+        None => paragraph,
+    }
+}
+
+/// A struct, union or enum as written with each described field's doc as comment lines above
+/// it, and each field's line anchored as `m-<name>`; and which members still need a row of the
+/// table, because their description does not fit in a comment or their line was not found.
+fn commented_declaration(site: &Site, mi: usize, item: &Item) -> (String, Vec<bool>) {
+    let html = declaration(site, mi, item);
+    if html.is_empty() {
+        return (html, vec![true; item.members.len()]);
+    }
+    let lines = item.member_lines();
+    let mut table: Vec<bool> = item
+        .members
+        .iter()
+        .zip(&lines)
+        .map(|(m, line)| line.is_none() && !m.doc.is_empty())
+        .collect();
+    let rows: Vec<&str> = html.split('\n').collect();
+    let source: Vec<&str> = item.declaration.split('\n').collect();
+    if rows.len() != source.len() {
+        return (html, table);
+    }
+    let mut at: Vec<Vec<usize>> = vec![Vec::new(); rows.len()];
+    for (k, line) in lines.iter().enumerate() {
+        if let Some(i) = line {
+            at[*i].push(k);
+        }
+    }
+    let mut out = String::with_capacity(html.len() + 256);
+    for (i, row) in rows.iter().enumerate() {
+        if at[i].is_empty() {
+            out.push_str(row);
+            if i + 1 < rows.len() {
+                out.push('\n');
+            }
+            continue;
+        }
+        let indent = source[i].len() - source[i].trim_start().len();
+        // Members sharing a line (`a, b: int;`) share its description.
+        if let Some(&k) = at[i].iter().find(|&&k| !item.members[k].doc.is_empty()) {
+            let (text, whole) = comment_text(site, &item.members[k].doc);
+            for &j in &at[i] {
+                if !item.members[j].doc.is_empty() {
+                    table[j] |= !whole;
+                }
+            }
+            if !text.is_empty() {
+                out.push_str(&format!(
+                    "<span class=\"fc\" style=\"--i:{indent}\">// {}</span>",
+                    inline_html(site, &text)
+                ));
+            }
+        }
+        let names: Vec<String> = at[i]
+            .iter()
+            .map(|&k| markdown::esc(&item.members[k].name))
+            .collect();
+        let extra: String = names[1..]
+            .iter()
+            .map(|n| format!("<span id=\"m-{n}\"></span>"))
+            .collect();
+        out.push_str(&format!(
+            "<span class=\"fl\" style=\"--i:{indent}\" id=\"m-{}\">{extra}{row}</span>",
+            names[0]
+        ));
+    }
+    (out, table)
 }
 
 /// A struct, union or enum as written, highlighted and linked; empty for anything else.
@@ -433,7 +537,7 @@ fn row(site: &Site, mi: usize, item: &Item) -> Row {
         lines_html: lines.into_iter().filter(|s| !s.is_empty()).collect(),
         summary_html: lead(&segs).map_or_else(String::new, |(_, h)| h),
         members: if declaration_html.is_empty() {
-            members(site, mi, item, "", false)
+            members(site, mi, item, "", &|_| true)
         } else {
             Vec::new()
         },
@@ -889,12 +993,21 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
             }
         }
     }
-    let declaration_html = declaration(site, mi, item);
-    // With the declaration shown, the fields table is for the ones with something to say.
+    let (declaration_html, table) = commented_declaration(site, mi, item);
+    // With the declaration shown, the table is for the fields it could not describe.
     let member_defs = if item.kind == Kind::Procedure {
         Vec::new()
     } else {
-        members(site, mi, item, "m-", !declaration_html.is_empty())
+        let lines = item.member_lines();
+        let mut defs = members(site, mi, item, "m-", &|k| table[k]);
+        let shown = (0..item.members.len()).filter(|&k| table[k]);
+        for (def, k) in defs.iter_mut().zip(shown) {
+            // Its anchor is on its line in the declaration.
+            if lines[k].is_some() && !declaration_html.is_empty() {
+                def.id = None;
+            }
+        }
+        defs
     };
     let members_label = if matches!(item.kind, Kind::Enum | Kind::EnumFlags) {
         "Members"

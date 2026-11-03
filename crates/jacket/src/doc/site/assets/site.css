@@ -328,6 +328,10 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 .dh { color: var(--ok); font-weight: 600; }
 .dc { color: var(--warn); }
 .da { color: var(--ok); }
+.decl .fc { display: block; white-space: normal; overflow-wrap: anywhere; color: var(--muted); font-style: italic; padding-left: calc((var(--i) + 3) * 1ch); text-indent: -3ch; }
+.decl .fc code { font: inherit; font-style: normal; color: var(--fg2); background: none; padding: 0; }
+.decl .fl { display: block; border-radius: 4px; scroll-margin-top: 90px; padding-left: calc((var(--i) + 4) * 1ch); text-indent: calc(-1 * (var(--i) + 4) * 1ch); }
+.decl .fl:target, .decl .fl:has(:target) { background: color-mix(in srgb, var(--fg) 8%, transparent); }
 
 /* Reference pages */
 .guide table { border-collapse: collapse; display: block; overflow-x: auto; margin: 0 0 18px; font-size: 14px; }
