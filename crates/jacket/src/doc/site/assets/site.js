@@ -105,7 +105,9 @@
     marks.forEach(function (m) {
       var li = m.a.closest('li');
       m.g = groupOf.get(li) || null;
-      m.item = !!(m.g && li.parentNode.parentNode === m.g.l);
+      // A heading with no list under it (a guide's outline) is an item too; a heading with a
+      // list only opens it.
+      m.item = !m.g || li.parentNode.parentNode === m.g.l;
       if (m.item) m.a.setAttribute('data-t', m.a.textContent);
     });
     var rail = document.querySelector('.toc');
@@ -632,6 +634,11 @@
   function openTarget() {
     var id = decodeURIComponent(location.hash.slice(1));
     var target = id ? document.getElementById(id) : null;
+    if (id && !target) {
+      // A section split into pages keeps its old `#heading` links: the overview lists each page.
+      var page = document.querySelector('main a[href$="/' + id.replace(/["\\]/g, '') + '"]');
+      if (page && page.closest('li')) { location.replace(page.href); return; }
+    }
     if (!target) return;
     var opened = false;
     for (var node = target; node; node = node.parentElement) {
