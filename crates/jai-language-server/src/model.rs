@@ -3,6 +3,7 @@ use crate::{Position, Range};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SymbolKind {
+    File,
     Namespace,
     TypeAlias,
     Property,
@@ -12,6 +13,8 @@ pub enum SymbolKind {
     Constant,
     EnumMember,
     Struct,
+    Boolean,
+    Event,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

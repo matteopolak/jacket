@@ -297,7 +297,8 @@ fn incomplete_source_keeps_real_diagnostics_and_tokens_without_running_code() {
         session.diagnostics(&name).unwrap(),
         [] as [jai_language_server::Diagnostic; 0]
     );
-    assert_eq!(session.document_symbols(&name).unwrap()[0].name, "main");
+    let symbols = session.document_symbols(&name).unwrap();
+    assert!(symbols.iter().any(|s| s.name == "main"), "{symbols:?}");
 }
 
 #[test]

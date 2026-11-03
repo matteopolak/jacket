@@ -40,6 +40,7 @@ Handlers query the compile through `with_semantic` (exact text or nothing), `wit
 ### Feature list
 
 - **Completion**: scope and members come from the compiler; names whose type fits the expected type rank first; auto-import adds the `#import`/`#load` edit; call snippets and postfix snippets (`.if`, `.not`, `.ref`) when the client supports snippets.
+- **Outline** (document symbols): declarations nested under `#scope_*` sections and `#if`/`#else` blocks, with `#run`, `#insert`, `#placeholder` and `#load` listed in place; fields and members are children of their type. `analysis/outline.rs` collects the non-declaration sections, and `Session::document_symbols` nests them with the rows by the spans they cover.
 - **Hints**: inferred types, argument names, `#run` values, closing-brace names, implicit `it`/`it_index`.
 - **Lenses**: "Run test" and "Debug test" over `@test` procedures; compile-time cost lenses.
 - **Definition, references, rename**: from recorded references. Rename refuses declarations outside project files.

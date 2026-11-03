@@ -130,6 +130,7 @@ pub(super) fn locations_wire(locations: &[Location]) -> Value {
 
 fn symbol_kind_wire(kind: SymbolKind) -> u32 {
     match kind {
+        SymbolKind::File => 1,
         SymbolKind::Namespace => 2,
         SymbolKind::TypeAlias => 5,
         SymbolKind::Property => 7,
@@ -139,6 +140,8 @@ fn symbol_kind_wire(kind: SymbolKind) -> u32 {
         SymbolKind::Constant => 14,
         SymbolKind::EnumMember => 22,
         SymbolKind::Struct => 23,
+        SymbolKind::Boolean => 17,
+        SymbolKind::Event => 24,
     }
 }
 

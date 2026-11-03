@@ -10,7 +10,10 @@ use jaic::parser::ide_facts::{self};
 use jaic::source::FileId;
 use std::rc::Rc;
 
+mod outline;
 mod symbols;
+
+pub(crate) use outline::Section;
 
 /// Byte range into the document text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -81,6 +84,8 @@ pub(crate) struct Analysis {
     pub diagnostics: Vec<Diagnostic>,
     pub loads: Vec<(DocumentUri, Span)>,
     pub opaque_scopes: Vec<Span>,
+    /// What the outline shows besides the rows: scope sections, `#if` blocks, `#run`, ...
+    pub outline: Vec<Section>,
     /// Calls with a literal format string (candidates; see `Session::format_calls`).
     pub format_calls: Vec<crate::format::FormatCall>,
     /// Names this document declares with the `@PrintLike` note.
@@ -161,6 +166,7 @@ impl Analysis {
             diagnostics: vec![],
             loads: vec![],
             opaque_scopes: vec![],
+            outline: vec![],
             format_calls: vec![],
             print_like: jaic::fxhash::HashSet::default(),
             test_procedures: vec![],
@@ -246,6 +252,7 @@ impl Analysis {
         };
         result.rows.reserve(expected_rows);
         result.top_level(&parsed, uri, &index, &context);
+        result.outline_of(&parsed, text);
         if result.rows.len() >= limits.rows {
             result.diagnostic(
                 &index,

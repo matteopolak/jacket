@@ -16,12 +16,14 @@ impl Session {
         text[start..end.max(start)].trim()
     }
 
+    /// The outline: declarations nested under the scope sections, `#if`/`#else` blocks and
+    /// other directives that cover them, each declaration with its fields, members and locals.
     pub fn document_symbols(&self, uri: &DocumentUri) -> Result<Vec<DocumentSymbol>, Error> {
         let (uri, doc) = self.document_entry(uri)?;
-        let rows = &self
+        let analysis = self
             .analysis_for(uri)
-            .expect("opened document has analysis")
-            .rows;
+            .expect("opened document has analysis");
+        let rows = &analysis.rows;
         // Children by parent, so the tree is built in one pass over the rows.
         let mut children: Vec<Vec<usize>> = vec![Vec::new(); rows.len()];
         for (id, row) in rows.iter().enumerate() {
@@ -48,11 +50,72 @@ impl Session {
                     .collect::<Result<_, _>>()?,
             })
         }
-        rows.iter()
-            .enumerate()
-            .filter(|(_, row)| row.parent.is_none())
-            .map(|(id, _)| tree(id, rows, &children, doc))
-            .collect()
+        // The sections and the declarations that have no parent, by where they start (a
+        // section before what it holds), so a stack of the sections still open nests them.
+        enum Item {
+            Section(usize),
+            Row(usize),
+        }
+        let mut items: Vec<(usize, std::cmp::Reverse<usize>, Item)> = Vec::new();
+        for (at, section) in analysis.outline.iter().enumerate() {
+            items.push((
+                section.location.start,
+                std::cmp::Reverse(section.location.end),
+                Item::Section(at),
+            ));
+        }
+        for (id, row) in rows.iter().enumerate() {
+            if row.parent.is_none() {
+                items.push((
+                    row.location.start,
+                    std::cmp::Reverse(row.location.end),
+                    Item::Row(id),
+                ));
+            }
+        }
+        items.sort_by_key(|(start, end, item)| (*start, *end, matches!(item, Item::Row(_))));
+        let mut roots: Vec<DocumentSymbol> = Vec::new();
+        let mut open: Vec<(usize, DocumentSymbol)> = Vec::new();
+        fn close(open: &mut Vec<(usize, DocumentSymbol)>, roots: &mut Vec<DocumentSymbol>) {
+            if let Some((_, done)) = open.pop() {
+                match open.last_mut() {
+                    Some((_, parent)) => parent.children.push(done),
+                    None => roots.push(done),
+                }
+            }
+        }
+        for (start, _, item) in items {
+            while open.last().is_some_and(|(end, _)| *end <= start) {
+                close(&mut open, &mut roots);
+            }
+            match item {
+                Item::Section(at) => {
+                    let section = &analysis.outline[at];
+                    open.push((
+                        section.location.end,
+                        DocumentSymbol {
+                            name: section.name.clone(),
+                            detail: section.detail.clone(),
+                            kind: section.kind,
+                            range: doc.index.range(&doc.text, section.location)?,
+                            selection_range: doc.index.range(&doc.text, section.selection)?,
+                            children: Vec::new(),
+                        },
+                    ));
+                }
+                Item::Row(id) => {
+                    let symbol = tree(id, rows, &children, doc)?;
+                    match open.last_mut() {
+                        Some((_, parent)) => parent.children.push(symbol),
+                        None => roots.push(symbol),
+                    }
+                }
+            }
+        }
+        while !open.is_empty() {
+            close(&mut open, &mut roots);
+        }
+        Ok(roots)
     }
 
     pub(crate) fn reachable(&self, uri: &DocumentUri) -> Vec<&DocumentUri> {

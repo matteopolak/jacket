@@ -624,8 +624,19 @@ fn missing_brace_keeps_flagged_procedures_and_file_scope_markers_outside() {
     let mut s = lean_session();
     s.open(uri(), 1, text.into()).unwrap();
     let symbols = s.document_symbols(&uri()).unwrap();
-    for name in ["second", "state", "last"] {
+    // `state` and `last` follow `#scope_file`, so the outline holds them in that section.
+    for name in ["second", "#scope_file"] {
         assert!(symbols.iter().any(|sym| sym.name == name), "{symbols:?}");
+    }
+    let section = symbols
+        .iter()
+        .find(|sym| sym.name == "#scope_file")
+        .unwrap();
+    for name in ["state", "last"] {
+        assert!(
+            section.children.iter().any(|sym| sym.name == name),
+            "{symbols:?}"
+        );
     }
 }
 
