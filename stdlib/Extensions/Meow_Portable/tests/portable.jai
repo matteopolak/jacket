@@ -11,22 +11,46 @@ main :: () {
     empty := hash_bytes(.[]);
 
     assert(empty[0] == 0x657ca02a5859c045 && empty[1] == 0x75a7b5550383265e);
-    // Compare the register fast path too when running on x64.
-    // The register path loads whole 16-byte blocks, so the buffer carries 16 readable bytes past the longest input.
-    bytes: [1016] u8;
+    bytes: [1000] u8;
     for *bytes it.* = cast(u8) ((it_index * 37 + 11) & 255);
 
-    #if CPU == .X64 {
-        for count: int.[1, 15, 16, 17, 31, 32, 33, 100, 255, 256, 257, 300, 511, 512, 700, 1000] {
-            portable := hash_bytes(([] u8).{ count, bytes.data });
-            #asm { pxor hash:, hash; }
-            MeowHash(MeowDefaultSeed, cast(u64) count, bytes.data, hash);
-            assert(portable[0] == MeowU64From(hash, 0) && portable[1] == MeowU64From(hash, 1));
-        }
+    // The register path of `MeowHash` may load past the end of its input, so it is fed a padded copy.
+    // The portable hash gets the exact-size buffer.
+    for count: int.[1, 15, 16, 17, 31, 32, 33, 100, 255, 256, 257, 300, 511, 512, 700, 1000] {
+        check_length(bytes.data, count);
     }
+
+    // Inputs that end exactly at the end of their allocation, for every short length.
+    for count: 0..64 check_length(bytes.data, count);
 
     check_fixture();
     print("ok\n");
+}
+
+// Hashes `count` bytes of `source` from a heap block of exactly that size.
+check_length :: (source: *u8, count: int) {
+    exact := cast(*u8) alloc(max(count, 1));
+
+    defer free(exact);
+    memcpy(exact, source, count);
+
+    portable := hash_bytes(([] u8).{ count, exact });
+
+    // Bytes after the input must not matter.
+    padded := cast(*u8) alloc(count + 32);
+
+    defer free(padded);
+    memset(padded, 0xA5, count + 32);
+    memcpy(padded, source, count);
+    again := hash_bytes(([] u8).{ count, padded });
+
+    assert(portable[0] == again[0] && portable[1] == again[1]);
+
+    #if CPU == .X64 {
+        #asm { pxor hash:, hash; }
+        MeowHash(MeowDefaultSeed, cast(u64) count, padded, hash);
+        assert(portable[0] == MeowU64From(hash, 0) && portable[1] == MeowU64From(hash, 1));
+    }
 }
 
 read_le :: (p: *u8, count: int) -> u64 {
