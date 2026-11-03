@@ -56,7 +56,7 @@ realloc :: (memory: *void, size: s64, old_size: s64) -> *void {
 // ```
 free :: inline (s: string) {
     free(s.data);
-} @FreesArgument
+}
 
 // A string of `count` bytes in newly allocated memory, with the context allocator. The bytes are not
 // cleared, so write all of them before reading. Free it with `free`. With a `count` of 0 the string is

@@ -11,18 +11,16 @@
 //! }
 //! ```
 //!
-//! Fires only when the deferred statement is a call of a procedure declared with the note
-//! `@FreesArgument`: one that frees, closes or destroys what its argument holds (`free`,
-//! `array_free`, `array_reset` and the library's closers carry it; a program marks its own
-//! the same way). Other deferred statements (`level += 1`, `reset(*pool)`,
-//! `print(...)`) are deliberate per-iteration epilogues and stay quiet.
+//! Fires when checked effects release an argument's value or built-in descriptor storage.
+//! Releasing descriptor storage does not release its reusable header. Other deferred
+//! statements remain quiet, including resets that may release only a pool's overflow pages.
 //!
 //! Fires when the deferred statement uses only variables declared before the loop, and none
 //! of them appears in the body before the `defer`. That leaves out the usual per-iteration
 //! pairs (`lock(*m); defer unlock(*m);`, `f := open(it); defer close(f);`), whose resource is
 //! taken in the same iteration, and loop steps such as `while i < n { defer i += 1; ... }`,
 //! whose variable the loop's header reads.
-use super::calls_noted;
+use super::effects::{self, Effect};
 use crate::Finding;
 use crate::syntax::Cx;
 use jaic::ast::walk::{Node, walk, walk_node};
@@ -148,7 +146,7 @@ fn releases(cx: &Cx, s: &Stmt) -> bool {
         S::Expr(e) => match &e.kind {
             E::Call {
                 callee, ..
-            } => calls_noted(cx, callee, "FreesArgument"),
+            } => effects::calls(cx, callee, Effect::Cleanup),
             _ => false,
         },
         S::Block(b) => !b.stmts.is_empty() && b.stmts.iter().all(|s| releases(cx, s)),

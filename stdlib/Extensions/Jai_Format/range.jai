@@ -99,7 +99,7 @@ format_range_text :: (src: string, from: s64, to: s64, config: Format_Config) ->
     result.ok = true;
 
     return result;
-} @TempAllocates
+}
 
 // The top-level statements of a lexed file, in order.
 top_level_statements :: (tokens: [] Tok, src: string) -> [..] Statement_Range {

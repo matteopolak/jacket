@@ -33,6 +33,7 @@ mod reads;
 mod return_fields;
 mod return_may;
 mod selected;
+pub(in crate::rules) mod swap;
 mod templates;
 mod temporary;
 #[cfg(test)]

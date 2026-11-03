@@ -304,3 +304,37 @@ fn lifetime_inferred_descriptor_release_invalidates_its_backing_allocation() {
         assert!(text[findings[0].start..].starts_with("old["));
     }
 }
+
+#[test]
+fn lifetime_swap_identity_follows_the_body_instead_of_notes_or_names() {
+    let path = repo().join("tests/lint/pointer_lifetime/movement/inferred-swap.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[("pointer_lifetime", Level::Warn)],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
+        assert!(
+            text[findings[0].start..].starts_with("bad_slot"),
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+    }
+}
+
+#[test]
+fn lifetime_cleanup_queries_distinguish_storage_from_reusable_headers() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/descriptor-cleanup.jai");
+    for rule in ["defer_frees_returned", "defer_in_loop"] {
+        let (findings, text) = lint(&path, &[(rule, Level::Warn)]);
+        assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
+        assert!(findings[0].start < text.find("good_pool ::").unwrap());
+    }
+}

@@ -12,10 +12,13 @@ pub(super) enum Effect {
     PushContext,
     Minimum,
     Maximum,
+    Cleanup,
+    CleanupFirst,
+    ReleasedFirst,
 }
 
 impl Effect {
-    fn matches(self, summary: &lifetime_summary::Summary) -> bool {
+    fn matches(self, cx: &Cx, proc: ProcId, summary: &lifetime_summary::Summary) -> bool {
         match self {
             Self::OwnedReturn => summary.returns.get(&0).is_some_and(|(path, guard)| {
                 guard.is_none()
@@ -29,6 +32,46 @@ impl Effect {
             Self::PushContext => summary.pushes_context,
             Self::Minimum => summary.ordering == Some(lifetime_summary::Ordering::Minimum),
             Self::Maximum => summary.ordering == Some(lifetime_summary::Ordering::Maximum),
+            Self::Cleanup | Self::CleanupFirst | Self::ReleasedFirst => {
+                summary.may.keys().any(|e| {
+                    let lifetime_summary::Root::Parameter(n) = e.target.root else {
+                        return false;
+                    };
+                    if e.kind != lifetime_summary::Kind::Free
+                        || !matches!(self, Self::Cleanup) && n != 0
+                    {
+                        return false;
+                    }
+                    if e.target.steps.is_empty() {
+                        return true;
+                    }
+                    if !lifetime_summary::descriptor_storage(&e.target.steps) {
+                        return false;
+                    }
+                    let Some(ty) = cx.compiler.pr.procs[proc.0 as usize]
+                        .sig
+                        .as_ref()
+                        .and_then(|s| s.params.get(n))
+                        .map(|p| p.ty)
+                    else {
+                        return false;
+                    };
+                    let descriptor = |ty| {
+                        matches!(
+                            cx.compiler.ty.types.kind(ty),
+                            jaic::types::TypeKind::String
+                                | jaic::types::TypeKind::Array {
+                                    kind: jaic::types::ArrayKind::View
+                                        | jaic::types::ArrayKind::Resizable,
+                                    ..
+                                }
+                        )
+                    };
+                    descriptor(ty)
+                        || !matches!(self, Self::ReleasedFirst)
+                            && cx.compiler.ty.types.pointee(ty).is_some_and(descriptor)
+                })
+            }
         }
     }
 }
@@ -44,14 +87,14 @@ pub(super) fn calls(cx: &Cx, callee: &Expr, effect: Effect) -> bool {
     });
     let matches = |proc: ProcId| {
         if let Some(summary) = summaries.procs.get(&proc) {
-            return effect.matches(summary);
+            return effect.matches(cx, proc, summary);
         }
         let mut instances = cx.compiler.pr.procs[proc.0 as usize]
             .instances
             .values()
-            .filter_map(|id| summaries.procs.get(id))
+            .filter_map(|id| summaries.procs.get(id).map(|s| (*id, s)))
             .peekable();
-        instances.peek().is_some() && instances.all(|summary| effect.matches(summary))
+        instances.peek().is_some() && instances.all(|(id, summary)| effect.matches(cx, id, summary))
     };
     if let Some(chosen) = cx.compiler.ide_resolved_overload(span, &procs) {
         return matches(chosen);

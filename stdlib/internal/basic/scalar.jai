@@ -126,7 +126,7 @@ swap :: inline (a: *$T, b: *T) {
     t := a.*;
     a.* = b.*;
     b.* = t;
-} @SwapsArguments
+}
 
 // The capital for an ASCII lower case letter `c`; any other byte is returned as it is, so non-ASCII text is
 // not changed.

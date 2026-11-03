@@ -305,42 +305,9 @@ pub(crate) fn calls_noted(cx: &Cx, callee: &Expr, name: &str) -> bool {
     };
     // Of an overload set, the one this call chose says what the call means.
     if let Some(chosen) = cx.compiler.ide_resolved_overload(span, &procs) {
-        return note_or_inferred_release(cx, chosen, name);
+        return has_note(cx, chosen, name);
     }
-    !procs.is_empty() && procs.iter().all(|&p| note_or_inferred_release(cx, p, name))
-}
-
-// The remaining defer frontend consumes the same inferred release contract while its
-// source-edit policy remains independent of region solving.
-fn note_or_inferred_release(cx: &Cx, proc: ProcId, note: &str) -> bool {
-    if has_note(cx, proc, note) {
-        return true;
-    }
-    if note != "FreesArgument" {
-        return false;
-    }
-    let summaries = cx.run.lifetimes.get_or_init(|| {
-        lifetime_summary::Summaries::build_for(cx.compiler, &cx.run.lifetime_files)
-    });
-    let releases = |s: &lifetime_summary::Summary| {
-        s.may.keys().any(|e| {
-            e.kind == lifetime_summary::Kind::Free
-                && e.target.root == lifetime_summary::Root::Parameter(0)
-                && (e.target.steps.is_empty()
-                    || e.target.steps == [lifetime_summary::Step::Storage])
-        })
-    };
-    if let Some(summary) = summaries.procs.get(&proc) {
-        return releases(summary);
-    }
-    // Imported polymorphic headers are outside the source index of this file.
-    // Their actual checked instances still carry the selected cleanup summaries.
-    let checked: Vec<_> = cx.compiler.pr.procs[proc.0 as usize]
-        .instances
-        .values()
-        .filter_map(|p| summaries.procs.get(p))
-        .collect();
-    !checked.is_empty() && checked.into_iter().all(releases)
+    !procs.is_empty() && procs.iter().all(|&p| has_note(cx, p, name))
 }
 
 /// Some statement inside `stmt` (itself included, nested procedures not entered) satisfies `f`.

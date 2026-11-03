@@ -458,7 +458,9 @@ impl Builder<'_> {
             ops.push(Op::Indirect(resolver.call_targets(event), span));
         }
 
-        if direct.is_some_and(|callee| cx.compiler.proc_has_note(callee, "SwapsArguments")) {
+        if direct.is_some_and(|callee| {
+            crate::rules::lifetime_summary::swap::swaps_arguments(cx.compiler, callee)
+        }) {
             let position = |formal| {
                 args.iter()
                     .find(|a| a.formal == formal)

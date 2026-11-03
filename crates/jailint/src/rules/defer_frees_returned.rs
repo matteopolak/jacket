@@ -12,12 +12,14 @@
 //! gets memory or a resource the deferred call has already released.
 //!
 //! Fires on `return v` (or `return xx v`, `return cast(T) v`) below a statement
-//! `defer F(v);` in the same or an enclosing block, where `F` is a `@FreesArgument` procedure
+//! `defer F(v);` in the same or an enclosing block, where checked effects show that `F`
+//! releases the value of its first argument
 //! and `v` a local variable or parameter. Quiet when anything after the `defer` assigns `v` or
 //! takes its address (`v = null;` hands ownership on), when the `defer` holds more than the one
 //! call (`defer if failed free(v);`), and in macros.
+use super::effects::{self, Effect};
 use super::frees::local_of;
-use super::{PlaceUse, calls_noted, place_use, statement_lists, suggesting};
+use super::{PlaceUse, place_use, statement_lists, suggesting};
 use crate::syntax::Cx;
 use crate::{Edit, Finding};
 use jaic::ast::walk::{Node, walk};
@@ -102,7 +104,7 @@ fn deferred_free<'a>(cx: &'a Cx, s: &Stmt) -> Option<(EntityId, &'a str)> {
     else {
         return None;
     };
-    if !calls_noted(cx, callee, "FreesArgument") {
+    if !effects::calls(cx, callee, Effect::ReleasedFirst) {
         return None;
     }
     let first = args.first()?;

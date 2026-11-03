@@ -51,7 +51,7 @@ impl Resolver<'_> {
         else {
             return None;
         };
-        if !self.compiler.proc_has_note(*callee, "SwapsArguments") {
+        if !super::swap::swaps_arguments(self.compiler, *callee) {
             return None;
         }
         let position =

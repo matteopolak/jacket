@@ -13,9 +13,10 @@
 //! when every later use in the procedure is one of: a statement of the same block that is just
 //! `array_add(*name, item)` (a procedure noted `@AddsToArray`) and so adds a known number of
 //! elements, an index, `.count` or `.data`, the collection of a `for`, or a call that frees it
-//! (`@FreesArgument`). Passing the array anywhere else (to a procedure, into another variable,
+//! (according to checked effects). Passing the array anywhere else (to a procedure, into another variable,
 //! out of a `return`) may need the `[..]` type, so those locals are left alone, as are adds
 //! made inside loops, branches or with several items at once. No fix.
+use super::effects::{self, Effect};
 use super::{calls_noted, statement_lists};
 use crate::Finding;
 use crate::syntax::Cx;
@@ -154,7 +155,7 @@ fn examine(cx: &Cx, body: &[Stmt], list: &[Stmt], at: usize, d: &Decl) -> Option
                     args,
                     ..
                 } if args.first().is_some_and(|a| a.value.span == at.span)
-                    && calls_noted(cx, callee, "FreesArgument") =>
+                    && effects::calls(cx, callee, Effect::CleanupFirst) =>
                 {
                     freed = true;
                     true

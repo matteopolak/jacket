@@ -413,7 +413,7 @@ array_reset_keeping_memory :: inline (array: *[..] $T) {
 // ```
 array_free :: inline (array: [] $T) {
     free(array.data);
-} @FreesArgument
+}
 
 // Frees a dynamic array through the allocator it grew with, or `context.allocator` if it never allocated.
 //
@@ -425,7 +425,7 @@ array_free :: inline (array: [] $T) {
 array_free :: (array: [..] $T) {
     if array.allocator.proc allocator_call(array.allocator, .FREE, 0, array.allocated * size_of(T), array.data);
     else free(array.data);
-} @FreesArgument
+}
 
 // Frees the storage of an array (as `array_free` does) and sets the array to empty, so it can be reused.
 //
