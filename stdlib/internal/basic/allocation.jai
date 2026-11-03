@@ -141,7 +141,6 @@ to_c_string :: (s: string) -> *u8 {
 //     x := 5;
 //     y := 6;
 // }
-//
 // p: Point;
 // p.x = 100;
 // Initialize(*p);
@@ -176,9 +175,7 @@ is_zero_default :: ($T: Type) -> bool {
 //     x := 1;
 //     y := 2;
 // }
-//
 // p := New(Point);
-//
 // defer free(p);
 // assert(p.x == 1 && p.y == 2);
 // ```
@@ -247,7 +244,6 @@ align_forward :: (orig_size: s64, alignment: s64) -> s64 {
 //     text := sprint("%", 123); // lives in temporary storage
 //     assert(text == "123");
 // }
-//
 // reset_temporary_storage();
 // ```
 push_allocator :: (allocator: Allocator) #expand #no_debug {

@@ -4,7 +4,6 @@
 //
 // ```jai,skip_on(wasm)
 // pool: Flat_Pool;
-//
 // defer fini(*pool);
 // list := cast(*u8) get(*pool, 100);
 // list[99] = 1;

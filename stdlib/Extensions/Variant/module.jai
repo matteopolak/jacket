@@ -22,7 +22,6 @@
 // c.phone = "555"; // the cases are fields
 //
 // t: Tree;
-//
 // set(*t, Leaf.{ 1 }); // by type, when only one case has it
 // if t.which == .LEAF print("%\n", t.leaf);
 //
@@ -53,7 +52,6 @@
 //
 // Id :: Variant(s64, string);
 // id: Id;
-//
 // assert(id.which == .S64 && id.s64_ == 0);
 // id.which = .STRING;
 // id.string_ = "abc";
@@ -61,7 +59,6 @@
 //
 // Maybe_Id :: Variant(void, s64);
 // maybe: Maybe_Id;
-//
 // assert(maybe.which == .NONE);
 // ```
 Variant :: struct($types: ..Type) {
@@ -120,7 +117,6 @@ variant :: ($V: Type) -> V {
 //
 // Id :: Variant(s64, string);
 // id: Id;
-//
 // set(*id, "abc");
 // set(*id, cast(s64) 7);
 // assert(id.which == .S64 && id.s64_ == 7);
@@ -147,7 +143,6 @@ set :: (v: *$V/Variant, value: $T) {
 //
 // Id :: Variant(void, s64, string);
 // id := variant(Id, "abc");
-//
 // set(*id);
 // assert(id.which == .NONE);
 // ```

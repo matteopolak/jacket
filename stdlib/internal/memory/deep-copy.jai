@@ -10,11 +10,9 @@
 //     value: s64;
 //     next: *Node;
 // }
-//
 // tail := Node.{ 2, null };
 // head := Node.{ 1, *tail };
 // copy := Deep_Copy(*head, .{});
-//
 // assert(copy != *head && copy.next != *tail && copy.next.value == 2);
 // ```
 Deep_Copy :: (value: *$T, config: Deep_Copy_Config, preallocated_root: *void = null, pointer_map: *Pointer_Map = null, loc := #caller_location) -> *T {

@@ -9,7 +9,6 @@
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "hello");
 // move_caret(*edit, 5);
@@ -149,7 +148,6 @@ contents :: (edit: *Text_Edit) -> string {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "abc");
 // assert(!has_selection(*edit));
@@ -166,13 +164,11 @@ has_selection :: (edit: *Text_Edit) -> bool {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "hello world");
 // move_caret(*edit, 6);
 // move_caret(*edit, 11, extend = true);
 // start, end := selection_range(*edit);
-//
 // assert(start == 6 && end == 11);
 // ```
 selection_range :: (edit: *Text_Edit) -> start: int, end: int {
@@ -185,7 +181,6 @@ selection_range :: (edit: *Text_Edit) -> start: int, end: int {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "hello world");
 // move_caret(*edit, 6);
@@ -203,12 +198,10 @@ selected_text :: (edit: *Text_Edit) -> string {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "ab\ncd");
 // move_caret(*edit, 4);
 // line, column := caret_position(*edit);
-//
 // assert(line == 1 && column == 1);
 // ```
 caret_position :: (edit: *Text_Edit) -> line: int, column: int {
@@ -224,7 +217,6 @@ caret_position :: (edit: *Text_Edit) -> line: int, column: int {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "abc");
 // move_caret(*edit, 100); // clamped
@@ -243,7 +235,6 @@ move_caret :: (edit: *Text_Edit, offset: int, extend: bool = false) {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "abc");
 // select_all(*edit);
@@ -262,7 +253,6 @@ select_all :: (edit: *Text_Edit) {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "hello");
 // select_all(*edit);
@@ -295,7 +285,6 @@ insert_text :: (edit: *Text_Edit, text: string) {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "hello world");
 // move_caret(*edit, 5);
@@ -321,7 +310,6 @@ delete_selection :: (edit: *Text_Edit) -> bool {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "one two");
 // assert(offset_by(*edit, 0, .WORD, 1) == 3);
@@ -343,7 +331,6 @@ Unit :: enum u8 {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "ab cd");
 // assert(offset_by(*edit, 0, .CHARACTER, 1) == 1);
@@ -409,7 +396,6 @@ offset_by :: (edit: *Text_Edit, from: int, unit: Unit, direction: int) -> int {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "one two");
 // move_by(*edit, .WORD, 1);
@@ -436,7 +422,6 @@ move_by :: (edit: *Text_Edit, unit: Unit, direction: int, extend: bool = false) 
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "one two");
 // move_caret(*edit, 7);
@@ -468,17 +453,14 @@ delete_by :: (edit: *Text_Edit, unit: Unit, direction: int) {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "abcd\nef");
 // move_caret(*edit, 3);
 //
 // ui := headless();
-//
 // defer free_ui(*ui);
 // move_vertically(*ui, *edit, 1, .{});
 // line, column := caret_position(*edit);
-//
 // assert(line == 1);
 // ```
 move_vertically :: (ui: *UI_State, edit: *Text_Edit, lines: int, style: Text_Style, extend: bool = false) {
@@ -513,7 +495,6 @@ move_vertically :: (ui: *UI_State, edit: *Text_Edit, lines: int, style: Text_Sty
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "hello world");
 // select_word_at(*edit, 8);
@@ -540,7 +521,6 @@ select_word_at :: (edit: *Text_Edit, offset: int) {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "one\ntwo\nthree");
 // select_line_at(*edit, 5);
@@ -559,7 +539,6 @@ select_line_at :: (edit: *Text_Edit, offset: int) {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // insert_text(*edit, "typed");
 // assert(undo_edit(*edit));
@@ -582,7 +561,6 @@ undo_edit :: (edit: *Text_Edit) -> bool {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // insert_text(*edit, "typed");
 // undo_edit(*edit);
@@ -605,7 +583,6 @@ redo_edit :: (edit: *Text_Edit) -> bool {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "    indented");
 // move_caret(*edit, 12);
@@ -634,7 +611,6 @@ insert_newline :: (edit: *Text_Edit) {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "ab");
 // move_caret(*edit, 2);
@@ -672,17 +648,14 @@ Key_Result :: struct {
 //
 // ```jai
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // ui := headless();
-//
 // defer free_ui(*ui);
 //
 // event: Input_Event;
 // event.kind = .TEXT;
 // event.character = #char "h";
 // result := handle_key(*ui, *edit, event, .{}, .{}, 10);
-//
 // assert(result.changed && contents(*edit) == "h");
 // ```
 handle_key :: (ui: *UI_State, edit: *Text_Edit, event: Input_Event, style: Text_Style, options: Editor_Options, page_lines: int) -> Key_Result {
@@ -824,10 +797,8 @@ handle_key :: (ui: *UI_State, edit: *Text_Edit, event: Input_Event, style: Text_
 //
 // ```jai,no_run
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // ui := headless();
-//
 // defer free_ui(*ui);
 // copy_selection(*ui, *edit); // puts the selection on the clipboard
 // ```
@@ -843,10 +814,8 @@ copy_selection :: (ui: *UI_State, edit: *Text_Edit) {
 //
 // ```jai,no_run
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // ui := headless();
-//
 // defer free_ui(*ui);
 // cut_selection(*ui, *edit); // copies the selection, then deletes it
 // ```
@@ -863,10 +832,8 @@ cut_selection :: (ui: *UI_State, edit: *Text_Edit) {
 //
 // ```jai,no_run
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // ui := headless();
-//
 // defer free_ui(*ui);
 // paste_clipboard(*ui, *edit); // inserts the clipboard text at the caret
 // ```
@@ -904,19 +871,15 @@ paste_clipboard :: (ui: *UI_State, edit: *Text_Edit) {
 //
 // ```jai
 // doc: Text_Edit;
-//
 // defer free_text_edit(*doc);
 // set_contents(*doc, "first line\nsecond line");
 // ui := headless();
-//
 // defer free_ui(*ui);
-//
 // build := (e: *Text_Edit) {
 //     for column() {
 //         text_editor(e, .{ line_numbers = true });
 //     }
 // };
-//
 // frame(*ui, *doc, build);
 // assert(find_role(*ui, .TEXT_EDITOR) != null);
 // ```
@@ -936,18 +899,14 @@ text_editor :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_
 //
 // ```jai
 // name: Text_Edit;
-//
 // defer free_text_edit(*name);
 // ui := headless();
-//
 // defer free_ui(*ui);
-//
 // build := (e: *Text_Edit) {
 //     for column() {
 //         changed, submitted := text_field(e, .{ placeholder = "Your name" });
 //     }
 // };
-//
 // frame(*ui, *name, build);
 // click(*ui, find_role(*ui, .TEXT_FIELD));
 // frame(*ui, *name, build);
@@ -974,10 +933,8 @@ text_field :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_l
 //
 // ```jai,no_run
 // edit: Text_Edit;
-//
 // defer free_text_edit(*edit);
 // ui := headless();
-//
 // defer free_ui(*ui);
 // node := find_role(*ui, .TEXT_EDITOR);
 // first, last, line_height := visible_lines(*ui, *edit, node, .{});
@@ -998,7 +955,6 @@ visible_lines :: (ui: *UI_State, edit: *Text_Edit, node: *Node, options: Editor_
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // push_ui(*ui);
 // wake_in(*ui, 0.5); // ask for a frame in half a second

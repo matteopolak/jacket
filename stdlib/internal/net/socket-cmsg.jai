@@ -8,11 +8,9 @@
 //
 // ```jai,only(linux, macos)
 // message: msghdr;
-//
 // assert(CMSG_FIRSTHDR(*message) == null);
 //
 // buffer: [64] u8;
-//
 // message.msg_control = buffer.data;
 // message.msg_controllen = xx buffer.count;
 // assert(cast(*u8) CMSG_FIRSTHDR(*message) == buffer.data);

@@ -15,14 +15,12 @@
 // #import "Input";
 //
 // window := create_window(800, 600, "simp");
-//
 // set_render_target(window);
 // font := load_font("", "Roboto-Regular.ttf", 24);
 //
 // while true {
 //     update_window_events();
 //     for events_this_frame if it.type == .QUIT return;
-//
 //     update_window(window);
 //
 //     clear_render_target(0.1, 0.1, 0.15, 1);

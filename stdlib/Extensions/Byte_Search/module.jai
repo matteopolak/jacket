@@ -11,7 +11,6 @@
 //
 // // A needle searched for many times: its analysis is done once.
 // finder := Byte_Search.make_finder("needle");
-//
 // at = Byte_Search.find(*finder, text, start = at + 1);
 // ```
 //
@@ -267,7 +266,6 @@ Finder :: struct {
 //
 // finder := Byte_Search.make_finder("ab");
 // at := Byte_Search.find(*finder, "xxabxxab");
-//
 // assert(at == 2);
 // assert(Byte_Search.find(*finder, "xxabxxab", at + 1) == 6);
 // ```

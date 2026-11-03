@@ -7,7 +7,6 @@
 // ```jai
 // line := "  name =value";
 // token, ok := parse_token(*line);
-//
 // assert(ok && token == "name" && line == " =value");
 //
 // token, ok = parse_token(*line);
@@ -84,7 +83,6 @@ parse_bool :: (line: *string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAUL
 //
 // line := "GREEN;";
 // value, ok := parse_enum(*line, Color);
-//
 // assert(ok && value == .GREEN && line == ";");
 // ```
 parse_enum :: (line: *string, $T: Type, delimiters := DEFAULT_DELIMITERS, spaces := DEFAULT_SPACES) -> value: T, success: bool {
@@ -106,12 +104,10 @@ parse_enum :: (line: *string, $T: Type, delimiters := DEFAULT_DELIMITERS, spaces
 // ```jai
 // line := " 42;7";
 // value, ok := parse_int(*line);
-//
 // assert(ok && value == 42);
 //
 // big := "257";
 // small, small_ok := parse_int(*big, u8);
-//
 // assert(!small_ok && small == 0);
 // ```
 parse_int :: (line: *string, $T: Type = int, spaces := " \t", delimiters := DEFAULT_DELIMITERS) -> value: T, success: bool {

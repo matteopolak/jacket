@@ -75,9 +75,7 @@ clamp_to_another_integer_type :: (value: $SourceType, $TargetType: Type) -> Targ
 //     GREEN;
 //     BLUE;
 // }
-//
 // names := enum_names(Color);
-//
 // assert(names.count == 3 && names[1] == "GREEN");
 // ```
 enum_names :: ($t: Type) -> [] string {
@@ -92,9 +90,7 @@ enum_names :: ($t: Type) -> [] string {
 //     MID :: 5;
 //     HIGH :: 9;
 // }
-//
 // values := enum_values_as_s64(Level);
-//
 // assert(values.count == 3 && values[2] == 9);
 // ```
 enum_values_as_s64 :: ($T: Type) -> [] s64 {
@@ -109,9 +105,7 @@ enum_values_as_s64 :: ($T: Type) -> [] s64 {
 //     GREEN;
 //     BLUE;
 // }
-//
 // members := enum_values_as_enum(Color);
-//
 // assert(members.count == 3 && members[2] == .BLUE);
 // ```
 enum_values_as_enum :: ($T: Type) -> [] T {
@@ -132,10 +126,8 @@ enum_values_as_enum :: ($T: Type) -> [] T {
 //     x: int;
 //     y: int;
 // }
-//
 // info := cast(*Type_Info_Struct) type_info(Point);
 // member, offset := get_field(info, "y");
-//
 // assert(member != null && offset == 8);
 // ```
 get_field :: (info: *Type_Info_Struct, name: string) -> *Type_Info_Struct_Member, offset_in_bytes: s64 {
@@ -175,9 +167,7 @@ enum_range_given_info :: (info: *Type_Info_Enum) -> (low: s64, high: s64) {
 //     MID :: 5;
 //     HIGH :: 9;
 // }
-//
 // low, high := enum_range(Level);
-//
 // assert(low == 1 && high == 9);
 // ```
 enum_range :: ($t: Type) -> (low: s64, high: s64) {
@@ -192,7 +182,6 @@ enum_range :: ($t: Type) -> (low: s64, high: s64) {
 //     MID :: 5;
 //     HIGH :: 9;
 // }
-//
 // assert(enum_highest_value(Level) == 9);
 // ```
 enum_highest_value :: ($t: Type) -> s64 {

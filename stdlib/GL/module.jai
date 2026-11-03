@@ -9,7 +9,6 @@
 // #import "GL";
 //
 // window := create_window(800, 600, "gl");
-//
 // gl_create_context(window, 3, 3);
 // glClearColor(0.1, 0.1, 0.2, 1);
 // glClear(GL_COLOR_BUFFER_BIT);

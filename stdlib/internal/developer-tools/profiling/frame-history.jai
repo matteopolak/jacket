@@ -128,7 +128,6 @@ propagate_stack :: (c: *Zone_Profiling_Data) {
 //         zone_end();
 //         update(true);
 //     }
-//
 //     assert(create_report().records.count == 1);
 // }
 // ```

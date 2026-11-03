@@ -6,10 +6,8 @@
 // ```jai
 // a := milliseconds_to_apollo(1500);
 // b := seconds_to_apollo(2);
-//
 // assert(compare_apollo_times(a, b) < 0);
 // seconds, ok := to_seconds(b);
-//
 // assert(ok && seconds == 2);
 // ```
 Apollo_Time :: #type,isa S128;

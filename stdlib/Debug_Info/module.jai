@@ -7,7 +7,6 @@
 // ```jai
 // info: Line_Info;
 // sequence: Line_Info_Sequence;
-//
 // array_add(*sequence.addresses, 0x1000);
 // array_add(*sequence.addresses, 0x1010);
 // array_add(*sequence.mappings, .{ file_id = 1, line = 42 });
@@ -15,7 +14,6 @@
 // array_add(*info.sequences, sequence);
 //
 // mapping, found := get_line_mapping_for_address(info, 0x1004);
-//
 // assert(found && mapping.line == 42);
 // ```
 

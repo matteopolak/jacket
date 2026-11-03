@@ -2,7 +2,6 @@
 //
 // ```jai
 // mutex: Mutex;
-//
 // init(*mutex);
 // defer destroy(*mutex);
 // lock(*mutex);
@@ -58,7 +57,6 @@ destroy :: (using m: *Mutex) {
 //
 // ```jai
 // mutex: Mutex;
-//
 // init(*mutex);
 // defer destroy(*mutex);
 //
@@ -151,28 +149,23 @@ cvariable_wake_all :: (condition_variable: *Per_OS_Condition_Variable_Type) {
 //
 // finish :: (thread: *Thread) -> s64 {
 //     box := cast(*Box) thread.data;
-//
 //     lock(*box.mutex);
 //     box.done = true;
 //     unlock(*box.mutex);
 //     wake(*box.changed);
-//
 //     return 0;
 // }
 //
 // box: Box;
-//
 // init(*box.mutex);
 // init(*box.changed);
 // thread: Thread;
-//
 // assert(thread_init(*thread, finish));
 // thread.data = *box;
 // thread_start(*thread);
 //
 // lock(*box.mutex);
 // while !box.done wait(*box.changed, *box.mutex);
-//
 // unlock(*box.mutex);
 //
 // assert(thread_is_done(*thread, -1));
@@ -198,7 +191,6 @@ wake_all :: (c: *Condition_Variable) {
 //
 // ```jai
 // semaphore: Semaphore;
-//
 // init(*semaphore, 1);
 // defer destroy(*semaphore);
 // assert(wait_for(*semaphore, 0) == .SUCCESS);
@@ -219,7 +211,6 @@ destroy :: (s: *Semaphore) {
 //
 // ```jai
 // semaphore: Semaphore;
-//
 // init(*semaphore);
 // defer destroy(*semaphore);
 // signal(*semaphore);

@@ -12,7 +12,6 @@
 //
 // set: Keymap_Set;
 // map := add_keymap(*set, "editor");
-//
 // set.default_keymap = map;
 // add_proc(map, "save", () {
 //     /* runs on C-s */

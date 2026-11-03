@@ -17,7 +17,6 @@
 // on_change :: (watcher: *File_Watcher(void), change: *File_Change, data: *void) {}
 //
 // watcher: File_Watcher;
-//
 // assert(!init(*watcher, on_change, merge_window_seconds = -1));
 // assert(!init(*watcher, on_change, event_buffer_size = 0));
 // deinit(*watcher); // nothing was set up, so nothing to release

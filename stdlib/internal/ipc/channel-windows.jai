@@ -68,18 +68,14 @@ reader_create_channel_os_specific :: (name: string, bytes: s64) -> (success: boo
 // name := tprint("jai-doc-%", to_nanoseconds(current_time_monotonic()));
 //
 // missing, nothing := writer_connect(name, name_not_found_is_quiet = true);
-//
 // assert(!missing); // no reader yet
 //
 // ok, reader := reader_create_channel(name, 512);
-//
 // assert(ok);
 // connected, writer := writer_connect(name);
-//
 // assert(connected);
 //
 // second, other := writer_connect(name, name_not_found_is_quiet = true);
-//
 // assert(!second); // one writer at a time
 //
 // assert(writer_disconnect(*writer));

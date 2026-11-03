@@ -8,9 +8,7 @@ File_Visit_Info :: Visit.File_Visit_Info;
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-exists.txt", base);
-//
 // defer file_delete(path);
 // assert(!file_exists(path));
 // assert(write_entire_file(path, "x"));
@@ -59,13 +57,10 @@ file_modtime_and_size :: (file_path: string) -> (modtime: Apollo_Time, size: s64
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-file-modtime.txt", base);
-//
 // defer file_delete(path);
 // assert(write_entire_file(path, "x"));
 // time, found := file_modtime(path);
-//
 // assert(found && compare_apollo_times(time, APOLLO_TIME_INVALID) != 0);
 // ```
 file_modtime :: (file_path: string) -> (modtime: Apollo_Time, success: bool) {
@@ -83,13 +78,10 @@ file_modtime :: (file_path: string) -> (modtime: Apollo_Time, success: bool) {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-add-modtime.txt", base);
-//
 // defer file_delete(path);
 // assert(write_entire_file(path, "four"));
 // info := File_Visit_Info.{ full_name = path, modification_time = APOLLO_TIME_INVALID };
-//
 // assert(add_modtime_and_size_if_missing(*info));
 // assert(info.size == 4);
 // ```

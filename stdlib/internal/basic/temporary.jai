@@ -264,7 +264,6 @@ set_temporary_storage_mark :: inline (state: Temporary_Storage_State, loc := #ca
 //     upper := tprint("%!", s);
 //     return upper.count;
 // }
-//
 // assert(shout("hey") == 4);
 // ```
 auto_release_temp :: (loc := #caller_location) #expand {

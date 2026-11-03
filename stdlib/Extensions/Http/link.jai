@@ -43,7 +43,6 @@ tcp_link :: (tcp: Io.Tcp_Stream) -> Link {
 //
 //         buffer: [8] u8;
 //         count, error := Io.read(server.reader, buffer);
-//
 //         assert(error == .NONE && string.{ count, buffer.data } == "ping");
 //
 //         close(client);

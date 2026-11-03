@@ -2,7 +2,6 @@
 //
 // ```jai
 // SIMD :: #import "Extensions/SIMD";
-//
 // using SIMD;
 //
 // text := "hello, wide world!";
@@ -10,7 +9,6 @@
 // // Where is the first space in these 16 bytes?
 // chunk := load(u8x16, text.data);
 // spaces := eq(chunk, #char " ");
-//
 // if any(spaces) print("at %\n", first_true(spaces));
 // ```
 //

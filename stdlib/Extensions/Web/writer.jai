@@ -53,10 +53,8 @@ deinit :: (w: *Writer) {
 // `.html`, so a page is served at its path without an extension; each page path has one producer.
 // ```jai
 // w := writer_init("unused", "/", true);
-//
 // defer deinit(*w);
 // out: Out;
-//
 // defer deinit(*out);
 // html(*out, "<p>Hi</p>");
 // assert(write_page(*w, "api", *out));
@@ -102,15 +100,12 @@ write_file :: (w: *Writer, path: string, data: [] u8) -> bool {
 // The returned array and its strings belong to the caller; free both when done.
 // ```jai
 // w := writer_init("unused", "/d/", true);
-//
 // defer deinit(*w);
 // out: Out;
-//
 // defer deinit(*out);
 // html(*out, "<a href=\"/d/\">home</a>");
 // write_page(*w, "", *out);
 // problems := check_links(*w);
-//
 // assert(problems.count == 0);
 // array_free(problems);
 // ```

@@ -29,17 +29,13 @@ Map_File_Info :: struct {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-tell.bin", base);
-//
 // defer file_delete(path);
 // assert(write_entire_file(path, "abc"));
 // file, ok := file_open(path);
-//
 // assert(ok);
 // defer file_close(*file);
 // success, position := file_tell(file);
-//
 // assert(success && position == 0);
 // ```
 file_tell :: (file: File) -> (success: bool, position: s64) {
@@ -56,18 +52,14 @@ file_tell :: (file: File) -> (success: bool, position: s64) {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-write-string.bin", base);
-//
 // defer file_delete(path);
 // file, ok := file_open(path, for_writing = true);
-//
 // assert(ok);
 // assert(file_write(*file, "hello "));
 // assert(file_write(*file, "world"));
 // file_close(*file);
 // text, read_ok := read_entire_file(path);
-//
 // assert(read_ok && text == "hello world");
 // free(text);
 // ```
@@ -85,21 +77,16 @@ file_write :: inline (file: *File, data: string) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-write-builder.bin", base);
-//
 // defer file_delete(path);
 // builder: String_Builder;
-//
 // print_to_builder(*builder, "%-%", 1, 2);
 // file, ok := file_open(path, for_writing = true);
-//
 // assert(ok);
 // assert(file_write(*file, *builder));
 // file_close(*file);
 // free_buffers(*builder);
 // text, read_ok := read_entire_file(path);
-//
 // assert(read_ok && text == "1-2");
 // free(text);
 // ```
@@ -131,20 +118,16 @@ file_write :: (file: *File, builder: *String_Builder, do_reset := true) -> bool 
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-read-rest.bin", base);
-//
 // defer file_delete(path);
 //
 // assert(write_entire_file(path, "abcdef"));
 // file, ok := file_open(path);
-//
 // assert(ok);
 // defer file_close(*file);
 //
 // assert(file_set_position(file, 2));
 // rest, read_ok := read_entire_file(file, zero_terminated = true);
-//
 // assert(read_ok && rest == "cdef" && rest.data[rest.count] == 0);
 // free(rest);
 // ```
@@ -195,18 +178,14 @@ read_entire_file :: (f: File, zero_terminated := false) -> string, bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-read-entire.txt", base);
-//
 // defer file_delete(path);
 //
 // _, found := read_entire_file(path);
-//
 // assert(!found);
 //
 // assert(write_entire_file(path, "one\r\ntwo\0"));
 // text, ok := read_entire_file(path);
-//
 // assert(ok && text.count == 9 && text[8] == 0);
 // free(text);
 // ```
@@ -228,15 +207,12 @@ read_entire_file :: (name: string, zero_terminated := false, log_errors := false
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-write-entire.txt", base);
-//
 // defer file_delete(path);
 //
 // assert(write_entire_file(path, "a long first version"));
 // assert(write_entire_file(path, "short"));
 // text, ok := read_entire_file(path);
-//
 // assert(ok && text == "short");
 // free(text);
 // assert(!write_entire_file(tprint("%/jai-doc-no-such-dir/file", base), "x"));
@@ -294,14 +270,11 @@ string_to_map_file_info :: (data: string) -> Map_File_Info {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-map-file.txt", base);
-//
 // defer file_delete(path);
 //
 // assert(write_entire_file(path, "mapped text"));
 // info, ok := map_entire_file_start(path);
-//
 // assert(ok && info.data == "mapped text");
 // map_entire_file_end(*info);
 // assert(info.data.count == 0);

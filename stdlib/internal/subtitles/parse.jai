@@ -39,10 +39,8 @@ load_subtitles_from_file :: (path: string) -> bool, Subtitles {
 // ```jai
 // text := "[1]\n:intro\n=guard 1.5\nHalt!\n++ raises a hand\n";
 // ok, subtitles := load_subtitles_from_memory(text, "intro");
-//
 // assert(ok);
 // section := subtitles.all_sections[0];
-//
 // assert(section.name == "intro" && section.instants[0].speaker == "guard");
 // assert(section.instants[0].lines.count == 2);
 // free(*subtitles);

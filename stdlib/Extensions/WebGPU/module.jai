@@ -185,7 +185,6 @@ webgpu_request_device :: (instance: WGPUInstance, adapter: WGPUAdapter, descript
 // ```jai,no_run
 // instance := wgpuCreateInstance(null);
 // buffer: WGPUBuffer;
-//
 // if webgpu_map_buffer(instance, buffer, .Read) {
 //     bytes := wgpuBufferGetConstMappedRange(buffer, 0, 64);
 //     // ... read from bytes ...
@@ -229,7 +228,6 @@ webgpu_map_buffer :: (instance: WGPUInstance, buffer: WGPUBuffer, mode: WGPUMapM
 // queue: WGPUQueue;
 // texture: WGPUTexture;
 // pixels := webgpu_read_texture(instance, device, queue, texture, 256, 256);
-//
 // defer array_free(pixels);
 // ```
 webgpu_read_texture :: (instance: WGPUInstance, device: WGPUDevice, queue: WGPUQueue, texture: WGPUTexture, width: s32, height: s32, bytes_per_pixel := 4) -> [] u8 {
@@ -294,7 +292,6 @@ webgpu_read_texture :: (instance: WGPUInstance, device: WGPUDevice, queue: WGPUQ
 // ```jai,no_run
 // instance := wgpuCreateInstance(null);
 // device: WGPUDevice;
-//
 // wgpuDevicePushErrorScope(device, .Validation);
 // // ... calls that might be invalid ...
 // type, message := webgpu_pop_error_scope(instance, device);
@@ -467,7 +464,6 @@ WEBGPU_SURFACE_OCCLUDED :: cast(WGPUSurfaceGetCurrentTextureStatus) 0x0003_0001;
 //
 // ```jai,no_run
 // surface: WGPUSurface;
-//
 // while true {
 //     // ... draw into the surface's current texture ...
 //     webgpu_present(surface);

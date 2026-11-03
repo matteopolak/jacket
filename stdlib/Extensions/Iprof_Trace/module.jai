@@ -42,7 +42,6 @@ Recorder :: struct {
 //
 // main :: () {
 //     recorder: Recorder;
-//
 //     start_capture(*recorder);
 //     I.zones[0].name = "work";
 //     I.zones[0].initted = true;

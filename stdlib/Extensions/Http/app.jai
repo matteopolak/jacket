@@ -2,12 +2,10 @@
 //
 // ```jai
 // app: App;
-//
 // get(*app, "/users/{id}", get_user);
 // post(*app, "/users", create_user);
 //
 // admin := group(*app, "/admin", require_token);
-//
 // delete(admin, "/users/{id}", delete_user);
 //
 // serve(*app);
@@ -109,20 +107,17 @@ Error_Handler :: #type (error: Http_Error, request: *Request) -> Response;
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
 //
 //     api := test_client(*app); // the app, driven in memory: no socket
 //     response, error := get(api, "/hello");
-//
 //     defer close(*response);
 //
 //     assert(error.kind == .NONE && response.status == 200);
 //
 //     text, read_error := read_text(*response);
-//
 //     defer free(text);
 //
 //     assert(read_error.kind == .NONE && text == "hello");
@@ -186,7 +181,6 @@ free_app :: (app: *App) {
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -195,11 +189,9 @@ free_app :: (app: *App) {
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/hello");
-//
 //     defer close(*response);
 //
 //     value, found := header(*response, "X-Served-By");
-//
 //     assert(found && value == "jacket");
 // }
 // ```
@@ -247,23 +239,19 @@ Group :: struct(PREFIX: string) {
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     admin := group(*app, "/admin", guard);
-//
 //     get(admin, "/stats", stats); // GET /admin/stats
 //
 //     api := test_client(*app);
 //
 //     refused, _ := get(api, "/admin/stats");
-//
 //     assert(refused.status == 401);
 //     close(*refused);
 //
 //     token := Header_Field.[.{ name = "Authorization", value = "secret" }];
 //     allowed, _ := get(api, "/admin/stats", token);
-//
 //     assert(allowed.status == 200);
 //     close(*allowed);
 // }
@@ -308,22 +296,18 @@ group :: (parent: *Group($P), $prefix: string, middleware: ..Middleware) -> *Gro
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     admin := group(*app, "/admin");
-//
 //     use(admin, add_header);
 //     get(admin, "/hello", hello);
 //
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/admin/hello");
-//
 //     defer close(*response);
 //
 //     value, found := header(*response, "X-Area");
-//
 //     assert(found && value == "admin");
 // }
 // ```
@@ -353,7 +337,6 @@ use :: (group: *Group($P), middleware: Middleware) {
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     get(*app, "/users/{id}", find_user);
@@ -361,12 +344,10 @@ use :: (group: *Group($P), middleware: Middleware) {
 //     api := test_client(*app);
 //
 //     found, _ := get(api, "/users/1");
-//
 //     assert(found.status == 200);
 //     close(*found);
 //
 //     missing, _ := get(api, "/users/2");
-//
 //     assert(missing.status == 404);
 //     close(*missing);
 // }
@@ -394,18 +375,15 @@ get :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc 
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     post(*app, "/items", add);
 //
 //     api := test_client(*app);
 //     response, _ := post(api, "/items", Item.{ name = "pen" }); // a struct is sent as JSON
-//
 //     defer close(*response);
 //
 //     text, _ := read_text(*response);
-//
 //     defer free(text);
 //
 //     assert(response.status == 200 && text == "added pen");
@@ -429,7 +407,6 @@ post :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     put(*app, "/items/{id}", replace);
@@ -437,11 +414,9 @@ post :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc
 //     api := test_client(*app);
 //
 //     response, _ := put(api, "/items/3", "new value");
-//
 //     defer close(*response);
 //
 //     text, _ := read_text(*response);
-//
 //     defer free(text);
 //     assert(text == "replaced 3");
 // }
@@ -464,7 +439,6 @@ put :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc 
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     patch(*app, "/items/{id}", touch);
@@ -472,7 +446,6 @@ put :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc 
 //     api := test_client(*app);
 //
 //     response, _ := patch(api, "/items/3", "changed");
-//
 //     defer close(*response);
 //
 //     assert(response.status == 204);
@@ -497,14 +470,12 @@ patch :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $lo
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     delete(*app, "/items/{id}", discard);
 //
 //     api := test_client(*app);
 //     response, _ := delete(api, "/items/7");
-//
 //     defer close(*response);
 //
 //     assert(response.status == 204);
@@ -532,7 +503,6 @@ delete :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $l
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     head(*app, "/file", probe);
@@ -540,7 +510,6 @@ delete :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $l
 //     api := test_client(*app);
 //
 //     response, _ := head(api, "/file");
-//
 //     defer close(*response);
 //
 //     assert(response.status == 200);
@@ -565,19 +534,16 @@ head :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc
 //
 // main :: () {
 //     app: App;
-//
 //     defer free_app(*app);
 //
 //     options(*app, "/things", choices);
 //
 //     api := test_client(*app);
 //     response, _ := options(api, "/things");
-//
 //     defer close(*response);
 //
 //     assert(response.status == 204);
 //     allow, found := find_header(response.headers, "allow");
-//
 //     assert(found && allow == "GET, POST");
 // }
 // ```

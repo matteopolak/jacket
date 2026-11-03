@@ -39,12 +39,10 @@ init_named_pipe_pair :: (pipe: *Process.Pipe, is_input: bool) -> success: bool, 
 //
 // ```jai,only(windows)
 // process: Process;
-//
 // assert(create_process(*process, "cmd.exe", "/c", "echo ready", capture_and_return_output = true));
 // defer deinit(*process);
 //
 // finished, result := get_process_result(*process, 5000);
-//
 // assert(finished && result.type == .EXITED && result.exit_code == 0);
 // ```
 create_process :: (process: *Process, args: ..string, working_directory := "", capture_and_return_output := false, arg_quoting := Process_Argument_Quoting.QUOTE_IF_NEEDED, kill_process_if_parent_exits := true) -> success: bool {
@@ -57,11 +55,9 @@ create_process :: (process: *Process, args: ..string, working_directory := "", c
 //
 // ```jai,only(windows)
 // process: Process;
-//
 // assert(create_process(*process, "cmd.exe", "/c", "exit 0"));
 // deinit(*process);
 // ok, result := get_process_result(*process, 0);
-//
 // assert(ok && result.type == .UNSTARTED);
 // ```
 deinit :: (process: *Process) {
@@ -73,7 +69,6 @@ deinit :: (process: *Process) {
 //
 // ```jai,only(windows)
 // process: Process;
-//
 // assert(create_process(*process, "cmd.exe", "/c", "exit 0"));
 // defer deinit(*process);
 // deinit(*process.input);
@@ -88,11 +83,9 @@ deinit :: (pipe: *Process.Pipe) {
 //
 // ```jai,only(windows)
 // process: Process;
-//
 // assert(create_process(*process, "cmd.exe", "/c", "exit 0", capture_and_return_output = true));
 // defer deinit(*process);
 // ok, written := write_to_process(*process, .[]);
-//
 // assert(ok && written == 0);
 // ```
 write_to_process :: (process: *Process, data: [] u8) -> success: bool, bytes_written: int {
@@ -107,14 +100,12 @@ write_to_process :: (process: *Process, data: [] u8) -> success: bool, bytes_wri
 //
 // ```jai,only(windows)
 // process: Process;
-//
 // assert(create_process(*process, "cmd.exe", "/c", "echo hi", capture_and_return_output = true));
 // defer deinit(*process);
 //
 // output: [64] u8;
 // errors: [64] u8;
 // ok, out_count, _ := read_from_process(*process, output, errors, 5000);
-//
 // assert(ok && out_count > 0);
 // ```
 read_from_process :: (process: *Process, output_buffer: [] u8, error_buffer: [] u8, timeout_ms := -1) -> success: bool, output_bytes: int, error_bytes: int {
@@ -126,12 +117,10 @@ read_from_process :: (process: *Process, output_buffer: [] u8, error_buffer: [] 
 //
 // ```jai,only(windows)
 // process: Process;
-//
 // assert(create_process(*process, "cmd.exe", "/c", "ping -n 30 127.0.0.1"));
 // defer deinit(*process);
 // assert(kill_process(*process));
 // ok, result := get_process_result(*process, 5000);
-//
 // assert(ok && result.type == .EXITED);
 // ```
 kill_process :: (process: *Process) -> bool {
@@ -144,11 +133,9 @@ kill_process :: (process: *Process) -> bool {
 //
 // ```jai,only(windows)
 // process: Process;
-//
 // assert(create_process(*process, "cmd.exe", "/c", "exit 2"));
 // defer deinit(*process);
 // ok, result := get_process_result(*process, 5000);
-//
 // assert(ok && result.type == .EXITED && result.exit_code == 2);
 // ```
 get_process_result :: (process: *Process, timeout_ms := -1) -> success: bool, Process_Result {
@@ -167,14 +154,12 @@ get_process_result :: (process: *Process, timeout_ms := -1) -> success: bool, Pr
 //
 // ```jai,only(windows)
 // process: Process;
-//
 // assert(create_process(*process, "cmd.exe", "/c", "echo hi", capture_and_return_output = true));
 // defer deinit(*process);
 // get_process_result(*process, 5000);
 //
 // buffer: [64] u8;
 // ok, count := read_pipe(*process.output, buffer);
-//
 // assert(ok && count > 0);
 // ```
 read_pipe :: (pipe: *Process.Pipe, buffer: [] u8) -> success: bool, bytes_read: int {

@@ -113,7 +113,6 @@ from_query :: ($T: Type, pairs: [] Query_Pair, options := Json_Options.{}) -> T,
 //
 // ```jai
 // number, error := from_param(int, "42");
-//
 // assert(error.kind == .NONE && number == 42);
 //
 // _, error = from_param(int, "forty-two");

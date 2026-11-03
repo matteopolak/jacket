@@ -138,7 +138,6 @@ Thread_Continue_Status :: enum {
     //     item.input = i + 1;
     //     add_work(*group, item);
     // }
-    //
     // start(*group);
     //
     // assert(wait_for_all(*group));

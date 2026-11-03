@@ -7,11 +7,9 @@
 //
 // ```jai
 // image := make_image(100, 100, .RGB8);
-//
 // defer deinit(*image);
 //
 // thumb := resize(image, 25, 25, .BOX);
-//
 // defer deinit(*thumb);
 // assert(thumb.width == 25 && thumb.height == 25);
 // ```
@@ -60,11 +58,9 @@ resize :: (image: Image, width: s32, height: s32, filter := Resize_Filter.BILINE
 //
 // ```jai
 // image := make_image(10, 10, .RGBA8);
-//
 // defer deinit(*image);
 //
 // part, ok := crop(image, 2, 2, 4, 4);
-//
 // defer deinit(*part);
 // assert(ok && part.width == 4);
 //
@@ -91,7 +87,6 @@ crop :: (image: Image, x: s32, y: s32, width: s32, height: s32) -> Image, ok: bo
 //
 // ```jai
 // image := make_image(1, 2, .GRAY8);
-//
 // defer deinit(*image);
 // image.pixels[0] = 10;
 // image.pixels[1] = 20;
@@ -125,7 +120,6 @@ flip_vertical :: (image: *Image) {
 //
 // ```jai
 // image := make_image(2, 1, .GRAY8);
-//
 // defer deinit(*image);
 // image.pixels[0] = 10;
 // image.pixels[1] = 20;
@@ -163,11 +157,9 @@ flip_horizontal :: (image: *Image) {
 //
 // ```jai
 // image := make_image(4, 2, .RGB8);
-//
 // defer deinit(*image);
 //
 // turned := rotate_90(image, true);
-//
 // defer deinit(*turned);
 // assert(turned.width == 2 && turned.height == 4);
 // ```
@@ -203,7 +195,6 @@ rotate_90 :: (image: Image, clockwise := true) -> Image {
 //
 // ```jai
 // image := make_image(1, 1, .RGBA8);
-//
 // defer deinit(*image);
 // image.pixels[0], image.pixels[3] = 200, 128;
 // premultiply_alpha(*image);

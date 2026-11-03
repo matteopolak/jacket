@@ -76,7 +76,6 @@ float32_to_float16 :: Impl.float32_to_float16;
 // #import "Math";
 // m := Matrix3_Identity;
 // h := matrix3_float16(m);
-//
 // assert(cast(u16) h._11 == 0x3c00 && cast(u16) h._12 == 0);
 // assert(matrix3_float32(h)._22 == 1.0);
 // ```
@@ -129,7 +128,6 @@ vector3_float16 :: Impl.vector3_float16;
 // #import "Math";
 // h := vector4_float16(xyzw(0.5, -2, 8, 70000));
 // v := vector4_float32(h);
-//
 // assert(v.x == 0.5 && v.y == -2 && v.z == 8);
 // assert(v.w > 1e30); // 70000 overflowed to infinity in half precision
 // ```

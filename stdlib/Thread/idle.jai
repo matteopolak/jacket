@@ -12,16 +12,13 @@
 //
 // count :: (group: *Thread_Group, thread: *Thread, work: *void) -> Thread_Continue_Status {
 //     counter := cast(*Counter) group.data;
-//
 //     lock(*counter.mutex);
 //     counter.total += 1;
 //     unlock(*counter.mutex);
-//
 //     return .CONTINUE;
 // }
 //
 // counter: Counter;
-//
 // init(*counter.mutex);
 // group: Thread_Group;
 // group.logging = false;

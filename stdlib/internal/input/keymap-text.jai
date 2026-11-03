@@ -9,7 +9,6 @@
 // ```jai
 // set: Keymap_Set;
 // map := add_keymap(*set, "game");
-//
 // set.default_keymap = map;
 // add_proc(map, "jump", () {
 //     /* ... */
@@ -41,7 +40,6 @@ load_from_memory :: (using keymap: *Keymap, memory: string, short_name: string, 
 // ```jai,no_run
 // set: Keymap_Set;
 // map := add_keymap(*set, "game");
-//
 // set.default_keymap = map;
 // add_proc(map, "jump", () {
 //     /* ... */
@@ -146,7 +144,6 @@ load_from_handler :: (set: *Keymap_Set, keymap: *Keymap, handler: *Text_File_Han
 // #import "Input";
 //
 // ok, key := map_string_to_key("F5");
-//
 // assert(ok && key == .F5);
 // ok, key = map_string_to_key("a");
 // assert(ok && key == cast(Key_Code) #char "A");
@@ -178,19 +175,15 @@ map_key_to_string :: (k: Key_Code) -> string {
 //
 // set: Keymap_Set;
 // map := add_keymap(*set, "game");
-//
 // add_proc(map, "jump", () {
 //     /* ... */
 // });
 // flags: Event.Modifier_Flags;
-//
 // add_mapping(map, .SPACEBAR, flags, true, "jump", true);
 //
 // builder: String_Builder;
-//
 // print_to_builder(*builder, *set);
 // text := builder_to_string(*builder);
-//
 // assert(text.count > 0);
 // free(text);
 // reset_keymaps(*set);

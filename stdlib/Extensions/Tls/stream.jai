@@ -88,12 +88,10 @@ Tls_Stream :: struct {
 //
 // Io.io_run(() {
 //     config: Tls_Config;
-//
 //     tls_config_init(*config);
 //     defer tls_config_free(*config);
 //
 //     tcp, io_error := Io.connect("example.com:443");
-//
 //     assert(io_error == .NONE);
 //
 //     stream, error := tls_connect(*config, Io.reader_of(tcp), Io.writer_of(tcp), "example.com");
@@ -101,7 +99,6 @@ Tls_Stream :: struct {
 //         Io.close(tcp);
 //         return;
 //     }
-//
 //     defer close(stream);
 //
 //     write(stream, "hello");
@@ -177,7 +174,6 @@ tls_connect :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer, serve
 //         Io.close(tcp);
 //         return;
 //     }
-//
 //     defer close(stream);
 //
 //     write(stream, "welcome");

@@ -17,7 +17,6 @@
 // assert(socket_init());
 //
 // listener := socket(AF_INET, .SOCK_STREAM, .TCP);
-//
 // defer close_and_reset(*listener);
 //
 // // Port 0 lets the OS choose; getsockname tells which one it was.
@@ -26,23 +25,19 @@
 //
 // address: sockaddr_in;
 // length: socklen_t = size_of(sockaddr_in);
-//
 // assert(getsockname(listener, cast(*sockaddr) *address, *length) == 0);
 //
 // client := socket(AF_INET, .SOCK_STREAM, .TCP);
-//
 // defer close_and_reset(*client);
 // assert(connect(client, cast(*sockaddr) *address, length) == 0);
 //
 // server, peer := accept(listener);
-//
 // defer close_and_reset(*server);
 //
 // assert(send(client, "ping".data, 4, cast(MSG) 0) == 4);
 //
 // buffer: [16] u8;
 // got := recv(server, buffer.data, buffer.count, cast(MSG) 0);
-//
 // assert(got == 4 && string.{ got, buffer.data } == "ping");
 // ```
 

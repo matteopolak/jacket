@@ -11,13 +11,11 @@
 //
 // ```jai
 // ok, values := scan("%d %s", "-8 \"yes\"");
-//
 // assert(ok && values.count == 2);
 // assert((cast(*s64) values[0].value_pointer).* == -8);
 // assert((cast(*string) values[1].value_pointer).* == "yes");
 //
 // percent_ok, percent_values := scan("%d%%", "50%");
-//
 // assert(percent_ok && percent_values.count == 1);
 // ```
 scan :: (format: string, text: string) -> bool, [] Any {
@@ -72,7 +70,6 @@ scan :: (format: string, text: string) -> bool, [] Any {
 // flag: bool;
 // name: string;
 // ok := scan2("7 true \"bob\"", "%d %b %s", *count, *flag, *name);
-//
 // assert(ok && count == 7 && flag && name == "bob");
 // ```
 //

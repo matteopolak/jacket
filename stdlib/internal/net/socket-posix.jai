@@ -38,17 +38,14 @@ socket_init :: inline () -> bool {
 //
 // // A port that was bound and then released has nobody listening on it.
 // probe := socket(AF_INET, .SOCK_STREAM, .TCP);
-//
 // assert(bind(probe, htonl(INADDR_LOOPBACK), 0) == 0);
 //
 // closed: sockaddr_in;
 // length: socklen_t = size_of(sockaddr_in);
-//
 // assert(getsockname(probe, cast(*sockaddr) *closed, *length) == 0);
 // close_and_reset(*probe);
 //
 // client := socket(AF_INET, .SOCK_STREAM, .TCP);
-//
 // defer close_and_reset(*client);
 //
 // assert(connect(client, cast(*sockaddr) *closed, length) != 0);
@@ -69,7 +66,6 @@ get_last_socket_error :: inline () -> P.OS_Error_Code {
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
-//
 // defer close_and_reset(*s);
 //
 // assert(set_blocking(s, false));
@@ -104,7 +100,6 @@ set_blocking :: (s: Socket, blocking: bool) -> bool {
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
-//
 // defer close_and_reset(*s);
 //
 // assert(set_keepalive(s, true));
@@ -159,7 +154,6 @@ set_keepalive :: (s: Socket, keepalive: bool, idle_seconds_before_keepalive: s32
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
-//
 // assert(s != INVALID_SOCKET);
 //
 // close_and_reset(*s);

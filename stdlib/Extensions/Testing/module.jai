@@ -162,7 +162,6 @@ run :: (t: *Test, name: string, body: (t: *Test)) -> bool {
 // }
 //
 // cases := Case.[.{ "small", 1, 2, 3 }, .{ "large", 40, 2, 42 }];
-//
 // for cases run(t, it.name, check_case, *it);
 // ```
 //

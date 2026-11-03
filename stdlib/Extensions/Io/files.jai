@@ -29,12 +29,10 @@ Io_File :: struct {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // Io.io_run(() {
 //     file, error := Io.open_file("/tmp/jacket-io-open.txt", .WRITE);
-//
 //     assert(error == .NONE);
 //     Io.write(*file, "hello");
 //     Io.close(*file);
@@ -108,19 +106,16 @@ open_stream_file :: (path: string) -> Io_File, Io_Error {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // Io.io_run(() {
 //     Io.write_file("/tmp/jacket-io-read.txt", "hello");
 //
 //     file, _ := Io.open_file("/tmp/jacket-io-read.txt");
-//
 //     defer Io.close(*file);
 //
 //     buffer: [16] u8;
 //     count, error := Io.read(*file, buffer);
-//
 //     assert(error == .NONE && string.{ count, buffer.data } == "hello");
 // });
 // file_delete("/tmp/jacket-io-read.txt");
@@ -136,19 +131,16 @@ read :: (file: *Io_File, buffer: [] u8) -> s64, Io_Error {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // Io.io_run(() {
 //     Io.write_file("/tmp/jacket-io-full.txt", "abc");
 //
 //     file, _ := Io.open_file("/tmp/jacket-io-full.txt");
-//
 //     defer Io.close(*file);
 //
 //     buffer: [8] u8;
 //     count, error := Io.read_full(*file, buffer);
-//
 //     assert(error == .END_OF_FILE && count == 3);
 // });
 // file_delete("/tmp/jacket-io-full.txt");
@@ -161,18 +153,15 @@ read_full :: (file: *Io_File, buffer: [] u8) -> s64, Io_Error {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // Io.io_run(() {
 //     Io.write_file("/tmp/jacket-io-at.txt", "0123456789");
 //
 //     file, _ := Io.open_file("/tmp/jacket-io-at.txt");
-//
 //     defer Io.close(*file);
 //
 //     buffer: [3] u8;
-//
 //     Io.read_at(*file, buffer, 4);
 //     assert(string.{ 3, buffer.data } == "456");
 // });
@@ -223,7 +212,6 @@ write_some :: (file: *Io_File, data: [] u8) -> s64, Io_Error {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // Io.io_run(() {
@@ -248,19 +236,16 @@ write :: (file: *Io_File, text: string) -> s64, Io_Error {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // Io.io_run(() {
 //     file, _ := Io.open_file("/tmp/jacket-io-write-at.txt", .READ_WRITE);
-//
 //     defer Io.close(*file);
 //
 //     Io.write_at(*file, "abcdef", 0);
 //     Io.write_at(*file, "XY", 2);
 //
 //     data, _ := Io.read_file("/tmp/jacket-io-write-at.txt");
-//
 //     assert(cast(string) data == "abXYef");
 //     free(data.data);
 // });
@@ -298,18 +283,15 @@ write_at :: (file: *Io_File, text: string, offset: s64) -> s64, Io_Error {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // Io.io_run(() {
 //     Io.write_file("/tmp/jacket-io-size.txt", "12345");
 //
 //     file, _ := Io.open_file("/tmp/jacket-io-size.txt");
-//
 //     defer Io.close(*file);
 //
 //     size, error := Io.file_size(*file);
-//
 //     assert(error == .NONE && size == 5);
 // });
 // file_delete("/tmp/jacket-io-size.txt");
@@ -327,7 +309,6 @@ file_size :: (file: *Io_File) -> s64, Io_Error {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // Io.io_run(() {
@@ -357,7 +338,6 @@ close :: (file: *Io_File, now := false) -> Io_Error {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // Io.io_run(() {
@@ -385,7 +365,6 @@ read_file :: (path: string) -> [] u8, Io_Error {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // Io.io_run(() {

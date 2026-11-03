@@ -157,7 +157,6 @@ Justify :: enum u8 {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     button("OK");

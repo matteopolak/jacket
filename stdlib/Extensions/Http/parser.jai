@@ -72,7 +72,6 @@ Parser_State :: enum u8 {
 //
 // ```jai
 // parser: Parser;
-//
 // parser_init(*parser, .REQUEST);
 // defer parser_free(*parser);
 //
@@ -80,12 +79,10 @@ Parser_State :: enum u8 {
 // data: [] u8 = .{ text.count, text.data };
 //
 // body: [..] u8;
-//
 // defer array_free(body);
 //
 // while true {
 //     used, event := parse(*parser, data);
-//
 //     data = advance(data, used);
 //
 //     if event.kind == .HEAD {
@@ -171,7 +168,6 @@ Parser :: struct {
 // limits := Limits.{ max_body_size = 4 };
 //
 // parser: Parser;
-//
 // parser_init(*parser, .REQUEST, limits);
 // defer parser_free(*parser);
 //
@@ -179,7 +175,6 @@ Parser :: struct {
 // data: [] u8 = .{ text.count, text.data };
 //
 // failed := false;
-//
 // while true {
 //     used, event := parse(*parser, data);
 //     data = advance(data, used);

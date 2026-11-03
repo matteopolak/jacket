@@ -11,15 +11,12 @@
 //
 // ```jai
 // value, ok, rest := string_to_int("  -42 apples");
-//
 // assert(ok && value == -42 && rest == " apples");
 //
 // hex, hex_ok, _ := string_to_int("ff", 16);
-//
 // assert(hex_ok && hex == 255);
 //
 // small, small_ok, _ := string_to_int("300", 10, u8);
-//
 // assert(!small_ok);
 // ```
 string_to_int :: (t: string, base := 10, $T := int) -> result: T, success: bool, remainder: string #no_aoc {

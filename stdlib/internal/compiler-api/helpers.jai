@@ -2,7 +2,6 @@
 //
 // ```jai
 // options: Build_Options;
-//
 // set_optimization(*options, .OPTIMIZED);
 // assert(options.array_bounds_check == .OFF);
 // set_optimization(*options, .DEBUG);

@@ -2,12 +2,10 @@
 //
 // ```jai
 // words := string.["pear", "fig", "apple"];
-//
 // quick_sort(words, compare_strings);
 // assert(words[0] == "apple" && words[2] == "pear");
 //
 // lengths := int.[3, 1, 2];
-//
 // quick_sort(lengths, (a: int, b: int) -> int {
 //     return b - a;
 // }); // largest first
@@ -32,20 +30,17 @@
 //     name: string;
 //     age: int;
 // }
-//
 // people := Person.[.{ "Ann", 31 }, .{ "Bo", 25 }, .{ "Cy", 31 }];
 //
 // by_age :: (a: Person, b: Person) -> int {
 //     return a.age - b.age;
 // }
-//
 // quick_sort(people, by_age);
 // assert(people[0].name == "Bo");
 //
 // age_of :: (p: Person) -> int {
 //     return p.age;
 // }
-//
 // quick_sort(people, age_of); // stable: Ann stays before Cy
 // assert(people[1].name == "Ann" && people[2].name == "Cy");
 //
@@ -53,7 +48,6 @@
 // sorted := quick_sort(numbers, (a: int, b: int) -> int {
 //     return a - b;
 // });
-//
 // assert(sorted[0] == 1 && sorted[2] == 3 && sorted.data == numbers.data);
 // ```
 quick_sort :: Impl.quick_sort;
@@ -64,13 +58,11 @@ quick_sort :: Impl.quick_sort;
 //
 // ```jai
 // values := float.[2.5, -1, 9];
-//
 // quick_sort(values, compare_floats);
 // assert(values[0] == -1 && values[2] == 9);
 //
 // #import "Math";
 // with_nan := float.[FLOAT32_NAN, 3, -2];
-//
 // quick_sort(with_nan, compare_floats);
 // assert(with_nan[0] == -2 && with_nan[1] == 3 && with_nan[2] != with_nan[2]);
 // ```

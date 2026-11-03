@@ -48,7 +48,6 @@ get_guid_string :: (bustype: s16, vendor: s16, product: s16, version: s16) -> te
 //
 // ```jai
 // mapping, ok := parse_gamepad_mapping_string("guid,Pad,a:b0,righttrigger:a5");
-//
 // assert(ok && mapping.mappings[1].type == .AXIS && mapping.mappings[1].index == 5);
 // deinit(mapping);
 //

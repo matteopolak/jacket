@@ -9,15 +9,12 @@
 // #import "Input";
 //
 // window := create_window(800, 600, "input");
-//
 // while true {
 //     update_window_events();
-//
 //     for events_this_frame {
 //         if it.type == .QUIT return;
 //         if it.type == .KEYBOARD && it.key_code == .ESCAPE return;
 //     }
-//
 //     if input_button_states[Key_Code.MOUSE_BUTTON_LEFT] & .START print("click at %, %\n", mouse_delta_x, mouse_delta_y);
 // }
 // ```

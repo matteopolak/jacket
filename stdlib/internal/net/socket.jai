@@ -34,12 +34,10 @@
 //
 // ```jai,skip_on(wasm)
 // builder: String_Builder;
-//
 // defer free_buffers(*builder);
 //
 // append_address(*builder, htonl(INADDR_LOOPBACK));
 // text := builder_to_string(*builder);
-//
 // defer free(text);
 //
 // assert(text == "127.0.0.1");
@@ -66,12 +64,10 @@ append_address :: (builder: *String_Builder, address: u32) {
 // loopback[15] = 1;
 //
 // builder: String_Builder;
-//
 // defer free_buffers(*builder);
 //
 // append_address(*builder, loopback);
 // text := builder_to_string(*builder);
-//
 // defer free(text);
 //
 // assert(text == "0:0:0:0:0:0:0:1");
@@ -98,7 +94,6 @@ append_address :: (builder: *String_Builder, address: [16] u8) {
 // else address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 //
 // text := to_string(address);
-//
 // defer free(text);
 //
 // assert(text == "127.0.0.1:8080");
@@ -106,7 +101,6 @@ append_address :: (builder: *String_Builder, address: [16] u8) {
 // // An all-zero record is the unspecified address on port 0.
 // empty: sockaddr_in;
 // zero := to_string(empty);
-//
 // defer free(zero);
 //
 // assert(zero == "0.0.0.0:0");
@@ -141,14 +135,12 @@ to_string :: (addr: sockaddr_in) -> string {
 // memcpy(*address.sin6_addr, bytes.data, 16);
 //
 // text := to_string(address);
-//
 // defer free(text);
 //
 // assert(text == "[::1]:443");
 //
 // empty: sockaddr_in6;
 // zero := to_string(empty);
-//
 // defer free(zero);
 //
 // assert(zero == "[::]:0");
@@ -183,7 +175,6 @@ to_string :: (addr: sockaddr_in6) -> string {
 // assert(socket_init());
 //
 // listener := socket(AF_INET, .SOCK_STREAM, .TCP);
-//
 // defer close_and_reset(*listener);
 //
 // assert(bind(listener, "127.0.0.1", 0) == 0);
@@ -191,16 +182,13 @@ to_string :: (addr: sockaddr_in6) -> string {
 //
 // local: sockaddr_in;
 // length: socklen_t = size_of(sockaddr_in);
-//
 // assert(getsockname(listener, cast(*sockaddr) *local, *length) == 0);
 //
 // client := socket(AF_INET, .SOCK_STREAM, .TCP);
-//
 // defer close_and_reset(*client);
 // assert(connect(client, cast(*sockaddr) *local, length) == 0);
 //
 // peer, from := accept(listener);
-//
 // defer close_and_reset(*peer);
 //
 // assert(peer != INVALID_SOCKET);
@@ -232,16 +220,13 @@ accept :: (s: Socket) -> Socket, sockaddr_in {
 //
 //         local: sockaddr_in6;
 //         length: socklen_t = size_of(sockaddr_in6);
-//
 //         assert(getsockname(listener, cast(*sockaddr) *local, *length) == 0);
 //
 //         client := socket(AF_INET6, .SOCK_STREAM, .TCP);
-//
 //         defer close_and_reset(*client);
 //         assert(connect(client, cast(*sockaddr) *local, length) == 0);
 //
 //         peer, from := accept_v6(listener);
-//
 //         defer close_and_reset(*peer);
 //
 //         assert(peer != INVALID_SOCKET);
@@ -269,7 +254,6 @@ accept_v6 :: (s: Socket) -> Socket, sockaddr_in6 {
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
-//
 // defer close_and_reset(*s);
 //
 // assert(bind(s, "127.0.0.1", 0) == 0);

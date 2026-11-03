@@ -4,14 +4,12 @@
 //
 // ```jai
 // allocator := get_unmapping_allocator();
-//
 // {
 //     push_allocator(allocator);
 //     bytes := cast(*u8) alloc(8);
 //     bytes[7] = 1;
 //     free(bytes);
 // }
-//
 // deinit_unmapping_allocator(allocator);
 // ```
 

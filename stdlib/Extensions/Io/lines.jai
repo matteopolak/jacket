@@ -27,18 +27,15 @@ Line_Reader :: struct {
 //
 // Io.io_run(() {
 //     near, far := Io.make_pipe();
-//
 //     defer Io.close(near);
 //     defer Io.close(far);
 //     Io.write(Io.writer_of(far), "one\r\ntwo\n");
 //     Io.shutdown_write(far);
 //
 //     lines := Io.make_line_reader(Io.reader_of(near), limit = 1024);
-//
 //     defer Io.free_line_reader(*lines);
 //
 //     line, error := Io.read_line(*lines);
-//
 //     assert(error == .NONE && line == "one");
 // });
 // ```
@@ -58,12 +55,10 @@ make_line_reader :: (source: Reader, limit := DEFAULT_LINE_LIMIT) -> Line_Reader
 //
 // Io.io_run(() {
 //     near, far := Io.make_pipe();
-//
 //     defer Io.close(near);
 //     defer Io.close(far);
 //
 //     lines := Io.make_line_reader(Io.reader_of(near));
-//
 //     Io.free_line_reader(*lines);
 // });
 // ```
@@ -89,14 +84,12 @@ free_line_reader :: (reader: *Line_Reader) {
 //
 // Io.io_run(() {
 //     near, far := Io.make_pipe();
-//
 //     defer Io.close(near);
 //     defer Io.close(far);
 //     Io.write(Io.writer_of(far), "GET a\nGET b\nlast");
 //     Io.shutdown_write(far);
 //
 //     lines := Io.make_line_reader(Io.reader_of(near));
-//
 //     defer Io.free_line_reader(*lines);
 //
 //     whole := 0;

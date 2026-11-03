@@ -4,12 +4,10 @@
 //
 // ```jai,no_run,skip_on(wasm)
 // bitmap: Bitmap;
-//
 // bitmap_alloc(*bitmap, 16, 16, .RGBA8);
 // defer deinit(*bitmap);
 //
 // texture: Texture;
-//
 // assert(texture_load_from_bitmap(*texture, *bitmap));
 // ```
 texture_load_from_bitmap :: (using texture: *Texture, bitmap: *Bitmap) -> bool {
@@ -208,7 +206,6 @@ backend_update_texture :: (texture: *Texture, bitmap: *Bitmap) {
 //
 // window := create_window(800, 600, "simp");
 // target := texture_create_render_target(512, 512, .RGBA8);
-//
 // set_render_target(*target);
 // // ... draw ...
 // set_render_target(window);

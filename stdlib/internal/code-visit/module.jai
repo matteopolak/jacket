@@ -12,7 +12,6 @@
 // sum.right = right;
 //
 // children: [..] *Compiler.Code_Node;
-//
 // get_subexpressions(*sum, *children);
 // assert(children.count == 2 && children[0] == cast(*Compiler.Code_Node) left);
 // ```
@@ -196,7 +195,6 @@ get_subexpressions :: (node: *C.Code_Node, pointers: *[..] *C.Code_Node) {
 // Compiler :: #import "Compiler";
 // n := Compiler.make_integer_literal(7);
 // all: [..] *Compiler.Code_Node;
-//
 // get_recursive_nodes_breadth_first(cast(*Compiler.Code_Node) n, *all);
 // assert(all.count == 1);
 // ```
@@ -224,7 +222,6 @@ get_recursive_nodes_breadth_first :: (node: *C.Code_Node, pointers: *[..] *C.Cod
 // Compiler :: #import "Compiler";
 // n := Compiler.make_integer_literal(7);
 // all: [..] *Compiler.Code_Node;
-//
 // get_recursive_nodes_depth_first(cast(*Compiler.Code_Node) n, *all);
 // assert(all.count == 1);
 // ```
@@ -256,7 +253,6 @@ get_recursive_nodes_depth_first :: (node: *C.Code_Node, pointers: *[..] *C.Code_
 // Compiler :: #import "Compiler";
 // n := Compiler.make_integer_literal(7);
 // events: [..] Dumb_Value;
-//
 // get_values(cast(*Compiler.Code_Node) n, *events);
 // assert(events.count == 2 && events[0].preorder && !events[1].preorder);
 // ```

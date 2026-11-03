@@ -6,13 +6,11 @@
 //
 // ```jai
 // original := get_working_directory();
-//
 // defer free(original);
 // assert(original.count > 0);
 //
 // assert(set_working_directory("."));
 // same := get_working_directory();
-//
 // assert(same == original);
 // free(same);
 // ```

@@ -5,7 +5,6 @@
 //     x: float;
 //     y: float;
 // }
-//
 // points: Soa(Point, 4);
 // points[0] = .{ 1, 2 };
 // assert(points.y[0] == 2);
@@ -45,12 +44,9 @@ Soa :: Impl.Soa;
 // }
 //
 // values: Soa(Pair, 2);
-//
 // for *pair, index: values pair.a = index + 10;
-//
 // total := 0;
 // for pair: values total += pair.a;
-//
 // assert(total == 21);
 // ```
 for_expansion :: Impl.for_expansion;

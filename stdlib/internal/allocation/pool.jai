@@ -23,16 +23,13 @@ HEADER_SIZE :: size_of(Memblock);
 //
 // ```jai
 // pool: Pool;
-//
 // defer release(*pool);
 //
 // numbers := cast(*int) get(*pool, 10 * size_of(int));
 // for 0..9 numbers[it] = it;
-//
 // assert(numbers[9] == 9);
 //
 // allocator := Allocator.{ pool_allocator_proc, *pool };
-//
 // {
 //     push_allocator(allocator);
 //     text := copy_string("allocated from the pool"); // freed by reset, not by free
@@ -96,11 +93,9 @@ set_allocators :: (pool: *Pool, block_allocator: Allocator = .{}) {
 //
 // ```jai
 // pool: Pool;
-//
 // defer release(*pool);
 // a := cast(*int) get(*pool, size_of(int));
 // b := cast(*int) get(*pool, size_of(int));
-//
 // a.* = 1;
 // b.* = 2;
 // assert(a.* == 1 && b.* == 2);
@@ -173,12 +168,10 @@ get :: (using pool: *Pool, nbytes: s64) -> *void {
 //
 // ```jai
 // pool: Pool;
-//
 // defer release(*pool);
 // get(*pool, 100);
 // reset(*pool);
 // bytes, oversized := calculate_used_memory(pool);
-//
 // assert(bytes == 0 && oversized == 0);
 // ```
 reset :: (using pool: *Pool) {
@@ -235,11 +228,9 @@ release :: (using pool: *Pool) {
 //
 // ```jai
 // pool: Pool;
-//
 // defer release(*pool);
 // get(*pool, 100);
 // bytes, oversized := calculate_used_memory(pool);
-//
 // assert(bytes >= 100 && oversized == 0);
 // get(*pool, 100000);
 // bytes, oversized = calculate_used_memory(pool);
@@ -273,13 +264,11 @@ calculate_used_memory :: (using pool: Pool) -> inband_size: s64, outband_count: 
 //
 // ```jai
 // pool: Pool;
-//
 // set_allocators(*pool); // blocks come from the allocator in effect now
 // defer release(*pool);
 //
 // push_allocator(Allocator.{ pool_allocator_proc, *pool });
 // text := copy_string("in the pool");
-//
 // assert(text == "in the pool");
 // ```
 pool_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {

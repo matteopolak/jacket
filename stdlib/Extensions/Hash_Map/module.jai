@@ -4,12 +4,10 @@
 // Map :: #import "Extensions/Hash_Map";
 //
 // ages: Map.Map(string, int);
-//
 // defer Map.deinit(*ages);
 //
 // Map.insert(*ages, "ada", 36);
 // age := Map.get(*ages, "ada");
-//
 // for value, name: ages print("% is %\n", name, value);
 // ```
 //
@@ -29,7 +27,6 @@ GROUP_SIZE :: 16;
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // map: Hash_Map.Map(string, int);
-//
 // defer Hash_Map.deinit(*map);
 //
 // Hash_Map.insert(*map, "one", 1);
@@ -83,14 +80,11 @@ Map :: struct(Key: Type, Value: Type, hash: (Key) -> u32 = null, equal: (Key, Ke
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // map: Hash_Map.Map(string, int);
-//
 // defer Hash_Map.deinit(*map);
 //
 // _, replaced := Hash_Map.insert(*map, "a", 1);
-//
 // assert(!replaced);
 // previous, replaced2 := Hash_Map.insert(*map, "a", 2);
-//
 // assert(replaced2 && previous == 1);
 // ```
 insert :: (map: *Map, key: map.Key, value: map.Value) -> (previous: map.Value, replaced: bool) {
@@ -121,7 +115,6 @@ insert :: (map: *Map, key: map.Key, value: map.Value) -> (previous: map.Value, r
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // map: Hash_Map.Map(string, int);
-//
 // defer Hash_Map.deinit(*map);
 //
 // Hash_Map.insert(*map, "hits", 1);
@@ -142,7 +135,6 @@ find :: (map: *Map, key: map.Key) -> *map.Value {
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // map: Hash_Map.Map(string, int);
-//
 // defer Hash_Map.deinit(*map);
 //
 // Hash_Map.insert(*map, "a", 1);
@@ -162,14 +154,12 @@ get :: (map: *Map, key: map.Key, default: map.Value = .{}) -> map.Value {
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // counts: Hash_Map.Map(string, int);
-//
 // defer Hash_Map.deinit(*counts);
 //
 // for word: string.["a", "b", "a"] {
 //     count := Hash_Map.entry(*counts, word);
 //     count.* += 1;
 // }
-//
 // assert(Hash_Map.get(*counts, "a") == 2);
 // ```
 entry :: (map: *Map, key: map.Key) -> (value: *map.Value, added: bool) {
@@ -192,12 +182,10 @@ entry :: (map: *Map, key: map.Key) -> (value: *map.Value, added: bool) {
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // map: Hash_Map.Map(string, int);
-//
 // defer Hash_Map.deinit(*map);
 //
 // Hash_Map.insert(*map, "a", 1);
 // value, removed := Hash_Map.delete(*map, "a");
-//
 // assert(removed && value == 1 && map.count == 0);
 // ```
 delete :: (map: *Map, key: map.Key) -> (value: map.Value, removed: bool) {
@@ -219,7 +207,6 @@ delete :: (map: *Map, key: map.Key) -> (value: map.Value, removed: bool) {
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // map: Hash_Map.Map(string, int);
-//
 // defer Hash_Map.deinit(*map);
 //
 // Hash_Map.insert(*map, "a", 1);
@@ -235,14 +222,11 @@ contains :: (map: *Map, key: map.Key) -> bool {
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // map: Hash_Map.Map(int, int);
-//
 // defer Hash_Map.deinit(*map);
 //
 // Hash_Map.reserve(*map, 1000);
 // capacity := map.capacity;
-//
 // for 0..999 Hash_Map.insert(*map, it, it);
-//
 // assert(map.capacity == capacity);
 // ```
 reserve :: (map: *Map, expected_count: s64) {
@@ -262,7 +246,6 @@ reserve :: (map: *Map, expected_count: s64) {
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // map: Hash_Map.Map(int, int);
-//
 // defer Hash_Map.deinit(*map);
 //
 // Hash_Map.insert(*map, 1, 1);
@@ -283,7 +266,6 @@ clear :: (map: *Map) {
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // map: Hash_Map.Map(int, int);
-//
 // Hash_Map.insert(*map, 1, 1);
 // Hash_Map.deinit(*map);
 // assert(map.count == 0 && map.capacity == 0);
@@ -306,15 +288,12 @@ deinit :: (map: *Map) {
 // Hash_Map :: #import "Extensions/Hash_Map";
 //
 // map: Hash_Map.Map(int, int);
-//
 // defer Hash_Map.deinit(*map);
 //
 // for 1..5 Hash_Map.insert(*map, it, it * 10);
 // for value, key: map if key % 2 == 0 remove value;
-//
 // total := 0;
 // for value: map total += value;
-//
 // assert(total == 90);
 // ```
 for_expansion :: (map: *$T/Map, body: Code, flags: For_Flags) #expand {

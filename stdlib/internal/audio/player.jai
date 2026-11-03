@@ -150,11 +150,9 @@ audio_fatal :: (message: string) {
 // sound := Sound_Data.{ loaded = true, type = .LINEAR_SAMPLE_ARRAY, nchannels = 1, samples = samples.data, nsamples_times_nchannels = samples.count };
 //
 // stream := make_stream(*sound, .UI);
-//
 // assert(stream != null);
 //
 // not_loaded: Sound_Data;
-//
 // assert(make_stream(*not_loaded) == null);
 // ```
 make_stream :: (data: *Sound_Data, category := Sound_Category.GENERAL_SFX) -> *Sound_Stream {

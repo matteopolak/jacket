@@ -5,10 +5,8 @@
 // render :: (out: *Out, job: *int, count: *int) {
 //     html(out, "<p>{job.*}</p>");
 // }
-//
 // jobs := int.[1, 2, 3];
 // count := 0;
-//
 // render_parallel(jobs, render, *count, threads = 2);
 // ```
 render_parallel :: (jobs: [] $T, render: (out: *Out, job: *T, data: *$D), data: *D, threads := 0) {

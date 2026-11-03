@@ -3,9 +3,7 @@
 // ```jai
 // nodes: Bucket_Array(int, 64);
 // locator, node := bucket_array_add(*nodes, 1);
-//
 // for 2..1000 bucket_array_add(*nodes, it);
-//
 // assert(node.* == 1); // the address did not change while the array grew
 // assert(bucket_array_find(*nodes, locator) == 1);
 // bucket_array_reset(*nodes);
@@ -41,7 +39,6 @@
 //
 // assert(array.count == 3);
 // for value, index: array assert(value == 10 + 2 * index); // 10, 12, 14: numbered afresh
-//
 // bucket_array_reset(*array);
 // ```
 //
@@ -53,7 +50,6 @@
 // ```jai
 // array: Bucket_Array(string, 4);
 // locator, pointer := bucket_array_add(*array, "first");
-//
 // bucket_array_add(*array, "second");
 //
 // assert(bucket_array_find(*array, locator) == "first");
@@ -61,7 +57,6 @@
 //
 // bucket_array_remove(*array, locator);
 // for name: array assert(name == "second");
-//
 // bucket_array_reset(*array);
 // ```
 Bucket_Array :: Impl.Bucket_Array;
@@ -97,7 +92,6 @@ bucket_array_reset :: Impl.bucket_array_reset;
 // a, pa := bucket_array_add(*array, 10);
 // b, pb := bucket_array_add(*array, 20);
 // c, pc := bucket_array_add(*array, 30); // starts a second bucket
-//
 // assert(array.count == 3 && c.bucket_index == 1);
 //
 // pa.* += 1; // pointers stay valid as the array grows
@@ -133,11 +127,9 @@ bucket_array_find_pointer :: Impl.bucket_array_find_pointer;
 // ```jai
 // array: Bucket_Array(int, 2);
 // for 1..4 bucket_array_add(*array, it);
-//
 // for value: array {
 //     if value % 2 == 0 remove value;
 // }
-//
 // assert(array.count == 2);
 // bucket_array_reset(*array);
 // ```
@@ -150,7 +142,6 @@ bucket_array_remove :: Impl.bucket_array_remove;
 // ```jai
 // array: Bucket_Array(int, 4);
 // slot, locator := find_and_occupy_empty_slot(*array);
-//
 // assert(slot.* == 0 && array.count == 1);
 // slot.* = 9;
 // assert(bucket_array_find(*array, locator) == 9);
@@ -173,10 +164,8 @@ find_and_occupy_empty_slot :: Impl.find_and_occupy_empty_slot;
 // for name, index: array {
 //     if name == "b" remove name;
 // }
-//
 // assert(array.count == 2);
 // for name, index: array assert(name == ifx index == 0 then "a" else "c");
-//
 // bucket_array_reset(*array);
 // ```
 for_expansion :: Impl.for_expansion;

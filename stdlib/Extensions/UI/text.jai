@@ -105,12 +105,10 @@ load_font :: (text: *Text_System, path: string) -> bool {
 //
 // ```jai,no_run
 // ui := headless();
-//
 // defer free_ui(*ui);
 // #import "File";
 //
 // data := read_entire_file("fonts/Inter-Regular.ttf");
-//
 // load_font_data(*ui.text, data, "Inter");
 // ```
 load_font_data :: (text: *Text_System, data: string, name: string = "") -> bool {

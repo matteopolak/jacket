@@ -51,14 +51,11 @@ has_pointer :: (info: *Type_Info) -> bool {
 //
 // ```jai
 // r: Rng;
-//
 // rng_seed(*r, 3);
 // r.max_len = 8;
 // text := gen(*r, string);
-//
 // assert(text.count <= 4 * 8 + 4);
 // number := gen(*r, s32);
-//
 // case_end(*r);
 // ```
 gen :: (r: *Rng, $T: Type) -> T {

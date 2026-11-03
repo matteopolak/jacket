@@ -22,14 +22,12 @@ CAPS_VERSION_STRING :: "modules/Flat_Pool";
 //
 // ```jai,skip_on(wasm)
 // pool: Flat_Pool;
-//
 // init(*pool, 1024 * 1024);
 // defer fini(*pool);
 //
 // first := cast(*int) get(*pool, size_of(int));
 // first.* = 7;
 // for 0..9999 get(*pool, 64); // growing never moves `first`
-//
 // assert(first.* == 7);
 //
 // reset(*pool);
@@ -79,7 +77,6 @@ Flat_Pool :: struct {
     //
     // ```jai,skip_on(wasm)
     // pool: Flat_Pool;
-    //
     // defer fini(*pool);
     // a := cast(*int) get(*pool, size_of(int));
     // a.* = 3;
@@ -127,10 +124,8 @@ Flat_Pool :: struct {
     //
     // ```jai,skip_on(wasm)
     // pool: Flat_Pool;
-    //
     // defer fini(*pool);
     // first := get(*pool, 32);
-    //
     // reset(*pool);
     // assert(get(*pool, 32) == first);
     // ```
@@ -164,11 +159,9 @@ Flat_Pool :: struct {
     //
     // ```jai,skip_on(wasm)
     // pool: Flat_Pool;
-    //
     // defer fini(*pool);
     // context.allocator = Allocator.{ flat_pool_allocator_proc, *pool };
     // numbers := NewArray(4, int);
-    //
     // assert(numbers.count == 4);
     // ```
     flat_pool_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {

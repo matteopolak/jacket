@@ -24,13 +24,10 @@ get_s64_from_void_pointer :: (pointer: *void, size_in_bytes: int) -> s64 {
 //
 // ```jai
 // builder: String_Builder;
-//
 // defer free_buffers(*builder);
 // n := 12;
-//
 // print_item_to_builder(*builder, n);
 // text := builder_to_string(*builder);
-//
 // defer free(text);
 // assert(text == "12");
 // ```
@@ -225,10 +222,8 @@ render_item :: (builder: *String_Builder, item: Any, inside: bool, may_be_uninit
 //
 // ```jai
 // builder: String_Builder;
-//
 // print_to_builder(*builder, "% + % = %", 1, 2, 3);
 // result := builder_to_string(*builder);
-//
 // defer free(result);
 // assert(result == "1 + 2 = 3");
 // ```

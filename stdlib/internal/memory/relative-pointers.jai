@@ -15,11 +15,9 @@ Relative_String :: struct(Storage_Type: Type) {
 //
 // ```jai
 // target: u8 = 5;
-//
 // holder: struct {
 //     pointer: Relative_Pointer(s32, u8);
 // };
-//
 // encode(*holder.pointer, *target);
 // assert(decode(*holder.pointer) == *target);
 // ```
@@ -40,7 +38,6 @@ encode :: (p: *Relative_Pointer, absolute: *p.Pointer_To_Type) {
 //     text: Relative_String(s16);
 //     bytes: [3] u8;
 // };
-//
 // blob.bytes = .[104, 105, 33];
 // blob.text.count = 3;
 // write_relative_pointer(s16, *blob.text.data, blob.bytes.data);

@@ -32,7 +32,6 @@ WAVE_FORMAT_DVI_ADPCM :: 0x0011;
 //     100, 97, 116, 97, 4, 0, 0, 0, 1, 2, 3, 4]; // "data", 4 samples
 // file: string = .{ 48, bytes.data };
 // format, samples, ok := get_wav_header(file);
-//
 // assert(ok && format.nChannels == 1 && format.nSamplesPerSec == 8000 && samples.count == 4);
 // ```
 get_wav_header :: (file_data: string) -> (format: Waveformatex, samples: string, success: bool = false, extra: Wave_Extra_Info) {

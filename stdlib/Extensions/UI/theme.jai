@@ -93,7 +93,6 @@ default_theme :: (mode: Theme_Mode = .DARK) -> Theme {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // push_ui(*ui);
 // custom := default_theme();
@@ -110,11 +109,9 @@ set_theme :: (theme: Theme) {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // push_ui(*ui);
 // accent := theme().accent;
-//
 // pop_ui();
 // ```
 theme :: () -> *Theme {

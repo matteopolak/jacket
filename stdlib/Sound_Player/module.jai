@@ -10,12 +10,10 @@
 // #import "Sound_Player";
 //
 // sound := load_audio_file("jump.wav");
-//
 // assert(sound.loaded);
 // assert(sound_player_init(.{}));
 //
 // stream := make_stream(*sound, .GENERAL_SFX);
-//
 // start_playing(stream);
 //
 // while true {

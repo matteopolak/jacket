@@ -11,7 +11,6 @@ BASE64URL_ENCODER_TABLE :: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
 // table := BASE64_DECODER_TABLE;
 // table[#char " "] = 64;
 // decoded, ok := base64_decode("TW Fu", table);
-//
 // defer free(decoded);
 // assert(ok && decoded == "Man");
 // ```
@@ -29,17 +28,14 @@ BASE64URL_DECODER_TABLE :: #run decoder_table(BASE64URL_ENCODER_TABLE);
 //
 // ```jai
 // encoded := base64_encode("Man");
-//
 // defer free(encoded);
 // assert(encoded == "TWFu");
 //
 // padded := base64_encode("Ma");
-//
 // defer free(padded);
 // assert(padded == "TWE=");
 //
 // bare := base64_encode("Ma", pad = false);
-//
 // defer free(bare);
 // assert(bare == "TWE");
 // ```
@@ -101,17 +97,14 @@ base64_encode :: (input: string, table: string = BASE64_ENCODER_TABLE, pad := tr
 //
 // ```jai
 // decoded, ok := base64_decode("TWFu\nTWE=");
-//
 // defer free(decoded);
 // assert(ok && decoded == "ManMa");
 //
 // failed, failed_ok := base64_decode("TW!u");
-//
 // defer free(failed);
 // assert(!failed_ok && failed == "");
 //
 // lone, lone_ok := base64_decode("T");
-//
 // defer free(lone);
 // assert(!lone_ok);
 // ```

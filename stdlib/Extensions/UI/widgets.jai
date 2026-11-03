@@ -8,7 +8,6 @@
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     for row(.{ gap = 8 }) {
@@ -39,7 +38,6 @@ for_expansion :: (container: Container, body: Code, flags: For_Flags) #expand {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     for row(.{ gap = 10 }) {
@@ -60,7 +58,6 @@ row :: (style: Style = .{}, loc := #caller_location) -> Container {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     for column(.{ gap = 10 }) {
@@ -81,7 +78,6 @@ column :: (style: Style = .{}, loc := #caller_location) -> Container {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     for stack() {
@@ -102,7 +98,6 @@ stack :: (style: Style = .{}, loc := #caller_location) -> Container {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     for panel(.{ padding = 12 }) {
@@ -126,7 +121,6 @@ panel :: (style: Style = .{}, loc := #caller_location) -> Container {
 //
 // ```jai
 // ui := headless(.{ width = 200, height = 100 });
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     for scroll(.{ height = 100 }) {
@@ -146,7 +140,6 @@ scroll :: (style: Style = .{}, axis: Axis = .VERTICAL, loc := #caller_location) 
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     label("big and quiet", .{ size = 24, muted = true });
@@ -170,7 +163,6 @@ Text_Options :: struct {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     label("Hello");
@@ -195,7 +187,6 @@ label :: (text: string, options: Text_Options = .{}, loc := #caller_location) ->
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     button("Save", .{ variant = .PRIMARY });
@@ -212,7 +203,6 @@ Button_Variant :: enum u8 {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     button("Delete", .{ enabled = false });
@@ -234,17 +224,14 @@ Button_Options :: struct {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
-//
 // defer free_ui(*ui);
 // count := 0;
-//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
-//
 // frame(*ui, *count, build);
 // click(*ui, find_label(*ui, "Add"));
 // frame(*ui, *count, build);
@@ -310,13 +297,10 @@ button :: (text: string, options: Button_Options = .{}, loc := #caller_location)
 // ```jai
 // on := false;
 // ui := headless();
-//
 // defer free_ui(*ui);
-//
 // build := (value: *bool) {
 //     checkbox(value, "Dark mode");
 // };
-//
 // frame(*ui, *on, build);
 // click(*ui, find_role(*ui, .CHECKBOX));
 // frame(*ui, *on, build);
@@ -364,9 +348,7 @@ checkbox :: (value: *bool, text: string = "", loc := #caller_location) -> change
 // ```jai
 // selected := -1;
 // ui := headless();
-//
 // defer free_ui(*ui);
-//
 // build := (choice: *int) {
 //     for column() {
 //         for 0..2 {
@@ -374,7 +356,6 @@ checkbox :: (value: *bool, text: string = "", loc := #caller_location) -> change
 //         }
 //     }
 // };
-//
 // frame(*ui, *selected, build);
 // click(*ui, find_label(*ui, "Item 1"));
 // frame(*ui, *selected, build);
@@ -414,7 +395,6 @@ list_item :: (text: string, selected: bool = false, indent: float = 0, loc := #c
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     for column() {
@@ -444,7 +424,6 @@ separator :: (loc := #caller_location) {
 //
 // ```jai
 // ui := headless(.{ width = 300, height = 40 });
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     for row(.{ width = 300 }) {
@@ -468,7 +447,6 @@ spacer :: (grow: float = 1, loc := #caller_location) {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     for tab_bar() {
@@ -501,7 +479,6 @@ Tab_Result :: enum u8 {
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
 //     for tab_bar() {
@@ -524,16 +501,13 @@ Tab_Options :: struct {
 // ```jai
 // current := 0;
 // ui := headless();
-//
 // defer free_ui(*ui);
-//
 // build := (selected: *int) {
 //     for tab_bar() {
 //         if tab("One", selected.* == 0) == .SELECT selected.* = 0;
 //         if tab("Two", selected.* == 1) == .SELECT selected.* = 1;
 //     }
 // };
-//
 // frame(*ui, *current, build);
 // click(*ui, find_label(*ui, "Two"));
 // frame(*ui, *current, build);
@@ -590,7 +564,6 @@ tab :: (text: string, active: bool, options: Tab_Options = .{}, loc := #caller_l
 // ```jai
 // width := 150.0;
 // ui := headless(.{ width = 400, height = 200 });
-//
 // defer free_ui(*ui);
 // frame(*ui, *width, (w: *float) {
 //     for pane: split(.HORIZONTAL, w) {
@@ -631,7 +604,6 @@ Split_Options :: struct {
 // ```jai
 // width := 150.0;
 // ui := headless(.{ width = 400, height = 200 });
-//
 // defer free_ui(*ui);
 // frame(*ui, *width, (w: *float) {
 //     for pane: split(.HORIZONTAL, w, .{ min = 100 }) {

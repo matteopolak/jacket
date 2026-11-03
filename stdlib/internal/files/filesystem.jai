@@ -9,10 +9,8 @@ File_Visit_Info :: Visit.File_Visit_Info;
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // root := tprint("%/jai-doc-is-directory", base);
 // file := tprint("%/file", root);
-//
 // defer {
 //     file_delete(file);
 //     delete_directory(root);
@@ -22,7 +20,6 @@ File_Visit_Info :: Visit.File_Visit_Info;
 // assert(write_entire_file(file, "x"));
 //
 // directory, success := is_directory(root);
-//
 // assert(directory && success);
 // directory, success = is_directory(file);
 // assert(!directory && success);
@@ -52,13 +49,10 @@ is_directory :: (path: string) -> bool, success: bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-add-modtime.txt", base);
-//
 // defer file_delete(path);
 // assert(write_entire_file(path, "four"));
 // info := File_Visit_Info.{ full_name = path, modification_time = APOLLO_TIME_INVALID };
-//
 // assert(add_modtime_and_size_if_missing(*info));
 // assert(info.size == 4);
 // ```
@@ -95,9 +89,7 @@ add_modtime_and_size_if_missing :: (info: *File_Visit_Info) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // root := tprint("%/jai-doc-visit-files", base);
-//
 // defer {
 //     file_delete(tprint("%/top", root));
 //     file_delete(tprint("%/sub/leaf", root));
@@ -114,9 +106,7 @@ add_modtime_and_size_if_missing :: (info: *File_Visit_Info) -> bool {
 //     directories: int;
 //     bytes: s64;
 // }
-//
 // count: Count;
-//
 // tally :: (info: *File_Visit_Info, count: *Count) {
 //     if info.is_directory count.directories += 1;
 //     else {
@@ -149,9 +139,7 @@ visit_files :: (dir_name: string, recursive: bool, user_data: $T, proc: (info: *
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-exists.txt", base);
-//
 // defer file_delete(path);
 // assert(!file_exists(path));
 // assert(write_entire_file(path, "x"));
@@ -180,17 +168,13 @@ file_exists :: (path: string) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-modtime.txt", base);
-//
 // defer file_delete(path);
 //
 // assert(write_entire_file(path, "copper"));
 // time, size, found := file_modtime_and_size(path);
-//
 // assert(found && size == 6);
 // same, still_found := file_modtime(path);
-//
 // assert(still_found && compare_apollo_times(time, same) == 0);
 //
 // _, _, found = file_modtime_and_size(tprint("%-missing", path));
@@ -216,13 +200,10 @@ file_modtime_and_size :: (file_path: string) -> (modtime: Apollo_Time, size: s64
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // path := tprint("%/jai-doc-file-modtime.txt", base);
-//
 // defer file_delete(path);
 // assert(write_entire_file(path, "x"));
 // time, found := file_modtime(path);
-//
 // assert(found && compare_apollo_times(time, APOLLO_TIME_INVALID) != 0);
 // ```
 file_modtime :: (file_path: string) -> (modtime: Apollo_Time, file_exists: bool) {
@@ -243,10 +224,8 @@ file_modtime :: (file_path: string) -> (modtime: Apollo_Time, file_exists: bool)
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // source := tprint("%/jai-doc-copy-source.txt", base);
 // dest := tprint("%/jai-doc-copy-dest.txt", base);
-//
 // defer {
 //     file_delete(source);
 //     file_delete(dest);
@@ -256,7 +235,6 @@ file_modtime :: (file_path: string) -> (modtime: Apollo_Time, file_exists: bool)
 // assert(write_entire_file(dest, "a longer file that gets replaced"));
 // assert(copy_file(source, dest));
 // text, ok := read_entire_file(dest);
-//
 // assert(ok && text == "copper");
 // free(text);
 //
@@ -311,10 +289,8 @@ copy_file :: (source: string, dest: string, silent := true) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // current := tprint("%/jai-doc-replace.txt", base);
 // fresh := tprint("%/jai-doc-replace.new", base);
-//
 // defer {
 //     file_delete(current);
 //     file_delete(fresh);
@@ -325,7 +301,6 @@ copy_file :: (source: string, dest: string, silent := true) -> bool {
 // assert(atomic_file_replace_or_just_rename_if_destination_file_does_not_exist(fresh, current));
 // assert(!file_exists(fresh));
 // text, ok := read_entire_file(current);
-//
 // assert(ok && text == "new");
 // free(text);
 // ```
@@ -347,9 +322,7 @@ atomic_file_replace_or_just_rename_if_destination_file_does_not_exist :: (old_fi
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // root := tprint("%/jai-doc-file-list", base);
-//
 // defer {
 //     file_delete(tprint("%/a.txt", root));
 //     file_delete(tprint("%/sub/b.txt", root));
@@ -362,17 +335,13 @@ atomic_file_replace_or_just_rename_if_destination_file_does_not_exist :: (old_fi
 // assert(write_entire_file(tprint("%/sub/b.txt", root), "b"));
 //
 // top := file_list(root);
-//
 // assert(top.count == 1);
 // for name: top free(name);
-//
 // array_free(top);
 //
 // all := file_list(root, recursive = true);
-//
 // assert(all.count == 2);
 // for name: all free(name);
-//
 // array_free(all);
 // ```
 file_list :: (path: string, recursive := false, follow_directory_symlinks := true) -> [] string {
@@ -401,10 +370,8 @@ file_list :: (path: string, recursive := false, follow_directory_symlinks := tru
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
-//
 // source := tprint("%/jai-doc-copy-tree", base);
 // dest := tprint("%/jai-doc-copy-tree-copy", base);
-//
 // defer {
 //     file_delete(tprint("%/sub/leaf", source));
 //     delete_directory(tprint("%/sub", source));
@@ -420,7 +387,6 @@ file_list :: (path: string, recursive := false, follow_directory_symlinks := tru
 // assert(!copy_directory(source, tprint("%/inside", source))); // into itself
 // assert(copy_directory(source, dest));
 // text, ok := read_entire_file(tprint("%/sub/leaf", dest));
-//
 // assert(ok && text == "copper");
 // free(text);
 // ```

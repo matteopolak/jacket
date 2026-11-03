@@ -15,20 +15,16 @@
 // name := tprint("jai-doc-module-%", to_nanoseconds(current_time_monotonic()));
 //
 // ok, reader := reader_create_channel(name, 512);
-//
 // assert(ok);
 // connected, writer := writer_connect(name);
-//
 // assert(connected);
 //
 // reserved_ok, reserved := writer_reserve_message(*writer, 3);
-//
 // assert(reserved_ok);
 // memcpy(reserved.user_write_pointer, "abc".data, 3);
 // assert(writer_commit_message(*writer, reserved));
 //
 // found, fatal, message := reader_poll_for_message(*reader);
-//
 // assert(found && !fatal && message.user_read_bytes == 3);
 // assert(reader_done_with_message(*message));
 //

@@ -16,7 +16,6 @@
 // defer deinit(*handler);
 //
 // line, found := consume_next_line(*handler);
-//
 // assert(found && line == "apple" && handler.line_number == 2);
 // line, found = consume_next_line(*handler);
 // assert(found && line == "banana");
@@ -46,13 +45,11 @@ Text_File_Handler :: struct {
 //
 // ```jai
 // handler: Text_File_Handler;
-//
 // start_from_memory(*handler, "config", "config", "[2]\nname jai\n");
 // defer deinit(*handler);
 // assert(!handler.failed && handler.version == 2);
 //
 // line, found := consume_next_line(*handler);
-//
 // assert(found && line == "name jai");
 // ```
 start_from_memory :: (using handler: *Text_File_Handler, _short_name: string, _full_path: string, _file_data: string, loc := #caller_location) {
@@ -109,7 +106,6 @@ deinit :: (using x: *Text_File_Handler) {
 // ```jai
 // text := "one\r\ntwo\n\nthree";
 // line, found := consume_next_line(*text);
-//
 // assert(found && line == "one");
 // line, found = consume_next_line(*text);
 // assert(found && line == "two");

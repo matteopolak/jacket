@@ -107,14 +107,12 @@ Writer :: struct {
 //
 // Io.io_run(() {
 //     near, far := Io.make_pipe();
-//
 //     defer Io.close(near);
 //     defer Io.close(far);
 //     Io.write(Io.writer_of(far), "hello");
 //
 //     buffer: [16] u8;
 //     count, error := Io.read(Io.reader_of(near), buffer);
-//
 //     assert(error == .NONE && string.{ count, buffer.data } == "hello");
 // });
 // ```
@@ -163,7 +161,6 @@ can_wait_readable :: (reader: Reader) -> bool {
 //
 // Io.io_run(() {
 //     near, far := Io.make_pipe();
-//
 //     defer Io.close(near);
 //     defer Io.close(far);
 //     Io.write(Io.writer_of(far), "abcdef");
@@ -171,11 +168,9 @@ can_wait_readable :: (reader: Reader) -> bool {
 //
 //     head: [4] u8;
 //     count, error := Io.read_full(Io.reader_of(near), head);
-//
 //     assert(error == .NONE && count == 4);
 //
 //     tail: [4] u8;
-//
 //     count, error = Io.read_full(Io.reader_of(near), tail);
 //     assert(error == .END_OF_FILE && count == 2);
 // });
@@ -203,14 +198,12 @@ read_full :: (reader: Reader, buffer: [] u8) -> s64, Io_Error {
 //
 // Io.io_run(() {
 //     near, far := Io.make_pipe();
-//
 //     defer Io.close(near);
 //     defer Io.close(far);
 //     Io.write(Io.writer_of(far), "everything");
 //     Io.shutdown_write(far);
 //
 //     data, error := Io.read_all(Io.reader_of(near));
-//
 //     assert(error == .NONE && cast(string) data == "everything");
 //     free(data.data);
 // });
@@ -253,11 +246,9 @@ read_all :: (reader: Reader, size_hint := 0) -> [] u8, Io_Error {
 //
 // Io.io_run(() {
 //     near, far := Io.make_pipe();
-//
 //     defer Io.close(near);
 //     defer Io.close(far);
 //     count, error := Io.write_some(Io.writer_of(far), u8.[1, 2, 3]);
-//
 //     assert(error == .NONE && count > 0);
 // });
 // ```
@@ -275,11 +266,9 @@ write_some :: (writer: Writer, data: [] u8) -> s64, Io_Error {
 //
 // Io.io_run(() {
 //     near, far := Io.make_pipe();
-//
 //     defer Io.close(near);
 //     defer Io.close(far);
 //     count, error := Io.write(Io.writer_of(far), "hello");
-//
 //     assert(error == .NONE && count == 5);
 // });
 // ```
@@ -337,20 +326,16 @@ close :: (writer: Writer, now := false) -> Io_Error {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // path := "/tmp/jacket-io-reader-of.txt";
-//
 // Io.io_run(() {
 //     Io.write_file("/tmp/jacket-io-reader-of.txt", "hello");
 //
 //     file, _ := Io.open_file("/tmp/jacket-io-reader-of.txt");
-//
 //     defer Io.close(*file);
 //
 //     data, error := Io.read_all(Io.reader_of(*file));
-//
 //     assert(error == .NONE && cast(string) data == "hello");
 //     free(data.data);
 // });
@@ -368,7 +353,6 @@ reader_of :: (file: *Io_File) -> Reader {
 //
 // Io.io_run(() {
 //     listener, _ := Io.tcp_listen("127.0.0.1:0");
-//
 //     defer Io.close(listener);
 //
 //     address, _ := Io.local_address(listener);
@@ -394,11 +378,9 @@ reader_of :: (stream: *Pipe_Stream) -> Reader {
 //
 // ```jai,only(linux, macos)
 // Io :: #import "Extensions/Io";
-//
 // #import "File";
 //
 // path := "/tmp/jacket-io-writer-of.txt";
-//
 // Io.io_run(() {
 //     file, _ := Io.open_file("/tmp/jacket-io-writer-of.txt", .WRITE);
 //     defer Io.close(*file);
@@ -421,7 +403,6 @@ writer_of :: (file: *Io_File) -> Writer {
 // main :: () {
 //     Io.io_run(() {
 //         listener, _ := Io.tcp_listen("127.0.0.1:0");
-//
 //         defer Io.close(listener);
 //
 //         address, _ := Io.local_address(listener);
@@ -432,7 +413,6 @@ writer_of :: (file: *Io_File) -> Writer {
 //
 //         buffer: [8] u8;
 //         count, error := Io.read(Io.reader_of(server), buffer);
-//
 //         assert(error == .NONE && string.{ count, buffer.data } == "hello");
 //
 //         Io.close(client);
@@ -451,14 +431,12 @@ writer_of :: (stream: Tcp_Stream) -> Writer {
 //
 // Io.io_run(() {
 //     near, far := Io.make_pipe();
-//
 //     defer Io.close(near);
 //     defer Io.close(far);
 //     Io.write(Io.writer_of(far), "ping");
 //
 //     buffer: [8] u8;
 //     count, _ := Io.read(Io.reader_of(near), buffer);
-//
 //     assert(string.{ count, buffer.data } == "ping");
 // });
 // ```

@@ -52,16 +52,13 @@ init_treemap_display :: (treemap: *Treemap) -> Treemap_Display {
 // root := add_node(*treemap, "root", null);
 // a := add_node(*treemap, "a", root);
 // b := add_node(*treemap, "b", root);
-//
 // a.size = 3;
 // b.size = 1;
 // recompute_if_dirty(*treemap);
 // display := init_treemap_display(*treemap);
-//
 // recompute_if_dirty(*display, .{ 100, 100 });
 // rect := display.nodes[get_index(*treemap, a)];
 // area := rect.size.x * rect.size.y;
-//
 // assert(area > 7499 && area < 7501);
 // ```
 recompute_if_dirty :: (display: *Treemap_Display, outer_size: Vector2, border_proc: Border_Proc = null, force := false) {

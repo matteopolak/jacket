@@ -22,12 +22,10 @@ Channel :: struct(T: Type) {
 //
 // Io.io_run(() {
 //     channel := Io.make_channel(int, 2);
-//
 //     defer Io.free_channel(channel);
 //
 //     Io.send(channel, 1);
 //     value, error := Io.recv(channel);
-//
 //     assert(error == .NONE && value == 1);
 // });
 // ```
@@ -59,7 +57,6 @@ free_channel :: (channel: *Channel($T)) {
 //
 // Io.io_run(() {
 //     channel := Io.make_channel(string, 1);
-//
 //     defer Io.free_channel(channel);
 //
 //     assert(Io.send(channel, "first") == .NONE);
@@ -124,7 +121,6 @@ try_send :: (channel: *Channel($T), value: T) -> bool {
 //
 // Io.io_run(() {
 //     channel := Io.make_channel(int, 1);
-//
 //     defer Io.free_channel(channel);
 //
 //     Io.spawn((c: *Io.Channel(int)) {
@@ -132,7 +128,6 @@ try_send :: (channel: *Channel($T), value: T) -> bool {
 //     }, channel);
 //
 //     value, error := Io.recv(channel); // waits for the spawned fiber
-//
 //     assert(error == .NONE && value == 7);
 // });
 // ```
@@ -162,16 +157,13 @@ recv :: (channel: *Channel($T)) -> T, Io_Error {
 //
 // Io.io_run(() {
 //     channel := Io.make_channel(int, 1);
-//
 //     defer Io.free_channel(channel);
 //
 //     _, found := Io.try_recv(channel);
-//
 //     assert(!found);
 //
 //     Io.send(channel, 5);
 //     value, found2 := Io.try_recv(channel);
-//
 //     assert(found2 && value == 5);
 // });
 // ```
@@ -190,14 +182,12 @@ try_recv :: (channel: *Channel($T)) -> T, bool {
 //
 // Io.io_run(() {
 //     channel := Io.make_channel(int, 2);
-//
 //     defer Io.free_channel(channel);
 //
 //     Io.send(channel, 1);
 //     Io.close(channel);
 //
 //     value, error := Io.recv(channel); // what was buffered still arrives
-//
 //     assert(error == .NONE && value == 1);
 //
 //     _, error = Io.recv(channel);
@@ -315,7 +305,6 @@ lock :: (mutex: *Fiber_Mutex) -> Io_Error {
 // Io :: #import "Extensions/Io";
 //
 // mutex: Io.Fiber_Mutex;
-//
 // assert(Io.try_lock(*mutex));
 // assert(!Io.try_lock(*mutex));
 // Io.unlock(*mutex);

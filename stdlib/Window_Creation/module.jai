@@ -8,9 +8,7 @@
 // #import "Input";
 //
 // window := create_window(800, 600, "hello");
-//
 // assert(window != WT.INVALID_WINDOW);
-//
 // while true {
 //     update_window_events();
 //     for events_this_frame if it.type == .QUIT return;

@@ -195,7 +195,6 @@ enable_window :: (window: Window_Type) {
 // #import "Window_Creation";
 //
 // window := create_window(800, 600, "simp");
-//
 // set_render_target(window);
 // clear_render_target(0, 0, 0, 1);
 // swap_buffers(window);
@@ -346,7 +345,6 @@ immediate_set_texture :: (texture: *Texture) {
 // #import "Math";
 //
 // red := Vector4.{ 1, 0, 0, 1 };
-//
 // immediate_vertex(.{ 100, 100, 0 }, red);
 // immediate_vertex(.{ 200, 100, 0 }, red);
 // immediate_vertex(.{ 150, 200, 0 }, red); // a triangle

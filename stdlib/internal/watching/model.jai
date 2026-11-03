@@ -68,12 +68,9 @@ DEFAULT_BUFFER_SIZE :: 8000;
     // main :: () {
     //     base := environment_variable("TMPDIR");
     //     if base == "" base = "/tmp";
-    //
     //     root := tprint("%/jai-doc-file-watcher", base);
     //     file := tprint("%/jai-doc-watched.txt", root);
-    //
     //     assert(make_directory_if_it_does_not_exist(root));
-    //
     //     defer {
     //         file_delete(file);
     //         delete_directory(root);
@@ -81,13 +78,11 @@ DEFAULT_BUFFER_SIZE :: 8000;
     //
     //     seen: Seen;
     //     watcher: File_Watcher(Seen);
-    //
     //     assert(init(*watcher, on_change, *seen));
     //     defer deinit(*watcher);
     //     assert(add_directories(*watcher, root));
     //
     //     assert(write_entire_file(file, "hello"));
-    //
     //     for 0..249 { // up to five seconds for the system to report it
     //         process_changes(*watcher);
     //         if seen.found break;

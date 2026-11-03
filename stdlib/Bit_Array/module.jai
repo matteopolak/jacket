@@ -20,7 +20,6 @@
 //
 // ```jai
 // bits := make_bit_array(10);
-//
 // set_bit(*bits, 2);
 // bits[5] = true;
 // toggle_bit(*bits, 2);
@@ -29,7 +28,6 @@
 //
 // set := 0;
 // for bits if it set += 1; // `it` is the bit, `it_index` its position
-//
 // assert(set == 1);
 // deinit(*bits);
 // ```
@@ -74,7 +72,6 @@ set_bit :: Impl.set_bit;
 //
 // ```jai
 // bits := make_bit_array(4);
-//
 // set_bit(*bits, 1);
 // clear_bit(*bits, 1);
 // assert(!bits[1]);
@@ -85,7 +82,6 @@ clear_bit :: Impl.clear_bit;
 //
 // ```jai
 // bits := make_bit_array(4);
-//
 // toggle_bit(*bits, 2);
 // assert(bits[2]);
 // toggle_bit(*bits, 2);
@@ -97,7 +93,6 @@ toggle_bit :: Impl.toggle_bit;
 //
 // ```jai
 // bits := make_bit_array(4);
-//
 // set_bit_to(*bits, 1, true);
 // assert(bits[1]);
 // set_bit_to(*bits, 1, false);
@@ -109,11 +104,9 @@ set_bit_to :: Impl.set_bit_to;
 //
 // ```jai
 // bits := make_bit_array(70);
-//
 // set_all_bits(*bits);
 // clear_all_bits(*bits);
 // for bits assert(!it);
-//
 // deinit(*bits);
 // ```
 clear_all_bits :: Impl.clear_all_bits;
@@ -157,7 +150,6 @@ for_expansion :: Impl.for_expansion;
 //
 // positions: [..] int;
 // for: only_set bits array_add(*positions, it_index);
-//
 // assert(positions.count == 2 && positions[1] == 6);
 // array_free(positions);
 // deinit(*bits);
@@ -170,7 +162,6 @@ only_set :: Impl.only_set;
 // bits[0] = true;
 // cleared := 0;
 // for: only_unset bits cleared += 1;
-//
 // assert(cleared == 3);
 // deinit(*bits);
 // ```

@@ -13,7 +13,6 @@
 // curl_global_init(0);
 //
 // easy := curl_easy_init();
-//
 // assert(easy != null);
 // defer curl_easy_cleanup(easy);
 //

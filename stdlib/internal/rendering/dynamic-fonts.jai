@@ -213,7 +213,6 @@ begin_prepare_text :: (using font: *Dynamic_Font) {
 //
 // ```jai,no_run,skip_on(wasm)
 // font := load_font("", "Roboto-Regular.ttf", 24);
-//
 // begin_prepare_text(font);
 // append_prepare_text(font, "Hello, ");
 // append_prepare_text(font, "world");

@@ -8,7 +8,6 @@
 // #import "Extensions/Text_Buffer";
 //
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "hello\nworld");
 // insert(*buffer, 5, ", there");
@@ -82,7 +81,6 @@ set_text :: (buffer: *Text_Buffer, text: string) {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // assert(line_count(*buffer) == 1);
 // set_text(*buffer, "a\nb\nc");
@@ -110,7 +108,6 @@ line_start :: (buffer: *Text_Buffer, line: int) -> int {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "ab\r\ncd");
 // assert(line_end(*buffer, 0) == 2);
@@ -156,7 +153,6 @@ line_of_offset :: (buffer: *Text_Buffer, offset: int) -> int {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "abc");
 // assert(byte_at(*buffer, 1) == #char "b");
@@ -226,11 +222,9 @@ text_range :: (buffer: *Text_Buffer, start: int, end: int) -> string {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "hello world");
 // word := copy_range(*buffer, 0, 5, temp);
-//
 // insert(*buffer, 0, ">> ");
 // assert(word == "hello");
 // ```
@@ -266,7 +260,6 @@ copy_range :: (buffer: *Text_Buffer, start: int, end: int, allocator: Allocator)
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "abc");
 // insert(*buffer, 3, "def");
@@ -281,7 +274,6 @@ buffer_to_string :: (buffer: *Text_Buffer, allocator: Allocator = context.alloca
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "held");
 // insert(*buffer, 2, "llo wor");
@@ -299,7 +291,6 @@ insert :: (buffer: *Text_Buffer, offset: int, text: string) {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "hello world");
 // erase(*buffer, 5, 6);
@@ -322,7 +313,6 @@ erase :: (buffer: *Text_Buffer, offset: int, count: int) {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "hello world");
 // replace(*buffer, 6, 5, "there");
@@ -341,7 +331,6 @@ replace :: (buffer: *Text_Buffer, offset: int, count: int, text: string) {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "to be or not to be");
 // assert(find_text(*buffer, "be") == 3);

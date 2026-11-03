@@ -88,7 +88,6 @@ run_app :: (options: App_Options, app: *$T, build: (app: *T)) -> bool {
 // main :: () {
 //     ui := headless();
 //     app: int;
-//
 //     run_app_with(.{ title = "Custom UI" }, *ui, *app, (n: *int) {
 //         label("hi");
 //     });
@@ -213,11 +212,9 @@ run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)
 //
 // ```jai
 // ui := headless();
-//
 // defer free_ui(*ui);
 // #import "Extensions/Desktop";
 // items := Menu_Item.[.{ menu = "File", title = "Open", action = 1, key = #char "O" }];
-//
 // send_menu_action(*ui, items, 1);
 // assert(ui.input.events.count == 1);
 // ```

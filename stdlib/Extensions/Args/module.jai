@@ -124,7 +124,6 @@ Is_Set :: struct(T: Type) {
 //
 // main :: () {
 //     cli, error, set := Args.try_parse(Cli, HELP, .["tool", "-c", "--jobs=8", "a.jai", "b.jai"]);
-//
 //     assert(error.kind == .NONE);
 //     assert(cli.check && cli.jobs == 8 && cli.paths.count == 2 && cli.paths[1] == "b.jai");
 //     assert(set.jobs && set.check && set.paths);
@@ -174,11 +173,9 @@ try_parse :: ($T: Type, $help: Help(T), argv: [] string, environment: [] string 
 // Cli :: struct {
 //     name: string = "world"; @short=n
 // }
-//
 // HELP :: Args.Help(Cli).{ about = "Greets.", name = "Who to greet" };
 //
 // cli, set := Args.parse(Cli, HELP);
-//
 // print("hello, %\n", cli.name);
 // ```
 //
@@ -210,11 +207,9 @@ parse :: ($T: Type, $help: Help(T)) -> T, Is_Set(T) {
 // Cli :: struct {
 //     verbose: bool; @short=v
 // }
-//
 // HELP :: Args.Help(Cli).{ verbose = "Talk more" };
 //
 // script := Args.completions(Cli, HELP, .BASH, "tool");
-//
 // assert(script.count > 0);
 // ```
 //
@@ -235,11 +230,9 @@ completions :: ($T: Type, $help: Help(T), shell: Shell, program := "") -> string
 // Cli :: struct {
 //     verbose: bool; @short=v
 // }
-//
 // HELP :: Args.Help(Cli).{ about = "Does things.", verbose = "Talk more" };
 //
 // text := Args.help_text(Cli, HELP, "tool");
-//
 // assert(text.count > 0);
 // ```
 //

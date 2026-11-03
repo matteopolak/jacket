@@ -203,7 +203,6 @@ io_run :: (proc: $P, data: $T) {
 // main :: () {
 //     Io.io_run(() {
 //         results := Io.make_channel(int, 1);
-//
 //         defer Io.free_channel(results);
 //
 //         Io.spawn((out: *Io.Channel(int)) {
@@ -211,7 +210,6 @@ io_run :: (proc: $P, data: $T) {
 //         }, results);
 //
 //         value, error := Io.recv(results); // waits for the spawned fiber
-//
 //         assert(error == .NONE && value == 42);
 //     });
 // }
@@ -233,7 +231,6 @@ spawn :: (proc: $P, data: $T) -> Fiber_Handle {
 //
 // Io.io_run(() {
 //     log: [..] int;
-//
 //     Io.spawn((out: *[..] int) {
 //         array_add(out, 2);
 //     }, *log);

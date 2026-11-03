@@ -7,7 +7,6 @@
 // }
 //
 // ok, options := parse_arguments(Options, args = string.["-level", "5"]);
-//
 // assert(ok && options.level == 5 && !options.quiet);
 // ```
 

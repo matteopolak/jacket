@@ -10,17 +10,14 @@
 // #import "Extensions/Image";
 //
 // image := make_image(2, 2, .RGBA8);
-//
 // defer deinit(*image);
 // image.pixels[0] = 255; // top left pixel: red
 // image.pixels[3] = 255;
 //
 // png := encode_png(image);
-//
 // defer free(png.data);
 //
 // decoded, ok, error := decode_image(png);
-//
 // defer deinit(*decoded);
 // assert(ok && decoded.width == 2 && decoded.pixels[0] == 255);
 // ```
@@ -39,7 +36,6 @@ Pixel_Format :: enum u8 {
 //
 // ```jai
 // image := make_image(3, 2, .RGB8);
-//
 // defer deinit(*image);
 // assert(image.pixels.count == 3 * 2 * 3);
 //
@@ -159,11 +155,9 @@ detect_image_format :: (data: [] u8) -> Image_File_Format {
 //
 // ```jai
 // qoi := encode_qoi(make_image(4, 4, .RGB8));
-//
 // defer free(qoi.data);
 //
 // image, ok, error := decode_image(qoi);
-//
 // defer deinit(*image);
 // assert(ok && image.format == .RGB8);
 //
@@ -187,11 +181,9 @@ decode_image :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Im
 //
 // ```jai
 // qoi := encode_qoi(make_image(4, 4, .RGB8));
-//
 // defer free(qoi.data);
 //
 // image, ok := decode_image_as(qoi, .RGBA8);
-//
 // defer deinit(*image);
 // assert(ok && image.format == .RGBA8 && image.pixels[3] == 255);
 // ```

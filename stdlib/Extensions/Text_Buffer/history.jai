@@ -33,7 +33,6 @@ free_history :: (history: *History) {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "ab");
 // begin_group(*buffer);
@@ -67,7 +66,6 @@ end_group :: (buffer: *Text_Buffer) {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // insert(*buffer, 0, "a");
 // insert(*buffer, 1, "b");
@@ -84,7 +82,6 @@ seal_undo :: (buffer: *Text_Buffer) {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // assert(!can_undo(*buffer));
 // insert(*buffer, 0, "a");
@@ -103,12 +100,10 @@ can_redo :: (buffer: *Text_Buffer) -> bool {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // set_text(*buffer, "hello");
 // erase(*buffer, 0, 5);
 // ok, cursor := undo(*buffer);
-//
 // assert(ok && cursor == 5);
 // assert(buffer_to_string(*buffer, temp) == "hello");
 // ```
@@ -136,7 +131,6 @@ undo :: (buffer: *Text_Buffer) -> ok: bool, cursor: int {
 //
 // ```jai
 // buffer: Text_Buffer;
-//
 // defer free_buffer(*buffer);
 // insert(*buffer, 0, "hi");
 // undo(*buffer);

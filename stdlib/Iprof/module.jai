@@ -36,7 +36,6 @@
 //     }
 //
 //     report := create_report();
-//
 //     assert(report.records.count == 2);
 //     log_text_report(report);
 // }

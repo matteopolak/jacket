@@ -51,7 +51,6 @@ load :: (base: *void, $N: int, $F: Type) -> SIMD_Array(N, F) #no_abc #no_aoc {
 // offsets := set(3, cast(s64) 0);
 // offsets.data = .[12, 0, 4]; // byte offsets: 3 * size_of(s32), 0, 1 * size_of(s32)
 // v := load_from_offsets(numbers.data, offsets, s32);
-//
 // assert(v.data[0] == 40 && v.data[1] == 10 && v.data[2] == 20);
 // ```
 load_from_offsets :: (base: *void, offsets: $O/SIMD_Array, $F: Type) -> SIMD_Array(offsets.count, F) #no_abc #no_aoc {
@@ -113,7 +112,6 @@ get_looping_indices :: ($N: int, $I: Type, $STEP := 1) -> SIMD_Array(N, I) #no_a
 // ```jai
 // a := set(4, cast(s32) 3);
 // sum := a + set(4, cast(s32) 5);
-//
 // assert(sum.data[0] == 8 && sum.data[3] == 8);
 // assert((a + cast(s32) 1).data[0] == 4);
 // assert((cast(s32) 1 + a).data[0] == 4);
@@ -241,7 +239,6 @@ operator / :: (factor: $E, a: SIMD_Array($N, E)) -> SIMD_Array(N, E) #no_abc #no
 // b := a;
 // b.data[2] = 9;
 // same := a == b;
-//
 // assert(same.data[0] == 1 && same.data[2] == 0);
 // assert(get_mask(a < b) == 4);
 // assert(get_mask(a == cast(s32) 3) == 15);
@@ -455,11 +452,9 @@ horizontal_sum :: (a: $T/SIMD_Array) -> a.type {
 // ```jai
 // a := set(4, cast(s32) 0);
 // b := set(4, cast(s32) 0);
-//
 // a.data = .[1, 2, 3, 4];
 // b.data = .[10, 20, 30, 40];
 // r := horizontal_add(a, b);
-//
 // assert(r.data[0] == 3 && r.data[1] == 30 && r.data[2] == 7 && r.data[3] == 70);
 // ```
 horizontal_add :: (a: $T/SIMD_Array, b: T) -> (interleaved_result: T) {

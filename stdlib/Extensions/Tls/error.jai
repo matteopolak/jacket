@@ -12,7 +12,6 @@
 // config.private_key_pem = "this is not a key";
 //
 // error := tls_config_init(*config);
-//
 // assert(error.kind == .CONFIG);
 // assert(error_text(error).count > 0);
 // ```

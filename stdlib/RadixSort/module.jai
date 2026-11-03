@@ -3,10 +3,8 @@
 //
 // ```jai
 // values: [..] u32;
-//
 // array_add(*values, 3, 1, 2);
 // sorter: RadixSort;
-//
 // sort(*sorter, values);
 // reorder(*values, sorter);
 // assert(values[0] == 1 && values[2] == 3);
@@ -28,7 +26,6 @@
 // ```jai
 // sorter: RadixSort;
 // values := u32.[40, 7, 19];
-//
 // sort(*sorter, values);
 // assert(sorter[0] == 1 && sorter[1] == 2 && sorter[2] == 0); // 7, 19, 40
 // free_resources(*sorter);
@@ -52,12 +49,10 @@ rank :: Impl.rank;
 // ```jai
 // sorter: RadixSort;
 // values := float.[2.5, -1, 9, 0];
-//
 // sort(*sorter, values);
 //
 // smallest := values[rank(*sorter, 0)];
 // largest := values[rank(*sorter, 3)];
-//
 // assert(smallest == -1 && largest == 9);
 // free_resources(*sorter);
 // ```
@@ -70,11 +65,9 @@ sort :: Impl.sort;
 //
 // ```jai
 // values: [..] u64;
-//
 // array_add(*values, 30, 10, 20);
 //
 // sorter: RadixSort;
-//
 // sort(*sorter, values);
 // reorder(*values, sorter);
 // assert(values[0] == 10 && values[1] == 20 && values[2] == 30);

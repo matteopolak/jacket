@@ -51,7 +51,6 @@ set_build_options_dc :: (options: Build_Options_During_Compile, w: Workspace = -
 //
 // #run {
 //     path := tprint("%/extra.jai", #filepath);
-//
 //     write_entire_file(path, "extra :: 1;");
 //     w := compiler_create_workspace("from file");
 //     options := get_build_options(w);
@@ -162,13 +161,11 @@ compiler_set_workspace_status :: (status: Workspace_Status, w: Workspace = -1) #
 //
 //     compiler_begin_intercept(w);
 //     files := 0;
-//
 //     while true {
 //         message := compiler_wait_for_message();
 //         if message.kind == .FILE files += 1;
 //         if message.kind == .COMPLETE break;
 //     }
-//
 //     compiler_end_intercept(w);
 //     assert(files > 0);
 // }

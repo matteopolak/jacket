@@ -41,7 +41,6 @@ unsigned_integer_range_from_size :: (size_in_bytes: int) -> (low: u64, high: u64
 // ```jai
 // small: u8;
 // ok := range_check_and_store(200, cast(*Type_Info_Integer) type_info(u8), *small);
-//
 // assert(ok && small == 200);
 // ok = range_check_and_store(300, cast(*Type_Info_Integer) type_info(u8), *small);
 // assert(!ok && small == 200);
@@ -79,9 +78,7 @@ range_check_and_store :: (value: $T, info: *Type_Info_Integer, pointer: *void) -
 //     x: int;
 //     y: int;
 // }
-//
 // info := cast(*Type_Info_Struct) type_info(Point);
-//
 // assert(get_struct_field_info(info, "y") != null);
 // assert(get_struct_field_info(info, "z") == null);
 // ```
@@ -98,9 +95,7 @@ get_struct_field_info :: (info: *Type_Info_Struct, name: string) -> *Type_Info_S
 //     GREEN;
 //     BLUE;
 // }
-//
 // value, found := enum_name_to_value(Color, "GREEN");
-//
 // assert(found && value == .GREEN);
 // _, found = enum_name_to_value(Color, "PINK");
 // assert(!found);
@@ -119,7 +114,6 @@ enum_name_to_value :: ($T: Type, name: string) -> T, bool {
 //     GREEN;
 //     BLUE;
 // }
-//
 // assert(enum_value_to_name(Color.BLUE) == "BLUE");
 // ```
 enum_value_to_name :: (e_value: $Enum) -> string {
@@ -136,9 +130,7 @@ enum_value_to_name :: (e_value: $Enum) -> string {
 //     LOW :: 3;
 //     HIGH :: 9;
 // }
-//
 // level := Level.HIGH;
-//
 // assert(get_enum_value(*level, cast(*Type_Info_Enum) type_info(Level)) == 9);
 // ```
 get_enum_value :: (data: *void, info: *Type_Info_Enum) -> s64 {
@@ -153,9 +145,7 @@ get_enum_value :: (data: *void, info: *Type_Info_Enum) -> s64 {
 //     LOW :: 3;
 //     HIGH :: 9;
 // }
-//
 // level: Level;
-//
 // set_enum_value(*level, cast(*Type_Info_Enum) type_info(Level), 9);
 // assert(level == .HIGH);
 // ```
