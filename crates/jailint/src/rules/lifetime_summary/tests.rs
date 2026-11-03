@@ -1,4 +1,5 @@
 mod descriptors;
+mod stdlib_allocations;
 
 use super::*;
 use jaic::ide::{IdeFacts, IdeRoot};

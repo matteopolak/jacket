@@ -89,7 +89,7 @@ row_shape_text :: (entry: Query_Entry) -> string, problem: string {
         print_to_builder(*builder, "/// %: %, %\n%: %;\n", where, column.type, ifx column.nullable then "nullable" else "not null", column.name, field_type_text(column));
     }
 
-    return builder_to_string(*builder), "";
+    return builder_to_string(*builder,, temp), "";
 } @TempAllocates
 
 // The entry points the macros call inside #run.
