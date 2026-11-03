@@ -688,6 +688,7 @@ fn analyze(cx: &Cx) -> Reports {
             chains,
         };
         let observable = quiescent::observable(&model);
+        let operations = quiescent::Index::new(&model);
         let covered = quiescent::covered_loads(&model);
         let mut traced_candidates = 0;
         for (candidate, block) in model.blocks.iter().enumerate() {
@@ -740,6 +741,7 @@ fn analyze(cx: &Cx) -> Reports {
                     &model,
                     candidate,
                     &observable,
+                    &operations,
                     &mut reports,
                 ));
             }
@@ -844,11 +846,16 @@ fn solve(
     model: &Model,
     seed: usize,
     observable: &[bool],
+    operations: &quiescent::Index,
     out: &mut Reports,
 ) -> bool {
     let Some((first, origin_kind, origin, region)) = candidate(&model.blocks[seed]) else {
         return false;
     };
+    if operations.independent_quiet(origin_kind) {
+        out.fast_quiet += 1;
+        return true;
+    }
     let mut relevant = HashMap::default();
     let source = match model.blocks[seed].op {
         CfgOp::PointerLoad(_, source, _, _) => Some(source),
@@ -870,33 +877,18 @@ fn solve(
         queue.extend(&model.forward[cell]);
     }
     let index = |cell: usize| relevant.get(&cell).copied();
-    if !model.blocks.iter().any(|b| match b.op {
-        CfgOp::Use(cell, _)
-        | CfgOp::Resource(
-            Op::Read {
-                cell, ..
-            }
-            | Op::Free {
-                cell, ..
-            }
-            | Op::FreeRegion {
-                cell, ..
-            }
-            | Op::Return {
-                cell, ..
-            }
-            | Op::Escape {
-                cell, ..
-            },
-        ) => index(cell).is_some(),
-        CfgOp::Task(super::tasks::Op::Start {
-            ref cells, ..
-        }) => cells.iter().any(|c| index(*c).is_some()),
-        _ => false,
-    }) {
+    if !operations.used(&relevant) {
         return false;
     }
-    if quiescent::quiet(cx, model, origin_kind, region, &relevant, observable) {
+    if quiescent::quiet(
+        cx,
+        model,
+        origin_kind,
+        region,
+        &relevant,
+        observable,
+        operations,
+    ) {
         out.fast_quiet += 1;
         return true;
     }

@@ -1027,60 +1027,6 @@ impl Effect {
 }
 
 impl Summaries {
-    fn propagate_writes(
-        &mut self,
-        compiler: &Compiler,
-        valid: &HashMap<ProcId, &LifetimeBody>,
-        ids: &[ProcId],
-        graph: &HashMap<ProcId, Vec<ProcId>>,
-    ) {
-        // Returns are stable before writes are classified. A RESIZE result stored back
-        // into its own field preserves the owner; an unrelated replacement must forget it.
-        // Callees settle before their callers, so only a cycle needs another pass.
-        for component in sccs(ids, graph) {
-            let once = acyclic(&component, graph);
-            loop {
-                let mut changed = false;
-                for id in &component {
-                    changed |= self.propagate_body_writes(compiler, *id, valid[id]);
-                }
-                if !changed || once {
-                    break;
-                }
-            }
-        }
-    }
-
-    fn propagate_body_writes(
-        &mut self,
-        compiler: &Compiler,
-        id: ProcId,
-        body: &LifetimeBody,
-    ) -> bool {
-        let mut resolver = Resolver::new(compiler, body, &self.procs, &self.targets);
-        let Writes {
-            effects: writes,
-            unknown: unknown_write,
-            escapes,
-        } = resolver.infer_writes(&self.procs);
-        let summary = self.procs.get_mut(&id).unwrap();
-        let previous = summary.unknown_write.len() + summary.escapes.len();
-        summary.unknown_write.extend(unknown_write);
-        summary.escapes.extend(escapes);
-        let mut changed = previous != summary.unknown_write.len() + summary.escapes.len();
-        let before = summary.may.len();
-        summary.may.retain(|e, _| !matches!(e.target.root, Root::Parameter(p) if e.kind == Kind::Write && summary.unknown_write.contains(&p)));
-        changed |= before != summary.may.len();
-        for (effect, witness) in writes {
-            if matches!(effect.target.root, Root::Parameter(p) if effect.kind == Kind::Write && summary.unknown_write.contains(&p))
-            {
-                continue;
-            }
-            changed |= insert(&mut summary.may, effect, witness);
-        }
-        changed
-    }
-
     #[cfg(test)]
     pub fn build(compiler: &Compiler) -> Self {
         Self::build_for(compiler, &HashSet::default())
@@ -1124,8 +1070,8 @@ impl Summaries {
             .collect();
         let components = sccs(&ids, &graph);
         all.sccs = components.len();
-        for component in components {
-            let once = acyclic(&component, &graph);
+        for component in &components {
+            let once = acyclic(component, &graph);
             if jacket_config::env::LIFETIME_STATS.is_set()
                 && (component.len() > 1 || graph[&component[0]].contains(&component[0]))
             {
@@ -1141,7 +1087,7 @@ impl Summaries {
             // recursive cycle with no returning base must not make later caller uses live.
             loop {
                 let mut changed = false;
-                for id in &component {
+                for id in component {
                     if all.procs[id].normal_return == Some(false)
                         && !returning_blocks(valid[id], &all.procs, &all.targets).is_empty()
                     {
@@ -1153,12 +1099,15 @@ impl Summaries {
                     break;
                 }
             }
+            // Body definitions are fixed once normal-return reachability settles.
+            let mut resolvers = HashMap::default();
             loop {
                 let mut changed = false;
-                for id in &component {
+                for id in component {
                     all.iterations += 1;
-                    let body = valid[id];
-                    let mut resolver = Resolver::new(compiler, body, &all.procs, &all.targets);
+                    let resolver = resolvers.entry(*id).or_insert_with(|| {
+                        Resolver::new(compiler, valid[id], &all.procs, &all.targets)
+                    });
                     let next = resolver.infer(&all.procs[id], &all.procs);
                     if next != all.procs[id] {
                         all.procs.insert(*id, next);
@@ -1173,7 +1122,7 @@ impl Summaries {
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-begin bodies={}", valid.len());
         }
-        all.propagate_writes(compiler, &valid, &ids, &graph);
+        all.propagate_writes(compiler, &valid, &components, &graph);
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-end");
         }

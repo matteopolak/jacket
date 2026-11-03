@@ -181,3 +181,50 @@ impl Resolver<'_> {
         }
     }
 }
+
+impl super::Summaries {
+    pub(super) fn propagate_writes(
+        &mut self,
+        compiler: &super::Compiler,
+        valid: &HashMap<ProcId, &super::LifetimeBody>,
+        components: &[Vec<ProcId>],
+        graph: &HashMap<ProcId, Vec<ProcId>>,
+    ) {
+        // Returns are stable. Solve callees before callers, iterating only recursive SCCs.
+        for component in components {
+            let recursive = component.len() > 1 || graph[&component[0]].contains(&component[0]);
+            let mut resolvers = HashMap::default();
+            loop {
+                let mut changed = false;
+                for id in component {
+                    let resolver = resolvers.entry(*id).or_insert_with(|| {
+                        Resolver::new(compiler, valid[id], &self.procs, &self.targets)
+                    });
+                    let Writes {
+                        effects: writes,
+                        unknown: unknown_write,
+                        escapes,
+                    } = resolver.infer_writes(&self.procs);
+                    let summary = self.procs.get_mut(id).unwrap();
+                    let previous = summary.unknown_write.len() + summary.escapes.len();
+                    summary.unknown_write.extend(unknown_write);
+                    summary.escapes.extend(escapes);
+                    changed |= previous != summary.unknown_write.len() + summary.escapes.len();
+                    let before = summary.may.len();
+                    summary.may.retain(|e, _| !matches!(e.target.root, Root::Parameter(p) if e.kind == Kind::Write && summary.unknown_write.contains(&p)));
+                    changed |= before != summary.may.len();
+                    for (effect, witness) in writes {
+                        if matches!(effect.target.root, Root::Parameter(p) if effect.kind == Kind::Write && summary.unknown_write.contains(&p))
+                        {
+                            continue;
+                        }
+                        changed |= super::insert(&mut summary.may, effect, witness);
+                    }
+                }
+                if !changed || !recursive {
+                    break;
+                }
+            }
+        }
+    }
+}

@@ -207,10 +207,13 @@ pub(super) fn solve(
     ids.sort_unstable_by_key(|p| p.0);
     for component in super::sccs(&ids, graph) {
         let once = super::acyclic(&component, graph);
+        let mut resolvers = HashMap::default();
         loop {
             let mut changed = false;
             for id in &component {
-                let resolver = Resolver::new(compiler, valid[id], &all.procs, &all.targets);
+                let resolver = resolvers.entry(*id).or_insert_with(|| {
+                    Resolver::new(compiler, valid[id], &all.procs, &all.targets)
+                });
                 let guaranteed = resolver.reads(&all.procs, true);
                 let may = resolver.reads(&all.procs, false);
                 let summary = all.procs.get_mut(id).unwrap();

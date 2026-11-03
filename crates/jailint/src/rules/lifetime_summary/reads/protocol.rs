@@ -63,6 +63,7 @@ pub(in crate::rules::lifetime_summary) fn solve(
     ids.sort_unstable_by_key(|p| p.0);
     for component in sccs(&ids, graph) {
         let once = acyclic(&component, graph);
+        let mut resolvers = super::HashMap::default();
         loop {
             let mut changed = false;
             for id in &component {
@@ -92,7 +93,9 @@ pub(in crate::rules::lifetime_summary) fn solve(
                 if calls.is_empty() {
                     continue;
                 }
-                let resolver = Resolver::new(compiler, valid[id], &all.procs, &all.targets);
+                let resolver = resolvers.entry(*id).or_insert_with(|| {
+                    Resolver::new(compiler, valid[id], &all.procs, &all.targets)
+                });
                 let mut queries = super::HashSet::default();
                 for (callee, args, direct) in calls {
                     for arg in args {

@@ -350,6 +350,7 @@ pub(crate) struct LifetimeRecording {
     pub elements: HashMap<Val, (Val, TypeId)>,
     pub calls: Vec<LifetimeCallRecording>,
     pub cleanup_flags: HashSet<Val>,
+    bool_slots: HashSet<Val>,
     pub stack_subplaces: Vec<Val>,
     pub source_site: Option<Span>,
     pub source_ranges: Vec<LifetimeSourceRange>,
@@ -364,6 +365,15 @@ pub(crate) struct LifetimeCallRecording {
 
 impl LifetimeRecording {
     pub fn push(&mut self, block: ir::BlockId, event: LifetimeEvent) {
+        if let LifetimeEvent::Local {
+            place,
+            ty: TypeId::BOOL,
+            ..
+        } = event
+        {
+            self.bool_slots.insert(place);
+        }
+
         self.blocks.resize_with(
             self.blocks.len().max(block.0 as usize + 1),
             LifetimeBlock::default,
@@ -716,25 +726,21 @@ impl LifetimeRecording {
     /// Propagate activation flags and unaliased byte locals through cleanup branches.
     /// A slot whose address escapes, is aliased, or is accessed at another width is excluded.
     fn prune_cleanup_edges(&mut self, func: &ir::Func, constants: &HashMap<Val, u64>) {
-        let mut flags: Vec<_> = self.cleanup_flags.iter().copied().collect();
-        let bool_places: HashSet<_> = self
+        if !func
             .blocks
             .iter()
-            .flat_map(|b| &b.events)
-            .filter_map(|e| match e {
-                LifetimeEvent::Local {
-                    place,
-                    ty: TypeId::BOOL,
-                    ..
-                } => Some(*place),
-                _ => None,
-            })
-            .collect();
-        flags.extend(
-            private_byte_flags(func)
-                .into_iter()
-                .filter(|v| bool_places.contains(v)),
-        );
+            .any(|b| matches!(b.term, ir::Term::Branch { .. }))
+        {
+            return;
+        }
+        let mut flags: Vec<_> = self.cleanup_flags.iter().copied().collect();
+        if !self.bool_slots.is_empty() {
+            flags.extend(
+                private_byte_flags(func)
+                    .into_iter()
+                    .filter(|v| self.bool_slots.contains(v)),
+            );
+        }
         flags.sort_unstable_by_key(|v| v.0);
         flags.dedup();
         if flags.is_empty() {
