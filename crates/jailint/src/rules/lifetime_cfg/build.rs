@@ -13,7 +13,7 @@ pub(super) fn build(
     summaries: &Summaries,
     chains: &mut HashMap<(Span, usize), Vec<Span>>,
 ) -> Vec<Block> {
-    let mut resolver = Resolver::new(cx.compiler, body, &summaries.procs, &summaries.targets);
+    let mut resolver = Resolver::for_body(cx.compiler, body, summaries);
     let tasks = super::tasks::Builder::new(cx, body, summaries, places, &mut resolver);
     let resources = resources::Builder::new(cx, body, summaries, places);
     let mut builder = Builder {

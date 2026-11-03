@@ -11,13 +11,19 @@ use jaic::sema::{Compiler, ProcId, procs::BodyState};
 use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
 
+mod allocator_context;
+mod allocator_storage;
+mod allocators;
 mod captures;
 mod contracts;
 mod elements;
 mod flow;
 mod indirect;
 mod infer;
+mod origins;
 mod reads;
+mod return_fields;
+mod return_may;
 mod selected;
 mod temporary;
 #[cfg(test)]
@@ -42,6 +48,8 @@ pub(super) enum Root {
     Parameter(usize),
     Local(usize),
     Heap,
+    CallerAllocator,
+    AllocatorParameter(usize),
     Temporary,
     Watermark,
     Until(ProcId),
@@ -97,6 +105,11 @@ pub(super) struct Summary {
     pub may: HashMap<Effect, Vec<Span>>,
     pub guaranteed: HashMap<Effect, Vec<Span>>,
     pub returns: HashMap<usize, (Path, Option<(usize, u64)>)>,
+    pub may_returns: HashSet<usize>,
+    pub may_return_fields: HashSet<(usize, Vec<Step>)>,
+    pub return_fields: HashMap<(usize, Vec<Step>), Path>,
+    pub allocations: HashMap<usize, (Path, Option<(usize, u64)>)>,
+    pub changes_allocator: bool,
     pub elements: HashMap<usize, (Path, Selector)>,
 }
 
@@ -108,6 +121,7 @@ impl Summary {
 
 #[derive(Default)]
 pub(super) struct Summaries {
+    pub allocators: allocators::Allocators,
     pub targets: super::lifetime_targets::Universe,
     pub procs: HashMap<ProcId, Summary>,
     pub sccs: usize,
@@ -126,8 +140,20 @@ enum Def<'a> {
     Indirect(Val, &'a [LifetimeArgument], usize),
 }
 
+type FieldQuery = (Val, TypeId, Vec<Projection>);
+
 pub(super) struct Resolver<'a> {
     pub places: Places,
+    allocators: &'a allocators::Allocators,
+    context: allocator_context::Context,
+    allocation_mode: std::cell::Cell<bool>,
+    return_mode: std::cell::Cell<bool>,
+    return_definitions: std::cell::OnceCell<(HashSet<usize>, HashSet<usize>)>,
+    may_field_origins: std::cell::RefCell<HashMap<FieldQuery, bool>>,
+    field_origins: std::cell::RefCell<HashMap<FieldQuery, Path>>,
+    write_sources: HashMap<usize, Val>,
+    return_cuts: std::cell::RefCell<HashMap<usize, bool>>,
+    return_contracts: HashMap<usize, (Path, Option<(usize, u64)>)>,
     compiler: &'a Compiler,
     body: &'a LifetimeBody,
     values: HashMap<Val, Vec<Def<'a>>>,
@@ -148,14 +174,42 @@ fn value(arg: &LifetimeArgument) -> Option<Val> {
 }
 
 impl<'a> Resolver<'a> {
+    pub fn for_body(
+        compiler: &'a Compiler,
+        body: &'a LifetimeBody,
+        summaries: &'a Summaries,
+    ) -> Self {
+        Self::new(
+            compiler,
+            body,
+            &summaries.procs,
+            &summaries.targets,
+            &summaries.allocators,
+        )
+    }
+
     pub fn new(
         compiler: &'a Compiler,
         body: &'a LifetimeBody,
         all: &HashMap<ProcId, Summary>,
         targets: &'a super::lifetime_targets::Universe,
+        allocators: &'a allocators::Allocators,
     ) -> Self {
         let mut this = Self {
             places: Places::new(compiler, body),
+            allocators,
+            context: allocator_context::Context::default(),
+            allocation_mode: std::cell::Cell::new(false),
+            return_mode: std::cell::Cell::new(false),
+            return_definitions: std::cell::OnceCell::new(),
+            may_field_origins: std::cell::RefCell::new(HashMap::default()),
+            field_origins: std::cell::RefCell::new(HashMap::default()),
+            write_sources: HashMap::default(),
+            return_cuts: std::cell::RefCell::new(HashMap::default()),
+            return_contracts: all
+                .get(&body.procedure)
+                .map(|s| s.returns.clone())
+                .unwrap_or_default(),
             compiler,
             body,
             values: HashMap::default(),
@@ -364,6 +418,15 @@ impl<'a> Resolver<'a> {
                 this.owned.insert(id);
             }
         }
+        this.write_sources = this
+            .writes
+            .iter()
+            .filter_map(|(&p, values)| {
+                let first = *values.first()?;
+                values.iter().all(|v| *v == first).then_some((p, first))
+            })
+            .collect();
+        this.refresh_context(all);
         this
     }
 
@@ -426,197 +489,6 @@ impl<'a> Resolver<'a> {
         out
     }
 
-    fn return_guard(
-        &self,
-        v: Val,
-        all: &HashMap<ProcId, Summary>,
-        visiting: &mut HashSet<Val>,
-    ) -> Option<Option<(usize, u64)>> {
-        if !visiting.insert(v) {
-            return None;
-        }
-        let mut guard = None;
-        for def in self.values.get(&v)? {
-            let next = match def {
-                Def::Load(p, _) => {
-                    if !self.places.paths[*p].1.is_empty() {
-                        None
-                    } else if let Some(writes) = self.writes.get(p) {
-                        let [value] = writes.as_slice() else {
-                            return None;
-                        };
-                        self.return_guard(*value, all, visiting)?
-                    } else {
-                        None
-                    }
-                }
-                Def::Copy(value) => self.return_guard(*value, all, visiting)?,
-                Def::Resize(_, args) => {
-                    if args.first()?.constant == Some(0) {
-                        None
-                    } else {
-                        self.mode_guard(args.first()?, 1, all)?
-                    }
-                }
-                Def::Call(callee, args, index) => {
-                    let (_, condition) = all.get(callee)?.returns.get(index)?;
-                    if let Some((formal, expected)) = condition {
-                        self.mode_guard(args.iter().find(|a| a.formal == *formal)?, *expected, all)?
-                    } else {
-                        None
-                    }
-                }
-                Def::Indirect(callee, args, index) => {
-                    self.indirect_return(*callee, args, *index, all, &mut HashSet::default(), 0)?;
-                    None
-                }
-                Def::Address(_) | Def::Borrow(_) | Def::Parameter(_) => None,
-            };
-            if guard.is_some() && next != guard {
-                return None;
-            }
-            guard = next;
-        }
-        visiting.remove(&v);
-        Some(guard)
-    }
-
-    fn mode_guard(
-        &self,
-        mode: &LifetimeArgument,
-        expected: u64,
-        all: &HashMap<ProcId, Summary>,
-    ) -> Option<Option<(usize, u64)>> {
-        if let Some(actual) = mode.constant {
-            return (actual == expected).then_some(None);
-        }
-        let path = self.trace(value(mode)?, all, &mut HashSet::default(), 0)?;
-        let Root::Parameter(formal) = path.root else {
-            return None;
-        };
-        path.steps.is_empty().then_some(Some((formal, expected)))
-    }
-
-    fn result_carries_storage(&self, ty: TypeId, path: &Path) -> bool {
-        if self.compiler.ir_ty(ty).is_none()
-            || self.compiler.ty.types.is_pointer(ty)
-            || matches!(self.compiler.ty.types.kind(ty), TypeKind::Proc(_))
-        {
-            return true;
-        }
-        let Root::Parameter(formal) = path.root else {
-            return false;
-        };
-        path.steps.is_empty()
-            && self.params.values().any(|(n, t)| {
-                *n == formal
-                    && self.compiler.ir_ty(*t).is_some()
-                    && !self.compiler.ty.types.is_pointer(*t)
-            })
-    }
-
-    fn trace(
-        &self,
-        v: Val,
-        summaries: &HashMap<ProcId, Summary>,
-        visiting: &mut HashSet<Val>,
-        depth: usize,
-    ) -> Option<Path> {
-        if depth > 24 || !visiting.insert(v) {
-            return None;
-        }
-        let defs = self.values.get(&v)?;
-        let mut result = None;
-        let derived = defs.iter().any(|d| matches!(d, Def::Borrow(_)));
-        for def in defs {
-            if derived && !matches!(def, Def::Borrow(_)) {
-                continue;
-            }
-            let path = match def {
-                Def::Parameter(formal) => Path {
-                    root: Root::Parameter(*formal),
-                    steps: Vec::new(),
-                },
-                Def::Address(p) => self.location(*p, summaries, visiting, depth + 1)?,
-                Def::Borrow(p) => self
-                    .location(*p, summaries, visiting, depth + 1)?
-                    .append(&[Step::Storage])?,
-                Def::Copy(v) => self.trace(*v, summaries, visiting, depth + 1)?,
-                Def::Load(p, ty) => {
-                    if let Some((formal, _)) = self.params.get(p) {
-                        if self.exposed.contains(p)
-                            || self.writes.get(p).is_none_or(|w| w.len() != 1)
-                        {
-                            return None;
-                        }
-                        Path {
-                            root: Root::Parameter(*formal),
-                            steps: Vec::new(),
-                        }
-                    } else if !self.compiler.ty.types.is_pointer(*ty) {
-                        let path = self.location(*p, summaries, visiting, depth + 1)?;
-                        if matches!(path.root, Root::Parameter(_)) && path.steps.is_empty() {
-                            path.append(&[Step::Deref])?
-                        } else {
-                            path
-                        }
-                    } else if !self.places.paths[*p].1.is_empty() {
-                        self.location(*p, summaries, visiting, depth + 1)?
-                            .append(&[Step::Deref])?
-                    } else if let Some(writes) = self.writes.get(p) {
-                        let [v] = writes.as_slice() else {
-                            return None;
-                        };
-                        self.trace(*v, summaries, visiting, depth + 1)?
-                    } else {
-                        let path = self.location(*p, summaries, visiting, depth + 1)?;
-                        if self.compiler.ty.types.is_pointer(*ty) {
-                            path.append(&[Step::Deref])?
-                        } else {
-                            path
-                        }
-                    }
-                }
-                Def::Call(callee, args, i) => {
-                    let (path, guard) = summaries.get(callee)?.returns.get(i)?;
-                    if guard.is_some_and(|(formal, constant)| {
-                        args.iter()
-                            .find(|a| a.formal == formal)
-                            .and_then(|a| a.constant)
-                            .is_some_and(|c| c != constant)
-                    }) {
-                        return None;
-                    }
-                    self.substitute(path, args, summaries, visiting, depth + 1)?
-                }
-                Def::Indirect(callee, args, index) => {
-                    self.indirect_return(*callee, args, *index, summaries, visiting, depth + 1)?
-                }
-                Def::Resize(callee, args) => {
-                    let mode = args.first()?;
-                    if mode.constant == Some(0) {
-                        self.indirect_return(*callee, args, 0, summaries, visiting, depth + 1)
-                            .unwrap_or(Path {
-                                root: Root::Heap,
-                                steps: Vec::new(),
-                            })
-                    } else {
-                        if mode.constant.is_some_and(|c| c != 1) {
-                            return None;
-                        }
-                        self.trace(value(args.get(3)?)?, summaries, visiting, depth + 1)?
-                    }
-                }
-            };
-            if result.as_ref().is_some_and(|old| old != &path) {
-                return None;
-            }
-            result = Some(path);
-        }
-        visiting.remove(&v);
-        result
-    }
-
     pub fn location(
         &self,
         p: usize,
@@ -629,6 +501,19 @@ impl<'a> Resolver<'a> {
         }
         let (root, projections) = &self.places.paths[p];
         let root_id = self.places.root_of(p);
+        let parameter = self.params.contains_key(&root_id)
+            || self
+                .values
+                .get(&root.0)
+                .is_some_and(|defs| defs.iter().any(|d| matches!(d, Def::Parameter(_))));
+        if !parameter
+            && self.compiler.ir_ty(root.1).is_none()
+            && !projections.is_empty()
+            && let Some(path) =
+                self.returned_field_origin(root.0, root.1, projections, summaries, depth + 1)
+        {
+            return Some(path);
+        }
         let mut path;
         let mut rest = projections.as_slice();
         if rest.first() == Some(&Projection::Deref) {
@@ -668,6 +553,8 @@ impl<'a> Resolver<'a> {
                     from.root,
                     Root::Parameter(_)
                         | Root::Heap
+                        | Root::CallerAllocator
+                        | Root::AllocatorParameter(_)
                         | Root::Temporary
                         | Root::Watermark
                         | Root::Until(_)
@@ -765,7 +652,12 @@ impl<'a> Resolver<'a> {
         let Root::Parameter(formal) = path.root else {
             return matches!(
                 path.root,
-                Root::Heap | Root::Temporary | Root::Watermark | Root::Until(_)
+                Root::Heap
+                    | Root::CallerAllocator
+                    | Root::AllocatorParameter(_)
+                    | Root::Temporary
+                    | Root::Watermark
+                    | Root::Until(_)
             )
             .then(|| path.clone());
         };
@@ -1047,8 +939,10 @@ impl Summaries {
             })
             .map(|(&id, body)| (id, body))
             .collect();
+        let allocators = allocators::Allocators::build(compiler, &valid);
         let needed = selected::retain(compiler, &mut valid, files);
         let mut all = contracts::seed(compiler, &valid, needed.as_ref());
+        all.allocators = allocators;
         all.targets = super::lifetime_targets::Universe::build(compiler, &valid);
         // Tarjan's pop order is bottom-up for caller -> callee edges.
         let mut ids: Vec<_> = valid.keys().copied().collect();
@@ -1106,7 +1000,13 @@ impl Summaries {
                 for id in component {
                     all.iterations += 1;
                     let resolver = resolvers.entry(*id).or_insert_with(|| {
-                        Resolver::new(compiler, valid[id], &all.procs, &all.targets)
+                        Resolver::new(
+                            compiler,
+                            valid[id],
+                            &all.procs,
+                            &all.targets,
+                            &all.allocators,
+                        )
                     });
                     let next = resolver.infer(&all.procs[id], &all.procs);
                     if next != all.procs[id] {

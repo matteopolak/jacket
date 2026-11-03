@@ -143,6 +143,7 @@ pub(super) fn value_cell(
     }
 }
 
+#[derive(Clone, Copy)]
 struct Call<'a> {
     callee: &'a ProcId,
     event: &'a Event,

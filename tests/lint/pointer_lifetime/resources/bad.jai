@@ -168,3 +168,9 @@ imported_expansion :: () {
     pointer := New(int);
     free_and_read(pointer);
 }
+
+escaped_temporary: string;
+
+retain_returned_temporary :: () {
+    escaped_temporary = return_temporary();
+}

@@ -221,3 +221,86 @@ pub(super) fn sccs(ids: &[ProcId], graph: &HashMap<ProcId, Vec<ProcId>>) -> Vec<
     }
     state.out
 }
+
+/// Blocks that dominate a shared normal-return exit. Immediate dominators keep
+/// the retained state linear even for long bodies with many storage fields.
+pub(super) fn return_dominators(body: &LifetimeBody) -> Vec<bool> {
+    let n = body.blocks.len();
+    let mut out = vec![false; n];
+    if n == 0 {
+        return out;
+    }
+    let mut edges: Vec<_> = body.blocks.iter().map(|b| b.successors.clone()).collect();
+    for (i, b) in body.blocks.iter().enumerate() {
+        if b.normal_return {
+            edges[i].push(n);
+        }
+    }
+    edges.push(Vec::new());
+    let mut predecessors = vec![Vec::new(); n + 1];
+    for (i, next) in edges.iter().enumerate() {
+        for &to in next {
+            predecessors[to].push(i);
+        }
+    }
+    let mut seen = vec![false; n + 1];
+    let mut order = Vec::new();
+    let mut stack = vec![(0, false)];
+    while let Some((node, exit)) = stack.pop() {
+        if exit {
+            order.push(node);
+            continue;
+        }
+        if std::mem::replace(&mut seen[node], true) {
+            continue;
+        }
+        stack.push((node, true));
+        stack.extend(edges[node].iter().rev().map(|&to| (to, false)));
+    }
+    order.reverse();
+    let mut rank = vec![usize::MAX; n + 1];
+    for (i, &node) in order.iter().enumerate() {
+        rank[node] = i;
+    }
+    let mut parents = vec![None; n + 1];
+    parents[0] = Some(0);
+    loop {
+        let mut changed = false;
+        for &node in order.iter().skip(1) {
+            let mut inputs = predecessors[node]
+                .iter()
+                .copied()
+                .filter(|&p| parents[p].is_some());
+            let Some(mut parent) = inputs.next() else {
+                continue;
+            };
+            for mut other in inputs {
+                while parent != other {
+                    if rank[parent] > rank[other] {
+                        parent = parents[parent].unwrap();
+                    } else {
+                        other = parents[other].unwrap();
+                    }
+                }
+            }
+            if parents[node] != Some(parent) {
+                parents[node] = Some(parent);
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    let Some(mut node) = parents[n] else {
+        return out;
+    };
+    loop {
+        out[node] = true;
+        if node == 0 {
+            break;
+        }
+        node = parents[node].unwrap();
+    }
+    out
+}

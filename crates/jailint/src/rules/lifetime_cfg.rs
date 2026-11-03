@@ -210,7 +210,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
         let mut names = HashMap::default();
         let mut allowed_addresses = HashSet::default();
         let mut derived_addresses = HashSet::default();
-        let mut resolver = Resolver::new(cx.compiler, body, &summaries.procs, &summaries.targets);
+        let mut resolver = Resolver::for_body(cx.compiler, body, summaries);
         for event in body.blocks.iter().flat_map(|b| &b.events) {
             match event {
                 Event::Expression {

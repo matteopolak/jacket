@@ -21,12 +21,12 @@ warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, 
    = help: copy it first (`copy_string`) so it outlives the reset
    = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape
 
-warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, but it is returned here
-  --> tests/lint/temp_storage_escape/bad.jai:26:12
+warning[temp_storage_escape]: `describe` holds temporary storage, which is reset, but it is kept in a global
+  --> tests/lint/temp_storage_escape/bad.jai:30:21
    |
-26 |     return tprint("<%>", id);
-   |            ^^^^^^^^^^^^^^^^^
-   |            ----------------- temporary storage allocated here
+30 |     current_label = describe(id);
+   |                     ^^^^^^^^^^^^
+   |                     ------------ temporary storage allocated here
    |
-   = help: copy it (`copy_string`), or declare this procedure `@TempAllocates` so its callers know
+   = help: copy it first (`copy_string`) so it outlives the reset
    = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape

@@ -212,7 +212,13 @@ pub(super) fn solve(
             let mut changed = false;
             for id in &component {
                 let resolver = resolvers.entry(*id).or_insert_with(|| {
-                    Resolver::new(compiler, valid[id], &all.procs, &all.targets)
+                    Resolver::new(
+                        compiler,
+                        valid[id],
+                        &all.procs,
+                        &all.targets,
+                        &all.allocators,
+                    )
                 });
                 let guaranteed = resolver.reads(&all.procs, true);
                 let may = resolver.reads(&all.procs, false);

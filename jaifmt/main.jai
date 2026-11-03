@@ -449,7 +449,7 @@ config_for_directory :: (directory: string) -> *Format_Config, ok: bool, error: 
             config, file, ok, error := format_find_config(owner, read_config_file, owner);
 
             // Only `file` is temporary; the settings are heap copies.
-            entry.config.* = config; // jailint: allow(temp_storage_escape)
+            entry.config.* = config;
             entry.ok = ok;
 
             if !ok {

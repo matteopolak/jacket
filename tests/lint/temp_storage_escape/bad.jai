@@ -26,6 +26,10 @@ describe :: (id: int) -> string {
     return tprint("<%>", id);
 }
 
+retain_description :: (id: int) {
+    current_label = describe(id);
+}
+
 main :: () {
     entry: Entry;
 

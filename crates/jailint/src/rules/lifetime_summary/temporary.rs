@@ -242,7 +242,7 @@ impl Resolver<'_> {
 
 impl Resolver<'_> {
     // A join of temporary and non-temporary values is a may effect, never a guarantee.
-    fn may_temporary(
+    pub(super) fn may_temporary(
         &self,
         v: super::Val,
         all: &HashMap<ProcId, Summary>,
@@ -261,13 +261,45 @@ impl Resolver<'_> {
                 .into_iter()
                 .flatten()
                 .any(|def| match def {
+                    super::Def::Call(callee, _, index) => all
+                        .get(callee)
+                        .is_some_and(|s| s.may_returns.contains(index)),
                     super::Def::Copy(source) => self.may_temporary(*source, all, seen, depth + 1),
-                    super::Def::Load(p, _) | super::Def::Borrow(p) => self
-                        .writes
-                        .get(p)
-                        .into_iter()
-                        .flatten()
-                        .any(|source| self.may_temporary(*source, all, seen, depth + 1)),
+                    super::Def::Address(p)
+                        if !self.exposed.contains(p)
+                            && self
+                                .compiler
+                                .ir_ty(
+                                    self.places
+                                        .types
+                                        .get(p)
+                                        .copied()
+                                        .unwrap_or(self.places.paths[*p].0.1),
+                                )
+                                .is_none() =>
+                    {
+                        self.writes
+                            .get(p)
+                            .into_iter()
+                            .flatten()
+                            .any(|source| self.may_temporary(*source, all, seen, depth + 1))
+                    }
+                    super::Def::Load(p, _) | super::Def::Borrow(p) => {
+                        let (root, projections) = &self.places.paths[*p];
+                        self.writes
+                            .get(p)
+                            .into_iter()
+                            .flatten()
+                            .any(|source| self.may_temporary(*source, all, seen, depth + 1))
+                            || !projections.is_empty()
+                                && self.field_may_temporary(
+                                    root.0,
+                                    root.1,
+                                    projections,
+                                    all,
+                                    depth + 1,
+                                )
+                    }
                     _ => false,
                 });
         seen.remove(&v);

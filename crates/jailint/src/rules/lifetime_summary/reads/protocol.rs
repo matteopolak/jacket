@@ -94,7 +94,13 @@ pub(in crate::rules::lifetime_summary) fn solve(
                     continue;
                 }
                 let resolver = resolvers.entry(*id).or_insert_with(|| {
-                    Resolver::new(compiler, valid[id], &all.procs, &all.targets)
+                    Resolver::new(
+                        compiler,
+                        valid[id],
+                        &all.procs,
+                        &all.targets,
+                        &all.allocators,
+                    )
                 });
                 let mut queries = super::HashSet::default();
                 for (callee, args, direct) in calls {

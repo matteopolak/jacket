@@ -199,3 +199,56 @@ fn pointee_resources_preserve_distinct_header_ownership() {
         "{summary:?}"
     );
 }
+
+#[test]
+fn allocator_epoch_requires_returned_context_storage_after_ir_release() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let stdlib = root.join("stdlib");
+    let mut options = Options::host();
+    options.import_paths = vec![stdlib.clone()];
+    options.set_stdlib(&NativeFs, &stdlib);
+    let mut c = Compiler::new(options, Rc::new(NativeFs));
+    let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+    facts.lint = true;
+    c.ed.record(facts);
+    let mut source =
+        std::fs::read_to_string(root.join("tests/lint/pointer_lifetime/strict/return-origins.jai"))
+            .unwrap();
+    source.push_str(r"
+independent :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
+    if mode == .CAPS return cast(*void) 0x0400_0000;
+    return null;
+}
+
+incidental :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
+    if mode == .CAPS return cast(*void) 0x0400_0000;
+    unused := context.temporary_storage;
+    return context.default_allocator.proc(mode, size, old_size, old_memory, data);
+}
+
+context_owned :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
+    if mode == .CAPS return cast(*void) 0x0400_0000;
+    return context.temporary_storage.data;
+}
+");
+    c.begin_sources(&[ProgramSource::String(source)]).unwrap();
+    c.finish_program().unwrap();
+    let diagnostics = c.ide_check_all();
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let before = Summaries::build(&c);
+    assert!(!c.ed.facts().unwrap().lifetime_globals.is_empty());
+    c.release_lowered_code();
+    let after = Summaries::build(&c);
+    assert_eq!(before.procs, after.procs);
+    let names: HashSet<_> = after
+        .allocators
+        .temporary
+        .iter()
+        .map(|p| c.pr.procs[p.0 as usize].name.as_str())
+        .collect();
+    assert!(names.contains("temporary_allocator_proc"));
+    assert!(names.contains("context_owned"), "{names:?}");
+    assert!(!names.contains("incidental"));
+    assert!(!names.contains("independent"));
+    assert!(!after.allocators.heap_functions.is_empty());
+}

@@ -182,18 +182,6 @@ warning[returned_local_address]: this returns the address of the local `value`, 
     = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
     = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address
 
-warning[temp_storage_escape]: `alias` holds temporary storage, which is reset, but it is returned here
-   --> tests/lint/pointer_lifetime/resources/bad.jai:116:12
-    |
-114 |     text := tprint("forwarded");
-    |             ------------------- temporary storage allocated here
-    ...
-116 |     return alias;
-    |            ^^^^^
-    |
-    = help: copy it (`copy_string`), or declare this procedure `@TempAllocates` so its callers know
-    = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape
-
 warning[returned_local_address]: this returns the address of the local `local`, which is gone once the procedure returns
    --> tests/lint/pointer_lifetime/resources/bad.jai:129:12
     |
@@ -270,3 +258,13 @@ warning[use_after_free]: `pointer` is used after the call above freed it
     |
     = help: free it after its last use, or give it a new value before using it again
     = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
+
+warning[temp_storage_escape]: `return_temporary` holds temporary storage, which is reset, but it is kept in a global
+   --> tests/lint/pointer_lifetime/resources/bad.jai:175:25
+    |
+175 |     escaped_temporary = return_temporary();
+    |                         ^^^^^^^^^^^^^^^^^^
+    |                         ------------------ temporary storage allocated here
+    |
+    = help: copy it first (`copy_string`) so it outlives the reset
+    = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape

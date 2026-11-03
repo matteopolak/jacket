@@ -330,6 +330,17 @@ pub struct LifetimeSourceRange {
     pub site: Span,
 }
 
+/// A selected primitive comparison, retained after executable IR is released.
+#[derive(Clone, Debug)]
+pub struct LifetimeComparison {
+    pub value: Val,
+    pub left: Val,
+    pub right: Val,
+    pub op: ir::CmpOp,
+    pub left_constant: Option<u64>,
+    pub right_constant: Option<u64>,
+}
+
 /// A successful real body only. `ProcId` distinguishes polymorphic instantiations;
 /// keeping its Arc also lets consumers reject an obsolete retry's record.
 #[derive(Clone, Debug)]
@@ -339,7 +350,13 @@ pub struct LifetimeBody {
     pub blocks: Vec<LifetimeBlock>,
     /// Stack slots selected by lowering, including anonymous argument/literal spills.
     pub stack_places: Vec<Val>,
+    /// Distinct SSA addresses of the same physical stack slot.
+    pub slot_aliases: Vec<(Val, Val)>,
     pub source_ranges: Vec<LifetimeSourceRange>,
+    /// Selected primitive comparisons used by the recorded control flow.
+    pub comparisons: Vec<LifetimeComparison>,
+    /// Global addresses used by this body; immutable relocations live in `lifetime_globals`.
+    pub globals: Vec<(Val, ir::GlobalId)>,
 }
 
 /// Mutable only while this `FnCtx` is being checked; discarded on error.
@@ -602,6 +619,9 @@ impl LifetimeBody {
     /// Excludes shared syntax, `HashMap` buckets and allocator rounding; not process RSS.
     pub fn vector_bytes(&self) -> usize {
         self.source_ranges.capacity() * std::mem::size_of::<LifetimeSourceRange>()
+            + self.comparisons.capacity() * std::mem::size_of::<LifetimeComparison>()
+            + self.globals.capacity() * std::mem::size_of::<(Val, ir::GlobalId)>()
+            + self.slot_aliases.capacity() * std::mem::size_of::<(Val, Val)>()
             + self.stack_places.capacity() * std::mem::size_of::<Val>()
             + self.blocks.capacity() * std::mem::size_of::<LifetimeBlock>()
             + self
@@ -699,7 +719,33 @@ impl Compiler {
                 }
             }
             record.prune_cleanup_edges(&f.b.func, &constants);
+            let globals: Vec<_> =
+                f.b.func
+                    .blocks
+                    .iter()
+                    .flat_map(|b| &b.insts)
+                    .filter_map(|inst| {
+                        if let ir::Inst::GlobalAddr {
+                            dst,
+                            global,
+                        } = *inst
+                        {
+                            Some((dst, global))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
             let facts = self.ed.facts_mut().unwrap();
+            for &(_, id) in &globals {
+                let global = &self.out.program.globals[id.0 as usize];
+                if global.read_only && !global.relocs.is_empty() {
+                    facts
+                        .lifetime_globals
+                        .entry(id)
+                        .or_insert_with(|| global.relocs.clone());
+                }
+            }
             let ids = facts
                 .lifetime_files
                 .entry(syntax.header.span.file)
@@ -714,7 +760,36 @@ impl Compiler {
                     syntax: syntax.clone(),
                     blocks: record.blocks,
                     source_ranges: record.source_ranges,
+                    slot_aliases: slot_aliases(&f.b.func),
                     stack_places: stack_places(&f.b.func, record.stack_subplaces),
+                    globals,
+                    comparisons: f
+                        .b
+                        .func
+                        .blocks
+                        .iter()
+                        .flat_map(|b| &b.insts)
+                        .filter_map(|inst| {
+                            let ir::Inst::Cmp {
+                                dst,
+                                op,
+                                a,
+                                b,
+                                ..
+                            } = *inst
+                            else {
+                                return None;
+                            };
+                            Some(LifetimeComparison {
+                                value: dst,
+                                left: a,
+                                right: b,
+                                op,
+                                left_constant: constants.get(&a).copied(),
+                                right_constant: constants.get(&b).copied(),
+                            })
+                        })
+                        .collect(),
                 },
             );
         }
@@ -1001,4 +1076,22 @@ fn stack_places(func: &ir::Func, subplaces: Vec<Val>) -> Vec<Val> {
     let mut stack: Vec<_> = stack.into_iter().collect();
     stack.sort_unstable_by_key(|v| v.0);
     stack
+}
+
+fn slot_aliases(func: &ir::Func) -> Vec<(Val, Val)> {
+    let mut slots = HashMap::default();
+    let mut aliases = Vec::new();
+    for inst in func.blocks.iter().flat_map(|b| &b.insts) {
+        if let ir::Inst::SlotAddr {
+            dst,
+            slot,
+        } = *inst
+        {
+            let canonical = *slots.entry(slot).or_insert(dst);
+            if dst != canonical {
+                aliases.push((dst, canonical));
+            }
+        }
+    }
+    aliases
 }

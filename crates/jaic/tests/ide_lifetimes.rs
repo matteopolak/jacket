@@ -576,3 +576,67 @@ fn default_images_are_recorded_as_writes_at_the_actual_initialization() {
         .unwrap();
     assert!(at < first_load);
 }
+
+#[test]
+fn selected_comparisons_survive_releasing_executable_ir() {
+    let mut c = compile(
+        "probe :: (mode: int) -> int { if mode == 10 return 0x0400_0000; return 0; }",
+        true,
+        false,
+    );
+    c.release_lowered_code();
+    let body = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "probe")
+        .unwrap();
+    assert!(
+        body.comparisons
+            .iter()
+            .any(|comparison| comparison.op == jaic::ir::CmpOp::Eq
+                && (comparison.left_constant == Some(10) || comparison.right_constant == Some(10)))
+    );
+    assert!(events(body).any(|event| matches!(
+        event,
+        Event::Return {
+            constant: Some(0x0400_0000),
+            ..
+        }
+    )));
+}
+
+#[test]
+fn aggregate_ifx_keeps_shared_stack_slot_identity_after_ir_release() {
+    let mut c = compile(
+        "probe :: (flag: bool) -> string { return ifx flag then \"one\" else \"two\"; }",
+        true,
+        false,
+    );
+    c.release_lowered_code();
+    let body = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "probe")
+        .unwrap();
+    let canonical = |v| {
+        body.slot_aliases
+            .iter()
+            .find_map(|(alias, root)| (*alias == v).then_some(*root))
+            .unwrap_or(v)
+    };
+    let stores: Vec<_> = events(body)
+        .filter_map(|e| {
+            if let Event::Store {
+                place,
+                ty,
+                ..
+            } = e
+            {
+                (*ty == jaic::types::TypeId::STRING).then_some(*place)
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert!(stores.iter().enumerate().any(|(i, a)| {
+        stores[i + 1..]
+            .iter()
+            .any(|b| a != b && canonical(*a) == canonical(*b))
+    }));
+}

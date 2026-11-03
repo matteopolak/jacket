@@ -165,6 +165,8 @@ pub struct IdeFacts {
     pub lint: bool,
     /// Successful per-instantiation semantic CFGs; absent unless lint recording is on.
     pub lifetime_bodies: HashMap<ProcId, super::lifetimes::LifetimeBody>,
+    /// Relocations of immutable globals referenced by selected lifetime bodies.
+    pub lifetime_globals: HashMap<crate::ir::GlobalId, Vec<crate::ir::Reloc>>,
     pub(crate) lifetime_files: HashMap<FileId, Vec<ProcId>>,
     /// Workspace trust is withheld: no compile-time code runs (`call_thunk` refuses with
     /// `DiagnosticKind::Untrusted`), so `#run` results, computed `#insert`s and build
@@ -385,6 +387,7 @@ impl IdeFacts {
     /// This also permits measuring their incremental retained allocation separately.
     pub fn clear_lifetimes(&mut self) {
         self.lifetime_bodies = HashMap::default();
+        self.lifetime_globals = HashMap::default();
         self.lifetime_files = HashMap::default();
     }
 

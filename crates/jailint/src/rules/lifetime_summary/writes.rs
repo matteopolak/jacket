@@ -97,6 +97,8 @@ impl Resolver<'_> {
                         && resolved.as_ref().is_none_or(|target| match target.root {
                             Root::Local(root) => !self.owned.contains(&root),
                             Root::Parameter(_)
+                            | Root::CallerAllocator
+                            | Root::AllocatorParameter(_)
                             | Root::Heap
                             | Root::Temporary
                             | Root::Watermark
@@ -198,7 +200,13 @@ impl super::Summaries {
                 let mut changed = false;
                 for id in component {
                     let resolver = resolvers.entry(*id).or_insert_with(|| {
-                        Resolver::new(compiler, valid[id], &self.procs, &self.targets)
+                        Resolver::new(
+                            compiler,
+                            valid[id],
+                            &self.procs,
+                            &self.targets,
+                            &self.allocators,
+                        )
                     });
                     let Writes {
                         effects: writes,

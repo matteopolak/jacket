@@ -17,8 +17,8 @@ impl Builder<'_> {
             callee,
             event,
             args,
-            results,
             span,
+            ..
         } = call;
         let cx = self.cx;
         let summaries = self.summaries;
@@ -184,31 +184,7 @@ impl Builder<'_> {
                 });
             }
         }
-        for &(_, value, ty) in results {
-            let origin = resolver
-                .value(value, &summaries.procs)
-                .and_then(|path| match path.root {
-                    Root::Heap => Some(Origin::Heap),
-                    Root::Temporary => Some(Origin::Temporary),
-                    Root::Until(p) => Some(Origin::Until(p)),
-                    _ => None,
-                });
-            if let Some(origin) = origin {
-                ops.push(Op::Seed {
-                    possible: false,
-                    cell: value_cell(cx, places, cells, value, ty),
-                    origin,
-                    span: *span,
-                });
-            }
-            if noted("TemporaryStorageMark")
-                || resolver
-                    .value(value, &summaries.procs)
-                    .is_some_and(|p| p.root == Root::Watermark)
-            {
-                ops.push(Op::Mark(value_cell(cx, places, cells, value, ty)));
-            }
-        }
+        ops.extend(self.return_origins(call, places, cells, resolver));
         if noted("ResetsTemporaryStorage") {
             ops.push(Op::Reset(*span));
         }
@@ -299,6 +275,95 @@ impl Builder<'_> {
                 callee: jaic::sema::ProcId(u32::MAX),
                 contents: false,
             });
+        }
+        ops
+    }
+}
+
+impl Builder<'_> {
+    fn return_origins(
+        &self,
+        call: Call<'_>,
+        places: &mut Places,
+        cells: &mut Cells,
+        resolver: &mut Resolver<'_>,
+    ) -> Vec<Op> {
+        let Call {
+            callee,
+            results,
+            span,
+            ..
+        } = call;
+        let cx = self.cx;
+        let summaries = self.summaries;
+        let mut ops = Vec::new();
+        let noted = |name| callee.0 != u32::MAX && cx.compiler.proc_has_note(*callee, name);
+        for &(index, value, ty) in results {
+            if summaries
+                .procs
+                .get(callee)
+                .is_some_and(|s| !s.return_fields.is_empty() || !s.may_return_fields.is_empty())
+            {
+                for projections in resolver.storage_fields(ty, 0) {
+                    let path = resolver.field_origin(value, ty, &projections, &summaries.procs, 0);
+                    let definite_temporary =
+                        path.as_ref().is_some_and(|p| p.root == Root::Temporary);
+                    let maybe =
+                        resolver.field_may_temporary(value, ty, &projections, &summaries.procs, 0);
+                    let origin = if maybe {
+                        Origin::Temporary
+                    } else {
+                        match path.map(|p| p.root) {
+                            Some(Root::Heap | Root::CallerAllocator) => Origin::Heap,
+                            _ => continue,
+                        }
+                    };
+                    let mut field = places.place(value, ty);
+                    for projection in projections {
+                        field = places.project(field, projection);
+                    }
+                    ops.push(Op::Seed {
+                        possible: maybe && !definite_temporary,
+                        cell: cells.id(Cell::Place(field)),
+                        origin,
+                        span: *span,
+                    });
+                }
+            }
+            let origin = resolver
+                .value(value, &summaries.procs)
+                .and_then(|path| match path.root {
+                    Root::Heap | Root::CallerAllocator => Some(Origin::Heap),
+                    Root::Temporary => Some(Origin::Temporary),
+                    Root::Until(p) => Some(Origin::Until(p)),
+                    _ => None,
+                });
+            let maybe = summaries
+                .procs
+                .get(callee)
+                .is_some_and(|s| s.may_returns.contains(&index))
+                && !matches!(origin, Some(Origin::Until(_)));
+            let definite_temporary = matches!(origin, Some(Origin::Temporary));
+            let origin = if maybe {
+                Some(Origin::Temporary)
+            } else {
+                origin
+            };
+            if let Some(origin) = origin {
+                ops.push(Op::Seed {
+                    possible: maybe && !definite_temporary,
+                    cell: value_cell(cx, places, cells, value, ty),
+                    origin,
+                    span: *span,
+                });
+            }
+            if noted("TemporaryStorageMark")
+                || resolver
+                    .value(value, &summaries.procs)
+                    .is_some_and(|p| p.root == Root::Watermark)
+            {
+                ops.push(Op::Mark(value_cell(cx, places, cells, value, ty)));
+            }
         }
         ops
     }

@@ -420,6 +420,7 @@ impl Proof<'_> {
                     ..
                 })
             )
+            && (!returning || !inferred_temporary_return(cx, body, model, &block.op))
             && (!returning
                 || !(crate::rules::lifetime_movement::notes(cx.compiler, body.procedure)
                     .any(|n| n.text.trim() == "TempAllocates")
@@ -715,4 +716,58 @@ fn map_finding(finding: &mut Finding, raw: Span, site: Span) {
     finding
         .secondary
         .push((raw, "expanded code uses the storage here".into()));
+}
+
+fn inferred_temporary_return(cx: &Cx, body: &LifetimeBody, model: &Model, op: &CfgOp) -> bool {
+    let CfgOp::Resource(Op::Return {
+        result,
+        cell,
+        ..
+    }) = op
+    else {
+        return false;
+    };
+    let Some(summary) = cx
+        .run
+        .lifetimes
+        .get()
+        .and_then(|s| s.procs.get(&body.procedure))
+    else {
+        return false;
+    };
+    if summary.may_returns.contains(result) {
+        return true;
+    }
+    if summary
+        .returns
+        .get(result)
+        .is_some_and(|(p, g)| g.is_none() && p.root == super::Root::Temporary)
+    {
+        return true;
+    }
+    let super::Cell::Place(place) = model.cells.values[*cell] else {
+        return false;
+    };
+    let steps = model.places.paths[place]
+        .1
+        .iter()
+        .map(|p| match p {
+            crate::rules::lifetime_places::Projection::Field(n) => {
+                Some(crate::rules::lifetime_summary::Step::Field(*n))
+            }
+            crate::rules::lifetime_places::Projection::Element(n) => {
+                Some(crate::rules::lifetime_summary::Step::Element(*n))
+            }
+            _ => None,
+        })
+        .collect::<Option<Vec<_>>>();
+    steps.is_some_and(|steps| {
+        summary
+            .may_return_fields
+            .contains(&(*result, steps.clone()))
+            || summary
+                .return_fields
+                .get(&(*result, steps))
+                .is_some_and(|p| p.root == super::Root::Temporary)
+    })
 }

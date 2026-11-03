@@ -40,6 +40,49 @@ impl Places {
         // when a later block is checked before an earlier block's cleanup is filled in.
         let events: Vec<_> = body.blocks.iter().flat_map(|b| &b.events).collect();
         let contexts = context::aliases(body);
+        let slots: HashMap<_, _> = body.slot_aliases.iter().copied().collect();
+        for event in &events {
+            let typed = match **event {
+                Event::Store {
+                    place,
+                    ty,
+                    ..
+                }
+                | Event::Load {
+                    place,
+                    ty,
+                    ..
+                }
+                | Event::Initialize {
+                    place,
+                    ty,
+                    ..
+                }
+                | Event::Address {
+                    place,
+                    ty,
+                    ..
+                } => Some((place, ty)),
+                Event::Expression {
+                    operand: LifetimeOperand::Place(v),
+                    ty,
+                    ..
+                } => Some((v, ty)),
+                Event::Field {
+                    base: LifetimeOperand::Place(v),
+                    base_ty,
+                    ..
+                } => Some((v, base_ty)),
+                _ => None,
+            };
+            if let Some((value, ty)) = typed
+                && let Some(&canonical) = slots.get(&value)
+            {
+                let id = this.place(canonical, ty);
+                this.values.insert((value, ty), id);
+            }
+        }
+
         for event in &events {
             let typed = match **event {
                 Event::Expression {

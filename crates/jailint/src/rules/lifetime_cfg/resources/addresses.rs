@@ -63,7 +63,7 @@ pub(super) fn exposed(
     }
     let mut read_only_addresses = HashSet::default();
     let mut uncertain_addresses = HashSet::default();
-    let mut resolver = Resolver::new(cx.compiler, body, &summaries.procs, &summaries.targets);
+    let mut resolver = Resolver::for_body(cx.compiler, body, summaries);
     for event in body.blocks.iter().flat_map(|b| &b.events) {
         let (Event::Call {
             args,

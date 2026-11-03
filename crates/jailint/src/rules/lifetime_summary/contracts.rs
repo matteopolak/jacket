@@ -1,4 +1,4 @@
-//! Explicit contracts seed inference; stronger return contracts take precedence over bodies.
+//! Explicit contracts seed inference; checked return origins refine allocation notes.
 use super::{
     Compiler, Effect, HashMap, HashSet, Kind, LifetimeBody, Path, ProcId, Root, Step, Summaries,
     Summary,

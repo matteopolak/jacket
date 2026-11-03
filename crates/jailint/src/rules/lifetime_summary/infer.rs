@@ -1,14 +1,16 @@
 //! Return provenance, read effects and invalidation inference for one selected body.
 use super::{
-    Event, HashMap, HashSet, ProcId, Resolver, Root, Selector, Span, Summary, TypeKind, chain,
-    guaranteed, insert, returning_blocks,
+    Event, HashMap, HashSet, ProcId, Resolver, Span, Summary, chain, guaranteed, insert,
+    returning_blocks,
 };
 
 impl Resolver<'_> {
     pub(super) fn infer(&mut self, prior: &Summary, all: &HashMap<ProcId, Summary>) -> Summary {
+        self.refresh_context(all);
         let body = self.body;
         let live = returning_blocks(body, all, self.targets);
         let mut next = prior.clone();
+        next.changes_allocator = self.context.changes_allocator;
         let swap_facts = body.blocks.iter().flat_map(|b| &b.events).any(|e| matches!(e, Event::Call { callee, .. } if self.compiler.proc_has_note(*callee, "SwapsArguments"))).then(|| crate::rules::lifetime_movement::facts::Facts::new(self.compiler, body));
         let mut effects = vec![Vec::new(); body.blocks.len()];
         for (b, block) in body
@@ -123,90 +125,8 @@ impl Resolver<'_> {
                 insert(&mut next.guaranteed, effect, witness);
             }
         }
-        let mut returns = HashMap::default();
-        let mut elements = HashMap::default();
-        for event in body
-            .blocks
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| live.contains(*i))
-            .flat_map(|(_, b)| &b.events)
-        {
-            if let Event::Return {
-                value,
-                index,
-                ty,
-                constant,
-                ..
-            } = event
-            {
-                if *constant == Some(0)
-                    && (self.compiler.ty.types.is_pointer(*ty)
-                        || matches!(self.compiler.ty.types.kind(*ty), TypeKind::Proc(_)))
-                {
-                    continue;
-                }
-                let element = self.element(*value, all).filter(|(p, s)| {
-                    matches!(p.root, Root::Parameter(_))
-                        && !matches!(s, Selector::Local(_) | Selector::Unknown)
-                });
-                elements
-                    .entry(*index)
-                    .and_modify(|old| {
-                        if old != &element {
-                            *old = None;
-                        }
-                    })
-                    .or_insert(element);
-                let path = self
-                    .trace(*value, all, &mut HashSet::default(), 0)
-                    .filter(|p| self.result_carries_storage(*ty, p))
-                    .filter(|p| {
-                        matches!(
-                            p.root,
-                            Root::Parameter(_)
-                                | Root::Heap
-                                | Root::Temporary
-                                | Root::Watermark
-                                | Root::Until(_)
-                        )
-                    })
-                    .zip(self.return_guard(*value, all, &mut HashSet::default()));
-                returns
-                    .entry(*index)
-                    .and_modify(|previous| {
-                        if previous != &path {
-                            *previous = None;
-                        }
-                    })
-                    .or_insert(path);
-            }
-        }
-        for (index, element) in elements {
-            if let Some(e) = element {
-                next.elements.insert(index, e);
-            }
-        }
-        for (index, path) in returns {
-            if let Some(path) = path {
-                if index == 0
-                    && self
-                        .compiler
-                        .proc_has_note(self.body.procedure, "ValidUntilNextCall")
-                    || ["TempAllocates", "Allocates"].iter().any(|note| {
-                        super::lifetime_movement::result_indices(
-                            self.compiler,
-                            self.body.procedure,
-                            note,
-                        )
-                        .contains(&index)
-                    })
-                {
-                    continue;
-                }
-                next.returns.insert(index, path);
-            }
-        }
+        self.infer_return_origins(&mut next, all, &live);
+        self.infer_may_returns(&mut next, all, &live);
         next
     }
 }

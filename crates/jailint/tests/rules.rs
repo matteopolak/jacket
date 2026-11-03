@@ -43,7 +43,16 @@ fn lint(file: &Path, levels: &[(&str, Level)]) -> (Vec<Lint>, String) {
 }
 
 /// [`lint`] with other settings in `config`.
-fn lint_with(file: &Path, levels: &[(&str, Level)], mut config: Config) -> (Vec<Lint>, String) {
+fn lint_with(file: &Path, levels: &[(&str, Level)], config: Config) -> (Vec<Lint>, String) {
+    lint_target(file, levels, config, jaic::sema::Options::host())
+}
+
+fn lint_target(
+    file: &Path,
+    levels: &[(&str, Level)],
+    mut config: Config,
+    compiler_options: jaic::sema::Options,
+) -> (Vec<Lint>, String) {
     config.root = repo();
     // `platform_leak`'s cases: their folder is held to every system, and POSIX is Unix only.
     config.portability = jailint::config::Portability {
@@ -61,7 +70,7 @@ fn lint_with(file: &Path, levels: &[(&str, Level)], mut config: Config) -> (Vec<
         config.levels.insert(rule.to_string(), *level);
     }
     let options = jailint::driver::Options {
-        compiler_options: jaic::sema::Options::host(),
+        compiler_options,
         source: None,
         paths: vec![file.to_path_buf()],
         import_dirs: Vec::new(),
@@ -825,7 +834,7 @@ fn lifetime_context_selection_and_indexed_return_contracts() {
         ("temp_storage_escape", Level::Warn),
     ];
     let (findings, text) = lint(&path, &levels);
-    assert_eq!(findings.len(), 5, "{}", rendered(&findings, &text, &path));
+    assert_eq!(findings.len(), 4, "{}", rendered(&findings, &text, &path));
     assert!(
         findings
             .iter()
@@ -1116,3 +1125,6 @@ fn lifetime_loop_declarations_clear_old_header_aliases_without_extending_borrows
     assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
     assert!(findings[0].start > text.find("bad ::").unwrap());
 }
+
+#[path = "rules/return_contracts.rs"]
+mod return_contracts;
