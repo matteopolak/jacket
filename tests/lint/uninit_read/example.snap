@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[uninit_read]: `total` is read here before anything is written to it
+  --> tests/lint/uninit_read/example.jai:5:12
+   |
+ 5 |     for xs total += it;
+   |            ^^^^^
+   |
+help: `= ---` leaves `total` holding whatever was in memory: give it a value first, or drop the `= ---`
+   |
+ 4 ~     total: int;
+   |
+   = note: `uninit_read` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/uninit_read/

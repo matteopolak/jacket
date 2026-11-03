@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[defer_frees_returned]: `name` is returned, but the `defer` above frees it
+  --> tests/lint/defer_frees_returned/example.jai:7:12
+   |
+ 7 |     return name;
+   |            ^^^^
+   |
+help: the deferred call runs after the value is returned: drop the `defer`, or return a copy
+   |
+ 6 -     defer free(name);
+   |
+   = note: `defer_frees_returned` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned/

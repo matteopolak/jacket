@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[bad_bit_mask]: `(flags & 4) == 1` is always `false`: `& 4` leaves only the bits of 4, and 1 has others
+  --> tests/lint/bad_bit_mask/example.jai:4:13
+   |
+ 4 |     return (flags & 4) == 1;
+   |             ^^^^^^^^^^^^^^^
+   |
+help: compare with the mask itself (`(x & m) == m`) or test for non-zero
+   |
+ 4 ~     return false;
+   |
+   = note: `bad_bit_mask` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bad_bit_mask/

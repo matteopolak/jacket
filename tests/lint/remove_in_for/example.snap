@@ -1,0 +1,17 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[remove_in_for]: `array_unordered_remove_by_index` changes `xs` while this `for` walks it
+  --> tests/lint/remove_in_for/example.jai:9:20
+   |
+ 8 |     for xs {
+   |         -- this collection's cursor advances after removal
+ 9 |         if it == 2 array_unordered_remove_by_index(*xs, it_index);
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
+   |
+ 9 ~         if it == 2 remove it;
+   |
+   = note: `remove_in_for` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/remove_in_for/

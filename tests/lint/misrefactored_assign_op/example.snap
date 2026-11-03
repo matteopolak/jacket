@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[misrefactored_assign_op]: `total += total + ...` applies `+` to `total` twice
+  --> tests/lint/misrefactored_assign_op/example.jai:7:5
+   |
+ 7 |     total += total + price;
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: `+=` already starts from `total`: write `total += price`
+   |
+ 7 ~     total += price;
+   |
+   = note: `misrefactored_assign_op` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op/

@@ -1,0 +1,20 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[double_free]: `node` is freed a second time
+  --> tests/lint/double_free/example.jai:13:5
+   |
+10 |     print("%\n", node.value);
+   |                       ----- storage derived here
+   ...
+12 |     free(node);
+   |     ---------- storage invalidated here
+13 |     free(node);
+   |     ^^^^^^^^^^
+   |
+help: remove the second call, or assign `node` a new value in between
+   |
+13 -     free(node);
+   |
+   = note: `double_free` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/double_free/

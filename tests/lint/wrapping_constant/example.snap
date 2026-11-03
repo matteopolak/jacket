@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[wrapping_constant]: constant `0x8000_0000` is 2147483648, which does not fit in `s32`: `%` uses it as -2147483648
+  --> tests/lint/wrapping_constant/example.jai:4:17
+   |
+ 4 |     return id % 0x8000_0000;
+   |                 ^^^^^^^^^^^ `s32` comes from `id`
+   |
+help: to use 2147483648, compute in `s64` (`cast(s64) id`); to mean -2147483648, write -2147483648
+   |
+ 4 ~     return cast(s64) id % 0x8000_0000;
+   |
+   = note: `wrapping_constant` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/wrapping_constant/

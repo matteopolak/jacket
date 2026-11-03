@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[absurd_comparison]: `i >= 0` is always `true`
+  --> tests/lint/absurd_comparison/example.jai:5:11
+   |
+ 5 |     while i >= 0 {
+   |           ^^^^^^
+   |
+help: `u32` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
+   |
+ 5 ~     while true {
+   |
+   = note: `absurd_comparison` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison/

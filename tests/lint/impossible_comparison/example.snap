@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[impossible_comparison]: `code != 404 || code != 410` is always `true`
+  --> tests/lint/impossible_comparison/example.jai:4:12
+   |
+ 4 |     return code != 404 || code != 410;
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: every integer passes one of these comparisons: was `&&` meant?
+   |
+ 4 ~     return code != 404 && code != 410;
+   |
+   = note: `impossible_comparison` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/impossible_comparison/

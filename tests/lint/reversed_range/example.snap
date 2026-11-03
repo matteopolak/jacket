@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[reversed_range]: the range `10..0` is empty: ranges count up
+  --> tests/lint/reversed_range/example.jai:4:12
+   |
+ 4 |     for i: 10..0 {
+   |            ^^^^^
+   |
+help: to count down, write `for < ...: 0..10`
+   |
+ 4 ~     for < i: 0..10 {
+   |
+   = note: `reversed_range` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/reversed_range/

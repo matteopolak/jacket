@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[use_after_free]: `node` is used after the call above freed it
+  --> tests/lint/use_after_free/example.jai:12:18
+   |
+11 |     free(node);
+   |     ---------- storage invalidated here
+   |          ---- storage derived here
+12 |     print("%\n", node.value);
+   |                  ^^^^
+   |
+   = help: free it after its last use, or give it a new value before using it again
+   = note: `use_after_free` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/

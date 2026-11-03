@@ -1,0 +1,17 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[almost_swapped]: this sets both `a` and `b` to `b`
+  --> tests/lint/almost_swapped/example.jai:7:5
+   |
+ 7 |     a = b;
+   |     ^^^^^^
+   |
+help: to swap them, write `a, b = b, a;`
+   |
+ 7 -     a = b;
+ 8 -     b = a;
+ 7 +     a, b = b, a;
+   |
+   = note: `almost_swapped` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/almost_swapped/
