@@ -4,38 +4,32 @@
 
 ### New
 
-- `Extensions/Protobuf` reads and writes Protocol Buffers: `Extensions/Protobuf/Schema` turns `.proto` files (proto3, proto2 or editions 2023/2024; one file, a folder tree or text, with imports and the well-known types built in) into Jai types and encoders at compile time, with `Proto.encode`, `decode`, `merge`, `equal` and `free`, the proto3 JSON mapping (`to_json`, `from_json`), and typed extensions (`get`, `set`, `has`, `clear`, `add`). It passes Google's binary and JSON conformance suites, generates googleapis, Envoy, Kubernetes and TensorFlow schemas, and a decode makes a few allocations rather than one per field.
-- `examples/kvdb` is a key-value database: a checksummed append-only log with crash recovery and compaction, a CLI, and a TCP server.
-- `examples/sitegen` is a static site generator: Markdown pages and a template in, HTML out, assets published under content-hashed names, small images inlined as data URIs.
-- `examples/seek` is a small grep: regular expressions or fixed text, `--glob` filters, and a thread pool whose output is in path order whatever the thread count.
+- `jailint` finds use-after-free, double frees, returned local addresses and pointers into arrays that may grow, inferred across calls with no annotations.
+- `Extensions/Protobuf` turns `.proto` files into Jai types at compile time, with binary and JSON encoding; passes Google's conformance suites.
+- `jacket doc` documents any library, configured by `[doc]` in `jacket.toml`, with a new site: guides, tools and lint rule pages, runnable examples, search.
+- Building docs runs every example and fails on one that breaks.
+- `jaifmt` formats Jai examples in doc comments; `[doc.format]` overrides settings for them.
+- `Extensions/Desktop` adds native menus, dialogs and text input; `Extensions/Pty`, `Audio_Stream` and `Iprof_Trace` are new.
+- `Extensions/Web` writes HTML pages from compile-time templates and checks their links.
+- New examples: a text editor, terminal, music player, image viewer, CHIP-8 emulator, chat server, trace viewer, key-value database, site generator and grep.
+- `just docs` and `just run-example` build the docs and run examples.
 
 ### Improved
 
-- A note may hold spaces inside its parentheses (`@skip_on(.MACOS, reason = "x y")`); jaic warns that the official compiler does not accept it.
-- A `jacket test` program killed by a signal shows its last 64 lines of output and a native stack with the fault address.
-- `jacket test --doc --check-only --os <os>` type-checks the doc examples for another OS from any machine.
-- `jacket test --changed FILE` runs only the tests a change to FILE can affect.
-- `jacket test` in a folder that has its own `tests/` folder below the project tests that folder.
-- A `@json` option value may be a quoted JSON string, so it can hold commas or quotes: `@json(rename="a,b")`.
-- `Extensions/Json` exports `json_reader_init`, `json_reader_free`, `json_reader_error` and `json_read_number` for decoders written by hand.
-- `expect_equal` takes an optional message.
-- `Thread.wait_for_all(*group)` blocks until every piece of work added to a `Thread_Group` has run, and `group.worker_start` runs a callback on each worker thread before its first job.
-- `Regex.clone(*re)` makes a regex for another thread that shares the compiled pattern and has its own search cache.
-- `Extensions/Io` has `Line_Reader`, `make_line_reader` and `read_line`, a buffered line reader with a length limit.
+- Faster compiles: quicker lexing and name lookup, and native code generated in parallel pieces.
+- Faster generated code: the LLVM backend marks pointers it can prove non-null and in bounds.
+- Lint and format messages link to their docs page.
+- `jacket test --changed` runs only the tests a change can affect; a crashed test shows its last output and a stack.
+- `Thread`, `Regex`, `Io` and `Extensions/Json` gain helpers for thread groups, shared patterns, line reading and hand-written decoders.
+- The browser compiler is half the size.
 
 ### Fixed
 
-- A `#insert` or `#run` reading the type info of a pointer to a struct not laid out yet sees the struct's kind and name; before, it could see a blank `u0` once another compile-time run had happened.
-- A baked parameter's type may name a type bound by an earlier parameter: `(c: $C, $e: C.E)`.
-- `make_directory_if_it_does_not_exist("a/b/", recursive = true)` creates the missing parents on Linux and macOS; before, a name ending in a slash failed unless the parent was already there.
-- A leak found by `jacket test` is reported at the line in the test that allocated; before, memory made through several library calls (`join`) was reported at the tracker itself.
-- A compile error in a test program is no longer followed by pages of the generated test table.
-- `Http.close_idle_connections` also closes idle HTTP/2 connections, so a TLS config can be freed after it; before, a pooled HTTP/2 connection could read the freed config and crash.
-- `get_type_table()` lists the Compiler module's records in the same order on every run; before, a program that ran a metaprogram could see them shuffled.
-- A program with several identical-overload errors, or a `using` that clashes with several block constants, reports the first one declared on every run; before, which came first could vary.
-- The namespaces suggested for an unknown name are listed in import order on every run.
-- A named import that fails while another named import's `#run` argument is evaluated reports its own error; before, that `#run` ran with no context and trapped at its first allocation.
-- `Regex.free_regex` frees everything `Regex.compile` allocated; before, the parsed pattern and both programs leaked, and so did a pattern that failed to compile.
+- Compile-time type info, baked parameters and named imports in several edge cases.
+- Errors from a macro body point at the call; errors that could come in any order are reported in declaration order.
+- Leaks in `Regex`, and leak reports point at the test line that allocated.
+- Idle HTTP/2 connections close properly; recursive `make_directory` works with a trailing slash.
+- Window DPI on desktop and Windows, and ICO icons build on wasm.
 
 ### Breaking changes
 
