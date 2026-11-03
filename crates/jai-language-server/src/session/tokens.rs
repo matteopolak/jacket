@@ -10,6 +10,17 @@ impl Session {
     /// Tokens classified by the syntax layer, refined by the type checker when the session has
     /// an environment: uses of types, procedures, macros, modules, constants and enum members,
     /// `$T` parameters, notes, and the `%` directives of format strings.
+    /// The tokens that start within `range`.
+    pub fn semantic_tokens_in(
+        &self,
+        uri: &DocumentUri,
+        range: crate::Range,
+    ) -> Result<Vec<SemanticToken>, Error> {
+        let mut tokens = self.semantic_tokens(uri)?;
+        tokens.retain(|t| range.start <= t.position && t.position < range.end);
+        Ok(tokens)
+    }
+
     pub fn semantic_tokens(&self, uri: &DocumentUri) -> Result<Vec<SemanticToken>, Error> {
         let (uri, doc) = self.document_entry(uri)?;
         let text = doc.text.as_str();

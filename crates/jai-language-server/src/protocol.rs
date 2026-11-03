@@ -64,6 +64,10 @@ pub struct JsonSession {
     /// are typed, and asked for again when one has been made.
     refresh_inlay_hints: bool,
     refresh_semantic_tokens: bool,
+    /// The last semantic tokens sent for each document, by result id, so a `delta` request
+    /// answers with what changed.
+    token_results: std::collections::BTreeMap<String, (u64, Vec<u32>)>,
+    token_result_ids: u64,
     /// Background work changed polymorph summaries since lenses were last refreshed.
     lenses_changed: bool,
     /// Diagnostics are pushed by `flush_publications`, not with the answer to each edit.

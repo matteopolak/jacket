@@ -47,7 +47,7 @@ Handlers query the compile through `with_semantic` (exact text or nothing), `wit
 - **Declaration and implementation**: declaration is the declaration that introduced the name as written (an alias, a named import), where definition follows on to what it stands for. Implementation is every procedure with a body that shares the name in the open files the file reaches (the overloads); procedure types, `#foreign` declarations and non-procedures have none. Both read the syntax layer, so they never wait for a compile.
 - **Unreachable code**: shown as a faded hint.
 - **Expansions**: `jai.showExpansion` shows what an `#insert`, `#run` or macro produced.
-- **Semantic tokens**: the legend is append-only (`SemanticTokenKind`).
+- **Semantic tokens**: the legend is append-only (`SemanticTokenKind`). `full`, `range` (the tokens that start in the range) and `full/delta` (one edit against the last answer sent for the document; the result ids are a counter, `JsonSession::token_results`).
 
 ### Lints and quick fixes
 

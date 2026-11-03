@@ -36,6 +36,8 @@ impl JsonSession {
             refresh_inlay_hints: false,
             refresh_semantic_tokens: false,
             lenses_changed: false,
+            token_results: std::collections::BTreeMap::new(),
+            token_result_ids: 0,
         }
     }
 

@@ -328,7 +328,8 @@ pub(super) fn capabilities(pull_diagnostics: bool) -> Value {
                 "tokenTypes": token_types,
                 "tokenModifiers": TOKEN_MODIFIERS,
             },
-            "full": true,
+            "range": true,
+            "full": { "delta": true },
         },
         "experimental": {
             "jai": {
@@ -412,4 +413,23 @@ pub(super) fn semantic_tokens_wire(tokens: &[SemanticToken]) -> Vec<u32> {
         previous = token.position;
     }
     data
+}
+
+/// The one edit turning the integer array `old` into `new`: where it starts, how many integers
+/// it removes and the integers it puts there (what lies between the common start and end).
+pub(super) fn token_edit<'a>(old: &[u32], new: &'a [u32]) -> (usize, usize, &'a [u32]) {
+    let prefix = old.iter().zip(new).take_while(|(a, b)| a == b).count();
+    let room = old.len().min(new.len()) - prefix;
+    let suffix = old
+        .iter()
+        .rev()
+        .zip(new.iter().rev())
+        .take(room)
+        .take_while(|(a, b)| a == b)
+        .count();
+    (
+        prefix,
+        old.len() - prefix - suffix,
+        &new[prefix..new.len() - suffix],
+    )
 }

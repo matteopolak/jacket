@@ -10,9 +10,10 @@ use super::wire::{
     SymbolsWire, capabilities, code_action_wire, code_lens_wire, document_report, expansion_wire,
     folding_wire, hierarchy_call_wire, hierarchy_item_wire, hover_kind, hover_wire, inlay_wire,
     locations_wire, selection_wire, semantic_tokens_wire, signature_kind, signature_wire,
-    symbol_information_wire, workspace_edit_wire,
+    symbol_information_wire, token_edit, workspace_edit_wire,
 };
 use super::{JsonSession, Lifecycle};
+use crate::DocumentUri;
 use crate::completion_wire::completion_wire;
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -33,6 +34,8 @@ impl JsonSession {
                 Value::Null
             }
             Request::SemanticTokens => return self.semantic_tokens(params),
+            Request::SemanticTokensRange => return self.semantic_tokens_range(params),
+            Request::SemanticTokensDelta => return self.semantic_tokens_delta(params),
             Request::DocumentSymbol => return self.document_symbols(params),
             Request::Hover => {
                 let (document, position) = at(params)?;
@@ -248,16 +251,70 @@ impl JsonSession {
         }))
     }
 
+    /// The whole document's tokens, remembered under a new result id for `delta` requests.
     fn semantic_tokens(&mut self, params: Value) -> Result<Reply, Failure> {
         let document = document(params)?;
-        let version = self.session.version(&document).map_err(domain)?;
         let tokens = self.session.semantic_tokens(&document).map_err(domain)?;
         let data = semantic_tokens_wire(&tokens);
         drop(tokens);
+        let id = self.remember_tokens(&document, &data);
         let data = serde_json::to_string(&data).map_err(internal)?;
         Ok(Reply::Raw(format!(
-            "{{\"resultId\":\"{version}\",\"data\":{data}}}"
+            "{{\"resultId\":\"{id}\",\"data\":{data}}}"
         )))
+    }
+
+    /// The tokens that start inside a range, encoded from the start of the document.
+    fn semantic_tokens_range(&mut self, params: Value) -> Result<Reply, Failure> {
+        let p: RangeParams = decode(params)?;
+        let document = uri(&p.text_document.uri)?;
+        let tokens = self
+            .session
+            .semantic_tokens_in(&document, p.range)
+            .map_err(domain)?;
+        let data = serde_json::to_string(&semantic_tokens_wire(&tokens)).map_err(internal)?;
+        Ok(Reply::Raw(format!("{{\"data\":{data}}}")))
+    }
+
+    /// What changed since the tokens `previousResultId` named, as one edit of the integer
+    /// array; the whole array when that result is not the last one sent.
+    fn semantic_tokens_delta(&mut self, params: Value) -> Result<Reply, Failure> {
+        let previous = params["previousResultId"].as_str().map(str::to_owned);
+        let document = document(params)?;
+        let tokens = self.session.semantic_tokens(&document).map_err(domain)?;
+        let data = semantic_tokens_wire(&tokens);
+        drop(tokens);
+        let old = self.token_results.get(document.as_str()).cloned();
+        let id = self.remember_tokens(&document, &data);
+        let text = match old {
+            Some((old_id, old_data))
+                if previous.as_deref() == Some(old_id.to_string().as_str()) =>
+            {
+                let (start, delete, insert) = token_edit(&old_data, &data);
+                let insert = serde_json::to_string(insert).map_err(internal)?;
+                format!(
+                    "{{\"resultId\":\"{id}\",\"edits\":[{{\"start\":{start},\"deleteCount\":{delete},\"data\":{insert}}}]}}"
+                )
+            }
+            _ => {
+                let data = serde_json::to_string(&data).map_err(internal)?;
+                format!("{{\"resultId\":\"{id}\",\"data\":{data}}}")
+            }
+        };
+        Ok(Reply::Raw(text))
+    }
+
+    fn remember_tokens(&mut self, document: &DocumentUri, data: &[u32]) -> u64 {
+        self.token_result_ids += 1;
+        // Closed documents are not forgotten one by one; the table is just kept small.
+        if self.token_results.len() > 64 {
+            self.token_results.clear();
+        }
+        self.token_results.insert(
+            document.as_str().to_owned(),
+            (self.token_result_ids, data.to_vec()),
+        );
+        self.token_result_ids
     }
 
     fn document_symbols(&mut self, params: Value) -> Result<Reply, Failure> {

@@ -35,6 +35,8 @@ pub(super) enum Request {
     Initialize,
     Shutdown,
     SemanticTokens,
+    SemanticTokensRange,
+    SemanticTokensDelta,
     DocumentSymbol,
     Hover,
     Completion,
@@ -73,6 +75,14 @@ impl Request {
         ("initialize", Self::Initialize),
         ("shutdown", Self::Shutdown),
         ("textDocument/semanticTokens/full", Self::SemanticTokens),
+        (
+            "textDocument/semanticTokens/range",
+            Self::SemanticTokensRange,
+        ),
+        (
+            "textDocument/semanticTokens/full/delta",
+            Self::SemanticTokensDelta,
+        ),
         ("textDocument/documentSymbol", Self::DocumentSymbol),
         ("textDocument/hover", Self::Hover),
         ("textDocument/completion", Self::Completion),
