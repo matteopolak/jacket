@@ -5,7 +5,7 @@ use super::{
 };
 
 impl Resolver<'_> {
-    pub(super) fn infer(&self, prior: &Summary, all: &HashMap<ProcId, Summary>) -> Summary {
+    pub(super) fn infer(&mut self, prior: &Summary, all: &HashMap<ProcId, Summary>) -> Summary {
         let body = self.body;
         let live = returning_blocks(body, all, self.targets);
         let mut next = prior.clone();
@@ -18,6 +18,14 @@ impl Resolver<'_> {
             .filter(|(i, _)| live.contains(i))
         {
             for (ordinal, event) in block.events.iter().enumerate() {
+                for (effect, span, definite) in self.temporary_writes(event, all) {
+                    if effect.exported() {
+                        insert(&mut next.may, effect.clone(), vec![span]);
+                    }
+                    if definite {
+                        effects[b].push((effect, vec![span]));
+                    }
+                }
                 if let Some(effect) = swap_facts.as_ref().and_then(|f| {
                     self.swap_effect(
                         event,
@@ -152,6 +160,7 @@ impl Resolver<'_> {
                     .or_insert(element);
                 let path = self
                     .trace(*value, all, &mut HashSet::default(), 0)
+                    .filter(|p| self.result_carries_storage(*ty, p))
                     .filter(|p| {
                         matches!(
                             p.root,

@@ -24,9 +24,9 @@ impl Resolver<'_> {
                 let info = &self.compiler.pr.procs[p.0 as usize];
                 info.lit.body.is_none()
                     && !self.compiler.proc_has_note(*p, "NoLifetimeEffects")
-                    && all
-                        .get(p)
-                        .is_none_or(|s| s.may.is_empty() && s.returns.is_empty())
+                    && all.get(p).is_none_or(|s| {
+                        s.memory.is_none() && s.may.is_empty() && s.returns.is_empty()
+                    })
             });
         if !unknown {
             return Vec::new();

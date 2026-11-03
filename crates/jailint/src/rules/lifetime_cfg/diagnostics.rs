@@ -24,8 +24,14 @@ pub(super) fn emit(
     };
     let mut reports: Vec<Finding> = Vec::new();
     for (i, block) in blocks.iter().enumerate() {
-        let Op::Use(id, at) = block.op else {
-            continue;
+        let (id, at) = match block.op {
+            Op::Use(id, at)
+            | Op::Resource(super::resources::Op::Read {
+                cell: id,
+                span: at,
+            }) => (id, at),
+            Op::ObserveValue(id, at) => (id, at),
+            _ => continue,
         };
         let source = at;
         let at = if at.file == cx.file {
@@ -57,11 +63,17 @@ pub(super) fn emit(
         if growths.is_empty() {
             continue;
         }
-        let logical = !resizable_only && growths.iter().any(|at| {
-            blocks
-                .iter()
-                .any(|b| matches!(b.op, Op::Mutate(_, m, span) if span == *at && element.is_some_and(|(s, len)| crate::rules::lifetime_movement::invalidates(m, s, len))))
-        });
+        let logical = !resizable_only
+            && growths.iter().any(|at| {
+                blocks
+                    .iter()
+                    .any(|b| logical_invalidation(cx, &b.op, *at, element))
+            });
+        // Physical access and logical element identity are distinct: an address alone
+        // remains usable for comparisons and ownership queries after storage moves.
+        if matches!(block.op, Op::ObserveValue(..)) && !logical {
+            continue;
+        }
         let explanation = if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
             && states[i].as_ref().is_some_and(|s| s[cell] != super::DEAD)
         {
@@ -179,4 +191,26 @@ pub(super) fn emit(
     }
     // The caller merges all candidates for this rule.
     reports
+}
+
+fn logical_invalidation(
+    cx: &Cx,
+    op: &Op,
+    at: Span,
+    element: Option<(super::Selector, Option<i128>)>,
+) -> bool {
+    let Some((index, length)) = element else {
+        return false;
+    };
+    match *op {
+        Op::Mutate(_, mutation, span) if span == at => {
+            crate::rules::lifetime_movement::invalidates(mutation, index, length)
+        }
+        Op::MayMutate(_, mutation, span)
+            if span == at && cx.lifetime_mode == jacket_config::LifetimeMode::Strict =>
+        {
+            crate::rules::lifetime_movement::possibly_invalidates(mutation, index, length)
+        }
+        _ => false,
+    }
 }

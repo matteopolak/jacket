@@ -12,6 +12,7 @@ mod context;
 pub(super) enum Projection {
     Field(Sym),
     Element(i128),
+    DynamicElement(Val),
     Deref,
 }
 
@@ -170,6 +171,7 @@ impl Places {
                     );
                     let field = this.project(parent, Projection::Field(name));
                     this.values.insert((result, result_ty), field);
+                    this.types.insert(field, result_ty);
                     if descriptor {
                         this.descriptor_fields.insert(field, parent);
                         if name.as_str() == "data" {
@@ -182,12 +184,15 @@ impl Places {
                     result,
                     base_ty,
                     result_ty,
-                    index: Some(index),
+                    index,
                     ..
                 } => {
                     let parent = this.place(base, base_ty);
-                    let element = this.project(parent, Projection::Element(index));
+                    let projection =
+                        index.map_or(Projection::DynamicElement(result), Projection::Element);
+                    let element = this.project(parent, projection);
                     this.values.insert((result, result_ty), element);
+                    this.types.insert(element, result_ty);
                 }
                 _ => {}
             }
@@ -286,6 +291,13 @@ impl Places {
 
     pub fn lookup(&self, other: &Self, place: usize) -> Option<usize> {
         self.ids.get(&other.paths[place]).copied()
+    }
+
+    pub fn projected(&self, parent: usize, projection: Projection) -> Option<usize> {
+        let (root, path) = &self.paths[parent];
+        let mut path = path.clone();
+        path.push(projection);
+        self.ids.get(&(*root, path)).copied()
     }
 
     pub fn descendants(&self, parent: usize) -> Vec<usize> {

@@ -5,12 +5,14 @@ use jaic::source::FileId;
 use std::collections::VecDeque;
 
 pub(super) fn retain(
+    compiler: &jaic::sema::Compiler,
     valid: &mut HashMap<ProcId, &LifetimeBody>,
     files: &HashSet<FileId>,
 ) -> Option<HashSet<ProcId>> {
     if files.is_empty() {
         return None;
     }
+    let globals = crate::rules::lifetime_targets::globals::Globals::build(compiler, valid);
     let mut queue: VecDeque<_> = valid
         .iter()
         .filter(|(_, b)| files.contains(&b.syntax.header.span.file))
@@ -20,6 +22,16 @@ pub(super) fn retain(
     while let Some(proc) = queue.pop_front() {
         if !needed.insert(proc) {
             continue;
+        }
+        for global in globals.used_by.get(&proc).into_iter().flatten() {
+            queue.extend(globals.users.get(global).into_iter().flatten().copied());
+            queue.extend(
+                globals
+                    .initial
+                    .get(global)
+                    .into_iter()
+                    .flat_map(|s| s.procedures.iter().copied()),
+            );
         }
         let Some(body) = valid.get(&proc) else {
             continue;

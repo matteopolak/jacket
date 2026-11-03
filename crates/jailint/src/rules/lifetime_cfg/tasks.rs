@@ -1,11 +1,11 @@
 //! Borrowed worker lifetimes. Contracts identify a receiver and callback; the callback's
-//! parameter-relative read summary selects captured fields without container-name rules.
+//! parameter-relative access summary selects captured fields without container-name rules.
 use super::{
     Cell, Cells, Cx, Event, Facts, HashMap, LifetimeBody, LifetimeOperand, Places, Resolver, Site,
     Span, Summaries,
 };
 use crate::rules::lifetime_movement::{self, Selector};
-use crate::rules::lifetime_summary::{Kind, Path, Root};
+use crate::rules::lifetime_summary::{Path, Root};
 use jaic::ir::Val;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
@@ -124,12 +124,13 @@ impl Builder {
                         registration.opaque = true;
                         continue;
                     };
-                    registration.opaque |= cx.compiler.pr.procs[proc.0 as usize].lit.body.is_none()
-                        || !s.unknown_write.is_empty()
-                        || !s.escapes.is_empty()
-                        || s.may
-                            .keys()
-                            .any(|e| matches!(e.kind, Kind::Unknown | Kind::Free | Kind::Write));
+                    registration.opaque |= !s.stable_captures(
+                        cx.compiler,
+                        cx.compiler
+                            .ed
+                            .facts()
+                            .and_then(|facts| facts.lifetime_bodies.get(&proc)),
+                    );
                     let reads = if cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
                         &s.may_reads
                     } else {

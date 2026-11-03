@@ -477,3 +477,102 @@ main :: () {
     assert!(events(body).any(|e| matches!(e, Event::ContextAlias { .. })));
     assert!(events(body).any(|e| matches!(e, Event::Store { ty, .. } if matches!(c.ty.types.kind(*ty), jaic::types::TypeKind::Struct(_)))));
 }
+
+#[test]
+fn selected_memory_intrinsics_record_read_write_and_count_formals() {
+    let c = compile(
+        r#"
+#import "Basic";
+Fiber_Context :: struct { sp: *void; stack_low: *void; stack_high: *void; stack_dealloc: *void; }
+fiber_free :: (fiber: *Fiber_Context) #intrinsic;
+main :: () {
+    fiber: Fiber_Context;
+    fiber_free(*fiber);
+    source: [8] u8;
+    destination: [8] u8;
+    memcpy(destination.data, source.data, 8);
+    memset(destination.data, 0, 8);
+}
+"#,
+        true,
+        false,
+    );
+    let body = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
+        .unwrap();
+    let memory: Vec<_> = events(body)
+        .filter_map(|e| match e {
+            Event::Call {
+                callee,
+                memory: Some(m),
+                ..
+            } => Some((c.pr.procs[callee.0 as usize].name.as_str(), *m)),
+            _ => None,
+        })
+        .collect();
+    assert!(memory.iter().any(|(name, m)| *name == "memcpy"
+        && m.reads == 0b10
+        && m.writes == 0b1
+        && m.count == Some(2)));
+    assert!(memory.iter().any(|(name, m)| *name == "memset"
+        && m.reads == 0
+        && m.writes == 0b1
+        && m.count == Some(2)));
+    assert!(memory.iter().any(|(name, m)| *name == "fiber_free"
+        && m.reads == 0
+        && m.writes == 0
+        && m.count.is_none()));
+}
+
+#[test]
+fn addressing_an_annotated_procedure_slot_records_its_real_storage() {
+    let c = compile(
+        r"
+F :: (value := 1) -> int;
+identity :: (value: int) -> int { return value; }
+slot: F = identity;
+take :: (p: *F) {}
+main :: () { take(*slot); }
+",
+        true,
+        false,
+    );
+    let body = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
+        .unwrap();
+    assert!(events(body).any(|e| matches!(e, Event::Address { ty, .. } if matches!(c.ty.types.kind(*ty), jaic::types::TypeKind::Proc(_)))));
+}
+
+#[test]
+fn default_images_are_recorded_as_writes_at_the_actual_initialization() {
+    let c = compile("main :: () { text: string; copy := text; }", true, false);
+    let body = bodies(&c)
+        .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
+        .unwrap();
+    let ordered: Vec<_> = events(body).collect();
+    let at = ordered
+        .iter()
+        .position(|e| {
+            matches!(
+                e,
+                Event::Initialize {
+                    ty: jaic::types::TypeId::STRING,
+                    ..
+                }
+            )
+        })
+        .unwrap();
+    let first_load = ordered
+        .iter()
+        .position(|e| {
+            matches!(
+                e,
+                Event::Load {
+                    ty: jaic::types::TypeId::STRING,
+                    ..
+                }
+            )
+        })
+        .unwrap();
+    assert!(at < first_load);
+}

@@ -15,6 +15,7 @@ pub(super) fn build(
 ) -> Vec<Block> {
     let mut resolver = Resolver::new(cx.compiler, body, &summaries.procs, &summaries.targets);
     let tasks = super::tasks::Builder::new(cx, body, summaries, places, &mut resolver);
+    let resources = resources::Builder::new(cx, body, summaries, places);
     let mut builder = Builder {
         cx,
         places,
@@ -23,9 +24,10 @@ pub(super) fn build(
         chains,
         resolver,
         tasks,
-        resources: resources::Builder::new(cx, body, summaries),
+        resources,
         elements: Facts::new(cx.compiler, body),
         grown: HashMap::default(),
+        address_queries: address_queries(cx, body, summaries),
     };
     let mut blocks: Vec<_> = body
         .blocks
@@ -101,6 +103,7 @@ struct Builder<'a> {
     resources: resources::Builder<'a>,
     elements: Facts<'a>,
     grown: HashMap<Span, usize>,
+    address_queries: HashSet<Span>,
     tasks: super::tasks::Builder,
 }
 
@@ -120,6 +123,31 @@ impl Builder<'_> {
         } else {
             self.memory(event, at)
         };
+        if let Event::Field {
+            base,
+            base_ty,
+            indirect: true,
+            span,
+            ..
+        } = event
+        {
+            let cell = match base {
+                LifetimeOperand::Value(v) => Some(self.cells.id(Cell::Value(*v))),
+                LifetimeOperand::Place(p) => {
+                    Some(self.cells.id(Cell::Place(self.places.place(*p, *base_ty))))
+                }
+                LifetimeOperand::Other => None,
+            };
+            if let Some(cell) = cell {
+                ops.insert(
+                    0,
+                    Op::Resource(resources::Op::Read {
+                        cell,
+                        span: self.resources.member_read_span(*span),
+                    }),
+                );
+            }
+        }
         ops.extend(self.returns(event, at));
         ops.extend(
             self.tasks
@@ -140,7 +168,21 @@ impl Builder<'_> {
         if matches!(event, Event::Store { .. }) {
             ops.splice(0..0, extra.into_iter().map(Op::Resource));
         } else {
-            ops.extend(extra.into_iter().map(Op::Resource));
+            for op in extra {
+                if let resources::Op::FreeRegion {
+                    region,
+                    cell,
+                    span,
+                } = op
+                    && self.places.types.get(&region).is_some_and(|ty| {
+                        self.cx.compiler.ir_ty(*ty).is_some()
+                            && !self.cx.compiler.ty.types.is_pointer(*ty)
+                    })
+                {
+                    ops.push(Op::PointerLoad(cell, cell, region, span));
+                }
+                ops.push(Op::Resource(op));
+            }
         }
         ops
     }
@@ -158,6 +200,13 @@ impl Builder<'_> {
         } = self;
         let mut ops = Vec::new();
         match *event {
+            Event::Initialize {
+                place,
+                ty,
+                ..
+            } => {
+                ops.push(Op::Replace(places.place(place, ty)));
+            }
             Event::Branch {
                 condition,
                 span,
@@ -201,7 +250,14 @@ impl Builder<'_> {
                 span,
             } => {
                 let p = places.place(place, ty);
-                ops.push(Op::Use(cells.id(Cell::Place(p)), span));
+                if cx.compiler.ty.types.is_pointer(ty) {
+                    if self.address_queries.contains(&span) {
+                        return ops;
+                    }
+                    ops.push(Op::ObserveValue(cells.id(Cell::Place(p)), span));
+                } else {
+                    ops.push(Op::Use(cells.id(Cell::Place(p)), span));
+                }
             }
             Event::Borrow {
                 value,
@@ -233,7 +289,7 @@ impl Builder<'_> {
                 span,
             } => {
                 let p = places.place(place, ty);
-                let target = cells.id(Cell::Value(value));
+                let target = resources::value_cell(cx, places, cells, value, ty);
                 if let Some(&(r, at)) = places.data.get(&p) {
                     if resizable(cx, places, r) {
                         ops.push(Op::Borrow(target, r, at));
@@ -269,7 +325,7 @@ impl Builder<'_> {
                     ));
                 }
                 let source = places.place(value, ty);
-                if places.unresolved(p) {
+                if places.unresolved(p) && !resources.result_place(places.paths[p].0.0) {
                     ops.push(Op::Barrier);
                 }
                 ops.push(Op::Replace(p));
@@ -331,12 +387,13 @@ impl Builder<'_> {
                 to,
                 span,
             } => {
+                let source_cell = resources::value_cell(cx, places, cells, source, from);
                 let source = places.place(source, from);
-                let target = cells.id(Cell::Value(value));
+                let target = resources::value_cell(cx, places, cells, value, to);
                 if resizable(cx, places, source) {
                     ops.push(Op::Borrow(target, source, span));
                 } else {
-                    ops.push(Op::Copy(vec![(target, cells.id(Cell::Place(source)))]));
+                    ops.push(Op::Copy(vec![(target, source_cell)]));
                 }
                 let target_place = places.place(value, to);
                 ops.push(Op::Copy(vec![(
@@ -388,6 +445,15 @@ impl Builder<'_> {
             ..
         } = self;
         let mut ops = Vec::new();
+        let strict = cx.lifetime_mode == jacket_config::LifetimeMode::Strict;
+        for arg in resolver.read_arguments(event, &summaries.procs, !strict) {
+            if let LifetimeOperand::Value(v) = arg.operand {
+                ops.push(Op::Resource(resources::Op::Read {
+                    cell: self.cells.id(Cell::Value(v)),
+                    span: arg.span,
+                }));
+            }
+        }
         if direct.is_none() {
             ops.push(Op::Indirect(resolver.call_targets(event), span));
         }
@@ -539,7 +605,8 @@ impl Builder<'_> {
         let allocator_resize = matches!(event, Event::IndirectCall { allocator: true, args, .. } if args.first().and_then(|a| a.constant) == Some(1));
         let mut ops = Vec::new();
         for &(index, value, ty) in results {
-            let target = cells.id(Cell::Value(value));
+            let target = resources::value_cell(cx, places, cells, value, ty);
+
             if let Some(arg) = resolver.passthrough(event, index, &summaries.procs) {
                 if let LifetimeOperand::Value(source) = arg.operand {
                     ops.push(Op::Copy(vec![(target, cells.id(Cell::Value(source)))]));
@@ -585,4 +652,40 @@ impl Builder<'_> {
         }
         ops
     }
+}
+
+fn address_queries(cx: &Cx, body: &LifetimeBody, summaries: &Summaries) -> HashSet<Span> {
+    let mut spans = HashSet::default();
+    for event in body.blocks.iter().flat_map(|b| &b.events) {
+        match event {
+            Event::Call {
+                callee,
+                args,
+                ..
+            } => {
+                let direct =
+                    crate::rules::lifetime_summary::address_query(cx.compiler, *callee, args);
+                spans.extend(
+                    args.iter()
+                        .filter(|a| {
+                            direct && a.formal == 3
+                                || summaries
+                                    .procs
+                                    .get(callee)
+                                    .is_some_and(|s| s.address_queries.contains(&a.formal))
+                        })
+                        .map(|a| a.span),
+                );
+            }
+            Event::IndirectCall {
+                args,
+                allocator: true,
+                ..
+            } if args.iter().find(|a| a.formal == 0).and_then(|a| a.constant) == Some(9) => {
+                spans.extend(args.iter().filter(|a| a.formal == 3).map(|a| a.span));
+            }
+            _ => {}
+        }
+    }
+    spans
 }

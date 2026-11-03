@@ -507,7 +507,7 @@ fn lifetime_resource_migration_preserves_existing_cases() {
         ("use_after_free", 4),
         ("double_free", 3),
         ("returned_local_address", 5),
-        ("temp_storage_escape", 4),
+        ("temp_storage_escape", 3),
     ] {
         let case = repo().join("tests/lint").join(rule);
         for (file, count) in [("bad.jai", expected), ("good.jai", 0)] {
@@ -538,7 +538,9 @@ fn lifetime_resources_cover_cleanup_scopes_watermarks_and_handles() {
     let (lints, text) = lint(&bad, &levels);
     assert_eq!(
         lints.iter().filter(|l| l.rule == "use_after_free").count(),
-        9
+        9,
+        "{}",
+        rendered(&lints, &text, &bad)
     );
     assert_eq!(lints.iter().filter(|l| l.rule == "double_free").count(), 3);
     assert_eq!(
@@ -546,7 +548,7 @@ fn lifetime_resources_cover_cleanup_scopes_watermarks_and_handles() {
             .iter()
             .filter(|l| l.rule == "returned_local_address")
             .count(),
-        9
+        8
     );
     assert_eq!(
         lints
@@ -794,4 +796,286 @@ fn lifetime_context_selection_and_indexed_return_contracts() {
         "{}",
         rendered(&findings, &text, &path)
     );
+}
+
+#[test]
+fn lifetime_readonly_addresses_preserve_proofs_without_trusting_opaque_writes() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/readonly-addresses.jai");
+    let (findings, text) = lint(&path, &[("pointer_lifetime", Level::Warn)]);
+    assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
+    assert!(findings[0].start < text.find("safe ::").unwrap());
+}
+
+#[test]
+fn lifetime_descriptor_values_keep_header_and_data_owners_distinct() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/descriptor-values.jai");
+    let (findings, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
+    assert!(findings[0].start > text.find("data_dies ::").unwrap());
+}
+
+#[test]
+fn lifetime_intrinsics_have_selected_memory_effects_in_strict_mode() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/intrinsic-effects.jai");
+    let (findings, text) = lint_with(
+        &path,
+        &[("use_after_free", Level::Warn)],
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
+    assert!(findings[0].start > text.find("bad ::").unwrap());
+}
+
+#[test]
+fn lifetime_any_spills_follow_local_holders_and_still_reject_escapes() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/any-holders.jai");
+    let (findings, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+    assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
+    assert!(
+        findings
+            .iter()
+            .all(|f| f.start > text.find("returned_holder ::").unwrap())
+    );
+}
+
+#[test]
+fn lifetime_global_targets_include_initializers_and_all_writers_but_keep_exposure_open() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/global-targets.jai");
+    let levels = [("pointer_lifetime", Level::Warn)];
+    let (must, text) = lint(&path, &levels);
+    assert_eq!(must.len(), 1, "{}", rendered(&must, &text, &path));
+    let (strict, text) = lint_with(
+        &path,
+        &levels,
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(strict.len(), 3, "{}", rendered(&strict, &text, &path));
+}
+
+#[test]
+fn lifetime_intrinsic_worker_reads_respect_positive_and_zero_counts() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/intrinsic-workers.jai");
+    let (findings, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
+    assert!(findings[0].start < text.find("good ::").unwrap());
+    assert!(findings[1].start > text.find("bad_writer ::").unwrap());
+    assert!(findings[1].start < text.find("good_writer ::").unwrap());
+}
+
+#[test]
+fn lifetime_temporary_destinations_share_reset_but_do_not_extend_stack_storage() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/temporary-destinations.jai");
+    let (findings, text) = lint(
+        &path,
+        &[
+            ("temp_storage_escape", Level::Warn),
+            ("returned_local_address", Level::Warn),
+        ],
+    );
+    assert_eq!(findings.len(), 3, "{}", rendered(&findings, &text, &path));
+    assert!(
+        findings
+            .iter()
+            .all(|f| f.start > text.find("bad_heap_destination ::").unwrap())
+    );
+}
+
+#[test]
+fn lifetime_output_temporaries_are_checked_in_the_actual_destination_context() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/output-temporaries.jai");
+    let (findings, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
+    assert_eq!(findings.len(), 5, "{}", rendered(&findings, &text, &path));
+    assert!(
+        findings
+            .iter()
+            .all(|f| f.start > text.find("bad_return ::").unwrap())
+    );
+    let (strict, text) = lint_with(
+        &path,
+        &[("temp_storage_escape", Level::Warn)],
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(strict.len(), 9, "{}", rendered(&strict, &text, &path));
+    let (stack, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+    assert_eq!(stack.len(), 1, "{}", rendered(&stack, &text, &path));
+    assert!(stack[0].start > text.find("fill_stack_address ::").unwrap());
+}
+
+#[test]
+fn lifetime_nested_handle_close_preserves_the_enclosing_allocation() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/nested-handles.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[
+                ("use_after_free", Level::Warn),
+                ("double_free", Level::Warn),
+            ],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
+        assert!(findings[0].start > text.find("bad_direct ::").unwrap());
+    }
+}
+
+
+#[test]
+fn lifetime_fresh_generations_replace_headers_without_reviving_old_aliases() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/generations.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[
+                ("use_after_free", Level::Warn),
+                ("double_free", Level::Warn),
+            ],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(
+            findings.len(),
+            if mode == jacket_config::LifetimeMode::Strict {
+                2
+            } else {
+                1
+            },
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+        assert!(
+            findings
+                .iter()
+                .all(|f| f.start > text.find("bad_old_alias ::").unwrap())
+        );
+    }
+}
+
+
+#[test]
+fn lifetime_allocator_queries_observe_addresses_without_reading_old_storage() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/allocator-queries.jai");
+    let (findings, text) = lint_with(
+        &path,
+        &[
+            ("pointer_lifetime", Level::Warn),
+            ("use_after_free", Level::Warn),
+        ],
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
+    assert!(
+        findings
+            .iter()
+            .all(|f| f.start > text.find("bad_resize ::").unwrap())
+    );
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.start > text.find("bad_query_read ::").unwrap())
+    );
+}
+
+
+#[test]
+fn lifetime_moved_addresses_require_a_memory_access_for_physical_storage() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/moved-addresses.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[("pointer_lifetime", Level::Warn)],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
+        assert!(findings[0].start > text.find("bad_moved_read ::").unwrap());
+    }
+}
+
+
+#[test]
+fn lifetime_pointer_values_are_distinct_from_memory_reads_in_direct_and_indirect_calls() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/pointer-values.jai");
+    let (findings, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
+    assert!(findings.iter().all(|f| {
+        f.start > text.find("bad_read ::").unwrap()
+            && f.start < text.find("safe_indirect ::").unwrap()
+            || f.start > text.find("bad_indirect ::").unwrap()
+                && f.start < text.find("safe_copied_value ::").unwrap()
+    }));
+    let (strict, text) = lint_with(
+        &path,
+        &[("use_after_free", Level::Warn)],
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(strict.len(), 3, "{}", rendered(&strict, &text, &path));
+}
+
+#[test]
+fn lifetime_stdlib_destructors_preserve_caller_owned_headers() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/stdlib-headers.jai");
+    let (findings, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
+    assert!(
+        findings[0].start > text.find("bad_header ::").unwrap()
+            && findings[0].start < text.find("safe_array_reuse ::").unwrap()
+    );
+}
+
+#[test]
+fn lifetime_pushed_context_copy_does_not_outlive_its_scoped_borrow() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/context-holders.jai");
+    let (findings, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+    assert_eq!(findings.len(), 3, "{}", rendered(&findings, &text, &path));
+    assert!(findings[0].start > text.find("bad_caller_context ::").unwrap());
+    assert!(findings[0].start < text.find("safe_cleared_global_container ::").unwrap());
+    assert!(findings[1].start > text.find("bad_retained_global_container ::").unwrap());
+    assert!(findings[1].start < text.find("safe_qualified_global_container ::").unwrap());
+    assert!(findings[2].start > text.find("bad_qualified_global_container ::").unwrap());
+}
+
+#[test]
+fn lifetime_loop_declarations_clear_old_header_aliases_without_extending_borrows() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/loop-locals.jai");
+    let (findings, text) = lint_with(
+        &path,
+        &[("returned_local_address", Level::Warn)],
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
+    assert!(findings[0].start > text.find("bad ::").unwrap());
 }

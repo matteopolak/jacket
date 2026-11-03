@@ -48,6 +48,27 @@ impl Resolver<'_> {
             .flat_map(|(_, b)| &b.events)
         {
             match event {
+                Event::Initialize {
+                    place,
+                    ty,
+                    span,
+                } => {
+                    let p = self.places.place(*place, *ty);
+                    if let Some(target) = self.location(p, all, &mut HashSet::default(), 0)
+                        && matches!(target.root, Root::Parameter(_))
+                    {
+                        writes.push((
+                            Effect {
+                                target,
+                                kind: Kind::Write,
+                                guard: None,
+                            },
+                            vec![*span],
+                        ));
+                    } else if self.places.unresolved(p) {
+                        unknown_write.extend(self.potential(self.places.paths[p].0.0));
+                    }
+                }
                 Event::Store {
                     place,
                     value,
@@ -134,11 +155,20 @@ impl Resolver<'_> {
                 } => {
                     for callee in self.call_targets(event).procedures {
                         if let Some(called) = all.get(&callee) {
-                            unknown_write.extend(self.argument_dependencies(
-                                &called.unknown_write,
-                                args,
-                                all,
-                            ));
+                            let query = super::reads::address_query(self.compiler, callee, args);
+                            let queried;
+                            let accessed = if query {
+                                queried = called
+                                    .unknown_write
+                                    .iter()
+                                    .copied()
+                                    .filter(|n| *n != 3)
+                                    .collect();
+                                &queried
+                            } else {
+                                &called.unknown_write
+                            };
+                            unknown_write.extend(self.argument_dependencies(accessed, args, all));
                             escapes.extend(self.argument_dependencies(&called.escapes, args, all));
                         }
                     }

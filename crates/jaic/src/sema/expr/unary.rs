@@ -101,7 +101,7 @@ impl Compiler {
 
     /// The pointer `*` makes of an already checked operand.
     fn address_of_operand(&mut self, f: &mut FnCtx, inner: Operand, span: Span) -> Result<Operand> {
-        match inner {
+        match inner.without_callable() {
             Operand::Type(t) => Ok(Operand::Type(self.ty.types.pointer(t))),
             // Concrete default pointees share the explicit instance's identity.
             // Required arguments still leave a source type for generic patterns.

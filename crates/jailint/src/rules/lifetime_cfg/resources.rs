@@ -15,11 +15,14 @@ use jaic::types::{TypeId, TypeKind};
 use std::collections::{BTreeMap, VecDeque};
 use std::rc::Rc;
 
+mod addresses;
+mod boxed;
 mod calls;
 mod diagnostics;
 mod quiescent;
 mod retained;
 mod retained_witness;
+mod temporary;
 use diagnostics::{Proof, emit};
 
 #[derive(Clone, Copy, Debug)]
@@ -32,9 +35,14 @@ pub(super) enum Origin {
     Until(ProcId),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(super) enum Op {
+    Read {
+        cell: usize,
+        span: Span,
+    },
     Seed {
+        possible: bool,
         cell: usize,
         origin: Origin,
         span: Span,
@@ -61,6 +69,8 @@ pub(super) enum Op {
         pointer: bool,
         target: usize,
         store: bool,
+        temporary_target: bool,
+        parameter_target: bool,
     },
     ScopeEnd(ScopeId, Span),
     StatementEnd(Span),
@@ -91,6 +101,7 @@ pub(crate) struct Reports {
     pub temp_storage_escape: Vec<Finding>,
     external_primary: usize,
     fast_quiet: usize,
+    covered_fresh_loads: usize,
 }
 
 pub(crate) fn reports(cx: &Cx) -> Rc<Reports> {
@@ -118,7 +129,13 @@ fn operand_cell(
     })
 }
 
-fn value_cell(cx: &Cx, places: &mut Places, cells: &mut Cells, value: Val, ty: TypeId) -> usize {
+pub(super) fn value_cell(
+    cx: &Cx,
+    places: &mut Places,
+    cells: &mut Cells,
+    value: Val,
+    ty: TypeId,
+) -> usize {
     if cx.compiler.ir_ty(ty).is_none() {
         cells.id(Cell::Place(places.place(value, ty)))
     } else {
@@ -138,22 +155,30 @@ pub(super) struct Builder<'a> {
     cx: &'a Cx<'a>,
     summaries: &'a Summaries,
     locals: HashMap<Val, ScopeId>,
+    boxed: HashMap<Val, ScopeId>,
     parameters: HashSet<Val>,
     stack: HashSet<Val>,
     returns: HashSet<Val>,
     released_values: HashSet<Val>,
     value_spans: HashMap<(Val, TypeId), Span>,
     store_spans: HashMap<Span, Span>,
+    member_spans: HashMap<Span, Span>,
 }
 
 impl<'a> Builder<'a> {
-    pub fn new(cx: &'a Cx<'a>, body: &LifetimeBody, summaries: &'a Summaries) -> Self {
+    pub fn new(
+        cx: &'a Cx<'a>,
+        body: &LifetimeBody,
+        summaries: &'a Summaries,
+        places: &Places,
+    ) -> Self {
         let mut locals = HashMap::default();
         let mut parameters = HashSet::default();
         let mut returns = HashSet::default();
         let mut released_values = HashSet::default();
         let mut value_spans = HashMap::default();
         let mut store_spans = HashMap::default();
+        let mut member_spans = HashMap::default();
         for e in body.blocks.iter().flat_map(|b| &b.events) {
             match e {
                 Event::Local {
@@ -228,6 +253,11 @@ impl<'a> Builder<'a> {
         }
         if let Some(syntax) = &body.syntax.body {
             jaic::ast::walk::walk(&syntax.stmts, &mut |node, _| {
+                if let Some(expr) = node.expr()
+                    && let jaic::ast::ExprKind::Member(base, member) = &expr.kind
+                {
+                    member_spans.insert(member.span, base.span);
+                }
                 if let Some(stmt) = node.stmt()
                     && let jaic::ast::StmtKind::Assign {
                         lhs,
@@ -242,17 +272,28 @@ impl<'a> Builder<'a> {
                 true
             });
         }
+        let boxed = boxed::holders(cx, body, places, &locals);
         Self {
             cx,
             summaries,
             locals,
+            boxed,
             parameters,
             returns,
             released_values,
             value_spans,
             store_spans,
+            member_spans,
             stack: body.stack_places.iter().copied().collect(),
         }
+    }
+
+    pub fn member_read_span(&self, span: Span) -> Span {
+        self.member_spans.get(&span).copied().unwrap_or(span)
+    }
+
+    pub fn result_place(&self, value: Val) -> bool {
+        self.returns.contains(&value)
     }
 
     pub fn resource_load(&self, value: Val) -> bool {
@@ -281,6 +322,7 @@ impl<'a> Builder<'a> {
                 ..
             } if cx.compiler.ty.types.is_pointer(*ty) => {
                 ops.push(Op::Seed {
+                    possible: false,
                     cell: cells.id(Cell::Value(*incoming)),
                     origin: Origin::Incoming,
                     span: *span,
@@ -295,6 +337,7 @@ impl<'a> Builder<'a> {
                 if let Some(scope) = self.locals.get(&places.paths[p].0.0).copied() {
                     if !places.unresolved(p) {
                         ops.push(Op::Seed {
+                            possible: false,
                             cell: cells.id(Cell::Value(*place)),
                             origin: Origin::Stack(scope),
                             span: *span,
@@ -303,6 +346,7 @@ impl<'a> Builder<'a> {
                 } else if self.parameters.contains(place) {
                     // The address is that of the callee's by-value parameter copy.
                     ops.push(Op::Seed {
+                        possible: false,
                         cell: cells.id(Cell::Value(*place)),
                         origin: Origin::Stack(ScopeId(u32::MAX)),
                         span: *span,
@@ -328,6 +372,7 @@ impl<'a> Builder<'a> {
                     && let Some(scope) = self.locals.get(&places.paths[p].0.0).copied()
                 {
                     ops.push(Op::Seed {
+                        possible: false,
                         cell: cells.id(Cell::Place(places.place(*value, *to))),
                         origin: Origin::Stack(scope),
                         span: *span,
@@ -352,6 +397,7 @@ impl<'a> Builder<'a> {
                     )
                 {
                     ops.push(Op::Seed {
+                        possible: false,
                         cell: cells.id(Cell::Value(*value)),
                         origin: Origin::Stack(scope),
                         span: *span,
@@ -381,6 +427,7 @@ impl<'a> Builder<'a> {
                     && !places.unresolved(p)
                 {
                     ops.push(Op::Seed {
+                        possible: false,
                         cell: cells.id(Cell::Value(*value)),
                         origin: Origin::Stack(scope),
                         span: self
@@ -398,19 +445,10 @@ impl<'a> Builder<'a> {
                 temporary,
                 span,
             } => {
-                let p = places.place(*place, *ty);
-                let origin = if *temporary {
-                    Some(Origin::Statement(*span))
-                } else {
-                    self.locals
-                        .get(&places.paths[p].0.0)
-                        .copied()
-                        .or_else(|| self.parameters.contains(place).then_some(ScopeId(u32::MAX)))
-                        .filter(|_| !places.unresolved(p))
-                        .map(Origin::Stack)
-                };
+                let origin = boxed::origin(self, places, *value, *place, *ty, *temporary, *span);
                 if let Some(origin) = origin {
                     ops.push(Op::Seed {
+                        possible: false,
                         cell: cells.id(Cell::Place(places.place(*value, TypeId::ANY))),
                         origin,
                         span: *span,
@@ -462,6 +500,14 @@ impl<'a> Builder<'a> {
                         pointer: places.unresolved(p),
                         target: cells.id(Cell::Place(p)),
                         store: true,
+                        parameter_target: self.defers_temporary(event, resolver),
+                        temporary_target: places.unresolved(p)
+                            && (resolver
+                                .value(*place, &self.summaries.procs)
+                                .is_some_and(|p| p.root == Root::Temporary)
+                                || resolver
+                                    .value(places.paths[p].0.0, &self.summaries.procs)
+                                    .is_some_and(|p| p.root == Root::Temporary)),
                     });
                 }
             }
@@ -527,7 +573,14 @@ fn analyze(cx: &Cx) -> Reports {
         .get_or_init(|| Summaries::build_for(cx.compiler, &cx.run.lifetime_files));
     let mut bodies: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
     bodies.sort_by_key(|b| b.procedure.0);
-    let mut checked_bodies = 0;
+    let mut checked = HashSet::default();
+    let contracts = cx
+        .compiler
+        .pr
+        .procs
+        .iter()
+        .filter(|p| p.span.file == cx.file && !p.is_poly && p.lit.body.is_none())
+        .count();
     let mut cfgs = 0;
     let mut bytes = 0;
     let mut rejected = BTreeMap::<&str, usize>::new();
@@ -538,11 +591,24 @@ fn analyze(cx: &Cx) -> Reports {
             if p.is_poly || p.is_macro {
                 continue;
             }
-            checked_bodies += 1;
+            if p.lit.body.is_none() {
+                continue;
+            }
+            if !checked.insert(id) {
+                continue;
+            }
             if !facts.lifetime_bodies.contains_key(&id) {
+                if jacket_config::env::LIFETIME_STATS.is_set() {
+                    eprintln!(
+                        "lifetime-body-rejection {}",
+                        serde_json::json!({"file":cx.compiler.src.sources.get(cx.file).path.to_string(),"name":p.name.as_str(),"start":p.span.start,"end":p.span.end,"state":format!("{:?}",p.body_state),"instance":p.bindings.is_some()})
+                    );
+                }
                 *rejected
                     .entry(if p.body_state == BodyState::Done {
                         "missing-sidecar"
+                    } else if p.body_state == BodyState::NotNeeded && p.bindings.is_some() {
+                        "unselected-overload-instance"
                     } else {
                         "failed-or-unchecked"
                     })
@@ -550,6 +616,8 @@ fn analyze(cx: &Cx) -> Reports {
             }
         }
     }
+    checked.extend(bodies.iter().map(|body| body.procedure));
+    let checked_bodies = checked.len();
     let mut solved = 0;
     for body in bodies {
         let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
@@ -558,11 +626,39 @@ fn analyze(cx: &Cx) -> Reports {
             continue;
         }
         cfgs += 1;
+        let trace = jacket_config::env::LIFETIME_STATS.is_set()
+            && body.blocks.iter().map(|b| b.events.len()).sum::<usize>() > 5000;
+        let started = std::time::Instant::now();
+        if trace {
+            eprintln!(
+                "lifetime-resource-body begin file={} proc={} name={} events={}",
+                cx.compiler.src.sources.get(cx.file).path,
+                body.procedure.0,
+                proc.name,
+                body.blocks.iter().map(|b| b.events.len()).sum::<usize>()
+            );
+        }
         bytes += body.vector_bytes();
         let mut places = Places::new(cx.compiler, body);
+        if trace {
+            eprintln!(
+                "lifetime-resource-body places proc={} wall_ms={:.3}",
+                body.procedure.0,
+                started.elapsed().as_secs_f64() * 1000.0
+            );
+        }
         let mut cells = Cells::default();
         let mut chains = HashMap::default();
         let blocks = build(cx, body, &mut places, &mut cells, summaries, &mut chains);
+        if trace {
+            eprintln!(
+                "lifetime-resource-body cfg proc={} blocks={} cells={} wall_ms={:.3}",
+                body.procedure.0,
+                blocks.len(),
+                cells.ids.len(),
+                started.elapsed().as_secs_f64() * 1000.0
+            );
+        }
         let mut forward = vec![Vec::new(); cells.ids.len()];
         for block in &blocks {
             match &block.op {
@@ -575,111 +671,14 @@ fn analyze(cx: &Cx) -> Reports {
                 _ => {}
             }
         }
-        let mut safe_addresses = HashSet::default();
-        for e in body.blocks.iter().flat_map(|b| &b.events) {
-            if let Event::Call {
-                callee,
-                args,
-                ..
-            } = e
-                && let Some(summary) = summaries.procs.get(callee)
-            {
-                for arg in args {
-                    if !summary.unknown_write.contains(&arg.formal)
-                        && !summary.escapes.contains(&arg.formal)
-                        && summary.guaranteed.keys().any(|e| {
-                            e.kind == EffectKind::Free
-                                && e.target.root == Root::Parameter(arg.formal)
-                        })
-                        && let LifetimeOperand::Value(value) = arg.operand
-                    {
-                        safe_addresses.insert((value, arg.span));
-                    }
-                }
-            }
+        let exposed = addresses::exposed(cx, body, summaries, &mut places);
+        if trace {
+            eprintln!(
+                "lifetime-resource-body addresses proc={} wall_ms={:.3}",
+                body.procedure.0,
+                started.elapsed().as_secs_f64() * 1000.0
+            );
         }
-        for event in body.blocks.iter().flat_map(|b| &b.events) {
-            if let Event::IndirectCall {
-                callee,
-                args,
-                allocator: false,
-                ..
-            } = event
-            {
-                let targets = summaries.targets.get(body.procedure, *callee);
-                for arg in args {
-                    if (!targets.unknown || cx.lifetime_mode == jacket_config::LifetimeMode::Strict)
-                        && let LifetimeOperand::Value(v) = arg.operand
-                    {
-                        safe_addresses.insert((v, arg.span));
-                    }
-                }
-            }
-            if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
-                && let Event::Call {
-                    args, ..
-                } = event
-            {
-                for arg in args {
-                    if let LifetimeOperand::Value(v) = arg.operand {
-                        safe_addresses.insert((v, arg.span));
-                    }
-                }
-            }
-        }
-        let mut read_only_addresses = HashSet::default();
-        let mut uncertain_addresses = HashSet::default();
-        let resolver = Resolver::new(cx.compiler, body, &summaries.procs, &summaries.targets);
-        for event in body.blocks.iter().flat_map(|b| &b.events) {
-            let (Event::Call {
-                args,
-                expands: false,
-                ..
-            }
-            | Event::IndirectCall {
-                args, ..
-            }) = event
-            else {
-                continue;
-            };
-            let targets = resolver.call_targets(event);
-            for arg in args {
-                if let LifetimeOperand::Value(v) = arg.operand
-                    && let Some(p) = resolver.stored_address(v, &mut HashSet::default())
-                {
-                    let p = places.import(&resolver.places, p);
-                    if !targets.unknown
-                        && targets.procedures.iter().all(|p| {
-                            summaries
-                                .procs
-                                .get(p)
-                                .is_some_and(|s| !s.unknown_write.contains(&arg.formal))
-                        })
-                    {
-                        read_only_addresses.insert(p);
-                    } else {
-                        uncertain_addresses.insert(p);
-                    }
-                }
-            }
-        }
-        let exposed = body
-            .blocks
-            .iter()
-            .flat_map(|b| &b.events)
-            .filter_map(|e| match e {
-                Event::Address {
-                    place,
-                    ty,
-                    span,
-                } if !safe_addresses.contains(&(*place, *span)) => {
-                    let p = places.place(*place, *ty);
-                    (!read_only_addresses.contains(&p) || uncertain_addresses.contains(&p))
-                        .then_some(p)
-                }
-                _ => None,
-            })
-            .collect();
         let model = Model {
             places,
             cells,
@@ -689,7 +688,14 @@ fn analyze(cx: &Cx) -> Reports {
             chains,
         };
         let observable = quiescent::observable(&model);
+        let covered = quiescent::covered_loads(&model);
+        let mut traced_candidates = 0;
         for (candidate, block) in model.blocks.iter().enumerate() {
+            if covered[candidate] {
+                solved += 1;
+                reports.covered_fresh_loads += 1;
+                continue;
+            }
             if matches!(
                 block.op,
                 CfgOp::Resource(Op::Seed { .. })
@@ -698,7 +704,9 @@ fn analyze(cx: &Cx) -> Reports {
                     | CfgOp::ElementBorrow(..)
             ) {
                 if let Some((_, _, _, Some(region))) = self::candidate(block) {
-                    let reason = if model.places.unresolved(region) {
+                    let reason = if model.places.unresolved(region)
+                        && !model.places.stable_projection(region)
+                    {
                         Some("indirect-region")
                     } else if model
                         .exposed
@@ -714,6 +722,18 @@ fn analyze(cx: &Cx) -> Reports {
                         continue;
                     }
                 }
+                if trace {
+                    traced_candidates += 1;
+                    if traced_candidates < 10 || traced_candidates % 100 == 0 {
+                        eprintln!(
+                            "lifetime-resource-body candidate proc={} candidate={} ordinal={} wall_ms={:.3}",
+                            body.procedure.0,
+                            candidate,
+                            traced_candidates,
+                            started.elapsed().as_secs_f64() * 1000.0
+                        );
+                    }
+                }
                 solved += usize::from(solve(
                     cx,
                     body,
@@ -723,6 +743,14 @@ fn analyze(cx: &Cx) -> Reports {
                     &mut reports,
                 ));
             }
+        }
+        if trace {
+            eprintln!(
+                "lifetime-resource-body end proc={} candidates={} wall_ms={:.3}",
+                body.procedure.0,
+                traced_candidates,
+                started.elapsed().as_secs_f64() * 1000.0
+            );
         }
     }
     for findings in [
@@ -741,7 +769,7 @@ fn analyze(cx: &Cx) -> Reports {
             entries
         };
         eprintln!(
-            "lifetime-resource-stats file={} bodies={checked_bodies} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?} use_after_free={} double_free={} stack_escapes={} temp_escapes={} external_primary={} fast_quiet={}",
+            "lifetime-resource-stats file={} bodies={checked_bodies} contracts={contracts} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?} use_after_free={} double_free={} stack_escapes={} temp_escapes={} external_primary={} fast_quiet={} covered_fresh_loads={}",
             cx.compiler.src.sources.get(cx.file).path,
             rank(rejected),
             rank(rejected_candidates),
@@ -750,7 +778,8 @@ fn analyze(cx: &Cx) -> Reports {
             reports.returned_local_address.len(),
             reports.temp_storage_escape.len(),
             reports.external_primary,
-            reports.fast_quiet
+            reports.fast_quiet,
+            reports.covered_fresh_loads
         );
     }
     reports
@@ -782,6 +811,7 @@ fn candidate(block: &Block) -> Option<(usize, Origin, Span, Option<usize>)> {
             cell,
             origin,
             span,
+            ..
         }) => Some((cell, origin, span, None)),
         CfgOp::PointerLoad(cell, _, region, span) => {
             Some((cell, Origin::Incoming, span, Some(region)))
@@ -792,6 +822,21 @@ fn candidate(block: &Block) -> Option<(usize, Origin, Span, Option<usize>)> {
         _ => None,
     }
 }
+
+fn seed_state(op: &CfgOp) -> u8 {
+    if matches!(
+        op,
+        CfgOp::Resource(Op::Seed {
+            possible: true,
+            ..
+        })
+    ) {
+        LIVE | UNKNOWN
+    } else {
+        LIVE
+    }
+}
+
 
 fn solve(
     cx: &Cx,
@@ -828,7 +873,10 @@ fn solve(
     if !model.blocks.iter().any(|b| match b.op {
         CfgOp::Use(cell, _)
         | CfgOp::Resource(
-            Op::Free {
+            Op::Read {
+                cell, ..
+            }
+            | Op::Free {
                 cell, ..
             }
             | Op::FreeRegion {
@@ -852,6 +900,26 @@ fn solve(
         out.fast_quiet += 1;
         return true;
     }
+    let exposed: Vec<_> = if model.exposed.is_empty() {
+        Vec::new()
+    } else {
+        model
+            .cells
+            .ids
+            .iter()
+            .filter_map(|(key, &id)| {
+                let dense = index(id)?;
+                let Cell::Place(p) = key else {
+                    return None;
+                };
+                model
+                    .exposed
+                    .iter()
+                    .any(|&a| model.places.contains(a, *p))
+                    .then_some(dense)
+            })
+            .collect()
+    };
     let width = relevant.len();
     let born = width * 2;
     let tokens = retained::tokens(model, born + 1);
@@ -873,7 +941,7 @@ fn solve(
                 }
                 if let Some(target) = index(*target) {
                     state[target] = if i == seed {
-                        LIVE
+                        seed_state(&model.blocks[seed].op)
                     } else {
                         UNKNOWN
                     };
@@ -915,10 +983,9 @@ fn solve(
                 }
             }
             CfgOp::Replace(place) => {
-                for (key, &id) in &model.cells.ids {
-                    if let Cell::Place(p) = key
-                        && model.places.contains(*place, *p)
-                        && let Some(cell) = index(id)
+                for p in std::iter::once(*place).chain(model.places.descendants(*place)) {
+                    if let Some(&cell) = model.cells.ids.get(&Cell::Place(p))
+                        && let Some(cell) = index(cell)
                     {
                         state[cell] = UNKNOWN;
                     }
@@ -965,13 +1032,8 @@ fn solve(
             CfgOp::Task(op) => retained::transfer(cx, op, &tokens, &index, &mut state),
             _ => {}
         }
-        for (key, &id) in &model.cells.ids {
-            if let Cell::Place(p) = key
-                && model.exposed.iter().any(|&a| model.places.contains(a, *p))
-                && let Some(id) = index(id)
-            {
-                state[id] = UNKNOWN;
-            }
+        for &id in &exposed {
+            state[id] = UNKNOWN;
         }
         for &next in &model.blocks[i].next {
             let mut outgoing = state.clone();

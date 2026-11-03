@@ -121,6 +121,10 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); p
 warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element it refers to along a bad path; this procedure value includes Unknown (strict mode assumes argument-reachable invalidation); shortest bad path shown (0 other bad paths); unknown or foreign code may invalidate storage reachable from its arguments
    --> tests/lint/pointer_lifetime/strict/calls.jai:94:10
     |
+  3 | grow :: (xs: *[..] int) {} @GrowsArray
+    |         ------------------ possible procedure target
+    |         ------------------ invalidation inferred through this call
+    ...
  92 |     p := *xs[0];
     |          ------ pointer derived here
  93 |     global_function(*xs);

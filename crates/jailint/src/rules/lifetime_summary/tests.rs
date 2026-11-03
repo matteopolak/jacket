@@ -127,3 +127,75 @@ fn prefix_compaction_preserves_independent_allocation_effects() {
         );
     }
 }
+
+#[test]
+fn intrinsic_memory_and_vector_search_have_no_release_effects() {
+    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let mut options = Options::host();
+    options.import_paths = vec![stdlib.clone()];
+    options.set_stdlib(&NativeFs, &stdlib);
+    let mut c = Compiler::new(options, Rc::new(NativeFs));
+    let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+    facts.lint = true;
+    c.ed.record(facts);
+    c.begin_sources(&[ProgramSource::String("#import \"Basic\"; #import \"String\"; probe_search :: (s: string) -> int { return find_index_from_left(s, #char \"x\"); }".into())]).unwrap();
+    c.finish_program().unwrap();
+    let _ = c.ide_check_all();
+    let summaries = Summaries::build(&c);
+    let (id, _) =
+        c.pr.procs
+            .iter()
+            .enumerate()
+            .find(|(_, p)| p.name.as_str() == "probe_search")
+            .unwrap();
+    let bad: Vec<_> = summaries.procs[&ProcId(id as u32)]
+        .may
+        .iter()
+        .filter(|(e, _)| matches!(e.kind, Kind::Free | Kind::Unknown))
+        .map(|(e, chain)| {
+            (
+                e,
+                chain
+                    .iter()
+                    .map(|s| {
+                        if *s == Span::NONE {
+                            "...".to_owned()
+                        } else {
+                            c.src.sources.snippet(*s).to_owned()
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect();
+    assert!(bad.is_empty(), "{bad:#?}");
+}
+
+#[test]
+fn pointee_resources_preserve_distinct_header_ownership() {
+    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let mut options = Options::host();
+    options.import_paths = vec![stdlib.clone()];
+    options.set_stdlib(&NativeFs, &stdlib);
+    let mut c = Compiler::new(options, Rc::new(NativeFs));
+    let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+    facts.lint = true;
+    c.ed.record(facts);
+    c.begin_sources(&[ProgramSource::String("release_handle :: (value: s32) {} @FreesArgument\nrelease_field :: (value: *s32) { release_handle(value.*); }".into())]).unwrap();
+    c.finish_program().unwrap();
+    let _ = c.ide_check_all();
+    let summaries = Summaries::build(&c);
+    let id =
+        c.pr.procs
+            .iter()
+            .position(|p| p.name.as_str() == "release_field")
+            .unwrap();
+    let summary = &summaries.procs[&ProcId(id as u32)];
+    assert!(
+        summary
+            .guaranteed
+            .keys()
+            .any(|e| e.kind == Kind::Free && e.target.steps == [Step::Deref]),
+        "{summary:?}"
+    );
+}

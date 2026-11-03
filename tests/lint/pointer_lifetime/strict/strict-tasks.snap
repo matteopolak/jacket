@@ -1,7 +1,7 @@
 ---
 source: crates/jailint/tests/rules.rs
 ---
-warning[use_after_free]: storage ends while a started borrower may still read it; shortest retained-borrow path shown (0 other bad paths from this start)
+warning[use_after_free]: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
   --> tests/lint/pointer_lifetime/strict/tasks.jai:33:5
    |
 28 |     p := make();
@@ -37,7 +37,7 @@ warning[returned_local_address]: storage ends while a started borrower may still
    |
    = help: keep the receiver alive until borrower deinitialization
 
-warning[use_after_free]: strict mode: storage ends while a started borrower may still read it; shortest retained-borrow path shown (0 other bad paths from this start)
+warning[use_after_free]: strict mode: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
   --> tests/lint/pointer_lifetime/strict/tasks.jai:90:5
    |
 85 |     p := make();
@@ -50,7 +50,7 @@ warning[use_after_free]: strict mode: storage ends while a started borrower may 
    |
    = help: wait for successful borrower completion before releasing captured storage
 
-warning[use_after_free]: storage ends while a started borrower may still read it; shortest retained-borrow path shown (0 other bad paths from this start)
+warning[use_after_free]: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
    --> tests/lint/pointer_lifetime/strict/tasks.jai:104:5
     |
  99 |     p := make();
@@ -63,7 +63,7 @@ warning[use_after_free]: storage ends while a started borrower may still read it
     |
     = help: wait for successful borrower completion before releasing captured storage
 
-warning[use_after_free]: strict mode: storage ends while a started borrower may still read it; shortest retained-borrow path shown (0 other bad paths from this start)
+warning[use_after_free]: strict mode: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
    --> tests/lint/pointer_lifetime/strict/tasks.jai:120:5
     |
 115 |     p := make();

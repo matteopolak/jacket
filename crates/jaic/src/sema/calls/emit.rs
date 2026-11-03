@@ -66,6 +66,7 @@ impl Compiler {
                 .calls
                 .push(crate::ide::lifetimes::LifetimeCallRecording {
                     args: mapped,
+                    memory: None,
                     parameter_spans: header.params.iter().map(|p| p.span).collect(),
                 });
         }
@@ -73,7 +74,9 @@ impl Compiler {
         let result = self.emit_call_inner(f, scope, c, args, span);
         if lifetime_call && let Some(record) = &mut f.lifetimes {
             use crate::ide::lifetimes::{LifetimeEvent, LifetimeOperand};
-            let args = record.calls.pop().expect("selected call frame").args;
+            let call = record.calls.pop().expect("selected call frame");
+            let memory = call.memory;
+            let args = call.args;
             if result.is_ok() {
                 if grows
                     && let Some(arg) = args.iter().find(|a| a.formal == 0)
@@ -93,6 +96,7 @@ impl Compiler {
                     f.b.current,
                     LifetimeEvent::Call {
                         callee: proc,
+                        memory,
                         args,
                         span,
                         expands: is_macro,

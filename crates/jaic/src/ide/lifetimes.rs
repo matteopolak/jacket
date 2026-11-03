@@ -59,6 +59,16 @@ pub struct LifetimeArgument {
     pub spread: bool,
 }
 
+/// Effects of the memory intrinsic actually selected by lowering, not an opaque callee.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LifetimeMemoryEffects {
+    /// Bit masks over runtime formal positions. These operations cannot release allocations.
+    pub reads: u8,
+    pub writes: u8,
+    /// A zero byte count performs no memory access; absent for fixed-width atomics.
+    pub count: Option<u8>,
+}
+
 #[derive(Clone, Debug)]
 pub enum LifetimeEvent {
     /// Runtime context selection, including caller-owned conditional macro defers.
@@ -92,6 +102,12 @@ pub enum LifetimeEvent {
         span: Span,
     },
     Address {
+        place: Val,
+        ty: TypeId,
+        span: Span,
+    },
+    /// A default image (including zero initialization) replaces this storage now.
+    Initialize {
         place: Val,
         ty: TypeId,
         span: Span,
@@ -210,6 +226,7 @@ pub enum LifetimeEvent {
     },
     Call {
         callee: ProcId,
+        memory: Option<LifetimeMemoryEffects>,
         args: Vec<LifetimeArgument>,
         span: Span,
         expands: bool,
@@ -341,6 +358,7 @@ pub(crate) struct LifetimeRecording {
 
 pub(crate) struct LifetimeCallRecording {
     pub args: Vec<LifetimeArgument>,
+    pub memory: Option<LifetimeMemoryEffects>,
     pub parameter_spans: Vec<Span>,
 }
 
@@ -382,11 +400,15 @@ impl Compiler {
             return;
         };
         let operand = LifetimeOperand::of(op);
+        let entity_span = match &expr.kind {
+            E::Member(_, member) => member.span,
+            _ => expr.span,
+        };
         let entity = self
             .ed
             .facts()
             .and_then(|i| i.last_entity)
-            .filter(|(at, _)| *at == expr.span)
+            .filter(|(at, _)| *at == entity_span)
             .map(|(_, id)| id);
         let block = f.b.current;
         if matches!(operand, LifetimeOperand::Place(_)) || self.ty.types.is_pointer(op.ty()) {
@@ -691,18 +713,34 @@ impl Compiler {
 
 
 impl LifetimeRecording {
-    /// Internal activation slots cannot alias user memory. Propagate only these flags so
-    /// an unconditionally registered caller-owned macro defer keeps its must edge.
+    /// Propagate activation flags and unaliased byte locals through cleanup branches.
+    /// A slot whose address escapes, is aliased, or is accessed at another width is excluded.
     fn prune_cleanup_edges(&mut self, func: &ir::Func, constants: &HashMap<Val, u64>) {
-        if self.cleanup_flags.is_empty() {
+        let mut flags: Vec<_> = self.cleanup_flags.iter().copied().collect();
+        let bool_places: HashSet<_> = self
+            .blocks
+            .iter()
+            .flat_map(|b| &b.events)
+            .filter_map(|e| match e {
+                LifetimeEvent::Local {
+                    place,
+                    ty: TypeId::BOOL,
+                    ..
+                } => Some(*place),
+                _ => None,
+            })
+            .collect();
+        flags.extend(
+            private_byte_flags(func)
+                .into_iter()
+                .filter(|v| bool_places.contains(v)),
+        );
+        flags.sort_unstable_by_key(|v| v.0);
+        flags.dedup();
+        if flags.is_empty() {
             return;
         }
-        let slots: HashMap<_, _> = self
-            .cleanup_flags
-            .iter()
-            .enumerate()
-            .map(|(i, &v)| (v, i))
-            .collect();
+        let slots: HashMap<_, _> = flags.into_iter().enumerate().map(|(i, v)| (v, i)).collect();
         let mut states = vec![None; self.blocks.len()];
         states[0] = Some(vec![1u8; slots.len()]);
         let mut queue = std::collections::VecDeque::from([0]);
@@ -777,6 +815,51 @@ impl FnCtx {
     }
 }
 
+// Only direct, uniquely addressed one-byte slots can be propagated without alias analysis.
+fn private_byte_flags(func: &ir::Func) -> Vec<Val> {
+    let mut addresses = HashMap::<ir::SlotId, Vec<Val>>::default();
+    for inst in func.blocks.iter().flat_map(|b| &b.insts) {
+        if let ir::Inst::SlotAddr {
+            dst,
+            slot,
+        } = inst
+            && func.slots[slot.0 as usize].size == 1
+        {
+            addresses.entry(*slot).or_default().push(*dst);
+        }
+    }
+    let mut flags: HashSet<_> = addresses
+        .values()
+        .filter_map(|v| match v.as_slice() {
+            [v] => Some(*v),
+            _ => None,
+        })
+        .collect();
+    for block in &func.blocks {
+        for inst in &block.insts {
+            match inst {
+                ir::Inst::Load {
+                    ty: ir::Ty::I8, ..
+                } => {}
+                ir::Inst::Store {
+                    ty: ir::Ty::I8,
+                    value,
+                    ..
+                } => {
+                    flags.remove(value);
+                }
+                _ => ir::inst_vals(inst, &mut |_| {}, &mut |v| {
+                    flags.remove(&v);
+                }),
+            }
+        }
+        ir::term_uses(&block.term, &mut |v| {
+            flags.remove(&v);
+        });
+    }
+    flags.into_iter().collect()
+}
+
 fn cleanup_loads(
     insts: &[ir::Inst],
     state: &mut [u8],
@@ -804,6 +887,56 @@ fn cleanup_loads(
             } => {
                 if let Some(&slot) = slots.get(addr) {
                     loads.insert(*dst, state[slot]);
+                }
+            }
+            ir::Inst::Bin {
+                dst,
+                op: ir::BinOp::Xor,
+                ty: ir::Ty::I8,
+                a,
+                b,
+            } => {
+                let input = if constants.get(a) == Some(&1) {
+                    loads.get(b)
+                } else if constants.get(b) == Some(&1) {
+                    loads.get(a)
+                } else {
+                    None
+                };
+                if let Some(&v) = input {
+                    loads.insert(*dst, (v & 1) | ((v & 2) << 1) | ((v & 4) >> 1));
+                }
+            }
+            ir::Inst::Cmp {
+                dst,
+                op: ir::CmpOp::Eq | ir::CmpOp::Ne,
+                a,
+                b,
+                ..
+            } => {
+                let input = if constants.get(a) == Some(&0) {
+                    loads.get(b)
+                } else if constants.get(b) == Some(&0) {
+                    loads.get(a)
+                } else {
+                    None
+                };
+                if let Some(&value) = input {
+                    let inverted = matches!(
+                        inst,
+                        ir::Inst::Cmp {
+                            op: ir::CmpOp::Eq,
+                            ..
+                        }
+                    );
+                    loads.insert(
+                        *dst,
+                        if inverted {
+                            (value & 1) | ((value & 2) << 1) | ((value & 4) >> 1)
+                        } else {
+                            value
+                        },
+                    );
                 }
             }
             _ => {}

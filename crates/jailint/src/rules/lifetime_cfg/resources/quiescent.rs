@@ -18,7 +18,7 @@ pub(super) fn observable(model: &Model) -> Vec<bool> {
                 b.op,
                 CfgOp::Use(..)
                     | CfgOp::Task(Task::Start { .. })
-                    | CfgOp::Resource(Op::Free { .. } | Op::FreeRegion { .. })
+                    | CfgOp::Resource(Op::Read { .. } | Op::Free { .. } | Op::FreeRegion { .. })
             )
             .then_some(i)
         })
@@ -82,4 +82,31 @@ pub(super) fn quiet(
         }
         kills(cx, op, kind, region, &possible, &index)
     })
+}
+
+/// An allocation result's immediate self-load is already covered by its fresh seed.
+/// Giving that load a second, incoming region would merge successive loop generations.
+pub(super) fn covered_loads(model: &Model) -> Vec<bool> {
+    let mut incoming = vec![0usize; model.blocks.len()];
+    for block in &model.blocks {
+        for &to in &block.next {
+            incoming[to] += 1;
+        }
+    }
+    let mut covered = vec![false; model.blocks.len()];
+    for (i, pair) in model.blocks.windows(2).enumerate() {
+        if let CfgOp::Resource(Op::Seed {
+            cell,
+            origin: Origin::Heap | Origin::Temporary,
+            possible: false,
+            ..
+        }) = pair[0].op
+            && pair[0].next.as_slice() == [i + 1]
+            && incoming[i + 1] == 1
+            && matches!(pair[1].op, CfgOp::PointerLoad(target, source, ..) if target == cell && source == cell)
+        {
+            covered[i + 1] = true;
+        }
+    }
+    covered
 }

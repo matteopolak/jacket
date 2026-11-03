@@ -170,6 +170,18 @@ impl Compiler {
         addr: ir::Val,
         span: Span,
     ) -> Result<()> {
+        if !f.type_only
+            && let Some(record) = &mut f.lifetimes
+        {
+            record.push(
+                f.b.current,
+                crate::ide::lifetimes::LifetimeEvent::Initialize {
+                    place: addr,
+                    ty,
+                    span,
+                },
+            );
+        }
         let size = self.size_of(ty, span)?;
         match self.default_initializer(ty, span)? {
             None => f.b.zero(addr, size),

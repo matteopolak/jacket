@@ -227,6 +227,11 @@ impl Compiler {
             f.b.switch_to(ready);
             values.push(f.b.iconst(Ty::I64, width));
         }
+        if !f.type_only
+            && let Some(call) = f.lifetimes.as_mut().and_then(|r| r.calls.last_mut())
+        {
+            call.memory = intrinsic_memory_effects(op);
+        }
         let results = f.b.intrinsic(op, values, &returns);
         let outs = vec![None; sig.returns.len()];
         Ok(self.call_results(f, &sig.returns, results, outs, &sig.return_callables))
@@ -436,5 +441,61 @@ impl Compiler {
             } => Ok(w as u8),
             _ => err(Code::CallIntrinsicWidth, arg.span, bad()),
         }
+    }
+}
+
+fn intrinsic_memory_effects(
+    op: ir::Intrinsic,
+) -> Option<crate::ide::lifetimes::LifetimeMemoryEffects> {
+    use crate::ide::lifetimes::LifetimeMemoryEffects as Memory;
+    match op {
+        ir::Intrinsic::FiberFree => Some(Memory {
+            reads: 0,
+            writes: 0,
+            count: None,
+        }),
+        ir::Intrinsic::Memcpy => Some(Memory {
+            reads: 0b10,
+            writes: 0b1,
+            count: Some(2),
+        }),
+        ir::Intrinsic::Memset => Some(Memory {
+            reads: 0,
+            writes: 0b1,
+            count: Some(2),
+        }),
+        ir::Intrinsic::Memcmp => Some(Memory {
+            reads: 0b11,
+            writes: 0,
+            count: Some(2),
+        }),
+        ir::Intrinsic::ByteLookup(_) => Some(Memory {
+            reads: 0b110,
+            writes: 0b1,
+            count: Some(3),
+        }),
+        ir::Intrinsic::SignMask(_) => Some(Memory {
+            reads: 0b1,
+            writes: 0,
+            count: Some(1),
+        }),
+        ir::Intrinsic::AtomicLoad(_) => Some(Memory {
+            reads: 0b1,
+            writes: 0,
+            count: None,
+        }),
+        ir::Intrinsic::AtomicStore(_) => Some(Memory {
+            reads: 0,
+            writes: 0b1,
+            count: None,
+        }),
+        ir::Intrinsic::CompareAndSwap
+        | ir::Intrinsic::AtomicRmw(..)
+        | ir::Intrinsic::AtomicCas(..) => Some(Memory {
+            reads: 0b1,
+            writes: 0b1,
+            count: None,
+        }),
+        _ => None,
     }
 }

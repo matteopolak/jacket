@@ -123,7 +123,7 @@ impl Builder<'_> {
                 if matches!(
                     effect.kind,
                     EffectKind::Free | EffectKind::Unknown | EffectKind::RestoreTemporary
-                ) && let Some(p) = resolver.materialize(&effect.target)
+                ) && let Some(p) = resolver.materialize_storage(&effect.target)
                 {
                     let region = places.import(&resolver.places, p);
                     if effect.kind == EffectKind::RestoreTemporary {
@@ -167,14 +167,14 @@ impl Builder<'_> {
             }
             if effect.kind == EffectKind::RestoreTemporary
                 && effect.guard.is_none()
-                && let Some(p) = resolver.materialize(&effect.target)
+                && let Some(p) = resolver.materialize_storage(&effect.target)
             {
                 let p = places.import(&resolver.places, p);
                 ops.push(Op::Restore(cells.id(Cell::Place(p)), *span));
             }
             if effect.kind == EffectKind::Free
                 && effect.guard.is_none()
-                && let Some(p) = resolver.materialize(&effect.target)
+                && let Some(p) = resolver.materialize_storage(&effect.target)
             {
                 let region = places.import(&resolver.places, p);
                 ops.push(Op::FreeRegion {
@@ -195,6 +195,7 @@ impl Builder<'_> {
                 });
             if let Some(origin) = origin {
                 ops.push(Op::Seed {
+                    possible: false,
                     cell: value_cell(cx, places, cells, value, ty),
                     origin,
                     span: *span,
@@ -224,7 +225,11 @@ impl Builder<'_> {
                 && let LifetimeOperand::Value(v) | LifetimeOperand::Place(v) = array.operand
             {
                 let ty = c.ty.types.pointee(array.ty).unwrap_or(array.ty);
-                let p = places.place(v, ty);
+                let p = if let Some(p) = resolver.object(array) {
+                    places.import(&resolver.places, p)
+                } else {
+                    places.place(v, ty)
+                };
                 if self.long_lived(places, p)
                     && let Some(cell) = operand_cell(cx, places, cells, value)
                 {
@@ -234,11 +239,16 @@ impl Builder<'_> {
                         pointer: places.unresolved(p),
                         target: cells.id(Cell::Place(p)),
                         store: false,
+                        parameter_target: self.defers_temporary(event, resolver),
+                        temporary_target: resolver
+                            .value(places.paths[p].0.0, &summaries.procs)
+                            .is_some_and(|p| p.root == Root::Temporary),
                     });
                 }
             }
         }
 
+        ops.extend(self.temporary_stores(event, places, cells, resolver));
         ops
     }
 }
@@ -272,6 +282,7 @@ impl Builder<'_> {
                 };
                 if let Some(origin) = origin {
                     ops.push(Op::Seed {
+                        possible: false,
                         cell: value_cell(cx, places, cells, value, ty),
                         origin,
                         span: *span,

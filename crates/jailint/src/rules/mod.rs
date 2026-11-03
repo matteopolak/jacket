@@ -315,23 +315,29 @@ fn note_or_inferred_release(cx: &Cx, proc: ProcId, note: &str) -> bool {
     if has_note(cx, proc, note) {
         return true;
     }
-    note == "FreesArgument"
-        && cx
-            .run
-            .lifetimes
-            .get_or_init(|| {
-                lifetime_summary::Summaries::build_for(cx.compiler, &cx.run.lifetime_files)
-            })
-            .procs
-            .get(&proc)
-            .is_some_and(|s| {
-                s.guaranteed.keys().any(|e| {
-                    e.kind == lifetime_summary::Kind::Free
-                        && e.guard.is_none()
-                        && e.target.root == lifetime_summary::Root::Parameter(0)
-                        && e.target.steps.is_empty()
-                })
-            })
+    if note != "FreesArgument" {
+        return false;
+    }
+    let summaries = cx.run.lifetimes.get_or_init(|| {
+        lifetime_summary::Summaries::build_for(cx.compiler, &cx.run.lifetime_files)
+    });
+    let releases = |s: &lifetime_summary::Summary| {
+        s.may.keys().any(|e| {
+            e.kind == lifetime_summary::Kind::Free
+                && e.target.root == lifetime_summary::Root::Parameter(0)
+        })
+    };
+    if let Some(summary) = summaries.procs.get(&proc) {
+        return releases(summary);
+    }
+    // Imported polymorphic headers are outside the source index of this file.
+    // Their actual checked instances still carry the selected cleanup summaries.
+    let checked: Vec<_> = cx.compiler.pr.procs[proc.0 as usize]
+        .instances
+        .values()
+        .filter_map(|p| summaries.procs.get(p))
+        .collect();
+    !checked.is_empty() && checked.into_iter().all(releases)
 }
 
 /// Some statement inside `stmt` (itself included, nested procedures not entered) satisfies `f`.

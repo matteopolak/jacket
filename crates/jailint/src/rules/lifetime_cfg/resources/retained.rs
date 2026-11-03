@@ -170,7 +170,7 @@ pub(super) fn emit(proof: Proof<'_>, tokens: &HashMap<Token, usize>, out: &mut R
                     if token.header {
                         "retain its receiver"
                     } else {
-                        "read it"
+                        "access it"
                     }
                 ),
                 Some(

@@ -44,6 +44,7 @@ enum Op {
     Decision(Span, usize, usize, Option<tasks::Token>),
     Indirect(super::lifetime_targets::Set, Span),
     Use(usize, Span),
+    ObserveValue(usize, Span),
     Borrow(usize, usize, Span),
     ElementBorrow(usize, usize, Selector, Option<i128>, Span),
     LogicalBorrow(usize, usize, Selector, Option<i128>, Span),
@@ -102,12 +103,16 @@ enum Cell {
 #[derive(Default)]
 struct Cells {
     ids: HashMap<Cell, usize>,
+    values: Vec<Cell>,
 }
 
 impl Cells {
     fn id(&mut self, key: Cell) -> usize {
         let n = self.ids.len();
-        *self.ids.entry(key).or_insert(n)
+        *self.ids.entry(key).or_insert_with(|| {
+            self.values.push(key);
+            n
+        })
     }
 }
 
@@ -141,7 +146,14 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
     };
     let mut cfgs = 0;
     let mut solved = 0;
-    let mut bodies = 0;
+    let mut checked = HashSet::default();
+    let contracts = cx
+        .compiler
+        .pr
+        .procs
+        .iter()
+        .filter(|p| p.span.file == cx.file && !p.is_poly && p.lit.body.is_none())
+        .count();
     let mut rejected = BTreeMap::<&str, usize>::new();
     let mut rejected_candidates = BTreeMap::<&str, usize>::new();
     for site in &cx.procs {
@@ -150,10 +162,17 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
             if proc.is_poly || proc.is_macro {
                 continue;
             }
-            bodies += 1;
+            if proc.lit.body.is_none() {
+                continue;
+            }
+            if !checked.insert(id) {
+                continue;
+            }
             if !facts.lifetime_bodies.contains_key(&id) {
                 let reason = if proc.body_state == BodyState::Done {
                     "missing-sidecar"
+                } else if proc.body_state == BodyState::NotNeeded && proc.bindings.is_some() {
+                    "unselected-overload-instance"
                 } else {
                     "failed-or-unchecked"
                 };
@@ -169,6 +188,8 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
     // Hash iteration order must not affect the order of diagnostics.
     let mut selected: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
     selected.sort_by_key(|b| b.procedure.0);
+    checked.extend(selected.iter().map(|body| body.procedure));
+    let bodies = checked.len();
     for body in selected {
         let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
         let Some(syntax) = &body.syntax.body else {
@@ -214,25 +235,29 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                     callee,
                     args,
                     ..
-                } if summaries
-                    .procs
-                    .get(callee)
-                    .is_some_and(|s| !s.may.is_empty() || !s.returns.is_empty()) =>
+                } if summaries.procs.contains_key(callee)
+                    && (cx.compiler.pr.procs[callee.0 as usize].lit.body.is_some()
+                        || summaries.procs[callee].memory.is_some()
+                        || cx.compiler.proc_has_note(*callee, "NoLifetimeEffects")
+                        || !summaries.procs[callee].may.is_empty()
+                        || !summaries.procs[callee].returns.is_empty()) =>
                 {
+                    let summary = &summaries.procs[callee];
                     for arg in args.iter().filter(|a| {
-                        if summaries.procs[callee].unknown_write.contains(&a.formal) {
-                            return false;
-                        }
-
-                        summaries.procs[callee].may.keys().any(|e| {
-                            matches!(e.kind, Kind::Resize | Kind::Mutation(_))
-                                && e.target.root == Root::Parameter(a.formal)
-                        }) || summaries.procs[callee].returns.values().any(|(p, _)| {
-                            p.root == Root::Parameter(a.formal)
-                                && p.steps
-                                    .iter()
-                                    .any(|s| matches!(s, Step::Storage | Step::Deref))
-                        })
+                        !summary.unknown_write.contains(&a.formal)
+                            && (summary.may.keys().any(|e| {
+                                matches!(e.kind, Kind::Resize | Kind::Mutation(_))
+                                    && e.target.root == Root::Parameter(a.formal)
+                            }) || summary.returns.values().any(|(p, _)| {
+                                p.root == Root::Parameter(a.formal)
+                                    && p.steps
+                                        .iter()
+                                        .any(|s| matches!(s, Step::Storage | Step::Deref))
+                            }) || !summary.escapes.contains(&a.formal)
+                                && !summary.may.keys().any(|e| {
+                                    e.kind == Kind::Unknown
+                                        && e.target.root == Root::Parameter(a.formal)
+                                }))
                     }) {
                         if let LifetimeOperand::Value(place) = arg.operand {
                             allowed_addresses.insert((place, arg.span));
@@ -346,6 +371,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                             name.push_str(name_.as_str());
                         }
                         Projection::Element(index) => name.push_str(&format!("[{index}]")),
+                        Projection::DynamicElement(_) => name.push_str("[?]"),
                         Projection::Deref => {}
                     }
                 }
@@ -360,7 +386,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
             pairs
         };
         eprintln!(
-            "lifetime-stats file={} bodies={bodies} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?}",
+            "lifetime-stats file={} bodies={bodies} contracts={contracts} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?}",
             cx.compiler.src.sources.get(cx.file).path,
             rank(rejected),
             rank(rejected_candidates)
@@ -407,7 +433,7 @@ fn solve(
     }
     if !blocks
         .iter()
-        .any(|b| matches!(b.op, Op::Use(cell, _) if relevant.contains_key(&cell)))
+        .any(|b| matches!(b.op, Op::Use(cell, _) | Op::ObserveValue(cell, _) | Op::Resource(resources::Op::Read { cell, .. }) if relevant.contains_key(&cell)))
     {
         return false;
     }

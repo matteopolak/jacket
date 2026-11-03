@@ -11,6 +11,7 @@ use jaic::sema::{Compiler, ProcId, procs::BodyState};
 use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
 
+mod captures;
 mod contracts;
 mod elements;
 mod flow;
@@ -18,10 +19,12 @@ mod indirect;
 mod infer;
 mod reads;
 mod selected;
+mod temporary;
 #[cfg(test)]
 mod tests;
 mod writes;
 use flow::{guaranteed, returning_blocks, sccs};
+pub(super) use reads::address_query;
 
 const MAX_PATH: usize = 8;
 const MAX_CHAIN: usize = 7;
@@ -69,6 +72,7 @@ pub(super) enum Kind {
     Advance,
     ResetTemporary,
     RestoreTemporary,
+    StoreTemporary,
     Mutation(Mutation),
 }
 
@@ -81,8 +85,12 @@ pub(super) struct Effect {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) struct Summary {
+    pub memory: Option<jaic::ide::lifetimes::LifetimeMemoryEffects>,
     pub reads: HashSet<Path>,
     pub may_reads: HashSet<Path>,
+    pub address_queries: HashSet<usize>,
+    pub read_formals: HashSet<usize>,
+    pub may_read_formals: HashSet<usize>,
     pub unknown_write: HashSet<usize>,
     pub escapes: HashSet<usize>,
     pub normal_return: Option<bool>,
@@ -90,6 +98,12 @@ pub(super) struct Summary {
     pub guaranteed: HashMap<Effect, Vec<Span>>,
     pub returns: HashMap<usize, (Path, Option<(usize, u64)>)>,
     pub elements: HashMap<usize, (Path, Selector)>,
+}
+
+impl Summary {
+    pub fn preserves_address(&self, formal: usize) -> bool {
+        !self.unknown_write.contains(&formal)
+    }
 }
 
 #[derive(Default)]
@@ -276,10 +290,19 @@ impl<'a> Resolver<'a> {
                     to,
                     ..
                 } => {
-                    let p = this.places.place(*source, *from);
-                    let target = this.places.place(*value, *to);
-                    if target != p {
-                        this.values.entry(*value).or_default().push(Def::Borrow(p));
+                    if compiler.ty.types.is_pointer(*from) && compiler.ty.types.is_pointer(*to) {
+                        if value != source {
+                            this.values
+                                .entry(*value)
+                                .or_default()
+                                .push(Def::Copy(*source));
+                        }
+                    } else {
+                        let p = this.places.place(*source, *from);
+                        let target = this.places.place(*value, *to);
+                        if target != p {
+                            this.values.entry(*value).or_default().push(Def::Borrow(p));
+                        }
                     }
                 }
                 Event::Borrow {
@@ -489,6 +512,24 @@ impl<'a> Resolver<'a> {
         path.steps.is_empty().then_some(Some((formal, expected)))
     }
 
+    fn result_carries_storage(&self, ty: TypeId, path: &Path) -> bool {
+        if self.compiler.ir_ty(ty).is_none()
+            || self.compiler.ty.types.is_pointer(ty)
+            || matches!(self.compiler.ty.types.kind(ty), TypeKind::Proc(_))
+        {
+            return true;
+        }
+        let Root::Parameter(formal) = path.root else {
+            return false;
+        };
+        path.steps.is_empty()
+            && self.params.values().any(|(n, t)| {
+                *n == formal
+                    && self.compiler.ir_ty(*t).is_some()
+                    && !self.compiler.ty.types.is_pointer(*t)
+            })
+    }
+
     fn trace(
         &self,
         v: Val,
@@ -528,7 +569,12 @@ impl<'a> Resolver<'a> {
                             steps: Vec::new(),
                         }
                     } else if !self.compiler.ty.types.is_pointer(*ty) {
-                        self.location(*p, summaries, visiting, depth + 1)?
+                        let path = self.location(*p, summaries, visiting, depth + 1)?;
+                        if matches!(path.root, Root::Parameter(_)) && path.steps.is_empty() {
+                            path.append(&[Step::Deref])?
+                        } else {
+                            path
+                        }
                     } else if !self.places.paths[*p].1.is_empty() {
                         self.location(*p, summaries, visiting, depth + 1)?
                             .append(&[Step::Deref])?
@@ -621,7 +667,7 @@ impl<'a> Resolver<'a> {
             }
             rest = &rest[1..];
         } else if let Some((formal, ty)) = self.params.get(&root_id) {
-            if self.compiler.ty.types.is_pointer(*ty) {
+            if self.compiler.ty.types.is_pointer(*ty) && !self.places.indirect.contains(&root_id) {
                 return None;
             }
             path = Path {
@@ -681,6 +727,7 @@ impl<'a> Resolver<'a> {
             path = path.append(&[match projection {
                 Projection::Field(n) => Step::Field(*n),
                 Projection::Element(i) => Step::Element(*i),
+                Projection::DynamicElement(_) => return None,
                 Projection::Deref => Step::Deref,
             }])?;
         }
@@ -695,6 +742,14 @@ impl<'a> Resolver<'a> {
         depth: usize,
     ) -> Option<Path> {
         let v = value(arg)?;
+        // Offset-zero aggregate fields share the base pointer's SSA value. The typed
+        // place identifies the descriptor being passed, rather than its containing object.
+        if self.compiler.ir_ty(arg.ty).is_none()
+            && let Some(p) = self.places.existing(v, arg.ty)
+            && !self.places.paths[p].1.is_empty()
+        {
+            return self.location(p, all, visiting, depth + 1);
+        }
         if let Some(p) = self.stored_address(v, &mut HashSet::default()) {
             return self.location(p, all, visiting, depth + 1);
         }
@@ -745,6 +800,9 @@ impl<'a> Resolver<'a> {
         all: &HashMap<ProcId, Summary>,
         guaranteed: bool,
     ) -> Vec<(Effect, Vec<Span>)> {
+        if reads::address_query(self.compiler, callee, args) {
+            return Vec::new();
+        }
         let Some(summary) = all.get(&callee) else {
             return Vec::new();
         };
@@ -773,8 +831,16 @@ impl<'a> Resolver<'a> {
                         guard = Some((formal, constant));
                     }
                 }
-                let target =
+                let mut target =
                     self.substitute(&effect.target, args, all, &mut HashSet::default(), 0)?;
+                if effect.kind == Kind::Free
+                    && effect.target.steps.is_empty()
+                    && let Root::Parameter(formal) = effect.target.root
+                    && let Some(arg) = args.iter().find(|a| a.formal == formal)
+                    && self.compiler.ir_ty(arg.ty).is_none()
+                {
+                    target = target.append(&[Step::Storage])?;
+                }
                 Some((
                     Effect {
                         target,
@@ -830,6 +896,14 @@ impl<'a> Resolver<'a> {
     }
 
     pub fn materialize(&mut self, path: &Path) -> Option<usize> {
+        self.materialize_region(path, false)
+    }
+
+    pub fn materialize_storage(&mut self, path: &Path) -> Option<usize> {
+        self.materialize_region(path, true)
+    }
+
+    fn materialize_region(&mut self, path: &Path, contents: bool) -> Option<usize> {
         let mut p = match path.root {
             Root::Local(p) => p,
             Root::Parameter(formal) => {
@@ -853,12 +927,33 @@ impl<'a> Resolver<'a> {
         let mut owner = None;
         for step in &path.steps {
             match step {
-                Step::Storage => owner = Some(p),
+                Step::Storage => {
+                    owner = Some(p);
+                    let element = self.places.types.get(&p).and_then(|&ty| {
+                        match self.compiler.ty.types.kind(ty) {
+                            TypeKind::Array {
+                                elem, ..
+                            } => Some(*elem),
+                            TypeKind::String => Some(TypeId::U8),
+                            _ => None,
+                        }
+                    });
+                    if contents {
+                        p = self.places.project(p, Projection::Deref);
+                        if let Some(ty) = element {
+                            self.places.types.insert(p, ty);
+                        }
+                    }
+                }
                 Step::Deref => {
                     owner = Some(self.places.data.get(&p).map_or(p, |(parent, _)| *parent));
                     p = self.places.project(p, Projection::Deref);
                 }
                 Step::Field(name) => {
+                    if contents {
+                        // A field beyond a dereference owns its own resource value.
+                        owner = None;
+                    }
                     let parent = p;
                     p = self.places.project(p, Projection::Field(*name));
                     if let Some(&ty) = self.places.types.get(&parent) {
@@ -1005,7 +1100,7 @@ impl Summaries {
             })
             .map(|(&id, body)| (id, body))
             .collect();
-        let needed = selected::retain(&mut valid, files);
+        let needed = selected::retain(compiler, &mut valid, files);
         let mut all = contracts::seed(compiler, &valid, needed.as_ref());
         all.targets = super::lifetime_targets::Universe::build(compiler, &valid);
         // Tarjan's pop order is bottom-up for caller -> callee edges.
@@ -1061,7 +1156,7 @@ impl Summaries {
                 for id in &component {
                     all.iterations += 1;
                     let body = valid[id];
-                    let resolver = Resolver::new(compiler, body, &all.procs, &all.targets);
+                    let mut resolver = Resolver::new(compiler, body, &all.procs, &all.targets);
                     let next = resolver.infer(&all.procs[id], &all.procs);
                     if next != all.procs[id] {
                         all.procs.insert(*id, next);
@@ -1080,6 +1175,8 @@ impl Summaries {
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-end");
         }
+        reads::foreground::solve(compiler, &valid, &graph, &mut all);
+        reads::solve_queries(compiler, &valid, &graph, &mut all);
         let read_summaries = reads::solve(compiler, &valid, &graph, &mut all);
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!(

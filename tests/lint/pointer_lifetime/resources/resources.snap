@@ -13,7 +13,6 @@ warning[use_after_free]: `q` is used after the call above freed it
    |                  ^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: `p` is used after the call above freed it; every path passes one of these 2 invalidating calls
   --> tests/lint/pointer_lifetime/resources/bad.jai:24:18
@@ -28,7 +27,6 @@ warning[use_after_free]: `p` is used after the call above freed it; every path p
    |                  ^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: this returns storage released by deferred cleanup
   --> tests/lint/pointer_lifetime/resources/bad.jai:30:12
@@ -41,7 +39,6 @@ warning[use_after_free]: this returns storage released by deferred cleanup
    |            ^
    |
    = help: transfer ownership to the caller, or return a copy made outside the released storage
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: `text` is used after the call above freed it
   --> tests/lint/pointer_lifetime/resources/bad.jai:36:18
@@ -54,7 +51,6 @@ warning[use_after_free]: `text` is used after the call above freed it
    |                  ^^^^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: `text` is used after the call above freed it
   --> tests/lint/pointer_lifetime/resources/bad.jai:43:18
@@ -67,7 +63,6 @@ warning[use_after_free]: `text` is used after the call above freed it
    |                  ^^^^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: this returns storage released by deferred cleanup
    --> tests/lint/pointer_lifetime/resources/bad.jai:48:12
@@ -82,7 +77,6 @@ warning[use_after_free]: this returns storage released by deferred cleanup
     |            ------------------------------------- storage invalidated here
     |
     = help: transfer ownership to the caller, or return a copy made outside the released storage
-    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: `handle` is used after the call above freed it
   --> tests/lint/pointer_lifetime/resources/bad.jai:54:18
@@ -94,7 +88,6 @@ warning[use_after_free]: `handle` is used after the call above freed it
    |                  ^^^^^^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[double_free]: `handle` is freed a second time
   --> tests/lint/pointer_lifetime/resources/bad.jai:60:5
@@ -106,7 +99,6 @@ warning[double_free]: `handle` is freed a second time
    |     ^^^^^^^^^^^^^^^^^^^^
    |
    = help: remove the second call, or assign `handle` a new value in between
-   = note: see https://jacket.matteopolak.com/lint-rules/double_free/
 
 warning[double_free]: `q` is freed a second time
   --> tests/lint/pointer_lifetime/resources/bad.jai:67:5
@@ -123,7 +115,6 @@ help: remove the second call, or assign `q` a new value in between
    |
 67 -     free(q);
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/double_free/
 
 warning[returned_local_address]: this pointer refers to stack storage whose lifetime has ended
   --> tests/lint/pointer_lifetime/resources/bad.jai:78:18
@@ -138,7 +129,6 @@ warning[returned_local_address]: this pointer refers to stack storage whose life
    |                  ^
    |
    = help: keep the value in the enclosing scope, or copy it into caller-owned storage
-   = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 warning[returned_local_address]: the address of the local `it` escapes into storage that outlives it
   --> tests/lint/pointer_lifetime/resources/bad.jai:83:26
@@ -148,7 +138,6 @@ warning[returned_local_address]: the address of the local `it` escapes into stor
    |                          --- stack storage borrowed here
    |
    = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
-   = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 warning[returned_local_address]: this returns the address of the local `value`, which is gone once the procedure returns
    --> tests/lint/pointer_lifetime/resources/bad.jai:92:12
@@ -160,7 +149,6 @@ warning[returned_local_address]: this returns the address of the local `value`, 
     |            ^^^^^^^^^^^^^^^
     |
     = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
-    = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 warning[returned_local_address]: the address of the local `value` escapes into storage that outlives it
    --> tests/lint/pointer_lifetime/resources/bad.jai:97:17
@@ -170,19 +158,6 @@ warning[returned_local_address]: the address of the local `value` escapes into s
     |                 ----- stack storage borrowed here
     |
     = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
-    = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
-
-warning[returned_local_address]: this pointer refers to stack storage whose lifetime has ended
-   --> tests/lint/pointer_lifetime/resources/bad.jai:102:18
-    |
-101 |     local: Any = get_number();
-    |     ------------------------- storage invalidated here
-    |                  ------------ storage derived here
-102 |     print("%\n", local);
-    |                  ^^^^^
-    |
-    = help: keep the value in the enclosing scope, or copy it into caller-owned storage
-    = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 warning[returned_local_address]: this returns the address of the local `value`, which is gone once the procedure returns
    --> tests/lint/pointer_lifetime/resources/bad.jai:110:12
@@ -192,7 +167,6 @@ warning[returned_local_address]: this returns the address of the local `value`, 
     |            ------ stack storage borrowed here
     |
     = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
-    = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 warning[temp_storage_escape]: `alias` holds temporary storage, which is reset, but it is returned here
    --> tests/lint/pointer_lifetime/resources/bad.jai:116:12
@@ -204,7 +178,6 @@ warning[temp_storage_escape]: `alias` holds temporary storage, which is reset, b
     |            ^^^^^
     |
     = help: copy it (`copy_string`), or declare this procedure `@TempAllocates` so its callers know
-    = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape/
 
 warning[returned_local_address]: this returns the address of the local `local`, which is gone once the procedure returns
    --> tests/lint/pointer_lifetime/resources/bad.jai:129:12
@@ -215,7 +188,6 @@ warning[returned_local_address]: this returns the address of the local `local`, 
     |            ^^^^^^
     |
     = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
-    = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 warning[returned_local_address]: this returns the address of the local `local`, which is gone once the procedure returns
    --> tests/lint/pointer_lifetime/resources/bad.jai:140:12
@@ -226,7 +198,6 @@ warning[returned_local_address]: this returns the address of the local `local`, 
     |            ^^^^^^
     |
     = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
-    = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 warning[use_after_free]: `alias` is used after the call above freed it
    --> tests/lint/pointer_lifetime/resources/bad.jai:153:18
@@ -240,7 +211,6 @@ warning[use_after_free]: `alias` is used after the call above freed it
     |                  ^^^^^
     |
     = help: free it after its last use, or give it a new value before using it again
-    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[returned_local_address]: this returns the address of the local `value`, which is gone once the procedure returns
    --> tests/lint/pointer_lifetime/resources/bad.jai:157:12
@@ -250,7 +220,6 @@ warning[returned_local_address]: this returns the address of the local `value`, 
     |            ----- stack storage borrowed here
     |
     = help: return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill
-    = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 warning[double_free]: this call frees storage that was already released
    --> tests/lint/pointer_lifetime/resources/bad.jai:164:5
@@ -263,7 +232,6 @@ warning[double_free]: this call frees storage that was already released
     |     ^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: remove the second call, or initialize the released field with a new allocation first
-    = note: see https://jacket.matteopolak.com/lint-rules/double_free/
 
 warning[use_after_free]: `pointer` is used after the call above freed it
    --> tests/lint/pointer_lifetime/resources/bad.jai:169:5
@@ -281,4 +249,3 @@ warning[use_after_free]: `pointer` is used after the call above freed it
     |                  ------- expanded code uses the storage here
     |
     = help: free it after its last use, or give it a new value before using it again
-    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/

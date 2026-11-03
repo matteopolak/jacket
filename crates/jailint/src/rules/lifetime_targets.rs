@@ -8,6 +8,8 @@ use jaic::sema::{Compiler, ProcId};
 use jaic::types::{TypeId, TypeKind};
 use std::collections::VecDeque;
 
+pub(in crate::rules) mod globals;
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) struct Set {
     pub procedures: HashSet<ProcId>,
@@ -40,27 +42,38 @@ impl Set {
 #[derive(Default)]
 pub(super) struct Universe {
     bodies: HashMap<ProcId, Local>,
+    globals: HashMap<jaic::ir::GlobalId, Set>,
 }
 
 #[derive(Default)]
 struct Local {
     values: HashMap<Val, Set>,
     returns: HashMap<usize, Set>,
+    globals: HashMap<jaic::ir::GlobalId, Set>,
 }
 
 impl Universe {
     pub fn build(compiler: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) -> Self {
+        let globals = globals::Globals::build(compiler, valid);
         let graphs: HashMap<_, _> = valid
             .iter()
             .filter_map(|(&id, body)| Graph::new(compiler, body).map(|g| (id, g)))
             .collect();
-        let mut this = Self::default();
+        let mut this = Self {
+            globals: globals.initial,
+            ..Self::default()
+        };
         let mut ids: Vec<_> = graphs.keys().copied().collect();
         ids.sort_unstable_by_key(|id| id.0);
         loop {
             let mut changed = false;
             for &id in &ids {
                 let next = graphs[&id].solve(&this, valid);
+                for (global, mut set) in next.globals {
+                    set.unknown |= !set.formals.is_empty();
+                    set.formals.clear();
+                    changed |= this.globals.entry(global).or_default().join(&set);
+                }
                 let old = this.bodies.entry(id).or_default();
                 for (v, set) in next.values {
                     changed |= old.values.entry(v).or_default().join(&set);
@@ -112,6 +125,7 @@ struct Graph {
     forward: Vec<Vec<usize>>,
     calls: Vec<Call>,
     returns: Vec<(usize, usize)>,
+    globals: Vec<(jaic::ir::GlobalId, usize)>,
 }
 
 fn procedure(compiler: &Compiler, ty: TypeId) -> bool {
@@ -179,7 +193,18 @@ impl Graph {
                 _ => None,
             })
             .collect();
+        let global_slots = globals::slots(compiler, body);
+        let mut global_places = HashMap::default();
+        for (&value, slot) in &global_slots {
+            let p = places.place(value, slot.ty);
+            global_places.insert(p, slot.global);
+        }
         let mut graph = Self::default();
+        for (&place, &global) in &global_places {
+            let cell = graph.id(Cell::Place(place));
+            graph.defined[cell] = true;
+            graph.globals.push((global, cell));
+        }
         for e in &events {
             match *e {
                 Event::Procedure {
@@ -207,6 +232,16 @@ impl Graph {
                     ty,
                     ..
                 } if procedure(compiler, *ty) => {
+                    if matches!(
+                        e,
+                        Event::Store {
+                            constant: Some(0),
+                            ..
+                        }
+                    ) {
+                        let n = graph.id(Cell::Value(*value));
+                        graph.defined[n] = true;
+                    }
                     graph.edge(Cell::Place(places.place(*place, *ty)), Cell::Value(*value));
                 }
                 Event::Load {
@@ -217,10 +252,11 @@ impl Graph {
                 } if procedure(compiler, *ty) => {
                     let p = places.place(*place, *ty);
                     graph.edge(Cell::Value(*value), Cell::Place(p));
-                    if !owned.contains(&places.paths[p].0.0)
-                        || places.unresolved(p)
-                        || exposed.contains(&p)
-                        || places.ancestors(p).any(|a| exposed.contains(&a))
+                    if !global_places.contains_key(&p)
+                        && (!owned.contains(&places.paths[p].0.0)
+                            || places.unresolved(p)
+                            || exposed.contains(&p)
+                            || places.ancestors(p).any(|a| exposed.contains(&a)))
                     {
                         let n = graph.id(Cell::Place(p));
                         graph.seeds[n].unknown = true;
@@ -306,7 +342,11 @@ impl Graph {
             .filter(|a| procedure(compiler, a.ty))
             .filter_map(|a| match a.operand {
                 LifetimeOperand::Value(v) | LifetimeOperand::Place(v) => {
-                    Some((a.formal, self.id(Cell::Value(v))))
+                    let n = self.id(Cell::Value(v));
+                    if a.constant == Some(0) {
+                        self.defined[n] = true;
+                    }
+                    Some((a.formal, n))
                 }
                 LifetimeOperand::Other => None,
             })
@@ -331,6 +371,11 @@ impl Graph {
 
     fn solve(&self, all: &Universe, valid: &HashMap<ProcId, &LifetimeBody>) -> Local {
         let mut values = self.seeds.clone();
+        for &(global, n) in &self.globals {
+            if let Some(set) = all.globals.get(&global) {
+                values[n].join(set);
+            }
+        }
         loop {
             let mut changed = false;
             for (from, tos) in self.forward.iter().enumerate() {
@@ -380,6 +425,9 @@ impl Graph {
             }
         }
         let mut result = Local::default();
+        for &(global, n) in &self.globals {
+            result.globals.entry(global).or_default().join(&values[n]);
+        }
         for (cell, n) in &self.ids {
             if let Cell::Value(v) = cell {
                 result.values.insert(*v, values[*n].clone());

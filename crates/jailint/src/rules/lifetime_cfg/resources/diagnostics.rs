@@ -49,7 +49,10 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
         let primary = match block.op {
             CfgOp::Use(_, span)
             | CfgOp::Resource(
-                Op::Free {
+                Op::Read {
+                    span, ..
+                }
+                | Op::Free {
                     span, ..
                 }
                 | Op::FreeRegion {
@@ -81,8 +84,11 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
         ];
         match &block.op {
             CfgOp::Use(cell, at)
-                if index(*cell).is_some_and(|c| super::super::dead(cx, state[c]))
-                    && !frees.iter().any(|&span| contains(span, *at)) =>
+            | CfgOp::Resource(Op::Read {
+                cell,
+                span: at,
+            }) if index(*cell).is_some_and(|c| super::super::dead(cx, state[c]))
+                && !frees.iter().any(|&span| contains(span, *at)) =>
             {
                 let witnesses = witnesses(model, states, relevant, i, kind, region, cx);
                 if witnesses.is_empty() {
@@ -99,6 +105,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 });
                 let suffix = &cx.compiler.src.sources.get(at.file).text[at.end as usize..];
                 if contents
+                    && !matches!(block.op, CfgOp::Resource(Op::Read { .. }))
                     && (suffix.trim_start().starts_with(".* =")
                         || (!suffix.starts_with('.') && !suffix.starts_with('[')))
                 {
@@ -261,7 +268,10 @@ impl Proof<'_> {
         }
         let (CfgOp::Use(cell, _)
         | CfgOp::Resource(
-            Op::Free {
+            Op::Read {
+                cell, ..
+            }
+            | Op::Free {
                 cell, ..
             }
             | Op::FreeRegion {
@@ -396,6 +406,20 @@ impl Proof<'_> {
                 .push((origin, "stack storage borrowed here".into()));
             push(&mut out.returned_local_address, f);
         } else if matches!(kind, Origin::Temporary)
+            && !matches!(
+                block.op,
+                CfgOp::Resource(Op::Escape {
+                    temporary_target: true,
+                    ..
+                })
+            )
+            && !matches!(
+                block.op,
+                CfgOp::Resource(Op::Escape {
+                    parameter_target: true,
+                    ..
+                })
+            )
             && (!returning
                 || !(crate::rules::lifetime_movement::notes(cx.compiler, body.procedure)
                     .any(|n| n.text.trim() == "TempAllocates")
@@ -594,6 +618,10 @@ fn escape_survives(
     store: bool,
     kind: Origin,
 ) -> bool {
+    let target_place = match model.cells.values[target] {
+        super::Cell::Place(place) => Some(place),
+        super::Cell::Value(_) => None,
+    };
     let mut start = at;
     if store {
         // The escape observation precedes this store's conservative memory barrier.
@@ -624,6 +652,11 @@ fn escape_survives(
             CfgOp::Resource(Op::Escape {
                 target: other, ..
             }) if other == target => kept = false,
+            CfgOp::Replace(place)
+                if target_place.is_some_and(|p| model.places.contains(place, p)) =>
+            {
+                kept = false;
+            }
             CfgOp::Barrier => kept = false,
             CfgOp::Resource(Op::Exit) => {
                 if !kept {

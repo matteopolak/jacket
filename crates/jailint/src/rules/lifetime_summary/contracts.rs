@@ -169,5 +169,39 @@ pub(super) fn seed(
         }
         all.procs.insert(id, summary);
     }
+    for body in valid.values() {
+        for event in body.blocks.iter().flat_map(|b| &b.events) {
+            if let super::Event::Call {
+                callee,
+                memory: Some(memory),
+                ..
+            } = event
+            {
+                let summary = all.procs.entry(*callee).or_default();
+                summary.memory = Some(*memory);
+                for formal in 0..8 {
+                    if memory.writes & (1 << formal) != 0 {
+                        summary.may.insert(
+                            Effect {
+                                target: Path {
+                                    root: Root::Parameter(formal),
+                                    steps: Vec::new(),
+                                },
+                                kind: Kind::Write,
+                                guard: None,
+                            },
+                            vec![compiler.pr.procs[callee.0 as usize].span],
+                        );
+                    }
+                    if (memory.reads | memory.writes) & (1 << formal) != 0 {
+                        summary.may_reads.insert(Path {
+                            root: Root::Parameter(formal),
+                            steps: Vec::new(),
+                        });
+                    }
+                }
+            }
+        }
+    }
     all
 }

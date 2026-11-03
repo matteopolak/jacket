@@ -1,5 +1,9 @@
-//! Parameter-relative memory reads used to bound an asynchronous callback's borrow.
+//! Parameter-relative memory accesses used to bound an asynchronous callback's borrow.
+mod protocol;
 use super::{Event, HashMap, HashSet, Path, ProcId, Resolver, Root, Summary};
+pub(in crate::rules) use protocol::address_query;
+pub(super) use protocol::solve as solve_queries;
+pub(super) mod foreground;
 
 impl Resolver<'_> {
     pub(super) fn reads(&self, all: &HashMap<ProcId, Summary>, guaranteed: bool) -> HashSet<Path> {
@@ -71,7 +75,21 @@ impl Resolver<'_> {
                 .get(proc)
                 .into_iter()
                 .flat_map(|s| {
-                    if guaranteed {
+                    if let Some(memory) = s.memory {
+                        let count = memory
+                            .count
+                            .and_then(|formal| {
+                                args.iter().find(|a| a.formal == usize::from(formal))
+                            })
+                            .and_then(|a| a.constant);
+                        if count == Some(0)
+                            || guaranteed && memory.count.is_some() && count.is_none()
+                        {
+                            &s.reads
+                        } else {
+                            &s.may_reads
+                        }
+                    } else if guaranteed {
                         &s.reads
                     } else {
                         &s.may_reads
@@ -156,18 +174,10 @@ fn needed(
             {
                 queue.extend(all.targets.get(proc, v).procedures.into_iter().filter(|p| {
                     valid.contains_key(p)
-                        && all.procs.get(p).is_some_and(|s| {
-                            s.unknown_write.is_empty()
-                                && s.escapes.is_empty()
-                                && !s.may.keys().any(|e| {
-                                    matches!(
-                                        e.kind,
-                                        super::Kind::Unknown
-                                            | super::Kind::Free
-                                            | super::Kind::Write
-                                    )
-                                })
-                        })
+                        && all
+                            .procs
+                            .get(p)
+                            .is_some_and(|s| s.stable_captures(compiler, valid.get(p).copied()))
                 }));
             }
         }
@@ -214,4 +224,72 @@ pub(super) fn solve(
         }
     }
     ids.len()
+}
+
+impl Resolver<'_> {
+    pub(in crate::rules) fn read_arguments<'e>(
+        &self,
+        event: &'e Event,
+        all: &HashMap<ProcId, Summary>,
+        guaranteed: bool,
+    ) -> Vec<&'e super::LifetimeArgument> {
+        let (Event::Call {
+            args,
+            expands: false,
+            ..
+        }
+        | Event::IndirectCall {
+            args, ..
+        }) = event
+        else {
+            return Vec::new();
+        };
+        let targets = self.call_targets(event);
+        args.iter()
+            .filter(|arg| self.compiler.ty.types.is_pointer(arg.ty))
+            .filter(|arg| {
+                let reads = |p: &ProcId| {
+                    if arg.formal == 3 && address_query(self.compiler, *p, args) {
+                        return false;
+                    }
+                    let Some(s) = all.get(p) else {
+                        return !guaranteed;
+                    };
+                    if let Some(m) = s.memory {
+                        if m.count
+                            .and_then(|n| args.iter().find(|a| a.formal == usize::from(n)))
+                            .and_then(|a| a.constant)
+                            == Some(0)
+                        {
+                            return false;
+                        }
+                        if guaranteed
+                            && m.count.is_some_and(|n| {
+                                args.iter()
+                                    .find(|a| a.formal == usize::from(n))
+                                    .is_none_or(|a| a.constant.is_none())
+                            })
+                        {
+                            return false;
+                        }
+                        return arg.formal < 8 && (m.reads | m.writes) & (1 << arg.formal) != 0;
+                    }
+                    let formals = if guaranteed {
+                        &s.read_formals
+                    } else {
+                        &s.may_read_formals
+                    };
+                    formals.contains(&arg.formal)
+                        || !guaranteed && self.compiler.pr.procs[p.0 as usize].lit.body.is_none()
+                };
+                if guaranteed {
+                    !targets.unknown
+                        && !targets.procedures.is_empty()
+                        && targets.procedures.iter().all(reads)
+                } else {
+                    targets.unknown || targets.procedures.iter().any(reads)
+                }
+            })
+            .collect()
+    }
 }
