@@ -2,7 +2,7 @@
 // PNG payloads and uncompressed 24/32-bit DIBs with an AND mask. Free with deinit.
 // Unsupported palette/compressed DIBs fail explicitly; entry offsets are checked before access.
 //
-// ```jai
+// ```jai,skip_on(.WASM, reason = "Ico_File resizes with a native library")
 // Icons :: #import "Ico_File";
 // bytes := Icons.create_ico_file(1, 1, 4, u8.[0, 0, 255, 255].data);
 //

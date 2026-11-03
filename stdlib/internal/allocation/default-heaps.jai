@@ -112,7 +112,7 @@ heap_statistics :: (heap: *Heap) -> Heap_Statistics {
 
 // The allocator procedure. It handles `.ALLOCATE`, `.RESIZE`, `.FREE`, `.CREATE_HEAP`, `.DESTROY_HEAP` and `.IS_THIS_YOURS`; `allocator_data` is the heap, or null for the default one. Allocation returns null when the size is invalid or memory runs out.
 //
-// ```jai
+// ```jai,only(x64)
 // memory := cast(*u8) allocator_proc(.ALLOCATE, 8, 0, null, null);
 //
 // memset(memory, 7, 8);
