@@ -117,6 +117,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_rust_format.py` | Check Cargo-managed authored Rust sources and present standalone packages. | tools |
 | `dev.py` | Developer commands behind the Justfile: build, format, lint and test the repository. | CI, just, hook, tools |
 | `doc_diff.py` | Compare built documentation sites byte for byte, grouping differences by page kind. | - |
+| `doc_serve.py` | Serves a `jacket doc` site the way GitHub Pages does. | CI, tools |
 | `fetch_mini_test.py` | Fetch mini.test, the Neovim plugin tests' runner, at the commit pinned in .github/pins.json. | tools |
 | `lsp_partial_edits.py` | Run source-built IDE correctness checks in timeout-isolated per-file processes. | - |
 | `pre_push_clippy.py` | Clippy for the crates a push changes. Called by .githooks/pre-push with git's ref lines on stdin. | tools |
