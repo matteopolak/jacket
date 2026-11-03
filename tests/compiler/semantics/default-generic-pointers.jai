@@ -67,7 +67,6 @@ check :: () -> s32 #c_call {
     #assert type_of(dependent_pointer) == *Dependent(u16);
     small: u16 = 43;
 
-    // jailint: allow(returned_local_address): the pointee stays alive for the rest of the procedure.
     dependent_pointer.data = *small;
     if dependent.data.* != 43 return 4;
 

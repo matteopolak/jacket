@@ -204,3 +204,17 @@ fn lifetime_custom_runtimes_do_not_get_process_entry_lifetimes() {
     );
     assert_eq!(lints.len(), 3, "{}", rendered(&lints, &text, &path));
 }
+
+#[test]
+fn lifetime_pointer_sinks_resolve_local_owners_without_trusting_rebinding() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/local-pointer-sink.jai");
+    let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+    assert_eq!(lints.len(), 3, "{}", rendered(&lints, &text, &path));
+    assert!(
+        lints
+            .iter()
+            .all(|l| l.start > text.find("rebound_sink").unwrap()),
+        "{}",
+        rendered(&lints, &text, &path)
+    );
+}

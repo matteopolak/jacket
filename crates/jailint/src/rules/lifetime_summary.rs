@@ -24,6 +24,7 @@ mod flow;
 mod indirect;
 mod infer;
 mod interfaces;
+mod local_destinations;
 mod nullable;
 mod observable;
 mod ordering;

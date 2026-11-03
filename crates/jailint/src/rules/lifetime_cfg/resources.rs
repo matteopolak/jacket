@@ -323,9 +323,16 @@ impl<'a> Builder<'a> {
         else {
             return Vec::new();
         };
-        let cx = self.cx;
         let mut ops = Vec::new();
         let p = places.place(*place, *ty);
+        if places.unresolved(p)
+            && let Some(local) = resolver.local_destination(*place, *ty, &self.summaries.procs)
+        {
+            let local = places.import(&resolver.places, local);
+            if !self.long_lived(places, local) {
+                return ops;
+            }
+        }
         if self.long_lived(places, p) {
             let pointer = places.unresolved(p);
             let parameter_target = self.defers_temporary(event, resolver);
@@ -337,12 +344,12 @@ impl<'a> Builder<'a> {
                         .value(places.paths[p].0.0, &self.summaries.procs)
                         .is_some_and(|p| p.root == Root::Temporary));
             let mut escaping = vec![(
-                value_cell(cx, places, cells, *value, *ty),
+                value_cell(self.cx, places, cells, *value, *ty),
                 cells.id(Cell::Place(p)),
             )];
             // Pointer outputs are replayed at their callers. Concrete value sinks
             // need separate observations for each stored aggregate field.
-            if !pointer && cx.compiler.ir_ty(*ty).is_none() {
+            if !pointer && self.cx.compiler.ir_ty(*ty).is_none() {
                 let source = places.place(*value, *ty);
                 escaping.extend(
                     places
