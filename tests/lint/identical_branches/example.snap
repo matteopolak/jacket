@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[identical_branches]: both branches of this `ifx` are the same
+  --> tests/lint/identical_branches/example.jai:5:14
+   |
+ 5 |     label := ifx n > 0 then "positive" else "positive";
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: the condition decides nothing: was one branch meant to differ?
+   |
+ 5 ~     label := "positive";
+   |
+   = note: `identical_branches` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/identical_branches/

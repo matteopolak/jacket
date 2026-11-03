@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_suppression]: `unused_variable` allows nothing here
+  --> tests/lint/unused_suppression/example.jai:4:23
+   |
+ 4 |     // jailint: allow(unused_variable)
+   |                       ^^^^^^^^^^^^^^^
+   |
+   = help: nothing it covers is reported any more; remove it
+   = note: `unused_suppression` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_suppression/

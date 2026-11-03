@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_private_declaration]: `LIMIT` is private to this file and nothing in the file uses it
+  --> tests/lint/unused_private_declaration/example.jai:9:1
+   |
+ 9 | LIMIT :: 64;
+   | ^^^^^
+   |
+   = help: delete it, or put it under `#scope_export` if another file should use it
+   = note: `unused_private_declaration` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_private_declaration/

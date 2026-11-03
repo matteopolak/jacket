@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[push_in_static_if]: this push lasts until the end of the enclosing procedure, not the end of the `#if` arm
+  --> tests/lint/push_in_static_if/example.jai:9:9
+   |
+ 9 |         push_allocator(arena);
+   |         ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: wrap it and the code it covers in a `{ }` block, or move it out of the `#if`
+   = note: `push_in_static_if` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/push_in_static_if/

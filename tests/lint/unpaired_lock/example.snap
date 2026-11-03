@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unpaired_lock]: this `return` leaves `*state.mutex` locked
+  --> tests/lint/unpaired_lock/example.jai:12:21
+   |
+12 |     if state.closed return false;
+   |                     ^^^^^^^^^^^^^
+   |
+   = help: unlock it before returning, or `defer` the unlock right after locking
+   = note: `unpaired_lock` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unpaired_lock/

@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[dropped_result]: `parse` returns 2 values but this keeps 1; the next value is a `bool`, which usually says whether the call worked
+  --> tests/lint/dropped_result/example.jai:9:14
+   |
+ 9 |     value := parse("x");
+   |              ^^^^^^^^^^
+   |
+help: receive the flag, or write `, _` to show it is ignored on purpose
+   |
+ 9 ~     value, _ := parse("x");
+   |
+   = note: `dropped_result` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/dropped_result/

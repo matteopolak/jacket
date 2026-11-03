@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unknown_allow]: `float_equlity` is not a jailint rule, so this comment allows nothing
+  --> tests/lint/unknown_allow/example.jai:3:19
+   |
+ 3 | // jailint: allow(float_equlity)
+   |                   ^^^^^^^^^^^^^
+   |
+help: did you mean `float_equality`? (`--list` shows every rule)
+   |
+ 3 ~ // jailint: allow(float_equality)
+   |
+   = note: `unknown_allow` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unknown_allow/

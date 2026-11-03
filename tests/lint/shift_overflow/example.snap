@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[shift_overflow]: shifting a `u32` by 32 shifts out all 32 of its bits
+  --> tests/lint/shift_overflow/example.jai:4:12
+   |
+ 4 |     return bits << 32;
+   |            ^^^^^^^^^^
+   |
+   = help: the shift count must be below 32; widen the value first, `(cast(u64) x) << 32`, if more bits are needed
+   = note: `shift_overflow` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/shift_overflow/

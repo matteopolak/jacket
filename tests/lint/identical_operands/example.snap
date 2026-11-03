@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[identical_operands]: both sides of `==` are `a.y`
+  --> tests/lint/identical_operands/example.jai:9:26
+   |
+ 9 |     return a.x == b.x && a.y == a.y;
+   |                          ^^^^^^^^^^
+   |
+   = help: the result is always `true`; was one side meant to be something else?
+   = note: `identical_operands` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/identical_operands/

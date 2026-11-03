@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[leaked_temporary]: the memory `sprint` allocates is only compared and never freed
+  --> tests/lint/leaked_temporary/example.jai:4:12
+   |
+ 4 |     return sprint("%", n) == "7";
+   |            ^^^^^^^^^^^^^^
+   |
+   = help: keep it in a local and `defer free` it, or use a temporary-storage procedure such as `tprint`
+   = note: `leaked_temporary` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/leaked_temporary/

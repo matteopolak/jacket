@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[self_assignment]: `width` is assigned to itself
+  --> tests/lint/self_assignment/example.jai:9:5
+   |
+ 9 |     width = width;
+   |     ^^^^^^^^^^^^^
+   |
+help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
+   |
+ 9 ~ 
+   |
+   = note: `self_assignment` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/self_assignment/

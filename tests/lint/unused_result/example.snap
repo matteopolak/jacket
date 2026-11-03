@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_result]: the result of `trim` is discarded; it does not change its arguments
+  --> tests/lint/unused_result/example.jai:7:5
+   |
+ 7 |     trim(line);
+   |     ^^^^^^^^^^
+   |
+help: to update the argument, write `line = trim(line);`
+   |
+ 7 ~     line = trim(line);
+   |
+   = note: `unused_result` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_result/

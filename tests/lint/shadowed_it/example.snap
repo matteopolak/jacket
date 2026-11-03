@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[shadowed_it]: this loop's `it` hides the `it` of the loop on line 6, which is also used
+  --> tests/lint/shadowed_it/example.jai:7:9
+   |
+ 7 |         for 0..it print("%", it);
+   |         ^^^^^^^^^
+   |
+   = help: name one of the iterators: `for name: ...`
+   = note: `shadowed_it` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/shadowed_it/

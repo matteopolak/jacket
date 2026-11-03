@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[bitwise_precedence]: `<<` binds tighter than `-` in Jai, unlike in C
+  --> tests/lint/bitwise_precedence/example.jai:4:12
+   |
+ 4 |     return 1 << bits - 1;
+   |            ^^^^^^^^^^^^^
+   |
+help: `<<` binds first here: write `(1 << bits)`
+   |
+ 4 ~     return (1 << bits) - 1;
+   |
+   = note: `bitwise_precedence` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/bitwise_precedence/

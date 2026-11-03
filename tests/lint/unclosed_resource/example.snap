@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unclosed_resource]: `file` is opened by `file_open` but nothing closes it
+  --> tests/lint/unclosed_resource/example.jai:5:17
+   |
+ 5 |     file, ok := file_open(path);
+   |                 ^^^^^^^^^^^^^^^
+   |
+   = help: close it when done, for example with a `defer` right after opening
+   = note: `unclosed_resource` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unclosed_resource/

@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[integer_division_in_float]: integer division `done / total` is converted to a float: the remainder is lost first
+  --> tests/lint/integer_division_in_float/example.jai:6:27
+   |
+ 6 |     ratio := cast(float) (done / total);
+   |                           ^^^^^^^^^^^^
+   |
+help: divide as floats: `cast(float) done / total`
+   |
+ 6 ~     ratio := cast(float) (cast(float) done / total);
+   |
+   = note: `integer_division_in_float` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/integer_division_in_float/
