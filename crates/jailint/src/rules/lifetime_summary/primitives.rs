@@ -30,7 +30,11 @@ pub(super) fn seed(c: &Compiler, id: ProcId, summary: &mut Summary) {
     };
     let witness = vec![c.pr.procs[id.0 as usize].span];
     insert(&mut summary.may, effect.clone(), witness.clone());
-    insert(&mut summary.guaranteed, effect, witness);
+    // Fallible native releases may leave a valid resource live on failure.
+    // A result-dependent success proof is required before exporting a must release.
+    if matches!(symbol, "free" | "cfree" | "fclose" | "freeaddrinfo") {
+        insert(&mut summary.guaranteed, effect, witness);
+    }
 }
 
 fn insert(map: &mut HashMap<Effect, Vec<Span>>, effect: Effect, witness: Vec<Span>) {

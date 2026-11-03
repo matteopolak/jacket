@@ -99,6 +99,22 @@ fn allocator_types(c: &Compiler) -> Option<(TypeId, TypeId)> {
 /// Statically evaluate CAPS with null optional output/data, never execute user code.
 /// Unknown calls, comparisons or loops make the query unsupported, not trusted.
 fn capabilities(body: &LifetimeBody) -> Option<u64> {
+    static_result(
+        body,
+        &HashMap::from_iter([(0, 10), (1, 0), (2, 0), (3, 0), (4, 0)]),
+    )
+}
+
+pub(super) fn nonallocating_call(body: &LifetimeBody, args: &[super::LifetimeArgument]) -> bool {
+    let constants = args
+        .iter()
+        .filter_map(|a| a.constant.map(|v| (a.formal, v)))
+        .collect();
+    static_result(body, &constants).is_some()
+}
+
+fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option<u64> {
+    let stack: HashSet<_> = body.stack_places.iter().copied().collect();
     let mut values = HashMap::default();
     for event in body.blocks.iter().flat_map(|b| &b.events) {
         if let Event::Parameter {
@@ -106,15 +122,9 @@ fn capabilities(body: &LifetimeBody) -> Option<u64> {
             incoming,
             ..
         } = event
+            && let Some(value) = arguments.get(formal)
         {
-            values.insert(
-                *incoming,
-                if *formal == 0 {
-                    10
-                } else {
-                    0
-                },
-            );
+            values.insert(*incoming, *value);
         }
     }
     let mut queue = std::collections::VecDeque::from([(0, values)]);
@@ -132,6 +142,9 @@ fn capabilities(body: &LifetimeBody) -> Option<u64> {
                 Event::Initialize {
                     place, ..
                 } => {
+                    if !stack.contains(place) {
+                        return None;
+                    }
                     values.insert(*place, 0);
                 }
                 Event::Store {
@@ -140,6 +153,9 @@ fn capabilities(body: &LifetimeBody) -> Option<u64> {
                     constant,
                     ..
                 } => {
+                    if !stack.contains(place) {
+                        return None;
+                    }
                     let source = constant.or_else(|| scalar(body, *value, &values, 0));
                     assign(&mut values, *place, source);
                 }

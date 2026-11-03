@@ -875,3 +875,68 @@ fn descriptor_fields_are_defined_before_their_uses_not_unrelated_error_returns()
         );
     }
 }
+
+#[test]
+fn direct_temporary_provider_calls_preserve_allocate_mode_without_tainting_caps_or_free() {
+    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let mut options = Options::host();
+    options.import_paths = vec![stdlib.clone()];
+    options.set_stdlib(&NativeFs, &stdlib);
+    let mut c = Compiler::new(options, Rc::new(NativeFs));
+    let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+    facts.lint = true;
+    c.ed.record(facts);
+    c.begin_sources(&[ProgramSource::String(
+        r#"
+        #import "Basic";
+        direct :: (n:s64)->*void {return temporary_allocator_proc(.ALLOCATE,n,0,null,null);}
+        wrapper :: (n:s64)->*void {return talloc(n);}
+        alias_wrapper :: (n:s64)->*void {return temporary_alloc(n);}
+        caps :: ()->*void {return temporary_allocator_proc(.CAPS,0,0,null,null);}
+        release :: ()->*void {return temporary_allocator_proc(.FREE,0,0,null,null);}
+        main :: () {}
+    "#
+        .into(),
+    )])
+    .unwrap();
+    c.finish_program().unwrap();
+    assert!(c.ide_check_all().is_empty());
+    without_body_notes(&mut c);
+    let before = Summaries::build(&c);
+    c.release_lowered_code();
+    let after = Summaries::build(&c);
+    for (id, summary) in &before.procs {
+        assert_eq!(
+            Some(summary),
+            after.procs.get(id),
+            "{}",
+            c.pr.procs[id.0 as usize].name.as_str()
+        );
+    }
+    for (name, temporary) in [
+        ("direct", true),
+        ("wrapper", true),
+        ("alias_wrapper", true),
+        ("caps", false),
+        ("release", false),
+    ] {
+        let id =
+            c.pr.procs
+                .iter()
+                .position(|p| p.name.as_str() == name)
+                .unwrap();
+        let s = &after.procs[&ProcId(id as u32)];
+        assert_eq!(
+            s.returns
+                .get(&0)
+                .is_some_and(|(p, _)| p.root == Root::Temporary),
+            temporary,
+            "{name}: {s:?}"
+        );
+        assert_eq!(
+            s.allocation_effects.contains(&(Root::Temporary, None)),
+            temporary,
+            "{name}: {s:?}"
+        );
+    }
+}

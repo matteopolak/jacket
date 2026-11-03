@@ -4,6 +4,25 @@ use super::allocator_context::Selection;
 use super::{Event, HashMap, ProcId, Resolver, Root, Summary};
 
 impl Resolver<'_> {
+    // Direct calls of a known allocator provider obey the same ALLOCATE protocol
+    // as calls through Allocator.proc. CAPS/FREE results are not allocated bytes.
+    pub(super) fn infer_provider_allocation(&self, next: &mut Summary) {
+        if self.allocators.temporary.contains(&self.body.procedure) {
+            let guard = Some((0, 0));
+            next.allocations.insert(
+                0,
+                (
+                    super::Path {
+                        root: Root::Temporary,
+                        steps: Vec::new(),
+                    },
+                    guard,
+                ),
+            );
+            next.allocation_effects.insert((Root::Temporary, guard));
+        }
+    }
+
     pub(super) fn infer_allocations(
         &self,
         event: &Event,
@@ -36,6 +55,16 @@ impl Resolver<'_> {
                 expands: false,
                 ..
             } => {
+                if self.allocators.temporary.contains(callee)
+                    && self
+                        .compiler
+                        .ed
+                        .facts()
+                        .and_then(|f| f.lifetime_bodies.get(callee))
+                        .is_some_and(|body| super::allocators::nonallocating_call(body, args))
+                {
+                    return;
+                }
                 let Some(summary) = all.get(callee) else {
                     return;
                 };

@@ -74,3 +74,43 @@ fn lifetime_mixed_return_contracts_remain_possible_without_tainting_heap_copies(
         );
     }
 }
+
+#[test]
+fn lifetime_failed_windows_close_is_not_a_must_release() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/failed-close.jai");
+    let mut target = jaic::sema::Options::host();
+    target.os = jaic::target::TargetOs::Windows;
+    target.cpu = jaic::target::TargetCpu::X64;
+    let (findings, text) = lint_target(
+        &path,
+        &[
+            ("double_free", Level::Warn),
+            ("use_after_free", Level::Warn),
+        ],
+        Config::default(),
+        target,
+    );
+    assert!(findings.is_empty(), "{}", rendered(&findings, &text, &path));
+}
+
+#[test]
+fn lifetime_reassigned_heap_header_does_not_alias_its_contained_storage() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/reassigned-header.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[
+                ("double_free", Level::Warn),
+                ("use_after_free", Level::Warn),
+            ],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert!(findings.is_empty(), "{}", rendered(&findings, &text, &path));
+    }
+}

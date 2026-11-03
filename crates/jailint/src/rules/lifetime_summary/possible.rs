@@ -91,15 +91,28 @@ impl Resolver<'_> {
             let paths = match def {
                 Def::Copy(source) => self.possible_value(*source, all, seen, depth + 1),
                 Def::Load(p, ty) => {
-                    let mut paths = self.possible_location(*p, all, seen, depth + 1);
-                    if self.compiler.ty.types.is_pointer(*ty) && !self.places.paths[*p].1.is_empty()
+                    if self.compiler.ty.types.is_pointer(*ty) && self.places.paths[*p].1.is_empty()
                     {
-                        paths = paths
-                            .into_iter()
-                            .filter_map(|p| p.append(&[Step::Deref]))
-                            .collect();
+                        // Loading a local pointer yields its stored pointees, never
+                        // the address of the pointer slot itself. Multiple writes
+                        // remain alternatives instead of becoming a fictitious owner.
+                        let mut paths = HashSet::default();
+                        for source in self.writes.get(p).into_iter().flatten() {
+                            paths.extend(self.possible_value(*source, all, seen, depth + 1));
+                        }
+                        paths
+                    } else {
+                        let mut paths = self.possible_location(*p, all, seen, depth + 1);
+                        if self.compiler.ty.types.is_pointer(*ty)
+                            && !self.places.paths[*p].1.is_empty()
+                        {
+                            paths = paths
+                                .into_iter()
+                                .filter_map(|p| p.append(&[Step::Deref]))
+                                .collect();
+                        }
+                        paths
                     }
-                    paths
                 }
                 Def::Address(p) => self.possible_location(*p, all, seen, depth + 1),
                 _ => HashSet::default(),

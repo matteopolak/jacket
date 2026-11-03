@@ -132,6 +132,7 @@ impl Resolver<'_> {
             }
         }
         self.infer_return_origins(&mut next, all, &live);
+        self.infer_provider_allocation(&mut next);
         self.infer_may_returns(&mut next, all, &live);
         next
     }
