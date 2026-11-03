@@ -59,6 +59,11 @@ pub struct JsonSession {
     refreshes: u64,
     /// The client can be told to ask for code lenses again (`workspace/codeLens/refresh`).
     refresh_code_lenses: bool,
+    /// And for inlay hints and semantic tokens (`workspace/inlayHint/refresh`,
+    /// `workspace/semanticTokens/refresh`): they are answered without a compile while edits
+    /// are typed, and asked for again when one has been made.
+    refresh_inlay_hints: bool,
+    refresh_semantic_tokens: bool,
     /// Background work changed polymorph summaries since lenses were last refreshed.
     lenses_changed: bool,
     /// Diagnostics are pushed by `flush_publications`, not with the answer to each edit.

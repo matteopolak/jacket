@@ -490,44 +490,28 @@ impl Analysis {
             .collect()
     }
 
-    /// The path of each file `names` are declared in, by file number.
+    /// The text this analysis compiled for the file at `path`.
+    pub fn compiled_text(&self, path: &Path) -> Option<&str> {
+        let file = self.file(path)?;
+        let source = self.compiler.src.sources.try_get(file)?;
+        Some(&*source.text)
+    }
+
     /// Moves the declarations of `names` in the file at `path` from the text this analysis
-    /// compiled to where they are in `text`, the document as it is now: past the edited
-    /// stretch (the longest common prefix and suffix of the two) by the change in length.
+    /// compiled to where they are in `text`, the document as it is now.
     pub fn shift_to(&self, path: &Path, text: &str, names: &mut [IdeName]) {
         let Some(file) = self.file(path) else {
             return;
         };
-        let Some(source) = self.compiler.src.sources.try_get(file) else {
+        let Some(old) = self.compiled_text(path) else {
             return;
         };
-        let (old, new) = (source.text.as_bytes(), text.as_bytes());
-        if old == new {
-            return;
-        }
-        let prefix = old.iter().zip(new).take_while(|(a, b)| a == b).count();
-        let room = old.len().min(new.len()) - prefix;
-        let suffix = old
-            .iter()
-            .rev()
-            .zip(new.iter().rev())
-            .take(room)
-            .take_while(|(a, b)| a == b)
-            .count();
-        let tail = (old.len() - suffix) as u32;
-        let delta = new.len() as i64 - old.len() as i64;
-        let moved = |at: u32| {
-            if at >= tail {
-                (at as i64 + delta) as u32
-            } else {
-                at
-            }
-        };
+        let shift = super::Shift::between(old.as_bytes(), text.as_bytes());
         for name in names.iter_mut() {
             for span in std::iter::once(&mut name.decl).chain(name.docs.as_mut()) {
                 if span.file == file {
-                    span.start = moved(span.start);
-                    span.end = moved(span.end);
+                    span.start = shift.to_new_or_same(span.start as usize) as u32;
+                    span.end = shift.to_new_or_same(span.end as usize) as u32;
                 }
             }
         }
@@ -542,6 +526,7 @@ impl Analysis {
         }
     }
 
+    /// The path of each file `names` are declared in, by file number.
     pub fn decl_files(&self, names: &[IdeName]) -> BTreeMap<u32, String> {
         let mut out = BTreeMap::new();
         for name in names {

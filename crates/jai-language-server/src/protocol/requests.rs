@@ -204,6 +204,11 @@ impl JsonSession {
             .pointer("/capabilities/workspace/codeLens/refreshSupport")
             .and_then(Value::as_bool)
             == Some(true);
+        let refreshes =
+            |pointer: &str| params.pointer(pointer).and_then(Value::as_bool) == Some(true);
+        self.refresh_inlay_hints = refreshes("/capabilities/workspace/inlayHint/refreshSupport");
+        self.refresh_semantic_tokens =
+            refreshes("/capabilities/workspace/semanticTokens/refreshSupport");
         self.session.set_snippet_support(
             params
                 .pointer("/capabilities/textDocument/completion/completionItem/snippetSupport")

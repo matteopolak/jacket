@@ -86,7 +86,7 @@ impl Session {
         chain: &[&str],
         prefix: String,
     ) -> Option<Completions> {
-        let ask = |a: &mut semantic::Analysis, path: &Path| {
+        let ask_at = |a: &mut semantic::Analysis, path: &Path, at: usize| {
             let mut names = a.complete(path, at, chain)?;
             // A receiver with no members may be a stand-in left by a failed attempt: what the
             // check recorded for the member name has the rest.
@@ -98,10 +98,20 @@ impl Session {
             let files = a.decl_files(&names);
             Some((names, files))
         };
-        if let Some((names, files)) = self.with_compiled_before(uri, text, at, ask) {
+        if let Some((names, files)) =
+            self.with_compiled_before(uri, text, at, |a, path| ask_at(a, path, at))
+        {
             return Some((prefix, names, files));
         }
-        let (names, files) = self.with_semantic(uri, text, ask)?;
+        // An edit before the scope (a line added above it) leaves no compile that knows the
+        // text up to there: the last one answers, its names moved to where they are now.
+        let (names, files) = if self.may_compile() {
+            self.with_semantic(uri, text, |a, path| ask_at(a, path, at))?
+        } else {
+            self.on_older_compile(uri, text, |a, path, shift| {
+                ask_at(a, path, shift.to_old_or_edit(at))
+            })?
+        };
         Some((prefix, names, files))
     }
 
@@ -126,7 +136,7 @@ impl Session {
                 .find(|c: char| !ident(c))
                 .unwrap_or(text.len() - byte);
         let candidate = format!("{}{PLACEHOLDER}{}", &text[..=dot], &text[tail..]);
-        let found = self.with_semantic(uri, &candidate, |a, path| {
+        let ask = |a: &mut semantic::Analysis, path: &Path, dot: usize| {
             let mut names = if recorded {
                 a.complete_recorded(path, dot + 1)?
             } else {
@@ -136,7 +146,14 @@ impl Session {
             a.shift_to(path, text, &mut names);
             let files = a.decl_files(&names);
             Some((names, files))
-        });
+        };
+        let found = if self.may_compile() {
+            self.with_semantic(uri, &candidate, |a, path| ask(a, path, dot))
+        } else {
+            self.on_older_compile(uri, &candidate, |a, path, shift| {
+                ask(a, path, shift.to_old(dot)?)
+            })
+        };
         let (names, files) = found.unwrap_or_default();
         Some((prefix, names, files))
     }
@@ -153,7 +170,7 @@ impl Session {
                 .find(|c: char| !ident(c))
                 .unwrap_or(text.len() - start);
         let candidate = format!("{}.{PLACEHOLDER}{}", &text[..start], &text[tail..]);
-        if !self.defer_ranking.get() {
+        if self.may_compile() {
             return Ranking::Known(
                 self.with_semantic(uri, &candidate, |a, path| a.complete_fitting(path, start)),
             );
@@ -162,39 +179,43 @@ impl Session {
         if let Some(fitting) = self.with_cached_semantic(uri, &candidate, ask) {
             return Ranking::Known(fitting);
         }
-        *self.ranking_pending.borrow_mut() = Some((uri.clone(), candidate));
+        self.want_compile(uri, &candidate);
         Ranking::Pending
     }
 
-    /// Answer completion at once, leaving the ranking by expected type to `warm_ranking`: a
-    /// request never compiles for it. Off by default; a transport that reads input while it
-    /// works turns it on.
-    pub fn defer_ranking(&self, on: bool) {
-        self.defer_ranking.set(on);
+    /// Answer requests at once, whatever compile they lack left to `warm_pending` (see
+    /// `on_older_compile`): a request never compiles. Off by default; a transport that reads
+    /// input while it works turns it on.
+    pub fn defer_compiles(&self, on: bool) {
+        self.defer_compiles.set(on);
         if !on {
-            self.ranking_pending.borrow_mut().take();
+            self.compile_pending.borrow_mut().take();
         }
     }
 
-    /// A completion went unranked and `warm_ranking` has the compile for it to do.
-    pub fn ranking_pending(&self) -> bool {
-        self.ranking_pending.borrow().is_some()
+    /// A completion went unranked and `warm_pending` has the compile for it to do.
+    pub fn compile_pending(&self) -> bool {
+        self.compile_pending.borrow().is_some()
     }
 
-    /// Compiles the placeholder text the last unranked completion wanted, so the next one
-    /// (the word grows by a letter, the same text is asked about) is ranked from the cache.
-    pub fn warm_ranking(&self) {
-        let Some((uri, candidate)) = self.ranking_pending.borrow_mut().take() else {
-            return;
-        };
-        if self.documents.contains_key(&uri) {
-            // Stopped by newer input, it is asked for again by the next completion.
-            jaic::interrupt::arm();
-            let _ = self.with_semantic(&uri, &candidate, |_, _| Some(()));
-            if jaic::interrupt::disarm() {
-                *self.ranking_pending.borrow_mut() = Some((uri, candidate));
-            }
+    /// Compiles the text a request wanted and had no compile for (a completion's placeholder
+    /// text, so the next one, the word grown by a letter, is ranked from the cache; or the
+    /// document, for the hints and tokens that wait for it). `Some(true)` when it was the
+    /// document's own text, which requests can now answer from; `None` when nothing was
+    /// compiled (a compile stopped by newer input is asked for again).
+    pub fn warm_pending(&self) -> Option<bool> {
+        let (uri, text) = self.compile_pending.borrow_mut().take()?;
+        if !self.documents.contains_key(&uri) {
+            return None;
         }
+        let _background = self.background();
+        jaic::interrupt::arm();
+        let _ = self.with_semantic(&uri, &text, |_, _| Some(()));
+        if jaic::interrupt::disarm() {
+            *self.compile_pending.borrow_mut() = Some((uri, text));
+            return None;
+        }
+        Some(self.document(&uri).is_ok_and(|d| d.text == text))
     }
 
     pub fn completion(
@@ -207,6 +228,7 @@ impl Session {
         if let Some(list) = self.asm_completion(uri, &doc.text, byte) {
             return Ok(list);
         }
+        self.stale_used.set(false);
         let lexed = Lexed::new(FileId(0), &doc.text);
         let context = ide_facts::cursor_context_in(&doc.text, byte as u32, &lexed);
         let mut list = self.completion_items(uri, byte, &context, &lexed)?;
@@ -288,6 +310,8 @@ impl Session {
                 self.call_snippets,
             );
         }
+        // Names from older text, or none for lack of a compile: the next request asks again.
+        list.is_incomplete |= self.take_stale();
         Ok(list)
     }
 

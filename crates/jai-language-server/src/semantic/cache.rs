@@ -322,6 +322,15 @@ impl Cache {
         Some(&mut self.entries[at])
     }
 
+    /// The kept analysis of `root` that was used last, whatever text it compiled: an answer
+    /// from it is about older text, for the caller to move to the text now.
+    pub fn latest(&mut self, root: &Path, dirs: &[PathBuf]) -> Option<&mut Analysis> {
+        self.entries
+            .iter_mut()
+            .rev()
+            .find(|a| a.usable && a.os.is_none() && a.root == root && a.dirs == dirs)
+    }
+
     /// An analysis of `root` that the cache does not keep, for work beside the editor's (the
     /// workspace's polymorph summaries): the compile the open document's requests use stays,
     /// with the one that checked it last, and room is made among the others only.

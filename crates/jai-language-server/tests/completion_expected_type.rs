@@ -110,7 +110,7 @@ mod deferred {
     fn a_request_does_not_compile_for_ranking_and_the_next_one_is_ranked() {
         let (text, at) = cursor(SOURCE);
         let mut session = lean_session();
-        session.defer_ranking(true);
+        session.defer_compiles(true);
         let uri = file_uri("/expected-type/deferred.jai");
         session.open(uri.clone(), 1, text).unwrap();
         // The diagnostics compile the program; the names come from it.
@@ -123,11 +123,11 @@ mod deferred {
             "no compile in the request"
         );
         assert!(first.is_incomplete);
-        assert!(session.ranking_pending());
+        assert!(session.compile_pending());
         let unranked = order(first.items);
         assert!(before(&unranked, "a_name", "z_flag"), "{unranked:?}");
-        session.warm_ranking();
-        assert!(!session.ranking_pending());
+        session.warm_pending();
+        assert!(!session.compile_pending());
         let compiles = session.compile_counts().0;
         let second = session.completion(&uri, at).unwrap();
         assert_eq!(

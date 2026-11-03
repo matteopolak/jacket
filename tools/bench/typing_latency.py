@@ -3,8 +3,9 @@
 character with a `completion` request right behind each, the way an editor does it.
 
     PYTHONPATH=tools python3 tools/bench/typing_latency.py --server target/release/jailsp FILE.jai... [--gap-ms 100,150]
-        [--rounds 6] [--pull] [--max-p50-ms 50] [--max-ms 100]
+        [--rounds 6] [--pull] [--immediate] [--max-p50-ms 50] [--max-ms 100]
 
+With `--immediate` the first key follows the Enter at once (no compile knows the text yet).
 With `--max-p50-ms` or `--max-ms` it exits 1 when a run's completion median or worst case is over the bound.
 
 Prints, per file and gap, the completion latency (p50/p90/max, ms), the answer sizes, and the time from the
@@ -28,7 +29,7 @@ def change(client: Client, uri: str, version: int, edits: list[dict]) -> None:
     client.notify('textDocument/didChange', {'textDocument': {'uri': uri, 'version': version}, 'contentChanges': edits})
 
 
-def run(server: str, path: Path, gap: float, rounds: int, pull: bool) -> dict:
+def run(server: str, path: Path, gap: float, rounds: int, pull: bool, immediate: bool) -> dict:
     text = path.read_text()
     picks = pick_positions(text)
     if not picks:
@@ -59,7 +60,8 @@ def run(server: str, path: Path, gap: float, rounds: int, pull: bool) -> dict:
         for _ in range(rounds):
             version += 1
             change(client, uri, version, [insert_edit(line, 0, indent + '\n')])
-            time.sleep(SETTLE)
+            if not immediate:
+                time.sleep(SETTLE)
             seen = len(client.notifications)
             pending = []
             last = 0.0
@@ -105,6 +107,8 @@ def main() -> int:
     parser.add_argument('--gap-ms', default='100,150')
     parser.add_argument('--rounds', type=int, default=6)
     parser.add_argument('--pull', action='store_true')
+    parser.add_argument('--immediate', action='store_true',
+                        help='type the first key right after Enter, before anything has compiled the new line')
     parser.add_argument('--max-p50-ms', type=float, default=None)
     parser.add_argument('--max-ms', type=float, default=None)
     parser.add_argument('files', nargs='+', type=Path)
@@ -112,7 +116,7 @@ def main() -> int:
     failed = False
     for path in args.files:
         for gap in (float(g) / 1000 for g in args.gap_ms.split(',')):
-            r = run(args.server, path, gap, args.rounds, args.pull)
+            r = run(args.server, path, gap, args.rounds, args.pull, args.immediate)
             lat = r['lat']
             by_key = [[v for i, v in enumerate(lat) if i % len(r['word']) == k] for k in range(len(r['word']))]
             print(f'{path.name:16} gap {gap * 1000:3.0f} ms  "{r["word"]}"  n={len(lat)}  completion ms: '

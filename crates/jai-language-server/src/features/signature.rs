@@ -1,9 +1,11 @@
 //! Signature help.
 use super::open_call;
 use crate::MarkupKind;
+use crate::semantic;
 use crate::session::Session;
 use crate::{DocumentUri, Error, Position, SignatureHelp, SignatureInformation};
 use jaic::intern::Sym;
+use std::path::Path;
 
 impl Session {
     /// The signature of the call being typed at `position`, the chosen overload active.
@@ -35,39 +37,45 @@ impl Session {
         // the document begins at byte 0.
         let callee_start = open + 1 - chain.iter().map(|c| c.len() + 1).sum::<usize>();
         // A call the check recorded at this position: its overloads, the chosen one active.
-        let recorded = self
-            .calls(uri)
-            .into_iter()
-            .find(|c| c.span.start as usize == callee_start && open < c.span.end as usize);
-        let (mut signatures, active) = if let Some(call) = recorded {
-            (call.signatures, call.active)
-        } else {
-            // The callee is looked up in the scope.
-            let names: Vec<Sym> = chain.iter().map(|n| Sym::intern(n)).collect();
-            let found = self.with_semantic(uri, text, |a, path| {
-                let file = a.file(path)?;
-                let scope = a.compiler.ide_scope_at(file, callee_start as u32)?;
-                let procs = a.compiler.ide_callee(scope, &names);
-                if procs.is_empty() {
-                    // A variable or member of procedure type.
-                    return Some(
-                        a.compiler
-                            .ide_callee_value(scope, &names)
-                            .into_iter()
-                            .collect::<Vec<_>>(),
-                    );
-                }
-                Some(
-                    procs
-                        .into_iter()
-                        .map(|p| a.compiler.ide_signature(p))
-                        .collect::<Vec<_>>(),
-                )
-            });
-            match found {
-                Some(s) if !s.is_empty() => (s, 0),
-                _ => return Ok(None),
+        let names: Vec<Sym> = chain.iter().map(|n| Sym::intern(n)).collect();
+        let lookup = |a: &mut semantic::Analysis, path: &Path, start: usize, open: usize| {
+            let file = a.file(path)?;
+            if let Some(call) = a
+                .compiler
+                .ide_calls(file)
+                .into_iter()
+                .find(|c| c.span.start as usize == start && open < c.span.end as usize)
+            {
+                return Some((call.signatures, call.active));
             }
+            // The callee is looked up in the scope.
+            let scope = a.compiler.ide_scope_at(file, start as u32)?;
+            let procs = a.compiler.ide_callee(scope, &names);
+            let found: Vec<_> = if procs.is_empty() {
+                // A variable or member of procedure type.
+                a.compiler
+                    .ide_callee_value(scope, &names)
+                    .into_iter()
+                    .collect()
+            } else {
+                procs
+                    .into_iter()
+                    .map(|p| a.compiler.ide_signature(p))
+                    .collect()
+            };
+            (!found.is_empty()).then_some((found, 0))
+        };
+        // Typing in the call has edited the text since the compile, which still describes it.
+        let found = if self.may_compile() {
+            self.with_semantic(uri, text, |a, path| lookup(a, path, callee_start, open))
+        } else {
+            self.on_older_compile(uri, text, |a, path, shift| {
+                let start = shift.to_old(callee_start)?;
+                lookup(a, path, start, shift.to_old_or_edit(open))
+            })
+        };
+        let Some((mut signatures, active)) = found else {
+            return Ok(None);
         };
         // Under the name called: an alias or a `#bake_arguments` copy names the original.
         if let Some(called) = chain.last() {

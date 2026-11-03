@@ -6,6 +6,7 @@ mod compile;
 mod overlay;
 mod parses;
 mod queries;
+mod shift;
 
 pub use self::cache::Cache;
 pub use self::overlay::Reads;
@@ -13,6 +14,7 @@ pub(crate) use self::parses::text_key;
 pub use self::parses::{note_parse, parse_error};
 pub use self::queries::EvalCost;
 pub(crate) use self::queries::LimitKind;
+pub use self::shift::Shift;
 use jaic::ide::IdeLayout;
 use jaic::sema::{Compiler, FileSystem, Options};
 use jaic::source::FileId;

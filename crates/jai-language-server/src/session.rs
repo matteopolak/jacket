@@ -106,12 +106,19 @@ pub struct Session {
     /// nothing loads, a branch on yet another CPU) would otherwise compile every target on
     /// every hover, more of them than the cache keeps.
     unreached: RefCell<(u64, Unreached)>,
-    /// Completion does not compile to rank names by the type a position expects (see
-    /// `defer_ranking`).
-    defer_ranking: std::cell::Cell<bool>,
-    /// The placeholder text a completion wanted ranked but had no compile for: compiled by
-    /// `warm_ranking` once input is quiet, so the next request finds it.
-    ranking_pending: RefCell<Option<(DocumentUri, String)>>,
+    /// Requests never compile (see `defer_compiles`): what has no compile to answer from is
+    /// answered from an older one or left out.
+    defer_compiles: std::cell::Cell<bool>,
+    /// Depth of the work that is allowed to compile while `defer_compiles` is on: the
+    /// diagnostics check and the compiles made while input is quiet.
+    background: std::cell::Cell<u32>,
+    /// The text a request wanted compiled but had no compile for: compiled by `warm_pending`
+    /// once input is quiet, so the next request finds it.
+    compile_pending: RefCell<Option<(DocumentUri, String)>>,
+    /// The answer being made used a compile of older text (see `stale`).
+    stale_used: std::cell::Cell<bool>,
+    /// A request skipped running the project's build files, so its inputs are not kept.
+    builds_skipped: std::cell::Cell<bool>,
 }
 
 /// The open files, the root file and the module folders of a compile.
@@ -151,8 +158,11 @@ impl Session {
             inputs: RefCell::default(),
             open_file_identities: RefCell::default(),
             unreached: RefCell::default(),
-            defer_ranking: std::cell::Cell::new(false),
-            ranking_pending: RefCell::default(),
+            defer_compiles: std::cell::Cell::new(false),
+            background: std::cell::Cell::new(0),
+            compile_pending: RefCell::default(),
+            stale_used: std::cell::Cell::new(false),
+            builds_skipped: std::cell::Cell::new(false),
         }
     }
 }

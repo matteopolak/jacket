@@ -33,6 +33,8 @@ impl JsonSession {
             refresh_diagnostics: false,
             refreshes: 0,
             refresh_code_lenses: false,
+            refresh_inlay_hints: false,
+            refresh_semantic_tokens: false,
             lenses_changed: false,
         }
     }
@@ -75,19 +77,47 @@ impl JsonSession {
     }
 
     /// Answer completion without compiling to rank names by expected type; a transport then
-    /// calls `warm_ranking` once input is quiet (see `Session::defer_ranking`).
-    pub fn defer_ranking(&mut self, on: bool) {
-        self.session.defer_ranking(on);
+    /// calls `warm_pending` once input is quiet (see `Session::defer_compiles`).
+    pub fn defer_compiles(&mut self, on: bool) {
+        self.session.defer_compiles(on);
     }
 
-    /// A completion went unranked; `warm_ranking` has a compile to do for the next.
-    pub fn ranking_pending(&self) -> bool {
-        self.session.ranking_pending()
+    /// A completion went unranked; `warm_pending` has a compile to do for the next.
+    pub fn compile_pending(&self) -> bool {
+        self.session.compile_pending()
     }
 
-    /// The compile that lets the next completion be ranked (one compile, unstoppable).
-    pub fn warm_ranking(&self) {
-        self.session.warm_ranking();
+    /// The compile a request lacked (one compile, stopped by newer input), then the requests
+    /// that ask a client to fetch again what was answered without it.
+    pub fn warm_pending(&mut self) -> Result<Vec<String>, ProtocolError> {
+        let messages = match self.session.warm_pending() {
+            Some(true) => self.compile_refreshes(),
+            _ => Vec::new(),
+        };
+        self.encode_unprompted(messages)
+    }
+
+    /// Requests for the client to fetch inlay hints and semantic tokens again, for the ones it
+    /// supports: what was answered while edits were typed lacked the type checker.
+    pub(super) fn compile_refreshes(&mut self) -> Vec<Value> {
+        let mut out = Vec::new();
+        for (wanted, method) in [
+            (self.refresh_inlay_hints, "workspace/inlayHint/refresh"),
+            (
+                self.refresh_semantic_tokens,
+                "workspace/semanticTokens/refresh",
+            ),
+        ] {
+            if wanted {
+                self.refreshes += 1;
+                out.push(json!({
+                    "jsonrpc": "2.0",
+                    "id": format!("jai-refresh-{}", self.refreshes),
+                    "method": method,
+                }));
+            }
+        }
+        out
     }
 
     /// Whether `background_work` has something to do.
@@ -169,7 +199,8 @@ impl JsonSession {
             return Ok(Vec::new());
         };
         self.publications_pending = false;
-        let messages = Self::publication_messages(publications);
+        let mut messages = Self::publication_messages(publications);
+        messages.extend(self.compile_refreshes());
         self.encode_unprompted(messages)
     }
 

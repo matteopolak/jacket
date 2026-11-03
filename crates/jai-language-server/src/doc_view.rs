@@ -340,7 +340,7 @@ impl Session {
         // (file, offset of the declaration, the procedure's docs, each parameter's docs)
         type Raw = Option<(String, usize, Option<String>, Vec<Option<String>>)>;
         let raws: Vec<Raw> = self
-            .with_semantic(uri, &doc.text, |a, _| {
+            .with_semantic_or_older(uri, &doc.text, |a, _| {
                 Some(
                     signatures
                         .iter()

@@ -196,6 +196,7 @@ impl Session {
     }
 
     pub fn publications(&self) -> Vec<(String, i32, Vec<Diagnostic>)> {
+        let _background = self.background();
         self.documents
             .iter()
             .map(|(uri, doc)| {
@@ -307,6 +308,8 @@ impl Session {
 
     /// Syntax and source diagnostics of `uri`, then its type error and lints.
     pub fn diagnostics(&self, uri: &DocumentUri) -> Result<Vec<Diagnostic>, Error> {
+        // A pull is a request for the check itself: it is the one request that compiles.
+        let _background = self.background();
         self.document(uri)?;
         let mut diagnostics = self
             .analysis_for(uri)

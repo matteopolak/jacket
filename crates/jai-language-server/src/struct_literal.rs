@@ -172,9 +172,15 @@ impl Session {
             },
             &text[site.word.end..]
         );
-        let fields = self.with_semantic(uri, &candidate, |a, path| {
-            a.complete_literal_fields(path, site.word.start)
-        })?;
+        let fields = if self.may_compile() {
+            self.with_semantic(uri, &candidate, |a, path| {
+                a.complete_literal_fields(path, site.word.start)
+            })?
+        } else {
+            self.on_older_compile(uri, &candidate, |a, path, shift| {
+                a.complete_literal_fields(path, shift.to_old_or_edit(site.word.start))
+            })?
+        };
         let range = doc
             .index
             .range(text, Span::new(site.word.start, site.word.end))

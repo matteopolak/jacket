@@ -102,6 +102,9 @@ impl Session {
             return Some(inputs.clone());
         }
         let inputs = self.work_out_inputs(uri, text)?;
+        if self.builds_skipped.replace(false) {
+            return Some(inputs);
+        }
         *self.inputs.borrow_mut() = Some((
             self.generation.get(),
             uri.clone(),
@@ -164,6 +167,14 @@ impl Session {
         text: &str,
         query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
     ) -> Option<T> {
+        if !self.may_compile() {
+            return self
+                .with_cached_semantic(uri, text, query)
+                .unwrap_or_else(|| {
+                    self.want_compile(uri, text);
+                    None
+                });
+        }
         let environment = self.environment.as_ref()?;
         let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let mut cache = self.semantic.borrow_mut();
@@ -192,6 +203,34 @@ impl Session {
         Some(query(analysis, path))
     }
 
+    /// Whether a compile may be made now: always, until `defer_compiles` turns it off for
+    /// requests (the diagnostics and `warm_pending` still compile, under `background`).
+    pub(crate) fn may_compile(&self) -> bool {
+        !self.defer_compiles.get() || self.background.get() > 0
+    }
+
+    /// Lets the compiles made until the guard drops through while requests may not compile.
+    pub(crate) fn background(&self) -> Background<'_> {
+        self.background.set(self.background.get() + 1);
+        Background(self)
+    }
+
+    /// Remembers that `text` of `uri` wanted a compile a request did not make, and that the
+    /// answer is not what a compile of it gives. The document's own text is compiled for its
+    /// diagnostics anyway, so it only fills an empty slot.
+    pub(crate) fn want_compile(&self, uri: &DocumentUri, text: &str) {
+        self.stale_used.set(true);
+        let mut pending = self.compile_pending.borrow_mut();
+        if pending.is_none() || !self.is_own_text(uri, text) {
+            *pending = Some((uri.clone(), text.to_string()));
+        }
+    }
+
+    /// Whether the answer just made came from a compile of older text, which it forgets.
+    pub(crate) fn take_stale(&self) -> bool {
+        self.stale_used.replace(false)
+    }
+
     /// Runs the `[project] entry` files that could build `uri` but have not been run (or were
     /// changed since), once each, so their recorded facts decide which program `uri` is in
     /// instead of a scan of their text. A run that fails is not repeated until the
@@ -205,6 +244,10 @@ impl Session {
         }
         let pending = self.unrecorded_builds(uri);
         if pending.is_empty() {
+            return;
+        }
+        if !self.may_compile() {
+            self.builds_skipped.set(true);
             return;
         }
         let buffers: semantic::Buffers = Rc::new(files.clone());
@@ -235,11 +278,72 @@ impl Session {
         *self.inputs.borrow_mut() = None;
     }
 
-    /// Like `with_semantic` for a question about `byte` of `uri`. When the program's compile
-    /// skipped that code (an `#if OS == ...` branch, or a file only another target loads) and
-    /// has no answer, compiles for the other targets are asked in `OTHER_TARGETS` order, the
-    /// first that checked it answering.
+    /// Like `with_semantic` for a question about `byte` of `uri`, `query` given the offset in
+    /// the text the answer comes from, and the answer the `Shift` from that text to `text`
+    /// (none unless requests may not compile: then an older compile answers, if `byte` is
+    /// outside what was edited since). When the program's compile skipped that code (an
+    /// `#if OS == ...` branch, or a file only another target loads) and has no answer,
+    /// compiles for the other targets are asked in `OTHER_TARGETS` order, the first that
+    /// checked it answering.
     pub(crate) fn with_semantic_at<T>(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        byte: usize,
+        query: impl Fn(&mut semantic::Analysis, &Path, usize) -> Option<T>,
+    ) -> Option<(T, semantic::Shift)> {
+        if !self.may_compile() {
+            return self.on_older_compile(uri, text, |a, path, shift| {
+                let at = shift.to_old(byte)?;
+                Some((query(a, path, at)?, *shift))
+            });
+        }
+        let found = self.compiled_at(uri, text, byte, |a, path| query(a, path, byte))?;
+        Some((found, semantic::Shift::none()))
+    }
+
+    /// Runs `query` on the compile of `uri`'s program that answers for `text` exactly, else on
+    /// the last one made, with the `Shift` from its text to `text`; none is compiled and the
+    /// text is queued for `warm_pending`. Answers made from an older compile mark themselves
+    /// with `take_stale`.
+    pub(crate) fn on_older_compile<T>(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        query: impl FnOnce(&mut semantic::Analysis, &Path, &semantic::Shift) -> Option<T>,
+    ) -> Option<T> {
+        let environment = self.environment.as_ref()?;
+        let (files, root, dirs) = self.compile_inputs(uri, text)?;
+        let path = Path::new(uri.path());
+        let mut cache = self.semantic.borrow_mut();
+        if let Some(exact) = cache.cached(environment, &root, &dirs, &files) {
+            exact.focus(path);
+            return query(exact, path, &semantic::Shift::none());
+        }
+        self.want_compile(uri, text);
+        let analysis = cache.latest(&root, &dirs)?;
+        let old = analysis.compiled_text(path)?;
+        let shift = semantic::Shift::between(old.as_bytes(), text.as_bytes());
+        analysis.focus(path);
+        query(analysis, path, &shift)
+    }
+
+    /// Like `with_semantic` for a query that asks about no offset of `text`, so the last
+    /// compile answers when none fits `text` and requests may not compile.
+    pub(crate) fn with_semantic_or_older<T>(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
+    ) -> Option<T> {
+        if self.may_compile() {
+            self.with_semantic(uri, text, query)
+        } else {
+            self.on_older_compile(uri, text, |a, path, _| query(a, path))
+        }
+    }
+
+    fn compiled_at<T>(
         &self,
         uri: &DocumentUri,
         text: &str,
@@ -317,5 +421,14 @@ impl Session {
             &text.as_bytes()[..at],
         )?;
         query(analysis, path)
+    }
+}
+
+/// Compiles are allowed while it lives (see `Session::background`).
+pub(crate) struct Background<'a>(&'a Session);
+
+impl Drop for Background<'_> {
+    fn drop(&mut self) {
+        self.0.background.set(self.0.background.get() - 1);
     }
 }

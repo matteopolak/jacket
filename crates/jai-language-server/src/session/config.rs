@@ -92,10 +92,11 @@ impl Session {
             return Ok(base);
         }
         Ok(self
-            .with_semantic_at(uri, probe, 0, |analysis, path| {
+            .with_semantic_at(uri, probe, 0, |analysis, path, _| {
                 let coverage = analysis.coverage(path);
                 coverage.source_loaded.then_some(coverage)
             })
+            .map(|(coverage, _)| coverage)
             .or(base))
     }
 

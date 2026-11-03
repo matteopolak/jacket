@@ -273,10 +273,11 @@ impl Session {
             let dirs = self.import_dirs(root);
             match self.polymorph_need(root, &dirs, &open, Some(&file)) {
                 Need::Current => {}
-                Need::Now => self.summarize(root, dirs, &buffers),
-                Need::Later => {
+                Need::Now if self.may_compile() => self.summarize(root, dirs, &buffers),
+                Need::Now | Need::Later => {
                     // Its summary has no rows for this file; an edit may have made it load the
-                    // file, which only its compile can tell.
+                    // file, which only its compile can tell. A request leaves that compile to
+                    // `background_work`.
                     complete = false;
                     self.polymorph_index
                         .borrow_mut()

@@ -23,15 +23,27 @@ impl Session {
             return Ok(locations);
         }
         {
-            let found = self
-                .with_semantic_at(uri, &doc.text, byte, |a, path| {
-                    Some(a.definition(path, byte)).filter(|d| !d.is_empty())
+            let (found, shift) = self
+                .with_semantic_at(uri, &doc.text, byte, |a, path, at| {
+                    Some(a.definition(path, at)).filter(|d| !d.is_empty())
                 })
                 .unwrap_or_default();
             let locations: Vec<Location> = found
                 .into_iter()
                 .filter_map(|(path, text, start, end)| {
                     let target = self.client_uri(Path::new(&path))?;
+                    // A target in this file is where the edits since the compile left it.
+                    let moved = target == *uri && !shift.is_none();
+                    let (start, end) = if moved {
+                        (shift.to_new(start)?, shift.to_new(end)?)
+                    } else {
+                        (start, end)
+                    };
+                    let text: std::sync::Arc<str> = if moved {
+                        doc.text.as_str().into()
+                    } else {
+                        text
+                    };
                     // An open document's own text and index, else the compiled file's.
                     let range = match self.documents.get(&target) {
                         Some(open) if open.same_positions(&text) => open
@@ -201,7 +213,11 @@ impl Session {
         text: &str,
         byte: usize,
     ) -> Option<semantic::HoverFacts> {
-        let facts = self.with_semantic_at(uri, text, byte, |a, path| a.hover(path, byte))?;
+        let (mut facts, shift) =
+            self.with_semantic_at(uri, text, byte, semantic::Analysis::hover)?;
+        // Past an edit the compile did not see, the word hovered is where it is now.
+        facts.start = shift.to_new(facts.start)?;
+        facts.end = shift.to_new(facts.end)?;
         (facts.end <= text.len()
             && text.is_char_boundary(facts.start)
             && text.is_char_boundary(facts.end))

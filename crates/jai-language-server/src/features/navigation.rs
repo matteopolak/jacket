@@ -39,6 +39,8 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Option<Range>, Error> {
+        // Edits that name every use must be exact, so a rename is a request that compiles.
+        let _background = self.background();
         let doc = self.document(uri)?;
         let Some((_, token)) = self.word(uri, position)? else {
             return Ok(None);
@@ -91,6 +93,7 @@ impl Session {
         position: Position,
         new_name: &str,
     ) -> Result<Option<RenameEdits>, Error> {
+        let _background = self.background();
         if !jaic::lexicon::is_identifier(new_name) || jaic::lexicon::is_reserved(new_name) {
             return Err(Error::InvalidEdit("the new name is not an identifier"));
         }

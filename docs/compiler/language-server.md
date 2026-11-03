@@ -28,9 +28,14 @@ A big compile is hundreds of MiB, so `semantic::Cache` keeps two compiles plus a
 - Compiles share parse trees through `ParseReuse`. Trees must never be mutated after parsing.
 - Typing in a file a program never loaded does not recompile it (`OverlayFs` records every path a compile reads).
 - Completion reuses a compile whose text matches up to the cursor expression.
-- Diagnostics are debounced in `jailsp`; a completion never waits behind a compile.
+- Diagnostics are debounced in `jailsp`, and the check stops when input arrives (`jaic::interrupt`).
+- A request never compiles (`Session::defer_compiles`, on in `jailsp`). With no compile for the text it answers from the last one, offsets moved past the edit (`semantic::Shift`), or leaves out what needs one, and queues the text for `warm_pending`, which compiles while input is quiet. Completion marks such answers `is_incomplete`; the client is asked to fetch inlay hints and semantic tokens again once the compile exists. Rename and a diagnostics pull are the exceptions: their answer is the exact result.
 - Lints run after every compile, so a rule that reads other files must cache them.
 - `jailsp` returns large blocks to the OS and trims after each compile; that is the crate's only `unsafe`.
+
+### Requests without a compile
+
+Handlers query the compile through `with_semantic` (exact text or nothing), `with_semantic_at` and `on_older_compile` (the last compile, for hover, definition, signature help and completion), so a new handler gets the rule by using them. `Session::background()` is the guard that lets a compile happen (diagnostics, `warm_pending`, rename). Tests: `tests/no_compile_in_requests.rs`; latency: `tools/bench/typing_latency.py` (`--immediate` types a key right after Enter).
 
 ### Feature list
 
