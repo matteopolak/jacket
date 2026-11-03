@@ -33,7 +33,7 @@ main :: () {
     gradient := I.create_ico_file_from_bitmap_filename(gradient_path);
 
     defer free(gradient);
-    // Compare conversion/orientation against an independent native SDK call.
+    // Same-size scaling must keep the converted pixels and their orientation exactly.
     offset: u32;
     for byte: 0..3 offset |= (cast(u32) gradient[18 + 16 * 4 + byte]) << (8 * byte);
 

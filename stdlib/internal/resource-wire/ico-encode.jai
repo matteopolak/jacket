@@ -20,7 +20,7 @@ get_total_bytes_for_size :: (comp: s32, size: s32) -> s32 {
 // square. `image_data` is tightly packed BGR (`comp` 3) or BGRA (`comp` 4). Returns the file's
 // bytes (free them), or an empty string after logging an error.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // pixels: [16] u8;
 // ico := create_ico_file(2, 2, 4, pixels.data);
 // defer free(ico);
@@ -33,7 +33,7 @@ create_ico_file :: (x: s32, y: s32, comp: s32, image_data: *u8) -> string {
     }
 
     if x > 0x7fffffff / comp {
-        B.log_error("ICO source row exceeds the native resize stride limit");
+        B.log_error("ICO source row is too wide");
         return "";
     }
 
@@ -49,9 +49,6 @@ create_ico_file :: (x: s32, y: s32, comp: s32, image_data: *u8) -> string {
     Wire.store_u16(result.data, 2, 1);
     Wire.store_u16(result.data, 4, 5);
     cursor: s64 = 86;
-    alpha: s32 = -1;
-
-    if comp == 4 alpha = 3;
 
     for size, index: sizes {
         length := get_total_bytes_for_size(comp, size);
@@ -68,8 +65,8 @@ create_ico_file :: (x: s32, y: s32, comp: s32, image_data: *u8) -> string {
         Wire.store_u16(result.data, cursor + 12, 1);
         Wire.store_u16(result.data, cursor + 14, cast(u16) (comp * 8));
         // Each resize starts from the caller's original pixels, never another frame.
-        resized := Resize.stbir_resize_uint8_srgb(image_data, x, y, x * comp, result.data + cursor + 40, size, size, size * comp, comp, alpha, .{});
-        if resized == 0 {
+        resized := Resize.resize_square(image_data, x, y, comp, result.data + cursor + 40, size);
+        if !resized {
             B.free(result);
             B.log_error("ICO image resizing failed");
             return "";
@@ -84,4 +81,4 @@ create_ico_file :: (x: s32, y: s32, comp: s32, image_data: *u8) -> string {
 #scope_file
 B :: #import "Basic";
 Wire :: #import "internal/resource-wire/integers";
-Resize :: #import "stb_image_resize";
+Resize :: #import "internal/resource-wire/ico-resize";

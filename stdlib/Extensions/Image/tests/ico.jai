@@ -1,4 +1,3 @@
-// test: skip_on(.WASM, reason = "ICO encoder needs native resize")
 #import "Basic";
 Icons :: #import "Ico_File";
 Image :: #import "Extensions/Image";
