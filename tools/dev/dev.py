@@ -30,6 +30,7 @@ from toolkit import llvm
 from toolkit.process import run as toolkit_run
 from toolkit.host import exe_name
 from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path
+from repo_output import output_dir
 
 EXE = exe_name("")
 TARGET = cargo_target_dir(resolve=True)
@@ -247,6 +248,22 @@ def cmd_build(args) -> int:
     if run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(jaifmt_path())]):
         return 1
     return 0 if args.no_native else build_native()
+
+
+def cmd_docs(args) -> int:
+    """Builds the stdlib docs site into target/doc-site, optionally with the browser compiler, then serves it."""
+    site = output_dir("doc-site")
+    runtime = output_dir("wasm")
+    if args.wasm and run([sys.executable, "tools/browser/build_scripting_wasm.py", "--release", "--output", str(runtime)]):
+        return 1
+    if cargo_build(["--release", "-p", "jacket", "-p", "jaic-cli"], args.jobs):
+        return 1
+    flags = ["--runtime", str(runtime)] if args.wasm else []
+    if run([str(cargo_binary("jacket", "release")), "doc", "--base-url", "/", "--out", str(site), *flags]):
+        return 1
+    if not args.serve:
+        return 0
+    return run([sys.executable, "tools/dev/doc_serve.py", "--port", args.port, "--directory", str(site)])
 
 
 def cmd_fmt(args) -> int:
@@ -758,7 +775,7 @@ def cmd_precommit(args) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    for name, fn in (("build", cmd_build), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor),
+    for name, fn in (("build", cmd_build), ("docs", cmd_docs), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor),
                      ("nvim", cmd_nvim), ("vscode-try", cmd_vscode_try), ("test", cmd_test),
                      ("repo-checks", cmd_repo_checks), ("precommit", cmd_precommit), ("hooks", cmd_hooks)):
         p = sub.add_parser(name)
@@ -769,6 +786,10 @@ def main() -> int:
         if name == "build":
             p.add_argument("--no-native", action="store_true",
                            help="skip the native libraries and Bindings_Generator helpers")
+        if name == "docs":
+            p.add_argument("--wasm", action="store_true", help="build the browser compiler so Run buttons work")
+            p.add_argument("--serve", action="store_true")
+            p.add_argument("--port", default="8000")
         if name in ("fmt", "lint"):
             p.add_argument("--lang", choices=["jai", "rust", "all"], default="all")
             p.add_argument("--staged", action="store_true")

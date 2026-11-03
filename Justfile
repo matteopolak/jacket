@@ -99,6 +99,15 @@ fetch-upstreams *args:
 wasm *args:
     {{ py }} tools/browser/build_scripting_wasm.py --release --output target/wasm {{ args }}
 
+# Build the stdlib docs site into target/doc-site; --wasm adds the browser compiler so Run buttons work, --serve then serves it on --port.
+[group('web')]
+[arg("wasm", long, value="true")]
+[arg("serve", long, value="true")]
+[arg("port", long)]
+[arg("jobs", long, short="j")]
+docs wasm="false" serve="false" port="8000" jobs=default_jobs:
+    {{ py }} tools/dev/dev.py docs -j {{ jobs }} --port {{ port }} {{ if wasm == "true" { "--wasm" } else { "" } }} {{ if serve == "true" { "--serve" } else { "" } }}
+
 # Summarize a `samply record --save-only --unstable-presymbolicate` profile (docs/tools/benchmarks.md#profiling): hot functions by self and inclusive samples.
 [group('test')]
 profile-report profile *args:

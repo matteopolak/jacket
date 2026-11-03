@@ -16,6 +16,7 @@ Each dev command has one name, and CI's format and lint steps call the same reci
 | `repo-checks` | CI's text checks: source style, repo paths, CI sources, stdlib docs |
 | `hooks` | Points `core.hooksPath` at `.githooks` |
 | `bump-version X.Y.Z` | The version step of [releases](releases.md) |
+| `docs` | Builds the stdlib docs site into `target/doc-site` (`--wasm` for working Run buttons, `--serve --port N` to serve it like GitHub Pages) |
 | `fetch-upstreams`, `wasm`, `vscode` | Fetch the corpus, build the browser engine, build the extension |
 | `vscode-try [FOLDER]` | Opens VS Code in a throwaway profile with only the built extension and tools |
 | `profile-report PROFILE` | Summarizes a samply profile ([profiling](benchmarks.md#profiling)) |
