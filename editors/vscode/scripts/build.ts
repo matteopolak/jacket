@@ -183,23 +183,35 @@ const count = (minimum: number, maximum: number, fallback: number | undefined, t
   ...(fallback === undefined ? {} : { default: fallback }),
   markdownDescription: text,
 });
+const flag = (text: string) => ({ type: "boolean", default: false, markdownDescription: text });
+// The settings that shape code; `[doc.format]` can override each of them for doc comment examples.
+const layoutKeys = {
+  indent_width: count(1, 16, 4, "Spaces per indentation level."),
+  case_indent: count(0, 16, undefined, "Indentation of `case` lines in `if x == {`. Default: `indent_width`."),
+  case_body_indent: count(0, 16, undefined, "Indentation of the statements under a `case`. Default: `indent_width`."),
+  max_blank_lines: count(0, 100, 2, "Consecutive blank lines kept."),
+  max_width: count(10, 10000, 100, "Line width reported by `jaifmt --verbose`; lines are never wrapped."),
+  brace_style: {
+    type: "string",
+    enum: ["same_line", "preserve"],
+    default: "same_line",
+    markdownDescription: "`same_line` joins a `{` on its own line to its header; `preserve` leaves it.",
+  },
+  blank_lines_between_items: { type: "boolean", default: true, markdownDescription: "A blank line around multi-line file-level items and import groups." },
+  blank_line_after_declarations: flag("In code, a blank line after a run of declarations."),
+  blank_lines_around_blocks: flag("In code, a blank line before and after a statement with a block body."),
+  blank_line_between_cases: flag("In a switch, a blank line before a `case` that follows a multi-line arm."),
+  blank_line_before_comments: flag("In code, a blank line above a comment that follows code."),
+  blank_line_after_guards: flag("In code, a blank line after a run of one-line `if`, `for` or `while`."),
+  blank_line_before_return: flag("In code, a blank line above a `return` in a longer body."),
+};
 const formatKeys = {
   properties: {
-    indent_width: count(1, 16, 4, "Spaces per indentation level."),
-    case_indent: count(0, 16, undefined, "Indentation of `case` lines in `if x == {`. Default: `indent_width`."),
-    case_body_indent: count(0, 16, undefined, "Indentation of the statements under a `case`. Default: `indent_width`."),
-    max_blank_lines: count(0, 100, 2, "Consecutive blank lines kept."),
-    max_width: count(10, 10000, 100, "Line width reported by `jaifmt --verbose`; lines are never wrapped."),
-    brace_style: {
-      type: "string",
-      enum: ["same_line", "preserve"],
-      default: "same_line",
-      markdownDescription: "`same_line` joins a `{` on its own line to its header; `preserve` leaves it.",
-    },
+    ...layoutKeys,
     format_doc_examples: {
       type: "boolean",
       default: true,
-      markdownDescription: "Format the `jai` code blocks inside `//` comments, such as doc comment examples.",
+      markdownDescription: "Format the `jai` code blocks inside `//` comments, such as doc comment examples. They follow these settings, except those `[doc.format]` sets.",
     },
     ignore: {
       type: "array",
@@ -311,6 +323,17 @@ const jacket = {
       },
     },
     format: section(formatKeys, "Settings for the jaifmt formatter."),
+    doc: {
+      type: "object",
+      // Only `format` is described here; the other keys configure the `jacket doc` site.
+      markdownDescription: "The site `jacket doc` writes.",
+      properties: {
+        format: section(
+          { properties: Object.fromEntries(Object.entries(layoutKeys).map(([name, key]) => [name, { ...key, default: undefined }])) },
+          "`[format]` settings that differ for the examples in doc comments. A key left out keeps the `[format]` value.",
+        ),
+      },
+    },
     experimental: {
       type: "object",
       additionalProperties: false,

@@ -35,6 +35,7 @@ Behaviour in short:
 - **Spacing** is none or one space, with no alignment, following the dominant style of `stdlib/`.
 - **Verbatim:** strings, here-strings, `#asm { }` bodies and everything between `// jaifmt: off` and `// jaifmt: on`.
 - **Doc examples** (`format_doc_examples`, `format_doc_examples_in`): after the main pass, the `jai` blocks in `//` comment runs are formatted as separate texts (a file if the block declares `main`, else a procedure body that is unwrapped again) and written back with the same prefix. `max_width` is reduced by the prefix width. A block is kept as written unless it formats, keeps its tokens (`check_equivalent`) and formats to itself; the file as a whole must keep its non-comment tokens (`same_code_tokens`), which catches fence-looking lines inside here-strings and block comments.
+- **Doc example settings** (`[doc.format]`): `parse_config` checks each key like a `[format]` one and records it in `Format_Config.doc_format` (`key`, `value` as written); `doc_example_config` applies them in file order to a copy of the config, and `format_doc_examples_in` formats with that copy. Unknown keys are dropped and warned about as `doc.format.<key>`. `jacket fmt` passes them to `jaifmt` as `--set doc.format.<key>=<value>`, so the file parser, `--set`, the browser formatter and the language server all go through `parse_config` / `format_apply_setting`.
 - **Safety check** (`check_equivalent`): the output is re-lexed and must have the same tokens, comments and line breaks before the same tokens (the parser is line-sensitive in a few places). On mismatch the file is left unchanged, exit 2, naming the token.
 
 ## Configuration
@@ -54,6 +55,11 @@ blank_line_after_declarations = false   # plus blank_lines_around_blocks, blank_
                                         # blank_line_before_comments, blank_line_after_guards, blank_line_before_return
 format_doc_examples = true              # format the jai blocks in // comments
 ignore = ["tests/corpus/**", "generated/*.jai"]   # globs relative to the file
+
+# Overrides for the examples in doc comments only; any [format] key but ignore and
+# format_doc_examples. A key left out is inherited from [format].
+[doc.format]
+blank_line_after_declarations = false
 ```
 
 Ignore globs follow the same rules as lint paths ([jailint](jailint.md#configuration)); `PathPattern` in `crates/jacket-config/src/pattern.rs` and `glob_path_match` in `Jai_Format/config.jai` both run `tests/glob/cases.txt`. Colour follows `NO_COLOR`, `FORCE_COLOR` and `CLICOLOR_FORCE`. CI runs `--check stdlib tests benchmarks tools jaifmt examples`.

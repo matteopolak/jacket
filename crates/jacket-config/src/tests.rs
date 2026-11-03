@@ -236,7 +236,8 @@ fn known_keys_match_the_structs() {
             "url = \"n\"\nog_image = \"o\"\nsite_name = \"p\"\ncanonical_version = \"q\"\ntheme = \"r\"\n\
              path = \"a\"\nname = \"b\"\nbreadcrumb = \"m\"\ndescription = \"c\"\nlogo = \"d\"\nrepo = \"e\"\nplayground = \"f\"\n\
              since = \"g\"\npages_title = \"h\"\n[[doc.category]]\nname = \"i\"\n[[doc.group]]\nname = \"j\"\n\
-             [[doc.page]]\nfile = \"k\"\nname = \"l\"\n[[doc.section]]\nfile = \"s\"\nname = \"t\"\n",
+             [[doc.page]]\nfile = \"k\"\nname = \"l\"\n[[doc.section]]\nfile = \"s\"\nname = \"t\"\n\
+             [doc.format]\nindent_width = 2\n",
         ),
     ];
     let mut tops: Vec<&str> = Vec::new();
@@ -320,4 +321,56 @@ fn checks_run_at_load_and_their_problems_are_recorded_not_fatal() {
 fn only_jacket_toml_is_a_settings_file() {
     assert!(is_config_file(Path::new("/p/jacket.toml")));
     assert!(!is_config_file(Path::new("/p/other.toml")));
+}
+
+#[test]
+fn doc_format_overrides_only_what_it_sets() {
+    let (config, unknown) = parse_noting(
+        "[format]\nblank_line_after_declarations = true\nindent_width = 2\n\
+         [doc.format]\nblank_line_after_declarations = false\nbrace_style = \"preserve\"\n",
+    )
+    .unwrap();
+    assert!(unknown.is_empty(), "{unknown:?}");
+    config.doc.format.validate_doc().unwrap();
+    assert_eq!(
+        config.doc.format.overrides(),
+        [
+            ("brace_style", "\"preserve\"".to_string()),
+            ("blank_line_after_declarations", "false".to_string()),
+        ]
+    );
+    assert_eq!(config.format.indent_width, Some(2));
+    assert!(
+        parse("[format]\nindent_width = 2\n")
+            .unwrap()
+            .doc
+            .format
+            .overrides()
+            .is_empty()
+    );
+}
+
+#[test]
+fn doc_format_is_checked_like_format() {
+    let bad = parse("[doc.format]\nindent_width = 17\n").unwrap();
+    assert_eq!(
+        bad.doc.format.validate_doc().unwrap_err(),
+        "indent_width must be an integer from 1 to 16"
+    );
+    let ignore = parse("[doc.format]\nignore = [\"a\"]\n").unwrap();
+    assert_eq!(
+        ignore.doc.format.validate_doc().unwrap_err(),
+        "doc.format cannot set ignore"
+    );
+    let examples = parse("[doc.format]\nformat_doc_examples = false\n").unwrap();
+    assert_eq!(
+        examples.doc.format.validate_doc().unwrap_err(),
+        "doc.format cannot set format_doc_examples"
+    );
+    let (_, unknown) = parse_noting("[doc.format]\nindent_widht = 2\n").unwrap();
+    assert_eq!(unknown, ["doc.format.indent_widht"]);
+    assert_eq!(
+        unknown_note("doc.format.indent_widht"),
+        "warning: unknown setting `doc.format.indent_widht` in jacket.toml (ignored); did you mean `doc.format.indent_width`?"
+    );
 }

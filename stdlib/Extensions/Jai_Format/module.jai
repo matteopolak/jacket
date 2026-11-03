@@ -45,7 +45,14 @@ Format_Config :: struct {
     format_doc_examples := true; // format the ```jai blocks in `//` comments
     ignore: [..] string; // globs relative to `root`, for format_is_ignored
     unknown_keys: [..] string; // keys the parser did not know and dropped; see format_unknown_setting_note
+    doc_format: [..] Doc_Setting; // `[doc.format]`: overrides for the examples in doc comments, in file order
     root: string; // directory of the config file; set by whoever read it
+}
+
+// One `[doc.format]` key and its value as written in the TOML file.
+Doc_Setting :: struct {
+    key: string;
+    value: string;
 }
 
 // The config file the command-line tool looks for, upward from each file (its `[format]` section).
@@ -86,7 +93,8 @@ parse_config :: (text: string) -> config: Format_Config, ok: bool, error: string
 }
 
 // Sets one setting from `key=value`, the value written as in the TOML file (`4`, `true`,
-// `"preserve"`): how a caller that already resolved the settings passes them on. Unlike the file
+// `"preserve"`): how a caller that already resolved the settings passes them on. A key written
+// `doc.format.name` is a `[doc.format]` override. Unlike the file
 // parser, a key the formatter does not have is an error.
 //
 // ```jai
@@ -107,6 +115,17 @@ format_apply_setting :: (config: *Format_Config, assignment: string) -> ok: bool
     known := false;
 
     for FORMAT_KEYS if it == key known = true;
+
+    if begins_with(key, "doc.format.") {
+        name := slice(key, 11, key.count - 11);
+        if !is_doc_format_key(name) return false, tprint("unknown setting `%`", key);
+
+        ok, message := apply_doc_key(config, name, value, 0);
+        if !ok return false, without_line_prefix(message);
+
+        return true, "";
+    }
+
     if !known return false, tprint("unknown setting `%`", key);
 
     ok, message := apply_key(config, key, value, 0);

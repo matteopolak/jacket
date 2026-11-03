@@ -287,6 +287,23 @@ pub const FORMAT_SETTINGS: &[Setting] = &[
     },
 ];
 
+/// The `[format]` keys that `[doc.format]` can override.
+pub(crate) const DOC_FORMAT_KEYS: &[&str] = &[
+    "indent_width",
+    "case_indent",
+    "case_body_indent",
+    "max_blank_lines",
+    "max_width",
+    "brace_style",
+    "blank_lines_between_items",
+    "blank_line_after_declarations",
+    "blank_lines_around_blocks",
+    "blank_line_between_cases",
+    "blank_line_before_comments",
+    "blank_line_after_guards",
+    "blank_line_before_return",
+];
+
 const FORMAT_KEYS: &[&str] = &[
     "indent_width",
     "case_indent",
@@ -330,6 +347,37 @@ impl Format {
             }
         }
         Ok(())
+    }
+
+    /// Why `[doc.format]` (this table, read as one) is wrong: a value out of range, or a key
+    /// that only makes sense for the file itself.
+    pub fn validate_doc(&self) -> Result<(), String> {
+        if !self.ignore.is_empty() {
+            return Err("doc.format cannot set ignore".into());
+        }
+        if self.format_doc_examples.is_some() {
+            return Err("doc.format cannot set format_doc_examples".into());
+        }
+        self.validate()
+    }
+
+    /// The settings this table sets, as the name and a TOML-literal value, in `jaifmt`'s order.
+    /// Only the keys of `DOC_FORMAT_KEYS`.
+    pub fn overrides(&self) -> Vec<(&'static str, String)> {
+        let mut out = Vec::new();
+        for setting in FORMAT_SETTINGS {
+            if !DOC_FORMAT_KEYS.contains(&setting.name) {
+                continue;
+            }
+            let text = match self.raw(setting.name) {
+                Raw::Int(Some(v)) => v.to_string(),
+                Raw::Flag(Some(v)) => v.to_string(),
+                Raw::Text(Some(v)) => format!("\"{v}\""),
+                _ => continue,
+            };
+            out.push((setting.name, text));
+        }
+        out
     }
 
     /// Every setting but `ignore` with its default filled in, as the name and a TOML-literal
@@ -461,6 +509,10 @@ pub struct Doc {
     /// Markdown files split into one page per `###` heading, each its own sidebar heading.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub section: Vec<DocSection>,
+    /// `[format]` settings that differ for the examples in doc comments; a key left out is the
+    /// file's `[format]` value. `ignore` and `format_doc_examples` are not allowed here.
+    #[serde(default, skip_serializing_if = "Format::is_empty")]
+    pub format: Format,
 }
 
 /// A heading of `[doc]`, with the badge its modules and their items carry.
@@ -709,7 +761,9 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "pages_title",
             "page",
             "section",
+            "format",
         ],
+        "doc.format" => DOC_FORMAT_KEYS,
         "doc.category" => &["name", "modules", "badge", "tip", "color", "color_dark"],
         "doc.group" => &["name", "modules"],
         "doc.page" => &["file", "name"],

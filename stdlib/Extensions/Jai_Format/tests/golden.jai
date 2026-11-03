@@ -269,6 +269,29 @@ check_config_parsing :: () {
     note = format_unknown_setting_note(unknown.unknown_keys[1], "jacket.toml");
     if note != "unknown setting `format.colour` in jacket.toml (ignored)" fail("unknown key note: %", note);
 
+    if config.doc_format.count fail("a config without [doc.format] should have no doc overrides");
+
+    docs_format, docs_format_ok, docs_format_message := parse_config("[format]\nindent_width = 2\n[doc]\nurl = \"x\"\n[doc.format]\nindent_width = 3\nblank_line_after_declarations = false\nbrace_style = 'preserve'\ncolour = 1\nignore = [\"a\"]\nformat_doc_examples = false\n[doc.format.extra]\nx = 1\n");
+    if !docs_format_ok fail("[doc.format] rejected: %", docs_format_message);
+
+    if docs_format.indent_width != 2 || !docs_format.format_doc_examples || docs_format.ignore.count fail("[doc.format] must not change the file's own settings");
+    if docs_format.doc_format.count != 3 fail("[doc.format] overrides: %", docs_format.doc_format);
+    if docs_format.unknown_keys.count != 4 fail("unknown [doc.format] keys should be dropped and listed: %", docs_format.unknown_keys);
+
+    note = format_unknown_setting_note("doc.format.colour", "jacket.toml");
+    if note != "unknown setting `doc.format.colour` in jacket.toml (ignored)" fail("doc unknown key note: %", note);
+
+    note = format_unknown_setting_note("doc.format.indent_widht", "jacket.toml");
+    if note != "unknown setting `doc.format.indent_widht` in jacket.toml (ignored); did you mean `doc.format.indent_width`?" fail("doc unknown key note: %", note);
+
+    docs_inline, docs_inline_ok := parse_config("doc.format.max_width = 60\n[doc]\nformat = { blank_lines_around_blocks = true }\n");
+    if !docs_inline_ok || docs_inline.doc_format.count != 2 fail("inline and dotted [doc.format] forms not parsed");
+
+    for string.["[doc.format]\nindent_width = x\n", "[doc.format]\nbrace_style = \"weird\"\n", "[doc.format]\nblank_line_before_return = 1\n", "[doc]\nformat = 3\n"] {
+        _, accepted := parse_config(it);
+        if accepted fail("bad [doc.format] accepted: %", it);
+    }
+
     config.root = "/repo";
     if !format_is_ignored(config, "/repo/a/x/y.jai") fail("`a/**` should ignore /repo/a/x/y.jai");
     if !format_is_ignored(config, "/repo/b.jai") fail("`b.jai` should ignore /repo/b.jai");
@@ -288,6 +311,12 @@ check_applied_settings :: () {
         ok, message := format_apply_setting(*applied, it);
         if !ok fail("--set %: %", it, message);
     }
+
+    doc_ok, doc_message := format_apply_setting(*applied, "doc.format.blank_line_before_return=false");
+    if !doc_ok || applied.doc_format.count != 1 fail("--set doc.format.key: %", doc_message);
+
+    doc_ok, doc_message = format_apply_setting(*applied, "doc.format.ignore=[]");
+    if doc_ok fail("--set doc.format.ignore should be refused");
 
     if applied.indent_width != 2 || applied.brace_style != .PRESERVE || !applied.blank_line_before_return || applied.max_width != 80 fail("applied settings wrong: %", applied);
 

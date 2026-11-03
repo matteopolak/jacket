@@ -13,6 +13,13 @@ blank_lines_around_blocks = true
 blank_line_after_guards = true
 blank_line_before_return = true
 
+# Examples in doc comments are short; the extra blank lines make them airy.
+[doc.format]
+blank_line_after_declarations = false
+blank_lines_around_blocks = false
+blank_line_after_guards = false
+blank_line_before_return = false
+
 [lint]
 max_complexity = 100
 

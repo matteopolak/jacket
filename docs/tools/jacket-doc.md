@@ -104,6 +104,8 @@ file = "notes/recipes.md"
 name = "Recipes"
 ```
 
+`[doc.format]` is not a site setting: it holds `jaifmt` overrides for the examples in doc comments ([jaifmt-rules](jaifmt-rules.md#format_doc_examples)).
+
 A pattern matching a module's folder also matches the modules inside it. `jacket doc` fails on a pattern that matches no module, a module in no group (when there are groups), and a colour that is not `#hex` or a plain name. The header shows the version, repository button, playground link and pages link only when set.
 
 The standard library's `[doc]` sits in the root `jacket.toml`: categories "Standard library" (`stdlib/**`) and "Extensions" (`stdlib/Extensions/**`, teal "extension" badge), the topic groups, and the "Tools", "Lint rules" and "Format rules" sections (generated into `docs/reference/` and `docs/tools/jaifmt-rules.md`). Add new stdlib modules to a group there.

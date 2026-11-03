@@ -198,6 +198,13 @@ repo = "https://github.com/matteopolak/jacket"
 since = "crates/jacket/src/doc/since.tsv"
 pages_title = "Guides"
 
+# Doc comment examples are short; the extra blank lines make them airy.
+[doc.format]
+blank_line_after_declarations = false
+blank_lines_around_blocks = false
+blank_line_after_guards = false
+blank_line_before_return = false
+
 # A module goes under the last category that matches it.
 [[doc.category]]
 name = "Standard library"

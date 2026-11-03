@@ -47,7 +47,7 @@ fn struct_fields_are_the_schema_keys() {
     let fields = fields();
     let names: Vec<&str> = fields.iter().map(|(n, _)| n.as_str()).collect();
     let mut want: Vec<&str> = FORMAT_SETTINGS.iter().map(|s| s.name).collect();
-    want.extend(["unknown_keys", "root"]);
+    want.extend(["unknown_keys", "doc_format", "root"]);
     assert_eq!(names, want);
 }
 

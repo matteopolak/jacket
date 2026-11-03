@@ -13,9 +13,9 @@ resolved_case_body_indent :: (config: Format_Config) -> int {
 }
 
 // Parses the jacket.toml `text` into `config`; on failure returns false and a message naming the
-// line. Only the settings under `format` count and everything else is skipped. Keys the format
-// settings do not have are dropped into `config.unknown_keys` (as `key`, or `format.key` for a
-// sub-table), not errors.
+// line. Only the settings under `format` and `doc.format` count and everything else is skipped.
+// Keys the format settings do not have are dropped into `config.unknown_keys` (as `key`, or
+// `format.key` for a sub-table, or `doc.format.key`), not errors.
 //
 // The TOML read is the part a config uses: `key = value` pairs, `[table]` headers, bare and quoted
 // keys, dotted keys (`format.indent_width = 2`), inline tables (`format = { indent_width = 2 }`),
@@ -70,6 +70,7 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
             table = header;
 
             if table[0] == "format" && table.count > 1 array_add(*config.unknown_keys, dotted(table, 0));
+            if is_doc_format(table) && table.count > 2 array_add(*config.unknown_keys, dotted(table, 0));
         } else {
             ok, message := apply_pair(config, table, statement, statement_line);
             if !ok return false, message;
@@ -101,7 +102,7 @@ parse_table_header :: (header: string) -> [..] string, bool {
 // One `key = value` statement (its arrays and inline tables are closed) found under the `[table]`
 // header whose keys are `table`.
 apply_pair :: (config: *Format_Config, table: [] string, statement: string, line_number: int) -> bool, string {
-    in_format := table.count && table[0] == "format";
+    in_format := table.count && (table[0] == "format" || is_doc_format(table));
 
     path, ok, after := parse_key_path(statement);
     after = trim(after);
@@ -120,20 +121,29 @@ apply_pair :: (config: *Format_Config, table: [] string, statement: string, line
 
     // The format settings are the keys under `format`, however they are written: in a `[format]`
     // table, as `format.name = ...`, or in `format = { ... }`.
-    if keys[0] != "format" return true, "";
+    // The same keys under `doc.format` are overrides for the examples in doc comments.
+    doc := is_doc_format(keys);
 
-    // A `[format.sub]` table was reported when its header was read.
-    if table.count > 1 return true, "";
+    if keys[0] != "format" && !doc return true, "";
 
     first := 1;
+    if doc first = 2;
 
-    if keys.count == first return apply_inline_table(config, value, line_number);
+    // A `[format.sub]` table was reported when its header was read.
+    if table.count > first return true, "";
 
-    return apply_setting(config, keys, first, value, line_number);
+    if keys.count == first return apply_inline_table(config, value, line_number, doc);
+
+    return apply_setting(config, keys, first, value, line_number, doc);
 } @TempAllocates
 
-// The settings in `{ key = value, ... }`, the value of `format` itself.
-apply_inline_table :: (config: *Format_Config, value: string, line_number: int) -> bool, string {
+// Whether `keys` start with `doc.format`.
+is_doc_format :: (keys: [] string) -> bool {
+    return keys.count >= 2 && keys[0] == "doc" && keys[1] == "format";
+}
+
+// The settings in `{ key = value, ... }`, the value of `format` (or `doc.format`) itself.
+apply_inline_table :: (config: *Format_Config, value: string, line_number: int, doc: bool) -> bool, string {
     if value.count < 2 || value[0] != #char "{" || value[value.count - 1] != #char "}" {
         return false, tprint("line %: format must be a table", line_number);
     }
@@ -153,7 +163,7 @@ apply_inline_table :: (config: *Format_Config, value: string, line_number: int) 
 
         if !ok || !rest.count || rest[0] != #char "=" return false, tprint("line %: expected `key = value`", line_number);
 
-        applied, message := apply_setting(config, path, 0, trim(slice(rest, 1, rest.count - 1)), line_number);
+        applied, message := apply_setting(config, path, 0, trim(slice(rest, 1, rest.count - 1)), line_number, doc);
         if !applied return false, message;
     }
 
@@ -162,13 +172,53 @@ apply_inline_table :: (config: *Format_Config, value: string, line_number: int) 
 
 // Applies `keys` from `first` on as the path of one format setting: a single name is a setting, a
 // dotted path names something the formatter does not have.
-apply_setting :: (config: *Format_Config, keys: [] string, first: int, value: string, line_number: int) -> bool, string {
-    if keys.count - first == 1 return apply_key(config, keys[first], value, line_number);
+apply_setting :: (config: *Format_Config, keys: [] string, first: int, value: string, line_number: int, doc: bool) -> bool, string {
+    if keys.count - first == 1 {
+        if doc return apply_doc_key(config, keys[first], value, line_number);
+        return apply_key(config, keys[first], value, line_number);
+    }
 
-    array_add(*config.unknown_keys, dotted(keys, first));
+    if doc {
+        array_add(*config.unknown_keys, copy_string(tprint("doc.format.%", dotted(keys, first))));
+    } else {
+        array_add(*config.unknown_keys, dotted(keys, first));
+    }
 
     return true, "";
 } @TempAllocates
+
+// Records one `doc.format` override after checking the value as `[format]` would; a key that is
+// not one of DOC_FORMAT_KEYS is dropped into `config.unknown_keys`.
+apply_doc_key :: (config: *Format_Config, key: string, value: string, line_number: int) -> bool, string {
+    if !is_doc_format_key(key) {
+        array_add(*config.unknown_keys, copy_string(tprint("doc.format.%", key)));
+        return true, "";
+    }
+
+    scratch: Format_Config;
+
+    ok, message := apply_key(*scratch, key, value, line_number);
+
+    if !ok return false, message;
+
+    array_add(*config.doc_format, Doc_Setting.{ copy_string(key), copy_string(value) });
+
+    return true, "";
+} @TempAllocates
+
+is_doc_format_key :: (key: string) -> bool {
+    for DOC_FORMAT_KEYS if it == key return true;
+    return false;
+}
+
+// `config` with its `doc_format` overrides applied: the settings for the examples in doc comments.
+doc_example_config :: (config: Format_Config) -> Format_Config {
+    inner := config;
+
+    for config.doc_format apply_key(*inner, it.key, it.value, 0);
+
+    return inner;
+}
 
 // `keys` from `first` on, joined by dots.
 dotted :: (keys: [] string, first: int) -> string {
@@ -328,20 +378,35 @@ without_line_prefix :: (message: string) -> string {
 
 FORMAT_KEYS :: string.["indent_width", "case_indent", "case_body_indent", "max_blank_lines", "max_width", "brace_style", "blank_lines_between_items", "blank_line_after_declarations", "blank_lines_around_blocks", "blank_line_between_cases", "blank_line_before_comments", "blank_line_after_guards", "blank_line_before_return", "format_doc_examples", "ignore"];
 
-// The warning for an unknown `[format]` setting `key` found in the config file `file`: it is
-// ignored, and the nearest known key is named when there is one within a third of its length.
+// The settings `[doc.format]` can override: those of `[format]` that apply to code in a block.
+DOC_FORMAT_KEYS :: string.["indent_width", "case_indent", "case_body_indent", "max_blank_lines", "max_width", "brace_style", "blank_lines_between_items", "blank_line_after_declarations", "blank_lines_around_blocks", "blank_line_between_cases", "blank_line_before_comments", "blank_line_after_guards", "blank_line_before_return"];
+
+// The warning for an unknown `[format]` or `[doc.format]` setting `key` found in the config file
+// `file`: it is ignored, and the nearest known key is named when there is one within a third of
+// its length.
 unknown_setting_note :: (key: string, file: string) -> string {
-    path := key;
-    if !begins_with(key, "format.") path = tprint("format.%", key);
+    prefix := "format.";
+    keys: [] string = FORMAT_KEYS;
+    name := key;
+
+    if begins_with(key, "doc.format.") {
+        prefix = "doc.format.";
+        keys = DOC_FORMAT_KEYS;
+        name = slice(key, prefix.count, key.count - prefix.count);
+    } else if begins_with(key, "format.") {
+        name = slice(key, prefix.count, key.count - prefix.count);
+    }
+
+    path := tprint("%%", prefix, name);
 
     note := tprint("unknown setting `%` in % (ignored)", path, file);
 
-    limit := max(1, key.count / 3);
+    limit := max(1, name.count / 3);
     best := -1;
     best_distance := limit + 1;
 
-    for FORMAT_KEYS {
-        distance := edit_distance(key, it);
+    for keys {
+        distance := edit_distance(name, it);
 
         if distance < best_distance {
             best = it_index;
@@ -349,7 +414,7 @@ unknown_setting_note :: (key: string, file: string) -> string {
         }
     }
 
-    if best >= 0 return tprint("%; did you mean `format.%`?", note, FORMAT_KEYS[best]);
+    if best >= 0 return tprint("%; did you mean `%%`?", note, prefix, keys[best]);
 
     return note;
 } @TempAllocates

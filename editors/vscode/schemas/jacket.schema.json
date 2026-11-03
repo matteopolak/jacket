@@ -1450,10 +1450,45 @@
           "default": "same_line",
           "markdownDescription": "`same_line` joins a `{` on its own line to its header; `preserve` leaves it."
         },
+        "blank_lines_between_items": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "A blank line around multi-line file-level items and import groups."
+        },
+        "blank_line_after_declarations": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "In code, a blank line after a run of declarations."
+        },
+        "blank_lines_around_blocks": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "In code, a blank line before and after a statement with a block body."
+        },
+        "blank_line_between_cases": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "In a switch, a blank line before a `case` that follows a multi-line arm."
+        },
+        "blank_line_before_comments": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "In code, a blank line above a comment that follows code."
+        },
+        "blank_line_after_guards": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "In code, a blank line after a run of one-line `if`, `for` or `while`."
+        },
+        "blank_line_before_return": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "In code, a blank line above a `return` in a longer body."
+        },
         "format_doc_examples": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Format the `jai` code blocks inside `//` comments, such as doc comment examples."
+          "markdownDescription": "Format the `jai` code blocks inside `//` comments, such as doc comment examples. They follow these settings, except those `[doc.format]` sets."
         },
         "ignore": {
           "type": "array",
@@ -1461,6 +1496,85 @@
             "type": "string"
           },
           "markdownDescription": "Globs (relative to this file) of files and directories not to format."
+        }
+      }
+    },
+    "doc": {
+      "type": "object",
+      "markdownDescription": "The site `jacket doc` writes.",
+      "properties": {
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "markdownDescription": "`[format]` settings that differ for the examples in doc comments. A key left out keeps the `[format]` value.",
+          "properties": {
+            "indent_width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16,
+              "markdownDescription": "Spaces per indentation level."
+            },
+            "case_indent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 16,
+              "markdownDescription": "Indentation of `case` lines in `if x == {`. Default: `indent_width`."
+            },
+            "case_body_indent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 16,
+              "markdownDescription": "Indentation of the statements under a `case`. Default: `indent_width`."
+            },
+            "max_blank_lines": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "markdownDescription": "Consecutive blank lines kept."
+            },
+            "max_width": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 10000,
+              "markdownDescription": "Line width reported by `jaifmt --verbose`; lines are never wrapped."
+            },
+            "brace_style": {
+              "type": "string",
+              "enum": [
+                "same_line",
+                "preserve"
+              ],
+              "markdownDescription": "`same_line` joins a `{` on its own line to its header; `preserve` leaves it."
+            },
+            "blank_lines_between_items": {
+              "type": "boolean",
+              "markdownDescription": "A blank line around multi-line file-level items and import groups."
+            },
+            "blank_line_after_declarations": {
+              "type": "boolean",
+              "markdownDescription": "In code, a blank line after a run of declarations."
+            },
+            "blank_lines_around_blocks": {
+              "type": "boolean",
+              "markdownDescription": "In code, a blank line before and after a statement with a block body."
+            },
+            "blank_line_between_cases": {
+              "type": "boolean",
+              "markdownDescription": "In a switch, a blank line before a `case` that follows a multi-line arm."
+            },
+            "blank_line_before_comments": {
+              "type": "boolean",
+              "markdownDescription": "In code, a blank line above a comment that follows code."
+            },
+            "blank_line_after_guards": {
+              "type": "boolean",
+              "markdownDescription": "In code, a blank line after a run of one-line `if`, `for` or `while`."
+            },
+            "blank_line_before_return": {
+              "type": "boolean",
+              "markdownDescription": "In code, a blank line above a `return` in a longer body."
+            }
+          }
         }
       }
     },

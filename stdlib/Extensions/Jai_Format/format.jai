@@ -1895,9 +1895,9 @@ format_doc_block :: (text: string, from: s64, to: s64, indent: int, fence_indent
 
     defer free(code);
 
-    inner := config;
+    inner := doc_example_config(config);
     inner.format_doc_examples = false;
-    inner.max_width = max(config.max_width - indent - 3 - fence_indent, 10);
+    inner.max_width = max(inner.max_width - indent - 3 - fence_indent, 10);
 
     formatted, ok := format_example(code, inner);
     if !ok return "", false;

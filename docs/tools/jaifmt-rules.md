@@ -459,7 +459,7 @@ save :: (path: string) -> bool {
 
 Formats the code in `jai` fenced blocks inside `//` comments, such as the examples in doc comments. On by default.
 
-A block is formatted with the file's settings, and its comment prefix and indentation stay. A block with a `main` is formatted as a file; any other block as the body of a procedure, the way `jacket test` runs it. The fence line and its options (`no_run`, `only(linux)`) are never touched.
+A block is formatted with the file's settings, and its comment prefix and indentation stay. A `[doc.format]` table overrides any of them for the examples only (see below). A block with a `main` is formatted as a file; any other block as the body of a procedure, the way `jacket test` runs it. The fence line and its options (`no_run`, `only(linux)`) are never touched.
 
 A block is left exactly as written when its fence has `ignore` or `compile_fail`, when it contains `// jaifmt: off`, when it lies in a `// jaifmt: off` region, when it does not parse, or when formatting it twice would not give the same text.
 
@@ -492,6 +492,16 @@ add :: (a: int, b: int) -> int {
 ```
 
 With `format_doc_examples = false` the comments stay as written.
+
+Short examples can look airy under the blank-line options. `[doc.format]` takes the same keys as `[format]` except `ignore` and `format_doc_examples`, and each one set there wins over `[format]` inside doc examples; the keys left out are inherited.
+
+```toml
+[format]
+blank_line_after_declarations = true
+
+[doc.format]
+blank_line_after_declarations = false
+```
 
 ### max_width
 

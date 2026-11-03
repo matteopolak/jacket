@@ -49,6 +49,7 @@ impl Resolved {
     fn new(config: &Config, file: &Path) -> Result<Resolved, String> {
         let at = |message: String| format!("in `{}`, {message}", file.display());
         config.format.validate().map_err(at)?;
+        config.doc.format.validate_doc().map_err(at)?;
         let ignore = config
             .format
             .ignore
@@ -62,6 +63,14 @@ impl Resolved {
                 .resolved()
                 .into_iter()
                 .map(|(key, value)| format!("{key}={value}"))
+                .chain(
+                    config
+                        .doc
+                        .format
+                        .overrides()
+                        .into_iter()
+                        .map(|(key, value)| format!("doc.format.{key}={value}")),
+                )
                 .collect(),
             ignore,
         })
@@ -502,6 +511,33 @@ mod tests {
         assert!(run.windows(2).any(|w| w == ["--set", "case_indent=2"]));
         assert!(run.contains(&"--check".to_string()));
         assert_eq!(files_of(&plan.runs[0], &root), ["a.jai", "src/c.jai"]);
+    }
+
+    #[test]
+    fn doc_format_overrides_are_passed_on_and_checked() {
+        let root = scratch("doc-format");
+        write(
+            &root.join("jacket.toml"),
+            "[format]\nblank_line_before_return = true\n[doc.format]\nblank_line_before_return = false\n",
+        );
+        write(&root.join("a.jai"), "");
+        let plan = plan_in(&root, &["--check", "."]);
+        assert!(!plan.failed);
+        let run = texts(&plan.runs[0]);
+        assert!(
+            run.windows(2)
+                .any(|w| w == ["--set", "blank_line_before_return=true"])
+        );
+        assert!(
+            run.windows(2)
+                .any(|w| w == ["--set", "doc.format.blank_line_before_return=false"])
+        );
+
+        write(
+            &root.join("jacket.toml"),
+            "[doc.format]\nformat_doc_examples = false\n",
+        );
+        assert!(plan_in(&root, &["--check", "."]).failed);
     }
 
     #[test]
