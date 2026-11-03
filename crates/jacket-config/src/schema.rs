@@ -198,6 +198,8 @@ pub struct Format {
     pub blank_line_after_guards: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blank_line_before_return: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format_doc_examples: Option<bool>,
     /// Glob patterns of paths not to format, relative to the file.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ignore: Vec<String>,
@@ -277,6 +279,7 @@ pub const FORMAT_SETTINGS: &[Setting] = &[
     flag("blank_line_before_comments", false),
     flag("blank_line_after_guards", false),
     flag("blank_line_before_return", false),
+    flag("format_doc_examples", true),
     Setting {
         name: "ignore",
         kind: Kind::Globs,
@@ -298,6 +301,7 @@ const FORMAT_KEYS: &[&str] = &[
     "blank_line_before_comments",
     "blank_line_after_guards",
     "blank_line_before_return",
+    "format_doc_examples",
     "ignore",
 ];
 
@@ -366,6 +370,7 @@ impl Format {
             "blank_line_before_comments" => Raw::Flag(self.blank_line_before_comments),
             "blank_line_after_guards" => Raw::Flag(self.blank_line_after_guards),
             "blank_line_before_return" => Raw::Flag(self.blank_line_before_return),
+            "format_doc_examples" => Raw::Flag(self.format_doc_examples),
             _ => Raw::None,
         }
     }

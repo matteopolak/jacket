@@ -218,7 +218,7 @@ fn known_keys_match_the_structs() {
              brace_style = \"a\"\nblank_lines_between_items = true\nblank_line_after_declarations = true\n\
              blank_lines_around_blocks = true\nblank_line_between_cases = true\n\
              blank_line_before_comments = true\nblank_line_after_guards = true\n\
-             blank_line_before_return = true\nignore = [\"a\"]\n",
+             blank_line_before_return = true\nformat_doc_examples = true\nignore = [\"a\"]\n",
         ),
         (
             "experimental",

@@ -42,6 +42,7 @@ Format_Config :: struct {
     blank_line_before_comments := false; // in code blocks: a blank line above a comment that follows code
     blank_line_after_guards := false; // in code blocks: a blank line after a one-line `if`, `for` or `while`
     blank_line_before_return := false; // in code blocks: a blank line above a `return`
+    format_doc_examples := true; // format the ```jai blocks in `//` comments
     ignore: [..] string; // globs relative to `root`, for format_is_ignored
     unknown_keys: [..] string; // keys the parser did not know and dropped; see format_unknown_setting_note
     root: string; // directory of the config file; set by whoever read it
@@ -56,6 +57,7 @@ JACKET_CONFIG_FILE_NAME :: "jacket.toml";
 //
 // ```jai
 // formatted, ok, error := format_source("f::(a:int)->int{return a;}\n");
+//
 // assert(ok);
 // assert(formatted == "f :: (a: int) -> int {\n    return a;\n}\n");
 //
@@ -90,6 +92,7 @@ parse_config :: (text: string) -> config: Format_Config, ok: bool, error: string
 // ```jai
 // config: Format_Config;
 // ok, error := format_apply_setting(*config, "indent_width=8");
+//
 // assert(ok && config.indent_width == 8);
 // ok, error = format_apply_setting(*config, "colour=red");
 // assert(!ok);
@@ -179,6 +182,7 @@ Format_File_Reader :: #type (path: string) -> text: string, ok: bool;
 // }
 //
 // config, file, ok := format_find_config("/project/src", reader);
+//
 // assert(ok && file == "/project/jacket.toml" && config.indent_width == 2);
 // ```
 format_find_config :: (directory: string, read: Format_File_Reader, stop := "") -> config: Format_Config, file: string, ok: bool, error: string {

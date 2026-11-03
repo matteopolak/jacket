@@ -196,6 +196,11 @@ const formatKeys = {
       default: "same_line",
       markdownDescription: "`same_line` joins a `{` on its own line to its header; `preserve` leaves it.",
     },
+    format_doc_examples: {
+      type: "boolean",
+      default: true,
+      markdownDescription: "Format the `jai` code blocks inside `//` comments, such as doc comment examples.",
+    },
     ignore: {
       type: "array",
       items: { type: "string" },

@@ -292,6 +292,9 @@ apply_key :: (config: *Format_Config, key: string, value: string, line_number: i
         case "blank_line_before_return";
             ok := parse_flag(value, *config.blank_line_before_return);
             if !ok return false, tprint("line %: blank_line_before_return must be true or false", line_number);
+        case "format_doc_examples";
+            ok := parse_flag(value, *config.format_doc_examples);
+            if !ok return false, tprint("line %: format_doc_examples must be true or false", line_number);
         case "ignore";
             if !value.count || value[0] != #char "[" || value[value.count - 1] != #char "]" {
                 return false, tprint("line %: ignore must be an array of quoted globs", line_number);
@@ -323,7 +326,7 @@ without_line_prefix :: (message: string) -> string {
     return message;
 }
 
-FORMAT_KEYS :: string.["indent_width", "case_indent", "case_body_indent", "max_blank_lines", "max_width", "brace_style", "blank_lines_between_items", "blank_line_after_declarations", "blank_lines_around_blocks", "blank_line_between_cases", "blank_line_before_comments", "blank_line_after_guards", "blank_line_before_return", "ignore"];
+FORMAT_KEYS :: string.["indent_width", "case_indent", "case_body_indent", "max_blank_lines", "max_width", "brace_style", "blank_lines_between_items", "blank_line_after_declarations", "blank_lines_around_blocks", "blank_line_between_cases", "blank_line_before_comments", "blank_line_after_guards", "blank_line_before_return", "format_doc_examples", "ignore"];
 
 // The warning for an unknown `[format]` setting `key` found in the config file `file`: it is
 // ignored, and the nearest known key is named when there is one within a third of its length.

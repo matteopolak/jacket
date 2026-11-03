@@ -143,7 +143,7 @@ main :: () {
 
 ## Comments and strings
 
-Comments keep their place and text. Strings, here-strings, `#asm` bodies and everything between `// jaifmt: off` and `// jaifmt: on` are left exactly as written.
+Comments keep their place and text. Strings, here-strings, `#asm` bodies and everything between `// jaifmt: off` and `// jaifmt: on` are left exactly as written. The one exception is the Jai in fenced blocks inside `//` comments, which is formatted too (see [format_doc_examples](#format_doc_examples)).
 
 ```jai before
 main :: () {
@@ -454,6 +454,44 @@ save :: (path: string) -> bool {
     return true;
 }
 ```
+
+### format_doc_examples
+
+Formats the code in `jai` fenced blocks inside `//` comments, such as the examples in doc comments. On by default.
+
+A block is formatted with the file's settings, and its comment prefix and indentation stay. A block with a `main` is formatted as a file; any other block as the body of a procedure, the way `jacket test` runs it. The fence line and its options (`no_run`, `only(linux)`) are never touched.
+
+A block is left exactly as written when its fence has `ignore` or `compile_fail`, when it contains `// jaifmt: off`, when it lies in a `// jaifmt: off` region, when it does not parse, or when formatting it twice would not give the same text.
+
+```jai before
+// Adds two numbers.
+//
+// ```jai
+// total:=add(1,2);
+// if total>2{
+// print("big\n");
+// }
+// ```
+add :: (a: int, b: int) -> int {
+    return a + b;
+}
+```
+
+```jai after
+// Adds two numbers.
+//
+// ```jai
+// total := add(1, 2);
+// if total > 2 {
+//     print("big\n");
+// }
+// ```
+add :: (a: int, b: int) -> int {
+    return a + b;
+}
+```
+
+With `format_doc_examples = false` the comments stay as written.
 
 ### max_width
 

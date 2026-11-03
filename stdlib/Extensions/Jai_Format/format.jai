@@ -55,6 +55,17 @@ format_text :: (src: string, config: Format_Config) -> Format_Result {
         return result;
     }
 
+    if config.format_doc_examples {
+        documented, changed := format_doc_examples_in(result.output, config, f.newline);
+
+        if changed && same_code_tokens(result.output, documented) {
+            free(result.output);
+            result.output = documented;
+        } else {
+            free(documented);
+        }
+    }
+
     result.long_lines = count_long_lines(result.output, config.max_width);
     result.ok = true;
 
@@ -1645,6 +1656,380 @@ would_merge :: (f: *Formatter, p: int, i: int) -> bool {
         for PUNCTUATION {
             if it.count > a.count && begins_with(it, a) && it[a.count] == b[0] return true;
         }
+    }
+
+    return false;
+}
+
+// Doc examples: the ```jai blocks inside runs of `//` comment lines are formatted as Jai of
+// their own. A block is left as written when it is marked `ignore` or `compile_fail`, sits in a
+// `// jaifmt: off` region or holds `// jaifmt: off` itself, does not format, or would not format
+// to itself a second time.
+
+// The text before the first line break at or after `pos` (without a carriage return), and where
+// the next line starts.
+take_line :: (text: string, pos: s64) -> line: string, next: s64 {
+    end := pos;
+    while end < text.count && text[end] != #char "\n" end += 1;
+
+    next := end;
+    if next < text.count next += 1;
+
+    if end > pos && text[end - 1] == #char "\r" end -= 1;
+
+    return slice(text, pos, end - pos), next;
+}
+
+// For a line that starts with `//` after some spaces: the number of spaces and where the comment's
+// text begins (after one optional space).
+comment_prefix :: (line: string) -> indent: int, start: int, ok: bool {
+    n := 0;
+    while n < line.count && line[n] == #char " " n += 1;
+
+    if n + 1 >= line.count || line[n] != #char "/" || line[n + 1] != #char "/" return 0, 0, false;
+
+    start := n + 2;
+    if start < line.count && line[start] == #char " " start += 1;
+
+    return n, start, true;
+}
+
+// The next word of a fence's info string, which is split at commas and spaces outside
+// parentheses (`jai,only(linux, macos) no_run`).
+next_fence_word :: (info: string, pos: *int) -> string, bool {
+    i := pos.*;
+
+    while i < info.count && (info[i] == #char "," || is_blank(info[i])) i += 1;
+
+    if i >= info.count {
+        pos.* = i;
+        return "", false;
+    }
+
+    from := i;
+    depth := 0;
+
+    while i < info.count {
+        c := info[i];
+
+        if c == #char "(" depth += 1;
+        if c == #char ")" && depth > 0 depth -= 1;
+        if depth == 0 && (c == #char "," || is_blank(c)) break;
+
+        i += 1;
+    }
+
+    pos.* = i;
+
+    return slice(info, from, i - from), true;
+}
+
+// Whether the fence info string `info` opens a block that gets formatted.
+formats_fence :: (info: string) -> bool {
+    pos := 0;
+    first, found := next_fence_word(info, *pos);
+
+    if !found || first != "jai" return false;
+
+    while true {
+        word, more := next_fence_word(info, *pos);
+        if !more break;
+        if word == "ignore" || word == "compile_fail" return false;
+    }
+
+    return true;
+}
+
+is_word_char :: inline (c: u8) -> bool {
+    return c == #char "_" || (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || (c >= #char "0" && c <= #char "9");
+}
+
+// Whether `code` declares `main` at its top level (the doc tests run such a block as it is).
+declares_main :: (code: string) -> bool {
+    pos := 0;
+
+    while pos < code.count {
+        line, next := take_line(code, pos);
+
+        pos = next;
+
+        if !line.count || is_blank(line[0]) continue;
+
+        end := 0;
+        while end < line.count && is_word_char(line[end]) end += 1;
+
+        if slice(line, 0, end) == "main" && begins_with(trim(slice(line, end, line.count - end)), "::") return true;
+    }
+
+    return false;
+}
+
+EXAMPLE_WRAPPER :: "__doc_example :: () {";
+
+// `code` formatted as a Jai file, or, when it has no `main`, as the body of a procedure. The
+// result is only returned when it keeps the tokens of `code`.
+format_example_once :: (code: string, config: Format_Config) -> string, bool {
+    whole := format_text(code, config);
+    if !whole.ok return "", false;
+
+    if declares_main(code) {
+        if check_equivalent(code, whole.output) return whole.output, true;
+
+        free(whole.output);
+        return "", false;
+    }
+
+    free(whole.output);
+
+    wrapped := format_text(tprint("%\n%}\n", EXAMPLE_WRAPPER, code), config);
+    if !wrapped.ok return "", false;
+
+    defer free(wrapped.output);
+
+    text := wrapped.output;
+    header, body_start := take_line(text, 0);
+
+    if header != EXAMPLE_WRAPPER return "", false;
+
+    // The closing brace is the last line.
+    if !text.count || text[text.count - 1] != #char "\n" return "", false;
+
+    close_start := text.count - 1;
+    while close_start > 0 && text[close_start - 1] != #char "\n" close_start -= 1;
+
+    if close_start < body_start || trim(slice(text, close_start, text.count - close_start)) != "}" return "", false;
+
+    out: String_Builder;
+    pos := body_start;
+
+    while pos < close_start {
+        line, next := take_line(text, pos);
+
+        pos = next;
+
+        spaces := 0;
+        while spaces < line.count && line[spaces] == #char " " spaces += 1;
+
+        strip := min(spaces, config.indent_width);
+
+        append(*out, slice(line, strip, line.count - strip));
+        append(*out, "\n");
+    }
+
+    candidate := builder_to_string(*out);
+
+    free_buffers(*out);
+
+    if check_equivalent(code, candidate) return candidate, true;
+
+    free(candidate);
+
+    return "", false;
+}
+
+// The formatted `code`, when formatting it is safe: it formats, and formatting the result gives
+// the result back.
+format_example :: (code: string, config: Format_Config) -> string, bool {
+    first, ok := format_example_once(code, config);
+    if !ok return "", false;
+
+    second, again_ok := format_example_once(first, config);
+
+    if !again_ok {
+        free(first);
+        return "", false;
+    }
+
+    defer free(second);
+
+    if second != first {
+        free(first);
+        return "", false;
+    }
+
+    return first, true;
+}
+
+// The comment lines from `from` to `to` in `text` (the body of one block) formatted and written
+// out as comment lines again. `indent` is the comment's indentation and `fence_indent` the
+// spaces the fence itself is indented by inside the comment.
+format_doc_block :: (text: string, from: s64, to: s64, indent: int, fence_indent: int, config: Format_Config, newline: string) -> string, bool {
+    code_builder: String_Builder;
+
+    defer free_buffers(*code_builder);
+
+    pos := from;
+    blank := true;
+
+    while pos < to {
+        line, next := take_line(text, pos);
+
+        pos = next;
+
+        line_indent, start, is_comment := comment_prefix(line);
+        if !is_comment || line_indent != indent return "", false;
+
+        // Only `// ` or a bare `//` begin a line of text, so the prefix can be written back.
+        if start != line_indent + 3 && start != line.count return "", false;
+
+        content := slice(line, start, line.count - start);
+
+        if content.count {
+            if !trim(content).count || trim(content) == "// jaifmt: off" return "", false;
+
+            spaces := 0;
+            while spaces < content.count && content[spaces] == #char " " spaces += 1;
+            if spaces < fence_indent return "", false;
+
+            content = slice(content, fence_indent, content.count - fence_indent);
+            blank = false;
+        }
+
+        append(*code_builder, content);
+        append(*code_builder, "\n");
+    }
+
+    if blank return "", false;
+
+    code := builder_to_string(*code_builder);
+
+    defer free(code);
+
+    inner := config;
+    inner.format_doc_examples = false;
+    inner.max_width = max(config.max_width - indent - 3 - fence_indent, 10);
+
+    formatted, ok := format_example(code, inner);
+    if !ok return "", false;
+
+    defer free(formatted);
+
+    if formatted == code return "", false;
+
+    out: String_Builder;
+
+    pos = 0;
+
+    while pos < formatted.count {
+        line, next := take_line(formatted, pos);
+
+        pos = next;
+
+        for 1..indent append(*out, " ");
+
+        append(*out, "//");
+
+        if line.count {
+            append(*out, " ");
+            for 1..fence_indent append(*out, " ");
+            append(*out, line);
+        }
+
+        append(*out, newline);
+    }
+
+    result := builder_to_string(*out);
+
+    free_buffers(*out);
+
+    return result, true;
+}
+
+// `text` with the doc examples in its comments formatted, and whether any changed.
+format_doc_examples_in :: (text: string, config: Format_Config, newline: string) -> string, bool {
+    out: String_Builder;
+
+    defer free_buffers(*out);
+
+    changed := false;
+    off := false;
+    pos := 0;
+
+    while pos < text.count {
+        line, next := take_line(text, pos);
+
+        append(*out, slice(text, pos, next - pos));
+        pos = next;
+
+        indent, start, is_comment := comment_prefix(line);
+        if !is_comment continue;
+
+        content := slice(line, start, line.count - start);
+
+        if trim(content) == "jaifmt: off" off = true;
+        if trim(content) == "jaifmt: on" off = false;
+        if off continue;
+
+        fence_indent := 0;
+        while fence_indent < content.count && content[fence_indent] == #char " " fence_indent += 1;
+
+        fence := slice(content, fence_indent, content.count - fence_indent);
+        if !begins_with(fence, "```") || !formats_fence(slice(fence, 3, fence.count - 3)) continue;
+
+        // The block ends at the next line of the same comment that is only a fence.
+        scan := pos;
+        closed := false;
+
+        while scan < text.count {
+            inner, after := take_line(text, scan);
+            inner_indent, inner_start, inner_comment := comment_prefix(inner);
+
+            if !inner_comment || inner_indent != indent break;
+
+            if trim(slice(inner, inner_start, inner.count - inner_start)) == "```" {
+                closed = true;
+                break;
+            }
+
+            scan = after;
+        }
+
+        if !closed continue;
+
+        body, ok := format_doc_block(text, pos, scan, indent, fence_indent, config, newline);
+
+        if ok {
+            append(*out, body);
+            free(body);
+            changed = true;
+        } else {
+            append(*out, slice(text, pos, scan - pos));
+        }
+
+        pos = scan;
+    }
+
+    return builder_to_string(*out), changed;
+}
+
+// Whether `before` and `after` have the same tokens once their line comments are left out. The
+// doc example pass changes the number of comment lines, and must not touch anything else.
+same_code_tokens :: (before: string, after: string) -> bool {
+    a := lex(before);
+
+    defer array_free(a.tokens);
+
+    b := lex(after);
+
+    defer array_free(b.tokens);
+
+    if a.error.count || b.error.count return false;
+
+    ia := 0;
+    ib := 0;
+
+    while true {
+        while a.tokens[ia].kind == .LINE_COMMENT ia += 1;
+        while b.tokens[ib].kind == .LINE_COMMENT ib += 1;
+
+        ta := a.tokens[ia];
+        tb := b.tokens[ib];
+
+        if ta.kind != tb.kind || token_text(before, ta) != token_text(after, tb) return false;
+        if ta.kind == .EOF return true;
+
+        ia += 1;
+        ib += 1;
     }
 
     return false;

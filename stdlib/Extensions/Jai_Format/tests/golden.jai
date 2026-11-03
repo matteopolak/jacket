@@ -126,14 +126,15 @@ check_rules_page :: () {
         return;
     }
 
-    // Odd pieces are the insides of fences: the info line, then the code.
-    pieces := split(text, "```");
+    // Odd pieces are the insides of fences: the info line, then the code. Only a fence at the
+    // start of a line counts, since an example may show a fence inside a comment.
+    pieces := split(text, "\n```");
     pairs := 0;
     i := 1;
 
     while i + 2 < pieces.count {
-        before := pieces[i];
-        after := pieces[i + 2];
+        before := tprint("%\n", pieces[i]);
+        after := tprint("%\n", pieces[i + 2]);
 
         if !begins_with(before, "jai before\n") || !begins_with(after, "jai after") {
             i += 2;
@@ -158,7 +159,7 @@ check_rules_page :: () {
         i += 4;
     }
 
-    if pairs < 15 fail("% has % before/after pairs; expected every rule and setting", RULES_PAGE, pairs);
+    if pairs < 16 fail("% has % before/after pairs; expected every rule and setting", RULES_PAGE, pairs);
 }
 
 split_line :: (s: string) -> first: string, rest: string {
@@ -234,7 +235,12 @@ check_config_parsing :: () {
         fail("the code block blank line options were not parsed");
     }
 
-    for string.["[format]\nindent_width = x\n", "[format]\nbrace_style = \"weird\"\n", "[format]\nignore = \"a\"\n", "[format]\nblank_lines_between_items = 1\n", "[format]\nblank_lines_around_blocks = yes\n"] {
+    if !config.format_doc_examples fail("format_doc_examples should default to true");
+
+    docs_off, docs_off_ok := parse_config("[format]\nformat_doc_examples = false\n");
+    if !docs_off_ok || docs_off.format_doc_examples fail("format_doc_examples = false not parsed");
+
+    for string.["[format]\nindent_width = x\n", "[format]\nbrace_style = \"weird\"\n", "[format]\nignore = \"a\"\n", "[format]\nblank_lines_between_items = 1\n", "[format]\nblank_lines_around_blocks = yes\n", "[format]\nformat_doc_examples = 1\n"] {
         _, accepted := parse_config(it);
         if accepted fail("bad config accepted: %", it);
     }

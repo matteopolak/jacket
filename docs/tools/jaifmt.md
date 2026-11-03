@@ -34,6 +34,7 @@ Behaviour in short:
 - **Indentation** follows bracket nesting; continuation lines keep their offset from the bracket or statement start.
 - **Spacing** is none or one space, with no alignment, following the dominant style of `stdlib/`.
 - **Verbatim:** strings, here-strings, `#asm { }` bodies and everything between `// jaifmt: off` and `// jaifmt: on`.
+- **Doc examples** (`format_doc_examples`, `format_doc_examples_in`): after the main pass, the `jai` blocks in `//` comment runs are formatted as separate texts (a file if the block declares `main`, else a procedure body that is unwrapped again) and written back with the same prefix. `max_width` is reduced by the prefix width. A block is kept as written unless it formats, keeps its tokens (`check_equivalent`) and formats to itself; the file as a whole must keep its non-comment tokens (`same_code_tokens`), which catches fence-looking lines inside here-strings and block comments.
 - **Safety check** (`check_equivalent`): the output is re-lexed and must have the same tokens, comments and line breaks before the same tokens (the parser is line-sensitive in a few places). On mismatch the file is left unchanged, exit 2, naming the token.
 
 ## Configuration
@@ -51,6 +52,7 @@ brace_style = "same_line" # or "preserve"
 blank_lines_between_items = true
 blank_line_after_declarations = false   # plus blank_lines_around_blocks, blank_line_between_cases,
                                         # blank_line_before_comments, blank_line_after_guards, blank_line_before_return
+format_doc_examples = true              # format the jai blocks in // comments
 ignore = ["tests/corpus/**", "generated/*.jai"]   # globs relative to the file
 ```
 

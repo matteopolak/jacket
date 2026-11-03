@@ -1,0 +1,4 @@
+[format]
+indent_width = 2
+blank_line_before_return = true
+blank_line_after_declarations = true
