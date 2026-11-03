@@ -481,7 +481,7 @@ fn run_once(
         Err(error) => return fail(error),
     };
     let mut doc_files = std::collections::BTreeSet::new();
-    let toolchain = Toolchain {
+    let mut toolchain = Toolchain {
         jaic: jaic.clone(),
         stdlib: stdlib.clone(),
         flags,
@@ -524,6 +524,17 @@ fn run_once(
             return fail(error);
         }
     };
+    if os == host_os() && cpu == host_cpu() && !bench && !args.check_only && !list {
+        let files: Vec<_> = roots
+            .iter()
+            .flat_map(|root| root.unit.iter().chain(&root.golden))
+            .cloned()
+            .collect();
+        if let Some(probes) = prerequisites::prepare_probes(&files, &stdlib) {
+            let path = serde_json::to_string(&probes.to_string_lossy()).expect("serialize path");
+            toolchain.flags.extend(["-add".into(), format!("#run {{ C :: #import \"Compiler\"; C.compiler_add_library_search_directory({path}); }}")]);
+        }
+    }
     let built = build_all(
         &roots,
         &root_flags,
@@ -903,12 +914,15 @@ fn execute(
     let started = Instant::now();
     reporter.run_started(plan.cases.len());
     let mut outcomes = Vec::new();
+    let ci = prerequisites::in_ci();
+    let font = std::env::var_os("JAIC_TEST_FONT_PATH").map(PathBuf::from);
     // Skips are decided before anything runs.
     let mut to_run = Vec::new();
     for (index, case) in plan.cases.iter().enumerate() {
         let reason = case
             .options
             .skip_reason(target, &plan.settings.needs)
+            .or_else(|| prerequisites::font_skip(&case.options.args, ci, font.as_deref()))
             .or_else(|| {
                 (!case.compiles_only(&plan.roots, plan.toolchain.check_only))
                     .then(|| cross_skip.map(String::from))
@@ -934,7 +948,10 @@ fn execute(
         jobs::run_jobs(plan, jobs, threads, &mut |message| match message {
             Message::Started(case) => reporter.started(&plan.cases[case]),
             Message::Slow(case, elapsed) => reporter.slow(&plan.cases[case], elapsed),
-            Message::Done(outcome) => {
+            Message::Done(mut outcome) => {
+                if plan.cases[outcome.case].kind != Kind::CompileFail {
+                    prerequisites::skip_missing_probe(&mut outcome, ci);
+                }
                 reporter.finished(&plan.cases[outcome.case], &outcome);
                 outcomes.push(outcome);
             }

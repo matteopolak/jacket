@@ -4,7 +4,7 @@
 //!
 //! The two that are plain files of the checkout, the fixture data and the Debug helper, are also
 //! built before the run, when a selected test needs one that is missing ([`prepare`]).
-use super::Outcome;
+use super::{Outcome, Status};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -134,6 +134,152 @@ pub fn prepare(files: &[PathBuf], stdlib: &Path) {
             ),
         }
     }
+}
+
+/// CI must diagnose a missing dependency rather than silently reduce its coverage.
+pub fn in_ci() -> bool {
+    std::env::var_os("CI").is_some() || std::env::var_os("GITHUB_ACTIONS").is_some()
+}
+
+pub fn font_skip(args: &[String], ci: bool, font: Option<&Path>) -> Option<String> {
+    (!ci && args
+        .iter()
+        .any(|arg| arg.contains("${JAIC_TEST_FONT_PATH}"))
+        && !font.is_some_and(Path::is_file))
+    .then(|| "missing test prerequisite: JAIC_TEST_FONT_PATH must name a real font file".into())
+}
+
+/// Only absent test-driver libraries qualify. Missing production libraries, assertions,
+/// crashes and timeouts remain failures, as do all missing dependencies in CI.
+pub fn skip_missing_probe(outcome: &mut Outcome, ci: bool) {
+    if ci || outcome.status != Status::Fail || outcome.crashed || !outcome.failures.is_empty() {
+        return;
+    }
+    let text = format!(
+        "{}\n{}",
+        outcome.problems.join("\n"),
+        String::from_utf8_lossy(&outcome.stderr)
+    );
+    let names = missing_libraries(&text)
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    if names.is_empty() || names.iter().any(|name| Source::of(name) == Source::Stdlib) {
+        return;
+    }
+    let hints = library_hints(&names);
+    outcome.status = Status::Skip;
+    outcome.skip_reason = Some(format!("missing test prerequisite: {}", hints.join("; ")));
+    outcome.problems.clear();
+}
+
+/// Build only probes that need system headers and the host C compiler. SDK providers and
+/// the clipboard decoder need separately prepared dependencies and are left to CI's recipes.
+/// The returned directory is added through the compiler API, preserving JAIC_NATIVE_LIBS.
+pub fn prepare_probes(files: &[PathBuf], stdlib: &Path) -> Option<PathBuf> {
+    if !cfg!(any(target_os = "macos", target_os = "linux")) {
+        return None;
+    }
+    let root = stdlib.parent()?;
+    if !stdlib.join("Compiler/module.jai").is_file() {
+        return None;
+    }
+    let output = jacket_config::env::OUTPUT_DIR
+        .os()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root.join("target"))
+        .join("jacket-test-probes");
+    let sources: String = files
+        .iter()
+        .filter_map(|file| std::fs::read_to_string(file).ok())
+        .collect();
+    let mut probes = vec![(
+        "thread_sdk_identity",
+        "Thread/tests/sdk-identity.c",
+        vec!["-pthread"],
+    )];
+    if cfg!(target_os = "macos") {
+        probes.extend([
+            (
+                "unmapping_protection",
+                "Unmapping_Allocator/tests/native/unmapping-protection.c",
+                vec![],
+            ),
+            (
+                "window_gl_probe",
+                "GL/tests/native/context.m",
+                vec!["-framework", "AppKit", "-framework", "OpenGL"],
+            ),
+        ]);
+    }
+    let suffix = if cfg!(target_os = "macos") {
+        "dylib"
+    } else {
+        "so"
+    };
+    let shared = if cfg!(target_os = "macos") {
+        "-dynamiclib"
+    } else {
+        "-shared"
+    };
+    let mut available = false;
+    for (name, source, flags) in probes {
+        if !sources.contains(name) {
+            continue;
+        }
+        let source = stdlib.join(source);
+        if !source.is_file() {
+            continue;
+        }
+        let library = output.join(format!("lib{name}.{suffix}"));
+        let archive = output.join(format!("lib{name}.a"));
+        let fresh = |path: &Path| -> bool {
+            path.metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .zip(source.metadata().and_then(|m| m.modified()).ok())
+                .is_some_and(|(built, source)| built >= source)
+        };
+        if fresh(&library) && fresh(&archive) {
+            available = true;
+            continue;
+        }
+        if std::fs::create_dir_all(&output).is_err() {
+            continue;
+        }
+        eprintln!("jacket: building test probe {name}");
+        let object = output.join(format!("{name}.o"));
+        let compiled = Command::new("cc")
+            .args(["-O2", "-fPIC", "-Wall", "-Wextra", "-Werror", "-c"])
+            .arg(&source)
+            .arg("-o")
+            .arg(&object)
+            .output()
+            .is_ok_and(|out| out.status.success());
+        let linked = compiled
+            && Command::new("cc")
+                .arg(shared)
+                .arg(&object)
+                .args(&flags)
+                .arg("-o")
+                .arg(&library)
+                .output()
+                .is_ok_and(|out| out.status.success());
+        let archived = linked
+            && Command::new("ar")
+                .arg("rcs")
+                .arg(&archive)
+                .arg(&object)
+                .output()
+                .is_ok_and(|out| out.status.success());
+        if archived {
+            available = true;
+        } else {
+            eprintln!(
+                "jacket: could not build {name}; tests requiring it need a prepared probe library"
+            );
+        }
+    }
+    available.then_some(output)
 }
 
 const DEBUG_HELPER: &str = "developer_tools_debug";
@@ -341,5 +487,71 @@ mod tests {
                 .iter()
                 .all(|line| !line.contains("build_native_libs"))
         );
+    }
+}
+
+#[cfg(test)]
+mod local_prerequisite_tests {
+    use super::*;
+
+    #[test]
+    fn absent_fonts_skip_only_locally_and_only_when_requested() {
+        let args = vec!["${JAIC_TEST_FONT_PATH}".into()];
+        assert!(font_skip(&args, false, None).is_some());
+        assert!(font_skip(&args, true, None).is_none());
+        assert!(font_skip(&[], false, None).is_none());
+        assert!(
+            font_skip(
+                &args,
+                false,
+                Some(&Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"))
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn missing_probes_skip_locally_but_real_failures_and_ci_stay_fatal() {
+        let failed = |text: &str| {
+            let mut result = Outcome::new(0, Status::Fail);
+            result.stderr = text.as_bytes().to_vec();
+            result
+        };
+        for (text, ci, expected) in [
+            (
+                "library 'rpmalloc_adaptive_probe' not found",
+                false,
+                Status::Skip,
+            ),
+            ("library 'window_gl_probe' not found", false, Status::Skip),
+            (
+                "library 'rpmalloc_adaptive_probe' not found",
+                true,
+                Status::Fail,
+            ),
+            ("library 'mbedtls' not found", false, Status::Fail),
+            (
+                "library 'abi_probe' not found; library 'SDL3' not found",
+                false,
+                Status::Fail,
+            ),
+            ("assertion failed", false, Status::Fail),
+        ] {
+            let mut result = failed(text);
+            skip_missing_probe(&mut result, ci);
+            assert_eq!(result.status, expected, "{text}, ci={ci}");
+            if expected == Status::Skip {
+                assert!(
+                    result
+                        .skip_reason
+                        .unwrap()
+                        .contains("missing test prerequisite")
+                );
+            }
+        }
+        let mut crash = failed("library 'abi_probe' not found");
+        crash.crashed = true;
+        skip_missing_probe(&mut crash, false);
+        assert_eq!(crash.status, Status::Fail);
     }
 }

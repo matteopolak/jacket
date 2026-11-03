@@ -246,6 +246,10 @@ impl Reporter {
             OutputFormat::Human => {
                 if self.quiet
                     && matches!(outcome.status, Status::Pass | Status::Skip | Status::XFail)
+                    && !outcome
+                        .skip_reason
+                        .as_deref()
+                        .is_some_and(|reason| reason.starts_with("missing test prerequisite:"))
                 {
                     self.created(outcome);
                     return;
