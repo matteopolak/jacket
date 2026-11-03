@@ -320,6 +320,14 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 .s { color: var(--str); }
 .n { color: var(--str); }
 .c { color: var(--muted); font-style: italic; }
+/* A linter finding (```diagnostic fences): the header and markers in the level's colour, the frame muted. */
+.de { color: var(--err); font-weight: 600; }
+.dw { color: var(--warn); font-weight: 600; }
+.dk { color: var(--type); }
+.dm { color: var(--muted); }
+.dh { color: var(--ok); font-weight: 600; }
+.dc { color: var(--warn); }
+.da { color: var(--ok); }
 
 /* Reference pages */
 .guide table { border-collapse: collapse; display: block; overflow-x: auto; margin: 0 0 18px; font-size: 14px; }

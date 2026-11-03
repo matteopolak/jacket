@@ -439,3 +439,115 @@ mod other_tests {
         assert!(other("text", "x").is_none());
     }
 }
+
+/// A linter finding as the terminal shows it, in colour: the `error[rule]` header, the `-->`
+/// place, the gutter, the `^^^` markers with their labels, and the `help:`/`note:` lines.
+///
+/// Classes: `de`/`dw` (error and warning, for the header and its markers), `dm` (the muted
+/// frame), `dk` (secondary `---` markers), `dh` (`help:` and `note:` labels), `dc` (a fix line's
+/// `~`), `da` (`+`).
+pub fn diagnostic(text: &str) -> String {
+    let mut level = "de";
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let mut html = String::new();
+        let trimmed = line.trim_start();
+        let indent = &line[..line.len() - trimmed.len()];
+        let kind = ["error", "warning"].into_iter().find(|k| {
+            trimmed
+                .strip_prefix(k)
+                .is_some_and(|r| r.starts_with(['[', ':']))
+        });
+        if let Some(kind) = kind {
+            level = if kind == "error" {
+                "de"
+            } else {
+                "dw"
+            };
+            let colon = trimmed.find(':').unwrap_or(trimmed.len());
+            span(&mut html, level, &trimmed[..colon]);
+            html.push_str(&esc(&trimmed[colon..]));
+        } else if let Some(place) = trimmed.strip_prefix("--> ") {
+            html.push_str(&esc(indent));
+            span(&mut html, "dm", "-->");
+            html.push(' ');
+            html.push_str(&esc(place));
+        } else if let Some((label, rest)) = ["= note:", "= help:", "help:", "note:"]
+            .into_iter()
+            .find_map(|l| trimmed.strip_prefix(l).map(|r| (l, r)))
+        {
+            html.push_str(&esc(indent));
+            span(&mut html, "dh", label);
+            html.push_str(&esc(rest));
+        } else {
+            gutter_line(&mut html, line, level);
+        }
+        out.push(html);
+    }
+    out.join("\n")
+}
+
+/// A line of the snippet: `  5 | code`, `    |   ^^^ label`, or a fix line `  5 ~ code`.
+fn gutter_line(html: &mut String, line: &str, level: &str) {
+    let body = line.trim_start();
+    let number = body.len() - body.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+    let after = &body[number..];
+    let bar = after.trim_start();
+    let Some(sign) = bar
+        .chars()
+        .next()
+        .filter(|c| matches!(c, '|' | '~' | '+' | '-'))
+    else {
+        html.push_str(&esc(line));
+        return;
+    };
+    let frame_end = line.len() - bar.len();
+    html.push_str(&esc(&line[..frame_end]));
+    let rest = &bar[1..];
+    let class = match sign {
+        '|' => "dm",
+        '~' => "dc",
+        '+' => "da",
+        _ => level,
+    };
+    span(html, class, &sign.to_string());
+    let marks = rest.trim_start();
+    // Only a line without a number can be markers: `5 |     -x` is code.
+    if number == 0 && sign == '|' && marks.starts_with(['^', '-']) {
+        html.push_str(&esc(&rest[..rest.len() - marks.len()]));
+        let run = marks.len() - marks.trim_start_matches(['^', '-']).len();
+        let class = if marks.starts_with('^') {
+            level
+        } else {
+            "dk"
+        };
+        span(html, class, &marks[..run]);
+        let label = marks[run..].trim_start();
+        if !label.is_empty() {
+            html.push(' ');
+            span(html, class, label);
+        }
+    } else {
+        html.push_str(&esc(rest));
+    }
+}
+
+#[cfg(test)]
+mod diagnostic_tests {
+    use super::diagnostic;
+
+    #[test]
+    fn colours_the_parts_of_a_finding() {
+        let html = diagnostic(
+            "warning[unused_variable]: `x` is never used\n  --> a.jai:2:5\n   |\n 2 |     x := 1;\n   |     ^ not read\n   |\nhelp: remove it\n 2 ~     \n   = note: `unused_variable` is `warn` by default",
+        );
+        assert!(html.starts_with("<span class=\"dw\">warning[unused_variable]</span>: "));
+        assert!(html.contains("<span class=\"dm\">--&gt;</span> a.jai:2:5"));
+        assert!(html.contains("<span class=\"dw\">^</span> <span class=\"dw\">not read</span>"));
+        assert!(html.contains("<span class=\"dh\">help:</span> remove it"));
+        assert!(html.contains("<span class=\"dc\">~</span>"));
+        assert!(html.contains("<span class=\"dh\">= note:</span> `unused_variable`"));
+        // Code that starts with `-` is not a marker.
+        assert!(!diagnostic(" 2 |     -x").contains("dk"));
+    }
+}

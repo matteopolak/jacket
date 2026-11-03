@@ -338,6 +338,8 @@ fn code_html(info: &str, code: &str) -> String {
     let lang = info.split([' ', ',']).next().unwrap_or("");
     if lang == "jai" {
         highlight::jai(code, &|_| None)
+    } else if lang == "diagnostic" {
+        highlight::diagnostic(code)
     } else {
         highlight::other(lang, code).unwrap_or_else(|| esc(code))
     }
@@ -379,7 +381,7 @@ fn segments(segs: &[Segment]) -> Vec<DocSegment> {
                     }
                     _ => out.push(DocSegment::Code {
                         code_html: code_html(info, code),
-                        wrap: words.first() != Some(&"jai"),
+                        wrap: !matches!(words.first(), Some(&("jai" | "diagnostic"))),
                     }),
                 }
             }
