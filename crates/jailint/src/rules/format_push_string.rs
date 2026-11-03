@@ -13,7 +13,11 @@
 //! whose string is a call of one noted `@FormatsToString` (`tprint`, `sprint`). The editor offers
 //! the `print_to_builder` call; it is not applied by `--fix` because a formatting failure leaves
 //! the builder with the part that was written instead of nothing.
-use super::{calls_noted, suggesting};
+use super::{
+    calls_noted,
+    effects::{self, Effect},
+    suggesting,
+};
 use crate::Edit;
 use crate::Finding;
 use crate::syntax::Cx;
@@ -70,7 +74,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             let name = cx.src(format.span).trim();
-            let leaks = calls_noted(cx, format, "Allocates");
+            let leaks = effects::calls(cx, format, Effect::OwnedReturn);
             let (_, end) = cx.whole(&last.value);
             let values = cx
                 .text

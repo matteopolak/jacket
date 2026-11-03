@@ -26,7 +26,11 @@
 //!
 //! Off by default: ownership conventions differ, and a program that allocates once for its whole
 //! run may leak on purpose.
-use super::{callee_procs, calls_noted, finding, statement_range, suggesting};
+use super::{
+    callee_procs,
+    effects::{self, Effect},
+    finding, statement_range, suggesting,
+};
 use crate::syntax::Cx;
 use crate::{Edit, Finding};
 use jaic::ast::walk::{Node, walk};
@@ -130,7 +134,8 @@ fn allocation<'a>(cx: &Cx, d: &'a Decl) -> Option<&'a Expr> {
     else {
         return None;
     };
-    (calls_noted(cx, callee, "Allocates") && !args.iter().any(|a| a.context)).then_some(value)
+    (effects::calls(cx, callee, Effect::OwnedReturn) && !args.iter().any(|a| a.context))
+        .then_some(value)
 }
 
 /// The procedure may run under another allocator, or does something the scan cannot follow.

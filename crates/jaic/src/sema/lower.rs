@@ -793,8 +793,9 @@ impl Compiler {
                 {
                     record.push(
                         f.b.current,
-                        crate::ide::lifetimes::LifetimeEvent::EmptyString {
+                        crate::ide::lifetimes::LifetimeEvent::EmptyDescriptor {
                             value: addr,
+                            ty,
                         },
                     );
                 }
@@ -833,7 +834,28 @@ impl Compiler {
                     let addr = f.b.global_addr(global);
                     return Ok(f.b.load(t, addr));
                 }
-                Ok(f.b.global_addr(global))
+                let address = f.b.global_addr(global);
+                if matches!(
+                    self.ty.types.kind(ty),
+                    TypeKind::String
+                        | TypeKind::Array {
+                            kind: crate::types::ArrayKind::View,
+                            ..
+                        }
+                ) && agg.bytes.iter().all(|&b| b == 0)
+                    && agg.relocs.is_empty()
+                    && !f.type_only
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    record.push(
+                        f.b.current,
+                        crate::ide::lifetimes::LifetimeEvent::EmptyDescriptor {
+                            value: address,
+                            ty,
+                        },
+                    );
+                }
+                Ok(address)
             }
             Value::Code(c) => Ok(f.b.iconst(Ty::Ptr, c.0 as u64)),
             Value::Void => err(Code::VoidValue, span, "void value used"),

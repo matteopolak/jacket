@@ -20,15 +20,16 @@ impl Resolver<'_> {
                 values.iter().all(|v| *v == first).then_some((p, first))
             })
             .collect();
-        let empty_strings: HashSet<_> = self
+        let empty_descriptors: HashMap<_, _> = self
             .body
             .blocks
             .iter()
             .flat_map(|b| &b.events)
             .filter_map(|e| match e {
-                Event::EmptyString {
+                Event::EmptyDescriptor {
                     value,
-                } => Some(*value),
+                    ty,
+                } => Some((*value, *ty)),
                 _ => None,
             })
             .collect();
@@ -41,14 +42,17 @@ impl Resolver<'_> {
                 }
                 let mut selected = None;
                 for &source in sources {
-                    let empty = empty_strings.contains(&source)
-                        && self
-                            .places
-                            .existing(source, TypeId::STRING)
-                            .is_none_or(|p| {
-                                !self.exposed.contains(&self.places.root_of(p))
-                                    && !self.writes.contains_key(&p)
-                            });
+                    let empty = empty_descriptors.get(&source).is_some_and(|ty| {
+                        self.places.existing(source, *ty).is_none_or(|p| {
+                            !self.exposed.contains(&self.places.root_of(p))
+                                && !self.writes.contains_key(&p)
+                                && !self
+                                    .places
+                                    .descendants(p)
+                                    .iter()
+                                    .any(|p| self.writes.contains_key(p))
+                        })
+                    });
                     if empty {
                         continue;
                     }
@@ -407,6 +411,13 @@ impl Resolver<'_> {
     ) -> Option<Option<(usize, u64)>> {
         if !visiting.insert(v) {
             return None;
+        }
+        if let Some(cast) = self.address_casts.get(&v).filter(|c| c.to_pointer) {
+            let original =
+                self.integer_address_source(cast.source, all, &mut HashSet::default(), 0)?;
+            let guard = self.return_guard(original, all, visiting);
+            visiting.remove(&v);
+            return guard;
         }
         let mut guard = None;
         for def in self.values.get(&v)? {

@@ -15,6 +15,17 @@ impl Resolver<'_> {
         if depth > 24 || !visiting.insert(v) {
             return None;
         }
+        if let Some(cast) = self.address_casts.get(&v).filter(|c| c.to_pointer) {
+            let original = self.integer_address_source(
+                cast.source,
+                summaries,
+                &mut HashSet::default(),
+                depth + 1,
+            )?;
+            let path = self.trace(original, summaries, visiting, depth + 1);
+            visiting.remove(&v);
+            return path;
+        }
         let defs = self.values.get(&v)?;
         let mut result = None;
         let derived = defs.iter().any(|d| matches!(d, Def::Borrow(_)));

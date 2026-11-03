@@ -23,7 +23,11 @@
 //! a local and freeing it (`defer free(s);`), or by using a temporary-storage procedure such as
 //! `tprint`.
 use super::leaked_allocation::changes_allocator;
-use super::{calls_noted, finding};
+use super::{
+    calls_noted,
+    effects::{self, Effect},
+    finding,
+};
 use crate::Finding;
 use crate::syntax::Cx;
 use jaic::ast::walk::{Node, walk};
@@ -54,7 +58,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
-            if args.iter().any(|a| a.context) || !calls_noted(cx, callee, "Allocates") {
+            if args.iter().any(|a| a.context) || !effects::calls(cx, callee, Effect::OwnedReturn) {
                 return true;
             }
             if let Some(how) = transient_use(cx, e, chain) {

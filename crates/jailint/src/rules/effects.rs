@@ -6,6 +6,7 @@ use jaic::sema::ProcId;
 
 #[derive(Clone, Copy)]
 pub(super) enum Effect {
+    OwnedReturn,
     Output,
     Exit,
     PushContext,
@@ -16,6 +17,13 @@ pub(super) enum Effect {
 impl Effect {
     fn matches(self, summary: &lifetime_summary::Summary) -> bool {
         match self {
+            Self::OwnedReturn => summary.returns.get(&0).is_some_and(|(path, guard)| {
+                guard.is_none()
+                    && matches!(
+                        path.root,
+                        lifetime_summary::Root::Heap | lifetime_summary::Root::CallerAllocator
+                    )
+            }),
             Self::Output => summary.observable.output,
             Self::Exit => summary.observable.exit,
             Self::PushContext => summary.pushes_context,

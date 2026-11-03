@@ -940,3 +940,94 @@ fn direct_temporary_provider_calls_preserve_allocate_mode_without_tainting_caps_
         );
     }
 }
+
+#[test]
+fn aligned_allocations_keep_their_origin_after_integer_round_up_and_ir_release() {
+    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let mut options = Options::host();
+    options.import_paths = vec![stdlib.clone()];
+    options.set_stdlib(&NativeFs, &stdlib);
+    let mut c = Compiler::new(options, Rc::new(NativeFs));
+    let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+    facts.lint = true;
+    c.ed.record(facts);
+    c.begin_sources(&[ProgramSource::String(
+        r#"
+        #import "Basic";
+        round_boundary :: (address:s64, alignment:s64)->s64 {
+            assert(alignment>0);
+            return ((address+alignment-1)/alignment)*alignment;
+        }
+        unrelated :: (address:s64, alignment:s64)->s64 {
+            assert(alignment>0);
+            return alignment;
+        }
+        aligned :: (n:s64)->*void {
+            base:=alloc(n+63);
+            return cast(*void) round_boundary(cast(s64) base,64);
+        }
+        temporary_aligned :: (n:s64)->*void {
+            base:=talloc(n+63);
+            return cast(*void) round_boundary(cast(s64) base,64);
+        }
+        not_an_address :: (n:s64)->*void {
+            base:=alloc(n+63);
+            return cast(*void) unrelated(cast(s64) base,64);
+        }
+        array :: (n:s64)->[]u8 {view,base:=NewArray(n,u8,alignment=64);return view;}
+        mixed :: (n:s64, static_result:bool)->[]u8 {
+            if static_result return u8.[1,2];
+            view,base:=NewArray(n,u8,alignment=64);
+            return view;
+        }
+        main :: () {}
+    "#
+        .into(),
+    )])
+    .unwrap();
+    c.finish_program().unwrap();
+    assert!(c.ide_check_all().is_empty());
+    without_body_notes(&mut c);
+    let before = Summaries::build(&c);
+    c.release_lowered_code();
+    let after = Summaries::build(&c);
+    for (id, s) in &before.procs {
+        assert_eq!(
+            Some(s),
+            after.procs.get(id),
+            "{}",
+            c.pr.procs[id.0 as usize].name.as_str()
+        );
+    }
+    let temporary =
+        c.pr.procs
+            .iter()
+            .position(|p| p.name.as_str() == "temporary_aligned")
+            .unwrap();
+    assert!(
+        after.procs[&ProcId(temporary as u32)]
+            .returns
+            .get(&0)
+            .is_some_and(|(p, _)| p.root == Root::Temporary)
+    );
+    for (name, owned) in [
+        ("aligned", true),
+        ("not_an_address", false),
+        ("array", true),
+        ("mixed", false),
+    ] {
+        let id =
+            c.pr.procs
+                .iter()
+                .position(|p| p.name.as_str() == name)
+                .unwrap();
+        let s = &after.procs[&ProcId(id as u32)];
+        assert_eq!(
+            s.returns
+                .get(&0)
+                .is_some_and(|(p, _)| matches!(p.root, Root::Heap | Root::CallerAllocator)),
+            owned,
+            "{name}: {s:?}"
+        );
+    }
+}

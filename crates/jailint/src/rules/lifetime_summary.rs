@@ -11,6 +11,7 @@ use jaic::sema::{Compiler, ProcId, procs::BodyState};
 use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
 
+mod address_arithmetic;
 mod allocation_effects;
 mod allocator_context;
 mod allocator_storage;
@@ -122,6 +123,7 @@ pub(super) struct Summary {
     pub observable: observable::Observable,
     pub pushes_context: bool,
     pub ordering: Option<Ordering>,
+    pub rounded_address: Option<usize>,
     pub allocation_effects: HashSet<(Root, Option<(usize, u64)>)>,
     pub elements: HashMap<usize, (Path, Selector)>,
 }
@@ -168,8 +170,10 @@ pub(super) struct Resolver<'a> {
     nullable_sources: HashMap<usize, Val>,
     observable_calls: observable::Calls<'a>,
     ordering_base: Option<Ordering>,
+    rounded_address_base: Option<usize>,
     // Calls in expansions can share both a callee SSA value and a source span.
     interfaces: HashMap<*const Event, Summary>,
+    address_casts: HashMap<Val, &'a jaic::ide::lifetimes::LifetimeAddressCast>,
     comparisons: std::cell::OnceCell<HashMap<Val, &'a jaic::ide::lifetimes::LifetimeComparison>>,
     return_cuts: std::cell::RefCell<HashMap<usize, bool>>,
     return_contracts: HashMap<usize, (Path, Option<(usize, u64)>)>,
@@ -227,7 +231,9 @@ impl<'a> Resolver<'a> {
             nullable_sources: HashMap::default(),
             observable_calls: observable::Calls::build(compiler, body, all),
             ordering_base: all.get(&body.procedure).and_then(|s| s.ordering),
+            rounded_address_base: None,
             interfaces: interfaces::collect(body),
+            address_casts: body.address_casts.iter().map(|c| (c.value, c)).collect(),
             comparisons: std::cell::OnceCell::new(),
             return_cuts: std::cell::RefCell::new(HashMap::default()),
             return_contracts: all
@@ -438,6 +444,7 @@ impl<'a> Resolver<'a> {
             }
         }
         this.finish_definition_index();
+        this.rounded_address_base = this.rounded_address(all);
         this.refresh_context(all);
         this
     }

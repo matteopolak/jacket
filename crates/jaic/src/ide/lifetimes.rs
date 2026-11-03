@@ -9,6 +9,9 @@ use crate::source::Span;
 use crate::types::{ArrayKind, TypeId, TypeKind};
 use std::sync::Arc;
 
+mod addresses;
+pub use addresses::LifetimeAddressCast;
+
 #[derive(Clone, Copy, Debug)]
 pub enum LifetimeOperand {
     Place(Val),
@@ -77,8 +80,9 @@ pub enum LifetimeEvent {
         declaration: Arc<ast::ProcHeader>,
     },
     /// A freshly materialized empty string: its descriptor contains no storage.
-    EmptyString {
+    EmptyDescriptor {
         value: Val,
+        ty: TypeId,
     },
     /// Runtime context selection, including caller-owned conditional macro defers.
     ContextSet {
@@ -368,6 +372,8 @@ pub struct LifetimeBody {
     pub source_ranges: Vec<LifetimeSourceRange>,
     /// Selected primitive comparisons used by the recorded control flow.
     pub comparisons: Vec<LifetimeComparison>,
+    /// Pointer/integer bitcasts, retained independently of executable instructions.
+    pub address_casts: Vec<LifetimeAddressCast>,
     /// Global addresses used by this body; immutable relocations live in `lifetime_globals`.
     pub globals: Vec<(Val, ir::GlobalId)>,
 }
@@ -691,6 +697,7 @@ impl LifetimeBody {
             + self.source_ranges.capacity() * std::mem::size_of::<LifetimeSourceRange>()
             + self.comparisons.capacity() * std::mem::size_of::<LifetimeComparison>()
             + self.globals.capacity() * std::mem::size_of::<(Val, ir::GlobalId)>()
+            + self.address_casts.capacity() * std::mem::size_of::<LifetimeAddressCast>()
             + self.slot_aliases.capacity() * std::mem::size_of::<(Val, Val)>()
             + self.stack_places.capacity() * std::mem::size_of::<Val>()
             + self.blocks.capacity() * std::mem::size_of::<LifetimeBlock>()
@@ -837,6 +844,7 @@ impl Compiler {
                     slot_aliases: slot_aliases(&f.b.func),
                     stack_places: stack_places(&f.b.func, record.stack_subplaces),
                     globals,
+                    address_casts: addresses::capture(&f.b.func),
                     comparisons: f
                         .b
                         .func

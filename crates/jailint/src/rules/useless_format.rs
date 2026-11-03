@@ -8,7 +8,11 @@
 //! editor offers `s` for a `tprint` and `copy_string(s)` for a `sprint`. They are suggestions
 //! rather than fixes because a `tprint` result lives in temporary storage and a `sprint`
 //! result is owned by the caller, so replacing either changes who may free what.
-use super::{calls_noted, suggesting};
+use super::{
+    calls_noted,
+    effects::{self, Effect},
+    suggesting,
+};
 use crate::Edit;
 use crate::Finding;
 use crate::syntax::{Cx, is_atom};
@@ -56,7 +60,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             }
             let name = cx.src(callee.span).trim();
             let shown = cx.whole_src(&value.value).trim();
-            let owned = calls_noted(cx, callee, "Allocates");
+            let owned = effects::calls(cx, callee, Effect::OwnedReturn);
             let text = if owned {
                 format!("copy_string({shown})")
             } else if is_atom(&value.value) {
