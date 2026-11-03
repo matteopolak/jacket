@@ -62,6 +62,16 @@ impl JsonSession {
                 let found = self.session.type_definition(&document, position);
                 locations_wire(&found.map_err(domain)?)
             }
+            Request::Declaration => {
+                let (document, position) = at(params)?;
+                let found = self.session.declaration(&document, position);
+                locations_wire(&found.map_err(domain)?)
+            }
+            Request::Implementation => {
+                let (document, position) = at(params)?;
+                let found = self.session.implementation(&document, position);
+                locations_wire(&found.map_err(domain)?)
+            }
             Request::References => {
                 let p: ReferenceParams = decode(params)?;
                 let declaration = p.context.is_none_or(|c| c.include_declaration);

@@ -44,6 +44,7 @@ Handlers query the compile through `with_semantic` (exact text or nothing), `wit
 - **Hints**: inferred types, argument names, `#run` values, closing-brace names, implicit `it`/`it_index`.
 - **Lenses**: "Run test" and "Debug test" over `@test` procedures; compile-time cost lenses.
 - **Definition, references, rename**: from recorded references. Rename refuses declarations outside project files.
+- **Declaration and implementation**: declaration is the declaration that introduced the name as written (an alias, a named import), where definition follows on to what it stands for. Implementation is every procedure with a body that shares the name in the open files the file reaches (the overloads); procedure types, `#foreign` declarations and non-procedures have none. Both read the syntax layer, so they never wait for a compile.
 - **Unreachable code**: shown as a faded hint.
 - **Expansions**: `jai.showExpansion` shows what an `#insert`, `#run` or macro produced.
 - **Semantic tokens**: the legend is append-only (`SemanticTokenKind`).

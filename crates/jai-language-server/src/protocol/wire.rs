@@ -296,6 +296,8 @@ pub(super) fn capabilities(pull_diagnostics: bool) -> Value {
         },
         "definitionProvider": true,
         "typeDefinitionProvider": true,
+        "declarationProvider": true,
+        "implementationProvider": true,
         "referencesProvider": true,
         "renameProvider": { "prepareProvider": true },
         "documentHighlightProvider": true,

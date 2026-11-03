@@ -90,6 +90,90 @@ impl Session {
             .collect()
     }
 
+    /// The declaration that introduced the name at `position`, as written: an alias
+    /// (`Name :: Other.Name`, a named import) is where `Name` is declared, while `definition`
+    /// goes on to what it stands for. A name no open document declares (a module's) has its
+    /// definition.
+    pub fn declaration(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+    ) -> Result<Vec<Location>, Error> {
+        let rows = self.bindings(uri, position)?;
+        if rows.is_empty() {
+            return self.definition(uri, position);
+        }
+        self.row_locations(rows)
+    }
+
+    /// The procedures that run for the name at `position`: every procedure of that name with a
+    /// body in the open documents the file reaches (overloads share a name), so a call and each
+    /// overload lead to all of them. Procedure types, `#foreign` declarations and everything
+    /// that is no procedure have none of their own; a name nothing open declares has its
+    /// definition.
+    pub fn implementation(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+    ) -> Result<Vec<Location>, Error> {
+        let rows = self.bindings(uri, position)?;
+        if rows.is_empty() {
+            return self.definition(uri, position);
+        }
+        let mut found: Vec<(&DocumentUri, &crate::analysis::SymbolRow)> = Vec::new();
+        for (target, row) in &rows {
+            if row.kind != crate::SymbolKind::Function || row.local {
+                continue;
+            }
+            for candidate in self.reachable(target) {
+                for other in &self.analyses[candidate].rows {
+                    let visible = candidate == *target || !other.file_private;
+                    let new = !found
+                        .iter()
+                        .any(|(u, r)| *u == candidate && r.selection == other.selection);
+                    if other.parent.is_none()
+                        && !other.local
+                        && other.name == row.name
+                        && other.kind == crate::SymbolKind::Function
+                        && visible
+                        && new
+                        && self.has_body(candidate, other)
+                    {
+                        found.push((candidate, other));
+                    }
+                }
+            }
+        }
+        self.row_locations(found)
+    }
+
+    /// Whether the procedure declared by `row` of `uri` is written with a body.
+    fn has_body(&self, uri: &DocumentUri, row: &crate::analysis::SymbolRow) -> bool {
+        let Some(doc) = self.documents.get(uri) else {
+            return false;
+        };
+        let text = doc
+            .text
+            .get(row.location.start..row.location.end)
+            .unwrap_or("");
+        text.contains('{') && !text.contains("#foreign") && !text.contains("#intrinsic")
+    }
+
+    fn row_locations(
+        &self,
+        rows: Vec<(&DocumentUri, &crate::analysis::SymbolRow)>,
+    ) -> Result<Vec<Location>, Error> {
+        rows.iter()
+            .map(|(target, row)| {
+                let doc = self.document(target)?;
+                Ok(Location {
+                    uri: target.as_str().into(),
+                    range: doc.index.range(&doc.text, row.selection)?,
+                })
+            })
+            .collect()
+    }
+
     /// Text of a file the editor may not have open (a definition in a module or the stdlib):
     /// the open document's text, else the environment's file system.
     pub fn source(&self, uri: &DocumentUri) -> Option<String> {
