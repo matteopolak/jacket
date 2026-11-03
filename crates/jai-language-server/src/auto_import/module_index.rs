@@ -27,6 +27,9 @@ impl Sources<'_> {
         let mut seen = BTreeSet::new();
         let mut pending = vec![self.key(root)];
         while let Some(entry) = pending.pop() {
+            if self.stopped() {
+                break;
+            }
             let entry = self.key(&entry);
             if seen.len() >= MAX_LOADED || seen.contains(&entry) {
                 continue;
@@ -61,6 +64,9 @@ impl Sources<'_> {
     ) -> Vec<Arc<Module>> {
         let mut modules = Vec::new();
         for (entry, is_dir) in self.list_dir(dir) {
+            if self.stopped() {
+                break;
+            }
             if entry.starts_with('.') {
                 continue;
             }
@@ -154,6 +160,9 @@ impl Sources<'_> {
     ) -> Vec<(Decl, bool)> {
         let mut decls = Vec::new();
         for part in self.closure(index, entry) {
+            if self.stopped() {
+                break;
+            }
             let scan = self.scan(index, &part);
             for decl in scan
                 .decls
@@ -291,7 +300,8 @@ impl Sources<'_> {
         let recorded = self.recording.replace(outer).unwrap_or_default();
         // The stdlib's files are only read through its modules: drop their scans.
         index.files.retain(|path, _| !path.starts_with(dir));
-        if let Some(shared) = SharedStdlib::new(modules.clone(), recorded)
+        if !self.stopped()
+            && let Some(shared) = SharedStdlib::new(modules.clone(), recorded)
             && let Ok(mut kept) = KEPT_STDLIBS.lock()
         {
             kept.retain(|(root, old)| root != dir || old.is_current(self));
@@ -406,11 +416,13 @@ impl SharedStdlib {
             .open
             .keys()
             .all(|open| !open.ancestors().any(|path| self.paths.contains(path)))
-            && self
-                .stamps
-                .iter()
-                .all(|(path, stamp)| sources.env.fs.stamp(path) == Some(*stamp))
+            && self.stamps.iter().all(|(path, stamp)| {
+                !sources.stopped() && sources.env.fs.stamp(path) == Some(*stamp)
+            })
             && self.options.iter().all(|(root, (import_paths, preload))| {
+                if sources.stopped() {
+                    return false;
+                }
                 let options = (sources.env.options)(root);
                 options.import_paths == *import_paths && options.preload == *preload
             })

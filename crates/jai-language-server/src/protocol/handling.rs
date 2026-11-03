@@ -78,6 +78,11 @@ impl JsonSession {
         self.session.warm_auto_import();
     }
 
+    /// False when input interrupted the scan: retry on the next idle turn.
+    pub fn warm_up_unless_interrupted(&self) -> bool {
+        self.session.warm_auto_import_unless_interrupted()
+    }
+
     /// Answer completion without compiling to rank names by expected type; a transport then
     /// calls `warm_pending` once input is quiet (see `Session::defer_compiles`).
     pub fn defer_compiles(&mut self, on: bool) {

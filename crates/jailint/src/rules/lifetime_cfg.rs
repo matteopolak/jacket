@@ -215,6 +215,9 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
     checked.extend(selected.iter().map(|body| body.procedure));
     let bodies = checked.len();
     for body in selected {
+        if jaic::interrupt::should_stop() {
+            return;
+        }
         let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
         let Some(syntax) = &body.syntax.body else {
             continue;

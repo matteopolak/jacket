@@ -135,3 +135,80 @@ fn requests_are_never_interrupted() {
     assert!(session.compile_counts().1 >= 1);
     reset();
 }
+
+#[test]
+fn interrupted_warm_up_retries_without_caching_partial_modules() {
+    let _guard = lock();
+    reset();
+    let dir = test_support::lsp::project(
+        "interrupt-warm",
+        &[
+            ("main.jai", "main :: () { unique_warm }"),
+            ("modules/Warm/module.jai", "unique_warm :: 42;"),
+        ],
+    );
+    let uri = test_support::lsp::uri_of(&dir.join("main.jai"));
+    let mut session = jai_language_server::Session::with_environment(
+        jai_language_server::Limits::default(),
+        test_support::lsp::modules_environment(None),
+    );
+    session
+        .open(uri.clone(), 1, "main :: () { unique_warm }".into())
+        .unwrap();
+    jaic::interrupt::stop_after(3);
+    assert!(!session.warm_auto_import_unless_interrupted());
+    reset();
+    assert!(session.warm_auto_import_unless_interrupted());
+    let result = session
+        .completion(
+            &uri,
+            jai_language_server::Position {
+                line: 0,
+                character: 24,
+            },
+        )
+        .unwrap();
+    assert!(
+        result
+            .items
+            .iter()
+            .any(|item| item.label == "unique_warm" && !item.additional_edits.is_empty())
+    );
+}
+
+#[test]
+fn interrupted_lints_are_not_cached_and_retry_matches_fresh() {
+    let _guard = lock();
+    reset();
+    let uri = file_uri("/interrupt/lints.jai");
+    let text = "main :: () { unused := 42; }";
+    let mut session = lean_session();
+    session.open(uri.clone(), 1, text.into()).unwrap();
+    // Populate only the semantic compile, leaving the lint pass cold.
+    session
+        .hover(
+            &uri,
+            jai_language_server::Position {
+                line: 0,
+                character: 14,
+            },
+        )
+        .unwrap();
+    let compiles = session.compile_counts().0;
+    jaic::interrupt::stop_after(2);
+    assert!(session.publications_unless_interrupted().is_none());
+    assert_eq!(
+        session.compile_counts().0,
+        compiles,
+        "the stop was in lint, not compile"
+    );
+    reset();
+    let actual = session.publications();
+    let mut fresh = lean_session();
+    fresh.open(uri, 1, text.into()).unwrap();
+    assert_eq!(shown(&actual), shown(&fresh.publications()));
+    assert!(actual.iter().any(|(_, _, ds)| {
+        ds.iter()
+            .any(|d| d.code == jai_language_server::DiagnosticCode::Lint("unused_variable"))
+    }));
+}

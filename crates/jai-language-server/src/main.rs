@@ -140,8 +140,7 @@ fn main() -> std::process::ExitCode {
                     Ok(received) => received,
                     Err(std::sync::mpsc::TryRecvError::Empty) => {
                         if warm_needed {
-                            warm_needed = false;
-                            session.warm_up();
+                            warm_needed = !session.warm_up_unless_interrupted();
                         } else {
                             for message in session.background_work()? {
                                 output

@@ -83,6 +83,8 @@ pub struct Lint {
 /// `allow`, and those an in-source `jailint: allow` covers, are left out. `complete` says the
 /// compile finished without errors; when it did not, rules that need to have seen every use
 /// (`unused_import` of an unnamed import) stay quiet.
+/// When `jaic::interrupt` is armed, polls between files, rules and lifetime bodies can stop
+/// this pass. The caller must discard the result when `disarm` reports an interruption.
 pub fn lint_files(
     compiler: &mut Compiler,
     files: &[FileId],
@@ -98,6 +100,9 @@ pub fn lint_files(
         return out;
     }
     for &file in files {
+        if jaic::interrupt::should_stop() {
+            return Vec::new();
+        }
         let path = compiler.src.sources.get(file).path.to_string();
         let text = compiler.src.sources.get(file).text.clone();
         // Lex once; the parser hands the tokens back for the rules and suppressions.
@@ -152,6 +157,9 @@ pub fn lint_files(
             .unwrap_or(config::DEFAULT_MAX_STACK_ARRAY_BYTES);
         cx.doc_links = doc_links;
         for &(rule, level) in &wanted {
+            if jaic::interrupt::should_stop() {
+                return Vec::new();
+            }
             let mut found = Vec::new();
             let started = (time_lifetimes
                 && matches!(

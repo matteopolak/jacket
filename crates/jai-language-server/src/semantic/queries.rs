@@ -193,6 +193,10 @@ impl Analysis {
             &jailint::config::Configs::new(config),
             self.complete,
         );
+        // A stopped lint pass must be retried even though the semantic compile is complete.
+        if jaic::interrupt::fired() {
+            return None;
+        }
         self.lints.insert(file, found.clone());
         Some(found)
     }

@@ -749,6 +749,9 @@ impl Summaries {
         let components = sccs(&ids, &graph);
         all.sccs = components.len();
         for component in &components {
+            if jaic::interrupt::should_stop() {
+                return Self::default();
+            }
             let once = acyclic(component, &graph);
             if jacket_config::env::LIFETIME_STATS.is_set()
                 && (component.len() > 1 || graph[&component[0]].contains(&component[0]))
@@ -766,6 +769,9 @@ impl Summaries {
             loop {
                 let mut changed = false;
                 for id in component {
+                    if jaic::interrupt::should_stop() {
+                        return Self::default();
+                    }
                     if all.procs[id].normal_return == Some(false)
                         && !returning_blocks(valid[id], &all.procs, &all.targets).is_empty()
                     {
@@ -782,6 +788,9 @@ impl Summaries {
             loop {
                 let mut changed = false;
                 for id in component {
+                    if jaic::interrupt::should_stop() {
+                        return Self::default();
+                    }
                     all.iterations += 1;
                     let resolver = resolvers.entry(*id).or_insert_with(|| {
                         Resolver::cached(

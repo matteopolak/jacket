@@ -71,6 +71,7 @@ pub(crate) struct Module {
 type Modules = Arc<Vec<Arc<Module>>>;
 
 /// The modules of a folder, and the files that changed since they were read.
+#[derive(Clone)]
 struct ModuleCache {
     modules: Modules,
     stale: BTreeSet<PathBuf>,
@@ -86,7 +87,7 @@ pub(crate) struct ImportKey {
     pub(crate) config: Option<PathBuf>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct Index {
     /// Module folders found for a program root (`modules.rs`), with the files they were read from,
     /// by everything the answer depends on besides those files.
@@ -260,6 +261,8 @@ struct Program {
 /// Files as the server sees them: open documents over the environment's file system.
 /// Made for one request: the file system is taken not to change while it lives.
 pub(crate) struct Sources<'a> {
+    /// Only transactional background scans may return partial results.
+    stoppable: bool,
     pub(crate) env: &'a Environment,
     pub(crate) open: BTreeMap<PathBuf, &'a str>,
     /// `canonical_key` of the paths asked about, each a few file system calls.
@@ -297,6 +300,7 @@ impl Session {
             .map(|(u, text)| (memo_key(&keys, env, Path::new(u.path())), text))
             .collect();
         Sources {
+            stoppable: false,
             env,
             open,
             keys,
@@ -335,6 +339,10 @@ pub(crate) fn canonical_key(env: &Environment, path: &Path) -> PathBuf {
 }
 
 impl Sources<'_> {
+    fn stopped(&self) -> bool {
+        self.stoppable && jaic::interrupt::should_stop()
+    }
+
     pub(crate) fn key(&self, path: &Path) -> PathBuf {
         memo_key(&self.keys, self.env, path)
     }
@@ -372,6 +380,9 @@ impl Sources<'_> {
     }
 
     pub(crate) fn read(&self, path: &Path) -> Option<String> {
+        if self.stopped() {
+            return None;
+        }
         let key = self.key(path);
         let open = self.open.get(&key);
         self.note(&key, open.is_some());
@@ -406,6 +417,9 @@ impl Sources<'_> {
 
     /// Entries of `dir` (name, is a folder): on disk and open documents below it.
     fn list_dir(&self, dir: &Path) -> Vec<(String, bool)> {
+        if self.stopped() {
+            return Vec::new();
+        }
         let key = self.key(dir);
         self.note(&key, self.open_under(&key));
         let mut entries: BTreeSet<(String, bool)> = self.env.fs.list_dir(dir).into_iter().collect();
@@ -427,6 +441,9 @@ impl Sources<'_> {
     /// `scan` of a path that is already a key (what `project_files` lists), which costs no
     /// file system calls to know.
     fn scan_keyed(&self, index: &mut Index, path: &Path) -> Rc<FileScan> {
+        if self.stopped() {
+            return Rc::default();
+        }
         self.note(path, self.open.contains_key(path));
         if let Some(text) = self.open.get(path) {
             let h = hash(text);
