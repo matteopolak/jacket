@@ -666,7 +666,7 @@ fn analyze(cx: &Cx) -> Reports {
         cfgs += 1;
         let trace = jacket_config::env::LIFETIME_STATS.is_set()
             && body.blocks.iter().map(|b| b.events.len()).sum::<usize>() > 5000;
-        let started = std::time::Instant::now();
+        let started = jaic::platform::Stopwatch::start();
         if trace {
             eprintln!(
                 "lifetime-resource-body begin file={} proc={} name={} events={}",

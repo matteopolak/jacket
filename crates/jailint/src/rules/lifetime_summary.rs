@@ -961,7 +961,7 @@ impl Summaries {
     }
 
     pub fn build_for(compiler: &Compiler, files: &HashSet<jaic::source::FileId>) -> Self {
-        let started = std::time::Instant::now();
+        let started = jaic::platform::Stopwatch::start();
         let Some(facts) = compiler.ed.facts() else {
             return Self::default();
         };
