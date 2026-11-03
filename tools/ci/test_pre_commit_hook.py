@@ -48,6 +48,7 @@ class PreCommitHookTests(unittest.TestCase):
         (self.repo / "tools/dev").mkdir(parents=True)
         for script in ("dev.py", "rust_item_spacing.py", "staged-files.sh"):
             shutil.copy(REPO / "tools/dev" / script, self.repo / "tools/dev" / script)
+        shutil.copy(REPO / "tools/repo_output.py", self.repo / "tools/repo_output.py")
         shutil.copytree(
             REPO / "tools/toolkit",
             self.repo / "tools/toolkit",
