@@ -139,8 +139,8 @@ proto_load_graph :: (s: *proto_Schema) {
     } else {
         path := s.options.path;
         if path != "<text.proto>" {
-            absolute, ok := get_absolute_path(path);
-            if ok path = absolute;
+            absolute := proto_existing_path(path);
+            if absolute.count path = absolute;
         }
 
         proto_load_source(s, path, s.text, .{ path = path, line = 1, column = 1 });
