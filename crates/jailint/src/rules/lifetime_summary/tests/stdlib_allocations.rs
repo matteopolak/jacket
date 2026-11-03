@@ -246,3 +246,58 @@ fn debug_backtrace_cleanup_contract_follows_the_native_release_abi() {
         assert!(!all.procs[&fake].may.keys().any(|e| e.kind == Kind::Free));
     }
 }
+
+#[test]
+fn visualization_descriptor_reset_contract_preserves_the_header() {
+    for windows in [false, true] {
+        let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../stdlib")
+            .canonicalize()
+            .unwrap();
+        let mut options = Options::host();
+        options.import_paths = vec![stdlib.clone()];
+        options.set_stdlib(&NativeFs, &stdlib);
+        if windows {
+            options.os = jaic::target::TargetOs::Windows;
+            options.cpu = jaic::target::TargetCpu::X64;
+        }
+        let mut c = Compiler::new(options, Rc::new(NativeFs));
+        let mut facts = IdeFacts::new(vec![IdeRoot::Virtual, IdeRoot::under(&stdlib)]);
+        facts.lint = true;
+        c.ed.record(facts);
+        c.begin_sources(&[ProgramSource::String(
+            "#import \"Basic\"; main :: () {}".into(),
+        )])
+        .unwrap();
+        c.finish_program().unwrap();
+        assert!(c.ide_check_all().is_empty());
+        let ids: Vec<_> =
+            c.pr.procs
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| {
+                    p.name.as_str() == "visualization_array_free"
+                        && !p.is_poly
+                        && p.body_state == jaic::sema::procs::BodyState::Done
+                })
+                .map(|(i, _)| ProcId(i as u32))
+                .collect();
+        assert!(!ids.is_empty());
+        without_body_notes(&mut c);
+        c.release_lowered_code();
+        let all = Summaries::build(&c);
+        for id in ids {
+            let summary = &all.procs[&id];
+            assert!(
+                summary.guaranteed.keys().any(|e| e.kind == Kind::Free
+                    && e.guard.is_none()
+                    && e.target.root == Root::Parameter(0)
+                    && descriptor_storage(&e.target.steps)),
+                "{summary:?}"
+            );
+            assert!(!summary.may.keys().any(|e| e.kind == Kind::Free
+                && e.target.root == Root::Parameter(0)
+                && e.target.steps.is_empty()));
+        }
+    }
+}
