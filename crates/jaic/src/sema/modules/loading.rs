@@ -117,6 +117,7 @@ impl Compiler {
     }
 
     fn load_file_inner(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
+        crate::sema::check_not_interrupted(span)?;
         let parsing = crate::progress::enter(crate::progress::Phase::Parsing);
         if self.ed.allows_parse_ahead()
             && let Some(prepared) = self.src.ahead.as_ref().and_then(|a| a.claim(path))

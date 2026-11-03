@@ -31,6 +31,7 @@ impl Compiler {
         let mut next = 0;
         while let Some(sid) = self.ns.unsettled.range(ScopeId(next)..).next().copied() {
             next = sid.0 + 1;
+            crate::sema::check_not_interrupted(crate::sema::Span::NONE)?;
             self.validate_parameter_contracts(self.scope(sid).module)?;
             self.expand_plain_ifs(sid)?;
             for i in 0..self.scope(sid).imports.len() {
@@ -41,6 +42,7 @@ impl Compiler {
         loop {
             while let Some(sid) = self.ns.unsettled.range(ScopeId(next)..).next().copied() {
                 next = sid.0 + 1;
+                crate::sema::check_not_interrupted(crate::sema::Span::NONE)?;
                 self.validate_parameter_contracts(self.scope(sid).module)?;
                 self.expand_pending(sid)?;
                 for i in 0..self.scope(sid).imports.len() {

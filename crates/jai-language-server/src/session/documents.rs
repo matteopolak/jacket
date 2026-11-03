@@ -186,6 +186,15 @@ impl Session {
         Ok(())
     }
 
+    /// `publications`, unless the transport asked for the check to stop (see
+    /// `jaic::interrupt::request`): then `None`, nothing is kept of the partial check, and the
+    /// requests that came in are free to run before it starts again.
+    pub fn publications_unless_interrupted(&self) -> Option<Vec<(String, i32, Vec<Diagnostic>)>> {
+        jaic::interrupt::arm();
+        let all = self.publications();
+        (!jaic::interrupt::disarm()).then_some(all)
+    }
+
     pub fn publications(&self) -> Vec<(String, i32, Vec<Diagnostic>)> {
         self.documents
             .iter()

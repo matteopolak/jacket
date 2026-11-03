@@ -3,7 +3,9 @@
 character with a `completion` request right behind each, the way an editor does it.
 
     PYTHONPATH=tools python3 tools/bench/typing_latency.py --server target/release/jailsp FILE.jai... [--gap-ms 100,150]
-        [--rounds 6] [--pull]
+        [--rounds 6] [--pull] [--max-p50-ms 50] [--max-ms 100]
+
+With `--max-p50-ms` or `--max-ms` it exits 1 when a run's completion median or worst case is over the bound.
 
 Prints, per file and gap, the completion latency (p50/p90/max, ms), the answer sizes, and the time from the
 last keystroke of a round to its diagnostics. Run it with `JAIC_STDLIB` pointing at the stdlib.
@@ -103,8 +105,11 @@ def main() -> int:
     parser.add_argument('--gap-ms', default='100,150')
     parser.add_argument('--rounds', type=int, default=6)
     parser.add_argument('--pull', action='store_true')
+    parser.add_argument('--max-p50-ms', type=float, default=None)
+    parser.add_argument('--max-ms', type=float, default=None)
     parser.add_argument('files', nargs='+', type=Path)
     args = parser.parse_args()
+    failed = False
     for path in args.files:
         for gap in (float(g) / 1000 for g in args.gap_ms.split(',')):
             r = run(args.server, path, gap, args.rounds, args.pull)
@@ -114,7 +119,11 @@ def main() -> int:
                   f'p50 {statistics.median(lat):6.1f}  p90 {pct(lat, .9):6.1f}  max {max(lat):6.1f}  '
                   f'(by key p50: {" / ".join(f"{statistics.median(v):.0f}" for v in by_key)})  items~{statistics.median(r["sizes"]):.0f}  '
                   f'diagnostics after last key ms: {", ".join(f"{v:.0f}" for v in r["publish"])}', flush=True)
-    return 0
+            if (args.max_p50_ms is not None and statistics.median(lat) > args.max_p50_ms) or (
+                    args.max_ms is not None and max(lat) > args.max_ms):
+                print(f'  over the bound: p50 <= {args.max_p50_ms}, max <= {args.max_ms}', flush=True)
+                failed = True
+    return 1 if failed else 0
 
 
 if __name__ == '__main__':

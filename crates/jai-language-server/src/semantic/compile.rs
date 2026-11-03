@@ -182,7 +182,7 @@ pub(super) fn compile(
     os: Option<TargetOs>,
     parses: &Rc<RefCell<jaic::parser::ParseReuse>>,
     mode: Mode,
-) -> Compiled {
+) -> Option<Compiled> {
     let Mode {
         untrusted,
         limits,
@@ -281,6 +281,11 @@ pub(super) fn compile(
         .into_iter()
         .map(|e| *e)
         .collect::<Vec<_>>();
+    // Stopped for a newer request (see `jaic::interrupt`): what is left of the check is not
+    // worth finishing, and the caller discards it.
+    if jaic::interrupt::fired() {
+        return None;
+    }
     // A metaprogram that failed or ran out of budget did not finish what it did: its facts
     // would be a prefix of the real ones.
     let ran_to_the_end = errors.is_empty();
@@ -295,6 +300,9 @@ pub(super) fn compile(
         jaic::build::hand_over_kept(&workspaces);
     }
     let errors = check_rest(&mut compiler, errors);
+    if jaic::interrupt::fired() {
+        return None;
+    }
     let errors = known(&compiler, errors);
     // The wall-clock limit passed: the compile-time code that ran into it said nothing (its
     // result is unknown, not wrong), and this is the one notice that results are partial.
@@ -358,12 +366,12 @@ pub(super) fn compile(
     let facts = (ran_to_the_end && !stopped).then(|| BuildFacts {
         programs: recorded.into_iter().map(|(_, p)| p).collect(),
     });
-    Compiled {
+    Some(Compiled {
         compiler,
         errors,
         others,
         facts,
         stopped,
         reads,
-    }
+    })
 }

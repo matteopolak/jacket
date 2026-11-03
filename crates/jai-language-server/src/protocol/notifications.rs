@@ -242,8 +242,13 @@ impl JsonSession {
     }
 
     pub(super) fn publications_now(&self) -> Vec<Value> {
-        self.session
-            .publications()
+        Self::publication_messages(self.session.publications())
+    }
+
+    pub(super) fn publication_messages(
+        publications: Vec<(String, i32, Vec<crate::model::Diagnostic>)>,
+    ) -> Vec<Value> {
+        publications
             .into_iter()
             .map(|(uri, version, diagnostics)| {
                 let diagnostics: Vec<Value> = diagnostics.iter().map(diagnostic_wire).collect();

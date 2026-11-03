@@ -157,6 +157,22 @@ impl JsonSession {
         self.encode_unprompted(messages)
     }
 
+    /// Like `flush_publications`, but a check that is stopped because input arrived (the
+    /// transport calls `jaic::interrupt::request(true)` when it reads some) publishes nothing
+    /// and leaves the edits pending, so the transport answers what came in and flushes again
+    /// once input is quiet.
+    pub fn flush_publications_unless_interrupted(&mut self) -> Result<Vec<String>, ProtocolError> {
+        if !self.publications_pending {
+            return Ok(Vec::new());
+        }
+        let Some(publications) = self.session.publications_unless_interrupted() else {
+            return Ok(Vec::new());
+        };
+        self.publications_pending = false;
+        let messages = Self::publication_messages(publications);
+        self.encode_unprompted(messages)
+    }
+
     pub fn handle_json(&mut self, input: &str) -> Result<Vec<String>, ProtocolError> {
         if input.len() > self.session.limits().message_bytes {
             return Err(ProtocolError::MessageLimit);

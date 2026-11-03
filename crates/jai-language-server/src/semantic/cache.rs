@@ -265,7 +265,7 @@ impl Cache {
         root: &Path,
         dirs: &[PathBuf],
         files: Buffers,
-    ) -> &mut Analysis {
+    ) -> Option<&mut Analysis> {
         self.analyze_for(env, root, dirs, files, None)
     }
 
@@ -277,29 +277,36 @@ impl Cache {
         dirs: &[PathBuf],
         files: Buffers,
         os: Option<TargetOs>,
-    ) -> &mut Analysis {
+    ) -> Option<&mut Analysis> {
         let at = match self.lookup(env, root, dirs, &files, os, true) {
             Ok(at) => at,
             Err(inputs) => {
                 // A compile of the same program from text that parses will check, and
                 // everything the older one can answer (completion after an unchanged prefix) it
                 // answers too, so the older one goes now instead of staying alive through the
-                // whole new compile.
-                if inputs.files.values().all(|bytes| {
+                // whole new compile. A check that may be stopped (see `jaic::interrupt`) keeps
+                // it until the new one is made: stopping must not cost the requests that come
+                // next a compile.
+                let replaces = inputs.files.values().all(|bytes| {
                     std::str::from_utf8(bytes).is_ok_and(|text| parse_error(text).is_none())
-                }) {
+                });
+                if replaces && !jaic::interrupt::armed() {
                     self.entries
                         .retain(|a| !(a.root == root && a.dirs == dirs && a.os == os));
                 }
                 self.make_room(os, root);
-                let analysis = self.build(env, root, dirs, files, inputs, os);
+                let analysis = self.build(env, root, dirs, files, inputs, os)?;
+                if replaces {
+                    self.entries
+                        .retain(|a| !(a.root == root && a.dirs == dirs && a.os == os));
+                }
                 self.entries.push(analysis);
                 self.entries.len() - 1
             }
         };
         let entry = self.entries.remove(at);
         self.entries.push(entry);
-        self.entries.last_mut().expect("just pushed")
+        self.entries.last_mut()
     }
 
     /// A kept analysis of `root` with `files` open, if one answers for them, without compiling
@@ -324,7 +331,7 @@ impl Cache {
         root: &Path,
         dirs: &[PathBuf],
         files: Buffers,
-    ) -> Analysis {
+    ) -> Option<Analysis> {
         let inputs = self.inputs(env, root, dirs, &files, None);
         if let Some(active) = self.entries.iter().rposition(|a| a.os.is_none()) {
             let root = self.entries[active].root.clone();
@@ -423,7 +430,7 @@ impl Cache {
         given: Buffers,
         inputs: Inputs,
         os: Option<TargetOs>,
-    ) -> Analysis {
+    ) -> Option<Analysis> {
         self.compiles += 1;
         let Inputs {
             quick,
@@ -459,7 +466,11 @@ impl Cache {
                 untrusted: self.untrusted,
                 limits: self.limits,
             },
-        );
+        )?;
+        // Stopped for a newer request: the compile is partial, and nothing of it is kept.
+        if jaic::interrupt::fired() {
+            return None;
+        }
         // Another target's compile says nothing new about what the metaprogram did.
         if let Some(facts) = facts.filter(|f| os.is_none() && !f.programs.is_empty()) {
             let key = jaic::paths::file_identity(&*env.fs, root);
@@ -481,7 +492,7 @@ impl Cache {
                 .ed
                 .facts()
                 .is_some_and(|ide| !ide.scopes.is_empty());
-        Analysis {
+        Some(Analysis {
             compiler,
             entry: Some(root.to_path_buf()),
             key,
@@ -499,6 +510,6 @@ impl Cache {
             enriched: None,
             found: RefCell::default(),
             others,
-        }
+        })
     }
 }

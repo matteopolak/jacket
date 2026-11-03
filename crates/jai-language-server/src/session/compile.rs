@@ -167,7 +167,7 @@ impl Session {
         let environment = self.environment.as_ref()?;
         let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let mut cache = self.semantic.borrow_mut();
-        let analysis = cache.analyze(environment, &root, &dirs, files);
+        let analysis = cache.analyze(environment, &root, &dirs, files)?;
         let path = Path::new(uri.path());
         analysis.focus(path);
         let answer = query(analysis, path);
@@ -212,7 +212,12 @@ impl Session {
             self.index.borrow_mut().probed.insert(entry.clone(), hash);
             let dirs = self.import_dirs(&entry);
             let mut cache = self.semantic.borrow_mut();
-            cache.analyze(environment, &entry, &dirs, buffers.clone());
+            if cache
+                .analyze(environment, &entry, &dirs, buffers.clone())
+                .is_none()
+            {
+                return;
+            }
             self.sync_builds(&cache);
         }
     }
@@ -245,14 +250,14 @@ impl Session {
         let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let path = Path::new(uri.path());
         let mut cache = self.semantic.borrow_mut();
-        let analysis = cache.analyze(environment, &root, &dirs, files.clone());
+        let analysis = cache.analyze(environment, &root, &dirs, files.clone())?;
         analysis.focus(path);
         let first = query(analysis, path);
         self.sync_builds(&cache);
         if let Some(found) = first {
             return Some(found);
         }
-        let analysis = cache.analyze(environment, &root, &dirs, files.clone());
+        let analysis = cache.analyze(environment, &root, &dirs, files.clone())?;
         if !analysis.skipped(path, byte) {
             return None;
         }
@@ -274,7 +279,7 @@ impl Session {
             })
             .collect();
         for os in order {
-            let analysis = cache.analyze_for(environment, &root, &dirs, files.clone(), Some(os));
+            let analysis = cache.analyze_for(environment, &root, &dirs, files.clone(), Some(os))?;
             analysis.focus(path);
             if let Some(span) = analysis.skipped_span(path, byte) {
                 unreached

@@ -40,6 +40,10 @@ fn main() -> std::process::ExitCode {
                     }
                     Err(error) => (chunks.send(Err(error)).is_err(), true),
                 };
+                // A check that can be stopped stops for input (see `jaic::interrupt`); the
+                // request follows the send, so the loop that clears it and then looks at the
+                // channel never misses input that is really waiting.
+                jaic::interrupt::request(true);
                 if sent.0 || sent.1 {
                     return;
                 }
@@ -77,14 +81,28 @@ fn main() -> std::process::ExitCode {
                     .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
                 match input.recv_timeout(wait) {
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                        let started = std::time::Instant::now();
-                        let published = session.flush_publications()?;
-                        last_publication = started.elapsed();
-                        for response in published {
-                            output.write_all(&jai_language_server::framing::encode(&response))?;
+                        // The check stops for input that arrives while it runs; input already
+                        // here is read first.
+                        jaic::interrupt::request(false);
+                        match input.try_recv() {
+                            Ok(received) => received,
+                            Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),
+                            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                                let started = std::time::Instant::now();
+                                let published = session.flush_publications_unless_interrupted()?;
+                                // A stopped check says nothing about how long one takes.
+                                if !published.is_empty() {
+                                    last_publication = started.elapsed();
+                                }
+                                for response in published {
+                                    output.write_all(&jai_language_server::framing::encode(
+                                        &response,
+                                    ))?;
+                                }
+                                output.flush()?;
+                                continue;
+                            }
                         }
-                        output.flush()?;
-                        continue;
                     }
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
                     Ok(received) => received,
@@ -96,10 +114,15 @@ fn main() -> std::process::ExitCode {
                     .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
                 match input.recv_timeout(wait) {
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                        let started = std::time::Instant::now();
-                        session.warm_ranking();
-                        last_publication = last_publication.max(started.elapsed());
-                        continue;
+                        jaic::interrupt::request(false);
+                        match input.try_recv() {
+                            Ok(received) => received,
+                            Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),
+                            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                                session.warm_ranking();
+                                continue;
+                            }
+                        }
                     }
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
                     Ok(received) => received,
@@ -107,6 +130,7 @@ fn main() -> std::process::ExitCode {
             } else if warm_needed || session.has_background_work() {
                 // Idle after a message: read the indexes completion will want, then do the
                 // work requests left for later one piece at a time, unless input is waiting.
+                jaic::interrupt::request(false);
                 match input.try_recv() {
                     Ok(received) => received,
                     Err(std::sync::mpsc::TryRecvError::Empty) => {

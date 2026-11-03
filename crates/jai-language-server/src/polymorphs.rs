@@ -148,7 +148,11 @@ impl Session {
         let analysis: &Analysis = if let Some(analysis) = cache.cached(env, root, &dirs, buffers) {
             analysis
         } else {
-            detached = cache.compile_detached(env, root, &dirs, Rc::clone(buffers));
+            let Some(compiled) = cache.compile_detached(env, root, &dirs, Rc::clone(buffers))
+            else {
+                return;
+            };
+            detached = compiled;
             &detached
         };
         let (reads, open) = analysis.inputs_read();
@@ -214,7 +218,13 @@ impl Session {
             if let Need::Current = self.polymorph_need(&root, &dirs, &open, None) {
                 continue;
             }
+            // Stopped by newer input, the summary stays queued for the next quiet moment.
+            jaic::interrupt::arm();
             self.summarize(&root, dirs, &buffers);
+            if jaic::interrupt::disarm() {
+                self.polymorph_index.borrow_mut().pending.insert(root);
+                return false;
+            }
             return true;
         }
     }

@@ -188,7 +188,12 @@ impl Session {
             return;
         };
         if self.documents.contains_key(&uri) {
+            // Stopped by newer input, it is asked for again by the next completion.
+            jaic::interrupt::arm();
             let _ = self.with_semantic(&uri, &candidate, |_, _| Some(()));
+            if jaic::interrupt::disarm() {
+                *self.ranking_pending.borrow_mut() = Some((uri, candidate));
+            }
         }
     }
 

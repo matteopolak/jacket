@@ -122,6 +122,20 @@ pub fn err<T>(code: Code, span: Span, message: impl Into<String>) -> Result<T> {
     Err(Box::new(Diagnostic::new(code, span, message)))
 }
 
+/// Fails with the stop an editor asked for (see [`crate::interrupt`]) when it did, else `Ok`.
+/// The check's result is discarded by whoever asked for the stop.
+#[inline]
+pub fn check_not_interrupted(span: Span) -> Result<()> {
+    if crate::interrupt::should_stop() {
+        return err(
+            Code::CheckingTimeLimit,
+            span,
+            "checking stopped for a newer request",
+        );
+    }
+    Ok(())
+}
+
 /// Platform on which this compiler binary executes, independent of output options.
 pub fn compiler_host() -> (TargetOs, TargetCpu) {
     #[cfg(not(any(

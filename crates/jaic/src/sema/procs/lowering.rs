@@ -13,6 +13,9 @@ use crate::sema::{
 impl Compiler {
     /// Lower one procedure body to IR.
     pub fn lower_body(&mut self, id: ProcId) -> Result<()> {
+        // An editor that wants this check to stop (see `interrupt`) gets every body failed at
+        // once; what the check produces is thrown away.
+        crate::sema::check_not_interrupted(self.proc(id).span)?;
         // IDE-final checks can enter through a compile-time dependency preflight,
         // not just the lenient queue. Share its failure memo at this common entry.
         if let Some(error) = self.ide_cached_body_failure(id, self.lower_epoch()) {

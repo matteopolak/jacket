@@ -1,0 +1,137 @@
+//! A check that input interrupts leaves nothing behind, and requests are never interrupted.
+//!
+//! The interrupt state is process-wide, so every test here takes `LOCK`, and nothing else
+//! runs in this binary.
+use std::sync::Mutex;
+use test_support::lsp::{file_uri, lean_session};
+
+static LOCK: Mutex<()> = Mutex::new(());
+
+const SOURCE: &str = "\
+helper :: (a: int) -> int { return a + 1; }
+other :: (b: int) -> int { return helper(b) * 2; }
+main :: () {
+    bad: int = \"text\";
+    total := other(helper(2));
+    tot
+}
+";
+
+fn lock() -> std::sync::MutexGuard<'static, ()> {
+    LOCK.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn reset() {
+    jaic::interrupt::request(false);
+    jaic::interrupt::stop_after(0);
+    let _ = jaic::interrupt::disarm();
+}
+
+fn shown(publications: &[(String, i32, Vec<jai_language_server::Diagnostic>)]) -> String {
+    format!("{publications:?}")
+}
+
+#[test]
+fn without_input_the_result_is_the_same() {
+    let _guard = lock();
+    reset();
+    let uri = file_uri("/interrupt/same.jai");
+    let mut stopped = lean_session();
+    stopped.open(uri.clone(), 1, SOURCE.into()).unwrap();
+    let mut plain = lean_session();
+    plain.open(uri, 1, SOURCE.into()).unwrap();
+    let expected = plain.publications();
+    assert!(
+        expected.iter().any(|(_, _, d)| !d.is_empty()),
+        "the program has an error to publish"
+    );
+    let got = stopped
+        .publications_unless_interrupted()
+        .expect("nothing asked it to stop");
+    assert_eq!(shown(&got), shown(&expected));
+}
+
+#[test]
+fn a_check_stopped_in_the_middle_publishes_nothing_and_poisons_nothing() {
+    let _guard = lock();
+    reset();
+    let uri = file_uri("/interrupt/middle.jai");
+    let mut session = lean_session();
+    session.open(uri.clone(), 1, SOURCE.into()).unwrap();
+    // Stop at the third body: some are checked already, others are not.
+    jaic::interrupt::stop_after(3);
+    assert!(session.publications_unless_interrupted().is_none());
+    reset();
+    assert_eq!(
+        session.compile_counts().1,
+        0,
+        "the partial compile is not kept"
+    );
+    // The next check, undisturbed, is the one a fresh session gives.
+    let again = session.publications();
+    let mut fresh = lean_session();
+    fresh.open(uri, 1, SOURCE.into()).unwrap();
+    assert_eq!(shown(&again), shown(&fresh.publications()));
+    assert!(again.iter().any(|(_, _, d)| !d.is_empty()));
+}
+
+#[test]
+fn a_stopped_check_keeps_the_compile_requests_use() {
+    let _guard = lock();
+    reset();
+    let uri = file_uri("/interrupt/kept.jai");
+    let mut session = lean_session();
+    session.open(uri.clone(), 1, SOURCE.into()).unwrap();
+    session.publications();
+    let (compiles, alive) = session.compile_counts();
+    // An edit changes the program; its check is stopped part way.
+    let edit = jai_language_server::TextChange {
+        range: None,
+        range_length: None,
+        text: SOURCE.replace("total := ", "total2 := "),
+    };
+    session.change(&uri, 2, &[edit]).unwrap();
+    jaic::interrupt::stop_after(2);
+    assert!(session.publications_unless_interrupted().is_none());
+    reset();
+    assert_eq!(session.compile_counts().1, alive, "the older compile stays");
+    assert!(session.compile_counts().0 > compiles);
+}
+
+#[test]
+fn requests_are_never_interrupted() {
+    let _guard = lock();
+    reset();
+    let uri = file_uri("/interrupt/requests.jai");
+    let mut session = lean_session();
+    session.open(uri.clone(), 1, SOURCE.into()).unwrap();
+    // Input is waiting and a stop is due, but these are not armed: they compile and answer.
+    jaic::interrupt::request(true);
+    jaic::interrupt::stop_after(1);
+    let completion = session
+        .completion(
+            &uri,
+            jai_language_server::Position {
+                line: 5,
+                character: 7,
+            },
+        )
+        .unwrap();
+    assert!(
+        completion.items.iter().any(|i| i.label == "total"),
+        "completion answered from a full compile"
+    );
+    let hover = session
+        .hover(
+            &uri,
+            jai_language_server::Position {
+                line: 4,
+                character: 5,
+            },
+        )
+        .unwrap();
+    assert!(hover.is_some(), "hover answered");
+    assert!(session.compile_counts().1 >= 1);
+    reset();
+}

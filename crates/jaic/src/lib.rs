@@ -22,6 +22,7 @@ pub mod ide;
 pub mod int_arith;
 pub mod interp;
 pub mod interpolate;
+pub mod interrupt;
 pub mod ir;
 pub mod lang_items;
 pub mod layout;
