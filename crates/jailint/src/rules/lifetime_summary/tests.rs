@@ -1,4 +1,5 @@
 mod descriptors;
+mod native_releases;
 mod stdlib_allocations;
 
 use super::*;

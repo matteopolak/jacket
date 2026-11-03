@@ -8,7 +8,7 @@ pub(super) fn seed(c: &Compiler, id: ProcId, summary: &mut Summary) {
     };
     let formal = match symbol {
         "free" | "cfree" | "fclose" | "close" | "closesocket" | "munmap" | "VirtualFree"
-        | "CloseHandle" | "freeaddrinfo" => 0,
+        | "CloseHandle" | "freeaddrinfo" | "LocalFree" | "GlobalFree" | "RegCloseKey" => 0,
         "VirtualFreeEx" => 1,
         "HeapFree" => 2,
         _ => return,
