@@ -103,10 +103,18 @@ fn stdlib_swap_contract_matches_every_checked_instance_without_notes() {
 }
 
 fn checked_without_contracts(source: &str) -> (Compiler, Summaries) {
+    checked_without_contracts_target(source, false)
+}
+
+fn checked_without_contracts_target(source: &str, windows: bool) -> (Compiler, Summaries) {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
+    if windows {
+        options.os = jaic::target::TargetOs::Windows;
+        options.cpu = jaic::target::TargetCpu::X64;
+    }
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
     facts.lint = true;
@@ -200,4 +208,41 @@ fn range_formatter_temporary_allocation_contract_is_inferred_from_its_body() {
             .values()
             .any(|(path, _)| path.root == Root::Temporary)
     );
+}
+
+#[test]
+fn debug_backtrace_cleanup_contract_follows_the_native_release_abi() {
+    for windows in [false, true] {
+        let (c, all) = checked_without_contracts_target(
+            r#"
+            #import "Debug";
+            developer_debug_free_symbols :: (symbols: *void) {}
+            main :: () { symbols: [] string; free_backtrace(symbols); }
+        "#,
+            windows,
+        );
+        let id = ProcId(
+            c.pr.procs
+                .iter()
+                .position(|p| p.name.as_str() == "free_backtrace")
+                .unwrap() as u32,
+        );
+        let summary = &all.procs[&id];
+        assert!(
+            summary.guaranteed.keys().any(|e| e.kind == Kind::Free
+                && e.target.root == Root::Parameter(0)
+                && e.guard.is_none()
+                && descriptor_storage(&e.target.steps)),
+            "{summary:?}"
+        );
+        let fake = ProcId(
+            c.pr.procs
+                .iter()
+                .position(|p| {
+                    p.name.as_str() == "developer_debug_free_symbols" && p.lit.body.is_some()
+                })
+                .unwrap() as u32,
+        );
+        assert!(!all.procs[&fake].may.keys().any(|e| e.kind == Kind::Free));
+    }
 }

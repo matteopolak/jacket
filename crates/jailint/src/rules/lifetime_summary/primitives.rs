@@ -7,8 +7,19 @@ pub(super) fn seed(c: &Compiler, id: ProcId, summary: &mut Summary) {
         return;
     };
     let formal = match symbol {
-        "free" | "cfree" | "fclose" | "close" | "closesocket" | "munmap" | "VirtualFree"
-        | "CloseHandle" | "freeaddrinfo" | "LocalFree" | "GlobalFree" | "RegCloseKey" => 0,
+        "free"
+        | "cfree"
+        | "fclose"
+        | "close"
+        | "closesocket"
+        | "munmap"
+        | "VirtualFree"
+        | "CloseHandle"
+        | "freeaddrinfo"
+        | "LocalFree"
+        | "GlobalFree"
+        | "RegCloseKey"
+        | "developer_debug_free_symbols" => 0,
         "VirtualFreeEx" => 1,
         "HeapFree" => 2,
         _ => return,
@@ -32,7 +43,10 @@ pub(super) fn seed(c: &Compiler, id: ProcId, summary: &mut Summary) {
     insert(&mut summary.may, effect.clone(), witness.clone());
     // Fallible native releases may leave a valid resource live on failure.
     // A result-dependent success proof is required before exporting a must release.
-    if matches!(symbol, "free" | "cfree" | "fclose" | "freeaddrinfo") {
+    if matches!(
+        symbol,
+        "free" | "cfree" | "fclose" | "freeaddrinfo" | "developer_debug_free_symbols"
+    ) {
         insert(&mut summary.guaranteed, effect, witness);
     }
 }
