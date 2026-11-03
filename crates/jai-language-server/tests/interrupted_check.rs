@@ -212,3 +212,85 @@ fn interrupted_lints_are_not_cached_and_retry_matches_fresh() {
             .any(|d| d.code == jai_language_server::DiagnosticCode::Lint("unused_variable"))
     }));
 }
+
+#[test]
+fn interrupted_warm_up_keeps_completed_scans_but_retries_the_interrupted_file() {
+    use jaic::sema::{FileSystem, NativeFs};
+    use std::cell::{Cell, RefCell};
+    use std::path::{Path, PathBuf};
+    use std::rc::Rc;
+    struct StopOnB {
+        stop: Cell<bool>,
+        reads: RefCell<Vec<PathBuf>>,
+    }
+    impl FileSystem for StopOnB {
+        fn read(&self, path: &Path) -> Option<Vec<u8>> {
+            self.reads.borrow_mut().push(path.to_path_buf());
+            if path.ends_with("B/module.jai") && self.stop.replace(false) {
+                jaic::interrupt::request(true);
+            }
+            NativeFs.read(path)
+        }
+        fn is_file(&self, path: &Path) -> bool {
+            NativeFs.is_file(path)
+        }
+        fn is_dir(&self, path: &Path) -> bool {
+            NativeFs.is_dir(path)
+        }
+        fn canonical(&self, path: &Path) -> PathBuf {
+            NativeFs.canonical(path)
+        }
+        fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
+            NativeFs.list_dir(path)
+        }
+        fn stamp(&self, path: &Path) -> Option<u64> {
+            NativeFs.stamp(path)
+        }
+    }
+    let _guard = lock();
+    reset();
+    let dir = test_support::lsp::project(
+        "warm-progress",
+        &[
+            ("main.jai", "main :: () {}"),
+            ("stdlib/A/module.jai", "alpha_symbol :: 1;"),
+            ("stdlib/B/module.jai", "bravo_symbol :: 2;"),
+        ],
+    );
+    let fs = Rc::new(StopOnB {
+        stop: Cell::new(true),
+        reads: RefCell::default(),
+    });
+    let mut environment = test_support::lsp::environment_at(dir.join("stdlib"), None);
+    environment.fs = fs.clone();
+    let mut session = jai_language_server::Session::with_environment(
+        jai_language_server::Limits::default(),
+        environment,
+    );
+    session
+        .open(
+            test_support::lsp::uri_of(&dir.join("main.jai")),
+            1,
+            "main :: () {}".into(),
+        )
+        .unwrap();
+    assert!(!session.warm_auto_import_unless_interrupted());
+    assert!(
+        fs.reads
+            .borrow()
+            .iter()
+            .any(|p| p.ends_with("A/module.jai"))
+    );
+    reset();
+    fs.reads.borrow_mut().clear();
+    assert!(session.warm_auto_import_unless_interrupted());
+    let reads = fs.reads.borrow();
+    assert!(
+        !reads.iter().any(|p| p.ends_with("A/module.jai")),
+        "completed work was discarded: {reads:?}"
+    );
+    assert!(
+        reads.iter().any(|p| p.ends_with("B/module.jai")),
+        "the interrupted file must be retried"
+    );
+}

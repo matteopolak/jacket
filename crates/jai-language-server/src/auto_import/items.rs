@@ -53,7 +53,20 @@ impl Session {
         {
             sources.stdlib(&mut index, stdlib);
         }
-        if !sources.stopped() {
+        if sources.stopped() {
+            // Only completed scans/modules are reusable. Derived folder lists and graphs may
+            // be partial, so leave them out and invalidate graphs that used older scans.
+            let mut kept = self.index.borrow_mut();
+            kept.files = index.files;
+            kept.open = index.open;
+            kept.loads_seen = index.loads_seen;
+            kept.graph_epoch = index.graph_epoch;
+            kept.graphs.clear();
+            kept.warming = index.warming;
+            kept.resume_warm = true;
+        } else {
+            index.resume_warm = false;
+            index.warming.clear();
             *self.index.borrow_mut() = index;
         }
     }

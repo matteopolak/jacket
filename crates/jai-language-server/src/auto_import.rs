@@ -102,6 +102,10 @@ pub(crate) struct Index {
     /// Module lists. A file that changes makes stale only the modules read from it, which are
     /// made again when the list is next asked for.
     stdlib: Option<(PathBuf, ModuleCache)>,
+    /// Complete modules retained across interrupted warm-ups. Partial lists never escape.
+    warming: BTreeMap<(PathBuf, String), Arc<Module>>,
+    /// Scans left by a stopped warm-up belong to this session, not the shared stdlib cache.
+    resume_warm: bool,
     /// How the stdlib modules rank for suggestion, for the module list it was worked out from.
     ranking: Option<(Modules, ModuleRanking)>,
     module_dirs: BTreeMap<PathBuf, ModuleCache>,
@@ -193,6 +197,8 @@ impl Index {
     /// `path` changed: its scan and the module index it is part of are stale.
     pub(crate) fn changed(&mut self, path: &Path) {
         self.files.remove(path);
+        self.warming
+            .retain(|_, module| !module.files.contains(path));
         self.import_dirs
             .retain(|_, (_, deps)| !deps.iter().any(|d| d == path));
         if let Some((dir, cache)) = &mut self.stdlib
@@ -210,6 +216,8 @@ impl Index {
     /// `path` was created or deleted: listings of the folders above it are stale too.
     pub(crate) fn created_or_deleted(&mut self, path: &Path) {
         self.changed(path);
+        self.warming.clear();
+        self.resume_warm = false;
         // A folder of modules may have appeared or gone.
         self.import_dirs.clear();
         self.walked.retain(|dir, _| !path.starts_with(dir));
@@ -460,11 +468,11 @@ impl Sources<'_> {
         if let Some(scan) = index.files.get(path) {
             return scan.clone();
         }
-        let scan = Rc::new(
-            self.read(path)
-                .map(|text| exports::scan(&text))
-                .unwrap_or_default(),
-        );
+        let text = self.read(path);
+        if self.stopped() {
+            return Rc::default();
+        }
+        let scan = Rc::new(text.map(|text| exports::scan(&text)).unwrap_or_default());
         index.note_loads(path, &scan);
         index.files.insert(path.to_path_buf(), scan.clone());
         scan

@@ -81,13 +81,20 @@ impl Sources<'_> {
             } else {
                 continue;
             };
-            modules.push(Arc::new(self.read_module(
-                index,
-                dir,
-                prefix,
-                format!("{prefix}{name}"),
-                file,
-            )));
+            let key = (file.clone(), prefix.to_string());
+            if let Some(module) = index.warming.get(&key) {
+                // Session caches rely on watched-file invalidation. Their old reads must
+                // not be stamped as fresh inputs of a cache shared with other sessions.
+                self.note_own();
+                modules.push(module.clone());
+                continue;
+            }
+            let module =
+                Arc::new(self.read_module(index, dir, prefix, format!("{prefix}{name}"), file));
+            if !self.stopped() {
+                index.warming.insert(key, module.clone());
+            }
+            modules.push(module);
         }
         modules
     }
@@ -293,13 +300,22 @@ impl Sources<'_> {
         {
             return found.modules.clone();
         }
-        // Scans kept from earlier would not be recorded as read: read them again.
-        index.files.retain(|path, _| !path.starts_with(dir));
-        let outer = self.recording.replace(Some(Recorded::default()));
+        // A resumed scan reuses this session's completed reads. Only a fresh read can be
+        // shared with other sessions using the recorded filesystem stamps.
+        let resumed = index.resume_warm;
+        if !resumed {
+            index.files.retain(|path, _| !path.starts_with(dir));
+        }
+        let outer = self.recording.replace(Some(Recorded {
+            own: resumed,
+            ..Recorded::default()
+        }));
         let modules = self.read_stdlib(index, dir);
         let recorded = self.recording.replace(outer).unwrap_or_default();
-        // The stdlib's files are only read through its modules: drop their scans.
-        index.files.retain(|path, _| !path.starts_with(dir));
+        // Keep completed file scans if input interrupted a module partway through.
+        if !self.stopped() {
+            index.files.retain(|path, _| !path.starts_with(dir));
+        }
         if !self.stopped()
             && let Some(shared) = SharedStdlib::new(modules.clone(), recorded)
             && let Ok(mut kept) = KEPT_STDLIBS.lock()
