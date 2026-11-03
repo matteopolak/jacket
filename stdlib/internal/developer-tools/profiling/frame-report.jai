@@ -94,6 +94,7 @@ create_report :: () -> *Report {
 
     Prof_init_highlevel();
     push_allocator(temporary_allocator);
+    // jailint: allow(temp_storage_escape): this module cache shares the report's documented temporary-storage lifetime.
     profile_report = New(Report);
     for c: zone_hash if c && c.zone c.zone.highlevel = null;
 

@@ -21,7 +21,6 @@ GONE :: #run ask("gone:no database");
 
 MISSING :: #run -> string {
     status := Service.call(tprint("%missing.jai", #filepath), "x");
-    // jailint: allow(temp_storage_escape): the compiler consumes this text before the compile-time evaluation ends.
     return tprint("%", status);
 };
 
