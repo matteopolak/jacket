@@ -12,4 +12,4 @@ help: to use 2147483648, compute in `s64` (`cast(s64) id`); to mean -2147483648,
  4 ~     return cast(s64) id % 0x8000_0000;
    |
    = note: `wrapping_constant` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/wrapping_constant/
+   = note: see https://jacket.matteopolak.com/lint-rules/wrapping_constant

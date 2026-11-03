@@ -8,7 +8,7 @@ warning[using_pollution]: `using style` brings in `count`, which is already in s
    |                      ^^^^^^^^^^^^^^^^^^
    |
    = help: list the members that are meant (`using,only(...)`) or write `name.member`
-   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution/
+   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution
 
 warning[using_pollution]: `using frame` brings in `count`, which is already in scope
   --> tests/lint/using_pollution/bad.jai:25:23
@@ -17,7 +17,7 @@ warning[using_pollution]: `using frame` brings in `count`, which is already in s
    |                       ^^^^^^^^^^^^^^^^^^
    |
    = help: list the members that are meant (`using,only(...)`) or write `name.member`
-   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution/
+   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution
 
 warning[using_pollution]: `using style` brings in `count`, which is already in scope
   --> tests/lint/using_pollution/bad.jai:33:5
@@ -26,7 +26,7 @@ warning[using_pollution]: `using style` brings in `count`, which is already in s
    |     ^^^^^^^^^^^^
    |
    = help: list the members that are meant (`using,only(...)`) or write `name.member`
-   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution/
+   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution
 
 warning[using_pollution]: `using f` brings in `width`, which is already in scope
   --> tests/lint/using_pollution/bad.jai:41:5
@@ -35,7 +35,7 @@ warning[using_pollution]: `using f` brings in `width`, which is already in scope
    |     ^^^^^^^^
    |
    = help: list the members that are meant (`using,only(...)`) or write `name.member`
-   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution/
+   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution
 
 warning[using_pollution]: `using l` brings in `limit`, which is already in scope
   --> tests/lint/using_pollution/bad.jai:47:5
@@ -44,4 +44,4 @@ warning[using_pollution]: `using l` brings in `limit`, which is already in scope
    |     ^^^^^^^^
    |
    = help: list the members that are meant (`using,only(...)`) or write `name.member`
-   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution/
+   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution

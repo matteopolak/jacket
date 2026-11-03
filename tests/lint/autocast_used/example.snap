@@ -11,4 +11,4 @@ help: write `cast(u8)` to say so
    |
  5 ~     small: u8 = cast(u8) big;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/autocast_used/
+   = note: see https://jacket.matteopolak.com/lint-rules/autocast_used

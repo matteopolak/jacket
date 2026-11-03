@@ -12,4 +12,4 @@ help: write `clamp(volume, 0, 100)`
  5 ~     volume = clamp(volume, 0, 100);
    |
    = note: `manual_clamp` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp

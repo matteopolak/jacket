@@ -12,4 +12,4 @@ help: receive the flag, or write `, _` to show it is ignored on purpose
  9 ~     value, _ := parse("x");
    |
    = note: `dropped_result` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/dropped_result/
+   = note: see https://jacket.matteopolak.com/lint-rules/dropped_result

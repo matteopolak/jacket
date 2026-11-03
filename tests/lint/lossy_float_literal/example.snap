@@ -12,4 +12,4 @@ help: write `16777.217`, which is the same `float32`
  4 ~     scale: float32 = 16777.217;
    |
    = note: `lossy_float_literal` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/lossy_float_literal/
+   = note: see https://jacket.matteopolak.com/lint-rules/lossy_float_literal

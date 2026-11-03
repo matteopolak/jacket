@@ -12,7 +12,7 @@ help: drop the line, and name the section in one plain `//` line if it needs a n
  3 - // -----------------------------------------------------------------------------
    |
    = note: `banner_comment` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment/
+   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment
 
 warning[banner_comment]: this comment is only a line of rule characters
   --> tests/lint/banner_comment/bad.jai:5:1
@@ -25,7 +25,7 @@ help: drop the line, and name the section in one plain `//` line if it needs a n
  5 - // -----------------------------------------------------------------------------
    |
    = note: `banner_comment` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment/
+   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment
 
 warning[banner_comment]: this comment is only a line of rule characters
   --> tests/lint/banner_comment/bad.jai:11:1
@@ -38,7 +38,7 @@ help: drop the line, and name the section in one plain `//` line if it needs a n
 11 - /* ===== */
    |
    = note: `banner_comment` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment/
+   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment
 
 warning[banner_comment]: this comment is only a line of rule characters
   --> tests/lint/banner_comment/bad.jai:13:5
@@ -51,7 +51,7 @@ help: drop the line, and name the section in one plain `//` line if it needs a n
 13 -     //-----
    |
    = note: `banner_comment` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment/
+   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment
 
 warning[banner_comment]: this comment is only a line of rule characters
   --> tests/lint/banner_comment/bad.jai:17:1
@@ -64,4 +64,4 @@ help: drop the line, and name the section in one plain `//` line if it needs a n
 17 - // ***
    |
    = note: `banner_comment` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment/
+   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment

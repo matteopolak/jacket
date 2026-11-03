@@ -9,7 +9,7 @@ warning[manual_memcpy]: this loop copies `src` into `dst` one element at a time
    |
    = help: copy the elements at once: `memcpy(dst, src.data, count * size_of(s64))`
    = note: `manual_memcpy` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_memcpy/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_memcpy
 
 warning[manual_memcpy]: this loop copies `src` into `dst` one element at a time
   --> tests/lint/manual_memcpy/bad.jai:15:5
@@ -19,7 +19,7 @@ warning[manual_memcpy]: this loop copies `src` into `dst` one element at a time
    |
    = help: copy the elements at once: `memcpy(dst.data, src.data, src.count * size_of(Point))`
    = note: `manual_memcpy` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_memcpy/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_memcpy
 
 warning[manual_memcpy]: this loop copies `b` into `a` one element at a time
   --> tests/lint/manual_memcpy/bad.jai:22:5
@@ -29,4 +29,4 @@ warning[manual_memcpy]: this loop copies `b` into `a` one element at a time
    |
    = help: copy the elements at once: `memcpy(a.data, b.data, 8 * size_of(u8))`
    = note: `manual_memcpy` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_memcpy/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_memcpy

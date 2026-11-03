@@ -8,4 +8,4 @@ warning[missing_doc]: the exported procedure `parse` has no doc comment
    | ^^^^^
    |
    = help: describe it in a `//` comment on the lines above
-   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc/
+   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc

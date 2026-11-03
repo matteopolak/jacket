@@ -11,4 +11,4 @@ help: write `cast(s64) ready`
    |
  5 ~     count := cast(s64) ready;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/bool_to_int_with_if/
+   = note: see https://jacket.matteopolak.com/lint-rules/bool_to_int_with_if

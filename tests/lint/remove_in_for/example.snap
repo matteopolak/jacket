@@ -14,4 +14,4 @@ help: the element moved into the freed slot is skipped; use `remove it;` (or loo
  9 ~         if it == 2 remove it;
    |
    = note: `remove_in_for` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/remove_in_for/
+   = note: see https://jacket.matteopolak.com/lint-rules/remove_in_for

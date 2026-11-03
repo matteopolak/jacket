@@ -9,4 +9,4 @@ warning[unpaired_lock]: this `return` leaves `*state.mutex` locked
    |
    = help: unlock it before returning, or `defer` the unlock right after locking
    = note: `unpaired_lock` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unpaired_lock/
+   = note: see https://jacket.matteopolak.com/lint-rules/unpaired_lock

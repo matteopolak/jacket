@@ -8,4 +8,4 @@ warning[incomplete_enum_switch]: this `switch` on `Shape` does not handle .TRIAN
    |     ^^^^^^^^^^^^
    |
    = help: handle them, or add `case;` for the rest, or write `#complete` so the compiler checks the list
-   = note: see https://jacket.matteopolak.com/lint-rules/incomplete_enum_switch/
+   = note: see https://jacket.matteopolak.com/lint-rules/incomplete_enum_switch

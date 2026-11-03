@@ -9,7 +9,7 @@ warning[unsigned_range_end_minus_one]: `n` is unsigned, so this range runs past 
    |
    = help: `n` has type `u32` and `- 1` wraps around at 0: check for 0 first, or count with a signed integer
    = note: `unsigned_range_end_minus_one` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unsigned_range_end_minus_one/
+   = note: see https://jacket.matteopolak.com/lint-rules/unsigned_range_end_minus_one
 
 warning[unsigned_range_end_minus_one]: `count` is unsigned, so this range runs past the end when it is 0
   --> tests/lint/unsigned_range_end_minus_one/bad.jai:14:12
@@ -19,4 +19,4 @@ warning[unsigned_range_end_minus_one]: `count` is unsigned, so this range runs p
    |
    = help: `count` has type `u64` and `- 1` wraps around at 0: check for 0 first, or count with a signed integer
    = note: `unsigned_range_end_minus_one` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unsigned_range_end_minus_one/
+   = note: see https://jacket.matteopolak.com/lint-rules/unsigned_range_end_minus_one

@@ -9,4 +9,4 @@ warning[unused_suppression]: `unused_variable` allows nothing here
    |
    = help: nothing it covers is reported any more; remove it
    = note: `unused_suppression` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_suppression/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_suppression

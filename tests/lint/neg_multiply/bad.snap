@@ -12,7 +12,7 @@ help: write `-x`
  8 ~     a := -x;
    |
    = note: `neg_multiply` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply/
+   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply
 
 warning[neg_multiply]: `-1 * y` is a negation
   --> tests/lint/neg_multiply/bad.jai:9:10
@@ -25,7 +25,7 @@ help: write `-y`
  9 ~     b := -y;
    |
    = note: `neg_multiply` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply/
+   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply
 
 warning[neg_multiply]: `f * -1.0` is a negation
   --> tests/lint/neg_multiply/bad.jai:10:10
@@ -38,7 +38,7 @@ help: write `-f`
 10 ~     c := -f;
    |
    = note: `neg_multiply` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply/
+   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply
 
 warning[neg_multiply]: `(x + y) * -1` is a negation
   --> tests/lint/neg_multiply/bad.jai:11:10
@@ -51,7 +51,7 @@ help: write `-(x + y)`
 11 ~     d := -(x + y);
    |
    = note: `neg_multiply` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply/
+   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply
 
 warning[neg_multiply]: `2 * x * -1` is a negation
   --> tests/lint/neg_multiply/bad.jai:12:10
@@ -64,7 +64,7 @@ help: write `-(2 * x)`
 12 ~     e := -(2 * x);
    |
    = note: `neg_multiply` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply/
+   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply
 
 warning[neg_multiply]: `x * -1` is a negation
   --> tests/lint/neg_multiply/bad.jai:13:10
@@ -77,4 +77,4 @@ help: write `-x`
 13 ~     g := -x + y;
    |
    = note: `neg_multiply` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply/
+   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply

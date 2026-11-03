@@ -11,4 +11,4 @@ help: write `cast(u16)` to make the conversion visible
    |
  5 ~     small: u16 = cast(u16) big;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/lossy_xx/
+   = note: see https://jacket.matteopolak.com/lint-rules/lossy_xx

@@ -19,4 +19,4 @@ help: use `it_index` instead of counting by hand
  6 +         print("% %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter

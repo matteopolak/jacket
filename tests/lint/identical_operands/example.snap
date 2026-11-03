@@ -9,4 +9,4 @@ warning[identical_operands]: both sides of `==` are `a.y`
    |
    = help: the result is always `true`; was one side meant to be something else?
    = note: `identical_operands` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/identical_operands/
+   = note: see https://jacket.matteopolak.com/lint-rules/identical_operands

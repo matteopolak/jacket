@@ -8,4 +8,4 @@ warning[float_loop_counter]: `t` counts this loop in floats, so rounding error d
    |           ^
    |
    = help: count with an integer and compute the float from it: `for i: 0..n-1 { x := start + i * step; }`
-   = note: see https://jacket.matteopolak.com/lint-rules/float_loop_counter/
+   = note: see https://jacket.matteopolak.com/lint-rules/float_loop_counter

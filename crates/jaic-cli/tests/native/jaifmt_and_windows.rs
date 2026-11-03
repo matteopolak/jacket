@@ -118,7 +118,7 @@ fn jaifmt_builds_and_formats() {
     // The hint goes to stderr, so the list stays machine-readable.
     assert!(
         String::from_utf8_lossy(&check.stderr)
-            .contains("https://jacket.matteopolak.com/format-rules/")
+            .contains("https://jacket.matteopolak.com/format-rules")
     );
     assert_eq!(read("src/a.jai"), messy);
 

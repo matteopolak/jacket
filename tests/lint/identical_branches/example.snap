@@ -12,4 +12,4 @@ help: the condition decides nothing: was one branch meant to differ?
  5 ~     label := "positive";
    |
    = note: `identical_branches` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/identical_branches/
+   = note: see https://jacket.matteopolak.com/lint-rules/identical_branches

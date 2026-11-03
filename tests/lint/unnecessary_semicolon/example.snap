@@ -12,4 +12,4 @@ help: remove it
  4 ~     total := 0;
    |
    = note: `unnecessary_semicolon` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_semicolon/
+   = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_semicolon

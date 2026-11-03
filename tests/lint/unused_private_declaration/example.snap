@@ -9,4 +9,4 @@ warning[unused_private_declaration]: `LIMIT` is private to this file and nothing
    |
    = help: delete it, or put it under `#scope_export` if another file should use it
    = note: `unused_private_declaration` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_private_declaration/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_private_declaration

@@ -12,4 +12,4 @@ help: to count down, write `for < ...: 0..10`
  4 ~     for < i: 0..10 {
    |
    = note: `reversed_range` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/reversed_range/
+   = note: see https://jacket.matteopolak.com/lint-rules/reversed_range

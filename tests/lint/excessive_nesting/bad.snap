@@ -8,7 +8,7 @@ warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
    |                                       ^
    |
    = help: return or `continue` early, or move the inner part into its own procedure
-   = note: see https://jacket.matteopolak.com/lint-rules/excessive_nesting/
+   = note: see https://jacket.matteopolak.com/lint-rules/excessive_nesting
 
 warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
   --> tests/lint/excessive_nesting/bad.jai:37:42
@@ -17,7 +17,7 @@ warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
    |                                          ^
    |
    = help: return or `continue` early, or move the inner part into its own procedure
-   = note: see https://jacket.matteopolak.com/lint-rules/excessive_nesting/
+   = note: see https://jacket.matteopolak.com/lint-rules/excessive_nesting
 
 warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
   --> tests/lint/excessive_nesting/bad.jai:44:29
@@ -26,4 +26,4 @@ warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
    |                             ^^^^
    |
    = help: return or `continue` early, or move the inner part into its own procedure
-   = note: see https://jacket.matteopolak.com/lint-rules/excessive_nesting/
+   = note: see https://jacket.matteopolak.com/lint-rules/excessive_nesting

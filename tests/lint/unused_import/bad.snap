@@ -12,7 +12,7 @@ help: remove it
  2 - #import "Math";
    |
    = note: `unused_import` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_import/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_import
 
 warning[unused_import]: unused import "String"
   --> tests/lint/unused_import/bad.jai:3:1
@@ -25,4 +25,4 @@ help: remove it
  3 - Strings :: #import "String";
    |
    = note: `unused_import` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_import/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_import

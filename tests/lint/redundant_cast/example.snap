@@ -12,4 +12,4 @@ help: remove the cast
  5 ~     y := x;
    |
    = note: `redundant_cast` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/redundant_cast/
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_cast

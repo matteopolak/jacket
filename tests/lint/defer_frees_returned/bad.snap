@@ -12,7 +12,7 @@ help: the deferred call runs after the value is returned: drop the `defer`, or r
  6 -     defer free(name);
    |
    = note: `defer_frees_returned` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned/
+   = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned
 
 error[defer_frees_returned]: `buffer` is returned, but the `defer` above frees it
   --> tests/lint/defer_frees_returned/bad.jai:17:16
@@ -25,7 +25,7 @@ help: the deferred call runs after the value is returned: drop the `defer`, or r
 13 -     defer free(buffer);
    |
    = note: `defer_frees_returned` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned/
+   = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned
 
 error[defer_frees_returned]: `buffer` is returned, but the `defer` above frees it
   --> tests/lint/defer_frees_returned/bad.jai:20:15
@@ -38,4 +38,4 @@ help: the deferred call runs after the value is returned: drop the `defer`, or r
 13 -     defer free(buffer);
    |
    = note: `defer_frees_returned` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned/
+   = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned

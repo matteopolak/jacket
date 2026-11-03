@@ -12,4 +12,4 @@ help: did you mean `float_equality`? (`--list` shows every rule)
  3 ~ // jailint: allow(float_equality)
    |
    = note: `unknown_allow` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unknown_allow/
+   = note: see https://jacket.matteopolak.com/lint-rules/unknown_allow

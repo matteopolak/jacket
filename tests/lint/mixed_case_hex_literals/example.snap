@@ -12,4 +12,4 @@ help: write `0xFFFF`
  4 ~     mask := 0xFFFF;
    |
    = note: `mixed_case_hex_literals` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/mixed_case_hex_literals/
+   = note: see https://jacket.matteopolak.com/lint-rules/mixed_case_hex_literals

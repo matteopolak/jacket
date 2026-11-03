@@ -12,4 +12,4 @@ help: remove it
  4 -     leftover := 5;
    |
    = note: `unused_variable` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_variable/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_variable

@@ -12,4 +12,4 @@ help: remove it
  2 - #import "Math";
    |
    = note: `unused_import` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_import/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_import

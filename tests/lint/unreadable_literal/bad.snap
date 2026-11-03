@@ -11,7 +11,7 @@ help: write `1_000_000`
    |
  3 ~ TIMEOUT :: 1_000_000;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal/
+   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
 warning[unreadable_literal]: `123456` is hard to read without separators
   --> tests/lint/unreadable_literal/bad.jai:6:10
@@ -23,7 +23,7 @@ help: write `123_456`
    |
  6 ~     a := 123_456;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal/
+   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
 warning[unreadable_literal]: `1234567890` is hard to read without separators
   --> tests/lint/unreadable_literal/bad.jai:7:10
@@ -35,7 +35,7 @@ help: write `1_234_567_890`
    |
  7 ~     b := 1_234_567_890;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal/
+   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
 warning[unreadable_literal]: `0xdeadbeef` is hard to read without separators
   --> tests/lint/unreadable_literal/bad.jai:8:14
@@ -47,7 +47,7 @@ help: write `0xdead_beef`
    |
  8 ~     c: u32 = 0xdead_beef;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal/
+   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
 warning[unreadable_literal]: `0xFFFFFFFFFF` is hard to read without separators
   --> tests/lint/unreadable_literal/bad.jai:9:14
@@ -59,7 +59,7 @@ help: write `0xFF_FFFF_FFFF`
    |
  9 ~     d: u64 = 0xFF_FFFF_FFFF;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal/
+   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
 warning[unreadable_literal]: `0b101010101` is hard to read without separators
   --> tests/lint/unreadable_literal/bad.jai:10:10
@@ -71,7 +71,7 @@ help: write `0b1_0101_0101`
    |
 10 ~     e := 0b1_0101_0101;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal/
+   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
 warning[unreadable_literal]: `1234567.5` is hard to read without separators
   --> tests/lint/unreadable_literal/bad.jai:11:10
@@ -83,7 +83,7 @@ help: write `1_234_567.5`
    |
 11 ~     f := 1_234_567.5;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal/
+   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
 warning[unreadable_literal]: `100000000` is hard to read without separators
   --> tests/lint/unreadable_literal/bad.jai:12:10
@@ -95,4 +95,4 @@ help: write `100_000_000`
    |
 12 ~     g := 100_000_000;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal/
+   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal

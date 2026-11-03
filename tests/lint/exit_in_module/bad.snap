@@ -8,7 +8,7 @@ warning[exit_in_module]: a module should not end the process
    |         ^^^^^^^
    |
    = help: return an error and let the program decide whether to exit
-   = note: see https://jacket.matteopolak.com/lint-rules/exit_in_module/
+   = note: see https://jacket.matteopolak.com/lint-rules/exit_in_module
 
 warning[exit_in_module]: a module should not end the process
   --> tests/lint/exit_in_module/bad.jai:12:5
@@ -17,4 +17,4 @@ warning[exit_in_module]: a module should not end the process
    |     ^^^^^^^
    |
    = help: return an error and let the program decide whether to exit
-   = note: see https://jacket.matteopolak.com/lint-rules/exit_in_module/
+   = note: see https://jacket.matteopolak.com/lint-rules/exit_in_module

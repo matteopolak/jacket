@@ -12,4 +12,4 @@ help: write `count`
  4 ~     return count;
    |
    = note: `identity_op` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/identity_op/
+   = note: see https://jacket.matteopolak.com/lint-rules/identity_op

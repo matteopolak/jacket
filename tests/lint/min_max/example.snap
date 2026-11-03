@@ -12,4 +12,4 @@ help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
  5 ~     volume = clamp(volume, 0, 100);
    |
    = note: `min_max` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/min_max/
+   = note: see https://jacket.matteopolak.com/lint-rules/min_max

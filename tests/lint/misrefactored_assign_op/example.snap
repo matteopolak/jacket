@@ -12,4 +12,4 @@ help: `+=` already starts from `total`: write `total += price`
  7 ~     total += price;
    |
    = note: `misrefactored_assign_op` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op/
+   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op

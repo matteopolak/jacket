@@ -13,7 +13,7 @@ help: loop over the elements: `for xs` and `it`
 13 ~         total += it;
    |
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `i` is only used to index `points`
   --> tests/lint/index_only_loop/bad.jai:20:5
@@ -26,7 +26,7 @@ help: loop over pointers to the elements: `for *points` and `it`
 20 ~     for *points it.x += 1;
    |
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `i` counts through `names` to index it
   --> tests/lint/index_only_loop/bad.jai:24:5
@@ -41,7 +41,7 @@ help: loop over the elements: `for names`, with `it` and `it_index`
 26 ~         print("%", it);
    |
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `i` counts through `table` to index it
   --> tests/lint/index_only_loop/bad.jai:34:5
@@ -55,7 +55,7 @@ help: loop over the elements: `for *table`, with `it` and `it_index`
 35 ~         it.* = sin(cast(float) it_index * 0.5);
    |
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `i` is only used to index `str`
   --> tests/lint/index_only_loop/bad.jai:41:5
@@ -69,7 +69,7 @@ help: loop over the elements: `for str` and `it`
 42 ~         cur := it;
    |
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `i` is only used to index `str`
   --> tests/lint/index_only_loop/bad.jai:50:5
@@ -82,7 +82,7 @@ help: loop over the elements: `for str` and `it`
 50 ~     for str total += it;
    |
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `i` is only used to index `str`
   --> tests/lint/index_only_loop/bad.jai:56:5
@@ -95,7 +95,7 @@ help: loop over pointers to the elements: `for *str` and `it`
 56 ~     for *str it.* += 1;
    |
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `k` counts through `n.name` to index it
   --> tests/lint/index_only_loop/bad.jai:64:5
@@ -108,7 +108,7 @@ help: loop over the elements: `for n.name`, with `it` and `it_index`
 64 ~     for n.name print("%: %\n", it_index, it);
    |
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `i` counts through `str` to index it
   --> tests/lint/index_only_loop/bad.jai:69:5
@@ -118,7 +118,7 @@ warning[index_only_loop]: `i` counts through `str` to index it
    |
    = help: a nested loop binds `it`; name the iterator instead: `for elem: str` and `elem`
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `j` is only used to index `to_find`
   --> tests/lint/index_only_loop/bad.jai:70:9
@@ -132,7 +132,7 @@ help: loop over the elements: `for to_find` and `it`
 71 ~             if str[i] == it return i;
    |
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `i` is only used to index `xs`
   --> tests/lint/index_only_loop/bad.jai:80:5
@@ -142,7 +142,7 @@ warning[index_only_loop]: `i` is only used to index `xs`
    |
    = help: a nested loop binds `it`; name the iterator instead: `for elem: xs` and `elem`
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
 
 warning[index_only_loop]: `i` counts through `stops` to index it
    --> tests/lint/index_only_loop/bad.jai:124:5
@@ -157,4 +157,4 @@ help: loop over the elements: `for stops`, with `it` and `it_index`
 126 ~         it.run();
     |
     = note: `index_only_loop` is `warn` by default
-    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop

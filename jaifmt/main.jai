@@ -145,7 +145,7 @@ fatal_usage :: (message: string, help := "") {
 
 // Errors go to stderr as `error: ...`, then an optional `help: ...` line.
 // The formatting rules on the documentation site, one page per rule and setting.
-RULES_URL :: "https://jacket.matteopolak.com/format-rules/";
+RULES_URL :: "https://jacket.matteopolak.com/format-rules";
 
 report_error :: (message: string, help := "") {
     print_error("%error%: %\n", color_on(ERROR_COLOR), color_off(), message);

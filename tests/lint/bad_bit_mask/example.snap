@@ -12,4 +12,4 @@ help: compare with the mask itself (`(x & m) == m`) or test for non-zero
  4 ~     return false;
    |
    = note: `bad_bit_mask` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/bad_bit_mask/
+   = note: see https://jacket.matteopolak.com/lint-rules/bad_bit_mask

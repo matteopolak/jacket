@@ -11,4 +11,4 @@ help: write `1_000_000`
    |
  3 ~ TIMEOUT :: 1_000_000;
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal/
+   = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal

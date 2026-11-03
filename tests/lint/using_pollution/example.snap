@@ -8,4 +8,4 @@ warning[using_pollution]: `using style` brings in `count`, which is already in s
    |                      ^^^^^^^^^^^^^^^^^^
    |
    = help: list the members that are meant (`using,only(...)`) or write `name.member`
-   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution/
+   = note: see https://jacket.matteopolak.com/lint-rules/using_pollution

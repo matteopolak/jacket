@@ -13,4 +13,4 @@ help: remove it, or assert the condition it stands in for
  7 - 
    |
    = note: `assert_constant` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/assert_constant/
+   = note: see https://jacket.matteopolak.com/lint-rules/assert_constant

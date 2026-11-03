@@ -8,4 +8,4 @@ warning[unchecked_directive]: `#no_abc` has no comment saying why it is needed
    |                               ^^^^^^^
    |
    = help: add a `//` comment on this line or the line above: why the checks are not needed here
-   = note: see https://jacket.matteopolak.com/lint-rules/unchecked_directive/
+   = note: see https://jacket.matteopolak.com/lint-rules/unchecked_directive

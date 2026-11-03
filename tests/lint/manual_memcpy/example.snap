@@ -9,4 +9,4 @@ warning[manual_memcpy]: this loop copies `src` into `dst` one element at a time
    |
    = help: copy the elements at once: `memcpy(dst, src.data, count * size_of(s64))`
    = note: `manual_memcpy` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_memcpy/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_memcpy

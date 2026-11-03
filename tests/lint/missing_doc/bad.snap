@@ -8,7 +8,7 @@ warning[missing_doc]: the exported procedure `parse` has no doc comment
    | ^^^^^
    |
    = help: describe it in a `//` comment on the lines above
-   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc/
+   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc
 
 warning[missing_doc]: the exported struct `Point` has no doc comment
   --> tests/lint/missing_doc/bad.jai:7:1
@@ -17,7 +17,7 @@ warning[missing_doc]: the exported struct `Point` has no doc comment
    | ^^^^^
    |
    = help: describe it in a `//` comment on the lines above
-   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc/
+   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc
 
 warning[missing_doc]: the exported enum `Mode` has no doc comment
   --> tests/lint/missing_doc/bad.jai:12:1
@@ -26,7 +26,7 @@ warning[missing_doc]: the exported enum `Mode` has no doc comment
    | ^^^^
    |
    = help: describe it in a `//` comment on the lines above
-   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc/
+   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc
 
 warning[missing_doc]: the exported struct `Bits` has no doc comment
   --> tests/lint/missing_doc/bad.jai:17:1
@@ -35,7 +35,7 @@ warning[missing_doc]: the exported struct `Bits` has no doc comment
    | ^^^^
    |
    = help: describe it in a `//` comment on the lines above
-   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc/
+   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc
 
 warning[missing_doc]: the exported procedure `late` has no doc comment
   --> tests/lint/missing_doc/bad.jai:24:1
@@ -44,4 +44,4 @@ warning[missing_doc]: the exported procedure `late` has no doc comment
    | ^^^^
    |
    = help: describe it in a `//` comment on the lines above
-   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc/
+   = note: see https://jacket.matteopolak.com/lint-rules/missing_doc

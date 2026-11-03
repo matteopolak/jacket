@@ -17,4 +17,4 @@ help: remove the second call, or assign `node` a new value in between
 13 -     free(node);
    |
    = note: `double_free` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/double_free/
+   = note: see https://jacket.matteopolak.com/lint-rules/double_free

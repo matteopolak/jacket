@@ -9,7 +9,7 @@ warning[unpaired_lock]: this `return` leaves `*state.mutex` locked
    |
    = help: unlock it before returning, or `defer` the unlock right after locking
    = note: `unpaired_lock` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unpaired_lock/
+   = note: see https://jacket.matteopolak.com/lint-rules/unpaired_lock
 
 warning[unpaired_lock]: `*state.mutex` is locked here but the procedure can end without unlocking it
   --> tests/lint/unpaired_lock/bad.jai:23:5
@@ -24,4 +24,4 @@ help: unlock it on every path, or `defer` the unlock right after locking
 24 +     defer unlock(*state.mutex);
    |
    = note: `unpaired_lock` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unpaired_lock/
+   = note: see https://jacket.matteopolak.com/lint-rules/unpaired_lock

@@ -12,4 +12,4 @@ help: write `count > limit`
  4 ~     return count > limit;
    |
    = note: `int_plus_one` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one/
+   = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one

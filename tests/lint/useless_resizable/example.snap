@@ -9,4 +9,4 @@ warning[useless_resizable]: `parts` is a resizable array that only ever holds 2 
    |
    = help: a fixed array does not allocate: `parts: [2] string;`, and the call that frees it goes away
    = note: `useless_resizable` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/useless_resizable/
+   = note: see https://jacket.matteopolak.com/lint-rules/useless_resizable

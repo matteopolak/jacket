@@ -12,4 +12,4 @@ error[use_after_free]: `node` is used after the call above freed it
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: `use_after_free` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free

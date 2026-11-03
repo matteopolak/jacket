@@ -8,4 +8,4 @@ warning[cognitive_complexity]: `process` has a cognitive complexity of 26, past 
    | ^^^^^^^
    |
    = help: split it into smaller procedures, return early, or name parts of long conditions
-   = note: see https://jacket.matteopolak.com/lint-rules/cognitive_complexity/
+   = note: see https://jacket.matteopolak.com/lint-rules/cognitive_complexity

@@ -8,7 +8,7 @@ warning[excessive_bools]: `open` takes 4 `bool` parameters, past the limit of 3
    | ^^^^
    |
    = help: use an enum or a `#flags` enum so each argument says what it sets, or split the procedure
-   = note: see https://jacket.matteopolak.com/lint-rules/excessive_bools/
+   = note: see https://jacket.matteopolak.com/lint-rules/excessive_bools
 
 warning[excessive_bools]: `configure` takes 4 `bool` parameters, past the limit of 3
   --> tests/lint/excessive_bools/bad.jai:7:1
@@ -17,4 +17,4 @@ warning[excessive_bools]: `configure` takes 4 `bool` parameters, past the limit 
    | ^^^^^^^^^
    |
    = help: use an enum or a `#flags` enum so each argument says what it sets, or split the procedure
-   = note: see https://jacket.matteopolak.com/lint-rules/excessive_bools/
+   = note: see https://jacket.matteopolak.com/lint-rules/excessive_bools

@@ -8,4 +8,4 @@ warning[excessive_bools]: `open` takes 4 `bool` parameters, past the limit of 3
    | ^^^^
    |
    = help: use an enum or a `#flags` enum so each argument says what it sets, or split the procedure
-   = note: see https://jacket.matteopolak.com/lint-rules/excessive_bools/
+   = note: see https://jacket.matteopolak.com/lint-rules/excessive_bools

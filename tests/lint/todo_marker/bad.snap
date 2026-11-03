@@ -8,7 +8,7 @@ warning[todo_marker]: this comment has a `TODO` marker
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: finish it, or track it outside the source and remove the marker
-   = note: see https://jacket.matteopolak.com/lint-rules/todo_marker/
+   = note: see https://jacket.matteopolak.com/lint-rules/todo_marker
 
 warning[todo_marker]: this comment has a `FIXME` marker
   --> tests/lint/todo_marker/bad.jai:8:1
@@ -17,7 +17,7 @@ warning[todo_marker]: this comment has a `FIXME` marker
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: finish it, or track it outside the source and remove the marker
-   = note: see https://jacket.matteopolak.com/lint-rules/todo_marker/
+   = note: see https://jacket.matteopolak.com/lint-rules/todo_marker
 
 warning[todo_marker]: this comment has a `XXX` marker
   --> tests/lint/todo_marker/bad.jai:17:34
@@ -26,7 +26,7 @@ warning[todo_marker]: this comment has a `XXX` marker
    |                                  ^^^^^^
    |
    = help: finish it, or track it outside the source and remove the marker
-   = note: see https://jacket.matteopolak.com/lint-rules/todo_marker/
+   = note: see https://jacket.matteopolak.com/lint-rules/todo_marker
 
 warning[todo_marker]: this comment has a `HACK` marker
   --> tests/lint/todo_marker/bad.jai:18:34
@@ -35,4 +35,4 @@ warning[todo_marker]: this comment has a `HACK` marker
    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: finish it, or track it outside the source and remove the marker
-   = note: see https://jacket.matteopolak.com/lint-rules/todo_marker/
+   = note: see https://jacket.matteopolak.com/lint-rules/todo_marker

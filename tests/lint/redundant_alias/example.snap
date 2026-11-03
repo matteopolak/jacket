@@ -14,4 +14,4 @@ help: return the value directly
  4 +     return n * n;
    |
    = note: `redundant_alias` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias/
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias

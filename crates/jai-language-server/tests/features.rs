@@ -699,7 +699,7 @@ fn lints_are_diagnostics_with_quick_fixes() {
     assert_eq!(diagnostic["source"], "jailint");
     assert_eq!(
         diagnostic["codeDescription"]["href"],
-        "https://jacket.matteopolak.com/lint-rules/bool_comparison/"
+        "https://jacket.matteopolak.com/lint-rules/bool_comparison"
     );
 }
 

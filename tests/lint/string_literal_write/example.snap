@@ -12,4 +12,4 @@ help: copy it where `word` is declared: `copy_string("hello")` (free the copy wh
  4 ~     word := copy_string("hello");
    |
    = note: `string_literal_write` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/string_literal_write/
+   = note: see https://jacket.matteopolak.com/lint-rules/string_literal_write

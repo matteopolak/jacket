@@ -12,4 +12,4 @@ help: drop the line, and name the section in one plain `//` line if it needs a n
  3 - // -----------------------------------------------------------------------------
    |
    = note: `banner_comment` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment/
+   = note: see https://jacket.matteopolak.com/lint-rules/banner_comment

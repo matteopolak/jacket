@@ -9,7 +9,7 @@ warning[enum_member_prefix]: every member of `Color` starts with `Color`
    |
    = help: members are used as `Color.NAME`, so the prefix repeats the enum's name: drop it
    = note: `enum_member_prefix` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/enum_member_prefix/
+   = note: see https://jacket.matteopolak.com/lint-rules/enum_member_prefix
 
 warning[enum_member_prefix]: every member of `Token_Kind` starts with `Token_Kind`
   --> tests/lint/enum_member_prefix/bad.jai:9:1
@@ -19,7 +19,7 @@ warning[enum_member_prefix]: every member of `Token_Kind` starts with `Token_Kin
    |
    = help: members are used as `Token_Kind.NAME`, so the prefix repeats the enum's name: drop it
    = note: `enum_member_prefix` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/enum_member_prefix/
+   = note: see https://jacket.matteopolak.com/lint-rules/enum_member_prefix
 
 warning[enum_member_prefix]: every member of `ShapeKind` starts with `ShapeKind`
   --> tests/lint/enum_member_prefix/bad.jai:14:1
@@ -29,7 +29,7 @@ warning[enum_member_prefix]: every member of `ShapeKind` starts with `ShapeKind`
    |
    = help: members are used as `ShapeKind.NAME`, so the prefix repeats the enum's name: drop it
    = note: `enum_member_prefix` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/enum_member_prefix/
+   = note: see https://jacket.matteopolak.com/lint-rules/enum_member_prefix
 
 warning[enum_member_prefix]: every member of `Mode` starts with `Mode`
   --> tests/lint/enum_member_prefix/bad.jai:20:5
@@ -39,4 +39,4 @@ warning[enum_member_prefix]: every member of `Mode` starts with `Mode`
    |
    = help: members are used as `Mode.NAME`, so the prefix repeats the enum's name: drop it
    = note: `enum_member_prefix` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/enum_member_prefix/
+   = note: see https://jacket.matteopolak.com/lint-rules/enum_member_prefix

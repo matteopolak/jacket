@@ -12,4 +12,4 @@ help: remove it
  9 -         continue;
    |
    = note: `needless_continue` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue/
+   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue

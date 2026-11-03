@@ -14,4 +14,4 @@ help: this branch can never run: was another condition meant?
  5 +     else if key == 2 print("two\n");
    |
    = note: `duplicate_condition` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/duplicate_condition/
+   = note: see https://jacket.matteopolak.com/lint-rules/duplicate_condition

@@ -9,4 +9,4 @@ warning[leaked_temporary]: the memory `sprint` allocates is only compared and ne
    |
    = help: keep it in a local and `defer free` it, or use a temporary-storage procedure such as `tprint`
    = note: `leaked_temporary` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/leaked_temporary/
+   = note: see https://jacket.matteopolak.com/lint-rules/leaked_temporary

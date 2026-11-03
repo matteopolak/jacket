@@ -8,4 +8,4 @@ warning[todo_marker]: this comment has a `TODO` marker
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: finish it, or track it outside the source and remove the marker
-   = note: see https://jacket.matteopolak.com/lint-rules/todo_marker/
+   = note: see https://jacket.matteopolak.com/lint-rules/todo_marker

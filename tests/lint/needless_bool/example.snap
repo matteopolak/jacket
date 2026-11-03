@@ -14,4 +14,4 @@ help: write `return n > 0;`
  4 +     return n > 0;
    |
    = note: `needless_bool` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/needless_bool/
+   = note: see https://jacket.matteopolak.com/lint-rules/needless_bool

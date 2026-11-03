@@ -12,7 +12,7 @@ help: `u32` is unsigned and holds nothing below 0; compare with a signed value, 
  5 ~     while true {
    |
    = note: `absurd_comparison` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison/
+   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison
 
 error[absurd_comparison]: `index < 0` is always `false`
   --> tests/lint/absurd_comparison/bad.jai:13:8
@@ -25,7 +25,7 @@ help: `u64` is unsigned and holds nothing below 0; compare with a signed value, 
 13 ~     if false return false;
    |
    = note: `absurd_comparison` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison/
+   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison
 
 error[absurd_comparison]: `index < 0` is always `false`
   --> tests/lint/absurd_comparison/bad.jai:14:8
@@ -38,7 +38,7 @@ help: `u64` is unsigned and holds nothing below 0; compare with a signed value, 
 14 ~     if false return false;
    |
    = note: `absurd_comparison` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison/
+   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison
 
 error[absurd_comparison]: `small < -128` is always `false`
   --> tests/lint/absurd_comparison/bad.jai:15:8
@@ -51,4 +51,4 @@ help: `s8` holds nothing below -128; compare with a signed value, or drop the ch
 15 ~     if false return false;
    |
    = note: `absurd_comparison` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison/
+   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison

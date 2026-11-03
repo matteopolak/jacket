@@ -8,4 +8,4 @@ warning[print_in_module]: a module should not write to the program's output
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: return the text or an error, or log it, and let the program decide what to print
-   = note: see https://jacket.matteopolak.com/lint-rules/print_in_module/
+   = note: see https://jacket.matteopolak.com/lint-rules/print_in_module

@@ -12,7 +12,7 @@ help: remove it
  9 -         continue;
    |
    = note: `needless_continue` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue/
+   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue
 
 warning[needless_continue]: this `continue` is the last thing the loop does
   --> tests/lint/needless_continue/bad.jai:15:13
@@ -25,7 +25,7 @@ help: remove it
 15 -             continue;
    |
    = note: `needless_continue` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue/
+   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue
 
 warning[needless_continue]: this `continue` is the last thing the loop does
   --> tests/lint/needless_continue/bad.jai:18:13
@@ -38,7 +38,7 @@ help: remove it
 18 -             continue;
    |
    = note: `needless_continue` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue/
+   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue
 
 warning[needless_continue]: this `continue` is the last thing the loop does
   --> tests/lint/needless_continue/bad.jai:25:23
@@ -48,7 +48,7 @@ warning[needless_continue]: this `continue` is the last thing the loop does
    |
    = help: the loop goes on without it
    = note: `needless_continue` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue/
+   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue
 
 warning[needless_continue]: this `continue` is the last thing the loop does
   --> tests/lint/needless_continue/bad.jai:33:13
@@ -61,4 +61,4 @@ help: remove it
 33 -             continue;
    |
    = note: `needless_continue` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue/
+   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue

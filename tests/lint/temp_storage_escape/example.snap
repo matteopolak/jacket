@@ -9,4 +9,4 @@ warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, 
    |                     -------------------- temporary storage allocated here
    |
    = help: copy it first (`copy_string`) so it outlives the reset
-   = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape/
+   = note: see https://jacket.matteopolak.com/lint-rules/temp_storage_escape

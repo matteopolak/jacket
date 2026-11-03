@@ -18,4 +18,4 @@ help: write an `if` instead
 12 +     }
    |
    = note: `single_case_switch` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch/
+   = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch

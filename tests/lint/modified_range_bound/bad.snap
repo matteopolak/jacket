@@ -9,7 +9,7 @@ warning[modified_range_bound]: `n` bounds this loop's range, which was fixed bef
    |
    = help: use a `while` loop if the bound should follow the change, or a separate variable if it should not
    = note: `modified_range_bound` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/modified_range_bound/
+   = note: see https://jacket.matteopolak.com/lint-rules/modified_range_bound
 
 warning[modified_range_bound]: `end` bounds this loop's range, which was fixed before the first iteration: changing it here does not change the loop
   --> tests/lint/modified_range_bound/bad.jai:18:9
@@ -19,4 +19,4 @@ warning[modified_range_bound]: `end` bounds this loop's range, which was fixed b
    |
    = help: use a `while` loop if the bound should follow the change, or a separate variable if it should not
    = note: `modified_range_bound` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/modified_range_bound/
+   = note: see https://jacket.matteopolak.com/lint-rules/modified_range_bound

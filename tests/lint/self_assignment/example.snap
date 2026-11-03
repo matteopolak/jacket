@@ -12,4 +12,4 @@ help: this does nothing; was another value or target meant? (after `using`, both
  9 ~ 
    |
    = note: `self_assignment` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/self_assignment/
+   = note: see https://jacket.matteopolak.com/lint-rules/self_assignment

@@ -8,4 +8,4 @@ warning[magic_number]: magic number `86400` in arithmetic
    |                    ^^^^^
    |
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
-   = note: see https://jacket.matteopolak.com/lint-rules/magic_number/
+   = note: see https://jacket.matteopolak.com/lint-rules/magic_number

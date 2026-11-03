@@ -12,4 +12,4 @@ help: write `-x`
  4 ~     return -x;
    |
    = note: `neg_multiply` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply/
+   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply

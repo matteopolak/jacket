@@ -12,4 +12,4 @@ help: divide as floats: `cast(float) done / total`
  6 ~     ratio := cast(float) (cast(float) done / total);
    |
    = note: `integer_division_in_float` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/integer_division_in_float/
+   = note: see https://jacket.matteopolak.com/lint-rules/integer_division_in_float

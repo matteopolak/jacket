@@ -12,4 +12,4 @@ help: remove `,force`: the plain cast does the same
  4 ~     return cast(s64) a;
    |
    = note: `unnecessary_force_cast` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_force_cast/
+   = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_force_cast

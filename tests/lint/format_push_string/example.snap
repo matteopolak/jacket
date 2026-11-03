@@ -12,4 +12,4 @@ help: `print_to_builder` writes into the builder directly
  7 ~     print_to_builder(*builder, "%: %\n", name, value);
    |
    = note: `format_push_string` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/format_push_string/
+   = note: see https://jacket.matteopolak.com/lint-rules/format_push_string

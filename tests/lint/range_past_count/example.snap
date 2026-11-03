@@ -12,4 +12,4 @@ help: ranges include their end: write `names.count - 1`
  5 ~     for i: 0..names.count - 1 {
    |
    = note: `range_past_count` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/range_past_count/
+   = note: see https://jacket.matteopolak.com/lint-rules/range_past_count

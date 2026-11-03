@@ -8,4 +8,4 @@ warning[too_many_arguments]: `draw` takes 8 parameters, past the limit of 7
    | ^^^^
    |
    = help: group parameters that belong together in a struct and pass that
-   = note: see https://jacket.matteopolak.com/lint-rules/too_many_arguments/
+   = note: see https://jacket.matteopolak.com/lint-rules/too_many_arguments

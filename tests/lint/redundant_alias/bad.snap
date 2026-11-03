@@ -14,7 +14,7 @@ help: return the value directly
  4 +     return n * n;
    |
    = note: `redundant_alias` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias/
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
 
 warning[redundant_alias]: `value` is returned right after it is declared
   --> tests/lint/redundant_alias/bad.jai:13:5
@@ -29,7 +29,7 @@ help: return the value directly
 13 +     return one();
    |
    = note: `redundant_alias` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias/
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
 
 warning[redundant_alias]: `raw` only exists to be copied into `total`
   --> tests/lint/redundant_alias/bad.jai:18:5
@@ -44,7 +44,7 @@ help: declare `total` with the value directly
 18 +     total := n * 3;
    |
    = note: `redundant_alias` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias/
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
 
 warning[redundant_alias]: `start` only exists to be copied into `count`
   --> tests/lint/redundant_alias/bad.jai:24:5
@@ -59,7 +59,7 @@ help: declare `count` with the value directly
 24 +     count := 10;
    |
    = note: `redundant_alias` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias/
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
 
 warning[redundant_alias]: `wide` only exists to be copied into `area`
   --> tests/lint/redundant_alias/bad.jai:30:5
@@ -76,7 +76,7 @@ help: declare `area` with the value directly
 31 +         (n + 2);
    |
    = note: `redundant_alias` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias/
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
 
 warning[redundant_alias]: `small` only exists to be copied into `big`
   --> tests/lint/redundant_alias/bad.jai:39:5
@@ -91,7 +91,7 @@ help: declare `big` with the value directly
 39 +     big: u8 = 5;
    |
    = note: `redundant_alias` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias/
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
 
 warning[redundant_alias]: `doubled` only exists to be copied into `shown`
   --> tests/lint/redundant_alias/bad.jai:46:9
@@ -106,4 +106,4 @@ help: declare `shown` with the value directly
 46 +         shown := it * 2;
    |
    = note: `redundant_alias` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias/
+   = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias

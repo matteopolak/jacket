@@ -11,4 +11,4 @@ help: remove the blank line to document it
    |
  4 - 
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/detached_doc_comment/
+   = note: see https://jacket.matteopolak.com/lint-rules/detached_doc_comment

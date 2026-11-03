@@ -8,4 +8,4 @@ warning[float_equality]: comparing floats for exact equality
    |            ^^^^^^^^^^^^^^^^^
    |
    = help: compare the difference with a tolerance: `abs(a - b) < epsilon`
-   = note: see https://jacket.matteopolak.com/lint-rules/float_equality/
+   = note: see https://jacket.matteopolak.com/lint-rules/float_equality

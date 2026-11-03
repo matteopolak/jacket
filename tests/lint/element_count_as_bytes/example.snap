@@ -12,4 +12,4 @@ help: multiply by the element size: `values.count * size_of(s32)`
  4 ~     memcpy(dest.data, values.data, values.count * size_of(s32));
    |
    = note: `element_count_as_bytes` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/element_count_as_bytes/
+   = note: see https://jacket.matteopolak.com/lint-rules/element_count_as_bytes

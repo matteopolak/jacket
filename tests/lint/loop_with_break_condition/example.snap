@@ -14,4 +14,4 @@ help: write `while i < 10` and drop the `if`
  6 +     while i < 10 {
    |
    = note: `loop_with_break_condition` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition/
+   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition

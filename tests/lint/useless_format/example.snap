@@ -12,4 +12,4 @@ help: use the string itself, or `copy_string` for a copy you own
  4 ~     return name;
    |
    = note: `useless_format` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/useless_format/
+   = note: see https://jacket.matteopolak.com/lint-rules/useless_format

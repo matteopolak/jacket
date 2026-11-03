@@ -12,4 +12,4 @@ help: write `total += price`
  7 ~     total += price;
    |
    = note: `manual_assign_op` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_assign_op/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_assign_op

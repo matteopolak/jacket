@@ -18,7 +18,7 @@ help: write an `if` instead
 12 +     }
    |
    = note: `single_case_switch` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch/
+   = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch
 
 warning[single_case_switch]: this `switch` has a single case
   --> tests/lint/single_case_switch/bad.jai:17:5
@@ -41,7 +41,7 @@ help: write an `if` instead
 21 +     }
    |
    = note: `single_case_switch` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch/
+   = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch
 
 warning[single_case_switch]: this `switch` has a single case
   --> tests/lint/single_case_switch/bad.jai:28:5
@@ -64,4 +64,4 @@ help: write an `if` instead
 32 +     }
    |
    = note: `single_case_switch` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch/
+   = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch

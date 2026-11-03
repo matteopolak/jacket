@@ -14,4 +14,4 @@ help: set the fields in a struct literal where the variable is declared
 12 -     config.title = title;
 10 +     config := Config.{ width = 100, title = title };
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/field_reassign_with_default/
+   = note: see https://jacket.matteopolak.com/lint-rules/field_reassign_with_default

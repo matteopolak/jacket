@@ -12,4 +12,4 @@ help: to update `total`, write `total += 1;`
  5 ~     total += 1;
    |
    = note: `no_effect` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/no_effect/
+   = note: see https://jacket.matteopolak.com/lint-rules/no_effect

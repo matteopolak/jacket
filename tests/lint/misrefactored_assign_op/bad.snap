@@ -12,7 +12,7 @@ help: `+=` already starts from `total`: write `total += 5`
  9 ~     total += 5;
    |
    = note: `misrefactored_assign_op` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op/
+   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op
 
 error[misrefactored_assign_op]: `s.score *= s.score * ...` applies `*` to `s.score` twice
   --> tests/lint/misrefactored_assign_op/bad.jai:11:5
@@ -25,7 +25,7 @@ help: `*=` already starts from `s.score`: write `s.score *= 2`
 11 ~     s.score *= 2;
    |
    = note: `misrefactored_assign_op` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op/
+   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op
 
 error[misrefactored_assign_op]: `mask |= mask | ...` applies `|` to `mask` twice
   --> tests/lint/misrefactored_assign_op/bad.jai:13:5
@@ -38,7 +38,7 @@ help: `|=` already starts from `mask`: write `mask |= 1`
 13 ~     mask |= 1;
    |
    = note: `misrefactored_assign_op` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op/
+   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op
 
 error[misrefactored_assign_op]: `f -= f - ...` applies `-` to `f` twice
   --> tests/lint/misrefactored_assign_op/bad.jai:15:5
@@ -51,7 +51,7 @@ help: `-=` already starts from `f`: write `f -= 0.5`
 15 ~     f -= 0.5;
    |
    = note: `misrefactored_assign_op` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op/
+   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op
 
 error[misrefactored_assign_op]: `xs[i] += xs[i] + ...` applies `+` to `xs[i]` twice
   --> tests/lint/misrefactored_assign_op/bad.jai:18:5
@@ -64,4 +64,4 @@ help: `+=` already starts from `xs[i]`: write `xs[i] += 3`
 18 ~     xs[i] += 3;
    |
    = note: `misrefactored_assign_op` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op/
+   = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op

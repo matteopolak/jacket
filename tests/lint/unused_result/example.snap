@@ -12,4 +12,4 @@ help: to update the argument, write `line = trim(line);`
  7 ~     line = trim(line);
    |
    = note: `unused_result` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_result/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_result

@@ -12,7 +12,7 @@ help: to update the argument, write `line = trim(line);`
  8 ~     line = trim(line);
    |
    = note: `unused_result` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_result/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_result
 
 warning[unused_result]: the result of `min` is discarded; it does not change its arguments
   --> tests/lint/unused_result/bad.jai:11:5
@@ -25,7 +25,7 @@ help: to update the argument, write `a = min(a, 4);`
 11 ~     a = min(a, 4);
    |
    = note: `unused_result` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_result/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_result
 
 warning[unused_result]: the result of `sqrt` is discarded; it does not change its arguments
   --> tests/lint/unused_result/bad.jai:12:5
@@ -35,7 +35,7 @@ warning[unused_result]: the result of `sqrt` is discarded; it does not change it
    |
    = help: keep the result in a variable, or remove the call
    = note: `unused_result` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_result/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_result
 
 warning[unused_result]: the result of `shout` is discarded; it does not change its arguments
   --> tests/lint/unused_result/bad.jai:22:5
@@ -45,4 +45,4 @@ warning[unused_result]: the result of `shout` is discarded; it does not change i
    |
    = help: keep the result in a variable, or remove the call
    = note: `unused_result` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/unused_result/
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_result

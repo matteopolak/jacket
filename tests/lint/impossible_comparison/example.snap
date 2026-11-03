@@ -12,4 +12,4 @@ help: every integer passes one of these comparisons: was `&&` meant?
  4 ~     return code != 404 && code != 410;
    |
    = note: `impossible_comparison` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/impossible_comparison/
+   = note: see https://jacket.matteopolak.com/lint-rules/impossible_comparison

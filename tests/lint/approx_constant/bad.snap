@@ -12,7 +12,7 @@ help: write `PI` from `Math` (`PI64` for `float64`)
  4 ~     return PI * r * r;
    |
    = note: `approx_constant` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/approx_constant/
+   = note: see https://jacket.matteopolak.com/lint-rules/approx_constant
 
 warning[approx_constant]: `6.2832` is an approximation of `TAU`
   --> tests/lint/approx_constant/bad.jai:8:20
@@ -25,7 +25,7 @@ help: write `TAU` from `Math` (`TAU64` for `float64`)
  8 ~     return angle / TAU;
    |
    = note: `approx_constant` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/approx_constant/
+   = note: see https://jacket.matteopolak.com/lint-rules/approx_constant
 
 warning[approx_constant]: `1.4142` is an approximation of `SQRT2`
   --> tests/lint/approx_constant/bad.jai:14:17
@@ -38,7 +38,7 @@ help: write `SQRT2` from `Math`
 14 ~     diagonal := SQRT2;
    |
    = note: `approx_constant` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/approx_constant/
+   = note: see https://jacket.matteopolak.com/lint-rules/approx_constant
 
 warning[approx_constant]: `0.7854` is an approximation of `PI / 4`
   --> tests/lint/approx_constant/bad.jai:15:16
@@ -51,4 +51,4 @@ help: write `PI / 4` from `Math` (`PI64 / 4` for `float64`)
 15 ~     quarter := (PI / 4);
    |
    = note: `approx_constant` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/approx_constant/
+   = note: see https://jacket.matteopolak.com/lint-rules/approx_constant

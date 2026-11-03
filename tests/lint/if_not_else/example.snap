@@ -15,4 +15,4 @@ help: test `ready` first and swap the branches
  9 ~         print("waiting\n");
 10 ~     }
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/if_not_else/
+   = note: see https://jacket.matteopolak.com/lint-rules/if_not_else

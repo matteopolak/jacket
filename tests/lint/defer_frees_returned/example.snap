@@ -12,4 +12,4 @@ help: the deferred call runs after the value is returned: drop the `defer`, or r
  6 -     defer free(name);
    |
    = note: `defer_frees_returned` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned/
+   = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned

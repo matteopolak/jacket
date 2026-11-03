@@ -8,4 +8,4 @@ warning[shadowed_local]: `count` shadows the variable of that name declared on l
    |         ^^^^^
    |
    = help: rename one of them; an assignment here no longer reaches the outer one
-   = note: see https://jacket.matteopolak.com/lint-rules/shadowed_local/
+   = note: see https://jacket.matteopolak.com/lint-rules/shadowed_local

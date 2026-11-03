@@ -12,4 +12,4 @@ help: write `null`
  4 ~     p := null;
    |
    = note: `zero_ptr` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/zero_ptr/
+   = note: see https://jacket.matteopolak.com/lint-rules/zero_ptr

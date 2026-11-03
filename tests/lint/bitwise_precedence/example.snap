@@ -12,4 +12,4 @@ help: `<<` binds first here: write `(1 << bits)`
  4 ~     return (1 << bits) - 1;
    |
    = note: `bitwise_precedence` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/bitwise_precedence/
+   = note: see https://jacket.matteopolak.com/lint-rules/bitwise_precedence

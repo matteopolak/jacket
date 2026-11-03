@@ -11,4 +11,4 @@ help: write `cast(s32)` to say so
    |
 10 ~     print("%\n", draw(cast(s32) width, 10));
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/autocast_in_arg/
+   = note: see https://jacket.matteopolak.com/lint-rules/autocast_in_arg

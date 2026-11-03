@@ -14,4 +14,4 @@ help: to swap them, write `a, b = b, a;`
  7 +     a, b = b, a;
    |
    = note: `almost_swapped` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/almost_swapped/
+   = note: see https://jacket.matteopolak.com/lint-rules/almost_swapped

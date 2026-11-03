@@ -13,4 +13,4 @@ help: free it when done, for example `defer free(parser);` right after this line
  8 +     parser := New(Parser);
  9 +     defer free(parser);
    |
-   = note: see https://jacket.matteopolak.com/lint-rules/leaked_allocation/
+   = note: see https://jacket.matteopolak.com/lint-rules/leaked_allocation

@@ -12,4 +12,4 @@ help: `u32` is unsigned and holds nothing below 0; compare with a signed value, 
  5 ~     while true {
    |
    = note: `absurd_comparison` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison/
+   = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison

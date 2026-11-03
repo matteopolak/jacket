@@ -8,7 +8,7 @@ warning[float_equality]: comparing floats for exact equality
    |        ^^^^^^^^^^^^^^^^^
    |
    = help: compare the difference with a tolerance: `abs(a - b) < epsilon`
-   = note: see https://jacket.matteopolak.com/lint-rules/float_equality/
+   = note: see https://jacket.matteopolak.com/lint-rules/float_equality
 
 warning[float_equality]: comparing floats for exact equality
   --> tests/lint/float_equality/bad.jai:11:8
@@ -17,4 +17,4 @@ warning[float_equality]: comparing floats for exact equality
    |        ^^^^^^^^^^^^
    |
    = help: compare the difference with a tolerance: `abs(a - b) < epsilon`
-   = note: see https://jacket.matteopolak.com/lint-rules/float_equality/
+   = note: see https://jacket.matteopolak.com/lint-rules/float_equality

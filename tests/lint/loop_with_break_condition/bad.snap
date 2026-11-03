@@ -14,7 +14,7 @@ help: write `while i < 10` and drop the `if`
  7 +     while i < 10 {
    |
    = note: `loop_with_break_condition` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition/
+   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition
 
 warning[loop_with_break_condition]: this loop leaves on its first statement; the test belongs in the `while`
   --> tests/lint/loop_with_break_condition/bad.jai:12:11
@@ -32,7 +32,7 @@ help: write `while !done` and drop the `if`
 12 +     while !done {
    |
    = note: `loop_with_break_condition` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition/
+   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition
 
 warning[loop_with_break_condition]: this loop leaves on its first statement; the test belongs in the `while`
   --> tests/lint/loop_with_break_condition/bad.jai:21:11
@@ -47,7 +47,7 @@ help: write `while i == 0 || i == 3` and drop the `if`
 21 +     while i == 0 || i == 3 {
    |
    = note: `loop_with_break_condition` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition/
+   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition
 
 warning[loop_with_break_condition]: this loop leaves on its first statement; the test belongs in the `while`
   --> tests/lint/loop_with_break_condition/bad.jai:26:11
@@ -65,7 +65,7 @@ help: write `while i >= 100` and drop the `if`
 26 +     while i >= 100 {
    |
    = note: `loop_with_break_condition` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition/
+   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition
 
 warning[loop_with_break_condition]: this loop leaves on its first statement; the test belongs in the `while`
   --> tests/lint/loop_with_break_condition/bad.jai:34:11
@@ -82,4 +82,4 @@ help: write `while i <= 40` and drop the `if`
 35 +         // wait for the flag
    |
    = note: `loop_with_break_condition` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition/
+   = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition

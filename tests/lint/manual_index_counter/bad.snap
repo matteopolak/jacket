@@ -19,7 +19,7 @@ help: use `it_index` instead of counting by hand
  6 +         print("% %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter
 
 warning[manual_index_counter]: `line_number` always equals `it_index` of the loop that follows
   --> tests/lint/manual_index_counter/bad.jai:13:5
@@ -41,7 +41,7 @@ help: use `it_index` instead of counting by hand
 16 +         print("%: %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter
 
 warning[manual_index_counter]: `n` always equals `it_index` of the loop that follows
   --> tests/lint/manual_index_counter/bad.jai:24:5
@@ -61,7 +61,7 @@ help: use `it_index` instead of counting by hand
 26 +         print("% %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter
 
 warning[manual_index_counter]: `n` always equals `it_index` of the loop that follows
   --> tests/lint/manual_index_counter/bad.jai:36:13
@@ -81,7 +81,7 @@ help: use `it_index` instead of counting by hand
 38 +                 print("% %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter
 
 warning[manual_index_counter]: `n` always equals `it_index` of the loop that follows
   --> tests/lint/manual_index_counter/bad.jai:47:9
@@ -101,4 +101,4 @@ help: use `it_index` instead of counting by hand
 49 +             print("% %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter

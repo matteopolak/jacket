@@ -9,4 +9,4 @@ warning[manual_array_find]: this loop looks for `wanted` in `names` by hand
    |
    = help: `array_find(names, wanted)` returns whether it was found, and the index after that
    = note: `manual_array_find` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/manual_array_find/
+   = note: see https://jacket.matteopolak.com/lint-rules/manual_array_find

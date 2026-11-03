@@ -13,4 +13,4 @@ help: loop over the elements: `for xs` and `it`
  7 ~         total += it;
    |
    = note: `index_only_loop` is `warn` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop/
+   = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
