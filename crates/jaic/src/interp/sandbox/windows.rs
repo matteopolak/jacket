@@ -39,15 +39,19 @@ impl WindowsBackend for SandboxHost {
             identity: [1, self.fs.inode(path), 0],
         })
     }
+
     fn fd_details(&self, fd: i64) -> Option<FileDetails> {
         self.details(&self.fds.get(&fd)?.path)
     }
+
     fn canonical(&self, fd: i64) -> Option<String> {
         Some(self.fds.get(&fd)?.path.clone())
     }
+
     fn contents(&self, fd: i64) -> Option<Vec<u8>> {
         self.fs.files.get(&self.fds.get(&fd)?.path).cloned()
     }
+
     fn flush(&mut self, fd: i64) -> Result<(), u64> {
         if self.fds.contains_key(&fd) {
             Ok(())
@@ -55,6 +59,7 @@ impl WindowsBackend for SandboxHost {
             Err(super::EBADF)
         }
     }
+
     fn copy_file(&mut self, from: &str, to: &str) -> Result<(), u64> {
         if !self.fs.load(from) {
             return Err(ENOENT);
@@ -68,6 +73,7 @@ impl WindowsBackend for SandboxHost {
         self.fs.changed(to);
         Ok(())
     }
+
     fn hard_link(&mut self, from: &str, to: &str) -> Result<(), u64> {
         if self.fs.exists_file(to) || self.fs.is_dir(to) {
             return Err(EEXIST);
@@ -78,6 +84,7 @@ impl WindowsBackend for SandboxHost {
         self.fs.inodes.insert(to.into(), inode);
         Ok(())
     }
+
     fn cwd(&self) -> String {
         if self.cwd.is_empty() {
             "/".into()
@@ -85,19 +92,24 @@ impl WindowsBackend for SandboxHost {
             self.cwd.clone()
         }
     }
+
     fn set_cwd(&mut self, path: String) -> Result<(), u64> {
         self.cwd = path;
         Ok(())
     }
+
     fn is_dir(&self, path: &str) -> bool {
         self.fs.is_dir(path)
     }
+
     fn exists_file(&self, path: &str) -> bool {
         self.fs.exists_file(path)
     }
+
     fn list(&self, path: &str) -> Vec<(String, bool)> {
         self.fs.list(path)
     }
+
     fn create_dir(&mut self, path: &str) -> Result<(), u64> {
         if self.fs.is_dir(path) || self.fs.exists_file(path) {
             return Err(EEXIST);
@@ -109,6 +121,7 @@ impl WindowsBackend for SandboxHost {
         self.fs.dirs.insert(path.into());
         Ok(())
     }
+
     fn delete_file(&mut self, path: &str) -> Result<(), u64> {
         if !self.fs.exists_file(path) {
             return Err(ENOENT);
@@ -118,40 +131,52 @@ impl WindowsBackend for SandboxHost {
         self.fs.removed.insert(path.into());
         Ok(())
     }
+
     fn remove_dir(&mut self, path: &str) -> Result<(), u64> {
         self.remove_dir(path)
     }
+
     fn rename_file(&mut self, from: &str, to: &str) -> Result<(), u64> {
         self.rename_file(from, to)
     }
+
     fn open_file(&mut self, path: String, flags: u64) -> Result<i64, u64> {
         self.open_file(path, flags)
     }
+
     fn has_fd(&self, fd: i64) -> bool {
         self.fds.contains_key(&fd)
     }
+
     fn close_fd(&mut self, fd: i64) {
         self.fds.remove(&fd);
     }
+
     fn read_fd(&mut self, fd: i64, out: u64, count: usize) -> Option<usize> {
         self.read_fd(fd, out, count)
     }
+
     fn write_fd(&mut self, fd: i64, bytes: &[u8]) -> Option<usize> {
         self.write_fd(fd, bytes)
     }
+
     fn file_len(&self, fd: i64) -> Option<usize> {
         self.file_len(fd)
     }
+
     fn seek(&mut self, fd: i64, offset: i64, whence: u64) -> Option<i64> {
         self.seek(fd, offset, whence)
     }
+
     fn write(&mut self, bytes: &[u8], stderr: bool) {
         Host::write(self, bytes, stderr);
     }
+
     fn wall_ns(&mut self) -> u64 {
         self.clock_ns += 1_000;
         self.clock_ns + BASE_MTIME * 1_000_000_000
     }
+
     fn monotonic_ns(&mut self) -> u64 {
         self.clock_ns += 1_000;
         self.clock_ns

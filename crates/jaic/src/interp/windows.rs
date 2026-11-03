@@ -606,6 +606,7 @@ impl WindowsCalls {
             _ => return None,
         })
     }
+
     /// Read-only views of files; no process-shared or anonymous mappings.
     fn windows_mappings(
         &mut self,
