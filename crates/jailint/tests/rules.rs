@@ -1165,3 +1165,6 @@ fn lifetime_array_capacity_separates_possible_from_required_growth() {
     );
     assert_eq!(strict.len(), 3, "{}", rendered(&strict, &text, &path));
 }
+
+#[path = "rules/accuracy.rs"]
+mod accuracy;

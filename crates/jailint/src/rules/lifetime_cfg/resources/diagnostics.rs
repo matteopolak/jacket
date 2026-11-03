@@ -129,6 +129,13 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                             .into(),
                     ),
                 );
+                if matches!(kind, Origin::Temporary) {
+                    f.message = format!("`{name}` is used after its temporary storage was reset");
+                    f.help = Some(
+                        "use it before the reset, or copy it into owned storage before resetting"
+                            .into(),
+                    );
+                }
                 if matches!(kind, Origin::Until(_)) {
                     f.message =
                         format!("`{name}` is used after its foreign valid-until contract expired");

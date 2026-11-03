@@ -1,5 +1,6 @@
 ---
 source: crates/jailint/tests/rules.rs
+assertion_line: 606
 ---
 warning[use_after_free]: `q` is used after the call above freed it
   --> tests/lint/pointer_lifetime/resources/bad.jai:17:18
@@ -43,7 +44,7 @@ warning[use_after_free]: this returns storage released by deferred cleanup
    = help: transfer ownership to the caller, or return a copy made outside the released storage
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
-warning[use_after_free]: `text` is used after the call above freed it
+warning[use_after_free]: `text` is used after its temporary storage was reset
   --> tests/lint/pointer_lifetime/resources/bad.jai:36:18
    |
 34 |     text := tprint("temporary");
@@ -53,10 +54,10 @@ warning[use_after_free]: `text` is used after the call above freed it
 36 |     print("%\n", text);
    |                  ^^^^
    |
-   = help: free it after its last use, or give it a new value before using it again
+   = help: use it before the reset, or copy it into owned storage before resetting
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
-warning[use_after_free]: `text` is used after the call above freed it
+warning[use_after_free]: `text` is used after its temporary storage was reset
   --> tests/lint/pointer_lifetime/resources/bad.jai:43:18
    |
 41 |     text := tprint("after mark");
@@ -66,7 +67,7 @@ warning[use_after_free]: `text` is used after the call above freed it
 43 |     print("%\n", text);
    |                  ^^^^
    |
-   = help: free it after its last use, or give it a new value before using it again
+   = help: use it before the reset, or copy it into owned storage before resetting
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: this returns storage released by deferred cleanup
