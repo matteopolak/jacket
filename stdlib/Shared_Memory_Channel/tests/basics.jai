@@ -19,7 +19,28 @@ tracking_allocator :: (mode: Allocator_Mode, requested_size: s64, old_size: s64,
     return result;
 }
 
+name_error_reported: bool;
+
+name_error_logger :: (message: string, data: *void, info: Log_Info) {
+    if message == "shared-memory channel name exceeds macOS limit of 31 bytes including leading slash\n" name_error_reported = true;
+}
+
 main :: () {
+    #if OS == .MACOS {
+        name_context := context;
+        name_context.logger = name_error_logger;
+        push_context name_context {
+            // Both spellings normalize to 32 bytes and must be rejected before shm_open.
+            ok, reader := C.reader_create_channel("1234567890123456789012345678901", 512);
+
+            assert(!ok && reader.header == null && name_error_reported);
+            name_error_reported = false;
+            connected, writer := C.writer_connect("/1234567890123456789012345678901", true);
+
+            assert(!connected && writer.header == null && name_error_reported);
+        }
+    }
+
     name := sprint("portable-%-channel", P.getpid());
 
     defer free(name);

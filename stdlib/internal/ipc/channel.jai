@@ -8,6 +8,7 @@
 //   added if missing, no other `/`, and the whole name with the slash is at most 31 bytes on macOS. On Windows it names a
 //   mapping object. No NUL bytes.
 //
+// An overlong macOS name is rejected before allocation and logged through `context.logger`, including for a quiet writer.
 // It fails if the name is taken (only one reader per name), the size is too small, or the system refuses; nothing is left behind
 // then. Uses `context.allocator` for a small record that `reader_release_channel` frees.
 //
@@ -271,6 +272,14 @@ allocate_registration :: (name: string) -> *Registration {
     #if OS != .WINDOWS if name[0] != #char "/" extra = 1;
 
     count := name.count + extra;
+
+    #if OS == .MACOS {
+        if count > 31 {
+            context.logger("shared-memory channel name exceeds macOS limit of 31 bytes including leading slash\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
+            return null;
+        }
+    }
+
     allocator := context.allocator;
     record := cast(*Registration) allocator.proc(.ALLOCATE, size_of(Registration) + count + 1, 0, null, allocator.data);
 

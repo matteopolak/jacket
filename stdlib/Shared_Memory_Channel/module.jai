@@ -12,7 +12,7 @@
 // Needs Linux, macOS or Windows. Names and the lifetime of the shared object are described on `reader_create_channel`.
 //
 // ```jai,skip_on(wasm)
-// name := tprint("jai-doc-module-%", to_nanoseconds(current_time_monotonic()));
+// name := tprint("jai-doc-%", to_nanoseconds(current_time_monotonic()));
 //
 // ok, reader := reader_create_channel(name, 512);
 // assert(ok);
