@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unchecked_directive]: `#no_abc` has no comment saying why it is needed
+  --> tests/lint/unchecked_directive/example.jai:3:31
+   |
+ 3 | sum :: (items: [] int) -> int #no_abc {
+   |                               ^^^^^^^
+   |
+   = help: add a `//` comment on this line or the line above: why the checks are not needed here
+   = note: see https://jacket.matteopolak.com/lint-rules/unchecked_directive/

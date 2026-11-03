@@ -1,0 +1,14 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[autocast_in_arg]: `xx` leaves the target type to the parameter (`s64` to `s32`)
+  --> tests/lint/autocast_in_arg/example.jai:10:23
+   |
+10 |     print("%\n", draw(xx width, 10));
+   |                       ^^
+   |
+help: write `cast(s32)` to say so
+   |
+10 ~     print("%\n", draw(cast(s32) width, 10));
+   |
+   = note: see https://jacket.matteopolak.com/lint-rules/autocast_in_arg/

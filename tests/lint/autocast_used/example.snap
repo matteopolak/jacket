@@ -1,0 +1,14 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[autocast_used]: `xx` leaves the target type to the context (`s64` to `u8`)
+  --> tests/lint/autocast_used/example.jai:5:17
+   |
+ 5 |     small: u8 = xx big;
+   |                 ^^
+   |
+help: write `cast(u8)` to say so
+   |
+ 5 ~     small: u8 = cast(u8) big;
+   |
+   = note: see https://jacket.matteopolak.com/lint-rules/autocast_used/

@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[excessive_bools]: `open` takes 4 `bool` parameters, past the limit of 3
+  --> tests/lint/excessive_bools/example.jai:3:1
+   |
+ 3 | open :: (path: string, read: bool, write: bool, create: bool, truncate: bool) -> int {
+   | ^^^^
+   |
+   = help: use an enum or a `#flags` enum so each argument says what it sets, or split the procedure
+   = note: see https://jacket.matteopolak.com/lint-rules/excessive_bools/
