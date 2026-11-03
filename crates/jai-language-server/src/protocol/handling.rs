@@ -74,6 +74,22 @@ impl JsonSession {
         self.session.warm_auto_import();
     }
 
+    /// Answer completion without compiling to rank names by expected type; a transport then
+    /// calls `warm_ranking` once input is quiet (see `Session::defer_ranking`).
+    pub fn defer_ranking(&mut self, on: bool) {
+        self.session.defer_ranking(on);
+    }
+
+    /// A completion went unranked; `warm_ranking` has a compile to do for the next.
+    pub fn ranking_pending(&self) -> bool {
+        self.session.ranking_pending()
+    }
+
+    /// The compile that lets the next completion be ranked (one compile, unstoppable).
+    pub fn warm_ranking(&self) {
+        self.session.warm_ranking();
+    }
+
     /// Whether `background_work` has something to do.
     pub fn has_background_work(&self) -> bool {
         self.session.has_background_work()

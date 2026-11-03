@@ -13,6 +13,14 @@ use jaic::source::FileId;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+/// How well a position's expected type is known to completion.
+enum Ranking {
+    /// The names that fit it (`None`: no type is expected).
+    Known(Option<BTreeSet<String>>),
+    /// Not without a compile the request would have waited for.
+    Pending,
+}
+
 impl Session {
     /// Completion from the type checker. The word being typed (and `a.b.` before it) is cut
     /// out, so the text asked about is the same while a word is typed and its compile is reused.
@@ -137,12 +145,7 @@ impl Session {
     /// declaration, a return value, a condition), or `None` when no type is expected there. The
     /// word being typed is replaced by a placeholder `.NAME`, for which the compiler records
     /// the type its context expected.
-    fn fitting_names(
-        &self,
-        uri: &DocumentUri,
-        text: &str,
-        start: usize,
-    ) -> Option<BTreeSet<String>> {
+    fn fitting_names(&self, uri: &DocumentUri, text: &str, start: usize) -> Ranking {
         const PLACEHOLDER: &str = "__jailsp_member";
         let ident = jaic::lexicon::is_identifier_char;
         let tail = start
@@ -150,7 +153,43 @@ impl Session {
                 .find(|c: char| !ident(c))
                 .unwrap_or(text.len() - start);
         let candidate = format!("{}.{PLACEHOLDER}{}", &text[..start], &text[tail..]);
-        self.with_semantic(uri, &candidate, |a, path| a.complete_fitting(path, start))
+        if !self.defer_ranking.get() {
+            return Ranking::Known(
+                self.with_semantic(uri, &candidate, |a, path| a.complete_fitting(path, start)),
+            );
+        }
+        let ask = |a: &mut semantic::Analysis, path: &Path| a.complete_fitting(path, start);
+        if let Some(fitting) = self.with_cached_semantic(uri, &candidate, ask) {
+            return Ranking::Known(fitting);
+        }
+        *self.ranking_pending.borrow_mut() = Some((uri.clone(), candidate));
+        Ranking::Pending
+    }
+
+    /// Answer completion at once, leaving the ranking by expected type to `warm_ranking`: a
+    /// request never compiles for it. Off by default; a transport that reads input while it
+    /// works turns it on.
+    pub fn defer_ranking(&self, on: bool) {
+        self.defer_ranking.set(on);
+        if !on {
+            self.ranking_pending.borrow_mut().take();
+        }
+    }
+
+    /// A completion went unranked and `warm_ranking` has the compile for it to do.
+    pub fn ranking_pending(&self) -> bool {
+        self.ranking_pending.borrow().is_some()
+    }
+
+    /// Compiles the placeholder text the last unranked completion wanted, so the next one
+    /// (the word grows by a letter, the same text is asked about) is ranked from the cache.
+    pub fn warm_ranking(&self) {
+        let Some((uri, candidate)) = self.ranking_pending.borrow_mut().take() else {
+            return;
+        };
+        if self.documents.contains_key(&uri) {
+            let _ = self.with_semantic(&uri, &candidate, |_, _| Some(()));
+        }
     }
 
     pub fn completion(
@@ -313,10 +352,16 @@ impl Session {
                 .find(|(_, path)| path.as_str() == uri.path())
                 .map(|(id, _)| *id);
             let declaration_start = enclosing_declaration_start(&doc.text, byte);
-            let fitting = if member || in_hole {
-                None
+            let ranking = if member || in_hole {
+                Ranking::Known(None)
             } else {
                 self.fitting_names(uri, &doc.text, byte - prefix.len())
+            };
+            let unranked = matches!(ranking, Ranking::Pending);
+            incomplete |= unranked;
+            let fitting = match ranking {
+                Ranking::Known(fitting) => fitting,
+                Ranking::Pending => None,
             };
             for (name, keyword) in all {
                 if !name.name.to_lowercase().starts_with(&lower) {

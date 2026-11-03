@@ -92,3 +92,61 @@ fn an_enum_value_for_a_baked_parameter_lists_the_enum() {
     assert!(order.contains(&"slow".to_string()), "{order:?}");
     assert!(order.contains(&"fast".to_string()), "{order:?}");
 }
+
+mod deferred {
+    use super::*;
+
+    const SOURCE: &str = "main :: () { a_name: string = \"\"; z_flag := true; x: bool = |; }";
+
+    fn order(mut items: Vec<CompletionItem>) -> Vec<String> {
+        items.sort_by(|a, b| {
+            let key = |i: &CompletionItem| i.sort_text.clone().unwrap_or_else(|| i.label.clone());
+            key(a).cmp(&key(b))
+        });
+        items.into_iter().map(|i| i.label).collect()
+    }
+
+    #[test]
+    fn a_request_does_not_compile_for_ranking_and_the_next_one_is_ranked() {
+        let (text, at) = cursor(SOURCE);
+        let mut session = lean_session();
+        session.defer_ranking(true);
+        let uri = file_uri("/expected-type/deferred.jai");
+        session.open(uri.clone(), 1, text).unwrap();
+        // The diagnostics compile the program; the names come from it.
+        session.publications();
+        let compiles = session.compile_counts().0;
+        let first = session.completion(&uri, at).unwrap();
+        assert_eq!(
+            session.compile_counts().0,
+            compiles,
+            "no compile in the request"
+        );
+        assert!(first.is_incomplete);
+        assert!(session.ranking_pending());
+        let unranked = order(first.items);
+        assert!(before(&unranked, "a_name", "z_flag"), "{unranked:?}");
+        session.warm_ranking();
+        assert!(!session.ranking_pending());
+        let compiles = session.compile_counts().0;
+        let second = session.completion(&uri, at).unwrap();
+        assert_eq!(
+            session.compile_counts().0,
+            compiles,
+            "ranked from the cache"
+        );
+        let order = order(second.items);
+        assert!(before(&order, "z_flag", "a_name"), "{order:?}");
+    }
+
+    #[test]
+    fn without_deferring_the_first_request_is_ranked() {
+        let (text, at) = cursor(SOURCE);
+        let mut session = lean_session();
+        let uri = file_uri("/expected-type/immediate.jai");
+        session.open(uri.clone(), 1, text).unwrap();
+        let answer = session.completion(&uri, at).unwrap();
+        let order = order(answer.items);
+        assert!(before(&order, "z_flag", "a_name"), "{order:?}");
+    }
+}

@@ -21,6 +21,7 @@ fn main() -> std::process::ExitCode {
             jai_language_server::JsonSession::with_environment(limits, native_environment());
         let mut decoder = jai_language_server::framing::FrameDecoder::new(limits.message_bytes);
         session.defer_publications(true);
+        session.defer_ranking(true);
         if untrusted {
             session.set_trusted(false);
         }
@@ -83,6 +84,21 @@ fn main() -> std::process::ExitCode {
                             output.write_all(&jai_language_server::framing::encode(&response))?;
                         }
                         output.flush()?;
+                        continue;
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
+                    Ok(received) => received,
+                }
+            } else if session.ranking_pending() {
+                // The compile that ranks completion waits for quiet input like the diagnostics
+                // do, so it does not hold up the next keystroke's request.
+                let wait = (last_publication / 4)
+                    .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
+                match input.recv_timeout(wait) {
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                        let started = std::time::Instant::now();
+                        session.warm_ranking();
+                        last_publication = last_publication.max(started.elapsed());
                         continue;
                     }
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),

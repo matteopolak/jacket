@@ -175,6 +175,23 @@ impl Session {
         answer
     }
 
+    /// Like `with_semantic`, but only on a compile that is already kept: `None` when there is
+    /// none (nothing is compiled), else what `query` answered.
+    pub(crate) fn with_cached_semantic<T>(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
+    ) -> Option<Option<T>> {
+        let environment = self.environment.as_ref()?;
+        let (files, root, dirs) = self.compile_inputs(uri, text)?;
+        let mut cache = self.semantic.borrow_mut();
+        let analysis = cache.cached(environment, &root, &dirs, &files)?;
+        let path = Path::new(uri.path());
+        analysis.focus(path);
+        Some(query(analysis, path))
+    }
+
     /// Runs the `[project] entry` files that could build `uri` but have not been run (or were
     /// changed since), once each, so their recorded facts decide which program `uri` is in
     /// instead of a scan of their text. A run that fails is not repeated until the

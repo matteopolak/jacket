@@ -106,6 +106,12 @@ pub struct Session {
     /// nothing loads, a branch on yet another CPU) would otherwise compile every target on
     /// every hover, more of them than the cache keeps.
     unreached: RefCell<(u64, Unreached)>,
+    /// Completion does not compile to rank names by the type a position expects (see
+    /// `defer_ranking`).
+    defer_ranking: std::cell::Cell<bool>,
+    /// The placeholder text a completion wanted ranked but had no compile for: compiled by
+    /// `warm_ranking` once input is quiet, so the next request finds it.
+    ranking_pending: RefCell<Option<(DocumentUri, String)>>,
 }
 
 /// The open files, the root file and the module folders of a compile.
@@ -145,6 +151,8 @@ impl Session {
             inputs: RefCell::default(),
             open_file_identities: RefCell::default(),
             unreached: RefCell::default(),
+            defer_ranking: std::cell::Cell::new(false),
+            ranking_pending: RefCell::default(),
         }
     }
 }
