@@ -456,7 +456,7 @@ main :: () {
 }
 ```
 
-Literal bounds only, with `@ReturnsSmaller`/`@ReturnsLarger` procedures (the library's `min`/`max`).
+Literal bounds only, with procedures that select the smaller or larger argument (the library's `min`/`max`).
 
 ### misrefactored_assign_op
 
@@ -1515,7 +1515,7 @@ main :: () {
 }
 ```
 
-A call of an `@Allocates` procedure (`sprint`, `join`, `copy_string`, ...) whose result is used where it is read and dropped at once: an operand of a comparison, the receiver of `.count` or of an index, or a value argument of a `@PrintLike` call.
+A call of a procedure that allocates its result (`sprint`, `join`, `copy_string`, ...) whose result is used where it is read and dropped at once: an operand of a comparison, the receiver of `.count` or of an index, or a value argument of a `@PrintLike` call.
 
 ### modified_range_bound
 

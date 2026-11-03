@@ -12,7 +12,7 @@
 //! Fires on three shapes, all of numbers whose bounds are constants with the lower one not above
 //! the upper (otherwise the two forms differ):
 //!
-//! - a call of the `@ReturnsLarger` procedure around a call of the `@ReturnsSmaller` one (or the
+//! - a call of a maximum selector around a call of a minimum one (or the
 //!   other way round), with the value as the inner call's other argument;
 //! - an `if` that assigns a side-effect-free target its lower bound when it is below it, with an
 //!   `else if` doing the same for the upper bound (in either order);

@@ -56,22 +56,34 @@ To change what a rule recognises, annotate the declaration; the linter has no na
 | Note | Rule | Meaning |
 | --- | --- | --- |
 | `@UseResult` | `unused_result` | calling it as a statement is a mistake |
-| `@ReturnsSmaller`, `@ReturnsLarger` | `min_max` | returns the smaller or larger of two arguments |
+| `@ReturnsSmaller`, `@ReturnsLarger` | `min_max` | returns the smaller or larger of two arguments (bodiless only) |
 | `@RemovesFromArray` | `remove_in_for`, lifetime rules | removes elements; `(ordered,1)`/`(unordered,1)` name the index argument, `(last)` pops |
 | `@GrowsArray` | `pointer_into_resizable` | may reallocate the resizable array its first argument points to |
 | `@AddsToArray` | `useless_resizable` | adds one element to that array |
-| `@FreesArgument` | `defer_in_loop`, lifetime rules | an argument's memory is gone after the call (the first, or `@FreesArgument(1)`) |
-| `@Allocates` | `leaked_allocation`, `leaked_temporary` | the result is newly allocated and the caller owns it |
+| `@FreesArgument` | `defer_in_loop`, lifetime rules | an argument's memory is gone after the call (the first, or `@FreesArgument(1)`); needed only when the body frees part of it or keeps it reusable |
+| `@Allocates` | `leaked_allocation`, `leaked_temporary` | the result is newly allocated and the caller owns it (bodiless only) |
 | `@TakesByteCount` | `element_count_as_bytes` | the last argument is a byte count |
 | `@Locks`, `@Unlocks` | `unpaired_lock` | takes or gives back the lock its first argument names |
 | `@AssertsArgument` | `assert_constant` | stops the program unless its first argument is true |
-| `@PushesContext` | `push_in_static_if` | a macro that changes the context until the caller's scope ends |
-| `@WritesOutput` | `print_in_module` | writes to standard output or error |
-| `@Exits` | `exit_in_module` | ends the process |
+| `@WritesOutput` | `print_in_module` | writes to standard output or error (bodiless only) |
+| `@Exits` | `exit_in_module` | ends the process (bodiless only) |
 | `@PrintLike`, `@FormatsToString` | `leaked_temporary`, `useless_format`, `format_push_string` | first string argument is a format string; the latter returns the text |
 | `@AppendsString` | `format_push_string` | adds its second argument to the builder in its first |
-| `@TempAllocates` | `temp_storage_escape` | the result lives in temporary storage |
+| `@TempAllocates` | `temp_storage_escape` | the result lives in temporary storage, where the body can't show it |
 | `@Opens`, `@Closes` | `unclosed_resource` | acquires or gives back a resource |
+
+Notes marked "bodiless only" are read only on a declaration without a body, such as a `#foreign` one. Otherwise the linter works the effect out from the checked body and the bodies it calls: a procedure that returns `alloc`'s result allocates, one whose every path reaches `exit` exits, a macro that pushes a context or assigns into `context` changes it, and `a < b` choosing between its two arguments makes a minimum or maximum. A note on a procedure with a body is ignored for these, so the declaration and the body can't disagree.
+
+Results are followed through struct fields, so a string or array view whose `data` came from `tprint` or `alloc` is temporary or owned like the pointer itself. A global that briefly holds temporary storage is fine when every path clears it before temporary storage is reset or the procedure returns:
+
+```jai
+saved_text: string;
+
+ok :: () {
+    defer saved_text = "";
+    saved_text = tprint("%", 1);  // cleared on every path: no finding
+}
+```
 
 Most lifetime effects are inferred from procedure bodies, so the notes below are only needed where a body can't say it: foreign procedures, sorts and other "may" effects, and logical meaning a body hides. They are read by the [lifetime rules](#lifetime-rules).
 
@@ -222,7 +234,7 @@ Locals live on the stack, which is small (a thread's is often 1 MiB or less) and
 Off by default: ownership conventions differ, and a program that allocates once for its whole run may leak on purpose.
 
 ### leaked_temporary
-A call of an `@Allocates` procedure (`sprint`, `join`, `copy_string`, ...) whose result is used where it is read and dropped at once: an operand of a comparison, the receiver of `.count` or of an index, or a value argument of a `@PrintLike` call.
+A call of a procedure that allocates its result (`sprint`, `join`, `copy_string`, ...) whose result is used where it is read and dropped at once: an operand of a comparison, the receiver of `.count` or of an index, or a value argument of a `@PrintLike` call.
 
 ### loop_with_break_condition
 A `while true` (macros aside) whose body starts with an `if` without an `else` that only does an unlabelled `break`, with or without braces.
@@ -252,7 +264,7 @@ Numbers with constant bounds, the lower not above the upper (a swapped pair is `
 Fires on a `for` over a range starting at `0` whose only statement is `dst[i] = src[i];` with `i` the loop's variable, `dst` and `src` different names or member paths, both arrays or pointers, and the same element type on both sides.
 
 ### min_max
-Literal bounds only, with `@ReturnsSmaller`/`@ReturnsLarger` procedures (the library's `min`/`max`).
+Literal bounds only, with procedures that select the smaller or larger argument (the library's `min`/`max`).
 
 ### misrefactored_assign_op
 The same operator on both sides, a side-effect-free target of a number type spelled the same in both places (`a op= a op b`), and for `+ * & | ^` on integers also `a op= b op a`.
