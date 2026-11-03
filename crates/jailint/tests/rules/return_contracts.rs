@@ -232,3 +232,55 @@ fn lifetime_nested_aggregate_copies_keep_individual_field_origins() {
         );
     }
 }
+
+#[test]
+fn lifetime_cleared_temporary_globals_do_not_escape_their_scope() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/cleared-temporary-globals.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[("temp_storage_escape", Level::Warn)],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(findings.len(), 3, "{}", rendered(&findings, &text, &path));
+        assert!(
+            findings
+                .iter()
+                .all(|f| f.start > text.find("bad_retained ::").unwrap()),
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+    }
+}
+
+#[test]
+fn lifetime_http_response_origins_reach_the_actual_caller() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/http-response-origins.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[("temp_storage_escape", Level::Warn)],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(findings.len(), 3, "{}", rendered(&findings, &text, &path));
+        assert!(
+            findings
+                .iter()
+                .all(|f| f.start > text.find("main ::").unwrap()),
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+    }
+}

@@ -383,7 +383,7 @@ impl Proof<'_> {
                 store,
                 ..
             }) = block.op
-                && !escape_survives(cx, model, i, target, store, kind)
+                && !escape_survives(cx, model, i, target, store, kind, false)
             {
                 return;
             }
@@ -406,6 +406,7 @@ impl Proof<'_> {
                 .push((origin, "stack storage borrowed here".into()));
             push(&mut out.returned_local_address, f);
         } else if matches!(kind, Origin::Temporary)
+            && temporary_store_retained(cx, model, i, &block.op)
             && !matches!(
                 block.op,
                 CfgOp::Resource(Op::Escape {
@@ -611,6 +612,22 @@ fn statement_call(body: &LifetimeBody, site: Span) -> bool {
 }
 
 
+fn temporary_store_retained(cx: &Cx, model: &Model, at: usize, op: &CfgOp) -> bool {
+    let CfgOp::Resource(Op::Escape {
+        target,
+        pointer: false,
+        store: true,
+        ..
+    }) = op
+    else {
+        return true;
+    };
+    // Clearing a concrete sink on every path before reset/return avoids retention.
+    // Unknown writes do not prove a clear, and one retained path keeps the finding.
+    escape_survives(cx, model, at, *target, true, Origin::Temporary, true)
+}
+
+
 fn escape_survives(
     cx: &Cx,
     model: &Model,
@@ -618,6 +635,7 @@ fn escape_survives(
     target: usize,
     store: bool,
     kind: Origin,
+    any_path: bool,
 ) -> bool {
     let target_place = match model.cells.values[target] {
         super::Cell::Place(place) => Some(place),
@@ -658,12 +676,28 @@ fn escape_survives(
             {
                 kept = false;
             }
-            CfgOp::Barrier => kept = false,
+            CfgOp::Barrier if !any_path => kept = false,
+            CfgOp::Resource(Op::Reset(_)) if matches!(kind, Origin::Temporary) => {
+                if kept {
+                    return true;
+                }
+                continue;
+            }
+            CfgOp::Resource(Op::MayReset(_))
+                if matches!(kind, Origin::Temporary)
+                    && cx.lifetime_mode == jacket_config::LifetimeMode::Strict
+                    && kept =>
+            {
+                return true;
+            }
             CfgOp::Resource(Op::Exit) => {
-                if !kept {
+                if !kept && !any_path {
                     return false;
                 }
-                escaped = true;
+                if kept && any_path {
+                    return true;
+                }
+                escaped |= kept;
                 continue;
             }
             CfgOp::Resource(Op::ScopeEnd(parent, _)) if matches!(kind,Origin::Stack(child) if inside(cx,child,parent)) =>
@@ -683,6 +717,10 @@ fn escape_survives(
                 continue;
             }
             _ => {}
+        }
+        if any_path && !kept {
+            // An overwritten origin cannot become retained again on this path.
+            continue;
         }
         queue.extend(model.blocks[i].next.iter().map(|&i| (i, kept)));
     }
@@ -761,13 +799,81 @@ fn inferred_temporary_return(cx: &Cx, body: &LifetimeBody, model: &Model, op: &C
             _ => None,
         })
         .collect::<Option<Vec<_>>>();
-    steps.is_some_and(|steps| {
-        summary
-            .may_return_fields
-            .contains(&(*result, steps.clone()))
-            || summary
-                .return_fields
-                .get(&(*result, steps))
-                .is_some_and(|p| p.root == super::Root::Temporary)
+    steps.is_some_and(|mut steps| {
+        let known = |steps: &[crate::rules::lifetime_summary::Step]| {
+            summary
+                .may_return_fields
+                .contains(&(*result, steps.to_vec()))
+                || summary
+                    .return_fields
+                    .get(&(*result, steps.to_vec()))
+                    .is_some_and(|p| p.root == super::Root::Temporary)
+        };
+        if known(&steps) {
+            return true;
+        }
+        // Resource copies can introduce a descriptor's data child after typed
+        // places were indexed. Recover its parent type from the retained root.
+        if descriptor_data_place(cx, model, place) {
+            steps.pop();
+            return known(&steps);
+        }
+        false
     })
+}
+
+fn descriptor_data_place(cx: &Cx, model: &Model, place: usize) -> bool {
+    use crate::rules::lifetime_places::Projection;
+    let ((_, root_ty), path) = &model.places.paths[place];
+    let mut ty = *root_ty;
+    let Some((Projection::Field(name), prefix)) = path.split_last() else {
+        return false;
+    };
+    if name.as_str() != "data" {
+        return false;
+    }
+    for projection in prefix {
+        ty = match projection {
+            Projection::Field(name) => {
+                let Some(st) = cx.compiler.ty.types.as_struct(ty) else {
+                    return false;
+                };
+                let Some(field) = cx
+                    .compiler
+                    .ty
+                    .types
+                    .struct_info(st)
+                    .fields
+                    .iter()
+                    .find(|f| f.name == Some(*name))
+                else {
+                    return false;
+                };
+                field.ty
+            }
+            Projection::Element(_) | Projection::DynamicElement(_) => {
+                let jaic::types::TypeKind::Array {
+                    elem, ..
+                } = cx.compiler.ty.types.kind(ty)
+                else {
+                    return false;
+                };
+                *elem
+            }
+            Projection::Deref => {
+                let Some(pointee) = cx.compiler.ty.types.pointee(ty) else {
+                    return false;
+                };
+                pointee
+            }
+        };
+    }
+    matches!(
+        cx.compiler.ty.types.kind(ty),
+        jaic::types::TypeKind::String
+            | jaic::types::TypeKind::Array {
+                kind: jaic::types::ArrayKind::View | jaic::types::ArrayKind::Resizable,
+                ..
+            }
+    )
 }

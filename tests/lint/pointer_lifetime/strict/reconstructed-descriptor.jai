@@ -22,12 +22,15 @@ durable_view :: () -> string {
 }
 
 saved: string;
+mixed_saved: string;
+durable_saved: string;
+forwarded_saved: string;
 
 main :: () {
     saved = modified_view(true);
-    saved = mixed_view(true);
-    saved = durable_view();
-    saved = forwarded_mixed_view(true);
+    mixed_saved = mixed_view(true);
+    durable_saved = durable_view();
+    forwarded_saved = forwarded_mixed_view(true);
 }
 
 view_of :: (text: string) -> string {

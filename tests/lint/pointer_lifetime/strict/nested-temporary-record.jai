@@ -19,15 +19,17 @@ assemble :: () -> Result {
 }
 
 saved: Result;
+owned_saved: Result;
+output_saved: Result;
 
 main :: () {
     saved = assemble();
-    saved = durable_nested();
-    saved = replaced_nested();
+    owned_saved = durable_nested();
+    owned_saved = replaced_nested();
     local: Result;
 
     fill_output(*local);
-    fill_output(*saved);
+    fill_output(*output_saved);
     scoped_allocator();
 }
 
