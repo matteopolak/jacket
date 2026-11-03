@@ -12,7 +12,8 @@ main :: () {
 
     assert(empty[0] == 0x657ca02a5859c045 && empty[1] == 0x75a7b5550383265e);
     // Compare the register fast path too when running on x64.
-    bytes: [1000] u8;
+    // The register path loads whole 16-byte blocks, so the buffer carries 16 readable bytes past the longest input.
+    bytes: [1016] u8;
     for *bytes it.* = cast(u8) ((it_index * 37 + 11) & 255);
 
     #if CPU == .X64 {
