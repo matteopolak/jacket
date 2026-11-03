@@ -1147,3 +1147,21 @@ fn lifetime_branch_feasibility_preserves_only_possible_releases() {
             .all(|l| l.start > text.find("changed_condition").unwrap())
     );
 }
+
+#[test]
+fn lifetime_array_capacity_separates_possible_from_required_growth() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/array-capacity.jai");
+    let levels = [("pointer_lifetime", Level::Warn)];
+    let (must, text) = lint(&path, &levels);
+    assert_eq!(must.len(), 1, "{}", rendered(&must, &text, &path));
+    assert!(must[0].start > text.find("count_changed").unwrap());
+    let (strict, text) = lint_with(
+        &path,
+        &levels,
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(strict.len(), 3, "{}", rendered(&strict, &text, &path));
+}

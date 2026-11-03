@@ -16,6 +16,7 @@ use jaic::types::{ArrayKind, TypeId, TypeKind};
 use std::collections::{BTreeMap, VecDeque};
 
 mod build;
+mod capacity;
 mod diagnostics;
 pub(super) mod resources;
 
@@ -65,6 +66,8 @@ enum Op {
     Copy(Vec<(usize, usize)>),
     Replace(usize),
     Grow(usize, Span),
+    EmptyArray(usize),
+    Capacity(usize, capacity::Change, Span),
     MayGrow(usize, Span),
     MayReach(usize, Span),
     MayMutate(usize, Mutation, Span),

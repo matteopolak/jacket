@@ -91,6 +91,7 @@ pub(super) fn build(
             blocks[previous].next.clone_from(&block.successors);
         }
     }
+    super::capacity::refine(cx, body, &mut blocks);
     feasible_paths(blocks, body)
 }
 
@@ -208,7 +209,11 @@ impl Builder<'_> {
                 ty,
                 ..
             } => {
-                ops.push(Op::Replace(places.place(place, ty)));
+                let p = places.place(place, ty);
+                ops.push(Op::Replace(p));
+                if resizable(cx, places, p) {
+                    ops.push(Op::EmptyArray(p));
+                }
             }
             Event::Branch {
                 condition,
