@@ -20,5 +20,5 @@ highest :: (a: int, b: int) -> int {
 }
 
 unnoted_extrema :: (n: int) -> int {
-    return lowest(0, highest(100, n));
+    return highest(0, lowest(100, n));
 }

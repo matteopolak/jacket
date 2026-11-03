@@ -7,16 +7,16 @@ main :: () {
     print("% %\n", a, b);
 }
 
-// The notes, not the names `min` and `max`, make these the library's extrema.
+// Body inference recognizes extrema independently of names or notes.
 smallest :: (a: int, b: int) -> int {
     if a < b return a;
     return b;
-} @ReturnsSmaller
+}
 
 largest :: (a: int, b: int) -> int {
     if a > b return a;
     return b;
-} @ReturnsLarger
+}
 
 noted_extrema :: (n: int) -> int {
     return smallest(0, largest(100, n));

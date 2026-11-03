@@ -787,6 +787,17 @@ impl Compiler {
                 };
                 let field = f.b.ptr_offset(addr, 8);
                 f.b.store(Ty::Ptr, field, ptr);
+                if bytes.is_empty()
+                    && !f.type_only
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    record.push(
+                        f.b.current,
+                        crate::ide::lifetimes::LifetimeEvent::EmptyString {
+                            value: addr,
+                        },
+                    );
+                }
                 Ok(addr)
             }
             Value::Type(t) => {

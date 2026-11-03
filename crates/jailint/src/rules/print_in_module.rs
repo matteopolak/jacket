@@ -13,10 +13,10 @@
 //!
 //! A file is part of a module when it or a directory above it holds a `module.jai` and no
 //! `tests` folder lies between them. A call is
-//! reported when the procedure it calls carries the note `@WritesOutput` (the library's `print`,
+//! reported when its checked body writes to standard output or error (the library's `print`,
 //! `write_string`, `write_strings` and `write_builder`), whatever it is called where it is used.
 //! Macros and generated files are left alone. No fix.
-use super::calls_in_module;
+use super::{calls_in_module, effects::Effect};
 use crate::Finding;
 use crate::syntax::Cx;
 
@@ -32,7 +32,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     calls_in_module(
         cx,
         out,
-        "WritesOutput",
+        Effect::Output,
         "a module should not write to the program's output",
         "return the text or an error, or log it, and let the program decide what to print",
     );

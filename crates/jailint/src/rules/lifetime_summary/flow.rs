@@ -87,6 +87,15 @@ pub(super) fn guaranteed(
     effects: &[Vec<(Effect, Vec<Span>)>],
     target: &Effect,
 ) -> Option<Vec<Span>> {
+    guaranteed_except(body, effects, target, &HashSet::default())
+}
+
+pub(super) fn guaranteed_except(
+    body: &LifetimeBody,
+    effects: &[Vec<(Effect, Vec<Span>)>],
+    target: &Effect,
+    skipped: &HashSet<(usize, usize)>,
+) -> Option<Vec<Span>> {
     let mut states = vec![0u8; body.blocks.len()];
     states[0] = 1;
     let mut queue = std::collections::VecDeque::from([0]);
@@ -97,6 +106,9 @@ pub(super) fn guaranteed(
             states[i]
         };
         for &next in &body.blocks[i].successors {
+            if skipped.contains(&(i, next)) {
+                continue;
+            }
             let joined = states[next] | state;
             if joined != states[next] {
                 states[next] = joined;
@@ -124,7 +136,9 @@ pub(super) fn guaranteed(
         .filter(|(i, _)| states[*i] != 0)
     {
         for &next in &block.successors {
-            incoming[next].push(i);
+            if !skipped.contains(&(i, next)) {
+                incoming[next].push(i);
+            }
         }
     }
     let mut queue: std::collections::VecDeque<_> = body

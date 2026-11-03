@@ -643,6 +643,7 @@ impl Compiler {
                 format!("cannot call a value of type {}", self.ty.types.name(ty)),
             );
         };
+        let declaration = parameters.as_ref().and_then(|p| p.declaration.clone());
         let result_parameters = parameters
             .as_ref()
             .map(|info| info.returns.clone())
@@ -760,6 +761,17 @@ impl Compiler {
                     .map(|(v, t)| vec![(0, v, t)])
                     .unwrap_or_default(),
             };
+            if let Some(declaration) = declaration
+                && !declaration.notes.is_empty()
+            {
+                record.push(
+                    f.b.current,
+                    crate::ide::lifetimes::LifetimeEvent::CallContract {
+                        callee,
+                        declaration,
+                    },
+                );
+            }
             record.push(
                 f.b.current,
                 crate::ide::lifetimes::LifetimeEvent::IndirectCall {

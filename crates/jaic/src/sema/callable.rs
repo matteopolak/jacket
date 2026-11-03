@@ -16,6 +16,21 @@ impl Compiler {
         self.callable_entity_parameters_in(entity, &mut HashSet::default())
     }
 
+    pub(super) fn callable_declared_notes(
+        info: Option<Arc<ProcTypeParams>>,
+        notes: &[ast::Note],
+    ) -> Option<Arc<ProcTypeParams>> {
+        let info = info?;
+        if notes.is_empty() || info.declaration.is_none() {
+            return Some(info);
+        }
+        let mut info = (*info).clone();
+        let mut header = (**info.declaration.as_ref().unwrap()).clone();
+        header.notes.extend_from_slice(notes);
+        info.declaration = Some(Arc::new(header));
+        Some(Arc::new(info))
+    }
+
     fn callable_entity_parameters_in(
         &mut self,
         entity: EntityId,
@@ -55,11 +70,14 @@ impl Compiler {
         let result = match source.kind.clone() {
             EntityKind::Decl {
                 decl, ..
-            } => self.callable_expression_parameters_in(
-                scope,
-                decl.ty.as_ref().or(decl.value.as_ref()),
-                visiting,
-            ),
+            } => {
+                let info = self.callable_expression_parameters_in(
+                    scope,
+                    decl.ty.as_ref().or(decl.value.as_ref()),
+                    visiting,
+                )?;
+                Ok(Self::callable_declared_notes(info, &decl.notes))
+            }
             EntityKind::Const {
                 value: Value::Proc(procedure),
                 ..
@@ -108,6 +126,8 @@ impl Compiler {
                 )?);
             }
             return Ok(Some(Arc::new(ProcTypeParams {
+                declaration: (!matches!(&expression.kind, E::Proc(p) if p.body.is_some()))
+                    .then(|| header.clone()),
                 names: parameters.iter().map(|p| p.name.map(|n| n.name)).collect(),
                 defaults: parameters.iter().map(|p| p.default.clone()).collect(),
                 scope,
@@ -257,7 +277,17 @@ impl Compiler {
         procedure: ProcId,
     ) -> Result<Arc<ProcTypeParams>> {
         let signature = self.signature(procedure, self.proc(procedure).span)?;
+        let declaration = if self.proc(procedure).lit.body.is_none() {
+            let mut header = (*self.proc(procedure).lit.header).clone();
+            if let Some(notes) = self.pr.proc_decl_notes.get(&procedure) {
+                header.notes.extend(notes.iter().cloned());
+            }
+            Some(Arc::new(header))
+        } else {
+            None
+        };
         Ok(Arc::new(ProcTypeParams {
+            declaration,
             names: signature
                 .params
                 .iter()

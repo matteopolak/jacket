@@ -545,8 +545,10 @@ pub struct Compiler {
 }
 
 /// Names and default values of a procedure type's parameters (defaults evaluate in `scope`).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ProcTypeParams {
+    /// Lexical bodyless declaration, independent of structural procedure type identity.
+    pub declaration: Option<Arc<ast::ProcHeader>>,
     pub names: Vec<Option<Sym>>,
     pub defaults: Vec<Option<ast::Expr>>,
     pub scope: ScopeId,
@@ -579,6 +581,7 @@ impl Compiler {
     pub fn release_lowered_code(&mut self) {
         // Specialization identities may include constant images that are about to go away.
         self.ide_freeze_polymorphs();
+        self.lifetime_release_globals();
         self.out.release_lowered();
         self.ct.interp.release_code();
     }

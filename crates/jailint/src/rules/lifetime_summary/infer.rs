@@ -11,6 +11,9 @@ impl Resolver<'_> {
         let live = returning_blocks(body, all, self.targets);
         let mut next = prior.clone();
         next.changes_allocator = self.context.changes_allocator;
+        next.allocation_effects.clear();
+        next.observable = self.observable_calls.infer(all);
+        next.ordering = self.ordering_base.or_else(|| self.aggregate_order(all));
         let swap_facts = body.blocks.iter().flat_map(|b| &b.events).any(|e| matches!(e, Event::Call { callee, .. } if self.compiler.proc_has_note(*callee, "SwapsArguments"))).then(|| crate::rules::lifetime_movement::facts::Facts::new(self.compiler, body));
         let mut effects = vec![Vec::new(); body.blocks.len()];
         for (b, block) in body
@@ -20,6 +23,7 @@ impl Resolver<'_> {
             .filter(|(i, _)| live.contains(*i))
         {
             for (ordinal, event) in block.events.iter().enumerate() {
+                self.infer_allocations(event, (b, ordinal), all, &mut next);
                 for (effect, span, definite) in self.temporary_writes(event, all) {
                     if effect.exported() {
                         insert(&mut next.may, effect.clone(), vec![span]);
@@ -121,7 +125,9 @@ impl Resolver<'_> {
             if !effect.exported() {
                 continue;
             }
-            if let Some(witness) = guaranteed(body, &effects, &effect) {
+            if let Some(witness) = guaranteed(body, &effects, &effect)
+                .or_else(|| self.nullable_guarantee(&effects, &effect, all))
+            {
                 insert(&mut next.guaranteed, effect, witness);
             }
         }

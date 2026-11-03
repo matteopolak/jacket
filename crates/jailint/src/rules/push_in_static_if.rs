@@ -10,13 +10,13 @@
 //! work();
 //! ```
 //!
-//! Fires on a call of a procedure declared with the note `@PushesContext` (a macro that
+//! Fires on a call of a macro inferred to change the context (a macro that
 //! changes the context and restores it with a backtick `defer`: the library's
-//! `push_allocator` carries it; a program marks its own the same way), and on
+//! `push_allocator` has this effect; the body of a program's own macro is checked too), and on
 //! `push_context,defer_pop`, when it is a direct statement of an `#if` or `#else` arm. A
 //! push in a nested `{ }` block of the arm is scoped by the block and stays quiet, as does a
 //! push outside any `#if`.
-use super::calls_noted;
+use super::effects::{self, Effect};
 use crate::Finding;
 use crate::syntax::Cx;
 use jaic::ast::walk::walk;
@@ -65,7 +65,7 @@ fn pushes(cx: &Cx, s: &Stmt) -> bool {
         S::Expr(e) => match &e.kind {
             E::Call {
                 callee, ..
-            } => calls_noted(cx, callee, "PushesContext"),
+            } => effects::calls(cx, callee, Effect::PushContext),
             _ => false,
         },
         _ => false,

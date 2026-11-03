@@ -308,6 +308,9 @@ impl Compiler {
                             declaration.ty.as_ref().or(declaration.value.as_ref()),
                         )?
                     {
+                        let parameters =
+                            Self::callable_declared_notes(Some(parameters), &declaration.notes)
+                                .unwrap();
                         self.pr.callable_fields.insert((s, index), parameters);
                     }
                     sizes.push(size);

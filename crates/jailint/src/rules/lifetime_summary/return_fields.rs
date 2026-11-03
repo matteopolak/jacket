@@ -5,6 +5,63 @@ use super::{
 };
 
 impl Resolver<'_> {
+    pub(super) fn finish_definition_index(&mut self) {
+        let stack: HashSet<_> = self.body.stack_places.iter().copied().collect();
+        for (id, ((value, _), path)) in self.places.paths.iter().enumerate() {
+            if path.is_empty() && stack.contains(value) {
+                self.owned.insert(id);
+            }
+        }
+        self.write_sources = self
+            .writes
+            .iter()
+            .filter_map(|(&p, values)| {
+                let first = *values.first()?;
+                values.iter().all(|v| *v == first).then_some((p, first))
+            })
+            .collect();
+        let empty_strings: HashSet<_> = self
+            .body
+            .blocks
+            .iter()
+            .flat_map(|b| &b.events)
+            .filter_map(|e| match e {
+                Event::EmptyString {
+                    value,
+                } => Some(*value),
+                _ => None,
+            })
+            .collect();
+        self.nullable_sources = self
+            .writes
+            .iter()
+            .filter_map(|(&place, sources)| {
+                if self.write_sources.contains_key(&place) {
+                    return None;
+                }
+                let mut selected = None;
+                for &source in sources {
+                    let empty = empty_strings.contains(&source)
+                        && self
+                            .places
+                            .existing(source, TypeId::STRING)
+                            .is_none_or(|p| {
+                                !self.exposed.contains(&self.places.root_of(p))
+                                    && !self.writes.contains_key(&p)
+                            });
+                    if empty {
+                        continue;
+                    }
+                    if selected.is_some_and(|old| old != source) {
+                        return None;
+                    }
+                    selected = Some(source);
+                }
+                selected.map(|source| (place, source))
+            })
+            .collect();
+    }
+
     pub(in crate::rules) fn storage_fields(
         &self,
         ty: TypeId,
@@ -148,6 +205,18 @@ impl Resolver<'_> {
                 .any(|r| r.offset >= offset && r.offset < end)
     }
 
+    // Null descriptors contribute no storage to a return-origin join. Only fresh
+    // constants with no writes or exposed address can be discarded this way.
+    pub(super) fn return_source(&self, place: usize) -> Option<Val> {
+        if let Some(&source) = self.write_sources.get(&place) {
+            return Some(source);
+        }
+        if !self.return_mode.get() {
+            return None;
+        }
+        self.nullable_sources.get(&place).copied()
+    }
+
     pub(super) fn returned_field_origin(
         &self,
         value: Val,
@@ -169,11 +238,11 @@ impl Resolver<'_> {
             }
         }
         let root = self.places.existing(value, ty)?;
-        if let Some(source) = self.write_sources.get(&root)
-            && *source != value
+        if let Some(source) = self.return_source(root)
+            && source != value
             && (self.return_definition(root) || self.empty_field_default(root, projections))
         {
-            return self.returned_field_origin(*source, ty, projections, all, depth + 1);
+            return self.returned_field_origin(source, ty, projections, all, depth + 1);
         }
         None
     }
@@ -238,6 +307,7 @@ impl Resolver<'_> {
             .try_fold(root, |p, projection| self.places.projected(p, *projection));
         if let Some(sources) = field.and_then(|p| self.writes.get(&p)) {
             if !(self.return_definition(field?)
+                || self.field_defined_before_uses(root, field?)
                 || !self.writes.contains_key(&root) && self.empty_field_default(root, projections))
             {
                 return None;
@@ -258,13 +328,73 @@ impl Resolver<'_> {
             }
             return origin;
         }
-        if let Some(source) = self.write_sources.get(&root)
-            && *source != value
+        if let Some(source) = self.return_source(root)
+            && source != value
             && (self.return_definition(root) || self.empty_field_default(root, projections))
         {
-            return self.field_origin(*source, ty, projections, all, depth + 1);
+            return self.field_origin(source, ty, projections, all, depth + 1);
         }
         None
+    }
+}
+
+impl Resolver<'_> {
+    // An early return of a different aggregate does not require this aggregate's
+    // fields to have been initialized. Cut paths at the field definition and check
+    // the uses of this header, rather than every return in the procedure.
+    fn field_defined_before_uses(&self, root: usize, field: usize) -> bool {
+        if self.exposed.contains(&self.places.root_of(root)) {
+            return false;
+        }
+        let (value, ty) = self.places.paths[root].0;
+        let mut queue = std::collections::VecDeque::from([0]);
+        let mut seen = vec![false; self.body.blocks.len()];
+        while let Some(i) = queue.pop_front() {
+            if std::mem::replace(&mut seen[i], true) {
+                continue;
+            }
+            let block = &self.body.blocks[i];
+            let mut defined = false;
+            for event in &block.events {
+                if matches!(event, Event::Store{place,ty,..} if self.places.existing(*place,*ty)==Some(field))
+                {
+                    defined = true;
+                    break;
+                }
+                let used = match event {
+                    Event::Return {
+                        value: source,
+                        ty: source_ty,
+                        ..
+                    }
+                    | Event::Store {
+                        value: source,
+                        ty: source_ty,
+                        ..
+                    } => *source == value && *source_ty == ty,
+                    Event::Call {
+                        args, ..
+                    }
+                    | Event::IndirectCall {
+                        args, ..
+                    } => args.iter().any(|a| {
+                        (a.ty == ty || self.compiler.ty.types.pointee(a.ty) == Some(ty))
+                            && super::value(a) == Some(value)
+                    }),
+                    Event::Copy {
+                        source, ..
+                    } => *source == value,
+                    _ => false,
+                };
+                if used {
+                    return false;
+                }
+            }
+            if !defined {
+                queue.extend(&block.successors);
+            }
+        }
+        true
     }
 }
 

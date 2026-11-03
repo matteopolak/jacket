@@ -11,6 +11,7 @@ use jaic::sema::{Compiler, ProcId, procs::BodyState};
 use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
 
+mod allocation_effects;
 mod allocator_context;
 mod allocator_storage;
 mod allocators;
@@ -20,16 +21,24 @@ mod elements;
 mod flow;
 mod indirect;
 mod infer;
+mod interfaces;
+mod nullable;
+mod observable;
+mod ordering;
 mod origins;
+mod possible;
+mod primitives;
 mod reads;
 mod return_fields;
 mod return_may;
 mod selected;
+mod templates;
 mod temporary;
 #[cfg(test)]
 mod tests;
 mod writes;
 use flow::{acyclic, guaranteed, returning_blocks, sccs};
+pub(super) use ordering::Ordering;
 pub(super) use reads::address_query;
 
 const MAX_PATH: usize = 8;
@@ -110,6 +119,10 @@ pub(super) struct Summary {
     pub return_fields: HashMap<(usize, Vec<Step>), Path>,
     pub allocations: HashMap<usize, (Path, Option<(usize, u64)>)>,
     pub changes_allocator: bool,
+    pub observable: observable::Observable,
+    pub pushes_context: bool,
+    pub ordering: Option<Ordering>,
+    pub allocation_effects: HashSet<(Root, Option<(usize, u64)>)>,
     pub elements: HashMap<usize, (Path, Selector)>,
 }
 
@@ -152,6 +165,12 @@ pub(super) struct Resolver<'a> {
     may_field_origins: std::cell::RefCell<HashMap<FieldQuery, bool>>,
     field_origins: std::cell::RefCell<HashMap<FieldQuery, Path>>,
     write_sources: HashMap<usize, Val>,
+    nullable_sources: HashMap<usize, Val>,
+    observable_calls: observable::Calls<'a>,
+    ordering_base: Option<Ordering>,
+    // Calls in expansions can share both a callee SSA value and a source span.
+    interfaces: HashMap<*const Event, Summary>,
+    comparisons: std::cell::OnceCell<HashMap<Val, &'a jaic::ide::lifetimes::LifetimeComparison>>,
     return_cuts: std::cell::RefCell<HashMap<usize, bool>>,
     return_contracts: HashMap<usize, (Path, Option<(usize, u64)>)>,
     compiler: &'a Compiler,
@@ -205,6 +224,11 @@ impl<'a> Resolver<'a> {
             may_field_origins: std::cell::RefCell::new(HashMap::default()),
             field_origins: std::cell::RefCell::new(HashMap::default()),
             write_sources: HashMap::default(),
+            nullable_sources: HashMap::default(),
+            observable_calls: observable::Calls::build(compiler, body, all),
+            ordering_base: all.get(&body.procedure).and_then(|s| s.ordering),
+            interfaces: interfaces::collect(body),
+            comparisons: std::cell::OnceCell::new(),
             return_cuts: std::cell::RefCell::new(HashMap::default()),
             return_contracts: all
                 .get(&body.procedure)
@@ -413,19 +437,7 @@ impl<'a> Resolver<'a> {
                 _ => {}
             }
         }
-        for (id, ((value, _), path)) in this.places.paths.iter().enumerate() {
-            if path.is_empty() && body.stack_places.contains(value) {
-                this.owned.insert(id);
-            }
-        }
-        this.write_sources = this
-            .writes
-            .iter()
-            .filter_map(|(&p, values)| {
-                let first = *values.first()?;
-                values.iter().all(|v| *v == first).then_some((p, first))
-            })
-            .collect();
+        this.finish_definition_index();
         this.refresh_context(all);
         this
     }
@@ -546,9 +558,9 @@ impl<'a> Resolver<'a> {
                 steps: Vec::new(),
             };
             if self.compiler.ir_ty(root.1).is_none()
-                && let Some([source]) = self.writes.get(&root_id).map(Vec::as_slice)
-                && *source != root.0
-                && let Some(from) = self.trace(*source, summaries, visiting, depth + 1)
+                && let Some(source) = self.return_source(root_id)
+                && source != root.0
+                && let Some(from) = self.trace(source, summaries, visiting, depth + 1)
                 && (matches!(
                     from.root,
                     Root::Parameter(_)
@@ -679,12 +691,23 @@ impl<'a> Resolver<'a> {
         let Some(summary) = all.get(&callee) else {
             return Vec::new();
         };
+        self.summary_effects(summary, args, all, guaranteed)
+    }
+
+    fn summary_effects(
+        &self,
+        summary: &Summary,
+        args: &[LifetimeArgument],
+        all: &HashMap<ProcId, Summary>,
+        guaranteed: bool,
+    ) -> Vec<(Effect, Vec<Span>)> {
         let map = if guaranteed {
             &summary.guaranteed
         } else {
             &summary.may
         };
-        map.iter()
+        let mut result: Vec<_> = map
+            .iter()
             .filter_map(|(effect, chain)| {
                 let mut guard = None;
                 if let Some((formal, constant)) = effect.guard {
@@ -731,19 +754,20 @@ impl<'a> Resolver<'a> {
                     chain.clone(),
                 ))
             })
-            .collect()
+            .collect();
+        if !guaranteed {
+            result.extend(self.possible_effects(summary, args, all));
+        }
+        result
     }
 
     fn allocator(&self, args: &[LifetimeArgument], all: &HashMap<ProcId, Summary>) -> Vec<Effect> {
         let Some(mode) = args.first() else {
             return Vec::new();
         };
-        let Some(memory) = args.get(3).and_then(value).and_then(|v| self.value(v, all)) else {
-            return Vec::new();
-        };
-        [(1, Kind::Resize), (2, Kind::Free)]
+        [(1, Kind::Resize, 3), (2, Kind::Free, 3), (8, Kind::Free, 4)]
             .into_iter()
-            .filter_map(|(constant, kind)| {
+            .filter_map(|(constant, kind, memory)| {
                 let guard = if let Some(actual) = mode.constant {
                     if actual != constant {
                         return None;
@@ -759,6 +783,10 @@ impl<'a> Resolver<'a> {
                     }
                     Some((formal, constant))
                 };
+                let memory = args
+                    .get(memory)
+                    .and_then(value)
+                    .and_then(|v| self.value(v, all))?;
                 Some(Effect {
                     target: memory.clone(),
                     kind,

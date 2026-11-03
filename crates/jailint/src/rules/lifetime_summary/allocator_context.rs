@@ -33,14 +33,16 @@ pub(super) struct Context {
     pub arguments: HashMap<(Val, usize), Selection>,
     pub changes_allocator: bool,
     pub indirect: HashMap<Val, Selection>,
+    pub sites: HashMap<(usize, usize), Selection>,
+    pub site_arguments: HashMap<((usize, usize), usize), Selection>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct State {
     values: HashMap<Val, Selection>,
     slots: HashMap<usize, Selection>,
-    contexts: HashMap<usize, Selection>,
-    current: Option<usize>,
+    contexts: HashMap<Val, Selection>,
+    current: Option<Val>,
 }
 
 impl State {
@@ -74,7 +76,7 @@ impl Context {
         if !relevant {
             return out;
         }
-        let context_ty = c.ty.context_type;
+        let context_ty = body.context_types.first().copied();
         let constants: HashMap<_, _> = body
             .globals
             .iter()
@@ -94,7 +96,7 @@ impl Context {
         while let Some(block) = queue.pop_front() {
             queued[block] = false;
             let mut state = states[block].clone().unwrap();
-            for event in &body.blocks[block].events {
+            for (ordinal, event) in body.blocks[block].events.iter().enumerate() {
                 match event {
                     Event::Parameter {
                         formal,
@@ -112,6 +114,7 @@ impl Context {
                     } => {
                         if let Some(ty) = context_ty {
                             let id = places.place(*value, ty);
+                            let id = context_root(places, id);
                             if *value == Val(0) {
                                 state.contexts.entry(id).or_insert(Selection::Caller);
                             }
@@ -125,10 +128,10 @@ impl Context {
                         base_ty,
                         base,
                         ..
-                    } if *result_ty == allocator_ty && Some(*base_ty) == context_ty => {
+                    } if *result_ty == allocator_ty && body.context_types.contains(base_ty) => {
                         if let (Some(result), Some(base)) = (operand(*result), operand(*base)) {
                             let id = places.place(base, *base_ty);
-                            let root = places.root_of(id);
+                            let root = context_root(places, id);
                             let role = if name.as_str() == "allocator" {
                                 state.contexts.get(&root).copied().unwrap_or_default()
                             } else {
@@ -145,7 +148,7 @@ impl Context {
                     } if *ty == allocator_ty => {
                         let id = places.place(*place, *ty);
                         let ((_, _), path) = &places.paths[id];
-                        let root = places.root_of(id);
+                        let root = context_root(places, id);
                         let role = match path.as_slice() {
                             [Projection::Field(n)] if n.as_str() == "allocator" => {
                                 state.contexts.get(&root).copied().unwrap_or_default()
@@ -191,7 +194,7 @@ impl Context {
                         state.values.insert(*place, role);
                         if matches!(places.paths[id].1.as_slice(), [Projection::Field(n)] if n.as_str() == "allocator")
                         {
-                            state.contexts.insert(places.root_of(id), role);
+                            state.contexts.insert(context_root(places, id), role);
                         }
                     }
                     Event::Store {
@@ -199,11 +202,15 @@ impl Context {
                         value,
                         ty,
                         ..
-                    } if Some(*ty) == context_ty => {
+                    } if body.context_types.contains(ty) => {
                         let source = places.place(*value, *ty);
                         let target = places.place(*place, *ty);
-                        let role = state.contexts.get(&source).copied().unwrap_or_default();
-                        state.contexts.insert(target, role);
+                        let role = state
+                            .contexts
+                            .get(&context_root(places, source))
+                            .copied()
+                            .unwrap_or_default();
+                        state.contexts.insert(context_root(places, target), role);
                     }
                     Event::Copy {
                         value,
@@ -224,6 +231,14 @@ impl Context {
                             .current
                             .and_then(|p| state.contexts.get(&p).copied())
                             .unwrap_or(Selection::Caller);
+                        let site = (block, ordinal);
+                        join(&mut out.sites, site, role);
+                        for arg in args.iter().filter(|a| a.ty == allocator_ty) {
+                            let arg_role = operand(arg.operand)
+                                .and_then(|v| state.values.get(&v).copied())
+                                .unwrap_or_default();
+                            join(&mut out.site_arguments, (site, arg.formal), arg_role);
+                        }
                         for &(_, v, _) in results {
                             join(&mut out.calls, v, role);
                             for arg in args.iter().filter(|a| a.ty == allocator_ty) {
@@ -252,6 +267,7 @@ impl Context {
                     } => {
                         if let Some(ty) = context_ty {
                             let entry = places.place(Val(0), ty);
+                            let entry = context_root(places, entry);
                             out.changes_allocator |= c.pr.procs[body.procedure.0 as usize]
                                 .sig
                                 .as_ref()
@@ -282,6 +298,10 @@ impl Context {
         }
         out
     }
+}
+
+fn context_root(places: &Places, place: usize) -> Val {
+    places.paths[places.root_of(place)].0.0
 }
 
 fn operand(op: LifetimeOperand) -> Option<Val> {

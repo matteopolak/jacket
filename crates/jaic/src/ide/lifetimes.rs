@@ -71,6 +71,15 @@ pub struct LifetimeMemoryEffects {
 
 #[derive(Clone, Debug)]
 pub enum LifetimeEvent {
+    /// Actual lexical interface of an indirect call; never a structurally equal header.
+    CallContract {
+        callee: Val,
+        declaration: Arc<ast::ProcHeader>,
+    },
+    /// A freshly materialized empty string: its descriptor contains no storage.
+    EmptyString {
+        value: Val,
+    },
     /// Runtime context selection, including caller-owned conditional macro defers.
     ContextSet {
         value: Val,
@@ -333,6 +342,8 @@ pub struct LifetimeSourceRange {
 /// A selected primitive comparison, retained after executable IR is released.
 #[derive(Clone, Debug)]
 pub struct LifetimeComparison {
+    /// Primitive operand type, including the distinction between pointers and integer handles.
+    pub ty: ir::Ty,
     pub value: Val,
     pub left: Val,
     pub right: Val,
@@ -347,6 +358,8 @@ pub struct LifetimeComparison {
 pub struct LifetimeBody {
     pub procedure: ProcId,
     pub syntax: Arc<ast::ProcLit>,
+    /// Actual context types used while this body was checked, before later cache generations.
+    pub context_types: Vec<TypeId>,
     pub blocks: Vec<LifetimeBlock>,
     /// Stack slots selected by lowering, including anonymous argument/literal spills.
     pub stack_places: Vec<Val>,
@@ -362,6 +375,7 @@ pub struct LifetimeBody {
 /// Mutable only while this `FnCtx` is being checked; discarded on error.
 #[derive(Default)]
 pub(crate) struct LifetimeRecording {
+    pub context_types: Vec<TypeId>,
     pub blocks: Vec<LifetimeBlock>,
     pub resizable: HashMap<Val, TypeId>,
     pub elements: HashMap<Val, (Val, TypeId)>,
@@ -419,6 +433,58 @@ impl LifetimeRecording {
 }
 
 impl Compiler {
+    /// Freeze only procedure-slot initializer facts, rather than retaining executable data.
+    pub(crate) fn lifetime_release_globals(&mut self) {
+        use crate::sema::scope::{EntityState, Resolved};
+        let Some(facts) = self.ed.facts() else {
+            return;
+        };
+        let ids: HashSet<_> = facts
+            .lifetime_bodies
+            .values()
+            .flat_map(|b| b.blocks.iter().flat_map(|b| &b.events))
+            .filter_map(|event| {
+                let LifetimeEvent::Expression {
+                    ty,
+                    entity: Some(entity),
+                    ..
+                } = event
+                else {
+                    return None;
+                };
+                if !matches!(self.ty.types.kind(*ty), TypeKind::Proc(_)) {
+                    return None;
+                }
+                let EntityState::Done(Resolved::Global {
+                    storage: ir::Storage::Data(id),
+                    ..
+                }) = self.entity(*entity).state
+                else {
+                    return None;
+                };
+                Some(id)
+            })
+            .collect();
+        let retained = ids
+            .into_iter()
+            .map(|id| {
+                let global = &self.out.program.globals[id.0 as usize];
+                (
+                    id,
+                    (global.init.iter().any(|&b| b != 0), global.relocs.clone()),
+                )
+            })
+            .collect::<Vec<_>>();
+        for (id, initial) in retained {
+            self.ed
+                .facts_mut()
+                .unwrap()
+                .lifetime_procedure_globals
+                .entry(id)
+                .or_insert(initial);
+        }
+    }
+
     pub(crate) fn lifetime_expression(&self, f: &mut FnCtx, expr: &ast::Expr, op: &Operand) {
         if f.type_only {
             return;
@@ -426,6 +492,9 @@ impl Compiler {
         let Some(record) = &mut f.lifetimes else {
             return;
         };
+        if matches!(expr.kind, E::Context) && !record.context_types.contains(&op.ty()) {
+            record.context_types.push(op.ty());
+        }
         let operand = LifetimeOperand::of(op);
         let entity_span = match &expr.kind {
             E::Member(_, member) => member.span,
@@ -618,7 +687,8 @@ impl LifetimeBody {
     /// Retained vector payload/capacity (including nested argument/expansion vectors).
     /// Excludes shared syntax, `HashMap` buckets and allocator rounding; not process RSS.
     pub fn vector_bytes(&self) -> usize {
-        self.source_ranges.capacity() * std::mem::size_of::<LifetimeSourceRange>()
+        self.context_types.capacity() * std::mem::size_of::<TypeId>()
+            + self.source_ranges.capacity() * std::mem::size_of::<LifetimeSourceRange>()
             + self.comparisons.capacity() * std::mem::size_of::<LifetimeComparison>()
             + self.globals.capacity() * std::mem::size_of::<(Val, ir::GlobalId)>()
             + self.slot_aliases.capacity() * std::mem::size_of::<(Val, Val)>()
@@ -664,7 +734,10 @@ impl Compiler {
         use crate::ide::Recorder;
         if self.ed.facts().is_some_and(|i| i.lint) && !self.ed.sketching() {
             self.ed.facts_mut().unwrap().lifetime_bodies.remove(&id);
-            f.lifetimes = Some(Box::default());
+            f.lifetimes = Some(Box::new(LifetimeRecording {
+                context_types: self.ty.context_type.into_iter().collect(),
+                ..Default::default()
+            }));
         }
     }
 
@@ -758,6 +831,7 @@ impl Compiler {
                 crate::ide::lifetimes::LifetimeBody {
                     procedure: id,
                     syntax: syntax.clone(),
+                    context_types: record.context_types,
                     blocks: record.blocks,
                     source_ranges: record.source_ranges,
                     slot_aliases: slot_aliases(&f.b.func),
@@ -773,14 +847,15 @@ impl Compiler {
                             let ir::Inst::Cmp {
                                 dst,
                                 op,
+                                ty,
                                 a,
                                 b,
-                                ..
                             } = *inst
                             else {
                                 return None;
                             };
                             Some(LifetimeComparison {
+                                ty,
                                 value: dst,
                                 left: a,
                                 right: b,

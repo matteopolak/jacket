@@ -19,7 +19,8 @@ impl Resolver<'_> {
             return Vec::new();
         };
         let targets = self.call_targets(event);
-        let unknown = targets.unknown
+        let contracted = self.interfaces.contains_key(&std::ptr::from_ref(event));
+        let unknown = targets.unknown && !contracted
             || targets.procedures.iter().any(|p| {
                 let info = &self.compiler.pr.procs[p.0 as usize];
                 info.lit.body.is_none()
@@ -100,16 +101,32 @@ impl Resolver<'_> {
             return Vec::new();
         };
         let targets = self.call_targets(event);
-        if guaranteed && targets.unknown {
+        let interface = if targets.unknown {
+            match event {
+                Event::IndirectCall {
+                    ..
+                } => self.interfaces.get(&std::ptr::from_ref(event)),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        if guaranteed && targets.unknown && interface.is_none() {
             return Vec::new();
         }
-        let mut result = HashMap::<Effect, Vec<Span>>::default();
+        let mut result: HashMap<_, _> = interface
+            .map(|s| {
+                self.summary_effects(s, args, all, guaranteed)
+                    .into_iter()
+                    .collect()
+            })
+            .unwrap_or_default();
         for (index, callee) in targets.ordered().into_iter().enumerate() {
             let current: HashMap<_, _> = self
                 .effects(callee, args, all, guaranteed)
                 .into_iter()
                 .collect();
-            if index == 0 || !guaranteed {
+            if index == 0 && interface.is_none() || !guaranteed {
                 for (effect, chain) in current {
                     result.entry(effect).or_insert(chain);
                 }
@@ -167,10 +184,36 @@ impl Resolver<'_> {
             return HashSet::default();
         };
         let targets = self.call_targets(event);
-        if guaranteed && targets.unknown {
+        let interface = if targets.unknown {
+            match event {
+                Event::IndirectCall {
+                    ..
+                } => self.interfaces.get(&std::ptr::from_ref(event)),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        if guaranteed && targets.unknown && interface.is_none() {
             return HashSet::default();
         }
-        let mut result = HashSet::default();
+        let mut result: HashSet<_> = interface
+            .into_iter()
+            .flat_map(|s| {
+                if guaranteed {
+                    &s.guaranteed
+                } else {
+                    &s.may
+                }
+            })
+            .filter_map(|(e, _)| match &e.target {
+                super::Path {
+                    root: super::Root::Parameter(n),
+                    steps,
+                } if e.kind == super::Kind::Free && steps.is_empty() => Some(*n),
+                _ => None,
+            })
+            .collect();
         for (index, p) in targets.ordered().into_iter().enumerate() {
             let mut current = HashSet::default();
             if let Some(s) = all.get(&p) {
@@ -193,7 +236,7 @@ impl Resolver<'_> {
                     }
                 }
             }
-            if index == 0 || !guaranteed {
+            if index == 0 && interface.is_none() || !guaranteed {
                 result.extend(current);
             } else {
                 result.retain(|n| current.contains(n));

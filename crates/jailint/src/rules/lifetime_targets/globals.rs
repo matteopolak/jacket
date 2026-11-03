@@ -108,16 +108,24 @@ impl Globals {
         }
         for &id in this.users.keys() {
             let global = &compiler.out.program.globals[id.0 as usize];
+            let retained = compiler
+                .ed
+                .facts()
+                .and_then(|f| f.lifetime_procedure_globals.get(&id));
+            let relocs = retained.map_or(global.relocs.as_slice(), |(_, relocs)| relocs.as_slice());
             let mut set = Set {
                 unknown: global.export.is_some()
                     || exposed.contains(&id)
                     || (!global.read_only && !private.contains(&id)),
                 ..Set::default()
             };
-            if global.relocs.is_empty() {
-                set.unknown |= global.init.iter().any(|&b| b != 0);
+            if relocs.is_empty() {
+                set.unknown |= retained.map_or_else(
+                    || global.init.iter().any(|&b| b != 0),
+                    |(nonzero, _)| *nonzero,
+                );
             } else {
-                for reloc in &global.relocs {
+                for reloc in relocs {
                     if reloc.offset == 0
                         && reloc.addend == 0
                         && let Some(&proc) = targets.get(&reloc.target)

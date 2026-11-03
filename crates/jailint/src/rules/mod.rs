@@ -10,6 +10,7 @@ use jaic::sema::ProcId;
 use jaic::source::Span;
 
 // Helpers shared by several rules; they are not rules themselves.
+mod effects;
 mod frees;
 mod lifetime_cfg;
 mod lifetime_help;
@@ -325,6 +326,8 @@ fn note_or_inferred_release(cx: &Cx, proc: ProcId, note: &str) -> bool {
         s.may.keys().any(|e| {
             e.kind == lifetime_summary::Kind::Free
                 && e.target.root == lifetime_summary::Root::Parameter(0)
+                && (e.target.steps.is_empty()
+                    || e.target.steps == [lifetime_summary::Step::Storage])
         })
     };
     if let Some(summary) = summaries.procs.get(&proc) {
@@ -407,12 +410,12 @@ pub(crate) fn walk_code<'a>(cx: &Cx<'a>, visit: &mut dyn FnMut(Node<'a>, &[Node<
     }
 }
 
-/// Report each call, in a file that belongs to a module, to a procedure with the note `note`.
+/// Report each call, in a file that belongs to a module, with the inferred `effect`.
 /// For rules about what a library should leave to the program that uses it.
-pub(crate) fn calls_in_module(
+fn calls_in_module(
     cx: &Cx,
     out: &mut Vec<Finding>,
-    note: &str,
+    effect: effects::Effect,
     message: &str,
     help: &str,
 ) {
@@ -426,7 +429,7 @@ pub(crate) fn calls_in_module(
         if let E::Call {
             callee, ..
         } = &e.kind
-            && calls_noted(cx, callee, note)
+            && effects::calls(cx, callee, effect)
         {
             out.push(finding(e.span, message.into(), Some(help.into())));
         }

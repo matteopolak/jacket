@@ -154,6 +154,7 @@ impl Compiler {
             } else {
                 None
             };
+            let callable = Self::callable_declared_notes(callable, &decl.notes);
             match value {
                 Some(Operand::Void) if ty == TypeId::VOID => {}
                 Some(op) => {

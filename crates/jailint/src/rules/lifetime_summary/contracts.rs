@@ -21,8 +21,25 @@ pub(super) fn seed(
     ids.sort_unstable_by_key(|p| p.0);
     for id in ids {
         let i = id.0 as usize;
-        let mut summary = Summary::default();
-        if valid.contains_key(&id) {
+        let mut summary = Summary {
+            observable: super::observable::primitive(compiler, id),
+            pushes_context: super::templates::pushes_context(&compiler.pr.procs[i].lit),
+            ordering: super::ordering::scalar(&compiler.pr.procs[i].lit),
+            ..Default::default()
+        };
+        if compiler.pr.procs[i].lit.body.is_none() {
+            summary.ordering = if compiler.proc_has_note(id, "ReturnsSmaller") {
+                Some(super::ordering::Ordering::Minimum)
+            } else if compiler.proc_has_note(id, "ReturnsLarger") {
+                Some(super::ordering::Ordering::Maximum)
+            } else {
+                None
+            };
+            summary.observable.output |= compiler.proc_has_note(id, "WritesOutput");
+            summary.observable.exit |= compiler.proc_has_note(id, "Exits");
+        }
+        super::primitives::seed(compiler, id, &mut summary);
+        if valid.contains_key(&id) || summary.observable.exit {
             summary.normal_return = Some(false);
         }
         if compiler.proc_has_note(id, "ValidUntilNextCall") {
@@ -113,7 +130,11 @@ pub(super) fn seed(
             ("Allocates", Root::Heap),
             ("TempAllocates", Root::Temporary),
         ] {
-            for index in super::lifetime_movement::result_indices(compiler, id, note) {
+            let indices = super::lifetime_movement::result_indices(compiler, id, note);
+            if compiler.pr.procs[i].lit.body.is_none() && !indices.is_empty() {
+                summary.allocation_effects.insert((root.clone(), None));
+            }
+            for index in indices {
                 summary.returns.insert(
                     index,
                     (

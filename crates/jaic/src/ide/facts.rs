@@ -167,6 +167,8 @@ pub struct IdeFacts {
     pub lifetime_bodies: HashMap<ProcId, super::lifetimes::LifetimeBody>,
     /// Relocations of immutable globals referenced by selected lifetime bodies.
     pub lifetime_globals: HashMap<crate::ir::GlobalId, Vec<crate::ir::Reloc>>,
+    /// Procedure-slot initializers retained before executable global data is released.
+    pub lifetime_procedure_globals: HashMap<crate::ir::GlobalId, (bool, Vec<crate::ir::Reloc>)>,
     pub(crate) lifetime_files: HashMap<FileId, Vec<ProcId>>,
     /// Workspace trust is withheld: no compile-time code runs (`call_thunk` refuses with
     /// `DiagnosticKind::Untrusted`), so `#run` results, computed `#insert`s and build
@@ -388,6 +390,7 @@ impl IdeFacts {
     pub fn clear_lifetimes(&mut self) {
         self.lifetime_bodies = HashMap::default();
         self.lifetime_globals = HashMap::default();
+        self.lifetime_procedure_globals = HashMap::default();
         self.lifetime_files = HashMap::default();
     }
 
