@@ -13,6 +13,7 @@ warning[use_after_free]: storage ends while a started borrower may still access 
    |     ^^^^^^^^^^
    |
    = help: wait for successful borrower completion before releasing captured storage
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: this starts a borrower with storage whose lifetime has already ended
   --> tests/lint/pointer_lifetime/strict/tasks.jai:43:5
@@ -24,6 +25,7 @@ warning[use_after_free]: this starts a borrower with storage whose lifetime has 
    |     ^^^^^^^^^^^
    |
    = help: start and finish the borrower before releasing its storage
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[returned_local_address]: storage ends while a started borrower may still retain its receiver; shortest retained-borrow path shown (0 other bad paths from this start)
   --> tests/lint/pointer_lifetime/strict/tasks.jai:47:23
@@ -36,6 +38,7 @@ warning[returned_local_address]: storage ends while a started borrower may still
    |           ---- borrowed storage originated here
    |
    = help: keep the receiver alive until borrower deinitialization
+   = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address/
 
 warning[use_after_free]: strict mode: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
   --> tests/lint/pointer_lifetime/strict/tasks.jai:90:5
@@ -49,6 +52,7 @@ warning[use_after_free]: strict mode: storage ends while a started borrower may 
    |     ^^^^^^^^^^
    |
    = help: wait for successful borrower completion before releasing captured storage
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
    --> tests/lint/pointer_lifetime/strict/tasks.jai:104:5
@@ -62,6 +66,7 @@ warning[use_after_free]: storage ends while a started borrower may still access 
     |     ^^^^^^^^^^
     |
     = help: wait for successful borrower completion before releasing captured storage
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
 
 warning[use_after_free]: strict mode: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
    --> tests/lint/pointer_lifetime/strict/tasks.jai:120:5
@@ -75,3 +80,4 @@ warning[use_after_free]: strict mode: storage ends while a started borrower may 
     |     ^^^^^^^^^^
     |
     = help: wait for successful borrower completion before releasing captured storage
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/

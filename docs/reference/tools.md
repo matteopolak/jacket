@@ -527,7 +527,8 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_SYM_SCRAMBLE` | A seed that spreads the interner's symbol numbers apart, so output that depends on them rather than spellings changes (`tools/differential/determinism.py`). | unset | jaic |
 | `JAIC_TCPLISTEN` | Comma-separated `host:port` addresses a `-interp -os wasm` run listens on. Each becomes a pre-opened socket the program accepts connections from, numbered 3, 4, ... in order, and `LISTEN_FDS` holds how many there are (the convention of wasmtime's `--tcplisten`). | unset: a `-interp -os wasm` run has no sockets | jaic |
 | `JAIC_WASM_LD` | The `wasm-ld` that links WebAssembly output. | `wasm-ld` next to the build's LLVM, an LLD install, then `PATH` | jaic |
-| `JAILINT_LIFETIME_STATS` | Print per-file body, CFG and candidate counts for the experimental pointer lifetime rule. | No lifetime coverage counters. | jailint |
+| `JAILINT_LIFETIME_MEMORY` | With the lifetime_memory example and one worker, measure selected lifetime facts separately from all other lint facts after each compiler finishes linting. | No destructive retained-fact profiling. | jailint, tests |
+| `JAILINT_LIFETIME_STATS` | Print per-file body, CFG, candidate and rejection counts for the lifetime rules. | No lifetime coverage counters. | jailint |
 
 #### Set by one tool for another
 
