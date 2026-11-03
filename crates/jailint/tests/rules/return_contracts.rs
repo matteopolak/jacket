@@ -210,7 +210,10 @@ fn lifetime_nested_aggregate_copies_keep_individual_field_origins() {
     ] {
         let (findings, text) = lint_with(
             &path,
-            &[("temp_storage_escape", Level::Warn)],
+            &[
+                ("temp_storage_escape", Level::Warn),
+                ("returned_local_address", Level::Warn),
+            ],
             Config {
                 lifetime_mode: Some(mode),
                 ..Config::default()

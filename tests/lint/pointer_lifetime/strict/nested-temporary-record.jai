@@ -48,8 +48,20 @@ fill_output :: (output: *Result) {
     output.* = assemble();
 }
 
-scoped_allocator :: () {
+scoped_allocator :: () -> string {
+    caller := context.allocator;
     pool: Flat_Pool;
+
     defer fini(*pool);
-    push_allocator(flat_pool_allocator_proc, *pool);
+    result: string;
+
+    {
+        push_allocator(flat_pool_allocator_proc, *pool);
+
+        for 0..1 {
+            result = copy_string("owned",, caller);
+        }
+    }
+
+    return result;
 }

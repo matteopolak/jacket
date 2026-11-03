@@ -72,30 +72,52 @@ pub(super) fn aliases(body: &LifetimeBody) -> HashMap<Val, Val> {
             }
         }
     }
+    // A loop can save and restore the same context through a cycle of reads.
+    // Follow the closure to its concrete anchors; revisiting an edge adds no root.
+    // A rootless cycle or two distinct incoming addresses remains unresolved.
+    let entry = reads
+        .iter()
+        .filter(|(_, sources)| sources.len() == 1 && sources.contains(&None))
+        .map(|(&value, _)| value)
+        .min_by_key(|v| v.0);
     fn resolve(
         value: Val,
         reads: &HashMap<Val, HashSet<Option<Val>>>,
-        seen: &mut HashSet<Val>,
+        entry: Option<Val>,
     ) -> Option<Val> {
-        let Some(sources) = reads.get(&value) else {
-            return Some(value);
-        };
-        if !seen.insert(value) || sources.is_empty() {
-            return None;
-        }
+        let mut seen = HashSet::default();
+        let mut queue = vec![value];
         let mut root = None;
-        for source in sources {
-            let source = resolve((*source)?, reads, seen)?;
-            if root.is_some_and(|r| r != source) {
-                return None;
+        while let Some(value) = queue.pop() {
+            if !seen.insert(value) {
+                continue;
             }
-            root = Some(source);
+            if let Some(sources) = reads.get(&value) {
+                if sources.is_empty() {
+                    return None;
+                }
+                for source in sources {
+                    if let Some(source) = source {
+                        queue.push(*source);
+                    } else {
+                        let source = entry?;
+                        if root.is_some_and(|old| old != source) {
+                            return None;
+                        }
+                        root = Some(source);
+                    }
+                }
+            } else {
+                if root.is_some_and(|old| old != value) {
+                    return None;
+                }
+                root = Some(value);
+            }
         }
-        seen.remove(&value);
         root
     }
     reads
         .keys()
-        .filter_map(|&v| resolve(v, &reads, &mut HashSet::default()).map(|root| (v, root)))
+        .filter_map(|&v| resolve(v, &reads, entry).map(|root| (v, root)))
         .collect()
 }
