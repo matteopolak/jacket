@@ -86,6 +86,9 @@ pub(crate) struct Analysis {
     pub opaque_scopes: Vec<Span>,
     /// What the outline shows besides the rows: scope sections, `#if` blocks, `#run`, ...
     pub outline: Vec<Section>,
+    /// The struct rows and the type of each `using` / `#as using` member they have: the types
+    /// they extend (`Session::supertypes`).
+    pub bases: Vec<(usize, Sym)>,
     /// Calls with a literal format string (candidates; see `Session::format_calls`).
     pub format_calls: Vec<crate::format::FormatCall>,
     /// Names this document declares with the `@PrintLike` note.
@@ -167,6 +170,7 @@ impl Analysis {
             loads: vec![],
             opaque_scopes: vec![],
             outline: vec![],
+            bases: vec![],
             format_calls: vec![],
             print_like: jaic::fxhash::HashSet::default(),
             test_procedures: vec![],

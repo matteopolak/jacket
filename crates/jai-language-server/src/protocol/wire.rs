@@ -322,6 +322,7 @@ pub(super) fn capabilities(pull_diagnostics: bool) -> Value {
         },
         "codeLensProvider": { "resolveProvider": false },
         "callHierarchyProvider": true,
+        "typeHierarchyProvider": true,
         "selectionRangeProvider": true,
         "executeCommandProvider": { "commands": commands },
         "semanticTokensProvider": {

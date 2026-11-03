@@ -181,6 +181,12 @@ impl Analysis {
         while let Some(stmt) = pending.pop() {
             match &stmt.kind {
                 StmtKind::Decl(decl) => {
+                    if (decl.using || decl.as_)
+                        && self.rows[parent].kind == SymbolKind::Struct
+                        && let Some(base) = decl.ty.as_ref().and_then(base_type)
+                    {
+                        self.bases.push((parent, base));
+                    }
                     let (kind, readonly) = Self::kind_of(decl);
                     let kind = if kind == SymbolKind::Variable {
                         SymbolKind::Property
@@ -329,5 +335,17 @@ impl Analysis {
             // Unknown scope producers must not let a global masquerade as a local binding.
             _ => self.opaque_scopes.push(span_of(stmt.span)),
         }
+    }
+}
+
+/// The name of the type a member is declared with: `Base`, or `Base` of `Base(float)`.
+fn base_type(ty: &jaic::ast::Expr) -> Option<jaic::intern::Sym> {
+    match &ty.kind {
+        ExprKind::Ident(name) => Some(*name),
+        ExprKind::Member(_, name) => Some(name.name),
+        ExprKind::Call {
+            callee, ..
+        } => base_type(callee),
+        _ => None,
     }
 }

@@ -382,6 +382,9 @@ pub struct CallHierarchyItem {
     pub selection_range: Range,
 }
 
+/// A type in the type hierarchy: the same shape as a procedure of the call hierarchy.
+pub type TypeHierarchyItem = CallHierarchyItem;
+
 /// A caller or a callee, with the places in the caller where the call is written.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CallHierarchyCall {

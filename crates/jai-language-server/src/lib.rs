@@ -38,6 +38,7 @@ mod session;
 mod struct_literal;
 mod suggestion_fixes;
 mod test_lenses;
+mod type_hierarchy;
 
 pub use call_snippets::CallSnippets;
 pub use document::{DocumentUri, TextChange, VirtualSources};
@@ -47,7 +48,7 @@ pub use model::{
     DocumentSymbol, Expansion, FoldingRange, Hover, InlayHint, InlayHintKind, Location,
     MarkupContent, MarkupKind, RelatedInformation, SelectionRange, SemanticToken,
     SemanticTokenKind, SignatureHelp, SignatureInformation, SymbolInformation, SymbolKind,
-    TextEdit,
+    TextEdit, TypeHierarchyItem,
 };
 pub use position::{Position, Range};
 pub use protocol::{JsonSession, ProtocolError, RequestId, message_too_large, oversized_replies};

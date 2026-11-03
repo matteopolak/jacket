@@ -71,10 +71,18 @@ pub(super) struct HierarchyItem {
 
 impl HierarchyItem {
     pub(super) fn into_item(self) -> CallHierarchyItem {
+        self.with_kind(SymbolKind::Function)
+    }
+
+    pub(super) fn into_type(self) -> CallHierarchyItem {
+        self.with_kind(SymbolKind::Struct)
+    }
+
+    fn with_kind(self, kind: SymbolKind) -> CallHierarchyItem {
         CallHierarchyItem {
             name: self.name,
             detail: self.detail.unwrap_or_default(),
-            kind: SymbolKind::Function,
+            kind,
             uri: self.uri,
             range: self.range,
             selection_range: self.selection_range,

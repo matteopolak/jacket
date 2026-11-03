@@ -77,6 +77,24 @@ impl JsonSession {
                     json!({ "ranges": ranges, "wordPattern": "[A-Za-z_][A-Za-z0-9_]*" })
                 }
             }
+            Request::PrepareTypeHierarchy => {
+                let (document, position) = at(params)?;
+                let items = self.session.prepare_type_hierarchy(&document, position);
+                match items.map_err(domain)? {
+                    items if items.is_empty() => Value::Null,
+                    items => array(&items, hierarchy_item_wire),
+                }
+            }
+            Request::Supertypes => {
+                let p: HierarchyParams = decode(params)?;
+                let items = self.session.supertypes(&p.item.into_type());
+                array(&items.map_err(domain)?, hierarchy_item_wire)
+            }
+            Request::Subtypes => {
+                let p: HierarchyParams = decode(params)?;
+                let items = self.session.subtypes(&p.item.into_type());
+                array(&items.map_err(domain)?, hierarchy_item_wire)
+            }
             Request::Declaration => {
                 let (document, position) = at(params)?;
                 let found = self.session.declaration(&document, position);
