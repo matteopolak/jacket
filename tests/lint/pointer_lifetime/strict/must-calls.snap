@@ -19,7 +19,7 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); a
    |          ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); all 1 targets of `f` invalidate this storage: grow
   --> tests/lint/pointer_lifetime/strict/calls.jai:72:10
@@ -37,7 +37,7 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); a
    |          ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); all 1 targets of `f` invalidate this storage: grow
   --> tests/lint/pointer_lifetime/strict/calls.jai:85:10
@@ -55,7 +55,7 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); a
    |          ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: COMPILED(*xs)
    --> tests/lint/pointer_lifetime/strict/calls.jai:114:10
@@ -68,4 +68,4 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: COMPILED(
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
-    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime

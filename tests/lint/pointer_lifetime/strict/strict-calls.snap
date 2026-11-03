@@ -19,7 +19,7 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); p
    |          ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element it refers to along a bad path; possible targets of `f`: grow, quiet; the labelled chain identifies an invalidating target; shortest bad path shown (0 other bad paths)
   --> tests/lint/pointer_lifetime/strict/calls.jai:38:10
@@ -40,7 +40,7 @@ warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element i
    |          ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element it refers to along a bad path; shortest bad path shown (0 other bad paths)
   --> tests/lint/pointer_lifetime/strict/calls.jai:45:10
@@ -54,7 +54,7 @@ warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element i
    |          ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element it refers to along a bad path; shortest bad path shown (0 other bad paths); unknown or foreign code may invalidate storage reachable from its arguments
   --> tests/lint/pointer_lifetime/strict/calls.jai:52:10
@@ -67,7 +67,7 @@ warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element i
    |          ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element it refers to along a bad path; this procedure value includes Unknown (strict mode assumes argument-reachable invalidation); shortest bad path shown (0 other bad paths); unknown or foreign code may invalidate storage reachable from its arguments
   --> tests/lint/pointer_lifetime/strict/calls.jai:59:10
@@ -80,7 +80,7 @@ warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element i
    |          ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); possible targets of `f`: grow; the labelled chain identifies an invalidating target; shortest bad path shown (0 other bad paths)
   --> tests/lint/pointer_lifetime/strict/calls.jai:72:10
@@ -98,7 +98,7 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); p
    |          ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); possible targets of `f`: grow; the labelled chain identifies an invalidating target; shortest bad path shown (0 other bad paths)
   --> tests/lint/pointer_lifetime/strict/calls.jai:85:10
@@ -116,7 +116,7 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); p
    |          ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element it refers to along a bad path; this procedure value includes Unknown (strict mode assumes argument-reachable invalidation); shortest bad path shown (0 other bad paths); unknown or foreign code may invalidate storage reachable from its arguments
    --> tests/lint/pointer_lifetime/strict/calls.jai:94:10
@@ -133,7 +133,7 @@ warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element i
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
-    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: COMPILED(*xs); shortest bad path shown (0 other bad paths)
    --> tests/lint/pointer_lifetime/strict/calls.jai:114:10
@@ -146,4 +146,4 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: COMPILED(
     |          ^ pointer used here after its storage was invalidated
     |
     = help: take the pointer again after growth, or store an index instead
-    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime

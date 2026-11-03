@@ -13,7 +13,7 @@ warning[use_after_free]: strict mode: `p` may be used after release along a bad 
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: strict mode: `p` may be used after release along a bad path; shortest bad path shown (0 other bad paths); release is possible, not guaranteed
   --> tests/lint/pointer_lifetime/strict/resources.jai:45:10
@@ -26,7 +26,7 @@ warning[use_after_free]: strict mode: `p` may be used after release along a bad 
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `p` is used after the call above freed it; shortest bad path shown (1 other bad path); possible targets of `f`: release, release2; the labelled chain identifies an invalidating target
   --> tests/lint/pointer_lifetime/strict/resources.jai:56:10
@@ -48,7 +48,7 @@ warning[use_after_free]: `p` is used after the call above freed it; shortest bad
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: strict mode: `p` may be used after release along a bad path; shortest bad path shown (1 other bad path); possible targets of `f`: release, quiet; the labelled chain identifies an invalidating target; release is possible, not guaranteed
   --> tests/lint/pointer_lifetime/strict/resources.jai:67:10
@@ -71,7 +71,7 @@ warning[use_after_free]: strict mode: `p` may be used after release along a bad 
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: strict mode: `p` may be used after release along a bad path; shortest bad path shown (0 other bad paths); release is possible, not guaranteed
   --> tests/lint/pointer_lifetime/strict/resources.jai:73:10
@@ -84,7 +84,7 @@ warning[use_after_free]: strict mode: `p` may be used after release along a bad 
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `h` is used after the call above freed it; shortest bad path shown (no additional reconstructed bad path)
   --> tests/lint/pointer_lifetime/strict/resources.jai:82:16
@@ -97,7 +97,7 @@ warning[use_after_free]: `h` is used after the call above freed it; shortest bad
    |                ^
    |
    = help: free it after its last use, or give it a new value before using it again
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `p` is used after its foreign valid-until contract expired; shortest bad path shown (0 other bad paths)
   --> tests/lint/pointer_lifetime/strict/resources.jai:88:10
@@ -110,7 +110,7 @@ warning[use_after_free]: `p` is used after its foreign valid-until contract expi
    |          ^
    |
    = help: copy the borrowed data before the next provider call, or obtain a new result
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
+   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `p` is used after its foreign valid-until contract expired; shortest bad path shown (0 other bad paths)
    --> tests/lint/pointer_lifetime/strict/resources.jai:94:10
@@ -123,7 +123,7 @@ warning[use_after_free]: `p` is used after its foreign valid-until contract expi
     |          ^
     |
     = help: copy the borrowed data before the next provider call, or obtain a new result
-    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: strict mode: `p` may be used after release along a bad path; shortest bad path shown (0 other bad paths)
    --> tests/lint/pointer_lifetime/strict/resources.jai:100:10
@@ -136,4 +136,4 @@ warning[use_after_free]: strict mode: `p` may be used after release along a bad 
     |          ^
     |
     = help: copy the borrowed data before the next provider call, or obtain a new result
-    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free/
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free

@@ -20,4 +20,4 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: push(*xs)
    |            ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead
-   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime/
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
