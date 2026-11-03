@@ -20,12 +20,15 @@ Json_Kind :: enum u8 {
 //
 // ```jai
 // doc := json_object();
+//
 // json_set(*doc, "name", json_string("Ada"));
 // tags := json_array();
+//
 // json_push(*tags, json_int(1));
 // json_set(*doc, "tags", tags);
 //
 // text := to_json(doc);
+//
 // assert(text == "{\"name\":\"Ada\",\"tags\":[1]}");
 // free(text);
 // free_json(*doc);
@@ -155,6 +158,7 @@ json_push :: (array: *Json_Value, item: Json_Value) {
 //
 // ```jai
 // object := json_object();
+//
 // json_set(*object, "n", json_int(1));
 // json_set(*object, "n", json_int(2));
 // assert(json_count(*object) == 1);
@@ -184,6 +188,7 @@ json_set :: (object: *Json_Value, key: string, value: Json_Value) {
 // object, _ := from_json(Json_Value, "{\"n\": 5}");
 // n := json_get(*object, "n");
 // value, ok := json_as_s64(n);
+//
 // assert(ok && value == 5);
 // assert(json_get(*object, "missing") == null);
 // free_json(*object);
@@ -207,6 +212,7 @@ json_get :: (object: *Json_Value, key: string) -> *Json_Value {
 // ```jai
 // list, _ := from_json(Json_Value, "[10, 20]");
 // second, _ := json_as_s64(json_at(*list, 1));
+//
 // assert(second == 20);
 // assert(json_at(*list, 2) == null);
 // free_json(*list);
@@ -236,6 +242,7 @@ json_count :: (value: *Json_Value) -> int {
 // ```jai
 // n, _ := from_json(Json_Value, "42");
 // value, ok := json_as_s64(*n);
+//
 // assert(ok && value == 42);
 //
 // fraction, _ := from_json(Json_Value, "4.5");

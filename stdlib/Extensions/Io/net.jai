@@ -19,6 +19,7 @@
 // Io :: #import "Extensions/Io";
 //
 // address, ok := parse_address("[::1]:8080");
+//
 // assert(ok && address.family == .IPV6 && address.port == 8080);
 //
 // address, ok = parse_address("127.0.0.1:80");
@@ -242,13 +243,16 @@ last_platform_code :: () -> s32 {
 // main :: () {
 //     Io.io_run(() {
 //         listener, error := Io.tcp_listen("127.0.0.1:0");
+//
 //         assert(error == .NONE);
 //         defer Io.close(listener);
 //
 //         address, _ := Io.local_address(listener);
+//
 //         assert(address.port != 0); // the system picked a free port
 //
 //         _, bad := Io.tcp_listen("not an address");
+//
 //         assert(bad == .INVALID);
 //     });
 // }
@@ -303,11 +307,13 @@ tcp_listen :: (address: Address, backlog := 1024, reuse_port := false) -> Tcp_Li
 //
 // Io.io_run(() {
 //     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //     defer Io.close(listener);
 //
 //     address, _ := Io.local_address(listener);
 //     client, _ := Io.connect(address);
 //     server, _ := Io.accept(listener);
+//
 //     defer Io.close(client);
 //     defer Io.close(server);
 //
@@ -315,6 +321,7 @@ tcp_listen :: (address: Address, backlog := 1024, reuse_port := false) -> Tcp_Li
 //
 //     buffer: [8] u8;
 //     count, error := Io.read(server, buffer);
+//
 //     assert(error == .NONE && string.{ count, buffer.data } == "hi");
 // });
 // ```
@@ -357,10 +364,12 @@ accept :: (listener: Tcp_Listener) -> Tcp_Stream, Io_Error {
 //
 // Io.io_run(() {
 //     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //     defer Io.close(listener);
 //
 //     address, _ := Io.local_address(listener);
 //     client, error := Io.connect(address);
+//
 //     assert(error == .NONE);
 //     Io.close(client);
 // });
@@ -467,9 +476,11 @@ unix_listen :: (path: string, backlog := 128, replace := false) -> Tcp_Listener,
 //
 // Io.io_run(() {
 //     listener, _ := Io.unix_listen("/tmp/jacket-io-unix2.sock", replace = true);
+//
 //     defer Io.close(listener);
 //
 //     client, error := Io.connect_unix("/tmp/jacket-io-unix2.sock");
+//
 //     assert(error == .NONE);
 //     Io.close(client);
 // });
@@ -552,9 +563,11 @@ connect :: (target: string) -> Tcp_Stream, Io_Error {
 // main :: () {
 //     Io.io_run(() {
 //         listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //         defer Io.close(listener);
 //
 //         address, error := Io.local_address(listener);
+//
 //         assert(error == .NONE);
 //         assert(address.family == .IPV4 && address.port != 0);
 //     });
@@ -571,15 +584,18 @@ local_address :: (listener: Tcp_Listener) -> Address, Io_Error {
 //
 // Io.io_run(() {
 //     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //     defer Io.close(listener);
 //
 //     address, _ := Io.local_address(listener);
 //     client, _ := Io.connect(address);
 //     server, _ := Io.accept(listener);
+//
 //     defer Io.close(client);
 //     defer Io.close(server);
 //
 //     mine, error := Io.local_address(client);
+//
 //     assert(error == .NONE && mine.port != address.port);
 // });
 // ```
@@ -596,21 +612,26 @@ local_address :: (stream: Tcp_Stream) -> Address, Io_Error {
 // main :: () {
 //     Io.io_run(() {
 //         listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //         defer Io.close(listener);
 //
 //         address, _ := Io.local_address(listener);
 //         client, connect_error := Io.connect(address);
+//
 //         assert(connect_error == .NONE);
 //         defer Io.close(client);
 //
 //         server, accept_error := Io.accept(listener);
+//
 //         assert(accept_error == .NONE);
 //         defer Io.close(server);
 //
 //         far, _ := Io.peer_address(client);
+//
 //         assert(far.port == address.port); // the client's peer is the listener
 //         near, _ := Io.local_address(client);
 //         seen, _ := Io.peer_address(server);
+//
 //         assert(seen.port == near.port); // the server sees the client's own port
 //     });
 // }
@@ -629,11 +650,13 @@ peer_address :: (stream: Tcp_Stream) -> Address, Io_Error {
 //
 // Io.io_run(() {
 //     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //     defer Io.close(listener);
 //
 //     address, _ := Io.local_address(listener);
 //     client, _ := Io.connect(address);
 //     server, _ := Io.accept(listener);
+//
 //     defer Io.close(client);
 //     defer Io.close(server);
 //
@@ -641,6 +664,7 @@ peer_address :: (stream: Tcp_Stream) -> Address, Io_Error {
 //
 //     buffer: [16] u8;
 //     count, error := Io.read(server, buffer);
+//
 //     assert(error == .NONE && string.{ count, buffer.data } == "hello");
 // });
 // ```
@@ -671,11 +695,13 @@ read :: (stream: Tcp_Stream, buffer: [] u8) -> s64, Io_Error {
 //
 // Io.io_run(() {
 //     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //     defer Io.close(listener);
 //
 //     address, _ := Io.local_address(listener);
 //     client, _ := Io.connect(address);
 //     server, _ := Io.accept(listener);
+//
 //     defer Io.close(client);
 //     defer Io.close(server);
 //
@@ -684,6 +710,7 @@ read :: (stream: Tcp_Stream, buffer: [] u8) -> s64, Io_Error {
 //     assert(Io.wait_readable(server) == .NONE); // data is waiting, nothing consumed
 //     buffer: [4] u8;
 //     count, _ := Io.read(server, buffer);
+//
 //     assert(count == 1);
 // });
 // ```
@@ -704,11 +731,13 @@ wait_readable :: (stream: Tcp_Stream) -> Io_Error {
 //
 // Io.io_run(() {
 //     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //     defer Io.close(listener);
 //
 //     address, _ := Io.local_address(listener);
 //     client, _ := Io.connect(address);
 //     server, _ := Io.accept(listener);
+//
 //     defer Io.close(client);
 //     defer Io.close(server);
 //
@@ -716,6 +745,7 @@ wait_readable :: (stream: Tcp_Stream) -> Io_Error {
 //
 //     buffer: [4] u8;
 //     count, error := Io.read_full(server, buffer);
+//
 //     assert(error == .NONE && count == 4);
 // });
 // ```
@@ -749,15 +779,18 @@ write_some :: (stream: Tcp_Stream, data: [] u8) -> s64, Io_Error {
 //
 // Io.io_run(() {
 //     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //     defer Io.close(listener);
 //
 //     address, _ := Io.local_address(listener);
 //     client, _ := Io.connect(address);
 //     server, _ := Io.accept(listener);
+//
 //     defer Io.close(client);
 //     defer Io.close(server);
 //
 //     count, error := Io.write(client, u8.[1, 2, 3]);
+//
 //     assert(error == .NONE && count == 3);
 // });
 // ```
@@ -777,11 +810,13 @@ write :: (stream: Tcp_Stream, text: string) -> s64, Io_Error {
 //
 // Io.io_run(() {
 //     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //     defer Io.close(listener);
 //
 //     address, _ := Io.local_address(listener);
 //     client, _ := Io.connect(address);
 //     server, _ := Io.accept(listener);
+//
 //     defer Io.close(client);
 //     defer Io.close(server);
 //
@@ -789,6 +824,7 @@ write :: (stream: Tcp_Stream, text: string) -> s64, Io_Error {
 //     Io.shutdown_write(client);
 //
 //     data, _ := Io.read_all(Io.reader_of(server));
+//
 //     assert(cast(string) data == "done");
 //     free(data.data);
 // });
@@ -809,10 +845,12 @@ shutdown_write :: (stream: Tcp_Stream) -> Io_Error {
 //
 // Io.io_run(() {
 //     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//
 //     defer Io.close(listener);
 //
 //     address, _ := Io.local_address(listener);
 //     client, _ := Io.connect(address);
+//
 //     assert(Io.close(client) == .NONE);
 // });
 // ```

@@ -74,8 +74,10 @@ decode_pnm :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Imag
 //
 // ```jai
 // image := make_image(2, 2, .RGB8);
+//
 // defer deinit(*image);
 // ppm := encode_ppm(image);
+//
 // defer free(ppm.data);
 // assert(ppm[0] == #char "P" && ppm[1] == #char "6");
 // ```

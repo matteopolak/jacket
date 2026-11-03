@@ -370,6 +370,7 @@ find_header :: (headers: [] Header_Field, name: string) -> value: string, found:
 // ];
 //
 // value, found := find_header(headers, .HOST);
+//
 // assert(found && value == "example.com");
 //
 // _, found = find_header(headers, .CONTENT_TYPE);
@@ -421,6 +422,7 @@ has_token :: (value: string, token: string) -> bool {
 //
 // ```jai
 // parser: Parser;
+//
 // parser_init(*parser, .REQUEST);
 // defer parser_free(*parser);
 //
@@ -537,6 +539,7 @@ Head :: struct {
 //
 // ```jai
 // parser: Parser;
+//
 // parser_init(*parser, .RESPONSE);
 // defer parser_free(*parser);
 //
@@ -544,13 +547,16 @@ Head :: struct {
 // data: [] u8 = .{ text.count, text.data };
 //
 // kinds: [..] Event_Kind;
+//
 // defer array_free(kinds);
 //
 // body: [..] u8;
+//
 // defer array_free(body);
 //
 // while true {
 //     used, event := parse(*parser, data);
+//
 //     data = advance(data, used);
 //     array_add(*kinds, event.kind);
 //

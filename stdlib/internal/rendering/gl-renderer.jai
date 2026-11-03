@@ -167,7 +167,7 @@ get_pixel_dimensions :: (window: Window_Type) -> (width: s32, height: s32) {
 // #import "Window_Creation";
 //
 // window := create_window(800, 600, "simp");
-// scale := get_pixel_scale(window);  // 2 on a Retina display
+// scale := get_pixel_scale(window); // 2 on a Retina display
 // ```
 get_pixel_scale :: (window: Window_Type) -> float {
     return Windows_API.get_pixel_scale(window);
@@ -195,6 +195,7 @@ enable_window :: (window: Window_Type) {
 // #import "Window_Creation";
 //
 // window := create_window(800, 600, "simp");
+//
 // set_render_target(window);
 // clear_render_target(0, 0, 0, 1);
 // swap_buffers(window);
@@ -240,7 +241,7 @@ clear_render_target :: (r: float, g: float, b: float, a: float) {
 // - p1: the opposite corner. It must not be left of or below `p0`.
 //
 // ```jai,no_run,skip_on(wasm)
-// set_scissor(.{10, 10}, .{110, 60});
+// set_scissor(.{ 10, 10 }, .{ 110, 60 });
 // // ... draw: only this box shows ...
 // clear_scissor();
 // ```
@@ -344,10 +345,11 @@ immediate_set_texture :: (texture: *Texture) {
 // set_shader_for_color();
 // #import "Math";
 //
-// red := Vector4.{1, 0, 0, 1};
-// immediate_vertex(.{100, 100, 0}, red);
-// immediate_vertex(.{200, 100, 0}, red);
-// immediate_vertex(.{150, 200, 0}, red);  // a triangle
+// red := Vector4.{ 1, 0, 0, 1 };
+//
+// immediate_vertex(.{ 100, 100, 0 }, red);
+// immediate_vertex(.{ 200, 100, 0 }, red);
+// immediate_vertex(.{ 150, 200, 0 }, red); // a triangle
 // ```
 immediate_vertex :: (position: Vector3, color_scale: Vector4, uv: Vector2 = .{}, normal: Vector3 = .{}) {
     if immediate_state.num_vertices == Immediate_State.MAX_VERTICES immediate_flush();
@@ -390,7 +392,7 @@ set_projection :: () {
 //
 // ```jai,no_run,skip_on(wasm)
 // set_shader_for_color(enable_blend = true);
-// immediate_quad(10, 10, 110, 60, .{0, 0.5, 1, 0.5});
+// immediate_quad(10, 10, 110, 60, .{ 0, 0.5, 1, 0.5 });
 // ```
 set_shader_for_color :: (enable_blend := false) {
     ensure_renderer();
@@ -413,7 +415,7 @@ set_shader_for_text :: () {
 // texture_load_from_file(*texture, "sprite.png");
 //
 // set_shader_for_images(*texture);
-// immediate_quad(.{10, 10}, .{138, 10}, .{138, 138}, .{10, 138});
+// immediate_quad(.{ 10, 10 }, .{ 138, 10 }, .{ 138, 138 }, .{ 10, 138 });
 // ```
 set_shader_for_images :: (texture: *Texture) {
     ensure_renderer();
@@ -467,7 +469,7 @@ backend_draw_immediate_vertices :: (num_vertices: int) {
 //
 // ```jai,no_run,skip_on(wasm)
 // font := load_font("", "Roboto-Regular.ttf", 24);
-// width := draw_text(font, 20, 40, "Score: 120", .{1, 1, 0, 1});
+// width := draw_text(font, 20, 40, "Score: 120", .{ 1, 1, 0, 1 });
 // ```
 draw_text :: (font: *Dynamic_Font, x: s64, y: s64, text: string, color := Vector4.{ 1, 1, 1, 1 }, effects: Font_Effects = 0) -> width: s64 {
     width := prepare_text(font, text, effects);
@@ -487,7 +489,7 @@ draw_text :: (font: *Dynamic_Font, x: s64, y: s64, text: string, color := Vector
 // font := load_font("", "Roboto-Regular.ttf", 24);
 // prepare_text(font, "Paused");
 // draw_prepared_text(font, 20, 40);
-// draw_prepared_text(font, 20, 80, .{1, 0.5, 0.5, 1});
+// draw_prepared_text(font, 20, 80, .{ 1, 0.5, 0.5, 1 });
 // ```
 draw_prepared_text :: (font: *Dynamic_Font, x: s64, y: s64, color := Vector4.{ 1, 1, 1, 1 }, effects: Font_Effects = 0) {
     baseline := y;

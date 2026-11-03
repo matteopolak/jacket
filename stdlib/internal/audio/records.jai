@@ -110,7 +110,7 @@ Sound_Data :: struct {
 // sound := load_audio_file("jump.wav");
 // stream := make_stream(*sound);
 // stream.user_volume_scale = 0.5;
-// stream.rate_scale = 1.2;  // a little higher in pitch
+// stream.rate_scale = 1.2; // a little higher in pitch
 // start_playing(stream);
 // ```
 Sound_Stream :: struct {
@@ -284,7 +284,7 @@ Output_Device :: struct {
 //
 // ```jai,no_run,skip_on(wasm)
 // config: Sound_Player_Config;
-// config.update_from_a_thread = false;  // mix inside update() instead
+// config.update_from_a_thread = false; // mix inside update() instead
 // config.audible_when_window_is_not_in_focus = true;
 // assert(sound_player_init(config));
 // ```

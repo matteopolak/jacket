@@ -11,11 +11,14 @@
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-file-module.txt", base);
+//
 // defer file_delete(path);
 //
 // assert(write_entire_file(path, "hello\n"));
 // text, ok := read_entire_file(path);
+//
 // assert(ok && text == "hello\n");
 // free(text);
 // ```

@@ -9,8 +9,11 @@
 // ```jai
 // set: Keymap_Set;
 // map := add_keymap(*set, "game");
+//
 // set.default_keymap = map;
-// add_proc(map, "jump", () { /* ... */ });
+// add_proc(map, "jump", () {
+//     /* ... */
+// });
 // assert(load_from_memory(*set, "[1]\nSpace jump\nS-F5 jump\n"));
 // assert(map.mappings.count == 2);
 // assert(!load_from_memory(*set, "[1]\nNOT_A_KEY jump"));
@@ -38,8 +41,11 @@ load_from_memory :: (using keymap: *Keymap, memory: string, short_name: string, 
 // ```jai,no_run
 // set: Keymap_Set;
 // map := add_keymap(*set, "game");
+//
 // set.default_keymap = map;
-// add_proc(map, "jump", () { /* ... */ });
+// add_proc(map, "jump", () {
+//     /* ... */
+// });
 // load_from_file(*set, "keys", "keys.txt", optional = true);
 // ```
 load_from_file :: (set: *Keymap_Set, short_name: string, filename: string, optional := false) -> bool {
@@ -140,6 +146,7 @@ load_from_handler :: (set: *Keymap_Set, keymap: *Keymap, handler: *Text_File_Han
 // #import "Input";
 //
 // ok, key := map_string_to_key("F5");
+//
 // assert(ok && key == .F5);
 // ok, key = map_string_to_key("a");
 // assert(ok && key == cast(Key_Code) #char "A");
@@ -171,13 +178,19 @@ map_key_to_string :: (k: Key_Code) -> string {
 //
 // set: Keymap_Set;
 // map := add_keymap(*set, "game");
-// add_proc(map, "jump", () { /* ... */ });
+//
+// add_proc(map, "jump", () {
+//     /* ... */
+// });
 // flags: Event.Modifier_Flags;
+//
 // add_mapping(map, .SPACEBAR, flags, true, "jump", true);
 //
 // builder: String_Builder;
+//
 // print_to_builder(*builder, *set);
 // text := builder_to_string(*builder);
+//
 // assert(text.count > 0);
 // free(text);
 // reset_keymaps(*set);

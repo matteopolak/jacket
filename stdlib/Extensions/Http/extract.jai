@@ -34,15 +34,18 @@ Path :: struct(NAME: string, T: Type) {
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/users/{user}/posts/{post}", get_post);
 //
 //     api := test_client(*app);
 //     response, _ := get(api, "/users/7/posts/intro");
+//
 //     defer close(*response);
 //
 //     text, _ := read_text(*response);
+//
 //     defer free(text);
 //
 //     assert(text == "7 / intro");
@@ -86,15 +89,18 @@ Query :: struct(T: Type) {
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     post(*app, "/users", create);
 //
 //     api := test_client(*app);
 //     response, _ := post(api, "/users", New_User.{ name = "ada" });
+//
 //     defer close(*response);
 //
 //     text, _ := read_text(*response);
+//
 //     defer free(text);
 //
 //     assert(response.status == 200 && text.count > 0);

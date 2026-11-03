@@ -39,8 +39,10 @@ Recorder :: struct {
 // ```jai,no_run
 // I :: #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false);
 // #import "Extensions/Iprof_Trace";
+//
 // main :: () {
 //     recorder: Recorder;
+//
 //     start_capture(*recorder);
 //     I.zones[0].name = "work";
 //     I.zones[0].initted = true;

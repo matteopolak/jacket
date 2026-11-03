@@ -2,9 +2,13 @@
 // after each job. Shared results belong in data behind a mutex (Writer already does this).
 // Zero threads chooses CPU count minus one, with a minimum of one.
 // ```jai
-// render :: (out: *Out, job: *int, count: *int) { html(out, "<p>{job.*}</p>"); }
+// render :: (out: *Out, job: *int, count: *int) {
+//     html(out, "<p>{job.*}</p>");
+// }
+//
 // jobs := int.[1, 2, 3];
 // count := 0;
+//
 // render_parallel(jobs, render, *count, threads = 2);
 // ```
 render_parallel :: (jobs: [] $T, render: (out: *Out, job: *T, data: *$D), data: *D, threads := 0) {

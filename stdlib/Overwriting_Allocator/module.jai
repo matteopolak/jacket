@@ -4,12 +4,14 @@
 //
 // ```jai
 // allocator := get_overwriting_allocator();
+//
 // {
 //     push_allocator(allocator);
 //     bytes := cast(*u8) alloc(4);
 //     assert(bytes[0] == 0xcd);
 //     free(bytes);
 // }
+//
 // deinit_overwriting_allocator(allocator);
 // ```
 
@@ -20,6 +22,7 @@ Overwriting_Allocator :: Impl.Overwriting_Allocator;
 // ```jai
 // allocator := get_overwriting_allocator();
 // memory := cast(*u8) allocator.proc(.ALLOCATE, 4, 0, null, allocator.data);
+//
 // assert(memory[0] == 0xcd);
 // memory[0] = 1;
 // allocator.proc(.FREE, 0, 4, memory, allocator.data);

@@ -15,10 +15,12 @@
 // name := tprint("jai-doc-%", to_nanoseconds(current_time_monotonic()));
 //
 // ok, reader := reader_create_channel(name, 1024);
+//
 // assert(ok);
 // assert(reader.header.data_size_in_bytes == 768);
 //
 // taken, again := reader_create_channel(name, 1024);
+//
 // assert(!taken); // the name belongs to the first reader
 //
 // assert(reader_release_channel(*reader));
@@ -130,18 +132,22 @@ writer_commit_message :: (channel: *Write_Channel, message: Reserved_Message) ->
 // name := tprint("jai-doc-%", to_nanoseconds(current_time_monotonic()));
 //
 // ok, reader := reader_create_channel(name, 1024);
+//
 // assert(ok);
 // connected, writer := writer_connect(name);
+//
 // assert(connected);
 //
 // // The writer reserves space, fills it in and commits it.
 // reserved_ok, reserved := writer_reserve_message(*writer, 5);
+//
 // assert(reserved_ok);
 // memcpy(reserved.user_write_pointer, "hello".data, 5);
 // assert(writer_commit_message(*writer, reserved));
 //
 // // The reader finds it, reads it in place and gives the space back.
 // found, fatal, message := reader_poll_for_message(*reader);
+//
 // assert(found && !fatal);
 // assert(to_string(message.user_read_pointer, message.user_read_bytes) == "hello");
 // assert(reader_done_with_message(*message));

@@ -6,12 +6,15 @@
 //
 // ```jai
 // r: Rng;
+//
 // rng_seed(*r, 7);
 // first := copy_string(gen(*r, string));
+//
 // case_end(*r);
 //
 // rng_seed(*r, 7);
 // again := gen(*r, string);
+//
 // assert(first == again);
 // case_end(*r);
 // ```

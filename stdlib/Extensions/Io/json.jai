@@ -9,12 +9,17 @@
 //
 // ```jai
 // Io :: #import "Extensions/Io";
+//
 // #import "Extensions/Json";
 //
-// Point :: struct { x: int; y: int; }
+// Point :: struct {
+//     x: int;
+//     y: int;
+// }
 //
 // Io.io_run(() {
 //     near, far := Io.make_pipe();
+//
 //     defer Io.close(near);
 //     defer Io.close(far);
 //
@@ -22,6 +27,7 @@
 //     Io.shutdown_write(far);
 //
 //     point, error := Io.read_json(Io.reader_of(near), Point);
+//
 //     assert(error.kind == .NONE && point.x == 1 && point.y == 2);
 // });
 // ```

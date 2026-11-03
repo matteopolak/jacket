@@ -66,6 +66,7 @@
 // // The server: accept one connection, answer a read with the same bytes, then close.
 // echo_once :: (job: *Echo) {
 //     tcp, io_error := Io.accept(job.listener);
+//
 //     assert(io_error == .NONE);
 //
 //     stream, error := tls_accept(job.config, Io.reader_of(tcp), Io.writer_of(tcp));
@@ -98,14 +99,17 @@
 //         defer tls_config_free(*client);
 //
 //         listener, listen_error := Io.tcp_listen("127.0.0.1:0");
+//
 //         assert(listen_error == .NONE);
 //         defer Io.close(listener);
 //
 //         job := Echo.{ listener = listener, config = *server };
+//
 //         Io.spawn(echo_once, *job);
 //
 //         address, _ := Io.local_address(listener);
 //         tcp, connect_error := Io.connect(address);
+//
 //         assert(connect_error == .NONE);
 //
 //         // The name is sent as SNI and checked against the certificate.

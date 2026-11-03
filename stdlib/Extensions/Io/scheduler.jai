@@ -183,7 +183,9 @@ io_run :: (proc: $P) {
 // ```jai
 // Io :: #import "Extensions/Io";
 //
-// Io.io_run((n: int) { assert(n == 3); }, 3);
+// Io.io_run((n: int) {
+//     assert(n == 3);
+// }, 3);
 // ```
 io_run :: (proc: $P, data: $T) {
     run_scheduler(spawn_block(proc, data));
@@ -201,11 +203,15 @@ io_run :: (proc: $P, data: $T) {
 // main :: () {
 //     Io.io_run(() {
 //         results := Io.make_channel(int, 1);
+//
 //         defer Io.free_channel(results);
 //
-//         Io.spawn((out: *Io.Channel(int)) { Io.send(out, 42); }, results);
+//         Io.spawn((out: *Io.Channel(int)) {
+//             Io.send(out, 42);
+//         }, results);
 //
 //         value, error := Io.recv(results); // waits for the spawned fiber
+//
 //         assert(error == .NONE && value == 42);
 //     });
 // }
@@ -227,9 +233,12 @@ spawn :: (proc: $P, data: $T) -> Fiber_Handle {
 //
 // Io.io_run(() {
 //     log: [..] int;
-//     Io.spawn((out: *[..] int) { array_add(out, 2); }, *log);
+//
+//     Io.spawn((out: *[..] int) {
+//         array_add(out, 2);
+//     }, *log);
 //     array_add(*log, 1);
-//     Io.yield();            // the spawned fiber runs now
+//     Io.yield(); // the spawned fiber runs now
 //     array_add(*log, 3);
 //     assert(log[0] == 1 && log[1] == 2 && log[2] == 3);
 // });
@@ -286,7 +295,7 @@ sleep :: (milliseconds: s64) -> Io_Error {
 //         assert(error == .CANCELED);
 //     });
 //
-//     Io.yield();             // let it start sleeping
+//     Io.yield(); // let it start sleeping
 //     Io.cancel(sleeper);
 // });
 // ```
@@ -319,7 +328,9 @@ is_canceled :: () -> bool {
 // Io :: #import "Extensions/Io";
 //
 // assert(!Io.in_scheduler());
-// Io.io_run(() { assert(Io.in_scheduler()); });
+// Io.io_run(() {
+//     assert(Io.in_scheduler());
+// });
 // ```
 in_scheduler :: () -> bool {
     scheduler := context.io_scheduler;

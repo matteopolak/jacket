@@ -8,16 +8,19 @@
 //
 // ```jai,only(linux, macos)
 // process: Process;
+//
 // assert(create_process(*process, "/bin/sh", "-c", "read line; printf 'got:%s' \"$line\"", capture_and_return_output = true));
 // defer deinit(*process);
 //
 // line: [4] u8 = .[97, 98, 99, 10]; // "abc\n"
 // ok, written := write_to_process(*process, line);
+//
 // assert(ok && written == 4);
 //
 // output: [64] u8;
 // errors: [64] u8;
 // read_ok, out_count, err_count := read_from_process(*process, output, errors, 5000);
+//
 // assert(read_ok && to_string(output.data, out_count) == "got:abc");
 // ```
 write_to_process :: (process: *Process, data: [] u8) -> success: bool, bytes_written: int {

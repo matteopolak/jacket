@@ -117,7 +117,9 @@ temp_dir :: (t: *Test, loc := #caller_location) -> string {
 // ```jai,no_run
 // uses_a_buffer :: (t: *Test) {
 //     buffer := alloc(1024);
-//     cleanup(t, (data: *void) { free(data); }, buffer);
+//     cleanup(t, (data: *void) {
+//         free(data);
+//     }, buffer);
 // } @test
 // ```
 //
@@ -159,7 +161,8 @@ run :: (t: *Test, name: string, body: (t: *Test)) -> bool {
 //     expect_equal(data.left + data.right, data.sum);
 // }
 //
-// cases := Case.[.{"small", 1, 2, 3}, .{"large", 40, 2, 42}];
+// cases := Case.[.{ "small", 1, 2, 3 }, .{ "large", 40, 2, 42 }];
+//
 // for cases run(t, it.name, check_case, *it);
 // ```
 //

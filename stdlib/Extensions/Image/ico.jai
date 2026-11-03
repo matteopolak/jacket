@@ -5,8 +5,10 @@
 // ```jai
 // Icons :: #import "Ico_File";
 // bytes := Icons.create_ico_file(1, 1, 4, u8.[0, 0, 255, 255].data);
+//
 // defer free(bytes);
 // image, ok := decode_ico(cast([] u8) bytes);
+//
 // defer deinit(*image);
 // assert(ok && image.width == 256);
 // ```

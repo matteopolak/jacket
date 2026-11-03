@@ -7,14 +7,15 @@
 //
 // Cli :: struct {
 //     paths: [..] string; @positional
-//     check: bool;       @short=c
-//     jobs:  int = 4;    @short=j @env=TOOL_JOBS @range(1,64)
+//     check: bool; @short=c
+//     jobs: int = 4; @short=j @env=TOOL_JOBS @range(1,64)
 // }
+//
 // HELP :: Args.Help(Cli).{ about = "Does things.", paths = "Files to read", check = "Only check", jobs = "Parallel jobs" };
 //
 // main :: () {
-//     cli, set := Args.parse(Cli, HELP);  // --help, --version, errors (exit 2) are handled
-//     if set.jobs print("jobs: %\n", cli.jobs);  // set.<field> is true when the user supplied it
+//     cli, set := Args.parse(Cli, HELP); // --help, --version, errors (exit 2) are handled
+//     if set.jobs print("jobs: %\n", cli.jobs); // set.<field> is true when the user supplied it
 // }
 // ```
 //
@@ -118,10 +119,12 @@ Is_Set :: struct(T: Type) {
 //     check: bool; @short=c
 //     jobs: int = 4; @short=j @env=TOOL_JOBS @range(1,64)
 // }
+//
 // HELP :: Args.Help(Cli).{ about = "Does things.", paths = "Files to read", check = "Only check", jobs = "Parallel jobs" };
 //
 // main :: () {
 //     cli, error, set := Args.try_parse(Cli, HELP, .["tool", "-c", "--jobs=8", "a.jai", "b.jai"]);
+//
 //     assert(error.kind == .NONE);
 //     assert(cli.check && cli.jobs == 8 && cli.paths.count == 2 && cli.paths[1] == "b.jai");
 //     assert(set.jobs && set.check && set.paths);
@@ -168,10 +171,14 @@ try_parse :: ($T: Type, $help: Help(T), argv: [] string, environment: [] string 
 // ```jai,no_run
 // Args :: #import "Extensions/Args";
 //
-// Cli :: struct { name: string = "world"; @short=n }
+// Cli :: struct {
+//     name: string = "world"; @short=n
+// }
+//
 // HELP :: Args.Help(Cli).{ about = "Greets.", name = "Who to greet" };
 //
 // cli, set := Args.parse(Cli, HELP);
+//
 // print("hello, %\n", cli.name);
 // ```
 //
@@ -200,10 +207,14 @@ parse :: ($T: Type, $help: Help(T)) -> T, Is_Set(T) {
 // ```jai
 // Args :: #import "Extensions/Args";
 //
-// Cli :: struct { verbose: bool; @short=v }
+// Cli :: struct {
+//     verbose: bool; @short=v
+// }
+//
 // HELP :: Args.Help(Cli).{ verbose = "Talk more" };
 //
 // script := Args.completions(Cli, HELP, .BASH, "tool");
+//
 // assert(script.count > 0);
 // ```
 //
@@ -221,10 +232,14 @@ completions :: ($T: Type, $help: Help(T), shell: Shell, program := "") -> string
 // ```jai
 // Args :: #import "Extensions/Args";
 //
-// Cli :: struct { verbose: bool; @short=v }
+// Cli :: struct {
+//     verbose: bool; @short=v
+// }
+//
 // HELP :: Args.Help(Cli).{ about = "Does things.", verbose = "Talk more" };
 //
 // text := Args.help_text(Cli, HELP, "tool");
+//
 // assert(text.count > 0);
 // ```
 //

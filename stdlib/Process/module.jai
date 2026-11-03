@@ -12,6 +12,7 @@
 //
 // ```jai,only(linux, macos)
 // result, out, err, timed_out := run_command("/bin/sh", "-c", "printf hello", capture_and_return_output = true, timeout_ms = 5000);
+//
 // assert(!timed_out && result.type == .EXITED && result.exit_code == 0);
 // assert(out == "hello");
 // free(out);

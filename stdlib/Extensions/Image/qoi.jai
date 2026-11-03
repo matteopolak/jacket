@@ -4,9 +4,11 @@
 //
 // ```jai
 // qoi := encode_qoi(make_image(8, 8, .RGBA8));
+//
 // defer free(qoi.data);
 //
 // image, ok := decode_qoi(qoi);
+//
 // defer deinit(*image);
 // assert(ok && image.format == .RGBA8);
 // ```

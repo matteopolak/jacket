@@ -10,7 +10,7 @@
 // Returns `text.count` at the end.
 //
 // ```jai
-// text := "e\xCC\x81x";  // e + combining acute accent, then x
+// text := "e\xCC\x81x"; // e + combining acute accent, then x
 // assert(next_grapheme(text, 0) == 3);
 // assert(next_grapheme(text, 3) == 4);
 // ```

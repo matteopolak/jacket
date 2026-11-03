@@ -8,12 +8,13 @@
 // // Compiled while the program compiles: a bad pattern is a compile error, and named
 // // groups become typed fields (an integer for a run of digits, an enum for a few words).
 // Date :: Regex.Static("(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})");
-// date, ok := Regex.parse(Date, "2026-10-11");  // date.year is a u16, date.month a u8
+// date, ok := Regex.parse(Date, "2026-10-11"); // date.year is a u16, date.month a u8
 //
 // // Compiled at run time, for a pattern only known then.
 // user_pattern := "[a-z]+";
 // text := "one two";
 // re, compiled, error := Regex.compile(user_pattern);
+//
 // for Regex.find_all(*re, text) print("% ", it.text);
 // ```
 //
@@ -28,6 +29,7 @@
 // options: Regex.Options;
 // options.case_insensitive = true;
 // re, ok := Regex.compile("hello", options);
+//
 // assert(ok && Regex.is_match(*re, "Say HELLO"));
 // Regex.free_regex(*re);
 // ```
@@ -78,6 +80,7 @@ Captures :: struct {
 // Regex :: #import "Extensions/Regex";
 //
 // re, ok, error := Regex.compile("[a-z]+[0-9]");
+//
 // assert(ok);
 // Regex.free_regex(*re);
 //
@@ -112,7 +115,8 @@ compile :: (pattern: string, options := Options.{}) -> Regex, ok: bool, Error {
 //
 // re, _ := Regex.compile("[0-9]+");
 // copy := Regex.clone(*re);
-// Regex.free_regex(*re);   // the clone keeps the pattern alive
+//
+// Regex.free_regex(*re); // the clone keeps the pattern alive
 // assert(Regex.is_match(*copy, "room 101"));
 // Regex.free_regex(*copy);
 // ```
@@ -149,6 +153,7 @@ clone :: (re: *Regex) -> Regex {
 // Regex :: #import "Extensions/Regex";
 //
 // re, ok := Regex.compile("a+b");
+//
 // assert(ok && Regex.is_match(*re, "caab"));
 // Regex.free_regex(*re);
 // assert(re.engine == null);
@@ -216,6 +221,7 @@ is_one_pass :: ($R: Type) -> bool #modify {
 // Regex :: #import "Extensions/Regex";
 //
 // re, _ := Regex.compile("[0-9]+");
+//
 // assert(Regex.is_match(*re, "room 101"));
 // assert(!Regex.is_match(*re, "no digits"));
 // Regex.free_regex(*re);
@@ -234,6 +240,7 @@ is_match :: (re: *Regex, text: string, start := 0) -> bool {
 //
 // re, _ := Regex.compile("[0-9]+");
 // match, found := Regex.find(*re, "room 101, floor 3");
+//
 // assert(found && match.text == "101" && match.start == 5);
 // Regex.free_regex(*re);
 // ```
@@ -251,6 +258,7 @@ find :: (re: *Regex, text: string, start := 0) -> Match, bool {
 //
 // re, _ := Regex.compile("[0-9]+");
 // matches := Regex.find_all(*re, "room 101, floor 3");
+//
 // assert(matches.count == 2 && matches[1].text == "3");
 // array_free(matches);
 // Regex.free_regex(*re);
@@ -269,8 +277,10 @@ find_all :: (re: *Regex, text: string) -> [..] Match {
 //
 // re, _ := Regex.compile("(?<key>[a-z]+)=(?<value>[0-9]+)");
 // caps, found := Regex.captures(*re, "retries=3");
+//
 // assert(found);
 // key, _ := Regex.group(caps, "key");
+//
 // assert(key == "retries");
 // Regex.free_regex(*re);
 // ```
@@ -287,8 +297,10 @@ captures :: (re: *Regex, text: string, start := 0) -> Captures, bool {
 //
 // re, _ := Regex.compile("([a-z])=([0-9])");
 // all := Regex.captures_all(*re, "a=1, b=2");
+//
 // assert(all.count == 2);
 // value, _ := Regex.group(all[1], 2);
+//
 // assert(value == "2");
 // Regex.free_regex(*re);
 // ```
@@ -306,6 +318,7 @@ captures_all :: (re: *Regex, text: string) -> [..] Captures {
 // re, _ := Regex.compile("(a)(x)?");
 // caps, _ := Regex.captures(*re, "ab");
 // first, took_part := Regex.group(caps, 1);
+//
 // assert(took_part && first == "a");
 // _, took_part = Regex.group(caps, 2);
 // assert(!took_part);
@@ -336,6 +349,7 @@ group :: (caps: Captures, name: string) -> string, bool {
 // re, _ := Regex.compile("b+");
 // caps, _ := Regex.captures(*re, "abbc");
 // start, end := Regex.span(caps, 0);
+//
 // assert(start == 1 && end == 3);
 // Regex.free_regex(*re);
 // ```
@@ -419,6 +433,7 @@ replace_n :: (re: *Regex, text: string, replacement: string, limit: int) -> stri
 //
 // re, _ := Regex.compile("\\s*,\\s*");
 // parts := Regex.split(*re, "a , b,c");
+//
 // assert(parts.count == 3 && parts[1] == "b");
 // array_free(parts);
 // Regex.free_regex(*re);
@@ -461,7 +476,7 @@ escape :: (text: string) -> string {
 // Regex :: #import "Extensions/Regex";
 // Date :: Regex.Static("(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})");
 //
-// date, ok := Regex.parse(Date, "2026-10-11");  // a Date.Groups: date.year is a u16
+// date, ok := Regex.parse(Date, "2026-10-11"); // a Date.Groups: date.year is a u16
 // assert(ok && date.year == 2026 && date.month == 10 && date.day == 11);
 // ```
 //
@@ -586,6 +601,7 @@ captures_all :: ($R: Type, text: string) -> [..] R.Groups #modify {
 // Time :: Regex.Static("(?<hour>[0-9]{2}):(?<minute>[0-9]{2})");
 //
 // time, ok := Regex.parse(Time, "09:30");
+//
 // assert(ok && time.hour == 9 && time.minute == 30);
 // _, ok = Regex.parse(Time, "at 09:30");
 // assert(!ok);
@@ -613,9 +629,13 @@ parse :: ($R: Type, text: string) -> R.Groups, bool #modify {
 // Regex :: #import "Extensions/Regex";
 // Time :: Regex.Static("(?<hour>[0-9]{2}):(?<minute>[0-9]{2})");
 //
-// Clock :: struct { hour: int; minute: int; }
+// Clock :: struct {
+//     hour: int;
+//     minute: int;
+// }
 //
 // clock: Clock;
+//
 // assert(Regex.parse_into(Time, "09:30", *clock));
 // assert(clock.hour == 9 && clock.minute == 30);
 // ```
@@ -634,9 +654,13 @@ parse_into :: ($R: Type, text: string, out: *$T) -> bool #modify {
 // Regex :: #import "Extensions/Regex";
 // Time :: Regex.Static("(?<hour>[0-9]{2}):(?<minute>[0-9]{2})");
 //
-// Clock :: struct { hour: int; minute: int; }
+// Clock :: struct {
+//     hour: int;
+//     minute: int;
+// }
 //
 // clock: Clock;
+//
 // assert(Regex.captures_into(Time, "meet at 09:30", *clock));
 // assert(clock.minute == 30);
 // ```

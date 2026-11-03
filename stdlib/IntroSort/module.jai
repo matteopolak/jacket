@@ -3,7 +3,10 @@
 //
 // ```jai
 // values := int.[5, 2, 9, 1];
-// intro_sort(values, (a: int, b: int) -> int { return a - b; });
+//
+// intro_sort(values, (a: int, b: int) -> int {
+//     return a - b;
+// });
 // assert(values[0] == 1 && values[3] == 9);
 // ```
 

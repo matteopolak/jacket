@@ -8,6 +8,7 @@
 // last := Color_Keyframe.{ .{ 1, 1, 1, 1 }, 1 };
 // keys: [2] *Color_Keyframe = .[*first, *last];
 // samples: [3] Vector4;
+//
 // generate_color_samples(keys, .{ .RGB, .LINEAR, false }, samples);
 // assert(samples[0] == xyzw(0, 0, 0, 1) && samples[2] == xyzw(1, 1, 1, 1));
 // assert(samples[1].x > 0.7 && samples[1].x < 0.75); // the midpoint, blended in linear light and encoded back
@@ -31,6 +32,7 @@ Color_Keyframe :: Impl.Color_Keyframe;
 // #import "Math";
 // assert(rgb_to_hsv(xyz(1, 0, 0)) == xyz(0, 1, 1));
 // h, s, v := rgb_to_hsv(0, 0, 0.5);
+//
 // assert(h == 240 && s == 1 && v == 0.5);
 // assert(rgb_to_hsv(xyz(0.5, 0.5, 0.5)) == xyz(0, 0, 0.5));
 // ```
@@ -41,6 +43,7 @@ rgb_to_hsv :: Impl.rgb_to_hsv;
 // #import "Math";
 // assert(hsv_to_rgb(xyz(120, 1, 1)) == xyz(0, 1, 0));
 // r, g, b := hsv_to_rgb(0, 0, 0.25);
+//
 // assert(r == 0.25 && g == 0.25 && b == 0.25);
 // assert(hsv_to_rgb(xyz(-60, 1, 1)) == hsv_to_rgb(xyz(300, 1, 1)));
 // ```
@@ -95,6 +98,7 @@ interpolate_one_sample :: Impl.interpolate_one_sample;
 // b := Color_Keyframe.{ .{ 0, 0, 1, 0 }, 1 };
 // keys: [2] *Color_Keyframe = .[*a, *b];
 // samples: [3] Vector4;
+//
 // generate_color_samples(keys, .{ .HSV, .LINEAR, false }, samples);
 // assert(samples[0] == xyzw(1, 0, 0, 1)); // the key colors
 // assert(abs(samples[1].w - 0.5) < 0.0001); // alpha blends linearly

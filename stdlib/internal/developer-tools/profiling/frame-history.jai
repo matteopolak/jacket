@@ -8,7 +8,7 @@ SPEEDSTEP_DETECTION_RATIO: float64 = 0.08;
 //
 // main :: () {
 //     Prof_init_highlevel();
-//     Prof_init_highlevel();  // calling it again does nothing
+//     Prof_init_highlevel(); // calling it again does nothing
 // }
 // ```
 Prof_init_highlevel :: () {
@@ -128,6 +128,7 @@ propagate_stack :: (c: *Zone_Profiling_Data) {
 //         zone_end();
 //         update(true);
 //     }
+//
 //     assert(create_report().records.count == 1);
 // }
 // ```

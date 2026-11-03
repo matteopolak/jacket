@@ -83,6 +83,7 @@ propagate_expanded :: (c: *Zone_Profiling_Data) {
 //     update(true);
 //
 //     report := create_report();
+//
 //     assert(report.records.count == 1);
 //     assert(report.records[0].name == "work");
 // }

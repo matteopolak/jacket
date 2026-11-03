@@ -16,15 +16,18 @@
 //
 // ```jai,only(linux, macos)
 // process: Process;
+//
 // assert(create_process(*process, "/bin/sh", "-c", "printf ready", capture_and_return_output = true));
 // defer deinit(*process);
 //
 // output: [64] u8;
 // errors: [64] u8;
 // ok, out_count, err_count := read_from_process(*process, output, errors, 5000);
+//
 // assert(ok && err_count == 0 && to_string(output.data, out_count) == "ready");
 //
 // finished, result := get_process_result(*process, 5000);
+//
 // assert(finished && result.type == .EXITED && result.exit_code == 0);
 // ```
 create_process :: (process: *Process, args: ..string, working_directory := "", capture_and_return_output := false, arg_quoting := Process_Argument_Quoting.QUOTE_IF_NEEDED, kill_process_if_parent_exits := true) -> success: bool {
@@ -138,10 +141,12 @@ create_process :: (process: *Process, args: ..string, working_directory := "", c
 //
 // ```jai,only(linux, macos)
 // process: Process;
+//
 // assert(create_process(*process, "/bin/sleep", "30"));
 // defer deinit(*process);
 //
 // ok, result := get_process_result(*process, 0);
+//
 // assert(ok && result.type == .STILL_RUNNING);
 // assert(kill_process(*process));
 // ok, result = get_process_result(*process, 5000);
@@ -205,16 +210,19 @@ deinit :: (process: *Process) {
 //
 // ```jai,only(linux, macos)
 // process: Process;
+//
 // assert(create_process(*process, "/bin/cat", capture_and_return_output = true));
 // defer deinit(*process);
 //
 // _, written := write_to_process(*process, .[104, 105]);
+//
 // assert(written == 2);
 // deinit(*process.input); // cat now sees the end of its input and finishes
 //
 // output: [16] u8;
 // error: [16] u8;
 // total := 0;
+//
 // for 0..199 {
 //     ok, count, _ := read_from_process(*process, output, error, 50);
 //     assert(ok);

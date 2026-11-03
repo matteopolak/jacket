@@ -20,9 +20,11 @@ Draw_Kind :: enum u8 {
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
 // draw_rect(*ui, .{ 5, 5, 20, 10 }, rgb(0, 255, 0), radius = 4);
 // cmd := ui.draw.cmds[0];
+//
 // assert(cmd.rect.w == 20 && cmd.radius == 4);
 // ```
 Draw_Cmd :: struct {
@@ -67,6 +69,7 @@ free_draw_list :: (list: *Draw_List) {
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
 // draw_rect(*ui, .{ 0, 0, 10, 10 }, rgb(255, 0, 0));
 // reset_draw_list(*ui.draw);
@@ -175,6 +178,7 @@ draw_text_baseline :: (ui: *UI_State, x: float, baseline: float, text: string, s
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
 // push_clip(*ui, .{ 0, 0, 50, 50 });
 // draw_rect(*ui, .{ 0, 0, 100, 100 }, rgb(255, 255, 255));
@@ -249,10 +253,12 @@ paint_node :: (ui: *UI_State, node: *Node) {
 // ```jai
 // Raster :: #import "Extensions/Image";
 // image := Raster.make_image(2, 2, .RGBA8);
+//
 // defer Raster.deinit(*image);
 // ui := headless();
+//
 // defer free_ui(*ui);
-// draw_image(*ui, .{0, 0, 20, 20}, image);
+// draw_image(*ui, .{ 0, 0, 20, 20 }, image);
 // ```
 draw_image :: (ui: *UI_State, rect: Rect, image: Image) {
     if rect.w <= 0 || rect.h <= 0 || image.width <= 0 || image.height <= 0 return;

@@ -20,6 +20,7 @@
 // assert(environment_variable("JAI_DOC_SURELY_UNSET_VARIABLE") == "");
 //
 // kept := copy_string(environment_variable("PATH"));
+//
 // defer free(kept);
 // assert(kept.count > 0);
 // ```

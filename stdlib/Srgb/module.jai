@@ -8,8 +8,10 @@
 // #import "Math";
 // encoded := xyz(0.5, 0.5, 0.5);
 // linear := srgb_to_linear(encoded);
+//
 // assert(abs(linear.x - 0.214) < 0.001);
 // back := linear_to_srgb(linear);
+//
 // assert(abs(back.x - 0.5) < 0.00001);
 // ```
 

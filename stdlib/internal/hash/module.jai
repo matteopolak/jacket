@@ -10,6 +10,7 @@ FNV_64_OFFSET_BIAS: u64 : 0xcbf29ce484222325;
 // one := sdbm_hash(whole.data, whole.count);
 // part := sdbm_hash(whole.data, 5);
 // two := sdbm_hash(whole.data + 5, whole.count - 5, part);
+//
 // assert(one == two);
 // ```
 sdbm_hash :: (data: *void, size: int, h := HASH_INIT) -> u32 #no_aoc {

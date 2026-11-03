@@ -7,6 +7,7 @@
 // bytes := cast([] u8) "hello hello hello hello";
 // packed := deflate(bytes, .GZIP);
 // unpacked, ok, error := inflate(packed, .GZIP);
+//
 // assert(ok && cast(string) unpacked == "hello hello hello hello");
 // ```
 //
@@ -37,6 +38,7 @@ DEFAULT_MAX_OUTPUT :: 1 << 30;
 //
 // packed := deflate(cast([] u8) "abcabcabc", .ZLIB);
 // output, ok, error := inflate(packed, .ZLIB);
+//
 // assert(ok);
 // assert(cast(string) output == "abcabcabc");
 //
@@ -87,6 +89,7 @@ inflate :: (data: [] u8, container := Deflate_Container.ZLIB, max_output: s64 = 
 // packed := deflate(cast([] u8) "abcabcabc");
 // buffer: [16] u8;
 // written, ok := inflate_into(packed, buffer);
+//
 // assert(ok && written == 9);
 // ```
 inflate_into :: (data: [] u8, output: [] u8, container := Deflate_Container.ZLIB) -> written: s64, ok: bool, error: string {

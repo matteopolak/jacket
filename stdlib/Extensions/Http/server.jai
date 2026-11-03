@@ -95,11 +95,13 @@ Connection :: struct {
 //
 //     Io.io_run(() {
 //         server, error := start(*app);
+//
 //         assert(error.kind == .NONE);
 //
 //         client: Client;
 //         response, _ := get(*client, tprint("%/hello", server_url(server)));
 //         text, _ := read_text(*response);
+//
 //         assert(text == "hello");
 //         close(*response);
 //
@@ -980,11 +982,12 @@ Serve_State :: struct {
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
 //
-//     error := serve(*app);   // returns after Ctrl-C
+//     error := serve(*app); // returns after Ctrl-C
 //     if error.kind != .NONE print("%\n", error_text(error));
 // }
 // ```

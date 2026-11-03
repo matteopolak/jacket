@@ -4,19 +4,25 @@
 // Not available on wasm: it has no operating-system threads.
 //
 // ```jai
-// Shared :: struct { mutex: Mutex; total: int; }
+// Shared :: struct {
+//     mutex: Mutex;
+//     total: int;
+// }
 //
 // add_many :: (thread: *Thread) -> s64 {
 //     shared := cast(*Shared) thread.data;
+//
 //     for 1..1000 {
 //         lock(*shared.mutex);
 //         shared.total += 1;
 //         unlock(*shared.mutex);
 //     }
+//
 //     return 0;
 // }
 //
 // shared: Shared;
+//
 // init(*shared.mutex);
 // threads: [4] Thread;
 // for *thread: threads {
@@ -24,10 +30,12 @@
 //     thread.data = *shared;
 //     thread_start(thread);
 // }
+//
 // for *thread: threads {
 //     assert(thread_is_done(thread, -1));
 //     thread_deinit(thread);
 // }
+//
 // assert(shared.total == 4000);
 // destroy(*shared.mutex);
 // ```
@@ -45,8 +53,12 @@ thread_init_handler: #type (thread: *Thread);
 // negative or an allocation fails.
 //
 // ```jai
-// hello :: (thread: *Thread) -> s64 { return 0; }
+// hello :: (thread: *Thread) -> s64 {
+//     return 0;
+// }
+//
 // thread: Thread;
+//
 // assert(thread_init(*thread, hello, name = "hello"));
 // thread_start(*thread);
 // assert(thread_is_done(*thread, -1));

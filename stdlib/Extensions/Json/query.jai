@@ -35,10 +35,14 @@ Pair_Kind :: enum u8 {
 // is released by `free_json`, as for `from_json`.
 //
 // ```jai
-// Search :: struct @json(default) { q: string; limit := 20; tags: [..] string; }
+// Search :: struct @json(default) {
+//     q: string;
+//     limit := 20;
+//     tags: [..] string;
+// }
 //
 // // The pairs of "?q=jai&tags=a&tags=b".
-// pairs := Query_Pair.[.{"q", "jai"}, .{"tags", "a"}, .{"tags", "b"}];
+// pairs := Query_Pair.[.{ "q", "jai" }, .{ "tags", "a" }, .{ "tags", "b" }];
 // search, error := from_query(Search, pairs);
 //
 // assert(error.kind == .NONE);
@@ -109,6 +113,7 @@ from_query :: ($T: Type, pairs: [] Query_Pair, options := Json_Options.{}) -> T,
 //
 // ```jai
 // number, error := from_param(int, "42");
+//
 // assert(error.kind == .NONE && number == 42);
 //
 // _, error = from_param(int, "forty-two");

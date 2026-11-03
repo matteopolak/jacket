@@ -14,10 +14,12 @@
 //     add_build_string("value :: 47; main :: () {}", w);
 //
 //     compiler_begin_intercept(w);
+//
 //     while true {
 //         message := compiler_wait_for_message();
 //         if message.kind == .COMPLETE break;
 //     }
+//
 //     compiler_end_intercept(w);
 // }
 //

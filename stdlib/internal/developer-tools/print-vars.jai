@@ -63,9 +63,11 @@ print_vars_helper :: (builder: *String_Builder, config: Print_Vars_Config, $args
 // x: s32 = 7;
 // y: s32 = 22;
 // builder: String_Builder;
+//
 // defer free_buffers(*builder);
 // print_vars_to(*builder, x, y);
 // text := builder_to_string(*builder);
+//
 // defer free(text);
 // assert(text == "x = 7  (s32)\ny = 22 (s32)\n");
 // ```

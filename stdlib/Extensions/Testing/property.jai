@@ -108,9 +108,13 @@ rng_unit :: (rng: *Rng) -> float64 {
 // shrunk.
 //
 // ```jai
-// even :: (rng: *Rng) -> s64 { return rng_range(rng, -500, 500) * 2; }
+// even :: (rng: *Rng) -> s64 {
+//     return rng_range(rng, -500, 500) * 2;
+// }
 //
-// doubles :: (n: s64) { expect_equal((n * 3) % 2, 0); } @test @property @generate(even)
+// doubles :: (n: s64) {
+//     expect_equal((n * 3) % 2, 0);
+// } @test @property @generate(even)
 // ```
 Custom_Generator :: struct {
     info: *Type_Info;
@@ -120,9 +124,13 @@ Custom_Generator :: struct {
 // Wraps `make` as a `Custom_Generator` for `run_property`.
 //
 // ```jai
-// even :: (rng: *Rng) -> s64 { return rng_range(rng, -500, 500) * 2; }
+// even :: (rng: *Rng) -> s64 {
+//     return rng_range(rng, -500, 500) * 2;
+// }
 //
-// run_property(t, (n: s64) { expect_equal(n % 2, 0); }, 20, .[generator(even)]);
+// run_property(t, (n: s64) {
+//     expect_equal(n % 2, 0);
+// }, 20, .[generator(even)]);
 // ```
 //
 // - $make: draws one value from the `Rng`; its return type is the type the generator serves.

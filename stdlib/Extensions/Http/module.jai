@@ -11,6 +11,7 @@
 //
 // ```jai
 // parser: Parser;
+//
 // parser_init(*parser, .REQUEST);
 // defer parser_free(*parser);
 //
@@ -18,6 +19,7 @@
 // bytes: [] u8 = .{ request.count, request.data };
 //
 // used, event := parse(*parser, bytes); // any chunking gives the same result
+//
 // assert(event.kind == .HEAD);
 // assert(parser.head.method == .GET);
 // assert(parser.head.target == "/users?id=7");

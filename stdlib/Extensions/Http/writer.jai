@@ -239,6 +239,7 @@ write_continue :: (out: *[..] u8) {
 //
 // ```jai
 // out: [..] u8;
+//
 // defer array_free(out);
 //
 // write_chunk(*out, "hello");
@@ -279,16 +280,19 @@ write_last_chunk :: (out: *[..] u8) -> bool {
 //
 // ```jai
 // out: [..] u8;
+//
 // defer array_free(out);
 //
 // write_chunk(*out, "ab");
 // trailers := Header_Field.[.{ name = "X-Checksum", value = "7" }];
+//
 // assert(write_last_chunk(*out, trailers));
 // assert(string.{ out.count, out.data } == "2\r\nab\r\n0\r\nX-Checksum: 7\r\n\r\n");
 //
 // // Framing fields cannot be trailers, and a refused call leaves the output alone.
 // before := out.count;
 // bad := Header_Field.[.{ name = "Content-Length", value = "2", id = .CONTENT_LENGTH }];
+//
 // assert(!write_last_chunk(*out, bad));
 // assert(out.count == before);
 // ```

@@ -119,7 +119,10 @@ Thread_Continue_Status :: enum {
     // `start` the workers and collect results with `get_completed_work`. `shutdown` stops the workers.
     //
     // ```jai
-    // Work :: struct { input: int; result: int; }
+    // Work :: struct {
+    //     input: int;
+    //     result: int;
+    // }
     //
     // square :: (group: *Thread_Group, thread: *Thread, work: *void) -> Thread_Continue_Status {
     //     item := cast(*Work) work;
@@ -135,6 +138,7 @@ Thread_Continue_Status :: enum {
     //     item.input = i + 1;
     //     add_work(*group, item);
     // }
+    //
     // start(*group);
     //
     // assert(wait_for_all(*group));

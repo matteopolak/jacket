@@ -31,13 +31,17 @@ File :: struct {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-file-open.txt", base);
+//
 // defer file_delete(path);
 //
 // _, found := file_open(path);
+//
 // assert(!found); // reading needs an existing file
 //
 // file, ok := file_open(path, for_writing = true);
+//
 // assert(ok && file_write(*file, "hello"));
 // file_close(*file);
 //
@@ -47,6 +51,7 @@ File :: struct {
 // file_close(*file);
 //
 // text, read_ok := read_entire_file(path);
+//
 // assert(read_ok && text == "Jello");
 // free(text);
 // ```
@@ -90,10 +95,13 @@ file_open :: (name: string, for_writing := false, keep_existing_content := false
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-close.bin", base);
+//
 // defer file_delete(path);
 // assert(write_entire_file(path, "x"));
 // file, ok := file_open(path);
+//
 // assert(ok && is_valid(file));
 // file_close(*file);
 // assert(!is_valid(file));
@@ -129,16 +137,20 @@ is_valid :: (file: File) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-file-read.bin", base);
+//
 // defer file_delete(path);
 //
 // assert(write_entire_file(path, "abcdef"));
 // file, ok := file_open(path);
+//
 // assert(ok);
 // defer file_close(*file);
 //
 // buffer: [4] u8;
 // success, count := file_read(file, buffer.data, buffer.count);
+//
 // assert(success && count == 4 && buffer[0] == #char "a");
 // success, count = file_read(file, buffer.data, buffer.count);
 // assert(success && count == 2); // short: the end of the file
@@ -159,15 +171,20 @@ file_read :: (f: File, vdata: *void, bytes_to_read: s64) -> (success: bool, tota
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-position.bin", base);
+//
 // defer file_delete(path);
 // assert(write_entire_file(path, "abcdef"));
 // file, ok := file_open(path);
+//
 // assert(ok);
 // defer file_close(*file);
 // buffer: [2] u8;
+//
 // file_read(file, buffer.data, 2);
 // position, position_ok := file_current_position(file);
+//
 // assert(position_ok && position == 2);
 // ```
 file_current_position :: (f: File) -> s64, bool {
@@ -184,14 +201,18 @@ file_current_position :: (f: File) -> s64, bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-set-position.bin", base);
+//
 // defer file_delete(path);
 // assert(write_entire_file(path, "abcdef"));
 // file, ok := file_open(path);
+//
 // assert(ok);
 // defer file_close(*file);
 // assert(file_set_position(file, 4));
 // rest, rest_ok := read_entire_file(file);
+//
 // assert(rest_ok && rest == "ef");
 // free(rest);
 // ```
@@ -207,21 +228,26 @@ file_set_position :: (f: File, pos: s64) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-file-seek.bin", base);
+//
 // defer file_delete(path);
 //
 // assert(write_entire_file(path, "abcdef"));
 // file, ok := file_open(path);
+//
 // assert(ok);
 // defer file_close(*file);
 //
 // assert(file_seek(file, -2, .END));
 // tail, tail_ok := read_entire_file(file);
+//
 // assert(tail_ok && tail == "ef");
 // free(tail);
 //
 // assert(file_seek(file, 1, .START) && file_seek(file, 2, .CURRENT));
 // position, position_ok := file_current_position(file);
+//
 // assert(position_ok && position == 3);
 // assert(!file_seek(file, -1, .START));
 // ```
@@ -245,13 +271,17 @@ file_seek :: (file: File, pos: s64, type: Seek_Type) -> (success: bool) {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-length.bin", base);
+//
 // defer file_delete(path);
 // assert(write_entire_file(path, "abcdef"));
 // file, ok := file_open(path);
+//
 // assert(ok);
 // defer file_close(*file);
 // length, length_ok := file_length(file);
+//
 // assert(length_ok && length == 6);
 // ```
 file_length :: (file: File) -> (length: s64, success: bool) {
@@ -273,14 +303,18 @@ file_length :: (file: File) -> (length: s64, success: bool) {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-flush.bin", base);
+//
 // defer file_delete(path);
 // file, ok := file_open(path, for_writing = true);
+//
 // assert(ok);
 // defer file_close(*file);
 // assert(file_write(*file, "data"));
 // assert(file_flush(file));
 // text, read_ok := read_entire_file(path); // another reader sees it already
+//
 // assert(read_ok && text == "data");
 // free(text);
 // ```
@@ -297,14 +331,19 @@ file_flush :: (file: File) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-write-bytes.bin", base);
+//
 // defer file_delete(path);
 // file, ok := file_open(path, for_writing = true);
+//
 // assert(ok);
 // bytes := u8.[1, 2, 3];
+//
 // assert(file_write(*file, bytes.data, bytes.count));
 // file_close(*file);
 // text, read_ok := read_entire_file(path);
+//
 // assert(read_ok && text.count == 3 && text[2] == 3);
 // free(text);
 // ```
@@ -326,16 +365,21 @@ file_write :: (file: *File, data: *void, length: s64) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-move.bin", base);
+//
 // defer file_delete(path);
 // to := tprint("%.moved", path);
+//
 // defer file_delete(to);
 // assert(write_entire_file(path, "content"));
 // assert(file_move(path, to));
 // text, ok := read_entire_file(to);
+//
 // assert(ok && text == "content");
 // free(text);
 // _, still_there := file_open(path);
+//
 // assert(!still_there);
 // ```
 file_move :: (name_old: string, name_new: string) -> bool {
@@ -359,7 +403,9 @@ file_move :: (name_old: string, name_new: string) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-delete.bin", base);
+//
 // defer file_delete(path);
 // assert(write_entire_file(path, "x"));
 // assert(file_delete(path));
@@ -381,13 +427,17 @@ file_delete :: (filename: string) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-link.bin", base);
+//
 // defer file_delete(path);
 // other := tprint("%.link", path);
+//
 // defer file_delete(other);
 // assert(write_entire_file(path, "shared"));
 // assert(file_link(other, path));
 // text, ok := read_entire_file(other);
+//
 // assert(ok && text == "shared");
 // free(text);
 // ```
@@ -412,9 +462,12 @@ file_link :: (linkpath: string, filepath: string) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-rmdir.bin", base);
+//
 // defer file_delete(path);
 // directory := tprint("%.dir", path);
+//
 // assert(make_directory_if_it_does_not_exist(directory));
 // assert(delete_directory(directory));
 // assert(!delete_directory(directory)); // gone
@@ -439,8 +492,10 @@ delete_directory :: (dirname: string) -> bool {
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // root := tprint("%/jai-doc-make-directory", base);
 // leaf := tprint("%/a/b", root);
+//
 // defer {
 //     delete_directory(leaf);
 //     delete_directory(tprint("%/a", root));

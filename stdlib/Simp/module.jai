@@ -15,17 +15,19 @@
 // #import "Input";
 //
 // window := create_window(800, 600, "simp");
+//
 // set_render_target(window);
 // font := load_font("", "Roboto-Regular.ttf", 24);
 //
 // while true {
 //     update_window_events();
 //     for events_this_frame if it.type == .QUIT return;
+//
 //     update_window(window);
 //
 //     clear_render_target(0.1, 0.1, 0.15, 1);
 //     set_shader_for_color();
-//     immediate_quad(100, 100, 300, 200, .{0.9, 0.3, 0.2, 1});
+//     immediate_quad(100, 100, 300, 200, .{ 0.9, 0.3, 0.2, 1 });
 //     draw_text(font, 100, 300, "Hello");
 //     swap_buffers(window);
 // }

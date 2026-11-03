@@ -12,6 +12,7 @@ Template :: struct {
     // Starts recording one link; used by generated templates.
     // ```jai
     // out: Out;
+    //
     // defer deinit(*out);
     // Template.begin(*out);
     // Template.piece(*out, "/");
@@ -24,6 +25,7 @@ Template :: struct {
     // Records unescaped link bytes when recording is enabled.
     // ```jai
     // out: Out;
+    //
     // defer deinit(*out);
     // Template.begin(*out);
     // Template.piece(*out, "/");
@@ -44,6 +46,7 @@ Template :: struct {
     // Saves an offset into the page's link bytes; earlier links survive growth.
     // ```jai
     // out: Out;
+    //
     // defer deinit(*out);
     // Template.begin(*out);
     // Template.piece(*out, "/");

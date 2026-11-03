@@ -26,14 +26,17 @@ Path :: struct {
 //
 // ```jai
 // path := parse_path("..//orchard/./maple/../oak/");
+//
 // assert(path.number_of_leading_slashes == 0 && path.trailing_slash);
 // assert(path.words.count == 3 && path.words[0] == ".." && path.words[1] == "orchard" && path.words[2] == "oak");
 //
 // found, position := path_contains(path, .["orchard", "oak"]);
+//
 // assert(found && position == 1);
 // array_free(path.words);
 //
 // raw := parse_path("a/./b", reduce = false);
+//
 // assert(raw.words.count == 3);
 // array_free(raw.words);
 // ```
@@ -82,6 +85,7 @@ parse_path :: (_s: string, reduce := true) -> Path {
 // ```jai
 // raw := parse_path("a/./b/../c", reduce = false);
 // tidy := reduce_path(raw);
+//
 // assert(tidy.words.count == 2 && tidy.words[0] == "a" && tidy.words[1] == "c");
 // array_free(raw.words);
 // array_free(tidy.words);
@@ -115,6 +119,7 @@ reduce_path :: (path: Path) -> Path {
 // ```jai
 // path := parse_path("src/app/models/user");
 // found, position := path_contains(path, .["app", "models"]);
+//
 // assert(found && position == 1);
 // found, position = path_contains(path, .["models", "app"]);
 // assert(!found);
@@ -144,9 +149,11 @@ path_contains :: (path: Path, words: [] string) -> (contains: bool, position: s3
 //
 // ```jai
 // path := parse_path("/usr/local/bin");
+//
 // defer array_free(path.words);
 //
 // parent := path_to_string(path, 2);
+//
 // #if OS == .WINDOWS assert(parent == "\\usr\\local");
 // else assert(parent == "/usr/local");
 // free(parent);
@@ -178,6 +185,7 @@ path_to_string :: (path: Path, max_words := -1) -> string {
 // text := copy_string("x/y");
 // path := parse_path(text);
 // permanent := copy_to_permanent(path);
+//
 // array_free(path.words);
 // free(text); // the copy no longer depends on it
 // assert(permanent.words.count == 2 && permanent.words[1] == "y");

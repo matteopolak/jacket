@@ -8,6 +8,7 @@
 // ```jai
 // array: Xar(int, 2, 8);
 // first := xar_add(*array, 10);
+//
 // for 1..20 xar_add(*array, it * 10);
 //
 // assert(array.count == 21 && first == *array[0]);
@@ -21,6 +22,7 @@
 //
 // ```jai
 // array: Xar(string, 3, 4); // chunks of 8, 8, 16, 32
+//
 // xar_add(*array, "a");
 // xar_add(*array, "b");
 // assert(array.count == 2 && array[1] == "b");
@@ -42,6 +44,7 @@ xar_add :: Impl.xar_add;
 // ```jai
 // array: Xar(int, 2, 4);
 // for 1..4 xar_add(*array, it);
+//
 // xar_unordered_remove(*array, 0);
 // assert(array.count == 3 && array[0] == 4);
 // xar_reset(*array);
@@ -61,7 +64,9 @@ xar_reset :: Impl.xar_reset;
 // ```jai
 // array: Xar(int, 2, 4);
 // for 1..3 xar_add(*array, it);
+//
 // iterator := xar_iterator(*array, 1);
+//
 // assert(xar_get(*array, iterator).* == 2);
 // xar_reset(*array);
 // ```
@@ -76,6 +81,7 @@ xar_get :: Impl.xar_get;
 //
 // iterator := xar_iterator(*array, 0);
 // sum := xar_get(*array, iterator).*;
+//
 // while true {
 //     element := xar_next(*array, *iterator);
 //     if !element break;
@@ -91,7 +97,9 @@ xar_next :: Impl.xar_next;
 // ```jai
 // array: Xar(int, 2, 4);
 // for 1..3 xar_add(*array, it);
+//
 // iterator := xar_iterator(*array, 2);
+//
 // assert(xar_prev(*array, *iterator).* == 2);
 // xar_reset(*array);
 // ```
@@ -101,8 +109,10 @@ xar_prev :: Impl.xar_prev;
 // ```jai
 // array: Xar(int, 2, 4);
 // for 1..3 xar_add(*array, it);
+//
 // total := 0;
 // for array total += it * it_index;
+//
 // assert(total == 8);
 // xar_reset(*array);
 // ```
@@ -112,7 +122,10 @@ for_expansion :: Impl.for_expansion;
 // ```jai
 // array: Xar(int, 2, 4);
 // for value: int.[3, 1, 2] xar_add(*array, value);
-// quick_sort(array, (a: int, b: int) -> int { return a - b; });
+//
+// quick_sort(array, (a: int, b: int) -> int {
+//     return a - b;
+// });
 // assert(array[0] == 1 && array[2] == 3);
 // xar_reset(*array);
 // ```
@@ -122,7 +135,10 @@ quick_sort :: Impl.quick_sort;
 // ```jai
 // array: Xar(int, 2, 4);
 // for value: int.[2, 1] xar_add(*array, value);
-// quick_sort_simple(array, (a: int, b: int) -> int { return a - b; });
+//
+// quick_sort_simple(array, (a: int, b: int) -> int {
+//     return a - b;
+// });
 // assert(array[0] == 1);
 // xar_reset(*array);
 // ```

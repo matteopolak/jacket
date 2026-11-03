@@ -22,10 +22,12 @@ Channel :: struct(T: Type) {
 //
 // Io.io_run(() {
 //     channel := Io.make_channel(int, 2);
+//
 //     defer Io.free_channel(channel);
 //
 //     Io.send(channel, 1);
 //     value, error := Io.recv(channel);
+//
 //     assert(error == .NONE && value == 1);
 // });
 // ```
@@ -57,6 +59,7 @@ free_channel :: (channel: *Channel($T)) {
 //
 // Io.io_run(() {
 //     channel := Io.make_channel(string, 1);
+//
 //     defer Io.free_channel(channel);
 //
 //     assert(Io.send(channel, "first") == .NONE);
@@ -121,11 +124,15 @@ try_send :: (channel: *Channel($T), value: T) -> bool {
 //
 // Io.io_run(() {
 //     channel := Io.make_channel(int, 1);
+//
 //     defer Io.free_channel(channel);
 //
-//     Io.spawn((c: *Io.Channel(int)) { Io.send(c, 7); }, channel);
+//     Io.spawn((c: *Io.Channel(int)) {
+//         Io.send(c, 7);
+//     }, channel);
 //
 //     value, error := Io.recv(channel); // waits for the spawned fiber
+//
 //     assert(error == .NONE && value == 7);
 // });
 // ```
@@ -155,13 +162,16 @@ recv :: (channel: *Channel($T)) -> T, Io_Error {
 //
 // Io.io_run(() {
 //     channel := Io.make_channel(int, 1);
+//
 //     defer Io.free_channel(channel);
 //
 //     _, found := Io.try_recv(channel);
+//
 //     assert(!found);
 //
 //     Io.send(channel, 5);
 //     value, found2 := Io.try_recv(channel);
+//
 //     assert(found2 && value == 5);
 // });
 // ```
@@ -180,12 +190,14 @@ try_recv :: (channel: *Channel($T)) -> T, bool {
 //
 // Io.io_run(() {
 //     channel := Io.make_channel(int, 2);
+//
 //     defer Io.free_channel(channel);
 //
 //     Io.send(channel, 1);
 //     Io.close(channel);
 //
-//     value, error := Io.recv(channel);  // what was buffered still arrives
+//     value, error := Io.recv(channel); // what was buffered still arrives
+//
 //     assert(error == .NONE && value == 1);
 //
 //     _, error = Io.recv(channel);
@@ -277,7 +289,7 @@ Fiber_Mutex :: struct {
 //     mutex: Io.Fiber_Mutex;
 //
 //     assert(Io.lock(*mutex) == .NONE);
-//     Io.sleep(1);               // safe to wait while holding it
+//     Io.sleep(1); // safe to wait while holding it
 //     Io.unlock(*mutex);
 // });
 // ```
@@ -303,6 +315,7 @@ lock :: (mutex: *Fiber_Mutex) -> Io_Error {
 // Io :: #import "Extensions/Io";
 //
 // mutex: Io.Fiber_Mutex;
+//
 // assert(Io.try_lock(*mutex));
 // assert(!Io.try_lock(*mutex));
 // Io.unlock(*mutex);
@@ -341,7 +354,7 @@ unlock :: (mutex: *Fiber_Mutex) {
 //         // Nothing changes `ready` here, so the wait ends at the deadline.
 //         Io.with_deadline(20, #code {
 //             while !ready {
-//                 error = Io.wait(*changed);           // .TIMED_OUT, .CANCELED
+//                 error = Io.wait(*changed); // .TIMED_OUT, .CANCELED
 //                 if error != .NONE break;
 //             }
 //         });
@@ -388,7 +401,9 @@ wait :: (condition: *Condition) -> Io_Error {
 // Io.io_run(() {
 //     changed: Io.Condition;
 //
-//     Io.spawn((changed: *Io.Condition) { Io.notify_one(changed); }, *changed);
+//     Io.spawn((changed: *Io.Condition) {
+//         Io.notify_one(changed);
+//     }, *changed);
 //
 //     assert(Io.wait(*changed) == .NONE); // the spawned fiber notifies
 // });

@@ -6,9 +6,11 @@
 //
 // ```jai
 // bmp := encode_bmp(make_image(3, 3, .RGB8));
+//
 // defer free(bmp.data);
 //
 // image, ok := decode_bmp(bmp);
+//
 // defer deinit(*image);
 // assert(ok && image.width == 3);
 // ```
@@ -50,8 +52,10 @@ decode_bmp :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Imag
 //
 // ```jai
 // image := make_image(2, 2, .RGBA8);
+//
 // defer deinit(*image);
 // bmp := encode_bmp(image);
+//
 // defer free(bmp.data);
 // assert(detect_image_format(bmp) == .BMP);
 // ```

@@ -4,9 +4,11 @@
 //
 // ```jai
 // lexer: Lexer;
+//
 // set_input_from_string(*lexer, "orchid 23");
 //
 // token := peek_next_token(*lexer);
+//
 // assert(token.type == .IDENT && token.ident_value.name == "orchid");
 // eat_token(*lexer);
 //

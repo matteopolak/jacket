@@ -15,7 +15,10 @@
 //         results = Io.make_channel(int, 4);
 //         defer Io.free_channel(results);
 //
-//         for 1..4 Io.spawn((n: int) { Io.sleep(10 * n); Io.send(results, n); }, it);
+//         for 1..4 Io.spawn((n: int) {
+//             Io.sleep(10 * n);
+//             Io.send(results, n);
+//         }, it);
 //
 //         total := 0;
 //

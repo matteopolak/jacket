@@ -11,7 +11,9 @@
 // a line diff. A test that takes several snapshots numbers them, or names them with `name`.
 //
 // ```jai,no_run
-// Point :: struct { x, y: s32; }
+// Point :: struct {
+//     x, y: s32;
+// }
 //
 // prints_a_point :: (t: *Test) {
 //     expect_snapshot(t, Point.{ 1, 2 });

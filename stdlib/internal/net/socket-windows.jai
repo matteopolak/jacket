@@ -13,10 +13,12 @@ SOCKET_ERROR :: -1;
 // ```jai,skip_on(wasm)
 // assert(socket_init());
 // s := socket(AF_INET, .SOCK_DGRAM, .UDP);
+//
 // defer close_and_reset(*s);
 // assert(set_blocking(s, false));
 //
 // buffer: [8] u8;
+//
 // assert(bind(s, "127.0.0.1", 0) == 0);
 // assert(recv(s, buffer.data, buffer.count, cast(MSG) 0) == -1);
 // assert(get_last_socket_error() == SOCKET_WOULDBLOCK);
@@ -62,6 +64,7 @@ socket_init :: () -> bool {
 // ```jai,skip_on(wasm)
 // assert(socket_init());
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
+//
 // defer close_and_reset(*s);
 //
 // // Nothing listens on port 1, so the connection is refused.
@@ -71,6 +74,7 @@ socket_init :: () -> bool {
 // #if OS == .WINDOWS address.sin_addr.S_un.S_addr = htonl(INADDR_LOOPBACK);
 // else address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 // length: socklen_t = size_of(sockaddr_in);
+//
 // assert(connect(s, cast(*sockaddr) *address, length) != 0);
 // assert(get_last_socket_error() != 0);
 // ```
@@ -88,6 +92,7 @@ get_last_socket_error :: inline () -> W.OS_Error_Code {
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
+//
 // defer close_and_reset(*s);
 //
 // assert(set_blocking(s, false));
@@ -119,6 +124,7 @@ set_blocking :: (s: Socket, blocking: bool) -> bool {
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
+//
 // defer close_and_reset(*s);
 //
 // assert(set_keepalive(s, true));
@@ -159,11 +165,12 @@ set_keepalive :: (s: Socket, keepalive: bool, idle_seconds_before_keepalive: s32
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
+//
 // assert(s != INVALID_SOCKET);
 //
 // close_and_reset(*s);
 // assert(s == INVALID_SOCKET);
-// close_and_reset(*s);  // safe to repeat
+// close_and_reset(*s); // safe to repeat
 // ```
 close_and_reset :: (s: *Socket, loc := #caller_location) {
     if s.* != INVALID_SOCKET {
@@ -179,9 +186,11 @@ close_and_reset :: (s: *Socket, loc := #caller_location) {
 // ```jai,skip_on(wasm)
 // assert(socket_init());
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
+//
 // defer close_and_reset(*s);
 //
 // set: fd_set;
+//
 // FD_SET(s, *set);
 // assert(FD_ISSET(s, *set) != 0);
 // ```
@@ -194,9 +203,11 @@ FD_SET :: (fd: Socket, set: *fd_set) {
 // ```jai,skip_on(wasm)
 // assert(socket_init());
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
+//
 // defer close_and_reset(*s);
 //
 // set: fd_set;
+//
 // FD_SET(s, *set);
 // FD_CLR(s, *set);
 // assert(FD_ISSET(s, *set) == 0);

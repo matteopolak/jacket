@@ -107,8 +107,10 @@ create_window_renderer :: (window: Window_Type, width: int, height: int) -> *Ren
 //
 // ```jai,no_run
 // ui := headless();
+//
 // defer free_ui(*ui);
 // renderer := create_offscreen_renderer(640, 480);
+//
 // defer destroy_renderer(renderer);
 // image := render_to_image(renderer, *ui, rgb(20, 20, 30));
 // ```
@@ -214,9 +216,11 @@ resize_target :: (r: *Renderer, width: int, height: int) {
 // #import "Window_Creation";
 //
 // ui := headless();
+//
 // defer free_ui(*ui);
 // window := create_window(800, 600, "ui");
 // renderer := create_window_renderer(window, 800, 600);
+//
 // present(renderer, *ui, rgb(20, 20, 30));
 // ```
 present :: (r: *Renderer, ui: *UI_State, clear: Color) -> bool {
@@ -249,8 +253,10 @@ present :: (r: *Renderer, ui: *UI_State, clear: Color) -> bool {
 //
 // ```jai,no_run
 // ui := headless();
+//
 // defer free_ui(*ui);
 // renderer := create_offscreen_renderer(320, 200);
+//
 // defer destroy_renderer(renderer);
 // image := render_to_image(renderer, *ui, rgb(255, 255, 255));
 // ```

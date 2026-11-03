@@ -36,7 +36,7 @@ Modifiers :: struct {
 //
 // ```jai
 // mods := Modifiers.{ ctrl = true, shift = true };
-// shortcut := primary(mods);  // Ctrl on Windows and Linux, Cmd on macOS
+// shortcut := primary(mods); // Ctrl on Windows and Linux, Cmd on macOS
 // ```
 primary :: (mods: Modifiers) -> bool {
     #if OS == .MACOS return mods.super;
@@ -104,14 +104,17 @@ Input_State :: struct {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // send_mouse_move(*ui, 20, 20);
 // frame(*ui, *count, build);
@@ -127,16 +130,20 @@ send_mouse_move :: (ui: *UI_State, x: float, y: float) {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // node := find_label(*ui, "Add");
+//
 // send_mouse_move(*ui, node.rect.x + 2, node.rect.y + 2);
 // send_mouse_down(*ui);
 // send_mouse_up(*ui);
@@ -154,16 +161,20 @@ send_mouse_down :: (ui: *UI_State, button: Mouse_Button = .LEFT) {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // node := find_label(*ui, "Add");
+//
 // send_mouse_move(*ui, node.rect.x + 2, node.rect.y + 2);
 // send_mouse_down(*ui);
 // send_mouse_up(*ui);
@@ -182,10 +193,15 @@ send_mouse_up :: (ui: *UI_State, button: Mouse_Button = .LEFT) {
 //
 // ```jai
 // ui := headless(.{ width = 200, height = 100 });
+//
 // defer free_ui(*ui);
+//
 // build := (u: *UI_State) {
-//     for scroll(.{ height = 100 }) { for 0..29 label(tprint("line %", it)); }
+//     for scroll(.{ height = 100 }) {
+//         for 0..29 label(tprint("line %", it));
+//     }
 // };
+//
 // frame(*ui, *ui, build);
 // send_mouse_move(*ui, 50, 50);
 // send_scroll(*ui, 0, -3);
@@ -204,11 +220,19 @@ send_scroll :: (ui: *UI_State, dx: float, dy: float) {
 //
 // ```jai
 // edit: Text_Edit;
+//
 // defer free_text_edit(*edit);
 // set_contents(*edit, "hi");
 // ui := headless();
+//
 // defer free_ui(*ui);
-// build := (e: *Text_Edit) { for column() { text_field(e); } };
+//
+// build := (e: *Text_Edit) {
+//     for column() {
+//         text_field(e);
+//     }
+// };
+//
 // frame(*ui, *edit, build);
 // click(*ui, find_role(*ui, .TEXT_FIELD));
 // frame(*ui, *edit, build);
@@ -228,10 +252,18 @@ send_key :: (ui: *UI_State, key: Key_Code, mods: Modifiers = .{}, repeat: bool =
 //
 // ```jai
 // edit: Text_Edit;
+//
 // defer free_text_edit(*edit);
 // ui := headless();
+//
 // defer free_ui(*ui);
-// build := (e: *Text_Edit) { for column() { text_field(e); } };
+//
+// build := (e: *Text_Edit) {
+//     for column() {
+//         text_field(e);
+//     }
+// };
+//
 // frame(*ui, *edit, build);
 // click(*ui, find_role(*ui, .TEXT_FIELD));
 // frame(*ui, *edit, build);

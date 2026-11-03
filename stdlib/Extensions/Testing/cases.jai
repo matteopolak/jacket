@@ -8,7 +8,10 @@
 // time or to run a helper per case:
 //
 // ```jai
-// Case :: struct { input: string; length: s64; }
+// Case :: struct {
+//     input: string;
+//     length: s64;
+// }
 //
 // checks_each_case :: (t: *Test) {
 //     lengths :: (input: string, length: s64) {
@@ -16,6 +19,7 @@
 //     }
 //
 //     passed := run_cases(t, Case.[.{ "", 0 }, .{ "abc", 3 }], lengths);
+//
 //     expect(passed);
 // }
 // ```
@@ -52,7 +56,11 @@ run_cases :: (t: *Test, cases: [] $T, $body: $B) -> bool {
 // Every member of the enum `T`, in declaration order, as a list for `@cases`:
 //
 // ```jai
-// Color :: enum { RED; GREEN; BLUE; }
+// Color :: enum {
+//     RED;
+//     GREEN;
+//     BLUE;
+// }
 //
 // values := all_values(Color);
 //

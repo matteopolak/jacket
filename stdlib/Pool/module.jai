@@ -5,9 +5,11 @@
 //
 // ```jai
 // pool: Pool;
+//
 // defer release(*pool);
 // values := cast(*int) get(*pool, 4 * size_of(int));
 // for 0..3 values[it] = it * it;
+//
 // assert(values[3] == 9);
 // reset(*pool);
 // ```

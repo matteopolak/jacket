@@ -42,8 +42,13 @@ enable :: (set: *Keymap_Set, keymap: *Keymap, value: bool) {
 // ```jai
 // set: Keymap_Set;
 // map := add_keymap(*set, "game");
-// add_proc(map, "jump", () { /* ... */ });
-// add_proc(map, "run", (down: bool) { /* ... */ });
+//
+// add_proc(map, "jump", () {
+//     /* ... */
+// });
+// add_proc(map, "run", (down: bool) {
+//     /* ... */
+// });
 // assert(map.procs.count == 2);
 // ```
 add_proc :: (keymap: *Keymap, name: string, proc: Key_Press_Proc) {
@@ -72,10 +77,14 @@ add_proc :: (keymap: *Keymap, name: string, proc: Key_Hold_Proc) {
 //
 // set: Keymap_Set;
 // map := add_keymap(*set, "game");
-// add_proc(map, "jump", () { /* ... */ });
+//
+// add_proc(map, "jump", () {
+//     /* ... */
+// });
 //
 // flags: Event.Modifier_Flags;
 // ok, reason := add_mapping(map, .SPACEBAR, flags, true, "jump", true);
+//
 // assert(ok);
 // ok, reason = add_mapping(map, .ENTER, flags, true, "missing", true);
 // assert(!ok && reason == .UNKNOWN_COMMAND);

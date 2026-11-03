@@ -184,7 +184,7 @@ get_character_width_in_pixels :: (using font: *Dynamic_Font, utf8: *u8, effect_f
 // ```jai,no_run,skip_on(wasm)
 // font := load_font("", "Roboto-Regular.ttf", 24);
 // width := prepare_text(font, "Game over");
-// draw_prepared_text(font, (800 - width) / 2, 300);  // centred
+// draw_prepared_text(font, (800 - width) / 2, 300); // centred
 // ```
 prepare_text :: (font: *Dynamic_Font, text: string, effect_flags: Font_Effects = 0) -> (width: s64) {
     convert_to_temporary_glyphs(font, text, effect_flags);
@@ -213,6 +213,7 @@ begin_prepare_text :: (using font: *Dynamic_Font) {
 //
 // ```jai,no_run,skip_on(wasm)
 // font := load_font("", "Roboto-Regular.ttf", 24);
+//
 // begin_prepare_text(font);
 // append_prepare_text(font, "Hello, ");
 // append_prepare_text(font, "world");

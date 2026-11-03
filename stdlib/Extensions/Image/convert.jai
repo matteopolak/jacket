@@ -12,10 +12,12 @@ convert_luma :: inline (r: s32, g: s32, b: s32) -> u8 {
 //
 // ```jai
 // rgb := make_image(1, 1, .RGB8);
+//
 // defer deinit(*rgb);
 // rgb.pixels[0], rgb.pixels[1], rgb.pixels[2] = 255, 255, 255;
 //
 // gray := convert(rgb, .GRAY8);
+//
 // defer deinit(*gray);
 // assert(gray.pixels[0] == 255);
 // ```

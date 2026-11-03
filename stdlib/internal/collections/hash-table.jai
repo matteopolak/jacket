@@ -29,15 +29,18 @@ FIRST_VALID_HASH :: 2;
 //
 // ```jai
 // table: Table(string, int);
+//
 // table_add(*table, "one", 1);
 // table_set(*table, "two", 2);
 // table_set(*table, "two", 22); // replaces
 //
 // found, value := table_find(*table, "two");
+//
 // assert(found && value == 22 && table.count == 2);
 //
 // total := 0;
 // for number, name: table total += number; // `it` is the value, `it_index` the key
+//
 // assert(total == 23);
 //
 // deinit(*table);
@@ -107,8 +110,10 @@ next_power_of_two :: inline (x: int) -> int {
 //
 // ```jai
 // table: Table(int, int);
+//
 // table_add(*table, 1, 10);
 // before := table.allocated;
+//
 // expand(*table);
 // assert(table.allocated > before && table.count == 1);
 // deinit(*table);
@@ -142,9 +147,12 @@ expand :: (table: *Table, new_allocated := -1) {
 //
 // ```jai
 // table: Table(int, int);
+//
 // table_ensure_space(*table, 500);
 // slots := table.allocated;
+//
 // for 0..499 table_add(*table, it, it);
+//
 // assert(table.allocated == slots);
 // deinit(*table);
 // ```
@@ -169,9 +177,12 @@ table_ensure_space :: (using table: *Table, items: s64) {
 //
 // ```jai
 // table: Table(int, int);
+//
 // table_resize(*table, 1000);
 // slots := table.allocated;
+//
 // for 0..999 table_add(*table, it, it);
+//
 // assert(table.allocated == slots && table.count == 1000); // no growth in between
 // deinit(*table);
 // ```
@@ -191,6 +202,7 @@ table_resize :: (using table: *Table, expected_count: s64) {
 // slot := table_add(*table, 1, "one");
 // slot.* = "uno";
 // found, value := table_find(*table, 1);
+//
 // assert(found && value == "uno");
 // deinit(*table);
 // ```
@@ -206,9 +218,11 @@ table_add :: (table: *Table, key: table.Key_Type, value: table.Value_Type) -> *t
 //
 // ```jai
 // table: Table(string, int);
+//
 // table_set(*table, "hits", 1);
 // table_set(*table, "hits", 2);
 // found, value := table_find(*table, "hits");
+//
 // assert(found && value == 2 && table.count == 1);
 // deinit(*table);
 // ```
@@ -234,6 +248,7 @@ table_set :: (table: *Table, key: table.Key_Type, value: table.Value_Type) -> *t
 //
 // ```jai
 // counts: Table(string, int);
+//
 // table_add(*counts, "a", 1);
 // pointer := table_find_pointer(*counts, "a");
 // pointer.* += 1;
@@ -260,8 +275,10 @@ table_contains :: (table: *Table, key: table.Key_Type) -> bool {
 //
 // ```jai
 // table: Table(int, float);
+//
 // table_add(*table, 3, 1.5);
 // found, value := table_find(*table, 3);
+//
 // assert(found && value == 1.5);
 // found, value = table_find(*table, 4);
 // assert(!found && value == 0);
@@ -287,6 +304,7 @@ table_find :: (table: *Table, key: table.Key_Type) -> (success: bool, table.Valu
 //
 // ```jai
 // table: Table(int, string);
+//
 // table_add(*table, 1, "a");
 // table_add(*table, 1, "b");
 // table_add(*table, 2, "c");
@@ -341,8 +359,10 @@ table_find_multiple :: (table: *Table, key: table.Key_Type) -> [] table.Value_Ty
 //
 // ```jai
 // table: Table(int, string);
+//
 // table_add(*table, 5, "five");
 // removed, value := table_remove(*table, 5);
+//
 // assert(removed && value == "five" && table.count == 0);
 // removed, value = table_remove(*table, 5);
 // assert(!removed);
@@ -366,6 +386,7 @@ table_remove :: (table: *Table, key: table.Key_Type) -> (success: bool, value: t
 //
 // ```jai
 // table: Table(int, int);
+//
 // table_add(*table, 1, 10);
 // table_add(*table, 1, 11);
 // table_add(*table, 2, 20);
@@ -393,10 +414,12 @@ table_remove_multiple :: (table: *Table, key: table.Key_Type) -> (num_removed: s
 //
 // ```jai
 // counts: Table(string, int);
+//
 // for word: string.["a", "b", "a"] {
 //     count, added := find_or_add(*counts, word);
 //     count.* += 1;
 // }
+//
 // assert(table_find_pointer(*counts, "a").* == 2 && counts.count == 2);
 // deinit(*counts);
 // ```
@@ -419,8 +442,10 @@ find_or_add :: (table: *Table, key: table.Key_Type) -> (entry: *table.Value_Type
 //
 // ```jai
 // table: Table(int, int);
+//
 // table_add(*table, 1, 1);
 // slots := table.allocated;
+//
 // table_reset_keeping_memory(*table);
 // assert(table.count == 0 && table.allocated == slots);
 // deinit(*table);
@@ -478,6 +503,7 @@ deinit :: (table: *Table) {
 // for square, key: table {
 //     if key % 2 == 0 remove square;
 // }
+//
 // assert(table.count == 5);
 // deinit(*table);
 // ```
@@ -538,10 +564,12 @@ for_expansion :: (table: *$T/Table, body: Code, flags: For_Flags) #expand {
 //
 // ```jai
 // table: Table(int, string);
+//
 // table_add(*table, 7, "seven");
 //
 // key := 7;
 // matches := 0;
+//
 // Walk_Table(#code {
 //     if table_while_loop == hash && table.entries[index].key == key matches += 1;
 // });

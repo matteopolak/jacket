@@ -87,8 +87,8 @@ zone_begin :: inline (zone_index: s64) #expand {
 //
 //     zone_begin(0);
 //     zone_begin(1);
-//     zone_end();  // closes "inner"
-//     zone_end();  // closes "outer"
+//     zone_end(); // closes "inner"
+//     zone_end(); // closes "outer"
 // }
 // ```
 zone_end :: inline () {

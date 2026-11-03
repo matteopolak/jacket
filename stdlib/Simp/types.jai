@@ -23,7 +23,7 @@ Texture_Flags :: enum_flags u16 {
 // ```jai,no_run
 // texture: Texture;
 // texture_load_from_file(*texture, "sprite.png");
-// texture_set_filter(*texture, .NEAREST);  // crisp pixels
+// texture_set_filter(*texture, .NEAREST); // crisp pixels
 // ```
 Texture_Filter :: enum u8 {
     LINEAR;

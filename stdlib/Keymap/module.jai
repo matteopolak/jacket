@@ -12,8 +12,11 @@
 //
 // set: Keymap_Set;
 // map := add_keymap(*set, "editor");
+//
 // set.default_keymap = map;
-// add_proc(map, "save", () { /* runs on C-s */ });
+// add_proc(map, "save", () {
+//     /* runs on C-s */
+// });
 // assert(load_from_memory(*set, "[1]\n[editor]\nC-s save\n"));
 //
 // event: Event;

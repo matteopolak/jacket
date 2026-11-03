@@ -53,7 +53,10 @@ save_trace :: (trace: *Trace, path: string) -> bool {
 //
 // ```jai,no_run
 // trace, ok := load_trace("work.jipt");
-// if ok { assert(trace.frames.count > 0); free_trace(*trace); }
+// if ok {
+//     assert(trace.frames.count > 0);
+//     free_trace(*trace);
+// }
 // ```
 load_trace :: (path: string) -> Trace, bool {
     file, opened := file_open(path);

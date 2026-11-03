@@ -35,7 +35,7 @@ clear_scale_accumulation :: (stream: *Sound_Stream, index: s64) {
 // - camera_orientation: which way the listener faces.
 //
 // ```jai,no_run,skip_on(wasm)
-// update_listener(.{0, 1.7, 0}, .{0, 0, 0, 1});
+// update_listener(.{ 0, 1.7, 0 }, .{ 0, 0, 0, 1 });
 // ```
 update_listener :: (camera_position: Vector3, camera_orientation: Quaternion) {
     lock_player();

@@ -7,11 +7,12 @@
 //
 // response, error := get(*api, "/users/1");
 // if error.kind != .NONE print("%\n", error_text(error));
+//
 // defer close(*response);
 //
 // if response.status == 200 user, error2 := read_json(*response, User);
 //
-// response2 := post(*api, "/users", New_User.{ name = "Ada" });   // a struct is sent as JSON
+// response2 := post(*api, "/users", New_User.{ name = "Ada" }); // a struct is sent as JSON
 // ```
 //
 // A request has one shape: `send(*client, request)`, or a verb (`get`, `head`, `options`, `delete`,
@@ -290,6 +291,7 @@ remove_header :: (client: *Client, name: string) {
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -297,9 +299,11 @@ remove_header :: (client: *Client, name: string) {
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/hello");
+//
 //     defer close(*response);
 //
 //     type, found := header(*response, "content-type");
+//
 //     assert(found && type == "text/plain; charset=utf-8");
 // }
 // ```
@@ -349,6 +353,7 @@ close :: (response: *Client_Response, now := false) {
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     post(*app, "/echo", echo);
@@ -356,10 +361,12 @@ close :: (response: *Client_Response, now := false) {
 //     api := test_client(*app);
 //
 //     response, error := send(api, .{ method = .POST, url = "/echo", body = bytes_of("ping") });
+//
 //     assert(error.kind == .NONE);
 //     defer close(*response);
 //
 //     text, _ := read_text(*response);
+//
 //     defer free(text);
 //     assert(text == "ping");
 // }
@@ -393,6 +400,7 @@ get :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -400,6 +408,7 @@ get :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_
 //     api := test_client(*app);
 //
 //     response, _ := head(api, "/hello");
+//
 //     defer close(*response);
 //
 //     assert(response.status == 200);
@@ -418,6 +427,7 @@ head :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -425,9 +435,11 @@ head :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client
 //     api := test_client(*app);
 //
 //     response, _ := options(api, "/hello");
+//
 //     defer close(*response);
 //
 //     allow, found := header(*response, "Allow");
+//
 //     assert(found && allow.count > 0);
 // }
 // ```
@@ -455,6 +467,7 @@ post :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[]
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     post(*app, "/ping", ping);
@@ -462,9 +475,11 @@ post :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[]
 //     api := test_client(*app);
 //
 //     response, _ := post(api, "/ping");
+//
 //     defer close(*response);
 //
 //     text, _ := read_text(*response);
+//
 //     defer free(text);
 //     assert(text == "pong");
 // }
@@ -486,6 +501,7 @@ post :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     put(*app, "/item", store);
@@ -493,6 +509,7 @@ post :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client
 //     api := test_client(*app);
 //
 //     response, _ := put(api, "/item", Item.{ name = "pen" });
+//
 //     defer close(*response);
 //
 //     assert(response.status == 204);
@@ -515,6 +532,7 @@ put :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[])
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     patch(*app, "/item", apply);
@@ -522,6 +540,7 @@ put :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[])
 //     api := test_client(*app);
 //
 //     response, _ := patch(api, "/item", Change.{ name = "pencil" });
+//
 //     defer close(*response);
 //
 //     assert(response.status == 204);
@@ -545,6 +564,7 @@ patch :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -552,9 +572,11 @@ patch :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/hello");
+//
 //     defer close(*response);
 //
 //     text, error := read_text(*response);
+//
 //     defer free(text);
 //     assert(error.kind == .NONE && text == "hello");
 // }
@@ -574,6 +596,7 @@ read_text :: (response: *Client_Response) -> string, Client_Error {
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -581,9 +604,11 @@ read_text :: (response: *Client_Response) -> string, Client_Error {
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/hello");
+//
 //     defer close(*response);
 //
 //     bytes, error := read_bytes(*response);
+//
 //     defer free(bytes.data);
 //     assert(error.kind == .NONE && bytes.count == 5);
 // }
@@ -705,12 +730,14 @@ body_read_proc :: (data: *void, buffer: [] u8) -> s64, Io.Io_Error {
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/", hello);
 //
 //     api := test_client(*app);
 //     response, _ := get(api, "/");
+//
 //     defer close(*response);
 //
 //     buffer: [4] u8;
@@ -799,13 +826,16 @@ read_some :: (response: *Client_Response, buffer: [] u8) -> int, Client_Error {
 // ```jai,skip_on(wasm)
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     api := test_client(*app);
 //     response, _ := get(api, "/missing");
+//
 //     defer close(*response);
 //
 //     error := error_for_status(*response);
+//
 //     defer free_error(*error);
 //
 //     assert(error.kind == .STATUS && error.status == 404);

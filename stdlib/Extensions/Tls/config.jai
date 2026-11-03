@@ -13,6 +13,7 @@
 // config.max_version = .TLS_1_2;
 //
 // error := tls_config_init(*config);
+//
 // assert(error.kind == .CONFIG);
 // ```
 Tls_Version :: enum u8 {

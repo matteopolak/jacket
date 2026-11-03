@@ -64,9 +64,15 @@ graph_select_sample :: () {
 // #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, DO_HISTORY = true);
 //
 // config: Config;
-// config.draw_text = (x: float, y: float, text: string, color: Vector4) { /* draw with your renderer */ };
-// config.text_width = (text: string) -> float { return 8.0 * text.count; };
-// config.draw_rectangle = (x0: float, y0: float, x1: float, y1: float, color: Vector4) { /* ... */ };
+// config.draw_text = (x: float, y: float, text: string, color: Vector4) {
+//     /* draw with your renderer */
+// };
+// config.text_width = (text: string) -> float {
+//     return 8.0 * text.count;
+// };
+// config.draw_rectangle = (x0: float, y0: float, x1: float, y1: float, color: Vector4) {
+//     /* ... */
+// };
 //
 // update(true);
 // draw(10, 10, 400, 300, *config);

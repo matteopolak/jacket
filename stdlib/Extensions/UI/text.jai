@@ -105,10 +105,12 @@ load_font :: (text: *Text_System, path: string) -> bool {
 //
 // ```jai,no_run
 // ui := headless();
+//
 // defer free_ui(*ui);
 // #import "File";
 //
 // data := read_entire_file("fonts/Inter-Regular.ttf");
+//
 // load_font_data(*ui.text, data, "Inter");
 // ```
 load_font_data :: (text: *Text_System, data: string, name: string = "") -> bool {
@@ -145,7 +147,7 @@ load_font_data :: (text: *Text_System, data: string, name: string = "") -> bool 
 // ui := headless();
 // defer free_ui(*ui);
 // width := text_width(*ui.text, "abcde", .{ size = 10 });
-// assert(width == 30);  // every character is 0.6 of the size wide
+// assert(width == 30); // every character is 0.6 of the size wide
 // ```
 add_synthetic_font :: (text: *Text_System) {
     array_add(*text.fonts, New(Font));
@@ -247,7 +249,7 @@ free_text_system :: (text: *Text_System) {
 // ```jai
 // ui := headless();
 // defer free_ui(*ui);
-// set_scale(*ui.text, 2);  // a Retina display
+// set_scale(*ui.text, 2); // a Retina display
 // ```
 set_scale :: (text: *Text_System, scale: float) {
     text.scale = max(scale, 0.25);
@@ -411,7 +413,7 @@ text_offset_x :: (text: *Text_System, line: string, offset: int, style: Text_Sty
 // ```jai
 // ui := headless();
 // defer free_ui(*ui);
-// index := index_at_x(*ui.text, "abcdef", .{ size = 10 }, 13);  // x = 13 falls in the third character
+// index := index_at_x(*ui.text, "abcdef", .{ size = 10 }, 13); // x = 13 falls in the third character
 // assert(index == 2);
 // ```
 index_at_x :: (text: *Text_System, string_to_measure: string, style: Text_Style, x: float) -> int {

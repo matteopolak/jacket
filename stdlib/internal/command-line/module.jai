@@ -36,6 +36,7 @@ Is_Set :: struct(T: Type) {
 // }
 //
 // ok, options, is_set, files := parse_arguments(Options, args = string.["-verbose", "-count", "3", "a.txt"]);
+//
 // assert(ok && options.verbose && options.count == 3);
 // assert(!is_set.name && files.count == 1 && files[0] == "a.txt");
 // ```
@@ -152,7 +153,11 @@ parse_arguments :: ($T: Type, flags := Default_Argument_Flags, help_triggers: []
 // Prints the options of `T` with their types and defaults, as `parse_arguments` does when asked for help.
 //
 // ```jai,no_run
-// Options :: struct { verbose: bool; count := 1; }
+// Options :: struct {
+//     verbose: bool;
+//     count := 1;
+// }
+//
 // show_help(Options, Default_Argument_Flags, string.["help"]);
 // ```
 show_help :: ($T: Type, flags: Argument_Flags, help_triggers: [] string) {

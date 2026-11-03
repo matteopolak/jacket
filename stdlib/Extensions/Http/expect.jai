@@ -87,6 +87,7 @@ expect_equal :: (actual: $T, expected: T, what := "", loc := #caller_location) -
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -94,6 +95,7 @@ expect_equal :: (actual: $T, expected: T, what := "", loc := #caller_location) -
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/hello");
+//
 //     defer close(*response);
 //
 //     assert(expect_status(response, 200));
@@ -118,6 +120,7 @@ expect_status :: (response: Client_Response, status: int, loc := #caller_locatio
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -125,6 +128,7 @@ expect_status :: (response: Client_Response, status: int, loc := #caller_locatio
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/hello");
+//
 //     defer close(*response);
 //
 //     assert(expect_success(response));
@@ -151,6 +155,7 @@ expect_success :: (response: Client_Response, loc := #caller_location) -> bool {
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -158,6 +163,7 @@ expect_success :: (response: Client_Response, loc := #caller_location) -> bool {
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/hello");
+//
 //     defer close(*response);
 //
 //     assert(expect_header(response, "Content-Type", "text/plain"));
@@ -188,6 +194,7 @@ expect_header :: (response: Client_Response, name: string, value: string, loc :=
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -195,6 +202,7 @@ expect_header :: (response: Client_Response, name: string, value: string, loc :=
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/hello");
+//
 //     defer close(*response);
 //
 //     assert(expect_header(response, "Content-Length"));
@@ -221,12 +229,14 @@ expect_header :: (response: Client_Response, name: string, loc := #caller_locati
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
 //
 //     api := test_client(*app);
 //     response, _ := get(api, "/hello");
+//
 //     defer close(*response);
 //
 //     assert(expect_no_header(response, "Set-Cookie"));
@@ -254,6 +264,7 @@ expect_no_header :: (response: Client_Response, name: string, loc := #caller_loc
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -261,6 +272,7 @@ expect_no_header :: (response: Client_Response, name: string, loc := #caller_loc
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/hello");
+//
 //     defer close(*response);
 //
 //     assert(expect_text(response, "hello"));
@@ -287,6 +299,7 @@ expect_text :: (response: Client_Response, expected: string, loc := #caller_loca
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/hello", hello);
@@ -294,6 +307,7 @@ expect_text :: (response: Client_Response, expected: string, loc := #caller_loca
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/hello");
+//
 //     defer close(*response);
 //
 //     assert(expect_body_contains(response, "ell"));
@@ -323,6 +337,7 @@ expect_body_contains :: (response: Client_Response, needle: string, loc := #call
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/", go_home);
@@ -330,6 +345,7 @@ expect_body_contains :: (response: Client_Response, needle: string, loc := #call
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/");
+//
 //     defer close(*response);
 //
 //     assert(expect_redirect(response, "/home", 302));
@@ -372,6 +388,7 @@ expect_redirect :: (response: Client_Response, location: string, status := 0, lo
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/note", show);
@@ -379,9 +396,11 @@ expect_redirect :: (response: Client_Response, location: string, status := 0, lo
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/note");
+//
 //     defer close(*response);
 //
 //     note := expect_json(response, Note);
+//
 //     assert(note.title == "milk");
 // }
 // ```
@@ -444,6 +463,7 @@ expect_json :: (response: Client_Response, $T: Type, status := 0, loc := #caller
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/notes/{id}", find);
@@ -451,9 +471,11 @@ expect_json :: (response: Client_Response, $T: Type, status := 0, loc := #caller
 //     api := test_client(*app);
 //
 //     response, _ := get(api, "/notes/9");
+//
 //     defer close(*response);
 //
 //     problem := expect_problem(response, 404, "No note 9");
+//
 //     assert(problem.title == "Not Found");
 // }
 // ```

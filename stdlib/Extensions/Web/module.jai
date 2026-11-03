@@ -4,8 +4,10 @@
 //
 // ```jai
 // out: Out;
+//
 // defer deinit(*out);
 // title := "A & B";
+//
 // html(*out, "<h1>{title}</h1>");
 // assert(to_string(*out) == "<h1>A &amp; B</h1>");
 // ```
@@ -24,6 +26,7 @@ Html :: #type,distinct string;
 // Disable `record_links` to skip recording.
 // ```jai
 // out: Out;
+//
 // defer deinit(*out);
 // append(*out, "hello");
 // reset(*out);
@@ -41,6 +44,7 @@ Out :: struct {
 // Clears a page while retaining array capacity for the next page.
 // ```jai
 // out: Out;
+//
 // defer deinit(*out);
 // append(*out, "old");
 // reset(*out);
@@ -82,8 +86,10 @@ append :: (out: *Out, s: string) {
 // Appends a byte range verbatim.
 // ```jai
 // out: Out;
+//
 // defer deinit(*out);
 // s := "ok";
+//
 // append(*out, s.data, s.count);
 // assert(to_string(*out) == s);
 // ```
@@ -94,8 +100,10 @@ append :: (out: *Out, data: *u8, count: int) {
 // Appends a byte slice verbatim.
 // ```jai
 // out: Out;
+//
 // defer deinit(*out);
 // data := u8.[65, 66];
+//
 // append(*out, data);
 // assert(to_string(*out) == "AB");
 // ```
@@ -173,8 +181,12 @@ escape_attribute :: (out: *Out, s: string) {
 // identifier or `*identifier`; its name need not be `out`. Components start with uppercase.
 // Control branches must finish in the same HTML state; loops preserve their entry state.
 // ```jai
-// Card :: (dest: *Out, title: string) { html(dest, "<p>{title}</p>"); }
+// Card :: (dest: *Out, title: string) {
+//     html(dest, "<p>{title}</p>");
+// }
+//
 // out: Out;
+//
 // defer deinit(*out);
 // html(*out, "<main>{Card(\"Hi\")}</main>");
 // assert(to_string(*out) == "<main><p>Hi</p></main>");

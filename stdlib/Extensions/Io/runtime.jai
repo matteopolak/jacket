@@ -17,7 +17,7 @@
 //         error: Io.Io_Error;
 //
 //         Io.with_deadline(20, #code {
-//             _, error = Io.read(client, buffer);       // nothing is ever sent
+//             _, error = Io.read(client, buffer); // nothing is ever sent
 //         });
 //
 //         assert(error == .TIMED_OUT);
@@ -48,8 +48,10 @@ with_deadline :: (milliseconds: s64, body: Code) #expand {
 //         sent: s64;
 //
 //         Io.with_deadline(0, #code {
-//             _, error = Io.read(client, buffer);                // .TIMED_OUT: the deadline has passed
-//             Io.with_grace(1000, #code { sent, _ = Io.write(client, "stop"); });
+//             _, error = Io.read(client, buffer); // .TIMED_OUT: the deadline has passed
+//             Io.with_grace(1000, #code {
+//                 sent, _ = Io.write(client, "stop");
+//             });
 //         });
 //
 //         assert(error == .TIMED_OUT);
@@ -122,7 +124,6 @@ Capabilities :: struct {
 // ```jai
 // Io :: #import "Extensions/Io";
 //
-//
 // Io.io_run(() {
 //     assert(Io.backend() != .NONE);
 //     assert(Io.backend_name().count > 0);
@@ -158,7 +159,6 @@ capabilities :: () -> Capabilities {
 //
 // ```jai
 // Io :: #import "Extensions/Io";
-//
 //
 // assert(Io.processor_count() >= 1);
 // ```
@@ -328,7 +328,6 @@ Local_Entry :: struct {
 //
 // ```jai
 // Io :: #import "Extensions/Io";
-//
 //
 // Io.io_run(() {
 //     counter: int;

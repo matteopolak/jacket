@@ -110,9 +110,11 @@ path_overwrite_separators :: (path: string, separator: u8 = PATH_SEPARATOR) {
 //
 // ```jai
 // same := path_ensure_extension("a.png", "png");
+//
 // assert(same == "a.png");
 //
 // longer := path_ensure_extension("a", "png");
+//
 // defer free(longer);
 // assert(longer == "a.png");
 // ```

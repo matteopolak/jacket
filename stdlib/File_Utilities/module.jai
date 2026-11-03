@@ -14,7 +14,9 @@
 // base := environment_variable("TMPDIR");
 // if base == "" base = environment_variable("TEMP");
 // if base == "" base = "/tmp";
+//
 // path := tprint("%/jai-doc-file-utilities.txt", base);
+//
 // defer file_delete(path);
 //
 // assert(!file_exists(path));
@@ -74,6 +76,7 @@ File_Visit_Info :: Visit.File_Visit_Info;
     // base := environment_variable("TMPDIR");
     // if base == "" base = environment_variable("TEMP");
     // if base == "" base = "/tmp";
+    //
     // root := tprint("%/jai-doc-delete-tree", base);
     //
     // assert(make_directory_if_it_does_not_exist(tprint("%/a/b", root), recursive = true));

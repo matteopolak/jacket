@@ -1,10 +1,16 @@
 // Helpers for working with type information at run time: integer ranges, struct members, enum names and values, and setting a value from text.
 //
 // ```jai
-// Color :: enum { RED; GREEN; BLUE; }
+// Color :: enum {
+//     RED;
+//     GREEN;
+//     BLUE;
+// }
+//
 // assert(enum_value_to_name(Color.GREEN) == "GREEN");
 //
 // value: Color;
+//
 // assert(set_value_from_string(value, "BLUE"));
 // assert(value == .BLUE);
 // ```

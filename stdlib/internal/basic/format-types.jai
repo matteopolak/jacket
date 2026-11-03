@@ -33,9 +33,14 @@ formatFloat :: (value: Any, width := -1, trailing_width := -1, mode := FormatFlo
 // Wraps a struct for `print` with its own layout instead of the default one.
 //
 // ```jai
-// Pair :: struct { a: int; b: int; }
+// Pair :: struct {
+//     a: int;
+//     b: int;
+// }
+//
 // pair := Pair.{ 1, 2 };
 // text := tprint("%", formatStruct(pair, use_long_form_if_more_than_this_many_members = 1));
+//
 // assert(text == "{a = 1; b = 2; }");
 // ```
 //

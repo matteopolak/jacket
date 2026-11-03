@@ -128,12 +128,14 @@ thread_start :: (thread: *Thread) {
 //
 // ```jai
 // count := 0;
+//
 // worker :: (thread: *Thread) -> s64 {
 //     (cast(*int) thread.data).* = 7;
 //     return 0;
 // }
 //
 // thread: Thread;
+//
 // assert(thread_init(*thread, worker));
 // thread.data = *count;
 // thread_start(*thread);

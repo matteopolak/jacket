@@ -24,14 +24,17 @@ Headless_Options :: struct {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // assert(find_label(*ui, "Add") != null);
 // ```
@@ -74,16 +77,20 @@ resize :: (ui: *UI_State, width: float, height: float) {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // node := find(*ui, .{ role = .BUTTON, match_role = true });
+//
 // assert(node != null && node.label == "Add");
 // assert(find(*ui, .{ text = "no such text" }) == null);
 // ```
@@ -102,16 +109,20 @@ Find_Query :: struct {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // text := find(*ui, .{ text = "Clicked 0 times" });
+//
 // assert(text != null);
 // ```
 find :: (ui: *UI_State, query: Find_Query) -> *Node {
@@ -126,14 +137,17 @@ find :: (ui: *UI_State, query: Find_Query) -> *Node {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // assert(find_label(*ui, "Add") != null);
 // assert(find_label(*ui, "Remove") == null);
@@ -150,14 +164,17 @@ find_label :: (ui: *UI_State, label: string) -> *Node {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // assert(find_role(*ui, .TEXT).text == "Clicked 0 times");
 // assert(find_role(*ui, .BUTTON) != null);
@@ -174,14 +191,17 @@ find_role :: (ui: *UI_State, role: Role, index: int = 0) -> *Node {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // click(*ui, find_label(*ui, "Add"));
 // frame(*ui, *count, build);
@@ -203,16 +223,20 @@ click :: (ui: *UI_State, node: *Node) {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // button_node := find_label(*ui, "Add");
+//
 // click_at(*ui, button_node.rect.x + 2, button_node.rect.y + 2);
 // frame(*ui, *count, build);
 // assert(count == 1);
@@ -230,16 +254,20 @@ click_at :: (ui: *UI_State, x: float, y: float) {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // dump := layout_dump(*ui);
+//
 // assert(dump.count > 0);
 // print("%", dump);
 // ```

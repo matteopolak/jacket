@@ -7,9 +7,11 @@
 //
 // ```jai
 // png := encode_png(make_image(5, 3, .GRAY_ALPHA8));
+//
 // defer free(png.data);
 //
 // image, ok, error := decode_png(png);
+//
 // defer deinit(*image);
 // assert(ok && image.format == .GRAY_ALPHA8 && image.height == 3);
 // ```
@@ -66,10 +68,12 @@ decode_png :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Imag
 //
 // ```jai
 // image := make_image(64, 64, .RGB8);
+//
 // defer deinit(*image);
 //
 // fast := encode_png(image, 1);
 // small := encode_png(image, 9);
+//
 // defer free(fast.data);
 // defer free(small.data);
 // assert(small.count <= fast.count);

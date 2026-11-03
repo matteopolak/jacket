@@ -26,12 +26,13 @@ WAVE_FORMAT_DVI_ADPCM :: 0x0011;
 //
 // ```jai
 // bytes: [48] u8 = .[
-//     82, 73, 70, 70, 40, 0, 0, 0, 87, 65, 86, 69,               // "RIFF", size, "WAVE"
-//     102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 1, 0,                // "fmt ", PCM, mono
-//     0x40, 0x1f, 0, 0, 0x40, 0x1f, 0, 0, 1, 0, 8, 0,            // 8000 Hz, 8 bits
-//     100, 97, 116, 97, 4, 0, 0, 0, 1, 2, 3, 4];                 // "data", 4 samples
-// file: string = .{48, bytes.data};
+//     82, 73, 70, 70, 40, 0, 0, 0, 87, 65, 86, 69, // "RIFF", size, "WAVE"
+//     102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 1, 0, // "fmt ", PCM, mono
+//     0x40, 0x1f, 0, 0, 0x40, 0x1f, 0, 0, 1, 0, 8, 0, // 8000 Hz, 8 bits
+//     100, 97, 116, 97, 4, 0, 0, 0, 1, 2, 3, 4]; // "data", 4 samples
+// file: string = .{ 48, bytes.data };
 // format, samples, ok := get_wav_header(file);
+//
 // assert(ok && format.nChannels == 1 && format.nSamplesPerSec == 8000 && samples.count == 4);
 // ```
 get_wav_header :: (file_data: string) -> (format: Waveformatex, samples: string, success: bool = false, extra: Wave_Extra_Info) {

@@ -7,11 +7,14 @@
 //
 // ```jai
 // values: [..] int;
+//
 // array_reserve(*values, 100);
 // assert(values.count == 0 && values.allocated >= 100);
 //
 // data := values.data;
+//
 // for 0..99 array_add(*values, it);
+//
 // assert(values.data == data); // no growth, so nothing moved
 // array_free(values);
 // ```
@@ -51,6 +54,7 @@ maybe_grow :: inline (array: *Resizable_Array, element_size: s64) {
 //
 // ```jai
 // values: [..] int;
+//
 // array_add(*values, 10);
 // array_add(*values, 20, 30);
 //
@@ -126,12 +130,16 @@ array_add :: (array: *[..] $T, to_append: ..T) {
 // ```jai
 // values := int.[5, 8, 5, 13];
 // found, index := array_find(values, 5);
+//
 // assert(found && index == 0);
 //
 // found, index = array_find(values, 6);
 // assert(!found && index == -1);
 //
-// same_half :: (a: int, b: int) -> bool { return a / 2 == b / 2; }
+// same_half :: (a: int, b: int) -> bool {
+//     return a / 2 == b / 2;
+// }
+//
 // found, index = array_find(values, 9, same_half); // 8 and 9 share a half
 // assert(found && index == 1);
 // ```
@@ -166,6 +174,7 @@ array_find :: (array: [] $T, item: T, $compare: (T, T) -> bool = null) -> bool, 
 // ```jai
 // values: [..] string;
 // added, index := array_add_if_unique(*values, "red");
+//
 // assert(added && index == 0);
 // added, index = array_add_if_unique(*values, "blue");
 // assert(added && index == 1);
@@ -191,9 +200,11 @@ array_add_if_unique :: (array: *[..] $T, item: T, $compare: (T, T) -> bool = nul
 // ```jai
 // values := int.[1, 2, 3, 4, 5];
 // middle := array_view(values, 1, 3);
+//
 // assert(middle.count == 3 && middle[0] == 2);
 //
 // tail := array_view(values, 3);
+//
 // assert(tail.count == 2 && tail[1] == 5);
 //
 // middle[0] = 20; // writes into `values`
@@ -225,6 +236,7 @@ array_view :: inline (array: [] $T, index: int, count: int) -> [] T {
 //
 // ```jai
 // list: [..] int;
+//
 // array_add(*list, 1, 2, 4);
 // array_insert_at(*list, 3, 2);
 // assert(list.count == 4 && list[2] == 3 && list[3] == 4);
@@ -251,6 +263,7 @@ array_insert_at :: (array: *[..] $T, item: T, index: int) {
 //
 // ```jai
 // values: [..] int;
+//
 // array_add(*values, 1, 2, 3, 4);
 // array_ordered_remove_by_index(*values, 1);
 // assert(values.count == 3 && values[1] == 3 && values[2] == 4);
@@ -275,6 +288,7 @@ array_ordered_remove_by_index :: inline (array_pointer: *[] $T, index: s64) {
 //
 // ```jai
 // values: [..] int;
+//
 // array_add(*values, 1, 2, 3, 4);
 // array_unordered_remove_by_index(*values, 0);
 // assert(values.count == 3 && values[0] == 4 && values[1] == 2);
@@ -292,6 +306,7 @@ array_unordered_remove_by_index :: inline (array_pointer: *[] $T, index: s64) {
 //
 // ```jai
 // values: [..] int;
+//
 // array_add(*values, 7, 8, 7);
 // assert(array_ordered_remove_by_value(*values, 7));
 // assert(values.count == 2 && values[0] == 8 && values[1] == 7);
@@ -312,11 +327,14 @@ array_ordered_remove_by_value :: inline (array_pointer: *[] $T, item: T) -> bool
 //
 // ```jai
 // values: [..] int;
+//
 // array_add(*values, 1, 2, 1, 3, 1);
 // removed := array_unordered_remove_by_value(*values, 1);
+//
 // assert(removed == 3 && values.count == 2);
 //
 // once := array_unordered_remove_by_value(*values, 2, stop_after_first = true);
+//
 // assert(once == 1 && values.count == 1 && values[0] == 3);
 // array_free(values);
 // ```
@@ -369,6 +387,7 @@ peek :: inline (array: [] $T) -> T {
 //
 // ```jai
 // values: [..] int;
+//
 // array_add(*values, 1, 2, 3);
 // assert(pop(*values) == 3 && pop(*values) == 2);
 // assert(values.count == 1);
@@ -386,8 +405,10 @@ pop :: (array: *[] $T) -> T {
 //
 // ```jai
 // values: [..] int;
+//
 // array_add(*values, 1, 2, 3);
 // capacity := values.allocated;
+//
 // array_reset_keeping_memory(*values);
 // assert(values.count == 0 && values.allocated == capacity);
 // array_free(values);
@@ -462,6 +483,7 @@ array_reset :: (array: *[..] $T) {
 //
 // ```jai
 // values: [..] int;
+//
 // array_resize(*values, 4);
 // assert(values.count == 4 && values[3] == 0);
 //
@@ -535,6 +557,7 @@ resizable :: (a: [] $T, set_allocators := true) -> [..] T {
 // array_free(copy);
 //
 // list: [..] int;
+//
 // array_copy(*list, original);
 // assert(list.count == 3 && list[2] == 3);
 // array_free(list);

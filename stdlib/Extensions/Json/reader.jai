@@ -934,16 +934,19 @@ json_read_number :: (r: *Json_Reader) -> string, bool {
 //
 // ```jai
 // r: Json_Reader;
+//
 // json_reader_init(*r, "[1, 2]");
 // defer json_reader_free(*r);
 // total: s64;
 // first := true;
 // ok := json_begin_array(*r);
+//
 // while ok && json_array_next(*r, *first) == .ITEM {
 //     n: s64;
 //     ok = json_read_signed(*r, *n, 0, 10, "digit");
 //     total += n;
 // }
+//
 // assert(ok && total == 3);
 // ```
 json_reader_init :: (r: *Json_Reader, text: string, options := Json_Options.{}) {

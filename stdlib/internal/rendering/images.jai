@@ -29,7 +29,7 @@ get_image_bytes_per_block :: (tf: Texture_Format) -> int {
 // size, stride := get_image_size(.RGBA8, 10, 5);
 // assert(size == 200 && stride == 40);
 //
-// size, stride = get_image_size(.BC1, 10, 5);  // 3 x 2 blocks of 8 bytes
+// size, stride = get_image_size(.BC1, 10, 5); // 3 x 2 blocks of 8 bytes
 // assert(size == 48 && stride == 24);
 // ```
 get_image_size :: (tf: Texture_Format, w: int, h: int) -> int, stride: int {

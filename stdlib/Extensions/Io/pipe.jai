@@ -57,6 +57,7 @@ Pipe_Link :: struct {
 //
 // Io.io_run(() {
 //     client, server := Io.make_pipe();
+//
 //     defer Io.close(client);
 //     defer Io.close(server);
 //
@@ -64,6 +65,7 @@ Pipe_Link :: struct {
 //
 //     buffer: [8] u8;
 //     count, error := Io.read(server, buffer);
+//
 //     assert(error == .NONE && string.{ count, buffer.data } == "ping");
 // });
 // ```
@@ -175,6 +177,7 @@ write_some :: (stream: *Pipe_Stream, data: [] u8) -> s64, Io_Error {
 //         Io.shutdown_write(near);
 //
 //         text, error := Io.read_all(Io.reader_of(far));
+//
 //         assert(error == .NONE && string.{ text.count, text.data } == "hello");
 //         free(text.data);
 //
@@ -194,6 +197,7 @@ write :: (stream: *Pipe_Stream, text: string) -> s64, Io_Error {
 //
 // Io.io_run(() {
 //     client, server := Io.make_pipe();
+//
 //     defer Io.close(client);
 //     defer Io.close(server);
 //
@@ -201,6 +205,7 @@ write :: (stream: *Pipe_Stream, text: string) -> s64, Io_Error {
 //     Io.shutdown_write(client);
 //
 //     data, _ := Io.read_all(Io.reader_of(server));
+//
 //     assert(cast(string) data == "bye");
 //     free(data.data);
 // });

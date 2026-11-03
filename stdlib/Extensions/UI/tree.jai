@@ -60,19 +60,24 @@ Node :: struct {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // node := find_label(*ui, "Add");
+//
 // click(*ui, node);
 // frame(*ui, *count, build);
 // events := events_of(*ui, find_label(*ui, "Add"));
+//
 // assert(events.hovered);
 // ```
 Node_Events :: struct {
@@ -135,8 +140,13 @@ UI_State :: struct {
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
-// ui.hooks.clipboard_get = () -> string { return "from the hook"; };
+//
+// ui.hooks.clipboard_get = () -> string {
+//     return "from the hook";
+// };
+//
 // assert(ui.hooks.clipboard_get() == "from the hook");
 // ```
 UI_Hooks :: struct {
@@ -160,6 +170,7 @@ Cursor_Kind :: enum u8 {
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
 // push_ui(*ui);
 // assert(current_ui() == *ui);
@@ -195,6 +206,7 @@ free_ui :: (ui: *UI_State) {
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
 // push_ui(*ui);
 // begin_frame(*ui);
@@ -230,6 +242,7 @@ begin_frame :: (ui: *UI_State) {
 //
 // ```jai
 // ui := headless(.{ width = 200, height = 100 });
+//
 // defer free_ui(*ui);
 // push_ui(*ui);
 // begin_frame(*ui);
@@ -262,14 +275,17 @@ end_frame :: (ui: *UI_State) {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // click(*ui, find_label(*ui, "Add"));
 // frame(*ui, *count, build);
@@ -303,6 +319,7 @@ frame :: (ui: *UI_State, app: *$T, build: (app: *T)) {
 // ```jai
 // first := headless();
 // second := headless();
+//
 // defer free_ui(*first);
 // defer free_ui(*second);
 //
@@ -336,10 +353,15 @@ pop_ui :: () {
 // - value: anything that identifies the item and stays the same as the list changes.
 //
 // ```jai
-// Item :: struct { id: int; name: string; }
+// Item :: struct {
+//     id: int;
+//     name: string;
+// }
+//
 // items := Item.[.{ 7, "seven" }, .{ 9, "nine" }];
 //
 // ui := headless();
+//
 // defer free_ui(*ui);
 // frame(*ui, *items, (list: *[2] Item) {
 //     for column() {
@@ -366,6 +388,7 @@ key :: (value: $T) {
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
 // push_ui(*ui);
 // begin_frame(*ui);
@@ -399,6 +422,7 @@ state :: (node: *Node, $T: Type) -> *T {
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
 // push_ui(*ui);
 // begin_frame(*ui);
@@ -440,6 +464,7 @@ widget :: (kind: Node_Kind, role: Role, style: Style, loc: Source_Code_Location)
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
 // push_ui(*ui);
 // begin_frame(*ui);
@@ -463,6 +488,7 @@ begin_container :: (axis: Axis, role: Role, style: Style, loc: Source_Code_Locat
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
 // push_ui(*ui);
 // begin_frame(*ui);
@@ -482,7 +508,7 @@ end_container :: (ui: *UI_State) {
 // ```jai
 // ui := headless();
 // defer free_ui(*ui);
-// scratch := alloc(16,, frame_allocator(*ui));  // freed when the next frame begins
+// scratch := alloc(16,, frame_allocator(*ui)); // freed when the next frame begins
 // assert(scratch != null);
 // ```
 frame_allocator :: (ui: *UI_State) -> Allocator {
@@ -518,16 +544,20 @@ frame_string :: (ui: *UI_State, text: string) -> string {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // events := events_of(*ui, find_label(*ui, "Add"));
+//
 // assert(!events.clicked);
 // ```
 events_of :: (ui: *UI_State, node: *Node) -> Node_Events {
@@ -550,14 +580,17 @@ events_of :: (ui: *UI_State, node: *Node) -> Node_Events {
 //
 // ```jai
 // ui := headless(.{ width = 320, height = 200 });
+//
 // defer free_ui(*ui);
 // count := 0;
+//
 // build := (n: *int) {
 //     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", n.*));
 //         if button("Add") n.* += 1;
 //     }
 // };
+//
 // frame(*ui, *count, build);
 // focus_node(*ui, find_label(*ui, "Add"));
 // frame(*ui, *count, build);

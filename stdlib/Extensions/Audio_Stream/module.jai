@@ -36,7 +36,10 @@ Reader :: struct {
 // or malformed headers. PCM 8/16/24/32-bit and IMA ADPCM, one or two channels, are accepted.
 // ```jai,no_run
 // r: Reader;
-// if open(*r, "song.ogg") { defer close(*r); assert(r.rate > 0); }
+// if open(*r, "song.ogg") {
+//     defer close(*r);
+//     assert(r.rate > 0);
+// }
 // ```
 open :: (r: *Reader, path: string) -> bool {
     r.* = .{};

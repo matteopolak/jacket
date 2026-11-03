@@ -10,11 +10,13 @@ Builder_Types :: #import "internal/basic-builder-types"(ENABLE_ASSERT = ENABLE_A
 //
 // ```jai
 // builder: String_Builder;
+//
 // defer free_buffers(*builder);
 // append(*builder, "a");
 // append(*builder, #char "b");
 // print_to_builder(*builder, "%", 3);
 // text := builder_to_string(*builder);
+//
 // defer free(text);
 // assert(text == "ab3");
 // ```
@@ -40,6 +42,7 @@ get_buffer_data :: inline (using buffer: *String_Builder.Buffer) -> *u8 {
 //
 // ```jai
 // builder: String_Builder;
+//
 // init_string_builder(*builder, 64 * 1024);
 // defer free_buffers(*builder);
 // append(*builder, "ready");
@@ -82,12 +85,14 @@ ensure_contiguous_space :: (using builder: *String_Builder, bytes: s64) -> point
 //
 // ```jai
 // builder: String_Builder;
+//
 // defer free_buffers(*builder);
 // space := ensure_contiguous_space_and_return_available_range(*builder, 8);
 // space[0] = #char "h";
 // space[1] = #char "i";
 // advance_through_ensured_space(*builder, 2);
 // text := builder_to_string(*builder);
+//
 // defer free(text);
 // assert(text == "hi");
 // ```
@@ -113,6 +118,7 @@ expand :: (using builder: *String_Builder) -> bool {
 // ```jai
 // a: String_Builder;
 // b: String_Builder;
+//
 // defer free_buffers(*a);
 // defer free_buffers(*b);
 // append(*a, "one ");
@@ -120,6 +126,7 @@ expand :: (using builder: *String_Builder) -> bool {
 // append_and_steal_buffers(*a, *b);
 // assert(builder_string_length(*b) == 0);
 // text := builder_to_string(*a);
+//
 // defer free(text);
 // assert(text == "one two");
 // ```
@@ -179,8 +186,10 @@ advance_through_ensured_space :: (using builder: *String_Builder, bytes: s64) {
 //
 // ```jai
 // builder: String_Builder;
+//
 // defer free_buffers(*builder);
 // data := u8.[1, 2, 3];
+//
 // append(*builder, data.data, 3);
 // assert(builder_string_length(*builder) == 3);
 // ```
@@ -204,10 +213,12 @@ append :: (using builder: *String_Builder, s: *u8, length: s64) {
 //
 // ```jai
 // builder: String_Builder;
+//
 // defer free_buffers(*builder);
 // append(*builder, "hello, ");
 // append(*builder, "world");
 // text := builder_to_string(*builder);
+//
 // defer free(text);
 // assert(text == "hello, world");
 // ```
@@ -219,10 +230,12 @@ append :: inline (builder: *String_Builder, s: string) {
 //
 // ```jai
 // builder: String_Builder;
+//
 // defer free_buffers(*builder);
 // append(*builder, #char "A");
 // append(*builder, #char "B");
 // text := builder_to_string(*builder);
+//
 // defer free(text);
 // assert(text == "AB");
 // ```
@@ -240,8 +253,10 @@ append :: inline (using builder: *String_Builder, byte: u8) {
 //
 // ```jai
 // builder: String_Builder;
+//
 // defer free_buffers(*builder);
 // value: u32 = 0x01020304;
+//
 // append_by_pointer(*builder, *value);
 // assert(builder_string_length(*builder) == 4);
 // ```
@@ -257,6 +272,7 @@ simple_memcpy :: inline (using builder: *String_Builder, x: $T) {
 //
 // ```jai
 // builder: String_Builder;
+//
 // defer free_buffers(*builder);
 // assert(builder_string_length(*builder) == 0);
 // append(*builder, "abc");
@@ -308,11 +324,13 @@ free_buffers :: (using builder: *String_Builder) {
 //
 // ```jai
 // builder: String_Builder;
+//
 // defer free_buffers(*builder);
 // append(*builder, "old");
 // reset(*builder);
 // append(*builder, "new");
 // text := builder_to_string(*builder);
+//
 // defer free(text);
 // assert(text == "new");
 // ```
@@ -336,9 +354,11 @@ reset :: (using builder: *String_Builder) {
 //
 // ```jai
 // builder: String_Builder;
+//
 // append(*builder, "total: ");
 // print_to_builder(*builder, "%", 42);
 // text := builder_to_string(*builder);
+//
 // defer free(text);
 // assert(text == "total: 42");
 // ```

@@ -34,9 +34,11 @@ bitmap_load :: (bitmap: *Bitmap, filepath: string) -> bool {
 // #import "Extensions/Image";
 //
 // png := encode_png(make_image(2, 2, .RGB8));
+//
 // defer free(png.data);
 //
 // bitmap: Bitmap;
+//
 // assert(bitmap_load_from_memory(*bitmap, png));
 // defer deinit(*bitmap);
 // assert(bitmap.width == 2 && bitmap.format == .RGB8);

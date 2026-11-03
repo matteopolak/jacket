@@ -1,9 +1,13 @@
 // Fixed-size arrays of structs stored as one array per member: `Soa(T, N)`.
 //
 // ```jai
-// Point :: struct { x: float; y: float; }
+// Point :: struct {
+//     x: float;
+//     y: float;
+// }
+//
 // points: Soa(Point, 4);
-// points[0] = .{1, 2};
+// points[0] = .{ 1, 2 };
 // assert(points.y[0] == 2);
 // ```
 
@@ -15,7 +19,10 @@
 // Constant, imported and overlapping members of `T` are not stored: reading gives them their default value.
 //
 // ```jai
-// Particle :: struct { x: float; y: float; }
+// Particle :: struct {
+//     x: float;
+//     y: float;
+// }
 //
 // particles: Soa(Particle, 3);
 // particles[1] = .{ 2, 5 };
@@ -32,12 +39,18 @@ Soa :: Impl.Soa;
 // iteration is not supported.
 //
 // ```jai
-// Pair :: struct { a: int; b: int; }
+// Pair :: struct {
+//     a: int;
+//     b: int;
+// }
 //
 // values: Soa(Pair, 2);
+//
 // for *pair, index: values pair.a = index + 10;
+//
 // total := 0;
 // for pair: values total += pair.a;
+//
 // assert(total == 21);
 // ```
 for_expansion :: Impl.for_expansion;

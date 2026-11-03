@@ -7,9 +7,11 @@
 // ```jai
 // cut := u8.[0xe2, 0x82]; // the start of a three byte character
 // _, _, status := character_utf8_to_utf32(cut.data, 2, true);
+//
 // assert(status == .SOURCE_EXHAUSTED);
 //
 // stray := u8.[0x80]; // a continuation byte with nothing before it
+//
 // _, _, status = character_utf8_to_utf32(stray.data, 1, true);
 // assert(status == .SOURCE_ILLEGAL);
 // ```
@@ -67,13 +69,16 @@ trailingBytesForUTF8 :: #run trailing_table();
 //
 // ```jai
 // code, size, status := character_utf8_to_utf32("\xe2\x82\xac".data, 3);
+//
 // assert(status == .CONVERSION_OK && code == 0x20ac && size == 3);
 //
 // bad := "\xc0\x80";
+//
 // code, size, status = character_utf8_to_utf32(bad.data, bad.count, true);
 // assert(status == .SOURCE_ILLEGAL && code == UNI_REPLACEMENT_CHAR && size == 2);
 //
 // stray := "\x80";
+//
 // code, size, status = character_utf8_to_utf32(stray.data, stray.count);
 // assert(status == .SOURCE_ILLEGAL && code == UNI_REPLACEMENT_CHAR && size == 1);
 //
@@ -130,6 +135,7 @@ character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32
 // ```jai
 // text := "a\xc3\xa9";
 // code, status := utf8_next_character(*text);
+//
 // assert(status == .CONVERSION_OK && code == #char "a");
 // code, status = utf8_next_character(*text);
 // assert(status == .CONVERSION_OK && code == 0xe9 && text.count == 0);
@@ -229,8 +235,10 @@ character_utf32_to_utf8 :: (ch: u32) -> string {
 // ```jai
 // text := "a\xc3\xa9\xe2\x82\xac";
 // codes: [..] u32;
+//
 // defer array_free(codes);
 // for: utf8_iter text array_add(*codes, it);
+//
 // assert(codes.count == 3 && codes[0] == #char "a" && codes[1] == 0xe9 && codes[2] == 0x20ac);
 // ```
 utf8_iter :: (s: *string, body: Code, flags: For_Flags) #expand {

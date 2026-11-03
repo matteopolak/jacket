@@ -7,16 +7,17 @@
 //
 // User :: struct @json(rename_all=camelCase) {
 //     id: int;
-//     display_name: string;                 // "displayName"
-//     email: string;      @json(skip_serializing_if=empty)
+//     display_name: string; // "displayName"
+//     email: string; @json(skip_serializing_if=empty)
 //     tags: [..] string;
 // }
 //
-// ada := User.{id = 7, display_name = "Ada"};
-// text := to_json(ada);                     // pretty: to_json(ada, pretty = true)
-// user, error := from_json(User, text);     // error.kind == .NONE on success
-// value, value_error := from_json(Json_Value, text);    // when the shape is unknown
-// free_json(*user);                         // also for a Json_Value and a Json_Error
+// ada := User.{ id = 7, display_name = "Ada" };
+// text := to_json(ada); // pretty: to_json(ada, pretty = true)
+// user, error := from_json(User, text); // error.kind == .NONE on success
+// value, value_error := from_json(Json_Value, text); // when the shape is unknown
+//
+// free_json(*user); // also for a Json_Value and a Json_Error
 // ```
 
 // Why decoding failed.
@@ -61,11 +62,15 @@ Json_Duplicate_Keys :: enum u8 {
 // Limits and strictness for [from_json].
 //
 // ```jai
-// Point :: struct { x: int; y: int; }
+// Point :: struct {
+//     x: int;
+//     y: int;
+// }
 //
 // options: Json_Options;
 // options.deny_unknown_fields = true;
 // _, error := from_json(Point, "{\"x\": 1, \"y\": 2, \"z\": 3}", options);
+//
 // assert(error.kind == .UNKNOWN_FIELD);
 // free_json(*error);
 // ```
@@ -107,15 +112,20 @@ Json_Presence :: enum u8 {
 // A member type for a field that may be absent: it holds a [Json_Presence] and the value.
 //
 // ```jai
-// Patch :: struct { name: Json_Maybe(string); }
+// Patch :: struct {
+//     name: Json_Maybe(string);
+// }
 //
 // missing, _ := from_json(Patch, "{}");
+//
 // assert(missing.name.state == .MISSING);
 //
 // cleared, _ := from_json(Patch, "{\"name\": null}");
+//
 // assert(cleared.name.state == .NULL);
 //
 // renamed, _ := from_json(Patch, "{\"name\": \"Ada\"}");
+//
 // assert(renamed.name.state == .SET && renamed.name.value == "Ada");
 // free_json(*renamed);
 // ```
@@ -145,9 +155,12 @@ json_index_stats: Json_Index_Stats;
 // with the temporary allocator.
 //
 // ```jai
-// Item :: struct { tags: [..] string; }
+// Item :: struct {
+//     tags: [..] string;
+// }
 //
 // _, error := from_json(Item, "{\"tags\": [\"a\", 2]}");
+//
 // assert(json_path_text(error) == "$.tags[1]");
 // free_json(*error);
 // ```
@@ -233,9 +246,13 @@ free_json :: (error: *Json_Error) {
 // - pretty: indents with two spaces and puts members on their own lines.
 //
 // ```jai
-// Point :: struct { x: int; y: int; }
+// Point :: struct {
+//     x: int;
+//     y: int;
+// }
 //
 // text := to_json(Point.{ 1, 2 });
+//
 // assert(text == "{\"x\":1,\"y\":2}");
 // free(text);
 // ```
@@ -281,19 +298,26 @@ Json_Source :: struct {
 // is not read.
 //
 // ```jai
-// Chunks :: struct { parts: [] string; next: int; }
+// Chunks :: struct {
+//     parts: [] string;
+//     next: int;
+// }
 //
 // fill :: (data: *void, buffer: [] u8) -> s64, string {
 //     chunks := cast(*Chunks) data;
 //     if chunks.next >= chunks.parts.count return 0, "";
+//
 //     part := chunks.parts[chunks.next];
+//
 //     chunks.next += 1;
 //     memcpy(buffer.data, part.data, part.count);
+//
 //     return part.count, "";
 // }
 //
 // chunks := Chunks.{ parts = .["[1, ", "2, 3]"] };
 // numbers, error := from_json([] s64, Json_Source.{ *chunks, fill });
+//
 // assert(error.kind == .NONE && numbers.count == 3);
 // free_json(*numbers);
 // ```
@@ -338,6 +362,7 @@ from_json :: ($T: Type, source: Json_Source, options := Json_Options.{}) -> T, J
 //
 // ```jai
 // numbers, error := from_json([] s64, "[1, 2, 3]");
+//
 // assert(error.kind == .NONE && numbers.count == 3 && numbers[2] == 3);
 // free_json(*numbers);
 //
@@ -475,6 +500,7 @@ free_json :: (value: *$T) {
 //
 // assert(to_json(Price.{ 1250 }) == "{\"cents\":12.5}");
 // price, _ := from_json(Price, "{\"cents\": 3.25}");
+//
 // assert(price.cents == 325);
 // ```
 json_encode :: (w: *Json_Writer, value: *$T) {

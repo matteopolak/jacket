@@ -9,11 +9,18 @@
 //     Io.io_run(() {
 //         config, error := Pg.parse_url("postgres://app@localhost/app_dev");
 //         db:, error = Pg.connect(config);
-//         if error.kind != .NONE { print("%\n", Pg.error_text(error)); return; }
+//
+//         if error.kind != .NONE {
+//             print("%\n", Pg.error_text(error));
+//             return;
+//         }
+//
 //         defer Pg.close(db);
 //
 //         result:, error = Pg.query_dynamic(db, "SELECT id, name FROM users WHERE id > $1", 10);
+//
 //         defer Pg.free_result(*result);
+//
 //         for row: 0..result.row_count - 1 {
 //             id := Pg.get(*result, row, 0, s64);
 //             name := Pg.get(*result, row, 1, string);

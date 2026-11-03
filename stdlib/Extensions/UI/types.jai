@@ -157,8 +157,11 @@ Justify :: enum u8 {
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
-// frame(*ui, *ui, (u: *UI_State) { button("OK"); });
+// frame(*ui, *ui, (u: *UI_State) {
+//     button("OK");
+// });
 // assert(find_role(*ui, .BUTTON).label == "OK");
 // ```
 Role :: enum u8 {
@@ -183,7 +186,7 @@ Role :: enum u8 {
 //
 // ```jai
 // style := Style.{ gap = 8, padding = 12, background = rgb(30, 30, 40), radius = 6 };
-// assert(style.grow == 0);  // zero means automatic
+// assert(style.grow == 0); // zero means automatic
 // ```
 Style :: struct {
     gap: float; // space between children

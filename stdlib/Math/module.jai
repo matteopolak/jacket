@@ -10,12 +10,14 @@
 // ```jai
 // a := xyz(1, 2, 3);
 // b := xyz(4, 5, 6);
+//
 // assert(a + b == xyz(5, 7, 9));
 // assert(dot(a, b) == 32);
 // assert(cross(xyz(1, 0, 0), xyz(0, 1, 0)) == xyz(0, 0, 1));
 // assert(length(xyz(3, 4, 0)) == 5);
 //
 // m := make_translation_matrix4(xyz(10, 0, 0));
+//
 // assert(transform_point(m, xyz(1, 2, 3)) == xyz(11, 2, 3));
 // ```
 
@@ -51,8 +53,10 @@ Vector4 :: Impl.Vector4;
 //
 // ```jai
 // q: Quaternion;
+//
 // set_from_axis_and_angle(*q, xyz(0, 0, 1), PI / 2); // quarter turn about z
 // v := rotate(xyz(1, 0, 0), q);
+//
 // assert(abs(v.x) < 0.0001 && abs(v.y - 1) < 0.0001);
 // assert(Quaternion.{} == Quaternion.{ 0, 0, 0, 1 });
 // ```
@@ -122,6 +126,7 @@ AnyMatrix4x3 :: Impl.AnyMatrix4x3;
 // t := make_translation_matrix4(xyz(1, 2, 3));
 // s := make_scale_matrix4(xyz(2, 2, 2));
 // m := t * s; // scale first, then translate
+//
 // assert(m * xyzw(1, 1, 1, 1) == xyzw(3, 4, 5, 1));
 // assert(m.v[0] == xyzw(2, 0, 0, 1));
 // ```
@@ -560,9 +565,11 @@ rgba :: Impl.rgba;
 // ```jai
 // v := xyz(0, 3, 4);
 // n := normalize(*v);
+//
 // assert(n == 5 && v == xyz(0, 0.6, 0.8));
 // assert(normalize(xy(0, 2)) == xy(0, 1));
 // w := xy(0, 0);
+//
 // normalize(*w, fallback = xy(1, 0));
 // assert(w == xy(1, 0));
 // ```
@@ -588,11 +595,14 @@ cross_product :: Impl.cross_product;
 //
 // ```jai
 // v := rotate(xy(1, 0), PI / 2);
+//
 // assert(abs(v.x) < 0.0001 && abs(v.y - 1) < 0.0001);
 //
 // q: Quaternion;
+//
 // set_from_axis_and_angle(*q, xyz(0, 0, 1), PI);
 // w := rotate(xyz(1, 0, 0), q);
+//
 // assert(abs(w.x + 1) < 0.0001 && abs(w.y) < 0.0001);
 // ```
 rotate :: Impl.rotate;
@@ -600,8 +610,10 @@ rotate :: Impl.rotate;
 //
 // ```jai
 // q := Quaternion.{ 0, 0, 0, 2 };
+//
 // assert(normalize_or_identity(*q) == 2 && q == Quaternion.{ 0, 0, 0, 1 });
 // z := Quaternion.{ 0, 0, 0, 0 };
+//
 // normalize_or_identity(*z);
 // assert(z == Quaternion.{});
 // ```
@@ -611,8 +623,10 @@ normalize_or_identity :: Impl.normalize_or_identity;
 // ```jai
 // a := Quaternion.{};
 // b: Quaternion;
+//
 // set_from_axis_and_angle(*b, xyz(0, 0, 1), PI / 2);
 // m := nlerp(a, b, 0.5);
+//
 // assert(abs(length(m) - 1) < 0.0001);
 // assert(nlerp(a, b, 0) == a);
 // ```
@@ -622,9 +636,11 @@ nlerp :: Impl.nlerp;
 // ```jai
 // a := Quaternion.{};
 // b: Quaternion;
+//
 // set_from_axis_and_angle(*b, xyz(0, 0, 1), PI / 2);
 // half := slerp(a, b, 0.5);
 // _, _, _, angle := get_axis_and_angle(half);
+//
 // assert(abs(angle - PI64 / 4) < 0.0001);
 // ```
 slerp :: Impl.slerp;
@@ -632,6 +648,7 @@ slerp :: Impl.slerp;
 //
 // ```jai
 // q: Quaternion;
+//
 // set_from_axis_and_angle(*q, xyz(0, 0, 1), PI);
 // assert(abs(q.z - 1) < 0.0001 && abs(q.w) < 0.0001);
 // set_from_axis_and_angle(*q, 1, 0, 0, 0);
@@ -660,10 +677,13 @@ conjugate :: Impl.conjugate;
 //
 // ```jai
 // q: Quaternion;
+//
 // set_from_axis_and_angle(*q, xyz(0, 0, 1), PI / 2);
 // m: Matrix3;
+//
 // set_rotation(*m, q);
 // v := m * xyz(1, 0, 0);
+//
 // assert(abs(v.x) < 0.0001 && abs(v.y - 1) < 0.0001);
 // ```
 set_rotation :: Impl.set_rotation;
@@ -671,8 +691,10 @@ set_rotation :: Impl.set_rotation;
 //
 // ```jai
 // q: Quaternion;
+//
 // set_from_axis_and_angle(*q, xyz(0, 0, 1), PI / 2);
 // m := rotation_matrix(Matrix4, q);
+//
 // assert(m._44 == 1 && m._14 == 0);
 // assert(abs((m * xyzw(1, 0, 0, 1)).y - 1) < 0.0001);
 // ```
@@ -742,6 +764,7 @@ make_matrix4 :: Impl.make_matrix4;
 // ```jai
 // m := Matrix3.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 // t := transpose(m);
+//
 // assert(t._12 == 4 && t._21 == 2);
 // transpose(*m);
 // assert(m == t);
@@ -774,8 +797,10 @@ make_scale_matrix4 :: Impl.make_scale_matrix4;
 // ```jai
 // m := Matrix3_Identity;
 // scaled := scale(m, 2.0);
+//
 // assert(scaled * xyz(1, 1, 1) == xyz(2, 2, 2));
 // m2 := scale(Matrix3_Identity, xyz(1, 2, 3));
+//
 // assert(m2 * xyz(1, 1, 1) == xyz(1, 2, 3));
 // ```
 scale :: Impl.scale;
@@ -832,6 +857,7 @@ orthographic_projection_matrix :: Impl.orthographic_projection_matrix;
 // ```jai
 // m := make_frustum_matrix(-1, 1, -1, 1, 1, 10);
 // p := m * xyzw(0, 0, -1, 1); // on the near plane
+//
 // assert(abs(p.z / p.w + 1) < 0.0001);
 // p = m * xyzw(0, 0, -10, 1); // on the far plane
 // assert(abs(p.z / p.w - 1) < 0.0001);
@@ -842,6 +868,7 @@ make_frustum_matrix :: Impl.make_frustum_matrix;
 // ```jai
 // m := make_projection_matrix(PI / 2, 1.0, 1, 100);
 // p := m * xyzw(0, 0, -1, 1);
+//
 // assert(abs(p.x) < 0.0001 && abs(p.w - 1) < 0.0001);
 // p = m * xyzw(1, 1, -1, 1); // a point at 45 degrees lands at the edge of clip space
 // assert(abs(p.x / p.w - 1) < 0.0001 && abs(p.y / p.w - 1) < 0.0001);
@@ -909,11 +936,13 @@ inverse_lengyel :: Impl.inverse_lengyel;
 //
 // ```jai
 // q: Quaternion;
+//
 // set_from_axis_and_angle(*q, xyz(0, 0, 1), 0.7);
 // m := rotation_matrix(Matrix4, q);
 // m._14 = 3;
 // inv := isometry_inverse(m);
 // p := transform_point(inv, transform_point(m, xyz(1, 2, 3)));
+//
 // assert(abs(p.x - 1) < 0.0001 && abs(p.y - 2) < 0.0001 && abs(p.z - 3) < 0.0001);
 // ```
 isometry_inverse :: Impl.isometry_inverse;
@@ -943,8 +972,10 @@ norm_one :: Impl.norm_one;
 // ```jai
 // v := xyz(1, 2, 2);
 // h := Matrix3_Identity;
+//
 // reflect_cols(*h, make_reflector(v));
 // r := h * v;
+//
 // assert(abs(r.x) < 0.0001 && abs(r.y) < 0.0001 && abs(r.z + 3) < 0.0001);
 // ```
 make_reflector :: Impl.make_reflector;
@@ -969,6 +1000,7 @@ reflect_rows :: Impl.reflect_rows;
 // ```jai
 // m := Matrix3.{ 0, -2, 0, 3, 0, 0, 0, 0, 1 };
 // q, s, det := polar_decomp(m);
+//
 // assert(abs(det - 6) < 0.0001);
 // back := q * s;
 // for 0..8 assert(abs(back.floats[it] - m.floats[it]) < 0.0001);
@@ -1025,6 +1057,7 @@ print_matrix :: Impl.print_matrix;
 // #import "Basic";
 // context.print_style.struct_printer = math_struct_printer;
 // text := tprint("%", xyz(1, 2, 3.5));
+//
 // assert(text == "(1.000000, 2.000000, 3.500000)");
 // assert(tprint("%", Quaternion.{}) == "(0.000000, 0.000000, 0.000000, 1.000000)");
 // ```

@@ -11,15 +11,17 @@
 // #import "Basic";
 // #import "Extensions/UI";
 //
-// App :: struct { count: int; }
+// App :: struct {
+//     count: int;
+// }
 //
 // main :: () {
 //     app: App;
-//     run_app(.{title = "Counter", width = 320, height = 200}, *app, build);
+//     run_app(.{ title = "Counter", width = 320, height = 200 }, *app, build);
 // }
 //
 // build :: (app: *App) {
-//     for column(.{gap = 8, padding = 16}) {
+//     for column(.{ gap = 8, padding = 16 }) {
 //         label(tprint("Clicked % times", app.count));
 //         if button("Click me") app.count += 1;
 //     }

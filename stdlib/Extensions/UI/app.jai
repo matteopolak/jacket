@@ -41,7 +41,7 @@ App_Window :: struct {
 //
 // main :: () {
 //     app: Counter;
-//     run_app(.{title = "Counter", width = 320, height = 200}, *app, build);
+//     run_app(.{ title = "Counter", width = 320, height = 200 }, *app, build);
 // }
 //
 // build :: (app: *Counter) {
@@ -50,7 +50,9 @@ App_Window :: struct {
 // ```
 //
 // ```jai,no_run
-// App :: struct { count: int; }
+// App :: struct {
+//     count: int;
+// }
 //
 // main :: () {
 //     app: App;
@@ -86,7 +88,10 @@ run_app :: (options: App_Options, app: *$T, build: (app: *T)) -> bool {
 // main :: () {
 //     ui := headless();
 //     app: int;
-//     run_app_with(.{ title = "Custom UI" }, *ui, *app, (n: *int) { label("hi"); });
+//
+//     run_app_with(.{ title = "Custom UI" }, *ui, *app, (n: *int) {
+//         label("hi");
+//     });
 // }
 // ```
 run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)) -> bool {
@@ -208,9 +213,11 @@ run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)
 //
 // ```jai
 // ui := headless();
+//
 // defer free_ui(*ui);
 // #import "Extensions/Desktop";
-// items := Menu_Item.[.{menu = "File", title = "Open", action = 1, key = #char "O"}];
+// items := Menu_Item.[.{ menu = "File", title = "Open", action = 1, key = #char "O" }];
+//
 // send_menu_action(*ui, items, 1);
 // assert(ui.input.events.count == 1);
 // ```

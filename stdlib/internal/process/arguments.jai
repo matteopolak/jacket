@@ -40,12 +40,14 @@ break_command_into_strings :: (input: string) -> [..] string {
 //
 // ```jai,skip_on(wasm)
 // builder: String_Builder;
+//
 // append_quoted(*builder, "plain");
 // append(*builder, " ");
 // append_quoted(*builder, "two words");
 // append(*builder, " ");
 // append_quoted(*builder, "");
 // text := builder_to_string(*builder);
+//
 // assert(text == "plain \"two words\" \"\"");
 // free(text);
 // ```

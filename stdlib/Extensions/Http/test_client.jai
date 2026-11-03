@@ -38,6 +38,7 @@
 //
 // main :: () {
 //     app: App;
+//
 //     defer free_app(*app);
 //
 //     get(*app, "/", go_home);
@@ -45,11 +46,13 @@
 //
 //     plain := test_client(*app);
 //     first, _ := get(plain, "/");
+//
 //     assert(first.status == 302); // the default hands the redirect back
 //     close(*first);
 //
 //     following := test_client(*app, .{ follow_redirects = true });
 //     second, _ := get(following, "/");
+//
 //     assert(second.status == 200);
 //     close(*second);
 // }

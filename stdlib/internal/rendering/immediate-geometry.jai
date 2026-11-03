@@ -9,7 +9,7 @@ immediate_triangle :: (p0: Vector3, p1: Vector3, p2: Vector3, c1: Vector4, c2: V
 //
 // ```jai,no_run,skip_on(wasm)
 // set_shader_for_color();
-// immediate_quad(10, 10, 110, 60, .{1, 1, 1, 1});
+// immediate_quad(10, 10, 110, 60, .{ 1, 1, 1, 1 });
 // ```
 immediate_quad :: (x0: float, y0: float, x1: float, y1: float, color: Vector4) {
     immediate_quad(Vector2.{ x0, y0 }, .{ x1, y0 }, .{ x1, y1 }, .{ x0, y1 }, color);

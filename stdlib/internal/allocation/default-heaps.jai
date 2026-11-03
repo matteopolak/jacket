@@ -114,8 +114,10 @@ heap_statistics :: (heap: *Heap) -> Heap_Statistics {
 //
 // ```jai
 // memory := cast(*u8) allocator_proc(.ALLOCATE, 8, 0, null, null);
+//
 // memset(memory, 7, 8);
 // grown := cast(*u8) allocator_proc(.RESIZE, 64, 8, memory, null);
+//
 // assert(grown[7] == 7);
 // allocator_proc(.FREE, 0, 64, grown, null);
 // ```

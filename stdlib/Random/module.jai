@@ -8,11 +8,14 @@
 //
 // ```jai
 // state: Random_State;
+//
 // random_seed(*state, cast(u64) 2024);
 // roll := random_get(*state) % 6 + 1;
+//
 // assert(roll >= 1 && roll <= 6);
 //
 // chance := random_get_zero_to_one_open(*state);
+//
 // assert(chance >= 0 && chance < 1);
 // ```
 
@@ -35,6 +38,7 @@ Some_Big_Time_Value :: Impl.Some_Big_Time_Value;
 //
 // ```jai
 // state: Random_State;
+//
 // random_seed(*state, cast(u64) 42);
 // first := random_get(*state);
 //
@@ -49,11 +53,16 @@ random_get :: Impl.random_get;
 //
 // ```jai
 // a, b: Random_State;
+//
 // random_seed(*a, cast(u64) 7);
 // random_seed(*b, cast(u64) 7);
 // assert(random_get(*a) == random_get(*b));
 //
-// Time :: struct { low: u64; high: s64; }
+// Time :: struct {
+//     low: u64;
+//     high: s64;
+// }
+//
 // random_seed(*a, Time.{ 4, 9 });
 // assert(a.low == 5 && a.high == 9);
 // ```
@@ -64,7 +73,9 @@ random_seed :: Impl.random_seed;
 //
 // ```jai
 // state: Random_State;
+//
 // random_seed(*state, cast(u64) 1);
+//
 // for 1..1000 {
 //     r := random_get_zero_to_one(*state);
 //     assert(r >= 0 && r <= 1);
@@ -75,7 +86,9 @@ random_get_zero_to_one :: Impl.random_get_zero_to_one;
 //
 // ```jai
 // state: Random_State;
+//
 // random_seed(*state, cast(u64) 1);
+//
 // for 1..1000 {
 //     r := random_get_zero_to_one_open(*state);
 //     assert(r >= 0 && r < 1);
@@ -89,7 +102,9 @@ random_get_zero_to_one_new :: Impl.random_get_zero_to_one_new;
 //
 // ```jai
 // state: Random_State;
+//
 // random_seed(*state, cast(u64) 3);
+//
 // for 1..1000 {
 //     r := random_get_zero_to_one_open_new(*state);
 //     assert(r >= 0 && r < 1);
@@ -102,13 +117,17 @@ random_get_zero_to_one_open_new :: Impl.random_get_zero_to_one_open_new;
 //
 // ```jai
 // state: Random_State;
+//
 // random_seed(*state, cast(u64) 5);
+//
 // for 1..1000 {
 //     v := random_get_within_range(*state, -2.0, 3.0);
 //     assert(v >= -2 && v <= 3);
 // }
+//
 // assert(random_get_within_range(*state, 4.0, 4.0) == 4);
 // w := random_get_within_range(*state, 3.0, -2.0);
+//
 // assert(w >= -2 && w <= 3);
 // ```
 random_get_within_range :: Impl.random_get_within_range;
