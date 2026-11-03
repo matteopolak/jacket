@@ -447,7 +447,7 @@ remove_audio_private :: (audio: *Audio) {
 free_private :: (node: *Audio_Private) {
     allocator := node.allocator;
     allocator.proc(.FREE, 0, 0, node, allocator.data);
-} @FreesArgument
+}
 
 crc_bits :: (current: u16, bits: u32, count: s64) -> u16 {
     B.assert(count >= 0 && count <= 32);

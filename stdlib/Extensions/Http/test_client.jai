@@ -114,7 +114,7 @@ free_test_client :: (client: *Client) {
 
     array_reset(*client.headers);
     free(client);
-} @FreesArgument
+}
 
 #scope_module
 

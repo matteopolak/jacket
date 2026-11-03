@@ -11,7 +11,7 @@ allocate_owned :: ($T: Type, owner: Allocator) -> *T {
 release_owned :: (memory: *void, owner: Allocator) {
     push_allocator(owner);
     free(memory);
-} @FreesArgument
+}
 
 // Io owns the initial slab; Basic owns overflow-page allocation and reset.
 prepare_scratch :: (storage: *Temporary_Storage, owner: Allocator) {

@@ -424,4 +424,4 @@ release_native :: (native: *Tls_Native) {
     array_free(native.alpn_list);
 
     free(native);
-} @FreesArgument
+}

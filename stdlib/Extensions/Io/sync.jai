@@ -47,7 +47,7 @@ free_channel :: (channel: *Channel($T)) {
 
     if channel.buffer release_owned(channel.buffer, channel.allocator);
     release_owned(channel, channel.allocator);
-} @FreesArgument
+}
 
 // Puts `value` into the channel, blocking while it is full. `.CLOSED` if the channel is (or becomes)
 // closed, `.CANCELED` if the fiber is canceled while it waits.

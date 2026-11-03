@@ -728,7 +728,7 @@ release_stream :: (stream: *Tls_Stream) {
     if stream.ahead.data free(stream.ahead.data);
 
     free(stream);
-} @FreesArgument
+}
 
 // A call that uses the stream counts as a user, so `close` cannot free it under the call.
 enter :: (stream: *Tls_Stream) -> bool {

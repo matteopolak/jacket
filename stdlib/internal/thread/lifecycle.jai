@@ -300,7 +300,7 @@ release_thread_state :: (state: *Thread_State) {
 
     allocator.proc(.FREE, 0, size_of(Thread_State), state, allocator.data);
     thread.index = 0;
-} @FreesArgument
+}
 
 #if OS != .WINDOWS cleanup_thread_semaphores :: (state: *Thread_State) -> bool {
     if state.alive_initialized {
