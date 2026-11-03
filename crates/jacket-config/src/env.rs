@@ -328,6 +328,11 @@ vars! {
         default: "unset",
         summary: "Marks the child process of the prelude-selection tests, which run themselves again with `JAIC_PRELUDE` set.",
     }
+    TEST_FONT_PATH {
+        name: "JAIC_TEST_FONT_PATH", group: Testing, readers: [Jacket],
+        default: "unset",
+        summary: "A font file for stdlib tests that render text; without it they skip locally and fail under `CI`.",
+    }
     TEST_LIBRARY_MARKER {
         name: "JAIC_TEST_LIBRARY_MARKER", group: Testing, readers: [Tests],
         default: "unset",
@@ -515,7 +520,7 @@ vars! {
         summary: "Sent with `jacket upgrade`'s release lookups, which raises GitHub's rate limit.",
     }
     GITHUB_ACTIONS {
-        name: "GITHUB_ACTIONS", group: Standard, readers: [Tests],
+        name: "GITHUB_ACTIONS", group: Standard, readers: [Jacket, Tests],
         default: "unset",
         summary: "Set by GitHub Actions: tests that need a capable filesystem stop skipping.",
     }

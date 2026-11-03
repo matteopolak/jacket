@@ -915,7 +915,7 @@ fn execute(
     reporter.run_started(plan.cases.len());
     let mut outcomes = Vec::new();
     let ci = prerequisites::in_ci();
-    let font = std::env::var_os("JAIC_TEST_FONT_PATH").map(PathBuf::from);
+    let font = jacket_config::env::TEST_FONT_PATH.os().map(PathBuf::from);
     // Skips are decided before anything runs.
     let mut to_run = Vec::new();
     for (index, case) in plan.cases.iter().enumerate() {

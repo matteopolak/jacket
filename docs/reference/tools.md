@@ -556,6 +556,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_PRELUDE_TEST_CHILD` | Marks the child process of the prelude-selection tests, which run themselves again with `JAIC_PRELUDE` set. | unset | tests |
 | `JAIC_REQUIRE_TOOLCHAIN` | `1`, or a comma list of tool names: a missing tool fails the test instead of skipping it. Always on under `CI`. | unset: a test whose tool is missing skips | tests |
 | `JAIC_SPECULATIVE_BODIES` | When set, checks queued bodies speculatively first, like `-dev_speculative_bodies` (only in a `jaic` built with the `speculative-bodies` feature). | unset | jaic, tests |
+| `JAIC_TEST_FONT_PATH` | A font file for stdlib tests that render text; without it they skip locally and fail under `CI`. | unset | jacket |
 | `JAIC_TEST_LIBRARY_MARKER` | A file the native-link test's library writes to, to show it was loaded. | unset | tests |
 | `JAIC_TEST_TMPDIR` | Where test scratch directories are made. | the system temporary directory | tests |
 | `JAIC_WASM_TEST` | A value the WebAssembly test passes to the program, which prints it back. | unset | tests |
@@ -576,7 +577,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `ConEmuANSI` | `ON` marks a Windows console that takes ANSI control codes. | unset | jaic, jacket, jailint |
 | `DEVELOPER_DIR` | The Xcode installation whose SDK and libclang jaic uses. | `xcode-select -p` | jaic |
 | `FORCE_COLOR` | Anything but `0` turns colour on even when output is not a terminal. | unset | jaic, jailint |
-| `GITHUB_ACTIONS` | Set by GitHub Actions: tests that need a capable filesystem stop skipping. | unset | tests |
+| `GITHUB_ACTIONS` | Set by GitHub Actions: tests that need a capable filesystem stop skipping. | unset | jacket, tests |
 | `GITHUB_TOKEN` | Sent with `jacket upgrade`'s release lookups, which raises GitHub's rate limit. | unset | jacket |
 | `HOME` | Locates the user cache when neither `JAIC_CACHE_DIR` nor `XDG_CACHE_HOME` is set. | unset | jaic, jacket |
 | `INSTA_UPDATE` | `always` rewrites the test snapshots instead of failing on a difference. | unset | tests |

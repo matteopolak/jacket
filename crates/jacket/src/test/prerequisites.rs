@@ -138,7 +138,7 @@ pub fn prepare(files: &[PathBuf], stdlib: &Path) {
 
 /// CI must diagnose a missing dependency rather than silently reduce its coverage.
 pub fn in_ci() -> bool {
-    std::env::var_os("CI").is_some() || std::env::var_os("GITHUB_ACTIONS").is_some()
+    jacket_config::env::CI.is_set() || jacket_config::env::GITHUB_ACTIONS.is_set()
 }
 
 pub fn font_skip(args: &[String], ci: bool, font: Option<&Path>) -> Option<String> {
@@ -174,7 +174,7 @@ pub fn skip_missing_probe(outcome: &mut Outcome, ci: bool) {
 
 /// Build only probes that need system headers and the host C compiler. SDK providers and
 /// the clipboard decoder need separately prepared dependencies and are left to CI's recipes.
-/// The returned directory is added through the compiler API, preserving JAIC_NATIVE_LIBS.
+/// The returned directory is added through the compiler API, preserving `JAIC_NATIVE_LIBS`.
 pub fn prepare_probes(files: &[PathBuf], stdlib: &Path) -> Option<PathBuf> {
     if !cfg!(any(target_os = "macos", target_os = "linux")) {
         return None;
@@ -185,8 +185,7 @@ pub fn prepare_probes(files: &[PathBuf], stdlib: &Path) -> Option<PathBuf> {
     }
     let output = jacket_config::env::OUTPUT_DIR
         .os()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| root.join("target"))
+        .map_or_else(|| root.join("target"), PathBuf::from)
         .join("jacket-test-probes");
     let sources: String = files
         .iter()
