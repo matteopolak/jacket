@@ -1,7 +1,7 @@
 ../../layout.jai:325:17: error[metaprogram-report]: set: `string` is the type of more than one case of `Variant(struct { email: string; phone: string; })` (.EMAIL (string), .PHONE (string)). Set the case by name instead: `v.which = .EMAIL; v.email = value;`
                     compiler_report(tprint("%: `%` is the type of more than one case of `%` (%). Set the case by name instead: `v.which = .%; v.% = value;`", user, T, variant_title(V), case_list_text(V), tag_of(V.case_names[found]), V.case_names[found]));
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-../../module.jai:117:13: note: while running compile-time code started here
+../../module.jai:125:13: note: while running compile-time code started here
         CASE :: #run case_of(V, T, "set");
                 ^^^^^^^^^^^^^^^^^^^^^^^^^
 

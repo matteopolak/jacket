@@ -1,7 +1,7 @@
 loop-balance.jai:15:30: error[metaprogram-report]: Web: unbalanced tags across control flow
         html(*out, "{for 1..2}<p>{end}");
                                  ^
-../../module.jai:183:24: note: while running compile-time code started here
+../../module.jai:185:24: note: while running compile-time code started here
         #insert,scope(loc) #run compile_template(t, loc);
                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

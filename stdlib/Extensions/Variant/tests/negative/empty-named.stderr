@@ -1,7 +1,7 @@
 ../../layout.jai:185:13: error[metaprogram-report]: Variant(struct {}): the struct has no fields, so the Variant has no cases
                 compiler_report(tprint("%: the struct has no fields, so the Variant has no cases", title));
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-../../module.jai:60:13: note: while running compile-time code started here
+../../module.jai:68:13: note: while running compile-time code started here
         #insert -> string {
                 ^^^^^^^^^^^
 

@@ -1,7 +1,7 @@
 for-else.jai:15:27: error[metaprogram-report]: Web: else outside if
         html(*out, "{for 1..2}{else}{end}");
                               ^
-../../module.jai:183:24: note: while running compile-time code started here
+../../module.jai:185:24: note: while running compile-time code started here
         #insert,scope(loc) #run compile_template(t, loc);
                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

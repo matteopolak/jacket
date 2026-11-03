@@ -1,7 +1,7 @@
 ../../layout.jai:355:17: error[metaprogram-report]: set: `Variant(struct { missing: void; unknown: void; })` has more than one `void` case (.MISSING (void), .UNKNOWN (void)). Set the case by name instead: `v.which = .MISSING;`
                     compiler_report(tprint("%: `%` has more than one `void` case (%). Set the case by name instead: `v.which = .%;`", user, variant_title(V), case_list_text(V), tag_of(V.case_names[found])));
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-../../module.jai:142:13: note: while running compile-time code started here
+../../module.jai:150:13: note: while running compile-time code started here
         CASE :: #run void_case_of(V, "set");
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

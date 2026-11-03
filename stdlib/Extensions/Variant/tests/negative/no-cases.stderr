@@ -1,7 +1,7 @@
 ../../layout.jai:172:9: error[metaprogram-report]: Variant needs at least one case: `Variant(Leaf, *Branch)` or `Variant(struct { email: string; phone: string; })`
             compiler_report("Variant needs at least one case: `Variant(Leaf, *Branch)` or `Variant(struct { email: string; phone: string; })`");
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-../../module.jai:60:13: note: while running compile-time code started here
+../../module.jai:68:13: note: while running compile-time code started here
         #insert -> string {
                 ^^^^^^^^^^^
 

@@ -1,7 +1,7 @@
 unbalanced-close.jai:15:25: error[metaprogram-report]: Web: unbalanced closing tag </div>
         html(*out, "<p></div>");
                             ^
-../../module.jai:183:24: note: while running compile-time code started here
+../../module.jai:185:24: note: while running compile-time code started here
         #insert,scope(loc) #run compile_template(t, loc);
                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
