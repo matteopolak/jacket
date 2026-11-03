@@ -4,11 +4,12 @@
 
 ### New
 
-- `jailint` finds use-after-free, double frees, returned local addresses and pointers into arrays that may grow, inferred across calls with no annotations.
+- `jailint` finds use-after-free, double frees, returned local addresses and pointers into arrays that may grow, inferred across calls with no annotations. Strict mode (`[lint.lifetimes] mode = "strict"`) also reports what may happen on one path; the [memory safety guide](docs/guides/memory-safety.md) shows both.
 - `Extensions/Protobuf` turns `.proto` files into Jai types at compile time, with binary and JSON encoding; passes Google's conformance suites.
 - `jacket doc` documents any library, configured by `[doc]` in `jacket.toml`, with a new site: guides, tools and lint rule pages, runnable examples, search.
 - Building docs runs every example and fails on one that breaks.
-- `jaifmt` formats Jai examples in doc comments; `[doc.format]` overrides settings for them.
+- `jaifmt` formats Jai examples in doc comments; `[doc.format]` overrides settings for them. `jaifmt --range` formats only part of a file.
+- The language server adds go to declaration and implementation, a type hierarchy, linked editing, range and delta semantic tokens, and formatting.
 - `Extensions/Desktop` adds native menus, dialogs and text input; `Extensions/Pty`, `Audio_Stream` and `Iprof_Trace` are new.
 - `Extensions/Web` writes HTML pages from compile-time templates and checks their links.
 - New examples: a text editor, terminal, music player, image viewer, CHIP-8 emulator, chat server, trace viewer, key-value database, site generator and grep.
@@ -17,6 +18,7 @@
 ### Improved
 
 - Faster compiles: quicker lexing and name lookup, and native code generated in parallel pieces.
+- The language server answers requests without waiting for a compile; completion on large programs is about four times faster.
 - Faster generated code: the LLVM backend marks pointers it can prove non-null and in bounds.
 - Lint and format messages link to their docs page.
 - `jacket test --changed` runs only the tests a change can affect; a crashed test shows its last output and a stack.
@@ -27,7 +29,7 @@
 
 - Compile-time type info, baked parameters and named imports in several edge cases.
 - Errors from a macro body point at the call; errors that could come in any order are reported in declaration order.
-- Leaks in `Regex`, and leak reports point at the test line that allocated.
+- Use-after-free and leaks in `Regex`, `Args`, `UI`, `Jai_Format`, `Postgres`, `Protobuf` and `Image`; leak reports point at the test line that allocated.
 - Idle HTTP/2 connections close properly; recursive `make_directory` works with a trailing slash.
 - Window DPI on desktop and Windows, and ICO icons build on wasm.
 
@@ -40,6 +42,9 @@
 | `variant_switch(v, handlers...)` | `if #complete v.which == { case .LEAF; ... }` with `v.leaf` |
 | `is(v, Leaf)`, `get(v, Leaf)`, `unwrap(v, Leaf)`, `variant_type(v)` | `v.which == .LEAF` and the field `v.leaf`; `get_pointer`, `set` and `variant` stay |
 | Json tagged variants with the type name (`{"Circle":...}`) | with the case name (`{"circle":...}`) |
+| `@Allocates`, `@WritesOutput`, `@Exits`, `@ReturnsSmaller` and `@ReturnsLarger` on procedures with a body | worked out from the body; these notes count only on bodiless procedures (`#foreign`, `#compiler`), so delete them elsewhere |
+| `@TempAllocates` and `@FreesArgument` on every procedure that does it | needed only where the body can't show it: temporary storage reached through something the linter can't follow, or freeing part of an argument |
+| `@PushesContext` | worked out from the body; the note is no longer read |
 
 ## [0.32.0] - 2026-11-01
 
