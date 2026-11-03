@@ -31,7 +31,7 @@ Pages are linked without a trailing slash: `/api/Basic/print` is the file `api/B
 | `index.html` | the front page: the `[doc] home` file, else the name and description |
 | `api/<Module>.html`, `api/<Module>/<name>.html` | a module; an item |
 | `<pages_title>/<page>.html` | the `[[doc.page]]` pages |
-| `<section>.html`, `<section>/<heading>.html` | a `[[doc.section]]`: its overview and one page per `###` (just the first with `one_page`) |
+| `<section>.html`, `<section>/<heading>.html` | a `[[doc.section]]`: its overview and one page per `###` |
 | `examples/<id>.json` | the parts of each example's program, for Run and the playground link |
 | `runtime/`, `runtime.json` | the browser compiler (`--runtime`) and where pages look for it |
 | `assets/` | `site.css`, `site.js`, `run-worker.js`, `icons.svg` (the icon sprite), `categories.css`, `favicon.svg`, the logo, the social image. Pages link the CSS, scripts and sprite with `?v=<content hash>`, so they can be cached for a long time |
@@ -100,14 +100,13 @@ name = "Guide"
 [[doc.section]]
 file = "notes/recipes.md"
 name = "Recipes"
-one_page = true                     # keep it on one page; its headings become anchors
 ```
 
 A pattern matching a module's folder also matches the modules inside it. `jacket doc` fails on a pattern that matches no module, a module in no group (when there are groups), and a colour that is not `#hex` or a plain name. The header shows the version, repository button, playground link and pages link only when set.
 
 The standard library's `[doc]` sits in the root `jacket.toml`: categories "Standard library" (`stdlib/**`) and "Extensions" (`stdlib/Extensions/**`, teal "extension" badge), the topic groups, and the "Tools", "Lint rules" and "Format rules" sections (generated into `docs/reference/` and `docs/tools/jaifmt-rules.md`). Add new stdlib modules to a group there.
 
-**Sections.** A `[[doc.section]]` file is split at its headings: the text before the first `##` (plus each `##`'s own text and a list of its pages) is the overview at `<name as a slug>/`, each `##` is a folding group in the sidebar, and each `###` is a page at `<section>/<heading slug>/` titled with the heading. A `###` before any `##` goes in a group with no label. Inside a page, `####` and `#####` headings move up to `##` and `###`, so they reach its outline. The header link (`pages_title`) goes to the first `[[doc.page]]`, else to the overview of the section with that name. A link to `#heading` or `file.md#heading` of a split file goes to that heading's page. With `one_page = true` the file stays whole at `<section>/` and its sidebar links go to `#heading` anchors on it; the Format rules use this, so `jaifmt` links to `format-rules/#<setting>`.
+**Sections.** A `[[doc.section]]` file is split at its headings: the text before the first `##` (plus each `##`'s own text and a list of its pages) is the overview at `<name as a slug>/`, each `##` is a folding group in the sidebar, and each `###` is a page at `<section>/<heading slug>/` titled with the heading. A `###` before any `##` goes in a group with no label. Inside a page, `####` and `#####` headings move up to `##` and `###`, so they reach its outline. The header link (`pages_title`) goes to the first `[[doc.page]]`, else to the overview of the section with that name. A link to `#heading` or `file.md#heading` of a split file goes to that heading's page. A `##` with no `###` under it (the Format rules' "Indentation") stays text on the overview, so `format-rules#indentation` is still an anchor there.
 
 **Home.** `[doc] home` names a Markdown file rendered as the front page, with the module sidebar. Links in it (and in every extra page) to a module's folder or `module.jai` go to that module's page, so `[Basic](../../stdlib/Basic)` works both on GitHub and on the site. Without it the front page shows the name and description; the stdlib's is `docs/reference/home.md`. The extra pages and sections come after the module categories in every page's sidebar (`view/guide.rs`, `Site::extra_nav`).
 

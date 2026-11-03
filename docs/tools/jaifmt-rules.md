@@ -2,7 +2,7 @@
 
 What `jaifmt` (and `jacket fmt`) changes, with the code before and after. The formatter moves line breaks, indentation and spaces, and never changes what a program means: output whose tokens differ from the input is refused. Lines are never re-wrapped. [jaifmt](jaifmt.md) says how to run it and where settings live.
 
-Settings go in the `[format]` table of the nearest `jacket.toml`:
+What every run does is on this page. The settings change the details; they go in the `[format]` table of the nearest `jacket.toml`:
 
 ```toml
 [format]
@@ -10,11 +10,7 @@ indent_width = 2
 blank_line_before_return = true
 ```
 
-## Always
-
-What every run does. The settings below change the details.
-
-### Indentation
+## Indentation
 
 Each line is indented by how deeply it is nested in `{ }`, `( )` and `[ ]`. Continuation lines keep their offset from the line they continue.
 
@@ -38,7 +34,7 @@ main :: () {
 }
 ```
 
-### Bodies on their own lines
+## Bodies on their own lines
 
 A non-empty `{ }` body is split onto its own lines. Literals (`.{ }`, `.[ ]`) stay as written.
 
@@ -58,7 +54,7 @@ main :: () {
 }
 ```
 
-### One statement per line
+## One statement per line
 
 Statements on one line separated by `;` go on lines of their own.
 
@@ -76,7 +72,7 @@ main :: () {
 }
 ```
 
-### Spacing
+## Spacing
 
 Between two tokens there is either no space or one, following the standard library's style. Nothing is aligned with runs of spaces.
 
@@ -94,7 +90,7 @@ main :: () {
 }
 ```
 
-### Braces
+## Braces
 
 A `{` alone on a line joins its header, and `else` joins the `}` before it. `brace_style` turns this off.
 
@@ -121,7 +117,7 @@ main :: () {
 }
 ```
 
-### Blank lines
+## Blank lines
 
 Trailing spaces go, a run of blank lines is cut to `max_blank_lines`, and a file ends with one newline. Blank lines between statements are kept, never removed.
 
@@ -145,7 +141,7 @@ main :: () {
 }
 ```
 
-### Comments and strings
+## Comments and strings
 
 Comments keep their place and text. Strings, here-strings, `#asm` bodies and everything between `// jaifmt: off` and `// jaifmt: on` are left exactly as written.
 

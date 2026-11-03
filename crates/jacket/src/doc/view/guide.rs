@@ -6,7 +6,7 @@ use super::super::site::Site;
 use super::{
     Content, DocSegment, NavCategory, NavGroup, NavLink, Outline, PageHead, PageView, Sidebar,
 };
-use jacket_config::schema::{Doc, DocSection};
+use jacket_config::schema::Doc;
 use jaic::fxhash::HashMap;
 use std::path::Path;
 
@@ -226,18 +226,6 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
         let (intro, groups) = split(&md);
         let overview = site.href(&folder);
         out.files.insert(repo.clone(), overview.clone());
-        if section.one_page {
-            // One page: the sidebar links to each heading on it.
-            nav_one_page(&mut out, section, &repo, &overview, &groups);
-            out.pages.push(Page {
-                name: section.name.clone(),
-                md,
-                repo,
-                path: format!("{folder}.html"),
-                heading: section.name.clone(),
-            });
-            continue;
-        }
         let mut nav = NavCategory {
             label: section.name.clone(),
             groups: vec![NavGroup {
@@ -299,50 +287,6 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
         out.nav.push(nav);
     }
     Ok(out)
-}
-
-/// The sidebar of a `one_page` section: the page, then each `##` group's headings as anchors.
-fn nav_one_page(
-    out: &mut Guides,
-    section: &DocSection,
-    repo: &str,
-    overview: &str,
-    groups: &[Group],
-) {
-    let mut nav = NavCategory {
-        label: section.name.clone(),
-        groups: vec![NavGroup {
-            label: String::new(),
-            key: format!("{}/", section.name),
-            open: true,
-            links: vec![link(overview, "Overview")],
-        }],
-    };
-    for g in groups {
-        let mut anchor = |name: &str| {
-            let id = markdown::slug(name);
-            let href = format!("{overview}#{id}");
-            out.anchors.insert((repo.to_string(), id), href.clone());
-            href
-        };
-        if !g.name.is_empty() {
-            anchor(&g.name);
-        }
-        let links: Vec<NavLink> = g
-            .entries
-            .iter()
-            .map(|(name, _)| link(&anchor(name), name))
-            .collect();
-        if !links.is_empty() {
-            nav.groups.push(NavGroup {
-                label: g.name.clone(),
-                key: format!("{}/{}", section.name, g.name),
-                open: false,
-                links,
-            });
-        }
-    }
-    out.nav.push(nav);
 }
 
 /// `nav` with the link to `href` marked, and its group open.

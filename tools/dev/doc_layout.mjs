@@ -490,7 +490,8 @@ async function pagesToCheck() {
   const sample = [
     ['home', ''],
     ['guide', listed.find(p => p.startsWith('guides/'))],
-    ['one-page rules (Format)', 'format-rules'],
+    ['format rules overview', 'format-rules'],
+    ['format setting page', 'format-rules/max_width'],
     ['lint rules', 'lint-rules'],
     ['tool page', listed.find(p => p.startsWith('tools/'))],
     ['small module', 'api/Base64'],

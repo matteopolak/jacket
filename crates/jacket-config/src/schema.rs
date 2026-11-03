@@ -502,10 +502,6 @@ pub struct DocSection {
     pub file: String,
     /// The sidebar heading; its folder is this as a slug (`Lint rules` is `lint-rules/`).
     pub name: String,
-    /// Keep the whole file on one page; its `###` headings become anchors on it instead of
-    /// pages of their own.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub one_page: bool,
 }
 
 /// Read by the Postgres module while it compiles typed queries, not by `jacket`; environment
