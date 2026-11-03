@@ -1693,6 +1693,16 @@ main :: () {
 
 A resizable array that outgrows its storage gets a new block and frees the old one, so a pointer taken into the old block dangles. Uses the [lifetime engine](../tools/jailint.md#lifetime-rules); `pointer_lifetime` also covers removals and moves.
 
+By default it reports growth that happens on every path. Strict mode also reports growth on one branch:
+
+```jai
+first := *names[0];
+if verbose  array_add(*names, "grace");
+print("%\n", first.*);   // strict: `first` may outlive the storage it refers to
+```
+
+See [Must and strict](../guides/memory-safety.md#must-and-strict) for the full example and output.
+
 ### push_in_static_if
 
 Finds a scoped push directly in an `#if` arm, which lasts past the arm.

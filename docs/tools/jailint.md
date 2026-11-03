@@ -299,6 +299,16 @@ Code meant to build everywhere that imports a module asserting an operating syst
 ### pointer_into_resizable
 A resizable array that outgrows its storage gets a new block and frees the old one, so a pointer taken into the old block dangles. Uses the [lifetime engine](#lifetime-rules); `pointer_lifetime` also covers removals and moves.
 
+By default it reports growth that happens on every path. Strict mode also reports growth on one branch:
+
+```jai
+first := *names[0];
+if verbose  array_add(*names, "grace");
+print("%\n", first.*);   // strict: `first` may outlive the storage it refers to
+```
+
+See [Must and strict](../guides/memory-safety.md#must-and-strict) for the full example and output.
+
 ### pointer_lifetime
 @experimental. Off by default (`-W pointer_lifetime` turns it on). The successor to `pointer_into_resizable`: it follows the checked control flow, so it sees every branch, loop, `defer`, labelled jump, `#if` choice and macro expansion the compiler took, per polymorphic instance.
 

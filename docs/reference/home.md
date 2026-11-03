@@ -47,4 +47,5 @@ Every module is in the sidebar. Press <kbd>/</kbd> to search by name, or by sign
 - [Testing](../guides/testing.md): `@test` procedures, golden files and checked doc examples.
 - [Benchmarking](../guides/benchmarking.md): `@bench` procedures and comparing runs against a baseline.
 - [Documenting a library](../guides/documenting.md): doc comments, runnable examples and building a site like this one.
+- [Memory safety](../guides/memory-safety.md): what `jacket lint` reports about freed, reset and moved memory, and must versus strict mode.
 - [Tools](tools.md), [lint rules](lint-rules.md) and [format rules](../tools/jaifmt-rules.md) list every command, check and setting.
