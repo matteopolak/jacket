@@ -10,6 +10,7 @@ use crate::types::{ArrayKind, TypeId, TypeKind};
 use std::sync::Arc;
 
 mod addresses;
+mod booleans;
 pub use addresses::LifetimeAddressCast;
 
 #[derive(Clone, Copy, Debug)]
@@ -372,6 +373,8 @@ pub struct LifetimeBody {
     pub source_ranges: Vec<LifetimeSourceRange>,
     /// Selected primitive comparisons used by the recorded control flow.
     pub comparisons: Vec<LifetimeComparison>,
+    /// Branch predicates on private byte slots written exactly once.
+    pub boolean_branches: Vec<(Span, Val, bool)>,
     /// Pointer/integer bitcasts, retained independently of executable instructions.
     pub address_casts: Vec<LifetimeAddressCast>,
     /// Global addresses used by this body; immutable relocations live in `lifetime_globals`.
@@ -696,6 +699,7 @@ impl LifetimeBody {
         self.context_types.capacity() * std::mem::size_of::<TypeId>()
             + self.source_ranges.capacity() * std::mem::size_of::<LifetimeSourceRange>()
             + self.comparisons.capacity() * std::mem::size_of::<LifetimeComparison>()
+            + self.boolean_branches.capacity() * std::mem::size_of::<(Span, Val, bool)>()
             + self.globals.capacity() * std::mem::size_of::<(Val, ir::GlobalId)>()
             + self.address_casts.capacity() * std::mem::size_of::<LifetimeAddressCast>()
             + self.slot_aliases.capacity() * std::mem::size_of::<(Val, Val)>()
@@ -816,6 +820,8 @@ impl Compiler {
                         }
                     })
                     .collect();
+            let boolean_branches =
+                booleans::immutable_boolean_branches(&f.b.func, &record.blocks, &constants);
             let facts = self.ed.facts_mut().unwrap();
             for &(_, id) in &globals {
                 let global = &self.out.program.globals[id.0 as usize];
@@ -845,6 +851,7 @@ impl Compiler {
                     stack_places: stack_places(&f.b.func, record.stack_subplaces),
                     globals,
                     address_casts: addresses::capture(&f.b.func),
+                    boolean_branches,
                     comparisons: f
                         .b
                         .func

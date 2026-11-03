@@ -74,6 +74,7 @@ enum Op {
     Task(tasks::Op),
 }
 
+#[derive(Clone)]
 struct Block {
     op: Op,
     next: Vec<usize>,

@@ -1128,3 +1128,22 @@ fn lifetime_loop_declarations_clear_old_header_aliases_without_extending_borrows
 
 #[path = "rules/return_contracts.rs"]
 mod return_contracts;
+
+#[test]
+fn lifetime_branch_feasibility_preserves_only_possible_releases() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/feasible-branches.jai");
+    let (lints, text) = lint_with(
+        &path,
+        &[("use_after_free", Level::Warn)],
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
+    assert!(
+        lints
+            .iter()
+            .all(|l| l.start > text.find("changed_condition").unwrap())
+    );
+}

@@ -91,7 +91,7 @@ pub(super) fn build(
             blocks[previous].next.clone_from(&block.successors);
         }
     }
-    blocks
+    feasible_paths(blocks, body)
 }
 
 struct Builder<'a> {
@@ -698,4 +698,80 @@ fn address_queries(cx: &Cx, body: &LifetimeBody, summaries: &Summaries) -> HashS
         }
     }
     spans
+}
+
+/// Specialize only the analysis CFG, keeping semantic definitions and summaries unique.
+/// Immutable private predicates need no alias invalidation; a bounded product retains
+/// correlations between repeated tests without changing the compiler's executable IR.
+fn feasible_paths(blocks: Vec<Block>, body: &LifetimeBody) -> Vec<Block> {
+    let predicates: HashMap<_, _> = body
+        .boolean_branches
+        .iter()
+        .map(|&(span, slot, inverted)| (span, (slot, inverted)))
+        .collect();
+    let mut counts = HashMap::<jaic::ir::Val, usize>::default();
+    for &(slot, _) in predicates.values() {
+        *counts.entry(slot).or_default() += 1;
+    }
+    let mut slots: Vec<_> = counts
+        .into_iter()
+        .filter_map(|(slot, n)| (n > 1).then_some(slot))
+        .collect();
+    slots.sort_unstable_by_key(|v| v.0);
+    if slots.is_empty() {
+        return blocks;
+    }
+    let ids: HashMap<_, _> = slots.into_iter().enumerate().map(|(i, v)| (v, i)).collect();
+    let initial = (0usize, vec![0u8; ids.len()]);
+    let mut seen = HashMap::from_iter([(initial.clone(), 0)]);
+    let mut pending = vec![initial];
+    let mut out = Vec::new();
+    let limit = blocks.len().saturating_mul(4).max(64);
+    let mut cursor = 0;
+    while cursor < pending.len() {
+        let (original, state) = pending[cursor].clone();
+        let mut block = blocks[original].clone();
+        block.next.clear();
+        let mut remap = HashMap::default();
+        for &next in &blocks[original].next {
+            let mut edge = state.clone();
+            if let Op::Decision(span, yes, no, _) = block.op
+                && yes != no
+                && let Some(&(slot, inverted)) = predicates.get(&span)
+                && let Some(&slot) = ids.get(&slot)
+            {
+                let truth = (next == yes) ^ inverted;
+                let known = if truth {
+                    2
+                } else {
+                    1
+                };
+                if edge[slot] != 0 && edge[slot] != known {
+                    continue;
+                }
+                edge[slot] = known;
+            }
+            let key = (next, edge);
+            let id = if let Some(&id) = seen.get(&key) {
+                id
+            } else {
+                if pending.len() >= limit {
+                    return blocks;
+                }
+                let id = pending.len();
+                seen.insert(key.clone(), id);
+                pending.push(key);
+                id
+            };
+            block.next.push(id);
+            remap.insert(next, id);
+        }
+        if let Op::Decision(_, yes, no, _) = &mut block.op {
+            *yes = remap.get(yes).copied().unwrap_or(cursor);
+            *no = remap.get(no).copied().unwrap_or(cursor);
+        }
+        out.push(block);
+        cursor += 1;
+    }
+    out
 }
