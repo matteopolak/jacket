@@ -464,7 +464,7 @@ change :: (old: string, text: string) -> string {
     b := position(old, old_end);
 
     return tprint("{\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}},\"text\":%}", a.line, a.character, b.line, b.character, quote(slice(text, start, new_end - start)));
-} @TempAllocates
+}
 
 split_boundary :: (text: string, at: int) -> bool {
     if at <= 0 || at >= text.count return false;

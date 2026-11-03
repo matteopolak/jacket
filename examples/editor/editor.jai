@@ -675,4 +675,4 @@ absolute_path :: (path: string) -> string {
     if path == "." return cwd;
 
     return tprint("%/%", cwd, path);
-} @TempAllocates
+}

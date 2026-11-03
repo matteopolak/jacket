@@ -95,7 +95,7 @@ match_checksum :: (m: New_Match, token: string) -> string {
     XXH64_update(*state, token.data, cast(u32) token.count);
 
     return tprint("%", FormatInt.{ value = XXH64_digest(*state), base = 16, minimum_digits = 16 });
-} @TempAllocates
+}
 
 #scope_module
 

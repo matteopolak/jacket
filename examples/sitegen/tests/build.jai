@@ -18,7 +18,7 @@ a_small_site :: (t: *Test) -> Fixture {
     add_source(site, "guide/start.md", "# Start here\n\nBack to the [home page](../index.md).");
 
     return site;
-} @TempAllocates(0)
+}
 
 pages_and_assets_are_written :: (t: *Test) {
     site := a_small_site(t);

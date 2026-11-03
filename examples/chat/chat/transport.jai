@@ -76,4 +76,4 @@ link_close :: (link: *Link) {
 send_line :: (link: *Link, line: string) -> bool {
     _, error := Io.write(link.writer, tprint("%\n", line));
     return error == .NONE;
-} @TempAllocates
+}

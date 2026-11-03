@@ -44,7 +44,7 @@ Stats :: struct {
 
 member :: (team: Path("team", int), id: Path("id", int)) -> string {
     return tprint("member % of team %", id.value, team.value);
-} @TempAllocates
+}
 
 main :: () {
     app: App;

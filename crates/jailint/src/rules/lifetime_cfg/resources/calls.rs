@@ -51,30 +51,8 @@ impl Builder<'_> {
                 contents,
             });
         }
-        if !frees && let Some(summary) = summaries.procs.get(callee) {
-            for effect in summary.guaranteed.keys().filter(|e| {
-                e.kind == EffectKind::Free
-                    && e.guard.is_none_or(|(formal, constant)| {
-                        args.iter()
-                            .any(|a| a.formal == formal && a.constant == Some(constant))
-                    })
-                    && e.target.steps.is_empty()
-            }) {
-                if let Root::Parameter(formal) = effect.target.root
-                    && let Some(arg) = args.iter().find(|a| a.formal == formal)
-                    && let Some(cell) = operand_cell(cx, places, cells, arg)
-                {
-                    ops.push(Op::Free {
-                        cell,
-                        span: *span,
-                        callee: *callee,
-                        contents: false,
-                    });
-                }
-            }
-        }
         let guaranteed = resolver.call_effects(event, &summaries.procs, true);
-        if !direct {
+        if !frees {
             for formal in resolver.released_formals(event, &summaries.procs, true) {
                 if let Some(arg) = args.iter().find(|a| a.formal == formal)
                     && let Some(cell) = operand_cell(cx, places, cells, arg)

@@ -218,4 +218,4 @@ mentions :: (text: string, nick: string) -> bool {
     }
 
     return false;
-} @TempAllocates
+}

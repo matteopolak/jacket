@@ -115,4 +115,4 @@ pad :: (count: int) -> string {
     spaces := talloc_string(count);
     for 0..count - 1 spaces[it] = #char " ";
     return spaces;
-} @TempAllocates
+}

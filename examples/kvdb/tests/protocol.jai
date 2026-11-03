@@ -74,7 +74,7 @@ ask :: (store: *Store, line: string) -> string {
     execute(store, request, *reply);
 
     return builder_to_string(*reply,, temp);
-} @TempAllocates
+}
 
 commands_answer_as_documented :: (t: *Test) {
     store: Store;

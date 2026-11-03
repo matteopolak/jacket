@@ -60,7 +60,7 @@ publish_stats :: (server: *Server, recent: s64) {
 
     memcpy(message.user_write_pointer, text.data, text.count);
     Shm.writer_commit_message(*writer, message);
-} @TempAllocates
+}
 
 read_stats :: (name: string) {
     created, reader := Shm.reader_create_channel(name, 4096);

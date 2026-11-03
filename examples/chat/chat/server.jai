@@ -73,7 +73,7 @@ leave :: (peer: *Peer) {
     room := peer.room;
     peer.room = null;
     broadcast(peer.server, room, tprint("LEFT % %", room.name, peer.user.nick));
-} @TempAllocates
+}
 
 write_peer :: (peer: *Peer) {
     defer Io.done(*peer.writer_done);
@@ -205,7 +205,7 @@ execute :: (peer: *Peer, request: Request) {
     }
 
     queue(peer, tprint("OK %", verb));
-} @TempAllocates
+}
 
 read_peer :: (peer: *Peer) {
     server := peer.server;

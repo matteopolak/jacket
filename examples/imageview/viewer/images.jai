@@ -14,7 +14,7 @@ format_name :: (bytes: [] u8, path: string) -> string {
     if ends_with(lower, ".tga") return "TGA";
 
     return "UNKNOWN";
-} @TempAllocates
+}
 
 Picture :: struct {
     image: Image.Image;

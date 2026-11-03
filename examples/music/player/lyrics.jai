@@ -64,7 +64,8 @@ lyric_at :: (lyrics: [] Lyric, milliseconds: s64) -> s64 {
 sidecar_path :: (path: string) -> string {
     dot := find_index_from_right(path, #char ".");
     return tprint("%.lrc", slice(path, 0, ifx dot >= 0 then dot else path.count));
-} @TempAllocates
+}
+
 #scope_file
 lyric_order :: (a: Lyric, b: Lyric) -> s64 {
     if a.milliseconds != b.milliseconds return a.milliseconds - b.milliseconds;

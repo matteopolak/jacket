@@ -71,7 +71,7 @@ split_front_matter :: (source: string) -> Front_Matter {
 // "guide/intro.md" becomes "guide/intro.html".
 page_output :: (source: string) -> string {
     return tprint("%.html", path_strip_extension(source));
-} @TempAllocates
+}
 
 // The title a page falls back to: its file name without the extension.
 title_from_name :: (source: string) -> string {

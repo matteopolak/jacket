@@ -284,3 +284,23 @@ fn lifetime_http_response_origins_reach_the_actual_caller() {
         );
     }
 }
+
+#[test]
+fn lifetime_inferred_descriptor_release_invalidates_its_backing_allocation() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/inferred-descriptor-release.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[("use_after_free", Level::Warn)],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
+        assert!(text[findings[0].start..].starts_with("old["));
+    }
+}

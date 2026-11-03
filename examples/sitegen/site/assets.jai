@@ -34,7 +34,7 @@ hashed_name :: (path: string, data: string) -> string {
     if extension.count == 0 return tprint("%.%", path, short);
 
     return tprint("%.%.%", path_strip_extension(path), short, extension);
-} @TempAllocates
+}
 
 // The MIME type for a file name, from its extension.
 mime_type :: (path: string) -> string {
@@ -107,4 +107,4 @@ data_uri :: (asset: *Asset) -> string {
     defer free(encoded);
 
     return tprint("data:%;base64,%", asset.mime, encoded);
-} @TempAllocates
+}

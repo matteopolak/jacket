@@ -26,7 +26,7 @@ api_init :: (api: *Api, base_url: string, roots_pem := "") -> string {
     }
 
     return "";
-} @TempAllocates
+}
 
 // Reads the body of `response` as `T`, or turns a failure into text for the player.
 api_read :: (response: *Client_Response, $T: Type) -> T, string {
@@ -45,7 +45,7 @@ api_read :: (response: *Client_Response, $T: Type) -> T, string {
     if error.kind != .NONE return value, error_text(error);
 
     return decoded, "";
-} @TempAllocates
+}
 
 api_health :: (api: *Api) -> Health, string {
     response, error := get(*api.client, ROUTE_HEALTH);
@@ -55,7 +55,7 @@ api_health :: (api: *Api) -> Health, string {
     defer close(*response);
 
     return api_read(*response, Health);
-} @TempAllocates
+}
 
 api_create_account :: (api: *Api, name: string) -> Account, string {
     response, error := post(*api.client, ROUTE_ACCOUNTS, New_Account.{ name });
@@ -72,7 +72,7 @@ api_create_account :: (api: *Api, name: string) -> Account, string {
     }
 
     return account, failure;
-} @TempAllocates
+}
 
 api_submit_match :: (api: *Api, match: New_Match) -> Match, string {
     signed := match;
@@ -87,7 +87,7 @@ api_submit_match :: (api: *Api, match: New_Match) -> Match, string {
     defer close(*response);
 
     return api_read(*response, Match);
-} @TempAllocates
+}
 
 api_leaderboard :: (api: *Api, limit: s64) -> [] Leaderboard_Entry, string {
     response, error := get(*api.client, tprint("%?limit=%", ROUTE_LEADERBOARD, limit));
@@ -97,7 +97,7 @@ api_leaderboard :: (api: *Api, limit: s64) -> [] Leaderboard_Entry, string {
     defer close(*response);
 
     return api_read(*response, [] Leaderboard_Entry);
-} @TempAllocates
+}
 
 #scope_module
 

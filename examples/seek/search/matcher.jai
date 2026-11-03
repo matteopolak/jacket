@@ -29,7 +29,7 @@ make_matcher :: (options: Options) -> Matcher, error: string {
     matcher.regex = regex;
 
     return matcher, "";
-} @TempAllocates
+}
 
 // A matcher for another thread. It shares the compiled pattern and has scratch space of its own.
 clone_matcher :: (matcher: *Matcher) -> Matcher {

@@ -53,6 +53,12 @@ pub(super) enum Step {
     Element(i128),
 }
 
+/// A built-in descriptor's own backing storage, excluding its elements' resources.
+pub(super) fn descriptor_storage(steps: &[Step]) -> bool {
+    matches!(steps, [Step::Storage])
+        || matches!(steps, [Step::Field(name), Step::Deref] if name.as_str() == "data")
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) enum Root {
     Parameter(usize),

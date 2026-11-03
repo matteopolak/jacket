@@ -222,17 +222,28 @@ impl Resolver<'_> {
                 } else {
                     &s.may
                 };
-                for e in effects
-                    .keys()
-                    .filter(|e| e.kind == super::Kind::Free && e.target.steps.is_empty())
-                {
+                for e in effects.keys().filter(|e| e.kind == super::Kind::Free) {
                     let holds = e.guard.is_none_or(|(n, c)| {
                         args.iter()
                             .find(|a| a.formal == n)
                             .is_some_and(|a| a.constant.map_or(!guaranteed, |v| v == c))
                     });
                     if holds && let super::Root::Parameter(n) = e.target.root {
-                        current.insert(n);
+                        let descriptor = args.iter().find(|a| a.formal == n).is_some_and(|a| {
+                            matches!(
+                                self.compiler.ty.types.kind(a.ty),
+                                super::TypeKind::String
+                                    | super::TypeKind::Array {
+                                        kind: super::ArrayKind::View | super::ArrayKind::Resizable,
+                                        ..
+                                    }
+                            )
+                        });
+                        if e.target.steps.is_empty()
+                            || descriptor && super::descriptor_storage(&e.target.steps)
+                        {
+                            current.insert(n);
+                        }
                     }
                 }
             }

@@ -101,7 +101,7 @@ type_text :: (info: *Type_Info, exported: [] string) -> string {
     }
 
     return "";
-} @TempAllocates
+}
 
 Target_Proc :: struct {
     name: string;

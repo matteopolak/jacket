@@ -29,7 +29,7 @@ client_open :: (link: *Link, options: Client_Options) -> bool {
     ready, error := Io.read_line(*link.reader);
     if error != .NONE || ready != "READY chat/1" return false;
     return call(link, tprint("NICK %", options.nick), false) && call(link, tprint("JOIN %", options.room), false);
-} @TempAllocates
+}
 
 script_run :: (link: *Link, path: string) -> bool {
     text, opened := read_entire_file(path);

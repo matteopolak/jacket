@@ -20,7 +20,7 @@ config_path :: () -> string {
     if !home.count return "";
 
     return tprint("%/.jai-editor.json", home);
-} @TempAllocates
+}
 
 // Read the configuration from `path`; the defaults when it cannot be read or parsed.
 load_config :: (path: string) -> Config {

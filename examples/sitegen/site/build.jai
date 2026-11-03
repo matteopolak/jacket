@@ -258,4 +258,4 @@ rewrite_url :: (url: string, kind: Link_Kind, data: *void) -> string {
     if kind == .IMAGE && is_inlinable(asset, site.options.inline_limit) return data_uri(asset);
 
     return join(root_prefix(link.page.output), asset.output,, temp);
-} @TempAllocates
+}
