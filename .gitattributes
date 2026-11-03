@@ -19,3 +19,6 @@
 # otherwise get CRLF line endings on a Windows checkout.
 /stdlib/Extensions/Image/tests/fixtures/** -text
 /examples/textured-cube/assets/** -text
+
+# The jaifmt golden test splits this page on "\n```" and compares its examples byte for byte.
+/docs/tools/jaifmt-rules.md text eol=lf
