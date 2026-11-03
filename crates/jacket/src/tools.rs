@@ -11,23 +11,9 @@ pub const JAILSP: &str = "jailsp";
 pub const JAIFMT: &str = "jaifmt";
 pub const ALL: [&str; 4] = [JAIC, JAILINT, JAILSP, JAIFMT];
 
-fn file_name(tool: &str) -> String {
-    format!("{tool}{}", std::env::consts::EXE_SUFFIX)
-}
-
 /// The file to start for `tool`: next to this executable, else the first match on `PATH`.
 pub fn locate(tool: &str) -> Result<PathBuf, String> {
-    let name = file_name(tool);
-    // Through symlinks (`~/.local/bin/jacket` -> the installed release) to where the tools are.
-    if let Ok(me) = std::env::current_exe().and_then(|me| me.canonicalize())
-        && let Some(dir) = me.parent()
-    {
-        let beside = dir.join(&name);
-        if beside.is_file() {
-            return Ok(beside);
-        }
-    }
-    on_path(Path::new(&name)).ok_or_else(|| {
+    jacket_config::tools::locate(tool).ok_or_else(|| {
         format!(
             "cannot find `{tool}`\nhelp: jacket looks next to its own executable, then on PATH; install the toolchain archive or put `{tool}` on PATH"
         )
@@ -43,14 +29,6 @@ pub fn require(tool: &str) -> Option<PathBuf> {
             None
         }
     }
-}
-
-/// The file `program` names in a folder of `PATH`.
-fn on_path(program: &Path) -> Option<PathBuf> {
-    let path = jacket_config::env::PATH.os()?;
-    std::env::split_paths(&path)
-        .map(|dir| dir.join(program))
-        .find(|candidate| candidate.is_file())
 }
 
 fn missing(program: &OsStr, error: &std::io::Error) -> ExitCode {
@@ -106,7 +84,7 @@ pub fn external(name: &OsStr, args: &[OsString]) -> ExitCode {
     let mut program = OsString::from("jacket-");
     program.push(name);
     program.push(std::env::consts::EXE_SUFFIX);
-    if on_path(Path::new(&program)).is_none() {
+    if jacket_config::tools::on_path(Path::new(&program)).is_none() {
         eprintln!(
             "jacket: no such command: `{}`\nhelp: `jacket --help` lists the commands; other commands are programs called `jacket-<name>` on PATH",
             name.to_string_lossy()

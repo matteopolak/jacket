@@ -181,6 +181,11 @@ impl Session {
         *self.open_file_identities.borrow_mut() = None;
     }
 
+    /// Where `jaifmt` is (`formatter.path`); none means look for it.
+    pub fn set_formatter_path(&mut self, path: Option<PathBuf>) {
+        self.formatter_path = path;
+    }
+
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
         self.polymorph_index.borrow_mut().clear();
         let mut keys: Vec<_> = Vec::with_capacity(folders.len());

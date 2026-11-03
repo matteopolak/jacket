@@ -7,7 +7,7 @@ Two layers:
 - **Syntax** (always on): lexer and parser diagnostics, semantic tokens, symbols, folding, selection ranges, `#load`/`#import` links. Works while the text does not parse.
 - **Semantic** (when the session has an `Environment`): hover, completion, definition, references, rename, signature help, inlay hints, code actions, call hierarchy, code lenses, and [jailint](../tools/jailint.md) lints. Open documents are compiled with `jaic` and the compiler's editor facts are queried.
 
-Formatting is not built in; use `jaifmt --stdin` as an external formatter.
+Formatting runs `jaifmt` as a subprocess (see below); the formatter is written in Jai, so it is not built in.
 
 ## How it works
 
@@ -46,6 +46,7 @@ Handlers query the compile through `with_semantic` (exact text or nothing), `wit
 - **Definition, references, rename**: from recorded references. Rename refuses declarations outside project files.
 - **Declaration and implementation**: declaration is the declaration that introduced the name as written (an alias, a named import), where definition follows on to what it stands for. Implementation is every procedure with a body that shares the name in the open files the file reaches (the overloads); procedure types, `#foreign` declarations and non-procedures have none. Both read the syntax layer, so they never wait for a compile.
 - **Type hierarchy**: a struct's supertypes are the types its `using` and `#as using` members are declared with, its subtypes the structs in the open files that embed it (`type_hierarchy.rs`, from `Analysis::bases`). Names are matched, not resolved, and nothing waits for a compile.
+- **Formatting** (`textDocument/formatting`, `rangeFormatting`): runs `jaifmt --stdin`, with `--range START:END` for a range (the LSP range is turned into byte offsets from UTF-16 columns), in the document's folder so the nearest `jacket.toml` applies. `jaifmt` is the `formatter.path` setting, else the one next to the server, else the one on `PATH`; a file the config's `ignore` list covers is left alone. The answer is one edit that spans the changed lines, or none. A missing `jaifmt`, a text it rejects, a non-zero exit or more than 5 s gives no edits and a `window/logMessage`, never an error. `FormattingOptions` are ignored: `[format]` in `jacket.toml` decides. The server waits for `jaifmt` (about 5 ms for a 20 KB file).
 - **Linked editing**: a local variable, parameter or loop name is edited together with its uses. Only names the syntax layer binds to a single local and the check's references agree on; globals, members and types are not linked, nor is anything while the text has no compile.
 - **Unreachable code**: shown as a faded hint.
 - **Expansions**: `jai.showExpansion` shows what an `#insert`, `#run` or macro produced.
@@ -78,7 +79,7 @@ Without `entry`, the server infers `build.jai`, `first.jai`, `main.jai` or `src/
 ## Configuration
 
 - `JAIC_STDLIB`, `JAIC_PRELUDE`: see [prelude selection](prelude-selection.md).
-- `jai` settings: `completion.autoImport` (true), `completion.callSnippets` (`addParentheses`, `fillArguments`, `none`), `inlayHints.closingBraceMinLines` (25, 0 off), `tests.codeLens` (true), `trusted` (true; false runs no compile-time code, see [workspace trust](../tools/workspace-trust.md)).
+- `jai` settings: `completion.autoImport` (true), `completion.callSnippets` (`addParentheses`, `fillArguments`, `none`), `inlayHints.closingBraceMinLines` (25, 0 off), `tests.codeLens` (true), `formatter.path` (`jaifmt`; empty looks for it), `trusted` (true; false runs no compile-time code, see [workspace trust](../tools/workspace-trust.md)).
 - Cache constants in `semantic.rs` (`CACHED`, `ALTERNATES`, ...); `Limits` caps documents, sizes and messages.
 - Benchmark: `PYTHONPATH=tools python3 tools/bench/main.py lsp`.
 

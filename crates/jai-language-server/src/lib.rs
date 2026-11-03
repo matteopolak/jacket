@@ -13,6 +13,7 @@ mod document;
 mod exports;
 pub(crate) mod features;
 pub(crate) mod format;
+mod formatting;
 pub mod framing;
 mod hierarchy;
 pub(crate) mod hover;

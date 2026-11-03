@@ -85,6 +85,8 @@ pub struct Session {
     snippet_support: bool,
     /// Declarations at least this many lines long get a hint at their closing brace.
     pub(crate) closing_brace_min_lines: usize,
+    /// `jaifmt` as the client names it (`jai.formatter.path`); unset, it is looked for.
+    pub(crate) formatter_path: Option<PathBuf>,
     /// "Run test" and "Debug test" lenses are offered (`jai.tests.codeLens`).
     pub(crate) test_lenses: bool,
     /// The client's workspace folders: projects without a `jacket.toml` are inferred in them.
@@ -151,6 +153,7 @@ impl Session {
             call_snippets: crate::call_snippets::CallSnippets::default(),
             snippet_support: false,
             closing_brace_min_lines: crate::closing_hints::DEFAULT_MIN_LINES,
+            formatter_path: None,
             test_lenses: true,
             workspace_folders: Vec::new(),
             index: RefCell::default(),

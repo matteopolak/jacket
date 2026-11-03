@@ -7,10 +7,10 @@ use super::params::{
     WorkspaceSymbolParams,
 };
 use super::wire::{
-    SymbolsWire, capabilities, code_action_wire, code_lens_wire, document_report, expansion_wire,
-    folding_wire, hierarchy_call_wire, hierarchy_item_wire, hover_kind, hover_wire, inlay_wire,
-    locations_wire, selection_wire, semantic_tokens_wire, signature_kind, signature_wire,
-    symbol_information_wire, token_edit, workspace_edit_wire,
+    SymbolsWire, capabilities, code_action_wire, code_lens_wire, document_report, edit_wire,
+    expansion_wire, folding_wire, hierarchy_call_wire, hierarchy_item_wire, hover_kind, hover_wire,
+    inlay_wire, locations_wire, selection_wire, semantic_tokens_wire, signature_kind,
+    signature_wire, symbol_information_wire, token_edit, workspace_edit_wire,
 };
 use super::{JsonSession, Lifecycle};
 use crate::DocumentUri;
@@ -104,6 +104,17 @@ impl JsonSession {
                 let (document, position) = at(params)?;
                 let found = self.session.implementation(&document, position);
                 locations_wire(&found.map_err(domain)?)
+            }
+            Request::Formatting => {
+                let edits = self.session.format(&document(params)?, None);
+                array(&edits.map_err(domain)?, edit_wire)
+            }
+            Request::RangeFormatting => {
+                let p: RangeParams = decode(params)?;
+                let edits = self
+                    .session
+                    .format(&uri(&p.text_document.uri)?, Some(p.range));
+                array(&edits.map_err(domain)?, edit_wire)
             }
             Request::References => {
                 let p: ReferenceParams = decode(params)?;

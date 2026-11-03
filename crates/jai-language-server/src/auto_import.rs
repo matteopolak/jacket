@@ -153,6 +153,11 @@ impl Index {
         }
     }
 
+    /// A log line for the client, sent every time.
+    pub(crate) fn log(&mut self, line: &str) {
+        self.logs.push(line.to_string());
+    }
+
     /// Log lines for the client, once.
     pub(crate) fn take_logs(&mut self) -> Vec<String> {
         std::mem::take(&mut self.logs)

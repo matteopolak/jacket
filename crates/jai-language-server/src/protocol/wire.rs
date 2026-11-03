@@ -299,6 +299,8 @@ pub(super) fn capabilities(pull_diagnostics: bool) -> Value {
         "declarationProvider": true,
         "linkedEditingRangeProvider": true,
         "implementationProvider": true,
+        "documentFormattingProvider": true,
+        "documentRangeFormattingProvider": true,
         "referencesProvider": true,
         "renameProvider": { "prepareProvider": true },
         "documentHighlightProvider": true,
@@ -353,6 +355,10 @@ pub(super) fn capabilities(pull_diagnostics: bool) -> Value {
         });
     }
     capabilities
+}
+
+pub(super) fn edit_wire(edit: &crate::TextEdit) -> Value {
+    json!({ "range": edit.range, "newText": edit.new_text })
 }
 
 pub(super) fn workspace_edit_wire(documents: crate::features::RenameEdits) -> Value {

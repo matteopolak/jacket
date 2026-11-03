@@ -14,6 +14,7 @@ pub mod env;
 pub mod llvm;
 pub mod pattern;
 pub mod schema;
+pub mod tools;
 
 pub use pattern::{PathPattern, PatternError, relative_text};
 pub use schema::{

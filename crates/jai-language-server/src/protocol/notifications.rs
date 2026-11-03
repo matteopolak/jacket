@@ -263,7 +263,7 @@ impl JsonSession {
 
     /// Apply the settings in `settings` (`initializationOptions`, or the `jai` section of
     /// `workspace/didChangeConfiguration`): `{ "completion": { "autoImport": false,
-    /// "callSnippets": "fillArguments" }, "compileTime": { "evaluationBudget": 100000000,
+    /// "callSnippets": "fillArguments" }, "formatter": { "path": "/opt/jacket/jaifmt" }, "compileTime": { "evaluationBudget": 100000000,
     /// "checkTimeLimit": 10 } }`. A setting the client leaves out keeps its default.
     pub(super) fn configure(&mut self, settings: &Value) {
         if let Some(on) = settings["completion"]["autoImport"].as_bool() {
@@ -271,6 +271,10 @@ impl JsonSession {
         }
         if let Some(on) = settings["tests"]["codeLens"].as_bool() {
             self.session.set_test_lenses(on);
+        }
+        if let Some(path) = settings["formatter"]["path"].as_str() {
+            let path = (!path.is_empty()).then(|| PathBuf::from(path));
+            self.session.set_formatter_path(path);
         }
         if let Some(lines) = settings["inlayHints"]["closingBraceMinLines"].as_u64() {
             self.session.set_closing_brace_min_lines(lines as usize);
