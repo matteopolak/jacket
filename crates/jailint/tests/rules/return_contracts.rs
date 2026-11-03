@@ -142,3 +142,61 @@ fn lifetime_returned_address_aliases_preserve_their_original_generation() {
         );
     }
 }
+
+#[test]
+fn lifetime_reconstructed_temporary_descriptors_taint_the_caller() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/reconstructed-descriptor.jai");
+    for (mode, expected) in [
+        (jacket_config::LifetimeMode::Must, 1),
+        (jacket_config::LifetimeMode::Strict, 2),
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[("temp_storage_escape", Level::Warn)],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(
+            findings.len(),
+            expected,
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+        assert!(
+            findings
+                .iter()
+                .all(|f| f.start > text.find("main ::").unwrap()),
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+    }
+}
+
+#[test]
+fn lifetime_descriptor_aliases_keep_their_allocation_generation() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/reconstructed-descriptor.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[("use_after_free", Level::Warn)],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
+        assert!(
+            findings
+                .iter()
+                .all(|f| text[f.start..].starts_with("old_view[")
+                    || text[f.start..].starts_with("old_temporary[")),
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+    }
+}

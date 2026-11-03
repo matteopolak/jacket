@@ -1,3 +1,5 @@
+mod descriptors;
+
 use super::*;
 use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::sema::{NativeFs, Options, ProgramSource};

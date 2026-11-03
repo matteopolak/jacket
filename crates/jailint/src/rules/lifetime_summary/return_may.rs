@@ -159,8 +159,24 @@ impl Resolver<'_> {
                 ..
             } = event
             {
+                let descriptor = matches!(
+                    self.compiler.ty.types.kind(*ty),
+                    super::TypeKind::String
+                        | super::TypeKind::Array {
+                            kind: super::ArrayKind::View | super::ArrayKind::Resizable,
+                            ..
+                        }
+                );
                 if self.compiler.ty.types.as_struct(*ty).is_none()
-                    && self.may_temporary(*value, all, &mut HashSet::default(), 0)
+                    && (self.may_temporary(*value, all, &mut HashSet::default(), 0)
+                        || descriptor
+                            && self.field_may_temporary(
+                                *value,
+                                *ty,
+                                &[Projection::Field(jaic::intern::Sym::intern("data"))],
+                                all,
+                                0,
+                            ))
                 {
                     next.may_returns.insert(*index);
                 }

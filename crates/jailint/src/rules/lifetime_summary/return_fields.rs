@@ -338,6 +338,22 @@ impl Resolver<'_> {
         {
             return self.field_origin(source, ty, projections, all, depth + 1);
         }
+        // Memory-class results share one physical return slot across branches.
+        // Different headers can still select exactly the same storage origin.
+        if self.return_mode.get()
+            && !self.exposed.contains(&self.places.root_of(root))
+            && self.return_definition(root)
+        {
+            let mut origin = None;
+            for source in self.writes.get(&root)? {
+                let path = self.field_origin(*source, ty, projections, all, depth + 1)?;
+                if origin.as_ref().is_some_and(|old| old != &path) {
+                    return None;
+                }
+                origin = Some(path);
+            }
+            return origin;
+        }
         None
     }
 }

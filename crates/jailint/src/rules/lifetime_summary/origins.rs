@@ -39,7 +39,12 @@ impl Resolver<'_> {
                     steps: Vec::new(),
                 },
                 Def::Address(p) => {
-                    let ty = self.places.types.get(p).copied();
+                    let ty = self.places.types.get(p).copied().or_else(|| {
+                        self.places.paths[*p]
+                            .1
+                            .is_empty()
+                            .then_some(self.places.paths[*p].0.1)
+                    });
                     let descriptor = ty.is_some_and(|ty| {
                         matches!(
                             self.compiler.ty.types.kind(ty),

@@ -610,7 +610,9 @@ impl Builder<'_> {
             if let Some(arg) = resolver.passthrough(event, index, &summaries.procs) {
                 if let Some(source) = resources::operand_cell(cx, places, cells, &arg) {
                     ops.push(Op::Copy(vec![(target, source)]));
-                    if resolver.adjusted_result(event, index, &summaries.procs) {
+                    if !cx.compiler.ty.types.is_pointer(arg.ty)
+                        || resolver.adjusted_result(event, index, &summaries.procs)
+                    {
                         ops.push(Op::ForgetElement(target));
                     }
                 }

@@ -311,8 +311,7 @@ impl Resolver<'_> {
             let super::Root::Parameter(formal) = path.root else {
                 return None;
             };
-            if !path.steps.is_empty()
-                || guard.is_some()
+            if guard.is_some()
                 || s.may
                     .keys()
                     .any(|e| e.kind == super::Kind::Resize && e.target.root == path.root)
@@ -320,7 +319,19 @@ impl Resolver<'_> {
                 return None;
             }
             let arg = args.iter().find(|a| a.formal == formal)?;
-            if !self.compiler.ty.types.is_pointer(arg.ty) {
+            let descriptor = matches!(
+                self.compiler.ty.types.kind(arg.ty),
+                super::TypeKind::String
+                    | super::TypeKind::Array {
+                        kind: super::ArrayKind::View | super::ArrayKind::Resizable,
+                        ..
+                    }
+            );
+            let storage = matches!(path.steps.as_slice(), [super::Step::Storage])
+                || matches!(path.steps.as_slice(), [super::Step::Field(name), super::Step::Deref] if name.as_str() == "data");
+            if !(path.steps.is_empty() && (self.compiler.ty.types.is_pointer(arg.ty) || descriptor)
+                || descriptor && storage)
+            {
                 return None;
             }
             let value = super::value(arg)?;
