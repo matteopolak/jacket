@@ -284,7 +284,6 @@ pub struct Example {
     pub code_html: String,
     pub id: Option<String>,
     pub note: Option<String>,
-    pub show_note: bool,
     pub playground_url: Option<String>,
 }
 

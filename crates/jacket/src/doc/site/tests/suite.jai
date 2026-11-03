@@ -139,15 +139,14 @@ examples_and_legacy_escaping :: () {
     out: Out;
     defer deinit(*out);
     note := "Can't run \"x\" & y";
-    e := Example.{ code_html = "<b>x</b>", note = *note, show_note = true };
+    e := Example.{ code_html = "<b>x</b>", note = *note };
     ExampleBlock(*out, *e);
     expect(contains(to_string(*out), "disabled title=\"Can't run &quot;x&quot; &amp; y\""));
-    expect(contains(to_string(*out), "<p class=\"ex-note\">Can't run &quot;x&quot; &amp; y</p>"));
+    expect(!contains(to_string(*out), "ex-note"));
     reset(*out);
     id := "abc";
     e.id = *id;
     e.compact = true;
-    e.show_note = false;
     ExampleBlock(*out, *e);
     expect(contains(to_string(*out), "ex compact"));
     expect(contains(to_string(*out), "data-act=\"reset\""));

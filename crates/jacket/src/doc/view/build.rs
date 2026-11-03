@@ -167,7 +167,7 @@ pub fn site(site: &Site) -> SiteView {
         });
     }
     SiteView {
-        format: 5,
+        format: 6,
         name: site.name.clone(),
         site_name: site.name.clone(),
         base: site.base.clone(),

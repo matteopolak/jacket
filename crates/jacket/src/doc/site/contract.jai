@@ -257,7 +257,6 @@ Example :: struct {
     code_html: string;
     id: *string;
     note: *string;
-    show_note: bool;
     playground_url: *string;
 }
 

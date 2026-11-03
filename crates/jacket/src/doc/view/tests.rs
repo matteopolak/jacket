@@ -238,7 +238,7 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
             "written_files"
         ]
     );
-    assert_eq!(shared["format"], 5);
+    assert_eq!(shared["format"], 6);
     assert_eq!(shared["index"]["content"]["kind"], "index");
     assert_eq!(shared["index"]["sidebar"]["kind"], "modules");
     let bundle = serde_json::to_value(module(&site, 0)).unwrap();
@@ -266,7 +266,6 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
             .contains('x')
     );
     assert!(example["example"]["id"].is_null());
-    assert!(!example["example"]["show_note"].as_bool().unwrap());
     assert_eq!(bundle["items"][0]["content"]["kind"], "item");
     assert_eq!(bundle["items"][0]["sidebar"]["kind"], "item");
     assert_eq!(

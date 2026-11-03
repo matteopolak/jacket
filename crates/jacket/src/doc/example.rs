@@ -10,7 +10,7 @@ use crate::test::options::Target;
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 
-/// Why an example is shown without a working Run button, if it is.
+/// Why an example is shown without a working Run button, if it is: the disabled button's hover.
 fn why_not_run(site: &Site, block: &Block) -> Option<String> {
     if block.options.ignore {
         return Some("Not run: the example is marked ignore.".into());
@@ -32,7 +32,6 @@ fn why_not_run(site: &Site, block: &Block) -> Option<String> {
     None
 }
 
-/// Shown only on the disabled Run button's hover, since it is the same for every example.
 const NO_RUNTIME: &str = "This copy of the docs has no browser compiler, so it can't run examples.";
 
 /// Why `jacket test` would skip the block on WebAssembly, which is what the browser runs.
@@ -101,7 +100,6 @@ pub fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> Examp
         code_html: body,
         id: None,
         note: None,
-        show_note: false,
         playground_url: None,
     }
 }
@@ -134,16 +132,12 @@ pub fn view(
         .then(|| doctest::standalone(&block, &module.id))
         .flatten()
         .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));
-    let show_note = note
-        .as_ref()
-        .is_some_and(|why| program.is_none() && why != NO_RUNTIME);
     Example {
         plain: false,
         compact,
         code_html: shown,
         id: program,
         note,
-        show_note,
         playground_url: standalone,
     }
 }
