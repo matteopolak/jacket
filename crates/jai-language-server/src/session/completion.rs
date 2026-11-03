@@ -93,6 +93,10 @@ impl Session {
             if names.is_empty() && !chain.is_empty() {
                 return None;
             }
+            // Only matching candidates reach the client. Resolving aliases for every visible
+            // name scans declarations and documentation that the prefix will discard.
+            let lower = prefix.to_lowercase();
+            names.retain(|name| name.name.to_lowercase().starts_with(&lower));
             a.forward_docs(&mut names);
             a.shift_to(path, text, &mut names);
             let files = a.decl_files(&names);
@@ -142,6 +146,10 @@ impl Session {
             } else {
                 a.complete_inferred(path, dot + 1)?
             };
+            // Only matching candidates reach the client. Resolving aliases for every visible
+            // name scans declarations and documentation that the prefix will discard.
+            let lower = prefix.to_lowercase();
+            names.retain(|name| name.name.to_lowercase().starts_with(&lower));
             a.forward_docs(&mut names);
             a.shift_to(path, text, &mut names);
             let files = a.decl_files(&names);

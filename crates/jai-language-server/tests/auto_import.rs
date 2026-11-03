@@ -949,3 +949,32 @@ fn a_module_that_reexports_another_offers_its_names() {
     assert_eq!(sources_of(&list, "reexported_renamed"), facade());
     assert_eq!(sources_of(&list, "reexported_proc"), none);
 }
+
+#[test]
+fn prefixed_alias_completion_keeps_forwarded_docs_and_case_insensitive_matching() {
+    let dir = project(
+        "prefix-docs",
+        &[
+            ("main.jai", "#import \"Facade\";\nmain :: () { MeAs }"),
+            (
+                "modules/Facade/module.jai",
+                "measure :: Impl.measure; #scope_file Impl :: #import \"Helper\";",
+            ),
+            (
+                "modules/Helper/module.jai",
+                "/// The measured result.\nmeasure :: (count:int) -> int { return count; }",
+            ),
+        ],
+    );
+    let mut s = session();
+    let text = "#import \"Facade\";\nmain :: () { MeAs }";
+    let list = complete_at(&mut s, &dir.join("main.jai"), text, "MeAs");
+    let item = list.items.iter().find(|i| i.label == "measure").unwrap();
+    assert!(
+        item.documentation
+            .as_deref()
+            .unwrap()
+            .contains("The measured result.")
+    );
+    assert!(!list.items.iter().any(|i| i.label == "print"));
+}
