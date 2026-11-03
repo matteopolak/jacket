@@ -13,6 +13,7 @@ crate-type = ["cdylib", "rlib"]
 jai-language-server = { path = "../jai-language-server" }
 jaic = { path = "../jaic" }
 serde_json = "=1.0.151"
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
 
 # Export-name attributes are the only permitted unsafe syntax, in the play_exports.rs and
 # language_server.rs modules, plus the `unsafe extern` block that declares the page's `jai_host`
@@ -21,6 +22,7 @@ serde_json = "=1.0.151"
 # stays inside that crate).
 [build-dependencies]
 jacket-config = { path = "../jacket-config" }
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
 
 [lints]
 workspace = true

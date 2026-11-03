@@ -21,7 +21,7 @@ A bundle (`tools/browser/build_scripting_wasm.py --output <dir>`) holds:
 
 ## How it works
 
-1. `crates/jai-wasm/build.rs` embeds `stdlib/` with `include_bytes!` and links a 256 MiB shadow stack, because the compiler recurses deeply.
+1. `crates/jai-wasm/build.rs` embeds `stdlib/` (the `.jai` sources, deflate-compressed into one blob that `play.rs` expands once on first use, about 20 ms) and links a 256 MiB shadow stack, because the compiler recurses deeply.
 2. `play.rs::run(files, main)` builds a `VirtualFs` with the stdlib at `/stdlib/...` and user files at `/workspace/<path>`, uses `Options::for_program` (target WASM, `OS == .WASM`), installs a `SandboxHost` (libc shims, in-memory files, captured output), compiles, runs, and returns a JSON `PlayResult`. `exitCode` is null both when compilation failed and when the program hit a runtime error; the diagnostic `code` (`runtime-error`) tells them apart. `PlayOptions { budget }` bounds the interpreter in steps.
 3. `play_exports.rs` is a pointer-free scalar ABI (`jai_play_reset`, `jai_play_push`, `jai_play_run`, ...). `engine.mjs` wraps it. Files are strings or `Uint8Array`s.
 4. **Page host functions** (`host_bridge.rs`): a `#foreign` procedure the sandbox does not implement is offered to `host.functions[name]` through the `jai_host.call` import. `engine.mjs` provides `getentropy` itself. A promise result suspends the module through JSPI (`playAsync`).

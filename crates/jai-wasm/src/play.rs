@@ -14,6 +14,18 @@ use std::rc::Rc;
 
 include!(concat!(env!("OUT_DIR"), "/stdlib_files.rs"));
 
+/// The bundled stdlib sources, expanded from the compressed blob on first use.
+fn stdlib_sources() -> Vec<(&'static str, &'static [u8])> {
+    static TEXT: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    let text = TEXT.get_or_init(|| {
+        miniz_oxide::inflate::decompress_to_vec(COMPRESSED).expect("bundled stdlib is valid")
+    });
+    INDEX
+        .iter()
+        .map(|&(name, start, len)| (name, &text[start..start + len]))
+        .collect()
+}
+
 /// Virtual directory holding the user's files.
 pub const WORKSPACE_ROOT: &str = "/workspace";
 
@@ -89,7 +101,7 @@ pub(crate) fn virtual_fs(files: &BTreeMap<String, Vec<u8>>) -> VirtualFs {
 fn workspace_fs(files: &BTreeMap<String, Vec<u8>>, bundled: bool) -> VirtualFs {
     let mut fs = VirtualFs::default();
     if bundled {
-        for (name, bytes) in BUNDLED {
+        for (name, bytes) in stdlib_sources() {
             fs.insert(format!("/{name}"), bytes.to_vec());
         }
     }
@@ -346,8 +358,8 @@ fn run_styled(
 #[cfg(test)]
 mod tests {
     fn supplied_library_fixture() -> BTreeMap<String, Vec<u8>> {
-        let mut files: BTreeMap<_, _> = BUNDLED
-            .iter()
+        let mut files: BTreeMap<_, _> = stdlib_sources()
+            .into_iter()
             .map(|(name, bytes)| {
                 (
                     format!("library/{}", name.strip_prefix("stdlib/").unwrap()),

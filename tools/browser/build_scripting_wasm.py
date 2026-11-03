@@ -145,7 +145,7 @@ def main():
     # Static hosts cap file sizes (Cloudflare Pages at 25 MiB); keep the release module under that.
     if args.release and wasm.stat().st_size > MAX_RELEASE_WASM_BYTES:
         raise SystemExit(f"jai_wasm.wasm is {wasm.stat().st_size} bytes, over the {MAX_RELEASE_WASM_BYTES}-byte limit; "
-                         "check what crates/jai-wasm/build.rs bundles")
+                         "check what crates/jai-wasm/build.rs bundles (the stdlib sources are compressed)")
     output.mkdir(parents=True, exist_ok=True)
     # The bundle is the module plus the glue an embedder needs; the hosted UI lives elsewhere
     # (docs/browser/playground.md).
