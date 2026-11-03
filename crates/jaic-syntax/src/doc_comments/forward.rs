@@ -96,23 +96,8 @@ impl<'a> Files<'a> {
                 unnamed: Vec::new(),
             };
             let tops = ide_facts::top_level(&parsed.file);
-            // Bindings in a #module_parameters body are in scope in its defaults and types.
-            let bodies: Vec<_> = tops
-                .iter()
-                .filter_map(|item| match item.kind {
-                    TopLevelKind::ModuleParameters(params) => {
-                        params.body.as_ref().map(|body| crate::ast::File {
-                            stmts: body.stmts.clone(),
-                            ..parsed.file.clone()
-                        })
-                    }
-                    _ => None,
-                })
-                .collect();
-            for item in tops
-                .into_iter()
-                .chain(bodies.iter().flat_map(ide_facts::top_level))
-            {
+            // Bindings in a #module_parameters body are listed among the top level.
+            for item in tops {
                 match item.kind {
                     TopLevelKind::Decl(decl) => {
                         for n in &decl.names {

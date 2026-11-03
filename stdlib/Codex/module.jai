@@ -13,6 +13,7 @@
 // default) or read a recorded one back (`.READ`), or both. Every declaration is available in
 // every mode.
 #module_parameters(USAGE_MODE := Usage_Mode.WRITE) {
+    // What an importer uses the module for: `READ` to read a recorded build, `WRITE` to record one.
     Usage_Mode :: enum_flags u32 {
         READ;
         WRITE;

@@ -94,7 +94,7 @@ impl Site {
         required
             .into_iter()
             .filter(|name| {
-                // Only declarations proven private, internal, parameter-body helpers, or supplied by the prelude can
+                // Only declarations proven private, internal, or supplied by the prelude can
                 // lack a page. A documented alias hop still links through the normal resolver.
                 let unpublished = refs.iter().any(|r| {
                     (r.path == *name || name.starts_with(&format!("{}.", r.path))) && r.private

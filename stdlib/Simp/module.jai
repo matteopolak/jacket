@@ -37,6 +37,7 @@
     // The graphics API to draw with. `.NONE` draws nothing.
     render_api := Render_API.OPENGL
 )() {
+    // The graphics API to draw with.
     Render_API :: enum u32 {
         NONE;
         SOFTWARE;

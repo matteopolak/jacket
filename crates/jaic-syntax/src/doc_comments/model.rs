@@ -280,28 +280,6 @@ impl Reader<'_> {
     }
 }
 
-/// Parameter-body helpers validate an import's arguments; they do not have item pages.
-fn parameter_helper_sites(file: &File) -> Vec<usize> {
-    let mut sites = Vec::new();
-    for item in ide_facts::top_level(file) {
-        if let TopLevelKind::ModuleParameters(params) = item.kind
-            && let Some(body) = &params.body
-        {
-            crate::ast::walk::walk(&body.stmts, &mut |node, _| {
-                if let Some(Stmt {
-                    kind: StmtKind::Decl(d),
-                    ..
-                }) = node.stmt()
-                {
-                    sites.extend(d.names.iter().map(|n| n.span.start as usize));
-                }
-                true
-            });
-        }
-    }
-    sites
-}
-
 impl Reader<'_> {
     fn parsed(&mut self, file: &Path) -> Option<Rc<Parsed>> {
         if let Some(found) = self.parsed.get(file) {
@@ -319,7 +297,6 @@ impl Reader<'_> {
                     })
                     .flatten()
                     .map(|n| n.span.start as usize)
-                    .chain(parameter_helper_sites(&parse.file))
                     .collect(),
                 limits: limits(&parse.file),
                 text,

@@ -417,7 +417,7 @@ fn type_values_are_classified_by_resolution_and_procedure_types_merge_branches()
 }
 
 #[test]
-fn using_reexports_respect_filters_and_parameter_helpers_have_no_item_page() {
+fn using_reexports_respect_filters() {
     let dir = library(
         "using-filters",
         &[
@@ -437,7 +437,7 @@ fn using_reexports_respect_filters_and_parameter_helpers_have_no_item_page() {
     );
     let model = module(&dir.join("Consumer"), &dir);
     let refs = &model.parameters[0].refs;
-    assert!(refs.iter().any(|r| r.path == "Mode" && r.private));
+    assert!(refs.iter().any(|r| r.path == "Mode" && !r.private));
     let params = &model
         .items
         .iter()
@@ -451,6 +451,24 @@ fn using_reexports_respect_filters_and_parameter_helpers_have_no_item_page() {
         type_paths("string.[\"Point\", \"escaped \\\" Hidden\"]"),
         [vec!["string"]]
     );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn declarations_in_a_parameter_body_are_items_of_the_module() {
+    let dir = library(
+        "parameter-body",
+        &[(
+            "module.jai",
+            "#module_parameters(\n    // Which one.\n    MODE := Mode.ONE\n) {\n    // The choices.\n    Mode :: enum { ONE; TWO; }\n    #scope_file\n    Hidden :: struct {}\n}\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let mode = model.items.iter().find(|i| i.name == "Mode").unwrap();
+    assert_eq!(mode.docs, "The choices.");
+    assert!(model.items.iter().all(|i| i.name != "Hidden"));
+    let refs = &model.parameters[0].refs;
+    assert!(refs.iter().any(|r| r.path == "Mode" && !r.private));
     std::fs::remove_dir_all(dir).unwrap();
 }
 

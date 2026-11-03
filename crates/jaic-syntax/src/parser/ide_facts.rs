@@ -146,7 +146,8 @@ pub struct TopLevel<'a> {
 }
 
 /// The declarations, imports, loads and asserts of `file`'s top level, in source order. A scope
-/// directive inside an `#if` branch holds to the end of that branch.
+/// directive inside an `#if` branch holds to the end of that branch. The declarations in a
+/// `#module_parameters` body follow it as items of the module.
 pub fn top_level(file: &File) -> Vec<TopLevel<'_>> {
     fn walk<'a>(
         stmts: &'a [Stmt],
@@ -181,6 +182,13 @@ pub fn top_level(file: &File) -> Vec<TopLevel<'_>> {
                 visibility,
                 nested,
             });
+            // A `#module_parameters` body declares names importers can use, so they are the
+            // module's own top-level items.
+            if let StmtKind::ModuleParameters(params) = &stmt.kind
+                && let Some(body) = &params.body
+            {
+                walk(&body.stmts, Visibility::Export, nested, out);
+            }
         }
     }
     let mut out = Vec::new();

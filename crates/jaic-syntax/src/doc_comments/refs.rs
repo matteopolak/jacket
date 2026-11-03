@@ -13,7 +13,7 @@ pub struct TypeRef {
     pub line: usize,
     /// Where the declared name starts in `file`, 0 when it is not known.
     pub at: usize,
-    /// This hop belongs to a private/internal/prelude or module-parameter helper scope.
+    /// This hop belongs to a private/internal/prelude scope.
     pub private: bool,
 }
 

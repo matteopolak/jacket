@@ -28,6 +28,7 @@
     // Logs when the audio output cannot be opened or started.
     VERBOSE := false
 ) {
+    // How many sound categories there are unless `MAX_SOUND_CATEGORIES` says otherwise.
     DEFAULT_MAX_SOUND_CATEGORIES :: 64;
 }
 
