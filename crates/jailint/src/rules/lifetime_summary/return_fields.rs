@@ -332,6 +332,21 @@ impl Resolver<'_> {
             }
             return origin;
         }
+        for (prefix, prefix_ty, sources, tail) in self.stored_field_prefixes(root, ty, projections)
+        {
+            if !(self.return_definition(prefix) || self.field_defined_before_uses(root, prefix)) {
+                continue;
+            }
+            let mut origin = None;
+            for source in sources {
+                let path = self.field_origin(*source, prefix_ty, tail, all, depth + 1)?;
+                if origin.as_ref().is_some_and(|old| old != &path) {
+                    return None;
+                }
+                origin = Some(path);
+            }
+            return origin;
+        }
         if let Some(source) = self.return_source(root)
             && source != value
             && (self.return_definition(root) || self.empty_field_default(root, projections))
@@ -359,6 +374,46 @@ impl Resolver<'_> {
 }
 
 impl Resolver<'_> {
+    // An aggregate assignment defines its nested fields through the stored header.
+    // Only ordinary value records participate; unions and overlays need alias facts.
+    pub(super) fn stored_field_prefixes<'b>(
+        &'b self,
+        root: usize,
+        ty: TypeId,
+        projections: &'b [Projection],
+    ) -> impl Iterator<Item = (usize, TypeId, &'b [Val], &'b [Projection])> + 'b {
+        let ordinary = self.compiler.ty.types.as_struct(ty).is_some_and(|st| {
+            let info = self.compiler.ty.types.struct_info(st);
+            !info.is_union && !info.fields.iter().any(|f| f.overlay)
+        });
+        (1..projections.len()).rev().filter_map(move |split| {
+            if !ordinary
+                || self.writes.contains_key(&root)
+                || self.exposed.contains(&self.places.root_of(root))
+                || !projections[..split]
+                    .iter()
+                    .all(|p| matches!(p, Projection::Field(_)))
+            {
+                return None;
+            }
+            let prefix = projections[..split]
+                .iter()
+                .try_fold(root, |p, field| self.places.projected(p, *field))?;
+            let ty = *self.places.types.get(&prefix)?;
+            let st = self.compiler.ty.types.as_struct(ty)?;
+            let info = self.compiler.ty.types.struct_info(st);
+            if info.is_union || info.fields.iter().any(|f| f.overlay) {
+                return None;
+            }
+            Some((
+                prefix,
+                ty,
+                self.writes.get(&prefix)?.as_slice(),
+                &projections[split..],
+            ))
+        })
+    }
+
     // An early return of a different aggregate does not require this aggregate's
     // fields to have been initialized. Cut paths at the field definition and check
     // the uses of this header, rather than every return in the procedure.

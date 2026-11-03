@@ -306,6 +306,66 @@ impl<'a> Builder<'a> {
             && (places.unresolved(p) || !self.stack.contains(&places.paths[p].0.0))
     }
 
+    fn store_escapes(
+        &self,
+        event: &Event,
+        places: &mut Places,
+        cells: &mut Cells,
+        resolver: &mut Resolver<'_>,
+    ) -> Vec<Op> {
+        let Event::Store {
+            place,
+            value,
+            ty,
+            span,
+            ..
+        } = event
+        else {
+            return Vec::new();
+        };
+        let cx = self.cx;
+        let mut ops = Vec::new();
+        let p = places.place(*place, *ty);
+        if self.long_lived(places, p) {
+            let pointer = places.unresolved(p);
+            let parameter_target = self.defers_temporary(event, resolver);
+            let temporary_target = pointer
+                && (resolver
+                    .value(*place, &self.summaries.procs)
+                    .is_some_and(|p| p.root == Root::Temporary)
+                    || resolver
+                        .value(places.paths[p].0.0, &self.summaries.procs)
+                        .is_some_and(|p| p.root == Root::Temporary));
+            let mut escaping = vec![(
+                value_cell(cx, places, cells, *value, *ty),
+                cells.id(Cell::Place(p)),
+            )];
+            // Pointer outputs are replayed at their callers. Concrete value sinks
+            // need separate observations for each stored aggregate field.
+            if !pointer && cx.compiler.ir_ty(*ty).is_none() {
+                let source = places.place(*value, *ty);
+                escaping.extend(
+                    places
+                        .copied_fields(p, source)
+                        .into_iter()
+                        .map(|(dst, src)| (cells.id(Cell::Place(src)), cells.id(Cell::Place(dst)))),
+                );
+            }
+            for (cell, target) in escaping {
+                ops.push(Op::Escape {
+                    cell,
+                    span: self.store_spans.get(span).copied().unwrap_or(*span),
+                    pointer,
+                    target,
+                    store: true,
+                    parameter_target,
+                    temporary_target,
+                });
+            }
+        }
+        ops
+    }
+
     pub fn operations(
         &self,
         event: &Event,
@@ -487,31 +547,8 @@ impl<'a> Builder<'a> {
                 }
             }
             Event::Store {
-                place,
-                value,
-                ty,
-                span,
                 ..
-            } => {
-                let p = places.place(*place, *ty);
-                if self.long_lived(places, p) {
-                    ops.push(Op::Escape {
-                        cell: value_cell(cx, places, cells, *value, *ty),
-                        span: self.store_spans.get(span).copied().unwrap_or(*span),
-                        pointer: places.unresolved(p),
-                        target: cells.id(Cell::Place(p)),
-                        store: true,
-                        parameter_target: self.defers_temporary(event, resolver),
-                        temporary_target: places.unresolved(p)
-                            && (resolver
-                                .value(*place, &self.summaries.procs)
-                                .is_some_and(|p| p.root == Root::Temporary)
-                                || resolver
-                                    .value(places.paths[p].0.0, &self.summaries.procs)
-                                    .is_some_and(|p| p.root == Root::Temporary)),
-                    });
-                }
-            }
+            } => ops.extend(self.store_escapes(event, places, cells, resolver)),
             Event::Call {
                 callee,
                 args,

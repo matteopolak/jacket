@@ -27,6 +27,26 @@ impl Resolver<'_> {
             }
         } else {
             if self.compiler.ir_ty(ty).is_none() {
+                for projections in self.storage_fields(ty, 0) {
+                    let definite = self
+                        .field_origin(source, ty, &projections, all, 0)
+                        .is_some_and(|p| p.root == Root::Temporary);
+                    if !definite && !self.field_may_temporary(source, ty, &projections, all, 0) {
+                        continue;
+                    }
+                    let steps: Vec<_> = projections
+                        .iter()
+                        .map(|p| match p {
+                            super::Projection::Field(name) => Step::Field(*name),
+                            _ => unreachable!(),
+                        })
+                        .collect();
+                    if let Some(path) = target.clone().append(&steps) {
+                        // A returned field can be nullable or conditionally initialized.
+                        // Preserve the risk without turning a field class into a must write.
+                        paths.push((path, false));
+                    }
+                }
                 let source = self.places.place(source, ty);
                 let prefix = self.places.paths[source].1.len();
                 for field in self.places.descendants(source) {
@@ -62,7 +82,9 @@ impl Resolver<'_> {
                         return Vec::new();
                     };
                     // A field can have conditional definitions before the aggregate copy.
-                    paths.push((path, false));
+                    if !paths.iter().any(|(old, _)| old == &path) {
+                        paths.push((path, false));
+                    }
                 }
             }
             if paths.is_empty() && self.may_temporary(source, all, &mut HashSet::default(), 0) {

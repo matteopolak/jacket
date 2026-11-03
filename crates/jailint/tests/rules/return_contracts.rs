@@ -200,3 +200,32 @@ fn lifetime_descriptor_aliases_keep_their_allocation_generation() {
         );
     }
 }
+
+#[test]
+fn lifetime_nested_aggregate_copies_keep_individual_field_origins() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/nested-temporary-record.jai");
+    for (mode, expected) in [
+        (jacket_config::LifetimeMode::Must, 1),
+        (jacket_config::LifetimeMode::Strict, 2),
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[("temp_storage_escape", Level::Warn)],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(
+            findings.len(),
+            expected,
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+        assert!(
+            findings[0].start > text.find("main ::").unwrap(),
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+    }
+}

@@ -102,6 +102,17 @@ impl Resolver<'_> {
         {
             return true;
         }
+        if self
+            .stored_field_prefixes(root, ty, projections)
+            .any(|(_, prefix_ty, sources, tail)| {
+                sources.iter().any(|source| {
+                    *source != value
+                        && self.field_may_temporary(*source, prefix_ty, tail, all, depth + 1)
+                })
+            })
+        {
+            return true;
+        }
         self.writes.get(&root).into_iter().flatten().any(|source| {
             *source != value && self.field_may_temporary(*source, ty, projections, all, depth + 1)
         })
