@@ -1,6 +1,6 @@
 //! `leaked_temporary`: `if sprint("%", n) == "7"` allocates a string nothing ever frees.
 //!
-//! A procedure declared with the note `@Allocates` returns memory the caller owns. When the
+//! A checked procedure body can return memory the caller owns. When the
 //! call is used only where its value is read and then dropped, there is no name to free it
 //! through, so the memory is leaked on every execution.
 //!
@@ -10,7 +10,7 @@
 //! print("%\n", sprint("%", n));         // printed, then lost
 //! ```
 //!
-//! Fires on a call of an `@Allocates` procedure that is, directly:
+//! Fires on a call with an inferred owned result that is, directly:
 //!
 //! - an operand of `==`, `!=`, `<`, `<=`, `>` or `>=`;
 //! - the receiver of `.count` or of an index (`x()[i]`);
@@ -37,7 +37,7 @@ use jaic::ast::{BinOp, Expr, ExprKind as E};
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "leaked_temporary",
     category: crate::config::Category::Suspicious,
-    summary: "an `@Allocates` result that is only compared, measured, indexed or printed, so nothing can free it",
+    summary: "an inferred owned result that is only compared, measured, indexed or printed, so nothing can free it",
     check,
 };
 

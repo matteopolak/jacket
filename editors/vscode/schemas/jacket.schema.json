@@ -553,7 +553,7 @@
                 "deny"
               ],
               "default": "allow",
-              "markdownDescription": "a local holding memory from an `@Allocates` call that is never freed, returned or handed on (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#leaked_allocation)"
+              "markdownDescription": "a local holding inferred owned storage that is never freed, returned or handed on (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#leaked_allocation)"
             },
             "leaked_temporary": {
               "type": "string",
@@ -563,7 +563,7 @@
                 "deny"
               ],
               "default": "warn",
-              "markdownDescription": "an `@Allocates` result that is only compared, measured, indexed or printed, so nothing can free it (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#leaked_temporary)"
+              "markdownDescription": "an inferred owned result that is only compared, measured, indexed or printed, so nothing can free it (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#leaked_temporary)"
             },
             "lossy_float_literal": {
               "type": "string",

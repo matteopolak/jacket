@@ -1,9 +1,9 @@
 //! `leaked_allocation`: `buffer := alloc(1024);` in a procedure that never frees it, returns it
 //! or hands it on.
 //!
-//! A procedure declared with the note `@Allocates` returns something newly allocated that the
-//! caller owns. If the caller keeps it in a local and does nothing that could pass ownership on
-//! or release it, the memory is leaked.
+//! A checked procedure body can return newly allocated storage that the caller owns. If the
+//! caller keeps it in a local and does nothing that could pass ownership on or release it,
+//! the memory is leaked.
 //!
 //! ```jai
 //! scratch := New(Parser);          // never freed, returned or passed on
@@ -12,7 +12,7 @@
 //! ```
 //!
 //! Fires on a declaration of one local (`x := f(...)`, `x: T = cast(*T) f(...)`) whose value is
-//! a call of an `@Allocates` procedure, when every later mention of `x` in the procedure is
+//! a call with an inferred owned result, when every later mention of `x` in the procedure is
 //! harmless: reading or writing a number, bool or enum member through it (`x.count`,
 //! `x.value = 1`, `x[i] = 0`), comparing it, testing it in an `if` or `while`, or standing alone
 //! as a statement. Any other mention counts as handling the memory and silences the rule:
@@ -42,7 +42,7 @@ use jaic::types::TypeKind;
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "leaked_allocation",
     category: crate::config::Category::Pedantic,
-    summary: "a local holding memory from an `@Allocates` call that is never freed, returned or handed on",
+    summary: "a local holding inferred owned storage that is never freed, returned or handed on",
     check,
 };
 
@@ -113,8 +113,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     }
 }
 
-/// The declaration names one local and initialises it from a call of an `@Allocates`
-/// procedure, possibly cast: that call.
+/// The declaration names one local and initialises it from an owned result, possibly cast.
 fn allocation<'a>(cx: &Cx, d: &'a Decl) -> Option<&'a Expr> {
     if d.names.len() != 1 || d.rare.is_some() || d.using || d.backtick {
         return None;

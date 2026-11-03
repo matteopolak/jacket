@@ -2,38 +2,38 @@
 source: crates/jailint/tests/rules.rs
 ---
 warning[use_after_free]: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
-  --> tests/lint/pointer_lifetime/strict/tasks.jai:33:5
+  --> tests/lint/pointer_lifetime/strict/tasks.jai:34:5
    |
-28 |     p := make();
+29 |     p := make();
    |          ------ borrowed storage originated here
    ...
-32 |     start(*job);
+33 |     start(*job);
    |     ----------- borrower started here; no completion on this path
-33 |     release(p);
+34 |     release(p);
    |     ^^^^^^^^^^
    |
    = help: wait for successful borrower completion before releasing captured storage
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: this starts a borrower with storage whose lifetime has already ended
-  --> tests/lint/pointer_lifetime/strict/tasks.jai:43:5
+  --> tests/lint/pointer_lifetime/strict/tasks.jai:44:5
    |
-38 |     p := make();
+39 |     p := make();
    |          ------ borrowed storage originated here
    ...
-43 |     start(*job);
+44 |     start(*job);
    |     ^^^^^^^^^^^
    |
    = help: start and finish the borrower before releasing its storage
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[returned_local_address]: storage ends while a started borrower may still retain its receiver; shortest retained-borrow path shown (0 other bad paths from this start)
-  --> tests/lint/pointer_lifetime/strict/tasks.jai:47:23
+  --> tests/lint/pointer_lifetime/strict/tasks.jai:48:23
    |
-47 | bad_receiver_scope :: () {
+48 | bad_receiver_scope :: () {
    |                       ^^
    ...
-50 |     start(*job);
+51 |     start(*job);
    |     ----------- borrower started here; no completion on this path
    |           ---- borrowed storage originated here
    |
@@ -41,42 +41,42 @@ warning[returned_local_address]: storage ends while a started borrower may still
    = note: see https://jacket.matteopolak.com/lint-rules/returned_local_address
 
 warning[use_after_free]: strict mode: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
-  --> tests/lint/pointer_lifetime/strict/tasks.jai:90:5
+  --> tests/lint/pointer_lifetime/strict/tasks.jai:91:5
    |
-85 |     p := make();
+86 |     p := make();
    |          ------ borrowed storage originated here
    ...
-89 |     start(*job);
+90 |     start(*job);
    |     ----------- borrower started here; no completion on this path
-90 |     release(p);
+91 |     release(p);
    |     ^^^^^^^^^^
    |
    = help: wait for successful borrower completion before releasing captured storage
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
-   --> tests/lint/pointer_lifetime/strict/tasks.jai:104:5
+   --> tests/lint/pointer_lifetime/strict/tasks.jai:105:5
     |
- 99 |     p := make();
+100 |     p := make();
     |          ------ borrowed storage originated here
     ...
-103 |     start(*job);
+104 |     start(*job);
     |     ----------- borrower started here; no completion on this path
-104 |     release(p);
+105 |     release(p);
     |     ^^^^^^^^^^
     |
     = help: wait for successful borrower completion before releasing captured storage
     = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: strict mode: storage ends while a started borrower may still access it; shortest retained-borrow path shown (0 other bad paths from this start)
-   --> tests/lint/pointer_lifetime/strict/tasks.jai:120:5
+   --> tests/lint/pointer_lifetime/strict/tasks.jai:121:5
     |
-115 |     p := make();
+116 |     p := make();
     |          ------ borrowed storage originated here
     ...
-119 |     start(*job);
+120 |     start(*job);
     |     ----------- borrower started here; no completion on this path
-120 |     release(p);
+121 |     release(p);
     |     ^^^^^^^^^^
     |
     = help: wait for successful borrower completion before releasing captured storage

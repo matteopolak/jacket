@@ -60,7 +60,7 @@ set_working_directory :: (s: string) -> bool {
 // ```
 exit :: (status: s32) {
     c_exit(status);
-} @Exits
+}
 
 // Pauses the calling thread for at least `milliseconds`.
 //

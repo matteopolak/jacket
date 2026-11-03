@@ -39,7 +39,7 @@ lerp :: (a: Vector2, b: Vector2, t: float) -> Vector2 {
 // - v2: the second vector.
 min :: inline (v1: Vector2, v2: Vector2) -> Vector2 {
     return .{ min(v1.x, v2.x), min(v1.y, v2.y) };
-} @UseResult @ReturnsSmaller
+} @UseResult
 
 // The larger of each pair of components.
 //
@@ -47,7 +47,7 @@ min :: inline (v1: Vector2, v2: Vector2) -> Vector2 {
 // - v2: the second vector.
 max :: inline (v1: Vector2, v2: Vector2) -> Vector2 {
     return .{ max(v1.x, v2.x), max(v1.y, v2.y) };
-} @UseResult @ReturnsLarger
+} @UseResult
 
 operator == :: (a: Vector2, b: Vector2) -> bool {
     return a.x == b.x && a.y == b.y;
@@ -179,7 +179,7 @@ lerp :: (a: Vector3, b: Vector3, t: float) -> Vector3 {
 // - v2: the second vector.
 min :: inline (v1: Vector3, v2: Vector3) -> Vector3 {
     return .{ min(v1.x, v2.x), min(v1.y, v2.y), min(v1.z, v2.z) };
-} @UseResult @ReturnsSmaller
+} @UseResult
 
 // The larger of each pair of components.
 //
@@ -187,7 +187,7 @@ min :: inline (v1: Vector3, v2: Vector3) -> Vector3 {
 // - v2: the second vector.
 max :: inline (v1: Vector3, v2: Vector3) -> Vector3 {
     return .{ max(v1.x, v2.x), max(v1.y, v2.y), max(v1.z, v2.z) };
-} @UseResult @ReturnsLarger
+} @UseResult
 
 operator == :: (a: Vector3, b: Vector3) -> bool {
     return a.x == b.x && a.y == b.y && a.z == b.z;
@@ -333,7 +333,7 @@ lerp :: (a: Vector4, b: Vector4, t: float) -> Vector4 {
 // - v2: the second vector.
 min :: inline (v1: Vector4, v2: Vector4) -> Vector4 {
     return .{ min(v1.x, v2.x), min(v1.y, v2.y), min(v1.z, v2.z), min(v1.w, v2.w) };
-} @UseResult @ReturnsSmaller
+} @UseResult
 
 // The larger of each pair of components.
 //
@@ -341,7 +341,7 @@ min :: inline (v1: Vector4, v2: Vector4) -> Vector4 {
 // - v2: the second vector.
 max :: inline (v1: Vector4, v2: Vector4) -> Vector4 {
     return .{ max(v1.x, v2.x), max(v1.y, v2.y), max(v1.z, v2.z), max(v1.w, v2.w) };
-} @UseResult @ReturnsLarger
+} @UseResult
 
 operator == :: (a: Vector4, b: Vector4) -> bool {
     return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;

@@ -1031,3 +1031,49 @@ fn aligned_allocations_keep_their_origin_after_integer_round_up_and_ir_release()
         );
     }
 }
+
+#[test]
+fn temporary_descriptor_contents_do_not_replace_their_storage_origin() {
+    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let mut options = Options::host();
+    options.import_paths = vec![stdlib.clone()];
+    options.set_stdlib(&NativeFs, &stdlib);
+    let mut c = Compiler::new(options, Rc::new(NativeFs));
+    let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+    facts.lint = true;
+    c.ed.record(facts);
+    c.begin_sources(&[ProgramSource::String(
+        r#"
+        #import "Basic";
+        modified :: (text:string)->string {
+            result:=copy_string(text,,temp);
+            for *result {if it.*==0 it.*=1;}
+            return result;
+        }
+        main :: () {}
+    "#
+        .into(),
+    )])
+    .unwrap();
+    c.finish_program().unwrap();
+    assert!(c.ide_check_all().is_empty());
+    without_body_notes(&mut c);
+    let before = Summaries::build(&c);
+    c.release_lowered_code();
+    let summaries = Summaries::build(&c);
+    assert_eq!(before.procs, summaries.procs);
+    let id = ProcId(
+        c.pr.procs
+            .iter()
+            .position(|p| p.name.as_str() == "modified")
+            .unwrap() as u32,
+    );
+    let summary = &summaries.procs[&id];
+    assert!(
+        summary
+            .returns
+            .get(&0)
+            .is_some_and(|(p, _)| p.root == Root::Temporary),
+        "{summary:?}"
+    );
+}

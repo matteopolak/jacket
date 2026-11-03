@@ -130,6 +130,9 @@ pub(super) fn seed(
             ("Allocates", Root::Heap),
             ("TempAllocates", Root::Temporary),
         ] {
+            if note == "Allocates" && compiler.pr.procs[i].lit.body.is_some() {
+                continue;
+            }
             let indices = super::lifetime_movement::result_indices(compiler, id, note);
             if compiler.pr.procs[i].lit.body.is_none() && !indices.is_empty() {
                 summary.allocation_effects.insert((root.clone(), None));

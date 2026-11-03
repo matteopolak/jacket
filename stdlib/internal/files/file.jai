@@ -164,7 +164,7 @@ read_entire_file :: (f: File, zero_terminated := false) -> string, bool {
     if zero_terminated result.data[result.count] = 0;
 
     return result, true;
-} @Allocates
+}
 
 // Reads the whole file `name` into a new string. Returns `("", false)` when it cannot be opened or read.
 //
@@ -194,7 +194,7 @@ read_entire_file :: (name: string, zero_terminated := false, log_errors := false
     if !ok return "", false;
     defer file_close(*file);
     return read_entire_file(file, zero_terminated);
-} @Allocates
+}
 
 // Replaces the file `name` with `data`: it is created if missing and cut to nothing otherwise. Returns `false` when it cannot be
 // opened, written or flushed.

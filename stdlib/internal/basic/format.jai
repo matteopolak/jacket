@@ -314,7 +314,7 @@ sprint :: (format_string: string, args: ..Any) -> string {
     defer free_buffers(*builder);
     if !print_to_builder(*builder, format_string, ..args) return "";
     return builder_to_string(*builder);
-} @UseResult @PrintLike @Allocates @FormatsToString
+} @UseResult @PrintLike @FormatsToString
 
 print :: print_to_builder;
 

@@ -1,7 +1,7 @@
 // Ends the program now with `status` as its exit code.
 exit :: (status: s32) {
     Wasi.exit(status);
-} @Exits
+}
 
 // Pauses the program for at least `milliseconds`.
 sleep_milliseconds :: (milliseconds: s32) {

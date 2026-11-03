@@ -406,7 +406,7 @@ to_lower_copy :: (s: string) -> string {
     result := copy_string(s);
     to_lower_in_place(result);
     return result;
-} @UseResult @Allocates
+} @UseResult
 
 // A copy of `s` with ASCII lower case letters turned into capitals. The copy is allocated with the
 // context allocator and the caller frees it.
@@ -420,7 +420,7 @@ to_upper_copy :: (s: string) -> string {
     result := copy_string(s);
     to_upper_in_place(result);
     return result;
-} @UseResult @Allocates
+} @UseResult
 
 // `s` without the `chars` at its start; the result points into `s`.
 //
@@ -660,7 +660,7 @@ join :: (inputs: ..string, separator := "", before_first := false, after_last :=
     if after_last append(*builder, separator);
 
     return builder_to_string(*builder);
-} @UseResult @Allocates
+} @UseResult
 
 // A copy of `s` with every non-overlapping `old` replaced by `new`, and how many were replaced.
 //
@@ -691,7 +691,7 @@ replace :: (s: string, old: string, new: string) -> string, ocurrences: int {
     }
 
     return builder_to_string(*builder), count;
-} @UseResult @Allocates
+} @UseResult
 
 #scope_file
 Search :: #import "Extensions/Byte_Search";

@@ -1,8 +1,9 @@
 F :: #type (*int);
 
 alloc :: () -> *int {
-    return null;
-} @Allocates
+    return cast(*int) Basic.alloc(size_of(int));
+}
+
 release :: (p: *int) {} @FreesArgument
 release2 :: (p: *int) {} @FreesArgument
 quiet :: (p: *int) {}
@@ -99,3 +100,5 @@ maybe_expired :: (flag: bool) {
     maybe_refresh(flag);
     sink(p);
 }
+
+Basic :: #import "Basic";

@@ -5,8 +5,9 @@ Arena :: struct {
 }
 
 make :: () -> *void {
-    return null;
-} @Allocates
+    return alloc(128);
+}
+
 release :: (p: *void) {} @FreesArgument
 read :: (p: *u8) -> u8 {
     return p.*;

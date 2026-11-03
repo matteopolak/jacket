@@ -361,7 +361,7 @@ builder_to_string :: (builder: *String_Builder, extra_bytes_to_prepend := 0, do_
     if do_reset reset(builder);
 
     return result;
-} @Allocates
+}
 
 // Writes the text in `builder` to standard output, or standard error with `to_standard_error`, and returns the byte count.
 // The builder is emptied afterwards unless `do_reset` is `false`.
@@ -388,7 +388,7 @@ write_builder :: (using builder: *String_Builder, do_reset := true, to_standard_
     if do_reset reset(builder);
 
     return total;
-} @WritesOutput
+}
 
 #scope_file
 grow_builder :: (using builder: *String_Builder, minimum_capacity: s64) -> bool {

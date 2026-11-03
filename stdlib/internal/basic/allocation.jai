@@ -10,7 +10,7 @@
 alloc :: (size: s64) -> *void {
     assert(size >= 0);
     return allocator_call(context.allocator, .ALLOCATE, size, 0, null);
-} @Allocates
+}
 
 // What the allocator `b` can do (its `Allocator_Caps`) and its name.
 get_capabilities :: (b: Allocator) -> (caps: Allocator_Caps, name: string) {
@@ -72,7 +72,7 @@ alloc_string :: (count: int) -> string {
     memory := alloc(count);
     assert(memory != null || count == 0);
     return .{ count, cast(*u8) memory };
-} @Allocates
+}
 
 // A copy of `s` in newly allocated memory, with the context allocator. Free it with `free`. Use
 // `copy_temporary_string` for a copy that needs no freeing.
@@ -87,7 +87,7 @@ copy_string :: (s: string) -> string {
     result := alloc_string(s.count);
     memcpy(result.data, s.data, s.count);
     return result;
-} @UseResult @Allocates
+} @UseResult
 
 // A string that views `length` bytes at `s`, without copying them. Nothing is allocated, so the string
 // is valid as long as the bytes are.
@@ -132,7 +132,7 @@ to_c_string :: (s: string) -> *u8 {
     result[s.count] = 0;
 
     return result;
-} @Allocates
+}
 
 // Sets the value `memory` points to back to the default for its type.
 //
@@ -189,7 +189,7 @@ New :: ($T: Type, $initialized := true) -> *T {
     #if initialized Initialize(memory);
 
     return memory;
-} @Allocates
+}
 
 // Allocates `count` elements of `T` with `context.allocator`. They start as the default for `T`.
 //
@@ -223,7 +223,7 @@ NewArray :: (count: s64, $T: Type, $initialized := true, alignment: s32 = -1) ->
     #if initialized initialize_elements(result.data, count);
 
     return result, base;
-} @Allocates
+}
 
 // Rounds `orig_size` up to a multiple of `alignment`.
 //
@@ -250,7 +250,7 @@ push_allocator :: (allocator: Allocator) #expand #no_debug {
     previous_allocator := context.allocator;
     context.allocator = allocator;
     `defer context.allocator = previous_allocator;
-} @PushesContext
+}
 
 // Makes `Allocator.{proc, data}` the `context.allocator` until the end of the enclosing scope.
 //
@@ -260,4 +260,4 @@ push_allocator :: (proc: Allocator_Proc, data: *void) #expand #no_debug {
     previous_allocator := context.allocator;
     context.allocator = Allocator.{ proc, data };
     `defer context.allocator = previous_allocator;
-} @PushesContext
+}

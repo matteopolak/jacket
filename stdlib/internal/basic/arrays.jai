@@ -546,7 +546,7 @@ array_copy :: (array: [] $T) -> [] T {
     assert(result.data != null || result.count == 0);
     memcpy(result.data, array.data, array.count * size_of(T));
     return result;
-} @UseResult @Allocates
+} @UseResult
 
 // Replaces the contents of `dest` with a copy of `source`; see the first `array_copy`.
 //

@@ -10,8 +10,9 @@ register :: (job: *Job, work: Work) {} @RegistersBorrower(0,1,0)
 start :: (job: *Job) {} @StartsBorrower(0)
 finish :: (job: *Job) {} @EndsBorrower(0)
 make :: () -> *int {
-    return null;
-} @Allocates
+    return New(int);
+}
+
 release :: (p: *int) {} @FreesArgument
 
 copy_payload :: (job: *Job) {

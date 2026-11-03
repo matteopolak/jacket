@@ -58,7 +58,7 @@ set_working_directory :: (s: string) -> bool {
 // Ends the program now with `status` as its exit code. Deferred statements and cleanup do not run.
 exit :: (status: s32) {
     W.ExitProcess(cast,no_check(u32) status);
-} @Exits
+}
 
 // Pauses the calling thread for at least `milliseconds`.
 sleep_milliseconds :: (milliseconds: s32) {

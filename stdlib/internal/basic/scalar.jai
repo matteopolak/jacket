@@ -38,7 +38,7 @@ print :: (format_string: string, args: ..Any, to_standard_error := false) -> byt
     defer free_buffers(*builder);
     if !print_to_builder(*builder, format_string, ..args) return 0;
     return write_builder(*builder, to_standard_error = to_standard_error);
-} @PrintLike @WritesOutput
+} @PrintLike
 
 // Tells whether `T` is an integer type, and if so whether it is signed and how many bits wide.
 //
@@ -63,7 +63,7 @@ is_integer_type :: ($T: Type) -> (is_integer: bool, is_signed: bool, bits: u8) {
 min :: (a: $T, b: T) -> T {
     if a < b return a;
     return b;
-} @UseResult @ReturnsSmaller
+} @UseResult
 
 // The larger of `a` and `b`. Works on any type with `>`.
 //
@@ -73,7 +73,7 @@ min :: (a: $T, b: T) -> T {
 max :: (a: $T, b: T) -> T {
     if a > b return a;
     return b;
-} @UseResult @ReturnsLarger
+} @UseResult
 
 // The smallest of all the arguments. `T` must be a number, pointer or enum.
 //
@@ -86,7 +86,7 @@ min :: inline (a: $T, x: ..T) -> T #modify {
     result := a;
     for value: x if value < result result = value;
     return result;
-} @UseResult @ReturnsSmaller
+} @UseResult
 
 // The largest of all the arguments. `T` must be a number, pointer or enum.
 //
@@ -99,7 +99,7 @@ max :: inline (a: $T, x: ..T) -> T #modify {
     result := a;
     for value: x if result < value result = value;
     return result;
-} @UseResult @ReturnsLarger
+} @UseResult
 
 // `x` limited to the range from `a` to `b`. Bring `a` and `b` in the right order yourself: with `a > b` the result is `a`.
 //

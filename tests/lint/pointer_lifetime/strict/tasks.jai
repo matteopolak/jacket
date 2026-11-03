@@ -5,8 +5,9 @@ Job :: struct {
 Work :: #type (*Job);
 
 make :: () -> *int {
-    return null;
-} @Allocates
+    return cast(*int) Basic.alloc(size_of(int));
+}
+
 release :: (p: *int) {} @FreesArgument
 consume :: (p: *int) -> int {
     return p.*;
@@ -120,3 +121,5 @@ foreign_read_contract_is_not_a_no_read_contract :: () {
     release(p);
     finish(*job);
 }
+
+Basic :: #import "Basic";

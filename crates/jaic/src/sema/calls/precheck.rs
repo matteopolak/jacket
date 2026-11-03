@@ -43,6 +43,24 @@ impl Compiler {
             let op = self.convert(f, op, fty, &o.value)?;
             let (_, v) = self.rvalue(f, op, o.value.span)?;
             let addr = self.apply_path(f, copy, &path);
+            if !f.type_only
+                && let Some(record) = &mut f.lifetimes
+            {
+                use crate::ide::lifetimes::{LifetimeEvent, LifetimeOperand};
+                record.push(
+                    f.b.current,
+                    LifetimeEvent::Field {
+                        base: LifetimeOperand::Place(copy),
+                        result: LifetimeOperand::Place(addr),
+                        name,
+                        indirect: false,
+                        descriptor: false,
+                        base_ty: ctx_ty,
+                        result_ty: fty,
+                        span: o.value.span,
+                    },
+                );
+            }
             self.store_value(f, fty, addr, v, o.value.span)?;
         }
         Ok(copy)

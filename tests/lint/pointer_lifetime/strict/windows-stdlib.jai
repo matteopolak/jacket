@@ -60,7 +60,7 @@ module_path :: () -> string {
     bytes := W.WideCharToMultiByte(65001, 0, path.data, count, utf8.data, cast(s32) utf8.count, null, null);
 
     return string.{ bytes, utf8.data };
-} @Allocates
+}
 
 heap_copy_of_temporary :: () -> string {
     return copy_string(copy_temporary_string("copied"));
