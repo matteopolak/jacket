@@ -10,6 +10,13 @@ Page :: struct($C: Type) {
 EARLY :: "window.fold=function(){if(++fold.n>6)return;var f=document.currentScript.parentElement;if(f.scrollHeight<=(+f.getAttribute('data-fold')||440))f.classList.add('open')};fold.n=0;(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('jacket-docs-theme');if(t==='light'||t==='dark')d.setAttribute('data-theme',t)}catch(e){}})()";
 
 
+// What the sidebar keeps across pages (open groups, scroll): every page with the site-wide
+// sidebar shares one key whatever its label says; an item sidebar is kept per module.
+NavKey :: (view: *Page_View) -> string {
+    if view.sidebar.which == .SIDEBAR_MODULES return "modules";
+    return view.side_label;
+}
+
 Layout :: (out: *Out, page: *Page($C)) {
     html(out, #string HTML
 <!doctype html>
@@ -31,7 +38,7 @@ Layout :: (out: *Out, page: *Page($C)) {
 {Header(page.site, page.view.path)}
 <div class="wrap"{if page.view.outline.count} data-toc{end}>
 <details class="side" open><summary>{esc(page.view.side_label)}</summary>
-<nav aria-label="{esc(page.view.side_label)}" data-nav="{esc(page.view.side_label)}">
+<nav aria-label="{esc(page.view.side_label)}" data-nav="{esc(NavKey(page.view))}">
 {Side(page)}</nav></details>
 <script>{cast(Html) page.site.early_js}</script>
 <main id="main-content" tabindex="-1">
