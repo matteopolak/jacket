@@ -6,7 +6,6 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); p
    |
  3 | grow :: (xs: *[..] int) {} @GrowsArray
    |         ------------------ possible procedure target
-   |         ------------------ invalidation inferred through this call
  4 | other_grow :: (xs: *[..] int) {} @GrowsArray
    |               ------------------ possible procedure target
    ...
@@ -26,7 +25,6 @@ warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element i
    |
  3 | grow :: (xs: *[..] int) {} @GrowsArray
    |         ------------------ possible procedure target
-   |         ------------------ invalidation inferred through this call
    ...
  5 | quiet :: (xs: *[..] int) {}
    |          ------------------ possible procedure target
@@ -87,7 +85,6 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); p
    |
  3 | grow :: (xs: *[..] int) {} @GrowsArray
    |         ------------------ possible procedure target
-   |         ------------------ invalidation inferred through this call
    ...
 69 |     p := *xs[0];
    |          ------ pointer derived here
@@ -105,7 +102,6 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: f(*xs); p
    |
  3 | grow :: (xs: *[..] int) {} @GrowsArray
    |         ------------------ possible procedure target
-   |         ------------------ invalidation inferred through this call
    ...
 82 |     p := *xs[0];
    |          ------ pointer derived here
@@ -123,7 +119,6 @@ warning[pointer_lifetime]: strict mode: `p` may outlive the storage or element i
     |
   3 | grow :: (xs: *[..] int) {} @GrowsArray
     |         ------------------ possible procedure target
-    |         ------------------ invalidation inferred through this call
     ...
  92 |     p := *xs[0];
     |          ------ pointer derived here

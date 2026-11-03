@@ -4,9 +4,6 @@ source: crates/jailint/tests/rules.rs
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: push(*xs)
   --> tests/lint/pointer_lifetime/summary-module/module.jai:18:12
    |
- 4 | grow :: (xs: *[..] int) {} @GrowsArray
-   |         ------------------ invalidation inferred through this call
-   ...
  6 |     grow(xs);
    |     -------- invalidation inferred through this call
    ...

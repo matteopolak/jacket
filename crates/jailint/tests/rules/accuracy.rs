@@ -86,3 +86,41 @@ fn lifetime_counted_loops_exclude_zero_iteration_bypasses() {
         );
     }
 }
+
+#[test]
+fn lifetime_growth_chains_label_calls_instead_of_element_stores() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/growth-chain.jai");
+    let (lints, text) = lint(&path, &[("pointer_lifetime", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    let labels: Vec<_> = lints[0]
+        .secondary
+        .iter()
+        .filter(|s| s.message == "invalidation inferred through this call")
+        .collect();
+    assert!(!labels.is_empty(), "{}", rendered(&lints, &text, &path));
+    assert!(
+        labels
+            .iter()
+            .all(|s| !s.text[s.start..s.end].contains(" = ")),
+        "{}",
+        rendered(&lints, &text, &path)
+    );
+}
+
+#[test]
+fn lifetime_possible_temporary_results_are_checked_at_the_caller() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/temporary-result-summary.jai");
+    let levels = [("temp_storage_escape", Level::Warn)];
+    let (must, text) = lint(&path, &levels);
+    assert!(must.is_empty(), "{}", rendered(&must, &text, &path));
+    let (strict, text) = lint_with(
+        &path,
+        &levels,
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(strict.len(), 1, "{}", rendered(&strict, &text, &path));
+    assert!(strict[0].start > text.find("retain_result").unwrap());
+}

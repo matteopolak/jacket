@@ -4,9 +4,6 @@ source: crates/jailint/tests/rules.rs
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/bad.jai:20:10
    |
- 7 | ordered :: (a: *[..] int, i: int) {} @RemovesFromArray(ordered,1)
-   |            ------------------------- invalidation inferred through this call
-   ...
 18 |     p := *a[3];
    |          ----- pointer derived here
 19 |     ordered(*a, 1);
@@ -20,9 +17,6 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/bad.jai:27:10
    |
- 8 | unordered :: (a: *[..] int, i: int) {} @RemovesFromArray(unordered,1)
-   |              ------------------------- invalidation inferred through this call
-   ...
 25 |     p := *a[0];
    |          ----- pointer derived here
 26 |     unordered(*a, 0);
@@ -36,9 +30,6 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/bad.jai:34:10
    |
- 8 | unordered :: (a: *[..] int, i: int) {} @RemovesFromArray(unordered,1)
-   |              ------------------------- invalidation inferred through this call
-   ...
 32 |     p := *a[a.count - 1];
    |          --------------- pointer derived here
 33 |     unordered(*a, 0);
@@ -52,9 +43,6 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/bad.jai:41:10
    |
- 9 | insert_at :: (a: *[..] int, i: int) {} @MovesElements(insert,1)
-   |              ------------------------- invalidation inferred through this call
-   ...
 39 |     p := *a[3];
    |          ----- pointer derived here
 40 |     insert_at(*a, 1);
@@ -68,9 +56,6 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
 warning[pointer_lifetime]: `q` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/bad.jai:50:10
    |
-10 | reset :: (a: *[..] int) {} @ResetsElements
-   |          ----------------- invalidation inferred through this call
-   ...
 46 |     p := *a[0];
    |          ----- pointer derived here
    ...
@@ -98,9 +83,6 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/bad.jai:64:10
    |
-11 | swap_at :: (a: *[..] int, i: int, j: int) {} @MovesElements(swap,1,2)
-   |            --------------------------------- invalidation inferred through this call
-   ...
 62 |     p := *a[3];
    |          ----- pointer derived here
 63 |     swap_at(*a, 1, 3);
@@ -114,9 +96,6 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/bad.jai:71:10
    |
- 7 | ordered :: (a: *[..] int, i: int) {} @RemovesFromArray(ordered,1)
-   |            ------------------------- invalidation inferred through this call
-   ...
 13 |     ordered(a, i);
    |     ------------- invalidation inferred through this call
    ...
@@ -133,12 +112,6 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
   --> tests/lint/pointer_lifetime/movement/bad.jai:81:10
    |
- 7 | ordered :: (a: *[..] int, i: int) {} @RemovesFromArray(ordered,1)
-   |            ------------------------- invalidation inferred through this call
-   ...
-10 | reset :: (a: *[..] int) {} @ResetsElements
-   |          ----------------- invalidation inferred through this call
-   ...
 76 |     p := *a[3];
    |          ----- pointer derived here
    ...
@@ -154,22 +127,17 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
-   --> tests/lint/pointer_lifetime/movement/bad.jai:88:10
-    |
- 86 |     p := *a[a.count - 1];
-    |          --------------- pointer derived here
- 87 |     pop(*a);
-    |     ------- `a` element moved or removed here
- 88 |     sink(p);
-    |          ^ pointer used here after its element was moved or removed
-    |
-   ::: [repo]/stdlib/internal/basic/arrays.jai:379:8
-    |
-379 | pop :: (array: *[] $T) -> T {
-    |        ---------------------- invalidation inferred through this call
-    |
-    = help: take the pointer again after the operation, or keep a stable key instead
-    = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
+  --> tests/lint/pointer_lifetime/movement/bad.jai:88:10
+   |
+86 |     p := *a[a.count - 1];
+   |          --------------- pointer derived here
+87 |     pop(*a);
+   |     ------- `a` element moved or removed here
+88 |     sink(p);
+   |          ^ pointer used here after its element was moved or removed
+   |
+   = help: take the pointer again after the operation, or keep a stable key instead
+   = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
 
 warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is invalidated on every path to this use
    --> tests/lint/pointer_lifetime/movement/bad.jai:95:10
@@ -180,11 +148,6 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
     |     ------------------------------------ `a` element moved or removed here
  95 |     sink(p);
     |          ^ pointer used here after its element was moved or removed
-    |
-   ::: [repo]/stdlib/internal/basic/arrays.jai:261:41
-    |
-261 | array_ordered_remove_by_index :: inline (array_pointer: *[] $T, index: s64) {
-    |                                         ------------------------------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime
@@ -211,11 +174,6 @@ warning[pointer_lifetime]: `p` refers to an element in `a` whose identity is inv
     |     ------------------------------ `a` element moved or removed here
 109 |     sink(p);
     |          ^ pointer used here after its element was moved or removed
-    |
-   ::: [repo]/stdlib/internal/basic/arrays.jai:398:5
-    |
-398 |     array.count = 0;
-    |     --------------- invalidation inferred through this call
     |
     = help: take the pointer again after the operation, or keep a stable key instead
     = note: see https://jacket.matteopolak.com/lint-rules/pointer_lifetime

@@ -146,6 +146,7 @@ impl Summary {
 
 #[derive(Default)]
 pub(super) struct Summaries {
+    pub call_sites: HashSet<Span>,
     pub allocators: allocators::Allocators,
     pub targets: super::lifetime_targets::Universe,
     pub procs: HashMap<ProcId, Summary>,
@@ -725,6 +726,20 @@ impl Summaries {
         let allocators = allocators::Allocators::build(compiler, &valid);
         let needed = selected::retain(compiler, &mut valid, files);
         let mut all = contracts::seed(compiler, &valid, needed.as_ref());
+        all.call_sites = valid
+            .values()
+            .flat_map(|body| &body.blocks)
+            .flat_map(|block| &block.events)
+            .filter_map(|event| match event {
+                Event::Call {
+                    span, ..
+                }
+                | Event::IndirectCall {
+                    span, ..
+                } => Some(*span),
+                _ => None,
+            })
+            .collect();
         all.allocators = allocators;
         all.targets = super::lifetime_targets::Universe::build(compiler, &valid);
         // Tarjan's pop order is bottom-up for caller -> callee edges.

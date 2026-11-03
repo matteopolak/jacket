@@ -165,7 +165,13 @@ pub(super) fn emit(
                         report
                             .message
                             .push_str(" (inferred chain truncated in the middle)");
-                    } else if site != growth {
+                    } else if site != growth
+                        && cx
+                            .run
+                            .lifetimes
+                            .get()
+                            .is_some_and(|s| s.call_sites.contains(&site))
+                    {
                         report
                             .secondary
                             .push((site, "invalidation inferred through this call".into()));

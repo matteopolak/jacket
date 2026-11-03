@@ -4,9 +4,6 @@ source: crates/jailint/tests/rules.rs
 warning[pointer_lifetime]: `p` points into `a`, which may be resized: push(*a)
   --> tests/lint/pointer_lifetime/summaries-bad.jai:23:10
    |
- 3 | grow :: (a: *[..] int) {} @GrowsArray
-   |         ----------------- invalidation inferred through this call
-   ...
  5 |     grow(a);
    |     ------- invalidation inferred through this call
    ...
@@ -27,9 +24,6 @@ warning[pointer_lifetime]: `p` points into `a`, which may be resized: push(*a)
 warning[pointer_lifetime]: `p` points into `b.entries`, which may be resized: field_wrapper(*b)
   --> tests/lint/pointer_lifetime/summaries-bad.jai:42:10
    |
- 3 | grow :: (a: *[..] int) {} @GrowsArray
-   |         ----------------- invalidation inferred through this call
-   ...
 32 |     grow(*b.entries);
    |     ---------------- invalidation inferred through this call
    ...
@@ -81,9 +75,6 @@ warning[pointer_lifetime]: `p` points into `b.entries`, which may be resized: gr
 warning[pointer_lifetime]: `p` points into `a`, which may be resized: left(*a, 2)
    --> tests/lint/pointer_lifetime/summaries-bad.jai:98:10
     |
-  3 | grow :: (a: *[..] int) {} @GrowsArray
-    |         ----------------- invalidation inferred through this call
-    ...
  83 |     grow(a);
     |     ------- invalidation inferred through this call
     ...
@@ -101,9 +92,6 @@ warning[pointer_lifetime]: `p` points into `a`, which may be resized: left(*a, 2
 warning[pointer_lifetime]: `p` points into `a`, which may be resized: level9(*a) (inferred chain truncated in the middle)
    --> tests/lint/pointer_lifetime/summaries-bad.jai:144:10
     |
-  3 | grow :: (a: *[..] int) {} @GrowsArray
-    |         ----------------- invalidation inferred through this call
-    ...
 102 |     grow(a);
     |     ------- invalidation inferred through this call
     ...
@@ -133,9 +121,6 @@ warning[pointer_lifetime]: `p` points into `a`, which may be resized: level9(*a)
 warning[pointer_lifetime]: `p` points into `a`, which may be resized: cut(*a, flag)
    --> tests/lint/pointer_lifetime/summaries-bad.jai:159:10
     |
-  3 | grow :: (a: *[..] int) {} @GrowsArray
-    |         ----------------- invalidation inferred through this call
-    ...
   5 |     grow(a);
     |     ------- invalidation inferred through this call
     ...
