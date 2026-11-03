@@ -10,8 +10,8 @@ use crate::test::options::Target;
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 
-/// Why an example is shown without a working Run button, if it is: the disabled button's hover.
-fn why_not_run(site: &Site, block: &Block) -> Option<String> {
+/// Why an example is never run, if it is: the disabled Run button's hover.
+fn why_not_run(block: &Block) -> Option<String> {
     if block.options.ignore {
         return Some("Not run: the example is marked ignore.".into());
     }
@@ -26,9 +26,6 @@ fn why_not_run(site: &Site, block: &Block) -> Option<String> {
     if let Some(reason) = browser_skip(block) {
         return Some(format!("Doesn't run in the browser ({reason})."));
     }
-    if !site.runtime {
-        return Some(NO_RUNTIME.into());
-    }
     None
 }
 
@@ -38,7 +35,7 @@ const NO_RUNTIME: &str = "This copy of the docs has no browser compiler, so it c
 fn browser_skip(block: &Block) -> Option<String> {
     let target = Target {
         os: "wasm".into(),
-        cpu: "x64".into(),
+        cpu: "wasm".into(),
         interp: true,
     };
     block.options.skip_reason(&target, &[])
@@ -75,7 +72,7 @@ fn template_json(t: &doctest::Template) -> serde_json::Value {
 }
 
 /// The block a fence describes, or `None` when the fence is not Jai.
-fn block(info: &str, code: &str, file: &str, line: usize) -> Option<Block> {
+fn block(info: &str, code: &str, (file, line): (&str, usize), notes: &[String]) -> Option<Block> {
     let mut lines = vec![format!("```{info}")];
     lines.extend(code.lines().map(str::to_owned));
     lines.push("```".into());
@@ -83,6 +80,10 @@ fn block(info: &str, code: &str, file: &str, line: usize) -> Option<Block> {
     let (_, mut found) = doctest::fenced(&refs).into_iter().next()?;
     found.file = PathBuf::from(format!("stdlib/{file}"));
     found.line = u32::try_from(line).unwrap_or(0);
+    for note in notes {
+        // A note that does not apply is `jacket test`'s to warn about.
+        let _ = found.options.apply(note);
+    }
     Some(found)
 }
 
@@ -113,13 +114,26 @@ pub fn view(
     (info, code): (&str, &str),
     compact: bool,
 ) -> Example {
-    let Some(block) = block(info, code, file, line) else {
+    let Some(block) = block(info, code, (file, line), &module.test_notes) else {
         return plain_code(site, module, info, code);
     };
     let shown = highlight::jai(code.trim_end(), &|name| site.call_link(module, name));
-    let note = why_not_run(site, &block);
-    let program = (note.is_none()).then(|| {
-        let text = doctest::generate(&block, &module.id).0;
+    let skipped = why_not_run(&block);
+    let text = skipped
+        .is_none()
+        .then(|| doctest::generate(&block, &module.id).0);
+    if let Some(text) = &text {
+        site.add_runnable(
+            &program_id(text),
+            super::example_check::Program {
+                label: format!("{}:{}", block.file.display(), block.line),
+                text: text.clone(),
+                timeout: block.options.timeout,
+            },
+        );
+    }
+    let note = skipped.or_else(|| (!site.runtime).then(|| NO_RUNTIME.to_owned()));
+    let program = text.filter(|_| note.is_none()).map(|text| {
         let parts = serde_json::json!({
             "run": template_json(&doctest::generate_template(&block, &module.id)),
             "open": standalone_ok(&block, &module.id)
@@ -161,10 +175,13 @@ mod tests {
 
     #[test]
     fn fence_options_decide_the_browser() {
-        let b = block("jai,skip_on(wasm)", "x := 1;\n", "a.jai", 3).unwrap();
+        let b = block("jai,skip_on(wasm)", "x := 1;\n", ("a.jai", 3), &[]).unwrap();
         assert!(browser_skip(&b).is_some());
-        let b = block("jai", "x := 1;\n", "a.jai", 3).unwrap();
+        let b = block("jai", "x := 1;\n", ("a.jai", 3), &[]).unwrap();
         assert!(browser_skip(&b).is_none());
-        assert!(block("text", "x", "a.jai", 3).is_none());
+        let notes = [r#"skip_on(.WASM, reason = "no threads")"#.to_owned()];
+        let b = block("jai", "x := 1;\n", ("a.jai", 3), &notes).unwrap();
+        assert!(browser_skip(&b).is_some());
+        assert!(block("text", "x", ("a.jai", 3), &[]).is_none());
     }
 }

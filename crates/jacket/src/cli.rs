@@ -344,9 +344,13 @@ pub struct DocArgs {
     /// Document only these modules (`String`, `Extensions/Http`); repeatable
     #[arg(long = "module", value_name = "NAME")]
     pub modules: Vec<String>,
-    /// Build and check the links without writing the site
+    /// Build and check the links without writing the site or running the examples
     #[arg(long)]
     pub check: bool,
+    /// Don't run the examples. By default each one with a Run button is run the way the browser
+    /// runs it (WebAssembly target), and the build fails when one fails
+    #[arg(long)]
+    pub no_test_examples: bool,
     /// Report broken intra-doc links as warnings instead of failing
     #[arg(long)]
     pub allow_broken_links: bool,

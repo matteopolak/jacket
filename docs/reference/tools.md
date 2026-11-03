@@ -467,7 +467,8 @@ jacket doc [OPTIONS] [PATH]
 | `--playground-url <URL>` | Where "open in playground" and the Playground link go, over `[doc] playground` [default: none, and no links] |
 | `--source-ref <REF>` | The tag, branch or commit Source links point at [default: the checkout's commit] |
 | `--module <NAME>` | Document only these modules (`String`, `Extensions/Http`); repeatable |
-| `--check` | Build and check the links without writing the site |
+| `--check` | Build and check the links without writing the site or running the examples |
+| `--no-test-examples` | Don't run the examples. By default each one with a Run button is run the way the browser runs it (WebAssembly target), and the build fails when one fails |
 | `--allow-broken-links` | Report broken intra-doc links as warnings instead of failing |
 | `-h, --help` | Print help |
 

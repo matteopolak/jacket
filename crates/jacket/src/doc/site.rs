@@ -53,6 +53,8 @@ pub struct Site {
     decls: BTreeMap<(String, usize), Vec<(usize, String)>>,
     /// Example programs, by the id in their file name.
     examples: RefCell<BTreeMap<String, String>>,
+    /// The programs of the examples with a Run button, to run when testing, by file id.
+    runnable: RefCell<BTreeMap<String, super::example_check::Program>>,
     /// Intra-doc links that lead nowhere, as `Module.item (from page)`.
     broken: RefCell<Vec<String>>,
 }
@@ -153,6 +155,7 @@ impl Site {
             folders,
             decls,
             examples: RefCell::new(BTreeMap::new()),
+            runnable: RefCell::new(BTreeMap::new()),
             broken: RefCell::new(Vec::new()),
         }
     }
@@ -350,6 +353,15 @@ impl Site {
         let id = super::example::program_id(program);
         self.examples.borrow_mut().insert(id.clone(), parts);
         id
+    }
+
+    /// Keeps `program` to run when testing, under the id `add_example` gave it.
+    pub fn add_runnable(&self, id: &str, program: super::example_check::Program) {
+        self.runnable.borrow_mut().insert(id.to_owned(), program);
+    }
+
+    pub fn runnable(&self) -> Vec<super::example_check::Program> {
+        self.runnable.borrow().values().cloned().collect()
     }
 
     pub fn examples(&self) -> BTreeMap<String, String> {

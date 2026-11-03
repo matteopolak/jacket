@@ -259,6 +259,8 @@ def cmd_docs(args) -> int:
     if cargo_build(["--release", "-p", "jacket", "-p", "jaic-cli"], args.jobs):
         return 1
     flags = ["--runtime", str(runtime)] if args.wasm else []
+    if args.no_test_examples:
+        flags.append("--no-test-examples")
     if run([str(cargo_binary("jacket", "release")), "doc", "--base-url", "/", "--out", str(site), *flags]):
         return 1
     if not args.serve:
@@ -847,6 +849,7 @@ def main() -> int:
             p.add_argument("program_args", nargs=argparse.REMAINDER)
         if name == "docs":
             p.add_argument("--wasm", action="store_true", help="build the browser compiler so Run buttons work")
+            p.add_argument("--no-test-examples", action="store_true", help="skip running the examples (faster)")
             p.add_argument("--serve", action="store_true")
             p.add_argument("--port", default="8000")
         if name in ("fmt", "lint"):

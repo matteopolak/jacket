@@ -6,6 +6,7 @@
 //! (style, script, the example programs, and optionally the browser compiler that runs them).
 mod categories;
 mod example;
+mod example_check;
 mod highlight;
 mod markdown;
 mod metadata;
@@ -599,6 +600,48 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             .flat_map(|m| &m.items)
             .filter(|i| i.kind == Kind::Procedure && !i.binding)
             .count();
+        if !args.check && !args.no_test_examples {
+            let started = std::time::Instant::now();
+            let programs = site.runnable();
+            // With the browser compiler at hand the examples run in it, under Node; otherwise
+            // in jaic's interpreter, built for the same target.
+            let node = PathBuf::from("node");
+            let has_node = Command::new(&node)
+                .arg("--version")
+                .output()
+                .is_ok_and(|o| o.status.success());
+            if args.runtime.is_some() && !has_node {
+                eprintln!(
+                    "jacket: warning: `node` not found; testing the examples in the interpreter, not the browser compiler"
+                );
+            }
+            let engine = if let Some(runtime) = args.runtime.as_deref()
+                && root == stdlib
+                && has_node
+            {
+                example_check::Engine::Browser {
+                    node,
+                    runtime,
+                }
+            } else {
+                example_check::Engine::Interpreter {
+                    jaic: &jaic,
+                    stdlib: &stdlib,
+                    import_dir: import_dir(&stdlib, &root),
+                }
+            };
+            let failed = example_check::run(&engine, &programs)?;
+            accounted += timing(args, "examples", started);
+            if !failed.is_empty() {
+                eprint!("{}", example_check::report(&failed));
+                eprintln!(
+                    "jacket: error: {} of {} examples failed; mark one that cannot run in the browser (`skip_on(wasm)`, `no_run`, `ignore`), or pass --no-test-examples",
+                    failed.len(),
+                    programs.len()
+                );
+                return Ok(ExitCode::from(1));
+            }
+        }
         let compile_start = std::time::Instant::now();
         let prepared = theme.prepare(&jaic, &stdlib, args.timings)?;
         accounted += compile_start.elapsed();

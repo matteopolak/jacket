@@ -201,6 +201,9 @@ pub struct Module {
     /// Links in its doc comments that read as intra-doc links and name nothing, as
     /// `file:line: [text]`.
     pub unresolved: Vec<String>,
+    /// The notes of the `// test:` lines that open its `module.jai`, which every example of the
+    /// module takes as `jacket test` gives them to its doc tests.
+    pub test_notes: Vec<String>,
 }
 
 impl Module {
@@ -467,6 +470,9 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                 )
             })
             .collect(),
+        test_notes: crate::test::options::header_notes(
+            &std::fs::read_to_string(stdlib.join(id).join("module.jai")).unwrap_or_default(),
+        ),
     };
     assign_groups(&mut module);
     Ok(module)
