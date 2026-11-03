@@ -195,3 +195,37 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
         );
     }
 }
+
+#[test]
+fn document_links_share_import_options_within_one_request() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+    let calls = Rc::new(Cell::new(0));
+    let mut environment = test_support::lsp::environment();
+    let options = environment.options;
+    let counted = calls.clone();
+    environment.options = Box::new(move |path| {
+        counted.set(counted.get() + 1);
+        options(path)
+    });
+    let mut s = Session::with_environment(jai_language_server::Limits::default(), environment);
+    let uri = file_uri("/link-options/main.jai");
+    s.open(
+        uri.clone(),
+        1,
+        "#import \"A\"; #import \"B\"; #load \"part.jai\";".into(),
+    )
+    .unwrap();
+    for path in ["modules/A.jai", "modules/B.jai", "part.jai"] {
+        s.open(file_uri(&format!("/link-options/{path}")), 1, String::new())
+            .unwrap();
+    }
+    assert_eq!(s.document_links(&uri).unwrap().len(), 3);
+    calls.set(0);
+    assert_eq!(s.document_links(&uri).unwrap().len(), 3);
+    assert_eq!(
+        calls.get(),
+        1,
+        "one import-path lookup for the whole request"
+    );
+}

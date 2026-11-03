@@ -5,6 +5,7 @@ use crate::session::Session;
 use crate::{DocumentUri, Error, Location, Range};
 use jaic::project::{DirectiveLink as Link, LinkSource};
 use jaic::sema::FileSystem;
+use std::cell::OnceCell;
 use std::path::{Path, PathBuf};
 
 impl Session {
@@ -15,19 +16,29 @@ impl Session {
     /// the import path (`Name.jai` before `Name/module.jai`); `,file` and `,dir` relative to
     /// the file. Open documents count as files.
     pub(super) fn link_target(&self, uri: &DocumentUri, link: &Link) -> Option<DocumentUri> {
+        self.link_target_with_paths(uri, link, &OnceCell::new())
+    }
+
+    fn link_target_with_paths(
+        &self,
+        uri: &DocumentUri,
+        link: &Link,
+        paths: &OnceCell<Vec<PathBuf>>,
+    ) -> Option<DocumentUri> {
         let files = OpenFiles {
             session: self,
         };
         let path = match &link.source {
             LinkSource::Load(path) => PathBuf::from(uri.load(path).ok()?.path()),
             LinkSource::Import(source) => {
-                let root = PathBuf::from(self.root(uri).path());
-                let import_paths = self
-                    .options_for(&root)
-                    .map(|o| o.import_paths)
-                    .unwrap_or_default();
+                let import_paths = paths.get_or_init(|| {
+                    let root = PathBuf::from(self.root(uri).path());
+                    self.options_for(&root)
+                        .map(|o| o.import_paths)
+                        .unwrap_or_default()
+                });
                 let dir = Path::new(uri.path()).parent()?;
-                jaic::sema::import_entry(&files, &import_paths, source, dir)?
+                jaic::sema::import_entry(&files, import_paths, source, dir)?
             }
         };
         if !files.is_file(&path) {
@@ -48,10 +59,13 @@ impl Session {
             .expect("opened document has analysis")
             .links
             .clone();
+        // All links share the same program and options during this request. Keep the
+        // paths only for this call, so edits and watched-file changes need no invalidation.
+        let paths = OnceCell::new();
         let mut out: Vec<(Range, String)> = links
             .iter()
             .filter_map(|link| {
-                let target = self.link_target(uri, link)?;
+                let target = self.link_target_with_paths(uri, link, &paths)?;
                 Some((
                     self.range_of(uri, Span::new(link.string.start, link.string.end))?,
                     target.as_str().to_string(),
