@@ -149,7 +149,6 @@ impl Builder<'_> {
                 );
             }
         }
-        ops.extend(self.returns(event, at));
         ops.extend(
             self.tasks
                 .operations(
@@ -185,6 +184,9 @@ impl Builder<'_> {
                 ops.push(Op::Resource(op));
             }
         }
+        // A result borrows the post-call storage; releases within the call precede it.
+        // Passthrough results still copy the argument's (possibly dead) generation.
+        ops.extend(self.returns(event, at));
         ops
     }
 

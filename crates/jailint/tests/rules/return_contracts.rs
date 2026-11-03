@@ -2,6 +2,35 @@
 use super::*;
 
 #[test]
+fn lifetime_call_results_borrow_storage_after_the_calls_release_effects() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/post-resize-result.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[
+                ("use_after_free", Level::Warn),
+                ("pointer_lifetime", Level::Warn),
+            ],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
+        assert!(
+            findings
+                .iter()
+                .all(|f| f.start > text.find("release_and_return ::").unwrap()),
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+    }
+}
+
+#[test]
 fn lifetime_return_origins_distinguish_heap_copies_and_temporary_results() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/return-origins.jai");
     for mode in [
