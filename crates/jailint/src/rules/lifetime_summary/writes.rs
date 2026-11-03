@@ -44,7 +44,7 @@ impl Resolver<'_> {
             .blocks
             .iter()
             .enumerate()
-            .filter(|(i, _)| live.contains(i))
+            .filter(|(i, _)| live.contains(*i))
             .flat_map(|(_, b)| &b.events)
         {
             match event {
@@ -87,15 +87,8 @@ impl Resolver<'_> {
                     {
                         unknown_write.extend(self.potential(self.places.paths[p].0.0));
                     }
-                    let owned = !self.places.unresolved(p)
-                        && self
-                            .places
-                            .paths
-                            .iter()
-                            .position(|(root, path)| {
-                                root == &self.places.paths[p].0 && path.is_empty()
-                            })
-                            .is_some_and(|root| self.owned.contains(&root));
+                    let owned =
+                        !self.places.unresolved(p) && self.owned.contains(&self.places.root_of(p));
                     if let Some(Path {
                         root: Root::Parameter(formal),
                         ..

@@ -58,10 +58,11 @@ pub(in crate::rules::lifetime_summary) fn solve(
     graph: &super::HashMap<ProcId, Vec<ProcId>>,
     all: &mut super::super::Summaries,
 ) {
-    use super::super::{Event, Resolver, Root, sccs};
+    use super::super::{Event, Resolver, Root, acyclic, sccs};
     let mut ids: Vec<_> = valid.keys().copied().collect();
     ids.sort_unstable_by_key(|p| p.0);
     for component in sccs(&ids, graph) {
+        let once = acyclic(&component, graph);
         loop {
             let mut changed = false;
             for id in &component {
@@ -133,7 +134,7 @@ pub(in crate::rules::lifetime_summary) fn solve(
                 summary.address_queries.extend(queries);
                 changed |= before != summary.address_queries.len();
             }
-            if !changed {
+            if !changed || once {
                 break;
             }
         }

@@ -19,7 +19,8 @@ pub(super) enum Projection {
 #[derive(Default)]
 pub(super) struct Places {
     pub paths: Vec<((Val, TypeId), Vec<Projection>)>,
-    ids: HashMap<((Val, TypeId), Vec<Projection>), usize>,
+    root_ids: HashMap<(Val, TypeId), usize>,
+    child_ids: HashMap<(usize, Projection), usize>,
     values: HashMap<(Val, TypeId), usize>,
     pub types: HashMap<usize, TypeId>,
     pub indirect: HashSet<usize>,
@@ -28,6 +29,7 @@ pub(super) struct Places {
     pub descriptor_fields: HashMap<usize, usize>,
     children: HashMap<usize, Vec<usize>>,
     parents: Vec<Option<usize>>,
+    roots: Vec<usize>,
     stable_parameters: jaic::fxhash::HashSet<Val>,
 }
 
@@ -223,30 +225,41 @@ impl Places {
         if let Some(&id) = self.values.get(&(value, ty)) {
             return id;
         }
-        let id = self.intern((value, ty), Vec::new());
+        let id = self.intern_root((value, ty));
         self.values.insert((value, ty), id);
         id
     }
 
-    fn intern(&mut self, root: (Val, TypeId), path: Vec<Projection>) -> usize {
-        if let Some(&id) = self.ids.get(&(root, path.clone())) {
+    fn intern_root(&mut self, root: (Val, TypeId)) -> usize {
+        if let Some(&id) = self.root_ids.get(&root) {
             return id;
         }
-        let parent = (!path.is_empty()).then(|| self.intern(root, path[..path.len() - 1].to_vec()));
         let id = self.paths.len();
-        self.paths.push((root, path.clone()));
-        self.parents.push(parent);
-        self.ids.insert((root, path), id);
-        if let Some(parent) = parent {
-            self.children.entry(parent).or_default().push(id);
-        }
+        self.paths.push((root, Vec::new()));
+        self.parents.push(None);
+        self.roots.push(id);
+        self.root_ids.insert(root, id);
         id
     }
 
     pub fn project(&mut self, base: usize, projection: Projection) -> usize {
+        if let Some(&id) = self.child_ids.get(&(base, projection)) {
+            return id;
+        }
         let (root, mut path) = self.paths[base].clone();
         path.push(projection);
-        self.intern(root, path)
+        let id = self.paths.len();
+        self.paths.push((root, path));
+        self.parents.push(Some(base));
+        self.roots.push(self.roots[base]);
+        self.child_ids.insert((base, projection), id);
+        self.children.entry(base).or_default().push(id);
+        id
+    }
+
+    /// The place with no projections that `place` hangs off.
+    pub fn root_of(&self, place: usize) -> usize {
+        self.roots[place]
     }
 
     pub fn contains(&self, parent: usize, child: usize) -> bool {
@@ -257,7 +270,10 @@ impl Places {
 
     pub fn import(&mut self, other: &Self, id: usize) -> usize {
         let (root, path) = &other.paths[id];
-        let target = self.intern(*root, path.clone());
+        let mut target = self.intern_root(*root);
+        for &projection in path {
+            target = self.project(target, projection);
+        }
         if let Some(&ty) = other.types.get(&id) {
             self.types.insert(target, ty);
         }
@@ -269,8 +285,14 @@ impl Places {
     }
 
     pub fn unresolved(&self, place: usize) -> bool {
-        self.paths[place].1.contains(&Projection::Deref)
-            || self.indirect.iter().any(|&base| self.contains(base, place))
+        self.paths[place].1.contains(&Projection::Deref) || self.under_indirect(place)
+    }
+
+    fn under_indirect(&self, place: usize) -> bool {
+        !self.indirect.is_empty()
+            && std::iter::once(place)
+                .chain(self.ancestors(place))
+                .any(|base| self.indirect.contains(&base))
     }
 
     pub fn stable_projection(&self, place: usize) -> bool {
@@ -278,7 +300,7 @@ impl Places {
         self.stable_parameters.contains(root)
             && path.first() == Some(&Projection::Deref)
             && path.iter().filter(|p| **p == Projection::Deref).count() == 1
-            && !self.indirect.iter().any(|&base| self.contains(base, place))
+            && !self.under_indirect(place)
     }
 
     pub fn ancestors(&self, place: usize) -> impl Iterator<Item = usize> + '_ {
@@ -290,14 +312,15 @@ impl Places {
     }
 
     pub fn lookup(&self, other: &Self, place: usize) -> Option<usize> {
-        self.ids.get(&other.paths[place]).copied()
+        let (root, path) = &other.paths[place];
+        path.iter()
+            .try_fold(*self.root_ids.get(root)?, |at, projection| {
+                self.child_ids.get(&(at, *projection)).copied()
+            })
     }
 
     pub fn projected(&self, parent: usize, projection: Projection) -> Option<usize> {
-        let (root, path) = &self.paths[parent];
-        let mut path = path.clone();
-        path.push(projection);
-        self.ids.get(&(*root, path)).copied()
+        self.child_ids.get(&(parent, projection)).copied()
     }
 
     pub fn descendants(&self, parent: usize) -> Vec<usize> {

@@ -206,6 +206,7 @@ pub(super) fn solve(
         .collect();
     ids.sort_unstable_by_key(|p| p.0);
     for component in super::sccs(&ids, graph) {
+        let once = super::acyclic(&component, graph);
         loop {
             let mut changed = false;
             for id in &component {
@@ -218,7 +219,7 @@ pub(super) fn solve(
                 summary.may_reads.extend(may);
                 changed |= summary.reads.len() + summary.may_reads.len() != before;
             }
-            if !changed {
+            if !changed || once {
                 break;
             }
         }

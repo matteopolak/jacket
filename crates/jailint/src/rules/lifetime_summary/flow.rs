@@ -1,11 +1,24 @@
 //! Control-flow fixed points and witness cuts for summaries.
 use super::{Effect, Event, HashMap, HashSet, LifetimeBody, MAX_CHAIN, ProcId, Span, Summary};
 
+/// The blocks that are reachable from the entry and from which a normal return is reachable.
+pub(super) struct Live(Vec<bool>);
+
+impl Live {
+    pub(super) fn contains(&self, block: usize) -> bool {
+        self.0[block]
+    }
+
+    pub(super) fn is_empty(&self) -> bool {
+        !self.0.contains(&true)
+    }
+}
+
 pub(super) fn returning_blocks(
     body: &LifetimeBody,
     all: &HashMap<ProcId, Summary>,
     targets: &crate::rules::lifetime_targets::Universe,
-) -> HashSet<usize> {
+) -> Live {
     let stopped: Vec<_> = body
         .blocks
         .iter()
@@ -35,11 +48,11 @@ pub(super) fn returning_blocks(
             })
         })
         .collect();
-    let mut forward = HashSet::default();
-    let mut queue = std::collections::VecDeque::from([0]);
-    while let Some(i) = queue.pop_front() {
-        if forward.insert(i) && !stopped[i] {
-            queue.extend(&body.blocks[i].successors);
+    let mut forward = vec![false; body.blocks.len()];
+    let mut stack = vec![0];
+    while let Some(i) = stack.pop() {
+        if !std::mem::replace(&mut forward[i], true) && !stopped[i] {
+            stack.extend(&body.blocks[i].successors);
         }
     }
     let mut incoming = vec![Vec::new(); body.blocks.len()];
@@ -50,21 +63,23 @@ pub(super) fn returning_blocks(
             }
         }
     }
-    let mut back = HashSet::default();
-    let mut queue: std::collections::VecDeque<_> = body
+    let mut back = vec![false; body.blocks.len()];
+    let mut stack: Vec<_> = body
         .blocks
         .iter()
         .enumerate()
         .filter(|(i, b)| b.normal_return && !stopped[*i])
         .map(|(i, _)| i)
         .collect();
-    while let Some(i) = queue.pop_front() {
-        if back.insert(i) {
-            queue.extend(&incoming[i]);
+    while let Some(i) = stack.pop() {
+        if !std::mem::replace(&mut back[i], true) {
+            stack.extend(&incoming[i]);
         }
     }
-    forward.retain(|i| back.contains(i));
-    forward
+    for (reached, back) in forward.iter_mut().zip(back) {
+        *reached &= back;
+    }
+    Live(forward)
 }
 
 pub(super) fn guaranteed(
@@ -145,6 +160,11 @@ pub(super) fn guaranteed(
         out.extend(tail);
     }
     Some(out)
+}
+
+/// A component whose summaries depend only on already solved callees: one pass settles it.
+pub(super) fn acyclic(component: &[ProcId], graph: &HashMap<ProcId, Vec<ProcId>>) -> bool {
+    matches!(component, [only] if !graph[only].contains(only))
 }
 
 pub(super) fn sccs(ids: &[ProcId], graph: &HashMap<ProcId, Vec<ProcId>>) -> Vec<Vec<ProcId>> {

@@ -1,7 +1,7 @@
 //! Ordinary calls need only the finite set of arguments whose pointees are read.
 //! Detailed capture paths are solved separately for asynchronous callbacks.
 use super::{Event, HashMap, HashSet, Path, ProcId, Resolver, Root, Summary};
-use crate::rules::lifetime_summary::{Effect, Kind, Summaries, guaranteed, sccs};
+use crate::rules::lifetime_summary::{Effect, Kind, Summaries, acyclic, guaranteed, sccs};
 use jaic::ide::lifetimes::LifetimeOperand;
 use jaic::sema::Compiler;
 
@@ -103,6 +103,7 @@ pub(in crate::rules) fn solve(
     let mut ids: Vec<_> = valid.keys().copied().collect();
     ids.sort_unstable_by_key(|p| p.0);
     for component in sccs(&ids, graph) {
+        let once = acyclic(&component, graph);
         loop {
             let mut changed = false;
             for id in &component {
@@ -115,7 +116,7 @@ pub(in crate::rules) fn solve(
                 summary.may_read_formals.extend(may);
                 changed |= before != summary.read_formals.len() + summary.may_read_formals.len();
             }
-            if !changed {
+            if !changed || once {
                 break;
             }
         }

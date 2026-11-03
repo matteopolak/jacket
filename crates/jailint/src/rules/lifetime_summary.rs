@@ -23,7 +23,7 @@ mod temporary;
 #[cfg(test)]
 mod tests;
 mod writes;
-use flow::{guaranteed, returning_blocks, sccs};
+use flow::{acyclic, guaranteed, returning_blocks, sccs};
 pub(super) use reads::address_query;
 
 const MAX_PATH: usize = 8;
@@ -115,22 +115,22 @@ pub(super) struct Summaries {
 }
 
 #[derive(Clone, Debug)]
-enum Def {
+enum Def<'a> {
     Load(usize, TypeId),
     Copy(Val),
     Address(usize),
     Borrow(usize),
     Parameter(usize),
-    Call(ProcId, Vec<LifetimeArgument>, usize),
-    Resize(Val, Vec<LifetimeArgument>),
-    Indirect(Val, Vec<LifetimeArgument>, usize),
+    Call(ProcId, &'a [LifetimeArgument], usize),
+    Resize(Val, &'a [LifetimeArgument]),
+    Indirect(Val, &'a [LifetimeArgument], usize),
 }
 
 pub(super) struct Resolver<'a> {
     pub places: Places,
     compiler: &'a Compiler,
     body: &'a LifetimeBody,
-    values: HashMap<Val, Vec<Def>>,
+    values: HashMap<Val, Vec<Def<'a>>>,
     writes: HashMap<usize, Vec<Val>>,
     params: HashMap<usize, (usize, TypeId)>,
     exposed: HashSet<usize>,
@@ -183,7 +183,7 @@ impl<'a> Resolver<'a> {
             .blocks
             .iter()
             .enumerate()
-            .filter(|(i, _)| live.contains(i))
+            .filter(|(i, _)| live.contains(*i))
             .flat_map(|(_, b)| &b.events)
         {
             match e {
@@ -198,15 +198,7 @@ impl<'a> Resolver<'a> {
                 ) =>
                 {
                     let p = this.places.place(*v, *ty);
-                    let (root, _) = &this.places.paths[p];
-                    if let Some(root_id) = this
-                        .places
-                        .paths
-                        .iter()
-                        .position(|(r, path)| r == root && path.is_empty())
-                    {
-                        this.owned.insert(root_id);
-                    }
+                    this.owned.insert(this.places.root_of(p));
                 }
                 Event::Parameter {
                     formal,
@@ -333,7 +325,7 @@ impl<'a> Resolver<'a> {
                         this.values
                             .entry(v)
                             .or_default()
-                            .push(Def::Call(*callee, args.clone(), i));
+                            .push(Def::Call(*callee, args, i));
                     }
                 }
                 Event::IndirectCall {
@@ -347,7 +339,7 @@ impl<'a> Resolver<'a> {
                         this.values
                             .entry(v)
                             .or_default()
-                            .push(Def::Resize(*callee, args.clone()));
+                            .push(Def::Resize(*callee, args));
                     }
                 }
                 Event::IndirectCall {
@@ -358,11 +350,10 @@ impl<'a> Resolver<'a> {
                     ..
                 } => {
                     for &(index, v, _) in results {
-                        this.values.entry(v).or_default().push(Def::Indirect(
-                            *callee,
-                            args.clone(),
-                            index,
-                        ));
+                        this.values
+                            .entry(v)
+                            .or_default()
+                            .push(Def::Indirect(*callee, args, index));
                     }
                 }
                 _ => {}
@@ -389,18 +380,12 @@ impl<'a> Resolver<'a> {
     fn potential(&self, input: Val) -> HashSet<usize> {
         fn place(r: &Resolver<'_>, p: usize, seen: &mut HashSet<Val>, out: &mut HashSet<usize>) {
             let (root, _) = &r.places.paths[p];
-            if let Some(id) = r
-                .places
-                .paths
-                .iter()
-                .position(|(base, path)| base == root && path.is_empty())
-            {
-                if let Some((formal, _)) = r.params.get(&id) {
-                    out.insert(*formal);
-                }
-                for &value in r.writes.get(&id).into_iter().flatten() {
-                    walk(r, value, seen, out);
-                }
+            let id = r.places.root_of(p);
+            if let Some((formal, _)) = r.params.get(&id) {
+                out.insert(*formal);
+            }
+            for &value in r.writes.get(&id).into_iter().flatten() {
+                walk(r, value, seen, out);
             }
             walk(r, root.0, seen, out);
         }
@@ -422,7 +407,7 @@ impl<'a> Resolver<'a> {
                     Def::Address(p) | Def::Borrow(p) => place(r, *p, seen, out),
                     Def::Copy(value) => walk(r, *value, seen, out),
                     Def::Call(_, args, _) | Def::Indirect(_, args, _) => {
-                        for arg in args {
+                        for arg in *args {
                             if let Some(v) = value(arg) {
                                 walk(r, v, seen, out);
                             }
@@ -643,11 +628,7 @@ impl<'a> Resolver<'a> {
             return None;
         }
         let (root, projections) = &self.places.paths[p];
-        let root_id = self
-            .places
-            .paths
-            .iter()
-            .position(|(r, steps)| r == root && steps.is_empty())?;
+        let root_id = self.places.root_of(p);
         let mut path;
         let mut rest = projections.as_slice();
         if rest.first() == Some(&Projection::Deref) {
@@ -1046,38 +1027,58 @@ impl Effect {
 }
 
 impl Summaries {
-    fn propagate_writes(&mut self, compiler: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) {
+    fn propagate_writes(
+        &mut self,
+        compiler: &Compiler,
+        valid: &HashMap<ProcId, &LifetimeBody>,
+        ids: &[ProcId],
+        graph: &HashMap<ProcId, Vec<ProcId>>,
+    ) {
         // Returns are stable before writes are classified. A RESIZE result stored back
         // into its own field preserves the owner; an unrelated replacement must forget it.
-        loop {
-            let mut changed = false;
-            for (&id, body) in valid {
-                let mut resolver = Resolver::new(compiler, body, &self.procs, &self.targets);
-                let Writes {
-                    effects: writes,
-                    unknown: unknown_write,
-                    escapes,
-                } = resolver.infer_writes(&self.procs);
-                let summary = self.procs.get_mut(&id).unwrap();
-                let previous = summary.unknown_write.len() + summary.escapes.len();
-                summary.unknown_write.extend(unknown_write);
-                summary.escapes.extend(escapes);
-                changed |= previous != summary.unknown_write.len() + summary.escapes.len();
-                let before = summary.may.len();
-                summary.may.retain(|e, _| !matches!(e.target.root, Root::Parameter(p) if e.kind == Kind::Write && summary.unknown_write.contains(&p)));
-                changed |= before != summary.may.len();
-                for (effect, witness) in writes {
-                    if matches!(effect.target.root, Root::Parameter(p) if effect.kind == Kind::Write && summary.unknown_write.contains(&p))
-                    {
-                        continue;
-                    }
-                    changed |= insert(&mut summary.may, effect, witness);
+        // Callees settle before their callers, so only a cycle needs another pass.
+        for component in sccs(ids, graph) {
+            let once = acyclic(&component, graph);
+            loop {
+                let mut changed = false;
+                for id in &component {
+                    changed |= self.propagate_body_writes(compiler, *id, valid[id]);
+                }
+                if !changed || once {
+                    break;
                 }
             }
-            if !changed {
-                break;
-            }
         }
+    }
+
+    fn propagate_body_writes(
+        &mut self,
+        compiler: &Compiler,
+        id: ProcId,
+        body: &LifetimeBody,
+    ) -> bool {
+        let mut resolver = Resolver::new(compiler, body, &self.procs, &self.targets);
+        let Writes {
+            effects: writes,
+            unknown: unknown_write,
+            escapes,
+        } = resolver.infer_writes(&self.procs);
+        let summary = self.procs.get_mut(&id).unwrap();
+        let previous = summary.unknown_write.len() + summary.escapes.len();
+        summary.unknown_write.extend(unknown_write);
+        summary.escapes.extend(escapes);
+        let mut changed = previous != summary.unknown_write.len() + summary.escapes.len();
+        let before = summary.may.len();
+        summary.may.retain(|e, _| !matches!(e.target.root, Root::Parameter(p) if e.kind == Kind::Write && summary.unknown_write.contains(&p)));
+        changed |= before != summary.may.len();
+        for (effect, witness) in writes {
+            if matches!(effect.target.root, Root::Parameter(p) if effect.kind == Kind::Write && summary.unknown_write.contains(&p))
+            {
+                continue;
+            }
+            changed |= insert(&mut summary.may, effect, witness);
+        }
+        changed
     }
 
     #[cfg(test)]
@@ -1124,6 +1125,7 @@ impl Summaries {
         let components = sccs(&ids, &graph);
         all.sccs = components.len();
         for component in components {
+            let once = acyclic(&component, &graph);
             if jacket_config::env::LIFETIME_STATS.is_set()
                 && (component.len() > 1 || graph[&component[0]].contains(&component[0]))
             {
@@ -1147,7 +1149,7 @@ impl Summaries {
                         changed = true;
                     }
                 }
-                if !changed {
+                if !changed || once {
                     break;
                 }
             }
@@ -1163,7 +1165,7 @@ impl Summaries {
                         changed = true;
                     }
                 }
-                if !changed {
+                if !changed || once {
                     break;
                 }
             }
@@ -1171,7 +1173,7 @@ impl Summaries {
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-begin bodies={}", valid.len());
         }
-        all.propagate_writes(compiler, &valid);
+        all.propagate_writes(compiler, &valid, &ids, &graph);
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-end");
         }

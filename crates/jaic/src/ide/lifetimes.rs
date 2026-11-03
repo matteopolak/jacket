@@ -965,33 +965,31 @@ impl FnCtx {
 /// Only addresses derived from this activation's allocations qualify, never loaded pointers.
 fn stack_places(func: &ir::Func, subplaces: Vec<Val>) -> Vec<Val> {
     let mut stack: HashSet<Val> = subplaces.into_iter().collect();
-    let instructions: Vec<_> = func.blocks.iter().flat_map(|b| &b.insts).collect();
-    for instruction in &instructions {
-        if let ir::Inst::SlotAddr {
-            dst, ..
-        }
-        | ir::Inst::StackAlloc {
-            dst, ..
-        } = **instruction
-        {
-            stack.insert(dst);
-        }
-    }
-    loop {
-        let mut changed = false;
-        for instruction in &instructions {
-            if let ir::Inst::PtrAdd {
+    let mut derived: HashMap<Val, Vec<Val>> = HashMap::default();
+    for instruction in func.blocks.iter().flat_map(|b| &b.insts) {
+        match *instruction {
+            ir::Inst::SlotAddr {
+                dst, ..
+            }
+            | ir::Inst::StackAlloc {
+                dst, ..
+            } => {
+                stack.insert(dst);
+            }
+            ir::Inst::PtrAdd {
                 dst,
                 base,
                 ..
-            } = **instruction
-                && stack.contains(&base)
-            {
-                changed |= stack.insert(dst);
-            }
+            } => derived.entry(base).or_default().push(dst),
+            _ => {}
         }
-        if !changed {
-            break;
+    }
+    let mut pending: Vec<_> = stack.iter().copied().collect();
+    while let Some(base) = pending.pop() {
+        for &dst in derived.get(&base).into_iter().flatten() {
+            if stack.insert(dst) {
+                pending.push(dst);
+            }
         }
     }
     let mut stack: Vec<_> = stack.into_iter().collect();

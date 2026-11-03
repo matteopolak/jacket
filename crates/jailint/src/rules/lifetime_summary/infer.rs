@@ -15,7 +15,7 @@ impl Resolver<'_> {
             .blocks
             .iter()
             .enumerate()
-            .filter(|(i, _)| live.contains(i))
+            .filter(|(i, _)| live.contains(*i))
         {
             for (ordinal, event) in block.events.iter().enumerate() {
                 for (effect, span, definite) in self.temporary_writes(event, all) {
@@ -129,7 +129,7 @@ impl Resolver<'_> {
             .blocks
             .iter()
             .enumerate()
-            .filter(|(i, _)| live.contains(i))
+            .filter(|(i, _)| live.contains(*i))
             .flat_map(|(_, b)| &b.events)
         {
             if let Event::Return {
