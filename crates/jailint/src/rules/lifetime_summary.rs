@@ -124,6 +124,7 @@ pub(super) struct Summary {
     pub pushes_context: bool,
     pub ordering: Option<Ordering>,
     pub rounded_address: Option<usize>,
+    pub adjusted_returns: HashSet<usize>,
     pub allocation_effects: HashSet<(Root, Option<(usize, u64)>)>,
     pub elements: HashMap<usize, (Path, Selector)>,
 }

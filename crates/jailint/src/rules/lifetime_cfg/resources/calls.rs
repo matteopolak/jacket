@@ -289,6 +289,7 @@ impl Builder<'_> {
         resolver: &mut Resolver<'_>,
     ) -> Vec<Op> {
         let Call {
+            event,
             callee,
             results,
             span,
@@ -329,6 +330,14 @@ impl Builder<'_> {
                         span: *span,
                     });
                 }
+            }
+            // A returned argument retains its generation. Its substituted heap/temp
+            // class is not evidence that this call allocated new storage.
+            if resolver
+                .passthrough(event, index, &summaries.procs)
+                .is_some()
+            {
+                continue;
             }
             let origin = resolver
                 .value(value, &summaries.procs)

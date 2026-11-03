@@ -114,3 +114,31 @@ fn lifetime_reassigned_heap_header_does_not_alias_its_contained_storage() {
         assert!(findings.is_empty(), "{}", rendered(&findings, &text, &path));
     }
 }
+
+#[test]
+fn lifetime_returned_address_aliases_preserve_their_original_generation() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/aligned-alias.jai");
+    for mode in [
+        jacket_config::LifetimeMode::Must,
+        jacket_config::LifetimeMode::Strict,
+    ] {
+        let (findings, text) = lint_with(
+            &path,
+            &[("use_after_free", Level::Warn)],
+            Config {
+                lifetime_mode: Some(mode),
+                ..Config::default()
+            },
+        );
+        assert_eq!(findings.len(), 3, "{}", rendered(&findings, &text, &path));
+        assert!(
+            findings
+                .iter()
+                .all(|f| ["alias.*", "forwarded.*", "old_temporary.*"]
+                    .iter()
+                    .any(|prefix| text[f.start..].starts_with(prefix))),
+            "{}",
+            rendered(&findings, &text, &path)
+        );
+    }
+}

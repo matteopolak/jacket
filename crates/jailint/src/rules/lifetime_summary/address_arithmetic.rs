@@ -164,3 +164,42 @@ impl Resolver<'_> {
         result
     }
 }
+
+impl Resolver<'_> {
+    pub(super) fn adjusted_pointer(
+        &self,
+        v: Val,
+        all: &HashMap<ProcId, Summary>,
+        seen: &mut HashSet<Val>,
+        depth: usize,
+    ) -> bool {
+        if depth > 24 || !seen.insert(v) {
+            return false;
+        }
+        if let Some(cast) = self.address_casts.get(&v) {
+            return self.adjusted_pointer(cast.source, all, seen, depth + 1);
+        }
+        self.values.get(&v).into_iter().flatten().any(|d| match d {
+            Def::Copy(source) => self.adjusted_pointer(*source, all, seen, depth + 1),
+            Def::Load(place, _) => self
+                .return_source(*place)
+                .is_some_and(|v| self.adjusted_pointer(v, all, seen, depth + 1)),
+            Def::Call(callee, _, index) => all
+                .get(callee)
+                .is_some_and(|s| s.rounded_address.is_some() || s.adjusted_returns.contains(index)),
+            _ => false,
+        })
+    }
+
+    pub(in crate::rules) fn adjusted_result(
+        &self,
+        event: &Event,
+        index: usize,
+        all: &HashMap<ProcId, Summary>,
+    ) -> bool {
+        self.call_targets(event).procedures.iter().any(|p| {
+            all.get(p)
+                .is_some_and(|s| s.adjusted_returns.contains(&index))
+        })
+    }
+}

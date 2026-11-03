@@ -116,7 +116,7 @@ pub(crate) fn reports(cx: &Cx) -> Rc<Reports> {
     result
 }
 
-fn operand_cell(
+pub(super) fn operand_cell(
     cx: &Cx,
     places: &mut Places,
     cells: &mut Cells,

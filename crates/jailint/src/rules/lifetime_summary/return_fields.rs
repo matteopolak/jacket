@@ -527,6 +527,7 @@ impl Resolver<'_> {
         self.return_mode.set(true);
         next.returns.clone_from(&self.return_contracts);
         next.return_fields.clear();
+        next.adjusted_returns.clear();
         next.allocations.clear();
         let body = self.body;
         let mut returns = HashMap::default();
@@ -547,6 +548,9 @@ impl Resolver<'_> {
                 ..
             } = event
             {
+                if self.adjusted_pointer(*value, all, &mut HashSet::default(), 0) {
+                    next.adjusted_returns.insert(*index);
+                }
                 let selected: HashMap<_, _> = self
                     .storage_fields(*ty, 0)
                     .into_iter()

@@ -608,8 +608,11 @@ impl Builder<'_> {
             let target = resources::value_cell(cx, places, cells, value, ty);
 
             if let Some(arg) = resolver.passthrough(event, index, &summaries.procs) {
-                if let LifetimeOperand::Value(source) = arg.operand {
-                    ops.push(Op::Copy(vec![(target, cells.id(Cell::Value(source)))]));
+                if let Some(source) = resources::operand_cell(cx, places, cells, &arg) {
+                    ops.push(Op::Copy(vec![(target, source)]));
+                    if resolver.adjusted_result(event, index, &summaries.procs) {
+                        ops.push(Op::ForgetElement(target));
+                    }
                 }
             } else if let Some(path) = resolver.value(value, &summaries.procs)
                 && let Some(p) = resolver.materialize(&path)
