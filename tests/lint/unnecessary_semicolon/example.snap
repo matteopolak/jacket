@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unnecessary_semicolon]: this `;` ends nothing
+  --> tests/lint/unnecessary_semicolon/example.jai:4:16
+   |
+ 4 |     total := 0;;
+   |                ^
+   |
+help: remove it
+   |
+ 4 ~     total := 0;
+   |
+   = note: `unnecessary_semicolon` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_semicolon/

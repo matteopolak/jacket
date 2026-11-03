@@ -1,0 +1,21 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[single_case_switch]: this `switch` has a single case
+  --> tests/lint/single_case_switch/example.jai:10:5
+   |
+10 |     if mode == {
+   |     ^^^^^^^^^^^^
+   |
+help: write an `if` instead
+   |
+10 -     if mode == {
+11 -         case .VERBOSE;
+12 -             print("loud\n");
+13 -     }
+10 +     if mode == .VERBOSE {
+11 +         print("loud\n");
+12 +     }
+   |
+   = note: `single_case_switch` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch/

@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[neg_multiply]: `x * -1` is a negation
+  --> tests/lint/neg_multiply/example.jai:4:12
+   |
+ 4 |     return x * -1;
+   |            ^^^^^^
+   |
+help: write `-x`
+   |
+ 4 ~     return -x;
+   |
+   = note: `neg_multiply` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply/

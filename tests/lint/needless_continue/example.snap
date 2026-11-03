@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[needless_continue]: this `continue` is the last thing the loop does
+  --> tests/lint/needless_continue/example.jai:9:9
+   |
+ 9 |         continue;
+   |         ^^^^^^^^^
+   |
+help: remove it
+   |
+ 9 -         continue;
+   |
+   = note: `needless_continue` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/needless_continue/

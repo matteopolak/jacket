@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_import]: unused import "Math"
+  --> tests/lint/unused_import/example.jai:2:1
+   |
+ 2 | #import "Math";
+   | ^^^^^^^^^^^^^^
+   |
+help: remove it
+   |
+ 2 - #import "Math";
+   |
+   = note: `unused_import` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_import/

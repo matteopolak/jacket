@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[format_push_string]: `tprint` formats into a new string just to append it to a builder
+  --> tests/lint/format_push_string/example.jai:7:5
+   |
+ 7 |     append(*builder, tprint("%: %\n", name, value));
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: `print_to_builder` writes into the builder directly
+   |
+ 7 ~     print_to_builder(*builder, "%: %\n", name, value);
+   |
+   = note: `format_push_string` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/format_push_string/

@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[zero_ptr]: `cast(*u8) 0` is a null pointer
+  --> tests/lint/zero_ptr/example.jai:4:10
+   |
+ 4 |     p := cast(*u8) 0;
+   |          ^^^^^^^^^^^
+   |
+help: write `null`
+   |
+ 4 ~     p := null;
+   |
+   = note: `zero_ptr` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/zero_ptr/

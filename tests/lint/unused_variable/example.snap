@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_variable]: unused variable `leftover`
+  --> tests/lint/unused_variable/example.jai:4:5
+   |
+ 4 |     leftover := 5;
+   |     ^^^^^^^^
+   |
+help: remove it
+   |
+ 4 -     leftover := 5;
+   |
+   = note: `unused_variable` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_variable/

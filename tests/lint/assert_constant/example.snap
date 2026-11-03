@@ -1,0 +1,16 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[assert_constant]: `assert(true)` can never fail
+  --> tests/lint/assert_constant/example.jai:6:5
+   |
+ 6 |     assert(true, "x is positive");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: remove it, or assert the condition it stands in for
+   |
+ 6 -     assert(true, "x is positive");
+ 7 - 
+   |
+   = note: `assert_constant` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/assert_constant/

@@ -1,0 +1,12 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[enum_member_prefix]: every member of `Color` starts with `Color`
+  --> tests/lint/enum_member_prefix/example.jai:3:1
+   |
+ 3 | Color :: enum {
+   | ^^^^^
+   |
+   = help: members are used as `Color.NAME`, so the prefix repeats the enum's name: drop it
+   = note: `enum_member_prefix` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/enum_member_prefix/

@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_parameter]: unused parameter `label`
+  --> tests/lint/unused_parameter/example.jai:3:38
+   |
+ 3 | area_of :: (value: int, factor: int, label: string) -> int {
+   |                                      ^^^^^
+   |
+help: start its name with `_` if the signature must stay, or remove it
+   |
+ 3 ~ area_of :: (value: int, factor: int, _label: string) -> int {
+   |
+   = note: `unused_parameter` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_parameter/

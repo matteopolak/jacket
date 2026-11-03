@@ -1,0 +1,15 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[broken_doc_link]: `[prnt]` doesn't resolve to a declaration
+  --> tests/lint/broken_doc_link/example.jai:8:40
+   |
+ 8 | // Scales a [Point] and prints it with [prnt].
+   |                                        ^^^^^^ not found from the documented declaration's scope
+   |
+help: did you mean `print`?
+   |
+ 8 ~ // Scales a [Point] and prints it with [print].
+   |
+   = note: `broken_doc_link` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link/
