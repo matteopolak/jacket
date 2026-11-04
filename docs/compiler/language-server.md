@@ -37,6 +37,10 @@ A big compile is hundreds of MiB, so `semantic::Cache` keeps two compiles plus a
 
 Handlers query the compile through `with_semantic` (exact text or nothing), `with_semantic_at` and `on_older_compile` (the last compile, for hover, definition, signature help and completion), so a new handler gets the rule by using them. `Session::background()` is the guard that lets a compile happen (diagnostics, `warm_pending`, rename). Tests: `tests/no_compile_in_requests.rs`; latency: `tools/bench/typing_latency.py` (`--immediate` types a key right after Enter).
 
+Outgoing call hierarchy also reads the last checked snapshot while an edit is pending. `hierarchy.rs` finds the caller in that snapshot, moves surviving call sites and same-file callee declarations to the current text, and omits calls whose text changed until they are checked again. It queues the fresh check without compiling in the request. Regression tests in `tests/hierarchy.rs` cover shifted declarations, removed calls and changed arguments.
+
+A cold file has no semantic snapshot to query. Integration tests that require its complete call tree first send `textDocument/diagnostic` for that document: the diagnostics pull checks its current text before returning. This also synchronizes an editor test after reverting an edit, without a delay or a retried navigation request.
+
 ### Feature list
 
 - **Completion**: scope and members come from the compiler; names whose type fits the expected type rank first; auto-import adds the `#import`/`#load` edit; call snippets and postfix snippets (`.if`, `.not`, `.ref`) when the client supports snippets.

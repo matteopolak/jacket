@@ -257,25 +257,39 @@ impl Session {
         let Some(me) = here.iter().find(|s| contains(s.name_span, start)) else {
             return Ok(Vec::new());
         };
-        let Some(body) = me.body else {
+        if me.body.is_none() {
             return Ok(Vec::new());
-        };
-        let calls = self
-            .checked(&uri, |a, f| {
-                a.compiler
+        }
+        let ((calls, compiled), shift) = self
+            .with_semantic_at(&uri, &doc.text, start, |a, path, at| {
+                let compiled = a.compiled_text(path)?;
+                let known = sites(compiled);
+                let body = declared_at(&known, at)?.body?;
+                let f = a.file(path)?;
+                let compiled = a.compiler.src.sources.try_get(f)?.text.clone();
+                let calls = a
+                    .compiler
                     .ide_calls(f)
                     .into_iter()
                     .filter(|c| (body.0..=body.1).contains(&(c.span.start as usize)))
                     .filter_map(|c| {
                         let target = a.location(c.signatures.get(c.active)?.span)?;
-                        Some((c.span.start as usize, target))
+                        Some((c.span.start as usize, c.span.end as usize, target))
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                Some((calls, compiled))
             })
             .unwrap_or_default();
         let mut grouped = Grouped::default();
         let mut parsed: HashMap<String, Vec<Site>> = HashMap::default();
-        for (at, (path, text, declared, _)) in calls {
+        for (old_at, old_end, (path, text, declared, _)) in calls {
+            let (Some(at), Some(end)) = (shift.to_new(old_at), shift.to_new(old_end)) else {
+                continue;
+            };
+            // A changed call may choose another overload when the next check runs.
+            if !shift.is_none() && compiled.get(old_at..old_end) != doc.text.get(at..end) {
+                continue;
+            }
             // Not the calls of a procedure nested in this one.
             if calling(&here, at).is_none_or(|s| s.name_span != me.name_span) {
                 continue;
@@ -283,11 +297,19 @@ impl Session {
             let Some(target) = self.client_uri(std::path::Path::new(&path)) else {
                 continue;
             };
-            let known = parsed.entry(path.clone()).or_insert_with(|| sites(&text));
+            let (text, declared) = if target == uri && !shift.is_none() {
+                let Some(declared) = shift.to_new(declared) else {
+                    continue;
+                };
+                (doc.text.as_str(), declared)
+            } else {
+                (text.as_ref(), declared)
+            };
+            let known = parsed.entry(path.clone()).or_insert_with(|| sites(text));
             let Some(site) = declared_at(known, declared) else {
                 continue;
             };
-            let Some(callee) = site_item(target.as_str(), &text, site) else {
+            let Some(callee) = site_item(target.as_str(), text, site) else {
                 continue;
             };
             let len = callee_len(&doc.text, at);

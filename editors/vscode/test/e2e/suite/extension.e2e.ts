@@ -206,6 +206,9 @@ describe("Jai extension", () => {
 
   it("shows the call hierarchy", async () => {
     const document = await open("refactor.jai");
+    // The preceding test reverted an edit. A diagnostics pull checks this exact text;
+    // navigation otherwise uses the last snapshot while the background check is pending.
+    await api.client()!.sendRequest("textDocument/diagnostic", { textDocument: { uri: document.uri.toString() } });
     const items = await vscode.commands.executeCommand<vscode.CallHierarchyItem[]>("vscode.prepareCallHierarchy", document.uri, new vscode.Position(0, 1));
     assert.equal(items?.[0]?.name, "leaf");
     const incoming = await vscode.commands.executeCommand<vscode.CallHierarchyIncomingCall[]>("vscode.provideIncomingCalls", items[0]);

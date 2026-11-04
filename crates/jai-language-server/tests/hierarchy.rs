@@ -1,5 +1,5 @@
 //! Call hierarchy and selection ranges.
-use jai_language_server::{DocumentUri, JsonSession, Limits, Position};
+use jai_language_server::{DocumentUri, JsonSession, Limits, Position, TextChange};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 use test_support::lsp::{at_offset, environment, open, text_in_range, uri};
@@ -134,6 +134,70 @@ main :: () { helper(); }
 }
 
 #[test]
+fn outgoing_calls_move_with_unchecked_edits_without_compiling() {
+    let mut session = open(PROGRAM);
+    session.publications();
+    session.defer_compiles(true);
+    let edited = format!("\n{PROGRAM}");
+    session
+        .change(
+            &uri(),
+            2,
+            &[TextChange {
+                range: None,
+                range_length: None,
+                text: edited.clone(),
+            }],
+        )
+        .unwrap();
+    let compiles = session.compile_counts().0;
+    let middle = session
+        .prepare_call_hierarchy(&uri(), at_offset(&edited, "middle ::", 1))
+        .unwrap();
+    let calls = session.outgoing_calls(&middle[0]).unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].item.name, "leaf");
+    assert_eq!(calls[0].item.selection_range.start.line, 1);
+    assert_eq!(calls[0].from_ranges.len(), 2);
+    assert_eq!(calls[0].from_ranges[0].start.line, 5);
+    assert_eq!(calls[0].from_ranges[1].start.line, 6);
+    assert_eq!(session.compile_counts().0, compiles);
+    assert!(session.compile_pending());
+}
+
+#[test]
+fn outgoing_calls_omit_changed_calls_before_the_next_check() {
+    for replacement in ["a := n;", "a := leaf(1);"] {
+        let mut session = open(PROGRAM);
+        session.publications();
+        session.defer_compiles(true);
+        let edited = PROGRAM.replace("a := leaf(n);", replacement);
+        session
+            .change(
+                &uri(),
+                2,
+                &[TextChange {
+                    range: None,
+                    range_length: None,
+                    text: edited.clone(),
+                }],
+            )
+            .unwrap();
+        let compiles = session.compile_counts().0;
+        let middle = session
+            .prepare_call_hierarchy(&uri(), at_offset(&edited, "middle ::", 1))
+            .unwrap();
+        let calls = session.outgoing_calls(&middle[0]).unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].item.name, "leaf");
+        assert_eq!(calls[0].from_ranges.len(), 1);
+        assert_eq!(calls[0].from_ranges[0].start.line, 5);
+        assert_eq!(session.compile_counts().0, compiles);
+        assert!(session.compile_pending());
+    }
+}
+
+#[test]
 fn calls_of_nested_procedures_belong_to_them() {
     let text = "leaf :: () {}
 outer :: () {
@@ -227,6 +291,56 @@ fn the_server_advertises_and_answers_the_requests() {
         json!({"textDocument": {"uri": uri().as_str()}, "position": at_offset(PROGRAM, "x := other", 0)}),
     );
     assert!(nothing.is_null());
+}
+
+#[test]
+fn a_diagnostics_pull_makes_a_cold_call_hierarchy_ready() {
+    let mut json = JsonSession::with_environment(Limits::default(), environment());
+    json.defer_compiles(true);
+    json.defer_publications(true);
+    request(
+        &mut json,
+        1,
+        "initialize",
+        json!({"capabilities": {"textDocument": {"diagnostic": {}}}}),
+    );
+    json.handle_json(
+        &json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+            "uri": uri().as_str(), "languageId": "jai", "version": 1, "text": PROGRAM}}})
+        .to_string(),
+    )
+    .unwrap();
+    let middle = request(
+        &mut json,
+        2,
+        "textDocument/prepareCallHierarchy",
+        json!({"textDocument": {"uri": uri().as_str()}, "position": at_offset(PROGRAM, "middle ::", 1)}),
+    );
+    let before = json.compile_counts().0;
+    let cold = request(
+        &mut json,
+        3,
+        "callHierarchy/outgoingCalls",
+        json!({"item": middle[0]}),
+    );
+    assert_eq!(cold, json!([]));
+    assert_eq!(json.compile_counts().0, before);
+    let diagnostics = request(
+        &mut json,
+        4,
+        "textDocument/diagnostic",
+        json!({"textDocument": {"uri": uri().as_str()}}),
+    );
+    assert_eq!(diagnostics["kind"], "full");
+    assert!(json.compile_counts().0 > before);
+    let ready = request(
+        &mut json,
+        5,
+        "callHierarchy/outgoingCalls",
+        json!({"item": middle[0]}),
+    );
+    assert_eq!(ready[0]["to"]["name"], "leaf");
+    assert_eq!(ready[0]["fromRanges"].as_array().unwrap().len(), 2);
 }
 
 // Selection ranges
