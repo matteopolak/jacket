@@ -69,6 +69,26 @@ Our Rust code is built with profile-guided optimisation (`tools/dev/build_pgo.py
 
 A tag push publishes everything: the GitHub release, both extension stores, the Homebrew tap and the Neovim mirror. A manual run publishes to the stores only with `publish_integrations`. The editor can be released alone with `editor_version`; stores keep versions immutable, so a checksum repin needs a new editor version.
 
+A forced tag update validates the release metadata but deliberately skips builds and publishing.
+If that tag has not been published, resume it explicitly from its own workflow revision:
+
+```sh
+gh workflow run release.yml --ref vX.Y.Z -f tag=vX.Y.Z \
+  -f publish_integrations=true -f editor_version=X.Y.Z
+```
+
+Confirm the build and publish jobs actually succeeded; a successful metadata-only run does not
+establish publication. Run `release-smoke.yml` with `version=vX.Y.Z` after a manual release,
+since its automatic trigger accepts tag-push releases only. Do not rebuild an immutable published
+release or replace its archives and checksums.
+
+The browser bundle has its own `browser-release.yml` validation. It builds a native compiler and
+formatter before running the LLVM-free language-server and Wasm tests: formatting tests execute
+the real `jaifmt` through `JAIFMT`. Packaging then uses that compiler to build the browser formatter.
+To validate a released compiler with updated workflow setup, dispatch the workflow from the fixed
+branch and set `compiler_revision` to the release's full commit SHA; checkout and bundle provenance
+remain pinned to that compiler revision.
+
 Gotchas:
 
 - PGO roughly doubles the build, so the job timeout is 90 minutes.
