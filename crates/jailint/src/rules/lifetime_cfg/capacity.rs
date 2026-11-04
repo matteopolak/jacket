@@ -4,6 +4,7 @@ use super::{Block, Cx, Event, HashMap, HashSet, LifetimeBody, Op, Span, VecDeque
 #[derive(Clone, Copy, Debug)]
 pub(super) enum Change {
     Append,
+    UnknownAppend,
     Reserve(u64),
 }
 
@@ -37,6 +38,8 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
             }
             let change = if cx.compiler.proc_has_note(*callee, "AddsToArray") {
                 Change::Append
+            } else if proc.name.as_str() == "array_add" {
+                Change::UnknownAppend
             } else if proc.name.as_str() == "array_reserve" {
                 Change::Reserve(args.iter().find(|a| a.formal == 1)?.constant?)
             } else {
@@ -90,6 +93,7 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
                             },
                         )),
                         Change::Reserve(n) => Some((count, capacity.max(n))),
+                        Change::UnknownAppend => None,
                     });
                 }
                 _ => {}
@@ -110,12 +114,14 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
             if let Op::Capacity(r, change, span) = block.op
                 && r == region
             {
-                let room = states[i]
-                    .flatten()
-                    .is_some_and(|(count, capacity)| match change {
-                        Change::Append => count < capacity,
-                        Change::Reserve(n) => n <= capacity,
-                    });
+                let room = matches!(change, Change::UnknownAppend)
+                    || states[i]
+                        .flatten()
+                        .is_some_and(|(count, capacity)| match change {
+                            Change::Append => count < capacity,
+                            Change::Reserve(n) => n <= capacity,
+                            Change::UnknownAppend => true,
+                        });
                 block.op = if room {
                     Op::MayGrow(r, span)
                 } else {

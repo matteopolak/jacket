@@ -267,3 +267,14 @@ fn lifetime_freeing_distinct_array_elements_is_not_double_free() {
     let (lints, text) = lint(&path, &[("double_free", Level::Warn)]);
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
 }
+
+#[test]
+fn lifetime_variadic_growth_is_not_unconditionally_an_invalidation() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/variadic-growth.jai");
+    let rules = [
+        ("pointer_lifetime", Level::Warn),
+        ("pointer_into_resizable", Level::Warn),
+    ];
+    let (lints, text) = lint(&path, &rules);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
+}
