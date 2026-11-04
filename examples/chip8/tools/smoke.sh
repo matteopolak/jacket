@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds only into T (or the caller's scratch directory), assembles our original ROMs, checks hashes.
 set -eu
-here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 app=$(dirname "$here")
 jaic=${JAIC:-jaic}
 base=${T:-${TMPDIR:-/tmp}}
@@ -30,7 +30,9 @@ check quirks chip8 '1880364998207761871 8579071839672045405'
 a=$("$work/chip8" "$work/paddle.ch8" --smoke --cycles 120 --seed 42)
 b=$("$work/chip8" "$work/paddle.ch8" --smoke --cycles 120 --seed 42)
 c=$("$work/chip8" "$work/paddle.ch8" --smoke --cycles 120 --seed 43)
-[ "$a" = "$b" ] && [ "$a" != "$c" ] || fail 'seed/replay mismatch'
+if [ "$a" != "$b" ] || [ "$a" = "$c" ]; then
+    fail 'seed/replay mismatch'
+fi
 # Bad inputs must report the documented exit code and diagnostic.
 reject() {
     expected=$1 message=$2
