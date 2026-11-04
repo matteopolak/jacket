@@ -619,3 +619,58 @@ fn links_that_name_nothing_are_listed_with_their_line() {
     assert!(!tail.contains("[cut]") && !tail.contains("[x]"), "{tail}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn directives_are_not_same_spelled_declaration_references() {
+    assert_eq!(type_paths("*#Context"), Vec::<Vec<String>>::new());
+    assert_eq!(
+        type_paths("#type (a: Context) -> Other.Context"),
+        [vec!["a"], vec!["Context"], vec!["Other", "Context"]]
+    );
+    assert_eq!(type_paths("#arbitrary Context"), [vec!["Context"]]);
+    let dir = library(
+        "context-directive",
+        &[
+            (
+                "module.jai",
+                "Other :: #import,file \"other.jai\";\nContext :: struct { local: int; }\nActive :: #Context;\nuse :: (active: *#Context, alias: *Active, ordinary: *Context, qualified: *Other.Context) {}\n",
+            ),
+            ("other.jai", "Context :: struct { remote: int; }\n"),
+        ],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let alias = model.items.iter().find(|i| i.name == "Active").unwrap();
+    assert!(alias.refs.is_empty());
+    let procedure = model.items.iter().find(|i| i.name == "use").unwrap();
+    let params = &procedure.overloads[0].params;
+    assert!(params[0].refs.is_empty());
+    assert!(params[1].refs.iter().any(|r| r.path == "Active"));
+    assert!(
+        params[2]
+            .refs
+            .iter()
+            .any(|r| r.path == "Context" && r.file == dir.join("module.jai"))
+    );
+    assert!(
+        params[3]
+            .refs
+            .iter()
+            .any(|r| r.path == "Other.Context" && r.file == dir.join("other.jai"))
+    );
+}
+
+#[test]
+fn language_type_directive_aliases_are_type_items() {
+    let dir = library(
+        "language-type-directives",
+        &[(
+            "module.jai",
+            "Active :: #Context;\nExtended :: #jaic_type long_double;\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    for name in ["Active", "Extended"] {
+        let item = model.items.iter().find(|i| i.name == name).unwrap();
+        assert_eq!(item.kind, "type", "{name}");
+    }
+}

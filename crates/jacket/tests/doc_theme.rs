@@ -316,4 +316,74 @@ mod doc {
             );
         }
     }
+
+    #[test]
+    fn implicit_context_guide_keeps_ordinary_context_declarations_distinct() {
+        let _serial = RUN
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some((jacket, _)) = tools() else {
+            return;
+        };
+        let temp = TempDir::new("doc-context");
+        temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\nhome='docs/home.md'\n[[doc.page]]\nfile='docs/language/context.md'\nname='Implicit context'\n");
+        temp.write(
+            "docs/home.md",
+            "# Tiny\n\nRead the [implicit context](language/context.md).\n",
+        );
+        temp.write(
+            "docs/language/context.md",
+            "# Implicit context\n\n`#Context` is synthesized; `context` is active.\n",
+        );
+        temp.write("lib/Tiny/module.jai", "// An owned library.\n\n// An ordinary user type.\nContext :: struct { field: int; }\n\n// An alias to the program type.\nActive :: #Context;\n\n// Uses the implicit type.\nuse :: (active: *#Context, alias: *Active, ordinary: *Context) {}\n");
+        for base in ["/", "/reference/"] {
+            let output = Command::new(&jacket)
+                .args(["doc", "--base-url", base, "--out", "site"])
+                .current_dir(&temp)
+                .env("JAIC_STDLIB", repo().join("stdlib"))
+                .env("XDG_CACHE_HOME", temp.join("cache"))
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let checked = Command::new(&jacket)
+                .args(["doc", "--check", "--base-url", base])
+                .current_dir(&temp)
+                .env("JAIC_STDLIB", repo().join("stdlib"))
+                .env("XDG_CACHE_HOME", temp.join("cache"))
+                .output()
+                .unwrap();
+            assert!(
+                checked.status.success(),
+                "{}{}",
+                String::from_utf8_lossy(&checked.stdout),
+                String::from_utf8_lossy(&checked.stderr)
+            );
+            let home = std::fs::read_to_string(temp.join("site/index.html")).unwrap();
+            assert!(home.contains(&format!("href=\"{base}guides/context\"")));
+            assert!(temp.join("site/guides/context.html").is_file());
+            let ordinary =
+                std::fs::read_to_string(temp.join("site/api/Tiny/Context.html")).unwrap();
+            assert!(ordinary.contains("An ordinary user type."));
+            let signature = std::fs::read_to_string(temp.join("site/api/Tiny/use.html")).unwrap();
+            assert!(signature.contains(&format!("href=\"{base}api/Tiny/Context\"")));
+            assert!(signature.contains("(active: *#Context, alias: *<a"));
+            let search: serde_json::Value = serde_json::from_slice(
+                &std::fs::read(temp.join("site/search-index.json")).unwrap(),
+            )
+            .unwrap();
+            let alias = search["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row[1] == "Active")
+                .unwrap();
+            assert_eq!(alias[2], "type");
+            assert_eq!(alias[4], ":: #Context");
+        }
+    }
 }
