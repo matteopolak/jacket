@@ -196,3 +196,6 @@ open(here + "/ycck.ppm", "wb").write(header + ycck)
 PY
 
 echo "fixtures: $(cat "$here"/*.jpg "$here"/*.ppm "$here"/*.pgm | wc -c | tr -d ' ') bytes"
+
+# Constant DC-only streams and color-hint goldens need no external encoder.
+python3 "$here/generate_headers.py"

@@ -148,13 +148,16 @@ jpeg_scale_255 :: inline (a: s32, b: s32) -> u8 {
     return cast,trunc(u8) ((t + (t >> 8)) >> 8);
 }
 
-// Four-component rows. Adobe files store inverted ink values, so the colour is the product of
-// the stored value and the stored black.
-jpeg_row_cmyk :: (c: *u8, m: *u8, y: *u8, k: *u8, out: *u8, n: s64) #no_abc {
+// Adobe stores inverted CMYK samples. Ordinary CMYK needs complementary ink intensities
+// before multiplying by the complementary black.
+jpeg_row_cmyk :: (c: *u8, m: *u8, y: *u8, k: *u8, out: *u8, n: s64, inverted: bool) #no_abc {
+    complement: s32 = cast(s32) ifx inverted then 0 else 255;
+
     for i: 0..n - 1 {
-        out[i * 3] = jpeg_scale_255(c[i], k[i]);
-        out[i * 3 + 1] = jpeg_scale_255(m[i], k[i]);
-        out[i * 3 + 2] = jpeg_scale_255(y[i], k[i]);
+        black := (cast(s32) k[i]) ^ complement;
+        out[i * 3] = jpeg_scale_255((cast(s32) c[i]) ^ complement, black);
+        out[i * 3 + 1] = jpeg_scale_255((cast(s32) m[i]) ^ complement, black);
+        out[i * 3 + 2] = jpeg_scale_255((cast(s32) y[i]) ^ complement, black);
     }
 }
 
@@ -282,10 +285,9 @@ jpeg_write_pixels :: (d: *Jpeg_Decoder, out: *u8) {
     ycc := true;
 
     if d.ncomp == 3 {
-        if d.adobe_seen {
-            ycc = d.adobe_transform != 0;
-        } else if !d.jfif_seen && d.comps[0].id == #char "R" && d.comps[1].id == #char "G" && d.comps[2].id == #char "B" {
-            ycc = false;
+        if !d.jfif_seen {
+            if d.adobe_seen ycc = d.adobe_transform != 0;
+            else if d.comps[0].id == #char "R" && d.comps[1].id == #char "G" && d.comps[2].id == #char "B" ycc = false;
         }
     } else {
         ycc = d.adobe_seen && d.adobe_transform == 2;
@@ -302,7 +304,7 @@ jpeg_write_pixels :: (d: *Jpeg_Decoder, out: *u8) {
             else jpeg_row_rgb(r[0], r[1], r[2], dst, width);
         } else {
             if ycc jpeg_row_ycck(r[0], r[1], r[2], r[3], dst, width, *rows.color);
-            else jpeg_row_cmyk(r[0], r[1], r[2], r[3], dst, width);
+            else jpeg_row_cmyk(r[0], r[1], r[2], r[3], dst, width, d.adobe_seen);
         }
     }
 }
