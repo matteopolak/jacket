@@ -405,7 +405,7 @@ impl Proof<'_> {
                 store,
                 ..
             }) = block.op
-                && !escape_survives(cx, model, i, target, store, kind, Retention::AllPaths)
+                && !self.escape_survives(i, target, store, kind, Retention::AllPaths)
             {
                 return;
             }
@@ -428,7 +428,7 @@ impl Proof<'_> {
                 .push((origin, "stack storage borrowed here".into()));
             push(&mut out.returned_local_address, f);
         } else if matches!(kind, Origin::Temporary)
-            && temporary_store_retained(cx, body, model, i, &block.op)
+            && self.temporary_store_retained(i, &block.op)
             && !matches!(
                 block.op,
                 CfgOp::Resource(Op::Escape {
@@ -634,151 +634,165 @@ fn statement_call(body: &LifetimeBody, site: Span) -> bool {
 }
 
 
-fn temporary_store_retained(
-    cx: &Cx,
-    body: &LifetimeBody,
-    model: &Model,
-    at: usize,
-    op: &CfgOp,
-) -> bool {
-    let CfgOp::Resource(Op::Escape {
-        target,
-        store,
-        ..
-    }) = op
-    else {
-        return true;
-    };
-    // A concrete sink must be cleared before reset or before returning to a caller.
-    // The process entry has no caller after its final exit, but resets still matter.
-    escape_survives(
-        cx,
-        model,
-        at,
-        *target,
-        *store,
-        Origin::Temporary,
-        if entrypoint_activation(cx, body) {
-            Retention::UntilProcessExit
-        } else {
-            Retention::AnyPath
-        },
-    )
-}
-
 enum Retention {
     AllPaths,
     AnyPath,
     UntilProcessExit,
 }
 
-fn escape_survives(
-    cx: &Cx,
-    model: &Model,
-    at: usize,
-    target: usize,
-    store: bool,
-    kind: Origin,
-    retention: Retention,
-) -> bool {
-    let any_path = !matches!(retention, Retention::AllPaths);
-    let process_exit = matches!(retention, Retention::UntilProcessExit);
-    let target_place = match model.cells.values[target] {
-        super::Cell::Place(place) => Some(place),
-        super::Cell::Value(_) => None,
-    };
-    let mut start = at;
-    if store {
-        // The escape observation precedes this store's conservative memory barrier.
-        // Begin checking retention after the actual destination copy, not its preparation.
-        loop {
-            let [next] = model.blocks[start].next.as_slice() else {
-                return false;
-            };
-            start = *next;
-            if matches!(&model.blocks[start].op,CfgOp::Copy(pairs) if pairs.iter().any(|(t,_)| *t == target))
-            {
-                break;
-            }
-        }
+impl Proof<'_> {
+    fn temporary_store_retained(&self, at: usize, op: &CfgOp) -> bool {
+        let CfgOp::Resource(Op::Escape {
+            target,
+            store,
+            ..
+        }) = op
+        else {
+            return true;
+        };
+        // A concrete sink must be cleared before reset or before returning to a caller.
+        // The process entry has no caller after its final exit, but resets still matter.
+        self.escape_survives(
+            at,
+            *target,
+            *store,
+            Origin::Temporary,
+            if entrypoint_activation(self.cx, self.body) {
+                Retention::UntilProcessExit
+            } else {
+                Retention::AnyPath
+            },
+        )
     }
-    let mut seen = HashSet::default();
-    let mut queue: VecDeque<_> = model.blocks[start]
-        .next
-        .iter()
-        .map(|&i| (i, true))
-        .collect();
-    let mut escaped = false;
-    while let Some((i, mut kept)) = queue.pop_front() {
-        if !seen.insert((i, kept)) {
-            continue;
-        }
-        match model.blocks[i].op {
-            CfgOp::Resource(Op::Escape {
-                target: other, ..
-            }) if other == target => kept = false,
-            CfgOp::Replace(place)
-                if target_place.is_some_and(|p| model.places.contains(place, p)) =>
-            {
-                kept = false;
-            }
-            CfgOp::Barrier if !any_path => kept = false,
-            CfgOp::Resource(Op::Reset(_)) if matches!(kind, Origin::Temporary) => {
-                if kept {
-                    return true;
+
+    fn escape_survives(
+        &self,
+        at: usize,
+        target: usize,
+        store: bool,
+        kind: Origin,
+        retention: Retention,
+    ) -> bool {
+        let cx = self.cx;
+        let model = self.model;
+        let any_path = !matches!(retention, Retention::AllPaths);
+        let process_exit = matches!(retention, Retention::UntilProcessExit);
+        let target_place = match model.cells.values[target] {
+            super::Cell::Place(place) => Some(place),
+            super::Cell::Value(_) => None,
+        };
+        let mut start = at;
+        if store {
+            // The escape observation precedes this store's conservative memory barrier.
+            // Begin checking retention after the actual destination copy, not its preparation.
+            loop {
+                let [next] = model.blocks[start].next.as_slice() else {
+                    return false;
+                };
+                start = *next;
+                if matches!(&model.blocks[start].op,CfgOp::Copy(pairs) if pairs.iter().any(|(t,_)| *t == target))
+                {
+                    break;
                 }
+            }
+        }
+        let mut seen = HashSet::default();
+        let mut queue: VecDeque<_> = model.blocks[start]
+            .next
+            .iter()
+            .map(|&i| (i, true))
+            .collect();
+        let mut escaped = false;
+        while let Some((i, mut kept)) = queue.pop_front() {
+            if !seen.insert((i, kept)) {
                 continue;
             }
-            CfgOp::Resource(Op::MayReset(_))
-                if matches!(kind, Origin::Temporary)
-                    && cx.lifetime_mode == jacket_config::LifetimeMode::Strict
-                    && kept =>
-            {
-                return true;
-            }
-            CfgOp::Resource(Op::Restore(_, _) | Op::MayRestore(_, _))
-                if process_exit && matches!(kind, Origin::Temporary) && kept =>
-            {
-                return true;
-            }
-            CfgOp::Resource(Op::Exit) => {
-                if process_exit {
+            match model.blocks[i].op {
+                CfgOp::Resource(Op::Escape {
+                    target: other, ..
+                }) if other == target => kept = false,
+                CfgOp::Replace(place)
+                    if target_place.is_some_and(|p| model.places.contains(place, p)) =>
+                {
+                    kept = false;
+                }
+                CfgOp::Barrier if !any_path => kept = false,
+                CfgOp::Resource(Op::Reset(_)) if matches!(kind, Origin::Temporary) => {
+                    if kept {
+                        return true;
+                    }
                     continue;
                 }
-                if !kept && !any_path {
-                    return false;
-                }
-                if kept && any_path {
+                CfgOp::Resource(Op::MayReset(_))
+                    if matches!(kind, Origin::Temporary)
+                        && cx.lifetime_mode == jacket_config::LifetimeMode::Strict
+                        && kept =>
+                {
                     return true;
                 }
-                escaped |= kept;
-                continue;
-            }
-            CfgOp::Resource(Op::ScopeEnd(parent, _)) if matches!(kind,Origin::Stack(child) if inside(cx,child,parent)) =>
-            {
-                if !kept {
-                    return false;
+                CfgOp::Resource(Op::Restore(_, _) | Op::MayRestore(_, _))
+                    if process_exit
+                        && matches!(kind, Origin::Temporary)
+                        && kept
+                        && self.restore_invalidates(i) =>
+                {
+                    return true;
                 }
-                escaped = true;
-                continue;
-            }
-            CfgOp::Resource(Op::StatementEnd(span)) if matches!(kind,Origin::Statement(at) if contains(span,at)) =>
-            {
-                if !kept {
-                    return false;
+                CfgOp::Resource(Op::Exit) => {
+                    if process_exit {
+                        continue;
+                    }
+                    if !kept && !any_path {
+                        return false;
+                    }
+                    if kept && any_path {
+                        return true;
+                    }
+                    escaped |= kept;
+                    continue;
                 }
-                escaped = true;
+                CfgOp::Resource(Op::ScopeEnd(parent, _)) if matches!(kind,Origin::Stack(child) if inside(cx,child,parent)) =>
+                {
+                    if !kept {
+                        return false;
+                    }
+                    escaped = true;
+                    continue;
+                }
+                CfgOp::Resource(Op::StatementEnd(span)) if matches!(kind,Origin::Statement(at) if contains(span,at)) =>
+                {
+                    if !kept {
+                        return false;
+                    }
+                    escaped = true;
+                    continue;
+                }
+                _ => {}
+            }
+            if any_path && !kept {
+                // An overwritten origin cannot become retained again on this path.
                 continue;
             }
-            _ => {}
+            queue.extend(model.blocks[i].next.iter().map(|&i| (i, kept)));
         }
-        if any_path && !kept {
-            // An overwritten origin cannot become retained again on this path.
-            continue;
-        }
-        queue.extend(model.blocks[i].next.iter().map(|&i| (i, kept)));
+        escaped
     }
-    escaped
+
+    fn restore_invalidates(&self, at: usize) -> bool {
+        let CfgOp::Resource(op) = &self.model.blocks[at].op else {
+            return false;
+        };
+        self.states[at].as_ref().is_some_and(|state| {
+            super::kills(
+                self.cx,
+                op,
+                self.kind,
+                self.region,
+                &state[..=self.relevant.len() * 2],
+                &|cell| self.relevant.get(&cell).copied(),
+            )
+        })
+    }
 }
 
 

@@ -318,3 +318,11 @@ fn lifetime_ci_online_snapshot() {
     );
     assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
 }
+
+#[test]
+fn lifetime_ci_environment_fiber() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-environment-fiber.jai");
+    let (lints, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    assert!(lints[0].start > text.find("bad_saved =").unwrap());
+}
