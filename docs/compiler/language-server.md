@@ -39,6 +39,8 @@ Handlers query the compile through `with_semantic` (exact text or nothing), `wit
 
 Outgoing call hierarchy also reads the last checked snapshot while an edit is pending. `hierarchy.rs` finds the caller in that snapshot, moves surviving call sites and same-file callee declarations to the current text, and omits calls whose text changed until they are checked again. It queues the fresh check without compiling in the request. Regression tests in `tests/hierarchy.rs` cover shifted declarations, removed calls and changed arguments.
 
+Diagnostics retain resolved call records for checked open documents separately from the compiler cache. Incoming and outgoing hierarchy therefore survive other documents' checks evicting a compiler. The records keep the caller's text, resolved declarations and callee content keys, without retaining compilers or library source. Closing a document drops its records; cache resets and changes to trust, check limits or workspace folders clear them. A changed external callee waits for a fresh check. The eviction regression checks larger unrelated files before asking for the original document's hierarchy, and asserts that neither request compiles.
+
 A cold file has no semantic snapshot to query. Integration tests that require its complete call tree first send `textDocument/diagnostic` for that document: the diagnostics pull checks its current text before returning. This also synchronizes an editor test after reverting an edit, without a delay or a retried navigation request.
 
 ### Feature list

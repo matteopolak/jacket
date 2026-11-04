@@ -65,6 +65,7 @@ pub struct Session {
     /// Type-checked answers (absent: syntax only).
     pub(crate) environment: Option<Environment>,
     pub(crate) semantic: RefCell<semantic::Cache>,
+    pub(crate) call_graphs: RefCell<BTreeMap<DocumentUri, Rc<crate::hierarchy::CallGraph>>>,
     pub(crate) polymorph_index: RefCell<crate::polymorphs::Index>,
     /// `Cache::recorded_version` as of the last time discovery was given the recorded builds.
     synced_builds: std::cell::Cell<u64>,
@@ -143,6 +144,7 @@ impl Session {
             parsed: BTreeMap::new(),
             environment: None,
             semantic: RefCell::default(),
+            call_graphs: RefCell::default(),
             polymorph_index: RefCell::default(),
             synced_builds: std::cell::Cell::new(0),
             lint_configs: BTreeMap::new(),

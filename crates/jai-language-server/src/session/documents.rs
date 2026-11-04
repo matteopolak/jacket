@@ -182,6 +182,7 @@ impl Session {
             return Ok(());
         }
         self.documents.remove(uri).ok_or(Error::MissingDocument)?;
+        self.call_graphs.borrow_mut().remove(uri);
         self.rebuild();
         Ok(())
     }
@@ -232,7 +233,10 @@ impl Session {
         };
         let found = self
             .with_semantic(uri, &doc.text, |analysis, path| {
-                Some(analysis.check_findings(path))
+                let findings = analysis.check_findings(path);
+                self.remember_call_graphs(uri, analysis);
+                analysis.focus(path);
+                Some(findings)
             })
             .unwrap_or_default();
         let syntax = &self

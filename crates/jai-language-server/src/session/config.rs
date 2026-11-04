@@ -40,6 +40,7 @@ impl Session {
         if self.check_limits != limits {
             self.check_limits = limits;
             self.polymorph_index.borrow_mut().clear();
+            self.call_graphs.borrow_mut().clear();
             self.semantic.borrow_mut().set_limits(limits);
         }
     }
@@ -108,6 +109,7 @@ impl Session {
     /// Drop everything cached (compiles, scans) after a failure: it is rebuilt on demand.
     pub fn reset_caches(&self) {
         self.polymorph_index.borrow_mut().clear();
+        self.call_graphs.borrow_mut().clear();
         // What the metaprograms did is not lost with the compiles that recorded it.
         let trusted = self.semantic.borrow().trusted();
         let recorded = std::mem::take(&mut self.semantic.borrow_mut().recorded);
@@ -131,6 +133,7 @@ impl Session {
     pub fn set_trusted(&mut self, trusted: bool) {
         if self.semantic.borrow().trusted() != trusted {
             self.polymorph_index.borrow_mut().clear();
+            self.call_graphs.borrow_mut().clear();
             self.semantic.borrow_mut().set_trusted(trusted);
             // Without trust nothing runs, so discovery falls back to the static scan; what
             // earlier runs recorded goes with the cache.
@@ -153,6 +156,7 @@ impl Session {
             .is_some_and(|services| services.take_arrivals());
         if arrived {
             self.semantic.borrow_mut().forget_compiles();
+            self.call_graphs.borrow_mut().clear();
             self.touch();
         }
         arrived
@@ -188,6 +192,7 @@ impl Session {
 
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
         self.polymorph_index.borrow_mut().clear();
+        self.call_graphs.borrow_mut().clear();
         let mut keys: Vec<_> = Vec::with_capacity(folders.len());
         for key in folders.iter().map(|p| jaic::paths::identity_spelling(p)) {
             if !keys.contains(&key) {

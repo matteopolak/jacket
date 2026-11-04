@@ -134,6 +134,95 @@ main :: () { helper(); }
 }
 
 #[test]
+fn call_hierarchy_survives_checks_of_other_open_documents() {
+    let mut session = open(PROGRAM);
+    session.defer_compiles(true);
+    let others: Vec<_> = (0..8)
+        .map(|n| DocumentUri::parse(&format!("file:///hierarchy-eviction/other{n}.jai")).unwrap())
+        .collect();
+    let other_text = format!("{}main :: () {{}}", "// padding\n".repeat(512));
+    for other in &others {
+        session.open(other.clone(), 1, other_text.clone()).unwrap();
+    }
+    session.diagnostics(&uri()).unwrap();
+    for other in &others {
+        session.diagnostics(other).unwrap();
+    }
+    let compiles = session.compile_counts().0;
+    let leaf = session
+        .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "leaf ::", 1))
+        .unwrap();
+    let incoming = session.incoming_calls(&leaf[0]).unwrap();
+    assert_eq!(
+        incoming
+            .iter()
+            .map(|call| call.item.name.as_str())
+            .collect::<Vec<_>>(),
+        ["middle", "other"]
+    );
+    let middle = session
+        .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "middle ::", 1))
+        .unwrap();
+    let outgoing = session.outgoing_calls(&middle[0]).unwrap();
+    assert_eq!(outgoing.len(), 1);
+    assert_eq!(outgoing[0].item.name, "leaf");
+    assert_eq!(outgoing[0].from_ranges.len(), 2);
+    assert_eq!(session.compile_counts().0, compiles);
+}
+
+#[test]
+fn resetting_caches_discards_retained_call_graphs() {
+    let session = open(PROGRAM);
+    session.defer_compiles(true);
+    session.diagnostics(&uri()).unwrap();
+    let leaf = session
+        .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "leaf ::", 1))
+        .unwrap();
+    assert!(!session.incoming_calls(&leaf[0]).unwrap().is_empty());
+    session.reset_caches();
+    let compiles = session.compile_counts().0;
+    assert!(session.incoming_calls(&leaf[0]).unwrap().is_empty());
+    assert_eq!(session.compile_counts().0, compiles);
+    session.diagnostics(&uri()).unwrap();
+    assert!(!session.incoming_calls(&leaf[0]).unwrap().is_empty());
+}
+
+#[test]
+fn changed_external_callees_wait_for_a_fresh_check() {
+    let main = "#load \"callee.jai\";\nmain :: () { leaf(1); }\n";
+    let callee = "leaf :: (n: int) -> int { return n; }\n";
+    let mut session = open(main);
+    let target =
+        DocumentUri::from_path(&PathBuf::from(uri().path()).with_file_name("callee.jai")).unwrap();
+    session.open(target.clone(), 1, callee.into()).unwrap();
+    session.defer_compiles(true);
+    session.diagnostics(&uri()).unwrap();
+    let caller = session
+        .prepare_call_hierarchy(&uri(), at_offset(main, "main ::", 1))
+        .unwrap();
+    assert_eq!(session.outgoing_calls(&caller[0]).unwrap().len(), 1);
+    session
+        .change(
+            &target,
+            2,
+            &[TextChange {
+                range: None,
+                range_length: None,
+                text: format!("\n{callee}"),
+            }],
+        )
+        .unwrap();
+    let compiles = session.compile_counts().0;
+    assert!(session.outgoing_calls(&caller[0]).unwrap().is_empty());
+    assert_eq!(session.compile_counts().0, compiles);
+    session.diagnostics(&uri()).unwrap();
+    let calls = session.outgoing_calls(&caller[0]).unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].item.name, "leaf");
+    assert_eq!(calls[0].item.selection_range.start.line, 1);
+}
+
+#[test]
 fn outgoing_calls_move_with_unchecked_edits_without_compiling() {
     let mut session = open(PROGRAM);
     session.publications();
