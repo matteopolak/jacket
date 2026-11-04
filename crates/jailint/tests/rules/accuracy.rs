@@ -253,3 +253,10 @@ fn lifetime_owned_array_elements_do_not_borrow_the_container() {
     );
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
 }
+
+#[test]
+fn lifetime_frozen_result_tracks_the_outer_call_after_argument_calls() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/frozen-composite-call.jai");
+    let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
+}

@@ -126,7 +126,27 @@ pub(super) fn compile_time_only(
         .iter()
         .filter_map(Option::as_ref)
         .filter(|f| f.origin != ir::FuncOrigin::Procedure)
-        .filter_map(ir::Func::first_direct_callee)
+        .filter(|f| f.blocks.len() == 1)
+        .filter_map(|f| {
+            // Argument expressions can call procedures before the outer call.
+            // Only the final activation can be frozen before another call reuses
+            // its stack. Branching thunks need a separate path proof.
+            f.blocks[0]
+                .insts
+                .iter()
+                .rev()
+                .find_map(|inst| {
+                    if let Inst::Call(call) = inst {
+                        Some(match call.callee {
+                            Callee::Func(id) => Some(id),
+                            _ => None,
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+        })
         .collect();
     let mut nested = HashSet::default();
     if let Some(facts) = compiler.ed.facts() {
