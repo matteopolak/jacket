@@ -240,3 +240,16 @@ fn lifetime_pointer_field_results_keep_their_temporary_origin() {
     let (uses, text) = lint(&path, &[("use_after_free", Level::Warn)]);
     assert_eq!(uses.len(), 1, "{}", rendered(&uses, &text, &path));
 }
+
+#[test]
+fn lifetime_owned_array_elements_do_not_borrow_the_container() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/owned-popped-record.jai");
+    let (lints, text) = lint(
+        &path,
+        &[
+            ("pointer_lifetime", Level::Warn),
+            ("pointer_into_resizable", Level::Warn),
+        ],
+    );
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
+}

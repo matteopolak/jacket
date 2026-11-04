@@ -617,6 +617,13 @@ impl Builder<'_> {
         let allocator_resize = matches!(event, Event::IndirectCall { allocator: true, args, .. } if args.first().and_then(|a| a.constant) == Some(1));
         let mut ops = Vec::new();
         for &(index, value, ty) in results {
+            // A memory-class POD result owns its copied bytes, including when
+            // the callee copied an array element into the return slot.
+            if cx.compiler.ty.types.as_struct(ty).is_some()
+                && resolver.storage_fields(ty, 0).is_empty()
+            {
+                continue;
+            }
             let target = resources::value_cell(cx, places, cells, value, ty);
 
             if let Some(arg) = resolver.passthrough(event, index, &summaries.procs) {
