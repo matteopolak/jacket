@@ -30,6 +30,22 @@ tools/differential/jaic_sweep.py --sanitize address,undefined corpus modules reg
 
 Builds every `run` case sanitized, runs it from its source folder and applies the interpreter run's expectation; a sanitizer report in stderr fails the case. `--native` skips sanitizers and `--opt O2` picks the level. Leak detection is off because Jai programs leave memory to the OS. `jaic -coverage` reuses this plumbing ([coverage](../tools/coverage.md)).
 
+### CI modes
+
+The full-tier Mac matrix gives O0 and O2 separate jobs, each with the existing 45-minute
+budget. Each mode runs its complete existing per-mode sweeps: the O2 optimized-module
+subset and existing Mac exclusions remain unchanged, and negative compiler cases remain
+O0-only. Fast Mac runs remain O0-only. Linux keeps its existing
+case shards and mode schedule.
+
+`tools/ci/ci_changes.py::sanitizer_matrix` assigns the optional `mode` field. The workflow
+uses it for step selection, job names and concurrency keys, so the two full Mac modes
+cannot cancel each other. O0 keeps the fast-run concurrency key; only O2 adds a suffix.
+A missing mode retains the existing fast/Linux schedule.
+Changing this split means updating the matrix and workflow together and checking the
+mode-by-suite coverage in `test_ci_changes.py`. Keep the sweep commands, case shards and
+per-test limits unchanged; splitting jobs duplicates setup rather than reducing coverage.
+
 ## How to change it
 
 - Another IR-level pass (say `tysan`): a field on `Sanitize`, its name in `Sanitize::parse` and `driver_flag`, its pass in `Sanitize::passes`, and a function attribute in `emit_module` if needed.

@@ -220,7 +220,12 @@ def sanitizer_matrix(full, macos):
     """The legs of `sanitizers`: the fast tier runs -O0 only, so Linux takes three shards there."""
     linux = shards(2 if full else 3)
     legs = [dict(runner="ubuntu-24.04", shard=s) for s in linux]
-    return legs + ([dict(runner="macos-15", shard="1/1")] if full or macos else [])
+    if full:
+        # Each complete mode keeps its own job budget; no cases or per-test limits change.
+        legs += [dict(runner="macos-15", shard="1/1", mode=mode) for mode in ("O0", "O2")]
+    elif macos:
+        legs.append(dict(runner="macos-15", shard="1/1"))
+    return legs
 
 
 # The runner, Visual Studio arch and MinGW toolchain of each Windows CPU; the triple comes from
