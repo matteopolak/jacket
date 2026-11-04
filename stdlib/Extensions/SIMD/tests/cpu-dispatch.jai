@@ -4,6 +4,8 @@
 
 #import "Basic";
 SIMD :: #import "Extensions/SIMD";
+Bytes :: #import "Extensions/Byte_Search";
+Compiler :: #import "Compiler";
 
 failures := 0;
 
@@ -134,6 +136,59 @@ tier_sve :: () -> int {
     return 4;
 }
 
+// Caller Code forces this macro into target-stage compile-time execution, including cross CPU.
+compile_dispatch :: (loc: Code) -> string {
+    assert(Compiler.compiler_get_nodes(loc) != null);
+    SIMD.limit_vector_tier(.BASELINE);
+    assert(phase_table() == 0);
+    SIMD.limit_vector_tier(.SVE);
+    phase_table = phase_first;
+    assert(phase_table() == 0);
+
+    text := alloc_string(96);
+
+    defer free(text);
+    for text text[it_index] = #char "a";
+
+    text[80] = #char ",";
+    assert(Bytes.find(text, #char ",") == 80);
+    assert(Bytes.find_last(text, #char ",") == 80);
+    assert(Bytes.count(text, #char ",") == 1);
+    SIMD.limit_vector_tier(.BASELINE);
+
+    return "";
+}
+
+compile_dispatch_here :: (loc := #caller_code) #expand {
+    #insert,scope(loc) #run compile_dispatch(loc);
+}
+
+phase_table: type_of(tier_base) = phase_first;
+
+phase_first :: () -> int {
+    phase_table = SIMD.pick_target(tier_base, sse42 = tier_sse42, avx2 = tier_avx2, avx512 = tier_avx512, sve = tier_sve);
+    return phase_table();
+}
+
+// Compile-time selection must not bake its baseline or tier limits into runtime state.
+phases :: () {
+    check(phase_table == phase_first, "compile-time dispatch table did not leak into runtime");
+    before_reset := SIMD.best_vector_tier();
+
+    SIMD.limit_vector_tier(.SVE);
+    real := SIMD.best_vector_tier();
+
+    check(before_reset == real, "compile-time tier limit did not leak into runtime");
+
+    check(phase_table() == cast(int) real, "runtime dispatch after compile-time selection");
+    SIMD.limit_vector_tier(.BASELINE);
+    phase_table = phase_first;
+    check(phase_table() == 0, "runtime reset honors baseline limit");
+    SIMD.limit_vector_tier(.SVE);
+    phase_table = phase_first;
+    check(phase_table() == cast(int) real, "runtime reset restores actual features");
+}
+
 // A version compiled for a feature runs where the processor has it, and gives the same answer.
 versions :: () {
     values: [100] s32;
@@ -148,6 +203,8 @@ versions :: () {
 }
 
 main :: () {
+    compile_dispatch_here();
+    phases();
     tiers();
     limits();
     picking();
