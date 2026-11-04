@@ -1,4 +1,4 @@
-// Sanitized-only harness: establish visible logical bounds inside an owned allocation.
+// Sanitized-only harness: check a poisoned prefix and exact suffix boundary inside an owned allocation.
 #import "Basic";
 M :: #import "meow_hash";
 P :: #import "Extensions/Meow_Portable";

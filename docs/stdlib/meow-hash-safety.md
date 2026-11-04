@@ -27,4 +27,17 @@ Keep tail construction in `stdlib/internal/hash/meow/finalize.jai` separate from
 
 After building `jaic`, run `PYTHONPATH=tools python3 tools/meow/validate.py` on Linux x64. It saves commands, exit codes and output under `target/meow-evidence`, establishes the historical ASan overflow at the native hash callsite (`#expand` instructions inherit callsite debug locations), then runs native suites at O0/O2 with and without ASan. `CARGO_TARGET_DIR` selects the compiler build directory. Use the repository sanitizer policy (`ASAN_OPTIONS=detect_leaks=0:halt_on_error=1`): these suites check invalid accesses, while process-lifetime allocations are handled separately by the general harness. No timing results come from sanitizer builds.
 
-The implementation depends on Basic allocation/copy and compiler SIMD lowering. AES operations may be software-lowered: inspect generated instructions before describing measurements as hardware AES throughput. ASan must instrument the lowered SIMD memory loads, not merely be linked into the executable. POSIX guard tests use the actual OS page size and complement object-bound checks.
+The implementation depends on Basic allocation/copy and compiler SIMD lowering. AES operations may be software-lowered: inspect generated instructions before describing measurements as hardware AES throughput. ASan must instrument the lowered SIMD memory loads, not merely be linked into the executable. The driven boundary harness verifies a poisoned prefix address, a readable first input byte and a poisoned first suffix byte inside its own allocation. ASan shadow granularity can leave bytes immediately before an unaligned input readable, so this does not establish byte-exact prefix coverage at every offset. The suffix check establishes the exact logical end independently of allocator rounding. POSIX guard tests use the actual OS page size and complement object-bound checks.
+
+## Comparing performance
+
+`tools/meow/benchmark.py` builds matched binaries with one compiler and copied stdlibs, replacing only the baseline finalizer from the pinned revision. Inputs include padding for the old implementation. On a quiet x64 host:
+
+```sh
+PYTHONPATH=tools python3 tools/meow/benchmark.py prepare --compiler target/debug/jaic --out /tmp/meow-benchmark
+PYTHONPATH=tools python3 tools/meow/benchmark.py run --out /tmp/meow-benchmark --execution-label 'native Linux x64; inspect instruction lowering'
+```
+
+The default covers 16 boundary lengths, four offsets, two initial seeds and five one-shot/disjoint/edit/streaming modes. Each timed case hashes 5,000 times below 1 KiB, 2,000 times at 1 KiB, or four times at 1 MiB. One validated warmup pair precedes five interleaved measured pairs. `--smoke`, `--full`, `--warmups`, `--pairs` and `--timeout` control coverage and limits. Use `--full --timeout 600` to allow more time for the larger matrix. Per-iteration opaque source/seed pointers keep hash work inside the loop, including empty inputs; their compiler-barrier overhead is included in both variants.
+
+Keep the output directory's metadata, raw measurements and failures. Both digest-lane aggregates must match, but this does not replace exhaustive correctness tests. Disjoint data is not necessarily cache-cold. Short timings, hosted contention and Rosetta limit interpretation; report execution mode and variability, and inspect generated code before making hardware AES claims. Git must retain the pinned baseline. See [benchmark methods](../tools/benchmarks.md).
