@@ -78,10 +78,11 @@ fn category(site: &Site, m: &Module) -> Option<Badge> {
     })
 }
 
+/// Shared module sidebar: configured docs precede API categories, e.g. Guides, Tools, Library.
 pub(super) fn nav(site: &Site, current: Option<usize>) -> Vec<NavCategory> {
-    let mut out: Vec<NavCategory> = by_category(site)
-        .into_iter()
-        .map(|(category, members)| NavCategory {
+    let mut out = site.extra_nav.clone();
+    out.extend(by_category(site).into_iter().map(|(category, members)| {
+        NavCategory {
             label: category.into(),
             groups: by_group(site, &members)
                 .into_iter()
@@ -110,9 +111,8 @@ pub(super) fn nav(site: &Site, current: Option<usize>) -> Vec<NavCategory> {
                         .collect(),
                 })
                 .collect(),
-        })
-        .collect();
-    out.extend(site.extra_nav.iter().cloned());
+        }
+    }));
     out
 }
 

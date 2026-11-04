@@ -198,6 +198,34 @@ fn declarations_of_foreign_procedures_are_listed_as_bindings() {
 }
 
 #[test]
+fn private_foreign_helpers_do_not_make_own_declarations_bindings() {
+    for scope in ["#scope_file", "#scope_module"] {
+        let source = format!(
+            "Case :: struct {{ value: int; }}\nMode :: enum {{ A; }}\nLIMIT :: 8;\npublic_call :: native_call;\n{scope}\nlib :: #library \"native\";\nnative_call :: () #foreign lib;\n"
+        );
+        let dir = library(
+            &format!("private-binding-{scope}"),
+            &[("module.jai", &source)],
+        );
+        let model = module(&dir, Path::new("/nowhere"));
+        for name in ["Case", "Mode", "LIMIT"] {
+            let item = model.items.iter().find(|item| item.name == name).unwrap();
+            assert!(!item.binding, "{scope}: {name} is an own declaration");
+        }
+        assert!(
+            model
+                .items
+                .iter()
+                .find(|item| item.name == "public_call")
+                .unwrap()
+                .binding
+        );
+        assert!(model.items.iter().all(|item| item.name != "native_call"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[test]
 fn module_parameters_come_with_their_docs() {
     let dir = library(
         "parameters",

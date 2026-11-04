@@ -386,4 +386,62 @@ mod doc {
             assert_eq!(alias[4], ":: #Context");
         }
     }
+
+    #[test]
+    fn private_foreign_helpers_and_documentation_sidebar_order_reach_html() {
+        let _serial = RUN
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some((jacket, _)) = tools() else {
+            return;
+        };
+        let temp = TempDir::new("doc-private-foreign");
+        temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\n[[doc.category]]\nname='Standard library'\nmodules=['lib/**']\n[[doc.category]]\nname='Extensions'\nmodules=['lib/Ext']\n[[doc.page]]\nfile='guide.md'\nname='Guide'\n[[doc.section]]\nfile='tools.md'\nname='Tools'\n");
+        temp.write("guide.md", "# Guide\n\nA guide.\n");
+        temp.write("tools.md", "# Tools\n\nTool documentation.\n");
+        temp.write("lib/Core/module.jai", "// Core.\n\nVALUE :: 1;\n");
+        temp.write("lib/Ext/module.jai", "// An owned API with private native helpers.\n\nCase :: struct { value: int; }\npublic_call :: native_call;\n#scope_file\nlib :: #library \"native\";\nnative_call :: () #foreign lib;\n");
+        for base in ["/", "/reference/"] {
+            let output = Command::new(&jacket)
+                .args(["doc", "--base-url", base, "--out", "site"])
+                .current_dir(&temp)
+                .env("JAIC_STDLIB", repo().join("stdlib"))
+                .env("XDG_CACHE_HOME", temp.join("cache"))
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let home = std::fs::read_to_string(temp.join("site/index.html")).unwrap();
+            let positions: Vec<_> = ["Guides", "Tools", "Standard library", "Extensions"]
+                .iter()
+                .map(|label| {
+                    home.find(&format!("<div class=\"nav-h\">{label}</div>"))
+                        .unwrap()
+                })
+                .collect();
+            assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+            let case = std::fs::read_to_string(temp.join("site/api/Ext/Case.html")).unwrap();
+            assert!(!case.contains("class=\"badge foreign\""));
+            let foreign =
+                std::fs::read_to_string(temp.join("site/api/Ext/public_call.html")).unwrap();
+            assert!(foreign.contains("class=\"badge foreign\""));
+            let search: serde_json::Value = serde_json::from_slice(
+                &std::fs::read(temp.join("site/search-index.json")).unwrap(),
+            )
+            .unwrap();
+            let items = search["items"].as_array().unwrap();
+            let flags = |name| {
+                items.iter().find(|row| row[1] == name).unwrap()[6]
+                    .as_u64()
+                    .unwrap()
+            };
+            assert_eq!(flags("Case") & 2, 0);
+            assert_eq!(flags("public_call") & 2, 2);
+            assert!(home.contains(&format!("href=\"{base}guides/guide\"")));
+        }
+    }
 }
