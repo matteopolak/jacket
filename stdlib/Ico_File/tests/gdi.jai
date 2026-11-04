@@ -8,9 +8,15 @@ main :: () {
     arguments := get_command_line_arguments();
 
     assert(arguments.count == 2);
-    pixels: [16 * 16 * 4] u8;
 
-    for name: string.["clear", "mixed", "opaque"] {
+    for name: string.["clear", "mixed", "opaque", "faint"] {
+        size: s32 = 16;
+        if name == "faint" size = 256;
+
+        pixels := NewArray(size * size * 4, u8);
+
+        defer array_free(pixels);
+
         for row: 0..15 for column : 0..15 {
             offset := (row * 16 + column) * 4;
             pixels[offset] = cast(u8) (10 + row * 4);
@@ -31,7 +37,15 @@ main :: () {
             }
         }
 
-        bytes := Icons.create_ico_file(16, 16, 4, pixels.data);
+        if name == "faint" {
+            memset(pixels.data, 0, pixels.count);
+            pixels[0] = 120;
+            pixels[1] = 80;
+            pixels[2] = 40;
+            pixels[3] = 1;
+        }
+
+        bytes := Icons.create_ico_file(size, size, 4, pixels.data);
 
         defer free(bytes);
         path := sprint("%/gdi-%.ico", arguments[1], name);

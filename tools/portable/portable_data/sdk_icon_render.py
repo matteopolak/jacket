@@ -185,7 +185,7 @@ def check_frame(payload, size, label):
 
 root = Path(sys.argv[1])
 frames = 0
-for name in ("clear", "mixed", "opaque"):
+for name in ("clear", "mixed", "opaque", "faint"):
     source = (root / f"gdi-{name}.ico").read_bytes()
     assert struct.unpack_from("<HHH", source) == (0, 1, 5)
     for index, size in enumerate((256, 128, 48, 32, 16)):

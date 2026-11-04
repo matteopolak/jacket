@@ -91,6 +91,7 @@ resize_square :: (source: *u8, width: s64, height: s64, comp: s64, target: *u8, 
             if has_alpha {
                 alpha = sums[3];
                 out[3] = to_byte(alpha);
+                if out[3] == 0 alpha = 0.0;
             }
 
             for c: 0..2 {
