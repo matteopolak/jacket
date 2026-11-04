@@ -804,6 +804,12 @@ jobs:
           require=()
           [[ "$RUNNER_OS" == Linux ]] && require=(--require-adapter)
           python3 -u tools/bindings/run_webgpu_native.py --jaic target/debug/jaic "${require[@]}"
+      - name: UI image blend and stretch readback
+        if: ${{ always() && !cancelled() && matrix.shard == 'suites' }}
+        run: |
+          require=()
+          [[ "$RUNNER_OS" == Linux ]] && require=(--require-adapter)
+          python3 -u tools/bindings/run_webgpu_native.py --test ui-images --jaic target/debug/jaic "${require[@]}"
       - name: WebGPU in a window (surface, configure, present, read back)
         # stdlib/Extensions/WebGPU/tests/driven/window.jai opens a Window_Creation window and presents frames to its
         # surface: on Linux an X11 surface on Xvfb, presented by lavapipe through Vulkan's Xlib WSI.
@@ -1516,6 +1522,9 @@ jobs:
         # stdlib/Extensions/WebGPU/tests/driven/headless.jai interpreted and built; docs/extensions/webgpu.md#tests.
         if: ${{ !cancelled() && matrix.part == 'graphics' }}
         run: python -u tools/bindings/run_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter
+      - name: UI image blend and stretch readback (WARP)
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
+        run: python -u tools/bindings/run_webgpu_native.py --test ui-images --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter
       - name: WebGPU in a window (HWND surface on WARP, presented)
         # stdlib/Extensions/WebGPU/tests/driven/window.jai: a Window_Creation window in the runner's interactive desktop
         # session, a DXGI swap chain through wgpu-native's D3D12 backend, frames read back.
