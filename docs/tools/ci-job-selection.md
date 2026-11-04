@@ -21,6 +21,7 @@ Hand-written policy in `ci_changes.py`:
 | Table | Meaning |
 | --- | --- |
 | `NARROW` | The macOS sanitizer leg runs on pushes only for codegen, driver, sweep, native tooling and shared checkout-policy inputs. |
+| `MANUAL_ONLY` | Focused acceptance jobs such as `images-ui-intel` run only when explicitly named in a manual `jobs=` request. |
 | `OWN_PATHS_ONLY` | `sdl3` does not run for a workflow edit. |
 | `PROSE`, `READ_BY_TESTS` | Docs-only changes skip the code jobs, except docs a test reads. Checkout policies are code inputs even under `docs/`. |
 
@@ -108,3 +109,15 @@ The verifier requires identical ordered canonical module/target catalogues, the 
 For hosted opt-in inventory only, `--diagnostics` retains normal failed/timed-out/unexpected-pass/flaky case details in the masked CI log while the uploaded coverage artifact stays allowlisted. The two CI scripts enable it only under `GITHUB_ACTIONS=true`; the filter refuses it locally before reading input. Passed-case output and arbitrary environment fields are not copied. Public hosted workspace/temp paths in failure details are expected; no local evidence is copied into CI.
 
 The verifier requires the explicit expected SHA and reads the matrix from this checkout. Use the reviewed source matching that claim. A Mac-only comparison declares both Mac platforms; a full runtime comparison also declares `linux-x64` and `linux-arm64`. Update the doc OS loop and `DOC_OSES` contract together if supported targets change. The scripts depend on the normal pinned Python, Bash, Rust/nextest and checkout-built compiler tools; no additional service is required.
+
+## Focused Intel image acceptance
+
+`images-ui-intel` is manual-only: it is never added to ordinary push, pull request or nightly runs unless explicitly requested. It runs on `macos-15-intel` with a focused 60-minute job budget. It reuses the existing production tool/native-library setup, then checks runtime SIMD dispatch and cross-target Web macros, the portable foundation producer, filename-to-ICO native/WASI execution and UI image readback. These are separate steps so a failed check does not hide the remaining results. It adds no artifact uploads and does not replace or change the full matrix.
+
+```sh
+gh workflow run ci.yml --ref BRANCH -f tier=fast -f jobs=test,stdlib-runtime,windows-native,scripting-wasm,docs,images-ui-intel
+```
+
+`tools/ci/check_images_ui.py` runs the focused CPU/docs checks locally (`--jaic`, `--jacket`, `--output-root`). It uses Jacket's existing case budgets and the whole-job bound, without killing a direct parent process on a separate timer. It records the host architecture, checks Linux/macOS/Windows x64 and ARM64 macros, runs dispatch in interpreted/native O0/O2 modes, and checks the three Web documentation examples for each native OS. Extend its test list when changing the stage boundary. `job_inputs.py` still records its real input closure for drift checks. The job explicitly uses its isolated checkout's `target` directory and the existing Rust/native cache actions.
+
+The UI runner still reports an explicit skip if a hosted Metal adapter is unavailable. That skip is build evidence, not native GPU acceptance; actual local Metal and required Linux/Windows software-adapter checks remain distinct evidence. A focused green job does not declare the separate whole-tooling producer job complete.

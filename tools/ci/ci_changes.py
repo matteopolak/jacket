@@ -16,7 +16,8 @@ docs-only push skips the build and test jobs.
 
 It also writes `full=true|false` (the tier, see test_matrix) and the `test_matrix` and
 `stdlib_matrix` JSON the `test` and `stdlib-runtime` jobs expand, and `jobs=<JSON array>`: the ids in JOBS that run, which are the jobs whose area is true
-(or that have none), narrowed to the comma-separated `$JOBS` of a manual run. Every job of ci.yml
+(or that have none), narrowed to the comma-separated `$JOBS` of a manual run. MANUAL_ONLY
+jobs require their explicit name even when every area runs. Every job of ci.yml
 tests `contains(fromJSON(needs.changes.outputs.jobs), '<id>')`; a new job gets a row in JOBS, and
 a gated one is added to job_inputs.GATED.
 
@@ -46,6 +47,7 @@ JOBS = {
     "vscode-extension": "code",
     "neovim-plugin": "code",
     "stdlib-runtime": "code",
+    "images-ui-intel": None,
     "upstream-smoke": "code",
     "sanitizers": "code",
     # Not a job of its own: the macOS leg of `sanitizers`.
@@ -63,6 +65,9 @@ JOBS = {
     "windows-stdlib": "windows",
     "windows-smoke": "windows",
 }
+
+# Focused acceptance jobs require an explicit jobs= request, never default push/PR work.
+MANUAL_ONLY = {"images-ui-intel"}
 
 # The two tiers. Pushes and pull requests run the fast tier, which aims to finish in ten minutes:
 # platform-neutral work runs once, on Linux x64, and the long suites are spread over several jobs.
@@ -436,12 +441,14 @@ def changed_files(env):
 
 
 def selected_jobs(results, requested):
-    """The ids of JOBS to run: those whose area is true, limited to the comma-separated `requested` when it is not empty."""
+    """Select automatic jobs by area; manual-only jobs also need an explicit request."""
     wanted = {name.strip() for name in requested.split(",") if name.strip()}
     return [
         job
         for job, area in JOBS.items()
-        if (not wanted or job in wanted) and (area is None or results[area])
+        if (not wanted or job in wanted)
+        and (job not in MANUAL_ONLY or job in wanted)
+        and (area is None or results[area])
     ]
 
 

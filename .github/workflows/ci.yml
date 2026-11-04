@@ -15,7 +15,7 @@ on:
         required: false
         default: false
       jobs:
-        description: 'Comma-separated job ids to run (empty runs everything); select needed jobs together'
+        description: 'Comma-separated job ids (empty runs automatic jobs); manual-only jobs need explicit names'
         required: false
         default: ''
       tier:
@@ -894,6 +894,52 @@ jobs:
             target/toml-conformance/statements.json
             target/toml-conformance/inventory.json
           if-no-files-found: error
+
+  images-ui-intel:
+    name: image portability and UI readback (macos-x64)
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'images-ui-intel')
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      JAIC_STDLIB: ${{ github.workspace }}/stdlib
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-unix
+        with:
+          lld: 'true'
+          brew: freetype sdl2 mingw-w64
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24'}
+      - name: Build production compiler and lint tools
+        run: |
+          cargo build --locked -p jaic-cli -p jailint
+          cargo build --locked --release -p jaic-cli -p jacket
+          target/debug/jaic jaifmt/main.jai -O2 -exe target/jaifmt
+      - uses: ./.github/actions/native-libs-cache
+        with:
+          helpers: 'true'
+      - name: Build private native dependencies from source
+        run: bash tools/native/ci_native_deps.sh full
+      - name: Runtime dispatch and cross-target Web macros
+        run: python3 -u tools/ci/check_images_ui.py --jaic target/release/jaic --jacket target/release/jacket
+      - name: Portable image and resource producer checks
+        if: ${{ !cancelled() }}
+        env:
+          SUITES: portable
+        run: bash tools/ci/stdlib_producer_suites.sh
+      - name: Filename-to-ICO native and WASI checks
+        if: ${{ !cancelled() }}
+        run: |
+          native="$(python3 -c 'from native.build_native_libs import output_dir; print(output_dir())')"
+          python3 -u tools/portable/portable_data/run.py --compiler target/release/jaic --linter target/debug/jailint --formatter target/jaifmt --native-libs "$native"
+      - name: UI image blend and stretch readback
+        # Hosted Metal may be absent: the driver reports explicit skips, never GPU acceptance.
+        if: ${{ !cancelled() }}
+        run: python3 -u tools/bindings/run_webgpu_native.py --jaic target/debug/jaic --test ui-images
   upstream-smoke:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'upstream-smoke')
