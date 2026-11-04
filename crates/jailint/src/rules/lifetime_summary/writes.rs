@@ -97,6 +97,7 @@ impl Resolver<'_> {
                         && resolved.as_ref().is_none_or(|target| match target.root {
                             Root::Local(root) => !self.owned.contains(&root),
                             Root::Parameter(_)
+                            | Root::ScopedGlobal(..)
                             | Root::CallerAllocator
                             | Root::AllocatorParameter(_)
                             | Root::Heap

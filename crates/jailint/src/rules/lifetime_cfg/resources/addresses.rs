@@ -62,6 +62,44 @@ pub(super) fn exposed(
             }
         }
     }
+    let scoped_stores: Vec<_> = body
+        .blocks
+        .iter()
+        .flat_map(|b| &b.events)
+        .filter_map(|event| {
+            let Event::Store {
+                place,
+                value,
+                span,
+                ..
+            } = *event
+            else {
+                return None;
+            };
+            body.globals
+                .iter()
+                .any(|(v, global)| {
+                    *v == place && summaries.targets.scoped_pointers.contains(global)
+                })
+                .then_some((value, span))
+        })
+        .collect();
+    for event in body.blocks.iter().flat_map(|b| &b.events) {
+        if let Event::Address {
+            place,
+            span,
+            ..
+        } = *event
+            && scoped_stores.iter().any(|(value, store)| {
+                place == *value
+                    && store.file == span.file
+                    && store.start <= span.start
+                    && span.end <= store.end
+            })
+        {
+            safe_addresses.insert((place, span));
+        }
+    }
     let mut read_only_addresses = HashSet::default();
     let mut uncertain_addresses = HashSet::default();
     let mut resolver = Resolver::for_prepared(cx.compiler, body, prepared, summaries);

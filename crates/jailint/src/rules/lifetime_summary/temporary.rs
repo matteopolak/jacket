@@ -12,9 +12,9 @@ impl Resolver<'_> {
         let Some((target, source, ty, span)) = self.temporary_source(event, all) else {
             return Vec::new();
         };
-        if !matches!(target.root, Root::Parameter(_)) {
+        let Some(target) = self.temporary_target(target) else {
             return Vec::new();
-        }
+        };
         let definite = self
             .value(source, all)
             .is_some_and(|p| p.root == Root::Temporary);
@@ -230,18 +230,21 @@ impl Resolver<'_> {
                 selected = Some(effects);
             }
         }
+        let selected = selected.unwrap_or_default();
+        let mut globals = Vec::new();
         let mut effects: Vec<_> = selected
-            .unwrap_or_default()
             .into_iter()
-            .filter_map(|e| {
-                let Root::Parameter(formal) = e.target.root else {
-                    return None;
-                };
-                Some((formal, e.target.steps))
+            .filter_map(|e| match e.target.root {
+                Root::Parameter(formal) => Some((formal, e.target.steps)),
+                Root::ScopedGlobal(id, ty) => {
+                    globals.push((id, ty, e.target.steps));
+                    None
+                }
+                _ => None,
             })
             .collect();
         effects.sort_unstable();
-        effects
+        let mut out: Vec<_> = effects
             .into_iter()
             .filter_map(|(formal, steps)| {
                 let arg = args.iter().find(|a| a.formal == formal)?;
@@ -258,7 +261,14 @@ impl Resolver<'_> {
                     steps,
                 })
             })
-            .collect()
+            .collect();
+        globals.sort_by_key(|(id, _, _)| id.0);
+        out.extend(
+            globals
+                .into_iter()
+                .filter_map(|(id, ty, steps)| self.global_destination(event, id, ty, &steps)),
+        );
+        out
     }
 }
 

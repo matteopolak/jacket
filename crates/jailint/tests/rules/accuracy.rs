@@ -353,6 +353,20 @@ fn lifetime_module_main_keeps_ordinary_call_lifetimes() {
 }
 
 #[test]
+fn lifetime_ci_field_text_events() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-field-text-events/main.jai");
+    let (lints, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
+    assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
+    assert!(
+        lints
+            .iter()
+            .all(|l| l.start > text.find("record_bad ::").unwrap())
+    );
+    let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+}
+
+#[test]
 fn lifetime_ci_random_string_output() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/ci-random-string-output.jai");
     let (lints, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
@@ -360,4 +374,23 @@ fn lifetime_ci_random_string_output() {
     assert!(lints[0].start > text.find("keep ::").unwrap());
     let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
     assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+}
+
+#[test]
+fn lifetime_ci_scoped_events_in_import_directory() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-field-text-events/main.jai");
+    let (lints, text) = lint_with(
+        &path,
+        &[("temp_storage_escape", Level::Warn)],
+        Config {
+            import_dirs: vec![path.parent().unwrap().to_path_buf()],
+            ..Config::default()
+        },
+    );
+    assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
+    assert!(
+        lints
+            .iter()
+            .all(|l| l.start > text.find("record_bad ::").unwrap())
+    );
 }

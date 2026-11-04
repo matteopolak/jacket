@@ -858,10 +858,10 @@ fn inferred_temporary_return(cx: &Cx, body: &LifetimeBody, model: &Model, op: &C
     for projection in &model.places.paths[place].1 {
         match projection {
             crate::rules::lifetime_places::Projection::Field(name) => {
-                prefix.push(crate::rules::lifetime_summary::Step::Field(*name))
+                prefix.push(crate::rules::lifetime_summary::Step::Field(*name));
             }
             crate::rules::lifetime_places::Projection::Element(index) => {
-                prefix.push(crate::rules::lifetime_summary::Step::Element(*index))
+                prefix.push(crate::rules::lifetime_summary::Step::Element(*index));
             }
             _ => break,
         }

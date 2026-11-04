@@ -9,6 +9,7 @@ use jaic::types::{TypeId, TypeKind};
 use std::collections::VecDeque;
 
 pub(in crate::rules) mod globals;
+mod scoped;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) struct Set {
@@ -41,6 +42,7 @@ impl Set {
 
 #[derive(Default)]
 pub(super) struct Universe {
+    pub(super) scoped_pointers: HashSet<jaic::ir::GlobalId>,
     bodies: HashMap<ProcId, Local>,
     globals: HashMap<jaic::ir::GlobalId, Set>,
 }
@@ -53,7 +55,11 @@ struct Local {
 }
 
 impl Universe {
-    pub fn build(compiler: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) -> Self {
+    pub fn build(
+        compiler: &Compiler,
+        valid: &HashMap<ProcId, &LifetimeBody>,
+        entry_module: Option<jaic::sema::ModuleId>,
+    ) -> Self {
         let globals = globals::Globals::build(compiler, valid);
         let graphs: HashMap<_, _> = valid
             .iter()
@@ -61,6 +67,7 @@ impl Universe {
             .collect();
         let mut this = Self {
             globals: globals.initial,
+            scoped_pointers: scoped::build(compiler, valid, entry_module),
             ..Self::default()
         };
         let mut ids: Vec<_> = graphs.keys().copied().collect();

@@ -21,6 +21,7 @@ mod contracts;
 mod elements;
 mod execution;
 mod flow;
+mod global_destinations;
 mod indirect;
 mod infer;
 mod interfaces;
@@ -66,6 +67,7 @@ pub(super) fn descriptor_storage(steps: &[Step]) -> bool {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) enum Root {
+    ScopedGlobal(jaic::ir::GlobalId, TypeId),
     Parameter(usize),
     Local(usize),
     Heap,
@@ -445,7 +447,8 @@ impl Resolver<'_> {
         let Root::Parameter(formal) = path.root else {
             return matches!(
                 path.root,
-                Root::Heap
+                Root::ScopedGlobal(..)
+                    | Root::Heap
                     | Root::CallerAllocator
                     | Root::AllocatorParameter(_)
                     | Root::Temporary
@@ -722,6 +725,8 @@ fn chain(site: Span, rest: &[Span]) -> Vec<Span> {
 impl Effect {
     fn exported(&self) -> bool {
         matches!(self.target.root, Root::Parameter(_))
+            || (self.kind == Kind::StoreTemporary
+                && matches!(self.target.root, Root::ScopedGlobal(..)))
             || (self.kind == Kind::ResetTemporary && self.target.root == Root::Temporary)
             || (self.kind == Kind::Advance && matches!(self.target.root, Root::Until(_)))
     }
@@ -770,7 +775,7 @@ impl Summaries {
             })
             .collect();
         all.allocators = allocators;
-        all.targets = super::lifetime_targets::Universe::build(compiler, &valid);
+        all.targets = super::lifetime_targets::Universe::build(compiler, &valid, entry_module);
         (all.compile_time_only, all.frozen_returns) =
             execution::compile_time_only(compiler, &all.targets, entry_module);
         // Tarjan's pop order is bottom-up for caller -> callee edges.
