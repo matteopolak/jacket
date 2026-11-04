@@ -94,6 +94,12 @@ impl Resolver<'_> {
                         } else {
                             path
                         }
+                    } else if self.owned.contains(&self.places.root_of(*p))
+                        && !self.places.unresolved(*p)
+                        && !self.exposed.contains(&self.places.root_of(*p))
+                        && let Some(source) = self.write_sources.get(p)
+                    {
+                        self.trace(*source, summaries, visiting, depth + 1)?
                     } else if !self.places.paths[*p].1.is_empty() {
                         self.location(*p, summaries, visiting, depth + 1)?
                             .append(&[Step::Deref])?

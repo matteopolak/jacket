@@ -230,3 +230,13 @@ fn lifetime_expanded_storage_belongs_to_the_callers_block() {
             .all(|l| l.start > text.find("bad_return").unwrap())
     );
 }
+
+#[test]
+fn lifetime_pointer_field_results_keep_their_temporary_origin() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/temporary-buffer-result.jai");
+    let (lints, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    assert!(lints[0].start > text.find("keep ::").unwrap());
+    let (uses, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(uses.len(), 1, "{}", rendered(&uses, &text, &path));
+}
