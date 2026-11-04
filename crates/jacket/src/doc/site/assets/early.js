@@ -1,7 +1,8 @@
 // Inlined into every page, so what it does is in place before the first paint.
 //
-// Right after the sidebar it puts the sidebar back: its open groups and scroll from the last page,
-// then the current link in view. A long group shows only the rows around the current one until
+// A temporary head observer applies sidebar state as the parser adds nodes, before they paint.
+// jacketSide finishes scroll restoration and disconnects it after the sidebar is complete.
+// A long group shows only the rows around the current one until
 // its full list arrives. site.js calls jacketSide again when it swaps in another page's sidebar.
 //
 // jacketPage runs after the content and the outline: it opens the folds that fit, puts a reload
@@ -17,12 +18,12 @@
     if (a.bottom <= b.top) s.scrollTop += a.top - b.top;
     else if (a.top >= b.bottom) s.scrollTop += a.bottom - b.bottom;
   }
-  function setup(st) {
+  function setup(st, restoreGroups) {
     var s = document.querySelector('details.side');
     if (!s) return;
     var n = s.querySelector('nav'), k = n && n.getAttribute('data-nav');
     if (st && st.k !== k) st = null;
-    if (st) (st.o || []).forEach(function (key) {
+    if (restoreGroups && st) (st.o || []).forEach(function (key) {
       var l = s.querySelectorAll('details.nav-cat');
       for (var i = 0; i < l.length; i++) if (l[i].getAttribute('data-key') === key) l[i].open = true;
     });
@@ -77,7 +78,6 @@
       list.removeAttribute('style');
     });
   }
-  window.jacketSide = setup;
 
   // The footer is parsed after jacketPage, so a position near the bottom is cut short there.
   // jacketRestore runs once the page is whole and puts it right, unless the reader has moved.
@@ -132,11 +132,14 @@
       var h = document.getElementById(a.getAttribute('href').slice(1));
       if (h) marks.push({ a: a, top: h.getBoundingClientRect().top });
     });
+    if (!marks.length) return;
     var a = 0, b = -1;
     marks.forEach(function (m, i) {
       if (m.top <= 70) a = i;
       if (m.top <= window.innerHeight - 1) b = i;
     });
+    // The first section is current even before its heading enters the viewport, as in site.js.
+    b = Math.max(a, b);
     for (var i = a; i <= b; i++) {
       var li = marks[i].a.closest('li');
       var l = li.classList.contains('has-list') ? li.nextElementSibling : li.closest('li.items');
@@ -147,12 +150,30 @@
       }
     }
   }
-  // The menu starts closed on a phone. Closing it here, before the first paint, keeps the page
-  // from jumping when site.js does the same, and means a restored scroll is measured against the
-  // page as it stays.
-  var menu = document.querySelector('details.side');
-  if (menu && !wide()) menu.open = false;
-  var st = null;
-  try { st = JSON.parse(sessionStorage.getItem('jacket-docs-side') || 'null'); } catch (e) {}
-  setup(st);
+  var initialState = null;
+  try { initialState = JSON.parse(sessionStorage.getItem('jacket-docs-side') || 'null'); } catch (e) {}
+  // Mutation notifications run before rendering, even if parsing yields before the next
+  // inline script. Initialize each added node once rather than correcting a painted menu.
+  function initialize(records) {
+    records.forEach(function (record) {
+      Array.prototype.forEach.call(record.addedNodes, function (node) {
+        if (node.nodeType !== 1) return;
+        if (node.matches('details.side') && !wide()) node.open = false;
+        if (node.matches('details.nav-cat') && initialState) {
+          var nav = node.closest('nav[data-nav]');
+          if (nav && initialState.k === nav.getAttribute('data-nav') &&
+              (initialState.o || []).indexOf(node.getAttribute('data-key')) !== -1) node.open = true;
+        }
+      });
+    });
+  }
+  var parsing = new MutationObserver(initialize);
+  parsing.observe(document.documentElement, { childList: true, subtree: true });
+  window.jacketSide = function (state) {
+    if (parsing) {
+      initialize(parsing.takeRecords());
+      parsing.disconnect(); parsing = null;
+      setup(initialState, false);
+    } else setup(state, true);
+  };
 })();

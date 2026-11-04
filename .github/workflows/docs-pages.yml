@@ -27,6 +27,10 @@ on:
         default: false
   workflow_dispatch:
     inputs:
+      browser_checks:
+        description: Run Chrome checks even when the repository opt-out is set
+        type: boolean
+        default: false
       ref:
         description: Tag or branch to build - defaults to the latest release tag
         required: false
@@ -90,9 +94,9 @@ jobs:
       - name: Check documentation validation helpers
         run: |
           PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py
-          node --test tools/dev/test_chrome_startup.mjs
+          node --test tools/dev/test_chrome_startup.mjs tools/dev/test_doc_samples.mjs tools/dev/test_doc_sidebar.mjs
       - name: Check documentation accessibility and layout
-        if: ${{ vars.DOCS_BROWSER_CHECKS != 'false' }}
+        if: ${{ inputs.browser_checks || vars.DOCS_BROWSER_CHECKS != 'false' }}
         run: |
           python3 tools/dev/doc_serve.py --port 8000 --directory target/doc-site &
           SERVER_PID=$!

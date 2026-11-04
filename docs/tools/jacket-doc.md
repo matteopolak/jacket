@@ -128,22 +128,24 @@ Versions: the current release lives at `<url><base>`, older ones at `<url><base>
 
 The site targets WCAG 2.2 AA:
 
-- **Structure:** landmarks, a skip link, one `h1` per page, and real lists and buttons.
+- **Structure:** landmarks, a skip link, one `h1` per page, and real lists and buttons. Content links are underlined so colour is not their only cue.
 - **Keyboard:**
   - Search is a combobox (arrows, Enter, Escape).
   - The version menu is a menu button.
   - Folds and nav categories set `aria-expanded`.
   - Focus moving into a folded block opens it.
-  - A wide code block gets a tab stop so it can be scrolled.
+  - A wide code block, table or field list gets a tab stop so it can be scrolled; resizing or navigating updates those tab stops.
 - **Motion and zoom:** smooth scrolling only without reduced motion; layouts work at 320px.
 - **Contrast:**
   - `tools/dev/test_doc_palette.py` checks every colour token in `site.css` in both themes: 4.5:1 for text, 3:1 for the search field's border.
   - `jacket doc` rejects a `[doc.category]` `color`/`color_dark` under 4.5:1 and prints the measured ratio.
-- **CI:** `tools/dev/doc_a11y.mjs <url>` runs axe-core on six pages, in both themes, at 1280px and 320px. It needs Chrome (`CHROME_PATH` to override); `docs-pages.yml` runs it after the build.
-- **Browser readiness:** both browser checks wait up to ten seconds for a complete, valid DevTools port record. File creation alone is not readiness. Startup failures report elapsed time, the last record, child exit/signal and bounded Chrome stderr. Run `node --test tools/dev/test_chrome_startup.mjs` to check partial writes, read failures and the startup deadline without launching Chrome.
-- **Optional browser checks:** the repository variable `DOCS_BROWSER_CHECKS=false` disables Chrome accessibility/layout execution when the maintainer opts out. It does not disable the site build, palette tests or browser-startup unit tests. An opted-out run supplies no browser accessibility/layout acceptance evidence.
-- **Layout shift:** `tools/dev/doc_layout.mjs <url>` loads a sample of page kinds (home, guide, the one-page rules pages, small and big modules, an item, a private type, the 404) at 1280px and 375px in both themes, and fails on any `layout-shift` entry or any key box (titles, platforms, outline, folds and their buttons, header, sidebars, scroll positions) that differs between a frame and where the page settles. Scenarios are a fresh load, a reload after scrolling, leave and Back, and in-page swaps by a sidebar link and the header's API link (each also on its own page, then Back and Forward). It holds `site.js` back 250ms (`--script-delay`) so a frame paints without it, as on a slow connection; with `--script-delay 0` the local server hides everything `site.js` changes. A page-kind sample takes about two minutes; `--all` is about 32,000 pages at about 3.5s per page, width and theme, so use `--all --every 600` (about 14 minutes) for a spread. Serve the site with `tools/dev/doc_serve.py`; an old trailing-slash URL is also loaded to check the 404 page's redirect. Anything that must be right at first paint belongs in `early.js` or the markup, not `site.js`. Footer-only shifts are ignored for swaps, since a taller page moves it.
-- **First-paint rules** the check enforces: the outline's column is held open by `.wrap[data-toc]::after` until the outline is parsed (the template sets `data-toc` when the page has one, and `swap()` copies it); `early.js` closes the menu on a phone and drops the buttons of folds that fit, since `.members:last-child` rules change padding when a hidden button goes; `jacketRestore()` (after the footer) finishes a scroll restore that the unparsed footer cut short.
+- **CI:** `tools/dev/doc_a11y.mjs <url>` runs axe-core on six pages in both themes at 1280px and 320px. It needs Chrome (`CHROME_PATH` overrides its location). When browser checks are enabled, `docs-pages.yml` runs it after the build. Its guide sample is the direct header navigation target; changes to that markup should update `doc_samples.mjs` and its fixture tests.
+- **HTTP probes:** status-only page checks use `HEAD`, so they leave no unread response body in Node. The configured static server must support `HEAD`; the included `doc_serve.py` does. Browser navigation and asset interception still read the actual page content.
+- **Browser readiness:** both browser checks wait up to ten seconds for a complete, valid DevTools port record. File creation alone is not readiness. Startup failures report elapsed time, the last record, child exit/signal and bounded Chrome stderr. Run `node --test tools/dev/test_chrome_startup.mjs tools/dev/test_doc_samples.mjs tools/dev/test_doc_sidebar.mjs` to check partial writes, read failures, the startup deadline and sidebar parser-state restoration without launching Chrome.
+- **Browser check override:** `DOCS_BROWSER_CHECKS=false` disables the Chrome accessibility and layout checks, but leaves the site build, palette tests and browser-startup unit tests enabled. An opted-out run provides no browser acceptance evidence. To validate a repair while the override remains set, run the branch manually with `browser_checks=true` and `deploy=false`. Remove the override only after merging the repair and passing its Chrome checks.
+- **Frame recording:** after a scenario settles, the layout check waits for two actual browser animation frames before reading the recorder. It keeps every earlier frame; the existing CDP deadline reports a browser that never supplies frames.
+- **Layout shift:** `tools/dev/doc_layout.mjs <url>` loads a sample of page kinds (home, guide, the one-page rules pages, small and big modules, an item, a private type, the 404) at 1280px and 375px in both themes, and fails on any `layout-shift` entry or any key box (titles, platforms, outline, folds and their buttons, header, sidebars, scroll positions) that differs between a frame and where the page settles. Scenarios are a fresh load, a reload after scrolling, leave and Back, and in-page swaps by a sidebar link and the header's API link (each also on its own page, then Back and Forward). It holds `site.js` back 250ms (`--script-delay`) so a frame paints without it, as on a slow connection; with `--script-delay 0` the local server hides everything `site.js` changes. A page-kind sample takes about two minutes; `--all` is about 32,000 pages at about 3.5s per page, width and theme, so use `--all --every 600` (about 14 minutes) for a spread. Serve the site with `tools/dev/doc_serve.py`; an old trailing-slash URL is also loaded to check the 404 page's redirect. Runnable examples render their `.ed` wrapper before paint; `site.js` only adds the textarea, so editor padding and scrollbar space do not change the page later. Without JavaScript, the code stays scrollable. Anything that must be right at first paint belongs in `early.js` or the markup, not `site.js`. Footer-only shifts are ignored for swaps, since a taller page moves it.
+- **First-paint rules** the check enforces: the outline's column is held open by `.wrap[data-toc]::after` until the outline is parsed (the template sets `data-toc` when the page has one, and `swap()` copies it); `early.js` defines a temporary head observer that closes the phone menu and restores saved groups as their nodes are parsed, then disconnects after the sidebar; it also drops the buttons of folds that fit, since `.members:last-child` rules change padding when a hidden button goes; `jacketRestore()` (after the footer) finishes a scroll restore that the unparsed footer cut short.
 
 ## Publishing
 
@@ -160,12 +162,41 @@ Repository settings: Pages source "GitHub Actions", custom domain `jacket.matteo
 
 CI runs `jacket doc --check` when the stdlib, the compiler or the docs change, so a broken intra-doc link fails before a release does.
 
+### Accepting a deployed site
+
+A successful build or uploaded Pages artifact does not establish that the public site serves that build. Read the existing deployment before dispatching anything. For example:
+
+```sh
+gh api 'repos/matteopolak/jacket/deployments?environment=github-pages'
+gh api repos/matteopolak/jacket/deployments/<id>/statuses
+gh run view <run-id> -R matteopolak/jacket --json headSha,jobs,url
+curl --max-time 20 -I https://jacket.matteopolak.com/
+```
+
+Keep a dated acceptance receipt with the deployment SHA/ref, successful `pages` job and completion time, environment URL, and the run’s `github-pages` artifact. Check the displayed version and Source links against the intended release. The artifact links the deployment to a run; only a byte comparison can establish CDN byte identity.
+
+Check the public home, a configured guide, module and item at their slashless URLs. A deliberately nonexistent nested path must return HTTP 404 with the custom page; check its CSS, JavaScript, module links and working search in Chrome at that depth. Separately open a real item's legacy trailing-slash URL and verify the 404 script recovers to its slashless page. A 200 fallback is a failure.
+
+Fetch `sitemap.xml` with a finite timeout and parse the XML. Every URL must use the configured HTTPS origin/base; exclude 404 and private/noindex pages. If it is an index, fetch every referenced shard sequentially. Sample page kinds. `robots.txt` must reference the canonical sitemap and permit public indexing. On home, guide and item pages, inspect title, description, canonical/OG URL and image metadata; the 404 must omit canonical and OG URL. Fetch the image and verify its content type and dimensions.
+
+Render the public page and card image, retaining a screenshot or concrete visual observations. Report third-party card-cache refresh separately; HTML metadata and a fetched image do not establish it. Use bounded requests, retain failures, and distinguish access problems from incorrect contents. Any later recheck should state what changed. Never deploy a development branch over production to obtain acceptance.
+
+To validate a repaired branch without deployment:
+
+```sh
+gh workflow run docs-pages.yml -R matteopolak/jacket --ref fix/release-and-docs \
+  -f ref=fix/release-and-docs -f deploy=false -f browser_checks=true
+```
+
+The implicit `#Context` reference is a configured Markdown guide at `guides/context`, linked from the home page. It documents the compiler-provided type without inventing a library declaration or a fixed layout. Directive identifiers such as `#Context` are not declaration names: the doc model does not resolve them to a same-spelled user type. Ordinary `Context` and qualified names retain their declaration identity. Guide publication and explicit prose links do not by themselves promise automatic links from signatures or search.
+
 ## How to change it
 
 - **What a page says** comes from the doc comment ([doc comments](../compiler/doc-comments.md)). Document parameters with `- name: text` or a comment on the parameter.
 - **A fact the compiler should supply:** `model.rs` in `doc_comments/` and the JSON it prints, then `doc/model.rs`.
 - **Layout and colours:** `doc/site/assets/site.css` (colours are custom properties at the top, with a dark set; run `test_doc_palette.py` after changing one). Behaviour: `doc/site/assets/site.js`, which only adds to pages that read fine without it.
 - **Markup** is the Jai theme: `shell.jai` (head, header, footer, the layout), `sidebars.jai`, `index.jai`, `module.jai`, `item.jai`, `guides.jai`, `examples.jai`, `parts.jai` (badges, crumbs, Source links). A new value on a page goes in `view.rs`, `view/build.rs` and `contract.jai` together. Markup tests are in `site/tests/suite.jai` with JSON fixtures; `cargo test -p jacket doc::` runs them (they need a built `jaic` beside `jacket`, and are skipped otherwise), and so does `jacket test --path crates/jacket/src/doc/site`.
+- **Runnable example markup:** `ExampleCode` in `examples.jai` emits `<div class="ed"><pre class="code">…</pre></div>` when an example has a program id. Custom example templates must preserve that wrapper; JavaScript attaches one textarea to it rather than moving the code after paint. Plain and disabled examples keep their ordinary scrolling code block.
 - **Your own theme:** `[doc] theme = "folder"` (or `--theme`). Each file there replaces the built-in file at the same path, and new files are added (hidden files such as `.DS_Store` are skipped), so overriding `assets/site.css` or `item.jai` is enough. A compile error in an override is printed as jaic reports it. `jacket doc --emit-input in/` writes the view, so you can see what a template gets. Compare two builds with `python3 tools/dev/doc_diff.py OLD NEW`.
 - **Module page grouping** is by declaring file (`bytes.jai` is "Bytes"). When procedures are split into groups, foreign bindings get one "Foreign" group of their own instead of their file's, so each item is listed once (page ids must be unique). Words with their own casing go in `WORDS` in `model.rs`.
 - **Source links** need `repo`. They go to the commit `jacket doc` was built from when the library is in a git checkout (a file with uncommitted changes gets none); `--source-ref` overrides. Outside a checkout and without `--source-ref` there are no Source links.
