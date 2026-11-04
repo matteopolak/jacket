@@ -366,6 +366,41 @@ def lsp_session(jailsp, env, output=None):
     return code, f"{len(messages)} messages, {size} bytes of output"
 
 
+def profile_input(path, training):
+    """Resolve a readable profile before clearing generated evidence.
+
+    For example, `profile_input("saved.profdata", work / "training")` rejects both
+    a profile inside that directory and an outside symlink that resolves into it.
+    The compiler still validates the profile format/version when consuming it.
+    """
+    supplied = Path(path)
+    lexical = Path(os.path.abspath(supplied))
+    training = Path(os.path.abspath(training))
+    message = f"build_pgo: --profile must be outside the training evidence directory `{training}`"
+    # Check the supplied path as well as its target: deleting a symlink inside training
+    # would destroy the requested input path even when its target is elsewhere.
+    if lexical.is_relative_to(training):
+        sys.exit(message)
+    try:
+        resolved = supplied.resolve(strict=True)
+        target = training.resolve()
+        if resolved.is_relative_to(target):
+            sys.exit(message)
+        if target.exists():
+            # Resolved POSIX paths can retain a different spelling on a case-insensitive
+            # filesystem. Compare ancestor identities before deleting the directory.
+            for ancestor in (*supplied.parents, *resolved.parents):
+                if ancestor.samefile(target):
+                    sys.exit(message)
+        if not resolved.is_file():
+            sys.exit(f"build_pgo: --profile must name a file: `{supplied}`")
+        with resolved.open("rb") as stream:
+            stream.read(1)
+    except (OSError, RuntimeError) as error:
+        sys.exit(f"build_pgo: cannot read --profile `{supplied}`: {error}")
+    return resolved
+
+
 def reset_training_evidence(work):
     """Remove previous training logs before a build, including builds that reuse a profile."""
     training = Path(work) / "training"
@@ -603,6 +638,7 @@ def main():
             f"build_pgo: {work} contains a space, which RUSTFLAGS cannot carry; pass --target-dir"
         )
     out = Path(args.out).resolve() if args.out else work / "dist"
+    profile = profile_input(args.profile, work / "training") if args.profile else None
     reset_training_evidence(work)
     native = args.llvm != "none"
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -619,9 +655,7 @@ def main():
         build_jacket(args, work, out)
         log(f"binaries in {out}")
         return
-    if args.profile:
-        profile = Path(args.profile).resolve()
-    else:
+    if profile is None:
         profdata = profdata_tool()
         raw = work / "profraw"
         shutil.rmtree(raw, ignore_errors=True)

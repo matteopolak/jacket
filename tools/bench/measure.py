@@ -1,9 +1,9 @@
 """Run one process and measure it: wall time, user+system CPU time, peak resident set.
 
-macOS and Linux read these from `wait4` (`ru_maxrss`); Windows from a Job Object (`winjob.py`). On every OS
-"peak memory" is the peak resident memory (working set) of the largest single process in the command's
-tree; CPU time is user plus system time of the whole tree. On Windows the job's peak commit charge,
-which is larger, is kept in `Run.commit_mib`.
+macOS and Linux read wait4 accounting for the command and children it waited for. Windows uses a
+Job Object's descendant accounting. RSS is the peak of the largest measured process, not a sum;
+Windows peak commit charge is kept in `Run.commit_mib`. POSIX cleanup is limited to the private
+process group: descendants that create another group/session escape it.
 """
 from __future__ import annotations
 
@@ -57,8 +57,9 @@ class Run:
 
 
 def kill_group(pid: int) -> None:
-    """SIGKILL the process group led by `pid`: the process and any children (a linker, a helper) it left behind.
-    On Windows, `taskkill /T` ends the process and its descendants."""
+    """SIGKILL members of the POSIX process group led by `pid`, including children still in it.
+    This does not reach descendants that create another group/session. On Windows this fallback
+    uses `taskkill /T`; `run_measured` instead owns a Job Object."""
     if sys.platform == 'win32':
         subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], capture_output=True)
         return
@@ -70,11 +71,11 @@ def kill_group(pid: int) -> None:
 
 def run_measured(command: list[str], cwd: Path | None = None, env: dict[str, str] | None = None,
                  timeout: float = 900, stdin_bytes: bytes | None = None, output=None) -> Run:
-    """Run `command` to completion (or kill it after `timeout` seconds). Peak RSS and CPU time are the
-    process's own, from wait4 (a Job Object on Windows): children such as a linker it spawns are included in CPU time but only
-    the largest single process counts for RSS. The command runs in a process group of its own, which is
-    killed on timeout, interruption and exit, so no child outlives the run. With `output=log_file`,
-    stdout and stderr stream to that binary file instead of being retained in the result strings."""
+    """Run `command` to completion or its timeout (RSS is the largest measured process).
+    POSIX wait4 accounting includes waited-for children; Windows accounts for the Job. A private POSIX group is killed on timeout,
+    interruption and exit; a descendant starting a new group/session is outside this boundary.
+    Windows uses a Job Object for descendant ownership. With `output=log_file`, stdout and stderr
+    stream to that binary file instead of being retained in the result strings."""
     with tempfile.TemporaryFile() as captured_out, tempfile.TemporaryFile() as captured_err, tempfile.TemporaryFile() as feed:
         out = captured_out if output is None else output
         err = captured_err if output is None else output

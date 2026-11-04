@@ -77,6 +77,117 @@ class TrainingEvidenceTests(unittest.TestCase):
             self.assertFalse(survived.exists(), "grandchild outlived training timeout")
             # Synthetic descendants exit on their own within two seconds even on a regression.
 
+    def test_profile_input_is_not_deleted_by_training_evidence_reset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            profile = target / "pgo" / "training" / "saved.profdata"
+            profile.parent.mkdir(parents=True)
+            profile.write_bytes(b"user supplied profile")
+            argv = ["build_pgo.py", "--target-dir", str(target), "--target", "x86_64-unknown-linux-gnu",
+                    "--llvm", "none", "--profile", str(profile)]
+            with mock.patch.object(build_pgo.sys, "argv", argv), mock.patch.object(build_pgo, "cargo_build", side_effect=RuntimeError("build entered")) as build:
+                with self.assertRaisesRegex(SystemExit, "training evidence"):
+                    build_pgo.main()
+            build.assert_not_called()
+            self.assertEqual(profile.read_bytes(), b"user supplied profile")
+
+    def test_invalid_profile_is_rejected_before_existing_evidence_reset(self):
+        for kind in ("missing", "directory"):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as tmp:
+                target = Path(tmp)
+                evidence = target / "pgo" / "training" / "old.log"
+                evidence.parent.mkdir(parents=True)
+                evidence.write_bytes(b"previous evidence")
+                supplied = target / "missing.profdata" if kind == "missing" else target
+                argv = ["build_pgo.py", "--target-dir", str(target), "--target", "x86_64-unknown-linux-gnu",
+                        "--llvm", "none", "--profile", str(supplied)]
+                with mock.patch.object(build_pgo.sys, "argv", argv), mock.patch.object(build_pgo, "cargo_build", side_effect=RuntimeError("build entered")) as build:
+                    with self.assertRaisesRegex(SystemExit, "--profile"):
+                        build_pgo.main()
+                build.assert_not_called()
+                self.assertEqual(evidence.read_bytes(), b"previous evidence")
+
+    def test_unreadable_profile_leaves_existing_evidence_intact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            training = root / "training"
+            training.mkdir()
+            evidence = training / "old.log"
+            evidence.write_bytes(b"previous evidence")
+            profile = root / "saved.profdata"
+            profile.write_bytes(b"profile")
+            with mock.patch.object(Path, "open", side_effect=PermissionError("read denied")):
+                with self.assertRaisesRegex(SystemExit, "read denied"):
+                    build_pgo.profile_input(profile, training)
+            self.assertEqual(evidence.read_bytes(), b"previous evidence")
+            self.assertEqual(profile.read_bytes(), b"profile")
+
+    def test_profile_resolution_preserves_symlink_dotdot_semantics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            training = root / "training"
+            (training / "subdir").mkdir(parents=True)
+            inside = training / "saved.profdata"
+            inside.write_bytes(b"inside profile")
+            outside = root / "outside"
+            outside.mkdir()
+            (outside / "saved.profdata").write_bytes(b"different profile")
+            link = outside / "link"
+            link.symlink_to(training / "subdir", target_is_directory=True)
+            supplied = link / ".." / "saved.profdata"
+            expected = supplied.resolve()
+            if expected == inside.resolve():
+                with self.assertRaisesRegex(SystemExit, "training evidence"):
+                    build_pgo.profile_input(supplied, training)
+            else:
+                self.assertEqual(build_pgo.profile_input(supplied, training), expected)
+            self.assertEqual(inside.read_bytes(), b"inside profile")
+            self.assertEqual((outside / "saved.profdata").read_bytes(), b"different profile")
+
+    def test_case_alias_of_training_is_rejected_when_filesystem_supports_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            training = root / "training"
+            training.mkdir()
+            alias = root / "TRAINING"
+            if not alias.exists():
+                self.skipTest("case-sensitive filesystem has no such alias")
+            profile = training / "saved.profdata"
+            profile.write_bytes(b"profile")
+            with self.assertRaisesRegex(SystemExit, "training evidence"):
+                build_pgo.profile_input(alias / profile.name, training)
+            self.assertEqual(profile.read_bytes(), b"profile")
+
+    def test_profile_aliases_and_invalid_inputs_preserve_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            training = root / "training"
+            training.mkdir()
+            evidence = training / "old.log"
+            evidence.write_bytes(b"previous evidence")
+            outside = root / "saved.profdata"
+            outside.write_bytes(b"profile")
+            inside = training / "inside.profdata"
+            inside.write_bytes(b"inside")
+            inside_alias = training / "outside-alias.profdata"
+            inside_alias.symlink_to(outside)
+            outside_alias = root / "inside-alias.profdata"
+            outside_alias.symlink_to(inside)
+            for path in (inside_alias, outside_alias):
+                with self.subTest(path=path):
+                    with self.assertRaisesRegex(SystemExit, "training evidence"):
+                        build_pgo.profile_input(path, training)
+            for path in (root / "missing.profdata", root):
+                with self.subTest(path=path):
+                    with self.assertRaisesRegex(SystemExit, "--profile"):
+                        build_pgo.profile_input(path, training)
+            self.assertEqual(build_pgo.profile_input(outside, training), outside.resolve())
+            self.assertEqual(evidence.read_bytes(), b"previous evidence")
+            self.assertEqual(outside.read_bytes(), b"profile")
+            self.assertEqual(inside.read_bytes(), b"inside")
+            self.assertTrue(inside_alias.is_symlink())
+            self.assertTrue(outside_alias.is_symlink())
+
     def test_new_invocation_removes_stale_training_evidence_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp)

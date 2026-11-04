@@ -1,5 +1,4 @@
-"""Run and measure one process tree on Windows with a Job Object: the same numbers `measure.py` takes from
-`wait4` elsewhere.
+"""Run and measure a Windows Job's process tree: wall time, CPU and peak memory for `measure.py`.
 
 - CPU time: the job's accounting, user plus kernel time of the process and every descendant (a linker,
   a helper) that ran in it, including those that already exited.
@@ -8,8 +7,8 @@
   that starts and ends between two samples (10 ms apart) can be missed. The job's peak *commit* charge
   (private bytes: not comparable to the working set, which also counts shared pages) is reported separately as `commit_mib`.
   macOS and Linux report `ru_maxrss`, the peak resident set of the largest single process.
-- Timeouts and stragglers: `TerminateJobObject` kills the whole tree, on timeout and again once the
-  command exits, as `killpg` does elsewhere.
+- Timeouts and stragglers: `TerminateJobObject` kills the Job's tree on timeout and again once the
+  command exits. Job membership is independent of Windows console process groups.
 
 A command can also be launched into an AppContainer (`winsandbox.py`): the process is created suspended
 with the container's security capabilities, put in the job, then resumed.
