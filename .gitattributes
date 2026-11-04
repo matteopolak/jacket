@@ -8,6 +8,7 @@
 
 # jaifmt goldens compare exact bytes (including intentionally mixed newlines).
 /stdlib/Extensions/Jai_Format/tests/fixtures/* -text
+/stdlib/Extensions/Jai_Format/tests/range-fixtures/* -text
 
 # The glob table is read by Rust and Jai tests that split on "\n".
 /tests/glob/cases.txt text eol=lf
