@@ -47,6 +47,22 @@ At `-O0` the target machine uses FastISel, because GlobalISel was a third of cod
   - A `PtrAdd` gets `inbounds` only when `ir::Builder` proved it stays inside a live stack allocation: an offset into a slot that fits, or an element address after a fixed-array bounds check. Loads, casts and raw pointer arithmetic drop the proof.
   - Adding a fact LLVM can rely on turns a wrong fact into undefined behaviour. Keep each one backed by a frontend guarantee and an IR test (`llvm_pointer_facts.rs`, `llvm_inbounds.rs`).
 
+### Additional facts: proof boundary
+
+The backend deliberately does not infer `noalias`, `noundef` or `unnamed_addr` from an ABI type or a constant flag. LLVM's [attribute contracts](https://llvm.org/docs/LangRef.html#parameter-attributes) distinguish nonnull pointers, independent memory accesses and defined value bits; [address insignificance](https://llvm.org/docs/LangRef.html#global-variables) is a separate promise. A violated promise can invalidate otherwise valid source programs.
+
+| Proposed fact | Current producer and reason it is insufficient |
+| --- | --- |
+| `noalias` on return storage | `lower::control::call` gets the output pointer from `args[sig.out_index()]`, including C `sret`; it does not allocate it. A callee-wide promise needs all entry paths, forwarded slots, exports and indirect callers audited for overlap. |
+| `noalias` on aggregate parameters | Jai aggregates arrive as pointers and may alias another argument (`llvm_pointer_facts.rs` exercises mutation). C `Passing::Indirect` copies into `call_temp`, but that is a call-site storage fact, not a proof for every declaration or exported definition. Pointers inside the copied value can still alias. `Passing::ByVal` already carries its own ABI semantics. |
+| `noundef` on scalars | `call_temp` rounds aggregate scratch up to 16 bytes. Register marshalling copies only the aggregate's size and loads ABI pieces from that scratch. Bytes of padding can therefore become bits of a scalar value. Scalar type alone does not prove initialized bits; foreign results, uninitialized source values and joins also need proofs. |
+| `unnamed_addr` on constants | `lower::symbols::global` maps `Global::read_only` to `constant`, while preserving symbols and relocations. Read-only storage can still have an observable address. Strings, exported globals and relocations need an address-use analysis before merging or duplication is safe. |
+| Whole-program FunctionAttrs | `emit_module` lowers each planned shard and runs its pipeline there. There is no whole LLVM module before the frontend partition. Running inference there requires another lowering or a lower-once/split design, not inserting a pass into `partition.rs`. |
+
+These are stop conditions for blanket annotations, not claims that every narrower fact is impossible. Keep the existing conservative facts until a complete producer/ABI/call-path proof and a repeatable runtime benefit justify an extension. Add positive and negative IR/execution regressions before changing emission. A sanitizer pass does not prove an LLVM attribute sound.
+
+A bounded game2d FunctionAttrs-only control compared one whole module with 30 default shards. Of 2,996 unambiguous common function names, 90 had a syntactically added function-group attribute unique to the whole-module run, and 38 unique to a shard run. The inputs also differed in linkage; parameter/return attributes were not counted, and different memory-effect strings do not establish a strength ordering. No same-pipeline runtime, compile-time or attribute-transfer effect was validated, so this does not justify a whole-program inference stage.
+
 ### SIMD lowering (`simd/`)
 
 Turns `ByteLookup` and `SignMask` ([intrinsics](../language/intrinsics.md#native-lowering-of-the-simd-intrinsics)) into the best instruction the target has, with the same result everywhere. `x86.rs` uses `pshufb` (SSSE3/AVX2/AVX-512BW), `aarch64.rs` uses NEON `tbl1`, `wasm.rs` swizzle, and `generic.rs` is the fallback and reference. Each dispatch tries backends in order; a backend returns `Ok(false)` if it does not apply. `Target::resolve` reads the real CPU name and feature string, so `+x`/`-x` features work. SVE has no backend yet.
