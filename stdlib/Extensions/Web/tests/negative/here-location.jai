@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail skip_on(.WASM, reason = "Web requires native worker threads")
 #import "Basic";
 #import "Extensions/Web";
 
