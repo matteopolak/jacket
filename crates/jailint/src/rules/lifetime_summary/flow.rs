@@ -251,13 +251,33 @@ pub(super) fn return_dominators(body: &LifetimeBody) -> Vec<bool> {
         }
     }
     edges.push(Vec::new());
-    let mut predecessors = vec![Vec::new(); n + 1];
+    let parents = dominators(&edges);
+    let Some(mut node) = parents[n] else {
+        return out;
+    };
+    loop {
+        out[node] = true;
+        if node == 0 {
+            break;
+        }
+        node = parents[node].unwrap();
+    }
+    out
+}
+
+/// Immediate dominators for blocks reachable from entry zero.
+pub(super) fn dominators(edges: &[Vec<usize>]) -> Vec<Option<usize>> {
+    let n = edges.len();
+    if n == 0 {
+        return Vec::new();
+    }
+    let mut predecessors = vec![Vec::new(); n];
     for (i, next) in edges.iter().enumerate() {
         for &to in next {
             predecessors[to].push(i);
         }
     }
-    let mut seen = vec![false; n + 1];
+    let mut seen = vec![false; n];
     let mut order = Vec::new();
     let mut stack = vec![(0, false)];
     while let Some((node, exit)) = stack.pop() {
@@ -272,11 +292,11 @@ pub(super) fn return_dominators(body: &LifetimeBody) -> Vec<bool> {
         stack.extend(edges[node].iter().rev().map(|&to| (to, false)));
     }
     order.reverse();
-    let mut rank = vec![usize::MAX; n + 1];
+    let mut rank = vec![usize::MAX; n];
     for (i, &node) in order.iter().enumerate() {
         rank[node] = i;
     }
-    let mut parents = vec![None; n + 1];
+    let mut parents = vec![None; n];
     parents[0] = Some(0);
     loop {
         let mut changed = false;
@@ -306,15 +326,5 @@ pub(super) fn return_dominators(body: &LifetimeBody) -> Vec<bool> {
             break;
         }
     }
-    let Some(mut node) = parents[n] else {
-        return out;
-    };
-    loop {
-        out[node] = true;
-        if node == 0 {
-            break;
-        }
-        node = parents[node].unwrap();
-    }
-    out
+    parents
 }

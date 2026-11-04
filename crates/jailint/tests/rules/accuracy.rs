@@ -279,3 +279,16 @@ fn lifetime_variadic_growth_is_not_unconditionally_an_invalidation() {
     let (lints, text) = lint(&path, &rules);
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
 }
+
+#[test]
+fn lifetime_pointer_field_loads_do_not_use_future_writes() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/pointer-field-write-order.jai");
+    let (lints, text) = lint(
+        &path,
+        &[
+            ("temp_storage_escape", Level::Warn),
+            ("returned_local_address", Level::Warn),
+        ],
+    );
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
+}

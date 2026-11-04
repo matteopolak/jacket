@@ -24,6 +24,7 @@ impl super::prepared::Core<'_> {
                 values.iter().all(|v| *v == first).then_some((p, first))
             })
             .collect();
+        self.load_sources = ordered_load_sources(body, places, &self.write_sources, &self.owned);
         let empty_descriptors: HashMap<_, _> = body
             .blocks
             .iter()
@@ -764,4 +765,77 @@ impl Resolver<'_> {
         self.return_mode.set(false);
         self.field_origins.borrow_mut().clear();
     }
+}
+
+// A private field's unique source must have been written before this load on
+// every incoming path; textual uniqueness alone also includes future stores.
+fn ordered_load_sources(
+    body: &super::LifetimeBody,
+    places: &super::Places,
+    unique: &HashMap<usize, Val>,
+    owned: &HashSet<usize>,
+) -> HashMap<Val, Val> {
+    let mut stores = HashMap::<usize, Vec<(usize, usize, Val)>>::default();
+    for (block, events) in body.blocks.iter().enumerate() {
+        for (ordinal, event) in events.events.iter().enumerate() {
+            if let Event::Store {
+                place,
+                value,
+                ty,
+                ..
+            } = *event
+                && let Some(place) = places.existing(place, ty)
+                && unique.get(&place) == Some(&value)
+                && owned.contains(&places.root_of(place))
+                && !places.paths[place].1.is_empty()
+            {
+                stores
+                    .entry(place)
+                    .or_default()
+                    .push((block, ordinal, value));
+            }
+        }
+    }
+    let mut result = HashMap::default();
+    if stores.is_empty() {
+        return result;
+    }
+    let edges: Vec<_> = body.blocks.iter().map(|b| b.successors.clone()).collect();
+    let parents = super::flow::dominators(&edges);
+    for (block, events) in body.blocks.iter().enumerate() {
+        for (ordinal, event) in events.events.iter().enumerate() {
+            if let Event::Load {
+                place,
+                value,
+                ty,
+                ..
+            } = *event
+                && let Some(place) = places.existing(place, ty)
+                && let Some(sites) = stores.get(&place)
+                && let Some(&(_, _, source)) = sites.iter().find(|&&(from, at, _)| {
+                    if from == block {
+                        at < ordinal
+                    } else {
+                        dominates(&parents, from, block)
+                    }
+                })
+            {
+                result.insert(value, source);
+            }
+        }
+    }
+    result
+}
+
+fn dominates(parents: &[Option<usize>], ancestor: usize, mut node: usize) -> bool {
+    while let Some(parent) = parents[node] {
+        if node == ancestor {
+            return true;
+        }
+        if parent == node {
+            return false;
+        }
+        node = parent;
+    }
+    false
 }
