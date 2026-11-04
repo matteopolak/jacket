@@ -2,6 +2,7 @@
 // No npm install: one hash-pinned axe-core distribution and Node's built-in CDP WebSocket.
 // axe-core 4.10.3 predates the dependency-age policy's 14-day minimum. No transitive packages.
 import assert from 'node:assert/strict';
+import { waitForDevToolsPort } from './chrome_startup.mjs';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -25,18 +26,9 @@ assert(chrome, 'Install Chrome or set CHROME_PATH');
 const profile = await mkdtemp(path.join(tmpdir(), 'jacket-a11y-'));
 const child = spawn(chrome, ['--headless=new', '--no-sandbox', '--disable-gpu', '--no-first-run',
   '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
-let launchError, chromeErrors = '';
-child.on('error', error => { launchError = error; });
-child.stderr.on('data', data => { chromeErrors = (chromeErrors + data).slice(-8000); });
 let socket;
 try {
-  let port;
-  for (let i = 0; i < 200; i++) {
-    assert(!launchError, String(launchError));
-    assert(child.exitCode === null && child.signalCode === null, `Chrome exited: ${child.exitCode ?? child.signalCode}: ${chromeErrors}`);
-    try { port = (await readFile(path.join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; break; } catch { await delay(50); }
-  }
-  assert(port, 'Chrome did not start');
+  const port = await waitForDevToolsPort(child, profile);
   const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
   socket = new WebSocket(targets.find(t => t.type === 'page').webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });

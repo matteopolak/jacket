@@ -22,8 +22,9 @@
 // A page that reaches the screen in one shape and then rearranges itself is exactly what the
 // second check catches, including changes too small or too quick for the first.
 import assert from 'node:assert/strict';
+import { waitForDevToolsPort } from './chrome_startup.mjs';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -516,19 +517,10 @@ const child = spawn(chrome, ['--headless=new', '--no-sandbox', '--disable-gpu', 
   // Back and Forward must rebuild the page, as they do after the page leaves the browser's cache.
   '--disable-features=BackForwardCache', '--disable-renderer-backgrounding', '--disable-background-timer-throttling',
   '--disable-backgrounding-occluded-windows', `--user-data-dir=${profile}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
-let launchError, chromeErrors = '';
-child.on('error', e => { launchError = e; });
-child.stderr.on('data', d => { chromeErrors = (chromeErrors + d).slice(-8000); });
 let browser;
 const started = Date.now();
 try {
-  let port;
-  for (let i = 0; i < 200; i++) {
-    assert(!launchError, String(launchError));
-    assert(child.exitCode === null && child.signalCode === null, `Chrome exited: ${child.exitCode ?? child.signalCode}: ${chromeErrors}`);
-    try { port = (await readFile(path.join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; break; } catch { await delay(50); }
-  }
-  assert(port, 'Chrome did not start');
+  const port = await waitForDevToolsPort(child, profile);
   const version = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json();
   browser = await new Connection(version.webSocketDebuggerUrl).open();
 
