@@ -502,6 +502,9 @@ def cmd_test(args) -> int:
         if shutil.which("cargo-nextest") is None:
             print("cargo-nextest not found: `brew install cargo-nextest` or `cargo install --locked cargo-nextest`", file=sys.stderr)
             return 1
+        # The LSP formatting tests run the real formatter, including on shards that never run
+        # the separate Jai format check. Build this checkout's copy before nextest starts.
+        ensure_jaifmt(args.jobs)
         # The native tests link the pinned third-party libraries; jaic finds them in the default output
         # directory, so build whatever is missing there first (a no-op once they exist, and in CI after
         # tools/native/ci_native_deps.sh).
