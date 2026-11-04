@@ -57,7 +57,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `fetch_wgpu_native.py` | Download the pinned wgpu-native release into target/native-libs/<os>-<arch>/. | CI, tools |
 | `prepare_sdl_python_tests.py` | Prepare hash-pinned public C header inputs and explicit SDL test scratch. | CI, tools |
 | `run_sdl3.py` | Audit a packaged SDL3 runtime, then compile/run its Jai ABI and headless tests. | CI |
-| `run_webgpu_native.py` | Run stdlib/Extensions/WebGPU/tests/driven/headless.jai (or, with --test window, stdlib/Extensions/WebGPU/tests/driven/window.jai) natively: | CI |
+| `run_webgpu_native.py` | Run native WebGPU primitive, window or UI image tests: | CI |
 | `sdl3_gen.py` | Generate SDL3's desktop public C API with Clang, from the verified pinned archive. | CI, tools |
 | `sdl3_lint.py` | Lint owned SDL3 files and all six source-identical generated declaration sets. | tools |
 | `sdl3_native.py` | Pinned SDL3 native build; also called by build_native_libs.py. Never consults another checkout. | CI, tools |
