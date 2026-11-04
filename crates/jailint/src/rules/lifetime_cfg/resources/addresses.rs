@@ -132,3 +132,35 @@ pub(super) fn storage_scope(
     }
     scope
 }
+
+// A dynamic element load can select a different allocation. Preserve a dead
+// possibility for strict mode without promoting an unknown element to a must alias.
+pub(super) fn loaded_state(model: &super::Model, source: usize, value: u8) -> u8 {
+    if value & super::DEAD != 0
+        && let super::Cell::Place(place) = model.cells.values[source]
+        && model.places.paths[place].1.iter().any(|p| {
+            matches!(
+                p,
+                crate::rules::lifetime_places::Projection::DynamicElement(_)
+            )
+        })
+    {
+        value | super::UNKNOWN
+    } else {
+        value
+    }
+}
+
+pub(super) fn seed_state(op: &super::CfgOp) -> u8 {
+    if matches!(
+        op,
+        super::CfgOp::Resource(super::Op::Seed {
+            possible: true,
+            ..
+        })
+    ) {
+        super::LIVE | super::UNKNOWN
+    } else {
+        super::LIVE
+    }
+}

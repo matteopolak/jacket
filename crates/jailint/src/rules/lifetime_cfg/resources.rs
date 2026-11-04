@@ -879,21 +879,6 @@ fn candidate(block: &Block) -> Option<(usize, Origin, Span, Option<usize>)> {
     }
 }
 
-fn seed_state(op: &CfgOp) -> u8 {
-    if matches!(
-        op,
-        CfgOp::Resource(Op::Seed {
-            possible: true,
-            ..
-        })
-    ) {
-        LIVE | UNKNOWN
-    } else {
-        LIVE
-    }
-}
-
-
 fn solve(
     cx: &Cx,
     body: &LifetimeBody,
@@ -987,7 +972,7 @@ fn solve(
                 }
                 if let Some(target) = index(*target) {
                     state[target] = if i == seed {
-                        seed_state(&model.blocks[seed].op)
+                        addresses::seed_state(&model.blocks[seed].op)
                     } else {
                         UNKNOWN
                     };
@@ -998,7 +983,11 @@ fn solve(
             }
             CfgOp::PointerLoad(target, source, _, _) => {
                 if let Some(target) = index(*target) {
-                    let value = index(*source).map_or(UNKNOWN, |s| state[s]);
+                    let value = addresses::loaded_state(
+                        model,
+                        *source,
+                        index(*source).map_or(UNKNOWN, |s| state[s]),
+                    );
                     state[target] = if i == seed && value == UNKNOWN {
                         LIVE
                     } else {

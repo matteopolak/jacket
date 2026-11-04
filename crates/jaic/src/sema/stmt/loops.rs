@@ -541,7 +541,6 @@ impl Compiler {
         region: (ir::Val, TypeId),
         span: Span,
     ) -> Result<(TypeId, ir::Val)> {
-        let esize = self.size_of(elem, span)?;
         let (caddr, cty) = region;
         Ok(if by_pointer {
             if let Some(record) = &mut f.lifetimes {
@@ -565,9 +564,15 @@ impl Compiler {
             (elem, elem_addr)
         } else {
             // A scalar element is copied into `it`, which then outlives a `remove`.
-            let copy = f.b.alloca(esize.max(1), self.align_of(elem, span)?.max(1));
-            f.b.copy(copy, elem_addr, esize);
-            (elem, copy)
+            let (_, value) = self.rvalue(
+                f,
+                Operand::Place {
+                    ty: elem,
+                    addr: elem_addr,
+                },
+                span,
+            )?;
+            (elem, self.spill(f, elem, value, span)?)
         })
     }
 

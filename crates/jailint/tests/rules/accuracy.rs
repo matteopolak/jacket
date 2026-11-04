@@ -260,3 +260,10 @@ fn lifetime_frozen_result_tracks_the_outer_call_after_argument_calls() {
     let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
 }
+
+#[test]
+fn lifetime_freeing_distinct_array_elements_is_not_double_free() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/distinct-array-frees.jai");
+    let (lints, text) = lint(&path, &[("double_free", Level::Warn)]);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
+}
