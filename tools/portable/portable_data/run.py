@@ -77,13 +77,14 @@ context_lint()
 run(sys.executable, "tools/portable/portable_data/wire_consumer.py", output, "fixtures")
 PROGRAMS = {
     "ico-wire": "stdlib/Ico_File/tests/wire.jai",
+    "ico-gdi": "stdlib/Ico_File/tests/gdi.jai",
     "ico-filename": "stdlib/Ico_File/tests/filename.jai",
     "package-contract": "stdlib/Simple_Package/tests/package.jai",
     "subtitles-contract": "stdlib/Subtitles/tests/parsing.jai",
     "icon-plugin": "stdlib/Icon/tests/plugin.jai",
     "icon-phase": "stdlib/Icon/tests/phase.jai",
 }
-for name in ("ico-wire", "ico-filename", "package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
+for name in ("ico-wire", "ico-gdi", "ico-filename", "package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
     source = PROGRAMS[name]
     # ico-filename reads its bitmaps from one folder and writes to another; both are `output` here.
     arguments = (output, output) if name == "ico-filename" else (output,)
@@ -92,6 +93,8 @@ for name in ("ico-wire", "ico-filename", "package-contract", "subtitles-contract
         binary = output / f"{name}-{mode}"
         run(compiler, f"-{mode}", source, "-exe", binary)
         run(binary, *arguments)
+        if name == "ico-gdi" and os.name == "nt":
+            run(sys.executable, "tools/portable/portable_data/sdk_icon_render.py", output)
 for name in ("package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
     wasm_test(PROGRAMS[name], name)
 wasm_test(PROGRAMS["ico-filename"], "ico-filename", output, output)
@@ -102,6 +105,9 @@ for mode in ("O0", "O2"):
     run(compiler, f"-{mode}", resource_test, "-exe", binary)
     run(binary, output)
 wasm_test(PROGRAMS["ico-wire"], "ico-wire")
+wasm_test(PROGRAMS["ico-gdi"], "ico-gdi")
+if os.name == "nt":
+    run(sys.executable, "tools/portable/portable_data/sdk_icon_render.py", output)
 wasm_test(resource_test, "resource-directory")
 for mode in ("O0", "O2"):
     binary = output / f"manifest-{mode}"

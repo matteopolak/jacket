@@ -36,6 +36,17 @@ check_rgba :: (folder: string, name: string, with_alpha: bool = true) {
 
         // The existing wire layout reserves two pixel planes and two mask planes.
         assert(length == 40 + size * size * 8 + size * size / 2);
+        assert(cursor + length <= encoded.count);
+        color := cursor + 40;
+        mask := color + size * size * 4;
+        mask_stride := ((size + 31) / 32) * 4;
+
+        for row: 0..size - 1 for column : 0..mask_stride * 8 - 1 {
+            bit := (encoded[mask + row * mask_stride + column / 8] & (128 >> (column % 8))) != 0;
+            transparent := column < size && encoded[color + (row * size + column) * 4 + 3] == 0;
+            assert(bit == transparent);
+        }
+
         cursor += length;
     }
 
