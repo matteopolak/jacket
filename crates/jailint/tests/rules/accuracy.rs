@@ -406,6 +406,18 @@ fn lifetime_ci_loop_heap_results() {
 }
 
 #[test]
+fn lifetime_ci_thread_arrays() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-thread-array.jai");
+    let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+    assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
+    assert!(
+        lints
+            .iter()
+            .all(|l| l.start > text.find("unfinished ::").unwrap())
+    );
+}
+
+#[test]
 fn lifetime_ci_local_element_field() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/ci-local-element-field.jai");
     let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);

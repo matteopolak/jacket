@@ -11,7 +11,8 @@ pub(super) fn tokens(model: &Model, start: usize) -> HashMap<Token, usize> {
             Task::Start {
                 token, ..
             }
-            | Task::End(token),
+            | Task::End(token)
+            | Task::MayEnd(token),
         ) = block.op
         {
             let next = start + out.len();
@@ -30,6 +31,7 @@ pub(super) fn transfer(
 ) {
     match op {
         Task::End(token) => state[tokens[token]] = UNKNOWN,
+        Task::MayEnd(token) => state[tokens[token]] |= UNKNOWN,
         Task::Start {
             token,
             cells,
