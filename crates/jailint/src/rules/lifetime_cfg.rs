@@ -67,6 +67,7 @@ enum Op {
     IndexWrite(usize),
     PointerLoad(usize, usize, usize, Span),
     Copy(Vec<(usize, usize)>),
+    Define(usize),
     Replace(usize),
     Grow(usize, Span),
     EmptyArray(usize),
@@ -520,6 +521,11 @@ fn solve(
                     } else {
                         source
                     };
+                }
+            }
+            Op::Define(target) => {
+                if let Some(&cell) = relevant.get(target) {
+                    state[cell] = UNKNOWN;
                 }
             }
             Op::Copy(pairs) => {

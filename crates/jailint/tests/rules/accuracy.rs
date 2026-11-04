@@ -394,3 +394,13 @@ fn lifetime_ci_scoped_events_in_import_directory() {
             .all(|l| l.start > text.find("record_bad ::").unwrap())
     );
 }
+
+#[test]
+fn lifetime_ci_loop_heap_results() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-loop-heap-results.jai");
+    for rule in ["use_after_free", "double_free"] {
+        let (lints, text) = lint(&path, &[(rule, Level::Warn)]);
+        assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+        assert!(lints[0].start > text.find("stale ::").unwrap());
+    }
+}

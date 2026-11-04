@@ -151,6 +151,32 @@ impl Builder<'_> {
                 );
             }
         }
+        if let Event::Call {
+            results,
+            expands: false,
+            ..
+        }
+        | Event::IndirectCall {
+            results, ..
+        } = event
+        {
+            // A new call overwrites its result slots even when no return-origin
+            // contract is known. A returned argument is copied after the call.
+            for &(index, value, ty) in results {
+                if self
+                    .resolver
+                    .passthrough(event, index, &self.summaries.procs)
+                    .is_some()
+                {
+                    continue;
+                }
+                if self.cx.compiler.ir_ty(ty).is_none() {
+                    ops.push(Op::Replace(self.places.place(value, ty)));
+                } else {
+                    ops.push(Op::Define(self.cells.id(Cell::Value(value))));
+                }
+            }
+        }
         ops.extend(
             self.tasks
                 .operations(

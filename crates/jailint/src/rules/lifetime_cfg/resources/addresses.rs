@@ -202,3 +202,10 @@ pub(super) fn seed_state(op: &super::CfgOp) -> u8 {
         super::LIVE
     }
 }
+
+
+pub(super) fn define(state: &mut [u8], cell: Option<usize>) {
+    if let Some(cell) = cell {
+        state[cell] = super::UNKNOWN;
+    }
+}

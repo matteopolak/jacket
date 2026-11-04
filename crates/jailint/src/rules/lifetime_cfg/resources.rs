@@ -1004,6 +1004,7 @@ fn solve(
                     }
                 }
             }
+            CfgOp::Define(target) => addresses::define(&mut state, index(*target)),
             CfgOp::Copy(pairs) => {
                 let copied: Vec<_> = pairs
                     .iter()
