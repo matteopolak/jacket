@@ -280,6 +280,27 @@ impl Resolver<'_> {
                 .is_some_and(|defs| defs.iter().any(|d| matches!(d, Def::Parameter(_))));
         if !parameter
             && self.compiler.ir_ty(root.1).is_none()
+            && self.values.get(&root.0).is_some_and(|defs| defs.iter().any(|d| matches!(d, Def::Load(_, ty) if self.compiler.ty.types.pointee(*ty) == Some(TypeId::VOID))))
+            && let Some(path) = self.trace(root.0, summaries, &mut visiting.clone(), depth + 1)
+            && let Root::Parameter(formal) = path.root
+            && self
+                .params
+                .values()
+                .any(|(n, ty)| *n == formal && self.compiler.ty.types.is_pointer(*ty))
+        {
+            let steps = projections
+                .iter()
+                .map(|p| match p {
+                    Projection::Field(n) => Some(Step::Field(*n)),
+                    Projection::Element(n) => Some(Step::Element(*n)),
+                    Projection::Deref => Some(Step::Deref),
+                    Projection::DynamicElement(_) => None,
+                })
+                .collect::<Option<Vec<_>>>()?;
+            return path.append(&steps);
+        }
+        if !parameter
+            && self.compiler.ir_ty(root.1).is_none()
             && !projections.is_empty()
             && let Some(path) =
                 self.returned_field_origin(root.0, root.1, projections, summaries, depth + 1)

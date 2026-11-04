@@ -245,14 +245,14 @@ impl Resolver<'_> {
             .into_iter()
             .filter_map(|(formal, steps)| {
                 let arg = args.iter().find(|a| a.formal == formal)?;
-                let p = self.object(arg).or_else(|| {
-                    self.compiler
-                        .ty
-                        .types
-                        .pointee(arg.ty)
-                        .filter(|ty| *ty == jaic::types::TypeId::VOID)?;
-                    self.stored_address(value(arg)?, &mut HashSet::default())
-                })?;
+                let p = self
+                    .compiler
+                    .ty
+                    .types
+                    .pointee(arg.ty)
+                    .filter(|ty| *ty == jaic::types::TypeId::VOID)
+                    .and_then(|_| self.stored_address(value(arg)?, &mut HashSet::default()))
+                    .or_else(|| self.object(arg))?;
                 self.materialize(&Path {
                     root: Root::Local(p),
                     steps,

@@ -351,3 +351,13 @@ fn lifetime_module_main_keeps_ordinary_call_lifetimes() {
     let (lints, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
     assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
 }
+
+#[test]
+fn lifetime_ci_random_string_output() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-random-string-output.jai");
+    let (lints, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    assert!(lints[0].start > text.find("keep ::").unwrap());
+    let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+}
