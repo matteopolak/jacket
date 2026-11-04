@@ -185,8 +185,8 @@ class Publish(unittest.TestCase):
         self.addCleanup(scratch.cleanup)
         self.dist = Path(scratch.name) / "dist"
         self.dist.mkdir()
-        (self.dist / "b.tar.gz").write_text("")
-        (self.dist / "a.tar.gz").write_text("")
+        (self.dist / "jacket-windows-arm64.zip").write_text("")
+        (self.dist / "jacket-linux-x64.tar.gz").write_text("")
         self.calls = []
 
     def publish(self, view, tag="v1.2.3", current="1.2.3"):
@@ -205,7 +205,7 @@ class Publish(unittest.TestCase):
         self.publish(done(1, "", "HTTP 404: Release Not Found"))
         self.assertEqual(self.verbs(), ["release view", "release create"])
         create = self.calls[1]
-        self.assertEqual(create[3:6], ["v1.2.3", f"{self.dist}/a.tar.gz", f"{self.dist}/b.tar.gz"])
+        self.assertEqual(create[3:6], ["v1.2.3", f"{self.dist}/jacket-linux-x64.tar.gz", f"{self.dist}/jacket-windows-arm64.zip"])
         self.assertIn("--latest", create)
         self.assertEqual(create[create.index("--title") + 1], "Jacket 1.2.3")
         self.assertEqual(create[-1], "--verify-tag")
@@ -222,6 +222,34 @@ class Publish(unittest.TestCase):
         self.assertEqual(self.calls[2][-1], "--latest")
         self.publish(done(0, '{"isImmutable": false}'), tag="v1.0.0")
         self.assertNotIn("--latest", self.calls[-1])
+
+    def test_deployment_only_artifact_is_not_a_distribution(self):
+        (self.dist / "artifact.tar").write_text("pages only")
+        (self.dist / "training.json").write_text("diagnostic only")
+        (self.dist / "jacket-docs-1.2.3.tar.gz").write_text("docs bundle")
+        self.publish(done(1, "", "release not found"))
+        self.assertNotIn(str(self.dist / "artifact.tar"), self.calls[1])
+        self.assertNotIn(str(self.dist / "training.json"), self.calls[1])
+        self.assertIn(str(self.dist / "jacket-docs-1.2.3.tar.gz"), self.calls[1])
+
+    def test_only_named_release_distributions_are_uploaded(self):
+        diagnostics = ("diagnostic.zip", "pgo.tar.gz", "jacket-debug.tar.gz", "jacket-docs-debug.tar.gz", "jacket-vscode-debug.vsix", "jacket-windows-x64.tar.gz")
+        expected = ("jacket-macos-arm64.tar.gz", "jacket-docs-1.2.3.tar.gz", "jacket-vscode-2.3.4.vsix", "SHA256SUMS", "toolchain-manifest.json")
+        for name in diagnostics + expected:
+            (self.dist / name).write_text("")
+        self.publish(done(1, "", "release not found"))
+        for name in diagnostics:
+            self.assertNotIn(str(self.dist / name), self.calls[1])
+        for name in expected:
+            self.assertIn(str(self.dist / name), self.calls[1])
+
+    def test_no_distribution_does_not_expand_a_wildcard_over_pages(self):
+        for file in self.dist.iterdir():
+            file.unlink()
+        (self.dist / "artifact.tar").write_text("pages only")
+        with self.assertRaises(SystemExit):
+            self.publish(done(1, "", "release not found"))
+        self.assertEqual(self.calls, [])
 
     def test_an_immutable_release_fails_before_changing_anything(self):
         with self.assertRaises(SystemExit) as raised:
@@ -257,7 +285,7 @@ class DryRun(unittest.TestCase):
         steps = re.findall(r"^== (.*)$", out, re.M)
         self.assertEqual(steps[-1], "portfolio")
         self.assertEqual(steps, list(rel.PUBLISHING))
-        self.assertTrue(out.rstrip().endswith("+ gh workflow run jai-web.yml -R matteopolak/portfolio -f jai_ref=v1.2.3"))
+        self.assertTrue(out.rstrip().endswith("+ gh workflow run jacket-web.yml -R matteopolak/portfolio -f jai_ref=v1.2.3 -f update_pointer=true"))
 
     def test_the_portfolio_step_refuses_a_malformed_tag(self):
         with self.assertRaises(SystemExit):
