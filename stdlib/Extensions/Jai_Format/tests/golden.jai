@@ -86,6 +86,7 @@ main :: () {
     }
 
     check_ranges(bless);
+    check_range_edges();
     check_refusals();
     check_equivalence_guard();
     check_config_parsing();
@@ -448,6 +449,32 @@ check_ranges :: (bless: bool) {
 
     _, past_ok := format_range("a :: 1;\n", 0, 99);
     if past_ok fail("a range past the end was accepted");
+}
+
+// Range formatting must preserve surrounding bytes, including line endings and off regions.
+check_range_edges :: () {
+    expect_range("a:=1;\r\nb  :=  2;\r\n", 0, 1, "a := 1;\r\nb  :=  2;\r\n");
+    expect_range("a::1; b::2;\nc  ::  3;\n", 7, 8, "a :: 1;\nb :: 2;\nc  ::  3;\n");
+    expect_range("#scope_file\nx:=1;\n", 0, 1, "#scope_file\nx:=1;\n");
+
+    off :: "// jaifmt: off\nx:=1;\n// jaifmt: on\n";
+    source := tprint("%y:=2;\n", off);
+
+    expect_range(source, 15, 16, source);
+    expect_range(source, off.count, off.count + 1, tprint("%y := 2;\n", off));
+
+    for string.["s := \"unterminated;\n", "main :: () {\nx:=1;\n"] {
+        output, ok, error := format_range(it, 0, 1);
+        defer free(output);
+        if ok || !error.count fail("malformed range was accepted: %", it);
+    }
+}
+
+expect_range :: (source: string, from: s64, to: s64, expected: string) {
+    output, ok, error := format_range(source, from, to);
+    defer free(output);
+    if !ok fail("range %:% failed: %", from, to, error);
+    else if output != expected fail("range %:% changed the wrong bytes\nexpected: %\nactual: %", from, to, expected, output);
 }
 
 // The formatter is written in the style it enforces.
