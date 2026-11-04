@@ -262,6 +262,23 @@ main :: () {
 
     expect_error(base, dqt + 4, 0x20, "bad quantization table", "quantization precision 2");
     expect_error(base, dqt + 4, 0x05, "bad quantization table", "quantization table id 5");
+    expect_error(base, dqt + 5, 0, "bad quantization table", "zero 8-bit quantizer");
+
+    for fixture: jpeg_fixtures {
+        if fixture.name != "wide_quant" continue;
+
+        wide := copy_of(jpeg_bytes(fixture.jpeg));
+
+        defer array_free(wide);
+        at := jpeg_find_marker(wide, 0xDB);
+
+        assert(at >= 0 && wide[at + 4] >> 4 == 1);
+        wide[at + 5] = 0;
+        wide[at + 6] = 0;
+        _, accepted, error := decode_image(wide);
+
+        check(!accepted && error == "bad quantization table", "zero 16-bit quantizer");
+    }
 
     // Cut-off headers.
     for length: 0..sof + 10 {
