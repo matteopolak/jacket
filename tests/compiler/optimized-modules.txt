@@ -19,3 +19,5 @@ lz4
 stb_image
 Ico_File
 Srgb
+
+Extensions/Meow_Portable

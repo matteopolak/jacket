@@ -35,6 +35,10 @@ on:
         description: 'Run five independent Io backend attempts per native mode on Linux x64/ARM64'
         type: boolean
         default: false
+      meowhash_validation:
+        description: 'Run isolated MeowHash safety and benchmark validation'
+        type: boolean
+        default: false
 permissions:
   contents: read
 env:
@@ -220,6 +224,36 @@ jobs:
         with:
           name: io-investigation-${{ matrix.runner }}
           path: target/ci-io-investigation
+          if-no-files-found: error
+  meowhash-acceptance:
+    if: github.event_name == 'workflow_dispatch' && inputs.meowhash_validation
+    name: MeowHash native safety acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: tools
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/meowhash-build
+      CARGO_BUILD_JOBS: '2'
+      JAIC_STDLIB: ${{ github.workspace }}/stdlib
+      # Match stdlib_jacket_sanitize.sh: check accesses, exclude process-lifetime leaks.
+      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - uses: ./.github/actions/setup-unix
+        with:
+          native-libs: 'false'
+          font: 'false'
+      - name: Build the compiler and test runner
+        run: cargo build --locked -p jaic-cli -p jacket
+      - name: Validate native safety and comparison
+        run: python3 tools/meow/validate.py
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: meowhash-evidence-${{ github.run_id }}
+          path: target/meow-evidence
           if-no-files-found: error
   dependency-hygiene:
     needs: changes
