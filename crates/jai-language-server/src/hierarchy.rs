@@ -314,7 +314,7 @@ impl Session {
     }
 
     fn call_graph(&self, uri: &DocumentUri) -> Option<Rc<CallGraph>> {
-        let doc = self.document(uri).ok()?;
+        let (uri, doc) = self.document_entry(uri).ok()?;
         let old = self.call_graphs.borrow().get(uri).cloned();
         if old.as_ref().is_some_and(|graph| {
             graph.generation == self.semantic_revision() && graph.text.as_ref() == doc.text
@@ -374,11 +374,11 @@ impl Session {
         &self,
         item: &CallHierarchyItem,
     ) -> Result<Vec<CallHierarchyCall>, Error> {
-        let uri = DocumentUri::parse(&item.uri)?;
-        if self.document(&uri).is_err() {
+        let requested = DocumentUri::parse(&item.uri)?;
+        let Ok((uri, _)) = self.document_entry(&requested) else {
             return Ok(Vec::new());
-        }
-        self.call_graph(&uri);
+        };
+        self.call_graph(uri);
         let graphs: Vec<_> = self
             .call_graphs
             .borrow()
@@ -402,7 +402,7 @@ impl Session {
                 else {
                     continue;
                 };
-                if callee.uri != item.uri || callee.selection_range != item.selection_range {
+                if callee.uri != uri.as_str() || callee.selection_range != item.selection_range {
                     continue;
                 }
                 let Some(site) = calling(&here, at) else {
@@ -426,8 +426,8 @@ impl Session {
         &self,
         item: &CallHierarchyItem,
     ) -> Result<Vec<CallHierarchyCall>, Error> {
-        let uri = DocumentUri::parse(&item.uri)?;
-        let Ok(doc) = self.document(&uri) else {
+        let requested = DocumentUri::parse(&item.uri)?;
+        let Ok((uri, doc)) = self.document_entry(&requested) else {
             return Ok(Vec::new());
         };
         let here = sites(&doc.text);
@@ -435,7 +435,7 @@ impl Session {
         let Some(me) = here.iter().find(|site| contains(site.name_span, start)) else {
             return Ok(Vec::new());
         };
-        let Some(graph) = self.call_graph(&uri) else {
+        let Some(graph) = self.call_graph(uri) else {
             return Ok(Vec::new());
         };
         let shift = crate::semantic::Shift::between(graph.text.as_bytes(), doc.text.as_bytes());
@@ -448,7 +448,7 @@ impl Session {
             if calling(&here, at).is_none_or(|site| site.name_span != me.name_span) {
                 continue;
             }
-            let Some((callee, key)) = self.call_target(&uri, &here, shift, fact, &mut sources)
+            let Some((callee, key)) = self.call_target(uri, &here, shift, fact, &mut sources)
             else {
                 continue;
             };

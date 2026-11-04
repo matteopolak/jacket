@@ -41,6 +41,8 @@ Outgoing call hierarchy also reads the last checked snapshot while an edit is pe
 
 Diagnostics retain resolved call records for checked open documents separately from the compiler cache. Incoming and outgoing hierarchy therefore survive other documents' checks evicting a compiler. The records keep the caller's text, resolved declarations and callee content keys, without retaining compilers or library source. Closing a document drops its records; cache resets and changes to trust, check limits or workspace folders clear them. A changed external callee waits for a fresh check. The eviction regression checks larger unrelated files before asking for the original document's hierarchy, and asserts that neither request compiles.
 
+The retained records use the stored document identity, so filesystem-proven URI aliases share them. `uri_alias_tests.rs` checks incoming and outgoing requests through an alias without a new compile.
+
 A cold file has no semantic snapshot to query. Integration tests that require its complete call tree first send `textDocument/diagnostic` for that document: the diagnostics pull checks its current text before returning. This also synchronizes an editor test after reverting an edit, without a delay or a retried navigation request.
 
 ### Feature list

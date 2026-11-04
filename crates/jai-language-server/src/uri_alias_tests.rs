@@ -63,6 +63,29 @@ fn pos(s: &Session, uri: &DocumentUri, needle: &str) -> Position {
 }
 
 #[test]
+fn alias_call_hierarchy_uses_the_stored_document_records() {
+    let text = "leaf :: () {}\nmain :: () { leaf(); }";
+    let (s, stored, alias) = fixture(text);
+    s.defer_compiles(true);
+    s.diagnostics(&stored).unwrap();
+    let compiles = s.compile_counts().0;
+    let leaf = s
+        .prepare_call_hierarchy(&alias, pos(&s, &alias, "leaf ::"))
+        .unwrap();
+    let incoming = s.incoming_calls(&leaf[0]).unwrap();
+    assert_eq!(incoming.len(), 1);
+    assert_eq!(incoming[0].item.name, "main");
+    let main = s
+        .prepare_call_hierarchy(&alias, pos(&s, &alias, "main ::"))
+        .unwrap();
+    let outgoing = s.outgoing_calls(&main[0]).unwrap();
+    assert_eq!(outgoing.len(), 1);
+    assert_eq!(outgoing[0].item.name, "leaf");
+    assert_eq!(outgoing[0].item.uri, stored.as_str());
+    assert_eq!(s.compile_counts().0, compiles);
+}
+
+#[test]
 fn alias_lexical_declaration_and_local_bindings_use_stored_key() {
     let text = "answer :: 42;\nmain :: () { local := 1; value := local; }";
     let (s, stored, alias) = fixture(text);
