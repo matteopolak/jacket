@@ -238,8 +238,10 @@ test_self_cancel :: () {
 // it waits until it ends.
 grace_results: [6] Io.Io_Error;
 grace_canceled_after: bool;
+grace_group: Io.Wait_Group;
 
 graceful :: () {
+    defer Io.done(*grace_group);
     Io.with_deadline(1, #code {
         grace_results[0] = Io.sleep(50);
         Io.with_grace(1000, #code {
@@ -263,6 +265,7 @@ held_result: Io.Io_Error;
 held_done: bool;
 
 held :: () {
+    defer Io.done(*grace_group);
     Io.with_grace(1000, #code {
         held_result = Io.sleep(20); // canceled meanwhile, and still sleeps its full time
     });
@@ -270,8 +273,10 @@ held :: () {
 }
 
 test_grace :: () {
+    Io.add(*grace_group, 1);
     Io.spawn(graceful);
-    Io.sleep(150);
+    // Wait for completion: a suspended CI worker can outlast any guessed sleep interval.
+    assert(Io.wait(*grace_group) == .NONE);
     assert(grace_results[0] == .TIMED_OUT);
     assert(grace_results[1] == .NONE);
     assert(grace_results[2] == .TIMED_OUT);
@@ -280,11 +285,12 @@ test_grace :: () {
     assert(grace_results[5] == .CANCELED);
     assert(grace_canceled_after);
 
+    Io.add(*grace_group, 1);
     handle := Io.spawn(held);
 
     Io.yield();
     Io.cancel(handle);
-    Io.sleep(100);
+    assert(Io.wait(*grace_group) == .NONE);
     assert(held_result == .NONE, "a cancel during with_grace waited: %", held_result);
     assert(held_done, "the held cancel applied when with_grace ended");
 }
