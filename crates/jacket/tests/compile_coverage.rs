@@ -5,7 +5,7 @@ use installed::{archive, jacket, scratch};
 
 #[test]
 fn unit_test_coverage_includes_compile_time_generators() {
-    if test_support::toolchain::optional("llvm-dwarfdump").is_none() {
+    if test_support::toolchain::require("llvm-dwarfdump").is_none() {
         return;
     }
     let root = scratch("compile-coverage");
@@ -35,7 +35,9 @@ fn unit_test_coverage_includes_compile_time_generators() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
-    let report = std::fs::read_to_string(project.join("coverage.lcov")).unwrap();
+    let report = std::fs::read_to_string(project.join("coverage.lcov"))
+        .unwrap()
+        .replace('\\', "/");
     let own = report
         .split("end_of_record")
         .find(|record| record.contains("/module.jai\n"))
