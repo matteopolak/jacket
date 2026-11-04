@@ -59,6 +59,9 @@ impl Toolchain {
     pub fn jaic_command(&self) -> Command {
         let mut command = Command::new(&self.jaic);
         command.env(jacket_config::env::STDLIB.name, &self.stdlib);
+        if let Some(dir) = &self.coverage_dir {
+            command.env(jacket_config::env::COVERAGE_DIR.name, dir);
+        }
         command
     }
 }

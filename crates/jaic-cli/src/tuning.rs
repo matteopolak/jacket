@@ -7,7 +7,6 @@ use super::{
     Action, Cli, CliError, CliOption,
     Section::{Diagnostics, Output},
 };
-use crate::cli::Mode;
 use crate::options::store;
 
 /// What the flags here set, in `Cli::tuning`.
@@ -88,7 +87,9 @@ pub(super) fn knobs(cli: &Cli) -> jaic::knobs::Knobs {
             _ => jaic::knobs::Profile::Off,
         },
         run_costs: t.profile_runs,
-        coverage: cli.coverage && cli.mode == Mode::Interp,
+        // Native builds run generators and #run code in the interpreter too. Record those
+        // lines alongside the executable's coverage instead of reporting them as never run.
+        coverage: cli.coverage,
         body_probe: t.body_probe,
         body_fifo: t.body_fifo,
         speculative_bodies: t.speculative_bodies,

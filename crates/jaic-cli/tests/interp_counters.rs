@@ -5,6 +5,42 @@ use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
+#[test]
+#[cfg(feature = "llvm")]
+fn native_build_coverage_records_compile_time_execution() {
+    let dir = TempDir::new("cli-native-compile-coverage");
+    let source = dir.join("compile.jai");
+    std::fs::write(
+        &source,
+        "compute :: () -> int { return 42; }\nVALUE :: #run compute();\n#import \"Basic\";\nmain :: () { assert(VALUE == 42); }\n",
+    )
+    .unwrap();
+    let coverage = dir.join("compile.cov");
+    let output = Command::new(JAIC)
+        .arg(&source)
+        .arg("-coverage")
+        .arg("-exe")
+        .arg(dir.join("program"))
+        .env("JAIC_COVERAGE_FILE", &coverage)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let text = std::fs::read_to_string(&coverage).expect("the compiler records its #run execution");
+    let (_, own) = text
+        .split_once(&format!("file {}\n", source.display()))
+        .unwrap();
+    assert!(
+        own.lines()
+            .take_while(|line| !line.starts_with("file "))
+            .any(|line| line == "1 1"),
+        "{text}"
+    );
+}
+
 /// A program with a hot loop and a few calls, interpreted with the counters on.
 fn counting_program(dir: &Path, name: &str, end: &str) -> std::path::PathBuf {
     std::fs::create_dir_all(dir).unwrap();

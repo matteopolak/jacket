@@ -535,6 +535,10 @@ fn run_once(
             toolchain.flags.extend(["-add".into(), format!("#run {{ C :: #import \"Compiler\"; C.compiler_add_library_search_directory({path}); }}")]);
         }
     }
+    // Native compilation runs #run code and generators too. Their interpreter coverage belongs
+    // in this report, alongside the blocks the built test programs execute later.
+    let compile_coverage = coverage.as_ref().map(coverage::Coverage::run_dir);
+    toolchain.coverage_dir.clone_from(&compile_coverage);
     let built = build_all(
         &roots,
         &root_flags,
@@ -545,6 +549,10 @@ fn run_once(
         bench,
         settings.jobs.min(4),
     );
+    if let (Some(coverage), Some(dir)) = (&coverage, &compile_coverage) {
+        coverage.collect_once(dir);
+    }
+    toolchain.coverage_dir = None;
     let mut broken = false;
     let built: Vec<Option<Built>> = built
         .into_iter()
