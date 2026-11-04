@@ -1,6 +1,6 @@
 import json
-import subprocess
 import tempfile
+import time
 from pathlib import Path
 import unittest
 from unittest import mock
@@ -61,6 +61,22 @@ class LazyBackendTests(unittest.TestCase):
 
 
 class TrainingEvidenceTests(unittest.TestCase):
+    def test_timeout_kills_training_children_and_grandchildren(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ready, survived = root / "ready", root / "survived"
+            grandchild = (f"from pathlib import Path; import time; Path({str(ready)!r}).touch(); "
+                          f"time.sleep(1); Path({str(survived)!r}).touch()")
+            child = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', {grandchild!r}]); time.sleep(2)"
+            parent = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', {child!r}]); time.sleep(2)"
+            result = build_pgo.training_step("tree timeout", [build_pgo.sys.executable, "-c", parent],
+                                             None, root / "step.log", 0.5)
+            self.assertEqual(result["exit_code"], "timeout")
+            self.assertTrue(ready.exists(), "grandchild must start before timeout")
+            time.sleep(0.8)
+            self.assertFalse(survived.exists(), "grandchild outlived training timeout")
+            # Synthetic descendants exit on their own within two seconds even on a regression.
+
     def test_new_invocation_removes_stale_training_evidence_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp)
@@ -76,9 +92,9 @@ class TrainingEvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "step.log"
             def fail(cmd, **kwargs):
-                kwargs["stdout"].write(b"x" * 20000 + b"\nmissing backend library\n")
-                return mock.Mock(returncode=1)
-            with mock.patch.object(build_pgo, "run", side_effect=fail), mock.patch.object(build_pgo, "log") as log:
+                kwargs["output"].write(b"x" * 20000 + b"\nmissing backend library\n")
+                return mock.Mock(returncode=1, timed_out=False)
+            with mock.patch.object(build_pgo, "run_measured", side_effect=fail), mock.patch.object(build_pgo, "log") as log:
                 result = build_pgo.training_step("native -O0", ["jaic", "-O0"], {}, path, 30)
             self.assertEqual(result["status"], "failed")
             self.assertEqual(result["exit_code"], 1)
@@ -90,7 +106,7 @@ class TrainingEvidenceTests(unittest.TestCase):
 
     def test_expected_lint_diagnostics_are_recorded_without_failure(self):
         with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch.object(build_pgo, "run", return_value=mock.Mock(returncode=1)):
+            with mock.patch.object(build_pgo, "run_measured", return_value=mock.Mock(returncode=1, timed_out=False)):
                 result = build_pgo.training_step("lint", ["jailint"], {}, Path(tmp) / "lint.log", 30, expected=(0, 1))
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["exit_code"], 1)
@@ -99,9 +115,9 @@ class TrainingEvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "timeout.log"
             def timeout(cmd, **kwargs):
-                kwargs["stdout"].write(b"partial output\n")
-                raise subprocess.TimeoutExpired(cmd, 30)
-            with mock.patch.object(build_pgo, "run", side_effect=timeout):
+                kwargs["output"].write(b"partial output\n")
+                return mock.Mock(returncode=-9, timed_out=True)
+            with mock.patch.object(build_pgo, "run_measured", side_effect=timeout):
                 result = build_pgo.training_step("native", ["jaic"], {}, path, 30)
             self.assertEqual(result["exit_code"], "timeout")
             self.assertEqual(result["status"], "failed")
@@ -184,23 +200,27 @@ class LspSessionTests(unittest.TestCase):
     def test_session_retains_stderr_and_partial_timeout_output(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "jailsp.log"
-            result = mock.Mock(returncode=1, stdout=b"response", stderr=b"failure")
-            with mock.patch.object(build_pgo.subprocess, "run", return_value=result):
+            def fail(cmd, **kwargs):
+                kwargs["output"].write(b"responsefailure")
+                return mock.Mock(returncode=1, timed_out=False)
+            with mock.patch.object(build_pgo, "run_measured", side_effect=fail):
                 code, _ = build_pgo.lsp_session("jailsp", {}, output)
             self.assertEqual(code, 1)
             self.assertEqual(output.read_bytes(), b"responsefailure")
-            timeout = subprocess.TimeoutExpired(["jailsp"], 900, output=b"partial", stderr=b"stuck")
-            with mock.patch.object(build_pgo.subprocess, "run", side_effect=timeout):
+            def timeout(cmd, **kwargs):
+                kwargs["output"].write(b"partialstuck")
+                return mock.Mock(returncode=-9, timed_out=True)
+            with mock.patch.object(build_pgo, "run_measured", side_effect=timeout):
                 code, _ = build_pgo.lsp_session("jailsp", {}, output)
             self.assertEqual(code, "timeout")
             self.assertEqual(output.read_bytes(), b"partialstuck")
 
     def test_session_is_framed_and_ends_with_exit(self):
-        done = mock.Mock(returncode=0, stdout=b"")
-        with mock.patch.object(build_pgo.subprocess, "run", return_value=done) as run:
+        done = mock.Mock(returncode=0, timed_out=False)
+        with mock.patch.object(build_pgo, "run_measured", return_value=done) as run:
             code, _ = build_pgo.lsp_session("jailsp", {})
         self.assertEqual(code, 0)
-        data, messages = run.call_args.kwargs["input"], []
+        data, messages = run.call_args.kwargs["stdin_bytes"], []
         while data:
             header, _, rest = data.partition(b"\r\n\r\n")
             n = int(header.split(b":")[1])

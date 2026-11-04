@@ -17,6 +17,8 @@ Results are never committed. Keep a baseline per machine with `--out` and pass i
 
 Every result has three numbers, each as median, min, max, MAD and p95: `wall` seconds, `cpu` seconds (process plus waited-for children), and `rss_mib` (peak of the largest single process). The harness warms the file cache (`--warmup`, default 1) and then takes `--repeat` timed runs (default 5).
 
+`bench.measure.run_measured` owns the command's process tree: a private process group on POSIX, a Job Object on Windows. Timeout, interruption and normal exit clean up descendants. Windows setup failures also close the new Job and terminate a suspended process if assignment failed. For long diagnostic runs, `run_measured(command, output=log_file)` streams stdout and stderr to an open binary file; the result keeps status and resource metrics with empty output strings. The caller owns the file. PGO training uses this path so a timed-out sweep cannot leave compiler jobs running.
+
 `--compare old.json` flags a result when wall, CPU or RSS grew by more than `--threshold`, more than `--min-seconds`/`--min-mib`, and more than three MADs. A workload that worked before and fails now is a regression too. Compare runs from one machine only.
 
 Common options: `--only A,B` (substrings of result keys), `--list`, `--timeout`, `--out`, `--markdown`.
@@ -53,6 +55,7 @@ python tools\bench\main.py compare --baseline C:\jai\bin\jai.exe --candidate C:\
 - **New lint or fmt scenario:** add a `Scenario` in `cmd_lint.py` or `cmd_fmt.py`.
 - **A compiler with another command line:** subclass `Dialect` in `dialects.py`.
 - **`compare` internals:** workloads in `cmd_compare.py`, noise thresholds in `quiet.py`, statistics in `pairing.py`.
+- **Process ownership:** `measure.py` handles POSIX cleanup and file destinations; `winjob.py` owns Windows job lifetime. Preserve exception cleanup and caller-owned streams when extending either path; regressions are in `test_compile_cmd.py` and `test_windows.py`.
 - Gotchas: `jaic -timings` goes before a lone `-`. Seatbelt matches real paths (`/private/var/folders`).
 
 ## Profiling

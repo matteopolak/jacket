@@ -30,6 +30,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from bench.measure import run_measured
 from toolkit.host import exe_name
 from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT, cargo_target_dir
@@ -355,25 +356,14 @@ def lsp_session(jailsp, env, output=None):
         b"Content-Length: %d\r\n\r\n%s" % (len(body), body)
         for body in (json.dumps(m).encode() for m in messages)
     )
-    try:
-        result = subprocess.run(
-            [str(jailsp)],
-            input=data,
-            capture_output=True,
-            env=env,
-            cwd=ROOT,
-            timeout=900,
-        )
-    except subprocess.TimeoutExpired as error:
-        if output is not None:
-            Path(output).write_bytes((error.stdout or b"") + (error.stderr or b""))
-        return "timeout", f"{len(messages)} messages"
-    if output is not None:
-        Path(output).write_bytes(result.stdout + (result.stderr or b""))
-    return (
-        result.returncode,
-        f"{len(messages)} messages, {len(result.stdout)} bytes of responses",
-    )
+    # A file destination keeps partial responses and stderr even if training is interrupted.
+    with (Path(output).open("w+b") if output is not None else tempfile.TemporaryFile()) as stream:
+        result = run_measured([str(jailsp)], stdin_bytes=data, output=stream,
+                              env=env, cwd=ROOT, timeout=900)
+        stream.flush()
+        size = stream.seek(0, 2)
+    code = "timeout" if result.timed_out else result.returncode
+    return code, f"{len(messages)} messages, {size} bytes of output"
 
 
 def reset_training_evidence(work):
@@ -404,12 +394,10 @@ def training_step(name, cmd, env, output, timeout, *, expected=(0,), verbose=Fal
     The release log gets at most the last 16 KiB on failure; the file keeps the full output.
     """
     start = time.monotonic()
+    log("$ " + " ".join(map(str, cmd)))
     with Path(output).open("wb") as stream:
-        try:
-            code = run(cmd, env=env, check=False, stdout=stream,
-                       stderr=subprocess.STDOUT, timeout=timeout).returncode
-        except subprocess.TimeoutExpired:
-            code = "timeout"
+        result = run_measured(list(map(str, cmd)), env=env, cwd=ROOT, output=stream, timeout=timeout)
+    code = "timeout" if result.timed_out else result.returncode
     elapsed = time.monotonic() - start
     status = "completed" if code in expected else "failed"
     log(f"{name}: exit {code} in {elapsed:.0f}s; output: {output}")
