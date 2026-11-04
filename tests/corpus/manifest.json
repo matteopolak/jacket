@@ -3250,7 +3250,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "a note's parenthesis closes on its line",
+        "check": "a note's `(` is not closed on its line",
         "code": "lex-unterminated-note"
       }
     },
