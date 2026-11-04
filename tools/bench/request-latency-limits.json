@@ -1,0 +1,476 @@
+{
+  "examples/basics/structs.jai": {
+    "initialize": {
+      "max_p50_ms": 336.5621874399949,
+      "max_ms": 336.5621874399949
+    },
+    "textDocument/hover": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/completion": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/definition": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/typeDefinition": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/declaration": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/prepareTypeHierarchy": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/linkedEditingRange": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/implementation": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/prepareRename": {
+      "max_p50_ms": 71.61447880207561,
+      "max_ms": 120
+    },
+    "textDocument/rename": {
+      "max_p50_ms": 68.73765611089766,
+      "max_ms": 120
+    },
+    "textDocument/documentHighlight": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/signatureHelp": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/prepareCallHierarchy": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "jai/expansion": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/documentSymbol": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/formatting": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/documentLink": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/foldingRange": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/codeLens": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/diagnostic": {
+      "max_p50_ms": 82.47755249612965,
+      "max_ms": 120
+    },
+    "textDocument/semanticTokens/full": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/rangeFormatting": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/references": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/inlayHint": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/codeAction": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/selectionRange": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/semanticTokens/range": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/semanticTokens/full/delta": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "workspace/symbol": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "workspace/diagnostic": {
+      "max_p50_ms": 82.62255127192475,
+      "max_ms": 120
+    },
+    "completionItem/resolve": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "typeHierarchy/supertypes": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "typeHierarchy/subtypes": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "callHierarchy/incomingCalls": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "callHierarchy/outgoingCalls": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "workspace/executeCommand": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "jai/source": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "shutdown": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    }
+  },
+  "examples/kvdb/main.jai": {
+    "initialize": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/hover": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/completion": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/definition": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/typeDefinition": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/declaration": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/prepareTypeHierarchy": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/linkedEditingRange": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/implementation": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/prepareRename": {
+      "max_p50_ms": 120.46156247379258,
+      "max_ms": 137.62442613369785
+    },
+    "textDocument/rename": {
+      "max_p50_ms": 119.4383337860927,
+      "max_ms": 120.13921877951361
+    },
+    "textDocument/documentHighlight": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/signatureHelp": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/prepareCallHierarchy": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "jai/expansion": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/documentSymbol": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/formatting": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/documentLink": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/foldingRange": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/codeLens": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/diagnostic": {
+      "max_p50_ms": 1991.257603658596,
+      "max_ms": 1998.7657286401372
+    },
+    "textDocument/semanticTokens/full": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/rangeFormatting": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/references": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/inlayHint": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/codeAction": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/selectionRange": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/semanticTokens/range": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/semanticTokens/full/delta": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "workspace/symbol": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "workspace/diagnostic": {
+      "max_p50_ms": 1994.511301163584,
+      "max_ms": 2002.3752600536682
+    },
+    "completionItem/resolve": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "typeHierarchy/supertypes": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "typeHierarchy/subtypes": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "callHierarchy/incomingCalls": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "callHierarchy/outgoingCalls": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "workspace/executeCommand": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "jai/source": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "shutdown": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    }
+  },
+  "examples/editor/editor.jai": {
+    "initialize": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/hover": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/completion": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/definition": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/typeDefinition": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/declaration": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/prepareTypeHierarchy": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/linkedEditingRange": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/implementation": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/prepareRename": {
+      "max_p50_ms": 210.76598874060437,
+      "max_ms": 218.60109380213544
+    },
+    "textDocument/rename": {
+      "max_p50_ms": 210.5132288124878,
+      "max_ms": 211.77848990191706
+    },
+    "textDocument/documentHighlight": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/signatureHelp": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/prepareCallHierarchy": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "jai/expansion": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/documentSymbol": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/formatting": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/documentLink": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/foldingRange": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/codeLens": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/diagnostic": {
+      "max_p50_ms": 306.88171871588565,
+      "max_ms": 309.63822864578106
+    },
+    "textDocument/semanticTokens/full": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/rangeFormatting": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/references": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/inlayHint": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/codeAction": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/selectionRange": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/semanticTokens/range": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "textDocument/semanticTokens/full/delta": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "workspace/symbol": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "workspace/diagnostic": {
+      "max_p50_ms": 304.56244756351225,
+      "max_ms": 311.3126038806513
+    },
+    "completionItem/resolve": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "typeHierarchy/supertypes": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "typeHierarchy/subtypes": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "callHierarchy/incomingCalls": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "callHierarchy/outgoingCalls": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "workspace/executeCommand": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "jai/source": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    },
+    "shutdown": {
+      "max_p50_ms": 25,
+      "max_ms": 120
+    }
+  }
+}

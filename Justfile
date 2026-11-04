@@ -157,3 +157,8 @@ dogfood:
     sh examples/music/tools/smoke.sh
     sh examples/term/tools/smoke.sh
     sh examples/traceview/tools/smoke.sh
+
+# Local wall-clock gate; shared runners are too noisy for automatic CI enforcement.
+[group('test')]
+lsp-latency server formatter output *args:
+    {{ py }} tools/bench/request_latency.py --server "{{ server }}" --formatter "{{ formatter }}" --output "{{ output }}" --limits tools/bench/request-latency-limits.json --max-load 4 {{ args }} examples/basics/structs.jai examples/kvdb/main.jai examples/editor/editor.jai
