@@ -65,6 +65,7 @@ produce :: (stream: *Stream, data: *void) {
 
         Io.sleep(5);
     }
+
     check(finish_stream(stream, Header_Field.[.{ name = "grpc-status", value = "0" }]), "finish streamed response with trailers");
 }
 
@@ -716,7 +717,7 @@ protocol_errors :: (base: string, server: *Server) {
     check(result.status == 200, "and the connection keeps working");
 
     // Connection-specific headers, a missing :path, and a body of another length than announced.
-    bad_cases := Header_Field.[.{ name = "connection", value = "close" }, .{ name = "transfer-encoding", value = "chunked" }, .{ name = "te", value = "gzip" }];
+    bad_cases := Header_Field.[.{ name = "connection", value = "close" }, .{ name = "transfer-encoding", value = "chunked" }, .{ name = "te", value = "gzip" }, .{ name = "bad name", value = "value" }, .{ name = "x-bad", value = "bad\r\nvalue" }];
 
     for bad_cases {
         id = request(peer, "GET", "/ping", .[it]);

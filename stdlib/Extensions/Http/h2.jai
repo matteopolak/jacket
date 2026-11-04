@@ -44,6 +44,7 @@ H2_Stream :: struct {
 
     local_ended: bool; // we sent END_STREAM
     remote_ended: bool; // the peer sent it
+    head_ended: bool; // initial response HEADERS carried END_STREAM
     reset_by_peer: bool;
     reset_sent: bool;
     reset_code: u32;
@@ -61,6 +62,7 @@ H2_Stream :: struct {
     status: int;
     has_head: bool;
     failure: string; // why the stream ended in an error, for the caller
+    goaway_refused: bool;
     refused: bool; // the server did not process it (RST_STREAM REFUSED_STREAM or GOAWAY): the request may be retried
     exchange_taken: bool; // server handler owns the duplex response
     head_only: bool; // the request was HEAD: the response has a length and no body
@@ -102,6 +104,7 @@ H2_Conn :: struct {
     draining: bool; // the server is shutting down: new streams are refused
 
     reader: Io.Fiber_Handle;
+    writer: Io.Fiber_Handle;
 
     // The client's reader closed the link: nothing of the connection touches its TLS config any more.
     link_closed: bool;
@@ -164,6 +167,7 @@ h2_conn_release :: (conn: *H2_Conn) {
     array_reset(*conn.fragment);
 
     if conn.host.count free(conn.host.data);
+    if conn.server Io.done(*conn.server.finished);
 
     free(conn);
 }
@@ -214,7 +218,7 @@ h2_conn_start :: (conn: *H2_Conn, window_bonus: s64) {
 
     conn.refs += 1;
 
-    Io.spawn(h2_writer, conn);
+    conn.writer = Io.spawn(h2_writer, conn);
 }
 
 // ---- Writing
@@ -250,7 +254,7 @@ h2_writer :: (conn: *H2_Conn) {
         conn.spare.count = 0;
 
         // The queue shrinks only now, so senders see the batch in flight as still queued.
-        Io.notify_all(*conn.drained);
+        h2_notify_drained(conn);
 
         if error != .NONE {
             h2_fail(conn);
@@ -261,7 +265,7 @@ h2_writer :: (conn: *H2_Conn) {
         trim(*conn.spare, RETAIN_OUTPUT);
     }
 
-    Io.notify_all(*conn.drained);
+    h2_notify_drained(conn);
 }
 
 // The socket failed: nothing more can be sent or received.
@@ -280,7 +284,7 @@ h2_mark_dead :: (conn: *H2_Conn) {
     conn.dead = true;
 
     Io.notify_all(*conn.wake_writer);
-    Io.notify_all(*conn.drained);
+    h2_notify_drained(conn);
 
     for conn.streams {
         if it.has_fiber Io.cancel(it.fiber);
@@ -314,21 +318,31 @@ h2_shutdown :: (conn: *H2_Conn) {
     Io.notify_one(*conn.wake_writer);
 }
 
-// Waits for room in the queue; false when the connection died or the wait ran out.
-h2_wait_for_room :: (conn: *H2_Conn) -> bool {
-    while conn.out.count > H2_QUEUE_LIMIT {
-        if conn.dead return false;
+// Queue drain also wakes stream-specific senders; reset wakes only its own stream.
+h2_notify_drained :: (conn: *H2_Conn) {
+    Io.notify_all(*conn.drained);
+    for conn.streams if it Io.notify_all(*it.changed);
+}
+
+h2_writable :: (conn: *H2_Conn, stream: *H2_Stream) -> bool {
+    return !conn.dead && (!stream || (!stream.reset_by_peer && !stream.reset_sent && !stream.local_ended));
+}
+
+// A stream-specific wait can be interrupted without resuming the socket writer.
+h2_wait_for_room :: (conn: *H2_Conn, stream: *H2_Stream = null) -> bool {
+    while conn.out.count + conn.spare.count > H2_QUEUE_LIMIT {
+        if !h2_writable(conn, stream) return false;
 
         error: Io.Io_Error;
 
         Io.with_deadline(within(conn.write_timeout), #code {
-            error = Io.wait(*conn.drained);
+            if stream error = Io.wait(*stream.changed);
+            else error = Io.wait(*conn.drained);
         });
-
         if error != .NONE return false;
     }
 
-    return !conn.dead;
+    return h2_writable(conn, stream);
 }
 
 // Queues a header block on `stream` (a new stream's id was chosen by the caller). The fields must
@@ -360,7 +374,7 @@ h2_send_data :: (stream: *H2_Stream, data: [] u8, end_stream: bool) -> bool {
     while sent < data.count || (end_stream && !stream.local_ended) {
         if conn.dead || stream.reset_by_peer || stream.reset_sent || stream.local_ended return false;
 
-        if !h2_wait_for_room(conn) return false;
+        if !h2_wait_for_room(conn, stream) return false;
 
         left := data.count - sent;
         count := min(min(left, stream.send_window), min(conn.send_window, conn.remote.max_frame_size));
@@ -662,6 +676,7 @@ h2_on_data :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2_Er
 
             return .NO_ERROR;
         }
+
         stream.remote_ended = true;
     }
 
@@ -750,8 +765,19 @@ h2_on_reset :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2_E
 
     if !stream return .NO_ERROR;
 
+    code := h2_read_u32(payload, 0);
+    // RFC 9113 section 8.1: a completed response survives NO_ERROR used to
+    // stop the unfinished request direction. Retain its queued bytes/trailers.
+    if conn.role == .CLIENT && stream.remote_ended && code == cast(u32) H2_Error.NO_ERROR {
+        stream.local_ended = true;
+        Io.notify_all(*stream.changed);
+        h2_check_closed(stream);
+        return .NO_ERROR;
+    }
+
     stream.reset_by_peer = true;
-    stream.reset_code = h2_read_u32(payload, 0);
+    stream.reset_code = code;
+    if stream.has_fiber Io.cancel(stream.fiber);
 
     // A refused stream was not processed at all.
     stream.refused = stream.reset_code == cast(u32) H2_Error.REFUSED_STREAM;
@@ -838,6 +864,7 @@ h2_on_goaway :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2_
 
         if h2_local_stream(conn, stream.id) && stream.id > last {
             stream.refused = true;
+            stream.goaway_refused = true;
             stream.reset_by_peer = true;
 
             Io.notify_all(*stream.changed);
@@ -899,14 +926,25 @@ h2_connection_specific :: (name: string) -> bool {
     return name == "connection" || name == "proxy-connection" || name == "keep-alive" || name == "transfer-encoding" || name == "upgrade";
 }
 
+// Initial H2 fields share HTTP token/value syntax, with a single leading colon
+// permitted for pseudo headers; each role separately validates their identities.
+h2_field_syntax_ok :: (field: Header_Field) -> bool {
+    if h2_has_uppercase(field.name) return false;
+    regular := field;
+    if regular.name.count && regular.name[0] == #char ":" regular.name = slice(regular.name, 1, regular.name.count - 1);
+    return field_syntax_ok(regular);
+}
+
 // Trailer blocks contain regular fields only. TE is legal only with `trailers`.
 h2_valid_trailers :: (fields: [] Header_Field) -> bool {
     // Share token/value and framing-field checks with the HTTP writers.
     if !fields_ok(fields) return false;
+
     for fields {
         if it.name.count == 0 || it.name[0] == #char ":" || h2_has_uppercase(it.name) || h2_connection_specific(it.name) return false;
         if it.name == "te" && it.value != "trailers" return false;
     }
+
     return true;
 }
 

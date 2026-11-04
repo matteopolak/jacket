@@ -7,6 +7,8 @@ proto_emit_schema :: (s: *proto_Schema, b: *String_Builder) {
     if s.options.map == .TABLE append(b, "proto_m :: #import \"Hash_Table\";\n");
     if s.options.map == .CUSTOM proto_emit(b, "proto_m :: #import \"%\";\n", s.options.map_module);
 
+    if s.options.grpc append(b, "#assert OS != .WASM \"generated gRPC services require native Io\";\nproto_g :: #import \"Extensions/Grpc\";\nproto_h :: #import \"Extensions/Http\";\n");
+
     append(b, "#scope_export\n");
     proto_emit_packages(s, b);
     proto_emit_registry(s, b);
@@ -21,15 +23,22 @@ proto_Namespace :: struct {
 proto_Namespace_Item :: struct {
     node: *proto_Node;
     child: *proto_Namespace;
+    service: *proto_Service;
 }
 
 proto_emit_packages :: (s: *proto_Schema, b: *String_Builder) {
     top: proto_Namespace;
     levels: proto_symbols.Map(string, *proto_Namespace);
 
-    for root: s.roots {
+    entries: [..] proto_Namespace_Item;
+
+    for s.roots array_add(*entries, .{ node = it });
+    for s.services array_add(*entries, .{ service = it });
+
+    for entry: entries {
+        package := ifx entry.node then entry.node.package else entry.service.package;
         level := *top;
-        rest := root.package;
+        rest := package;
 
         while rest.count {
             part := rest;
@@ -40,7 +49,7 @@ proto_emit_packages :: (s: *proto_Schema, b: *String_Builder) {
             }
 
             // Package text is shared by every root of the package, so the prefix is a slice of it.
-            path := slice(root.package, 0, root.package.count - rest.count + part.count);
+            path := slice(package, 0, package.count - rest.count + part.count);
             child, added := proto_symbols.entry(*levels, path);
 
             if added {
@@ -54,7 +63,7 @@ proto_emit_packages :: (s: *proto_Schema, b: *String_Builder) {
             if rest.count rest = slice(rest, 1, rest.count - 1);
         }
 
-        array_add(*level.items, .{ node = root });
+        array_add(*level.items, entry);
     }
 
     proto_emit_namespace(s, b, *top);
@@ -62,6 +71,11 @@ proto_emit_packages :: (s: *proto_Schema, b: *String_Builder) {
 
 proto_emit_namespace :: (s: *proto_Schema, b: *String_Builder, level: *proto_Namespace) {
     for level.items {
+        if it.service {
+            proto_emit_service(s, b, it.service);
+            continue;
+        }
+
         if it.node {
             proto_emit_node(s, b, it.node);
             continue;
@@ -774,4 +788,68 @@ proto_emit_registry :: (s: *proto_Schema, b: *String_Builder) {
     }
 
     append(b, "];\n");
+}
+
+// Services share the surrounding message graph and emit only typed adapters;
+// framing, ownership, cardinality and completion stay in Extensions/Grpc.
+proto_emit_service :: (_s: *proto_Schema, b: *String_Builder, service: *proto_Service) {
+    proto_emit(b, "% :: struct {\n", proto_jai_name(service.name));
+
+    for method: service.methods {
+        name := method.jai;
+
+        proto_emit(b, "% :: proto_g.Method.{ path = \"/%/%\", client_streaming = %, server_streaming = % };\n", name, service.full, method.name, ifx method.client_streaming then "true" else "false", ifx method.server_streaming then "true" else "false");
+
+        for client: bool.[true, false] {
+            suffix := ifx client then "Client" else "Server";
+            input := ifx client then method.input.jai else method.output.jai;
+            output := ifx client then method.output.jai else method.input.jai;
+            pointer := ifx client then "" else "*";
+            call_arg := ifx client then "*self.call" else "self.call";
+
+            proto_emit(b, "%_% :: struct { call: %proto_g.Call;\n", name, suffix, pointer);
+            proto_emit(b, "send :: (self: *%_%, value: %) -> proto_g.Status { return proto_g.send(%, value); }\n", name, suffix, input, call_arg);
+            proto_emit(b, "receive :: (self: *%_%) -> %, proto_g.Receive_Kind { return proto_g.receive(%, %); }\n", name, suffix, output, call_arg, output);
+            proto_emit(b, "cancelled :: (self: *%_%) -> bool { return proto_g.cancelled(%); }\n", name, suffix, call_arg);
+            proto_emit(b, "deadline :: (self: *%_%) -> s64 { return proto_g.call_deadline(%); }\n", name, suffix, call_arg);
+            proto_emit(b, "metadata :: (self: *%_%) -> [] proto_g.Metadata_Entry { return proto_g.initial_metadata(%); }\n", name, suffix, call_arg);
+
+            if client {
+                proto_emit(b, "close_send :: (self: *%_%) -> proto_g.Status { return proto_g.close_send(%); }\n", name, suffix, call_arg);
+                proto_emit(b, "finish :: (self: *%_%) -> proto_g.Status { return proto_g.finish(%); }\n", name, suffix, call_arg);
+                proto_emit(b, "cancel :: (self: *%_%) { proto_g.cancel(%); }\n", name, suffix, call_arg);
+                proto_emit(b, "close :: (self: *%_%) { proto_g.close(%); }\n", name, suffix, call_arg);
+            }
+
+            append(b, "}\n");
+        }
+
+        proto_emit(b, "%_open :: (channel: *proto_g.Channel, options := proto_g.Call_Options.{}) -> %_Client, proto_g.Status { call, status := proto_g.open_call(channel, %, options); return .{ call }, status; }\n", name, name, name);
+
+        if !method.client_streaming && !method.server_streaming {
+            proto_emit(b, "%_call :: (channel: *proto_g.Channel, request: %, options := proto_g.Call_Options.{}) -> %, proto_g.Status {\n", name, method.input.jai, method.output.jai);
+            proto_emit(b, "client, status := %_open(channel, options); if status.code != .OK return .{}, status; defer %_Client.close(*client);\n", name, name);
+            proto_emit(b, "status = %_Client.send(*client, request); proto_g.free_status(*status);\n", name);
+            proto_emit(b, "status = %_Client.close_send(*client); proto_g.free_status(*status);\n", name);
+            proto_emit(b, "response, kind := %_Client.receive(*client); final := %_Client.finish(*client);\n", name, name);
+            append(b, "if final.code != .OK || kind != .MESSAGE { proto_r.free(*response); return .{}, final; } return response, final; }\n");
+        }
+    }
+
+    append(b, "Handlers :: struct { state: *void; options: proto_g.Call_Options;\n");
+    for method: service.methods proto_emit(b, "%: #type (call: *%_Server, state: *void) -> proto_g.Status;\n", method.jai, method.jai);
+
+    append(b, "}\n");
+
+    for method: service.methods {
+        name := method.jai;
+        proto_emit(b, "%_serve :: (request: *proto_h.Request, data: *void) -> proto_h.Response {\n", name);
+        proto_emit(b, "invoke :: (raw: *proto_g.Call, data: *void) -> proto_g.Status { handlers := cast(*Handlers) data; if !handlers.% return .{ code = .UNIMPLEMENTED }; typed := %_Server.{ raw }; return handlers.%(*typed, handlers.state); }\n", name, name, name);
+        proto_emit(b, "handlers := cast(*Handlers) data; return proto_g.serve_call(request, %, invoke, data, handlers.options); }\n", name);
+    }
+
+    append(b, "register :: (app: *proto_h.App, handlers: *Handlers) {\n");
+    for method: service.methods proto_emit(b, "proto_h.register_handler(app, .POST, \"/%/%\", %_serve, handlers);\n", service.full, method.name, method.jai);
+
+    append(b, "}\n}\n");
 }

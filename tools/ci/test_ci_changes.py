@@ -34,6 +34,24 @@ def selects(area, path):
 
 
 class RealWorkflow(unittest.TestCase):
+    def test_grpc_runs_for_transport_schema_and_independent_fixtures(self):
+        for path in [
+            "stdlib/Extensions/Http/h2_exchange.jai",
+            "stdlib/Extensions/Grpc/call.jai",
+            "stdlib/Extensions/Protobuf/Schema/emit.jai",
+            "stdlib/Extensions/Tls/stream.jai",
+            "stdlib/Extensions/Io/sync.jai",
+            "tools/grpc/fixtures/echo.proto",
+            "tools/grpc/fixtures/typed-client.jai",
+            "tools/grpc/peer.py",
+            "tools/grpc/requirements.txt",
+            "tools/native/native-libs.json",
+            "tools/native/mbedtls/jai_mbedtls_config.h",
+            "tools/native/mbedtls/jai_mbedtls.c",
+        ]:
+            with self.subTest(path=path):
+                self.assertTrue(selects("grpc", path))
+
     def test_checkout_attributes_select_all_actual_consuming_areas(self):
         # Matching must not depend on whether a new/deleted nested policy is in Repo.files.
         for path in [

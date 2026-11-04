@@ -34,6 +34,7 @@ serve_h2 :: (connection: *Connection, link: Link) {
     conn := h2_conn_new(.SERVER, link, local);
 
     conn.server = server;
+    Io.add(*server.finished, 1); // retained until the connection's final reference
     conn.connection = connection;
     conn.app = server.app;
     conn.write_timeout = config.write_timeout;
@@ -69,10 +70,19 @@ serve_h2 :: (connection: *Connection, link: Link) {
     Io.notify_all(*conn.wake_writer);
     h2_mark_dead(conn);
 
+    joined: Io.Io_Error;
+
     Io.with_grace(config.shutdown_timeout, #code {
+        joined = Io.wait(*conn.tasks);
+    });
+    if joined != .NONE Io.cancel(conn.writer);
+
+    // Canceled operations and shielded handler cleanup retain the TLS link.
+    Io.with_grace(Io.NO_DEADLINE, #code {
         Io.wait(*conn.tasks);
     });
 
+    conn.connection = null;
     h2_conn_release(conn);
 }
 
@@ -166,8 +176,9 @@ h2_server_headers :: (conn: *H2_Conn, id: u32, stream: *H2_Stream, block: Hpack_
         return .NO_ERROR;
     }
 
-    // The handler fiber holds a reference of its own.
+    // The request fiber retains both objects through its final task bookkeeping.
     stream.refs += 1;
+    conn.refs += 1;
 
     ctx.stream = stream;
     ctx.started = now_ms();
@@ -205,7 +216,7 @@ h2_build_request :: (ctx: *H2_Server_Stream, conn: *H2_Conn) -> s64, bool {
     for field: ctx.block.fields {
         name := field.name;
 
-        if h2_has_uppercase(name) return -1, false;
+        if !h2_field_syntax_ok(field) return -1, false;
 
         if name.count > 0 && name[0] == #char ":" {
             if saw_regular return -1, false;
@@ -380,11 +391,12 @@ h2_serve_request :: (ctx: *H2_Server_Stream) {
     h2_stream_release(stream);
     h2_free_request(ctx);
 
-    conn.connection.idle = conn.open_remote == 0;
+    if conn.connection conn.connection.idle = conn.open_remote == 0;
 
     reset_temporary_storage();
 
     Io.done(*conn.tasks);
+    h2_conn_release(conn);
 }
 
 // Sends the head and body of `response` on the stream.

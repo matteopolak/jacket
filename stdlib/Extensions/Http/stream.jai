@@ -131,17 +131,21 @@ send_chunk :: (stream: *Stream, text: string) -> bool {
 finish_stream :: (stream: *Stream, fields: [] Header_Field) -> bool {
     frame := cast(*Stream_Frame) stream;
     h2 := frame.h2;
+
     if frame.failed || !h2 return false;
     if h2.local_ended || h2.reset_sent || h2.reset_by_peer || !h2_valid_trailers(fields) return false;
-    if !h2_wait_for_room(h2.conn) return false;
+    if !h2_wait_for_room(h2.conn, h2) return false;
     // Waiting permits the reader or another fiber to terminate the stream.
     if h2.local_ended || h2.reset_sent || h2.reset_by_peer return false;
+
     if !h2_send_headers(h2.conn, h2.id, fields, true) {
         frame.failed = true;
         return false;
     }
+
     h2.local_ended = true;
     h2_check_closed(h2);
+
     return true;
 }
 

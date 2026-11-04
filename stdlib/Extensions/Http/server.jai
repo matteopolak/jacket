@@ -10,6 +10,7 @@
 // ...
 // stop(server);
 // wait(server);
+// close_server(*server);
 // ```
 
 // Why a server did not start (`Serve_Error.kind`), with `.NONE` for success. The comments say what each kind points at. Routes are
@@ -105,6 +106,7 @@ Connection :: struct {
 //
 //         stop(server);
 //         wait(server);
+//         close_server(*server);
 //     });
 // }
 // ```
@@ -142,7 +144,8 @@ start :: (app: *App, reuse_port := false) -> *Server, Serve_Error {
 
     server.address = address;
 
-    Io.add(*server.finished, 1);
+    // The accept fiber and the drain reserved for stop each retain the handle.
+    Io.add(*server.finished, 2);
 
     Io.spawn(accept_loop, server);
 
@@ -176,10 +179,37 @@ stop :: (server: *Server) {
 }
 
 // Blocks the calling fiber until the server has stopped and its connections are gone. The
-// `Server` itself stays valid (its fibers may still be winding down) and costs a few hundred
-// bytes; nothing needs it afterwards.
+// `Server` handle stays valid for diagnostics. close_server releases it after
+// every internal fiber and HTTP/2 connection has released its reference.
 wait :: (server: *Server) {
-    Io.wait(*server.finished);
+    if server.finished.count == 0 return;
+
+    // A void join must not return early with live references when its caller's
+    // deadline/cancellation has fired. Shutdown still cancels cooperative handlers.
+    Io.with_grace(Io.NO_DEADLINE, #code {
+        Io.wait(*server.finished);
+    });
+}
+
+// Stops, joins and releases an owned Server handle, clearing the caller's pointer.
+// Active servers require their owning Io scheduler. After this returns, no alias
+// of the old pointer may be used; caller-owned App/state/TLS configs can be freed.
+// Safe to call again on the cleared pointer.
+//
+// ```jai,ignore
+// server, error := start(*app);
+// // Serve requests on this scheduler, then:
+// close_server(*server);
+// ```
+close_server :: (server: **Server) {
+    owned := server.*;
+    if !owned return;
+
+    stop(owned);
+    wait(owned);
+    assert(owned.count == 0);
+    free(owned);
+    server.* = null;
 }
 
 #scope_module
@@ -209,6 +239,8 @@ check_app :: (app: *App) -> Serve_Error {
 }
 
 accept_loop :: (server: *Server) {
+    defer Io.done(*server.finished);
+
     while !server.stopping {
         stream, error := Io.accept(server.listener);
 
@@ -1028,13 +1060,16 @@ serve_thread :: (state: *Serve_State) {
         print("Http: listening on % (% thread%)\n", server_url(server), state.threads, ifx state.threads == 1 then "" else "s");
     }
 
+    Io.add(*server.finished, 1);
     Io.spawn(watch, server);
 
     wait(server);
+    close_server(*server);
 }
 
 // Polls for a reason to stop.
 watch :: (server: *Server) {
+    defer Io.done(*server.finished);
     app := server.app;
 
     while !server.stopping {

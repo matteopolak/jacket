@@ -138,3 +138,16 @@ consumption. `h2_server.jai` owns the handler-to-exchange handoff. The regressio
 `h2-exchange.jai` sends a response before upload and then echoes more than a window
 with simultaneous sender/receiver fibers. `h2-trailer-lifecycle.jai` deterministically
 resets a writer blocked on queue room and checks early body-source release.
+
+Duplex exchanges retain their channel admission count from the start of connection
+setup through `close_exchange`. Final response HEADERS record whether that initial
+block carried END_STREAM; higher protocols must use that fact before treating it
+as a trailers-only response. A server that completes its response before consuming
+the request stops the upload with NO_ERROR. The client preserves an already
+completed response when receiving that reset, as RFC 9113 section 8.1 requires.
+
+Queue-limited stream writes wait on stream state as well as queue drain, so reset
+wakes the blocked sender without requiring socket progress. Writable state is
+checked again after every queue wait. Channel close retains peer-ended connections
+until TLS teardown finishes, and shields the final join from caller deadlines or
+cancellation. Keep TLS configuration alive until close returns.

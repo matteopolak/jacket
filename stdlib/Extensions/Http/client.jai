@@ -342,9 +342,10 @@ close :: (response: *Client_Response, now := false) {
 // An empty terminal block is valid, so field count alone does not establish completion.
 //
 // ```jai,skip_on(wasm)
-// // After read_bytes(*response):
+// // Before a complete HTTP/2 body exists, completion is false.
+// response: Client_Response;
 // fields, complete := response_trailers(*response);
-// if complete for fields print("%: %\n", it.name, it.value);
+// assert(!complete && fields.count == 0);
 // ```
 response_trailers :: (response: *Client_Response) -> fields: [] Header_Field, complete: bool {
     if !response.http2 || !response.source return .[], false;
@@ -1604,6 +1605,7 @@ discard_source :: (source: *Body_Source) {
     release_buffer(source);
 
     if source.h2_block.data free(source.h2_block.data);
+
     hpack_block_free(*source.h2_trailers);
 
     if source.host.count free(source.host.data);

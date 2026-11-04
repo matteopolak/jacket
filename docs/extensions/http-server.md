@@ -146,3 +146,39 @@ Tests: `server-routing`, `server-extractors`, `server-responses`, `testing`, `se
 | simplehttp | 1 / 64 / 1024 | 16,360 / 1,808 / 30,659 | 73 us / 1.76 ms / 97.3 ms |
 
 Idle connections cost about 22 KiB each in Jacket and hyperserve, 68 KiB in simplehttp. Jacket also has streaming bodies, per-route limits, chunked request bodies, streaming responses, slow-client timeouts, HTTPS and an in-memory test client, which neither community server has.
+
+## Route callbacks with independent state
+
+`register_handler(app, method, path, callback, data)` registers a callback taking
+`(*Request, *void) -> Response`, without extractors. It uses the same router and app
+middleware as typed routes. The route stores a borrowed `data` pointer; the caller
+keeps that state alive for the registration lifetime and every in-flight handler.
+This lets multiple generated services carry independent state without replacing
+`App.state`.
+
+```jai,ignore
+register_handler(*app, .POST, "/example.Service/Method", dispatch, *service);
+```
+
+There is no unregister or replacement operation. Register before serving and keep
+the app's routing table fixed while handlers run. A duplicate route records a setup
+error and leaves the first route intact; invalid paths likewise record setup errors.
+Paths are copied at registration; caller path storage may be released immediately.
+A null callback is diagnosed before path validation. Errors accumulate in registration order, and server startup reports setup errors
+before opening a listener. Freeing the app releases route records, not caller state;
+first stop the server and wait for its handlers before releasing either.
+
+### Releasing a server handle
+
+`start` returns an owned heap handle. `stop` begins shutdown; `wait` waits for
+connections and internal fibers to release their server references while keeping
+the handle available for diagnostics. `close_server(*server)` performs stop/wait,
+frees that handle and clears the pointer. Repeating close on the cleared pointer
+is safe; other aliases must not be used afterwards. Keep caller-owned App, route
+state and TLS configurations alive until close returns. Cooperative handlers must
+observe cancellation; close cannot preempt CPU work that does not yield.
+
+The completion group includes accept, drain/watch fibers and each HTTP/2
+connection through its final reference. Changing this accounting requires lifetime
+tests where callbacks finish after shutdown begins, not simply waiting for the
+listener to close. The ordinary `serve` convenience owns and closes its handles.

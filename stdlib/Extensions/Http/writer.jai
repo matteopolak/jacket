@@ -368,13 +368,7 @@ put_headers :: (out: *[..] u8, headers: [] Header_Field) {
 // let the caller's data start a new header or a new response), and none sets the framing.
 fields_ok :: (headers: [] Header_Field) -> bool {
     for header: headers {
-        if header.name.count == 0 return false;
-
-        for header.name {
-            if !is_token_char(it) return false;
-        }
-
-        if find_bad_value_byte(header.value.data, 0, header.value.count) >= 0 return false;
+        if !field_syntax_ok(header) return false;
 
         id := header.id;
         if id == .UNKNOWN id = lookup_header_name(header.name);
@@ -383,6 +377,13 @@ fields_ok :: (headers: [] Header_Field) -> bool {
     }
 
     return true;
+}
+
+// Shared syntax checks, separate from framing policy and pseudo-header rules.
+field_syntax_ok :: (header: Header_Field) -> bool {
+    if header.name.count == 0 return false;
+    for header.name if !is_token_char(it) return false;
+    return find_bad_value_byte(header.value.data, 0, header.value.count) < 0;
 }
 
 #scope_export

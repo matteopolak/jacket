@@ -693,6 +693,80 @@ jobs:
         run: python3 tools/ci/install_pinned.py rust
       - name: Run the plugin tests (builds only jailsp)
         run: just nvim-test -j 2
+  grpc-interop:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'grpc-interop')
+    name: independent gRPC interoperability (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {platform: linux-x64, runner: ubuntu-24.04, bin: target/debug, exe: ''}
+          - {platform: windows-x64, runner: windows-2025, bin: target/x86_64-pc-windows-msvc/debug, exe: .exe}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-unix
+        if: runner.os == 'Linux'
+        with:
+          native-libs: 'false'
+          font: 'false'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: {python-version: '3.14.3'}
+      - uses: ./.github/actions/setup-windows
+        if: runner.os == 'Windows'
+        with:
+          cpu: x64
+          triple: x86_64-pc-windows-msvc
+      - uses: ./.github/actions/rust-cache
+        if: runner.os == 'Linux'
+      - name: Install pinned independent peer
+        run: |
+          python -m pip install --only-binary=:all: -r tools/grpc/requirements.txt
+      - name: Build the pinned TLS native dependency
+        run: |
+          grpc_native_dir="$(python -c 'from toolkit.repo import cargo_target_dir; from repo_output import host_platform; print(cargo_target_dir(resolve=True) / "http-native" / host_platform())')"
+          python tools/native/http_native.py --out "$grpc_native_dir"
+          printf 'JAIC_NATIVE_LIBS=%s\n' "$grpc_native_dir" >> "$GITHUB_ENV"
+          if [ "$RUNNER_OS" = Windows ]; then cygpath -w "$grpc_native_dir" >> "$GITHUB_PATH"; fi
+      - name: Build current compiler and Windows test driver
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            cargo build --locked -p jaic-cli -p jacket --no-default-features --features static-llvm
+          else
+            cargo build --locked -p jaic-cli
+          fi
+      - uses: ./.github/actions/windows-provider
+        if: runner.os == 'Windows'
+        with:
+          cpu: x64
+          triple: x86_64-pc-windows-msvc
+      - name: Windows Io, TLS, HTTP/2 and RPC acceptance
+        if: runner.os == 'Windows'
+        run: |
+          "${{ matrix.bin }}/jacket.exe" test -j 2 \
+            --path stdlib/Extensions/Io/tests/tcp.jai \
+            --path stdlib/Extensions/Io/tests/backends.jai \
+            --path stdlib/Extensions/Io/tests/timeouts.jai \
+            --path stdlib/Extensions/Io/tests/fibers-context.jai \
+            --path stdlib/Extensions/Tls/tests/tls.jai \
+            --path stdlib/Extensions/Http \
+            --path stdlib/Extensions/Grpc
+      - name: Required client/server and generated-service acceptance
+        run: python tools/grpc/interop.py --jaic "${{ matrix.bin }}/jaic${{ matrix.exe }}" --output target/grpc-interop
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: grpc-interop-${{ matrix.platform }}
+          path: target/grpc-interop/result.json
+          if-no-files-found: error
   stdlib-runtime:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'stdlib-runtime')

@@ -526,9 +526,105 @@ proto_parse_schema :: (s: *proto_Schema) {
             proto_skip_option_value(s);
             proto_expect(s, ";");
         } else if tok.text == "service" {
-            proto_identifier(s);
-            proto_skip_balanced(s, "{", "}");
+            if s.options.grpc proto_parse_service(s);
+            else {
+                proto_identifier(s);
+                proto_skip_balanced(s, "{", "}");
+            }
         } else proto_schema_fail(s, tok, "expected syntax, package, option, message, enum or service");
     }
 
+    // A package applies to every service in the file, including an earlier declaration.
+    for service: s.services {
+        service.package = s.package;
+        service.full = proto_join_name(s.package, service.name);
+        service.jai = proto_qualified_jai(service.full);
+    }
+}
+
+proto_Service :: struct {
+    token: proto_Token;
+    name: string;
+    full: string;
+    jai: string;
+    package: string;
+    source: *proto_Source;
+    methods: [..] proto_Method;
+}
+
+proto_Method :: struct {
+    token: proto_Token;
+    name: string;
+    jai: string;
+    input_name: string;
+    output_name: string;
+    input: *proto_Node;
+    output: *proto_Node;
+    client_streaming: bool;
+    server_streaming: bool;
+}
+
+proto_service_option :: (s: *proto_Schema) {
+    proto_option_name(s);
+    proto_expect(s, "=");
+    proto_skip_option_value(s);
+    proto_expect(s, ";");
+}
+
+proto_parse_service :: (s: *proto_Schema) {
+    token := proto_identifier(s);
+    service := New(proto_Service);
+    service.token = token;
+    service.name = token.text;
+    service.package = s.package;
+    service.full = proto_join_name(s.package, token.text);
+    service.jai = proto_qualified_jai(service.full);
+    service.source = s.source;
+    array_add(*s.services, service);
+    if !proto_expect(s, "{") return;
+
+    while !s.error.message.count && !proto_eat(s, "}") {
+        tok := proto_take(s);
+        if tok.text == ";" continue;
+
+        if tok.text == "option" {
+            proto_service_option(s);
+            continue;
+        }
+
+        if tok.text != "rpc" {
+            proto_schema_fail(s, tok, "expected rpc or service option");
+            break;
+        }
+
+        method: proto_Method;
+        method.token = proto_identifier(s);
+        method.name = method.token.text;
+        method.jai = proto_jai_name(method.name);
+        proto_expect(s, "(");
+        method.client_streaming = proto_eat(s, "stream");
+        method.input_name = proto_qualified(s);
+        proto_expect(s, ")");
+        proto_expect(s, "returns");
+        proto_expect(s, "(");
+        method.server_streaming = proto_eat(s, "stream");
+        method.output_name = proto_qualified(s);
+        proto_expect(s, ")");
+
+        if proto_eat(s, "{") {
+            while !s.error.message.count && !proto_eat(s, "}") {
+                option := proto_take(s);
+                if option.text == ";" continue;
+
+                if option.text != "option" {
+                    proto_schema_fail(s, option, "expected method option");
+                    break;
+                }
+
+                proto_service_option(s);
+            }
+        } else proto_expect(s, ";");
+
+        array_add(*service.methods, method);
+    }
 }
