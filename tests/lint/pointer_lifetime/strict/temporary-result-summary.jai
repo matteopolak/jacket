@@ -1,6 +1,9 @@
 #import "Basic";
 
-Record :: struct { text: string; }
+Record :: struct {
+    text: string;
+}
+
 saved: Record;
 
 possible_result :: (temporary: bool) -> Record {

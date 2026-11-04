@@ -1,11 +1,16 @@
 #import "Basic";
-Box :: struct { pointer: *int; }
+
+Box :: struct {
+    pointer: *int;
+}
+
 saved: Box;
 
 local_sink :: () {
     box: Box;
     alias := *box;
     value := 42;
+
     alias.pointer = *value;
     print("%", box.pointer.*);
 }
@@ -13,8 +18,10 @@ local_sink :: () {
 rebound_sink :: (replace: (p: **Box)) {
     box: Box;
     alias := *box;
+
     replace(*alias);
     value := 42;
+
     alias.pointer = *value;
 }
 
@@ -23,6 +30,7 @@ reassigned_sink :: () {
     alias := *box;
     alias = *saved;
     value := 42;
+
     alias.pointer = *value;
 }
 

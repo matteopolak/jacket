@@ -6,4 +6,7 @@ build :: () -> *int {
 }
 
 FROZEN :: #run build();
-main :: () { print("%", FROZEN.*); }
+
+main :: () {
+    print("%", FROZEN.*);
+}

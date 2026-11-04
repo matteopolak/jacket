@@ -16,10 +16,12 @@ bad_return :: () -> [] u8 {
 
 nested_address :: () -> *int #expand {
     pointer: *int;
+
     {
         value := 5;
         pointer = *value;
     }
+
     return pointer;
 }
 

@@ -74,12 +74,12 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
                 Op::Replace(r) | Op::Grow(r, _) | Op::MayGrow(r, _) | Op::MayReach(r, _)
                     if r == region =>
                 {
-                    state = None
+                    state = None;
                 }
                 Op::Mutate(r, _, span) | Op::MayMutate(r, _, span)
                     if r == region && !calls.contains_key(&span) =>
                 {
-                    state = None
+                    state = None;
                 }
                 Op::Barrier => state = None,
                 Op::Capacity(r, change, _) if r == region => {

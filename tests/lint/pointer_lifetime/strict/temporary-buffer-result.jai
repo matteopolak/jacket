@@ -1,4 +1,5 @@
 #import "Basic";
+
 saved: string;
 
 make_text :: (count: int) -> string, bool, bool {
@@ -6,6 +7,7 @@ make_text :: (count: int) -> string, bool, bool {
     storage.data = talloc(count);
     storage.count = count;
     text := to_string(storage.data, storage.count);
+
     return text, true, false;
 }
 

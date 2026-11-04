@@ -1,7 +1,12 @@
 #import "Basic";
 
-Box :: struct { value: int; }
-destroy :: (p: *Box) { free(p); }
+Box :: struct {
+    value: int;
+}
+
+destroy :: (p: *Box) {
+    free(p);
+}
 
 probe :: () {
     p := New(Box);

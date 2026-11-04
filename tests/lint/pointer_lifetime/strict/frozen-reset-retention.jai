@@ -7,7 +7,10 @@ build :: () -> string {
 }
 
 FROZEN :: #run build();
-main :: () { print("% %", FROZEN, FROZEN_DEFERRED); }
+
+main :: () {
+    print("% %", FROZEN, FROZEN_DEFERRED);
+}
 
 build_deferred :: () -> string {
     defer reset_temporary_storage();

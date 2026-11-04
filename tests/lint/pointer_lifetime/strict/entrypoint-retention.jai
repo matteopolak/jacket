@@ -11,10 +11,13 @@ helper :: () {
 
 main :: () {
     outer := 42;
+
     outer_saved = *outer;
+
     {
         inner := 8;
         inner_saved = *inner;
     }
+
     print("%", outer_saved.*);
 }

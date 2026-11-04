@@ -51,4 +51,6 @@ dangling_view :: () {
     print("%", old_temporary[0]);
 }
 
-main :: () { retain(); }
+main :: () {
+    retain();
+}

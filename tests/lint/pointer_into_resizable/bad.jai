@@ -36,6 +36,7 @@ added_then_added :: () -> int {
     defer array_free(items);
 
     last := array_add(*items);
+
     items.count = items.allocated;
 
     array_add(*items, .{ 5 });

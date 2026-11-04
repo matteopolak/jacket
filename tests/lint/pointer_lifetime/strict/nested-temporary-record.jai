@@ -68,4 +68,6 @@ scoped_allocator :: () -> string {
     return result;
 }
 
-main :: () { retain(); }
+main :: () {
+    retain();
+}

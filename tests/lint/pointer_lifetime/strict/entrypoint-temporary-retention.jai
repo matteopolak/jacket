@@ -1,4 +1,5 @@
 #import "Basic";
+
 saved: string;
 
 main :: () {
@@ -6,4 +7,6 @@ main :: () {
     print("%", saved);
 }
 
-retain :: () { saved = tprint("runtime caller controls resets"); }
+retain :: () {
+    saved = tprint("runtime caller controls resets");
+}

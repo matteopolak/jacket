@@ -1,6 +1,8 @@
 #import "Basic";
 
-Holder :: struct { views: [] [] int; }
+Holder :: struct {
+    views: [][] int;
+}
 
 local_views :: () {
     values: [2] int;

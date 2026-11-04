@@ -32,24 +32,21 @@ warning[pointer_into_resizable]: `slot` points into `storage.items`, which `arra
    |
 19 |     array_reserve(cast(*Resizable_Array) array, desired_items, size_of(T));
    |     ---------------------------------------------------------------------- invalidation inferred through this call
-   ...
-24 | array_reserve :: inline (array: *Resizable_Array, desired_items: s64, element_size: s64) {
-   |                         ------------------------------------------------------------------ invalidation inferred through this call
    |
    = help: take the pointer again after the array has grown, or keep the index instead
    = note: `pointer_into_resizable` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/pointer_into_resizable
 
 warning[pointer_into_resizable]: `last` points into `items`, which `array_add` may have moved by now
-  --> tests/lint/pointer_into_resizable/bad.jai:43:5
+  --> tests/lint/pointer_into_resizable/bad.jai:44:5
    |
 38 |     last := array_add(*items);
    |             ----------------- pointer derived here
    ...
-41 |     array_add(*items, .{ 5 });
+42 |     array_add(*items, .{ 5 });
    |     ------------------------- `items` storage invalidated here
    ...
-43 |     last.value = 3;
+44 |     last.value = 3;
    |     ^^^^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after the array has grown, or keep the index instead
@@ -57,13 +54,13 @@ warning[pointer_into_resizable]: `last` points into `items`, which `array_add` m
    = note: see https://jacket.matteopolak.com/lint-rules/pointer_into_resizable
 
 warning[pointer_into_resizable]: `it` points into `items`, which `array_add` may have moved by now
-  --> tests/lint/pointer_into_resizable/bad.jai:57:9
+  --> tests/lint/pointer_into_resizable/bad.jai:58:9
    |
-55 |     for *items {
+56 |     for *items {
    |          ----- pointer derived here
-56 |         array_add(*items, .{ 2 });
+57 |         array_add(*items, .{ 2 });
    |         ------------------------- `items` storage invalidated here
-57 |         it.value += 1;
+58 |         it.value += 1;
    |         ^^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after the array has grown, or keep the index instead

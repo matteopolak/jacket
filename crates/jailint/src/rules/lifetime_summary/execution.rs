@@ -97,7 +97,7 @@ pub(super) fn compile_time_only(
             .flatten()
             .and_then(|target| match target {
                 ProcTarget::Func(id) => Some(Node::Function(id)),
-                _ => None,
+                ProcTarget::Foreign(_) => None,
             })
     }));
     roots.extend(

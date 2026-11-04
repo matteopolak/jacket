@@ -6,6 +6,7 @@ build :: () -> *int {
 }
 
 FROZEN :: #run build();
+
 main :: () {
     runtime := build();
     print("%", runtime.*);

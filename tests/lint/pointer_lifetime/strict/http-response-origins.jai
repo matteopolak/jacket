@@ -23,4 +23,6 @@ retain :: () {
     problem_saved = Http.problem_response(null, Http.http_error(400, "bad request"));
 }
 
-main :: () { retain(); }
+main :: () {
+    retain();
+}

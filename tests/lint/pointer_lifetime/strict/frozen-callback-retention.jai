@@ -5,6 +5,12 @@ build :: () -> *int {
     return *local;
 }
 
-select :: () -> (() -> *int) { return build; }
+select :: () -> (() -> *int) {
+    return build;
+}
+
 CALLBACK :: #run select();
-main :: () { print("%", CALLBACK().*); }
+
+main :: () {
+    print("%", CALLBACK().*);
+}
