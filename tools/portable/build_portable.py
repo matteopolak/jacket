@@ -138,7 +138,10 @@ def zip_fixtures():
     directory.mkdir(parents=True, exist_ok=True)
     valid = directory / "valid.zip"
     with zipfile.ZipFile(valid, "w", compression=zipfile.ZIP_STORED) as archive:
-        for name, data in (("first.txt", b"hello"), ("binary.bin", bytes([0, 128, 255]))):
+        for name, data in (
+            ("first.txt", b"hello"),
+            ("binary.bin", bytes([0, 128, 255])),
+        ):
             entry = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             entry.create_system = 3
             entry.external_attr = 0o600 << 16
