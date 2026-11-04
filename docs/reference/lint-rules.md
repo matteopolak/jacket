@@ -1643,6 +1643,7 @@ main :: () {
     defer array_free(items);
 
     array_add(*items, .{ 1 });
+    items.count = items.allocated;
     first := *items[0];
 
     array_add(*items, .{ 2 });
@@ -1653,15 +1654,15 @@ main :: () {
 
 ```diagnostic
 warning[pointer_into_resizable]: `first` points into `items`, which `array_add` may have moved by now
-  --> example.jai:17:18
+  --> example.jai:18:18
    |
-13 |     first := *items[0];
+14 |     first := *items[0];
    |              --------- pointer derived here
    ...
-15 |     array_add(*items, .{ 2 });
+16 |     array_add(*items, .{ 2 });
    |     ------------------------- `items` storage invalidated here
    ...
-17 |     print("%\n", first.value);
+18 |     print("%\n", first.value);
    |                  ^^^^^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after the array has grown, or keep the index instead
@@ -5396,6 +5397,7 @@ main :: () {
     defer array_free(xs);
 
     array_add(*xs, 1);
+    xs.count = xs.allocated;
     p := *xs[0];
 
     array_add(*xs, 2);
@@ -5406,15 +5408,15 @@ main :: () {
 
 ```diagnostic
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add(*xs, 2)
-  --> example.jai:13:18
+  --> example.jai:14:18
    |
- 9 |     p := *xs[0];
+10 |     p := *xs[0];
    |          ------ pointer derived here
    ...
-11 |     array_add(*xs, 2);
+12 |     array_add(*xs, 2);
    |     ----------------- `xs` storage invalidated here
    ...
-13 |     print("%\n", p.*);
+14 |     print("%\n", p.*);
    |                  ^ pointer used here after its storage was invalidated
    |
    = help: take the pointer again after growth, or store an index instead

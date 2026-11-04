@@ -47,6 +47,8 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `http_compare.py` | Compares HTTP servers under load: `benchmarks/compare/http`. | - |
 | `library_compare.py` | Runs the library comparison benchmarks (`benchmarks/compare/<name>/benches`) with `jacket bench`. | - |
 | `main.py` | One benchmark harness for the compiler, the language server, the linter and the formatter. | CI, tools |
+| `request_latency.py` | Edit-to-response benchmark for every registered LSP request. | just |
+| `typing_latency.py` | Completion latency while typing: a three-letter prefix of an in-scope identifier, one `didChange` per | - |
 
 ## `bindings/`
 
