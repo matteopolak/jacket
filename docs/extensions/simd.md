@@ -47,6 +47,8 @@ count :: (data: *u8, n: s64) -> s64 { return count_table(data, n); }
 
 The first call fills the table; later calls are one indirect call. Keep `count_body` `inline` so each version is vectorized for its own features.
 
+During compile-time execution, `pick_target` returns `baseline` without probing a processor. This keeps macros that inspect caller `Code` portable when that code targets another CPU. Runtime detection and dispatch keep their usual behavior, including tier limits. Direct feature queries and assembly retain their target/host restrictions.
+
 Gotchas: `lookup` isn't faster in an AVX2 version (it lowers for the build's features). Don't dispatch tiny procedures; the indirect call costs more than it saves under about 64 bytes. To test a version, call it directly; only call AVX2 code where `cpu_features().avx2` is true.
 
 ## How to change it
@@ -54,5 +56,13 @@ Gotchas: `lookup` isn't faster in an AVX2 version (it lowers for the build's fea
 - New operation: write a loop over `lanes` in an `inline` procedure, then check `-O2` vectorizes it (`-emit_ir`, or `otool -tV`/`objdump -d`). If LLVM keeps a per-lane loop or branch, reformulate or add an intrinsic (compiler work).
 - Inside `#modify`, `$V: Type` is a variable: use `type_info`, not `size_of(V)` or `V.T`.
 - Tests: `jacket test --path stdlib/Extensions/SIMD` (add `--interp`, or `-os wasm --runner "node --no-warnings tools/wasi_run.mjs"`). Interpreted and native results must agree. Dispatch tests: `tests/cpu-dispatch.jai`.
+
+Its caller-Code macro covers target-stage dispatch, long byte searches and runtime table resets after compile-time selection. Cross-check it on an ARM64 host:
+
+```sh
+jaic -check -os linux -cpu x64 stdlib/Extensions/SIMD/tests/cpu-dispatch.jai
+```
+
+A plain `#run` can execute in a separate host build of the code and does not exercise that boundary.
 
 `#module_parameters(VECTOR_BYTES := 16)` is the width code should prefer. Wasm builds run scalar code unless built with `+simd128`. Used by [Byte_Search](byte-search.md), [Json](json.md) and the [HTTP codec](http-codec.md).
