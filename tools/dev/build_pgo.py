@@ -226,7 +226,7 @@ def build_jacket(args, work, out):
 # --- training workload -------------------------------------------------------------------------
 
 
-def lsp_session(jailsp, env):
+def lsp_session(jailsp, env, output=None):
     """Drive jailsp the way an editor does: open files, ask for symbols, tokens, hovers and
     completions across each file, type into it, then shut down."""
     messages, next_id = [], [0]
@@ -364,17 +364,70 @@ def lsp_session(jailsp, env):
             cwd=ROOT,
             timeout=900,
         )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as error:
+        if output is not None:
+            Path(output).write_bytes((error.stdout or b"") + (error.stderr or b""))
         return "timeout", f"{len(messages)} messages"
+    if output is not None:
+        Path(output).write_bytes(result.stdout + (result.stderr or b""))
     return (
         result.returncode,
         f"{len(messages)} messages, {len(result.stdout)} bytes of responses",
     )
 
 
-def train(bins, args, env, native):
-    """Run the training workload with `bins`. Failures are reported but do not stop the build:
-    the profile only needs representative work, and the sweep is the correctness gate."""
+def reset_training_evidence(work):
+    """Remove previous training logs before a build, including builds that reuse a profile."""
+    training = Path(work) / "training"
+    if training.exists():
+        shutil.rmtree(training)
+
+
+def training_output(output, *, verbose=False):
+    """Print a retained log, bounded to its last 16 KiB unless `--verbose` was requested."""
+    with Path(output).open("rb") as stream:
+        if not verbose:
+            stream.seek(0, 2)
+            size = stream.tell()
+            stream.seek(max(0, size - 16384))
+            if size > 16384:
+                log("[last 16 KiB; full output retained in file]")
+        text = stream.read().decode(errors="replace")
+    if text:
+        log(text)
+
+
+def training_step(name, cmd, env, output, timeout, *, expected=(0,), verbose=False):
+    """Retain a training command's output and report unexpected exits, including timeouts.
+
+    For example, `training_step("check", [jaic, source, "-check"], env, log_path, 60)`.
+    The release log gets at most the last 16 KiB on failure; the file keeps the full output.
+    """
+    start = time.monotonic()
+    with Path(output).open("wb") as stream:
+        try:
+            code = run(cmd, env=env, check=False, stdout=stream,
+                       stderr=subprocess.STDOUT, timeout=timeout).returncode
+        except subprocess.TimeoutExpired:
+            code = "timeout"
+    elapsed = time.monotonic() - start
+    status = "completed" if code in expected else "failed"
+    log(f"{name}: exit {code} in {elapsed:.0f}s; output: {output}")
+    if verbose or status == "failed":
+        training_output(output, verbose=verbose)
+    return {"name": name, "command": list(map(str, cmd)), "exit_code": code,
+            "expected_exit_codes": list(expected), "status": status,
+            "elapsed_seconds": elapsed, "output": str(output)}
+
+
+def train(bins, args, env, native, report_dir):
+    """Run representative training and retain its command inventory and diagnostics.
+
+    A completed step is not a correctness or coverage proof. Unexpected failures are
+    returned to the driver, which applies `--strict`; lint exit 1 is expected.
+    """
+    report_dir = Path(report_dir)
+    report_dir.mkdir(parents=True, exist_ok=True)
     py = sys.executable
     sweep = [
         py,
@@ -435,33 +488,62 @@ def train(bins, args, env, native):
         ),
     ]
     problems = []
-    for name, cmd in steps:
+    records = [{"name": name, "command": list(map(str, cmd)), "status": "not_started",
+                "expected_exit_codes": [0, 1] if name.startswith("jailint") else [0],
+                "output": str(report_dir / f"{i:02d}.log")}
+               for i, (name, cmd) in enumerate(steps)]
+    records.append({"name": "jailsp session", "command": [str(bins["jailsp"])],
+                    "status": "not_started", "expected_exit_codes": [0],
+                    "output": str(report_dir / "jailsp.log")})
+
+    def save_inventory():
+        temporary = report_dir / "summary.json.tmp"
+        temporary.write_text(
+            json.dumps({"native_requested": native, "steps": records, "problems": problems}, indent=2) + "\n"
+        )
+        temporary.replace(report_dir / "summary.json")
+
+    save_inventory()
+    active = None
+    try:
+        for i, (name, cmd) in enumerate(steps):
+            active = i
+            records[i]["status"] = "running"
+            save_inventory()
+            record = training_step(name, cmd, env, report_dir / f"{i:02d}.log",
+                                   args.step_timeout,
+                                   expected=(0, 1) if name.startswith("jailint") else (0,),
+                                   verbose=args.verbose)
+            records[i] = record
+            if record["status"] == "failed":
+                problems.append(f"{name} (exit {record['exit_code']})")
+            save_inventory()
+        active = len(steps)
+        records[active]["status"] = "running"
+        save_inventory()
         start = time.monotonic()
-        quiet = None if args.verbose else subprocess.DEVNULL
-        try:
-            # A stuck step must not eat the release job's time limit.
-            code = run(
-                cmd,
-                env=env,
-                check=False,
-                stdout=quiet,
-                stderr=quiet,
-                timeout=args.step_timeout,
-            ).returncode
-        except subprocess.TimeoutExpired:
-            code = "timeout"
-        log(f"{name}: exit {code} in {time.monotonic() - start:.0f}s")
-        # jailint exits 1 when it finds something, which is fine here.
-        if code not in (0, 1) if name.startswith("jailint") else code != 0:
-            problems.append(f"{name} (exit {code})")
-    start = time.monotonic()
-    code, summary = lsp_session(bins["jailsp"], env)
-    log(f"jailsp session: exit {code}, {summary} in {time.monotonic() - start:.0f}s")
-    if code != 0:
-        problems.append(f"jailsp session (exit {code})")
-    shutil.rmtree(scratch, ignore_errors=True)
-    for p in problems:
-        log(f"warning: training step failed: {p}")
+        output = report_dir / "jailsp.log"
+        code, summary = lsp_session(bins["jailsp"], env, output)
+        elapsed = time.monotonic() - start
+        log(f"jailsp session: exit {code}, {summary} in {elapsed:.0f}s; output: {output}")
+        records[active] = {"name": "jailsp session", "command": [str(bins["jailsp"])],
+                           "exit_code": code, "expected_exit_codes": [0],
+                           "status": "completed" if code == 0 else "failed",
+                           "elapsed_seconds": elapsed, "summary": summary, "output": str(output)}
+        if code != 0:
+            problems.append(f"jailsp session (exit {code})")
+            training_output(output, verbose=args.verbose)
+    except BaseException as error:
+        if active is not None:
+            records[active]["status"] = "aborted"
+            records[active]["error"] = f"{type(error).__name__}: {error}"
+        raise
+    finally:
+        save_inventory()
+        shutil.rmtree(scratch, ignore_errors=True)
+    for problem in problems:
+        log(f"warning: training step failed: {problem}")
+    log(f"training inventory: {report_dir / 'summary.json'}")
     return problems
 
 
@@ -533,6 +615,7 @@ def main():
             f"build_pgo: {work} contains a space, which RUSTFLAGS cannot carry; pass --target-dir"
         )
     out = Path(args.out).resolve() if args.out else work / "dist"
+    reset_training_evidence(work)
     native = args.llvm != "none"
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
     problems = []
@@ -560,7 +643,7 @@ def main():
         # `%4m`: up to four files per binary, merged as processes exit, instead of one
         # file per process (hundreds of jaic runs at several MB each).
         train_env = dict(env, LLVM_PROFILE_FILE=str(raw / "%4m.profraw"))
-        problems += train(bins, args, train_env, native)
+        problems += train(bins, args, train_env, native, work / "training" / "pgo")
         profile = work / "merged.profdata"
         # A process that dies while merging into a `%4m` pool file leaves it truncated; skip such
         # files (llvm-profdata warns about each) rather than losing the whole profile.
@@ -611,7 +694,7 @@ def main():
         bolt_env = dict(env)
         if BACKEND in instrumented:
             bolt_env["JAIC_BACKEND"] = str(instrumented[BACKEND])
-        problems += train(instrumented, args, bolt_env, native)
+        problems += train(instrumented, args, bolt_env, native, work / "training" / "bolt")
         for tool, path in bins.items():
             fdata = bolt / f"{tool}.fdata"
             parts = sorted(
