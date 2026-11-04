@@ -14,23 +14,56 @@ create_ico_file_from_bitmap_filename :: (bitmap_filename: string) -> string {
         return "";
     }
 
-    width: s32;
-    height: s32;
-    components: s32;
-    pixels := Stb.stbi_load_from_memory(bytes.data, cast(s32) bytes.count, *width, *height, *components, 4);
+    #if OS == .WASM {
+        image, ok, error := Image.decode_image(cast([] u8) bytes, Image.DEFAULT_MAX_PIXELS);
 
-    if !pixels {
-        B.log_error("Unable to decode bitmap '%'", bitmap_filename);
-        return "";
+        defer Image.deinit(*image);
+
+        if !ok {
+            B.log_error("Unable to decode bitmap '%': %", bitmap_filename, error);
+            return "";
+        }
+
+        // Check decoder output before conversion: gray inputs remain unsupported.
+        if image.format != .RGB8 && image.format != .RGBA8 {
+            B.log_error("Unsupported bitmap channels: '%'", bitmap_filename);
+            return "";
+        }
+
+        if image.format == .RGBA8 return encode_rgba(image.pixels.data, image.width, image.height);
+
+        rgba := Image.convert(image, .RGBA8);
+
+        defer Image.deinit(*rgba);
+        if rgba.pixels.count == 0 return "";
+
+        return encode_rgba(rgba.pixels.data, rgba.width, rgba.height);
+    } else {
+        width: s32;
+        height: s32;
+        components: s32;
+        pixels := Stb.stbi_load_from_memory(bytes.data, cast(s32) bytes.count, *width, *height, *components, 4);
+
+        if !pixels {
+            B.log_error("Unable to decode bitmap '%'", bitmap_filename);
+            return "";
+        }
+
+        defer Stb.stbi_image_free(pixels);
+
+        if (components != 3 && components != 4) || width <= 0 || height <= 0 || cast(s64) width > 0x7fffffffffffffff / 4 / height {
+            B.log_error("Unsupported bitmap channels or dimensions: '%'", bitmap_filename);
+            return "";
+        }
+
+        return encode_rgba(pixels, width, height);
     }
+}
 
-    defer Stb.stbi_image_free(pixels);
+#scope_file
 
-    if (components != 3 && components != 4) || width <= 0 || height <= 0 || cast(s64) width > 0x7fffffffffffffff / 4 / height {
-        B.log_error("Unsupported bitmap channels or dimensions: '%'", bitmap_filename);
-        return "";
-    }
-
+// The encoder consumes bottom-up BGRA and borrows it only through this call.
+encode_rgba :: (pixels: *u8, width: s32, height: s32) -> string {
     count := cast(s64) width * height * 4;
     converted := cast(*u8) B.alloc(count);
 
@@ -53,5 +86,11 @@ create_ico_file_from_bitmap_filename :: (bitmap_filename: string) -> string {
 #scope_file
 B :: #import "Basic";
 Files :: #import "File";
-Stb :: #import "stb_image";
+
+#if OS == .WASM {
+    Image :: #import "Extensions/Image";
+} else {
+    Stb :: #import "stb_image";
+}
+
 Encode :: #import "internal/resource-wire/ico-encode";

@@ -29,13 +29,18 @@ resize_square :: (source: *u8, width: s64, height: s64, comp: s64, target: *u8, 
 
     if !columns.starts || !rows.starts || !middle {
         B.free(columns.starts);
+        B.free(columns.weights);
         B.free(rows.starts);
+        B.free(rows.weights);
+
         return false;
     }
 
     defer {
         B.free(columns.starts);
+        B.free(columns.weights);
         B.free(rows.starts);
+        B.free(rows.weights);
     }
 
     has_alpha := comp == 4;
