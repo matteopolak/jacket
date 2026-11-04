@@ -434,9 +434,6 @@ jobs:
     timeout-minutes: 30
     env:
       CARGO_INCREMENTAL: '0'
-    defaults:
-      run:
-        working-directory: editors/vscode
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
@@ -445,10 +442,12 @@ jobs:
       - name: Install the pinned toolchain
         working-directory: .
         run: python3 tools/ci/install_pinned.py rust
+      - uses: ./.github/actions/setup-llvm
       - uses: ./.github/actions/dependency-age-cache
       - name: Validate dependency ages before installing or building
         env:
           GITHUB_TOKEN: ${{ github.token }}
+        working-directory: editors/vscode
         run: |
           python3 ../../tools/ci/check_dependency_age.py --lockfile ../../Cargo.lock
           node scripts/check-dependency-age.ts
@@ -457,21 +456,29 @@ jobs:
         with:
           package_json_file: editors/vscode/package.json
       - name: Install npm dependencies
+        working-directory: editors/vscode
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Lint (oxlint, tsc, generated grammar and schemas up to date)
+        working-directory: editors/vscode
         run: pnpm run lint
       - name: Unit and grammar tests
         # The grammar must also get through every .jai file in examples/ and stdlib/ without
         # ending inside a string or comment.
+        working-directory: editors/vscode
         run: pnpm test
-      - name: Build jailsp
+      - name: Build jailsp and jaifmt
         working-directory: .
-        run: cargo build --locked -j 2 -p jai-language-server
+        run: |
+          cargo build --locked -j 2 -p jai-language-server -p jaic-cli
+          target/debug/jaic jaifmt/main.jai -exe target/jaifmt
       - name: Integration tests in VS Code
         env:
           JAILSP: ${{ github.workspace }}/target/debug/jailsp
+          JAIFMT: ${{ github.workspace }}/target/jaifmt
+        working-directory: editors/vscode
         run: xvfb-run -a pnpm run test:e2e
       - name: Package the .vsix
+        working-directory: editors/vscode
         run: pnpm run package -o jacket-vscode.vsix
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
