@@ -438,6 +438,9 @@ impl Compiler {
         f.macro_overflow = false;
         let module = self.scope(sig.scope).module;
         let mscope = self.new_scope(ScopeKind::Macro, Some(sig.scope), module, None);
+        if let Some(record) = &mut f.lifetimes {
+            record.macro_owners.push((mscope, caller));
+        }
         // Locals of the macro belong to the caller's procedure.
         self.ns.scopes[mscope.0 as usize].proc_depth = self.scope(caller).proc_depth;
         let call = MacroCall {

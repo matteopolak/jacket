@@ -218,3 +218,15 @@ fn lifetime_pointer_sinks_resolve_local_owners_without_trusting_rebinding() {
         rendered(&lints, &text, &path)
     );
 }
+
+#[test]
+fn lifetime_expanded_storage_belongs_to_the_callers_block() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/expanded-storage.jai");
+    let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+    assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
+    assert!(
+        lints
+            .iter()
+            .all(|l| l.start > text.find("bad_return").unwrap())
+    );
+}

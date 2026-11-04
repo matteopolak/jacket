@@ -118,3 +118,17 @@ pub(super) fn exposed(
         })
         .collect()
 }
+
+/// Only the expansion root shares its caller lifetime; explicit nested blocks do not.
+pub(super) fn storage_scope(
+    body: &jaic::ide::lifetimes::LifetimeBody,
+    mut scope: jaic::sema::ScopeId,
+) -> jaic::sema::ScopeId {
+    for _ in 0..64 {
+        let Some((_, caller)) = body.macro_owners.iter().find(|(root, _)| *root == scope) else {
+            break;
+        };
+        scope = *caller;
+    }
+    scope
+}

@@ -187,7 +187,7 @@ impl<'a> Builder<'a> {
                     scope,
                     ..
                 } => {
-                    locals.insert(*place, *scope);
+                    locals.insert(*place, addresses::storage_scope(body, *scope));
                 }
                 Event::Parameter {
                     place, ..

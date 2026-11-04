@@ -4,7 +4,7 @@ use crate::ast::{self, ExprKind as E};
 use crate::fxhash::{HashMap, HashSet};
 use crate::ir::{self, Val};
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::{Compiler, EntityId, ProcId};
+use crate::sema::{Compiler, EntityId, ProcId, ScopeId};
 use crate::source::Span;
 use crate::types::{ArrayKind, TypeId, TypeKind};
 use std::sync::Arc;
@@ -378,6 +378,7 @@ pub struct LifetimeBody {
     /// Branch predicates on private byte slots written exactly once.
     pub boolean_branches: Vec<(Val, Val, bool)>,
     pub controls: LifetimeControls,
+    pub macro_owners: Vec<(ScopeId, ScopeId)>,
     /// Pointer/integer bitcasts, retained independently of executable instructions.
     pub address_casts: Vec<LifetimeAddressCast>,
     /// Global addresses used by this body; immutable relocations live in `lifetime_globals`.
@@ -388,6 +389,7 @@ pub struct LifetimeBody {
 #[derive(Default)]
 pub(crate) struct LifetimeRecording {
     pub context_types: Vec<TypeId>,
+    pub macro_owners: Vec<(ScopeId, ScopeId)>,
     pub blocks: Vec<LifetimeBlock>,
     pub resizable: HashMap<Val, TypeId>,
     pub elements: HashMap<Val, (Val, TypeId)>,
@@ -704,6 +706,7 @@ impl LifetimeBody {
             + self.comparisons.capacity() * std::mem::size_of::<LifetimeComparison>()
             + self.boolean_branches.capacity() * std::mem::size_of::<(Val, Val, bool)>()
             + self.controls.vector_bytes()
+            + self.macro_owners.capacity() * std::mem::size_of::<(ScopeId, ScopeId)>()
             + self.globals.capacity() * std::mem::size_of::<(Val, ir::GlobalId)>()
             + self.address_casts.capacity() * std::mem::size_of::<LifetimeAddressCast>()
             + self.slot_aliases.capacity() * std::mem::size_of::<(Val, Val)>()
@@ -849,6 +852,7 @@ impl Compiler {
                     procedure: id,
                     syntax: syntax.clone(),
                     context_types: record.context_types,
+                    macro_owners: record.macro_owners,
                     blocks: record.blocks,
                     source_ranges: record.source_ranges,
                     slot_aliases: slot_aliases(&f.b.func),
