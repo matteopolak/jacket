@@ -78,6 +78,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_ci_sources.py` | Check literal Rust includes against public checkout inputs before compiling. | tools |
 | `check_dependency_age.py` | Fail closed for every registry dependency, including existing lock entries. | CI, tools |
 | `check_diagnostics_covered.py` | Fail when a compiler diagnostic code has no test that expects it (docs/tools/diagnostic-coverage.md). | CI |
+| `check_images_ui.py` | Check cross-target macros and runtime dispatch used by images and UI. | CI |
 | `check_native_libs.py` | Every native library the shipped standard library binds must come with the release archive. | tools |
 | `check_repo_paths.py` | Fail when a doc or a tool/config header names a repo path that does not exist. | tools |
 | `check_source_style.py` | Fail when a tracked Rust file is too long or a Rust or Python file carries a banner comment. | tools |

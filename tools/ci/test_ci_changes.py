@@ -126,6 +126,22 @@ class RealWorkflow(unittest.TestCase):
             "windows-stdlib", ci_changes.selected_jobs(results | {"code": True}, "")
         )
 
+    def test_focused_images_intel_tracks_the_inputs_it_actually_checks(self):
+        repo = job_inputs.Repo()
+        patterns = job_inputs.inputs("images-ui-intel", repo)
+        for path in (
+            "stdlib/Extensions/UI/render.jai",
+            "stdlib/Extensions/Image/module.jai",
+            "stdlib/Ico_File/tests/filename.jai",
+            "stdlib/internal/resource-wire/ico-load.jai",
+            "stdlib/internal/cpu/module.jai",
+            "stdlib/Extensions/SIMD/tests/cpu-dispatch.jai",
+            "stdlib/Extensions/Web/template.jai",
+            "tools/ci/check_images_ui.py",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(ci_changes.matches(patterns, [path], workflow=False))
+
     def test_sdl3_ignores_the_workflow_and_actions_but_not_its_own_inputs(self):
         self.assertTrue(selects("sdl3", "stdlib/Extensions/SDL3/module.jai"))
         self.assertTrue(selects("sdl3", "tools/bindings/sdl3_gen.py"))
@@ -385,8 +401,16 @@ class JobSelection(unittest.TestCase):
         }
         self.assertLessEqual(jobs, job_inputs.GATED)
 
-    def test_everything_runs_when_all_areas_do(self):
-        self.assertEqual(ci_changes.selected_jobs(self.ALL, ""), list(ci_changes.JOBS))
+    def test_automatic_jobs_run_when_all_areas_do(self):
+        expected = [job for job in ci_changes.JOBS if job not in ci_changes.MANUAL_ONLY]
+        self.assertEqual(ci_changes.selected_jobs(self.ALL, ""), expected)
+
+    def test_focused_intel_requires_an_explicit_manual_name(self):
+        self.assertNotIn("images-ui-intel", ci_changes.selected_jobs(self.ALL, ""))
+        self.assertNotIn("images-ui-intel", ci_changes.selected_jobs(self.ALL, "test,docs"))
+        self.assertEqual(
+            ci_changes.selected_jobs(self.ALL, "images-ui-intel"), ["images-ui-intel"]
+        )
 
     def test_false_areas_drop_their_jobs(self):
         results = self.ALL | {"windows": False, "code": False}

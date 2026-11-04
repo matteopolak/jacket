@@ -70,3 +70,5 @@ PYTHONPATH=tools python3 tools/bindings/run_webgpu_native.py --jaic target/debug
 ```
 
 This runs the production upload, shader, blending and readback in interpreted and compiled modes. Fixtures cover orientation, RGBA order, stretching, transparent and translucent pixels, draw order across solid batches, scale, clipping and changed caller pixels across frames. Native FreeType and wgpu-native libraries are required; synthetic fonts need no system font files. Extend `tests/driven/images.jai` when changing rendering semantics; keep borrowed-buffer and argument checks in ordinary `tests/images.jai`.
+
+The separately selectable `images-ui-intel` CI job runs these image checks alongside portable filename/ICO and CPU stage regressions on macOS x64. See [focused Intel acceptance](../tools/ci-job-selection.md#focused-intel-image-acceptance). It preserves explicit no-adapter skips and leaves the full matrix intact.
