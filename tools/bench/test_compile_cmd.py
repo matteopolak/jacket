@@ -4,6 +4,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from bench.cmd_compile import Attempt, Job, JobRunner, first_difference, normalized, plan_jobs, stage_stats
@@ -210,6 +211,16 @@ class MeasureTests(unittest.TestCase):
         self.assertGreater(result.rss_mib, 0)
         self.assertGreaterEqual(result.cpu, 0)
 
+    def test_external_output_stream_retains_bytes_and_stays_open(self):
+        code = "import os; os.write(1, b'out\\xff'); os.write(2, b'err\\xfe')"
+        with tempfile.TemporaryFile() as output:
+            result = run_measured([PYTHON, '-c', code], output=output)
+            self.assertTrue(result.ok)
+            self.assertEqual((result.stdout, result.stderr), ('', ''))
+            output.write(b'end')
+            output.seek(0)
+            self.assertEqual(output.read(), b'out\xfferr\xfeend')
+
     def test_stdin_and_timeout(self):
         echo = run_measured([PYTHON, '-c', 'import sys; sys.stdout.write(sys.stdin.read())'], stdin_bytes=b'hi')
         self.assertEqual(echo.stdout, 'hi')
@@ -238,6 +249,77 @@ class MeasureTests(unittest.TestCase):
         time.sleep(0.1)
         with self.assertRaises(ProcessLookupError):
             os.kill(child, 0)
+
+    @unittest.skipIf(sys.platform == 'win32', 'injects a POSIX wait4 failure; Windows uses a Job Object')
+    def test_wait_failures_and_interrupts_kill_children_and_grandchildren(self):
+        from bench import measure
+        real_wait4 = os.wait4
+        for failure in (RuntimeError("injected wait failure"), KeyboardInterrupt()):
+            with self.subTest(failure=type(failure).__name__), tempfile.TemporaryDirectory() as scratch:
+                ready, survived = Path(scratch) / 'ready', Path(scratch) / 'survived'
+                grandchild = (f"from pathlib import Path; import time; Path({str(ready)!r}).touch(); "
+                              f"time.sleep(0.5); Path({str(survived)!r}).touch()")
+                child = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', {grandchild!r}]); time.sleep(5)"
+                parent = f"import subprocess, sys, time; print('partial output', flush=True); subprocess.Popen([sys.executable, '-c', {child!r}]); time.sleep(5)"
+                owner = None
+
+                def wait(pid, flags):
+                    nonlocal owner
+                    owner = pid
+                    if ready.exists():
+                        raise failure
+                    return real_wait4(pid, flags)
+
+                try:
+                    output_path = Path(scratch) / 'output.log'
+                    with output_path.open('w+b') as output:
+                        with mock.patch.object(measure.os, 'wait4', side_effect=wait):
+                            with self.assertRaises(type(failure)):
+                                run_measured([PYTHON, '-c', parent], timeout=3, output=output)
+                    self.assertEqual(output_path.read_bytes(), b'partial output\n')
+                    self.assertTrue(ready.exists(), 'grandchild must start before injected interruption')
+                    time.sleep(0.7)
+                    self.assertFalse(survived.exists(), 'grandchild outlived failed runner')
+                finally:
+                    # On a regression, clean only the still-owned synthetic process group.
+                    if owner is not None:
+                        try:
+                            pid, _, _ = real_wait4(owner, os.WNOHANG)
+                        except ChildProcessError:
+                            pass
+                        else:
+                            if not pid:
+                                measure.kill_group(owner)
+                                real_wait4(owner, 0)
+
+    @unittest.skipIf(sys.platform == 'win32', 'injects a POSIX interruption after wait4 reaps the parent')
+    def test_interrupt_after_reap_still_kills_grandchildren(self):
+        from bench import measure
+        real_wait4 = os.wait4
+        with tempfile.TemporaryDirectory() as scratch:
+            ready, survived = Path(scratch) / 'ready', Path(scratch) / 'survived'
+            grandchild = (f"from pathlib import Path; import time; Path({str(ready)!r}).touch(); "
+                          f"time.sleep(0.5); Path({str(survived)!r}).touch()")
+            child = f"import subprocess, sys; subprocess.Popen([sys.executable, '-c', {grandchild!r}])"
+            parent = (f"import subprocess, sys, time; from pathlib import Path; subprocess.Popen([sys.executable, '-c', {child!r}]); "
+                      f"ready=Path({str(ready)!r})\nwhile not ready.exists(): time.sleep(0.005)")
+            reaped = False
+
+            def wait(pid, flags):
+                nonlocal reaped
+                result = real_wait4(pid, flags)
+                if result[0]:
+                    reaped = True
+                    raise KeyboardInterrupt()
+                return result
+
+            with mock.patch.object(measure.os, 'wait4', side_effect=wait):
+                with self.assertRaises(KeyboardInterrupt):
+                    run_measured([PYTHON, '-c', parent], timeout=3)
+            self.assertTrue(reaped)
+            self.assertTrue(ready.exists())
+            time.sleep(0.7)
+            self.assertFalse(survived.exists(), 'grandchild survived interruption after parent was reaped')
 
     def test_failure_text_is_the_last_lines(self):
         self.assertEqual(run(returncode=1, stderr='a\nb\nc\n').failure(), 'exit 1: b | c')

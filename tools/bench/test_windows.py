@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 
-from bench import cmd_wsb, common, measure, quiet, winapi, winsandbox
+from bench import cmd_wsb, common, measure, quiet, winapi, winjob, winsandbox
 from bench.dialects import JaicDialect, Mode, PlainDialect, Request, executable_file
 from bench.measure import run_measured
 from bench.sandbox import Sandbox, SandboxedCommand, environment
@@ -255,6 +255,31 @@ class QuietOnWindowsTests(unittest.TestCase):
 PYTHON = sys.executable
 
 
+class JobCleanupTests(unittest.TestCase):
+    def test_failed_job_configuration_closes_the_new_handle(self):
+        kernel = mock.Mock()
+        kernel.CreateJobObjectW.return_value = 101
+        kernel.SetInformationJobObject.return_value = False
+        with mock.patch.object(winjob, 'api', return_value=kernel), mock.patch.object(winapi, 'raise_last_error', side_effect=OSError('limits')):
+            with self.assertRaisesRegex(OSError, 'limits'):
+                winjob.Job()
+        kernel.CloseHandle.assert_called_once_with(101)
+
+    def test_failed_assignment_terminates_and_reaps_the_suspended_process(self):
+        kernel = mock.Mock()
+        spawned = winjob.Spawned(process=101, thread=102, pid=103)
+        job = mock.Mock()
+        job.assign.side_effect = OSError('assign')
+        with mock.patch.object(winjob, 'api', return_value=kernel), mock.patch.object(winjob, 'Job', return_value=job), mock.patch.object(winjob, 'launch', return_value=spawned):
+            with self.assertRaisesRegex(OSError, 'assign'):
+                winjob.run(['child'], None, None, None, None, None, 1)
+        kernel.ResumeThread.assert_not_called()
+        kernel.TerminateProcess.assert_called_once_with(101, 1)
+        kernel.WaitForSingleObject.assert_called_once_with(101, 10000)
+        self.assertEqual(kernel.CloseHandle.call_args_list, [mock.call(102), mock.call(101)])
+        job.close.assert_called_once_with()
+
+
 @unittest.skipUnless(WINDOWS, 'needs Windows')
 class FixedBaseImageTests(unittest.TestCase):
     def test_a_fixed_base_image_in_the_container_stops_the_run_with_the_reason(self):
@@ -294,6 +319,41 @@ class JobObjectTests(unittest.TestCase):
         self.assertGreater(run.rss_mib, 1)
         # Peak commit and peak working set are not ordered: the working set also counts shared pages (DLLs).
         self.assertGreater(run.commit_mib, 0)
+
+    def test_failed_assignment_terminates_a_real_suspended_process(self):
+        kernel = winapi.api()
+        real_launch = winjob.launch
+        held = []
+
+        def launch(*args, **kwargs):
+            spawned = real_launch(*args, **kwargs)
+            # Hold the same process object across cleanup; never reopen a possibly reused PID.
+            handle = kernel.OpenProcess(winapi.PROCESS_QUERY_LIMITED_INFORMATION | 0x0001,
+                                        False, spawned.pid)  # PROCESS_TERMINATE
+            if not handle:
+                error = ctypes.get_last_error()
+                kernel.TerminateProcess(spawned.process, 1)
+                kernel.WaitForSingleObject(spawned.process, 10000)
+                kernel.CloseHandle(spawned.thread)
+                kernel.CloseHandle(spawned.process)
+                raise ctypes.WinError(error)
+            held.append(handle)
+            return spawned
+
+        try:
+            with tempfile.TemporaryFile() as output, winjob.open_null() as stdin:
+                with mock.patch.object(winjob, 'launch', side_effect=launch), mock.patch.object(winjob.Job, 'assign', side_effect=OSError('injected assignment failure')):
+                    with self.assertRaisesRegex(OSError, 'injected assignment failure'):
+                        winjob.run([PYTHON, '-c', 'pass'], None, None, stdin, output, output, 1)
+            self.assertEqual(len(held), 1)
+            code = ctypes.c_uint32()
+            self.assertTrue(kernel.GetExitCodeProcess(held[0], ctypes.byref(code)))
+            self.assertNotEqual(code.value, 259, 'suspended child remains STILL_ACTIVE')
+        finally:
+            for handle in held:
+                kernel.TerminateProcess(handle, 1)
+                kernel.WaitForSingleObject(handle, 10000)
+                kernel.CloseHandle(handle)
 
     def test_cpu_time_includes_a_child_process(self):
         child = 'import time; t=time.perf_counter()\nwhile time.perf_counter()-t < 0.6: pass'

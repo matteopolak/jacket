@@ -1,5 +1,4 @@
-"""Run and measure one process tree on Windows with a Job Object: the same numbers `measure.py` takes from
-`wait4` elsewhere.
+"""Run and measure a Windows Job's process tree: wall time, CPU and peak memory for `measure.py`.
 
 - CPU time: the job's accounting, user plus kernel time of the process and every descendant (a linker,
   a helper) that ran in it, including those that already exited.
@@ -8,8 +7,8 @@
   that starts and ends between two samples (10 ms apart) can be missed. The job's peak *commit* charge
   (private bytes: not comparable to the working set, which also counts shared pages) is reported separately as `commit_mib`.
   macOS and Linux report `ru_maxrss`, the peak resident set of the largest single process.
-- Timeouts and stragglers: `TerminateJobObject` kills the whole tree, on timeout and again once the
-  command exits, as `killpg` does elsewhere.
+- Timeouts and stragglers: `TerminateJobObject` kills the Job's tree on timeout and again once the
+  command exits. Job membership is independent of Windows console process groups.
 
 A command can also be launched into an AppContainer (`winsandbox.py`): the process is created suspended
 with the container's security capabilities, put in the job, then resumed.
@@ -48,9 +47,13 @@ class Job:
             winapi.raise_last_error('CreateJobObject')
         limits = winapi.JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
         limits.BasicLimitInformation.LimitFlags = winapi.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-        if not api().SetInformationJobObject(self.handle, winapi.JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
-                                             ctypes.byref(limits), ctypes.sizeof(limits)):
-            winapi.raise_last_error('SetInformationJobObject')
+        try:
+            if not api().SetInformationJobObject(self.handle, winapi.JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+                                                 ctypes.byref(limits), ctypes.sizeof(limits)):
+                winapi.raise_last_error('SetInformationJobObject')
+        except BaseException:
+            self.close()
+            raise
 
     def assign(self, process_handle) -> None:
         if not api().AssignProcessToJobObject(self.handle, process_handle):
@@ -180,8 +183,10 @@ def run(command: list[str], cwd, env: dict[str, str] | None, stdin: IO, stdout: 
     try:
         start = time.perf_counter()
         spawned = launch(command, cwd, env, stdin, stdout, stderr, container_sid)
+        assigned = False
         try:
             job.assign(spawned.process)
+            assigned = True
             lib.ResumeThread(spawned.thread)
             deadline = start + timeout
             timed_out = False
@@ -204,6 +209,11 @@ def run(command: list[str], cwd, env: dict[str, str] | None, stdin: IO, stdout: 
             return Measured(wall=wall, cpu=user + kernel, rss_mib=winapi.mib(peak), commit_mib=commit,
                             returncode=code.value, timed_out=timed_out)
         finally:
+            if not assigned:
+                # Closing the Job cannot terminate a process it never owned. The thread is
+                # still suspended here, so terminate this process before releasing its handles.
+                lib.TerminateProcess(spawned.process, 1)
+                lib.WaitForSingleObject(spawned.process, 10_000)
             lib.CloseHandle(spawned.thread)
             lib.CloseHandle(spawned.process)
     finally:
