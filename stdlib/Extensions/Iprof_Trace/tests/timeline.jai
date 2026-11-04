@@ -38,7 +38,7 @@ captures_recursive_calls_across_frames :: (t: *Test) {
     expect_equal(loaded.frames.count, 2);
     expect_equal(loaded.frames[1].duration, r.trace.frames[1].duration);
     expect_equal(loaded.frames[0].spans[1].end, r.trace.frames[0].spans[1].end);
-} @test
+} @test @skip_on(.WASM)
 
 rejects_truncation_trailing_bytes_and_bad_trees :: (t: *Test) {
     trace: Trace;
@@ -109,7 +109,7 @@ reports_work_with_and_without_capture :: () {
     expect_equal(report.records[0].calls, 1.0);
     expect_equal(r.trace.frames.count, 1);
     expect_equal(r.trace.frames[0].spans.count, 1);
-} @test
+} @test @skip_on(.WASM)
 
 empty_frames_round_trip :: (t: *Test) {
     trace: Trace;

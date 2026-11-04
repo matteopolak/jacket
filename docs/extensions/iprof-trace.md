@@ -23,6 +23,7 @@ defer free_trace(*trace);
 - `start_capture` attaches the recorder. It copies zone names and records spans in preorder, each with a parent index, start and duration relative to its frame. Recursive calls stay separate spans; an invocation still open at a frame boundary is split across both frames.
 - Capture begins at the first sample. Paused updates and `update(false)` don't end frames. `stop_capture` drops the unfinished frame.
 - `format.jai` writes and validates the file: a magic with the version, then names and frames as little-endian 64-bit fields. `decode_trace` rejects truncated input, bad trees and overflowing durations; files are capped at 64 MiB.
+- Recording and Iprof reports require its native monotonic clock; WebAssembly has no capture clock. Trace serialization and validation work on WebAssembly, including files recorded on a native target.
 
 ## How to change it
 
@@ -31,3 +32,5 @@ defer free_trace(*trace);
 - New public declarations stay in this extension; the hook in Iprof's internals is private.
 
 Tests: `jacket test --path stdlib/Extensions/Iprof_Trace`. Depends on `Basic`, `File` and `String`; a client imports `Iprof` to produce samples.
+
+`jacket test --path stdlib/Extensions/Iprof_Trace --interp --os wasm` checks the portable format. The two tests that produce live clock samples declare `@skip_on(.WASM)`; keep format-only tests independent of Iprof's clock.
