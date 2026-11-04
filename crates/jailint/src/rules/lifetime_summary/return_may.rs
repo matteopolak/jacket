@@ -102,6 +102,25 @@ impl Resolver<'_> {
         {
             return true;
         }
+        if let Some(field) = projections
+            .iter()
+            .try_fold(root, |p, proj| self.places.projected(p, *proj))
+            && let Some(field_ty) = self.places.types.get(&field)
+            && matches!(
+                self.compiler.ty.types.kind(*field_ty),
+                super::TypeKind::String
+                    | super::TypeKind::Array {
+                        kind: super::ArrayKind::View | super::ArrayKind::Resizable,
+                        ..
+                    }
+            )
+        {
+            let mut data = projections.to_vec();
+            data.push(Projection::Field(jaic::intern::Sym::intern("data")));
+            if self.field_may_temporary(value, ty, &data, all, depth + 1) {
+                return true;
+            }
+        }
         if self
             .stored_field_prefixes(root, ty, projections)
             .any(|(_, prefix_ty, sources, tail)| {

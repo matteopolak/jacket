@@ -840,6 +840,28 @@ fn inferred_temporary_return(cx: &Cx, body: &LifetimeBody, model: &Model, op: &C
     let super::Cell::Place(place) = model.cells.values[*cell] else {
         return false;
     };
+    let mut prefix = Vec::new();
+    for projection in &model.places.paths[place].1 {
+        match projection {
+            crate::rules::lifetime_places::Projection::Field(name) => {
+                prefix.push(crate::rules::lifetime_summary::Step::Field(*name))
+            }
+            crate::rules::lifetime_places::Projection::Element(index) => {
+                prefix.push(crate::rules::lifetime_summary::Step::Element(*index))
+            }
+            _ => break,
+        }
+        if summary
+            .return_fields
+            .get(&(*result, prefix.clone()))
+            .is_some_and(|p| p.root == super::Root::Temporary)
+            || summary
+                .may_return_fields
+                .contains(&(*result, prefix.clone()))
+        {
+            return true;
+        }
+    }
     let steps = model.places.paths[place]
         .1
         .iter()

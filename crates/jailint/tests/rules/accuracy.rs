@@ -292,3 +292,29 @@ fn lifetime_pointer_field_loads_do_not_use_future_writes() {
     );
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
 }
+
+#[test]
+fn lifetime_ci_online_snapshot() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-online-snapshot.jai");
+    let (lints, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &path));
+    let (lints, text) = lint_with(
+        &path,
+        &[("temp_storage_escape", Level::Warn)],
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    assert!(lints[0].start > text.find("keep ::").unwrap());
+    let (lints, text) = lint_with(
+        &path,
+        &[("use_after_free", Level::Warn)],
+        Config {
+            lifetime_mode: Some(jacket_config::LifetimeMode::Strict),
+            ..Config::default()
+        },
+    );
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+}

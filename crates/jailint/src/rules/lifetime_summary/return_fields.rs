@@ -337,6 +337,22 @@ impl Resolver<'_> {
             }
             return origin;
         }
+        if let Some(field_ty) = field.and_then(|p| self.places.types.get(&p))
+            && matches!(
+                self.compiler.ty.types.kind(*field_ty),
+                TypeKind::String
+                    | TypeKind::Array {
+                        kind: super::ArrayKind::View | super::ArrayKind::Resizable,
+                        ..
+                    }
+            )
+        {
+            let mut data = projections.to_vec();
+            data.push(Projection::Field(jaic::intern::Sym::intern("data")));
+            if let Some(path) = self.field_origin(value, ty, &data, all, depth + 1) {
+                return Some(path);
+            }
+        }
         for (prefix, prefix_ty, sources, tail) in self.stored_field_prefixes(root, ty, projections)
         {
             if !(self.return_definition(prefix) || self.field_defined_before_uses(root, prefix)) {
