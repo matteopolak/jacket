@@ -51,6 +51,7 @@ http_use_simd := true;
     #load "h2.jai";
     #load "h2_server.jai";
     #load "h2_client.jai";
+    #load "h2_exchange.jai";
     #load "server.jai";
     #load "client.jai";
     #load "test_client.jai";

@@ -32,15 +32,16 @@ h2_client_headers :: (conn: *H2_Conn, id: u32, stream: *H2_Stream, block: Hpack_
     }
 
     if stream.has_head {
-        // Trailers end the response; their fields are not used.
-        hpack_block_free(*owned);
-
-        if !end_stream {
+        // Trailer blocks cannot contain pseudo headers or connection fields and
+        // must end the response. Validate before transferring ownership.
+        if !end_stream || stream.remote_ended || !h2_valid_trailers(owned.fields) {
+            hpack_block_free(*owned);
             h2_reset_stream(conn, stream, .PROTOCOL_ERROR);
 
             return .NO_ERROR;
         }
 
+        stream.trailers = owned;
         h2_end_response(conn, stream);
 
         return .NO_ERROR;
@@ -110,14 +111,13 @@ h2_client_headers :: (conn: *H2_Conn, id: u32, stream: *H2_Stream, block: Hpack_
 
 // The peer ended the response: check the length it promised.
 h2_end_response :: (conn: *H2_Conn, stream: *H2_Stream) {
-    stream.remote_ended = true;
-
     if stream.declared >= 0 && stream.declared != stream.received && stream.status != HTTP_NOT_MODIFIED && !stream.head_only {
         h2_reset_stream(conn, stream, .PROTOCOL_ERROR);
 
         return;
     }
 
+    stream.remote_ended = true;
     Io.notify_all(*stream.changed);
     h2_check_closed(stream);
 }
@@ -502,6 +502,12 @@ h2_source_release :: (source: *Body_Source) {
     if !stream return;
 
     conn := stream.conn;
+
+    if source.finished && stream.remote_ended && !stream.reset_by_peer && !stream.reset_sent {
+        source.h2_trailers = stream.trailers;
+        stream.trailers = .{};
+        source.h2_complete = true;
+    }
 
     source.h2 = null;
     source.held = false;

@@ -74,3 +74,67 @@ None of them run on wasm, because the server and TLS aren't built there.
 - `Extensions/Tls` provides the link and ALPN.
 - `Io` provides fibers, conditions, deadlines and wait groups.
 - The HTTP/1.1 side's `Request_Frame`, `Body` and `Stream` are reused so that handlers can't tell which protocol carried a request.
+
+### Response trailers
+
+After reading an HTTP/2 response body to EOF, call `response_trailers(*response)`
+to obtain terminal fields and a completion flag. Fields remain owned by the response
+until `close`, even after its stream has been released. Repeated names keep wire order.
+The flag distinguishes a complete empty block from a read that failed or has not finished;
+HTTP/1.1 responses return false. Application protocols must interpret their own terminal
+status fields; HTTP status 200 and byte EOF do not establish RPC success.
+
+The client and server reject trailers with pseudo headers, connection-specific fields,
+uppercase names or missing END_STREAM. Trailer storage follows the stream until ownership
+moves to the client body source. To change this lifetime, update both `h2_source_release`
+and `discard_source`; freeing the stream must not invalidate terminal fields.
+
+A streaming response producer may call `finish_stream(stream, fields)` after its
+last `send_chunk` to send an HTTP/2 terminal block. This ends the sending direction;
+subsequent body writes fail. Fields are borrowed until the operation returns. It
+returns false for HTTP/1.1, invalid field names, or a stream already ended or reset.
+
+## Duplex exchanges
+
+`Http2_Channel` scopes HTTP/2-only pooled connections to its stable address and TLS
+configuration. `open_http2_exchange` queues POST headers and returns before sending
+DATA or waiting for a response. It requires an active Io scheduler, HTTPS, and ALPN
+`h2`. It never redirects, retries a refused stream, or falls back to HTTP/1.1.
+Keep the channel at the same address until all its exchanges and
+`close_http2_channel` have completed. Its `write_timeout` defaults to zero (unlimited);
+RPC deadlines belong to the caller and must surround each blocking operation.
+
+A server handler uses `accept_http2_exchange(request, headers)` to send initial
+headers and take responsibility for the response. Complete the exchange before
+returning from the handler; the adapter then suppresses an ordinary second response.
+Both directions share existing HTTP/2 framing, flow control, and cancellation.
+
+```jai,ignore
+channel: Http2_Channel;
+channel.base_url = "https://localhost:8443";
+channel.tls = config; // already initialized, trusted roots and ALPN h2
+exchange, error := open_http2_exchange(*channel, "/example.Echo/Unary", headers);
+defer close_exchange(*exchange);
+error = exchange_write(*exchange, payload, end_stream = true);
+status, initial, head_error := exchange_head(*exchange);
+count, read_error := exchange_read(*exchange, buffer); // repeat until count=0
+terminal, complete := exchange_trailers(*exchange);
+```
+
+`exchange_read` copies into caller memory and returns window credit only as bytes
+are consumed. It keeps one current transport block plus bytes still in the stream
+window; there is no decoded-message queue. Use a sender fiber and a receiver fiber
+for simultaneous large uploads/downloads. Exactly one reader and one writer may
+operate concurrently on one scheduler. Multiple readers/writers are rejected.
+`exchange_finish` ends server output with terminal fields; `exchange_cancel` wakes
+blocked operations. Join those fibers before `close_exchange` releases storage.
+Headers and trailers borrow exchange storage until close; zero bytes with no read
+error establishes byte EOF, while application completion still requires interpreting
+terminal protocol status. HTTP status 200 alone is insufficient.
+
+Change `h2_exchange.jai` to extend the public seam. Keep H2 connection/stream types
+private, preserve one reference for each exchange, and return flow credit on actual
+consumption. `h2_server.jai` owns the handler-to-exchange handoff. The regression
+`h2-exchange.jai` sends a response before upload and then echoes more than a window
+with simultaneous sender/receiver fibers. `h2-trailer-lifecycle.jai` deterministically
+resets a writer blocked on queue room and checks early body-source release.

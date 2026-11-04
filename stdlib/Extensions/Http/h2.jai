@@ -57,10 +57,12 @@ H2_Stream :: struct {
 
     // The client side: the response head, once it arrives.
     head: Hpack_Block;
+    trailers: Hpack_Block;
     status: int;
     has_head: bool;
     failure: string; // why the stream ended in an error, for the caller
     refused: bool; // the server did not process it (RST_STREAM REFUSED_STREAM or GOAWAY): the request may be retried
+    exchange_taken: bool; // server handler owns the duplex response
     head_only: bool; // the request was HEAD: the response has a length and no body
 }
 
@@ -169,6 +171,7 @@ h2_conn_release :: (conn: *H2_Conn) {
 h2_stream_free :: (stream: *H2_Stream) {
     array_reset(*stream.recv);
     hpack_block_free(*stream.head);
+    hpack_block_free(*stream.trailers);
 
     if stream.failure.count free(stream.failure.data);
 
@@ -654,13 +657,12 @@ h2_on_data :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2_Er
     stream.received += data.count;
 
     if (header.flags & H2_END_STREAM) != 0 {
-        stream.remote_ended = true;
-
         if stream.declared >= 0 && stream.declared != stream.received {
             h2_reset_stream(conn, stream, .PROTOCOL_ERROR);
 
             return .NO_ERROR;
         }
+        stream.remote_ended = true;
     }
 
     Io.notify_all(*stream.changed);
@@ -895,6 +897,17 @@ h2_on_window_update :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8)
 // Whether a regular header field may not appear in HTTP/2 (RFC 9113 section 8.2.2).
 h2_connection_specific :: (name: string) -> bool {
     return name == "connection" || name == "proxy-connection" || name == "keep-alive" || name == "transfer-encoding" || name == "upgrade";
+}
+
+// Trailer blocks contain regular fields only. TE is legal only with `trailers`.
+h2_valid_trailers :: (fields: [] Header_Field) -> bool {
+    // Share token/value and framing-field checks with the HTTP writers.
+    if !fields_ok(fields) return false;
+    for fields {
+        if it.name.count == 0 || it.name[0] == #char ":" || h2_has_uppercase(it.name) || h2_connection_specific(it.name) return false;
+        if it.name == "te" && it.value != "trailers" return false;
+    }
+    return true;
 }
 
 // Whether the name has an uppercase letter, which makes a message malformed.

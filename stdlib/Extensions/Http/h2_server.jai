@@ -81,31 +81,34 @@ h2_server_headers :: (conn: *H2_Conn, id: u32, stream: *H2_Stream, block: Hpack_
     owned := block;
 
     if stream {
-        // Trailers: they end the request, and nothing in them is used.
-        hpack_block_free(*owned);
-
-        if stream.reset_sent || stream.reset_by_peer return .NO_ERROR;
+        // Requests retain terminal fields until the stream is released.
+        if stream.reset_sent || stream.reset_by_peer {
+            hpack_block_free(*owned);
+            return .NO_ERROR;
+        }
 
         if stream.remote_ended {
+            hpack_block_free(*owned);
             h2_reset_stream(conn, stream, .STREAM_CLOSED);
 
             return .NO_ERROR;
         }
 
-        if !end_stream {
+        if !end_stream || !h2_valid_trailers(owned.fields) {
+            hpack_block_free(*owned);
             h2_reset_stream(conn, stream, .PROTOCOL_ERROR);
 
             return .NO_ERROR;
         }
 
-        stream.remote_ended = true;
-
+        stream.trailers = owned;
         if stream.declared >= 0 && stream.declared != stream.received {
             h2_reset_stream(conn, stream, .PROTOCOL_ERROR);
 
             return .NO_ERROR;
         }
 
+        stream.remote_ended = true;
         Io.notify_all(*stream.changed);
         h2_check_closed(stream);
 
@@ -353,7 +356,7 @@ h2_serve_request :: (ctx: *H2_Server_Stream) {
     if !conn.dead && !stream.reset_by_peer && !stream.reset_sent {
         server.served += 1;
 
-        h2_send_response(ctx, *response);
+        if !stream.exchange_taken h2_send_response(ctx, *response);
 
         if config.log_requests {
             print("% % % (% ms)\n", request.method_text, request.target, response.status, now_ms() - ctx.started);
@@ -484,7 +487,7 @@ h2_send_source :: (ctx: *H2_Server_Stream, source: *Response_Source) {
         ok = !frame.failed;
     }
 
-    if ok h2_send_data(stream, .[], true);
+    if ok && !stream.local_ended h2_send_data(stream, .[], true);
 }
 
 // Takes the next DATA of a request body for `Body`. The data is handed over as it stands in the
