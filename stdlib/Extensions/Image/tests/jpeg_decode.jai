@@ -1,5 +1,5 @@
 // JPEG decoding against djpeg: every fixture of fixtures/jpeg/make_fixtures.sh is decoded and
-// compared with libjpeg-turbo's output for it (`djpeg -dct int`, fancy upsampling). The decoder
+// compared with independent pixels (`djpeg -dct int`, fancy upsampling, or constant-DC header goldens). The decoder
 // matches it exactly today; the check allows a mean error of 0.5 and a worst error of 2 so that a
 // different but equally accurate transform would not fail. Also: the files that must be refused,
 // the pixel limit, and the pixel format of each kind of file.
@@ -58,7 +58,7 @@ compare_all :: () {
                 largest = max(largest, difference);
             }
 
-            check(largest <= 2, tprint("% is within 2 of djpeg (worst %)", fixture.name, largest));
+            check(largest <= 2, tprint("% is within 2 of the reference (worst %)", fixture.name, largest));
             check(sum * 2 <= expected.count, tprint("% has a mean error under 0.5 (sum %)", fixture.name, sum));
             worst = max(worst, largest);
         }
