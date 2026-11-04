@@ -1,3 +1,4 @@
+from collections import Counter
 import json
 import tempfile
 import textwrap
@@ -346,6 +347,68 @@ class JobSelection(unittest.TestCase):
         self.assertEqual(
             sorted(gated), sorted(set(ci_changes.JOBS) - {"sanitizers-macos"})
         )
+
+
+class SanitizerModes(unittest.TestCase):
+    def test_full_macos_modes_cover_every_existing_sweep_once(self):
+        expected = Counter({
+            ("O0", "corpus"): 1, ("O0", "regressions"): 1,
+            ("O0", "negative"): 1, ("O0", "stdlib"): 1,
+            ("O2", "corpus"): 1, ("O2", "regressions"): 1,
+            ("O2", "stdlib"): 1,
+        })
+        for selected in (False, True):
+            legs = [leg for leg in ci_changes.sanitizer_matrix(True, selected) if leg["runner"] == "macos-15"]
+            self.assertEqual(len(legs), 2)
+            self.assertEqual({leg["mode"] for leg in legs}, {"O0", "O2"})
+            actual = Counter()
+            for leg in legs:
+                self.assertEqual(leg["shard"], "1/1")
+                mode = leg["mode"]
+                for suite in ["corpus", "regressions", "stdlib", *(["negative"] if mode == "O0" else [])]:
+                    actual[mode, suite] += 1
+            self.assertEqual(actual, expected)
+
+    def test_fast_mac_and_linux_assignments_are_unchanged(self):
+        for full in (False, True):
+            for selected in (False, True):
+                legs = ci_changes.sanitizer_matrix(full, selected)
+                count = 2 if full else 3
+                self.assertEqual(
+                    [leg for leg in legs if leg["runner"] == "ubuntu-24.04"],
+                    [{"runner": "ubuntu-24.04", "shard": f"{index}/{count}"} for index in range(1, count + 1)],
+                )
+                if not full:
+                    self.assertEqual(
+                        [leg for leg in legs if leg["runner"] == "macos-15"],
+                        [{"runner": "macos-15", "shard": "1/1"}] if selected else [],
+                    )
+                keys = [(leg["runner"], leg["shard"], leg.get("mode") == "O2") for leg in legs]
+                self.assertEqual(len(keys), len(set(keys)), keys)
+
+    def test_workflow_modes_keep_commands_limits_and_unique_names(self):
+        text = (ROOT / ".github/workflows/ci.yml").read_text()
+        job = text[text.index("\n  sanitizers:\n"):text.index("\n  sdl3:\n")]
+        self.assertIn("timeout-minutes: 45", job)
+        self.assertIn("${{ matrix.mode && format(', {0}', matrix.mode) || '' }}", job)
+        self.assertIn("${{ matrix.mode == 'O2' && '-O2' || '' }}", job)
+        steps = {}
+        for block in job.split("      - name: ")[1:]:
+            steps[block.splitlines()[0]] = block
+        for mode, opposite in [("O0", "O2"), ("O2", "O0")]:
+            corpus = steps[f"Corpus and compiler tests under ASan and UBSan (-{mode})"]
+            stdlib = steps[f"Stdlib module tests under ASan and UBSan (-{mode})"]
+            self.assertIn(f"matrix.mode != '{opposite}'", corpus)
+            self.assertIn(f"matrix.mode != '{opposite}'", stdlib)
+            command = "python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 "
+            command += f"--opt {mode} --headless --sanitize address,undefined --shard "
+            command += "${{ matrix.shard }} corpus regressions" + (" negative" if mode == "O0" else "")
+            self.assertEqual(corpus.split("        run: ", 1)[1].splitlines()[0], command)
+            self.assertEqual(stdlib.split("        run: ", 1)[1].splitlines()[0], f"tools/ci/stdlib_jacket_sanitize.sh {mode} " + "${{ matrix.shard }}")
+            self.assertIn("always() && !cancelled() && steps.build-jaic.outcome == 'success'", stdlib)
+            if mode == "O2":
+                self.assertIn("needs.changes.outputs.full == 'true'", corpus)
+                self.assertIn("needs.changes.outputs.full == 'true'", stdlib)
 
 
 class Tiers(unittest.TestCase):
