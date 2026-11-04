@@ -133,13 +133,20 @@ def archive_fixtures():
 
 
 def zip_fixtures():
-    """Construct independent classic ZIP fixtures using Python's archive writer."""
+    """Write stable classic ZIP fixtures; `PYTHONPATH=tools python3 tools/portable/build_portable.py zip` regenerates them."""
     directory = output_dir("portable-tests", "zip")
     directory.mkdir(parents=True, exist_ok=True)
     valid = directory / "valid.zip"
     with zipfile.ZipFile(valid, "w", compression=zipfile.ZIP_STORED) as archive:
-        archive.writestr("first.txt", b"hello")
-        archive.writestr("binary.bin", bytes([0, 128, 255]))
+        for name, data in (
+            ("first.txt", b"hello"),
+            ("binary.bin", bytes([0, 128, 255])),
+        ):
+            entry = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            entry.create_system = 3
+            entry.external_attr = 0o600 << 16
+            entry.compress_type = zipfile.ZIP_STORED
+            archive.writestr(entry, data)
         archive.comment = b"comment with false PK\x05\x06 marker"
     with zipfile.ZipFile(directory / "empty.zip", "w"):
         pass

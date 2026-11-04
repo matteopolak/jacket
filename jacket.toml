@@ -231,6 +231,10 @@ name = "Benchmarking"
 file = "docs/guides/documenting.md"
 name = "Documenting a library"
 
+[[doc.page]]
+file = "docs/language/context.md"
+name = "Implicit context"
+
 [[doc.section]]
 file = "docs/reference/tools.md"
 name = "Tools"

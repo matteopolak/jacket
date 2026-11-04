@@ -45,7 +45,7 @@ Each platform job:
 4. Windows only: builds the crash runtime into the packaged `stdlib/`.
 5. Smoke-tests the package from outside the checkout ([release smoke tests](release-smoke.md)), so an archive missing a tool or library fails before anything is published.
 
-`publish` writes `toolchain-manifest.json` and `SHA256SUMS` and creates or updates the release; the store (Marketplace and Open VSX), Neovim mirror and Homebrew jobs follow. `release-meta` computes the version, tag, dry-run and publishing gates once, and every job's `if:` reads those outputs (a new publishing rule belongs there).
+`publish` downloads an allowlist of platform archives, the VSIX and compressed docs bundle. It excludes the Pages `artifact.tar` and `pgo-training-*` diagnostic artifacts, writes `toolchain-manifest.json` and `SHA256SUMS`, and creates or updates the release; the store (Marketplace and Open VSX), Neovim mirror and Homebrew jobs follow. `release-meta` computes the version, tag, dry-run and publishing gates once, and every job's `if:` reads those outputs (a new publishing rule belongs there).
 
 A packaged binary finds its stdlib through `jaic::stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` beside the executable (also behind symlinks), else the build-time repository path ([prelude selection](../compiler/prelude-selection.md)).
 
@@ -67,8 +67,8 @@ Our Rust code is built with profile-guided optimisation (`tools/dev/build_pgo.py
 
 ## Cutting a release
 
-1. Add `## [x.y.z] - YYYY-MM-DD` at the top of `CHANGELOG.md`: one or two sentences, `### Highlights` (2 to 6 one-liners), `### Breaking changes` (a Was/Now table, if any), `### Fixes`. Keep it for users; no internals. Use `###` or lower, since a `## [` line ends the extracted notes.
-2. Run `just bump-version X.Y.Z`. It edits the workspace version in `Cargo.toml`, the lock files and `CHANGELOG.md`, and regenerates `jaifmt/version.jai` and `editors/nvim/lua/jai/version.lua`. Leave `editors/vscode/package.json` alone: the workflow stamps it.
+1. Add `## [x.y.z] - YYYY-MM-DD` at the top of `CHANGELOG.md`: one or two sentences, `### Highlights` (2 to 6 one-liners), `### Breaking changes` (a Was/Now table, if any), `### Fixes`. Keep it for users; no internals. Use `###` or lower for subsections: the next level-two heading ends the extracted notes. Fenced examples do not define release sections. Inline code on its own line does not start a fence.
+2. Alternatively, prepare notes under `## Unreleased` or `## [Unreleased]` (trailing whitespace is allowed; suffixes are not). Run `just bump-version X.Y.Z`; either heading becomes `## [X.Y.Z] - YYYY-MM-DD`. A prewritten section for that exact version is kept, including its date and notes. It edits the workspace version in `Cargo.toml`, the lock files and `CHANGELOG.md`, and regenerates `jaifmt/version.jai` and `editors/nvim/lua/jai/version.lua`. Leave `editors/vscode/package.json` alone: the workflow stamps it.
 3. Commit, then `git tag -s vX.Y.Z -m 'Jacket X.Y.Z'` and `git push origin vX.Y.Z`.
 
 A tag push publishes everything: the GitHub release, both extension stores, the Homebrew tap and the Neovim mirror. A manual run publishes to the stores only with `publish_integrations`. The editor can be released alone with `editor_version`; stores keep versions immutable, so a checksum repin needs a new editor version.
@@ -113,14 +113,16 @@ Gotchas:
 | `marketplace`, `open-vsx` | publish the VSIX |
 | `homebrew` | pushes the rendered formula to the tap |
 | `nvim-stamp`, `nvim-mirror` | stamp the version and manifest into `editors/nvim`, then mirror it to `matteopolak/jacket.nvim` |
-| `portfolio` | `gh workflow run jai-web.yml -R matteopolak/portfolio -f jai_ref=<tag>`; run by the maintainer after the release |
+| `portfolio` | `gh workflow run jacket-web.yml -R matteopolak/portfolio -f jai_ref=<tag> -f update_pointer=true`; run by the maintainer after the release |
 | `all` | the publishing steps in order, for a release run by hand |
+
+The portfolio step dispatches `jacket-web.yml` on the portfolio's default branch with `jai_ref=vX.Y.Z` and `update_pointer=true`. That workflow resolves the tag to a full compiler SHA, validates its bundle, then updates the deployment pointer. For example, inspect the intended command without publishing with `python3 tools/release.py portfolio --tag vX.Y.Z --dry-run` (substitute a numeric tag).
 
 `--dry-run` prints each command (secrets as `***`) and runs nothing. To add a step: a `step_<name>(args, shell)` function and a `step(...)` row in `build_parser`; run every command through `shell.run`; add it to `PUBLISHING` if `all` should run it; `tools/test_release.py` has the fakes.
 
 ## Toolchain manifest
 
-`publish` writes `toolchain-manifest.json` next to `SHA256SUMS` (`tools/ci/toolchain_manifest.py`): `{"version": "0.20.0", "sha256": {"jacket-linux-x64.tar.gz": "<hex>", ...}}`. The VS Code extension and the Neovim plugin ship it and refuse any archive that doesn't match; a development build with none fetches the release's. To change the format, edit the script, `parseManifest` in `editors/vscode/src/toolchain.ts` and `parse_manifest` in `editors/nvim/lua/jai/install.lua`. All three tests read `editors/fixtures/`, so they can't drift.
+The release includes `toolchain-manifest.json` next to `SHA256SUMS` (`tools/ci/toolchain_manifest.py`): `{"version": "0.20.0", "sha256": {"jacket-linux-x64.tar.gz": "<hex>", ...}}`. The VS Code extension and the Neovim plugin ship it and refuse any archive that doesn't match; a development build with none fetches the release's. To change the format, edit the script, `parseManifest` in `editors/vscode/src/toolchain.ts` and `parse_manifest` in `editors/nvim/lua/jai/install.lua`. All three tests read `editors/fixtures/`, so they can't drift.
 
 ## Installer test vectors
 

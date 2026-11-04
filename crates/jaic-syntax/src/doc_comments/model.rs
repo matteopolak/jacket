@@ -545,13 +545,15 @@ fn members(decl: &Decl, text: &str) -> Vec<Member> {
     out
 }
 
-/// Whether a file declares `#foreign` procedures, which mirrors a native API documented by its
+/// Whether a file exports `#foreign` procedures, which mirrors a native API documented by its
 /// vendor, so its types and constants are listed as bindings too. `#intrinsic` and `#compiler`
 /// procedures have no body either but are the language's own, so they don't count.
+/// Private helpers (for example, after `#scope_file`) do not classify the file.
 pub(super) fn is_binding_file(file: &crate::ast::File) -> bool {
-    ide_facts::top_level(file)
-        .iter()
-        .any(|item| matches!(item.kind, TopLevelKind::Decl(decl) if is_foreign_proc(decl)))
+    ide_facts::top_level(file).iter().any(|item| {
+        item.visibility == Visibility::Export
+            && matches!(item.kind, TopLevelKind::Decl(decl) if is_foreign_proc(decl))
+    })
 }
 
 /// A `#foreign` (or `#elsewhere`) procedure constant: one a native library provides.

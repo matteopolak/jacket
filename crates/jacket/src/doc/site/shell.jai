@@ -30,6 +30,7 @@ Layout :: (out: *Out, page: *Page($C)) {
 <meta name="theme-color" content="#1b1b1f" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
 {Icon(page.site)}<script>{cast(Html) EARLY}</script>
+<script>{cast(Html) page.site.early_js}</script>
 <link rel="stylesheet" href="{cast(Html) page.site.css_url}">
 <link rel="stylesheet" href="{cast(Html) page.site.categories_url}"><script src="{cast(Html) page.site.script_url}" defer></script>
 </head>
@@ -40,7 +41,7 @@ Layout :: (out: *Out, page: *Page($C)) {
 <details class="side" open><summary>{esc(page.view.side_label)}</summary>
 <nav aria-label="{esc(page.view.side_label)}" data-nav="{esc(NavKey(page.view))}">
 {Side(page)}</nav></details>
-<script>{cast(Html) page.site.early_js}</script>
+<script>jacketSide()</script>
 <main id="main-content" tabindex="-1">
 {Main(page)}</main>
 {Toc(page)}<script>jacketPage(true)</script></div>
@@ -70,7 +71,7 @@ Header :: (out: *Out, site: *Site_View, path: string = "") {
 <header class="top"><div class="top-in">
 <a class="logo" href="{cast(Html) site.base}" aria-label="{esc(site.name)} API documentation">{LogoImage(site)}<span class="wordmark">{esc(site.name)}</span></a>
 <div class="search-wrap js-only">
-<label class="sr" for="q">Search the docs</label>
+<label class="sr" for="search-q">Search the docs</label>
 <div class="search"><svg aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#search"/></svg><input id="search-q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list"><kbd>/</kbd></div>
 <div id="search-results" aria-live="polite" role="listbox" aria-label="Search results" hidden></div>
 </div>
