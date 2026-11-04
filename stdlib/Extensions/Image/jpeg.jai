@@ -219,6 +219,8 @@ jpeg_read_quant_tables :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string 
             } else {
                 d.quant_tables[id][it] = jpeg_be16(segment + at + it * 2);
             }
+
+            if d.quant_tables[id][it] == 0 return "bad quantization table";
         }
 
         d.quant_defined[id] = true;
