@@ -33,7 +33,8 @@ Reader :: struct {
 }
 
 // Opens a file and copies Vorbis ARTIST/ALBUM/TITLE comments. Returns false on unsupported
-// or malformed headers. PCM 8/16/24/32-bit and IMA ADPCM, one or two channels, are accepted.
+// or malformed headers, including Vorbis on WebAssembly, which has no native decoder.
+// PCM 8/16/24/32-bit and IMA ADPCM, one or two channels, are accepted on every target.
 // ```jai,no_run
 // r: Reader;
 // if open(*r, "song.ogg") {
@@ -48,57 +49,61 @@ open :: (r: *Reader, path: string) -> bool {
     defer free(lower);
 
     if ends_with(lower, ".ogg") {
-        error: s32;
-        c_path := to_c_string(path);
-
-        defer free(c_path);
-        r.vorbis = V.stb_vorbis_open_filename(c_path, *error, null);
-        if !r.vorbis return false;
-
-        info := V.stb_vorbis_get_info(r.vorbis);
-
-        if info.sample_rate > 0x7fffffff {
-            close(r);
+        #if OS == .WASM {
             return false;
-        }
+        } else {
+            error: s32;
+            c_path := to_c_string(path);
 
-        r.channels = info.channels;
-        r.rate = cast(s32) info.sample_rate;
-        r.frames = V.stb_vorbis_stream_length_in_samples(r.vorbis);
-        if !valid(r) {
-            close(r);
-            return false;
-        }
+            defer free(c_path);
+            r.vorbis = V.stb_vorbis_open_filename(c_path, *error, null);
+            if !r.vorbis return false;
 
-        comments := V.stb_vorbis_get_comment(r.vorbis);
-        for i: 0..comments.comment_list_length - 1 {
-            comment := to_string(comments.comment_list[i]);
-            equal := find_index_from_left(comment, #char "=");
+            info := V.stb_vorbis_get_info(r.vorbis);
 
-            if equal < 0 continue;
-
-            name := to_upper_copy(slice(comment, 0, equal));
-
-            defer free(name);
-            value := slice(comment, equal + 1, comment.count - equal - 1);
-
-            if name == "ARTIST" {
-                free(r.artist);
-                r.artist = copy_string(value);
+            if info.sample_rate > 0x7fffffff {
+                close(r);
+                return false;
             }
 
-            if name == "ALBUM" {
-                free(r.album);
-                r.album = copy_string(value);
+            r.channels = info.channels;
+            r.rate = cast(s32) info.sample_rate;
+            r.frames = V.stb_vorbis_stream_length_in_samples(r.vorbis);
+            if !valid(r) {
+                close(r);
+                return false;
             }
 
-            if name == "TITLE" {
-                free(r.title);
-                r.title = copy_string(value);
+            comments := V.stb_vorbis_get_comment(r.vorbis);
+            for i: 0..comments.comment_list_length - 1 {
+                comment := to_string(comments.comment_list[i]);
+                equal := find_index_from_left(comment, #char "=");
+
+                if equal < 0 continue;
+
+                name := to_upper_copy(slice(comment, 0, equal));
+
+                defer free(name);
+                value := slice(comment, equal + 1, comment.count - equal - 1);
+
+                if name == "ARTIST" {
+                    free(r.artist);
+                    r.artist = copy_string(value);
+                }
+
+                if name == "ALBUM" {
+                    free(r.album);
+                    r.album = copy_string(value);
+                }
+
+                if name == "TITLE" {
+                    free(r.title);
+                    r.title = copy_string(value);
+                }
             }
+
+            return true;
         }
-
-        return true;
     }
 
     r.file, r.opened = file_open(path);
@@ -114,7 +119,10 @@ open :: (r: *Reader, path: string) -> bool {
 
 // Releases file handles, comments and block buffers. Safe after a failed open or repeated close.
 close :: (r: *Reader) {
-    if r.vorbis V.stb_vorbis_close(r.vorbis);
+    #if OS != .WASM {
+        if r.vorbis V.stb_vorbis_close(r.vorbis);
+    }
+
     if r.opened file_close(*r.file);
 
     free(r.artist);
@@ -128,8 +136,13 @@ close :: (r: *Reader) {
 // Moves to an exact source frame; out-of-range requests clamp to the recording's ends.
 seek :: (r: *Reader, frame: s64) -> bool {
     target := clamp(frame, cast(s64) 0, r.frames);
-    if r.vorbis && target < r.frames && V.stb_vorbis_seek(r.vorbis, cast(u32) target) == 0 return false;
+
+    #if OS != .WASM {
+        if r.vorbis && target < r.frames && V.stb_vorbis_seek(r.vorbis, cast(u32) target) == 0 return false;
+    }
+
     r.position = target;
+
     return true;
 }
 
@@ -141,14 +154,16 @@ read :: (r: *Reader, output: [] s16) -> s64 {
     count := min(output.count / r.channels, r.frames - r.position);
     if count <= 0 return 0;
 
-    if r.vorbis {
-        count = min(count, cast(s64) 0x7fffffff / r.channels);
-        got := V.stb_vorbis_get_samples_short_interleaved(r.vorbis, r.channels, output.data, cast(s32) count * r.channels);
-        if got <= 0 return -1;
+    #if OS != .WASM {
+        if r.vorbis {
+            count = min(count, cast(s64) 0x7fffffff / r.channels);
+            got := V.stb_vorbis_get_samples_short_interleaved(r.vorbis, r.channels, output.data, cast(s32) count * r.channels);
+            if got <= 0 return -1;
 
-        r.position += got;
+            r.position += got;
 
-        return got;
+            return got;
+        }
     }
 
     for f: 0..count - 1 {

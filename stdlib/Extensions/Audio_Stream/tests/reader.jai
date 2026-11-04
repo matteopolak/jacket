@@ -71,6 +71,15 @@ bad_and_truncated_files_are_rejected :: (t: *Test) {
     expect(!Audio.open(*r, tprint("%/missing.ogg", temp_dir(t))));
 } @test
 
+wasm_rejects_vorbis_without_a_native_decoder :: () {
+    r: Audio.Reader;
+    fixture := tprint("%../../../Sound_Player/tests/fixtures/tone.ogg", #filepath);
+
+    expect(!Audio.open(*r, fixture));
+    expect(!r.vorbis && !r.opened);
+    Audio.close(*r);
+} @test @only(.WASM)
+
 vorbis_file_seek_preserves_stereo :: () {
     r: Audio.Reader;
     fixture := tprint("%../../../Sound_Player/tests/fixtures/tone.ogg", #filepath);
@@ -95,7 +104,7 @@ vorbis_file_seek_preserves_stereo :: () {
     }
 
     expect(energy > 0);
-} @test
+} @test @skip_on(.WASM)
 
 integer_pcm_widths_preserve_stereo :: (t: *Test) {
     for width: s64.[1, 2, 3, 4] {
