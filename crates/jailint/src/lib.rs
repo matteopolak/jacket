@@ -91,9 +91,26 @@ pub fn lint_files(
     configs: &config::Configs,
     complete: bool,
 ) -> Vec<Lint> {
+    lint_files_with_entry(compiler, files, configs, complete, None)
+}
+
+pub(crate) fn lint_files_with_entry(
+    compiler: &mut Compiler,
+    files: &[FileId],
+    configs: &config::Configs,
+    complete: bool,
+    entry: Option<FileId>,
+) -> Vec<Lint> {
     let mut out = Vec::new();
     let mut module_facts = rules::unused_import::ModuleFacts::default();
-    let mut run = rules::RunState::default();
+    let mut run = rules::RunState::with_lifetime_entry(entry.and_then(|id| {
+        compiler
+            .src
+            .files
+            .iter()
+            .find(|f| f.id == id)
+            .map(|f| f.module)
+    }));
     run.lifetime_files.extend(files.iter().copied());
     let time_lifetimes = jacket_config::env::LIFETIME_STATS.is_set();
     if !compiler.ed.facts().is_some_and(|ide| ide.lint) {

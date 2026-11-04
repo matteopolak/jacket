@@ -11,10 +11,13 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let Some(facts) = cx.compiler.ed.facts() else {
         return;
     };
-    let summaries = cx
-        .run
-        .lifetimes
-        .get_or_init(|| Summaries::build_for(cx.compiler, &cx.run.lifetime_files));
+    let summaries = cx.run.lifetimes.get_or_init(|| {
+        Summaries::build_for(
+            cx.compiler,
+            &cx.run.lifetime_files,
+            cx.run.lifetime_entry_module,
+        )
+    });
     let mut bodies: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
     bodies.sort_by_key(|b| b.procedure.0);
     for body in bodies {

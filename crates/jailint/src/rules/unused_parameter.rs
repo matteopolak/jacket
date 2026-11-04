@@ -315,6 +315,7 @@ pub(crate) struct RunState {
     pub(super) resource_reports:
         RefCell<HashMap<FileId, Rc<super::lifetime_cfg::resources::Reports>>>,
     pub(super) lifetimes: std::cell::OnceCell<super::lifetime_summary::Summaries>,
+    pub(crate) lifetime_entry_module: Option<jaic::sema::ModuleId>,
     pub(crate) lifetime_files: jaic::fxhash::HashSet<FileId>,
     /// The definitions of the `.jai` files around a directory, by directory.
     variants: RefCell<HashMap<PathBuf, Rc<Variants>>>,
@@ -325,6 +326,13 @@ pub(crate) struct RunState {
 }
 
 impl RunState {
+    pub(crate) fn with_lifetime_entry(module: Option<jaic::sema::ModuleId>) -> Self {
+        Self {
+            lifetime_entry_module: module,
+            ..Self::default()
+        }
+    }
+
     /// The tokens of `file`, which must lex.
     pub(crate) fn tokens(&self, compiler: &Compiler, file: FileId) -> Option<Rc<[Token]>> {
         self.lexed

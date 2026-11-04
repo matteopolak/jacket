@@ -83,7 +83,11 @@ pub(super) fn calls(cx: &Cx, callee: &Expr, effect: Effect) -> bool {
         _ => callee.span,
     };
     let summaries = cx.run.lifetimes.get_or_init(|| {
-        lifetime_summary::Summaries::build_for(cx.compiler, &cx.run.lifetime_files)
+        lifetime_summary::Summaries::build_for(
+            cx.compiler,
+            &cx.run.lifetime_files,
+            cx.run.lifetime_entry_module,
+        )
     });
     let matches = |proc: ProcId| {
         if let Some(summary) = summaries.procs.get(&proc) {

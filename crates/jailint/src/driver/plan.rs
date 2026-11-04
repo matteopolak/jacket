@@ -100,6 +100,27 @@ fn program_of(options: &Options, configs: &Configs, file: &Path, cache: &mut Loa
     resolve_program(&DiskFs, file, &RootOptions::linter(dirs), &inputs, cache)
 }
 
+// A flat file under an import directory can also be a standalone test.
+// Keep its module checking semantics, but identify its process entry separately
+// for lifetime proofs: the virtual importer has a different main module.
+pub(super) fn declares_entry(path: &Path, entry: &str) -> bool {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return false;
+    };
+    let Ok(file) = jaic::parser::parse_file(jaic::source::FileId(0), &text) else {
+        return false;
+    };
+    file.stmts.iter().any(|stmt| {
+        let jaic::ast::StmtKind::Decl(decl) = &stmt.kind else {
+            return false;
+        };
+        decl.names.iter().any(|n| n.name.as_str() == entry)
+            && decl.value.as_ref().is_some_and(
+                |v| matches!(&v.kind, jaic::ast::ExprKind::Proc(proc) if proc.body.is_some()),
+            )
+    })
+}
+
 /// The module search path `file`'s program is compiled with, before the compiler gets it.
 pub fn root_import_paths(options: &Options, file: &Path) -> Vec<PathBuf> {
     let configs = Configs::new(&options.config);

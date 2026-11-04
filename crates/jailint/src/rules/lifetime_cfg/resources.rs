@@ -612,10 +612,13 @@ fn analyze(cx: &Cx) -> Reports {
     let Some(facts) = cx.compiler.ed.facts() else {
         return reports;
     };
-    let summaries = cx
-        .run
-        .lifetimes
-        .get_or_init(|| Summaries::build_for(cx.compiler, &cx.run.lifetime_files));
+    let summaries = cx.run.lifetimes.get_or_init(|| {
+        Summaries::build_for(
+            cx.compiler,
+            &cx.run.lifetime_files,
+            cx.run.lifetime_entry_module,
+        )
+    });
     let mut bodies: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
     bodies.sort_by_key(|b| b.procedure.0);
     let mut checked = HashSet::default();

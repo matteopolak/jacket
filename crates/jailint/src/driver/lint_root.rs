@@ -5,7 +5,7 @@ use super::compile::{Compiled, compile_root};
 use super::plan::canonical;
 use super::{CheckedContext, Options};
 use crate::config::Configs;
-use crate::{Lint, lint_files};
+use crate::{Lint, lint_files_with_entry};
 use jaic::paths::CanonCache;
 use jaic::project::Program;
 use jaic::sema::Compiler;
@@ -141,7 +141,29 @@ pub(super) fn lint_root(
             .map(|&(f, _)| f)
             .collect();
         if !own.is_empty() {
-            let mut found = lint_files(&mut compiler, &own, configs, complete);
+            let entry = if matches!(&root.root, jaic::project::Root::Module { entry, .. } if !jaic::paths::is_module_entry(entry))
+                && super::plan::declares_entry(root.path(), &compiler.options.entry_point)
+                && compiler.src.files.iter().any(|f| {
+                    Some(f.module) == compiler.ns.main_module
+                        && compiler
+                            .src
+                            .sources
+                            .get(f.id)
+                            .path
+                            .as_file()
+                            .is_some_and(|p| {
+                                p.file_name()
+                                    .is_some_and(|n| n == jaic::project::MODULE_ROOT_STUB)
+                            })
+                }) {
+                files
+                    .iter()
+                    .find(|(_, path)| path == root.path())
+                    .map(|(id, _)| *id)
+            } else {
+                None
+            };
+            let mut found = lint_files_with_entry(&mut compiler, &own, configs, complete, entry);
             for l in &mut found {
                 l.path = canon
                     .get_or_insert_with(Path::new(&l.path), canonical)

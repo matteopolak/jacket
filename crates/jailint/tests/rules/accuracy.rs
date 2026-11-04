@@ -321,8 +321,33 @@ fn lifetime_ci_online_snapshot() {
 
 #[test]
 fn lifetime_ci_environment_fiber() {
-    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-environment-fiber.jai");
+    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-environment-fiber/main.jai");
     let (lints, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
     assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
     assert!(lints[0].start > text.find("bad_saved =").unwrap());
+}
+
+#[test]
+fn lifetime_ci_environment_entry_in_import_directory() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-environment-fiber/main.jai");
+    let (lints, text) = lint_with(
+        &path,
+        &[
+            ("temp_storage_escape", Level::Warn),
+            ("unused_parameter", Level::Warn),
+        ],
+        Config {
+            import_dirs: vec![path.parent().unwrap().to_path_buf()],
+            ..Config::default()
+        },
+    );
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    assert!(lints[0].start > text.find("bad_saved =").unwrap());
+}
+
+#[test]
+fn lifetime_module_main_keeps_ordinary_call_lifetimes() {
+    let path = repo().join("tests/lint/pointer_lifetime/strict/ci-entry-module/module.jai");
+    let (lints, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
 }

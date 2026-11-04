@@ -6,7 +6,12 @@ saved: string;
 other: string;
 bad_saved: string;
 
+signature_probe :: (location := #caller_location) {
+    assert(true);
+}
+
 main :: () {
+    signature_probe();
     saved = environment_variable("PATH");
     other = environment_variable("PATH");
     original := copy_string(saved);

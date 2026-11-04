@@ -58,6 +58,7 @@ fn reachable(program: &ir::Program, roots: impl IntoIterator<Item = Node>) -> Ha
 pub(super) fn compile_time_only(
     compiler: &Compiler,
     targets: &crate::rules::lifetime_targets::Universe,
+    entry_module: Option<jaic::sema::ModuleId>,
 ) -> (HashSet<ProcId>, HashSet<ProcId>) {
     let program = &compiler.out.program;
     let host = reachable(
@@ -92,13 +93,14 @@ pub(super) fn compile_time_only(
     // procedure still runs at runtime even when a #run also invokes it.
     roots.extend(compiler.pr.procs.iter().filter_map(|proc| {
         (proc.name.as_str() == compiler.options.entry_point
-            && Some(compiler.ns.scopes[proc.scope.0 as usize].module) == compiler.ns.main_module)
-            .then_some(proc.target)
-            .flatten()
-            .and_then(|target| match target {
-                ProcTarget::Func(id) => Some(Node::Function(id)),
-                ProcTarget::Foreign(_) => None,
-            })
+            && [compiler.ns.main_module, entry_module]
+                .contains(&Some(compiler.ns.scopes[proc.scope.0 as usize].module)))
+        .then_some(proc.target)
+        .flatten()
+        .and_then(|target| match target {
+            ProcTarget::Func(id) => Some(Node::Function(id)),
+            ProcTarget::Foreign(_) => None,
+        })
     }));
     roots.extend(
         program

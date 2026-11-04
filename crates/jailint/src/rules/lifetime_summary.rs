@@ -709,10 +709,14 @@ impl Effect {
 impl Summaries {
     #[cfg(test)]
     pub fn build(compiler: &Compiler) -> Self {
-        Self::build_for(compiler, &HashSet::default())
+        Self::build_for(compiler, &HashSet::default(), None)
     }
 
-    pub fn build_for(compiler: &Compiler, files: &HashSet<jaic::source::FileId>) -> Self {
+    pub fn build_for(
+        compiler: &Compiler,
+        files: &HashSet<jaic::source::FileId>,
+        entry_module: Option<jaic::sema::ModuleId>,
+    ) -> Self {
         let started = jaic::platform::Stopwatch::start();
         let Some(facts) = compiler.ed.facts() else {
             return Self::default();
@@ -747,7 +751,7 @@ impl Summaries {
         all.allocators = allocators;
         all.targets = super::lifetime_targets::Universe::build(compiler, &valid);
         (all.compile_time_only, all.frozen_returns) =
-            execution::compile_time_only(compiler, &all.targets);
+            execution::compile_time_only(compiler, &all.targets, entry_module);
         // Tarjan's pop order is bottom-up for caller -> callee edges.
         let mut ids: Vec<_> = valid.keys().copied().collect();
         ids.sort_by_key(|id| id.0);

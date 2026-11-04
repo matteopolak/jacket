@@ -990,8 +990,8 @@ fn entrypoint_activation(cx: &Cx, body: &LifetimeBody) -> bool {
     let selected = cx.compiler.pr.entry_point == Some(body.procedure)
         || cx.compiler.pr.entry_point.is_none()
             && proc.name.as_str() == cx.compiler.options.entry_point
-            && Some(cx.compiler.ns.scopes[proc.scope.0 as usize].module)
-                == cx.compiler.ns.main_module;
+            && [cx.compiler.ns.main_module, cx.run.lifetime_entry_module]
+                .contains(&Some(cx.compiler.ns.scopes[proc.scope.0 as usize].module));
     if !cx.compiler.options.runtime_entry_point
         || !selected
         || proc.export.is_some()
