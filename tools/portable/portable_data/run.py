@@ -62,6 +62,11 @@ def run(*args):
     print("+", *map(str, args), flush=True)
     subprocess.run(list(map(str, args)), cwd=ROOT, env=env, check=True)
 
+def check_gdi(name):
+    """Read generated icons through Win32 after each mode; e.g. check_gdi("ico-gdi")."""
+    if name == "ico-gdi" and os.name == "nt":
+        run(sys.executable, "tools/portable/portable_data/sdk_icon_render.py", output)
+
 def wasm_test(source, name, *arguments):
     wasm = output / f"{name}.wasm"
     try:
@@ -89,12 +94,12 @@ for name in ("ico-wire", "ico-gdi", "ico-filename", "package-contract", "subtitl
     # ico-filename reads its bitmaps from one folder and writes to another; both are `output` here.
     arguments = (output, output) if name == "ico-filename" else (output,)
     run(compiler, "-interp", source, "--", *arguments)
+    check_gdi(name)
     for mode in ("O0", "O2"):
         binary = output / f"{name}-{mode}"
         run(compiler, f"-{mode}", source, "-exe", binary)
         run(binary, *arguments)
-        if name == "ico-gdi" and os.name == "nt":
-            run(sys.executable, "tools/portable/portable_data/sdk_icon_render.py", output)
+        check_gdi(name)
 for name in ("package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
     wasm_test(PROGRAMS[name], name)
 wasm_test(PROGRAMS["ico-filename"], "ico-filename", output, output)
@@ -106,8 +111,7 @@ for mode in ("O0", "O2"):
     run(binary, output)
 wasm_test(PROGRAMS["ico-wire"], "ico-wire")
 wasm_test(PROGRAMS["ico-gdi"], "ico-gdi")
-if os.name == "nt":
-    run(sys.executable, "tools/portable/portable_data/sdk_icon_render.py", output)
+check_gdi("ico-gdi")
 wasm_test(resource_test, "resource-directory")
 for mode in ("O0", "O2"):
     binary = output / f"manifest-{mode}"

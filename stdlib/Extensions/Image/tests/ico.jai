@@ -80,6 +80,29 @@ main :: () {
 
     defer free(mixed_bytes);
     check_alpha_masks(mixed_bytes);
+    // Shrinking sparse alpha=1 can quantize the whole small icon to zero alpha.
+    // Its hidden color must also be black for Windows' legacy AND/XOR path.
+    faint := NewArray(256 * 256 * 4, u8);
+
+    defer array_free(faint);
+    faint[0] = 120;
+    faint[1] = 80;
+    faint[2] = 40;
+    faint[3] = 1;
+    faint_bytes := Icons.create_ico_file(256, 256, 4, faint.data);
+
+    defer free(faint_bytes);
+
+    for size, index: sizes {
+        color := cast(int) u32_at(faint_bytes, 18 + index * 16) + 40;
+
+        for pixel: 0..size * size - 1 {
+            at := color + pixel * 4;
+            if faint_bytes[at + 3] == 0 for channel: 0..2 assert(faint_bytes[at + channel] == 0);
+        }
+    }
+
+    check_alpha_masks(faint_bytes);
 
     // An ICO may hold a PNG instead of a DIB.
     tiny := Image.make_image(2, 1, .RGBA8);
