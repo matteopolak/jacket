@@ -401,7 +401,8 @@ KQ_WRITE :: -2;
         engine.changes.count = 0;
 
         if count < 0 {
-            assert(errno_now() == E_INTR, "Io: kevent failed");
+            error := errno_now();
+            assert(error == E_INTR, "Io: kevent failed (errno %, timeout % ns)", error, timeout);
 
             return;
         }

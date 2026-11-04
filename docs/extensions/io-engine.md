@@ -53,10 +53,10 @@ Io.with_deadline(2000, #code { count, error = Io.read(source, buffer); });   // 
 
 `open_stream_file(path)` opens a terminal, FIFO or `/dev/stdin` for non-blocking reads from the current position (no `pread`), so a fiber can wait on a line without stalling the others. POSIX only; Windows returns `.UNSUPPORTED`. The descriptor stays non-blocking while open, so nothing else should read it meanwhile; closing a duplicated stdin restores its flags.
 
-- `with_deadline` limits every IO call and `sleep` in the block; the earlier deadline wins when nested, and an expired deadline fails a call before it starts. The body is a `#code` argument: assign to variables declared before it and don't `return` inside. Channel and lock operations ignore deadlines.
+- `with_deadline` limits every IO call and `sleep` in the block; the earlier deadline wins when nested, and an expired deadline fails a call before it starts. The body is a `#code` argument: assign to variables declared before it and don't `return` inside. Blocking channel, wait-group and mutex operations also return `.TIMED_OUT` when their enclosing budget expires. An immediately ready synchronization operation can complete without waiting.
 - `cancel(fiber)` ends the fiber's current IO with `.CANCELED` and fails later IO the same way.
 - `with_grace(ms, #code {...})` runs cleanup after a deadline or cancel fired, with its own limit; a cancel arriving meanwhile applies when the outermost grace block ends.
-- `Condition` (`wait`, `notify_one`, `notify_all`) is the one coordination primitive that honours deadlines. A notify with no waiter is lost, so loop on your own state.
+- `Condition` (`wait`, `notify_one`, `notify_all`) follows the same deadline rules as other blocking synchronization. A notify with no waiter is lost, so loop on your own state.
 - Unix sockets: `connect_unix(path)` and `unix_listen(path, backlog, replace)` return the same `Tcp_Stream`/`Tcp_Listener`. `unix_listen` fails with `.ADDRESS_IN_USE` if the file exists unless `replace = true`; the file is never removed on close. Not supported on Windows.
 - `connect("host:port")` resolves names with `getaddrinfo` on helper threads (up to 8); lookups of one name share a job.
 - Files: io_uring and Windows do file IO in the kernel. epoll and kqueue can't report a regular file as not ready, so reads/writes over 32 KiB go to a file thread pool and shorter ones run inline.
@@ -95,3 +95,27 @@ The shared-port test keeps the first worker’s port-zero listener open while pu
 Unexpected setup, accept, read or write errors emit at most `PORT_DIAGNOSTIC_LIMIT` (32) `IO_PORT_FAILURE` rows, with final port, acceptance and failure counts if an operation or final check fails. Successful runs stay quiet. The helper and limit live beside the shared-port test in `tests/support/suite.jai`; change them there when adding a failure stage. Run the check with `JAIC_STDLIB=$PWD/stdlib jacket test --path stdlib/Extensions/Io --no-doc --exact backends --interp`.
 
 Tests: `stdlib/Extensions/Io/tests/` (`backends.jai` runs every check on each backend the system offers). Benchmarks: `jaic -O2 stdlib/Extensions/Io/bench/bench.jai`. Not done: UDP, provided buffers, zero-copy send, DNS timeout.
+
+### Large timer budgets
+
+`with_deadline`, `with_grace` and `sleep` share checked conversion from milliseconds
+to the scheduler's absolute nanosecond clock. A positive budget beyond that clock's
+range saturates at its largest timestamp instead of wrapping into an expired
+budget. Nested deadlines still choose the earlier limit, grace still restores the
+outer cancellation/deadline state, and negative no-budget arguments retain their
+meaning. `Io/tests/deadline-overflow.jai` covers these boundaries, including large
+wire-protocol timeouts. Change `deadline_after_ms` in `runtime.jai` when changing
+clock representation; do not duplicate the conversion in individual wait APIs.
+
+The reactor also bounds each individual kernel wait to the common signed
+32-bit millisecond polling range. The logical timer stays at its original absolute
+deadline; a kernel wait returning without events does not expire that timer. This
+keeps valid large budgets representable for kqueue as well as millisecond-based
+polling backends. The regression includes socket readiness, so it exercises the
+kernel wait rather than only short sleeps under a large outer budget.
+
+Synchronization waits share deadline registration in `sync.jai`'s `wait_on`.
+The scheduler removes expired waiters before making them runnable, so a later
+channel handoff or unlock cannot consume an expired waiter. Actual completion
+removes its timer. `Io/tests/sync-deadlines.jai` checks timeout removal for channels,
+wait groups and mutexes; keep pipe/condition waits on this same path when extending it.

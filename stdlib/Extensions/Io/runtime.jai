@@ -228,6 +228,16 @@ io_run_threads :: (count: s64, proc: $P, data: $T) {
 
 #scope_module
 
+// Millisecond budgets can exceed the nanosecond clock's range (for example a
+// valid gRPC hours timeout). Saturation preserves a future deadline rather than
+// wrapping it into the past; callers handle their negative/no-budget sentinel.
+deadline_after_ms :: (milliseconds: s64) -> s64 {
+    now := now_nanoseconds();
+    MAX_TIME :: 0x7fffffffffffffff;
+    if milliseconds > (MAX_TIME - now) / 1_000_000 return MAX_TIME;
+    return now + milliseconds * 1_000_000;
+}
+
 // Starts a deadline for the running fiber and returns what `pop_deadline` is given when the
 // guarded work is over.
 push_deadline :: (milliseconds: s64) -> s64 {
@@ -236,7 +246,7 @@ push_deadline :: (milliseconds: s64) -> s64 {
 
     if milliseconds < 0 return previous;
 
-    limit := now_nanoseconds() + milliseconds * 1_000_000;
+    limit := deadline_after_ms(milliseconds);
 
     if previous == 0 || limit < previous fiber.deadline = limit;
 
@@ -260,7 +270,7 @@ push_grace :: (milliseconds: s64) -> Grace {
 
     fiber.grace_depth += 1;
     fiber.canceled = false;
-    fiber.deadline = ifx milliseconds < 0 then 0 else now_nanoseconds() + milliseconds * 1_000_000;
+    fiber.deadline = ifx milliseconds < 0 then 0 else deadline_after_ms(milliseconds);
 
     return previous;
 }
