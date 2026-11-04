@@ -67,8 +67,8 @@ Our Rust code is built with profile-guided optimisation (`tools/dev/build_pgo.py
 
 ## Cutting a release
 
-1. Add `## [x.y.z] - YYYY-MM-DD` at the top of `CHANGELOG.md`: one or two sentences, `### Highlights` (2 to 6 one-liners), `### Breaking changes` (a Was/Now table, if any), `### Fixes`. Keep it for users; no internals. Use `###` or lower, since a `## [` line ends the extracted notes.
-2. Run `just bump-version X.Y.Z`. It edits the workspace version in `Cargo.toml`, the lock files and `CHANGELOG.md`, and regenerates `jaifmt/version.jai` and `editors/nvim/lua/jai/version.lua`. Leave `editors/vscode/package.json` alone: the workflow stamps it.
+1. Add `## [x.y.z] - YYYY-MM-DD` at the top of `CHANGELOG.md`: one or two sentences, `### Highlights` (2 to 6 one-liners), `### Breaking changes` (a Was/Now table, if any), `### Fixes`. Keep it for users; no internals. Use `###` or lower for subsections: the next level-two heading ends the extracted notes. Fenced examples do not define release sections. Inline code on its own line does not start a fence.
+2. Alternatively, prepare notes under `## Unreleased` or `## [Unreleased]` (trailing whitespace is allowed; suffixes are not). Run `just bump-version X.Y.Z`; either heading becomes `## [X.Y.Z] - YYYY-MM-DD`. A prewritten section for that exact version is kept, including its date and notes. It edits the workspace version in `Cargo.toml`, the lock files and `CHANGELOG.md`, and regenerates `jaifmt/version.jai` and `editors/nvim/lua/jai/version.lua`. Leave `editors/vscode/package.json` alone: the workflow stamps it.
 3. Commit, then `git tag -s vX.Y.Z -m 'Jacket X.Y.Z'` and `git push origin vX.Y.Z`.
 
 A tag push publishes everything: the GitHub release, both extension stores, the Homebrew tap and the Neovim mirror. A manual run publishes to the stores only with `publish_integrations`. The editor can be released alone with `editor_version`; stores keep versions immutable, so a checksum repin needs a new editor version.

@@ -36,6 +36,7 @@ import tempfile
 from pathlib import Path
 
 from generators import generate_version_files
+from toolkit.changelog import headings, release_name
 from toolkit.repo import ROOT
 from toolkit.version import workspace_version
 
@@ -135,18 +136,15 @@ def step_meta(args, shell):
 # notes
 
 def changelog_section(changelog, version):
-    """The text under `## [version]` up to the next `## [`; empty when there is none or it is blank."""
+    """Extract `## [1.2.3]` notes for `1.2.3`/`v1.2.3`, ignoring fenced headings."""
     version = version.removeprefix("v")
-    lines, inside = [], False
-    for line in changelog.splitlines():
-        if line.startswith("## ["):
-            if inside:
-                break
-            inside = line.startswith(f"## [{version}]")
-            continue
-        if inside:
-            lines.append(line)
-    return "\n".join(lines).strip("\n") + "\n" if "".join(lines).strip() else ""
+    sections = list(headings(changelog))
+    for i, (_, end, title) in enumerate(sections):
+        if release_name(title) == version:
+            stop = sections[i + 1][0] if i + 1 < len(sections) else len(changelog)
+            notes = "\n".join(changelog[end:stop].splitlines()).strip("\n")
+            return notes + "\n" if notes.strip() else ""
+    return ""
 
 
 def step_notes(args, shell):

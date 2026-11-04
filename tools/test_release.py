@@ -53,6 +53,24 @@ class Notes(unittest.TestCase):
     def test_does_not_match_a_version_prefix(self):
         self.assertEqual(rel.changelog_section("## [0.20.0]\n- x\n", "0.2.0"), "")
 
+    def test_plain_unreleased_ends_notes_but_fenced_headings_do_not(self):
+        text = "## [0.2.0]\nNew.\n```markdown\n## [0.1.0]\n```\n## Unreleased\nLater.\n"
+        self.assertEqual(rel.changelog_section(text, "0.2.0"), "New.\n```markdown\n## [0.1.0]\n```\n")
+
+    def test_inline_backticks_do_not_hide_release_headings(self):
+        text = "```example```\n## [0.2.0]\nNew.\n## Unreleased\nLater.\n"
+        self.assertEqual(rel.changelog_section(text, "0.2.0"), "New.\n")
+
+    def test_tilde_info_with_backticks_still_opens_a_fence(self):
+        text = "~~~example`\n## [0.2.0]\nFake.\n~~~\n## [0.2.0]\nNew.\n"
+        self.assertEqual(rel.changelog_section(text, "0.2.0"), "New.\n")
+
+    def test_bracketed_version_heading_suffix_is_preserved(self):
+        self.assertEqual(rel.changelog_section("## [0.2.0] - pending\n- New.\n", "0.2.0"), "- New.\n")
+
+    def test_crlf_notes_keep_normalized_output(self):
+        self.assertEqual(rel.changelog_section("## [0.2.0]\r\n\r\n- New.\r\n\r\n## Unreleased\r\nLater.\r\n", "0.2.0"), "- New.\n")
+
     def test_the_real_changelog_has_the_current_top_section(self):
         text = rel.ROOT.joinpath("CHANGELOG.md").read_text(encoding="utf-8")
         version = re.search(r"^## \[(\d+\.\d+\.\d+)\]", text, re.M)[1]
