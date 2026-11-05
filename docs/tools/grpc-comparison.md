@@ -53,7 +53,8 @@ remain separate from these feature observations.
 
 ## Equivalent-task performance
 
-Candidate-source measurements used an Apple M5 with 16 GiB RAM, verified
+Measurements from reviewed runtime source `2da490dad` used an Apple M5 with
+16 GiB RAM, verified
 loopback TLS/HTTP/2 and one reused channel. The identical optimized Jai client
 sent a 271,828-byte request and checked a 314,159-byte zero response against an
 optimized native Jai server and the pinned optimized Go TestService server.
@@ -63,13 +64,13 @@ passed the same status and payload checks; 4,000 calls per provider were scored.
 
 | Server | Median run p50 (ms) | Median run p95 (ms) | Median run p99 (ms) | Median task/s | Task/s range |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Extensions/Grpc | 1.498 | 1.602 | 1.752 | 662 | 659–664 |
-| grpc-go | 1.247 | 1.539 | 1.693 | 776 | 757–785 |
+| Extensions/Grpc | 1.500 | 1.547 | 1.611 | 664 | 659–665 |
+| grpc-go | 1.240 | 1.414 | 1.512 | 793 | 762–797 |
 
 Go completed this particular task faster on this host. Across repetitions, p50
-ranged from 1.494–1.505 ms for Jai and 1.239–1.249 ms for Go. The first call on
-each new channel, excluded from warm scoring, ranged from 4.409–7.402 ms and
-3.986–4.492 ms respectively. These measurements include the common client's
+ranged from 1.495–1.506 ms for Jai and 1.234–1.246 ms for Go. The first call on
+each new channel, excluded from warm scoring, ranged from 4.436–8.016 ms and
+4.031–4.472 ms respectively. These measurements include the common client's
 allocation, encoding, decoding, validation and call cleanup as well as both
 providers' transport/TLS work. They establish no pre-feature speedup; there was
 no earlier gRPC implementation to compare.
@@ -79,11 +80,12 @@ executable byte sizes, build settings and per-repetition distributions. Duration
 are represented in nanoseconds; observed values were multiples of one microsecond.
 Executable size excludes shared libraries and debug sidecars, so it is not a
 deployment-footprint comparison. Allocation counts and peak RSS were not measured.
-The enclosing implementation source is still awaiting final-head review/CI;
-these candidate observations are not a release acceptance claim.
+Runtime source and measurement harness have independent source approval; the
+enclosing release still requires profile disposition and exact-head CI. These
+measurements are not a release acceptance claim.
 
 
-A separate diagnostic run validated 20,000 calls per provider and collected
+An earlier candidate-source diagnostic run validated 20,000 calls per provider and collected
 five-second native client/server stack samples. Probes with the same client
 configuration negotiated TLS 1.3, ChaCha20-Poly1305 and ALPN `h2` for both servers.
 In the Jai server's 3,974 main-thread observations, 2,191 ended in MbedTLS's
