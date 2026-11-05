@@ -327,6 +327,10 @@ def python_refs(repo, path):
         found |= paths_in(repo, value)
         if "/" not in value:
             found |= sibling_scripts(repo, here, value)
+            # Script-relative fixtures, licenses and entry sources are inputs too.
+            sibling = f"{here}/{value}" if here else value
+            if sibling in repo.fileset:
+                found.add(sibling)
             # A module named by a string (`("check_x", ...)` run with importlib).
             if re.fullmatch(r"\w+", value) and f"{here}/{value}.py" in repo.fileset:
                 found.add(f"{here}/{value}.py")

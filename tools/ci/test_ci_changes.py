@@ -1,5 +1,7 @@
+import ast
 from collections import Counter
 import json
+import re
 import tempfile
 import textwrap
 import unittest
@@ -125,6 +127,46 @@ class RealWorkflow(unittest.TestCase):
         self.assertIn(
             "windows-stdlib", ci_changes.selected_jobs(results | {"code": True}, "")
         )
+
+    def test_toml_runner_and_pins_select_native_windows(self):
+        for path in [
+            "tools/stdlib/toml/run.py",
+            "tools/stdlib/toml/adapter.jai",
+            "tools/stdlib/toml/pin.json",
+            "tools/stdlib/toml/LICENSE-toml-test",
+        ]:
+            with self.subTest(path=path):
+                self.assertTrue(selects("windows", path))
+
+    def test_toml_profiles_select_each_native_platform_once(self):
+        jobs = job_inputs.jobs_of((ROOT / job_inputs.WORKFLOW).read_text())
+
+        def predicate(job, step):
+            tail = jobs[job].split("- name: " + step + "\n", 1)[1]
+            return re.search(r"if: (.+)", tail).group(1)
+
+        def selected(expression, row):
+            # Evaluate only literal booleans/comparisons after replacing matrix references.
+            expression = expression.removeprefix("${{ ").removesuffix(" }}")
+            expression = expression.replace("!cancelled()", "True").replace("always()", "True")
+            expression = re.sub(r"startsWith\(matrix\.(\w+), '([^']*)'\)", lambda m: repr(str(row.get(m[1], "")).startswith(m[2])), expression)
+            expression = re.sub(r"matrix\.(\w+)", lambda m: repr(row.get(m[1], "")), expression)
+            tree = ast.parse(expression.replace("&&", "and").replace("||", "or"), mode="eval")
+            allowed = (ast.Expression, ast.Constant, ast.BoolOp, ast.And, ast.Or, ast.Compare, ast.Eq)
+            self.assertTrue(all(isinstance(node, allowed) for node in ast.walk(tree)))
+            return eval(compile(tree, "<matrix predicate>", "eval"), {"__builtins__": {}}, {})
+
+        native = predicate("stdlib-runtime", "Complete pinned TOML decoder and encoder conformance")
+        windows = predicate("windows-stdlib", "Complete pinned TOML decoder and encoder conformance")
+        wasi = predicate("stdlib-runtime", "Complete pinned TOML conformance under WASI")
+        for full in (False, True):
+            with self.subTest(full=full):
+                rows = ci_changes.stdlib_matrix(full)
+                expected = {"linux-x64", "macos-arm64"} | ({"linux-arm64", "macos-x64"} if full else set())
+                self.assertEqual(Counter(row["platform"] for row in rows if selected(native, row)), Counter({platform: 1 for platform in expected}))
+                self.assertEqual(Counter(row["platform"] for row in rows if selected(wasi, row)), Counter({"linux-x64": 1}))
+                expected_cpu = {"x64", "arm64"} if full else {"x64"}
+                self.assertEqual(Counter(row["cpu"] for row in ci_changes.windows_stdlib_matrix(full) if selected(windows, row)), Counter({cpu: 1 for cpu in expected_cpu}))
 
     def test_sdl3_ignores_the_workflow_and_actions_but_not_its_own_inputs(self):
         self.assertTrue(selects("sdl3", "stdlib/Extensions/SDL3/module.jai"))
