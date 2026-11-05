@@ -46,7 +46,7 @@ main :: () {
 
     _, bad_ok, bad_error := parse_config("[format]\nindent_width = wide\n");
 
-    assert(!bad_ok && bad_error == "line 2: indent_width must be an integer from 1 to 16", bad_error);
+    assert(!bad_ok && bad_error == "line 2: invalid number", bad_error);
 
     refused, refused_ok, refused_error := format_source("f :: () { x := (1; }\n");
 

@@ -127,10 +127,19 @@ for (const name of names) {
 
 await backend.extra?.(format);
 
-const badConfig = await format("main :: () {}\n", { config: "[format]\nindent_width = wide\n" });
+const badConfig = await format("main :: () {}\n", { config: "[format]\nindent_width = 'wide'\n" });
 assert.equal(badConfig.exitCode, 1);
 assert.equal(badConfig.stdout, "");
 assert.match(badConfig.stderr, backend.configError);
+
+// Whole-file grammar validation precedes applying the formatter's schema.
+const malformedConfig = await format("main :: () {}\n", {
+  config: "[format]\nindent_width = 2\n[unrelated]\nx = broken\n",
+});
+assert.equal(malformedConfig.exitCode, 1);
+assert.equal(malformedConfig.stdout, "");
+assert.match(malformedConfig.stderr, /jacket\.toml: line 4: invalid number/);
+
 
 const refused = await format("f :: () { x := (1; }\n", { name: "broken.jai" });
 assert.equal(refused.exitCode, 1);

@@ -23,3 +23,6 @@
 
 # The jaifmt golden test splits this page on "\n```" and compares its examples byte for byte.
 /docs/tools/jaifmt-rules.md text eol=lf
+
+# Pinned upstream license checks authenticate exact archive bytes on every platform.
+/tools/stdlib/toml/LICENSE-* -text

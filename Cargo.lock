@@ -360,6 +360,7 @@ version = "0.33.0"
 dependencies = [
  "serde",
  "serde_ignored",
+ "serde_json",
  "toml",
 ]
 

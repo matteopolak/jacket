@@ -11,7 +11,7 @@ target/jaifmt --stdin < in.jai > out.jai   # editors
 target/jaifmt --stdin --range 120:240 < in.jai > out.jai   # only the statements bytes 120..240 touch
 ```
 
-In a project use `jacket fmt`. For each file it finds the nearest `jacket.toml`, drops files its `ignore` patterns match, groups files by resolved settings and runs `jaifmt --no-config --set key=value ...` once per group. Standalone `jaifmt` (editors, the browser) reads `[format]` with its own small TOML reader (`config.jai`); `--no-config` skips that and `--set KEY=VALUE` overrides one key.
+In a project use `jacket fmt`. For each file it finds the nearest `jacket.toml`, drops files its `ignore` patterns match, groups files by resolved settings and runs `jaifmt --no-config --set key=value ...` once per group. Standalone `jaifmt` (editors, the browser) validates the complete file with [`Extensions/Toml`](../extensions/toml.md), then reads the `[format]` and `[doc.format]` schemas; `--no-config` skips that and `--set KEY=VALUE` overrides one key.
 
 Paths are files or directories (searched for `*.jai`, skipping dot-directories and symlinks). Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Args`](../extensions/args.md). Exit status: 0 success, 1 `--check` found files to change, 2 errors (usage, unreadable file, input that doesn't lex, failed token check). `--check` lists `path:line` on stdout and, when anything would change, a hint with the rules page (`RULES_URL` in `jaifmt/main.jai`) on stderr; `-v` links the `max_width` page next to long lines.
 
@@ -96,3 +96,9 @@ formatted, ok, error := format_source(source, config);   // free `formatted`; on
 ## Dependencies
 
 `Jai_Format` uses `Basic` and `String` only. The CLI adds `File`, `File_Utilities`, `Sort` and `POSIX`/`Windows`. `jaifmt.wasm` needs a native `jaic` with `wasm-ld` and `Wasi_Runtime`.
+
+## TOML validation and migration
+
+Standalone and browser configuration parsing now requires a complete valid TOML 1.1 document, including unrelated sections. Earlier releases ignored some malformed unrelated statements and repeated keys; these now produce line-specific errors. Dotted-key/table redefinitions rejected by TOML are also errors. Unknown valid settings are still ignored and warned about using the existing schema policy.
+
+Settings consume decoded values, so valid integer spellings such as `indent_width = 0x2`, escaped strings and TOML 1.1 syntax outside formatter tables work consistently. The same semantic conversion handles `--set`. `[doc.format]` values retain their original value spans and source order; decoded settings and copied raw overrides remain valid after the temporary TOML document is freed. File discovery and ignore-glob matching stay in the formatter adapter. The Rust `jacket-config` parser remains an independent implementation.

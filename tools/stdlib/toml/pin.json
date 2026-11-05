@@ -1,0 +1,17 @@
+{
+  "release": "v2.2.0",
+  "revision": "ce08da1ddb075d1c7596d663c7fcba9a2ae02c5c",
+  "profile": "1.1",
+  "archive": {
+    "url": "https://api.github.com/repos/toml-lang/toml-test/tarball/v2.2.0",
+    "sha256": "dd7beaca6914f2e158ea2b281877665a5d2dbc2b3295f3198d6bb335006d0847"
+  },
+  "runner_sha256": {
+    "darwin-amd64": "17e0365948ab7da54e0541bf22dce7dc809e407cd1e14bf78576cfbfd48ffee1",
+    "darwin-arm64": "f36b1310b03a95dfa6b92ef535018db8ccc997ba20e79f3fd28d0f97c9174f35",
+    "linux-amd64": "08f9e0a97da1151c33debf01358a8f5ef45e2a56be201241ae5eb5c2e9323fef",
+    "linux-arm64": "2f2e7f3e7cdbaa252bd6a3f1480f044b25aaf7a76353eb8f229ce8befa5a82b3",
+    "windows-amd64.exe": "90a455788486e7e308e41ea4cb11b0136b71b6e74a1ae086d1aa92b20774cb7e"
+  },
+  "expected": {"valid": 214, "encoder": 214, "invalid": 467}
+}
