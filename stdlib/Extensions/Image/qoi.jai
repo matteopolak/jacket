@@ -27,10 +27,13 @@ decode_qoi :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Imag
     // Every pixel costs at least a sixty-second of a byte (a run of 62), so the payload bounds the size.
     if width * height > (cast(s64) data.count - 22) * 62 return .{}, false, "truncated QOI data";
 
+    end := cast(s64) data.count - 8;
+    for byte: 0..6 if data[end + byte] != 0 return .{}, false, "invalid QOI end marker";
+    if data[end + 7] != 1 return .{}, false, "invalid QOI end marker";
+
     image := make_image(cast(s32) width, cast(s32) height, ifx channels == 3 then Pixel_Format.RGB8 else .RGBA8);
     out := image.pixels.data;
     total := width * height;
-    end := cast(s64) data.count - 8;
     pos := 14;
 
     index: [64] u32;
@@ -118,6 +121,11 @@ decode_qoi :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Imag
         }
 
         written += 1;
+    }
+
+    if run != 0 || pos != end {
+        deinit(*image);
+        return .{}, false, "QOI data does not match the declared pixel count";
     }
 
     return image, true, "";
