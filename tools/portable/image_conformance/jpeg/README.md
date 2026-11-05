@@ -55,3 +55,5 @@ To extend coverage, add the complete new upstream source inventory, commit/hash/
 ## Reproduce the reference
 
 `build_reference.py --output NEWDIR` fetches the independently pinned 3.2.0 implementation archive, verifies its hash/version, builds the shared libjpeg API with at most two workers, runs every configured upstream CTest, and installs into `NEWDIR/install`. The newer upstream test-image corpus revision is deliberately separate from this implementation pin. Pass its `install/include` and `install/lib` to the gate. `--archive FILE` can reuse identical locally cached bytes; mismatched bytes fail. Existing output directories are never overwritten.
+
+The non-conformant `multiple-0xff-before-eoi.jpg` case has seven zero entropy alignment bits before its legal FF marker fill. Its required-rejection expectation records the independent full-Huffman-walk provenance in the manifest. The padding-only correction preserves all decoded coefficients and pixels with fill present or removed; marker fill remains a supported positive case in the generated regression.

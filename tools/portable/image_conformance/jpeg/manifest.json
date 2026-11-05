@@ -8973,7 +8973,7 @@
       "sha256": "517df4d1161cda83c5a20075d4a1d13292dfdada7d40750ebf7abdaded249838",
       "bytes": 14208,
       "class": "non-conformant",
-      "expectation": "observe",
+      "expectation": "reject",
       "unsupported_process": false,
       "features_diagnostic_only": {
         "sof": "0xc0",
@@ -8993,7 +8993,19 @@
         "warnings": 0,
         "stderr": ""
       },
-      "license_provenance": "See pinned SOURCES.md and license documents; not uniformly CC0"
+      "license_provenance": "See pinned SOURCES.md and license documents; not uniformly CC0",
+      "expectation_provenance": {
+        "rule": "T.81 B.1.1.5 and F.1.2.3 require one-valued entropy alignment bits",
+        "source": "https://www.w3.org/Graphics/JPEG/itu-t81.pdf",
+        "unstuffed_entropy_bytes": 13586,
+        "consumed_entropy_bits": 108681,
+        "padding_byte_offset": 14204,
+        "padding_bit_count": 7,
+        "padding_value": 0,
+        "marker_fill_offset": 14205,
+        "coefficient_sha256": "2d2d9b2fde982d7d007bb6714efc8fb3c3bccb683922ef7098b29f3f1e6b1a29",
+        "scope": "Required rejection of proven malformed alignment; FF marker fill itself remains accepted. Original corpus class and reference observations are unchanged."
+      }
     },
     {
       "id": "codec-corpus/jpeg-conformance/non-conformant/metadata-quirks/icc_chunk_count_mismatch.jpeg",

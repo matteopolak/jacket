@@ -37,6 +37,20 @@ def main():
     assert module.decision_known(
         {"process": {"exit": 0}, "accepted": False, "result_observed": True}
     )
+    padding = next(
+        case
+        for case in manifest["cases"]
+        if case["id"].endswith("/multiple-0xff-before-eoi.jpg")
+    )
+    assert padding["class"] == "non-conformant" and padding["expectation"] == "reject"
+    proof = padding["expectation_provenance"]
+    assert (
+        proof["unstuffed_entropy_bytes"] * 8 - proof["consumed_entropy_bits"]
+        == proof["padding_bit_count"]
+        == 7
+    )
+    assert proof["padding_value"] == 0
+    assert proof["marker_fill_offset"] == proof["padding_byte_offset"] + 1
     actual = json.loads((root / "reviewed-dispositions.json").read_text())
     reviewed = module.review_map(root / "reviewed-dispositions.json", manifest["cases"])
     assert set(reviewed) == {case["id"] for case in actual["cases"]}
