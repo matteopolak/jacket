@@ -40,8 +40,8 @@
     }
 
     check_vector :: (v: Vector) {
-        // The hash loads a whole 16-byte lane for a partial tail, so the buffer extends past the input.
-        data := NewArray(v.count + 16, u8);
+        // No readable padding is part of the input contract.
+        data := NewArray(v.count, u8);
 
         defer free(data.data);
         fill_input(data.data, v.count);
@@ -63,10 +63,10 @@ main :: () {
         for vectors check_vector(it);
 
         // Equal input hashes equal; one differing byte or length changes the result.
-        // Padded like `check_vector`'s buffers: the hash reads a whole lane past a partial tail.
-        a := NewArray(5 + 16, u8);
-        b := NewArray(5 + 16, u8);
-        c := NewArray(6 + 16, u8);
+        // Exact heap allocations expose partial-tail overreads to ASan.
+        a := NewArray(5, u8);
+        b := NewArray(5, u8);
+        c := NewArray(6, u8);
 
         defer free(a.data);
         defer free(b.data);
