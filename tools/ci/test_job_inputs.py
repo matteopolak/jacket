@@ -148,6 +148,20 @@ class ScriptClosure(Fake):
         got = ji.inputs("build", self.repo, changed, crates={})
         self.assertIn("tools/fresh.py", got)
 
+    def test_python_sibling_data_and_program_inputs(self):
+        added = {
+            "tools/build.py": 'from pathlib import Path\nHERE = Path(__file__).resolve().parent\npin = (HERE / "pin.json").read_text()\nlicense = (HERE / "LICENSE-fixture").read_bytes()\nsource = HERE / "adapter.jai"\n',
+            "tools/pin.json": "{}",
+            "tools/LICENSE-fixture": "license",
+            "tools/adapter.jai": 'main :: () {}',
+        }
+        for name, text in added.items():
+            (Path(self.tmp.name) / name).write_text(text)
+        self.repo = ji.Repo(self.tmp.name, files=list(set(FILES) | set(added)))
+        got = self.inputs()
+        for name in ("tools/pin.json", "tools/LICENSE-fixture", "tools/adapter.jai"):
+            self.assertIn(name, got)
+
     def test_const_runs_join_path_pieces(self):
         files = dict(FILES) | {
             "tools/build.py": 'from pathlib import Path\nX = Path(__file__) / "tools" / "data.json"\n'
