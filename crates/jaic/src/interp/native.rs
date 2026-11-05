@@ -17,6 +17,7 @@ use crate::interp::Rets;
 use crate::ir::{Sig, Ty};
 
 mod callbacks;
+pub(super) mod waits;
 pub use callbacks::{
     Gate, Reenter, callback_addr, caller, calling_out, release as release_callbacks,
 };
