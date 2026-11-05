@@ -1,0 +1,13 @@
+---
+import type { NavigationGroup, Target } from '../generated/doc-site.js';
+interface Props { groups: NavigationGroup[]; current: string; href: (target: Target) => string; category?: boolean; }
+const { groups, current, href, category = true } = Astro.props;
+function contains(group: NavigationGroup): boolean {
+  return group.entries.some(entry => entry.target.kind === 'page' && entry.target.id === current) || group.children.some(contains);
+}
+---
+{groups.map(group => category
+  ? <Fragment>{group.label && <div class="nav-h">{group.label}</div>}<Astro.self groups={[{ ...group, label: '' }]} current={current} href={href} category={false} /></Fragment>
+  : group.label
+    ? <details class="nav-cat" data-key={group.id} open={contains(group)}><summary>{group.label}</summary><ul class="nav-list">{group.entries.map(entry => <li><a data-astro-prefetch={entry.target.kind === 'page' ? 'hover' : undefined} href={href(entry.target)} title={entry.title ?? undefined} style={entry.depth > 0 ? `--depth:${entry.depth}` : undefined} aria-current={entry.target.kind === 'page' && entry.target.id === current ? 'page' : undefined}>{entry.label}{entry.experimental && <span class="dot exp" role="img" title="Experimental: may change or go away" aria-label="Experimental: may change or go away"><span class="sr">Experimental</span></span>}</a></li>)}</ul>{group.children.length > 0 && <Astro.self groups={group.children} current={current} href={href} category={false} />}</details>
+    : <Fragment>{group.entries.length > 0 && <ul class="nav-list">{group.entries.map(entry => <li><a data-astro-prefetch={entry.target.kind === 'page' ? 'hover' : undefined} href={href(entry.target)} title={entry.title ?? undefined} style={entry.depth > 0 ? `--depth:${entry.depth}` : undefined} aria-current={entry.target.kind === 'page' && entry.target.id === current ? 'page' : undefined}>{entry.label}{entry.experimental && <span class="dot exp" role="img" title="Experimental: may change or go away" aria-label="Experimental: may change or go away"><span class="sr">Experimental</span></span>}</a></li>)}</ul>}{group.children.length > 0 && <Astro.self groups={group.children} current={current} href={href} category={false} />}</Fragment>)}

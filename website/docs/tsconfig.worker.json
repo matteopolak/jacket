@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2023",
+      "WebWorker"
+    ],
+    "types": []
+  },
+  "include": [
+    "src/browser/run-worker.ts"
+  ],
+  "exclude": []
+}

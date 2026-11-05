@@ -275,6 +275,11 @@ pub(crate) fn generate(block: &Block, module: &str) -> (String, Vec<u32>) {
     let mut out = String::new();
     let mut lines = Vec::new();
     let mut push = |text: &str, from: u32| {
+        // A source line may be empty; `str::lines` alone would silently drop it.
+        if text.is_empty() {
+            out.push('\n');
+            lines.push(from);
+        }
         for line in text.lines() {
             out.push_str(line);
             out.push('\n');
@@ -390,7 +395,7 @@ pub(crate) fn standalone(block: &Block, module: &str) -> Option<String> {
 }
 
 /// A program with a hole for the example's text, so a page can run what a reader edited. The
-/// parts around the hole are fixed; the script in `doc/site/assets/site.js` fills it the same way
+/// parts around the hole are fixed; `website/docs/src/lib/example-program.ts` fills it the same way
 /// from the JSON form.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Template {
@@ -712,6 +717,7 @@ mod tests {
         let cases = [
             "#import \"Math\";\n\nx := 1;\nprint(\"%\\n\", x);\n",
             "main :: () {\n    print(\"hi\\n\");\n}\n",
+            "#run {\n    n := 1;\n\n    n += 1;\n}\n\nmain :: () {\n\n}\n",
         ];
         for code in cases {
             let lines: Vec<&str> = ["```jai"]
@@ -722,10 +728,20 @@ mod tests {
             let (_, mut block) = fenced(&lines).remove(0);
             block.file = PathBuf::from("stdlib/a.jai");
             block.line = 3;
-            assert_eq!(
-                generate_template(&block, "Text").fill(&block.code),
-                generate(&block, "Text").0
-            );
+            let (program, origins) = generate(&block, "Text");
+            assert_eq!(generate_template(&block, "Text").fill(&block.code), program);
+            assert_eq!(program.lines().count(), origins.len());
+            for (offset, line) in block.code.lines().enumerate() {
+                if line.is_empty() {
+                    let origin = block.line + 1 + offset as u32;
+                    assert!(
+                        program
+                            .lines()
+                            .zip(&origins)
+                            .any(|(text, from)| { *from == origin && text.trim().is_empty() })
+                    );
+                }
+            }
             assert_eq!(
                 Some(standalone_template(&block, "Text").fill(&block.code)),
                 standalone(&block, "Text")

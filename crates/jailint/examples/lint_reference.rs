@@ -60,12 +60,13 @@ fn example(rule: &jailint::RuleInfo) -> String {
         .filter(|l| !l.trim_start().starts_with("= note: see http"))
         .map(|l| l.replace(&shown, "example.jai"))
         .collect();
-    let intro = if rule.default() == Level::Allow {
-        "Example (off by default; shown with the rule enabled):"
-    } else {
-        "Example:"
+    let note =
+        (rule.default() == Level::Allow).then_some("Off by default; shown with the rule enabled");
+    let metadata = match note {
+        Some(note) => serde_json::json!({"kind":"example","note":note}),
+        None => serde_json::json!({"kind":"example"}),
     };
-    let mut out = format!("{intro}\n\n```jai\n{}\n```\n\n", code.trim_end());
+    let mut out = String::new();
     if let Ok(settings) = std::fs::read_to_string(format!("{dir}/example.toml")) {
         let _ = write!(
             out,
@@ -75,11 +76,20 @@ fn example(rule: &jailint::RuleInfo) -> String {
     }
     let _ = write!(
         out,
-        "```diagnostic\n{}\n```\n",
+        "```jai jacket-example/1 {metadata}\n{}\n```\n\n",
+        code.trim_end()
+    );
+    let _ = write!(
+        out,
+        "```diagnostic jacket-result/1 {{\"kind\":\"diagnostic\"}}\n{}\n```\n",
         finding.join("\n").trim_end()
     );
     if let Ok(fixed) = std::fs::read_to_string(format!("{dir}/example-fixed.jai")) {
-        let _ = write!(out, "\nFixed:\n\n```jai\n{}\n```\n", fixed.trim_end());
+        let _ = write!(
+            out,
+            "\n```jai jacket-example/1 {{\"kind\":\"fixed\"}}\n{}\n```\n",
+            fixed.trim_end()
+        );
     }
     out
 }
@@ -179,4 +189,75 @@ fn main() {
         }
     }
     print!("{out}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn real_lint_examples_emit_explicit_source_result_ownership_without_plain_labels() {
+        for name in ["self_assignment", "duplicate_condition", "use_after_free"] {
+            let rule = RULES.iter().find(|rule| rule.name == name).unwrap();
+            let rendered = example(rule);
+            assert!(
+                rendered.contains("```jai jacket-example/1 "),
+                "{name}: source lacks semantic header"
+            );
+            assert!(
+                rendered.contains("```diagnostic jacket-result/1 "),
+                "{name}: diagnostic lacks ownership"
+            );
+            assert!(
+                !rendered
+                    .lines()
+                    .any(|line| line == "Example:" || line == "Fixed:"),
+                "{name}: ghost prose label"
+            );
+            let code =
+                std::fs::read_to_string(format!("{ROOT}/tests/lint/{name}/example.jai")).unwrap();
+            assert!(
+                rendered.contains(code.trim_end()),
+                "{name}: original source changed"
+            );
+            if let Ok(fixed) =
+                std::fs::read_to_string(format!("{ROOT}/tests/lint/{name}/example-fixed.jai"))
+            {
+                assert!(rendered.contains("```jai jacket-example/1 {\"kind\":\"fixed\"}"));
+                assert!(
+                    rendered.contains(fixed.trim_end()),
+                    "{name}: corrected source changed"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn configured_disabled_rule_keeps_settings_before_its_example() {
+        let rule = RULES
+            .iter()
+            .find(|rule| rule.name == "cognitive_complexity")
+            .unwrap();
+        let rendered = example(rule);
+        let settings = rendered.find("```toml\n").unwrap();
+        let source = rendered.find("```jai jacket-example/1 ").unwrap();
+        let result = rendered.find("```diagnostic jacket-result/1 ").unwrap();
+        let fixed = rendered
+            .find("```jai jacket-example/1 {\"kind\":\"fixed\"}")
+            .unwrap();
+        assert!(settings < source && source < result && result < fixed);
+        let header = rendered[source..].lines().next().unwrap();
+        let metadata: serde_json::Value =
+            serde_json::from_str(header.strip_prefix("```jai jacket-example/1 ").unwrap()).unwrap();
+        assert_eq!(metadata["kind"], "example");
+        assert_eq!(
+            metadata["note"],
+            "Off by default; shown with the rule enabled"
+        );
+        let settings = std::fs::read_to_string(format!(
+            "{ROOT}/tests/lint/cognitive_complexity/example.toml"
+        ))
+        .unwrap();
+        assert!(rendered.contains(settings.trim_end()));
+    }
 }

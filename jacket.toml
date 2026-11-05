@@ -238,14 +238,17 @@ name = "Implicit context"
 [[doc.section]]
 file = "docs/reference/tools.md"
 name = "Tools"
+kind = "tool"
 
 [[doc.section]]
 file = "docs/reference/lint-rules.md"
 name = "Lint rules"
+kind = "tool"
 
 [[doc.section]]
 file = "docs/tools/jaifmt-rules.md"
 name = "Format rules"
+kind = "tool"
 
 # Every module is in one group; `jacket doc --check` fails on one that is not, and on a pattern
 # that matches no module. A module goes in the last group that matches it.

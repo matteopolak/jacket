@@ -54,3 +54,15 @@ test('frame synchronization cannot finish on elapsed time before two browser fra
   await waiting;
   assert.equal(finished, true);
 });
+
+test('foreign accessibility sample uses the versioned producer target without a display-name slugger', async () => {
+  const { foreignItemPath } = await import('./doc_samples.mjs');
+  assert.equal(foreignItemPath({payload:'search',data:{schemaVersion:1,entries:[
+    {kind:'module',binding:true,target:{kind:'page',id:'api/Ignore'}},
+    {kind:'declaration',binding:true,name:'operator /',target:{kind:'page',id:'api/Native/canonical-2f',anchor:null}},
+  ]}}),'api/Native/canonical-2f');
+  for(const input of [{items:[]},{payload:'search',data:{schemaVersion:2,entries:[]}},
+    {payload:'search',data:{schemaVersion:1,entries:[]}},
+    {payload:'search',data:{schemaVersion:1,entries:[{kind:'declaration',binding:true,target:{kind:'page',id:'../escape'}}]}}])
+    assert.throws(()=>foreignItemPath(input));
+});

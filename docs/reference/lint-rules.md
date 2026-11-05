@@ -24,9 +24,7 @@ Finds a comparison an unsigned value always passes or fails (`u >= 0`).
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 countdown :: (n: u32) {
@@ -42,7 +40,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[absurd_comparison]: `i >= 0` is always `true`
   --> example.jai:5:11
    |
@@ -56,9 +54,7 @@ help: `u32` is unsigned and holds nothing below 0; compare with a signed value, 
    = note: `absurd_comparison` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 countdown :: (n: u32) {
@@ -82,9 +78,7 @@ Finds `a = b; b = a;`, a swap that sets both to `b`.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -98,7 +92,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[almost_swapped]: this sets both `a` and `b` to `b`
   --> example.jai:7:5
    |
@@ -114,9 +108,7 @@ help: to swap them, write `a, b = b, a;`
    = note: `almost_swapped` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -140,9 +132,7 @@ Finds a mask test that can never match (`(x & 4) == 1`, `(x | 2) == 0`).
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 can_write :: (flags: u32) -> bool {
@@ -154,7 +144,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[bad_bit_mask]: `(flags & 4) == 1` is always `false`: `& 4` leaves only the bits of 4, and 1 has others
   --> example.jai:4:13
    |
@@ -168,9 +158,7 @@ help: compare with the mask itself (`(x & m) == m`) or test for non-zero
    = note: `bad_bit_mask` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 can_write :: (flags: u32) -> bool {
@@ -190,9 +178,7 @@ Finds `defer free(p);` followed by `return p;`, which hands back freed memory.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 #import "String";
 
@@ -208,7 +194,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[defer_frees_returned]: `name` is returned, but the `defer` above frees it
   --> example.jai:7:12
    |
@@ -222,9 +208,7 @@ help: the deferred call runs after the value is returned: drop the `defer`, or r
    = note: `defer_frees_returned` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 #import "String";
 
@@ -248,9 +232,7 @@ Finds two calls that free the same variable with nothing in between (`free(p); f
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 Node :: struct {
@@ -267,7 +249,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[double_free]: `node` is freed a second time
   --> example.jai:13:5
    |
@@ -286,9 +268,7 @@ help: remove the second call, or assign `node` a new value in between
    = note: `double_free` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Node :: struct {
@@ -312,9 +292,7 @@ Finds `memcpy(d, xs.data, xs.count)` with elements wider than a byte.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 copy_values :: (dest: [] s32, values: [] s32) {
@@ -329,7 +307,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[element_count_as_bytes]: `values.count` counts `s32` elements, but this argument is a number of bytes
   --> example.jai:4:36
    |
@@ -343,9 +321,7 @@ help: multiply by the element size: `values.count * size_of(s32)`
    = note: `element_count_as_bytes` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 copy_values :: (dest: [] s32, values: [] s32) {
@@ -368,9 +344,7 @@ Finds comparisons of one integer that never pass together (`x > 5 && x < 3`).
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 is_live :: (code: int) -> bool {
@@ -382,7 +356,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[impossible_comparison]: `code != 404 || code != 410` is always `true`
   --> example.jai:4:12
    |
@@ -396,9 +370,7 @@ help: every integer passes one of these comparisons: was `&&` meant?
    = note: `impossible_comparison` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 is_live :: (code: int) -> bool {
@@ -418,9 +390,7 @@ Finds `min(0, max(100, x))`, a clamp that is always one bound.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -430,7 +400,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[min_max]: this is always `0`: the bounds are swapped
   --> example.jai:5:14
    |
@@ -444,9 +414,7 @@ help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
    = note: `min_max` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -464,9 +432,7 @@ Finds `a += a + b`, an update that applies the operator to `a` twice.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -479,7 +445,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[misrefactored_assign_op]: `total += total + ...` applies `+` to `total` twice
   --> example.jai:7:5
    |
@@ -493,9 +459,7 @@ help: `+=` already starts from `total`: write `total += price`
    = note: `misrefactored_assign_op` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -516,9 +480,7 @@ Finds `for i: 0..xs.count` indexing `xs[i]`, one past the end.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -529,7 +491,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[range_past_count]: `names.count` is one past the last index of `names`
   --> example.jai:5:15
    |
@@ -543,9 +505,7 @@ help: ranges include their end: write `names.count - 1`
    = note: `range_past_count` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -564,9 +524,7 @@ Finds removing from an array while a `for` walks it forward.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -582,7 +540,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[remove_in_for]: `array_unordered_remove_by_index` changes `xs` while this `for` walks it
   --> example.jai:9:20
    |
@@ -598,9 +556,7 @@ help: the element moved into the freed slot is skipped; use `remove it;` (or loo
    = note: `remove_in_for` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -624,9 +580,7 @@ Finds `return *x;` with `x` a local, a pointer into a stack frame that is gone.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 Point :: struct {
@@ -644,7 +598,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[returned_local_address]: this returns the address of the local `p`, which is gone once the procedure returns
   --> example.jai:9:12
    |
@@ -656,9 +610,7 @@ error[returned_local_address]: this returns the address of the local `p`, which 
    = note: `returned_local_address` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Point :: struct {
@@ -685,9 +637,7 @@ Finds a range whose start is above its end, which never runs.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -697,7 +647,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[reversed_range]: the range `10..0` is empty: ranges count up
   --> example.jai:4:12
    |
@@ -711,9 +661,7 @@ help: to count down, write `for < ...: 0..10`
    = note: `reversed_range` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -731,9 +679,7 @@ Finds a write into a string literal, which is read-only (`s := "abc"; s[0] = x;`
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -743,7 +689,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[string_literal_write]: `word[0]` writes into a string literal: `word` still holds one, and literals are read-only
   --> example.jai:5:5
    |
@@ -757,9 +703,7 @@ help: copy it where `word` is declared: `copy_string("hello")` (free the copy wh
    = note: `string_literal_write` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -778,9 +722,7 @@ Finds a variable declared `= ---` read before anything is written to it.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 sum :: (xs: [] int) -> int {
@@ -794,7 +736,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[uninit_read]: `total` is read here before anything is written to it
   --> example.jai:5:12
    |
@@ -808,9 +750,7 @@ help: `= ---` leaves `total` holding whatever was in memory: give it a value fir
    = note: `uninit_read` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 sum :: (xs: [] int) -> int {
@@ -832,9 +772,7 @@ Finds a variable read after a call freed it (`free(p); use(p);`, or a wrapper th
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 Node :: struct {
@@ -850,7 +788,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[use_after_free]: `node` is used after the call above freed it
   --> example.jai:12:18
    |
@@ -864,9 +802,7 @@ error[use_after_free]: `node` is used after the call above freed it
    = note: `use_after_free` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Node :: struct {
@@ -890,9 +826,7 @@ Finds a constant that wraps to the type the other operand gives it (`(0xffff_fff
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 bucket :: (id: s32) -> s32 {
@@ -904,7 +838,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 error[wrapping_constant]: constant `0x8000_0000` is 2147483648, which does not fit in `s32`: `%` uses it as -2147483648
   --> example.jai:4:17
    |
@@ -918,9 +852,7 @@ help: to use 2147483648, compute in `s64` (`cast(s64) id`); to mean -2147483648,
    = note: `wrapping_constant` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 bucket :: (id: s32) -> s32 {
@@ -944,9 +876,7 @@ Finds a bitwise operator that binds differently than in C (`1 << n - 1`).
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 low_bits :: (bits: int) -> int {
@@ -958,7 +888,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[bitwise_precedence]: `<<` binds tighter than `-` in Jai, unlike in C
   --> example.jai:4:12
    |
@@ -972,9 +902,7 @@ help: `<<` binds first here: write `(1 << bits)`
    = note: `bitwise_precedence` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 low_bits :: (bits: int) -> int {
@@ -994,9 +922,7 @@ Finds an `if` or `while` whose condition the compiler shows is always true or fa
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 check :: (count: s64) {
@@ -1012,7 +938,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[constant_condition]: this condition is always `false`
   --> example.jai:5:12
    |
@@ -1023,9 +949,7 @@ warning[constant_condition]: this condition is always `false`
    = note: `constant_condition` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 check :: (count: s64) {
@@ -1049,9 +973,7 @@ Finds a `defer` in a loop body that cleans up something from outside the loop.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -1065,7 +987,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[defer_in_loop]: this `defer` runs at the end of every iteration, not when the procedure returns
   --> example.jai:8:9
    |
@@ -1076,9 +998,7 @@ warning[defer_in_loop]: this `defer` runs at the end of every iteration, not whe
    = note: `defer_in_loop` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -1102,9 +1022,7 @@ Finds a call drops the `bool` that follows the values it keeps (`n := to_integer
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 parse :: (text: string) -> int, bool {
@@ -1118,7 +1036,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[dropped_result]: `parse` returns 2 values but this keeps 1; the next value is a `bool`, which usually says whether the call worked
   --> example.jai:9:14
    |
@@ -1132,9 +1050,7 @@ help: receive the flag, or write `, _` to show it is ignored on purpose
    = note: `dropped_result` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 parse :: (text: string) -> int, bool {
@@ -1157,9 +1073,7 @@ Finds an `else if` that repeats an earlier condition.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 describe :: (key: int) {
@@ -1173,7 +1087,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[duplicate_condition]: `key == 1` was already tested earlier in this chain
   --> example.jai:6:13
    |
@@ -1182,16 +1096,12 @@ warning[duplicate_condition]: `key == 1` was already tested earlier in this chai
    |
 help: this branch can never run: was another condition meant?
    |
- 5 -     else if key == 2 print("two\n");
  6 -     else if key == 1 print("uno\n");
- 5 +     else if key == 2 print("two\n");
    |
    = note: `duplicate_condition` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 describe :: (key: int) {
@@ -1213,9 +1123,7 @@ Finds an operation that is always `0` (`x * 0`, `x & 0`).
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 offset :: (row: int, col: int) -> int {
@@ -1227,7 +1135,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[erasing_op]: `row * 0` is always `0`
   --> example.jai:4:12
    |
@@ -1241,9 +1149,7 @@ help: `*` with this literal erases `row`: was another value meant?
    = note: `erasing_op` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 offset :: (row: int, col: int) -> int {
@@ -1263,9 +1169,7 @@ Finds an `if`/`else` or `ifx` whose branches are the same.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -1275,7 +1179,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[identical_branches]: both branches of this `ifx` are the same
   --> example.jai:5:14
    |
@@ -1289,9 +1193,7 @@ help: the condition decides nothing: was one branch meant to differ?
    = note: `identical_branches` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -1309,9 +1211,7 @@ Finds an operator with the same expression on both sides (`a == a`).
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 Vec :: struct {
@@ -1328,7 +1228,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[identical_operands]: both sides of `==` are `a.y`
   --> example.jai:9:26
    |
@@ -1339,9 +1239,7 @@ warning[identical_operands]: both sides of `==` are `a.y`
    = note: `identical_operands` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Vec :: struct {
@@ -1366,9 +1264,7 @@ Finds a `while` whose condition nothing in the loop changes.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 sum :: (values: [] int) -> int {
@@ -1387,7 +1283,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[infinite_loop]: this loop's condition never changes inside it
   --> example.jai:7:11
    |
@@ -1398,9 +1294,7 @@ warning[infinite_loop]: this loop's condition never changes inside it
    = note: `infinite_loop` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 sum :: (values: [] int) -> int {
@@ -1428,9 +1322,7 @@ Finds an integer division whose result is used as a float.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -1441,7 +1333,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[integer_division_in_float]: integer division `done / total` is converted to a float: the remainder is lost first
   --> example.jai:6:27
    |
@@ -1455,9 +1347,7 @@ help: divide as floats: `cast(float) done / total`
    = note: `integer_division_in_float` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -1476,9 +1366,7 @@ Finds an inferred owned result that is only compared, measured, indexed or print
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 is_seven :: (n: int) -> bool {
@@ -1490,7 +1378,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[leaked_temporary]: the memory `sprint` allocates is only compared and never freed
   --> example.jai:4:12
    |
@@ -1501,9 +1389,7 @@ warning[leaked_temporary]: the memory `sprint` allocates is only compared and ne
    = note: `leaked_temporary` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 is_seven :: (n: int) -> bool {
@@ -1523,9 +1409,7 @@ Finds a variable bounding a `for` range assigned in the loop, which does not cha
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 count_nonzero :: (xs: [] int) -> int {
@@ -1543,7 +1427,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[modified_range_bound]: `n` bounds this loop's range, which was fixed before the first iteration: changing it here does not change the loop
   --> example.jai:7:24
    |
@@ -1554,9 +1438,7 @@ warning[modified_range_bound]: `n` bounds this loop's range, which was fixed bef
    = note: `modified_range_bound` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 count_nonzero :: (xs: [] int) -> int {
@@ -1582,9 +1464,7 @@ Finds a statement that computes a value and drops it (`x == 5;`).
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -1594,7 +1474,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[no_effect]: this statement has no effect
   --> example.jai:5:5
    |
@@ -1608,9 +1488,7 @@ help: to update `total`, write `total += 1;`
    = note: `no_effect` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -1628,9 +1506,7 @@ Finds a pointer into a resizable array used after a `@GrowsArray` call may have 
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 Item :: struct {
@@ -1652,7 +1528,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[pointer_into_resizable]: `first` points into `items`, which `array_add` may have moved by now
   --> example.jai:18:18
    |
@@ -1669,9 +1545,7 @@ warning[pointer_into_resizable]: `first` points into `items`, which `array_add` 
    = note: `pointer_into_resizable` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Item :: struct {
@@ -1710,9 +1584,7 @@ Finds a scoped push directly in an `#if` arm, which lasts past the arm.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 USE_ARENA :: true;
@@ -1728,7 +1600,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[push_in_static_if]: this push lasts until the end of the enclosing procedure, not the end of the `#if` arm
   --> example.jai:9:9
    |
@@ -1747,9 +1619,7 @@ Finds a value assigned to itself (`x = x;`).
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 Size :: struct {
@@ -1768,7 +1638,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[self_assignment]: `width` is assigned to itself
   --> example.jai:9:5
    |
@@ -1777,14 +1647,12 @@ warning[self_assignment]: `width` is assigned to itself
    |
 help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
    |
- 9 ~ 
+ 9 -     width = width;
    |
    = note: `self_assignment` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Size :: struct {
@@ -1811,9 +1679,7 @@ Finds a nested `for` hides an `it` the enclosing loop uses.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -1826,7 +1692,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[shadowed_it]: this loop's `it` hides the `it` of the loop on line 6, which is also used
   --> example.jai:7:9
    |
@@ -1837,9 +1703,7 @@ warning[shadowed_it]: this loop's `it` hides the `it` of the loop on line 6, whi
    = note: `shadowed_it` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -1860,9 +1724,7 @@ Finds a shift by at least the bit width of its operand (`x << 40` with `x: s32`)
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 high_word :: (bits: u32) -> u32 {
@@ -1874,7 +1736,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[shift_overflow]: shifting a `u32` by 32 shifts out all 32 of its bits
   --> example.jai:4:12
    |
@@ -1885,9 +1747,7 @@ warning[shift_overflow]: shifting a `u32` by 32 shifts out all 32 of its bits
    = note: `shift_overflow` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 high_word :: (bits: u64) -> u64 {
@@ -1907,9 +1767,7 @@ Finds a local opened by an `@Opens` call (`file_open`, `append(*builder, ..)`) t
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 #import "File";
 
@@ -1925,7 +1783,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unclosed_resource]: `file` is opened by `file_open` but nothing closes it
   --> example.jai:5:17
    |
@@ -1936,9 +1794,7 @@ warning[unclosed_resource]: `file` is opened by `file_open` but nothing closes i
    = note: `unclosed_resource` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 #import "File";
 
@@ -1963,9 +1819,7 @@ Finds a `// jailint: allow(...)` comment naming a rule that does not exist.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 // jailint: allow(float_equlity)
@@ -1978,7 +1832,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unknown_allow]: `float_equlity` is not a jailint rule, so this comment allows nothing
   --> example.jai:3:19
    |
@@ -1992,9 +1846,7 @@ help: did you mean `float_equality`? (`--list` shows every rule)
    = note: `unknown_allow` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 // jailint: allow(float_equality)
@@ -2015,9 +1867,7 @@ Finds a `@Locks` call with a path that returns or ends without a matching `@Unlo
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 #import "Thread";
 
@@ -2044,7 +1894,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unpaired_lock]: this `return` leaves `*state.mutex` locked
   --> example.jai:12:21
    |
@@ -2055,9 +1905,7 @@ warning[unpaired_lock]: this `return` leaves `*state.mutex` locked
    = note: `unpaired_lock` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 #import "Thread";
 
@@ -2093,9 +1941,7 @@ Finds `for 0..n-1` with an unsigned `n`, which wraps around when `n` is 0.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 sum :: (data: *u8, n: u32) -> int {
@@ -2114,7 +1960,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unsigned_range_end_minus_one]: `n` is unsigned, so this range runs past the end when it is 0
   --> example.jai:6:15
    |
@@ -2125,9 +1971,7 @@ warning[unsigned_range_end_minus_one]: `n` is unsigned, so this range runs past 
    = note: `unsigned_range_end_minus_one` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 sum :: (data: *u8, n: s64) -> int {
@@ -2154,9 +1998,7 @@ Finds a `#scope_file` declaration that nothing in its file uses.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -2168,7 +2010,7 @@ main :: () {
 LIMIT :: 64;
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unused_private_declaration]: `LIMIT` is private to this file and nothing in the file uses it
   --> example.jai:9:1
    |
@@ -2179,9 +2021,7 @@ warning[unused_private_declaration]: `LIMIT` is private to this file and nothing
    = note: `unused_private_declaration` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -2197,9 +2037,7 @@ Finds a call to a `@UseResult` procedure, as a statement.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 #import "String";
 
@@ -2212,7 +2050,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unused_result]: the result of `trim` is discarded; it does not change its arguments
   --> example.jai:7:5
    |
@@ -2226,9 +2064,7 @@ help: to update the argument, write `line = trim(line);`
    = note: `unused_result` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 #import "String";
 
@@ -2249,9 +2085,7 @@ Finds a name in a `// jailint: allow(...)` comment or `@jailint_allow` note that
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 scale :: (a: int) -> int {
@@ -2266,7 +2100,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unused_suppression]: `unused_variable` allows nothing here
   --> example.jai:4:23
    |
@@ -2277,9 +2111,7 @@ warning[unused_suppression]: `unused_variable` allows nothing here
    = note: `unused_suppression` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 scale :: (a: int) -> int {
@@ -2305,9 +2137,7 @@ Finds comparing a bool with `true` or `false`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -2317,7 +2147,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[bool_comparison]: comparing a bool with `true`: `ready == true`
   --> example.jai:6:8
    |
@@ -2331,9 +2161,7 @@ help: write `ready`
    = note: `bool_comparison` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -2351,9 +2179,7 @@ Finds an operation that changes nothing (`x + 0`, `x * 1`).
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 size_in_bytes :: (count: int) -> int {
@@ -2365,7 +2191,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[identity_op]: `count * 1` is just `count`: `*` with this operand changes nothing
   --> example.jai:4:12
    |
@@ -2379,9 +2205,7 @@ help: write `count`
    = note: `identity_op` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 size_in_bytes :: (count: int) -> int {
@@ -2401,9 +2225,7 @@ Finds `for i: 0..xs.count-1` where `i` only indexes `xs`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 sum :: (xs: [] int) -> int {
@@ -2421,7 +2243,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[index_only_loop]: `i` is only used to index `xs`
   --> example.jai:6:5
    |
@@ -2436,9 +2258,7 @@ help: loop over the elements: `for xs` and `it`
    = note: `index_only_loop` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 sum :: (xs: [] int) -> int {
@@ -2464,9 +2284,7 @@ Finds `x >= y + 1`, which is `x > y`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 over_limit :: (count: int, limit: int) -> bool {
@@ -2478,7 +2296,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[int_plus_one]: `count >= limit + 1` is a strict comparison written with `1`
   --> example.jai:4:12
    |
@@ -2492,9 +2310,7 @@ help: write `count > limit`
    = note: `int_plus_one` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 over_limit :: (count: int, limit: int) -> bool {
@@ -2514,9 +2330,7 @@ Finds `while true { if !c break; ... }`, a loop whose condition is its first sta
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -2531,7 +2345,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[loop_with_break_condition]: this loop leaves on its first statement; the test belongs in the `while`
   --> example.jai:6:11
    |
@@ -2547,9 +2361,7 @@ help: write `while i < 10` and drop the `if`
    = note: `loop_with_break_condition` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -2571,9 +2383,7 @@ Finds a loop that searches an array and breaks with a found flag or index, which
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 has :: (names: [] string, wanted: string) -> bool {
@@ -2594,7 +2404,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[manual_array_find]: this loop looks for `wanted` in `names` by hand
   --> example.jai:6:5
    |
@@ -2605,9 +2415,7 @@ warning[manual_array_find]: this loop looks for `wanted` in `names` by hand
    = note: `manual_array_find` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 has :: (names: [] string, wanted: string) -> bool {
@@ -2628,9 +2436,7 @@ Finds `a = a + b` instead of `a += b`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -2643,7 +2449,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[manual_assign_op]: `total` is updated with `+` spelled out
   --> example.jai:7:5
    |
@@ -2657,9 +2463,7 @@ help: write `total += price`
    = note: `manual_assign_op` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -2680,9 +2484,7 @@ Finds a value kept between two constant bounds by hand instead of with `clamp`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -2692,7 +2494,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[manual_clamp]: `volume` is kept between `0` and `100` by hand
   --> example.jai:5:14
    |
@@ -2706,9 +2508,7 @@ help: write `clamp(volume, 0, 100)`
    = note: `manual_clamp` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -2726,9 +2526,7 @@ Finds a counter incremented in a `for` loop that always equals `it_index`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 show :: (names: [] string) {
@@ -2745,7 +2543,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[manual_index_counter]: `n` always equals `it_index` of the loop that follows
   --> example.jai:4:5
    |
@@ -2755,20 +2553,14 @@ warning[manual_index_counter]: `n` always equals `it_index` of the loop that fol
 help: use `it_index` instead of counting by hand
    |
  4 -     n := 0;
- 5 - 
- 6 -     for names {
  7 -         print("% %\n", n, it);
  8 -         n += 1;
- 4 + 
- 5 +     for names {
  6 +         print("% %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 show :: (names: [] string) {
@@ -2790,9 +2582,7 @@ Finds `ifx c then true else false` and `if c return true; else return false;`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 is_positive :: (n: int) -> bool {
@@ -2805,7 +2595,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[needless_bool]: this `if` returns its own condition as a `bool`
   --> example.jai:4:5
    |
@@ -2821,9 +2611,7 @@ help: write `return n > 0;`
    = note: `needless_bool` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 is_positive :: (n: int) -> bool {
@@ -2843,9 +2631,7 @@ Finds a local that only exists to be copied into another local or returned.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 square :: (n: int) -> int {
@@ -2858,7 +2644,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[redundant_alias]: `result` is returned right after it is declared
   --> example.jai:4:5
    |
@@ -2874,9 +2660,7 @@ help: return the value directly
    = note: `redundant_alias` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 square :: (n: int) -> int {
@@ -2896,9 +2680,7 @@ Finds a cast to the type the value already has.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -2908,7 +2690,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[redundant_cast]: `x` is already `s32`
   --> example.jai:5:10
    |
@@ -2922,9 +2704,7 @@ help: remove the cast
    = note: `redundant_cast` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -2942,9 +2722,7 @@ Finds `p.*.field` where `p.field` means the same.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 Point :: struct {
@@ -2960,7 +2738,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[redundant_deref]: `q.*` is not needed to reach `x`
   --> example.jai:12:19
    |
@@ -2974,9 +2752,7 @@ help: write `q.x`: member access already looks through the pointer
    = note: `redundant_deref` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Point :: struct {
@@ -3000,9 +2776,7 @@ Finds `cast,force` where the value already has the type or the conversion widens
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 widen :: (a: s32) -> s64 {
@@ -3014,7 +2788,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unnecessary_force_cast]: `cast,force` from `s32` to `s64` reinterprets nothing and has no range to check
   --> example.jai:4:12
    |
@@ -3028,9 +2802,7 @@ help: remove `,force`: the plain cast does the same
    = note: `unnecessary_force_cast` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 widen :: (a: s32) -> s64 {
@@ -3050,9 +2822,7 @@ Finds `tprint("%", s)` or `sprint("%", s)` with a string `s`, which only copies 
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 greeting :: (name: string) -> string {
@@ -3064,7 +2834,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[useless_format]: `tprint("%", name)` only copies a string
   --> example.jai:4:12
    |
@@ -3078,9 +2848,7 @@ help: use the string itself, or `copy_string` for a copy you own
    = note: `useless_format` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 greeting :: (name: string) -> string {
@@ -3104,9 +2872,7 @@ Finds a hand-typed `3.14159` or `1.4142` where `Math` has the constant.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 area :: (r: float) -> float {
@@ -3118,7 +2884,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[approx_constant]: `3.14159` is an approximation of `PI`
   --> example.jai:4:12
    |
@@ -3132,9 +2898,7 @@ help: write `PI` from `Math` (`PI64` for `float64`)
    = note: `approx_constant` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 #import "Math";
 
@@ -3155,9 +2919,7 @@ Finds `assert(true)` or `#assert true`, which can never fail.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -3169,7 +2931,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[assert_constant]: `assert(true)` can never fail
   --> example.jai:6:5
    |
@@ -3184,9 +2946,7 @@ help: remove it, or assert the condition it stands in for
    = note: `assert_constant` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -3206,9 +2966,7 @@ Finds a comment that is only a line of `-`, `=` or `*` fencing off a section.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 // -----------------------------------------------------------------------------
@@ -3223,7 +2981,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[banner_comment]: this comment is only a line of rule characters
   --> example.jai:3:1
    |
@@ -3237,9 +2995,7 @@ help: drop the line, and name the section in one plain `//` line if it needs a n
    = note: `banner_comment` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 // Helpers
@@ -3261,9 +3017,7 @@ Finds a link in a doc comment (`[name]`) that names no declaration.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 Point :: struct {
@@ -3281,7 +3035,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[broken_doc_link]: `[prnt]` doesn't resolve to a declaration
   --> example.jai:8:40
    |
@@ -3295,9 +3049,7 @@ help: did you mean `print`?
    = note: `broken_doc_link` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Point :: struct {
@@ -3323,9 +3075,7 @@ Finds every member of an enum starts with the enum's name.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 Color :: enum {
@@ -3339,7 +3089,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[enum_member_prefix]: every member of `Color` starts with `Color`
   --> example.jai:3:1
    |
@@ -3350,9 +3100,7 @@ warning[enum_member_prefix]: every member of `Color` starts with `Color`
    = note: `enum_member_prefix` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Color :: enum {
@@ -3374,9 +3122,7 @@ Finds a `float32` literal with more digits than a `float32` keeps (`31415.92653`
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -3385,7 +3131,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[lossy_float_literal]: `16777.2171234` has 12 significant digits, but a `float32` keeps 8
   --> example.jai:4:22
    |
@@ -3399,9 +3145,7 @@ help: write `16777.217`, which is the same `float32`
    = note: `lossy_float_literal` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -3418,9 +3162,7 @@ Finds a hex literal with both upper and lower case digits (`0xDeadbeef`).
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -3429,7 +3171,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[mixed_case_hex_literals]: `0xFFfF` mixes upper and lower case digits
   --> example.jai:4:13
    |
@@ -3443,9 +3185,7 @@ help: write `0xFFFF`
    = note: `mixed_case_hex_literals` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -3462,9 +3202,7 @@ Finds a `continue` as the last thing a loop body does.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -3480,7 +3218,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[needless_continue]: this `continue` is the last thing the loop does
   --> example.jai:9:9
    |
@@ -3494,9 +3232,7 @@ help: remove it
    = note: `needless_continue` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -3519,9 +3255,7 @@ Finds `x * -1`, which is `-x`.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 flip :: (x: int) -> int {
@@ -3533,7 +3267,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[neg_multiply]: `x * -1` is a negation
   --> example.jai:4:12
    |
@@ -3547,9 +3281,7 @@ help: write `-x`
    = note: `neg_multiply` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 flip :: (x: int) -> int {
@@ -3569,9 +3301,7 @@ Finds a `switch` with a single case, which is an `if`.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 Mode :: enum {
@@ -3592,7 +3322,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[single_case_switch]: this `switch` has a single case
   --> example.jai:10:5
    |
@@ -3604,17 +3334,13 @@ help: write an `if` instead
 10 -     if mode == {
 11 -         case .VERBOSE;
 12 -             print("loud\n");
-13 -     }
 10 +     if mode == .VERBOSE {
 11 +         print("loud\n");
-12 +     }
    |
    = note: `single_case_switch` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Mode :: enum {
@@ -3640,9 +3366,7 @@ Finds a `;` that ends nothing (`x = 1;;`, `if c { ... };`).
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -3652,7 +3376,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unnecessary_semicolon]: this `;` ends nothing
   --> example.jai:4:16
    |
@@ -3666,9 +3390,7 @@ help: remove it
    = note: `unnecessary_semicolon` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -3686,9 +3408,7 @@ Finds an `#import` nothing in its scope uses.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 #import "Math";
 
@@ -3697,7 +3417,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unused_import]: unused import "Math"
   --> example.jai:2:1
    |
@@ -3711,9 +3431,7 @@ help: remove it
    = note: `unused_import` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -3729,9 +3447,7 @@ Finds a parameter the procedure never uses.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 area_of :: (value: int, factor: int, label: string) -> int {
@@ -3743,7 +3459,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unused_parameter]: unused parameter `label`
   --> example.jai:3:38
    |
@@ -3757,9 +3473,7 @@ help: start its name with `_` if the signature must stay, or remove it
    = note: `unused_parameter` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 area_of :: (value: int, factor: int) -> int {
@@ -3779,9 +3493,7 @@ Finds a local variable that is never used.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -3790,7 +3502,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unused_variable]: unused variable `leftover`
   --> example.jai:4:5
    |
@@ -3804,9 +3516,7 @@ help: remove it
    = note: `unused_variable` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -3822,9 +3532,7 @@ Finds `cast(*T) 0`, which is `null`.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -3833,7 +3541,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[zero_ptr]: `cast(*u8) 0` is a null pointer
   --> example.jai:4:10
    |
@@ -3847,9 +3555,7 @@ help: write `null`
    = note: `zero_ptr` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -3870,9 +3576,7 @@ Finds `append(*b, tprint(...))`, which formats into a new string to add it to a 
 
 Category `perf`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 describe :: (name: string, value: int) -> string {
@@ -3889,7 +3593,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[format_push_string]: `tprint` formats into a new string just to append it to a builder
   --> example.jai:7:5
    |
@@ -3903,9 +3607,7 @@ help: `print_to_builder` writes into the builder directly
    = note: `format_push_string` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 describe :: (name: string, value: int) -> string {
@@ -3930,9 +3632,7 @@ Finds `for i: 0..n-1 { dst[i] = src[i]; }`, an element-by-element copy `memcpy` 
 
 Category `perf`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 copy_all :: (dst: *int, src: [] int, count: int) {
@@ -3950,7 +3650,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[manual_memcpy]: this loop copies `src` into `dst` one element at a time
   --> example.jai:4:5
    |
@@ -3961,9 +3661,7 @@ warning[manual_memcpy]: this loop copies `src` into `dst` one element at a time
    = note: `manual_memcpy` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 copy_all :: (dst: *int, src: [] int, count: int) {
@@ -3987,9 +3685,7 @@ Finds a local `[..] T` that is only filled with a known number of `array_add` ca
 
 Category `perf`, `warn` by default.
 
-Example:
-
-```jai
+```jai jacket-example/1 {"kind":"example"}
 #import "Basic";
 
 main :: () {
@@ -4004,7 +3700,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[useless_resizable]: `parts` is a resizable array that only ever holds 2 elements
   --> example.jai:4:5
    |
@@ -4015,9 +3711,7 @@ warning[useless_resizable]: `parts` is a resizable array that only ever holds 2 
    = note: `useless_resizable` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -4039,9 +3733,7 @@ Finds `ifx c then 1 else 0`, a `bool` turned into an integer with a branch.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 main :: () {
@@ -4051,7 +3743,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
   --> example.jai:5:14
    |
@@ -4064,9 +3756,7 @@ help: write `cast(s64) ready`
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -4084,9 +3774,14 @@ Finds a procedure whose branching scores above `max_complexity` (default 25).
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Shown with these settings:
 
-```jai
+```toml
+[lint]
+max_complexity = 4
+```
+
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 sum_above :: (items: [] int, limit: int) -> int {
@@ -4108,14 +3803,7 @@ main :: () {
 }
 ```
 
-Shown with these settings:
-
-```toml
-[lint]
-max_complexity = 4
-```
-
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[cognitive_complexity]: `sum_above` has a cognitive complexity of 5, past the limit of 4
   --> example.jai:3:1
    |
@@ -4125,9 +3813,7 @@ warning[cognitive_complexity]: `sum_above` has a cognitive complexity of 5, past
    = help: split it into smaller procedures, return early, or name parts of long conditions
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 sum_above :: (items: [] int, limit: int) -> int {
@@ -4153,9 +3839,7 @@ Finds a comment that reads as a declaration's docs but has a blank line between 
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 // Adds one to the number it is given.
@@ -4169,7 +3853,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[detached_doc_comment]: this comment is separated from `bump` by a blank line, so it is not its doc comment
   --> example.jai:3:1
    |
@@ -4182,9 +3866,7 @@ help: remove the blank line to document it
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 // Adds one to the number it is given.
@@ -4205,9 +3887,7 @@ Finds blocks nested deeper than `max_nesting` (default 6).
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 count_sums :: (a: [] int, b: [] int, c: [] int, target: int) -> int {
@@ -4237,7 +3917,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
   --> example.jai:12:52
    |
@@ -4247,9 +3927,7 @@ warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
    = help: return or `continue` early, or move the inner part into its own procedure
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 count_sums :: (a: [] int, b: [] int, c: [] int, target: int) -> int {
@@ -4284,9 +3962,7 @@ Finds `x: T; x.a = 1; x.b = 2;` where a struct literal `x := T.{ a = 1, b = 2 }`
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 Config :: struct {
@@ -4308,7 +3984,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[field_reassign_with_default]: `config` is made with its defaults and then its fields set
   --> example.jai:10:5
    |
@@ -4324,9 +4000,7 @@ help: set the fields in a struct literal where the variable is declared
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Config :: struct {
@@ -4352,9 +4026,7 @@ Finds `==` or `!=` between two computed floats.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 same_total :: (a: float, b: float, expected: float) -> bool {
@@ -4366,7 +4038,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[float_equality]: comparing floats for exact equality
   --> example.jai:4:12
    |
@@ -4376,9 +4048,7 @@ warning[float_equality]: comparing floats for exact equality
    = help: compare the difference with a tolerance: `abs(a - b) < epsilon`
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 #import "Math";
 
@@ -4399,9 +4069,7 @@ Finds a `while` loop counted in floats (`while t < 1.0 { t += 0.1; }`).
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 main :: () {
@@ -4414,7 +4082,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[float_loop_counter]: `t` counts this loop in floats, so rounding error decides how many times it runs
   --> example.jai:6:11
    |
@@ -4424,9 +4092,7 @@ warning[float_loop_counter]: `t` counts this loop in floats, so rounding error d
    = help: count with an integer and compute the float from it: `for i: 0..n-1 { x := start + i * step; }`
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -4444,9 +4110,7 @@ Finds two cases of a `switch` with the same body, which could list their values 
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 Kind :: enum {
@@ -4473,7 +4137,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[identical_case_bodies]: `case .JPEG` does the same as `case .PNG`
   --> example.jai:13:9
    |
@@ -4485,15 +4149,11 @@ help: list the values together: `case .PNG, .JPEG;`
 11 -         case .PNG;
 12 -             return "image";
 13 -         case .JPEG;
-14 -             return "image";
 11 +         case .PNG, .JPEG;
-12 +             return "image";
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Kind :: enum {
@@ -4527,9 +4187,7 @@ Finds an `if` or `ifx` with a negated condition and an `else`.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 main :: () {
@@ -4543,7 +4201,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[if_not_else]: `if !ready` is negated, with an `else`
   --> example.jai:6:5
    |
@@ -4554,15 +4212,11 @@ help: test `ready` first and swap the branches
    |
  6 ~     if ready {
  7 ~         print("going\n");
- 8 ~     } else {
  9 ~         print("waiting\n");
-10 ~     }
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -4584,9 +4238,7 @@ Finds a `switch` on an enum that neither covers every member nor has a default c
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 Shape :: enum {
@@ -4609,7 +4261,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[incomplete_enum_switch]: this `switch` on `Shape` does not handle .TRIANGLE
   --> example.jai:10:5
    |
@@ -4619,9 +4271,7 @@ warning[incomplete_enum_switch]: this `switch` on `Shape` does not handle .TRIAN
    = help: handle them, or add `case;` for the rest, or write `#complete` so the compiler checks the list
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Shape :: enum {
@@ -4653,9 +4303,7 @@ Finds a local fixed array bigger than `max_stack_array_bytes` (default 64 KiB).
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 main :: () {
@@ -4666,7 +4314,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[large_stack_array]: `scratch` is 1 MiB on the stack, past the limit of 64 KiB
   --> example.jai:4:5
    |
@@ -4676,9 +4324,7 @@ warning[large_stack_array]: `scratch` is 1 MiB on the stack, past the limit of 6
    = help: allocate it (`NewArray`, `alloc`), use a resizable array, or keep it in a global
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -4698,9 +4344,7 @@ Finds a local holding inferred owned storage that is never freed, returned or ha
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 Parser :: struct {
@@ -4715,7 +4359,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[leaked_allocation]: `parser` holds memory from `New` that is never freed, returned or handed on
   --> example.jai:8:5
    |
@@ -4724,15 +4368,11 @@ warning[leaked_allocation]: `parser` holds memory from `New` that is never freed
    |
 help: free it when done, for example `defer free(parser);` right after this line
    |
- 8 -     parser := New(Parser);
- 8 +     parser := New(Parser);
  9 +     defer free(parser);
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Parser :: struct {
@@ -4756,9 +4396,7 @@ Finds `xx` that narrows a number to a smaller type.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 main :: () {
@@ -4768,7 +4406,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[lossy_xx]: `xx` converts `s64` to `u16`, which can lose the high bits
   --> example.jai:5:18
    |
@@ -4781,9 +4419,7 @@ help: write `cast(u16)` to make the conversion visible
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -4801,9 +4437,7 @@ Finds an unexplained number in arithmetic, a comparison or an assignment.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 expires :: (start: int) -> int {
@@ -4815,7 +4449,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[magic_number]: magic number `86400` in arithmetic
   --> example.jai:4:20
    |
@@ -4825,9 +4459,7 @@ warning[magic_number]: magic number `86400` in arithmetic
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 SECONDS_PER_DAY :: 86400;
@@ -4849,9 +4481,7 @@ Finds `!(a < b)` on floats, which differs from `a >= b` when a value is NaN.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 within :: (x: float, limit: float) -> bool {
@@ -4863,7 +4493,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[neg_cmp_float]: `!(x < limit)` is not `x >= limit` when a float is NaN
   --> example.jai:4:12
    |
@@ -4876,9 +4506,7 @@ help: write the inverted comparison if NaN should not take the branch, or test f
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 within :: (x: float, limit: float) -> bool {
@@ -4898,9 +4526,7 @@ Finds a local variable named like a parameter or another local in an enclosing s
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 clamp_count :: (count: int) -> int {
@@ -4917,7 +4543,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[shadowed_local]: `count` shadows the variable of that name declared on line 3
   --> example.jai:5:9
    |
@@ -4927,9 +4553,7 @@ warning[shadowed_local]: `count` shadows the variable of that name declared on l
    = help: rename one of them; an assignment here no longer reaches the outer one
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 clamp_count :: (count: int) -> int {
@@ -4954,9 +4578,7 @@ Finds temporary storage (`tprint`, `talloc`, or a procedure returning it) stored
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 current_label: string;
@@ -4971,7 +4593,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, but it is kept in a global
   --> example.jai:6:21
    |
@@ -4982,9 +4604,7 @@ warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, 
    = help: copy it first (`copy_string`) so it outlives the reset
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 current_label: string;
@@ -5008,9 +4628,7 @@ Finds a long number without `_` separators (`1000000`, `0xdeadbeef`).
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 TIMEOUT :: 1000000;
@@ -5020,7 +4638,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unreadable_literal]: `1000000` is hard to read without separators
   --> example.jai:3:12
    |
@@ -5033,9 +4651,7 @@ help: write `1_000_000`
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 TIMEOUT :: 1_000_000;
@@ -5053,9 +4669,7 @@ Finds a `using` of a struct whose members share names with parameters, locals or
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 Style :: struct {
@@ -5072,7 +4686,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[using_pollution]: `using style` brings in `count`, which is already in scope
   --> example.jai:8:22
    |
@@ -5082,9 +4696,7 @@ warning[using_pollution]: `using style` brings in `count`, which is already in s
    = help: list the members that are meant (`using,only(...)`) or write `name.member`
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Style :: struct {
@@ -5113,9 +4725,7 @@ Finds `xx`, the automatic cast, written as an argument of a call.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 draw :: (x: s32, y: s32) -> s32 {
@@ -5129,7 +4739,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[autocast_in_arg]: `xx` leaves the target type to the parameter (`s64` to `s32`)
   --> example.jai:10:23
    |
@@ -5142,9 +4752,7 @@ help: write `cast(s32)` to say so
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 draw :: (x: s32, y: s32) -> s32 {
@@ -5166,9 +4774,7 @@ Finds `xx`, the automatic cast, outside a call's arguments.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 main :: () {
@@ -5179,7 +4785,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[autocast_used]: `xx` leaves the target type to the context (`s64` to `u8`)
   --> example.jai:5:17
    |
@@ -5192,9 +4798,7 @@ help: write `cast(u8)` to say so
    |
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -5213,9 +4817,7 @@ Finds a procedure with more `bool` parameters than `max_bools` (default 3).
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 open :: (path: string, read: bool, write: bool, create: bool, truncate: bool) -> int {
@@ -5227,7 +4829,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[excessive_bools]: `open` takes 4 `bool` parameters, past the limit of 3
   --> example.jai:3:1
    |
@@ -5237,9 +4839,7 @@ warning[excessive_bools]: `open` takes 4 `bool` parameters, past the limit of 3
    = help: use an enum or a `#flags` enum so each argument says what it sets, or split the procedure
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Open_Flags :: enum_flags u8 {
@@ -5266,9 +4866,7 @@ Finds a module ends the process.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 open_config :: (path: string) -> int {
@@ -5280,7 +4878,7 @@ open_config :: (path: string) -> int {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[exit_in_module]: a module should not end the process
   --> example.jai:5:9
    |
@@ -5290,9 +4888,7 @@ warning[exit_in_module]: a module should not end the process
    = help: return an error and let the program decide whether to exit
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 open_config :: (path: string) -> int, bool {
@@ -5310,9 +4906,7 @@ Finds an exported procedure, struct or enum with no doc comment.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 parse :: (text: string) -> int {
@@ -5324,7 +4918,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[missing_doc]: the exported procedure `parse` has no doc comment
   --> example.jai:3:1
    |
@@ -5334,9 +4928,7 @@ warning[missing_doc]: the exported procedure `parse` has no doc comment
    = help: describe it in a `//` comment on the lines above
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 // Counts the bytes in `text`.
@@ -5357,9 +4949,7 @@ Finds portable code imports something that asserts an operating system it is not
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 P :: #import "POSIX";
 
 main :: () {
@@ -5367,7 +4957,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[platform_leak]: POSIX is not available on windows
  --> example.jai:1:1
   |
@@ -5386,9 +4976,7 @@ Finds a pointer used after its storage moves or its element becomes invalid.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 main :: () {
@@ -5406,7 +4994,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add(*xs, 2)
   --> example.jai:14:18
    |
@@ -5422,9 +5010,7 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add
    = help: take the pointer again after growth, or store an index instead
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 main :: () {
@@ -5464,9 +5050,7 @@ Finds a module writes to the program's output.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 parse :: (text: string) -> int {
@@ -5475,7 +5059,7 @@ parse :: (text: string) -> int {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[print_in_module]: a module should not write to the program's output
   --> example.jai:4:5
    |
@@ -5485,9 +5069,7 @@ warning[print_in_module]: a module should not write to the program's output
    = help: return the text or an error, or log it, and let the program decide what to print
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 parse :: (text: string) -> int {
@@ -5503,9 +5085,7 @@ Finds a comment with a `TODO`, `FIXME`, `XXX` or `HACK` marker.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 // TODO: handle the empty list
@@ -5518,7 +5098,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[todo_marker]: this comment has a `TODO` marker
   --> example.jai:3:1
    |
@@ -5528,9 +5108,7 @@ warning[todo_marker]: this comment has a `TODO` marker
    = help: finish it, or track it outside the source and remove the marker
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 first :: (items: [] int) -> int {
@@ -5551,9 +5129,7 @@ Finds a procedure with more parameters than `max_arguments` (default 7).
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 draw :: (x: int, y: int, w: int, h: int, r: u8, g: u8, b: u8, a: u8) -> int {
@@ -5565,7 +5141,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[too_many_arguments]: `draw` takes 8 parameters, past the limit of 7
   --> example.jai:3:1
    |
@@ -5575,9 +5151,7 @@ warning[too_many_arguments]: `draw` takes 8 parameters, past the limit of 7
    = help: group parameters that belong together in a struct and pass that
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 Rect :: struct {
@@ -5605,9 +5179,7 @@ Finds `#no_abc`, `#no_aoc` or `#asm` with no comment saying why.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
-
-```jai
+```jai jacket-example/1 {"kind":"example","note":"Off by default; shown with the rule enabled"}
 #import "Basic";
 
 sum :: (items: [] int) -> int #no_abc {
@@ -5621,7 +5193,7 @@ main :: () {
 }
 ```
 
-```diagnostic
+```diagnostic jacket-result/1 {"kind":"diagnostic"}
 warning[unchecked_directive]: `#no_abc` has no comment saying why it is needed
   --> example.jai:3:31
    |
@@ -5631,9 +5203,7 @@ warning[unchecked_directive]: `#no_abc` has no comment saying why it is needed
    = help: add a `//` comment on this line or the line above: why the checks are not needed here
 ```
 
-Fixed:
-
-```jai
+```jai jacket-example/1 {"kind":"fixed"}
 #import "Basic";
 
 sum :: (items: [] int) -> int {

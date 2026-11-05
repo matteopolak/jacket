@@ -1,0 +1,11 @@
+---
+import type { Overload, Target } from '../generated/doc-site.js';
+import ParameterText from './ParameterText.astro';
+interface Props { overload: Overload; name?: string; href: (target: Target) => string; compact?: boolean }
+const { overload: o, name, href, compact = false } = Astro.props;
+const parameterText = (p: import('../generated/doc-site.js').Parameter):string => p.ty.source ? p.default.source ? `${p.name}: ${p.ty.source} = ${p.default.source}` : `${p.name}: ${p.ty.source}` : p.default.source ? `${p.name} := ${p.default.source}` : p.name;
+const returns = o.results.length === 1 ? o.results[0]?.name ? parameterText(o.results[0]) : o.results[0]?.ty.source ?? '' : o.results.length > 1 ? `(${o.results.map(parameterText).join(', ')})` : '';
+const normalized = `${name ?? ''} :: (${o.parameters.map(parameterText).join(', ')})${returns ? ` -> ${returns}` : ''}`;
+const multiline = !compact && [...normalized].length > 80;
+---
+{name && <Fragment><span class="fn">{name}</span>{' :: '}</Fragment>}{'('}{multiline && o.parameters.length > 0 && '\n'}{o.parameters.map((parameter, index) => <Fragment>{multiline && '    '}<ParameterText parameter={parameter} href={href} signature />{index + 1 < o.parameters.length ? multiline ? ',\n' : ', ' : multiline ? '\n' : ''}</Fragment>)}{')'}{o.results.length > 0 && <Fragment>{' -> '}{o.results.length > 1 && '('}{o.results.map((parameter,index) => <Fragment>{index > 0 && ', '}<ParameterText parameter={parameter} href={href} signature /></Fragment>)}{o.results.length > 1 && ')'}</Fragment>}{!compact && o.flags.map(flag => ` ${flag}`)}

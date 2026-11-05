@@ -11,8 +11,6 @@ help: test `ready` first and swap the branches
    |
  6 ~     if ready {
  7 ~         print("going\n");
- 8 ~     } else {
  9 ~         print("waiting\n");
-10 ~     }
    |
    = note: see https://jacket.matteopolak.com/lint-rules/if_not_else

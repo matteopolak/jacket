@@ -62,6 +62,20 @@ fn channels(color: &str) -> Option<[f64; 4]> {
     Some(rgba)
 }
 
+/// Export colors as bounded hexadecimal values so consumers never interpolate arbitrary CSS.
+/// For example, `red` becomes `#ff0000ff` with identical display channels.
+pub(super) fn export_color(color: &str) -> Result<String, String> {
+    if color.is_empty() {
+        return Ok(String::new());
+    }
+    let rgba = channels(color).ok_or_else(|| format!("invalid category color {color:?}"))?;
+    let mut out = String::from("#");
+    for value in rgba {
+        out.push_str(&format!("{:02x}", (value * 255.0).round() as u8));
+    }
+    Ok(out)
+}
+
 fn luminance(rgb: &[f64]) -> f64 {
     rgb.iter()
         .zip([0.2126, 0.7152, 0.0722])

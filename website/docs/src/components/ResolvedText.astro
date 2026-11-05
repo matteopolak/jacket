@@ -1,0 +1,8 @@
+---
+import type {ResolvedText,Target} from '../generated/doc-site.js';
+import {textParts,anchoredTextParts,formattedTextLines} from '../lib/render.ts';
+import TextParts from './TextParts.astro';
+interface Props {text:ResolvedText;href:(target:Target)=>string;context?:'code'|'type'|'expression';anchors?:{id:string;start:number;end:number}[]|undefined;lines?:boolean;comments?:boolean}
+const {text,href,context='code',anchors,lines=false,comments=true}=Astro.props;
+---
+{lines?formattedTextLines(text,anchors??[],comments).map(line=><Fragment><span class="formatted-line"><TextParts parts={line.parts} href={href} context={context}/></span>{line.newline?'\n':''}</Fragment>):<TextParts parts={anchors?anchoredTextParts(text,anchors):textParts(text).map(part=>({...part,anchors:[]}))} href={href} context={context}/>}

@@ -31,13 +31,14 @@ from toolkit.process import run as toolkit_run
 from toolkit.host import exe_name
 from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path, stdlib_env
 from repo_output import output_dir
+from doc_watch import astro_cli, run_dev as docs_dev
 
 EXE = exe_name("")
 TARGET = cargo_target_dir(resolve=True)
 
 # What CI formats and lints: every Jai tree the repository owns.
-JAI_DIRS = ["stdlib", "tests", "benchmarks", "tools", "jaifmt", "examples", "crates/jacket/src/doc/site"]
-JAI_LINT_DIRS = ["stdlib", "examples", "tools", "jaifmt", "tests", "benchmarks", "crates/jacket/src/doc/site"]
+JAI_DIRS = ["stdlib", "tests", "benchmarks", "tools", "jaifmt", "examples"]
+JAI_LINT_DIRS = ["stdlib", "examples", "tools", "jaifmt", "tests", "benchmarks"]
 JAIFMT_SOURCES = ["jaifmt", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/Args"]
 # What a jailint binary is built from; the pre-commit hook uses an existing one only when cargo is unavailable, and then only if none of these is newer.
 JAILINT_SOURCES = ["crates/jailint", "crates/jaic", "crates/jaic-syntax", "crates/jaic-cli", "stdlib/prelude/module.jai", "Cargo.lock"]
@@ -129,12 +130,12 @@ def stale_jaifmt(out: Path, jaic: Path) -> bool:
     return stale(out, jaic, *JAIFMT_SOURCES) or not jaifmt_stamp(out).is_file() or built_elsewhere(out)
 
 
-def rebuild_jaifmt(jaic: Path, quiet: bool = False) -> bool:
-    """Build target/jaifmt with `jaic` as CI does, unless it was built from this checkout after `jaic` and jaifmt's sources."""
-    out = jaifmt_path()
+def rebuild_jaifmt(jaic: Path, quiet: bool = False, *, out: Path | None = None) -> bool:
+    """Build the matching native formatter when stale; `out` can place it beside a docs Jacket binary."""
+    out = out if out is not None else jaifmt_path()
     if not stale_jaifmt(out, jaic):
         return True
-    cmd = [str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(out)]
+    cmd = [str(jaic), "jaifmt/main.jai", "-exe", str(out)]
     if quiet:
         built = subprocess.run(cmd, cwd=ROOT, capture_output=True).returncode == 0 and out.exists()
     else:
@@ -251,17 +252,48 @@ def cmd_build(args) -> int:
 
 
 def cmd_docs(args) -> int:
-    """Builds the stdlib docs site into target/doc-site, optionally with the browser compiler, then serves it."""
+    """Export/build docs, or use `docs --dev` for Astro HMR with semantic source watching."""
+    builder = ROOT / "website/docs"
+    if getattr(args, "setup", False):
+        if run([sys.executable, "tools/ci/check_docs_dependencies.py"]):
+            return 1
+        npm = shutil.which("npm")
+        if not npm:
+            print("docs setup needs npm; install the Node release in website/docs/.node-version", file=sys.stderr)
+            return 2
+        if run([npm, "ci"], cwd=builder):
+            return 1
+    try:
+        astro_cli(builder)
+    except (OSError, ValueError) as error:
+        print(f"docs builder dependencies are unavailable: {error}\nRun `python3 tools/dev/dev.py docs --setup` explicitly.", file=sys.stderr)
+        return 2
     site = output_dir("doc-site")
     runtime = output_dir("wasm")
     if args.wasm and run([sys.executable, "tools/browser/build_scripting_wasm.py", "--release", "--output", str(runtime)]):
         return 1
-    if cargo_build(["--release", "-p", "jacket", "-p", "jaic-cli"], args.jobs):
+    if cargo_build(["-p", "jacket", "-p", "jaic-cli"], args.jobs):
         return 1
     flags = ["--runtime", str(runtime)] if args.wasm else []
+    if getattr(args, "validate_examples", False):
+        flags.append("--validate-examples")
     if args.no_test_examples:
-        flags.append("--no-test-examples")
-    if run([str(cargo_binary("jacket", "release")), "doc", "--base-url", "/", "--out", str(site), *flags]):
+        print("--no-test-examples is deprecated; examples run only with --validate-examples", file=sys.stderr)
+    command = [str(cargo_binary("jacket", "debug")), "doc", "--base-url", "/", *flags]
+    def extract(extra):
+        """Use the matching debug formatter before extraction; presentation HMR never calls this."""
+        if not rebuild_jaifmt(cargo_binary("jaic", "debug"), out=cargo_binary("jaifmt", "debug")):
+            return 1
+        return run([*command, *extra])
+    if getattr(args, "dev", False):
+        export_dir = output_dir("doc-export")
+        def export():
+            return extract(["--export-only", "--export", str(export_dir)])
+        if export():
+            return 1
+        return docs_dev(export, builder, export_dir, port=args.port, root=ROOT,
+                        runtime=runtime if args.wasm else None)
+    if extract(["--out", str(site)]):
         return 1
     if not args.serve:
         return 0
@@ -853,7 +885,11 @@ def main() -> int:
         if name == "docs":
             p.add_argument("--wasm", action="store_true", help="build the browser compiler so Run buttons work")
             p.add_argument("--no-test-examples", action="store_true", help="skip running the examples (faster)")
-            p.add_argument("--serve", action="store_true")
+            p.add_argument("--validate-examples", action="store_true", help="explicitly run eligible owned documentation examples")
+            p.add_argument("--setup", action="store_true", help="validate dependency policy and explicitly install the frozen Astro dependencies")
+            serving = p.add_mutually_exclusive_group()
+            serving.add_argument("--serve", action="store_true", help="preview built static output")
+            serving.add_argument("--dev", action="store_true", help="Astro HMR plus semantic export watching")
             p.add_argument("--port", default="8000")
         if name in ("fmt", "lint"):
             p.add_argument("--lang", choices=["jai", "rust", "all"], default="all")

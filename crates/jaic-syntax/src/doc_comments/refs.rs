@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 /// One hop of a written name's alias chain. Repeated paths are ordered nearest first;
 /// the site chooses the first hop whose declaration has a page.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TypeRef {
     /// As written: `Table` or `Hash.Table`.
     pub path: String,

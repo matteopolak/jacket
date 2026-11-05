@@ -460,7 +460,7 @@ pub struct Doc {
     /// Preferred version; other versions use noindex.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canonical_version: Option<String>,
-    /// Theme files that replace or extend the embedded documentation theme, relative to jacket.toml.
+    /// Retired theme override; retained only to report migration to matching Astro builder sources.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
     /// The library: a module (a folder with `module.jai`) or a folder of modules.
@@ -545,16 +545,37 @@ pub struct DocGroup {
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct DocPage {
+    /// Search role, independent of the displayed title.
+    #[serde(default, skip_serializing_if = "DocPageKind::is_guide")]
+    pub kind: DocPageKind,
     /// The Markdown file.
     pub file: String,
     /// Its name in the sidebar and title.
     pub name: String,
 }
 
+/// Semantic documentation role used by search; labels and folder names never select behavior.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DocPageKind {
+    #[default]
+    Guide,
+    Tool,
+}
+
+impl DocPageKind {
+    pub fn is_guide(&self) -> bool {
+        *self == Self::Guide
+    }
+}
+
 /// A sidebar heading made from one Markdown file: the text before its first `##` is the
 /// overview page, each `##` a folding group and each `###` a page of its own.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct DocSection {
+    /// Search role for the overview and every split page.
+    #[serde(default, skip_serializing_if = "DocPageKind::is_guide")]
+    pub kind: DocPageKind,
     /// The Markdown file.
     pub file: String,
     /// The sidebar heading; its folder is this as a slug (`Lint rules` is `lint-rules/`).
@@ -766,8 +787,8 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
         "doc.format" => DOC_FORMAT_KEYS,
         "doc.category" => &["name", "modules", "badge", "tip", "color", "color_dark"],
         "doc.group" => &["name", "modules"],
-        "doc.page" => &["file", "name"],
-        "doc.section" => &["file", "name"],
+        "doc.page" => &["file", "name", "kind"],
+        "doc.section" => &["file", "name", "kind"],
         profile if profile.starts_with("test.profile.") => TEST_RUN_KEYS,
         _ => &[],
     }

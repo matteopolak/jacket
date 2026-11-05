@@ -2,7 +2,8 @@
 // No npm install: one hash-pinned axe-core distribution and Node's built-in CDP WebSocket.
 // axe-core 4.10.3 predates the dependency-age policy's 14-day minimum. No transitive packages.
 import assert from 'node:assert/strict';
-import { firstGuidePath, pageStatus } from './doc_samples.mjs';
+import { runtimeException } from './chrome_cdp.mjs';
+import { firstGuidePath, foreignItemPath, pageStatus } from './doc_samples.mjs';
 import { waitForDevToolsPort } from './chrome_startup.mjs';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
@@ -40,7 +41,8 @@ try {
   socket.onmessage = async event => {
     const message = JSON.parse(event.data);
     if (message.method === 'Page.loadEventFired') { loads++; return; }
-    if (message.method === 'Runtime.exceptionThrown') { scriptErrors.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text); return; }
+    const exception = runtimeException(message);
+    if (exception !== undefined) { scriptErrors.push(exception); return; }
     if (message.method === 'Fetch.requestPaused') {
       const { requestId, request } = message.params;
       try {
@@ -80,9 +82,7 @@ try {
     return response;
   }
   const index = await (await get('search-index.json')).json();
-  const foreign = index.items.find(row => (row[6] & 2) !== 0 && row[2] !== 'module');
-  assert(foreign, 'No foreign item in the site');
-  const foreignPath = `api/${index.modules[foreign[0]]}/${foreign[7] || foreign[1].replace(/[^A-Za-z0-9_]/g, c => '-' + c.charCodeAt(0).toString(16).padStart(2, '0'))}`;
+  const foreignPath = foreignItemPath(index);
   const home = await (await get('')).text();
   const publication = home.match(/property="og:url" content="([^"]+)"/)?.[1];
   if (publication && new URL(publication).origin !== base.origin) {

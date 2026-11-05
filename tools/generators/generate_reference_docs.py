@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """Write the reference pages under docs/reference/ from the tools' own definitions.
 
-    python3 tools/generators/generate_reference_docs.py [--check]
+    python3 tools/generators/generate_reference_docs.py [--check] [--formatter PATH]
 
 - `lint-rules.md`: the rule table of `crates/jailint/src/rules/` (`cargo run --example lint_reference`).
 - `tools.md`: a page per tool, with the `--help` of `jaic`, `jailint`, `jaifmt`, `jailsp` and each `jacket` command,
   and the environment variables of `crates/jacket-config/src/env.rs` (`cargo run --example env_reference`).
 
 The hand-written pages (docs/tools/*.md) keep the reasons and link here, so a variable, rule or flag is
-described once, where the code defines it. The script builds what it runs (cargo, and `jaic` for jaifmt).
+described once, where the code defines it. By default it builds all tools. `--formatter` reuses a matching
+native formatter and the existing compiler in the configured Cargo target; other Rust tools still build.
 """
 
 import argparse
 import re
 import subprocess
 import sys
+from pathlib import Path
 from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, stdlib_env
 
 OUTPUTS = [
@@ -141,12 +143,15 @@ def build_jaifmt():
     return out
 
 
-def tools_page():
-    """`tools.md`: one `###` page per tool, grouped by what it is for."""
-    cargo("build", "--locked", "-q", "-p", "jaic-cli", "-p", "jacket", "-p", "jailint", "-p", "jai-language-server")
+def tools_page(*, formatter: Path | None = None):
+    """Render current CLI help; a supplied formatter reuses the existing compiler for help only."""
+    packages = ["jacket", "jailint", "jai-language-server"]
+    if formatter is None:
+        packages.insert(0, "jaic-cli")
+    cargo("build", "--locked", "-q", *(argument for package in packages for argument in ("-p", package)))
     jaic = re.sub(r"^jaic \d[^\s:]*:", "jaic:", help_text("jaic", "-help"))
     jacket = help_text("jacket", "--help")
-    jaifmt = subprocess.run([str(build_jaifmt()), "--help"], check=True, capture_output=True, text=True).stdout
+    jaifmt = subprocess.run([str(formatter if formatter is not None else build_jaifmt()), "--help"], check=True, capture_output=True, text=True).stdout
     jaifmt = "\n".join(line.rstrip() for line in jaifmt.strip().splitlines())
     own = [n for n in jacket_commands(jacket) if n not in PASSTHROUGH and n != "help"]
     expected = {"new", "init", "test", "bench", "doc", "config", "clean", "explain", "version", "upgrade"}
@@ -209,7 +214,7 @@ def tools_page():
         sub("bench"),
         "### Documentation\n",
         "`jacket doc` builds API documentation as a static website, like this one. "
-        "[jacket doc](../tools/jacket-doc.md) covers the `[doc]` settings and themes.\n",
+        "[jacket doc](../tools/jacket-doc.md) covers semantic exports, `[doc]` settings and the Astro builder.\n",
         sub("doc"),
         "## Setup\n",
         "### Configuration\n",
@@ -226,25 +231,28 @@ def tools_page():
     return "\n".join(parts)
 
 
-def render():
+def render(*, formatter: Path | None = None):
     """Each output path with the text it must hold."""
     return {
         OUTPUTS[0]: example("jailint", "lint_reference"),
-        OUTPUTS[1]: tools_page(),
+        OUTPUTS[1]: tools_page(formatter=formatter),
     }
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--check", action="store_true", help="fail if a checked-in file differs instead of writing it")
+    parser.add_argument("--formatter", type=Path, help="matching prebuilt native jaifmt; reuse the current Cargo-target jaic instead of rebuilding its LLVM backend")
     args = parser.parse_args()
+    formatter = args.formatter.resolve(strict=True) if args.formatter else None
     stale = []
-    for rel, text in render().items():
+    for rel, text in render(formatter=formatter).items():
         path = ROOT / rel
+        unchanged = path.is_file() and path.read_text() == text
         if args.check:
-            if not path.is_file() or path.read_text() != text:
+            if not unchanged:
                 stale.append(rel)
-        else:
+        elif not unchanged:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text)
     if stale:

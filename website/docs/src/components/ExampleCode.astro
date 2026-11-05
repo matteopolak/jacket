@@ -1,0 +1,9 @@
+---
+import type {Example,Target} from '../generated/doc-site.js';
+import {displayText} from '../lib/render.ts';
+import ResolvedText from './ResolvedText.astro';
+import DiagnosticText from './DiagnosticText.astro';
+interface Props {example:Example;href:(target:Target)=>string}
+const {example,href}=Astro.props;
+---
+{example.runnable ? <div class="ed"><pre class="code"><code>{example.language==='diagnostic'?<DiagnosticText source={displayText(example.source).source}/>:<ResolvedText text={displayText(example.source)} href={href} />}</code></pre></div> : <pre class="code"><code>{example.language==='diagnostic'?<DiagnosticText source={displayText(example.source).source}/>:<ResolvedText text={displayText(example.source)} href={href} />}</code></pre>}

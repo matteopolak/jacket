@@ -1,0 +1,26 @@
+Others :: #import,file "other.jai";
+Collision :: struct { number: int; }
+
+// A deliberately spacious declaration whose docs layout is owned by the formatter.
+Spacious :: struct(
+    // The element type keeps its own declaration comment.
+    T: Type = int
+) {
+    // This deliberately long field comment must remain complete and wrap into readable lines on a narrow documentation page, without preserving its author's alignment or turning the whole paragraph into an unbreakable source line.
+    //
+    // A second paragraph preserves `inline_code` and the following example:
+    //
+    // ```jai
+    // sample := "spaces  inside a literal";
+    // ```
+    first_field       : [] * [] * [] * [] string = .[];
+
+
+    second_field      : int = 42;
+    foreign_type      : Others.Detail;
+    Collision         : Collision;
+    text              : string = "keep  literal   spaces";
+    left, right       : int;
+    nested            : struct { inside : int = 7; };
+    // A closing declaration comment also survives formatting.
+}

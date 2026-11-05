@@ -17,7 +17,22 @@ Format_Result :: struct {
     long_lines: int; // lines over config.max_width in the output
 }
 
-format_text :: (src: string, config: Format_Config) -> Format_Result {
+format_text :: (src: string, config: Format_Config, declaration_profile := false) -> Format_Result {
+    config := config;
+
+    if declaration_profile {
+        config.max_blank_lines = 0;
+        config.blank_lines_between_items = false;
+        config.blank_line_after_declarations = false;
+        config.blank_lines_around_blocks = false;
+        config.blank_line_between_cases = false;
+        config.blank_line_before_comments = false;
+        config.blank_line_after_guards = false;
+        config.blank_line_before_return = false;
+        config.format_doc_examples = false;
+        config.brace_style = .SAME_LINE;
+    }
+
     result: Format_Result;
     lexed := lex(src);
 
@@ -33,6 +48,7 @@ format_text :: (src: string, config: Format_Config) -> Format_Result {
     f.src = src;
     f.tokens = lexed.tokens;
     f.config = config;
+    f.declaration_profile = declaration_profile;
     f.case_indent = resolved_case_indent(config);
     f.case_body_indent = resolved_case_body_indent(config);
     f.newline = ifx uses_crlf(src) then "\r\n" else "\n";
@@ -47,7 +63,7 @@ format_text :: (src: string, config: Format_Config) -> Format_Result {
 
     result.output = builder_to_string(*f.out);
 
-    equivalent, why := check_equivalent(src, result.output);
+    equivalent, why := check_equivalent(src, result.output, declaration_profile);
     if !equivalent {
         result.error = tprint("internal error: formatting would change the token stream (%); file left unchanged", why);
         free(result.output);
@@ -76,7 +92,7 @@ format_text :: (src: string, config: Format_Config) -> Format_Result {
 // same comments up to whitespace, the same adjacency inside directive flags, and a line break
 // before the same tokens, except where the parser never looks at line breaks
 // (`break_change_allowed`).
-check_equivalent :: (before: string, after: string) -> bool, string {
+check_equivalent :: (before: string, after: string, declaration_profile := false) -> bool, string {
     a := lex(before);
 
     defer array_free(a.tokens);
@@ -140,7 +156,8 @@ check_equivalent :: (before: string, after: string) -> bool, string {
 
         first = false;
 
-        if break_a != break_b && !break_change_allowed(before, a.tokens, prev_a, ia, break_a) {
+        if break_a != break_b && !break_change_allowed(before, a.tokens, prev_a, ia, break_a)
+            && !(declaration_profile && declaration_break_change_allowed(before, a.tokens, prev_a, ia)) {
             line, column := line_and_column(before, ta.start);
             return false, tprint("line break before `%` at %:% changed", text_a, line, column);
         }
@@ -284,6 +301,7 @@ Formatter :: struct {
     src: string;
     tokens: [] Tok;
     config: Format_Config;
+    declaration_profile: bool;
     case_indent: int;
     case_body_indent: int;
     newline: string;
@@ -542,7 +560,7 @@ plan_lines :: (f: *Formatter) {
     n := f.tokens.count;
 
     array_resize(*f.breaks, n);
-    for i: 0..n - 1 f.breaks[i] = f.tokens[i].newlines;
+    for i: 0..n - 1 f.breaks[i] = ifx f.declaration_profile then declaration_source_break(f, i) else f.tokens[i].newlines;
 
     partner: [..] int; // the matching bracket
     enclosing: [..] int; // the innermost open bracket around each token, -1 at the top level
@@ -1202,6 +1220,11 @@ run :: (f: *Formatter) -> bool, string {
         tok := f.tokens[i];
         if tok.kind == .EOF break;
 
+        if f.declaration_profile && f.config.max_width > 0 && f.emitted_any && f.breaks[i] == 0
+            && declaration_wrap_before(f, i) && f.column + 1 + declaration_chunk_width(f, i) > f.config.max_width {
+            f.breaks[i] = 1;
+        }
+
         if f.verbatim[i] {
             put(f, slice(f.src, tok.ws_start, tok.end - tok.ws_start));
 
@@ -1214,7 +1237,7 @@ run :: (f: *Formatter) -> bool, string {
             if !ok return false, message;
         } else {
             put(f, spacing(f, i));
-            put(f, text_of(f, i));
+            put(f, ifx f.declaration_profile then declaration_emitted_text(f, i) else text_of(f, i));
         }
 
         f.emitted_any = true;
@@ -1242,6 +1265,7 @@ start_line :: (f: *Formatter, i: int) -> bool, string {
 
     if f.emitted_any {
         blank := min(cast(int) f.breaks[i] - 1, f.config.max_blank_lines);
+        if f.declaration_profile && f.breaks[i] > 1 && (is_comment(f, i) || (i > 0 && is_comment(f, i - 1))) blank = 1;
         for 0..blank put(f, f.newline);
     }
 
@@ -1250,10 +1274,10 @@ start_line :: (f: *Formatter, i: int) -> bool, string {
     if indent < 0 indent = 0;
     for 1..indent put(f, " ");
 
-    if tok.kind == .BLOCK_COMMENT {
+    if tok.kind == .BLOCK_COMMENT && !f.declaration_profile {
         append_block_comment(f, i, indent - f.columns[i]);
     } else {
-        put(f, text_of(f, i));
+        put(f, ifx f.declaration_profile then declaration_emitted_text(f, i) else text_of(f, i));
     }
 
     f.line_new = indent;
@@ -1311,6 +1335,7 @@ relative :: inline (base_new: int, base_orig: int, column: int) -> int {
 // A continuation line inside `(`, `[` or a one-line `{`: aligned after the opener, it stays
 // aligned with it; otherwise it keeps its offset from the line that holds the opener.
 continuation_indent :: (f: *Formatter, frame: *Frame, i: int) -> int {
+    if f.declaration_profile return frame.line_new + f.config.indent_width;
     column := f.columns[i];
     if column > frame.open_orig return frame.open_new + column - frame.open_orig;
     return relative(frame.line_new, frame.line_orig, column);
@@ -1329,6 +1354,7 @@ line_indent :: (f: *Formatter, i: int) -> indent: int, ok: bool, message: string
             }
 
             if top.block return top.base, true, "";
+            if f.declaration_profile return top.line_new, true, "";
 
             return continuation_indent(f, top, i), true, "";
         }
@@ -1337,7 +1363,10 @@ line_indent :: (f: *Formatter, i: int) -> indent: int, ok: bool, message: string
     if !top.block return continuation_indent(f, top, i), true, "";
 
     // A line continuing a statement keeps its offset from the statement's first line.
-    if !starts_statement(f) return max(top.stmt_new, relative(top.stmt_new, top.stmt_orig, f.columns[i])), true, "";
+    if !starts_statement(f) {
+        if f.declaration_profile return top.stmt_new + f.config.indent_width, true, "";
+        return max(top.stmt_new, relative(top.stmt_new, top.stmt_orig, f.columns[i])), true, "";
+    }
 
     // The code this line is about: itself, or what a comment line precedes.
     code := i;

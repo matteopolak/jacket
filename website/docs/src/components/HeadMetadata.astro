@@ -1,0 +1,19 @@
+---
+import type { PageMetadata, SiteData } from '../generated/doc-site.js';
+import {publicationImageURL} from '../lib/urls.ts';
+import { jsonLd } from '../lib/render.ts';
+interface Props { metadata: PageMetadata; site: SiteData; }
+const { metadata, site } = Astro.props;
+---
+<title>{metadata.title}</title>
+{metadata.description && <meta name="description" content={metadata.description} />}
+{metadata.title && <meta property="og:title" content={metadata.title} />}
+{metadata.description && <meta property="og:description" content={metadata.description} />}
+{site.socialSiteName && <meta property="og:site_name" content={site.socialSiteName} />}
+<meta property="og:type" content={metadata.ogType} />
+{metadata.url && <meta property="og:url" content={metadata.url} />}
+{metadata.image && <meta property="og:image" content={publicationImageURL(site,metadata.image)} />}
+<meta name="twitter:card" content={metadata.twitterCard} />
+{metadata.canonical && <link rel="canonical" href={metadata.canonical} />}
+{metadata.noindex && <meta name="robots" content="noindex" />}
+{metadata.structured.length > 0 && <script type="application/ld+json" set:html={jsonLd(metadata.structured)} />}

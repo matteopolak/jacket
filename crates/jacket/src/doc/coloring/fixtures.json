@@ -1,0 +1,480 @@
+[
+  {
+    "id": "nested-block-comment",
+    "segments": [
+      [
+        "c",
+        "/* outer /* inner */ still outer */"
+      ],
+      [
+        null,
+        " value"
+      ]
+    ]
+  },
+  {
+    "id": "escaped-literal",
+    "segments": [
+      [
+        "s",
+        "\"a\\\"</span>雪\""
+      ],
+      [
+        null,
+        " + "
+      ],
+      [
+        "n",
+        "2"
+      ]
+    ]
+  },
+  {
+    "id": "unfinished-comment",
+    "segments": [
+      [
+        null,
+        "name "
+      ],
+      [
+        "c",
+        "/* unfinished /* nested"
+      ]
+    ]
+  },
+  {
+    "id": "unfinished-string",
+    "segments": [
+      [
+        "s",
+        "\"unfinished\\"
+      ]
+    ]
+  },
+  {
+    "id": "directives-and-builtins",
+    "segments": [
+      [
+        "d",
+        "# import"
+      ],
+      [
+        null,
+        " "
+      ],
+      [
+        "s",
+        "\"Basic\""
+      ],
+      [
+        null,
+        "; "
+      ],
+      [
+        "k",
+        "if"
+      ],
+      [
+        null,
+        " x: "
+      ],
+      [
+        "t",
+        "int"
+      ],
+      [
+        null,
+        " = "
+      ],
+      [
+        "n",
+        "0xDE"
+      ],
+      [
+        null,
+        " + "
+      ],
+      [
+        "n",
+        "2"
+      ],
+      [
+        null,
+        "; "
+      ]
+    ]
+  },
+  {
+    "id": "ranges-and-fractions",
+    "segments": [
+      [
+        "n",
+        "1"
+      ],
+      [
+        null,
+        ".."
+      ],
+      [
+        "n",
+        "2"
+      ],
+      [
+        null,
+        " "
+      ],
+      [
+        "n",
+        ".5"
+      ],
+      [
+        null,
+        " "
+      ],
+      [
+        "n",
+        "1."
+      ],
+      [
+        null,
+        " "
+      ],
+      [
+        "n",
+        "1"
+      ],
+      [
+        null,
+        ".field "
+      ],
+      [
+        "n",
+        "1e-3"
+      ]
+    ]
+  },
+  {
+    "id": "here-string",
+    "segments": [
+      [
+        null,
+        "text := "
+      ],
+      [
+        "s",
+        "#string END\nif \"not code\" /* literal */\nEND"
+      ],
+      [
+        null,
+        "; "
+      ],
+      [
+        "k",
+        "return"
+      ]
+    ]
+  },
+  {
+    "id": "here-string-flags-crlf",
+    "segments": [
+      [
+        "s",
+        "# string , \\% , cr\tTAG\r\n<literal> Ω\r\n  TAG"
+      ],
+      [
+        null,
+        "; next"
+      ]
+    ]
+  },
+  {
+    "id": "here-string-boundary",
+    "segments": [
+      [
+        "s",
+        "#string END\nENDLESS\nEND"
+      ],
+      [
+        null,
+        "; "
+      ]
+    ]
+  },
+  {
+    "id": "here-string-unfinished",
+    "segments": [
+      [
+        "s",
+        "#string END\nunterminated \" // /*"
+      ]
+    ]
+  },
+  {
+    "id": "line-comment-crlf",
+    "segments": [
+      [
+        "c",
+        "// literal \" /*\r"
+      ],
+      [
+        null,
+        "\n"
+      ],
+      [
+        "k",
+        "return"
+      ]
+    ]
+  },
+  {
+    "id": "unicode-identifiers",
+    "segments": [
+      [
+        null,
+        "雪_Δ: "
+      ],
+      [
+        "t",
+        "int"
+      ],
+      [
+        null,
+        "; emoji😀 := "
+      ],
+      [
+        "s",
+        "\"Ω\""
+      ],
+      [
+        null,
+        ";   "
+      ],
+      [
+        "k",
+        "if"
+      ]
+    ]
+  },
+  {
+    "id": "notes-are-opaque",
+    "segments": [
+      [
+        null,
+        "@range("
+      ],
+      [
+        "n",
+        "1"
+      ],
+      [
+        null,
+        ", nested("
+      ],
+      [
+        "s",
+        "\"a b\""
+      ],
+      [
+        null,
+        ")) x @"
+      ],
+      [
+        "s",
+        "\"a\\\"b\""
+      ],
+      [
+        null,
+        " @tag "
+      ],
+      [
+        "k",
+        "return"
+      ]
+    ]
+  },
+  {
+    "id": "adversarial-markup",
+    "segments": [
+      [
+        null,
+        "</script><img src=x onerror=alert("
+      ],
+      [
+        "n",
+        "1"
+      ],
+      [
+        null,
+        ")> "
+      ]
+    ]
+  },
+  {
+    "id": "qualified-name-colors",
+    "segments": [
+      [
+        null,
+        "Collision: Collision; Hash.Table("
+      ],
+      [
+        "n",
+        "1"
+      ],
+      [
+        null,
+        "); "
+      ],
+      [
+        "k",
+        "struct"
+      ],
+      [
+        null,
+        " {\n field: "
+      ],
+      [
+        "t",
+        "string"
+      ],
+      [
+        null,
+        ";\n}"
+      ]
+    ]
+  },
+  {
+    "id": "unfinished-note-line-boundary",
+    "segments": [
+      [
+        null,
+        "@note(unfinished\n"
+      ],
+      [
+        "k",
+        "return"
+      ]
+    ]
+  },
+  {
+    "id": "here-string-missing-tag",
+    "segments": [
+      [
+        "d",
+        "#string"
+      ],
+      [
+        null,
+        "\n"
+      ],
+      [
+        "k",
+        "return"
+      ]
+    ]
+  },
+  {
+    "id": "here-string-name-boundary",
+    "segments": [
+      [
+        "d",
+        "#string9"
+      ],
+      [
+        null,
+        " TAG\n"
+      ],
+      [
+        "k",
+        "return"
+      ]
+    ]
+  },
+  {
+    "id": "unicode-here-string-tag",
+    "segments": [
+      [
+        "s",
+        "#string 雪\nbody\n雪"
+      ],
+      [
+        null,
+        ";"
+      ]
+    ]
+  },
+  {
+    "id": "literal-block-delimiters",
+    "segments": [
+      [
+        "s",
+        "\"/* not a comment */\""
+      ],
+      [
+        null,
+        " "
+      ],
+      [
+        "c",
+        "/* \"not a string\" */"
+      ]
+    ]
+  },
+  {
+    "id": "numeric-radix-exponent-boundary",
+    "segments": [
+      [
+        "n",
+        "0xDE"
+      ],
+      [
+        null,
+        "+"
+      ],
+      [
+        "n",
+        "2"
+      ],
+      [
+        null,
+        " "
+      ],
+      [
+        "n",
+        "1e+2"
+      ],
+      [
+        null,
+        " "
+      ],
+      [
+        "n",
+        "1"
+      ],
+      [
+        null,
+        ".."
+      ],
+      [
+        "n",
+        "3"
+      ]
+    ]
+  },
+  {
+    "id": "partial-here-flag-astral",
+    "segments": [
+      [
+        "s",
+        "#string,\\😀 TAG\nbody\nTAG"
+      ],
+      [
+        null,
+        "; "
+      ],
+      [
+        "k",
+        "return"
+      ]
+    ]
+  }
+]

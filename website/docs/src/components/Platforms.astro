@@ -1,0 +1,8 @@
+---
+import { platformRows } from '../lib/api.ts';
+import type { ApiModule, Declaration } from '../generated/doc-site.js';
+interface Props { module: ApiModule; declaration?: Declaration }
+const { module, declaration } = Astro.props;
+const rows = platformRows(module, declaration);
+---
+<ul class="platforms" aria-label="Platforms">{rows.map(p => <li class={`pf ${p.state}`} title={p.tip}><span class="pf-dot" aria-hidden="true"></span>{p.name}<span class="sr">: {p.tip}</span></li>)}</ul>

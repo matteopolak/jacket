@@ -1,7 +1,19 @@
 // Shared readiness observation for the documentation checks; each caller owns its child/profile.
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+
+/** Locate Chrome for the docs checks, honoring CHROME_PATH on every platform.
+ * Example: const child = spawn(findChrome(), ownedProfileArguments);
+ */
+export function findChrome({env=process.env,platform=process.platform,locate=name=>spawnSync('which',[name],{stdio:'ignore'}).status===0}={}) {
+  if(env.CHROME_PATH)return env.CHROME_PATH;
+  if(platform==='darwin')return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  const found=['google-chrome','google-chrome-stable','chromium','chromium-browser'].find(locate);
+  if(!found)throw new Error('Install Chrome or set CHROME_PATH');
+  return found;
+}
 
 /** Wait for Chrome's complete port line, preserving the 10s startup deadline and diagnostics.
  *

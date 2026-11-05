@@ -240,6 +240,7 @@ jaifmt [OPTIONS] [PATHS]...
 | Option | Meaning |
 | --- | --- |
 | `--[no-]check` | Do not write; list the files that would change and exit with 1 |
+| `--[no-]declarations` | Canonical documentation declaration layout and prose wrapping; preserve literal contents and structural Markdown |
 | `--[no-]stdin` | Format standard input to standard output |
 | `--range <START:END>` | With --stdin: format only the top-level statements the byte range START:END touches and copy the rest unchanged |
 | `--config <FILE>` | Use this jacket.toml instead of the nearest one |
@@ -437,7 +438,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 
 ### Documentation
 
-`jacket doc` builds API documentation as a static website, like this one. [jacket doc](../tools/jacket-doc.md) covers the `[doc]` settings and themes.
+`jacket doc` builds API documentation as a static website, like this one. [jacket doc](../tools/jacket-doc.md) covers semantic exports, `[doc]` settings and the Astro builder.
 
 Build the standard library's API documentation as a static website
 
@@ -458,9 +459,12 @@ jacket doc [OPTIONS] [PATH]
 | `--site-url <URL>` | Canonical site origin, over `[doc] url` |
 | `--og-image <IMAGE>` | Social preview image URL or file, over `[doc] og_image` |
 | `--out <DIR>` | Where to write the site [default: target/doc-site] |
-| `--emit-input <DIR>` | Also write the resolved JSON view model (including with --check) |
-| `--theme <DIR>` | Theme source overrides, over `[doc] theme`; relative to the current directory |
-| `--timings` | Print time spent building models, views, compiling the theme, rendering and writing |
+| `--export-only` | Produce the versioned semantic JSON/assets bundle without Node or rendering |
+| `--export <DIR>` | Retain the semantic export used by the static builder |
+| `--validate-examples` | Explicitly validate eligible examples using the bounded interpreter/browser engine |
+| `--emit-input <DIR>` | Retired renderer option; use --export DIR for the versioned semantic bundle |
+| `--theme <DIR>` | Retired Jai theme override; customize matching Astro builder sources instead |
+| `--timings` | Print extraction/export, Astro build/validation and total phase timings |
 | `--base-url <PATH>` | The path the site is served under, with the slashes around it (`/docs/jacket/`) [default: /] |
 | `--name <NAME>` | The name in the header and page titles, over `[doc] name` [default: the folder's name] |
 | `--version <VERSION>` | The version shown in the header [default: none] |
@@ -470,8 +474,8 @@ jacket doc [OPTIONS] [PATH]
 | `--playground-url <URL>` | Where "open in playground" and the Playground link go, over `[doc] playground` [default: none, and no links] |
 | `--source-ref <REF>` | The tag, branch or commit Source links point at [default: the checkout's commit] |
 | `--module <NAME>` | Document only these modules (`String`, `Extensions/Http`); repeatable |
-| `--check` | Build and check the links without writing the site or running the examples |
-| `--no-test-examples` | Don't run the examples. By default each one with a Run button is run the way the browser runs it (WebAssembly target), and the build fails when one fails |
+| `--check` | Build and validate the production static site without publishing final output |
+| `--no-test-examples` | Legacy explicit no-example-validation spelling; validation is now opt-in with --validate-examples |
 | `--allow-broken-links` | Report broken intra-doc links as warnings instead of failing |
 | `-h, --help` | Print help |
 
@@ -510,6 +514,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | Variable | Meaning | When unset | Read by |
 | --- | --- | --- | --- |
 | `JACKET_CHECK_TIME_LIMIT` | Seconds one program check may take when the linter or language server runs compile-time code (`0`: no limit). CI sets it to `0`. | 10 seconds | jailint, jailsp |
+| `JACKET_DOCS_BUILDER` | The matching Astro documentation builder source directory. Install its frozen dependencies explicitly with `npm ci` before `jacket doc`. | docs-builder beside Jacket, or website/docs in a source checkout | jacket |
 | `JACKET_OUTPUT_DIR` | Relocates the build output directory (the `native-libs/` lookup and `jacket test --coverage` reports follow it). | `target/` in the project | jaic, jacket |
 | `JACKET_TEST_DLLS` | A path list of directories whose `.dll` files `jacket test` links next to each Windows test executable. | unset | jacket |
 | `JAIC_AR` | The program that archives object files into a static library. | the system `ar`, or `llvm-ar`, a MinGW `ar` or `lib.exe` where that is needed | jaic |

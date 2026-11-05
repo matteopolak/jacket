@@ -1,0 +1,11 @@
+---
+import { bundle } from '../lib/loader.ts';
+import Page from '../components/Page.astro';
+export async function getStaticPaths() {
+  const data = await bundle();
+  return data.site.routes.filter(route => route.kind !== 'home' && route.kind !== 'not_found').map(route => ({params:{route:route.route},props:{id:route.id}}));
+}
+interface Props { id: string }
+const { id } = Astro.props;
+---
+<Page id={id} />

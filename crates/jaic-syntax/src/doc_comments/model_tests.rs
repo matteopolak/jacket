@@ -501,7 +501,7 @@ fn declarations_in_a_parameter_body_are_items_of_the_module() {
 }
 
 #[test]
-fn a_type_item_carries_its_declaration_without_comments() {
+fn a_type_item_carries_semantic_declaration_tokens_and_comments() {
     let dir = library(
         "declaration",
         &[(
@@ -511,29 +511,68 @@ fn a_type_item_carries_its_declaration_without_comments() {
     );
     let model = module(&dir, Path::new("/nowhere"));
     let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+    let channel = &item("Channel").definitions[0].tokens;
     assert_eq!(
-        item("Channel").declaration,
-        "Channel :: struct(T: Type, N := 4) {\n    buffer: *T;\n    url := \"http://x\";\n\n    count: int @Counted;\n    next: *Channel(T);\n}"
+        channel
+            .iter()
+            .take(3)
+            .map(|token| token.text.as_str())
+            .collect::<Vec<_>>(),
+        ["Channel", "::", "struct"]
+    );
+    assert!(channel.iter().any(|token| token.text == "\"http://x\""));
+    assert!(
+        channel
+            .iter()
+            .any(|token| token.docs.contains("The queue.") && token.docs.contains("trailing"))
     );
     assert_eq!(
-        item("Mode").declaration,
-        "Mode :: enum u8 {\n    SLOW :: 0;\n    FAST :: 1;\n}"
+        item("Mode").definitions[0]
+            .tokens
+            .iter()
+            .take(4)
+            .map(|token| token.text.as_str())
+            .collect::<Vec<_>>(),
+        ["Mode", "::", "enum", "u8"]
     );
     // Struct parameters, field names and notes are not references to anything.
-    assert!(item("Channel").decl_refs.iter().all(|r| r.path != "T"));
+    assert!(
+        item("Channel").definitions[0]
+            .refs
+            .iter()
+            .all(|r| r.path != "T")
+    );
     let json = to_json(&model, &|_| None);
-    assert!(json.contains("\"declaration\":\"Channel :: struct(T: Type, N := 4) {\\n"));
-    assert!(!json.contains("trailing"));
+    assert!(json.contains("\"definitions\":"));
+    assert!(!json.contains("\"declaration\":"));
+    assert!(
+        json.contains("trailing"),
+        "associated declaration comments are preserved as facts"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
-fn comment_stripping_keeps_slashes_in_strings() {
-    use super::declaration::without_comments;
-    assert_eq!(
-        without_comments("a :: \"// kept\"; // gone\n// whole line\nb :: 1; /* x */ c :: 2;\n"),
-        "a :: \"// kept\";\nb :: 1;  c :: 2;"
+fn declaration_literals_keep_comment_delimiters() {
+    let dir = library(
+        "declaration-literals",
+        &[(
+            "module.jai",
+            r#"Text :: struct { a := "// kept"; /* comment */ b := "/* kept */"; }"#,
+        )],
     );
+    let model = module(&dir, Path::new("/nowhere"));
+    let tokens = &model
+        .items
+        .iter()
+        .find(|item| item.name == "Text")
+        .unwrap()
+        .definitions[0]
+        .tokens;
+    assert!(tokens.iter().any(|token| token.text == r#""// kept""#));
+    assert!(tokens.iter().any(|token| token.text == r#""/* kept */""#));
+    assert!(tokens.iter().all(|token| !token.text.contains("comment")));
+    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -572,13 +611,21 @@ fn private_types_a_public_item_names_become_private_items() {
     // The declaration's names lead to the private types' declarations.
     let at = |r: &TypeRef| (r.file.clone(), r.line);
     assert!(
-        queue
-            .decl_refs
+        queue.definitions[0]
+            .refs
             .iter()
             .any(|r| r.path == "Waiter" && at(r) == (waiter.file.clone(), waiter.line))
     );
     assert_eq!(waiter.docs, "How waiters line up.");
-    assert!(waiter.declaration.starts_with("Waiter :: struct {"));
+    assert_eq!(
+        waiter.definitions[0]
+            .tokens
+            .iter()
+            .take(4)
+            .map(|token| token.text.as_str())
+            .collect::<Vec<_>>(),
+        ["Waiter", "::", "struct", "{"]
+    );
     // Only what is named is included, and private items do not take part in doc links.
     assert!(
         model
@@ -701,4 +748,421 @@ fn language_type_directive_aliases_are_type_items() {
         let item = model.items.iter().find(|i| i.name == name).unwrap();
         assert_eq!(item.kind, "type", "{name}");
     }
+}
+
+#[test]
+fn compiler_model_declares_its_wire_contract() {
+    let model = Module::default();
+    let json = to_json(&model, &|_| None);
+    assert!(json.starts_with("{\"schema\":\"jai-doc-model\",\"schemaVersion\":1,"));
+}
+
+#[test]
+fn declaration_export_is_semantic_and_does_not_carry_authored_field_layout() {
+    let dir = library(
+        "compact-declaration",
+        &[
+            (
+                "module.jai",
+                include_str!("fixtures/compact-declaration.jai.txt"),
+            ),
+            ("other.jai", "Detail :: struct { value: int; }\n"),
+        ],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let json = to_json(&model, &|_| None);
+    assert!(
+        json.contains("\"definitions\":"),
+        "missing semantic definition tokens: {json}"
+    );
+    let item = model
+        .items
+        .iter()
+        .find(|item| item.name == "Spacious")
+        .unwrap();
+    assert!(!item.definitions[0].tokens.is_empty());
+    for token in &item.definitions[0].tokens {
+        if !token.text.starts_with('"') {
+            assert!(
+                !token.text.chars().any(char::is_whitespace),
+                "layout leaked through token {:?}",
+                token.text
+            );
+        }
+    }
+    let fields = item.definitions[0]
+        .tokens
+        .iter()
+        .flat_map(|token| token.names.iter().map(String::as_str))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        fields,
+        [
+            "first_field",
+            "second_field",
+            "foreign_type",
+            "Collision",
+            "text",
+            "left",
+            "right",
+            "nested"
+        ]
+    );
+    assert!(
+        item.definitions[0]
+            .tokens
+            .iter()
+            .any(|token| token.text == "42")
+    );
+    assert!(
+        item.definitions[0]
+            .tokens
+            .iter()
+            .any(|token| token.text == "Others.Detail"),
+        "qualified type paths must keep one semantic reference token"
+    );
+    assert!(
+        !item.definitions[0]
+            .tokens
+            .iter()
+            .find(|token| token.text == "inside")
+            .unwrap()
+            .reference
+    );
+    let comments = item.definitions[0]
+        .tokens
+        .iter()
+        .map(|token| token.docs.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(comments.contains("element type keeps its own declaration comment"));
+    assert!(comments.contains("closing declaration comment also survives"));
+    let comment = &item.definitions[0]
+        .tokens
+        .iter()
+        .find(|token| token.names.iter().any(|name| name == "first_field"))
+        .unwrap()
+        .docs;
+    assert!(comment.contains("\n\nA second paragraph"));
+    assert!(comment.contains("```jai\nsample := \"spaces  inside a literal\";\n```"));
+    // Token boundaries come from the parser, and literal payloads retain their own spaces.
+    assert!(json.contains("keep  literal   spaces"));
+    assert!(json.contains("A second paragraph"));
+    assert!(json.contains("sample :="));
+}
+
+#[test]
+fn semantic_declaration_wire_has_no_source_layout_and_excludes_declared_names_from_links() {
+    let dir = library(
+        "semantic-declaration-wire",
+        &[
+            (
+                "module.jai",
+                include_str!("fixtures/compact-declaration.jai.txt"),
+            ),
+            ("other.jai", "Detail :: struct { value: int; }\n"),
+        ],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let json = to_json(&model, &|_| None);
+    assert!(
+        !json.contains("\"declaration\":"),
+        "authored declaration layout must not be a permanent wire field"
+    );
+    let tokens = &model
+        .items
+        .iter()
+        .find(|item| item.name == "Spacious")
+        .unwrap()
+        .definitions[0]
+        .tokens;
+    let declaration = tokens
+        .iter()
+        .find(|token| token.names.iter().any(|name| name == "Collision"))
+        .unwrap();
+    let use_ = tokens
+        .iter()
+        .find(|token| token.text == "Collision" && token.names.is_empty())
+        .unwrap();
+    assert!(
+        !declaration.reference,
+        "declared field identifier is not a reference"
+    );
+    assert!(use_.reference, "same-spelled type use remains a reference");
+    assert!(json.contains(&format!("\"text\":\"Collision\",\"start\":{},\"end\":{},\"statement\":true,\"reference\":false,\"names\":[\"Collision\"]",declaration.start,declaration.end)));
+    assert!(json.contains(&format!("\"text\":\"Collision\",\"start\":{},\"end\":{},\"statement\":false,\"reference\":true,\"names\":[]",use_.start,use_.end)));
+}
+
+#[test]
+fn real_file_watcher_header_does_not_inherit_its_parent_comment() {
+    let text = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../stdlib/internal/watching/model.jai"
+    ));
+    let dir = library("real-file-watcher-header", &[("module.jai", text)]);
+    let model = module(&dir, Path::new("/nowhere"));
+    let watcher = model
+        .items
+        .iter()
+        .find(|item| item.name == "File_Watcher")
+        .unwrap();
+    let parameter = watcher.definitions[0]
+        .tokens
+        .iter()
+        .find(|token| token.text == "User_Data")
+        .unwrap();
+    assert!(
+        parameter.docs.is_empty(),
+        "mid-line generic parameter inherited outer declaration docs: {}",
+        parameter.docs
+    );
+    assert_eq!(
+        watcher.definitions[0]
+            .tokens
+            .iter()
+            .take(11)
+            .map(|token| token.text.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "File_Watcher",
+            "::",
+            "struct",
+            "(",
+            "User_Data",
+            ":",
+            "Type",
+            "=",
+            "void",
+            ")",
+            "{"
+        ]
+    );
+    let callback = watcher.definitions[0]
+        .tokens
+        .iter()
+        .position(|token| token.text == "File_Watcher_Callback")
+        .unwrap();
+    assert!(watcher.definitions[0].tokens[callback].statement);
+    assert_eq!(watcher.definitions[0].tokens[callback + 2].text, "#type");
+    assert_eq!(
+        watcher
+            .members
+            .iter()
+            .map(|member| member.name.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "callback",
+            "user_data",
+            "events_to_watch",
+            "merge_window_seconds",
+            "watch_recursively",
+            "verbose",
+            "buffer_size",
+            "pool",
+            "changes",
+            "event_streams"
+        ]
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn real_file_watcher_exports_every_platform_definition_and_conditional_field() {
+    let text = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../stdlib/internal/watching/model.jai"
+    ));
+    let dir = library("real-file-watcher-variants", &[("module.jai", text)]);
+    let model = module(&dir, Path::new("/nowhere"));
+    let watcher = model
+        .items
+        .iter()
+        .find(|item| item.name == "File_Watcher")
+        .unwrap();
+    assert_eq!(watcher.definitions.len(), 2);
+    assert_eq!(watcher.definitions[0].platforms, ["MACOS"]);
+    assert!(watcher.definitions[0].guards[0].taken);
+    assert!(!watcher.definitions[1].guards[0].taken);
+    assert_eq!(
+        watcher.definitions[0].guards[0].tokens,
+        ["OS", "==", ".", "MACOS"]
+    );
+    for definition in &watcher.definitions {
+        assert!(
+            text[definition.start as usize..definition.end as usize]
+                .starts_with("File_Watcher :: struct(User_Data: Type = void) {")
+        );
+        assert_eq!(definition.scope, ["User_Data"]);
+        assert!(
+            definition
+                .tokens
+                .iter()
+                .all(|token| token.start >= definition.start
+                    && token.end <= definition.end
+                    && token.start < token.end)
+        );
+    }
+    assert_eq!(
+        watcher.definitions[1]
+            .members
+            .iter()
+            .map(|member| member.name.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "callback",
+            "user_data",
+            "events_to_watch",
+            "merge_window_seconds",
+            "watch_recursively",
+            "verbose",
+            "buffer_size",
+            "pool",
+            "changes",
+            "directories",
+            "inotify_instance",
+            "inotify_data",
+            "inotify_bytes_read",
+            "inotify_cursor",
+            "path_pool",
+            "watch_paths"
+        ]
+    );
+    for name in ["directories", "inotify_instance", "watch_paths"] {
+        assert!(
+            watcher.definitions[1].tokens.iter().any(|token| token
+                .names
+                .iter()
+                .any(|declared| declared == name)
+                && token.statement
+                && !token.reference),
+            "conditional field lost its parser-owned member boundary: {name}"
+        );
+    }
+    let json = to_json(&model, &|_| None);
+    assert!(
+        json.contains("\"definitions\":["),
+        "type definitions must not disappear when their identities are merged"
+    );
+    for name in [
+        "event_streams",
+        "directories",
+        "inotify_instance",
+        "inotify_data",
+        "inotify_bytes_read",
+        "inotify_cursor",
+        "path_pool",
+        "watch_paths",
+    ] {
+        assert!(
+            json.contains(&format!("\"{name}\"")),
+            "missing platform field {name}"
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn conditional_definitions_keep_their_kind_scope_and_private_dependency_closure() {
+    let text = include_str!("fixtures/conditional-definition.jai.txt");
+    let dir = library("conditional-definition", &[("module.jai", text)]);
+    let model = module(&dir, Path::new("/nowhere"));
+    let choice = model
+        .items
+        .iter()
+        .find(|item| item.name == "Choice")
+        .unwrap();
+    assert_eq!(choice.definitions.len(), 2);
+    let guard = &choice.definitions[0].guards[0];
+    assert_eq!(
+        &text[guard.start as usize..guard.end as usize],
+        "(OS == .MACOS && CPU == .ARM64) || (OS == .MACOS && CPU == .X64)",
+        "condition source bounds must include parentheses around both operands"
+    );
+    let json = to_json(&model, &|_| None);
+    assert!(
+        json.contains("\"kind\":\"union\""),
+        "a later definition must retain its own storage kind"
+    );
+    assert!(json.contains("The alternative definition keeps a different storage kind and its private dependencies."),"a later definition must retain its own declaration documentation");
+    assert!(
+        model
+            .items
+            .iter()
+            .any(|item| item.name == "Late_Private" && item.private),
+        "a type named only by a later conditional definition must still get its private page"
+    );
+    assert_eq!(
+        choice.definitions[0]
+            .members
+            .iter()
+            .map(|member| member.name.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "first", "second", "nested", "callback", "feature", "fallback"
+        ]
+    );
+    assert_eq!(
+        choice.definitions[1]
+            .members
+            .iter()
+            .map(|member| member.name.as_str())
+            .collect::<Vec<_>>(),
+        ["private_value", "windows", "text"]
+    );
+    let tokens = &choice.definitions[0].tokens;
+    assert_eq!(
+        tokens
+            .iter()
+            .find(|token| token.text == "second")
+            .unwrap()
+            .names,
+        ["second"],
+        "grouped member identity must belong to its actual declared-name token"
+    );
+    assert!(
+        !tokens
+            .iter()
+            .find(|token| token.text == "nested")
+            .unwrap()
+            .reference
+    );
+    assert_eq!(
+        tokens
+            .iter()
+            .filter(|token| token.names.iter().any(|name| name == "first"))
+            .count(),
+        1,
+        "nested field must not borrow its enclosing type's fragment identity"
+    );
+    assert!(
+        choice.definitions[1]
+            .tokens
+            .iter()
+            .any(|token| token.text == r#""a  /* literal */  b""#)
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn versioned_definitions_are_the_only_declaration_token_authority() {
+    let dir = library(
+        "single-definition-authority",
+        &[(
+            "module.jai",
+            "// One field.\nRecord :: struct { value: int = 3; }\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let json = to_json(&model, &|_| None);
+    assert!(json.contains("\"definitions\":"));
+    assert!(
+        !json.contains("\"declaration_tokens\":"),
+        "legacy canonical token tuple duplicates the versioned definition"
+    );
+    assert!(
+        !json.contains("\"decl_refs\":"),
+        "definition references have one authority"
+    );
+    assert!(json.contains("\"text\":\"value\""));
+    std::fs::remove_dir_all(dir).unwrap();
 }
