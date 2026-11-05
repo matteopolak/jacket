@@ -92,7 +92,7 @@ main :: () {
         doc.root.members[0].key = "renamed";
         renamed, renamed_error := write_toml(doc.root);
 
-        assert(renamed_error.kind == .NONE && contains(renamed, "\"renamed\" = 0"));
+        assert(renamed_error.kind == .NONE && contains(renamed, "renamed = 0"));
         free(renamed);
         doc.root.members[0].key = doc.root.members[1].key;
         _, duplicate := write_toml(doc.root);
@@ -109,6 +109,7 @@ main :: () {
         free_toml(*doc);
     }
 
+    check_tiny_key_equality();
     check_string_spans();
     assert(indexed_bytes < plain_bytes, tprint("indexed=% raw=%", indexed_bytes, plain_bytes));
     print("ok\n");
@@ -152,4 +153,48 @@ check_string_spans :: () {
 
     assert(encoding.kind == .OUTPUT && toml_error_path(*encoding) == "$[\"bad\"]");
     array_free(raw.members);
+}
+
+// Tiny raw tables need byte equality, including independent allocations and NUL.
+check_tiny_key_equality :: () {
+    root: Toml_Value;
+    values: [7] Toml_Value;
+    names := string.["", "a", "aa", "a\0b", "a\0bc", "é", "🙂"];
+
+    for names {
+        values[it_index].kind = .INTEGER;
+        values[it_index].integer = it_index;
+        array_add(*root.members, Toml_Member.{ key = it, value = *values[it_index] });
+    }
+
+    defer array_free(root.members);
+    text, error := write_toml(*root);
+
+    assert(error.kind == .NONE);
+    defer free(text);
+    parsed, parse_error := parse_toml(text);
+
+    assert(parse_error.kind == .NONE);
+    defer free_toml(*parsed);
+    for names assert(toml_get(parsed.root, it).integer == it_index);
+
+    // A different address must not let an equal key through the raw validation.
+    for names {
+        copied := copy_string(it);
+        saved := root.members[6].key;
+
+        root.members[6].key = copied;
+
+        if it_index < 6 {
+            failed, duplicate := write_toml(*root);
+            assert(failed.count == 0 && duplicate.kind == .OUTPUT);
+        } else {
+            valid, valid_error := write_toml(*root);
+            assert(valid_error.kind == .NONE && valid == text);
+            free(valid);
+        }
+
+        root.members[6].key = saved;
+        free(copied);
+    }
 }

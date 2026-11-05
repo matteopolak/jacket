@@ -26,3 +26,6 @@
 
 # Pinned upstream license checks authenticate exact archive bytes on every platform.
 /tools/stdlib/toml/LICENSE-* -text
+
+# The recorded TOML benchmark workload has an exact input hash on every checkout.
+/benchmarks/compare/toml/fixtures/repository-config.toml -text

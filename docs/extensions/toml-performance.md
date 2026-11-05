@@ -1,8 +1,10 @@
 # TOML measurements
 
+The [current follow-up measurements](toml-performance-followup.md) include the key-comparison, writer and source-key changes. The broad C6 tables below remain historical, including cold/consumer/community/Python results.
+
 These measurements compare the general [TOML module](toml.md), its actual formatter consumer and pinned independent libraries. Allocation profiling and executable size are separate from timed parser/writer tasks.
 
-## Storage and formatter artifacts
+## Historical C6 storage and formatter artifacts
 
 The actual formatter artifact comparison uses the same compiler binary and `-O2 -no_debug_info`, with the earlier formatter from repository base `d072effb268b18d2b16ebf27d69d36c14859909d` and this migration. The baseline stdlib is a physical owned source snapshot so internal module privacy rules remain active.
 
@@ -23,9 +25,9 @@ The storage decision compared three source-owned, stable-pointer prototypes befo
 
 These are historical representation measurements, not final footprint or latency results. The chunked prototype retained 11.2% more payload than the compact heap on this configuration and about 22% more on the 4 KiB wide-table input. Stable node addresses alone do not require one allocation per node; retained capacity on actual configuration inputs determined this choice.
 
-The current 144-byte node implementation was profiled separately on all nine valid benchmark inputs. Source history is disabled, as in the generic parser timings. Each row includes the owning source copy and requested capacity; every retained-byte ledger matched the counted allocator, and every destruction returned payload to zero. The repository input differs from the earlier prototype input because it includes this module's documentation registration.
+Before the source-key changes, the 144-byte node implementation was profiled separately on all nine valid benchmark inputs. Source history is disabled, as in the generic parser timings. Each row includes the owning source copy and requested capacity; every retained-byte ledger matched the counted allocator, and every destruction returned payload to zero. The repository input differs from the earlier prototype input because it includes this module's documentation registration.
 
-| Current input | Input B | Nodes | Allocations / resizes | Retained payload B | Peak payload B |
+| Historical C6 input | Input B | Nodes | Allocations / resizes | Retained payload B | Peak payload B |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | config-1024 | 1,026 | 79 | 206 / 9 | 19,665 | 24,471 |
 | config-8192 | 8,235 | 613 | 1,541 / 18 | 149,659 | 183,137 |
@@ -41,13 +43,13 @@ Payload is not RSS and excludes allocation metadata and the instrumenting map. C
 
 Platform, memory and latency results must be reported with the command, input hash, binary/compiler identity and source snapshot. An unrun platform or unsupported writer is not a zero-time result. Requested allocation payload excludes allocator bookkeeping and differs from process RSS. Historical storage prototypes are not measurements of the final implementation.
 
-## Timed results
+## Historical C6 timed results
 
 Recorded on Apple M5 (10 logical CPUs), 16 GiB RAM, Darwin 27.0.0 arm64. All Jai clients and actual formatter consumers use the same source-built compiler with `-O2 -no_debug_info`; Rust uses the locked release example, and Python is 3.15.0. Compiler SHA-256: `3b4f6b601d51dbb68bd983e9e730ca007c87e0e1b3c3b50b2cc4b56c1f45b5b0`. Canonical source-map SHA-256: `05f346438ae1ef9f608f23f9d7ca26da785db37ed0e5216364de21da4443340c`. Input sizes/hashes come from the frozen workload manifest; runtime binaries, full source maps and all raw samples remain in the result receipt.
 
 The full comparison retains 3,015 warm samples (three unscored plus twelve measured rounds for each of 201 task/input combinations) and 2,412 cold samples. All 196 actual-executable semantic checks passed, with no unavailable task/input combinations. The earlier partial attempt stopped on a sub-resolution cold lookup and remains preserved; no sample from it enters these tables. Tables give **median [minimum–maximum] in microseconds**, unless another unit is named. Min/max include every measured sample; no outliers were removed.
 
-In these tables, **previous** is the preserved original general implementation, **own** is the current optimized general implementation, and the formatter’s **earlier subset** is the older consumer without the general parser. Both general formatter consumers validate the whole TOML file; only the earlier subset has the narrower behavior.
+In these tables, **previous** is the preserved original general implementation, **own** is the C6 optimized general implementation, and the formatter’s **earlier subset** is the older consumer without the general parser. Both general formatter consumers validate the whole TOML file; only the earlier subset has the narrower behavior.
 
 ### Materialization and destruction
 

@@ -158,10 +158,8 @@ toml_keys :: (r: *Toml_Reader, keys: *[..] string) -> bool {
 
             length := r.pos - start;
             if length > r.options.max_string_bytes return toml_fail(r, .LIMIT, "decoded key byte limit exceeded");
-            if !toml_admit(*r.doc, length) return toml_fail(r, .LIMIT, "retained byte limit exceeded");
 
-            part = copy_string(slice(r.text, start, length));
-            r.doc.retained_bytes += length;
+            part = slice(r.doc.source, start, length);
         }
 
         array_add(keys, part);
@@ -195,8 +193,10 @@ toml_acquire_keys :: (r: *Toml_Reader, keys: *[..] string) -> int {
 
 toml_release_keys :: (r: *Toml_Reader, keys: *[..] string, slot: int) {
     for keys.* {
-        if it.data free(it);
-        r.doc.retained_bytes -= it.count;
+        if !toml_key_uses_source(r.doc.source, it) {
+            if it.data free(it);
+            r.doc.retained_bytes -= it.count;
+        }
     }
 
     keys.count = 0;
@@ -206,7 +206,7 @@ toml_release_keys :: (r: *Toml_Reader, keys: *[..] string, slot: int) {
     r.key_scope -= 1;
 }
 
-// Parsed keys are already owned and charged. Transfer only after capacity admission;
+// Parsed keys use the retained source or an owned, charged decoded copy. Transfer only after capacity admission;
 // on failure the caller still owns *key and its deferred cleanup remains valid.
 toml_take_member :: (r: *Toml_Reader, table: *Toml_Value, key: *string, value: *Toml_Value, span: Toml_Span, hint: *Toml_Insert_Hint) {
     depth := r.declarations[table.internal_index].depth;

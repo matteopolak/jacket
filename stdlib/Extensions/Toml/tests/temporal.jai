@@ -62,7 +62,7 @@ check_fixed_fields :: () {
         doc, error := parse_toml(tprint("x=%", it.input));
 
         assert(error.kind == .NONE, error.message);
-        expected := tprint("\"x\" = %\n", it.expected);
+        expected := tprint("x = %\n", it.expected);
         text, write_error := write_toml(doc.root, .{ max_output_bytes = expected.count });
 
         assert(write_error.kind == .NONE && text == expected, text);

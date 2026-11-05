@@ -101,6 +101,27 @@ toml_write_string :: (w: *Toml_Writer, text: string) {
     toml_emit(w, "\"");
 }
 
+// A bare key is nonempty ASCII only. This pass proves UTF-8 validity as well as syntax;
+// other keys retain the full checked quoted-string path. Values always stay quoted.
+toml_write_key :: (w: *Toml_Writer, text: string) {
+    if text.count > w.options.max_string_bytes {
+        toml_write_fail(w, .LIMIT, "writer string byte limit exceeded");
+        return;
+    }
+
+    bare := text.count > 0;
+
+    for text {
+        c := it;
+        if (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c == 95 || c == 45 continue;
+        bare = false;
+        break;
+    }
+
+    if bare toml_emit(w, text);
+    else toml_write_string(w, text);
+}
+
 // TOML's canonical signed decimal is bounded to 20 bytes. A local buffer avoids general
 // display formatting and temporary-storage results; emit copies the complete slice here.
 toml_write_integer :: (w: *Toml_Writer, value: s64) {
@@ -344,7 +365,7 @@ toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_tabl
 
             if tiny {
                 for previous: 0..it_index - 1 {
-                    if toml_key_compare(node.members[previous].key, it.key) == 0 {
+                    if node.members[previous].key == it.key {
                         duplicate = previous;
                         break;
                     }
@@ -364,7 +385,7 @@ toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_tabl
 
         if inline_table && it_index toml_emit(w, ", ");
 
-        toml_write_string(w, it.key);
+        toml_write_key(w, it.key);
         toml_emit(w, " = ");
         toml_write_value(w, it.value, depth + 1);
         w.path.count = saved_path;

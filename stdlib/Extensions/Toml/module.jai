@@ -183,7 +183,7 @@ free_toml :: (doc: *Toml_Document) {
                 free(node.internal_lookup);
             }
 
-            for member: node.members if member.key.data free(member.key);
+            for member: node.members if member.key.data && !toml_key_uses_source(doc.source, member.key) free(member.key);
 
             array_free(node.members);
         } else if node.kind == .ARRAY array_free(node.items);
@@ -247,6 +247,7 @@ parse_toml :: (text: string, options := Toml_Options.{}) -> Toml_Document, Toml_
 #import "Basic";
 #import "String";
 #load "build.jai";
+#load "key-storage.jai";
 #load "index.jai";
 #load "reader.jai";
 #load "statements.jai";

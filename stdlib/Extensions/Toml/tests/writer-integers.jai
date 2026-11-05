@@ -4,7 +4,7 @@
 check_integer :: (doc: *Toml_Document, value: s64) {
     node := toml_get(doc.root, "x");
     node.integer = value;
-    expected := tprint("\"x\" = %\n", formatInt(value));
+    expected := tprint("x = %\n", formatInt(value));
     before := get_temporary_storage_mark();
     text, error := write_toml(doc.root);
     after := get_temporary_storage_mark();

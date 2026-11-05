@@ -124,7 +124,7 @@ main :: () {
     assert(error.kind == .NONE);
     text, write_error := write_toml(doc.root);
 
-    assert(write_error.kind == .NONE && text == "\"x\" = 1.2500000000000000e+00\n", text);
+    assert(write_error.kind == .NONE && text == "x = 1.2500000000000000e+00\n", text);
     free(text);
     free_toml(*doc);
     print("ok\n");

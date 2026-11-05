@@ -92,9 +92,13 @@ toml_hint_path_matches :: (index: *Toml_Index, hint: *Toml_Insert_Hint) -> bool 
     return current == -1;
 }
 
+// Compare raw decoded bytes, including NUL. For example, "a" precedes "aa".
 toml_key_compare :: (a: string, b: string) -> int {
-    for 0..min(a.count, b.count) - 1 {
-        if a[it] != b[it] return ifx a[it] < b[it] then -1 else 1;
+    count := min(a.count, b.count);
+    if count > 0 {
+        order := memcmp(a.data, b.data, count);
+        if order < 0 return -1;
+        if order > 0 return 1;
     }
 
     if a.count == b.count return 0;

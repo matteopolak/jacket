@@ -115,7 +115,7 @@ toml_string :: (r: *Toml_Reader, out: *string, key: bool = false) -> bool {
     r.pos = plain_end;
     if count > r.options.max_string_bytes return toml_fail(r, .LIMIT, "decoded string byte limit exceeded");
 
-    plain := toml_finish_plain_string(r, out, quote, multiline, plain_start, count);
+    plain := toml_finish_plain_string(r, out, quote, multiline, plain_start, count, key);
     if plain != 0 return plain > 0;
 
     // Only transformed strings need builder staging and its possible extra heap buffer.
@@ -197,7 +197,7 @@ toml_string :: (r: *Toml_Reader, out: *string, key: bool = false) -> bool {
 }
 
 // Finish a contiguous string without staging; zero requests transformed decoding.
-toml_finish_plain_string :: (r: *Toml_Reader, out: *string, quote: u8, multiline: bool, plain_start: int, count: int) -> int {
+toml_finish_plain_string :: (r: *Toml_Reader, out: *string, quote: u8, multiline: bool, plain_start: int, count: int, key: bool) -> int {
     if toml_peek(r) == quote {
         run := 1;
         if multiline while toml_peek(r, run) == quote run += 1;
@@ -218,12 +218,18 @@ toml_finish_plain_string :: (r: *Toml_Reader, out: *string, quote: u8, multiline
             length := count + extra;
 
             r.pos += ifx multiline then run else 1;
+
+            if key && length > 0 {
+                out.* = slice(r.doc.source, plain_start, length);
+                return 1;
+            }
+
             if !toml_admit(*r.doc, length) {
                 toml_fail(r, .LIMIT, "retained byte limit exceeded");
                 return -1;
             }
 
-            // Always copy: this is an owning document, not an externally borrowed view.
+            // Values and empty keys keep independent payloads; plain nonempty keys use owned source.
             out.* = copy_string(slice(r.text, plain_start, length));
             r.doc.retained_bytes += length;
 
