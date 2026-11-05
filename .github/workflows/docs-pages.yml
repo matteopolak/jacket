@@ -143,13 +143,13 @@ jobs:
           python3 tools/dev/doc_serve.py --port 8000 --directory target/doc-site &
           SERVER_PID=$!
           trap 'kill "$SERVER_PID"' EXIT
+          node tools/dev/doc_parse_layout.mjs target/doc-site "$RUNNER_TEMP/jacket-doc-parser-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_a11y.mjs http://127.0.0.1:8000/
           node tools/dev/doc_layout.mjs http://127.0.0.1:8000/
           node tools/dev/doc_toc_position.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-toc-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_rail_viewport.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-rail-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_declarations.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-declaration-geometry-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_examples.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-production-examples-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
-          node tools/dev/doc_parse_layout.mjs target/doc-site "$RUNNER_TEMP/jacket-doc-parser-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_spa.mjs http://127.0.0.1:8000/
           node tools/dev/doc_search_intent.mjs target/doc-site "$RUNNER_TEMP/jacket-search-intent-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_cache.mjs target/doc-site "$RUNNER_TEMP/jacket-doc-cache-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
