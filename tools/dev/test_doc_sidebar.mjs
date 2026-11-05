@@ -56,20 +56,40 @@ test('later parser batches do not close a menu the reader opened', () => {
   assert.equal(core.open, true);
 });
 
-test('the early outline selects its first section when all headings are below the viewport', () => {
-  const classes = () => { const values = new Set(); return { contains: name => values.has(name), add: name => values.add(name) }; };
-  const button = { setAttribute() {} };
+// Model the attached completed main and its streamed outline, as emitted by ModulePage.
+function outlinePage(marks) {
+  const classes = () => {
+    const values = new Set();
+    return { contains: name => values.has(name), add: name => values.add(name),
+      toggle(name, enabled) { if (enabled) values.add(name); else values.delete(name); } };
+  };
+  const attrs = new Map();
+  const button = { setAttribute: (name, value) => attrs.set(name, value), getAttribute: name => attrs.get(name) ?? null };
   const head = { classList: classes(), querySelector: () => button };
   head.classList.add('has-list');
   const group = { classList: classes(), previousElementSibling: head };
   head.nextElementSibling = group;
   const anchor = { getAttribute: () => '#types', closest: () => head };
-  const toc = { querySelectorAll: () => [anchor] };
-  const p=page(true);
-  p.document.querySelector = selector => selector === '.toc' ? toc : null;
-  p.document.getElementById = () => ({ getBoundingClientRect: () => ({ top: 1200 }) });
+  const toc = { querySelectorAll: selector => selector === 'li.items' ? [group] : [anchor] };
+  const wrap = { querySelector: selector => selector === ':scope > .toc' ? toc : null, querySelectorAll: () => marks };
+  const p = page(true);
+  const original = p.document.querySelector.bind(p.document);
+  p.document.querySelector = selector => selector === '.wrap' ? wrap : original(selector);
+  return { ...p, group, button, toc };
+}
+
+test('the early outline selects its first section when all headings are below the viewport', () => {
+  const p = outlinePage([{ id: 'types', getBoundingClientRect: () => ({ top: 1200 }) }]);
   p.window.jacketFinishLayout();
-  assert(group.classList.contains('open'), 'early and deferred outlines must select the same first section');
-  toc.querySelectorAll = () => [];
+  assert(p.group.classList.contains('open'), 'early and deferred outlines must select the same first section');
+  assert.equal(p.button.getAttribute('aria-expanded'), 'true');
+  p.toc.querySelectorAll = () => [];
   assert.doesNotThrow(() => p.window.jacketFinishLayout(), 'an empty outline has no section to select');
+});
+
+test('an outline without completed main marks cannot select a provisional parser prefix', () => {
+  const p = outlinePage([]);
+  p.window.jacketFinishLayout();
+  assert.equal(p.group.classList.contains('open'), false);
+  assert.equal(p.button.getAttribute('aria-expanded'), null);
 });
