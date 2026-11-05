@@ -8,6 +8,11 @@
 
 - `Extensions/Grpc` adds clients and servers over HTTP/2, with generated Protobuf service types.
 
+### Improved
+
+- Documentation keeps the sidebar in place, formats declarations consistently, and attaches diagnostics to lint examples.
+- `jacket doc` requires Node 24 and the matching docs-builder dependencies. Examples run with `--validate-examples`; `--export` replaces `--emit-input`, and `--theme` is removed.
+
 ### Fixed
 
 - ICO creation from image filenames works on WASI, and transparent icons render correctly on Windows.
