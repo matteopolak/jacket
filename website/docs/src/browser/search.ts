@@ -63,11 +63,12 @@ export function initSearch(source:string,href:(target:Target)=>string,signal:Abo
   const foundInput=document.querySelector<HTMLInputElement>('#search-q'),foundBox=document.querySelector<HTMLElement>('#search-results');
   if(!foundInput||!foundBox)return;
   const input:HTMLInputElement=foundInput,box:HTMLElement=foundBox;
-  let entries:Promise<SearchEntry[]>|undefined,hits:SearchEntry[]=[],picked=-1;
+  let entries:Promise<SearchEntry[]>|undefined,hits:SearchEntry[]=[],picked=-1,epoch=0,wanted=false;
   const load=():Promise<SearchEntry[]>=>entries??=fetchPayload(source,'search',signal).then(payload=>{
     if(payload.payload!=='search')throw new Error('expected search payload');return payload.data.entries;
   });
-  const hide=():void=>{box.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');};
+  const close=():void=>{box.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');};
+  const hide=():void=>{epoch++;wanted=false;hits=[];picked=-1;close();};
   // The header survives route swaps; release page-owned results without moving its focus.
   const dispose=():void=>{hits=[];picked=-1;hide();box.replaceChildren();};
   if(signal.aborted){dispose();return;}
@@ -89,17 +90,21 @@ export function initSearch(source:string,href:(target:Target)=>string,signal:Abo
     box.hidden=false;input.setAttribute('aria-expanded','true');
     if(picked>=0)input.setAttribute('aria-activedescendant',`hit-${picked}`);else input.removeAttribute('aria-activedescendant');
   }
-  async function update():Promise<void> {
-    const query=input.value.trim();if(!query){hits=[];picked=-1;hide();return;}
-    try{const all=await load();if(signal.aborted||input.value.trim()!==query)return;hits=search(all,query).slice(0,12);picked=hits.length?0:-1;show();}
-    catch{if(signal.aborted)return;box.textContent='Search could not load. Reload the page to try again.';box.hidden=false;input.setAttribute('aria-expanded','true');}
+  async function update(last=false):Promise<void> {
+    const query=input.value.trim();if(!query){hide();return;}
+    const intent=++epoch;wanted=true;hits=[];picked=-1;close();
+    const current=():boolean=>!signal.aborted&&wanted&&epoch===intent&&input.value.trim()===query;
+    try{const all=await load();if(!current())return;hits=search(all,query).slice(0,12);picked=hits.length?(last?hits.length-1:0):-1;show();}
+    catch{if(!current())return;box.textContent='Search could not load. Reload the page to try again.';box.hidden=false;input.setAttribute('aria-expanded','true');}
   }
   input.addEventListener('focus',()=>{void load().catch(()=>{});},{signal});input.addEventListener('input',()=>{void update();},{signal});
   input.addEventListener('keydown',event=>{
-    if(event.key==='ArrowDown'||event.key==='ArrowUp'){if(!hits.length)return;event.preventDefault();picked=(picked+(event.key==='ArrowDown'?1:hits.length-1))%hits.length;show();}
-    else if(event.key==='Enter'){const hit=hits[picked];if(hit){event.preventDefault();navigate(href(hit.target));}}
+    if(event.key==='ArrowDown'||event.key==='ArrowUp'){if(box.hidden){if(input.value.trim()){event.preventDefault();void update(event.key==='ArrowUp');}return;}if(!hits.length)return;event.preventDefault();picked=(picked+(event.key==='ArrowDown'?1:hits.length-1))%hits.length;show();}
+    else if(event.key==='Enter'){const hit=wanted&&!box.hidden?hits[picked]:undefined;if(hit){event.preventDefault();navigate(href(hit.target));}}
     else if(event.key==='Escape'){event.preventDefault();hide();}
   },{signal});
+  const leave=(event:FocusEvent):void=>{const next=event.relatedTarget;if(next instanceof Node&&(next===input||box.contains(next)))return;hide();};
+  input.addEventListener('focusout',leave,{signal});box.addEventListener('focusout',leave,{signal});
   document.addEventListener('click',event=>{if(event.target instanceof Node&&!box.contains(event.target)&&event.target!==input)hide();},{signal});
   document.addEventListener('keydown',event=>{if(event.key!=='/'||event.ctrlKey||event.metaKey||event.altKey)return;const target=event.target;if(target instanceof HTMLElement&&(target.matches('input,textarea,select')||target.isContentEditable))return;event.preventDefault();input.focus();input.select();},{signal});
 }
