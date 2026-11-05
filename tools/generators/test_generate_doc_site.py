@@ -13,7 +13,7 @@ class DocSiteGeneratorTests(unittest.TestCase):
         for name in generator.OUTPUTS:
             path = root / name
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("checked source\n")
+            path.write_bytes(b"checked source\n")
         for name in ("ajv", "json-schema-to-typescript"):
             path = root / "website/docs/node_modules" / name / "package.json"
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -31,7 +31,7 @@ class DocSiteGeneratorTests(unittest.TestCase):
             def run(command, **_):
                 calls.append(command)
                 if command[0] == "cargo":
-                    Path(command[-1]).write_text("checked source\n")
+                    Path(command[-1]).write_bytes(b"checked source\n")
                 return subprocess.CompletedProcess(command, 0)
 
             generator.generate(True, root=root, run=run)
@@ -49,7 +49,7 @@ class DocSiteGeneratorTests(unittest.TestCase):
             def run(command, **_):
                 calls.append(command)
                 if command[0] == "cargo":
-                    Path(command[-1]).write_text("different Rust schema\n")
+                    Path(command[-1]).write_bytes(b"different Rust schema\n")
                 return subprocess.CompletedProcess(command, 0)
 
             with self.assertRaisesRegex(ValueError, "stale"):

@@ -1,10 +1,13 @@
-"""Source-builder archive checks use authored inert files, never npm or Astro."""
+"""Check authored archive fixtures and actual Git checkout bytes without npm or Astro."""
 
 import hashlib
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 import package_docs_builder as builder
 
@@ -58,6 +61,48 @@ class DocsBuilderPackageTests(unittest.TestCase):
                 self.assertEqual(entry["sha256"], hashlib.sha256(data).hexdigest())
                 self.assertEqual(entry["bytes"], len(data))
             self.assertNotIn(str(base), json.dumps(one))
+
+    def test_manifest_writer_preserves_utf8_lf_on_windows(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = source(base / "source")
+            original = Path.write_text
+
+            def windows_write(path, text, encoding=None, errors=None, newline=None):
+                return original(path, text, encoding=encoding or "cp1252", errors=errors,
+                                newline="\r\n" if newline is None else newline)
+
+            with mock.patch.object(Path, "write_text", windows_write):
+                manifest = builder.package(root, base / "output")
+            expected = (json.dumps(manifest, indent=2) + "\n").encode("utf-8")
+            self.assertEqual((base / "output/builder-manifest.json").read_bytes(), expected)
+
+    def test_actual_source_closure_and_spec_keep_git_bytes_with_autocrlf(self):
+        # Use a separate Git index and no commits. Git blobs, not the host checkout's
+        # newline convention, are the authority for every actual packaged input.
+        env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        _, files = builder.inventory(builder.ROOT / "website/docs")
+        paths = ["website/docs/" + name for name in files]
+        paths.append("crates/jacket/src/doc/coloring/spec.json")
+
+        def git(directory, *args, data=None):
+            return subprocess.run(["git", "-C", str(directory), *args], input=data,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  env=env, check=True).stdout
+
+        authority = {name: git(builder.ROOT, "cat-file", "blob", "HEAD:" + name) for name in paths}
+        authority["website/docs/public/future-binary.dat"] = b"binary\x00line\nnext\r\n"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            git(root, "init", "--quiet")
+            git(root, "config", "core.autocrlf", "true")
+            entries = {".gitattributes": (builder.ROOT / ".gitattributes").read_bytes(), **authority}
+            for name, data in entries.items():
+                digest = git(root, "hash-object", "-w", "--stdin", data=data).decode().strip()
+                git(root, "update-index", "--add", "--cacheinfo", "100644", digest, name)
+            git(root, "checkout-index", "--all", "--force")
+            for name, data in authority.items():
+                self.assertEqual((root / name).read_bytes(), data, name)
 
     def test_missing_inputs_and_lock_mismatch_leave_destination_absent(self):
         with tempfile.TemporaryDirectory() as temporary:
