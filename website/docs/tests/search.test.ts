@@ -67,3 +67,46 @@ test('lazy search requests the admitted per-file URL exactly',()=>{
   try{initSearch(source,()=>'/unused',scope.signal,()=>{});assert.deepEqual(requests,[]);input.dispatchEvent(new Event('focus'));assert.deepEqual(requests,[source]);}
   finally{scope.abort();for(const [key,descriptor]of descriptors)if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}
 });
+
+/** Real lazy loader with a controlled response; only the DOM shell is fabricated. */
+async function lazySearchFixture(){
+  await import('../src/generated/validate-search.js');
+  class Element extends EventTarget {
+    value='Case';hidden=true;children:Element[]=[];attrs=new Map<string,string>();className='';textContent='';href='';tabIndex=0;id='';dataset:Record<string,string>={};
+    setAttribute(key:string,value:string):void{this.attrs.set(key,value);}removeAttribute(key:string):void{this.attrs.delete(key);}
+    replaceChildren():void{this.children=[];this.textContent='';}append(...nodes:Element[]):void{this.children.push(...nodes);}
+    contains(value:unknown):boolean{return value===this||this.children.some(child=>child.contains(value));}
+    focus():void{document.activeElement=this;this.dispatchEvent(new Event('focus'));}select():void{}
+    matches():boolean{return this===input;}isContentEditable=false;
+  }
+  const input=new Element(),box=new Element(),document=Object.assign(new EventTarget(),{activeElement:null as Element|null,querySelector:(selector:string)=>selector==='#search-q'?input:box,createElement:()=>new Element()});
+  const controller=new AbortController(),requested:string[]=[],navigated:string[]=[];
+  let resolveResponse:(value:Response)=>void=()=>{};
+  const pending=new Promise<Response>(resolve=>{resolveResponse=resolve;});
+  const values={document,Node:Element,HTMLElement:Element,fetch:(url:string)=>{requested.push(url);return pending;}};
+  const descriptors=new Map(Object.keys(values).map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
+  for(const[key,value]of Object.entries(values))Object.defineProperty(globalThis,key,{configurable:true,value});
+  initSearch('/search-index.json?v='+ 'a'.repeat(64),target=>target.kind==='page'?'/'+target.id:'/unused',controller.signal,url=>navigated.push(url));
+  const key=(value:string):void=>{input.dispatchEvent(Object.assign(new Event('keydown',{cancelable:true}),{key:value}));};
+  const flush=async():Promise<void>=>{await new Promise<void>(resolve=>setImmediate(resolve));await new Promise<void>(resolve=>setImmediate(resolve));};
+  return {input,box,document,controller,requested,navigated,key,flush,
+    type:(value:string):void=>{input.value=value;input.dispatchEvent(new Event('input'));},
+    release:async(outcome:'success'|'error'):Promise<void>=>{resolveResponse(outcome==='success'?new Response(JSON.stringify({payload:'search',data:{schemaVersion:1,entries:[{...entry('Case_A'),preview:null},{...entry('Case_B'),preview:null}]}})):new Response('unavailable',{status:503}));await flush();},
+    dismiss:(kind:string):void=>{if(kind==='escape')key('Escape');else if(kind==='outside')document.dispatchEvent(Object.defineProperty(new Event('click'),'target',{value:new Element()}));else if(kind==='focus')input.dispatchEvent(Object.assign(new Event('focusout'),{relatedTarget:new Element()}));else if(kind==='empty'){input.value='';input.dispatchEvent(new Event('input'));}else controller.abort();},
+    restore:():void=>{controller.abort();for(const[key,descriptor]of descriptors)if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);},
+  };
+}
+for(const outcome of ['success','error']as const)for(const dismissal of ['escape','outside','focus','empty','abort'])test(`pending search ${outcome} respects ${dismissal} dismissal`,async()=>{
+  const f=await lazySearchFixture();try{assert.equal(f.requested.length,0);f.input.focus();f.type('Case');f.dismiss(dismissal);await f.release(outcome);assert.equal(f.box.hidden,true,'late search response reopened dismissed results');assert.equal(f.input.attrs.get('aria-expanded'),'false');assert.equal(f.requested.length,1,'lazy promise must remain shared');f.key('Enter');assert.deepEqual(f.navigated,[],'hidden results must not navigate');}finally{f.restore();}
+});
+test('hidden Enter cannot select stale hits; explicit arrows reopen with current selection',async()=>{
+  const f=await lazySearchFixture();try{f.type('Case');await f.release('success');assert.equal(f.box.hidden,false);f.key('Escape');f.key('Enter');assert.deepEqual(f.navigated,[]);f.key('ArrowDown');await f.flush();assert.equal(f.box.hidden,false);f.key('Enter');assert.equal(f.navigated.at(-1),'/api/Fuzz/Case_A');f.key('Escape');f.key('ArrowUp');await f.flush();f.key('Enter');assert.equal(f.navigated.at(-1),'/api/Fuzz/Case_B');assert.equal(f.requested.length,1);}finally{f.restore();}
+});
+test('current query errors remain visible and a cleared query does not inherit an old failure',async()=>{
+  const f=await lazySearchFixture();try{f.type('Case');await f.release('error');assert.equal(f.box.hidden,false);assert.match(f.box.textContent,/Search could not load/);f.type('');await f.flush();assert.equal(f.box.hidden,true);assert.deepEqual(f.navigated,[]);}finally{f.restore();}
+});
+
+
+test('visible arrows retain their cyclic selection semantics',async()=>{
+  const f=await lazySearchFixture();try{f.type('Case');await f.release('success');f.key('ArrowDown');f.key('Enter');assert.equal(f.navigated.at(-1),'/api/Fuzz/Case_B');f.key('ArrowUp');f.key('Enter');assert.equal(f.navigated.at(-1),'/api/Fuzz/Case_A');assert.equal(f.requested.length,1);}finally{f.restore();}
+});
