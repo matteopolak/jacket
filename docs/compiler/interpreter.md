@@ -58,6 +58,8 @@ Programs using `Thread` run on a cooperative scheduler, chosen by `Host::coopera
 
 Known host semaphore waits give up the native baton before entering C, so a runnable peer can supply the signal without waiting for the short-call grace. The host SDK address, a core system-library binding and the actual loader provider must match (`native/waits.rs`): the Mach header belonging to the already loaded kernel-library handle on macOS, or the already loaded libc link map on glibc Linux. Other loader providers retain the conservative policy; proofs are prepared once before native guest execution, so classification does not alter a guest’s pending loader error. A user library with the same symbol spelling and opaque calls retain the existing timed-steal policy. Fork calls retain exclusive execution. Arguments and the caller’s execution state stay parked until it reacquires the baton, including on a native error return. A nested C callback reacquires normally; returning from it to C resumes the conservative short-call policy.
 
+Thread groups notify the selected worker and stealing peers when work becomes available. Appending to a queue only publishes its entry: completed queues have no semaphore waiter, so they do not post notifications. `get_completed_work` polls those queues; `wait_for_all` uses the group’s outstanding-work condition. Keep these wake policies in `stdlib/internal/thread/group.jai` when changing queue ownership. The public counting `Semaphore` and available-work broadcasts retain their existing behavior.
+
 ### Fibers
 
 `fiber_init`, `fiber_switch` and `fiber_free` start a procedure on its own stack and switch between stacks ([fibers](fibers.md)).
