@@ -56,7 +56,7 @@ GATED = {
 # The packages each job builds with `cargo -p` (or through Nix). Their path dependencies follow.
 CRATES = {
     "images-ui-intel": ["jaic-cli", "jailint", "jacket"],
-    "image-conformance": ["jaic-cli"],
+    "image-conformance": ["jaic-cli", "jacket"],
     "sdl3": ["jaic-cli"],
     "clipboard-linux": ["jaic-cli", "jailint"],
     "nix": ["jaic-cli", "jailint", "jai-language-server"],
