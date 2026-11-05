@@ -13,7 +13,8 @@ import subprocess
 
 from toolkit.repo import ROOT
 
-REQUIRED = frozenset(("jpeg_dnl", "jpeg_structure", "jpeg_padding", "qoi_framing"))
+IMAGE_CASES = ("jpeg_dnl", "jpeg_structure", "jpeg_padding", "qoi_framing")
+REQUIRED = frozenset({*("Image::" + name for name in IMAGE_CASES), "Ico_File::gdi"})
 MODES = ("interp", "native-asan", "native-o2", "wasi-o2")
 
 
@@ -135,6 +136,30 @@ def verify_scratch(compiler, output):
         raise RuntimeError(
             "WASI registration host exposed its caller cwd or retained temporary scratch"
         )
+    aliased = subprocess.run(
+        [
+            "node",
+            "--no-warnings",
+            str(Path(__file__).with_name("wasi_registration.mjs")),
+            str(binary),
+            str(source),
+        ],
+        cwd=source,
+        env=dict(os.environ, TMPDIR=str(temporary)),
+        capture_output=True,
+        text=True,
+    )
+    (output / "scratch-alias.stdout").write_text(aliased.stdout)
+    (output / "scratch-alias.stderr").write_text(aliased.stderr)
+    if (
+        aliased.returncode
+        or aliased.stdout.strip() != "registration scratch write passed"
+        or list(source.iterdir())
+        or list(temporary.iterdir())
+    ):
+        raise RuntimeError(
+            "WASI scratch-directory argument exposed its caller or was not cleaned"
+        )
     rejected = subprocess.run(
         [
             "node",
@@ -161,6 +186,7 @@ def verify_scratch(compiler, output):
         "caller_directory_untouched": True,
         "temporary_scratch_removed": True,
         "startup_failure_cleanup_checked": True,
+        "scratch_argument_alias_isolated": True,
     }
 
 
@@ -188,6 +214,8 @@ def main():
         "test",
         "--path",
         "stdlib/Extensions/Image",
+        "--path",
+        "stdlib/Ico_File",
         "--no-doc",
         "--format",
         "json",
@@ -209,9 +237,11 @@ def main():
                 Path(__file__).resolve(),
                 Path(__file__).with_name("wasi_registration.mjs"),
                 Path(__file__).with_name("registration_scratch.jai"),
+                ROOT / "stdlib/Ico_File/tests/gdi.jai",
+                ROOT / "stdlib/Ico_File/tests/gdi.exit",
                 *(
                     ROOT / "stdlib/Extensions/Image/tests" / (name + extension)
-                    for name in sorted(REQUIRED)
+                    for name in IMAGE_CASES
                     for extension in (".jai", ".exit")
                 ),
             )
@@ -247,7 +277,7 @@ def main():
             receipt["modes"][mode] = invoke(
                 [*command, *flags], output, mode, catalogue=False
             )
-            print(mode + ": all four required Jacket codec programs passed", flush=True)
+            print(mode + ": all five required Jacket image programs passed", flush=True)
         receipt["passed"] = True
     finally:
         (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
