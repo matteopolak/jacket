@@ -174,17 +174,24 @@ impl Shared {
         Some(s)
     }
 
-    /// The holder is about to call C: it keeps the baton, but another thread may take it.
-    /// Returns the holder's id.
-    pub(in crate::interp) fn enter_native(&self, interp: usize) -> usize {
+    /// Enter C with this caller's identity. Known blocking waits hand available work on now;
+    /// short or opaque calls keep the existing timed-steal policy. Returns the caller's id.
+    pub(in crate::interp) fn enter_native(&self, interp: usize, blocking: bool) -> usize {
         let mut s = self.lock();
-        s.in_native = true;
+        let caller = s.current.unwrap_or(0);
         s.native_calls += 1;
         s.interp = interp;
-        if s.urgent > 0 {
+        if blocking {
+            s.threads[caller].block = Block::Native;
+            s.release(None);
             self.cv.notify_all();
+        } else {
+            s.in_native = true;
+            if s.urgent > 0 {
+                self.cv.notify_all();
+            }
         }
-        s.current.unwrap_or(0)
+        caller
     }
 
     /// Thread `me` is back from C: take the baton back, waiting for it if it was taken.
@@ -299,7 +306,8 @@ impl native::Gate for Shared {
         }));
         let mut s = self.lock();
         if nested.is_some() {
-            // Back to C, inside the native call the callback came from.
+            // Back to C, using the conservative short-call policy even when the outer call
+            // originally handed the baton on before entering native code.
             s.in_native = true;
             s.native_calls += 1;
             if s.urgent > 0 {
@@ -324,5 +332,84 @@ impl native::Gate for Shared {
         // interpreter is, and only read here.
         let program = unsafe { &*(program as *const Program) };
         trap.describe(&program.file_paths)
+    }
+}
+
+#[cfg(test)]
+mod native_handoff_tests {
+    use super::*;
+
+    #[test]
+    fn a_blocking_native_wait_hands_available_work_to_a_peer_before_calling_c() {
+        let shared = Shared::new(17);
+        shared.lock().threads.push(GThread::new(false, None));
+        let caller = shared.enter_native(17, true);
+        let sched = shared.lock();
+        assert_eq!(
+            caller, 0,
+            "the lease must retain the caller, not the selected peer"
+        );
+        assert_eq!(sched.current, Some(1));
+        assert!(matches!(sched.threads[0].block, Block::Native));
+        assert!(!sched.in_native);
+    }
+
+    #[test]
+    fn a_short_native_call_retains_the_existing_fast_call_policy() {
+        let shared = Shared::new(17);
+        shared.lock().threads.push(GThread::new(false, None));
+        assert_eq!(shared.enter_native(17, false), 0);
+        let sched = shared.lock();
+        assert_eq!(sched.current, Some(0));
+        assert!(sched.in_native);
+        assert!(matches!(sched.threads[0].block, Block::None));
+    }
+
+    #[test]
+    fn cancellation_is_observed_when_a_blocking_native_call_returns() {
+        let shared = Shared::new(17);
+        let caller = shared.enter_native(17, true);
+        shared.stop();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            shared.leave_native(caller);
+        }));
+        assert!(result.unwrap_err().is::<WorkerCancelled>());
+    }
+
+    #[test]
+    fn a_reentrant_blocking_callback_returns_to_the_existing_short_call_policy() {
+        let mut interp = Box::new(Interp::default());
+        let pointer = std::ptr::from_mut::<Interp>(&mut interp) as usize;
+        let shared = Shared::new(pointer);
+        let program = Program::default();
+        let caller = shared.enter_native(pointer, true);
+        native::calling_out((shared.key(), caller), || {
+            native::Gate::run(&*shared, std::ptr::from_ref(&program) as u64, &mut |_| {
+                assert_eq!(shared.lock().current, Some(caller));
+                let reentrant = shared.enter_native(pointer, true);
+                assert_eq!(shared.lock().current, None);
+                shared.leave_native(reentrant);
+            })
+        })
+        .unwrap();
+        assert_eq!(shared.lock().current, Some(caller));
+        assert!(
+            shared.lock().in_native,
+            "returning from the callback resumes the conservative policy"
+        );
+        shared.leave_native(caller);
+        assert!(!shared.lock().in_native);
+    }
+
+    #[test]
+    fn a_blocking_call_with_no_peer_reacquires_after_return() {
+        let shared = Shared::new(17);
+        let caller = shared.enter_native(17, true);
+        assert_eq!(shared.lock().current, None);
+        shared.leave_native(caller);
+        let sched = shared.lock();
+        assert_eq!(sched.current, Some(0));
+        assert!(!sched.in_native);
+        assert!(matches!(sched.threads[0].block, Block::None));
     }
 }
