@@ -110,6 +110,8 @@ file = "notes/recipes.md"
 name = "Recipes"
 ```
 
+When adding a public standard-library module, add its folder to the appropriate root `jacket.toml` documentation group. Full-site export rejects ungrouped modules so new APIs cannot silently disappear from navigation.
+
 `[doc.format]` is not a site setting: it holds `jaifmt` overrides for the examples in doc comments ([jaifmt-rules](jaifmt-rules.md#format_doc_examples)).
 
 A pattern matching a module's folder also matches the modules inside it. `jacket doc` fails on a pattern that matches no module, a module in no group (when there are groups), and a colour that is not `#hex` or a plain name. The header shows the version, repository button, playground link and pages link only when set.
