@@ -35,7 +35,7 @@ A bundle (`tools/browser/build_scripting_wasm.py --output <dir>`) holds:
 ```sh
 rustup target add wasm32-unknown-unknown   # on the toolchain pinned in rust-toolchain.toml
 PYTHONPATH=tools python3 tools/browser/build_scripting_wasm.py --release --output target/scripting-runtime
-node tools/browser/check_scripting_wasm.mjs target/scripting-runtime/jai_wasm.wasm
+node --experimental-wasm-jspi tools/browser/check_scripting_wasm.mjs target/scripting-runtime/jai_wasm.wasm
 node tools/browser/check_jaifmt_wasm.mjs engine target/scripting-runtime
 node tools/browser/check_playground_stdlib.mjs target/scripting-runtime
 ```
@@ -92,3 +92,5 @@ PYTHONPATH=tools python3 tools/browser/package_browser_release.py --output targe
 ## Dependencies
 
 `jaic` (no external crates) and `jai-language-server`. No `SharedArrayBuffer`, so any static host works. Tooling needs Python 3.11+, Node 24 (Memory64) and a pinned Rust nightly with `wasm32-unknown-unknown`; no npm dependencies.
+
+The scripting check uses the shared LSP lifecycle: send `initialize`, then `initialized`, then document notifications and requests. Keep that handshake when adding browser-client fixtures. Run with Node's JSPI flag when available so asynchronous input checks execute; a runtime without JSPI reports those cases as not run rather than as passed.
