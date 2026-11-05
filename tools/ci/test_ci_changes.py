@@ -449,10 +449,34 @@ class JobSelection(unittest.TestCase):
 
     def test_focused_intel_requires_an_explicit_manual_name(self):
         self.assertNotIn("images-ui-intel", ci_changes.selected_jobs(self.ALL, ""))
-        self.assertNotIn("images-ui-intel", ci_changes.selected_jobs(self.ALL, "test,docs"))
+        self.assertNotIn(
+            "images-ui-intel", ci_changes.selected_jobs(self.ALL, "test,docs")
+        )
         self.assertEqual(
             ci_changes.selected_jobs(self.ALL, "images-ui-intel"), ["images-ui-intel"]
         )
+
+    def test_image_conformance_requires_explicit_manual_selection(self):
+        self.assertNotIn("image-conformance", ci_changes.selected_jobs(self.ALL, ""))
+        self.assertNotIn(
+            "image-conformance", ci_changes.selected_jobs(self.ALL, "test,docs")
+        )
+        self.assertEqual(
+            ci_changes.selected_jobs(self.ALL, "image-conformance"),
+            ["image-conformance"],
+        )
+        patterns = job_inputs.inputs("image-conformance", job_inputs.Repo())
+        for path in (
+            "stdlib/Extensions/Image/jpeg.jai",
+            "stdlib/Extensions/Image/png.jai",
+            "stdlib/Extensions/Byte_Search/module.jai",
+            "stdlib/Extensions/Deflate/module.jai",
+            "stdlib/Basic/module.jai",
+            "tools/portable/image_conformance/manifest.json",
+            "tools/portable/image_conformance/jpeg/reference.c",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(ci_changes.matches(patterns, [path], workflow=False))
 
     def test_false_areas_drop_their_jobs(self):
         results = self.ALL | {"windows": False, "code": False}
@@ -471,9 +495,7 @@ class JobSelection(unittest.TestCase):
     def test_ci_yml_gates_exactly_the_listed_jobs(self):
         import re
 
-        text = (
-            ROOT / ".github/workflows/ci.yml"
-        ).read_text()
+        text = (ROOT / ".github/workflows/ci.yml").read_text()
         gated = re.findall(
             r"contains\(fromJSON\(needs\.changes\.outputs\.jobs\), '([a-z0-9-]+)'\)",
             text,
@@ -662,10 +684,7 @@ class Tiers(unittest.TestCase):
                     )
 
     def test_the_test_job_selects_steps_by_parts(self):
-
-        text = (
-            ROOT / ".github/workflows/ci.yml"
-        ).read_text()
+        text = (ROOT / ".github/workflows/ci.yml").read_text()
         job = text[text.index("\n  test:\n") : text.index("\n  vscode-extension:\n")]
         self.assertNotIn("matrix.part ==", job)
         self.assertIn("contains(matrix.parts, ',rust,')", job)

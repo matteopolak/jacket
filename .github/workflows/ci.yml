@@ -940,6 +940,54 @@ jobs:
         # Hosted Metal may be absent: the driver reports explicit skips, never GPU acceptance.
         if: ${{ !cancelled() }}
         run: python3 -u tools/bindings/run_webgpu_native.py --jaic target/debug/jaic --test ui-images
+  image-conformance:
+    name: complete image codec corpora (linux-x64)
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'image-conformance')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      CARGO_BUILD_JOBS: '2'
+      CMAKE_BUILD_PARALLEL_LEVEL: '2'
+      JAIC_STDLIB: ${{ github.workspace }}/stdlib
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-unix
+        with:
+          lld: 'true'
+          native-libs: 'false'
+          font: 'false'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24'}
+      - name: Install independent reference and restricted-process tools
+        # Reuse the existing Ubuntu bubblewrap setup for the JPEG corpus processes.
+        run: |
+          bash tools/ci/apt_install.sh cmake nasm ninja-build bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Install the pinned independent pixel oracle
+        run: |
+          python3 -m pip install --only-binary=:all: -r tools/portable/image_conformance/requirements.txt
+      - name: Conformance runner and inventory regressions
+        run: |
+          python3 tools/portable/image_conformance/test_gate.py
+          python3 tools/portable/image_conformance/jpeg/check.py
+          python3 tools/portable/image_conformance/jpeg/test_process.py
+          python3 tools/portable/image_conformance/jpeg/check_node_sandbox.py --require-external-prefix
+      - name: Build the production compiler
+        run: cargo build --locked -p jaic-cli
+      - name: Complete PNG BMP PNM QOI ICO and encoder inventories
+        run: python3 -u tools/portable/image_conformance/run.py --jaic target/debug/jaic --output "$RUNNER_TEMP/image-conformance" --expected-source "$GITHUB_SHA"
+      - name: Build the pinned independent JPEG reference
+        if: ${{ !cancelled() }}
+        run: python3 -u tools/portable/image_conformance/jpeg/build_reference.py --output "$RUNNER_TEMP/jpeg-reference"
+      - name: Complete JPEG inventories in sanitized native optimized native and WASI
+        if: ${{ !cancelled() }}
+        run: |
+          python3 -u tools/portable/image_conformance/jpeg/fetch.py --output "$RUNNER_TEMP/jpeg-corpus"
+          python3 -u tools/portable/image_conformance/jpeg/run.py --repo "$GITHUB_WORKSPACE" --jaic target/debug/jaic --corpus "$RUNNER_TEMP/jpeg-corpus" --output "$RUNNER_TEMP/jpeg-conformance" --reference-include "$RUNNER_TEMP/jpeg-reference/install/include" --reference-library "$RUNNER_TEMP/jpeg-reference/install/lib" --expected-source "$GITHUB_SHA" --reviewed-dispositions tools/portable/image_conformance/jpeg/reviewed-dispositions.json
   upstream-smoke:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'upstream-smoke')
