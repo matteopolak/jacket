@@ -63,3 +63,9 @@ test('dedicated-worker requests retain a separate CDP namespace and actual runti
  assert.equal(ledger.rows[1].id,'same-id','raw request ID remains usable for that session getResponseBody');
  assert.equal(summarizeRequests(ledger.rows).categories.runtime.encodedTransferBytes,70);
 });
+
+test('legacy navigation fragment fetches are data while HTML page prefetches remain documents',()=>{
+ assert.equal(category({url:'https://docs.test/assets/nav/api/Basic/0.html?v=hash',type:'Fetch',mime:'text/html'}),'exportData');
+ assert.equal(category({url:'https://docs.test/api/Basic/print',type:'Fetch',mime:'text/html'}),'document');
+ assert.equal(category({url:'https://docs.test/assets/nav/api/Basic/0.html',type:'Document',mime:'text/html'}),'document');
+});
