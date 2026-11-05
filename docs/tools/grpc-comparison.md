@@ -9,7 +9,7 @@ and [runtime contract](../extensions/grpc.md) define the corresponding local lim
 
 | Implementation | Pin | Evidence used here |
 | --- | --- | --- |
-| `Extensions/Grpc` | Enclosing repository revision | Owning regressions and independent peers; final-head acceptance still pending |
+| `Extensions/Grpc` | Enclosing repository revision | Owning regressions and independent peers; release gates described in the conformance guide |
 | gRPC C++ | [`f2f2334fb937ec78b3dc629ccc163b06913deb40`](https://github.com/grpc/grpc/tree/f2f2334fb937ec78b3dc629ccc163b06913deb40) | Unmodified canonical interop client, built Release; 21 core cases against each raw/generated Jai server |
 | grpc-go | [`v1.85.0`, `c9ab42cdb0a2b3e7b9d5510ebbc999638ee41eb7`](https://github.com/grpc/grpc-go/tree/c9ab42cdb0a2b3e7b9d5510ebbc999638ee41eb7) | Official TestService server configured through its public API; 14 core procedures plus both soaks passed; actual peer-address adapter passed scaling |
 | grpcio | `1.78.0`, Python `3.14.3`, Protobuf `6.33.5` | Current raw/generated four-mode peer matrix passed in both directions |
@@ -32,7 +32,7 @@ client role in this comparison; they do not establish its entire server profile.
 | Capability | Extensions/Grpc | gRPC C++ client | grpc-go | grpcio |
 | --- | --- | --- | --- | --- |
 | Unary and three streaming modes | Tested in both directions | Tested against Jai server | Tested as independent server | Tested in both directions after compression changes |
-| TLS verification and HTTP/2 | Tested server on macOS; other native acceptance pending; reverse client tested | Tested against synthetic CA and ALPN `h2` | Tested as independent server | Tested with synthetic CA |
+| TLS verification and HTTP/2 | Tested in both directions on macOS; Linux/Windows use separate native CI and peer receipts | Tested against synthetic CA and ALPN `h2` | Tested as independent server | Tested with synthetic CA |
 | Protobuf generation | Shared opt-in message/service graph; owning tests | Generated canonical TestService client exercised | Official generated TestService peer | Bundled pinned protoc used in earlier matrix |
 | Initial, trailing and binary metadata | Tested in both directions, including request-dependent initial values | Canonical custom-metadata case passed | Tested as independent server | Repeated/binary metadata matrix passed |
 | Status and Unicode message preservation | Tested in both directions, including whitespace and non-BMP text | Canonical status cases passed | Tested as independent server | Application-error checks passed |
@@ -82,7 +82,8 @@ are represented in nanoseconds; observed values were multiples of one microsecon
 Executable size excludes shared libraries and debug sidecars, so it is not a
 deployment-footprint comparison. Allocation counts and peak RSS were not measured.
 Runtime source and measurement harness have independent source approval; the
-enclosing release still requires repaired Windows acceptance and exact-head CI. These
+release acceptance additionally requires the native Windows gate and relevant
+exact-source CI receipts. These
 measurements are not a release acceptance claim.
 
 

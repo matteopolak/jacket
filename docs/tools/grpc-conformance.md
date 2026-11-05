@@ -73,7 +73,8 @@ an adapter that fills the actual observed peer address, and both 1,000-iteration
 soaks against Go. The adapter preserves upstream streaming handlers and supplies
 no fabricated connection identity. All eight negative HTTP/2 cases then passed against the patched independent
 peer in both client modes, with both client and peer exits checked (16 case
-executions). Final-head gates remain in progress. Automatic cloud credential
+executions). Release acceptance also requires the relevant native-platform and
+exact-source CI receipts. Automatic cloud credential
 providers, GET/caching proxies and ORCA balancing metrics are outside the existing
 explicit-metadata/TLS API profile. Their nine catalogue IDs remain unexecuted.
 No unexecuted or unsupported case counts as passed. The full Protobuf ledger is
