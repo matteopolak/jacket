@@ -41,6 +41,15 @@ const links = declaration ? declarationOutline(declaration).filter(item => item.
     <script is:inline data-doc-bootstrap>
       (() => {
         if (window.jacketBootstrap) { window.jacketBootstrap.prepare(document); return; }
+        // Native full-document restoration must run before the deferred ClientRouter starts.
+        document.documentElement.setAttribute('data-doc-restoring', '');
+        if (window.history) window.history.scrollRestoration = 'auto';
+        const finishDocumentScroll = () => {
+          if (window.history) window.history.scrollRestoration = 'manual';
+          document.documentElement.removeAttribute('data-doc-restoring');
+        };
+        document.addEventListener('astro:page-load', finishDocumentScroll);
+        window.addEventListener('pageshow', event => { if (event.persisted) finishDocumentScroll(); });
         let earlyFolds = 0;
         // The supported custom swap leaves this exact rail attached. Only a navigation context may change its contents.
         const railContexts = new Map();
@@ -234,11 +243,15 @@ const links = declaration ? declarationOutline(declaration).filter(item => item.
           save(); readerScope?.abort(); earlyFolds = 0;
           headerObserver.disconnect(); observedHeader = null;
           prepare(event.newDocument); transferRail(event.newDocument);
+          if (event.navigationType === 'traverse') event.newDocument.documentElement.setAttribute('data-doc-restoring', '');
         });
         document.addEventListener('astro:after-swap', () => {
           window.jacketFinishSidebar(); window.jacketFinishLayout();
         });
-        window.addEventListener('pagehide', save);
+        window.addEventListener('pagehide', () => {
+          save();
+          if (window.history) window.history.scrollRestoration = 'auto';
+        });
         window.addEventListener('resize', measureHeader, { passive: true });
         window.jacketBootstrap = { prepare };
         prepare(document);
