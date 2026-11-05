@@ -343,6 +343,11 @@ vars! {
         default: "unset",
         summary: "A value the WebAssembly test passes to the program, which prints it back.",
     }
+    SCALE_SANDBOX_INPUTS {
+        name: "JAILSP_SCALE_SANDBOX_INPUTS", group: Testing, readers: [Tests],
+        default: "unset",
+        summary: "Rejected obsolete upstream scale input selector; it never grants permission to run outside the bench sandbox.",
+    }
     ENFORCE_SCALE_BUDGET {
         name: "JAILSP_ENFORCE_SCALE_BUDGET", group: Testing, readers: [Tests],
         default: "unset: the budget is only reported",
