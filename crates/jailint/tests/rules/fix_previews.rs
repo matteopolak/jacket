@@ -39,35 +39,48 @@ fn self_assignment_fix_preserves_surroundings() {
     }
 }
 
+/// Check exact edits and the single deletion row independently of checkout line endings.
 #[test]
 fn duplicate_condition_preview_only_removes_dead_branch() {
-    let file = repo().join("tests/lint/duplicate_condition/example.jai");
-    let (lints, text) = lint(&file, &[("duplicate_condition", Level::Warn)]);
-    assert_eq!(lints.len(), 1);
-    let fix = lints[0].fix.as_ref().unwrap();
-    let mut fixed = text.clone();
-    for e in fix.edits.iter().rev() {
-        fixed.replace_range(e.start..e.end, &e.text);
+    let fixture =
+        std::fs::read_to_string(repo().join("tests/lint/duplicate_condition/example.jai")).unwrap();
+    let authored = fixture.replace("\r\n", "\n");
+    let root = TempDir::new("duplicate-condition-preview");
+    let file = root.join("main.jai");
+    for ending in ["\n", "\r\n"] {
+        let source = authored.replace('\n', ending);
+        std::fs::write(&file, &source).unwrap();
+        let (lints, text) = lint(&file, &[("duplicate_condition", Level::Warn)]);
+        assert_eq!(text, source);
+        assert_eq!(lints.len(), 1);
+        let fix = lints[0].fix.as_ref().unwrap();
+        let mut fixed = text.clone();
+        for e in fix.edits.iter().rev() {
+            fixed.replace_range(e.start..e.end, &e.text);
+        }
+        let removed = format!("    else if key == 1 print(\"uno\\n\");{ending}");
+        assert_eq!(
+            text.matches(&removed).count(),
+            1,
+            "the authored dead branch occurs once"
+        );
+        assert_eq!(fixed, text.replace(&removed, ""));
+        assert_eq!(
+            jaic::render::changed_lines(
+                &text,
+                &jaic::source::LineIndex::new(&text),
+                &fix.edits
+                    .iter()
+                    .map(|e| (e.start, e.end, e.text.clone()))
+                    .collect::<Vec<_>>()
+            ),
+            vec![(
+                "6".into(),
+                '-',
+                "    else if key == 1 print(\"uno\\n\");".into()
+            )]
+        );
     }
-    assert_eq!(
-        fixed,
-        text.replace("    else if key == 1 print(\"uno\\n\");\n", "")
-    );
-    assert_eq!(
-        jaic::render::changed_lines(
-            &text,
-            &jaic::source::LineIndex::new(&text),
-            &fix.edits
-                .iter()
-                .map(|e| (e.start, e.end, e.text.clone()))
-                .collect::<Vec<_>>()
-        ),
-        vec![(
-            "6".into(),
-            '-',
-            "    else if key == 1 print(\"uno\\n\");".into()
-        )]
-    );
 }
 
 #[test]
