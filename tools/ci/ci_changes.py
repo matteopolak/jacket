@@ -40,6 +40,7 @@ SELF = r".github/workflows/ci\.yml"
 # Every job of ci.yml with the area that gates it (None: always, subject to a manual run's list).
 JOBS = {
     "docs": None,
+    "docs-producer": None,
     "fuzz-regressions": "code",
     "dependency-hygiene": "code",
     "scripting-wasm": "code",
@@ -69,7 +70,7 @@ JOBS = {
 }
 
 # Focused acceptance jobs require an explicit jobs= request, never default push/PR work.
-MANUAL_ONLY = {"images-ui-intel", "image-conformance"}
+MANUAL_ONLY = {"images-ui-intel", "image-conformance", "docs-producer"}
 
 # The two tiers. Pushes and pull requests run the fast tier, which aims to finish in ten minutes:
 # platform-neutral work runs once, on Linux x64, and the long suites are spread over several jobs.
@@ -437,7 +438,9 @@ def changed_files(env):
     else:
         return None
     result = subprocess.run(
-        ["git", "diff", "--name-only", "--no-renames", spec], capture_output=True, text=True
+        ["git", "diff", "--name-only", "--no-renames", spec],
+        capture_output=True,
+        text=True,
     )
     return result.stdout.split() if result.returncode == 0 else None
 
