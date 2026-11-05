@@ -90,4 +90,8 @@ A fiber fills an `Op`, calls `engine_submit` and parks; the engine completes it 
 - Module parameters: `STACK_BYTES` (256 KiB), `POOL_LIMIT` (1024), `TEMPORARY_BYTES` (2048), e.g. `#import "Extensions/Io"(STACK_BYTES = 64 * 1024)`.
 - Introspection: `backend()`, `backend_name()`, `backend_reason()`, `capabilities()`, `io_statistics()`.
 
+The shared-port test keeps the first worker’s port-zero listener open while publishing its chosen port through the ready barrier. The second worker then binds that same port with `reuse_port`. Keep this continuous ownership: a closed probe leaves a gap in which another test can select the port, and reuse-port binds can silently join the other test’s listeners. Both workers still serve the same twenty one-byte echo clients.
+
+Unexpected setup, accept, read or write errors emit at most `PORT_DIAGNOSTIC_LIMIT` (32) `IO_PORT_FAILURE` rows, with final port, acceptance and failure counts if an operation or final check fails. Successful runs stay quiet. The helper and limit live beside the shared-port test in `tests/support/suite.jai`; change them there when adding a failure stage. Run the check with `JAIC_STDLIB=$PWD/stdlib jacket test --path stdlib/Extensions/Io --no-doc --exact backends --interp`.
+
 Tests: `stdlib/Extensions/Io/tests/` (`backends.jai` runs every check on each backend the system offers). Benchmarks: `jaic -O2 stdlib/Extensions/Io/bench/bench.jai`. Not done: UDP, provided buffers, zero-copy send, DNS timeout.
