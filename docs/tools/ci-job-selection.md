@@ -21,7 +21,7 @@ Hand-written policy in `ci_changes.py`:
 | Table | Meaning |
 | --- | --- |
 | `NARROW` | The macOS sanitizer leg runs on pushes only for codegen, driver, sweep, native tooling and shared checkout-policy inputs. |
-| `MANUAL_ONLY` | Focused acceptance jobs such as `images-ui-intel`, `image-conformance` and `docs-producer` run only when explicitly named in a manual `jobs=` request. Their callers also require `workflow_dispatch`. |
+| `MANUAL_ONLY` | Focused acceptance jobs such as `images-ui-intel`, `image-conformance` and `docs-producer` run only when explicitly named in a manual `jobs=` request. The `docs-producer` caller additionally requires `workflow_dispatch`. |
 | `OWN_PATHS_ONLY` | `sdl3` does not run for a workflow edit. |
 | `PROSE`, `READ_BY_TESTS` | Docs-only changes skip the code jobs, except docs a test reads. Checkout policies are code inputs even under `docs/`. |
 
