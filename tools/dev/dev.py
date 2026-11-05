@@ -13,7 +13,7 @@
     python3 tools/dev/dev.py test [--suite cargo|tools|all] [-p CRATE] [-j N] [filter...]
 
 The recipes in the Justfile are thin wrappers; this file holds the logic so that CI and a local
-shell run the same commands. Runs on Python 3.9 (macOS /usr/bin/python3): no tomllib here.
+shell run the same commands. Use the Python release selected by repository CI.
 """
 from __future__ import annotations
 
@@ -49,8 +49,10 @@ REPO_CHECKS = {"style": "check_source_style", "paths": "check_repo_paths", "ci-s
 BUILT_REPO_CHECKS = {"stdlib-docs"}
 
 
-def run(cmd: list[str], cwd: Path = ROOT) -> int:
-    return toolkit_run(cmd, cwd=cwd, check=False).returncode
+def run(cmd: list[str], cwd: Path = ROOT, *, env: dict[str, str] | None = None) -> int:
+    """Run with an optional child environment, e.g. run(["cargo", "test"], env=owned_tools)."""
+    options = {"env": env} if env is not None else {}
+    return toolkit_run(cmd, cwd=cwd, check=False, **options).returncode
 
 
 def cargo_build(args: list[str], jobs: str) -> int:
@@ -536,7 +538,9 @@ def cmd_test(args) -> int:
             return 1
         # The LSP formatting tests run the real formatter, including on shards that never run
         # the separate Jai format check. Build this checkout's copy before nextest starts.
-        ensure_jaifmt(args.jobs)
+        formatter = ensure_jaifmt(args.jobs)
+        # Export subprocesses run in temporary libraries, so relative PATH entries are insufficient.
+        test_env = {**os.environ, "PATH": os.pathsep.join([str(formatter.parent.resolve()), os.environ.get("PATH", "")])}
         # The native tests link the pinned third-party libraries; jaic finds them in the default output
         # directory, so build whatever is missing there first (a no-op once they exist, and in CI after
         # tools/native/ci_native_deps.sh).
@@ -552,10 +556,10 @@ def cmd_test(args) -> int:
         part = ["--partition", args.partition] if args.partition else []
         filterset = ["-E", args.expr] if args.expr else []
         failed |= bool(run(["cargo", "nextest", "run", "--profile", "ci", "-j", args.jobs, "--locked", "--no-fail-fast",
-                            *profile, *part, *filterset, *scope, *args.filter]))
+                            *profile, *part, *filterset, *scope, *args.filter], env=test_env))
         # nextest does not run doctests; the first partition runs them.
         if not args.partition or args.partition.split(":")[-1].startswith("1/"):
-            failed |= bool(run(["cargo", "test", "--doc", "-j", args.jobs, "--locked", *scope]))
+            failed |= bool(run(["cargo", "test", "--doc", "-j", args.jobs, "--locked", *scope], env=test_env))
     if args.suite in ("tools", "all") and not narrowed:
         failed |= bool(run([sys.executable, "tools/run_tests.py"]))
     return int(failed)
