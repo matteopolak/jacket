@@ -1,6 +1,6 @@
 """Docs benchmark accounting uses deterministic samples, never timed subprocesses."""
 import unittest
-import doc_site
+from bench import doc_site
 
 
 class ProcessTreeTests(unittest.TestCase):
