@@ -195,23 +195,25 @@ def stdlib_matrix(full):
         ]
         legs += suite_legs(platform, ("bindings", "tooling"))
     for platform in ("macos-arm64", "macos-x64"):
-        # Two jobs per Mac: the whole catalogue, and every producer suite with all the
-        # `jacket test` runs (they share the production build, and their parts only exist to
-        # shorten Linux jobs).
-        legs.append(
-            dict(
-                platform=platform,
-                shard="1/1",
-                modes="interp,native",
-                o2=True,
-                timeout=MACOS_TIMEOUT,
-            )
+        # Keep two jobs per Mac and all Jacket modes together. Intel's tooling and
+        # bindings use the catalogue job so the full Jacket run leaves them a budget.
+        catalogue = dict(
+            platform=platform,
+            shard="1/1",
+            modes="interp,native",
+            o2=True,
+            timeout=MACOS_TIMEOUT,
         )
+        producers = f"{SUITES} bindings tooling"
+        if platform == "macos-x64":
+            catalogue["suites"] = "tooling bindings"
+            producers = SUITES
+        legs.append(catalogue)
         legs.append(
             dict(
                 platform=platform,
                 shard="suites",
-                suites=f"{SUITES} bindings tooling",
+                suites=producers,
                 jacket_test="all",
                 timeout=MACOS_TIMEOUT,
             )
