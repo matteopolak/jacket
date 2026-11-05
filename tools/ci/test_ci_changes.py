@@ -432,6 +432,7 @@ class JobSelection(unittest.TestCase):
             "stdlib/Basic/module.jai",
             "tools/portable/image_conformance/manifest.json",
             "tools/portable/image_conformance/jpeg/reference.c",
+            "crates/jacket/src/test/discover.rs",
         ):
             with self.subTest(path=path):
                 self.assertTrue(ci_changes.matches(patterns, [path], workflow=False))

@@ -282,6 +282,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_portable_runtime_configuration.py` | Execute the adopted runtime against settled root and child workspace sizes. | tools |
 | `check_portable_stdlib.py` | Build the portable stdlib's native fixtures and run its integration checks. | tools |
 | `check_portable_watcher.py` | Build and execute the real FSEvents watcher tests against the production stdlib (macOS). | tools |
+| `image_conformance/check_registration.py` | Require discovery and actual execution of the standalone codec regressions. | CI |
 | `image_conformance/fetch.py` | Fetch every pinned image corpus member and verify its SHA-256 before use. | - |
 | `image_conformance/jpeg/build_reference.py` | Build and test the exact libjpeg-turbo release used by the independent JPEG oracle. | CI |
 | `image_conformance/jpeg/check.py` | Check pinned inventory and gate-policy invariants without running a compiler or decoder. | CI |

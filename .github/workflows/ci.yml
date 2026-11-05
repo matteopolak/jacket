@@ -812,11 +812,14 @@ jobs:
       - name: Conformance runner and inventory regressions
         run: |
           python3 tools/portable/image_conformance/test_gate.py
+          python3 tools/portable/image_conformance/test_registration.py
           python3 tools/portable/image_conformance/jpeg/check.py
           python3 tools/portable/image_conformance/jpeg/test_process.py
           python3 tools/portable/image_conformance/jpeg/check_node_sandbox.py --require-external-prefix
-      - name: Build the production compiler
-        run: cargo build --locked -p jaic-cli
+      - name: Build the production compiler and Jacket runner
+        run: cargo build --locked -p jaic-cli -p jacket
+      - name: Require actual Jacket codec-program discovery and execution
+        run: python3 -u tools/portable/image_conformance/check_registration.py --jacket target/debug/jacket --output "$RUNNER_TEMP/image-registration" --expected-source "$GITHUB_SHA"
       - name: Complete PNG BMP PNM QOI ICO and encoder inventories
         run: python3 -u tools/portable/image_conformance/run.py --jaic target/debug/jaic --output "$RUNNER_TEMP/image-conformance" --expected-source "$GITHUB_SHA"
       - name: Build the pinned independent JPEG reference
