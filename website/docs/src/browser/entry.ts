@@ -46,6 +46,8 @@ document.addEventListener('astro:before-swap', event => {
     for (const attribute of [...document.body.attributes]) document.body.removeAttribute(attribute.name);
     for (const attribute of [...next.body.attributes]) document.body.setAttribute(attribute.name, attribute.value);
     if (nextWrap.hasAttribute('data-toc')) wrap.setAttribute('data-toc', ''); else wrap.removeAttribute('data-toc');
+    // Fold geometry must settle before Astro restores the destination scroll position.
+    (window as Window & { jacketFinishLayout?: () => void }).jacketFinishLayout?.();
     const nextLinks = [...next.querySelectorAll<HTMLAnchorElement>('.top a[aria-current]')].map(anchor => anchor.getAttribute('href'));
     document.querySelectorAll<HTMLAnchorElement>('.top a').forEach(anchor => {
       if (nextLinks.includes(anchor.getAttribute('href'))) anchor.setAttribute('aria-current', 'page'); else anchor.removeAttribute('aria-current');

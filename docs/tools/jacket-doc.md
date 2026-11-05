@@ -136,7 +136,7 @@ The site targets WCAG 2.2 AA with semantic landmarks, one h1, a skip link, named
 
 `tools/dev/doc_spa.mjs URL` separately checks targeted request behavior, supported SPA/history/hash navigation, theme/focus/control lifetime and compiler-worker destruction on a swap. These checks need Chrome; `CHROME_PATH` selects it. The CommonMark/extension ledger, independent whole-site HTML/link checks, axe, layout, SPA behavior and deployed acceptance are separate gates. A local successful build does not establish all of them.
 
-The Shell's initial observer applies mobile/sidebar state once as nodes arrive, then disconnects. Incoming theme/open groups are prepared before Astro swaps documents, and sidebar/layout restoration finishes before paint. Keep fixed prepaint code in the Shell and abort-owned deferred behavior in browser modules; adding a late measurement cannot repair a first-paint shift.
+The Shell's initial observer applies mobile/sidebar state once as nodes arrive, then disconnects. Incoming theme/open groups are prepared before Astro swaps documents. The custom swap settles attached fold geometry before returning to Astro, so history restores against the final content height; doing this in `astro:after-swap` would let scroll anchoring move the restored viewport. Sidebar/layout restoration finishes before paint. Keep fixed prepaint code in the Shell and abort-owned deferred behavior in browser modules; adding a late measurement cannot repair a first-paint shift.
 
 ## Publishing
 
