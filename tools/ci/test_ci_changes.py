@@ -517,6 +517,28 @@ class JobSelection(unittest.TestCase):
         )
         self.assertEqual(ci_changes.selected_jobs(self.ALL | {"nix": False}, "nix"), [])
 
+    def test_docs_producer_group_is_explicit_manual_only(self):
+        self.assertEqual(
+            ci_changes.selected_jobs(self.ALL, "docs-producer"), ["docs-producer"]
+        )
+        self.assertNotIn("docs-producer", ci_changes.selected_jobs(self.ALL, ""))
+        self.assertEqual(
+            ci_changes.selected_jobs({key: False for key in self.ALL}, "docs-producer"),
+            ["docs-producer"],
+        )
+
+    def test_docs_producer_workflow_requires_explicit_manual_caller(self):
+        text = (ROOT / ".github/workflows/ci.yml").read_text()
+        self.assertIn(
+            "if: github.event_name == 'workflow_dispatch' && contains(fromJSON(needs.changes.outputs.jobs), 'docs-producer')",
+            text,
+        )
+        workflow = (ROOT / ".github/workflows/docs-producer.yml").read_text()
+        self.assertIn("  workflow_call:", workflow)
+        self.assertNotIn("workflow_dispatch:", workflow)
+        self.assertNotIn("  push:", workflow)
+        self.assertNotIn("  pull_request:", workflow)
+
     def test_ci_yml_gates_exactly_the_listed_jobs(self):
         import re
 

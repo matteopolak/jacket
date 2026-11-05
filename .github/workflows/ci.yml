@@ -1960,3 +1960,8 @@ jobs:
           name: smoke-screenshots-windows-x64
           path: target/smoke-screenshots
           if-no-files-found: ignore
+
+  docs-producer:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' && contains(fromJSON(needs.changes.outputs.jobs), 'docs-producer')
+    uses: ./.github/workflows/docs-producer.yml

@@ -14,14 +14,14 @@ For a gated job, `job_inputs.inputs()` collects:
 
 A Python literal naming an existing sibling file also follows that file, including `HERE / "pin.json"`, a license or a Jai entry source. The graph uses indexed filenames; add new inputs to the index (or use `git add -N`) before inspecting a local graph.
 
-`ci_changes.py` matches the changed files against each area's patterns and writes the `jobs=` and `<area>=` outputs `ci.yml` reads. If the computation fails, everything runs.
+`ci_changes.py` matches the changed files against each area's patterns and writes the `jobs=` and `<area>=` outputs `ci.yml` reads. If the computation fails, all default groups run. Explicit `MANUAL_ONLY` groups remain excluded unless named in the manual `jobs` selector.
 
 Hand-written policy in `ci_changes.py`:
 
 | Table | Meaning |
 | --- | --- |
 | `NARROW` | The macOS sanitizer leg runs on pushes only for codegen, driver, sweep, native tooling and shared checkout-policy inputs. |
-| `MANUAL_ONLY` | Focused acceptance jobs such as `images-ui-intel` run only when explicitly named in a manual `jobs=` request. |
+| `MANUAL_ONLY` | Focused acceptance jobs such as `images-ui-intel`, `image-conformance` and `docs-producer` run only when explicitly named in a manual `jobs=` request. Their callers also require `workflow_dispatch`. |
 | `OWN_PATHS_ONLY` | `sdl3` does not run for a workflow edit. |
 | `PROSE`, `READ_BY_TESTS` | Docs-only changes skip the code jobs, except docs a test reads. Checkout policies are code inputs even under `docs/`. |
 
