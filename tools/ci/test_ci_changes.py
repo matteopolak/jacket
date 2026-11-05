@@ -425,6 +425,37 @@ class Tiers(unittest.TestCase):
                 with self.subTest(full=full, runner=runner, part=part):
                     self.assertEqual(got, ci_changes.shards(len(got)))
 
+    def test_full_intel_target_work_is_shared_without_sharding_native_rust(self):
+        legs = [row for row in ci_changes.test_matrix(True) if row["runner"] == "macos-15-intel"]
+        self.assertEqual([row["part"] for row in legs], ["rust", "checks"])
+        self.assertEqual([row["shard"] for row in legs], ["1/1", "1/1"])
+        self.assertEqual([row.get("targets_part") for row in legs], ["2/2", "1/2"])
+        self.assertTrue(all(",targets," in row["parts"] for row in legs))
+        self.assertEqual(legs[0]["expr"], ci_changes.NOT_WASM)
+        self.assertEqual([row["timeout"] for row in legs], [150, 150])
+        for full in (False, True):
+            for row in ci_changes.test_matrix(full):
+                if not full or row["runner"] != "macos-15-intel":
+                    self.assertNotIn("targets_part", row)
+
+    def test_each_target_and_doc_share_is_complete_and_unique(self):
+        for full in (False, True):
+            groups = {}
+            for row in ci_changes.test_matrix(full):
+                if ",targets," in row["parts"]:
+                    groups.setdefault(row["runner"], []).append(row.get("targets_part", row["shard"]))
+            for runner, shares in groups.items():
+                with self.subTest(full=full, runner=runner):
+                    self.assertEqual(Counter(shares), Counter(ci_changes.shards(len(shares))))
+
+    def test_target_steps_use_their_share_and_native_rust_keeps_its_shard(self):
+        text = (ROOT / ".github/workflows/ci.yml").read_text()
+        job = text[text.index("\n  test:\n"):text.index("\n  vscode-extension:\n")]
+        self.assertIn("JACKET_STDLIB_TARGETS_PART: ${{ matrix.targets_part || matrix.shard }}", job)
+        self.assertIn("JACKET_PART: ${{ matrix.targets_part || matrix.shard }}", job)
+        self.assertIn('--partition "slice:${{ matrix.shard }}"', job)
+        self.assertIn('[[ "$JACKET_STDLIB_TARGETS_PART" == 1/* ]] && objc=(--test objc_selectors)', job)
+
     def test_the_fast_tier_fits_the_macos_limit(self):
         tests = ci_changes.test_matrix(False)
         stdlib = ci_changes.stdlib_matrix(False)
@@ -438,8 +469,9 @@ class Tiers(unittest.TestCase):
         for runner in self.MACOS:
             legs = [leg for leg in tests if leg["runner"] == runner]
             self.assertEqual([leg["part"] for leg in legs], ["rust", "checks"])
+            rust_parts = ",rust,targets," if runner == "macos-15-intel" else ",rust,"
             self.assertEqual(
-                {leg["parts"] for leg in legs}, {",rust,", ",targets,lint,diff,"}
+                {leg["parts"] for leg in legs}, {rust_parts, ",targets,lint,diff,"}
             )
         macos = [leg for leg in tests if leg["runner"] in self.MACOS]
         macos += [leg for leg in stdlib if leg["platform"].startswith("macos")]

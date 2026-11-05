@@ -336,11 +336,11 @@ jobs:
         id: stdlib-targets
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',targets,') }}
         # Every stdlib module with -no_dce for linux, macos, windows and wasm, against
-        # tests/compiler/stdlib-targets.txt, one share of the module and target pairs per shard
-        # (JACKET_STDLIB_TARGETS_PART); every Objective-C selector against its arguments and, on
-        # macOS, the runtime (docs/tools/testing.md), in the first shard.
+        # tests/compiler/stdlib-targets.txt. targets_part can share this work independently
+        # of native Rust's shard. Objective-C selectors check their arguments and, on macOS,
+        # the runtime (docs/tools/testing.md), only in the first target share.
         env:
-          JACKET_STDLIB_TARGETS_PART: ${{ matrix.shard }}
+          JACKET_STDLIB_TARGETS_PART: ${{ matrix.targets_part || matrix.shard }}
         run: |
           objc=()
           [[ "$JACKET_STDLIB_TARGETS_PART" == 1/* ]] && objc=(--test objc_selectors)
@@ -350,9 +350,9 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',targets,') }}
         # Every doc example of the standard library, type-checked (not built or run) for linux,
         # macos, windows and wasm, so a mistake that only shows on another OS fails here and not
-        # after the merge (docs/tools/jacket-test.md). The shard's share of each target's examples.
+        # after the merge (docs/tools/jacket-test.md). The target-work share of each OS's examples.
         env:
-          JACKET_PART: ${{ matrix.shard }}
+          JACKET_PART: ${{ matrix.targets_part || matrix.shard }}
         run: |
           cargo build -q -p jaic-cli -p jacket --locked
           for os in linux macos windows wasm; do
