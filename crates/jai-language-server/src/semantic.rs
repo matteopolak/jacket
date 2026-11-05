@@ -129,10 +129,9 @@ pub struct HoverFacts {
 /// the one being built included.
 const CACHED: usize = 2;
 
-/// Compiles of at most this many bytes of source (a file that imports nothing beyond the
-/// preload is about a third of this) are small: up to `SMALL_KEPT` of them are kept besides
-/// `CACHED`, so another open file that imports little is not compiled again after
-/// every edit of the program being typed in.
+/// Analyses whose source and captured proof storage fit this allowance are small. Up to
+/// `SMALL_KEPT` stay besides `CACHED`, so opening another small file need not discard the
+/// program being typed in. Rebuild protection ranks source work separately from storage.
 const SMALL_COST: usize = 1 << 20;
 
 /// Small compiles kept besides `CACHED`.

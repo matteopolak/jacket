@@ -30,6 +30,76 @@ struct Work {
 
 thread_local! {
     static WORK: RefCell<Option<Work>> = const { RefCell::new(None) };
+    static OVERLAY: RefCell<Option<OverlayWork>> = const { RefCell::new(None) };
+    static COST_PATHS: RefCell<Option<std::collections::BTreeSet<PathBuf>>> = const { RefCell::new(None) };
+}
+
+#[derive(Default)]
+struct OverlayWork {
+    current: &'static str,
+    uses: BTreeMap<PathBuf, std::collections::BTreeSet<&'static str>>,
+    uncached_files: std::collections::BTreeSet<PathBuf>,
+}
+
+pub(crate) struct OverlayScope(&'static str, std::marker::PhantomData<Rc<()>>);
+
+impl Drop for OverlayScope {
+    fn drop(&mut self) {
+        OVERLAY.with_borrow_mut(|slot| {
+            if let Some(work) = slot {
+                work.current = self.0;
+            }
+        });
+    }
+}
+
+/// Attribute nested overlay identity work to its actual caller; dropping restores the parent.
+/// For example, a file probe includes only the ancestor bookkeeping it actually requested.
+pub(crate) fn overlay_scope(kind: &'static str) -> Option<OverlayScope> {
+    OVERLAY.with_borrow_mut(|slot| {
+        let work = slot.as_mut()?;
+        let previous = std::mem::replace(&mut work.current, kind);
+        Some(OverlayScope(previous, std::marker::PhantomData))
+    })
+}
+
+/// Record an actual identity use without evaluating paths or cache lookups when disabled.
+/// Callers pass a closure such as `|| (raw_key, false)` rather than computing it first.
+pub(crate) fn overlay_identity(observe: impl FnOnce() -> (PathBuf, bool)) {
+    OVERLAY.with_borrow_mut(|slot| {
+        if let Some(work) = slot {
+            let (path, first_file) = observe();
+            work.uses
+                .entry(path.clone())
+                .or_default()
+                .insert(work.current);
+            if first_file {
+                work.uncached_files.insert(path);
+            }
+        }
+    });
+}
+
+/// Preserve canonical requirements from producers outside the overlay before rows coalesce.
+/// A config discovery lookup, for example, cannot be removed with an unrelated file probe.
+pub(crate) fn outside_identity(path: &Path) {
+    OVERLAY.with_borrow_mut(|slot| {
+        if let Some(work) = slot {
+            work.uses
+                .entry(path.to_path_buf())
+                .or_default()
+                .insert("outside");
+        }
+    });
+}
+
+struct OverlayRecording;
+
+impl Drop for OverlayRecording {
+    fn drop(&mut self) {
+        OVERLAY.with_borrow_mut(|slot| *slot = None);
+        COST_PATHS.with_borrow_mut(|slot| *slot = None);
+    }
 }
 
 pub(crate) struct Scope {
@@ -88,13 +158,55 @@ impl Recording {
     fn finish(mut self) -> Value {
         self.0 = false;
         let work = WORK.with_borrow_mut(Option::take).unwrap();
+        if let Some(pass) = work
+            .passes
+            .iter()
+            .rev()
+            .find(|pass| pass.kind == "history_replay")
+        {
+            COST_PATHS.with_borrow_mut(|slot| {
+                if let Some(paths) = slot {
+                    for ((operation, _), counts) in &pass.counts {
+                        if *operation == "canonical" {
+                            paths.extend(counts.paths.keys().cloned());
+                        }
+                    }
+                }
+            });
+        }
         Value::Array(work.passes.into_iter().enumerate().map(|(ordinal, pass)| {
+            let mut canonical_classes = BTreeMap::new();
+            for ((operation, category), counts) in &pass.counts {
+                if *operation != "canonical" { continue; }
+                for path in counts.paths.keys() {
+                    // Classification happens after the request and is diagnostic only.
+                    let state = match std::fs::metadata(path) {
+                        Ok(meta) if meta.is_file() => "file",
+                        Ok(meta) if meta.is_dir() => "directory",
+                        Ok(_) => "other_existing",
+                        Err(error) if matches!(error.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory) => "definitely_missing",
+                        Err(_) => "unknown_error",
+                    };
+                    let used = |kind| pass.counts.get(&(kind, *category)).is_some_and(|row| row.paths.contains_key(path));
+                    let origin = OVERLAY.with_borrow(|slot| {
+                        let Some(work) = slot else { return "not_collected"; };
+                        match work.uses.get(path) {
+                            Some(kinds) if kinds.len() == 1 && kinds.contains("file") && work.uncached_files.contains(path) => "uncached_file_only",
+                            Some(kinds) if kinds.len() == 1 && kinds.contains("file") => "file_only_ancestor",
+                            Some(_) => "other_overlay_use",
+                            None => "outside_overlay",
+                        }
+                    });
+                    let shape = if used("read") || used("directory") || used("listing") || used("stamp") { "other_operation" } else if used("file") { "file_probe_only" } else { "identity_only" };
+                    *canonical_classes.entry(format!("{category}/{state}/{shape}/{origin}")).or_insert(0usize) += 1;
+                }
+            }
             let rows: Vec<_> = pass.counts.into_iter().map(|((operation, category), count)| {
                 let mut multiplicity = BTreeMap::new();
                 for calls in count.paths.values() { *multiplicity.entry(*calls).or_insert(0usize) += 1; }
                 json!({"operation":operation,"category":category,"calls":count.calls,"read_bytes":count.bytes,"missing_reads":count.missing,"distinct_paths":count.paths.len(),"path_call_multiplicity":multiplicity})
             }).collect();
-            json!({"ordinal":ordinal,"parent":pass.parent,"phase":pass.kind,"proof_entries":pass.entries,"operations":rows})
+            json!({"ordinal":ordinal,"parent":pass.parent,"phase":pass.kind,"proof_entries":pass.entries,"canonical_post_request_classification":canonical_classes,"operations":rows})
         }).collect())
     }
 }
@@ -163,6 +275,12 @@ impl FileSystem for CountingFs {
     fn canonical(&self, path: &Path) -> PathBuf {
         let value = NativeFs.canonical(path);
         self.record("canonical", path, None);
+        value
+    }
+
+    fn missing_file_key(&self, path: &Path) -> Option<PathBuf> {
+        let value = NativeFs.missing_file_key(path);
+        self.record("absence_probe", path, None);
         value
     }
 
@@ -269,6 +387,43 @@ fn eligible(session: &Session, uri: &DocumentUri) -> Option<bool> {
 #[test]
 #[ignore = "manual untimed native protocol filesystem operation accounting"]
 fn native_protocol_fs_work() {
+    protocol_fs_work(
+        &[
+            "textDocument/hover",
+            "textDocument/prepareRename",
+            "textDocument/rename",
+            "textDocument/references",
+            "textDocument/linkedEditingRange",
+            "textDocument/diagnostic",
+        ],
+        &[false, true],
+        3,
+    );
+}
+
+#[test]
+#[ignore = "manual post-request classification, not accepted filesystem authority or timing"]
+fn native_missing_canonical_fraction() {
+    let _cleanup = OverlayRecording;
+    COST_PATHS.with_borrow_mut(|slot| *slot = Some(std::collections::BTreeSet::default()));
+    OVERLAY.with_borrow_mut(|slot| *slot = Some(OverlayWork::default()));
+    protocol_fs_work(&["textDocument/references"], &[true], 1);
+    OVERLAY.with_borrow_mut(|slot| *slot = None);
+    let paths = COST_PATHS.with_borrow_mut(Option::take).unwrap();
+    // Private diagnostic handoff, never a source artifact or accepted input proof.
+    let body = paths
+        .iter()
+        .map(|path| path.to_str().unwrap())
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(
+        std::env::temp_dir().join("lsp-canonical-cost-inputs.txt"),
+        body,
+    )
+    .unwrap();
+}
+
+fn protocol_fs_work(methods: &[&str], modes: &[bool], samples: usize) {
     let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
@@ -308,7 +463,12 @@ fn native_protocol_fs_work() {
         let root_uri = DocumentUri::from_path(path.parent().unwrap()).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
         let mut expected = BTreeMap::new();
-        for native_options in [false, true] {
+        for &native_options in modes {
+            OVERLAY.with_borrow_mut(|slot| {
+                if slot.is_some() {
+                    *slot = Some(OverlayWork::default());
+                }
+            });
             let fs = Rc::new(CountingFs {
                 stdlib: stdlib.clone(),
                 project: path.parent().unwrap().to_path_buf(),
@@ -357,15 +517,8 @@ fn native_protocol_fs_work() {
             );
             id += 1;
             assert_eq!(diagnostics["items"], json!([]));
-            for method in [
-                "textDocument/hover",
-                "textDocument/prepareRename",
-                "textDocument/rename",
-                "textDocument/references",
-                "textDocument/linkedEditingRange",
-                "textDocument/diagnostic",
-            ] {
-                for sample in 0..3 {
+            for &method in methods {
+                for sample in 0..samples {
                     let params = match method {
                         "textDocument/diagnostic" => json!({"textDocument":document}),
                         "textDocument/references" => {

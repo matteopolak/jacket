@@ -26,6 +26,8 @@ impl Reads {
     }
 
     pub(super) fn observe_canonical(&mut self, path: PathBuf, target: PathBuf) {
+        #[cfg(test)]
+        crate::reference_records::request_work_tests::outside_identity(&path);
         self.disk.record(path, Observation::Canonical(target));
     }
 
@@ -181,6 +183,10 @@ impl OverlayFs {
     }
 
     fn observe_identity(&self, path: &Path) -> PathBuf {
+        #[cfg(test)]
+        crate::reference_records::request_work_tests::overlay_identity(|| {
+            (self.at(path).into_owned(), false)
+        });
         let known = self.canonical.get(path);
         let key = known.clone().unwrap_or_else(|| self.canonical_of(path));
         let absolute = self.at(path);
@@ -208,6 +214,10 @@ impl OverlayFs {
     }
 
     fn canonical_of(&self, path: &Path) -> PathBuf {
+        #[cfg(test)]
+        crate::reference_records::request_work_tests::overlay_identity(|| {
+            (self.at(path).into_owned(), false)
+        });
         self.canonical.get_or_insert_with(path, |path| {
             let resolved = jaic::paths::file_identity(&*self.base, &self.at(path));
             self.observe(path, Observation::Canonical(resolved.clone()));
@@ -218,6 +228,8 @@ impl OverlayFs {
 
 impl FileSystem for OverlayFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("read");
         let key = self.observe_identity(path);
         let found = self
             .generated
@@ -235,6 +247,30 @@ impl FileSystem for OverlayFs {
     }
 
     fn is_file(&self, path: &Path) -> bool {
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("file");
+        #[cfg(test)]
+        crate::reference_records::request_work_tests::overlay_identity(|| {
+            (
+                self.at(path).into_owned(),
+                self.canonical.get(path).is_none(),
+            )
+        });
+        // A cached identity can still select an open file after its disk alias disappears.
+        // Only a new name may use exact absence, and an unsaved/generated fallback wins.
+        if self.base.is_native()
+            && self.canonical.get(path).is_none()
+            && let Some(key) = self.base.missing_file_key(&self.at(path))
+            && !self.generated.contains_key(&key)
+            && !self.files.borrow().contains_key(&key)
+        {
+            self.observe(path, Observation::Absence(key.clone()));
+            let raw = self.at(path).into_owned();
+            let mut reads = self.reads.borrow_mut();
+            reads.files.insert(raw);
+            reads.files.insert(key);
+            return false;
+        }
         let key = self.observe_identity(path);
         let open = self.generated.contains_key(&key) || self.files.borrow().contains_key(&key);
         self.record_file(path, key);
@@ -246,6 +282,8 @@ impl FileSystem for OverlayFs {
     }
 
     fn is_dir(&self, path: &Path) -> bool {
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("directory");
         let p = self.observe_identity(path);
         self.record_directory(path, p.clone());
         self.files
@@ -261,10 +299,14 @@ impl FileSystem for OverlayFs {
     }
 
     fn canonical(&self, path: &Path) -> PathBuf {
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("canonical");
         self.observe_identity(path)
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("listing");
         let key = self.observe_identity(path);
         self.record_directory(path, key.clone());
         let mut base = self.base.list_dir(&self.at(path));
@@ -290,6 +332,8 @@ impl FileSystem for OverlayFs {
     }
 
     fn stamp(&self, path: &Path) -> Option<u64> {
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("stamp");
         let key = self.observe_identity(path);
         let open = self
             .generated

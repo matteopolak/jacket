@@ -423,7 +423,8 @@ impl Cache {
                 .or_else(|| {
                     (0..self.entries.len())
                         .filter(|&i| own(&self.entries[i]))
-                        .max_by_key(|&i| self.entries[i].retained_cost())
+                        // Proof bytes count toward retention, not parsed compiler work.
+                        .max_by_key(|&i| self.entries[i].cost)
                 })
                 .or_else(|| self.entries.iter().rposition(|a| a.os.is_none()));
             // The oldest of the kind there are too many of goes first.

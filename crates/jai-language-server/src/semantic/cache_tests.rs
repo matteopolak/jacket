@@ -600,3 +600,72 @@ fn published_views_preserve_current_program_precedence_for_shared_sources() {
         "a shared source in another Program cannot bypass current-focus precedence"
     );
 }
+
+#[test]
+fn rebuild_protection_does_not_confuse_proof_storage_with_compiler_work() {
+    use super::super::observations::Observation;
+    let dir = test_support::TempDir::new("cache-rebuild-versus-proof");
+    let main = dir.write(
+        "main.jai",
+        "#load \"library.jai\"; main :: () { value := provided; }",
+    );
+    let library = dir.write("library.jai", "provided :: 42;");
+    let one = dir.write("one.jai", "one :: 1;");
+    let two = dir.write("two.jai", "two :: 2;");
+    let roots: Vec<_> = [&main, &one, &two]
+        .map(|path| test_support::lsp::native_identity(path))
+        .into();
+    let files = Rc::new(
+        [main, library, one, two]
+            .into_iter()
+            .map(|path| {
+                (
+                    test_support::lsp::native_identity(&path),
+                    Arc::<[u8]>::from(std::fs::read(path).unwrap()),
+                )
+            })
+            .collect::<BTreeMap<_, _>>(),
+    );
+    let env = Environment {
+        services: None,
+        fs: Rc::new(jaic::sema::NativeFs),
+        options: Box::new(|_, _| {
+            let mut options = jaic::sema::Options::host();
+            options.runtime_support = false;
+            options.stack_trace = false;
+            options
+        }),
+    };
+    let mut cache = Cache::default();
+    cache.analyze(&env, &roots[0], &[], files.clone()).unwrap();
+    cache.analyze(&env, &roots[1], &[], files.clone()).unwrap();
+    for (index, size) in [(0, 1 << 20), (1, 2 << 20)] {
+        // Inject a real external Read response to isolate policy ordering, not a metaprogram read.
+        let path = dir.write(&format!("proof-{index}.bin"), vec![1u8; size]);
+        let bytes = env.fs.read(&path).unwrap();
+        cache.entries[index]
+            .reads
+            .borrow_mut()
+            .disk
+            .record(path, Observation::Read(Some(Arc::from(bytes))));
+        assert!(cache.entries[index].reads.borrow().is_current(&*env.fs));
+        assert!(cache.entries[index].retained_cost() > SMALL_COST);
+        assert!(cache.entries[index].usable);
+    }
+    assert!(
+        cache.entries[0].cost > cache.entries[1].cost,
+        "the importing program has more compiler source work"
+    );
+    assert!(
+        cache.entries[0].retained_cost() < cache.entries[1].retained_cost(),
+        "the smaller compiler owns larger proof storage"
+    );
+    cache.analyze(&env, &roots[2], &[], files).unwrap();
+    assert!(
+        cache
+            .entries
+            .iter()
+            .any(|analysis| analysis.root == roots[0]),
+        "memory accounting must not replace the rebuild-work protection score"
+    );
+}

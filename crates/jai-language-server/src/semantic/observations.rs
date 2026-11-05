@@ -13,6 +13,7 @@ pub(crate) enum Observation {
     Canonical(PathBuf),
     ExactCanonical(Option<PathBuf>),
     Stamp(Option<u64>),
+    Absence(PathBuf),
 }
 
 impl Observation {
@@ -25,6 +26,7 @@ impl Observation {
             Self::Canonical(_) => 4,
             Self::Stamp(_) => 5,
             Self::ExactCanonical(_) => 6,
+            Self::Absence(_) => 7,
         }
     }
 
@@ -41,13 +43,14 @@ impl Observation {
             Self::Canonical(value) => jaic::paths::file_identity(fs, path) == *value,
             Self::Stamp(value) => fs.stamp(path) == *value,
             Self::ExactCanonical(value) => fs.canonical_exact(path) == *value,
+            Self::Absence(key) => fs.missing_file_key(path).as_ref() == Some(key),
         }
     }
 
     fn bytes(&self) -> usize {
         match self {
             Self::Read(bytes) => bytes.as_ref().map_or(0, |b| b.len()),
-            Self::Canonical(path) => path.capacity(),
+            Self::Canonical(path) | Self::Absence(path) => path.capacity(),
             Self::ExactCanonical(path) => path.as_ref().map_or(0, PathBuf::capacity),
             Self::Listing(entries) => {
                 entries.capacity() * std::mem::size_of::<(String, bool)>()
@@ -198,6 +201,8 @@ impl FileSystem for ObservedFs<'_> {
     }
 
     fn canonical(&self, path: &Path) -> PathBuf {
+        #[cfg(test)]
+        crate::reference_records::request_work_tests::outside_identity(path);
         let value = self.base.canonical(path);
         self.record(
             path,
@@ -249,5 +254,18 @@ mod tests {
         assert!(proof.borrow().matches(&jaic::sema::NativeFs));
         std::fs::write(&path, "").unwrap();
         assert!(!proof.borrow().matches(&jaic::sema::NativeFs));
+    }
+
+    #[test]
+    fn absence_proof_accounts_for_its_owned_fallback_key() {
+        let mut key = PathBuf::with_capacity(2 * 1024 * 1024);
+        key.push("/absent");
+        let allocated = key.capacity();
+        let mut proof = Observations::default();
+        proof.record(PathBuf::from("/observed"), Observation::Absence(key));
+        assert!(
+            proof.retained_bytes() >= allocated,
+            "compiler and retained-record budgets must include the owned absence key"
+        );
     }
 }

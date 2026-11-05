@@ -23,6 +23,16 @@ pub trait FileSystem {
         Some(self.canonical(path))
     }
 
+    /// Certify resolving absence and its exact native fallback identity, or return no authority.
+    /// `Some(key)` promises that `canonical_exact(path)` is unavailable and
+    /// `paths::file_identity(self, path)` would equal `key`. Files, directories, permission
+    /// errors and uncertain providers must return `None`; `!is_file(path)` is insufficient.
+    /// Callers must replay this operation to reuse an absence fact. For example, an absent
+    /// `/project/Mod.jai` can return that normalized identity until the file appears.
+    fn missing_file_key(&self, _path: &Path) -> Option<PathBuf> {
+        None
+    }
+
     /// Whether this is the real filesystem, which worker threads may read directly.
     fn is_native(&self) -> bool {
         false
@@ -77,6 +87,20 @@ impl FileSystem for NativeFs {
 
     fn canonical_exact(&self, path: &Path) -> Option<PathBuf> {
         crate::paths::canonicalize(path).ok()
+    }
+
+    fn missing_file_key(&self, path: &Path) -> Option<PathBuf> {
+        match std::fs::metadata(path) {
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+                ) =>
+            {
+                Some(crate::paths::identity_spelling(&normalize(path)))
+            }
+            _ => None,
+        }
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
