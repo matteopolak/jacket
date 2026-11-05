@@ -1,0 +1,325 @@
+{
+  "source_revision": "6e9d47004f7c2b0d7937d01ae12c7292e32b93a1",
+  "measured_utc": "2026-11-05T06:41:06.230057+00:00",
+  "environment": {
+    "cpu": "Apple M5",
+    "os": "macOS 27.0",
+    "architecture": "ARM64",
+    "optimization": "O2",
+    "stb_optimization": "repository default O2",
+    "workload_pixels": [
+      1154,
+      865
+    ],
+    "cjpeg_version": "libjpeg-turbo 3.2.0",
+    "stb_revision": "2c980bb59875b0d32144a71867fbdebb2f77cd20"
+  },
+  "method": "Median of three process minima; each minimum uses 3..40 complete decode/allocation/free iterations, stopping after 1.5 seconds or 40 iterations. Exclusive quiet gate admitted at load 2.49. Encoder generation/file I/O excluded. Ratios are stb_mps/ours_mps.",
+  "compiler_sha256": "3deade77a04553bf683975576a4bbc5035af27473a603bab7a063bfe195d398a",
+  "binary_sha256": "8f94e29e4102d1f8931bb10c6e3e0403fc878386e8c124dfb1311ebd6acfd6ab",
+  "image_source_sha256": {
+    "stdlib/Extensions/Image/qoi.jai": "93a185e94f72672d4af2b3285d1b0b61db845b2565a2c71e320b55dfe101630d",
+    "stdlib/Extensions/Image/jpeg_output.jai": "8811694037e060e55b39771822aef4352acaf91ca0854961c4ea83024079f677",
+    "stdlib/Extensions/Image/ico.jai": "bdb083df2f323d5b08a8c1eefdb28d233f389dadff29eb1fb20971e35536028c",
+    "stdlib/Extensions/Image/transform.jai": "9557740a535b37b3760f86166f71db5c0a3561f87b6db57eb64704bc3dc272fc",
+    "stdlib/Extensions/Image/jpeg_huffman.jai": "5f34b4729973308c19f6a78f9d31cc2080b43c92b98a4c64b99d3f470bccf885",
+    "stdlib/Extensions/Image/pnm.jai": "a6e0c21f41d8821434b8066886ffc4d3b37fb20bde70693df572daba267dca7e",
+    "stdlib/Extensions/Image/png.jai": "fb68e85ea51f99d8b1097a2eefa7f0da9d4f560e84234f1a63f8d0649e626687",
+    "stdlib/Extensions/Image/jpeg_scan.jai": "7a6f453ca95f0cab2af842e6bcf16c09da052ea6294c1468eda10af8f6462776",
+    "stdlib/Extensions/Image/module.jai": "1b8d636374e6efed49d18dafd4dc52c514d73b475015770fe53d845e9a05a561",
+    "stdlib/Extensions/Image/bmp.jai": "d163f335f7b2d92f40ebd803b50c6d5fd4208b1674b44c13bb208ee09d9cd8ed",
+    "stdlib/Extensions/Image/convert.jai": "006277dbab770a2f7730e49ba73695b553cdaf50c0a9a91b67b6c69db24e9558",
+    "stdlib/Extensions/Image/jpeg.jai": "fc2796655b6bbf75e3fc7d6ed6bea132373a8a63217c1408187569856ca2b28e"
+  },
+  "native_stb_sha256": {
+    "libstb_image_write.a": "73489091bef627c2ab0c587a3fa099044532c3c19fc7501e0697bd58ba9d4a49",
+    "libstb_image_resize.a": "f7ebe4a6e33342b6c5a773883f832832e04f6cf51ac7c3ba14dfa654a0125285",
+    "libstb_image.dylib": "5b53ff744dbcaf4264834b54f700cb675b6e96118707283b2c9acdcd7d91227b",
+    "libstb_image_resize.dylib": "f9e0f64b00a2601d9851915dcbbc9a26a9e4aef0517b635727c58b9b891243fe",
+    "libstb_image_write.dylib": "fcd3581a815f8467f066328261f69a1abf67916290d4c1e3d7180d6edada65f7",
+    "libstb_image.a": "438b1014246ee5264a1eea4803720e8c9c13f864698c27caf762298dce19c761"
+  },
+  "cases": [
+    {
+      "case": "baseline 4:2:0 q75 (stb)",
+      "ours_mps": 326.9,
+      "ours_range_mps": [
+        325.0,
+        327.2
+      ],
+      "stb_mps": 243.8,
+      "stb_range_mps": [
+        242.8,
+        246.7
+      ],
+      "time_over_stb": 0.7457938207402877,
+      "process_samples": [
+        {
+          "ours_mps": 327.2,
+          "stb_mps": 246.7,
+          "ratio": 0.75,
+          "kilobytes": 198
+        },
+        {
+          "ours_mps": 326.9,
+          "stb_mps": 243.8,
+          "ratio": 0.75,
+          "kilobytes": 198
+        },
+        {
+          "ours_mps": 325.0,
+          "stb_mps": 242.8,
+          "ratio": 0.75,
+          "kilobytes": 198
+        }
+      ]
+    },
+    {
+      "case": "baseline 4:4:4 q95 (stb)",
+      "ours_mps": 165.2,
+      "ours_range_mps": [
+        164.5,
+        166.2
+      ],
+      "stb_mps": 115.4,
+      "stb_range_mps": [
+        114.6,
+        116.0
+      ],
+      "time_over_stb": 0.6985472154963681,
+      "process_samples": [
+        {
+          "ours_mps": 165.2,
+          "stb_mps": 115.4,
+          "ratio": 0.7,
+          "kilobytes": 654
+        },
+        {
+          "ours_mps": 166.2,
+          "stb_mps": 114.6,
+          "ratio": 0.69,
+          "kilobytes": 654
+        },
+        {
+          "ours_mps": 164.5,
+          "stb_mps": 116.0,
+          "ratio": 0.7,
+          "kilobytes": 654
+        }
+      ]
+    },
+    {
+      "case": "baseline 4:2:2 q85",
+      "ours_mps": 256.1,
+      "ours_range_mps": [
+        248.1,
+        257.2
+      ],
+      "stb_mps": 187.4,
+      "stb_range_mps": [
+        186.3,
+        187.7
+      ],
+      "time_over_stb": 0.7317454119484575,
+      "process_samples": [
+        {
+          "ours_mps": 256.1,
+          "stb_mps": 186.3,
+          "ratio": 0.73,
+          "kilobytes": 320
+        },
+        {
+          "ours_mps": 257.2,
+          "stb_mps": 187.7,
+          "ratio": 0.73,
+          "kilobytes": 320
+        },
+        {
+          "ours_mps": 248.1,
+          "stb_mps": 187.4,
+          "ratio": 0.76,
+          "kilobytes": 320
+        }
+      ]
+    },
+    {
+      "case": "baseline 4:2:0 q75 optimized",
+      "ours_mps": 337.9,
+      "ours_range_mps": [
+        328.3,
+        338.7
+      ],
+      "stb_mps": 251.2,
+      "stb_range_mps": [
+        249.7,
+        252.6
+      ],
+      "time_over_stb": 0.7434152116010654,
+      "process_samples": [
+        {
+          "ours_mps": 337.9,
+          "stb_mps": 252.6,
+          "ratio": 0.75,
+          "kilobytes": 187
+        },
+        {
+          "ours_mps": 338.7,
+          "stb_mps": 249.7,
+          "ratio": 0.74,
+          "kilobytes": 187
+        },
+        {
+          "ours_mps": 328.3,
+          "stb_mps": 251.2,
+          "ratio": 0.77,
+          "kilobytes": 187
+        }
+      ]
+    },
+    {
+      "case": "baseline 4:2:0 q75 restarts",
+      "ours_mps": 327.7,
+      "ours_range_mps": [
+        318.8,
+        329.9
+      ],
+      "stb_mps": 245.9,
+      "stb_range_mps": [
+        245.9,
+        246.5
+      ],
+      "time_over_stb": 0.7503814464449192,
+      "process_samples": [
+        {
+          "ours_mps": 327.7,
+          "stb_mps": 245.9,
+          "ratio": 0.75,
+          "kilobytes": 197
+        },
+        {
+          "ours_mps": 329.9,
+          "stb_mps": 245.9,
+          "ratio": 0.75,
+          "kilobytes": 197
+        },
+        {
+          "ours_mps": 318.8,
+          "stb_mps": 246.5,
+          "ratio": 0.77,
+          "kilobytes": 197
+        }
+      ]
+    },
+    {
+      "case": "progressive 4:2:0 q75",
+      "ours_mps": 142.8,
+      "ours_range_mps": [
+        142.6,
+        143.0
+      ],
+      "stb_mps": 113.8,
+      "stb_range_mps": [
+        113.6,
+        114.3
+      ],
+      "time_over_stb": 0.7969187675070027,
+      "process_samples": [
+        {
+          "ours_mps": 142.6,
+          "stb_mps": 113.8,
+          "ratio": 0.8,
+          "kilobytes": 181
+        },
+        {
+          "ours_mps": 142.8,
+          "stb_mps": 113.6,
+          "ratio": 0.8,
+          "kilobytes": 181
+        },
+        {
+          "ours_mps": 143.0,
+          "stb_mps": 114.3,
+          "ratio": 0.8,
+          "kilobytes": 181
+        }
+      ]
+    },
+    {
+      "case": "progressive 4:4:4 q95",
+      "ours_mps": 64.9,
+      "ours_range_mps": [
+        64.2,
+        65.0
+      ],
+      "stb_mps": 48.9,
+      "stb_range_mps": [
+        48.5,
+        49.2
+      ],
+      "time_over_stb": 0.7534668721109398,
+      "process_samples": [
+        {
+          "ours_mps": 65.0,
+          "stb_mps": 49.2,
+          "ratio": 0.76,
+          "kilobytes": 600
+        },
+        {
+          "ours_mps": 64.9,
+          "stb_mps": 48.5,
+          "ratio": 0.75,
+          "kilobytes": 600
+        },
+        {
+          "ours_mps": 64.2,
+          "stb_mps": 48.9,
+          "ratio": 0.76,
+          "kilobytes": 600
+        }
+      ]
+    },
+    {
+      "case": "grayscale q85",
+      "ours_mps": 476.5,
+      "ours_range_mps": [
+        473.5,
+        476.7
+      ],
+      "stb_mps": 309.0,
+      "stb_range_mps": [
+        308.5,
+        310.5
+      ],
+      "time_over_stb": 0.6484784889821616,
+      "process_samples": [
+        {
+          "ours_mps": 473.5,
+          "stb_mps": 308.5,
+          "ratio": 0.65,
+          "kilobytes": 277
+        },
+        {
+          "ours_mps": 476.5,
+          "stb_mps": 309.0,
+          "ratio": 0.65,
+          "kilobytes": 277
+        },
+        {
+          "ours_mps": 476.7,
+          "stb_mps": 310.5,
+          "ratio": 0.65,
+          "kilobytes": 277
+        }
+      ]
+    }
+  ],
+  "benchmark_source_sha256": {
+    "stdlib/Extensions/Image/jpeg.jai": "fc2796655b6bbf75e3fc7d6ed6bea132373a8a63217c1408187569856ca2b28e",
+    "stdlib/Extensions/Image/jpeg_scan.jai": "7a6f453ca95f0cab2af842e6bcf16c09da052ea6294c1468eda10af8f6462776",
+    "stdlib/Extensions/Image/jpeg_output.jai": "8811694037e060e55b39771822aef4352acaf91ca0854961c4ea83024079f677",
+    "stdlib/Extensions/Image/bench/jpeg_bench.jai": "8f6f85394503bfe91be552b9ebb074a3e30dd2ee2d91b789addbbf2cbea7fbd3",
+    "tools/native/native-libs.json": "2fd3d5ac0fb48c8a5c4c39f4a16ca53eb2bfc640dd7796f183f58c66131d96ea"
+  },
+  "cjpeg_sha256": "1313b8394da8708c93fd1bff14d352957cc5e7775b315ef5970953a0004cc760",
+  "cjpeg_version_output": "libjpeg-turbo version 3.2.0 (build 20260630)"
+}

@@ -56,11 +56,27 @@ To extend a codec, first add a regression and the complete relevant corpus inven
 
 ## Equivalent-task measurements
 
-The [existing JPEG benchmark](../../stdlib/Extensions/Image/bench/jpeg_bench.jai) compares complete decode/allocation/free work against pinned stb with equal requested channel counts. Its reproducible one-megapixel workload generates deterministic baseline, progressive, grayscale and restart cases through pinned native stb and `cjpeg`. Build both candidates before timing in an exclusive, quiet window; do not time alongside compilation.
+The [JPEG benchmark](../../stdlib/Extensions/Image/bench/jpeg_bench.jai) compares complete decode, allocation and free work against pinned stb with equal requested channel counts. Its reproducible one-megapixel workload generates deterministic baseline, progressive, grayscale and restart cases through pinned native stb and `cjpeg`. Build the optimized benchmark and native providers before timing in an exclusive, quiet window; do not time alongside compilation.
 
 ```sh
-JAIC_STDLIB=stdlib jaic -O2 stdlib/Extensions/Image/bench/jpeg_bench.jai -exe target/jpeg-bench
+JAIC_NATIVE_LIBS=target/native-libs/macos-arm64 JAIC_STDLIB=stdlib \
+  target/debug/jaic -O2 stdlib/Extensions/Image/bench/jpeg_bench.jai -exe target/jpeg-bench
 target/jpeg-bench 1
 ```
+
+Measured on Apple M5, ARM64 macOS 27.0, with Image source `6e9d47004f7c` and the repository's default O2 stb build at `2c980bb`. Both decoders run in the same native O2 benchmark binary. `cjpeg` 3.2.0 generates the additional JPEG cases before timing. Each image is 1154×865 pixels. Each value is the median of three process minima; parentheses give the Image range across those minima. Each minimum covers 3–40 complete decode/allocation/free calls. Time excludes encoding and file I/O. A time ratio below 1 means Image completed the same decode task in less time than this stb build.
+
+| JPEG workload | Image MP/s (range) | stb MP/s | Image time / stb |
+| --- | ---: | ---: | ---: |
+| baseline 4:2:0 q75 (stb) | 326.9 (325.0–327.2) | 243.8 | 0.75× |
+| baseline 4:4:4 q95 (stb) | 165.2 (164.5–166.2) | 115.4 | 0.70× |
+| baseline 4:2:2 q85 | 256.1 (248.1–257.2) | 187.4 | 0.73× |
+| baseline 4:2:0 q75 optimized | 337.9 (328.3–338.7) | 251.2 | 0.74× |
+| baseline 4:2:0 q75 restarts | 327.7 (318.8–329.9) | 245.9 | 0.75× |
+| progressive 4:2:0 q75 | 142.8 (142.6–143.0) | 113.8 | 0.80× |
+| progressive 4:4:4 q95 | 64.9 (64.2–65.0) | 48.9 | 0.75× |
+| grayscale q85 | 476.5 (473.5–476.7) | 309.0 | 0.65× |
+
+The [machine-readable measurement](../benchmarks/image-codecs.json) records source/compiler/library hashes and all three samples. These minima describe throughput on this workload, not a latency distribution. Repeat all cases with the same reference build and update the table and receipt together when changing the decoder or benchmark.
 
 The existing PNG/resize microbenchmark table remains in [Image](../extensions/image.md). Neither table measures UI drawing or establishes untested competitor throughput.
