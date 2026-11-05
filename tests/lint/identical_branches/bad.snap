@@ -12,11 +12,7 @@ help: the condition decides nothing: was one branch meant to differ?
  5 -     if n > 2 {
  6 -         print("big\n");
  7 -     } else {
- 8 -         print("big\n");
- 9 -     }
  5 +     {
- 6 +         print("big\n");
- 7 +     }
    |
    = note: `identical_branches` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/identical_branches

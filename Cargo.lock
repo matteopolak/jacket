@@ -442,6 +442,7 @@ version = "0.33.0"
 dependencies = [
  "jacket-config",
  "pulldown-cmark",
+ "similar",
 ]
 
 [[package]]

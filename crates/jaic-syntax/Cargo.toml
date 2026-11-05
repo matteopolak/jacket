@@ -8,6 +8,7 @@ description = "Jai compiler front end: source files, diagnostics, lexer, parser 
 
 [dependencies]
 pulldown-cmark.workspace = true
+similar = { version = "2.7", default-features = false }
 jacket-config = { path = "../jacket-config" }
 
 [lints]

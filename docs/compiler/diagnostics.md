@@ -27,7 +27,7 @@ Say what is wrong in the user's terms, point at the user's own code (the wrong a
 - Lint rules are codes too (`Code::Lint(rule)`). The leniency warnings ([leniencies](../language/leniencies.md)) have fixed names.
 - `-A <code>` hides a warning, `-W` warns (default), `-D` makes it an error; `-D warnings` and `-A leniencies` work on groups; the last flag wins.
 - `jacket explain <code>` prints a code's text; with no argument it lists all codes.
-- A `Suggestion` is one fix as edits, read by the CLI, quick fixes and the playground alike.
+- A `Suggestion` is one fix as edits, read by the CLI, quick fixes and the playground alike. Fix previews compare the edited line contents: unchanged lines are omitted, equal-length replacement hunks show `~`, removed lines show `-`, and added lines show `+`. A branch removal that starts after the preceding statement therefore shows only the removed branch. Line-ending-only edits keep a `~` preview of the touched lines.
 - Secondary labels (`with_secondary_label(span, text)`) mark other places that explain the error, such as where a pointer was taken. They render as `---` underlines in the same snippet as the primary span, even in `plain`; editors show them as related information. Notes stay `note:` lines.
 - Suggestions and secondary labels share one optional box (`Diagnostic::details`), so a parser `Result<_, Diagnostic>` stays small. Read them with `suggestions()` / `secondary_labels()`; `clear_suggestions()` drops fixes and keeps labels.
 - Rendering (`render.rs`, one renderer for all tools): `plain` when not a terminal (stable; tests match it), `ascii`, `unicode`, and `msvc` for `-msvc_format`. `jailsp` and the playground always use plain.
@@ -50,6 +50,7 @@ Say what is wrong in the user's terms, point at the user's own code (the wrong a
 - Renaming or splitting a code breaks `-A`/`-D` users: move the old name to `RETIRED`.
 - New runtime check: an `ir::CheckReason` variant with wording in `ir::check_message` (and `runtime_support_check_failed`), raised with `Interp::check_trap`. Helps key off `Trap::kind`.
 - Lint findings carry labels as `Finding::secondary`; `jailint` maps spans in generated `#insert` code back to the insert site and shares the file text (`SecondaryLabel`).
+- When removing a statement, include its indentation and line ending only if that line contains no other code or comments. For example, removing standalone `x = x;` removes the line; removing `x = x; // keep` preserves the comment. Keep CRLF line endings intact.
 - The plain layout must stay byte-for-byte stable (`tests/lint/*/bad.snap`). Tools call `render::set_style(detect(choice))` once.
 
 ## Configuration
@@ -59,4 +60,4 @@ Say what is wrong in the user's terms, point at the user's own code (the wrong a
 
 ## Dependencies
 
-`diagnostics.rs`, `diagnostics/catalog.rs`, `render.rs`, `suggest.rs`, `sema/suggestions.rs`, `sema/trap_report.rs`, `interp::Trap`, `stdlib/Runtime_Support/module.jai`.
+`similar` (line-sequence comparison), `diagnostics.rs`, `diagnostics/catalog.rs`, `render.rs`, `suggest.rs`, `sema/suggestions.rs`, `sema/trap_report.rs`, `interp::Trap`, `stdlib/Runtime_Support/module.jai`.

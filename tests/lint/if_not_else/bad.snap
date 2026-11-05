@@ -11,9 +11,7 @@ help: test `ready` first and swap the branches
    |
  8 ~     if ready {
  9 ~         print("going\n");
-10 ~     } else {
 11 ~         print("waiting\n");
-12 ~     }
    |
    = note: see https://jacket.matteopolak.com/lint-rules/if_not_else
 
@@ -27,9 +25,7 @@ help: test `a == b` first and swap the branches
    |
 14 ~     if a == b {
 15 ~         print("same\n");
-16 ~     } else {
 17 ~         print("differ\n");
-18 ~     }
    |
    = note: see https://jacket.matteopolak.com/lint-rules/if_not_else
 
