@@ -134,6 +134,7 @@ jobs:
         run: |
           PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py
           python3 -m unittest bench.test_doc_site bench.test_doc_server
+          python3 -m unittest discover -s tools/ci -p test_check_docs_size.py
           node --test tools/dev/test_chrome_startup.mjs tools/dev/test_chrome_cdp.mjs tools/dev/test_doc_samples.mjs tools/dev/test_doc_sidebar.mjs
           node --test tools/bench/test_doc_browser_accounting.mjs tools/bench/test_doc_browser_content.mjs tools/bench/doc_validate.test.mjs
       - name: Check documentation accessibility and layout
@@ -174,6 +175,8 @@ jobs:
           name: docs-site
           path: dist-docs/*.tar.gz
           if-no-files-found: error
+      - name: Check the complete Pages publication budget
+        run: python3 tools/ci/check_docs_size.py target/doc-site
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: target/doc-site

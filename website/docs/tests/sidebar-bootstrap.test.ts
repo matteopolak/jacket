@@ -100,13 +100,13 @@ test('window resize and header resize update the same measured authority without
 });
 
 
-test('same global Astro persist swap retains live rail subtree and reader geometry without restoring it',()=>{
+test('same global custom swap retains live rail subtree and reader geometry without restoring it',()=>{
   const p=page(true);p.initialize();p.window.jacketFinishSidebar();
   p.side.scrollTop=187;p.side.children[0]!.open=false;p.side.children[1]!.open=true;
   const nav=p.side.nav,groups=[...p.side.children];
   const incoming=new Document();incoming.side=sidebar();
   p.document.dispatchEvent(Object.assign(new Event('astro:before-swap'),{newDocument:incoming}));
-  // Astro's supported persist transfers the original element, not the incoming placeholder.
+  // The supported custom swap leaves the original rail attached.
   p.document.dispatchEvent(new Event('astro:after-swap'));
   assert.equal(p.document.side,p.side);assert.equal(p.side.nav,nav);assert.deepEqual(p.side.children,groups);
   assert.equal(p.side.scrollTop,187);assert.equal(groups[0]!.open,false);assert.equal(groups[1]!.open,true);

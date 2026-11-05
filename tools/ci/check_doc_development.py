@@ -182,7 +182,7 @@ def check_case(label, export, oracle, builder, work, browsers):
         receipt["foregroundAliveAfterRequests"] = True
         if browsers:
             node = shutil.which("node")
-            execute([node, str(ROOT / "tools/dev/doc_spa.mjs"), base], ROOT, environment(), case / "spa.log")
+            execute([node, str(ROOT / "tools/dev/doc_spa.mjs"), base, "--dev"], ROOT, environment(), case / "spa.log")
             execute([node, str(ROOT / "tools/dev/doc_runtime_smoke.mjs"), base, str(case / "runtime-search.json"), "--dev"], ROOT, environment(), case / "runtime-search.log")
             if child.poll() is not None:
                 raise RuntimeError("foreground launcher did not survive actual browser/worker interactions")

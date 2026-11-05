@@ -45,8 +45,14 @@ export function compatibleShell(current: Document, incoming: Document): boolean 
     && current.body.dataset[key] === incoming.body.dataset[key])
     || current.body.dataset['docShell'] !== 'jacket-docs/1'
     || !current.querySelector('.wrap > main') || !incoming.querySelector('.wrap > main')) return false;
-  const bootstrap = current.querySelector('script[data-doc-bootstrap]')?.textContent;
-  if (!bootstrap || bootstrap !== incoming.querySelector('script[data-doc-bootstrap]')?.textContent) return false;
+  const bootstrap = (doc: Document): string | null => {
+    const script = doc.querySelector('script[data-doc-bootstrap]');
+    if (!script || script.textContent?.trim() || script.hasAttribute('async') || script.hasAttribute('defer')
+      || script.getAttribute('type')) return null;
+    return script.getAttribute('src');
+  };
+  const source = bootstrap(current);
+  if (!source || source !== bootstrap(incoming)) return false;
   const assets = (doc: Document): (string | null)[] => [
     ...[...doc.querySelectorAll<HTMLScriptElement>('script[type="module"][src]')].filter(script => !script.closest('main')).map(script => script.getAttribute('src')),
     ...[...doc.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"][href]')].map(link => link.getAttribute('href')),
