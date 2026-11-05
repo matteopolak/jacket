@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 jaic = { path = "../jaic" }
+jaic-cli-args = { path = "../jaic-cli-args" }
 jacket-config = { path = "../jacket-config" }
 jaic-llvm = { path = "../jaic-llvm", optional = true, default-features = false }
 jaic-native = { path = "../jaic-native", optional = true }

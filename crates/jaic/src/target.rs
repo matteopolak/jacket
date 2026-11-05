@@ -312,6 +312,42 @@ pub struct Selection {
 }
 
 impl Selection {
+    /// Resolve a command-line build target. Checking and interpretation permit any OS/CPU;
+    /// native cross builds without a triple support Windows and WASI only.
+    pub fn build_target(
+        &self,
+        host_os: TargetOs,
+        host_cpu: TargetCpu,
+        native: bool,
+    ) -> Result<Option<Target>, String> {
+        if let Some(triple) = &self.triple {
+            return Target::parse(triple).map(Some);
+        }
+        let os = self.os.unwrap_or(host_os);
+        let cpu = self.cpu.unwrap_or(host_cpu);
+        if os == host_os && cpu == host_cpu {
+            return Ok(None);
+        }
+        match os {
+            TargetOs::Windows => Ok(Some(Target::windows(
+                self.cpu.unwrap_or(if host_os == TargetOs::Windows { host_cpu } else { TargetCpu::X64 }),
+                host_os == TargetOs::Windows,
+            ))),
+            _ if !native => Ok(None),
+            TargetOs::Wasm => Ok(Some(Target::wasi())),
+            _ => Err("native cross-compilation is only supported for -os windows and -os wasm; pass -target <triple> for others".into()),
+        }
+    }
+
+    /// Apply the compiler's effective command-line target, including native build defaults.
+    pub fn apply_for_mode(&self, options: &mut Options, native: bool) -> Result<(), String> {
+        match self.build_target(options.os, options.cpu, native)? {
+            Some(target) => target.apply(options),
+            None => select_os_cpu(options, self.os, self.cpu),
+        }
+        Ok(())
+    }
+
     /// Apply the selection to `options` as `jaic` would for the same flags: a triple wins over
     /// the OS and CPU; otherwise [`select_os_cpu`]. Other options are kept.
     pub fn apply(&self, options: &mut Options) -> Result<(), String> {
@@ -334,11 +370,14 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
     }
     let host_os = options.os;
     options.os = os.unwrap_or(options.os);
-    options.cpu = cpu.unwrap_or(match options.os {
+    options.cpu = match options.os {
         TargetOs::Wasm => TargetCpu::Wasm,
-        os if os != host_os => TargetCpu::X64,
-        _ => options.cpu,
-    });
+        os => cpu.unwrap_or(if os == host_os {
+            options.cpu
+        } else {
+            TargetCpu::X64
+        }),
+    };
     options.long_double = long_double_for(
         options.os,
         options.cpu,
@@ -349,6 +388,93 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn effective_mode_targets_match_host_and_cross_defaults() {
+        for host_cpu in [TargetCpu::X64, TargetCpu::Arm64] {
+            let mut host = Options::host();
+            host.os = TargetOs::MacOS;
+            host.cpu = host_cpu;
+            for (selection, native, os, cpu) in [
+                (Selection::default(), true, TargetOs::MacOS, host_cpu),
+                (
+                    Selection {
+                        os: Some(TargetOs::MacOS),
+                        ..Selection::default()
+                    },
+                    false,
+                    TargetOs::MacOS,
+                    host_cpu,
+                ),
+                (
+                    Selection {
+                        os: Some(TargetOs::Linux),
+                        ..Selection::default()
+                    },
+                    false,
+                    TargetOs::Linux,
+                    TargetCpu::X64,
+                ),
+                (
+                    Selection {
+                        os: Some(TargetOs::Windows),
+                        ..Selection::default()
+                    },
+                    true,
+                    TargetOs::Windows,
+                    TargetCpu::X64,
+                ),
+                (
+                    Selection {
+                        os: Some(TargetOs::Wasm),
+                        ..Selection::default()
+                    },
+                    true,
+                    TargetOs::Wasm,
+                    TargetCpu::Wasm,
+                ),
+                (
+                    Selection {
+                        os: Some(TargetOs::Wasm),
+                        cpu: Some(TargetCpu::Arm64),
+                        ..Selection::default()
+                    },
+                    false,
+                    TargetOs::Wasm,
+                    TargetCpu::Wasm,
+                ),
+                (
+                    Selection {
+                        os: Some(TargetOs::Wasm),
+                        cpu: Some(TargetCpu::X64),
+                        ..Selection::default()
+                    },
+                    false,
+                    TargetOs::Wasm,
+                    TargetCpu::Wasm,
+                ),
+                (
+                    Selection {
+                        os: Some(TargetOs::Windows),
+                        cpu: Some(TargetCpu::Arm64),
+                        triple: Some("wasm64-unknown-wasi".into()),
+                    },
+                    true,
+                    TargetOs::Wasm,
+                    TargetCpu::Wasm,
+                ),
+            ] {
+                let mut options = host.clone();
+                selection.apply_for_mode(&mut options, native).unwrap();
+                assert_eq!((options.os, options.cpu), (os, cpu));
+            }
+            let invalid = Selection {
+                triple: Some("not-a-target".into()),
+                ..Selection::default()
+            };
+            assert!(invalid.apply_for_mode(&mut host, true).is_err());
+        }
+    }
 
     #[test]
     fn names_round_trip() {

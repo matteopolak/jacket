@@ -49,6 +49,7 @@ class RealWorkflow(unittest.TestCase):
             "crates/jaic/src/toolchain/discover.rs",
             "crates/jaic/src/ir/lower.rs",
             "crates/jacket/src/main.rs",
+            "crates/jaic-cli-args/src/options.rs",
             "stdlib/Basic/module.jai",
             "stdlib/Math/module.jai",
             "stdlib/POSIX/declarations.jai",
@@ -126,6 +127,12 @@ class RealWorkflow(unittest.TestCase):
             selects("clipboard", "tools/portable/check_portable_clipboard.py")
         )
         self.assertFalse(selects("clipboard", "crates/jai-wasm/src/lib.rs"))
+
+    def test_compiler_argument_metadata_triggers_macos_sanitizers(self):
+        for module in ("arguments", "cli", "options", "tuning"):
+            path = f"crates/jaic-cli-args/src/{module}.rs"
+            with self.subTest(path=path):
+                self.assertTrue(selects("sanitizers-macos", path))
 
     def test_macos_asan_runs_on_pushes_only_for_sanitizer_relevant_paths(self):
         self.assertTrue(selects("sanitizers-macos", "crates/jaic-llvm/src/lib.rs"))
@@ -563,10 +570,15 @@ class Tiers(unittest.TestCase):
                     ]
                     if shares == ["all"]:
                         continue
-                    count = ci_changes.TOOLING_PARTS
-                    self.assertEqual(
-                        shares, [f"hash:{k}/{count}" for k in range(1, count + 1)]
-                    )
+                    parts = [share.removeprefix("hash:").split("/") for share in shares]
+                    self.assertTrue(all(share.startswith("hash:") for share in shares))
+                    denominators = {int(n) for _, n in parts}
+                    self.assertEqual(len(denominators), 1)
+                    count = denominators.pop()
+                    numerators = [int(k) for k, _ in parts]
+                    self.assertEqual(sorted(numerators), list(range(1, count + 1)))
+                    self.assertEqual(len(numerators), len(set(numerators)))
+
 
 
 class StdlibNarrowing(unittest.TestCase):

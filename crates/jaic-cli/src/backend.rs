@@ -1,9 +1,6 @@
 //! Building workspaces and the LLVM output backend.
-use super::cli::{Cli, Flavor};
 use super::parse::shown;
 use super::timings;
-#[cfg(feature = "llvm")]
-use super::tuning;
 #[cfg(feature = "llvm")]
 use jaic::build::OutputType;
 use jaic::build::{BuildSettings, OutputBackend};
@@ -17,6 +14,7 @@ use jaic::sema::Options;
 use jaic::target::Target;
 #[cfg(feature = "llvm")]
 use jaic::target::{TargetCpu, TargetOs};
+use jaic_cli_args::cli::{Cli, Flavor};
 use std::path::{Path, PathBuf};
 
 #[cfg(all(
@@ -141,7 +139,41 @@ pub(super) fn native_backend(cli: &Cli) -> LlvmBackend {
             .join(","),
         no_inline: cli.no_inline,
         no_split: cli.no_split,
-        switches: cli.tuning.switches(),
+        switches: codegen_switches(&cli.tuning),
+    }
+}
+
+/// Code generation switches that hold for every workspace a backend writes.
+#[cfg(feature = "llvm")]
+#[derive(Clone, Default)]
+struct CodegenSwitches {
+    units: Option<usize>,
+    split_units: Option<usize>,
+    verify_ir: bool,
+    o0_passes: Option<String>,
+}
+
+#[cfg(feature = "llvm")]
+impl CodegenSwitches {
+    /// The `jaic_native::Codegen` fields these set; the rest is the default.
+    fn codegen(&self) -> jaic_native::Codegen {
+        jaic_native::Codegen {
+            units: self.units,
+            split_units: self.split_units,
+            verify_ir: self.verify_ir.then_some(true),
+            o0_passes: self.o0_passes.clone(),
+            ..Default::default()
+        }
+    }
+}
+
+#[cfg(feature = "llvm")]
+fn codegen_switches(tuning: &jaic_cli_args::tuning::Tuning) -> CodegenSwitches {
+    CodegenSwitches {
+        units: tuning.codegen_units,
+        split_units: tuning.split_units,
+        verify_ir: tuning.verify_ir,
+        o0_passes: tuning.o0_passes.clone(),
     }
 }
 
@@ -181,7 +213,7 @@ pub(super) struct LlvmBackend {
     /// `-no_inline` and `-no_split`: they hold for every workspace this backend writes.
     no_inline: bool,
     no_split: bool,
-    switches: tuning::CodegenSwitches,
+    switches: CodegenSwitches,
 }
 
 /// What one write of a workspace's output needs, worked out from its settings.

@@ -1,114 +1,42 @@
-//! The parsed command line: modes, flavors, plugins and settings.
-use super::options::CliError;
-use super::{crash_runtime, tuning};
+//! Parsed compiler settings, with no execution or backend initialization.
+use crate::options::CliError;
+use crate::tuning;
 use jaic::builtin_keys::BitcodeOptimization;
 use jaic::sema::Options;
-use jaic::target::Target;
-use jaic::target::{TargetCpu, TargetOs};
+use jaic::target::{Target, TargetCpu, TargetOs};
 use std::path::{Path, PathBuf};
-
-/// Where `tools/native/build_native_libs.py` (or a release package) puts third-party libraries for this
-/// host, or the `JAIC_NATIVE_LIBS` path list.
-pub(super) fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
-    // The crash runtime is built into jaic itself (docs/native/crash-runtime-build.md). It comes
-    // first so an older copy left in a configured folder never shadows the one this stdlib needs;
-    // the folder holds only those runtimes, so no other library is affected.
-    let mut dirs: Vec<PathBuf> = crash_runtime::dir().into_iter().collect();
-    dirs.extend(configured_native_lib_dirs(stdlib));
-    dirs.extend(apple_toolchain_lib_dir());
-    dirs
-}
-
-/// The Xcode (or Command Line Tools) toolchain's library folder on a Mac, when it holds
-/// `libclang.dylib`: the `Bindings_Generator` parses headers with it, and the release archive does
-/// not carry a second copy (the `Bindings_Generator` section of docs/tools/releases.md). Only a folder with
-/// that library is searched, so the toolchain's other libraries are never picked up by name.
-fn apple_toolchain_lib_dir() -> Option<PathBuf> {
-    if !cfg!(target_os = "macos") {
-        return None;
-    }
-    let selected = jacket_config::env::DEVELOPER_DIR.os().map(PathBuf::from);
-    let candidates = selected
-        .iter()
-        .flat_map(|dir| {
-            [
-                dir.join("Toolchains/XcodeDefault.xctoolchain/usr/lib"),
-                dir.join("usr/lib"),
-            ]
-        })
-        .chain([
-            PathBuf::from("/Library/Developer/CommandLineTools/usr/lib"),
-            PathBuf::from(
-                "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib",
-            ),
-        ]);
-    candidates
-        .into_iter()
-        .find(|dir| dir.join("libclang.dylib").is_file())
-}
-
-fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
-    if let Some(dirs) = jacket_config::env::NATIVE_LIBS.os() {
-        return std::env::split_paths(&dirs).collect();
-    }
-    let host = Target::host();
-    if host.is_wasm() {
-        return Vec::new();
-    }
-    let platform = format!(
-        "{}-{}",
-        jaic::target::os_name(host.os),
-        jaic::target::cpu_name(host.cpu)
-    );
-    // `JACKET_OUTPUT_DIR` (tools/repo_output.py) relocates the build output directory; a
-    // release package carries `native-libs/` beside `stdlib/`, a checkout builds them under
-    // `target/`.
-    let mut candidates = Vec::new();
-    if let Some(output) = jacket_config::env::OUTPUT_DIR.os() {
-        candidates.push(PathBuf::from(output).join("native-libs").join(&platform));
-    }
-    candidates.push(stdlib.join("../native-libs").join(&platform));
-    candidates.push(stdlib.join("../target/native-libs").join(&platform));
-    // A linked git worktree shares the main checkout's builds, where `build_native_libs.py` puts
-    // them (`tools/repo_output.py`).
-    candidates.extend(
-        main_checkout(&stdlib.join(".."))
-            .map(|main| main.join("target/native-libs").join(&platform)),
-    );
-    candidates
-        .iter()
-        .find_map(|dir| jaic::canonicalize(dir).ok())
-        .map(|d| vec![d])
-        .unwrap_or_default()
-}
-
-/// The main checkout of the repository whose linked worktree is `root`: `.git` there is a file
-/// naming the worktree's git folder, whose `commondir` leads to the main checkout's `.git`.
-fn main_checkout(root: &Path) -> Option<PathBuf> {
-    let link = std::fs::read_to_string(root.join(".git")).ok()?;
-    let git_dir = PathBuf::from(link.trim().strip_prefix("gitdir:")?.trim());
-    let git_dir = if git_dir.is_absolute() {
-        git_dir
-    } else {
-        root.join(git_dir)
-    };
-    let common = std::fs::read_to_string(git_dir.join("commondir")).ok()?;
-    let common = jaic::canonicalize(git_dir.join(common.trim())).ok()?;
-    common.parent().map(Path::to_path_buf)
-}
 
 /// What jaic does with the program: build it (the default), only compile it, or interpret it.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
-pub(super) enum Mode {
+pub enum Mode {
     Check,
     Interp,
     #[default]
     Build,
 }
 
+impl Mode {
+    /// Resolve mode switches with the same conflicts for the compiler and its consumers.
+    pub fn from_flags(check: bool, interp: bool, deps: bool) -> Result<Self, CliError> {
+        if check && interp {
+            return Err(CliError::new("`-check` and `-interp` cannot be combined")
+                .help("`-check` only compiles the program; `-interp` runs it in the interpreter"));
+        }
+        if deps && interp {
+            return Err(CliError::new("`-deps` and `-interp` cannot be combined")
+                .help("`-deps` only compiles the program and lists the files it read"));
+        }
+        Ok(match (check || deps, interp) {
+            (true, _) => Self::Check,
+            (_, true) => Self::Interp,
+            _ => Self::Build,
+        })
+    }
+}
+
 /// The optimization flavor `-o`, `-od` and `-very_debug` stand for.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Flavor {
+pub enum Flavor {
     Optimized,
     OptimizedDebug,
     VeryDebug,
@@ -116,7 +44,7 @@ pub(super) enum Flavor {
 
 impl Flavor {
     /// The `llvm_options.bitcode_optimization_setting` this flavor builds with.
-    pub(super) fn level(self) -> BitcodeOptimization {
+    pub fn level(self) -> BitcodeOptimization {
         match self {
             Flavor::Optimized => BitcodeOptimization::O2,
             Flavor::OptimizedDebug => BitcodeOptimization::O1,
@@ -126,7 +54,7 @@ impl Flavor {
 }
 
 /// A `-add` or `-run` string, in command-line order.
-pub(super) enum Added {
+pub enum Added {
     /// `-add`: more code for the target program.
     Code(String),
     /// `-run`: code to run at compile time.
@@ -135,7 +63,7 @@ pub(super) enum Added {
 
 impl Added {
     /// The source text this adds to the program.
-    pub(super) fn source(&self) -> String {
+    pub fn source(&self) -> String {
         match self {
             Added::Code(code) => code.clone(),
             Added::Run(code) => {
@@ -151,17 +79,17 @@ impl Added {
 }
 
 /// One `+Name` plugin with the arguments that follow it.
-pub(super) struct Plugin {
+pub struct Plugin {
     /// The module name, without its module parameters.
-    pub(super) module: String,
+    pub module: String,
     /// The text inside `Name(...)`: module parameters, `A=1,B=2`.
     parameters: Option<String>,
-    pub(super) options: Vec<String>,
+    pub options: Vec<String>,
 }
 
 impl Plugin {
     /// Split a `Name` or `Name(A=1,B=2)` plugin argument.
-    pub(super) fn parse(spec: &str) -> Self {
+    pub fn parse(spec: &str) -> Self {
         let (module, parameters) = match spec.split_once('(') {
             Some((module, rest)) => (module, Some(rest.strip_suffix(')').unwrap_or(rest))),
             None => (spec, None),
@@ -174,7 +102,7 @@ impl Plugin {
     }
 
     /// Give module parameter `name` the value `value` unless the plugin already sets it.
-    pub(super) fn default_parameter(&mut self, name: &str, value: &str) {
+    pub fn default_parameter(&mut self, name: &str, value: &str) {
         let set = self.parameters.as_deref().is_some_and(|parameters| {
             parameters.split(',').any(|assignment| {
                 assignment
@@ -196,7 +124,7 @@ impl Plugin {
     }
 
     /// The module parameter list as it follows `#import "Name"`.
-    pub(super) fn import_parameters(&self) -> String {
+    pub fn import_parameters(&self) -> String {
         self.parameters
             .as_ref()
             .map(|parameters| format!("({parameters})"))
@@ -206,7 +134,7 @@ impl Plugin {
 
 impl Cli {
     /// The metaprogram `+Plugin` stands for, compiling `path`.
-    pub(super) fn plugin_metaprogram(&self, path: &Path, wasi: bool) -> String {
+    pub fn plugin_metaprogram(&self, path: &Path, wasi: bool) -> String {
         let plugins: Vec<jaic::build::PluginImport> = self
             .plugins
             .iter()
@@ -230,74 +158,74 @@ impl Cli {
 
 /// Parsed command line.
 #[derive(Default)]
-pub(super) struct Cli {
-    pub(super) mode: Mode,
-    pub(super) file: String,
-    pub(super) imports: Vec<PathBuf>,
+pub struct Cli {
+    pub mode: Mode,
+    pub file: String,
+    pub imports: Vec<PathBuf>,
     /// `-exe`: the target workspace's `output_executable_name`. It may carry a directory and an
     /// extension.
-    pub(super) exe: Option<String>,
+    pub exe: Option<String>,
     /// `-output_path`: the target workspace's `output_path`.
-    pub(super) output_path: Option<PathBuf>,
+    pub output_path: Option<PathBuf>,
     /// `-o`, `-od` or `-very_debug`.
-    pub(super) flavor: Option<Flavor>,
+    pub flavor: Option<Flavor>,
     /// `-O0`..`-O3`; `None`: what the metaprogram chose (default: unoptimized).
-    pub(super) opt_level: Option<BitcodeOptimization>,
-    pub(super) emit_ir: Option<PathBuf>,
+    pub opt_level: Option<BitcodeOptimization>,
+    pub emit_ir: Option<PathBuf>,
     /// `-no_debug_info`: omit native debug information (on by default).
-    pub(super) no_debug_info: bool,
+    pub no_debug_info: bool,
     /// `-no_inline`: every function not marked `inline` gets `noinline`.
-    pub(super) no_inline: bool,
+    pub no_inline: bool,
     /// `-no_split`: generate code in one module instead of several.
-    pub(super) no_split: bool,
+    pub no_split: bool,
     /// `-codegen_units`, `-parse_threads`, `-profile` and the `-dev_*` flags (`tuning.rs`).
-    pub(super) tuning: tuning::Tuning,
+    pub tuning: tuning::Tuning,
     /// `-no_backtrace_on_crash`: no crash handler in the target program.
-    pub(super) no_backtrace_on_crash: bool,
+    pub no_backtrace_on_crash: bool,
     /// `-backtrace_on_crash`: install the crash handler without a metaprogram asking for it.
-    pub(super) backtrace_on_crash: bool,
+    pub backtrace_on_crash: bool,
     /// `-add` and `-run` strings.
-    pub(super) added: Vec<Added>,
+    pub added: Vec<Added>,
     /// Arguments after `-`, for the metaprogram (`compiler_get_command_line`).
-    pub(super) command_line: Vec<String>,
+    pub command_line: Vec<String>,
     /// `-interp` only: arguments after `--`, for the program (`get_command_line_arguments`).
-    pub(super) program_args: Vec<String>,
+    pub program_args: Vec<String>,
     /// `-os`: the target `OS` when it is not the host (checking code for another platform).
-    pub(super) os: Option<TargetOs>,
+    pub os: Option<TargetOs>,
     /// `-cpu`: the target `CPU` when it is not the host's (`-os windows -cpu arm64`).
-    pub(super) cpu: Option<TargetCpu>,
+    pub cpu: Option<TargetCpu>,
     /// `+Name`: metaprogram plugin modules, each with the arguments up to the next `+Name`.
-    pub(super) plugins: Vec<Plugin>,
+    pub plugins: Vec<Plugin>,
     /// `-target`: an explicit LLVM target triple (`x86_64-pc-windows-msvc`...).
-    pub(super) target: Option<String>,
+    pub target: Option<String>,
     /// `-timings`: report the wall time of each phase on stderr.
-    pub(super) timings: bool,
+    pub timings: bool,
     /// `-sanitize address,undefined` (repeatable): sanitizer instrumentation for builds.
-    pub(super) sanitize: Vec<String>,
+    pub sanitize: Vec<String>,
     /// `-coverage`: line and function coverage instrumentation (docs/tools/coverage.md).
-    pub(super) coverage: bool,
+    pub coverage: bool,
     /// `-deps`: check the program, then print every source file the compile read.
-    pub(super) deps: bool,
+    pub deps: bool,
     /// `-no_dce`: type-check every declaration, modules included
     /// (`Build_Options.dead_code_elimination = .NONE`).
-    pub(super) no_dce: bool,
+    pub no_dce: bool,
     /// `-no_check_bindings`: `CHECK_BINDINGS=false` for a `+Check` plugin.
-    pub(super) no_check_bindings: bool,
+    pub no_check_bindings: bool,
     /// `-no_workspace_output` (`-interp`): do not write what workspaces a metaprogram creates
     /// ask for (test sweeps over many programs).
-    pub(super) no_workspace_output: bool,
+    pub no_workspace_output: bool,
     /// `-no_color`: no colour in diagnostics.
-    pub(super) no_color: bool,
+    pub no_color: bool,
     /// `-msvc_format`: diagnostics as `path(line,col): error: message` lines.
-    pub(super) msvc_format: bool,
+    pub msvc_format: bool,
     /// `-A`, `-W` and `-D` as written, in order.
-    pub(super) level_flags: Vec<(String, jaic::diagnostics::Level)>,
+    pub level_flags: Vec<(String, jaic::diagnostics::Level)>,
     /// What those flags make of each warning.
-    pub(super) levels: jaic::diagnostics::Levels,
+    pub levels: jaic::diagnostics::Levels,
     /// `-quiet`: print nothing but errors.
-    pub(super) quiet: bool,
+    pub quiet: bool,
     /// `-verbose`: say what is being done.
-    pub(super) verbose: bool,
+    pub verbose: bool,
 }
 
 impl Cli {
@@ -305,7 +233,7 @@ impl Cli {
     /// change plugins. `extra` is the first argument after the file. Options that shape the
     /// output (`-exe`, `-O2`, `-emit_ir`, ...) are accepted and ignored by `-check` and
     /// `-interp`, which write none, so one command line serves all three.
-    pub(super) fn finish(&mut self, extra: Option<String>) -> Result<(), CliError> {
+    pub fn finish(&mut self, extra: Option<String>) -> Result<(), CliError> {
         if let Some(word) = extra {
             let mut error = if word.ends_with(".jai") {
                 CliError::new(format!(
@@ -349,11 +277,8 @@ impl Cli {
         Ok(())
     }
 
-    /// What to build for, `None` for the host. `-os windows` on another host cross-compiles
-    /// with MinGW-w64 (x64 unless `-cpu arm64`); other cross targets need an explicit
-    /// `-target`.
     /// Fold a flag shared with the other tools into the command line.
-    pub(super) fn take_shared(&mut self, flag: jaic::flags::Shared) {
+    pub fn take_shared(&mut self, flag: jaic::flags::Shared) {
         use jaic::flags::Shared;
         match flag {
             Shared::Os(os) => self.os = Some(os),
@@ -367,66 +292,23 @@ impl Cli {
         }
     }
 
-    pub(super) fn build_target(&self) -> Result<Option<Target>, String> {
+    /// What to build for, `None` for the host. `-os windows` on another host cross-compiles
+    /// with MinGW-w64 (x64 unless `-cpu arm64`); other cross targets need an explicit
+    /// `-target`.
+    pub fn build_target(&self) -> Result<Option<Target>, String> {
         self.build_target_from(Options::host().os, Options::host().cpu)
     }
 
-    pub(super) fn build_target_from(
+    pub fn build_target_from(
         &self,
         host_os: TargetOs,
         host_cpu: TargetCpu,
     ) -> Result<Option<Target>, String> {
-        if let Some(triple) = &self.target {
-            return Target::parse(triple).map(Some);
+        jaic::target::Selection {
+            os: self.os,
+            cpu: self.cpu,
+            triple: self.target.clone(),
         }
-        let os = self.os.unwrap_or(host_os);
-        let cpu = self.cpu.unwrap_or(host_cpu);
-        if os == host_os && cpu == host_cpu {
-            return Ok(None);
-        }
-        match os {
-            // A Windows host keeps its own toolchain (MSVC) for the other CPU. Elsewhere x64
-            // is the default: it is what most Windows machines run, and Windows on arm64
-            // runs x64 programs too.
-            TargetOs::Windows => Ok(Some(Target::windows(
-                self.cpu.unwrap_or(TargetCpu::X64),
-                host_os == TargetOs::Windows,
-            ))),
-            _ if self.mode != Mode::Build => Ok(None),
-            // A WASI command, runnable by node, wasmtime and the like.
-            TargetOs::Wasm => Ok(Some(Target::wasi())),
-            _ => Err(
-                "native cross-compilation is only supported for -os windows and -os wasm; pass -target <triple> for others"
-                    .into(),
-            ),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_linked_worktree_finds_the_main_checkout() {
-        let base = std::env::temp_dir().join(format!("jaic-worktree-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&base);
-        let git = base.join("main/.git");
-        let admin = git.join("worktrees/w");
-        std::fs::create_dir_all(&admin).unwrap();
-        std::fs::create_dir_all(base.join("main/.claude/worktrees/w")).unwrap();
-        std::fs::write(admin.join("commondir"), "../..\n").unwrap();
-        let worktree = base.join("main/.claude/worktrees/w");
-        std::fs::write(
-            worktree.join(".git"),
-            format!("gitdir: {}\n", admin.display()),
-        )
-        .unwrap();
-        let main = main_checkout(&worktree).unwrap();
-        assert_eq!(main, jaic::canonicalize(base.join("main")).unwrap());
-        // The main checkout's `.git` is a folder, and a plain folder has none.
-        assert_eq!(main_checkout(&base.join("main")), None);
-        assert_eq!(main_checkout(&base), None);
-        let _ = std::fs::remove_dir_all(&base);
+        .build_target(host_os, host_cpu, self.mode == Mode::Build)
     }
 }

@@ -421,20 +421,12 @@ fn stage_dlls_from(exe: &Path, folders: &std::ffi::OsStr) -> Result<(), String> 
     Ok(())
 }
 
-/// `flags` without the target (`-os X`, `-cpu X`).
+/// Compiler arguments for host-side discovery. The complete sequence was checked before
+/// constructing the toolchain, so this cannot fail for a valid run.
 pub(super) fn host_flags(flags: &[String]) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut skip = false;
-    for flag in flags {
-        if skip {
-            skip = false;
-        } else if flag == "-os" || flag == "-cpu" {
-            skip = true;
-        } else {
-            out.push(flag.clone());
-        }
-    }
-    out
+    jaic_cli_args::arguments::target_flags(flags)
+        .expect("validated compiler arguments")
+        .host
 }
 
 fn write(path: &Path, text: &str) -> Result<(), String> {
@@ -454,10 +446,6 @@ pub struct RunFlags {
 /// Whether the tests are built for wasm: `--os wasm`, or jaic flags that say so.
 fn targets_wasm(toolchain: &Toolchain) -> bool {
     toolchain.os == "wasm"
-        || toolchain.flags.windows(2).any(|pair| {
-            (pair[0] == "-os" && pair[1] == "wasm")
-                || (pair[0] == "-target" && pair[1].starts_with("wasm"))
-        })
 }
 
 /// The arguments that follow the program's own: the seed, `--accept`, and `--run` with `names`,
@@ -664,7 +652,7 @@ mod tests {
     }
 
     #[test]
-    fn a_wasm_target_is_found_in_the_flags_too() {
+    fn wasm_routing_uses_the_resolved_target() {
         let toolchain = |os: &str, flags: &[&str]| Toolchain {
             jaic: PathBuf::from("jaic"),
             stdlib: PathBuf::from("/stdlib"),
@@ -677,8 +665,8 @@ mod tests {
             check_only: false,
         };
         assert!(targets_wasm(&toolchain("wasm", &[])));
-        assert!(targets_wasm(&toolchain("linux", &["-q", "-os", "wasm"])));
-        assert!(targets_wasm(&toolchain(
+        assert!(!targets_wasm(&toolchain("linux", &["-q", "-os", "wasm"])));
+        assert!(!targets_wasm(&toolchain(
             "linux",
             &["-target", "wasm64-unknown-wasi"]
         )));
