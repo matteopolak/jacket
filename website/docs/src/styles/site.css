@@ -114,16 +114,16 @@ kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1p
 .site-nav a[aria-current="page"] { color: var(--fg); }
 .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--fg2); cursor: pointer; }
 
-/* Layout */
-.wrap, .foot { --layout-max: 1400px; --layout-pad: 32px; --rail-width: 220px; --layout-gap: 56px; }
-.wrap { flex: 1 0 auto; width: 100%; max-width: var(--layout-max); margin: 0 auto; padding: 0 var(--layout-pad); display: flex; flex-wrap: wrap; gap: 0 var(--layout-gap); align-items: flex-start; align-content: flex-start; }
+/* Page layout is body-owned; highlighted code also uses the wrapping class. */
+body > .wrap, .foot { --layout-max: 1400px; --layout-pad: 32px; --rail-width: 220px; --layout-gap: 56px; }
+body > .wrap { flex: 1 0 auto; width: 100%; max-width: var(--layout-max); margin: 0 auto; padding: 0 var(--layout-pad); display: flex; flex-wrap: wrap; gap: 0 var(--layout-gap); align-items: flex-start; align-content: flex-start; }
 .side { flex: 0 0 var(--rail-width); max-width: var(--rail-width); font-size: 14px; padding: 24px 0; position: sticky; top: var(--header-offset); max-height: calc(100vh - var(--header-offset)); overflow-y: auto; }
 /* The live desktop rail belongs to the viewport, independent of main content height.
    The empty flex item reserves exactly its old column without constraining its position. */
 @media (min-width: 900px) {
-  .wrap::before { content: ""; flex: 0 0 var(--rail-width); }
+  body > .wrap::before { content: ""; flex: 0 0 var(--rail-width); }
   .side { height: calc(100vh - var(--header-offset)); position: fixed; left: max(var(--layout-pad), calc((100% - var(--layout-max)) / 2 + var(--layout-pad))); width: var(--rail-width); }
-  .wrap > main { flex-basis: min(560px, calc(100% - var(--rail-width) - var(--layout-gap))); }
+  body > .wrap > main { flex-basis: min(560px, calc(100% - var(--rail-width) - var(--layout-gap))); }
   .side { z-index: 2; background: var(--bg); }
 
 }
@@ -257,13 +257,13 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 .toc li a.active::after { color: var(--link); }
 @media (forced-colors: active) { .toc li a[data-t]::after { content: none; } .toc li a.active { font-weight: 600; } }
 @media (min-width: 1200px) {
-  .wrap, .foot { --layout-max: 1520px; --rail-width: 272px; }
+  body > .wrap, .foot { --layout-max: 1520px; --rail-width: 272px; }
   .top-in { max-width: 1520px; }
 }
 @media (min-width: 1280px) {
   /* The outline is parsed after the page, so its column is held open until it arrives; the text never reflows. */
-  .wrap[data-toc]::after { content: ""; flex: 0 0 224px; }
-  .wrap:has(> .toc)::after { display: none; }
+  body > .wrap[data-toc]::after { content: ""; flex: 0 0 224px; }
+  body > .wrap:has(> .toc)::after { display: none; }
   .toc { display: block; flex: 0 0 224px; position: sticky; top: var(--header-offset); align-self: flex-start; max-height: calc(100vh - var(--header-offset)); overflow-y: auto; padding: 48px 0 24px; }
 }
 
@@ -390,7 +390,7 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 @media (max-width: 699px) { .compare { grid-template-columns: minmax(0, 1fr); } .compare figure + figure { border-left: 0; border-top: 1px solid var(--border); } }
 
 @media (max-width: 899px) {
-  .wrap { padding: 0 16px; }
+  body > .wrap { padding: 0 16px; }
   .top-in { padding: 10px 16px; }
   .logo { padding-left: 0; }
   .side { flex: 1 1 100%; max-width: none; position: static; max-height: none; overflow: visible; padding: 16px 0 0; }

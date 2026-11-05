@@ -125,6 +125,8 @@ The complete Pages artifact is checked immediately before `upload-pages-artifact
 
 Test root and nested publication bases, deep missing URLs, fragments, assets, canonical metadata and archives against built output. Component checks, browser accessibility/layout checks and deployment acceptance prove different properties; none substitutes for the others. Keep compiler extraction and explicit example execution separate from rendering author-controlled documentation.
 
+Page-layout selectors target `body > .wrap`. Highlighted Markdown fences also use the `wrap` class for text wrapping; applying rail spacers or flex columns to every `.wrap` inserts a false sidebar inside command blocks. Keep these owners distinct and run `node tools/dev/doc_code_blocks.mjs URL OWNED_OUTPUT` against built output when changing them.
+
 Changes to page appearance belong in Astro components and styles; changes to declaration identity, aliases, source provenance or resolved targets belong in the compiler/Jacket producer. Preserve the existing visual design and canonical routes when changing component structure. The builder uses Astro and pinned local JavaScript packages; its semantic inputs depend on Jacket, the compiler's documentation model, configured Markdown and declared assets.
 
 The npm source lock is checked before installation by `tools/ci/check_docs_dependencies.py`.
