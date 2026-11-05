@@ -49,7 +49,9 @@ error[absurd_comparison]: `i >= 0` is always `true`
    |
 help: `u32` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
    |
+ 4       i := n;
  5 ~     while true {
+ 6           print("%\n", i);
    |
    = note: `absurd_comparison` is `deny` by default
 ```
@@ -101,9 +103,10 @@ error[almost_swapped]: this sets both `a` and `b` to `b`
    |
 help: to swap them, write `a, b = b, a;`
    |
- 7 -     a = b;
+ 6
+ 7 ~     a, b = b, a;
  8 -     b = a;
- 7 +     a, b = b, a;
+ 9
    |
    = note: `almost_swapped` is `deny` by default
 ```
@@ -153,7 +156,9 @@ error[bad_bit_mask]: `(flags & 4) == 1` is always `false`: `& 4` leaves only the
    |
 help: compare with the mask itself (`(x & m) == m`) or test for non-zero
    |
+ 3   can_write :: (flags: u32) -> bool {
  4 ~     return false;
+ 5   }
    |
    = note: `bad_bit_mask` is `deny` by default
 ```
@@ -203,7 +208,9 @@ error[defer_frees_returned]: `name` is returned, but the `defer` above frees it
    |
 help: the deferred call runs after the value is returned: drop the `defer`, or return a copy
    |
+ 5       name := join(first, " Smith");
  6 -     defer free(name);
+ 7       return name;
    |
    = note: `defer_frees_returned` is `deny` by default
 ```
@@ -263,7 +270,9 @@ error[double_free]: `node` is freed a second time
    |
 help: remove the second call, or assign `node` a new value in between
    |
+12       free(node);
 13 -     free(node);
+14   }
    |
    = note: `double_free` is `deny` by default
 ```
@@ -316,7 +325,9 @@ error[element_count_as_bytes]: `values.count` counts `s32` elements, but this ar
    |
 help: multiply by the element size: `values.count * size_of(s32)`
    |
+ 3   copy_values :: (dest: [] s32, values: [] s32) {
  4 ~     memcpy(dest.data, values.data, values.count * size_of(s32));
+ 5   }
    |
    = note: `element_count_as_bytes` is `deny` by default
 ```
@@ -365,7 +376,9 @@ error[impossible_comparison]: `code != 404 || code != 410` is always `true`
    |
 help: every integer passes one of these comparisons: was `&&` meant?
    |
+ 3   is_live :: (code: int) -> bool {
  4 ~     return code != 404 && code != 410;
+ 5   }
    |
    = note: `impossible_comparison` is `deny` by default
 ```
@@ -409,7 +422,9 @@ error[min_max]: this is always `0`: the bounds are swapped
    |
 help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
    |
+ 4       volume := 140;
  5 ~     volume = clamp(volume, 0, 100);
+ 6       print("%\n", volume);
    |
    = note: `min_max` is `deny` by default
 ```
@@ -454,7 +469,9 @@ error[misrefactored_assign_op]: `total += total + ...` applies `+` to `total` tw
    |
 help: `+=` already starts from `total`: write `total += price`
    |
+ 6
  7 ~     total += price;
+ 8
    |
    = note: `misrefactored_assign_op` is `deny` by default
 ```
@@ -500,7 +517,9 @@ error[range_past_count]: `names.count` is one past the last index of `names`
    |
 help: ranges include their end: write `names.count - 1`
    |
+ 4       names := string.["a", "b", "c"];
  5 ~     for i: 0..names.count - 1 {
+ 6           print("%\n", names[i]);
    |
    = note: `range_past_count` is `deny` by default
 ```
@@ -551,7 +570,9 @@ error[remove_in_for]: `array_unordered_remove_by_index` changes `xs` while this 
    |
 help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
    |
+ 8       for xs {
  9 ~         if it == 2 remove it;
+10       }
    |
    = note: `remove_in_for` is `deny` by default
 ```
@@ -656,7 +677,9 @@ error[reversed_range]: the range `10..0` is empty: ranges count up
    |
 help: to count down, write `for < ...: 0..10`
    |
+ 3   main :: () {
  4 ~     for < i: 0..10 {
+ 5           print("%\n", i);
    |
    = note: `reversed_range` is `deny` by default
 ```
@@ -698,7 +721,9 @@ error[string_literal_write]: `word[0]` writes into a string literal: `word` stil
    |
 help: copy it where `word` is declared: `copy_string("hello")` (free the copy when done)
    |
+ 3   main :: () {
  4 ~     word := copy_string("hello");
+ 5       word[0] = #char "j";
    |
    = note: `string_literal_write` is `deny` by default
 ```
@@ -745,7 +770,9 @@ error[uninit_read]: `total` is read here before anything is written to it
    |
 help: `= ---` leaves `total` holding whatever was in memory: give it a value first, or drop the `= ---`
    |
+ 3   sum :: (xs: [] int) -> int {
  4 ~     total: int;
+ 5       for xs total += it;
    |
    = note: `uninit_read` is `deny` by default
 ```
@@ -847,7 +874,9 @@ error[wrapping_constant]: constant `0x8000_0000` is 2147483648, which does not f
    |
 help: to use 2147483648, compute in `s64` (`cast(s64) id`); to mean -2147483648, write -2147483648
    |
+ 3   bucket :: (id: s32) -> s32 {
  4 ~     return cast(s64) id % 0x8000_0000;
+ 5   }
    |
    = note: `wrapping_constant` is `deny` by default
 ```
@@ -897,7 +926,9 @@ warning[bitwise_precedence]: `<<` binds tighter than `-` in Jai, unlike in C
    |
 help: `<<` binds first here: write `(1 << bits)`
    |
+ 3   low_bits :: (bits: int) -> int {
  4 ~     return (1 << bits) - 1;
+ 5   }
    |
    = note: `bitwise_precedence` is `warn` by default
 ```
@@ -1045,7 +1076,9 @@ warning[dropped_result]: `parse` returns 2 values but this keeps 1; the next val
    |
 help: receive the flag, or write `, _` to show it is ignored on purpose
    |
+ 8   main :: () {
  9 ~     value, _ := parse("x");
+10       print("%\n", value);
    |
    = note: `dropped_result` is `warn` by default
 ```
@@ -1096,7 +1129,9 @@ warning[duplicate_condition]: `key == 1` was already tested earlier in this chai
    |
 help: this branch can never run: was another condition meant?
    |
+ 5       else if key == 2 print("two\n");
  6 -     else if key == 1 print("uno\n");
+ 7   }
    |
    = note: `duplicate_condition` is `warn` by default
 ```
@@ -1144,7 +1179,9 @@ warning[erasing_op]: `row * 0` is always `0`
    |
 help: `*` with this literal erases `row`: was another value meant?
    |
+ 3   offset :: (row: int, col: int) -> int {
  4 ~     return 0 + col;
+ 5   }
    |
    = note: `erasing_op` is `warn` by default
 ```
@@ -1188,7 +1225,9 @@ warning[identical_branches]: both branches of this `ifx` are the same
    |
 help: the condition decides nothing: was one branch meant to differ?
    |
+ 4       n := 3;
  5 ~     label := "positive";
+ 6       print("%\n", label);
    |
    = note: `identical_branches` is `warn` by default
 ```
@@ -1342,7 +1381,9 @@ warning[integer_division_in_float]: integer division `done / total` is converted
    |
 help: divide as floats: `cast(float) done / total`
    |
+ 5       total := 4;
  6 ~     ratio := cast(float) (cast(float) done / total);
+ 7       print("%\n", ratio);
    |
    = note: `integer_division_in_float` is `warn` by default
 ```
@@ -1483,7 +1524,9 @@ warning[no_effect]: this statement has no effect
    |
 help: to update `total`, write `total += 1;`
    |
+ 4       total := 1;
  5 ~     total += 1;
+ 6       print("%\n", total);
    |
    = note: `no_effect` is `warn` by default
 ```
@@ -1647,7 +1690,9 @@ warning[self_assignment]: `width` is assigned to itself
    |
 help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
    |
+ 8   set_width :: (size: *Size, width: int) {
  9 -     width = width;
+10   }
    |
    = note: `self_assignment` is `warn` by default
 ```
@@ -1841,7 +1886,9 @@ warning[unknown_allow]: `float_equlity` is not a jailint rule, so this comment a
    |
 help: did you mean `float_equality`? (`--list` shows every rule)
    |
+ 2
  3 ~ // jailint: allow(float_equality)
+ 4   is_zero :: (x: float) -> bool {
    |
    = note: `unknown_allow` is `warn` by default
 ```
@@ -2059,7 +2106,9 @@ warning[unused_result]: the result of `trim` is discarded; it does not change it
    |
 help: to update the argument, write `line = trim(line);`
    |
+ 6
  7 ~     line = trim(line);
+ 8
    |
    = note: `unused_result` is `warn` by default
 ```
@@ -2156,7 +2205,9 @@ warning[bool_comparison]: comparing a bool with `true`: `ready == true`
    |
 help: write `ready`
    |
+ 5
  6 ~     if ready print("ready\n");
+ 7   }
    |
    = note: `bool_comparison` is `warn` by default
 ```
@@ -2200,7 +2251,9 @@ warning[identity_op]: `count * 1` is just `count`: `*` with this operand changes
    |
 help: write `count`
    |
+ 3   size_in_bytes :: (count: int) -> int {
  4 ~     return count;
+ 5   }
    |
    = note: `identity_op` is `warn` by default
 ```
@@ -2252,8 +2305,10 @@ warning[index_only_loop]: `i` is only used to index `xs`
    |
 help: loop over the elements: `for xs` and `it`
    |
+ 5
  6 ~     for xs {
  7 ~         total += it;
+ 8       }
    |
    = note: `index_only_loop` is `warn` by default
 ```
@@ -2305,7 +2360,9 @@ warning[int_plus_one]: `count >= limit + 1` is a strict comparison written with 
    |
 help: write `count > limit`
    |
+ 3   over_limit :: (count: int, limit: int) -> bool {
  4 ~     return count > limit;
+ 5   }
    |
    = note: `int_plus_one` is `warn` by default
 ```
@@ -2354,9 +2411,10 @@ warning[loop_with_break_condition]: this loop leaves on its first statement; the
    |
 help: write `while i < 10` and drop the `if`
    |
- 6 -     while true {
+ 5
+ 6 ~     while i < 10 {
  7 -         if i >= 10 break;
- 6 +     while i < 10 {
+ 8           i += 1;
    |
    = note: `loop_with_break_condition` is `warn` by default
 ```
@@ -2409,7 +2467,7 @@ warning[manual_array_find]: this loop looks for `wanted` in `names` by hand
   --> example.jai:6:5
    |
  6 |     for names {
-   |     ^^^^^^^^^^
+   |     ^^^^^^^^^
    |
    = help: `array_find(names, wanted)` returns whether it was found, and the index after that
    = note: `manual_array_find` is `warn` by default
@@ -2458,7 +2516,9 @@ warning[manual_assign_op]: `total` is updated with `+` spelled out
    |
 help: write `total += price`
    |
+ 6
  7 ~     total += price;
+ 8
    |
    = note: `manual_assign_op` is `warn` by default
 ```
@@ -2503,7 +2563,9 @@ warning[manual_clamp]: `volume` is kept between `0` and `100` by hand
    |
 help: write `clamp(volume, 0, 100)`
    |
+ 4       volume := 140;
  5 ~     volume = clamp(volume, 0, 100);
+ 6       print("%\n", volume);
    |
    = note: `manual_clamp` is `warn` by default
 ```
@@ -2552,10 +2614,13 @@ warning[manual_index_counter]: `n` always equals `it_index` of the loop that fol
    |
 help: use `it_index` instead of counting by hand
    |
+ 3   show :: (names: [] string) {
  4 -     n := 0;
- 7 -         print("% %\n", n, it);
+ 5
+ 6       for names {
+ 6 ~         print("% %\n", it_index, it);
  8 -         n += 1;
- 6 +         print("% %\n", it_index, it);
+ 9       }
    |
    = note: `manual_index_counter` is `warn` by default
 ```
@@ -2604,9 +2669,10 @@ warning[needless_bool]: this `if` returns its own condition as a `bool`
    |
 help: write `return n > 0;`
    |
- 4 -     if n > 0 return true;
+ 3   is_positive :: (n: int) -> bool {
+ 4 ~     return n > 0;
  5 -     else return false;
- 4 +     return n > 0;
+ 6   }
    |
    = note: `needless_bool` is `warn` by default
 ```
@@ -2653,9 +2719,10 @@ warning[redundant_alias]: `result` is returned right after it is declared
    |
 help: return the value directly
    |
- 4 -     result := n * n;
+ 3   square :: (n: int) -> int {
+ 4 ~     return n * n;
  5 -     return result;
- 4 +     return n * n;
+ 6   }
    |
    = note: `redundant_alias` is `warn` by default
 ```
@@ -2699,7 +2766,9 @@ warning[redundant_cast]: `x` is already `s32`
    |
 help: remove the cast
    |
+ 4       x: s32 = 5;
  5 ~     y := x;
+ 6       print("%\n", y);
    |
    = note: `redundant_cast` is `warn` by default
 ```
@@ -2747,7 +2816,9 @@ warning[redundant_deref]: `q.*` is not needed to reach `x`
    |
 help: write `q.x`: member access already looks through the pointer
    |
+11
 12 ~     print("%\n", q.x + q.y);
+13   }
    |
    = note: `redundant_deref` is `warn` by default
 ```
@@ -2797,7 +2868,9 @@ warning[unnecessary_force_cast]: `cast,force` from `s32` to `s64` reinterprets n
    |
 help: remove `,force`: the plain cast does the same
    |
+ 3   widen :: (a: s32) -> s64 {
  4 ~     return cast(s64) a;
+ 5   }
    |
    = note: `unnecessary_force_cast` is `warn` by default
 ```
@@ -2843,7 +2916,9 @@ warning[useless_format]: `tprint("%", name)` only copies a string
    |
 help: use the string itself, or `copy_string` for a copy you own
    |
+ 3   greeting :: (name: string) -> string {
  4 ~     return name;
+ 5   }
    |
    = note: `useless_format` is `warn` by default
 ```
@@ -2893,7 +2968,9 @@ warning[approx_constant]: `3.14159` is an approximation of `PI`
    |
 help: write `PI` from `Math` (`PI64` for `float64`)
    |
+ 3   area :: (r: float) -> float {
  4 ~     return PI * r * r;
+ 5   }
    |
    = note: `approx_constant` is `warn` by default
 ```
@@ -2940,8 +3017,10 @@ warning[assert_constant]: `assert(true)` can never fail
    |
 help: remove it, or assert the condition it stands in for
    |
+ 5
  6 -     assert(true, "x is positive");
  7 - 
+ 8       print("%\n", x);
    |
    = note: `assert_constant` is `warn` by default
 ```
@@ -2990,7 +3069,9 @@ warning[banner_comment]: this comment is only a line of rule characters
    |
 help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
    |
+ 2
  3 - // -----------------------------------------------------------------------------
+ 4   // Helpers
    |
    = note: `banner_comment` is `warn` by default
 ```
@@ -3044,7 +3125,9 @@ warning[broken_doc_link]: `[prnt]` doesn't resolve to a declaration
    |
 help: did you mean `print`?
    |
+ 7
  8 ~ // Scales a [Point] and prints it with [print].
+ 9   scale :: (p: Point) {
    |
    = note: `broken_doc_link` is `warn` by default
 ```
@@ -3140,7 +3223,9 @@ warning[lossy_float_literal]: `16777.2171234` has 12 significant digits, but a `
    |
 help: write `16777.217`, which is the same `float32`
    |
+ 3   main :: () {
  4 ~     scale: float32 = 16777.217;
+ 5       print("%\n", scale);
    |
    = note: `lossy_float_literal` is `warn` by default
 ```
@@ -3180,7 +3265,9 @@ warning[mixed_case_hex_literals]: `0xFFfF` mixes upper and lower case digits
    |
 help: write `0xFFFF`
    |
+ 3   main :: () {
  4 ~     mask := 0xFFFF;
+ 5       print("%\n", mask);
    |
    = note: `mixed_case_hex_literals` is `warn` by default
 ```
@@ -3227,7 +3314,9 @@ warning[needless_continue]: this `continue` is the last thing the loop does
    |
 help: remove it
    |
+ 8           total += it;
  9 -         continue;
+10       }
    |
    = note: `needless_continue` is `warn` by default
 ```
@@ -3276,7 +3365,9 @@ warning[neg_multiply]: `x * -1` is a negation
    |
 help: write `-x`
    |
+ 3   flip :: (x: int) -> int {
  4 ~     return -x;
+ 5   }
    |
    = note: `neg_multiply` is `warn` by default
 ```
@@ -3331,11 +3422,11 @@ warning[single_case_switch]: this `switch` has a single case
    |
 help: write an `if` instead
    |
-10 -     if mode == {
-11 -         case .VERBOSE;
+ 9   announce :: (mode: Mode) {
+10 ~     if mode == .VERBOSE {
+11 ~         print("loud\n");
 12 -             print("loud\n");
-10 +     if mode == .VERBOSE {
-11 +         print("loud\n");
+13       }
    |
    = note: `single_case_switch` is `warn` by default
 ```
@@ -3385,7 +3476,9 @@ warning[unnecessary_semicolon]: this `;` ends nothing
    |
 help: remove it
    |
+ 3   main :: () {
  4 ~     total := 0;
+ 5       total += 1;
    |
    = note: `unnecessary_semicolon` is `warn` by default
 ```
@@ -3426,7 +3519,9 @@ warning[unused_import]: unused import "Math"
    |
 help: remove it
    |
+ 1   #import "Basic";
  2 - #import "Math";
+ 3
    |
    = note: `unused_import` is `warn` by default
 ```
@@ -3468,7 +3563,9 @@ warning[unused_parameter]: unused parameter `label`
    |
 help: start its name with `_` if the signature must stay, or remove it
    |
+ 2
  3 ~ area_of :: (value: int, factor: int, _label: string) -> int {
+ 4       return value * factor;
    |
    = note: `unused_parameter` is `warn` by default
 ```
@@ -3511,7 +3608,9 @@ warning[unused_variable]: unused variable `leftover`
    |
 help: remove it
    |
+ 3   main :: () {
  4 -     leftover := 5;
+ 5       print("hello\n");
    |
    = note: `unused_variable` is `warn` by default
 ```
@@ -3550,7 +3649,9 @@ warning[zero_ptr]: `cast(*u8) 0` is a null pointer
    |
 help: write `null`
    |
+ 3   main :: () {
  4 ~     p := null;
+ 5       print("%\n", p);
    |
    = note: `zero_ptr` is `warn` by default
 ```
@@ -3602,7 +3703,9 @@ warning[format_push_string]: `tprint` formats into a new string just to append i
    |
 help: `print_to_builder` writes into the builder directly
    |
+ 6
  7 ~     print_to_builder(*builder, "%: %\n", name, value);
+ 8
    |
    = note: `format_push_string` is `warn` by default
 ```
@@ -3752,7 +3855,9 @@ warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
    |
 help: write `cast(s64) ready`
    |
+ 4       ready := true;
  5 ~     count := cast(s64) ready;
+ 6       print("%\n", count);
    |
 ```
 
@@ -3862,7 +3967,9 @@ warning[detached_doc_comment]: this comment is separated from `bump` by a blank 
    |
 help: remove the blank line to document it
    |
+ 3   // Adds one to the number it is given.
  4 - 
+ 5   bump :: (n: int) -> int {
    |
 ```
 
@@ -3993,10 +4100,11 @@ warning[field_reassign_with_default]: `config` is made with its defaults and the
    |
 help: set the fields in a struct literal where the variable is declared
    |
-10 -     config: Config;
+ 9   make :: (title: string) -> Config {
+10 ~     config := Config.{ width = 100, title = title };
 11 -     config.width = 100;
 12 -     config.title = title;
-10 +     config := Config.{ width = 100, title = title };
+13
    |
 ```
 
@@ -4146,10 +4254,11 @@ warning[identical_case_bodies]: `case .JPEG` does the same as `case .PNG`
    |
 help: list the values together: `case .PNG, .JPEG;`
    |
-11 -         case .PNG;
+10       if kind == {
+11 ~         case .PNG, .JPEG;
 12 -             return "image";
 13 -         case .JPEG;
-11 +         case .PNG, .JPEG;
+14               return "image";
    |
 ```
 
@@ -4210,9 +4319,12 @@ warning[if_not_else]: `if !ready` is negated, with an `else`
    |
 help: test `ready` first and swap the branches
    |
+ 5
  6 ~     if ready {
  7 ~         print("going\n");
+ 8       } else {
  9 ~         print("waiting\n");
+10       }
    |
 ```
 
@@ -4368,7 +4480,9 @@ warning[leaked_allocation]: `parser` holds memory from `New` that is never freed
    |
 help: free it when done, for example `defer free(parser);` right after this line
    |
+ 8       parser := New(Parser);
  9 +     defer free(parser);
+ 9       parser.depth = 3;
    |
 ```
 
@@ -4415,7 +4529,9 @@ warning[lossy_xx]: `xx` converts `s64` to `u16`, which can lose the high bits
    |
 help: write `cast(u16)` to make the conversion visible
    |
+ 4       big := 70000;
  5 ~     small: u16 = cast(u16) big;
+ 6       print("%\n", small);
    |
 ```
 
@@ -4498,11 +4614,13 @@ warning[neg_cmp_float]: `!(x < limit)` is not `x >= limit` when a float is NaN
   --> example.jai:4:12
    |
  4 |     return !(x < limit);
-   |            ^^^^^^^^^^^
+   |            ^^^^^^^^^^^^
    |
 help: write the inverted comparison if NaN should not take the branch, or test for NaN explicitly if it should
    |
+ 3   within :: (x: float, limit: float) -> bool {
  4 ~     return x >= limit;
+ 5   }
    |
 ```
 
@@ -4647,7 +4765,9 @@ warning[unreadable_literal]: `1000000` is hard to read without separators
    |
 help: write `1_000_000`
    |
+ 2
  3 ~ TIMEOUT :: 1_000_000;
+ 4
    |
 ```
 
@@ -4748,7 +4868,9 @@ warning[autocast_in_arg]: `xx` leaves the target type to the parameter (`s64` to
    |
 help: write `cast(s32)` to say so
    |
+ 9
 10 ~     print("%\n", draw(cast(s32) width, 10));
+11   }
    |
 ```
 
@@ -4794,7 +4916,9 @@ warning[autocast_used]: `xx` leaves the target type to the context (`s64` to `u8
    |
 help: write `cast(u8)` to say so
    |
+ 4       big: s64 = 200;
  5 ~     small: u8 = cast(u8) big;
+ 6
    |
 ```
 
