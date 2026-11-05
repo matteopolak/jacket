@@ -35,7 +35,15 @@ For source development, `just docs --setup --dev` explicitly checks dependency p
 installs the frozen packages, builds debug Rust tools and a matching native `jaifmt` beside
 Jacket, then exports once before starting Astro. Semantic refresh checks that formatter for
 source changes and rebuilds it when stale; it does not trigger another Rust release build.
-Use `just docs --dev` after setup. The wrapper watches semantic source/configuration/assets
+Production builds and Astro development use `src/lib/publication.ts` as the single writer for admitted assets, module navigation, search, runnable examples and the version catalogue.
+
+The dev-only Astro integration materializes these exact files into an owned `.astro/jacket-doc-public-*` directory and configures Astro's `publicDir`. The config reads the admitted base before Astro normalizes routes and creates Vite, avoiding a late base override. Development accepts either trailing-slash form, including the exported base-root home link; production keeps file output and slashless page routes.
+
+Derived JSON uses framework serving; a dev-only pre-public middleware reads declared assets from that same generated directory with their admitted media types and lengths, including GET/HEAD. This avoids extension-table differences such as XML while preserving nested publication bases; no development-only serializer or API is involved.
+
+The directory is removed through Vite's awaited close hook. A dev-only Ctrl-C handler closes that server too; normal termination and managed watcher restarts use the same cleanup. Assets are checked again against their admitted hashes before copying, and existing output or conflicting example identities fail rather than being overwritten.
+
+Use `just docs --dev` after setup. The wrapper starts Astro with its documented `--ignore-lock` one-off foreground mode, so agent auto-backgrounding cannot orphan the semantic watcher; it terminates only its own server child. The wrapper watches semantic source/configuration/assets
 and performs a full deterministic export on a real content change; it restarts the dev server
 to clear route and loader state. A failed export keeps the last complete bundle, displays a
 DEV-only stale banner, and waits for another actual source change. There is no timer retry.
@@ -252,3 +260,22 @@ The real compiled client must show the first generation's summary-query result a
 A separate empty isolated browser cache requests an old navigation digest after the simulated deployment and receives the new valid bytes. This explicitly demonstrates the historical-tab limit above. JSON/assets use `max-age=3600`, HTML uses `no-store`, and there is no compression or service worker. The probe uses a fresh default Chrome cache without forced cache capacity. It currently covers the root base; the installed CLI smoke separately checks genuine nested-base builds. CI runs this alongside the unchanged accessibility/layout/browser checks. Change the overlay projection and assertions in this script when the navigation/search contract changes; retain the real client validator and server/CDP evidence.
 
 For a manual hosted docs acceptance run, set `docs-pages` inputs `ref` to the exact candidate commit, `version` to the displayed package version, `browser_checks=true`, and `deploy=false`. This builds the real static artifact and runs the existing 24 accessibility and 560 layout cases plus the routing, cache, declaration, rail and production-example checks. Select other affected workflow groups separately; do not open a PR merely to trigger its first CI run.
+
+
+### Development publication acceptance
+
+`tools/ci/check_doc_development.py` stages the actual source builder with explicitly installed locked dependencies, then starts its declared Astro CLI with `dev --ignore-lock` in an owned foreground process. It checks root and nested exports against their retained production outputs: every derived JSON file and declared asset must have identical HTTP bytes and MIME. The launcher must remain alive through requests and browser interaction; shutdown must close its listener and remove only its generated `.astro/jacket-doc-public-*` directory.
+
+Run inside the shared heavy-work gate with pinned Node on `PATH`:
+
+```sh
+PYTHONPATH=tools python3 tools/ci/check_doc_development.py \
+  --work /tmp/jacket-doc-development \
+  --root-export /owned/root/export --root-site /owned/root/site \
+  --nested-export /owned/nested/export --nested-site /owned/nested/site \
+  --full-export /owned/full/export --full-site /owned/full/site
+```
+
+The work path must be absent and outside the checkout. Omit the tiny export/site pairs and supply matching `--jacket` and `--formatter` tools to generate the authored root/nested fixtures through the real CLI. `--tiny-only` explicitly excludes runtime/browser coverage. No dependency install occurs implicitly.
+
+Full acceptance runs the existing SPA request/lifecycle gate and `tools/dev/doc_runtime_smoke.mjs URL RECEIPT --dev`. The shared smoke sends a trusted Run click, verifies the admitted engine/Wasm responses and digests, then checks real search and retained-body navigation. Development uses Vite's source sprite URL; production requires its hashed asset URL. Both modes retain unexpected runtime exceptions and require a successful compiler result. This is correctness evidence, not a compilation or browser timing benchmark. Extend these probes when changing the shared publication writer or foreground server lifecycle.

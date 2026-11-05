@@ -2,11 +2,11 @@
  * Example: npm run build -- --export /tmp/library-export --out /tmp/library-site
  */
 import { spawn } from 'node:child_process';
-import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadBundle } from '../src/lib/loader.ts';
-import { moduleNavigationPath, moduleNavigation } from '../src/lib/navigation-path.ts';
+import { writePublication } from '../src/lib/publication.ts';
 import { checkSite } from './check-site.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -46,36 +46,7 @@ try {
     child.on('error',reject);
     child.on('exit',code => code === 0 ? accept() : reject(new Error(`Astro exited with status ${code}`)));
   });
-  for (const asset of bundle.manifest.assets) {
-    const output = resolve(staging,asset.path);
-    await mkdir(dirname(output),{recursive:true});
-    await cp(resolve(bundle.root,asset.path),output,{errorOnExist:true,force:false});
-  }
-  const exampleFiles=new Map();
-  async function examples(value) {
-    if(!value || typeof value!=='object')return;
-    if(value.kind==='fence' && value.example.runnable) {
-      const example=value.example;
-      if(!/^[a-f0-9]{12}$/u.test(example.id))throw new Error('invalid example asset ID');
-      const bytes=JSON.stringify({payload:'example',data:example});
-      const previous=exampleFiles.get(example.id);
-      if(previous && previous!==bytes)throw new Error(`example ID collision ${example.id}`);
-      if(!previous){exampleFiles.set(example.id,bytes);const path=resolve(staging,`examples/${example.id}.json`);await mkdir(dirname(path),{recursive:true});await writeFile(path,bytes);}
-    }
-    for(const child of Object.values(value))if(child && typeof child==='object') {
-      if(Array.isArray(child)){for(const item of child)await examples(item);}else await examples(child);
-    }
-  }
-  for (const shard of bundle.manifest.shards) {
-    const payload = await bundle.shard(shard.path);
-    if (payload.payload === 'module') {
-      await examples(payload.data);
-      const path = resolve(staging,moduleNavigationPath(payload.data.id));
-      await mkdir(dirname(path),{recursive:true});
-      await writeFile(path,moduleNavigation(payload.data).json);
-    } else if (payload.payload === 'search') await writeFile(resolve(staging,'search-index.json'),JSON.stringify(payload));
-  }
-  await writeFile(resolve(staging,'versions.json'),JSON.stringify(bundle.site.version ? [{version:bundle.site.version,url:'./'}] : []));
+  await writePublication(bundle,staging);
   await writeFile(resolve(staging,'.jacket-doc'),'');
   await checkSite(staging,bundle.site.pageBase,{name:bundle.site.name,homeTitle:bundle.site.socialSiteName,socialName:bundle.site.socialSiteName});
   if (!check) {

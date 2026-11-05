@@ -135,7 +135,7 @@ jobs:
           PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py
           python3 -m unittest bench.test_doc_site bench.test_doc_server
           node --test tools/dev/test_chrome_startup.mjs tools/dev/test_chrome_cdp.mjs tools/dev/test_doc_samples.mjs tools/dev/test_doc_sidebar.mjs
-          node --test tools/bench/test_doc_browser_accounting.mjs tools/bench/test_doc_browser_content.mjs
+          node --test tools/bench/test_doc_browser_accounting.mjs tools/bench/test_doc_browser_content.mjs tools/bench/doc_validate.test.mjs
       - name: Check documentation accessibility and layout
         if: ${{ inputs.browser_checks || vars.DOCS_BROWSER_CHECKS != 'false' }}
         run: |
@@ -155,6 +155,11 @@ jobs:
           node tools/dev/doc_sidebar_geometry.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-header-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" api/Basic --header-resize
           node tools/dev/doc_sidebar_geometry.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-live-dark-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" api/Basic --live-rail --source-y=600 --theme=dark
           node tools/dev/doc_sidebar_geometry.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-live-light-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" api/Basic --live-rail --source-y=600 --theme=light
+      - name: Check foreground development publication and runtime
+        if: ${{ inputs.browser_checks || vars.DOCS_BROWSER_CHECKS != 'false' }}
+        run: |
+          python3 -m unittest discover -s tools/dev -p test_doc_watch.py
+          python3 tools/ci/check_doc_development.py --jacket "$PWD/target/release/jacket" --formatter "$PWD/target/release/jaifmt" --work "$RUNNER_TEMP/jacket-doc-dev-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --full-export "$PWD/target/doc-export" --full-site "$PWD/target/doc-site"
       - name: Pack it for the release
         if: inputs.pack
         env:

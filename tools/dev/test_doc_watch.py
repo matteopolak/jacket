@@ -58,5 +58,19 @@ class DocWatchTests(unittest.TestCase):
             self.assertEqual(doc_watch.snapshot([source]), same)
 
 
+class ManagedServerTests(unittest.TestCase):
+    def test_managed_astro_server_remains_foreground_even_in_agent_context(self):
+        import types
+        from unittest.mock import patch
+        calls = []
+        child = types.SimpleNamespace(returncode=0, poll=lambda: 0)
+        with patch.object(doc_watch.shutil, 'which', return_value='owned-node'), \
+             patch.object(doc_watch, 'astro_cli', return_value=Path('owned-astro.mjs')), \
+             patch.object(doc_watch, 'source_roots', return_value=[]), \
+             patch.object(doc_watch.subprocess, 'Popen', side_effect=lambda command, **kw: calls.append((command, kw)) or child):
+            self.assertEqual(doc_watch.run_dev(lambda: 0, Path('builder'), Path('export')), 0)
+        self.assertIn('--ignore-lock', calls[0][0], 'Astro agent auto-backgrounding would orphan the source watcher')
+
+
 if __name__ == "__main__":
     unittest.main()
