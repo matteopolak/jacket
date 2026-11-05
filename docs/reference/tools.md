@@ -562,6 +562,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_TEST_TMPDIR` | Where test scratch directories are made. | the system temporary directory | tests |
 | `JAIC_WASM_TEST` | A value the WebAssembly test passes to the program, which prints it back. | unset | tests |
 | `JAILSP_ENFORCE_SCALE_BUDGET` | `1`: the language server scale test fails when a case is over its budget. | unset: the budget is only reported | tests |
+| `JAILSP_SCALE_SANDBOX_INPUTS` | Rejected obsolete upstream scale input selector; it never grants permission to run outside the bench sandbox. | unset | tests |
 | `JAI_FUZZ_VERBOSE` | When set, the fuzz harness prints each input it checks. | unset | fuzzing |
 | `JAI_IDE_AUDIT_REVISION` | Read at build time: the revision the language server coverage audit stamps into its report. | unset | tests |
 | `TYPING_FUZZ_DUMP` | A directory the typing-session rig writes the failing document to. | unset | tests |

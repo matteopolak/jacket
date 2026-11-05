@@ -218,6 +218,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | Script | What it does | Called by |
 | --- | --- | --- |
 | `oracle.py` | Language-server oracle checks over every file `jaic -check` accepts (docs/tools/lsp-oracle.md). | CI |
+| `scale_sandbox.py` | Run the established upstream LSP scale case under the bench sandbox, without fallback. | - |
 
 ## `native/`
 

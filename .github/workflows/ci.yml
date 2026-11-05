@@ -323,7 +323,10 @@ jobs:
         env:
           JAILSP_ENFORCE_SCALE_BUDGET: '1'
         run: |
+          bash tools/ci/apt_install.sh bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           python3 tools/fetch_upstreams.py --only focus-editor/focus
+          cargo build --locked -p jai-language-server --example lsp_scale_worker
           cargo nextest run --profile ci -p jai-language-server --locked --test scale
       - name: Native tests with every program divided into parts
         id: split-native
