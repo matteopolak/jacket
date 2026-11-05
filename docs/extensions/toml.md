@@ -121,13 +121,14 @@ The community negative failures comprise missing array separators, nonstandard i
 
 Local contract validation also passed 17 interpreted core tests, 18 native tests and 18 WASI tests (the extra case exercises the real formatter), all 30 existing formatter golden cases, 50 shared settings-schema cases against Rust, 324 authored-value/mutation differential cases against Rust/Python, and 3,000 lifecycle-aware mutation/construction fuzz calls with zero skips/findings. These counts describe distinct checks; they are not multiplied into the independent suite inventory.
 
-The browser compiler engine passed the signed-zero, minimum-subnormal and formatter consumer on the C5 source bundle under Node 24.12.0. The current insertion-cursor source is refreshed by the browser CI gate before publication. These checks exercise the browser engine, not Chrome UI behavior. Linux/Windows execution and required final-head CI remain separate acceptance gates.
+The browser compiler engine passed the signed-zero, minimum-subnormal, wide-index and formatter consumer checks on the current insertion-cursor source bundle under Node 24.12.0. All 30 formatter golden cases, valid wrong-type schema rejection and malformed unrelated-section rejection also passed through that engine. These checks exercise the browser engine, not Chrome UI behavior. Linux/Windows execution and required final-head CI remain separate acceptance gates.
 
 [TOML measurements](toml-performance.md) records the storage decision, final allocation payload, formatter artifact cost and equivalent-task benchmark procedure.
 
 Reproduce the native suite through the shared local heavy-job gate:
 
 ```sh
+export PYTHONPATH="$PWD/tools"
 python3 tools/stdlib/toml/run.py --jaic /absolute/path/to/jaic --cache /tmp/toml-suite --report /tmp/toml-result.json
 python3 tools/stdlib/toml/run.py --jaic /absolute/path/to/jaic --cache /tmp/toml-suite --report /tmp/toml-statements.json --record-statements
 python3 tools/stdlib/toml/run_wasi.py --jaic /absolute/path/to/jaic --cache /tmp/toml-wasi --report /tmp/toml-wasi.json
@@ -138,8 +139,8 @@ python3 tools/stdlib/toml/differential.py --own /tmp/toml-suite/decoder --rust /
 python3 tools/stdlib/toml/workloads.py --output /tmp/toml-workloads
 ```
 
-The independent Python reader needs TOML 1.1 support. Its exact `python_toml` version is managed in `.github/pins.json` separately from the ordinary CI-tools Python version; `tools/ci/pins.py sync` updates the job-local setting. The first Linux tooling job uses that interpreter for all subsequent Python steps, including its later helper/producer checks; other legs retain the ordinary tools pin.
+The independent Python reader needs TOML 1.1 support. Its exact `python_toml` version is managed in `.github/pins.json` separately from the ordinary CI-tools Python version; `tools/ci/pins.py sync` updates the job-local setting. The first Linux tooling job selects that interpreter for its final TOML checks. Existing setup and runtime/producer checks run first with the ordinary tools pin; other legs retain that pin throughout.
 
-CI runs both complete modes once per represented native platform/CPU using the existing production compiler builds: the first Linux tooling part, each macOS suite leg and the first Windows shard. Linux x64 also runs both complete profiles under actual WASI with Node. Both profiles run even if one fails; either failure fails the job. Complete JSON outcomes and the expected inventory are retained, and missing profile reports fail the job.
+CI runs both complete modes once per represented native platform/CPU using the existing production compiler builds: the first Linux tooling part, each macOS suite leg and the first Windows shard. Linux x64 also runs both complete profiles under actual WASI with Node. Both profiles run even if one fails; either failure fails the job. Complete JSON outcomes and the expected inventory are retained, and missing profile reports fail the job. These independent checks run after existing setup/runtime work so a TOML failure cannot skip unrelated prerequisites. Pinned license files use exact-byte Git attributes; Windows newline conversion must not alter their archive comparison.
 
 The [pinned runner release](https://github.com/toml-lang/toml-test/releases/expanded_assets/v2.2.0) publishes a Windows x64 controller but no Windows ARM64 controller. ARM64 jobs explicitly select `--runner-asset windows-amd64.exe`; [Windows 11 supports x64 application emulation](https://learn.microsoft.com/en-us/windows/arm/apps-on-arm-x86-emulation). The parser adapter remains native ARM64: `--expected-windows-cpu arm64` verifies its PE machine separately. Reports record controller asset and parser CPU; there is no silent architecture fallback or parser emulation claim. Actual Windows acceptance remains pending its required CI execution.
