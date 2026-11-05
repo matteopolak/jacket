@@ -131,3 +131,84 @@ The same CI step also runs `jacket test --doc --check-only --os <os>` for linux,
 ## Objective-C selector check
 
 Selectors are strings, so a typo type-checks and fails at run time. `cargo test -p jaic-cli --test objc_selectors` reads literal `sel_registerName` calls: the argument count must equal the number of `:` (every host), and on macOS the method must exist (checked via the Objective-C runtime against `tests/compiler/objc-selectors.txt`). Pass selectors as literals. If a method only exists on newer macOS, list it in that file with a reason.
+
+## Crash-summary acceptance
+
+On a fuzz failure, `tools/fuzz/crash_summary.py` appends each retained input's identity,
+SHA-256, bounded hex/text representation and replay panic/backtrace to the Actions summary.
+Replay build failures are reporting failures: inputs remain visible, no replay is attempted,
+and the command exits 1. The workflow's summary step keeps its own error separate from the
+original failed fuzz step through `continue-on-error`; neither result establishes reproduction.
+
+The isolated validator compiles a tiny Rust harness that panics on known bytes:
+
+```sh
+PYTHONPATH=tools python3 tools/fuzz/validate_crash_summary.py --out target/panic-summary
+# Hosted, manual only; this opt-in job does not share corpus/build caches:
+gh workflow run ci.yml --ref YOUR_BRANCH -f jobs=docs -F fuzz_summary=true
+```
+
+A green validator proves actual Rust panic capture, nonzero replay status, bounded backtrace,
+exact input bytes, report append behavior and saved artifact identity. It is synthetic and does
+not discover a compiler bug. `summary.md`, `replay.json` and the hash-named input are the evidence.
+The hosted job uploads them even on a failed validator. Inspect the rendered job summary as
+well as the artifact before recording acceptance.
+
+Production `failure()` scheduling needs a separate isolated negative check. On a disposable
+manual-only ref, invoke the validator with `--phase fuzz` in the fuzz step (expected nonzero),
+then `--phase summary` in the unchanged failure-gated summary step and retain failure-gated
+artifact upload. The expected red run must have only the deliberate panic step fail; summary
+and upload must succeed and the downloaded input must match its recorded hash. Keep this
+injection out of the deliverable branch. A green wrapper alone cannot prove failure scheduling.
+
+The runtime validator builds and checks its report locally; its CLI publishes the verified
+report to the job summary. Unit tests exercise publication against a temporary destination.
+
+Change report formatting in `crash_summary.py`; extend real-process acceptance in
+`validate_crash_summary.py` and the boundary tests in `test_crash_summary.py`. These tools need
+Python and Rust; normal replay additionally depends on the fuzz harness and its Cargo lockfile.
+
+The isolated failure-gate check was validated in [run 41815239378](https://github.com/matteopolak/jacket/actions/runs/41815239378)
+(source `99d4397757024de0e52390e5109fc31b25a9bde7`): only the synthetic Fuzz step
+failed, while summary, artifact upload and original-outcome assertions succeeded. The
+20-byte input SHA-256 is `0311004acd24f2579f3446994acd356f5a1e2736942ac53739ca10c3e8bb1d38`;
+the downloaded replay status was 101 and its Markdown contained the panic/backtrace and
+both encodings. The generated Markdown and artifact were verified; the signed-out browser
+hid GitHub's rendered job summary, so that UI check remains unverified.
+
+### Native Linux Io investigation
+
+A manually dispatched `ci.yml` run with `io_investigation=true` runs a fixed experiment on
+native Linux x64 and ARM64: five independent attempts each in native, interpreted and O2
+modes. It discovers the exact `backends` case before execution and saves every command,
+stdout/stderr, outcome and environment record under `target/ci-io-investigation`.
+
+```sh
+gh workflow run ci.yml --ref YOUR_BRANCH -f jobs=docs -F io_investigation=true
+PYTHONPATH=tools python3 tools/ci/investigate_io.py --jacket target/release/jacket \
+  --out target/ci-io-investigation --attempts 5
+```
+
+The helper's attempt bound is 1–30; declare the count before starting. This is a diagnostic
+experiment, not an automatic CI retry. A failure remains a failure even if later independent
+attempts pass. The original `backends.jai` driver forces each backend itself, including the
+readiness file-pool variations and Linux epoll-refusal case; an outer `JAI_IO_BACKEND` does
+not isolate it. Its output identifies actual/refused backends. Unavailable io_uring is a
+capability gap. A successful bounded experiment does not explain an unknown historical
+failure; keep its source, original invocation and full shard acceptance separate.
+
+The helper depends on Python, a production `jaic` beside `jacket`, the Io test driver and a
+native POSIX host. Change experiment capture in `tools/ci/investigate_io.py`; change engine
+semantics only after a causal failing regression exists. Keep diagnostics out of the normal
+CI matrix unless explicitly selected by the manual input.
+
+Attempt output streams directly to its files from launch, and the outcomes ledger records
+the complete planned denominator before discovery. Each attempt moves from `planned` to
+`running` to `completed`; a running or planned record is incomplete, never a pass. Jacket
+remains the supervisor and applies its ordinary case timeouts. The helper deliberately has
+no per-attempt Python kill timer: jacket owns separate child process groups, so killing only
+its supervisor could leave work that overlaps later attempts. A hung supervisor stops the
+experiment instead of advancing. The hosted job's 30-minute lifecycle bounds the experiment;
+job termination may prevent artifact upload. Standalone execution has no outer lifecycle
+bound or universal guarantee for detached-child cleanup. A partial denominator cannot prove
+the full predeclared matrix, even if every completed attempt passed.
