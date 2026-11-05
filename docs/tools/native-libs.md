@@ -42,6 +42,8 @@ native_runtime :: #library "crash-native/platform_io_windows_crash"; @native(run
 
 `tools/ci/check_native_libs.py` requires every `#library`/`#system_library`/`#foreign_library` name under `stdlib/` to be built or carry a note, and notes of one name to agree. Files written by generators get their notes from the generator (`tools/native/provided_libs.py`); never add one by hand. The recipe for a `fetched`, `runtime` or `packaged` library is its entry in `RECIPES` there; `package_native_libs.py --dry-run` prints the commands.
 
+The Windows crash provider (`tools/stdlib/build_platform_io_runtime.py`) writes its DLL, `.lib` import or static library, and `.exp` linker metadata under `stdlib/internal/runtime/crash-native/`. That directory ignores these generated outputs so building the provider leaves the source checkout clean. Keep new provider output suffixes in its local `.gitignore`.
+
 ## How to change it
 
 - **Bind a system library:** put `@native(external)` after the `;` of its `#library` line. The check names any undeclared file.
