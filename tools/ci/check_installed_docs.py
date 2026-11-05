@@ -77,7 +77,7 @@ def run(jacket, jaic, formatter, work):
     preload = work / "record-node.mjs"
     preload.write_text("import {appendFileSync} from 'node:fs';\n"
                        + "appendFileSync(" + json.dumps(str(trace))
-                       + ",JSON.stringify({script:process.argv[1]??null,cwd:process.cwd()})+'\\n');\n", encoding="utf-8")
+                       + ",JSON.stringify({script:process.argv[1]??null,cwd:process.cwd(),argv:process.argv})+'\\n');\n", encoding="utf-8")
     environment = installed_environment(bin_directory, preload)
     cases = [("root", "/", bin_directory / ("jacket" + suffix)),
              ("nested", "/nested/docs/", bin_directory / ("jacket" + suffix))]
@@ -121,7 +121,8 @@ def run(jacket, jaic, formatter, work):
         if not list((output / "_astro").glob("icons.*.svg")) or not list((output / "_astro").glob("favicon.*.svg")):
             raise RuntimeError("installed package did not emit its content-hashed UI assets")
         ledger.append({"id": label, "base": base, "status": "pass", "builder": "relocated toolchain/bin/docs-builder/scripts/build.mjs",
-                       "pages": len(list(output.rglob("*.html"))), "nodeProcesses": len(processes)})
+                       "pages": len(list(output.rglob("*.html"))), "nodeProcesses": len(processes),
+                       "nodeEntry": build_processes[0]})
     receipt = {"schemaVersion": 1, "cases": ledger, "symlink": symlink_status,
                "packageSourceFiles": len(manifest["files"]), "tools": tools,
                "dependencySetup": "explicit reuse of this platform's already npm-ci-installed locked dependencies; independent staged directories, regular files hardlinked or copied, internal symlinks retained, caches excluded; no npm/network invocation",

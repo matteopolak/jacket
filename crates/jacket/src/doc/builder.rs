@@ -85,9 +85,22 @@ impl Builder {
 
     /// The JavaScript wrapper stages and validates a complete site before replacing owned output.
     pub(super) fn run(&self, export: &Path, out: &Path, check: bool) -> Result<ExitCode, String> {
+        let status = self
+            .command(export, out, check)
+            .status()
+            .map_err(|e| format!("start Astro docs builder: {e}"))?;
+        Ok(ExitCode::from(
+            status.code().unwrap_or(2).try_into().unwrap_or(2),
+        ))
+    }
+
+    fn command(&self, export: &Path, out: &Path, check: bool) -> Command {
         let mut command = Command::new("node");
         command
-            .arg(self.root.join("scripts/build.mjs"))
+            // Node resolves its entry through the CJS main loader even for .mjs.
+            // A relative entry avoids passing Windows canonical verbatim prefixes
+            // through that resolver; cwd and filesystem arguments retain identity.
+            .arg("scripts/build.mjs")
             .arg("--export")
             .arg(export)
             .arg("--out")
@@ -96,12 +109,7 @@ impl Builder {
         if check {
             command.arg("--check");
         }
-        let status = command
-            .status()
-            .map_err(|e| format!("start Astro docs builder: {e}"))?;
-        Ok(ExitCode::from(
-            status.code().unwrap_or(2).try_into().unwrap_or(2),
-        ))
+        command
     }
 }
 
@@ -147,6 +155,96 @@ impl Drop for Input {
 mod tests {
     use super::*;
     use test_support::TempDir;
+
+    #[test]
+    fn node_entry_is_relative_to_the_canonical_owned_directory() {
+        let dir = TempDir::new("doc-builder-node-entry");
+        let root = dir.canonicalize().unwrap();
+        let export = root.join("semantic export");
+        let out = root.join("site output");
+        let builder = Builder {
+            root: root.clone(),
+        };
+        for check in [false, true] {
+            let command = builder.command(&export, &out, check);
+            assert_eq!(command.get_program(), "node");
+            assert_eq!(command.get_current_dir(), Some(root.as_path()));
+            let args: Vec<_> = command.get_args().collect();
+            assert_eq!(args[0], "scripts/build.mjs");
+            assert_eq!(args[1], "--export");
+            assert_eq!(args[2], export.as_os_str());
+            assert_eq!(args[3], "--out");
+            assert_eq!(args[4], out.as_os_str());
+            assert_eq!(
+                args.len(),
+                if check {
+                    6
+                } else {
+                    5
+                }
+            );
+            if check {
+                assert_eq!(args[5], "--check");
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn canonical_windows_directory_reaches_the_real_node_entry() {
+        let dir = TempDir::new("doc-builder-node-path");
+        let spaced = dir.join("builder with spaces");
+        std::fs::create_dir(&spaced).unwrap();
+        let root = spaced.canonicalize().unwrap();
+        assert!(root.to_string_lossy().starts_with(r"\\?\"));
+        std::fs::create_dir(root.join("scripts")).unwrap();
+        let export = root.join("semantic export");
+        std::fs::create_dir(&export).unwrap();
+        std::fs::write(export.join("input.txt"), "exact input").unwrap();
+        let out = root.join("site output");
+        std::fs::write(
+            root.join("scripts/build.mjs"),
+            r#"
+import {readFile,mkdir,realpath} from 'node:fs/promises';
+import {pathToFileURL,fileURLToPath} from 'node:url';
+import {join} from 'node:path';
+const args=process.argv.slice(2),source=args[1],output=args[3];
+const actual=await realpath(source);
+const text=await readFile(join(fileURLToPath(pathToFileURL(actual)), 'input.txt'),'utf8');
+await mkdir(output);
+console.log(JSON.stringify({script:process.argv[1],cwd:process.cwd(),args,text}));
+"#,
+        )
+        .unwrap();
+        let builder = Builder {
+            root: root.clone(),
+        };
+        let mut command = builder.command(&export, &out, true);
+        let output = command
+            .output()
+            .expect("Node is required for the docs builder path regression");
+        assert!(
+            output.status.success(),
+            "{command:?}\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let trace: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(
+            Path::new(trace["script"].as_str().unwrap())
+                .canonicalize()
+                .unwrap(),
+            root.join("scripts/build.mjs")
+        );
+        assert_eq!(
+            Path::new(trace["cwd"].as_str().unwrap())
+                .canonicalize()
+                .unwrap(),
+            root
+        );
+        assert_eq!(trace["text"], "exact input");
+        assert_eq!(trace["args"][4], "--check");
+        assert!(out.is_dir());
+    }
 
     #[test]
     fn missing_mismatched_or_uninstalled_builder_fails_before_output() {
