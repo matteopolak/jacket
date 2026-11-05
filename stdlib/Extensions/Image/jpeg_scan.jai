@@ -156,12 +156,12 @@ jpeg_read_scan :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string {
     }
 
     d.scans += 1;
-    jpeg_decode_scan(d, *blocks, block_count, mcus_w, mcus_h, mode, ss, se, al);
+    if !jpeg_decode_scan(d, *blocks, block_count, mcus_w, mcus_h, mode, ss, se, al) return "bad JPEG entropy alignment padding";
 
     return "";
 }
 
-jpeg_decode_scan :: (d: *Jpeg_Decoder, blocks: *[10] Jpeg_Scan_Block, block_count: s32, mcus_w: s32, mcus_h: s32, mode: s32, ss: s32, se: s32, al: s32) {
+jpeg_decode_scan :: (d: *Jpeg_Decoder, blocks: *[10] Jpeg_Scan_Block, block_count: s32, mcus_w: s32, mcus_h: s32, mode: s32, ss: s32, se: s32, al: s32) -> bool {
     d.bits = 0;
     d.nbits = 0;
     d.pad = 0;
@@ -218,6 +218,7 @@ jpeg_decode_scan :: (d: *Jpeg_Decoder, blocks: *[10] Jpeg_Scan_Block, block_coun
             if d.pad > d.nbits break; // the entropy data ran out
         }
 
+        if !jpeg_padding_valid(d) return false;
         if mcu >= total break;
         if interval == 0 break;
 
@@ -229,6 +230,8 @@ jpeg_decode_scan :: (d: *Jpeg_Decoder, blocks: *[10] Jpeg_Scan_Block, block_coun
 
         mcu += cast(s64) skipped * interval;
     }
+
+    return true;
 }
 
 jpeg_block_sequential :: (d: *Jpeg_Decoder, comp: *Jpeg_Component, block: *s32, dc: *Jpeg_Huffman, ac: *Jpeg_Huffman) -> s32 #no_abc #no_aoc {

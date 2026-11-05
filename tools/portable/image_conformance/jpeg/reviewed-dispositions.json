@@ -1,6 +1,6 @@
 {
   "reviewed_by": "root",
-  "review_receipt": "root-image-policy-2026-11-05-v1",
+  "review_receipt": "root-image-policy-2026-11-05-v2",
   "proposal_sha256": "eea9d925aaf7173303f6e38bcf6d1a6f1d629aed099bdb24974c434496444070",
   "cases": [
     {
@@ -76,6 +76,18 @@
       "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Two extraneous 00 bytes at offsets799\u2013800 between APP0 and DQT; preserve reference warning and measured exact pixel result as documented marker-boundary recovery, not a valid codestream claim."
     },
     {
+      "id": "codec-corpus/jpeg-conformance/invalid/865db3dd2d380626f16b6f9dc6d62dba.jpg",
+      "sha256": "0e333f7fa22fe0a080ead395fefa9d23db99072110b4371e1e581890f3d2b019",
+      "expectation": "reject",
+      "reason": "Root-reviewed independent full Huffman walk proves two zero residual padding bits at byte3342. Require generic actual-bit scan/restart boundary validation, with normal/synthetic bit handling and no filename exception. Preserve original acceptance failure, corrected-bit positive and independent coefficient hashes."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/d22db5be7594c17a18a047ca9264ea0a.jpg",
+      "sha256": "ff20d5d0ad75e648b1ea388f65fb41d02bd2a049cd22ef86a4648b357bde94ce",
+      "expectation": "metadata-outside-core",
+      "reason": "Root-reviewed report establishes JFIF1.00 plus JFXX profile conflict; bounded exact RGB thumbnail and full main-image baseline entropy walk found no additional defect. Pixel decoder may ignore application metadata; retain original invalid label and all bounds/pixel checks, no whole-file/JFIF conformance claim."
+    },
+    {
       "id": "codec-corpus/jpeg-conformance/invalid/dc-predictor-overflow.jpg",
       "sha256": "94f3270e02c0bb6816cf81f35a3398821fce968ee7e65a8b700c71d4bac43d49",
       "expectation": "documented-recovery",
@@ -143,18 +155,6 @@
       "reason": "T81 B2.3/G1.1.1.1-.2: sole SOS starts AC coefficient1 with no DC scan. Reference warns about inconsistent progression. Valid directory label conflicts with progression syntax."
     }
   ],
-  "unresolved_cases": [
-    {
-      "id": "codec-corpus/jpeg-conformance/invalid/865db3dd2d380626f16b6f9dc6d62dba.jpg",
-      "sha256": "0e333f7fa22fe0a080ead395fefa9d23db99072110b4371e1e581890f3d2b019",
-      "expectation": null,
-      "reason": "No approval to dismiss upstream invalid label as metadata/valid. Assigned bounded primary-source and independent decoding investigation to jpeg_case_resolution. T81 section4.10 explicitly permits a sequential frame with one noninterleaved scan followed by a two-component interleaved scan; current component order/sampling match. Corpus invalidity unexplained; entropy validity unverified. Root disposition pending, not valid-file certification."
-    },
-    {
-      "id": "codec-corpus/jpeg-conformance/invalid/d22db5be7594c17a18a047ca9264ea0a.jpg",
-      "sha256": "ff20d5d0ad75e648b1ea388f65fb41d02bd2a049cd22ef86a4648b357bde94ce",
-      "expectation": null,
-      "reason": "No approval to dismiss upstream invalid label as metadata/valid. Assigned bounded primary-source and independent decoding investigation to jpeg_case_resolution. Bounded JFXX application thumbnail segment; no core codestream defect established. Metadata-outside-core is a proposed API scope policy, not an explanation or dismissal of the corpus invalid label; root review pending."
-    }
-  ]
+  "unresolved_cases": [],
+  "forensic_report_sha256": "225cfd9b553dc794944c49138edcf8be95139cbcd58294d15eaa026d16fa3552"
 }
