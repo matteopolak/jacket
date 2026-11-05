@@ -437,14 +437,17 @@ pub fn run_child(
             std::thread::sleep(wake.min(Duration::from_millis(50)));
         }
         // The child may have exited while we waited with its streams already closed.
-        if open == 0
-            && let Some(exited) = child.try_wait().transpose()
-        {
+        let observation = after_wait(
+            open,
+            || child.try_wait().transpose(),
+            || deadline.is_some_and(|d| Instant::now() >= d),
+        );
+        if let WaitState::Exited(exited) = observation {
             status = Some(exited);
             break;
         }
         let now = Instant::now();
-        if deadline.is_some_and(|d| now >= d) {
+        if matches!(observation, WaitState::TimedOut) {
             kill_tree(&mut child);
             timed_out = true;
             // Drain what is left; the pipes close once the processes are gone.
@@ -507,6 +510,32 @@ fn ending_of(status: std::process::ExitStatus) -> Ending {
         }
     }
     Ending::Exited(status.code().unwrap_or(-1))
+}
+
+/// Completion wins over expiry after a wait when every captured stream has closed.
+/// Open streams still need draining, including output inherited by descendants.
+fn after_wait<T>(
+    open: usize,
+    completed: impl FnOnce() -> Option<T>,
+    expired: impl FnOnce() -> bool,
+) -> WaitState<T> {
+    if open == 0
+        && let Some(status) = completed()
+    {
+        return WaitState::Exited(status);
+    }
+    if expired() {
+        WaitState::TimedOut
+    } else {
+        WaitState::Waiting
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum WaitState<T> {
+    Exited(T),
+    TimedOut,
+    Waiting,
 }
 
 /// Who the output belongs to while the process runs.
@@ -681,6 +710,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn completion_observed_after_wait_wins_over_an_expired_clock() {
+        // The child exits during the final poll interval; no OS scheduling promise is needed.
+        assert_eq!(after_wait(0, || Some(0), || true), WaitState::Exited(0));
+        assert_eq!(after_wait(0, || None::<i32>, || true), WaitState::TimedOut);
+        assert_eq!(after_wait(0, || None::<i32>, || false), WaitState::Waiting);
+        assert_eq!(
+            after_wait(1, || panic!("open output must drain"), || true),
+            WaitState::<i32>::TimedOut
+        );
+    }
+
+    #[test]
     fn records_split_across_reads() {
         let mut demux = Demux::default();
         let mut pieces = demux.feed(b"hi\x02start\x1fa");
@@ -823,11 +864,7 @@ mod process_tests {
             "exec 1>&- 2>&-; exit 0",
             "exec 1>&- 2>&-; sleep 0.01; exit 0",
         ] {
-            let outcome = super::super::golden::run_plain(
-                &script(body),
-                Some(Duration::from_millis(50)),
-                &mut |_| {},
-            );
+            let outcome = super::super::golden::run_plain(&script(body), None, &mut |_| {});
             assert_eq!(outcome.ending, Ending::Exited(0), "{body}");
         }
     }
