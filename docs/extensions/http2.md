@@ -164,3 +164,8 @@ When a peer sends GOAWAY, accepted calls keep their owned response state. The
 client retires the connection once those calls finish, even if the peer leaves
 TCP open. Retirement joins the existing writer and TLS cleanup path; the live
 resource still counts against connection admission until that cleanup completes.
+
+Decoded header-list limits apply to each complete initial or trailer block,
+including HPACK indexed expansion. Oversized blocks reset only their stream;
+the decoder still processes the full block so sibling streams retain a synchronized
+compression table. Server trailer blocks also enforce the configured field-count limit.

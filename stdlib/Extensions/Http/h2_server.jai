@@ -104,6 +104,13 @@ h2_server_headers :: (conn: *H2_Conn, id: u32, stream: *H2_Stream, block: Hpack_
             return .NO_ERROR;
         }
 
+        if owned.too_large || owned.fields.count > conn.max_headers {
+            hpack_block_free(*owned);
+            h2_reset_stream(conn, stream, .ENHANCE_YOUR_CALM);
+
+            return .NO_ERROR;
+        }
+
         if !end_stream || !h2_valid_trailers(owned.fields) {
             hpack_block_free(*owned);
             h2_reset_stream(conn, stream, .PROTOCOL_ERROR);

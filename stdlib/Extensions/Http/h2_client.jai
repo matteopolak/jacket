@@ -31,6 +31,15 @@ h2_client_headers :: (conn: *H2_Conn, id: u32, stream: *H2_Stream, block: Hpack_
         return .NO_ERROR;
     }
 
+    // HPACK finishes decoding the entire block to keep its table synchronized,
+    // but an oversized block must never expose its retained prefix.
+    if owned.too_large {
+        hpack_block_free(*owned);
+        h2_reset_stream(conn, stream, .ENHANCE_YOUR_CALM);
+
+        return .NO_ERROR;
+    }
+
     if stream.has_head {
         // Trailer blocks cannot contain pseudo headers or connection fields and
         // must end the response. Validate before transferring ownership.
