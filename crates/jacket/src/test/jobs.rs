@@ -236,6 +236,7 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
                 .and_then(|&i| timeout_of(plan, &plan.cases[i].options))
         };
         let limits = exec::Limits {
+            process_timeout: None,
             timeout: &timeout,
             slow: (plan.settings.slow > 0).then(|| Duration::from_secs(plan.settings.slow)),
             stream: !plan.settings.capture,
