@@ -12,7 +12,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {Connection,runtimeException} from '../dev/chrome_cdp.mjs';
 import {waitForDevToolsPort} from '../dev/chrome_startup.mjs';
 import {RequestLedger,summarizeRequests,summarizeObservations,observerSource} from './doc_browser_accounting.mjs';
-import {contentProbeSource} from './doc_browser_content.mjs';
+import {contentProbeSource,armCompletion} from './doc_browser_content.mjs';
 const option=name=>process.argv[process.argv.indexOf(name)+1];
 assert(process.argv.includes('--plan'),'provide --plan PATH');const plan=JSON.parse(await readFile(option('--plan'),'utf8'));
 const validName=value=>typeof value==='string'&&/^[a-z0-9][a-z0-9_-]*$/u.test(value);
@@ -22,7 +22,7 @@ for(const list of [plan.variants,plan.profiles,plan.scenarios])assert.equal(new 
 for(const variant of plan.variants){assert(validName(variant.name));new URL(variant.base);}
 for(const profile of plan.profiles){assert(validName(profile.name)&&profile.width>0&&profile.height>0&&profile.scale>0&&profile.cpuRate>=1&&profile.frameBudgetMs>0);assert(profile.network&&Number.isFinite(profile.network.latency)&&Number.isFinite(profile.network.downloadThroughput)&&Number.isFinite(profile.network.uploadThroughput));}
 const actionTypes=new Set(['goto','hover','focus','click','search','scroll','back','forward','wait','key']);
-for(const scenario of plan.scenarios){assert(validName(scenario.name)&&scenario.cacheState&&scenario.actions?.length>0);assert.equal(scenario.actions[0].type,'goto','fresh sessions must begin with an explicit document visit');for(const action of scenario.actions){assert(actionTypes.has(action.type));if(action.type==='wait')assert(Number.isFinite(action.durationMs)&&action.durationMs>=0);if(['goto','click','back','forward','search'].includes(action.type))assert(action.expect?.selector&&action.expect?.path,'timed actions require an exact destination and useful-content predicate');}}
+for(const scenario of plan.scenarios){assert(validName(scenario.name)&&scenario.cacheState&&scenario.actions?.length>0);assert.equal(scenario.actions[0].type,'goto','fresh sessions must begin with an explicit document visit');for(const action of scenario.actions){assert(actionTypes.has(action.type));if(action.freshCompletion)assert(action.type==='click'&&action.expect?.selector&&action.expect?.text,'fresh completion requires a clicked output predicate');if(action.type==='wait')assert(Number.isFinite(action.durationMs)&&action.durationMs>=0);if(['goto','click','back','forward','search'].includes(action.type))assert(action.expect?.selector&&action.expect?.path,'timed actions require an exact destination and useful-content predicate');}}
 if(!process.argv.includes('--execute')){console.log(`Validated ${plan.scenarios.length} scenarios; no browser launched or measured`);process.exit(0);}
 assert(process.argv.includes('--out'),'execution requires an absent owned --out');const out=path.resolve(option('--out'));await mkdir(out,{recursive:false});await writeFile(path.join(out,'plan.json'),JSON.stringify(plan,null,2));
 const results=[];
@@ -77,6 +77,8 @@ async function session(variant,profile,scenario,repetition){
   for(const [index,action]of scenario.actions.entries()){
    currentAction=index;const row={action,index,startRequest:ledger.rows.length};actions.push(row);const hostStart=performance.now();
    row.before=await evaluate('({origin:performance.timeOrigin,time:performance.now(),path:location.pathname,hash:location.hash,scrollY})');
+   let expectation=action.expect;
+   if(action.freshCompletion){const token=index+1;row.completionArmed=await evaluate(`(${armCompletion.toString()})(${JSON.stringify(action.expect.selector)},${JSON.stringify(action.expect.text)},${token})`);expectation={...action.expect,completionToken:token};}
    if(action.type==='goto')await cdp('Page.navigate',{url:new URL(action.path,variant.base).href});
    if(action.type==='hover'){await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',...await point(action.selector)});await delay(action.durationMs??250);}
    if(action.type==='focus'){await evaluate(`document.querySelector(${JSON.stringify(action.selector)}).focus()`);await delay(action.durationMs??250);}
@@ -86,7 +88,7 @@ async function session(variant,profile,scenario,repetition){
    if(action.type==='back'||action.type==='forward'){const history=await cdp('Page.getNavigationHistory'),entry=history.entries[history.currentIndex+(action.type==='back'?-1:1)];assert(entry,'missing history destination');await cdp('Page.navigateToHistoryEntry',{entryId:entry.id});}
    if(action.type==='wait')await delay(action.durationMs);
    if(action.type==='scroll'){await evaluate('window.__docMetrics.frames=[];window.__docMetrics.scrolling=true');for(let step=0;step<(action.steps??30);step++){await cdp('Input.dispatchMouseEvent',{type:'mouseWheel',x:profile.width/2,y:profile.height/2,deltaX:0,deltaY:action.deltaY??120});await delay(action.intervalMs??16);}await delay(200);await evaluate('window.__docMetrics.scrolling=false');}
-   if(action.expect){const readiness=await waitContent(action.expect);row.domReady=readiness.domReady;row.contentReady=readiness.contentReady;if(action.expect.activeId!==undefined)assert.equal(row.contentReady.active.id,action.expect.activeId,'focus mismatch');if(action.expect.scrollY!==undefined)assert(Math.abs(row.contentReady.scrollY-action.expect.scrollY)<=(action.expect.scrollTolerance??2),'history/anchor scroll mismatch');if(action.expect.minimumDomNodes!==undefined)assert(row.contentReady.domNodes>=action.expect.minimumDomNodes,'required content missing');}
+   if(action.expect){const readiness=await waitContent(expectation);row.domReady=readiness.domReady;row.contentReady=readiness.contentReady;if(action.expect.activeId!==undefined)assert.equal(row.contentReady.active.id,action.expect.activeId,'focus mismatch');if(action.expect.scrollY!==undefined)assert(Math.abs(row.contentReady.scrollY-action.expect.scrollY)<=(action.expect.scrollTolerance??2),'history/anchor scroll mismatch');if(action.expect.minimumDomNodes!==undefined)assert(row.contentReady.domNodes>=action.expect.minimumDomNodes,'required content missing');}
    row.hostActionToContentReadyMs=row.contentReady?performance.now()-hostStart:null;
    const input=inputs.find(value=>value.action===index&&value.event===({click:'click',search:'input',key:'keydown'}[action.type]));
    row.trustedInput=input??null;
