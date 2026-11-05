@@ -59,3 +59,5 @@ PNG time is mostly [Deflate](deflate.md). Also uses `Extensions/SIMD` for unfilt
 `Ico_File.create_ico_file_from_bitmap_filename` uses these decoders on wasm. It applies `DEFAULT_MAX_PIXELS` (`1 << 26`) and requires RGB or RGBA output before conversion. Native filename loading retains stb and its format coverage. The consumer creates ICO bytes; `decode_image` does not read ICO files. See [ICO file creation](../stdlib/ico-files.md) for ownership, limits and WASI execution.
 
 See [image codec coverage](../tools/image-conformance.md) for complete pinned corpora, independent encoder checks, alternative API profiles and reproducible validation commands.
+
+JPEG checks real byte-alignment fill bits at observed scan and restart boundaries: each remaining bit must be one. Synthetic refill bits and unread damaged entropy retain the documented recovery behavior; this check does not certify complete encoded MCU rows.
