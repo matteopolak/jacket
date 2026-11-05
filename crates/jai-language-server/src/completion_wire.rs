@@ -3,37 +3,37 @@ use crate::{CompletionKind, CompletionList};
 use serde_json::json;
 
 /// The LSP `CompletionItemKind` of a completion.
-pub(crate) fn completion_kind_wire(kind: CompletionKind) -> lsp_types::CompletionItemKind {
+pub(crate) fn completion_kind_wire(kind: CompletionKind) -> gen_lsp_types::CompletionItemKind {
     match kind {
-        CompletionKind::Function => lsp_types::CompletionItemKind::FUNCTION,
-        CompletionKind::Field => lsp_types::CompletionItemKind::FIELD,
-        CompletionKind::Variable => lsp_types::CompletionItemKind::VARIABLE,
-        CompletionKind::TypeAlias => lsp_types::CompletionItemKind::CLASS,
-        CompletionKind::Module => lsp_types::CompletionItemKind::MODULE,
-        CompletionKind::Enum => lsp_types::CompletionItemKind::ENUM,
-        CompletionKind::Keyword => lsp_types::CompletionItemKind::KEYWORD,
-        CompletionKind::Snippet => lsp_types::CompletionItemKind::SNIPPET,
-        CompletionKind::File => lsp_types::CompletionItemKind::FILE,
-        CompletionKind::Folder => lsp_types::CompletionItemKind::FOLDER,
-        CompletionKind::EnumMember => lsp_types::CompletionItemKind::ENUM_MEMBER,
-        CompletionKind::Constant => lsp_types::CompletionItemKind::CONSTANT,
-        CompletionKind::Struct => lsp_types::CompletionItemKind::STRUCT,
+        CompletionKind::Function => gen_lsp_types::CompletionItemKind::Function,
+        CompletionKind::Field => gen_lsp_types::CompletionItemKind::Field,
+        CompletionKind::Variable => gen_lsp_types::CompletionItemKind::Variable,
+        CompletionKind::TypeAlias => gen_lsp_types::CompletionItemKind::Class,
+        CompletionKind::Module => gen_lsp_types::CompletionItemKind::Module,
+        CompletionKind::Enum => gen_lsp_types::CompletionItemKind::Enum,
+        CompletionKind::Keyword => gen_lsp_types::CompletionItemKind::Keyword,
+        CompletionKind::Snippet => gen_lsp_types::CompletionItemKind::Snippet,
+        CompletionKind::File => gen_lsp_types::CompletionItemKind::File,
+        CompletionKind::Folder => gen_lsp_types::CompletionItemKind::Folder,
+        CompletionKind::EnumMember => gen_lsp_types::CompletionItemKind::EnumMember,
+        CompletionKind::Constant => gen_lsp_types::CompletionItemKind::Constant,
+        CompletionKind::Struct => gen_lsp_types::CompletionItemKind::Struct,
         // An `#asm` mnemonic is an operation, not a language keyword.
-        CompletionKind::Instruction => lsp_types::CompletionItemKind::OPERATOR,
+        CompletionKind::Instruction => gen_lsp_types::CompletionItemKind::Operator,
     }
 }
 
-pub(crate) fn completion_wire(completion: CompletionList) -> lsp_types::CompletionList {
-    use lsp_types as lsp;
+pub(crate) fn completion_wire(completion: CompletionList) -> gen_lsp_types::CompletionList {
+    use gen_lsp_types as lsp;
     let items = completion
         .items
         .into_iter()
         .map(|item| {
             let insert_text_format = item.insert_text.as_ref().map(|_| {
                 if item.kind == CompletionKind::Snippet || item.snippet {
-                    lsp::InsertTextFormat::SNIPPET
+                    lsp::InsertTextFormat::Snippet
                 } else {
-                    lsp::InsertTextFormat::PLAIN_TEXT
+                    lsp::InsertTextFormat::PlainText
                 }
             });
             let (text_edit, insert_text) = match item.replace {
@@ -89,6 +89,7 @@ pub(crate) fn completion_wire(completion: CompletionList) -> lsp_types::Completi
                     title: "Trigger Parameter Hints".into(),
                     command: "editor.action.triggerParameterHints".into(),
                     arguments: None,
+                    tooltip: None,
                 }),
                 ..Default::default()
             }
@@ -97,6 +98,7 @@ pub(crate) fn completion_wire(completion: CompletionList) -> lsp_types::Completi
     lsp::CompletionList {
         is_incomplete: completion.is_incomplete,
         items,
+        ..Default::default()
     }
 }
 

@@ -403,3 +403,55 @@ fn one_traced_dispatch_can_emit_multiple_messages_with_one_origin() {
     assert_eq!(current_origin(), Origin::None);
     assert_eq!(trace.finish_output(true).unwrap().unwrap().recorded, 3);
 }
+
+#[test]
+fn invalid_partial_edit_shapes_leave_text_and_version_unchanged() {
+    use serde_json::json;
+    let uri = jai_language_server::DocumentUri::parse("file:///wire/edit.jai").unwrap();
+    let mut session = JsonSession::new(Limits::default());
+    session
+        .handle_json(
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
+        )
+        .unwrap();
+    session
+        .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+        .unwrap();
+    session.handle_json(&json!({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{
+        "textDocument":{"uri":uri.as_str(),"languageId":"jai","version":1,"text":"original :: 1;"}}}).to_string()).unwrap();
+    for change in [
+        json!({"range":{"start":{"line":-1,"character":0},"end":{"line":0,"character":1}},"text":"replacement"}),
+        json!({"range":{"start":{"line":0},"end":{"line":0,"character":1}},"text":"replacement"}),
+        json!({"range":"invalid","text":"replacement"}),
+        json!({"rangeLength":-1,"text":"replacement"}),
+        json!({"rangeLength":"invalid","text":"replacement"}),
+    ] {
+        session
+            .handle_json(
+                &json!({"jsonrpc":"2.0","method":"textDocument/didChange","params":{
+            "textDocument":{"uri":uri.as_str(),"version":2},"contentChanges":[change]}})
+                .to_string(),
+            )
+            .unwrap();
+        assert_eq!(
+            session.session().document_text(&uri).unwrap(),
+            "original :: 1;"
+        );
+        assert_eq!(session.session().version(&uri).unwrap(), 1);
+    }
+    session.handle_json(&json!({"jsonrpc":"2.0","method":"textDocument/didChange","params":{
+        "textDocument":{"uri":uri.as_str(),"version":2},"contentChanges":[{
+            "range":{"start":{"line":0,"character":0},"end":{"line":0,"character":8}},"text":"renamed"}]}}).to_string()).unwrap();
+    assert_eq!(
+        session.session().document_text(&uri).unwrap(),
+        "renamed :: 1;"
+    );
+    assert_eq!(session.session().version(&uri).unwrap(), 2);
+    session.handle_json(&json!({"jsonrpc":"2.0","method":"textDocument/didChange","params":{
+        "textDocument":{"uri":uri.as_str(),"version":3},"contentChanges":[{"range":null,"text":"whole :: 3;"}]}}).to_string()).unwrap();
+    assert_eq!(
+        session.session().document_text(&uri).unwrap(),
+        "whole :: 3;"
+    );
+    assert_eq!(session.session().version(&uri).unwrap(), 3);
+}

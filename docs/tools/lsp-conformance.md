@@ -4,7 +4,7 @@ LSP verification combines protocol fixtures, compiler differential checks, full 
 
 ## Required existing suites
 
-Run the full `jai-language-server` Rust suite and `ide_reference_index` compiler differential test. The protocol tests include malformed framing, request IDs, lifecycle, cancellation, UTF-16 positions, local URI rules, and serialization against pinned `lsp-types` schemas. The reference index test compares all queried positions with the live compiler, including overloaded, imported, local, member, enum, generic, Unicode, and partial-code cases.
+Run the full `jai-language-server` Rust suite and `ide_reference_index` compiler differential test. The protocol tests include malformed framing, request IDs, lifecycle, cancellation, UTF-16 positions, local URI rules, and serialization against pinned `gen-lsp-types` schemas. The reference index test compares all queried positions with the live compiler, including overloaded, imported, local, member, enum, generic, Unicode, and partial-code cases.
 
 The existing [repository oracle](lsp-oracle.md) checks accepted programs across all four default sets: `stdlib`, `compiler`, `examples`, and `jaigen`. Its manual `lsp-oracle` workflow runs four shards. A short local fixture run does not replace those sets. Report checked files, skipped inputs, known findings, and new failures separately; do not refresh the known-findings file to make a changed implementation pass.
 
@@ -26,7 +26,7 @@ Before release, use the same final source revision for local receipts and all re
 
 Reviewed upstream corpus programs may only run through the existing `tools/bench` sandbox. Their scale tests are separate from the four owned-source oracle sets. Do not execute upstream programs directly merely because a test binary can locate them.
 
-The suites depend on the server, compiler, formatter, test-support filesystem fixtures, and the repository's Python oracle tools. Standard wire tests also depend on the pinned `lsp-types` crate.
+The suites depend on the server, compiler, formatter, test-support filesystem fixtures, and the repository's Python oracle tools. Standard wire tests also depend on the pinned `gen-lsp-types` crate.
 
 ## Upstream scale confinement
 

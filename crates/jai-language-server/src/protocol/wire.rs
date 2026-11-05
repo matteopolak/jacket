@@ -6,8 +6,7 @@ use crate::{
     InlayHintKind, Location, MarkupKind, Position, SelectionRange, SemanticToken,
     SemanticTokenKind, SignatureHelp, SymbolInformation, SymbolKind, TOKEN_MODIFIERS,
 };
-use lsp_types as lsp;
-use lsp_types::notification::Notification as _;
+use gen_lsp_types as lsp;
 use serde_json::{Value, json};
 
 // Domain enums have no protocol discriminants. Only this JSON boundary maps LSP values.
@@ -15,7 +14,7 @@ use serde_json::{Value, json};
 pub(super) fn document_report(
     diagnostics: &[Diagnostic],
     previous: Option<&str>,
-) -> lsp::DocumentDiagnosticReportKind {
+) -> lsp::DocumentDiagnosticReport {
     let items: Vec<_> = diagnostics.iter().map(diagnostic_model).collect();
     let result_id = {
         use std::hash::{Hash, Hasher};
@@ -24,14 +23,22 @@ pub(super) fn document_report(
         format!("{:016x}", hasher.finish())
     };
     if previous == Some(result_id.as_str()) {
-        lsp::DocumentDiagnosticReportKind::Unchanged(lsp::UnchangedDocumentDiagnosticReport {
-            result_id,
-        })
+        lsp::RelatedUnchangedDocumentDiagnosticReport {
+            related_documents: None,
+            unchanged_document_diagnostic_report: lsp::UnchangedDocumentDiagnosticReport {
+                result_id,
+            },
+        }
+        .into()
     } else {
-        lsp::DocumentDiagnosticReportKind::Full(lsp::FullDocumentDiagnosticReport {
-            result_id: Some(result_id),
-            items,
-        })
+        lsp::RelatedFullDocumentDiagnosticReport {
+            related_documents: None,
+            full_document_diagnostic_report: lsp::FullDocumentDiagnosticReport {
+                result_id: Some(result_id),
+                items,
+            },
+        }
+        .into()
     }
 }
 
@@ -42,23 +49,21 @@ pub(super) fn workspace_document_report(
     previous: Option<&str>,
 ) -> lsp::WorkspaceDocumentDiagnosticReport {
     match document_report(diagnostics, previous) {
-        lsp::DocumentDiagnosticReportKind::Full(report) => {
-            lsp::WorkspaceDocumentDiagnosticReport::Full(
-                lsp::WorkspaceFullDocumentDiagnosticReport {
-                    uri: standard_uri(uri),
-                    version: version.map(i64::from),
-                    full_document_diagnostic_report: report,
-                },
-            )
+        lsp::DocumentDiagnosticReport::RelatedFullDocumentDiagnosticReport(report) => {
+            lsp::WorkspaceFullDocumentDiagnosticReport {
+                uri: standard_uri(uri),
+                version,
+                full_document_diagnostic_report: report.full_document_diagnostic_report,
+            }
+            .into()
         }
-        lsp::DocumentDiagnosticReportKind::Unchanged(report) => {
-            lsp::WorkspaceDocumentDiagnosticReport::Unchanged(
-                lsp::WorkspaceUnchangedDocumentDiagnosticReport {
-                    uri: standard_uri(uri),
-                    version: version.map(i64::from),
-                    unchanged_document_diagnostic_report: report,
-                },
-            )
+        lsp::DocumentDiagnosticReport::RelatedUnchangedDocumentDiagnosticReport(report) => {
+            lsp::WorkspaceUnchangedDocumentDiagnosticReport {
+                uri: standard_uri(uri),
+                version,
+                unchanged_document_diagnostic_report: report.unchanged_document_diagnostic_report,
+            }
+            .into()
         }
     }
 }
@@ -69,7 +74,7 @@ pub(super) fn diagnostics_notification(
     version: Option<i32>,
     diagnostics: &[Diagnostic],
 ) -> Value {
-    json!({"jsonrpc":"2.0", "method":lsp::notification::PublishDiagnostics::METHOD,
+    json!({"jsonrpc":"2.0", "method":lsp::LspNotificationMethod::TextDocumentPublishDiagnostics.as_str(),
         "params":lsp::PublishDiagnosticsParams { uri: standard_uri(uri), version,
             diagnostics: diagnostics.iter().map(diagnostic_model).collect() }})
 }
@@ -81,17 +86,17 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
 
 fn diagnostic_model(diagnostic: &Diagnostic) -> lsp::Diagnostic {
     let severity = match diagnostic.severity {
-        DiagnosticSeverity::Error => lsp::DiagnosticSeverity::ERROR,
-        DiagnosticSeverity::Warning => lsp::DiagnosticSeverity::WARNING,
-        DiagnosticSeverity::Hint => lsp::DiagnosticSeverity::HINT,
+        DiagnosticSeverity::Error => lsp::DiagnosticSeverity::Error,
+        DiagnosticSeverity::Warning => lsp::DiagnosticSeverity::Warning,
+        DiagnosticSeverity::Hint => lsp::DiagnosticSeverity::Hint,
     };
     let (code, source) = diagnostic.code.wire();
     lsp::Diagnostic {
         range: diagnostic.range,
         severity: Some(severity),
-        code: Some(lsp::NumberOrString::String(code.into())),
+        code: Some(lsp::Code::String(code.into())),
         source: Some(source.into()),
-        message: diagnostic.message.clone(),
+        message: diagnostic.message.clone().into(),
         related_information: (!diagnostic.related.is_empty()).then(|| {
             diagnostic
                 .related
@@ -106,7 +111,7 @@ fn diagnostic_model(diagnostic: &Diagnostic) -> lsp::Diagnostic {
                 .collect()
         }),
         tags: (diagnostic.code == DiagnosticCode::Unreachable)
-            .then(|| vec![lsp::DiagnosticTag::UNNECESSARY]),
+            .then(|| vec![lsp::DiagnosticTag::Unnecessary]),
         code_description: match diagnostic.code {
             DiagnosticCode::Lint(rule) => Some(lsp::CodeDescription {
                 href: standard_uri(&jailint::rule_url(rule)),
@@ -132,8 +137,8 @@ pub(super) fn standard_uri(text: &str) -> lsp::Uri {
     deprecated,
     reason = "the standard deprecated field is intentionally absent"
 )]
-pub(super) fn document_symbol_wire(symbol: DocumentSymbol) -> lsp_types::DocumentSymbol {
-    lsp_types::DocumentSymbol {
+pub(super) fn document_symbol_wire(symbol: DocumentSymbol) -> gen_lsp_types::DocumentSymbol {
+    gen_lsp_types::DocumentSymbol {
         name: symbol.name,
         detail: Some(symbol.detail),
         kind: symbol_kind_wire(symbol.kind),
@@ -213,20 +218,20 @@ pub(super) fn locations_wire(locations: &[Location]) -> Value {
     standard_value(locations.iter().map(location_model).collect::<Vec<_>>())
 }
 
-fn symbol_kind_wire(kind: SymbolKind) -> lsp_types::SymbolKind {
+fn symbol_kind_wire(kind: SymbolKind) -> gen_lsp_types::SymbolKind {
     match kind {
-        SymbolKind::File => lsp_types::SymbolKind::FILE,
-        SymbolKind::Namespace => lsp_types::SymbolKind::MODULE,
-        SymbolKind::TypeAlias => lsp_types::SymbolKind::CLASS,
-        SymbolKind::Property => lsp_types::SymbolKind::PROPERTY,
-        SymbolKind::Enum => lsp_types::SymbolKind::ENUM,
-        SymbolKind::Function => lsp_types::SymbolKind::FUNCTION,
-        SymbolKind::Variable => lsp_types::SymbolKind::VARIABLE,
-        SymbolKind::Constant => lsp_types::SymbolKind::CONSTANT,
-        SymbolKind::EnumMember => lsp_types::SymbolKind::ENUM_MEMBER,
-        SymbolKind::Struct => lsp_types::SymbolKind::STRUCT,
-        SymbolKind::Boolean => lsp_types::SymbolKind::BOOLEAN,
-        SymbolKind::Event => lsp_types::SymbolKind::EVENT,
+        SymbolKind::File => gen_lsp_types::SymbolKind::File,
+        SymbolKind::Namespace => gen_lsp_types::SymbolKind::Module,
+        SymbolKind::TypeAlias => gen_lsp_types::SymbolKind::Class,
+        SymbolKind::Property => gen_lsp_types::SymbolKind::Property,
+        SymbolKind::Enum => gen_lsp_types::SymbolKind::Enum,
+        SymbolKind::Function => gen_lsp_types::SymbolKind::Function,
+        SymbolKind::Variable => gen_lsp_types::SymbolKind::Variable,
+        SymbolKind::Constant => gen_lsp_types::SymbolKind::Constant,
+        SymbolKind::EnumMember => gen_lsp_types::SymbolKind::EnumMember,
+        SymbolKind::Struct => gen_lsp_types::SymbolKind::Struct,
+        SymbolKind::Boolean => gen_lsp_types::SymbolKind::Boolean,
+        SymbolKind::Event => gen_lsp_types::SymbolKind::Event,
     }
 }
 
@@ -236,11 +241,13 @@ fn symbol_kind_wire(kind: SymbolKind) -> lsp_types::SymbolKind {
 )]
 pub(super) fn symbol_information_wire(symbol: &SymbolInformation) -> Value {
     standard_value(lsp::SymbolInformation {
-        name: symbol.name.clone(),
-        kind: symbol_kind_wire(symbol.kind),
+        base_symbol_information: lsp::BaseSymbolInformation {
+            name: symbol.name.clone(),
+            kind: symbol_kind_wire(symbol.kind),
+            container_name: symbol.container.clone(),
+            tags: None,
+        },
         location: location_model(&symbol.location),
-        container_name: symbol.container.clone(),
-        tags: None,
         deprecated: None,
     })
 }
@@ -257,14 +264,14 @@ pub(super) fn folding_wire(range: &FoldingRange) -> Value {
 pub(super) fn inlay_wire(hint: &InlayHint) -> Value {
     standard_value(lsp::InlayHint {
         position: hint.position,
-        label: lsp::InlayHintLabel::String(hint.label.clone()),
+        label: hint.label.clone().into(),
         padding_left: Some(hint.padding_left),
         padding_right: Some(hint.padding_right),
         kind: hint.kind.map(|kind| match kind {
-            InlayHintKind::Type => lsp::InlayHintKind::TYPE,
-            InlayHintKind::Parameter => lsp::InlayHintKind::PARAMETER,
+            InlayHintKind::Type => lsp::InlayHintKind::Type,
+            InlayHintKind::Parameter => lsp::InlayHintKind::Parameter,
         }),
-        tooltip: hint.tooltip.clone().map(lsp::InlayHintTooltip::String),
+        tooltip: hint.tooltip.clone().map(Into::into),
         text_edits: None,
         data: None,
     })
@@ -298,7 +305,7 @@ pub(super) fn signature_wire(help: &SignatureHelp, kind: MarkupKind) -> Value {
                         .iter()
                         .enumerate()
                         .map(|(i, label)| lsp::ParameterInformation {
-                            label: lsp::ParameterLabel::Simple(label.clone()),
+                            label: label.clone().into(),
                             documentation: signature
                                 .parameter_docs
                                 .get(i)
@@ -314,7 +321,9 @@ pub(super) fn signature_wire(help: &SignatureHelp, kind: MarkupKind) -> Value {
             u32::try_from(help.active_signature).expect("signature index fits protocol uinteger"),
         ),
         active_parameter: Some(
-            u32::try_from(help.active_parameter).expect("parameter index fits protocol uinteger"),
+            u32::try_from(help.active_parameter)
+                .expect("parameter index fits protocol uinteger")
+                .into(),
         ),
     })
 }
@@ -324,6 +333,7 @@ fn command_wire(command: &Command) -> lsp::Command {
         title: command.title.clone(),
         command: command.command.clone(),
         arguments: Some(command.arguments.clone()),
+        tooltip: None,
     }
 }
 
@@ -347,6 +357,7 @@ pub(super) fn code_action_wire(action: &CodeAction) -> Value {
         is_preferred: action.is_preferred.then_some(true),
         data: action.rule.map(|rule| json!({"rule":rule})),
         disabled: None,
+        tags: None,
     })
 }
 
@@ -375,7 +386,7 @@ pub(super) fn expansion_wire(expansion: &Expansion) -> Value {
 }
 
 /// The documentation format a client asked for signature help.
-pub(super) fn signature_kind(caps: &lsp_types::ClientCapabilities) -> MarkupKind {
+pub(super) fn signature_kind(caps: &gen_lsp_types::ClientCapabilities) -> MarkupKind {
     preferred_markup(
         caps.text_document
             .as_ref()
@@ -385,8 +396,8 @@ pub(super) fn signature_kind(caps: &lsp_types::ClientCapabilities) -> MarkupKind
     )
 }
 
-fn preferred_markup(formats: Option<&[lsp_types::MarkupKind]>) -> MarkupKind {
-    if formats.is_some_and(|formats| formats.contains(&lsp_types::MarkupKind::Markdown)) {
+fn preferred_markup(formats: Option<&[gen_lsp_types::MarkupKind]>) -> MarkupKind {
+    if formats.is_some_and(|formats| formats.contains(&gen_lsp_types::MarkupKind::Markdown)) {
         MarkupKind::Markdown
     } else {
         MarkupKind::PlainText
@@ -400,8 +411,8 @@ fn server_capabilities(pull_diagnostics: bool) -> lsp::ServerCapabilities {
         text_document_sync: Some(
             lsp::TextDocumentSyncOptions {
                 open_close: Some(true),
-                change: Some(lsp::TextDocumentSyncKind::INCREMENTAL),
-                save: Some(lsp::TextDocumentSyncSaveOptions::Supported(true)),
+                change: Some(lsp::TextDocumentSyncKind::Incremental),
+                save: Some(true.into()),
                 ..Default::default()
             }
             .into(),
@@ -412,51 +423,55 @@ fn server_capabilities(pull_diagnostics: bool) -> lsp::ServerCapabilities {
             trigger_characters: Some([".", "#", "\"", "/"].map(str::to_owned).to_vec()),
             ..Default::default()
         }),
-        definition_provider: Some(lsp::OneOf::Left(true)),
+        definition_provider: Some(true.into()),
         type_definition_provider: Some(true.into()),
-        declaration_provider: Some(lsp::DeclarationCapability::Simple(true)),
-        linked_editing_range_provider: Some(lsp::LinkedEditingRangeServerCapabilities::Simple(
-            true,
-        )),
+        declaration_provider: Some(true.into()),
+        type_hierarchy_provider: Some(true.into()),
+        linked_editing_range_provider: Some(true.into()),
         implementation_provider: Some(true.into()),
-        document_formatting_provider: Some(lsp::OneOf::Left(true)),
-        document_range_formatting_provider: Some(lsp::OneOf::Left(true)),
-        references_provider: Some(lsp::OneOf::Left(true)),
-        rename_provider: Some(lsp::OneOf::Right(lsp::RenameOptions {
-            prepare_provider: Some(true),
-            work_done_progress_options: lsp::WorkDoneProgressOptions::default(),
-        })),
-        document_highlight_provider: Some(lsp::OneOf::Left(true)),
-        document_symbol_provider: Some(lsp::OneOf::Left(true)),
-        workspace_symbol_provider: Some(lsp::OneOf::Left(true)),
-        folding_range_provider: Some(lsp::FoldingRangeProviderCapability::Simple(true)),
+        document_formatting_provider: Some(true.into()),
+        document_range_formatting_provider: Some(true.into()),
+        references_provider: Some(true.into()),
+        rename_provider: Some(
+            lsp::RenameOptions {
+                prepare_provider: Some(true),
+                work_done_progress_options: lsp::WorkDoneProgressOptions::default(),
+            }
+            .into(),
+        ),
+        document_highlight_provider: Some(true.into()),
+        document_symbol_provider: Some(true.into()),
+        workspace_symbol_provider: Some(true.into()),
+        folding_range_provider: Some(true.into()),
         document_link_provider: Some(lsp::DocumentLinkOptions {
             resolve_provider: Some(false),
             work_done_progress_options: lsp::WorkDoneProgressOptions::default(),
         }),
-        inlay_hint_provider: Some(lsp::OneOf::Left(true)),
+        inlay_hint_provider: Some(true.into()),
         signature_help_provider: Some(lsp::SignatureHelpOptions {
             trigger_characters: Some(vec!["(".into(), ",".into()]),
             retrigger_characters: Some(vec![",".into()]),
             ..Default::default()
         }),
-        code_action_provider: Some(lsp::CodeActionProviderCapability::Options(
+        code_action_provider: Some(
             lsp::CodeActionOptions {
                 code_action_kinds: Some(vec![
-                    lsp::CodeActionKind::QUICKFIX,
-                    lsp::CodeActionKind::REFACTOR_EXTRACT,
-                    lsp::CodeActionKind::REFACTOR_INLINE,
-                    lsp::CodeActionKind::REFACTOR_REWRITE,
+                    lsp::CodeActionKind::QuickFix,
+                    lsp::CodeActionKind::RefactorExtract,
+                    lsp::CodeActionKind::RefactorInline,
+                    lsp::CodeActionKind::RefactorRewrite,
                     lsp::CodeActionKind::new(crate::lints::FIX_ALL_KIND),
                 ]),
                 ..Default::default()
-            },
-        )),
+            }
+            .into(),
+        ),
         code_lens_provider: Some(lsp::CodeLensOptions {
             resolve_provider: Some(false),
+            ..Default::default()
         }),
-        call_hierarchy_provider: Some(lsp::CallHierarchyServerCapability::Simple(true)),
-        selection_range_provider: Some(lsp::SelectionRangeProviderCapability::Simple(true)),
+        call_hierarchy_provider: Some(true.into()),
+        selection_range_provider: Some(true.into()),
         execute_command_provider: Some(lsp::ExecuteCommandOptions {
             commands: ServerCommand::NAMES
                 .iter()
@@ -469,28 +484,32 @@ fn server_capabilities(pull_diagnostics: bool) -> lsp::ServerCapabilities {
                 legend: lsp::SemanticTokensLegend {
                     token_types: SemanticTokenKind::ALL
                         .iter()
-                        .map(|kind| lsp::SemanticTokenType::new(kind.name()))
+                        .map(|kind| kind.name().to_owned())
                         .collect(),
                     token_modifiers: TOKEN_MODIFIERS
                         .iter()
-                        .map(|name| lsp::SemanticTokenModifier::new(name))
+                        .map(|name| (*name).to_owned())
                         .collect(),
                 },
-                range: Some(true),
-                full: Some(lsp::SemanticTokensFullOptions::Delta {
-                    delta: Some(true),
-                }),
+                range: Some(true.into()),
+                full: Some(
+                    lsp::SemanticTokensFullDelta {
+                        delta: Some(true),
+                    }
+                    .into(),
+                ),
                 ..Default::default()
             }
             .into(),
         ),
         diagnostic_provider: pull_diagnostics.then(|| {
-            lsp::DiagnosticServerCapabilities::Options(lsp::DiagnosticOptions {
+            lsp::DiagnosticOptions {
                 identifier: Some("jai".into()),
                 inter_file_dependencies: true,
                 workspace_diagnostics: true,
                 ..Default::default()
-            })
+            }
+            .into()
         }),
         experimental: Some(json!({"jai": {
             "analysis": "compiler-source-syntax", "compileTimeExecution": false,
@@ -501,18 +520,15 @@ fn server_capabilities(pull_diagnostics: bool) -> lsp::ServerCapabilities {
     }
 }
 
-/// Standard initialize result, with the one capability omitted by the pinned schema restored.
+/// Standard initialize result from the generated protocol schema.
 pub(super) fn initialize_wire(pull_diagnostics: bool) -> Value {
-    let mut value = standard_value(lsp::InitializeResult {
+    standard_value(lsp::InitializeResult {
         capabilities: server_capabilities(pull_diagnostics),
         server_info: Some(lsp::ServerInfo {
             name: "jai-language-server".into(),
             version: Some(env!("CARGO_PKG_VERSION").into()),
         }),
-    });
-    // lsp-types 0.97 exposes type-hierarchy requests, but omits this server field.
-    value["capabilities"]["typeHierarchyProvider"] = json!(true);
-    value
+    })
 }
 
 pub(super) fn edit_wire(edit: &crate::TextEdit) -> Value {
@@ -542,7 +558,7 @@ pub(super) fn workspace_edit_wire(documents: crate::features::RenameEdits) -> Va
     })
 }
 
-pub(super) fn hover_kind(caps: &lsp_types::ClientCapabilities) -> MarkupKind {
+pub(super) fn hover_kind(caps: &gen_lsp_types::ClientCapabilities) -> MarkupKind {
     preferred_markup(
         caps.text_document
             .as_ref()
@@ -557,10 +573,11 @@ pub(super) fn hover_wire(hover: &Hover) -> Value {
         MarkupKind::Markdown => lsp::MarkupKind::Markdown,
     };
     standard_value(lsp::Hover {
-        contents: lsp::HoverContents::Markup(lsp::MarkupContent {
+        contents: lsp::MarkupContent {
             kind,
             value: hover.contents.value.clone(),
-        }),
+        }
+        .into(),
         range: Some(hover.range),
     })
 }
@@ -622,8 +639,8 @@ fn token_edit(
     (prefix, old_len - prefix - suffix, prefix..new_len - suffix)
 }
 
-/// The library edit model requires whole tokens; the protocol permits integer spans.
-/// Stream that span directly, retaining the existing minimal delta without another array.
+/// Stream the integer span without allocating a second flat array.
+/// Standard-schema parity tests cover the complete generated `SemanticTokensDelta` shape.
 struct TokenSpan<'a> {
     tokens: &'a [lsp::SemanticToken],
     range: std::ops::Range<usize>,
@@ -703,6 +720,8 @@ mod standard_capability_tests {
             delta,
             json!({"resultId":"3", "edits":[{"start":2,"deleteCount":1,"data":[7]}]})
         );
+        let typed: lsp::SemanticTokensDelta = serde_json::from_value(delta.clone()).unwrap();
+        assert_eq!(standard_value(typed), delta);
         let full = standard_value(lsp::SemanticTokens {
             result_id: Some("4".into()),
             data: after,

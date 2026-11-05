@@ -1,9 +1,6 @@
 //! Method tables for requests, notifications and server commands, and message envelopes.
 
 
-use lsp_types::notification::Notification as _;
-use lsp_types::request::Request as _;
-
 pub(super) use lsp_server::{ErrorCode, ResponseError as Failure};
 
 pub(super) const OUTPUT_LIMIT: &str = "The response is larger than the output limit";
@@ -57,125 +54,152 @@ pub(super) enum Request {
 
 impl Request {
     pub(super) const METHODS: &[(&str, Self)] = &[
-        (lsp_types::request::Initialize::METHOD, Self::Initialize),
-        (lsp_types::request::Shutdown::METHOD, Self::Shutdown),
         (
-            lsp_types::request::SemanticTokensFullRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::Initialize.as_str(),
+            Self::Initialize,
+        ),
+        (
+            gen_lsp_types::LspRequestMethod::Shutdown.as_str(),
+            Self::Shutdown,
+        ),
+        (
+            gen_lsp_types::LspRequestMethod::TextDocumentSemanticTokensFull.as_str(),
             Self::SemanticTokens,
         ),
         (
-            lsp_types::request::SemanticTokensRangeRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentSemanticTokensRange.as_str(),
             Self::SemanticTokensRange,
         ),
         (
-            lsp_types::request::SemanticTokensFullDeltaRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentSemanticTokensFullDelta.as_str(),
             Self::SemanticTokensDelta,
         ),
         (
-            lsp_types::request::DocumentSymbolRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentDocumentSymbol.as_str(),
             Self::DocumentSymbol,
         ),
-        (lsp_types::request::HoverRequest::METHOD, Self::Hover),
-        (lsp_types::request::Completion::METHOD, Self::Completion),
         (
-            lsp_types::request::ResolveCompletionItem::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentHover.as_str(),
+            Self::Hover,
+        ),
+        (
+            gen_lsp_types::LspRequestMethod::TextDocumentCompletion.as_str(),
+            Self::Completion,
+        ),
+        (
+            gen_lsp_types::LspRequestMethod::CompletionItemResolve.as_str(),
             Self::CompletionResolve,
         ),
-        (lsp_types::request::GotoDefinition::METHOD, Self::Definition),
         (
-            lsp_types::request::GotoTypeDefinition::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentDefinition.as_str(),
+            Self::Definition,
+        ),
+        (
+            gen_lsp_types::LspRequestMethod::TextDocumentTypeDefinition.as_str(),
             Self::TypeDefinition,
         ),
         (
-            lsp_types::request::GotoDeclaration::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentDeclaration.as_str(),
             Self::Declaration,
         ),
         (
-            lsp_types::request::TypeHierarchyPrepare::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentPrepareTypeHierarchy.as_str(),
             Self::PrepareTypeHierarchy,
         ),
         (
-            lsp_types::request::TypeHierarchySupertypes::METHOD,
+            gen_lsp_types::LspRequestMethod::TypeHierarchySupertypes.as_str(),
             Self::Supertypes,
         ),
         (
-            lsp_types::request::TypeHierarchySubtypes::METHOD,
+            gen_lsp_types::LspRequestMethod::TypeHierarchySubtypes.as_str(),
             Self::Subtypes,
         ),
         (
-            lsp_types::request::LinkedEditingRange::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentLinkedEditingRange.as_str(),
             Self::LinkedEditingRange,
         ),
         (
-            lsp_types::request::GotoImplementation::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentImplementation.as_str(),
             Self::Implementation,
         ),
-        (lsp_types::request::Formatting::METHOD, Self::Formatting),
         (
-            lsp_types::request::RangeFormatting::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentFormatting.as_str(),
+            Self::Formatting,
+        ),
+        (
+            gen_lsp_types::LspRequestMethod::TextDocumentRangeFormatting.as_str(),
             Self::RangeFormatting,
         ),
-        (lsp_types::request::References::METHOD, Self::References),
         (
-            lsp_types::request::PrepareRenameRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentReferences.as_str(),
+            Self::References,
+        ),
+        (
+            gen_lsp_types::LspRequestMethod::TextDocumentPrepareRename.as_str(),
             Self::PrepareRename,
         ),
-        (lsp_types::request::Rename::METHOD, Self::Rename),
         (
-            lsp_types::request::DocumentHighlightRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentRename.as_str(),
+            Self::Rename,
+        ),
+        (
+            gen_lsp_types::LspRequestMethod::TextDocumentDocumentHighlight.as_str(),
             Self::DocumentHighlight,
         ),
         (
-            lsp_types::request::WorkspaceSymbolRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::WorkspaceSymbol.as_str(),
             Self::WorkspaceSymbol,
         ),
         (
-            lsp_types::request::DocumentLinkRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentDocumentLink.as_str(),
             Self::DocumentLink,
         ),
         (
-            lsp_types::request::FoldingRangeRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentFoldingRange.as_str(),
             Self::FoldingRange,
         ),
         (
-            lsp_types::request::InlayHintRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentInlayHint.as_str(),
             Self::InlayHint,
         ),
         (
-            lsp_types::request::SignatureHelpRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentSignatureHelp.as_str(),
             Self::SignatureHelp,
         ),
         (
-            lsp_types::request::CodeActionRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentCodeAction.as_str(),
             Self::CodeAction,
         ),
         (
-            lsp_types::request::CallHierarchyPrepare::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentPrepareCallHierarchy.as_str(),
             Self::PrepareCallHierarchy,
         ),
         (
-            lsp_types::request::CallHierarchyIncomingCalls::METHOD,
+            gen_lsp_types::LspRequestMethod::CallHierarchyIncomingCalls.as_str(),
             Self::IncomingCalls,
         ),
         (
-            lsp_types::request::CallHierarchyOutgoingCalls::METHOD,
+            gen_lsp_types::LspRequestMethod::CallHierarchyOutgoingCalls.as_str(),
             Self::OutgoingCalls,
         ),
         (
-            lsp_types::request::SelectionRangeRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentSelectionRange.as_str(),
             Self::SelectionRange,
         ),
-        (lsp_types::request::CodeLensRequest::METHOD, Self::CodeLens),
         (
-            lsp_types::request::ExecuteCommand::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentCodeLens.as_str(),
+            Self::CodeLens,
+        ),
+        (
+            gen_lsp_types::LspRequestMethod::WorkspaceExecuteCommand.as_str(),
             Self::ExecuteCommand,
         ),
         (
-            lsp_types::request::DocumentDiagnosticRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::TextDocumentDiagnostic.as_str(),
             Self::DocumentDiagnostic,
         ),
         (
-            lsp_types::request::WorkspaceDiagnosticRequest::METHOD,
+            gen_lsp_types::LspRequestMethod::WorkspaceDiagnostic.as_str(),
             Self::WorkspaceDiagnostic,
         ),
         ("jai/expansion", Self::Expansion),
@@ -216,37 +240,43 @@ pub(super) enum Notification {
 impl Notification {
     pub(super) const METHODS: &[(&str, Self)] = &[
         (
-            lsp_types::notification::Initialized::METHOD,
+            gen_lsp_types::LspNotificationMethod::Initialized.as_str(),
             Self::Initialized,
         ),
-        (lsp_types::notification::Exit::METHOD, Self::Exit),
-        (lsp_types::notification::Cancel::METHOD, Self::Cancel),
         (
-            lsp_types::notification::DidOpenTextDocument::METHOD,
+            gen_lsp_types::LspNotificationMethod::Exit.as_str(),
+            Self::Exit,
+        ),
+        (
+            gen_lsp_types::LspNotificationMethod::CancelRequest.as_str(),
+            Self::Cancel,
+        ),
+        (
+            gen_lsp_types::LspNotificationMethod::TextDocumentDidOpen.as_str(),
             Self::DidOpen,
         ),
         (
-            lsp_types::notification::DidChangeTextDocument::METHOD,
+            gen_lsp_types::LspNotificationMethod::TextDocumentDidChange.as_str(),
             Self::DidChange,
         ),
         (
-            lsp_types::notification::DidSaveTextDocument::METHOD,
+            gen_lsp_types::LspNotificationMethod::TextDocumentDidSave.as_str(),
             Self::DidSave,
         ),
         (
-            lsp_types::notification::DidCloseTextDocument::METHOD,
+            gen_lsp_types::LspNotificationMethod::TextDocumentDidClose.as_str(),
             Self::DidClose,
         ),
         (
-            lsp_types::notification::DidChangeConfiguration::METHOD,
+            gen_lsp_types::LspNotificationMethod::WorkspaceDidChangeConfiguration.as_str(),
             Self::DidChangeConfiguration,
         ),
         (
-            lsp_types::notification::DidChangeWorkspaceFolders::METHOD,
+            gen_lsp_types::LspNotificationMethod::WorkspaceDidChangeWorkspaceFolders.as_str(),
             Self::DidChangeWorkspaceFolders,
         ),
         (
-            lsp_types::notification::DidChangeWatchedFiles::METHOD,
+            gen_lsp_types::LspNotificationMethod::WorkspaceDidChangeWatchedFiles.as_str(),
             Self::DidChangeWatchedFiles,
         ),
         ("jai/setTrusted", Self::SetTrusted),

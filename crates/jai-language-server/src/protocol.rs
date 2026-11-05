@@ -67,7 +67,7 @@ pub struct JsonSession {
     refresh_semantic_tokens: bool,
     /// The last semantic tokens sent for each document, by result id, so a `delta` request
     /// answers with what changed.
-    token_results: std::collections::BTreeMap<String, (u64, Vec<lsp_types::SemanticToken>)>,
+    token_results: std::collections::BTreeMap<String, (u64, Vec<gen_lsp_types::SemanticToken>)>,
     token_result_ids: u64,
     /// Background work changed polymorph summaries since lenses were last refreshed.
     lenses_changed: bool,

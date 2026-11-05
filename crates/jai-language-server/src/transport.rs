@@ -359,31 +359,35 @@ struct TraceCompletion {
 
 fn trace_category(message: &Message) -> crate::trace::Category {
     use crate::trace::Category;
-    use lsp_types::{notification::Notification as _, request::Request as _};
     match message {
-        Message::Request(request) => match request.method.as_str() {
-            lsp_types::request::Initialize::METHOD | lsp_types::request::Shutdown::METHOD => {
-                Category::Lifecycle
+        Message::Request(request) => {
+            match gen_lsp_types::LspRequestMethod::from(request.method.as_str()) {
+                gen_lsp_types::LspRequestMethod::Initialize
+                | gen_lsp_types::LspRequestMethod::Shutdown => Category::Lifecycle,
+                gen_lsp_types::LspRequestMethod::TextDocumentHover => Category::Hover,
+                gen_lsp_types::LspRequestMethod::TextDocumentReferences => Category::References,
+                gen_lsp_types::LspRequestMethod::TextDocumentLinkedEditingRange => {
+                    Category::LinkedEditing
+                }
+                gen_lsp_types::LspRequestMethod::TextDocumentPrepareRename
+                | gen_lsp_types::LspRequestMethod::TextDocumentRename => Category::Rename,
+                gen_lsp_types::LspRequestMethod::TextDocumentDiagnostic
+                | gen_lsp_types::LspRequestMethod::WorkspaceDiagnostic => Category::Diagnostics,
+                gen_lsp_types::LspRequestMethod::TextDocumentCompletion
+                | gen_lsp_types::LspRequestMethod::CompletionItemResolve => Category::Completion,
+                _ => Category::Request,
             }
-            lsp_types::request::HoverRequest::METHOD => Category::Hover,
-            lsp_types::request::References::METHOD => Category::References,
-            lsp_types::request::LinkedEditingRange::METHOD => Category::LinkedEditing,
-            lsp_types::request::PrepareRenameRequest::METHOD
-            | lsp_types::request::Rename::METHOD => Category::Rename,
-            lsp_types::request::DocumentDiagnosticRequest::METHOD
-            | lsp_types::request::WorkspaceDiagnosticRequest::METHOD => Category::Diagnostics,
-            lsp_types::request::Completion::METHOD
-            | lsp_types::request::ResolveCompletionItem::METHOD => Category::Completion,
-            _ => Category::Request,
-        },
-        Message::Notification(notification) => match notification.method.as_str() {
-            lsp_types::notification::DidOpenTextDocument::METHOD
-            | lsp_types::notification::DidChangeTextDocument::METHOD
-            | lsp_types::notification::DidCloseTextDocument::METHOD => Category::Change,
-            lsp_types::notification::Initialized::METHOD
-            | lsp_types::notification::Exit::METHOD => Category::Lifecycle,
-            _ => Category::Notification,
-        },
+        }
+        Message::Notification(notification) => {
+            match gen_lsp_types::LspNotificationMethod::from(notification.method.as_str()) {
+                gen_lsp_types::LspNotificationMethod::TextDocumentDidOpen
+                | gen_lsp_types::LspNotificationMethod::TextDocumentDidChange
+                | gen_lsp_types::LspNotificationMethod::TextDocumentDidClose => Category::Change,
+                gen_lsp_types::LspNotificationMethod::Initialized
+                | gen_lsp_types::LspNotificationMethod::Exit => Category::Lifecycle,
+                _ => Category::Notification,
+            }
+        }
         Message::Response(_) => Category::Response,
     }
 }

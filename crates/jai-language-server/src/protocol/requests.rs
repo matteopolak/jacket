@@ -79,7 +79,7 @@ impl JsonSession {
                 if ranges.is_empty() {
                     Value::Null
                 } else {
-                    standard_value(lsp_types::LinkedEditingRanges {
+                    standard_value(gen_lsp_types::LinkedEditingRanges {
                         ranges,
                         word_pattern: Some("[A-Za-z_][A-Za-z0-9_]*".into()),
                     })
@@ -140,7 +140,7 @@ impl JsonSession {
             }
             Request::Rename => {
                 let p: RenameParams = decode(params)?;
-                let at = p.text_document_position;
+                let at = p.text_document_position_params;
                 let document = uri(at.text_document.uri.as_str())?;
                 let edits = self.session.rename(&document, at.position, &p.new_name);
                 edits
@@ -151,9 +151,9 @@ impl JsonSession {
                 let (document, position) = at(params)?;
                 let ranges = self.session.document_highlights(&document, position);
                 array(ranges.map_err(domain)?, |range| {
-                    standard_value(lsp_types::DocumentHighlight {
+                    standard_value(gen_lsp_types::DocumentHighlight {
                         range,
-                        kind: Some(lsp_types::DocumentHighlightKind::TEXT),
+                        kind: Some(gen_lsp_types::DocumentHighlightKind::Text),
                     })
                 })
             }
@@ -167,7 +167,7 @@ impl JsonSession {
             Request::DocumentLink => {
                 let links = self.session.document_links(&document(params)?);
                 array(links.map_err(domain)?, |(range, target)| {
-                    standard_value(lsp_types::DocumentLink {
+                    standard_value(gen_lsp_types::DocumentLink {
                         range,
                         target: Some(standard_uri(&target)),
                         tooltip: None,
@@ -248,22 +248,14 @@ impl JsonSession {
         Ok(result)
     }
 
-    fn initialize(&mut self, mut params: Value) -> Result<Value, Failure> {
+    fn initialize(&mut self, params: Value) -> Result<Value, Failure> {
         if self.lifecycle != Lifecycle::New {
             return Err(fail(
                 ErrorCode::InvalidRequest,
                 "Server is already initialized",
             ));
         }
-        // 0.97 calls this workspace field `diagnostic`; the protocol spells it
-        // `diagnostics`. Normalize the library gap before typed decoding.
-        if let Some(diagnostics) = params
-            .pointer("/capabilities/workspace/diagnostics")
-            .cloned()
-        {
-            params["capabilities"]["workspace"]["diagnostic"] = diagnostics;
-        }
-        let params: lsp_types::InitializeParams = decode(params)?;
+        let params: gen_lsp_types::InitializeParams = decode(params)?;
         let caps = &params.capabilities;
         let document = caps.text_document.as_ref();
         let workspace = caps.workspace.as_ref();
@@ -273,7 +265,7 @@ impl JsonSession {
         self.pull_diagnostics = document.and_then(|d| d.diagnostic.as_ref()).is_some();
         self.refresh_diagnostics = self.pull_diagnostics
             && workspace
-                .and_then(|w| w.diagnostic.as_ref())
+                .and_then(|w| w.diagnostics.as_ref())
                 .and_then(|d| d.refresh_support)
                 == Some(true);
         self.refresh_code_lenses = workspace
@@ -301,18 +293,18 @@ impl JsonSession {
         if options["trusted"].as_bool() == Some(false) {
             self.session.set_trusted(false);
         }
-        let path = |uri: &lsp_types::Uri| {
+        let path = |uri: &gen_lsp_types::Uri| {
             DocumentUri::parse(uri.as_str())
                 .ok()
                 .map(|uri| PathBuf::from(uri.path()))
         };
         #[expect(deprecated, reason = "rootUri remains supported for older clients")]
-        let folders = match params.workspace_folders {
-            Some(folders) => folders
+        let folders = match params.workspace_folders_initialize_params.workspace_folders {
+            Some(gen_lsp_types::WorkspaceFolders::WorkspaceFolderList(folders)) => folders
                 .iter()
                 .filter_map(|folder| path(&folder.uri))
                 .collect(),
-            None => params
+            None | Some(gen_lsp_types::WorkspaceFolders::Null) => params
                 .root_uri
                 .as_ref()
                 .and_then(path)
@@ -330,7 +322,7 @@ impl JsonSession {
         let data = semantic_tokens_wire(&tokens);
         drop(tokens);
         let id = self.remember_tokens(&document, &data);
-        serde_json::to_value(&lsp_types::SemanticTokens {
+        serde_json::to_value(&gen_lsp_types::SemanticTokens {
             result_id: Some(id.to_string()),
             data,
         })
@@ -345,7 +337,7 @@ impl JsonSession {
             .session
             .semantic_tokens_in(&document, p.range)
             .map_err(domain)?;
-        serde_json::to_value(&lsp_types::SemanticTokens {
+        serde_json::to_value(&gen_lsp_types::SemanticTokens {
             result_id: None,
             data: semantic_tokens_wire(&tokens),
         })
@@ -368,7 +360,7 @@ impl JsonSession {
             {
                 token_delta_wire(id, &old_data, &data).map_err(internal)?
             }
-            _ => serde_json::to_value(&lsp_types::SemanticTokens {
+            _ => serde_json::to_value(&gen_lsp_types::SemanticTokens {
                 result_id: Some(id.to_string()),
                 data,
             })
@@ -380,7 +372,7 @@ impl JsonSession {
     fn remember_tokens(
         &mut self,
         document: &DocumentUri,
-        data: &[lsp_types::SemanticToken],
+        data: &[gen_lsp_types::SemanticToken],
     ) -> u64 {
         self.token_result_ids += 1;
         // Closed documents are not forgotten one by one; the table is just kept small.
@@ -413,8 +405,8 @@ impl JsonSession {
             })
         });
         if let Some(doc) = data.and_then(|d| self.session.completion_documentation(&d)) {
-            item["documentation"] = standard_value(lsp_types::MarkupContent {
-                kind: lsp_types::MarkupKind::Markdown,
+            item["documentation"] = standard_value(gen_lsp_types::MarkupContent {
+                kind: gen_lsp_types::MarkupKind::Markdown,
                 value: doc,
             });
         }
@@ -436,8 +428,8 @@ impl JsonSession {
                 .into_iter()
                 .filter(|d| matches!(d.source.as_deref(), Some("jailint" | "jaic")))
                 .filter_map(|d| match d.code? {
-                    lsp_types::NumberOrString::String(code) => Some((code, d.range)),
-                    lsp_types::NumberOrString::Number(_) => None,
+                    gen_lsp_types::Code::String(code) => Some((code, d.range)),
+                    gen_lsp_types::Code::Int(_) => None,
                 })
                 .collect(),
         };
@@ -451,6 +443,7 @@ impl JsonSession {
         let p: CommandParams = decode(params)?;
         let targets: Vec<CommandTarget> = p
             .arguments
+            .unwrap_or_default()
             .into_iter()
             .map(decode)
             .collect::<Result<_, _>>()?;
@@ -499,7 +492,7 @@ impl JsonSession {
                 workspace_document_report(&target, Some(version), &diagnostics, previous)
             })
             .collect();
-        Ok(standard_value(lsp_types::WorkspaceDiagnosticReport {
+        Ok(standard_value(gen_lsp_types::WorkspaceDiagnosticReport {
             items,
         }))
     }

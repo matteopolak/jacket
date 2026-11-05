@@ -5,8 +5,6 @@ use super::params::CancelParams;
 use super::{JsonSession, Lifecycle, ProtocolError, RequestId};
 use crate::{Error, Limits, MarkupKind, Session};
 use lsp_server::{Message, Response};
-use lsp_types::notification::Notification as _;
-use lsp_types::request::Request as _;
 use serde_json::{Value, json};
 
 impl JsonSession {
@@ -127,11 +125,11 @@ impl JsonSession {
         for (wanted, method) in [
             (
                 self.refresh_inlay_hints,
-                lsp_types::request::InlayHintRefreshRequest::METHOD,
+                gen_lsp_types::LspRequestMethod::WorkspaceInlayHintRefresh.as_str(),
             ),
             (
                 self.refresh_semantic_tokens,
-                lsp_types::request::SemanticTokensRefresh::METHOD,
+                gen_lsp_types::LspRequestMethod::WorkspaceSemanticTokensRefresh.as_str(),
             ),
         ] {
             if wanted && let Some(request) = self.refresh_request(method) {
@@ -178,7 +176,7 @@ impl JsonSession {
         if !self.refresh_code_lenses {
             return None;
         }
-        self.refresh_request(lsp_types::request::CodeLensRefresh::METHOD)
+        self.refresh_request(gen_lsp_types::LspRequestMethod::WorkspaceCodeLensRefresh.as_str())
     }
 
     pub(super) fn refresh_request(&mut self, method: &str) -> Option<Value> {
@@ -379,12 +377,14 @@ impl JsonSession {
                     }
                 }
                 Message::Notification(notification)
-                    if notification.method == lsp_types::notification::Exit::METHOD =>
+                    if notification.method
+                        == gen_lsp_types::LspNotificationMethod::Exit.as_str() =>
                 {
                     break;
                 }
                 Message::Notification(notification)
-                    if notification.method == lsp_types::notification::Cancel::METHOD =>
+                    if notification.method
+                        == gen_lsp_types::LspNotificationMethod::CancelRequest.as_str() =>
                 {
                     if let Ok(params) =
                         serde_json::from_value::<CancelParams>(notification.params.clone())
@@ -418,7 +418,8 @@ impl JsonSession {
                     batch.session.handle_request(request)?
                 }
             } else if let Message::Notification(notification) = &message
-                && notification.method == lsp_types::notification::Cancel::METHOD
+                && notification.method
+                    == gen_lsp_types::LspNotificationMethod::CancelRequest.as_str()
                 && serde_json::from_value::<CancelParams>(notification.params.clone()).is_ok()
             {
                 // Admission already applied this arrival in order. Applying it again here
@@ -555,7 +556,7 @@ impl JsonSession {
             Some(Notification::Initialized) => {
                 if self.lifecycle == Lifecycle::AwaitInitialized
                     && params.is_object()
-                    && serde_json::from_value::<lsp_types::InitializedParams>(params).is_ok()
+                    && serde_json::from_value::<gen_lsp_types::InitializedParams>(params).is_ok()
                 {
                     self.lifecycle = Lifecycle::Running;
                 }
@@ -624,7 +625,7 @@ impl JsonSession {
         let logs = self.session.take_logs().into_iter().map(|message| {
             json!({
                 "jsonrpc": "2.0",
-                "method": lsp_types::notification::LogMessage::METHOD,
+                "method": gen_lsp_types::LspNotificationMethod::WindowLogMessage.as_str(),
                 "params": { "type": 3, "message": message },
             })
         });
@@ -634,7 +635,7 @@ impl JsonSession {
             .map(|message| {
                 json!({
                     "jsonrpc": "2.0",
-                    "method": lsp_types::notification::ShowMessage::METHOD,
+                    "method": gen_lsp_types::LspNotificationMethod::WindowShowMessage.as_str(),
                     "params": { "type": 2, "message": message },
                 })
             })

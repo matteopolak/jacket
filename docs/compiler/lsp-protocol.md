@@ -1,14 +1,16 @@
 # LSP protocol boundary
 
-The language server uses pinned `lsp-server` messages, IDs, request queues and I/O, with `lsp-types` schemas for standard wire data and method names. Jai compiler facts and editor behavior remain independent of those transport types.
+The language server uses pinned `lsp-server` messages, IDs, request queues and I/O, with generated `gen-lsp-types` schemas for standard wire data and method names. Jai compiler facts and editor behavior remain independent of those transport types.
 
 ## How it works
 
-`position.rs` re-exports the library's UTF-16 `Position` and `Range`; document changes use `TextDocumentContentChangeEvent`. The protocol modules decode standard request parameters and client capabilities, construct typed server capabilities, and translate Jai's richer semantic enums at the JSON boundary. Jai extension payloads remain local types.
+`position.rs` re-exports the library's UTF-16 `Position` and `Range`; wire changes decode as `TextDocumentContentChangeEvent` before conversion to the session's local `TextChange` model. The protocol modules decode standard request parameters and client capabilities, construct typed server capabilities, and translate Jai's richer semantic enums at the JSON boundary. Jai extension payloads remain local types.
 
-Two gaps in `lsp-types` 0.97 need explicit adapters: its server capability struct lacks `typeHierarchyProvider`, and its workspace client diagnostic field uses `diagnostic` where the protocol specifies `diagnostics`. Capability tests compare the entire advertised JSON object with the previous contract. Initialization requires standard capabilities. Code actions require the standard context and diagnostic fields.
+The schema dependency is generated from the protocol metamodel. Its standard server capabilities include `typeHierarchyProvider` and workspace `diagnostics`; no manual field patches are needed. Capability tests compare the entire advertised JSON object. Initialization requires standard capabilities. Code actions require the standard context and diagnostic fields.
 
-Full and range semantic-token responses use `SemanticTokens`; results become the library response’s owned JSON value. The bounded previous-result table stores those same token structs. Delta edits keep a small integer-span serializer: the protocol permits edits within a token, but the pinned library's `SemanticTokensEdit.data` requires complete five-integer token groups. Preserving a one-integer edit avoids widening existing deltas or allocating another flattened array. A regression checks this exact case against the [standard integer-array shape](https://github.com/microsoft/vscode-languageserver-node/blob/main/types/src/main.ts).
+Incremental edits are shape-checked before the generated untagged partial/whole-document union: a provided non-null range must be a valid standard `Range`, and a provided non-null `rangeLength` must be a protocol unsigned integer. Otherwise the notification fails before text or version changes. Admitted typed events convert to the session's `TextChange` edit model. Keep these checks when changing the schema dependency, since a permissive whole-document branch must never hide a malformed partial edit. The generated crate's JSON-RPC model is unused; `lsp-server` owns all normal envelopes and integer/string request IDs.
+
+Full and range semantic-token responses use `SemanticTokens`; results become the library response’s owned JSON value. The bounded previous-result table stores those same token structs. Delta edits keep a small borrowed integer-span serializer to avoid allocating another flattened array. The generated `SemanticTokensDelta` model supports these arbitrary integer spans; regression tests round-trip the streamed payload through that model, including a one-integer edit inside a token.
 
 Local file identity is still `DocumentUri`: standard `Uri` parsing does not establish the server's local-file policy, URI length limit, platform path rules, or overlay identity. Decode standard URIs first, then apply that policy at the boundary.
 

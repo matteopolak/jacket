@@ -189,10 +189,14 @@ fn run_item(item: Item, repeats: usize) -> Result<(), String> {
         }};
     }
     match item.method.as_str() {
-        "textDocument/semanticTokens/full" => typed!(lsp_types::SemanticTokensResult),
-        "textDocument/documentSymbol" => typed!(lsp_types::DocumentSymbolResponse),
-        "textDocument/completion" => typed!(lsp_types::CompletionResponse),
-        "textDocument/diagnostic" => typed!(lsp_types::DocumentDiagnosticReportResult),
+        "textDocument/semanticTokens/full" => {
+            typed!(<gen_lsp_types::SemanticTokensRequest as gen_lsp_types::Request>::Result)
+        }
+        "textDocument/documentSymbol" => typed!(gen_lsp_types::DocumentSymbolResponse),
+        "textDocument/completion" => typed!(gen_lsp_types::CompletionResponse),
+        "textDocument/diagnostic" => {
+            typed!(<gen_lsp_types::DocumentDiagnosticRequest as gen_lsp_types::Request>::Result)
+        }
         _ => Err("unsupported method".into()),
     }
 }

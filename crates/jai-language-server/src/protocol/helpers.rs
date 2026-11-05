@@ -2,7 +2,6 @@
 use super::methods::{ErrorCode, Failure};
 use super::params::{DocumentParams, PositionParams};
 use crate::{DocumentUri, Error, Position};
-use lsp_types::notification::Notification as _;
 use serde_json::{Value, json};
 
 pub(super) fn decode<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, Failure> {
@@ -68,7 +67,7 @@ pub(super) fn domain(error: Error) -> Failure {
     let mut result = fail(code, error.to_string());
     if matches!(error, Error::DiagnosticsUnavailable) {
         result.data = Some(super::wire::standard_value(
-            lsp_types::DiagnosticServerCancellationData {
+            gen_lsp_types::DiagnosticServerCancellationData {
                 retrigger_request: false,
             },
         ));
@@ -80,7 +79,7 @@ pub(super) fn domain(error: Error) -> Failure {
 pub(super) fn log_error(message: &str) -> Value {
     json!({
         "jsonrpc": "2.0",
-        "method": lsp_types::notification::LogMessage::METHOD,
-        "params": lsp_types::LogMessageParams { typ: lsp_types::MessageType::ERROR, message: message.into() },
+        "method": gen_lsp_types::LspNotificationMethod::WindowLogMessage.as_str(),
+        "params": gen_lsp_types::LogMessageParams { kind: gen_lsp_types::MessageType::Error, message: message.into() },
     })
 }

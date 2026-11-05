@@ -910,11 +910,11 @@ fn diagnostic_pull_rejection(method: &str) {
     .unwrap();
     assert_eq!(
         next["error"]["code"],
-        lsp_types::error_codes::SERVER_CANCELLED,
+        lsp_server::ErrorCode::ServerCancelled as i32,
         "{next}"
     );
     assert!(next.get("result").is_none());
-    let data: lsp_types::DiagnosticServerCancellationData =
+    let data: gen_lsp_types::DiagnosticServerCancellationData =
         serde_json::from_value(next["error"]["data"].clone()).unwrap();
     assert!(
         !data.retrigger_request,

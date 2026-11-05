@@ -1,5 +1,5 @@
 use crate::Error;
-pub use lsp_types::{Position, Range};
+pub use gen_lsp_types::{Position, Range};
 
 /// The language server's view of `jaic::source::LineIndex`: positions in the protocol's
 /// terms (`Position`, UTF-16 columns) with the protocol's errors.

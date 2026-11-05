@@ -99,7 +99,7 @@ cargo run -p jai-language-server --bin jailsp
 
 ## Dependencies
 
-`jaic`, `jailint`, pinned `lsp-types` and `lsp-server`, `serde_json`, and native `crossbeam-channel` transport. LSP 3.17 over JSON-RPC 2.0. The browser reaches it through `engine.lsp(message)` ([playground](../browser/playground.md)).
+`jaic`, `jailint`, pinned `gen-lsp-types` and `lsp-server`, `serde_json`, and native `crossbeam-channel` transport. LSP 3.17 over JSON-RPC 2.0. The browser reaches it through `engine.lsp(message)` ([playground](../browser/playground.md)).
 
 ## Protocol schemas and verification
 

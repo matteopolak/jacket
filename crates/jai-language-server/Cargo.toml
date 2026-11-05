@@ -17,7 +17,7 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["raw_value"] }
 lsp-server = "=0.10.0"
 crossbeam-channel = "=0.5.17"
-lsp-types = "=0.97.0"
+gen-lsp-types = { version = "=0.11.0", features = ["fluent-uri"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))'.dependencies]
 cpu-time = "=1.0.0"

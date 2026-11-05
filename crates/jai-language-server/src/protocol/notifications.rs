@@ -2,10 +2,9 @@
 use super::JsonSession;
 use super::helpers::{decode, domain, fail, file_document, is_file_uri, uri};
 use super::methods::{ErrorCode, Failure, Notification};
-use super::params::{ChangeParams, OpenParams};
+use super::params::{OpenParams, change_params};
 use super::wire::diagnostics_notification;
 use crate::{Diagnostic, DocumentUri, Error};
-use lsp_types::request::Request as _;
 use serde_json::Value;
 use std::path::PathBuf;
 
@@ -45,15 +44,15 @@ impl JsonSession {
                 Ok(self.edited(true))
             }
             Notification::DidChangeWorkspaceFolders => {
-                let params: lsp_types::DidChangeWorkspaceFoldersParams = decode(params)?;
+                let params: gen_lsp_types::DidChangeWorkspaceFoldersParams = decode(params)?;
                 self.did_change_workspace_folders(params.event);
                 Ok(vec![])
             }
             Notification::DidChangeWatchedFiles => {
-                let params: lsp_types::DidChangeWatchedFilesParams = decode(params)?;
+                let params: gen_lsp_types::DidChangeWatchedFilesParams = decode(params)?;
                 for change in params.changes {
                     if let Ok(uri) = DocumentUri::parse(change.uri.as_str()) {
-                        let changed = change.typ == lsp_types::FileChangeType::CHANGED;
+                        let changed = change.kind == gen_lsp_types::FileChangeType::Changed;
                         self.session
                             .saved_file_changed(std::path::Path::new(uri.path()), !changed);
                     }
@@ -84,8 +83,8 @@ impl JsonSession {
             // Untitled buffers and other schemes have no path to analyse.
             return Ok(vec![]);
         }
-        let jai_file =
-            item.uri.as_str().ends_with(".jai") || item.language_id.eq_ignore_ascii_case("jai");
+        let jai_file = item.uri.as_str().ends_with(".jai")
+            || item.language_id.as_str().eq_ignore_ascii_case("jai");
         if !jai_file && !settings {
             return Err(fail(
                 ErrorCode::InvalidParams,
@@ -109,15 +108,14 @@ impl JsonSession {
     }
 
     fn did_change(&mut self, params: Value) -> Result<Vec<Value>, Failure> {
-        let p: ChangeParams = decode(params)?;
-        if !is_file_uri(p.text_document.uri.as_str()) {
+        let (document, changes) = change_params(params)?;
+        let document_uri = document.text_document_identifier.uri;
+        if !is_file_uri(document_uri.as_str()) {
             return Ok(vec![]);
         }
-        let target = uri(p.text_document.uri.as_str())?;
+        let target = uri(document_uri.as_str())?;
         let settings = crate::lints::is_config(&target);
-        let changed = self
-            .session
-            .change(&target, p.text_document.version, &p.content_changes);
+        let changed = self.session.change(&target, document.version, &changes);
         if let Err(error) = changed {
             // A version the document is already past is a repeat; any other failure leaves the
             // client's text ahead of ours, so drop ours and wait for the file to be opened again.
@@ -126,7 +124,7 @@ impl JsonSession {
             }
             self.session.notify(format!(
                 "jailsp could not apply an edit to {} ({error}) and closed it: its diagnostics, hover and completion are off until it is opened again.",
-                p.text_document.uri.as_str()
+                document_uri.as_str()
             ));
             let message = format!("textDocument/didChange failed: {error}");
             let _ = self.session.close(&target);
@@ -183,8 +181,8 @@ impl JsonSession {
         messages
     }
 
-    fn did_change_workspace_folders(&mut self, event: lsp_types::WorkspaceFoldersChangeEvent) {
-        let folders = |folders: Vec<lsp_types::WorkspaceFolder>| -> Vec<PathBuf> {
+    fn did_change_workspace_folders(&mut self, event: gen_lsp_types::WorkspaceFoldersChangeEvent) {
+        let folders = |folders: Vec<gen_lsp_types::WorkspaceFolder>| -> Vec<PathBuf> {
             folders
                 .into_iter()
                 .filter_map(|folder| DocumentUri::parse(folder.uri.as_str()).ok())
@@ -225,7 +223,7 @@ impl JsonSession {
         if !self.refresh_diagnostics {
             return Vec::new();
         }
-        self.refresh_request(lsp_types::request::WorkspaceDiagnosticRefresh::METHOD)
+        self.refresh_request(gen_lsp_types::LspRequestMethod::WorkspaceDiagnosticRefresh.as_str())
             .into_iter()
             .collect()
     }
