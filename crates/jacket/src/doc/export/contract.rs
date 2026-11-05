@@ -68,7 +68,7 @@ dto! {
     TextSpan { start: u64, end: u64, role: TokenRole, target: Option<Target> }
     ResolvedText { source: String, spans: Vec<TextSpan> }
     ApiModule {
-        id: String, title: String, source: Location, source_url: Option<String>, docs: Vec<DocumentNode>,
+        id: String, import_path: String, title: String, source: Location, source_url: Option<String>, docs: Vec<DocumentNode>,
         implicit: bool, experimental: bool, wasm: bool, since: String,
         platforms: Vec<String>, category: Option<String>, group: String,
         parameters: Vec<Parameter>, declarations: Vec<Declaration>, dependencies: Vec<InputDigest>, metadata: PageMetadata,

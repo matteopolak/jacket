@@ -100,7 +100,7 @@ fn read_models(
                         .output();
                     let result = match output {
                         Ok(o) if o.status.success() => {
-                            model::parse(id, &String::from_utf8_lossy(&o.stdout), root).map(
+                            model::parse(id, &String::from_utf8_lossy(&o.stdout), root, stdlib).map(
                                 |mut module| {
                                     module.wasm = builds_for_wasm(jaic, stdlib, root, &module, i);
                                     module
@@ -152,7 +152,7 @@ fn builds_for_wasm(jaic: &Path, stdlib: &Path, root: &Path, module: &Module, n: 
         return false;
     }
     let file = dir.join(format!("{n}.jai"));
-    let program = format!("#import \"{}\";\nmain :: () {{}}\n", module.id);
+    let program = format!("#import \"{}\";\nmain :: () {{}}\n", module.import_name());
     let ok = std::fs::write(&file, program).is_ok()
         && Command::new(jaic)
             .env(jacket_config::env::STDLIB.name, stdlib)
@@ -696,6 +696,60 @@ fn timing(args: &DocArgs, label: &str, start: std::time::Instant) -> std::time::
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn import_context_reaches_native_wasm_probe_and_preserves_status() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = test_support::TempDir::new("doc-wasm-import-context");
+        let stdlib = temp.join("stdlib");
+        let compiler = temp.join("compiler");
+        std::fs::write(&compiler, "#!/bin/sh\nset -eu\nfixture=$(dirname \"$0\")\nprintf '%s\\n' \"$@\" > \"$fixture/args\"\nprintf '%s' \"$JAIC_STDLIB\" > \"$fixture/stdlib-env\"\nfor input do :; done\ncp \"$input\" \"$fixture/input.jai\"\nexit \"$(cat \"$fixture/status\")\"\n").unwrap();
+        std::fs::set_permissions(&compiler, std::fs::Permissions::from_mode(0o755)).unwrap();
+        for (n, (root, id, expected)) in [
+            (stdlib.clone(), "Extensions/Widget", "Extensions/Widget"),
+            (stdlib.join("Extensions"), "Widget", "Extensions/Widget"),
+            (temp.join("project"), "Acme/Widget", "Acme/Widget"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let directory = root.join(id);
+            std::fs::create_dir_all(&directory).unwrap();
+            std::fs::write(directory.join("module.jai"), "value :: 1;\n").unwrap();
+            let raw = jaic::doc_comments::model_json(&directory, &stdlib);
+            let module = model::parse(id, &raw, &root, &stdlib).unwrap();
+            for status in [0, 7] {
+                std::fs::write(temp.join("status"), status.to_string()).unwrap();
+                assert_eq!(
+                    builds_for_wasm(&compiler, &stdlib, &root, &module, n),
+                    status == 0
+                );
+                assert_eq!(
+                    std::fs::read_to_string(temp.join("input.jai")).unwrap(),
+                    format!("#import \"{expected}\";\nmain :: () {{}}\n"),
+                    "{id}: native probe import"
+                );
+                assert_eq!(
+                    std::fs::read_to_string(temp.join("stdlib-env")).unwrap(),
+                    stdlib.to_str().unwrap()
+                );
+                let args = std::fs::read_to_string(temp.join("args")).unwrap();
+                let args = args.lines().collect::<Vec<_>>();
+                assert_eq!(&args[..4], ["-check", "-no_dce", "-os", "wasm"]);
+                if root == stdlib {
+                    assert_eq!(args.len(), 5);
+                } else {
+                    assert_eq!(args.len(), 7);
+                    assert_eq!(&args[4..6], ["-import_dir", root.to_str().unwrap()]);
+                }
+                assert!(
+                    !Path::new(args.last().unwrap()).exists(),
+                    "probe input must be removed after success or failure"
+                );
+            }
+        }
+    }
 
     #[test]
     fn retired_renderer_options_explain_migration_before_extracting_a_library() {

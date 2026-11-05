@@ -97,6 +97,8 @@ mod tests {
         Module {
             dependencies: Vec::new(),
             id: id.into(),
+            doc_key: id.into(),
+            import_path: id.into(),
             file: String::new(),
             docs: String::new(),
             docs_line: 0,

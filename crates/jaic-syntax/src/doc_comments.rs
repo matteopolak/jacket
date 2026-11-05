@@ -63,6 +63,26 @@ fn canonical(path: &Path) -> PathBuf {
     path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
 }
 
+/// The module identity used in compiler documentation links, independent of a site's root.
+/// For example, a module below `stdlib/Extensions/Widget` keeps `Extensions/Widget` when
+/// documented on its own. Modules outside the standard library use their folder name.
+pub fn module_key(dir: &Path, stdlib: &Path) -> String {
+    stdlib_module_key(dir, stdlib).unwrap_or_else(|| {
+        canonical(dir)
+            .file_name()
+            .map_or(String::new(), |name| name.to_string_lossy().into_owned())
+    })
+}
+
+/// The import path of a module inside the actual standard library, or `None` outside it.
+/// For example, selecting `stdlib/Extensions/Widget` alone still imports `Extensions/Widget`.
+pub fn stdlib_module_key(dir: &Path, stdlib: &Path) -> Option<String> {
+    canonical(dir)
+        .strip_prefix(canonical(stdlib))
+        .ok()
+        .map(crate::paths::module_key)
+}
+
 /// Every doc comment of the library in `dir`, in the order its files are reached. `stdlib` is
 /// where the `internal/` modules are.
 pub fn library_docs(dir: &Path, stdlib: &Path) -> Vec<LibraryDoc> {

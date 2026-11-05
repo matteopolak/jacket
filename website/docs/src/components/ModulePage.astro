@@ -16,7 +16,7 @@ const { site,module,href } = Astro.props;
 <Crumbs site={site} module={module} href={href} />
 <Title site={site} module={module} />
 <div class="meta"><Platforms module={module} />{module.since && <Fragment><span class="meta-sep">·</span><span class="since">since {module.since}</span></Fragment>}</div>
-{module.implicit ? <p class="import">Every program imports this module; there is nothing to write.</p> : <p class="import"><code><span class="d">#import</span>{' '}<span class="s">"{module.id}"</span>;</code></p>}
+{module.implicit ? <p class="import">Every program imports this module; there is nothing to write.</p> : <p class="import"><code><span class="d">#import</span>{' '}<span class="s">"{module.importPath}"</span>;</code></p>}
 {module.docs.length > 0 && <Fragment><div class="fold"><Document nodes={module.docs} href={href} lead /><script is:inline>window.fold?.();</script></div><button type="button" class="btn fold-btn">Show more</button></Fragment>}
 {module.parameters.length > 0 && <Fragment><h2 id="parameters">Module parameters<a class="anchor" href="#parameters" aria-label="Link to this heading">#</a></h2><Definitions parameters={module.parameters} href={href} /></Fragment>}
 {sections(module).map(section => <Fragment>

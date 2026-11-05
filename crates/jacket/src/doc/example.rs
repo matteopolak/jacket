@@ -101,7 +101,7 @@ pub(super) fn exported(
     let program = parsed
         .as_ref()
         .filter(|b| why_not_run(b).is_none())
-        .map(|b| doctest::generate(b, &module.id).0);
+        .map(|b| doctest::generate(b, module.import_name()).0);
     if let (Some(program), Some(block)) = (&program, &parsed) {
         site.add_runnable(super::example_check::Program {
             label: format!("{}:{}", block.file.display(), block.line),
@@ -112,15 +112,15 @@ pub(super) fn exported(
     let run_template = parsed
         .as_ref()
         .filter(|_| reason.is_none())
-        .map(|b| make_template(doctest::generate_template(b, &module.id)));
+        .map(|b| make_template(doctest::generate_template(b, module.import_name())));
     let open_template = parsed
         .as_ref()
-        .filter(|b| standalone_ok(b, &module.id))
-        .map(|b| make_template(doctest::standalone_template(b, &module.id)));
+        .filter(|b| standalone_ok(b, module.import_name()))
+        .map(|b| make_template(doctest::standalone_template(b, module.import_name())));
     let playground_url = parsed
         .as_ref()
-        .filter(|b| standalone_ok(b, &module.id) && !site.playground.is_empty())
-        .and_then(|b| doctest::standalone(b, &module.id))
+        .filter(|b| standalone_ok(b, module.import_name()) && !site.playground.is_empty())
+        .and_then(|b| doctest::standalone(b, module.import_name()))
         .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));
     let mut example = Data {
         id: String::new(),
@@ -165,6 +165,123 @@ fn asset_id(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn import_context_preserves_stdlib_and_external_example_programs() {
+        use super::super::export::{build, contract::ResolvedText, publication::Publication};
+        let temp = test_support::TempDir::new("doc-example-import-context");
+        let stdlib = temp.join("stdlib");
+        let external = temp.join("project");
+        let mut stdlib_examples = Vec::new();
+        let mut imports = Vec::new();
+        for (root, id, expected) in [
+            (stdlib.clone(), "Extensions/Widget", "Extensions/Widget"),
+            (stdlib.join("Extensions"), "Widget", "Extensions/Widget"),
+            (external, "Acme/Widget", "Acme/Widget"),
+        ] {
+            let directory = root.join(id);
+            std::fs::create_dir_all(&directory).unwrap();
+            std::fs::write(directory.join("module.jai"), "// An owned module.\n").unwrap();
+            let raw = jaic::doc_comments::model_json(&directory, &stdlib);
+            let module = super::super::model::parse(id, &raw, &root, &stdlib).unwrap();
+            assert_eq!(module.id, id);
+            assert_eq!(
+                module.doc_key,
+                if id == "Acme/Widget" {
+                    "Widget"
+                } else {
+                    "Extensions/Widget"
+                }
+            );
+            let site = Site::new(
+                vec![module],
+                vec![],
+                "/nested/docs/".into(),
+                String::new(),
+                String::new(),
+                "https://example.invalid/play".into(),
+                true,
+            );
+            let example = exported(
+                &site,
+                &site.modules[0],
+                ("fixture.jai", 3),
+                ("jai", "value := 1;"),
+                ResolvedText {
+                    source: "value := 1;".into(),
+                    spans: vec![],
+                },
+            );
+            let block = block("jai", "value := 1;", ("fixture.jai", 3), &[]).unwrap();
+            assert_eq!(
+                example.program.as_deref(),
+                Some(doctest::generate(&block, expected).0.as_str()),
+                "{id}: executable program"
+            );
+            let run = example.run_template.as_ref().unwrap();
+            let expected_run = doctest::generate_template(&block, expected);
+            assert_eq!(
+                (&run.head, &run.middle, &run.tail),
+                (&expected_run.head, &expected_run.middle, &expected_run.tail),
+                "{id}: editable Run template"
+            );
+            let open = example.open_template.as_ref().unwrap();
+            let expected_open = doctest::standalone_template(&block, expected);
+            assert_eq!(
+                (&open.head, &open.middle, &open.tail),
+                (
+                    &expected_open.head,
+                    &expected_open.middle,
+                    &expected_open.tail
+                ),
+                "{id}: Open template"
+            );
+            assert_eq!(
+                example.playground_url,
+                Some(format!(
+                    "https://example.invalid/play#code={}",
+                    base64url(doctest::standalone(&block, expected).unwrap().as_bytes())
+                ))
+            );
+            assert_eq!(site.runnable()[0].text, example.program.as_deref().unwrap());
+            let publication = Publication {
+                origin: String::new(),
+                base: "/nested/docs/".into(),
+                name: "Fixture".into(),
+                image: String::new(),
+                version: String::new(),
+                canonical_version: None,
+                image_file: None,
+            };
+            let formatted = super::super::declaration_format::Batch::prepare(&site, &temp).unwrap();
+            let data = build::module(
+                &site,
+                0,
+                &|_, sha256| {
+                    Ok(super::super::export::contract::InputDigest {
+                        path: "fixture.jai".into(),
+                        sha256: sha256.into(),
+                    })
+                },
+                &publication,
+                &formatted,
+            )
+            .unwrap();
+            let wire = serde_json::to_value(data).unwrap();
+            assert_eq!(wire["id"], id);
+            imports.push((wire, expected));
+            if expected == "Extensions/Widget" {
+                stdlib_examples.push(serde_json::to_value(example).unwrap());
+            }
+        }
+        assert_eq!(
+            stdlib_examples[0], stdlib_examples[1],
+            "selecting the stdlib module alone cannot change its executable examples"
+        );
+        for (wire, expected) in imports {
+            assert_eq!(wire["importPath"], expected, "advertised import");
+        }
+    }
 
     #[test]
     fn repeated_programs_keep_distinct_example_payload_identity() {

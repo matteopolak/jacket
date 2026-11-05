@@ -24,6 +24,8 @@ The manifest inventories every shard and asset by relative path, byte length and
 
 Page targets refer to admitted route IDs and optional anchors; assets and external URLs are separate target variants. Route records keep the site graph compact. Full metadata belongs to the owning module, declaration or document shard. Search entries contain compiler-derived preview facts rather than HTML or a duplicate API model; navigation shards contain only facts needed for a bounded peer list.
 
+A module's `id` identifies its route under the selected documentation library; its `importPath` is the executable import used in the import hint and examples. Selecting a standard-library module directly can give `id: "Json"` and `importPath: "Extensions/Json"`. External nested libraries retain their selected import path, such as `Acme/Widget`. Compiler documentation-link keys are a third, internal identity: the producer resolves them to the selected route and never substitutes them for external imports.
+
 Markdown becomes tagged `DocumentNode` data: paragraphs, headings, lists, tables, links, code, examples and comparisons. Raw HTML is literal text. `ResolvedText` contains the original string and nonoverlapping UTF-8 byte spans for token roles and resolved targets. The consumer validates boundaries before slicing; character indices cannot substitute for byte offsets.
 
 Structured publication URLs are optional semantic facts. Without a configured origin, canonical, article, website and breadcrumb URLs remain unknown; Astro omits their JSON-LD URL fields rather than inventing empty or relative destinations.

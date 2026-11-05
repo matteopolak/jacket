@@ -12,6 +12,9 @@ fn library(tag: &str, files: &[(&str, &str)]) -> PathBuf {
     dir.canonicalize().unwrap()
 }
 
+#[path = "model_identity_tests.rs"]
+mod identity;
+
 #[test]
 fn names_in_types_are_resolved_to_declarations() {
     assert_eq!(

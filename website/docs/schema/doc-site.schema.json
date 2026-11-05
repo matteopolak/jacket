@@ -175,6 +175,9 @@
         "implicit": {
           "type": "boolean"
         },
+        "importPath": {
+          "type": "string"
+        },
         "metadata": {
           "$ref": "#/$defs/PageMetadata"
         },
@@ -209,6 +212,7 @@
       "additionalProperties": false,
       "required": [
         "id",
+        "importPath",
         "title",
         "source",
         "docs",

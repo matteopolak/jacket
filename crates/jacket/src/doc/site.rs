@@ -43,6 +43,9 @@ pub struct Site {
     /// Whether the site carries a browser compiler.
     pub runtime: bool,
     by_id: BTreeMap<String, usize>,
+    /// Compiler doc-link identities are distinct from selected-library page IDs.
+    /// A colliding identity stays ambiguous rather than choosing one module's page.
+    by_doc_key: BTreeMap<String, Option<usize>>,
     /// `Module/name` of an item whose page folder is not its plain slug, because another item
     /// of its module differs from it only in case (`Head` and `head`) and the two folders
     /// would be one on a case-insensitive file system.
@@ -114,6 +117,13 @@ impl Site {
             .enumerate()
             .map(|(i, m)| (m.id.clone(), i))
             .collect();
+        let mut by_doc_key = BTreeMap::new();
+        for (index, module) in modules.iter().enumerate() {
+            by_doc_key
+                .entry(module.doc_key.clone())
+                .and_modify(|found| *found = None)
+                .or_insert(Some(index));
+        }
         // Where each documented item is declared, so a name the compiler resolved to a
         // declaration finds the page (or pages, when several modules re-export it).
         let mut decls: BTreeMap<(String, usize), Vec<(usize, String)>> = BTreeMap::new();
@@ -148,6 +158,7 @@ impl Site {
             breadcrumb: String::new(),
             runtime,
             by_id,
+            by_doc_key,
             folders,
             decls,
             runnable: RefCell::new(BTreeMap::new()),
@@ -262,15 +273,22 @@ impl Site {
             .split_once('#')
             .map_or((rest, None), |(p, m)| (p, Some(m)));
         let found = path.rsplit_once('/').and_then(|(module, name)| {
-            let m = self.module_index(module)?;
-            let item = self.modules[m].item(name)?;
-            Some((module, item))
+            let m = (*self.by_doc_key.get(module)?)?;
+            let module = &self.modules[m];
+            Some((module, module.item(name)?))
         });
         let Some((module, item)) = found else {
-            self.broken.borrow_mut().push(format!("{path} (in {from})"));
+            let ambiguous = path
+                .rsplit_once('/')
+                .is_some_and(|(key, _)| self.by_doc_key.get(key) == Some(&None));
+            self.broken.borrow_mut().push(if ambiguous {
+                format!("{path} (in {from}): ambiguous compiler module identity")
+            } else {
+                format!("{path} (in {from})")
+            });
             return None;
         };
-        let href = self.item_href(module, &item.name);
+        let href = self.item_href(&module.id, &item.name);
         Some(match member {
             Some(member) if item.members.iter().any(|m| m.name == member) => {
                 format!("{href}#m-{member}")
@@ -435,6 +453,84 @@ pub fn overload_labels(item: &super::model::Item) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compiler_doc_keys_resolve_to_selected_library_routes() {
+        let temp = test_support::TempDir::new("doc-key-subtarget");
+        let stdlib = temp.join("stdlib");
+        let directory = stdlib.join("Extensions/Widget");
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(
+            directory.join("module.jai"),
+            "// See [Thing] and [Thing.value].\n\nthing :: 1;\nThing :: struct { value: int; }\n",
+        )
+        .unwrap();
+        let json = jaic::doc_comments::model_json(&directory, &stdlib);
+        assert!(json.contains("jaidoc:Extensions/Widget/Thing"));
+        for (root, id) in [
+            (stdlib.clone(), "Extensions/Widget"),
+            (stdlib.join("Extensions"), "Widget"),
+        ] {
+            for base in ["/", "/nested/docs/"] {
+                let module = super::super::model::parse(id, &json, &root, &stdlib).unwrap();
+                let site = Site::new(
+                    vec![module],
+                    Vec::new(),
+                    base.into(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    false,
+                );
+                assert_eq!(
+                    site.doc_link("jaidoc:Extensions/Widget/Thing", "module"),
+                    Some(format!("{base}api/{id}/Thing-struct")),
+                );
+                assert_eq!(
+                    site.doc_link("jaidoc:Extensions/Widget/Thing#value", "module"),
+                    Some(format!("{base}api/{id}/Thing-struct#m-value")),
+                );
+                assert!(site.broken_links().is_empty());
+                assert_eq!(site.module_index(id), Some(0));
+                assert!(site.doc_link("jaidoc:Missing/Thing", "module").is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn ambiguous_compiler_doc_keys_never_choose_a_display_route() {
+        let temp = test_support::TempDir::new("doc-key-collision");
+        let root = temp.join("library");
+        let stdlib = temp.join("stdlib");
+        let mut modules = Vec::new();
+        for id in ["Widget", "two/Widget"] {
+            let directory = root.join(id);
+            std::fs::create_dir_all(&directory).unwrap();
+            std::fs::write(
+                directory.join("module.jai"),
+                "// See [Thing].\n\nThing :: 1;\n",
+            )
+            .unwrap();
+            let json = jaic::doc_comments::model_json(&directory, &stdlib);
+            assert!(json.contains("jaidoc:Widget/Thing"));
+            modules.push(super::super::model::parse(id, &json, &root, &stdlib).unwrap());
+        }
+        let site = Site::new(
+            modules,
+            Vec::new(),
+            "/".into(),
+            String::new(),
+            String::new(),
+            String::new(),
+            false,
+        );
+        assert!(site.doc_link("jaidoc:Widget/Thing", "module").is_none());
+        assert!(
+            site.broken_links()
+                .iter()
+                .any(|message| message.contains("ambiguous"))
+        );
+    }
 
     fn overload(params: &[(&str, &str, &str)], returns: &[(&str, &str)]) -> Overload {
         Overload {

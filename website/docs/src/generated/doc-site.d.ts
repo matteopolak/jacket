@@ -303,6 +303,7 @@ export interface ApiModule {
   group: string;
   id: string;
   implicit: boolean;
+  importPath: string;
   metadata: PageMetadata;
   parameters: Parameter[];
   platforms: string[];
