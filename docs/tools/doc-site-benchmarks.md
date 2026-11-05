@@ -35,6 +35,15 @@ For the loader decision, compare direct validated shards with a real Astro custo
 
 Use isolated owned browser profiles and production servers with matched response headers and compression. Record `Cache-Control`, validators, content encoding and service-worker state. A development server, unmatched file timestamps or browser heuristic caching can change the comparison. An uncompressed local server cannot establish hosted-CDN transfer savings.
 
+Use the same controlled server for both frozen production trees:
+
+```sh
+PYTHONPATH=tools python3 tools/bench/doc_server.py --directory /tmp/legacy-site --port 8100
+PYTHONPATH=tools python3 tools/bench/doc_server.py --directory /tmp/astro-site --port 8101
+```
+
+This loopback HTTP/1.1 server uses deterministic gzip level 6 for negotiated text/JSON/SVG/Wasm, SHA-256 ETags for the actual encoded representation, and `Vary: Accept-Encoding`. HTML, missing pages and mutable `versions.json` require revalidation; other assets have a one-hour freshness lifetime. It resolves the same slashless routes as the preview server. A per-server cache retains at most 32 MiB of encoded bodies and 256 recently requested representations; warm the planned response set before browser sessions when reporting a server-warm comparison. Empty browser profiles remain browser-cold even with a warm server. Record gzip/identity negotiation and cache policy in every result. This policy excludes file timestamps from validators and does not establish HTTP/2, Brotli or a hosted CDN result. Change `tools/bench/doc_server.py` and its real HTTP regressions together when changing that policy.
+
 For each representative landing page, large API module, declaration and guide, measure repeated matched sessions in these states:
 
 | State | Required preparation |
