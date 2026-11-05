@@ -7,6 +7,7 @@ mod classes;
 mod expansions;
 mod notes;
 mod references;
+pub use references::ReferenceIndex;
 mod text;
 
 pub use self::text::dedent;

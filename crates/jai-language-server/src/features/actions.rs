@@ -20,7 +20,26 @@ impl Session {
         range: Range,
         context: &crate::lints::ActionContext,
     ) -> Result<Vec<CodeAction>, Error> {
+        let _query = self.discovery_query();
+        let mapping = std::cell::RefCell::new(crate::semantic::Observations::default());
+        let base = self.config_filesystem();
+        let fs = base.as_ref().map(|base| crate::semantic::ObservedFs {
+            base,
+            proof: Some(&mapping),
+            secondary: None,
+        });
+        let (uri, _) = match &fs {
+            Some(fs) => self.projected_document_entry(fs, uri)?,
+            None => self.document_entry(uri)?,
+        };
         let mut actions = self.all_code_actions(uri, range, context)?;
+        if self
+            .environment
+            .as_ref()
+            .is_some_and(|env| !mapping.borrow().matches(&*env.fs))
+        {
+            return Ok(Vec::new());
+        }
         actions.retain(|a| match a.kind {
             Some(kind) => context.wants(kind),
             None => context.only.is_none(),
@@ -132,6 +151,14 @@ impl Session {
 
     /// Inferred types of `x := value`, parameter names of literal arguments, and `#run` values.
     pub fn typed_hints(&self, uri: &DocumentUri, range: Range) -> Result<Vec<InlayHint>, Error> {
+        self.projected_document_query(uri, |key| self.typed_hints_at_key(key, range))
+    }
+
+    pub(crate) fn typed_hints_at_key(
+        &self,
+        uri: &DocumentUri,
+        range: Range,
+    ) -> Result<Vec<InlayHint>, Error> {
         let doc = self.document(uri)?;
         let text = &doc.text;
         let first = doc.index.byte(text, range.start);

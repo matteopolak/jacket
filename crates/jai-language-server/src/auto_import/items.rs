@@ -1,6 +1,6 @@
 //! Project symbols and the completion items an auto import offers.
 use super::names::{builds_for, module_of};
-use super::{MAX_ITEMS, MAX_OVERLOADS, MIN_PREFIX, Modules, Source, hash};
+use super::{MAX_ITEMS, MAX_OVERLOADS, MIN_PREFIX, Modules, Source};
 use crate::analysis::Span;
 use crate::document::DocumentUri;
 use crate::exports::{self, Decl};
@@ -12,7 +12,28 @@ use jaic::sema::{ModuleRanking, Rank};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
+#[derive(Default)]
+pub(crate) struct BuildRequests {
+    pub(crate) entries: Vec<PathBuf>,
+    pub(crate) pending: Vec<PathBuf>,
+    pub(crate) failed: bool,
+}
+
 impl Session {
+    pub(crate) fn last_good_import_dirs(&self, uri: &crate::DocumentUri) -> Vec<PathBuf> {
+        let Some(env) = self.environment.as_ref() else {
+            return Vec::new();
+        };
+        let mut sources = self.sources(env);
+        sources.use_advisory();
+        let mut index = self.index.borrow_mut();
+        let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
+        sources
+            .import_dirs(&mut index, &program.root, &self.workspace_folders)
+            .0
+    }
+
+
     /// Reads the module indexes auto-import completion offers from (the stdlib's and the
     /// project's), which cost a few hundred milliseconds the first time and nothing after, so
     /// the first completion of a name does not pay for them. A transport calls this when it
@@ -71,41 +92,30 @@ impl Session {
         }
     }
 
-    /// Auto-import items for `prefix` at the cursor of `uri` (whose text is `text`), leaving out
-    /// `visible` names; and whether the list is incomplete (more matches, or too short a prefix
-    /// yet, so the client asks again as the word grows).
-    /// The `[project] entry` files whose run is still unknown and could attribute `uri` to a
-    /// program, with a hash of what each would be run from (see `Index::probed`).
-    pub(crate) fn unrecorded_builds(&self, uri: &DocumentUri) -> Vec<(PathBuf, u64)> {
+    /// Configured entries whose checked build outcome is needed to attribute this document.
+    /// Proven absence, failed attempts and unattempted producers remain distinct.
+    pub(crate) fn unrecorded_builds(&self, uri: &DocumentUri) -> BuildRequests {
         let Some(env) = self.environment.as_ref() else {
-            return Vec::new();
+            return BuildRequests::default();
         };
         let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
         let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
-        let mut out = Vec::new();
+        let entries = program.entries.iter().cloned().collect();
+        let mut pending = Vec::new();
+        let mut failed = false;
         for entry in program.unattributed {
-            if index.builds.contains_key(&entry) {
-                continue;
-            }
-            // Everything the run reads: the metaprogram, what it loads, the settings file.
-            let mut files: Vec<PathBuf> = sources.closure(&mut index, &entry).into_iter().collect();
-            if let Some((folder, _)) = sources.config(&mut index, &entry) {
-                files.push(folder.join(jacket_config::FILE_NAME));
-            }
-            let mut texts = String::new();
-            for file in files {
-                texts.push_str(&file.to_string_lossy());
-                texts.push('\0');
-                texts.push_str(&sources.read(&file).unwrap_or_default());
-                texts.push('\0');
-            }
-            let hash = hash(&texts);
-            if index.probed.get(&entry) != Some(&hash) {
-                out.push((entry, hash));
+            match index.probed.get(&entry) {
+                Some(crate::semantic::ProbeStatus::Complete) => {}
+                Some(crate::semantic::ProbeStatus::Failed) => failed = true,
+                None => pending.push(entry),
             }
         }
-        out
+        BuildRequests {
+            entries,
+            pending,
+            failed,
+        }
     }
 
     /// The entry file of the project program `uri` belongs to (`[project] entry`, an

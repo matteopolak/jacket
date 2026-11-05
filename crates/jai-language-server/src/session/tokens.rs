@@ -22,6 +22,10 @@ impl Session {
     }
 
     pub fn semantic_tokens(&self, uri: &DocumentUri) -> Result<Vec<SemanticToken>, Error> {
+        self.projected_document_query(uri, |key| self.semantic_tokens_at_key(key))
+    }
+
+    fn semantic_tokens_at_key(&self, uri: &DocumentUri) -> Result<Vec<SemanticToken>, Error> {
         let (uri, doc) = self.document_entry(uri)?;
         let text = doc.text.as_str();
         let analysis = &self

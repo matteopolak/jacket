@@ -6,23 +6,14 @@
 use crate::auto_import::Index;
 use crate::session::Session;
 use jacket_config::{Files, Loaded};
+use jaic::sema::FileSystem;
 use std::path::Path;
 
 /// The settings above `start`, with problems and notes sent to the client. A file that does not
 /// parse gives the default settings (and a message) until it is fixed.
 pub(crate) fn load(files: &dyn Files, index: &mut Index, start: &Path) -> Option<Loaded> {
     let location = jacket_config::locate(files, start)?;
-    let stamp = crate::auto_import::hash(&files.read(&location.file()).unwrap_or_default());
-    if let Some((seen, loaded)) = index.configs.get(&location.dir)
-        && *seen == stamp
-    {
-        return Some(loaded.clone());
-    }
-    let loaded = read(files, index, location)?;
-    index
-        .configs
-        .insert(loaded.location.dir.clone(), (stamp, loaded.clone()));
-    Some(loaded)
+    read(files, index, location)
 }
 
 fn read(files: &dyn Files, index: &mut Index, location: jacket_config::Location) -> Option<Loaded> {
@@ -61,11 +52,15 @@ impl Files for SessionFiles<'_> {
     fn is_file(&self, path: &Path) -> bool {
         self.0.open_file_uri(path).is_some_and(|u| {
             self.0.saved_configs.contains_key(&u) || self.0.documents.contains_key(&u)
-        }) || self
-            .0
-            .environment
-            .as_ref()
-            .map_or_else(|| path.is_file(), |env| env.fs.is_file(path))
+        }) || self.0.environment.as_ref().map_or_else(
+            || path.is_file(),
+            |_| {
+                self.0
+                    .config_filesystem()
+                    .expect("environment")
+                    .is_file(path)
+            },
+        )
     }
 
     fn read(&self, path: &Path) -> std::io::Result<String> {
@@ -89,5 +84,32 @@ impl Files for crate::auto_import::Sources<'_> {
     fn read(&self, path: &Path) -> std::io::Result<String> {
         crate::auto_import::Sources::read(self, path)
             .ok_or_else(|| std::io::ErrorKind::NotFound.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Text(&'static str);
+
+    impl Files for Text {
+        fn is_file(&self, path: &Path) -> bool {
+            path == Path::new("/project/jacket.toml")
+        }
+
+        fn read(&self, _: &Path) -> std::io::Result<String> {
+            Ok(self.0.into())
+        }
+    }
+
+    #[test]
+    fn config_reads_never_reuse_decoded_settings_from_other_source() {
+        let mut index = Index::default();
+        let old = Text("[project]\nentry = [\"old.jai\"]\n");
+        let new = Text("[project]\nentry = [\"new.jai\"]\n");
+        load(&old, &mut index, Path::new("/project")).unwrap();
+        let loaded = load(&new, &mut index, Path::new("/project")).unwrap();
+        assert_eq!(loaded.config.project.entry.0, ["new.jai"]);
     }
 }

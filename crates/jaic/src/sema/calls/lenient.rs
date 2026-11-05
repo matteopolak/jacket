@@ -661,21 +661,6 @@ impl Compiler {
             ));
             return d;
         }
-        let imports = self.imports_declaring_operator(text, tys);
-        for (i, import) in imports.iter().enumerate() {
-            let title = format!(
-                "`operator {text}` is declared in the `{}` module: add `{}` to this file",
-                import.module,
-                import.statement()
-            );
-            let suggestion = Suggestion::import(title, import.clone())
-                .with_action(format!("Add `{}`", import.statement()));
-            d = d.with_suggestion(if i == 0 {
-                suggestion
-            } else {
-                suggestion.unlisted()
-            });
-        }
-        d
+        d.with_operator_import_hint(self.operator_import_hint(text, tys))
     }
 }

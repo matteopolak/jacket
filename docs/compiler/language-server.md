@@ -24,9 +24,11 @@ Formatting runs `jaifmt` as a subprocess (see below); the formatter is written i
 
 A big compile is hundreds of MiB, so `semantic::Cache` keeps two compiles plus a few alternates for other targets, preferring the newest that checked, so a half-typed edit does not evict the last good one.
 
-- Per-request work is cached on `Document` or looked up by position index; never rescan the file.
+- Document-owned syntax and position data follow the client revision; native input validation is separate.
+- Cache hashes only select candidates: exact root/import-directory/target and source equality, or the same retained buffer-map identity, establish reuse.
 - Compiles share parse trees through `ParseReuse`. Trees must never be mutated after parsing.
-- Typing in a file a program never loaded does not recompile it (`OverlayFs` records every path a compile reads).
+- Typing in a file a program never loaded does not recompile it (`OverlayFs` records file reads, failed lookups and directory observations). Watched disk changes proactively retire affected compilers; captured native responses are also validated on demand without notifications. Overlay edits retain older compilers for shifted exploratory answers.
+- [Checked reference snapshots](lsp-snapshots.md) retain exact references and linked editing after full compiler eviction, within a separate byte budget.
 - Completion reuses a compile whose text matches up to the cursor expression.
 - Diagnostics are debounced in `jailsp`, and the check stops when input arrives (`jaic::interrupt`).
 - A request never compiles (`Session::defer_compiles`, on in `jailsp`). With no compile for the text it answers from the last one, offsets moved past the edit (`semantic::Shift`), or leaves out what needs one, and queues the text for `warm_pending`, which compiles while input is quiet. Completion marks such answers `is_incomplete`; the client is asked to fetch inlay hints and semantic tokens again once the compile exists. Rename and a diagnostics pull are the exceptions: their answer is the exact result.
@@ -39,7 +41,7 @@ Handlers query the compile through `with_semantic` (exact text or nothing), `wit
 
 Outgoing call hierarchy also reads the last checked snapshot while an edit is pending. `hierarchy.rs` finds the caller in that snapshot, moves surviving call sites and same-file callee declarations to the current text, and omits calls whose text changed until they are checked again. It queues the fresh check without compiling in the request. Regression tests in `tests/hierarchy.rs` cover shifted declarations, removed calls and changed arguments.
 
-Diagnostics retain resolved call records for checked open documents separately from the compiler cache. Incoming and outgoing hierarchy therefore survive other documents' checks evicting a compiler. The records keep the caller's text, resolved declarations and callee content keys, without retaining compilers or library source. Closing a document drops its records; cache resets and changes to trust, check limits or workspace folders clear them. A changed external callee waits for a fresh check. The eviction regression checks larger unrelated files before asking for the original document's hierarchy, and asserts that neither request compiles.
+Diagnostics retain resolved call records for checked open documents separately from the compiler cache. Incoming and outgoing hierarchy therefore survive other documents' checks evicting a compiler. The records keep the caller's text, resolved declarations and exact callee source identities, without retaining compilers. External callee source and captured filesystem proofs count toward the bounded graph budget. Closing a document drops its records; cache resets and changes to trust, check limits or workspace folders clear them. A changed external callee waits for a fresh check. The eviction regression checks larger unrelated files before asking for the original document's hierarchy, and asserts that neither request compiles.
 
 The retained records use the stored document identity, so filesystem-proven URI aliases share them. `uri_alias_tests.rs` checks incoming and outgoing requests through an alias without a new compile.
 
@@ -55,7 +57,7 @@ A cold file has no semantic snapshot to query. Integration tests that require it
 - **Declaration and implementation**: declaration is the declaration that introduced the name as written (an alias, a named import), where definition follows on to what it stands for. Implementation is every procedure with a body that shares the name in the open files the file reaches (the overloads); procedure types, `#foreign` declarations and non-procedures have none. Both read the syntax layer, so they never wait for a compile.
 - **Type hierarchy**: a struct's supertypes are the types its `using` and `#as using` members are declared with, its subtypes the structs in the open files that embed it (`type_hierarchy.rs`, from `Analysis::bases`). Names are matched, not resolved, and nothing waits for a compile.
 - **Formatting** (`textDocument/formatting`, `rangeFormatting`): runs `jaifmt --stdin`, with `--range START:END` for a range (the LSP range is turned into byte offsets from UTF-16 columns), in the document's folder so the nearest `jacket.toml` applies. `jaifmt` is the `formatter.path` setting, else the one next to the server, else the one on `PATH`; a file the config's `ignore` list covers is left alone. The answer is one edit that spans the changed lines, or none. A missing `jaifmt`, a text it rejects, a non-zero exit or more than 5 s gives no edits and a `window/logMessage`, never an error. `FormattingOptions` are ignored: `[format]` in `jacket.toml` decides. The server waits for `jaifmt` (about 5 ms for a 20 KB file).
-- **Linked editing**: a local variable, parameter or loop name is edited together with its uses. Only names the syntax layer binds to a single local and the check's references agree on; globals, members and types are not linked, nor is anything while the text has no compile.
+- **Linked editing**: a local variable, parameter or loop name is edited together with its uses. Only names the syntax layer binds to a single local and the check's references agree on; globals, members and types are not linked, nor is anything without exact checked facts for the current program inputs.
 - **Unreachable code**: shown as a faded hint.
 - **Expansions**: `jai.showExpansion` shows what an `#insert`, `#run` or macro produced.
 - **Semantic tokens**: the legend is append-only (`SemanticTokenKind`). `full`, `range` (the tokens that start in the range) and `full/delta` (one edit against the last answer sent for the document; the result ids are a counter, `JsonSession::token_results`).
@@ -97,11 +99,15 @@ cargo run -p jai-language-server --bin jailsp
 
 ## Dependencies
 
-`jaic`, `jailint`, `serde_json`. LSP 3.17 over JSON-RPC 2.0. The browser reaches it through `engine.lsp(message)` ([playground](../browser/playground.md)).
+`jaic`, `jailint`, pinned `lsp-types` and `lsp-server`, `serde_json`, and native `crossbeam-channel` transport. LSP 3.17 over JSON-RPC 2.0. The browser reaches it through `engine.lsp(message)` ([playground](../browser/playground.md)).
+
+## Protocol schemas and verification
+
+The [protocol boundary](lsp-protocol.md) uses pinned standard LSP types while retaining bounded transport and Jai extension adapters. See [verification suites](../tools/lsp-conformance.md) for protocol fixtures, compiler oracles, typing sessions, and the distinction from external certification.
 
 ## Protected upstream scale gate
 
-The registered upstream scale test always launches `tools/lsp/scale_sandbox.py`. That owning bench adapter requires confinement and executes the private `lsp_scale_worker` example; input environment markers cannot select an unconfined child. Canonical source/stdlib arguments preserve document and config identity. The original open/check interval,120-second enforced budget, selected prelude check and postinterval coverage checks remain in the worker.
+The registered upstream scale test always launches `tools/lsp/scale_sandbox.py`. That owning bench adapter requires confinement and executes the private `lsp_scale_worker` example; input environment markers cannot select an unconfined child. Canonical source/stdlib arguments preserve document and config identity. The original open/check interval, 120-second enforced budget, selected prelude check and postinterval coverage checks remain in the worker.
 
 Build the private worker before a focused run:
 

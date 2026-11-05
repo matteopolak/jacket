@@ -215,7 +215,10 @@ fn inline_and_multiline_wire_sort_keys_survive_edits() {
         test_support::lsp::lean_environment(),
     );
     session
-        .handle_json(&json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}).to_string())
+        .handle_json(
+            &json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{ "capabilities": {} }})
+                .to_string(),
+        )
         .unwrap();
     session
         .handle_json(&json!({"jsonrpc":"2.0","method":"initialized","params":{}}).to_string())

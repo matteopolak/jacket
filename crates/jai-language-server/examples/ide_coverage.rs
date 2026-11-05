@@ -28,10 +28,10 @@ fn environment(stdlib: PathBuf, runtime_support: bool) -> Environment {
     Environment {
         services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
+        options: Box::new(move |fs, _| {
             let mut options = jaic::sema::Options::host();
             options.import_paths = vec![stdlib.clone()];
-            options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
+            options.set_stdlib(fs, &stdlib);
             options.runtime_support = runtime_support;
             options.stack_trace = runtime_support;
             options

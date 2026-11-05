@@ -31,8 +31,9 @@ fn check(file: &str, seeds: std::ops::Range<u64>, config: &Config) -> Vec<String
         let report = typing_session::run(&input, config.clone(), Seeded(seed));
         assert!(
             report.versions > 20,
-            "{file} seed {seed}: {} versions",
-            report.versions
+            "{file} seed {seed}: {} versions; failures: {:#?}",
+            report.versions,
+            report.failures
         );
         for failure in &report.failures {
             let mut text = format!("{file} seed {seed}: {failure}");

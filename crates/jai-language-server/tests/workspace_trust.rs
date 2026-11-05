@@ -127,12 +127,23 @@ fn untrusted_build_metaprogram_does_not_run_and_the_files_it_names_still_check()
 }
 
 fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
-    session
+    let output: Vec<serde_json::Value> = session
         .handle_json(&message.to_string())
         .unwrap()
         .iter()
         .map(|s| serde_json::from_str(s).unwrap())
-        .collect()
+        .collect();
+    if message["method"] == "initialize"
+        && output.first().is_some_and(|m| m.get("result").is_some())
+    {
+        assert!(
+            session
+                .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+                .unwrap()
+                .is_empty()
+        );
+    }
+    output
 }
 
 fn hover_json(session: &mut JsonSession, uri: &str, at: Position, id: u64) -> String {
@@ -164,6 +175,7 @@ fn protocol_starts_untrusted_and_switches_at_runtime() {
             json!({
                 "jsonrpc": "2.0", "id": 1, "method": "initialize",
                 "params": {
+                    "capabilities": {},
                     "rootUri": uri_of(&dir).as_str(),
                     "initializationOptions": { "trusted": false },
                 },

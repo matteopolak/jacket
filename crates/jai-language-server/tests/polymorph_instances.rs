@@ -462,6 +462,10 @@ fn background_summaries_refresh_code_lenses() {
             "workspaceFolders": [{ "uri": folder.as_str(), "name": "app" }],
         } }),
     );
+    send(
+        &mut s,
+        json!({"jsonrpc":"2.0","method":"initialized","params":{}}),
+    );
     let only_a = uri_of(&dir.join("only_a.jai"));
     let b_lib = uri_of(&dir.join("b_lib.jai"));
     for (uri, text) in [

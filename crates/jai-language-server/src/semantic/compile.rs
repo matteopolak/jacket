@@ -17,7 +17,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 /// `path`'s id among the files `compiler` compiled.
-pub(super) fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
+pub(crate) fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
     let files = || (0..compiler.src.sources.len() as u32).map(FileId);
     files()
         .find(|&f| compiler.src.sources.get(f).path.as_file() == Some(path))
@@ -60,7 +60,7 @@ struct Built {
     host: Rc<RefCell<SandboxHost>>,
     lint: bool,
     untrusted: bool,
-    done: Rc<RefCell<Vec<Compiler>>>,
+    done: Rc<RefCell<Vec<(Compiler, bool)>>>,
 }
 
 impl WorkspaceObserver for Built {
@@ -74,8 +74,8 @@ impl WorkspaceObserver for Built {
         ));
     }
 
-    fn finished(&mut self, compiler: Box<Compiler>, _failed: bool) {
-        self.done.borrow_mut().push(*compiler);
+    fn finished(&mut self, compiler: Box<Compiler>, failed: bool) {
+        self.done.borrow_mut().push((*compiler, failed));
     }
 
     fn source_added(&mut self, workspace: i64, source: &jaic::sema::ProgramSource) {
@@ -164,6 +164,7 @@ pub(super) struct Compiled {
     pub(super) stopped: bool,
     /// The paths it asked about (and later queries ask about).
     pub(super) reads: Rc<RefCell<Reads>>,
+    pub(super) overlay: Rc<OverlayFs>,
 }
 
 /// How much a compile is trusted and how far it may run compile-time code.
@@ -189,8 +190,17 @@ pub(super) fn compile(
     } = mode;
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     let open: Vec<PathBuf> = files.keys().cloned().collect();
+    let option_proof = RefCell::new(super::Observations::default());
+    let option_fs = super::ObservedFs {
+        base: &*env.fs,
+        proof: Some(&option_proof),
+        secondary: None,
+    };
     let options = || {
-        let mut options = (env.options)(root);
+        let mut options = (env.options)(&option_fs, root);
+        // Raw operator/build-render hints must own actual input reads, not another
+        // compiler's stamp-only index. Cloned options carry this to children and twins.
+        options.hint_index_mode = jaic::sema::HintIndexMode::PerCompiler;
         jaic::project::add_import_dirs(&mut options.import_paths, dirs);
         // The target `jaic -check -os <os>` would use.
         jaic::target::select_os_cpu(&mut options, os, None);
@@ -198,33 +208,35 @@ pub(super) fn compile(
     };
     // A module's `module.jai` is checked as the module a program imports, not as a program:
     // `#module_parameters` and the parameters' values only exist there.
-    let mut files = files;
+    let mut generated = BTreeMap::new();
+    let root_key = jaic::paths::file_identity(&option_fs, root);
     let declares_parameters = files
-        .iter()
-        .find(|(path, _)| path.as_path() == jaic::paths::file_identity(&*env.fs, root))
-        .is_some_and(|(_, text)| writes_module_parameters(&String::from_utf8_lossy(text)));
+        .get(&root_key)
+        .is_some_and(|text| writes_module_parameters(&String::from_utf8_lossy(text)));
     let stub = jaic::project::module_import(
         root,
         &options().import_paths,
         declares_parameters,
-        &|path| jaic::paths::file_identity(&*env.fs, path),
+        &|path| jaic::paths::file_identity(&option_fs, path),
     )
     .map(|(import, folder)| {
         let stub = jaic::project::module_root_stub(&folder);
-        files.insert(
-            jaic::paths::file_identity(&*env.fs, &stub),
+        generated.insert(
+            jaic::paths::file_identity(&option_fs, &stub),
             Arc::from(jaic::project::module_root_stub_text(&import).into_bytes()),
         );
         stub
     });
     let reads = Rc::new(RefCell::new(Reads::default()));
-    let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
+    let overlay = Rc::new(OverlayFs {
         base: env.fs.clone(),
         dir: dir.clone(),
-        files,
+        files: RefCell::new(files),
+        generated,
         canonical: jaic::paths::CanonCache::new(),
         reads: reads.clone(),
     });
+    let fs: Rc<dyn FileSystem> = overlay.clone();
     // Trusted compile-time code may ask services and read the real environment (a database
     // URL, say); the rest of the sandbox stays.
     let host = Rc::new(RefCell::new(SandboxHost::with_files(
@@ -237,7 +249,7 @@ pub(super) fn compile(
         host.real_environment = true;
     }
     // Spelled like the compiler's source paths, which come through the overlay's keys.
-    let dir_key = jaic::paths::file_identity(&*env.fs, &dir);
+    let dir_key = jaic::paths::file_identity(&option_fs, &dir);
     // A compile for another target only answers hover and definition: lints come from the
     // environment's own.
     let lint = os.is_none();
@@ -311,12 +323,12 @@ pub(super) fn compile(
         let notice = limits.stopped_notice(first_line(&compiler, root));
         compiler.diag.warnings.push(notice);
     }
-    let base_paths = (env.options)(root).import_paths;
+    let base_paths = (env.options)(&option_fs, root).import_paths;
     let mut recorded: Vec<(i64, BuiltProgram)> = Vec::new();
     let mut others: Vec<Program> = built
         .take()
         .into_iter()
-        .map(|mut compiler| {
+        .map(|(mut compiler, failed)| {
             let id = compiler.meta.workspace;
             let mut program = BuiltProgram::default();
             for source in added.borrow().get(&id).into_iter().flatten() {
@@ -324,7 +336,7 @@ pub(super) fn compile(
                     jaic::sema::ProgramSource::File(path) => {
                         program
                             .files
-                            .push(jaic::paths::file_identity(&*env.fs, path));
+                            .push(jaic::paths::file_identity(&option_fs, path));
                     }
                     _ => program.strings += 1,
                 }
@@ -334,20 +346,22 @@ pub(super) fn compile(
                 .import_paths
                 .iter()
                 .filter(|p| !base_paths.contains(p))
-                .map(|p| jaic::paths::file_identity(&*env.fs, p))
+                .map(|p| jaic::paths::file_identity(&option_fs, p))
                 .collect();
-            recorded.push((id, program));
             let errors = check_rest(&mut compiler, Vec::new());
             let errors = known(&compiler, errors);
+            program.checked = !failed && errors.is_empty();
+            recorded.push((id, program));
             Program {
                 compiler,
                 // Core does not expose a generated program's selected entry. Never borrow
                 // the outer root or infer it from loaded files.
                 entry: None,
-                complete: errors.is_empty(),
+                complete: !failed && errors.is_empty(),
                 errors,
                 lints: BTreeMap::new(),
-                enriched: None,
+                references: None,
+                reference_owner: Rc::new(()),
             }
         })
         .collect();
@@ -366,6 +380,7 @@ pub(super) fn compile(
     let facts = (ran_to_the_end && !stopped).then(|| BuildFacts {
         programs: recorded.into_iter().map(|(_, p)| p).collect(),
     });
+    reads.borrow_mut().disk.merge(&option_proof.into_inner());
     Some(Compiled {
         compiler,
         errors,
@@ -373,5 +388,6 @@ pub(super) fn compile(
         facts,
         stopped,
         reads,
+        overlay,
     })
 }

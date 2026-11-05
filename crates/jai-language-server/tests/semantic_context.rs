@@ -24,7 +24,7 @@ fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
         Environment {
             services: None,
             fs: Rc::new(fs),
-            options: Box::new(move |root| {
+            options: Box::new(move |_, root| {
                 observed.set(observed.get() + 1);
                 let mut options = Options::host();
                 options.runtime_support = false;

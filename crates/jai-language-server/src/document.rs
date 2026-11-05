@@ -1,5 +1,4 @@
-use crate::{Error, Range};
-use serde::Deserialize;
+use crate::Error;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -194,13 +193,7 @@ fn normalize(path: &str, windows: bool) -> Result<String, Error> {
     Ok(result)
 }
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TextChange {
-    pub range: Option<Range>,
-    pub range_length: Option<u32>,
-    pub text: String,
-}
+pub use lsp_types::TextDocumentContentChangeEvent as TextChange;
 
 /// A closed immutable snapshot of the open documents. It never consults an OS filesystem.
 #[derive(Clone, Debug, Default)]

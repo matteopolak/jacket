@@ -10,7 +10,185 @@ use crate::source::Span;
 use crate::types::TypeId;
 use crate::types::TypeKind;
 
+/// Owned reference facts for one checked program. Target numbers are private to this
+/// value; no compiler entity, procedure or type identity survives extraction.
+#[derive(Default)]
+pub struct ReferenceIndex {
+    refs: Vec<Reference>,
+    members: Vec<(Span, Span)>,
+    declared: Vec<(u32, Span)>,
+    enums: Vec<(u32, Span)>,
+}
+
+struct Reference {
+    selection: Span,
+    output: Span,
+    declaration: bool,
+    overload: bool,
+    targets: Vec<u32>,
+}
+
+impl ReferenceIndex {
+    /// Bytes owned by the index, including allocated vector capacity.
+    pub fn retained_bytes(&self) -> usize {
+        std::mem::size_of::<Self>()
+            + self.refs.capacity() * std::mem::size_of::<Reference>()
+            + self
+                .refs
+                .iter()
+                .map(|r| r.targets.capacity() * std::mem::size_of::<u32>())
+                .sum::<usize>()
+            + self.members.capacity() * std::mem::size_of::<(Span, Span)>()
+            + (self.declared.capacity() + self.enums.capacity())
+                * std::mem::size_of::<(u32, Span)>()
+    }
+
+    /// Source spans needed to map the index's answers after the compiler is gone.
+    pub fn spans(&self) -> impl Iterator<Item = Span> + '_ {
+        self.refs
+            .iter()
+            .map(|r| r.output)
+            .chain(self.members.iter().flat_map(|&(u, d)| [u, d]))
+    }
+
+    /// Every use of the selected name, with declaration flags, using the same selection,
+    /// member precedence and overload closure as `Compiler::ide_references`.
+    pub fn references(&self, file: FileId, offset: u32) -> Vec<(Span, bool)> {
+        let member = self
+            .members
+            .iter()
+            .filter(|(u, _)| u.file == file && u.start <= offset && offset <= u.end)
+            .min_by_key(|(u, d)| {
+                (
+                    u.end - u.start,
+                    u.start,
+                    d.file.0,
+                    d.start,
+                    std::cmp::Reverse(d.end),
+                )
+            });
+        if let Some(&(_, decl)) = member {
+            let mut out: Vec<_> = self
+                .members
+                .iter()
+                .filter(|(_, d)| *d == decl)
+                .map(|&(u, d)| (u, u == d))
+                .collect();
+            for r in &self.refs {
+                if !out.iter().any(|(s, _)| *s == r.selection)
+                    && self
+                        .enums
+                        .iter()
+                        .any(|(t, d)| *d == decl && r.targets.contains(t))
+                {
+                    out.push((r.selection, r.declaration));
+                }
+            }
+            out.sort_by_key(|(s, _)| (s.file.0, s.start));
+            return out;
+        }
+        let Some(at) = self
+            .refs
+            .iter()
+            .filter(|r| {
+                r.selection.file == file && r.selection.start <= offset && offset <= r.selection.end
+            })
+            .min_by_key(|r| r.selection.end - r.selection.start)
+        else {
+            return Vec::new();
+        };
+        let mut wanted: crate::fxhash::HashSet<u32> = at.targets.iter().copied().collect();
+        if wanted.is_empty() {
+            return Vec::new();
+        }
+        loop {
+            let before = wanted.len();
+            for r in self.refs.iter().filter(|r| r.overload) {
+                if r.targets.iter().any(|t| wanted.contains(t)) {
+                    wanted.extend(r.targets.iter().copied());
+                }
+            }
+            if before == wanted.len() {
+                break;
+            }
+        }
+        let mut seen = crate::fxhash::HashSet::default();
+        let mut out = Vec::new();
+        for r in &self.refs {
+            if r.targets.iter().any(|t| wanted.contains(t)) && seen.insert(r.output) {
+                out.push((r.output, r.declaration));
+            }
+        }
+        for &(u, d) in &self.members {
+            if u != d
+                && self
+                    .declared
+                    .iter()
+                    .chain(&self.enums)
+                    .any(|(t, span)| *span == d && wanted.contains(t))
+                && seen.insert(u)
+            {
+                out.push((u, false));
+            }
+        }
+        out.sort_by_key(|(s, _)| (s.file.0, s.start));
+        out
+    }
+}
+
 impl Compiler {
+    /// Export reference resolution without retaining compiler-owned objects. For example,
+    /// `let index = compiler.ide_reference_index();` can be queried after dropping `compiler`.
+    pub fn ide_reference_index(&self) -> ReferenceIndex {
+        let Some(ide) = self.ed.facts() else {
+            return ReferenceIndex::default();
+        };
+        let mut out = ReferenceIndex {
+            members: ide.member_uses.iter().copied().collect(),
+            ..ReferenceIndex::default()
+        };
+        let mut targets = crate::fxhash::HashMap::default();
+        for r in &ide.refs {
+            let ids = self
+                .ide_targets(r)
+                .into_iter()
+                .map(|t| {
+                    let next = targets.len() as u32;
+                    *targets.entry(t).or_insert(next)
+                })
+                .collect();
+            let mut output = r.span;
+            let dollars = self
+                .ide_snippet(output)
+                .bytes()
+                .take_while(|&b| b == b'$')
+                .count();
+            output.start = (output.start + dollars as u32).min(output.end);
+            out.refs.push(Reference {
+                selection: r.span,
+                output,
+                declaration: r.decl,
+                overload: matches!(r.what, IdeWhat::Procs(_)),
+                targets: ids,
+            });
+        }
+        for (target, id) in targets {
+            match target {
+                Target::Declared(span, _) => out.declared.push((id, span)),
+                Target::Entity(e)
+                    if matches!(self.entity(e).kind, EntityKind::EnumMember { .. }) =>
+                {
+                    if let Some(span) = self.ide_entity_name_span(e) {
+                        out.enums.push((id, span));
+                    }
+                }
+                _ => {}
+            }
+        }
+        out
+    }
+
+
     /// The targets include the enum member whose name is declared at `decl`.
     fn names_enum_member_at(&self, targets: &[Target], decl: Span) -> bool {
         targets.iter().any(|t| {

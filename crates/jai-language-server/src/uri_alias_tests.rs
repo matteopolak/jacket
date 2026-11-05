@@ -41,7 +41,7 @@ fn fixture(text: &str) -> (Session, DocumentUri, DocumentUri) {
         Environment {
             services: None,
             fs: Rc::new(AliasFs),
-            options: Box::new(|_| {
+            options: Box::new(|_, _| {
                 let mut o = jaic::sema::Options::host();
                 o.runtime_support = false;
                 o.stack_trace = false;
@@ -138,7 +138,7 @@ fn alias_document_symbol_source_details_use_stored_key() {
 fn alias_public_hover_definition_and_completion_force_lexical_fallback() {
     let text = "#scope_file\nsecret :: 42;\nmain :: () { local := 1; value := local; private_value := secret; }";
     let (mut s, stored, alias) = fixture(text);
-    s.environment.as_mut().unwrap().options = Box::new(|_| {
+    s.environment.as_mut().unwrap().options = Box::new(|_, _| {
         let mut o = jaic::sema::Options::host();
         o.preload = Some(PathBuf::from("/alias/unavailable-prelude.jai"));
         o
@@ -175,7 +175,7 @@ fn alias_assembly_completion_retains_lexical_scope_names() {
     // A genuinely unavailable prelude prevents checked scope metadata: syntax fallback is required.
     let text = "main :: () {\ncount: s64 = 0;\n#asm {\nr: gpr;\npopcnt r, co\n}\n}";
     let (mut s, _, alias) = fixture(text);
-    s.environment.as_mut().unwrap().options = Box::new(|_| {
+    s.environment.as_mut().unwrap().options = Box::new(|_, _| {
         let mut o = jaic::sema::Options::host();
         o.preload = Some(PathBuf::from("/alias/unavailable-prelude.jai"));
         o

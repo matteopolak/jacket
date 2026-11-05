@@ -62,7 +62,11 @@ JOBS = {
     "windows-native": "windows",
     "windows-stdlib": "windows",
     "windows-smoke": "windows",
+    "lsp-transport": None,
 }
+
+# Opt-in job groups must be explicitly named; default selections exclude them.
+MANUAL_ONLY = {"lsp-transport"}
 
 # The two tiers. Pushes and pull requests run the fast tier, which aims to finish in ten minutes:
 # platform-neutral work runs once, on Linux x64, and the long suites are spread over several jobs.
@@ -428,7 +432,8 @@ def selected_jobs(results, requested):
     return [
         job
         for job, area in JOBS.items()
-        if (not wanted or job in wanted) and (area is None or results[area])
+        if (job in wanted or not wanted and job not in MANUAL_ONLY)
+        and (area is None or results[area])
     ]
 
 

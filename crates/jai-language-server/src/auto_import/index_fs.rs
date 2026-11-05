@@ -59,7 +59,7 @@ impl project::ProjectFs for IndexFs<'_, '_> {
         let mut out = self.loads(file);
         let dir = file.parent().unwrap_or(Path::new("/"));
         let mut index = self.index.borrow_mut();
-        if let Some(facts) = index.builds.get(file) {
+        if let Some(facts) = self.sources.known_build(&index, file) {
             self.sources.note_own();
             out.extend(facts.programs.iter().flat_map(|p| p.files.iter().cloned()));
         } else {

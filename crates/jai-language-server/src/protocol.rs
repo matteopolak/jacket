@@ -1,18 +1,17 @@
 //! Standard JSON parsing belongs at this portable boundary, not in source analysis.
 mod handling;
 mod helpers;
+pub(crate) mod message;
 mod methods;
 mod notifications;
 mod params;
-mod request_id;
 mod requests;
 mod wire;
 
-pub use self::helpers::{message_too_large, oversized_replies};
 use crate::{MarkupKind, Session};
-use std::collections::VecDeque;
 
-pub use self::request_id::RequestId;
+pub use self::message::{RejectedMessage, RejectedReply};
+pub use lsp_server::RequestId;
 
 #[derive(Clone, Debug)]
 pub enum ProtocolError {
@@ -38,6 +37,7 @@ impl std::error::Error for ProtocolError {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Lifecycle {
     New,
+    AwaitInitialized,
     Running,
     Shutdown,
     Exited(u8),
@@ -46,8 +46,9 @@ enum Lifecycle {
 pub struct JsonSession {
     session: Session,
     lifecycle: Lifecycle,
-    cancelled: VecDeque<RequestId>,
-    completed: VecDeque<RequestId>,
+    requests: lsp_server::ReqQueue<(), String>,
+    cancelled: std::collections::BTreeMap<RequestId, lsp_server::Response>,
+    refresh_pending: std::collections::BTreeSet<String>,
     /// Markdown when the client listed it in `textDocument.hover.contentFormat`.
     hover_kind: MarkupKind,
     /// Markdown when the client listed it in the signature help `documentationFormat`.
@@ -56,7 +57,6 @@ pub struct JsonSession {
     pull_diagnostics: bool,
     /// It can also be told to pull again (`workspace/diagnostic/refresh`).
     refresh_diagnostics: bool,
-    refreshes: u64,
     /// The client can be told to ask for code lenses again (`workspace/codeLens/refresh`).
     refresh_code_lenses: bool,
     /// And for inlay hints and semantic tokens (`workspace/inlayHint/refresh`,
@@ -66,7 +66,7 @@ pub struct JsonSession {
     refresh_semantic_tokens: bool,
     /// The last semantic tokens sent for each document, by result id, so a `delta` request
     /// answers with what changed.
-    token_results: std::collections::BTreeMap<String, (u64, Vec<u32>)>,
+    token_results: std::collections::BTreeMap<String, (u64, Vec<lsp_types::SemanticToken>)>,
     token_result_ids: u64,
     /// Background work changed polymorph summaries since lenses were last refreshed.
     lenses_changed: bool,
@@ -82,6 +82,28 @@ mod tests {
     use super::methods::{Notification, Request};
     use crate::SemanticTokenKind;
     use std::collections::BTreeSet;
+
+    #[test]
+    fn null_peer_response_does_not_complete_a_pending_refresh() {
+        let mut session = super::JsonSession::new(crate::Limits::default());
+        let method = "workspace/semanticTokens/refresh";
+        let request = session.refresh_request(method).unwrap();
+        assert!(
+            session
+                .handle_json(r#"{"jsonrpc":"2.0","id":null,"result":null}"#)
+                .unwrap()
+                .is_empty()
+        );
+        assert!(session.refresh_request(method).is_none());
+        let response = serde_json::json!({"jsonrpc":"2.0", "id": request["id"], "result":null});
+        assert!(
+            session
+                .handle_json(&response.to_string())
+                .unwrap()
+                .is_empty()
+        );
+        assert!(session.refresh_request(method).is_some());
+    }
 
     #[test]
     fn token_types_are_listed_in_wire_order() {
@@ -111,7 +133,7 @@ mod tests {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "initialize",
-            "params": { "workspaceFolders": [
+            "params": { "capabilities": {}, "workspaceFolders": [
                 { "uri": "file:///w", "name": "w" },
                 { "uri": "file://localhost/w", "name": "w2" },
             ] },

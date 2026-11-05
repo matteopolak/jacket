@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       jobs:
-        description: 'Comma-separated job ids to run (empty runs everything); select needed jobs together'
+        description: 'Comma-separated job ids to run (empty runs default jobs); name opt-in jobs explicitly'
         required: false
         default: ''
       tier:
@@ -1425,3 +1425,8 @@ jobs:
           name: smoke-screenshots-windows-x64
           path: target/smoke-screenshots
           if-no-files-found: ignore
+
+  lsp-transport:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' && contains(fromJSON(needs.changes.outputs.jobs), 'lsp-transport')
+    uses: ./.github/workflows/lsp-transport.yml

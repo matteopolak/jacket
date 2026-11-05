@@ -1,9 +1,8 @@
 //! Native transport only. The library and wasm caller never touch stdio.
 /// How long input must be quiet before the diagnostics of the edits so far are computed and
-/// published: a quarter of the last publication's time, within these bounds. A compile cannot be
-/// interrupted, so starting one on every `didChange` made the completion queued behind it wait
-/// for it; but edits that arrive while one runs are read together afterwards, so a short wait is
-/// enough for a small program (whose compile is quick) and only a large one needs the long one.
+/// published: a quarter of the last publication's time, within these bounds. Background checks
+/// stop for newly received input at compiler/linter interruption points. Waiting for quiet input
+/// coalesces a typing burst before starting that work, while queued requests are answered first.
 #[cfg(not(target_arch = "wasm32"))]
 const DIAGNOSTICS_DEBOUNCE: std::ops::RangeInclusive<std::time::Duration> =
     std::time::Duration::from_millis(15)..=std::time::Duration::from_millis(200);
@@ -13,50 +12,47 @@ const DIAGNOSTICS_DEBOUNCE: std::ops::RangeInclusive<std::time::Duration> =
 const SERVICE_POLL: std::time::Duration = std::time::Duration::from_millis(25);
 
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> std::process::ExitCode {
-    use std::io::{Read, Write};
-    fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
-        let limits = jai_language_server::Limits::default();
-        let mut session =
-            jai_language_server::JsonSession::with_environment(limits, native_environment());
-        let mut decoder = jai_language_server::framing::FrameDecoder::new(limits.message_bytes);
-        session.defer_publications(true);
-        session.defer_compiles(true);
-        if untrusted {
-            session.set_trusted(false);
-        }
-        let stdout = std::io::stdout();
-        let mut output = stdout.lock();
-        // A thread reads stdin so the loop below can wait for more input with a timeout.
-        let (chunks, input) = std::sync::mpsc::channel::<std::io::Result<Vec<u8>>>();
-        std::thread::spawn(move || {
-            let mut stdin = std::io::stdin().lock();
-            let mut chunk = vec![0u8; 64 * 1024];
-            loop {
-                let sent = match stdin.read(&mut chunk) {
-                    Ok(count) => {
-                        let done = count == 0;
-                        (chunks.send(Ok(chunk[..count].to_vec())).is_err(), done)
-                    }
-                    Err(error) => (chunks.send(Err(error)).is_err(), true),
-                };
-                // A check that can be stopped stops for input (see `jaic::interrupt`); the
-                // request follows the send, so the loop that clears it and then looks at the
-                // channel never misses input that is really waiting.
-                jaic::interrupt::request(true);
-                if sent.0 || sent.1 {
-                    return;
-                }
-            }
-        });
-        #[cfg(unix)]
-        let mut compiles = 0;
-        // How long the last publication took, which sets how long to wait for more edits.
-        let mut last_publication = std::time::Duration::from_millis(40);
-        let mut warm_needed = false;
+fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
+    let limits = jai_language_server::Limits::default();
+    let trace = if jacket_config::env::LSP_TRACE.get().as_deref() == Some("1") {
+        let destination = jacket_config::env::LSP_TRACE_FILE
+            .os()
+            .ok_or_else(|| std::io::Error::other("LSP trace destination required"))?;
+        let trace =
+            jai_language_server::trace::Trace::open_new(std::path::Path::new(&destination), 16384)
+                .map_err(|_| std::io::Error::other("cannot initialize LSP trace"))?;
+        jai_language_server::trace::install(trace.clone())
+            .map_err(|_| std::io::Error::other("LSP trace already initialized"))?;
+        trace
+    } else {
+        jai_language_server::trace::Trace::disabled()
+    };
+    let mut session =
+        jai_language_server::JsonSession::with_environment(limits, native_environment());
+    use crossbeam_channel::{RecvTimeoutError, TryRecvError};
+    use jai_language_server::transport::{HostTransport, Input};
+    let transport = HostTransport::stdio(limits);
+    session.defer_publications(true);
+    session.defer_compiles(true);
+    if untrusted {
+        session.set_trusted(false);
+    }
+    let mut last_publication = std::time::Duration::from_millis(40);
+    let mut warm_needed = false;
+    let mut held = None;
+    let mut shutdown_deadline = None;
+    #[cfg(unix)]
+    let mut compiles = 0;
+    let mut finish_attempted = false;
+    let result = (|| -> Result<u8, Box<dyn std::error::Error>> {
         loop {
-            // A compile (or the eviction it caused) freed many small blocks: hand their pages
-            // back while the editor is idle (see `large_alloc`).
+            if transport.failures.try_recv().is_ok() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "LSP output disconnected",
+                )
+                .into());
+            }
             #[cfg(unix)]
             {
                 let (started, _) = session.compile_counts();
@@ -65,155 +61,211 @@ fn main() -> std::process::ExitCode {
                     jai_language_server::large_alloc::release_free_memory();
                 }
             }
-            // Compile-time service answers that compiles read as pending: once one is in, the
-            // open files are checked again (published after the usual debounce).
             if session.services_waiting() {
-                for message in session.service_arrivals()? {
-                    output.write_all(&jai_language_server::framing::encode(&message))?;
-                }
-                output.flush()?;
+                transport.send(session.service_arrivals_messages()?)?;
             }
-            // Diagnostics for edits wait until no input has come for `DIAGNOSTICS_DEBOUNCE`, so
-            // requests that are queued (completion, hover) are answered first and a burst of
-            // keystrokes costs one compile.
-            let received = if session.publications_pending() {
-                let wait = (last_publication / 4)
-                    .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
-                match input.recv_timeout(wait) {
-                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                        // The check stops for input that arrives while it runs; input already
-                        // here is read first.
-                        jaic::interrupt::request(false);
-                        match input.try_recv() {
-                            Ok(received) => received,
-                            Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),
-                            Err(std::sync::mpsc::TryRecvError::Empty) => {
+            jaic::interrupt::request(false);
+            let wait = if session.publications_pending() || session.compile_pending() {
+                Some(
+                    (last_publication / 4)
+                        .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end()),
+                )
+            } else if warm_needed || session.has_background_work() {
+                Some(std::time::Duration::ZERO)
+            } else if session.services_waiting() {
+                Some(SERVICE_POLL)
+            } else {
+                None
+            };
+            let wait = if let Some(deadline) = shutdown_deadline {
+                let now = std::time::Instant::now();
+                if now >= deadline {
+                    finish_attempted = true;
+                    transport.finish()?;
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::TimedOut,
+                        "LSP exit did not follow shutdown",
+                    )
+                    .into());
+                }
+                let remaining = deadline - now;
+                Some(wait.map_or(remaining, |wait| wait.min(remaining)))
+            } else {
+                wait
+            };
+            let received = match held.take() {
+                Some(arrival) => Ok(arrival),
+                None => {
+                    if let Some(wait) = wait {
+                        crossbeam_channel::select! {
+                            recv(transport.arrivals) -> arrival => arrival.map_err(|_| RecvTimeoutError::Disconnected),
+                            recv(transport.failures) -> _ => return Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "LSP output disconnected").into()),
+                            default(wait) => Err(RecvTimeoutError::Timeout),
+                        }
+                    } else {
+                        crossbeam_channel::select! {
+                            recv(transport.arrivals) -> arrival => arrival.map_err(|_| RecvTimeoutError::Disconnected),
+                            recv(transport.failures) -> _ => return Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "LSP output disconnected").into()),
+                        }
+                    }
+                }
+            };
+            let arrival = match received {
+                Ok(arrival) => arrival,
+                Err(RecvTimeoutError::Disconnected) => {
+                    transport.send(session.flush_publications_messages()?)?;
+                    finish_attempted = true;
+                    transport.finish()?;
+                    return Ok(session.exit_status().unwrap_or(1));
+                }
+                Err(RecvTimeoutError::Timeout) => {
+                    // Clear before checking queued arrivals; the reader queues then interrupts.
+                    jaic::interrupt::request(false);
+                    match transport.arrivals.try_recv() {
+                        Ok(arrival) => arrival,
+                        Err(TryRecvError::Disconnected) => continue,
+                        Err(TryRecvError::Empty) => {
+                            if session.publications_pending() {
                                 let started = std::time::Instant::now();
-                                let published = session.flush_publications_unless_interrupted()?;
-                                // A stopped check says nothing about how long one takes.
-                                if !published.is_empty() {
+                                let messages =
+                                    session.flush_publications_unless_interrupted_messages()?;
+                                if !messages.is_empty() {
                                     last_publication = started.elapsed();
                                 }
-                                for response in published {
-                                    output.write_all(&jai_language_server::framing::encode(
-                                        &response,
-                                    ))?;
-                                }
-                                output.flush()?;
-                                continue;
+                                transport.send(messages)?;
+                            } else if session.compile_pending() {
+                                transport.send(session.warm_pending_messages()?)?;
+                            } else if warm_needed {
+                                warm_needed = !session.warm_up_unless_interrupted();
+                            } else if session.has_background_work() {
+                                transport.send(session.background_work_messages()?)?;
                             }
+                            continue;
                         }
                     }
-                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
-                    Ok(received) => received,
                 }
-            } else if session.compile_pending() {
-                // The compile that ranks completion waits for quiet input like the diagnostics
-                // do, so it does not hold up the next keystroke's request.
-                let wait = (last_publication / 4)
-                    .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
-                match input.recv_timeout(wait) {
-                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                        jaic::interrupt::request(false);
-                        match input.try_recv() {
-                            Ok(received) => received,
-                            Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),
-                            Err(std::sync::mpsc::TryRecvError::Empty) => {
-                                for message in session.warm_pending()? {
-                                    output.write_all(&jai_language_server::framing::encode(
-                                        &message,
-                                    ))?;
-                                }
-                                output.flush()?;
-                                continue;
-                            }
-                        }
-                    }
-                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
-                    Ok(received) => received,
-                }
-            } else if warm_needed || session.has_background_work() {
-                // Idle after a message: read the indexes completion will want, then do the
-                // work requests left for later one piece at a time, unless input is waiting.
-                jaic::interrupt::request(false);
-                match input.try_recv() {
-                    Ok(received) => received,
-                    Err(std::sync::mpsc::TryRecvError::Empty) => {
-                        if warm_needed {
-                            warm_needed = !session.warm_up_unless_interrupted();
-                        } else {
-                            for message in session.background_work()? {
-                                output
-                                    .write_all(&jai_language_server::framing::encode(&message))?;
-                            }
-                            output.flush()?;
-                        }
-                        continue;
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),
-                }
-            } else if session.services_waiting() {
-                match input.recv_timeout(SERVICE_POLL) {
-                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
-                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
-                    Ok(received) => received,
-                }
-            } else {
-                input.recv().unwrap_or(Ok(Vec::new()))
             };
             warm_needed = true;
-            let chunk = received?;
-            if chunk.is_empty() {
-                decoder.finish()?;
-                for response in session.flush_publications()? {
-                    output.write_all(&jai_language_server::framing::encode(&response))?;
-                }
-                output.flush()?;
+            let frame = arrival.frame();
+            let Some(input) = transport.take(arrival)? else {
+                transport.send(session.flush_publications_messages()?)?;
+                finish_attempted = true;
+                transport.finish()?;
                 return Ok(session.exit_status().unwrap_or(1));
+            };
+            let mut messages = Vec::new();
+            let mut frames = trace.enabled().then(Vec::new);
+            let mut bytes;
+            match input {
+                Input::Ignored {
+                    ..
+                } => {
+                    let _dispatch = jai_language_server::trace::dispatch(frame);
+                    continue;
+                }
+                Input::Message {
+                    message,
+                    bytes: length,
+                } => {
+                    bytes = length;
+                    messages.push(message);
+                    if let (Some(frames), Some(frame)) = (&mut frames, frame) {
+                        frames.push(frame);
+                    }
+                }
+                Input::Rejected {
+                    rejected, ..
+                } => {
+                    let _dispatch = jai_language_server::trace::dispatch(frame);
+                    if let Some(reply) = session.handle_rejected(rejected) {
+                        transport.send_error(reply)?;
+                    }
+                    continue;
+                }
             }
-            // Whatever else has already arrived is read with it, so a cancellation can reach a
-            // request that is still waiting its turn.
-            let mut messages = decoder.push(&chunk)?;
-            let mut ended = false;
-            while let Ok(more) = input.try_recv() {
-                let more = more?;
-                if more.is_empty() {
-                    ended = true;
+            // Both count and decoded body bytes bound lookahead. A held routing token owns
+            // at most one already-bounded next message in the Connection channel.
+            let mut admitted = 1;
+            while admitted < 64 {
+                let Ok(arrival) = transport.arrivals.try_recv() else {
                     break;
+                };
+                match arrival {
+                    arrival @ (jai_language_server::transport::Arrival::Message {
+                        bytes: length,
+                        ..
+                    }
+                    | jai_language_server::transport::Arrival::Ignored {
+                        bytes: length,
+                        ..
+                    }) if bytes
+                        .checked_add(length)
+                        .is_some_and(|n| n <= limits.message_bytes.saturating_mul(2)) =>
+                    {
+                        bytes += length;
+                        admitted += 1;
+                        let frame = arrival.frame();
+                        match transport.take(arrival)? {
+                            Some(Input::Message {
+                                message, ..
+                            }) => {
+                                messages.push(message);
+                                if let (Some(frames), Some(frame)) = (&mut frames, frame) {
+                                    frames.push(frame);
+                                }
+                            }
+                            Some(Input::Ignored {
+                                ..
+                            }) => {
+                                let _dispatch = jai_language_server::trace::dispatch(frame);
+                            }
+                            _ => unreachable!("only message/ignored lookahead admitted"),
+                        }
+                    }
+                    other => {
+                        held = Some(other);
+                        break;
+                    }
                 }
-                messages.extend(decoder.push(&more)?);
             }
-            for responses in session.handle_batch(&messages)? {
-                for response in responses {
-                    output.write_all(&jai_language_server::framing::encode(&response))?;
-                }
-                output.flush()?;
+            let emit = |output| {
+                transport.send(output).map_err(|_| {
+                    jai_language_server::ProtocolError::Serialization(
+                        "LSP output disconnected".into(),
+                    )
+                })
+            };
+            if let Some(frames) = frames {
+                session.dispatch_messages_traced(messages, &trace, frames, emit)?;
+            } else {
+                session.dispatch_messages(messages, emit)?;
+            }
+            if session.shutdown_requested() && shutdown_deadline.is_none() {
+                shutdown_deadline =
+                    Some(std::time::Instant::now() + std::time::Duration::from_secs(30));
             }
             if let Some(status) = session.exit_status() {
-                for response in session.flush_publications()? {
-                    output.write_all(&jai_language_server::framing::encode(&response))?;
-                }
-                output.flush()?;
+                finish_attempted = true;
+                transport.finish()?;
                 return Ok(status);
             }
-            if ended {
-                decoder.finish()?;
-                for response in session.flush_publications()? {
-                    output.write_all(&jai_language_server::framing::encode(&response))?;
-                }
-                output.flush()?;
-                return Ok(session.exit_status().unwrap_or(1));
-            }
-            // A message over the size limit was skipped unread: say so rather than go quiet.
-            for message in decoder.take_oversized() {
-                for reply in jai_language_server::oversized_replies(&message, limits.message_bytes)
-                {
-                    output.write_all(&jai_language_server::framing::encode(&reply))?;
-                }
-                output.flush()?;
-            }
         }
+    })();
+    if trace.enabled() {
+        // Export is outside request intervals. Abort paths retain their incomplete tail
+        // rather than joining a reader whose client kept stdin open.
+        if !finish_attempted {
+            let _ = transport.finish();
+        }
+        trace
+            .finish_output(transport.trace_quiesced())
+            .map_err(|_| std::io::Error::other("cannot export LSP trace"))?;
     }
+    result
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn main() -> std::process::ExitCode {
     let untrusted = match command_line() {
         Err(code) => return code,
         Ok(untrusted) => untrusted,
@@ -316,10 +368,9 @@ fn native_environment() -> jai_language_server::Environment {
             jai_language_server::services::EditorServices::new(services),
         )),
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |main| {
-            let inputs =
-                jaic::project::ProgramInputs::for_file(&jaic::sema::NativeFs, main, &stdlib);
-            jaic::sema::Options::for_program(&jaic::sema::NativeFs, main, &inputs)
+        options: Box::new(move |fs, main| {
+            let inputs = jaic::project::ProgramInputs::for_file(fs, main, &stdlib);
+            jaic::sema::Options::for_program(fs, main, &inputs)
         }),
     }
 }

@@ -73,6 +73,7 @@ mod stdlib_index;
 mod stmt;
 pub(crate) mod structs;
 mod suggestions;
+pub use suggestions::HintContext;
 mod trap_report;
 mod type_state;
 mod typeinfo;
@@ -215,6 +216,16 @@ impl HostPlatform {
     }
 }
 
+/// Whether hint-index inputs belong to one compiler's proof or a process-wide stamp cache.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HintIndexMode {
+    /// Legacy rendering can share approximate filesystem fingerprints across compilers.
+    #[default]
+    Shared,
+    /// Build privately so every actual index response enters this compiler's observer.
+    PerCompiler,
+}
+
 #[derive(Clone)]
 pub struct Options {
     pub os: TargetOs,
@@ -228,6 +239,8 @@ pub struct Options {
     pub preload: Option<PathBuf>,
     /// Configured module root, independent of an explicitly selected prelude file.
     pub preload_stdlib: Option<PathBuf>,
+    /// Select before constructing a compiler; exact input owners use `PerCompiler`.
+    pub hint_index_mode: HintIndexMode,
     /// Load `Runtime_Support` (entry point, context initialization) for programs.
     pub runtime_support: bool,
     pub temporary_storage_size: i64,
@@ -376,6 +389,7 @@ impl Options {
             import_paths: Vec::new(),
             preload: None,
             preload_stdlib: None,
+            hint_index_mode: HintIndexMode::Shared,
             runtime_support: true,
             temporary_storage_size: DEFAULT_TEMPORARY_STORAGE_SIZE,
             array_bounds_check: true,

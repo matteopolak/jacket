@@ -110,7 +110,7 @@ impl Session {
         // An edit before the scope (a line added above it) leaves no compile that knows the
         // text up to there: the last one answers, its names moved to where they are now.
         let (names, files) = if self.may_compile() {
-            self.with_semantic(uri, text, |a, path| ask_at(a, path, at))?
+            self.with_best_effort_semantic(uri, text, |a, path| ask_at(a, path, at))?
         } else {
             self.on_older_compile(uri, text, |a, path, shift| {
                 ask_at(a, path, shift.to_old_or_edit(at))

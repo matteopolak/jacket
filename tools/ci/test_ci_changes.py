@@ -303,6 +303,33 @@ class Matching(unittest.TestCase):
 class JobSelection(unittest.TestCase):
     ALL = {area: True for area in ci_changes.input_areas()} | {"code": True}
 
+    def test_lsp_transport_requires_an_explicit_manual_selector(self):
+        self.assertNotIn("lsp-transport", ci_changes.selected_jobs(self.ALL, ""))
+        self.assertEqual(ci_changes.selected_jobs(self.ALL, "lsp-transport"), ["lsp-transport"])
+        self.assertEqual(ci_changes.selected_jobs(self.ALL, "test"), ["test"])
+
+    def test_lsp_transport_dispatch_calls_the_focused_workflow(self):
+        caller = (ROOT / ".github/workflows/ci.yml").read_text()
+        self.assertIn("if: github.event_name == 'workflow_dispatch' && contains(fromJSON(needs.changes.outputs.jobs), 'lsp-transport')", caller)
+        self.assertIn("uses: ./.github/workflows/lsp-transport.yml", caller)
+        callee = (ROOT / ".github/workflows/lsp-transport.yml").read_text()
+        self.assertIn("  workflow_call:", callee)
+        self.assertNotIn("concurrency:", callee)
+        for runner in ("windows-2025", "windows-11-arm"):
+            self.assertIn(runner, callee)
+        self.assertIn("uses: ./.github/actions/setup-windows", callee)
+        self.assertIn("llvm: 'false'", callee)
+        self.assertIn("cargo test --locked -p jai-language-server --lib", callee)
+        self.assertIn("-- --test-threads=1", callee)
+        self.assertNotIn("--release", callee)
+        for binary in ("protocol", "framing", "stdio", "library_boundary", "protocol_robustness", "protocol_standard_types"):
+            with self.subTest(binary=binary):
+                self.assertIn("--test " + binary, callee)
+                self.assertTrue((ROOT / "crates/jai-language-server/tests" / (binary + ".rs")).is_file())
+        setup = (ROOT / ".github/actions/setup-windows/action.yml").read_text()
+        self.assertIn("  llvm:\n    description:", setup)
+        self.assertIn("if: inputs.llvm == 'true'", setup)
+
     def test_every_area_has_a_job_and_every_job_a_known_area(self):
         areas = set(ci_changes.input_areas()) | {"code"}
         self.assertEqual({a for a in ci_changes.JOBS.values() if a}, areas)
@@ -316,7 +343,7 @@ class JobSelection(unittest.TestCase):
         self.assertLessEqual(jobs, job_inputs.GATED)
 
     def test_everything_runs_when_all_areas_do(self):
-        self.assertEqual(ci_changes.selected_jobs(self.ALL, ""), list(ci_changes.JOBS))
+        self.assertEqual(ci_changes.selected_jobs(self.ALL, ""), [job for job in ci_changes.JOBS if job not in ci_changes.MANUAL_ONLY])
 
     def test_false_areas_drop_their_jobs(self):
         results = self.ALL | {"windows": False, "code": False}

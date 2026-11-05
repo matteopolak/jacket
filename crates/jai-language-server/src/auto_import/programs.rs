@@ -100,7 +100,7 @@ impl Sources<'_> {
         file: &Path,
         base: Option<&Path>,
     ) -> PathBuf {
-        let stdlib = (self.env.options)(file).stdlib_root().map(|p| self.key(p));
+        let stdlib = self.options(file).stdlib_root().map(|p| self.key(p));
         let search = match stdlib {
             Some(s) if file.starts_with(&s) => Some(s),
             _ => base.map(Path::to_path_buf),
@@ -242,7 +242,7 @@ impl Sources<'_> {
             Some(base) if entries.contains(&root) => base.clone(),
             _ => root_dir.clone(),
         };
-        let mut options = (self.env.options)(&root);
+        let mut options = self.options(&root);
         let found = self.import_dirs(index, &root, folders).0;
         jaic::project::add_import_dirs(&mut options.import_paths, &found);
         let stdlib = options.stdlib_root().map(Path::to_path_buf);

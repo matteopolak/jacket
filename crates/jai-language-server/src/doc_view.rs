@@ -13,6 +13,47 @@ use jaic::fxhash::HashMap;
 use jaic::ide::meta::IdeSignature;
 use std::path::Path;
 
+/// Documentation captured while its signature's compiler-local span is still valid.
+pub(crate) struct SignatureDocumentation {
+    path: String,
+    start: usize,
+    procedure: Option<String>,
+    parameters: Vec<Option<String>>,
+}
+
+/// Copy signature docs from the selected compiler before returning any compiler-local spans.
+/// Example: later documentation rendering may resolve links in a different accepted query.
+pub(crate) fn own_signature_documentation(
+    analysis: &semantic::Analysis,
+    signatures: &[IdeSignature],
+) -> Vec<Option<SignatureDocumentation>> {
+    signatures
+        .iter()
+        .map(|signature| {
+            let (path, text, start, _) = analysis.location(signature.span)?;
+            let own = docs::header_open(&text, start)
+                .map(|open| docs::parameters(&text, open))
+                .unwrap_or_default();
+            let parameters = signature
+                .param_names
+                .iter()
+                .map(|name| {
+                    let name = name.trim_start_matches('$');
+                    own.iter()
+                        .find(|(field, _)| field == name)
+                        .map(|(_, doc)| doc.clone())
+                })
+                .collect();
+            Some(SignatureDocumentation {
+                path,
+                start,
+                procedure: docs::above(&text, start),
+                parameters,
+            })
+        })
+        .collect()
+}
+
 /// Completion lists this short carry their documentation; longer ones leave it to
 /// `completionItem/resolve`, so a list of thousands of names costs no more than before.
 pub(crate) const EAGER_DOCS: usize = 24;
@@ -227,12 +268,29 @@ impl Session {
         uri: &DocumentUri,
         byte: usize,
     ) -> Option<Vec<Location>> {
-        let (_, decls) = self.link_at(uri, byte)?;
-        let found: Vec<Location> = decls
+        let doc = self.document(uri).ok()?;
+        let site = doc
+            .sites()
             .iter()
-            .filter_map(|(path, text, start, end)| self.location_in(path, text, *start, *end))
-            .collect();
-        (!found.is_empty()).then_some(found)
+            .find(|site| site.label.0 <= byte && byte <= site.label.1)?
+            .clone();
+        // A recognized doc link owns this definition lookup, including unavailable/empty
+        // answers; it must not retry another semantic provider after a failed final guard.
+        Some(
+            self.with_semantic(uri, &doc.text, |analysis, path| {
+                let fs = self.config_filesystem()?;
+                Some(
+                    analysis
+                        .resolve_names(path, site.scope_at, &site.names)
+                        .into_iter()
+                        .filter_map(|(path, text, start, end)| {
+                            self.projected_location(&fs, &path, &text, start, end)
+                        })
+                        .collect(),
+                )
+            })
+            .unwrap_or_default(),
+        )
     }
 
     /// The links of the document's doc comments that lead somewhere: (label, declaration).
@@ -321,55 +379,24 @@ impl Session {
 
     // Signature help and completion
 
-    /// The docs of each signature and of each of its parameters.
+    /// Render already owned documentation; compiler-local signature spans are never read here.
     pub(crate) fn signature_docs(
         &self,
         uri: &DocumentUri,
         signatures: &[IdeSignature],
+        raws: Vec<Option<SignatureDocumentation>>,
         kind: MarkupKind,
     ) -> Vec<(Option<String>, Vec<Option<String>>)> {
-        let none = || {
-            signatures
-                .iter()
-                .map(|s| (None, vec![None; s.params.len()]))
-                .collect()
-        };
-        let Ok(doc) = self.document(uri) else {
-            return none();
-        };
-        // (file, offset of the declaration, the procedure's docs, each parameter's docs)
-        type Raw = Option<(String, usize, Option<String>, Vec<Option<String>>)>;
-        let raws: Vec<Raw> = self
-            .with_semantic_or_older(uri, &doc.text, |a, _| {
-                Some(
-                    signatures
-                        .iter()
-                        .map(|s| {
-                            let (path, text, start, _) = a.location(s.span)?;
-                            let own = docs::header_open(&text, start)
-                                .map(|open| docs::parameters(&text, open))
-                                .unwrap_or_default();
-                            let params = s
-                                .param_names
-                                .iter()
-                                .map(|n| {
-                                    let n = n.trim_start_matches('$');
-                                    own.iter().find(|(f, _)| f == n).map(|(_, d)| d.clone())
-                                })
-                                .collect();
-                            Some((path, start, docs::above(&text, start), params))
-                        })
-                        .collect(),
-                )
-            })
-            .unwrap_or_default();
-        if raws.len() != signatures.len() {
-            return none();
-        }
         raws.into_iter()
             .zip(signatures)
             .map(|(raw, s)| {
-                let Some((path, start, proc_doc, params)) = raw else {
+                let Some(SignatureDocumentation {
+                    path,
+                    start,
+                    procedure: proc_doc,
+                    parameters: params,
+                }) = raw
+                else {
                     return (None, vec![None; s.params.len()]);
                 };
                 let mut all: Vec<String> = Vec::new();

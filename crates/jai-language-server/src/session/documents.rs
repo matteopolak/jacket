@@ -5,8 +5,9 @@ use crate::{
     Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, RelatedInformation,
     TextChange, analysis::Analysis, position::LineIndex,
 };
+use jaic::sema::FileSystem;
 use std::cell::OnceCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 /// A compile diagnostic with where it is (bytes) and what can fix it.
@@ -26,7 +27,7 @@ impl Session {
             return Err(Error::Limit("open document count exceeded"));
         }
         self.admit(&uri, text.len(), 0)?;
-        self.file_changed(Path::new(uri.path()), true);
+        self.document_changed(Path::new(uri.path()), true);
         let map = if crate::lints::is_config(&uri) {
             let saved = self
                 .config_on_disk(Path::new(uri.path()))
@@ -98,7 +99,7 @@ impl Session {
             crate::lexical_recovery::update(&document.text, &text, &document.lexical_damage);
         let config = self.lint_configs.contains_key(uri);
         if !config {
-            self.file_changed(Path::new(uri.path()), false);
+            self.document_changed(Path::new(uri.path()), false);
         }
         let map = if config {
             &mut self.lint_configs
@@ -125,7 +126,7 @@ impl Session {
         let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
         if let Some(config) = self.lint_configs.get(&key) {
             self.saved_configs.insert(key.clone(), config.text.clone());
-            self.file_changed(Path::new(key.path()), false);
+            self.document_changed(Path::new(key.path()), false);
             self.semantic.borrow_mut().forget_lints();
             self.rebuild();
         }
@@ -139,9 +140,10 @@ impl Session {
     /// [`Self::config_on_disk`], with the reason a file could not be read.
     pub(crate) fn read_config_on_disk(&self, path: &Path) -> std::io::Result<String> {
         match &self.environment {
-            Some(env) => {
-                let bytes = env
-                    .fs
+            Some(_) => {
+                let bytes = self
+                    .config_filesystem()
+                    .expect("environment")
                     .read(path)
                     .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))?;
 
@@ -174,7 +176,7 @@ impl Session {
     pub fn close(&mut self, uri: &DocumentUri) -> Result<(), Error> {
         let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
         let uri = &key;
-        self.file_changed(Path::new(uri.path()), true);
+        self.document_changed(Path::new(uri.path()), true);
         if self.lint_configs.remove(uri).is_some() {
             self.saved_configs.remove(uri);
             self.semantic.borrow_mut().forget_lints();
@@ -183,6 +185,7 @@ impl Session {
         }
         self.documents.remove(uri).ok_or(Error::MissingDocument)?;
         self.call_graphs.borrow_mut().remove(uri);
+        self.reference_records.borrow_mut().remove(uri);
         self.rebuild();
         Ok(())
     }
@@ -196,20 +199,31 @@ impl Session {
         (!jaic::interrupt::disarm()).then_some(all)
     }
 
+    /// Ready diagnostic replacements. An unavailable document is omitted so clients keep
+    /// its last accepted diagnostics until a new trigger can produce a valid replacement.
     pub fn publications(&self) -> Vec<(String, i32, Vec<Diagnostic>)> {
+        let _query = self.discovery_query();
+        let _background = self.background();
+        self.documents
+            .iter()
+            .filter_map(|(uri, doc)| {
+                self.diagnostics(uri)
+                    .ok()
+                    .map(|items| (uri.as_str().into(), doc.version, items))
+            })
+            .collect()
+    }
+
+    /// Collect a workspace pull without representing an unavailable document as clean.
+    /// Unlike push, a failed batch returns an error instead of silently omitting a report.
+    pub(crate) fn diagnostic_reports(&self) -> Result<Vec<(String, i32, Vec<Diagnostic>)>, Error> {
+        let _query = self.discovery_query();
         let _background = self.background();
         self.documents
             .iter()
             .map(|(uri, doc)| {
-                let mut diagnostics = self
-                    .analysis_for(uri)
-                    .expect("opened document has analysis")
-                    .diagnostics
-                    .clone();
-                diagnostics.extend(self.check_diagnostics(uri));
-                diagnostics.extend(self.unreachable_diagnostics(uri));
-                diagnostics.extend(self.lint_diagnostics(uri));
-                (uri.as_str().into(), doc.version, diagnostics)
+                self.diagnostics(uri)
+                    .map(|items| (uri.as_str().into(), doc.version, items))
             })
             .collect()
     }
@@ -231,14 +245,22 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
-        let found = self
-            .with_semantic(uri, &doc.text, |analysis, path| {
-                let findings = analysis.check_findings(path);
-                self.remember_call_graphs(uri, analysis);
-                analysis.focus(path);
-                Some(findings)
-            })
-            .unwrap_or_default();
+        self.with_semantic(uri, &doc.text, |analysis, path| {
+            let findings = analysis.staged_check_findings(path);
+            let _ = self.remember_call_graphs(uri, analysis);
+            analysis.focus(path);
+            Some(self.findings_from(&self.config_filesystem()?, uri, findings))
+        })
+        .unwrap_or_default()
+    }
+
+    /// Project accepted checker rows into the document's protocol ranges and related locations.
+    fn findings_from(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        uri: &DocumentUri,
+        found: Vec<crate::semantic::CheckFinding>,
+    ) -> Vec<Finding> {
         let syntax = &self
             .analysis_for(uri)
             .expect("opened document has analysis")
@@ -258,7 +280,7 @@ impl Session {
                     .related
                     .iter()
                     .filter_map(|r| {
-                        let at = self.location_in(&r.path, &r.text, r.start, r.end)?;
+                        let at = self.projected_location(fs, &r.path, &r.text, r.start, r.end)?;
                         Some(RelatedInformation {
                             uri: at.uri,
                             range: at.range,
@@ -286,43 +308,59 @@ impl Session {
             .collect()
     }
 
-    /// Hints that fade the code of `uri` the compile found can never run.
-    pub(crate) fn unreachable_diagnostics(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
-        let Ok(doc) = self.document(uri) else {
-            return Vec::new();
-        };
-        let found = self
-            .with_semantic(uri, &doc.text, |analysis, path| {
-                Some(analysis.unreachable(path))
-            })
-            .unwrap_or_default();
-        found
-            .into_iter()
-            .filter_map(|(start, end)| {
-                Some(Diagnostic {
-                    range: self.range_of(uri, Span::new(start, end))?,
-                    severity: DiagnosticSeverity::Hint,
-                    code: DiagnosticCode::Unreachable,
-                    message: "unreachable code".into(),
-                    related: Vec::new(),
-                })
-            })
-            .collect()
-    }
-
     /// Syntax and source diagnostics of `uri`, then its type error and lints.
     pub fn diagnostics(&self, uri: &DocumentUri) -> Result<Vec<Diagnostic>, Error> {
+        let _query = self.discovery_query();
         // A pull is a request for the check itself: it is the one request that compiles.
         let _background = self.background();
-        self.document(uri)?;
+        let fs = self.config_filesystem();
+        let (uri, _) = if let Some(fs) = &fs {
+            self.projected_document_entry(fs, uri)?
+        } else {
+            self.document_entry(uri)?
+        };
         let mut diagnostics = self
             .analysis_for(uri)
             .expect("opened document has analysis")
             .diagnostics
             .clone();
-        diagnostics.extend(self.check_diagnostics(uri));
-        diagnostics.extend(self.unreachable_diagnostics(uri));
-        diagnostics.extend(self.lint_diagnostics(uri));
+        // No configured semantic provider is an explicitly syntax-only session.
+        if self.environment.is_none() {
+            return Ok(diagnostics);
+        }
+        let doc = self.document(uri)?;
+        let config = if crate::semantic::parse_error(&doc.text).is_none() {
+            self.lint_config(Path::new(uri.path()))
+        } else {
+            None
+        };
+        let (checks, unreachable, lints) = self
+            .with_semantic(uri, &doc.text, |analysis, path| {
+                let checks = analysis.staged_check_findings(path);
+                let _ = self.remember_call_graphs(uri, analysis);
+                analysis.focus(path);
+                let unreachable = analysis.unreachable(path);
+                let lints = match config.as_ref() {
+                    Some(config) => analysis.lints(path, config)?,
+                    None => Vec::new(),
+                };
+                let fs = self.config_filesystem()?;
+                let checks = self.findings_from(&fs, uri, checks);
+                let lints = self.projected_lint_diagnostics_from(&fs, uri, &lints);
+                Some((checks, unreachable, lints))
+            })
+            .ok_or(Error::DiagnosticsUnavailable)?;
+        diagnostics.extend(checks.into_iter().map(|f| f.diagnostic));
+        diagnostics.extend(unreachable.into_iter().filter_map(|(start, end)| {
+            Some(Diagnostic {
+                range: self.range_of(uri, Span::new(start, end))?,
+                severity: DiagnosticSeverity::Hint,
+                code: DiagnosticCode::Unreachable,
+                message: "unreachable code".into(),
+                related: Vec::new(),
+            })
+        }));
+        diagnostics.extend(lints);
         Ok(diagnostics)
     }
 
@@ -364,6 +402,56 @@ impl Session {
             .ok_or(Error::MissingDocument)
     }
 
+    /// Select the stored client key under observation, then validate that mapping after use.
+    /// Example: a physical request URI can address a buffer opened through a symlink.
+    pub(crate) fn projected_document_query<T: Default>(
+        &self,
+        uri: &DocumentUri,
+        query: impl FnOnce(&DocumentUri) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        let _query = self.discovery_query();
+        let mapping = std::cell::RefCell::new(crate::semantic::Observations::default());
+        let base = self.config_filesystem();
+        let fs = base.as_ref().map(|base| crate::semantic::ObservedFs {
+            base,
+            proof: Some(&mapping),
+            secondary: None,
+        });
+        let (key, _) = match &fs {
+            Some(fs) => self.projected_document_entry(fs, uri)?,
+            None => self.document_entry(uri)?,
+        };
+        if jaic::interrupt::fired() {
+            return Ok(T::default());
+        }
+        let answer = query(key)?;
+        if jaic::interrupt::fired()
+            || self
+                .environment
+                .as_ref()
+                .is_some_and(|env| !mapping.borrow().matches(&*env.fs))
+            || jaic::interrupt::fired()
+        {
+            return Ok(T::default());
+        }
+        Ok(answer)
+    }
+
+    /// Resolve an exact request spelling inside its existing discovery transaction.
+    /// Example: a physical URI may select the buffer opened through a symlink.
+    pub(crate) fn projected_document_entry(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        uri: &DocumentUri,
+    ) -> Result<(&DocumentUri, &Document), Error> {
+        let key = self
+            .projected_uri(fs, Path::new(uri.path()))
+            .ok_or(Error::MissingDocument)?;
+        self.documents
+            .get_key_value(&key)
+            .ok_or(Error::MissingDocument)
+    }
+
     pub(crate) fn document_uri(&self, uri: &DocumentUri) -> Option<DocumentUri> {
         if self.documents.contains_key(uri) || self.lint_configs.contains_key(uri) {
             return Some(uri.clone());
@@ -379,6 +467,27 @@ impl Session {
             .or_else(|| DocumentUri::from_path(path).ok())
     }
 
+    /// Stage a client spelling through actual observed responses before its output guard.
+    /// The caller must include this observer's history in the accepted result's final proof.
+    pub(crate) fn projected_uri(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        path: &Path,
+    ) -> Option<DocumentUri> {
+        if let Ok(uri) = DocumentUri::from_path(path)
+            && (self.documents.contains_key(&uri) || self.lint_configs.contains_key(&uri))
+        {
+            return Some(uri);
+        }
+        let want = crate::auto_import::filesystem_key(fs, path);
+        self.documents
+            .keys()
+            .chain(self.lint_configs.keys())
+            .find(|uri| crate::auto_import::filesystem_key(fs, Path::new(uri.path())) == want)
+            .cloned()
+            .or_else(|| DocumentUri::from_path(path).ok())
+    }
+
     pub(crate) fn open_file_uri(&self, path: &Path) -> Option<DocumentUri> {
         if let Ok(uri) = DocumentUri::from_path(path)
             && (self.documents.contains_key(&uri) || self.lint_configs.contains_key(&uri))
@@ -387,23 +496,36 @@ impl Session {
         }
         let env = self.environment.as_ref()?;
         let want = crate::auto_import::canonical_key(env, path);
-        let mut identities = self.open_file_identities.borrow_mut();
-        let known = identities.get_or_insert_with(|| {
-            self.documents
-                .keys()
-                .chain(self.lint_configs.keys())
-                .map(|uri| {
-                    (
-                        crate::auto_import::canonical_key(env, Path::new(uri.path())),
-                        uri.clone(),
-                    )
-                })
-                .collect()
-        });
-        known
+        self.open_identities()?
             .iter()
             .find(|(path, _)| *path == want)
             .map(|(_, uri)| uri.clone())
+    }
+
+    /// Current canonical buffer identities, shared by navigation and snapshot validation.
+    pub(crate) fn open_identities(&self) -> Option<std::cell::Ref<'_, [(PathBuf, DocumentUri)]>> {
+        let env = self.environment.as_ref()?;
+        if env.fs.is_native() {
+            *self.open_file_identities.borrow_mut() = None;
+        }
+        if self.open_file_identities.borrow().is_none() {
+            *self.open_file_identities.borrow_mut() = Some(
+                self.documents
+                    .keys()
+                    .chain(self.lint_configs.keys())
+                    .map(|uri| {
+                        (
+                            crate::auto_import::canonical_key(env, Path::new(uri.path())),
+                            uri.clone(),
+                        )
+                    })
+                    .collect(),
+            );
+        }
+        Some(std::cell::Ref::map(
+            self.open_file_identities.borrow(),
+            |identities| identities.as_ref().unwrap().as_slice(),
+        ))
     }
 
     pub(crate) fn analysis_for(&self, uri: &DocumentUri) -> Option<&Rc<Analysis>> {

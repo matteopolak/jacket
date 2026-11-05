@@ -1,33 +1,12 @@
 //! Method tables for requests, notifications and server commands, and message envelopes.
-use super::RequestId;
-use super::helpers::{failure, valid_id};
-use super::params::Envelope;
-use serde_json::Value;
 
-/// JSON-RPC and LSP error codes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum ErrorCode {
-    ParseError = -32700,
-    InvalidRequest = -32600,
-    MethodNotFound = -32601,
-    InvalidParams = -32602,
-    InternalError = -32603,
-    ServerNotInitialized = -32002,
-    RequestCancelled = -32800,
-    ContentModified = -32801,
-    RequestFailed = -32803,
-}
 
-pub(super) type Failure = (ErrorCode, String);
+use lsp_types::notification::Notification as _;
+use lsp_types::request::Request as _;
+
+pub(super) use lsp_server::{ErrorCode, ResponseError as Failure};
 
 pub(super) const OUTPUT_LIMIT: &str = "The response is larger than the output limit";
-
-/// The answer to a request: a value, or JSON text already written (a large answer built as a
-/// `Value` tree costs tens of times its size in memory).
-pub(super) enum Reply {
-    Value(Value),
-    Raw(String),
-}
 
 /// The requests the server answers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,55 +57,127 @@ pub(super) enum Request {
 
 impl Request {
     pub(super) const METHODS: &[(&str, Self)] = &[
-        ("initialize", Self::Initialize),
-        ("shutdown", Self::Shutdown),
-        ("textDocument/semanticTokens/full", Self::SemanticTokens),
+        (lsp_types::request::Initialize::METHOD, Self::Initialize),
+        (lsp_types::request::Shutdown::METHOD, Self::Shutdown),
         (
-            "textDocument/semanticTokens/range",
+            lsp_types::request::SemanticTokensFullRequest::METHOD,
+            Self::SemanticTokens,
+        ),
+        (
+            lsp_types::request::SemanticTokensRangeRequest::METHOD,
             Self::SemanticTokensRange,
         ),
         (
-            "textDocument/semanticTokens/full/delta",
+            lsp_types::request::SemanticTokensFullDeltaRequest::METHOD,
             Self::SemanticTokensDelta,
         ),
-        ("textDocument/documentSymbol", Self::DocumentSymbol),
-        ("textDocument/hover", Self::Hover),
-        ("textDocument/completion", Self::Completion),
-        ("completionItem/resolve", Self::CompletionResolve),
-        ("textDocument/definition", Self::Definition),
-        ("textDocument/typeDefinition", Self::TypeDefinition),
-        ("textDocument/declaration", Self::Declaration),
         (
-            "textDocument/prepareTypeHierarchy",
+            lsp_types::request::DocumentSymbolRequest::METHOD,
+            Self::DocumentSymbol,
+        ),
+        (lsp_types::request::HoverRequest::METHOD, Self::Hover),
+        (lsp_types::request::Completion::METHOD, Self::Completion),
+        (
+            lsp_types::request::ResolveCompletionItem::METHOD,
+            Self::CompletionResolve,
+        ),
+        (lsp_types::request::GotoDefinition::METHOD, Self::Definition),
+        (
+            lsp_types::request::GotoTypeDefinition::METHOD,
+            Self::TypeDefinition,
+        ),
+        (
+            lsp_types::request::GotoDeclaration::METHOD,
+            Self::Declaration,
+        ),
+        (
+            lsp_types::request::TypeHierarchyPrepare::METHOD,
             Self::PrepareTypeHierarchy,
         ),
-        ("typeHierarchy/supertypes", Self::Supertypes),
-        ("typeHierarchy/subtypes", Self::Subtypes),
-        ("textDocument/linkedEditingRange", Self::LinkedEditingRange),
-        ("textDocument/implementation", Self::Implementation),
-        ("textDocument/formatting", Self::Formatting),
-        ("textDocument/rangeFormatting", Self::RangeFormatting),
-        ("textDocument/references", Self::References),
-        ("textDocument/prepareRename", Self::PrepareRename),
-        ("textDocument/rename", Self::Rename),
-        ("textDocument/documentHighlight", Self::DocumentHighlight),
-        ("workspace/symbol", Self::WorkspaceSymbol),
-        ("textDocument/documentLink", Self::DocumentLink),
-        ("textDocument/foldingRange", Self::FoldingRange),
-        ("textDocument/inlayHint", Self::InlayHint),
-        ("textDocument/signatureHelp", Self::SignatureHelp),
-        ("textDocument/codeAction", Self::CodeAction),
         (
-            "textDocument/prepareCallHierarchy",
+            lsp_types::request::TypeHierarchySupertypes::METHOD,
+            Self::Supertypes,
+        ),
+        (
+            lsp_types::request::TypeHierarchySubtypes::METHOD,
+            Self::Subtypes,
+        ),
+        (
+            lsp_types::request::LinkedEditingRange::METHOD,
+            Self::LinkedEditingRange,
+        ),
+        (
+            lsp_types::request::GotoImplementation::METHOD,
+            Self::Implementation,
+        ),
+        (lsp_types::request::Formatting::METHOD, Self::Formatting),
+        (
+            lsp_types::request::RangeFormatting::METHOD,
+            Self::RangeFormatting,
+        ),
+        (lsp_types::request::References::METHOD, Self::References),
+        (
+            lsp_types::request::PrepareRenameRequest::METHOD,
+            Self::PrepareRename,
+        ),
+        (lsp_types::request::Rename::METHOD, Self::Rename),
+        (
+            lsp_types::request::DocumentHighlightRequest::METHOD,
+            Self::DocumentHighlight,
+        ),
+        (
+            lsp_types::request::WorkspaceSymbolRequest::METHOD,
+            Self::WorkspaceSymbol,
+        ),
+        (
+            lsp_types::request::DocumentLinkRequest::METHOD,
+            Self::DocumentLink,
+        ),
+        (
+            lsp_types::request::FoldingRangeRequest::METHOD,
+            Self::FoldingRange,
+        ),
+        (
+            lsp_types::request::InlayHintRequest::METHOD,
+            Self::InlayHint,
+        ),
+        (
+            lsp_types::request::SignatureHelpRequest::METHOD,
+            Self::SignatureHelp,
+        ),
+        (
+            lsp_types::request::CodeActionRequest::METHOD,
+            Self::CodeAction,
+        ),
+        (
+            lsp_types::request::CallHierarchyPrepare::METHOD,
             Self::PrepareCallHierarchy,
         ),
-        ("callHierarchy/incomingCalls", Self::IncomingCalls),
-        ("callHierarchy/outgoingCalls", Self::OutgoingCalls),
-        ("textDocument/selectionRange", Self::SelectionRange),
-        ("textDocument/codeLens", Self::CodeLens),
-        ("workspace/executeCommand", Self::ExecuteCommand),
-        ("textDocument/diagnostic", Self::DocumentDiagnostic),
-        ("workspace/diagnostic", Self::WorkspaceDiagnostic),
+        (
+            lsp_types::request::CallHierarchyIncomingCalls::METHOD,
+            Self::IncomingCalls,
+        ),
+        (
+            lsp_types::request::CallHierarchyOutgoingCalls::METHOD,
+            Self::OutgoingCalls,
+        ),
+        (
+            lsp_types::request::SelectionRangeRequest::METHOD,
+            Self::SelectionRange,
+        ),
+        (lsp_types::request::CodeLensRequest::METHOD, Self::CodeLens),
+        (
+            lsp_types::request::ExecuteCommand::METHOD,
+            Self::ExecuteCommand,
+        ),
+        (
+            lsp_types::request::DocumentDiagnosticRequest::METHOD,
+            Self::DocumentDiagnostic,
+        ),
+        (
+            lsp_types::request::WorkspaceDiagnosticRequest::METHOD,
+            Self::WorkspaceDiagnostic,
+        ),
         ("jai/expansion", Self::Expansion),
         ("jai/source", Self::Source),
     ];
@@ -164,23 +215,38 @@ pub(super) enum Notification {
 
 impl Notification {
     pub(super) const METHODS: &[(&str, Self)] = &[
-        ("initialized", Self::Initialized),
-        ("exit", Self::Exit),
-        ("$/cancelRequest", Self::Cancel),
-        ("textDocument/didOpen", Self::DidOpen),
-        ("textDocument/didChange", Self::DidChange),
-        ("textDocument/didSave", Self::DidSave),
-        ("textDocument/didClose", Self::DidClose),
         (
-            "workspace/didChangeConfiguration",
+            lsp_types::notification::Initialized::METHOD,
+            Self::Initialized,
+        ),
+        (lsp_types::notification::Exit::METHOD, Self::Exit),
+        (lsp_types::notification::Cancel::METHOD, Self::Cancel),
+        (
+            lsp_types::notification::DidOpenTextDocument::METHOD,
+            Self::DidOpen,
+        ),
+        (
+            lsp_types::notification::DidChangeTextDocument::METHOD,
+            Self::DidChange,
+        ),
+        (
+            lsp_types::notification::DidSaveTextDocument::METHOD,
+            Self::DidSave,
+        ),
+        (
+            lsp_types::notification::DidCloseTextDocument::METHOD,
+            Self::DidClose,
+        ),
+        (
+            lsp_types::notification::DidChangeConfiguration::METHOD,
             Self::DidChangeConfiguration,
         ),
         (
-            "workspace/didChangeWorkspaceFolders",
+            lsp_types::notification::DidChangeWorkspaceFolders::METHOD,
             Self::DidChangeWorkspaceFolders,
         ),
         (
-            "workspace/didChangeWatchedFiles",
+            lsp_types::notification::DidChangeWatchedFiles::METHOD,
             Self::DidChangeWatchedFiles,
         ),
         ("jai/setTrusted", Self::SetTrusted),
@@ -214,40 +280,6 @@ impl ServerCommand {
             .iter()
             .find(|(known, _)| *known == name)
             .map(|(_, command)| *command)
-    }
-}
-
-/// A well-formed request (with an id) or notification.
-pub(super) struct Incoming {
-    pub(super) id: Option<RequestId>,
-    pub(super) method: String,
-    pub(super) params: Value,
-}
-
-/// The message in `input`; `None` for the client's answer to a request of ours, and the error
-/// response for a malformed one.
-pub(super) fn incoming(input: &str) -> Result<Option<Incoming>, Value> {
-    let invalid = |message| failure(Value::Null, ErrorCode::InvalidRequest, message);
-    let value: Value = serde_json::from_str(input)
-        .map_err(|_| failure(Value::Null, ErrorCode::ParseError, "Parse error"))?;
-    let answer = value.get("result").is_some() || value.get("error").is_some();
-    if value.get("method").is_none() && value.get("id").is_some() && answer {
-        return Ok(None);
-    }
-    let id = match value.get("id") {
-        None => None,
-        Some(id) => match serde_json::from_value::<RequestId>(id.clone()) {
-            Ok(id) if valid_id(&id) => Some(id),
-            _ => return Err(invalid("Invalid request id")),
-        },
-    };
-    match serde_json::from_value::<Envelope>(value) {
-        Ok(e) if e.jsonrpc == "2.0" && !e.method.is_empty() => Ok(Some(Incoming {
-            id,
-            method: e.method,
-            params: e.params,
-        })),
-        _ => Err(invalid("Invalid request")),
     }
 }
 

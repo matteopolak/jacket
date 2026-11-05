@@ -2,18 +2,30 @@
 //! (bundled or on-disk stdlib) and the compiler's editor facts (`jaic::ide`) are queried.
 //! Compilation happens on demand and is cached per source text.
 mod cache;
+mod checked_inputs;
+pub(crate) use checked_inputs::CheckedInputs;
 mod compile;
+pub(crate) use self::compile::find_file;
+mod hints;
+mod notices;
+mod observations;
+pub(crate) use observations::{Observations, ObservedFs};
 mod overlay;
 mod parses;
+mod probes;
+pub(crate) use probes::ProbeStatus;
+#[cfg(test)]
+mod hint_tests;
 mod queries;
 mod shift;
 
 pub use self::cache::Cache;
+pub(crate) use self::cache::{QueryAnalysis, QuerySelection};
 pub use self::overlay::Reads;
 pub(crate) use self::parses::text_key;
 pub use self::parses::{note_parse, parse_error};
 pub use self::queries::EvalCost;
-pub(crate) use self::queries::LimitKind;
+pub(crate) use self::queries::{CheckFinding, LimitKind};
 pub use self::shift::Shift;
 use jaic::ide::IdeLayout;
 use jaic::sema::{Compiler, FileSystem, Options};
@@ -25,11 +37,17 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
+/// Compiler options selected using the supplied observed filesystem and program root.
+pub type OptionsCallback = dyn Fn(&dyn FileSystem, &Path) -> Options;
+
 /// Where the language server finds modules: a file system for everything that is not an open
 /// document, and compiler options for a main file (import paths, Preload, target).
 pub struct Environment {
     pub fs: Rc<dyn FileSystem>,
-    pub options: Box<dyn Fn(&Path) -> Options>,
+    /// Options for a root, using only the supplied filesystem for dynamic discovery.
+    /// Native callers capture those actual responses before cache reuse. Other callback
+    /// state must remain stable until the session receives its settings notification/reset.
+    pub options: Box<OptionsCallback>,
     /// Compile-time services for trusted workspaces (`services::EditorServices`); `None`
     /// answers every call as unavailable.
     pub services: Option<Rc<dyn jaic::service::ServiceProvider>>,
@@ -93,14 +111,6 @@ pub struct SemanticAnalysisContext {
     pub workspace_id: Option<i64>,
 }
 
-/// A hash of a buffer's bytes, to tell later whether it changed.
-pub(crate) fn text_hash(bytes: &[u8]) -> u64 {
-    use std::hash::Hasher;
-    let mut h = jaic::fxhash::FxHasher::default();
-    h.write(bytes);
-    h.finish()
-}
-
 /// A declaration in a compiled file: (path, text of the file, start, end of its name).
 pub type Decl = (String, Arc<str>, usize, usize);
 
@@ -154,14 +164,23 @@ pub struct BuiltProgram {
     pub files: Vec<PathBuf>,
     pub strings: usize,
     pub import_dirs: Vec<PathBuf>,
+    /// This produced workspace completed its independent IDE check without errors.
+    pub checked: bool,
 }
 
 /// The open documents' texts by path, shared so that asking again with the same inputs is
 /// known by address alone.
 pub type Buffers = Rc<BTreeMap<PathBuf, Arc<[u8]>>>;
 
+type ReferenceCache = Option<Rc<jaic::ide::meta::ReferenceIndex>>;
+
 pub struct Analysis {
+    pub(crate) authority: Rc<()>,
+    /// Analysis-wide accepted mutable-fact view, shared by every contained Program.
+    pub(crate) facts_accepted: Rc<std::cell::Cell<bool>>,
     pub compiler: Compiler,
+    /// A cancelled semantic query may have changed this compiler; no later lookup may reuse it.
+    query_valid: bool,
     /// Entry observation belongs to the selected compiler and swaps with it.
     entry: Option<PathBuf>,
     key: u64,
@@ -172,12 +191,18 @@ pub struct Analysis {
     os: Option<TargetOs>,
     /// The program's root file, the module folders searched and the text of every open file it
     /// was compiled from (shared with the compiler's file system, so no copy).
-    root: PathBuf,
-    dirs: Vec<PathBuf>,
-    files: BTreeMap<PathBuf, Arc<[u8]>>,
+    pub(crate) root: PathBuf,
+    pub(crate) dirs: Vec<PathBuf>,
+    pub(crate) files: BTreeMap<PathBuf, Arc<[u8]>>,
     /// The paths the compile and the queries since asked about: a buffer outside them can
     /// change without the compile going stale.
-    reads: Rc<RefCell<Reads>>,
+    pub(crate) reads: Rc<RefCell<Reads>>,
+    pub(crate) build_facts: Option<BuildFacts>,
+    pub(crate) build_complete: bool,
+    /// Advisory analyses never authorize exact navigation or accepted build facts.
+    advisory: bool,
+    /// Live filesystem inputs move only after exact/unaffected cache validation.
+    overlay: Rc<overlay::OverlayFs>,
     /// The compile got far enough to record scopes and names (the text parsed), so its facts
     /// can answer for an edit that left the code before the cursor alone.
     usable: bool,
@@ -191,9 +216,12 @@ pub struct Analysis {
     errors: Vec<jaic::diagnostics::Diagnostic>,
     /// Lints found so far, by file.
     lints: BTreeMap<FileId, Vec<jailint::Lint>>,
-    /// `errors` with the help worked out when they are rendered (the imports that declare an
-    /// unknown name read the standard library, so it waits for the first use).
-    enriched: Option<Vec<jaic::diagnostics::Diagnostic>>,
+    /// Immutable reference resolution for this exact selected compiler state.
+    references: ReferenceCache,
+    /// Opaque identity survives immutable snapshots without retaining this compiler.
+    reference_owner: Rc<()>,
+    /// Hint observations belong only to the current query, across Program focus changes.
+    hints: Rc<hints::HintCapture>,
     /// `file`'s answers by the path asked for: canonicalizing every compiled file's path for
     /// each request was a quarter of a hover.
     found: RefCell<BTreeMap<PathBuf, Option<FileId>>>,
@@ -210,7 +238,10 @@ struct Program {
     complete: bool,
     errors: Vec<jaic::diagnostics::Diagnostic>,
     lints: BTreeMap<FileId, Vec<jailint::Lint>>,
-    enriched: Option<Vec<jaic::diagnostics::Diagnostic>>,
+    /// Immutable reference resolution for this exact selected compiler state.
+    references: ReferenceCache,
+    /// Opaque identity survives immutable snapshots without retaining this compiler.
+    reference_owner: Rc<()>,
 }
 
 

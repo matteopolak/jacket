@@ -69,18 +69,29 @@ fn hovers_are_markdown_when_the_client_renders_it() {
 }
 
 fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
-    session
+    let output: Vec<Value> = session
         .handle_json(&message.to_string())
         .unwrap()
         .iter()
         .map(|s| serde_json::from_str(s).unwrap())
-        .collect()
+        .collect();
+    if message["method"] == "initialize"
+        && output.first().is_some_and(|m| m.get("result").is_some())
+    {
+        assert!(
+            session
+                .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+                .unwrap()
+                .is_empty()
+        );
+    }
+    output
 }
 
 fn initialize(session: &mut JsonSession) {
     let output = send(
         session,
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } }),
     );
     assert_eq!(
         output[0]["result"]["capabilities"]["positionEncoding"],
@@ -239,7 +250,7 @@ fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
 fn queued_cancellation_and_completed_responses_have_distinct_semantics() {
     let mut session = JsonSession::new(Limits::default());
     initialize(&mut session);
-    session.cancel_request(RequestId::Number(7)).unwrap();
+    session.cancel_request(RequestId::from(7)).unwrap();
     let output = send(
         &mut session,
         json!({
@@ -249,8 +260,8 @@ fn queued_cancellation_and_completed_responses_have_distinct_semantics() {
             "params": { "textDocument": { "uri": "file:///workspace/missing.jai" } },
         }),
     );
-    assert_eq!(output[0]["error"]["code"], -32800);
-    session.cancel_request(RequestId::Number(1)).unwrap();
+    assert_eq!(output[0]["error"]["code"], -32602);
+    session.cancel_request(RequestId::from(1)).unwrap();
     let repeated = send(
         &mut session,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "shutdown" }),
@@ -379,8 +390,8 @@ fn doc_comments_reach_hover_and_completion_resolve_is_advertised() {
 }
 
 #[test]
-fn request_ids_may_be_any_whole_number_and_are_echoed_as_received() {
-    for raw in ["1.0", "7", "-4", "9007199254740993", "\"abc\"", "\"1\""] {
+fn standard_i32_and_string_request_ids_are_echoed() {
+    for raw in ["7", "-4", "2147483647", "-2147483648", "\"abc\"", "\"1\""] {
         let mut session = JsonSession::new(Limits::default());
         initialize(&mut session);
         let request = format!(r#"{{"jsonrpc":"2.0","id":{raw},"method":"shutdown"}}"#);
@@ -390,7 +401,15 @@ fn request_ids_may_be_any_whole_number_and_are_echoed_as_received() {
         assert!(output.get("error").is_none(), "{raw}");
     }
     let mut session = JsonSession::new(Limits::default());
-    for raw in ["1.5", "true", "null", "1e300"] {
+    for raw in [
+        "1.0",
+        "1.5",
+        "2147483648",
+        "-2147483649",
+        "true",
+        "null",
+        "1e300",
+    ] {
         let request = format!(r#"{{"jsonrpc":"2.0","id":{raw},"method":"shutdown"}}"#);
         let output: Value =
             serde_json::from_str(&session.handle_json(&request).unwrap()[0]).unwrap();
@@ -399,13 +418,16 @@ fn request_ids_may_be_any_whole_number_and_are_echoed_as_received() {
 }
 
 #[test]
-fn a_cancellation_matches_the_same_number_written_either_way() {
+fn an_unknown_cancellation_does_not_cancel_a_later_request() {
     let mut session = JsonSession::new(Limits::default());
     initialize(&mut session);
-    let cancel = r#"{"jsonrpc":"2.0","method":"$/cancelRequest","params":{"id":7}}"#;
-    session.handle_json(cancel).unwrap();
-    let request = r#"{"jsonrpc":"2.0","id":7.0,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"file:///workspace/missing.jai"}}}"#;
-    let output: Value = serde_json::from_str(&session.handle_json(request).unwrap()[0]).unwrap();
-    assert_eq!(output["error"]["code"], -32800);
-    assert_eq!(output["id"].to_string(), "7.0");
+    session
+        .handle_json(r#"{"jsonrpc":"2.0","method":"$/cancelRequest","params":{"id":7}}"#)
+        .unwrap();
+    let output = send(
+        &mut session,
+        json!({"jsonrpc":"2.0","id":7,"method":"unknown"}),
+    );
+    assert_eq!(output[0]["id"], 7);
+    assert_eq!(output[0]["error"]["code"], -32601);
 }

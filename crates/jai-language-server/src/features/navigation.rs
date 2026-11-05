@@ -4,6 +4,13 @@ use crate::analysis::TokenKind;
 use crate::session::Session;
 use crate::{DocumentUri, Error, Location, Position, Range, TextEdit};
 
+/// A single accepted rename selection; locations and spelling own no compiler identities.
+struct RenamePlan {
+    range: Range,
+    old_name: String,
+    locations: Vec<Location>,
+}
+
 impl Session {
     // Navigation
 
@@ -14,22 +21,46 @@ impl Session {
         position: Position,
         declaration: bool,
     ) -> Result<Vec<Location>, Error> {
-        let doc = self.document(uri)?;
+        let _query = self.discovery_query();
+        let fs = self.config_filesystem();
+        let (uri, doc) = if let Some(fs) = &fs {
+            self.projected_document_entry(fs, uri)?
+        } else {
+            self.document_entry(uri)?
+        };
+        if let Some(answer) = self.current_references(uri, position, declaration) {
+            return Ok(answer.unwrap_or_default());
+        }
         let byte = doc.index.byte(&doc.text, position);
-        let found = self
-            .checked(uri, |a, f| {
-                a.compiler
-                    .ide_references(f, byte as u32)
-                    .into_iter()
-                    .filter(|(_, decl)| declaration || !decl)
-                    .filter_map(|(span, _)| a.location(span))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        Ok(found
-            .into_iter()
-            .filter_map(|(path, text, start, end)| self.location_in(&path, &text, start, end))
-            .collect())
+        let query = |a: &mut crate::semantic::Analysis, file| {
+            let fs = self
+                .config_filesystem()
+                .expect("semantic provider owns filesystem");
+            a.reference_index()
+                .references(file, byte as u32)
+                .into_iter()
+                .filter(|(_, decl)| declaration || !decl)
+                .filter_map(|(span, _)| a.location(span))
+                .filter_map(|(path, text, start, end)| {
+                    self.projected_location(&fs, &path, &text, start, end)
+                })
+                .collect::<Vec<_>>()
+        };
+        // An exploratory query may have enriched the kept compiler since publication. Only
+        // after it is gone do independently retained facts become the exact-answer fallback.
+        let found = match self.with_cached_semantic(uri, &doc.text, |a, path| {
+            let file = a.file(path)?;
+            Some(query(a, file))
+        }) {
+            // Selection already began a transaction. Its unavailable result is terminal;
+            // only a cache miss may choose a retained record or start a first fresh check.
+            Some(answer) => answer.unwrap_or_default(),
+            None => self
+                .retained_references(uri, position, declaration)
+                .or_else(|| self.checked(uri, query))
+                .unwrap_or_default(),
+        };
+        Ok(found)
     }
 
     /// The ranges that are edited together when the name at `position` is: a local variable,
@@ -41,8 +72,20 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Vec<Range>, Error> {
+        self.projected_document_query(uri, |key| self.linked_editing_ranges_at_key(key, position))
+    }
+
+    fn linked_editing_ranges_at_key(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+    ) -> Result<Vec<Range>, Error> {
         let (key, doc) = self.document_entry(uri)?;
-        let rows = self.bindings(key, position)?;
+        let fs = self.config_filesystem();
+        let rows = match &fs {
+            Some(fs) => self.projected_bindings(fs, key, position)?,
+            None => self.bindings(key, position)?,
+        };
         let [(target, row)] = rows[..] else {
             return Ok(Vec::new());
         };
@@ -81,7 +124,28 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Option<Range>, Error> {
-        // Edits that name every use must be exact, so a rename is a request that compiles.
+        self.projected_document_query(uri, |key| self.prepare_rename_at_key(key, position))
+    }
+
+    fn prepare_rename_at_key(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+    ) -> Result<Option<Range>, Error> {
+        Ok(self
+            .rename_plan_at_key(uri, position)?
+            .map(|plan| plan.range))
+    }
+
+    /// Select declarations and project all uses inside one exact checked transaction.
+    /// Preparation uses the range; applying a rename consumes these same owned locations.
+    fn rename_plan_at_key(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+    ) -> Result<Option<RenamePlan>, Error> {
+        let _query = self.discovery_query();
+        // Rename needs an exact check even when ordinary navigation defers compilation.
         let _background = self.background();
         let doc = self.document(uri)?;
         let Some((_, token)) = self.word(uri, position)? else {
@@ -92,39 +156,46 @@ impl Session {
         }
         let range = doc.index.range(&doc.text, token.span)?;
         let byte = doc.index.byte(&doc.text, position);
-        let outside = self
-            .checked(uri, |a, f| a.compiler.ide_member_declared(f, byte as u32))
-            .flatten()
-            == Some(false);
-        if outside {
-            return Ok(None);
-        }
-        // A name nothing in the checked files declares (a built-in type) has no declaration to
-        // rewrite, so renaming its uses would break them. A declaration spelled otherwise is
-        // another name for the same thing (`T` bound to `int`), not this one's.
-        let word = {
-            let start = doc.index.byte(&doc.text, range.start);
-            let end = doc.index.byte(&doc.text, range.end);
-            doc.text[start..end].to_string()
-        };
-        let declared = self
-            .checked(uri, |a, f| {
-                a.compiler
-                    .ide_references(f, byte as u32)
-                    .into_iter()
-                    .filter(|&(_, decl)| decl)
-                    .filter_map(|(span, _)| a.location(span))
-                    .any(|(_, text, start, end)| text.get(start..end) == Some(word.as_str()))
+        let start = doc.index.byte(&doc.text, range.start);
+        let end = doc.index.byte(&doc.text, range.end);
+        let old_name = doc.text[start..end].to_string();
+        Ok(self
+            .checked(uri, |analysis, file| {
+                if analysis.compiler.ide_member_declared(file, byte as u32) == Some(false) {
+                    return None;
+                }
+                let fs = self
+                    .config_filesystem()
+                    .expect("checked provider owns filesystem");
+                // The member lookup can resolve facts, so acquire the index afterward.
+                let references = analysis.reference_index().references(file, byte as u32);
+                let mut declared = false;
+                let mut locations = Vec::new();
+                for (span, declaration) in references {
+                    let Some((path, text, start, end)) = analysis.location(span) else {
+                        continue;
+                    };
+                    // Builtins have no matching declaration; aliases spelling a different name
+                    // must not authorize edits of this spelling.
+                    declared |= declaration && text.get(start..end) == Some(old_name.as_str());
+                    if let Some(location) = self.projected_location(&fs, &path, &text, start, end) {
+                        locations.push(location);
+                    }
+                }
+                if !declared
+                    || !locations
+                        .iter()
+                        .any(|location| location.uri == uri.as_str() && location.range == range)
+                {
+                    return None;
+                }
+                Some(RenamePlan {
+                    range,
+                    old_name,
+                    locations,
+                })
             })
-            .unwrap_or(false);
-        if !declared {
-            return Ok(None);
-        }
-        let found = self.references(uri, position, true)?;
-        Ok(found
-            .iter()
-            .any(|l| l.uri == uri.as_str() && l.range == range)
-            .then_some(range))
+            .flatten())
     }
 
     /// Edits renaming what the name at `position` names, in every file the check recorded,
@@ -135,28 +206,32 @@ impl Session {
         position: Position,
         new_name: &str,
     ) -> Result<Option<RenameEdits>, Error> {
+        self.projected_document_query(uri, |key| self.rename_at_key(key, position, new_name))
+    }
+
+    fn rename_at_key(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+        new_name: &str,
+    ) -> Result<Option<RenameEdits>, Error> {
+        let _query = self.discovery_query();
         let _background = self.background();
         if !jaic::lexicon::is_identifier(new_name) || jaic::lexicon::is_reserved(new_name) {
             return Err(Error::InvalidEdit("the new name is not an identifier"));
         }
-        let Some(range) = self.prepare_rename(uri, position)? else {
+        let Some(plan) = self.rename_plan_at_key(uri, position)? else {
             return Ok(None);
         };
-        let doc = self.document(uri)?;
-        let old = {
-            let start = doc.index.byte(&doc.text, range.start);
-            let end = doc.index.byte(&doc.text, range.end);
-            doc.text[start..end].to_string()
-        };
         let mut edits: Vec<(String, Vec<TextEdit>)> = Vec::new();
-        for location in self.references(uri, position, true)? {
+        for location in plan.locations {
             // In an open document, edit only spans that spell the old name.
             if let Ok(target) = DocumentUri::parse(&location.uri)
                 && let Some(open) = self.documents.get(&target)
             {
                 let start = open.index.byte(&open.text, location.range.start);
                 let end = open.index.byte(&open.text, location.range.end);
-                if open.text.get(start..end) != Some(old.as_str()) {
+                if open.text.get(start..end) != Some(plan.old_name.as_str()) {
                     continue;
                 }
             }
@@ -178,6 +253,14 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Vec<Range>, Error> {
+        self.projected_document_query(uri, |key| self.document_highlights_at_key(key, position))
+    }
+
+    fn document_highlights_at_key(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+    ) -> Result<Vec<Range>, Error> {
         Ok(self
             .references(uri, position, true)?
             .into_iter()
@@ -192,33 +275,47 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Vec<Location>, Error> {
-        let doc = self.document(uri)?;
+        let _query = self.discovery_query();
+        let fs = self.config_filesystem();
+        let (uri, doc) = if let Some(fs) = &fs {
+            self.projected_document_entry(fs, uri)?
+        } else {
+            self.document_entry(uri)?
+        };
         let byte = doc.index.byte(&doc.text, position);
-        let found = self
+        Ok(self
             .checked(uri, |a, f| {
-                a.compiler
+                let fs = self
+                    .config_filesystem()
+                    .expect("semantic provider owns filesystem");
+                let found = a
+                    .compiler
                     .ide_type_definition(f, byte as u32)
                     .into_iter()
                     .filter_map(|span| a.location(span))
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                found
+                    .into_iter()
+                    .filter_map(|(path, text, start, end)| {
+                        // Narrow `Name :: struct {...}` to the name when the span starts there.
+                        let line_start = jaic::source::line_start(&text, start);
+                        let before = &text[line_start..start];
+                        let name = before.split("::").next().unwrap_or("").trim();
+                        if jaic::lexicon::is_identifier(name) {
+                            let at =
+                                line_start + before.find(name).expect("name is a piece of before");
+                            return self.projected_location(&fs, &path, &text, at, at + name.len());
+                        }
+                        self.projected_location(
+                            &fs,
+                            &path,
+                            &text,
+                            start,
+                            end.min(start + 1).max(start),
+                        )
+                    })
+                    .collect()
             })
-            .unwrap_or_default();
-        Ok(found
-            .into_iter()
-            .filter_map(|(path, text, start, end)| {
-                // Narrow `Name :: struct {...}` to the name when the span starts there.
-                let line_start = jaic::source::line_start(&text, start);
-                let before = &text[line_start..start];
-                let name = before.split("::").next().unwrap_or("").trim();
-                if jaic::lexicon::is_identifier(name) {
-                    let at = line_start
-                        + before
-                            .find(name)
-                            .expect("invariant: `name` is a piece of `before`");
-                    return self.location_in(&path, &text, at, at + name.len());
-                }
-                self.location_in(&path, &text, start, end.min(start + 1).max(start))
-            })
-            .collect())
+            .unwrap_or_default())
     }
 }

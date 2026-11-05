@@ -13,6 +13,7 @@ jaic examples/editor/main.jai -exe "$T/editor"
 - `editor.jai` holds documents, the tree, search, settings and the `build` procedure; `native.jai` the menu model, dialog outcomes and Save As; `main.jai` picks the native loop or the headless session in `smoke-session.jai`.
 - **Language server.** `lsp/module.jai` runs `jailsp` as a child over stdio with byte-counted JSON-RPC frames, a writer thread so a frame never blocks on a pipe, and UTF-8/UTF-16 position conversion. A frame reads at most 32 messages. `language.jai` keeps open documents in sync with incremental changes and drops replies whose document, version or caret moved on. The server starts with `trusted=false`.
 - **Menus and dialogs.** File/Edit/View menus send the same keys as the shortcuts, so one `handle_shortcuts` serves both. A cancelled dialog does nothing; an unsupported or failed one (always on Linux) opens the in-app path prompt. Save As writes before the tab takes the new path, refuses a path another tab has open, and reopens the document under its new URI.
+- **Document identity.** On Unix, existing ancestors are resolved before creating unsaved files or Save As destinations, so saving and reopening through a symlinked root keeps one document/URI. Windows retains textual path normalization; definition navigation stores the document identity and exact cursor.
 - **Config.** `~/.jai-editor.json` (or `JAI_EDITOR_CONFIG`): font size, theme, tab width, line numbers, sidebar width, last root.
 
 ## How to change it
@@ -35,3 +36,7 @@ T=$TMPDIR/editor sh examples/editor/tools/smoke.sh
 ```
 
 Unit tests cover the protocol, menu model, Save As paths and synthetic composition without a window. The smoke runs the built binary's `--smoke`: editing, search, clipboard, config, menu routing, dialog fallback, Save As, composition and undo, real-font kerning, and the live language features.
+
+For path changes, run the built editor with `EDITOR_REQUIRE_LSP=1`, an explicit `JAI_EDITOR_SERVER`, and both physical and symlinked `TMPDIR` spellings. The live smoke verifies same-file/cross-file return locations and Unicode positions; `tests/native.jai` checks unsaved canonical identity and reopening after creation. See the [matched-tool procedure](../../examples/editor/README.md#document-identity-and-live-smoke).
+
+The editor owns its saved configuration strings independently from document/root paths. Closing replaces the saved `last_root` string with an owned copy before releasing the editor; native lifecycle tests use the testing allocator to catch invalid frees and leaked prior values.

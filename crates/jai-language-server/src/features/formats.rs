@@ -62,6 +62,12 @@ impl Session {
     ) -> Option<(usize, usize, HoverText)> {
         let doc = self.document(uri).ok()?;
         let text = &doc.text;
+        // These are the same syntax candidates filtered below after callee resolution.
+        // A cursor outside every literal cannot receive a format-string hover.
+        self.analysis_for(uri)?
+            .format_calls
+            .iter()
+            .find(|c| c.string.start <= byte && byte < c.string.end)?;
         let calls = self.format_calls(uri);
         let call = calls
             .iter()

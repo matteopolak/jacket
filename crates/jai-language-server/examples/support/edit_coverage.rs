@@ -69,7 +69,7 @@ fn environment(stdlib: Option<PathBuf>) -> Environment {
     Environment {
         services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
+        options: Box::new(move |fs, _| {
             let mut options = jaic::sema::Options::host();
             // No generated executable is needed. The producer's canonical prelude is
             // optional, and the harness never reconstructs a legacy bootstrap.
@@ -77,7 +77,7 @@ fn environment(stdlib: Option<PathBuf>) -> Environment {
             options.stack_trace = false;
             if let Some(dir) = &stdlib {
                 options.import_paths = vec![dir.clone()];
-                options.set_stdlib(&jaic::sema::NativeFs, dir);
+                options.set_stdlib(fs, dir);
             }
             options
         }),

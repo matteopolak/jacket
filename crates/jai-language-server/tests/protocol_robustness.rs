@@ -2,19 +2,30 @@ use jai_language_server::{JsonSession, Limits};
 use serde_json::{Value, json};
 
 fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
-    session
+    let output: Vec<Value> = session
         .handle_json(&message.to_string())
         .unwrap()
         .iter()
         .map(|s| serde_json::from_str(s).unwrap())
-        .collect()
+        .collect();
+    if message["method"] == "initialize"
+        && output.first().is_some_and(|m| m.get("result").is_some())
+    {
+        assert!(
+            session
+                .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+                .unwrap()
+                .is_empty()
+        );
+    }
+    output
 }
 
 fn started() -> JsonSession {
     let mut session = JsonSession::new(Limits::default());
     send(
         &mut session,
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } }),
     );
     session
 }
@@ -118,7 +129,7 @@ fn cancellations_that_never_match_do_not_fill_the_store() {
     open(&mut session, uri, "a :: 1;\n");
     for id in 100..1000 {
         session
-            .cancel_request(jai_language_server::RequestId::Number(id))
+            .cancel_request(jai_language_server::RequestId::from(id))
             .unwrap();
     }
     let batch = [
@@ -134,22 +145,11 @@ fn cancellations_that_never_match_do_not_fill_the_store() {
 }
 
 #[test]
-fn an_oversized_request_gets_an_error_response() {
-    use jai_language_server::framing::{FrameDecoder, encode};
-    let padding = "x".repeat(300);
-    let body = format!(
-        r#"{{"jsonrpc":"2.0","id":41,"method":"textDocument/hover","params":{{"pad":"{padding}"}}}}"#
-    );
-    let mut decoder = FrameDecoder::new(128);
-    assert!(decoder.push(&encode(&body)).unwrap().is_empty());
-    let skipped = decoder.take_oversized();
-    let replies: Vec<Value> = jai_language_server::oversized_replies(&skipped[0], 128)
-        .iter()
-        .map(|reply| serde_json::from_str(reply).unwrap())
-        .collect();
-    assert_eq!(replies[0]["id"], 41);
-    assert!(replies[0]["error"]["code"].is_i64(), "{replies:?}");
-    assert_eq!(replies[1]["method"], "window/showMessage");
+fn an_oversized_declared_body_is_rejected_before_reading_it() {
+    use jai_language_server::transport::BoundedReader;
+    let wire = b"Content-Length: 1000000000\r\n\r\n";
+    let mut reader = BoundedReader::new(std::io::Cursor::new(wire), 128);
+    assert!(reader.read_frame().is_err());
 }
 
 #[test]
@@ -161,8 +161,13 @@ fn publications_over_the_output_limit_do_not_end_the_session() {
     session.defer_publications(true);
     send(
         &mut session,
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } }),
     );
+    // This resource test deliberately caps even the initialization result. Advance the
+    // test client explicitly so the publication path, rather than initialization, is tested.
+    session
+        .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+        .unwrap();
     let broken = "main :: ( { } ) ;;; ( ( ( x := ; y := ; z := ;\n".repeat(20);
     open(&mut session, "file:///workspace/main.jai", &broken);
     let flushed = session
@@ -173,12 +178,19 @@ fn publications_over_the_output_limit_do_not_end_the_session() {
 }
 
 #[test]
-fn framing_accepts_blank_lines_and_a_quoted_charset() {
-    use jai_language_server::framing::FrameDecoder;
-    let wire = b"\r\n\r\nContent-Length: 2\r\nContent-Type: application/vscode-jsonrpc; charset=\"utf-8\"\r\n\r\n{}\r\nContent-Length: 2\r\n\r\n{}";
-    let mut decoder = FrameDecoder::new(128);
-    assert_eq!(decoder.push(wire).unwrap(), ["{}", "{}"]);
-    decoder.finish().unwrap();
+fn library_framing_accepts_a_quoted_utf8_charset() {
+    use jai_language_server::transport::{BoundedReader, Input};
+    let body = r#"{"jsonrpc":"2.0","method":"exit"}"#;
+    let wire = format!(
+        "Content-Length: {}\r\nContent-Type: application/vscode-jsonrpc; charset=\"utf-8\"\r\n\r\n{body}",
+        body.len()
+    );
+    let mut reader = BoundedReader::new(std::io::Cursor::new(wire), 128);
+    assert!(matches!(
+        reader.read_frame().unwrap(),
+        Some(Input::Message { .. })
+    ));
+    assert!(reader.read_frame().unwrap().is_none());
 }
 
 #[test]

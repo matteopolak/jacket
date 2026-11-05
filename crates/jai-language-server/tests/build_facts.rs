@@ -195,7 +195,7 @@ fn import_path_kept_in_a_variable_resolves_imports() {
 }
 
 #[test]
-fn a_metaprogram_that_fails_later_keeps_the_last_good_facts() {
+fn failed_producers_keep_advisory_symbols_but_not_exact_import_links() {
     let (dir, build) =
         import_path_project("keeps", "    vendor := tprint(\"%vendor\", #filepath);\n");
     let mut s = session(&dir);
@@ -207,7 +207,7 @@ fn a_metaprogram_that_fails_later_keeps_the_last_good_facts() {
         "add_build_file(\"src/missing.jai\", w);",
     );
     let build_uri = DocumentUri::from_path(&dir.join("build.jai")).unwrap();
-    s.open(build_uri, 2, broken).unwrap();
+    s.open(build_uri.clone(), 2, broken).unwrap();
     // The folder the last good run added is still searched for module names.
     let labels: Vec<String> = s
         .completion(&uri, at_offset(&text, "\"Tools\"", 2))
@@ -221,8 +221,22 @@ fn a_metaprogram_that_fails_later_keeps_the_last_good_facts() {
         .definition(&uri, at_offset(&text, "\"Tools\"", 2))
         .unwrap();
     assert!(
-        found.len() == 1 && found[0].uri.ends_with("/vendor/Tools.jai"),
-        "{found:?}"
+        found.is_empty(),
+        "failed discovery cannot authorize a module link: {found:?}"
+    );
+    let symbol = s
+        .definition(&uri, at_offset(&text, "tool_value", 1))
+        .unwrap();
+    assert!(
+        symbol.len() == 1 && symbol[0].uri.ends_with("/vendor/Tools.jai"),
+        "last-good ordinary symbol navigation remains advisory: {symbol:?}"
+    );
+    assert!(
+        matches!(
+            s.diagnostics(&uri),
+            Err(jai_language_server::Error::DiagnosticsUnavailable)
+        ),
+        "failed exact discovery cannot publish clean child diagnostics"
     );
 }
 

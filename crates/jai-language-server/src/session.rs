@@ -53,7 +53,7 @@ pub(crate) fn tokens_at(tokens: &[Token], byte: usize) -> impl Iterator<Item = (
 }
 
 /// Byte ranges each other target skipped, by file and target.
-type Unreached = BTreeMap<(PathBuf, u8), Vec<(usize, usize)>>;
+type Unreached = BTreeMap<(PathBuf, u8), (semantic::CheckedInputs, Vec<(usize, usize)>)>;
 
 pub struct Session {
     pub(crate) limits: Limits,
@@ -64,7 +64,8 @@ pub struct Session {
     pub(crate) parsed: BTreeMap<DocumentUri, Rc<Analysis>>,
     /// Type-checked answers (absent: syntax only).
     pub(crate) environment: Option<Environment>,
-    pub(crate) semantic: RefCell<semantic::Cache>,
+    pub(crate) semantic: Rc<RefCell<semantic::Cache>>,
+    pub(crate) reference_records: RefCell<crate::reference_records::Store>,
     pub(crate) call_graphs: RefCell<BTreeMap<DocumentUri, Rc<crate::hierarchy::CallGraph>>>,
     pub(crate) polymorph_index: RefCell<crate::polymorphs::Index>,
     /// `Cache::recorded_version` as of the last time discovery was given the recorded builds.
@@ -93,7 +94,7 @@ pub struct Session {
     /// The client's workspace folders: projects without a `jacket.toml` are inferred in them.
     pub(crate) workspace_folders: Vec<PathBuf>,
     /// What modules and project files declare, for auto-import completion.
-    pub(crate) index: RefCell<crate::auto_import::Index>,
+    pub(crate) index: Rc<RefCell<crate::auto_import::Index>>,
     /// Bumped by anything that can change a compile's inputs: an open document, a file on
     /// disk, the workspace folders.
     generation: std::cell::Cell<u64>,
@@ -101,9 +102,15 @@ pub struct Session {
     /// working them out reads folders and copies every open document, which a burst of
     /// requests on one version would otherwise repeat.
     /// The text is `None` when it was the document's own.
-    inputs: RefCell<Option<InputsMemo>>,
+    pub(crate) inputs: Rc<RefCell<Option<InputsMemo>>>,
+    pub(crate) input_proof: Rc<RefCell<crate::semantic::Observations>>,
+    pub(crate) capture_inputs: std::cell::Cell<usize>,
+    pub(crate) input_queries: Rc<std::cell::Cell<usize>>,
+    pub(crate) request_input_proof: Rc<RefCell<crate::semantic::Observations>>,
+    pub(crate) memo_input_proof: Rc<RefCell<crate::semantic::Observations>>,
+    pub(crate) advisory_inputs: Rc<RefCell<Option<CompileInputs>>>,
     /// Filesystem-proven identities of open documents, invalidated with every input change.
-    open_file_identities: RefCell<Option<Vec<(PathBuf, DocumentUri)>>>,
+    pub(crate) open_file_identities: RefCell<Option<Vec<(PathBuf, DocumentUri)>>>,
     /// The code each other target's compile skipped too (by file and target, byte ranges), for
     /// the generation it was found in: not compiled for again. Code no target checks (a file
     /// nothing loads, a branch on yet another CPU) would otherwise compile every target on
@@ -125,11 +132,11 @@ pub struct Session {
 }
 
 /// The open files, the root file and the module folders of a compile.
-type CompileInputs = (semantic::Buffers, PathBuf, Vec<PathBuf>);
+pub(crate) type CompileInputs = (semantic::Buffers, PathBuf, Vec<PathBuf>);
 
 /// `compile_inputs`' last answer: generation, document, its text (`None` for the document's
 /// own) and the inputs.
-type InputsMemo = (u64, DocumentUri, Option<String>, CompileInputs);
+pub(crate) type InputsMemo = (u64, DocumentUri, Option<String>, CompileInputs);
 
 /// What completion asks the type checker: the word being typed, the names it could be, and the
 /// path of each file they are declared in (by file number).
@@ -143,7 +150,8 @@ impl Session {
             analyses: BTreeMap::new(),
             parsed: BTreeMap::new(),
             environment: None,
-            semantic: RefCell::default(),
+            semantic: Rc::default(),
+            reference_records: RefCell::default(),
             call_graphs: RefCell::default(),
             polymorph_index: RefCell::default(),
             synced_builds: std::cell::Cell::new(0),
@@ -158,9 +166,15 @@ impl Session {
             formatter_path: None,
             test_lenses: true,
             workspace_folders: Vec::new(),
-            index: RefCell::default(),
+            index: Rc::default(),
             generation: std::cell::Cell::new(0),
-            inputs: RefCell::default(),
+            inputs: Rc::default(),
+            input_proof: Rc::default(),
+            capture_inputs: std::cell::Cell::new(0),
+            input_queries: Rc::new(std::cell::Cell::new(0)),
+            request_input_proof: Rc::default(),
+            memo_input_proof: Rc::default(),
+            advisory_inputs: Rc::default(),
             open_file_identities: RefCell::default(),
             unreached: RefCell::default(),
             defer_compiles: std::cell::Cell::new(false),

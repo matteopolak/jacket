@@ -1,17 +1,5 @@
 use crate::Error;
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Position {
-    pub line: u32,
-    pub character: u32,
-}
-
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Range {
-    pub start: Position,
-    pub end: Position,
-}
+pub use lsp_types::{Position, Range};
 
 /// The language server's view of `jaic::source::LineIndex`: positions in the protocol's
 /// terms (`Position`, UTF-16 columns) with the protocol's errors.

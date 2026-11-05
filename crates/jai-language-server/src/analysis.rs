@@ -109,6 +109,8 @@ pub(crate) struct Analysis {
     /// Hash and length of the text this was built from, so a session can keep it while a
     /// document is unchanged (`Session::rebuild`).
     pub key: (u64, usize),
+    /// Exact client text behind the candidate key, including any masked lexical damage.
+    pub source: std::sync::Arc<str>,
 }
 
 /// A lexical or syntax error with what can fix it.
@@ -181,6 +183,7 @@ impl Analysis {
             links: vec![],
             complete: false,
             key: crate::semantic::text_key(text),
+            source: text.into(),
         };
         let file = FileId(0);
         let (tokens, lex_errors) = jaic::lexer::lex_ide(file, text);

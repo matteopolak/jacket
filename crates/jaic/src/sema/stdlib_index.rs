@@ -10,6 +10,7 @@ use super::modules::module_listed;
 use crate::ast::{ScopeKind, Stmt, StmtKind};
 use crate::fxhash::{HashMap, HashSet};
 use crate::lang_items::modules;
+use crate::lexer::{P, Tok, Token};
 use crate::source::FileId;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -49,7 +50,7 @@ enum Parsed {
     /// The names declared where importers see them.
     Names(HashSet<String>),
     /// The file did not parse: any line that looks like a declaration counts.
-    Unparsed,
+    Unparsed(HashSet<String>),
     Unreadable,
 }
 
@@ -166,6 +167,11 @@ impl StdlibView {
 }
 
 impl StdlibIndex {
+    /// An unshared index whose every filesystem response belongs to the supplied observer.
+    pub(super) fn fresh(fs: &dyn FileSystem, stdlib: &Path) -> Arc<Self> {
+        Arc::new(Self::build(fs, stdlib))
+    }
+
     /// The index of the standard library under `stdlib`: one that is kept from an earlier
     /// compile when nothing it was built from changed, else a new one.
     pub fn shared(fs: &dyn FileSystem, stdlib: &Path) -> Arc<Self> {
@@ -238,8 +244,9 @@ impl StdlibIndex {
                     continue;
                 };
                 let text = String::from_utf8_lossy(&bytes);
-                imports.extend(imported_modules(&text));
-                index.add_file(module, path, &text);
+                let tokens = crate::lexer::lex(FileId(u32::MAX), &text).ok();
+                imports.extend(imported_modules(&text, tokens.as_deref()));
+                index.add_file(module, path, &text, tokens.as_deref());
             }
             index.by_name.entry(name.clone()).or_default().push(module);
             index.modules.push(ModuleEntry {
@@ -252,35 +259,13 @@ impl StdlibIndex {
         index
     }
 
-    fn add_file(&mut self, module: usize, path: PathBuf, text: &str) {
+    fn add_file(&mut self, module: usize, path: PathBuf, text: &str, tokens: Option<&[Token]>) {
         let file = self.files.len();
-        let mut names: Vec<&str> = Vec::new();
-        let mut ops: Vec<&str> = Vec::new();
-        eligible_lines(text, |line| {
-            let end = line.find(|c: char| !is_name_char(c)).unwrap_or(line.len());
-            if end > 0 && line[end..].trim_start().starts_with(':') {
-                names.push(&line[..end]);
-            }
-            if let Some(rest) = line.strip_prefix("operator") {
-                ops.extend(operator_texts(rest.trim_start()));
-            }
-        });
-        names.sort_unstable();
-        names.dedup();
-        for name in names {
-            self.declaring
-                .entry(name.to_string())
-                .or_default()
-                .push(file);
+        for name in declaration_candidates(text, tokens) {
+            self.declaring.entry(name).or_default().push(file);
         }
-        ops.sort_unstable();
-        ops.dedup();
-        for op in ops {
-            let heads = operator_heads(text, op);
-            if heads.is_empty() {
-                continue;
-            }
-            let found = self.operators.entry(op.to_string()).or_default();
+        for (op, heads) in operator_declarations(text, tokens) {
+            let found = self.operators.entry(op).or_default();
             match found.last_mut() {
                 Some((m, all)) if *m == module => all.extend(heads),
                 _ => found.push((module, heads)),
@@ -300,12 +285,16 @@ impl StdlibIndex {
             None => Parsed::Unreadable,
             Some(bytes) => match exported_names(&String::from_utf8_lossy(&bytes)) {
                 Some(names) => Parsed::Names(names),
-                None => Parsed::Unparsed,
+                None => Parsed::Unparsed(
+                    legacy_declaration_candidates(&String::from_utf8_lossy(&bytes))
+                        .into_iter()
+                        .collect(),
+                ),
             },
         });
         match parsed {
             Parsed::Names(names) => names.contains(name),
-            Parsed::Unparsed => true,
+            Parsed::Unparsed(names) => names.contains(name),
             Parsed::Unreadable => false,
         }
     }
@@ -503,45 +492,151 @@ fn operator_heads(text: &str, op: &str) -> Vec<Vec<String>> {
     heads
 }
 
+/// Lexical candidates are a superset: parsed exports still decide name visibility. On
+/// malformed files only the old line candidates may be accepted without that validation.
+fn declaration_candidates(text: &str, tokens: Option<&[Token]>) -> Vec<String> {
+    let Some(tokens) = tokens else {
+        return legacy_declaration_candidates(text);
+    };
+    let mut names: Vec<_> = tokens
+        .windows(2)
+        .filter_map(|pair| match (&pair[0].tok, &pair[1].tok) {
+            (Tok::Ident(name), Tok::Punct(P::Colon | P::ColonEq | P::ColonColon | P::Comma)) => {
+                Some(name.to_string())
+            }
+            _ => None,
+        })
+        .collect();
+    names.sort_unstable();
+    names.dedup();
+    names
+}
+
+fn legacy_declaration_candidates(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    eligible_lines(text, |line| {
+        let end = line.find(|c: char| !is_name_char(c)).unwrap_or(line.len());
+        if end > 0 && line[end..].trim_start().starts_with(':') {
+            names.push(line[..end].to_string());
+        }
+    });
+    names.sort_unstable();
+    names.dedup();
+    names
+}
+
+/// Operators have no later export-validation step. Parse operator-bearing files and retain
+/// only exported procedure headers; ordinary name-only files keep their lazy parse path.
+fn operator_declarations(text: &str, tokens: Option<&[Token]>) -> Vec<(String, Vec<Vec<String>>)> {
+    if let Some(tokens) = tokens {
+        if !tokens
+            .iter()
+            .any(|token| matches!(&token.tok, Tok::Ident(name) if name.as_str() == "operator"))
+        {
+            return Vec::new();
+        }
+        if let Ok(file) = crate::parser::parse_file(FileId(u32::MAX), text) {
+            let mut operators: HashMap<String, Vec<Vec<String>>> = HashMap::default();
+            exported_declarations(&file.stmts, &mut true, &mut |decl| {
+                let Some(crate::ast::Expr {
+                    kind: crate::ast::ExprKind::Proc(proc),
+                    ..
+                }) = &decl.value
+                else {
+                    return;
+                };
+                let Some(op) = &proc.header.operator else {
+                    return;
+                };
+                let mut words = Vec::new();
+                for param in &proc.header.params {
+                    let start = tokens.partition_point(|token| token.span.end <= param.span.start);
+                    words.extend(
+                        tokens[start..]
+                            .iter()
+                            .take_while(|token| token.span.start < param.span.end)
+                            .filter_map(|token| match &token.tok {
+                                Tok::Ident(name) => Some(name.to_string()),
+                                _ => None,
+                            }),
+                    );
+                }
+                words.sort_unstable();
+                words.dedup();
+                operators.entry(op.to_string()).or_default().push(words);
+            });
+            let mut operators: Vec<_> = operators.into_iter().collect();
+            operators.sort_by(|a, b| a.0.cmp(&b.0));
+            return operators;
+        }
+    }
+    // Preserve the advisory heuristic for malformed files, without broadening it to tokens
+    // that might have come from a nested body, comment or string.
+    let mut ops = Vec::new();
+    eligible_lines(text, |line| {
+        if let Some(rest) = line.strip_prefix("operator") {
+            ops.extend(
+                operator_texts(rest.trim_start())
+                    .into_iter()
+                    .map(str::to_string),
+            );
+        }
+    });
+    ops.sort_unstable();
+    ops.dedup();
+    ops.into_iter()
+        .filter_map(|op| {
+            let heads = operator_heads(text, &op);
+            (!heads.is_empty()).then_some((op, heads))
+        })
+        .collect()
+}
+
+/// Visits declarations visible to importers, including both advisory top-level #if branches.
+fn exported_declarations(
+    stmts: &[Stmt],
+    exported: &mut bool,
+    visit: &mut impl FnMut(&crate::ast::Decl),
+) {
+    for stmt in stmts {
+        match &stmt.kind {
+            StmtKind::Scope(kind) => *exported = *kind == ScopeKind::Export,
+            StmtKind::Decl(decl) if *exported => visit(decl),
+            StmtKind::StaticIf(boxed) => {
+                let crate::ast::StaticIfStmt {
+                    then_branch,
+                    else_branch,
+                    ..
+                } = &**boxed;
+                let (mut then_exported, mut else_exported) = (*exported, *exported);
+                exported_declarations(then_branch, &mut then_exported, visit);
+                exported_declarations(else_branch, &mut else_exported, visit);
+            }
+            _ => {}
+        }
+    }
+}
+
 /// The names `text` declares for its importers: at its top level (or in a top-level `#if`),
 /// outside `#scope_file` and `#scope_module` sections. `None` when it does not parse.
 fn exported_names(text: &str) -> Option<HashSet<String>> {
-    fn collect(stmts: &[Stmt], exported: &mut bool, names: &mut HashSet<String>) {
-        for stmt in stmts {
-            match &stmt.kind {
-                StmtKind::Scope(kind) => *exported = *kind == ScopeKind::Export,
-                StmtKind::Decl(decl) if *exported => {
-                    names.extend(decl.names.iter().map(|n| n.name.as_str().to_string()));
-                }
-                StmtKind::StaticIf(boxed) => {
-                    let crate::ast::StaticIfStmt {
-                        then_branch,
-                        else_branch,
-                        ..
-                    } = &**boxed;
-                    let (mut then_exported, mut else_exported) = (*exported, *exported);
-                    collect(then_branch, &mut then_exported, names);
-                    collect(else_branch, &mut else_exported, names);
-                }
-                _ => {}
-            }
-        }
-    }
     let file = crate::parser::parse_file(FileId(u32::MAX), text).ok()?;
     let mut names = HashSet::default();
-    collect(&file.stmts, &mut true, &mut names);
+    exported_declarations(&file.stmts, &mut true, &mut |decl| {
+        names.extend(decl.names.iter().map(|n| n.name.to_string()));
+    });
     Some(names)
 }
 
 /// The modules `#import "Name"` names in `text`, found from its tokens.
-fn imported_modules(text: &str) -> Vec<String> {
+fn imported_modules(text: &str, tokens: Option<&[Token]>) -> Vec<String> {
     if !text.contains("#import") {
         return Vec::new();
     }
-    let Ok(tokens) = crate::lexer::lex(FileId(u32::MAX), text) else {
+    let Some(tokens) = tokens else {
         return Vec::new();
     };
-    crate::project::scan_directives(&tokens)
+    crate::project::scan_directives(tokens)
         .into_iter()
         .filter_map(|link| match link.source {
             crate::project::LinkSource::Import(crate::ast::ImportSource::Module(name)) => {
@@ -550,4 +645,87 @@ fn imported_modules(text: &str) -> Vec<String> {
             _ => None,
         })
         .collect()
+}
+
+#[cfg(test)]
+mod ranking_regressions {
+    use super::*;
+    use crate::sema::VirtualFs;
+
+    fn view(text: &str) -> (StdlibView, VirtualFs) {
+        let mut fs = VirtualFs::default();
+        fs.insert("/modules/Sample/module.jai", text.as_bytes());
+        let index = Arc::new(StdlibIndex::build(&fs, Path::new("/modules")));
+        (StdlibView::new(index, None, &fs), fs)
+    }
+
+    #[test]
+    fn same_line_declarations_use_parsed_export_visibility() {
+        let (view, fs) = view(concat!(
+            "First :: 1; Second :: 2; Left, Right: int; ",
+            "#scope_file Private :: 3; #scope_module ModuleOnly :: 4; ",
+            "#scope_export Last :: 5; ",
+            "main :: () { Nested :: 6; } ",
+            "text :: \"Fake :: 7;\"; /* Commented :: 8; */ ",
+            "#if true { Conditional :: 9; }",
+        ));
+        for name in ["First", "Second", "Left", "Right", "Last", "Conditional"] {
+            assert_eq!(view.modules_exporting_name(name, &fs).len(), 1, "{name}");
+        }
+        for name in ["Private", "ModuleOnly", "Nested", "Fake", "Commented"] {
+            assert!(view.modules_exporting_name(name, &fs).is_empty(), "{name}");
+        }
+    }
+
+    #[test]
+    fn same_line_operators_use_exported_parameter_headers() {
+        let (view, _) = view(concat!(
+            "Thing :: struct {} operator + :: (a: Thing,\n b: Thing) -> ReturnOnly { BodyOnly :: 1; return a; } ",
+            "operator - :: (a: Thing) -> Thing { return a; } ",
+            "#scope_file operator * :: (a: Thing, b: Thing) -> Thing { return a; } ",
+            "#scope_module operator / :: (a: Thing, b: Thing) -> Thing { return a; } ",
+            "#scope_export #if true { operator == :: (a: Thing, b: Thing) -> bool { return true; } } ",
+            "main :: () { operator % :: (a: Thing, b: Thing) -> Thing { return a; } } ",
+            "text :: \"operator & :: (a: Thing)\"; /* operator | :: (a: Thing) */",
+        ));
+        for op in ["+", "-", "=="] {
+            assert_eq!(
+                view.modules_exporting_operator(op, &["Thing".into()], &[])
+                    .len(),
+                1,
+                "{op}"
+            );
+        }
+        for op in ["*", "/", "%", "&", "|"] {
+            assert!(
+                view.modules_exporting_operator(op, &[], &[]).is_empty(),
+                "{op}"
+            );
+        }
+        for name in ["ReturnOnly", "BodyOnly"] {
+            assert!(
+                view.modules_exporting_operator("+", &[name.into()], &[])
+                    .is_empty(),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn malformed_name_fallback_does_not_admit_nested_token_candidates() {
+        let (view, fs) = view("First :: 1; main :: () { Nested :: 2; }\nBroken :: ;");
+        assert_eq!(view.modules_exporting_name("First", &fs).len(), 1);
+        assert!(view.modules_exporting_name("Nested", &fs).is_empty());
+    }
+
+    #[test]
+    fn malformed_operator_files_keep_the_legacy_header_fallback() {
+        let (view, _) =
+            view("operator + :: (a: Thing, b: Thing) -> Thing { return a; }\nBroken :: ;");
+        assert_eq!(
+            view.modules_exporting_operator("+", &["Thing".into()], &[])
+                .len(),
+            1
+        );
+    }
 }

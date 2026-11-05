@@ -34,6 +34,7 @@ impl Session {
     /// Whether to send `jai/compileTimeLimit` when a limit stops compile-time code.
     pub fn set_limit_notices(&mut self, on: bool) {
         self.limit_notices = on;
+        self.semantic.borrow_mut().set_limit_notices(on);
     }
 
     fn change_limits(&mut self, limits: CheckLimits) {
@@ -41,7 +42,9 @@ impl Session {
             self.check_limits = limits;
             self.polymorph_index.borrow_mut().clear();
             self.call_graphs.borrow_mut().clear();
+            self.reference_records.borrow_mut().clear();
             self.semantic.borrow_mut().set_limits(limits);
+            self.sync_builds(&self.semantic.borrow());
         }
     }
 
@@ -80,6 +83,24 @@ impl Session {
         self.semantic.borrow().counts()
     }
 
+    /// Retained reference document records and their conservative accounted bytes. For
+    /// example, checks of unrelated programs may drop full compilers while this count stays.
+    pub fn reference_record_counts(&self) -> (usize, usize) {
+        self.reference_records.borrow().counts()
+    }
+
+    /// Retained build-probe results, accounted bytes (including advisory metadata), and
+    /// current transient proof bytes. Outside a request the transient count is zero.
+    pub fn build_probe_counts(&self) -> (usize, usize, usize) {
+        self.semantic.borrow().probe_counts()
+    }
+
+    /// Accounted bytes in the latest native discovery proof, separate from retained records.
+    /// For example, compare this with `reference_record_counts()` after checking several roots.
+    pub fn discovery_proof_bytes(&self) -> usize {
+        self.input_proof.borrow().retained_bytes()
+    }
+
     /// Coverage for the current open buffer and its real analysis context. A lack
     /// of file-local diagnostics is not proof that the compiler reached the file.
     pub fn semantic_coverage(
@@ -110,20 +131,22 @@ impl Session {
     pub fn reset_caches(&self) {
         self.polymorph_index.borrow_mut().clear();
         self.call_graphs.borrow_mut().clear();
-        // What the metaprograms did is not lost with the compiles that recorded it.
+        self.reference_records.borrow_mut().clear();
+        // Old discoveries remain hints; a reset may also change the environment options.
         let trusted = self.semantic.borrow().trusted();
-        let recorded = std::mem::take(&mut self.semantic.borrow_mut().recorded);
-        let version = self.semantic.borrow().recorded_version;
+        let advisory = self.semantic.borrow().advisory_builds();
         *self.semantic.borrow_mut() = crate::semantic::Cache::default();
         {
             let mut cache = self.semantic.borrow_mut();
             cache.set_trusted(trusted);
             cache.set_limits(self.check_limits);
-            cache.recorded = recorded;
-            cache.recorded_version = version + 1;
+            cache.set_limit_notices(self.limit_notices);
+            cache.restore_advisory(advisory);
         }
         *self.index.borrow_mut() = crate::auto_import::Index::default();
         self.synced_builds.set(0);
+        *self.input_proof.borrow_mut() = semantic::Observations::default();
+        *self.memo_input_proof.borrow_mut() = semantic::Observations::default();
         self.touch();
     }
 
@@ -134,11 +157,13 @@ impl Session {
         if self.semantic.borrow().trusted() != trusted {
             self.polymorph_index.borrow_mut().clear();
             self.call_graphs.borrow_mut().clear();
+            self.reference_records.borrow_mut().clear();
             self.semantic.borrow_mut().set_trusted(trusted);
             // Without trust nothing runs, so discovery falls back to the static scan; what
             // earlier runs recorded goes with the cache.
             let mut index = self.index.borrow_mut();
             index.builds.clear();
+            index.advisory_builds.clear();
             index.probed.clear();
             index.import_dirs.clear();
             self.synced_builds.set(0);
@@ -155,8 +180,14 @@ impl Session {
             .and_then(|env| env.services.as_ref())
             .is_some_and(|services| services.take_arrivals());
         if arrived {
-            self.semantic.borrow_mut().forget_compiles();
+            {
+                let mut cache = self.semantic.borrow_mut();
+                cache.forget_compiles();
+                cache.forget_probe_authority();
+            }
+            self.sync_builds(&self.semantic.borrow());
             self.call_graphs.borrow_mut().clear();
+            self.reference_records.borrow_mut().clear();
             self.touch();
         }
         arrived
@@ -191,8 +222,11 @@ impl Session {
     }
 
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
+        self.semantic.borrow_mut().forget_probe_authority();
+        self.sync_builds(&self.semantic.borrow());
         self.polymorph_index.borrow_mut().clear();
         self.call_graphs.borrow_mut().clear();
+        self.reference_records.borrow_mut().clear();
         let mut keys: Vec<_> = Vec::with_capacity(folders.len());
         for key in folders.iter().map(|p| jaic::paths::identity_spelling(p)) {
             if !keys.contains(&key) {
@@ -206,6 +240,45 @@ impl Session {
     /// A file changed on disk (`created_or_deleted` when it appeared or went away): what was
     /// read from it is read again.
     pub fn file_changed(&mut self, path: &Path, created_or_deleted: bool) {
+        let key = self.semantic.borrow().known_path(path).unwrap_or_else(|| {
+            self.environment.as_ref().map_or_else(
+                || jaic::paths::identity_spelling(path),
+                |env| crate::auto_import::canonical_key(env, path),
+            )
+        });
+        let name = match (path.parent(), path.file_name(), self.environment.as_ref()) {
+            (Some(parent), Some(name), Some(env)) => {
+                crate::auto_import::canonical_key(env, parent).join(name)
+            }
+            _ => key.clone(),
+        };
+        for changed in [&key, &name] {
+            self.semantic.borrow_mut().invalidate_path(changed);
+            self.reference_records.borrow_mut().invalidate(changed);
+        }
+        self.call_graphs.borrow_mut().clear();
+        self.document_changed(path, created_or_deleted);
+    }
+
+    fn retire_configuration_authority(&self) {
+        self.reference_records.borrow_mut().clear();
+        self.call_graphs.borrow_mut().clear();
+        self.polymorph_index.borrow_mut().clear();
+        self.semantic.borrow_mut().forget_probe_authority();
+        self.sync_builds(&self.semantic.borrow());
+        self.index.borrow_mut().discard_input_memos();
+        *self.input_proof.borrow_mut() = semantic::Observations::default();
+        *self.memo_input_proof.borrow_mut() = semantic::Observations::default();
+    }
+
+    /// Overlay changes retain older compilers for shifted exploratory answers. Exact cache
+    /// and reference lookups independently compare the complete relevant overlay manifest.
+    pub(super) fn document_changed(&mut self, path: &Path, created_or_deleted: bool) {
+        if jacket_config::is_config_file(path) {
+            // Saved configuration is an overlay outside compiler Buffers. Its lifecycle
+            // retires exact authority; unfinished config edits never reach this boundary.
+            self.retire_configuration_authority();
+        }
         self.touch();
         if created_or_deleted {
             self.semantic.borrow_mut().forget_paths();

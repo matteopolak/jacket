@@ -85,15 +85,16 @@ impl Session {
         doc.index.range(&doc.text, span).ok()
     }
 
-    /// A location in any compiled file (an open document's own index when it is open).
-    pub(crate) fn location_in(
+    /// Resolve URI identity while the caller's observed transaction is still open.
+    pub(crate) fn projected_location(
         &self,
+        fs: &crate::semantic::ObservedFs<'_>,
         path: &str,
         text: &Arc<str>,
         start: usize,
         end: usize,
     ) -> Option<Location> {
-        let target = self.client_uri(Path::new(path))?;
+        let target = self.projected_uri(fs, Path::new(path))?;
         let span = Span::new(start, end);
         let range = match self.documents.get(&target) {
             Some(open) if open.same_positions(text) => open.index.range(&open.text, span).ok()?,
@@ -129,33 +130,50 @@ impl Session {
 /// The open documents over the environment's file system, for resolving links.
 struct OpenFiles<'a> {
     session: &'a Session,
+    fs: Option<&'a crate::semantic::ObservedFs<'a>>,
 }
 
 impl OpenFiles<'_> {
     fn open(&self, path: &Path) -> bool {
-        self.session.open_file_uri(path).is_some()
+        match self.fs {
+            Some(fs) => self.session.projected_uri(fs, path).is_some_and(|uri| {
+                self.session.documents.contains_key(&uri)
+                    || self.session.lint_configs.contains_key(&uri)
+            }),
+            None => self.session.open_file_uri(path).is_some(),
+        }
     }
 }
 
 impl jaic::sema::FileSystem for OpenFiles<'_> {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
-        self.session.environment.as_ref()?.fs.read(path)
+        match self.fs {
+            Some(fs) => jaic::sema::FileSystem::read(fs, path),
+            None => self.session.environment.as_ref()?.fs.read(path),
+        }
     }
 
     fn is_file(&self, path: &Path) -> bool {
         self.open(path)
-            || self
-                .session
-                .environment
-                .as_ref()
-                .is_some_and(|e| e.fs.is_file(path))
+            || match self.fs {
+                Some(fs) => jaic::sema::FileSystem::is_file(fs, path),
+                None => self
+                    .session
+                    .environment
+                    .as_ref()
+                    .is_some_and(|env| env.fs.is_file(path)),
+            }
     }
 
     fn is_dir(&self, path: &Path) -> bool {
-        self.session
-            .environment
-            .as_ref()
-            .is_some_and(|e| e.fs.is_dir(path))
+        match self.fs {
+            Some(fs) => jaic::sema::FileSystem::is_dir(fs, path),
+            None => self
+                .session
+                .environment
+                .as_ref()
+                .is_some_and(|env| env.fs.is_dir(path)),
+        }
     }
 }
 

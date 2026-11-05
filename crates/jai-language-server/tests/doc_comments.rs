@@ -800,3 +800,110 @@ fn completion_on_an_alias_carries_the_docs_of_its_target() {
         .expect("docs");
     assert!(docs.contains("Documented in the target."), "{docs}");
 }
+
+#[test]
+fn signature_documentation_is_owned_by_its_selected_signature() {
+    use jaic::sema::{FileSystem, NativeFs};
+    use std::{
+        cell::Cell,
+        path::{Path, PathBuf},
+        rc::Rc,
+    };
+    struct ChangingFs {
+        switch: PathBuf,
+        reads: Cell<usize>,
+        change_at: Cell<Option<usize>>,
+        changed: Cell<bool>,
+    }
+    impl FileSystem for ChangingFs {
+        fn is_native(&self) -> bool {
+            true
+        }
+        fn read(&self, path: &Path) -> Option<Vec<u8>> {
+            if path == self.switch {
+                let count = self.reads.get() + 1;
+                self.reads.set(count);
+                if self.change_at.get() == Some(count) {
+                    self.change_at.set(None);
+                    self.changed.set(true);
+                    std::fs::write(path, "#load \"second.jai\";").unwrap();
+                }
+            }
+            NativeFs.read(path)
+        }
+        fn is_file(&self, path: &Path) -> bool {
+            NativeFs.is_file(path)
+        }
+        fn is_dir(&self, path: &Path) -> bool {
+            NativeFs.is_dir(path)
+        }
+        fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
+            NativeFs.list_dir(path)
+        }
+        fn canonical(&self, path: &Path) -> PathBuf {
+            NativeFs.canonical(path)
+        }
+        fn canonical_exact(&self, path: &Path) -> Option<PathBuf> {
+            NativeFs.canonical_exact(path)
+        }
+        fn stamp(&self, path: &Path) -> Option<u64> {
+            NativeFs.stamp(path)
+        }
+    }
+    let dir = test_support::lsp::project(
+        "signature-doc-ownership",
+        &[
+            (
+                "main.jai",
+                "#load \"switch.jai\"; main :: () { selected(1); }",
+            ),
+            ("switch.jai", "#load \"first.jai\";"),
+            (
+                "first.jai",
+                "// ORIGINAL documentation.\nselected :: (value: int) {}",
+            ),
+            (
+                "second.jai",
+                "// DIFFERENT documentation.\nselected :: (value: int) {}",
+            ),
+        ],
+    );
+    let fs = Rc::new(ChangingFs {
+        switch: dir.join("switch.jai"),
+        reads: Cell::new(0),
+        change_at: Cell::new(None),
+        changed: Cell::new(false),
+    });
+    let mut environment = test_support::lsp::environment();
+    environment.fs = fs.clone();
+    let mut session =
+        Session::with_environment(jai_language_server::Limits::default(), environment);
+    let text = std::fs::read_to_string(dir.join("main.jai")).unwrap();
+    let uri = jai_language_server::DocumentUri::from_path(&dir.join("main.jai")).unwrap();
+    session.open(uri.clone(), 1, text.clone()).unwrap();
+    let position = after(&text, "selected(", 0, 0);
+    session.diagnostics(&uri).unwrap();
+    let original = session.signature_help(&uri, position).unwrap().unwrap();
+    assert!(
+        original.signatures[0]
+            .documentation
+            .as_ref()
+            .unwrap()
+            .contains("ORIGINAL")
+    );
+    fs.reads.set(0);
+    fs.change_at.set(Some(4));
+    let answer = session.signature_help(&uri, position).unwrap();
+    assert!(
+        fs.changed.get() || fs.reads.get() < 4,
+        "the deferred trigger can remain unused only when the second compiler selection is removed; reads={}",
+        fs.reads.get()
+    );
+    assert!(
+        answer.as_ref().is_none_or(|help| help.signatures[0]
+            .documentation
+            .as_ref()
+            .is_some_and(|doc| doc.contains("ORIGINAL"))),
+        "a later selection must not erase already accepted signature documentation: {answer:?}"
+    );
+}

@@ -61,6 +61,9 @@ impl Session {
             .into_iter()
             .filter_map(|(start, end)| self.range_of(uri, Span::new(start, end)))
             .collect();
+        if incomplete.is_empty() {
+            return Vec::new();
+        }
         let mut out = Vec::new();
         for diagnostic in self.check_diagnostics(uri) {
             if !incomplete.contains(&diagnostic.range) {

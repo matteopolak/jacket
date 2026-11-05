@@ -446,8 +446,10 @@ fn protocol_exposes_the_new_requests() {
     };
     let init = send(
         &mut json,
-        serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+        serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} }}),
     );
+    json.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+        .unwrap();
     let caps = &init["result"]["capabilities"];
     for key in [
         "inlayHintProvider",
@@ -683,8 +685,10 @@ fn lints_are_diagnostics_with_quick_fixes() {
     assert_eq!(actions[1].kind, Some("source.fixAll.jailint"));
     // Over the wire: the rule is the code and jailint the source.
     let mut json = JsonSession::with_environment(Limits::default(), environment());
-    let init = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}});
+    let init = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} }});
     json.handle_json(&init.to_string()).unwrap();
+    json.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+        .unwrap();
     let open = serde_json::json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {
         "textDocument": {"uri": uri().as_str(), "languageId": "jai", "version": 1, "text": LINTED}}});
     let published: serde_json::Value = json
@@ -708,6 +712,10 @@ fn request(json: &mut JsonSession, method: &str, params: serde_json::Value) -> s
     let message =
         serde_json::json!({"jsonrpc": "2.0", "id": 7, "method": method, "params": params});
     let replies = json.handle_json(&message.to_string()).unwrap();
+    if method == "initialize" {
+        json.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+            .unwrap();
+    }
     replies
         .iter()
         .map(|m| serde_json::from_str::<serde_json::Value>(m).unwrap())
@@ -743,7 +751,11 @@ main :: () {
 /// A JSON session with `text` open as `uri()`.
 fn opened(text: &str) -> JsonSession {
     let mut json = JsonSession::with_environment(Limits::default(), environment());
-    let init = request(&mut json, "initialize", serde_json::json!({}));
+    let init = request(
+        &mut json,
+        "initialize",
+        serde_json::json!({"capabilities":{}}),
+    );
     let kinds = &init["capabilities"]["codeActionProvider"]["codeActionKinds"];
     assert!(
         kinds

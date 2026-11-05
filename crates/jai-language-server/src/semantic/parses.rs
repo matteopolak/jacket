@@ -1,20 +1,18 @@
 //! Remembering which texts failed to parse.
 use jaic::source::FileId;
 
-thread_local! {
-    /// Where the texts parsed lately fail (by hash and length): hover, references, diagnostics
-    /// and lints each ask about the same open document, and a parse of a large file is a
-    /// transient tree of tens of MiB each time.
-    static PARSES: std::cell::RefCell<Vec<(u64, usize, Option<usize>)>> = const { std::cell::RefCell::new(Vec::new()) };
-    /// The text asked about last and its answer: requests on one document ask about the same
-    /// text again and again, and comparing bytes is several times faster than hashing them.
-    static LAST_PARSE: std::cell::RefCell<(String, Option<usize>)> = const { std::cell::RefCell::new((String::new(), None)) };
+struct Parsed {
+    key: (u64, usize),
+    source: std::sync::Arc<str>,
+    error: Option<usize>,
 }
 
-/// Parse results remembered: one per open document and a few for the texts the repair of a
-/// broken document tries. Each is 24 bytes; with fewer than there were open documents, every
-/// new compile of a large project parsed all its files again to see that they parse.
+thread_local! {
+    static PARSES: std::cell::RefCell<Vec<Parsed>> = std::cell::RefCell::new(Vec::with_capacity(PARSES_KEPT));
+}
+
 pub(super) const PARSES_KEPT: usize = 1024;
+const PARSE_BYTES: usize = 16 << 20;
 
 pub(crate) fn text_key(text: &str) -> (u64, usize) {
     use std::hash::{Hash, Hasher};
@@ -25,45 +23,88 @@ pub(crate) fn text_key(text: &str) -> (u64, usize) {
 
 /// Remember that `text` parses (`None`) or fails at a byte offset, for `parse_error`.
 pub fn note_parse(text: &str, error: Option<usize>) {
-    let (hash, len) = text_key(text);
-    PARSES.with(|p| {
-        let mut p = p.borrow_mut();
-        p.retain(|e| (e.0, e.1) != (hash, len));
-        if p.len() >= PARSES_KEPT {
-            p.remove(0);
+    let cost = text.len() + 32;
+    let storage = PARSES_KEPT * std::mem::size_of::<Parsed>();
+    if storage + cost > PARSE_BYTES {
+        return;
+    }
+    let key = text_key(text);
+    PARSES.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        cache.retain(|entry| entry.key != key || &*entry.source != text);
+        let mut bytes = cache
+            .iter()
+            .map(|entry| entry.source.len() + 32)
+            .sum::<usize>()
+            + storage
+            + cost;
+        let mut removed = 0;
+        while cache.len() - removed >= PARSES_KEPT || bytes > PARSE_BYTES {
+            bytes -= cache[removed].source.len() + 32;
+            removed += 1;
         }
-        p.push((hash, len, error));
+        cache.drain(..removed);
+        cache.push(Parsed {
+            key,
+            source: text.into(),
+            error,
+        });
     });
 }
 
-/// Where `text` fails to lex or parse (a byte offset), if it does.
+/// Where `text` fails to lex or parse. Hashes only select exact-source candidates.
 pub fn parse_error(text: &str) -> Option<usize> {
-    if let Some(found) = LAST_PARSE.with(|last| {
-        let last = last.borrow();
-        (last.0 == text).then_some(last.1)
+    if let Some(found) = PARSES.with(|cache| {
+        let cache = cache.borrow();
+        cache
+            .last()
+            .filter(|entry| &*entry.source == text)
+            .map(|entry| entry.error)
     }) {
         return found;
     }
-    let (hash, len) = text_key(text);
-    let error = if let Some(found) = PARSES.with(|p| {
-        p.borrow()
+    let key = text_key(text);
+    if let Some(found) = PARSES.with(|cache| {
+        cache
+            .borrow()
             .iter()
-            .find(|e| (e.0, e.1) == (hash, len))
-            .map(|e| e.2)
+            .rev()
+            .find(|entry| entry.key == key && &*entry.source == text)
+            .map(|entry| entry.error)
     }) {
-        found
-    } else {
-        let error = jaic::parser::parse_file(FileId(0), text)
-            .err()
-            .map(|d| d.span.start as usize);
-        note_parse(text, error);
-        error
-    };
-    LAST_PARSE.with(|last| {
-        let mut last = last.borrow_mut();
-        last.0.clear();
-        last.0.push_str(text);
-        last.1 = error;
-    });
+        return found;
+    }
+    let error = jaic::parser::parse_file(FileId(0), text)
+        .err()
+        .map(|d| d.span.start as usize);
+    note_parse(text, error);
     error
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_parse_hash_candidate_cannot_establish_source_identity() {
+        let good = "main :: () {}";
+        let bad = "main :: (  {}";
+        assert_eq!(good.len(), bad.len());
+        let error = jaic::parser::parse_file(FileId(0), bad)
+            .unwrap_err()
+            .span
+            .start as usize;
+        note_parse(bad, Some(error));
+        let key = text_key(good);
+        PARSES.with(|p| {
+            let mut cache = p.borrow_mut();
+            let entry = cache.last_mut().unwrap();
+            entry.key = key;
+        });
+        assert_eq!(
+            parse_error(good),
+            None,
+            "candidate hash is not the parsed source"
+        );
+    }
 }

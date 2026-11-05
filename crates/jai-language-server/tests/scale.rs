@@ -237,8 +237,10 @@ fn large_message_is_accepted_through_the_json_session() {
     };
     send(
         &mut json,
-        serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
+        serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } }),
     );
+    json.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+        .unwrap();
     send(
         &mut json,
         serde_json::json!({
@@ -268,10 +270,12 @@ fn refused_document_is_reported_to_the_client() {
         ..Limits::default()
     });
     json.handle_json(
-        &serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} })
+        &serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } })
             .to_string(),
     )
     .unwrap();
+    json.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+        .unwrap();
     let out = json
         .handle_json(
             &serde_json::json!({

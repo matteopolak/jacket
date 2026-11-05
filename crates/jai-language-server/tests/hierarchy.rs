@@ -322,6 +322,10 @@ outer :: () {
 fn request(json: &mut JsonSession, id: u32, method: &str, params: Value) -> Value {
     let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
     let out = json.handle_json(&message.to_string()).unwrap();
+    if method == "initialize" {
+        json.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+            .unwrap();
+    }
     let last: Value = serde_json::from_str(out.last().unwrap()).unwrap();
     last["result"].clone()
 }
@@ -329,7 +333,7 @@ fn request(json: &mut JsonSession, id: u32, method: &str, params: Value) -> Valu
 #[test]
 fn the_server_advertises_and_answers_the_requests() {
     let mut json = JsonSession::with_environment(Limits::default(), environment());
-    let init = request(&mut json, 1, "initialize", json!({}));
+    let init = request(&mut json, 1, "initialize", json!({"capabilities":{}}));
     assert_eq!(init["capabilities"]["callHierarchyProvider"], true);
     assert_eq!(init["capabilities"]["selectionRangeProvider"], true);
     let kinds = init["capabilities"]["codeActionProvider"]["codeActionKinds"]
@@ -521,7 +525,7 @@ fn selection_answers_every_position() {
     let ranges = s.selection_ranges(&uri(), &positions).unwrap();
     assert_eq!(ranges.len(), 2);
     let mut json = JsonSession::with_environment(Limits::default(), environment());
-    request(&mut json, 1, "initialize", json!({}));
+    request(&mut json, 1, "initialize", json!({"capabilities":{}}));
     json.handle_json(
         &json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
             "uri": uri().as_str(), "languageId": "jai", "version": 1, "text": NESTED}}})
@@ -537,4 +541,31 @@ fn selection_answers_every_position() {
     assert_eq!(wire.as_array().unwrap().len(), 2);
     assert!(wire[0]["range"]["start"].is_object());
     assert!(wire[0]["parent"]["range"].is_object());
+}
+
+#[test]
+fn preparing_a_resolved_nonprocedure_does_not_fall_back_to_a_global_procedure() {
+    let text = "selected :: () {} main :: () { selected := 1; value := selected; }";
+    let session = open(text);
+    let items = session
+        .prepare_call_hierarchy(&uri(), at_offset(text, "value := selected", 11))
+        .unwrap();
+    assert!(
+        items.is_empty(),
+        "a local value is not the same-named global procedure"
+    );
+}
+
+#[test]
+fn preparing_a_call_from_client_syntax_works_without_a_semantic_provider() {
+    let mut session = jai_language_server::Session::new(Limits::default());
+    let text = "selected :: () {} main :: () { selected(); }";
+    let document = uri();
+    session.open(document.clone(), 1, text.into()).unwrap();
+    let items = session
+        .prepare_call_hierarchy(&document, at_offset(text, "selected();", 2))
+        .unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].name, "selected");
+    assert_eq!(session.compile_counts().0, 0);
 }

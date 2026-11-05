@@ -294,3 +294,56 @@ fn interrupted_warm_up_keeps_completed_scans_but_retries_the_interrupted_file() 
         "the interrupted file must be retried"
     );
 }
+
+#[test]
+fn a_cancelled_semantic_query_keeps_only_previously_accepted_reference_records() {
+    let _guard = lock();
+    reset();
+    let mut session = lean_session();
+    let uri = file_uri("/interrupt/query-facts.jai");
+    let source = "#load \"query-child.jai\";\nhelper :: () {}\nmain :: () { helper(); }\n";
+    let child = file_uri("/interrupt/query-child.jai");
+    session.open(uri.clone(), 1, source.into()).unwrap();
+    session
+        .open(
+            child.clone(),
+            1,
+            "child :: () { local := 1; local += 2; }".into(),
+        )
+        .unwrap();
+    session.diagnostics(&uri).unwrap();
+    session.defer_compiles(true);
+    let declaration = jai_language_server::Position {
+        line: 1,
+        character: 1,
+    };
+    let expected = session.references(&uri, declaration, true).unwrap();
+    assert_eq!(expected.len(), 2);
+    let records = session.reference_record_counts();
+    // The child is already part of this accepted compiler, but only the main file's
+    // lints have run. Its first lint is a fresh stoppable mutation with unchanged inputs.
+    jaic::interrupt::stop_after(1);
+    jaic::interrupt::arm();
+    assert_eq!(
+        session.diagnostics(&child),
+        Err(jai_language_server::Error::DiagnosticsUnavailable)
+    );
+    assert!(jaic::interrupt::disarm());
+    reset();
+    assert_eq!(session.reference_record_counts(), records);
+    let compiled = session.compile_counts().0;
+    assert_eq!(
+        session.references(&uri, declaration, true).unwrap(),
+        expected
+    );
+    assert_eq!(session.compile_counts().0, compiled);
+    assert_eq!(
+        session.compile_counts().1,
+        0,
+        "cancelled compiler view was retired"
+    );
+    assert!(
+        !session.compile_pending(),
+        "accepted retained facts need no replacement check"
+    );
+}

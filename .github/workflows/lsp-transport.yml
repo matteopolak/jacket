@@ -1,0 +1,45 @@
+name: native LSP transport
+# The main compiler test matrix covers Unix hosts. Run this focused native Windows
+# boundary explicitly before publishing LSP transport changes.
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  windows:
+    name: LSP transport (Windows ${{ matrix.cpu }}, debug)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {cpu: x64, runner: windows-2025, triple: x86_64-pc-windows-msvc}
+          - {cpu: arm64, runner: windows-11-arm, triple: aarch64-pc-windows-msvc}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONPATH: ${{ github.workspace }}/tools
+      JAIC_STDLIB: ${{ github.workspace }}/stdlib
+      CARGO_INCREMENTAL: '0'
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-windows
+        with:
+          cpu: ${{ matrix.cpu }}
+          triple: ${{ matrix.triple }}
+          llvm: 'false'
+      # This frontend-only graph does not link jaic-llvm. The pinned nextest
+      # downloader has no Windows artifact, so use Cargo's standard test runner.
+      # Interrupt/countdown regressions share process-global test state: serialize tests.
+      - name: Native library and wire boundary tests
+        run: |
+          cargo test --locked -p jai-language-server --lib \
+            --test protocol --test framing --test stdio --test library_boundary \
+            --test protocol_robustness --test protocol_standard_types \
+            -- --test-threads=1

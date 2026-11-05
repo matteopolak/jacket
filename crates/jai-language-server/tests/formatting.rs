@@ -42,7 +42,7 @@ impl Editor {
         };
         let options = formatter.map_or(json!({}), |p| json!({ "formatter": { "path": p } }));
         let reply = editor.send(json!({"jsonrpc": "2.0", "id": 0, "method": "initialize",
-            "params": { "initializationOptions": options }}));
+            "params": { "capabilities": {}, "initializationOptions": options }}));
         let capabilities = &reply[0]["result"]["capabilities"];
         assert_eq!(capabilities["documentFormattingProvider"], true);
         assert_eq!(capabilities["documentRangeFormattingProvider"], true);
@@ -54,12 +54,24 @@ impl Editor {
     }
 
     fn send(&mut self, message: Value) -> Vec<Value> {
-        self.session
+        let output: Vec<serde_json::Value> = self
+            .session
             .handle_json(&message.to_string())
             .unwrap()
             .iter()
             .map(|s| serde_json::from_str(s).unwrap())
-            .collect()
+            .collect();
+        if message["method"] == "initialize"
+            && output.first().is_some_and(|m| m.get("result").is_some())
+        {
+            assert!(
+                self.session
+                    .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+        output
     }
 
     /// The whole reply (the response and any notifications) to a formatting request.

@@ -69,12 +69,21 @@ fn a_pending_answer_is_unknown_until_it_arrives() {
     // The service takes 300 ms (and starting it longer): the first check does not wait.
     assert_eq!(messages(&s, &uri), Vec::<String>::new());
     assert!(s.services_waiting());
+    assert!(
+        s.reference_record_counts().0 > 0,
+        "pending check owns reference records"
+    );
     let deadline = Instant::now() + Duration::from_secs(60);
     while !s.take_service_arrivals() {
         assert!(Instant::now() < deadline, "the answer never arrived");
         std::thread::sleep(Duration::from_millis(20));
     }
     assert!(!s.services_waiting());
+    assert_eq!(
+        s.reference_record_counts(),
+        (0, 0),
+        "service arrival retires pending facts"
+    );
     let after = messages(&s, &uri);
     assert!(
         after.iter().any(|m| m.contains("the service answered")),

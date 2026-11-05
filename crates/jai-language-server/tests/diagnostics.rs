@@ -59,11 +59,22 @@ fn a_declaration_whose_initializer_fails_still_declares_its_name() {
 }
 
 fn messages(json: &mut JsonSession, message: serde_json::Value) -> Vec<serde_json::Value> {
-    json.handle_json(&message.to_string())
+    let output: Vec<serde_json::Value> = json
+        .handle_json(&message.to_string())
         .unwrap()
         .iter()
         .map(|m| serde_json::from_str(m).unwrap())
-        .collect()
+        .collect();
+    if message["method"] == "initialize"
+        && output.first().is_some_and(|m| m.get("result").is_some())
+    {
+        assert!(
+            json.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+                .unwrap()
+                .is_empty()
+        );
+    }
+    output
 }
 
 fn initialized(capabilities: serde_json::Value) -> (JsonSession, serde_json::Value) {

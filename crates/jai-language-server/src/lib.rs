@@ -9,12 +9,12 @@ mod completion_wire;
 mod config;
 mod doc_view;
 pub(crate) use jaic::docs;
+mod discovery_inputs;
 mod document;
 mod exports;
 pub(crate) mod features;
 pub(crate) mod format;
 mod formatting;
-pub mod framing;
 mod hierarchy;
 pub(crate) mod hover;
 mod interpolation;
@@ -31,6 +31,7 @@ mod position;
 mod project;
 mod protocol;
 mod refactor;
+mod reference_records;
 mod selection;
 mod semantic;
 #[cfg(not(target_arch = "wasm32"))]
@@ -39,6 +40,9 @@ mod session;
 mod struct_literal;
 mod suggestion_fixes;
 mod test_lenses;
+pub mod trace;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod transport;
 mod type_hierarchy;
 
 pub use call_snippets::CallSnippets;
@@ -52,8 +56,10 @@ pub use model::{
     TextEdit, TypeHierarchyItem,
 };
 pub use position::{Position, Range};
-pub use protocol::{JsonSession, ProtocolError, RequestId, message_too_large, oversized_replies};
-pub use semantic::{Environment, SemanticAnalysisContext, SemanticCoverage, SemanticPath};
+pub use protocol::{JsonSession, ProtocolError, RejectedMessage, RejectedReply, RequestId};
+pub use semantic::{
+    Environment, OptionsCallback, SemanticAnalysisContext, SemanticCoverage, SemanticPath,
+};
 pub use session::Session;
 
 const MIB: usize = 1024 * 1024;
@@ -76,7 +82,6 @@ pub struct Limits {
     /// Declarations recorded per document for navigation (symbols, rename, highlights).
     pub rows: usize,
     pub edits: usize,
-    pub cancelled_requests: usize,
 }
 
 impl Default for Limits {
@@ -92,7 +97,6 @@ impl Default for Limits {
             symbols: 1024,
             rows: 4_000_000,
             edits: 4096,
-            cancelled_requests: 128,
         }
     }
 }
@@ -118,6 +122,8 @@ pub enum Error {
     Uri(&'static str),
     Position(&'static str),
     Limit(&'static str),
+    /// A semantic diagnostic batch could not be accepted under its captured inputs.
+    DiagnosticsUnavailable,
     MissingDocument,
     AlreadyOpen,
     StaleVersion,
@@ -128,6 +134,7 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let text = match self {
             Self::Uri(t) | Self::Position(t) | Self::Limit(t) | Self::InvalidEdit(t) => *t,
+            Self::DiagnosticsUnavailable => "current semantic diagnostics are unavailable",
             Self::MissingDocument => "document is not open in this session",
             Self::AlreadyOpen => "document is already open",
             Self::StaleVersion => "document version must strictly increase",
@@ -141,3 +148,9 @@ impl std::error::Error for Error {
 
 /// `macro` marks a procedure declared `#expand`.
 pub const TOKEN_MODIFIERS: &[&str] = &["declaration", "readonly", "macro"];
+
+#[cfg(all(test, unix))]
+use crate as projection_api;
+#[cfg(all(test, unix))]
+#[path = "../tests/support/location_projection.rs"]
+mod projection_fixture;

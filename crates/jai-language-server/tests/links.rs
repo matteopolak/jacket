@@ -204,9 +204,9 @@ fn document_links_share_import_options_within_one_request() {
     let mut environment = test_support::lsp::environment();
     let options = environment.options;
     let counted = calls.clone();
-    environment.options = Box::new(move |path| {
+    environment.options = Box::new(move |fs, path| {
         counted.set(counted.get() + 1);
-        options(path)
+        options(fs, path)
     });
     let mut s = Session::with_environment(jai_language_server::Limits::default(), environment);
     let uri = file_uri("/link-options/main.jai");
@@ -228,4 +228,178 @@ fn document_links_share_import_options_within_one_request() {
         1,
         "one import-path lookup for the whole request"
     );
+}
+
+#[test]
+fn relative_load_file_and_directory_links_need_no_module_options_or_compiler() {
+    use jai_language_server::{Environment, Limits};
+    use std::{cell::Cell, rc::Rc};
+    let calls = Rc::new(Cell::new(0));
+    let counted = calls.clone();
+    let mut session = Session::with_environment(
+        Limits::default(),
+        Environment {
+            fs: Rc::new(jaic::sema::NativeFs),
+            services: None,
+            options: Box::new(move |_, _| {
+                counted.set(counted.get() + 1);
+                jaic::sema::Options::host()
+            }),
+        },
+    );
+    let main = file_uri("/relative-link/main.jai");
+    for path in ["part.jai", "helper.jai", "pkg/module.jai"] {
+        session
+            .open(
+                file_uri(&format!("/relative-link/{path}")),
+                1,
+                "value :: 1;".into(),
+            )
+            .unwrap();
+    }
+    session
+        .open(
+            main.clone(),
+            1,
+            "#load \"part.jai\"; #import,file \"helper.jai\"; #import,dir \"pkg\";".into(),
+        )
+        .unwrap();
+    let before = calls.get();
+    let links = session.document_links(&main).unwrap();
+    assert_eq!(links.len(), 3);
+    assert_eq!(
+        calls.get(),
+        before,
+        "relative imports never consult module search configuration"
+    );
+    assert_eq!(session.compile_counts().0, 0);
+}
+
+#[test]
+fn named_module_links_do_not_fall_back_to_stdlib_after_failed_build_discovery() {
+    let dir = test_support::lsp::project(
+        "link-failed-producer",
+        &[
+            ("jacket.toml", "[project]\nentry = [\"build.jai\"]\n"),
+            ("build.jai", "#run missing();"),
+            ("src/main.jai", "#import \"Basic\"; main :: () {}"),
+        ],
+    );
+    let (session, uri, _) = test_support::lsp::open_file(&dir, "src/main.jai");
+    assert!(
+        session.document_links(&uri).unwrap().is_empty(),
+        "failed producer is not proof of a standalone module context"
+    );
+    std::fs::write(dir.join("build.jai"), "#run {};").unwrap();
+    let found = session.document_links(&uri).unwrap();
+    assert_eq!(found.len(), 1);
+    assert!(found[0].1.ends_with("/Basic/module.jai"));
+}
+
+#[test]
+fn deferred_named_module_links_queue_discovery_without_foreground_probing() {
+    let dir = test_support::lsp::project(
+        "link-deferred-producer",
+        &[
+            ("jacket.toml", "[project]\nentry = [\"build.jai\"]\n"),
+            ("build.jai", "#run {};"),
+            ("src/main.jai", "#import \"Basic\"; main :: () {}"),
+        ],
+    );
+    let (session, uri, _) = test_support::lsp::open_file(&dir, "src/main.jai");
+    session.defer_compiles(true);
+    let before = session.compile_counts().0;
+    assert!(session.document_links(&uri).unwrap().is_empty());
+    assert_eq!(session.compile_counts().0, before);
+    assert!(
+        session.compile_pending(),
+        "unproven import context needs an ordinary background check"
+    );
+    assert_eq!(session.warm_pending(), Some(true));
+    let warmed = session.compile_counts().0;
+    let found = session.document_links(&uri).unwrap();
+    assert_eq!(found.len(), 1);
+    assert!(found[0].1.ends_with("/Basic/module.jai"));
+    assert_eq!(session.compile_counts().0, warmed);
+}
+
+fn missing_literal_link() -> (test_support::TempDir, Session, DocumentUri, Position) {
+    use jai_language_server::{Environment, Limits};
+    use std::rc::Rc;
+    let dir = test_support::TempDir::new("missing-literal-link");
+    let path = dir.path().join("main.jai");
+    let source = "#load \"missing.jai\"; main :: () {}";
+    std::fs::write(&path, source).unwrap();
+    let mut session = Session::with_environment(
+        Limits::default(),
+        Environment {
+            fs: Rc::new(jaic::sema::NativeFs),
+            services: None,
+            options: Box::new(|_, _| {
+                let mut options = jaic::sema::Options::host();
+                options.runtime_support = false;
+                options.stack_trace = false;
+                options
+            }),
+        },
+    );
+    let uri = DocumentUri::from_path(&path).unwrap();
+    session.open(uri.clone(), 1, source.into()).unwrap();
+    (dir, session, uri, at_offset(source, "missing.jai", 2))
+}
+
+#[test]
+fn unresolved_literal_definition_does_not_try_an_ordinary_semantic_provider() {
+    let (_dir, session, uri, position) = missing_literal_link();
+    assert!(session.definition(&uri, position).unwrap().is_empty());
+    assert_eq!(
+        session.compile_counts().0,
+        0,
+        "recognized load resolution cannot fall through to a compile"
+    );
+}
+
+#[test]
+fn unresolved_literal_hover_does_not_try_expansion_or_format_providers() {
+    let (_dir, session, uri, position) = missing_literal_link();
+    assert!(session.hover(&uri, position).unwrap().is_none());
+    assert_eq!(
+        session.compile_counts().0,
+        0,
+        "recognized load string cannot fall through to a compile"
+    );
+}
+
+#[test]
+fn named_links_revalidate_silent_config_and_module_changes() {
+    let dir = test_support::lsp::project(
+        "named-link-config-proof",
+        &[
+            (
+                "jacket.toml",
+                "[project]\nentry=[\"main.jai\"]\nimport_path=[\"first\"]\n",
+            ),
+            ("main.jai", "#import \"Owned_Link_Target\"; main :: () {}"),
+            ("first/Owned_Link_Target.jai", "value :: 1;"),
+            ("second/Owned_Link_Target.jai", "value :: 2;"),
+        ],
+    );
+    let (session, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
+    let target = |folder: &str| {
+        DocumentUri::from_path(&dir.join(folder).join("Owned_Link_Target.jai"))
+            .unwrap()
+            .as_str()
+            .to_owned()
+    };
+    assert_eq!(session.document_links(&uri).unwrap()[0].1, target("first"));
+    std::fs::write(
+        dir.join("jacket.toml"),
+        "[project]\nentry=[\"main.jai\"]\nimport_path=[\"second\"]\n",
+    )
+    .unwrap();
+    assert_eq!(session.document_links(&uri).unwrap()[0].1, target("second"));
+    std::fs::remove_file(dir.join("second/Owned_Link_Target.jai")).unwrap();
+    assert!(session.document_links(&uri).unwrap().is_empty());
+    std::fs::write(dir.join("second/Owned_Link_Target.jai"), "value :: 3;").unwrap();
+    assert_eq!(session.document_links(&uri).unwrap()[0].1, target("second"));
 }

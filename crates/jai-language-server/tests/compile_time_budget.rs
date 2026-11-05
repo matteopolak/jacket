@@ -209,12 +209,23 @@ fn send(session: &mut JsonSession, id: Option<u64>, method: &str, params: Value)
     if let Some(id) = id {
         message["id"] = json!(id);
     }
-    session
+    let output: Vec<serde_json::Value> = session
         .handle_json(&message.to_string())
         .unwrap()
         .iter()
         .map(|m| serde_json::from_str(m).unwrap())
-        .collect()
+        .collect();
+    if message["method"] == "initialize"
+        && output.first().is_some_and(|m| m.get("result").is_some())
+    {
+        assert!(
+            session
+                .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+                .unwrap()
+                .is_empty()
+        );
+    }
+    output
 }
 
 fn limit_notices(messages: &[Value]) -> Vec<&Value> {

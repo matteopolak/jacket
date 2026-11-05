@@ -1,12 +1,25 @@
 """Protocol coverage for the latency gate."""
 import unittest
-from bench.request_latency import METHODS, registered
+from bench.request_latency import METHODS, SCENARIOS, registered
 
 
 class Coverage(unittest.TestCase):
     def test_every_registered_request_has_a_scenario(self):
-        self.assertEqual(registered(), set(METHODS))
+        self.assertEqual(registered(), {variant for variant, _ in SCENARIOS})
+        self.assertEqual(len(SCENARIOS), len(registered()))
         self.assertEqual(len(METHODS), len(set(METHODS)))
+
+    def test_registry_coverage_accepts_standard_constants_and_extension_literals(self):
+        source = '''impl Request {
+            pub(super) const METHODS: &[(&str, Self)] = &[
+                (lsp_types::request::HoverRequest::METHOD, Self::Hover),
+                ("jai/source", Self::Source),
+            ];
+        }
+        impl Notification {
+            const METHODS: &[(&str, Self)] = &[("exit", Self::Exit)];
+        }'''
+        self.assertEqual(registered(source), {"Hover", "Source"})
 
     def test_gate_includes_every_measured_file_and_method(self):
         from bench.request_latency import make_limits, exceeds

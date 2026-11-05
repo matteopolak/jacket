@@ -97,34 +97,37 @@ impl Session {
         &self,
         uri: &DocumentUri,
         byte: usize,
-    ) -> Option<(usize, usize, HoverText)> {
+    ) -> Option<Option<(usize, usize, HoverText)>> {
         let analysis = self.analysis_for(uri)?;
         let link = analysis
             .links
             .iter()
             .find(|l| l.string.start <= byte && byte <= l.string.end)?;
-        let doc = self.document(uri).ok()?;
-        let target = self.link_target(uri, link)?;
-        let shown = doc
-            .text
-            .get(link.string.start..link.string.end)?
-            .to_string();
-        let path = Path::new(target.path());
-        let shown_path = self
-            .workspace_folders
-            .iter()
-            .find_map(|f| path.strip_prefix(f).ok())
-            .unwrap_or(path)
-            .display()
-            .to_string();
-        Some((
-            link.string.start,
-            link.string.end,
-            HoverText::new(vec![
-                Block::Code(shown),
-                Block::Para(vec![Inline::Code(shown_path)]),
-            ]),
-        ))
+        // Once a literal link is recognized, unresolved targets remain this provider's answer.
+        Some((|| {
+            let doc = self.document(uri).ok()?;
+            let target = self.link_target(uri, link)?;
+            let shown = doc
+                .text
+                .get(link.string.start..link.string.end)?
+                .to_string();
+            let path = Path::new(target.path());
+            let shown_path = self
+                .workspace_folders
+                .iter()
+                .find_map(|f| path.strip_prefix(f).ok())
+                .unwrap_or(path)
+                .display()
+                .to_string();
+            Some((
+                link.string.start,
+                link.string.end,
+                HoverText::new(vec![
+                    Block::Code(shown),
+                    Block::Para(vec![Inline::Code(shown_path)]),
+                ]),
+            ))
+        })())
     }
 
     /// Hover over `#insert`, `#run`, `#if`, `#ifx` or `#assert`: what it produced.
@@ -262,16 +265,26 @@ impl Session {
         &self,
         uri: &DocumentUri,
         start: usize,
-        mut hover: HoverText,
+        hover: HoverText,
     ) -> HoverText {
-        if let Some(e) = self
+        let expansion = self
             .expansions(uri)
             .into_iter()
-            .find(|e| e.kind == IdeExpansionKind::Macro && e.span.start as usize == start)
-        {
+            .find(|e| e.kind == IdeExpansionKind::Macro && e.span.start as usize == start);
+        self.append_macro_expansion(uri, expansion.as_ref(), hover)
+    }
+
+    /// Append already owned macro facts, for example from the hover's selected compiler.
+    pub(crate) fn append_macro_expansion(
+        &self,
+        uri: &DocumentUri,
+        expansion: Option<&IdeExpansion>,
+        mut hover: HoverText,
+    ) -> HoverText {
+        if let Some(e) = expansion {
             hover
                 .blocks
-                .extend_from_slice(self.describe(uri, &e).sections());
+                .extend_from_slice(self.describe(uri, e).sections());
         }
         hover
     }

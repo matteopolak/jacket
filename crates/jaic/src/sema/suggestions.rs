@@ -5,17 +5,35 @@ use super::module_rank::ModuleRanking;
 use super::name_caches::DeclaringKey;
 use super::scope::{ScopeId, UsingEntry};
 use super::stdlib_index::{StdlibIndex, StdlibView};
-use super::{Compiler, ModuleId, Sym, TypeId};
+use super::{Compiler, FileSystem, ModuleId, Sym, TypeId};
 use crate::ast::{Expr, ExprKind, StmtKind};
 use crate::diagnostics::Diagnostic;
-use crate::diagnostics::{Code, Data};
-use crate::fxhash::HashMap;
+use crate::diagnostics::{Code, Data, OperatorImportHint};
+use crate::fxhash::{HashMap, HashSet};
 use crate::lexer::{P, Tok};
 use crate::sema::SourceState;
 use crate::sema::TypeState;
 use crate::source::{Applicability, FileId, ImportSuggestion, Span, Suggestion};
+use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
+
+/// Independent render-time hint caches for one compiler, its options and unchanged facts.
+/// The owner must validate filesystem responses AND invalidate after compiler/options/fact
+/// mutation before reuse. A fresh context never borrows the process-wide stamp-based index.
+/// For example, use one `HintContext::default()` for a batch of diagnostics, then discard it.
+#[derive(Default)]
+pub struct HintContext {
+    declaring: RefCell<HashMap<DeclaringKey, Vec<ImportSuggestion>>>,
+    view: RefCell<Option<Option<Rc<StdlibView>>>>,
+}
+
+struct HintInputs<'a> {
+    fs: &'a dyn FileSystem,
+    declaring: &'a RefCell<HashMap<DeclaringKey, Vec<ImportSuggestion>>>,
+    view: &'a RefCell<Option<Option<Rc<StdlibView>>>>,
+    fresh: bool,
+}
 
 /// The most modules an unknown name's help offers to import.
 const MAX_IMPORTS: usize = 4;
@@ -72,20 +90,80 @@ fn mentions(cond: &Expr, names: &[&str]) -> bool {
 impl Compiler {
     /// `d` with a `help: a similar name exists` line when it reports an unknown identifier
     /// and a visible name is close to it, the namespaced import that provides it, and the
-    /// modules that declare it; the same modules for an unknown member of a module.
+    /// modules that declare it; the same modules for an unknown member of a module. Pending
+    /// operator-import payloads are prepared here too, using the current import ranking.
     pub fn with_name_suggestion(&self, d: &Diagnostic) -> Option<Diagnostic> {
+        self.name_suggestion(d, &self.default_hint_inputs())
+    }
+
+    /// Render help using caller-owned filesystem authority and independent caches.
+    /// For example, a language server can pass an observed filesystem and retain the captured
+    /// proof with the returned diagnostic, without adding hint reads to name-resolution inputs.
+    pub fn with_name_suggestion_in(
+        &self,
+        d: &Diagnostic,
+        context: &HintContext,
+        fs: &dyn FileSystem,
+    ) -> Option<Diagnostic> {
+        self.name_suggestion(
+            d,
+            &HintInputs {
+                fs,
+                declaring: &context.declaring,
+                view: &context.view,
+                fresh: true,
+            },
+        )
+    }
+
+    fn default_hint_inputs(&self) -> HintInputs<'_> {
+        HintInputs {
+            fs: &*self.src.fs,
+            declaring: &self.caches.declaring_imports,
+            view: &self.caches.stdlib_view,
+            fresh: self.options.hint_index_mode == super::HintIndexMode::PerCompiler,
+        }
+    }
+
+    fn name_suggestion(&self, d: &Diagnostic, inputs: &HintInputs<'_>) -> Option<Diagnostic> {
+        if let Some(hint) = d.operator_import_hint() {
+            let imports = self.imports_declaring_operator(hint, inputs);
+            let mut prepared = d.clone();
+            prepared.take_operator_import_hint();
+            for (i, import) in imports.into_iter().enumerate() {
+                let title = format!(
+                    "`operator {}` is declared in the `{}` module: add `{}` to this file",
+                    hint.operator,
+                    import.module,
+                    import.statement()
+                );
+                let suggestion = Suggestion::import(title, import.clone())
+                    .with_action(format!("Add `{}`", import.statement()));
+                prepared = prepared.with_suggestion(if i == 0 {
+                    suggestion
+                } else {
+                    suggestion.unlisted()
+                });
+            }
+            return Some(prepared);
+        }
         match (d.code, d.data) {
             (Code::UnknownIdentifier, Data::Scope(scope)) => {
-                self.suggest_unknown_identifier(d, ScopeId(scope))
+                self.suggest_unknown_identifier(d, ScopeId(scope), inputs)
             }
             (Code::UnknownModuleMember, Data::Module(module)) => {
-                self.suggest_module_member(d, ModuleId(module))
+                self.suggest_module_member(d, ModuleId(module), inputs)
             }
             _ => None,
         }
     }
 
-    fn suggest_unknown_identifier(&self, d: &Diagnostic, scope: ScopeId) -> Option<Diagnostic> {
+    fn suggest_unknown_identifier(
+        &self,
+        d: &Diagnostic,
+        scope: ScopeId,
+        inputs: &HintInputs<'_>,
+    ) -> Option<Diagnostic> {
         let span = d.span;
         let wanted = self.src.sources.snippet(span);
         if wanted.is_empty() {
@@ -105,12 +183,12 @@ impl Compiler {
             );
         }
         // An exact declaration elsewhere is a better lead than a similar name in scope.
-        if let Some(builder) = self.src.metaprogram_defining(wanted, span) {
+        if let Some(builder) = self.src.metaprogram_defining(wanted, span, inputs.fs) {
             return Some(d.with_help(format!(
                 "`{wanted}` is added by `{builder}` (with `add_build_string`) when it builds this file: build through it, as in `jaic {builder}`"
             )));
         }
-        let mut imports = self.imports_declaring(wanted);
+        let mut imports = self.imports_declaring(wanted, inputs);
         let namespaces = self.namespaces_exporting(scope, wanted, &imports);
         if namespaces.is_empty() {
             let names = self.names_visible_from(scope);
@@ -151,13 +229,18 @@ impl Compiler {
     }
 
     /// An unknown `Module.name`: the modules that declare `name` (other than `Module`).
-    fn suggest_module_member(&self, d: &Diagnostic, module: ModuleId) -> Option<Diagnostic> {
+    fn suggest_module_member(
+        &self,
+        d: &Diagnostic,
+        module: ModuleId,
+        inputs: &HintInputs<'_>,
+    ) -> Option<Diagnostic> {
         let wanted = self.src.sources.snippet(d.span);
         if wanted.is_empty() {
             return None;
         }
         let module_name = self.ns.modules[module.0 as usize].name.as_str();
-        let mut imports = self.imports_declaring(wanted);
+        let mut imports = self.imports_declaring(wanted, inputs);
         imports.retain(|i| i.module != module_name);
         Some(self.with_import_suggestions(d.clone(), wanted, &imports, Some(module_name)))
     }
@@ -220,29 +303,20 @@ impl Compiler {
     /// that name (bound to it, for `Name.member`), then the modules that declare it at their top
     /// level (outside `#scope_file`), best ranked first (`ModuleRanking`) and jaic's `Extensions/` modules
     /// (named by that path) last. At most [`MAX_IMPORTS`].
-    fn imports_declaring(&self, name: &str) -> Vec<ImportSuggestion> {
+    fn imports_declaring(&self, name: &str, inputs: &HintInputs<'_>) -> Vec<ImportSuggestion> {
         let key = DeclaringKey::Name(name.to_string());
-        if let Some(found) = self.caches.declaring_imports.borrow().get(&key) {
+        if let Some(found) = inputs.declaring.borrow().get(&key) {
             return found.clone();
         }
-        let found = self.imports_declaring_name(name);
+        let found = self.imports_declaring_name(name, inputs);
         crate::sema::body_probe::write(crate::sema::body_probe::W::CachesDeclaringImports);
-        self.caches
-            .declaring_imports
-            .borrow_mut()
-            .insert(key, found.clone());
+        inputs.declaring.borrow_mut().insert(key, found.clone());
         found
     }
 
-    /// The modules whose source declares `operator <text>` for operands of types `tys` (as
-    /// [`Self::imports_declaring`] ranks and limits them). A module qualifies when it declares
-    /// the struct of an operand or an overload whose parameters name every struct operand; with
-    /// no struct operand any module that declares the operator does.
-    pub(super) fn imports_declaring_operator(
-        &self,
-        text: &str,
-        tys: &[TypeId],
-    ) -> Vec<ImportSuggestion> {
+    /// Capture operand names while their compiler identities are available, without searching
+    /// external modules. For example, a discarded dead-branch error never needs import help.
+    pub(super) fn operator_import_hint(&self, text: &str, tys: &[TypeId]) -> OperatorImportHint {
         let mut names = Vec::new();
         let mut homes = Vec::new();
         for &ty in tys {
@@ -265,30 +339,44 @@ impl Compiler {
                     .map(|m| m.name.clone()),
             );
         }
-        let key = DeclaringKey::Operator(text.to_string(), names.clone(), homes.clone());
-        if let Some(found) = self.caches.declaring_imports.borrow().get(&key) {
+        OperatorImportHint {
+            operator: text.to_string(),
+            operands: names,
+            homes,
+        }
+    }
+
+    fn imports_declaring_operator(
+        &self,
+        hint: &OperatorImportHint,
+        inputs: &HintInputs<'_>,
+    ) -> Vec<ImportSuggestion> {
+        let key = DeclaringKey::Operator(
+            hint.operator.clone(),
+            hint.operands.clone(),
+            hint.homes.clone(),
+        );
+        if let Some(found) = inputs.declaring.borrow().get(&key) {
             return found.clone();
         }
-        let found = match self.stdlib_view() {
+        let found = match self.stdlib_view(inputs) {
             Some(view) => {
-                let modules = view.modules_exporting_operator(text, &names, &homes);
+                let modules =
+                    view.modules_exporting_operator(&hint.operator, &hint.operands, &hint.homes);
                 self.ranked_imports(&view, Vec::new(), modules)
             }
             None => Vec::new(),
         };
         crate::sema::body_probe::write(crate::sema::body_probe::W::CachesDeclaringImports);
-        self.caches
-            .declaring_imports
-            .borrow_mut()
-            .insert(key, found.clone());
+        inputs.declaring.borrow_mut().insert(key, found.clone());
         found
     }
 
-    fn imports_declaring_name(&self, name: &str) -> Vec<ImportSuggestion> {
+    fn imports_declaring_name(&self, name: &str, inputs: &HintInputs<'_>) -> Vec<ImportSuggestion> {
         if name.len() < 2 || name.starts_with("__") {
             return Vec::new();
         }
-        let Some(view) = self.stdlib_view() else {
+        let Some(view) = self.stdlib_view(inputs) else {
             return Vec::new();
         };
         let named = if view.has_module(name) {
@@ -299,7 +387,7 @@ impl Compiler {
         } else {
             Vec::new()
         };
-        let modules = view.modules_exporting_name(name, &*self.src.fs);
+        let modules = view.modules_exporting_name(name, inputs.fs);
         self.ranked_imports(&view, named, modules)
     }
 
@@ -333,35 +421,67 @@ impl Compiler {
     }
 
     /// The standard library's index as this compile sees it (without the module it preloads).
-    fn stdlib_view(&self) -> Option<Rc<StdlibView>> {
-        if let Some(view) = self.caches.stdlib_view.borrow().as_ref() {
+    fn stdlib_view(&self, inputs: &HintInputs<'_>) -> Option<Rc<StdlibView>> {
+        if let Some(view) = inputs.view.borrow().as_ref() {
             return view.clone();
         }
         let view = self.options.stdlib_root().map(|stdlib| {
-            let index = StdlibIndex::shared(&*self.src.fs, stdlib);
+            let index = if inputs.fresh {
+                StdlibIndex::fresh(inputs.fs, stdlib)
+            } else {
+                StdlibIndex::shared(inputs.fs, stdlib)
+            };
             Rc::new(StdlibView::new(
                 index,
                 self.options.preload.as_deref(),
-                &*self.src.fs,
+                inputs.fs,
             ))
         });
         crate::sema::body_probe::write(crate::sema::body_probe::W::CachesStdlibView);
-        *self.caches.stdlib_view.borrow_mut() = Some(view.clone());
+        *inputs.view.borrow_mut() = Some(view.clone());
         view
     }
 
-    /// How often the program's own files import each module.
+    /// Resolved main-module/file-scope import sites, including named imports. A named
+    /// `using` has two representations but counts once; ranking never resolves a new import.
     fn project_import_counts(&self) -> HashMap<String, u32> {
+        use super::scope::{EntityKind, EntityState, Resolved};
         let mut counts: HashMap<String, u32> = HashMap::default();
         let Some(main) = self.ns.main_module else {
             return counts;
         };
-        for file in self.src.files.iter().filter(|f| f.module == main) {
-            for import in &self.scope(file.scope).imports {
-                if let Some(module) = import.module {
-                    *counts
-                        .entry(self.ns.modules[module.0 as usize].name.clone())
-                        .or_insert(0) += 1;
+        let files: HashSet<_> = self
+            .src
+            .files
+            .iter()
+            .filter(|file| file.module == main)
+            .map(|file| file.scope)
+            .collect();
+        let mut scopes = files.clone();
+        scopes.insert(self.ns.modules[main.0 as usize].scope);
+        let mut seen = HashSet::default();
+        let mut count = |span, module: ModuleId| {
+            if seen.insert(span) {
+                *counts
+                    .entry(self.ns.modules[module.0 as usize].name.clone())
+                    .or_insert(0) += 1;
+            }
+        };
+        for scope in scopes {
+            for import in &self.scope(scope).imports {
+                if files.contains(&import.from_scope)
+                    && let Some(module) = import.module
+                {
+                    count(import.import.span, module);
+                }
+            }
+            for (id, _) in self.scope(scope).declared() {
+                let entity = self.entity(id);
+                if files.contains(&entity.home)
+                    && let (EntityKind::Import(import), EntityState::Done(Resolved::Module(module))) =
+                        (&entity.kind, &entity.state)
+                {
+                    count(import.span, *module);
                 }
             }
         }
@@ -560,18 +680,18 @@ impl TypeState {
 impl SourceState {
     /// The metaprogram next to the file of `span` (in its directory or the one above) that
     /// adds a declaration of `name` with `add_build_string`, as a path shown to the user.
-    fn metaprogram_defining(&self, name: &str, span: Span) -> Option<String> {
+    fn metaprogram_defining(&self, name: &str, span: Span, fs: &dyn FileSystem) -> Option<String> {
         let file = self.sources.try_get(span.file)?.path.as_file()?;
         let dir = file.parent()?;
         for candidate_dir in [Some(dir), dir.parent()].into_iter().flatten() {
-            let mut entries = self.fs.list_dir(candidate_dir);
+            let mut entries = fs.list_dir(candidate_dir);
             entries.sort();
             for (entry, is_dir) in entries {
                 let path = candidate_dir.join(&entry);
                 if is_dir || !entry.ends_with(".jai") || path == file {
                     continue;
                 }
-                let Some(bytes) = self.fs.read(&path) else {
+                let Some(bytes) = fs.read(&path) else {
                     continue;
                 };
                 if adds_declaration(&String::from_utf8_lossy(&bytes), name) {
@@ -608,5 +728,98 @@ impl Compiler {
             })
             .unwrap_or_default();
         self.ty.no_member_with(ty, name, span, declared)
+    }
+}
+
+#[cfg(test)]
+mod ranking_regressions {
+    use super::*;
+    use crate::sema::scope::{EntityKind, EntityState};
+    use crate::sema::{Options, ProgramSource, VirtualFs};
+
+    fn compiler(main: &str, extra: &str) -> Compiler {
+        let mut fs = VirtualFs::default();
+        fs.insert("/main.jai", main.as_bytes());
+        fs.insert("/extra.jai", extra.as_bytes());
+        fs.insert(
+            "/modules/A/module.jai",
+            b"#import \"Transitive\"; AValue :: 1;".as_slice(),
+        );
+        fs.insert("/modules/B/module.jai", b"BValue :: 2;".as_slice());
+        fs.insert("/modules/C/module.jai", b"CValue :: 3;".as_slice());
+        fs.insert(
+            "/modules/Transitive/module.jai",
+            b"TransitiveValue :: 4;".as_slice(),
+        );
+        let mut options = Options::host();
+        options.runtime_support = false;
+        options.import_paths = vec!["/modules".into()];
+        Compiler::new(options, Rc::new(fs))
+    }
+
+    #[test]
+    fn counts_resolved_main_module_import_sites_once_across_scopes() {
+        let mut compiler = compiler(
+            concat!(
+                "#load \"extra.jai\"; #import \"A\"; using Named :: #import \"B\"; ",
+                "Alias :: Named; #scope_file Private :: #import \"C\"; ",
+                "main :: () { a := AValue; b := Named.BValue; c := Private.CValue; d := other(); }",
+            ),
+            "#scope_file #import \"A\"; Other :: #import \"B\"; #scope_export other :: () -> int { return Other.BValue; }",
+        );
+        compiler
+            .compile_program(Path::new("/main.jai"))
+            .expect("valid imports");
+        let counts = compiler.project_import_counts();
+        assert_eq!(counts.get("A"), Some(&2), "{counts:?}");
+        assert_eq!(
+            counts.get("B"),
+            Some(&2),
+            "named using counts once, alias constants never count: {counts:?}"
+        );
+        assert_eq!(
+            counts.get("C"),
+            Some(&1),
+            "private named import: {counts:?}"
+        );
+        assert!(!counts.contains_key("Transitive"), "{counts:?}");
+    }
+
+    #[test]
+    fn procedural_imports_are_not_project_import_sites() {
+        let mut compiler = compiler(
+            "#import \"A\"; main :: () { Local :: #import \"C\"; value := Local.CValue; }",
+            "",
+        );
+        compiler
+            .compile_program(Path::new("/main.jai"))
+            .expect("local import");
+        let counts = compiler.project_import_counts();
+        assert_eq!(counts.get("A"), Some(&1));
+        assert!(!counts.contains_key("C"), "{counts:?}");
+    }
+
+    #[test]
+    fn ranking_does_not_resolve_unused_named_imports() {
+        let mut compiler = compiler("Unused :: #import \"Missing\"; main :: () {}", "");
+        compiler
+            .prepare_sources(&[ProgramSource::File("/main.jai".into())])
+            .expect("declarations only");
+        let imports = || {
+            compiler
+                .ns
+                .entities
+                .iter()
+                .filter(|entity| matches!(entity.kind, EntityKind::Import(_)))
+                .map(|entity| matches!(entity.state, EntityState::Unresolved))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(imports(), [true]);
+        let files = compiler.src.files.len();
+        let modules = compiler.ns.modules.len();
+        assert!(compiler.project_import_counts().is_empty());
+        assert_eq!(imports(), [true]);
+        assert_eq!(compiler.src.files.len(), files);
+        assert_eq!(compiler.ns.modules.len(), modules);
     }
 }

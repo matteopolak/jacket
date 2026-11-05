@@ -217,7 +217,10 @@ run_smoke :: (gpu_frame: bool = false) {
     renamed := tprint("%/renamed.txt", root);
 
     check(save_document_as(*ed, renamed), "Save As writes a new path");
-    check(active_document(*ed).path == renamed && file_exists(renamed), "Save As updates the tab identity");
+    canonical_saved_path, canonical_saved_ok := get_absolute_path(renamed);
+
+    defer free(canonical_saved_path);
+    check(canonical_saved_ok && active_document(*ed).path == canonical_saved_path && file_exists(renamed), "Save As updates the canonical tab identity");
 
     if gpu_frame {
         // One frame on the GPU with real fonts: the picture must contain more than the background.
@@ -314,7 +317,10 @@ language_smoke :: (ui: *UI_State, ed: *Editor, root: string) {
     language_request(ed, "textDocument/definition");
     wait_language(ui, ed);
     check(active_document(ed) == doc && doc.edit.cursor == 0, "definition selects the declaration");
-    check(ed.back_path == path && ed.back_cursor == origin, "definition records the return location");
+    canonical_origin, canonical_origin_ok := get_absolute_path(path);
+
+    defer free(canonical_origin);
+    check(canonical_origin_ok && ed.back_path == canonical_origin && ed.back_cursor == origin, "definition records the canonical return location");
     press(ui, ed, .ARROW_LEFT, .{ alt = true });
     check(doc.edit.cursor == origin, "Alt+Left returns from definition");
     next := ed.language.next_id;
@@ -369,7 +375,58 @@ language_smoke :: (ui: *UI_State, ed: *Editor, root: string) {
     renamed := tprint("%/renamed-language.jai", root);
 
     check(save_document_as(ed, renamed), "Save As succeeds for an LSP document");
-    check(doc.path == renamed && doc.lsp_version == doc.edit.buffer.version && ed.language.pending.count == 0, "Save As opens the new LSP identity and retires old requests");
+    canonical_renamed, canonical_ok := get_absolute_path(renamed);
+
+    defer free(canonical_renamed);
+    check(canonical_ok && doc.path == canonical_renamed && doc.lsp_version == doc.edit.buffer.version && ed.language.pending.count == 0, "Save As opens the new canonical LSP identity and retires old requests");
+    check(open_document(ed, renamed) == doc, "reopening Save As through an aliased root shares the document");
+    cross_file_language_smoke(ui, ed, root);
+    watched_dependency_language_smoke(ui, ed, root);
+}
+
+// Cross-file definition and return use filesystem identity, including aliased TMPDIR roots.
+cross_file_language_smoke :: (ui: *UI_State, ed: *Editor, root: string) {
+    target_path := tprint("%/navigation-target.jai", root);
+    source_path := tprint("%/navigation-source.jai", root);
+
+    write_entire_file(target_path, "destination :: () {}\n");
+    source := "// é😀\n#load \"navigation-target.jai\";\nmain :: () { /* é😀 */ destination(); }\n";
+
+    write_entire_file(source_path, source);
+    doc := open_document(ed, source_path);
+
+    for 0..1499 {
+        step(ui, ed);
+        if doc.diagnostic_version == doc.edit.buffer.version || ed.language.failed break;
+        sleep_milliseconds(10);
+    }
+
+    origin := find_index_from_left(source, "destination();") + 2;
+
+    doc.edit.cursor = origin;
+    doc.edit.anchor = origin;
+    expected_source, source_ok := get_absolute_path(source_path);
+
+    defer free(expected_source);
+    expected_target, target_ok := get_absolute_path(target_path);
+
+    defer free(expected_target);
+    language_request(ed, "textDocument/definition");
+    wait_language(ui, ed);
+    target := active_document(ed);
+
+    check(source_ok && target_ok && target && target.path == expected_target && target.edit.cursor == 0, "cross-file definition opens the canonical target");
+    check(ed.back_path == expected_source && ed.back_cursor == origin, "cross-file definition records the exact origin");
+    press(ui, ed, .ARROW_LEFT, .{ alt = true });
+    check(active_document(ed) == doc && doc.edit.cursor == origin, "cross-file Alt+Left returns to the original document and UTF-16 cursor");
+
+    unsaved_path := tprint("%/unsaved-navigation.jai", root);
+    unsaved := open_document(ed, unsaved_path);
+
+    insert_text(*unsaved.edit, "main :: () {}\n");
+    check(save_document(ed), "an unsaved document below an aliased root saves");
+    check(open_document(ed, unsaved_path) == unsaved, "saving an unsaved document preserves its canonical identity");
+    check(parent_directory("C:\\name") == "C:\\", "Windows drive root remains absolute when finding a parent");
 }
 
 wait_language :: (ui: *UI_State, ed: *Editor) {
@@ -378,4 +435,31 @@ wait_language :: (ui: *UI_State, ed: *Editor) {
         if ed.language.pending.count == 0 || ed.language.failed break;
         sleep_milliseconds(10);
     }
+}
+
+// Root watcher events must refresh a dependent open document without opening the changed file.
+watched_dependency_language_smoke :: (ui: *UI_State, ed: *Editor, root: string) {
+    dependency := tprint("%/unopened-dependency.jai", root);
+    source_path := tprint("%/watched-source.jai", root);
+
+    write_entire_file(dependency, "unopened :: () {}\n");
+    write_entire_file(source_path, "#load \"unopened-dependency.jai\"; main :: () { unopened(); }\n");
+    doc := open_document(ed, source_path);
+
+    for 0..1499 {
+        step(ui, ed);
+        if doc.diagnostic_version == doc.edit.buffer.version || ed.language.failed break;
+        sleep_milliseconds(10);
+    }
+
+    check(doc.diagnostic_version == doc.edit.buffer.version && doc.diagnostics.items.count == 0, "unopened dependency starts checked without diagnostics");
+    write_entire_file(dependency, "replacement :: () {}\n");
+
+    for 0..1499 {
+        step(ui, ed);
+        if doc.diagnostics.items.count > 0 || ed.language.failed break;
+        sleep_milliseconds(10);
+    }
+
+    check(doc.diagnostics.items.count > 0, "root watcher proactively refreshes diagnostics for an unopened dependency");
 }

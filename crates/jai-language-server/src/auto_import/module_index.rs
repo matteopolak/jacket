@@ -439,7 +439,7 @@ impl SharedStdlib {
                 if sources.stopped() {
                     return false;
                 }
-                let options = (sources.env.options)(root);
+                let options = sources.options(root);
                 options.import_paths == *import_paths && options.preload == *preload
             })
     }
