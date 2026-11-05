@@ -99,6 +99,7 @@ interface Mark { anchor: HTMLAnchorElement; heading: HTMLElement; group?: Outlin
 function setupOutline(signal: AbortSignal): void {
   const rail = document.querySelector<HTMLElement>('.toc');
   if (!rail) return;
+  (window as Window & { jacketBootstrap?: { claimOutline(rail: HTMLElement): void } }).jacketBootstrap?.claimOutline(rail);
   const groupOf = new Map<Element, OutlineGroup>();
   rail.querySelectorAll<HTMLElement>('li.items').forEach(list => {
     const head = list.previousElementSibling, button = head?.querySelector<HTMLButtonElement>('.tog');
@@ -150,7 +151,7 @@ function setupOutline(signal: AbortSignal): void {
     const start = Math.max(0, below(70) - 1), end = Math.max(start, below(innerHeight - 1) - 1);
     if (start === from && end === to) return;
     const position = centre(start, end);
-    const affected = new Set<OutlineGroup>(), seen = new Set<OutlineGroup>();
+    const affected = from < 0 ? new Set(groupOf.values()) : new Set<OutlineGroup>(), seen = new Set<OutlineGroup>();
     for (let index = from; index >= 0 && index <= to; index++) {
       const item = marks[index];
       if (!item) continue;

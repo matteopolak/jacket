@@ -141,6 +141,73 @@
       if (state && state.k === group.closest('nav[data-nav]')?.getAttribute('data-nav') && Array.isArray(state.o) && state.o.includes(group.getAttribute('data-key'))) group.open = true;
     });
   };
+  // The completed module main precedes its streamed outline. Its existing section/group/row
+  // IDs give the full mark order before every TOC anchor has arrived.
+  let earlyOutlineScope, earlyOutlineObserver, earlyOutlineWrap, earlyOutlineRail, discoverEarlyOutline;
+  let earlyOutlineMarks = [];
+  const claimedOutlines = new WeakSet();
+  /** Release parser ownership, e.g. before a swap replaces the attached rail. */
+  const stopEarlyOutline = () => {
+    earlyOutlineScope?.abort(); earlyOutlineObserver?.disconnect();
+    earlyOutlineScope = earlyOutlineObserver = earlyOutlineWrap = earlyOutlineRail = discoverEarlyOutline = undefined;
+    earlyOutlineMarks = [];
+  };
+  /** Reconcile before paint, e.g. when native Back restores a deeper viewport. */
+  const seedEarlyOutline = () => {
+    if (!earlyOutlineScope || earlyOutlineScope.signal.aborted || !earlyOutlineRail || claimedOutlines.has(earlyOutlineRail) || !earlyOutlineMarks.length) return;
+    let first = 0, last = -1;
+    earlyOutlineMarks.forEach((mark, index) => {
+      const top = mark.getBoundingClientRect().top;
+      if (top <= 70) first = index;
+      if (top <= innerHeight - 1) last = index;
+    });
+    const visible = new Set(earlyOutlineMarks.slice(first, Math.max(first, last) + 1).map(mark => mark.id));
+    const opened = new Set();
+    for (const anchor of earlyOutlineRail.querySelectorAll('a[href^="#"]')) {
+      if (!visible.has(anchor.getAttribute('href').slice(1))) continue;
+      const item = anchor.closest('li');
+      const list = item.classList.contains('has-list') ? item.nextElementSibling : item.closest('li.items');
+      if (list) opened.add(list);
+    }
+    for (const list of earlyOutlineRail.querySelectorAll('li.items')) {
+      const open = opened.has(list);
+      list.classList.toggle('open', open);
+      const button = list.previousElementSibling?.querySelector('.tog');
+      if (button && button.getAttribute('aria-expanded') !== String(open)) button.setAttribute('aria-expanded', String(open));
+    }
+  };
+  /** Start before the rail is parsed; FinishSidebar calls this before main arrives. */
+  const startEarlyOutline = () => {
+    const wrap = document.querySelector('.wrap');
+    if (!wrap || claimedOutlines.has(wrap.querySelector(':scope > .toc'))) return;
+    if (earlyOutlineWrap === wrap && earlyOutlineScope && !earlyOutlineScope.signal.aborted) { discoverEarlyOutline?.(); return; }
+    stopEarlyOutline();
+    const scope = new AbortController(); earlyOutlineScope = scope; earlyOutlineWrap = wrap;
+    const discover = () => {
+      if (scope.signal.aborted || earlyOutlineScope !== scope) return;
+      const rail = wrap.querySelector(':scope > .toc');
+      if (!rail || rail === earlyOutlineRail) return;
+      earlyOutlineRail = rail;
+      earlyOutlineMarks = [...wrap.querySelectorAll(':scope > main > h2[id], :scope > main > .group > h3[id], :scope > main > .group > .row[id]')];
+      earlyOutlineObserver.disconnect();
+      earlyOutlineObserver.observe(rail, { childList: true, subtree: true });
+    };
+    discoverEarlyOutline = discover;
+    earlyOutlineObserver = new MutationObserver(() => {
+      if (scope.signal.aborted || earlyOutlineScope !== scope) return;
+      discover(); seedEarlyOutline();
+    });
+    earlyOutlineObserver.observe(wrap, { childList: true });
+    window.addEventListener('scroll', seedEarlyOutline, { passive: true, signal: scope.signal });
+    window.addEventListener('resize', seedEarlyOutline, { passive: true, signal: scope.signal });
+    discover(); seedEarlyOutline();
+  };
+  /** Transfer this exact rail to interactive setup: claimOutline(rail) precedes state reads. */
+  const claimOutline = rail => {
+    if (rail !== earlyOutlineRail) return;
+    earlyOutlineObserver?.takeRecords(); discoverEarlyOutline?.(); seedEarlyOutline();
+    claimedOutlines.add(rail); stopEarlyOutline();
+  };
   window.fold = function () {
     if (++earlyFolds > 6) return;
     const fold = document.currentScript?.parentElement;
@@ -165,6 +232,7 @@
   window.jacketFinishSidebar = () => {
     measureHeader();
     records(observer.takeRecords()); observer.disconnect();
+    startEarlyOutline();
     readerScope?.abort(); readerScope = new AbortController();
     const side = document.querySelector('details.side'), state = sidebarState = saved();
     if (!side) return;
@@ -185,24 +253,12 @@
     const folds = [...document.querySelectorAll('main .fold:not(.open)')];
     folds.filter(fold => fold.scrollHeight <= Number(fold.getAttribute('data-fold') || 440)).forEach(fold => fold.classList.add('open'));
     document.querySelectorAll('main .fold.open + .fold-btn').forEach(button => button.remove());
-    const toc = document.querySelector('.toc');
-    if (!toc) return;
-    const marks = [...toc.querySelectorAll('a[href^="#"]')].flatMap(anchor => {
-      const heading = document.getElementById(anchor.getAttribute('href').slice(1));
-      return heading ? [{ anchor, top: heading.getBoundingClientRect().top }] : [];
-    });
-    if (!marks.length) return;
-    let first = 0, last = -1;
-    marks.forEach((mark, index) => { if (mark.top <= 70) first = index; if (mark.top <= innerHeight - 1) last = index; });
-    for (let index = first; index <= Math.max(first, last); index++) {
-      const item = marks[index].anchor.closest('li');
-      const list = item.classList.contains('has-list') ? item.nextElementSibling : item.closest('li.items');
-      if (!list) continue;
-      list.classList.add('open'); list.previousElementSibling?.querySelector('.tog')?.setAttribute('aria-expanded', 'true');
-    }
+    startEarlyOutline(); seedEarlyOutline();
+    earlyOutlineObserver?.takeRecords(); earlyOutlineObserver?.disconnect();
+    if (!earlyOutlineRail) stopEarlyOutline();
   };
   document.addEventListener('astro:before-swap', event => {
-    save(); readerScope?.abort(); earlyFolds = 0;
+    save(); readerScope?.abort(); stopEarlyOutline(); earlyFolds = 0;
     headerObserver.disconnect(); observedHeader = null;
     prepare(event.newDocument); transferRail(event.newDocument);
     if (event.navigationType === 'traverse') event.newDocument.documentElement.setAttribute('data-doc-restoring', '');
@@ -215,6 +271,6 @@
     if (window.history) window.history.scrollRestoration = 'auto';
   });
   window.addEventListener('resize', measureHeader, { passive: true });
-  window.jacketBootstrap = { prepare };
+  window.jacketBootstrap = { prepare, claimOutline };
   prepare(document);
 })();

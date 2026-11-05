@@ -143,6 +143,7 @@ jobs:
           python3 tools/dev/doc_serve.py --port 8000 --directory target/doc-site &
           SERVER_PID=$!
           trap 'kill "$SERVER_PID"' EXIT
+          node tools/dev/doc_toc_history.mjs target/doc-site "$RUNNER_TEMP/jacket-doc-toc-history-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_parse_layout.mjs target/doc-site "$RUNNER_TEMP/jacket-doc-parser-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_a11y.mjs http://127.0.0.1:8000/
           node tools/dev/doc_layout.mjs http://127.0.0.1:8000/
@@ -162,7 +163,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: docs-parser-geometry
-          path: ${{ runner.temp }}/jacket-doc-parser-*
+          path: |
+            ${{ runner.temp }}/jacket-doc-parser-*
+            ${{ runner.temp }}/jacket-doc-toc-history-*
           if-no-files-found: warn
       - name: Check foreground development publication and runtime
         if: ${{ inputs.browser_checks || vars.DOCS_BROWSER_CHECKS != 'false' }}
