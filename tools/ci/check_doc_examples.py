@@ -11,7 +11,8 @@ import re
 import subprocess
 
 from toolkit.repo import ROOT
-RULES = ("self_assignment", "duplicate_condition", "use_after_free")
+RULES = ("self_assignment", "duplicate_condition", "use_after_free", "neg_cmp_float",
+         "manual_array_find", "manual_index_counter", "almost_swapped")
 
 
 def run(work):
@@ -33,7 +34,7 @@ def run(work):
         assert groups[0]["result"]["kind"] == "diagnostic", record["id"]
         code = (ROOT / "tests/lint" / record["id"] / "example.jai").read_text().rstrip()
         assert groups[0]["source"]["source"]["source"].rstrip() == code, record["id"]
-    matrix = "\n".join(f"{severity}: operation colors\n 1 - removed;\n 1 + added;\n 1 ~ replaced;\n   | --- secondary origin\n   | ^^^ primary origin\n" for severity in ("error", "warning"))
+    matrix = "\n".join(f"{severity}: operation colors\n 1 - removed;\n 1 + added;\n 1 ~ replaced;\n 2     -unchanged;\n 3     +unchanged;\n 4     ~unchanged;\n   | --- secondary origin\n   | ^^^ primary origin\n" for severity in ("error", "warning"))
     records.append({"id":"diagnostic-operations","nodes":[{"kind":"code_block","language":"diagnostic","info":"diagnostic","source":{"source":matrix,"spans":[]}}]})
     (work / "nodes.json").write_text(json.dumps(records))
     pages = work / "src/pages"

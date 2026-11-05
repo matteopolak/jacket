@@ -11,6 +11,7 @@ import path from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {Connection,runtimeException} from './chrome_cdp.mjs';
 import {findChrome,waitForDevToolsPort} from './chrome_startup.mjs';
+import {diagnosticFixtureProblems} from './diagnostic_fixture_checks.mjs';
 const [fixture,output]=process.argv.slice(2);
 assert(fixture&&output,'usage: doc_examples.mjs OWNED_FIXTURE_ROOT_OR_PRODUCTION_URL OUTPUT_JSON');
 const captures=path.resolve(path.dirname(output),path.basename(output,'.json')+'-captures');
@@ -29,7 +30,8 @@ try{
  const cdp=(method,params={})=>connection.cdp(method,params);
  const evaluate=async expression=>{const result=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});assert(!result.exceptionDetails,JSON.stringify(result.exceptionDetails));return result.result.value;};
  await cdp('Page.enable');await cdp('Runtime.enable');
- for(const width of [375,1280])for(const theme of ['light','dark'])for(const rule of production?['self_assignment','duplicate_condition','use_after_free']:['self_assignment','duplicate_condition','use_after_free','diagnostic-operations']){
+ const rules=['self_assignment','duplicate_condition','use_after_free','neg_cmp_float','manual_array_find','manual_index_counter','almost_swapped'];
+ for(const width of [375,1280])for(const theme of ['light','dark'])for(const rule of production?rules:[...rules,'diagnostic-operations']){
   await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
   await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme}]});
   const previous=await evaluate('performance.timeOrigin');await cdp('Page.navigate',{url:new URL(production?`lint-rules/${rule}`:rule,base).href});
@@ -42,7 +44,7 @@ try{
     const source=group.querySelector(':scope>.example-source'),result=group.querySelector(':scope>.example-result'),header=group.querySelector(':scope>figcaption');
     const deletions=result?[...result.querySelectorAll('.dd')].map(node=>({text:node.textContent,color:getComputedStyle(node).color})):[];
     const origins=result?[...result.querySelectorAll('.dk')].map(node=>({text:node.textContent,color:getComputedStyle(node).color})):[];
-    return{header:header.textContent.trim(),resultText:result?.querySelector('code')?.textContent??null,group:rect(group),source:rect(source),result:result?rect(result):null,resultBorder:result?parseFloat(getComputedStyle(result).borderTopWidth):0,panes:[...group.querySelectorAll('pre.code')].map(node=>({padding:getComputedStyle(node).padding,radius:getComputedStyle(node).borderRadius,margin:getComputedStyle(node).margin})),deletions,origins};
+    return{header:header.textContent.trim(),headerTitle:header.querySelector('.ex-title')?.textContent.trim(),resultText:result?.querySelector('code')?.textContent??null,group:rect(group),source:rect(source),result:result?rect(result):null,resultBorder:result?parseFloat(getComputedStyle(result).borderTopWidth):0,panes:[...group.querySelectorAll('pre.code')].map(node=>({padding:getComputedStyle(node).padding,radius:getComputedStyle(node).borderRadius,margin:getComputedStyle(node).margin})),deletions,origins};
    });
    const rgb=value=>(value.match(/[\d.]+/g)??[]).slice(0,3).map(Number);
    const luminance=value=>rgb(value).map(channel=>{channel/=255;return channel<=0.04045?channel/12.92:((channel+0.055)/1.055)**2.4;}).reduce((sum,value,index)=>sum+value*[0.2126,0.7152,0.0722][index],0);
@@ -65,8 +67,9 @@ try{
   if(sample.bodyWidth>width+1)receipt.problems.push({width,theme,rule,reason:'page horizontal overflow',bodyWidth:sample.bodyWidth});
   if(sample.plainLabels)receipt.problems.push({width,theme,rule,reason:'plain example labels'});
   if(rule!=='diagnostic-operations'){
-   if(sample.groups.length!==2||sample.groups[0]?.header!=='Example'||!sample.groups[0]?.result||sample.groups[1]?.header!=='Fixed'||sample.groups[1]?.result)receipt.problems.push({width,theme,rule,reason:'source/result/fixed ownership missing',groups:sample.groups});
-   const result=sample.groups[0]?.resultText??'',fixLines=result.split('\n').filter(line=>/^\s*\d+\s+[-+~]/u.test(line));
+   if(sample.groups.length!==2||sample.groups[0]?.headerTitle!=='Example'||!sample.groups[0]?.result||sample.groups[1]?.headerTitle!=='Fixed'||sample.groups[1]?.result)receipt.problems.push({width,theme,rule,reason:'source/result/fixed ownership missing',groups:sample.groups});
+   const result=sample.groups[0]?.resultText??'',fixLines=result.split('\n').filter(line=>/^\s*\d+ [-+~](?= |$)/u.test(line));
+   for(const reason of diagnosticFixtureProblems(rule,result))receipt.problems.push({width,theme,rule,reason});
    if(rule==='self_assignment'&&(fixLines.length!==1||!/-\s+width = width;/u.test(fixLines[0])))receipt.problems.push({width,theme,rule,reason:'statement deletion is not minimal',fixLines});
    if(rule==='duplicate_condition'&&(fixLines.length!==1||!/-\s+else if key == 1 print/u.test(fixLines[0])))receipt.problems.push({width,theme,rule,reason:'branch deletion is not minimal',fixLines});
   }
