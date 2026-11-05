@@ -117,3 +117,11 @@ gh workflow run ci.yml --ref BRANCH -f tier=fast -f jobs=test,stdlib-runtime,win
 `tools/ci/check_images_ui.py` runs the focused CPU/docs checks locally (`--jaic`, `--jacket`, `--output-root`). It uses Jacket's existing case budgets and the whole-job bound, without killing a direct parent process on a separate timer. It records the host architecture, checks Linux/macOS/Windows x64 and ARM64 macros, runs dispatch in interpreted/native O0/O2 modes, and checks the three Web documentation examples for each native OS. Extend its test list when changing the stage boundary. `job_inputs.py` still records its real input closure for drift checks. The job explicitly uses its isolated checkout's `target` directory and the existing Rust/native cache actions.
 
 The UI runner still reports an explicit skip if a hosted Metal adapter is unavailable. That skip is build evidence, not native GPU acceptance; actual local Metal and required Linux/Windows software-adapter checks remain distinct evidence. A focused green job does not declare the separate whole-tooling producer job complete.
+
+## Complete image corpus acceptance
+
+`image-conformance` is also manual-only. It adds no automatic fast/full work and changes no existing matrix or timeout. Its separate Linux job runs complete pinned image inventories in native sanitizer, optimized native and actual WASI modes, plus independent encoder checks. It builds the pinned JPEG reference instead of substituting the runner's older system library. Corpora, reference builds and results stay in the job's temporary directory; no new artifacts are uploaded. See [image codec coverage](image-conformance.md) for profiles, pins and commands.
+
+```sh
+gh workflow run ci.yml --ref BRANCH -f tier=fast -f jobs=test,stdlib-runtime,windows-native,scripting-wasm,docs,images-ui-intel,image-conformance
+```

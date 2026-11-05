@@ -48,6 +48,7 @@ JOBS = {
     "neovim-plugin": "code",
     "stdlib-runtime": "code",
     "images-ui-intel": None,
+    "image-conformance": None,
     "upstream-smoke": "code",
     "sanitizers": "code",
     # Not a job of its own: the macOS leg of `sanitizers`.
@@ -67,7 +68,7 @@ JOBS = {
 }
 
 # Focused acceptance jobs require an explicit jobs= request, never default push/PR work.
-MANUAL_ONLY = {"images-ui-intel"}
+MANUAL_ONLY = {"images-ui-intel", "image-conformance"}
 
 # The two tiers. Pushes and pull requests run the fast tier, which aims to finish in ten minutes:
 # platform-neutral work runs once, on Linux x64, and the long suites are spread over several jobs.
