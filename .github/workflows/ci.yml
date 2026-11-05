@@ -18,6 +18,18 @@ on:
         type: choice
         options: [full, fast]
         default: full
+      fuzz_summary:
+        description: 'Run isolated synthetic panic summary validation'
+        type: boolean
+        default: false
+      jacket_inventory:
+        description: 'Save compiler-target and jacket discovery, assignment and outcome inventories'
+        type: boolean
+        default: false
+      io_investigation:
+        description: 'Run five independent Io backend attempts per native mode on Linux x64/ARM64'
+        type: boolean
+        default: false
 permissions:
   contents: read
 env:
@@ -109,6 +121,58 @@ jobs:
         run: python3 tools/ci/check_dependency_age.py --lockfile fuzz/Cargo.lock
       - name: Replay fuzz/regressions through the harnesses
         run: cargo test --locked --manifest-path fuzz/harness/Cargo.toml
+  fuzz-summary-acceptance:
+    if: github.event_name == 'workflow_dispatch' && inputs.fuzz_summary
+    name: synthetic panic summary acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - name: Install the pinned toolchain
+        run: python3 tools/ci/install_pinned.py rust
+      - name: Validate real Rust panic capture and summary
+        run: python3 tools/fuzz/validate_crash_summary.py --out "$RUNNER_TEMP/panic-summary"
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: synthetic-panic-summary-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/panic-summary/summary.md
+            ${{ runner.temp }}/panic-summary/replay.json
+            ${{ runner.temp }}/panic-summary/crash-*
+          if-no-files-found: error
+  io-investigation:
+    if: github.event_name == 'workflow_dispatch' && inputs.io_investigation
+    name: Io backend investigation (${{ matrix.runner }})
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/io-investigation-build
+      JAIC_STDLIB: ${{ github.workspace }}/stdlib
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-unix
+        with:
+          native-libs: 'false'
+          font: 'false'
+      - name: Build production compiler and test runner
+        run: cargo build --release --locked -p jaic-cli -p jacket
+      - name: Run the predeclared five attempts per mode
+        run: python3 tools/ci/investigate_io.py --jacket "$CARGO_TARGET_DIR/release/jacket" --out target/ci-io-investigation --attempts 5
+      - name: Upload every diagnostic attempt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: io-investigation-${{ matrix.runner }}
+          path: target/ci-io-investigation
+          if-no-files-found: error
   dependency-hygiene:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'dependency-hygiene')
@@ -296,10 +360,29 @@ jobs:
         # the runtime (docs/tools/testing.md), only in the first target share.
         env:
           JACKET_STDLIB_TARGETS_PART: ${{ matrix.targets_part || matrix.shard }}
+          INVENTORY: ${{ inputs.jacket_inventory }}
         run: |
           objc=()
           [[ "$JACKET_STDLIB_TARGETS_PART" == 1/* ]] && objc=(--test objc_selectors)
-          cargo nextest run --profile ci --ignore-default-filter -p jaic-cli --locked --test stdlib_targets "${objc[@]}"
+          run_targets() {
+            cargo nextest run --profile ci --ignore-default-filter -p jaic-cli --locked --test stdlib_targets "${objc[@]}"
+          }
+          if [[ "$INVENTORY" == true ]]; then
+            reports="$RUNNER_TEMP/compiler-target-inventory"
+            mkdir -p "$reports"
+            python3 tools/ci/jacket_inventory.py metadata --partition "count:$JACKET_STDLIB_TARGETS_PART" > "$reports/metadata.json"
+            export NEXTEST_SUCCESS_OUTPUT=final
+            set +e
+            run_targets 2>&1 | tee /dev/stderr | python3 tools/ci/compiler_target_inventory.py collect > "$reports/modules.jsonl"
+            codes=("${PIPESTATUS[@]}")
+            set -e
+            printf '{"command":%d,"tee":%d,"capture":%d}\n' "${codes[0]}" "${codes[1]}" "${codes[2]}" > "$reports/module-status.json"
+            for code in "${codes[@]}"; do
+              if [[ "$code" != 0 ]]; then exit "$code"; fi
+            done
+          else
+            run_targets
+          fi
       - name: Stdlib doc examples type-check for every OS
         id: doc-targets
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',targets,') }}
@@ -308,11 +391,23 @@ jobs:
         # after the merge (docs/tools/jacket-test.md). The target-work share of each OS's examples.
         env:
           JACKET_PART: ${{ matrix.targets_part || matrix.shard }}
+          INVENTORY: ${{ inputs.jacket_inventory }}
         run: |
           cargo build -q -p jaic-cli -p jacket --locked
-          for os in linux macos windows wasm; do
-            target/debug/jacket test -q --doc --check-only --os "$os" --partition "count:$JACKET_PART"
-          done
+          if [[ "$INVENTORY" == true ]]; then
+            bash tools/ci/compiler_doc_inventory.sh target/debug/jacket "$RUNNER_TEMP/compiler-target-inventory" "$JACKET_PART"
+          else
+            for os in linux macos windows wasm; do
+              target/debug/jacket test -q --doc --check-only --os "$os" --partition "count:$JACKET_PART"
+            done
+          fi
+      - name: Upload compiler target identities and completed outcomes
+        if: ${{ always() && !cancelled() && inputs.jacket_inventory && contains(matrix.parts, ',targets,') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: compiler-target-inventory-${{ matrix.runner }}-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/compiler-target-inventory
+          if-no-files-found: error
       - name: Prepare hash-pinned SDL Python test inputs
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') }}
         run: python3 tools/bindings/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
@@ -586,7 +681,15 @@ jobs:
           JACKET_TEST_CHANGED: ${{ needs.changes.outputs.stdlib_changed }}
           WASM: ${{ matrix.wasm }}
           JACKET_TEST_PARTITION: ${{ matrix.jacket_test }}
+          JACKET_TEST_REPORT_DIR: ${{ inputs.jacket_inventory && format('{0}/jacket-inventory', runner.temp) || '' }}
         run: bash tools/ci/stdlib_jacket_test.sh
+      - name: Upload jacket test inventory
+        if: ${{ always() && !cancelled() && inputs.jacket_inventory && matrix.jacket_test }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jacket-inventory-${{ matrix.platform }}-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/jacket-inventory
+          if-no-files-found: error
       - name: Stdlib test coverage against the recorded baseline
         # `jacket test --coverage` over the whole standard library, natively: the per-module table goes to
         # the job summary and the step fails when a module covers over 0.5 points fewer lines than
