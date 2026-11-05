@@ -128,9 +128,14 @@ def run(plan, out):
     metadata = {"schema": plan["schema"], "machine": {"platform": platform.platform(), "python": sys.version,
                 "cpuCount": os.cpu_count()}, "plan": plan, "cases": []}
     (out / "plan.json").write_text(json.dumps(plan, indent=2) + "\n")
-    for number, case in enumerate(plan["cases"]):
-        rows = []
-        for repetition in range(plan["repetitions"]):
+    case_runs = [[] for _ in plan["cases"]]
+    ordinal = 0
+    for repetition in range(plan["repetitions"]):
+        order = list(enumerate(plan["cases"]))
+        if repetition % 2:
+            order.reverse()
+        for number, case in order:
+            rows = case_runs[number]
             for value in case.get("resetPaths", []):
                 target = Path(expand(value)).resolve()
                 if target == out or not target.is_relative_to(out):
@@ -144,10 +149,14 @@ def run(plan, out):
             for command in case.get("prepare", []):
                 subprocess.run([expand(arg) for arg in command], cwd=cwd, env=env, check=True)
             log = out / f"case-{number:02}-repeat-{repetition:02}.log"
-            rows.append(measure([expand(arg) for arg in case["command"]], cwd, env, log, case.get("timeoutSeconds", 1800)))
+            sample = measure([expand(arg) for arg in case["command"]], cwd, env, log, case.get("timeoutSeconds", 1800))
+            sample.update(repetition=repetition, executionOrdinal=ordinal)
+            ordinal += 1
+            rows.append(sample)
             # Write each completed sample before continuing, including failed commands.
             (out / f"case-{number:02}.json").write_text(json.dumps({"name": case["name"], "runs": rows, "summary": summarize(rows)}, indent=2) + "\n")
-        metadata["cases"].append({"name": case["name"], "runs": rows, "summary": summarize(rows)})
+    metadata["cases"] = [{"name": case["name"], "runs": rows, "summary": summarize(rows)}
+                         for case, rows in zip(plan["cases"], case_runs, strict=True)]
     (out / "results.json").write_text(json.dumps(metadata, indent=2) + "\n")
     if any(not case["summary"]["allPassed"] or any(row["memoryErrors"] or row["sampledTreePeakKiB"] is None for row in case["runs"]) for case in metadata["cases"]):
         raise RuntimeError("benchmark contains failures or unavailable memory samples; inspect retained receipts")
