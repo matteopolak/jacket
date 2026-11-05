@@ -304,6 +304,7 @@ NARROW = {
         "crates/jaic-native/**",
         "crates/jaic-backend/**",
         "crates/jaic-cli/src/**",
+        "crates/jaic-cli-args/src/**",
         "crates/jaic/src/**",
         "crates/jaic-syntax/src/**",
         "tools/differential/**",

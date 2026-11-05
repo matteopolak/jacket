@@ -1,0 +1,13 @@
+[package]
+name = "jaic-cli-args"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Compiler command-line model and authoritative option metadata without an execution backend."
+
+[dependencies]
+jaic = { path = "../jaic" }
+
+[lints]
+workspace = true

@@ -183,16 +183,16 @@ fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
     {
         *path = cwd.join(&*path);
     }
-    let mut takes_path = false;
-    for flag in &mut args.jaic_args {
-        if std::mem::take(&mut takes_path) {
-            *flag = cwd.join(&*flag).to_string_lossy().into_owned();
-        } else if PATH_FLAGS.contains(&flag.as_str()) {
-            takes_path = true;
-        } else if let Some((name, value)) = flag.split_once('=')
-            && PATH_FLAGS.contains(&name)
-        {
-            *flag = format!("{name}={}", cwd.join(value).display());
+    // The same compiler argument walk owns arity, target filtering and path values.
+    // A malformed sequence is diagnosed before any compiler process is started in run_once.
+    if let Ok(parsed) = jaic_cli_args::arguments::target_flags(&args.jaic_args) {
+        for value in parsed.values {
+            if PATH_FLAGS.contains(&value.name.as_str()) {
+                value.replace(
+                    &mut args.jaic_args,
+                    cwd.join(&value.value).to_string_lossy().into_owned(),
+                );
+            }
         }
     }
     args
@@ -368,21 +368,6 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: Option<&BenchArgs>) -> ExitCode {
     watch::run(args, cwd)
 }
 
-/// The OS and CPU the tests are built for: the flags', else the host's. A wasm program has no CPU
-/// of the host's kind, so `only(.X64)` never runs under `-os wasm`.
-fn target_of(args: &TestArgs) -> (String, String) {
-    let os = args.os.clone().unwrap_or_else(|| host_os().into());
-    let cpu = args.cpu.clone().unwrap_or_else(|| {
-        if os == "wasm" {
-            "wasm"
-        } else {
-            host_cpu()
-        }
-        .into()
-    });
-    (os, cpu)
-}
-
 /// One run of the selected tests. `watched` is told which folders and test files the run
 /// used; `only` narrows the run to the cases of these test files.
 fn run_once(
@@ -394,7 +379,24 @@ fn run_once(
 ) -> ExitCode {
     watched.clear();
     let bench = bench_args.is_some();
-    let resolved = resolve_paths(args, cwd);
+    let mut resolved = resolve_paths(args, cwd);
+    let forwarded = match jaic_cli_args::arguments::target_flags(&resolved.jaic_args) {
+        Ok(parsed) => parsed,
+        Err(error) => return fail(error),
+    };
+    if let Err(error) =
+        jaic_cli_args::cli::Mode::from_flags(forwarded.check, forwarded.interp, forwarded.deps)
+    {
+        return fail(error.message);
+    }
+    if forwarded.deps {
+        return fail("use `jacket test --list --deps` to list test dependencies");
+    }
+    if forwarded.check && !resolved.check_only {
+        return fail("`-check` does not run tests; use `--doc --check-only` to check doc examples");
+    }
+    resolved.interp |= forwarded.interp;
+    resolved.jaic_args = forwarded.without_modes(std::mem::take(&mut resolved.jaic_args));
     let args = &resolved;
     let loaded = match project::load(cwd) {
         Ok(loaded) => loaded,
@@ -441,12 +443,6 @@ fn run_once(
         Some(Err(error)) => return fail(error),
         None => None,
     };
-    let (os, cpu) = target_of(args);
-    let target = Target {
-        os: os.clone(),
-        cpu: cpu.clone(),
-        interp: args.interp,
-    };
     let mut flags = Vec::new();
     if let Some(os) = &args.os {
         flags.extend(["-os".to_string(), os.clone()]);
@@ -463,6 +459,24 @@ fn run_once(
             .map(|flag| flag.to_string_lossy().into_owned()),
     );
     flags.extend(args.jaic_args.iter().cloned());
+    let parsed = match jaic_cli_args::arguments::target_flags(&flags) {
+        Ok(parsed) => parsed,
+        Err(error) => return fail(error),
+    };
+    let mut effective = jaic::sema::Options::host();
+    // Metadata is also needed by compile-only cases. The compiler checks native link
+    // eligibility only when a case actually builds a program; valid modes share OS/CPU defaults.
+    if let Err(error) = parsed.selection.apply_for_mode(&mut effective, false) {
+        return fail(error);
+    }
+    let os = jaic::target::os_name(effective.os).to_string();
+    let cpu = jaic::target::cpu_name(effective.cpu).to_string();
+    let target = Target {
+        os: os.clone(),
+        cpu: cpu.clone(),
+        interp: args.interp,
+    };
+
     if !args.interp && !bench && matches!(os.as_str(), "windows" | "linux" | "macos") {
         flags.insert(0, "-backtrace_on_crash".into()); // the only targets with a crash handler
     }
@@ -1118,6 +1132,9 @@ mod tests {
                 "-import_dir",
                 "vendor",
                 "-emit_ir=x.ll",
+                "-add",
+                "-output_path",
+                "-output_path=out",
                 "-os",
                 "wasm",
             ]
@@ -1138,10 +1155,23 @@ mod tests {
                 "-import_dir",
                 "/w/vendor",
                 "-emit_ir=/w/x.ll",
+                "-add",
+                "-output_path",
+                "-output_path=/w/out",
                 "-os",
                 "wasm"
             ]
         );
+        for boundary in ["-", "--", "+Plugin"] {
+            let mut bounded = args.clone();
+            bounded.jaic_args = [boundary, "-import_dir", "keep-relative"]
+                .map(String::from)
+                .into();
+            assert_eq!(
+                resolve_paths(&bounded, Path::new("/w")).jaic_args,
+                bounded.jaic_args
+            );
+        }
     }
 
     #[test]

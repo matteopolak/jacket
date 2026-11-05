@@ -236,3 +236,35 @@ Flags win over the profile, the profile over `[test]`. Environment: `JAIC_STDLIB
 ## Dependencies
 
 `jaic` and the `Extensions/Testing` module; `serde_json` for JSON output and `regex-lite` for `/regex/` filters. `--coverage` needs `llvm-dwarfdump` and `jaic -coverage`. `--runner` programs such as `node` are the user's.
+
+## Effective compiler target
+
+Target filters, cross-target skips and runner routing use the final compiler arguments.
+`jacket test --os windows -- -os=wasm` therefore selects wasm tests and needs a wasm
+runner. Repeated OS/CPU flags keep the last value; `-target` overrides OS and CPU,
+regardless of their order. CPU aliases and defaults come from the compiler's shared
+`Selection` policy. Cross-OS checking defaults to x64; wasm builds have a wasm CPU.
+
+Host-side discovery removes target options, including inline values and triples, using
+`jaic-cli-args`'s compiler option table. Values of unrelated flags, plugin options and arguments
+after `-` or `--` retain their meaning. Target-side builds keep the user's argument bytes.
+A metaprogram that changes its workspace target is outside this command-line selection;
+its target cannot be inferred before that program runs.
+
+To extend target selection, update the shared policy in `jaic::target` and compiler option
+metadata in `jaic-cli-args`, then exercise `crates/jacket/tests/forwarded_targets.rs`. Keep
+selection and build/runner behavior in the same regression. Forwarded `-interp` selects interpreted execution too; use
+`--doc --check-only` for compile-only examples (`-check` alone cannot run unit tests).
+The neutral argument layer shares its option table with the compiler binary. Backend,
+allocator and panic initialization remain binary concerns.
+
+Compile-only cases use checking target rules. Native link support is validated by the
+compiler when a program is built. This lets compile-fail and check-only examples select
+cross-target OS/CPU filters without requiring a foreign native linker. Wasm has its own CPU
+class in every mode, so native CPU filters have the same meaning when interpreted.
+
+Forwarded compiler mode switches are resolved once, then removed before jacket builds its
+per-case compiler commands. Compile-fail cases therefore keep `-check` even during an
+interpreted run, and host discovery keeps its own interpreter mode. Compiler conflicts
+such as `-check -interp` remain errors, including with `--check-only`. For dependency
+listing use `jacket test --list --deps`; forwarding compiler `-deps` is rejected.
