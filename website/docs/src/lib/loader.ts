@@ -79,6 +79,15 @@ export class Bundle {
     const file=this.inventory.get(path);if(!file)throw new Error(`missing inventoried file ${path}`);return file.sha256;
   }
 
+  /** Publication reads only declared immutable assets, e.g. asset('runtime/jai_wasm.wasm'). */
+  async asset(path:string):Promise<Uint8Array>{
+    const expected=this.manifest.assets.find(asset=>asset.path===path);
+    if(!expected)throw new Error(`${path}: asset absent from manifest`);
+    const bytes=await readSafe(this.root,path,limits.shardBytes);
+    if(bytes.length!==expected.bytes||digest(bytes)!==expected.sha256)throw new Error(`${path}: asset changed after validation`);
+    return bytes;
+  }
+
   /** Shards were schema-checked during admission; rereads verify immutable bytes before reuse. */
   async shard(path: string): Promise<Payload> {
     const cached = this.cache.get(path);

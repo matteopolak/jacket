@@ -121,6 +121,8 @@ def run_dev(export, builder, export_dir, *, port="8000", root=ROOT, runtime=None
         node,
         str(astro_cli(builder)),
         "dev",
+        # Astro's supported one-off mode stays foreground even when an agent is detected.
+        "--ignore-lock",
         "--host",
         "127.0.0.1",
         "--port",
