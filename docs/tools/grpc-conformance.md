@@ -274,8 +274,9 @@ need only the owning Jai modules and native TLS provider.
 `tools/grpc/windows_acceptance.py` runs real Io/Tls module roots with exact
 prerequisite IDs, followed by the Http/Grpc module roots. It accepts only complete
 JSON reports in which every required ID actually passed. Missing, skipped,
-duplicate, list-only or unfinished prerequisite results fail even if the runner
-exits zero. Local raw JSON and stderr retain diagnosis; the compact result
+duplicate, list-only or unfinished results fail even if the runner exits zero.
+Selected and terminal counts must agree, the summary must report zero unexecuted
+cases, and every started case must finish. Local raw JSON and stderr retain diagnosis; the compact result
 contains case IDs/statuses and the runner hash, without private failure fields.
 
 ```sh

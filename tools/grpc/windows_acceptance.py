@@ -38,23 +38,55 @@ def checked_results(text, required):
     checked_results(JSONL, ("Io::tcp",)) rejects a successful but empty runner.
     """
     cases = {}
-    finished = 0
+    started = set()
+    run_started = None
+    run_finished = None
     for line in text.splitlines():
         if not line.strip():
             continue
         event = json.loads(line)
         if not isinstance(event, dict):
             raise ValueError("runner event must be an object")
-        if event.get("type") == "run" and event.get("event") == "finished":
-            finished += 1
-        if event.get("type") != "test" or event.get("event") not in TERMINAL:
-            continue
-        name = event.get("name")
-        if not isinstance(name, str) or name in cases:
-            raise ValueError("missing or duplicate terminal case identity")
-        cases[name] = event["event"]
-    if finished != 1:
-        raise ValueError("need exactly one completed runner report")
+        kind = event.get("type")
+        phase = event.get("event")
+        if kind == "run" and phase == "started":
+            if run_started is not None or run_finished is not None:
+                raise ValueError("duplicate or out-of-order run start")
+            run_started = event
+        elif kind == "run" and phase == "finished":
+            if run_started is None or run_finished is not None:
+                raise ValueError("missing start or duplicate run finish")
+            run_finished = event
+        elif kind == "test" and (phase == "started" or phase in TERMINAL):
+            if run_started is None or run_finished is not None:
+                raise ValueError("test event outside an active run")
+            name = event.get("name")
+            if not isinstance(name, str) or not name:
+                raise ValueError("missing case identity")
+            if phase == "started":
+                if name in started or name in cases:
+                    raise ValueError("duplicate or out-of-order case start")
+                started.add(name)
+            else:
+                if name in cases:
+                    raise ValueError("duplicate terminal case identity")
+                if phase != "skipped" and name not in started:
+                    raise ValueError("executed case has no start event")
+                cases[name] = phase
+    if run_started is None or run_finished is None:
+        raise ValueError("need one complete runner report")
+    selected = run_started.get("tests")
+    if type(selected) is not int or selected != len(cases):
+        raise ValueError("selected and terminal case counts differ")
+    if started - cases.keys():
+        raise ValueError("started case has no terminal event")
+    if type(run_finished.get("not_run")) is not int or run_finished["not_run"] != 0:
+        raise ValueError("runner left selected cases unexecuted")
+    for status in TERMINAL:
+        reported = run_finished.get(status)
+        actual = sum(value == status for value in cases.values())
+        if type(reported) is not int or reported != actual:
+            raise ValueError("terminal summary count differs: " + status)
     missing = [name for name in required if cases.get(name) != "passed"]
     if missing:
         raise ValueError(
