@@ -53,6 +53,8 @@ a:hover { text-decoration: underline; }
 /* Prose links retain a visible cue; code and catalogue controls keep their own hover/focus styles. */
 main a { text-underline-offset: 0.15em; }
 main :where(p, li, blockquote, td, th, dd) a:where(:not(pre a, .sig a, .row-head a, .card, .btn, .pill, .badge)) { text-decoration: underline; }
+/* Code links need a non-color cue without restoring normal code-block underlines. */
+pre.code a { font-weight: 600; }
 code, .mono { font-family: var(--mono); }
 code { font-size: 0.9em; }
 button, select, input { font: inherit; color: inherit; }
