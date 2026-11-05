@@ -94,7 +94,7 @@ def package(source, destination):
             "package": {key: metadata[key] for key in ("name", "version")},
             "files": entries,
         }
-        (stage / "builder-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        (stage / "builder-manifest.json").write_bytes((json.dumps(manifest, indent=2) + "\n").encode("utf-8"))
         shutil.move(str(stage), str(destination))
     return manifest
 

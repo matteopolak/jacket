@@ -85,6 +85,13 @@ jobs:
           cargo test --locked --offline -p jacket-config --lib -- --test-threads=1
           cargo test --locked --offline -p jacket --test doc_export -- --test-threads=1
           cargo test --locked --offline -p jailint --test rules fix_previews -- --test-threads=1
+      - name: Check documentation byte authority
+        run: |
+          git config --get core.autocrlf || test "$?" = 1
+          git ls-files --eol website/docs/schema website/docs/src/generated crates/jacket/src/doc/coloring/spec.json
+          python -m unittest discover -s tools/ci -p test_package_docs_builder.py
+          python -m unittest discover -s tools/generators -p test_generate_doc_coloring.py
+          python -m unittest discover -s tools/generators -p test_generate_doc_site.py
       - name: Check schema, native declaration formatting and shared coloring
         run: |
           python tools/generators/generate_doc_site.py --check

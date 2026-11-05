@@ -32,3 +32,8 @@
 
 # The HTTP file-response test asserts the exact LF payload and content length.
 /stdlib/Extensions/Http/tests/fixtures/stream-file.txt text eol=lf
+
+# Documentation builder text and the shared coloring spec are byte-hashed across hosts.
+# Auto detection leaves future binary assets byte-exact.
+/website/docs/** text=auto eol=lf
+/crates/jacket/src/doc/coloring/spec.json text eol=lf

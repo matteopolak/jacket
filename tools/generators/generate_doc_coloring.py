@@ -56,16 +56,16 @@ def generate(check=False, *, root=ROOT):
             raise ValueError("coloring word lists must contain unique nonempty strings")
     if set(spec["keywords"]) & set(spec["types"]):
         raise ValueError("coloring keyword/type sets overlap")
-    template = (root / "tools/generators/templates/doc-coloring.ts").read_text()
+    template = (root / "tools/generators/templates/doc-coloring.ts").read_text(encoding="utf-8")
     output = template.replace("__COLORING_SPEC__", json.dumps(spec, ensure_ascii=True, separators=(",", ":")))
     output = "// Spec SHA-256: " + hashlib.sha256(source).hexdigest() + "\n" + output
     path = root / OUTPUTS[0]
     if check:
-        if not path.is_file() or path.read_text() != output:
+        if not path.is_file() or path.read_bytes() != output.encode("utf-8"):
             raise ValueError("documentation coloring is stale; run generate_doc_coloring.py")
     else:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(output)
+        path.write_bytes(output.encode("utf-8"))
 
 
 if __name__ == "__main__":
