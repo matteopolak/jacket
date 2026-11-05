@@ -20,7 +20,14 @@ Call_Options :: struct {
     deadline_ms: s64;
     metadata: [] Metadata_Entry;
     max_message := 4 * 1024 * 1024;
+    max_wire_message := 4 * 1024 * 1024;
+    compression: Compression;
     max_metadata := 64 * 1024;
+}
+
+// Per-message override: false uses an identity envelope on a negotiated gzip call.
+Send_Options :: struct {
+    compress := true;
 }
 
 // Opaque RPC handle. Join its sender and receiver before close; returned messages
@@ -42,7 +49,7 @@ Receive_Kind :: enum u8 {
 // Example: `call, status := open_call(*channel, method, options); defer close(*call);`.
 open_call :: (channel: *Channel, method: Method, options := Call_Options.{}) -> Call, Status {
     if channel.active_calls >= channel.max_active_calls return .{}, .{ code = .RESOURCE_EXHAUSTED, cause = .LIMIT };
-    if options.max_message < 0 || options.max_metadata < 0 return .{}, .{ code = .INVALID_ARGUMENT, cause = .LIMIT };
+    if options.max_message < 0 || options.max_wire_message < 0 || options.max_metadata < 0 return .{}, .{ code = .INVALID_ARGUMENT, cause = .LIMIT };
 
     remaining := rpc_remaining(options.deadline_ms);
     if remaining == 0 return .{}, .{ code = .DEADLINE_EXCEEDED, cause = .DEADLINE };
@@ -54,7 +61,8 @@ open_call :: (channel: *Channel, method: Method, options := Call_Options.{}) -> 
     fields.allocator = temp;
     array_add(*fields, .{ name = "content-type", value = "application/grpc+proto" });
     array_add(*fields, .{ name = "te", value = "trailers" });
-    array_add(*fields, .{ name = "grpc-accept-encoding", value = "identity" });
+    array_add(*fields, .{ name = "grpc-accept-encoding", value = "identity,gzip" });
+    if options.compression == .GZIP array_add(*fields, .{ name = "grpc-encoding", value = "gzip" });
     if remaining > 0 array_add(*fields, .{ name = "grpc-timeout", value = encode_timeout(remaining) });
     for metadata array_add(*fields, it);
 
@@ -85,6 +93,7 @@ open_call :: (channel: *Channel, method: Method, options := Call_Options.{}) -> 
     state.options = options;
     state.options.metadata = .[];
     state.decoder.max_message = options.max_message;
+    state.decoder.max_wire_message = options.max_wire_message;
     state.client = true;
 
     return .{ state }, .{};
@@ -93,7 +102,7 @@ open_call :: (channel: *Channel, method: Method, options := Call_Options.{}) -> 
 // Sends an owned-by-caller encoded Protobuf message. Framing owns a temporary
 // copy only until this operation returns. One sender may coexist with one receiver.
 // Example: `status := send_bytes(*call, encoded); defer free_status(*status);`.
-send_bytes :: (call: *Call, message: [] u8) -> Status {
+send_bytes :: (call: *Call, message: [] u8, options := Send_Options.{}) -> Status {
     state := cast(*Call_State) call.state;
     if !state return .{ code = .CANCELLED, cause = .CANCELLED };
     if state.terminal return clone_status(state.status);
@@ -105,7 +114,7 @@ send_bytes :: (call: *Call, message: [] u8) -> Status {
     streaming := ifx state.client then state.method.client_streaming else state.method.server_streaming;
     if state.sent > 0 && !streaming return rpc_fail(state, .INTERNAL, .PROTOCOL);
 
-    bytes, failure := frame_message(message, state.options.max_message);
+    bytes, failure := frame_message(message, state.options.max_message, ifx options.compress then state.options.compression else Compression.IDENTITY, state.options.max_wire_message);
     if failure != .NONE return rpc_fail(state, .RESOURCE_EXHAUSTED, .LIMIT);
 
     defer free(bytes.data);
@@ -131,7 +140,7 @@ send_bytes :: (call: *Call, message: [] u8) -> Status {
 
 // Encodes a generated Protobuf value and sends it through the shared framing path.
 // Example: `status := send(*call, request); defer free_status(*status);`.
-send :: (call: *Call, message: $T) -> Status {
+send :: (call: *Call, message: $T, options := Send_Options.{}) -> Status {
     state := cast(*Call_State) call.state;
     if !state return .{ code = .CANCELLED, cause = .CANCELLED };
     if Proto.size(message) > state.options.max_message return rpc_fail(state, .RESOURCE_EXHAUSTED, .LIMIT);
@@ -144,7 +153,7 @@ send :: (call: *Call, message: $T) -> Status {
 
     defer free(bytes.data);
 
-    return send_bytes(call, bytes);
+    return send_bytes(call, bytes, options);
 }
 
 // Half-closes the client's sending direction. No automatic retry occurs.
@@ -222,6 +231,7 @@ receive_bytes :: (call: *Call) -> message: [] u8, kind: Receive_Kind {
             if state.decoder.ready {
                 bytes := take_message(*state.decoder);
 
+                state.last_compressed = state.decoder.compressed;
                 state.received += 1;
                 streaming := ifx state.client then state.method.server_streaming else state.method.client_streaming;
                 if state.received > 1 && !streaming {
@@ -310,6 +320,14 @@ receive :: (call: *Call, $T: Type) -> value: T, kind: Receive_Kind {
     }
 
     return value, .MESSAGE;
+}
+
+// Whether the last MESSAGE received used the negotiated compressed envelope.
+// This describes wire compression, independently of the decoded Protobuf value.
+// Example: `assert(received_compressed(*call));`.
+received_compressed :: (call: *Call) -> bool {
+    state := cast(*Call_State) call.state;
+    return state && state.last_compressed;
 }
 
 // Waits for final status, discarding unread messages one at a time. Returns an
@@ -426,6 +444,8 @@ Call_State :: struct {
     received: int;
     send_closed: bool;
     read_closed: bool;
+    last_compressed: bool;
+    peer: Io.Address;
 }
 
 rpc_remaining :: (deadline: s64) -> s64 {
@@ -546,12 +566,17 @@ rpc_receive_head :: (state: *Call_State, remaining: s64) -> bool {
 
     if content_types != 1 state.invalid_media = true;
 
-    for fields {
-        if it.name == "grpc-encoding" && it.value != "identity" {
+    encodings := 0;
+
+    for fields if it.name == "grpc-encoding" {
+        encodings += 1;
+        if encodings > 1 || (it.value != "identity" && it.value != "gzip") {
             discard := rpc_fail(state, .UNIMPLEMENTED, .PROTOCOL);
             free_status(*discard);
             return false;
         }
+
+        if it.value == "gzip" state.decoder.compression = .GZIP;
     }
 
     for fields if it.name == "grpc-status" state.trailers_only = true;

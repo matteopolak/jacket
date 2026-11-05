@@ -55,3 +55,42 @@ fuzz_grpc_metadata :: (r: *Rng) {
     assert(decoded && metadata.count == 2);
     assert(metadata[0].value == input && metadata[1].value == input);
 }
+
+// Negotiated gzip survives arbitrary fragmentation; corrupt member lengths never
+// expose a partial message, and compressed/decompressed storage stays bounded.
+fuzz_grpc_gzip :: (r: *Rng) {
+    input := gen(r, string);
+    framed, error := Target.frame_message(.{ input.count, input.data }, compression = .GZIP);
+
+    assert(error == .NONE);
+    defer free(framed.data);
+    decoder: Target.Envelope_Decoder;
+    decoder.compression = .GZIP;
+    decoder.max_message = input.count;
+    decoder.max_wire_message = framed.count - 5;
+    defer Target.free_decoder(*decoder);
+    at := 0;
+    while at < framed.count {
+        count := min(framed.count - at, 1 + cast(int) (gen(r, u8) % 17));
+        used, failure := Target.feed_envelope(*decoder, .{ count, framed.data + at });
+
+        assert(failure == .NONE && used == count);
+        at += used;
+        assert(decoder.payload.allocated <= max(input.count, framed.count - 5));
+    }
+
+    assert(decoder.ready && decoder.compressed);
+    bytes := Target.take_message(*decoder);
+
+    defer if bytes.data free(bytes.data);
+    assert(string.{ bytes.count, bytes.data } == input);
+    framed[framed.count - 1] ^= 0x80;
+    broken: Target.Envelope_Decoder;
+    broken.compression = .GZIP;
+    broken.max_message = input.count;
+    broken.max_wire_message = framed.count - 5;
+    defer Target.free_decoder(*broken);
+    _, failure := Target.feed_envelope(*broken, framed);
+
+    assert(failure == .INVALID_COMPRESSION && !broken.ready);
+}

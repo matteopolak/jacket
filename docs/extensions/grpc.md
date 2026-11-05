@@ -1,6 +1,6 @@
 # gRPC
 
-`Extensions/Grpc` provides TLS HTTP/2 client and server RPCs, identity message
+`Extensions/Grpc` provides TLS HTTP/2 client and server RPCs, identity and bounded gzip message
 framing, metadata, canonical status and owned Protobuf message helpers. Unary,
 server-streaming, client-streaming and bidirectional methods use one call lifecycle.
 `Extensions/Protobuf/Schema` can generate typed adapters with `GRPC = true`.
@@ -43,6 +43,29 @@ separate fibers for simultaneous large sends and receives, and join them before
 closing the call. Multiple concurrent readers or writers are rejected. Applications
 that send indefinitely without reading can deadlock against a peer doing the same.
 Cross-thread use is unsupported.
+
+## Compression and initial response metadata
+
+Set `Call_Options.compression = .GZIP` for outgoing compressed messages. Clients
+advertise `identity,gzip`; a server configured for gzip falls back to identity
+when its peer does not advertise gzip. Each `send` or `send_bytes` accepts
+`Send_Options.{compress = false}` to send an uncompressed envelope on the same
+call. Generated context send methods expose the same option.
+`received_compressed` reports the wire flag of the last received MESSAGE.
+
+The encoded and decompressed bounds apply separately. Gzip is decoded as a complete
+payload: all concatenated members and checksums must validate, trailing garbage
+is rejected, and the aggregate decompressed limit prevents expansion beyond the
+configured message bound. Compression temporarily owns bounded encoded and decoded
+buffers; it does not collect a stream.
+
+Server handlers may call `set_initial_metadata(call, entries)` before their first
+send to replace application response metadata. Generated server contexts expose
+the same operation. Entries are copied, so their source can be released immediately.
+The first send or handler completion commits initial HEADERS. Invalid metadata
+leaves the previous block intact; attempts after commitment return
+FAILED_PRECONDITION without cancelling the call. This lets a handler select
+metadata from its request while preserving one sender and independent receiver.
 
 ## Generated services
 
@@ -116,7 +139,9 @@ explicit `not_processed` claim, without authorizing replay.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `Call_Options.max_message` | 4 MiB | Per encoded/decoded message |
+| `Call_Options.max_message` | 4 MiB | Per uncompressed Protobuf message |
+| `Call_Options.max_wire_message` | 4 MiB | Per encoded envelope payload, checked before allocation |
+| `Call_Options.compression` | IDENTITY | Outgoing algorithm; GZIP permits per-message identity overrides |
 | `Call_Options.max_metadata` | 64 KiB | Each initial or terminal metadata block |
 | `Channel.max_active_calls` | 128 | Admission fails RESOURCE_EXHAUSTED at the limit |
 | `channel.transport.max_connections` | 8 | Bounded connection scope; must be positive |
@@ -129,7 +154,7 @@ sending temporarily owns the encoded message and its envelope. HTTP/2 backpressu
 counts queued and writer-owned bytes, with one frame/header block able to cross the
 queue threshold. Application-held messages and metadata are outside these limits.
 
-Only identity compression and the Protobuf codec are supported. Reflection, health
+Identity and gzip compression use the Protobuf codec. Other compression algorithms are rejected. Reflection, health
 services, interceptors, automatic credentials, balancing, retries/hedging,
 transcoding and gRPC-Web are outside this API. Portable framing/status/metadata
 codecs work without the native call API. Native RPC transport uses the existing
@@ -152,7 +177,7 @@ Run the module tests through `jacket test` and the [independent peer matrix](../
 Framing/metadata fuzz properties live in `tools/fuzz/properties/Grpc.jai`. The module
 is automatically discovered by Jacket and is also listed in
 `tests/compiler/optimized-modules.txt` for the optimized sanitizer sweep. Dependencies
-are Basic, String, Base64, Protobuf and Http codecs; native transport additionally
+are Basic, String, Base64, Deflate, Protobuf and Http codecs; native transport additionally
 uses Http, Tls, Io and the pinned MbedTLS native archive (plus platform trust
 libraries where needed). Independent grpcio/protoc packages
 are test dependencies only.
@@ -178,3 +203,6 @@ Connection admission includes in-progress connections and peer-ended connections
 until their writer and TLS teardown finishes. A second call to the same connecting
 origin waits for and shares that attempt; another resource scope is rejected at the
 configured channel connection limit.
+
+See the [feature/coverage comparison](../tools/grpc-comparison.md) for pinned peers,
+tested versus documented capabilities and performance measurement boundaries.

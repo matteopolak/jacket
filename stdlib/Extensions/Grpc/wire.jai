@@ -1,9 +1,16 @@
+// Per-message compression uses the algorithm negotiated by grpc-encoding.
+Compression :: enum u8 {
+    IDENTITY;
+    GZIP;
+}
+
 // Envelope validation failures. Declared-size rejection precedes payload allocation.
 Wire_Error :: enum u8 {
     NONE;
     TOO_LARGE;
     INVALID_FLAG;
     UNSUPPORTED_COMPRESSION;
+    INVALID_COMPRESSION;
     TRUNCATED;
 }
 
@@ -11,6 +18,9 @@ Wire_Error :: enum u8 {
 // transferred with `take_message`; release an abandoned decoder with `free_decoder`.
 Envelope_Decoder :: struct {
     max_message := 4 * 1024 * 1024;
+    max_wire_message := 4 * 1024 * 1024;
+    compression: Compression;
+    compressed: bool;
     ready: bool;
     failure: Wire_Error;
     prefix: [5] u8;
@@ -19,20 +29,32 @@ Envelope_Decoder :: struct {
     payload: [..] u8;
 }
 
-// Encodes an identity envelope into caller-owned memory, freed with `free(bytes.data)`.
+// Encodes an envelope into caller-owned memory, freed with `free(bytes.data)`.
 //
 // ```jai
 // bytes, failure := frame_message(u8.[1, 2]);
 // assert(failure == .NONE && bytes.count == 7);
 // free(bytes.data);
 // ```
-frame_message :: (message: [] u8, max_message := 4 * 1024 * 1024) -> [] u8, Wire_Error {
+frame_message :: (message: [] u8, max_message := 4 * 1024 * 1024, compression := Compression.IDENTITY, max_wire_message := 4 * 1024 * 1024) -> [] u8, Wire_Error {
     if message.count < 0 || message.count > max_message || message.count > 0xffffffff return .[], .TOO_LARGE;
 
-    out := NewArray(message.count + 5, u8);
-    out[0] = 0;
-    for i: 0..3 out[i + 1] = cast(u8) ((cast(u64) message.count >> ((3 - i) * 8)) & 255);
-    if message.count > 0 memcpy(out.data + 5, message.data, message.count);
+    packed: [] u8;
+
+    defer if packed.data free(packed.data);
+    payload := message;
+
+    if compression == .GZIP {
+        packed = Deflate.deflate(message, .GZIP);
+        payload = packed;
+    }
+
+    if payload.count > max_wire_message || payload.count > 0xffffffff return .[], .TOO_LARGE;
+
+    out := NewArray(payload.count + 5, u8);
+    out[0] = ifx compression == .GZIP then 1 else 0;
+    for i: 0..3 out[i + 1] = cast(u8) ((cast(u64) payload.count >> ((3 - i) * 8)) & 255);
+    if payload.count > 0 memcpy(out.data + 5, payload.data, payload.count);
 
     return out, .NONE;
 }
@@ -61,7 +83,7 @@ feed_envelope :: (decoder: *Envelope_Decoder, bytes: [] u8) -> used: int, failur
     if decoder.prefix_used < 5 return at, .NONE;
 
     flag := decoder.prefix[0];
-    if flag != 0 {
+    if flag > 1 || (flag == 1 && decoder.compression == .IDENTITY) {
         decoder.failure = ifx flag == 1 then Wire_Error.UNSUPPORTED_COMPRESSION else Wire_Error.INVALID_FLAG;
         return at, decoder.failure;
     }
@@ -69,7 +91,7 @@ feed_envelope :: (decoder: *Envelope_Decoder, bytes: [] u8) -> used: int, failur
     length: s64;
     for i: 1..4 length = (length << 8) | cast(s64) decoder.prefix[i];
 
-    if length > decoder.max_message || decoder.max_message < 0 {
+    if length > decoder.max_wire_message || decoder.max_wire_message < 0 || decoder.max_message < 0 || (flag == 0 && length > decoder.max_message) {
         decoder.failure = .TOO_LARGE;
         return at, decoder.failure;
     }
@@ -84,6 +106,22 @@ feed_envelope :: (decoder: *Envelope_Decoder, bytes: [] u8) -> used: int, failur
     }
 
     decoder.ready = decoder.payload.count == length;
+    decoder.compressed = flag == 1;
+    if decoder.ready && decoder.compressed {
+        decoded, ok, error := Deflate.inflate_complete(decoder.payload, .GZIP, decoder.max_message);
+        if !ok {
+            decoder.ready = false;
+            decoder.failure = ifx error == "output exceeds the limit" then Wire_Error.TOO_LARGE else Wire_Error.INVALID_COMPRESSION;
+            return at, decoder.failure;
+        }
+
+        defer free(decoded.data);
+        decoder.payload.count = 0;
+        array_reserve(*decoder.payload, decoded.count);
+        if decoded.count memcpy(decoder.payload.data, decoded.data, decoded.count);
+
+        decoder.payload.count = decoded.count;
+    }
 
     return at, .NONE;
 }

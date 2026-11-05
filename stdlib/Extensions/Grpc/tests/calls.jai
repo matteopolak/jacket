@@ -13,13 +13,18 @@ load :: (name: string) -> string {
 METHOD :: G.Method.{ path = "/fixture.Echo/Bidi", client_streaming = true, server_streaming = true };
 
 handle_rpc :: (call: *G.Call, data: *void) -> G.Status {
+    for G.initial_metadata(call) if it.name == "x-request" {
+        status := G.set_initial_metadata(call, G.Metadata_Entry.[.{ "x-echo", it.value }]);
+        assert(status.code == .OK);
+    }
+
     while true {
         message, kind := G.receive_bytes(call);
         if kind == .END break;
         if kind == .ERROR return .{ code = .INTERNAL };
 
         defer if message.data free(message.data);
-        status := G.send_bytes(call, message);
+        status := G.send_bytes(call, message, .{ compress = G.received_compressed(call) });
         if status.code != .OK return status;
     }
 
@@ -27,7 +32,7 @@ handle_rpc :: (call: *G.Call, data: *void) -> G.Status {
 }
 
 handler :: (request: *Request) -> Response {
-    return G.serve_call(request, METHOD, handle_rpc, null);
+    return G.serve_call(request, METHOD, handle_rpc, null, .{ compression = .GZIP });
 }
 
 exercise :: (base: string, server: *Server) {
@@ -40,32 +45,40 @@ exercise :: (base: string, server: *Server) {
     channel.transport.base_url = base;
     channel.transport.tls = *config;
     defer G.close_channel(*channel);
-    call, status := G.open_call(*channel, METHOD);
 
-    assert(status.code == .OK);
-    defer G.close(*call);
+    for compression: G.Compression.[.IDENTITY, .GZIP] {
+        call, status := G.open_call(*channel, METHOD, .{ deadline_ms = to_milliseconds(current_time_monotonic()) + 5000, compression = compression, metadata = G.Metadata_Entry.[.{ "x-request", "dynamic" }] });
 
-    for value: string.["hello", "", "world"] {
-        sent := G.send_bytes(*call, bytes_of(value));
+        assert(status.code == .OK);
+        defer G.close(*call);
 
-        assert(sent.code == .OK);
-        message, kind := G.receive_bytes(*call);
+        for value: string.["hello", "", "world"] {
+            sent := G.send_bytes(*call, bytes_of(value), .{ compress = it_index != 1 });
 
-        assert(kind == .MESSAGE && string.{ message.count, message.data } == value);
-        if message.data free(message.data);
+            assert(sent.code == .OK);
+            message, kind := G.receive_bytes(*call);
+
+            assert(kind == .MESSAGE && string.{ message.count, message.data } == value);
+            echoed := false;
+            for G.initial_metadata(*call) if it.name == "x-echo" && it.value == "dynamic" echoed = true;
+
+            assert(echoed);
+            assert(G.received_compressed(*call) == (compression == .GZIP && it_index != 1));
+            if message.data free(message.data);
+        }
+
+        half := G.close_send(*call);
+
+        assert(half.code == .OK);
+        final := G.finish(*call);
+
+        defer G.free_status(*final);
+        assert(final.code == .OK);
+        again := G.finish(*call);
+
+        defer G.free_status(*again);
+        assert(again.code == .OK);
     }
-
-    half := G.close_send(*call);
-
-    assert(half.code == .OK);
-    final := G.finish(*call);
-
-    defer G.free_status(*final);
-    assert(final.code == .OK);
-    again := G.finish(*call);
-
-    defer G.free_status(*again);
-    assert(again.code == .OK);
 }
 
 app: App;

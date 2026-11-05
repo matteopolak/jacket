@@ -120,9 +120,8 @@ exercise :: (base: string, server: *Server) {
 
         assert(opened.kind == .NONE);
         Io.with_deadline(1000, #code {
-            _, _, head_error := exchange_head(*exchange);
-
-            assert(head_error.kind == .NONE);
+            // Response fields stay deferred while the handler has not sent.
+            // The explicit handler gate establishes the cancellation ordering.
             while !probe.entered assert(Io.wait(*probe.changed) == .NONE);
             if canceled exchange_cancel(*exchange);
 
@@ -130,6 +129,9 @@ exercise :: (base: string, server: *Server) {
             assert(probe.error == ifx canceled then Io.Io_Error.CANCELED else Io.Io_Error.TIMED_OUT);
 
             if !canceled {
+                _, _, head_error := exchange_head(*exchange);
+
+                assert(head_error.kind == .NONE);
                 buffer: [1] u8;
                 count, read_error := exchange_read(*exchange, buffer);
 
@@ -152,9 +154,7 @@ exercise :: (base: string, server: *Server) {
     exchange, opened := open_http2_exchange(*channel, METHOD.path, Header_Field.[.{ name = "content-type", value = "application/grpc+proto" }]);
 
     assert(opened.kind == .NONE);
-    _, _, head_error := exchange_head(*exchange);
-
-    assert(head_error.kind == .NONE);
+    // Shutdown must join a handler even before deferred headers are committed.
     while !probe.entered Io.wait(*probe.changed);
 
     stop(server);

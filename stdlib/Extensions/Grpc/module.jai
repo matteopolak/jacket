@@ -1,4 +1,4 @@
-// gRPC identity message framing, metadata and canonical status codecs, plus
+// gRPC identity/gzip message framing, metadata and canonical status codecs, plus
 // native TLS HTTP/2 client/server calls with typed Protobuf message helpers.
 
 #load "wire.jai";
@@ -15,6 +15,7 @@
 #import "String";
 Base64 :: #import "Base64";
 Http :: #import "Extensions/Http";
+Deflate :: #import "Extensions/Deflate";
 Proto :: #import "Extensions/Protobuf";
 
 #if OS != .WASM {

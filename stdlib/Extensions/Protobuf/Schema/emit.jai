@@ -7,7 +7,7 @@ proto_emit_schema :: (s: *proto_Schema, b: *String_Builder) {
     if s.options.map == .TABLE append(b, "proto_m :: #import \"Hash_Table\";\n");
     if s.options.map == .CUSTOM proto_emit(b, "proto_m :: #import \"%\";\n", s.options.map_module);
 
-    if s.options.grpc append(b, "#assert OS != .WASM \"generated gRPC services require native Io\";\nproto_g :: #import \"Extensions/Grpc\";\nproto_h :: #import \"Extensions/Http\";\n");
+    if s.options.grpc append(b, "#assert OS != .WASM \"generated gRPC services require native Io\";\nproto_g :: #import \"Extensions/Grpc\";\nproto_h :: #import \"Extensions/Http\";\nproto_i :: #import \"Extensions/Io\";\n");
 
     append(b, "#scope_export\n");
     proto_emit_packages(s, b);
@@ -808,11 +808,17 @@ proto_emit_service :: (_s: *proto_Schema, b: *String_Builder, service: *proto_Se
             call_arg := ifx client then "*self.call" else "self.call";
 
             proto_emit(b, "%_% :: struct { call: %proto_g.Call;\n", name, suffix, pointer);
-            proto_emit(b, "send :: (self: *%_%, value: %) -> proto_g.Status { return proto_g.send(%, value); }\n", name, suffix, input, call_arg);
+            proto_emit(b, "send :: (self: *%_%, value: %, options := proto_g.Send_Options.{}) -> proto_g.Status { return proto_g.send(%, value, options); }\n", name, suffix, input, call_arg);
             proto_emit(b, "receive :: (self: *%_%) -> %, proto_g.Receive_Kind { return proto_g.receive(%, %); }\n", name, suffix, output, call_arg, output);
             proto_emit(b, "cancelled :: (self: *%_%) -> bool { return proto_g.cancelled(%); }\n", name, suffix, call_arg);
             proto_emit(b, "deadline :: (self: *%_%) -> s64 { return proto_g.call_deadline(%); }\n", name, suffix, call_arg);
             proto_emit(b, "metadata :: (self: *%_%) -> [] proto_g.Metadata_Entry { return proto_g.initial_metadata(%); }\n", name, suffix, call_arg);
+
+            proto_emit(b, "received_compressed :: (self: *%_%) -> bool { return proto_g.received_compressed(%); }\n", name, suffix, call_arg);
+
+            if !client proto_emit(b, "peer_address :: (self: *%_%) -> proto_i.Address { return proto_g.peer_address(%); }\n", name, suffix, call_arg);
+
+            if !client proto_emit(b, "set_initial_metadata :: (self: *%_%, entries: [] proto_g.Metadata_Entry) -> proto_g.Status { return proto_g.set_initial_metadata(%, entries); }\n", name, suffix, call_arg);
 
             if client {
                 proto_emit(b, "close_send :: (self: *%_%) -> proto_g.Status { return proto_g.close_send(%); }\n", name, suffix, call_arg);

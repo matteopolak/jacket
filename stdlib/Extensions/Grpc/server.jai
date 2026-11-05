@@ -3,7 +3,7 @@
 // serve_call returns after encoding it.
 Call_Handler :: #type (call: *Call, data: *void) -> Status;
 
-// Adapts a typed/generated route to the common RPC lifecycle. Identity Protobuf
+// Adapts a typed/generated route to the common RPC lifecycle. Identity/gzip Protobuf
 // transport is accepted; malformed media types use HTTP 415, and unsupported
 // compression receives UNIMPLEMENTED. The handler's state belongs to its caller.
 // Example: `return serve_call(request, method, handler, *service_state);`.
@@ -12,6 +12,10 @@ serve_call :: (request: *Http.Request, method: Method, handler: Call_Handler, da
     if request.method != .POST || !protobuf_content_type(content_type) return Http.status_only(415);
 
     settings := options;
+    accepted, _ := Http.header(request, "grpc-accept-encoding");
+
+    if settings.compression == .GZIP && !accepts_gzip(accepted) settings.compression = .IDENTITY;
+
     timeout, has_timeout := Http.header(request, "grpc-timeout");
 
     if has_timeout {
@@ -24,31 +28,39 @@ serve_call :: (request: *Http.Request, method: Method, handler: Call_Handler, da
     initial: [..] Http.Header_Field;
     initial.allocator = temp;
     array_add(*initial, .{ name = "content-type", value = "application/grpc+proto" });
-    array_add(*initial, .{ name = "grpc-accept-encoding", value = "identity" });
+    array_add(*initial, .{ name = "grpc-accept-encoding", value = "identity,gzip" });
+    if settings.compression == .GZIP array_add(*initial, .{ name = "grpc-encoding", value = "gzip" });
+
+    base_count := initial.count;
     configured, initial_valid := encode_metadata(settings.metadata, settings.max_metadata);
+
     if initial_valid for configured array_add(*initial, it);
 
     if !metadata_headers_fit(initial, settings.max_metadata) {
         initial_valid = false;
-        initial.count = 2;
+        initial.count = base_count;
     }
 
-    exchange, ok := Http.accept_http2_exchange(request, initial);
+    exchange, ok := Http.accept_http2_exchange(request, initial, defer_headers = true);
     if !ok return Http.status_only(505);
 
     state := New(Call_State);
     state.exchange = exchange;
     state.method = method;
     state.options = settings;
+    state.peer = request.peer;
     state.decoder.max_message = settings.max_message;
+    state.decoder.max_wire_message = settings.max_wire_message;
     call := Call.{ state };
 
     defer close(*call);
     status: Status;
     encoding, has_encoding := Http.header(request, "grpc-encoding");
 
+    if has_encoding && encoding == "gzip" state.decoder.compression = .GZIP;
+
     if !initial_valid status.code = .INTERNAL;
-    else if has_encoding && encoding != "identity" status.code = .UNIMPLEMENTED;
+    else if has_encoding && encoding != "identity" && encoding != "gzip" status.code = .UNIMPLEMENTED;
     else if rpc_remaining(settings.deadline_ms) == 0 status.code = .DEADLINE_EXCEEDED;
     else {
         metadata, metadata_error := metadata_decode(request.headers, settings.max_metadata);
@@ -123,6 +135,39 @@ serve_call :: (request: *Http.Request, method: Method, handler: Call_Handler, da
     return Http.status_only(200);
 }
 
+// The server's observed remote socket address, copied by value. A client call or
+// cleared handle returns an unspecified address; this does not identify a user.
+// Example: `text := Io.address_to_string(peer_address(call));`.
+peer_address :: (call: *Call) -> Io.Address {
+    state := cast(*Call_State) call.state;
+    if !state || state.client return .{};
+    return state.peer;
+}
+
+// Replaces application response metadata before the first send or handler return.
+// Entries are copied by the exchange; the caller may immediately release them.
+// Invalid metadata leaves the previous block intact. Client calls and committed
+// response headers return FAILED_PRECONDITION without cancelling the RPC.
+// Example: `status := set_initial_metadata(call, Metadata_Entry.[.{"x-id", "123"}]);`.
+set_initial_metadata :: (call: *Call, entries: [] Metadata_Entry) -> Status {
+    state := cast(*Call_State) call.state;
+    if !state || state.client || state.terminal || state.sending return .{ code = .FAILED_PRECONDITION };
+
+    metadata, error := metadata_encode(entries, state.options.max_metadata);
+    if error != .NONE return .{ code = ifx error == .LIMIT then Status_Code.RESOURCE_EXHAUSTED else Status_Code.INVALID_ARGUMENT };
+
+    fields: [..] Http.Header_Field;
+    fields.allocator = temp;
+    array_add(*fields, .{ name = "content-type", value = "application/grpc+proto" });
+    array_add(*fields, .{ name = "grpc-accept-encoding", value = "identity,gzip" });
+    if state.options.compression == .GZIP array_add(*fields, .{ name = "grpc-encoding", value = "gzip" });
+    for metadata array_add(*fields, it);
+    if !metadata_headers_fit(fields, state.options.max_metadata) return .{ code = .RESOURCE_EXHAUSTED };
+    if !Http.exchange_response_headers(*state.exchange, fields) return .{ code = .FAILED_PRECONDITION };
+
+    return .{};
+}
+
 #scope_module
 encode_status_message :: (message: string, limit: s64) -> string, bool {
     if message.count > limit return "", false;
@@ -151,4 +196,24 @@ encode_status_message :: (message: string, limit: s64) -> string, bool {
     }
 
     return builder_to_string(*builder,, temp), true;
+}
+
+// Compression names are comma-separated tokens; surrounding HTTP whitespace is optional.
+accepts_gzip :: (value: string) -> bool {
+    start := 0;
+
+    for end: 0..value.count {
+        if end < value.count && value[end] != #char "," continue;
+
+        first := start;
+        last := end;
+
+        while first < last && (value[first] == #char " " || value[first] == #char "\t") first += 1;
+        while last > first && (value[last - 1] == #char " " || value[last - 1] == #char "\t") last -= 1;
+        if slice(value, first, last - first) == "gzip" return true;
+
+        start = end + 1;
+    }
+
+    return false;
 }

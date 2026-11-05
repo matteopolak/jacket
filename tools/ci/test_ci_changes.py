@@ -41,6 +41,7 @@ class RealWorkflow(unittest.TestCase):
             "stdlib/Extensions/Protobuf/Schema/emit.jai",
             "stdlib/Extensions/Tls/stream.jai",
             "stdlib/Extensions/Io/sync.jai",
+            "stdlib/Extensions/Deflate/stream.jai",
             "tools/grpc/fixtures/echo.proto",
             "tools/grpc/fixtures/typed-client.jai",
             "tools/grpc/peer.py",
@@ -51,6 +52,11 @@ class RealWorkflow(unittest.TestCase):
         ]:
             with self.subTest(path=path):
                 self.assertTrue(selects("grpc", path))
+
+    def test_grpc_shared_module_triggers_are_explicit(self):
+        for module in ("Http", "Grpc", "Protobuf", "Tls", "Io", "Deflate"):
+            with self.subTest(module=module):
+                self.assertIn(f"stdlib/Extensions/{module}/**", job_inputs.EXTRA["grpc-interop"])
 
     def test_checkout_attributes_select_all_actual_consuming_areas(self):
         # Matching must not depend on whether a new/deleted nested policy is in Repo.files.
