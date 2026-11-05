@@ -78,3 +78,11 @@ Programs using `Thread` run on a cooperative scheduler, chosen by `Host::coopera
 ## Dependencies
 
 `ir`, `build.rs`, the platform's dynamic loader, `stdlib/Thread/`, `stdlib/Atomics.jai`. Tests: `tests/compiler/regressions/threads-*.jai`, `tests/compiler/native/fibers/`, `crates/jaic-cli/tests/{cli,native}.rs`.
+
+## Portable Windows file paths
+
+The shared Win32 call layer resolves paths in `interp/windows.rs` before invoking its filesystem backend. Drive-qualified paths keep their drive, rooted paths use the current drive or share, and ordinary relative paths use the backend's current directory. The resolver normalizes separators in both the argument and current directory, then normalizes only the suffix so `..` cannot remove a drive or share root. Existing POSIX virtual paths such as `/tmp/file` remain usable with a POSIX virtual current directory.
+
+The backend supplies one current directory. A drive-relative path such as `C:flag.txt` can use that directory only when it is on drive C; another drive's unknown current directory returns `ERROR_NOT_SUPPORTED`. Malformed UNC paths and empty names fail explicitly. Plain-convertible verbatim paths use `paths::native_spelling`; device namespaces and verbatim names that cannot preserve their meaning in plain form are unsupported. This is a portable interpreter subset, not complete Win32 device-name or trailing-dot emulation. The drive and current-directory distinction follows Microsoft's [path naming contract](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file) and [GetFullPathNameW](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfullpathnamew).
+
+Extend the Windows resolver and its host-independent path tests together. File-call regressions belong in `interp/sandbox/tests.rs` and must verify actual `CreateFileW`/`ReadFile` results, plus each API's failure sentinel and `GetLastError`. Keep POSIX path resolution separate. There is no configuration switch; the selected backend supplies the current directory and filesystem access.
