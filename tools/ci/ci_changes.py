@@ -104,7 +104,8 @@ def test_matrix(full):
     target tests (NOT_WASM), the policy tests and Jai format check (the `jai` leg) and the native
     tests built in four parts (`split`, on Linux arm64 only). A macOS host runs two jobs: `rust`
     (the whole test suite, formatted and linted once) and `checks` (the stdlib target checks, the
-    Jai lint and the backend agreement, which share one debug build of jaic)."""
+    Jai lint and the backend agreement, which share one debug build of jaic). Full Intel
+    shares target checks and docs through `targets_part`, independently of native Rust's `shard`."""
     legs = [leg(X64, "rust", s) for s in shards(6)]
     legs += [leg(X64, "targets", s) for s in shards(3)]
     parts = ("jai", "lint", "portability", "lint-windows", "lint-macos", "diff")
@@ -116,10 +117,12 @@ def test_matrix(full):
     legs += [leg(ARM, "rust", s, expr=NOT_WASM) for s in shards(3)]
     legs += [leg(ARM, part) for part in ("targets", "lint", "diff", "split")]
     for host in (MAC, INTEL):
-        legs.append(leg(host, "rust", expr=NOT_WASM, timeout=MACOS_TIMEOUT))
-        legs.append(
-            leg(host, "checks", parts="targets,lint,diff", timeout=MACOS_TIMEOUT)
-        )
+        rust = leg(host, "rust", expr=NOT_WASM, timeout=MACOS_TIMEOUT)
+        checks = leg(host, "checks", parts="targets,lint,diff", timeout=MACOS_TIMEOUT)
+        if host == INTEL:
+            rust.update(parts=",rust,targets,", targets_part="2/2")
+            checks["targets_part"] = "1/2"
+        legs.extend([rust, checks])
     return legs
 
 

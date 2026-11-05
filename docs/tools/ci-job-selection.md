@@ -21,6 +21,14 @@ Hand-written policy in `ci_changes.py`:
 | `OWN_PATHS_ONLY` | `sdl3` does not run for a workflow edit. |
 | `PROSE`, `READ_BY_TESTS` | Docs-only changes skip the code jobs, except docs a test reads. |
 
+## Compiler target work
+
+Full-tier Intel macOS divides the stdlib module/target checks and cross-OS documentation checks between its existing `rust` and `checks` jobs. The jobs use `targets_part=2/2` and `1/2` respectively. This distributes a large aggregate check without changing nextest's per-test limits, job budgets or case inventory. Objective-C selectors run only in the first target share.
+
+`matrix.shard` still selects the complete native Rust suite on each full-tier Mac Rust job. The target steps use `matrix.targets_part` when present, otherwise `matrix.shard`; fast Mac, ARM Mac and Linux keep their existing assignments. When changing the matrix, update both target-step environment values together and keep a complete, disjoint set of shares per platform. `test_ci_changes.py` checks those shares and guards against accidentally splitting native Rust coverage.
+
+The owning Rust test emits reserved `STDLIB_TARGET_INVENTORY` JSON records for the canonical full and assigned pair lists, returned compiler processes, and a final marker after its existing expectation assertions. A compiler exit failure can be expected for an unsupported target; completion alone does not prove verification. Successful nextest output is normally hidden; `NEXTEST_SUCCESS_OUTPUT=final` exposes these records without changing the test limit.
+
 ## Narrowing the stdlib tests
 
 The `stdlib-runtime` legs run `jacket test` over the whole standard library (`tools/ci/stdlib_jacket_test.sh`). When a pull request or a push to a branch other than `main` or `staging` changes only stdlib module sources (`stdlib/**.jai`) and golden outputs (`tests/**.stdout|stderr|exit`), at most 100 files, `ci_changes.py` writes them as the JSON `stdlib_changed` output. The leg passes it as `JACKET_TEST_CHANGED`, and `tools/ci/select_tests.py` asks `jacket test --list --changed FILE...` once which tests can be affected: the dependency graph is what `jaic -deps` says each test program read, so no module map is kept in CI. The leg then runs every platform mode (native, `--interp`, `-O2`, wasm) with those names as `--exact` filters; `--partition` splits the selection, so the legs stay balanced. If nothing is affected the step ends early.
