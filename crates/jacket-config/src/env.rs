@@ -293,6 +293,11 @@ vars! {
         default: "unset",
         summary: "Passes `-codegen_units N` to the native build tests, to run them split into several modules.",
     }
+    TEST_CHANGED {
+        name: "JACKET_TEST_CHANGED", group: Testing, readers: [Tests],
+        default: "unset: the full test catalogue",
+        summary: "A JSON list of changed paths for the CI test-selection helper (`tools/ci/select_tests.py`); narrows stdlib tests before partitioning.",
+    }
     STDLIB_TARGETS_PART {
         name: "JACKET_STDLIB_TARGETS_PART", group: Testing, readers: [Tests],
         default: "`1/1`",
