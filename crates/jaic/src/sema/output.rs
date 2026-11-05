@@ -13,6 +13,8 @@ pub type ConstAddrKey = (TypeId, Vec<u8>, Vec<ir::Reloc>);
 #[derive(Default)]
 
 pub struct Output {
+    /// Monotonic: facts replacement cannot authorize capture from erased or partial IR.
+    pub(crate) lowered_released: bool,
     pub program: Probed<ir::Program, { W::OutProgram as usize }>,
     pub(in crate::sema) registered_data_segments:
         Probed<HashMap<ir::GlobalId, u16>, { W::OutRegisteredDataSegments as usize }>,
@@ -58,6 +60,7 @@ impl Output {
     /// lowered so far (keeping their signatures) and the globals' initial contents (keeping
     /// their ids, sizes and names).
     pub(in crate::sema) fn release_lowered(&mut self) {
+        self.lowered_released = true;
         for func in self.program.funcs.iter_mut().flatten() {
             func.blocks = Vec::new();
             func.vals = Vec::new();

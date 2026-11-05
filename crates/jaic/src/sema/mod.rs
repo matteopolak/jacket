@@ -593,9 +593,21 @@ impl Compiler {
     /// answers from its facts once it is checked, and these are tens of MB for a large
     /// program. Code checked later may still lower, but no compile-time code runs again.
     pub fn release_lowered_code(&mut self) {
+        self.release_lowered_code_with_lifetime_execution(false);
+    }
+
+    /// Release executable code, retaining bounded execution topology for lifetime checks.
+    /// `complete` must describe this program's successful compile and audit, including its
+    /// required dependencies. Unknown or interrupted results pass `false`.
+    ///
+    /// ```ignore
+    /// compiler.release_lowered_code_with_lifetime_execution(compile_ok && audit_errors.is_empty());
+    /// ```
+    pub fn release_lowered_code_with_lifetime_execution(&mut self, complete: bool) {
         // Specialization identities may include constant images that are about to go away.
         self.ide_freeze_polymorphs();
         self.lifetime_release_globals();
+        self.lifetime_capture_execution(complete);
         self.out.release_lowered();
         self.ct.interp.release_code();
     }

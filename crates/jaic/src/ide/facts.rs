@@ -165,6 +165,9 @@ pub struct IdeFacts {
     pub lint: bool,
     /// Successful per-instantiation semantic CFGs; absent unless lint recording is on.
     pub lifetime_bodies: HashMap<ProcId, super::lifetimes::LifetimeBody>,
+    /// Optional bounded neutral topology; recording/clear invalidate its owned buffers.
+    pub(super) lifetime_execution:
+        std::cell::RefCell<Option<std::rc::Rc<super::execution::Snapshot>>>,
     /// Relocations of immutable globals referenced by selected lifetime bodies.
     pub lifetime_globals: HashMap<crate::ir::GlobalId, Vec<crate::ir::Reloc>>,
     /// Procedure-slot initializers retained before executable global data is released.
@@ -385,9 +388,15 @@ impl IdeFacts {
         self
     }
 
+    /// Remove the current execution owner; outstanding views can no longer authorize traversal.
+    pub(super) fn invalidate_execution(&mut self) {
+        self.lifetime_execution.get_mut().take();
+    }
+
     /// Release selected lifetime bodies and their file index together, retaining other facts.
     /// This also permits measuring their incremental retained allocation separately.
     pub fn clear_lifetimes(&mut self) {
+        self.invalidate_execution();
         self.lifetime_bodies = HashMap::default();
         self.lifetime_globals = HashMap::default();
         self.lifetime_procedure_globals = HashMap::default();

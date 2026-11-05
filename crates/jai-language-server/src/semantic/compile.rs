@@ -369,10 +369,14 @@ pub(super) fn compile(
     // state, which would otherwise outlive the compile by hundreds of MB.
     // Nothing runs the lowered bodies either: hovers and lints answer from the facts.
     compiler.release_build_state();
-    compiler.release_lowered_code();
+    compiler.release_lowered_code_with_lifetime_execution(
+        ran_to_the_end && !stopped && errors.is_empty(),
+    );
     for other in &mut others {
         other.compiler.release_build_state();
-        other.compiler.release_lowered_code();
+        other
+            .compiler
+            .release_lowered_code_with_lifetime_execution(other.complete && !stopped);
     }
     // Every interpreter on the host is closed: what compile-time code left allocated goes too.
     host.borrow_mut().release_memory();
