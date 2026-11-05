@@ -21,3 +21,30 @@ class ProcessTreeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RunOrderTests(unittest.TestCase):
+    def test_repetitions_alternate_variant_order_and_keep_grouped_receipts(self):
+        from pathlib import Path
+        import tempfile
+        from unittest.mock import patch
+        calls = []
+
+        def fake_measure(command, cwd, env, log, timeout):
+            calls.append(command[0])
+            return {'exit': 0, 'wallSeconds': 1, 'sampledTreePeakKiB': 1, 'memoryErrors': []}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            plan = {'schema': 'jacket-doc-benchmark/1', 'repetitions': 3,
+                    'identities': {'fixture': 'fixed'}, 'equivalence': {'fixture': 'fixed'},
+                    'cases': [{'name': name, 'command': [name], 'cwd': temporary,
+                               'cacheState': 'independently prepared'} for name in ['legacy', 'astro']]}
+            with patch.object(doc_site, 'measure', side_effect=fake_measure):
+                result = doc_site.run(plan, Path(temporary) / 'results')
+        self.assertEqual(calls, ['legacy', 'astro', 'astro', 'legacy', 'legacy', 'astro'])
+        self.assertEqual([row['name'] for row in result['cases']], ['legacy', 'astro'])
+        self.assertEqual([len(row['runs']) for row in result['cases']], [3, 3])
+
+
+if __name__ == '__main__':
+    unittest.main()
