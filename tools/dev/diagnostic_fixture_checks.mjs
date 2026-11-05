@@ -1,4 +1,11 @@
 /** Independent expectations for the user-reported diagnostic examples, never rendering rules. */
+export const productionDiagnosticCases=[
+  {page:'lint-rules/almost_swapped',severity:'error',required:['dd','dc']},
+  {page:'lint-rules/leaked_allocation',severity:'warning',required:['da']},
+  {page:'lint-rules/assert_constant',severity:'warning',required:['dd']},
+  {page:'lint-rules/absurd_comparison',severity:'error',required:['dc']},
+  {page:'lint-rules/double_free',severity:'error',required:['dk']},
+];
 const lines=source=>source.split(/\r\n|[\r\n]/u);
 function primarySpan(source) {
   let code;

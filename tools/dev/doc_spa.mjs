@@ -10,6 +10,7 @@ import path from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {Connection,runtimeException} from './chrome_cdp.mjs';
 import {waitForDevToolsPort} from './chrome_startup.mjs';
+import {productionDiagnosticCases} from './diagnostic_fixture_checks.mjs';
 const base=new URL(process.argv[2]||'http://127.0.0.1:8000/');
 const development=process.argv.includes('--dev');
 const stateColors=process.argv.includes('--state-colors'),traceTransitions=process.argv.includes('--trace-transitions'),pointerOnly=process.argv.includes('--native-pointer');
@@ -205,7 +206,7 @@ spaRun: try{
  }
  receipt.checks.push('actual blocked/quota storage preserves groups, scroll and manual themes before paint; fresh stored changes win');
  // These are real regenerated CLI diagnostic examples, including both severities and fix operations.
- const diagnosticCases=[{page:'lint-rules/almost_swapped',severity:'error',required:['dd','da']},{page:'lint-rules/assert_constant',severity:'warning',required:['dd']},{page:'lint-rules/absurd_comparison',severity:'error',required:['dc']},{page:'lint-rules/double_free',severity:'error',required:['dk']}];
+ const diagnosticCases=productionDiagnosticCases;
  for(const theme of ['light','dark'])for(const fixture of diagnosticCases){
   await go(fixture.page);await evaluate(`document.documentElement.setAttribute('data-theme',${JSON.stringify(theme)})`);
   const colors=await evaluate(String.raw`(()=>{
@@ -224,7 +225,7 @@ spaRun: try{
   })()`);assert.equal(colors.calibration,21,'contrast probe must resolve the black/white reference');assert.equal(colors.theme,theme);assert(colors.records.some(record=>record.role===(fixture.severity==='error'?'de':'dw')));
   for(const required of fixture.required)assert(colors.records.some(record=>record.role===required),`${fixture.page}: missing ${required}`);
   for(const record of colors.records){assert.equal(record.color,record.expected,`${fixture.page}: ${record.role} palette mismatch`);assert(record.contrast>=4.5,`${fixture.page}: ${record.role} contrast ${record.contrast}`);if(record.role==='dd')assert.equal(record.text,'-');if(record.role==='da')assert.equal(record.text,'+');if(record.role==='dc')assert.equal(record.text,'~');}
-  if(fixture.severity==='warning')assert.notEqual(colors.records.find(record=>record.role==='dd').color,colors.records.find(record=>record.role==='dw').color,'warning deletion inherited severity yellow');
+  if(fixture.severity==='warning'&&fixture.required.includes('dd'))assert.notEqual(colors.records.find(record=>record.role==='dd').color,colors.records.find(record=>record.role==='dw').color,'warning deletion inherited severity yellow');
   receipt.diagnostics.push({page:fixture.page,severity:fixture.severity,...colors});
  }
  receipt.checks.push('actual diagnostic error/warning deletions red, additions green, replacements and origins distinct; computed light/dark contrast');
