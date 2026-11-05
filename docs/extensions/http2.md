@@ -36,7 +36,7 @@ A stream closes once both sides have sent `END_STREAM` or one has reset it (`h2_
 
 ## Flow control
 
-- **Receiving.** `h2_consumed` runs when the user takes body bytes. A stream-level `WINDOW_UPDATE` goes out once half the initial window has been taken. The connection level is returned in `H2_UPDATE_BATCH` (16 KiB) steps.
+- **Receiving.** `h2_consumed` runs when the user takes body bytes. Padding is discarded by the frame reader and earns stream credit immediately; application data earns credit when consumed. A stream-level `WINDOW_UPDATE` goes out once half the initial window has been taken. The connection level is returned in `H2_UPDATE_BATCH` (16 KiB) steps.
 - **Sending.** `h2_send_data` splits by the peer's frame size and waits on the stream's `changed` condition when either window runs out.
 - **Start-up windows.** The server's are set by `h2_window` and `h2_connection_window`. The client's are fixed: `H2_CLIENT_WINDOW` (256 KiB per stream) and `H2_CLIENT_CONNECTION_WINDOW` (1 MiB). The extra connection room is sent as a `WINDOW_UPDATE` right after the first SETTINGS (`h2_conn_start`).
 
@@ -151,3 +151,16 @@ wakes the blocked sender without requiring socket progress. Writable state is
 checked again after every queue wait. Channel close retains peer-ended connections
 until TLS teardown finishes, and shields the final join from caller deadlines or
 cancellation. Keep TLS configuration alive until close returns.
+
+A bounded HTTP/2 channel opens additional connections while allowed by
+`max_connections`. Once all matching live connections reach the peer's stream
+limit and the connection cap is reached, new calls wait for stream capacity
+before assigning a stream identifier or sending request bytes. This admission
+wait observes the caller's deadline and cancellation. Closed or draining
+connections still holding TLS resources count against the cap; they do not
+create an unbounded replacement-connection allowance.
+
+When a peer sends GOAWAY, accepted calls keep their owned response state. The
+client retires the connection once those calls finish, even if the peer leaves
+TCP open. Retirement joins the existing writer and TLS cleanup path; the live
+resource still counts against connection admission until that cleanup completes.

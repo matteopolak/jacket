@@ -69,8 +69,174 @@ close_scope :: (probe: *Channel_Probe) {
     probe.returned = true;
 }
 
+Saturated_Probe :: struct {
+    client: Client;
+    url: Url;
+    done: Io.Wait_Group;
+    returned: bool;
+    error: Client_Error;
+}
+
+open_saturated :: (probe: *Saturated_Probe) {
+    conn, _, _, error := open_connection(*probe.client, probe.url, 1, http2_only = true);
+    if conn h2_conn_release(conn);
+
+    probe.error = error;
+    probe.returned = true;
+    Io.done(*probe.done);
+}
+
+saturated_admission :: () {
+    for canceled: bool.[false, true] {
+        tls: Tls.Tls_Config;
+        tls.alpn = string.["h2"];
+        job: Saturated_Probe;
+        job.client.tls = *tls;
+        job.client.transport.data = *job;
+        job.client.transport.open = count_dial;
+        job.url, _ = parse_url("https://busy.invalid/");
+        conn := h2_conn_new(.CLIENT, .{}, .{});
+        conn.owner = *job;
+        conn.host = copy_string(job.url.host);
+        conn.port = job.url.port;
+        conn.tls = *tls;
+        conn.remote.max_concurrent_streams = 1;
+        conn.idle_since = now_ms();
+        stream := h2_stream_new(conn, 1);
+
+        conn.next_stream = 3;
+        pool := client_pool();
+
+        array_add(*pool.h2, conn);
+
+        defer {
+            for pool.h2 if it == conn {
+                array_ordered_remove_by_index(*pool.h2, it_index);
+                break;
+            }
+
+            h2_conn_release(conn);
+        }
+
+        dial_attempts = 0;
+        Io.add(*job.done);
+        fiber := Io.spawn(open_saturated, *job);
+
+        Io.yield();
+        assert(!job.returned && dial_attempts == 0, "a saturated live connection waits for peer stream capacity");
+
+        if canceled Io.cancel(fiber);
+        else {
+            stream.local_ended = true;
+            stream.remote_ended = true;
+            h2_check_closed(stream);
+        }
+
+        assert(Io.wait(*job.done) == .NONE);
+        defer free_error(*job.error);
+        assert(job.returned && dial_attempts == 0);
+        if canceled assert(job.error.transport == .CANCELED);
+        else assert(job.error.kind == .NONE);
+    }
+}
+
+Header_Admission_Probe :: struct {
+    channel: *Http2_Channel;
+    exchange: Http2_Exchange;
+    returned: bool;
+    done: Io.Wait_Group;
+}
+
+open_after_queue :: (probe: *Header_Admission_Probe) {
+    exchange, error := open_http2_exchange(probe.channel, "/admission", .[]);
+
+    assert(error.kind == .NONE);
+    probe.exchange = exchange;
+    probe.returned = true;
+    Io.done(*probe.done);
+}
+
+header_queue_admission :: () {
+    channel: Http2_Channel;
+    channel.base_url = "https://queue.invalid/";
+    channel.max_connections = 1;
+    tls: Tls.Tls_Config;
+    tls.alpn = string.["h2"];
+    channel.tls = *tls;
+    conn := h2_conn_new(.CLIENT, .{}, .{});
+    conn.owner = *channel;
+    conn.host = copy_string("queue.invalid");
+    conn.port = 443;
+    conn.tls = *tls;
+    conn.remote.max_concurrent_streams = 1;
+    conn.idle_since = now_ms();
+    pool := client_pool();
+
+    array_add(*pool.h2, conn);
+
+    defer {
+        for pool.h2 if it == conn {
+            array_ordered_remove_by_index(*pool.h2, it_index);
+            break;
+        }
+
+        h2_conn_release(conn);
+    }
+
+    array_reserve(*conn.spare, H2_QUEUE_LIMIT + 1);
+    conn.spare.count = H2_QUEUE_LIMIT + 1;
+    jobs: [2] Header_Admission_Probe;
+    for *jobs {
+        it.channel = *channel;
+        Io.add(*it.done);
+        Io.spawn(open_after_queue, it);
+    }
+
+    Io.yield();
+    assert(!jobs[0].returned && !jobs[1].returned && conn.open_local == 0);
+    conn.spare.count = 0;
+    h2_notify_drained(conn);
+    Io.yield();
+    count := cast(int) jobs[0].returned + cast(int) jobs[1].returned;
+
+    assert(count == 1 && conn.open_local == 1, "queue wakeup cannot admit two requests into one peer slot");
+    for *jobs if it.returned close_exchange(*it.exchange);
+    for *jobs assert(Io.wait(*it.done) == .NONE);
+    for *jobs close_exchange(*it.exchange);
+
+    assert(conn.open_local == 0 && channel.active_exchanges == 0);
+}
+
+goaway_retirement :: () {
+    for already_ended: bool.[false, true] {
+        conn := h2_conn_new(.CLIENT, .{}, .{});
+
+        defer h2_conn_release(conn);
+        stream: *H2_Stream;
+        if !already_ended stream = h2_stream_new(conn, 1);
+
+        payload := u8.[0, 0, 0, 1, 0, 0, 0, 0];
+        error := h2_on_goaway(conn, .{ length = 8, type = .GOAWAY }, payload);
+
+        assert(error == .NO_ERROR);
+
+        if !already_ended {
+            assert(!conn.closing, "GOAWAY must preserve accepted unfinished streams");
+            stream.local_ended = true;
+            stream.remote_ended = true;
+            h2_check_closed(stream);
+        }
+
+        assert(conn.closing, "a drained GOAWAY connection retires without waiting for peer EOF");
+    }
+}
+
 main :: () {
     Io.io_run(() {
+        saturated_admission();
+        header_queue_admission();
+        goaway_retirement();
+
         for canceled: bool.[false, true] {
             probe: Channel_Probe;
             probe.canceled_scope = canceled;

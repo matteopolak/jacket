@@ -195,6 +195,7 @@ h2_connection :: (client: *Client, url: Url) -> *H2_Conn {
 h2_close_connection :: (conn: *H2_Conn) {
     conn.closing = true;
     conn.goaway_sent = true;
+    if conn.admission_changed Io.notify_all(conn.admission_changed);
 
     Io.notify_all(*conn.wake_writer);
     Io.cancel(conn.reader);
@@ -216,6 +217,7 @@ h2_adopt :: (client: *Client, url: Url, link: Link) -> *H2_Conn {
     conn.port = url.port;
     conn.tls = tls_config_of(client, url);
     conn.owner = client.transport.data;
+    conn.admission_changed = *pool.h2_capacity;
     conn.write_timeout = H2_CLIENT_WRITE_TIMEOUT;
     conn.max_header_list = H2_CLIENT_HEAD_LIMIT;
     conn.idle_since = now_ms();
@@ -555,7 +557,26 @@ open_connection :: (client: *Client, url: Url, max_h2_connections := 0, http2_on
             count := 0;
             for pool.h2 if it.owner == owner && !it.link_closed count += 1;
             for pool.connecting if it.owner == owner count += 1;
-            if count >= max_h2_connections return null, .{}, false, client_error(.TOO_LARGE, .NONE, "HTTP/2 channel connection limit reached");
+
+            if count >= max_h2_connections {
+                // At the connection cap, peer stream limits cause admission to
+                // wait before any request is assigned an id or transmitted.
+                saturated := false;
+
+                for pool.h2 {
+                    if !h2_same_origin(it.owner, it.host, it.port, it.tls, owner, url.host, url.port, tls) continue;
+                    if it.dead || it.closing || it.goaway_received || it.goaway_sent continue;
+                    it.admission_changed = *pool.h2_capacity;
+                    saturated = true;
+                }
+
+                if !saturated return null, .{}, false, client_error(.TOO_LARGE, .NONE, "HTTP/2 channel connection limit reached");
+
+                error := Io.wait(*pool.h2_capacity);
+                if error != .NONE return null, .{}, false, io_failure(error, "waiting for HTTP/2 stream capacity");
+
+                continue;
+            }
         }
 
         gate: *H2_Connecting;

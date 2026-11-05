@@ -232,13 +232,14 @@ hpack_decode :: (decoder: *Hpack_Decoder, block: [] u8, max_list_size: s64, resu
             fields_started = true;
         }
 
-        if add_to_table hpack_table_add(*decoder.table, name, value);
-
         list_size += name.count + value.count + HPACK_ENTRY_OVERHEAD;
 
         if max_list_size >= 0 && list_size > max_list_size result.too_large = true;
 
-        if result.too_large continue;
+        if result.too_large {
+            if add_to_table hpack_table_add(*decoder.table, name, value);
+            continue;
+        }
 
         span: Span;
 
@@ -252,6 +253,10 @@ hpack_decode :: (decoder: *Hpack_Decoder, block: [] u8, max_list_size: s64, resu
 
         append_bytes(*result.storage, value.data, value.count);
         array_add(*spans, span);
+
+        // Insertion can evict the dynamic entry that supplied this name.
+        // The returned field must own its copy before that entry is released.
+        if add_to_table hpack_table_add(*decoder.table, name, value);
     }
 
     // Now that the storage has stopped growing, the fields can point into it.

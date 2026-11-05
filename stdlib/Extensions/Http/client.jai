@@ -1987,6 +1987,7 @@ Client_Pool :: struct {
 
     // HTTP/2: the connections (one serves many requests), the origins being connected to, and the ones found to speak HTTP/1.1.
     h2: [..] *H2_Conn;
+    h2_capacity: Io.Condition; // peer stream slots changed
     connecting: [..] *H2_Connecting;
     http1_only: [..] H2_Known_Origin;
 

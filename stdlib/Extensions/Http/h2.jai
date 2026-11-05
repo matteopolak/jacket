@@ -84,6 +84,7 @@ H2_Conn :: struct {
     next_stream: u32 = 1; // the id of the next stream we open (client)
     open_remote: int; // streams the peer opened and that are not closed
     open_local: int; // streams we opened and that are not closed
+    admission_changed: *Io.Condition; // client pool capacity; null on servers
 
     send_window: s64 = H2_DEFAULT_WINDOW;
     recv_window: s64 = H2_DEFAULT_WINDOW;
@@ -282,6 +283,7 @@ h2_mark_dead :: (conn: *H2_Conn) {
     if conn.dead return;
 
     conn.dead = true;
+    if conn.admission_changed Io.notify_all(conn.admission_changed);
 
     Io.notify_all(*conn.wake_writer);
     h2_notify_drained(conn);
@@ -459,6 +461,8 @@ h2_check_closed :: (stream: *H2_Stream) {
 
     if h2_local_stream(conn, stream.id) {
         conn.open_local -= 1;
+        h2_retire_drained_client(conn);
+        if conn.admission_changed Io.notify_all(conn.admission_changed);
 
         if conn.open_local == 0 conn.idle_since = now_ms();
     } else {
@@ -476,6 +480,12 @@ h2_check_closed :: (stream: *H2_Stream) {
     Io.notify_all(*stream.changed);
 
     h2_stream_release(stream);
+}
+
+// A peer may keep TCP open after GOAWAY. Once its accepted calls finish, the
+// client retires the connection and joins the ordinary writer/TLS cleanup path.
+h2_retire_drained_client :: (conn: *H2_Conn) {
+    if conn.role == .CLIENT && conn.goaway_received && conn.open_local == 0 && !conn.closing h2_close_connection(conn);
 }
 
 // Whether we opened stream `id`.
@@ -666,6 +676,9 @@ h2_on_data :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2_Er
         return .NO_ERROR;
     }
 
+    // Padding is discarded here, so it has already been consumed by the receiver.
+    h2_consumed(stream, payload.count - data.count);
+
     append_bytes(*stream.recv, data.data, data.count);
 
     stream.received += data.count;
@@ -819,6 +832,7 @@ h2_on_settings :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H
     }
 
     conn.remote = updated;
+    if conn.admission_changed Io.notify_all(conn.admission_changed);
 
     if updated.header_table_size != before.header_table_size hpack_encoder_limit(*conn.encoder, updated.header_table_size);
 
@@ -853,6 +867,8 @@ h2_on_goaway :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2_
     if error != .NO_ERROR return error;
 
     conn.goaway_received = true;
+    if conn.admission_changed Io.notify_all(conn.admission_changed);
+
     conn.goaway_last = last;
     conn.goaway_code = code;
 
@@ -873,6 +889,8 @@ h2_on_goaway :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2_
 
         index -= 1;
     }
+
+    h2_retire_drained_client(conn);
 
     return .NO_ERROR;
 }

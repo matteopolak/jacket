@@ -43,20 +43,6 @@ open_http2_exchange :: (channel: *Http2_Channel, path: string, headers: [] Heade
     if problem != .NONE || !url.secure return .{}, client_error(.INVALID_URL, .NONE, "HTTP/2 exchanges require an absolute https URL");
     if !h2_offered(client, url) return .{}, client_error(.TLS, .NONE, "TLS configuration must offer h2");
 
-    conn, link, _, failure := open_connection(client, url, channel.max_connections, http2_only = true);
-    if failure.kind != .NONE return .{}, failure;
-
-    if !conn {
-        // Negotiation failed before any stream/writer exists. Abort without a
-        // yielding close_notify, so released admission cannot hide live TLS work.
-        close(link, now = true);
-        return .{}, client_error(.TLS, .NONE, "peer did not negotiate h2");
-    }
-
-    defer h2_conn_release(conn);
-    if conn.dead || conn.goaway_received || conn.goaway_sent return .{}, client_error(.TRANSPORT, .CONNECTION_RESET, "HTTP/2 connection is draining");
-
-    conn.write_timeout = channel.write_timeout;
     fields: [..] Header_Field;
     fields.allocator = temp;
     array_add(*fields, .{ name = ":method", value = "POST" });
@@ -79,10 +65,41 @@ open_http2_exchange :: (channel: *Http2_Channel, path: string, headers: [] Heade
         if size > H2_CLIENT_HEAD_LIMIT return .{}, client_error(.TOO_LARGE, .NONE, "HTTP/2 request fields exceed the channel header limit");
     }
 
-    // Wait before assigning an id: cancellation must not send RST_STREAM for
-    // an id whose initial HEADERS were never queued.
-    if !h2_wait_for_room(conn) return .{}, client_error(.TRANSPORT, .CONNECTION_RESET, "waiting for HTTP/2 header queue room failed");
-    if conn.goaway_received || conn.goaway_sent return .{}, client_error(.TRANSPORT, .CONNECTION_RESET, "HTTP/2 connection is draining");
+    conn: *H2_Conn;
+
+    defer if conn h2_conn_release(conn);
+
+    while true {
+        link: Link;
+        failure: Client_Error;
+        conn, link, _, failure = open_connection(client, url, channel.max_connections, http2_only = true);
+        if failure.kind != .NONE return .{}, failure;
+
+        if !conn {
+            // No stream exists after failed negotiation. Release TLS without a
+            // yielding close_notify before returning its resource admission.
+            close(link, now = true);
+            return .{}, client_error(.TLS, .NONE, "peer did not negotiate h2");
+        }
+
+        if conn.dead || conn.goaway_received || conn.goaway_sent return .{}, client_error(.TRANSPORT, .CONNECTION_RESET, "HTTP/2 connection is draining");
+        // Wait before assigning an id: cancellation cannot reset an unsent id.
+        if !h2_wait_for_room(conn) return .{}, client_error(.TRANSPORT, .CONNECTION_RESET, "waiting for HTTP/2 header queue room failed");
+        if conn.goaway_received || conn.goaway_sent return .{}, client_error(.TRANSPORT, .CONNECTION_RESET, "HTTP/2 connection is draining");
+
+        // Another opener can occupy the last slot while the queue wait yields.
+        // Reselect before transmitting anything; this never replays a request.
+        limit := conn.remote.max_concurrent_streams;
+        if limit >= 0 && conn.open_local >= limit {
+            h2_conn_release(conn);
+            conn = null;
+            continue;
+        }
+
+        break;
+    }
+
+    conn.write_timeout = channel.write_timeout;
 
     id := conn.next_stream;
 
@@ -103,32 +120,41 @@ open_http2_exchange :: (channel: *Http2_Channel, path: string, headers: [] Heade
 
 // Starts an HTTP/2 response from a handler, returning a duplex stream. The handler
 // must complete its work before returning; no second ordinary response is sent.
-// Request and initial response fields remain borrowed until close_exchange.
+// Request fields remain borrowed until close_exchange; response fields are copied.
+// defer_headers permits replacement before the first write/finish commits them.
 //
 // ```jai,ignore
 // exchange, ok := accept_http2_exchange(request, Header_Field.[.{ name = "content-type", value = "application/grpc" }]);
 // defer close_exchange(*exchange);
 // ```
-accept_http2_exchange :: (request: *Request, headers: [] Header_Field, status := 200) -> Http2_Exchange, bool {
+accept_http2_exchange :: (request: *Request, headers: [] Header_Field, status := 200, defer_headers := false) -> Http2_Exchange, bool {
     stream := frame_of(request).body.h2;
-    if !stream || stream.exchange_taken || h2_exchange_failed(stream) || stream.local_ended || !fields_ok(headers) return .{}, false;
+    if !stream || stream.exchange_taken || h2_exchange_failed(stream) || stream.local_ended || !h2_response_fields_ok(headers) return .{}, false;
 
-    fields: [..] Header_Field;
-    fields.allocator = temp;
-    array_add(*fields, .{ name = ":status", value = tprint("%", status) });
+    state := h2_exchange_state(stream);
+    state.response_status = status;
+    state.head_pending = true;
+    h2_exchange_copy_head(state, headers);
+    stream.exchange_taken = true;
+    exchange := Http2_Exchange.{ state };
 
-    for headers {
-        field := it;
-        field.name = to_lower_copy(it.name,, temp);
-        if h2_connection_specific(field.name) return .{}, false;
-        array_add(*fields, field);
+    if !defer_headers && !h2_exchange_flush_head(state) {
+        close_exchange(*exchange);
+        return .{}, false;
     }
 
-    if !h2_send_headers(stream.conn, stream.id, fields, false) return .{}, false;
+    return exchange, true;
+}
 
-    stream.exchange_taken = true;
-
-    return .{ h2_exchange_state(stream) }, true;
+// Replaces deferred server response fields before the first write or finish.
+// Fields are copied; caller storage may be released when this returns. Returns
+// false for a client, committed response, concurrent writer or invalid fields.
+// Example: `assert(exchange_response_headers(*exchange, headers));`.
+exchange_response_headers :: (exchange: *Http2_Exchange, headers: [] Header_Field) -> bool {
+    state := cast(*H2_Exchange_State) exchange.state;
+    if !state || state.stream.conn.role != .SERVER || !state.head_pending || state.writing || h2_exchange_failed(state.stream) || !h2_response_fields_ok(headers) return false;
+    h2_exchange_copy_head(state, headers);
+    return true;
 }
 
 // Waits for initial response headers. The returned fields borrow exchange storage.
@@ -174,6 +200,7 @@ exchange_write :: (exchange: *Http2_Exchange, bytes: [] u8, end_stream := false)
 
     state.writing = true;
     defer state.writing = false;
+    if !h2_exchange_flush_head(state) return h2_stream_failure(state.stream);
     if !h2_send_data(state.stream, bytes, end_stream) return h2_stream_failure(state.stream);
 
     return .{};
@@ -242,6 +269,8 @@ exchange_finish :: (exchange: *Http2_Exchange, fields: [] Header_Field) -> bool 
 
     state.writing = true;
     defer state.writing = false;
+    if !h2_exchange_flush_head(state) return false;
+
     frame: Stream_Frame;
     frame.h2 = state.stream;
 
@@ -313,6 +342,8 @@ close_exchange :: (exchange: *Http2_Exchange) {
 
     if state.block.data free(state.block.data);
 
+    hpack_block_free(*state.response_head);
+
     conn := state.stream.conn;
 
     h2_stream_release(state.stream);
@@ -353,6 +384,9 @@ H2_Exchange_State :: struct {
     reading: bool;
     writing: bool;
     read_eof: bool;
+    head_pending: bool;
+    response_status: int;
+    response_head: Hpack_Block;
 }
 
 h2_exchange_state :: (stream: *H2_Stream) -> *H2_Exchange_State {
@@ -366,4 +400,57 @@ h2_exchange_state :: (stream: *H2_Stream) -> *H2_Exchange_State {
 
 h2_exchange_failed :: (stream: *H2_Stream) -> bool {
     return stream.reset_by_peer || stream.reset_sent || (stream.conn.dead && !stream.remote_ended);
+}
+
+h2_response_fields_ok :: (headers: [] Header_Field) -> bool {
+    if !fields_ok(headers) return false;
+    for headers if h2_connection_specific(to_lower_copy(it.name,, temp)) return false;
+    return true;
+}
+
+// All data is copied before replacing the old block, including aliased inputs.
+h2_exchange_copy_head :: (state: *H2_Exchange_State, headers: [] Header_Field) {
+    replacement: Hpack_Block;
+    size := 0;
+
+    for headers size += it.name.count + it.value.count;
+
+    array_reserve(*replacement.storage, size);
+
+    for headers {
+        name_at := replacement.storage.count;
+
+        append_bytes(*replacement.storage, it.name.data, it.name.count);
+
+        for i: name_at..replacement.storage.count - 1 {
+            c := replacement.storage[i];
+            if c >= #char "A" && c <= #char "Z" replacement.storage[i] = c + 32;
+        }
+
+        value_at := replacement.storage.count;
+
+        append_bytes(*replacement.storage, it.value.data, it.value.count);
+        array_add(*replacement.fields, .{ name = .{ it.name.count, replacement.storage.data + name_at }, value = .{ it.value.count, replacement.storage.data + value_at } });
+    }
+
+    hpack_block_free(*state.response_head);
+    state.response_head = replacement;
+}
+
+h2_exchange_flush_head :: (state: *H2_Exchange_State) -> bool {
+    if !state.head_pending return true;
+
+    stream := state.stream;
+    if !h2_wait_for_room(stream.conn, stream) return false;
+
+    fields: [..] Header_Field;
+    fields.allocator = temp;
+    array_add(*fields, .{ name = ":status", value = tprint("%", state.response_status) });
+    for state.response_head.fields array_add(*fields, it);
+    if !h2_send_headers(stream.conn, stream.id, fields, false) return false;
+
+    state.head_pending = false;
+    hpack_block_free(*state.response_head);
+
+    return true;
 }

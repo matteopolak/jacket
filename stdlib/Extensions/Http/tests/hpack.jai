@@ -350,7 +350,19 @@ tables :: () {
     check(decoder.table.size == sender.table.size && decoder.table.count == sender.table.count, "both tables end in step");
 }
 
+// A literal can refer to a dynamic name that its own insertion evicts. The decoded
+// field must own that name before the table releases it.
+evicted_literal_name :: () {
+    decoder: Hpack_Decoder;
+
+    hpack_decoder_init(*decoder, 64);
+    defer hpack_decoder_free(*decoder);
+    expect_block(*decoder, "4005782d6b657905616c706861", Field.[.{ "x-key", "alpha" }], 42, "initial dynamic name");
+    expect_block(*decoder, "7e0462657461", Field.[.{ "x-key", "beta" }], 41, "literal evicts its referenced name");
+}
+
 main :: () {
+    evicted_literal_name();
     requests();
     responses();
     literals();

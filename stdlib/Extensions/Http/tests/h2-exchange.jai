@@ -10,11 +10,16 @@ load :: (name: string) -> string {
 }
 
 raw_echo :: (request: *Request) -> Response {
-    exchange, ok := accept_http2_exchange(request, Header_Field.[.{ name = "content-type", value = "application/octet-stream" }]);
+    exchange, ok := accept_http2_exchange(request, Header_Field.[.{ name = "content-type", value = "application/octet-stream" }], defer_headers = true);
 
     assert(ok);
     defer close_exchange(*exchange);
+    selected := copy_string("selected");
+
+    assert(exchange_response_headers(*exchange, Header_Field.[.{ name = "content-type", value = "application/octet-stream" }, .{ name = "x-selected", value = selected }]));
+    free(selected);
     assert(exchange_write(*exchange, bytes_of("ready")).kind == .NONE);
+    assert(!exchange_response_headers(*exchange, .[]));
     buffer: [8192] u8;
 
     while true {
@@ -58,7 +63,12 @@ exercise :: (base: string, server: *Server) {
 
     assert(failure.kind == .NONE && channel.active_exchanges == 1);
     defer close_exchange(*exchange);
-    status, _, head_error := exchange_head(*exchange);
+    status, response_fields, head_error := exchange_head(*exchange);
+    found := false;
+
+    for response_fields if it.name == "x-selected" && it.value == "selected" found = true;
+
+    assert(found);
 
     assert(status == 200 && head_error.kind == .NONE);
     prefix: [5] u8;
