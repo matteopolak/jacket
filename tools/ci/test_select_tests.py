@@ -43,8 +43,15 @@ class Affected(unittest.TestCase):
         names = select_tests.affected("jacket", ["a.jai", "b.jai"], run)
         self.assertEqual(names, ["A::t"])
         self.assertEqual(
-            seen[0][5:], ["--changed", "a.jai", "--changed", "b.jai"]
+            seen[0][6:], ["--changed", "a.jai", "--changed", "b.jai"]
         )
+
+    def test_mode_flags_follow_changed_paths_in_target_catalogue_query(self):
+        run, seen = self.fake(0, listing({"kind": "test", "name": "Wasm::only"}))
+        flags = ["--interp", "--", "-os=wasm"]
+        names = select_tests.affected("jacket", ["a.jai"], run, flags=flags)
+        self.assertEqual(names, ["Wasm::only"])
+        self.assertEqual(seen[0], ["jacket", "test", "--list", "--list-target", "--format", "json", "--changed", "a.jai", *flags])
 
     def test_a_failing_jacket_runs_everything(self):
         run, _ = self.fake(2, err="boom")
@@ -61,7 +68,7 @@ class Main(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "names.txt"
             original = select_tests.affected
-            select_tests.affected = lambda *_: []
+            select_tests.affected = lambda *_, **__: []
             try:
                 code = select_tests.main(
                     ["--jacket", "j", "--out", str(out)],

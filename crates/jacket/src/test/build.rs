@@ -47,6 +47,15 @@ pub struct Toolchain {
 }
 
 impl Toolchain {
+    /// A catalogue's compiler view, also used for that catalogue's dependency queries.
+    pub fn for_discovery(&self, listing: Option<Listing>) -> Self {
+        let mut toolchain = self.clone();
+        if listing == Some(Listing::Host) {
+            toolchain.flags = host_flags(&self.flags);
+        }
+        toolchain
+    }
+
     /// What a jaic run is told of its standard library.
     pub fn jaic_env(&self) -> Vec<(String, String)> {
         vec![(
@@ -184,14 +193,21 @@ pub fn compile_output(output: &std::process::Output) -> String {
     text
 }
 
-/// Builds the unit tests of `files` in `work` (a fresh folder). With `list` nothing is built:
-/// the tests and the cases of the `@cases` tests are found.
+/// Which compile-time target to use while listing test and subtest declarations.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Listing {
+    Host,
+    Target,
+}
+
+/// Builds the unit tests of `files` in `work` (a fresh folder). A listing discovers declarations
+/// for its requested view without building a native program or running compile-time tests.
 pub fn unit(
     files: &[PathBuf],
     root_flags: &[String],
     work: &Path,
     toolchain: &Toolchain,
-    list: bool,
+    listing: Option<Listing>,
 ) -> Result<Built, String> {
     std::fs::create_dir_all(work).map_err(|e| format!("cannot create {}: {e}", work.display()))?;
     let mut loads = String::from("// Written by `jacket test`: every unit test file of a root.\n");
@@ -200,8 +216,8 @@ pub fn unit(
     }
     let root = work.join("tests.jai");
     write(&root, &loads)?;
-    if list || toolchain.interp {
-        return interpreted(&loads, &root, work, root_flags, toolchain, list);
+    if listing.is_some() || toolchain.interp {
+        return interpreted(&loads, &root, work, root_flags, toolchain, listing);
     }
     let wasm = targets_wasm(toolchain);
     let exe = work.join(if wasm {
@@ -246,8 +262,9 @@ fn interpreted(
     work: &Path,
     root_flags: &[String],
     toolchain: &Toolchain,
-    list: bool,
+    listing: Option<Listing>,
 ) -> Result<Built, String> {
+    let list = listing.is_some();
     let plan = work.join("plan.txt");
     // A process can wait for its arguments only if what it prints reaches jacket before it ends
     // and it can read the file: neither holds for a wasm target, whose program runs in the
@@ -256,14 +273,9 @@ fn interpreted(
     // again for each run.
     // A run under `--coverage` needs its own process to report what it ran.
     let waits = !list && !targets_wasm(toolchain) && !toolchain.coverage;
-    // A listing is of the tests, not of a target: the host's view of them.
-    let flags = if list {
-        host_flags(&toolchain.flags)
-    } else {
-        toolchain.flags.clone()
-    };
+    // The caller resolved one view for declarations and dependency queries together.
     let mut args = vec![path_text(root), "-interp".into(), "-quiet".into()];
-    args.extend(flags);
+    args.extend(toolchain.flags.iter().cloned());
     args.extend(root_flags.iter().cloned());
     args.push(PLUGIN.into());
     if list {

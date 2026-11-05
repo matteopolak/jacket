@@ -34,11 +34,15 @@ raise SystemExit(subprocess.run(sys.argv[4:], stderr=redirect, close_fds=False).
         self.tool(jacket, r"""import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
-assert args[:1] == ["test"] and "--needs" in args and args[args.index("--needs") + 1] == "display"
+assert args[:1] == ["test"]
+if "--changed" not in args:
+    assert "--needs" in args and args[args.index("--needs") + 1] == "display"
 with Path(os.environ["COMMAND_LOG"]).open("a") as out:
     out.write(json.dumps(args) + "\n")
 print("jacket: root controlled-root (library)", file=sys.stderr)
 case = {"name": "Module::one", "kind": "test"}
+if os.environ.get("NARROW_WASM") and "--changed" in args and "wasm" not in args:
+    raise SystemExit(0)
 if "--list" in args:
     print(json.dumps({"type": "list", **case}))
 else:
@@ -80,6 +84,7 @@ else:
                 commands = [json.loads(line) for line in (self.root / "commands.jsonl").read_text().splitlines()]
                 self.assertEqual(len(commands), 9)
                 self.assertEqual(sum("--list" not in args for args in commands), 3)
+                self.assertTrue(all("--list-target" in args for args in commands if "--list" in args))
                 self.assertEqual(sum(args[-2:] == ["--", "-O2"] for args in commands), 3)
                 self.assertEqual(sum("--partition" in args for args in commands), 6)
                 (self.root / "commands.jsonl").unlink()
@@ -94,6 +99,16 @@ else:
         self.assertEqual(sum("--interp" in args for args in commands), 1)
         self.assertEqual(sum(args[-2:] == ["--", "-O2"] for args in commands), 1)
         self.assertFalse(self.reports.exists())
+
+    def test_empty_host_selection_does_not_hide_affected_wasm_cases(self):
+        result = self.invoke(True, JACKET_TEST_REPORT_DIR="", WASM="true", NARROW_WASM="true",
+                             JACKET_TEST_CHANGED='["stdlib/Module/module.jai"]')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = [json.loads(line) for line in (self.root / "commands.jsonl").read_text().splitlines()]
+        executions = [args for args in commands if "--list" not in args]
+        self.assertEqual(len(executions), 2, "a native empty selection must not skip WASM modes")
+        self.assertTrue(all("wasm" in args and "--exact" in args for args in executions))
+        self.assertEqual(sum("--changed" in args for args in commands), 5)
 
     def test_failed_mode_is_not_hidden_and_later_modes_still_run(self):
         result = self.invoke(True, FAIL_INTERP="true")
