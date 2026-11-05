@@ -82,7 +82,7 @@ context_lint()
 run(sys.executable, "tools/portable/portable_data/wire_consumer.py", output, "fixtures")
 PROGRAMS = {
     "ico-wire": "stdlib/Ico_File/tests/wire.jai",
-    "ico-gdi": "stdlib/Ico_File/tests/driven/gdi.jai",
+    "ico-gdi": "stdlib/Ico_File/tests/gdi.jai",
     "ico-filename": "stdlib/Ico_File/tests/filename.jai",
     "package-contract": "stdlib/Simple_Package/tests/package.jai",
     "subtitles-contract": "stdlib/Subtitles/tests/parsing.jai",

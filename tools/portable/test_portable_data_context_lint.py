@@ -21,7 +21,9 @@ class PortableDataContexts(unittest.TestCase):
 
     def test_every_owned_source_has_an_applicable_target_context(self):
         roots = []
-        tree = ast.parse((lint.ROOT / "tools/portable/portable_data/run.py").read_text())
+        tree = ast.parse(
+            (lint.ROOT / "tools/portable/portable_data/run.py").read_text()
+        )
         for node in tree.body:
             if isinstance(node, ast.Assign) and any(
                 isinstance(target, ast.Name)
@@ -46,6 +48,29 @@ class PortableDataContexts(unittest.TestCase):
         self.assertIn(
             lint.ROOT / "stdlib/Windows_Resources/tests/discovery-windows.jai", fixtures
         )
+
+    def test_portable_ico_producer_is_an_owned_golden_and_sdk_input(self):
+        source = lint.ROOT / "stdlib/Ico_File/tests/gdi.jai"
+        self.assertTrue(source.is_file())
+        self.assertEqual(source.with_suffix(".exit").read_text().strip(), "0")
+        self.assertIn('args("$TEMP")', source.read_text())
+        runner = ast.parse(
+            (lint.ROOT / "tools/portable/portable_data/run.py").read_text()
+        )
+        programs = next(
+            ast.literal_eval(node.value)
+            for node in runner.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "PROGRAMS"
+                for target in node.targets
+            )
+        )
+        self.assertEqual(programs["ico-gdi"], str(source.relative_to(lint.ROOT)))
+        owned = lint.owned_files([source])
+        for target_os, _ in lint.PROFILES:
+            _, fixtures = lint.profile_sources(owned, target_os)
+            self.assertIn(source, fixtures)
 
     def test_failed_or_unreported_bodies_do_not_establish_coverage(self):
         path = lint.ROOT / "stdlib/internal/resource-wire/manifest.jai"
