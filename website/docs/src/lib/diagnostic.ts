@@ -24,11 +24,13 @@ export function diagnosticParts(source:string):DiagnosticPart[] {
       const label=['= note:','= help:','help:','note:'].find(label=>trimmed.startsWith(label));
       if(label){add(indent);add(label,'help');add(trimmed.slice(label.length));}
       else {
-        const gutter=/^(\s*)(\d*)([ \t]*)([|~+-])(.*)$/u.exec(line);
-        if(!gutter)add(line);
+        // The renderer writes exactly one separator before its marker cell. Consuming
+        // arbitrary gaps would mistake a neutral context line's unary operator for it.
+        const gutter=/^([ \t]*)(\d+|\.{3})? ([|~+-])(?= |$)(.*)$/u.exec(line);
+        if(!gutter||(!gutter[2]&&gutter[3]!=='|'))add(line);
         else {
-          const [,leading='',number='',gap='',sign='',rest='']=gutter;
-          add(leading+number+gap);
+          const [,leading='',number='',sign='',rest='']=gutter;
+          add(leading+number+' ');
           const role:DiagnosticRole=sign==='|'?'frame':sign==='~'?'replacement':sign==='+'?'addition':'deletion';
           add(sign,role);
           const markers=number===''&&sign==='|'?/^(\s*)([\^-]+)(.*)$/u.exec(rest):null;

@@ -64,6 +64,8 @@ Generated lint references declare example ownership in fence metadata: `jai jack
 
 The Markdown producer converts those markers into typed `example_group` nodes, strips metadata before normal code handling, and rejects unknown versions, unknown fields, orphan results and duplicate results. Astro renders one captioned container with attached source/result panes; existing syntax coloring and example controls remain inside their panes. Change the emission in `crates/jailint/examples/lint_reference.rs`, the typed contract/parser, and `Document.astro` together. Run `PYTHONPATH=tools python3 tools/ci/check_doc_examples.py --work /tmp/owned-doc-examples` through the build gate to check real self-assignment, duplicate-condition and use-after-free examples through the production parser and component. It requires the debug Rust tools and installed builder dependencies; the work directory must not exist.
 
+Diagnostic coloring reads the renderer's fixed marker column. A deletion stays red independently of warning severity; unchanged context has no operation color, even when its code starts with `-`, `+` or `~`. Keep marker parsing in `src/lib/diagnostic.ts` aligned with the shared CLI renderer rather than inferring operations from source text.
+
 Runnable example programs preserve the visible source's blank lines. The shared doctest generator keeps one diagnostic-origin entry for each generated line; its editable wrapper must reproduce that same program exactly. Extend the template equivalence regression in `crates/jacket/src/test/doctest.rs` when changing wrapper generation.
 
 The production wrapper reads the validated export, renders into staging, checks the static

@@ -16,3 +16,13 @@ test('fix operation colors are independent of error/warning severity and keep or
     assert(!parts.some(part=>part.role==='deletion'&&part.text.includes('original')));
   }
 });
+
+test('neutral fix context never turns source-leading operators into gutter operations',()=>{
+  const source='warning[fixture]: changed\n  4     -value;\n  5     +value;\n  6     ~flags;\n  7 - old();\n  7 + new();\n  8 ~ replacement();\n    | --- secondary\n';
+  const parts=diagnosticParts(source);
+  assert.equal(parts.map(part=>part.text).join(''),source);
+  for(const [role,sign] of [['deletion','-'],['addition','+'],['replacement','~']] as const){
+    assert.deepEqual(parts.filter(part=>part.role===role).map(part=>part.text),[sign]);
+  }
+  assert(parts.some(part=>part.role==='secondary'&&part.text==='--- secondary'));
+});
