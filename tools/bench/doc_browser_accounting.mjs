@@ -2,7 +2,9 @@ import {nativeTransitionState} from './doc_browser_content.mjs';
 /** CDP byte accounting: keep original event boundaries and never infer cached transfer sizes. */
 export function category(row){
  const path=new URL(row.url).pathname;
- if(row.type==='Document'||row.mime?.includes('text/html'))return 'document';
+ if(row.type==='Document')return 'document';
+ if(/(?:^|\/)assets\/nav\/api\/.+\/\d+\.html$/u.test(path))return 'exportData';
+ if(row.mime?.includes('text/html'))return 'document';
  if(/(?:^|\/)runtime\//u.test(path)||/\.(?:wasm)$/u.test(path))return 'runtime';
  if(/(?:^|\/)search(?:[./_-]|$)/u.test(path))return 'search';
  if(/(?:^|\/)navigation\//u.test(path)||/\.(?:json)$/u.test(path))return 'exportData';
