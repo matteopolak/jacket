@@ -132,3 +132,27 @@ test('a retained mobile rail exposes desktop navigation and remembers the mobile
   p.context.matchMedia=()=>({matches:false});p.window.dispatchEvent(new Event('resize'));assert.equal(p.side.open,true,'mobile reader disclosure choice was discarded');
   assert.equal(p.windowListeners['resize'],1);
 });
+
+test('full-document restoration is native and instant before deferred router, then returns to framework ownership',()=>{
+  const p=page(true,'modules',context=>{
+    Object.assign(context.window,{history:{scrollRestoration:'manual'}});
+  });
+  const history=(p.window as typeof p.window & {history:{scrollRestoration:string}}).history;
+  assert.equal(history.scrollRestoration,'auto');
+  assert.equal(p.document.documentElement.getAttribute('data-doc-restoring'),'');
+  p.document.dispatchEvent(new Event('astro:page-load'));
+  assert.equal(history.scrollRestoration,'manual');
+  assert.equal(p.document.documentElement.getAttribute('data-doc-restoring'),null);
+  const traverse=new Document();
+  p.document.dispatchEvent(Object.assign(new Event('astro:before-swap'),{newDocument:traverse,navigationType:'traverse'}));
+  assert.equal(traverse.documentElement.getAttribute('data-doc-restoring'),'','instant history CSS survives root attribute swap');
+  const push=new Document();
+  p.document.dispatchEvent(Object.assign(new Event('astro:before-swap'),{newDocument:push,navigationType:'push'}));
+  assert.equal(push.documentElement.getAttribute('data-doc-restoring'),null,'ordinary links retain smooth hash behavior');
+  p.window.dispatchEvent(new Event('pagehide'));
+  assert.equal(history.scrollRestoration,'auto','departing document lets native browser restore its history entry');
+  p.document.documentElement.setAttribute('data-doc-restoring','');
+  p.window.dispatchEvent(Object.assign(new Event('pageshow'),{persisted:true}));
+  assert.equal(history.scrollRestoration,'manual');
+  assert.equal(p.document.documentElement.getAttribute('data-doc-restoring'),null);
+});

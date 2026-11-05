@@ -432,6 +432,9 @@ async function runCombo(tab, page, width, theme) {
     await guard(prefix, async () => {
       await tab.goto('about:blank');
       await tab.goto(url);
+      // Exercise history restoration from a real nonzero position, not only top-to-top swaps.
+      const sourceY = await tab.evaluate(`(() => {const y=Math.min(500,Math.max(0,Math.floor((document.documentElement.scrollHeight-innerHeight)/2)));scrollTo({top:y,behavior:'instant'});return scrollY;})()`);
+      await tab.settle();
       const first = await afterClick(tab, `${prefix} link`, expression);
       if (first.skipped) { record(first.name, [], { note: `skipped: ${first.skipped}` }); return; }
       record(first.name, first.problems, { note: first.detail + (first.swapped ? '' : ', the page itself') });
@@ -439,6 +442,8 @@ async function runCombo(tab, page, width, theme) {
       if (same.skipped) record(same.name, [], { note: `skipped: ${same.skipped}` }); else record(same.name, same.problems);
       if (!first.swapped) return;
       const back = await historyStep(tab, `${prefix}: Back`, 'back');
+      const restoredY = await tab.evaluate('scrollY');
+      if (Math.abs(restoredY-sourceY)>2) back.problems.push(`client history did not restore source scroll: ${sourceY} -> ${restoredY}`);
       record(back.name, back.problems);
       const forward = await historyStep(tab, `${prefix}: Forward`, 'forward');
       record(forward.name, forward.problems);

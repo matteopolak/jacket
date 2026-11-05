@@ -35,6 +35,8 @@
 
 * { box-sizing: border-box; }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+/* Restoring history is positional; ordinary anchor navigation keeps smooth scrolling. */
+html[data-doc-restoring] { scroll-behavior: auto; }
 html { interpolate-size: allow-keywords; -webkit-text-size-adjust: 100%; scroll-padding-top: 76px; scrollbar-gutter: stable; }
 
 /* Scrollbars: 6px, the colour of the theme, and their gutter always reserved so a page that
@@ -428,7 +430,6 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 @media (prefers-reduced-motion: no-preference) {
   .btn, .card, .row { transition: border-color 0.12s, background-color 0.12s; }
   /* Only main is captured/animated. Shell explicitly excludes root and live chrome. */
-  @view-transition { navigation: auto; }
   main { view-transition-name: main; }
   ::view-transition-group(main) { animation: none; }
   /* Pages differ in width (the outline rail), so keep both snapshots at their own size instead of scaling them. */
