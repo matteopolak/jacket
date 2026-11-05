@@ -7,6 +7,7 @@
 For a gated job, `job_inputs.inputs()` collects:
 
 - every path in the job's `run:` lines and `with:` values, and in the composite actions it uses;
+- root and nested `.gitattributes` policies when an actual expanded step uses `actions/checkout`, because checkout can change exact file bytes. This dependency also matches new or deleted policies and conditional checkout steps; jobs without checkout do not gain it. Script literals and nested `env`/`with` keys named `uses` are not action references;
 - the closure of those scripts (Python imports and path strings; paths named in shell, PowerShell and Nix files);
 - for each `cargo build|test -p NAME`, the crate and its path dependencies, plus `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml` (dev-dependencies only for jobs that run tests);
 - for each `.jai` file a step compiles, the stdlib modules it reads (from `jaic -deps` if a binary exists, else a static scan).
@@ -17,9 +18,9 @@ Hand-written policy in `ci_changes.py`:
 
 | Table | Meaning |
 | --- | --- |
-| `NARROW` | The macOS sanitizer leg runs on pushes only for codegen, driver, sweep and native tooling paths. |
+| `NARROW` | The macOS sanitizer leg runs on pushes only for codegen, driver, sweep, native tooling and shared checkout-policy inputs. |
 | `OWN_PATHS_ONLY` | `sdl3` does not run for a workflow edit. |
-| `PROSE`, `READ_BY_TESTS` | Docs-only changes skip the code jobs, except docs a test reads. |
+| `PROSE`, `READ_BY_TESTS` | Docs-only changes skip the code jobs, except docs a test reads. Checkout policies are code inputs even under `docs/`. |
 
 ## Compiler target work
 
@@ -38,7 +39,7 @@ Everything else runs every test: any file outside those patterns (compiler, runt
 ## How to change it
 
 - Gate another job: add its id to `GATED` in `job_inputs.py` and to an area in `ci_changes.py`; `ci.yml` gates it with `contains(fromJSON(needs.changes.outputs.jobs), 'ID')`.
-- A path a step reaches only at run time: add it to `EXTRA`.
+- A path a step reaches only at run time: add it to `EXTRA`. Checkout policies belong to the shared `CHECKOUT_INPUTS` dependency instead of a fixture-specific exception. The action scanner follows block-style step mappings and local composite actions (`action.yml` or `action.yaml`), including nested composites; extend its focused controls if workflow step syntax changes.
 - A new `cargo -p` crate in a gated job: add it to `CRATES` (the drift test says which).
 - Inspect a job's inputs: `python3 tools/ci/job_inputs.py --print [JOB ...]`.
 - Which diffs narrow the stdlib tests: `NARROW_STDLIB`, `FULL_REFS` and `NARROW_STDLIB_LIMIT` in `ci_changes.py`. How a test depends on a file is `crates/jacket/src/test/deps.rs`.

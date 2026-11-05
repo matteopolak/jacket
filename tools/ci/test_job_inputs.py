@@ -89,6 +89,71 @@ class Fake(unittest.TestCase):
         return ji.inputs(job, self.repo, WORKFLOW, **kw)
 
 
+class CheckoutInputs(Fake):
+    ATTRIBUTES = {".gitattributes", "**/.gitattributes"}
+
+    def checkout_inputs(self, steps):
+        workflow = "jobs:\n  build:\n    steps:\n" + textwrap.indent(
+            textwrap.dedent(steps), "      "
+        )
+        return ji.inputs("build", self.repo, workflow, crates={}, extra={})
+
+    def test_direct_conditional_named_and_quoted_checkout_steps(self):
+        for steps in [
+            "- uses: actions/checkout@pinned\n",
+            "- name: Checkout\n  if: runner.os == 'Windows'\n  uses: 'actions/checkout@pinned'\n",
+            "- name: |\n    Get the source\n  uses: actions/checkout@pinned\n",
+            '- uses: "actions/checkout@pinned" # pinned action\n',
+        ]:
+            with self.subTest(steps=steps):
+                self.assertLessEqual(self.ATTRIBUTES, self.checkout_inputs(steps))
+
+    def test_checkout_inside_nested_yaml_composites_and_cycles(self):
+        root = Path(self.tmp.name)
+        (root / ".github/actions/setup/action.yml").write_text(
+            "runs:\n  using: composite\n  steps:\n    - uses: ./.github/actions/inner\n"
+        )
+        (root / ".github/actions/inner/action.yml").write_text("")
+        (root / ".github/actions/inner/action.yaml").write_text(
+            "runs:\n  using: composite\n  steps:\n    - uses: actions/checkout@pinned\n    - uses: ./.github/actions/setup\n"
+        )
+        self.assertLessEqual(
+            self.ATTRIBUTES, self.checkout_inputs("- uses: ./.github/actions/setup\n")
+        )
+
+    def test_indentless_steps_are_checkout_consumers(self):
+        workflow = "jobs:\n  build:\n    steps:\n    - name: Checkout\n      uses: actions/checkout@pinned\n"
+        self.assertLessEqual(
+            self.ATTRIBUTES,
+            ji.inputs("build", self.repo, workflow, crates={}, extra={}),
+        )
+
+    def test_scripts_comments_and_nested_mapping_keys_are_not_checkout(self):
+        for steps in [
+            "- run: echo 'uses: actions/checkout@pinned'\n",
+            "# - uses: actions/checkout@pinned\n- run: echo nothing\n",
+            "- run: |\n    uses: actions/checkout@pinned\n    - uses: ./.github/actions/setup\n",
+            "- run: >-\n    steps:\n      - uses: actions/checkout@pinned\n",
+            "- run: echo nothing\n  env:\n    uses: actions/checkout@pinned\n",
+            "- uses: owner/another-action@pinned\n  with:\n    uses: actions/checkout@pinned\n",
+        ]:
+            with self.subTest(steps=steps):
+                self.assertTrue(self.ATTRIBUTES.isdisjoint(self.checkout_inputs(steps)))
+        self.assertTrue(self.ATTRIBUTES.isdisjoint(self.inputs("other-job")))
+        self.assertTrue(self.ATTRIBUTES.isdisjoint(self.inputs("missing-job")))
+
+    def test_script_only_composite_cannot_invent_checkout(self):
+        root = Path(self.tmp.name)
+        (root / ".github/actions/setup/action.yml").write_text(
+            "runs:\n  using: composite\n  steps:\n    - run: |\n        uses: actions/checkout@pinned\n"
+        )
+        self.assertTrue(
+            self.ATTRIBUTES.isdisjoint(
+                self.checkout_inputs("- uses: ./.github/actions/setup\n")
+            )
+        )
+
+
 class WorkflowPaths(Fake):
     def test_run_lines_with_inputs_and_actions(self):
         got = self.inputs()
