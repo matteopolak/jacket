@@ -32,6 +32,64 @@ def selects(area, path):
 
 
 class RealWorkflow(unittest.TestCase):
+    def test_checkout_attributes_select_all_actual_consuming_areas(self):
+        # Matching must not depend on whether a new/deleted nested policy is in Repo.files.
+        for path in [
+            ".gitattributes",
+            "stdlib/new/.gitattributes",
+            "deleted/deep/.gitattributes",
+            ".github/actions/new/.gitattributes",
+        ]:
+            for area in ci_changes.input_areas():
+                with self.subTest(path=path, area=area):
+                    self.assertTrue(selects(area, path))
+
+    def test_document_checkout_policies_select_the_main_code_job(self):
+        import contextlib
+        import io
+        from unittest import mock
+
+        for path in ["docs/.gitattributes", "docs/tools/.gitattributes", "docs/new/deleted/.gitattributes"]:
+            with self.subTest(path=path):
+                output = io.StringIO()
+                with mock.patch.object(ci_changes, "changed_files", return_value=[path]), mock.patch.dict("os.environ", {"GITHUB_EVENT_NAME": "pull_request", "JOBS": "test"}, clear=True), contextlib.redirect_stdout(output):
+                    ci_changes.main()
+                lines = output.getvalue().splitlines()
+                self.assertIn("code=true", lines)
+                jobs = next(line.removeprefix("jobs=") for line in lines if line.startswith("jobs="))
+                self.assertEqual(json.loads(jobs), ["test"])
+
+    def test_attributes_keep_windows_pr_and_manual_request_policy(self):
+        import contextlib
+        import io
+        from unittest import mock
+
+        for event, requested, expected in [
+            ("pull_request", "windows-native", []),
+            ("workflow_dispatch", "windows-native", ["windows-native"]),
+            ("workflow_dispatch", "nix", ["nix"]),
+        ]:
+            with self.subTest(event=event, requested=requested):
+                output = io.StringIO()
+                with (
+                    mock.patch.object(
+                        ci_changes, "changed_files", return_value=[".gitattributes"]
+                    ),
+                    mock.patch.dict(
+                        "os.environ",
+                        {"GITHUB_EVENT_NAME": event, "JOBS": requested},
+                        clear=True,
+                    ),
+                    contextlib.redirect_stdout(output),
+                ):
+                    ci_changes.main()
+                jobs = next(
+                    line.removeprefix("jobs=")
+                    for line in output.getvalue().splitlines()
+                    if line.startswith("jobs=")
+                )
+                self.assertEqual(json.loads(jobs), expected)
+
     def test_shared_apt_setup_runs_windows_cross_builds(self):
         for path in [
             "apt_lib.sh",
@@ -256,6 +314,10 @@ class FakeWorkflow(unittest.TestCase):
         self.assertTrue(self.runs("nix", "nix/app.nix"))
         self.assertTrue(self.runs("nix", "crates/app/src/main.rs"))
         self.assertFalse(self.runs("nix", "tools/other.py"))
+
+    def test_narrow_policy_does_not_invent_a_checkout_dependency(self):
+        self.assertFalse(self.runs("sanitizers-macos", ".gitattributes"))
+        self.assertFalse(self.runs("sanitizers-macos", "new/.gitattributes"))
 
     def test_policy_narrows_the_sanitizer_leg(self):
         self.assertTrue(self.runs("sanitizers-macos", "tools/differential/sweep.py"))

@@ -300,6 +300,7 @@ INPUT_JOB = {"sanitizers-macos": "sanitizers"}
 # and nightly/manual runs do both.
 NARROW = {
     "sanitizers-macos": [
+        *job_inputs.CHECKOUT_INPUTS,
         "crates/jaic-llvm/**",
         "crates/jaic-native/**",
         "crates/jaic-backend/**",
@@ -411,7 +412,8 @@ def area_changed(area, patterns, files):
 
 def code_changed(files):
     prose, read = compile_patterns(PROSE), compile_patterns(READ_BY_TESTS)
-    return any(not prose.match(f) or read.match(f) for f in files)
+    checkout = compile_patterns(job_inputs.CHECKOUT_INPUTS)
+    return any(checkout.match(f) or not prose.match(f) or read.match(f) for f in files)
 
 
 def changed_files(env):
