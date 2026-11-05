@@ -1,4 +1,4 @@
-// test: skip_on(.WASM, reason = "needs the Http server and router, which are not built for wasm")
+// test: skip_on(.WASM, reason = "needs the Http server and router, which are not built for wasm") args("$TEMP/stream-file.bin")
 // Request bodies read by the handler (`*Body`: `read`, `read_all`, `read_json`), the per-route
 // body limit, bodies a handler leaves unread, `created`, and streamed responses
 // (`stream_response`, `file_response`).
@@ -94,7 +94,7 @@ events :: () -> Response {
     return stream_response(ticker, null, "text/plain");
 }
 
-BIG_FILE :: "/tmp/jacket-http-stream-test-file.bin";
+big_file_path: string;
 BIG_SIZE :: 200_000;
 
 small_file :: () -> Response {
@@ -102,7 +102,7 @@ small_file :: () -> Response {
 }
 
 big_file :: () -> Response {
-    return file_response(BIG_FILE, "application/x-test");
+    return file_response(big_file_path, "application/x-test");
 }
 
 missing_file :: () -> Response {
@@ -356,11 +356,17 @@ run_with :: (config: Server_Config, test: Server_Test) {
 main :: () {
     if !supported() return;
 
+    arguments := get_command_line_arguments();
+
+    assert(arguments.count == 2, "run through jacket test with its owned scratch path");
+    big_file_path = arguments[1];
+    defer file_delete(big_file_path);
+
     contents: [..] u8;
 
     for 0..BIG_SIZE - 1 array_add(*contents, cast(u8) (it % 253));
 
-    check(write_entire_file(BIG_FILE, string.{ contents.count, contents.data }), "writing the test file");
+    check(write_entire_file(big_file_path, string.{ contents.count, contents.data }), "writing the test file");
 
     plain: Server_Config;
 

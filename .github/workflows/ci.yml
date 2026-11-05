@@ -737,6 +737,7 @@ jobs:
           printf 'JAIC_NATIVE_LIBS=%s\n' "$grpc_native_dir" >> "$GITHUB_ENV"
           if [ "$RUNNER_OS" = Windows ]; then cygpath -w "$grpc_native_dir" >> "$GITHUB_PATH"; fi
       - name: Build current compiler and Windows test driver
+        id: build-grpc
         run: |
           if [ "$RUNNER_OS" = Windows ]; then
             cargo build --locked -p jaic-cli -p jacket --no-default-features --features static-llvm
@@ -751,21 +752,21 @@ jobs:
       - name: Windows Io, TLS, HTTP/2 and RPC acceptance
         if: runner.os == 'Windows'
         run: |
-          "${{ matrix.bin }}/jacket.exe" test -j 2 \
-            --path stdlib/Extensions/Io/tests/tcp.jai \
-            --path stdlib/Extensions/Io/tests/backends.jai \
-            --path stdlib/Extensions/Io/tests/timeouts.jai \
-            --path stdlib/Extensions/Io/tests/fibers-context.jai \
-            --path stdlib/Extensions/Tls/tests/tls.jai \
-            --path stdlib/Extensions/Http \
-            --path stdlib/Extensions/Grpc
+          python tools/grpc/windows_acceptance.py --jacket "${{ matrix.bin }}/jacket.exe" --output target/grpc-windows
       - name: Required client/server and generated-service acceptance
+        if: ${{ !cancelled() && steps.build-grpc.outcome == 'success' }}
         run: python tools/grpc/interop.py --jaic "${{ matrix.bin }}/jaic${{ matrix.exe }}" --output target/grpc-interop
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: grpc-interop-${{ matrix.platform }}
           path: target/grpc-interop/result.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() && runner.os == 'Windows' }}
+        with:
+          name: grpc-windows-acceptance-${{ matrix.platform }}
+          path: target/grpc-windows/result.json
           if-no-files-found: error
   stdlib-runtime:
     needs: changes

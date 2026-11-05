@@ -53,7 +53,11 @@ h2spec 2.6.0 targets RFC 7540 and RFC 7541. The transport targets RFC 9113 and R
 closed-stream and deprecated priority handling. A reviewed standards difference
 belongs in an explicit case ledger and must not be relabeled as a passing original
 suite case. The initial strict run executed 147 cases with 143 passes and four
-failures; their standards disposition remains open.
+failures. The four failures remain failures in that original ledger; review
+classifies them as RFC-version differences, not supported-profile passes.
+`Http::h2-current-profile` separately checks RFC 9113 closed-DATA connection
+credit, closed-HEADERS HPACK synchronization, and deprecated PRIORITY processing
+while retaining malformed-length and stream-zero errors.
 
 The full pinned HPACK corpus completed all 478 stories: 47,142 supplied wire
 blocks decoded correctly, and an independent decoder verified all 50,526 emitted
@@ -69,10 +73,13 @@ an adapter that fills the actual observed peer address, and both 1,000-iteration
 soaks against Go. The adapter preserves upstream streaming handlers and supplies
 no fabricated connection identity. All eight negative HTTP/2 cases then passed against the patched independent
 peer in both client modes, with both client and peer exits checked (16 case
-executions). Final-head gates remain in progress. Cloud authentication, caching-proxy and ORCA cases require
-an explicit supported-profile decision and suitable independent infrastructure.
-No unexecuted or unsupported case counts as passed. Protobuf binary/JSON results,
-text-format exclusions and unstable-edition exclusions need separate accounting.
+executions). Final-head gates remain in progress. Automatic cloud credential
+providers, GET/caching proxies and ORCA balancing metrics are outside the existing
+explicit-metadata/TLS API profile. Their nine catalogue IDs remain unexecuted.
+No unexecuted or unsupported case counts as passed. The full Protobuf ledger is
+6,699 cases: 5,786 binary/JSON passes, 909 unsupported text cases and four
+unsupported future-edition cases. The declared profile is binary/JSON, proto2,
+proto3 and editions 2023/2024.
 
 `hpack-decoder.go` supplies that independent check through `golang.org/x/net/http2/hpack`.
 Build it in the pinned grpc-go oracle module, preserving that module's exact
@@ -167,9 +174,9 @@ and decoded bounds, exact round trips and corrupted gzip member lengths.
 ## Canonical case inventory
 
 The pinned catalogue has 30 named interoperability cases. Current candidate
-receipts cover the 21 core cases below in both directions and both adapters:
-84 case executions, all passing. The 9 profile decisions below remain unexecuted
-and pending; they are not counted as passes or silently removed. Negative HTTP/2
+receipts cover the 21 supported core cases below in both directions and both adapters:
+84 case executions, all passing. The nine cases outside the existing API profile
+remain unexecuted; they are not counted as passes or silently removed. Negative HTTP/2
 coverage is a separate 8-case client inventory, executed in both adapters (16
 passes). The RFC/Protobuf ledgers remain separate from these denominators.
 
@@ -210,15 +217,16 @@ overall-timeout defaults. The Jai fixture takes the corresponding explicit
 `1000 1000 1200` arguments after its URL, case name and CA path. Each direction
 uses one soak worker and no RPC deadline.
 
-| Pending cases | Required decision or infrastructure |
+| Outside the existing supported profile, unexecuted | Capability absent from the declared API |
 | --- | --- |
-| `compute_engine_creds`, `jwt_token_creds`, `oauth2_auth_token`, `per_rpc_creds`, `google_default_credentials`, `compute_engine_channel_credentials` | Cloud credential/service profile and independently provisioned identity |
-| `cacheable_unary` | GET/caching-proxy profile and independent caching infrastructure |
-| `orca_per_rpc`, `orca_oob` | ORCA/custom-balancing API profile and independent metrics peer |
+| `compute_engine_creds`, `jwt_token_creds`, `oauth2_auth_token`, `per_rpc_creds`, `google_default_credentials`, `compute_engine_channel_credentials` | Automatic cloud identity/credential providers; this API uses explicit metadata/TLS |
+| `cacheable_unary` | GET/caching-proxy extension; supported RPC routes use POST |
+| `orca_per_rpc`, `orca_oob` | ORCA/custom-balancing metrics API; no balancing API is declared |
 
-These pending rows need explicit profile disposition or implementation and
-execution before the section can claim complete applicable conformance. The
-four strict h2spec differences likewise retain their original failed identities:
+These rows remain in the 30-case catalogue denominator. Adding their facilities
+would extend the API and require implementation and independent execution; the
+core result does not claim the entire upstream catalogue passed. The four strict
+h2spec version differences retain their original failed identities:
 `http2/5.1/8`, `http2/5.1/11`, `http2/5.3.1/1`, `http2/5.3.1/2`.
 
 The compact negative-suite result exports only the exception class for a harness
@@ -260,3 +268,27 @@ peer-address extension. Other requests remain handled by the official imported
 TestService implementation. Preserve both source/tool hashes and the adapter
 mode in receipts. The peer programs are development dependencies; applications
 need only the owning Jai modules and native TLS provider.
+
+## Verified Windows prerequisites
+
+`tools/grpc/windows_acceptance.py` runs real Io/Tls module roots with exact
+prerequisite IDs, followed by the Http/Grpc module roots. It accepts only complete
+JSON reports in which every required ID actually passed. Missing, skipped,
+duplicate, list-only or unfinished prerequisite results fail even if the runner
+exits zero. Local raw JSON and stderr retain diagnosis; the compact result
+contains case IDs/statuses and the runner hash, without private failure fields.
+
+```sh
+PYTHONPATH=tools python tools/grpc/windows_acceptance.py \
+  --jacket target/debug/jacket.exe --output target/grpc-windows
+```
+
+Each test program has an explicit 120-second external runner watchdog. The
+closed-port Http checks use no request deadline because Windows can report native
+refusal after more than two seconds; they still require exactly transport /
+connection-refused. The separate 150 ms request-timeout checks are unchanged.
+The file-response test gets an isolated `$TEMP` path from jacket; its small
+fixture has a repository LF attribute because content and length are exact bytes.
+Change required IDs and the consumer regression together when renaming tests.
+The workflow calls this driver and archives its compact `result.json`. Native
+Windows acceptance remains required; the driver itself is not evidence of a pass.

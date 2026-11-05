@@ -55,8 +55,10 @@ the peer's public handler/client API, never by copying another implementation's
 internals. The CI `grpc-interop` job is required for changes to Http, Grpc, Protobuf,
 Tls, Io or Deflate, and uploads only the sanitized `result.json`, including a failure summary
 when the harness fails. Its Linux x64 and Windows x64 legs run independently.
-The Windows leg first executes Io TCP/backend/timeout/context tests, TLS tests and
-the Http/Grpc module cases; it uses the existing Windows runtime provider and puts the
+The Windows leg first invokes `tools/grpc/windows_acceptance.py`: real Io/Tls
+module roots, exact prerequisite IDs checked as executed/passed, and the Http/Grpc
+module cases with a finite external test watchdog. A zero-case or skipped
+prerequisite report fails. It uses the existing Windows runtime provider and puts the
 pinned TLS SDK DLL directory on the process search path. It then runs the same
 raw/generated peer matrix. Windows runtime support requires these actual gates;
 source availability and cross-target checks are not substitutes. Other Windows

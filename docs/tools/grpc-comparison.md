@@ -42,14 +42,15 @@ client role in this comparison; they do not establish its entire server profile.
 | RPC and channel soak | Both directions: 1,000 iterations per case, zero allowed failures | Both cases passed against each Jai server adapter | Both cases passed as independent server | Not run here |
 | Ownership/resource policy | Caller-owned returned values; configured message, metadata, call and connection bounds | Implementation-specific; not measured here | Implementation-specific; not measured here | Implementation-specific; not measured here |
 | Native/portable execution | Native RPC scheduler; portable codec; WebAssembly RPC unsupported | Native peer tested on macOS only here | Native peer tested on macOS here | Native peer tested on macOS |
-| Automatic retry, balancing, cloud credentials, ORCA, caching GET | Outside current API or explicit profile decision pending | Not evaluated by this matrix | Not evaluated by this matrix | Not evaluated by this matrix |
+| Automatic retry, balancing, cloud credentials, ORCA, caching GET | Outside the existing explicit-metadata/TLS API profile | Not evaluated by this matrix | Not evaluated by this matrix | Not evaluated by this matrix |
 
 Public API references: [C++](https://grpc.io/docs/languages/cpp/basics/),
 [Go](https://grpc.io/docs/languages/go/basics/),
 [Python](https://grpc.io/docs/languages/python/basics/). Documentation support does
 not replace running the full applicable case inventory against the pinned build.
-The cloud/proxy/ORCA profile decisions and RFC 7540 versus RFC 9113 differences
-remain separate from these feature observations.
+The nine cloud/proxy/ORCA cases remain unexecuted outside this API profile.
+The four strict RFC 7540 suite assertion failures remain visible separately from
+the RFC 9113 profile tests; neither group is relabeled as an upstream pass.
 
 ## Equivalent-task performance
 
@@ -81,7 +82,7 @@ are represented in nanoseconds; observed values were multiples of one microsecon
 Executable size excludes shared libraries and debug sidecars, so it is not a
 deployment-footprint comparison. Allocation counts and peak RSS were not measured.
 Runtime source and measurement harness have independent source approval; the
-enclosing release still requires profile disposition and exact-head CI. These
+enclosing release still requires repaired Windows acceptance and exact-head CI. These
 measurements are not a release acceptance claim.
 
 
@@ -97,7 +98,12 @@ population prevents comparing percentages with the single Jai thread.
 The traces identify existing TLS-record crypto as a major cost center for this
 workload. They do not assign every part of the end-to-end difference to crypto.
 The gRPC engine shares the repository's MbedTLS-backed transport; those provider
-costs are included in the application task. The scored table uses unsampled runs.
+costs are included in the application task. The scored table uses unsampled runs. A bounded configuration audit verified
+the measured native provider identity and artifact hashes, `-O2`, assembly
+support and native ARM64 compilation. Its pinned built-in ChaCha20/Poly1305
+implementation has no disabled available vector-path switch; selecting an
+alternative requires another implementation. The existing provider tradeoff is
+accepted without changing the cipher or claiming full causal attribution.
 
 ## Refreshing the comparison
 
