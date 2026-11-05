@@ -553,13 +553,20 @@ fn run_once(
     // in this report, alongside the blocks the built test programs execute later.
     let compile_coverage = coverage.as_ref().map(coverage::Coverage::run_dir);
     toolchain.coverage_dir.clone_from(&compile_coverage);
+    let listing = if list && args.list_target {
+        Some(build::Listing::Target)
+    } else if list || args.check_only {
+        Some(build::Listing::Host)
+    } else {
+        None
+    };
+    let discovery_toolchain = toolchain.for_discovery(listing);
     let built = build_all(
         &roots,
         &root_flags,
         &work,
-        &toolchain,
-        // Listing and checking doc examples need no test programs.
-        list || args.check_only,
+        &discovery_toolchain,
+        listing,
         bench,
         settings.jobs.min(4),
     );
@@ -567,6 +574,12 @@ fn run_once(
         coverage.collect_once(dir);
     }
     toolchain.coverage_dir = None;
+    // Public host listings use their host graph; actual runs/checks use their selected target.
+    let dependency_toolchain = if list {
+        &discovery_toolchain
+    } else {
+        &toolchain
+    };
     let mut broken = false;
     let built: Vec<Option<Built>> = built
         .into_iter()
@@ -628,7 +641,7 @@ fn run_once(
             roots: &roots,
             root_flags: &root_flags,
             work: &work,
-            toolchain: &toolchain,
+            toolchain: dependency_toolchain,
             bench,
         };
         selected = deps::narrow(selected, &args.changed, &ctx);
@@ -663,7 +676,14 @@ fn run_once(
             );
         }
         if args.deps {
-            deps::print(&selected, &roots, &root_flags, &work, &toolchain, bench);
+            deps::print(
+                &selected,
+                &roots,
+                &root_flags,
+                &work,
+                &discovery_toolchain,
+                bench,
+            );
         } else {
             reporter.list(&selected);
         }
@@ -1033,7 +1053,7 @@ fn build_all(
     root_flags: &[Vec<String>],
     work: &Path,
     toolchain: &Toolchain,
-    list: bool,
+    listing: Option<build::Listing>,
     bench: bool,
     parallel: usize,
 ) -> Vec<BuildResult> {
@@ -1061,7 +1081,7 @@ fn build_all(
                             &root_flags[i],
                             &work.join(format!("build-{i}")),
                             toolchain,
-                            list,
+                            listing,
                         )
                         .map(Some)
                     };
@@ -1079,118 +1099,4 @@ fn build_all(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_run_without_a_seed_draws_a_short_one() {
-        assert!(random_seed() < 1_000_000_000);
-    }
-
-    pub(super) fn case(name: &str, kind: Kind) -> Case {
-        Case {
-            name: name.into(),
-            local: name.rsplit("::").next().unwrap_or(name).into(),
-            kind,
-            root: 0,
-            file: PathBuf::from("/t.jai"),
-            line: 1,
-            notes: Vec::new(),
-            options: TestOptions::default(),
-            run_as: String::new(),
-            doc: None,
-            cases: Vec::new(),
-        }
-    }
-
-    #[test]
-    fn filters_select_tests_and_subtests() {
-        let table = case("A::table", Kind::Test);
-        let none: [String; 0] = [];
-        assert_eq!(select(&table, &none, false).as_deref(), Some("table"));
-        assert_eq!(
-            select(&table, &["tab".into()], false).as_deref(),
-            Some("table")
-        );
-        assert_eq!(select(&table, &["tab".into()], true), None);
-        assert_eq!(
-            select(&table, &["A::table/two".into()], true).as_deref(),
-            Some("table/two")
-        );
-        assert_eq!(select(&table, &["other".into()], false), None);
-        let golden = case("A::compile_fail/bad", Kind::CompileFail);
-        assert!(select(&golden, &["compile_fail/bad".into()], false).is_some());
-    }
-
-    #[test]
-    fn paths_among_the_flags_are_resolved_from_the_current_directory() {
-        let args = TestArgs {
-            path: vec![PathBuf::from("lib")],
-            junit: Some(PathBuf::from("out.xml")),
-            jaic_args: [
-                "-O2",
-                "-import_dir",
-                "vendor",
-                "-emit_ir=x.ll",
-                "-add",
-                "-output_path",
-                "-output_path=out",
-                "-os",
-                "wasm",
-            ]
-            .map(String::from)
-            .into(),
-            ..<TestArgs as clap::Args>::augment_args(clap::Command::new("t"))
-                .try_get_matches_from(["t"])
-                .map(|m| <TestArgs as clap::FromArgMatches>::from_arg_matches(&m).unwrap())
-                .unwrap()
-        };
-        let resolved = resolve_paths(&args, Path::new("/w"));
-        assert_eq!(resolved.path, [PathBuf::from("/w/lib")]);
-        assert_eq!(resolved.junit, Some(PathBuf::from("/w/out.xml")));
-        assert_eq!(
-            resolved.jaic_args,
-            [
-                "-O2",
-                "-import_dir",
-                "/w/vendor",
-                "-emit_ir=/w/x.ll",
-                "-add",
-                "-output_path",
-                "-output_path=/w/out",
-                "-os",
-                "wasm"
-            ]
-        );
-        for boundary in ["-", "--", "+Plugin"] {
-            let mut bounded = args.clone();
-            bounded.jaic_args = [boundary, "-import_dir", "keep-relative"]
-                .map(String::from)
-                .into();
-            assert_eq!(
-                resolve_paths(&bounded, Path::new("/w")).jaic_args,
-                bounded.jaic_args
-            );
-        }
-    }
-
-    #[test]
-    fn partitions_cover_every_test_once() {
-        let names = ["a", "b", "c", "d", "e"];
-        for how in ["hash", "count"] {
-            let parts: Vec<_> = (1..=3)
-                .map(|k| partition(&format!("{how}:{k}/3")).unwrap())
-                .collect();
-            for (i, name) in names.iter().enumerate() {
-                assert_eq!(
-                    parts.iter().filter(|p| p(i, name)).count(),
-                    1,
-                    "{how} {name}"
-                );
-            }
-        }
-        assert!(partition("hash:0/3").is_err());
-        assert!(partition("count:4/3").is_err());
-        assert!(partition("mod:1/2").is_err());
-    }
-}
+mod tests;

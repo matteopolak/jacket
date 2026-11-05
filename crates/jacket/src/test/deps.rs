@@ -1,9 +1,8 @@
 //! `jacket test --list --deps`: the source files the programs the tests build read.
-use super::build::{PLUGIN, Toolchain, host_flags};
+use super::build::{PLUGIN, Toolchain};
 use super::{Case, Kind, discover};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 /// The source files `jaic -deps` says compiling `program` reads, with the plugin that finds the
 /// tests when `plugin` is set (a root's generated program). `None` when it does not compile.
@@ -13,12 +12,12 @@ fn read_files(
     toolchain: &Toolchain,
     plugin: bool,
 ) -> Option<Vec<String>> {
-    let mut command = Command::new(&toolchain.jaic);
+    let mut command = toolchain.jaic_command();
     command
         .current_dir(program.parent().unwrap_or(Path::new(".")))
         .arg(program)
         .args(["-deps", "-quiet"])
-        .args(host_flags(&toolchain.flags))
+        .args(&toolchain.flags)
         .args(root_flags);
     if plugin {
         command.arg(PLUGIN);

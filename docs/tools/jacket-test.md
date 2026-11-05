@@ -1,6 +1,6 @@
 # `jacket test`
 
-The test runner for Jai projects. It builds a folder's tests once, runs each test in its own process (in parallel), and reports as text, JSON lines or JUnit XML. Tests are written with the [`Testing` module](../extensions/testing.md); golden-output and compile-fail files need no module. How to use it is in the [testing guide](../guides/testing.md); this page is the reference and how it works.
+The test runner for Jai projects. It builds a folder's unit programs once, runs their cases and separate golden programs in parallel, and reports as text, JSON lines or JUnit XML. Tests are written with the [`Testing` module](../extensions/testing.md); golden-output and compile-fail files need no module. How to use it is in the [testing guide](../guides/testing.md); this page is the reference and how it works.
 
 ```
 $ jacket test
@@ -19,6 +19,18 @@ $ jacket test
 ```
 
 Exit status: 0 when every test passed (or was skipped, or failed under `@xfail`), 1 when a test failed, 2 when nothing matched, the tests didn't compile, or the command line or `jacket.toml` was wrong. Every flag is in the [command-line reference](../reference/tools.md#testing).
+
+`--list` preserves the host catalogue. Use `--list --list-target` when the catalogue must match
+another target's compile-time `#if OS` or `#if CPU` declarations. Pass the same compiler flags
+as the run; discovery uses them without executing test bodies:
+
+```sh
+jacket test --list --list-target --interp -- -os=wasm
+jacket test --interp -- -os=wasm
+```
+
+The listing view is selected in `test/build.rs`; keep it separate from the shared compiler
+argument/target policy. Dependency probes use that catalogue's same compiler setup and target; actual runs and checks use their selected target. CI uses the selected-target view for coverage and changed-file filters.
 
 ## Where tests are
 

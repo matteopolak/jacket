@@ -320,6 +320,7 @@ jacket test [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--exact` | Filters are whole names, not parts of names |
 | `-E, --filter-expr <EXPR>` | Run the tests a filter expression selects, as `module(Sort) and not kind(property)`; with FILTERs, the tests both select (predicates: test, module, file, kind, all, none) |
 | `--list` | Print the tests (and benchmarks) instead of running them |
+| `--list-target` | With `--list`: discover the selected target's compile-time cases instead of the host's |
 | `--roots` | Print the test roots (the folders `[test] paths` expands to, narrowed by the current directory), one per line, and nothing else |
 | `--deps` | With `--list`: print the source files the test programs read (what `jaic -deps` prints for each), instead of the tests |
 | `--changed <FILE>` | Run only the tests a change to FILE can affect: those whose programs read it (as `--list --deps` shows), the tests of a root it adds an unlisted file to, and tests whose program does not compile. Repeat it for each changed file; it applies before `--partition` |
@@ -384,6 +385,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--exact` | Filters are whole names, not parts of names |
 | `-E, --filter-expr <EXPR>` | Run the tests a filter expression selects, as `module(Sort) and not kind(property)`; with FILTERs, the tests both select (predicates: test, module, file, kind, all, none) |
 | `--list` | Print the tests (and benchmarks) instead of running them |
+| `--list-target` | With `--list`: discover the selected target's compile-time cases instead of the host's |
 | `--roots` | Print the test roots (the folders `[test] paths` expands to, narrowed by the current directory), one per line, and nothing else |
 | `--deps` | With `--list`: print the source files the test programs read (what `jaic -deps` prints for each), instead of the tests |
 | `--changed <FILE>` | Run only the tests a change to FILE can affect: those whose programs read it (as `--list --deps` shows), the tests of a root it adds an unlisted file to, and tests whose program does not compile. Repeat it for each changed file; it applies before `--partition` |

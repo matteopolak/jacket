@@ -27,20 +27,6 @@ case "${JACKET_TEST_PARTITION:-all}" in
   all) ;;
   *) partition=(--partition "$JACKET_TEST_PARTITION") ;;
 esac
-only=()
-if [[ -n "${JACKET_TEST_CHANGED:-}" ]]; then
-  names="$(mktemp)"
-  selection=0
-  python3 -B tools/ci/select_tests.py --jacket "$jacket" --out "$names" || selection=$?
-  if [[ $selection == 0 ]]; then
-    if [[ ! -s "$names" ]]; then
-      echo "stdlib_jacket_test: no stdlib test is affected by the change"
-      exit 0
-    fi
-    while IFS= read -r name; do only+=("$name"); done < "$names"
-    only+=(--exact)
-  fi
-fi
 # Optional full evidence for matrix experiments. Discovery is recorded independently of
 # execution: listed target/capability skips must still be checked in the outcome inventory.
 reports="${JACKET_TEST_REPORT_DIR:-}"
@@ -53,9 +39,26 @@ fi
 run() {
   local mode="$1"
   shift
+  local only=()
+  if [[ -n "${JACKET_TEST_CHANGED:-}" ]]; then
+    local names selection
+    names="$(mktemp)"
+    selection=0
+    python3 -B tools/ci/select_tests.py --jacket "$jacket" --out "$names" -- "$@" || selection=$?
+    if [[ $selection == 0 ]]; then
+      if [[ ! -s "$names" ]]; then
+        rm -f "$names"
+        echo "stdlib_jacket_test: no stdlib test is affected in $mode"
+        return 0
+      fi
+      while IFS= read -r name; do only+=("$name"); done < "$names"
+      only+=(--exact)
+    fi
+    rm -f "$names"
+  fi
   if [[ -n "$reports" ]]; then
-    with_display "$jacket" test --list --format json --needs display "${only[@]}" "$@" | python3 tools/ci/jacket_inventory.py list > "$reports/$mode-all.jsonl" || status=1
-    with_display "$jacket" test --list --format json --needs display "${partition[@]}" "${only[@]}" "$@" | python3 tools/ci/jacket_inventory.py list > "$reports/$mode-part.jsonl" || status=1
+    with_display "$jacket" test --list --list-target --format json --needs display "${only[@]}" "$@" | python3 tools/ci/jacket_inventory.py list > "$reports/$mode-all.jsonl" || status=1
+    with_display "$jacket" test --list --list-target --format json --needs display "${partition[@]}" "${only[@]}" "$@" | python3 tools/ci/jacket_inventory.py list > "$reports/$mode-part.jsonl" || status=1
     with_display "$jacket" test -q --format json --needs display "${partition[@]}" "${only[@]}" "$@" | python3 tools/ci/jacket_inventory.py outcomes "${diagnostics[@]}" | tee "$reports/$mode-outcomes.jsonl" || status=1
   else
     with_display "$jacket" test -q --needs display "${partition[@]}" "${only[@]}" "$@" || status=1
