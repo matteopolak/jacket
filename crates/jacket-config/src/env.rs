@@ -243,6 +243,11 @@ vars! {
         default: "10 seconds",
         summary: "Seconds one program check may take when the linter or language server runs compile-time code (`0`: no limit). CI sets it to `0`.",
     }
+    DOCS_BUILDER {
+        name: "JACKET_DOCS_BUILDER", group: Settings, readers: [Jacket],
+        default: "docs-builder beside Jacket, or website/docs in a source checkout",
+        summary: "The matching Astro documentation builder source directory. Install its frozen dependencies explicitly with `npm ci` before `jacket doc`.",
+    }
     TEST_DLLS {
         name: "JACKET_TEST_DLLS", group: Settings, readers: [Jacket],
         default: "unset",

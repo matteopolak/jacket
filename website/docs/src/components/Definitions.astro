@@ -1,0 +1,8 @@
+---
+import type { Parameter, Target } from '../generated/doc-site.js';
+import ParameterText from './ParameterText.astro';
+import Document from './Document.astro';
+interface Props { parameters: (Parameter & { id?: string })[]; href: (target: Target) => string }
+const { parameters, href } = Astro.props;
+---
+<dl class="defs">{parameters.map(parameter => <div class="def" id={parameter.id}><dt class="mono"><ParameterText parameter={parameter} href={href} /></dt><dd><Document nodes={parameter.docs.length === 1 && parameter.docs[0]?.kind === 'paragraph' ? parameter.docs[0].children : parameter.docs} href={href} /></dd></div>)}</dl>

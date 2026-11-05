@@ -105,9 +105,9 @@ impl Site {
     }
 
     fn type_is_linked(&self, path: &str, refs: &[TypeRef], here: usize) -> bool {
-        // Both renderers use path_out, so checking both also covers search's marked links.
-        self.type_html(path, refs, here).contains("<a ")
-            && self.type_out(path, refs, here, true).contains('\u{1}')
+        // Validate the same semantic spans that both API pages and search previews consume.
+        super::export::build::text(self, here, path, refs, None)
+            .is_ok_and(|text| text.spans.iter().any(|span| span.target.is_some()))
     }
 }
 
@@ -424,18 +424,10 @@ mod tests {
                 private: false,
             },
         ];
-        assert!(
-            site.type_html("Alias", &refs, 0)
-                .contains("/api/Test/Color")
-        );
-        assert!(
-            site.type_out("Alias", &refs, 0, true)
-                .contains("\u{1}Test/Color\u{2}Alias\u{3}")
-        );
-        assert!(
-            site.type_html("Alias", &refs[2..], 0)
-                .contains("/api/Test/Vector")
-        );
+        assert_eq!(site.resolved("Alias", &refs, 0), Some((0, "Color")));
+        assert!(site.type_is_linked("Alias", &refs, 0));
+        assert_eq!(site.resolved("Alias", &refs[2..], 0), Some((0, "Vector")));
+        assert!(site.type_is_linked("Alias", &refs[2..], 0));
         let branch = [TypeRef {
             path: "Vector".into(),
             file: "other-branch.jai".into(),

@@ -308,13 +308,22 @@ pub struct DocArgs {
     /// Where to write the site
     #[arg(long, value_name = "DIR", default_value = "target/doc-site")]
     pub out: std::path::PathBuf,
-    /// Also write the resolved JSON view model (including with --check)
+    /// Produce the versioned semantic JSON/assets bundle without Node or rendering
+    #[arg(long, conflicts_with = "check")]
+    pub export_only: bool,
+    /// Retain the semantic export used by the static builder
+    #[arg(long, value_name = "DIR")]
+    pub export: Option<std::path::PathBuf>,
+    /// Explicitly validate eligible examples using the bounded interpreter/browser engine
+    #[arg(long, conflicts_with = "no_test_examples")]
+    pub validate_examples: bool,
+    /// Retired renderer option; use --export DIR for the versioned semantic bundle
     #[arg(long, value_name = "DIR")]
     pub emit_input: Option<std::path::PathBuf>,
-    /// Theme source overrides, over `[doc] theme`; relative to the current directory
+    /// Retired Jai theme override; customize matching Astro builder sources instead
     #[arg(long, value_name = "DIR")]
     pub theme: Option<std::path::PathBuf>,
-    /// Print time spent building models, views, compiling the theme, rendering and writing
+    /// Print extraction/export, Astro build/validation and total phase timings
     #[arg(long)]
     pub timings: bool,
     /// The path the site is served under, with the slashes around it (`/docs/jacket/`)
@@ -347,11 +356,10 @@ pub struct DocArgs {
     /// Document only these modules (`String`, `Extensions/Http`); repeatable
     #[arg(long = "module", value_name = "NAME")]
     pub modules: Vec<String>,
-    /// Build and check the links without writing the site or running the examples
+    /// Build and validate the production static site without publishing final output
     #[arg(long)]
     pub check: bool,
-    /// Don't run the examples. By default each one with a Run button is run the way the browser
-    /// runs it (WebAssembly target), and the build fails when one fails
+    /// Legacy explicit no-example-validation spelling; validation is now opt-in with --validate-examples
     #[arg(long)]
     pub no_test_examples: bool,
     /// Report broken intra-doc links as warnings instead of failing

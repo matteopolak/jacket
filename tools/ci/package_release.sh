@@ -29,6 +29,8 @@ cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$out/jacket$exe" "$out/
 # Bootstrap definitions are packaged with the standard library.
 cp -R stdlib "$dir/stdlib"
 cp README.md CHANGELOG.md "$dir/"
+# The installed doc command uses this locked source package; Node/npm setup is explicit.
+python3 tools/ci/package_docs_builder.py --output "$dir/docs-builder"
 # The native libraries the packaged stdlib binds, as tools/native/native-libs.json declares them
 # (docs/tools/native-libs.md), in the archive's native-libs/<platform>, where jaic looks:
 # the Windows crash runtime built into stdlib/ (the DLL is what `jaic -interp` and a metaprogram

@@ -5,7 +5,7 @@
 //   node tools/dev/doc_layout.mjs http://127.0.0.1:8000/ --all      every page in sitemap.xml
 //
 // Options: --parallel N (tabs), --only SUBSTRING (page filter), --every N (with --all, every Nth page),
-// --widths 1280,375, --script-delay MS (hold site.js back so a frame paints first; 0 turns it off),
+// --widths 1280,375, --script-delay MS (hold deferred browser modules back so a frame paints first; 0 turns it off),
 // --verbose (list every scenario), --dump (print every recorded frame).
 // Time: about 3.5 s per page/width/theme with 3 tabs, so --all (about 32,000 pages) takes days;
 // use --every 600 for a spread of about 55 pages in 14 minutes. Serve the site like GitHub Pages
@@ -23,7 +23,9 @@
 // second check catches, including changes too small or too quick for the first.
 import assert from 'node:assert/strict';
 import { pageStatus, waitForFrames } from './doc_samples.mjs';
+import { Connection, runtimeException } from './chrome_cdp.mjs';
 import { waitForDevToolsPort } from './chrome_startup.mjs';
+import { declarationBands } from './doc_bands.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -42,7 +44,7 @@ const widths = option('--widths', '1280,375').split(',').map(Number);
 const parallel = Math.max(1, Number(option('--parallel', all ? 3 : 2)));
 const themes = ['light', 'dark'];
 const SETTLE_MS = 450;
-// site.js is deferred; on a real connection the page is painted before it runs. Hold it back so
+// Browser modules are deferred; on a real connection the page is painted before it runs. Hold it back so
 // that frame exists here too (0 lets the local server run it before the first paint).
 const SCRIPT_DELAY_MS = Number(option('--script-delay', 250));
 
@@ -160,31 +162,6 @@ function findChrome() {
   return ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'].find(p => spawnSync('which', [p]).status === 0);
 }
 
-class Connection {
-  constructor(url) { this.url = url; this.next = 0; this.pending = new Map(); this.listeners = []; }
-  async open() {
-    this.socket = new WebSocket(this.url);
-    await new Promise((resolve, reject) => { this.socket.onopen = resolve; this.socket.onerror = reject; });
-    this.socket.onmessage = event => {
-      const message = JSON.parse(event.data);
-      const entry = this.pending.get(message.id);
-      if (entry) {
-        this.pending.delete(message.id); clearTimeout(entry.timer);
-        if (message.error) entry.reject(new Error(`${entry.method}: ${JSON.stringify(message.error)}`)); else entry.resolve(message.result);
-      } else if (message.method) for (const l of this.listeners) l(message);
-    };
-    return this;
-  }
-  cdp(method, params = {}) {
-    return new Promise((resolve, reject) => {
-      const id = ++this.next;
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`${method} timed out`)); }, 60_000);
-      this.pending.set(id, { resolve, reject, timer, method });
-      this.socket.send(JSON.stringify({ id, method, params }));
-    });
-  }
-  close() { this.socket?.close(); }
-}
 
 class Tab {
   static async open(browser, port) {
@@ -195,11 +172,8 @@ class Tab {
       if (m.method === 'Fetch.requestPaused') {
         setTimeout(() => tab.cdp('Fetch.continueRequest', { requestId: m.params.requestId }).catch(() => {}), SCRIPT_DELAY_MS);
       }
-      if (m.method === 'Runtime.exceptionThrown') {
-        const text = m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text;
-        // Headless Chrome aborts cross-document view transitions it never shows; not the site's doing.
-        if (!/ViewTransition|Transition was aborted/.test(text)) tab.exceptions.push(text);
-      }
+      const exception = runtimeException(m);
+      if (exception !== undefined) tab.exceptions.push(exception);
     });
     tab.loads = 0; tab.exceptions = [];
     await tab.cdp('Page.enable'); await tab.cdp('Runtime.enable');
@@ -208,7 +182,7 @@ class Tab {
     // Every load goes to the server, so the held-back script below is held back on every load.
     await tab.cdp('Network.enable'); await tab.cdp('Network.setCacheDisabled', { cacheDisabled: true });
     await tab.cdp('Page.addScriptToEvaluateOnNewDocument', { source: RECORDER });
-    if (SCRIPT_DELAY_MS > 0) await tab.cdp('Fetch.enable', { patterns: [{ urlPattern: '*/assets/site.js*', requestStage: 'Request' }] });
+    if (SCRIPT_DELAY_MS > 0) await tab.cdp('Fetch.enable', { patterns: [{ urlPattern: '*/assets/site.js*', requestStage: 'Request' }, { urlPattern: '*/_astro/*.js*', requestStage: 'Request' }] });
     return tab;
   }
   constructor(browser, id, conn) { this.browser = browser; this.id = id; this.conn = conn; }
@@ -255,7 +229,7 @@ class Tab {
     // Wall time alone need not include a recorded animation frame on a loaded runner.
     await waitForFrames(expression => this.evaluate(expression));
   }
-  read() { return this.evaluate('window.__rec ? window.__rec.read() : null'); }
+  read() { return this.evaluate(`(() => {const rec=window.__rec?.read();if(!rec)return null;rec.declarationBands=(${declarationBands.toString()})();if(location.pathname.endsWith('/api/Basic')&&rec.declarationBands.count<3)rec.declarationBands.problems.push('Basic module did not expose the required declaration-band samples');return rec;})()`); }
   close() { this.conn.close(); return this.browser.cdp('Target.closeTarget', { targetId: this.id }).catch(() => {}); }
 }
 
@@ -311,6 +285,7 @@ function analyse(rec, options = {}) {
   const problems = [];
   if (!rec) return ['no recorder in the page'];
   if (rec.errors.length) problems.push(`recorder errors: ${rec.errors.join('; ')}`);
+  if (rec.declarationBands) problems.push(...rec.declarationBands.problems);
   if (!rec.frames.length) return [...problems, `no frames recorded (${rec.number} animation frames ran)`];
   // A swapped-in page of another height moves the footer, which a real click's own 500ms
   // exemption would hide; the footer alone is not counted for a swap.
@@ -414,10 +389,11 @@ async function runCombo(tab, page, width, theme) {
     const y = Math.min(Math.floor(max / 2), 1500);
     if (max >= 40) {
       await tab.evaluate(`window.scrollTo({ top: ${y}, behavior: 'instant' })`);
-      // site.js saves the position into history.state a little after scrolling stops.
-      let saved = false;
-      for (let i = 0; i < 60 && !saved; i++) { await delay(50); saved = await tab.evaluate(`!!(history.state && history.state.y > 0)`); }
-      assert(saved, 'history.state never recorded the scroll');
+      // Wait for the rendered position to settle. Reload below tests restoration itself,
+      // without depending on a private history.state field of either client router.
+      await tab.settle();
+      const beforeReload = await tab.evaluate('Math.round(scrollY)');
+      assert(Math.abs(beforeReload - y) <= 2, `requested scroll position was not reached: ${y} -> ${beforeReload}`);
     }
     await tab.reload();
     const rec = await tab.read();

@@ -9,9 +9,14 @@
 use super::forward::Files;
 #[path = "model_declaration.rs"]
 mod declaration;
+#[path = "model_definition.rs"]
+mod definition;
+pub use definition::{CompileGuard, Definition};
+#[path = "model_output.rs"]
+mod output;
 #[path = "model_resolution.rs"]
 mod resolution;
-use super::refs::{TypeRef, refs_json, refs_named};
+use super::refs::{TypeRef, refs_json};
 use crate::ast::{
     BinOp, Decl, DeclKind, EnumItem, Expr, ExprKind, File, ProcHeader, Stmt, StmtKind, StructKind,
     UnOp,
@@ -21,6 +26,7 @@ use crate::fxhash::HashMap;
 use crate::parser::ide_facts::{self, DeclClass, TopLevelKind, Visibility};
 use crate::parser::{IdeParse, parse_file_ide};
 use crate::source::FileId;
+pub use output::print;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -164,7 +170,7 @@ pub struct Overload {
 }
 
 /// A struct field or an enum member.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Member {
     pub name: String,
     /// The field's type, or the member's value.
@@ -172,6 +178,19 @@ pub struct Member {
     pub doc: String,
     /// The declarations the names in a field's type stand for.
     pub refs: Vec<TypeRef>,
+}
+
+/// A lexical spelling plus parser-owned declaration boundary; source layout is absent.
+#[derive(Clone, Debug, Default)]
+pub struct DeclarationToken {
+    pub text: String,
+    pub start: u32,
+    pub end: u32,
+    pub statement: bool,
+    /// Identifiers declared by this AST or note tokens are not reference uses.
+    pub reference: bool,
+    pub names: Vec<String>,
+    pub docs: String,
 }
 
 #[derive(Debug, Default)]
@@ -199,11 +218,8 @@ pub struct Item {
     pub binding: bool,
     /// Other declarations of the name (one per branch of an `#if`) that this item stands for.
     pub also: Vec<(PathBuf, usize)>,
-    /// A struct, union or enum as written (`Channel :: struct(T: Type) { ... }`), without its
-    /// comments.
-    pub declaration: String,
-    /// The declarations the type names in `declaration` stand for.
-    pub decl_refs: Vec<TypeRef>,
+    /// All conditional definitions, each with its own source and member inventory.
+    pub definitions: Vec<Definition>,
     /// Not exported: a type that public items name, which cannot be named outside the module.
     pub private: bool,
 }
@@ -222,6 +238,7 @@ pub struct Parameter {
 
 #[derive(Debug, Default)]
 pub struct Module {
+    pub dependencies: Vec<(PathBuf, String)>,
     pub file: PathBuf,
     /// Every program gets it without importing it (the prelude).
     pub implicit: bool,
@@ -241,6 +258,7 @@ struct Parsed {
     parse: IdeParse,
     /// Declarations limited by an `#if` on `OS`; see [`limits`].
     limits: HashMap<u32, u8>,
+    guards: HashMap<u32, Vec<CompileGuard>>,
     private: BTreeSet<usize>,
 }
 
@@ -299,6 +317,7 @@ impl Reader<'_> {
                     .map(|n| n.span.start as usize)
                     .collect(),
                 limits: limits(&parse.file),
+                guards: definition::guards(&parse.file, &text, file),
                 text,
                 parse,
             })
@@ -484,11 +503,31 @@ fn overload(
     }
 }
 
+/// Variable fields at this type's scope, including compile-time branches but not nested types.
+/// A nested `Inner :: struct` owns its fields; they are not members of the enclosing type.
+pub(super) fn type_fields(stmts: &[Stmt]) -> Vec<&Stmt> {
+    fn collect<'a>(stmts: &'a [Stmt], out: &mut Vec<&'a Stmt>) {
+        for stmt in stmts {
+            match &stmt.kind {
+                StmtKind::Decl(decl) if decl.kind == DeclKind::Var => out.push(stmt),
+                StmtKind::StaticIf(branches) => {
+                    collect(&branches.then_branch, out);
+                    collect(&branches.else_branch, out);
+                }
+                _ => {}
+            }
+        }
+    }
+    let mut out = Vec::new();
+    collect(stmts, &mut out);
+    out
+}
+
 fn members(decl: &Decl, text: &str) -> Vec<Member> {
     let mut out = Vec::new();
     match decl.value.as_ref().map(|v| &v.kind) {
         Some(ExprKind::Struct(lit)) => {
-            for stmt in &lit.body {
+            for stmt in type_fields(&lit.body) {
                 let StmtKind::Decl(field) = &stmt.kind else {
                     continue;
                 };
@@ -886,6 +925,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
     }
     reader.add_private_types(&mut out, &mut names);
     take_experimental(&mut out);
+    out.dependencies = reader.files.dependencies();
     out
 }
 
@@ -912,6 +952,13 @@ fn add(out: &mut Module, names: &mut Vec<String>, item: Item) {
             have.also.push((item.file.clone(), item.line));
         }
         have.also.extend(item.also);
+        for definition in item.definitions {
+            if !have.definitions.iter().any(|existing| {
+                existing.file == definition.file && existing.start == definition.start
+            }) {
+                have.definitions.push(definition);
+            }
+        }
         if have.kind == "procedure" && item.kind == "procedure" {
             for o in item.overloads {
                 if !have
@@ -1030,13 +1077,22 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             })
             .collect();
         let written = format!(
-            "{}{}{}",
-            if item.declaration.is_empty() {
+            "{}{}",
+            if item.definitions.is_empty() {
                 String::new()
             } else {
-                format!(",\"declaration\":{}", json(&item.declaration))
+                format!(
+                    ",\"definitions\":[{}]",
+                    item.definitions
+                        .iter()
+                        .map(|definition| definition::to_json(
+                            definition,
+                            &|doc, file, line| md_at(doc, file, line, listed)
+                        ))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )
             },
-            refs_named("decl_refs", &item.decl_refs),
             if item.private {
                 ",\"private\":true"
             } else {
@@ -1074,7 +1130,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
         ));
     }
     format!(
-        "{{\"file\":{},\"implicit\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n],\"unresolved\":[{}]}}\n",
+        "{{\"schema\":\"jai-doc-model\",\"schemaVersion\":1,\"file\":{},\"implicit\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n],\"unresolved\":[{}],\"dependencies\":[{}]}}\n",
         path(&model.file),
         model.implicit,
         json(&md_at(
@@ -1105,55 +1161,20 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             .collect::<Vec<_>>()
             .join(","),
         items.join(",\n"),
-        missed.borrow().join(",")
+        missed.borrow().join(","),
+        model
+            .dependencies
+            .iter()
+            .map(|(file, digest)| format!(
+                "{{\"file\":{},\"sha256\":{}}}",
+                path(file),
+                json(digest)
+            ))
+            .collect::<Vec<_>>()
+            .join(",")
     )
 }
 
-/// What `jaic -doc_model` prints for the library in `dir`. Links in docs to a name of the
-/// library (or `Module.name` of another library of `stdlib`) become `jaidoc:Module/name` and
-/// `jaidoc:Module/name#member`, for the renderer to turn into pages.
-pub fn print(dir: &Path, stdlib: &Path) -> String {
-    let (dir, stdlib) = (&super::canonical(dir), &super::canonical(stdlib));
-    let model = module(dir, stdlib);
-    let key = {
-        let canonical = super::canonical(dir);
-        let root = super::canonical(stdlib);
-        canonical.strip_prefix(&root).map_or_else(
-            |_| {
-                canonical
-                    .file_name()
-                    .map_or(String::new(), |n| n.to_string_lossy().into_owned())
-            },
-            crate::paths::module_key,
-        )
-    };
-    let own: BTreeSet<&str> = model
-        .items
-        .iter()
-        .filter(|i| !i.private)
-        .map(|i| i.name.as_str())
-        .collect();
-    let resolve = |names: &[String]| -> Option<String> {
-        let first = names.first()?;
-        if own.contains(first.as_str()) {
-            return Some(match names.get(1) {
-                Some(member) => format!("jaidoc:{key}/{first}#{member}"),
-                None => format!("jaidoc:{key}/{first}"),
-            });
-        }
-        let other = names.get(1)?;
-        let module_dir = stdlib.join(first);
-        let ext_dir = stdlib.join("Extensions").join(first);
-        if crate::paths::module_entry(&module_dir).is_file() {
-            return Some(format!("jaidoc:{first}/{other}"));
-        }
-        if crate::paths::module_entry(&ext_dir).is_file() {
-            return Some(format!("jaidoc:Extensions/{first}/{other}"));
-        }
-        None
-    };
-    to_json(&model, &resolve)
-}
 
 #[cfg(test)]
 #[path = "model_tests.rs"]

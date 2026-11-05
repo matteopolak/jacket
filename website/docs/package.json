@@ -1,0 +1,33 @@
+{
+  "name": "@jacket/docs-builder",
+  "version": "0.33.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.12.0 <25",
+    "npm": ">=11.6.2 <12"
+  },
+  "packageManager": "npm@11.6.2",
+  "jacketDocSiteSchema": 1,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "node scripts/build.mjs",
+    "check": "astro check && tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "generate:types": "node scripts/generate-types.mjs",
+    "check:generated": "node scripts/generate-types.mjs --check"
+  },
+  "dependencies": {
+    "astro": "7.4.1",
+    "ajv": "8.20.0",
+    "parse5": "8.0.0",
+    "html-validate": "11.17.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.11",
+    "@types/node": "24.10.1",
+    "json-schema-to-typescript": "16.0.0",
+    "typescript": "6.0.2",
+    "commonmark": "0.31.2"
+  }
+}

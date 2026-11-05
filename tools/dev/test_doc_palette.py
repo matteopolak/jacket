@@ -6,7 +6,7 @@ import unittest
 
 from toolkit.repo import ROOT
 
-CSS = ROOT / "crates/jacket/src/doc/site/assets/site.css"
+CSS = ROOT / "website/docs/src/styles/site.css"
 TEXT = "fg fg2 muted link accent type str kw ok err warn foreign".split()
 SURFACES = "bg surface sunken sel okbg errbg warnbg".split()
 

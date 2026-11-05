@@ -1,0 +1,387 @@
+[
+  {
+    "example": "gfm_table_test_1",
+    "markdown": "| foo | bar |\n| --- | --- |\n| baz | bim |\n",
+    "html": "<table>\n<thead>\n<tr>\n<th>foo</th>\n<th>bar</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>baz</td>\n<td>bim</td>\n</tr>\n</tbody>\n</table>\n",
+    "section": "gfm_table",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_table_test_2",
+    "markdown": "| abc | defghi |\n:-: | -----------:\nbar | baz\n",
+    "html": "<table>\n<thead>\n<tr>\n<th style=\"text-align: center\">abc</th>\n<th style=\"text-align: right\">defghi</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td style=\"text-align: center\">bar</td>\n<td style=\"text-align: right\">baz</td>\n</tr>\n</tbody>\n</table>\n",
+    "section": "gfm_table",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_table_test_3",
+    "markdown": "| f\\|oo  |\n| ------ |\n| b `\\|` az |\n| b **\\|** im |\n",
+    "html": "<table>\n<thead>\n<tr>\n<th>f|oo</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b <code>|</code> az</td>\n</tr>\n<tr>\n<td>b <strong>|</strong> im</td>\n</tr>\n</tbody>\n</table>\n",
+    "section": "gfm_table",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_table_test_4",
+    "markdown": "| abc | def |\n| --- | --- |\n| bar | baz |\n> bar\n",
+    "html": "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>bar</td>\n<td>baz</td>\n</tr>\n</tbody>\n</table>\n<blockquote>\n<p>bar</p>\n</blockquote>\n",
+    "section": "gfm_table",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_table_test_5",
+    "markdown": "| abc | def |\n| --- | --- |\n| bar | baz |\nbar\n\nbar\n",
+    "html": "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>bar</td>\n<td>baz</td>\n</tr>\n<tr>\n<td>bar</td>\n<td></td>\n</tr>\n</tbody>\n</table>\n<p>bar</p>\n",
+    "section": "gfm_table",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_table_test_6",
+    "markdown": "| abc | def |\n| --- |\n| bar |\n",
+    "html": "<p>| abc | def |\n| --- |\n| bar |</p>\n",
+    "section": "gfm_table",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_table_test_7",
+    "markdown": "| abc | def |\n| --- | --- |\n| bar |\n| bar | baz | boo |\n",
+    "html": "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>bar</td>\n<td></td>\n</tr>\n<tr>\n<td>bar</td>\n<td>baz</td>\n</tr>\n</tbody>\n</table>\n",
+    "section": "gfm_table",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_table_test_8",
+    "markdown": "| abc | def |\n| --- | --- |\n",
+    "html": "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody></tbody>\n</table>\n",
+    "section": "gfm_table",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_table_test_9",
+    "markdown": "Hello World\n| abc | def |\n| --- | --- |\n| bar | baz |\n",
+    "html": "<p>Hello World</p>\n<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>bar</td>\n<td>baz</td>\n</tr>\n</tbody>\n</table>\n",
+    "section": "gfm_table",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_strikethrough_test_1",
+    "markdown": "~~Hi~~ Hello, ~there~ world!\n",
+    "html": "<p><del>Hi</del> Hello, <del>there</del> world!</p>\n",
+    "section": "gfm_strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_strikethrough_test_2",
+    "markdown": "This ~~has a\n\nnew paragraph~~.\n",
+    "html": "<p>This ~~has a</p>\n<p>new paragraph~~.</p>\n",
+    "section": "gfm_strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "gfm_strikethrough_test_3",
+    "markdown": "This will ~~~not~~~ strike.\n",
+    "html": "<p>This will ~~~not~~~ strike.</p>\n",
+    "section": "gfm_strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_1",
+    "markdown": "Test header\n-----------\n",
+    "html": "<h2>Test header</h2>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_2",
+    "markdown": "Test|Table\n----|-----\n",
+    "html": "<table><thead><tr><th>Test</th><th>Table</th></tr></thead><tbody></tbody>\n</table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_3",
+    "markdown": "> Test  | Table\n> ------|------\n> Row 1 | Every\n> Row 2 | Day\n>\n> Paragraph\n",
+    "html": "<blockquote>\n<table><thead><tr><th>Test</th><th>Table</th></tr></thead><tbody>\n<tr><td>Row 1</td><td>Every</td></tr>\n<tr><td>Row 2</td><td>Day</td></tr>\n</tbody></table>\n<p>Paragraph</p>\n</blockquote>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_4",
+    "markdown": " 1. First entry\n 2. Second entry\n\n    Col 1|Col 2\n    -|-\n    Row 1|Part 2\n    Row 2|Part 2\n",
+    "html": "<ol>\n<li>\n<p>First entry</p>\n</li>\n<li>\n<p>Second entry</p>\n<table><thead><tr><th>Col 1</th><th>Col 2</th></tr></thead><tbody>\n<tr><td>Row 1</td><td>Part 2</td></tr>\n<tr><td>Row 2</td><td>Part 2</td></tr>\n</tbody></table>\n</li>\n</ol>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_5",
+    "markdown": "|Col 1|Col 2|\n|-----|-----|\n|R1C1 |R1C2 |\n|R2C1 |R2C2 |\n",
+    "html": "<table><thead><tr><th>Col 1</th><th>Col 2</th></tr></thead><tbody>\n<tr><td>R1C1</td><td>R1C2</td></tr>\n<tr><td>R2C1</td><td>R2C2</td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_6",
+    "markdown": "| Col 1 | Col 2 |\n|-------|-------|\n|       |       |\n|       |       |\n",
+    "html": "<table><thead><tr><th>Col 1</th><th>Col 2</th></tr></thead><tbody>\n<tr><td></td><td></td></tr>\n<tr><td></td><td></td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_7",
+    "markdown": "| Col 1 | Col 2 |\n|-------|-------|\n|   x   |       |\n|       |    x  |\n",
+    "html": "<table><thead><tr><th>Col 1</th><th>Col 2</th></tr></thead><tbody>\n<tr><td>x</td><td></td></tr>\n<tr><td></td><td>x</td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_8",
+    "markdown": "|Col 1|Col 2|\n|-----|-----|\n|✓    |✓    |\n|✓    |✓    |\n",
+    "html": "<table><thead><tr><th>Col 1</th><th>Col 2</th></tr></thead><tbody>\n<tr><td>✓</td><td>✓</td></tr>\n<tr><td>✓</td><td>✓</td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_9",
+    "markdown": "|  Target                       | std |rustc|cargo| notes                      |\n|-------------------------------|-----|-----|-----|----------------------------|\n| `x86_64-unknown-linux-musl`   |  ✓  |     |     | 64-bit Linux with MUSL     |\n| `arm-linux-androideabi`       |  ✓  |     |     | ARM Android                |\n| `arm-unknown-linux-gnueabi`   |  ✓  |  ✓  |     | ARM Linux (2.6.18+)        |\n| `arm-unknown-linux-gnueabihf` |  ✓  |  ✓  |     | ARM Linux (2.6.18+)        |\n| `aarch64-unknown-linux-gnu`   |  ✓  |     |     | ARM64 Linux (2.6.18+)      |\n| `mips-unknown-linux-gnu`      |  ✓  |     |     | MIPS Linux (2.6.18+)       |\n| `mipsel-unknown-linux-gnu`    |  ✓  |     |     | MIPS (LE) Linux (2.6.18+)  |\n",
+    "html": "<table><thead><tr><th>Target</th><th>std</th><th>rustc</th><th>cargo</th><th>notes</th></tr></thead><tbody>\n<tr><td><code>x86_64-unknown-linux-musl</code></td><td>✓</td><td></td><td></td><td>64-bit Linux with MUSL</td></tr>\n<tr><td><code>arm-linux-androideabi</code></td><td>✓</td><td></td><td></td><td>ARM Android</td></tr>\n<tr><td><code>arm-unknown-linux-gnueabi</code></td><td>✓</td><td>✓</td><td></td><td>ARM Linux (2.6.18+)</td></tr>\n<tr><td><code>arm-unknown-linux-gnueabihf</code></td><td>✓</td><td>✓</td><td></td><td>ARM Linux (2.6.18+)</td></tr>\n<tr><td><code>aarch64-unknown-linux-gnu</code></td><td>✓</td><td></td><td></td><td>ARM64 Linux (2.6.18+)</td></tr>\n<tr><td><code>mips-unknown-linux-gnu</code></td><td>✓</td><td></td><td></td><td>MIPS Linux (2.6.18+)</td></tr>\n<tr><td><code>mipsel-unknown-linux-gnu</code></td><td>✓</td><td></td><td></td><td>MIPS (LE) Linux (2.6.18+)</td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_10",
+    "markdown": "|-|-|\n|ぃ|い|\n",
+    "html": "<p>|-|-|\n|ぃ|い|</p>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_11",
+    "markdown": "|ぁ|ぃ|\n|-|-|\n|ぃ|ぃ|\n",
+    "html": "<table><thead><tr><th>ぁ</th><th>ぃ</th></tr></thead><tbody>\n<tr><td>ぃ</td><td>ぃ</td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_12",
+    "markdown": "|Колонка 1|Колонка 2|\n|---------|---------|\n|Ячейка 1 |Ячейка 2 |\n",
+    "html": "<table><thead><tr><th>Колонка 1</th><th>Колонка 2</th></tr></thead><tbody>\n<tr><td>Ячейка 1</td><td>Ячейка 2</td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_13",
+    "markdown": "table a\n|  a  |  b  |\n| --- | --- |\n|  c  |  d  |\n\n\ntable b\n    |  a  |  b  |\n    | --- | --- |\n    |  c  |  d  |\n\n\ntable c\n a  |  b\n--- | ---\n c  |  d\n\n\ntable d\n    a | b\n    --|--\n    c | d\n\n\ntable e\na | b\n--|--\nc | d\n\ntable f\n  |  a  |  b  |\n  | --- | --- |\n  |  c  |  d  |\n\n\ntable g\n   a  |  b\n  --- | ---\n   c  |  d\n\ntable h\na\n|-|\nb\n\ntable i\n| a\n|-\nb\n\ntable j\n| a\n-\nb\n",
+    "html": "<p>table a</p>\n<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody>\n<tr><td>c</td><td>d</td></tr>\n</tbody></table>\n<p>table b\n|  a  |  b  |\n| --- | --- |\n|  c  |  d  |</p>\n<p>table c\na  |  b\n--- | ---\nc  |  d</p>\n<p>table d\na | b\n--|--\nc | d</p>\n<p>table e\na | b\n--|--\nc | d</p>\n<p>table f</p>\n<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody>\n<tr><td>c</td><td>d</td></tr>\n</tbody></table>\n<p>table g\na  |  b\n--- | ---\nc  |  d</p>\n<p>table h\na\n|-|\nb</p>\n<p>table i</p>\n<table><thead><tr><th>a</th></tr></thead><tbody>\n<tr><td>b</td></tr>\n</tbody></table>\n<h2>table j\n| a</h2>\n<p>b</p>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_14",
+    "markdown": "a | b\n- | -\n1 | 2\n",
+    "html": "<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody>\n<tr><td>1</td><td>2</td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_15",
+    "markdown": "a | b\\\n- | -\n1 | 2\n",
+    "html": "<p>a | b\\</p>\n<ul>\n<li>| -\n1 | 2</li>\n</ul>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_16",
+    "markdown": "a\\\n| b | c |\n|---|---|\n| d | e |\n",
+    "html": "<p>a\\</p>\n<table><thead><tr><th>b</th><th>c</th></tr></thead><tbody>\n<tr><td>d</td><td>e</td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_17",
+    "markdown": "| Description | Test case |\n|-------------|-----------|\n| Single      | `\\`       |\n| Double      | `\\\\`      |\n| Basic test  | `\\|`      |\n| Basic test 2| `\\|\\|\\`   |\n| Basic test 3| `x\\|y\\|z\\`|\n| Not pipe    | `\\.`      |\n| Combo       | `\\.\\|\\`   |\n| Extra       | `\\\\\\.`    |\n| Wait, what? | `\\\\|`     |\n| Wait, what? | `\\\\\\|`    |\n| Wait, what? | `\\\\\\\\|`   |\n| Wait, what? | `\\\\\\\\\\|`  |\n| Wait, what? |          \\|\n| Wait, what? |         \\\\|\n| Wait, what? |        \\\\\\|\n| Wait, what?x|          \\|x\n| Wait, what?x|         \\\\|x\n| Wait, what?x|        \\\\\\|x\n| Direct trail|         \\.|x\n",
+    "html": "<table><thead><tr><th>Description</th><th>Test case</th></tr></thead><tbody>\n<tr><td>Single</td><td><code>\\</code></td></tr>\n<tr><td>Double</td><td><code>\\\\</code></td></tr>\n<tr><td>Basic test</td><td><code>|</code></td></tr>\n<tr><td>Basic test 2</td><td><code>||\\</code></td></tr>\n<tr><td>Basic test 3</td><td><code>x|y|z\\</code></td></tr>\n<tr><td>Not pipe</td><td><code>\\.</code></td></tr>\n<tr><td>Combo</td><td><code>\\.|\\</code></td></tr>\n<tr><td>Extra</td><td><code>\\\\\\.</code></td></tr>\n<tr><td>Wait, what?</td><td><code>\\|</code></td></tr>\n<tr><td>Wait, what?</td><td><code>\\\\|</code></td></tr>\n<tr><td>Wait, what?</td><td><code>\\\\\\|</code></td></tr>\n<tr><td>Wait, what?</td><td><code>\\\\\\\\|</code></td></tr>\n<tr><td>Wait, what?</td><td>|</td></tr>\n<tr><td>Wait, what?</td><td>|</td></tr>\n<tr><td>Wait, what?</td><td>\\|</td></tr>\n<tr><td>Wait, what?x</td><td>|x</td></tr>\n<tr><td>Wait, what?x</td><td>|x</td></tr>\n<tr><td>Wait, what?x</td><td>\\|x</td></tr>\n<tr><td>Direct trail</td><td>.</td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_18",
+    "markdown": "| Single | `\\|` |\n|--|--|\n| Single | `\\|` |\n\n\n| Double | `\\\\|` |\n|--|--|\n| Double | `\\\\|` |\n\n\n| Double Twice | `\\\\|\\\\|` |\n|--|--|\n| Double Twice | `\\\\|\\\\|` |\n\n\n| Triple | `\\\\\\|` |\n|--|--|\n| Triple | `\\\\\\|` |\n",
+    "html": "<table><thead><tr><th>Single</th><th><code>|</code></th></tr></thead><tbody>\n<tr><td>Single</td><td><code>|</code></td></tr>\n</tbody></table>\n<table><thead><tr><th>Double</th><th><code>\\|</code></th></tr></thead><tbody>\n<tr><td>Double</td><td><code>\\|</code></td></tr>\n</tbody></table>\n<table><thead><tr><th>Double Twice</th><th><code>\\|\\|</code></th></tr></thead><tbody>\n<tr><td>Double Twice</td><td><code>\\|\\|</code></td></tr>\n</tbody></table>\n<table><thead><tr><th>Triple</th><th><code>\\\\|</code></th></tr></thead><tbody>\n<tr><td>Triple</td><td><code>\\\\|</code></td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_19",
+    "markdown": "| Table | Header |\n|-------|--------|\n| Table | Body   |\n|\n| Not   | Enough |\n\n\n| Table | Header |\n|-------|--------|\n| Table | Body   |\n|\t\n| Not   | Enough |\n",
+    "html": "<table><thead><tr><th>Table</th><th>Header</th></tr></thead><tbody>\n<tr><td>Table</td><td>Body</td></tr>\n</tbody></table>\n<p>|\n| Not   | Enough |</p>\n<table><thead><tr><th>Table</th><th>Header</th></tr></thead><tbody>\n<tr><td>Table</td><td>Body</td></tr>\n</tbody></table>\n<p>|\n| Not   | Enough |</p>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_20",
+    "markdown": "| Table | Header |\n|-------|--------|\n|\n",
+    "html": "<table><thead><tr><th>Table</th><th>Header</th></tr></thead><tbody>\n</tbody></table>\n<p>|</p>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_21",
+    "markdown": "|\n|-------|--------|\n| Table | Body   |\n",
+    "html": "<p>|\n|-------|--------|\n| Table | Body   |</p>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_22",
+    "markdown": "| Single | [test](first\\|second) |\n|--|--|\n\n| Double | [test](first\\\\|second) |\n|--|--|\n\n| Triple | [test](first\\\\\\|second) |\n|--|--|\n",
+    "html": "<table><thead><tr><th>Single</th><th><a href=\"first%7Csecond\">test</a></th></tr></thead><tbody>\n</tbody></table>\n<table><thead><tr><th>Double</th><th><a href=\"first%7Csecond\">test</a></th></tr></thead><tbody>\n</tbody></table>\n<table><thead><tr><th>Triple</th><th><a href=\"first%5C%7Csecond\">test</a></th></tr></thead><tbody>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_23",
+    "markdown": "| Single | [first\\|second] |\n|--|--|\n\n| Double | [first\\\\|second] |\n|--|--|\n\n| Triple | [first\\\\\\|second] |\n|--|--|\n\n[first\\|second]: https://rust-lang.org\n\n[first\\\\|second]: https://docs.rs\n",
+    "html": "<table><thead><tr><th>Single</th><th>[first|second]</th></tr></thead><tbody>\n</tbody></table>\n<table><thead><tr><th>Double</th><th><a href=\"https://rust-lang.org\">first|second</a></th></tr></thead><tbody>\n</tbody></table>\n<table><thead><tr><th>Triple</th><th><a href=\"https://docs.rs\">first\\|second</a></th></tr></thead><tbody>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_24",
+    "markdown": "Q: Knock knock.\nA: Who's there.\nQ: Interrupting cow.\nA: Interrupting —?\n| `Moo\\\\|ooo` |\n|-------------|\n| `ooo\\\\|ooo` |\n",
+    "html": "<p>Q: Knock knock.\nA: Who's there.\nQ: Interrupting cow.\nA: Interrupting —?</p>\n<table><thead><tr><th><code>Moo\\|ooo</code></th></tr></thead><tbody>\n<tr><td><code>ooo\\|ooo</code></td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_25",
+    "markdown": "| ![Moo\\\\|Moo](image.png) |\n|-------------|\n| ![Moo\\\\\\|Moo](image.png) |\n",
+    "html": "<table><thead><tr><th><img src=\"image.png\" alt=\"Moo|Moo\" /></th></tr></thead><tbody>\n<tr><td><img src=\"image.png\" alt=\"Moo\\|Moo\" /></td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_26",
+    "markdown": "| [Moo](https://example.org \"Example\\\\|Link\") |\n|---------------------------------------------|\n| [Moo](https://example.org \"Example\\\\\\|Link\") |\n",
+    "html": "<table><thead><tr><th><a href=\"https://example.org\" title=\"Example|Link\">Moo</a></th></tr></thead><tbody>\n<tr><td><a href=\"https://example.org\" title=\"Example\\|Link\">Moo</a></td></tr>\n</tbody></table>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_27",
+    "markdown": "moo | moo\n----|----\nmoo | moo\n*\n",
+    "html": "<table><thead><tr><th>moo</th><th>moo</th></tr></thead><tbody>\n<tr><td>moo</td><td>moo</td></tr>\n</tbody></table>\n<ul>\n<li></li>\n</ul>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "table_test_28",
+    "markdown": "moo | moo\n----|----\nmoo | moo\n2.\n",
+    "html": "<table><thead><tr><th>moo</th><th>moo</th></tr></thead><tbody>\n<tr><td>moo</td><td>moo</td></tr>\n</tbody></table>\n<ol start=\"2\">\n<li></li>\n</ol>\n",
+    "section": "table",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_1",
+    "markdown": "~~This is *stricken out*~~\n",
+    "html": "<p><del>This is <em>stricken out</em></del></p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_2",
+    "markdown": "~~This is \\~\\~stricken~~\n",
+    "html": "<p><del>This is ~~stricken</del></p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_3",
+    "markdown": "This~~is~~stricken\n",
+    "html": "<p>This<del>is</del>stricken</p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_4",
+    "markdown": "~~This~~is~~stricken~~\n",
+    "html": "<p><del>This</del>is<del>stricken</del></p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_5",
+    "markdown": "Here I strike out an exclamation point~~!~~.\n",
+    "html": "<p>Here I strike out an exclamation point<del>!</del>.</p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_6",
+    "markdown": "~This is stricken out~\n",
+    "html": "<p><del>This is stricken out</del></p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_7",
+    "markdown": "~This is \\~stricken~\n",
+    "html": "<p><del>This is ~stricken</del></p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_8",
+    "markdown": "This~is~nothing\n",
+    "html": "<p>This~is~nothing</p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_9",
+    "markdown": "~This~is~nothing~\n",
+    "html": "<p><del>This~is~nothing</del></p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_10",
+    "markdown": "Here I fail to strike out an exclamation point~!~.\n",
+    "html": "<p>Here I fail to strike out an exclamation point~!~.</p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_11",
+    "markdown": "Here I fail to strike out a tilde ~~~.\n",
+    "html": "<p>Here I fail to strike out a tilde ~~~.</p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_12",
+    "markdown": "Here I fail to match up ~~tildes~.\n",
+    "html": "<p>Here I fail to match up ~~tildes~.</p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_13",
+    "markdown": "Here I fail to match up ~tildes~~.\n",
+    "html": "<p>Here I fail to match up ~tildes~~.</p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_14",
+    "markdown": "~~This ~is stricken.~~\n",
+    "html": "<p><del>This ~is stricken.</del></p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  },
+  {
+    "example": "strikethrough_test_15",
+    "markdown": "~This ~~is stricken.~\n",
+    "html": "<p><del>This ~~is stricken.</del></p>\n",
+    "section": "strikethrough",
+    "profile": "extensions"
+  }
+]

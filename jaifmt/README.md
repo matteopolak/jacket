@@ -17,9 +17,9 @@ jacket fmt --stdin < in.jai        # format standard input, for editors
 
 jaifmt gives the same output however the input was spaced. It puts one statement on each line and each block body on its own lines, joins `{` to the line it opens, fixes indentation, and leaves either no space or one space between tokens. Running it twice changes nothing.
 
-It keeps what you chose on purpose: your comments, your blank lines (up to a limit) and where you broke a long expression. It never re-wraps long lines.
+It keeps what you chose on purpose: your comments, your blank lines (up to a limit) and where you broke a long expression. Ordinary source mode never re-wraps long lines. The separate `--declarations` profile compacts documentation declarations and wraps types and prose; see [the profile contract](../docs/tools/jaifmt.md#documentation-declarations).
 
-It can't change what your program means. Before writing a file, jaifmt lexes its own output and compares it with the input. If any token or comment differs, it leaves the file alone and reports an error. A file that doesn't lex or has unbalanced brackets is also left alone.
+It can't change what your program means. Before writing a file, ordinary source mode lexes its own output and compares it with the input. If any token or comment differs, it leaves the file alone and reports an error. Declaration mode preserves code tokens and checks prose reflow against a canonical paragraph representation. A file that doesn't lex or has unbalanced brackets is also left alone.
 
 To keep a region exactly as written, put it between `// jaifmt: off` and `// jaifmt: on`. Strings, here-strings and `#asm` blocks are always kept byte for byte.
 

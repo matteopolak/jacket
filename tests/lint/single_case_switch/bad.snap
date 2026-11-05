@@ -12,10 +12,8 @@ help: write an `if` instead
 10 -     if mode == {
 11 -         case .VERBOSE;
 12 -             print("loud\n");
-13 -     }
 10 +     if mode == .VERBOSE {
 11 +         print("loud\n");
-12 +     }
    |
    = note: `single_case_switch` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch
@@ -33,12 +31,10 @@ help: write an `if` instead
 19 -             return "even";
 20 -         case;
 21 -             return "odd";
-22 -     }
 17 +     if n % 2 == 0 {
 18 +         return "even";
 19 +     } else {
 20 +         return "odd";
-21 +     }
    |
    = note: `single_case_switch` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch
@@ -56,12 +52,10 @@ help: write an `if` instead
 30 -             print("anonymous\n");
 31 -         case "root";
 32 -             print("admin\n");
-33 -     }
 28 +     if name == "root" {
 29 +         print("admin\n");
 30 +     } else {
 31 +         print("anonymous\n");
-32 +     }
    |
    = note: `single_case_switch` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch

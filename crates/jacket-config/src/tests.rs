@@ -374,3 +374,15 @@ fn doc_format_is_checked_like_format() {
         "warning: unknown setting `doc.format.indent_widht` in jacket.toml (ignored); did you mean `doc.format.indent_width`?"
     );
 }
+
+#[test]
+fn documentation_roles_are_explicit_facts_instead_of_label_heuristics() {
+    let config =
+        parse("[[doc.section]]\nfile=\"tools.md\"\nname=\"Reference\"\nkind=\"tool\"\n").unwrap();
+    assert!(
+        toml::to_string(&config)
+            .unwrap()
+            .contains("kind = \"tool\"")
+    );
+    assert!(parse("[[doc.page]]\nfile=\"guide.md\"\nname=\"Guide\"\nkind=\"code\"\n").is_err());
+}

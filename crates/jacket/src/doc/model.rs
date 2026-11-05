@@ -1,6 +1,7 @@
 //! What the site documents: modules, their items and overloads, read from the JSON
 //! `jaic -doc_model` prints for each library of the standard library.
-use serde_json::Value;
+use serde::Deserialize;
+mod wire;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Default)]
@@ -25,6 +26,8 @@ pub struct TypeRef {
 
 #[derive(Clone, Debug, Default)]
 pub struct Overload {
+    pub signature: String,
+    pub platforms: Vec<String>,
     /// Below the standard library folder: `internal/string/bytes.jai`.
     pub file: String,
     pub line: usize,
@@ -44,46 +47,8 @@ pub struct Member {
     pub refs: Vec<TypeRef>,
 }
 
-impl Item {
-    /// For each member, the line of `declaration` that declares it: a line at the body's own
-    /// indentation that starts with the name (or with a list of names, `a, b: int`). `None` when the line is not found, and for every
-    /// member when a line holds an unfinished string.
-    pub fn member_lines(&self) -> Vec<Option<usize>> {
-        let lines: Vec<&str> = self.declaration.split('\n').collect();
-        let none = vec![None; self.members.len()];
-        if lines.iter().any(|l| l.matches('"').count() % 2 == 1) {
-            return none;
-        }
-        let indent = |l: &str| l.len() - l.trim_start().len();
-        let Some(base) = lines
-            .iter()
-            .skip(1)
-            .find(|l| !l.trim().is_empty())
-            .map(|l| indent(l))
-        else {
-            return none;
-        };
-        let mut from = 1;
-        self.members
-            .iter()
-            .map(|m| {
-                let found = (from..lines.len()).find(|&i| {
-                    let written = lines[i].trim_start();
-                    let written = written.strip_prefix("using ").unwrap_or(written);
-                    let head = written.split([':', ';', '=']).next().unwrap_or_default();
-                    indent(lines[i]) == base
-                        && !m.name.is_empty()
-                        && head.split(',').any(|name| name.trim() == m.name)
-                });
-                // `a, b: int;` declares both on one line.
-                from = found.unwrap_or(from);
-                found
-            })
-            .collect()
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Kind {
     #[default]
     Procedure,
@@ -96,18 +61,6 @@ pub enum Kind {
 }
 
 impl Kind {
-    fn parse(text: &str) -> Kind {
-        match text {
-            "procedure" => Kind::Procedure,
-            "struct" => Kind::Struct,
-            "union" => Kind::Union,
-            "enum" => Kind::Enum,
-            "enum_flags" => Kind::EnumFlags,
-            "type" => Kind::Type,
-            _ => Kind::Constant,
-        }
-    }
-
     pub fn label(self) -> &'static str {
         match self {
             Kind::Procedure => "procedure",
@@ -119,14 +72,43 @@ impl Kind {
             Kind::Constant => "constant",
         }
     }
+}
 
-    /// Whether other signatures can link to it as a type.
-    pub fn is_type(self) -> bool {
-        matches!(
-            self,
-            Kind::Struct | Kind::Union | Kind::Enum | Kind::EnumFlags | Kind::Type
-        )
-    }
+/// One compiler-authored definition and its verified private source identity.
+#[derive(Clone, Debug)]
+pub struct Definition {
+    pub kind: Kind,
+    pub docs: String,
+    pub file: String,
+    pub native_file: PathBuf,
+    pub input_sha256: String,
+    pub line: usize,
+    pub start: u32,
+    pub end: u32,
+    pub platforms: Vec<String>,
+    pub guards: Vec<CompileGuard>,
+    pub scope: Vec<String>,
+    pub tokens: Vec<DeclarationToken>,
+    pub members: Vec<Member>,
+    pub refs: Vec<TypeRef>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CompileGuard {
+    pub native_file: PathBuf,
+    pub input_sha256: String,
+    pub start: u32,
+    pub end: u32,
+    pub taken: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct DeclarationToken {
+    pub text: String,
+    pub start: u32,
+    pub end: u32,
+    pub reference: bool,
+    pub names: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -155,10 +137,7 @@ pub struct Item {
     pub experimental: bool,
     /// Declared by a native binding: badged "foreign" and listed after the module's own items.
     pub binding: bool,
-    /// A struct, union or enum as written, without comments; empty for anything else.
-    pub declaration: String,
-    /// The declarations the type names in `declaration` stand for.
-    pub decl_refs: Vec<TypeRef>,
+    pub definitions: Vec<Definition>,
 }
 
 /// A parameter of a module (`#module_parameters`).
@@ -174,6 +153,7 @@ pub struct Parameter {
 
 #[derive(Clone, Debug, Default)]
 pub struct Module {
+    pub dependencies: Vec<(PathBuf, String)>,
     /// `String`, `Extensions/Http`: what `#import` takes.
     pub id: String,
     pub file: String,
@@ -212,138 +192,9 @@ impl Module {
         self.id.rsplit('/').next().unwrap_or(&self.id)
     }
 
-    /// The systems it is for, in the order the badges show them: the targets it asserts, else
-    /// the three desktop ones, and `wasm` when it builds there.
-    pub fn systems(&self) -> Vec<&'static str> {
-        let mut out: Vec<&'static str> = if self.platforms.is_empty() {
-            vec!["macOS", "Linux", "Windows"]
-        } else {
-            let mut named: Vec<&'static str> = self
-                .platforms
-                .iter()
-                .filter_map(|p| system_name(p))
-                .collect();
-            named.sort_by_key(|n| SYSTEMS.iter().position(|s| s == n));
-            named
-        };
-        if self.wasm && !out.contains(&"Wasm") {
-            out.push("Wasm");
-        }
-        out
-    }
-
-    /// Every system a module page lists, with how well this module runs there: the desktop
-    /// systems and Wasm always, Android and iOS when the module names them. A system is partial
-    /// when some items are missing on it; the count is how many.
-    pub fn support(&self) -> Vec<(&'static str, Support)> {
-        let ours = self.systems();
-        SYSTEMS
-            .iter()
-            .copied()
-            .filter(|s| !matches!(*s, "Android" | "iOS") || ours.contains(s))
-            .map(|s| {
-                if !ours.contains(&s) {
-                    return (s, Support::None);
-                }
-                let missing = self
-                    .items
-                    .iter()
-                    .filter(|it| self.item_missing(it).contains(&s))
-                    .count();
-                (
-                    s,
-                    if missing == 0 {
-                        Support::Full
-                    } else {
-                        Support::Partial(missing)
-                    },
-                )
-            })
-            .collect()
-    }
-
-    /// The systems its module runs on that `item` does not, in badge order. Empty when it runs
-    /// everywhere its module does.
-    pub fn item_missing(&self, item: &Item) -> Vec<&'static str> {
-        if item.platforms.is_empty() {
-            return Vec::new();
-        }
-        let theirs: Vec<&'static str> = item
-            .platforms
-            .iter()
-            .filter_map(|p| system_name(p))
-            .collect();
-        self.systems()
-            .into_iter()
-            .filter(|s| !theirs.contains(s))
-            .collect()
-    }
-
-    /// The systems an item page lists, the same ones as its module's page, each full or none.
-    pub fn item_support(&self, item: &Item) -> Vec<(&'static str, Support)> {
-        let missing = self.item_missing(item);
-        self.support()
-            .into_iter()
-            .map(|(s, module)| match module {
-                Support::None => (s, Support::None),
-                _ if missing.contains(&s) => (s, Support::None),
-                _ => (s, Support::Full),
-            })
-            .collect()
-    }
-
     pub fn item(&self, name: &str) -> Option<&Item> {
         self.items.iter().find(|i| i.name == name)
     }
-}
-
-fn text(v: &Value, key: &str) -> String {
-    v.get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned()
-}
-
-fn number(v: &Value, key: &str) -> usize {
-    v.get(key).and_then(Value::as_u64).unwrap_or(0) as usize
-}
-
-fn list<'a>(v: &'a Value, key: &str) -> &'a [Value] {
-    v.get(key)
-        .and_then(Value::as_array)
-        .map_or(&[], Vec::as_slice)
-}
-
-fn type_refs(v: &Value, stdlib: &Path) -> Vec<TypeRef> {
-    type_refs_of(v, "refs", stdlib)
-}
-
-fn type_refs_of(v: &Value, key: &str, stdlib: &Path) -> Vec<TypeRef> {
-    list(v, key)
-        .iter()
-        .filter_map(|r| {
-            let r = r.as_array()?;
-            Some(TypeRef {
-                path: r.first()?.as_str()?.to_owned(),
-                file: below(stdlib, r.get(1)?.as_str()?),
-                line: r.get(2)?.as_u64()? as usize,
-                private: r.get(3).and_then(Value::as_bool).unwrap_or(false),
-            })
-        })
-        .collect()
-}
-
-fn params(v: &Value, key: &str, stdlib: &Path) -> Vec<Param> {
-    list(v, key)
-        .iter()
-        .map(|p| Param {
-            name: text(p, "name"),
-            ty: text(p, "type"),
-            default: text(p, "default"),
-            doc: text(p, "doc"),
-            refs: type_refs(p, stdlib),
-        })
-        .collect()
 }
 
 /// `file` below `stdlib`, `/`-separated; the path itself when it is elsewhere.
@@ -355,120 +206,245 @@ fn below(stdlib: &Path, file: &str) -> String {
         .replace('\\', "/")
 }
 
-/// An item and whether the module exports it.
-type Flagged = (bool, Item);
-
-/// The module `id` from what `jaic -doc_model` printed.
+/// The module `id` from the versioned `jaic -doc_model` contract.
+/// Missing fields and malformed references fail before any site data is assembled.
 pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
-    let v: Value = serde_json::from_str(json).map_err(|e| format!("{id}: {e}"))?;
-    let (private, items): (Vec<Flagged>, Vec<Flagged>) = list(&v, "items")
-        .iter()
-        .map(|i| {
-            let overloads: Vec<Overload> = list(i, "overloads")
+    let wire: wire::Module = serde_json::from_str(json)
+        .map_err(|e| format!("{id}: compiler documentation model: {e}"))?;
+    if wire.schema != "jai-doc-model" || wire.schema_version != 1 {
+        return Err(format!(
+            "{id}: unsupported compiler documentation model {}/{}, expected jai-doc-model/1",
+            wire.schema, wire.schema_version
+        ));
+    }
+    for (index, dependency) in wire.dependencies.iter().enumerate() {
+        if dependency.sha256.len() != 64
+            || !dependency
+                .sha256
+                .bytes()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+        {
+            return Err(format!(
+                "{id}: /dependencies/{index}/sha256: expected lowercase SHA-256"
+            ));
+        }
+    }
+    let refs = |rows: Vec<wire::TypeRef>| {
+        rows.into_iter()
+            .map(|(path, file, line, private)| TypeRef {
+                path,
+                file: below(stdlib, &file),
+                line,
+                private,
+            })
+            .collect()
+    };
+    let param = |p: wire::Param| Param {
+        name: p.name,
+        ty: p.ty,
+        default: p.default,
+        doc: p.doc,
+        refs: refs(p.refs),
+    };
+    let mut items = Vec::new();
+    let mut private = Vec::new();
+    for i in wire.items {
+        if matches!(
+            i.kind,
+            Kind::Struct | Kind::Union | Kind::Enum | Kind::EnumFlags
+        ) && i.definitions.is_empty()
+        {
+            return Err(format!(
+                "{id}: item {}: definitions are required for a written declaration",
+                i.name
+            ));
+        }
+        let mut definitions = Vec::new();
+        for definition in i.definitions {
+            if definition.line == 0
+                || definition.start >= definition.end
+                || definition.tokens.is_empty()
+            {
+                return Err(format!(
+                    "{id}: item {}: definition source bounds and tokens must be nonempty",
+                    i.name
+                ));
+            }
+            if definition
+                .guards
                 .iter()
+                .any(|guard| guard.tokens.is_empty() || guard.tokens.iter().any(String::is_empty))
+            {
+                return Err(format!(
+                    "{id}: item {}: compile guards must contain lexical tokens",
+                    i.name
+                ));
+            }
+            let mut previous = definition.start;
+            for token in &definition.tokens {
+                if token.start < previous
+                    || token.start >= token.end
+                    || token.end > definition.end
+                    || token.text.is_empty()
+                {
+                    return Err(format!(
+                        "{id}: item {}: definition token has invalid source bounds",
+                        i.name
+                    ));
+                }
+                previous = token.end;
+            }
+            let mut guards = Vec::new();
+            for guard in definition.guards {
+                if guard.start >= guard.end {
+                    return Err(format!(
+                        "{id}: item {}: compile guard has invalid source bounds",
+                        i.name
+                    ));
+                }
+                let digest=wire.dependencies.iter().find(|input|input.file==guard.file).map(|input|input.sha256.clone())
+                    .ok_or_else(||format!("{id}: item {}: compile guard source is absent from compiler dependencies",i.name))?;
+                guards.push(CompileGuard {
+                    native_file: PathBuf::from(guard.file),
+                    input_sha256: digest,
+                    start: guard.start,
+                    end: guard.end,
+                    taken: guard.taken,
+                });
+            }
+            let input_sha256 = wire
+                .dependencies
+                .iter()
+                .find(|input| input.file == definition.file)
+                .map(|input| input.sha256.clone())
+                .ok_or_else(|| {
+                    format!(
+                        "{id}: item {}: definition source is absent from compiler dependencies",
+                        i.name
+                    )
+                })?;
+            definitions.push(Definition {
+                kind: definition.kind,
+                docs: definition.docs,
+                file: below(stdlib, &definition.file),
+                native_file: PathBuf::from(&definition.file),
+                input_sha256,
+                line: definition.line,
+                start: definition.start,
+                end: definition.end,
+                platforms: definition.platforms,
+                scope: definition.scope,
+                guards,
+                tokens: definition
+                    .tokens
+                    .into_iter()
+                    .map(|token| DeclarationToken {
+                        text: token.text,
+                        start: token.start,
+                        end: token.end,
+                        reference: token.reference,
+                        names: token.names,
+                    })
+                    .collect(),
+                members: definition
+                    .members
+                    .into_iter()
+                    .map(|member| Member {
+                        name: member.name,
+                        ty: member.ty,
+                        doc: member.doc,
+                        refs: refs(member.refs),
+                    })
+                    .collect(),
+                refs: refs(definition.refs),
+            });
+        }
+        let item = Item {
+            definitions,
+            name: i.name,
+            kind: i.kind,
+            file: below(stdlib, &i.file),
+            line: i.line,
+            docs: i.docs,
+            value: i.value,
+            scope: i.scope,
+            overloads: i
+                .overloads
+                .into_iter()
                 .map(|o| Overload {
-                    file: below(stdlib, &text(o, "file")),
-                    line: number(o, "line"),
-                    params: params(o, "params", stdlib),
-                    returns: params(o, "returns", stdlib),
-                    docs: text(o, "docs"),
-                    docs_line: number(o, "docs_line"),
-                    flags: list(o, "flags")
-                        .iter()
-                        .filter_map(|f| f.as_str().map(str::to_owned))
-                        .collect(),
+                    signature: o.signature,
+                    platforms: o.platforms,
+                    file: below(stdlib, &o.file),
+                    line: o.line,
+                    params: o.params.into_iter().map(&param).collect(),
+                    returns: o.returns.into_iter().map(&param).collect(),
+                    docs: o.docs,
+                    docs_line: o.docs_line,
+                    flags: o.flags,
                 })
-                .collect();
-            let item = Item {
-                name: text(i, "name"),
-                kind: Kind::parse(&text(i, "kind")),
-                file: below(stdlib, &text(i, "file")),
-                line: number(i, "line"),
-                docs: text(i, "docs"),
-                value: text(i, "value"),
-                scope: list(i, "scope")
-                    .iter()
-                    .filter_map(|n| n.as_str().map(str::to_owned))
-                    .collect(),
-                refs: type_refs(i, stdlib),
-                binding: i.get("binding").and_then(Value::as_bool).unwrap_or(false),
-                overloads,
-                members: list(i, "members")
-                    .iter()
-                    .map(|m| Member {
-                        name: text(m, "name"),
-                        ty: text(m, "type"),
-                        doc: text(m, "doc"),
-                        refs: type_refs(m, stdlib),
-                    })
-                    .collect(),
-                also: list(i, "also")
-                    .iter()
-                    .filter_map(|a| {
-                        let a = a.as_array()?;
-                        Some((
-                            below(stdlib, a.first()?.as_str()?),
-                            a.get(1)?.as_u64()? as usize,
-                        ))
-                    })
-                    .collect(),
-                declaration: text(i, "declaration"),
-                decl_refs: type_refs_of(i, "decl_refs", stdlib),
-                group: String::new(),
-                platforms: list(i, "platforms")
-                    .iter()
-                    .filter_map(|p| p.as_str().map(str::to_owned))
-                    .collect(),
-                since: String::new(),
-                experimental: i.get("experimental").and_then(Value::as_bool) == Some(true),
-            };
-            (
-                i.get("private").and_then(Value::as_bool) == Some(true),
-                item,
-            )
-        })
-        .partition(|(private, _)| *private);
-    let (private, items): (Vec<Item>, Vec<Item>) = (
-        private.into_iter().map(|(_, i)| i).collect(),
-        items.into_iter().map(|(_, i)| i).collect(),
-    );
+                .collect(),
+            members: i
+                .members
+                .into_iter()
+                .map(|m| Member {
+                    name: m.name,
+                    ty: m.ty,
+                    doc: m.doc,
+                    refs: refs(m.refs),
+                })
+                .collect(),
+            refs: refs(i.refs),
+            also: i
+                .also
+                .into_iter()
+                .map(|(f, l)| (below(stdlib, &f), l))
+                .collect(),
+            group: String::new(),
+            platforms: i.platforms,
+            since: String::new(),
+            experimental: i.experimental,
+            binding: i.binding,
+        };
+        if i.private {
+            private.push(item);
+        } else {
+            items.push(item);
+        }
+    }
     let mut module = Module {
-        id: id.to_owned(),
-        file: below(stdlib, &text(&v, "file")),
-        docs: text(&v, "docs"),
-        docs_line: number(&v, "docs_line"),
-        platforms: list(&v, "platforms")
-            .iter()
-            .filter_map(|p| p.as_str().map(str::to_owned))
+        dependencies: wire
+            .dependencies
+            .into_iter()
+            .map(|d| (PathBuf::from(d.file), d.sha256))
             .collect(),
+        id: id.to_owned(),
+        file: below(stdlib, &wire.file),
+        docs: wire.docs,
+        docs_line: wire.docs_line,
+        platforms: wire.platforms,
         items,
         private,
-        implicit: v.get("implicit").and_then(Value::as_bool) == Some(true),
+        implicit: wire.implicit,
         category: None,
         group: String::new(),
         wasm: false,
         since: String::new(),
-        experimental: v.get("experimental").and_then(Value::as_bool) == Some(true),
-        parameters: list(&v, "parameters")
-            .iter()
+        experimental: wire.experimental,
+        parameters: wire
+            .parameters
+            .into_iter()
             .map(|p| Parameter {
-                name: text(p, "name"),
-                ty: text(p, "type"),
-                default: text(p, "default"),
-                doc: text(p, "doc"),
-                refs: type_refs(p, stdlib),
+                name: p.name,
+                ty: p.ty,
+                default: p.default,
+                doc: p.doc,
+                refs: refs(p.refs),
             })
             .collect(),
-        unresolved: list(&v, "unresolved")
-            .iter()
-            .map(|u| {
-                format!(
-                    "{}:{}: {}",
-                    below(stdlib, &text(u, "file")),
-                    number(u, "line"),
-                    text(u, "text")
-                )
-            })
+        unresolved: wire
+            .unresolved
+            .into_iter()
+            .map(|u| format!("{}:{}: {}", below(stdlib, &u.file), u.line, u.text))
             .collect(),
         test_notes: crate::test::options::header_notes(
             &std::fs::read_to_string(stdlib.join(id).join("module.jai")).unwrap_or_default(),
@@ -476,31 +452,6 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
     };
     assign_groups(&mut module);
     Ok(module)
-}
-
-/// The systems a badge can name, in the order they are shown.
-/// How well a module runs on one system.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Support {
-    Full,
-    /// Available, but this many items are not.
-    Partial(usize),
-    None,
-}
-
-const SYSTEMS: [&str; 6] = ["macOS", "Linux", "Windows", "Android", "iOS", "Wasm"];
-
-/// The badge for the compiler's name of a system (`MACOS`).
-fn system_name(os: &str) -> Option<&'static str> {
-    Some(match os {
-        "MACOS" => "macOS",
-        "LINUX" => "Linux",
-        "WINDOWS" => "Windows",
-        "ANDROID" => "Android",
-        "IOS" => "iOS",
-        "WASM" => "Wasm",
-        _ => return None,
-    })
 }
 
 /// Words with their own casing in a heading made from a file name. The rest is sentence case.
@@ -577,11 +528,110 @@ mod tests {
     use super::*;
 
     #[test]
+    fn definition_facts_require_ordered_spans_guards_and_pinned_source() {
+        let definition = serde_json::json!({"kind":"struct","docs":"","file":"/s/Example/module.jai","line":1,"start":0,"end":5,"platforms":["MACOS"],"guards":[{"file":"/s/Example/module.jai","start":0,"end":5,"tokens":["OS","==",".","MACOS"],"taken":true}],"scope":[],"tokens":[{"text":"Entry","start":0,"end":5,"statement":false,"reference":false,"names":[],"docs":""}],"members":[]});
+        let item = serde_json::json!({"name":"Entry","kind":"struct","file":"/s/Example/module.jai","line":1,"docs":"","value":"","platforms":[],"experimental":false,"overloads":[],"members":[],"scope":[],"definitions":[definition]});
+        let valid = serde_json::json!({"schema":"jai-doc-model","schemaVersion":1,"file":"/s/Example/module.jai","implicit":false,"docs":"","docs_line":0,"platforms":[],"experimental":false,"parameters":[],"items":[item],"unresolved":[],"dependencies":[{"file":"/s/Example/module.jai","sha256":"a".repeat(64)}]});
+        let parsed = parse("Example", &valid.to_string(), Path::new("/s")).unwrap();
+        assert_eq!(parsed.items[0].definitions[0].input_sha256, "a".repeat(64));
+        for (pointer, value) in [
+            ("/items/0/definitions/0/start", serde_json::json!(5)),
+            ("/items/0/definitions/0/line", serde_json::json!(0)),
+            ("/items/0/definitions/0/tokens/0/end", serde_json::json!(6)),
+            (
+                "/items/0/definitions/0/tokens/0/reference",
+                serde_json::json!("false"),
+            ),
+            (
+                "/items/0/definitions/0/guards/0/tokens",
+                serde_json::json!([]),
+            ),
+            ("/dependencies", serde_json::json!([])),
+        ] {
+            let mut broken = valid.clone();
+            *broken.pointer_mut(pointer).unwrap() = value;
+            assert!(
+                parse("Example", &broken.to_string(), Path::new("/s")).is_err(),
+                "accepted invalid definition field {pointer}"
+            );
+        }
+        let mut unknown = valid;
+        unknown["items"][0]["definitions"][0]["source_text"] =
+            serde_json::json!("original author spacing");
+        assert!(parse("Example", &unknown.to_string(), Path::new("/s")).is_err());
+    }
+
+    /// A compiler payload is a versioned contract, not best-effort presentation data.
+    #[test]
+    fn malformed_compiler_models_are_rejected() {
+        let valid = serde_json::json!({
+            "schema": "jai-doc-model", "schemaVersion": 1,
+            "file": "Example/module.jai", "implicit": false, "docs": "",
+            "docs_line": 0, "platforms": [], "experimental": false,
+            "parameters": [], "items": [], "unresolved": [], "dependencies": [{"file":"Example/module.jai","sha256":"a".repeat(64)}]
+        });
+        assert!(parse("Example", &valid.to_string(), Path::new("/s")).is_ok());
+        for (field, bad) in [
+            ("schemaVersion", serde_json::json!(2)),
+            ("schemaVersion", serde_json::json!("1")),
+            ("implicit", serde_json::json!("false")),
+            ("items", serde_json::json!(null)),
+        ] {
+            let mut model = valid.clone();
+            model[field] = bad;
+            assert!(
+                parse("Example", &model.to_string(), Path::new("/s")).is_err(),
+                "{field}"
+            );
+        }
+        let mut missing = valid.clone();
+        missing.as_object_mut().unwrap().remove("file");
+        assert!(parse("Example", &missing.to_string(), Path::new("/s")).is_err());
+        let item = serde_json::json!({
+            "name": "Entry", "kind": "struct", "file": "Example/module.jai",
+            "line": 1, "docs": "", "value": "", "platforms": [],
+            "experimental": false, "overloads": [], "members": [], "scope": [],
+            "definitions": [{"kind":"struct","docs":"","file":"Example/module.jai","line":1,"start":0,"end":5,"platforms":[],"guards":[],"scope":[],"tokens":[{"text":"Entry","start":0,"end":5,"statement":false,"reference":false,"names":[],"docs":""}],"members":[]}]
+        });
+        let mut complete = valid.clone();
+        complete["items"] = serde_json::json!([item.clone()]);
+        assert!(parse("Example", &complete.to_string(), Path::new("/s")).is_ok());
+        for (field, bad) in [
+            ("kind", serde_json::json!("unknown")),
+            ("binding", serde_json::json!("false")),
+            (
+                "declaration",
+                serde_json::json!("Entry :: struct { aligned: int; }"),
+            ),
+            ("definitions", serde_json::json!([])),
+            (
+                "declaration_tokens",
+                serde_json::json!([["Entry", false, [], ""]]),
+            ),
+            ("decl_refs", serde_json::json!([])),
+            (
+                "refs",
+                serde_json::json!([["Entry", "Example/module.jai", "one", false]]),
+            ),
+            (
+                "refs",
+                serde_json::json!([["Entry", "Example/module.jai", 1]]),
+            ),
+        ] {
+            let mut model = valid.clone();
+            let mut broken = item.clone();
+            broken[field] = bad;
+            model["items"] = serde_json::json!([broken]);
+            assert!(
+                parse("Example", &model.to_string(), Path::new("/s")).is_err(),
+                "{field}"
+            );
+        }
+    }
+
+    #[test]
     fn items_come_out_with_groups_and_relative_files() {
-        let json = r#"{"file":"/s/String/module.jai","docs":"A module.","docs_line":1,"platforms":["MACOS"],"items":[
-{"name":"trim","kind":"procedure","file":"/s/internal/string/bytes.jai","line":3,"docs":"","value":"","overloads":[{"file":"/s/internal/string/bytes.jai","line":3,"signature":"","params":[{"name":"s","type":"string","default":"","doc":"the text"}],"returns":[],"docs":"Trims.","docs_line":2,"flags":[]}],"members":[]},
-{"name":"scan","kind":"procedure","file":"/s/internal/string/scan.jai","line":9,"docs":"","value":"","overloads":[],"members":[]},
-{"name":"LIMIT","kind":"constant","file":"/s/internal/string/bytes.jai","line":1,"docs":"","value":"4","overloads":[],"members":[]}]}"#;
+        let json = r#"{"file":"/s/String/module.jai","docs":"A module.","docs_line":1,"platforms":["MACOS"],"items":[{"name":"trim","kind":"procedure","file":"/s/internal/string/bytes.jai","line":3,"docs":"","value":"","overloads":[{"file":"/s/internal/string/bytes.jai","line":3,"signature":"","params":[{"name":"s","type":"string","default":"","doc":"the text"}],"returns":[],"docs":"Trims.","docs_line":2,"flags":[],"platforms":[]}],"members":[],"platforms":[],"experimental":false,"scope":[]},{"name":"scan","kind":"procedure","file":"/s/internal/string/scan.jai","line":9,"docs":"","value":"","overloads":[],"members":[],"platforms":[],"experimental":false,"scope":[]},{"name":"LIMIT","kind":"constant","file":"/s/internal/string/bytes.jai","line":1,"docs":"","value":"4","overloads":[],"members":[],"platforms":[],"experimental":false,"scope":[]}],"schema":"jai-doc-model","schemaVersion":1,"implicit":false,"experimental":false,"parameters":[],"unresolved":[],"dependencies":[]}"#;
         let module = parse("String", json, Path::new("/s")).unwrap();
         assert_eq!(module.file, "String/module.jai");
         assert_eq!(module.items[0].file, "internal/string/bytes.jai");
@@ -596,30 +646,8 @@ mod tests {
 
     #[test]
     fn links_that_name_nothing_keep_their_place() {
-        let json = r#"{"file":"/s/String/module.jai","docs":"","docs_line":1,"platforms":[],"items":[],"unresolved":[{"file":"/s/String/module.jai","line":7,"text":"[Gone]"}]}"#;
+        let json = r#"{"file":"/s/String/module.jai","docs":"","docs_line":1,"platforms":[],"items":[],"unresolved":[{"file":"/s/String/module.jai","line":7,"text":"[Gone]"}],"schema":"jai-doc-model","schemaVersion":1,"implicit":false,"experimental":false,"parameters":[],"dependencies":[]}"#;
         let module = parse("String", json, Path::new("/s")).unwrap();
         assert_eq!(module.unresolved, ["String/module.jai:7: [Gone]"]);
-    }
-
-    #[test]
-    fn items_get_badges_only_where_they_differ_from_the_module() {
-        let json = r#"{"file":"/s/File/module.jai","docs":"","docs_line":1,"platforms":[],"items":[
-{"name":"open","kind":"procedure","file":"/s/File/a.jai","line":1,"docs":"","value":"","platforms":[],"overloads":[],"members":[]},
-{"name":"map","kind":"procedure","file":"/s/File/a.jai","line":2,"docs":"","value":"","platforms":["WINDOWS"],"overloads":[],"members":[]},
-{"name":"all","kind":"procedure","file":"/s/File/a.jai","line":3,"docs":"","value":"","platforms":["MACOS","LINUX","WINDOWS","WASM"],"overloads":[],"members":[]}]}"#;
-        let mut module = parse("File", json, Path::new("/s")).unwrap();
-        assert_eq!(module.systems(), ["macOS", "Linux", "Windows"]);
-        assert!(module.item_missing(&module.items[0]).is_empty());
-        assert_eq!(module.item_missing(&module.items[1]), ["macOS", "Linux"]);
-        module.wasm = true;
-        assert_eq!(module.systems(), ["macOS", "Linux", "Windows", "Wasm"]);
-        assert!(module.item_missing(&module.items[2]).is_empty());
-        assert_eq!(
-            module.item_missing(&module.items[1]),
-            ["macOS", "Linux", "Wasm"]
-        );
-        let support = module.item_support(&module.items[1]);
-        assert_eq!(support[2], ("Windows", Support::Full));
-        assert_eq!(support[0], ("macOS", Support::None));
     }
 }

@@ -42,6 +42,7 @@ class Jacket < Formula
     libexec.install "jacket", "jaic", "jailsp", "jailint", "jaifmt", "stdlib"
     libexec.install Dir["libjaic_backend.*"]
     libexec.install "native-libs"
+    libexec.install "docs-builder"
     bin.install_symlink libexec/"jacket", libexec/"jaic", libexec/"jailsp", libexec/"jailint", libexec/"jaifmt"
     doc.install "README.md", "CHANGELOG.md"
   end

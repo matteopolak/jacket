@@ -95,6 +95,7 @@ mod tests {
 
     fn module(id: &str, names: &[&str]) -> Module {
         Module {
+            dependencies: Vec::new(),
             id: id.into(),
             file: String::new(),
             docs: String::new(),
@@ -121,8 +122,7 @@ mod tests {
                     experimental: false,
                     binding: false,
                     refs: Vec::new(),
-                    declaration: String::new(),
-                    decl_refs: Vec::new(),
+                    definitions: vec![],
                 })
                 .collect(),
             category: None,

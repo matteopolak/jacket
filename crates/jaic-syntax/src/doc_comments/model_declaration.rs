@@ -10,118 +10,134 @@ use crate::source::FileId;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-/// `text` without its comments. Comment-only lines go, a line that ends in a comment loses the
-/// trailing space, and blank lines are not stacked; everything else keeps its layout. The
-/// lexer says what a comment is, so `//` in a string stays.
-pub(super) fn without_comments(text: &str) -> String {
-    let (_, comments, _) = lex_with_trivia(FileId(0), text);
-    let mut dropped = vec![false; text.len()];
-    for c in &comments {
-        let (start, end) = (c.span.start as usize, (c.span.end as usize).min(text.len()));
-        for (at, byte) in text.bytes().enumerate().take(end).skip(start) {
-            dropped[at] = byte != b'\n';
-        }
-    }
-    let mut lines: Vec<String> = Vec::new();
-    let mut offset = 0;
-    for line in text.split('\n') {
-        let end = offset + line.len();
-        let had_comment = dropped[offset..end].iter().any(|d| *d);
-        let kept: String = line
-            .char_indices()
-            .filter(|(i, _)| !dropped[offset + i])
-            .map(|(_, c)| c)
-            .collect();
-        offset = end + 1;
-        if !had_comment {
-            lines.push(kept);
-            continue;
-        }
-        let kept = kept.trim_end().to_owned();
-        if !kept.trim().is_empty() {
-            lines.push(kept);
-        }
-    }
-    let mut out: Vec<String> = Vec::new();
-    for line in lines {
-        let blank = line.trim().is_empty();
-        if blank && out.last().is_none_or(|last| last.trim().is_empty()) {
-            continue;
-        }
-        out.push(if blank {
-            String::new()
-        } else {
-            line
-        });
-    }
-    while out.last().is_some_and(String::is_empty) {
-        out.pop();
-    }
-    out.join("\n")
-}
-
 /// Where the names a declaration introduces are written: its own, its parameters', its fields',
 /// the members of enums and of the types nested in it. They are not references to anything.
 fn declared_names(decl: &Decl) -> Vec<(usize, usize)> {
-    fn from_stmts(stmts: &[Stmt], out: &mut Vec<(usize, usize)>) {
+    use crate::ast::walk::{self, Node};
+    fn name(name: &crate::ast::Ident, out: &mut Vec<(usize, usize)>) {
+        out.push((name.span.start as usize, name.span.end as usize));
+    }
+    fn statements(stmts: &[Stmt], out: &mut Vec<(usize, usize)>) {
         for stmt in stmts {
-            match &stmt.kind {
-                StmtKind::Decl(d) => from_decl(d, out),
-                StmtKind::Expr(e) => from_expr(e, out),
-                StmtKind::StaticIf(branches) => {
-                    from_stmts(&branches.then_branch, out);
-                    from_stmts(&branches.else_branch, out);
-                }
-                _ => {}
-            }
+            visit(Node::Stmt(stmt), out);
         }
     }
-    fn from_decl(decl: &Decl, out: &mut Vec<(usize, usize)>) {
-        out.extend(
-            decl.names
-                .iter()
-                .map(|n| (n.span.start as usize, n.span.end as usize)),
-        );
-        if let Some(value) = &decl.value {
-            from_expr(value, out);
-        }
-    }
-    fn from_members(items: &[EnumItem], out: &mut Vec<(usize, usize)>) {
+    fn members(items: &[EnumItem], out: &mut Vec<(usize, usize)>) {
         for item in items {
             match item {
-                EnumItem::Member(m) => {
-                    out.push((m.name.span.start as usize, m.name.span.end as usize));
+                EnumItem::Member(member) => {
+                    name(&member.name, out);
+                    if let Some(value) = &member.value {
+                        visit(Node::Expr(value), out);
+                    }
                 }
                 EnumItem::If {
                     then_items,
                     else_items,
                     ..
                 } => {
-                    from_members(then_items, out);
-                    from_members(else_items, out);
+                    members(then_items, out);
+                    members(else_items, out);
                 }
                 _ => {}
             }
         }
     }
-    fn from_expr(expr: &Expr, out: &mut Vec<(usize, usize)>) {
-        match &expr.kind {
-            ExprKind::Struct(lit) => {
-                out.extend(
-                    lit.params
-                        .iter()
-                        .filter_map(|p| p.name.as_ref())
-                        .map(|n| (n.span.start as usize, n.span.end as usize)),
-                );
-                from_stmts(&lit.body, out);
+    fn declaration(decl: &Decl, out: &mut Vec<(usize, usize)>) {
+        for declared in &decl.names {
+            name(declared, out);
+        }
+        if let Some(ty) = &decl.ty {
+            visit(Node::Expr(ty), out);
+        }
+        if let Some(value) = &decl.value {
+            visit(Node::Expr(value), out);
+        }
+        for value in decl.extra_values() {
+            visit(Node::Expr(value), out);
+        }
+    }
+    fn visit(node: Node<'_>, out: &mut Vec<(usize, usize)>) {
+        match node {
+            Node::Stmt(Stmt {
+                kind: StmtKind::Decl(decl),
+                ..
+            }) => {
+                declaration(decl, out);
+                return;
             }
-            ExprKind::Enum(lit) => from_members(&lit.items, out),
+            Node::Expr(Expr {
+                kind: ExprKind::Struct(lit),
+                ..
+            }) => {
+                for param in &lit.params {
+                    if let Some(declared) = &param.name {
+                        name(declared, out);
+                    }
+                    if let Some(ty) = &param.ty {
+                        visit(Node::Expr(ty), out);
+                    }
+                    if let Some(value) = &param.default {
+                        visit(Node::Expr(value), out);
+                    }
+                }
+                statements(&lit.body, out);
+                if let Some(block) = &lit.modify {
+                    statements(&block.stmts, out);
+                }
+            }
+            Node::Expr(Expr {
+                kind: ExprKind::Enum(lit),
+                ..
+            }) => members(&lit.items, out),
+            Node::Expr(Expr {
+                kind: ExprKind::Proc(lit),
+                ..
+            }) => {
+                for param in &lit.header.params {
+                    if let Some(declared) = &param.name {
+                        name(declared, out);
+                    }
+                }
+                for result in &lit.header.returns {
+                    if let Some(declared) = &result.name {
+                        name(declared, out);
+                    }
+                }
+                if let Some(block) = &lit.body {
+                    statements(&block.stmts, out);
+                }
+            }
             _ => {}
+        }
+        // The ordinary walker handles branches, blocks and expressions; scoped bodies above
+        // are entered explicitly because they are part of this complete declaration snippet.
+        for child in walk::children(node) {
+            visit(child, out);
         }
     }
     let mut out = Vec::new();
-    from_decl(decl, &mut out);
+    declaration(decl, &mut out);
     out
+}
+
+/// A leading comment belongs to a new declaration line, never a later token on that line.
+fn leading_docs(text: &str, at: usize) -> Option<String> {
+    let start = text[..at].rfind('\n').map_or(0, |offset| offset + 1);
+    text[start..at]
+        .trim()
+        .is_empty()
+        .then(|| docs::above(text, at))
+        .flatten()
+}
+
+/// Associated leading and trailing comments both survive; neither is a layout instruction.
+fn declaration_docs(text: &str, at: usize) -> String {
+    match (leading_docs(text, at), docs::trailing(text, at)) {
+        (Some(above), Some(trailing)) => format!("{above}\n\n{trailing}"),
+        (Some(comment), None) | (None, Some(comment)) => comment,
+        (None, None) => String::new(),
+    }
 }
 
 /// `written` with everything that cannot name a type blanked to spaces (same length, so
@@ -180,6 +196,200 @@ fn blanked(written: &str, start: usize, decl: &Decl) -> String {
     out
 }
 
+/// Preserve lexical spellings (including literal contents), while deriving row/name boundaries
+/// from parsed declarations rather than authored newlines or alignment.
+fn declaration_tokens(
+    text: &str,
+    decl: &Decl,
+    start: usize,
+    end: usize,
+) -> Vec<super::DeclarationToken> {
+    use crate::ast::walk::{self, Node};
+    use crate::lexer::{P, Tok, lex};
+    use std::collections::BTreeMap;
+    let mut boundaries = BTreeMap::<u32, (Vec<String>, String)>::new();
+    fn enums(
+        items: &[EnumItem],
+        text: &str,
+        boundaries: &mut BTreeMap<u32, (Vec<String>, String)>,
+    ) {
+        for item in items {
+            match item {
+                EnumItem::Member(member) => {
+                    let at = member.name.span.start;
+                    boundaries.insert(
+                        at,
+                        (
+                            vec![member.name.name.to_string()],
+                            declaration_docs(text, at as usize),
+                        ),
+                    );
+                }
+                EnumItem::If {
+                    then_items,
+                    else_items,
+                    ..
+                } => {
+                    enums(then_items, text, boundaries);
+                    enums(else_items, text, boundaries);
+                }
+                _ => {}
+            }
+        }
+    }
+    fn record(node: Node<'_>, text: &str, boundaries: &mut BTreeMap<u32, (Vec<String>, String)>) {
+        match node {
+            Node::Stmt(stmt) => {
+                let (names, docs) = if let StmtKind::Decl(field) = &stmt.kind {
+                    let names = field
+                        .names
+                        .iter()
+                        .map(|name| name.name.to_string())
+                        .collect();
+                    (names, declaration_docs(text, stmt.span.start as usize))
+                } else {
+                    (Vec::new(), String::new())
+                };
+                boundaries.insert(stmt.span.start, (names, docs));
+            }
+            // The generic body walker deliberately stops at scope boundaries. A declaration
+            // snippet includes those type bodies, so enter them explicitly here.
+            Node::Expr(Expr {
+                kind: ExprKind::Struct(lit),
+                ..
+            }) => {
+                for param in &lit.params {
+                    if let Some(name) = &param.name {
+                        boundaries.insert(
+                            name.span.start,
+                            (Vec::new(), declaration_docs(text, name.span.start as usize)),
+                        );
+                    }
+                }
+                for stmt in &lit.body {
+                    record(Node::Stmt(stmt), text, boundaries);
+                }
+                if let Some(block) = &lit.modify {
+                    for stmt in &block.stmts {
+                        record(Node::Stmt(stmt), text, boundaries);
+                    }
+                }
+            }
+            Node::Expr(Expr {
+                kind: ExprKind::Enum(lit),
+                ..
+            }) => enums(&lit.items, text, boundaries),
+            Node::Expr(Expr {
+                kind: ExprKind::Proc(lit),
+                ..
+            }) => {
+                if let Some(block) = &lit.body {
+                    for stmt in &block.stmts {
+                        record(Node::Stmt(stmt), text, boundaries);
+                    }
+                }
+            }
+            Node::Expr(_) => {}
+        }
+        for child in walk::children(node) {
+            record(child, text, boundaries);
+        }
+    }
+    if let Some(value) = &decl.value {
+        record(Node::Expr(value), text, &mut boundaries);
+    }
+    let Ok(tokens) = lex(FileId(0), &text[start..end]) else {
+        return Vec::new();
+    };
+    let mut member_names = BTreeMap::new();
+    fn enum_names(items: &[EnumItem], out: &mut BTreeMap<u32, String>) {
+        for item in items {
+            match item {
+                EnumItem::Member(member) => {
+                    out.insert(member.name.span.start, member.name.name.to_string());
+                }
+                EnumItem::If {
+                    then_items,
+                    else_items,
+                    ..
+                } => {
+                    enum_names(then_items, out);
+                    enum_names(else_items, out);
+                }
+                _ => {}
+            }
+        }
+    }
+    match decl.value.as_ref().map(|value| &value.kind) {
+        Some(ExprKind::Struct(lit)) => {
+            for stmt in super::type_fields(&lit.body) {
+                if let StmtKind::Decl(field) = &stmt.kind {
+                    for name in &field.names {
+                        member_names.insert(name.span.start, name.name.to_string());
+                    }
+                }
+            }
+        }
+        Some(ExprKind::Enum(lit)) => enum_names(&lit.items, &mut member_names),
+        _ => {}
+    }
+    let declared = declared_names(decl).into_iter().collect::<BTreeSet<_>>();
+    let mut out = Vec::new();
+    let mut tokens = tokens.into_iter().peekable();
+    while let Some(token) = tokens.next() {
+        if matches!(token.tok, Tok::Eof) {
+            break;
+        }
+        let at = start as u32 + token.span.start;
+        let reference = matches!(token.tok, Tok::Ident(_))
+            && !declared.contains(&(at as usize, start + token.span.end as usize));
+        let statement = boundaries.contains_key(&at);
+        let (_, mut docs) = boundaries.remove(&at).unwrap_or_default();
+        let names = member_names.remove(&at).into_iter().collect();
+        // The public member list belongs to the outer declaration. Nested names remain lexical
+        // facts, but cannot accidentally borrow an unrelated outer member's fragment identity.
+        if docs.is_empty() && matches!(token.tok, Tok::Punct(P::RBrace)) {
+            docs = leading_docs(text, at as usize).unwrap_or_default();
+        }
+        let mut token_end = start as u32 + token.span.end;
+        let mut spelling =
+            text[start + token.span.start as usize..start + token.span.end as usize].to_owned();
+        // A resolved qualified name is one semantic path, even when the author spaces its dots.
+        if matches!(token.tok, Tok::Ident(_)) {
+            while tokens
+                .peek()
+                .is_some_and(|next| matches!(next.tok, Tok::Punct(P::Dot)))
+            {
+                let mut lookahead = tokens.clone();
+                lookahead.next();
+                if !lookahead
+                    .next()
+                    .is_some_and(|next| matches!(next.tok, Tok::Ident(_)))
+                {
+                    break;
+                }
+                tokens.next();
+                let name = tokens.next().unwrap();
+                spelling.push('.');
+                spelling.push_str(
+                    &text[start + name.span.start as usize..start + name.span.end as usize],
+                );
+                token_end = start as u32 + name.span.end;
+            }
+        }
+        out.push(super::DeclarationToken {
+            text: spelling,
+            start: at,
+            end: token_end,
+            statement,
+            reference,
+            names,
+            docs,
+        });
+    }
+    out
+}
+
 impl Reader<'_> {
     /// Sets the declaration of a struct, union or enum as written, and the declarations its
     /// type names stand for.
@@ -201,16 +411,35 @@ impl Reader<'_> {
         let Some(written) = text.get(start..end.min(text.len())) else {
             return;
         };
-        without_comments(written)
-            .trim_end_matches(';')
-            .trim_end()
-            .clone_into(&mut item.declaration);
+        let tokens = declaration_tokens(text, decl, start, end.min(text.len()));
         let mut refs = self.type_refs(file, &blanked(written, start, decl));
         refs.retain(|r| {
             let root = r.path.split('.').next().unwrap_or(&r.path);
             !item.scope.iter().any(|s| s == root)
         });
-        item.decl_refs = refs;
+        let parsed = self.parsed(file);
+        item.definitions.push(super::Definition {
+            kind: class_kind(decl),
+            docs: docs::declaration(text, start).unwrap_or_default(),
+            file: file.to_path_buf(),
+            line: self.line_of(text, start),
+            start: start as u32,
+            end: end.min(text.len()) as u32,
+            platforms: os_names(
+                parsed
+                    .as_ref()
+                    .and_then(|file| file.limits.get(&name.span.start).copied())
+                    .unwrap_or(EVERY_OS),
+            ),
+            guards: parsed
+                .as_ref()
+                .and_then(|file| file.guards.get(&name.span.start).cloned())
+                .unwrap_or_default(),
+            scope: item.scope.clone(),
+            tokens,
+            members: item.members.clone(),
+            refs,
+        });
     }
 
     /// Adds the private structs, unions and enums that public items name, and those they name
@@ -287,21 +516,21 @@ impl Reader<'_> {
 /// Every declaration an item's page names: in its signature, fields and written declaration.
 fn item_refs(item: &Item) -> Vec<TypeRef> {
     let mut out: Vec<TypeRef> = Vec::new();
-    let copy = |r: &TypeRef| TypeRef {
-        path: r.path.clone(),
-        file: r.file.clone(),
-        line: r.line,
-        at: r.at,
-        private: r.private,
-    };
-    out.extend(item.refs.iter().map(copy));
-    out.extend(item.decl_refs.iter().map(copy));
+    out.extend(item.refs.iter().cloned());
     for member in &item.members {
-        out.extend(member.refs.iter().map(copy));
+        out.extend(member.refs.iter().cloned());
+    }
+    // Conditional variants can name private types absent from the first definition.
+    // Their pages require the same dependency closure as the canonical signature.
+    for definition in &item.definitions {
+        out.extend(definition.refs.iter().cloned());
+        for member in &definition.members {
+            out.extend(member.refs.iter().cloned());
+        }
     }
     for overload in &item.overloads {
         for p in overload.params.iter().chain(&overload.returns) {
-            out.extend(p.refs.iter().map(copy));
+            out.extend(p.refs.iter().cloned());
         }
     }
     out

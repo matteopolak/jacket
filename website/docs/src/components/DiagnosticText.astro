@@ -1,0 +1,7 @@
+---
+import {diagnosticParts,type DiagnosticRole} from '../lib/diagnostic.ts';
+interface Props {source:string}
+const {source}=Astro.props;
+const classes:Record<DiagnosticRole,string>={error:'de',warning:'dw',frame:'dm',secondary:'dk',help:'dh',replacement:'dc',addition:'da',deletion:'dd'};
+---
+{diagnosticParts(source).map(part=>part.role?<span class={classes[part.role]}>{part.text}</span>:part.text)}

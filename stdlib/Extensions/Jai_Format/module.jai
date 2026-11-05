@@ -9,8 +9,9 @@
 // assert(formatted == "main :: () {\n    x := 1;\n}\n");
 // ```
 //
-// Formatting never changes the token stream. The result is lexed again and compared with the
-// input, and on any difference `format_source` fails instead of returning text.
+// Formatting never changes code tokens. Ordinary source also keeps comment tokens; declaration
+// prose reflow preserves paragraph content and protected bytes. On any invalid change, the
+// formatting procedure fails instead of returning text.
 
 // Where an opening brace goes.
 Brace_Style :: enum u8 {
@@ -19,8 +20,9 @@ Brace_Style :: enum u8 {
 }
 
 // The formatter's settings, which are the keys of the `[format]` table in `jacket.toml`. The
-// defaults are what you get with no config. Lines are never rewrapped; `max_width` only feeds
-// [format_count_long_lines].
+// defaults are what you get with no config. Ordinary source lines are never rewrapped;
+// `max_width` only feeds [format_count_long_lines] there. [format_declaration] uses it to wrap
+// type continuations and leading prose, preserving literal and structural Markdown bytes.
 //
 // ```jai
 // config: Format_Config;
@@ -33,7 +35,7 @@ Format_Config :: struct {
     case_indent := -1; // `case` lines inside `if x == {`; -1: indent_width
     case_body_indent := -1; // statements under a `case`; -1: indent_width
     max_blank_lines := 2;
-    max_width := 100; // only reported (format_count_long_lines); lines are never rewrapped
+    max_width := 100; // ordinary source: reported only; documentation declarations: wrap width
     brace_style := Brace_Style.SAME_LINE;
     blank_lines_between_items := true; // a blank line around multi-line file-level items and import groups
     blank_line_after_declarations := false; // in code blocks: a blank line after a run of declarations
@@ -75,6 +77,36 @@ format_source :: (text: string, config: Format_Config = .{}) -> result: string, 
     formatted := format_text(text, config);
     if !formatted.ok return "", false, formatted.error;
     return formatted.output, true, "";
+}
+
+// Formats a documentation declaration with canonical blank gaps and source-independent
+// indentation. Literal contents and documentation code are preserved; ordinary [format_source]
+// keeps its existing source-preserving behavior.
+//
+// ```jai
+// formatted, ok := format_declaration("Box::struct { value:int; }\n");
+// assert(ok && formatted == "Box :: struct {\n    value: int;\n}\n");
+// ```
+format_declaration :: (text: string, config: Format_Config = .{}) -> result: string, ok: bool, error: string {
+    formatted := format_text(text, config, true);
+    if !formatted.ok return "", false, formatted.error;
+
+    result := declaration_reflow_comments(formatted.output, config.max_width);
+    before := declaration_reflow_comments(formatted.output, 0);
+    after := declaration_reflow_comments(result, 0);
+
+    defer free(before);
+    defer free(after);
+
+    if before != after || !same_code_tokens(formatted.output, result) {
+        free(formatted.output);
+        free(result);
+        return "", false, "internal error: declaration comment reflow changed content; file left unchanged";
+    }
+
+    free(formatted.output);
+
+    return result, true, "";
 }
 
 // Formats only the top-level statements that the byte range `from` to `to` touches, and returns
@@ -254,5 +286,6 @@ Toml :: #import "Extensions/Toml";
 #load "lexer.jai";
 #load "config.jai";
 #load "format.jai";
+#load "declaration.jai";
 #load "project.jai";
 #load "range.jai";

@@ -1,0 +1,11 @@
+---
+import type {Example,Target} from '../generated/doc-site.js';
+import ExampleCode from './ExampleCode.astro';
+import ExampleButtons from './ExampleButtons.astro';
+interface Props {example:Example;href:(target:Target)=>string;compact?:boolean}
+const {example,href,compact=false}=Astro.props;
+const plain=!example.capabilities.includes('editable_examples');
+---
+<figure class:list={['ex',{plain,compact:compact&&!plain}]} data-example={example.id} data-timeout={example.timeoutMs}>
+{plain ? <ExampleCode example={example} href={href} /> : compact ? <Fragment><div class="ex-row"><ExampleCode example={example} href={href} /><ExampleButtons example={example} /></div><div class="ex-out" aria-live="polite" hidden></div></Fragment> : <Fragment><div class="ex-bar"><span class="ex-title">Example</span><span class="spacer"></span><ExampleButtons example={example} /></div><ExampleCode example={example} href={href} /><div class="ex-out" aria-live="polite" hidden></div></Fragment>}
+</figure>

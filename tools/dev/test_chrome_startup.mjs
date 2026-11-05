@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
+import * as startup from './chrome_startup.mjs';
 import { waitForDevToolsPort } from './chrome_startup.mjs';
 
 function child() {
@@ -96,4 +97,17 @@ test('a stalled record read cannot extend the startup deadline', { timeout: 1000
     timeoutMs: 20,
     readRecord: () => new Promise(() => {}),
   }), /after \d+ms[\s\S]*last record: \(not read\)/);
+});
+
+
+test('browser discovery respects explicit paths and the macOS installation without probing',()=>{
+  const locate=()=>{throw Error('unexpected PATH probe');};
+  assert.equal(startup.findChrome({env:{CHROME_PATH:'/owned/browser'},platform:'linux',locate}),'/owned/browser');
+  assert.equal(startup.findChrome({env:{},platform:'darwin',locate}),'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
+});
+test('Linux browser discovery uses installed candidates and fails clearly without one',()=>{
+  const attempted=[];
+  assert.equal(startup.findChrome({env:{},platform:'linux',locate:name=>{attempted.push(name);return name==='chromium';}}),'chromium');
+  assert.deepEqual(attempted,['google-chrome','google-chrome-stable','chromium']);
+  assert.throws(()=>startup.findChrome({env:{},platform:'linux',locate:()=>false}),/Install Chrome or set CHROME_PATH/u);
 });

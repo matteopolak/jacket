@@ -1,0 +1,10 @@
+---
+import type {Target,TokenRole} from '../generated/doc-site.js';
+import type {TextPart} from '../lib/render.ts';
+interface Props {parts:(TextPart&{anchors:string[]})[];href:(target:Target)=>string;context:'code'|'type'|'expression'}
+const {parts,href,context}=Astro.props;
+const classes:Record<TokenRole,string|undefined>={plain:undefined,keyword:'k',type:'t',string:'s',number:'n',comment:'c',directive:'d',declared_name:'fn'};
+---
+{parts.map(part=><Fragment>{part.anchors.map(id=><span id={id}/>)}{part.target
+  ? <a href={href(part.target)} class={context==='type'&&part.role==='type'?'ty':undefined}>{part.text}</a>
+  : (context==='type'?part.role==='type':!!classes[part.role])?<span class={context==='type'?'ty':classes[part.role]}>{part.text}</span>:part.text}</Fragment>)}

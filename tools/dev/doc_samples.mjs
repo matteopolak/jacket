@@ -19,3 +19,15 @@ export async function pageStatus(url) {
 export function waitForFrames(evaluate) {
   return evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
 }
+
+/** Select a canonical native-binding page from jacket-doc-site/1 search facts, e.g. api/Native/open. */
+export function foreignItemPath(payload) {
+  assert(payload?.payload === 'search' && payload.data?.schemaVersion === 1 && Array.isArray(payload.data.entries),
+    'Expected versioned documentation search data');
+  const foreign = payload.data.entries.find(entry => entry.binding === true && entry.kind === 'declaration');
+  assert(foreign?.target?.kind === 'page' && typeof foreign.target.id === 'string', 'No foreign declaration page in the site');
+  const id = foreign.target.id;
+  assert(id.startsWith('api/') && !/[\\:\0?#]/u.test(id) && !id.split('/').some(part => ['', '.', '..'].includes(part)),
+    'Unsafe foreign declaration target');
+  return id;
+}
