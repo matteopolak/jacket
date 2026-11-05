@@ -2,8 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-const shell=await readFile(new URL('../../src/components/Shell.astro',import.meta.url),'utf8');
-export const script=shell.match(/<script is:inline(?: data-doc-bootstrap)?>([\s\S]*?)<\/script>/u)?.[1];assert.ok(script);
+export const script=await readFile(new URL('../../src/browser/bootstrap.js',import.meta.url),'utf8');assert.ok(script);
 export class Element extends EventTarget {
   open=true;scrollTop=0;borderHeight=0;style={values:new Map(),setProperty(name,value){this.values.set(name,value);},getPropertyValue(name){return this.values.get(name)??'';}};
   /** @type {Record<string,string>} */ dataset={};

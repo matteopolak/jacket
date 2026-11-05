@@ -77,6 +77,8 @@ html:not(.js) .js-only { display: none !important; }
 #ver-button { display: inline-flex; align-items: center; gap: 4px; font: inherit; color: var(--fg2); background: none; border: 0; padding: 4px 0; cursor: pointer; }
 #ver-button:disabled { cursor: default; }
 #ver-button:disabled svg { display: none; }
+/* Reserve the chevron before deferred controls enable it; no-JS keeps its plain text label. */
+.js #ver-button:disabled svg { display: block; visibility: hidden; }
 #ver-button:not(:disabled):hover, #ver-button[aria-expanded="true"] { color: var(--fg); }
 #ver-button svg { color: var(--muted); transition: transform 0.15s; }
 #ver-button[aria-expanded="true"] svg { transform: rotate(180deg); }
@@ -424,6 +426,8 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 @media (prefers-reduced-motion: reduce) {
   .nav-cat::details-content, .nav-cat > summary::after { transition: none; }
 }
+/* Static chrome never enters a native capture; only the main pane has a transition name. */
+html, .top, .side, .foot { view-transition-name: none; }
 /* Native snapshots intercept only the animated main pane; live chrome stays interactive. */
 ::view-transition { pointer-events: none; }
 ::view-transition-group(main) { pointer-events: auto; }
