@@ -8,12 +8,12 @@ use std::path::PathBuf;
 
 /// A build's exit status when the program has no `main` (its work is all `#run`s), so
 /// tools can tell "nothing to build" from a failed compile.
-pub(super) const NO_MAIN_STATUS: u8 = 3;
+pub const NO_MAIN_STATUS: u8 = 3;
 
 /// A command-line mistake: the message, then help lines.
-pub(super) struct CliError {
-    pub(super) message: String,
-    pub(super) help: Vec<String>,
+pub struct CliError {
+    pub message: String,
+    pub help: Vec<String>,
 }
 
 impl From<FlagError> for CliError {
@@ -26,21 +26,22 @@ impl From<FlagError> for CliError {
 }
 
 impl CliError {
-    pub(super) fn new(message: impl Into<String>) -> Self {
+    pub fn new(message: impl Into<String>) -> Self {
         CliError {
             message: message.into(),
             help: Vec::new(),
         }
     }
 
-    pub(super) fn help(mut self, help: impl Into<String>) -> Self {
+    #[must_use]
+    pub fn help(mut self, help: impl Into<String>) -> Self {
         self.help.push(help.into());
         self
     }
 }
 
 /// What the command line asks for.
-pub(super) enum Request {
+pub enum Request {
     Compile(Box<Cli>),
     Help,
     Version,
@@ -57,7 +58,7 @@ pub(super) enum Request {
 
 /// Where `jaic -help` lists an option.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Section {
+pub enum Section {
     Modes,
     Program,
     Output,
@@ -66,17 +67,17 @@ pub(super) enum Section {
 
 /// An option's line in `jaic -help`.
 #[derive(Clone, Copy)]
-pub(super) struct Help {
-    pub(super) section: Section,
+pub struct Help {
+    pub section: Section,
     /// The option as the help spells it, with its value (`-exe <name>`).
-    pub(super) synopsis: &'static str,
+    pub synopsis: &'static str,
     /// What it does. Each further line is indented under the first.
-    pub(super) text: &'static str,
+    pub text: &'static str,
 }
 
 /// What an option does to the command line being parsed.
 #[derive(Clone, Copy)]
-pub(super) enum Action {
+pub enum Action {
     Help,
     Version,
     PrintStdlib,
@@ -86,6 +87,7 @@ pub(super) enum Action {
     Procedures,
     Check,
     Interp,
+    Deps,
     Flavor(Flavor),
     OptLevel(BitcodeOptimization),
     /// Turns a `Cli` switch on.
@@ -105,18 +107,18 @@ pub(super) enum Action {
 
 /// One option of jaic's own. `OPTIONS` drives parsing, "did you mean" suggestions, the
 /// build-only check and `jaic -help`.
-pub(super) struct CliOption {
+pub struct CliOption {
     /// Its spellings; a mistyped option suggests the nearest of these.
-    pub(super) names: &'static [&'static str],
+    pub names: &'static [&'static str],
     /// Spellings it also accepts but never suggests (`-h`, `--help`).
     aliases: &'static [&'static str],
     /// Its `-help` line; `None` when another option's line covers it.
-    pub(super) help: Option<Help>,
-    pub(super) action: Action,
+    pub help: Option<Help>,
+    pub action: Action,
 }
 
 impl CliOption {
-    pub(super) const fn new(names: &'static [&'static str], action: Action) -> Self {
+    pub const fn new(names: &'static [&'static str], action: Action) -> Self {
         CliOption {
             names,
             aliases: &[],
@@ -126,7 +128,7 @@ impl CliOption {
     }
 
     /// A flag from the table the tools share, listed under `section` in `-help`.
-    pub(super) const fn shared(flag: &'static SharedFlag, section: Section) -> Self {
+    pub const fn shared(flag: &'static SharedFlag, section: Section) -> Self {
         CliOption {
             names: flag.names,
             aliases: &[],
@@ -144,7 +146,8 @@ impl CliOption {
         self
     }
 
-    pub(super) const fn help(
+    #[must_use]
+    pub const fn help(
         mut self,
         section: Section,
         synopsis: &'static str,
@@ -159,13 +162,13 @@ impl CliOption {
     }
 
     /// The option spelt `name`.
-    pub(super) fn find(name: &str) -> Option<&'static CliOption> {
+    pub fn find(name: &str) -> Option<&'static CliOption> {
         tuning::all_options()
             .find(|option| option.names.contains(&name) || option.aliases.contains(&name))
     }
 
     /// The option spelt `name` if it takes a value.
-    pub(super) fn find_value(name: &str) -> Option<&'static CliOption> {
+    pub fn find_value(name: &str) -> Option<&'static CliOption> {
         Self::find(name)
             .filter(|option| matches!(option.action, Action::Value { .. } | Action::Shared(_)))
     }
@@ -186,7 +189,7 @@ macro_rules! store {
 
 pub(crate) use store;
 
-pub(super) const OPTIONS: &[CliOption] = {
+pub const OPTIONS: &[CliOption] = {
     use Section::{Diagnostics, Modes, Output, Program};
     &[
         CliOption::new(&["-check"], Action::Check).help(
@@ -199,7 +202,7 @@ pub(super) const OPTIONS: &[CliOption] = {
             "-interp",
             "run `main` in the interpreter (arguments after `--` go to the program)",
         ),
-        CliOption::new(&["-deps"], Action::Switch(|cli| &mut cli.deps)).help(
+        CliOption::new(&["-deps"], Action::Deps).help(
             Modes,
             "-deps",
             "like -check, then print every source file the compile read, one per line",

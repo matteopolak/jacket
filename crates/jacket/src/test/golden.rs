@@ -241,13 +241,15 @@ fn built(
 }
 
 /// Runs `invocation` with no records expected: everything it prints is its output.
+/// Its supplied timeout covers the whole process from launch, without a Testing start record.
 pub(super) fn run_plain(
     invocation: &Invocation,
     timeout: Option<Duration>,
     live: &mut dyn FnMut(Live),
 ) -> exec::Outcome {
-    let limit = move |_: &str| timeout;
+    let limit = |_: &str| None;
     let limits = Limits {
+        process_timeout: timeout,
         timeout: &limit,
         slow: None,
         stream: false,

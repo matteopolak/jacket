@@ -104,7 +104,8 @@ def test_matrix(full):
     target tests (NOT_WASM), the policy tests and Jai format check (the `jai` leg) and the native
     tests built in four parts (`split`, on Linux arm64 only). A macOS host runs two jobs: `rust`
     (the whole test suite, formatted and linted once) and `checks` (the stdlib target checks, the
-    Jai lint and the backend agreement, which share one debug build of jaic)."""
+    Jai lint and the backend agreement, which share one debug build of jaic). Full Intel
+    shares target checks and docs through `targets_part`, independently of native Rust's `shard`."""
     legs = [leg(X64, "rust", s) for s in shards(6)]
     legs += [leg(X64, "targets", s) for s in shards(3)]
     parts = ("jai", "lint", "portability", "lint-windows", "lint-macos", "diff")
@@ -116,10 +117,12 @@ def test_matrix(full):
     legs += [leg(ARM, "rust", s, expr=NOT_WASM) for s in shards(3)]
     legs += [leg(ARM, part) for part in ("targets", "lint", "diff", "split")]
     for host in (MAC, INTEL):
-        legs.append(leg(host, "rust", expr=NOT_WASM, timeout=MACOS_TIMEOUT))
-        legs.append(
-            leg(host, "checks", parts="targets,lint,diff", timeout=MACOS_TIMEOUT)
-        )
+        rust = leg(host, "rust", expr=NOT_WASM, timeout=MACOS_TIMEOUT)
+        checks = leg(host, "checks", parts="targets,lint,diff", timeout=MACOS_TIMEOUT)
+        if host == INTEL:
+            rust.update(parts=",rust,targets,", targets_part="2/2")
+            checks["targets_part"] = "1/2"
+        legs.extend([rust, checks])
     return legs
 
 
@@ -192,23 +195,25 @@ def stdlib_matrix(full):
         ]
         legs += suite_legs(platform, ("bindings", "tooling"))
     for platform in ("macos-arm64", "macos-x64"):
-        # Two jobs per Mac: the whole catalogue, and every producer suite with all the
-        # `jacket test` runs (they share the production build, and their parts only exist to
-        # shorten Linux jobs).
-        legs.append(
-            dict(
-                platform=platform,
-                shard="1/1",
-                modes="interp,native",
-                o2=True,
-                timeout=MACOS_TIMEOUT,
-            )
+        # Keep two jobs per Mac and all Jacket modes together. Intel's tooling and
+        # bindings use the catalogue job so the full Jacket run leaves them a budget.
+        catalogue = dict(
+            platform=platform,
+            shard="1/1",
+            modes="interp,native",
+            o2=True,
+            timeout=MACOS_TIMEOUT,
         )
+        producers = f"{SUITES} bindings tooling"
+        if platform == "macos-x64":
+            catalogue["suites"] = "tooling bindings"
+            producers = SUITES
+        legs.append(catalogue)
         legs.append(
             dict(
                 platform=platform,
                 shard="suites",
-                suites=f"{SUITES} bindings tooling",
+                suites=producers,
                 jacket_test="all",
                 timeout=MACOS_TIMEOUT,
             )
@@ -220,7 +225,12 @@ def sanitizer_matrix(full, macos):
     """The legs of `sanitizers`: the fast tier runs -O0 only, so Linux takes three shards there."""
     linux = shards(2 if full else 3)
     legs = [dict(runner="ubuntu-24.04", shard=s) for s in linux]
-    return legs + ([dict(runner="macos-15", shard="1/1")] if full or macos else [])
+    if full:
+        # Each complete mode keeps its own job budget; no cases or per-test limits change.
+        legs += [dict(runner="macos-15", shard="1/1", mode=mode) for mode in ("O0", "O2")]
+    elif macos:
+        legs.append(dict(runner="macos-15", shard="1/1"))
+    return legs
 
 
 # The runner, Visual Studio arch and MinGW toolchain of each Windows CPU; the triple comes from
@@ -292,10 +302,12 @@ INPUT_JOB = {"sanitizers-macos": "sanitizers"}
 # and nightly/manual runs do both.
 NARROW = {
     "sanitizers-macos": [
+        *job_inputs.CHECKOUT_INPUTS,
         "crates/jaic-llvm/**",
         "crates/jaic-native/**",
         "crates/jaic-backend/**",
         "crates/jaic-cli/src/**",
+        "crates/jaic-cli-args/src/**",
         "crates/jaic/src/**",
         "crates/jaic-syntax/src/**",
         "tools/differential/**",
@@ -402,7 +414,8 @@ def area_changed(area, patterns, files):
 
 def code_changed(files):
     prose, read = compile_patterns(PROSE), compile_patterns(READ_BY_TESTS)
-    return any(not prose.match(f) or read.match(f) for f in files)
+    checkout = compile_patterns(job_inputs.CHECKOUT_INPUTS)
+    return any(checkout.match(f) or not prose.match(f) or read.match(f) for f in files)
 
 
 def changed_files(env):

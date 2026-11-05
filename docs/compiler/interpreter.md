@@ -56,6 +56,10 @@ Programs using `Thread` run on a cooperative scheduler, chosen by `Host::coopera
 - **Inline** (`threads_inline.rs`, wasm): all threads take turns on one host thread; a thread that must wait suspends with a `Suspended` trap and its frames save themselves.
 - `compare_and_swap` carries the operand width as a fourth argument.
 
+Known host semaphore waits give up the native baton before entering C, so a runnable peer can supply the signal without waiting for the short-call grace. The host SDK address, a core system-library binding and the actual loader provider must match (`native/waits.rs`): the Mach header belonging to the already loaded kernel-library handle on macOS, or the already loaded libc link map on glibc Linux. Other loader providers retain the conservative policy; proofs are prepared once before native guest execution, so classification does not alter a guest’s pending loader error. A user library with the same symbol spelling and opaque calls retain the existing timed-steal policy. Fork calls retain exclusive execution. Arguments and the caller’s execution state stay parked until it reacquires the baton, including on a native error return. A nested C callback reacquires normally; returning from it to C resumes the conservative short-call policy.
+
+Thread groups notify the selected worker and stealing peers when work becomes available. Appending to a queue only publishes its entry: completed queues have no semaphore waiter, so they do not post notifications. `get_completed_work` polls those queues; `wait_for_all` uses the group’s outstanding-work condition. Keep these wake policies in `stdlib/internal/thread/group.jai` when changing queue ownership. The public counting `Semaphore` and available-work broadcasts retain their existing behavior.
+
 ### Fibers
 
 `fiber_init`, `fiber_switch` and `fiber_free` start a procedure on its own stack and switch between stacks ([fibers](fibers.md)).
@@ -66,6 +70,7 @@ Programs using `Thread` run on a cooperative scheduler, chosen by `Host::coopera
 - New op: keep `Op` at 16 bytes. An op that folds a register away calls `fold`; one reading an uncounted register adds to `uses`.
 - Native call shapes: `call_as` in `native.rs` and the matching thunk family in `native/callbacks.rs` must stay mirror images.
 - Threads: anything touching `Interp` from a thread holds the baton; never hold the `Shared` lock across a native call. A new blocking primitive needs a `Block` variant and a case in `Sched::expire_waits`.
+- Extend known native waits only with host SDK identity checks and a system-library binding; keep unknown calls conservative. Preserve caller identity before handing the baton on, and cover no-peer, cancellation, native return values and nested callbacks.
 - New compiler operation: an `Operation` in `build/public_api/mod.rs`, a handler, the engine call in `build/engine.rs`, and a bodiless `#compiler` declaration in `stdlib/Compiler`.
 - Writing a global from the compiler: use `initialize_global`; a plain write into a `read_only` global faults. New ways to write memory call `check_writable`.
 - x86-64 on an arm64 Mac: `cargo build -p jaic-cli --no-default-features --target x86_64-apple-darwin`, run with `arch -x86_64`.
@@ -77,4 +82,4 @@ Programs using `Thread` run on a cooperative scheduler, chosen by `Host::coopera
 
 ## Dependencies
 
-`ir`, `build.rs`, the platform's dynamic loader, `stdlib/Thread/`, `stdlib/Atomics.jai`. Tests: `tests/compiler/regressions/threads-*.jai`, `tests/compiler/native/fibers/`, `crates/jaic-cli/tests/{cli,native}.rs`.
+`ir`, `build.rs`, the platform's dynamic loader, `stdlib/Thread/`, `stdlib/Atomics/`. Tests: `tests/compiler/regressions/threads-*.jai`, `tests/compiler/native/fibers/`, `crates/jaic-cli/tests/{cli,native}.rs`.

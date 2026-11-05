@@ -1406,9 +1406,18 @@ Shared_Port :: struct {
     accepted: s32;
     failures: s32;
     listen_error: s32;
+    diagnostic_count: s32;
 }
 
 shared: Shared_Port;
+
+PORT_DIAGNOSTIC_LIMIT :: 32;
+
+// Record only failed operations, with a bounded number of rows even if a peer keeps failing.
+port_failure :: (stage: string, turn: int = -1, count: s64 = -1, error: Io.Io_Error = .NONE, first_byte: s64 = -1) {
+    if Atomics.atomic_add(*shared.diagnostic_count, 1) >= PORT_DIAGNOSTIC_LIMIT return;
+    print("IO_PORT_FAILURE stage=% port=% turn=% count=% error=% first_byte=%\n", stage, shared.port, turn, count, error, first_byte, to_standard_error = true);
+}
 
 ping_connection :: (conn: Io.Tcp_Stream) {
     defer Io.close(conn);
@@ -1416,15 +1425,22 @@ ping_connection :: (conn: Io.Tcp_Stream) {
     buffer: [4] u8;
     count, error := Io.read(conn, buffer);
 
-    if error != .NONE || count != 1 return;
+    if error != .NONE || count != 1 {
+        port_failure("server-read", count = count, error = error);
+        return;
+    }
 
-    Io.write(conn, ([] u8).{ 1, buffer.data });
+    written, write_error := Io.write(conn, ([] u8).{ 1, buffer.data });
+    if write_error != .NONE || written != 1 port_failure("server-write", count = written, error = write_error);
 }
 
 shared_accept_loop :: (listener: Io.Tcp_Listener) {
     while true {
         conn, error := Io.accept(listener);
-        if error != .NONE break;
+        if error != .NONE {
+            if Atomics.atomic_read(*shared.done) == 0 port_failure("server-accept", error = error);
+            break;
+        }
 
         Atomics.atomic_add(*shared.accepted, 1);
         Io.spawn(ping_connection, conn);
@@ -1434,11 +1450,32 @@ shared_accept_loop :: (listener: Io.Tcp_Listener) {
 thread_main :: () {
     me := Atomics.atomic_add(*shared.claimed, 1);
 
-    listener, error := Io.tcp_listen(Io.address_v4(127, 0, 0, 1, shared.port), reuse_port = true);
+    // The first worker owns a port-zero listener before publishing its port through ready.
+    if me != 0 {
+        while Atomics.atomic_read(*shared.ready) == 0 Io.sleep(1);
+
+        if Atomics.atomic_read(*shared.listen_error) != 0 {
+            Atomics.atomic_add(*shared.ready, 1);
+            return;
+        }
+    }
+
+    port: u16;
+    if me != 0 port = shared.port;
+
+    listener, error := Io.tcp_listen(Io.address_v4(127, 0, 0, 1, port), reuse_port = true);
+    if error == .NONE && me == 0 {
+        address, address_error := Io.local_address(listener);
+        if address_error == .NONE shared.port = address.port;
+        else {
+            Io.close(listener);
+            error = address_error;
+        }
+    }
 
     if error != .NONE {
-        // The port was taken between being picked and now. Report it and let the other thread
-        // finish; `run_threads_here` tries again with a new port. Nothing asserts here.
+        // Publish setup failure so the peer can finish instead of waiting forever on ready.
+        port_failure("listener-setup", turn = me, error = error);
         Atomics.atomic_write(*shared.listen_error, cast(s32) error);
         Atomics.atomic_write(*shared.done, 1);
         Atomics.atomic_add(*shared.ready, 1);
@@ -1459,6 +1496,7 @@ thread_main :: () {
 
             conn, connect_error := Io.connect(Io.address_v4(127, 0, 0, 1, shared.port));
             if connect_error != .NONE {
+                port_failure("client-connect", turn = it, error = connect_error);
                 Atomics.atomic_add(*shared.failures, 1);
 
                 continue;
@@ -1467,10 +1505,16 @@ thread_main :: () {
             byte: u8 = 7;
             buffer: [4] u8;
 
-            Io.write(conn, ([] u8).{ 1, *byte });
+            written, write_error := Io.write(conn, ([] u8).{ 1, *byte });
 
             count, read_error := Io.read(conn, buffer);
-            if read_error != .NONE || count != 1 || buffer[0] != 7 Atomics.atomic_add(*shared.failures, 1);
+
+            if write_error != .NONE || written != 1 port_failure("client-write", turn = it, count = written, error = write_error);
+
+            if read_error != .NONE || count != 1 || buffer[0] != 7 {
+                port_failure("client-read", turn = it, count = count, error = read_error, first_byte = buffer[0]);
+                Atomics.atomic_add(*shared.failures, 1);
+            }
 
             Io.close(conn);
         }
@@ -1481,21 +1525,6 @@ thread_main :: () {
     }
 
     Io.close(listener);
-}
-
-// Picks a port nobody listens on right now. Another process may take it before the threads
-// listen (CI runs tests in parallel), so this is only a guess: `run_threads_here` retries.
-pick_port :: () {
-    probe, error := Io.tcp_listen(LOOPBACK);
-
-    assert(error == .NONE);
-
-    address, _ := Io.local_address(probe);
-
-    Io.close(probe);
-
-    shared = .{};
-    shared.port = address.port;
 }
 
 test_threads_share_a_port :: () {
@@ -1509,21 +1538,16 @@ pending_threads: bool;
 run_threads_here :: () {
     if !pending_threads return;
 
-    // A failed listen with ADDRESS_IN_USE can only mean another process took the guessed port
-    // in the gap, so a new guess is the right answer. Any other error, or ten losses in a row,
-    // is a real failure. A run where both threads listened owned the port from their first
-    // listen until they ended, so nobody can interfere with the clients that are checked.
-    ATTEMPTS :: 10;
+    // Hold the kernel-selected port continuously; unrelated test allocators cannot pick it
+    // during a close-and-rebind gap. Both schedulers still own a listener and run the same clients.
+    shared = .{};
+    Io.io_run_threads(2, thread_main);
 
-    for 1..ATTEMPTS {
-        Io.io_run(pick_port);
-        Io.io_run_threads(2, thread_main);
-
-        if shared.listen_error == 0 break;
-
-        assert(shared.listen_error == cast(s32) Io.Io_Error.ADDRESS_IN_USE && it < ATTEMPTS, "listen with reuse_port: %", cast(Io.Io_Error) shared.listen_error);
+    if shared.listen_error != 0 || shared.failures != 0 || shared.accepted != 20 || shared.diagnostic_count != 0 {
+        print("IO_PORT_FINAL port=% accepted=% failures=% ready=% claimed=% listen_error=% diagnostics=% (limit %)\n", shared.port, shared.accepted, shared.failures, shared.ready, shared.claimed, cast(Io.Io_Error) shared.listen_error, shared.diagnostic_count, PORT_DIAGNOSTIC_LIMIT, to_standard_error = true);
     }
 
+    assert(shared.listen_error == 0, "listen with reuse_port: %", cast(Io.Io_Error) shared.listen_error);
     assert(shared.failures == 0, "% clients failed", shared.failures);
     assert(shared.accepted == 20, "accepted % connections", shared.accepted);
 }

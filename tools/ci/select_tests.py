@@ -3,9 +3,8 @@
 
 `jacket test --changed FILE` keeps the tests whose programs read FILE (what `jaic -deps` says the
 compiles read), so the dependency graph is the compiler's, not a table kept here. This script
-asks it once, so the several `jacket test` runs of a leg (native, interpreted, -O2, wasm) share
-one answer instead of each working it out, and writes the test names for those runs to pass as
-exact filters.
+asks for each mode's selected-target catalogue and writes its exact filters. A host-only empty
+selection cannot suppress cases compiled only for another target.
 
     JACKET_TEST_CHANGED='["stdlib/Sort/module.jai"]' python3 tools/ci/select_tests.py --jacket target/release/jacket --out names.txt
 
@@ -42,13 +41,14 @@ def test_names(listing):
     return names
 
 
-def affected(jacket, changed, run=subprocess.run):
+def affected(jacket, changed, run=subprocess.run, flags=()):
     """The names of the tests `changed` (repo-relative paths) can affect, or `None` to run all."""
     if not changed:
         return None
-    command = [jacket, "test", "--list", "--format", "json"]
+    command = [jacket, "test", "--list", "--list-target", "--format", "json"]
     for path in changed:
         command += ["--changed", path]
+    command += list(flags)
     result = run(command, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"select_tests: jacket failed:\n{result.stderr}", file=sys.stderr)
@@ -67,12 +67,14 @@ def main(argv, env):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jacket", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("flags", nargs=argparse.REMAINDER, help="after --, the exact arguments of this jacket mode")
     args = parser.parse_args(argv)
+    flags = args.flags[1:] if args.flags[:1] == ["--"] else args.flags
     try:
         changed = json.loads(env.get("JACKET_TEST_CHANGED") or "[]")
     except ValueError:
         changed = []
-    names = affected(args.jacket, changed)
+    names = affected(args.jacket, changed, flags=flags)
     if names is None:
         print("select_tests: running every test", file=sys.stderr)
         return EVERYTHING

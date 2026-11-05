@@ -1,7 +1,7 @@
 //! Parsing arguments into a request and checking the input file.
-use super::cli::{Cli, Mode, Plugin};
-use super::options::{Action, CliError, CliOption, Request};
 use super::usage::{no_file_error, program_args_error, unknown_option};
+use jaic_cli_args::cli::{Cli, Mode, Plugin};
+use jaic_cli_args::options::{Action, CliError, CliOption, Request};
 use std::path::Path;
 use std::process::ExitCode;
 
@@ -52,17 +52,7 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
             plugin.options.push(arg.clone());
             continue;
         }
-        // `-os=linux` and the like.
-        let (a, inline) = match arg.split_once('=') {
-            Some((option, value)) if CliOption::find_value(option).is_some() => {
-                (option, Some(value.to_string()))
-            }
-            // `-Dwarnings`: the level flags take their value attached too.
-            None if arg.len() > 2 && matches!(&arg[..2], "-A" | "-W" | "-D") => {
-                (&arg[..2], Some(arg[2..].to_string()))
-            }
-            _ => (arg.as_str(), None),
-        };
+        let (a, inline) = jaic_cli_args::arguments::split_option(arg);
         let Some(option) = CliOption::find(a) else {
             if a.starts_with('-') {
                 return Err(unknown_option(a));
@@ -84,6 +74,7 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
             Action::Procedures => procedures = true,
             Action::Check => check = true,
             Action::Interp => interp = true,
+            Action::Deps => cli.deps = true,
             Action::Switch(switch) => *switch(&mut cli) = true,
             Action::Ignore => {}
             Action::Shared(flag) => {
@@ -133,19 +124,7 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
                 None => CliError::new(message),
             }
         })?;
-    if check && interp {
-        return Err(CliError::new("`-check` and `-interp` cannot be combined")
-            .help("`-check` only compiles the program; `-interp` runs it in the interpreter"));
-    }
-    if cli.deps && interp {
-        return Err(CliError::new("`-deps` and `-interp` cannot be combined")
-            .help("`-deps` only compiles the program and lists the files it read"));
-    }
-    cli.mode = match (check || cli.deps, interp) {
-        (true, _) => Mode::Check,
-        (_, true) => Mode::Interp,
-        _ => Mode::Build,
-    };
+    cli.mode = Mode::from_flags(check, interp, cli.deps)?;
     cli.finish(extra)?;
     Ok(Request::Compile(Box::new(cli)))
 }

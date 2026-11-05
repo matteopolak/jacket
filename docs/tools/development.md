@@ -123,3 +123,21 @@ The expensive cache is `target/native-libs` (`.github/actions/native-libs-cache`
 ## Dependencies
 
 [just](https://github.com/casey/just) 1.58+, `python3`, the pinned Rust toolchain, `pnpm` (for `just vscode`), and the repo-built `jaifmt` and `jailint`.
+
+### Investigating jacket CI partitions
+
+`tools/ci/stdlib_jacket_test.sh` runs native, interpreted and O2 tests on each native
+platform; `WASM=true` additionally runs interpreted and built wasm on Linux x64.
+`JACKET_TEST_CHANGED` narrows discovery first and fails open to all tests if selection
+fails; `JACKET_TEST_PARTITION` then selects `all` or `hash:K/N`. Never substitute one mode
+or producer suite for another when moving work between jobs.
+
+Set `JACKET_TEST_REPORT_DIR=target/jacket-inventory` to save each mode's full discovery,
+assigned discovery and execution outcomes. The CI `jacket_inventory` manual input enables
+this and artifact upload. `tools/ci/verify_jacket_inventory.py` compares downloaded runs;
+see [CI selection](ci-job-selection.md#jacket-partition-evidence). These optional listings
+cost additional compiler work, so compare runs with the same reporting setting.
+
+Matrix assignments live in `tools/ci/ci_changes.py`; coverage invariants are tested in
+`test_ci_changes.py`. The shell runner owns execution/reporting, and the workflow owns
+runner setup and artifact retention. Prefer existing jobs when testing new assignments.

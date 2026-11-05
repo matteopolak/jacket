@@ -320,6 +320,7 @@ jacket test [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--exact` | Filters are whole names, not parts of names |
 | `-E, --filter-expr <EXPR>` | Run the tests a filter expression selects, as `module(Sort) and not kind(property)`; with FILTERs, the tests both select (predicates: test, module, file, kind, all, none) |
 | `--list` | Print the tests (and benchmarks) instead of running them |
+| `--list-target` | With `--list`: discover the selected target's compile-time cases instead of the host's |
 | `--roots` | Print the test roots (the folders `[test] paths` expands to, narrowed by the current directory), one per line, and nothing else |
 | `--deps` | With `--list`: print the source files the test programs read (what `jaic -deps` prints for each), instead of the tests |
 | `--changed <FILE>` | Run only the tests a change to FILE can affect: those whose programs read it (as `--list --deps` shows), the tests of a root it adds an unlisted file to, and tests whose program does not compile. Repeat it for each changed file; it applies before `--partition` |
@@ -384,6 +385,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--exact` | Filters are whole names, not parts of names |
 | `-E, --filter-expr <EXPR>` | Run the tests a filter expression selects, as `module(Sort) and not kind(property)`; with FILTERs, the tests both select (predicates: test, module, file, kind, all, none) |
 | `--list` | Print the tests (and benchmarks) instead of running them |
+| `--list-target` | With `--list`: discover the selected target's compile-time cases instead of the host's |
 | `--roots` | Print the test roots (the folders `[test] paths` expands to, narrowed by the current directory), one per line, and nothing else |
 | `--deps` | With `--list`: print the source files the test programs read (what `jaic -deps` prints for each), instead of the tests |
 | `--changed <FILE>` | Run only the tests a change to FILE can affect: those whose programs read it (as `--list --deps` shows), the tests of a root it adds an unlisted file to, and tests whose program does not compile. Repeat it for each changed file; it applies before `--partition` |
@@ -548,6 +550,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `EXPECTED_PRELUDE` | The prelude the child process of the prelude-selection tests must find, or `missing`. | unset | tests |
 | `JACKET_DATABASE_URL` | A PostgreSQL connection URL for the typed-query tests. | unset: the Postgres tests skip | tests |
 | `JACKET_STDLIB_TARGETS_PART` | `K/N`: the stdlib-by-target check takes every Nth module and target pair from the Kth, so CI can split it. | `1/1` | tests |
+| `JACKET_TEST_CHANGED` | A JSON list of changed paths for the CI test-selection helper (`tools/ci/select_tests.py`); narrows stdlib tests before partitioning. | unset: the full test catalogue | tests |
 | `JACKET_TEST_CODEGEN_UNITS` | Passes `-codegen_units N` to the native build tests, to run them split into several modules. | unset | tests |
 | `JAIC_ABI_CLANG` | The `clang` the C ABI tests compare against. | `clang` | tests |
 | `JAIC_ABI_CROSS` | Cross targets the C ABI tests also compile for, as a comma list of specs. | unset | tests |
@@ -562,6 +565,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_TEST_TMPDIR` | Where test scratch directories are made. | the system temporary directory | tests |
 | `JAIC_WASM_TEST` | A value the WebAssembly test passes to the program, which prints it back. | unset | tests |
 | `JAILSP_ENFORCE_SCALE_BUDGET` | `1`: the language server scale test fails when a case is over its budget. | unset: the budget is only reported | tests |
+| `JAILSP_SCALE_SANDBOX_INPUTS` | Rejected obsolete upstream scale input selector; it never grants permission to run outside the bench sandbox. | unset | tests |
 | `JAI_FUZZ_VERBOSE` | When set, the fuzz harness prints each input it checks. | unset | fuzzing |
 | `JAI_IDE_AUDIT_REVISION` | Read at build time: the revision the language server coverage audit stamps into its report. | unset | tests |
 | `TYPING_FUZZ_DUMP` | A directory the typing-session rig writes the failing document to. | unset | tests |

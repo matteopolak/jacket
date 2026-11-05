@@ -183,16 +183,16 @@ fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
     {
         *path = cwd.join(&*path);
     }
-    let mut takes_path = false;
-    for flag in &mut args.jaic_args {
-        if std::mem::take(&mut takes_path) {
-            *flag = cwd.join(&*flag).to_string_lossy().into_owned();
-        } else if PATH_FLAGS.contains(&flag.as_str()) {
-            takes_path = true;
-        } else if let Some((name, value)) = flag.split_once('=')
-            && PATH_FLAGS.contains(&name)
-        {
-            *flag = format!("{name}={}", cwd.join(value).display());
+    // The same compiler argument walk owns arity, target filtering and path values.
+    // A malformed sequence is diagnosed before any compiler process is started in run_once.
+    if let Ok(parsed) = jaic_cli_args::arguments::target_flags(&args.jaic_args) {
+        for value in parsed.values {
+            if PATH_FLAGS.contains(&value.name.as_str()) {
+                value.replace(
+                    &mut args.jaic_args,
+                    cwd.join(&value.value).to_string_lossy().into_owned(),
+                );
+            }
         }
     }
     args
@@ -368,21 +368,6 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: Option<&BenchArgs>) -> ExitCode {
     watch::run(args, cwd)
 }
 
-/// The OS and CPU the tests are built for: the flags', else the host's. A wasm program has no CPU
-/// of the host's kind, so `only(.X64)` never runs under `-os wasm`.
-fn target_of(args: &TestArgs) -> (String, String) {
-    let os = args.os.clone().unwrap_or_else(|| host_os().into());
-    let cpu = args.cpu.clone().unwrap_or_else(|| {
-        if os == "wasm" {
-            "wasm"
-        } else {
-            host_cpu()
-        }
-        .into()
-    });
-    (os, cpu)
-}
-
 /// One run of the selected tests. `watched` is told which folders and test files the run
 /// used; `only` narrows the run to the cases of these test files.
 fn run_once(
@@ -394,7 +379,24 @@ fn run_once(
 ) -> ExitCode {
     watched.clear();
     let bench = bench_args.is_some();
-    let resolved = resolve_paths(args, cwd);
+    let mut resolved = resolve_paths(args, cwd);
+    let forwarded = match jaic_cli_args::arguments::target_flags(&resolved.jaic_args) {
+        Ok(parsed) => parsed,
+        Err(error) => return fail(error),
+    };
+    if let Err(error) =
+        jaic_cli_args::cli::Mode::from_flags(forwarded.check, forwarded.interp, forwarded.deps)
+    {
+        return fail(error.message);
+    }
+    if forwarded.deps {
+        return fail("use `jacket test --list --deps` to list test dependencies");
+    }
+    if forwarded.check && !resolved.check_only {
+        return fail("`-check` does not run tests; use `--doc --check-only` to check doc examples");
+    }
+    resolved.interp |= forwarded.interp;
+    resolved.jaic_args = forwarded.without_modes(std::mem::take(&mut resolved.jaic_args));
     let args = &resolved;
     let loaded = match project::load(cwd) {
         Ok(loaded) => loaded,
@@ -441,12 +443,6 @@ fn run_once(
         Some(Err(error)) => return fail(error),
         None => None,
     };
-    let (os, cpu) = target_of(args);
-    let target = Target {
-        os: os.clone(),
-        cpu: cpu.clone(),
-        interp: args.interp,
-    };
     let mut flags = Vec::new();
     if let Some(os) = &args.os {
         flags.extend(["-os".to_string(), os.clone()]);
@@ -463,6 +459,24 @@ fn run_once(
             .map(|flag| flag.to_string_lossy().into_owned()),
     );
     flags.extend(args.jaic_args.iter().cloned());
+    let parsed = match jaic_cli_args::arguments::target_flags(&flags) {
+        Ok(parsed) => parsed,
+        Err(error) => return fail(error),
+    };
+    let mut effective = jaic::sema::Options::host();
+    // Metadata is also needed by compile-only cases. The compiler checks native link
+    // eligibility only when a case actually builds a program; valid modes share OS/CPU defaults.
+    if let Err(error) = parsed.selection.apply_for_mode(&mut effective, false) {
+        return fail(error);
+    }
+    let os = jaic::target::os_name(effective.os).to_string();
+    let cpu = jaic::target::cpu_name(effective.cpu).to_string();
+    let target = Target {
+        os: os.clone(),
+        cpu: cpu.clone(),
+        interp: args.interp,
+    };
+
     if !args.interp && !bench && matches!(os.as_str(), "windows" | "linux" | "macos") {
         flags.insert(0, "-backtrace_on_crash".into()); // the only targets with a crash handler
     }
@@ -539,13 +553,20 @@ fn run_once(
     // in this report, alongside the blocks the built test programs execute later.
     let compile_coverage = coverage.as_ref().map(coverage::Coverage::run_dir);
     toolchain.coverage_dir.clone_from(&compile_coverage);
+    let listing = if list && args.list_target {
+        Some(build::Listing::Target)
+    } else if list || args.check_only {
+        Some(build::Listing::Host)
+    } else {
+        None
+    };
+    let discovery_toolchain = toolchain.for_discovery(listing);
     let built = build_all(
         &roots,
         &root_flags,
         &work,
-        &toolchain,
-        // Listing and checking doc examples need no test programs.
-        list || args.check_only,
+        &discovery_toolchain,
+        listing,
         bench,
         settings.jobs.min(4),
     );
@@ -553,6 +574,12 @@ fn run_once(
         coverage.collect_once(dir);
     }
     toolchain.coverage_dir = None;
+    // Public host listings use their host graph; actual runs/checks use their selected target.
+    let dependency_toolchain = if list {
+        &discovery_toolchain
+    } else {
+        &toolchain
+    };
     let mut broken = false;
     let built: Vec<Option<Built>> = built
         .into_iter()
@@ -614,7 +641,7 @@ fn run_once(
             roots: &roots,
             root_flags: &root_flags,
             work: &work,
-            toolchain: &toolchain,
+            toolchain: dependency_toolchain,
             bench,
         };
         selected = deps::narrow(selected, &args.changed, &ctx);
@@ -649,7 +676,14 @@ fn run_once(
             );
         }
         if args.deps {
-            deps::print(&selected, &roots, &root_flags, &work, &toolchain, bench);
+            deps::print(
+                &selected,
+                &roots,
+                &root_flags,
+                &work,
+                &discovery_toolchain,
+                bench,
+            );
         } else {
             reporter.list(&selected);
         }
@@ -1019,7 +1053,7 @@ fn build_all(
     root_flags: &[Vec<String>],
     work: &Path,
     toolchain: &Toolchain,
-    list: bool,
+    listing: Option<build::Listing>,
     bench: bool,
     parallel: usize,
 ) -> Vec<BuildResult> {
@@ -1047,7 +1081,7 @@ fn build_all(
                             &root_flags[i],
                             &work.join(format!("build-{i}")),
                             toolchain,
-                            list,
+                            listing,
                         )
                         .map(Some)
                     };
@@ -1065,102 +1099,4 @@ fn build_all(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_run_without_a_seed_draws_a_short_one() {
-        assert!(random_seed() < 1_000_000_000);
-    }
-
-    pub(super) fn case(name: &str, kind: Kind) -> Case {
-        Case {
-            name: name.into(),
-            local: name.rsplit("::").next().unwrap_or(name).into(),
-            kind,
-            root: 0,
-            file: PathBuf::from("/t.jai"),
-            line: 1,
-            notes: Vec::new(),
-            options: TestOptions::default(),
-            run_as: String::new(),
-            doc: None,
-            cases: Vec::new(),
-        }
-    }
-
-    #[test]
-    fn filters_select_tests_and_subtests() {
-        let table = case("A::table", Kind::Test);
-        let none: [String; 0] = [];
-        assert_eq!(select(&table, &none, false).as_deref(), Some("table"));
-        assert_eq!(
-            select(&table, &["tab".into()], false).as_deref(),
-            Some("table")
-        );
-        assert_eq!(select(&table, &["tab".into()], true), None);
-        assert_eq!(
-            select(&table, &["A::table/two".into()], true).as_deref(),
-            Some("table/two")
-        );
-        assert_eq!(select(&table, &["other".into()], false), None);
-        let golden = case("A::compile_fail/bad", Kind::CompileFail);
-        assert!(select(&golden, &["compile_fail/bad".into()], false).is_some());
-    }
-
-    #[test]
-    fn paths_among_the_flags_are_resolved_from_the_current_directory() {
-        let args = TestArgs {
-            path: vec![PathBuf::from("lib")],
-            junit: Some(PathBuf::from("out.xml")),
-            jaic_args: [
-                "-O2",
-                "-import_dir",
-                "vendor",
-                "-emit_ir=x.ll",
-                "-os",
-                "wasm",
-            ]
-            .map(String::from)
-            .into(),
-            ..<TestArgs as clap::Args>::augment_args(clap::Command::new("t"))
-                .try_get_matches_from(["t"])
-                .map(|m| <TestArgs as clap::FromArgMatches>::from_arg_matches(&m).unwrap())
-                .unwrap()
-        };
-        let resolved = resolve_paths(&args, Path::new("/w"));
-        assert_eq!(resolved.path, [PathBuf::from("/w/lib")]);
-        assert_eq!(resolved.junit, Some(PathBuf::from("/w/out.xml")));
-        assert_eq!(
-            resolved.jaic_args,
-            [
-                "-O2",
-                "-import_dir",
-                "/w/vendor",
-                "-emit_ir=/w/x.ll",
-                "-os",
-                "wasm"
-            ]
-        );
-    }
-
-    #[test]
-    fn partitions_cover_every_test_once() {
-        let names = ["a", "b", "c", "d", "e"];
-        for how in ["hash", "count"] {
-            let parts: Vec<_> = (1..=3)
-                .map(|k| partition(&format!("{how}:{k}/3")).unwrap())
-                .collect();
-            for (i, name) in names.iter().enumerate() {
-                assert_eq!(
-                    parts.iter().filter(|p| p(i, name)).count(),
-                    1,
-                    "{how} {name}"
-                );
-            }
-        }
-        assert!(partition("hash:0/3").is_err());
-        assert!(partition("count:4/3").is_err());
-        assert!(partition("mod:1/2").is_err());
-    }
-}
+mod tests;

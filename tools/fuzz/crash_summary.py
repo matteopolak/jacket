@@ -9,12 +9,13 @@ built with the debug assertions and overflow checks the fuzz build has) and appe
 $GITHUB_STEP_SUMMARY (stdout when that is unset): the panic message or how the replay ended, the
 start of a backtrace, then the input as a hex dump and as escaped text, both cut to a sensible
 length. The first LIMIT files get the full treatment, the rest are listed by name and size.
-Always exits 0: the fuzz step has already failed the job.
+Reporting errors exit 1; the workflow preserves the original fuzz failure.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -131,7 +132,7 @@ def fence(text: str) -> str:
 
 
 def section(path: Path, data: bytes, replay: Replay | None, unit_timeout: int = 0) -> str:
-    parts = [f"#### `{path.name}` ({len(data)} bytes)"]
+    parts = [f"#### `{path.name}` ({len(data)} bytes)", f"SHA-256: `{hashlib.sha256(data).hexdigest()}`"]
     if replay is not None:
         message, backtrace = extract_panic(replay.output)
         if message:
@@ -169,20 +170,19 @@ def unit_timeout_of(target: str) -> int:
 
 
 def replay_input(target: str, path: Path, unit_timeout: int) -> Replay:
-    env = {**os.environ, **REPLAY_ENV}
     command = [
         "cargo", "run", "--quiet", "--release", "--manifest-path", HARNESS,
         "--example", "replay", "--", target, str(path),
-    ]  # fmt: skip
+    ]
+    return run_replay(command, unit_timeout + 60)
+
+
+def run_replay(command: list[str], timeout: float) -> Replay:
+    """Capture a real replay process, including Rust panic output and a bounded timeout."""
     try:
         done = subprocess.run(
-            command,
-            cwd=ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            errors="replace",
-            timeout=unit_timeout + 60,
+            command, cwd=ROOT, env={**os.environ, **REPLAY_ENV},
+            capture_output=True, text=True, errors="replace", timeout=timeout,
             preexec_fn=limit_memory if sys.platform == "linux" else None,
         )
     except subprocess.TimeoutExpired as error:
@@ -216,26 +216,41 @@ def summarize(target: str, directory: Path, limit: int, replayer=None) -> str:
     return "\n\n".join(parts) + "\n"
 
 
-def main(argv=None) -> int:
+def main(argv=None, *, builder=None, replayer=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("target")
     parser.add_argument("--artifacts", type=Path)
     parser.add_argument("--limit", type=int, default=3)
     args = parser.parse_args(argv)
     directory = args.artifacts or ROOT / "fuzz" / "artifacts" / args.target
-    if findings(directory):
-        build_replay()
-    text = summarize(args.target, directory, args.limit)
+    try:
+        files = findings(directory)
+        failed = bool(files) and not (builder or build_replay)()
+        if failed:
+            text = f"### fuzz `{args.target}`: Replay preparation failed\n\n"
+            text += "The replay executable could not be built; no input was replayed.\n\n"
+            text += "\n\n".join(section(path, path.read_bytes(), None) for path in files[:args.limit]) + "\n"
+        else:
+            text = summarize(args.target, directory, args.limit, replayer=replayer)
+        append_summary(text)
+        if not text:
+            print(f"no findings in {directory}")
+        return int(failed)
+    except (OSError, subprocess.SubprocessError) as error:
+        print(f"crash summary failed: {error}", file=sys.stderr)
+        return 1
+
+
+def append_summary(text: str) -> None:
+    """Append a report to GitHub's job summary, or print it outside Actions."""
     if not text:
-        print(f"no findings in {directory}")
-        return 0
+        return
     destination = os.environ.get("GITHUB_STEP_SUMMARY")
     if destination:
         with open(destination, "a", encoding="utf-8") as out:
             out.write(text)
     else:
         print(text)
-    return 0
 
 
 if __name__ == "__main__":

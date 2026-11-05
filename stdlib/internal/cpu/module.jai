@@ -52,11 +52,15 @@ limit_vector_tier :: (tier: Vector_Tier) {
 
 // The best version the processor can run: the highest tier with a version given, else `baseline`.
 // A version that needs a feature is compiled with `#target_features` and listed under its tier.
+// Compile-time execution chooses `baseline` without probing a processor, including macros that
+// inspect caller Code for another CPU. Runtime feature queries and tier limits are unchanged.
 //
 // ```jai,ignore
 // table = pick_target(count_base, sse42 = count_sse42, avx2 = count_avx2);
 // ```
 pick_target :: (baseline: $F, sse42: F = null, avx2: F = null, avx512: F = null, sve: F = null) -> F {
+    if #compile_time return baseline;
+
     f := cpu_features();
     if sve != null && f.sve return sve;
     if avx512 != null && f.avx512 return avx512;

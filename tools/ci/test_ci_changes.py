@@ -1,3 +1,4 @@
+from collections import Counter
 import json
 import tempfile
 import textwrap
@@ -31,6 +32,64 @@ def selects(area, path):
 
 
 class RealWorkflow(unittest.TestCase):
+    def test_checkout_attributes_select_all_actual_consuming_areas(self):
+        # Matching must not depend on whether a new/deleted nested policy is in Repo.files.
+        for path in [
+            ".gitattributes",
+            "stdlib/new/.gitattributes",
+            "deleted/deep/.gitattributes",
+            ".github/actions/new/.gitattributes",
+        ]:
+            for area in ci_changes.input_areas():
+                with self.subTest(path=path, area=area):
+                    self.assertTrue(selects(area, path))
+
+    def test_document_checkout_policies_select_the_main_code_job(self):
+        import contextlib
+        import io
+        from unittest import mock
+
+        for path in ["docs/.gitattributes", "docs/tools/.gitattributes", "docs/new/deleted/.gitattributes"]:
+            with self.subTest(path=path):
+                output = io.StringIO()
+                with mock.patch.object(ci_changes, "changed_files", return_value=[path]), mock.patch.dict("os.environ", {"GITHUB_EVENT_NAME": "pull_request", "JOBS": "test"}, clear=True), contextlib.redirect_stdout(output):
+                    ci_changes.main()
+                lines = output.getvalue().splitlines()
+                self.assertIn("code=true", lines)
+                jobs = next(line.removeprefix("jobs=") for line in lines if line.startswith("jobs="))
+                self.assertEqual(json.loads(jobs), ["test"])
+
+    def test_attributes_keep_windows_pr_and_manual_request_policy(self):
+        import contextlib
+        import io
+        from unittest import mock
+
+        for event, requested, expected in [
+            ("pull_request", "windows-native", []),
+            ("workflow_dispatch", "windows-native", ["windows-native"]),
+            ("workflow_dispatch", "nix", ["nix"]),
+        ]:
+            with self.subTest(event=event, requested=requested):
+                output = io.StringIO()
+                with (
+                    mock.patch.object(
+                        ci_changes, "changed_files", return_value=[".gitattributes"]
+                    ),
+                    mock.patch.dict(
+                        "os.environ",
+                        {"GITHUB_EVENT_NAME": event, "JOBS": requested},
+                        clear=True,
+                    ),
+                    contextlib.redirect_stdout(output),
+                ):
+                    ci_changes.main()
+                jobs = next(
+                    line.removeprefix("jobs=")
+                    for line in output.getvalue().splitlines()
+                    if line.startswith("jobs=")
+                )
+                self.assertEqual(json.loads(jobs), expected)
+
     def test_shared_apt_setup_runs_windows_cross_builds(self):
         for path in [
             "apt_lib.sh",
@@ -48,6 +107,7 @@ class RealWorkflow(unittest.TestCase):
             "crates/jaic/src/toolchain/discover.rs",
             "crates/jaic/src/ir/lower.rs",
             "crates/jacket/src/main.rs",
+            "crates/jaic-cli-args/src/options.rs",
             "stdlib/Basic/module.jai",
             "stdlib/Math/module.jai",
             "stdlib/POSIX/declarations.jai",
@@ -125,6 +185,12 @@ class RealWorkflow(unittest.TestCase):
             selects("clipboard", "tools/portable/check_portable_clipboard.py")
         )
         self.assertFalse(selects("clipboard", "crates/jai-wasm/src/lib.rs"))
+
+    def test_compiler_argument_metadata_triggers_macos_sanitizers(self):
+        for module in ("arguments", "cli", "options", "tuning"):
+            path = f"crates/jaic-cli-args/src/{module}.rs"
+            with self.subTest(path=path):
+                self.assertTrue(selects("sanitizers-macos", path))
 
     def test_macos_asan_runs_on_pushes_only_for_sanitizer_relevant_paths(self):
         self.assertTrue(selects("sanitizers-macos", "crates/jaic-llvm/src/lib.rs"))
@@ -249,6 +315,10 @@ class FakeWorkflow(unittest.TestCase):
         self.assertTrue(self.runs("nix", "crates/app/src/main.rs"))
         self.assertFalse(self.runs("nix", "tools/other.py"))
 
+    def test_narrow_policy_does_not_invent_a_checkout_dependency(self):
+        self.assertFalse(self.runs("sanitizers-macos", ".gitattributes"))
+        self.assertFalse(self.runs("sanitizers-macos", "new/.gitattributes"))
+
     def test_policy_narrows_the_sanitizer_leg(self):
         self.assertTrue(self.runs("sanitizers-macos", "tools/differential/sweep.py"))
         # tools/other.py is an input of the sanitizer job, but not of the macOS leg.
@@ -348,6 +418,68 @@ class JobSelection(unittest.TestCase):
         )
 
 
+class SanitizerModes(unittest.TestCase):
+    def test_full_macos_modes_cover_every_existing_sweep_once(self):
+        expected = Counter({
+            ("O0", "corpus"): 1, ("O0", "regressions"): 1,
+            ("O0", "negative"): 1, ("O0", "stdlib"): 1,
+            ("O2", "corpus"): 1, ("O2", "regressions"): 1,
+            ("O2", "stdlib"): 1,
+        })
+        for selected in (False, True):
+            legs = [leg for leg in ci_changes.sanitizer_matrix(True, selected) if leg["runner"] == "macos-15"]
+            self.assertEqual(len(legs), 2)
+            self.assertEqual({leg["mode"] for leg in legs}, {"O0", "O2"})
+            actual = Counter()
+            for leg in legs:
+                self.assertEqual(leg["shard"], "1/1")
+                mode = leg["mode"]
+                for suite in ["corpus", "regressions", "stdlib", *(["negative"] if mode == "O0" else [])]:
+                    actual[mode, suite] += 1
+            self.assertEqual(actual, expected)
+
+    def test_fast_mac_and_linux_assignments_are_unchanged(self):
+        for full in (False, True):
+            for selected in (False, True):
+                legs = ci_changes.sanitizer_matrix(full, selected)
+                count = 2 if full else 3
+                self.assertEqual(
+                    [leg for leg in legs if leg["runner"] == "ubuntu-24.04"],
+                    [{"runner": "ubuntu-24.04", "shard": f"{index}/{count}"} for index in range(1, count + 1)],
+                )
+                if not full:
+                    self.assertEqual(
+                        [leg for leg in legs if leg["runner"] == "macos-15"],
+                        [{"runner": "macos-15", "shard": "1/1"}] if selected else [],
+                    )
+                keys = [(leg["runner"], leg["shard"], leg.get("mode") == "O2") for leg in legs]
+                self.assertEqual(len(keys), len(set(keys)), keys)
+
+    def test_workflow_modes_keep_commands_limits_and_unique_names(self):
+        text = (ROOT / ".github/workflows/ci.yml").read_text()
+        job = text[text.index("\n  sanitizers:\n"):text.index("\n  sdl3:\n")]
+        self.assertIn("timeout-minutes: 45", job)
+        self.assertIn("${{ matrix.mode && format(', {0}', matrix.mode) || '' }}", job)
+        self.assertIn("${{ matrix.mode == 'O2' && '-O2' || '' }}", job)
+        steps = {}
+        for block in job.split("      - name: ")[1:]:
+            steps[block.splitlines()[0]] = block
+        for mode, opposite in [("O0", "O2"), ("O2", "O0")]:
+            corpus = steps[f"Corpus and compiler tests under ASan and UBSan (-{mode})"]
+            stdlib = steps[f"Stdlib module tests under ASan and UBSan (-{mode})"]
+            self.assertIn(f"matrix.mode != '{opposite}'", corpus)
+            self.assertIn(f"matrix.mode != '{opposite}'", stdlib)
+            command = "python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 "
+            command += f"--opt {mode} --headless --sanitize address,undefined --shard "
+            command += "${{ matrix.shard }} corpus regressions" + (" negative" if mode == "O0" else "")
+            self.assertEqual(corpus.split("        run: ", 1)[1].splitlines()[0], command)
+            self.assertEqual(stdlib.split("        run: ", 1)[1].splitlines()[0], f"tools/ci/stdlib_jacket_sanitize.sh {mode} " + "${{ matrix.shard }}")
+            self.assertIn("always() && !cancelled() && steps.build-jaic.outcome == 'success'", stdlib)
+            if mode == "O2":
+                self.assertIn("needs.changes.outputs.full == 'true'", corpus)
+                self.assertIn("needs.changes.outputs.full == 'true'", stdlib)
+
+
 class Tiers(unittest.TestCase):
     # GitHub runs at most five macOS jobs at once for the repository.
     MACOS = ("macos-15", "macos-15-intel")
@@ -362,6 +494,37 @@ class Tiers(unittest.TestCase):
                 with self.subTest(full=full, runner=runner, part=part):
                     self.assertEqual(got, ci_changes.shards(len(got)))
 
+    def test_full_intel_target_work_is_shared_without_sharding_native_rust(self):
+        legs = [row for row in ci_changes.test_matrix(True) if row["runner"] == "macos-15-intel"]
+        self.assertEqual([row["part"] for row in legs], ["rust", "checks"])
+        self.assertEqual([row["shard"] for row in legs], ["1/1", "1/1"])
+        self.assertEqual([row.get("targets_part") for row in legs], ["2/2", "1/2"])
+        self.assertTrue(all(",targets," in row["parts"] for row in legs))
+        self.assertEqual(legs[0]["expr"], ci_changes.NOT_WASM)
+        self.assertEqual([row["timeout"] for row in legs], [150, 150])
+        for full in (False, True):
+            for row in ci_changes.test_matrix(full):
+                if not full or row["runner"] != "macos-15-intel":
+                    self.assertNotIn("targets_part", row)
+
+    def test_each_target_and_doc_share_is_complete_and_unique(self):
+        for full in (False, True):
+            groups = {}
+            for row in ci_changes.test_matrix(full):
+                if ",targets," in row["parts"]:
+                    groups.setdefault(row["runner"], []).append(row.get("targets_part", row["shard"]))
+            for runner, shares in groups.items():
+                with self.subTest(full=full, runner=runner):
+                    self.assertEqual(Counter(shares), Counter(ci_changes.shards(len(shares))))
+
+    def test_target_steps_use_their_share_and_native_rust_keeps_its_shard(self):
+        text = (ROOT / ".github/workflows/ci.yml").read_text()
+        job = text[text.index("\n  test:\n"):text.index("\n  vscode-extension:\n")]
+        self.assertIn("JACKET_STDLIB_TARGETS_PART: ${{ matrix.targets_part || matrix.shard }}", job)
+        self.assertIn("JACKET_PART: ${{ matrix.targets_part || matrix.shard }}", job)
+        self.assertIn('--partition "slice:${{ matrix.shard }}"', job)
+        self.assertIn('[[ "$JACKET_STDLIB_TARGETS_PART" == 1/* ]] && objc=(--test objc_selectors)', job)
+
     def test_the_fast_tier_fits_the_macos_limit(self):
         tests = ci_changes.test_matrix(False)
         stdlib = ci_changes.stdlib_matrix(False)
@@ -375,14 +538,50 @@ class Tiers(unittest.TestCase):
         for runner in self.MACOS:
             legs = [leg for leg in tests if leg["runner"] == runner]
             self.assertEqual([leg["part"] for leg in legs], ["rust", "checks"])
+            rust_parts = ",rust,targets," if runner == "macos-15-intel" else ",rust,"
             self.assertEqual(
-                {leg["parts"] for leg in legs}, {",rust,", ",targets,lint,diff,"}
+                {leg["parts"] for leg in legs}, {rust_parts, ",targets,lint,diff,"}
             )
         macos = [leg for leg in tests if leg["runner"] in self.MACOS]
         macos += [leg for leg in stdlib if leg["platform"].startswith("macos")]
         self.assertEqual(len(macos), 8)
         for leg in macos:
             self.assertGreaterEqual(leg["timeout"], 120, leg)
+
+    def test_full_intel_producer_work_uses_both_existing_jobs(self):
+        legs = [
+            row
+            for row in ci_changes.stdlib_matrix(True)
+            if row["platform"] == "macos-x64"
+        ]
+        self.assertEqual(len(legs), 2)
+        catalogue = next(row for row in legs if row["shard"] == "1/1")
+        runtime = next(row for row in legs if row["shard"] == "suites")
+        self.assertEqual(
+            set(catalogue.get("suites", "").split()), {"tooling", "bindings"}
+        )
+        self.assertEqual(
+            set(runtime["suites"].split()), {"portable", "platform", "audio", "window"}
+        )
+        self.assertEqual(
+            Counter(suite for row in legs for suite in row.get("suites", "").split()),
+            Counter(
+                {
+                    suite: 1
+                    for suite in (
+                        "portable",
+                        "platform",
+                        "audio",
+                        "window",
+                        "bindings",
+                        "tooling",
+                    )
+                }
+            ),
+        )
+        self.assertEqual((catalogue["modes"], catalogue["o2"]), ("interp,native", True))
+        self.assertEqual(runtime["jacket_test"], "all")
+        self.assertEqual([row["timeout"] for row in legs], [150, 150])
 
     def test_every_test_leg_names_its_parts_with_delimiters(self):
         for full in (False, True):
@@ -468,10 +667,15 @@ class Tiers(unittest.TestCase):
                     ]
                     if shares == ["all"]:
                         continue
-                    count = ci_changes.TOOLING_PARTS
-                    self.assertEqual(
-                        shares, [f"hash:{k}/{count}" for k in range(1, count + 1)]
-                    )
+                    parts = [share.removeprefix("hash:").split("/") for share in shares]
+                    self.assertTrue(all(share.startswith("hash:") for share in shares))
+                    denominators = {int(n) for _, n in parts}
+                    self.assertEqual(len(denominators), 1)
+                    count = denominators.pop()
+                    numerators = [int(k) for k, _ in parts]
+                    self.assertEqual(sorted(numerators), list(range(1, count + 1)))
+                    self.assertEqual(len(numerators), len(set(numerators)))
+
 
 
 class StdlibNarrowing(unittest.TestCase):

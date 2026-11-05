@@ -26,12 +26,12 @@ SUITES = (
     "tooling",
 )
 
-# Suites that share scratch directories, the X display or the audio device run one after the other
-# inside a group; the groups are independent and run concurrently under --jobs. The slowest group
-# comes first so it starts at once.
+# Suites that share scratch directories, the native-tool package, X display or audio device run
+# one after the other inside a group. Tooling rebuilds/reconfigures the native-tool package while
+# bindings snapshots and executes it. Other groups stay independent and run concurrently under
+# --jobs; the slowest group starts first.
 GROUPS = (
-    ("tooling",),
-    ("bindings",),
+    ("tooling", "bindings"),
     ("portable", "platform"),
     ("audio", "window"),
 )

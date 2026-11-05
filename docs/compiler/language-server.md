@@ -98,3 +98,16 @@ cargo run -p jai-language-server --bin jailsp
 ## Dependencies
 
 `jaic`, `jailint`, `serde_json`. LSP 3.17 over JSON-RPC 2.0. The browser reaches it through `engine.lsp(message)` ([playground](../browser/playground.md)).
+
+## Protected upstream scale gate
+
+The registered upstream scale test always launches `tools/lsp/scale_sandbox.py`. That owning bench adapter requires confinement and executes the private `lsp_scale_worker` example; input environment markers cannot select an unconfined child. Canonical source/stdlib arguments preserve document and config identity. The original open/check interval,120-second enforced budget, selected prelude check and postinterval coverage checks remain in the worker.
+
+Build the private worker before a focused run:
+
+```sh
+cargo build --locked -p jai-language-server --example lsp_scale_worker
+cargo nextest run -p jai-language-server --test scale
+```
+
+`JAILSP_ENFORCE_SCALE_BUDGET=1` requires the pinned corpus and enforces the unchanged budget. Missing optional corpus may skip only in the registered parent; unavailable confinement fails. CI installs bubblewrap on Linux and builds the debug worker before the same scale suite. Change the wrapper and worker together, run `PYTHONPATH=tools python3 -m unittest tools/lsp/test_scale_sandbox.py`, and run the full protected case through the launcher. As with other bench compiler binaries, direct manual worker execution is unsupported; no cryptographic launch attestation is claimed.

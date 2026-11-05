@@ -79,6 +79,15 @@ fn keeps_memory_syscall(symbol: &str, args: &[u64]) -> bool {
     cfg!(target_os = "linux") && symbol == "syscall" && args.first() == Some(&IO_URING_ENTER)
 }
 
+/// Whether native code keeps the interpreter exclusive, lends its baton after the short-call
+/// grace, or hands runnable work on before a known host wait.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum NativeScheduling {
+    Exclusive,
+    Short,
+    Blocking,
+}
+
 /// What a foreign call does to the interpreter's view of the world (`Interp::foreign_effects`).
 /// Set once the symbol has been looked at.
 const CLASSIFIED: u8 = 1;
@@ -367,16 +376,29 @@ impl Interp {
         }
         // The child of a fork has only the forking thread: it must not wait for the others.
         let forks = matches!(symbol, "fork" | "vfork");
+        let scheduling = if forks {
+            NativeScheduling::Exclusive
+        } else if native::waits::known(
+            program.foreigns[id.0 as usize]
+                .library
+                .map(|index| &program.libraries[index]),
+            symbol,
+            addr,
+        ) {
+            NativeScheduling::Blocking
+        } else {
+            NativeScheduling::Short
+        };
         #[cfg(target_os = "macos")]
         let result = if forks {
             native::main_thread::direct(|| {
-                self.call_native(program, addr, args, sig, Some(symbol), false)
+                self.call_native(program, addr, args, sig, Some(symbol), scheduling)
             })?
         } else {
-            self.call_native(program, addr, args, sig, Some(symbol), true)?
+            self.call_native(program, addr, args, sig, Some(symbol), scheduling)?
         };
         #[cfg(not(target_os = "macos"))]
-        let result = self.call_native(program, addr, args, sig, Some(symbol), !forks)?;
+        let result = self.call_native(program, addr, args, sig, Some(symbol), scheduling)?;
         if symbol == "fork" && result.first() == Some(&0) {
             self.forked_child = true;
             #[cfg(target_os = "macos")]
@@ -385,8 +407,8 @@ impl Interp {
         Ok(result)
     }
 
-    /// Call C function `addr` (foreign procedure `symbol`, when it is one). Unless `release` is
-    /// false, other threads may run interpreted code until it returns.
+    /// Call C function `addr` (foreign procedure `symbol`, when it is one). Unless scheduling
+    /// is `Exclusive`, other threads may run interpreted code until it returns.
     pub(super) fn call_native(
         &mut self,
         program: &Program,
@@ -394,7 +416,7 @@ impl Interp {
         args: &[u64],
         sig: &ir::Sig,
         symbol: Option<&str>,
-        release: bool,
+        scheduling: NativeScheduling,
     ) -> Res<Rets> {
         self.read_only.seal();
         // Native code reached through a procedure pointer may release memory; a named foreign
@@ -433,27 +455,33 @@ impl Interp {
         let crash_report = symbol.map(|symbol| crash::ForeignCall::enter(symbol, &mine, program));
         #[cfg(target_arch = "wasm32")]
         let _ = symbol;
-        let result = self.call_unlocked(addr, argv, sig, release);
+        let result = self.call_unlocked(addr, argv, sig, scheduling);
         #[cfg(not(target_arch = "wasm32"))]
         drop(crash_report);
         self.put_exec_state(mine);
         result.map_err(|m| Trap::new(m).at(loc))
     }
 
-    /// `native::call`, during which other threads may take the baton (unless `release` is
-    /// false) and C may call interpreted procedures back, on this thread or on others.
+    /// `native::call`, during which other threads may take the baton (unless scheduling is `Exclusive`) and C may call interpreted procedures back, on this thread or on others.
     #[cfg(not(target_arch = "wasm32"))]
     fn call_unlocked(
         &mut self,
         addr: u64,
         argv: &[u64],
         sig: &ir::Sig,
-        release: bool,
+        scheduling: NativeScheduling,
     ) -> Result<Rets, String> {
-        let Some(shared) = self.shared.clone().filter(|_| release) else {
+        let Some(shared) = self
+            .shared
+            .clone()
+            .filter(|_| scheduling != NativeScheduling::Exclusive)
+        else {
             return native::call(addr, argv, sig);
         };
-        let me = shared.enter_native(std::ptr::from_mut::<Interp>(self) as usize);
+        let me = shared.enter_native(
+            std::ptr::from_mut::<Interp>(self) as usize,
+            scheduling == NativeScheduling::Blocking,
+        );
         let result = native::calling_out((shared.key(), me), || native::call(addr, argv, sig));
         shared.leave_native(me);
         result
@@ -465,7 +493,7 @@ impl Interp {
         addr: u64,
         argv: &[u64],
         sig: &ir::Sig,
-        _release: bool,
+        _scheduling: NativeScheduling,
     ) -> Result<Rets, String> {
         native::call(addr, argv, sig)
     }
@@ -566,4 +594,116 @@ fn in_source_checkout(base_dir: &str) -> bool {
                 .parent()
                 .is_some_and(|root| root.join("Justfile").is_file())
     })
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod native_handoff_tests {
+    use super::*;
+    use crate::interp::ValueStack;
+
+    fn signature(params: Vec<ir::Ty>, returns: Vec<ir::Ty>) -> ir::Sig {
+        ir::Sig {
+            c_fixed: params.len() as u32,
+            params,
+            returns,
+            conv: ir::Conv::C,
+            c_varargs: false,
+            c_abi: None,
+        }
+    }
+
+    extern "C" fn replace_word(word: *mut u64) -> u64 {
+        // SAFETY: this test passes one live, naturally aligned stack word.
+        unsafe {
+            let previous = *word;
+            *word = previous + 1;
+            previous
+        }
+    }
+
+    #[test]
+    fn a_blocking_call_keeps_parked_arguments_and_execution_state_alive() {
+        let mut interp = Interp::default();
+        interp.stack = ValueStack::heap(4);
+        interp.stack[2] = 41;
+        interp.sp = 3;
+        interp.shared();
+        // SAFETY: the stack owns four words, and native code accesses only word two.
+        let word = unsafe { interp.stack.as_mut_ptr().add(2) } as u64;
+        let result = interp
+            .call_native(
+                &Program::default(),
+                replace_word as *const () as usize as u64,
+                &[word],
+                &signature(vec![ir::Ty::Ptr], vec![ir::Ty::I64]),
+                Some("parked_argument_test"),
+                NativeScheduling::Blocking,
+            )
+            .unwrap();
+        assert_eq!(result.first(), Some(&41));
+        assert_eq!(interp.stack[2], 42);
+        assert_eq!(interp.sp, 3);
+        assert!(interp.holds_baton());
+    }
+
+    #[test]
+    fn a_native_argument_error_still_reacquires_and_restores_the_stack() {
+        let mut interp = Interp::default();
+        interp.stack = ValueStack::heap(1);
+        interp.stack[0] = 77;
+        interp.shared();
+        // The fixed-shape bridge must reject this oversized frame before calling C.
+        let result = interp.call_native(
+            &Program::default(),
+            replace_word as *const () as usize as u64,
+            &[0; 128],
+            &signature(vec![ir::Ty::I64; 128], vec![ir::Ty::I64]),
+            Some("oversized_argument_test"),
+            NativeScheduling::Blocking,
+        );
+        assert!(result.unwrap_err().message.contains("too many"));
+        assert_eq!(interp.stack[0], 77);
+        assert!(interp.holds_baton());
+    }
+
+    #[cfg(target_os = "macos")]
+    unsafe extern "C" {
+        #[link_name = "__error"]
+        fn errno_location() -> *mut i32;
+    }
+
+    #[cfg(target_os = "linux")]
+    unsafe extern "C" {
+        #[link_name = "__errno_location"]
+        fn errno_location() -> *mut i32;
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    extern "C" fn failed_wait(error: i32) -> i32 {
+        // SAFETY: the host SDK returns this calling OS thread's live errno slot.
+        unsafe { *errno_location() = error };
+        -1
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
+    fn interrupted_and_timed_out_returns_preserve_errno_after_reacquiring() {
+        let mut interp = Interp::default();
+        interp.shared();
+        for error in [4, crate::interp::errno::ETIMEDOUT_HOST as i32] {
+            let result = interp
+                .call_native(
+                    &Program::default(),
+                    failed_wait as *const () as usize as u64,
+                    &[error as u64],
+                    &signature(vec![ir::Ty::I32], vec![ir::Ty::I32]),
+                    Some("failed_wait_test"),
+                    NativeScheduling::Blocking,
+                )
+                .unwrap();
+            assert_eq!(result.first().copied().unwrap() as i32, -1);
+            assert_eq!(std::io::Error::last_os_error().raw_os_error(), Some(error));
+            assert!(interp.holds_baton());
+        }
+    }
 }
