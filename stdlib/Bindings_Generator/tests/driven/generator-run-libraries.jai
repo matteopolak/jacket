@@ -48,6 +48,7 @@ run_case :: (path: string, fail_load: bool) {
     generator: B.Generator;
 
     expected = *generator;
+    defer expected = null;
     options: B.Generate_Bindings_Options;
 
     array_add(*options.source_files, tprint("%generator-run-library.h", #filepath));
