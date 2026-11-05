@@ -4,30 +4,14 @@
       "string_tests": "the module's own self-test: no parameters to generate, and it only repeats the unit tests",
       "slice": "asserts index >= 0 && count >= 0 (its doc comment says so); fuzz_string_slice draws arguments that respect it"
     },
-    "pointers": [
-      "parse_token",
-      "match_token",
-      "match_token_nocase",
-      "parse_bool",
-      "parse_int",
-      "parse_float",
-      "eat_trailing_spaces",
-      "eat_until_space",
-      "stop_at_any",
-      "normalize_line_endings",
-      "scan"
-    ],
+    "pointers": ["parse_token", "match_token", "match_token_nocase", "parse_bool", "parse_int", "parse_float", "eat_trailing_spaces", "eat_until_space", "stop_at_any", "normalize_line_endings", "scan"],
     "hooks": "properties/String.jai",
     "known": {}
   },
   "Unicode": {
     "deny": {},
-    "pointers": [
-      "utf8_next_character"
-    ],
-    "arity": {
-      "character_utf8_to_utf32": 2
-    },
+    "pointers": ["utf8_next_character"],
+    "arity": {"character_utf8_to_utf32": 2},
     "hooks": "properties/Unicode.jai",
     "known": {}
   },
@@ -37,10 +21,7 @@
       "test_base64_url": "the module's own self-test: no parameters to generate, and it only repeats the unit tests",
       "test_base64_module": "the module's own self-test: no parameters to generate, and it only repeats the unit tests"
     },
-    "arity": {
-      "base64_encode": 1,
-      "base64_decode": 1
-    },
+    "arity": {"base64_encode": 1, "base64_decode": 1},
     "hooks": "properties/Base64.jai",
     "known": {}
   },
@@ -71,9 +52,7 @@
     "known": {}
   },
   "Extensions/Protobuf": {
-    "allow": [
-      "decode"
-    ],
+    "allow": ["decode"],
     "hooks": "properties/Protobuf.jai",
     "known": {}
   },

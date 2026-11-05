@@ -277,8 +277,9 @@ prerequisite IDs, followed by the Http/Grpc module roots. It accepts only comple
 JSON reports in which every required ID actually passed. Missing, skipped,
 duplicate, list-only or unfinished results fail even if the runner exits zero.
 Selected and terminal counts must agree, the summary must report zero unexecuted
-cases, and every started case must finish. Local raw JSON and stderr retain diagnosis; the compact result
-contains case IDs/statuses and the runner hash, without private failure fields.
+cases, and every started case must finish. Local raw JSON and stderr retain
+diagnosis; the compact result contains case IDs/statuses and the runner hash,
+without private failure fields.
 
 ```sh
 PYTHONPATH=tools python tools/grpc/windows_acceptance.py \
@@ -294,3 +295,16 @@ fixture has a repository LF attribute because content and length are exact bytes
 Change required IDs and the consumer regression together when renaming tests.
 The workflow calls this driver and archives its compact `result.json`. Native
 Windows acceptance remains required; the driver itself is not evidence of a pass.
+
+After an acceptance failure, the owning hosted CI job archives only the native
+JSON-lines reports, stderr logs and independent-peer/compiler logs. Normal hosted
+runner paths are retained for diagnosis; local workstation raw reports are not
+uploaded. Executables, generated codecs, environment dumps, certificates and keys
+are outside that artifact allowlist. Change the workflow consumer regression when
+changing diagnostic paths or step identities.
+
+The job also reports Git status and rejects tracked inputs that differ from
+`HEAD`. An untracked generated native library does not constitute a tracked source
+edit. The independent peer's `working_tree_clean` field still reflects the full
+Git status, so a passing tracked-input guard never rewrites a false field to true.
+Generated outputs belong in the owning producer's ignore policy.

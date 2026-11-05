@@ -1,4 +1,7 @@
 import json
+import os
+import shlex
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -24,6 +27,12 @@ def events(names, status="passed"):
     counts = {event: len(names) if event == status else 0 for event in TERMINAL}
     rows.append(dict(type="run", event="finished", not_run=0, **counts))
     return "\n".join(json.dumps(row) for row in rows)
+
+
+def grpc_workflow_job():
+    """Read the owning job so contract tests exercise its actual commands/paths."""
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    return workflow.split("  grpc-interop:\n", 1)[1].split("  stdlib-runtime:\n", 1)[0]
 
 
 class WindowsAcceptance(unittest.TestCase):
@@ -137,8 +146,6 @@ class WindowsAcceptance(unittest.TestCase):
             self.assertTrue(all(not row["passed"] for row in report["suites"]))
 
     def test_fixture_bytes_survive_windows_checkout(self):
-        import subprocess
-
         path = "stdlib/Extensions/Http/tests/fixtures/stream-file.txt"
         checked_out = subprocess.check_output(
             [
@@ -155,13 +162,127 @@ class WindowsAcceptance(unittest.TestCase):
         self.assertEqual(checked_out, b"a file served in pieces\n")
 
     def test_workflow_calls_checked_driver(self):
-        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-        job = workflow.split("  grpc-interop:\n", 1)[1].split("  stdlib-runtime:\n", 1)[
-            0
-        ]
+        job = grpc_workflow_job()
         self.assertIn("tools/grpc/windows_acceptance.py", job)
         self.assertNotIn("--path stdlib/Extensions/Io/tests/", job)
         self.assertIn("grpc-windows/result.json", job)
+
+    def test_workflow_preserves_only_failed_hosted_diagnostics(self):
+        blocks = grpc_workflow_job().split("      - uses: actions/upload-artifact@")
+        matches = [
+            block for block in blocks if "name: grpc-failure-diagnostics-" in block
+        ]
+        self.assertEqual(
+            len(matches), 1, "owning failed-step diagnostics must be archived"
+        )
+        block = matches[0]
+        condition = next(
+            line.strip()
+            for line in block.splitlines()
+            if line.strip().startswith("if:")
+        )
+        self.assertIn("failure()", condition)
+        self.assertIn("steps.windows-native-acceptance.outcome == 'failure'", condition)
+        self.assertIn(
+            "steps.independent-peer-acceptance.outcome == 'failure'", condition
+        )
+        paths = block.split("          path: |\n", 1)[1].split(
+            "          if-no-files-found:", 1
+        )[0]
+        self.assertEqual(
+            {line.strip() for line in paths.splitlines() if line.strip()},
+            {
+                "target/grpc-windows/*.jsonl",
+                "target/grpc-windows/*.stderr.log",
+                "target/grpc-interop/*.log",
+            },
+        )
+
+    def test_workflow_tracked_guard_preserves_generated_output_truth(self):
+        commands = [
+            shlex.split(line.strip())
+            for line in grpc_workflow_job().splitlines()
+            if line.strip().startswith(("git diff ", "git status "))
+        ]
+        guards = [command for command in commands if command[:2] == ["git", "diff"]]
+        statuses = [command for command in commands if command[:2] == ["git", "status"]]
+        self.assertEqual(
+            len(guards), 1, "the owning job must reject tracked input changes"
+        )
+        self.assertEqual(
+            len(statuses), 1, "the owning job must retain dirty-path diagnostics"
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            env = dict(
+                os.environ,
+                GIT_CONFIG_NOSYSTEM="1",
+                GIT_CONFIG_GLOBAL=os.devnull,
+                GIT_AUTHOR_NAME="Fixture",
+                GIT_AUTHOR_EMAIL="fixture@example.invalid",
+                GIT_COMMITTER_NAME="Fixture",
+                GIT_COMMITTER_EMAIL="fixture@example.invalid",
+                GIT_AUTHOR_DATE="2000-01-01T00:00:00Z",
+                GIT_COMMITTER_DATE="2000-01-01T00:00:00Z",
+            )
+
+            def git(*arguments, input=None):
+                return subprocess.check_output(
+                    ["git", *arguments], cwd=directory, env=env, input=input
+                )
+
+            git("init", "--quiet")
+            source = directory / "source.txt"
+            source.write_text("tracked baseline\n")
+            git("add", "source.txt")
+            tree = git("write-tree").decode().strip()
+            # This Git object is disposable fixture data, not a project commit.
+            commit = (
+                git(
+                    "-c",
+                    "commit.gpgsign=false",
+                    "commit-tree",
+                    tree,
+                    input=b"test: source audit fixture\n",
+                )
+                .decode()
+                .strip()
+            )
+            git("update-ref", "HEAD", commit)
+            self.assertEqual(
+                subprocess.run(
+                    guards[0], cwd=directory, env=env, capture_output=True
+                ).returncode,
+                0,
+            )
+            self.assertFalse(
+                subprocess.check_output(statuses[0], cwd=directory, env=env).strip()
+            )
+            (directory / "generated-provider.lib").write_bytes(b"generated output")
+            self.assertEqual(
+                subprocess.run(
+                    guards[0], cwd=directory, env=env, capture_output=True
+                ).returncode,
+                0,
+            )
+            self.assertTrue(
+                subprocess.check_output(statuses[0], cwd=directory, env=env).strip(),
+                "untracked generated output must not be relabeled a clean working tree",
+            )
+            source.write_text("tracked mutation\n")
+            self.assertEqual(
+                subprocess.run(
+                    guards[0], cwd=directory, env=env, capture_output=True
+                ).returncode,
+                1,
+            )
+            git("add", "source.txt")
+            self.assertEqual(
+                subprocess.run(
+                    guards[0], cwd=directory, env=env, capture_output=True
+                ).returncode,
+                1,
+            )
 
 
 if __name__ == "__main__":
