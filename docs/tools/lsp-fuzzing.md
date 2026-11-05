@@ -42,4 +42,8 @@ Traffic includes typing one character at a time (with auto-closed brackets), bac
 
 ## Dependencies
 
-`jai-language-server` (public `Session` API only) and `jaic`. The libFuzzer target adds `jai-wasm` and `arbitrary`.
+`jai-language-server` (`Session`, `JsonSession`, and the production bounded transport reader) and `jaic`. The libFuzzer target adds `jai-wasm` and `arbitrary`.
+
+## Protocol bytes
+
+The `lsp_json` target feeds every input through the production `transport::BoundedReader`, which bounds framing before the pinned `lsp-server` decoder allocates a body. Complete rejected bodies can be followed by another frame; malformed framing stops that input. UTF-8 inputs also exercise newline-separated messages through `JsonSession` after initialization. Keep this harness on the production reader when transport APIs change; do not recreate framing in the fuzzer. Its body limit is 1 MiB.

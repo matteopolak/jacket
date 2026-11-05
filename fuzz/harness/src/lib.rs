@@ -24,6 +24,7 @@ pub use jacket_config::jacket_config;
 pub fn verbose() -> bool {
     ::jacket_config::env::FUZZ_VERBOSE.is_set()
 }
+
 pub use jaifmt::jaifmt;
 pub use jailint_fix::jailint_fix;
 pub use lsp_edits::lsp_edits;
@@ -331,13 +332,11 @@ pub fn lsp(data: &[u8]) {
 }
 
 /// Newline-separated JSON-RPC messages into the language server's JSON session, after a
-/// standard `initialize` handshake.
+/// standard `initialize` handshake. Raw bytes also exercise the bounded native frame reader.
 pub fn lsp_json(data: &[u8]) {
+    let mut reader = jai_language_server::transport::BoundedReader::new(data, 1 << 20);
+    while matches!(reader.read_frame(), Ok(Some(_))) {}
     let Ok(text) = std::str::from_utf8(data) else {
-        // The framing layer sees raw bytes.
-        let mut decoder = jai_language_server::framing::FrameDecoder::new(1 << 20);
-        let _ = decoder.push(data);
-        let _ = decoder.finish();
         return;
     };
     on_compiler_stack(|| {
