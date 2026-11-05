@@ -19,10 +19,6 @@ class ProcessTreeTests(unittest.TestCase):
         self.assertEqual(doc_site.summarize(rows)["failures"], [1])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class RunOrderTests(unittest.TestCase):
     def test_repetitions_alternate_variant_order_and_keep_grouped_receipts(self):
         from pathlib import Path

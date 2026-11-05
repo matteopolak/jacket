@@ -94,7 +94,9 @@ class Handler(PreviewHandler):
         self.send_response(304 if not_modified else status)
         self.send_header('ETag', etag)
         self.send_header('Vary', 'Accept-Encoding')
-        mutable = path.suffix == '.html' or path.name == 'versions.json' or status != 200
+        relative = path.relative_to(root)
+        published_asset = relative.parts[0] in {'assets', '_astro'}
+        mutable = (path.suffix == '.html' and not published_asset) or relative == Path('versions.json') or status != 200
         self.send_header('Cache-Control', 'no-cache' if mutable else 'public, max-age=3600')
         if not not_modified:
             self.send_header('Content-Type', mime)

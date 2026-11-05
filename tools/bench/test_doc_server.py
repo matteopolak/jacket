@@ -19,6 +19,9 @@ class ServerTests(unittest.TestCase):
         (root / '404.html').write_text('<h1>Missing</h1>')
         (root / 'search-index.json').write_text('{"entries":[]}')
         (root / 'versions.json').write_text('[]')
+        (root / 'assets/nav').mkdir(parents=True)
+        (root / 'assets/versions.json').write_text('[]')
+        (root / 'assets/nav/part.html').write_text('<li><a href="/guide">Guide</a></li>')
         self.server = Server(('127.0.0.1', 0), partial(Handler, directory=root))
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -56,6 +59,12 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(int(head_headers['Content-Length']), len(compressed))
         self.assertEqual(head_headers['ETag'], headers['ETag'])
 
+    def test_html_navigation_fragments_are_assets_in_the_same_freshness_class_as_json(self):
+        status, headers, body = self.request('/assets/nav/part.html', headers={'Accept-Encoding': 'gzip'})
+        self.assertEqual(status, 200)
+        self.assertEqual(headers['Cache-Control'], 'public, max-age=3600')
+        self.assertEqual(gzip.decompress(body), b'<li><a href="/guide">Guide</a></li>')
+
     def test_explicit_gzip_refusal_overrides_wildcard(self):
         self.assertFalse(accepts_gzip('gzip;q=0, *;q=1'))
         self.assertTrue(accepts_gzip('br, gzip;q=0.8'))
@@ -70,6 +79,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(conditional['ETag'], headers['ETag'])
         self.assertEqual(body, b'')
         self.assertEqual(self.request('/versions.json')[1]['Cache-Control'], 'no-cache')
+        self.assertEqual(self.request('/assets/versions.json')[1]['Cache-Control'], 'public, max-age=3600')
         self.assertEqual(self.request('/does-not-exist')[0], 404)
         self.assertEqual(self.request('/does-not-exist')[2], b'<h1>Missing</h1>')
 
