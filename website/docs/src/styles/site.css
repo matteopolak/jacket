@@ -116,13 +116,13 @@ kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1p
 
 /* Layout */
 .wrap, .foot { --layout-max: 1400px; --layout-pad: 32px; --rail-width: 220px; --layout-gap: 56px; }
-.wrap { flex: 1 0 auto; width: 100%; max-width: var(--layout-max); margin: 0 auto; padding: 0 var(--layout-pad); display: flex; flex-wrap: wrap; gap: 0 var(--layout-gap); align-items: flex-start; }
+.wrap { flex: 1 0 auto; width: 100%; max-width: var(--layout-max); margin: 0 auto; padding: 0 var(--layout-pad); display: flex; flex-wrap: wrap; gap: 0 var(--layout-gap); align-items: flex-start; align-content: flex-start; }
 .side { flex: 0 0 var(--rail-width); max-width: var(--rail-width); font-size: 14px; padding: 24px 0; position: sticky; top: var(--header-offset); max-height: calc(100vh - var(--header-offset)); overflow-y: auto; }
 /* The live desktop rail belongs to the viewport, independent of main content height.
    The empty flex item reserves exactly its old column without constraining its position. */
 @media (min-width: 900px) {
   .wrap::before { content: ""; flex: 0 0 var(--rail-width); }
-  .side { position: fixed; left: max(var(--layout-pad), calc((100% - var(--layout-max)) / 2 + var(--layout-pad))); width: var(--rail-width); }
+  .side { height: calc(100vh - var(--header-offset)); position: fixed; left: max(var(--layout-pad), calc((100% - var(--layout-max)) / 2 + var(--layout-pad))); width: var(--rail-width); }
   .wrap > main { flex-basis: min(560px, calc(100% - var(--rail-width) - var(--layout-gap))); }
   .side { z-index: 2; background: var(--bg); }
 

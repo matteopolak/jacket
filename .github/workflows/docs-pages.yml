@@ -149,6 +149,7 @@ jobs:
           node tools/dev/doc_rail_viewport.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-rail-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_declarations.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-declaration-geometry-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_examples.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-production-examples-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
+          node tools/dev/doc_parse_layout.mjs target/doc-site "$RUNNER_TEMP/jacket-doc-parser-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_spa.mjs http://127.0.0.1:8000/
           node tools/dev/doc_search_intent.mjs target/doc-site "$RUNNER_TEMP/jacket-search-intent-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
           node tools/dev/doc_cache.mjs target/doc-site "$RUNNER_TEMP/jacket-doc-cache-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
@@ -156,6 +157,13 @@ jobs:
           node tools/dev/doc_sidebar_geometry.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-header-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" api/Basic --header-resize
           node tools/dev/doc_sidebar_geometry.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-live-dark-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" api/Basic --live-rail --source-y=600 --theme=dark
           node tools/dev/doc_sidebar_geometry.mjs http://127.0.0.1:8000/ "$RUNNER_TEMP/jacket-doc-live-light-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" api/Basic --live-rail --source-y=600 --theme=light
+      - name: Retain deterministic parser geometry evidence
+        if: ${{ always() && !cancelled() && (inputs.browser_checks || vars.DOCS_BROWSER_CHECKS != 'false') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs-parser-geometry
+          path: ${{ runner.temp }}/jacket-doc-parser-*
+          if-no-files-found: warn
       - name: Check foreground development publication and runtime
         if: ${{ inputs.browser_checks || vars.DOCS_BROWSER_CHECKS != 'false' }}
         run: |
