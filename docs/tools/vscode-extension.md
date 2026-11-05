@@ -25,6 +25,8 @@ scripts/build.ts schemas writes the jailint, jaifmt and jacket.toml JSON schemas
 - **Test explorer.** Lists with `jacket test --list --format json` (files, tests, `@cases` cases), relists on save, and runs `jacket test --format json --exact NAME...`, mapping events as they stream. A failed check becomes a message at its file and line. Needs a trusted workspace. `jailsp` also puts *Run test* and *Debug test* lenses over each `@test`; *Debug* only shows a message, since there is no Jai debug configuration.
 - **Commands.** *Run/Build/Check File* run `jaic <file> [-interp|-check] <jai.run.arguments>` as a task. `source.fixAll.jailint` works with `editor.codeActionsOnSave`.
 
+The pinned language client (11) must release an in-flight diagnostic request when `jailsp` answers a pull with `ServerCancelled` (`retriggerRequest: true`, sent when the check was stopped or did not finish), so the next pull is not blocked. Check this when updating the client dependency.
+
 ## Building and testing
 
 ```sh

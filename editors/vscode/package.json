@@ -425,7 +425,7 @@
     "screenshots": "rolldown -c && pnpm run build:tests && node out/test/screenshots/run.cjs"
   },
   "dependencies": {
-    "vscode-languageclient": "10.1.1"
+    "vscode-languageclient": "11.0.0"
   },
   "devDependencies": {
     "@resvg/resvg-js": "2.6.2",
@@ -434,10 +434,10 @@
     "@types/vscode": "1.91.0",
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "4.0.0",
-    "rolldown": "1.2.10",
     "mocha": "12.0.2",
     "ovsx": "1.2.0",
     "oxlint": "1.85.0",
+    "rolldown": "1.2.10",
     "typescript": "6.0.3",
     "vscode-oniguruma": "2.0.1",
     "vscode-textmate": "9.3.2",
