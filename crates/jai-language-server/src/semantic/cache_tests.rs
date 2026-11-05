@@ -67,7 +67,7 @@ fn selecting_one_program_validates_only_its_native_dependencies() {
     let dependency = b.parent().unwrap().join("dependency.jai");
     std::fs::write(&dependency, "provided :: 1;").unwrap();
     let fs = Rc::new(CountingFs {
-        watched: dependency.clone(),
+        watched: test_support::lsp::native_identity(&dependency),
         reads: std::cell::Cell::new(0),
     });
     let env = Environment {
@@ -258,8 +258,8 @@ fn interruption_during_final_replay_cannot_accept_a_build_or_notice() {
         "#load \"dependency.jai\"; spin :: () { while true {} }\n#run spin(); main :: () {}";
     std::fs::write(&root, source).unwrap();
     std::fs::write(&dependency, "helper :: 1;").unwrap();
-    let root = root.canonicalize().unwrap();
-    let dependency = dependency.canonicalize().unwrap();
+    let root = test_support::lsp::native_identity(&root);
+    let dependency = test_support::lsp::native_identity(&dependency);
     let fs = Rc::new(StopFs {
         dependency,
         reads: std::cell::Cell::new(0),

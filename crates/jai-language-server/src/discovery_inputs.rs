@@ -145,7 +145,7 @@ mod tests {
         session.open(uri.clone(), 1, source.into()).unwrap();
         assert_eq!(
             session.project_root(&uri).unwrap(),
-            entry.canonicalize().unwrap()
+            test_support::lsp::native_identity(&entry)
         );
         assert_eq!(
             session.input_proof.borrow().retained_bytes(),
@@ -156,7 +156,7 @@ mod tests {
         let (_, actual, _) = session.compile_inputs(&uri, source).unwrap();
         assert_eq!(
             actual,
-            child.canonicalize().unwrap(),
+            test_support::lsp::native_identity(&child),
             "semantic discovery needs its own captured first responses"
         );
     }
@@ -168,6 +168,7 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         let flag = root.join("flag.txt");
         std::fs::write(&flag, "off").unwrap();
+        let flag = test_support::lsp::native_identity(&flag);
         std::fs::write(
             root.join("jacket.toml"),
             "[project]\nentry = [\"build.jai\"]\n",
@@ -338,7 +339,7 @@ mod tests {
             assert!(coverage.source_loaded && coverage.program_complete);
             assert_eq!(
                 coverage.analysis.root.unwrap().path,
-                entry.canonicalize().unwrap()
+                test_support::lsp::native_identity(&entry)
             );
             assert_eq!(
                 session

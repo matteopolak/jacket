@@ -55,7 +55,7 @@ fn discovery_memo_hit_uses_its_scope_validation_without_repeating_it() {
     let source = "main :: () {}";
     std::fs::write(&main, source).unwrap();
     let fs = Rc::new(CountingFs {
-        path: config.clone(),
+        path: test_support::lsp::native_identity(&config),
         reads: std::cell::Cell::new(0),
     });
     let mut session = Session::with_environment(
@@ -431,7 +431,7 @@ fn configured_entry_selection_observes_its_actual_file_predicate() {
             ],
         );
         let fs = Rc::new(BlinkFs {
-            entry: dir.join("entry.jai"),
+            entry: test_support::lsp::native_identity(&dir.join("entry.jai")),
             calls: std::cell::Cell::new(0),
             absent_at,
             changed: std::cell::Cell::new(false),
@@ -456,9 +456,9 @@ fn configured_entry_selection_observes_its_actual_file_predicate() {
         let is_entry = selected
             .as_ref()
             .is_some_and(|(_, root, _)| root == &fs.entry);
-        let is_child = selected
-            .as_ref()
-            .is_some_and(|(_, root, _)| root == &dir.join("child.jai"));
+        let is_child = selected.as_ref().is_some_and(|(_, root, _)| {
+            root == &test_support::lsp::native_identity(&dir.join("child.jai"))
+        });
         (
             is_entry,
             is_child,
@@ -498,7 +498,7 @@ fn ordinary_hover_gathers_macro_facts_in_its_selected_query() {
         ],
     );
     let fs = Rc::new(CountingFs {
-        path: dir.join("dependency.jai"),
+        path: test_support::lsp::native_identity(&dir.join("dependency.jai")),
         reads: std::cell::Cell::new(0),
     });
     let supplied = test_support::lsp::environment();
@@ -627,7 +627,7 @@ fn unchanged_references_validate_a_published_view_once() {
         ],
     );
     let fs = Rc::new(CountingFs {
-        path: dir.join("dependency.jai"),
+        path: test_support::lsp::native_identity(&dir.join("dependency.jai")),
         reads: std::cell::Cell::new(0),
     });
     let supplied = test_support::lsp::environment();

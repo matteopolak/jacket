@@ -403,7 +403,8 @@ mod tests {
                 services: supplied.services,
             },
         );
-        let uri = DocumentUri::parse("file:///published-view/main.jai").unwrap();
+        let fixture = test_support::TempDir::new("published-view");
+        let uri = DocumentUri::from_path(&fixture.join("main.jai")).unwrap();
         let source =
             "consume :: (value: int) {} main :: () { local := 1; local += 2; consume(local); }";
         session.open(uri.clone(), 1, source.into()).unwrap();
@@ -626,7 +627,8 @@ mod tests {
                 }),
             },
         );
-        let uri = DocumentUri::parse("file:///pressure/main.jai").unwrap();
+        let fixture = test_support::TempDir::new("pressure");
+        let uri = DocumentUri::from_path(&fixture.join("main.jai")).unwrap();
         let source = "main :: () { local := 1; local += 2; }";
         session.open(uri.clone(), 1, source.into()).unwrap();
         session.diagnostics(&uri).unwrap();
@@ -824,7 +826,8 @@ mod tests {
                 }),
             },
         );
-        let uri = DocumentUri::parse("file:///primary-records/main.jai").unwrap();
+        let fixture = test_support::TempDir::new("primary-records");
+        let uri = DocumentUri::from_path(&fixture.join("main.jai")).unwrap();
         let source = "#import \"Basic\";\n#if OS == .WINDOWS { Windows_Only :: struct { value: int; } }\nhelper :: () {}\nmain :: () { #if OS == .LINUX { helper(); } #if OS == .WINDOWS { marker: Windows_Only; } }\n";
         session.open(uri.clone(), 1, source.into()).unwrap();
         session.diagnostics(&uri).unwrap();

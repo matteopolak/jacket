@@ -26,6 +26,18 @@ pub fn repo_path(relative: &str) -> PathBuf {
     crate::repo::path(relative)
 }
 
+/// The native identity used by compiler paths, including Windows drive and separator rules.
+/// Construct watcher keys and expected native paths before installing a counting filesystem.
+///
+/// ```
+/// let path = test_support::lsp::native_identity(std::path::Path::new("."));
+/// assert!(path.is_absolute());
+/// ```
+#[must_use]
+pub fn native_identity(path: &Path) -> PathBuf {
+    jaic::paths::file_identity(&jaic::sema::NativeFs, path)
+}
+
 /// An environment that type-checks against the repository's stdlib.
 pub fn environment() -> Environment {
     environment_at(stdlib_dir(), None)
