@@ -9,7 +9,9 @@ warning[needless_continue]: this `continue` is the last thing the loop does
    |
 help: remove it
    |
+ 8           total += it;
  9 -         continue;
+10       }
    |
    = note: `needless_continue` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_continue

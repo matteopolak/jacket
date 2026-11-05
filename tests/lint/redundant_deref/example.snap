@@ -9,7 +9,9 @@ warning[redundant_deref]: `q.*` is not needed to reach `x`
    |
 help: write `q.x`: member access already looks through the pointer
    |
+11
 12 ~     print("%\n", q.x + q.y);
+13   }
    |
    = note: `redundant_deref` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_deref

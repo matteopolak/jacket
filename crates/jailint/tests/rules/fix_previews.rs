@@ -33,13 +33,17 @@ fn self_assignment_fix_preserves_surroundings() {
                         .map(|e| (e.start, e.end, e.text.clone()))
                         .collect::<Vec<_>>()
                 ),
-                vec![("3".into(), '-', "    x = x;".into())]
+                vec![
+                    ("2".into(), ' ', "    x := 1;".into()),
+                    ("3".into(), '-', "    x = x;".into()),
+                    ("4".into(), ' ', "}".into()),
+                ]
             );
         }
     }
 }
 
-/// Check exact edits and the single deletion row independently of checkout line endings.
+/// Check exact edits and one deletion with neutral context for both checkout line endings.
 #[test]
 fn duplicate_condition_preview_only_removes_dead_branch() {
     let fixture =
@@ -74,11 +78,19 @@ fn duplicate_condition_preview_only_removes_dead_branch() {
                     .map(|e| (e.start, e.end, e.text.clone()))
                     .collect::<Vec<_>>()
             ),
-            vec![(
-                "6".into(),
-                '-',
-                "    else if key == 1 print(\"uno\\n\");".into()
-            )]
+            vec![
+                (
+                    "5".into(),
+                    ' ',
+                    "    else if key == 2 print(\"two\\n\");".into()
+                ),
+                (
+                    "6".into(),
+                    '-',
+                    "    else if key == 1 print(\"uno\\n\");".into()
+                ),
+                ("7".into(), ' ', "}".into()),
+            ]
         );
     }
 }

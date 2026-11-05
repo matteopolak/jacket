@@ -9,7 +9,9 @@ error[element_count_as_bytes]: `values.count` counts `s32` elements, but this ar
    |
 help: multiply by the element size: `values.count * size_of(s32)`
    |
+ 3   copy_values :: (dest: [] s32, values: [] s32) {
  4 ~     memcpy(dest.data, values.data, values.count * size_of(s32));
+ 5   }
    |
    = note: `element_count_as_bytes` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/element_count_as_bytes

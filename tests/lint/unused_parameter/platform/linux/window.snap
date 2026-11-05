@@ -9,7 +9,9 @@ warning[unused_parameter]: unused parameter `flags`
    |
 help: start its name with `_` if the signature must stay, or remove it
    |
+ 4   // reported.
  5 ~ set_title :: (handle: int, _flags: int) {
+ 6       print("linux %\n", handle);
    |
    = note: `unused_parameter` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_parameter

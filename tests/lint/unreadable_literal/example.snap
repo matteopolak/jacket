@@ -9,6 +9,8 @@ warning[unreadable_literal]: `1000000` is hard to read without separators
    |
 help: write `1_000_000`
    |
+ 2
  3 ~ TIMEOUT :: 1_000_000;
+ 4
    |
    = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal

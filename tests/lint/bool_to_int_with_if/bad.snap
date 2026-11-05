@@ -9,7 +9,9 @@ warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
    |
 help: write `cast(s64) ready`
    |
+11
 12 ~     a := cast(s64) ready;
+13       b := ifx count > 3 then 0 else 1;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/bool_to_int_with_if
 
@@ -21,7 +23,9 @@ warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
    |
 help: write `cast(s64) (count <= 3)`
    |
+12       a := ifx ready then 1 else 0;
 13 ~     b := cast(s64) (count <= 3);
+14       small: u8 = ifx ready then 1 else 0;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/bool_to_int_with_if
 
@@ -33,7 +37,9 @@ warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
    |
 help: write `cast(u8) ready`
    |
+13       b := ifx count > 3 then 0 else 1;
 14 ~     small: u8 = cast(u8) ready;
+15
    |
    = note: see https://jacket.matteopolak.com/lint-rules/bool_to_int_with_if
 
@@ -45,9 +51,10 @@ warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
    |
 help: write `cast(s64) ready`
    |
-16 -     if ready n = 1;
+15
+16 ~     n = cast(s64) ready;
 17 -     else n = 0;
-16 +     n = cast(s64) ready;
+18
    |
    = note: see https://jacket.matteopolak.com/lint-rules/bool_to_int_with_if
 
@@ -59,11 +66,12 @@ warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
    |
 help: write `cast(s64) (count <= 2)`
    |
-19 -     if count > 2 {
+18
+19 ~     c.hits = cast(s64) (count <= 2);
 20 -         c.hits = 0;
 21 -     } else {
 22 -         c.hits = 1;
 23 -     }
-19 +     c.hits = cast(s64) (count <= 2);
+24
    |
    = note: see https://jacket.matteopolak.com/lint-rules/bool_to_int_with_if

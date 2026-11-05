@@ -9,7 +9,9 @@ error[uninit_read]: `total` is read here before anything is written to it
    |
 help: `= ---` leaves `total` holding whatever was in memory: give it a value first, or drop the `= ---`
    |
+ 3   sum :: (xs: [] int) -> int {
  4 ~     total: int;
+ 5       for xs total += it;
    |
    = note: `uninit_read` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/uninit_read

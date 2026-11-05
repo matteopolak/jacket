@@ -9,7 +9,9 @@ warning[unknown_allow]: `float_equlity` is not a jailint rule, so this comment a
    |
 help: did you mean `float_equality`? (`--list` shows every rule)
    |
+ 2
  3 ~ // jailint: allow(float_equality)
+ 4   is_zero :: (x: float) -> bool {
    |
    = note: `unknown_allow` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unknown_allow

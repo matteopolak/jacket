@@ -9,7 +9,9 @@ warning[approx_constant]: `3.14159` is an approximation of `PI`
    |
 help: write `PI` from `Math` (`PI64` for `float64`)
    |
+ 3   area :: (r: float) -> float {
  4 ~     return PI * r * r;
+ 5   }
    |
    = note: `approx_constant` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/approx_constant

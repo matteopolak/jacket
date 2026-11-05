@@ -9,7 +9,9 @@ warning[banner_comment]: this comment is only a line of rule characters
    |
 help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
    |
+ 2
  3 - // -----------------------------------------------------------------------------
+ 4   // Helpers
    |
    = note: `banner_comment` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/banner_comment

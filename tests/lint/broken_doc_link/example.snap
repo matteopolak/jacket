@@ -9,7 +9,9 @@ warning[broken_doc_link]: `[prnt]` doesn't resolve to a declaration
    |
 help: did you mean `print`?
    |
+ 7
  8 ~ // Scales a [Point] and prints it with [print].
+ 9   scale :: (p: Point) {
    |
    = note: `broken_doc_link` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/broken_doc_link

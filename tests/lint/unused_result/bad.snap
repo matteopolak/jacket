@@ -9,7 +9,9 @@ warning[unused_result]: the result of `trim` is discarded; it does not change it
    |
 help: to update the argument, write `line = trim(line);`
    |
+ 7
  8 ~     line = trim(line);
+ 9       a := 3;
    |
    = note: `unused_result` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_result
@@ -22,7 +24,9 @@ warning[unused_result]: the result of `min` is discarded; it does not change its
    |
 help: to update the argument, write `a = min(a, 4);`
    |
+10
 11 ~     a = min(a, 4);
+12       sqrt(2.0);
    |
    = note: `unused_result` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_result

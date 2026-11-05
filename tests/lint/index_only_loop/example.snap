@@ -9,8 +9,10 @@ warning[index_only_loop]: `i` is only used to index `xs`
    |
 help: loop over the elements: `for xs` and `it`
    |
+ 5
  6 ~     for xs {
  7 ~         total += it;
+ 8       }
    |
    = note: `index_only_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop

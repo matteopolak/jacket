@@ -9,7 +9,9 @@ warning[self_assignment]: `width` is assigned to itself
    |
 help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
    |
+10       width := 4;
 11 -     width = width;
+12       s.height = s.height;
    |
    = note: `self_assignment` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/self_assignment
@@ -22,7 +24,9 @@ warning[self_assignment]: `s.height` is assigned to itself
    |
 help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
    |
+11       width = width;
 12 -     s.height = s.height;
+13       print("% %\n", s, width);
    |
    = note: `self_assignment` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/self_assignment

@@ -1,6 +1,5 @@
 ---
 source: crates/jailint/tests/rules.rs
-assertion_line: 606
 ---
 warning[use_after_free]: `q` is used after the call above freed it
   --> tests/lint/pointer_lifetime/resources/bad.jai:17:18
@@ -122,7 +121,9 @@ warning[double_free]: `q` is freed a second time
    |
 help: remove the second call, or assign `q` a new value in between
    |
+66       free(p);
 67 -     free(q);
+68   }
    |
    = note: see https://jacket.matteopolak.com/lint-rules/double_free
 

@@ -9,7 +9,9 @@ warning[unused_parameter]: unused parameter `label`
    |
 help: start its name with `_` if the signature must stay, or remove it
    |
+ 2
  3 ~ area_of :: (value: int, factor: int, _label: string) -> int {
+ 4       return value * factor;
    |
    = note: `unused_parameter` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_parameter

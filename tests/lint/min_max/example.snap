@@ -9,7 +9,9 @@ error[min_max]: this is always `0`: the bounds are swapped
    |
 help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
    |
+ 4       volume := 140;
  5 ~     volume = clamp(volume, 0, 100);
+ 6       print("%\n", volume);
    |
    = note: `min_max` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/min_max

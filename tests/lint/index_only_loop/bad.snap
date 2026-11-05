@@ -9,8 +9,10 @@ warning[index_only_loop]: `i` is only used to index `xs`
    |
 help: loop over the elements: `for xs` and `it`
    |
+11
 12 ~     for xs {
 13 ~         total += it;
+14       }
    |
    = note: `index_only_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
@@ -23,7 +25,9 @@ warning[index_only_loop]: `i` is only used to index `points`
    |
 help: loop over pointers to the elements: `for *points` and `it`
    |
+19   bump :: (points: [] Point) {
 20 ~     for *points it.x += 1;
+21   }
    |
    = note: `index_only_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
@@ -36,9 +40,11 @@ warning[index_only_loop]: `i` counts through `names` to index it
    |
 help: loop over the elements: `for names`, with `it` and `it_index`
    |
+23   list :: (names: [] string) {
 24 ~     for names {
 25 ~         if it_index > 0 print(", ");
 26 ~         print("%", it);
+27       }
    |
    = note: `index_only_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
@@ -51,8 +57,10 @@ warning[index_only_loop]: `i` counts through `table` to index it
    |
 help: loop over the elements: `for *table`, with `it` and `it_index`
    |
+33   fill :: (table: [] float) {
 34 ~     for *table {
 35 ~         it.* = sin(cast(float) it_index * 0.5);
+36       }
    |
    = note: `index_only_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
@@ -65,8 +73,10 @@ warning[index_only_loop]: `i` is only used to index `str`
    |
 help: loop over the elements: `for str` and `it`
    |
+40   shout :: (str: string) {
 41 ~     for str {
 42 ~         cur := it;
+43           print("%\n", cur);
    |
    = note: `index_only_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
@@ -79,7 +89,9 @@ warning[index_only_loop]: `i` is only used to index `str`
    |
 help: loop over the elements: `for str` and `it`
    |
+49       total := 0;
 50 ~     for str total += it;
+51       return total;
    |
    = note: `index_only_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
@@ -92,7 +104,9 @@ warning[index_only_loop]: `i` is only used to index `str`
    |
 help: loop over pointers to the elements: `for *str` and `it`
    |
+55   shift :: (str: string) {
 56 ~     for *str it.* += 1;
+57   }
    |
    = note: `index_only_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
@@ -105,7 +119,9 @@ warning[index_only_loop]: `k` counts through `n.name` to index it
    |
 help: loop over the elements: `for n.name`, with `it` and `it_index`
    |
+63   dump :: (n: Named) {
 64 ~     for n.name print("%: %\n", it_index, it);
+65   }
    |
    = note: `index_only_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
@@ -128,8 +144,10 @@ warning[index_only_loop]: `j` is only used to index `to_find`
    |
 help: loop over the elements: `for to_find` and `it`
    |
+69       for i: 0..str.count - 1 {
 70 ~         for to_find {
 71 ~             if str[i] == it return i;
+72           }
    |
    = note: `index_only_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop
@@ -152,9 +170,11 @@ warning[index_only_loop]: `i` counts through `stops` to index it
     |
 help: loop over the elements: `for stops`, with `it` and `it_index`
     |
+123   tour :: () {
 124 ~     for stops {
 125 ~         print("% %\n", it_index + 1, it.title);
 126 ~         it.run();
+127       }
     |
     = note: `index_only_loop` is `warn` by default
     = note: see https://jacket.matteopolak.com/lint-rules/index_only_loop

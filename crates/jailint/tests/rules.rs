@@ -1171,3 +1171,6 @@ mod accuracy;
 
 #[path = "rules/fix_previews.rs"]
 mod fix_previews;
+
+#[path = "rules/diagnostic_ranges.rs"]
+mod diagnostic_ranges;

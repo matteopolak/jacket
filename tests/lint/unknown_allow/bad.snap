@@ -9,7 +9,9 @@ warning[unknown_allow]: `unused_varaible` is not a jailint rule, so this comment
    |
 help: did you mean `unused_variable`? (`--list` shows every rule)
    |
+ 2
  3 ~ // jailint: allow(unused_variable)
+ 4   main :: () {
    |
    = note: `unknown_allow` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unknown_allow

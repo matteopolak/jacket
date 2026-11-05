@@ -9,7 +9,9 @@ error[defer_frees_returned]: `name` is returned, but the `defer` above frees it
    |
 help: the deferred call runs after the value is returned: drop the `defer`, or return a copy
    |
+ 5       name := join(first, " Smith");
  6 -     defer free(name);
+ 7       return name;
    |
    = note: `defer_frees_returned` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned

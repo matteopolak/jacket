@@ -9,7 +9,9 @@ warning[detached_doc_comment]: this comment is separated from `bump` by a blank 
    |
 help: remove the blank line to document it
    |
+ 3   // Adds one to the number it is given.
  4 - 
+ 5   bump :: (n: int) -> int {
    |
    = note: see https://jacket.matteopolak.com/lint-rules/detached_doc_comment
 
@@ -21,7 +23,9 @@ warning[detached_doc_comment]: this comment is separated from `weight` by a blan
    |
 help: remove the blank line to document it
    |
+15      and returns them as one number. */
 16 - 
+17   weight :: (p: Pair) -> int {
    |
    = note: see https://jacket.matteopolak.com/lint-rules/detached_doc_comment
 
@@ -33,6 +37,8 @@ warning[detached_doc_comment]: this comment is separated from `Turn` by a blank 
    |
 help: remove the blank line to document it
    |
+22   // Left and right are relative to its heading.
 23 - 
+24   Turn :: enum {
    |
    = note: see https://jacket.matteopolak.com/lint-rules/detached_doc_comment

@@ -9,7 +9,9 @@ error[impossible_comparison]: `code != 404 || code != 410` is always `true`
    |
 help: every integer passes one of these comparisons: was `&&` meant?
    |
+ 3   is_live :: (code: int) -> bool {
  4 ~     return code != 404 && code != 410;
+ 5   }
    |
    = note: `impossible_comparison` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/impossible_comparison

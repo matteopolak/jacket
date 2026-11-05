@@ -9,7 +9,9 @@ warning[unused_result]: the result of `trim` is discarded; it does not change it
    |
 help: to update the argument, write `line = trim(line);`
    |
+ 6
  7 ~     line = trim(line);
+ 8
    |
    = note: `unused_result` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_result

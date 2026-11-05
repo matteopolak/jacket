@@ -9,7 +9,9 @@ warning[unreadable_literal]: `1000000` is hard to read without separators
    |
 help: write `1_000_000`
    |
+ 2
  3 ~ TIMEOUT :: 1_000_000;
+ 4
    |
    = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
@@ -21,7 +23,9 @@ warning[unreadable_literal]: `123456` is hard to read without separators
    |
 help: write `123_456`
    |
+ 5   main :: () {
  6 ~     a := 123_456;
+ 7       b := 1234567890;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
@@ -33,7 +37,9 @@ warning[unreadable_literal]: `1234567890` is hard to read without separators
    |
 help: write `1_234_567_890`
    |
+ 6       a := 123456;
  7 ~     b := 1_234_567_890;
+ 8       c: u32 = 0xdeadbeef;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
@@ -45,7 +51,9 @@ warning[unreadable_literal]: `0xdeadbeef` is hard to read without separators
    |
 help: write `0xdead_beef`
    |
+ 7       b := 1234567890;
  8 ~     c: u32 = 0xdead_beef;
+ 9       d: u64 = 0xFFFFFFFFFF;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
@@ -57,7 +65,9 @@ warning[unreadable_literal]: `0xFFFFFFFFFF` is hard to read without separators
    |
 help: write `0xFF_FFFF_FFFF`
    |
+ 8       c: u32 = 0xdeadbeef;
  9 ~     d: u64 = 0xFF_FFFF_FFFF;
+10       e := 0b101010101;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
@@ -69,7 +79,9 @@ warning[unreadable_literal]: `0b101010101` is hard to read without separators
    |
 help: write `0b1_0101_0101`
    |
+ 9       d: u64 = 0xFFFFFFFFFF;
 10 ~     e := 0b1_0101_0101;
+11       f := 1234567.5;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
@@ -81,7 +93,9 @@ warning[unreadable_literal]: `1234567.5` is hard to read without separators
    |
 help: write `1_234_567.5`
    |
+10       e := 0b101010101;
 11 ~     f := 1_234_567.5;
+12       g := 100000000;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal
 
@@ -93,6 +107,8 @@ warning[unreadable_literal]: `100000000` is hard to read without separators
    |
 help: write `100_000_000`
    |
+11       f := 1234567.5;
 12 ~     g := 100_000_000;
+13
    |
    = note: see https://jacket.matteopolak.com/lint-rules/unreadable_literal

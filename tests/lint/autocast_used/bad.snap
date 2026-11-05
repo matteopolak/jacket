@@ -9,7 +9,9 @@ warning[autocast_used]: `xx` leaves the target type to the context (`s64` to `u8
    |
 help: write `cast(u8)` to say so
    |
+ 3   narrow :: (big: s64) -> u8 {
  4 ~     small: u8 = cast(u8) big;
+ 5
    |
    = note: see https://jacket.matteopolak.com/lint-rules/autocast_used
 
@@ -21,7 +23,9 @@ warning[autocast_used]: `xx` leaves the target type to the context (`s64` to `u8
    |
 help: write `cast(u8)` to say so
    |
+ 6       other: u8;
  7 ~     other = cast(u8) big;
+ 8
    |
    = note: see https://jacket.matteopolak.com/lint-rules/autocast_used
 
@@ -33,6 +37,8 @@ warning[autocast_used]: `xx` leaves the target type to the context (`s64` to `u8
    |
 help: write `cast(u8)` to say so
    |
+ 8
  9 ~     if small > 3 return cast(u8) (big + 1);
+10
    |
    = note: see https://jacket.matteopolak.com/lint-rules/autocast_used

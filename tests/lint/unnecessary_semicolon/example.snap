@@ -9,7 +9,9 @@ warning[unnecessary_semicolon]: this `;` ends nothing
    |
 help: remove it
    |
+ 3   main :: () {
  4 ~     total := 0;
+ 5       total += 1;
    |
    = note: `unnecessary_semicolon` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_semicolon

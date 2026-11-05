@@ -9,7 +9,9 @@ warning[dropped_result]: `parse` returns 2 values but this keeps 1; the next val
    |
 help: receive the flag, or write `, _` to show it is ignored on purpose
    |
+14       // The parse failure and the zero it leaves look the same.
 15 ~     value, _ := parse("x");
+16       total: int;
    |
    = note: `dropped_result` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/dropped_result
@@ -22,7 +24,9 @@ warning[dropped_result]: `parse` returns 2 values but this keeps 1; the next val
    |
 help: receive the flag, or write `, _` to show it is ignored on purpose
    |
+16       total: int;
 17 ~     total, _ = parse("7");
+18
    |
    = note: `dropped_result` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/dropped_result
@@ -35,7 +39,9 @@ warning[dropped_result]: `lookup` returns 3 values but this keeps 2; the next va
    |
 help: receive the flag, or write `, _` to show it is ignored on purpose
    |
+19       // Two of three values kept; the flag is still dropped.
 20 ~     name, number, _ := lookup(2);
+21
    |
    = note: `dropped_result` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/dropped_result
@@ -48,7 +54,9 @@ warning[dropped_result]: `callback` returns 2 values but this keeps 1; the next 
    |
 help: receive the flag, or write `, _` to show it is ignored on purpose
    |
+22       callback := parse;
 23 ~     other, _ := callback("1");
+24
    |
    = note: `dropped_result` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/dropped_result

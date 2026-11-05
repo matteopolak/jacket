@@ -9,7 +9,9 @@ error[bad_bit_mask]: `(flags & 4) == 1` is always `false`: `& 4` leaves only the
    |
 help: compare with the mask itself (`(x & m) == m`) or test for non-zero
    |
+ 5
  6 ~     if false count += 1;
+ 7
    |
    = note: `bad_bit_mask` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bad_bit_mask
@@ -22,7 +24,9 @@ error[bad_bit_mask]: `(flags | 2) == 0` is always `false`: `| 2` always sets the
    |
 help: compare with the mask itself (`(x & m) == m`) or test for non-zero
    |
+ 7
  8 ~     if false count += 1;
+ 9
    |
    = note: `bad_bit_mask` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bad_bit_mask
@@ -35,7 +39,9 @@ error[bad_bit_mask]: `8 != (flags & 3)` is always `true`: `& 3` leaves only the 
    |
 help: compare with the mask itself (`(x & m) == m`) or test for non-zero
    |
+ 9
 10 ~     if true count += 1;
+11
    |
    = note: `bad_bit_mask` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bad_bit_mask
@@ -48,7 +54,9 @@ error[bad_bit_mask]: `(n | 1) != 0x10` is always `true`: `| 1` always sets the b
    |
 help: compare with the mask itself (`(x & m) == m`) or test for non-zero
    |
+11
 12 ~     if true count += 1;
+13
    |
    = note: `bad_bit_mask` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bad_bit_mask

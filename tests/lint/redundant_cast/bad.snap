@@ -9,7 +9,9 @@ warning[redundant_cast]: `x` is already `s32`
    |
 help: remove the cast
    |
+ 4       x: s32 = 5;
  5 ~     y := x;
+ 6       count: int = 3;
    |
    = note: `redundant_cast` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_cast
@@ -22,7 +24,9 @@ warning[redundant_cast]: `count` is already `s64`
    |
 help: remove the cast
    |
+ 6       count: int = 3;
  7 ~     z := count;
+ 8       w: u8 = 1;
    |
    = note: `redundant_cast` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_cast
@@ -35,7 +39,9 @@ warning[redundant_cast]: `w` is already `u8`
    |
 help: remove the cast
    |
+ 8       w: u8 = 1;
  9 ~     v: u8 = w;
+10
    |
    = note: `redundant_cast` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_cast

@@ -9,10 +9,13 @@ warning[manual_index_counter]: `n` always equals `it_index` of the loop that fol
    |
 help: use `it_index` instead of counting by hand
    |
+ 3   show :: (names: [] string) {
  4 -     n := 0;
- 7 -         print("% %\n", n, it);
+ 5
+ 6       for names {
+ 6 ~         print("% %\n", it_index, it);
  8 -         n += 1;
- 6 +         print("% %\n", it_index, it);
+ 9       }
    |
    = note: `manual_index_counter` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter
@@ -25,9 +28,14 @@ warning[manual_index_counter]: `line_number` always equals `it_index` of the loo
    |
 help: use `it_index` instead of counting by hand
    |
+12   number :: (lines: [] string) {
 13 -     line_number := 0;
+14
+15       for lines {
 16 -         defer line_number += 1;
+17           if !it continue;
 16 ~         print("%: %\n", it_index, it);
+19       }
    |
    = note: `manual_index_counter` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter
@@ -40,10 +48,13 @@ warning[manual_index_counter]: `n` always equals `it_index` of the loop that fol
    |
 help: use `it_index` instead of counting by hand
    |
+23   letters :: (word: string) {
 24 -     n := 0;
-27 -         print("% %\n", n, it);
+25
+26       for word {
+26 ~         print("% %\n", it_index, it);
 28 -         n += 1;
-26 +         print("% %\n", it_index, it);
+29       }
    |
    = note: `manual_index_counter` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter
@@ -56,10 +67,13 @@ warning[manual_index_counter]: `n` always equals `it_index` of the loop that fol
    |
 help: use `it_index` instead of counting by hand
    |
+35           case 1;
 36 -             n := 0;
-39 -                 print("% %\n", n, it);
+37
+38               for names {
+38 ~                 print("% %\n", it_index, it);
 40 -                 n += 1;
-38 +                 print("% %\n", it_index, it);
+41               }
    |
    = note: `manual_index_counter` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter
@@ -72,10 +86,13 @@ warning[manual_index_counter]: `n` always equals `it_index` of the loop that fol
    |
 help: use `it_index` instead of counting by hand
    |
+46       #if true {
 47 -         n := 0;
-50 -             print("% %\n", n, it);
+48
+49           for names {
+49 ~             print("% %\n", it_index, it);
 51 -             n += 1;
-49 +             print("% %\n", it_index, it);
+52           }
    |
    = note: `manual_index_counter` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter

@@ -9,9 +9,10 @@ warning[identical_case_bodies]: `case .JPEG` does the same as `case .PNG`
    |
 help: list the values together: `case .PNG, .JPEG;`
    |
-11 -         case .PNG;
+10       if kind == {
+11 ~         case .PNG, .JPEG;
 12 -             return "image";
 13 -         case .JPEG;
-11 +         case .PNG, .JPEG;
+14               return "image";
    |
    = note: see https://jacket.matteopolak.com/lint-rules/identical_case_bodies

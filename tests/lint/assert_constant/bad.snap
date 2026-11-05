@@ -9,8 +9,10 @@ warning[assert_constant]: `#assert true` can never fail
    |
 help: remove it, or assert the condition it stands in for
    |
+ 2
  3 - #assert true;
  4 - 
+ 5   next :: () -> int {
    |
    = note: `assert_constant` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/assert_constant
@@ -23,8 +25,10 @@ warning[assert_constant]: `#assert true` can never fail
    |
 help: remove it, or assert the condition it stands in for
    |
+11
 12 - #assert true "never fires";
 13 - 
+14   main :: () {
    |
    = note: `assert_constant` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/assert_constant
@@ -37,7 +41,9 @@ warning[assert_constant]: `assert(true)` can never fail
    |
 help: remove it, or assert the condition it stands in for
    |
+16
 17 -     assert(true);
+18       assert(true, "always holds");
    |
    = note: `assert_constant` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/assert_constant
@@ -50,7 +56,9 @@ warning[assert_constant]: `assert(true)` can never fail
    |
 help: remove it, or assert the condition it stands in for
    |
+17       assert(true);
 18 -     assert(true, "always holds");
+19       assert(true, "x is %", x);
    |
    = note: `assert_constant` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/assert_constant
@@ -63,7 +71,9 @@ warning[assert_constant]: `assert(true)` can never fail
    |
 help: remove it, or assert the condition it stands in for
    |
+18       assert(true, "always holds");
 19 -     assert(true, "x is %", x);
+20       assert(true, "side effect %", next());
    |
    = note: `assert_constant` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/assert_constant

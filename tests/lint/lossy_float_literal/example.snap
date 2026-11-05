@@ -9,7 +9,9 @@ warning[lossy_float_literal]: `16777.2171234` has 12 significant digits, but a `
    |
 help: write `16777.217`, which is the same `float32`
    |
+ 3   main :: () {
  4 ~     scale: float32 = 16777.217;
+ 5       print("%\n", scale);
    |
    = note: `lossy_float_literal` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/lossy_float_literal
