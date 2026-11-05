@@ -309,7 +309,8 @@ fn canonical(path: &Path) -> Result<PathBuf, String> {
 /// The folder to document and the `[doc]` settings for it, with the folder of their
 /// `jacket.toml`. Without a path, the `[doc]` of the nearest `jacket.toml` names the library,
 /// else it is the bundled standard library. With one, the nearest `jacket.toml` above it
-/// applies only when its `[doc]` is for that folder.
+/// applies only when its `[doc]` is for that folder. Both selected roots share canonical
+/// identity: `project/child/..` with `path = "lib"` still categorizes `lib/Ext` relatively.
 fn target(
     path: Option<&Path>,
     stdlib: &Path,
@@ -336,10 +337,10 @@ fn target(
         (lib, l.config.doc, dir)
     });
     match (path, found) {
-        (None, Some((lib, doc, dir))) => Ok((canonical(&lib)?, doc, dir)),
+        (None, Some((lib, doc, dir))) => Ok((canonical(&lib)?, doc, canonical(&dir)?)),
         (None, None) => Ok((stdlib.to_path_buf(), Doc::default(), stdlib.to_path_buf())),
         (Some(_), Some((lib, doc, dir))) if lib.canonicalize().ok().as_ref() == Some(&start) => {
-            Ok((start, doc, dir))
+            Ok((start, doc, canonical(&dir)?))
         }
         (Some(_), _) => Ok((start.clone(), Doc::default(), start)),
     }
@@ -713,6 +714,29 @@ mod tests {
             };
             let message = build(&args, Path::new("/")).unwrap_err();
             assert!(message.contains(guidance), "{flag}: {message}");
+        }
+    }
+
+    #[test]
+    fn configured_library_and_directory_share_canonical_identity() {
+        let temp = test_support::TempDir::new("doc-config-identity");
+        std::fs::create_dir_all(temp.join("lib/Ext")).unwrap();
+        std::fs::create_dir_all(temp.join("child")).unwrap();
+        std::fs::write(temp.join("jacket.toml"), "[doc]\npath = \"lib\"\n").unwrap();
+        std::fs::write(temp.join("guide.md"), "# Config-relative guide\n").unwrap();
+        let cwd = temp.join("child/..");
+        for path in [None, Some(Path::new("lib"))] {
+            let (library, _, directory) = target(path, &temp.join("unused-stdlib"), &cwd).unwrap();
+            assert_eq!(directory, temp.canonicalize().unwrap());
+            assert_eq!(library.strip_prefix(&directory).unwrap(), Path::new("lib"));
+            assert_eq!(
+                library.join("Ext").strip_prefix(&directory).unwrap(),
+                Path::new("lib/Ext")
+            );
+            assert_eq!(
+                std::fs::read_to_string(directory.join("guide.md")).unwrap(),
+                "# Config-relative guide\n"
+            );
         }
     }
 

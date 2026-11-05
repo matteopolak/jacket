@@ -204,3 +204,5 @@ The implicit `#Context` reference is a configured Markdown guide at `guides/cont
 ## Dependencies
 
 The compiler parser/resolver, Jacket's typed producer and config, shared doctest templates, pinned Markdown parser, Rust schema derivation, and the pinned Astro/TypeScript/runtime validators. Rendering requires Node after explicit setup; default semantic extraction does not. Browser Run requires module workers, WebAssembly and supplied assets from the owned browser compiler build.
+
+Documentation resolves the selected configuration directory and library directory to their canonical filesystem identities before deriving module category paths. This keeps relative categories such as `lib/**` stable for Windows verbatim paths and lexical directory aliases such as `child/..`. Configuration discovery still chooses the nearest authored `jacket.toml`; guide and asset paths remain relative to that selected configuration directory.
