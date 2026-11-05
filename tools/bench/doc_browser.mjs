@@ -53,7 +53,7 @@ async function session(variant,profile,scenario,repetition){
   });
   await cdp('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true});
   const evaluate=async expression=>{const response=await cdp('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});assert(!response.exceptionDetails,JSON.stringify(response.exceptionDetails));return response.result.value;};
-  await cdp('Page.enable');await cdp('Runtime.enable');await cdp('Runtime.addBinding',{name:'__docBenchmarkInput'});await cdp('Network.enable',{maxTotalBufferSize:100_000_000,maxResourceBufferSize:20_000_000});
+  await cdp('Page.enable');await cdp('Performance.enable');await cdp('Runtime.enable');await cdp('Runtime.addBinding',{name:'__docBenchmarkInput'});await cdp('Network.enable',{maxTotalBufferSize:100_000_000,maxResourceBufferSize:20_000_000});
   await cdp('Network.clearBrowserCache');await cdp('Network.setCacheDisabled',{cacheDisabled:false});await cdp('Network.setBypassServiceWorker',{bypass:profile.bypassServiceWorker??false});
   await cdp('Emulation.setDeviceMetricsOverride',{width:profile.width,height:profile.height,deviceScaleFactor:profile.scale,mobile:false});await cdp('Emulation.setCPUThrottlingRate',{rate:profile.cpuRate});
   await cdp('Network.emulateNetworkConditions',{offline:false,...profile.network});await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:profile.theme??'light'},{name:'prefers-reduced-motion',value:profile.motion??'no-preference'}]});
@@ -76,6 +76,7 @@ async function session(variant,profile,scenario,repetition){
   async function point(selector){const value=await evaluate(`(()=>{const node=document.querySelector(${JSON.stringify(selector)});if(!node)return null;node.scrollIntoView({block:'center'});const r=node.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);assert(value,`missing action target ${selector}`);return value;}
   for(const [index,action]of scenario.actions.entries()){
    currentAction=index;const row={action,index,startRequest:ledger.rows.length};actions.push(row);const hostStart=performance.now();
+   row.performanceBefore=await cdp('Performance.getMetrics');
    row.before=await evaluate('({origin:performance.timeOrigin,time:performance.now(),path:location.pathname,hash:location.hash,scrollY})');
    let expectation=action.expect;
    if(action.freshCompletion){const token=index+1;row.completionArmed=await evaluate(`(${armCompletion.toString()})(${JSON.stringify(action.expect.selector)},${JSON.stringify(action.expect.text)},${token})`);expectation={...action.expect,completionToken:token};}
@@ -98,6 +99,7 @@ async function session(variant,profile,scenario,repetition){
    row.hostInputReceivedToContentReadyMs=input?performance.now()-input.hostReceived:null;
    row.browserActionToContentReadyMs=row.contentReady?.origin===row.before.origin?row.contentReady.time-row.before.time:null;
    row.metrics=await evaluate("({observations:window.__docMetrics,resources:performance.getEntriesByType('resource').map(entry=>entry.toJSON()),navigation:performance.getEntriesByType('navigation').map(entry=>entry.toJSON()),fontStatus:document.fonts.status,fonts:[...document.fonts].map(font=>({family:font.family,status:font.status})),computedFonts:{body:getComputedStyle(document.body).fontFamily,code:document.querySelector('pre')?getComputedStyle(document.querySelector('pre')).fontFamily:null},serviceWorker:{controller:navigator.serviceWorker?.controller?.scriptURL??null},domNodes:document.getElementsByTagName('*').length})");
+   row.performanceAfter=await cdp('Performance.getMetrics');
    row.observationSummary=summarizeObservations(row.metrics.observations,profile.frameBudgetMs);
    row.endRequest=ledger.rows.length;
    await writeFile(path.join(directory,'receipt.json'),JSON.stringify(receipt,null,2));
