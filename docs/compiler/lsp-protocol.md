@@ -43,3 +43,5 @@ When updating either library, review the two capability adapters and run protoco
 Both dependencies are exact-pinned in `crates/jai-language-server/Cargo.toml` and recorded in the workspace lockfile. It follows the repository's dependency age gate. Native stdio and the browser bridge share the protocol boundary; their filesystem and scheduling implementations remain separate.
 
 See [checked snapshots](lsp-snapshots.md) for semantic authority and [latency measurements](../tools/lsp-latency.md) for runtime measurement rules.
+
+Refresh requests coalesce by method while the client acknowledges one outstanding request. A later change marks that method dirty; its acknowledgement issues one follow-up refresh so a configuration save cannot be lost behind an earlier pull. Follow-ups use new library request IDs and the same output limits, and stop after shutdown. Extend the method admission and tests together when adding refresh providers.

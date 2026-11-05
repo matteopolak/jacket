@@ -49,6 +49,7 @@ pub struct JsonSession {
     requests: lsp_server::ReqQueue<(), String>,
     cancelled: std::collections::BTreeMap<RequestId, lsp_server::Response>,
     refresh_pending: std::collections::BTreeSet<String>,
+    refresh_dirty: std::collections::BTreeSet<String>,
     /// Markdown when the client listed it in `textDocument.hover.contentFormat`.
     hover_kind: MarkupKind,
     /// Markdown when the client listed it in the signature help `documentationFormat`.

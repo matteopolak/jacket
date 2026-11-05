@@ -26,6 +26,7 @@ impl JsonSession {
             requests: lsp_server::ReqQueue::default(),
             cancelled: std::collections::BTreeMap::new(),
             refresh_pending: std::collections::BTreeSet::new(),
+            refresh_dirty: std::collections::BTreeSet::new(),
             hover_kind: MarkupKind::PlainText,
             signature_kind: MarkupKind::PlainText,
             pull_diagnostics: false,
@@ -182,6 +183,7 @@ impl JsonSession {
 
     pub(super) fn refresh_request(&mut self, method: &str) -> Option<Value> {
         if !self.refresh_pending.insert(method.to_owned()) {
+            self.refresh_dirty.insert(method.to_owned());
             return None;
         }
         let request =
@@ -307,6 +309,12 @@ impl JsonSession {
             Message::Response(response) => {
                 if let Some(method) = self.requests.outgoing.complete(response.id) {
                     self.refresh_pending.remove(&method);
+                    if self.refresh_dirty.remove(&method)
+                        && self.lifecycle == Lifecycle::Running
+                        && let Some(request) = self.refresh_request(&method)
+                    {
+                        return self.encode_unprompted(vec![request]);
+                    }
                 }
                 Ok(Vec::new())
             }
