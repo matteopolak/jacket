@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- ICO creation from image filenames works on WASI, and transparent icons render correctly on Windows.
+- JPEG color handling, invalid JPEG scans and incomplete QOI files.
+
 ## [0.33.0] - 2026-11-04
 
 ### New
