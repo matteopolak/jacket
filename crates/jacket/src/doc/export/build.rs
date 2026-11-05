@@ -484,6 +484,7 @@ pub(in crate::doc) fn module(
     let metadata = publication.module(site, &m.id, &module_docs);
     Ok(ApiModule {
         id: m.id.clone(),
+        import_path: m.import_name().into(),
         title: m.title().into(),
         source: location(&m.file, m.docs_line),
         source_url: site.source_url(&m.file, 1),

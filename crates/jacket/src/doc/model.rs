@@ -154,8 +154,12 @@ pub struct Parameter {
 #[derive(Clone, Debug, Default)]
 pub struct Module {
     pub dependencies: Vec<(PathBuf, String)>,
-    /// `String`, `Extensions/Http`: what `#import` takes.
+    /// The module's route and display identity under the selected documentation library.
     pub id: String,
+    /// Compiler documentation identity; the site's selected library root does not change it.
+    pub doc_key: String,
+    /// Executable import path: actual stdlib-relative identity, or the selected external path.
+    pub import_path: String,
     pub file: String,
     pub docs: String,
     /// The line the module's own doc comment starts on, 0 when it has none.
@@ -187,6 +191,16 @@ pub struct Module {
 }
 
 impl Module {
+    /// The import used by examples and probes, such as `Extensions/Widget` on a `Widget` page.
+    /// Synthetic modules without an explicit context keep their selected-library import.
+    pub fn import_name(&self) -> &str {
+        if self.import_path.is_empty() {
+            &self.id
+        } else {
+            &self.import_path
+        }
+    }
+
     /// `Http` for `Extensions/Http`.
     pub fn title(&self) -> &str {
         self.id.rsplit('/').next().unwrap_or(&self.id)
@@ -206,9 +220,10 @@ fn below(stdlib: &Path, file: &str) -> String {
         .replace('\\', "/")
 }
 
-/// The module `id` from the versioned `jaic -doc_model` contract.
+/// Read a compiler model under the selected library's `root`, keeping its compiler link key.
+/// For example, `Widget` below a selected `Extensions` root links as `Extensions/Widget`.
 /// Missing fields and malformed references fail before any site data is assembled.
-pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
+pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module, String> {
     let wire: wire::Module = serde_json::from_str(json)
         .map_err(|e| format!("{id}: compiler documentation model: {e}"))?;
     if wire.schema != "jai-doc-model" || wire.schema_version != 1 {
@@ -233,7 +248,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
         rows.into_iter()
             .map(|(path, file, line, private)| TypeRef {
                 path,
-                file: below(stdlib, &file),
+                file: below(root, &file),
                 line,
                 private,
             })
@@ -326,7 +341,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
             definitions.push(Definition {
                 kind: definition.kind,
                 docs: definition.docs,
-                file: below(stdlib, &definition.file),
+                file: below(root, &definition.file),
                 native_file: PathBuf::from(&definition.file),
                 input_sha256,
                 line: definition.line,
@@ -363,7 +378,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
             definitions,
             name: i.name,
             kind: i.kind,
-            file: below(stdlib, &i.file),
+            file: below(root, &i.file),
             line: i.line,
             docs: i.docs,
             value: i.value,
@@ -374,7 +389,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                 .map(|o| Overload {
                     signature: o.signature,
                     platforms: o.platforms,
-                    file: below(stdlib, &o.file),
+                    file: below(root, &o.file),
                     line: o.line,
                     params: o.params.into_iter().map(&param).collect(),
                     returns: o.returns.into_iter().map(&param).collect(),
@@ -397,7 +412,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
             also: i
                 .also
                 .into_iter()
-                .map(|(f, l)| (below(stdlib, &f), l))
+                .map(|(f, l)| (below(root, &f), l))
                 .collect(),
             group: String::new(),
             platforms: i.platforms,
@@ -418,7 +433,10 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
             .map(|d| (PathBuf::from(d.file), d.sha256))
             .collect(),
         id: id.to_owned(),
-        file: below(stdlib, &wire.file),
+        doc_key: jaic::doc_comments::module_key(&root.join(id), stdlib),
+        import_path: jaic::doc_comments::stdlib_module_key(&root.join(id), stdlib)
+            .unwrap_or_else(|| id.to_owned()),
+        file: below(root, &wire.file),
         docs: wire.docs,
         docs_line: wire.docs_line,
         platforms: wire.platforms,
@@ -444,10 +462,10 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
         unresolved: wire
             .unresolved
             .into_iter()
-            .map(|u| format!("{}:{}: {}", below(stdlib, &u.file), u.line, u.text))
+            .map(|u| format!("{}:{}: {}", below(root, &u.file), u.line, u.text))
             .collect(),
         test_notes: crate::test::options::header_notes(
-            &std::fs::read_to_string(stdlib.join(id).join("module.jai")).unwrap_or_default(),
+            &std::fs::read_to_string(root.join(id).join("module.jai")).unwrap_or_default(),
         ),
     };
     assign_groups(&mut module);
@@ -528,11 +546,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn import_context_defaults_to_the_selected_path_for_synthetic_modules() {
+        let mut module = Module {
+            id: "Acme/Widget".into(),
+            ..Module::default()
+        };
+        assert_eq!(module.import_name(), "Acme/Widget");
+        module.import_path = "Extensions/Widget".into();
+        assert_eq!(module.import_name(), "Extensions/Widget");
+        assert_eq!(module.id, "Acme/Widget");
+    }
+
+    #[test]
     fn definition_facts_require_ordered_spans_guards_and_pinned_source() {
         let definition = serde_json::json!({"kind":"struct","docs":"","file":"/s/Example/module.jai","line":1,"start":0,"end":5,"platforms":["MACOS"],"guards":[{"file":"/s/Example/module.jai","start":0,"end":5,"tokens":["OS","==",".","MACOS"],"taken":true}],"scope":[],"tokens":[{"text":"Entry","start":0,"end":5,"statement":false,"reference":false,"names":[],"docs":""}],"members":[]});
         let item = serde_json::json!({"name":"Entry","kind":"struct","file":"/s/Example/module.jai","line":1,"docs":"","value":"","platforms":[],"experimental":false,"overloads":[],"members":[],"scope":[],"definitions":[definition]});
         let valid = serde_json::json!({"schema":"jai-doc-model","schemaVersion":1,"file":"/s/Example/module.jai","implicit":false,"docs":"","docs_line":0,"platforms":[],"experimental":false,"parameters":[],"items":[item],"unresolved":[],"dependencies":[{"file":"/s/Example/module.jai","sha256":"a".repeat(64)}]});
-        let parsed = parse("Example", &valid.to_string(), Path::new("/s")).unwrap();
+        let parsed = parse(
+            "Example",
+            &valid.to_string(),
+            Path::new("/s"),
+            Path::new("/s"),
+        )
+        .unwrap();
         assert_eq!(parsed.items[0].definitions[0].input_sha256, "a".repeat(64));
         for (pointer, value) in [
             ("/items/0/definitions/0/start", serde_json::json!(5)),
@@ -551,14 +587,28 @@ mod tests {
             let mut broken = valid.clone();
             *broken.pointer_mut(pointer).unwrap() = value;
             assert!(
-                parse("Example", &broken.to_string(), Path::new("/s")).is_err(),
+                parse(
+                    "Example",
+                    &broken.to_string(),
+                    Path::new("/s"),
+                    Path::new("/s")
+                )
+                .is_err(),
                 "accepted invalid definition field {pointer}"
             );
         }
         let mut unknown = valid;
         unknown["items"][0]["definitions"][0]["source_text"] =
             serde_json::json!("original author spacing");
-        assert!(parse("Example", &unknown.to_string(), Path::new("/s")).is_err());
+        assert!(
+            parse(
+                "Example",
+                &unknown.to_string(),
+                Path::new("/s"),
+                Path::new("/s")
+            )
+            .is_err()
+        );
     }
 
     /// A compiler payload is a versioned contract, not best-effort presentation data.
@@ -570,7 +620,15 @@ mod tests {
             "docs_line": 0, "platforms": [], "experimental": false,
             "parameters": [], "items": [], "unresolved": [], "dependencies": [{"file":"Example/module.jai","sha256":"a".repeat(64)}]
         });
-        assert!(parse("Example", &valid.to_string(), Path::new("/s")).is_ok());
+        assert!(
+            parse(
+                "Example",
+                &valid.to_string(),
+                Path::new("/s"),
+                Path::new("/s")
+            )
+            .is_ok()
+        );
         for (field, bad) in [
             ("schemaVersion", serde_json::json!(2)),
             ("schemaVersion", serde_json::json!("1")),
@@ -580,13 +638,27 @@ mod tests {
             let mut model = valid.clone();
             model[field] = bad;
             assert!(
-                parse("Example", &model.to_string(), Path::new("/s")).is_err(),
+                parse(
+                    "Example",
+                    &model.to_string(),
+                    Path::new("/s"),
+                    Path::new("/s")
+                )
+                .is_err(),
                 "{field}"
             );
         }
         let mut missing = valid.clone();
         missing.as_object_mut().unwrap().remove("file");
-        assert!(parse("Example", &missing.to_string(), Path::new("/s")).is_err());
+        assert!(
+            parse(
+                "Example",
+                &missing.to_string(),
+                Path::new("/s"),
+                Path::new("/s")
+            )
+            .is_err()
+        );
         let item = serde_json::json!({
             "name": "Entry", "kind": "struct", "file": "Example/module.jai",
             "line": 1, "docs": "", "value": "", "platforms": [],
@@ -595,7 +667,15 @@ mod tests {
         });
         let mut complete = valid.clone();
         complete["items"] = serde_json::json!([item.clone()]);
-        assert!(parse("Example", &complete.to_string(), Path::new("/s")).is_ok());
+        assert!(
+            parse(
+                "Example",
+                &complete.to_string(),
+                Path::new("/s"),
+                Path::new("/s")
+            )
+            .is_ok()
+        );
         for (field, bad) in [
             ("kind", serde_json::json!("unknown")),
             ("binding", serde_json::json!("false")),
@@ -623,7 +703,13 @@ mod tests {
             broken[field] = bad;
             model["items"] = serde_json::json!([broken]);
             assert!(
-                parse("Example", &model.to_string(), Path::new("/s")).is_err(),
+                parse(
+                    "Example",
+                    &model.to_string(),
+                    Path::new("/s"),
+                    Path::new("/s")
+                )
+                .is_err(),
                 "{field}"
             );
         }
@@ -632,7 +718,7 @@ mod tests {
     #[test]
     fn items_come_out_with_groups_and_relative_files() {
         let json = r#"{"file":"/s/String/module.jai","docs":"A module.","docs_line":1,"platforms":["MACOS"],"items":[{"name":"trim","kind":"procedure","file":"/s/internal/string/bytes.jai","line":3,"docs":"","value":"","overloads":[{"file":"/s/internal/string/bytes.jai","line":3,"signature":"","params":[{"name":"s","type":"string","default":"","doc":"the text"}],"returns":[],"docs":"Trims.","docs_line":2,"flags":[],"platforms":[]}],"members":[],"platforms":[],"experimental":false,"scope":[]},{"name":"scan","kind":"procedure","file":"/s/internal/string/scan.jai","line":9,"docs":"","value":"","overloads":[],"members":[],"platforms":[],"experimental":false,"scope":[]},{"name":"LIMIT","kind":"constant","file":"/s/internal/string/bytes.jai","line":1,"docs":"","value":"4","overloads":[],"members":[],"platforms":[],"experimental":false,"scope":[]}],"schema":"jai-doc-model","schemaVersion":1,"implicit":false,"experimental":false,"parameters":[],"unresolved":[],"dependencies":[]}"#;
-        let module = parse("String", json, Path::new("/s")).unwrap();
+        let module = parse("String", json, Path::new("/s"), Path::new("/s")).unwrap();
         assert_eq!(module.file, "String/module.jai");
         assert_eq!(module.items[0].file, "internal/string/bytes.jai");
         assert_eq!(module.items[0].overloads[0].params[0].doc, "the text");
@@ -647,7 +733,7 @@ mod tests {
     #[test]
     fn links_that_name_nothing_keep_their_place() {
         let json = r#"{"file":"/s/String/module.jai","docs":"","docs_line":1,"platforms":[],"items":[],"unresolved":[{"file":"/s/String/module.jai","line":7,"text":"[Gone]"}],"schema":"jai-doc-model","schemaVersion":1,"implicit":false,"experimental":false,"parameters":[],"dependencies":[]}"#;
-        let module = parse("String", json, Path::new("/s")).unwrap();
+        let module = parse("String", json, Path::new("/s"), Path::new("/s")).unwrap();
         assert_eq!(module.unresolved, ["String/module.jai:7: [Gone]"]);
     }
 }

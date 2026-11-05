@@ -12,18 +12,7 @@ pub fn print(dir: &Path, stdlib: &Path) -> String {
         &super::super::canonical(stdlib),
     );
     let model = module(dir, stdlib);
-    let key = {
-        let canonical = super::super::canonical(dir);
-        let root = super::super::canonical(stdlib);
-        canonical.strip_prefix(&root).map_or_else(
-            |_| {
-                canonical
-                    .file_name()
-                    .map_or(String::new(), |n| n.to_string_lossy().into_owned())
-            },
-            crate::paths::module_key,
-        )
-    };
+    let key = super::super::module_key(dir, stdlib);
     let own: BTreeSet<&str> = model
         .items
         .iter()
