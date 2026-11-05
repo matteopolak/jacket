@@ -9,10 +9,13 @@ warning[manual_index_counter]: `n` always equals `it_index` of the loop that fol
    |
 help: use `it_index` instead of counting by hand
    |
+ 3   show :: (names: [] string) {
  4 -     n := 0;
- 7 -         print("% %\n", n, it);
+ 5
+ 6       for names {
+ 6 ~         print("% %\n", it_index, it);
  8 -         n += 1;
- 6 +         print("% %\n", it_index, it);
+ 9       }
    |
    = note: `manual_index_counter` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_index_counter

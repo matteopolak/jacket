@@ -9,7 +9,9 @@ warning[dropped_result]: `parse` returns 2 values but this keeps 1; the next val
    |
 help: receive the flag, or write `, _` to show it is ignored on purpose
    |
+ 8   main :: () {
  9 ~     value, _ := parse("x");
+10       print("%\n", value);
    |
    = note: `dropped_result` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/dropped_result

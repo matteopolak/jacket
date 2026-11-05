@@ -9,7 +9,9 @@ warning[int_plus_one]: `count >= limit + 1` is a strict comparison written with 
    |
 help: write `count > limit`
    |
+ 3   over_limit :: (count: int, limit: int) -> bool {
  4 ~     return count > limit;
+ 5   }
    |
    = note: `int_plus_one` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one

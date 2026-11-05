@@ -9,7 +9,9 @@ error[string_literal_write]: `word[0]` writes into a string literal: `word` stil
    |
 help: copy it where `word` is declared: `copy_string("hello")` (free the copy when done)
    |
+ 3   main :: () {
  4 ~     word := copy_string("hello");
+ 5       word[0] = #char "j";
    |
    = note: `string_literal_write` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/string_literal_write

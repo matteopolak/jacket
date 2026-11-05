@@ -9,7 +9,9 @@ warning[banner_comment]: this comment is only a line of rule characters
    |
 help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
    |
+ 2
  3 - // -----------------------------------------------------------------------------
+ 4   // Names
    |
    = note: `banner_comment` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/banner_comment
@@ -22,7 +24,9 @@ warning[banner_comment]: this comment is only a line of rule characters
    |
 help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
    |
+ 4   // Names
  5 - // -----------------------------------------------------------------------------
+ 6
    |
    = note: `banner_comment` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/banner_comment
@@ -35,7 +39,9 @@ warning[banner_comment]: this comment is only a line of rule characters
    |
 help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
    |
+10
 11 - /* ===== */
+12   second :: () -> int {
    |
    = note: `banner_comment` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/banner_comment
@@ -48,7 +54,9 @@ warning[banner_comment]: this comment is only a line of rule characters
    |
 help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
    |
+12   second :: () -> int {
 13 -     //-----
+14       return 2;
    |
    = note: `banner_comment` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/banner_comment
@@ -61,7 +69,9 @@ warning[banner_comment]: this comment is only a line of rule characters
    |
 help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
    |
+16
 17 - // ***
+18   third :: () -> int {
    |
    = note: `banner_comment` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/banner_comment

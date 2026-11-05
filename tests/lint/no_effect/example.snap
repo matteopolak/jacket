@@ -9,7 +9,9 @@ warning[no_effect]: this statement has no effect
    |
 help: to update `total`, write `total += 1;`
    |
+ 4       total := 1;
  5 ~     total += 1;
+ 6       print("%\n", total);
    |
    = note: `no_effect` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/no_effect

@@ -9,7 +9,9 @@ error[misrefactored_assign_op]: `total += total + ...` applies `+` to `total` tw
    |
 help: `+=` already starts from `total`: write `total += price`
    |
+ 6
  7 ~     total += price;
+ 8
    |
    = note: `misrefactored_assign_op` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op

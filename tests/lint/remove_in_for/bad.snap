@@ -11,7 +11,9 @@ error[remove_in_for]: `array_unordered_remove_by_index` changes `xs` while this 
    |
 help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
    |
+ 8       for xs {
  9 ~         if it == 2 remove it;
+10       }
    |
    = note: `remove_in_for` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/remove_in_for
@@ -26,7 +28,9 @@ error[remove_in_for]: `array_ordered_remove_by_index` changes `xs` while this `f
    |
 help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
    |
+11       for xs {
 12 ~         if it == 3 remove it;
+13       }
    |
    = note: `remove_in_for` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/remove_in_for
@@ -41,7 +45,9 @@ error[remove_in_for]: `drop_at` changes `values` while this `for` walks it
    |
 help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < values`)
    |
+25       for values {
 26 ~         remove it;
+27       }
    |
    = note: `remove_in_for` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/remove_in_for
@@ -56,7 +62,9 @@ error[remove_in_for]: `erase_at` changes `values` while this `for` walks it
    |
 help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < values`)
    |
+37       for values {
 38 ~         remove it;
+39       }
    |
    = note: `remove_in_for` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/remove_in_for

@@ -9,7 +9,9 @@ warning[redundant_cast]: `x` is already `s32`
    |
 help: remove the cast
    |
+ 4       x: s32 = 5;
  5 ~     y := x;
+ 6       print("%\n", y);
    |
    = note: `redundant_cast` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_cast

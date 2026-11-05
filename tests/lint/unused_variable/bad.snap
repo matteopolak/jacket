@@ -9,7 +9,9 @@ warning[unused_variable]: unused variable `leftover`
    |
 help: remove it
    |
+ 7   main :: () {
  8 -     leftover := 5;
+ 9       noted := 7; // the comment stays
    |
    = note: `unused_variable` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_variable
@@ -22,7 +24,9 @@ warning[unused_variable]: unused variable `noted`
    |
 help: remove it
    |
+ 8       leftover := 5;
  9 ~     // the comment stays
+10       a, b := 1, 2;
    |
    = note: `unused_variable` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_variable
@@ -35,7 +39,9 @@ warning[unused_variable]: unused variable `b`
    |
 help: name it `_` if the value is not needed
    |
+ 9       noted := 7; // the comment stays
 10 ~     a, _ := 1, 2;
+11
    |
    = note: `unused_variable` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_variable
@@ -48,7 +54,9 @@ warning[unused_variable]: unused variable `found`
    |
 help: leave it out: later results of a call can be dropped
    |
+12       print("%\n", a);
 13 ~     value := lookup("key");
+14
    |
    = note: `unused_variable` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_variable
@@ -61,7 +69,9 @@ warning[unused_variable]: unused variable `second`
    |
 help: remove it from the declaration
    |
+15       print("%\n", value);
 16 ~     first: string;
+17       first = "x";
    |
    = note: `unused_variable` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_variable

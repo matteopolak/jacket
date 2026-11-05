@@ -9,7 +9,9 @@ warning[erasing_op]: `row * 0` is always `0`
    |
 help: `*` with this literal erases `row`: was another value meant?
    |
+ 3   offset :: (row: int, col: int) -> int {
  4 ~     return 0 + col;
+ 5   }
    |
    = note: `erasing_op` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/erasing_op

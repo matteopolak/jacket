@@ -9,7 +9,9 @@ error[min_max]: this is always `0`: the bounds are swapped
    |
 help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
    |
+ 4       x := 50;
  5 ~     a := clamp(x, 0, 100);
+ 6       b := max(100, min(x, 0));
    |
    = note: `min_max` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/min_max
@@ -22,7 +24,9 @@ error[min_max]: this is always `100`: the bounds are swapped
    |
 help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
    |
+ 5       a := min(0, max(100, x));
  6 ~     b := clamp(x, 0, 100);
+ 7       print("% %\n", a, b);
    |
    = note: `min_max` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/min_max
@@ -35,7 +39,9 @@ error[min_max]: this is always `0`: the bounds are swapped
    |
 help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
    |
+21   noted_extrema :: (n: int) -> int {
 22 ~     return clamp(n, 0, 100);
+23   }
    |
    = note: `min_max` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/min_max

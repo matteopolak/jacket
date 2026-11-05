@@ -9,7 +9,9 @@ warning[zero_ptr]: `cast(*Node) 0` is a null pointer
    |
 help: write `null`
    |
+ 6
  7 ~ global: *Node = null;
+ 8
    |
    = note: `zero_ptr` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/zero_ptr
@@ -22,7 +24,9 @@ warning[zero_ptr]: `cast(*Node) 0` is a null pointer
    |
 help: write `null`
    |
+10       node: Node;
 11 ~     node.next = null;
+12       p := cast(*u8) 0;
    |
    = note: `zero_ptr` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/zero_ptr
@@ -35,7 +39,9 @@ warning[zero_ptr]: `cast(*u8) 0` is a null pointer
    |
 help: write `null`
    |
+11       node.next = cast(*Node) 0;
 12 ~     p := null;
+13       q := cast(*void) 0x0;
    |
    = note: `zero_ptr` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/zero_ptr
@@ -48,7 +54,9 @@ warning[zero_ptr]: `cast(*void) 0x0` is a null pointer
    |
 help: write `null`
    |
+12       p := cast(*u8) 0;
 13 ~     q := null;
+14
    |
    = note: `zero_ptr` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/zero_ptr
@@ -61,7 +69,9 @@ warning[zero_ptr]: `cast(*Node) 0` is a null pointer
    |
 help: write `null`
    |
+14
 15 ~     if node.next == null print("end\n");
+16
    |
    = note: `zero_ptr` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/zero_ptr

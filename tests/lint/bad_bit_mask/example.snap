@@ -9,7 +9,9 @@ error[bad_bit_mask]: `(flags & 4) == 1` is always `false`: `& 4` leaves only the
    |
 help: compare with the mask itself (`(x & m) == m`) or test for non-zero
    |
+ 3   can_write :: (flags: u32) -> bool {
  4 ~     return false;
+ 5   }
    |
    = note: `bad_bit_mask` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bad_bit_mask

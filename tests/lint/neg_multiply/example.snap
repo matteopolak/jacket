@@ -9,7 +9,9 @@ warning[neg_multiply]: `x * -1` is a negation
    |
 help: write `-x`
    |
+ 3   flip :: (x: int) -> int {
  4 ~     return -x;
+ 5   }
    |
    = note: `neg_multiply` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/neg_multiply

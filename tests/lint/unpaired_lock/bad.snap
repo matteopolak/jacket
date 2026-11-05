@@ -19,7 +19,9 @@ warning[unpaired_lock]: `*state.mutex` is locked here but the procedure can end 
    |
 help: unlock it on every path, or `defer` the unlock right after locking
    |
+23       lock(*state.mutex);
 24 +     defer unlock(*state.mutex);
+24       state.count = 0;
    |
    = note: `unpaired_lock` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unpaired_lock

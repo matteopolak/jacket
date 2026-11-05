@@ -9,7 +9,9 @@ warning[unnecessary_semicolon]: this `;` ends nothing
    |
 help: remove it
    |
+12   main :: () {
 13 ~     total := 0;
+14       total += 1;
    |
    = note: `unnecessary_semicolon` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_semicolon
@@ -22,7 +24,9 @@ warning[unnecessary_semicolon]: this `;` ends nothing
    |
 help: remove it
    |
+17           print("positive\n");
 18 ~     }
+19
    |
    = note: `unnecessary_semicolon` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_semicolon
@@ -35,7 +39,9 @@ warning[unnecessary_semicolon]: this `;` ends nothing
    |
 help: remove it
    |
+21           total += it;
 22 ~     }
+23
    |
    = note: `unnecessary_semicolon` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_semicolon
@@ -48,8 +54,10 @@ warning[unnecessary_semicolon]: this `;` ends nothing
    |
 help: remove it
    |
+23
 24 -     ;
 25 - 
+26       if total == {
    |
    = note: `unnecessary_semicolon` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_semicolon
@@ -62,7 +70,9 @@ warning[unnecessary_semicolon]: this `;` ends nothing
    |
 help: remove it
    |
+27           case 1;
 28 ~             print("one\n");
+29           case;
    |
    = note: `unnecessary_semicolon` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_semicolon

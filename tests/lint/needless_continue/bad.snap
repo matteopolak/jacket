@@ -9,7 +9,9 @@ warning[needless_continue]: this `continue` is the last thing the loop does
    |
 help: remove it
    |
+ 8           total += it;
  9 -         continue;
+10       }
    |
    = note: `needless_continue` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_continue
@@ -22,7 +24,9 @@ warning[needless_continue]: this `continue` is the last thing the loop does
    |
 help: remove it
    |
+14               total += it;
 15 -             continue;
+16           } else {
    |
    = note: `needless_continue` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_continue
@@ -35,7 +39,9 @@ warning[needless_continue]: this `continue` is the last thing the loop does
    |
 help: remove it
    |
+17               total -= 1;
 18 -             continue;
+19           }
    |
    = note: `needless_continue` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_continue
@@ -58,7 +64,9 @@ warning[needless_continue]: this `continue` is the last thing the loop does
    |
 help: remove it
    |
+32               total += 3;
 33 -             continue;
+34           }
    |
    = note: `needless_continue` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_continue

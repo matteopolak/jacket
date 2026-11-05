@@ -9,7 +9,9 @@ warning[identical_branches]: both branches of this `ifx` are the same
    |
 help: the condition decides nothing: was one branch meant to differ?
    |
+ 4       n := 3;
  5 ~     label := "positive";
+ 6       print("%\n", label);
    |
    = note: `identical_branches` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/identical_branches

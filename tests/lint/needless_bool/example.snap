@@ -9,9 +9,10 @@ warning[needless_bool]: this `if` returns its own condition as a `bool`
    |
 help: write `return n > 0;`
    |
- 4 -     if n > 0 return true;
+ 3   is_positive :: (n: int) -> bool {
+ 4 ~     return n > 0;
  5 -     else return false;
- 4 +     return n > 0;
+ 6   }
    |
    = note: `needless_bool` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_bool

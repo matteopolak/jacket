@@ -68,9 +68,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             } else {
                 format!("({text})")
             };
+            // Diagnose the whole written expression, including its closing parentheses.
             let (start, end) = cx.whole(e);
             out.push(suggesting(
-                e.span,
+                jaic::source::Span::new(e.span.file, start, end),
                 format!(
                     "`!({a_src} {} {b_src})` is not `{a_src} {} {b_src}` when a float is NaN",
                     op_text(*op),

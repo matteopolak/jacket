@@ -9,9 +9,10 @@ warning[needless_bool]: this `if` returns its own condition as a `bool`
    |
 help: write `return n > 0;`
    |
- 4 -     if n > 0 return true;
+ 3   positive :: (n: int) -> bool {
+ 4 ~     return n > 0;
  5 -     else return false;
- 4 +     return n > 0;
+ 6   }
    |
    = note: `needless_bool` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_bool
@@ -24,12 +25,13 @@ warning[needless_bool]: this `if` returns its own condition as a `bool`
    |
 help: write `return n >= 10;`
    |
- 9 -     if n < 10 {
+ 8   small :: (n: int) -> bool {
+ 9 ~     return n >= 10;
 10 -         return false;
 11 -     }
 12 - 
 13 -     return true;
- 9 +     return n >= 10;
+14   }
    |
    = note: `needless_bool` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_bool
@@ -42,9 +44,10 @@ warning[needless_bool]: this `if` returns its own condition as a `bool`
    |
 help: write `return a != b;`
    |
-17 -     if a == b return false;
+16   differs :: (a: int, b: int) -> bool {
+17 ~     return a != b;
 18 -     return true;
-17 +     return a != b;
+19   }
    |
    = note: `needless_bool` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_bool
@@ -57,9 +60,10 @@ warning[needless_bool]: this `if` returns its own condition as a `bool`
    |
 help: write `return !(a == b);`
    |
-31 -     if a == b return false;
+30   distinct_values :: (a: V, b: V) -> bool {
+31 ~     return !(a == b);
 32 -     return true;
-31 +     return !(a == b);
+33   }
    |
    = note: `needless_bool` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_bool
@@ -72,7 +76,9 @@ warning[needless_bool]: this `ifx` turns a condition into the same `bool`
    |
 help: write `n % 2 == 0`
    |
+36       n := 5;
 37 ~     even := n % 2 == 0;
+38       odd := ifx even then false else true;
    |
    = note: `needless_bool` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_bool
@@ -85,7 +91,9 @@ warning[needless_bool]: this `ifx` turns a condition into the same `bool`
    |
 help: write `!even`
    |
+37       even := ifx n % 2 == 0 then true else false;
 38 ~     odd := !even;
+39       flag: bool;
    |
    = note: `needless_bool` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_bool
@@ -98,9 +106,10 @@ warning[needless_bool]: this `if` assigns its own condition as a `bool`
    |
 help: write `flag = n > 3;`
    |
-41 -     if n > 3 flag = true;
+40
+41 ~     flag = n > 3;
 42 -     else flag = false;
-41 +     flag = n > 3;
+43
    |
    = note: `needless_bool` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/needless_bool

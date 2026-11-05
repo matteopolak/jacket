@@ -9,7 +9,9 @@ warning[zero_ptr]: `cast(*u8) 0` is a null pointer
    |
 help: write `null`
    |
+ 3   main :: () {
  4 ~     p := null;
+ 5       print("%\n", p);
    |
    = note: `zero_ptr` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/zero_ptr

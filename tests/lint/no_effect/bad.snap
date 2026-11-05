@@ -9,7 +9,9 @@ warning[no_effect]: this statement has no effect
    |
 help: to assign, write `x = 5;`
    |
+ 9
 10 ~     x = 5;
+11       x + 1;
    |
    = note: `no_effect` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/no_effect
@@ -22,7 +24,9 @@ warning[no_effect]: this statement has no effect
    |
 help: to update `x`, write `x += 1;`
    |
+10       x == 5;
 11 ~     x += 1;
+12       flush;
    |
    = note: `no_effect` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/no_effect
@@ -35,7 +39,9 @@ warning[no_effect]: this statement has no effect
    |
 help: to call it, write `flush();`
    |
+11       x + 1;
 12 ~     flush();
+13       x;
    |
    = note: `no_effect` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/no_effect
@@ -48,7 +54,9 @@ warning[no_effect]: this statement has no effect
    |
 help: remove it, or use its value
    |
+12       flush;
 13 -     x;
+14       print("%\n", x);
    |
    = note: `no_effect` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/no_effect

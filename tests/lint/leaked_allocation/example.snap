@@ -9,6 +9,8 @@ warning[leaked_allocation]: `parser` holds memory from `New` that is never freed
    |
 help: free it when done, for example `defer free(parser);` right after this line
    |
+ 8       parser := New(Parser);
  9 +     defer free(parser);
+ 9       parser.depth = 3;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/leaked_allocation

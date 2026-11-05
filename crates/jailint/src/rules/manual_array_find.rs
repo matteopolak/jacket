@@ -130,11 +130,8 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     } else {
         format!("`{call}` returns whether it was found, and the index after that")
     };
-    let header = jaic::source::Span::new(
-        cx.file,
-        stmt.span.start as usize,
-        f.body.span.start as usize,
-    );
+    // The collection extent ends before whitespace or comments preceding the body.
+    let header = jaic::source::Span::new(cx.file, stmt.span.start as usize, cx.whole(array).1);
     Some(super::finding(
         header,
         format!("this loop looks for `{wanted_src}` in `{array_src}` by hand"),

@@ -9,7 +9,9 @@ warning[unnecessary_force_cast]: `cast,force` from `s32` to `s64` reinterprets n
    |
 help: remove `,force`: the plain cast does the same
    |
+ 3   widen :: (a: s32) -> s64 {
  4 ~     return cast(s64) a;
+ 5   }
    |
    = note: `unnecessary_force_cast` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_force_cast

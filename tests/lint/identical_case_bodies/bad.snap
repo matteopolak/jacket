@@ -9,10 +9,11 @@ warning[identical_case_bodies]: `case .JPEG` does the same as `case .PNG`
    |
 help: list the values together: `case .PNG, .JPEG;`
    |
-13 -         case .PNG;
+12       if kind == {
+13 ~         case .PNG, .JPEG;
 14 -             return "image";
 15 -         case .JPEG;
-13 +         case .PNG, .JPEG;
+16               return "image";
    |
    = note: see https://jacket.matteopolak.com/lint-rules/identical_case_bodies
 
@@ -24,10 +25,11 @@ warning[identical_case_bodies]: `case .MP3` does the same as `case .WAV`
    |
 help: list the values together: `case .WAV, .MP3;`
    |
-17 -         case .WAV;
+16               return "image";
+17 ~         case .WAV, .MP3;
 18 -             return "audio";
 19 -         case .MP3;
-17 +         case .WAV, .MP3;
+20               return "audio";
    |
    = note: see https://jacket.matteopolak.com/lint-rules/identical_case_bodies
 
@@ -39,9 +41,14 @@ warning[identical_case_bodies]: `case 2` does the same as `case 1`
    |
 help: list the values together: `case 1, 2;`
    |
+31       if n == {
 32 ~         case 1, 2;
+33               result += 1;
+...
+36               result += 5;
 37 -         case 2;
 38 -             result += 1;
 39 -             print("light\n");
+40       }
    |
    = note: see https://jacket.matteopolak.com/lint-rules/identical_case_bodies

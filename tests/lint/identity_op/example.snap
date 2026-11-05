@@ -9,7 +9,9 @@ warning[identity_op]: `count * 1` is just `count`: `*` with this operand changes
    |
 help: write `count`
    |
+ 3   size_in_bytes :: (count: int) -> int {
  4 ~     return count;
+ 5   }
    |
    = note: `identity_op` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/identity_op

@@ -9,7 +9,9 @@ warning[bool_comparison]: comparing a bool with `true`: `ready == true`
    |
 help: write `ready`
    |
+ 5
  6 ~     if ready print("ready\n");
+ 7   }
    |
    = note: `bool_comparison` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison

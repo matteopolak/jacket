@@ -683,6 +683,11 @@ impl Renderer {
                         } else {
                             expand_tabs(&code)
                         };
+                        if mark == ' ' && code.is_empty() {
+                            // An empty context line needs only its number, with no trailing cells.
+                            self.line(&self.paint.on(GUTTER, &format!("{n:>width$}")));
+                            continue;
+                        }
                         self.line(&format!(
                             "{} {} {code}",
                             self.paint.on(GUTTER, &format!("{n:>width$}")),
@@ -985,122 +990,8 @@ fn indent_width(text: &str, colored: bool) -> usize {
     width
 }
 
-/// The code a fix changes, as (line number, mark, text). When the fix keeps the number of
-/// lines in a changed hunk, those lines as fixed (`~`); otherwise the removed lines (`-`)
-/// then the added lines (`+`). Unchanged lines are omitted. At most `MAX_FIX_LINES` of each.
-/// `lines` indexes `text`.
-pub fn changed_lines(
-    text: &str,
-    lines: &LineIndex,
-    edits: &[(usize, usize, String)],
-) -> Vec<(String, char, String)> {
-    // Only the lines the edits touch: copying and splitting the whole file for every fix made
-    // rendering a linter's thousands of fixes quadratic.
-    let first = edits.iter().map(|e| e.0).min().unwrap_or(0).min(text.len());
-    let last = edits
-        .iter()
-        .map(|e| e.1)
-        .max()
-        .unwrap_or(0)
-        .clamp(first, text.len());
-    let start = lines.line_start(first);
-    let end = lines.line_end(last).max(last);
-    let base = lines.line_of(start);
-    let window: Vec<_> = edits
-        .iter()
-        .map(|(a, b, new)| (a - start, b - start, new.clone()))
-        .collect();
-    let mut out = changed_lines_in(&text[start..end], &window);
-    for (line, _, _) in &mut out {
-        if let Ok(n) = line.parse::<usize>() {
-            *line = (n + base).to_string();
-        }
-    }
-    out
-}
-
-fn changed_lines_in(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String, char, String)> {
-    let mut edits = edits.to_vec();
-    edits.sort_by_key(|e| e.0);
-    let mut fixed = text.to_string();
-    for (start, end, new) in edits.iter().rev() {
-        fixed.replace_range(*start..*end, new);
-    }
-    // Compare line contents, not their terminators: a deletion can leave an unchanged
-    // boundary line at the end of this window, without its original newline.
-    let old: Vec<&str> = text.lines().collect();
-    let new: Vec<&str> = fixed.lines().collect();
-    let mut out = Vec::new();
-    let mut removed = 0;
-    let mut added = 0;
-    let hunks = if old.len() == new.len() {
-        // Equal-length fixes use replacement lines; line moves within a branch swap
-        // would otherwise turn a compact preview into interleaved additions/deletions.
-        vec![similar::DiffOp::Replace {
-            old_index: 0,
-            old_len: old.len(),
-            new_index: 0,
-            new_len: new.len(),
-        }]
-    } else {
-        similar::capture_diff_slices(similar::Algorithm::Myers, &old, &new)
-    };
-    for op in hunks {
-        if op.tag() == similar::DiffTag::Equal {
-            continue;
-        }
-        let old_range = op.old_range();
-        let new_range = op.new_range();
-        // Keep the compact replacement form for a hunk with the same line count.
-        let replacement = old_range.len() == new_range.len();
-        let old_start = old_range.start;
-        let new_start = new_range.start;
-        if !replacement {
-            for n in old_range {
-                if removed < MAX_FIX_LINES {
-                    out.push(((n + 1).to_string(), '-', old[n].trim_end().to_string()));
-                } else if removed == MAX_FIX_LINES {
-                    out.push(("...".into(), '-', String::new()));
-                }
-                removed += 1;
-            }
-        }
-        for n in new_range {
-            if replacement && old[old_start + n - new_start] == new[n] {
-                continue;
-            }
-            let mark = if replacement {
-                '~'
-            } else {
-                '+'
-            };
-            if added < MAX_FIX_LINES {
-                out.push(((n + 1).to_string(), mark, new[n].trim_end().to_string()));
-            } else if added == MAX_FIX_LINES {
-                out.push(("...".into(), mark, String::new()));
-            }
-            added += 1;
-        }
-    }
-    // Line-ending-only edits still need a preview (for example, adding the final newline).
-    // They have no changed line contents, so show just their touched lines as replacements.
-    if out.is_empty() && text != fixed {
-        let index = LineIndex::new(text);
-        let mut touched = Vec::new();
-        for (start, end, _) in &edits {
-            touched
-                .extend(index.line_of(*start)..=index.line_of(end.saturating_sub(1).max(*start)));
-        }
-        touched.sort_unstable();
-        touched.dedup();
-        for n in touched.into_iter().take(MAX_FIX_LINES) {
-            if let Some(line) = old.get(n) {
-                out.push(((n + 1).to_string(), '~', line.trim_end().to_string()));
-            }
-        }
-    }
-    out
-}
+mod fixes;
+pub use fixes::changed_lines;
 
 /// A file name as the user sees it: relative to where the command started
 /// (`crate::set_display_base`), when that is near.

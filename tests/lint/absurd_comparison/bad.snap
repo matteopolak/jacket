@@ -9,7 +9,9 @@ error[absurd_comparison]: `i >= 0` is always `true`
    |
 help: `u32` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
    |
+ 4       i := n;
  5 ~     while true {
+ 6           print("%\n", i);
    |
    = note: `absurd_comparison` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison
@@ -22,7 +24,9 @@ error[absurd_comparison]: `index < 0` is always `false`
    |
 help: `u64` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
    |
+12   check :: (index: u64, small: s8) -> bool {
 13 ~     if false return false;
+14       if 0 > index return false;
    |
    = note: `absurd_comparison` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison
@@ -35,7 +39,9 @@ error[absurd_comparison]: `index < 0` is always `false`
    |
 help: `u64` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
    |
+13       if index < 0 return false;
 14 ~     if false return false;
+15       if small < -128 return false;
    |
    = note: `absurd_comparison` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison
@@ -48,7 +54,9 @@ error[absurd_comparison]: `small < -128` is always `false`
    |
 help: `s8` holds nothing below -128; compare with a signed value, or drop the check
    |
+14       if 0 > index return false;
 15 ~     if false return false;
+16       return true;
    |
    = note: `absurd_comparison` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison

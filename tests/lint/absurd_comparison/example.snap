@@ -9,7 +9,9 @@ error[absurd_comparison]: `i >= 0` is always `true`
    |
 help: `u32` is unsigned and holds nothing below 0; compare with a signed value, or drop the check
    |
+ 4       i := n;
  5 ~     while true {
+ 6           print("%\n", i);
    |
    = note: `absurd_comparison` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/absurd_comparison

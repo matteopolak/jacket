@@ -9,6 +9,8 @@ warning[autocast_used]: `xx` leaves the target type to the context (`s64` to `u8
    |
 help: write `cast(u8)` to say so
    |
+ 4       big: s64 = 200;
  5 ~     small: u8 = cast(u8) big;
+ 6
    |
    = note: see https://jacket.matteopolak.com/lint-rules/autocast_used
