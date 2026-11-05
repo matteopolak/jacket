@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -141,6 +142,46 @@ class Summary(unittest.TestCase):
         ):
             crash_summary.main(["check", "--artifacts", str(self.dir / ".")])
         self.assertTrue(out.read_text().startswith("earlier\n### fuzz `check`"))
+
+
+class Runtime(unittest.TestCase):
+    def test_real_rust_panic_pipeline(self):
+        import validate_crash_summary as validator
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            inherited = out / "inherited-summary.md"
+            inherited.write_text("earlier\n")
+            with mock.patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": str(inherited)}):
+                validator.prepare(out)
+                validator.report(out)
+            self.assertEqual(inherited.read_text(), "earlier\n")
+            with (
+                mock.patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": str(inherited)}),
+                mock.patch.object(sys, "argv", ["validate", "--out", str(out), "--phase", "summary"]),
+            ):
+                self.assertEqual(validator.main(), 0)
+            self.assertTrue(inherited.read_text().startswith("earlier\nSynthetic panic acceptance"))
+
+    def test_real_timeout_and_non_panic_exit(self):
+        self.assertEqual(crash_summary.run_replay([sys.executable, "-c", "raise SystemExit(7)"], 5).status, 7)
+        self.assertIsNone(crash_summary.run_replay([sys.executable, "-c", "import time; time.sleep(10)"], 0.1).status)
+
+
+class Preparation(unittest.TestCase):
+    def test_build_failure_is_reported_without_replaying(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            (directory / "crash-known").write_bytes(b"known")
+            out = directory / "summary.md"
+            with (
+                mock.patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": str(out)}),
+                mock.patch.object(crash_summary, "build_replay", return_value=False),
+                mock.patch.object(crash_summary, "replay_input") as replay,
+            ):
+                self.assertEqual(crash_summary.main(["check", "--artifacts", tmp]), 1)
+                replay.assert_not_called()
+            self.assertIn("Replay preparation failed", out.read_text())
+            self.assertIn("crash-known", out.read_text())
 
 
 if __name__ == "__main__":
