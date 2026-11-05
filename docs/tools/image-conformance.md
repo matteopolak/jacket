@@ -66,18 +66,18 @@ JAIC_NATIVE_LIBS=target/native-libs/macos-arm64 JAIC_STDLIB=stdlib \
 target/jpeg-bench 1
 ```
 
-Measured on Apple M5, ARM64 macOS 27.0, with Image source `6e9d47004f7c` and the repository's default O2 stb build at `2c980bb`. Both decoders run in the same native O2 benchmark binary. `cjpeg` 3.2.0 generates the additional JPEG cases before timing. Each image is 1154×865 pixels. Each value is the median of three process minima; parentheses give the Image range across those minima. Each minimum covers 3–40 complete decode/allocation/free calls. Time excludes encoding and file I/O. A time ratio below 1 means Image completed the same decode task in less time than this stb build.
+Measured on Apple M5, ARM64 macOS 27.0, with Image source `290f12e25806` and the repository's default O2 stb build at `2c980bb`. Both decoders run in the same native O2 benchmark binary. `cjpeg` 3.2.0 generates the additional JPEG cases before timing. Each image is 1154×865 pixels. Each value is the median of three process minima; parentheses give the Image range across those minima. Each minimum covers 3–40 complete decode/allocation/free calls. Time excludes encoding and file I/O. A time ratio below 1 means Image completed the same decode task in less time than this stb build.
 
 | JPEG workload | Image MP/s (range) | stb MP/s | Image time / stb |
 | --- | ---: | ---: | ---: |
-| baseline 4:2:0 q75 (stb) | 326.9 (325.0–327.2) | 243.8 | 0.75× |
-| baseline 4:4:4 q95 (stb) | 165.2 (164.5–166.2) | 115.4 | 0.70× |
-| baseline 4:2:2 q85 | 256.1 (248.1–257.2) | 187.4 | 0.73× |
-| baseline 4:2:0 q75 optimized | 337.9 (328.3–338.7) | 251.2 | 0.74× |
-| baseline 4:2:0 q75 restarts | 327.7 (318.8–329.9) | 245.9 | 0.75× |
-| progressive 4:2:0 q75 | 142.8 (142.6–143.0) | 113.8 | 0.80× |
-| progressive 4:4:4 q95 | 64.9 (64.2–65.0) | 48.9 | 0.75× |
-| grayscale q85 | 476.5 (473.5–476.7) | 309.0 | 0.65× |
+| baseline 4:2:0 q75 (stb) | 329.4 (328.5–332.0) | 249.4 | 0.76× |
+| baseline 4:4:4 q95 (stb) | 168.0 (167.9–168.8) | 118.5 | 0.71× |
+| baseline 4:2:2 q85 | 258.3 (257.1–260.5) | 189.2 | 0.73× |
+| baseline 4:2:0 q75 optimized | 340.5 (337.3–342.3) | 254.0 | 0.75× |
+| baseline 4:2:0 q75 restarts | 330.2 (323.7–332.3) | 248.9 | 0.75× |
+| progressive 4:2:0 q75 | 144.7 (144.7–145.4) | 116.3 | 0.80× |
+| progressive 4:4:4 q95 | 66.0 (65.7–66.0) | 49.9 | 0.76× |
+| grayscale q85 | 483.2 (462.8–484.1) | 308.6 | 0.64× |
 
 The [machine-readable measurement](../benchmarks/image-codecs.json) records source/compiler/library hashes and all three samples. These minima describe throughput on this workload, not a latency distribution. Repeat all cases with the same reference build and update the table and receipt together when changing the decoder or benchmark.
 

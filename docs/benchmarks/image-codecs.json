@@ -1,6 +1,6 @@
 {
-  "source_revision": "6e9d47004f7c2b0d7937d01ae12c7292e32b93a1",
-  "measured_utc": "2026-11-05T06:41:06.230057+00:00",
+  "source_revision": "290f12e258061deefcbf7eadafe30fde02404fb1",
+  "measured_utc": "2026-11-05T15:43:40.030297+00:00",
   "environment": {
     "cpu": "Apple M5",
     "os": "macOS 27.0",
@@ -14,9 +14,9 @@
     "cjpeg_version": "libjpeg-turbo 3.2.0",
     "stb_revision": "2c980bb59875b0d32144a71867fbdebb2f77cd20"
   },
-  "method": "Median of three process minima; each minimum uses 3..40 complete decode/allocation/free iterations, stopping after 1.5 seconds or 40 iterations. Exclusive quiet gate admitted at load 2.49. Encoder generation/file I/O excluded. Ratios are stb_mps/ours_mps.",
-  "compiler_sha256": "3deade77a04553bf683975576a4bbc5035af27473a603bab7a063bfe195d398a",
-  "binary_sha256": "8f94e29e4102d1f8931bb10c6e3e0403fc878386e8c124dfb1311ebd6acfd6ab",
+  "method": "Median of three process minima; each minimum uses 3..40 complete decode/allocation/free iterations, stopping after 1.5 seconds or 40 iterations. Exclusive quiet gate admitted at load 2.45. Encoder generation/file I/O excluded. Ratios are stb_mps/ours_mps.",
+  "compiler_sha256": "70a6a0e7496c3ec2d3c378a865786304e4d21dfb52c5b194af2aecaca0cdb9b3",
+  "binary_sha256": "02c232515c37a3d10624b304f9c4a867960d95b839b62ad2131b223895a8444e",
   "image_source_sha256": {
     "stdlib/Extensions/Image/qoi.jai": "93a185e94f72672d4af2b3285d1b0b61db845b2565a2c71e320b55dfe101630d",
     "stdlib/Extensions/Image/jpeg_output.jai": "8811694037e060e55b39771822aef4352acaf91ca0854961c4ea83024079f677",
@@ -42,275 +42,275 @@
   "cases": [
     {
       "case": "baseline 4:2:0 q75 (stb)",
-      "ours_mps": 326.9,
+      "ours_mps": 329.4,
       "ours_range_mps": [
-        325.0,
-        327.2
+        328.5,
+        332.0
       ],
-      "stb_mps": 243.8,
+      "stb_mps": 249.4,
       "stb_range_mps": [
-        242.8,
-        246.7
+        247.3,
+        251.9
       ],
-      "time_over_stb": 0.7457938207402877,
       "process_samples": [
         {
-          "ours_mps": 327.2,
-          "stb_mps": 246.7,
+          "ours_mps": 329.4,
+          "stb_mps": 247.3,
           "ratio": 0.75,
           "kilobytes": 198
         },
         {
-          "ours_mps": 326.9,
-          "stb_mps": 243.8,
-          "ratio": 0.75,
+          "ours_mps": 328.5,
+          "stb_mps": 249.4,
+          "ratio": 0.76,
           "kilobytes": 198
         },
         {
-          "ours_mps": 325.0,
-          "stb_mps": 242.8,
-          "ratio": 0.75,
+          "ours_mps": 332.0,
+          "stb_mps": 251.9,
+          "ratio": 0.76,
           "kilobytes": 198
         }
-      ]
+      ],
+      "time_over_stb": 0.7571341833636916
     },
     {
       "case": "baseline 4:4:4 q95 (stb)",
-      "ours_mps": 165.2,
+      "ours_mps": 168.0,
       "ours_range_mps": [
-        164.5,
-        166.2
+        167.9,
+        168.8
       ],
-      "stb_mps": 115.4,
+      "stb_mps": 118.5,
       "stb_range_mps": [
-        114.6,
-        116.0
+        118.2,
+        118.5
       ],
-      "time_over_stb": 0.6985472154963681,
       "process_samples": [
         {
-          "ours_mps": 165.2,
-          "stb_mps": 115.4,
-          "ratio": 0.7,
+          "ours_mps": 168.0,
+          "stb_mps": 118.5,
+          "ratio": 0.71,
           "kilobytes": 654
         },
         {
-          "ours_mps": 166.2,
-          "stb_mps": 114.6,
-          "ratio": 0.69,
+          "ours_mps": 167.9,
+          "stb_mps": 118.5,
+          "ratio": 0.71,
           "kilobytes": 654
         },
         {
-          "ours_mps": 164.5,
-          "stb_mps": 116.0,
+          "ours_mps": 168.8,
+          "stb_mps": 118.2,
           "ratio": 0.7,
           "kilobytes": 654
         }
-      ]
+      ],
+      "time_over_stb": 0.7053571428571429
     },
     {
       "case": "baseline 4:2:2 q85",
-      "ours_mps": 256.1,
+      "ours_mps": 258.3,
       "ours_range_mps": [
-        248.1,
-        257.2
+        257.1,
+        260.5
       ],
-      "stb_mps": 187.4,
+      "stb_mps": 189.2,
       "stb_range_mps": [
-        186.3,
-        187.7
+        188.6,
+        193.5
       ],
-      "time_over_stb": 0.7317454119484575,
       "process_samples": [
         {
-          "ours_mps": 256.1,
-          "stb_mps": 186.3,
+          "ours_mps": 257.1,
+          "stb_mps": 188.6,
           "ratio": 0.73,
           "kilobytes": 320
         },
         {
-          "ours_mps": 257.2,
-          "stb_mps": 187.7,
+          "ours_mps": 258.3,
+          "stb_mps": 189.2,
           "ratio": 0.73,
           "kilobytes": 320
         },
         {
-          "ours_mps": 248.1,
-          "stb_mps": 187.4,
-          "ratio": 0.76,
+          "ours_mps": 260.5,
+          "stb_mps": 193.5,
+          "ratio": 0.74,
           "kilobytes": 320
         }
-      ]
+      ],
+      "time_over_stb": 0.732481610530391
     },
     {
       "case": "baseline 4:2:0 q75 optimized",
-      "ours_mps": 337.9,
+      "ours_mps": 340.5,
       "ours_range_mps": [
-        328.3,
-        338.7
+        337.3,
+        342.3
       ],
-      "stb_mps": 251.2,
+      "stb_mps": 254.0,
       "stb_range_mps": [
-        249.7,
-        252.6
+        251.4,
+        254.1
       ],
-      "time_over_stb": 0.7434152116010654,
       "process_samples": [
         {
-          "ours_mps": 337.9,
-          "stb_mps": 252.6,
+          "ours_mps": 337.3,
+          "stb_mps": 254.1,
           "ratio": 0.75,
           "kilobytes": 187
         },
         {
-          "ours_mps": 338.7,
-          "stb_mps": 249.7,
+          "ours_mps": 340.5,
+          "stb_mps": 251.4,
           "ratio": 0.74,
           "kilobytes": 187
         },
         {
-          "ours_mps": 328.3,
-          "stb_mps": 251.2,
-          "ratio": 0.77,
+          "ours_mps": 342.3,
+          "stb_mps": 254.0,
+          "ratio": 0.74,
           "kilobytes": 187
         }
-      ]
+      ],
+      "time_over_stb": 0.7459618208516887
     },
     {
       "case": "baseline 4:2:0 q75 restarts",
-      "ours_mps": 327.7,
+      "ours_mps": 330.2,
       "ours_range_mps": [
-        318.8,
-        329.9
+        323.7,
+        332.3
       ],
-      "stb_mps": 245.9,
+      "stb_mps": 248.9,
       "stb_range_mps": [
-        245.9,
-        246.5
+        247.7,
+        252.0
       ],
-      "time_over_stb": 0.7503814464449192,
       "process_samples": [
         {
-          "ours_mps": 327.7,
-          "stb_mps": 245.9,
-          "ratio": 0.75,
-          "kilobytes": 197
-        },
-        {
-          "ours_mps": 329.9,
-          "stb_mps": 245.9,
-          "ratio": 0.75,
-          "kilobytes": 197
-        },
-        {
-          "ours_mps": 318.8,
-          "stb_mps": 246.5,
+          "ours_mps": 323.7,
+          "stb_mps": 247.7,
           "ratio": 0.77,
           "kilobytes": 197
+        },
+        {
+          "ours_mps": 330.2,
+          "stb_mps": 248.9,
+          "ratio": 0.75,
+          "kilobytes": 197
+        },
+        {
+          "ours_mps": 332.3,
+          "stb_mps": 252.0,
+          "ratio": 0.76,
+          "kilobytes": 197
         }
-      ]
+      ],
+      "time_over_stb": 0.7537855844942459
     },
     {
       "case": "progressive 4:2:0 q75",
-      "ours_mps": 142.8,
+      "ours_mps": 144.7,
       "ours_range_mps": [
-        142.6,
-        143.0
+        144.7,
+        145.4
       ],
-      "stb_mps": 113.8,
+      "stb_mps": 116.3,
       "stb_range_mps": [
-        113.6,
-        114.3
+        115.3,
+        116.6
       ],
-      "time_over_stb": 0.7969187675070027,
       "process_samples": [
         {
-          "ours_mps": 142.6,
-          "stb_mps": 113.8,
+          "ours_mps": 144.7,
+          "stb_mps": 116.3,
           "ratio": 0.8,
           "kilobytes": 181
         },
         {
-          "ours_mps": 142.8,
-          "stb_mps": 113.6,
+          "ours_mps": 144.7,
+          "stb_mps": 115.3,
           "ratio": 0.8,
           "kilobytes": 181
         },
         {
-          "ours_mps": 143.0,
-          "stb_mps": 114.3,
+          "ours_mps": 145.4,
+          "stb_mps": 116.6,
           "ratio": 0.8,
           "kilobytes": 181
         }
-      ]
+      ],
+      "time_over_stb": 0.8037318590186593
     },
     {
       "case": "progressive 4:4:4 q95",
-      "ours_mps": 64.9,
+      "ours_mps": 66.0,
       "ours_range_mps": [
-        64.2,
-        65.0
+        65.7,
+        66.0
       ],
-      "stb_mps": 48.9,
+      "stb_mps": 49.9,
       "stb_range_mps": [
-        48.5,
-        49.2
+        49.8,
+        50.2
       ],
-      "time_over_stb": 0.7534668721109398,
       "process_samples": [
         {
-          "ours_mps": 65.0,
-          "stb_mps": 49.2,
+          "ours_mps": 65.7,
+          "stb_mps": 49.8,
           "ratio": 0.76,
           "kilobytes": 600
         },
         {
-          "ours_mps": 64.9,
-          "stb_mps": 48.5,
-          "ratio": 0.75,
+          "ours_mps": 66.0,
+          "stb_mps": 49.9,
+          "ratio": 0.76,
           "kilobytes": 600
         },
         {
-          "ours_mps": 64.2,
-          "stb_mps": 48.9,
+          "ours_mps": 66.0,
+          "stb_mps": 50.2,
           "ratio": 0.76,
           "kilobytes": 600
         }
-      ]
+      ],
+      "time_over_stb": 0.756060606060606
     },
     {
       "case": "grayscale q85",
-      "ours_mps": 476.5,
+      "ours_mps": 483.2,
       "ours_range_mps": [
-        473.5,
-        476.7
+        462.8,
+        484.1
       ],
-      "stb_mps": 309.0,
+      "stb_mps": 308.6,
       "stb_range_mps": [
-        308.5,
-        310.5
+        308.4,
+        310.7
       ],
-      "time_over_stb": 0.6484784889821616,
       "process_samples": [
         {
-          "ours_mps": 473.5,
-          "stb_mps": 308.5,
-          "ratio": 0.65,
+          "ours_mps": 462.8,
+          "stb_mps": 308.6,
+          "ratio": 0.67,
           "kilobytes": 277
         },
         {
-          "ours_mps": 476.5,
-          "stb_mps": 309.0,
-          "ratio": 0.65,
+          "ours_mps": 483.2,
+          "stb_mps": 310.7,
+          "ratio": 0.64,
           "kilobytes": 277
         },
         {
-          "ours_mps": 476.7,
-          "stb_mps": 310.5,
-          "ratio": 0.65,
+          "ours_mps": 484.1,
+          "stb_mps": 308.4,
+          "ratio": 0.64,
           "kilobytes": 277
         }
-      ]
+      ],
+      "time_over_stb": 0.638658940397351
     }
   ],
   "benchmark_source_sha256": {
