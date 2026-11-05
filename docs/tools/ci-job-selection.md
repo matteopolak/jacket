@@ -30,6 +30,12 @@ Full-tier Intel macOS divides the stdlib module/target checks and cross-OS docum
 
 The owning Rust test emits reserved `STDLIB_TARGET_INVENTORY` JSON records for the canonical full and assigned pair lists, returned compiler processes, and a final marker after its existing expectation assertions. A compiler exit failure can be expected for an unsupported target; completion alone does not prove verification. Successful nextest output is normally hidden; `NEXTEST_SUCCESS_OUTPUT=final` exposes these records without changing the test limit.
 
+## Producer work
+
+Full-tier Intel macOS runs `tooling` and `bindings` on its existing catalogue job. The other producer suites stay with the complete native/interpreted/O2 Jacket run. This keeps the long tooling run from leaving bindings only the remainder of the same job budget. Both jobs retain their 150-minute limit, existing test commands and complete case inventories; other platforms and the fast tier keep their assignments.
+
+The `suites` matrix field selects these existing drivers. Keep tooling and bindings together: tooling rebuilds native tools that bindings reads, so `check_stdlib_suites.py` runs them in one resource group. Each CI job has its own workspace. When changing assignments, preserve each complete producer suite exactly once and retain the independent catalogue, Jacket and WebGPU coverage; update `test_ci_changes.py` alongside the matrix.
+
 ## Narrowing the stdlib tests
 
 The `stdlib-runtime` legs run `jacket test` over the whole standard library (`tools/ci/stdlib_jacket_test.sh`). When a pull request or a push to a branch other than `main` or `staging` changes only stdlib module sources (`stdlib/**.jai`) and golden outputs (`tests/**.stdout|stderr|exit`), at most 100 files, `ci_changes.py` writes them as the JSON `stdlib_changed` output. The leg passes it as `JACKET_TEST_CHANGED`, and `tools/ci/select_tests.py` asks `jacket test --list --list-target --changed FILE...` with each mode's exact arguments. The dependency graph is what `jaic -deps` says each test program read, so no module map is kept in CI. Each mode uses its own names as `--exact` filters before `--partition`. A native empty selection skips only that mode: target-only WASM declarations may still be affected. Any failed query runs the complete mode instead of narrowing.

@@ -548,6 +548,41 @@ class Tiers(unittest.TestCase):
         for leg in macos:
             self.assertGreaterEqual(leg["timeout"], 120, leg)
 
+    def test_full_intel_producer_work_uses_both_existing_jobs(self):
+        legs = [
+            row
+            for row in ci_changes.stdlib_matrix(True)
+            if row["platform"] == "macos-x64"
+        ]
+        self.assertEqual(len(legs), 2)
+        catalogue = next(row for row in legs if row["shard"] == "1/1")
+        runtime = next(row for row in legs if row["shard"] == "suites")
+        self.assertEqual(
+            set(catalogue.get("suites", "").split()), {"tooling", "bindings"}
+        )
+        self.assertEqual(
+            set(runtime["suites"].split()), {"portable", "platform", "audio", "window"}
+        )
+        self.assertEqual(
+            Counter(suite for row in legs for suite in row.get("suites", "").split()),
+            Counter(
+                {
+                    suite: 1
+                    for suite in (
+                        "portable",
+                        "platform",
+                        "audio",
+                        "window",
+                        "bindings",
+                        "tooling",
+                    )
+                }
+            ),
+        )
+        self.assertEqual((catalogue["modes"], catalogue["o2"]), ("interp,native", True))
+        self.assertEqual(runtime["jacket_test"], "all")
+        self.assertEqual([row["timeout"] for row in legs], [150, 150])
+
     def test_every_test_leg_names_its_parts_with_delimiters(self):
         for full in (False, True):
             for leg in ci_changes.test_matrix(full):
