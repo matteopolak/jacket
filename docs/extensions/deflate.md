@@ -11,9 +11,11 @@ written, ok2, error2 := inflate_into(packed, buffer);     // no allocation
 crc := crc32(bytes);                                      // crc32(more, crc) continues
 ```
 
+Use `inflate_complete(packed, .GZIP, max_output)` for bounded protocol payloads that must reject trailing bytes. It checks every member checksum before returning success.
+
 Results use `context.allocator` and belong to the caller. Errors are static strings (`bad zlib header`, `output exceeds the limit`, ...).
 
-`.RAW` is bare blocks, `.ZLIB` adds a header and Adler-32 (PNG's IDAT), `.GZIP` is one member with CRC-32 and size trailer. Decoding checks headers and trailers and ignores bytes after the stream. Concatenated gzip members and zlib preset dictionaries are not supported.
+`.RAW` is bare blocks, `.ZLIB` adds a header and Adler-32 (PNG's IDAT), `.GZIP` is one member with CRC-32 and size trailer. Decoding checks headers and trailers and ignores bytes after the stream. `inflate_complete` instead requires the whole input to be a valid stream: it rejects trailing garbage and decodes every concatenated gzip member under one aggregate output bound. Any malformed later member discards the complete result. Zlib preset dictionaries remain unsupported.
 
 ## How it works
 

@@ -266,5 +266,7 @@ inflate_container :: (s: *Inflater, input: [] u8, container: Deflate_Container) 
         if le32(input.data + end + 4) != cast(u32) (s.o & 0xFFFFFFFF) return "gzip size mismatch";
     }
 
+    s.consumed = end + (ifx container == .GZIP then 8 else ifx container == .ZLIB then 4 else 0);
+
     return "";
 }

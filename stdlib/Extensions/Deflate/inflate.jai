@@ -49,6 +49,7 @@ Inflater :: struct {
     data: *u8;
     size: s64;
     ip: s64;
+    consumed: s64; // complete container bytes, including its checksum trailer
     bits: u64;
     nbits: s64;
 
