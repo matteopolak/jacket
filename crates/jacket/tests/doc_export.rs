@@ -1,4 +1,5 @@
-//! Real compiler-to-export regressions. Build `jaic-cli` beside Jacket before running this suite.
+//! Real compiler-to-export regressions. Build `jaic-cli` beside Jacket and expose the matching
+//! declaration-capable `jaifmt` beside it or on PATH before running this suite.
 //! Rendering URL checks use `tools/ci/check_doc_resolver.py`; relocated installations use
 //! `tools/ci/check_installed_docs.py`.
 use serde_json::Value;
