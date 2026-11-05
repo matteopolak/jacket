@@ -550,6 +550,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `EXPECTED_PRELUDE` | The prelude the child process of the prelude-selection tests must find, or `missing`. | unset | tests |
 | `JACKET_DATABASE_URL` | A PostgreSQL connection URL for the typed-query tests. | unset: the Postgres tests skip | tests |
 | `JACKET_STDLIB_TARGETS_PART` | `K/N`: the stdlib-by-target check takes every Nth module and target pair from the Kth, so CI can split it. | `1/1` | tests |
+| `JACKET_TEST_CHANGED` | A JSON list of changed paths for the CI test-selection helper (`tools/ci/select_tests.py`); narrows stdlib tests before partitioning. | unset: the full test catalogue | tests |
 | `JACKET_TEST_CODEGEN_UNITS` | Passes `-codegen_units N` to the native build tests, to run them split into several modules. | unset | tests |
 | `JAIC_ABI_CLANG` | The `clang` the C ABI tests compare against. | `clang` | tests |
 | `JAIC_ABI_CROSS` | Cross targets the C ABI tests also compile for, as a comma list of specs. | unset | tests |

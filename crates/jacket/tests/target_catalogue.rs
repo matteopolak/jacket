@@ -128,7 +128,7 @@ fn changed_selection_uses_the_actual_mode_target_catalogue() {
         .arg(&names_file)
         .args(["--", "--interp", "--", "-os=wasm"])
         .current_dir(&project)
-        .env("JACKET_TEST_CHANGED", changed)
+        .env(jacket_config::env::TEST_CHANGED.name, changed)
         .env(
             "JAIC_STDLIB",
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
