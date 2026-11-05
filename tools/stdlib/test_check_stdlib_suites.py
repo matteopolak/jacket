@@ -1,10 +1,13 @@
 """The suite driver selects, excludes and groups suites, and keeps failures nonzero."""
 
 import os
+import io
+import shutil
 import subprocess
 import sys
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -72,6 +75,77 @@ class Driver(unittest.TestCase):
         failed, started, _ = self.run_main("--jobs", "3", fail=("check_portable_stdlib",))
         self.assertTrue(failed)
         self.assertEqual(len(started), len(suites.SUITES))
+
+    def test_native_helper_snapshot_cannot_overlap_tooling_rebuild(self):
+        # Model the linker removing its output while bindings takes a real tree snapshot.
+        # An independent resource group may overlap; bindings must observe the completed tool.
+        mutation_started, neighbour_finished = threading.Event(), threading.Event()
+        commands = []
+        peak, running = [0], [0]
+        lock = threading.Lock()
+        pool_type = ThreadPoolExecutor
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            library = root / "stdlib"
+            helper = library / "internal/developer-tools/clang-bindings/developer-tools-clang"
+            helper.parent.mkdir(parents=True)
+            helper.write_bytes(b"complete helper")
+            compiler = root / "jaic"
+            compiler.write_text("")
+            destination = root / "snapshot"
+
+            class CoordinatedPool:
+                def __init__(self, workers):
+                    self.pool = pool_type(workers)
+                def __enter__(self):
+                    return self
+                def __exit__(self, *args):
+                    self.pool.shutdown(wait=True)
+                def map(self, operation, groups):
+                    def run(group):
+                        if "tooling" in group:
+                            return operation(group)
+                        if not mutation_started.wait(5):
+                            raise AssertionError("tooling did not reach controlled rebuild")
+                        try:
+                            return operation(group)
+                        finally:
+                            neighbour_finished.set()
+                    return self.pool.map(run, groups)
+
+            def fake_run(command, **kwargs):
+                name = Path(command[1]).name
+                with lock:
+                    commands.append(name)
+                    running[0] += 1
+                    peak[0] = max(peak[0], running[0])
+                code, output = 0, ""
+                try:
+                    if name == "check_developer_tools.py":
+                        helper.unlink()
+                        mutation_started.set()
+                        if not neighbour_finished.wait(5):
+                            raise AssertionError("independent group did not complete")
+                        helper.write_bytes(b"complete helper")
+                    elif name == "verify.py":
+                        try:
+                            shutil.copytree(library, destination)
+                            self.assertEqual((destination / helper.relative_to(library)).read_bytes(), b"complete helper")
+                        except (OSError, shutil.Error) as error:
+                            code, output = 1, str(error)
+                    return subprocess.CompletedProcess(command, code, stdout=output)
+                finally:
+                    with lock:
+                        running[0] -= 1
+
+            argv = ["check_stdlib_suites.py", "--jaic", str(compiler), "--stdlib", str(library),
+                    "--native-libs", str(root), "--font", str(compiler), "--jobs", "2"]
+            with mock.patch.object(suites, "ROOT", root), mock.patch.dict(os.environ, {"CARGO_TARGET_DIR": str(root / "target")}), mock.patch.object(sys, "argv", argv), mock.patch.object(suites.subprocess, "run", fake_run), mock.patch.object(suites.concurrent.futures, "ThreadPoolExecutor", CoordinatedPool), mock.patch("sys.stdout", io.StringIO()):
+                failed = suites.main()
+            self.assertFalse(failed, "bindings copied the native helper during its rebuild")
+            self.assertEqual(len(commands), len(suites.SUITES))
+            self.assertEqual(len(commands), len(set(commands)))
+            self.assertGreater(peak[0], 1, "independent resource groups must remain concurrent")
 
     def test_groups_cover_every_suite_once(self):
         flat = [s for group in suites.GROUPS for s in group]

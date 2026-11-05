@@ -114,7 +114,7 @@ PYTHONPATH=tools python3 tools/stdlib/check_stdlib_suites.py --jaic target/relea
 
 The CI jobs run these with a release build of `jaic` and `jacket`, Windows included: the interpreter runs the tests' programs, and a debug build of it is about six times slower there (200000 allocator blocks take 10 s instead of 1.8 s), so a slow-looking Windows test usually means the wrong build.
 
-`check_stdlib_suites.py` runs the module drivers that need native setup or target matrices; `--suite`, `--exclude` and `--jobs` select and parallelize (`GROUPS` keeps suites that share scratch dirs, X display or audio serial).
+`check_stdlib_suites.py` runs the module drivers that need native setup or target matrices; `--suite`, `--exclude` and `--jobs` select and parallelize. `GROUPS` keeps suites with shared mutable resources together. Tooling rebuilds and reconfigures the private native-tool package while bindings snapshots and executes it, so they run consecutively in one group. Portable/platform and audio/window keep their independent groups. When adding a suite, group it with existing readers/writers of the same package, scratch directory or device; `--jobs` limits concurrent groups.
 
 ## Stdlib target check
 
