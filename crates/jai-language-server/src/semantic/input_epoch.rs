@@ -296,6 +296,12 @@ impl InputEpochFs {
         }
     }
 
+    /// Borrow payloads only while this separately accounted first-response proof owns them.
+    pub(crate) fn with_read_owner(mut self, proof: &Rc<RefCell<super::Observations>>) -> Self {
+        self.read_owner = Rc::downgrade(proof);
+        self
+    }
+
     /// A detached between-request transaction, sharing the existing byte-proof owner.
     pub(crate) fn detached_recovery(&self, proof: &Rc<RefCell<super::Observations>>) -> Self {
         let mut recovery = Self::new(Rc::new(super::observations::OwnedObservedFs {
@@ -512,7 +518,7 @@ impl InputEpochFs {
     /// This carrier alone does not validate source, selection, events or semantic owner state.
     pub(crate) fn seal_after_validation(&self) -> bool {
         if self.sealed.get() {
-            return self.ready() && !jaic::interrupt::fired();
+            return self.validate_actual();
         }
         if !self.validate_actual() {
             return false;
@@ -546,7 +552,21 @@ impl InputEpochFs {
             return false;
         }
         if self.sealed.get() {
-            return self.ready();
+            if !self.ready() {
+                return false;
+            }
+            if self
+                .capture
+                .borrow()
+                .responses
+                .values()
+                .any(|value| !value.available())
+            {
+                self.unavailable.set(true);
+                self.updates_pending.set(true);
+                return false;
+            }
+            return !jaic::interrupt::fired();
         }
         if self.capture.borrow().inconsistent || self.unavailable.get() || self.coverage_miss.get()
         {
@@ -934,6 +954,35 @@ impl InputEpochFs {
         }
     }
 
+    fn borrow_owned_reads(&self, capture: &mut Capture) {
+        if capture.inconsistent || self.unavailable.get() {
+            return;
+        }
+        let Some(owner) = self.read_owner.upgrade() else {
+            return;
+        };
+        let Ok(proof) = owner.try_borrow() else {
+            return;
+        };
+        let mut released = 0;
+        for ((path, _), response) in Rc::make_mut(&mut capture.responses) {
+            let before = response.retained_bytes();
+            let Response::Read(Some(ReadBytes::Owned(bytes))) = response else {
+                continue;
+            };
+            if !proof.owns_read(Path::new(path), bytes) {
+                continue;
+            }
+            let borrowed = Response::Read(Some(ReadBytes::ProofOwned(Arc::downgrade(bytes))));
+            let after = borrowed.retained_bytes();
+            if after < before {
+                *response = borrowed;
+                released += before - after;
+            }
+        }
+        capture.bytes -= released;
+    }
+
     fn record(&self, path: &Path, mut response: Response) {
         let mut capture = self.capture.borrow_mut();
         let key = (path.as_os_str().to_owned(), response.kind());
@@ -950,6 +999,10 @@ impl InputEpochFs {
             && self.hint_parent.is_none()
         {
             self.discard_optional_hint();
+            remaining = self.remaining_for(&capture);
+        }
+        if overhead.saturating_add(response.retained_bytes()) > remaining {
+            self.borrow_owned_reads(&mut capture);
             remaining = self.remaining_for(&capture);
         }
         if overhead.saturating_add(response.retained_bytes()) > remaining {

@@ -609,3 +609,162 @@ fn matching_discovery_memo_rejects_unknown_projected_alias_without_rediscovery()
         "the failed selection cannot rediscover or compile inline"
     );
 }
+
+
+#[test]
+fn first_workspace_admission_is_terminal_on_failure_and_warm_when_deferred() {
+    for mode in ["pending", "cancel", "config"] {
+        let temp = test_support::TempDir::new("epoch-workspace-admission-controls");
+        let path = temp.path().join("main.jai");
+        std::fs::write(&path, "main :: () {}").unwrap();
+        let fs = Rc::new(ContextCountingFs(std::cell::Cell::new(0)));
+        let mut session = Session::with_environment(
+            crate::Limits::default(),
+            crate::Environment {
+                fs: fs.clone(),
+                services: None,
+                options: Box::new(|_, _| {
+                    let mut options = jaic::sema::Options::host();
+                    options.runtime_support = false;
+                    options.stack_trace = false;
+                    options
+                }),
+            },
+        );
+        session.set_workspace_folders(vec![temp.path().to_path_buf()]);
+        let uri = DocumentUri::from_path(&path).unwrap();
+        session
+            .open(uri.clone(), 1, "main :: () {}".into())
+            .unwrap();
+        assert!(session.diagnostics(&uri).unwrap().is_empty());
+        session.defer_compiles(true);
+        let epoch = session.input_epoch.as_ref().unwrap().clone();
+        assert!(epoch.ready());
+        let counts = session.compile_counts();
+        let token = epoch.capture_identity();
+        fs.0.set(0);
+        if mode == "pending" {
+            assert!(epoch.read(&temp.path().join("uncovered.input")).is_none());
+            assert!(epoch.has_pending_coverage());
+        }
+        let rows = {
+            let _scope = session.discovery_query();
+            if mode == "cancel" {
+                jaic::interrupt::arm();
+                jaic::interrupt::request(true);
+                assert!(jaic::interrupt::should_stop());
+            }
+            if mode == "config" {
+                session.configuration_input_failed.set(true);
+            }
+            session.workspace_polymorphs(&uri)
+        };
+        if mode == "cancel" {
+            let fired = jaic::interrupt::disarm();
+            jaic::interrupt::request(false);
+            assert!(fired);
+        }
+        assert!(rows.is_empty());
+        assert_eq!(
+            epoch.capture_identity(),
+            token,
+            "{mode} cannot reset an admitted failed context"
+        );
+        assert_eq!(fs.0.get(), 0, "{mode} failure performs no native fallback");
+        assert_eq!(session.compile_counts(), counts);
+        session.configuration_input_failed.set(false);
+        for _ in 0..128 {
+            if epoch.ready() {
+                break;
+            }
+            session.reconcile_input_epoch();
+        }
+        assert!(epoch.ready());
+        let before = epoch.capture_identity();
+        {
+            let _scope = session.discovery_query();
+            assert!(session.workspace_polymorphs(&uri).is_empty());
+        }
+        assert_ne!(
+            epoch.capture_identity(),
+            before,
+            "rejected admission never marked discovery accepted"
+        );
+        assert!(epoch.ready());
+        assert_eq!(session.compile_counts(), counts);
+        let accepted = epoch.capture_identity();
+        fs.0.set(0);
+        {
+            let _scope = session.discovery_query();
+            assert!(session.workspace_polymorphs(&uri).is_empty());
+        }
+        assert_eq!(epoch.capture_identity(), accepted);
+        assert_eq!(
+            fs.0.get(),
+            0,
+            "deferred empty summaries do not repeat native transactions"
+        );
+        assert_eq!(session.compile_counts(), counts);
+        session.polymorph_index.borrow_mut().clear();
+        {
+            let _scope = session.discovery_query();
+            assert!(session.workspace_polymorphs(&uri).is_empty());
+        }
+        assert_ne!(
+            epoch.capture_identity(),
+            accepted,
+            "clear permits initial admission again"
+        );
+        assert!(epoch.ready());
+        assert_eq!(session.compile_counts(), counts);
+    }
+}
+
+
+#[test]
+fn native_stdlib_workspace_summary_preserves_closed_callers() {
+    let temp = test_support::lsp::project(
+        "epoch-stdlib-workspace",
+        &[(
+            "main.jai",
+            "#import \"Basic\"; main :: () {a:[..]u32; array_add(*a,1); b:[..]s64; array_add(*b,2);}",
+        )],
+    );
+    let stdlib =
+        std::fs::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"))
+            .unwrap();
+    let path = stdlib.join("internal/basic/arrays.jai");
+    let source = std::fs::read_to_string(&path).unwrap();
+    let uri = DocumentUri::from_path(&path).unwrap();
+    let fs = Rc::new(ContextCountingFs(std::cell::Cell::new(0)));
+    let mut session = Session::with_environment(
+        crate::Limits::default(),
+        crate::Environment {
+            fs: fs.clone(),
+            services: None,
+            options: Box::new(move |fs, _| {
+                let mut options = jaic::sema::Options::host();
+                options.import_paths = vec![stdlib.clone()];
+                options.set_stdlib(fs, &stdlib);
+                options
+            }),
+        },
+    );
+    session.set_workspace_folders(vec![temp.path().to_path_buf()]);
+    session.open(uri.clone(), 1, source.clone()).unwrap();
+    let lenses = session.code_lenses(&uri).unwrap();
+    let declaration = source
+        .find("array_add :: (array: *[..] $T, item: T)")
+        .unwrap();
+    let line = source[..declaration]
+        .bytes()
+        .filter(|b| *b == b'\n')
+        .count() as u32;
+    let epoch = session.input_epoch.as_ref().unwrap();
+    let row = lenses.iter().find(|lens| lens.range.start.line == line).unwrap_or_else(|| panic!("array_add missing: ready={} recapture={} pending={} bytes={} native={} identities={:?} config_failed={} counts={:?}", epoch.ready(), epoch.needs_recapture(), epoch.has_pending_coverage(), epoch.retained_bytes(), fs.0.get(), session.documents.values().map(|d|d.identity_pending).collect::<Vec<_>>(),session.configuration_input_failed.get(),session.compile_counts()));
+    let values = session.polymorphs(&uri, row.range.start);
+    assert!(
+        values.contains(&"T = u32".into()) && values.contains(&"T = s64".into()),
+        "{values:?}"
+    );
+}

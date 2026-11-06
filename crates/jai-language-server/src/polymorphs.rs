@@ -57,6 +57,8 @@ impl Snapshot {
 
 #[derive(Default)]
 pub(crate) struct Index {
+    // Only suppresses a repeated initial native transaction; never authorizes rows.
+    initial_discovery_accepted: bool,
     programs: BTreeMap<PathBuf, Snapshot>,
     /// Stale programs a lens request did not recompile: `polymorph_background` does.
     pending: BTreeSet<PathBuf>,
@@ -64,6 +66,7 @@ pub(crate) struct Index {
 
 impl Index {
     pub(crate) fn clear(&mut self) {
+        self.initial_discovery_accepted = false;
         self.programs.clear();
         self.pending.clear();
     }
@@ -275,10 +278,14 @@ impl Session {
         uri: &DocumentUri,
     ) -> Vec<(Span, String, Vec<String>, bool)> {
         let _query = self.discovery_query();
-        let _capture = self.capture_discovery_inputs();
         let Some(env) = &self.environment else {
             return Vec::new();
         };
+        let initial = !self.polymorph_index.borrow().initial_discovery_accepted;
+        if initial && !self.begin_cold_input_capture() {
+            return Vec::new();
+        }
+        let _capture = self.capture_discovery_inputs();
         let buffers = self.polymorph_buffers();
         if !self.begin_polymorph_inputs(&buffers) {
             return Vec::new();
@@ -370,6 +377,7 @@ impl Session {
         if !self.accept_input_epoch() {
             return Vec::new();
         }
+        self.polymorph_index.borrow_mut().initial_discovery_accepted = true;
         combined
             .into_iter()
             .map(|((_, start, name), row)| {

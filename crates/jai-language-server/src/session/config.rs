@@ -361,10 +361,12 @@ impl Session {
 
     /// A session that also type-checks the open documents against `environment`'s modules.
     pub fn with_environment(limits: Limits, mut environment: Environment) -> Self {
+        let session = Self::new(limits);
         let input_epoch = environment.fs.is_native().then(|| {
-            Rc::new(semantic::input_epoch::InputEpochFs::new(
-                environment.fs.clone(),
-            ))
+            Rc::new(
+                semantic::input_epoch::InputEpochFs::new(environment.fs.clone())
+                    .with_read_owner(&session.input_proof),
+            )
         });
         if let Some(epoch) = &input_epoch {
             environment.fs = epoch.clone();
@@ -372,7 +374,7 @@ impl Session {
         Self {
             input_epoch,
             environment: Some(environment),
-            ..Self::new(limits)
+            ..session
         }
     }
 

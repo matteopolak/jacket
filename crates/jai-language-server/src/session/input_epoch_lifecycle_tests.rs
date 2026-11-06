@@ -973,3 +973,146 @@ fn prepare_rename_recovery_retires_only_the_rejected_initial_cache_candidate() {
         "the useful replacement accepted a consistent fresh capture"
     );
 }
+
+
+#[test]
+fn empty_test_lenses_do_not_expand_closed_input_coverage() {
+    let temp = test_support::TempDir::new("epoch-empty-test-lenses");
+    let main = temp.path().join("main.jai");
+    let child = temp.path().join("sub/ignored.jai");
+    std::fs::create_dir_all(child.parent().unwrap()).unwrap();
+    std::fs::write(&main, "main :: () {}").unwrap();
+    std::fs::write(&child, "main :: () { x := 1; }").unwrap();
+    std::fs::write(temp.path().join("jacket.toml"), "[lint.rules]\n").unwrap();
+    let fs = Rc::new(ContextCountingFs(std::cell::Cell::new(0)));
+    let mut session = Session::with_environment(
+        crate::Limits::default(),
+        crate::Environment {
+            fs: fs.clone(),
+            services: None,
+            options: Box::new(|_, _| {
+                let mut options = jaic::sema::Options::host();
+                options.runtime_support = false;
+                options.stack_trace = false;
+                options
+            }),
+        },
+    );
+    let uri = DocumentUri::from_path(&main).unwrap();
+    let child = DocumentUri::from_path(&child).unwrap();
+    session
+        .open(uri.clone(), 1, "main :: () {}".into())
+        .unwrap();
+    session.diagnostics(&uri).unwrap();
+    session
+        .open(child.clone(), 1, "main :: () { x := 1; }".into())
+        .unwrap();
+    session.folding_ranges(&child).unwrap();
+    assert!(
+        session.accept_input_epoch(),
+        "accept the newly registered buffer identity before the measured provider"
+    );
+    assert!(session.input_epoch.as_ref().unwrap().ready());
+    assert!(
+        session
+            .analysis_for(&child)
+            .unwrap()
+            .test_procedures
+            .is_empty()
+    );
+    let counts = session.compile_counts();
+    fs.0.set(0);
+    assert!(session.test_code_lenses(&child).unwrap().is_empty());
+    assert!(
+        session.input_epoch.as_ref().unwrap().ready(),
+        "an empty test provider must not stage unrelated configuration inputs"
+    );
+    assert_eq!(session.compile_counts(), counts);
+    assert_eq!(fs.0.get(), 0);
+    assert!(session.diagnostics(&uri).unwrap().is_empty());
+}
+
+#[test]
+fn first_workspace_summary_preserves_ready_diagnostics_and_cross_root_instances() {
+    let temp = test_support::TempDir::new("epoch-first-workspace-summary");
+    let root = temp.path().join("workspace");
+    let shared_dir = temp.path().join("shared");
+    std::fs::create_dir_all(root.join("sub")).unwrap();
+    std::fs::create_dir_all(shared_dir.join("Lib")).unwrap();
+    let lib = "identity :: (x:$T) -> T { return x; }";
+    let main = "L :: #import \"Lib\"; main :: () { x:u8; L.identity(x); }";
+    let second = "L :: #import \"Lib\"; main :: () { x:u16; L.identity(x); }";
+    std::fs::write(shared_dir.join("Lib/module.jai"), lib).unwrap();
+    std::fs::write(root.join("a.jai"), main).unwrap();
+    std::fs::write(root.join("sub/b.jai"), second).unwrap();
+    std::fs::write(
+        root.join("jacket.toml"),
+        "[project]\nentry=[\"a.jai\",\"sub/b.jai\"]\n",
+    )
+    .unwrap();
+    let dirs = vec![shared_dir.clone()];
+    let fs = Rc::new(ContextCountingFs(std::cell::Cell::new(0)));
+    let mut session = Session::with_environment(
+        crate::Limits::default(),
+        crate::Environment {
+            fs: fs.clone(),
+            services: None,
+            options: Box::new(move |_, _| {
+                let mut options = jaic::sema::Options::host();
+                options.runtime_support = false;
+                options.stack_trace = false;
+                options.import_paths = dirs.clone();
+                options
+            }),
+        },
+    );
+    session.set_workspace_folders(vec![root.clone()]);
+    let uri = DocumentUri::from_path(&root.join("a.jai")).unwrap();
+    let shared = DocumentUri::from_path(&shared_dir.join("Lib/module.jai")).unwrap();
+    let second_uri = DocumentUri::from_path(&root.join("sub/b.jai")).unwrap();
+    session.open(uri.clone(), 1, main.into()).unwrap();
+    session.open(shared.clone(), 1, lib.into()).unwrap();
+    let initial = session.diagnostics(&uri).unwrap();
+    assert!(initial.is_empty(), "initial diagnostics: {initial:?}");
+    session.open(second_uri.clone(), 1, second.into()).unwrap();
+    session.folding_ranges(&second_uri).unwrap();
+    assert!(
+        session.accept_input_epoch(),
+        "accept the newly registered buffer identity before workspace discovery"
+    );
+    assert!(session.input_epoch.as_ref().unwrap().ready());
+    let rows = {
+        let _scope = session.discovery_query();
+        session.workspace_polymorphs(&shared)
+    };
+    assert!(
+        session.input_epoch.as_ref().unwrap().ready(),
+        "first workspace discovery must accept its new inputs without poisoning the existing program"
+    );
+    let identity = rows
+        .iter()
+        .find(|(_, name, _, _)| name == "identity")
+        .expect("actual generic declaration");
+    assert_eq!(identity.2, ["T = u16", "T = u8"]);
+    assert!(identity.3);
+    assert!(session.diagnostics(&uri).unwrap().is_empty());
+    let counts = session.compile_counts();
+    fs.0.set(0);
+    let warm = {
+        let _scope = session.discovery_query();
+        session.workspace_polymorphs(&shared)
+    };
+    assert_eq!(
+        warm.iter()
+            .find(|(_, name, _, _)| name == "identity")
+            .unwrap()
+            .2,
+        identity.2
+    );
+    assert_eq!(session.compile_counts(), counts);
+    assert_eq!(
+        fs.0.get(),
+        0,
+        "accepted workspace summaries stay on the sealed input view"
+    );
+}

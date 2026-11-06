@@ -56,3 +56,23 @@ record detaches its map; identical shared histories need no repeated union. This
 copying proof storage: first-response conflicts, raw read owners, native replay and final
 epoch/overlay/cancellation checks retain their existing meaning. Arc root metadata remains
 charged, and payload accounting stays conservative per retained owner.
+
+Workspace polymorph discovery opens its first transaction before traversing project roots,
+preserving the accepted input history. After full discovery and final epoch acceptance, the
+workspace index suppresses repeated initial transactions even when summaries are deferred.
+That lifecycle bit grants no rows or completeness: every query still validates its complete
+workspace context, and later missing inputs use normal bounded hydration. Clearing the index
+allows initial admission again.
+
+Entry discovery collects configured and default workspace entries before computing loader
+fallbacks. It resolves open-file fallback programs only when no entry was found, avoiding
+unneeded library-tree scans whose roots would be discarded. Keep every open file's config
+scan before that decision so a later configured file still supplies its entry programs.
+
+Under metadata pressure, an epoch may borrow earlier read payloads from the exact raw-key
+`ReadBuffer` already retained by its discovery proof. The proof still charges those bytes;
+the epoch charges weak-owner metadata, and replay still counts the full read length. A
+different equal-byte owner or an actively borrowed proof cannot supply that lease. Old
+actual-input snapshots stay unchanged, and losing the last real owner makes reuse unavailable.
+Workspace discovery captures its own proof so accepted compiler and summary owners retain
+the required payloads after the request ends.

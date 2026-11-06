@@ -204,9 +204,9 @@ impl Session {
         Some(inputs)
     }
 
-    // A genuinely absent compiler context can capture new operations before selection.
+    // A missing compiler or initial workspace context may capture before selection.
     // A failed selected transaction or coverage miss must never reach this reset.
-    pub(super) fn begin_cold_input_capture(&self) -> bool {
+    pub(crate) fn begin_cold_input_capture(&self) -> bool {
         if !self.input_proof.borrow().is_consistent()
             || self.configuration_input_failed.get()
             || jaic::interrupt::fired()

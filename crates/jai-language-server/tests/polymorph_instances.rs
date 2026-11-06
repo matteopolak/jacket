@@ -227,7 +227,12 @@ fn stdlib_instances_include_closed_callers() {
     let row = lenses
         .iter()
         .find(|l| l.range.start.line == line)
-        .expect("array_add item overload");
+        .unwrap_or_else(|| {
+            panic!(
+                "array_add item overload; lenses={lenses:?}; counts={:?}",
+                s.compile_counts()
+            )
+        });
     let values = s.polymorphs(&uri, row.range.start);
     assert!(
         values.contains(&"T = u32".into()) && values.contains(&"T = s64".into()),

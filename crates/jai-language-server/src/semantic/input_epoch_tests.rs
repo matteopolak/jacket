@@ -762,3 +762,118 @@ fn normalized_equal_actual_response_churn_is_unsealable() {
         "different actual returns must not seal"
     );
 }
+
+
+#[test]
+fn epoch_pressure_borrows_only_exact_accounted_read_owners() {
+    struct PressureFs;
+    impl FileSystem for PressureFs {
+        fn read(&self, path: &Path) -> Option<Vec<u8>> {
+            Some(if path == Path::new("tiny") {
+                vec![1]
+            } else {
+                vec![7; 6 * 1024 * 1024]
+            })
+        }
+        fn is_file(&self, _: &Path) -> bool {
+            true
+        }
+        fn is_dir(&self, _: &Path) -> bool {
+            false
+        }
+        fn list_dir(&self, _: &Path) -> Vec<(String, bool)> {
+            (0..9_000)
+                .map(|i| (format!("{i:05}{}", "x".repeat(500)), false))
+                .collect()
+        }
+    }
+    for mode in ["matching", "independent", "raw", "borrowed"] {
+        let proof = Rc::new(RefCell::new(super::super::Observations::default()));
+        let mut epoch = InputEpochFs::new(Rc::new(PressureFs));
+        epoch.read_owner = Rc::downgrade(&proof);
+        let mut weak = Vec::new();
+        for path in ["one/data", "two/data", "tiny"] {
+            let owner = epoch.read_shared(Path::new(path)).unwrap();
+            weak.push(Arc::downgrade(&owner));
+            let retained = if mode == "independent" {
+                Arc::new(ReadBuffer::new(owner.bytes().clone()))
+            } else {
+                owner.clone()
+            };
+            let key = if mode == "raw" {
+                PathBuf::from(path)
+                    .parent()
+                    .unwrap_or(Path::new(""))
+                    .join(".")
+                    .join(Path::new(path).file_name().unwrap())
+            } else {
+                PathBuf::from(path)
+            };
+            proof.borrow_mut().record(
+                key.clone(),
+                super::super::observations::Observation::Read(Some(retained.bytes().clone())),
+            );
+            proof.borrow_mut().record_read_owner(key, retained);
+        }
+        let original = epoch.actual_inputs();
+        if mode == "borrowed" {
+            let _borrow = proof.borrow_mut();
+            let _ = epoch.list_dir(Path::new("large-listing"));
+        } else {
+            let _ = epoch.list_dir(Path::new("large-listing"));
+        }
+        if mode != "matching" {
+            assert!(
+                !epoch.seal_after_validation(),
+                "{mode} cannot certify a different or currently borrowed owner"
+            );
+            continue;
+        }
+        assert!(
+            epoch.seal_after_validation(),
+            "proof-owned payloads must leave room for required metadata without increasing the cap"
+        );
+        assert!(epoch.retained_bytes() < MAX_BYTES);
+        assert!(
+            proof.borrow().retained_bytes() >= 12 * 1024 * 1024,
+            "surviving payload is charged to its real proof owner"
+        );
+        let current = epoch.actual_inputs();
+        assert!(matches!(
+            current.0.get(&("one/data".into(), 0)),
+            Some(Response::Read(Some(ReadBytes::ProofOwned(_))))
+        ));
+        assert!(
+            matches!(
+                current.0.get(&("tiny".into(), 0)),
+                Some(Response::Read(Some(ReadBytes::Owned(_))))
+            ),
+            "weak metadata must not grow a tiny read"
+        );
+        assert_eq!(
+            current.0[&("one/data".into(), 0)].work_bytes(),
+            6 * 1024 * 1024
+        );
+        assert!(
+            matches!(
+                original.0.get(&("one/data".into(), 0)),
+                Some(Response::Read(Some(ReadBytes::Owned(_))))
+            ),
+            "old actual snapshots keep their original owner and charge"
+        );
+        assert!(original.retained_bytes() >= 12 * 1024 * 1024);
+        assert!(epoch.seal_after_validation());
+        *proof.borrow_mut() = super::super::Observations::default();
+        assert!(
+            weak[0].upgrade().is_some(),
+            "the old immutable snapshot still owns its payload"
+        );
+        drop(original);
+        assert!(weak[0].upgrade().is_none());
+        assert!(!epoch.seal_after_validation());
+        assert!(
+            !epoch.validate_actual(),
+            "expired proof ownership must reject authority"
+        );
+    }
+}
