@@ -71,16 +71,16 @@ impl Observation {
 
 #[derive(Clone, Debug)]
 pub(crate) struct Observations {
-    first: BTreeMap<(PathBuf, u8), Observation>,
-    owners: BTreeMap<std::ffi::OsString, Arc<ReadBuffer>>,
+    first: Arc<BTreeMap<(PathBuf, u8), Observation>>,
+    owners: Arc<BTreeMap<std::ffi::OsString, Arc<ReadBuffer>>>,
     consistent: bool,
 }
 
 impl Default for Observations {
     fn default() -> Self {
         Self {
-            first: BTreeMap::new(),
-            owners: BTreeMap::new(),
+            first: Arc::default(),
+            owners: Arc::default(),
             consistent: true,
         }
     }
@@ -95,7 +95,7 @@ impl Observations {
         );
         let all = !self.consistent;
         let mut changed = std::collections::BTreeSet::new();
-        self.first.retain(|(path, _), value| {
+        Arc::make_mut(&mut self.first).retain(|(path, _), value| {
             let valid = !all && value.matches(fs, path);
             if !valid {
                 changed.insert(path.clone());
@@ -103,7 +103,7 @@ impl Observations {
             valid
         });
         let first = &self.first;
-        self.owners
+        Arc::make_mut(&mut self.owners)
             .retain(|path, _| first.contains_key(&(PathBuf::from(path), 0)));
         self.consistent = true;
         changed.into_iter().collect()
@@ -111,30 +111,36 @@ impl Observations {
 
     pub(crate) fn merge(&mut self, other: &Self) {
         self.consistent &= other.consistent;
-        for ((path, _), value) in &other.first {
-            self.record(path.clone(), value.clone());
+        if !Arc::ptr_eq(&self.first, &other.first) {
+            for ((path, _), value) in other.first.iter() {
+                self.record(path.clone(), value.clone());
+            }
         }
-        for (path, owner) in &other.owners {
-            self.record_read_owner(PathBuf::from(path), owner.clone());
+        if !Arc::ptr_eq(&self.owners, &other.owners) {
+            for (path, owner) in other.owners.iter() {
+                self.record_read_owner(PathBuf::from(path), owner.clone());
+            }
         }
     }
 
     /// Keep the actual read owner with its first byte proof, including after history merges.
     pub(crate) fn record_read_owner(&mut self, path: PathBuf, owner: Arc<ReadBuffer>) {
-        if matches!(self.first.get(&(path.clone(), 0)), Some(Observation::Read(Some(bytes))) if bytes.as_ref() == owner.as_slice())
+        if self.owners.contains_key(path.as_os_str()) {
+            return;
+        }
+        if matches!(self.first.get(&(path.clone(), 0)), Some(Observation::Read(Some(bytes)))
+            if Arc::ptr_eq(bytes, owner.bytes()) || bytes.as_ref() == owner.as_slice())
         {
-            self.owners.entry(path.into_os_string()).or_insert(owner);
+            Arc::make_mut(&mut self.owners).insert(path.into_os_string(), owner);
         }
     }
 
     pub(crate) fn record(&mut self, path: PathBuf, value: Observation) {
-        match self.first.entry((path, value.kind())) {
-            std::collections::btree_map::Entry::Vacant(entry) => {
-                entry.insert(value);
-            }
-            std::collections::btree_map::Entry::Occupied(entry) => {
-                self.consistent &= *entry.get() == value;
-            }
+        let key = (path, value.kind());
+        if let Some(first) = self.first.get(&key) {
+            self.consistent &= first == &value;
+        } else {
+            Arc::make_mut(&mut self.first).insert(key, value);
         }
     }
 
@@ -184,7 +190,11 @@ impl Observations {
                 + std::mem::size_of::<ReadBuffer>() + 64
                 + if shared { 0 } else { owner.len() }
         }).sum::<usize>();
-        owner_bytes
+        // Charge both Arc allocation roots even when maps are shared by snapshots.
+        std::mem::size_of::<BTreeMap<(PathBuf, u8), Observation>>()
+            + std::mem::size_of::<BTreeMap<std::ffi::OsString, Arc<ReadBuffer>>>()
+            + 4 * std::mem::size_of::<usize>()
+            + owner_bytes
             + self
                 .first
                 .iter()
@@ -403,6 +413,78 @@ mod tests {
         fn is_native(&self) -> bool {
             true
         }
+    }
+
+    #[test]
+    fn immutable_proof_clones_do_not_duplicate_read_owner_nodes() {
+        let owner = Arc::new(ReadBuffer::new(Arc::from(&b"immutable input"[..])));
+        let path = Path::new("/shared/data");
+        let mut proof = Observations::default();
+        proof.record(path.into(), Observation::Read(Some(owner.bytes().clone())));
+        proof.record_read_owner(path.into(), owner.clone());
+        let before = (Arc::strong_count(&owner), Arc::strong_count(owner.bytes()));
+        let frozen = proof.clone();
+        assert_eq!(
+            (Arc::strong_count(&owner), Arc::strong_count(owner.bytes())),
+            before,
+            "cloning immutable history must share its read-owner and byte-proof nodes"
+        );
+        proof.record(path.into(), Observation::Read(Some(owner.bytes().clone())));
+        proof.record_read_owner(path.into(), owner.clone());
+        proof.merge(&frozen);
+        assert_eq!(
+            (Arc::strong_count(&owner), Arc::strong_count(owner.bytes())),
+            before,
+            "equal recording and merging must not detach identical history"
+        );
+        assert!(frozen.owns_read(path, &owner));
+    }
+
+    #[test]
+    fn shared_histories_preserve_conflicts_owner_merges_and_removal_isolation() {
+        let owner = Arc::new(ReadBuffer::new(Arc::from(&b"first"[..])));
+        let path = PathBuf::from("/shared/data");
+        let mut original = Observations::default();
+        original.record(path.clone(), Observation::Read(Some(owner.bytes().clone())));
+        let mut with_owner = original.clone();
+        with_owner.record_read_owner(path.clone(), owner.clone());
+        original.merge(&with_owner);
+        assert!(
+            original.owns_read(&path, &owner),
+            "equal first-map roots still need independent owner-map merge"
+        );
+        let frozen = original.clone();
+        original.record(path.clone(), Observation::Read(None));
+        assert!(!original.is_consistent());
+        assert!(
+            frozen.is_consistent(),
+            "mutating consistency cannot alter frozen history"
+        );
+        let mut merged = frozen.clone();
+        merged.merge(&original);
+        assert!(
+            !merged.is_consistent(),
+            "shared map pointer cannot bypass sticky disagreement"
+        );
+        struct Absent;
+        impl FileSystem for Absent {
+            fn read(&self, _: &Path) -> Option<Vec<u8>> {
+                None
+            }
+            fn is_file(&self, _: &Path) -> bool {
+                false
+            }
+            fn is_dir(&self, _: &Path) -> bool {
+                false
+            }
+        }
+        merged.remove_invalid(&Absent);
+        assert!(merged.is_empty());
+        assert!(
+            frozen.owns_read(&path, &owner),
+            "retiring one proof must retain the original raw owner"
+        );
+        assert!(!frozen.is_empty());
     }
 
     #[test]

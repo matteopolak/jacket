@@ -658,3 +658,34 @@ fn missing_probe_records_raw_relative_and_normalized_fallback_concerns() {
     assert!(reads.concerns(&fallback));
     assert!(reads.concerns_tree(dir.path()));
 }
+
+#[test]
+fn shared_read_sets_detach_on_mutation_and_identity_merge_keeps_incoming_target() {
+    let alias = PathBuf::from("/alias");
+    let mut reads = Reads::default();
+    reads.note_file(PathBuf::from("/old/data"));
+    reads.note_directory(PathBuf::from("/old/folder"));
+    reads.note_identity(alias.clone(), PathBuf::from("/old/data"));
+    let frozen = reads.clone();
+    assert!(Arc::ptr_eq(&reads.files, &frozen.files));
+    assert!(Arc::ptr_eq(&reads.dirs, &frozen.dirs));
+    assert!(Arc::ptr_eq(&reads.identities, &frozen.identities));
+    reads.note_file(PathBuf::from("/old/data"));
+    reads.note_directory(PathBuf::from("/old/folder"));
+    reads.note_identity(alias.clone(), PathBuf::from("/old/data"));
+    reads.merge(&frozen);
+    assert!(Arc::ptr_eq(&reads.files, &frozen.files));
+    assert!(Arc::ptr_eq(&reads.identities, &frozen.identities));
+    let mut incoming = Reads::default();
+    incoming.note_file(PathBuf::from("/new/data"));
+    incoming.note_identity(alias.clone(), PathBuf::from("/new/data"));
+    reads.merge(&incoming);
+    assert_eq!(
+        reads.identities[&alias],
+        PathBuf::from("/new/data"),
+        "incoming identity still overwrites bookkeeping"
+    );
+    assert_eq!(frozen.identities[&alias], PathBuf::from("/old/data"));
+    assert!(!frozen.concerns(Path::new("/new/data")));
+    assert!(reads.concerns(Path::new("/new/data")));
+}

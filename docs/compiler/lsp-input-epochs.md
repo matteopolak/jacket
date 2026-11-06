@@ -50,3 +50,9 @@ Retained probe and hint input owners charge shared read bytes once only when the
 comparison proof holds the exact same raw-key `ReadBuffer` allocation. Equal bytes from
 a separate read still count separately; actual-response metadata and weak-owner metadata
 remain charged. This keeps the existing probe budget without changing input authority.
+
+Comparison proofs and dependency sets share immutable nodes between snapshots. A changed
+record detaches its map; identical shared histories need no repeated union. This only avoids
+copying proof storage: first-response conflicts, raw read owners, native replay and final
+epoch/overlay/cancellation checks retain their existing meaning. Arc root metadata remains
+charged, and payload accounting stays conservative per retained owner.

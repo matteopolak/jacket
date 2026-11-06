@@ -14,9 +14,9 @@ use std::sync::Arc;
 /// change the compile.
 #[derive(Clone, Debug, Default)]
 pub struct Reads {
-    files: BTreeSet<PathBuf>,
-    dirs: BTreeSet<PathBuf>,
-    identities: BTreeMap<PathBuf, PathBuf>,
+    files: Arc<BTreeSet<PathBuf>>,
+    dirs: Arc<BTreeSet<PathBuf>>,
+    identities: Arc<BTreeMap<PathBuf, PathBuf>>,
     pub(crate) disk: Observations,
 }
 
@@ -43,15 +43,46 @@ impl Reads {
 
     /// Combine exact histories in an owned input or derived-output proof without changing their first responses.
     pub(crate) fn merge(&mut self, other: &Self) {
-        self.files.extend(other.files.iter().cloned());
-        self.dirs.extend(other.dirs.iter().cloned());
-        self.identities.extend(
-            other
-                .identities
-                .iter()
-                .map(|(name, target)| (name.clone(), target.clone())),
-        );
+        if !Arc::ptr_eq(&self.files, &other.files) {
+            for path in other.files.iter() {
+                if !self.files.contains(path) {
+                    self.note_file(path.clone());
+                }
+            }
+        }
+        if !Arc::ptr_eq(&self.dirs, &other.dirs) {
+            for path in other.dirs.iter() {
+                if !self.dirs.contains(path) {
+                    self.note_directory(path.clone());
+                }
+            }
+        }
+        if !Arc::ptr_eq(&self.identities, &other.identities) {
+            for (name, target) in other.identities.iter() {
+                if self.identities.get(name) != Some(target) {
+                    self.note_identity(name.clone(), target.clone());
+                }
+            }
+        }
         self.disk.merge(&other.disk);
+    }
+
+    fn note_file(&mut self, path: PathBuf) {
+        if !self.files.contains(&path) {
+            Arc::make_mut(&mut self.files).insert(path);
+        }
+    }
+
+    fn note_directory(&mut self, path: PathBuf) {
+        if !self.dirs.contains(&path) {
+            Arc::make_mut(&mut self.dirs).insert(path);
+        }
+    }
+
+    fn note_identity(&mut self, name: PathBuf, target: PathBuf) {
+        if self.identities.get(&name) != Some(&target) {
+            Arc::make_mut(&mut self.identities).insert(name, target);
+        }
     }
 
     /// Whether a file appearing, going away or changing could affect the compile.
@@ -95,10 +126,13 @@ impl Reads {
     /// Conservative retained dependency storage, including tree-node metadata.
     pub(crate) fn retained_bytes(&self) -> usize {
         self.disk.retained_bytes()
+            + 2 * std::mem::size_of::<BTreeSet<PathBuf>>()
+            + std::mem::size_of::<BTreeMap<PathBuf, PathBuf>>()
+            + 6 * std::mem::size_of::<usize>()
             + self
                 .files
                 .iter()
-                .chain(&self.dirs)
+                .chain(self.dirs.iter())
                 .map(|path| path.capacity() + std::mem::size_of::<PathBuf>() + 64)
                 .sum::<usize>()
             + self
@@ -173,16 +207,16 @@ impl OverlayFs {
         self.observe_identity(path);
         let name = self.observed_name(path);
         let mut reads = self.reads.borrow_mut();
-        reads.files.insert(key);
-        reads.files.insert(name);
+        reads.note_file(key);
+        reads.note_file(name);
     }
 
     fn record_directory(&self, path: &Path, key: PathBuf) {
         self.observe_identity(path);
         let name = self.observed_name(path);
         let mut reads = self.reads.borrow_mut();
-        reads.dirs.insert(key);
-        reads.dirs.insert(name);
+        reads.note_directory(key);
+        reads.note_directory(name);
     }
 
     fn observe_identity(&self, path: &Path) -> PathBuf {
@@ -200,8 +234,8 @@ impl OverlayFs {
                 let target = self.canonical_of(name);
                 let leaf = self.observed_name(name);
                 let mut reads = self.reads.borrow_mut();
-                reads.identities.insert(name.to_path_buf(), target.clone());
-                reads.identities.insert(leaf, target);
+                reads.note_identity(name.to_path_buf(), target.clone());
+                reads.note_identity(leaf, target);
             }
         }
         key
@@ -307,8 +341,8 @@ impl FileSystem for OverlayFs {
             self.observe(path, Observation::Absence(key.clone()));
             let raw = self.at(path).into_owned();
             let mut reads = self.reads.borrow_mut();
-            reads.files.insert(raw);
-            reads.files.insert(key);
+            reads.note_file(raw);
+            reads.note_file(key);
             return false;
         }
         let key = self.observe_identity(path);
