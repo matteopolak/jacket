@@ -18,7 +18,7 @@ Record the machine, OS, power mode, browser version, font availability, viewport
 python3 tools/bench/doc_site.py --plan /tmp/doc-benchmark-plan.json
 ```
 
-Execution requires an absent owned output directory and a quiet, exclusive machine allocation. On a shared host, place the entire execution inside its exclusive heavy-job gate:
+Execution requires an absent owned output directory. Prefer exclusive allocation and avoid overlapping owned builds; the host need not be completely idle. Record background load and contention, use matched case order, and report the spread rather than hiding slow samples. On a shared host, place the entire execution inside its heavy-job gate:
 
 ```sh
 python3 tools/bench/doc_site.py --plan /tmp/doc-benchmark-plan.json \
@@ -63,17 +63,72 @@ Collect CDP request/response/loading-finished events together with Resource Timi
 
 Classify documents, JavaScript, CSS, fonts, search, runtime and exported data. Include prefetch traffic even if no click follows. Compare sessions of the same length and actions. Inspect actual bodies or body hashes to distinguish new destination content from repeated global navigation, catalogue data or unchanged hashed assets. Look for eager search/runtime loading, duplicate requests, unconsumed prefetch and refetches of identical payloads. A smaller individual click does not imply a smaller session if its prefetch moved the bytes earlier.
 
-Use a table with actual measured values; leave unavailable cells explicitly pending:
+## Recorded comparison
 
-| Profile and action | Variant | Requests / cache hits | Document encoded / decoded | JS + CSS | Fonts | Search + runtime | Export data | Total including prefetch |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Pending measurement | Legacy / Astro | pending | pending | pending | pending | pending | pending | pending |
+These measurements used the native legacy renderer at `0803e84`, shared library/native candidate inputs at `7b0194b`, checked Astro builder `6bcca53`, and browser harness `d948713`. Astro is pinned to 7.4.1, Node to 24.12.0, npm to 11.6.2 and LLVM to 23.1.2. The host was a 16 GiB arm64 Mac; both variants used the same production inputs and runtime. The [machine-readable samples](../benchmarks/astro-docs.json) retain exact source identities, three browser samples per case, phase boundaries and limitations.
+
+Generation optimization is deferred. Each generation row below is one paired sample, not a median or a variability estimate. Cold means empty owned application caches/output, not a purged OS filesystem cache. The loaded-file case primes and verifies both complete baseline publications, changes an authored `#load`-included value from 17 to 19, and times the full changed CLI. Reset, baseline priming and semantic postchecks are outside that interval. It has one additional declaration and is not the same workload as the unmodified cold build.
+
+| Generation workload | Legacy wall | Astro wall | Legacy sampled tree peak | Astro sampled tree peak |
+| --- | ---: | ---: | ---: | ---: |
+| Cold full build (one pair) | 46.275s | 152.543s | 881 MiB | 3021 MiB |
+| Loaded-file edit (one pair) | 93.079s | 196.435s | 714 MiB | 2104 MiB |
+
+Astro includes graph admission, rendering, full HTML/link/fragment checks and atomic publication; the legacy path uses its original native renderer and link checker. The candidate is slower in these samples. The sampled process-tree peak is a lower bound, distinct from the kernel largest-process peak stored in the JSON. Further generation/iteration repetitions were not run.
+
+### Navigation before the live-main correction
+
+The completed navigation comparison has 48 sessions: three alternating-order repetitions of four scenarios, two variants and two viewports (1280×900 and 375×812, scale 1). Chrome 156.0.8078.80 used the same system fonts, light theme, normal motion, unthrottled CPU/network and fresh browser profiles against warmed loopback gzip servers. All sessions passed, with no runtime exceptions, network failures or unknown encoded transfer sizes. These are historical measurements of the captured-main implementation; they do not establish the final corrected navigation latency.
+
+Values are median (minimum–maximum), in milliseconds from trusted input. DOM arrival is separate from settled useful content, which also waits for fonts, hit testing, animations and two frames.
+
+| Viewport / navigation | Legacy DOM | Astro DOM | Legacy settled | Astro settled |
+| --- | ---: | ---: | ---: | ---: |
+| desktop: first new guide, no hover dwell | 23.9 (23.3–32.8) | 77.2 (76.8–78.4) | 57.3 (54.6–75.6) | 306.9 (306.8–307.2) |
+| desktop: first API leaf | 13.9 (13.4–16.6) | 50.4 (50.3–56.8) | 38.2 (33.0–43.1) | 274.6 (273.8–275.8) |
+| desktop: hover-prefetched guide | 16.6 (13.8–18.5) | 60.8 (59.8–61.5) | 48.7 (32.4–49.5) | 282.0 (282.0–282.8) |
+| narrow: first new guide, no hover dwell | 22.3 (20.2–26.0) | 80.8 (79.0–87.4) | 51.4 (45.1–55.5) | 321.7 (301.9–323.1) |
+| narrow: first API leaf | 16.2 (15.8–18.2) | 54.2 (54.2–56.0) | 43.1 (42.2–45.9) | 277.9 (276.8–279.1) |
+| narrow: hover-prefetched guide | 12.9 (11.1–13.0) | 62.2 (61.3–64.7) | 32.2 (31.6–33.3) | 282.1 (282.0–282.9) |
+
+The legacy SPA did not invoke native view transitions. The measured Astro implementation added a 170ms main fade/4px slide plus native capture preparation/completion. Its captured main could not receive input during the fade, even with pointer events disabled on every transition pseudo-element. The correction skips the native visual transition through Astro’s public lifecycle hook and animates the live main with the same duration/easing/motion, after scroll restoration and outline initialization. A trusted incoming-page link now works during the visible fade. Settled animation time remains a conservative endpoint; it must not be relabeled as first paint or immediate input readiness.
+
+### Transferred bytes
+
+The following totals include the initial Basic visit, explicit prefetch preparation and Back/Forward actions. Values are medians; ranges appear where repetitions differ. Request/cache cells show request count and explicit CDP disk/prefetch/served-cache flags, not all conditional reuse.
+
+| Session | Legacy requests / flags | Astro requests / flags | Legacy encoded bytes | Astro encoded bytes |
+| --- | ---: | ---: | ---: | ---: |
+| Desktop first guide + history | 10 / 1 | 14 (14–15) / 1 | 75504 | 90149 (90149–90371) |
+| Narrow first guide + history | 10 / 1 | 15 (14–15) / 1 | 75504 | 90371 (90149–90371) |
+| API leaf + history (both viewports) | 12 / 2 | 17 / 1 | 64852 | 85394 |
+| Hover guide + history (both viewports) | 10 / 1 | 15 / 1 | 75504 | 90371 |
+| Unconsumed hover (both viewports) | 9 / 1 | 12 / 1 | 75282 | 89705 |
+
+On the initial Basic visit, legacy transferred 59,123 bytes in eight requests and Astro 74,716 bytes in eleven. External JavaScript was 10,430 versus 25,678 bytes; CSS was 7,782 versus 7,732. The JavaScript category includes application code and extracted bootstrap as well as framework code; legacy also embeds JavaScript in HTML. The destination Testing HTML itself transferred 16,159 versus 14,989 bytes. No unchanged hashed assets were refetched, and neither variant eagerly fetched search/runtime data in these scenarios. Unconsumed means no matching navigation within the recorded session, not proof the response can never be reused.
+
+Encoded totals are observed CDP loading-finished bytes. A normalized status 200 can conceal HTTP 304, so a small response is not inferred to be a cache hit. Retrieved decoded-body totals in the JSON mean browser-exposed bodies: Chrome exposed empty bodies for some speculative fetches despite real encoded transfer. They are not complete decompressed network volume or decompression CPU. No HTTP/2, Brotli or CDN saving is established.
+
+### Search reuse usability check
+
+A separate bounded desktop check used the same search, navigation, slash-focus and query actions before and after the admission fix, with three alternating-order pairs under ordinary shared load. All twelve sessions passed without runtime or network errors. Before the fix, the candidate fetched the same digest-bearing index twice: the second request transferred zero bytes from disk cache but decoded and admitted the 14,995,697-byte payload again. A document now retains one successfully validated row set for its exact URL; failed or aborted pending requests remain page-owned and are not retained. The compiled check confirms one search fetch/admission per document and working results after navigation.
+
+| Candidate post-navigation observation | Before reuse | After reuse |
+| --- | ---: | ---: |
+| Search requests across first and second query | 2 | 1 |
+| Decoded data-event bytes across those requests | 29,991,394 | 14,995,697 |
+| Slash focus through visible query results | 110.9–125.0ms | 30.2–42.5ms |
+| Combined browser task-time proxy | 77.0–89.1ms | 8.1–9.1ms |
+
+These are diagnostic ranges under shared load, not a controlled population speedup or isolated parsing CPU measurement. Slash focus starts admission before query input, so the combined window is reported. The first search transfer remains 1,096,341 bytes versus legacy 558,444 bytes; reuse removes repeated decode/admission, not that initial transfer. No wire-format redesign or eager loading was added.
+
+FP/FCP/LCP, scrolling smoothness and runtime first-use performance are not established by these completed samples. Functional layout, accessibility, runtime and lifecycle checks are separate from performance measurements. No website speedup is claimed for these unmeasured workloads.
 
 ## Evidence and current limits
 
 Keep commands, sanitized identities, raw per-run records, summaries and failures together. Publish relative evidence paths and hashes without private machine paths or credentials. Explain content differences, unsupported browser metrics, cache/header limitations and noise before drawing a conclusion. Do not invent budgets, wins or confidence intervals.
 
-The build-plan runner implements wall/CPU/RSS recording and failure retention. The SPA correctness probe checks targeted request behavior, navigation and lifecycle cleanup. `tools/bench/doc_browser.mjs` implements a separate production-browser recorder: PerformanceObserver paint/LCP/CLS/long-task observations, scroll frame intervals, trusted input timestamps, useful-content predicates, CDP request/cache/encoded-byte events, Resource Timing and post-session decoded-body hashes. Its accounting and CLS helpers have focused regressions. The recorder has not yet established a matched baseline/candidate result; source implementation and mock tests do not establish real-browser measurement validity or a performance improvement.
+The build-plan runner implements wall/CPU/RSS recording and failure retention. The SPA correctness probe checks targeted request behavior, navigation and lifecycle cleanup. `tools/bench/doc_browser.mjs` implements a separate production-browser recorder: PerformanceObserver paint/LCP/CLS/long-task observations, scroll frame intervals, trusted input timestamps, useful-content predicates, CDP request/cache/encoded-byte events, Resource Timing and post-session decoded-body hashes. Its accounting and CLS helpers have focused regressions. The recorded comparison above is limited to its stated workloads and source identities; source implementation and mock tests alone do not establish a real-browser performance improvement.
 
 Validate a reviewed browser plan without launching a browser:
 
@@ -83,7 +138,7 @@ node tools/bench/doc_browser.mjs --plan /tmp/doc-browser-plan.json
 
 The plan uses schema `jacket-doc-browser/1`, exact `identities` and `equivalence`, an explicit Chrome executable, two named variants with production base URLs, at least three repetitions, and named profiles/scenarios. Each profile specifies width, height, device scale, CPU slowdown, network latency/throughput and a stated frame-time budget. Each scenario names its cache state and lists explicit preparation and measurement actions. Timed `goto`, `click`, `search`, `back` and `forward` actions require an expected path/hash and a visible useful-content selector; optional text, focus and scroll expectations check correctness. `hover`, `focus`, `key`, `wait` and fixed wheel `scroll` actions make prefetch, search setup and observation windows explicit. A fresh isolated profile starts each session, so a warm case must include its warm-up actions. Runtime clicks use `freshCompletion: true`: an observer armed before each trusted click must see its own output change to a pending state and then to the required successful text. The previous Run result cannot satisfy the next invocation; per-invocation tokens and observed mutations are retained in the receipt. This matched instrumentation adds overhead to both variants.
 
-Only after source/plan review and exclusive admission, add `--execute --out /tmp/owned-doc-browser` with an absent output directory. Variant order alternates between repetitions. Each action preserves a partial receipt; failures and browser exceptions fail the session. Body hashes and decoded sizes are requested after the actions, while network event byte totals include the entire session's preparation and prefetch traffic. Resource Timing, CDP data-event decoded sizes and retrieved decoded-body sizes remain separately labeled. Unknown or evicted bodies remain unknown. Repeated-body and refetched-hashed-asset receipts identify candidates for investigation; identical content alone does not prove an avoidable request.
+After source/plan review and the host’s resource admission, add `--execute --out /tmp/owned-doc-browser` with an absent output directory. Record whether the allocation was exclusive or shared; shared-load observations do not isolate contention from application cost. Variant order alternates between repetitions. Each action preserves a partial receipt; failures and browser exceptions fail the session. Body hashes and decoded sizes are requested after the actions, while network event byte totals include the entire session's preparation and prefetch traffic. Resource Timing, CDP data-event decoded sizes and retrieved decoded-body sizes remain separately labeled. Unknown or evicted bodies remain unknown. Repeated-body and refetched-hashed-asset receipts identify candidates for investigation; identical content alone does not prove an avoidable request.
 
 Pointer preparation requests ordinary centered scrolling once, then waits for a connected, exposed target with stationary geometry across three frames before dispatching trusted CDP input. Native smooth scrolling and fold behavior remain enabled. Host action-to-ready intervals include this preparation; trusted input-to-ready intervals start at the actual input event.
 
