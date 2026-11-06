@@ -33,6 +33,22 @@ fn merge_values(target: &mut Vec<i64>, values: &[i64]) {
     }
 }
 
+/// Private transport counts use the same supported option range at first use
+/// and late refresh; for example, -1 is rejected before #run can observe bytes.
+fn checked_runtime_storage_size(size: i64, span: Span) -> Result<u32> {
+    match u32::try_from(size)
+        .ok()
+        .filter(|size| *size <= i32::MAX as u32)
+    {
+        Some(size) => Ok(size),
+        None => err(
+            Code::RuntimeConfigurationInvalid,
+            span,
+            "temporary_storage_size must be nonnegative and fit s32",
+        ),
+    }
+}
+
 impl Compiler {
     pub(super) fn finish_runtime_storage_entity(&mut self, id: scope::EntityId, values: &[i64]) {
         if self.speculative_storage_entity(id, values) {
@@ -166,21 +182,22 @@ impl Compiler {
         sig: &procs::Signature,
         span: Span,
     ) -> Result<Operand> {
-        if sig.has_context || !sig.params.is_empty() || sig.returns != [TypeId::S64] {
+        if sig.has_context || !sig.params.is_empty() || sig.returns != [TypeId::U32] {
             return err(
                 Code::RuntimeConfigurationInvalid,
                 span,
-                "private runtime size intrinsic requires signature () -> s64 without context",
+                "private runtime size intrinsic requires signature () -> u32 without context",
             );
         }
+        let (_, configured_size) = self.runtime_storage_settings();
+        let size = checked_runtime_storage_size(configured_size, span)?;
         let global = if let Some(global) = self.out.runtime_storage_global {
             global
         } else {
-            let (_, size) = self.runtime_storage_settings();
             let global = self.out.program.add_global(ir::Global {
                 name: super::private_names::TEMPORARY_STORAGE_SIZE_LABEL.into(),
-                size: 8,
-                align: 8,
+                size: 4,
+                align: 4,
                 init: size.to_le_bytes().to_vec(),
                 relocs: Vec::new(),
                 read_only: true,
@@ -190,9 +207,12 @@ impl Compiler {
             global
         };
         let address = f.b.global_addr(global);
+        self.lifetime_read_only_region(f, address, TypeId::U32, global);
+        let value = f.b.load(ir::Ty::I32, address);
+        f.lifetime_load(address, value, TypeId::U32, span);
         Ok(Operand::Value {
-            ty: TypeId::S64,
-            val: f.b.load(ir::Ty::I64, address),
+            ty: TypeId::U32,
+            val: value,
         })
     }
 
@@ -349,12 +369,8 @@ impl Compiler {
     /// target execution or emission. This Rust driver API adds no Jai export.
     pub fn finalize_runtime_configuration(&mut self) -> Result<()> {
         let (has_runtime, size) = self.runtime_storage_settings();
-        if has_runtime && !(0..=i32::MAX as i64).contains(&size) {
-            return err(
-                Code::RuntimeConfigurationInvalid,
-                Span::NONE,
-                "temporary_storage_size must be nonnegative and fit s32",
-            );
+        if has_runtime {
+            checked_runtime_storage_size(size, Span::NONE)?;
         }
         let target_runtime =
             has_runtime && self.options.runtime_support && self.options.runtime_initialization;
@@ -396,7 +412,9 @@ impl Compiler {
             ))));
         }
         if let Some(global) = self.out.runtime_storage_global {
-            self.out.program.globals[global.0 as usize].init = size.to_le_bytes().to_vec();
+            let transport_size = checked_runtime_storage_size(size, Span::NONE)?;
+            self.out.program.globals[global.0 as usize].init =
+                transport_size.to_le_bytes().to_vec();
             self.ct
                 .interp
                 .refresh_global(&self.out.program, global)

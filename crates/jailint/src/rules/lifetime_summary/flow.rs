@@ -9,6 +9,11 @@ impl Live {
         self.0[block]
     }
 
+    /// All retained blocks are eligible; the state driver still begins at entry.
+    pub(super) fn all(body: &LifetimeBody) -> Self {
+        Self(vec![true; body.blocks.len()])
+    }
+
     pub(super) fn is_empty(&self) -> bool {
         !self.0.contains(&true)
     }
@@ -19,6 +24,9 @@ pub(super) fn returning_blocks(
     all: &HashMap<ProcId, Summary>,
     targets: &crate::rules::lifetime_targets::Universe,
 ) -> Live {
+    if body.blocks.is_empty() {
+        return Live(Vec::new());
+    }
     let stopped: Vec<_> = body
         .blocks
         .iter()
@@ -327,4 +335,95 @@ pub(super) fn dominators(edges: &[Vec<usize>]) -> Vec<Option<usize>> {
         }
     }
     parents
+}
+
+/// Solve body-local entry states over settled normal-return blocks. Domains own
+/// their transfer and join: the driver never equates may alternatives with must
+/// facts. Cancellation returns no state vector, not a partially solved cache entry.
+pub(super) fn states<S: Clone>(
+    body: &LifetimeBody,
+    live: &Live,
+    entry: S,
+    join: impl FnMut(&mut S, &S) -> bool,
+    event: impl FnMut(&mut S, crate::rules::lifetime_movement::facts::Site, &Event),
+) -> Option<Vec<Option<S>>> {
+    states_except(body, live, entry, &HashSet::default(), join, event)
+}
+
+/// The same driver with explicit excluded structural edges. Unknown predicates
+/// exclude nothing; callers own the proof authorizing every skipped edge.
+pub(super) fn states_except<S: Clone>(
+    body: &LifetimeBody,
+    live: &Live,
+    entry: S,
+    skipped: &HashSet<(usize, usize)>,
+    join: impl FnMut(&mut S, &S) -> bool,
+    event: impl FnMut(&mut S, crate::rules::lifetime_movement::facts::Site, &Event),
+) -> Option<Vec<Option<S>>> {
+    states_except_edges(body, live, entry, skipped, join, event, None)
+}
+
+/// Optional control-path metadata is applied to an independent successor state.
+/// Existing domains pass no hook and retain their original clone/join ordering.
+type EdgeHook<'a, S> = &'a mut dyn FnMut(usize, usize, &mut S) -> Option<()>;
+
+/// For example, a native-return witness records a selected branch edge here.
+/// A rejected edge aborts the whole optional query; it never disappears silently.
+pub(super) fn states_except_edges<S: Clone>(
+    body: &LifetimeBody,
+    live: &Live,
+    entry: S,
+    skipped: &HashSet<(usize, usize)>,
+    mut join: impl FnMut(&mut S, &S) -> bool,
+    mut event: impl FnMut(&mut S, crate::rules::lifetime_movement::facts::Site, &Event),
+    mut edge: Option<EdgeHook<'_, S>>,
+) -> Option<Vec<Option<S>>> {
+    let mut states = vec![None; body.blocks.len()];
+    if body.blocks.is_empty() || !live.contains(0) {
+        return Some(states);
+    }
+    states[0] = Some(entry);
+    let mut queue = std::collections::VecDeque::from([0]);
+    let mut queued = vec![false; body.blocks.len()];
+    queued[0] = true;
+    while let Some(block) = queue.pop_front() {
+        if jaic::interrupt::should_stop() {
+            return None;
+        }
+        queued[block] = false;
+        let mut next = states[block].clone().unwrap();
+        for (ordinal, value) in body.blocks[block].events.iter().enumerate() {
+            event(
+                &mut next,
+                crate::rules::lifetime_movement::facts::Site {
+                    block,
+                    event: ordinal,
+                },
+                value,
+            );
+        }
+        for &successor in &body.blocks[block].successors {
+            if skipped.contains(&(block, successor)) || !live.contains(successor) {
+                continue;
+            }
+            let mut propagated;
+            let incoming = if let Some(hook) = edge.as_mut() {
+                propagated = next.clone();
+                hook(block, successor, &mut propagated)?;
+                &propagated
+            } else {
+                &next
+            };
+            let changed = if let Some(previous) = &mut states[successor] {
+                join(previous, incoming)
+            } else {
+                states[successor] = Some(incoming.clone());
+                true
+            };
+            if changed && !std::mem::replace(&mut queued[successor], true) {
+                queue.push_back(successor);
+            }
+        }
+    }
+    Some(states)
 }

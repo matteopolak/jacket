@@ -61,8 +61,10 @@ impl Compiler {
         let rhs_block = f.b.new_block();
         let done = f.b.new_block();
         if op == BinOp::And {
+            f.lifetime_branch(lc, span, rhs_block, done);
             f.b.branch(lc, rhs_block, done);
         } else {
+            f.lifetime_branch(lc, span, done, rhs_block);
             f.b.branch(lc, done, rhs_block);
         }
         f.b.switch_to(rhs_block);
@@ -73,9 +75,16 @@ impl Compiler {
         f.b.store(Ty::I8, result, rc);
         f.b.jump(done);
         f.b.switch_to(done);
+        let value = f.b.load(Ty::I8, result);
+        let operation = if op == BinOp::And {
+            crate::ide::lifetimes::LifetimeBoolean::And(lc, rc)
+        } else {
+            crate::ide::lifetimes::LifetimeBoolean::Or(lc, rc)
+        };
+        f.lifetime_boolean(value, operation);
         Ok(Operand::Value {
             ty: TypeId::BOOL,
-            val: f.b.load(Ty::I8, result),
+            val: value,
         })
     }
 

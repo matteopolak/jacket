@@ -34,6 +34,9 @@ impl Compiler {
 
     /// The part of `proc_func` that runs once: the procedure has no target yet.
     fn make_proc_target(&mut self, id: ProcId, span: Span, in_code: bool) -> Result<ProcTarget> {
+        if let Some(facts) = self.ed.facts_mut() {
+            facts.lifetime_generated_entries.remove(&id);
+        }
         if self.proc(id).is_macro {
             return err(
                 Code::ProcMacro,
@@ -257,6 +260,13 @@ impl Compiler {
         }
         f.b.ret(rets);
         self.out.program.funcs[func.0 as usize] = Some(f.b.finish());
+        use crate::ide::lifetimes::LifetimeContextTransfer as Transfer;
+        let context = match (sig.has_context, main_sig.has_context) {
+            (true, true) => Transfer::ForwardHidden,
+            (false, true) => Transfer::Null,
+            (_, false) => Transfer::Absent,
+        };
+        self.lifetime_record_generated_entry(id, func, main, main_func, context);
         Ok(func)
     }
 

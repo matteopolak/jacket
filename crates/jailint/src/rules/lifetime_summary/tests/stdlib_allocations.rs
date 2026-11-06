@@ -102,19 +102,43 @@ fn stdlib_swap_contract_matches_every_checked_instance_without_notes() {
     }
 }
 
-fn checked_without_contracts(source: &str) -> (Compiler, Summaries) {
+pub(super) fn checked_without_contracts(source: &str) -> (Compiler, Summaries) {
     checked_without_contracts_target(source, false)
 }
 
 fn checked_without_contracts_target(source: &str, windows: bool) -> (Compiler, Summaries) {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let mut c = checked_source_target(source, windows);
+    c.release_lowered_code();
+    let summaries = Summaries::build(&c);
+    (c, summaries)
+}
+
+/// Check a fixture without body contracts while keeping executable IR for parity checks.
+pub(in crate::rules::lifetime_summary) fn checked_source(source: &str) -> Compiler {
+    checked_source_target(source, false)
+}
+
+fn checked_source_target(source: &str, windows: bool) -> Compiler {
     let mut options = Options::host();
-    options.import_paths = vec![stdlib.clone()];
-    options.set_stdlib(&NativeFs, &stdlib);
     if windows {
         options.os = jaic::target::TargetOs::Windows;
         options.cpu = jaic::target::TargetCpu::X64;
     }
+    checked_source_options(source, options)
+}
+
+/// Check the same fixture under an explicit target without executing target code.
+pub(super) fn checked_source_options(source: &str, options: Options) -> Compiler {
+    let mut c = checked_source_with_contracts(source, options);
+    without_body_notes(&mut c);
+    c
+}
+
+/// Check a fixture while preserving its explicitly trusted body contracts.
+pub(super) fn checked_source_with_contracts(source: &str, mut options: Options) -> Compiler {
+    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    options.import_paths = vec![stdlib.clone()];
+    options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
     facts.lint = true;
@@ -123,10 +147,7 @@ fn checked_without_contracts_target(source: &str, windows: bool) -> (Compiler, S
         .unwrap();
     c.finish_program().unwrap();
     assert!(c.ide_check_all().is_empty());
-    without_body_notes(&mut c);
-    c.release_lowered_code();
-    let summaries = Summaries::build(&c);
-    (c, summaries)
+    c
 }
 
 #[test]

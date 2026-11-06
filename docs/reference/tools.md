@@ -561,6 +561,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_TEST_LIBRARY_MARKER` | A file the native-link test's library writes to, to show it was loaded. | unset | tests |
 | `JAIC_TEST_TMPDIR` | Where test scratch directories are made. | the system temporary directory | tests |
 | `JAIC_WASM_TEST` | A value the WebAssembly test passes to the program, which prints it back. | unset | tests |
+| `JAILINT_LIFETIME_CANCELLATION_CHILD` | Marks isolated child processes of lifetime analysis cancellation tests. | unset | tests |
 | `JAILSP_ENFORCE_SCALE_BUDGET` | `1`: the language server scale test fails when a case is over its budget. | unset: the budget is only reported | tests |
 | `JAI_FUZZ_VERBOSE` | When set, the fuzz harness prints each input it checks. | unset | fuzzing |
 | `JAI_IDE_AUDIT_REVISION` | Read at build time: the revision the language server coverage audit stamps into its report. | unset | tests |

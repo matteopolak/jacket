@@ -103,7 +103,8 @@ impl Resolver<'_> {
                             | Root::Heap
                             | Root::Temporary
                             | Root::Watermark
-                            | Root::Until(_) => true,
+                            | Root::Until(_)
+                            | Root::CapturedRead(_) => true,
                         })
                     {
                         let restored = resolved.as_ref().and_then(|target| {
@@ -186,11 +187,9 @@ impl Resolver<'_> {
 }
 
 impl super::Summaries {
-    pub(super) fn propagate_writes<'a>(
+    pub(super) fn propagate_writes(
         &mut self,
-        cache: &mut super::prepared::Cache<'a>,
-        compiler: &'a super::Compiler,
-        valid: &HashMap<ProcId, &'a super::LifetimeBody>,
+        cache: &mut super::prepared::Cache<'_>,
         components: &[Vec<ProcId>],
         graph: &HashMap<ProcId, Vec<ProcId>>,
     ) {
@@ -202,15 +201,7 @@ impl super::Summaries {
                 let mut changed = false;
                 for id in component {
                     let resolver = resolvers.entry(*id).or_insert_with(|| {
-                        Resolver::cached(
-                            cache,
-                            compiler,
-                            *id,
-                            valid[id],
-                            &self.procs,
-                            &self.targets,
-                            &self.allocators,
-                        )
+                        Resolver::cached(cache, *id, &self.procs, &self.targets, &self.allocators)
                     });
                     let Writes {
                         effects: writes,

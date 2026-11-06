@@ -81,6 +81,7 @@ impl Compiler {
         if let Some(bad) = bad {
             let fail = f.b.new_block();
             let cont = f.b.new_block();
+            f.lifetime_branch(bad, span, fail, cont);
             f.b.branch(bad, fail, cont);
             f.b.switch_to(fail);
             let value = if t == Ty::I64 {

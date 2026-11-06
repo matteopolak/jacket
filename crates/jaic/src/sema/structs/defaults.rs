@@ -1,4 +1,5 @@
 //! Default initializers and constant values of types.
+mod lifetime;
 use super::literals::{image_of, write_agg};
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
@@ -183,8 +184,12 @@ impl Compiler {
             );
         }
         let size = self.size_of(ty, span)?;
-        match self.default_initializer(ty, span)? {
-            None => f.b.zero(addr, size),
+        let image = self.default_initializer(ty, span)?;
+        match image {
+            None => {
+                self.record_lifetime_default_image(f, ty, addr, size, None);
+                f.b.zero(addr, size);
+            }
             Some(img) => {
                 let g = if let Some(&g) = self.ty.default_globals.get(&ty) {
                     g
@@ -202,6 +207,7 @@ impl Compiler {
                     self.ty.default_globals.insert(ty, g);
                     g
                 };
+                self.record_lifetime_default_image(f, ty, addr, size, Some(g));
                 let src = f.b.global_addr(g);
                 f.b.copy(addr, src, size);
             }

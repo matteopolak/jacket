@@ -610,6 +610,25 @@ fn lifetime_resources_cover_cleanup_scopes_watermarks_and_handles() {
 }
 
 #[test]
+fn lifetime_cleanup_uses_prestate_and_replacement_allocations() {
+    let path = repo().join("tests/lint/pointer_lifetime/resources/storage-versions.jai");
+    let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
+    for marker in [
+        "replacement.*); // replacement was freed",
+        "initial.*); // initial was freed",
+    ] {
+        let offset = text.find(marker).unwrap();
+        assert!(
+            lints.iter().any(|l| l.start <= offset && l.end > offset),
+            "{}",
+            rendered(&lints, &text, &path)
+        );
+    }
+    assert!(lints.iter().all(|l| !l.secondary.is_empty()), "{lints:?}");
+}
+
+#[test]
 fn lifetime_movements_preserve_element_identity() {
     let case = repo().join("tests/lint/pointer_lifetime/movement");
     let bad = case.join("bad.jai");
@@ -1171,3 +1190,6 @@ mod accuracy;
 
 #[path = "rules/fix_previews.rs"]
 mod fix_previews;
+
+#[path = "rules/native_inference.rs"]
+mod native_inference;

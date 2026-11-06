@@ -9,7 +9,7 @@ pub(super) fn returns_context_storage(c: &super::Compiler, body: &LifetimeBody) 
         .flat_map(|b| &b.events)
         .filter_map(|e| {
             if let Event::ContextRead {
-                value,
+                value, ..
             } = e
             {
                 Some(*value)

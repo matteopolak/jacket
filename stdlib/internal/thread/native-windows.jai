@@ -26,7 +26,7 @@ lock :: (using m: *Mutex) {
 // Gives the mutex back. Call it from the thread that locked it.
 unlock :: (using m: *Mutex) {
     W.LeaveCriticalSection(*csection);
-} @Unlocks
+}
 
 // Locks the raw operating-system critical section behind a `Mutex`. Prefer `lock`.
 csection_lock :: (csection: *Per_OS_Critical_Section_Type) #expand {

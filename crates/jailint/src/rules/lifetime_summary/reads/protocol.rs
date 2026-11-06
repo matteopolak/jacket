@@ -95,15 +95,7 @@ pub(in crate::rules::lifetime_summary) fn solve<'a>(
                     continue;
                 }
                 let resolver = resolvers.entry(*id).or_insert_with(|| {
-                    Resolver::cached(
-                        cache,
-                        compiler,
-                        *id,
-                        valid[id],
-                        &all.procs,
-                        &all.targets,
-                        &all.allocators,
-                    )
+                    Resolver::cached(cache, *id, &all.procs, &all.targets, &all.allocators)
                 });
                 let mut queries = super::HashSet::default();
                 for (callee, args, direct) in calls {

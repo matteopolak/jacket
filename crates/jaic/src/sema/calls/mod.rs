@@ -27,6 +27,7 @@ use crate::source::{Applicability, Suggestion};
 use crate::target::TargetCpu;
 use crate::types::{ArrayKind, TypeKind};
 
+mod allocator_protocol;
 mod as_bases;
 mod baking;
 mod builtins;

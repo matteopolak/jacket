@@ -12,7 +12,11 @@
 //! // no builder_to_string, free_buffers or reset
 //! ```
 //!
-//! Procedures declare their part with notes: `@Opens` on one that acquires something, `@Closes`
+//! Checked native return acquisitions can establish an opening without a note.
+//! Pending callback liveness conditions keep inference unknown; declared contracts
+//! remain available where the body cannot prove the effect.
+//!
+//! Procedures can declare their part with notes: `@Opens` on one that acquires something, `@Closes`
 //! on one that gives it back (a `@FreesArgument` procedure closes too). An opener is either
 //! assigned (`file, ok := file_open(path);`, the first name is the resource) or called as a
 //! statement on a local's address (`append(*builder, s);`, `init_string_builder(*builder);`).
@@ -32,14 +36,17 @@ use jaic::ast::{BinOp, Block, Expr, ExprKind as E, StmtKind as S, UnOp};
 use jaic::intern::Sym;
 use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;
+use jaic::source::Span;
 use jaic::types::TypeKind;
 
-/// A local that an `@Opens` call acquired something for.
+/// A local with a declared or checked native acquisition.
 struct Opened<'a> {
     name: Sym,
     var: EntityId,
     /// The opening call.
     call: &'a Expr,
+    /// Multiple acquisitions at one call have distinct binding locations.
+    primary: Span,
     /// Mentions before this offset are the opening itself.
     after: u32,
 }
@@ -63,27 +70,33 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 match &s.kind {
                     S::Decl(d) if d.rare.is_none() && !d.using && !d.backtick => {
                         if let Some(value) = &d.value
-                            && let Some(call) = opening(cx, value)
-                            && let Some(name) = d.names.first()
-                            && name.name.as_str() != "_"
-                            && let Some(var) = single(&cx.locals(name.span))
+                            && let Some((call, positions)) = opening(cx, value)
                         {
-                            opened.push(Opened {
-                                name: name.name,
-                                var,
-                                call,
-                                after: d.span.end,
-                            });
+                            let multiple = positions.len() > 1;
+                            for index in positions {
+                                if let Some(name) = d.names.get(index)
+                                    && name.name.as_str() != "_"
+                                    && let Some(var) = single(&cx.locals(name.span))
+                                {
+                                    opened.push(Opened {
+                                        name: name.name,
+                                        var,
+                                        call,
+                                        primary: if multiple {
+                                            name.span
+                                        } else {
+                                            call.span
+                                        },
+                                        after: d.span.end,
+                                    });
+                                }
+                            }
                         }
                     }
                     S::Expr(e) => {
-                        if let E::Call {
-                            args, ..
-                        } = &e.kind
-                            && opening(cx, e).is_some()
-                            && let Some(first) = args.first()
-                            && !first.spread
-                            && let E::Unary(UnOp::Star, target) = &first.value.kind
+                        if noted_opening(cx, e).is_some()
+                            && let Some(actual) = super::call_bindings::argument(cx, e, 0)
+                            && let E::Unary(UnOp::Star, target) = &actual.kind
                             && let E::Ident(name) = &target.kind
                             && let Some(var) = single(&cx.entities(target.span))
                             && declared_in(cx, var, p.body)
@@ -93,6 +106,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                                 name: *name,
                                 var,
                                 call: e,
+                                primary: e.span,
                                 after: cx.compiler.entity(var).span.end,
                             });
                         }
@@ -111,7 +125,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     _ => "",
                 };
                 out.push(finding(
-                    o.call.span,
+                    o.primary,
                     format!(
                         "`{}` is opened by `{callee}` but nothing closes it",
                         o.name.as_str()
@@ -142,8 +156,33 @@ fn declared_in(cx: &Cx, var: EntityId, body: &Block) -> bool {
         && e.span.end <= body.span.end
 }
 
-/// The expression is a call of an `@Opens` procedure, possibly cast: that call.
-fn opening<'a>(cx: &Cx, e: &'a Expr) -> Option<&'a Expr> {
+/// A returned acquisition and its declaration positions, including casts.
+/// For example, an inferred second result selects `h` in `ok, h := acquire()`.
+fn opening<'a>(cx: &Cx, e: &'a Expr) -> Option<(&'a Expr, Vec<usize>)> {
+    let call = call(e)?;
+    let mut positions = super::scalar_openings::results(cx, call.span).unwrap_or_default();
+    if noted_opening(cx, e).is_some() && !positions.contains(&0) {
+        positions.push(0);
+        positions.sort_unstable();
+    }
+    (!positions.is_empty()).then_some((call, positions))
+}
+
+/// Receiver acquisition still needs an explicit effect; a returned native
+/// handle does not make its first argument the owner of that acquisition.
+fn noted_opening<'a>(cx: &Cx, e: &'a Expr) -> Option<&'a Expr> {
+    let call = call(e)?;
+    let E::Call {
+        callee, ..
+    } = &call.kind
+    else {
+        return None;
+    };
+    calls_noted(cx, callee, "Opens").then_some(call)
+}
+
+/// The actual call inside a cast, for example `cast(*void) acquire()`.
+fn call(e: &Expr) -> Option<&Expr> {
     let mut cur = e;
     while let E::Cast {
         value, ..
@@ -151,12 +190,7 @@ fn opening<'a>(cx: &Cx, e: &'a Expr) -> Option<&'a Expr> {
     {
         cur = value;
     }
-    match &cur.kind {
-        E::Call {
-            callee, ..
-        } if calls_noted(cx, callee, "Opens") => Some(cur),
-        _ => None,
-    }
+    matches!(cur.kind, E::Call { .. }).then_some(cur)
 }
 
 /// Every mention of the local after its opening is quiet, and none is hidden from the scan.
@@ -222,7 +256,11 @@ fn quiet(cx: &Cx, e: &Expr, chain: &[Node<'_>]) -> bool {
                 callee,
                 args,
                 ..
-            } if args.iter().any(|a| a.value.span == cur.span) => calls_noted(cx, callee, "Opens"),
+            } if args.iter().any(|a| a.value.span == cur.span) => {
+                calls_noted(cx, callee, "Opens")
+                    && super::call_bindings::argument(cx, p, 0)
+                        .is_some_and(|actual| actual.span == cur.span)
+            }
             _ => projected && scalar(cx, cur),
         },
         None => false,

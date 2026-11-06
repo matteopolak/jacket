@@ -12,6 +12,7 @@ impl Resolver<'_> {
         args: &[super::LifetimeArgument],
         all: &HashMap<ProcId, Summary>,
     ) -> Vec<(Effect, Vec<super::Span>)> {
+        let _storage = self.storage_query();
         let mut out = Vec::new();
         for (effect, witness) in &summary.may {
             if !matches!(effect.kind, Kind::Free | Kind::Resize) {
@@ -68,7 +69,7 @@ impl Resolver<'_> {
         out
     }
 
-    fn possible_value(
+    pub(super) fn possible_value(
         &self,
         v: Val,
         all: &HashMap<ProcId, Summary>,
@@ -87,10 +88,64 @@ impl Resolver<'_> {
                 return out;
             }
         }
+        if (self.storage_mode.get() || self.return_mode.get())
+            && let Some(sources) = self.pointer_result_sources(v, all)
+        {
+            out.extend(
+                sources
+                    .into_iter()
+                    .filter_map(|source| self.installed_path(source)),
+            );
+            seen.remove(&v);
+            return out;
+        }
         for def in self.values.get(&v).into_iter().flatten() {
             let paths = match def {
                 Def::Copy(source) => self.possible_value(*source, all, seen, depth + 1),
                 Def::Load(p, ty) => {
+                    if let Some(sources) = self.storage_versions.get(&v) {
+                        for source in sources {
+                            match source {
+                                super::storage_versions::Source::ScalarValue {
+                                    ..
+                                }
+                                | super::storage_versions::Source::Constant {
+                                    ..
+                                } => {}
+                                super::storage_versions::Source::Initial
+                                | super::storage_versions::Source::Unknown => {
+                                    out.extend(
+                                        self.location(*p, all, &mut HashSet::default(), 0)
+                                            .and_then(|p| p.append(&[Step::Deref])),
+                                    );
+                                }
+                                super::storage_versions::Source::Aggregate(
+                                    value,
+                                    ty,
+                                    base,
+                                    place,
+                                    site,
+                                ) => {
+                                    out.extend(self.aggregate_possible(
+                                        *value, *ty, *base, *place, *site, all,
+                                    ));
+                                }
+                                super::storage_versions::Source::Call(site) => {
+                                    out.extend(self.written_sources_at(
+                                        *site,
+                                        *p,
+                                        all,
+                                        seen,
+                                        depth + 1,
+                                    ));
+                                }
+                                super::storage_versions::Source::Value(value) => {
+                                    out.extend(self.possible_value(*value, all, seen, depth + 1));
+                                }
+                            }
+                        }
+                        continue;
+                    }
                     if self.compiler.ty.types.is_pointer(*ty) && self.places.paths[*p].1.is_empty()
                     {
                         // Loading a local pointer yields its stored pointees, never
@@ -151,7 +206,10 @@ impl Resolver<'_> {
                 Projection::Field(n) => Some(Step::Field(*n)),
                 Projection::Element(i) => Some(Step::Element(*i)),
                 Projection::Deref => Some(Step::Deref),
-                Projection::DynamicElement(_) => None,
+                Projection::DynamicElement(_)
+                | Projection::Inline {
+                    ..
+                } => None,
             })
             .collect::<Option<Vec<_>>>()
         else {

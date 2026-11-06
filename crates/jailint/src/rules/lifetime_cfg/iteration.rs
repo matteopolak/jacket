@@ -1,9 +1,9 @@
 //! Follow selected cursor edges. A break/return cannot reach the step, while an explicit
 //! user index write repairs (or makes unknown) the cursor before its next advance.
 use super::{
-    BodyState, Cells, Cx, Finding, HashMap, HashSet, Op, Places, Span, Summaries, VecDeque, build,
-    finding,
+    Cells, Cx, Finding, HashMap, HashSet, Op, Places, Span, Summaries, VecDeque, build, finding,
 };
+use crate::rules::lifetime_facts::current_body;
 use crate::rules::lifetime_movement::Action;
 use crate::rules::lifetime_summary::Prepared;
 
@@ -21,13 +21,12 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let mut bodies: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
     bodies.sort_by_key(|b| b.procedure.0);
     for body in bodies {
-        let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
-        if proc.body_state != BodyState::Done || !std::sync::Arc::ptr_eq(&proc.lit, &body.syntax) {
+        if !current_body(cx.compiler, body.procedure, body) {
             continue;
         }
         let mut places = Places::new(cx.compiler, body);
-        let prepared = Prepared::for_body(cx.compiler, body, summaries);
-        let blocks = build(
+        let prepared = Prepared::for_body(crate::rules::lifetime_facts::CheckedSession::new(cx.compiler).body((body).procedure).unwrap(), summaries);
+        let Some(built) = build(
             cx,
             body,
             &prepared,
@@ -35,7 +34,10 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             &mut Cells::default(),
             summaries,
             &mut HashMap::default(),
-        );
+        ) else {
+            continue;
+        };
+        let blocks = built.blocks;
         for (start, b) in blocks.iter().enumerate() {
             let Op::Iteration {
                 region,

@@ -19,7 +19,23 @@ impl Compiler {
     ) -> Result<Operand> {
         let name = self.proc(proc).name;
         if name.as_str() == crate::sema::private_names::RUNTIME_TEMPORARY_STORAGE_SIZE {
-            return self.runtime_storage_operand(f, sig, span);
+            let before = f
+                .lifetimes
+                .as_ref()
+                .map_or(0, |r| r.read_only_regions.len());
+            let result = self.runtime_storage_operand(f, sig, span)?;
+            // Only this successful, fully recorded lowering may replace the opaque
+            // call effect. Independent declaration promises keep the ordinary path.
+            if !f.type_only
+                && header.notes.is_empty()
+                && self.pr.proc_decl_notes.get(&proc).is_none_or(|notes| notes.is_empty())
+                && let Some(record) = &mut f.lifetimes
+                && record.read_only_regions.len() > before
+                && let Some(call) = record.calls.last_mut()
+            {
+                call.effects_recorded = true;
+            }
+            return Ok(result);
         }
         let mut values = Vec::new();
         let mut k = 0;
@@ -447,44 +463,63 @@ impl Compiler {
 fn intrinsic_memory_effects(
     op: ir::Intrinsic,
 ) -> Option<crate::ide::lifetimes::LifetimeMemoryEffects> {
-    use crate::ide::lifetimes::LifetimeMemoryEffects as Memory;
+    use crate::ide::lifetimes::{
+        LifetimeMemoryEffects as Memory, LifetimeMemoryOperation as Operation,
+    };
     match op {
         ir::Intrinsic::FiberFree => Some(Memory {
+            operation: Operation::Unspecified,
             reads: 0,
             writes: 0,
             count: None,
         }),
         ir::Intrinsic::Memcpy => Some(Memory {
+            operation: Operation::Copy(crate::ide::lifetimes::LifetimeMemoryCopy {
+                destination_formal: 0,
+                source_formal: 1,
+                count_formal: 2,
+                // Both native lowering and the interpreter implement memmove.
+                requires_disjoint: false,
+            }),
             reads: 0b10,
             writes: 0b1,
             count: Some(2),
         }),
         ir::Intrinsic::Memset => Some(Memory {
+            operation: Operation::BoundedWrite(crate::ide::lifetimes::LifetimeBoundedWrite {
+                destination_formal: 0,
+                count_formal: 2,
+            }),
             reads: 0,
             writes: 0b1,
             count: Some(2),
         }),
         ir::Intrinsic::Memcmp => Some(Memory {
+            operation: Operation::Unspecified,
             reads: 0b11,
             writes: 0,
             count: Some(2),
         }),
         ir::Intrinsic::ByteLookup(_) => Some(Memory {
+            operation: Operation::Unspecified,
             reads: 0b110,
             writes: 0b1,
             count: Some(3),
         }),
         ir::Intrinsic::SignMask(_) => Some(Memory {
+            operation: Operation::Unspecified,
             reads: 0b1,
             writes: 0,
             count: Some(1),
         }),
         ir::Intrinsic::AtomicLoad(_) => Some(Memory {
+            operation: Operation::Unspecified,
             reads: 0b1,
             writes: 0,
             count: None,
         }),
         ir::Intrinsic::AtomicStore(_) => Some(Memory {
+            operation: Operation::Unspecified,
             reads: 0,
             writes: 0b1,
             count: None,
@@ -492,6 +527,7 @@ fn intrinsic_memory_effects(
         ir::Intrinsic::CompareAndSwap
         | ir::Intrinsic::AtomicRmw(..)
         | ir::Intrinsic::AtomicCas(..) => Some(Memory {
+            operation: Operation::Unspecified,
             reads: 0b1,
             writes: 0b1,
             count: None,

@@ -420,6 +420,7 @@ impl Compiler {
                     source: data,
                     stride: elem,
                     offset: lifetime_index,
+                    subscript: Some(idx),
                     span,
                 },
             );

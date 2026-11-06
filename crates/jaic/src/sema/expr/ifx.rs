@@ -316,6 +316,7 @@ impl Compiler {
         let then_block = f.b.new_block();
         let else_block = f.b.new_block();
         let done = f.b.new_block();
+        f.lifetime_branch(c, cond.span, then_block, else_block);
         f.b.branch(c, then_block, else_block);
         f.b.switch_to(then_block);
         let implicit_then = match then_value {
@@ -464,10 +465,14 @@ impl Compiler {
         f.b.switch_to(done);
         let addr = f.b.slot_addr(slot);
         match self.ir_ty(ty) {
-            Some(t) => Ok(Operand::Value {
-                ty,
-                val: f.b.load(t, addr),
-            }),
+            Some(t) => {
+                let value = f.b.load(t, addr);
+                f.lifetime_load(addr, value, ty, span);
+                Ok(Operand::Value {
+                    ty,
+                    val: value,
+                })
+            }
             None => Ok(Operand::Value {
                 ty,
                 val: addr,

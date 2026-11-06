@@ -16,7 +16,7 @@ impl Resolver<'_> {
         if depth > 24 {
             return false;
         }
-        let key = (value, ty, projections.to_vec());
+        let key = (value, ty, projections.to_vec(), self.storage_mode.get());
         if let Some(&temporary) = self.may_field_origins.borrow().get(&key) {
             return temporary;
         }

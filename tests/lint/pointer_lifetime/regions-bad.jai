@@ -217,4 +217,4 @@ direct_string_data_read :: () {
     n := s.data.*;
 }
 
-main :: () {}
+main :: () { returned_growth_pointer(); }

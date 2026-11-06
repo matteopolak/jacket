@@ -1,5 +1,5 @@
 //! Member access expressions and the types of promoted and pending members.
-use super::model::FieldUsing;
+use super::model::{FieldUsing, PathStep};
 use crate::diagnostics::Code;
 use crate::ide::Recorder;
 use crate::sema::lower::{FnCtx, Operand, Origin};
@@ -24,7 +24,8 @@ impl Compiler {
             self.ty.types.kind(descriptor_ty),
             TypeKind::Array { .. } | TypeKind::String
         );
-        let result = self.member_access_inner(f, scope, base, name, span);
+        let mut projection = None;
+        let result = self.member_access_inner(f, scope, base, name, span, &mut projection);
         if !f.type_only
             && let Ok(op) = &result
             && let Some(record) = &mut f.lifetimes
@@ -40,6 +41,23 @@ impl Compiler {
                 })
             {
                 record.push(f.b.current, LifetimeEvent::Barrier);
+                if let (
+                    Some((projection_block, projection_event)),
+                    LifetimeOperand::Place(result),
+                ) = (projection, LifetimeOperand::of(op))
+                {
+                    let block = f.b.current.0 as usize;
+                    record
+                        .overlay_accesses
+                        .push(crate::ide::lifetimes::LifetimeOverlayAccess {
+                            block,
+                            event: record.blocks[block].events.len() - 1,
+                            projection_block,
+                            projection_event,
+                            descriptor_ty,
+                            result,
+                        });
+                }
             }
             let field = LifetimeOperand::of(op);
             if let (LifetimeOperand::Place(base), LifetimeOperand::Place(field)) = (receiver, field)
@@ -71,6 +89,7 @@ impl Compiler {
         base: Operand,
         name: Sym,
         span: Span,
+        projection: &mut Option<(usize, usize)>,
     ) -> Result<Operand> {
         match base {
             Operand::Type(t) => return self.type_member(f, scope, t, name, span),
@@ -227,6 +246,26 @@ impl Compiler {
             self.find_member_in(target, name, span, &mut Vec::new())?
         {
             let a = self.apply_path(f, addr, &path);
+            if !f.type_only
+                && let Some(offset) = path.iter().try_fold(0u64, |offset, step| match step {
+                    PathStep::Offset(bytes) => offset.checked_add(*bytes),
+                    PathStep::Deref => None,
+                })
+                && let Some(record) = &mut f.lifetimes
+            {
+                record.push(
+                    f.b.current,
+                    crate::ide::lifetimes::LifetimeEvent::FieldProjection {
+                        base: addr,
+                        result: a,
+                        base_ty: target,
+                        result_ty: mty,
+                        offset,
+                    },
+                );
+                let block = f.b.current.0 as usize;
+                *projection = Some((block, record.blocks[block].events.len() - 1));
+            }
             let parameters = origin
                 .and_then(|origin| self.pr.callable_fields.get(&origin))
                 .cloned();

@@ -166,7 +166,22 @@ impl Compiler {
                 let offset = self.as_offset(*inner, *target).unwrap_or(0);
                 let (_, v) = self.rvalue(f, op, span)?;
                 let val = f.b.ptr_offset(v, offset);
-                f.lifetime_copy(val, v);
+                if offset == 0 {
+                    f.lifetime_copy(val, v);
+                } else if !f.type_only
+                    && let Some(record) = &mut f.lifetimes
+                {
+                    record.push(
+                        f.b.current,
+                        crate::ide::lifetimes::LifetimeEvent::FieldProjection {
+                            base: v,
+                            result: val,
+                            base_ty: *inner,
+                            result_ty: *target,
+                            offset,
+                        },
+                    );
+                }
                 Ok(Operand::Value {
                     ty: to,
                     val,

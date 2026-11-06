@@ -165,6 +165,11 @@ pub struct IdeFacts {
     pub lint: bool,
     /// Successful per-instantiation semantic CFGs; absent unless lint recording is on.
     pub lifetime_bodies: HashMap<ProcId, super::lifetimes::LifetimeBody>,
+    /// Optional bounded neutral topology; recording/clear invalidate its owned buffers.
+    pub(super) lifetime_execution:
+        std::cell::RefCell<Option<std::rc::Rc<super::execution::Snapshot>>>,
+    /// Successful generated entry-wrapper calls, without retaining executable IR.
+    pub lifetime_generated_entries: HashMap<ProcId, super::lifetimes::LifetimeGeneratedEntryCall>,
     /// Relocations of immutable globals referenced by selected lifetime bodies.
     pub lifetime_globals: HashMap<crate::ir::GlobalId, Vec<crate::ir::Reloc>>,
     /// Procedure-slot initializers retained before executable global data is released.
@@ -265,7 +270,8 @@ pub struct IdeCast {
 }
 
 impl IdeFacts {
-    /// Successful records for one source file, without scanning all imported instances.
+    /// Successful records for one source file, preserving their original map key
+    /// before dropping it. Missing or mismatched records are not selected.
     pub fn lifetime_bodies_in(
         &self,
         file: FileId,
@@ -274,7 +280,11 @@ impl IdeFacts {
             .get(&file)
             .into_iter()
             .flatten()
-            .filter_map(|id| self.lifetime_bodies.get(id))
+            .filter_map(|id| {
+                self.lifetime_bodies
+                    .get(id)
+                    .filter(|body| body.procedure == *id)
+            })
     }
 
     /// Whether `r` (one of `refs`) was recorded by a sketch, with stand-in types.
@@ -385,13 +395,27 @@ impl IdeFacts {
         self
     }
 
+    /// Remove the current execution owner; outstanding views no longer authorize traversal.
+    pub(super) fn invalidate_execution(&mut self) {
+        self.lifetime_execution.get_mut().take();
+    }
+
     /// Release selected lifetime bodies and their file index together, retaining other facts.
     /// This also permits measuring their incremental retained allocation separately.
     pub fn clear_lifetimes(&mut self) {
+        self.invalidate_execution();
         self.lifetime_bodies = HashMap::default();
+        self.lifetime_generated_entries = HashMap::default();
         self.lifetime_globals = HashMap::default();
         self.lifetime_procedure_globals = HashMap::default();
         self.lifetime_files = HashMap::default();
+    }
+
+    /// Reserved generated-entry record payload, excluding hash metadata and shared syntax.
+    /// For example, `clear_lifetimes` reduces this retained payload to zero.
+    pub fn lifetime_generated_entry_bytes(&self) -> usize {
+        self.lifetime_generated_entries.capacity()
+            * std::mem::size_of::<(ProcId, super::lifetimes::LifetimeGeneratedEntryCall)>()
     }
 
     pub fn new(roots: Vec<IdeRoot>) -> Self {

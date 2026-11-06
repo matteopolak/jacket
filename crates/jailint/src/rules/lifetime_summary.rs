@@ -12,40 +12,55 @@ use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
 
 mod address_arithmetic;
+mod captured_values;
+pub(in crate::rules) use captured_values::QueryIndex;
+mod address_objects;
+mod aggregate_sources;
 mod allocation_effects;
 mod allocator_context;
 mod allocator_storage;
 mod allocators;
+mod call_slots;
 mod captures;
 mod contracts;
 mod elements;
 mod execution;
 mod flow;
+mod frames;
 mod global_destinations;
 mod indirect;
 mod infer;
 mod interfaces;
 mod local_destinations;
+mod locks;
+pub(in crate::rules) mod native_locks;
+mod native_returns;
+pub(in crate::rules) mod no_growth;
 mod nullable;
 mod observable;
 mod ordering;
 mod origins;
+mod physical_slots;
+mod pointer_returns;
 mod possible;
 mod prepared;
 mod primitives;
+pub(in crate::rules) use primitives::native_free;
 mod reads;
 mod return_fields;
 mod return_may;
 mod selected;
+mod storage_versions;
 pub(in crate::rules) mod swap;
 mod templates;
 mod temporary;
 #[cfg(test)]
 mod tests;
+mod value_writes;
 mod writes;
 use flow::{acyclic, guaranteed, returning_blocks, sccs};
 pub(super) use ordering::Ordering;
-pub(super) use prepared::Prepared;
+pub(super) use prepared::{Prepared, Resolver};
 pub(super) use reads::address_query;
 
 const MAX_PATH: usize = 8;
@@ -68,6 +83,7 @@ pub(super) fn descriptor_storage(steps: &[Step]) -> bool {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) enum Root {
     ScopedGlobal(jaic::ir::GlobalId, TypeId),
+    CapturedRead(pointer_returns::CapturedRead),
     Parameter(usize),
     Local(usize),
     Heap,
@@ -116,6 +132,19 @@ pub(super) struct Effect {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) struct Summary {
+    /// Frozen declaration constraints, distinct from evolving body-derived effects.
+    pub trusted: Option<Box<contracts::Trusted>>,
+    pub external_preservation: Option<std::rc::Rc<contracts::UnpassedStorage>>,
+    pub frame: Option<std::rc::Rc<frames::Frame>>,
+    pub bit_return: Option<std::rc::Rc<address_arithmetic::BitReturn>>,
+    pub native_allocation: Option<std::rc::Rc<native_returns::Allocation>>,
+    pub no_growth: Option<std::rc::Rc<no_growth::Borrow>>,
+    pub locks: Option<locks::Transfer>,
+    pub value_writes: value_writes::Relations,
+    pub context_reads: Option<std::rc::Rc<value_writes::ContextReads>>,
+    pub returned_slots: Option<std::rc::Rc<value_writes::ReturnedSlots>>,
+    pub pointer_returns: pointer_returns::Returns,
+    pub recursive: bool,
     pub memory: Option<jaic::ide::lifetimes::LifetimeMemoryEffects>,
     pub reads: HashSet<Path>,
     pub may_reads: HashSet<Path>,
@@ -166,34 +195,13 @@ enum Def<'a> {
     Copy(Val),
     Address(usize),
     Borrow(usize),
-    Parameter(usize),
+    Parameter(usize, Val, TypeId),
     Call(ProcId, &'a [LifetimeArgument], usize),
     Resize(Val, &'a [LifetimeArgument]),
     Indirect(Val, &'a [LifetimeArgument], usize),
 }
 
-type FieldQuery = (Val, TypeId, Vec<Projection>);
-
-pub(super) struct Resolver<'a> {
-    pub places: Places,
-    allocators: &'a allocators::Allocators,
-    context: allocator_context::Context,
-    allocation_mode: std::cell::Cell<bool>,
-    return_mode: std::cell::Cell<bool>,
-    return_definitions: std::cell::OnceCell<(HashSet<usize>, HashSet<usize>)>,
-    may_field_origins: std::cell::RefCell<HashMap<FieldQuery, bool>>,
-    field_origins: std::cell::RefCell<HashMap<FieldQuery, Path>>,
-    observable_calls: observable::Calls<'a>,
-    ordering_base: Option<Ordering>,
-    rounded_address_base: Option<usize>,
-    comparisons: std::cell::OnceCell<HashMap<Val, &'a jaic::ide::lifetimes::LifetimeComparison>>,
-    return_cuts: std::cell::RefCell<HashMap<usize, bool>>,
-    return_contracts: HashMap<usize, (Path, Option<(usize, u64)>)>,
-    compiler: &'a Compiler,
-    body: &'a LifetimeBody,
-    core: std::rc::Rc<prepared::Core<'a>>,
-    targets: &'a super::lifetime_targets::Universe,
-}
+type FieldQuery = (Val, TypeId, Vec<Projection>, bool);
 
 
 fn value(arg: &LifetimeArgument) -> Option<Val> {
@@ -232,7 +240,7 @@ impl Resolver<'_> {
             }
             for def in r.values.get(&value_).into_iter().flatten() {
                 match def {
-                    Def::Parameter(formal) => {
+                    Def::Parameter(formal, ..) => {
                         out.insert(*formal);
                     }
                     Def::Load(p, _) => {
@@ -274,12 +282,18 @@ impl Resolver<'_> {
             return None;
         }
         let (root, projections) = &self.places.paths[p];
+        if projections
+            .iter()
+            .any(|p| matches!(p, Projection::Inline { .. }))
+        {
+            return None;
+        }
         let root_id = self.places.root_of(p);
         let parameter = self.params.contains_key(&root_id)
             || self
                 .values
                 .get(&root.0)
-                .is_some_and(|defs| defs.iter().any(|d| matches!(d, Def::Parameter(_))));
+                .is_some_and(|defs| defs.iter().any(|d| matches!(d, Def::Parameter(..))));
         if !parameter
             && self.compiler.ir_ty(root.1).is_none()
             && self.values.get(&root.0).is_some_and(|defs| defs.iter().any(|d| matches!(d, Def::Load(_, ty) if self.compiler.ty.types.pointee(*ty) == Some(TypeId::VOID))))
@@ -296,7 +310,7 @@ impl Resolver<'_> {
                     Projection::Field(n) => Some(Step::Field(*n)),
                     Projection::Element(n) => Some(Step::Element(*n)),
                     Projection::Deref => Some(Step::Deref),
-                    Projection::DynamicElement(_) => None,
+                    Projection::DynamicElement(_) | Projection::Inline {..} => None,
                 })
                 .collect::<Option<Vec<_>>>()?;
             return path.append(&steps);
@@ -390,7 +404,10 @@ impl Resolver<'_> {
             path = path.append(&[match projection {
                 Projection::Field(n) => Step::Field(*n),
                 Projection::Element(i) => Step::Element(*i),
-                Projection::DynamicElement(_) => return None,
+                Projection::DynamicElement(_)
+                | Projection::Inline {
+                    ..
+                } => return None,
                 Projection::Deref => Step::Deref,
             }])?;
         }
@@ -493,6 +510,8 @@ impl Resolver<'_> {
         let mut result: Vec<_> = map
             .iter()
             .filter_map(|(effect, chain)| {
+                let _storage =
+                    matches!(effect.kind, Kind::Free | Kind::Resize).then(|| self.storage_query());
                 let mut guard = None;
                 if let Some((formal, constant)) = effect.guard {
                     let arg = args.iter().find(|a| a.formal == formal)?;
@@ -546,38 +565,69 @@ impl Resolver<'_> {
     }
 
     fn allocator(&self, args: &[LifetimeArgument], all: &HashMap<ProcId, Summary>) -> Vec<Effect> {
-        let Some(mode) = args.first() else {
+        self.allocator_origins(args, all, false)
+    }
+
+    fn allocator_possible(
+        &self,
+        args: &[LifetimeArgument],
+        all: &HashMap<ProcId, Summary>,
+    ) -> Vec<Effect> {
+        self.allocator_origins(args, all, true)
+    }
+
+    fn allocator_origins(
+        &self,
+        args: &[LifetimeArgument],
+        all: &HashMap<ProcId, Summary>,
+        possible: bool,
+    ) -> Vec<Effect> {
+        let Some(mode) = args.iter().find(|arg| arg.formal == 0) else {
             return Vec::new();
         };
-        [(1, Kind::Resize, 3), (2, Kind::Free, 3), (8, Kind::Free, 4)]
-            .into_iter()
-            .filter_map(|(constant, kind, memory)| {
-                let guard = if let Some(actual) = mode.constant {
-                    if actual != constant {
-                        return None;
-                    }
-                    None
-                } else {
-                    let path = self.value(value(mode)?, all)?;
-                    let Root::Parameter(formal) = path.root else {
-                        return None;
-                    };
-                    if !path.steps.is_empty() {
-                        return None;
-                    }
-                    Some((formal, constant))
+        let _storage = self.storage_query();
+        let mut out = Vec::new();
+        for (constant, kind, memory) in
+            [(1, Kind::Resize, 3), (2, Kind::Free, 3), (8, Kind::Free, 4)]
+        {
+            let guard = if let Some(actual) = mode.constant {
+                if actual != constant {
+                    continue;
+                }
+                None
+            } else {
+                let Some(path) = value(mode).and_then(|value| self.value(value, all)) else {
+                    continue;
                 };
-                let memory = args
-                    .get(memory)
-                    .and_then(value)
-                    .and_then(|v| self.value(v, all))?;
-                Some(Effect {
-                    target: memory.clone(),
-                    kind,
-                    guard,
-                })
-            })
-            .collect()
+                let Root::Parameter(formal) = path.root else {
+                    continue;
+                };
+                if !path.steps.is_empty() {
+                    continue;
+                }
+                Some((formal, constant))
+            };
+            let Some(memory) = args.iter().find(|arg| arg.formal == memory).and_then(value) else {
+                continue;
+            };
+            let paths = if possible {
+                if self
+                    .value(memory, all)
+                    .is_some_and(|path| !matches!(path.root, Root::Local(_)))
+                {
+                    continue;
+                }
+                self.possible_value(memory, all, &mut HashSet::default(), 0)
+            } else {
+                self.value(memory, all).into_iter().collect()
+            };
+            out.extend(paths.into_iter().map(|target| Effect {
+                target,
+                kind,
+                guard,
+            }));
+        }
+        out
     }
 
     pub fn materialize(&mut self, path: &Path) -> Option<usize> {
@@ -596,7 +646,7 @@ impl Resolver<'_> {
                 if let Some(target) = self.compiler.ty.types.pointee(ty) {
                     let incoming = self.values.iter().find_map(|(v, defs)| {
                         defs.iter()
-                            .any(|d| matches!(d, Def::Parameter(n) if *n == formal))
+                            .any(|d| matches!(d, Def::Parameter(n, ..) if *n == formal))
                             .then_some(*v)
                     })?;
                     let root = self.places.place(incoming, ty);
@@ -750,15 +800,16 @@ impl Summaries {
         let mut valid: HashMap<_, _> = facts
             .lifetime_bodies
             .iter()
-            .filter(|(id, body)| {
-                let proc = &compiler.pr.procs[id.0 as usize];
-                proc.body_state == BodyState::Done
-                    && std::sync::Arc::ptr_eq(&proc.lit, &body.syntax)
-            })
+            .filter(|(id, body)| super::lifetime_facts::current_body(compiler, **id, body))
             .map(|(&id, body)| (id, body))
             .collect();
+        let timer = super::lifetime_stats::Timer::start();
         let allocators = allocators::Allocators::build(compiler, &valid);
+        timer.finish("allocators", None, valid.len());
+        let timer = super::lifetime_stats::Timer::start();
         let needed = selected::retain(compiler, &mut valid, files);
+        timer.finish("selection", None, valid.len());
+        let timer = super::lifetime_stats::Timer::start();
         let mut all = contracts::seed(compiler, &valid, needed.as_ref());
         all.call_sites = valid
             .values()
@@ -778,32 +829,83 @@ impl Summaries {
         all.targets = super::lifetime_targets::Universe::build(compiler, &valid, entry_module);
         (all.compile_time_only, all.frozen_returns) =
             execution::compile_time_only(compiler, &all.targets, entry_module);
+        timer.finish("contracts-targets", None, valid.len());
+        let timer = super::lifetime_stats::Timer::start();
         // Tarjan's pop order is bottom-up for caller -> callee edges.
         let mut ids: Vec<_> = valid.keys().copied().collect();
         ids.sort_by_key(|id| id.0);
+        let mut native_demand = HashSet::default();
         let graph: HashMap<_, Vec<_>> = ids
             .iter()
             .map(|&id| {
+                let mut seen = HashSet::default();
                 (
                     id,
                     valid[&id]
                         .blocks
                         .iter()
                         .flat_map(|b| &b.events)
-                        .flat_map(|e| indirect::edges(e, id, &all.targets))
-                        .filter(|p| valid.contains_key(p))
+                        .flat_map(|e| {
+                            if let Event::Call {
+                                callee,
+                                expands: false,
+                                ..
+                            } = e
+                                && all
+                                    .procs
+                                    .get(callee)
+                                    .and_then(|s| s.native_allocation.as_ref())
+                                    .is_some_and(|proof| proof.foreign().is_some())
+                            {
+                                native_demand.insert(id);
+                            }
+                            indirect::edges(e, id, &all.targets)
+                                .into_iter()
+                                .flat_map(|callee| {
+                                    std::iter::once(callee).chain(
+                                        compiler
+                                            .lifetime_generated_entry(callee)
+                                            .map(|edge| edge.target),
+                                    )
+                                })
+                        })
+                        .filter(|p| valid.contains_key(p) && seen.insert(*p))
                         .collect(),
                 )
             })
             .collect();
-        let mut cache = prepared::Cache::default();
+        let mut cache = prepared::Cache::new(compiler);
+        let mut frame_demand = frames::demand(compiler, &graph);
+        let context_demand = frame_demand.clone();
         let components = sccs(&ids, &graph);
+        // The same callee-first graph supplies stable native wrapper demand.
+        // Foreign seeds are selected ABI facts, not evolving body summaries.
+        for component in &components {
+            if jaic::interrupt::should_stop() {
+                return Self::default();
+            }
+            if component.iter().any(|id| {
+                native_demand.contains(id)
+                    || graph[id].iter().any(|child| native_demand.contains(child))
+            }) {
+                native_demand.extend(component.iter().copied());
+            }
+        }
+        for id in &native_demand {
+            frame_demand.insert(*id);
+            frame_demand.extend(graph[id].iter().copied());
+        }
         all.sccs = components.len();
+        timer.finish("graph", None, valid.len());
+        let timer = super::lifetime_stats::Timer::start();
         for component in &components {
             if jaic::interrupt::should_stop() {
                 return Self::default();
             }
             let once = acyclic(component, &graph);
+            for id in component {
+                all.procs.get_mut(id).unwrap().recursive = !once;
+            }
             if jacket_config::env::LIFETIME_STATS.is_set()
                 && (component.len() > 1 || graph[&component[0]].contains(&component[0]))
             {
@@ -834,6 +936,21 @@ impl Summaries {
                     break;
                 }
             }
+        }
+        let returned_requests = value_writes::collect_requests(
+            compiler,
+            &mut cache,
+            &components,
+            &valid,
+            &native_demand,
+            &context_demand,
+            &mut all,
+        );
+        for component in &components {
+            if jaic::interrupt::should_stop() {
+                return Self::default();
+            }
+            let once = acyclic(component, &graph);
             // Body definitions are fixed once normal-return reachability settles.
             let mut resolvers = HashMap::default();
             loop {
@@ -844,17 +961,22 @@ impl Summaries {
                     }
                     all.iterations += 1;
                     let resolver = resolvers.entry(*id).or_insert_with(|| {
-                        Resolver::cached(
-                            &mut cache,
-                            compiler,
+                        let prepared = cache.prepare_requested(
                             *id,
-                            valid[id],
                             &all.procs,
                             &all.targets,
-                            &all.allocators,
-                        )
+                            native_demand.contains(id)
+                                && !all.procs[id].recursive
+                                && all.procs[id].trusted.is_none(),
+                        );
+                        Resolver::from_prepared(prepared, &all.procs, &all.targets, &all.allocators)
                     });
-                    let next = resolver.infer(&all.procs[id], &all.procs);
+                    let next = resolver.infer(
+                        &all.procs[id],
+                        &all.procs,
+                        frame_demand.contains(id),
+                        returned_requests.get(id),
+                    );
                     if next != all.procs[id] {
                         all.procs.insert(*id, next);
                         changed = true;
@@ -865,16 +987,21 @@ impl Summaries {
                 }
             }
         }
+        timer.finish("inference", None, all.iterations);
+        let timer = super::lifetime_stats::Timer::start();
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-begin bodies={}", valid.len());
         }
-        all.propagate_writes(&mut cache, compiler, &valid, &components, &graph);
+        all.propagate_writes(&mut cache, &components, &graph);
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-end");
         }
-        reads::foreground::solve(&mut cache, compiler, &valid, &graph, &mut all);
+        timer.finish("writes", None, valid.len());
+        let timer = super::lifetime_stats::Timer::start();
+        reads::foreground::solve(&mut cache, &valid, &graph, &mut all);
         reads::solve_queries(&mut cache, compiler, &valid, &graph, &mut all);
         let read_summaries = reads::solve(&mut cache, compiler, &valid, &graph, &mut all);
+        timer.finish("reads", None, read_summaries);
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!(
                 "lifetime-summary-stats bodies={} sccs={} iterations={} may={} guaranteed={} read_summaries={} wall_ms={:.3}",
@@ -892,4 +1019,57 @@ impl Summaries {
         }
         all
     }
+}
+
+/// Exact first-argument lock depth effect, or identity when no lock is touched.
+/// Explicit wrapper intent remains the consumer's decision; this is only behavior.
+pub(super) fn lock_balance(
+    cx: &crate::syntax::Cx<'_>,
+    procedure: ProcId,
+) -> Option<(usize, u8, i16, Vec<Step>)> {
+    // No inferred acquisition can exist without one of the modeled primitive
+    // boundaries. Note-only syntax checks need not trigger a whole-program solve.
+    if !cx.run.lock_primitives.get_or_init(|| {
+        cx.compiler
+            .pr
+            .procs
+            .iter()
+            .enumerate()
+            .any(|(i, _)| locks::native(cx.compiler, ProcId(i as u32)).is_some())
+    }) {
+        return None;
+    }
+    let all = cx.run.lifetimes.get_or_init(|| {
+        Summaries::build_for(
+            cx.compiler,
+            &cx.run.lifetime_files,
+            cx.run.lifetime_entry_module,
+        )
+    });
+    let transfer = all.procs.get(&procedure)?.locks.as_ref()?;
+    let formal = match transfer.target.as_ref().map(|p| &p.root) {
+        Some(Root::Parameter(formal)) => *formal,
+        None => 0,
+        _ => return None,
+    };
+    Some((
+        formal,
+        transfer.balance.required,
+        transfer.balance.delta,
+        transfer
+            .target
+            .as_ref()
+            .map_or_else(Vec::new, |p| p.steps.clone()),
+    ))
+}
+
+pub(super) fn lock_contract(compiler: &Compiler, procedure: ProcId) -> Option<(usize, u8, i16)> {
+    if let Some(formal) = locks::declared(compiler, procedure, "Locks") {
+        return Some((formal, 0, 1));
+    }
+    locks::declared(compiler, procedure, "Unlocks").map(|formal| (formal, 1, -1))
+}
+
+pub(super) fn intentional_lock_wrapper(compiler: &Compiler, procedure: ProcId) -> bool {
+    locks::declared(compiler, procedure, "Locks").is_some()
 }

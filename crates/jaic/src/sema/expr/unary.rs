@@ -373,9 +373,11 @@ impl Compiler {
             UnOp::Not => {
                 let b = self.truthy(f, ty, v, span)?;
                 let one = f.b.iconst(Ty::I8, 1);
+                let value = f.b.bin(ir::BinOp::Xor, Ty::I8, b, one);
+                f.lifetime_boolean(value, crate::ide::lifetimes::LifetimeBoolean::Not(b));
                 Ok(Operand::Value {
                     ty: TypeId::BOOL,
-                    val: f.b.bin(ir::BinOp::Xor, Ty::I8, b, one),
+                    val: value,
                 })
             }
             UnOp::Neg if self.ty.types.wide_float(ty).is_some() => {
@@ -586,6 +588,7 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         self.note_check_handler(span)?;
+        f.lifetime_barrier();
         let reason = f.b.iconst(Ty::I64, reason as u64);
         f.b.intrinsic(ir::Intrinsic::Trap, vec![reason], &[]);
         Ok(())
@@ -606,6 +609,7 @@ impl Compiler {
         f.b.repeat_loc();
         let reason = f.b.iconst(Ty::I64, reason as u64);
         let fatal = f.b.iconst(Ty::I8, u64::from(fatal));
+        f.lifetime_barrier();
         f.b.intrinsic(ir::Intrinsic::CheckFailed, vec![reason, a, b, fatal], &[]);
         Ok(())
     }

@@ -3,7 +3,6 @@
 use super::{Event, HashMap, HashSet, Path, ProcId, Resolver, Root, Summary};
 use crate::rules::lifetime_summary::{Effect, Kind, Summaries, acyclic, guaranteed, sccs};
 use jaic::ide::lifetimes::LifetimeOperand;
-use jaic::sema::Compiler;
 
 impl Resolver<'_> {
     fn foreground_direct(&self, event: &Event, all: &HashMap<ProcId, Summary>) -> Option<usize> {
@@ -96,7 +95,6 @@ impl Resolver<'_> {
 
 pub(in crate::rules) fn solve<'a>(
     cache: &mut super::super::prepared::Cache<'a>,
-    compiler: &'a Compiler,
     valid: &HashMap<ProcId, &'a jaic::ide::lifetimes::LifetimeBody>,
     graph: &HashMap<ProcId, Vec<ProcId>>,
     all: &mut Summaries,
@@ -110,15 +108,7 @@ pub(in crate::rules) fn solve<'a>(
             let mut changed = false;
             for id in &component {
                 let resolver = resolvers.entry(*id).or_insert_with(|| {
-                    Resolver::cached(
-                        cache,
-                        compiler,
-                        *id,
-                        valid[id],
-                        &all.procs,
-                        &all.targets,
-                        &all.allocators,
-                    )
+                    Resolver::cached(cache, *id, &all.procs, &all.targets, &all.allocators)
                 });
                 let must = resolver.foreground_reads(&all.procs, true);
                 let may = resolver.foreground_reads(&all.procs, false);

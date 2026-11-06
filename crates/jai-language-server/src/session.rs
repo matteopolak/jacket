@@ -233,3 +233,6 @@ fn enclosing_declaration_start(text: &str, byte: usize) -> usize {
     }
     start
 }
+
+#[cfg(test)]
+mod frozen_execution_tests;

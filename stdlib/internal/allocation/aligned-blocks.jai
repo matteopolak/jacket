@@ -21,7 +21,7 @@ obtain_contents :: (size: s64, prefix: s64) -> *void {
 
     if !region return null;
 
-    contents := contents_in(region, prefix, wide);
+    contents := contents_in(region, cast(u64) prefix, wide);
 
     set_region(contents, region);
 
@@ -49,7 +49,7 @@ regrow_contents :: (contents: *void, size: s64, prefix: s64) -> *void {
     if !fresh return null;
 
     at := was_at;
-    if wide at = cast(s64) contents_in(fresh, prefix, true) - cast(s64) fresh;
+    if wide at = cast(s64) contents_in(fresh, cast(u64) prefix, true) - cast(s64) fresh;
 
     // The slack covers the largest shift, so `size` bytes fit at both places.
     if at != was_at c_memmove(cast(*u8) fresh + at, cast(*u8) fresh + was_at, cast(u64) size);
@@ -64,8 +64,8 @@ regrow_contents :: (contents: *void, size: s64, prefix: s64) -> *void {
 #scope_file
 #import "internal/libc";
 
-contents_in :: (region: *void, prefix: s64, wide: bool) -> *void {
-    start := cast(u64) region + cast(u64) prefix;
+contents_in :: (region: *void, prefix: u64, wide: bool) -> *void {
+    start := cast(u64) region + prefix;
     if wide start = (start + CACHE_LINE - 1) & ~cast(u64) (CACHE_LINE - 1);
 
     return cast(*void) start;

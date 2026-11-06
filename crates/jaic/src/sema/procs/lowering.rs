@@ -177,6 +177,9 @@ impl Compiler {
         let mut next = 0usize;
         if sig.has_context {
             f.set_context(Some(f.b.param(0)));
+            if !f.type_only && let Some(record) = &mut f.lifetimes {
+                record.context_input = Some(f.b.param(0));
+            }
             f.b.func.trusted.push(f.b.param(0));
             next = 1;
         }

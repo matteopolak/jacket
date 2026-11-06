@@ -10,17 +10,32 @@ use jaic::sema::ProcId;
 use jaic::source::Span;
 
 // Helpers shared by several rules; they are not rules themselves.
+// Conditional domains remain regression-only until their callers discharge the obligations.
+#[cfg(test)]
+mod allocator_providers;
+mod call_bindings;
+#[cfg(test)]
+mod content_relations;
 mod effects;
+#[cfg(test)]
+mod element_transfers;
 mod frees;
 mod lifetime_cfg;
+mod lifetime_facts;
 mod lifetime_help;
 mod lifetime_movement;
 mod lifetime_places;
+mod lifetime_stats;
 mod lifetime_summary;
 mod lifetime_targets;
 mod local_scopes;
+mod run_state;
+mod scalar_handles;
+mod scalar_openings;
+#[cfg(test)]
+mod temporary_epochs;
 
-pub(crate) use unused_parameter::RunState;
+pub(crate) use run_state::RunState;
 
 pub struct RuleInfo {
     pub name: &'static str,

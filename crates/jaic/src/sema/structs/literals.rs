@@ -215,6 +215,24 @@ impl Compiler {
         for (path, mty, op, vspan) in values {
             let at = self.apply_path(f, tmp, &path);
             if !f.type_only
+                && let Some(offset) = path.iter().try_fold(0u64, |offset, step| match step {
+                    PathStep::Offset(bytes) => offset.checked_add(*bytes),
+                    PathStep::Deref => None,
+                })
+                && let Some(record) = &mut f.lifetimes
+            {
+                record.push(
+                    f.b.current,
+                    crate::ide::lifetimes::LifetimeEvent::FieldProjection {
+                        base: tmp,
+                        result: at,
+                        base_ty: ty,
+                        result_ty: mty,
+                        offset,
+                    },
+                );
+            }
+            if !f.type_only
                 && let Some(record) = &mut f.lifetimes
                 && let [PathStep::Offset(offset)] = path.as_slice()
                 && let Some((Some(name), _, _)) = members

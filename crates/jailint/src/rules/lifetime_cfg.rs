@@ -3,6 +3,7 @@
 //! at their actual control-flow position, never through a mutable checker-wide alias table.
 use super::{
     finding,
+    lifetime_facts::current_body,
     lifetime_places::{Places, Projection},
     lifetime_summary::{Kind, Prepared, Resolver, Root, Step, Summaries},
 };
@@ -17,9 +18,11 @@ use std::collections::{BTreeMap, VecDeque};
 
 mod build;
 mod capacity;
+mod content_writes;
 mod controls;
 mod diagnostics;
 mod paths;
+mod refinements;
 pub(super) mod resources;
 
 fn dead(cx: &Cx, state: u8) -> bool {
@@ -65,7 +68,7 @@ enum Op {
     },
     IterationMutation(usize, Mutation, Span),
     IndexWrite(usize),
-    PointerLoad(usize, usize, usize, Span),
+    PointerLoad(usize, usize, usize, Span, Option<usize>),
     Copy(Vec<(usize, usize)>),
     Define(usize),
     Replace(usize),
@@ -75,6 +78,8 @@ enum Op {
     MayGrow(usize, Span),
     MayReach(usize, Span),
     MayMutate(usize, Mutation, Span),
+    /// Actual stores clobber memory but cannot change captured SSA values.
+    MemoryWrite,
     Barrier,
     Stop,
     Resource(resources::Op),
@@ -172,22 +177,13 @@ fn unallowed_addresses(
         .collect()
 }
 
-pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
-    let Some(facts) = cx.compiler.ed.facts() else {
-        return;
-    };
-    let mut cfgs = 0;
-    let mut solved = 0;
-    let mut checked = HashSet::default();
-    let contracts = cx
-        .compiler
-        .pr
-        .procs
-        .iter()
-        .filter(|p| p.span.file == cx.file && !p.is_poly && p.lit.body.is_none())
-        .count();
-    let mut rejected = BTreeMap::<&str, usize>::new();
-    let mut rejected_candidates = BTreeMap::<&str, usize>::new();
+/// Count rejected checked instances separately from the bodies actually solved.
+fn record_missing_bodies(
+    cx: &Cx,
+    facts: &jaic::ide::IdeFacts,
+    checked: &mut HashSet<jaic::sema::ProcId>,
+    rejected: &mut BTreeMap<&'static str, usize>,
+) {
     for site in &cx.procs {
         for &id in cx.compiler.ide_procs_with_header(site.header.span).iter() {
             let proc = &cx.compiler.pr.procs[id.0 as usize];
@@ -212,6 +208,25 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
             }
         }
     }
+}
+
+pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
+    let Some(facts) = cx.compiler.ed.facts() else {
+        return;
+    };
+    let mut cfgs = 0;
+    let mut solved = 0;
+    let mut checked = HashSet::default();
+    let contracts = cx
+        .compiler
+        .pr
+        .procs
+        .iter()
+        .filter(|p| p.span.file == cx.file && !p.is_poly && p.lit.body.is_none())
+        .count();
+    let mut rejected = BTreeMap::<&str, usize>::new();
+    let mut rejected_candidates = BTreeMap::<&str, usize>::new();
+    record_missing_bodies(cx, facts, &mut checked, &mut rejected);
     let mut bytes = 0;
     let summaries = cx.run.lifetimes.get_or_init(|| {
         Summaries::build_for(
@@ -229,14 +244,13 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
         if jaic::interrupt::should_stop() {
             return;
         }
-        let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
         let Some(syntax) = &body.syntax.body else {
             continue;
         };
         if syntax.span.file != cx.file {
             continue;
         }
-        if proc.body_state != BodyState::Done || !std::sync::Arc::ptr_eq(&proc.lit, &body.syntax) {
+        if !current_body(cx.compiler, body.procedure, body) {
             *rejected.entry("failed-or-obsolete").or_default() += 1;
             continue;
         }
@@ -244,8 +258,8 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
         let mut places = Places::new(cx.compiler, body);
         let mut cells = Cells::default();
         let mut chains = HashMap::default();
-        let defs = Prepared::for_body(cx.compiler, body, summaries);
-        let blocks = build(
+        let defs = Prepared::for_body(crate::rules::lifetime_facts::CheckedSession::new(cx.compiler).body((body).procedure).unwrap(), summaries);
+        let Some(built) = build(
             cx,
             body,
             &defs,
@@ -253,12 +267,38 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
             &mut cells,
             summaries,
             &mut chains,
-        );
+        ) else {
+            continue;
+        };
+        let blocks = built.blocks;
+        let borrows = built.borrows;
         let mut names = HashMap::default();
         let mut allowed_addresses = HashSet::default();
         let mut derived_addresses = HashSet::default();
-        let mut resolver = Resolver::for_prepared(cx.compiler, body, &defs, summaries);
-        for event in body.blocks.iter().flat_map(|b| &b.events) {
+        let mut resolver = Resolver::for_prepared(&defs, summaries);
+        for (at, event) in body.blocks.iter().enumerate().flat_map(|(block, b)| {
+            b.events.iter().enumerate().map(move |(event, e)| {
+                (
+                    crate::rules::lifetime_movement::facts::Site {
+                        block,
+                        event,
+                    },
+                    e,
+                )
+            })
+        }) {
+            if let Event::Call {
+                args, ..
+            } = event
+            {
+                for arg in args {
+                    if borrows.preserves(at, arg)
+                        && let LifetimeOperand::Value(v) = arg.operand
+                    {
+                        allowed_addresses.insert((v, arg.span));
+                    }
+                }
+            }
             match event {
                 Event::Expression {
                     operand: LifetimeOperand::Place(place),
@@ -352,7 +392,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                         forward[source].push(target);
                     }
                 }
-                Op::PointerLoad(target, source, _, _) => forward[*source].push(*target),
+                Op::PointerLoad(target, source, _, _, _) => forward[*source].push(*target),
                 _ => {}
             }
         }
@@ -364,11 +404,11 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
             forward,
             chains,
         };
-        for (origin, block) in model.blocks.iter().enumerate() {
+        'candidates: for (origin, block) in model.blocks.iter().enumerate() {
             if let Op::Borrow(_, region, _)
             | Op::ElementBorrow(_, region, ..)
             | Op::LogicalBorrow(_, region, ..)
-            | Op::PointerLoad(_, _, region, _) = block.op
+            | Op::PointerLoad(_, _, region, _, _) = block.op
             {
                 if resizable_only && !resizable(cx, &model.places, region) {
                     continue;
@@ -397,6 +437,9 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                 let mut name = names.get(&root.0).copied().unwrap_or("storage").to_owned();
                 for projection in path {
                     match projection {
+                        Projection::Inline {
+                            ..
+                        } => continue 'candidates,
                         Projection::Field(name_) => {
                             name.push('.');
                             name.push_str(name_.as_str());
@@ -411,18 +454,20 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
         }
     }
     if jacket_config::env::LIFETIME_STATS.is_set() {
-        let rank = |map: BTreeMap<&'static str, usize>| {
-            let mut pairs: Vec<_> = map.into_iter().collect();
-            pairs.sort_by_key(|(reason, count)| (std::cmp::Reverse(*count), *reason));
-            pairs
-        };
         eprintln!(
             "lifetime-stats file={} bodies={bodies} contracts={contracts} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?}",
             cx.compiler.src.sources.get(cx.file).path,
-            rank(rejected),
-            rank(rejected_candidates)
+            ranked_rejections(rejected),
+            ranked_rejections(rejected_candidates)
         );
     }
+}
+
+/// Keep attribution output deterministic, including equal rejection counts.
+fn ranked_rejections(map: BTreeMap<&'static str, usize>) -> Vec<(&'static str, usize)> {
+    let mut pairs: Vec<_> = map.into_iter().collect();
+    pairs.sort_by_key(|(reason, count)| (std::cmp::Reverse(*count), *reason));
+    pairs
 }
 
 fn solve(
@@ -442,7 +487,7 @@ fn solve(
         chains: _,
     } = model;
     let (first, region, _origin, element) = match blocks[candidate].op {
-        Op::Borrow(first, region, origin) | Op::PointerLoad(first, _, region, origin) => {
+        Op::Borrow(first, region, origin) | Op::PointerLoad(first, _, region, origin, _) => {
             (first, region, origin, None)
         }
         Op::ElementBorrow(first, region, index, length, origin)
@@ -506,7 +551,7 @@ fn solve(
                     };
                 }
             }
-            Op::PointerLoad(target, source, _, _) => {
+            Op::PointerLoad(target, source, _, _, _) => {
                 if let Some(&cell) = relevant.get(target) {
                     let source = relevant
                         .get(source)
@@ -586,7 +631,7 @@ fn solve(
             {
                 possibly_dead(&mut state);
             }
-            Op::Barrier => state.fill(UNKNOWN),
+            Op::Barrier | Op::MemoryWrite => state.fill(UNKNOWN),
             Op::Grow(r, _) if *r == region => {
                 for cell in &mut state {
                     if *cell & (LIVE | POSITION_UNKNOWN) != 0 {
@@ -702,7 +747,7 @@ fn invalidation_cut(
                     cell = source;
                 }
             }
-            Op::PointerLoad(target, source, _, _) if relevant.get(target) == Some(&cell) => {
+            Op::PointerLoad(target, source, _, _, _) if relevant.get(target) == Some(&cell) => {
                 let Some(&source) = relevant.get(source) else {
                     continue;
                 };
@@ -718,7 +763,7 @@ fn invalidation_cut(
             {
                 continue;
             }
-            Op::Barrier => continue,
+            Op::Barrier | Op::MemoryWrite => continue,
             _ => {}
         }
         queue.extend(incoming[i].iter().map(|&p| (p, cell)));

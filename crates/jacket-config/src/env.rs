@@ -323,6 +323,11 @@ vars! {
         default: "`clang`",
         summary: "The `clang` the C ABI tests compare against.",
     }
+    LIFETIME_CANCELLATION_CHILD {
+        name: "JAILINT_LIFETIME_CANCELLATION_CHILD", group: Testing, readers: [Tests],
+        default: "unset",
+        summary: "Marks isolated child processes of lifetime analysis cancellation tests.",
+    }
     PRELUDE_TEST_CHILD {
         name: "JAIC_PRELUDE_TEST_CHILD", group: Testing, readers: [Tests],
         default: "unset",

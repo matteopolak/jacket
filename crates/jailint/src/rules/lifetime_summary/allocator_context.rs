@@ -110,7 +110,7 @@ impl Context {
                         state.slots.insert(places.place(*place, *ty), role);
                     }
                     Event::ContextSet {
-                        value,
+                        value, ..
                     } => {
                         if let Some(ty) = context_ty {
                             let id = places.place(*value, ty);

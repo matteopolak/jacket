@@ -58,8 +58,12 @@ impl Builder<'_> {
                         .map(|(dst, src)| (cells.id(Cell::Place(src)), cells.id(Cell::Place(dst)))),
                 );
             }
+            let mut location = (pointer && self.cx.compiler.ty.types.is_pointer(*ty))
+                .then(|| self.capture_location(resolver, *place, *ty))
+                .flatten();
             for (cell, target) in escaping {
                 ops.push(Op::Escape {
+                    location: location.take(),
                     cell,
                     span: self.store_spans.get(span).copied().unwrap_or(*span),
                     pointer,

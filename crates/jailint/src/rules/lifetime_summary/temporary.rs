@@ -74,7 +74,10 @@ impl Resolver<'_> {
                             super::Projection::Field(n) => Some(Step::Field(*n)),
                             super::Projection::Element(i) => Some(Step::Element(*i)),
                             super::Projection::Deref => Some(Step::Deref),
-                            super::Projection::DynamicElement(_) => None,
+                            super::Projection::DynamicElement(_)
+                            | super::Projection::Inline {
+                                ..
+                            } => None,
                         })
                         .collect();
                     let Some(path) = steps.and_then(|s| target.clone().append(&s)) else {

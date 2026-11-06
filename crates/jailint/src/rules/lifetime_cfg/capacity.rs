@@ -81,7 +81,7 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
                 {
                     state = None;
                 }
-                Op::Barrier => state = None,
+                Op::Barrier | Op::MemoryWrite => state = None,
                 Op::Capacity(r, change, _) if r == region => {
                     state = state.and_then(|(count, capacity)| match change {
                         Change::Append => Some((

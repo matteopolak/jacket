@@ -5,6 +5,11 @@ use super::{
     TypeId, resizable, resources, view,
 };
 
+pub(super) struct Built {
+    pub blocks: Vec<Block>,
+    pub borrows: crate::rules::lifetime_summary::no_growth::calls::Calls,
+}
+
 pub(super) fn build(
     cx: &Cx,
     body: &LifetimeBody,
@@ -13,17 +18,21 @@ pub(super) fn build(
     cells: &mut Cells,
     summaries: &Summaries,
     chains: &mut HashMap<(Span, usize), Vec<Span>>,
-) -> Vec<Block> {
-    let mut resolver = Resolver::for_prepared(cx.compiler, body, prepared, summaries);
+) -> Option<Built> {
+    let mut resolver = Resolver::for_prepared(prepared, summaries);
+    let mut borrows =
+        crate::rules::lifetime_summary::no_growth::calls::Calls::collect(&resolver, summaries);
     let tasks = super::tasks::Builder::new(cx, body, summaries, places, &mut resolver);
     let resources = resources::Builder::new(cx, body, summaries, places);
     let mut builder = Builder {
         cx,
+        body,
         places,
         cells,
         summaries,
         chains,
         resolver,
+        borrows: &borrows,
         tasks,
         resources,
         elements: Facts::new(cx.compiler, body),
@@ -39,6 +48,7 @@ pub(super) fn build(
             site: None,
         })
         .collect();
+    let mut pending = Vec::new();
     let mut ranges = vec![Vec::new(); body.blocks.len()];
     for range in &body.source_ranges {
         ranges[range.block].push(range);
@@ -57,13 +67,13 @@ pub(super) fn build(
                 .get(range_index)
                 .filter(|r| r.first_event <= ordinal && ordinal < r.end_event)
                 .map(|r| r.site);
-            let ops = builder.operations(
-                event,
-                Site {
-                    block: i,
-                    event: ordinal,
-                },
-            );
+            let at = Site {
+                block: i,
+                event: ordinal,
+            };
+            let ops = builder.operations(event, at);
+            let replacement = builder.certified(event, at);
+            let entry = blocks.len();
             for op in ops {
                 let index = blocks.len();
                 blocks.push(Block {
@@ -75,6 +85,14 @@ pub(super) fn build(
                     blocks[previous].next.push(index);
                 }
                 previous = index;
+            }
+            if let Some(ops) = replacement {
+                pending.push(super::refinements::Pending {
+                    site: at,
+                    entry,
+                    end: blocks.len(),
+                    ops,
+                });
             }
         }
         if block.normal_return && !matches!(blocks[previous].op, Op::Stop) {
@@ -91,21 +109,42 @@ pub(super) fn build(
             blocks[previous].next.clone_from(&block.successors);
         }
     }
+    drop(builder);
+    if !super::refinements::install(
+        cx.compiler,
+        body,
+        (places, cells),
+        &mut blocks,
+        &mut borrows,
+        pending,
+        chains,
+    ) {
+        if jaic::interrupt::should_stop() {
+            return None;
+        }
+        // Unsupported optional work does not erase ordinary body diagnostics.
+        borrows = crate::rules::lifetime_summary::no_growth::calls::Calls::default();
+    }
     let mut blocks = super::paths::feasible_paths(blocks, body);
     super::capacity::refine(cx, body, &mut blocks);
-    blocks
+    Some(Built {
+        blocks,
+        borrows,
+    })
 }
 
 struct Builder<'a> {
     cx: &'a Cx<'a>,
+    body: &'a LifetimeBody,
     places: &'a mut Places,
     cells: &'a mut Cells,
     summaries: &'a Summaries,
     chains: &'a mut HashMap<(Span, usize), Vec<Span>>,
     resolver: Resolver<'a>,
+    borrows: &'a crate::rules::lifetime_summary::no_growth::calls::Calls,
     resources: resources::Builder<'a>,
     elements: Facts<'a>,
-    grown: HashMap<Span, usize>,
+    grown: HashMap<Site, usize>,
     address_queries: HashSet<Span>,
     tasks: super::tasks::Builder,
 }
@@ -207,9 +246,29 @@ impl Builder<'_> {
                             && !self.cx.compiler.ty.types.is_pointer(*ty)
                     })
                 {
-                    ops.push(Op::PointerLoad(cell, cell, region, span));
+                    ops.push(Op::PointerLoad(cell, cell, region, span, None));
                 }
-                ops.push(Op::Resource(op));
+                // Summary release paths name pre-call storage. Resolve them before
+                // forgetting fields the callee overwrites; otherwise free-then-replace
+                // loses the old allocation before its release can invalidate aliases.
+                let prestate_release = matches!(
+                    op,
+                    resources::Op::Free { .. }
+                        | resources::Op::FreeRegion { .. }
+                        | resources::Op::MayFree { .. }
+                        | resources::Op::MayRegion { .. }
+                );
+                if prestate_release
+                    && matches!(event, Event::Call { .. } | Event::IndirectCall { .. })
+                {
+                    let before_writes = ops
+                        .iter()
+                        .position(|op| matches!(op, Op::Replace(_)))
+                        .unwrap_or(ops.len());
+                    ops.insert(before_writes, Op::Resource(op));
+                } else {
+                    ops.push(Op::Resource(op));
+                }
             }
         }
         // A result borrows the post-call storage; releases within the call precede it.
@@ -218,14 +277,55 @@ impl Builder<'_> {
         ops
     }
 
+    /// Materialize operands now, but install no optional transfer until the final
+    /// mutable cell inventory and every replacement interval have been checked.
+    fn certified(&mut self, event: &Event, at: Site) -> Option<Vec<Op>> {
+        if self.borrows.grow(at) {
+            return Some(vec![Op::Nop]);
+        }
+        if let Some(call) = self.borrows.get(at) {
+            let Event::Call {
+                span, ..
+            } = event
+            else {
+                return None;
+            };
+            let region = self.places.import(&self.resolver.places, call.header);
+            let source = self.cells.id(Cell::Value(call.source));
+            let target = self.cells.id(Cell::Value(call.result));
+            let mutation = Mutation::new(Action::Count, Selector::Constant(i128::from(call.count)));
+            return Some(vec![
+                Op::Resource(resources::Op::Read {
+                    cell: source,
+                    span: *span,
+                }),
+                Op::Nop,
+                Op::Mutate(region, mutation, *span),
+                Op::IterationMutation(region, mutation, *span),
+                Op::Define(target),
+                Op::PointerLoad(target, source, region, *span, None),
+                Op::LogicalBorrow(
+                    target,
+                    region,
+                    Selector::Constant(i128::from(call.count - 1)),
+                    Some(i128::from(call.count)),
+                    *span,
+                ),
+            ]);
+        }
+        None
+    }
+
     fn memory(&mut self, event: &Event, at: Site) -> Vec<Op> {
         let Self {
+            body,
             cx,
             places,
             cells,
             elements,
             grown,
             resources,
+            resolver,
             tasks,
             ..
         } = self;
@@ -336,7 +436,18 @@ impl Builder<'_> {
                     || view(cx, ty)
                     || resources.resource_load(value)
                 {
-                    ops.push(Op::PointerLoad(target, cells.id(Cell::Place(p)), p, span));
+                    let captured = cx
+                        .compiler
+                        .ty
+                        .types
+                        .is_pointer(ty)
+                        .then(|| resolver.captured_pointer_value(value))
+                        .flatten()
+                        .filter(|source| *source != value)
+                        .map(Cell::Value);
+                    let snapshot = captured.map(|source| cells.id(source));
+                    let source = cells.id(Cell::Place(p));
+                    ops.push(Op::PointerLoad(target, source, p, span, snapshot));
                 } else {
                     ops.push(Op::Copy(vec![(target, cells.id(Cell::Place(p)))]));
                 }
@@ -362,7 +473,7 @@ impl Builder<'_> {
                 }
                 let source = places.place(value, ty);
                 if places.unresolved(p) && !resources.result_place(places.paths[p].0.0) {
-                    ops.push(Op::Barrier);
+                    ops.push(Op::MemoryWrite);
                 }
                 ops.push(Op::Replace(p));
                 if let Some(&r) = places.descriptor_fields.get(&p)
@@ -441,9 +552,12 @@ impl Builder<'_> {
                 region,
                 ty,
                 span,
+                call_event,
             } => {
                 let r = places.place(region, ty);
-                grown.insert(span, r);
+                if let Some(call) = growth_call(cx.compiler, body, at, region, ty, call_event) {
+                    grown.insert(call, r);
+                }
                 ops.push(Op::Grow(r, span));
             }
             Event::Barrier => ops.push(Op::Barrier),
@@ -596,7 +710,7 @@ impl Builder<'_> {
             }
             if let Some(id) = resolver.materialize(&effect.target) {
                 let r = places.import(&resolver.places, id);
-                if grown.get(&span) != Some(&r) {
+                if grown.get(&at) != Some(&r) {
                     ops.push(Op::Grow(r, span));
                     chains.insert((span, r), chain);
                 }
@@ -661,8 +775,13 @@ impl Builder<'_> {
                         ops.push(Op::ForgetElement(target));
                     }
                 }
-            } else if let Some(path) = resolver.value(value, &summaries.procs)
-                && let Some(p) = resolver.materialize(&path)
+            } else if let Some(p) = resolver
+                .captured_borrow_location(event, index, &summaries.procs)
+                .or_else(|| {
+                    resolver
+                        .value(value, &summaries.procs)
+                        .and_then(|path| resolver.materialize(&path))
+                })
             {
                 let region = places.import(&resolver.places, p);
                 if cx.compiler.ty.types.is_pointer(ty)
@@ -678,6 +797,7 @@ impl Builder<'_> {
                         cells.id(Cell::Place(region)),
                         region,
                         span,
+                        None,
                     ));
                 } else {
                     ops.push(Op::Borrow(target, region, span));
@@ -738,4 +858,37 @@ fn address_queries(cx: &Cx, body: &LifetimeBody, summaries: &Summaries) -> HashS
         }
     }
     spans
+}
+
+/// A declared marker suppresses duplicate growth only for its checked call event.
+fn growth_call(
+    c: &jaic::sema::Compiler,
+    body: &LifetimeBody,
+    at: Site,
+    region: jaic::ir::Val,
+    ty: TypeId,
+    call_event: usize,
+) -> Option<Site> {
+    if call_event != at.event + 1 {
+        return None;
+    }
+    let Event::Call {
+        args, ..
+    } = body.blocks.get(at.block)?.events.get(call_event)?
+    else {
+        return None;
+    };
+    let mut first = args.iter().filter(|a| a.formal == 0);
+    let arg = first.next()?;
+    if first.next().is_some()
+        || arg.spread
+        || c.ty.types.pointee(arg.ty).unwrap_or(arg.ty) != ty
+        || !matches!(arg.operand,LifetimeOperand::Value(v)|LifetimeOperand::Place(v) if v==region)
+    {
+        return None;
+    }
+    Some(Site {
+        block: at.block,
+        event: call_event,
+    })
 }

@@ -203,3 +203,9 @@ impl Resolver<'_> {
         })
     }
 }
+
+
+pub(super) mod bit_returns;
+pub(super) use bit_returns::BitReturn;
+
+pub(super) use super::captured_values as producers;

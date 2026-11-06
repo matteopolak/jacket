@@ -57,6 +57,7 @@ impl Builder<'_> {
             });
             if self.long_lived(places, p) {
                 ops.push(Op::Escape {
+                    location: None,
                     cell,
                     span,
                     pointer: places.unresolved(p),

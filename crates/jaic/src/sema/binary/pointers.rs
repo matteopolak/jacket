@@ -76,6 +76,10 @@ impl Compiler {
                     source: base,
                     stride: pointee,
                     offset: delta,
+                    // Subtraction negates the scaled executable offset. Until its
+                    // logical signed delta is retained separately, do not expose
+                    // the unnegated operand as that delta.
+                    subscript: (op == BinOp::Add).then_some(idx),
                     span,
                 },
             );

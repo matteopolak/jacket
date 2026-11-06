@@ -13,7 +13,7 @@ pub(super) fn emit(
     let blocks = &model.blocks;
     let chains = &model.chains;
     let (region, origin, element) = match blocks[candidate].op {
-        Op::Borrow(_, region, origin) | Op::PointerLoad(_, _, region, origin) => {
+        Op::Borrow(_, region, origin) | Op::PointerLoad(_, _, region, origin, _) => {
             (region, origin, None)
         }
         Op::ElementBorrow(_, region, index, length, origin)

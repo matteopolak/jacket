@@ -19,12 +19,16 @@ pub(super) fn symbol(c: &Compiler, p: ProcId) -> Option<&str> {
     let ProcTarget::Foreign(id) = c.pr.procs[p.0 as usize].target? else {
         return None;
     };
-    Some(&c.out.program.foreigns[id.0 as usize].symbol)
+    Some(&c.out.program.foreigns.get(id.0 as usize)?.symbol)
 }
 
 pub(super) fn primitive(c: &Compiler, p: ProcId) -> Observable {
     match symbol(c, p) {
-        Some("exit" | "_exit" | "_Exit" | "abort" | "ExitProcess") => Observable {
+        Some("abort") if super::primitives::native_abort(c, p).is_some() => Observable {
+            exit: true,
+            output: false,
+        },
+        Some("exit" | "_exit" | "_Exit" | "ExitProcess") => Observable {
             exit: true,
             output: false,
         },

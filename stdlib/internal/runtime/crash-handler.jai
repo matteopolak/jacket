@@ -16,6 +16,10 @@ handle_signal :: (sig: s32, info: *siginfo_t, secret: *void) #c_call {
 #import "Basic";
 
 native_runtime :: #library "crash-native/portable_crash"; @native(embedded)
-native_init :: () -> s32 #foreign native_runtime "portable_crash_init";
+// Initializes only native handler/TLS state and storage it allocates itself.
+// Fresh allocation instances unreachable by this call keep their bytes and
+// lifetime; no aliases to those instances are published, including by callbacks.
+// This does not promise purity or preservation of already published storage.
+native_init :: () -> s32 #foreign native_runtime "portable_crash_init"; @PreservesUnpassedStorage
 native_attach :: () -> s32 #foreign native_runtime "portable_crash_attach_thread";
 native_handle :: (sig: s32, info: *void, secret: *void) #foreign native_runtime "portable_crash_handle";

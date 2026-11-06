@@ -27,7 +27,7 @@ pub(super) fn aliases(body: &LifetimeBody) -> HashMap<Val, Val> {
             }
             for event in &block.events {
                 if let Event::ContextSet {
-                    value,
+                    value, ..
                 } = event
                 {
                     state.clear();
@@ -52,13 +52,13 @@ pub(super) fn aliases(body: &LifetimeBody) -> HashMap<Val, Val> {
         for event in &block.events {
             match event {
                 Event::ContextSet {
-                    value,
+                    value, ..
                 } => {
                     state.clear();
                     state.insert(Some(*value));
                 }
                 Event::ContextRead {
-                    value,
+                    value, ..
                 } => {
                     reads.insert(*value, state.clone());
                 }

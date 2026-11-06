@@ -295,13 +295,14 @@ impl Compiler {
         };
         let val = f.b.bin(ir_op, t, x, y);
         if !f.type_only
-            && matches!(ir_op, ir::BinOp::Add | ir::BinOp::Sub)
+            && matches!(ir_op, ir::BinOp::Add | ir::BinOp::Sub | ir::BinOp::And)
             && self.ty.types.is_integer(ty)
             && let Some(record) = &mut f.lifetimes
         {
             record.push(
                 f.b.current,
                 crate::ide::lifetimes::LifetimeEvent::IntegerBinary {
+                    ty,
                     value: val,
                     left: x,
                     right: y,
@@ -383,6 +384,7 @@ impl Compiler {
         let overflowed = f.b.intrinsic(intrinsic, vec![x, y, width], &[Ty::I8])[0];
         let fail = f.b.new_block();
         let cont = f.b.new_block();
+        f.lifetime_branch(overflowed, span, fail, cont);
         f.b.branch(overflowed, fail, cont);
         f.b.switch_to(fail);
         let widen = if signed {
@@ -398,7 +400,7 @@ impl Compiler {
                 f.b.conv(widen, t, Ty::I64, y),
             )
         };
-        // Same layout as the reference: bit 15 fatal, bit 14 signed, bits 7-8 operator, low bits size.
+        // Runtime code packs fatality, signedness, operator and byte width.
         let code = (u64::from(self.options.arithmetic_overflow_check == 2) << 15)
             | (u64::from(signed) << 14)
             | (operator << 7)
@@ -410,6 +412,7 @@ impl Compiler {
         let line = f.b.iconst(Ty::I64, line as u64);
         let global = self.out.string_global(&path);
         let filename = f.b.global_addr(global);
+        f.lifetime_barrier();
         f.b.call(
             ir::Callee::Func(func),
             vec![left, right, code, line, filename],

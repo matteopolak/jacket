@@ -5,8 +5,11 @@ use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::rc::Rc;
 
 fn compile(source: &str, lint: bool, broken: bool) -> Compiler {
+    compile_with_options(source, lint, broken, Options::host())
+}
+
+fn compile_with_options(source: &str, lint: bool, broken: bool, mut options: Options) -> Compiler {
     let stdlib = test_support::repo::root().join("stdlib");
-    let mut options = Options::host();
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
@@ -138,6 +141,21 @@ fn named_spread_and_deferred_arguments_keep_formal_mapping() {
         })
         .unwrap();
     assert!(args.iter().any(|a| a.formal == 0 && matches!(a.operand, LifetimeOperand::Value(v) if v == region)));
+    for block in &b.blocks {
+        for (ordinal, event) in block.events.iter().enumerate() {
+            if let Event::Grow {
+                region,
+                call_event,
+                ..
+            } = event
+            {
+                assert_eq!(*call_event, ordinal + 1);
+                assert!(
+                    matches!(block.events.get(*call_event),Some(Event::Call {args,expands:false,..}) if args.iter().filter(|arg|arg.formal==0).count()==1 && args.iter().any(|arg|arg.formal==0 && matches!(arg.operand,LifetimeOperand::Value(value) if value==*region)))
+                );
+            }
+        }
+    }
 }
 
 #[test]
@@ -640,3 +658,16 @@ fn aggregate_ifx_keeps_shared_stack_slot_identity_after_ir_release() {
             .any(|b| a != b && canonical(*a) == canonical(*b))
     }));
 }
+
+
+#[path = "ide_lifetimes/retained_facts.rs"]
+mod retained_facts;
+
+#[path = "ide_lifetimes/checked_conversions.rs"]
+mod checked_conversions;
+
+#[path = "ide_lifetimes/ifx.rs"]
+mod ifx;
+
+#[path = "ide_lifetimes/contexts.rs"]
+mod contexts;

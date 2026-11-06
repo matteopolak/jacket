@@ -4,6 +4,9 @@ use super::{
     Summary,
 };
 
+mod unpassed;
+pub(in crate::rules) use unpassed::UnpassedStorage;
+
 pub(super) fn seed(
     compiler: &Compiler,
     valid: &HashMap<ProcId, &LifetimeBody>,
@@ -39,6 +42,7 @@ pub(super) fn seed(
             summary.observable.exit |= compiler.proc_has_note(id, "Exits");
         }
         super::primitives::seed(compiler, id, &mut summary);
+        summary.locks = super::locks::native(compiler, id);
         if valid.contains_key(&id) || summary.observable.exit {
             summary.normal_return = Some(false);
         }
@@ -227,5 +231,98 @@ pub(super) fn seed(
             }
         }
     }
+    // Freeze after every semantic seed pass, including selected call contracts.
+    for (&id, summary) in &mut all.procs {
+        summary.trusted = Trusted::capture(compiler, id, summary).map(Box::new);
+        summary.external_preservation =
+            UnpassedStorage::capture(compiler, id, summary).map(std::rc::Rc::new);
+        if jacket_config::env::LIFETIME_STATS.is_set()
+            && let Some(proof) = &summary.external_preservation
+        {
+            eprintln!(
+                "lifetime-external-preservation proc={} payload_bytes={} auth_work={}",
+                id.0,
+                proof.payload_bytes(),
+                proof.authentication_work()
+            );
+        }
+    }
     all
+}
+
+
+/// Independent declaration/native constraints. None on Summary means known
+/// absence, not purity. Opaque is absorbing and never accepts a partial prefix.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(in crate::rules) enum Trusted {
+    Effects(Vec<Effect>),
+    Opaque,
+}
+
+impl Trusted {
+    const MAX_EFFECTS: usize = 32;
+
+    fn capture(c: &Compiler, id: ProcId, s: &Summary) -> Option<Self> {
+        // These semantic seeds cannot be represented as a memory-only frame.
+        if !s.returns.is_empty()
+            || !s.elements.is_empty()
+            || !s.allocation_effects.is_empty()
+            || s.native_allocation.is_some()
+            || s.locks.is_some()
+            || s.observable.output
+            || s.observable.exit
+            || super::locks::declared(c, id, "Locks").is_some()
+            || super::locks::declared(c, id, "Unlocks").is_some()
+            || c.proc_has_note(id, "Opens")
+        {
+            return Some(Self::Opaque);
+        }
+        Self::effects(s.may.keys().chain(s.guaranteed.keys()))
+    }
+
+    /// Bound count, path shape and total cloning work before collecting anything.
+    /// Only seed roots with bounded inline payloads are admitted.
+    pub(super) fn effects<'a>(effects: impl Iterator<Item = &'a Effect> + Clone) -> Option<Self> {
+        let mut count = 0usize;
+        let mut work = 0usize;
+        for e in effects.clone() {
+            count = count.saturating_add(1);
+            work = work.saturating_add(e.target.steps.len() + 1);
+            if count > Self::MAX_EFFECTS
+                || work > Self::MAX_EFFECTS * (super::MAX_PATH + 1)
+                || e.target.steps.len() > super::MAX_PATH
+                || !matches!(
+                    e.target.root,
+                    Root::Parameter(_) | Root::Temporary | Root::Until(_)
+                )
+            {
+                return Some(Self::Opaque);
+            }
+        }
+        if count == 0 {
+            return None;
+        }
+        let mut out = Vec::with_capacity(count);
+        for e in effects {
+            if !out.contains(e) {
+                out.push(e.clone());
+            }
+        }
+        Some(Self::Effects(out))
+    }
+
+    pub(super) fn work(&self) -> usize {
+        match self {
+            Self::Effects(effects) => effects.len(),
+            Self::Opaque => 1,
+        }
+    }
+
+    /// The append witness covers only its own unguarded backing Resize.
+    pub(super) fn covered_by_append(&self, receiver: usize) -> bool {
+        matches!(self, Self::Effects(effects) if effects.iter().all(|e|
+            e.kind == Kind::Resize && e.guard.is_none()
+            && e.target.root == Root::Parameter(receiver)
+            && e.target.steps == [Step::Storage]))
+    }
 }

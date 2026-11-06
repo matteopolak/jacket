@@ -138,6 +138,7 @@ impl<'a> Facts<'a> {
                         op,
                         left_constant,
                         right_constant,
+                        ..
                     } => {
                         if let Some(n) = left_constant {
                             this.def(left, Def::Integer(n as i64 as i128));

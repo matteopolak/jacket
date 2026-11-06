@@ -7,13 +7,52 @@ use super::{
 impl super::prepared::Core<'_> {
     pub(super) fn finish_definition_index(
         &mut self,
+        compiler: &jaic::sema::Compiler,
         body: &super::LifetimeBody,
         places: &super::Places,
     ) {
-        let stack: HashSet<_> = body.stack_places.iter().copied().collect();
-        for (id, ((value, _), path)) in places.paths.iter().enumerate() {
-            if path.is_empty() && stack.contains(value) {
+        self.owned.clear();
+        self.private_bytes.clear();
+        let roots: HashMap<_, _> = body
+            .stack_roots
+            .iter()
+            .filter_map(|root| root.bytes.map(|bytes| (root.value, bytes)))
+            .collect();
+        let aliases: HashMap<_, _> = body.slot_aliases.iter().copied().collect();
+        for (id, ((value, ty), path)) in places.paths.iter().enumerate() {
+            if path.is_empty()
+                && let Some(&bytes) = roots
+                    .get(value)
+                    .filter(|bytes| compiler.ty.types.size_of(*ty) <= **bytes)
+            {
                 self.owned.insert(id);
+                self.private_bytes.insert(id, bytes);
+            }
+        }
+        // Places identifies a formal's private slot by its logical incoming value.
+        // The checked spill event, not that incoming pointer, certifies its storage.
+        for event in body.blocks.iter().flat_map(|b| &b.events) {
+            let Event::Parameter {
+                place,
+                ty,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            let actual = aliases.get(place).unwrap_or(place);
+            let Some(&bytes) = roots
+                .get(actual)
+                .filter(|bytes| compiler.ty.types.size_of(*ty) <= **bytes)
+            else {
+                continue;
+            };
+            let Some(slot) = places.existing(*place, *ty) else {
+                continue;
+            };
+            if places.paths[slot].1.is_empty() {
+                self.owned.insert(slot);
+                self.private_bytes.insert(slot, bytes);
             }
         }
         self.write_sources = self
@@ -264,7 +303,7 @@ impl Resolver<'_> {
         all: &HashMap<ProcId, Summary>,
         depth: usize,
     ) -> Option<Path> {
-        let key = (value, ty, projections.to_vec());
+        let key = (value, ty, projections.to_vec(), self.storage_mode.get());
         if let Some(path) = self.field_origins.borrow().get(&key).cloned() {
             return Some(path);
         }
@@ -290,7 +329,10 @@ impl Resolver<'_> {
                 Projection::Field(n) => Some(Step::Field(*n)),
                 Projection::Element(n) => Some(Step::Element(*n)),
                 Projection::Deref => Some(Step::Deref),
-                Projection::DynamicElement(_) => None,
+                Projection::DynamicElement(_)
+                | Projection::Inline {
+                    ..
+                } => None,
             })
             .collect::<Option<Vec<_>>>()?;
         for def in self.values.get(&value).into_iter().flatten() {
@@ -562,7 +604,7 @@ impl Resolver<'_> {
                     self.indirect_return(*callee, args, *index, all, &mut HashSet::default(), 0)?;
                     None
                 }
-                Def::Address(_) | Def::Borrow(_) | Def::Parameter(_) => None,
+                Def::Address(_) | Def::Borrow(_) | Def::Parameter(..) => None,
             };
             if guard.is_some() && next != guard {
                 return None;
@@ -697,6 +739,7 @@ impl Resolver<'_> {
                                 | Root::Temporary
                                 | Root::Watermark
                                 | Root::Until(_)
+                                | Root::CapturedRead(_)
                         )
                     })
                     .zip(self.return_guard(*value, all, &mut HashSet::default()));

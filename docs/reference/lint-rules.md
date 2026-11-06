@@ -271,8 +271,8 @@ main :: () {
 error[double_free]: `node` is freed a second time
   --> example.jai:13:5
    |
-10 |     print("%\n", node.value);
-   |                       ----- storage derived here
+ 8 |     node := New(Node);
+   |             --------- storage derived here
    ...
 12 |     free(node);
    |     ---------- storage invalidated here
@@ -854,9 +854,11 @@ main :: () {
 error[use_after_free]: `node` is used after the call above freed it
   --> example.jai:12:18
    |
+ 8 |     node := New(Node);
+   |             --------- storage derived here
+   ...
 11 |     free(node);
    |     ---------- storage invalidated here
-   |          ---- storage derived here
 12 |     print("%\n", node.value);
    |                  ^^^^
    |
@@ -1182,9 +1184,7 @@ warning[duplicate_condition]: `key == 1` was already tested earlier in this chai
    |
 help: this branch can never run: was another condition meant?
    |
- 5 -     else if key == 2 print("two\n");
  6 -     else if key == 1 print("uno\n");
- 5 +     else if key == 2 print("two\n");
    |
    = note: `duplicate_condition` is `warn` by default
 ```
@@ -1777,7 +1777,7 @@ warning[self_assignment]: `width` is assigned to itself
    |
 help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
    |
- 9 ~ 
+ 9 -     width = width;
    |
    = note: `self_assignment` is `warn` by default
 ```
@@ -2011,7 +2011,7 @@ A name in a line comment's `allow(...)` or `allow-file(...)` list that is not a 
 
 ### unpaired_lock
 
-Finds a `@Locks` call with a path that returns or ends without a matching `@Unlocks`.
+Finds a lock acquisition with a path that leaves recursive levels held.
 
 Category `suspicious`, `warn` by default.
 
@@ -2085,7 +2085,7 @@ main :: () {
 }
 ```
 
-A statement-level call of a `@Locks` procedure with an argument (`lock(*state.mutex);`) at the top level of a procedure body, followed by a path that reaches a.
+A top-level acquisition whose following paths leave recursive lock levels held. Native-backed wrappers can supply inferred depth effects; `@Locks` and `@Unlocks` cover other protocols. Each acquired level needs a release or proven deferred release. `@Locks` declares an intentional wrapper exemption; an inferred acquisition describes an effect but does not exempt the function. Unknown calls receiving the same argument remain uncertain.
 
 ### unsigned_range_end_minus_one
 
@@ -2755,12 +2755,8 @@ warning[manual_index_counter]: `n` always equals `it_index` of the loop that fol
 help: use `it_index` instead of counting by hand
    |
  4 -     n := 0;
- 5 - 
- 6 -     for names {
  7 -         print("% %\n", n, it);
  8 -         n += 1;
- 4 + 
- 5 +     for names {
  6 +         print("% %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
@@ -3604,10 +3600,8 @@ help: write an `if` instead
 10 -     if mode == {
 11 -         case .VERBOSE;
 12 -             print("loud\n");
-13 -     }
 10 +     if mode == .VERBOSE {
 11 +         print("loud\n");
-12 +     }
    |
    = note: `single_case_switch` is `warn` by default
 ```
@@ -4485,9 +4479,7 @@ help: list the values together: `case .PNG, .JPEG;`
 11 -         case .PNG;
 12 -             return "image";
 13 -         case .JPEG;
-14 -             return "image";
 11 +         case .PNG, .JPEG;
-12 +             return "image";
    |
 ```
 
@@ -4554,9 +4546,7 @@ help: test `ready` first and swap the branches
    |
  6 ~     if ready {
  7 ~         print("going\n");
- 8 ~     } else {
  9 ~         print("waiting\n");
-10 ~     }
    |
 ```
 
@@ -4724,8 +4714,6 @@ warning[leaked_allocation]: `parser` holds memory from `New` that is never freed
    |
 help: free it when done, for example `defer free(parser);` right after this line
    |
- 8 -     parser := New(Parser);
- 8 +     parser := New(Parser);
  9 +     defer free(parser);
    |
 ```

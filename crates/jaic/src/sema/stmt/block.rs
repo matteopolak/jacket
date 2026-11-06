@@ -241,6 +241,10 @@ impl Compiler {
             }
         };
         let (_, addr) = self.address_of(f, op, span)?;
+        if !f.type_only && let Some(record) = &mut f.lifetimes
+            && !record.context_types.contains(&ctx_ty) {
+            record.context_types.push(ctx_ty);
+        }
         Ok(addr)
     }
 

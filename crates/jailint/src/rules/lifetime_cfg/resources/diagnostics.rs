@@ -76,12 +76,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
         } else {
             None
         };
-        let before = [
-            out.use_after_free.len(),
-            out.double_free.len(),
-            out.returned_local_address.len(),
-            out.temp_storage_escape.len(),
-        ];
+        let before = out.counts();
         match &block.op {
             CfgOp::Use(cell, at)
             | CfgOp::Resource(Op::Read {
@@ -244,18 +239,8 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
         }
         if let Some(site) = mapped {
             let raw = primary.unwrap();
-            for (findings, from) in [
-                &mut out.use_after_free,
-                &mut out.double_free,
-                &mut out.returned_local_address,
-                &mut out.temp_storage_escape,
-            ]
-            .into_iter()
-            .zip(before)
-            {
-                for finding in &mut findings[from..] {
-                    map_finding(finding, raw, site);
-                }
+            for finding in out.added(before) {
+                map_finding(finding, raw, site);
             }
         }
     }
@@ -263,14 +248,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
 
 impl Proof<'_> {
     fn decorate(&self, at: usize, before: [usize; 4], out: &mut Reports) {
-        if before
-            == [
-                out.use_after_free.len(),
-                out.double_free.len(),
-                out.returned_local_address.len(),
-                out.temp_storage_escape.len(),
-            ]
-        {
+        if before == out.counts() {
             return;
         }
         let (CfgOp::Use(cell, _)
@@ -319,40 +297,29 @@ impl Proof<'_> {
         let may = self.states[at]
             .as_ref()
             .is_some_and(|s| !matches!(s[dense], LIVE | DEAD));
-        for (findings, start) in [
-            &mut out.use_after_free,
-            &mut out.double_free,
-            &mut out.returned_local_address,
-            &mut out.temp_storage_escape,
-        ]
-        .into_iter()
-        .zip(before)
-        {
-            for f in &mut findings[start..] {
-                if may {
-                    f.fix = None;
-                    if !f.message.starts_with("strict mode:") {
-                        f.message =
-                            format!("strict mode: possible lifetime violation: {}", f.message);
-                    }
+        for f in out.added(before) {
+            if may {
+                f.fix = None;
+                if !f.message.starts_with("strict mode:") {
+                    f.message = format!("strict mode: possible lifetime violation: {}", f.message);
                 }
-                f.message
-                    .push_str(&format!("; shortest bad path shown ({count})"));
-                for &(span, taken) in &decisions {
-                    f.secondary.push((
-                        span,
-                        format!("shortest bad path takes this condition as {taken}"),
-                    ));
-                }
-                super::super::witness::targets(self.cx, self.model, &spans, f);
-                if witnesses.iter().any(|(i, _)| {
-                    matches!(
-                        self.model.blocks[*i].op,
-                        CfgOp::Resource(Op::MayFree { .. } | Op::MayRegion { .. })
-                    )
-                }) {
-                    f.message.push_str("; release is possible, not guaranteed");
-                }
+            }
+            f.message
+                .push_str(&format!("; shortest bad path shown ({count})"));
+            for &(span, taken) in &decisions {
+                f.secondary.push((
+                    span,
+                    format!("shortest bad path takes this condition as {taken}"),
+                ));
+            }
+            super::super::witness::targets(self.cx, self.model, &spans, f);
+            if witnesses.iter().any(|(i, _)| {
+                matches!(
+                    self.model.blocks[*i].op,
+                    CfgOp::Resource(Op::MayFree { .. } | Op::MayRegion { .. })
+                )
+            }) {
+                f.message.push_str("; release is possible, not guaranteed");
             }
         }
     }
@@ -677,6 +644,12 @@ impl Proof<'_> {
         let model = self.model;
         let any_path = !matches!(retention, Retention::AllPaths);
         let process_exit = matches!(retention, Retention::UntilProcessExit);
+        let location = match &model.blocks[at].op {
+            CfgOp::Resource(Op::Escape {
+                location, ..
+            }) => location.as_deref(),
+            _ => None,
+        };
         let target_place = match model.cells.values[target] {
             super::Cell::Place(place) => Some(place),
             super::Cell::Value(_) => None,
@@ -709,14 +682,28 @@ impl Proof<'_> {
             }
             match model.blocks[i].op {
                 CfgOp::Resource(Op::Escape {
-                    target: other, ..
-                }) if other == target => kept = false,
-                CfgOp::Replace(place)
-                    if target_place.is_some_and(|p| model.places.contains(place, p)) =>
+                    target: other,
+                    location: ref other_location,
+                    ..
+                }) if other == target
+                    && (location.is_some() && location == other_location.as_deref()
+                        || target_place.is_some_and(|p| !model.places.unresolved(p))) =>
                 {
                     kept = false;
                 }
-                CfgOp::Barrier if !any_path => kept = false,
+                CfgOp::Replace(place)
+                    if target_place.is_some_and(|p| {
+                        model.places.contains(place, p)
+                            && !model.places.paths[p].1[model.places.paths[place].1.len()..]
+                                .contains(&crate::rules::lifetime_places::Projection::Deref)
+                            && !model.places.unresolved(p)
+                    }) =>
+                {
+                    kept = false;
+                }
+                // An uncertain write is not proof of clearing; without a disjoint
+                // footprint it still prevents an all-path retention proof.
+                CfgOp::Barrier | CfgOp::MemoryWrite if !any_path => kept = false,
                 CfgOp::Resource(Op::Reset(_)) if matches!(kind, Origin::Temporary) => {
                     if kept {
                         return true;
@@ -924,6 +911,9 @@ fn descriptor_data_place(cx: &Cx, model: &Model, place: usize) -> bool {
     }
     for projection in prefix {
         ty = match projection {
+            Projection::Inline {
+                ..
+            } => return false,
             Projection::Field(name) => {
                 let Some(st) = cx.compiler.ty.types.as_struct(ty) else {
                     return false;

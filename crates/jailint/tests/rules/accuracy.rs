@@ -424,3 +424,172 @@ fn lifetime_ci_local_element_field() {
     assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
     assert!(lints.iter().all(|l| l.start > text.find("bad ::").unwrap()));
 }
+
+/// Check raw source offsets independently of the diagnostic renderer.
+/// Both reference examples must point to `New(Node)`.
+fn documented_allocation_origin(rule: &str) {
+    let path = repo().join(format!("tests/lint/{rule}/example.jai"));
+    let level = RULES
+        .iter()
+        .find(|info| info.name == rule)
+        .unwrap()
+        .default();
+    let (lints, text) = lint(&path, &[(rule, level)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    let origin = lints[0]
+        .secondary
+        .iter()
+        .find(|s| s.message == "storage derived here")
+        .unwrap();
+    let start = text.find("New(Node)").unwrap();
+    assert_eq!(
+        (origin.start, origin.end),
+        (start, start + "New(Node)".len()),
+        "{}",
+        rendered(&lints, &text, &path)
+    );
+    assert_eq!(&text[origin.start..origin.end], "New(Node)");
+    test_support::assert_snapshot_in!(
+        path.parent().unwrap(),
+        "example",
+        rendered(&lints, &text, &path)
+    );
+}
+
+#[test]
+fn lifetime_documented_use_after_free_labels_the_original_allocation() {
+    documented_allocation_origin("use_after_free");
+}
+
+#[test]
+fn lifetime_documented_double_free_labels_the_original_allocation() {
+    documented_allocation_origin("double_free");
+}
+
+#[test]
+fn lifetime_documented_resizable_pointer_labels_the_original_derivation() {
+    let path = repo().join("tests/lint/pointer_into_resizable/example.jai");
+    let (lints, text) = lint(&path, &[("pointer_into_resizable", Level::Warn)]);
+    assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
+    let origin = lints[0]
+        .secondary
+        .iter()
+        .find(|s| s.message == "pointer derived here")
+        .unwrap();
+    let expected = "*items[0]";
+    let start = text.find(expected).unwrap();
+    assert_eq!(
+        (origin.start, origin.end),
+        (start, start + expected.len()),
+        "{}",
+        rendered(&lints, &text, &path)
+    );
+    assert_eq!(&text[origin.start..origin.end], expected);
+    test_support::assert_snapshot_in!(
+        path.parent().unwrap(),
+        "example",
+        rendered(&lints, &text, &path)
+    );
+}
+
+#[test]
+fn lifetime_aliases_and_multiple_results_keep_allocation_origin_spans() {
+    let path = repo().join("tests/lint/pointer_lifetime/resources/diagnostic-origins.jai");
+    let (lints, text) = lint(
+        &path,
+        &[
+            ("use_after_free", Level::Warn),
+            ("double_free", Level::Warn),
+        ],
+    );
+    assert_eq!(lints.len(), 4, "{}", rendered(&lints, &text, &path));
+    let mut observed = Vec::new();
+    for finding in &lints {
+        let primary = &text[finding.start..finding.end];
+        let expected = match primary {
+            "alias" => text.find("original := New(Node)").unwrap() + "original := ".len(),
+            "free(copy)" => {
+                text.find("double_alias ::").unwrap()
+                    + text[text.find("double_alias ::").unwrap()..]
+                        .find("New(Node)")
+                        .unwrap()
+            }
+            "first_alias" | "second_alias" => text.find("snapshot_pair()").unwrap(),
+            _ => panic!(
+                "unexpected primary {primary:?}: {}",
+                rendered(&lints, &text, &path)
+            ),
+        };
+        let token = if primary == "first_alias" || primary == "second_alias" {
+            "snapshot_pair()"
+        } else {
+            "New(Node)"
+        };
+        let origin = finding
+            .secondary
+            .iter()
+            .find(|s| s.message == "storage derived here")
+            .unwrap();
+        assert_eq!(
+            (origin.start, origin.end),
+            (expected, expected + token.len()),
+            "{}",
+            rendered(&lints, &text, &path)
+        );
+        assert_eq!(&text[origin.start..origin.end], token);
+        observed.push(primary);
+    }
+    observed.sort_unstable();
+    assert_eq!(
+        observed,
+        ["alias", "first_alias", "free(copy)", "second_alias"]
+    );
+}
+
+#[test]
+fn lifetime_origin_labels_preserve_replacements_inputs_and_branch_joins() {
+    let path = repo().join("tests/lint/pointer_lifetime/resources/diagnostic-origin-controls.jai");
+    let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(lints.len(), 5, "{}", rendered(&lints, &text, &path));
+    for finding in &lints {
+        let primary = &text[finding.start..finding.end];
+        let (expected, token) = match primary {
+            "replacement_alias" => (
+                text.find("node = New(Node)").unwrap() + "node = ".len(),
+                "New(Node)",
+            ),
+            "captured_old" => (
+                text.find("saved_origin := New(Node)").unwrap() + "saved_origin := ".len(),
+                "New(Node)",
+            ),
+            "exposed" => (
+                text.find("free(exposed)").unwrap() + "free(".len(),
+                "exposed",
+            ),
+            "argument" => (text.find("argument: *Node").unwrap(), "argument: *Node"),
+            "joined" => (text.find("free(joined)").unwrap() + "free(".len(), "joined"),
+            _ => panic!(
+                "unexpected primary {primary:?}: {}",
+                rendered(&lints, &text, &path)
+            ),
+        };
+        let origin = finding
+            .secondary
+            .iter()
+            .find(|s| s.message == "storage derived here")
+            .unwrap();
+        assert_eq!(
+            (origin.start, origin.end),
+            (expected, expected + token.len()),
+            "{}",
+            rendered(&lints, &text, &path)
+        );
+        assert_eq!(&text[origin.start..origin.end], token);
+    }
+}
+
+#[path = "array_borrows.rs"]
+mod array_borrows;
+
+#[path = "oracle_regressions.rs"]
+mod oracle_regressions;

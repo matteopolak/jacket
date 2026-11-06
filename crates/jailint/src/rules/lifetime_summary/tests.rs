@@ -1,12 +1,45 @@
+mod bit_returns;
+mod call_epochs;
+mod call_slots;
+mod certificates;
 mod descriptors;
 mod exact_cleanup;
+mod frames;
+mod frames_guarded;
+mod locks;
 mod native_releases;
-mod stdlib_allocations;
+mod native_returns;
+mod opaque;
+mod physical_slots;
+mod poststates;
+mod scalar_epochs;
+mod session;
+pub(super) mod stdlib_allocations;
+mod storage_versions;
+mod unpassed_storage;
 
 use super::*;
 use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::sema::{NativeFs, Options, ProgramSource};
 use std::rc::Rc;
+
+/// Process-global interruption must be isolated from concurrently running tests.
+pub(super) fn cancellation_child() -> bool {
+    const CHILD: jacket_config::env::Var = jacket_config::env::LIFETIME_CANCELLATION_CHILD;
+    if CHILD.is_set() {
+        return true;
+    }
+    let name = std::thread::current().name().unwrap().to_owned();
+    assert!(
+        std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", &name, "--test-threads=1"])
+            .env(CHILD.name, "1")
+            .status()
+            .unwrap()
+            .success()
+    );
+    false
+}
 
 #[test]
 fn allocator_mode_guards_distinguish_allocate_resize_and_free() {
@@ -90,6 +123,14 @@ fn allocator_mode_guards_distinguish_allocate_resize_and_free() {
         table_effects.iter().any(|s| !s.returns.is_empty()),
         "{table_effects:?}"
     );
+    assert!(
+        table_effects.iter().any(|s| s
+            .returns
+            .values()
+            .any(|(path, _)| matches!(path.root, Root::CapturedRead(_)))),
+        "the returned table borrow is a captured read, not an entry-allocation substitution: {table_effects:?}"
+    );
+
     let reserves: Vec<_> =
         c.pr.procs
             .iter()
@@ -1082,3 +1123,5 @@ fn temporary_descriptor_contents_do_not_replace_their_storage_origin() {
         "{summary:?}"
     );
 }
+
+mod frozen_execution;

@@ -12,8 +12,11 @@ use std::sync::Arc;
 mod addresses;
 mod booleans;
 mod controls;
+mod generated;
+mod recording;
 pub use addresses::LifetimeAddressCast;
 pub use controls::LifetimeControls;
+pub use generated::{LifetimeContextTransfer, LifetimeGeneratedEntryCall};
 
 #[derive(Clone, Copy, Debug)]
 pub enum LifetimeOperand {
@@ -65,18 +68,89 @@ pub struct LifetimeArgument {
     pub spread: bool,
 }
 
+/// Byte correspondence of the memory primitive actually selected by lowering.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LifetimeMemoryCopy {
+    pub destination_formal: u8,
+    pub source_formal: u8,
+    pub count_formal: u8,
+    pub requires_disjoint: bool,
+}
+
+/// A selected write-only primitive touches only this destination byte range on
+/// a valid invocation and performs no hidden callbacks or resource operations.
+/// Consumers must validate count, extent and no-wrap, and apply write interference.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LifetimeBoundedWrite {
+    pub destination_formal: u8,
+    pub count_formal: u8,
+}
+
+/// Mutually exclusive selected-operation contracts, separate from access masks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LifetimeMemoryOperation {
+    Unspecified,
+    Copy(LifetimeMemoryCopy),
+    BoundedWrite(LifetimeBoundedWrite),
+}
+
 /// Effects of the memory intrinsic actually selected by lowering, not an opaque callee.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LifetimeMemoryEffects {
-    /// Bit masks over runtime formal positions. These operations cannot release allocations.
+    /// Memory-access masks over runtime formal positions. Resource-protocol
+    /// effects are separate; these masks are not a general purity proof.
     pub reads: u8,
     pub writes: u8,
     /// A zero byte count performs no memory access; absent for fixed-width atomics.
     pub count: Option<u8>,
+    /// Precise operation semantics cannot be reconstructed from access masks.
+    pub operation: LifetimeMemoryOperation,
+}
+
+impl LifetimeMemoryEffects {
+    /// The selected copy contract, e.g. `effects.copy().map(|copy| copy.source_formal)`.
+    pub const fn copy(&self) -> Option<LifetimeMemoryCopy> {
+        match self.operation {
+            LifetimeMemoryOperation::Copy(copy) => Some(copy),
+            LifetimeMemoryOperation::Unspecified | LifetimeMemoryOperation::BoundedWrite(_) => None,
+        }
+    }
+
+    /// The selected write-only range, e.g. `effects.bounded_write().map(|write| write.count_formal)`.
+    pub const fn bounded_write(&self) -> Option<LifetimeBoundedWrite> {
+        match self.operation {
+            LifetimeMemoryOperation::BoundedWrite(write) => Some(write),
+            LifetimeMemoryOperation::Unspecified | LifetimeMemoryOperation::Copy(_) => None,
+        }
+    }
+}
+
+/// Checked boolean value relations. And/Or retain short-circuit semantics: the
+/// right SSA value exists only on its evaluation edge, and must not be demanded
+/// when the left operand already determines the result.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LifetimeBoolean {
+    Not(Val),
+    And(Val, Val),
+    Or(Val, Val),
 }
 
 #[derive(Clone, Debug)]
 pub enum LifetimeEvent {
+    /// A selected fully inline member path, using the actual captured base address
+    /// and checked layout. Pointer-following `using` paths are not inline proofs.
+    FieldProjection {
+        base: Val,
+        result: Val,
+        base_ty: TypeId,
+        result_ty: TypeId,
+        offset: u64,
+    },
+    /// A semantic bool operation, independent of its executable lowering shape.
+    Boolean {
+        value: Val,
+        operation: LifetimeBoolean,
+    },
     /// Actual lexical interface of an indirect call; never a structurally equal header.
     CallContract {
         callee: Val,
@@ -89,9 +163,14 @@ pub enum LifetimeEvent {
     },
     /// Runtime context selection, including caller-owned conditional macro defers.
     ContextSet {
+        ty: TypeId,
+        place: Val,
         value: Val,
+        constant: Option<u64>,
     },
     ContextRead {
+        ty: TypeId,
+        place: Val,
         value: Val,
     },
     ContextAlias {
@@ -122,6 +201,19 @@ pub enum LifetimeEvent {
         ty: TypeId,
         span: Span,
     },
+    /// Exact supported semantic leaves of the immediately preceding selected default write.
+    /// Incomplete coverage never implies that omitted leaves are zero or unchanged.
+    DefaultImage {
+        place: Val,
+        ty: TypeId,
+        /// Exact emitted write width, independent of later mutable type layouts.
+        bytes: u64,
+        /// This exact emitted byte range is zeroed. False is unknown, including
+        /// copied images with zero bytes; typed leaf coverage is independent.
+        zeroed: bool,
+        leaves: Vec<LifetimeDefaultLeaf>,
+        complete: bool,
+    },
     /// A default image (including zero initialization) replaces this storage now.
     Initialize {
         place: Val,
@@ -147,6 +239,8 @@ pub enum LifetimeEvent {
         region_ty: TypeId,
         span: Span,
     },
+    /// The source and result have the same semantic value/address. A nonzero
+    /// checked member adjustment is a `FieldProjection`, never a `Copy`.
     Copy {
         value: Val,
         source: Val,
@@ -155,10 +249,15 @@ pub enum LifetimeEvent {
         value: Val,
         source: Val,
         stride: TypeId,
+        /// Logical element delta, not a byte offset.
         offset: Option<i128>,
+        /// Selected element-delta SSA when retained, before stride scaling.
+        subscript: Option<Val>,
         span: Span,
     },
     IntegerBinary {
+        /// Checked operation width and signedness, before executable IR release.
+        ty: TypeId,
         value: Val,
         left: Val,
         right: Val,
@@ -245,6 +344,7 @@ pub enum LifetimeEvent {
         memory: Option<LifetimeMemoryEffects>,
         args: Vec<LifetimeArgument>,
         span: Span,
+        /// Runtime effects are emitted in the caller; declaration contracts remain independent.
         expands: bool,
         results: Vec<(usize, Val, TypeId)>,
     },
@@ -254,12 +354,19 @@ pub enum LifetimeEvent {
         args: Vec<LifetimeArgument>,
         results: Vec<(usize, Val, TypeId)>,
         allocator: bool,
+        /// Sparse boxed metadata avoids enlarging every retained event.
+        allocator_protocol: Option<Box<LifetimeAllocatorCall>>,
         span: Span,
     },
+    /// Declared growth effect of the exact associated call, not a separate
+    /// memory write before argument evaluation. Expanded bodies precede this pair.
     Grow {
         region: Val,
         ty: TypeId,
         span: Span,
+        /// Following Call event in this same retained block. Only nonexpanded
+        /// calls can use the state before this marker as their invocation prestate.
+        call_event: usize,
     },
     /// Unknown memory writes cannot establish a must proof.
     Barrier,
@@ -359,17 +466,110 @@ pub struct LifetimeComparison {
     pub right_constant: Option<u64>,
 }
 
+/// An actual stack allocation's canonical address and original byte extent.
+/// Derived addresses are not roots. Unknown extents authorize no private access.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LifetimeStackRoot {
+    pub value: Val,
+    pub bytes: Option<u64>,
+}
+
+/// One typed semantic value written by a selected default initializer.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LifetimeDefaultLeaf {
+    pub offset: u64,
+    pub width: u64,
+    pub ty: TypeId,
+    pub value: LifetimeDefaultValue,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LifetimeDefaultValue {
+    Scalar(u64),
+    Procedure {
+        procedure: ProcId,
+        function: ir::FuncId,
+    },
+    Unknown,
+}
+
+/// The exact conservative barrier introduced by a selected inline overlay access.
+/// This is selection metadata, not a guarantee about surrounding expressions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LifetimeOverlayAccess {
+    pub block: usize,
+    pub event: usize,
+    pub projection_block: usize,
+    pub projection_event: usize,
+    pub descriptor_ty: TypeId,
+    pub result: Val,
+}
+
+/// Checked roles and nominal operation tags of the selected allocator ABI.
+/// This certifies an invocation protocol, never freshness or provider behavior.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LifetimeAllocatorCall {
+    pub operation_formal: usize,
+    pub size_formal: usize,
+    pub old_size_formal: usize,
+    pub old_memory_formal: usize,
+    pub data_formal: usize,
+    pub operation_ty: TypeId,
+    pub allocate_value: u64,
+    pub resize_value: u64,
+    pub free_value: u64,
+    pub result_position: usize,
+}
+
 /// A successful real body only. `ProcId` distinguishes polymorphic instantiations;
 /// keeping its Arc also lets consumers reject an obsolete retry's record.
+/// Exact immutable bytes selected for a memory-valued aggregate constant.
+/// A copy of `Item.{}` may read this full typed region. This grants no writable
+/// storage, pointee validity, allocation ownership or disjointness certificate.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LifetimeReadOnlyRegion {
+    pub value: Val,
+    pub ty: TypeId,
+    pub bytes: u64,
+    /// Selected constant-image values only; runtime-immutable globals whose
+    /// compiler initialization is not final retain no value certificate.
+    pub leaves: Vec<LifetimeDefaultLeaf>,
+    pub complete: bool,
+}
+
+/// The actual operand passed in a selected call's hidden context ABI position.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LifetimeContextArgument {
+    Absent,
+    Value(Val),
+    /// The indirect-call lowering itself emitted this exact Ptr zero.
+    Null(Val),
+}
+
+/// A real call site only; absence of a row means unavailable, not absent ABI.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LifetimeCallContext {
+    pub block: usize,
+    pub event: usize,
+    pub argument: LifetimeContextArgument,
+}
+
 #[derive(Clone, Debug)]
 pub struct LifetimeBody {
     pub procedure: ProcId,
     pub syntax: Arc<ast::ProcLit>,
     /// Actual context types used while this body was checked, before later cache generations.
     pub context_types: Vec<TypeId>,
+    /// Actual selected hidden ABI parameter; symbolic until an invocation binds it.
+    pub context_input: Option<Val>,
+    pub call_contexts: Vec<LifetimeCallContext>,
     pub blocks: Vec<LifetimeBlock>,
-    /// Stack slots selected by lowering, including anonymous argument/literal spills.
+    /// Stack ancestry for attribution, including derived addresses. Not ownership.
     pub stack_places: Vec<Val>,
+    /// Actual allocation roots only; aliases share one original byte extent.
+    pub stack_roots: Vec<LifetimeStackRoot>,
+    pub read_only_regions: Vec<LifetimeReadOnlyRegion>,
+    pub overlay_accesses: Vec<LifetimeOverlayAccess>,
     /// Distinct SSA addresses of the same physical stack slot.
     pub slot_aliases: Vec<(Val, Val)>,
     pub source_ranges: Vec<LifetimeSourceRange>,
@@ -388,7 +588,12 @@ pub struct LifetimeBody {
 /// Mutable only while this `FnCtx` is being checked; discarded on error.
 #[derive(Default)]
 pub(crate) struct LifetimeRecording {
+    pub read_only_regions: Vec<LifetimeReadOnlyRegion>,
+    pub overlay_accesses: Vec<LifetimeOverlayAccess>,
     pub context_types: Vec<TypeId>,
+    /// Actual selected hidden ABI parameter; symbolic until an invocation binds it.
+    pub context_input: Option<Val>,
+    pub call_contexts: Vec<LifetimeCallContext>,
     pub macro_owners: Vec<(ScopeId, ScopeId)>,
     pub blocks: Vec<LifetimeBlock>,
     pub resizable: HashMap<Val, TypeId>,
@@ -403,6 +608,9 @@ pub(crate) struct LifetimeRecording {
 }
 
 pub(crate) struct LifetimeCallRecording {
+    /// Runtime effects of this selected call were emitted and recorded in its caller.
+    pub effects_recorded: bool,
+    pub context: Option<LifetimeContextArgument>,
     pub args: Vec<LifetimeArgument>,
     pub memory: Option<LifetimeMemoryEffects>,
     pub parameter_spans: Vec<Span>,
@@ -446,262 +654,12 @@ impl LifetimeRecording {
     }
 }
 
-impl Compiler {
-    /// Freeze only procedure-slot initializer facts, rather than retaining executable data.
-    pub(crate) fn lifetime_release_globals(&mut self) {
-        use crate::sema::scope::{EntityState, Resolved};
-        let Some(facts) = self.ed.facts() else {
-            return;
-        };
-        let ids: HashSet<_> = facts
-            .lifetime_bodies
-            .values()
-            .flat_map(|b| b.blocks.iter().flat_map(|b| &b.events))
-            .filter_map(|event| {
-                let LifetimeEvent::Expression {
-                    ty,
-                    entity: Some(entity),
-                    ..
-                } = event
-                else {
-                    return None;
-                };
-                if !matches!(self.ty.types.kind(*ty), TypeKind::Proc(_)) {
-                    return None;
-                }
-                let EntityState::Done(Resolved::Global {
-                    storage: ir::Storage::Data(id),
-                    ..
-                }) = self.entity(*entity).state
-                else {
-                    return None;
-                };
-                Some(id)
-            })
-            .collect();
-        let retained = ids
-            .into_iter()
-            .map(|id| {
-                let global = &self.out.program.globals[id.0 as usize];
-                (
-                    id,
-                    (global.init.iter().any(|&b| b != 0), global.relocs.clone()),
-                )
-            })
-            .collect::<Vec<_>>();
-        for (id, initial) in retained {
-            self.ed
-                .facts_mut()
-                .unwrap()
-                .lifetime_procedure_globals
-                .entry(id)
-                .or_insert(initial);
-        }
-    }
-
-    pub(crate) fn lifetime_expression(&self, f: &mut FnCtx, expr: &ast::Expr, op: &Operand) {
-        if f.type_only {
-            return;
-        }
-        let Some(record) = &mut f.lifetimes else {
-            return;
-        };
-        if matches!(expr.kind, E::Context) && !record.context_types.contains(&op.ty()) {
-            record.context_types.push(op.ty());
-        }
-        let operand = LifetimeOperand::of(op);
-        let entity_span = match &expr.kind {
-            E::Member(_, member) => member.span,
-            _ => expr.span,
-        };
-        let entity = self
-            .ed
-            .facts()
-            .and_then(|i| i.last_entity)
-            .filter(|(at, _)| *at == entity_span)
-            .map(|(_, id)| id);
-        let block = f.b.current;
-        if matches!(operand, LifetimeOperand::Place(_)) || self.ty.types.is_pointer(op.ty()) {
-            record.push(
-                block,
-                LifetimeEvent::Expression {
-                    span: expr.span,
-                    ty: op.ty(),
-                    operand,
-                    entity,
-                },
-            );
-        }
-        if let LifetimeOperand::Place(place) = operand {
-            if matches!(
-                self.ty.types.kind(op.ty()),
-                TypeKind::Array {
-                    kind: ArrayKind::Resizable,
-                    ..
-                }
-            ) {
-                record.resizable.insert(place, op.ty());
-            }
-            let comparison_reads_storage = f.lifetime_comparing
-                && matches!(
-                    self.ty.types.kind(op.ty()),
-                    TypeKind::String
-                        | TypeKind::Array {
-                            kind: ArrayKind::View,
-                            ..
-                        }
-                );
-            let nonuse = f.lifetime_nonuses.contains(&Some(expr.span)) && !comparison_reads_storage;
-            let metadata_only =
-                f.lifetime_metadata_base == Some(expr.span) && !self.ty.types.is_pointer(op.ty());
-            if matches!(expr.kind, E::Ident(_) | E::Member(..)) && !nonuse && !metadata_only {
-                record.push(
-                    block,
-                    LifetimeEvent::Use {
-                        place,
-                        ty: op.ty(),
-                        span: expr.span,
-                    },
-                );
-            }
-        }
-        if matches!(expr.kind, E::Asm(_)) {
-            record.push(block, LifetimeEvent::Barrier);
-        }
-    }
-}
-
-impl FnCtx {
-    pub(crate) fn lifetime_branch(
-        &mut self,
-        condition: Val,
-        span: Span,
-        then_block: ir::BlockId,
-        else_block: ir::BlockId,
-    ) {
-        if !self.type_only
-            && let Some(record) = &mut self.lifetimes
-        {
-            record.push(
-                self.b.current,
-                LifetimeEvent::Branch {
-                    condition,
-                    span,
-                    then_block: then_block.0 as usize,
-                    else_block: else_block.0 as usize,
-                },
-            );
-        }
-    }
-
-    /// Collection-loop metadata at the body entry (`element`) or its step edge (`None`).
-    pub(crate) fn lifetime_iteration(
-        &mut self,
-        region: (Val, TypeId),
-        cursor: (Val, crate::intern::Sym, crate::intern::Sym),
-        reverse: bool,
-        span: Span,
-        element: Option<(Val, TypeId, Val)>,
-    ) {
-        if self.type_only {
-            return;
-        }
-        let Some(record) = &mut self.lifetimes else {
-            return;
-        };
-        if let Some((result, result_ty, subscript)) = element {
-            record.push(
-                self.b.current,
-                LifetimeEvent::Index {
-                    base: region.0,
-                    base_ty: region.1,
-                    result,
-                    result_ty,
-                    subscript,
-                    index: None,
-                },
-            );
-        }
-        record.push(
-            self.b.current,
-            LifetimeEvent::Iteration {
-                region: region.0,
-                ty: region.1,
-                index: cursor.0,
-                name: cursor.1,
-                index_name: cursor.2,
-                reverse,
-                span,
-                advance: element.is_none(),
-            },
-        );
-    }
-
-
-    pub(crate) fn lifetime_store(&mut self, place: Val, value: Val, ty: TypeId, span: Span) {
-        if !self.type_only
-            && let Some(record) = &mut self.lifetimes
-        {
-            record.push(
-                self.b.current,
-                LifetimeEvent::Store {
-                    place,
-                    value,
-                    ty,
-                    span,
-                    constant: None,
-                },
-            );
-        }
-    }
-
-    pub(crate) fn lifetime_view(
-        &mut self,
-        value: Val,
-        source: Val,
-        from: TypeId,
-        to: TypeId,
-        span: Span,
-    ) {
-        if !self.type_only
-            && let Some(record) = &mut self.lifetimes
-        {
-            record.push(
-                self.b.current,
-                LifetimeEvent::View {
-                    value,
-                    source,
-                    from,
-                    to,
-                    span,
-                },
-            );
-        }
-    }
-
-    pub(crate) fn lifetime_copy(&mut self, value: Val, source: Val) {
-        if value == source {
-            return;
-        }
-        if !self.type_only
-            && let Some(record) = &mut self.lifetimes
-        {
-            record.push(
-                self.b.current,
-                LifetimeEvent::Copy {
-                    value,
-                    source,
-                },
-            );
-        }
-    }
-}
-
 impl LifetimeBody {
-    /// Retained vector payload/capacity (including nested argument/expansion vectors).
+    /// Retained vector and owned protocol payload/capacity (including nested vectors).
     /// Excludes shared syntax, `HashMap` buckets and allocator rounding; not process RSS.
     pub fn vector_bytes(&self) -> usize {
         self.context_types.capacity() * std::mem::size_of::<TypeId>()
+            + self.call_contexts.capacity() * std::mem::size_of::<LifetimeCallContext>()
             + self.source_ranges.capacity() * std::mem::size_of::<LifetimeSourceRange>()
             + self.comparisons.capacity() * std::mem::size_of::<LifetimeComparison>()
             + self.boolean_branches.capacity() * std::mem::size_of::<(Val, Val, bool)>()
@@ -711,6 +669,14 @@ impl LifetimeBody {
             + self.address_casts.capacity() * std::mem::size_of::<LifetimeAddressCast>()
             + self.slot_aliases.capacity() * std::mem::size_of::<(Val, Val)>()
             + self.stack_places.capacity() * std::mem::size_of::<Val>()
+            + self.stack_roots.capacity() * std::mem::size_of::<LifetimeStackRoot>()
+            + self.read_only_regions.capacity() * std::mem::size_of::<LifetimeReadOnlyRegion>()
+            + self
+                .read_only_regions
+                .iter()
+                .map(|region| region.leaves.capacity() * std::mem::size_of::<LifetimeDefaultLeaf>())
+                .sum::<usize>()
+            + self.overlay_accesses.capacity() * std::mem::size_of::<LifetimeOverlayAccess>()
             + self.blocks.capacity() * std::mem::size_of::<LifetimeBlock>()
             + self
                 .blocks
@@ -721,476 +687,45 @@ impl LifetimeBody {
                         + block
                             .events
                             .iter()
-                            .map(|event| match event {
-                                LifetimeEvent::Call {
-                                    args,
-                                    results,
-                                    ..
-                                }
-                                | LifetimeEvent::IndirectCall {
-                                    args,
-                                    results,
-                                    ..
-                                } => {
-                                    args.capacity() * std::mem::size_of::<LifetimeArgument>()
-                                        + results.capacity()
-                                            * std::mem::size_of::<(usize, Val, TypeId)>()
-                                }
-                                LifetimeEvent::Expansion {
-                                    output, ..
-                                } => output.capacity() * std::mem::size_of::<Span>(),
-                                _ => 0,
+                            .map(|event| {
+                                let protocol = match event {
+                                    LifetimeEvent::IndirectCall {
+                                        allocator_protocol: Some(_),
+                                        ..
+                                    } => std::mem::size_of::<LifetimeAllocatorCall>(),
+                                    _ => 0,
+                                };
+                                protocol
+                                    + match event {
+                                        LifetimeEvent::Call {
+                                            args,
+                                            results,
+                                            ..
+                                        }
+                                        | LifetimeEvent::IndirectCall {
+                                            args,
+                                            results,
+                                            ..
+                                        } => {
+                                            args.capacity()
+                                                * std::mem::size_of::<LifetimeArgument>()
+                                                + results.capacity()
+                                                    * std::mem::size_of::<(usize, Val, TypeId)>()
+                                        }
+                                        LifetimeEvent::Expansion {
+                                            output, ..
+                                        } => output.capacity() * std::mem::size_of::<Span>(),
+                                        LifetimeEvent::DefaultImage {
+                                            leaves, ..
+                                        } => {
+                                            leaves.capacity()
+                                                * std::mem::size_of::<LifetimeDefaultLeaf>()
+                                        }
+                                        _ => 0,
+                                    }
                             })
                             .sum::<usize>()
                 })
                 .sum::<usize>()
     }
-}
-
-impl Compiler {
-    pub(crate) fn lifetime_begin_body(&mut self, f: &mut FnCtx, id: ProcId) {
-        use crate::ide::Recorder;
-        if self.ed.facts().is_some_and(|i| i.lint) && !self.ed.sketching() {
-            self.ed.facts_mut().unwrap().lifetime_bodies.remove(&id);
-            f.lifetimes = Some(Box::new(LifetimeRecording {
-                context_types: self.ty.context_type.into_iter().collect(),
-                ..Default::default()
-            }));
-        }
-    }
-
-    pub(crate) fn lifetime_finish_body(
-        &mut self,
-        f: &mut FnCtx,
-        id: ProcId,
-        syntax: &Arc<ast::ProcLit>,
-    ) {
-        if let Some(mut record) = f.lifetimes.take() {
-            record
-                .blocks
-                .resize_with(f.b.func.blocks.len(), Default::default);
-            let constants: HashMap<_, _> =
-                f.b.func
-                    .blocks
-                    .iter()
-                    .flat_map(|b| &b.insts)
-                    .filter_map(|inst| match inst {
-                        ir::Inst::IConst {
-                            dst,
-                            value,
-                            ..
-                        } => Some((*dst, *value)),
-                        _ => None,
-                    })
-                    .collect();
-            for (out, block) in record.blocks.iter_mut().zip(&f.b.func.blocks) {
-                out.normal_return = matches!(block.term, ir::Term::Ret(_));
-                for event in &mut out.events {
-                    event.resolve_constants(&constants);
-                }
-                if let ir::Term::Branch {
-                    cond,
-                    then_block,
-                    else_block,
-                } = block.term
-                    && let Some(value) = constants.get(&cond)
-                {
-                    out.successors.push(
-                        if *value == 0 {
-                            else_block
-                        } else {
-                            then_block
-                        }
-                        .0 as usize,
-                    );
-                } else {
-                    block
-                        .term
-                        .for_each_successor(|b| out.successors.push(b.0 as usize));
-                }
-            }
-            record.prune_cleanup_edges(&f.b.func, &constants);
-            let globals: Vec<_> =
-                f.b.func
-                    .blocks
-                    .iter()
-                    .flat_map(|b| &b.insts)
-                    .filter_map(|inst| {
-                        if let ir::Inst::GlobalAddr {
-                            dst,
-                            global,
-                        } = *inst
-                        {
-                            Some((dst, global))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-            let boolean_branches =
-                booleans::immutable_boolean_branches(&f.b.func, &record.blocks, &constants);
-            let facts = self.ed.facts_mut().unwrap();
-            for &(_, id) in &globals {
-                let global = &self.out.program.globals[id.0 as usize];
-                if global.read_only && !global.relocs.is_empty() {
-                    facts
-                        .lifetime_globals
-                        .entry(id)
-                        .or_insert_with(|| global.relocs.clone());
-                }
-            }
-            let ids = facts
-                .lifetime_files
-                .entry(syntax.header.span.file)
-                .or_default();
-            if !ids.contains(&id) {
-                ids.push(id);
-            }
-            facts.lifetime_bodies.insert(
-                id,
-                crate::ide::lifetimes::LifetimeBody {
-                    procedure: id,
-                    syntax: syntax.clone(),
-                    context_types: record.context_types,
-                    macro_owners: record.macro_owners,
-                    blocks: record.blocks,
-                    source_ranges: record.source_ranges,
-                    slot_aliases: slot_aliases(&f.b.func),
-                    stack_places: stack_places(&f.b.func, record.stack_subplaces),
-                    globals,
-                    address_casts: addresses::capture(&f.b.func),
-                    boolean_branches,
-                    controls: controls::capture(&f.b.func),
-                    comparisons: f
-                        .b
-                        .func
-                        .blocks
-                        .iter()
-                        .flat_map(|b| &b.insts)
-                        .filter_map(|inst| {
-                            let ir::Inst::Cmp {
-                                dst,
-                                op,
-                                ty,
-                                a,
-                                b,
-                            } = *inst
-                            else {
-                                return None;
-                            };
-                            Some(LifetimeComparison {
-                                ty,
-                                value: dst,
-                                left: a,
-                                right: b,
-                                op,
-                                left_constant: constants.get(&a).copied(),
-                                right_constant: constants.get(&b).copied(),
-                            })
-                        })
-                        .collect(),
-                },
-            );
-        }
-    }
-}
-
-
-impl LifetimeRecording {
-    /// Propagate activation flags and unaliased byte locals through cleanup branches.
-    /// A slot whose address escapes, is aliased, or is accessed at another width is excluded.
-    fn prune_cleanup_edges(&mut self, func: &ir::Func, constants: &HashMap<Val, u64>) {
-        if !func
-            .blocks
-            .iter()
-            .any(|b| matches!(b.term, ir::Term::Branch { .. }))
-        {
-            return;
-        }
-        let mut flags: Vec<_> = self.cleanup_flags.iter().copied().collect();
-        if !self.bool_slots.is_empty() {
-            flags.extend(
-                private_byte_flags(func)
-                    .into_iter()
-                    .filter(|v| self.bool_slots.contains(v)),
-            );
-        }
-        flags.sort_unstable_by_key(|v| v.0);
-        flags.dedup();
-        if flags.is_empty() {
-            return;
-        }
-        let slots: HashMap<_, _> = flags.into_iter().enumerate().map(|(i, v)| (v, i)).collect();
-        let mut states = vec![None; self.blocks.len()];
-        states[0] = Some(vec![1u8; slots.len()]);
-        let mut queue = std::collections::VecDeque::from([0]);
-        while let Some(i) = queue.pop_front() {
-            let mut state = states[i].clone().unwrap();
-            let loads = cleanup_loads(&func.blocks[i].insts, &mut state, &slots, constants);
-            let successors = match func.blocks[i].term {
-                ir::Term::Branch {
-                    cond,
-                    then_block,
-                    else_block,
-                } => match loads.get(&cond) {
-                    Some(2) => vec![else_block.0 as usize],
-                    Some(4) => vec![then_block.0 as usize],
-                    _ => self.blocks[i].successors.clone(),
-                },
-                _ => self.blocks[i].successors.clone(),
-            };
-            for next in successors {
-                let changed = if let Some(previous) = &mut states[next] {
-                    let mut changed = false;
-                    for (old, &new) in previous.iter_mut().zip(&state) {
-                        let joined = *old | new;
-                        changed |= joined != *old;
-                        *old = joined;
-                    }
-                    changed
-                } else {
-                    states[next] = Some(state.clone());
-                    true
-                };
-                if changed {
-                    queue.push_back(next);
-                }
-            }
-        }
-        for (i, state) in states.into_iter().enumerate() {
-            let Some(mut state) = state else {
-                continue;
-            };
-            let loads = cleanup_loads(&func.blocks[i].insts, &mut state, &slots, constants);
-            if let ir::Term::Branch {
-                cond,
-                then_block,
-                else_block,
-            } = func.blocks[i].term
-            {
-                match loads.get(&cond) {
-                    Some(2) => self.blocks[i].successors = vec![else_block.0 as usize],
-                    Some(4) => self.blocks[i].successors = vec![then_block.0 as usize],
-                    _ => {}
-                }
-            }
-        }
-    }
-}
-
-
-impl FnCtx {
-    pub(crate) fn lifetime_scope_end(&mut self, scope: crate::sema::ScopeId, span: Span) {
-        if !self.type_only
-            && let Some(record) = &mut self.lifetimes
-        {
-            record.push(
-                self.b.current,
-                LifetimeEvent::ScopeEnd {
-                    scope,
-                    span,
-                },
-            );
-        }
-    }
-}
-
-// Only direct, uniquely addressed one-byte slots can be propagated without alias analysis.
-fn private_byte_flags(func: &ir::Func) -> Vec<Val> {
-    let mut addresses = HashMap::<ir::SlotId, Vec<Val>>::default();
-    for inst in func.blocks.iter().flat_map(|b| &b.insts) {
-        if let ir::Inst::SlotAddr {
-            dst,
-            slot,
-        } = inst
-            && func.slots[slot.0 as usize].size == 1
-        {
-            addresses.entry(*slot).or_default().push(*dst);
-        }
-    }
-    let mut flags: HashSet<_> = addresses
-        .values()
-        .filter_map(|v| match v.as_slice() {
-            [v] => Some(*v),
-            _ => None,
-        })
-        .collect();
-    for block in &func.blocks {
-        for inst in &block.insts {
-            match inst {
-                ir::Inst::Load {
-                    ty: ir::Ty::I8, ..
-                } => {}
-                ir::Inst::Store {
-                    ty: ir::Ty::I8,
-                    value,
-                    ..
-                } => {
-                    flags.remove(value);
-                }
-                _ => ir::inst_vals(inst, &mut |_| {}, &mut |v| {
-                    flags.remove(&v);
-                }),
-            }
-        }
-        ir::term_uses(&block.term, &mut |v| {
-            flags.remove(&v);
-        });
-    }
-    flags.into_iter().collect()
-}
-
-fn cleanup_loads(
-    insts: &[ir::Inst],
-    state: &mut [u8],
-    slots: &HashMap<Val, usize>,
-    constants: &HashMap<Val, u64>,
-) -> HashMap<Val, u8> {
-    let mut loads = HashMap::default();
-    for inst in insts {
-        match inst {
-            ir::Inst::Store {
-                addr,
-                value,
-                ..
-            } => {
-                if let Some(&slot) = slots.get(addr) {
-                    state[slot] = constants
-                        .get(value)
-                        .map_or(1, |v| 2 << usize::from(*v != 0));
-                }
-            }
-            ir::Inst::Load {
-                addr,
-                dst,
-                ..
-            } => {
-                if let Some(&slot) = slots.get(addr) {
-                    loads.insert(*dst, state[slot]);
-                }
-            }
-            ir::Inst::Bin {
-                dst,
-                op: ir::BinOp::Xor,
-                ty: ir::Ty::I8,
-                a,
-                b,
-            } => {
-                let input = if constants.get(a) == Some(&1) {
-                    loads.get(b)
-                } else if constants.get(b) == Some(&1) {
-                    loads.get(a)
-                } else {
-                    None
-                };
-                if let Some(&v) = input {
-                    loads.insert(*dst, (v & 1) | ((v & 2) << 1) | ((v & 4) >> 1));
-                }
-            }
-            ir::Inst::Cmp {
-                dst,
-                op: ir::CmpOp::Eq | ir::CmpOp::Ne,
-                a,
-                b,
-                ..
-            } => {
-                let input = if constants.get(a) == Some(&0) {
-                    loads.get(b)
-                } else if constants.get(b) == Some(&0) {
-                    loads.get(a)
-                } else {
-                    None
-                };
-                if let Some(&value) = input {
-                    let inverted = matches!(
-                        inst,
-                        ir::Inst::Cmp {
-                            op: ir::CmpOp::Eq,
-                            ..
-                        }
-                    );
-                    loads.insert(
-                        *dst,
-                        if inverted {
-                            (value & 1) | ((value & 2) << 1) | ((value & 4) >> 1)
-                        } else {
-                            value
-                        },
-                    );
-                }
-            }
-            _ => {}
-        }
-    }
-    loads
-}
-
-
-impl FnCtx {
-    pub(crate) fn lifetime_enter_site(&mut self, site: Option<Span>) -> Option<Span> {
-        let record = self.lifetimes.as_mut()?;
-        let previous = record.source_site;
-        record.source_site = previous.or(site);
-        previous
-    }
-
-    pub(crate) fn lifetime_restore_site(&mut self, site: Option<Span>) {
-        if let Some(record) = &mut self.lifetimes {
-            record.source_site = site;
-        }
-    }
-}
-
-/// Anonymous literal/argument stores use raw address arithmetic instead of member events.
-/// Only addresses derived from this activation's allocations qualify, never loaded pointers.
-fn stack_places(func: &ir::Func, subplaces: Vec<Val>) -> Vec<Val> {
-    let mut stack: HashSet<Val> = subplaces.into_iter().collect();
-    let mut derived: HashMap<Val, Vec<Val>> = HashMap::default();
-    for instruction in func.blocks.iter().flat_map(|b| &b.insts) {
-        match *instruction {
-            ir::Inst::SlotAddr {
-                dst, ..
-            }
-            | ir::Inst::StackAlloc {
-                dst, ..
-            } => {
-                stack.insert(dst);
-            }
-            ir::Inst::PtrAdd {
-                dst,
-                base,
-                ..
-            } => derived.entry(base).or_default().push(dst),
-            _ => {}
-        }
-    }
-    let mut pending: Vec<_> = stack.iter().copied().collect();
-    while let Some(base) = pending.pop() {
-        for &dst in derived.get(&base).into_iter().flatten() {
-            if stack.insert(dst) {
-                pending.push(dst);
-            }
-        }
-    }
-    let mut stack: Vec<_> = stack.into_iter().collect();
-    stack.sort_unstable_by_key(|v| v.0);
-    stack
-}
-
-fn slot_aliases(func: &ir::Func) -> Vec<(Val, Val)> {
-    let mut slots = HashMap::default();
-    let mut aliases = Vec::new();
-    for inst in func.blocks.iter().flat_map(|b| &b.insts) {
-        if let ir::Inst::SlotAddr {
-            dst,
-            slot,
-        } = *inst
-        {
-            let canonical = *slots.entry(slot).or_insert(dst);
-            if dst != canonical {
-                aliases.push((dst, canonical));
-            }
-        }
-    }
-    aliases
 }

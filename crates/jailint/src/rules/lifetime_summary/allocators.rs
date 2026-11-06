@@ -19,6 +19,22 @@ pub(in crate::rules) struct Allocators {
 }
 
 impl Allocators {
+    /// Byte roles of the selected compiler-preload Allocator, not lookalike records.
+    pub(super) fn selected_fields(&self, c: &Compiler) -> Option<[(TypeId, crate::rules::lifetime_facts::ByteRange); 2]> {
+        let ty = self.ty?;
+        let info = c.ty.types.struct_info(c.ty.types.as_struct(ty)?);
+        let mut out = [(TypeId::VOID, crate::rules::lifetime_facts::ByteRange { offset: 0, width: 0 }); 2];
+        for (i, name) in ["proc", "data"].into_iter().enumerate() {
+            let mut fields = info.fields.iter().filter(|field|field.name==Some(Sym::intern(name)));
+            let field=fields.next()?;
+            if fields.next().is_some() || c.ty.types.size_of(field.ty)!=8 {return None;}
+            out[i]=(field.ty,crate::rules::lifetime_facts::ByteRange{offset:field.offset,width:8});
+        }
+        if !matches!(c.ty.types.kind(out[0].0),jaic::types::TypeKind::Proc(_)) || out[1].0!=TypeId::VOID_PTR
+            || !out[0].1.separated(out[1].1) {return None;}
+        Some(out)
+    }
+
     pub fn build(c: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) -> Self {
         let Some((ty, signature)) = allocator_types(c) else {
             return Self::default();
@@ -178,6 +194,7 @@ fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option
                     op,
                     left_constant,
                     right_constant,
+                    ..
                 } => {
                     let a = left_constant.or_else(|| scalar(body, *left, &values, 0));
                     let b = right_constant.or_else(|| scalar(body, *right, &values, 0));

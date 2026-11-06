@@ -3,8 +3,7 @@
 #if OS == .WINDOWS #load "windows-io.jai";
 
 __jai_runtime_init :: (argc: s32, argv: **u8) -> *#Context #c_call {
-    alignment := align_of(#Context);
-    if alignment < 16 alignment = 16;
+    alignment: s64 : ifx align_of(#Context) < 16 then 16 else align_of(#Context);
 
     allocation := c_malloc(cast(u64) (size_of(#Context) + size_of(Runtime_Context_Header) + alignment - 1));
     if !allocation return null;
@@ -13,8 +12,6 @@ __jai_runtime_init :: (argc: s32, argv: **u8) -> *#Context #c_call {
     ctx := cast(*#Context) address;
     header := cast(*Runtime_Context_Header) (cast(*u8) ctx - size_of(Runtime_Context_Header));
     header.allocation = allocation;
-    ctx.* = .{};
-    ctx.context_info = type_info(#Context);
     storage := cast(*B.Temporary_Storage_Paged_Alloc) c_malloc(size_of(B.Temporary_Storage_Paged_Alloc));
     if !storage {
         c_free(allocation);
@@ -37,7 +34,9 @@ __jai_runtime_init :: (argc: s32, argv: **u8) -> *#Context #c_call {
 
     storage.original_data = storage.data;
     storage.original_size = storage.size;
-    storage.overflow_allocator = ctx.allocator;
+    initial_context: #Context : .{ context_info = type_info(#Context) };
+    storage.overflow_allocator = initial_context.allocator;
+    ctx.* = initial_context;
     header.storage = storage;
     ctx.temporary_storage = *storage.base;
     __command_line_arguments = .{ argc, argv };

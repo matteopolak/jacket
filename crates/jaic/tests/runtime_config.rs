@@ -3,16 +3,36 @@ use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
 
 const SOURCE: &str = r#"
-    __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+    __jaic_runtime_temporary_storage_size :: () -> u32 #intrinsic #no_context;
     #program_export "configured_size"
     configured_size :: () -> s64 #c_call { return __jaic_runtime_temporary_storage_size(); }
     #program_export "wrapped_size"
     wrapped_size :: () -> s64 #c_call {
-        getter: () -> s64 #no_context = __jaic_runtime_temporary_storage_size;
+        getter: () -> u32 #no_context = __jaic_runtime_temporary_storage_size;
         return getter();
     }
     main :: () {}
 "#;
+
+#[test]
+fn invalid_interim_private_runtime_size_rejects_before_transport_is_observed() {
+    for size in [-1, i32::MAX as i64 + 1] {
+        for getter in ["configured_size", "wrapped_size"] {
+            let mut options = Options::host();
+            options.runtime_support = false;
+            options.temporary_storage_size = size;
+            let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+            let source = format!("{SOURCE}\n#run {{ {getter}(); }}");
+            let error = c
+                .begin_sources(&[ProgramSource::String(source)])
+                .expect_err("invalid interim transport must reject before #run can observe it");
+            assert_eq!(
+                error.code,
+                jaic::diagnostics::Code::RuntimeConfigurationInvalid
+            );
+        }
+    }
+}
 
 #[test]
 fn private_runtime_size_is_real_target_data_with_workspace_isolation() {
@@ -79,7 +99,7 @@ fn final_runtime_size_replaces_previously_interpreted_configuration_data() {
 #[test]
 fn private_runtime_configuration_preserves_invalid_signature_and_size_diagnostics() {
     for declaration in [
-        "__jaic_runtime_temporary_storage_size :: () -> u32 #intrinsic; main :: () { __jaic_runtime_temporary_storage_size(); }",
+        "__jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic; main :: () { __jaic_runtime_temporary_storage_size(); }",
         "__jaic_runtime_temporary_storage_size :: (ignored:int) -> s64 #intrinsic; main :: () { __jaic_runtime_temporary_storage_size(1); }",
     ] {
         let mut options = Options::host();
@@ -123,7 +143,7 @@ fn compile_time_reads_and_unused_getters_cannot_opt_in_an_old_target_runtime() {
         options.temporary_storage_size = 65536;
         let mut c = Compiler::new(options, Rc::new(fs));
         let source = format!(
-            "__jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context; {extra} main :: () {{}}"
+            "__jaic_runtime_temporary_storage_size :: () -> u32 #intrinsic #no_context; {extra} main :: () {{}}"
         );
         let error = c
             .compile_sources(&[ProgramSource::String(source)])
@@ -155,7 +175,7 @@ fn ordinary_private_target_startup_reads_nondefault_configuration() {
     let (mut c, result) = startup_reader(
         r#"
         #scope_file
-        __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+        __jaic_runtime_temporary_storage_size :: () -> u32 #intrinsic #no_context;
         read_size :: () -> s64 #no_context {return __jaic_runtime_temporary_storage_size();}
         #program_export "main"
         entry :: () -> s64 #c_call {return read_size();}
@@ -175,7 +195,7 @@ fn retained_startup_callback_relocation_reads_nondefault_configuration() {
     let (mut c, result) = startup_reader(
         r#"
         #scope_file
-        __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+        __jaic_runtime_temporary_storage_size :: () -> u32 #intrinsic #no_context;
         read_size :: () -> s64 #no_context {return __jaic_runtime_temporary_storage_size();}
         #no_reset getter: () -> s64 #no_context;
         #run {getter=read_size;}
@@ -198,7 +218,7 @@ fn unreachable_or_reset_callback_reads_do_not_opt_in_target_startup() {
         let runtime = format!(
             r#"
             #scope_file
-            __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+            __jaic_runtime_temporary_storage_size :: () -> u32 #intrinsic #no_context;
             read_size :: () -> s64 #no_context {{return __jaic_runtime_temporary_storage_size();}}
             {qualifier} getter: () -> s64 #no_context;
             #run {{getter=read_size;}}
@@ -222,7 +242,7 @@ fn overwritten_retained_callback_cannot_claim_its_old_configuration_read() {
     let (c, result) = startup_reader(
         r#"
         #scope_file
-        __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+        __jaic_runtime_temporary_storage_size :: () -> u32 #intrinsic #no_context;
         read_size :: () -> s64 #no_context {return __jaic_runtime_temporary_storage_size();}
         stale :: () -> s64 #no_context {return 32768;}
         #no_reset getter: () -> s64 #no_context = read_size;
@@ -245,7 +265,7 @@ fn retained_startup_aggregate_and_global_cycles_preserve_reachability() {
     let (mut c, result) = startup_reader(
         r#"
         #scope_file
-        __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+        __jaic_runtime_temporary_storage_size :: () -> u32 #intrinsic #no_context;
         read_size :: () -> s64 #no_context {return __jaic_runtime_temporary_storage_size();}
         Getter :: () -> s64 #no_context;
         Node :: struct {next:*Node; callbacks:[1]Getter;}
@@ -394,7 +414,7 @@ fn changing_final_size_cannot_leave_a_consumed_public_constant_at_an_old_value()
 fn private_dynamic_reader_does_not_mask_a_stale_public_storage_extent() {
     let (mut c, result) = startup_reader(
         r#"
-        __jaic_runtime_temporary_storage_size::()->s64 #intrinsic #no_context;
+        __jaic_runtime_temporary_storage_size::()->u32 #intrinsic #no_context;
         storage:[TEMPORARY_STORAGE_SIZE]u8;
         #program_export "main"
         entry::()->s64 #c_call {

@@ -11,6 +11,11 @@ mod context;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) enum Projection {
     Field(Sym),
+    /// Body-local checked byte probe; never exported as a symbolic field path.
+    Inline {
+        offset: u64,
+        ty: TypeId,
+    },
     Element(i128),
     DynamicElement(Val),
     Deref,
@@ -34,6 +39,29 @@ pub(super) struct Places {
 }
 
 impl Places {
+    /// Clone reservation includes nested projection vectors and all owned maps.
+    pub(super) fn clone_work(&self) -> Option<usize> {
+        let sizes = [
+            self.paths.capacity(),
+            self.root_ids.capacity(),
+            self.child_ids.capacity(),
+            self.values.capacity(),
+            self.types.capacity(),
+            self.indirect.capacity(),
+            self.data.capacity(),
+            self.descriptor_fields.capacity(),
+            self.children.capacity(),
+            self.parents.capacity(),
+            self.roots.capacity(),
+            self.stable_parameters.capacity(),
+        ];
+        sizes
+            .into_iter()
+            .chain(self.paths.iter().map(|(_, path)| path.capacity()))
+            .chain(self.children.values().map(Vec::capacity))
+            .try_fold(0usize, usize::checked_add)
+    }
+
     pub fn new(compiler: &jaic::sema::Compiler, body: &LifetimeBody) -> Self {
         let mut this = Self::default();
         // Lowering emits each projection after its base. Definitions precede their uses even
@@ -43,7 +71,9 @@ impl Places {
         let slots: HashMap<_, _> = body.slot_aliases.iter().copied().collect();
         for event in &events {
             let typed = match **event {
-                Event::Store {
+                Event::ContextSet {place,ty,..}
+                | Event::ContextRead {place,ty,..}
+                | Event::Store {
                     place,
                     ty,
                     ..
@@ -300,6 +330,56 @@ impl Places {
         id
     }
 
+    /// Register a typed probe under an existing original stack root. For example,
+    /// a descriptor count probe need not invent an SSA load or a named field.
+    pub(super) fn inline_probe(
+        &mut self,
+        compiler: &jaic::sema::Compiler,
+        roots: &super::lifetime_facts::StackRoots,
+        root: usize,
+        offset: u64,
+        ty: TypeId,
+    ) -> Option<usize> {
+        use super::lifetime_facts::ByteRange;
+        let ((value, root_ty), path) = self.paths.get(root)?;
+        if !path.is_empty() {
+            return None;
+        }
+        let extent = roots.extent(roots.canonical(*value)).flatten();
+        let width = compiler.ty.types.size_of(ty);
+        if !(ByteRange {
+            offset,
+            width,
+        })
+        .within(extent)
+            || !(ByteRange {
+                offset,
+                width,
+            })
+            .within(Some(compiler.ty.types.size_of(*root_ty)))
+        {
+            return None;
+        }
+        let place = self.project(
+            root,
+            Projection::Inline {
+                offset,
+                ty,
+            },
+        );
+        self.types.insert(place, ty);
+        Some(place)
+    }
+
+    /// The selected projection type, or an unprojected root's recorded type.
+    /// Missing projection metadata never falls back to its enclosing root type.
+    pub fn selected_type(&self, place: usize) -> Option<TypeId> {
+        self.types.get(&place).copied().or_else(|| {
+            let ((_, ty), path) = self.paths.get(place)?;
+            path.is_empty().then_some(*ty)
+        })
+    }
+
     /// The place with no projections that `place` hangs off.
     pub fn root_of(&self, place: usize) -> usize {
         self.roots[place]
@@ -400,5 +480,76 @@ impl Places {
         pairs.sort_unstable();
         pairs.dedup();
         pairs
+    }
+}
+
+impl Places {
+    /// Prove two direct field slots occupy different bytes of the same object.
+    /// Following a pointer after the differing fields abandons that proof: the
+    /// separate pointer slots can still point into the same allocation.
+    pub(super) fn disjoint_paths(
+        compiler: &jaic::sema::Compiler,
+        mut ty: TypeId,
+        a: &[Projection],
+        b: &[Projection],
+    ) -> bool {
+        for (index, (a_step, b_step)) in a.iter().zip(b).enumerate() {
+            match (a_step, b_step) {
+                (Projection::Field(a_name), Projection::Field(b_name)) => {
+                    let Some(st) = compiler.ty.types.as_struct(ty) else {
+                        return false;
+                    };
+                    let info = compiler.ty.types.struct_info(st);
+                    let Some(a_field) = info.fields.iter().find(|f| f.name == Some(*a_name)) else {
+                        return false;
+                    };
+                    let Some(b_field) = info.fields.iter().find(|f| f.name == Some(*b_name)) else {
+                        return false;
+                    };
+                    if a_name != b_name {
+                        // An indexed view/pointer also leaves inline storage even
+                        // without an explicit Deref event. Until a typed bounded
+                        // fixed-array suffix is proved, only field suffixes stay inline.
+                        if !a[index + 1..]
+                            .iter()
+                            .chain(&b[index + 1..])
+                            .all(|p| matches!(p, Projection::Field(_)))
+                        {
+                            return false;
+                        }
+                        let a_size = compiler.ty.types.size_of(a_field.ty);
+                        let b_size = compiler.ty.types.size_of(b_field.ty);
+                        return a_field
+                            .offset
+                            .checked_add(a_size)
+                            .is_some_and(|end| end <= b_field.offset)
+                            || b_field
+                                .offset
+                                .checked_add(b_size)
+                                .is_some_and(|end| end <= a_field.offset);
+                    }
+                    ty = a_field.ty;
+                }
+                (Projection::Deref, Projection::Deref) => {
+                    let Some(inner) = compiler.ty.types.pointee(ty) else {
+                        return false;
+                    };
+                    ty = inner;
+                }
+                _ => return false,
+            }
+        }
+        false
+    }
+
+    pub(super) fn disjoint_slots(
+        &self,
+        compiler: &jaic::sema::Compiler,
+        a: usize,
+        b: usize,
+    ) -> bool {
+        let (a_root, a_path) = &self.paths[a];
+        let (b_root, b_path) = &self.paths[b];
+        a_root == b_root && Self::disjoint_paths(compiler, a_root.1, a_path, b_path)
     }
 }

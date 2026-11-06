@@ -26,6 +26,7 @@ impl Builder<'_> {
 
         let c = cx.compiler;
         let direct = callee.0 != u32::MAX;
+        let null_deallocation = direct && null_native_release(c, resolver, *callee, args);
         let noted = |name: &str| direct && c.proc_has_note(*callee, name);
         let strict = cx.lifetime_mode == jacket_config::LifetimeMode::Strict;
         let released_formal = if direct {
@@ -35,6 +36,7 @@ impl Builder<'_> {
         };
         let frees = released_formal.is_some();
         if let Some(formal) = released_formal
+            && !(null_deallocation && formal == 0)
             && let Some(arg) = args.iter().find(|a| a.formal == formal)
             && let Some(cell) = operand_cell(cx, places, cells, arg)
         {
@@ -54,6 +56,9 @@ impl Builder<'_> {
         let guaranteed = resolver.call_effects(event, &summaries.procs, true);
         if !frees {
             for formal in resolver.released_formals(event, &summaries.procs, true) {
+                if null_deallocation && formal == 0 {
+                    continue;
+                }
                 if let Some(arg) = args.iter().find(|a| a.formal == formal)
                     && let Some(cell) = operand_cell(cx, places, cells, arg)
                 {
@@ -72,6 +77,9 @@ impl Builder<'_> {
                 .released_formals(event, &summaries.procs, false)
                 .difference(&definite)
             {
+                if null_deallocation && *formal == 0 {
+                    continue;
+                }
                 if let Some(arg) = args.iter().find(|a| a.formal == *formal)
                     && let Some(cell) = operand_cell(cx, places, cells, arg)
                 {
@@ -188,6 +196,7 @@ impl Builder<'_> {
                     && let Some(cell) = operand_cell(cx, places, cells, value)
                 {
                     ops.push(Op::Escape {
+                        location: None,
                         cell,
                         span: value.span,
                         pointer: places.unresolved(p),
@@ -354,4 +363,39 @@ impl Builder<'_> {
         }
         ops
     }
+}
+
+
+/// The native deallocation of NULL has no action. Independent declaration
+/// effects are retained by the caller, e.g. a trusted temporary reset.
+fn null_native_release(
+    c: &jaic::sema::Compiler,
+    r: &Resolver<'_>,
+    callee: jaic::sema::ProcId,
+    args: &[jaic::ide::lifetimes::LifetimeArgument],
+) -> bool {
+    let [arg] = args else {
+        return false;
+    };
+    let LifetimeOperand::Value(value) = arg.operand else {
+        return false;
+    };
+    if arg.formal != 0
+        || arg.spread
+        || !c.ty.types.is_pointer(arg.ty)
+        || c.ty.types.size_of(arg.ty) != 8
+    {
+        return false;
+    }
+    let null = arg.constant == Some(0)
+        || r.captured_constant(value).is_some_and(|(ty, bits)| {
+            bits == 0 && c.ty.types.is_pointer(ty) && c.ty.types.size_of(ty) == 8
+        });
+    null && c
+        .pr
+        .procs
+        .get(callee.0 as usize)
+        .and_then(|p| p.sig.as_ref())
+        .is_some_and(|s| s.params.first().is_some_and(|p| p.ty == arg.ty))
+        && crate::rules::lifetime_summary::native_free(c, callee).is_some()
 }

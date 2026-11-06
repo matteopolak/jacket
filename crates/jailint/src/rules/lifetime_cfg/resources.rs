@@ -1,6 +1,7 @@
 //! Shared semantic-CFG analysis for released resources and escaping storage.
 //! Each candidate follows only its copy closure; joins preserve uncertainty.
 use super::{Block, Cell, Cells, DEAD, LIVE, Model, Op as CfgOp, UNKNOWN, build};
+use crate::rules::lifetime_facts::current_body;
 use crate::rules::lifetime_places::Places;
 use crate::rules::lifetime_summary::{Kind as EffectKind, Prepared, Resolver, Root, Summaries};
 use crate::{Finding, syntax::Cx};
@@ -19,6 +20,7 @@ mod addresses;
 mod boxed;
 mod calls;
 mod diagnostics;
+mod origins;
 mod quiescent;
 mod retained;
 mod retained_witness;
@@ -65,6 +67,7 @@ pub(super) enum Op {
         result: usize,
     },
     Escape {
+        location: Option<Box<(Val, crate::rules::lifetime_facts::ByteRange)>>,
         cell: usize,
         span: Span,
         pointer: bool,
@@ -103,6 +106,27 @@ pub(crate) struct Reports {
     external_primary: usize,
     fast_quiet: usize,
     covered_fresh_loads: usize,
+}
+
+impl Reports {
+    /// Capture report lengths before one proof emits diagnostics.
+    fn counts(&self) -> [usize; 4] {
+        [
+            self.use_after_free.len(),
+            self.double_free.len(),
+            self.returned_local_address.len(),
+            self.temp_storage_escape.len(),
+        ]
+    }
+
+    /// Visit only findings emitted after a captured report boundary.
+    fn added(&mut self, before: [usize; 4]) -> impl Iterator<Item = &mut Finding> {
+        self.use_after_free[before[0]..]
+            .iter_mut()
+            .chain(self.double_free[before[1]..].iter_mut())
+            .chain(self.returned_local_address[before[2]..].iter_mut())
+            .chain(self.temp_storage_escape[before[3]..].iter_mut())
+    }
 }
 
 pub(crate) fn reports(cx: &Cx) -> Rc<Reports> {
@@ -165,6 +189,9 @@ pub(super) struct Builder<'a> {
     value_spans: HashMap<(Val, TypeId), Span>,
     store_spans: HashMap<Span, Span>,
     member_spans: HashMap<Span, Span>,
+    capture_scope: std::cell::Cell<Option<bool>>,
+    capture_work: std::cell::Cell<usize>,
+    capture_index: std::cell::RefCell<Option<Option<crate::rules::lifetime_summary::QueryIndex>>>,
 }
 
 impl<'a> Builder<'a> {
@@ -286,6 +313,9 @@ impl<'a> Builder<'a> {
             value_spans,
             store_spans,
             member_spans,
+            capture_scope: std::cell::Cell::new(None),
+            capture_work: std::cell::Cell::new(8192),
+            capture_index: std::cell::RefCell::new(None),
             stack: body.stack_places.iter().copied().collect(),
         }
     }
@@ -603,11 +633,11 @@ fn analyze(cx: &Cx) -> Reports {
     let checked_bodies = checked.len();
     let mut solved = 0;
     for body in bodies {
-        let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
-        if proc.body_state != BodyState::Done || !std::sync::Arc::ptr_eq(&proc.lit, &body.syntax) {
+        if !current_body(cx.compiler, body.procedure, body) {
             *rejected.entry("failed-or-obsolete").or_default() += 1;
             continue;
         }
+        let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
         cfgs += 1;
         let trace = jacket_config::env::LIFETIME_STATS.is_set()
             && body.blocks.iter().map(|b| b.events.len()).sum::<usize>() > 5000;
@@ -632,8 +662,13 @@ fn analyze(cx: &Cx) -> Reports {
         }
         let mut cells = Cells::default();
         let mut chains = HashMap::default();
-        let prepared = Prepared::for_body(cx.compiler, body, summaries);
-        let blocks = build(
+        let prepared = Prepared::for_body(
+            crate::rules::lifetime_facts::CheckedSession::new(cx.compiler)
+                .body((body).procedure)
+                .unwrap(),
+            summaries,
+        );
+        let Some(built) = build(
             cx,
             body,
             &prepared,
@@ -641,7 +676,11 @@ fn analyze(cx: &Cx) -> Reports {
             &mut cells,
             summaries,
             &mut chains,
-        );
+        ) else {
+            continue;
+        };
+        let blocks = built.blocks;
+        let borrows = built.borrows;
         if trace {
             eprintln!(
                 "lifetime-resource-body cfg proc={} blocks={} cells={} wall_ms={:.3}",
@@ -651,19 +690,9 @@ fn analyze(cx: &Cx) -> Reports {
                 started.elapsed().as_secs_f64() * 1000.0
             );
         }
-        let mut forward = vec![Vec::new(); cells.ids.len()];
-        for block in &blocks {
-            match &block.op {
-                CfgOp::Copy(pairs) => {
-                    for &(target, source) in pairs {
-                        forward[source].push(target);
-                    }
-                }
-                CfgOp::PointerLoad(target, source, _, _) => forward[*source].push(*target),
-                _ => {}
-            }
-        }
-        let exposed = addresses::exposed(cx, body, &prepared, summaries, &mut places);
+        let forward = addresses::value_edges(&cells, &blocks);
+        let mut origins = None;
+        let exposed = addresses::exposed(cx, body, &prepared, summaries, &mut places, &borrows);
         if trace {
             eprintln!(
                 "lifetime-resource-body addresses proc={} wall_ms={:.3}",
@@ -727,6 +756,7 @@ fn analyze(cx: &Cx) -> Reports {
                         );
                     }
                 }
+                let before = reports.counts();
                 solved += usize::from(solve(
                     cx,
                     body,
@@ -736,6 +766,13 @@ fn analyze(cx: &Cx) -> Reports {
                     &operations,
                     &mut reports,
                 ));
+                if let CfgOp::PointerLoad(target, ..) = block.op
+                    && let Cell::Value(value) = model.cells.values[target]
+                {
+                    origins::annotate(&mut origins, &mut reports, before, value, || {
+                        origins::Index::build(cx, body, &prepared, &model.blocks, &model.cells)
+                    });
+                }
             }
         }
         if trace {
@@ -807,7 +844,7 @@ fn candidate(block: &Block) -> Option<(usize, Origin, Span, Option<usize>)> {
             span,
             ..
         }) => Some((cell, origin, span, None)),
-        CfgOp::PointerLoad(cell, _, region, span) => {
+        CfgOp::PointerLoad(cell, _, region, span, _) => {
             Some((cell, Origin::Incoming, span, Some(region)))
         }
         CfgOp::Borrow(cell, region, span) | CfgOp::ElementBorrow(cell, region, _, _, span) => {
@@ -835,7 +872,7 @@ fn solve(
     }
     let mut relevant = HashMap::default();
     let source = match model.blocks[seed].op {
-        CfgOp::PointerLoad(_, source, _, _) => Some(source),
+        CfgOp::PointerLoad(_, source, _, _, _) => Some(source),
         _ => None,
     };
     let mut queue = VecDeque::from([first]);
@@ -919,26 +956,14 @@ fn solve(
                     state[born] = LIVE;
                 }
             }
-            CfgOp::PointerLoad(target, source, _, _) => {
-                if let Some(target) = index(*target) {
-                    let value = addresses::loaded_state(
-                        model,
-                        *source,
-                        index(*source).map_or(UNKNOWN, |s| state[s]),
-                    );
-                    state[target] = if i == seed && value == UNKNOWN {
-                        LIVE
-                    } else {
-                        value
-                    };
-                    if i == seed {
-                        if let Some(source) = index(*source) {
-                            state[source] = state[target];
-                        }
-                        state[born] = LIVE;
-                    }
-                }
-            }
+            CfgOp::PointerLoad(target, source, _, _, captured) => addresses::load_pointer(
+                model,
+                (*target, *source, *captured),
+                &mut state,
+                &index,
+                i == seed,
+                born,
+            ),
             CfgOp::Define(target) => addresses::define(&mut state, index(*target)),
             CfgOp::Copy(pairs) => {
                 let copied: Vec<_> = pairs
@@ -972,6 +997,14 @@ fn solve(
                             } else {
                                 0
                             };
+                    }
+                }
+            }
+            CfgOp::MemoryWrite => {
+                for (&cell, &slot) in &relevant {
+                    if matches!(model.cells.values[cell], Cell::Place(_)) {
+                        state[slot] = UNKNOWN;
+                        state[slot + width] = UNKNOWN;
                     }
                 }
             }

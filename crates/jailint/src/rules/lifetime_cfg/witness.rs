@@ -101,7 +101,7 @@ pub(super) fn strict_path(
                 {
                     continue;
                 }
-                Op::Barrier => continue,
+                Op::Barrier | Op::MemoryWrite => continue,
                 _ => {}
             }
             let invalidator = match model.blocks[p].op {
@@ -192,7 +192,7 @@ fn borrowed_region(model: &Model, candidate: usize) -> Option<usize> {
         Op::Borrow(_, r, _)
         | Op::ElementBorrow(_, r, ..)
         | Op::LogicalBorrow(_, r, ..)
-        | Op::PointerLoad(_, _, r, _) => Some(r),
+        | Op::PointerLoad(_, _, r, _, _) => Some(r),
         _ => None,
     }
 }

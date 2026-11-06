@@ -65,6 +65,8 @@ impl Compiler {
             record
                 .calls
                 .push(crate::ide::lifetimes::LifetimeCallRecording {
+                    effects_recorded: false,
+                    context: None,
                     args: mapped,
                     memory: None,
                     parameter_spans: header.params.iter().map(|p| p.span).collect(),
@@ -75,6 +77,7 @@ impl Compiler {
         if lifetime_call && let Some(record) = &mut f.lifetimes {
             use crate::ide::lifetimes::{LifetimeEvent, LifetimeOperand};
             let call = record.calls.pop().expect("selected call frame");
+            let effects_recorded = call.effects_recorded;
             let memory = call.memory;
             let args = call.args;
             if result.is_ok() {
@@ -83,14 +86,27 @@ impl Compiler {
                     && let LifetimeOperand::Value(region) = arg.operand
                     && record.resizable.contains_key(&region)
                 {
+                    let call_event = record
+                        .blocks
+                        .get(f.b.current.0 as usize)
+                        .map_or(0, |block| block.events.len())
+                        + 1;
                     record.push(
                         f.b.current,
                         LifetimeEvent::Grow {
                             region,
                             ty: record.resizable[&region],
                             span,
+                            call_event,
                         },
                     );
+                }
+                if !is_macro && !effects_recorded && let Some(argument) = call.context {
+                    record.call_contexts.push(crate::ide::lifetimes::LifetimeCallContext {
+                        block: f.b.current.0 as usize,
+                        event: record.blocks.get(f.b.current.0 as usize).map_or(0, |block| block.events.len()),
+                        argument,
+                    });
                 }
                 record.push(
                     f.b.current,
@@ -99,7 +115,7 @@ impl Compiler {
                         memory,
                         args,
                         span,
-                        expands: is_macro,
+                        expands: is_macro || effects_recorded,
                         results: match &result {
                             Ok(Operand::Multi(ops)) => ops
                                 .iter()
@@ -157,8 +173,8 @@ impl Compiler {
             return self.emit_intrinsic(f, proc, (&sig, &header), &c.slots, args, span);
         }
         let mut values = Vec::new();
-        if sig.has_context {
-            let Some(ctx) = f.current_context() else {
+        let context_argument = if sig.has_context {
+            let Some(ctx) = f.lifetime_current_context() else {
                 return err(
                     Code::CallCannotWithoutContext,
                     span,
@@ -169,6 +185,12 @@ impl Compiler {
                 );
             };
             values.push(ctx);
+            crate::ide::lifetimes::LifetimeContextArgument::Value(ctx)
+        } else {
+            crate::ide::lifetimes::LifetimeContextArgument::Absent
+        };
+        if !f.type_only && let Some(call) = f.lifetimes.as_mut().and_then(|record| record.calls.last_mut()) {
+            call.context = Some(context_argument);
         }
         let mut k = 0;
         let mut c_vararg_values = Vec::new();
@@ -686,15 +708,25 @@ impl Compiler {
         } else {
             false
         };
+        let allocator_protocol = allocator
+            .then(|| self.lifetime_allocator_protocol(ty, declaration.as_deref(), span))
+            .flatten()
+            .map(Box::new);
         let mut values = Vec::new();
-        if !pt.no_context {
+        let context_argument = if !pt.no_context {
             // Without a context (e.g. inside #c_call code) the callee receives null.
-            let ctx = match f.current_context() {
-                Some(c) => c,
-                None => f.b.iconst(Ty::Ptr, 0),
+            let (ctx, argument) = match f.lifetime_current_context() {
+                Some(c) => (c, crate::ide::lifetimes::LifetimeContextArgument::Value(c)),
+                None => {
+                    let value = f.b.iconst(Ty::Ptr, 0);
+                    (value, crate::ide::lifetimes::LifetimeContextArgument::Null(value))
+                }
             };
             values.push(ctx);
-        }
+            argument
+        } else {
+            crate::ide::lifetimes::LifetimeContextArgument::Absent
+        };
         for (i, &param_ty) in pt.params.iter().enumerate() {
             let op = self.arg_operand(f, &args[i], Some(param_ty))?;
             let op = self.convert(f, op, param_ty, args[i].site())?;
@@ -772,6 +804,11 @@ impl Compiler {
                     },
                 );
             }
+            record.call_contexts.push(crate::ide::lifetimes::LifetimeCallContext {
+                block: f.b.current.0 as usize,
+                event: record.blocks.get(f.b.current.0 as usize).map_or(0, |block| block.events.len()),
+                argument: context_argument,
+            });
             record.push(
                 f.b.current,
                 crate::ide::lifetimes::LifetimeEvent::IndirectCall {
@@ -780,6 +817,7 @@ impl Compiler {
                     args: mapped,
                     results,
                     allocator,
+                    allocator_protocol,
                     span,
                 },
             );

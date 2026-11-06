@@ -26,6 +26,17 @@ impl Resolver<'_> {
             visiting.remove(&v);
             return path;
         }
+        if (self.storage_mode.get() || self.return_mode.get())
+            && self.pointer_result_sites(v).is_some()
+        {
+            let path = self.pointer_result_origin(v, summaries).or_else(|| {
+                (!self.storage_mode.get() && self.return_mode.get())
+                    .then(|| self.captured_result_origin(v, summaries))
+                    .flatten()
+            });
+            visiting.remove(&v);
+            return path;
+        }
         let defs = self.values.get(&v)?;
         let mut result = None;
         let derived = defs.iter().any(|d| matches!(d, Def::Borrow(_)));
@@ -34,17 +45,12 @@ impl Resolver<'_> {
                 continue;
             }
             let path = match def {
-                Def::Parameter(formal) => Path {
+                Def::Parameter(formal, ..) => Path {
                     root: Root::Parameter(*formal),
                     steps: Vec::new(),
                 },
                 Def::Address(p) => {
-                    let ty = self.places.types.get(p).copied().or_else(|| {
-                        self.places.paths[*p]
-                            .1
-                            .is_empty()
-                            .then_some(self.places.paths[*p].0.1)
-                    });
+                    let ty = self.places.selected_type(*p);
                     let descriptor = ty.is_some_and(|ty| {
                         matches!(
                             self.compiler.ty.types.kind(ty),
@@ -77,6 +83,62 @@ impl Resolver<'_> {
                     .append(&[Step::Storage])?,
                 Def::Copy(v) => self.trace(*v, summaries, visiting, depth + 1)?,
                 Def::Load(p, ty) => {
+                    if (self.storage_mode.get() || self.return_mode.get())
+                        && let Some(sources) = self.storage_versions.get(&v)
+                    {
+                        if self.return_mode.get()
+                            && !self.storage_mode.get()
+                            && sources.iter().any(|source| {
+                                matches!(
+                                    source,
+                                    super::storage_versions::Source::Unknown
+                                        | super::storage_versions::Source::Call(_)
+                                ) || matches!(source, super::storage_versions::Source::Initial)
+                                    && !self.input_value_field(*p)
+                            })
+                        {
+                            let path = self.captured_read(v, *p);
+                            visiting.remove(&v);
+                            return path;
+                        }
+                        let mut selected = None;
+                        for source in sources {
+                            let path = match source {
+                                super::storage_versions::Source::Initial => self
+                                    .location(*p, summaries, visiting, depth + 1)?
+                                    .append(&[Step::Deref])?,
+                                super::storage_versions::Source::Value(value) => {
+                                    self.trace(*value, summaries, visiting, depth + 1)?
+                                }
+                                super::storage_versions::Source::Aggregate(
+                                    value,
+                                    ty,
+                                    base,
+                                    place,
+                                    site,
+                                ) => self.aggregate_origin(
+                                    (*value, *ty, *base, *place, *site),
+                                    summaries,
+                                    visiting,
+                                    depth + 1,
+                                )?,
+                                super::storage_versions::Source::Unknown
+                                | super::storage_versions::Source::Call(_)
+                                | super::storage_versions::Source::ScalarValue {
+                                    ..
+                                }
+                                | super::storage_versions::Source::Constant {
+                                    ..
+                                } => return None,
+                            };
+                            if selected.as_ref().is_some_and(|prior| prior != &path) {
+                                return None;
+                            }
+                            selected = Some(path);
+                        }
+                        visiting.remove(&v);
+                        return selected;
+                    }
                     if let Some((formal, _)) = self.params.get(p) {
                         if self.exposed.contains(p)
                             || self.writes.get(p).is_none_or(|w| w.len() != 1)
@@ -178,6 +240,9 @@ impl Resolver<'_> {
                     }
                 }
             };
+            if matches!(path.root, Root::CapturedRead(_)) && path.steps.contains(&Step::Deref) {
+                return None;
+            }
             if result.as_ref().is_some_and(|old| old != &path) {
                 return None;
             }

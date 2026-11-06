@@ -78,7 +78,7 @@ fn retained_startup_configuration_executes_on_native_and_wasm() {
     let runtime = r#"
         #module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);
         #scope_file
-        __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+        __jaic_runtime_temporary_storage_size :: () -> u32 #intrinsic #no_context;
         read_size :: () -> s64 #no_context {return __jaic_runtime_temporary_storage_size();}
         #no_reset getter: () -> s64 #no_context;
         #run {getter=read_size;}

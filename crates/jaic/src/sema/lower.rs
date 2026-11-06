@@ -398,7 +398,7 @@ impl FnCtx {
     }
 
     /// Capture an address used as a semantic place or saved for runtime restoration.
-    /// Ordinary implicit ABI context arguments need no additional sidecar event.
+    /// Call lowering records this exact selector read before evaluating arguments.
     pub fn lifetime_current_context(&mut self) -> Option<Val> {
         let value = self.current_context()?;
         if !self.type_only
@@ -407,6 +407,8 @@ impl FnCtx {
             record.push(
                 self.b.current,
                 crate::ide::lifetimes::LifetimeEvent::ContextRead {
+                    ty: TypeId::VOID_PTR,
+                    place: self.context_slot.expect("context storage"),
                     value,
                 },
             );
@@ -426,7 +428,10 @@ impl FnCtx {
             record.push(
                 self.b.current,
                 crate::ide::lifetimes::LifetimeEvent::ContextSet {
+                    ty: TypeId::VOID_PTR,
+                    place: slot,
                     value,
+                    constant: context.is_none().then_some(0),
                 },
             );
         }
@@ -632,19 +637,8 @@ impl Compiler {
                 ty,
                 val,
             } => {
-                if self.ir_ty(ty).is_none()
-                    && !f.type_only
-                    && let Some(record) = &mut f.lifetimes
-                {
-                    record.push(
-                        f.b.current,
-                        crate::ide::lifetimes::LifetimeEvent::Load {
-                            place: val,
-                            value: val,
-                            ty,
-                            span,
-                        },
-                    );
+                if self.ir_ty(ty).is_none() {
+                    f.lifetime_load(val, val, ty, span);
                 }
                 Ok((ty, val))
             }
@@ -653,19 +647,7 @@ impl Compiler {
                 addr,
             } => {
                 let value = self.ir_ty(ty).map_or(addr, |t| f.b.load(t, addr));
-                if !f.type_only
-                    && let Some(record) = &mut f.lifetimes
-                {
-                    record.push(
-                        f.b.current,
-                        crate::ide::lifetimes::LifetimeEvent::Load {
-                            place: addr,
-                            value,
-                            ty,
-                            span,
-                        },
-                    );
-                }
+                f.lifetime_load(addr, value, ty, span);
                 Ok((ty, value))
             }
             Operand::Const {
@@ -835,6 +817,7 @@ impl Compiler {
                     return Ok(f.b.load(t, addr));
                 }
                 let address = f.b.global_addr(global);
+                self.lifetime_constant_region(f, address, ty, global);
                 if matches!(
                     self.ty.types.kind(ty),
                     TypeKind::String

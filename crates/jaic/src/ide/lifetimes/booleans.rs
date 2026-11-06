@@ -1,5 +1,6 @@
 //! Immutable private predicates shared by repeated lifetime branch tests.
-use super::{HashMap, LifetimeBlock, LifetimeEvent, Val, ir, private_byte_flags};
+use super::recording::private_byte_flags;
+use super::{HashMap, LifetimeBlock, LifetimeEvent, Val, ir};
 
 pub(super) fn immutable_boolean_branches(
     func: &ir::Func,
