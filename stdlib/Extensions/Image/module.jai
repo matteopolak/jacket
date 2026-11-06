@@ -203,6 +203,7 @@ decode_image_as :: (data: [] u8, format: Pixel_Format, max_pixels: s64 = DEFAULT
 #import "Basic";
 #import "Extensions/Deflate";
 #import "Extensions/SIMD";
+Byte_Search :: #import "Extensions/Byte_Search";
 
 #scope_export
 #load "convert.jai";

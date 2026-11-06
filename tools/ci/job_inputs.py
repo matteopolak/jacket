@@ -34,8 +34,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ".github/workflows/ci.yml"
 
-# The jobs gated on their inputs (the others run whenever code changed).
+# Jobs whose inputs are computed: path-gated jobs and explicitly selectable acceptance jobs.
 GATED = {
+    "images-ui-intel",
+    "image-conformance",
     "sdl3",
     "clipboard-linux",
     "nix",
@@ -53,6 +55,8 @@ GATED = {
 
 # The packages each job builds with `cargo -p` (or through Nix). Their path dependencies follow.
 CRATES = {
+    "images-ui-intel": ["jaic-cli", "jailint", "jacket"],
+    "image-conformance": ["jaic-cli", "jacket"],
     "sdl3": ["jaic-cli"],
     "clipboard-linux": ["jaic-cli", "jailint"],
     "nix": ["jaic-cli", "jailint", "jai-language-server"],
@@ -70,6 +74,10 @@ CHECKOUT_INPUTS = (".gitattributes", "**/.gitattributes")
 
 # Inputs no step names: what a tool reads by its own rule. Keep this short.
 EXTRA = {
+    # The probes copy templates and generated corpus tables into their output directory.
+    "image-conformance": ["tools/portable/image_conformance/**", "stdlib/Extensions/Image/**"],
+    # jacket discovers these named documentation examples at run time.
+    "images-ui-intel": ["stdlib/Extensions/Web/**"],
     # shellcheck lints every shell script, found by `tools/dev/staged-files.sh`.
     "shellcheck": ["**.sh", ".githooks/**"],
     # render_packages.py reads its templates through a `ROOT / "packaging"` variable.

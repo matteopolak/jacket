@@ -21,16 +21,52 @@ Jpeg_Scan_Block :: struct {
     ac: *Jpeg_Huffman;
 }
 
+// Validates the transmitted band before table capture or entropy decoding.
+// A refinement with Ah=2, Al=1 requires every selected coefficient's previous level to be 2.
+jpeg_scan_mode :: (d: *Jpeg_Decoder, selected: *[4] s32, count: s32, ss: s32, se: s32, ah: s32, al: s32) -> mode: s32, error: string {
+    mode = JPEG_SEQUENTIAL;
+
+    if d.progressive {
+        if ss > se || se > 63 || al > 13 || ah > 13 return mode, "bad progressive scan header";
+        if ah != 0 && ah != al + 1 return mode, "bad progressive refinement step";
+
+        if ss == 0 {
+            if se != 0 return mode, "bad progressive scan header";
+            mode = cast(s32) ifx ah == 0 then JPEG_DC_FIRST else JPEG_DC_REFINE;
+        } else {
+            if count != 1 return mode, "bad progressive scan header";
+            mode = cast(s32) ifx ah == 0 then JPEG_AC_FIRST else JPEG_AC_REFINE;
+        }
+
+        for 0..count - 1 {
+            comp := *d.comps[selected.*[it]];
+            if ss != 0 && comp.bit_levels[0] < 0 return mode, "JPEG AC scan precedes DC data";
+
+            for coefficient: ss..se {
+                level := comp.bit_levels[coefficient];
+                if ah == 0 && level >= 0 return mode, "JPEG progressive first transmission is repeated";
+                if ah != 0 && level != ah return mode, "JPEG refinement has no matching previous scan";
+            }
+        }
+    } else if ss != 0 || se != 63 || ah != 0 || al != 0 {
+        return mode, "bad sequential scan header";
+    }
+
+    return mode, "";
+}
+
 jpeg_read_scan :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string {
     if !d.frame_seen return "JPEG scan before the frame header";
 
+    if size < 1 return "bad scan header";
+
     count := cast(s32) segment[0];
-    if size < 1 || count < 1 || count > d.ncomp || size != 1 + 2 * count + 3 return "bad scan header";
+    if count < 1 || count > d.ncomp || size != 1 + 2 * count + 3 return "bad scan header";
 
     selected: [4] s32;
     dc_ids: [4] s32;
     ac_ids: [4] s32;
-    used: u32 = 0;
+    previous: s32 = -1;
 
     for 0..count - 1 {
         id := cast(s32) segment[1 + it * 2];
@@ -44,9 +80,10 @@ jpeg_read_scan :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string {
         }
 
         if found < 0 return "JPEG scan names a component the frame does not have";
-        if used & ((cast(u32) 1) << cast(u32) found) return "bad scan header";
+        if found == previous return "bad scan header";
+        if found < previous return "JPEG scan components are not in frame order";
 
-        used |= (cast(u32) 1) << cast(u32) found;
+        previous = found;
         selected[it] = found;
         dc_ids[it] = segment[2 + it * 2] >> 4;
         ac_ids[it] = segment[2 + it * 2] & 15;
@@ -58,19 +95,9 @@ jpeg_read_scan :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string {
     ah := cast(s32) (segment[3 + count * 2] >> 4);
     al := cast(s32) (segment[3 + count * 2] & 15);
 
-    mode: s32 = JPEG_SEQUENTIAL;
+    mode, mode_error := jpeg_scan_mode(d, *selected, count, ss, se, ah, al);
 
-    if d.progressive {
-        if ss > se || se > 63 || al > 13 || ah > 13 return "bad progressive scan header";
-
-        if ss == 0 {
-            if se != 0 return "bad progressive scan header";
-            mode = cast(s32) ifx ah == 0 then JPEG_DC_FIRST else JPEG_DC_REFINE;
-        } else {
-            if count != 1 return "bad progressive scan header";
-            mode = cast(s32) ifx ah == 0 then JPEG_AC_FIRST else JPEG_AC_REFINE;
-        }
-    }
+    if mode_error.count return mode_error;
 
     blocks: [10] Jpeg_Scan_Block;
     block_count: s32 = 0;
@@ -121,13 +148,20 @@ jpeg_read_scan :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string {
         mcus_h = d.comps[selected[0]].blocks_h;
     }
 
+    if d.progressive {
+        for 0..count - 1 {
+            comp := *d.comps[selected[it]];
+            for coefficient: ss..se comp.bit_levels[coefficient] = cast(s8) al;
+        }
+    }
+
     d.scans += 1;
-    jpeg_decode_scan(d, *blocks, block_count, mcus_w, mcus_h, mode, ss, se, al);
+    if !jpeg_decode_scan(d, *blocks, block_count, mcus_w, mcus_h, mode, ss, se, al) return "bad JPEG entropy alignment padding";
 
     return "";
 }
 
-jpeg_decode_scan :: (d: *Jpeg_Decoder, blocks: *[10] Jpeg_Scan_Block, block_count: s32, mcus_w: s32, mcus_h: s32, mode: s32, ss: s32, se: s32, al: s32) {
+jpeg_decode_scan :: (d: *Jpeg_Decoder, blocks: *[10] Jpeg_Scan_Block, block_count: s32, mcus_w: s32, mcus_h: s32, mode: s32, ss: s32, se: s32, al: s32) -> bool {
     d.bits = 0;
     d.nbits = 0;
     d.pad = 0;
@@ -184,6 +218,7 @@ jpeg_decode_scan :: (d: *Jpeg_Decoder, blocks: *[10] Jpeg_Scan_Block, block_coun
             if d.pad > d.nbits break; // the entropy data ran out
         }
 
+        if !jpeg_padding_valid(d) return false;
         if mcu >= total break;
         if interval == 0 break;
 
@@ -195,6 +230,8 @@ jpeg_decode_scan :: (d: *Jpeg_Decoder, blocks: *[10] Jpeg_Scan_Block, block_coun
 
         mcu += cast(s64) skipped * interval;
     }
+
+    return true;
 }
 
 jpeg_block_sequential :: (d: *Jpeg_Decoder, comp: *Jpeg_Component, block: *s32, dc: *Jpeg_Huffman, ac: *Jpeg_Huffman) -> s32 #no_abc #no_aoc {

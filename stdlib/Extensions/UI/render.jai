@@ -73,13 +73,13 @@ create_window_renderer :: (window: Window_Type, width: int, height: int) -> *Ren
     r := New(Renderer);
     r.instance = wgpuCreateInstance(null);
     if !r.instance {
-        free(r);
+        destroy_renderer(r);
         return null;
     }
 
     r.surface = webgpu_create_surface(r.instance, window);
     if !r.surface {
-        free(r);
+        destroy_renderer(r);
         return null;
     }
 
@@ -88,7 +88,7 @@ create_window_renderer :: (window: Window_Type, width: int, height: int) -> *Ren
     r.adapter = webgpu_request_adapter(r.instance, *options);
 
     if !r.adapter || !start_device(r) {
-        free(r);
+        destroy_renderer(r);
         return null;
     }
 
@@ -100,10 +100,11 @@ create_window_renderer :: (window: Window_Type, width: int, height: int) -> *Ren
 }
 
 // Create a renderer drawing into an offscreen texture of `width` by `height` pixels, for tests and
-// screenshots. Returns null if no adapter is available.
+// screenshots. Returns null if instance, adapter or device setup fails.
 //
 // - width: the target width in pixels.
 // - height: the target height in pixels.
+// - adapter_options: optional WebGPU adapter selection; null uses the default adapter.
 //
 // ```jai,no_run
 // ui := headless();
@@ -112,18 +113,18 @@ create_window_renderer :: (window: Window_Type, width: int, height: int) -> *Ren
 // defer destroy_renderer(renderer);
 // image := render_to_image(renderer, *ui, rgb(20, 20, 30));
 // ```
-create_offscreen_renderer :: (width: int, height: int) -> *Renderer {
+create_offscreen_renderer :: (width: int, height: int, adapter_options: *WGPURequestAdapterOptions = null) -> *Renderer {
     r := New(Renderer);
     r.instance = wgpuCreateInstance(null);
     if !r.instance {
-        free(r);
+        destroy_renderer(r);
         return null;
     }
 
-    r.adapter = webgpu_request_adapter(r.instance, null);
+    r.adapter = webgpu_request_adapter(r.instance, adapter_options);
 
     if !r.adapter || !start_device(r) {
-        free(r);
+        destroy_renderer(r);
         return null;
     }
 

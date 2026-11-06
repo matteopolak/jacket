@@ -15,7 +15,7 @@ on:
         required: false
         default: false
       jobs:
-        description: 'Comma-separated job ids to run (empty runs everything); select needed jobs together'
+        description: 'Comma-separated job ids (empty runs automatic jobs); manual-only jobs need explicit names'
         required: false
         default: ''
       tier:
@@ -804,6 +804,12 @@ jobs:
           require=()
           [[ "$RUNNER_OS" == Linux ]] && require=(--require-adapter)
           python3 -u tools/bindings/run_webgpu_native.py --jaic target/debug/jaic "${require[@]}"
+      - name: UI image blend and stretch readback
+        if: ${{ always() && !cancelled() && matrix.shard == 'suites' }}
+        run: |
+          require=()
+          [[ "$RUNNER_OS" == Linux ]] && require=(--require-adapter)
+          python3 -u tools/bindings/run_webgpu_native.py --test ui-images --jaic target/debug/jaic "${require[@]}"
       - name: WebGPU in a window (surface, configure, present, read back)
         # stdlib/Extensions/WebGPU/tests/driven/window.jai opens a Window_Creation window and presents frames to its
         # surface: on Linux an X11 surface on Xvfb, presented by lavapipe through Vulkan's Xlib WSI.
@@ -888,6 +894,103 @@ jobs:
             target/toml-conformance/statements.json
             target/toml-conformance/inventory.json
           if-no-files-found: error
+
+  images-ui-intel:
+    name: image portability and UI readback (macos-x64)
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'images-ui-intel')
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      JAIC_STDLIB: ${{ github.workspace }}/stdlib
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-unix
+        with:
+          lld: 'true'
+          brew: freetype sdl2 mingw-w64
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24'}
+      - name: Build production compiler and lint tools
+        run: |
+          cargo build --locked -p jaic-cli -p jailint
+          cargo build --locked --release -p jaic-cli -p jacket
+          target/debug/jaic jaifmt/main.jai -O2 -exe target/jaifmt
+      - uses: ./.github/actions/native-libs-cache
+        with:
+          helpers: 'true'
+      - name: Build private native dependencies from source
+        run: bash tools/native/ci_native_deps.sh full
+      - name: Runtime dispatch and cross-target Web macros
+        run: python3 -u tools/ci/check_images_ui.py --jaic target/release/jaic --jacket target/release/jacket
+      - name: Portable image and resource producer checks
+        if: ${{ !cancelled() }}
+        env:
+          SUITES: portable
+        run: bash tools/ci/stdlib_producer_suites.sh
+      - name: Filename-to-ICO native and WASI checks
+        if: ${{ !cancelled() }}
+        run: |
+          native="$(python3 -c 'from native.build_native_libs import output_dir; print(output_dir())')"
+          python3 -u tools/portable/portable_data/run.py --compiler target/release/jaic --linter target/debug/jailint --formatter target/jaifmt --native-libs "$native"
+      - name: UI image blend and stretch readback
+        # Hosted Metal may be absent: the driver reports explicit skips, never GPU acceptance.
+        if: ${{ !cancelled() }}
+        run: python3 -u tools/bindings/run_webgpu_native.py --jaic target/debug/jaic --test ui-images
+  image-conformance:
+    name: complete image codec corpora (linux-x64)
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'image-conformance')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      CARGO_BUILD_JOBS: '2'
+      CMAKE_BUILD_PARALLEL_LEVEL: '2'
+      JAIC_STDLIB: ${{ github.workspace }}/stdlib
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-unix
+        with:
+          lld: 'true'
+          native-libs: 'false'
+          font: 'false'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24'}
+      - name: Install independent reference and restricted-process tools
+        # Reuse the existing Ubuntu bubblewrap setup for the JPEG corpus processes.
+        run: |
+          bash tools/ci/apt_install.sh cmake nasm ninja-build bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Install the pinned independent pixel oracle
+        run: |
+          python3 -m pip install --only-binary=:all: -r tools/portable/image_conformance/requirements.txt
+      - name: Conformance runner and inventory regressions
+        run: |
+          python3 tools/portable/image_conformance/test_gate.py
+          python3 tools/portable/image_conformance/test_registration.py
+          python3 tools/portable/image_conformance/jpeg/check.py
+          python3 tools/portable/image_conformance/jpeg/test_process.py
+          python3 tools/portable/image_conformance/jpeg/check_node_sandbox.py --require-external-prefix
+      - name: Build the production compiler and Jacket runner
+        run: cargo build --locked -p jaic-cli -p jacket
+      - name: Require actual Jacket codec-program discovery and execution
+        run: python3 -u tools/portable/image_conformance/check_registration.py --jacket target/debug/jacket --output "$RUNNER_TEMP/image-registration" --expected-source "$GITHUB_SHA"
+      - name: Complete PNG BMP PNM QOI ICO and encoder inventories
+        run: python3 -u tools/portable/image_conformance/run.py --jaic target/debug/jaic --output "$RUNNER_TEMP/image-conformance" --expected-source "$GITHUB_SHA"
+      - name: Build the pinned independent JPEG reference
+        if: ${{ !cancelled() }}
+        run: python3 -u tools/portable/image_conformance/jpeg/build_reference.py --output "$RUNNER_TEMP/jpeg-reference"
+      - name: Complete JPEG inventories in sanitized native optimized native and WASI
+        if: ${{ !cancelled() }}
+        run: |
+          python3 -u tools/portable/image_conformance/jpeg/fetch.py --output "$RUNNER_TEMP/jpeg-corpus"
+          python3 -u tools/portable/image_conformance/jpeg/run.py --repo "$GITHUB_WORKSPACE" --jaic target/debug/jaic --corpus "$RUNNER_TEMP/jpeg-corpus" --output "$RUNNER_TEMP/jpeg-conformance" --reference-include "$RUNNER_TEMP/jpeg-reference/install/include" --reference-library "$RUNNER_TEMP/jpeg-reference/install/lib" --expected-source "$GITHUB_SHA" --reviewed-dispositions tools/portable/image_conformance/jpeg/reviewed-dispositions.json
   upstream-smoke:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'upstream-smoke')
@@ -1516,6 +1619,9 @@ jobs:
         # stdlib/Extensions/WebGPU/tests/driven/headless.jai interpreted and built; docs/extensions/webgpu.md#tests.
         if: ${{ !cancelled() && matrix.part == 'graphics' }}
         run: python -u tools/bindings/run_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter
+      - name: UI image blend and stretch readback (WARP)
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
+        run: python -u tools/bindings/run_webgpu_native.py --test ui-images --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter
       - name: WebGPU in a window (HWND surface on WARP, presented)
         # stdlib/Extensions/WebGPU/tests/driven/window.jai: a Window_Creation window in the runner's interactive desktop
         # session, a DXGI swap chain through wgpu-native's D3D12 backend, frames read back.

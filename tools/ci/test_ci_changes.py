@@ -168,6 +168,22 @@ class RealWorkflow(unittest.TestCase):
                 expected_cpu = {"x64", "arm64"} if full else {"x64"}
                 self.assertEqual(Counter(row["cpu"] for row in ci_changes.windows_stdlib_matrix(full) if selected(windows, row)), Counter({cpu: 1 for cpu in expected_cpu}))
 
+    def test_focused_images_intel_tracks_the_inputs_it_actually_checks(self):
+        repo = job_inputs.Repo()
+        patterns = job_inputs.inputs("images-ui-intel", repo)
+        for path in (
+            "stdlib/Extensions/UI/render.jai",
+            "stdlib/Extensions/Image/module.jai",
+            "stdlib/Ico_File/tests/filename.jai",
+            "stdlib/internal/resource-wire/ico-load.jai",
+            "stdlib/internal/cpu/module.jai",
+            "stdlib/Extensions/SIMD/tests/cpu-dispatch.jai",
+            "stdlib/Extensions/Web/template.jai",
+            "tools/ci/check_images_ui.py",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(ci_changes.matches(patterns, [path], workflow=False))
+
     def test_sdl3_ignores_the_workflow_and_actions_but_not_its_own_inputs(self):
         self.assertTrue(selects("sdl3", "stdlib/Extensions/SDL3/module.jai"))
         self.assertTrue(selects("sdl3", "tools/bindings/sdl3_gen.py"))
@@ -427,8 +443,41 @@ class JobSelection(unittest.TestCase):
         }
         self.assertLessEqual(jobs, job_inputs.GATED)
 
-    def test_everything_runs_when_all_areas_do(self):
-        self.assertEqual(ci_changes.selected_jobs(self.ALL, ""), list(ci_changes.JOBS))
+    def test_automatic_jobs_run_when_all_areas_do(self):
+        expected = [job for job in ci_changes.JOBS if job not in ci_changes.MANUAL_ONLY]
+        self.assertEqual(ci_changes.selected_jobs(self.ALL, ""), expected)
+
+    def test_focused_intel_requires_an_explicit_manual_name(self):
+        self.assertNotIn("images-ui-intel", ci_changes.selected_jobs(self.ALL, ""))
+        self.assertNotIn(
+            "images-ui-intel", ci_changes.selected_jobs(self.ALL, "test,docs")
+        )
+        self.assertEqual(
+            ci_changes.selected_jobs(self.ALL, "images-ui-intel"), ["images-ui-intel"]
+        )
+
+    def test_image_conformance_requires_explicit_manual_selection(self):
+        self.assertNotIn("image-conformance", ci_changes.selected_jobs(self.ALL, ""))
+        self.assertNotIn(
+            "image-conformance", ci_changes.selected_jobs(self.ALL, "test,docs")
+        )
+        self.assertEqual(
+            ci_changes.selected_jobs(self.ALL, "image-conformance"),
+            ["image-conformance"],
+        )
+        patterns = job_inputs.inputs("image-conformance", job_inputs.Repo())
+        for path in (
+            "stdlib/Extensions/Image/jpeg.jai",
+            "stdlib/Extensions/Image/png.jai",
+            "stdlib/Extensions/Byte_Search/module.jai",
+            "stdlib/Extensions/Deflate/module.jai",
+            "stdlib/Basic/module.jai",
+            "tools/portable/image_conformance/manifest.json",
+            "tools/portable/image_conformance/jpeg/reference.c",
+            "crates/jacket/src/test/discover.rs",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(ci_changes.matches(patterns, [path], workflow=False))
 
     def test_false_areas_drop_their_jobs(self):
         results = self.ALL | {"windows": False, "code": False}
@@ -447,9 +496,7 @@ class JobSelection(unittest.TestCase):
     def test_ci_yml_gates_exactly_the_listed_jobs(self):
         import re
 
-        text = (
-            ROOT / ".github/workflows/ci.yml"
-        ).read_text()
+        text = (ROOT / ".github/workflows/ci.yml").read_text()
         gated = re.findall(
             r"contains\(fromJSON\(needs\.changes\.outputs\.jobs\), '([a-z0-9-]+)'\)",
             text,
@@ -638,10 +685,7 @@ class Tiers(unittest.TestCase):
                     )
 
     def test_the_test_job_selects_steps_by_parts(self):
-
-        text = (
-            ROOT / ".github/workflows/ci.yml"
-        ).read_text()
+        text = (ROOT / ".github/workflows/ci.yml").read_text()
         job = text[text.index("\n  test:\n") : text.index("\n  vscode-extension:\n")]
         self.assertNotIn("matrix.part ==", job)
         self.assertIn("contains(matrix.parts, ',rust,')", job)

@@ -57,7 +57,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `fetch_wgpu_native.py` | Download the pinned wgpu-native release into target/native-libs/<os>-<arch>/. | CI, tools |
 | `prepare_sdl_python_tests.py` | Prepare hash-pinned public C header inputs and explicit SDL test scratch. | CI, tools |
 | `run_sdl3.py` | Audit a packaged SDL3 runtime, then compile/run its Jai ABI and headless tests. | CI |
-| `run_webgpu_native.py` | Run stdlib/Extensions/WebGPU/tests/driven/headless.jai (or, with --test window, stdlib/Extensions/WebGPU/tests/driven/window.jai) natively: | CI |
+| `run_webgpu_native.py` | Run native WebGPU primitive, window or UI image tests: | CI |
 | `sdl3_gen.py` | Generate SDL3's desktop public C API with Clang, from the verified pinned archive. | CI, tools |
 | `sdl3_lint.py` | Lint owned SDL3 files and all six source-identical generated declaration sets. | tools |
 | `sdl3_native.py` | Pinned SDL3 native build; also called by build_native_libs.py. Never consults another checkout. | CI, tools |
@@ -78,6 +78,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_ci_sources.py` | Check literal Rust includes against public checkout inputs before compiling. | tools |
 | `check_dependency_age.py` | Fail closed for every registry dependency, including existing lock entries. | CI, tools |
 | `check_diagnostics_covered.py` | Fail when a compiler diagnostic code has no test that expects it (docs/tools/diagnostic-coverage.md). | CI |
+| `check_images_ui.py` | Check cross-target macros and runtime dispatch used by images and UI. | CI |
 | `check_native_libs.py` | Every native library the shipped standard library binds must come with the release archive. | tools |
 | `check_repo_paths.py` | Fail when a doc or a tool/config header names a repo path that does not exist. | tools |
 | `check_source_style.py` | Fail when a tracked Rust file is too long or a Rust or Python file carries a banner comment. | tools |
@@ -281,6 +282,14 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_portable_runtime_configuration.py` | Execute the adopted runtime against settled root and child workspace sizes. | tools |
 | `check_portable_stdlib.py` | Build the portable stdlib's native fixtures and run its integration checks. | tools |
 | `check_portable_watcher.py` | Build and execute the real FSEvents watcher tests against the production stdlib (macOS). | tools |
+| `image_conformance/check_registration.py` | Require discovery and actual execution of the standalone codec regressions. | CI |
+| `image_conformance/fetch.py` | Fetch every pinned image corpus member and verify its SHA-256 before use. | - |
+| `image_conformance/jpeg/build_reference.py` | Build and test the exact libjpeg-turbo release used by the independent JPEG oracle. | CI |
+| `image_conformance/jpeg/check.py` | Check pinned inventory and gate-policy invariants without running a compiler or decoder. | CI |
+| `image_conformance/jpeg/check_node_sandbox.py` | Exercise the Linux sandbox with setup-node's external installation. | CI |
+| `image_conformance/jpeg/fetch.py` | Download the complete pinned JPEG inputs and attribution; verify every byte before reuse. | CI |
+| `image_conformance/jpeg/run.py` | Full pinned JPEG differential gate. Fetch first; run only against a reviewed candidate. | CI, tools |
+| `image_conformance/run.py` | Run complete pinned PNG/BMP/PNM/QOI/ICO corpora and independent encoder checks. | CI |
 | `portable_data_context_lint.py` | Strict public-context lint of the unchanged portable-data source inventory. | tools |
 
 ## `protobuf_schemas/`
