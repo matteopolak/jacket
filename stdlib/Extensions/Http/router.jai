@@ -141,6 +141,8 @@ Route :: struct {
     method: Method;
     template: string;
     handler: Handler;
+    context_handler: Context_Handler;
+    handler_data: *void;
     max_body: s64; // 0: the limit of the server config, -1: none
     middleware: [] Middleware;
     names: [..] string;
@@ -229,6 +231,7 @@ router_free :: (router: *Router) {
     for router.routes {
         array_reset(*it.names);
         array_free(it.middleware);
+        free(it.template.data);
         free(it);
     }
 

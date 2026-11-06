@@ -38,6 +38,7 @@ WORKFLOW = ".github/workflows/ci.yml"
 GATED = {
     "images-ui-intel",
     "image-conformance",
+    "grpc-interop",
     "sdl3",
     "clipboard-linux",
     "nix",
@@ -57,6 +58,7 @@ GATED = {
 CRATES = {
     "images-ui-intel": ["jaic-cli", "jailint", "jacket"],
     "image-conformance": ["jaic-cli", "jacket"],
+    "grpc-interop": ["jaic-cli", "jacket"],
     "sdl3": ["jaic-cli"],
     "clipboard-linux": ["jaic-cli", "jailint"],
     "nix": ["jaic-cli", "jailint", "jai-language-server"],
@@ -78,6 +80,8 @@ EXTRA = {
     "image-conformance": ["tools/portable/image_conformance/**", "stdlib/Extensions/Image/**"],
     # jacket discovers these named documentation examples at run time.
     "images-ui-intel": ["stdlib/Extensions/Web/**"],
+    # RPC transport/schema changes require independent peer acceptance.
+    "grpc-interop": ["tools/grpc/**", "stdlib/Extensions/Http/**", "stdlib/Extensions/Grpc/**", "stdlib/Extensions/Protobuf/**", "stdlib/Extensions/Tls/**", "stdlib/Extensions/Io/**", "stdlib/Extensions/Deflate/**"],
     # shellcheck lints every shell script, found by `tools/dev/staged-files.sh`.
     "shellcheck": ["**.sh", ".githooks/**"],
     # render_packages.py reads its templates through a `ROOT / "packaging"` variable.

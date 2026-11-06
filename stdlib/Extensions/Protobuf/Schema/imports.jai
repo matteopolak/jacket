@@ -99,6 +99,7 @@ proto_load_source :: (s: *proto_Schema, path: string, text: string, token: proto
     source.active = false;
     array_add(*s.nodes, ..local.nodes);
     array_add(*s.roots, ..local.roots);
+    array_add(*s.services, ..local.services);
 
     return source;
 }

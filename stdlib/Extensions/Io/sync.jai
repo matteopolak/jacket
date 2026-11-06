@@ -326,8 +326,8 @@ unlock :: (mutex: *Fiber_Mutex) {
     else mutex.locked = false;
 } @Unlocks
 
-// Fibers waiting until another fiber says that something changed. Unlike channels and locks,
-// `wait` honours `with_deadline`. A condition carries no value and remembers nothing: a notify
+// Fibers waiting until another fiber says that something changed. Like channels and locks,
+// all blocking synchronization waits honour `with_deadline`. A condition carries no value: a notify
 // with nobody waiting is lost, so wait in a loop that checks the state itself.
 //
 // ```jai
@@ -361,23 +361,10 @@ wait :: (condition: *Condition) -> Io_Error {
     fiber, scheduler := current_fiber();
     if fiber.canceled return .CANCELED;
 
-    if fiber.deadline != 0 {
-        if fiber.deadline <= now_nanoseconds() return .TIMED_OUT;
-
-        timer_add(scheduler, fiber, fiber.deadline);
-    }
-
     waiter: Waiter;
     error := wait_on(scheduler, fiber, *condition.waiters, *waiter);
 
     if error != .NONE return error;
-
-    if !waiter.completed {
-        // The deadline's timer woke the fiber (and took it off the list).
-        waiter_unlink(*waiter);
-
-        return .TIMED_OUT;
-    }
 
     return .NONE;
 }
@@ -469,6 +456,11 @@ wake_all :: (list: *Waiter) {
 
 // Queues `waiter` on `list` and parks the fiber until it is woken or canceled.
 wait_on :: (scheduler: *Scheduler, fiber: *Fiber, list: *Waiter, waiter: *Waiter) -> Io_Error {
+    if fiber.deadline != 0 {
+        if fiber.deadline <= now_nanoseconds() return .TIMED_OUT;
+        timer_add(scheduler, fiber, fiber.deadline);
+    }
+
     waiter.fiber = fiber;
     waiter_push(list, waiter);
     fiber.waiter = waiter;

@@ -49,6 +49,7 @@ JOBS = {
     "stdlib-runtime": "code",
     "images-ui-intel": None,
     "image-conformance": None,
+    "grpc-interop": "grpc",
     "upstream-smoke": "code",
     "sanitizers": "code",
     # Not a job of its own: the macOS leg of `sanitizers`.

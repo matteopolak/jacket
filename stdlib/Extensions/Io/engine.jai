@@ -316,6 +316,12 @@ engine_cancel :: (scheduler: *Scheduler, op: *Op) {
 // Submits what was queued and waits up to `timeout` nanoseconds (forever if negative, not at all
 // if 0) for completions, which wake their fibers.
 engine_wait :: (scheduler: *Scheduler, timeout: s64) {
+    // A single OS wait must fit the common signed-millisecond polling range.
+    // The scheduler retains the original absolute deadline, so a shorter kernel
+    // wait is not reported as expiry. This also avoids kqueue rejecting huge ns.
+    MAX_KERNEL_WAIT_NS :: 0x7fffffff * 1_000_000;
+    if timeout > MAX_KERNEL_WAIT_NS timeout = MAX_KERNEL_WAIT_NS;
+
     engine := scheduler.engine;
 
     if engine.backend == {

@@ -336,6 +336,24 @@ close :: (response: *Client_Response, now := false) {
     response.* = .{};
 }
 
+// Returns the HTTP/2 terminal fields after the complete body has been read.
+// Fields borrow response-owned storage until `close`; repeated names retain wire order.
+// `complete` is false before EOF, after a failed/cancelled body, or for HTTP/1.1.
+// An empty terminal block is valid, so field count alone does not establish completion.
+//
+// ```jai,skip_on(wasm)
+// // Before a complete HTTP/2 body exists, completion is false.
+// response: Client_Response;
+// fields, complete := response_trailers(*response);
+// assert(!complete && fields.count == 0);
+// ```
+response_trailers :: (response: *Client_Response) -> fields: [] Header_Field, complete: bool {
+    if !response.http2 || !response.source return .[], false;
+    source := response.source;
+    if !source.h2_complete || source.failed return .[], false;
+    return source.h2_trailers.fields, true;
+}
+
 // Sends `request` and returns once the status line and headers have arrived. The response is
 // whatever the server answered (a 404 is a response, not an error); the body is read from it with
 // `read_text`, `read_bytes`, `read_json` or `read_some`. Errors are only about not getting a
@@ -1481,6 +1499,8 @@ Body_Source :: struct {
     // block the reader is working through.
     h2: *H2_Stream;
     h2_block: [] u8;
+    h2_trailers: Hpack_Block;
+    h2_complete: bool;
 
     parser: Parser;
     kind: Body_Kind;
@@ -1585,6 +1605,8 @@ discard_source :: (source: *Body_Source) {
     release_buffer(source);
 
     if source.h2_block.data free(source.h2_block.data);
+
+    hpack_block_free(*source.h2_trailers);
 
     if source.host.count free(source.host.data);
 
@@ -1965,6 +1987,7 @@ Client_Pool :: struct {
 
     // HTTP/2: the connections (one serves many requests), the origins being connected to, and the ones found to speak HTTP/1.1.
     h2: [..] *H2_Conn;
+    h2_capacity: Io.Condition; // peer stream slots changed
     connecting: [..] *H2_Connecting;
     http1_only: [..] H2_Known_Origin;
 

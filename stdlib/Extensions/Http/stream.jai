@@ -120,6 +120,35 @@ send_chunk :: (stream: *Stream, text: string) -> bool {
     return send_chunk(stream, string_bytes(text));
 }
 
+// Ends an HTTP/2 streamed response with terminal fields. Call once, after the
+// last `send_chunk`, while the producer runs. Names must be lowercase regular
+// header names; fields are borrowed only until this returns. False indicates
+// an invalid block, another protocol, a closed stream, or transport failure.
+//
+// ```jai,ignore
+// finish_stream(stream, Header_Field.[.{ name = "grpc-status", value = "0" }]);
+// ```
+finish_stream :: (stream: *Stream, fields: [] Header_Field) -> bool {
+    frame := cast(*Stream_Frame) stream;
+    h2 := frame.h2;
+
+    if frame.failed || !h2 return false;
+    if h2.local_ended || h2.reset_sent || h2.reset_by_peer || !h2_valid_trailers(fields) return false;
+    if !h2_wait_for_room(h2.conn, h2) return false;
+    // Waiting permits the reader or another fiber to terminate the stream.
+    if h2.local_ended || h2.reset_sent || h2.reset_by_peer return false;
+
+    if !h2_send_headers(h2.conn, h2.id, fields, true) {
+        frame.failed = true;
+        return false;
+    }
+
+    h2.local_ended = true;
+    h2_check_closed(h2);
+
+    return true;
+}
+
 #scope_module
 
 Response_Source :: struct {

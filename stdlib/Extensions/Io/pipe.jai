@@ -272,12 +272,6 @@ pipe_wait :: (half: *Pipe_Half) -> Io_Error {
 
     if fiber.canceled return .CANCELED;
 
-    if fiber.deadline != 0 {
-        if fiber.deadline <= now_nanoseconds() return .TIMED_OUT;
-
-        timer_add(scheduler, fiber, fiber.deadline);
-    }
-
     reason: s32;
     waiter: Waiter;
 
@@ -286,13 +280,6 @@ pipe_wait :: (half: *Pipe_Half) -> Io_Error {
     error := wait_on(scheduler, fiber, *half.readers, *waiter);
 
     if error != .NONE return error;
-
-    if !waiter.completed {
-        // The deadline's timer woke the fiber (and took it off the wait list).
-        waiter_unlink(*waiter);
-
-        return .TIMED_OUT;
-    }
 
     if reason == 1 return .CLOSED;
 

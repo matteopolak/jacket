@@ -6,6 +6,8 @@
 
 - `Extensions/Toml` reads and writes TOML 1.1; `jaifmt` uses it to parse configuration.
 
+- `Extensions/Grpc` adds clients and servers over HTTP/2, with generated Protobuf service types.
+
 ### Fixed
 
 - ICO creation from image filenames works on WASI, and transparent icons render correctly on Windows.

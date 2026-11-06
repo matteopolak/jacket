@@ -1,4 +1,4 @@
-../../Schema/module.jai:95:9: error[metaprogram-report]: invalid or reserved field number
+../../Schema/module.jai:99:9: error[metaprogram-report]: invalid or reserved field number
     #insert #run proto_generate_schema();
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: reported for <text.proto>:1:30
