@@ -398,7 +398,7 @@ fn link_status(args: &DocArgs, broken: &[String], unlinked: &[String], filtered:
     ExitCode::SUCCESS
 }
 
-/// Runs every example with a Run button the way the browser would; false when one fails.
+/// Validate eligible examples against the supplied runtime, or the interpreter without one.
 fn test_examples(
     args: &DocArgs,
     site: &site::Site,
@@ -407,22 +407,14 @@ fn test_examples(
     root: &Path,
 ) -> Result<bool, String> {
     let programs = site.runnable();
-    // With the browser compiler at hand the examples run in it, under Node; otherwise
-    // in jaic's interpreter, built for the same target.
-    let node = PathBuf::from("node");
-    let has_node = Command::new(&node)
-        .arg("--version")
-        .output()
-        .is_ok_and(|o| o.status.success());
-    if args.runtime.is_some() && !has_node {
-        eprintln!(
-            "jacket: warning: `node` not found; testing the examples in the interpreter, not the browser compiler"
-        );
-    }
-    let engine = if let Some(runtime) = args.runtime.as_deref()
-        && root == stdlib
-        && has_node
-    {
+    let engine = if let Some(runtime) = args.runtime.as_deref() {
+        let node = PathBuf::from("node");
+        let version = Command::new(&node).arg("--version").output().map_err(|error| {
+            format!("--validate-examples with --runtime needs Node: {error}; install Node, or omit --runtime to validate with the interpreter")
+        })?;
+        if !version.status.success() {
+            return Err("--validate-examples with --runtime needs a working Node executable; `node --version` failed".into());
+        }
         example_check::Engine::Browser {
             node,
             runtime,
@@ -438,7 +430,7 @@ fn test_examples(
     if !failed.is_empty() {
         eprint!("{}", example_check::report(&failed));
         eprintln!(
-            "jacket: error: {} of {} examples failed; mark one that cannot run in the browser (`skip_on(wasm)`, `no_run`, `ignore`), or pass --no-test-examples",
+            "jacket: error: {} of {} examples failed; fix the example or mark intentional non-browser examples with `skip_on(wasm)`, `no_run`, or `ignore`",
             failed.len(),
             programs.len()
         );
