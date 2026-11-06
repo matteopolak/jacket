@@ -1,184 +1,115 @@
-//! Syntax colours for code on the site. Jai: keywords, types, strings, numbers, comments and
-//! `#directives`. It looks at one token at a time, which is enough for ten lines of example.
-use super::markdown::esc;
+//! Compiler-resolved destinations over lexical spans from one clean-room coloring spec.
+#[path = "coloring.rs"]
+mod coloring;
 
-const KEYWORDS: &[&str] = &[
-    "if",
-    "else",
-    "then",
-    "for",
-    "while",
-    "return",
-    "defer",
-    "using",
-    "struct",
-    "enum",
-    "enum_flags",
-    "union",
-    "cast",
-    "xx",
-    "inline",
-    "break",
-    "continue",
-    "case",
-    "remove",
-    "true",
-    "false",
-    "null",
-    "ifx",
-    "push_context",
-    "context",
-    "operator",
-    "interface",
-];
-
-const TYPES: &[&str] = &[
-    "int", "float", "float32", "float64", "bool", "string", "void", "Type", "Any", "s8", "s16",
-    "s32", "s64", "u8", "u16", "u32", "u64", "u128", "s128", "assert",
-];
-
-fn ident_start(c: char) -> bool {
-    c.is_alphabetic() || c == '_'
-}
-
-fn ident_char(c: char) -> bool {
-    c.is_alphanumeric() || c == '_'
-}
-
-fn span(out: &mut String, class: &str, text: &str) {
-    out.push_str("<span class=\"");
-    out.push_str(class);
-    out.push_str("\">");
-    out.push_str(&esc(text));
-    out.push_str("</span>");
-}
-
-/// `code` as HTML. `link` gives the page of a procedure the example calls, so a call to
-/// `trim(...)` can lead to it.
-pub fn jai(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
-    tokens(code, &|w| link(w).map(|h| (w.len(), h)), Names::Called)
-}
-
-/// A short expression as HTML, such as a default value: `link` is asked about every name, not
-/// only the called ones.
-pub fn expr(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
-    tokens(code, &|w| link(w).map(|h| (w.len(), h)), Names::Every)
-}
-
-/// A declaration as written: `link` is asked about each written path (`Hash.Table`) that is not
-/// being declared, and answers how much of its start (`Hash.Table`, or only `Hash`) leads to a
-/// page, and where.
-pub fn declaration(code: &str, link: &dyn Fn(&str) -> Option<(usize, String)>) -> String {
-    tokens(code, link, Names::Paths)
-}
-
-/// Which names `tokens` offers to its resolver.
+/// Which names the semantic span overlay offers to its resolver.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Names {
     /// Those a call is made to.
     Called,
-    /// All of them.
-    Every,
     /// All of them as paths, except the ones the code declares.
     Paths,
+    /// Compiler facts decide eligibility at each UTF-8 offset; the scanner only excludes literals/comments/notes.
+    ResolvedPaths,
 }
 
-fn tokens(code: &str, link: &dyn Fn(&str) -> Option<(usize, String)>, names: Names) -> String {
-    let chars: Vec<(usize, char)> = code.char_indices().collect();
-    let mut out = String::with_capacity(code.len() * 2);
-    let mut i = 0;
-    let at = |n: usize| chars.get(n).map_or(code.len(), |&(b, _)| b);
-    while i < chars.len() {
-        let (start, c) = chars[i];
-        if c == '/' && chars.get(i + 1).is_some_and(|&(_, d)| d == '/') {
-            let mut j = i;
-            while j < chars.len() && chars[j].1 != '\n' {
-                j += 1;
-            }
-            span(&mut out, "c", &code[start..at(j)]);
-            i = j;
-        } else if c == '"' {
-            let mut j = i + 1;
-            while j < chars.len() && chars[j].1 != '"' {
-                if chars[j].1 == '\\' {
-                    j += 1;
-                }
-                j += 1;
-            }
-            let j = (j + 1).min(chars.len());
-            span(&mut out, "s", &code[start..at(j)]);
-            i = j;
-        } else if c == '#' && chars.get(i + 1).is_some_and(|&(_, d)| ident_start(d)) {
-            let mut j = i + 1;
-            while j < chars.len() && ident_char(chars[j].1) {
-                j += 1;
-            }
-            span(&mut out, "d", &code[start..at(j)]);
-            i = j;
-        } else if c.is_ascii_digit() {
-            let mut j = i;
-            while j < chars.len()
-                && (chars[j].1.is_ascii_alphanumeric() || chars[j].1 == '_' || chars[j].1 == '.')
+/// A lexical span with optional compiler-resolved destination; offsets are UTF-8 bytes.
+#[derive(Clone, Debug)]
+pub(super) struct Token {
+    pub start: usize,
+    pub end: usize,
+    pub role: Option<&'static str>,
+    pub target: Option<String>,
+}
+
+/// Resolve a UTF-8 offset and path to its matched byte length and canonical destination.
+type ResolveAt<'a> = dyn Fn(usize, &str) -> Option<(usize, String)> + 'a;
+
+/// Tokenize a declaration without producing markup; declared identifiers remain unlinked.
+pub(super) fn linked_tokens(
+    code: &str,
+    link: &dyn Fn(&str) -> Option<(usize, String)>,
+) -> Vec<Token> {
+    lexed(code, &|_, path| link(path), Names::Paths)
+}
+
+/// Color a complete formatted definition, resolving only the compiler-authorized occurrences.
+pub(super) fn resolved_tokens(code: &str, link: &ResolveAt<'_>) -> Vec<Token> {
+    lexed(code, link, Names::ResolvedPaths)
+}
+
+/// Example call destinations use the same scanner as highlighted declarations.
+pub(super) fn called_tokens(code: &str, link: &dyn Fn(&str) -> Option<String>) -> Vec<Token> {
+    lexed(
+        code,
+        &|_, name| link(name).map(|href| (name.len(), href)),
+        Names::Called,
+    )
+}
+
+fn lexed(code: &str, link: &ResolveAt<'_>, names: Names) -> Vec<Token> {
+    let lexical = coloring::scan(code);
+    let mut out = Vec::with_capacity(lexical.len());
+    let mut index = 0;
+    while index < lexical.len() {
+        let first = &lexical[index];
+        let mut end = first.end;
+        let mut last = index;
+        if first.kind == coloring::Kind::Identifier && first.role.is_none() {
+            while matches!(names, Names::Paths | Names::ResolvedPaths)
+                && lexical
+                    .get(last + 1)
+                    .is_some_and(|token| &code[token.start..token.end] == ".")
+                && lexical
+                    .get(last + 2)
+                    .is_some_and(|token| token.kind == coloring::Kind::Identifier)
             {
-                // `1..3` is a range, not a number with dots.
-                if chars[j].1 == '.' && chars.get(j + 1).is_some_and(|&(_, d)| d == '.') {
-                    break;
-                }
-                j += 1;
+                last += 2;
+                end = lexical[last].end;
             }
-            span(&mut out, "n", &code[start..at(j)]);
-            i = j;
-        } else if ident_start(c) {
-            let mut j = i;
-            while j < chars.len() && ident_char(chars[j].1) {
-                j += 1;
-            }
-            let word = &code[start..at(j)];
-            if KEYWORDS.contains(&word) {
-                span(&mut out, "k", word);
-                i = j;
-                continue;
-            }
-            if TYPES.contains(&word) {
-                span(&mut out, "t", word);
-                i = j;
-                continue;
-            }
-            // The rest of a written path: `Hash.Table`.
-            while names == Names::Paths
-                && chars.get(j).is_some_and(|&(_, d)| d == '.')
-                && chars.get(j + 1).is_some_and(|&(_, d)| ident_start(d))
-            {
-                j += 1;
-                while j < chars.len() && ident_char(chars[j].1) {
-                    j += 1;
-                }
-            }
-            let path = &code[start..at(j)];
-            let declared = code[at(j)..]
-                .trim_start_matches([' ', '\t'])
-                .starts_with(':');
+            let path = &code[first.start..end];
+            let declared = code[end..].trim_start_matches([' ', '\t']).starts_with(':');
             let wanted = match names {
-                Names::Called => chars.get(j).is_some_and(|&(_, d)| d == '('),
-                Names::Every => true,
+                Names::Called => code.as_bytes().get(end) == Some(&b'('),
                 Names::Paths => !declared,
+                Names::ResolvedPaths => true,
             };
-            match wanted.then(|| link(path)).flatten() {
-                Some((len, href)) if len <= path.len() && path.is_char_boundary(len) => {
-                    out.push_str(&format!(
-                        "<a href=\"{}\">{}</a>{}",
-                        esc(&href),
-                        esc(&path[..len]),
-                        esc(&path[len..])
-                    ));
+            if let Some((len, href)) = wanted
+                .then(|| link(first.start, path))
+                .flatten()
+                .filter(|(len, _)| *len > 0 && *len <= path.len() && path.is_char_boundary(*len))
+            {
+                out.push(Token {
+                    start: first.start,
+                    end: first.start + len,
+                    role: None,
+                    target: Some(href),
+                });
+                if first.start + len < end {
+                    out.push(Token {
+                        start: first.start + len,
+                        end,
+                        role: None,
+                        target: None,
+                    });
                 }
-                _ => out.push_str(&esc(path)),
+            } else {
+                out.push(Token {
+                    start: first.start,
+                    end,
+                    role: first.role,
+                    target: None,
+                });
             }
-            i = j;
         } else {
-            out.push_str(&esc(&code[start..at(i + 1)]));
-            i += 1;
+            out.push(Token {
+                start: first.start,
+                end,
+                role: first.role,
+                target: None,
+            });
         }
+        index = last + 1;
     }
     out
 }
@@ -188,366 +119,160 @@ mod tests {
     use super::*;
 
     #[test]
-    fn declarations_link_written_paths_but_not_what_they_declare() {
-        let html = declaration(
-            "Box :: struct(T: Type) {\n    next: *Box(T);\n    table: Hash.Table(int, T);\n    tag: Hash.Kind.ONE;\n}",
-            &|path| match path {
-                "Box" => Some((3, "/Box/".into())),
-                "Hash.Table" => Some((10, "/Table/".into())),
-                "Hash.Kind.ONE" => Some((9, "/Kind/".into())),
-                _ => None,
-            },
-        );
-        // `Box ::` declares, `*Box(T)` names.
-        assert!(!html.contains("Box</a> ::"), "{html}");
-        assert!(html.contains("*<a href=\"/Box/\">Box</a>(T)"), "{html}");
-        assert!(
-            html.contains("<a href=\"/Table/\">Hash.Table</a>("),
-            "{html}"
-        );
-        assert!(
-            html.contains("<a href=\"/Kind/\">Hash.Kind</a>.ONE"),
-            "{html}"
-        );
-        // The field named like a type is not linked either.
-        assert!(html.contains("table: "), "{html}");
-        assert!(html.contains("<span class=\"k\">struct</span>"), "{html}");
-    }
-
-    #[test]
-    fn tokens_get_classes_and_calls_link() {
-        let html = jai(
-            "found := trim(\"a<b\"); // note\nx: int = 0x1F; #char \"=\";",
-            &|name| (name == "trim").then(|| "/trim.html".into()),
-        );
-        assert!(html.contains("<a href=\"/trim.html\">trim</a>("));
-        assert!(html.contains("<span class=\"s\">&quot;a&lt;b&quot;</span>"));
-        assert!(html.contains("<span class=\"c\">// note</span>"));
-        assert!(html.contains("<span class=\"t\">int</span>"));
-        assert!(html.contains("<span class=\"n\">0x1F</span>"));
-        assert!(html.contains("<span class=\"d\">#char</span>"));
-    }
-}
-
-/// `code` as HTML when `lang` is a shell or TOML; `None` for other languages, which stay plain.
-pub fn other(lang: &str, code: &str) -> Option<String> {
-    match lang {
-        "sh" | "bash" | "shell" | "zsh" | "console" | "powershell" | "ps1" | "pwsh" => {
-            Some(code.lines().map(shell_line).collect::<Vec<_>>().join("\n"))
-        }
-        "toml" => Some(code.lines().map(toml_line).collect::<Vec<_>>().join("\n")),
-        _ => None,
-    }
-}
-
-/// The end of a quoted string starting at `start` (the quote), past the closing quote.
-fn quoted(chars: &[char], start: usize) -> usize {
-    let quote = chars[start];
-    let mut i = start + 1;
-    while i < chars.len() && chars[i] != quote {
-        if chars[i] == '\\' && quote == '"' {
-            i += 1;
-        }
-        i += 1;
-    }
-    (i + 1).min(chars.len())
-}
-
-/// One line of a shell session: the command name of each pipeline step, flags, variables, strings
-/// and comments. A leading `$ ` prompt is kept as written.
-fn shell_line(line: &str) -> String {
-    let chars: Vec<char> = line.chars().collect();
-    let text = |a: usize, b: usize| chars[a..b].iter().collect::<String>();
-    let mut out = String::new();
-    let mut i = 0;
-    let mut command = true;
-    while i < chars.len() {
-        let c = chars[i];
-        let at_word = i == 0 || chars[i - 1].is_whitespace();
-        if c == '#' && at_word {
-            span(&mut out, "c", &text(i, chars.len()));
-            break;
-        }
-        if c == '"' || c == '\'' {
-            let end = quoted(&chars, i);
-            span(&mut out, "s", &text(i, end));
-            i = end;
-            command = false;
-            continue;
-        }
-        if c == '$'
-            && chars
-                .get(i + 1)
-                .is_some_and(|n| ident_start(*n) || *n == '{')
-        {
-            let mut end = i + 1;
-            while end < chars.len() && (ident_char(chars[end]) || matches!(chars[end], '{' | '}')) {
-                end += 1;
-            }
-            span(&mut out, "n", &text(i, end));
-            // `FOO=$HOME cmd`: the value of an assignment comes before the command.
-            command = command && i > 0 && chars[i - 1] == '=';
-            i = end;
-            continue;
-        }
-        if c == '|' || c == ';' || c == '&' {
-            out.push_str(&esc(&c.to_string()));
-            command = true;
-            i += 1;
-            continue;
-        }
-        if c.is_whitespace() {
-            out.push(c);
-            i += 1;
-            continue;
-        }
-        let mut end = i;
-        while end < chars.len()
-            && !chars[end].is_whitespace()
-            && !matches!(chars[end], '|' | ';' | '"' | '\'' | '$')
-        {
-            end += 1;
-        }
-        let word = text(i, end);
-        if command && word == "$" {
-            out.push_str(&esc(&word));
-        } else if command && !word.contains('=') {
-            span(&mut out, "k", &word);
-            command = false;
-        } else if word.starts_with('-') && at_word {
-            span(&mut out, "d", &word);
-        } else {
-            out.push_str(&esc(&word));
-        }
-        i = end;
-    }
-    out
-}
-
-/// One line of TOML: table headers, keys, strings, numbers, booleans and comments.
-fn toml_line(line: &str) -> String {
-    let chars: Vec<char> = line.chars().collect();
-    let text = |a: usize, b: usize| chars[a..b].iter().collect::<String>();
-    let mut out = String::new();
-    let trimmed = line.trim_start();
-    let lead = chars.len() - trimmed.chars().count();
-    out.push_str(&text(0, lead));
-    let mut i = lead;
-    if trimmed.starts_with('[') {
-        let end = chars[i..]
-            .iter()
-            .position(|&c| c == ']')
-            .map_or(chars.len(), |p| {
-                let mut e = i + p + 1;
-                if chars.get(e) == Some(&']') {
-                    e += 1;
-                }
-                e
-            });
-        span(&mut out, "t", &text(i, end));
-        i = end;
-    } else if let Some(eq) = chars[i..].iter().position(|&c| c == '=') {
-        let key = text(i, i + eq);
-        let name = key.trim_end();
-        if !name.is_empty() && !name.starts_with('#') {
-            span(&mut out, "d", name);
-            out.push_str(&key[name.len()..]);
-            i += eq;
-        }
-    }
-    while i < chars.len() {
-        let c = chars[i];
-        if c == '#' {
-            span(&mut out, "c", &text(i, chars.len()));
-            break;
-        }
-        if c == '"' || c == '\'' {
-            let end = quoted(&chars, i);
-            span(&mut out, "s", &text(i, end));
-            i = end;
-            continue;
-        }
-        if c.is_ascii_digit()
-            || ((c == '-' || c == '+') && chars.get(i + 1).is_some_and(char::is_ascii_digit))
-        {
-            let mut end = i + 1;
-            while end < chars.len()
-                && (chars[end].is_ascii_alphanumeric()
-                    || matches!(chars[end], '.' | '_' | ':' | '-'))
-            {
-                end += 1;
-            }
-            span(&mut out, "n", &text(i, end));
-            i = end;
-            continue;
-        }
-        if ident_start(c) {
-            let mut end = i;
-            while end < chars.len() && ident_char(chars[end]) {
-                end += 1;
-            }
-            let word = text(i, end);
-            if word == "true" || word == "false" {
-                span(&mut out, "k", &word);
-            } else {
-                out.push_str(&esc(&word));
-            }
-            i = end;
-            continue;
-        }
-        out.push_str(&esc(&c.to_string()));
-        i += 1;
-    }
-    out
-}
-
-#[cfg(test)]
-mod other_tests {
-    use super::other;
-
-    #[test]
-    fn shell_marks_commands_flags_strings_and_comments() {
-        let html = other(
-            "sh",
-            "jacket test --exact 'a b' | head # first\nFOO=$HOME ls",
-        )
-        .unwrap();
-        assert!(html.contains("<span class=\"k\">jacket</span>"));
-        assert!(html.contains("<span class=\"d\">--exact</span>"));
-        assert!(
-            html.contains("<span class=\"s\">&#39;a b&#39;</span>")
-                || html.contains("<span class=\"s\">'a b'</span>")
-        );
-        assert!(html.contains("<span class=\"k\">head</span>"));
-        assert!(html.contains("<span class=\"c\"># first</span>"));
-        assert!(html.contains("<span class=\"n\">$HOME</span>"));
-        assert!(html.contains("<span class=\"k\">ls</span>"));
-    }
-
-    #[test]
-    fn toml_marks_tables_keys_and_values() {
-        let html = other(
-            "toml",
-            "[[doc.page]]\nname = \"Guide\" # shown\nwidth = 2\nok = true",
-        )
-        .unwrap();
-        assert!(html.contains("<span class=\"t\">[[doc.page]]</span>"));
-        assert!(html.contains("<span class=\"d\">name</span> = <span class=\"s\">"));
-        assert!(html.contains("<span class=\"c\"># shown</span>"));
-        assert!(html.contains("<span class=\"n\">2</span>"));
-        assert!(html.contains("<span class=\"k\">true</span>"));
-        assert!(other("text", "x").is_none());
-    }
-}
-
-/// A linter finding as the terminal shows it, in colour: the `error[rule]` header, the `-->`
-/// place, the gutter, the `^^^` markers with their labels, and the `help:`/`note:` lines.
-///
-/// Classes: `de`/`dw` (error and warning, for the header and its markers), `dm` (the muted
-/// frame), `dk` (secondary `---` markers), `dh` (`help:` and `note:` labels), `dc` (a fix line's
-/// `~`), `da` (`+`).
-pub fn diagnostic(text: &str) -> String {
-    let mut level = "de";
-    let mut out = Vec::new();
-    for line in text.lines() {
-        let mut html = String::new();
-        let trimmed = line.trim_start();
-        let indent = &line[..line.len() - trimmed.len()];
-        let kind = ["error", "warning"].into_iter().find(|k| {
-            trimmed
-                .strip_prefix(k)
-                .is_some_and(|r| r.starts_with(['[', ':']))
+    fn formatted_definition_links_use_compiler_occurrence_offsets_and_note_opacity() {
+        let code = "Collision, other: Collision; @note(Collision) value: Collision;";
+        let occurrences = code
+            .match_indices("Collision")
+            .map(|(start, _)| start)
+            .collect::<Vec<_>>();
+        let permitted = [occurrences[1], occurrences[3]];
+        let offered = std::cell::RefCell::new(Vec::new());
+        let tokens = resolved_tokens(code, &|start, path| {
+            offered.borrow_mut().push(start);
+            permitted
+                .contains(&start)
+                .then(|| (path.len(), "/api/Type/Collision".into()))
         });
-        if let Some(kind) = kind {
-            level = if kind == "error" {
-                "de"
-            } else {
-                "dw"
-            };
-            let colon = trimmed.find(':').unwrap_or(trimmed.len());
-            span(&mut html, level, &trimmed[..colon]);
-            html.push_str(&esc(&trimmed[colon..]));
-        } else if let Some(place) = trimmed.strip_prefix("--> ") {
-            html.push_str(&esc(indent));
-            span(&mut html, "dm", "-->");
-            html.push(' ');
-            html.push_str(&esc(place));
-        } else if let Some((label, rest)) = ["= note:", "= help:", "help:", "note:"]
-            .into_iter()
-            .find_map(|l| trimmed.strip_prefix(l).map(|r| (l, r)))
-        {
-            html.push_str(&esc(indent));
-            span(&mut html, "dh", label);
-            html.push_str(&esc(rest));
-        } else {
-            gutter_line(&mut html, line, level);
-        }
-        out.push(html);
+        assert_eq!(
+            tokens
+                .iter()
+                .filter(|token| token.target.is_some())
+                .map(|token| token.start)
+                .collect::<Vec<_>>(),
+            permitted
+        );
+        assert!(
+            !offered.borrow().contains(&occurrences[2]),
+            "notes must not offer their arguments as semantic references"
+        );
+        assert_eq!(
+            tokens
+                .iter()
+                .map(|token| &code[token.start..token.end])
+                .collect::<String>(),
+            code
+        );
     }
-    out.join("\n")
-}
-
-/// A line of the snippet: `  5 | code`, `    |   ^^^ label`, or a fix line `  5 ~ code`.
-fn gutter_line(html: &mut String, line: &str, level: &str) {
-    let body = line.trim_start();
-    let number = body.len() - body.trim_start_matches(|c: char| c.is_ascii_digit()).len();
-    let after = &body[number..];
-    let bar = after.trim_start();
-    let Some(sign) = bar
-        .chars()
-        .next()
-        .filter(|c| matches!(c, '|' | '~' | '+' | '-'))
-    else {
-        html.push_str(&esc(line));
-        return;
-    };
-    let frame_end = line.len() - bar.len();
-    html.push_str(&esc(&line[..frame_end]));
-    let rest = &bar[1..];
-    let class = match sign {
-        '|' => "dm",
-        '~' => "dc",
-        '+' => "da",
-        _ => level,
-    };
-    span(html, class, &sign.to_string());
-    let marks = rest.trim_start();
-    // Only a line without a number can be markers: `5 |     -x` is code.
-    if number == 0 && sign == '|' && marks.starts_with(['^', '-']) {
-        html.push_str(&esc(&rest[..rest.len() - marks.len()]));
-        let run = marks.len() - marks.trim_start_matches(['^', '-']).len();
-        let class = if marks.starts_with('^') {
-            level
-        } else {
-            "dk"
-        };
-        span(html, class, &marks[..run]);
-        let label = marks[run..].trim_start();
-        if !label.is_empty() {
-            html.push(' ');
-            span(html, class, label);
-        }
-    } else {
-        html.push_str(&esc(rest));
-    }
-}
-
-#[cfg(test)]
-mod diagnostic_tests {
-    use super::diagnostic;
 
     #[test]
-    fn colours_the_parts_of_a_finding() {
-        let html = diagnostic(
-            "warning[unused_variable]: `x` is never used\n  --> a.jai:2:5\n   |\n 2 |     x := 1;\n   |     ^ not read\n   |\nhelp: remove it\n 2 ~     \n   = note: `unused_variable` is `warn` by default",
+    fn note_color_parts_never_expose_note_names_to_semantic_links() {
+        let source = "@named(Resolve()) Resolve()";
+        let tokens = called_tokens(source, &|name| {
+            (name == "Resolve").then(|| "/resolved".into())
+        });
+        let links: Vec<_> = tokens
+            .iter()
+            .filter(|token| token.target.is_some())
+            .collect();
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].start, source.rfind("Resolve").unwrap());
+    }
+
+    #[test]
+    fn shared_coloring_fixtures() {
+        let cases: serde_json::Value =
+            serde_json::from_str(include_str!("coloring/fixtures.json")).unwrap();
+        for case in cases.as_array().unwrap() {
+            let expected: Vec<(Option<&str>, &str)> = case["segments"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|part| (part[0].as_str(), part[1].as_str().unwrap()))
+                .collect();
+            let source: String = expected.iter().map(|part| part.1).collect();
+            let mut actual: Vec<(Option<&str>, String)> = Vec::new();
+            for token in called_tokens(&source, &|_| None) {
+                let text = &source[token.start..token.end];
+                if let Some(previous) = actual.last_mut()
+                    && previous.0 == token.role
+                {
+                    previous.1.push_str(text);
+                } else {
+                    actual.push((token.role, text.into()));
+                }
+            }
+            let expected: Vec<_> = expected
+                .into_iter()
+                .map(|(role, text)| (role, text.to_owned()))
+                .collect();
+            assert_eq!(actual, expected, "fixture {}", case["id"]);
+        }
+    }
+
+    #[test]
+    fn semantic_tokens_link_written_paths_but_not_the_names_they_declare() {
+        let code = "Box :: struct(T: Type) {\n    next: *Box(T);\n    table: Hash.Table(int, T);\n    tag: Hash.Kind.ONE;\n}";
+        let tokens = linked_tokens(code, &|path| match path {
+            "Box" => Some((3, "/Box/".into())),
+            "Hash.Table" => Some((10, "/Table/".into())),
+            "Hash.Kind.ONE" => Some((9, "/Kind/".into())),
+            _ => None,
+        });
+        let linked = tokens
+            .iter()
+            .filter_map(|token| {
+                token
+                    .target
+                    .as_deref()
+                    .map(|target| (&code[token.start..token.end], target))
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            linked,
+            [
+                ("Box", "/Box/"),
+                ("Hash.Table", "/Table/"),
+                ("Hash.Kind", "/Kind/")
+            ]
         );
-        assert!(html.starts_with("<span class=\"dw\">warning[unused_variable]</span>: "));
-        assert!(html.contains("<span class=\"dm\">--&gt;</span> a.jai:2:5"));
-        assert!(html.contains("<span class=\"dw\">^</span> <span class=\"dw\">not read</span>"));
-        assert!(html.contains("<span class=\"dh\">help:</span> remove it"));
-        assert!(html.contains("<span class=\"dc\">~</span>"));
-        assert!(html.contains("<span class=\"dh\">= note:</span> `unused_variable`"));
-        // Code that starts with `-` is not a marker.
-        assert!(!diagnostic(" 2 |     -x").contains("dk"));
+        assert_eq!(
+            tokens
+                .iter()
+                .map(|token| &code[token.start..token.end])
+                .collect::<String>(),
+            code
+        );
+        assert!(
+            tokens
+                .iter()
+                .any(|token| token.role == Some("k") && &code[token.start..token.end] == "struct")
+        );
+    }
+
+    #[test]
+    fn semantic_example_tokens_keep_literal_bytes_roles_and_call_destinations() {
+        let code = "found := trim(\"a<b\"); // note\nx: int = 0x1F; #char \"=\";";
+        let tokens = called_tokens(code, &|name| (name == "trim").then(|| "/trim.html".into()));
+        assert_eq!(
+            tokens
+                .iter()
+                .filter_map(|token| token
+                    .target
+                    .as_deref()
+                    .map(|target| (&code[token.start..token.end], target)))
+                .collect::<Vec<_>>(),
+            [("trim", "/trim.html")]
+        );
+        for (role, text) in [
+            ("s", "\"a<b\""),
+            ("c", "// note"),
+            ("t", "int"),
+            ("n", "0x1F"),
+            ("d", "#char"),
+        ] {
+            assert!(
+                tokens
+                    .iter()
+                    .any(|token| token.role == Some(role) && &code[token.start..token.end] == text),
+                "missing {role}: {text}"
+            );
+        }
+        assert_eq!(
+            tokens
+                .iter()
+                .map(|token| &code[token.start..token.end])
+                .collect::<String>(),
+            code
+        );
     }
 }

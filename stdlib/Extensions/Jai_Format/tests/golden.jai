@@ -14,7 +14,7 @@
 #import "Extensions/Jai_Format";
 
 CASES :: "fixtures";
-SOURCES :: string.["../module.jai", "../lexer.jai", "../config.jai", "../format.jai", "../range.jai", "golden.jai", "../../../../jaifmt/main.jai"];
+SOURCES :: string.["../module.jai", "../lexer.jai", "../config.jai", "../format.jai", "../declaration.jai", "../range.jai", "golden.jai", "../../../../jaifmt/main.jai"];
 
 failures := 0;
 

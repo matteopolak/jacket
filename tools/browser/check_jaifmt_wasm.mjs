@@ -13,7 +13,7 @@
 //
 // See docs/tools/jaifmt.md.
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { closeSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -22,7 +22,8 @@ import { WASI } from "node:wasi";
 import { goldenCaseNames, optionalConfig, readUtf8 } from "./formatter_fixture_inputs.mjs";
 import { outputDir, root } from "../repo_output.mjs";
 
-const USAGE = "usage: node tools/browser/check_jaifmt_wasm.mjs engine [jai_wasm.wasm | staged-dir]\n" +
+const USAGE = "       node tools/browser/check_jaifmt_wasm.mjs declarations <native-jaifmt>\n" +
+  "usage: node tools/browser/check_jaifmt_wasm.mjs engine [jai_wasm.wasm | staged-dir]\n" +
   "       node tools/browser/check_jaifmt_wasm.mjs wasi <jaifmt.wasm> [native-jaifmt]";
 
 // A backend runs the formatter once: format(source, { config, name }) resolves to
@@ -104,7 +105,35 @@ async function wasiBackend(wasmPath, nativePath) {
   };
 }
 
+/** Check the native profile through its real batch/stdin CLI, without a Wasm build. */
+function checkDeclarations(nativePath) {
+  assert(nativePath, USAGE);
+  const binary=path.resolve(nativePath),directory=mkdtempSync(path.join(tmpdir(),'jacket-declarations-'));
+  const inputs=['One::struct {\n\n field: int;\n}\n','Two::struct { a:int; b:[] string; }\n'];
+  const expected=['One :: struct {\n    field: int;\n}\n','Two :: struct {\n    a: int;\n    b: [] string;\n}\n'];
+  const files=inputs.map((text,index)=>{const file=path.join(directory,`${index}.jai`);writeFileSync(file,text);return file;});
+  const flags=['--declarations','--no-config','--set','indent_width=4','--set','max_width=44'];
+  const run=(args,input,exit=0)=>{const result=spawnSync(binary,args,{input,encoding:'utf8',cwd:directory});assert.ifError(result.error);assert.equal(result.status,exit,result.stderr);return result;};
+  try {
+    run([...flags,'--check',...files],undefined,1);
+    assert.deepEqual(files.map(readUtf8),inputs,'--check changed a file');
+    run([...flags,...files]);assert.deepEqual(files.map(readUtf8),expected,'one batch must format both files');
+    run([...flags,'--check',...files]);
+    assert.equal(run([...flags,'--stdin'],inputs[0]).stdout,expected[0]);
+    assert.notEqual(run(['--no-config','--stdin'],inputs[0]).stdout,expected[0],'ordinary source formatting changed');
+    run([...flags,'--stdin','--range','0:1'],inputs[0],2);
+    const malformed='Broken :: struct { field: (int; }\n';writeFileSync(files[0],malformed);const refused=run([...flags,files[0]],undefined,2);assert.match(refused.stderr,/unbalanced/u,'refused declarations must report the actual formatter error');assert.equal(readUtf8(files[0]),malformed);
+    const rangeRefused=run(['--no-config','--stdin','--range',`0:${malformed.length}`],malformed,2);assert.match(rangeRefused.stderr,/unbalanced/u,'ordinary range refusal must keep its real reason');
+    const docs='Docs::struct{\n// This paragraph documents the entire field and keeps `two  spaces` intact while prose wraps deterministically.\n// A second source line joins the same paragraph.\n//\n// This is another paragraph.\nvalue:int;\n}\n';
+    const formatted='Docs :: struct {\n    // This paragraph documents the entire\n    // field and keeps `two  spaces` intact\n    // while prose wraps deterministically.\n    // A second source line joins the same\n    // paragraph.\n    //\n    // This is another paragraph.\n    value: int;\n}\n';
+    assert.equal(run([...flags,'--stdin'],docs).stdout,formatted);
+    assert.equal(run([...flags,'--stdin'],formatted).stdout,formatted,'declaration comments are not idempotent');
+    console.log('Native declaration profile: batch, stdin, check, refusal, conflicts, prose and idempotence passed.');
+  } finally { rmSync(directory,{recursive:true,force:true}); }
+}
+
 const [mode, ...rest] = process.argv.slice(2);
+if(mode==="declarations"){checkDeclarations(rest[0]);process.exit(0);}
 const backends = { engine: engineBackend, wasi: wasiBackend };
 if (!backends[mode]) throw new Error(USAGE);
 const backend = await backends[mode](...rest);

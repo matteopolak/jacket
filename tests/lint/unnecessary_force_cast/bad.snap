@@ -9,7 +9,9 @@ warning[unnecessary_force_cast]: `cast,force` from `s32` to `s64` reinterprets n
    |
 help: remove `,force`: the plain cast does the same
    |
+ 3   widen :: (a: s32, b: u8, c: float32, d: int) -> int {
  4 ~     x := cast(s64) a;
+ 5
    |
    = note: `unnecessary_force_cast` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_force_cast
@@ -22,7 +24,9 @@ warning[unnecessary_force_cast]: `cast,force` from `u8` to `u32` reinterprets no
    |
 help: remove `,force`: the plain cast does the same
    |
+ 5
  6 ~     y := cast(u32) b;
+ 7
    |
    = note: `unnecessary_force_cast` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_force_cast
@@ -35,7 +39,9 @@ warning[unnecessary_force_cast]: `cast,force` from `float32` to `float64` reinte
    |
 help: remove `,force`: the plain cast does the same
    |
+ 7
  8 ~     z := cast(float64) c;
+ 9
    |
    = note: `unnecessary_force_cast` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_force_cast
@@ -48,7 +54,9 @@ warning[unnecessary_force_cast]: `cast,force` from `s64` to `s64` reinterprets n
    |
 help: remove `,force`: the plain cast does the same
    |
+ 9
 10 ~     same := cast(int) d;
+11
    |
    = note: `unnecessary_force_cast` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unnecessary_force_cast

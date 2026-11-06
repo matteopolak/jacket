@@ -1,6 +1,6 @@
 # jaifmt (Jai formatter)
 
-`jaifmt` formats Jai source and is itself written in Jai. The formatter is the extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic -interp` and in the browser; `jaifmt/main.jai` is the command-line front end. Output depends on the input's tokens, comments and blank lines, not its spacing. Lines are never re-wrapped. Output whose token stream differs from the input is refused, so formatting can't change what a program means.
+`jaifmt` formats Jai source and is itself written in Jai. The formatter is the extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic -interp` and in the browser; `jaifmt/main.jai` is the command-line front end. Output depends on the input's tokens, comments and blank lines, not its spacing. Ordinary source lines are never re-wrapped. The documentation declaration profile described below uses explicit width wrapping. Code tokens must remain unchanged. Ordinary source also preserves comment tokens; declaration prose reflow additionally checks paragraph content and protected bytes.
 
 ```sh
 jacket fmt                                 # format the whole project
@@ -66,12 +66,27 @@ blank_line_after_declarations = false
 
 Ignore globs follow the same rules as lint paths ([jailint](jailint.md#configuration)); `PathPattern` in `crates/jacket-config/src/pattern.rs` and `glob_path_match` in `Jai_Format/config.jai` both run `tests/glob/cases.txt`. Colour follows `NO_COLOR`, `FORCE_COLOR` and `CLICOLOR_FORCE`. CI runs `--check stdlib tests benchmarks tools jaifmt examples`.
 
+## Documentation declarations
+
+`format_declaration(source, config)` reuses the formatter's lexer, line planner and emitter for documentation layouts. It removes author alignment and blank gaps, wraps long types at safe token boundaries, and wraps leading prose paragraphs to `max_width`. Ordinary `format_source` keeps its existing line-break policy.
+
+```sh
+target/jaifmt --declarations --no-config --set indent_width=4 --set max_width=88 owned-declarations/
+```
+
+The existing file/directory loop formats the whole batch in one invocation. `--stdin` and `--check` work with this profile; `--range` and `--is-ignored` conflict with it. A producer should pass `--no-config` and every relevant setting so project configuration cannot change published output.
+
+Literal bytes, fenced and indented Markdown code, hard breaks and structural Markdown remain intact. Balanced inline-code spans stay indivisible while surrounding prose wraps. Paragraph boundaries remain distinct. Trailing comments stay attached to their code and remain verbatim; splitting one into leading comment lines could change which field owns the documentation. Protected Markdown, unbreakable tokens and trailing comments can therefore exceed `max_width`; consumers may wrap these visually without changing the formatter's text.
+
+The declaration profile uses the ordinary token/adjacency checks for code, then verifies comment reflow against a canonical paragraph representation while preserving all other text. It refuses malformed or content-changing output. Extend `declaration.jai` and `tests/declarations.jai` for profile policy, and keep ordinary formatter golden cases unchanged. Run `node tools/browser/check_jaifmt_wasm.mjs declarations target/jaifmt` for real native batch, stdin, refusal and idempotence coverage.
+
 ## Module API
 
 ```jai
 #import "Extensions/Jai_Format";
 config, ok, error := parse_config(toml_text);
 formatted, ok, error := format_source(source, config);   // free `formatted`; on failure it is ""
+declaration, declaration_ok, error := format_declaration(source, config);
 ```
 
 `format_range(source, from, to, config)` formats only the statements a byte range touches. Also `format_find_config`, `format_is_ignored` (set `config.root` first), `format_tokens_equivalent` and `format_glob_match`. `Format_Config` fields mirror the TOML keys.

@@ -1,0 +1,48 @@
+---
+import type { ApiModule, SiteData, Target } from '../generated/doc-site.js';
+import { docsFor, lead, sections, missingPlatforms } from '../lib/api.ts';
+import Title from './Title.astro';
+import Crumbs from './Crumbs.astro';
+import Platforms from './Platforms.astro';
+import Document from './Document.astro';
+import Definitions from './Definitions.astro';
+import DeclarationCode from './DeclarationCode.astro';
+import ResolvedText from './ResolvedText.astro';
+import Signature from './Signature.astro';
+import Example from './Example.astro';
+interface Props { site: SiteData; module: ApiModule; href: (target: Target) => string }
+const { site,module,href } = Astro.props;
+---
+<Crumbs site={site} module={module} href={href} />
+<Title site={site} module={module} />
+<div class="meta"><Platforms module={module} />{module.since && <Fragment><span class="meta-sep">·</span><span class="since">since {module.since}</span></Fragment>}</div>
+{module.implicit ? <p class="import">Every program imports this module; there is nothing to write.</p> : <p class="import"><code><span class="d">#import</span>{' '}<span class="s">"{module.importPath}"</span>;</code></p>}
+{module.docs.length > 0 && <Fragment><div class="fold"><Document nodes={module.docs} href={href} lead /><script is:inline>window.fold?.();</script></div><button type="button" class="btn fold-btn">Show more</button></Fragment>}
+{module.parameters.length > 0 && <Fragment><h2 id="parameters">Module parameters<a class="anchor" href="#parameters" aria-label="Link to this heading">#</a></h2><Definitions parameters={module.parameters} href={href} /></Fragment>}
+{sections(module).map(section => <Fragment>
+  <h2 id={section.id}>{section.label}<a class="anchor" href={`#${section.id}`} aria-label="Link to this heading">#</a></h2>
+  {section.groups.map(group => <section class="group">
+    {group.heading && <h3 id={group.heading.id}>{group.heading.label}<a class="anchor" href={`#${group.heading.id}`} aria-label="Link to this heading">#</a></h3>}
+    {group.items.map(d => {
+      const docs = docsFor(d);
+      const summary = lead(docs);
+      const sample = docs.find(node => node.kind === 'fence' && node.example.language === 'jai');
+      return <article class="row" id={d.name}>
+        <div class="row-head"><a class="name" href={href({kind:'page',id:d.route,anchor:null})}>{d.name}</a>
+          {!['procedure','constant'].includes(d.kind) && <span class="badge sm">{d.kind.replaceAll('_',' ')}</span>}
+          {d.binding && <span class="badge sm foreign" title="Declared by a foreign library this module binds">foreign</span>}
+          {d.experimental && <span class="badge exp sm" title="Experimental: may change or go away">experimental</span>}
+          {d.overloads.length > 1 && <span class="since">{d.overloads.length} overloads</span>}
+          {missingPlatforms(module,d).map(name=><span class="pf none sm" title={`Not available on ${name}`}><span class="pf-dot" aria-hidden="true"></span>{name}<span class="sr">: not available</span></span>)}
+          {d.since && <span class="since">since {d.since}</span>}
+          {d.sourceUrl && <Fragment><span class="spacer"></span><a class="muted" href={d.sourceUrl}>Source</a></Fragment>}
+        </div>
+        {!d.definitions.length && (d.kind === 'procedure' ? d.overloads.map(o => <div class="sig-line"><Signature overload={o} compact href={href} /></div>) : <div class="sig-line">{d.value.source ? <Fragment>{':: '}<ResolvedText text={d.value} href={href} context="type" /></Fragment> : !['type','constant'].includes(d.kind) ? `:: ${d.kind}` : ''}</div>)}
+        {summary.length > 0 && <p class="summary"><Document nodes={summary} href={href} /></p>}
+        {d.definitions.length > 0 && <Fragment><div class="fold members" data-fold="240"><DeclarationCode declaration={d} href={href} comments={false} /><script is:inline>window.fold?.();</script></div><button type="button" class="btn fold-btn">Show more</button></Fragment>}
+        {!d.definitions.length && d.members.length > 0 && <Fragment><div class="fold members" data-fold="240"><Definitions parameters={d.members.map(member=>({...member,ty:['enum','enum_flags'].includes(d.kind)?{source:'',spans:[]}:member.ty,default:{source:'',spans:[]}}))} href={href} /><script is:inline>window.fold?.();</script></div><button type="button" class="btn fold-btn">Show more</button></Fragment>}
+        {sample?.kind === 'fence'  && <Example example={sample.example} compact href={href} />}
+      </article>;
+    })}
+  </section>)}
+</Fragment>)}

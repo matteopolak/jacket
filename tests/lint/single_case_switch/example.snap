@@ -9,13 +9,11 @@ warning[single_case_switch]: this `switch` has a single case
    |
 help: write an `if` instead
    |
-10 -     if mode == {
-11 -         case .VERBOSE;
+ 9   announce :: (mode: Mode) {
+10 ~     if mode == .VERBOSE {
+11 ~         print("loud\n");
 12 -             print("loud\n");
-13 -     }
-10 +     if mode == .VERBOSE {
-11 +         print("loud\n");
-12 +     }
+13       }
    |
    = note: `single_case_switch` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch

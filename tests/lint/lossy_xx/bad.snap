@@ -9,7 +9,9 @@ warning[lossy_xx]: `xx` converts `s64` to `u16`, which can lose the high bits
    |
 help: write `cast(u16)` to make the conversion visible
    |
+ 4       big := 70000;
  5 ~     small: u16 = cast(u16) big;
+ 6       ratio := 2.75;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/lossy_xx
 
@@ -21,7 +23,9 @@ warning[lossy_xx]: `xx` converts `float32` to `s64`, which drops the fraction
    |
 help: write `cast(s64)` to make the conversion visible
    |
+ 6       ratio := 2.75;
  7 ~     whole: int = cast(s64) ratio;
+ 8       precise: float64 = 1.0 / 3.0;
    |
    = note: see https://jacket.matteopolak.com/lint-rules/lossy_xx
 
@@ -33,6 +37,8 @@ warning[lossy_xx]: `xx` converts `float64` to `float32`, which can lose precisio
    |
 help: write `cast(float32)` to make the conversion visible
    |
+ 8       precise: float64 = 1.0 / 3.0;
  9 ~     rough: float32 = cast(float32) precise;
+10
    |
    = note: see https://jacket.matteopolak.com/lint-rules/lossy_xx

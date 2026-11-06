@@ -1,0 +1,52 @@
+---
+import type { ApiModule, Declaration, Target } from '../generated/doc-site.js';
+import { lead, memberParameters, seeAlso } from '../lib/api.ts';
+import Title from './Title.astro';
+import Crumbs from './Crumbs.astro';
+import Document from './Document.astro';
+import Definitions from './Definitions.astro';
+import Signature from './Signature.astro';
+import Platforms from './Platforms.astro';
+import DeclarationCode from './DeclarationCode.astro';
+import ResolvedText from './ResolvedText.astro';
+import type { SiteData } from '../generated/doc-site.js';
+interface Props { site: SiteData; module: ApiModule; declaration: Declaration; href: (target: Target) => string }
+const { site, module, declaration: d, href } = Astro.props;
+const ownLead = lead(d.docs);
+const leadOwner = ownLead.length > 0;
+const single = d.kind === 'procedure' && d.overloads.length === 1 && !leadOwner;
+const summary = leadOwner ? ownLead : lead(d.overloads[0]?.docs ?? []);
+let skippedLead = false;
+const remaining = d.docs.filter(node => {
+  if (!skippedLead && leadOwner && node.kind === 'paragraph') { skippedLead = true; return false; }
+  return true;
+});
+const members = memberParameters(d);
+const related = seeAlso(site,module,d);
+---
+<Crumbs site={site} module={module} declaration={d} href={href} />
+<Title site={site} module={module} declaration={d} />
+{d.private && <p class="unexported">Not exported. Code outside this module cannot name it; it is here because exported types use it.</p>}
+<div class="meta"><Platforms module={module} declaration={d} /></div>
+{d.definitions.length > 0 && <section id="declaration"><h2 class="sr">Declaration</h2><DeclarationCode declaration={d} href={href} /></section>}
+{d.value.source && d.kind !== 'procedure' && <pre class="sig"><code><span class="fn">{d.name}</span>{' :: '}<ResolvedText text={d.value} href={href} context="type" /></code></pre>}
+{!single && summary.length > 0 && <p class="lead"><Document nodes={summary} href={href} /></p>}
+<Document nodes={remaining} href={href} />
+{d.kind === 'procedure' && d.overloads.map((overload,index) => {
+  let docs = JSON.stringify(overload.docs) === JSON.stringify(d.docs) ? [] : overload.docs;
+  if (index === 0 && !leadOwner && !single) {
+    let skipped = false;
+    docs = docs.filter(node => { if (!skipped && node.kind === 'paragraph') { skipped = true; return false; } return true; });
+  }
+  return <section id={overload.id} class:list={{overload:d.overloads.length > 1}}>
+    {d.overloads.length > 1 ? <h2 class="overload-head"><a href={`#${overload.id}`}>overload {index+1}</a></h2> : <h2 class="sr">Signature</h2>}
+    <pre class="sig"><code><Signature overload={overload} name={d.name} href={href} /></code></pre>
+    <Document nodes={docs.filter(node => node.kind !== 'fence')} href={href} />
+    {overload.parameters.length > 0 && <Fragment><h3>Parameters</h3><Definitions parameters={overload.parameters} href={href} /></Fragment>}
+    {overload.results.length > 0 && <Fragment><h3>Returns</h3><Definitions parameters={overload.results} href={href} /></Fragment>}
+    <Document nodes={docs.filter(node => node.kind === 'fence')} href={href} />
+  </section>;
+})}
+{members.length > 0 && <section id="members"><h2>{['enum','enum_flags'].includes(d.kind) ? 'Members' : 'Fields'}</h2><Definitions parameters={members} href={href} /></section>}
+
+{related.length > 0 && <section id="see" class="see"><h2>See also</h2><div class="pills">{related.map(item=><a class="pill link mono" href={href({kind:'page',id:item.id,anchor:null})}>{item.label}</a>)}</div></section>}

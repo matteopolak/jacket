@@ -22,7 +22,7 @@ One page per topic in [language/](language/): [modules](language/modules-and-imp
 - Front end: [parser](compiler/parser.md), [sema](compiler/sema.md), [variables vs constants](compiler/variable-constness.md), [parallel type checking](compiler/parallel-sema.md), [polymorph reporting](compiler/polymorph-reporting.md), [file identity](compiler/file-identity.md), [source positions](compiler/source-positions.md).
 - Back end: [IR](compiler/ir.md), [interpreter](compiler/interpreter.md), [fibers](compiler/fibers.md), [`#asm`](compiler/asm.md), [integer arithmetic](compiler/integer-arithmetic.md), [compile-time limits](compiler/compile-time-limits.md), [compile-time code on the host](compiler/compile-time-host-execution.md), [builtins](compiler/compiler-builtins.md), [targets](compiler/targets.md), [toolchain](compiler/toolchain.md), [platform differences](compiler/platform.md), [stack traces](compiler/stack-traces.md), [compile speed](compiler/compile-speed.md).
 - [Compiler command-line driver](compiler/command-line-driver.md) — neutral argument metadata and binary setup.
-- Diagnostics and editors: [diagnostics](compiler/diagnostics.md), [doc comments](compiler/doc-comments.md), [language server](compiler/language-server.md), [IDE facts](compiler/ide-facts.md), [saved configuration](compiler/saved-configuration.md).
+- Diagnostics and editors: [diagnostics](compiler/diagnostics.md), [doc comments](compiler/doc-comments.md), [documentation export](compiler/doc-site-export.md), [language server](compiler/language-server.md), [IDE facts](compiler/ide-facts.md), [saved configuration](compiler/saved-configuration.md).
 - Standard library contract: [index](compiler/stdlib-index.md), [compiler and stdlib contract](compiler/stdlib-contract.md).
 
 ## Native and browser
@@ -36,7 +36,7 @@ One page per topic in [language/](language/): [modules](language/modules-and-imp
 
 Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [documenting a library](guides/documenting.md), [memory safety](guides/memory-safety.md). The docs site's [front page](reference/home.md).
 
-[jacket](tools/jacket.md), [jacket test](tools/jacket-test.md), [jacket doc](tools/jacket-doc.md), [jacket bench](tools/jacket-bench.md), [jaifmt](tools/jaifmt.md) ([rules](tools/jaifmt-rules.md)), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md), [environment variables](tools/environment.md).
+[jacket](tools/jacket.md), [jacket test](tools/jacket-test.md), [jacket doc](tools/jacket-doc.md), [Astro renderer and development](tools/astro-docs.md), [docs site measurements](tools/doc-site-benchmarks.md), [docs code coloring](tools/doc-coloring.md), [jacket bench](tools/jacket-bench.md), [jaifmt](tools/jaifmt.md) ([rules](tools/jaifmt-rules.md)), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md), [environment variables](tools/environment.md).
 
 ## Standard library
 

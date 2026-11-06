@@ -9,7 +9,9 @@ warning[unused_variable]: unused variable `leftover`
    |
 help: remove it
    |
+ 3   main :: () {
  4 -     leftover := 5;
+ 5       print("hello\n");
    |
    = note: `unused_variable` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_variable

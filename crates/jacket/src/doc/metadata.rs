@@ -1,17 +1,11 @@
-//! Publication metadata is resolved before rendering, so themes need no URL or JSON logic.
-use super::markdown::{esc, plain};
-use super::view::{Content, ModuleView, PageView};
-use serde_json::json;
-mod config;
-pub use config::{Publication, prepare};
+//! Publication URL validation and sitemap XML shared by the semantic exporter.
 
-pub struct Metadata {
-    pub origin: String,
-    pub base: String,
-    pub name: String,
-    pub image: String,
-    pub version: String,
-    pub canonical_version: Option<String>,
+/// XML character data for sitemap URLs; this does not render documentation markup.
+fn esc(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('\"', "&quot;")
 }
 
 /// `url` is an origin, not a deployment path (that belongs in --base-url).
@@ -26,160 +20,6 @@ pub fn valid_origin(origin: &str) -> bool {
         && !host
             .chars()
             .any(|c| c.is_whitespace() || "/?#@\\\"'<>".contains(c))
-}
-
-/// Collapse plain text and reserve one character for the ellipsis, cutting at a word boundary.
-pub fn description(text: &str) -> String {
-    let text = plain(text).split_whitespace().collect::<Vec<_>>().join(" ");
-    if text.chars().count() <= 155 {
-        return text;
-    }
-    let cut: String = text.chars().take(154).collect();
-    format!("{}…", cut.rsplit_once(' ').map_or("", |(a, _)| a))
-}
-
-impl Metadata {
-    pub fn files(
-        &self,
-        urls: &[String],
-        image: Option<(String, Vec<u8>)>,
-    ) -> Vec<(String, Vec<u8>)> {
-        let mut files: Vec<_> = image.into_iter().collect();
-        if !self.origin.is_empty() {
-            let root = self.url("", false);
-            files.extend(sitemaps(urls, &root, 50_000, 50 * 1024 * 1024));
-            files.push((
-                "robots.txt".into(),
-                format!("Sitemap: {root}sitemap.xml\n").into_bytes(),
-            ));
-        }
-        files
-    }
-
-    pub fn url(&self, path: &str, canonical: bool) -> String {
-        if self.origin.is_empty() {
-            return String::new();
-        }
-        // Current releases live at url + base. Archived versions live at
-        // url + base + versions/<version>/. An archived build passes that directory
-        // as --base-url; strip its suffix when targeting a different canonical version.
-        let version = if canonical {
-            self.canonical_version
-                .as_deref()
-                .filter(|v| *v != self.version)
-        } else {
-            None
-        };
-        let folder = version.map_or_else(String::new, |v| format!("versions/{v}/"));
-        let path = path.strip_suffix(".html").unwrap_or(path);
-        let path = if path == "index" {
-            ""
-        } else {
-            path
-        };
-        let archived = format!("versions/{}/", self.version);
-        let base = if version.is_some() {
-            self.base.strip_suffix(&archived).unwrap_or(&self.base)
-        } else {
-            &self.base
-        };
-        format!("{}{base}{folder}{path}", self.origin)
-    }
-
-    /// [`Self::apply`] to a module's pages. The first `exported` item pages are listed in
-    /// `urls`; the rest are pages of types the module does not export, which only links lead to.
-    pub fn apply_module(&self, module: &mut ModuleView, exported: usize, urls: &mut Vec<String>) {
-        self.apply(&mut module.page);
-        urls.push(self.url(&module.page.path, false));
-        for (n, page) in module.items.iter_mut().enumerate() {
-            self.apply(page);
-            if n < exported {
-                urls.push(self.url(&page.path, false));
-            } else {
-                page.head.noindex = true;
-            }
-        }
-    }
-
-    pub fn apply(&self, page: &mut PageView) {
-        page.description = description(&page.description);
-        page.head.url = if page.not_found {
-            String::new()
-        } else {
-            self.url(&page.path, false)
-        };
-        page.head.canonical = if page.not_found {
-            String::new()
-        } else {
-            self.url(&page.path, true)
-        };
-        page.head.og_type = if page.path.is_empty() {
-            "website"
-        } else {
-            "article"
-        }
-        .into();
-        page.head.image.clone_from(&self.image);
-        page.head.twitter_card = if self.image.is_empty() {
-            "summary"
-        } else {
-            "summary_large_image"
-        }
-        .into();
-        page.head.noindex = page.not_found
-            || self
-                .canonical_version
-                .as_deref()
-                .is_some_and(|v| v != self.version);
-        let url = &page.head.url;
-        let mut data = Vec::new();
-        let crumbs = match &page.content {
-            Content::Item {
-                crumbs, ..
-            }
-            | Content::Module {
-                crumbs, ..
-            } => Some(crumbs),
-            _ => None,
-        };
-        if let Content::Item {
-            crumbs, ..
-        } = &page.content
-        {
-            let module = crumbs.iter().rev().nth(1).map_or("", |c| c.label.as_str());
-            data.push(
-                json!({"@context":"https://schema.org", "@type":"TechArticle",
-                "headline":page.title, "description":page.description, "url":url,
-                "isPartOf":{"@type":"WebSite", "name":self.name, "url":self.url("", false)},
-                "about":{"@type":"SoftwareSourceCode", "name":module}}),
-            );
-        }
-        if let Some(crumbs) = crumbs {
-            let entries: Vec<_> = crumbs
-                .iter()
-                .enumerate()
-                .map(|(i, c)| {
-                    let href = c.href.as_ref().map_or_else(
-                        || url.to_owned(),
-                        |h| {
-                            if h.starts_with("http://") || h.starts_with("https://") {
-                                h.clone()
-                            } else {
-                                format!("{}{h}", self.origin)
-                            }
-                        },
-                    );
-                    json!({"@type":"ListItem", "position":i+1, "name":c.label, "item":href})
-                })
-                .collect();
-            data.push(json!({"@context":"https://schema.org", "@type":"BreadcrumbList", "itemListElement":entries}));
-        }
-        page.head.json_ld = if data.is_empty() {
-            String::new()
-        } else {
-            serde_json::to_string(&data).unwrap().replace("</", "<\\/")
-        };
-    }
 }
 
 /// Limits include XML markup and escaped URLs; no shard exceeds either sitemap protocol limit.

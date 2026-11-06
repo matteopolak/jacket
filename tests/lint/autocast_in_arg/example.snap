@@ -9,6 +9,8 @@ warning[autocast_in_arg]: `xx` leaves the target type to the parameter (`s64` to
    |
 help: write `cast(s32)` to say so
    |
+ 9
 10 ~     print("%\n", draw(cast(s32) width, 10));
+11   }
    |
    = note: see https://jacket.matteopolak.com/lint-rules/autocast_in_arg

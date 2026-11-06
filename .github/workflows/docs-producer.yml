@@ -1,0 +1,102 @@
+name: focused docs producer
+# Only the explicit ci.yml jobs=docs-producer selector calls this debug correctness group.
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  producer:
+    name: docs producer (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15, windows-2025]
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONPATH: ${{ github.workspace }}/tools
+      PYTHONUTF8: '1'
+      JAIC_STDLIB: ${{ github.workspace }}/stdlib
+      CARGO_TARGET_DIR: target
+      CARGO_BUILD_JOBS: '2'
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: {python-version: '3.14'}
+      - uses: ./.github/actions/setup-unix
+        if: runner.os != 'Windows'
+        with:
+          native-libs: 'false'
+          font: 'false'
+      - uses: ./.github/actions/setup-windows
+        if: runner.os == 'Windows'
+        with:
+          cpu: x64
+          triple: x86_64-pc-windows-msvc
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: website/docs/.node-version
+          cache: npm
+          cache-dependency-path: website/docs/package-lock.json
+      - uses: ./.github/actions/dependency-age-cache
+      - name: Validate locked dependency ages before installation
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python tools/ci/check_dependency_age.py
+          python tools/ci/check_docs_dependencies.py --cache "$RUNNER_TEMP/docs-dependency-age.json"
+      - name: Fetch the locked crates and builder dependencies
+        run: |
+          cargo fetch --locked
+          npm ci --prefix website/docs
+      - name: Build debug producer and compiler
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            cargo build --locked --offline -p jacket -p jaic-cli --no-default-features --features jaic-cli/static-llvm
+          else
+            cargo build --locked --offline -p jacket -p jaic-cli
+          fi
+      - name: Build the matching native formatter and select owned executables
+        run: |
+          python - <<'PYTHON'
+          import os
+          from pathlib import Path
+          import subprocess
+          directory = Path("target") / (os.environ["CARGO_BUILD_TARGET"] if os.environ.get("CARGO_BUILD_TARGET") else "") / "debug"
+          directory = directory.resolve()
+          suffix = ".exe" if os.name == "nt" else ""
+          subprocess.run([str(directory / ("jaic" + suffix)), "jaifmt/main.jai", "-exe", str(directory / ("jaifmt" + suffix))], check=True)
+          with open(os.environ["GITHUB_PATH"], "a") as output:
+              output.write(str(directory) + "\n")
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              for key, name in (("DOC_JACKET", "jacket"), ("DOC_JAIC", "jaic"), ("DOC_FORMATTER", "jaifmt")):
+                  output.write(key + "=" + str(directory / (name + suffix)) + "\n")
+          PYTHON
+      - name: Check compiler facts, semantic export and diagnostic fixes
+        run: |
+          cargo test --locked --offline -p jaic-syntax --lib doc_comments::model::tests -- --test-threads=1
+          cargo test --locked --offline -p jaic-syntax --lib render::tests -- --test-threads=1
+          cargo test --locked --offline -p jacket --bin jacket doc:: -- --test-threads=1
+          cargo test --locked --offline -p jacket-config --lib -- --test-threads=1
+          cargo test --locked --offline -p jacket --test doc_export -- --test-threads=1
+          cargo test --locked --offline -p jailint --test rules fix_previews -- --test-threads=1
+      - name: Check documentation byte authority
+        run: |
+          git config --get core.autocrlf || test "$?" = 1
+          git ls-files --eol website/docs/schema website/docs/src/generated crates/jacket/src/doc/coloring/spec.json
+          python -m unittest discover -s tools/ci -p test_package_docs_builder.py
+          python -m unittest discover -s tools/generators -p test_generate_doc_coloring.py
+          python -m unittest discover -s tools/generators -p test_generate_doc_site.py
+      - name: Check schema, native declaration formatting and shared coloring
+        run: |
+          python tools/generators/generate_doc_site.py --check
+          node tools/browser/check_jaifmt_wasm.mjs declarations "$DOC_FORMATTER"
+          python tools/ci/check_doc_coloring.py --out "$RUNNER_TEMP/doc-coloring.json"
+          python -m unittest discover -s tools/ci -p test_check_docs_size.py
+      - name: Check relocated installed builder and sibling resolution
+        run: python tools/ci/check_installed_docs.py --jacket "$DOC_JACKET" --jaic "$DOC_JAIC" --formatter "$DOC_FORMATTER" --work "$RUNNER_TEMP/docs-installed-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"

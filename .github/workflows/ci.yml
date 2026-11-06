@@ -310,7 +310,7 @@ jobs:
           node --version
           node tools/browser/check_scripting_wasm.mjs target/ci-wasm/jai_wasm.wasm
           node tools/browser/check_jaifmt_wasm.mjs engine target/ci-wasm/jai_wasm.wasm
-          node --test tools/browser/test_*.mjs tools/dev/test_chrome_startup.mjs tools/dev/test_doc_samples.mjs tools/dev/test_doc_sidebar.mjs
+          node --test tools/browser/test_*.mjs tools/dev/test_doc_layout_motion.mjs tools/dev/test_chrome_startup.mjs tools/dev/test_doc_samples.mjs tools/dev/test_doc_sidebar.mjs tools/dev/test_doc_diagnostic_fixtures.mjs
       - name: WebGPU host bridge (mock WebGPU; the engine suspends through JSPI)
         # docs/extensions/webgpu.md#tests. Node 24 has JSPI behind a V8 flag, so the file runs
         # directly (node:test in this process) rather than in a `--test` child without the flag.
@@ -348,9 +348,31 @@ jobs:
       # The format and lint steps below run the Justfile's recipes (docs/tools/development.md).
       - uses: ./.github/actions/install-tool
         with: {tool: just}
-      # node 24: Memory64 without a flag, for the wasm64 modules `jaic -os wasm` writes.
+      # The docs builder pins Node; it also supports the wasm64 modules checked below.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with: {node-version: '24'}
+        with:
+          node-version-file: website/docs/.node-version
+          cache: npm
+          cache-dependency-path: website/docs/package-lock.json
+      - name: Restore docs dependency policy metadata
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/docs-dependency-age.json
+          key: docs-dep-age-${{ hashFiles('website/docs/package-lock.json') }}-${{ github.run_id }}
+          restore-keys: |
+            docs-dep-age-${{ hashFiles('website/docs/package-lock.json') }}-
+            docs-dep-age-
+      - name: Validate the locked docs dependencies before installing
+        run: python3 tools/ci/check_docs_dependencies.py --cache "$RUNNER_TEMP/docs-dependency-age.json"
+      - name: Install the frozen Astro builder
+        working-directory: website/docs
+        run: npm ci
+      - name: Save docs dependency policy metadata
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/docs-dependency-age.json
+          key: docs-dep-age-${{ hashFiles('website/docs/package-lock.json') }}-${{ github.run_id }}
       # Platform-neutral checks run once, on the Linux x64 `jai` leg.
       - uses: ./.github/actions/dependency-age-cache
         if: ${{ matrix.runner == 'ubuntu-24.04' && contains(matrix.parts, ',jai,') }}
@@ -382,6 +404,13 @@ jobs:
       # `just fmt`, `just lint` and the jailint they run use every core instead of the local default of 3.
       - name: Use every core for fmt and lint
         run: echo "JAI_JOBS=$(getconf _NPROCESSORS_ONLN)" >> "$GITHUB_ENV"
+      - name: Check the Astro schema, types and consumer regressions
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.runner == 'ubuntu-24.04' && contains(matrix.parts, ',jai,') }}
+        working-directory: website/docs
+        run: |
+          npm run check:generated
+          npm run check
+          npm test
       # The Rust format and clippy checks run on the first Rust shard of each platform.
       - name: Format check
         id: format
@@ -498,6 +527,9 @@ jobs:
         id: jai-format
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') }}
         run: just fmt --check --lang jai
+      - name: Check documentation declaration formatter CLI
+        if: ${{ !cancelled() && steps.jai-format.outcome == 'success' && contains(matrix.parts, ',jai,') }}
+        run: node tools/browser/check_jaifmt_wasm.mjs declarations target/jaifmt
       # After the Jai format check, which builds the jaifmt binary the generator tests format with.
       - name: Policy tests
         id: policy
@@ -537,7 +569,23 @@ jobs:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: |
           cargo build --locked -p jacket -p jaic-cli
-          target/debug/jacket doc --check
+          PATH="$PWD/target:$PATH" target/debug/jacket doc --check
+      - name: CommonMark and installed documentation URL conformance
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') && matrix.runner == 'ubuntu-24.04' }}
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+          JAIC_STDLIB: ${{ github.workspace }}/stdlib
+          CARGO_BUILD_JOBS: '2'
+        run: |
+          python3 tools/ci/check_doc_commonmark.py --work "$RUNNER_TEMP/jacket-commonmark-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          python3 tools/ci/check_doc_highlighting.py --work "$RUNNER_TEMP/jacket-doc-highlighting-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          python3 tools/ci/check_doc_conditionals.py --work "$RUNNER_TEMP/jacket-doc-conditionals-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          python3 tools/ci/check_doc_examples.py --work "$RUNNER_TEMP/jacket-doc-examples-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          node tools/dev/doc_examples.mjs "$RUNNER_TEMP/jacket-doc-examples-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$RUNNER_TEMP/jacket-doc-examples-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-browser.json"
+          python3 tools/ci/check_doc_coloring.py --out "$RUNNER_TEMP/jacket-doc-coloring-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
+          node --test tools/bench/test_doc_browser_accounting.mjs tools/bench/doc_browser_pointer.test.mjs
+          PATH="$PWD/target:$PATH" python3 tools/ci/check_doc_resolver.py --jacket "$PWD/target/debug/jacket" --work "$RUNNER_TEMP/jacket-doc-resolver-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          python3 tools/ci/check_installed_docs.py --jacket "$PWD/target/debug/jacket" --jaic "$PWD/target/debug/jaic" --formatter "$PWD/target/jaifmt" --work "$RUNNER_TEMP/jacket-installed-docs-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
       - name: Native Linux File_Watcher ownership and notifications
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && runner.os == 'Linux' && contains(matrix.parts, ',jai,') }}
         id: file-watcher-native
@@ -1912,3 +1960,8 @@ jobs:
           name: smoke-screenshots-windows-x64
           path: target/smoke-screenshots
           if-no-files-found: ignore
+
+  docs-producer:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' && contains(fromJSON(needs.changes.outputs.jobs), 'docs-producer')
+    uses: ./.github/workflows/docs-producer.yml

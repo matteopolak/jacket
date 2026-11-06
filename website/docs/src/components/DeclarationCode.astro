@@ -1,0 +1,18 @@
+---
+import type { Declaration, Target } from '../generated/doc-site.js';
+import ResolvedText from './ResolvedText.astro';
+import Document from './Document.astro';
+interface Props { declaration: Declaration; href: (target: Target) => string; comments?: boolean }
+const { declaration, href, comments = true } = Astro.props;
+---
+{declaration.definitions.map((definition,index)=><Fragment>
+  {comments&&index>0&&JSON.stringify(definition.docs)!==JSON.stringify(declaration.definitions[0]?.docs)&&<Document nodes={definition.docs} href={href}/>}
+  <pre class="sig decl semantic-declaration" id={comments?definition.id:undefined}><code><ResolvedText text={definition.code} href={href} anchors={comments?definition.anchors:undefined} lines comments={comments}/></code></pre>
+</Fragment>)}
+<style>
+.semantic-declaration {margin:0 0 20px;padding:14px 18px;background:var(--sunken);border-radius:8px;font-size:13.5px;line-height:1.75;overflow-wrap:anywhere;white-space:pre-wrap;}
+.semantic-declaration>code {font:inherit;white-space:inherit;overflow-wrap:inherit;word-break:normal;}
+.semantic-declaration :global(.formatted-line) {display:inline-block;min-width:100%;vertical-align:top;min-height:1lh;}
+.semantic-declaration :global(.formatted-line:has(:target)) {background:color-mix(in srgb,var(--fg) 8%,transparent);border-radius:4px;}
+.semantic-declaration :global([id]) {scroll-margin-top:calc(var(--header-offset) + 20px);}
+</style>

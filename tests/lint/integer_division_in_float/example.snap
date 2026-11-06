@@ -9,7 +9,9 @@ warning[integer_division_in_float]: integer division `done / total` is converted
    |
 help: divide as floats: `cast(float) done / total`
    |
+ 5       total := 4;
  6 ~     ratio := cast(float) (cast(float) done / total);
+ 7       print("%\n", ratio);
    |
    = note: `integer_division_in_float` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/integer_division_in_float

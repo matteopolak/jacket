@@ -9,14 +9,11 @@ warning[identical_branches]: both branches of this `if` are the same
    |
 help: the condition decides nothing: was one branch meant to differ?
    |
- 5 -     if n > 2 {
+ 4       n := 3;
+ 5 ~     {
  6 -         print("big\n");
  7 -     } else {
- 8 -         print("big\n");
- 9 -     }
- 5 +     {
- 6 +         print("big\n");
- 7 +     }
+ 8           print("big\n");
    |
    = note: `identical_branches` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/identical_branches
@@ -29,7 +26,9 @@ warning[identical_branches]: both branches of this `ifx` are the same
    |
 help: the condition decides nothing: was one branch meant to differ?
    |
+10
 11 ~     label := "pos";
+12
    |
    = note: `identical_branches` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/identical_branches

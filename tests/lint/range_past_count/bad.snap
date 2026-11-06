@@ -9,7 +9,9 @@ error[range_past_count]: `names.count` is one past the last index of `names`
    |
 help: ranges include their end: write `names.count - 1`
    |
+ 4       names := string.["a", "b", "c"];
  5 ~     for i: 0..names.count - 1 {
+ 6           print("%\n", names[i]);
    |
    = note: `range_past_count` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/range_past_count

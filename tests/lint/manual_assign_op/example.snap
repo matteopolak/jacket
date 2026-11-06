@@ -9,7 +9,9 @@ warning[manual_assign_op]: `total` is updated with `+` spelled out
    |
 help: write `total += price`
    |
+ 6
  7 ~     total += price;
+ 8
    |
    = note: `manual_assign_op` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_assign_op

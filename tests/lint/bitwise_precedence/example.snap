@@ -9,7 +9,9 @@ warning[bitwise_precedence]: `<<` binds tighter than `-` in Jai, unlike in C
    |
 help: `<<` binds first here: write `(1 << bits)`
    |
+ 3   low_bits :: (bits: int) -> int {
  4 ~     return (1 << bits) - 1;
+ 5   }
    |
    = note: `bitwise_precedence` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bitwise_precedence

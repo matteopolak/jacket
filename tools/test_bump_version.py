@@ -1,4 +1,5 @@
 import tempfile
+import json
 import unittest
 from pathlib import Path
 
@@ -39,6 +40,52 @@ class Bump(unittest.TestCase):
         changelog = bv.read(self.root, "CHANGELOG.md")
         self.assertTrue(changelog.startswith("# Changelog\n\n## [0.2.0] - 2026-02-02\n\n## [0.1.0]"))
         self.assertEqual(bv.disagreements(self.root), [])
+
+    def docs_builder(self):
+        builder = self.root / "website/docs"
+        builder.mkdir(parents=True)
+        package = {"name": "owned-builder", "version": "0.1.0", "dependencies": {"owned": "0.1.0"}}
+        lock = {"name": package["name"], "version": "0.1.0", "lockfileVersion": 3,
+                "packages": {"": package.copy(), "node_modules/owned": {"version": "0.1.0", "integrity": "unchanged"}}}
+        for name, data in (("package.json", package), ("package-lock.json", lock)):
+            (builder / name).write_text(json.dumps(data, indent=2) + "\n")
+        return builder, package, lock
+
+    def test_docs_builder_identity_moves_with_jacket_without_changing_dependency_pins(self):
+        builder, package, lock = self.docs_builder()
+        bv.bump(self.root, "0.2.0", "2026-02-02")
+        updated = json.loads((builder / "package.json").read_text())
+        locked = json.loads((builder / "package-lock.json").read_text())
+        self.assertEqual(updated["version"], "0.2.0")
+        self.assertEqual(locked["version"], "0.2.0")
+        self.assertEqual(locked["packages"][""]["version"], "0.2.0")
+        self.assertEqual(updated["dependencies"], package["dependencies"])
+        self.assertEqual(locked["packages"]["node_modules/owned"], lock["packages"]["node_modules/owned"])
+        self.assertEqual(locked["packages"][""]["dependencies"], package["dependencies"])
+        self.assertEqual(bv.disagreements(self.root), [])
+
+    def test_check_reports_each_stale_docs_builder_identity(self):
+        builder, _, _ = self.docs_builder()
+        for filename, path in (("package.json", ("version",)), ("package-lock.json", ("version",)),
+                               ("package-lock.json", ("packages", "", "version"))):
+            source = builder / filename
+            data = json.loads(source.read_text())
+            current = data
+            for part in path[:-1]:
+                current = current[part]
+            current[path[-1]] = "stale"
+            source.write_text(json.dumps(data))
+        problems = bv.disagreements(self.root)
+        self.assertEqual(len(problems), 3)
+        self.assertTrue(all("website/docs/" in problem for problem in problems))
+
+    def test_malformed_builder_metadata_does_not_leave_a_partial_bump(self):
+        builder, _, _ = self.docs_builder()
+        (builder / "package-lock.json").write_text("{")
+        before = (self.root / "Cargo.toml").read_text()
+        with self.assertRaisesRegex(SystemExit, "package-lock.json"):
+            bv.bump(self.root, "0.2.0", "2026-02-02")
+        self.assertEqual((self.root / "Cargo.toml").read_text(), before)
 
     def test_existing_changelog_section_is_kept(self):
         (self.root / "CHANGELOG.md").write_text("# Changelog\n\n## [0.2.0] - 2026-01-05\n\nWritten.\n")

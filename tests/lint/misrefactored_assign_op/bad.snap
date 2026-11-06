@@ -9,7 +9,9 @@ error[misrefactored_assign_op]: `total += total + ...` applies `+` to `total` tw
    |
 help: `+=` already starts from `total`: write `total += 5`
    |
+ 8       total := 0;
  9 ~     total += 5;
+10       s: State;
    |
    = note: `misrefactored_assign_op` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op
@@ -22,7 +24,9 @@ error[misrefactored_assign_op]: `s.score *= s.score * ...` applies `*` to `s.sco
    |
 help: `*=` already starts from `s.score`: write `s.score *= 2`
    |
+10       s: State;
 11 ~     s.score *= 2;
+12       mask: u32 = 0xF0;
    |
    = note: `misrefactored_assign_op` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op
@@ -35,7 +39,9 @@ error[misrefactored_assign_op]: `mask |= mask | ...` applies `|` to `mask` twice
    |
 help: `|=` already starts from `mask`: write `mask |= 1`
    |
+12       mask: u32 = 0xF0;
 13 ~     mask |= 1;
+14       f := 1.5;
    |
    = note: `misrefactored_assign_op` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op
@@ -48,7 +54,9 @@ error[misrefactored_assign_op]: `f -= f - ...` applies `-` to `f` twice
    |
 help: `-=` already starts from `f`: write `f -= 0.5`
    |
+14       f := 1.5;
 15 ~     f -= 0.5;
+16       xs: [4] int;
    |
    = note: `misrefactored_assign_op` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op
@@ -61,7 +69,9 @@ error[misrefactored_assign_op]: `xs[i] += xs[i] + ...` applies `+` to `xs[i]` tw
    |
 help: `+=` already starts from `xs[i]`: write `xs[i] += 3`
    |
+17       i := 1;
 18 ~     xs[i] += 3;
+19       print("% % % % %\n", total, s, mask, f, xs);
    |
    = note: `misrefactored_assign_op` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/misrefactored_assign_op

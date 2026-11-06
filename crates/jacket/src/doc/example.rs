@@ -1,10 +1,7 @@
 //! Examples: the ```` ```jai ```` blocks of doc comments, shown as `jacket test` reads them and
 //! run in the browser as the very program it builds for them.
-use super::highlight;
-use super::markdown::esc;
 use super::model::Module;
 use super::site::Site;
-use super::view::Example;
 use crate::test::doctest::{self, Block, Mode};
 use crate::test::options::Target;
 use sha2::{Digest, Sha256};
@@ -64,13 +61,6 @@ fn standalone_ok(block: &Block, module: &str) -> bool {
         && doctest::standalone(block, module).is_some()
 }
 
-fn template_json(t: &doctest::Template) -> serde_json::Value {
-    serde_json::json!({
-        "head": t.head, "middle": t.middle, "tail": t.tail,
-        "wrapped": t.wrapped, "pad": t.pad_blank,
-    })
-}
-
 /// The block a fence describes, or `None` when the fence is not Jai.
 fn block(info: &str, code: &str, (file, line): (&str, usize), notes: &[String]) -> Option<Block> {
     let mut lines = vec![format!("```{info}")];
@@ -87,77 +77,87 @@ fn block(info: &str, code: &str, (file, line): (&str, usize), notes: &[String]) 
     Some(found)
 }
 
-/// A code block that is not an example: highlighted when it is Jai (or says nothing).
-pub fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> Example {
-    let lang = info.split([',', ' ']).next().unwrap_or("");
-    let body = if lang.is_empty() || lang == "jai" {
-        highlight::jai(code.trim_end(), &|name| site.call_link(module, name))
-    } else {
-        highlight::other(lang, code.trim_end()).unwrap_or_else(|| esc(code.trim_end()))
-    };
-    Example {
-        plain: true,
-        compact: false,
-        code_html: body,
-        id: None,
-        note: None,
-        playground_url: None,
-    }
-}
-
-/// A fenced block of a doc comment: an example with buttons when it is ```` ```jai ````, else
-/// plain code. `file` and `line` say where the comment is, for the program's header.
-pub fn view(
+/// Example data for static builders. Extraction records eligibility and programs without executing them.
+pub(super) fn exported(
     site: &Site,
     module: &Module,
     (file, line): (&str, usize),
     (info, code): (&str, &str),
-    compact: bool,
-) -> Example {
-    let Some(block) = block(info, code, (file, line), &module.test_notes) else {
-        return plain_code(site, module, info, code);
+    source: super::export::contract::ResolvedText,
+) -> super::export::contract::Example {
+    use super::export::contract::{Capability, Example as Data, Location, ProgramTemplate};
+    let make_template = |t: doctest::Template| ProgramTemplate {
+        head: t.head,
+        middle: t.middle,
+        tail: t.tail,
+        wrapped: t.wrapped,
+        pad: t.pad_blank,
     };
-    let shown = highlight::jai(code.trim_end(), &|name| site.call_link(module, name));
-    let skipped = why_not_run(&block);
-    let text = skipped
-        .is_none()
-        .then(|| doctest::generate(&block, &module.id).0);
-    if let Some(text) = &text {
-        site.add_runnable(
-            &program_id(text),
-            super::example_check::Program {
-                label: format!("{}:{}", block.file.display(), block.line),
-                text: text.clone(),
-                timeout: block.options.timeout,
-            },
-        );
-    }
-    let note = skipped.or_else(|| (!site.runtime).then(|| NO_RUNTIME.to_owned()));
-    let program = text.filter(|_| note.is_none()).map(|text| {
-        let parts = serde_json::json!({
-            "run": template_json(&doctest::generate_template(&block, &module.id)),
-            "open": standalone_ok(&block, &module.id)
-                .then(|| template_json(&doctest::standalone_template(&block, &module.id))),
-            "playground": site.playground,
+    let parsed = block(info, code, (file, line), &module.test_notes);
+    let reason = parsed
+        .as_ref()
+        .and_then(why_not_run)
+        .or_else(|| (parsed.is_some() && !site.runtime).then(|| NO_RUNTIME.to_owned()));
+    let program = parsed
+        .as_ref()
+        .filter(|b| why_not_run(b).is_none())
+        .map(|b| doctest::generate(b, module.import_name()).0);
+    if let (Some(program), Some(block)) = (&program, &parsed) {
+        site.add_runnable(super::example_check::Program {
+            label: format!("{}:{}", block.file.display(), block.line),
+            text: program.clone(),
+            timeout: block.options.timeout,
         });
-        site.add_example(&text, parts.to_string())
-    });
-    let standalone = (standalone_ok(&block, &module.id) && !site.playground.is_empty())
-        .then(|| doctest::standalone(&block, &module.id))
-        .flatten()
-        .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));
-    Example {
-        plain: false,
-        compact,
-        code_html: shown,
-        id: program,
-        note,
-        playground_url: standalone,
     }
+    let run_template = parsed
+        .as_ref()
+        .filter(|_| reason.is_none())
+        .map(|b| make_template(doctest::generate_template(b, module.import_name())));
+    let open_template = parsed
+        .as_ref()
+        .filter(|b| standalone_ok(b, module.import_name()))
+        .map(|b| make_template(doctest::standalone_template(b, module.import_name())));
+    let playground_url = parsed
+        .as_ref()
+        .filter(|b| standalone_ok(b, module.import_name()) && !site.playground.is_empty())
+        .and_then(|b| doctest::standalone(b, module.import_name()))
+        .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));
+    let mut example = Data {
+        id: String::new(),
+        language: info.split([',', ' ']).next().unwrap_or("").into(),
+        source,
+        fence: info.into(),
+        location: Location {
+            file: file.into(),
+            line: line as u64,
+        },
+        runnable: parsed.is_some() && reason.is_none(),
+        reason,
+        program,
+        run_template,
+        open_template,
+        playground_url,
+        timeout_ms: parsed
+            .as_ref()
+            .and_then(|b| b.options.timeout)
+            .unwrap_or(60)
+            .saturating_mul(1_000),
+        capabilities: if parsed.is_some() {
+            vec![Capability::BrowserRuntime, Capability::EditableExamples]
+        } else {
+            Vec::new()
+        },
+    };
+    // Asset identity includes timeout, source links and templates as well as the executable.
+    // The empty ID avoids hashing itself; execution checks separately key exact program and budget.
+    example.id =
+        asset_id(&serde_json::to_string(&example).expect("serialize documentation example"));
+    example
 }
 
-/// The file name an example program is stored under: a digest of its text.
-pub fn program_id(text: &str) -> String {
+/// A browser asset ID hashes the complete serialized example, including its budget.
+/// For example, otherwise identical one- and two-second examples have distinct IDs.
+fn asset_id(text: &str) -> String {
     let digest = Sha256::digest(text.as_bytes());
     digest.iter().take(6).map(|b| format!("{b:02x}")).collect()
 }
@@ -165,6 +165,222 @@ pub fn program_id(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn import_context_preserves_stdlib_and_external_example_programs() {
+        use super::super::export::{build, contract::ResolvedText, publication::Publication};
+        let temp = test_support::TempDir::new("doc-example-import-context");
+        let stdlib = temp.join("stdlib");
+        let external = temp.join("project");
+        let mut stdlib_examples = Vec::new();
+        let mut imports = Vec::new();
+        for (root, id, expected) in [
+            (stdlib.clone(), "Extensions/Widget", "Extensions/Widget"),
+            (stdlib.join("Extensions"), "Widget", "Extensions/Widget"),
+            (external, "Acme/Widget", "Acme/Widget"),
+        ] {
+            let directory = root.join(id);
+            std::fs::create_dir_all(&directory).unwrap();
+            std::fs::write(directory.join("module.jai"), "// An owned module.\n").unwrap();
+            let raw = jaic::doc_comments::model_json(&directory, &stdlib);
+            let module = super::super::model::parse(id, &raw, &root, &stdlib).unwrap();
+            assert_eq!(module.id, id);
+            assert_eq!(
+                module.doc_key,
+                if id == "Acme/Widget" {
+                    "Widget"
+                } else {
+                    "Extensions/Widget"
+                }
+            );
+            let site = Site::new(
+                vec![module],
+                vec![],
+                "/nested/docs/".into(),
+                String::new(),
+                String::new(),
+                "https://example.invalid/play".into(),
+                true,
+            );
+            let example = exported(
+                &site,
+                &site.modules[0],
+                ("fixture.jai", 3),
+                ("jai", "value := 1;"),
+                ResolvedText {
+                    source: "value := 1;".into(),
+                    spans: vec![],
+                },
+            );
+            let block = block("jai", "value := 1;", ("fixture.jai", 3), &[]).unwrap();
+            assert_eq!(
+                example.program.as_deref(),
+                Some(doctest::generate(&block, expected).0.as_str()),
+                "{id}: executable program"
+            );
+            let run = example.run_template.as_ref().unwrap();
+            let expected_run = doctest::generate_template(&block, expected);
+            assert_eq!(
+                (&run.head, &run.middle, &run.tail),
+                (&expected_run.head, &expected_run.middle, &expected_run.tail),
+                "{id}: editable Run template"
+            );
+            let open = example.open_template.as_ref().unwrap();
+            let expected_open = doctest::standalone_template(&block, expected);
+            assert_eq!(
+                (&open.head, &open.middle, &open.tail),
+                (
+                    &expected_open.head,
+                    &expected_open.middle,
+                    &expected_open.tail
+                ),
+                "{id}: Open template"
+            );
+            assert_eq!(
+                example.playground_url,
+                Some(format!(
+                    "https://example.invalid/play#code={}",
+                    base64url(doctest::standalone(&block, expected).unwrap().as_bytes())
+                ))
+            );
+            assert_eq!(site.runnable()[0].text, example.program.as_deref().unwrap());
+            let publication = Publication {
+                origin: String::new(),
+                base: "/nested/docs/".into(),
+                name: "Fixture".into(),
+                image: String::new(),
+                version: String::new(),
+                canonical_version: None,
+                image_file: None,
+            };
+            let formatted = super::super::declaration_format::Batch::prepare(&site, &temp).unwrap();
+            let data = build::module(
+                &site,
+                0,
+                &|_, sha256| {
+                    Ok(super::super::export::contract::InputDigest {
+                        path: "fixture.jai".into(),
+                        sha256: sha256.into(),
+                    })
+                },
+                &publication,
+                &formatted,
+            )
+            .unwrap();
+            let wire = serde_json::to_value(data).unwrap();
+            assert_eq!(wire["id"], id);
+            imports.push((wire, expected));
+            if expected == "Extensions/Widget" {
+                stdlib_examples.push(serde_json::to_value(example).unwrap());
+            }
+        }
+        assert_eq!(
+            stdlib_examples[0], stdlib_examples[1],
+            "selecting the stdlib module alone cannot change its executable examples"
+        );
+        for (wire, expected) in imports {
+            assert_eq!(wire["importPath"], expected, "advertised import");
+        }
+    }
+
+    #[test]
+    fn repeated_programs_keep_distinct_example_payload_identity() {
+        use super::super::export::contract::ResolvedText;
+        let site = Site::new(
+            vec![],
+            vec![],
+            "/".into(),
+            String::new(),
+            String::new(),
+            String::new(),
+            true,
+        );
+        let module = Module {
+            id: "Tiny".into(),
+            wasm: true,
+            ..Module::default()
+        };
+        let source = || ResolvedText {
+            source: "value := 1;".into(),
+            spans: vec![],
+        };
+        let first = exported(
+            &site,
+            &module,
+            ("first.jai", 3),
+            ("jai,timeout(1)", "value := 1;"),
+            source(),
+        );
+        let repeated = exported(
+            &site,
+            &module,
+            ("first.jai", 3),
+            ("jai,timeout(2)", "value := 1;"),
+            source(),
+        );
+        assert_eq!((first.timeout_ms, repeated.timeout_ms), (1_000, 2_000));
+        assert_eq!(
+            first.program, repeated.program,
+            "execution cache may share identical programs"
+        );
+        assert_ne!(
+            first.id, repeated.id,
+            "different execution timeouts must not collide in example assets"
+        );
+        let same = exported(
+            &site,
+            &module,
+            ("first.jai", 3),
+            ("jai,timeout(1)", "value := 1;"),
+            source(),
+        );
+        assert_eq!(
+            first.id, same.id,
+            "identical complete payloads retain stable assets"
+        );
+    }
+
+    #[test]
+    fn example_validation_keeps_distinct_budgets_for_identical_programs() {
+        use super::super::export::contract::ResolvedText;
+        let site = Site::new(
+            vec![],
+            vec![],
+            "/".into(),
+            String::new(),
+            String::new(),
+            String::new(),
+            true,
+        );
+        let module = Module {
+            id: "Tiny".into(),
+            wasm: true,
+            ..Module::default()
+        };
+        for info in ["jai,timeout(1)", "jai,timeout(2)", "jai,timeout(1)"] {
+            exported(
+                &site,
+                &module,
+                ("example.jai", 3),
+                (info, "value := 1;"),
+                ResolvedText {
+                    source: "value := 1;".into(),
+                    spans: vec![],
+                },
+            );
+        }
+        let mut budgets = site
+            .runnable()
+            .into_iter()
+            .map(|program| program.timeout)
+            .collect::<Vec<_>>();
+        budgets.sort_unstable();
+        assert_eq!(
+            budgets,
+            [Some(1), Some(2)],
+            "only identical execution program and budget may share a validation job"
+        );
+    }
 
     #[test]
     fn base64_url_has_no_padding() {

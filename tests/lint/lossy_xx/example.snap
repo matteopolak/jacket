@@ -9,6 +9,8 @@ warning[lossy_xx]: `xx` converts `s64` to `u16`, which can lose the high bits
    |
 help: write `cast(u16)` to make the conversion visible
    |
+ 4       big := 70000;
  5 ~     small: u16 = cast(u16) big;
+ 6       print("%\n", small);
    |
    = note: see https://jacket.matteopolak.com/lint-rules/lossy_xx

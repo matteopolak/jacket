@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {checkSite} from '../scripts/check-site.mjs';
+
+test('whole output validation rejects invalid HTML content models that parsers repair or accept',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'jacket-html-standard-'));
+  try {
+    const page=(body:string)=>`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Fixture</title></head><body>${body}</body></html>`;
+    await writeFile(join(root,'index.html'),page('<main><h1>Fixture</h1><span><div>Invalid phrasing content</div></span></main>'));
+    await assert.rejects(checkSite(root,'/'),/element-permitted-content/);
+    await writeFile(join(root,'index.html'),page('<main><h1>Fixture</h1><p>Valid content.</p></main>'));
+    assert.equal((await checkSite(root,'/')).pages,1);
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+
+test('production branding keeps the configured name separate from breadcrumb labels',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'jacket-html-brand-'));
+  try {
+    const {mkdir}=await import('node:fs/promises');await mkdir(join(root,'api'));
+    const page=(title:string)=>`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${title}</title><meta property="og:title" content="${title}"><meta property="og:site_name" content="Jacket"></head><body><header><a href="/"><span class="wordmark">Jacket</span></a></header><main><h1>Fixture</h1></main></body></html>`;
+    await writeFile(join(root,'index.html'),page('Jacket'));
+    await writeFile(join(root,'api/Basic.html'),page('Basic — Jacket std'));
+    await assert.rejects(checkSite(root,'/',{name:'Jacket',homeTitle:'Jacket',socialName:'Jacket'}),/branding/);
+    await writeFile(join(root,'api/Basic.html'),page('Basic — Jacket'));
+    assert.equal((await checkSite(root,'/',{name:'Jacket',homeTitle:'Jacket',socialName:'Jacket'})).pages,2);
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+
+test('whole-tree standards validation resolves fixed configuration once without sharing page rule state',async()=>{
+  const {HtmlValidate,StaticConfigLoader}=await import('html-validate');
+  const root=await mkdtemp(join(tmpdir(),'jacket-html-config-'));
+  const page=(body:string)=>`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Fixture</title></head><body><main><h1>Fixture</h1>${body}</main></body></html>`;
+  const corpus=new Map([
+    ['first.html',page('<p id="repeated">Valid content.</p>')],
+    ['nesting.html',page('<span><div>Invalid nesting</div></span>')],
+    ['attribute.html',page('<input type="not-a-real-type">')],
+    ['duplicate.html',page('<p id="repeated">One</p><p id="repeated">Two</p>')],
+  ]);
+  const resolve=StaticConfigLoader.prototype.getConfigFor;
+  const validate=HtmlValidate.prototype.validateString;
+  let resolutions=0;
+  const observed=new Map<string,unknown>();
+  const messages=(report:import('html-validate').Report)=>report.results.map(result=>({filePath:result.filePath,messages:result.messages.map(({line,column,ruleId,severity,message})=>({line,column,ruleId,severity,message}))}));
+  try {
+    for(const [name,source] of corpus)await writeFile(join(root,name),source);
+    StaticConfigLoader.prototype.getConfigFor=function(filename,override){resolutions++;return resolve.call(this,filename,override);};
+    HtmlValidate.prototype.validateString=async function(...args:unknown[]){const report=await Reflect.apply(validate,this,args) as import('html-validate').Report;observed.set(String(args[1]),messages(report));return report;};
+    await assert.rejects(checkSite(root,'/'),error=>error instanceof Error&&/nesting\.html/u.test(error.message)&&/attribute\.html/u.test(error.message)&&/duplicate\.html/u.test(error.message));
+    assert.equal(observed.size,corpus.size,'every page still receives full standards validation');
+    assert(resolutions<=1,`fixed standards configuration resolved ${resolutions} times`);
+  } finally {
+    StaticConfigLoader.prototype.getConfigFor=resolve;
+    HtmlValidate.prototype.validateString=validate;
+    await rm(root,{recursive:true,force:true});
+  }
+  const independent=new HtmlValidate({root:true,extends:['html-validate:standard']});
+  for(const [name,source] of corpus)assert.deepEqual(observed.get(name),messages(await independent.validateString(source,name)),`unchanged standards diagnostics for ${name}`);
+});

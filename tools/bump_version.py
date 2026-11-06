@@ -10,10 +10,12 @@ fuzz/Cargo.lock that carry that version, and renames CHANGELOG.md's `## [Unrelea
 `## [X.Y.Z] - <today>` (or adds that header when there is no such section and none for X.Y.Z yet).
 The generated copies (jaifmt/version.jai, editors/nvim/lua/jai/version.lua) are rewritten by
 tools/generators/generate_version_files.py, which this runs last. editors/vscode/package.json is left
-alone: the release workflow stamps its version (docs/tools/releases.md).
+alone: the release workflow stamps its version (docs/tools/releases.md). The optional Astro docs
+builder package and both of its lockfile root versions move with Jacket; dependency versions stay unchanged.
 """
 import argparse
 import datetime
+import json
 import re
 import subprocess
 import sys
@@ -25,6 +27,10 @@ from toolkit.version import WORKSPACE_VERSION, workspace_version
 SEMVER = re.compile(r"\d+\.\d+\.\d+")
 LOCKS = ("Cargo.lock", "fuzz/Cargo.lock")
 MANIFESTS = ("Cargo.toml", "fuzz/Cargo.toml")
+DOCS_VERSIONS = {
+    "website/docs/package.json": (("version",),),
+    "website/docs/package-lock.json": (("version",), ("packages", "", "version")),
+}
 # A lock entry for a path package has no `source =` line right after its version.
 PATH_PACKAGE = re.compile(r'(\[\[package\]\]\nname = "[^"]+"\nversion = ")([^"]+)("\n)(?!source)')
 
@@ -35,6 +41,26 @@ def read(root, rel):
 
 def lock_versions(text):
     return [m.group(2) for m in PATH_PACKAGE.finditer(text)]
+
+
+def docs_metadata(root):
+    """Read optional builder identities before any edit; malformed JSON must not cause a partial bump."""
+    files, problems = {}, []
+    for rel, paths in DOCS_VERSIONS.items():
+        if not (root / rel).exists():
+            continue
+        try:
+            data = json.loads(read(root, rel))
+            for path in paths:
+                current = data
+                for key in path:
+                    current = current[key]
+                if not isinstance(current, str):
+                    raise ValueError("version fields must be strings")
+            files[rel] = data
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            problems.append(f"{rel}: malformed docs builder version metadata: {error}")
+    return files, problems
 
 
 def disagreements(root):
@@ -48,6 +74,16 @@ def disagreements(root):
             stale = sorted({v for v in lock_versions(read(root, lock)) if v not in (version, "0.0.0")})
             if stale:
                 problems.append(f"{lock} has workspace packages at {', '.join(stale)}, Cargo.toml says {version}")
+    docs, malformed = docs_metadata(root)
+    problems.extend(malformed)
+    for rel, data in docs.items():
+        for path in DOCS_VERSIONS[rel]:
+            current = data
+            for key in path:
+                current = current[key]
+            if current != version:
+                field = "packages[''].version" if len(path) > 1 else "version"
+                problems.append(f"{rel} {field} is {current}, Cargo.toml says {version}")
     return problems
 
 
@@ -82,7 +118,17 @@ def bump(root, new, today=None):
     old = workspace_version(root)
     if old == new:
         raise SystemExit(f"already at {new}")
+    docs, problems = docs_metadata(root)
+    if problems:
+        raise SystemExit("\n".join(problems))
     edits = {"Cargo.toml": bump_cargo_toml(read(root, "Cargo.toml"), new)}
+    for rel, data in docs.items():
+        for path in DOCS_VERSIONS[rel]:
+            current = data
+            for key in path[:-1]:
+                current = current[key]
+            current[path[-1]] = new
+        edits[rel] = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     for lock in LOCKS:
         if (root / lock).exists():
             edits[lock] = bump_lock(read(root, lock), old, new)

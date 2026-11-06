@@ -5,11 +5,13 @@ warning[neg_cmp_float]: `!(x < limit)` is not `x >= limit` when a float is NaN
   --> tests/lint/neg_cmp_float/bad.jai:4:8
    |
  4 |     if !(x < limit) return false;
-   |        ^^^^^^^^^^^
+   |        ^^^^^^^^^^^^
    |
 help: write the inverted comparison if NaN should not take the branch, or test for NaN explicitly if it should
    |
+ 3   inside :: (x: float, limit: float, lo: float64) -> bool {
  4 ~     if x >= limit return false;
+ 5
    |
    = note: see https://jacket.matteopolak.com/lint-rules/neg_cmp_float
 
@@ -17,22 +19,26 @@ warning[neg_cmp_float]: `!(x >= lo * 2)` is not `x < lo * 2` when a float is NaN
   --> tests/lint/neg_cmp_float/bad.jai:6:11
    |
  6 |     ok := !(x >= lo * 2) && true;
-   |           ^^^^^^^^^^^^^
+   |           ^^^^^^^^^^^^^^
    |
 help: write the inverted comparison if NaN should not take the branch, or test for NaN explicitly if it should
    |
+ 5
  6 ~     ok := x < lo * 2 && true;
+ 7
    |
    = note: see https://jacket.matteopolak.com/lint-rules/neg_cmp_float
 
 warning[neg_cmp_float]: `!(lo <= 1.5)` is not `lo > 1.5` when a float is NaN
-  --> tests/lint/neg_cmp_float/bad.jai:8:14
+  --> tests/lint/neg_cmp_float/bad.jai:8:13
    |
  8 |     wide := (!(lo <= 1.5)) == ok;
-   |              ^^^^^^^^^^^
+   |             ^^^^^^^^^^^^^^
    |
 help: write the inverted comparison if NaN should not take the branch, or test for NaN explicitly if it should
    |
+ 7
  8 ~     wide := (lo > 1.5) == ok;
+ 9
    |
    = note: see https://jacket.matteopolak.com/lint-rules/neg_cmp_float

@@ -1,0 +1,2328 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Payload",
+  "description": "All payload shapes used to generate the one consumer schema without hand-maintained types.",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/Manifest"
+        },
+        "payload": {
+          "type": "string",
+          "const": "manifest"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "payload",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/SiteData"
+        },
+        "payload": {
+          "type": "string",
+          "const": "site"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "payload",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/ApiModule"
+        },
+        "payload": {
+          "type": "string",
+          "const": "module"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "payload",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/DocumentPage"
+        },
+        "payload": {
+          "type": "string",
+          "const": "document"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "payload",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/SearchData"
+        },
+        "payload": {
+          "type": "string",
+          "const": "search"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "payload",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/Example"
+        },
+        "payload": {
+          "type": "string",
+          "const": "example"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "payload",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/NavigationData"
+        },
+        "payload": {
+          "type": "string",
+          "const": "navigation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "payload",
+        "data"
+      ]
+    }
+  ],
+  "$defs": {
+    "Alignment": {
+      "type": "string",
+      "enum": [
+        "none",
+        "left",
+        "center",
+        "right"
+      ]
+    },
+    "ApiModule": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Declaration"
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InputDigest"
+          }
+        },
+        "docs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DocumentNode"
+          }
+        },
+        "experimental": {
+          "type": "boolean"
+        },
+        "group": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "implicit": {
+          "type": "boolean"
+        },
+        "importPath": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/PageMetadata"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          }
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "since": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Location"
+        },
+        "sourceUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "wasm": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "importPath",
+        "title",
+        "source",
+        "docs",
+        "implicit",
+        "experimental",
+        "wasm",
+        "since",
+        "platforms",
+        "group",
+        "parameters",
+        "declarations",
+        "dependencies",
+        "metadata"
+      ]
+    },
+    "Asset": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/AssetProvenance"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "mediaType",
+        "sha256",
+        "bytes",
+        "provenance"
+      ]
+    },
+    "AssetProvenance": {
+      "type": "string",
+      "enum": [
+        "configured_logo",
+        "configured_image",
+        "browser_runtime",
+        "generated_metadata"
+      ]
+    },
+    "BreadcrumbEntry": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "position",
+        "name"
+      ]
+    },
+    "Capability": {
+      "type": "string",
+      "enum": [
+        "browser_runtime",
+        "editable_examples"
+      ]
+    },
+    "Category": {
+      "type": "object",
+      "properties": {
+        "badge": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "darkColor": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tip": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "badge",
+        "tip",
+        "color",
+        "darkColor"
+      ]
+    },
+    "Declaration": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "type": "boolean"
+        },
+        "docs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DocumentNode"
+          }
+        },
+        "experimental": {
+          "type": "boolean"
+        },
+        "group": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/DeclarationKind"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Member"
+          }
+        },
+        "metadata": {
+          "$ref": "#/$defs/PageMetadata"
+        },
+        "name": {
+          "type": "string"
+        },
+        "overloads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Overload"
+          }
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "route": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Location"
+        },
+        "sourceUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/ResolvedText"
+        },
+        "definitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FormattedDefinition"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "route",
+        "source",
+        "private",
+        "binding",
+        "experimental",
+        "since",
+        "platforms",
+        "group",
+        "docs",
+        "definitions",
+        "value",
+        "members",
+        "overloads",
+        "metadata"
+      ]
+    },
+    "DeclarationFormatProfile": {
+      "description": "Changing declaration formatting semantics requires an explicit profile version.",
+      "type": "string",
+      "enum": [
+        "documentation-declarations/1"
+      ]
+    },
+    "DeclarationKind": {
+      "type": "string",
+      "enum": [
+        "procedure",
+        "struct",
+        "union",
+        "enum",
+        "enum_flags",
+        "type",
+        "constant"
+      ]
+    },
+    "DefinitionAnchor": {
+      "type": "object",
+      "properties": {
+        "end": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "start": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "start",
+        "end"
+      ]
+    },
+    "DocumentKind": {
+      "type": "string",
+      "enum": [
+        "home",
+        "not_found",
+        "guide",
+        "tool"
+      ]
+    },
+    "DocumentNode": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "text"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "text"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "paragraph"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "const": "heading"
+            },
+            "level": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "level",
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "emphasis"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "strong"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "strikethrough"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "code"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "text"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "link"
+            },
+            "target": {
+              "$ref": "#/$defs/Target"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "target",
+            "title",
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "alternative": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "image"
+            },
+            "target": {
+              "$ref": "#/$defs/Target"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "target",
+            "title",
+            "alternative"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "list"
+            },
+            "start": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "list_item"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "quote"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "alignments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Alignment"
+              }
+            },
+            "head": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "table"
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "alignments",
+            "head",
+            "rows"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cells": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "table_row"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "cells"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentNode"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "table_cell"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "children"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hard": {
+              "type": "boolean"
+            },
+            "kind": {
+              "type": "string",
+              "const": "break"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "hard"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "rule"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "info": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "code_block"
+            },
+            "language": {
+              "type": "string"
+            },
+            "source": {
+              "$ref": "#/$defs/ResolvedText"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "source",
+            "language",
+            "info"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "example": {
+              "$ref": "#/$defs/Example"
+            },
+            "kind": {
+              "type": "string",
+              "const": "fence"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "example"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "title": {
+              "$ref": "#/$defs/ExampleTitle"
+            },
+            "kind": {
+              "type": "string",
+              "const": "example_group"
+            },
+            "note": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "result": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExampleResult"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "source": {
+              "$ref": "#/$defs/DocumentNode"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "title",
+            "source"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "after": {
+              "$ref": "#/$defs/ResolvedText"
+            },
+            "before": {
+              "$ref": "#/$defs/ResolvedText"
+            },
+            "kind": {
+              "type": "string",
+              "const": "compare"
+            },
+            "settings": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "before",
+            "after",
+            "settings"
+          ]
+        }
+      ]
+    },
+    "DocumentPage": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/DocumentKind"
+        },
+        "metadata": {
+          "$ref": "#/$defs/PageMetadata"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DocumentNode"
+          }
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Heading"
+          }
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Location"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "kind",
+        "nodes",
+        "outline",
+        "metadata"
+      ]
+    },
+    "Example": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Capability"
+          }
+        },
+        "fence": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Location"
+        },
+        "openTemplate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgramTemplate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "playgroundUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "program": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runTemplate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgramTemplate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runnable": {
+          "type": "boolean"
+        },
+        "source": {
+          "$ref": "#/$defs/ResolvedText"
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "language",
+        "source",
+        "fence",
+        "location",
+        "runnable",
+        "timeoutMs",
+        "capabilities"
+      ]
+    },
+    "ExampleResult": {
+      "description": "A generated example owns its optional result; ordinary authored fences remain independent.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/DocumentNode"
+        },
+        "kind": {
+          "$ref": "#/$defs/ExampleResultKind"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "body"
+      ]
+    },
+    "ExampleResultKind": {
+      "type": "string",
+      "enum": [
+        "diagnostic",
+        "output"
+      ]
+    },
+    "ExampleTitle": {
+      "type": "string",
+      "enum": [
+        "example",
+        "fixed"
+      ]
+    },
+    "FormattedDefinition": {
+      "type": "object",
+      "properties": {
+        "anchors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DefinitionAnchor"
+          }
+        },
+        "code": {
+          "$ref": "#/$defs/ResolvedText"
+        },
+        "docs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DocumentNode"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/DeclarationKind"
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/Location"
+        },
+        "sourceUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "platforms",
+        "scope",
+        "docs",
+        "code",
+        "anchors"
+      ]
+    },
+    "Formatter": {
+      "type": "object",
+      "properties": {
+        "indentWidth": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "maxWidth": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "profile": {
+          "$ref": "#/$defs/DeclarationFormatProfile"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sha256",
+        "profile",
+        "maxWidth",
+        "indentWidth"
+      ]
+    },
+    "Heading": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "level"
+      ]
+    },
+    "InputDigest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ]
+    },
+    "Inventory": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "bytes"
+      ]
+    },
+    "Link": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "target"
+      ]
+    },
+    "Location": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line"
+      ]
+    },
+    "Manifest": {
+      "type": "object",
+      "properties": {
+        "assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Asset"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Capability"
+          }
+        },
+        "partial": {
+          "type": "boolean"
+        },
+        "producer": {
+          "$ref": "#/$defs/Producer"
+        },
+        "schema": {
+          "$ref": "#/$defs/Schema"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "shards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Inventory"
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/SourceState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaVersion",
+        "producer",
+        "source",
+        "partial",
+        "capabilities",
+        "shards",
+        "assets"
+      ]
+    },
+    "Member": {
+      "type": "object",
+      "properties": {
+        "docs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DocumentNode"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "ty": {
+          "$ref": "#/$defs/ResolvedText"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "ty",
+        "docs"
+      ]
+    },
+    "NavigationData": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NavigationDeclaration"
+          }
+        },
+        "moduleId": {
+          "type": "string"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "moduleId",
+        "entries"
+      ]
+    },
+    "NavigationDeclaration": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "type": "boolean"
+        },
+        "experimental": {
+          "type": "boolean"
+        },
+        "group": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/DeclarationKind"
+        },
+        "name": {
+          "type": "string"
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "route": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "route",
+        "name",
+        "kind",
+        "binding",
+        "experimental",
+        "private",
+        "group"
+      ]
+    },
+    "NavigationEntry": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "depth": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "experimental": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "target",
+        "experimental",
+        "depth"
+      ]
+    },
+    "NavigationGroup": {
+      "type": "object",
+      "properties": {
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NavigationGroup"
+          }
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NavigationEntry"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "children",
+        "entries"
+      ]
+    },
+    "OpenGraphType": {
+      "type": "string",
+      "enum": [
+        "website",
+        "article"
+      ]
+    },
+    "Overload": {
+      "type": "object",
+      "properties": {
+        "docs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DocumentNode"
+          }
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          }
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          }
+        },
+        "signature": {
+          "$ref": "#/$defs/ResolvedText"
+        },
+        "source": {
+          "$ref": "#/$defs/Location"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "source",
+        "signature",
+        "docs",
+        "parameters",
+        "results",
+        "flags",
+        "platforms"
+      ]
+    },
+    "PageKind": {
+      "type": "string",
+      "enum": [
+        "home",
+        "not_found",
+        "module",
+        "declaration",
+        "guide",
+        "tool"
+      ]
+    },
+    "PageMetadata": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "canonical": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "noindex": {
+          "type": "boolean"
+        },
+        "ogType": {
+          "$ref": "#/$defs/OpenGraphType"
+        },
+        "structured": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StructuredData"
+          }
+        },
+        "twitterCard": {
+          "$ref": "#/$defs/TwitterCard"
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "description",
+        "ogType",
+        "twitterCard",
+        "noindex",
+        "structured"
+      ]
+    },
+    "PageRoute": {
+      "type": "object",
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "anchors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/PageKind"
+        },
+        "label": {
+          "type": "string"
+        },
+        "noindex": {
+          "type": "boolean"
+        },
+        "output": {
+          "type": "string"
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "route": {
+          "type": "string"
+        },
+        "shard": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "route",
+        "output",
+        "kind",
+        "anchors",
+        "aliases",
+        "private",
+        "noindex",
+        "shard"
+      ]
+    },
+    "Parameter": {
+      "type": "object",
+      "properties": {
+        "default": {
+          "$ref": "#/$defs/ResolvedText"
+        },
+        "docs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DocumentNode"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "ty": {
+          "$ref": "#/$defs/ResolvedText"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "ty",
+        "default",
+        "docs"
+      ]
+    },
+    "Producer": {
+      "type": "object",
+      "properties": {
+        "compiler": {
+          "type": "string"
+        },
+        "formatter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Formatter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "jacket": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "jacket",
+        "compiler"
+      ]
+    },
+    "ProgramTemplate": {
+      "type": "object",
+      "properties": {
+        "head": {
+          "type": "string"
+        },
+        "middle": {
+          "type": "string"
+        },
+        "pad": {
+          "type": "boolean"
+        },
+        "tail": {
+          "type": "string"
+        },
+        "wrapped": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "head",
+        "middle",
+        "tail",
+        "wrapped",
+        "pad"
+      ]
+    },
+    "ResolvedText": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "spans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TextSpan"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "spans"
+      ]
+    },
+    "Schema": {
+      "type": "string",
+      "enum": [
+        "jacket-doc-site"
+      ]
+    },
+    "SearchData": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SearchEntry"
+          }
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "entries"
+      ]
+    },
+    "SearchEntry": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "type": "boolean"
+        },
+        "category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "experimental": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SearchKind"
+        },
+        "module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "overloads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SearchSignature"
+          }
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchPreview"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "qualifiedName": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "qualifiedName",
+        "target",
+        "summary",
+        "kind",
+        "binding",
+        "experimental",
+        "overloads"
+      ]
+    },
+    "SearchKind": {
+      "type": "string",
+      "enum": [
+        "module",
+        "declaration",
+        "guide",
+        "tool"
+      ]
+    },
+    "SearchParameter": {
+      "type": "object",
+      "properties": {
+        "default": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "ty": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "ty",
+        "default"
+      ]
+    },
+    "SearchPreview": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "procedure"
+            },
+            "parameters": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SearchParameter"
+              }
+            },
+            "results": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SearchParameter"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "parameters",
+            "results"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "value"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "declaration_kind": {
+              "$ref": "#/$defs/DeclarationKind"
+            },
+            "kind": {
+              "type": "string",
+              "const": "declaration_kind"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "declaration_kind"
+          ]
+        }
+      ]
+    },
+    "SearchSignature": {
+      "type": "object",
+      "properties": {
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "parameters",
+        "results"
+      ]
+    },
+    "SiteData": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "breadcrumb": {
+          "type": "string"
+        },
+        "canonicalOrigin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canonicalVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Category"
+          }
+        },
+        "footerVersion": {
+          "type": "string"
+        },
+        "headerLinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Link"
+          }
+        },
+        "logo": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "navigation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NavigationGroup"
+          }
+        },
+        "pageBase": {
+          "type": "string"
+        },
+        "playgroundUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "repository": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PageRoute"
+          }
+        },
+        "socialImage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "socialSiteName": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description",
+        "version",
+        "footerVersion",
+        "breadcrumb",
+        "pageBase",
+        "socialSiteName",
+        "headerLinks",
+        "categories",
+        "navigation",
+        "routes"
+      ]
+    },
+    "SourceState": {
+      "type": "object",
+      "properties": {
+        "configurationDigest": {
+          "type": "string"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InputDigest"
+          }
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "dirty",
+        "configurationDigest",
+        "inputs"
+      ]
+    },
+    "StructuredData": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "headline": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "tech_article"
+            },
+            "module_name": {
+              "type": "string"
+            },
+            "url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "website_name": {
+              "type": "string"
+            },
+            "website_url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "headline",
+            "description",
+            "website_name",
+            "module_name"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "entries": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BreadcrumbEntry"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "breadcrumb_list"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "entries"
+          ]
+        }
+      ]
+    },
+    "Target": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "anchor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "page"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "external"
+            },
+            "url": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "url"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "asset"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "path"
+          ]
+        }
+      ]
+    },
+    "TextSpan": {
+      "type": "object",
+      "properties": {
+        "end": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "role": {
+          "$ref": "#/$defs/TokenRole"
+        },
+        "start": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Target"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end",
+        "role"
+      ]
+    },
+    "TokenRole": {
+      "type": "string",
+      "enum": [
+        "plain",
+        "keyword",
+        "type",
+        "string",
+        "number",
+        "comment",
+        "directive",
+        "declared_name"
+      ]
+    },
+    "TwitterCard": {
+      "type": "string",
+      "enum": [
+        "summary",
+        "summary_large_image"
+      ]
+    }
+  }
+}

@@ -9,6 +9,8 @@ warning[detached_doc_comment]: this comment is separated from `bump` by a blank 
    |
 help: remove the blank line to document it
    |
+ 3   // Adds one to the number it is given.
  4 - 
+ 5   bump :: (n: int) -> int {
    |
    = note: see https://jacket.matteopolak.com/lint-rules/detached_doc_comment

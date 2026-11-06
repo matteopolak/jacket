@@ -1,6 +1,6 @@
 # Doc comments
 
-Comments directly above a declaration are its documentation, written in Markdown. The language server shows them in hover, completion and signature help and resolves `[name]` links in them; `jacket doc` builds the API site from them and `jacket test` runs their examples. The compiler itself ignores comments.
+Comments directly above a declaration are its documentation, written in Markdown. The language server shows them in hover, completion and signature help and resolves `[name]` links in them; `jacket doc` builds the API site from them and `jacket test` runs their examples. Comments do not affect program execution; compiler tooling retains their documentation facts.
 
 ## Convention
 
@@ -56,3 +56,17 @@ There is no separate type-reference setting. `JAIC_STDLIB` and `-import_dir` sel
 ## Dependencies
 
 The parser and shared documentation resolver in `jaic-syntax`, `pulldown-cmark` for Markdown links, and the language server and Jacket site renderer as consumers.
+
+## Compiler model wire contract
+
+`jaic -doc_model DIR` emits `schema: "jai-doc-model"` and `schemaVersion: 1`. It records compiler facts independently of the website and requires no Node. Jacket strictly deserializes the whole object: unknown fields/versions/kinds, missing required values, malformed reference tuples and invalid dependency hashes are errors. A reference is exactly `[writtenName, declarationFile, declarationLine, private]`; declaration identity comes from the compiler rather than a display-name match.
+
+The model includes a dependency list of compiler-read files and their lowercase SHA-256 content digests. A same-size edit must invalidate the recorded content identity. Site export adds effective configuration/source provenance; the hashes do not imply an implemented incremental cache.
+
+Written type declarations retain every conditional definition with its kind, documentation, scope, platform/guard facts, source byte bounds and compiler-read content digest. Exact code-token spellings and declared-name positions are separate from authored whitespace. Each grouped member has its own name-token identity; nested declarations cannot borrow an outer member's fragment. Parser-declared identifiers, notes and literals are not reference uses: in `Collision: Collision`, only the type use receives a resolved link. Private-page dependency closure includes references from every conditional definition.
+
+Jacket verifies private source identities and batches those declarations through the existing `jaifmt` documentation profile. It rejects token spelling/order changes and maps compiler identities onto formatter-produced UTF-8 offsets. The permanent site contract carries formatted text and typed semantic anchors, not source spacing or statement-layout instructions. Astro displays that text and applies responsive soft wrapping without another Jai syntax formatter. Ordinary Markdown paragraphs and code examples remain independent content.
+
+Defaults are limited to fields the producer omits when empty, such as empty reference/`also` lists and false binding/private flags. Struct, union, enum and enum-flags records without token facts are errors. The compiler no longer serializes the raw source-layout `declaration` field, and Jacket rejects it as an unknown wire field. Source locations and source links remain available separately. Update `doc_comments/model.rs`, Jacket's `doc/model/wire.rs` and malformed-input regressions together; reject `"binding": "false"` rather than interpreting it as a boolean. No environment variable relaxes admission.
+
+See [documentation export](doc-site-export.md) for the two versioned contracts, generation workflow and consumer boundary.

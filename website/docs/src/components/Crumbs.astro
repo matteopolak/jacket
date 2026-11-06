@@ -1,0 +1,9 @@
+---
+import type { ApiModule, Declaration, SiteData, Target } from '../generated/doc-site.js';
+import {routeIndex} from '../lib/urls.ts';
+interface Props { site:SiteData;module:ApiModule;declaration?:Declaration;href:(target:Target)=>string }
+const {site,module,declaration,href}=Astro.props;
+const parts=module.id.split('/');let path='';
+const crumbs=parts.map((label,index)=>{path+=`${path?'/':''}${label}`;const route=routeIndex(site).get(`api/${path}`);return {label,id:route&& (declaration||index+1<parts.length)?route.id:undefined};});
+---
+<nav class="crumbs" aria-label="Breadcrumb"><a href={site.pageBase}>{site.breadcrumb||'Home'}</a>{crumbs.map(crumb=><Fragment>{' / '}{crumb.id?<a href={href({kind:'page',id:crumb.id,anchor:null})}>{crumb.label}</a>:<span>{crumb.label}</span>}</Fragment>)}{declaration&&<Fragment>{' / '}<span class="mono">{declaration.name}</span></Fragment>}</nav>

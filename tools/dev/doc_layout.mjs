@@ -5,7 +5,7 @@
 //   node tools/dev/doc_layout.mjs http://127.0.0.1:8000/ --all      every page in sitemap.xml
 //
 // Options: --parallel N (tabs), --only SUBSTRING (page filter), --every N (with --all, every Nth page),
-// --widths 1280,375, --script-delay MS (hold site.js back so a frame paints first; 0 turns it off),
+// --widths 1280,375, --script-delay MS (hold deferred browser modules back so a frame paints first; 0 turns it off),
 // --verbose (list every scenario), --dump (print every recorded frame).
 // Time: about 3.5 s per page/width/theme with 3 tabs, so --all (about 32,000 pages) takes days;
 // use --every 600 for a spread of about 55 pages in 14 minutes. Serve the site like GitHub Pages
@@ -23,7 +23,10 @@
 // second check catches, including changes too small or too quick for the first.
 import assert from 'node:assert/strict';
 import { pageStatus, waitForFrames } from './doc_samples.mjs';
+import { Connection, runtimeException } from './chrome_cdp.mjs';
 import { waitForDevToolsPort } from './chrome_startup.mjs';
+import { declarationBands } from './doc_bands.mjs';
+import {validateMainMotion,readMainMotion,layoutBox,mainFlowEligible,srHeading,layoutDiffers as differs} from './doc_layout_motion.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -42,7 +45,7 @@ const widths = option('--widths', '1280,375').split(',').map(Number);
 const parallel = Math.max(1, Number(option('--parallel', all ? 3 : 2)));
 const themes = ['light', 'dark'];
 const SETTLE_MS = 450;
-// site.js is deferred; on a real connection the page is painted before it runs. Hold it back so
+// Browser modules are deferred; on a real connection the page is painted before it runs. Hold it back so
 // that frame exists here too (0 lets the local server run it before the first paint).
 const SCRIPT_DELAY_MS = Number(option('--script-delay', 250));
 
@@ -51,18 +54,40 @@ const SCRIPT_DELAY_MS = Number(option('--script-delay', 250));
 // the elements that matter (only when they changed), and every layout-shift entry.
 
 const RECORDER = String.raw`(() => {
+  const validateMainMotion = ${validateMainMotion.toString()};
+  const readMainMotion = ${readMainMotion.toString()};
+  const layoutBox = ${layoutBox.toString()};
+  const mainFlowEligible = ${mainFlowEligible.toString()};
+  const srHeading = ${srHeading.toString()};
   if (window.__rec) return;
   const frames = [], shifts = [], errors = [];
   let prev = '', number = 0;
   const round = v => Math.round(v * 10) / 10;
-  // Document coordinates for content, viewport coordinates for the sticky and fixed bars.
+  let mainForBoxes, motionForBoxes, rawBoxesForFrame, loadingFrame;
+  // Retain raw document/viewport boxes; compensate only validated normal-flow main motion.
   const box = el => {
     if (!el) return null;
     const r = el.getBoundingClientRect();
-    let viewport = false;
-    for (let n = el; n && n !== document.body && !viewport; n = n.parentElement) viewport = ['sticky', 'fixed'].includes(getComputedStyle(n).position);
-    if (!r.width && !r.height) return null;
-    return [r.left + (viewport ? 0 : scrollX), r.top + (viewport ? 0 : scrollY), r.width, r.height].map(round);
+    let viewport = false, hidden = false, ariaHidden = false, inert = false; const positions = [];
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      const position = getComputedStyle(n).position;
+      if (['sticky', 'fixed'].includes(position)) viewport = true;
+      positions.push(position);
+      hidden ||= !!n.hidden; inert ||= !!n.inert; ariaHidden ||= n.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true';
+    }
+    for (let n = document.body; n; n = n.parentElement) { hidden ||= !!n.hidden; inert ||= !!n.inert; ariaHidden ||= n.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true'; }
+    const raw = [r.left + (viewport ? 0 : scrollX), r.top + (viewport ? 0 : scrollY), r.width, r.height];
+    const eligible = mainFlowEligible(!!mainForBoxes && (mainForBoxes === el || mainForBoxes.contains(el)), positions);
+    const record = { node: describe(el), raw, viewport: [r.left,r.top,r.width,r.height], eligible };
+    rawBoxesForFrame.push(record);
+    if (el.matches('h2.sr, h3.sr')) {
+      const facts = {tag:el.tagName,id:el.id,text:el.textContent,position:getComputedStyle(el).position,usedWidth:getComputedStyle(el).width,usedHeight:getComputedStyle(el).height,transform:getComputedStyle(el).transform,visibility:getComputedStyle(el).visibility,role:(el.getAttribute('role')??'').trim().toLowerCase(),inert,overflowX:getComputedStyle(el).overflowX,overflowY:getComputedStyle(el).overflowY,hidden,ariaHidden,rect:[r.left,r.top,r.width,r.height],viewport:[innerWidth,innerHeight]};
+      record.sr = facts;
+      try { return record.logical = srHeading(facts, loadingFrame); }
+      catch (error) { errors.push(String(error)); }
+    }
+    if (!r.width && !r.height) return record.logical = null;
+    return record.logical = layoutBox(raw, eligible, motionForBoxes.dy);
   };
   const list = (sel, root = document, cap = 60) =>
     Array.from(root.querySelectorAll(sel)).slice(0, cap).map(box).filter(b => b !== null);
@@ -80,7 +105,12 @@ const RECORDER = String.raw`(() => {
     const current = side && side.querySelector('nav [aria-current="page"]');
     const toc = document.querySelector('.toc');
     const main = document.getElementById('main-content');
+    mainForBoxes = main; rawBoxesForFrame = []; loadingFrame = document.readyState === 'loading';
+    let facts = { present: !!main }, dy = 0, motionError;
+    try { facts = readMainMotion(main); dy = validateMainMotion(facts); } catch (error) { motionError = String(error); errors.push(motionError); }
+    motionForBoxes = { facts, dy, error: motionError };
     return {
+      motion: motionForBoxes, rawBoxes: rawBoxesForFrame,
       page: body.getAttribute('data-page') || '',
       loading: document.readyState === 'loading',
       y: Math.round(scrollY),
@@ -160,31 +190,6 @@ function findChrome() {
   return ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'].find(p => spawnSync('which', [p]).status === 0);
 }
 
-class Connection {
-  constructor(url) { this.url = url; this.next = 0; this.pending = new Map(); this.listeners = []; }
-  async open() {
-    this.socket = new WebSocket(this.url);
-    await new Promise((resolve, reject) => { this.socket.onopen = resolve; this.socket.onerror = reject; });
-    this.socket.onmessage = event => {
-      const message = JSON.parse(event.data);
-      const entry = this.pending.get(message.id);
-      if (entry) {
-        this.pending.delete(message.id); clearTimeout(entry.timer);
-        if (message.error) entry.reject(new Error(`${entry.method}: ${JSON.stringify(message.error)}`)); else entry.resolve(message.result);
-      } else if (message.method) for (const l of this.listeners) l(message);
-    };
-    return this;
-  }
-  cdp(method, params = {}) {
-    return new Promise((resolve, reject) => {
-      const id = ++this.next;
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`${method} timed out`)); }, 60_000);
-      this.pending.set(id, { resolve, reject, timer, method });
-      this.socket.send(JSON.stringify({ id, method, params }));
-    });
-  }
-  close() { this.socket?.close(); }
-}
 
 class Tab {
   static async open(browser, port) {
@@ -195,11 +200,8 @@ class Tab {
       if (m.method === 'Fetch.requestPaused') {
         setTimeout(() => tab.cdp('Fetch.continueRequest', { requestId: m.params.requestId }).catch(() => {}), SCRIPT_DELAY_MS);
       }
-      if (m.method === 'Runtime.exceptionThrown') {
-        const text = m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text;
-        // Headless Chrome aborts cross-document view transitions it never shows; not the site's doing.
-        if (!/ViewTransition|Transition was aborted/.test(text)) tab.exceptions.push(text);
-      }
+      const exception = runtimeException(m);
+      if (exception !== undefined) tab.exceptions.push(exception);
     });
     tab.loads = 0; tab.exceptions = [];
     await tab.cdp('Page.enable'); await tab.cdp('Runtime.enable');
@@ -208,7 +210,7 @@ class Tab {
     // Every load goes to the server, so the held-back script below is held back on every load.
     await tab.cdp('Network.enable'); await tab.cdp('Network.setCacheDisabled', { cacheDisabled: true });
     await tab.cdp('Page.addScriptToEvaluateOnNewDocument', { source: RECORDER });
-    if (SCRIPT_DELAY_MS > 0) await tab.cdp('Fetch.enable', { patterns: [{ urlPattern: '*/assets/site.js*', requestStage: 'Request' }] });
+    if (SCRIPT_DELAY_MS > 0) await tab.cdp('Fetch.enable', { patterns: [{ urlPattern: '*/assets/site.js*', requestStage: 'Request' }, { urlPattern: '*/_astro/*.js*', requestStage: 'Request' }] });
     return tab;
   }
   constructor(browser, id, conn) { this.browser = browser; this.id = id; this.conn = conn; }
@@ -255,24 +257,12 @@ class Tab {
     // Wall time alone need not include a recorded animation frame on a loaded runner.
     await waitForFrames(expression => this.evaluate(expression));
   }
-  read() { return this.evaluate('window.__rec ? window.__rec.read() : null'); }
+  read() { return this.evaluate(`(() => {const rec=window.__rec?.read();if(!rec)return null;rec.declarationBands=(${declarationBands.toString()})();if(location.pathname.endsWith('/api/Basic')&&rec.declarationBands.count<3)rec.declarationBands.problems.push('Basic module did not expose the required declaration-band samples');return rec;})()`); }
   close() { this.conn.close(); return this.browser.cdp('Target.closeTarget', { targetId: this.id }).catch(() => {}); }
 }
 
 // ---------------------------------------------------------------------------------------------
 // Comparing frames.
-
-const TOLERANCE = 0.6;
-function differs(a, b, strict = false) {
-  if (a === b) return false;
-  if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) > TOLERANCE;
-  if (Array.isArray(a) && Array.isArray(b)) {
-    // A list may have grown while the page was still being parsed; what was shown must not have moved.
-    if (strict && a.length !== b.length) return true;
-    return a.some((v, i) => i >= b.length || differs(v, b[i], strict));
-  }
-  return true;
-}
 
 // Every frame of a run (the same page shown) must match the last one, apart from lists that grew.
 // Reports the first frame that differs, and how many others do.
@@ -311,7 +301,10 @@ function analyse(rec, options = {}) {
   const problems = [];
   if (!rec) return ['no recorder in the page'];
   if (rec.errors.length) problems.push(`recorder errors: ${rec.errors.join('; ')}`);
+  if (rec.declarationBands) problems.push(...rec.declarationBands.problems);
   if (!rec.frames.length) return [...problems, `no frames recorded (${rec.number} animation frames ran)`];
+  const finalMotion = rec.frames.at(-1).motion?.facts;
+  if (finalMotion?.pending || finalMotion?.enter) problems.push('live main entrance did not clean up at settlement');
   // A swapped-in page of another height moves the footer, which a real click's own 500ms
   // exemption would hide; the footer alone is not counted for a swap.
   const counted = rec.shifts.filter(s => !(options.swap && s.sources.length && s.sources.every(x => x.node.startsWith('footer'))));
@@ -322,6 +315,7 @@ function analyse(rec, options = {}) {
   if (flag('--dump')) {
     let last = null;
     for (const f of rec.frames) {
+      console.log('      raw-motion '+JSON.stringify({frame:f.frame,t:f.t,page:f.page,motion:f.motion,boxes:f.rawBoxes}));
       const flat = { page: f.page, loading: f.loading, y: f.y, ...Object.fromEntries(Object.entries({ ...f.early, ...f.late }).map(([k, v]) => [k, JSON.stringify(v)])) };
       const changed = Object.keys(flat).filter(k => !last || last[k] !== flat[k]).map(k => `${k}=${last ? `${last[k]} -> ` : ''}${flat[k]}`.slice(0, 160));
       console.log(`      frame ${f.frame} @${f.t}ms: ${changed.join(' | ')}`);
@@ -414,10 +408,11 @@ async function runCombo(tab, page, width, theme) {
     const y = Math.min(Math.floor(max / 2), 1500);
     if (max >= 40) {
       await tab.evaluate(`window.scrollTo({ top: ${y}, behavior: 'instant' })`);
-      // site.js saves the position into history.state a little after scrolling stops.
-      let saved = false;
-      for (let i = 0; i < 60 && !saved; i++) { await delay(50); saved = await tab.evaluate(`!!(history.state && history.state.y > 0)`); }
-      assert(saved, 'history.state never recorded the scroll');
+      // Wait for the rendered position to settle. Reload below tests restoration itself,
+      // without depending on a private history.state field of either client router.
+      await tab.settle();
+      const beforeReload = await tab.evaluate('Math.round(scrollY)');
+      assert(Math.abs(beforeReload - y) <= 2, `requested scroll position was not reached: ${y} -> ${beforeReload}`);
     }
     await tab.reload();
     const rec = await tab.read();
@@ -456,6 +451,9 @@ async function runCombo(tab, page, width, theme) {
     await guard(prefix, async () => {
       await tab.goto('about:blank');
       await tab.goto(url);
+      // Exercise history restoration from a real nonzero position, not only top-to-top swaps.
+      const sourceY = await tab.evaluate(`(() => {const y=Math.min(500,Math.max(0,Math.floor((document.documentElement.scrollHeight-innerHeight)/2)));scrollTo({top:y,behavior:'instant'});return scrollY;})()`);
+      await tab.settle();
       const first = await afterClick(tab, `${prefix} link`, expression);
       if (first.skipped) { record(first.name, [], { note: `skipped: ${first.skipped}` }); return; }
       record(first.name, first.problems, { note: first.detail + (first.swapped ? '' : ', the page itself') });
@@ -463,6 +461,8 @@ async function runCombo(tab, page, width, theme) {
       if (same.skipped) record(same.name, [], { note: `skipped: ${same.skipped}` }); else record(same.name, same.problems);
       if (!first.swapped) return;
       const back = await historyStep(tab, `${prefix}: Back`, 'back');
+      const restoredY = await tab.evaluate('scrollY');
+      if (Math.abs(restoredY-sourceY)>2) back.problems.push(`client history did not restore source scroll: ${sourceY} -> ${restoredY}`);
       record(back.name, back.problems);
       const forward = await historyStep(tab, `${prefix}: Forward`, 'forward');
       record(forward.name, forward.problems);

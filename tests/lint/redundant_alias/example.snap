@@ -9,9 +9,10 @@ warning[redundant_alias]: `result` is returned right after it is declared
    |
 help: return the value directly
    |
- 4 -     result := n * n;
+ 3   square :: (n: int) -> int {
+ 4 ~     return n * n;
  5 -     return result;
- 4 +     return n * n;
+ 6   }
    |
    = note: `redundant_alias` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias

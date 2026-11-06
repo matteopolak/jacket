@@ -1,0 +1,54 @@
+{
+  "version": "0.31.2",
+  "count": 652,
+  "sha256": "d431b29d97b6f73e69d547109cf5081578fac931e72afe95639ebe766c1b2a20",
+  "source": "https://spec.commonmark.org/0.31.2/spec.json",
+  "license": "CC-BY-SA-4.0",
+  "attribution": "CommonMark Spec by John MacFarlane",
+  "licenseSource": "https://spec.commonmark.org/0.31.2/",
+  "provider": "pulldown-cmark 0.13.4",
+  "profile": [
+    "ENABLE_TABLES",
+    "ENABLE_STRIKETHROUGH"
+  ],
+  "licenseFile": "LICENSE.html",
+  "licenseSha256": "8ec78d1651cdc6da860df2b1678a572934ad58e38ca3af23d7bd1bf25447bde8",
+  "licenseFileSource": "https://raw.githubusercontent.com/creativecommons/creativecommons.org/main/docroot/legalcode/by-sa_4.0.html",
+  "extensions": {
+    "file": "extensions.json",
+    "count": 55,
+    "sha256": "1c2571dc0bd86b60be24c354610a7d6f4e769fa6078545c16ab5874d46739f79",
+    "provider": "pulldown-cmark 0.13.4",
+    "crateChecksum": "e9f068eba8e7071c5f9511831b44f32c740d5adf574e990f946ddb53db2f314e",
+    "source": "https://crates.io/api/v1/crates/pulldown-cmark/0.13.4/download",
+    "license": "MIT; GFM-derived examples retain specification CC-BY-SA-4.0 attribution",
+    "sources": [
+      {
+        "path": "tests/suite/gfm_table.rs",
+        "sha256": "8db667d0f5358fb9e181ae948ec45361c5b1c9b2ea0f31561b64f7ff204e85d8",
+        "count": 9
+      },
+      {
+        "path": "tests/suite/gfm_strikethrough.rs",
+        "sha256": "f92a17ec4f132a362914f54f9132eb02015e16b6b969781a4f0e67456e5f8bc0",
+        "count": 3
+      },
+      {
+        "path": "tests/suite/table.rs",
+        "sha256": "e1e8c815b5c4f659ad091d4a781438e5b96f1bf6923a88779c9e8fc881f19e59",
+        "count": 28
+      },
+      {
+        "path": "tests/suite/strikethrough.rs",
+        "sha256": "5b0749d91038e5525a2c8de0e7c061693c71b4bab3f50ac4833e65e0ed4298cc",
+        "count": 15
+      }
+    ]
+  },
+  "transformations": {
+    "file": "transformations.json",
+    "sha256": "42d125cc66d5be23873bdb9ae093d81903a985500486baf86548c25e233dd43b"
+  },
+  "licenseOriginalSha256": "d48546c6161cd2698445d184a859363a2436a6a3bcda655564730e3861e74a9e",
+  "licenseTransformation": "Remove one trailing space on the additional-languages HTML line; legal text unchanged."
+}

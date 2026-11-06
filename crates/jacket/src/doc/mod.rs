@@ -1,36 +1,34 @@
-//! `jacket doc`: the standard library's API documentation as a static website. See
-//! `docs/tools/jacket-doc.md`.
-//!
-//! `jaic -doc_model` reads each library with the compiler's own parser and prints what its pages
-//! say as JSON; this module turns that into HTML, a search index and the files the pages load
-//! (style, script, the example programs, and optionally the browser compiler that runs them).
+//! `jacket doc` exports compiler-checked documentation facts for the matching Astro builder.
+//! `jaic -doc_model` supplies a separately versioned raw model; the semantic exporter owns
+//! checked routes, references, example assembly and publication facts. Astro owns HTML and UI.
+//! See `docs/tools/jacket-doc.md` and `docs/compiler/doc-site-export.md`.
+mod builder;
 mod categories;
+mod declaration_format;
 mod example;
 mod example_check;
+mod export;
+mod guides;
 mod highlight;
 mod markdown;
 mod metadata;
 mod model;
-mod search;
+mod navigation;
 mod since;
 mod site;
-mod theme;
+mod slug;
 mod type_links;
-mod view;
 
 use crate::cli::DocArgs;
 use crate::{test::stdlib::stdlib_dir, tools};
 use jacket_config::schema::Doc;
-use model::{Kind, Module};
+use model::Module;
 use site::Site;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
-
-/// Present in a folder `jacket doc` wrote, so the next run may replace it.
-const MARKER: &str = ".jacket-doc";
 
 pub fn run(args: &DocArgs, cwd: &Path) -> ExitCode {
     match build(args, cwd) {
@@ -102,7 +100,7 @@ fn read_models(
                         .output();
                     let result = match output {
                         Ok(o) if o.status.success() => {
-                            model::parse(id, &String::from_utf8_lossy(&o.stdout), root).map(
+                            model::parse(id, &String::from_utf8_lossy(&o.stdout), root, stdlib).map(
                                 |mut module| {
                                     module.wasm = builds_for_wasm(jaic, stdlib, root, &module, i);
                                     module
@@ -154,7 +152,7 @@ fn builds_for_wasm(jaic: &Path, stdlib: &Path, root: &Path, module: &Module, n: 
         return false;
     }
     let file = dir.join(format!("{n}.jai"));
-    let program = format!("#import \"{}\";\nmain :: () {{}}\n", module.id);
+    let program = format!("#import \"{}\";\nmain :: () {{}}\n", module.import_name());
     let ok = std::fs::write(&file, program).is_ok()
         && Command::new(jaic)
             .env(jacket_config::env::STDLIB.name, stdlib)
@@ -311,7 +309,8 @@ fn canonical(path: &Path) -> Result<PathBuf, String> {
 /// The folder to document and the `[doc]` settings for it, with the folder of their
 /// `jacket.toml`. Without a path, the `[doc]` of the nearest `jacket.toml` names the library,
 /// else it is the bundled standard library. With one, the nearest `jacket.toml` above it
-/// applies only when its `[doc]` is for that folder.
+/// applies only when its `[doc]` is for that folder. Both selected roots share canonical
+/// identity: `project/child/..` with `path = "lib"` still categorizes `lib/Ext` relatively.
 fn target(
     path: Option<&Path>,
     stdlib: &Path,
@@ -338,10 +337,10 @@ fn target(
         (lib, l.config.doc, dir)
     });
     match (path, found) {
-        (None, Some((lib, doc, dir))) => Ok((canonical(&lib)?, doc, dir)),
+        (None, Some((lib, doc, dir))) => Ok((canonical(&lib)?, doc, canonical(&dir)?)),
         (None, None) => Ok((stdlib.to_path_buf(), Doc::default(), stdlib.to_path_buf())),
         (Some(_), Some((lib, doc, dir))) if lib.canonicalize().ok().as_ref() == Some(&start) => {
-            Ok((start, doc, dir))
+            Ok((start, doc, canonical(&dir)?))
         }
         (Some(_), _) => Ok((start.clone(), Doc::default(), start)),
     }
@@ -399,7 +398,7 @@ fn link_status(args: &DocArgs, broken: &[String], unlinked: &[String], filtered:
     ExitCode::SUCCESS
 }
 
-/// Runs every example with a Run button the way the browser would; false when one fails.
+/// Validate eligible examples against the supplied runtime, or the interpreter without one.
 fn test_examples(
     args: &DocArgs,
     site: &site::Site,
@@ -408,22 +407,14 @@ fn test_examples(
     root: &Path,
 ) -> Result<bool, String> {
     let programs = site.runnable();
-    // With the browser compiler at hand the examples run in it, under Node; otherwise
-    // in jaic's interpreter, built for the same target.
-    let node = PathBuf::from("node");
-    let has_node = Command::new(&node)
-        .arg("--version")
-        .output()
-        .is_ok_and(|o| o.status.success());
-    if args.runtime.is_some() && !has_node {
-        eprintln!(
-            "jacket: warning: `node` not found; testing the examples in the interpreter, not the browser compiler"
-        );
-    }
-    let engine = if let Some(runtime) = args.runtime.as_deref()
-        && root == stdlib
-        && has_node
-    {
+    let engine = if let Some(runtime) = args.runtime.as_deref() {
+        let node = PathBuf::from("node");
+        let version = Command::new(&node).arg("--version").output().map_err(|error| {
+            format!("--validate-examples with --runtime needs Node: {error}; install Node, or omit --runtime to validate with the interpreter")
+        })?;
+        if !version.status.success() {
+            return Err("--validate-examples with --runtime needs a working Node executable; `node --version` failed".into());
+        }
         example_check::Engine::Browser {
             node,
             runtime,
@@ -439,7 +430,7 @@ fn test_examples(
     if !failed.is_empty() {
         eprint!("{}", example_check::report(&failed));
         eprintln!(
-            "jacket: error: {} of {} examples failed; mark one that cannot run in the browser (`skip_on(wasm)`, `no_run`, `ignore`), or pass --no-test-examples",
+            "jacket: error: {} of {} examples failed; fix the example or mark intentional non-browser examples with `skip_on(wasm)`, `no_run`, or `ignore`",
             failed.len(),
             programs.len()
         );
@@ -452,10 +443,24 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
     let total_start = std::time::Instant::now();
     let mut accounted = std::time::Duration::ZERO;
     let result = (|| {
+        if args.theme.is_some() {
+            return Err("--theme used Jai source overrides, which were retired; customize website/docs Astro components or select matching builder sources with JACKET_DOCS_BUILDER (docs/tools/astro-docs.md)".into());
+        }
+        if args.emit_input.is_some() {
+            return Err("--emit-input used the retired renderer format; use --export DIR to retain the versioned semantic bundle, or --export-only --out DIR without rendering".into());
+        }
+        let builder = if args.export_only {
+            None
+        } else {
+            Some(builder::Builder::locate()?)
+        };
         let base = base_path(&args.base_url)?;
         let jaic = tools::locate(tools::JAIC)?;
         let stdlib = stdlib_dir(&jaic, cwd)?;
         let (lib, doc, config_dir) = target(args.path.as_deref(), &stdlib, cwd)?;
+        if doc.theme.is_some() {
+            return Err("[doc] theme used Jai source overrides, which were retired; customize matching Astro builder sources with JACKET_DOCS_BUILDER (docs/tools/astro-docs.md)".into());
+        }
         let Library {
             root,
             mut ids,
@@ -555,7 +560,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             site.pages_title = doc.pages_title.clone().unwrap_or_else(|| "Guides".into());
         }
         let prefix = git_state(&config_dir).map(|g| g.prefix).unwrap_or_default();
-        let extra = view::guide::collect(&site, &config_dir, &prefix, &doc)?;
+        let extra = guides::collect(&site, &config_dir, &prefix, &doc)?;
         site.pages_href = extra.first_href(&site);
         site.extra_nav.clone_from(&extra.nav);
         if let Some(state) = git_state(&root) {
@@ -567,124 +572,94 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             }
         }
 
-        let overrides = args
-            .theme
-            .as_ref()
-            .map(|p| cwd.join(p))
-            .or_else(|| doc.theme.as_ref().map(|p| config_dir.join(p)));
-        let theme = theme::Theme::new(overrides.as_deref())?;
-        let input_dir = theme::Input::new(args.emit_input.as_deref())?;
-        let view_start = std::time::Instant::now();
-        let mut shared = view::site(&site);
-        let mut input = Vec::new();
-        let mut guides = extra.pages(&site, &shared.nav);
-        use_home(&mut guides, &mut shared.index);
-        let metadata::Publication {
-            metadata,
-            mut urls,
-            image_file,
-        } = metadata::prepare(args, &doc, &config_dir, cwd, &site, &mut shared)?;
-        let mut items = 0;
-        for mi in 0..site.modules.len() {
-            let mut module = view::module(&site, mi);
-            metadata.apply_module(&mut module, site.modules[mi].items.len(), &mut urls);
-            items += module.items.len();
-            let file = format!("modules/{mi}.json");
-            input.push((file.clone(), json_bytes(&module)?));
-            shared.module_files.push(file);
-        }
-        for (n, guide) in guides.iter_mut().enumerate() {
-            metadata.apply(guide);
-            urls.push(metadata.url(&guide.path, false));
-            let file = format!("guides/{n}.json");
-            input.push((file.clone(), json_bytes(guide)?));
-            shared.guide_files.push(file);
-        }
-        let view_elapsed = view_start.elapsed();
-        let examples = site.examples();
-        let mut files = auxiliary_files(&site, logo, &version, &examples);
-        files.extend(metadata.files(&urls, image_file));
-        shared.written_files = files.iter().map(|(path, _)| path.clone()).collect();
-        if site.runtime {
-            shared
-                .written_files
-                .extend(["runtime/engine.mjs".into(), "runtime/jai_wasm.wasm".into()]);
-        }
-        shared.written_files.push(MARKER.into());
-        shared.assets = theme.assets();
-        shared.resolve_links = !filtered;
-        input.push(("site.json".into(), json_bytes(&shared)?));
-        let input_start = std::time::Instant::now();
-        write_site(&input_dir.path, &input, None)?;
-        // Serialization and input I/O are part of the view phase's end-to-end cost.
-        let view_elapsed = view_elapsed + input_start.elapsed();
-        accounted += view_elapsed;
-        if args.timings {
-            eprintln!(
-                "jacket doc timings: view: {:.3}s",
-                view_elapsed.as_secs_f64()
-            );
-        }
-        drop(input);
-
-        let problems = site.path_clashes();
-        for problem in &problems {
-            eprintln!("jacket: error: {problem}");
-        }
-        if !problems.is_empty() {
-            return Ok(ExitCode::from(1));
-        }
-        let unlinked = site.unlinked_types();
-        for name in &unlinked {
-            eprintln!("jacket: warning: unlinked type in {name}");
-        }
-        let broken = report_broken_links(&site, args.allow_broken_links || filtered);
-        let unfenced = indented_code_warnings(&site.modules);
-        for warning in &unfenced {
-            eprintln!("jacket: warning: {warning}");
-        }
-        let procedures = site
-            .modules
-            .iter()
-            .flat_map(|m| &m.items)
-            .filter(|i| i.kind == Kind::Procedure && !i.binding)
-            .count();
-        if !args.check && !args.no_test_examples {
-            let started = std::time::Instant::now();
-            if !test_examples(args, &site, &jaic, &stdlib, &root)? {
+        {
+            let input = builder::Input::new(if args.export_only {
+                Some(cwd.join(args.export.as_deref().unwrap_or(&args.out)))
+            } else {
+                args.export.as_ref().map(|path| cwd.join(path))
+            })?;
+            let publication = export::publication::prepare(args, &doc, &config_dir, cwd, &site)?;
+            let destination = &input.path;
+            let mut assets = Vec::new();
+            if let Some((name, bytes)) = &logo {
+                assets.push(export::InputAsset {
+                    path: format!("assets/{name}"),
+                    bytes: bytes.clone(),
+                    provenance: export::contract::AssetProvenance::ConfiguredLogo,
+                });
+            }
+            if let Some(runtime) = &args.runtime {
+                for file in ["engine.mjs", "jai_wasm.wasm"] {
+                    assets.push(export::InputAsset {
+                        path: format!("runtime/{file}"),
+                        bytes: std::fs::read(runtime.join(file))
+                            .map_err(|e| format!("read runtime {file}: {e}"))?,
+                        provenance: export::contract::AssetProvenance::BrowserRuntime,
+                    });
+                }
+            }
+            let source = export::source_state(
+                &site,
+                &doc,
+                &publication,
+                &assets,
+                &config_dir,
+                &root,
+                &stdlib,
+            )?;
+            export::write(export::Request {
+                site: &site,
+                guides: &extra,
+                publication: &publication,
+                out: destination,
+                compiler: &jaic,
+                source_root: &root,
+                stdlib: &stdlib,
+                config: &config_dir,
+                partial: filtered,
+                allow_broken_links: args.allow_broken_links,
+                assets,
+                source,
+            })?;
+            let unlinked = site.unlinked_types();
+            for name in &unlinked {
+                eprintln!("jacket: warning: unlinked type in {name}");
+            }
+            let broken = report_broken_links(&site, args.allow_broken_links || filtered);
+            for warning in indented_code_warnings(&site.modules) {
+                eprintln!("jacket: warning: {warning}");
+            }
+            if args.validate_examples && !test_examples(args, &site, &jaic, &stdlib, &root)? {
                 return Ok(ExitCode::from(1));
             }
-            accounted += timing(args, "examples", started);
-        }
-        let compile_start = std::time::Instant::now();
-        let prepared = theme.prepare(&jaic, &stdlib, args.timings)?;
-        accounted += compile_start.elapsed();
-        let render_start = std::time::Instant::now();
-        if !args.check {
-            write_site(&args.out, &files, args.runtime.as_deref())?;
-        }
-        let rendered = prepared.run(
-            &jaic,
-            &stdlib,
-            &input_dir.path,
-            &cwd.join(&args.out),
-            args.check,
-        )?;
-        accounted += timing(args, "render and write", render_start);
-        if rendered != ExitCode::SUCCESS {
-            return Ok(rendered);
-        }
-        eprintln!(
-            "jacket doc: {} modules, {items} items ({procedures} procedures), {} example programs{}",
-            site.modules.len(),
-            examples.len(),
-            if args.check {
-                String::new()
+            if args.export_only {
+                eprintln!(
+                    "jacket doc: {} modules exported to {}",
+                    site.modules.len(),
+                    destination.display()
+                );
             } else {
-                format!(", written to {}", args.out.display())
+                let started = std::time::Instant::now();
+                let status = builder
+                    .as_ref()
+                    .ok_or("missing Astro builder preflight")?
+                    .run(destination, &cwd.join(&args.out), args.check)?;
+                accounted += timing(args, "Astro validation/build/check", started);
+                if status != ExitCode::SUCCESS {
+                    return Ok(status);
+                }
+                eprintln!(
+                    "jacket doc: {} modules{}",
+                    site.modules.len(),
+                    if args.check {
+                        ", production site checked".into()
+                    } else {
+                        format!(", written to {}", cwd.join(&args.out).display())
+                    }
+                );
             }
-        );
-        Ok(link_status(args, &broken, &unlinked, filtered))
+            Ok(link_status(args, &broken, &unlinked, filtered))
+        }
     })();
     if args.timings {
         eprintln!(
@@ -702,37 +677,6 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
     result
 }
 
-/// Files owned by the model step; the theme only registers them as link targets.
-fn auxiliary_files(
-    site: &Site,
-    logo: Option<(String, Vec<u8>)>,
-    version: &str,
-    examples: &BTreeMap<String, String>,
-) -> Vec<(String, Vec<u8>)> {
-    let mut files: Vec<(String, Vec<u8>)> = Vec::new();
-    if let Some((name, bytes)) = logo {
-        files.push((format!("assets/{name}"), bytes));
-    }
-    let mut add = |path: String, text: String| files.push((path, text.into_bytes()));
-    add("search-index.json".into(), search::index(site));
-    if !version.is_empty() {
-        add(
-            "versions.json".into(),
-            serde_json::json!([{ "version": version, "url": "./" }]).to_string(),
-        );
-    }
-    for (id, parts) in examples {
-        add(format!("examples/{id}.json"), parts.clone());
-    }
-    if site.runtime {
-        add(
-            "runtime.json".into(),
-            "{\"engine\":\"runtime/engine.mjs\",\"wasm\":\"runtime/jai_wasm.wasm\"}\n".into(),
-        );
-    }
-    files
-}
-
 fn timing(args: &DocArgs, label: &str, start: std::time::Instant) -> std::time::Duration {
     let elapsed = start.elapsed();
     if args.timings {
@@ -741,66 +685,106 @@ fn timing(args: &DocArgs, label: &str, start: std::time::Instant) -> std::time::
     elapsed
 }
 
-fn json_bytes(value: &impl serde::Serialize) -> Result<Vec<u8>, String> {
-    serde_json::to_vec(value).map_err(|e| format!("cannot serialize documentation view: {e}"))
-}
-
-/// Replaces `out` with `files`, and copies the browser compiler in when there is one.
-fn write_site(
-    out: &Path,
-    files: &[(String, Vec<u8>)],
-    runtime: Option<&Path>,
-) -> Result<(), String> {
-    if out.exists() {
-        let is_ours = out.join(MARKER).is_file()
-            || std::fs::read_dir(out).is_ok_and(|mut entries| entries.next().is_none());
-        if !is_ours {
-            return Err(format!(
-                "{} exists and `jacket doc` did not make it; remove it or choose another --out",
-                out.display()
-            ));
-        }
-        std::fs::remove_dir_all(out).map_err(|e| format!("cannot clear {}: {e}", out.display()))?;
-    }
-    let write = |path: PathBuf, bytes: &[u8]| -> Result<(), String> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
-        }
-        std::fs::write(&path, bytes).map_err(|e| format!("cannot write {}: {e}", path.display()))
-    };
-    write(out.join(MARKER), b"")?;
-    for (path, bytes) in files {
-        write(out.join(path), bytes)?;
-    }
-    if let Some(runtime) = runtime {
-        for file in ["jai_wasm.wasm", "engine.mjs"] {
-            let bytes = std::fs::read(runtime.join(file))
-                .map_err(|e| format!("cannot read {}: {e}", runtime.join(file).display()))?;
-            write(out.join("runtime").join(file), &bytes)?;
-        }
-    }
-    Ok(())
-}
-
-
-/// Makes the home file the front page: it keeps the front page's place, title and sidebar.
-fn use_home(guides: &mut Vec<view::PageView>, index: &mut view::PageView) {
-    let Some(i) = guides.iter().position(|g| g.path == view::guide::HOME) else {
-        return;
-    };
-    let mut home = guides.remove(i);
-    home.path = String::new();
-    home.title.clone_from(&index.title);
-    home.description.clone_from(&index.description);
-    home.side_label.clone_from(&index.side_label);
-    std::mem::swap(&mut home.sidebar, &mut index.sidebar);
-    *index = home;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn import_context_reaches_native_wasm_probe_and_preserves_status() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = test_support::TempDir::new("doc-wasm-import-context");
+        let stdlib = temp.join("stdlib");
+        let compiler = temp.join("compiler");
+        std::fs::write(&compiler, "#!/bin/sh\nset -eu\nfixture=$(dirname \"$0\")\nprintf '%s\\n' \"$@\" > \"$fixture/args\"\nprintf '%s' \"$JAIC_STDLIB\" > \"$fixture/stdlib-env\"\nfor input do :; done\ncp \"$input\" \"$fixture/input.jai\"\nexit \"$(cat \"$fixture/status\")\"\n").unwrap();
+        std::fs::set_permissions(&compiler, std::fs::Permissions::from_mode(0o755)).unwrap();
+        for (n, (root, id, expected)) in [
+            (stdlib.clone(), "Extensions/Widget", "Extensions/Widget"),
+            (stdlib.join("Extensions"), "Widget", "Extensions/Widget"),
+            (temp.join("project"), "Acme/Widget", "Acme/Widget"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let directory = root.join(id);
+            std::fs::create_dir_all(&directory).unwrap();
+            std::fs::write(directory.join("module.jai"), "value :: 1;\n").unwrap();
+            let raw = jaic::doc_comments::model_json(&directory, &stdlib);
+            let module = model::parse(id, &raw, &root, &stdlib).unwrap();
+            for status in [0, 7] {
+                std::fs::write(temp.join("status"), status.to_string()).unwrap();
+                assert_eq!(
+                    builds_for_wasm(&compiler, &stdlib, &root, &module, n),
+                    status == 0
+                );
+                assert_eq!(
+                    std::fs::read_to_string(temp.join("input.jai")).unwrap(),
+                    format!("#import \"{expected}\";\nmain :: () {{}}\n"),
+                    "{id}: native probe import"
+                );
+                assert_eq!(
+                    std::fs::read_to_string(temp.join("stdlib-env")).unwrap(),
+                    stdlib.to_str().unwrap()
+                );
+                let args = std::fs::read_to_string(temp.join("args")).unwrap();
+                let args = args.lines().collect::<Vec<_>>();
+                assert_eq!(&args[..4], ["-check", "-no_dce", "-os", "wasm"]);
+                if root == stdlib {
+                    assert_eq!(args.len(), 5);
+                } else {
+                    assert_eq!(args.len(), 7);
+                    assert_eq!(&args[4..6], ["-import_dir", root.to_str().unwrap()]);
+                }
+                assert!(
+                    !Path::new(args.last().unwrap()).exists(),
+                    "probe input must be removed after success or failure"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn retired_renderer_options_explain_migration_before_extracting_a_library() {
+        use clap::Parser;
+        for (flag, guidance) in [("--theme", "Astro"), ("--emit-input", "--export")] {
+            let cli = crate::cli::Cli::try_parse_from([
+                "jacket",
+                "doc",
+                "/definitely-missing-doc-fixture",
+                flag,
+                "/unused-old-renderer-input",
+            ])
+            .unwrap();
+            let crate::cli::Command::Doc(args) = cli.command else {
+                panic!("doc command")
+            };
+            let message = build(&args, Path::new("/")).unwrap_err();
+            assert!(message.contains(guidance), "{flag}: {message}");
+        }
+    }
+
+    #[test]
+    fn configured_library_and_directory_share_canonical_identity() {
+        let temp = test_support::TempDir::new("doc-config-identity");
+        std::fs::create_dir_all(temp.join("lib/Ext")).unwrap();
+        std::fs::create_dir_all(temp.join("child")).unwrap();
+        std::fs::write(temp.join("jacket.toml"), "[doc]\npath = \"lib\"\n").unwrap();
+        std::fs::write(temp.join("guide.md"), "# Config-relative guide\n").unwrap();
+        let cwd = temp.join("child/..");
+        for path in [None, Some(Path::new("lib"))] {
+            let (library, _, directory) = target(path, &temp.join("unused-stdlib"), &cwd).unwrap();
+            assert_eq!(directory, temp.canonicalize().unwrap());
+            assert_eq!(library.strip_prefix(&directory).unwrap(), Path::new("lib"));
+            assert_eq!(
+                library.join("Ext").strip_prefix(&directory).unwrap(),
+                Path::new("lib/Ext")
+            );
+            assert_eq!(
+                std::fs::read_to_string(directory.join("guide.md")).unwrap(),
+                "# Config-relative guide\n"
+            );
+        }
+    }
 
     #[test]
     fn the_base_path_needs_both_slashes() {

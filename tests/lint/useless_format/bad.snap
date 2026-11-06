@@ -9,7 +9,9 @@ warning[useless_format]: `tprint("%", name)` only copies a string
    |
 help: use the string itself, or `copy_string` for a copy you own
    |
+ 3   label :: (name: string, other: string) -> string {
  4 ~     a := name;
+ 5
    |
    = note: `useless_format` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/useless_format
@@ -22,7 +24,9 @@ warning[useless_format]: `sprint("%", other)` only copies a string
    |
 help: use `copy_string` for a copy you own, or the string itself
    |
+ 5
  6 ~     b := copy_string(other);
+ 7       defer free(b);
    |
    = note: `useless_format` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/useless_format
@@ -35,7 +39,9 @@ warning[useless_format]: `tprint("%", a)` only copies a string
    |
 help: use the string itself, or `copy_string` for a copy you own
    |
+ 8
  9 ~     return a;
+10   }
    |
    = note: `useless_format` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/useless_format

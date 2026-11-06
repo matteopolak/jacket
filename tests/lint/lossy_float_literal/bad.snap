@@ -9,7 +9,9 @@ warning[lossy_float_literal]: `16777.2171234` has 12 significant digits, but a `
    |
 help: write `16777.217`, which is the same `float32`
    |
+ 2
  3 ~ SCALE: float32 : 16777.217;
+ 4
    |
    = note: `lossy_float_literal` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/lossy_float_literal
@@ -22,7 +24,9 @@ warning[lossy_float_literal]: `31415.92653` has 10 significant digits, but a `fl
    |
 help: write `31415.926`, which is the same `float32`
    |
+ 5   main :: () {
  6 ~     pi: float32 = 31415.926;
+ 7
    |
    = note: `lossy_float_literal` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/lossy_float_literal
@@ -35,7 +39,9 @@ warning[lossy_float_literal]: `1234.5678901` has 11 significant digits, but a `f
    |
 help: write `1234.5679`, which is the same `float32`
    |
+ 7
  8 ~     scaled := pi * 1234.5679;
+ 9
    |
    = note: `lossy_float_literal` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/lossy_float_literal
@@ -48,7 +54,9 @@ warning[lossy_float_literal]: `98765.43210987` has 13 significant digits, but a 
    |
 help: write `98765.43`, which is the same `float32`
    |
+ 9
 10 ~     pi = -98765.43;
+11
    |
    = note: `lossy_float_literal` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/lossy_float_literal
@@ -61,7 +69,9 @@ warning[lossy_float_literal]: `123456.789012` has 12 significant digits, but a `
    |
 help: write `123456.79`, which is the same `float32`
    |
+11
 12 ~     big: float32 = 123456.79;
+13
    |
    = note: `lossy_float_literal` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/lossy_float_literal

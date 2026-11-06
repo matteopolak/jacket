@@ -9,9 +9,10 @@ warning[loop_with_break_condition]: this loop leaves on its first statement; the
    |
 help: write `while i < 10` and drop the `if`
    |
- 7 -     while true {
+ 6
+ 7 ~     while i < 10 {
  8 -         if i >= 10 break;
- 7 +     while i < 10 {
+ 9           i += 1;
    |
    = note: `loop_with_break_condition` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition
@@ -24,12 +25,13 @@ warning[loop_with_break_condition]: this loop leaves on its first statement; the
    |
 help: write `while !done` and drop the `if`
    |
-12 -     while true {
+11
+12 ~     while !done {
 13 -         if done {
 14 -             break;
 15 -         }
 16 - 
-12 +     while !done {
+17           i += 1;
    |
    = note: `loop_with_break_condition` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition
@@ -42,9 +44,10 @@ warning[loop_with_break_condition]: this loop leaves on its first statement; the
    |
 help: write `while i == 0 || i == 3` and drop the `if`
    |
-21 -     while true {
+20
+21 ~     while i == 0 || i == 3 {
 22 -         if !(i == 0 || i == 3) break;
-21 +     while i == 0 || i == 3 {
+23           i -= 1;
    |
    = note: `loop_with_break_condition` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition
@@ -57,12 +60,13 @@ warning[loop_with_break_condition]: this loop leaves on its first statement; the
    |
 help: write `while i >= 100` and drop the `if`
    |
-26 -     while true {
+25
+26 ~     while i >= 100 {
 27 -         if i < 100 {
 28 -             break;
 29 -         }
 30 - 
-26 +     while i >= 100 {
+31           i -= 1;
    |
    = note: `loop_with_break_condition` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition
@@ -75,11 +79,11 @@ warning[loop_with_break_condition]: this loop leaves on its first statement; the
    |
 help: write `while i <= 40` and drop the `if`
    |
-34 -     while true {
-35 -         // wait for the flag
+33
+34 ~     while i <= 40 {
+35           // wait for the flag
 36 -         if i > 40 break;
-34 +     while i <= 40 {
-35 +         // wait for the flag
+37           i += 1;
    |
    = note: `loop_with_break_condition` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition

@@ -1,0 +1,16 @@
+---
+import type { ApiModule, Declaration, SiteData } from '../generated/doc-site.js';
+interface Props { site: SiteData; module: ApiModule; declaration?: Declaration }
+const { site, module, declaration: d } = Astro.props;
+const category = site.categories.find(c => c.id === module.category);
+const source = d ? d.sourceUrl : module.sourceUrl;
+const kind = d ? d.kind.replaceAll('_', ' ') : 'module';
+---
+<div class="titlebar"><h1 class:list={{mono: !!d}}>{d?.name ?? module.title}</h1><span class:list={['badge', {proc: d?.kind === 'procedure'}]}>{kind}</span>
+{d?.binding && <span class="badge foreign" title="Declared by a foreign library this module binds">foreign</span>}
+{category?.badge && <span class={`badge ${category.id.replace('category-', 'cat-')}`} title={category.tip}>{category.badge}</span>}
+{(d?.experimental ?? module.experimental) && <span class="badge exp" title="Experimental: may change or go away">experimental</span>}
+{d && d.overloads.length > 1 && <span class="since">{d.overloads.length} overloads</span>}
+{d?.since && <span class="since">since {d.since}</span>}
+{source && <Fragment><span class="spacer"></span><a class="muted" href={source}>Source</a></Fragment>}
+</div>

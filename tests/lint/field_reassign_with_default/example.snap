@@ -9,9 +9,10 @@ warning[field_reassign_with_default]: `config` is made with its defaults and the
    |
 help: set the fields in a struct literal where the variable is declared
    |
-10 -     config: Config;
+ 9   make :: (title: string) -> Config {
+10 ~     config := Config.{ width = 100, title = title };
 11 -     config.width = 100;
 12 -     config.title = title;
-10 +     config := Config.{ width = 100, title = title };
+13
    |
    = note: see https://jacket.matteopolak.com/lint-rules/field_reassign_with_default

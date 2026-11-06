@@ -9,7 +9,9 @@ warning[erasing_op]: `x * 0` is always `0`
    |
 help: `*` with this literal erases `x`: was another value meant?
    |
+ 5       flags: u32 = 3;
  6 ~     a := 0;
+ 7       b := flags & 0;
    |
    = note: `erasing_op` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/erasing_op
@@ -22,7 +24,9 @@ warning[erasing_op]: `flags & 0` is always `0`
    |
 help: `&` with this literal erases `flags`: was another value meant?
    |
+ 6       a := x * 0;
  7 ~     b := 0;
+ 8       c := x % 1;
    |
    = note: `erasing_op` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/erasing_op
@@ -35,7 +39,9 @@ warning[erasing_op]: `x % 1` is always `0`
    |
 help: `%` with this literal erases `x`: was another value meant?
    |
+ 7       b := flags & 0;
  8 ~     c := 0;
+ 9
    |
    = note: `erasing_op` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/erasing_op

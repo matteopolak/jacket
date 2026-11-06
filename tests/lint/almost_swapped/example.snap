@@ -9,9 +9,10 @@ error[almost_swapped]: this sets both `a` and `b` to `b`
    |
 help: to swap them, write `a, b = b, a;`
    |
- 7 -     a = b;
+ 6
+ 7 ~     a, b = b, a;
  8 -     b = a;
- 7 +     a, b = b, a;
+ 9
    |
    = note: `almost_swapped` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/almost_swapped

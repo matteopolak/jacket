@@ -9,7 +9,9 @@ warning[manual_clamp]: `volume` is kept between `0` and `100` by hand
    |
 help: write `clamp(volume, 0, 100)`
    |
+ 4       volume := 140;
  5 ~     volume = clamp(volume, 0, 100);
+ 6       print("%\n", volume);
    |
    = note: `manual_clamp` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp

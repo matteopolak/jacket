@@ -1,0 +1,1722 @@
+{
+  "schema": "jacket-doc-site-measurements/1",
+  "scope": "Controlled navigation/generation comparison predates the runtime corrections; separate ordinary shared-load search diagnostics record before/after successful row reuse. No universal final performance claim.",
+  "source": {
+    "legacyRenderer": "0803e84f40585991de094453d77e83ef9ae0cf19",
+    "sharedLibraryAndNativeCandidate": "7b0194b07fa8d67a0f4846be48f3f2b06fe75db9",
+    "candidateBuilder": "6bcca53d8a60473d23a1594f6b2ee87801144781",
+    "browserHarness": "d94871304303e055dd961abb59364bfc6f6c99f0",
+    "correctionSourceFilesSHA256": {
+      "website/docs/src/browser/entry.ts": "bd30296520985e480b3b095be1ff7d70946059d77d09996d270616cc81386769",
+      "website/docs/src/browser/navigation.ts": "170ebbe15607045cafd549a84c41b925eac9fa406783aba6bbe1c8a901990286",
+      "website/docs/src/browser/search.ts": "0eac151c0330e768a049487adabe9f9cb0e3cecf74535c4ae2073648c811a747",
+      "website/docs/src/styles/site.css": "5afd8bf0ba07162df9834cb78ae9faa53ab8e139b1bd173428bd6d8cc747489f"
+    },
+    "runtimeCorrectionCommit": "ec0d2be18141123fdffd240ace0d7bbc5526727e"
+  },
+  "environment": {
+    "machine": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "memoryGiB": 16,
+    "chrome": "156.0.8078.80",
+    "node": "24.12.0",
+    "npm": "11.6.2",
+    "astro": "7.4.1",
+    "llvm": "23.1.2",
+    "formatterProfile": "native O2, documentation-declarations/1, width88, indent4",
+    "runtimeWasmSHA256": "d3c0c415b0766ae925a7ec6d1a771a81980a247d73cd86bbf4511c46da12c6d6",
+    "nativeCandidateProfile": "release; default Cargo profile; no RUSTFLAGS or release-profile overrides; CC=clang"
+  },
+  "browserMethod": {
+    "repetitions": 3,
+    "order": "legacy/candidate, candidate/legacy, legacy/candidate within each profile/scenario",
+    "profiles": [
+      {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      {
+        "name": "narrow",
+        "width": 375,
+        "height": 812
+      }
+    ],
+    "common": {
+      "scale": 1,
+      "cpuSlowdown": 1,
+      "networkLatencyMs": 0,
+      "networkThroughput": "unlimited",
+      "theme": "light",
+      "motion": "no-preference"
+    },
+    "server": "loopback HTTP/1.1, gzip6, content-hash ETags, HTML revalidation, one-hour assets; server warmed, browser profile/cache/storage fresh for each session",
+    "admission": "exclusive shared-host gate, quiet load maximum2.5 at admission; no OS filesystem-cache purge",
+    "rawResultsSHA256": "ba5bd5762b0540663972b1a7cf122be4aac89671c3f3b3378869f5435bfce9e5"
+  },
+  "qualifications": [
+    "Generation and loaded-file results each contain one paired sample; no median, variance or speedup is established. Further generation measurements are deferred.",
+    "Candidate publication includes typed admission, Astro build, full HTML/link checks and atomic publication; legacy uses its original native renderer and link checker.",
+    "Navigation DOM arrival and settled useful content are separate endpoints. The latter waits for animation, fonts, hit testing and two frames; it is not first visible pixel.",
+    "Cache hits below mean explicit CDP disk/prefetch/served flags. Normalized status200 does not identify conditional304; none is inferred from byte size.",
+    "Body sizes are browser-exposed retrieved bytes, not complete decompressed network traffic. Speculative prefetch can expose an empty body despite encoded transfer.",
+    "All preparation/prefetch/revisit requests are included in session transfer totals. Unconsumed means not consumed within the observed session.",
+    "Loopback gzip and headless observations do not establish CDN/Brotli/HTTP2, physical compositor timing, or Firefox GPU parity.",
+    "FP/FCP/LCP, scrolling smoothness and runtime first-use performance are not established. Search reuse has separate bounded shared-load observations, not a controlled latency/CPU benchmark."
+  ],
+  "generation": [
+    {
+      "workload": "cold-full-build",
+      "pairs": 1,
+      "receiptSHA256": "2f53b619f6cc557652795dfb78ea2baaa65b980bfa08d75f1d61d9220f02ef5f",
+      "samples": [
+        {
+          "wallSeconds": 46.274531125091016,
+          "cpuUserSeconds": 25.109231,
+          "cpuSystemSeconds": 8.924938,
+          "sampledTreePeakKiB": 902032,
+          "kernelLargestProcessPeakKiB": 539840.0,
+          "exit": 0,
+          "timedOut": false,
+          "variant": "legacy"
+        },
+        {
+          "wallSeconds": 152.54312124988064,
+          "cpuUserSeconds": 127.68433,
+          "cpuSystemSeconds": 23.496235,
+          "sampledTreePeakKiB": 3093792,
+          "kernelLargestProcessPeakKiB": 3117056.0,
+          "exit": 0,
+          "timedOut": false,
+          "variant": "candidate"
+        }
+      ]
+    },
+    {
+      "workload": "loaded-file-edit",
+      "pairs": 1,
+      "receiptSHA256": "f00ce871013f6fe826d52e16be08bc1fa3d00ac23cbb20c49a8ef7de352e78b6",
+      "samples": [
+        {
+          "wallSeconds": 93.07878862484358,
+          "cpuUserSeconds": 20.754437,
+          "cpuSystemSeconds": 11.001421,
+          "sampledTreePeakKiB": 731552,
+          "kernelLargestProcessPeakKiB": 414288.0,
+          "exit": 0,
+          "timedOut": false,
+          "variant": "legacy"
+        },
+        {
+          "wallSeconds": 196.43499679188244,
+          "cpuUserSeconds": 122.329909,
+          "cpuSystemSeconds": 28.199828,
+          "sampledTreePeakKiB": 2154144,
+          "kernelLargestProcessPeakKiB": 2148576.0,
+          "exit": 0,
+          "timedOut": false,
+          "variant": "candidate"
+        }
+      ]
+    }
+  ],
+  "navigation": [
+    {
+      "profile": "desktop",
+      "scenario": "unprefetched-history",
+      "variant": "legacy",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        10,
+        10,
+        10
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        75504,
+        75504,
+        75504
+      ],
+      "browserExposedBodyBytes": [
+        779208,
+        779208,
+        779208
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7782,
+            7782,
+            7782
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            55499,
+            55499,
+            55499
+          ]
+        },
+        "exportData": {
+          "encodedTransferBytes": [
+            339,
+            339,
+            339
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            10430,
+            10430,
+            10430
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 2,
+          "action": "click",
+          "domReadyMs": [
+            32.80000019073486,
+            23.90000009536743,
+            23.299999952316284
+          ],
+          "settledUsefulMs": [
+            75.60000014305115,
+            57.299999952316284,
+            54.60000014305115
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "desktop",
+      "scenario": "unprefetched-history",
+      "variant": "astro",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        15,
+        14,
+        14
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        90371,
+        90149,
+        90149
+      ],
+      "browserExposedBodyBytes": [
+        1010493,
+        1010493,
+        1010493
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7732,
+            7732,
+            7732
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            55507,
+            55285,
+            55285
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            25678,
+            25678,
+            25678
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 2,
+          "action": "click",
+          "domReadyMs": [
+            77.19999980926514,
+            78.39999985694885,
+            76.80000019073486
+          ],
+          "settledUsefulMs": [
+            306.89999985694885,
+            307.2000000476837,
+            306.80000019073486
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "desktop",
+      "scenario": "api-first-newpage-history",
+      "variant": "legacy",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        12,
+        12,
+        12
+      ],
+      "explicitCacheFlags": [
+        2,
+        2,
+        2
+      ],
+      "encodedTransferBytes": [
+        64852,
+        64852,
+        64852
+      ],
+      "browserExposedBodyBytes": [
+        727736,
+        727736,
+        727736
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7782,
+            7782,
+            7782
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            44332,
+            44332,
+            44332
+          ]
+        },
+        "exportData": {
+          "encodedTransferBytes": [
+            854,
+            854,
+            854
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            10430,
+            10430,
+            10430
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 2,
+          "action": "click",
+          "domReadyMs": [
+            16.600000143051147,
+            13.900000095367432,
+            13.399999856948853
+          ],
+          "settledUsefulMs": [
+            43.10000014305115,
+            38.200000047683716,
+            33
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "desktop",
+      "scenario": "api-first-newpage-history",
+      "variant": "astro",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        17,
+        17,
+        17
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        85394,
+        85394,
+        85394
+      ],
+      "browserExposedBodyBytes": [
+        934167,
+        934167,
+        934167
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7732,
+            7732,
+            7732
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            43888,
+            43888,
+            43888
+          ]
+        },
+        "exportData": {
+          "encodedTransferBytes": [
+            4309,
+            4309,
+            4309
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            28011,
+            28011,
+            28011
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 2,
+          "action": "click",
+          "domReadyMs": [
+            50.40000009536743,
+            50.299999952316284,
+            56.799999952316284
+          ],
+          "settledUsefulMs": [
+            273.7999999523163,
+            274.59999990463257,
+            275.7999999523163
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "desktop",
+      "scenario": "hover-prefetched-history",
+      "variant": "legacy",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        10,
+        10,
+        10
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        75504,
+        75504,
+        75504
+      ],
+      "browserExposedBodyBytes": [
+        779208,
+        779208,
+        779208
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7782,
+            7782,
+            7782
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            55499,
+            55499,
+            55499
+          ]
+        },
+        "exportData": {
+          "encodedTransferBytes": [
+            339,
+            339,
+            339
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            10430,
+            10430,
+            10430
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 3,
+          "action": "click",
+          "domReadyMs": [
+            13.800000190734863,
+            18.5,
+            16.600000143051147
+          ],
+          "settledUsefulMs": [
+            32.40000009536743,
+            48.69999980926514,
+            49.5
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "desktop",
+      "scenario": "hover-prefetched-history",
+      "variant": "astro",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        15,
+        15,
+        15
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        90371,
+        90371,
+        90371
+      ],
+      "browserExposedBodyBytes": [
+        1010493,
+        1010493,
+        1010493
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7732,
+            7732,
+            7732
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            55507,
+            55507,
+            55507
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            25678,
+            25678,
+            25678
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 3,
+          "action": "click",
+          "domReadyMs": [
+            60.799999952316284,
+            61.5,
+            59.799999952316284
+          ],
+          "settledUsefulMs": [
+            282.7999999523163,
+            282,
+            282
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "desktop",
+      "scenario": "unconsumed-prefetch",
+      "variant": "legacy",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        9,
+        9,
+        9
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        75282,
+        75282,
+        75282
+      ],
+      "browserExposedBodyBytes": [
+        457305,
+        457305,
+        457305
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7782,
+            7782,
+            7782
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            55277,
+            55277,
+            55277
+          ]
+        },
+        "exportData": {
+          "encodedTransferBytes": [
+            339,
+            339,
+            339
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            10430,
+            10430,
+            10430
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [],
+      "unconsumedSpeculationCandidates": [
+        1,
+        1,
+        1
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "desktop",
+      "scenario": "unconsumed-prefetch",
+      "variant": "astro",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        12,
+        12,
+        12
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        89705,
+        89705,
+        89705
+      ],
+      "browserExposedBodyBytes": [
+        482648,
+        482648,
+        482648
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7732,
+            7732,
+            7732
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            54841,
+            54841,
+            54841
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            25678,
+            25678,
+            25678
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [],
+      "unconsumedSpeculationCandidates": [
+        1,
+        1,
+        1
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "narrow",
+      "scenario": "unprefetched-history",
+      "variant": "legacy",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        10,
+        10,
+        10
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        75504,
+        75504,
+        75504
+      ],
+      "browserExposedBodyBytes": [
+        779208,
+        779208,
+        779208
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7782,
+            7782,
+            7782
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            55499,
+            55499,
+            55499
+          ]
+        },
+        "exportData": {
+          "encodedTransferBytes": [
+            339,
+            339,
+            339
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            10430,
+            10430,
+            10430
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 2,
+          "action": "click",
+          "domReadyMs": [
+            26,
+            22.300000190734863,
+            20.200000047683716
+          ],
+          "settledUsefulMs": [
+            55.5,
+            45.10000014305115,
+            51.39999985694885
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "narrow",
+      "scenario": "unprefetched-history",
+      "variant": "astro",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        15,
+        15,
+        14
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        90371,
+        90371,
+        90149
+      ],
+      "browserExposedBodyBytes": [
+        1010493,
+        1010493,
+        1010493
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7732,
+            7732,
+            7732
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            55507,
+            55507,
+            55285
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            25678,
+            25678,
+            25678
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 2,
+          "action": "click",
+          "domReadyMs": [
+            87.40000009536743,
+            79,
+            80.79999995231628
+          ],
+          "settledUsefulMs": [
+            323.10000014305115,
+            321.69999980926514,
+            301.89999985694885
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "narrow",
+      "scenario": "api-first-newpage-history",
+      "variant": "legacy",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        12,
+        12,
+        12
+      ],
+      "explicitCacheFlags": [
+        2,
+        2,
+        2
+      ],
+      "encodedTransferBytes": [
+        64852,
+        64852,
+        64852
+      ],
+      "browserExposedBodyBytes": [
+        727736,
+        727736,
+        727736
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7782,
+            7782,
+            7782
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            44332,
+            44332,
+            44332
+          ]
+        },
+        "exportData": {
+          "encodedTransferBytes": [
+            854,
+            854,
+            854
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            10430,
+            10430,
+            10430
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 2,
+          "action": "click",
+          "domReadyMs": [
+            15.799999952316284,
+            18.199999809265137,
+            16.200000047683716
+          ],
+          "settledUsefulMs": [
+            43.09999990463257,
+            42.19999980926514,
+            45.89999985694885
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "narrow",
+      "scenario": "api-first-newpage-history",
+      "variant": "astro",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        17,
+        17,
+        17
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        85394,
+        85394,
+        85394
+      ],
+      "browserExposedBodyBytes": [
+        934167,
+        934167,
+        934167
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7732,
+            7732,
+            7732
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            43888,
+            43888,
+            43888
+          ]
+        },
+        "exportData": {
+          "encodedTransferBytes": [
+            4309,
+            4309,
+            4309
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            28011,
+            28011,
+            28011
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 2,
+          "action": "click",
+          "domReadyMs": [
+            56,
+            54.200000047683716,
+            54.19999980926514
+          ],
+          "settledUsefulMs": [
+            279.09999990463257,
+            276.7999999523163,
+            277.89999985694885
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "narrow",
+      "scenario": "hover-prefetched-history",
+      "variant": "legacy",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        10,
+        10,
+        10
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        75504,
+        75504,
+        75504
+      ],
+      "browserExposedBodyBytes": [
+        779208,
+        779208,
+        779208
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7782,
+            7782,
+            7782
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            55499,
+            55499,
+            55499
+          ]
+        },
+        "exportData": {
+          "encodedTransferBytes": [
+            339,
+            339,
+            339
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            10430,
+            10430,
+            10430
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 3,
+          "action": "click",
+          "domReadyMs": [
+            11.099999904632568,
+            13,
+            12.899999856948853
+          ],
+          "settledUsefulMs": [
+            31.59999990463257,
+            32.200000047683716,
+            33.299999952316284
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "narrow",
+      "scenario": "hover-prefetched-history",
+      "variant": "astro",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        15,
+        15,
+        15
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        90371,
+        90371,
+        90371
+      ],
+      "browserExposedBodyBytes": [
+        1010493,
+        1010493,
+        1010493
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7732,
+            7732,
+            7732
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            55507,
+            55507,
+            55507
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            25678,
+            25678,
+            25678
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [
+        {
+          "actionIndex": 3,
+          "action": "click",
+          "domReadyMs": [
+            64.69999980926514,
+            62.200000047683716,
+            61.299999952316284
+          ],
+          "settledUsefulMs": [
+            282,
+            282.10000014305115,
+            282.89999985694885
+          ]
+        }
+      ],
+      "unconsumedSpeculationCandidates": [
+        0,
+        0,
+        0
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "narrow",
+      "scenario": "unconsumed-prefetch",
+      "variant": "legacy",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        9,
+        9,
+        9
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        75282,
+        75282,
+        75282
+      ],
+      "browserExposedBodyBytes": [
+        457305,
+        457305,
+        457305
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7782,
+            7782,
+            7782
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            55277,
+            55277,
+            55277
+          ]
+        },
+        "exportData": {
+          "encodedTransferBytes": [
+            339,
+            339,
+            339
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            10430,
+            10430,
+            10430
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [],
+      "unconsumedSpeculationCandidates": [
+        1,
+        1,
+        1
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "profile": "narrow",
+      "scenario": "unconsumed-prefetch",
+      "variant": "astro",
+      "repetitions": [
+        0,
+        1,
+        2
+      ],
+      "requests": [
+        12,
+        12,
+        12
+      ],
+      "explicitCacheFlags": [
+        1,
+        1,
+        1
+      ],
+      "encodedTransferBytes": [
+        89705,
+        89705,
+        89705
+      ],
+      "browserExposedBodyBytes": [
+        482648,
+        482648,
+        482648
+      ],
+      "categories": {
+        "css": {
+          "encodedTransferBytes": [
+            7732,
+            7732,
+            7732
+          ]
+        },
+        "document": {
+          "encodedTransferBytes": [
+            54841,
+            54841,
+            54841
+          ]
+        },
+        "javascript": {
+          "encodedTransferBytes": [
+            25678,
+            25678,
+            25678
+          ]
+        },
+        "other": {
+          "encodedTransferBytes": [
+            1454,
+            1454,
+            1454
+          ]
+        }
+      },
+      "trustedNavigation": [],
+      "unconsumedSpeculationCandidates": [
+        1,
+        1,
+        1
+      ],
+      "refetchedHashedAssets": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "searchReuseDiagnostic": {
+    "scope": "Bounded ordinary shared-load usability diagnostic, before/after successful search-row reuse; not a controlled latency/CPU population benchmark.",
+    "profiles": "desktop 1280x900, scale1, light, unthrottled, same Chrome156.0.8078.80",
+    "order": "legacy/candidate, candidate/legacy, legacy/candidate; same scenario/actions",
+    "samples": [
+      {
+        "phase": "before-reuse",
+        "variant": "legacy",
+        "repetition": 0,
+        "result": "pass",
+        "searchRequests": 1,
+        "searchEncodedBytes": [
+          558444
+        ],
+        "searchDecodedDataEventBytes": [
+          3340531
+        ],
+        "postNavigationKeyAndQueryMs": 41.5,
+        "postNavigationTaskDurationProxyMs": 8.73400000000002,
+        "rawResultsSHA256": "fa7dd81bfbca5f00e5f40bdcf31d598f560b54c2ae0c7c652e9a5666c9b7cb68"
+      },
+      {
+        "phase": "before-reuse",
+        "variant": "astro",
+        "repetition": 0,
+        "result": "pass",
+        "searchRequests": 2,
+        "searchEncodedBytes": [
+          1096341,
+          0
+        ],
+        "searchDecodedDataEventBytes": [
+          14995697,
+          14995697
+        ],
+        "postNavigationKeyAndQueryMs": 110.89990234375,
+        "postNavigationTaskDurationProxyMs": 77.02799999999999,
+        "rawResultsSHA256": "fa7dd81bfbca5f00e5f40bdcf31d598f560b54c2ae0c7c652e9a5666c9b7cb68"
+      },
+      {
+        "phase": "before-reuse",
+        "variant": "astro",
+        "repetition": 1,
+        "result": "pass",
+        "searchRequests": 2,
+        "searchEncodedBytes": [
+          1096341,
+          0
+        ],
+        "searchDecodedDataEventBytes": [
+          14995697,
+          14995697
+        ],
+        "postNavigationKeyAndQueryMs": 125.0,
+        "postNavigationTaskDurationProxyMs": 87.67600000000003,
+        "rawResultsSHA256": "fa7dd81bfbca5f00e5f40bdcf31d598f560b54c2ae0c7c652e9a5666c9b7cb68"
+      },
+      {
+        "phase": "before-reuse",
+        "variant": "legacy",
+        "repetition": 1,
+        "result": "pass",
+        "searchRequests": 1,
+        "searchEncodedBytes": [
+          558444
+        ],
+        "searchDecodedDataEventBytes": [
+          3340531
+        ],
+        "postNavigationKeyAndQueryMs": 30.599853515625,
+        "postNavigationTaskDurationProxyMs": 6.599999999999994,
+        "rawResultsSHA256": "fa7dd81bfbca5f00e5f40bdcf31d598f560b54c2ae0c7c652e9a5666c9b7cb68"
+      },
+      {
+        "phase": "before-reuse",
+        "variant": "legacy",
+        "repetition": 2,
+        "result": "pass",
+        "searchRequests": 1,
+        "searchEncodedBytes": [
+          558444
+        ],
+        "searchDecodedDataEventBytes": [
+          3340531
+        ],
+        "postNavigationKeyAndQueryMs": 29.0,
+        "postNavigationTaskDurationProxyMs": 6.5409999999999915,
+        "rawResultsSHA256": "fa7dd81bfbca5f00e5f40bdcf31d598f560b54c2ae0c7c652e9a5666c9b7cb68"
+      },
+      {
+        "phase": "before-reuse",
+        "variant": "astro",
+        "repetition": 2,
+        "result": "pass",
+        "searchRequests": 2,
+        "searchEncodedBytes": [
+          1096341,
+          0
+        ],
+        "searchDecodedDataEventBytes": [
+          14995697,
+          14995697
+        ],
+        "postNavigationKeyAndQueryMs": 122.300048828125,
+        "postNavigationTaskDurationProxyMs": 89.146,
+        "rawResultsSHA256": "fa7dd81bfbca5f00e5f40bdcf31d598f560b54c2ae0c7c652e9a5666c9b7cb68"
+      },
+      {
+        "phase": "after-reuse",
+        "variant": "legacy",
+        "repetition": 0,
+        "result": "pass",
+        "searchRequests": 1,
+        "searchEncodedBytes": [
+          558444
+        ],
+        "searchDecodedDataEventBytes": [
+          3340531
+        ],
+        "postNavigationKeyAndQueryMs": 30.89990234375,
+        "postNavigationTaskDurationProxyMs": 6.554000000000004,
+        "rawResultsSHA256": "92dd3abffc9189b02b9048b56c16747e1b4ee98608393e26ff8622d58f758e96"
+      },
+      {
+        "phase": "after-reuse",
+        "variant": "astro",
+        "repetition": 0,
+        "result": "pass",
+        "searchRequests": 1,
+        "searchEncodedBytes": [
+          1096341
+        ],
+        "searchDecodedDataEventBytes": [
+          14995697
+        ],
+        "postNavigationKeyAndQueryMs": 30.199951171875,
+        "postNavigationTaskDurationProxyMs": 8.682000000000023,
+        "rawResultsSHA256": "92dd3abffc9189b02b9048b56c16747e1b4ee98608393e26ff8622d58f758e96"
+      },
+      {
+        "phase": "after-reuse",
+        "variant": "astro",
+        "repetition": 1,
+        "result": "pass",
+        "searchRequests": 1,
+        "searchEncodedBytes": [
+          1096341
+        ],
+        "searchDecodedDataEventBytes": [
+          14995697
+        ],
+        "postNavigationKeyAndQueryMs": 30.60009765625,
+        "postNavigationTaskDurationProxyMs": 8.075,
+        "rawResultsSHA256": "92dd3abffc9189b02b9048b56c16747e1b4ee98608393e26ff8622d58f758e96"
+      },
+      {
+        "phase": "after-reuse",
+        "variant": "legacy",
+        "repetition": 1,
+        "result": "pass",
+        "searchRequests": 1,
+        "searchEncodedBytes": [
+          558444
+        ],
+        "searchDecodedDataEventBytes": [
+          3340531
+        ],
+        "postNavigationKeyAndQueryMs": 30.5,
+        "postNavigationTaskDurationProxyMs": 5.84599999999999,
+        "rawResultsSHA256": "92dd3abffc9189b02b9048b56c16747e1b4ee98608393e26ff8622d58f758e96"
+      },
+      {
+        "phase": "after-reuse",
+        "variant": "legacy",
+        "repetition": 2,
+        "result": "pass",
+        "searchRequests": 1,
+        "searchEncodedBytes": [
+          558444
+        ],
+        "searchDecodedDataEventBytes": [
+          3340531
+        ],
+        "postNavigationKeyAndQueryMs": 28.60009765625,
+        "postNavigationTaskDurationProxyMs": 5.882999999999999,
+        "rawResultsSHA256": "92dd3abffc9189b02b9048b56c16747e1b4ee98608393e26ff8622d58f758e96"
+      },
+      {
+        "phase": "after-reuse",
+        "variant": "astro",
+        "repetition": 2,
+        "result": "pass",
+        "searchRequests": 1,
+        "searchEncodedBytes": [
+          1096341
+        ],
+        "searchDecodedDataEventBytes": [
+          14995697
+        ],
+        "postNavigationKeyAndQueryMs": 42.5,
+        "postNavigationTaskDurationProxyMs": 9.131,
+        "rawResultsSHA256": "92dd3abffc9189b02b9048b56c16747e1b4ee98608393e26ff8622d58f758e96"
+      }
+    ],
+    "qualification": "The combined post-navigation window includes slash focus and query input. TaskDuration is a browser task-time proxy for combined decode/admission/filter/render work, not isolated JSON or process CPU. Server-cache/background contention were not controlled; no cold-start speedup is claimed.",
+    "admission": {
+      "allocation": "ordinary shared max2",
+      "beforeLoadAtAdmission": 3.45,
+      "afterLoadAtAdmission": 2.67,
+      "continuousBackgroundLoad": "not controlled"
+    }
+  }
+}

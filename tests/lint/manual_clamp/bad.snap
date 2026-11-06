@@ -9,7 +9,9 @@ warning[manual_clamp]: `x` is kept between `0` and `100` by hand
    |
 help: write `clamp(x, 0, 100)`
    |
+ 7       f := 0.5;
  8 ~     a := clamp(x, 0, 100);
+ 9       b := min(LIMIT, max(0, x));
    |
    = note: `manual_clamp` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp
@@ -22,7 +24,9 @@ warning[manual_clamp]: `x` is kept between `0` and `LIMIT` by hand
    |
 help: write `clamp(x, 0, LIMIT)`
    |
+ 8       a := max(0, min(100, x));
  9 ~     b := clamp(x, 0, LIMIT);
+10       c := max(min(100, x), 0);
    |
    = note: `manual_clamp` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp
@@ -35,7 +39,9 @@ warning[manual_clamp]: `x` is kept between `0` and `100` by hand
    |
 help: write `clamp(x, 0, 100)`
    |
+ 9       b := min(LIMIT, max(0, x));
 10 ~     c := clamp(x, 0, 100);
+11       d := max(0.0, min(1.0, f));
    |
    = note: `manual_clamp` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp
@@ -48,7 +54,9 @@ warning[manual_clamp]: `f` is kept between `0.0` and `1.0` by hand
    |
 help: write `clamp(f, 0.0, 1.0)`
    |
+10       c := max(min(100, x), 0);
 11 ~     d := clamp(f, 0.0, 1.0);
+12
    |
    = note: `manual_clamp` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp
@@ -61,12 +69,13 @@ warning[manual_clamp]: `x` is kept between `0` and `100` by hand
    |
 help: write `clamp(x, 0, 100)`
    |
-13 -     if x < 0 {
+12
+13 ~     x = clamp(x, 0, 100);
 14 -         x = 0;
 15 -     } else if x > 100 {
 16 -         x = 100;
 17 -     }
-13 +     x = clamp(x, 0, 100);
+18
    |
    = note: `manual_clamp` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp
@@ -79,9 +88,10 @@ warning[manual_clamp]: `x` is kept between `0` and `LIMIT` by hand
    |
 help: write `clamp(x, 0, LIMIT)`
    |
-19 -     if x > LIMIT x = LIMIT;
+18
+19 ~     x = clamp(x, 0, LIMIT);
 20 -     else if x <= 0 x = 0;
-19 +     x = clamp(x, 0, LIMIT);
+21
    |
    = note: `manual_clamp` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp
@@ -94,7 +104,9 @@ warning[manual_clamp]: `x` is kept between `0` and `255` by hand
    |
 help: write `clamp(x, 0, 255)`
    |
+21
 22 ~     e := clamp(x, 0, 255);
+23       g := ifx f > 1.0 then 1.0 else ifx f < 0.0 then 0.0 else f;
    |
    = note: `manual_clamp` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp
@@ -107,7 +119,9 @@ warning[manual_clamp]: `f` is kept between `0.0` and `1.0` by hand
    |
 help: write `clamp(f, 0.0, 1.0)`
    |
+22       e := ifx x < 0 then 0 else ifx x > 255 then 255 else x;
 23 ~     g := clamp(f, 0.0, 1.0);
+24
    |
    = note: `manual_clamp` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/manual_clamp

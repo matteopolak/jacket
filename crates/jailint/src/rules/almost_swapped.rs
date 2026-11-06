@@ -35,11 +35,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 {
                     let x = cx.whole_src(a).trim();
                     let y = cx.whole_src(b).trim();
-                    let span = pair[0].span.to(pair[1].span);
                     let message = format!("this sets both `{x}` and `{y}` to `{y}`");
                     let help = format!("to swap them, write `{x}, {y} = {y}, {x};`");
                     let (start, _) = statement_range(cx, pair[0].span);
                     let (_, end) = statement_range(cx, pair[1].span);
+                    // This finding concerns two complete statements, including both terminators.
+                    let span = jaic::source::Span::new(pair[0].span.file, start, end);
                     // Comments between the two statements would be lost with them.
                     if cx.text[start..end].contains("//") || cx.text[start..end].contains("/*") {
                         out.push(finding(span, message, Some(help)));

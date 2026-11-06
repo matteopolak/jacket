@@ -62,6 +62,8 @@ Any script under `tools/` that defines `OUTPUTS` is run, and a script in `tools/
 
 `generate_reference_docs.py` writes `docs/reference/` from the tools themselves (their `--help`, the environment-variable registry and the lint rules). Edit the code that defines a variable, rule or flag, not the pages.
 
+For a source checkout with a matching native formatter already built, `python3 tools/generators/generate_reference_docs.py --formatter /absolute/path/to/jaifmt` reuses that formatter and the current `jaic` in `CARGO_TARGET_DIR`. It still builds the other Rust tools in debug mode. This avoids rebuilding an LLVM compiler solely to regenerate CLI help; omitting `--formatter` retains the ordinary complete build. Add `--check` to compare without rewriting reference pages.
+
 ## Tests
 
 `PYTHONPATH=tools python3 tools/portable/build_portable.py zip` writes the stdlib ZIP fixtures through Python's `zipfile` module. The stored entries use the ZIP epoch and fixed Unix file metadata, so identical content produces identical bytes across clock changes and hosts; malformed variants derive from that same archive. Keep those fields explicit when adding an entry, and retain the controlled-clock regression in `portable/test_build_portable.py`. `JACKET_OUTPUT_DIR` selects the output root through `repo_output`.

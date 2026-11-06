@@ -9,7 +9,9 @@ warning[format_push_string]: `tprint` formats into a new string just to append i
    |
 help: `print_to_builder` writes into the builder directly
    |
+ 7
  8 ~     print_to_builder(*builder, "%: %\n", name, value);
+ 9
    |
    = note: `format_push_string` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/format_push_string
@@ -22,7 +24,9 @@ warning[format_push_string]: `sprint` formats into a new string just to append i
    |
 help: `print_to_builder` writes into the builder directly, and the string `sprint` returns is never freed here
    |
+13
 14 ~     print_to_builder(*builder, "[%]", name);
+15
    |
    = note: `format_push_string` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/format_push_string

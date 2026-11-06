@@ -14,7 +14,9 @@ error[double_free]: `node` is freed a second time
    |
 help: remove the second call, or assign `node` a new value in between
    |
+10       free(node);
 11 -     free(node);
+12
    |
    = note: `double_free` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/double_free
@@ -32,7 +34,9 @@ error[double_free]: `text` is freed a second time
    |
 help: remove the second call, or assign `text` a new value in between
    |
+16       free(text);
 17 -     free(text);
+18
    |
    = note: `double_free` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/double_free
@@ -50,7 +54,9 @@ error[double_free]: `items` is freed a second time
    |
 help: remove the second call, or assign `items` a new value in between
    |
+21       array_free(items);
 22 -     array_free(items);
+23   }
    |
    = note: `double_free` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/double_free

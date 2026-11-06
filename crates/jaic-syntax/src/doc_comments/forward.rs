@@ -47,6 +47,28 @@ impl<'a> Files<'a> {
         }
     }
 
+    /// The source files successfully read during documentation resolution, in path order.
+    pub(super) fn dependencies(&self) -> Vec<(PathBuf, String)> {
+        use sha2::{Digest, Sha256};
+        let mut files = self
+            .texts
+            .iter()
+            .filter_map(|(path, text)| {
+                text.as_ref().map(|text| {
+                    (
+                        path.clone(),
+                        Sha256::digest(text.as_bytes())
+                            .iter()
+                            .map(|b| format!("{b:02x}"))
+                            .collect(),
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
+        files.sort();
+        files
+    }
+
     /// These modules supply language and implementation declarations, not public pages.
     pub(super) fn unpublished(&self, file: &Path) -> bool {
         file.starts_with(self.stdlib.join("prelude"))

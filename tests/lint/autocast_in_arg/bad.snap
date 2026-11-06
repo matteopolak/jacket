@@ -9,7 +9,9 @@ warning[autocast_in_arg]: `xx` leaves the target type to the parameter (`s64` to
    |
 help: write `cast(s32)` to say so
    |
+10
 11 ~     print("%\n", draw(cast(s32) width, xx scale));
+12       print("%\n", draw(1, y = xx scale));
    |
    = note: see https://jacket.matteopolak.com/lint-rules/autocast_in_arg
 
@@ -21,7 +23,9 @@ warning[autocast_in_arg]: `xx` leaves the target type to the parameter (`float64
    |
 help: write `cast(float32)` to say so
    |
+10
 11 ~     print("%\n", draw(xx width, cast(float32) scale));
+12       print("%\n", draw(1, y = xx scale));
    |
    = note: see https://jacket.matteopolak.com/lint-rules/autocast_in_arg
 
@@ -33,6 +37,8 @@ warning[autocast_in_arg]: `xx` leaves the target type to the parameter (`float64
    |
 help: write `cast(float32)` to say so
    |
+11       print("%\n", draw(xx width, xx scale));
 12 ~     print("%\n", draw(1, y = cast(float32) scale));
+13   }
    |
    = note: see https://jacket.matteopolak.com/lint-rules/autocast_in_arg

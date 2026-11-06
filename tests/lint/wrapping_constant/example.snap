@@ -9,7 +9,9 @@ error[wrapping_constant]: constant `0x8000_0000` is 2147483648, which does not f
    |
 help: to use 2147483648, compute in `s64` (`cast(s64) id`); to mean -2147483648, write -2147483648
    |
+ 3   bucket :: (id: s32) -> s32 {
  4 ~     return cast(s64) id % 0x8000_0000;
+ 5   }
    |
    = note: `wrapping_constant` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/wrapping_constant

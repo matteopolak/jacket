@@ -107,7 +107,9 @@ fn ascii_block_has_line_numbers_context_labels_and_the_fix() {
          \x20  |\n\
          help: a similar name exists: `counter`\n\
          \x20  |\n\
+         \x202       counter := 1;\n\
          \x203 ~     print(\"%\\n\", counter);\n\
+         \x204   }\n\
          \x20  |\n\
          \x20  = note: names are case-sensitive\n"
     );
@@ -127,7 +129,9 @@ fn unicode_block_draws_boxes() {
          \x20  ╰─\n\
          help: a similar name exists: `counter`\n\
          \x20  │\n\
+         \x202       counter := 1;\n\
          \x203 ~     print(\"%\\n\", counter);\n\
+         \x204   }\n\
          \x20  │\n\
          \x20  = note: names are case-sensitive\n"
     );
@@ -371,4 +375,271 @@ fn scoped_style_stays_on_its_thread() {
         assert!(unknown_name().render().contains('\x1b'));
     });
     assert_eq!(style(), global);
+}
+
+/// Fix previews retain neutral boundaries and each side's line numbers.
+#[test]
+fn fix_diff_keeps_neutral_context() {
+    for newline in ["\n", "\r\n", "\r"] {
+        let text = ["keep;", "dead;", "stay;", "old;", "end;"].join(newline);
+        let dead = text.find("dead;").unwrap();
+        let old = text.find("old;").unwrap();
+        let edits = [
+            (dead - newline.len(), dead + 5, String::new()),
+            (old, old + 4, "new;".into()),
+        ];
+        assert_eq!(
+            changed_lines(&text, &LineIndex::new(&text), &edits),
+            vec![
+                ("1".into(), ' ', "keep;".into()),
+                ("2".into(), '-', "dead;".into()),
+                ("3".into(), ' ', "stay;".into()),
+                ("3".into(), '~', "new;".into()),
+                ("5".into(), ' ', "end;".into()),
+            ]
+        );
+    }
+    // Removing the separator before the final line also removes keep's final newline.
+    let text = "keep;\ndead;";
+    assert_eq!(
+        changed_lines(
+            text,
+            &LineIndex::new(text),
+            &[(5, text.len(), String::new())]
+        ),
+        vec![
+            ("1".into(), '~', "keep;".into()),
+            ("2".into(), '-', "dead;".into())
+        ]
+    );
+}
+
+#[test]
+fn fix_diff_handles_inline_insertions_and_blank_lines() {
+    let cases = [
+        (
+            "a\nb\nc",
+            vec![(0, 5, "A\nc\nb".into())],
+            vec![("1", '~', "A"), ("2", '~', "c"), ("3", '~', "b")],
+        ),
+        ("a;", vec![(2, 2, "\n".into())], vec![("1", '~', "a;")]),
+        (
+            "a; dead; b;",
+            vec![(3, 9, String::new())],
+            vec![("1", '~', "a; b;")],
+        ),
+        (
+            "a;\nb;",
+            vec![(3, 3, "new;\n".into())],
+            vec![("1", ' ', "a;"), ("2", '+', "new;"), ("2", ' ', "b;")],
+        ),
+        (
+            "a;\n\nb;",
+            vec![(3, 4, String::new())],
+            vec![("1", ' ', "a;"), ("2", '-', ""), ("3", ' ', "b;")],
+        ),
+        (
+            "dead;",
+            vec![(0, 5, String::new())],
+            vec![("1", '-', "dead;")],
+        ),
+        (
+            "a;\nb;",
+            vec![(3, 5, String::new())],
+            vec![("1", ' ', "a;"), ("2", '-', "b;")],
+        ),
+    ];
+    for (text, edits, expected) in cases {
+        assert_eq!(
+            changed_lines(text, &LineIndex::new(text), &edits),
+            expected
+                .into_iter()
+                .map(|(n, mark, text)| (n.into(), mark, text.into()))
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
+fn warning_fix_deletion_marker_is_red() {
+    let mut report = unknown_name();
+    report.severity = Severity::Warning;
+    let start = SOURCE.find("    counter").unwrap();
+    let end = SOURCE[start..].find('\n').unwrap() + start + 1;
+    report.help[0].fix.as_mut().unwrap().edits = vec![(start, end, String::new())];
+    let text = report.render_with(Style {
+        layout: Layout::Ascii,
+        color: true,
+    });
+    assert!(text.contains("\x1b[1;33mwarning"), "{text}");
+    assert!(text.contains("\x1b[31m-\x1b[0m"), "{text}");
+}
+
+/// Separate edits are anchored to their source lines; unchanged rows have a blank marker.
+#[test]
+fn fix_context_preserves_edit_order_and_elides_distant_gaps() {
+    for newline in ["\n", "\r\n", "\r"] {
+        let text = [
+            "before", "drop", "keep", "old", "middle", "far1", "far2", "far3", "after",
+        ]
+        .join(newline);
+        let drop = text.find("drop").unwrap();
+        let old = text.find("old").unwrap();
+        let after = text.find("after").unwrap();
+        let edits = [
+            (drop, drop + 4 + newline.len(), String::new()),
+            (old, old + 3, "new".into()),
+            (after, after, format!("insert{newline}")),
+        ];
+        assert_eq!(
+            changed_lines(&text, &LineIndex::new(&text), &edits),
+            vec![
+                ("1".into(), ' ', "before".into()),
+                ("2".into(), '-', "drop".into()),
+                ("3".into(), ' ', "keep".into()),
+                ("3".into(), '~', "new".into()),
+                ("5".into(), ' ', "middle".into()),
+                ("...".into(), ' ', String::new()),
+                ("8".into(), ' ', "far3".into()),
+                ("8".into(), '+', "insert".into()),
+                ("9".into(), ' ', "after".into()),
+            ]
+        );
+    }
+}
+
+#[test]
+fn empty_neutral_fix_context_has_no_trailing_whitespace() {
+    let source = "before;\n\ndead;\n\nafter;";
+    let mut report = Report::new(Code::TypeMismatch, "remove dead statement");
+    report.compact = false;
+    report.primary = Some(label(source, "dead;", None));
+    let start = source.find("dead;").unwrap();
+    report.help.push(Help {
+        message: "remove it".into(),
+        fix: Some(Fix {
+            text: source,
+            edits: vec![(start, start + 6, String::new())],
+            lines: None,
+        }),
+    });
+    let rendered = report.render_with(Style::PLAIN);
+    let help = rendered.split_once("help:").unwrap().1;
+    assert!(!help.lines().any(|line| line.ends_with(' ')), "{help}");
+}
+
+#[test]
+fn fix_context_keeps_the_existing_changed_row_limit() {
+    let text = (0..20)
+        .map(|n| format!("old{n}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let fixed = (0..20)
+        .map(|n| format!("new{n}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let rows = changed_lines(&text, &LineIndex::new(&text), &[(0, text.len(), fixed)]);
+    assert_eq!(rows.len(), MAX_FIX_LINES + 1);
+    assert_eq!(rows.last(), Some(&("...".into(), '~', String::new())));
+    assert!(rows[..MAX_FIX_LINES].iter().all(|row| row.1 == '~'));
+}
+
+#[test]
+fn line_ending_edit_marks_only_the_changed_line() {
+    let text = "a\nb\nc\n";
+    let rows = changed_lines(
+        text,
+        &LineIndex::new(text),
+        &[(0, text.len(), "a\nb\r\nc\n".into())],
+    );
+    assert_eq!(
+        rows,
+        vec![
+            ("1".into(), ' ', "a".into()),
+            ("2".into(), '~', "b".into()),
+            ("3".into(), ' ', "c".into())
+        ]
+    );
+}
+
+#[test]
+fn fix_boundary_edits_measure_complete_logical_lines() {
+    let cases = [
+        (
+            "a;\nb;",
+            (2, 3, String::new()),
+            vec![("1", '~', "a;b;"), ("2", '-', "b;")],
+        ),
+        (
+            "a\rb",
+            (2, 2, "\n".into()),
+            vec![("1", '~', "a"), ("2", ' ', "b")],
+        ),
+        (
+            "a;\r\nb;",
+            (2, 4, String::new()),
+            vec![("1", '~', "a;b;"), ("2", '-', "b;")],
+        ),
+    ];
+    for (text, edit, expected) in cases {
+        assert_eq!(
+            changed_lines(text, &LineIndex::new(text), &[edit]),
+            expected
+                .into_iter()
+                .map(|(n, mark, text)| (n.into(), mark, text.into()))
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
+fn broad_edit_elides_unchanged_interior_gaps() {
+    let text = "before\nold1\nkeep1\nkeep2\nkeep3\nold2\nafter";
+    let fixed = "before\nnew1\nkeep1\nkeep2\nkeep3\nnew2\nafter";
+    assert_eq!(
+        changed_lines(
+            text,
+            &LineIndex::new(text),
+            &[(0, text.len(), fixed.into())]
+        ),
+        vec![
+            ("1".into(), ' ', "before".into()),
+            ("2".into(), '~', "new1".into()),
+            ("3".into(), ' ', "keep1".into()),
+            ("...".into(), ' ', String::new()),
+            ("5".into(), ' ', "keep3".into()),
+            ("6".into(), '~', "new2".into()),
+            ("7".into(), ' ', "after".into()),
+        ]
+    );
+}
+
+#[test]
+fn mixed_content_and_line_ending_edits_preserve_each_change() {
+    let text = "a\nb\nc\n";
+    assert_eq!(
+        changed_lines(
+            text,
+            &LineIndex::new(text),
+            &[(1, 2, "\r\n".into()), (4, 5, "C".into())]
+        ),
+        vec![
+            ("1".into(), '~', "a".into()),
+            ("2".into(), ' ', "b".into()),
+            ("3".into(), '~', "C".into()),
+        ]
+    );
+}
+
+#[test]
+fn cancelling_edits_do_not_invent_a_context_only_preview() {
+    let text = "a;";
+    assert!(
+        changed_lines(
+            text,
+            &LineIndex::new(text),
+            &[(0, 1, String::new()), (1, 1, "a".into())]
+        )
+        .is_empty()
+    );
 }

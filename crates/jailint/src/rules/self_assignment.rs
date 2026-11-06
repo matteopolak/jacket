@@ -8,13 +8,14 @@
 //! expression (names, member paths, indexing; no calls), spelled the same. Macros and
 //! polymorphic bodies are checked too: the statement does nothing in every instance. The
 //! editor offers to remove the statement; `--fix` does not, since the slip may be the other
-//! side.
+//! side. A standalone statement is removed with its line ending; comments and other code
+//! on the same line are preserved.
 //!
 //! The two sides must also resolve to the same entities, name by name. Under `using info;`
 //! a target `mode` is `info.mode` while a value `mode` may be a local declared before the
 //! `using`; a name found only through `using` that is also declared earlier in the procedure
 //! is ambiguous and not reported.
-use super::{finding, same_pure};
+use super::{finding, same_pure, statement_range};
 use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
 use jaic::ast::walk::{Node, walk, walk_node};
@@ -52,13 +53,22 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     format!("`{target}` is assigned to itself"),
                     Some("this does nothing; was another value or target meant? (after `using`, both sides name the same field)".into()),
                 );
-                // The statement's own `;` goes with it.
-                let start = s.span.start as usize;
-                let mut end = s.span.end as usize;
-                let rest = cx.text.get(end..).unwrap_or("");
-                let skipped = rest.len() - rest.trim_start().len();
-                if rest[skipped..].starts_with(';') {
-                    end += skipped + 1;
+                let (mut start, mut end) = statement_range(cx, s.span);
+                // Own the line only when the statement is all it contains. Comments and
+                // neighboring statements stay in place for inline removals.
+                let line_start = jaic::source::line_start(cx.text, start);
+                let line_end = jaic::source::line_end(cx.text, end);
+                let horizontal_space = |text: &str| text.chars().all(|c| matches!(c, ' ' | '\t'));
+                if horizontal_space(&cx.text[line_start..start])
+                    && horizontal_space(&cx.text[end..line_end])
+                {
+                    start = line_start;
+                    end = line_end;
+                    if cx.text[end..].starts_with("\r\n") {
+                        end += 2;
+                    } else if cx.text[end..].starts_with(['\r', '\n']) {
+                        end += 1;
+                    }
                 }
                 found.fix = Some(Fix {
                     title: "remove the statement".into(),

@@ -9,13 +9,11 @@ warning[single_case_switch]: this `switch` has a single case
    |
 help: write an `if` instead
    |
-10 -     if mode == {
-11 -         case .VERBOSE;
+ 9   announce :: (mode: Mode) {
+10 ~     if mode == .VERBOSE {
+11 ~         print("loud\n");
 12 -             print("loud\n");
-13 -     }
-10 +     if mode == .VERBOSE {
-11 +         print("loud\n");
-12 +     }
+13       }
    |
    = note: `single_case_switch` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch
@@ -28,17 +26,13 @@ warning[single_case_switch]: this `switch` has a single case
    |
 help: write an `if` instead
    |
-17 -     if n % 2 == {
-18 -         case 0;
-19 -             return "even";
-20 -         case;
+16   choose :: (n: int) -> string {
+17 ~     if n % 2 == 0 {
+18 ~         return "even";
+19 ~     } else {
+20 ~         return "odd";
 21 -             return "odd";
-22 -     }
-17 +     if n % 2 == 0 {
-18 +         return "even";
-19 +     } else {
-20 +         return "odd";
-21 +     }
+22       }
    |
    = note: `single_case_switch` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch
@@ -51,17 +45,13 @@ warning[single_case_switch]: this `switch` has a single case
    |
 help: write an `if` instead
    |
-28 -     if name == {
-29 -         case;
-30 -             print("anonymous\n");
-31 -         case "root";
+27   fallback :: (name: string) {
+28 ~     if name == "root" {
+29 ~         print("admin\n");
+30 ~     } else {
+31 ~         print("anonymous\n");
 32 -             print("admin\n");
-33 -     }
-28 +     if name == "root" {
-29 +         print("admin\n");
-30 +     } else {
-31 +         print("anonymous\n");
-32 +     }
+33       }
    |
    = note: `single_case_switch` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/single_case_switch

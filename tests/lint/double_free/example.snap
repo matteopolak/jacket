@@ -14,7 +14,9 @@ error[double_free]: `node` is freed a second time
    |
 help: remove the second call, or assign `node` a new value in between
    |
+12       free(node);
 13 -     free(node);
+14   }
    |
    = note: `double_free` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/double_free

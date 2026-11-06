@@ -1,0 +1,24 @@
+---
+import { bundle } from '../lib/loader.ts';
+import { assetURL, versionedURL, resolver } from '../lib/urls.ts';
+import Shell from './Shell.astro';
+import ModulePage from './ModulePage.astro';
+import ApiPage from './ApiPage.astro';
+import Document from './Document.astro';
+interface Props { id: string }
+const { id } = Astro.props;
+const data = await bundle();
+const route = data.routes.get(id);
+if (!route) throw new Error(`missing static route ${id}`);
+const payload = await data.shard(route.shard);
+const module = payload.payload === 'module' ? payload.data : undefined;
+const declaration = module && route.kind === 'declaration' ? module.declarations.find(d => d.id === id) : undefined;
+if (route.kind === 'declaration' && !declaration) throw new Error(`missing declaration ${id}`);
+const document = payload.payload === 'document' ? payload.data : undefined;
+const href = resolver(data.site);
+const metadata=declaration?.metadata??module?.metadata??document?.metadata;
+if(!metadata)throw new Error(`route ${id} has no publication metadata`);
+---
+<Shell searchSource={versionedURL(`${data.site.pageBase}search-index.json`,data.fileDigest('search.json'))} runtime={data.manifest.capabilities.includes('browser_runtime')?{engine:assetURL(data.site,'runtime/engine.mjs'),wasm:assetURL(data.site,'runtime/jai_wasm.wasm')}:undefined} site={data.site} sourceIdentity={data.identity} route={route} metadata={metadata} href={href} {...(module ? {module} : {})} {...(declaration ? {declaration} : {})} outline={document?.outline ?? []}>
+  {module && declaration ? <ApiPage site={data.site} module={module} declaration={declaration} href={href} /> : module ? <ModulePage site={data.site} module={module} href={href} /> : document && (route.kind==='not_found' ? <Fragment><h1>{document.title}</h1><Document nodes={document.nodes} href={href} /></Fragment> : route.kind==='home'&&document.source==null ? <Fragment><h1>{data.site.name}</h1>{data.site.description&&<p class="home-lead">{data.site.description}</p>}<p>Pick a module from the list, or press <kbd>/</kbd> to search by name or signature.</p></Fragment> : <div class="prose guide"><Document nodes={document.nodes} href={href} /></div>)}
+</Shell>

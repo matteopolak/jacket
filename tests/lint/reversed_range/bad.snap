@@ -9,7 +9,9 @@ error[reversed_range]: the range `10..0` is empty: ranges count up
    |
 help: to count down, write `for < ...: 0..10`
    |
+ 4       xs := int.[1, 2, 3];
  5 ~     for < i: 0..10 print("%\n", i);
+ 6       for i: xs.count - 1..0 print("%\n", xs[i]);
    |
    = note: `reversed_range` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/reversed_range
@@ -22,7 +24,9 @@ error[reversed_range]: the range `xs.count - 1..0` is empty: ranges count up
    |
 help: to count down, write `for < ...: 0..xs.count - 1`
    |
+ 5       for i: 10..0 print("%\n", i);
  6 ~     for < i: 0..xs.count - 1 print("%\n", xs[i]);
+ 7   }
    |
    = note: `reversed_range` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/reversed_range

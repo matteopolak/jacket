@@ -9,9 +9,10 @@ error[almost_swapped]: this sets both `a` and `b` to `b`
    |
 help: to swap them, write `a, b = b, a;`
    |
-12 -     a = b;
+11
+12 ~     a, b = b, a;
 13 -     b = a;
-12 +     a, b = b, a;
+14       p: Pair;
    |
    = note: `almost_swapped` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/almost_swapped
@@ -24,9 +25,10 @@ error[almost_swapped]: this sets both `p.first` and `p.second` to `p.second`
    |
 help: to swap them, write `p.first, p.second = p.second, p.first;`
    |
-15 -     p.first = p.second;
+14       p: Pair;
+15 ~     p.first, p.second = p.second, p.first;
 16 -     p.second = p.first;
-15 +     p.first, p.second = p.second, p.first;
+17       print("% % %\n", a, b, p);
    |
    = note: `almost_swapped` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/almost_swapped

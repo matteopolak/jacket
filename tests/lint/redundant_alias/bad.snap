@@ -9,9 +9,10 @@ warning[redundant_alias]: `result` is returned right after it is declared
    |
 help: return the value directly
    |
- 4 -     result := n * n;
+ 3   square :: (n: int) -> int {
+ 4 ~     return n * n;
  5 -     return result;
- 4 +     return n * n;
+ 6   }
    |
    = note: `redundant_alias` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
@@ -24,9 +25,10 @@ warning[redundant_alias]: `value` is returned right after it is declared
    |
 help: return the value directly
    |
-13 -     value := one();
+12   called :: () -> int {
+13 ~     return one();
 14 -     return value;
-13 +     return one();
+15   }
    |
    = note: `redundant_alias` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
@@ -39,9 +41,10 @@ warning[redundant_alias]: `raw` only exists to be copied into `total`
    |
 help: declare `total` with the value directly
    |
-18 -     raw := n * 3;
+17   copies :: (n: int) {
+18 ~     total := n * 3;
 19 -     total := raw;
-18 +     total := n * 3;
+20       total += 1;
    |
    = note: `redundant_alias` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
@@ -54,9 +57,10 @@ warning[redundant_alias]: `start` only exists to be copied into `count`
    |
 help: declare `count` with the value directly
    |
-24 -     start := 10;
+23       // A literal copied, then changed.
+24 ~     count := 10;
 25 -     count := start;
-24 +     count := 10;
+26       count += n;
    |
    = note: `redundant_alias` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
@@ -69,11 +73,11 @@ warning[redundant_alias]: `wide` only exists to be copied into `area`
    |
 help: declare `area` with the value directly
    |
-30 -     wide := (n + 1) *
-31 -         (n + 2);
+29       // Multi-line initializer.
+30 ~     area := (n + 1) *
+31           (n + 2);
 32 -     area := wide;
-30 +     area := (n + 1) *
-31 +         (n + 2);
+33
    |
    = note: `redundant_alias` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
@@ -86,9 +90,10 @@ warning[redundant_alias]: `small` only exists to be copied into `big`
    |
 help: declare `big` with the value directly
    |
-39 -     small: u8 = 5;
+38   typed :: () {
+39 ~     big: u8 = 5;
 40 -     big := small;
-39 +     big: u8 = 5;
+41       print("%\n", big);
    |
    = note: `redundant_alias` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias
@@ -101,9 +106,10 @@ warning[redundant_alias]: `doubled` only exists to be copied into `shown`
    |
 help: declare `shown` with the value directly
    |
-46 -         doubled := it * 2;
+45       for 0..2 {
+46 ~         shown := it * 2;
 47 -         shown := doubled;
-46 +         shown := it * 2;
+48           print("%\n", shown);
    |
    = note: `redundant_alias` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias

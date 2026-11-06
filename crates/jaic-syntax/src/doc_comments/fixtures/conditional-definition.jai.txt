@@ -1,0 +1,32 @@
+#if (OS == .MACOS && CPU == .ARM64) || (OS == .MACOS && CPU == .X64) {
+    // A generic platform definition.
+    Choice :: struct(T: Type = int) {
+        // A field paragraph with enough words to exercise the declaration comment formatter
+        // without changing the words or the field that owns this paragraph.
+        //
+        // A second paragraph keeps its separation. `inline  code` keeps its literal spacing.
+        //
+        // ```jai
+        // sample := "keep  spaces";
+        // ```
+        first, second: T;
+        nested: struct { first: int; };
+        Callback :: #type (value: T, note: string = "// literal");
+        callback: Callback;
+        #if FEATURE_ENABLED {
+            feature: T;
+        } else {
+            fallback: s32 = -1;
+        }
+    }
+} else {
+    // The alternative definition keeps a different storage kind and its private dependencies.
+    Choice :: union {
+        private_value: *Late_Private;
+        #if OS == .WINDOWS windows: [..] *Late_Private;
+        text: string = "a  /* literal */  b";
+    }
+}
+
+#scope_file
+Late_Private :: struct { value: int; }

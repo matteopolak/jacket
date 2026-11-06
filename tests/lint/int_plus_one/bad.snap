@@ -9,7 +9,9 @@ warning[int_plus_one]: `x >= y + 1` is a strict comparison written with `1`
    |
 help: write `x > y`
    |
+ 7
  8 ~     if x > y print("a\n");
+ 9       if x - 1 >= y print("b\n");
    |
    = note: `int_plus_one` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one
@@ -22,7 +24,9 @@ warning[int_plus_one]: `x - 1 >= y` is a strict comparison written with `1`
    |
 help: write `x > y`
    |
+ 8       if x >= y + 1 print("a\n");
  9 ~     if x > y print("b\n");
+10       if y + 1 <= x print("c\n");
    |
    = note: `int_plus_one` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one
@@ -35,7 +39,9 @@ warning[int_plus_one]: `y + 1 <= x` is a strict comparison written with `1`
    |
 help: write `y < x`
    |
+ 9       if x - 1 >= y print("b\n");
 10 ~     if y < x print("c\n");
+11       if y <= x - 1 print("d\n");
    |
    = note: `int_plus_one` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one
@@ -48,7 +54,9 @@ warning[int_plus_one]: `y <= x - 1` is a strict comparison written with `1`
    |
 help: write `y < x`
    |
+10       if y + 1 <= x print("c\n");
 11 ~     if y < x print("d\n");
+12       if n >= y + 1 print("e\n");
    |
    = note: `int_plus_one` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one
@@ -61,7 +69,9 @@ warning[int_plus_one]: `n >= y + 1` is a strict comparison written with `1`
    |
 help: write `n > y`
    |
+11       if y <= x - 1 print("d\n");
 12 ~     if n > y print("e\n");
+13       if (x + y) - 1 >= n print("f\n");
    |
    = note: `int_plus_one` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one
@@ -74,7 +84,9 @@ warning[int_plus_one]: `(x + y) - 1 >= n` is a strict comparison written with `1
    |
 help: write `(x + y) > n`
    |
+12       if n >= y + 1 print("e\n");
 13 ~     if (x + y) > n print("f\n");
+14
    |
    = note: `int_plus_one` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one
@@ -87,7 +99,9 @@ warning[int_plus_one]: `x >= (y + 1)` is a strict comparison written with `1`
    |
 help: write `x > y`
    |
+14
 15 ~     ok := (x > y);
+16
    |
    = note: `int_plus_one` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/int_plus_one

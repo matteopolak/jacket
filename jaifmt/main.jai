@@ -22,6 +22,7 @@ Args :: #import "Extensions/Args";
 Options :: struct {
     paths: [..] string; @positional @conflicts=stdin
     check: bool;
+    declarations: bool; @conflicts=range @conflicts=is_ignored
     stdin: bool;
     range: string; @value=START:END @conflicts=paths @conflicts=check @conflicts=is_ignored
     config: string; @value=FILE
@@ -36,6 +37,7 @@ HELP :: Args.Help(Options).{
     version = JAIFMT_VERSION,
     about = "Formats Jai source files in place. Directories are searched recursively for *.jai files.\n\nExit status: 0 success, 1 files would change (--check), 2 errors. With --is-ignored: 0 the file is ignored by the config's ignore list, 1 it is formatted, 2 errors.",
     paths = "Files or directories to format",
+    declarations = "Canonical documentation declaration layout and prose wrapping; preserve literal contents and structural Markdown",
     check = "Do not write; list the files that would change and exit with 1",
     stdin = "Format standard input to standard output",
     is_ignored = "Print nothing; exit 0 when FILE is ignored by the nearest config's ignore list, 1 when it is not (for editors)",
@@ -86,7 +88,7 @@ main :: () {
     if options.range.count && !options.stdin fatal_usage("--range needs --stdin", "as in `jaifmt --stdin --range 120:240 < file.jai`");
 
     if options.stdin {
-        exit(cast(s32) format_stdin(explicit_config, options.range));
+        exit(cast(s32) format_stdin(explicit_config, options.range, options.declarations));
     }
 
     if !options.paths.count fatal_usage("no files to format", "pass files or directories, as in `jaifmt src`, or use `jaifmt --stdin < file.jai`");
@@ -286,7 +288,9 @@ format_file :: (path: string, explicit_config: *Format_Config, options: Options,
     defer free(source);
     totals.checked += 1;
 
-    output, formatted, error := format_source(source, config.*);
+    formatter := ifx options.declarations then format_declaration else format_source;
+    output, formatted, error := formatter(source, config.*);
+
     if !formatted {
         report_format_error(path, error);
         totals.errors += 1;
@@ -343,7 +347,7 @@ check_ignored :: (file: string, explicit_config: *Format_Config) -> int {
     return ifx format_is_ignored(config.*, path) then 0 else 1;
 }
 
-format_stdin :: (explicit_config: *Format_Config, range := "") -> int {
+format_stdin :: (explicit_config: *Format_Config, range := "", declarations := false) -> int {
     source := read_all_stdin();
     from, to: s64;
 
@@ -375,7 +379,17 @@ format_stdin :: (explicit_config: *Format_Config, range := "") -> int {
         config = found;
     }
 
-    output, formatted, error := ifx range.count then format_range(source, from, to, config.*) else format_source(source, config.*);
+    output: string;
+    formatted: bool;
+    error: string;
+
+    if range.count {
+        output, formatted, error = format_range(source, from, to, config.*);
+    } else {
+        formatter := ifx declarations then format_declaration else format_source;
+        output, formatted, error = formatter(source, config.*);
+    }
+
     if !formatted {
         report_format_error("<stdin>", error);
         return 2;

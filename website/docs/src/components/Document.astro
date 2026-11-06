@@ -1,0 +1,58 @@
+---
+import {displayText} from '../lib/render.ts';
+import {Code} from 'astro:components';
+import {codeLanguage, codeTheme, codePresentation} from '../lib/code-highlight.ts';
+import type { Alignment, DocumentNode, Target } from '../generated/doc-site.js';
+import Example from './Example.astro';
+import ResolvedText from './ResolvedText.astro';
+import DiagnosticText from './DiagnosticText.astro';
+interface Props { nodes: DocumentNode[]; href: (target: Target) => string; lead?: boolean; }
+const { nodes, href, lead = false } = Astro.props;
+const firstParagraph = nodes.findIndex(node => node.kind === 'paragraph');
+const headings = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
+const alignment: Record<Alignment, string | undefined> = {
+  none: undefined, left: 'text-align: left', center: 'text-align: center', right: 'text-align: right',
+};
+function cellChildren(cell: DocumentNode): DocumentNode[] {
+  if (cell.kind !== 'table_cell') throw new Error('table contains a non-cell document node');
+  return cell.children;
+}
+function rowCells(row: DocumentNode): DocumentNode[] {
+  if (row.kind !== 'table_row') throw new Error('table contains a non-row document node');
+  return row.cells;
+}
+---
+{nodes.map((node, index) => {
+  if (node.kind === 'text') return node.text;
+  if (node.kind === 'paragraph') return <p class={lead && index === firstParagraph ? 'lead' : undefined}><Astro.self nodes={node.children} href={href} /></p>;
+  if (node.kind === 'heading') {
+    const Heading = headings[node.level - 1];
+    if (!Heading) throw new Error(`invalid document heading level ${node.level}`);
+    return <Heading id={node.id ?? undefined}><Astro.self nodes={node.children} href={href} /></Heading>;
+  }
+  if (node.kind === 'emphasis') return <em><Astro.self nodes={node.children} href={href} /></em>;
+  if (node.kind === 'strong') return <strong><Astro.self nodes={node.children} href={href} /></strong>;
+  if (node.kind === 'strikethrough') return <del><Astro.self nodes={node.children} href={href} /></del>;
+  if (node.kind === 'code') return <code>{node.text}</code>;
+  if (node.kind === 'link') return <a data-astro-prefetch={node.target.kind === 'page' ? 'hover' : undefined} href={href(node.target)} title={node.title || undefined}><Astro.self nodes={node.children} href={href} /></a>;
+  if (node.kind === 'image') return <img src={href(node.target)} title={node.title || undefined} alt={node.alternative} />;
+  if (node.kind === 'list') return node.start == null
+    ? <ul><Astro.self nodes={node.children} href={href} /></ul>
+    : <ol start={node.start === 1 ? undefined : node.start}><Astro.self nodes={node.children} href={href} /></ol>;
+  if (node.kind === 'list_item') return <li><Astro.self nodes={node.children} href={href} /></li>;
+  if (node.kind === 'quote') return <blockquote><Astro.self nodes={node.children} href={href} /></blockquote>;
+  if (node.kind === 'table') return <table><thead><tr>{node.head.map((cell, i) => <th style={alignment[node.alignments[i] ?? 'none']}><Astro.self nodes={cellChildren(cell)} href={href} /></th>)}</tr></thead><tbody>{node.rows.map(row => <tr>{rowCells(row).map((cell, i) => <td style={alignment[node.alignments[i] ?? 'none']}><Astro.self nodes={cellChildren(cell)} href={href} /></td>)}</tr>)}</tbody></table>;
+  if (node.kind === 'table_row') return <tr><Astro.self nodes={node.cells} href={href} /></tr>;
+  if (node.kind === 'table_cell') return <td><Astro.self nodes={node.children} href={href} /></td>;
+  if (node.kind === 'break') return node.hard ? <br /> : '\n';
+  if (node.kind === 'rule') return <hr />;
+  if (node.kind === 'code_block') {
+    const language = codeLanguage(node.language);
+    if (language) return <Code class="code wrap" code={displayText(node.source).source} lang={language} theme={codeTheme} wrap={null} transformers={codePresentation} />;
+    return <pre class:list={['code', {wrap: !['jai','diagnostic'].includes(node.language)}]}><code>{node.language==='diagnostic'?<DiagnosticText source={displayText(node.source).source}/>:<ResolvedText text={displayText(node.source)} href={href} />}</code></pre>;
+  }
+  if (node.kind === 'fence') return <Example example={node.example} href={href} />;
+  if (node.kind === 'example_group') return <figure class="example-group"><figcaption class="ex-bar"><span class="ex-title">{node.title === 'fixed' ? 'Fixed' : 'Example'}</span>{node.note && <span>{node.note}</span>}</figcaption><div class="example-source"><Astro.self nodes={[node.source]} href={href} /></div>{node.result && <div class="example-result" role="group" aria-label={node.result.kind === 'diagnostic' ? 'Diagnostic' : 'Output'}><Astro.self nodes={[node.result.body]} href={href} /></div>}</figure>;
+  if (node.kind === 'compare') return <div class="compare"><figure><figcaption>Before</figcaption><pre class="code"><code><ResolvedText text={displayText(node.before)} href={href} /></code></pre></figure><figure><figcaption>After{node.settings && <Fragment>, with <code>{node.settings}</code></Fragment>}</figcaption><pre class="code"><code><ResolvedText text={displayText(node.after)} href={href} /></code></pre></figure></div>;
+  throw new Error('unsupported document node');
+})}

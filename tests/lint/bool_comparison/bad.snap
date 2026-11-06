@@ -9,7 +9,9 @@ warning[bool_comparison]: comparing a bool with `true`: `ready == true`
    |
 help: write `ready`
    |
+ 8       ready := is_ready();
  9 ~     if ready print("ready\n");
+10       if ready != false print("still ready\n");
    |
    = note: `bool_comparison` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison
@@ -22,7 +24,9 @@ warning[bool_comparison]: comparing a bool with `false`: `ready != false`
    |
 help: write `ready`
    |
+ 9       if ready == true print("ready\n");
 10 ~     if ready print("still ready\n");
+11       if false == ready print("not ready\n");
    |
    = note: `bool_comparison` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison
@@ -35,7 +39,9 @@ warning[bool_comparison]: comparing a bool with `false`: `false == ready`
    |
 help: write `!ready`
    |
+10       if ready != false print("still ready\n");
 11 ~     if !ready print("not ready\n");
+12
    |
    = note: `bool_comparison` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison
@@ -48,7 +54,9 @@ warning[bool_comparison]: comparing a bool with `false`: `is_ready() == false`
    |
 help: write `!is_ready()`
    |
+12
 13 ~     waiting := !is_ready();
+14       a, b := 1, 2;
    |
    = note: `bool_comparison` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison
@@ -61,7 +69,9 @@ warning[bool_comparison]: comparing a bool with `false`: `(a < b) == false`
    |
 help: write `!(a < b)`
    |
+15
 16 ~     if !(a < b) print("not less\n");
+17       if (a < b) == true print("less\n");
    |
    = note: `bool_comparison` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison
@@ -74,7 +84,9 @@ warning[bool_comparison]: comparing a bool with `true`: `(a < b) == true`
    |
 help: write `(a < b)`
    |
+16       if (a < b) == false print("not less\n");
 17 ~     if (a < b) print("less\n");
+18
    |
    = note: `bool_comparison` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/bool_comparison

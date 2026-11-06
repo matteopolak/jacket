@@ -1,0 +1,7 @@
+---
+import type { Parameter, Target } from '../generated/doc-site.js';
+import ResolvedText from './ResolvedText.astro';
+interface Props { parameter: Parameter; href: (target: Target) => string; signature?:boolean }
+const { parameter: p, href, signature = false } = Astro.props;
+---
+{p.name && (signature ? p.name : <span class="pname">{p.name}</span>)}{p.ty.source && p.name && ': '}<ResolvedText text={p.ty} href={href} context="type" />{p.default.source && <Fragment>{p.ty.source ? ' = ' : ' := '}{signature ? p.default.source : <ResolvedText text={p.default} href={href} context="expression" />}</Fragment>}

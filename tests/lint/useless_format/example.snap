@@ -9,7 +9,9 @@ warning[useless_format]: `tprint("%", name)` only copies a string
    |
 help: use the string itself, or `copy_string` for a copy you own
    |
+ 3   greeting :: (name: string) -> string {
  4 ~     return name;
+ 5   }
    |
    = note: `useless_format` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/useless_format

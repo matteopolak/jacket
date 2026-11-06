@@ -1,0 +1,79 @@
+---
+import type { ApiModule, Declaration, Heading, PageRoute, SiteData, Target, PageMetadata } from '../generated/doc-site.js';
+import { ClientRouter } from 'astro:transitions';
+import HeadMetadata from './HeadMetadata.astro';
+import Navigation from './Navigation.astro';
+import { assetURL, versionedURL, routeIndex } from '../lib/urls.ts';
+import { categoryCSS, peerWindow } from '../lib/render.ts';
+import { moduleNavigationPath, moduleNavigation } from '../lib/navigation-path.ts';
+import { moduleOutline, declarationOutline, type OutlineEntry } from '../lib/api.ts';
+import '../styles/site.css';
+import icons from '../assets/icons.svg?url&no-inline';
+import favicon from '../assets/favicon.svg?url&no-inline';
+import bootstrap from '../browser/bootstrap.js?url&no-inline';
+interface Props {
+  site: SiteData; sourceIdentity: string; route: PageRoute; metadata: PageMetadata; href: (target: Target) => string;
+  searchSource:string; runtime?:{engine:string;wasm:string}|undefined;
+  module?: ApiModule; declaration?: Declaration; outline?: Heading[];
+}
+const { site, sourceIdentity, route, metadata, href, module, declaration, outline = [], searchSource, runtime } = Astro.props;
+const staleExport = import.meta.env.DEV ? process.env['JACKET_DOC_EXPORT_STALE'] : undefined;
+const logo = site.logo ? assetURL(site, site.logo) : undefined;
+const sidebarLabel = declaration && module ? `${module.title} module` : 'Modules';
+const navKey = declaration ? sidebarLabel : 'modules';
+const navContext = declaration && module ? JSON.stringify([module.id, declaration.binding, declaration.group, ['struct', 'union', 'enum', 'enum_flags', 'type'].includes(declaration.kind), declaration.kind === 'procedure']) : 'modules';
+const peers = declaration && module ? peerWindow(module.declarations, declaration) : undefined;
+const heading = declaration?.private ? '' : declaration?.group || (declaration?.kind === 'procedure' ? 'Procedures' : declaration && ['struct', 'union', 'enum', 'enum_flags', 'type'].includes(declaration.kind) ? 'Types' : 'Constants');
+const moduleRoute = module ? routeIndex(site).get(`api/${module.id}`) : undefined;
+const localOutline: OutlineEntry[] = declaration ? [] : module ? moduleOutline(module) : outline.map(item => ({ kind: 'heading', id: item.id, label: item.label, sub: item.level > 2 }));
+const links = declaration ? declarationOutline(declaration).filter(item => item.kind === 'heading' && route.anchors.includes(item.id)) : [];
+---
+<!doctype html>
+<html lang="en" data-theme="system">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <HeadMetadata metadata={metadata} site={site} />
+    <ClientRouter fallback="swap" />
+    <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1b1b1f" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href={logo ?? favicon} type={site.logo?.endsWith('.png') ? 'image/png' : 'image/svg+xml'} />
+    <script is:inline data-doc-bootstrap src={bootstrap}></script>
+    <style is:inline set:html={categoryCSS(site.categories)} />
+  </head>
+  <body data-doc-icons={icons} data-search-source={searchSource} data-runtime-engine={runtime?.engine} data-runtime-wasm={runtime?.wasm} data-base={site.pageBase} data-page={route.output} data-doc-shell="jacket-docs/1" data-doc-version={site.version} data-doc-identity={sourceIdentity} data-doc-state={staleExport ? 'stale' : 'fresh'}>
+    {staleExport && <aside role="status" style="padding:12px 24px;background:#fbf1dd;color:#8a5a12;border-bottom:1px solid currentColor">{staleExport}</aside>}
+    <a class="skip" href="#main-content">Skip to content</a>
+    <header class="top"><div class="top-in">
+      <a data-astro-prefetch="hover" class="logo" href={site.pageBase} aria-label={`${site.name} API documentation`}>{logo && <img src={logo} width="28" height="28" alt="" />}<span class="wordmark">{site.name}</span></a>
+      <div class="search-wrap js-only"><label class="sr" for="search-q">Search the docs</label>
+        <div class="search"><svg aria-hidden="true" width="16" height="16"><use href={`${icons}#search`} /></svg><input id="search-q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list" /><kbd>/</kbd></div>
+        <div id="search-results" aria-live="polite" role="listbox" aria-label="Search results" hidden></div>
+      </div>
+      <nav class="site-nav" aria-label="Site"><a data-astro-prefetch="hover" href={site.pageBase} aria-current={route.kind === 'home' ? 'page' : undefined}>API</a>{site.headerLinks.map(link => <a data-astro-prefetch={link.target.kind === 'page' ? 'hover' : undefined} href={href(link.target)}>{link.label}</a>)}
+        {site.version && <div class="ver"><button type="button" id="ver-button" aria-haspopup="menu" aria-expanded="false" aria-controls="ver-menu" disabled>{site.version}<svg aria-hidden="true" width="12" height="12"><use href={`${icons}#chevron`} /></svg></button><div id="ver-menu" class="ver-menu" role="menu" hidden></div></div>}
+        <button type="button" id="theme-toggle" class="icon-btn js-only" aria-label="Theme: system (click to change)" title="Theme: system (click to change)"><svg id="theme-icon" aria-hidden="true" width="16" height="16"><use href={`${icons}#system`} /></svg></button>
+        {site.repository && <a class="icon-btn" href={site.repository} aria-label="Repository" title="Repository"><svg aria-hidden="true" width="16" height="16" fill="currentColor"><use href={`${icons}#repo`} /></svg></a>}
+      </nav>
+    </div></header>
+    <div class="wrap" data-toc={localOutline.length > 0 ? '' : undefined}>
+      <details class="side" open><summary>{sidebarLabel}</summary><nav aria-label={sidebarLabel} data-nav={navKey} data-context={navContext}>
+        {declaration && module ? <Fragment>
+          {moduleRoute && <a data-astro-prefetch="hover" class="back" href={href({ kind: 'page', id: moduleRoute.id, anchor: null })}>← {module.title}</a>}
+          {heading && <div class="nav-h">{heading}</div>}
+          {peers && peers.end > peers.start && <ul class="nav-list mono" data-source={peers.end - peers.start > 5 ? versionedURL(assetURL(site, moduleNavigationPath(module.id)),moduleNavigation(module).sha256) : undefined} data-current={declaration.id} data-start={peers.start} data-end={peers.end} data-first={peers.first} style={peers.end - peers.start > 5 ? `--before:${peers.before};--after:${peers.after}` : undefined}>
+            {peers.visible.map(item => <li><a data-astro-prefetch="hover" href={href({ kind: 'page', id: item.id, anchor: null })} aria-current={item.id === declaration.id ? 'page' : undefined}>{item.name}{item.experimental && <span class="dot exp" role="img" title="Experimental: may change or go away" aria-label="Experimental: may change or go away"><span class="sr">Experimental</span></span>}</a></li>)}
+          </ul>}
+          {links.length > 0 && <Fragment><div class="nav-h">On this page</div><ul class="nav-list">{links.map(link => link.kind === 'heading' && <li><a href={`#${link.id}`}>{link.label}</a></li>)}</ul></Fragment>}
+        </Fragment> : <Navigation groups={site.navigation} current={route.id} href={href} />}
+      </nav></details>
+      <script is:inline>window.jacketFinishSidebar?.();</script>
+      <main id="main-content" tabindex="-1"><slot /></main>
+      {localOutline.length > 0 && <nav class="toc" aria-label="On this page"><div class="toc-h">On this page</div><ul>{localOutline.map((item, index) => item.kind === 'heading' ? <li class:list={{ sub: item.sub, 'has-list': localOutline[index + 1]?.kind === 'items' }}><a href={`#${item.id}`}>{item.label}</a>{localOutline[index + 1]?.kind === 'items' && <button type="button" class="tog js-only" aria-controls={`outline-list-${index + 1}`} aria-expanded="false" aria-label={`Show ${item.label}`}></button>}</li> : <li class="items"><ul id={`outline-list-${index}`}>{item.items.map(child => <li><a href={`#${child.id}`}>{child.label}</a></li>)}</ul></li>)}</ul></nav>}
+      <script is:inline>window.jacketFinishLayout?.();</script>
+    </div>
+    <footer class="foot"><div>made with <a href="https://github.com/matteopolak/jacket">jacket doc</a> {site.footerVersion}</div></footer>
+    <script>import '../browser/entry.ts';</script>
+  </body>
+</html>

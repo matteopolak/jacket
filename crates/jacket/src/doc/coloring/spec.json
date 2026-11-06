@@ -1,0 +1,114 @@
+{
+  "schema": "jai-doc-coloring/1",
+  "identifier": {
+    "nonAscii": true,
+    "excluded": [
+      " ",
+      "﻿"
+    ]
+  },
+  "keywords": [
+    "if",
+    "else",
+    "then",
+    "for",
+    "while",
+    "return",
+    "defer",
+    "using",
+    "struct",
+    "enum",
+    "enum_flags",
+    "union",
+    "cast",
+    "xx",
+    "inline",
+    "break",
+    "continue",
+    "case",
+    "remove",
+    "true",
+    "false",
+    "null",
+    "ifx",
+    "push_context",
+    "context",
+    "operator",
+    "interface"
+  ],
+  "types": [
+    "int",
+    "float",
+    "float32",
+    "float64",
+    "bool",
+    "string",
+    "void",
+    "Type",
+    "Any",
+    "s8",
+    "s16",
+    "s32",
+    "s64",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "u128",
+    "s128",
+    "assert"
+  ],
+  "rules": [
+    {
+      "kind": "line_comment",
+      "open": "//",
+      "role": "c"
+    },
+    {
+      "kind": "nested_comment",
+      "open": "/*",
+      "close": "*/",
+      "role": "c"
+    },
+    {
+      "kind": "quoted",
+      "open": "\"",
+      "escape": "\\",
+      "role": "s"
+    },
+    {
+      "kind": "note",
+      "open": "@",
+      "lineBounded": true,
+      "paint": "lexical",
+      "semantic": false
+    },
+    {
+      "kind": "directive",
+      "open": "#",
+      "horizontal": " \t",
+      "hereName": "string",
+      "hereRole": "s",
+      "role": "d"
+    },
+    {
+      "kind": "range",
+      "open": ".."
+    },
+    {
+      "kind": "number",
+      "role": "n",
+      "radixPrefixes": [
+        "0x",
+        "0b",
+        "0h"
+      ]
+    },
+    {
+      "kind": "identifier"
+    },
+    {
+      "kind": "plain"
+    }
+  ]
+}

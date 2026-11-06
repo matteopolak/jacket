@@ -11,6 +11,8 @@ Which one to run:
 
 Rust test helpers and the snapshot workflow (`INSTA_UPDATE=always`) are in [the Rust test harness](test-harness.md).
 
+`PYTHONPATH=tools python3 tools/dev/dev.py test --suite cargo -p jacket` builds the matching formatter before nextest and puts its absolute directory first on the test subprocesses' `PATH`. This matters for documentation export tests, which invoke Jacket from temporary libraries. The parent shell is unchanged. A direct `cargo nextest` invocation must provide the matching `jaic` beside Jacket and a declaration-capable `jaifmt` beside it or on `PATH`; an older installed formatter is not equivalent.
+
 ## jaic sweep
 
 `tools/differential/jaic_sweep.py` runs `jaic <mode> <path>` from each file's directory and compares the exit code (and stdout where recorded).

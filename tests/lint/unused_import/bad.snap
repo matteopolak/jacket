@@ -9,7 +9,9 @@ warning[unused_import]: unused import "Math"
    |
 help: remove it
    |
+ 1   #import "Basic";
  2 - #import "Math";
+ 3   Strings :: #import "String";
    |
    = note: `unused_import` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_import
@@ -22,7 +24,9 @@ warning[unused_import]: unused import "String"
    |
 help: remove it
    |
+ 2   #import "Math";
  3 - Strings :: #import "String";
+ 4
    |
    = note: `unused_import` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_import

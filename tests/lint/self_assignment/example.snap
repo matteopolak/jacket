@@ -9,7 +9,9 @@ warning[self_assignment]: `width` is assigned to itself
    |
 help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
    |
- 9 ~ 
+ 8   set_width :: (size: *Size, width: int) {
+ 9 -     width = width;
+10   }
    |
    = note: `self_assignment` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/self_assignment

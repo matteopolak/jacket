@@ -9,6 +9,8 @@ warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
    |
 help: write `cast(s64) ready`
    |
+ 4       ready := true;
  5 ~     count := cast(s64) ready;
+ 6       print("%\n", count);
    |
    = note: see https://jacket.matteopolak.com/lint-rules/bool_to_int_with_if

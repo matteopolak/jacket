@@ -683,6 +683,11 @@ impl Renderer {
                         } else {
                             expand_tabs(&code)
                         };
+                        if mark == ' ' && code.is_empty() {
+                            // An empty context line needs only its number, with no trailing cells.
+                            self.line(&self.paint.on(GUTTER, &format!("{n:>width$}")));
+                            continue;
+                        }
                         self.line(&format!(
                             "{} {} {code}",
                             self.paint.on(GUTTER, &format!("{n:>width$}")),
@@ -985,96 +990,8 @@ fn indent_width(text: &str, colored: bool) -> usize {
     width
 }
 
-/// The code a fix changes, as (line number, mark, text). When the fix keeps the number of
-/// lines, the changed lines as fixed (`~`); when it removes whole lines, those (`-`);
-/// otherwise the old lines (`-`) then the new (`+`). At most `MAX_FIX_LINES` of each.
-/// `lines` indexes `text`.
-pub fn changed_lines(
-    text: &str,
-    lines: &LineIndex,
-    edits: &[(usize, usize, String)],
-) -> Vec<(String, char, String)> {
-    // Only the lines the edits touch: copying and splitting the whole file for every fix made
-    // rendering a linter's thousands of fixes quadratic.
-    let first = edits.iter().map(|e| e.0).min().unwrap_or(0).min(text.len());
-    let last = edits
-        .iter()
-        .map(|e| e.1)
-        .max()
-        .unwrap_or(0)
-        .clamp(first, text.len());
-    let start = lines.line_start(first);
-    let end = lines.line_end(last).max(last);
-    let base = lines.line_of(start);
-    let window: Vec<_> = edits
-        .iter()
-        .map(|(a, b, new)| (a - start, b - start, new.clone()))
-        .collect();
-    let mut out = changed_lines_in(&text[start..end], &window);
-    for (line, _, _) in &mut out {
-        if let Ok(n) = line.parse::<usize>() {
-            *line = (n + base).to_string();
-        }
-    }
-    out
-}
-
-fn changed_lines_in(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String, char, String)> {
-    let mut edits = edits.to_vec();
-    edits.sort_by_key(|e| e.0);
-    let first = edits.first().map_or(0, |e| e.0);
-    let last = edits.iter().map(|e| e.1).max().unwrap_or(0);
-    let mut fixed = text.to_string();
-    for (start, end, new) in edits.iter().rev() {
-        fixed.replace_range(*start..*end, new);
-    }
-    // Where the last edit ends in the fixed text.
-    let mut shift: isize = 0;
-    let mut last_new = 0usize;
-    for (start, end, new) in &edits {
-        let at = (*start as isize + shift) as usize;
-        last_new = last_new.max(at + new.len());
-        shift += new.len() as isize - (end - start) as isize;
-    }
-    let old_lines = LineIndex::new(text);
-    let new_lines = LineIndex::new(&fixed);
-    let (first_line, _) = old_lines.line_col(text, first);
-    // An edit ending at a line's start (a removed whole line) ends on the line before.
-    let (old_last, _) = old_lines.line_col(text, last.saturating_sub(1).max(first));
-    let (new_last, _) = new_lines.line_col(&fixed, last_new.saturating_sub(1).max(first));
-    let old: Vec<&str> = text.lines().collect();
-    let new: Vec<&str> = fixed.lines().collect();
-    let take = |lines: &[&str], from: usize, to: usize, mark: char, out: &mut Vec<_>| {
-        for n in from..=to.max(from) {
-            if n - from == MAX_FIX_LINES {
-                out.push(("...".to_string(), mark, String::new()));
-                break;
-            }
-            if let Some(l) = lines.get(n - 1) {
-                out.push((n.to_string(), mark, l.trim_end().to_string()));
-            }
-        }
-    };
-    let mut out = Vec::new();
-    let removed = |e: &(usize, usize, String)| text[e.0..e.1].matches('\n').count();
-    let added = |e: &(usize, usize, String)| e.2.matches('\n').count();
-    if edits.iter().all(|e| removed(e) == added(e)) {
-        take(&new, first_line, new_last, '~', &mut out);
-    } else if edits.iter().all(|e| {
-        let line_start = e.0 == 0 || text[..e.0].ends_with('\n');
-        e.2.is_empty() && e.1 > e.0 && line_start && text[..e.1].ends_with('\n')
-    }) {
-        for e in &edits {
-            let (a, _) = old_lines.line_col(text, e.0);
-            let (b, _) = old_lines.line_col(text, e.1 - 1);
-            take(&old, a, b, '-', &mut out);
-        }
-    } else {
-        take(&old, first_line, old_last, '-', &mut out);
-        take(&new, first_line, new_last, '+', &mut out);
-    }
-    out
-}
+mod fixes;
+pub use fixes::changed_lines;
 
 /// A file name as the user sees it: relative to where the command started
 /// (`crate::set_display_base`), when that is near.

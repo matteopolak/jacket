@@ -9,7 +9,9 @@ error[element_count_as_bytes]: `values.count` counts `s32` elements, but this ar
    |
 help: multiply by the element size: `values.count * size_of(s32)`
    |
+ 7   copy_values :: (dest: [] s32, values: [] s32) {
  8 ~     memcpy(dest.data, values.data, values.count * size_of(s32));
+ 9   }
    |
    = note: `element_count_as_bytes` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/element_count_as_bytes
@@ -22,7 +24,9 @@ error[element_count_as_bytes]: `weights.count` counts `float32` elements, but th
    |
 help: multiply by the element size: `weights.count * size_of(float32)`
    |
+11   clear :: (weights: [] float) {
 12 ~     memset(weights.data, 0, weights.count * size_of(float32));
+13   }
    |
    = note: `element_count_as_bytes` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/element_count_as_bytes
@@ -35,7 +39,9 @@ error[element_count_as_bytes]: `a.count` counts `Pair` elements, but this argume
    |
 help: multiply by the element size: `a.count * size_of(Pair)`
    |
+15   same :: (a: [4] Pair, b: [4] Pair) -> bool {
 16 ~     return memcmp(a.data, b.data, a.count * size_of(Pair)) == 0;
+17   }
    |
    = note: `element_count_as_bytes` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/element_count_as_bytes

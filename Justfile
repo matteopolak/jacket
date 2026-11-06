@@ -99,14 +99,16 @@ fetch-upstreams *args:
 wasm *args:
     {{ py }} tools/browser/build_scripting_wasm.py --release --output target/wasm {{ args }}
 
-# Build the stdlib docs site into target/doc-site; --wasm adds the browser compiler so Run buttons work, --serve then serves it on --port.
+# Build static docs; --setup explicitly installs frozen builder dependencies, --dev uses Astro HMR and semantic watching. --serve previews production output.
 [group('web')]
 [arg("wasm", long, value="true")]
 [arg("serve", long, value="true")]
+[arg("setup", long, value="true")]
+[arg("dev", long, value="true")]
 [arg("port", long)]
 [arg("jobs", long, short="j")]
-docs wasm="false" serve="false" port="8000" jobs=default_jobs:
-    {{ py }} tools/dev/dev.py docs -j {{ jobs }} --port {{ port }} {{ if wasm == "true" { "--wasm" } else { "" } }} {{ if serve == "true" { "--serve" } else { "" } }}
+docs wasm="false" serve="false" setup="false" dev="false" port="8000" jobs=default_jobs:
+    {{ py }} tools/dev/dev.py docs -j {{ jobs }} --port {{ port }} {{ if wasm == "true" { "--wasm" } else { "" } }} {{ if serve == "true" { "--serve" } else { "" } }} {{ if setup == "true" { "--setup" } else { "" } }} {{ if dev == "true" { "--dev" } else { "" } }}
 
 # Build and run one program from examples/ with the release jaic, passing ARGS (after `--`) to it; with no name, list them.
 [group('web')]
