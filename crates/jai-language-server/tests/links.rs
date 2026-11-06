@@ -285,12 +285,13 @@ fn named_module_links_do_not_fall_back_to_stdlib_after_failed_build_discovery() 
             ("src/main.jai", "#import \"Basic\"; main :: () {}"),
         ],
     );
-    let (session, uri, _) = test_support::lsp::open_file(&dir, "src/main.jai");
+    let (mut session, uri, _) = test_support::lsp::open_file(&dir, "src/main.jai");
     assert!(
         session.document_links(&uri).unwrap().is_empty(),
         "failed producer is not proof of a standalone module context"
     );
     std::fs::write(dir.join("build.jai"), "#run {};").unwrap();
+    session.file_changed(&dir.join("build.jai"), false);
     let found = session.document_links(&uri).unwrap();
     assert_eq!(found.len(), 1);
     assert!(found[0].1.ends_with("/Basic/module.jai"));
@@ -371,7 +372,7 @@ fn unresolved_literal_hover_does_not_try_expansion_or_format_providers() {
 }
 
 #[test]
-fn named_links_revalidate_silent_config_and_module_changes() {
+fn named_links_keep_silent_inputs_until_known_config_and_module_events() {
     let dir = test_support::lsp::project(
         "named-link-config-proof",
         &[
@@ -384,7 +385,7 @@ fn named_links_revalidate_silent_config_and_module_changes() {
             ("second/Owned_Link_Target.jai", "value :: 2;"),
         ],
     );
-    let (session, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
+    let (mut session, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
     let target = |folder: &str| {
         DocumentUri::from_path(&dir.join(folder).join("Owned_Link_Target.jai"))
             .unwrap()
@@ -397,9 +398,15 @@ fn named_links_revalidate_silent_config_and_module_changes() {
         "[project]\nentry=[\"main.jai\"]\nimport_path=[\"second\"]\n",
     )
     .unwrap();
+    assert_eq!(session.document_links(&uri).unwrap()[0].1, target("first"));
+    session.file_changed(&dir.join("jacket.toml"), false);
     assert_eq!(session.document_links(&uri).unwrap()[0].1, target("second"));
     std::fs::remove_file(dir.join("second/Owned_Link_Target.jai")).unwrap();
+    assert_eq!(session.document_links(&uri).unwrap()[0].1, target("second"));
+    session.file_changed(&dir.join("second/Owned_Link_Target.jai"), true);
     assert!(session.document_links(&uri).unwrap().is_empty());
     std::fs::write(dir.join("second/Owned_Link_Target.jai"), "value :: 3;").unwrap();
+    assert!(session.document_links(&uri).unwrap().is_empty());
+    session.file_changed(&dir.join("second/Owned_Link_Target.jai"), true);
     assert_eq!(session.document_links(&uri).unwrap()[0].1, target("second"));
 }

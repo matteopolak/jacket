@@ -7,7 +7,7 @@ use crate::{
     TextChange, analysis::Analysis, position::LineIndex,
 };
 use jaic::sema::FileSystem;
-use std::cell::OnceCell;
+use std::cell::{Cell, OnceCell};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -62,6 +62,8 @@ impl Session {
                 version,
                 identity_pending,
                 identity_recovery_token: None,
+                initial_links_accepted: Cell::new(false),
+                initial_costs_accepted: Cell::new(false),
                 index: LineIndex::new(&text),
                 text,
                 asm: OnceCell::new(),
@@ -132,6 +134,8 @@ impl Session {
             version,
             identity_pending,
             identity_recovery_token,
+            initial_links_accepted: Cell::new(false),
+            initial_costs_accepted: Cell::new(false),
             index,
             text,
             asm: OnceCell::new(),
@@ -627,12 +631,32 @@ impl Session {
         fs: &crate::semantic::ObservedFs<'_>,
         path: &Path,
     ) -> Option<DocumentUri> {
+        self.projected_uri_with(fs, path, || crate::auto_import::filesystem_key(fs, path))
+    }
+
+    /// Project a selected compiler `SourcePath::File`, whose file identity the compiler owns.
+    /// Virtual and arbitrary request paths must use `projected_uri` instead. Open aliases
+    /// still use their full observed identities and the enclosing query's final guard.
+    pub(crate) fn projected_compiler_file_uri(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        path: &Path,
+    ) -> Option<DocumentUri> {
+        self.projected_uri_with(fs, path, || jaic::paths::file_identity(fs, path))
+    }
+
+    fn projected_uri_with(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        path: &Path,
+        identity: impl FnOnce() -> PathBuf,
+    ) -> Option<DocumentUri> {
         if let Ok(uri) = DocumentUri::from_path(path)
             && (self.documents.contains_key(&uri) || self.lint_configs.contains_key(&uri))
         {
             return Some(uri);
         }
-        let want = crate::auto_import::filesystem_key(fs, path);
+        let want = identity();
         self.documents
             .keys()
             .chain(self.lint_configs.keys())

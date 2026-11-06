@@ -294,8 +294,13 @@ impl Session {
                 }
                 let fs = fs.as_ref()?;
                 let mut items: Vec<CallHierarchyItem> = Vec::new();
-                for (path, text, start, _) in definitions {
-                    let Some(target) = self.projected_uri(fs, Path::new(&path)) else {
+                for (path, text, start, _, file_path) in definitions {
+                    let target = if file_path {
+                        self.projected_compiler_file_uri(fs, Path::new(&path))
+                    } else {
+                        self.projected_uri(fs, Path::new(&path))
+                    };
+                    let Some(target) = target else {
                         continue;
                     };
                     let (text, at) = if target == *uri && !shift.is_none() {

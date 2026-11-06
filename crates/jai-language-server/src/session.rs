@@ -13,6 +13,10 @@ pub(crate) struct Document {
     /// Raw notification text is retained while sealed identity coverage is unresolved.
     pub(crate) identity_pending: bool,
     pub(crate) identity_recovery_token: Option<u64>,
+    /// Suppresses repeated initial link captures; never grants link or semantic authority.
+    pub(crate) initial_links_accepted: std::cell::Cell<bool>,
+    /// The first whole-program cost-location context has passed its ordinary exact guards.
+    pub(crate) initial_costs_accepted: std::cell::Cell<bool>,
     pub(crate) text: String,
     pub(crate) index: LineIndex,
     /// Whether `text` has an `#asm` block anywhere, worked out on first use.

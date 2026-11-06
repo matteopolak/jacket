@@ -94,13 +94,19 @@ impl Session {
     /// (`jai.showCompileTimeCosts`).
     pub fn compile_time_costs(&self, uri: &DocumentUri) -> Vec<CostRow> {
         let _query = self.discovery_query();
+        if !self.begin_cost_inputs(uri) {
+            return Vec::new();
+        }
         let Some(fs) = self.config_filesystem() else {
             return Vec::new();
         };
         let Ok((uri, _)) = self.projected_document_entry(&fs, uri) else {
             return Vec::new();
         };
-        self.checked(uri, |analysis, _| {
+        if !self.begin_cost_inputs(uri) {
+            return Vec::new();
+        }
+        let Some(costs) = self.checked(uri, |analysis, _| {
             analysis
                 .evaluation_costs()
                 .into_iter()
@@ -114,8 +120,20 @@ impl Session {
                     })
                 })
                 .collect()
-        })
-        .unwrap_or_default()
+        }) else {
+            return Vec::new();
+        };
+        if let Some(doc) = self.documents.get(uri) {
+            doc.initial_costs_accepted.set(true);
+        }
+        costs
+    }
+
+    /// Admit additional program locations before the first cost-command projection.
+    fn begin_cost_inputs(&self, uri: &DocumentUri) -> bool {
+        self.documents
+            .get(uri)
+            .is_none_or(|doc| doc.initial_costs_accepted.get() || self.begin_cold_input_capture())
     }
 }
 

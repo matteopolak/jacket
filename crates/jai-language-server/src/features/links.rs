@@ -11,12 +11,22 @@ use std::path::{Path, PathBuf};
 impl Session {
     // `#load` / `#import` links
 
+    /// Extend an unadmitted document's exact link context before its first traversal.
+    fn begin_link_inputs(&self, uri: &DocumentUri) -> bool {
+        self.documents
+            .get(uri)
+            .is_none_or(|doc| doc.initial_links_accepted.get() || self.begin_cold_input_capture())
+    }
+
     /// The file a `#load` or `#import` of `uri` brings in, resolved as the compiler does:
     /// `#load` relative to the loading file; a module in `modules/` next to the file, then on
     /// the import path (`Name.jai` before `Name/module.jai`); `,file` and `,dir` relative to
     /// the file. Open documents count as files.
     pub(super) fn link_target(&self, uri: &DocumentUri, link: &Link) -> Option<DocumentUri> {
         let _query = self.discovery_query();
+        if !self.begin_link_inputs(uri) {
+            return None;
+        }
         let history = std::cell::RefCell::new(crate::semantic::Observations::default());
         let base = self.config_filesystem();
         let fs = base.as_ref().map(|base| crate::semantic::ObservedFs {
@@ -28,6 +38,9 @@ impl Session {
             Some(fs) => self.projected_document_entry(fs, uri).ok()?,
             None => self.document_entry(uri).ok()?,
         };
+        if !self.begin_link_inputs(uri) {
+            return None;
+        }
         let paths = OnceCell::new();
         let target = self.link_target_with_paths(uri, link, &paths, fs.as_ref());
         history
@@ -43,6 +56,9 @@ impl Session {
             || !self.accept_input_epoch()
         {
             return None;
+        }
+        if !matches!(paths.get(), Some(None)) {
+            self.documents.get(uri)?.initial_links_accepted.set(true);
         }
         target
     }
@@ -107,6 +123,9 @@ impl Session {
     /// Each `#load` / `#import` string of the document with the file it brings in.
     pub fn document_links(&self, uri: &DocumentUri) -> Result<Vec<(Range, String)>, Error> {
         let _query = self.discovery_query();
+        if !self.begin_link_inputs(uri) {
+            return Ok(Vec::new());
+        }
         let history = std::cell::RefCell::new(crate::semantic::Observations::default());
         let base = self.config_filesystem();
         let fs = base.as_ref().map(|base| crate::semantic::ObservedFs {
@@ -118,6 +137,9 @@ impl Session {
             Some(fs) => self.projected_document_entry(fs, uri)?,
             None => self.document_entry(uri)?,
         };
+        if !self.begin_link_inputs(uri) {
+            return Ok(Vec::new());
+        }
         let links = self
             .analysis_for(uri)
             .expect("opened document has analysis")
@@ -150,6 +172,9 @@ impl Session {
             || !self.accept_input_epoch()
         {
             return Ok(Vec::new());
+        }
+        if !matches!(paths.get(), Some(None)) {
+            self.document(uri)?.initial_links_accepted.set(true);
         }
         Ok(out)
     }

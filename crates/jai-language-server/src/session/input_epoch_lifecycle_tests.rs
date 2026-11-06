@@ -1116,3 +1116,79 @@ fn first_workspace_summary_preserves_ready_diagnostics_and_cross_root_instances(
         "accepted workspace summaries stay on the sealed input view"
     );
 }
+
+#[test]
+fn native_document_links_preserve_ready_lint_fixes() {
+    let source = "#import \"Basic\";\nis_ready :: () -> bool { return true; }\nmain :: () { ready := is_ready(); if ready == true print(\"ready\\n\"); }\n";
+    let temp = test_support::lsp::project("epoch-links-lint", &[("main.jai", source)]);
+    let stdlib =
+        std::fs::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"))
+            .unwrap();
+    let fs = Rc::new(ContextCountingFs(std::cell::Cell::new(0)));
+    let mut session = Session::with_environment(
+        crate::Limits::default(),
+        crate::Environment {
+            fs: fs.clone(),
+            services: None,
+            options: Box::new(move |fs, _| {
+                let mut options = jaic::sema::Options::host();
+                options.import_paths = vec![stdlib.clone()];
+                options.set_stdlib(fs, &stdlib);
+                options
+            }),
+        },
+    );
+    session.set_workspace_folders(vec![temp.path().to_path_buf()]);
+    let uri = DocumentUri::from_path(&temp.path().join("main.jai")).unwrap();
+    session.open(uri.clone(), 1, source.into()).unwrap();
+    assert!(
+        session
+            .diagnostics(&uri)
+            .unwrap()
+            .iter()
+            .any(|d| d.code == crate::model::DiagnosticCode::Lint("bool_comparison"))
+    );
+    assert!(session.input_epoch.as_ref().unwrap().ready());
+    let counts = session.compile_counts();
+    let links = session.document_links(&uri).unwrap();
+    assert!(
+        session.input_epoch.as_ref().unwrap().ready(),
+        "document links must not leave required semantic coverage pending"
+    );
+    assert_eq!(links.len(), 1);
+    let actions = session
+        .code_actions_in(
+            &uri,
+            crate::Range::default(),
+            &crate::lints::ActionContext {
+                only: Some(vec![crate::lints::FIX_ALL_KIND.into()]),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(
+        actions
+            .iter()
+            .any(|a| a.kind == Some(crate::lints::FIX_ALL_KIND) && a.edit.is_some())
+    );
+    assert_eq!(session.compile_counts(), counts);
+    fs.0.set(0);
+    assert_eq!(session.document_links(&uri).unwrap(), links);
+    assert_eq!(fs.0.get(), 0, "accepted link context stays sealed");
+    assert_eq!(session.compile_counts(), counts);
+    let costs: Vec<_> = session
+        .compile_time_costs(&uri)
+        .iter()
+        .map(crate::compile_costs::CostRow::wire)
+        .collect();
+    assert!(!costs.is_empty());
+    fs.0.set(0);
+    let again: Vec<_> = session
+        .compile_time_costs(&uri)
+        .iter()
+        .map(crate::compile_costs::CostRow::wire)
+        .collect();
+    assert_eq!(again, costs);
+    assert_eq!(fs.0.get(), 0, "accepted cost context stays sealed");
+    assert_eq!(session.compile_counts(), counts);
+}

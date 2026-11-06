@@ -49,8 +49,12 @@ impl Session {
                         let found = a.definition(path, at);
                         let locations: Vec<Location> = found
                             .into_iter()
-                            .filter_map(|(path, text, start, end)| {
-                                let target = self.projected_uri(&fs, Path::new(&path))?;
+                            .filter_map(|(path, text, start, end, file_path)| {
+                                let target = if file_path {
+                                    self.projected_compiler_file_uri(&fs, Path::new(&path))
+                                } else {
+                                    self.projected_uri(&fs, Path::new(&path))
+                                }?;
                                 // A target in this file is where the edits since the compile left it.
                                 let moved = target == *uri && !shift.is_none();
                                 let (start, end) = if moved {

@@ -76,3 +76,17 @@ different equal-byte owner or an actively borrowed proof cannot supply that leas
 actual-input snapshots stay unchanged, and losing the last real owner makes reuse unavailable.
 Workspace discovery captures its own proof so accepted compiler and summary owners retain
 the required payloads after the request ends.
+
+Each open document admits its first exact link-discovery context before resolving imports.
+The accepted marker only suppresses another initial capture; link history, projection and
+final epoch checks still authorize every result. Text replacement creates a new context.
+Pending or failed inputs cannot reset themselves through a link request.
+
+The first whole-program compile-time cost command similarly admits its output-location
+context before projecting results. Accepted repeats use sealed inputs; an unavailable or
+rejected command cannot mark that document context accepted.
+
+Definition targets retain whether the selected compiler source is a file or virtual input.
+File targets reuse their compiler-owned file identity while still observing canonical
+responses and every open-buffer alias. Parsed paths and virtual origins retain general
+filesystem projection; all results still pass the enclosing semantic acceptance checks.

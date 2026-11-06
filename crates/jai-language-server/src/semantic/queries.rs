@@ -637,20 +637,32 @@ impl Analysis {
         out
     }
 
-    /// Declarations the identifier at `offset` names, as (path, text, start, end) with byte
-    /// offsets into that file's text (which may be a module or stdlib file, not an open document).
+    /// Declarations at `offset`, as `(path, text, start, end, file_path)` with byte offsets.
+    /// `file_path` comes from `SourcePath::File`; virtual origins need general URI projection.
+    /// For example, a definition in a closed library file retains that file identity.
     pub fn definition(
         &mut self,
         path: &Path,
         offset: usize,
-    ) -> Vec<(String, Arc<str>, usize, usize)> {
+    ) -> Vec<(String, Arc<str>, usize, usize, bool)> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
         self.compiler
             .ide_definition(file, offset as u32)
             .into_iter()
-            .filter_map(|span| self.location(span))
+            .filter_map(|span| {
+                let file_path = self
+                    .compiler
+                    .src
+                    .sources
+                    .try_get(span.file)?
+                    .path
+                    .as_file()
+                    .is_some();
+                self.location(span)
+                    .map(|(path, text, start, end)| (path, text, start, end, file_path))
+            })
             .collect()
     }
 

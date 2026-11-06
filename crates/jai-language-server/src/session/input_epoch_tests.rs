@@ -768,3 +768,85 @@ fn native_stdlib_workspace_summary_preserves_closed_callers() {
         "{values:?}"
     );
 }
+
+#[test]
+fn first_link_context_does_not_reset_pending_cancelled_or_failed_inputs() {
+    for mode in ["pending", "cancel", "config"] {
+        let temp = test_support::TempDir::new("epoch-link-admission");
+        let path = temp.path().join("main.jai");
+        let source = "#load \"dep.jai\"; main :: () {}";
+        std::fs::write(&path, source).unwrap();
+        std::fs::write(temp.path().join("dep.jai"), "value :: 1;").unwrap();
+        let fs = Rc::new(ContextCountingFs(std::cell::Cell::new(0)));
+        let mut session = Session::with_environment(
+            crate::Limits::default(),
+            crate::Environment {
+                fs: fs.clone(),
+                services: None,
+                options: Box::new(|_, _| {
+                    let mut options = jaic::sema::Options::host();
+                    options.runtime_support = false;
+                    options.stack_trace = false;
+                    options
+                }),
+            },
+        );
+        let uri = DocumentUri::from_path(&path).unwrap();
+        session.open(uri.clone(), 1, source.into()).unwrap();
+        assert!(session.diagnostics(&uri).unwrap().is_empty());
+        let epoch = session.input_epoch.as_ref().unwrap().clone();
+        let token = epoch.capture_identity();
+        let counts = session.compile_counts();
+        fs.0.set(0);
+        if mode == "pending" {
+            epoch.read(&temp.path().join("uncovered.input"));
+        }
+        {
+            let _query = session.discovery_query();
+            if mode == "cancel" {
+                jaic::interrupt::arm();
+                jaic::interrupt::request(true);
+                assert!(jaic::interrupt::should_stop());
+            }
+            if mode == "config" {
+                session.configuration_input_failed.set(true);
+            }
+            assert!(session.document_links(&uri).unwrap().is_empty());
+            assert!(session.compile_time_costs(&uri).is_empty());
+        }
+        if mode == "cancel" {
+            assert!(jaic::interrupt::disarm());
+            jaic::interrupt::request(false);
+        }
+        assert_eq!(epoch.capture_identity(), token);
+        assert!(!session.documents[&uri].initial_links_accepted.get());
+        assert!(!session.documents[&uri].initial_costs_accepted.get());
+        assert_eq!(fs.0.get(), 0);
+        assert_eq!(session.compile_counts(), counts);
+        session.configuration_input_failed.set(false);
+        for _ in 0..128 {
+            if epoch.ready() {
+                break;
+            }
+            session.reconcile_input_epoch();
+        }
+        assert!(epoch.ready());
+        assert_eq!(session.document_links(&uri).unwrap().len(), 1);
+        assert!(session.documents[&uri].initial_links_accepted.get());
+        session.compile_time_costs(&uri);
+        assert!(session.documents[&uri].initial_costs_accepted.get());
+        session
+            .change(
+                &uri,
+                2,
+                &[crate::TextChange {
+                    range: None,
+                    range_length: None,
+                    text: source.into(),
+                }],
+            )
+            .unwrap();
+        assert!(!session.documents[&uri].initial_links_accepted.get());
+        assert!(!session.documents[&uri].initial_costs_accepted.get());
+    }
+}
