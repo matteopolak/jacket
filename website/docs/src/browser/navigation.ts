@@ -179,6 +179,12 @@ function setupOutline(signal: AbortSignal): void {
     if (!rail.classList.contains('ready')) frame(signal, () => rail.classList.add('ready'));
     if (changed) frame(signal, () => glide(centre(from, to))); else glide(position);
   };
+  const main = document.querySelector('main');
+  const ended = (event: AnimationEvent): void => {
+    if (event.target === main && event.animationName === 'page-in') mark();
+  };
+  main?.addEventListener('animationend', ended, { signal });
+  main?.addEventListener('animationcancel', ended, { signal });
   window.addEventListener('scroll', () => { if (!pending) { pending = true; frame(signal, mark); } }, { passive: true, signal });
   mark();
 }

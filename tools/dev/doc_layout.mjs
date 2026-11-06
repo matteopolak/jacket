@@ -26,6 +26,7 @@ import { pageStatus, waitForFrames } from './doc_samples.mjs';
 import { Connection, runtimeException } from './chrome_cdp.mjs';
 import { waitForDevToolsPort } from './chrome_startup.mjs';
 import { declarationBands } from './doc_bands.mjs';
+import {validateMainMotion,readMainMotion,layoutBox,mainFlowEligible,srHeading,layoutDiffers as differs} from './doc_layout_motion.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -53,18 +54,40 @@ const SCRIPT_DELAY_MS = Number(option('--script-delay', 250));
 // the elements that matter (only when they changed), and every layout-shift entry.
 
 const RECORDER = String.raw`(() => {
+  const validateMainMotion = ${validateMainMotion.toString()};
+  const readMainMotion = ${readMainMotion.toString()};
+  const layoutBox = ${layoutBox.toString()};
+  const mainFlowEligible = ${mainFlowEligible.toString()};
+  const srHeading = ${srHeading.toString()};
   if (window.__rec) return;
   const frames = [], shifts = [], errors = [];
   let prev = '', number = 0;
   const round = v => Math.round(v * 10) / 10;
-  // Document coordinates for content, viewport coordinates for the sticky and fixed bars.
+  let mainForBoxes, motionForBoxes, rawBoxesForFrame, loadingFrame;
+  // Retain raw document/viewport boxes; compensate only validated normal-flow main motion.
   const box = el => {
     if (!el) return null;
     const r = el.getBoundingClientRect();
-    let viewport = false;
-    for (let n = el; n && n !== document.body && !viewport; n = n.parentElement) viewport = ['sticky', 'fixed'].includes(getComputedStyle(n).position);
-    if (!r.width && !r.height) return null;
-    return [r.left + (viewport ? 0 : scrollX), r.top + (viewport ? 0 : scrollY), r.width, r.height].map(round);
+    let viewport = false, hidden = false, ariaHidden = false, inert = false; const positions = [];
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      const position = getComputedStyle(n).position;
+      if (['sticky', 'fixed'].includes(position)) viewport = true;
+      positions.push(position);
+      hidden ||= !!n.hidden; inert ||= !!n.inert; ariaHidden ||= n.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true';
+    }
+    for (let n = document.body; n; n = n.parentElement) { hidden ||= !!n.hidden; inert ||= !!n.inert; ariaHidden ||= n.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true'; }
+    const raw = [r.left + (viewport ? 0 : scrollX), r.top + (viewport ? 0 : scrollY), r.width, r.height];
+    const eligible = mainFlowEligible(!!mainForBoxes && (mainForBoxes === el || mainForBoxes.contains(el)), positions);
+    const record = { node: describe(el), raw, viewport: [r.left,r.top,r.width,r.height], eligible };
+    rawBoxesForFrame.push(record);
+    if (el.matches('h2.sr, h3.sr')) {
+      const facts = {tag:el.tagName,id:el.id,text:el.textContent,position:getComputedStyle(el).position,usedWidth:getComputedStyle(el).width,usedHeight:getComputedStyle(el).height,transform:getComputedStyle(el).transform,visibility:getComputedStyle(el).visibility,role:(el.getAttribute('role')??'').trim().toLowerCase(),inert,overflowX:getComputedStyle(el).overflowX,overflowY:getComputedStyle(el).overflowY,hidden,ariaHidden,rect:[r.left,r.top,r.width,r.height],viewport:[innerWidth,innerHeight]};
+      record.sr = facts;
+      try { return record.logical = srHeading(facts, loadingFrame); }
+      catch (error) { errors.push(String(error)); }
+    }
+    if (!r.width && !r.height) return record.logical = null;
+    return record.logical = layoutBox(raw, eligible, motionForBoxes.dy);
   };
   const list = (sel, root = document, cap = 60) =>
     Array.from(root.querySelectorAll(sel)).slice(0, cap).map(box).filter(b => b !== null);
@@ -82,7 +105,12 @@ const RECORDER = String.raw`(() => {
     const current = side && side.querySelector('nav [aria-current="page"]');
     const toc = document.querySelector('.toc');
     const main = document.getElementById('main-content');
+    mainForBoxes = main; rawBoxesForFrame = []; loadingFrame = document.readyState === 'loading';
+    let facts = { present: !!main }, dy = 0, motionError;
+    try { facts = readMainMotion(main); dy = validateMainMotion(facts); } catch (error) { motionError = String(error); errors.push(motionError); }
+    motionForBoxes = { facts, dy, error: motionError };
     return {
+      motion: motionForBoxes, rawBoxes: rawBoxesForFrame,
       page: body.getAttribute('data-page') || '',
       loading: document.readyState === 'loading',
       y: Math.round(scrollY),
@@ -236,18 +264,6 @@ class Tab {
 // ---------------------------------------------------------------------------------------------
 // Comparing frames.
 
-const TOLERANCE = 0.6;
-function differs(a, b, strict = false) {
-  if (a === b) return false;
-  if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) > TOLERANCE;
-  if (Array.isArray(a) && Array.isArray(b)) {
-    // A list may have grown while the page was still being parsed; what was shown must not have moved.
-    if (strict && a.length !== b.length) return true;
-    return a.some((v, i) => i >= b.length || differs(v, b[i], strict));
-  }
-  return true;
-}
-
 // Every frame of a run (the same page shown) must match the last one, apart from lists that grew.
 // Reports the first frame that differs, and how many others do.
 function compare(run, { ignoreY = false, label }) {
@@ -287,6 +303,8 @@ function analyse(rec, options = {}) {
   if (rec.errors.length) problems.push(`recorder errors: ${rec.errors.join('; ')}`);
   if (rec.declarationBands) problems.push(...rec.declarationBands.problems);
   if (!rec.frames.length) return [...problems, `no frames recorded (${rec.number} animation frames ran)`];
+  const finalMotion = rec.frames.at(-1).motion?.facts;
+  if (finalMotion?.pending || finalMotion?.enter) problems.push('live main entrance did not clean up at settlement');
   // A swapped-in page of another height moves the footer, which a real click's own 500ms
   // exemption would hide; the footer alone is not counted for a swap.
   const counted = rec.shifts.filter(s => !(options.swap && s.sources.length && s.sources.every(x => x.node.startsWith('footer'))));
@@ -297,6 +315,7 @@ function analyse(rec, options = {}) {
   if (flag('--dump')) {
     let last = null;
     for (const f of rec.frames) {
+      console.log('      raw-motion '+JSON.stringify({frame:f.frame,t:f.t,page:f.page,motion:f.motion,boxes:f.rawBoxes}));
       const flat = { page: f.page, loading: f.loading, y: f.y, ...Object.fromEntries(Object.entries({ ...f.early, ...f.late }).map(([k, v]) => [k, JSON.stringify(v)])) };
       const changed = Object.keys(flat).filter(k => !last || last[k] !== flat[k]).map(k => `${k}=${last ? `${last[k]} -> ` : ''}${flat[k]}`.slice(0, 160));
       console.log(`      frame ${f.frame} @${f.t}ms: ${changed.join(' | ')}`);

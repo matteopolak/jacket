@@ -426,21 +426,12 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 @media (prefers-reduced-motion: reduce) {
   .nav-cat::details-content, .nav-cat > summary::after { transition: none; }
 }
-/* Static chrome never enters a native capture; only the main pane has a transition name. */
-html, .top, .side, .foot { view-transition-name: none; }
-/* Native snapshots intercept only the animated main pane; live chrome stays interactive. */
-::view-transition { pointer-events: none; }
-::view-transition-group(main) { pointer-events: auto; }
+/* Routing never snapshots live content or chrome; only the live main animates. */
+html, .top, .side, .foot, main { view-transition-name: none; }
 @media (prefers-reduced-motion: no-preference) {
   .btn, .card, .row { transition: border-color 0.12s, background-color 0.12s; }
-  /* Only main is captured/animated. Shell explicitly excludes root and live chrome. */
-  main { view-transition-name: main; }
-  ::view-transition-group(main) { animation: none; }
-  /* Pages differ in width (the outline rail), so keep both snapshots at their own size instead of scaling them. */
-  ::view-transition-old(main), ::view-transition-new(main) { inline-size: auto; block-size: auto; object-fit: none; object-position: left top; }
-  /* The old content goes at once: fading it out showed the previous page's title over the new one. */
-  ::view-transition-old(main) { display: none; }
-  ::view-transition-new(main) { animation: page-in 170ms ease-out both; }
+  main.doc-main-pending { opacity: 0; }
+  main.doc-main-enter { animation: page-in 170ms ease-out both; }
   @keyframes page-in { from { opacity: 0; transform: translateY(4px); } }
 }
 .foot a { color: var(--muted); }
