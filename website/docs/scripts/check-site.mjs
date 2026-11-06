@@ -1,8 +1,18 @@
 /** Standards-aware, whole-tree HTML and local fragment validation, independent of components. */
 import { parse } from 'parse5';
-import {HtmlValidate} from 'html-validate';
+import {HtmlValidate,StaticConfigLoader} from 'html-validate';
 
-const standards=new HtmlValidate({root:true,extends:['html-validate:standard']});
+/** One fixed standards policy; filenames still belong to each independent parser/report.
+ * The default static loader rebuilds metadata even for an empty per-page override.
+ */
+class StandardsConfigLoader extends StaticConfigLoader {
+  #fixed;
+  getConfigFor(filename,override) {
+    if(override!==undefined)return super.getConfigFor(filename,override);
+    return this.#fixed??=super.getConfigFor(filename);
+  }
+}
+const standards=new HtmlValidate(new StandardsConfigLoader({root:true,extends:['html-validate:standard']}));
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
