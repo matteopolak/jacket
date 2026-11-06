@@ -80,18 +80,19 @@ async function lazySearchFixture(){
     matches():boolean{return this===input;}isContentEditable=false;
   }
   const input=new Element(),box=new Element(),document=Object.assign(new EventTarget(),{activeElement:null as Element|null,querySelector:(selector:string)=>selector==='#search-q'?input:box,createElement:()=>new Element()});
-  const controller=new AbortController(),requested:string[]=[],navigated:string[]=[];
+  const controller=new AbortController(),requested:string[]=[],navigated:string[]=[],source='/search-index.json?v='+ 'a'.repeat(64);
+  let parses=0;
   let resolveResponse:(value:Response)=>void=()=>{};
   const pending=new Promise<Response>(resolve=>{resolveResponse=resolve;});
-  const values={document,Node:Element,HTMLElement:Element,fetch:(url:string)=>{requested.push(url);return pending;}};
+  const values={document,Node:Element,HTMLElement:Element,fetch:(url:string)=>{requested.push(url);return pending.then(response=>{const copy=response.clone(),json=copy.json.bind(copy);copy.json=()=>{parses++;return json();};return copy;});}};
   const descriptors=new Map(Object.keys(values).map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
   for(const[key,value]of Object.entries(values))Object.defineProperty(globalThis,key,{configurable:true,value});
-  initSearch('/search-index.json?v='+ 'a'.repeat(64),target=>target.kind==='page'?'/'+target.id:'/unused',controller.signal,url=>navigated.push(url));
+  initSearch(source,target=>target.kind==='page'?'/'+target.id:'/unused',controller.signal,url=>navigated.push(url));
   const key=(value:string):void=>{input.dispatchEvent(Object.assign(new Event('keydown',{cancelable:true}),{key:value}));};
   const flush=async():Promise<void>=>{await new Promise<void>(resolve=>setImmediate(resolve));await new Promise<void>(resolve=>setImmediate(resolve));};
-  return {input,box,document,controller,requested,navigated,key,flush,
+  return {input,box,document,controller,requested,navigated,key,flush,source,get parses(){return parses;},
     type:(value:string):void=>{input.value=value;input.dispatchEvent(new Event('input'));},
-    release:async(outcome:'success'|'error'):Promise<void>=>{resolveResponse(outcome==='success'?new Response(JSON.stringify({payload:'search',data:{schemaVersion:1,entries:[{...entry('Case_A'),preview:null},{...entry('Case_B'),preview:null}]}})):new Response('unavailable',{status:503}));await flush();},
+    release:async(outcome:'success'|'error'|'invalid'):Promise<void>=>{resolveResponse(outcome!=='error'?new Response(JSON.stringify({payload:'search',data:{schemaVersion:outcome==='invalid'?2:1,entries:[{...entry('Case_A'),preview:null},{...entry('Case_B'),preview:null}]}})):new Response('unavailable',{status:503}));await flush();},
     dismiss:(kind:string):void=>{if(kind==='escape')key('Escape');else if(kind==='outside')document.dispatchEvent(Object.defineProperty(new Event('click'),'target',{value:new Element()}));else if(kind==='focus')input.dispatchEvent(Object.assign(new Event('focusout'),{relatedTarget:new Element()}));else if(kind==='empty'){input.value='';input.dispatchEvent(new Event('input'));}else controller.abort();},
     restore:():void=>{controller.abort();for(const[key,descriptor]of descriptors)if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);},
   };
@@ -109,4 +110,55 @@ test('current query errors remain visible and a cleared query does not inherit a
 
 test('visible arrows retain their cyclic selection semantics',async()=>{
   const f=await lazySearchFixture();try{f.type('Case');await f.release('success');f.key('ArrowDown');f.key('Enter');assert.equal(f.navigated.at(-1),'/api/Fuzz/Case_B');f.key('ArrowUp');f.key('Enter');assert.equal(f.navigated.at(-1),'/api/Fuzz/Case_A');assert.equal(f.requested.length,1);}finally{f.restore();}
+});
+
+
+test('completed search admission is reused by a new page in the same document',async()=>{
+  const f=await lazySearchFixture(),next=new AbortController();
+  try {
+    f.type('Case');await f.release('success');assert.equal(f.requested.length,1);assert.equal(f.parses,1);
+    f.controller.abort();
+    initSearch(f.source,target=>target.kind==='page'?'/'+target.id:'/unused',next.signal,url=>f.navigated.push(url));
+    f.input.focus();f.type('Case');await f.flush();
+    assert.equal(f.requested.length,1,'unchanged admitted search must not fetch again after navigation');
+    assert.equal(f.parses,1,'unchanged admitted search must not decode again after navigation');
+    assert.equal(f.box.hidden,false);f.key('Enter');assert.equal(f.navigated.at(-1),'/api/Fuzz/Case_A');
+  } finally {next.abort();f.restore();}
+});
+
+test('aborted search admission cannot populate the next page cache',async()=>{
+  const f=await lazySearchFixture(),next=new AbortController();
+  try {
+    f.type('Case');f.controller.abort();await f.release('success');
+    initSearch(f.source,()=>'/unused',next.signal,()=>{});f.input.focus();f.type('Case');await f.flush();
+    assert.equal(f.requested.length,2,'aborted response must not become a successful shared admission');
+    assert.equal(f.parses,2);assert.equal(f.box.hidden,false);
+  } finally {next.abort();f.restore();}
+});
+
+test('a changed search digest replaces the one admitted document entry',async()=>{
+  const f=await lazySearchFixture(),scopes:AbortController[]=[];
+  try {
+    f.type('Case');await f.release('success');f.controller.abort();
+    const changed=f.source.replace('a'.repeat(64),'b'.repeat(64));
+    for(const source of [changed,f.source]) {
+      const scope=new AbortController();scopes.push(scope);
+      initSearch(source,()=>'/unused',scope.signal,()=>{});f.input.focus();f.type('Case');await f.flush();
+      assert.equal(f.box.hidden,false);scope.abort();
+    }
+    assert.deepEqual(f.requested,[f.source,changed,f.source],'cache must retain one source identity, not every visited digest');
+    assert.equal(f.parses,3);
+  } finally {for(const scope of scopes)scope.abort();f.restore();}
+});
+
+
+for(const failure of ['error','invalid'] as const)test('failed search admission '+failure+' is not retained for a new page',async()=>{
+  const f=await lazySearchFixture(),next=new AbortController();
+  try {
+    f.type('Case');await f.release(failure);assert.equal(f.parses,failure==='error'?0:1);f.controller.abort();
+    Object.defineProperty(globalThis,'fetch',{configurable:true,value:(url:string)=>{f.requested.push(url);return Promise.resolve(new Response(JSON.stringify({payload:'search',data:{schemaVersion:1,entries:[{...entry('Recovered'),preview:null}]}})));}});
+    initSearch(f.source,target=>target.kind==='page'?'/'+target.id:'/unused',next.signal,url=>f.navigated.push(url));
+    f.input.focus();f.type('Recovered');await f.flush();
+    assert.deepEqual(f.requested,[f.source,f.source]);assert.equal(f.box.hidden,false);f.key('Enter');assert.equal(f.navigated.at(-1),'/api/Fuzz/Recovered');
+  } finally {next.abort();f.restore();}
 });

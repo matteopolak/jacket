@@ -243,6 +243,8 @@ Configured logos, publication-owned local social images and semantic asset targe
 
 The archive menu requests mutable `versions.json` only on its first pointer, focus or activation intent, with `cache: 'no-cache'` so a warm response is revalidated. Requests belong to the page abort signal; unavailable, invalid or single-version manifests leave a closed disabled menu for that page. Archive anchors perform native document navigation. Escape, outside click, focus leaving the button/menu, a second pointer or keyboard button activation, or page teardown cancels a pending opening intent; a late catalogue response cannot reopen the menu or steal focus. The same first-intent request remains shared without retries.
 
+Search keeps one successfully validated row set per live document and exact digest-bearing source URL. Page swaps reuse those rows without another fetch or decode; a changed URL replaces them. Pending requests and visible results still belong to the page abort signal, and aborted or failed admissions never populate the shared entry. Keep scoring and rendering read-only with respect to admitted rows.
+
 Digest query parameters distinguish ordinary HTTP cache entries; they do not provide historical storage or browser-side integrity verification. A tab holding old HTML can request an uncached old digest URL after deployment and receive the server's current bytes if the host ignores query parameters when locating files. The typed JSON boundary still validates shape, and the shell compatibility guard forces native navigation across changed admitted bundles, but neither promises a retained immutable export snapshot. Deployments needing historical tabs to retrieve historical bytes require versioned hosting outside this builder's current contract.
 
 

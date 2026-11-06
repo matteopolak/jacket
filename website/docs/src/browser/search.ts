@@ -59,14 +59,24 @@ export function searchPreview(entry:SearchEntry):{text:string;className:string}[
   return result;
 }
 
+// Keep one successful digest per live document; pending work still belongs to its page.
+const admittedSearch=new WeakMap<Document,{source:string;entries:SearchEntry[]}>();
+
+/** Reuse admitted rows across page swaps; a changed digest always gets fresh validation. */
 export function initSearch(source:string,href:(target:Target)=>string,signal:AbortSignal,navigate:(url:string)=>void):void {
-  const foundInput=document.querySelector<HTMLInputElement>('#search-q'),foundBox=document.querySelector<HTMLElement>('#search-results');
+  const owner=document,foundInput=owner.querySelector<HTMLInputElement>('#search-q'),foundBox=owner.querySelector<HTMLElement>('#search-results');
   if(!foundInput||!foundBox)return;
   const input:HTMLInputElement=foundInput,box:HTMLElement=foundBox;
   let entries:Promise<SearchEntry[]>|undefined,hits:SearchEntry[]=[],picked=-1,epoch=0,wanted=false;
-  const load=():Promise<SearchEntry[]>=>entries??=fetchPayload(source,'search',signal).then(payload=>{
-    if(payload.payload!=='search')throw new Error('expected search payload');return payload.data.entries;
-  });
+  function load():Promise<SearchEntry[]> {
+    if(entries)return entries;
+    const cached=admittedSearch.get(owner);
+    return entries=cached?.source===source?Promise.resolve(cached.entries):fetchPayload(source,'search',signal).then(payload=>{
+      if(payload.payload!=='search')throw new Error('expected search payload');
+      if(!signal.aborted)admittedSearch.set(owner,{source,entries:payload.data.entries});
+      return payload.data.entries;
+    });
+  }
   const close=():void=>{box.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');};
   const hide=():void=>{epoch++;wanted=false;hits=[];picked=-1;close();};
   // The header survives route swaps; release page-owned results without moving its focus.
