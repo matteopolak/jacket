@@ -11,8 +11,9 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {Connection,runtimeException} from './chrome_cdp.mjs';
 import {waitForDevToolsPort} from './chrome_startup.mjs';
 import {productionDiagnosticCases} from './diagnostic_fixture_checks.mjs';
+import {preparePointer} from '../bench/doc_browser_pointer.mjs';
 const base=new URL(process.argv[2]||'http://127.0.0.1:8000/');
-const development=process.argv.includes('--dev');
+const development=process.argv.includes('--dev'),liveMain=process.argv.includes('--live-main');
 const stateColors=process.argv.includes('--state-colors'),traceTransitions=process.argv.includes('--trace-transitions'),pointerOnly=process.argv.includes('--native-pointer');
 const chrome=process.env.CHROME_PATH||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':['google-chrome','google-chrome-stable','chromium','chromium-browser'].find(p=>spawnSync('which',[p]).status===0));
 assert(chrome,'Install Chrome or set CHROME_PATH');
@@ -70,6 +71,26 @@ spaRun: try{
  await wait(()=>evaluate("document.readyState==='complete'&&window.__spaReceipt?.pages===1&&!!document.querySelector('main')"),'initial Astro page enhancement did not finish');
  await delay(300);
  await wait(()=>evaluate('window.__bootstrapOrder?.frame!==null'),'first parsed-body frame was not observed');
+ const proveLiveMain=async()=>{
+  const modulePath=new URL('api/Basic',base).pathname,printPath=new URL('api/Basic/print',base).pathname;
+  await cdp('Page.navigate',{url:new URL('api/Basic',base).href});
+  await wait(()=>evaluate(`location.pathname===${JSON.stringify(modulePath)}&&document.readyState==='complete'&&window.__spaReceipt?.pages===1`),'live-main initial module failed');
+  await evaluate('document.fonts.ready');
+  await evaluate(`window.__liveMainRail=document.querySelector('.side')`);
+  const click=async({x,y})=>{for(const type of ['mouseMoved','mousePressed','mouseReleased'])await cdp('Input.dispatchMouseEvent',{type,x,y,...(type==='mouseMoved'?{}:{button:'left',clickCount:1})});};
+  const sample=()=>evaluate(`(()=>{const main=document.querySelector('main'),a=main?.querySelector('.crumbs a[href="${modulePath}"]'),r=a?.getBoundingClientRect(),s=document.querySelector('.side'),b=s.getBoundingClientRect(),style=getComputedStyle(main),snapshot=getComputedStyle(document.documentElement,'::view-transition-new(main)'),live=style.animationName==='page-in',x=r?r.x+r.width/2:0,y=r?r.y+r.height/2:0,hit=document.elementFromPoint(x,y);return{time:performance.now(),path:location.pathname,live,animation:live?style.animationName:snapshot.animationName,duration:live?style.animationDuration:snapshot.animationDuration,opacity:Number(live?style.opacity:snapshot.opacity),transform:live?style.transform:snapshot.transform,nativeCapture:document.activeViewTransition!==null,mainCapture:style.viewTransitionName,point:{x,y},hit:!!a&&!!hit&&(a===hit||a.contains(hit)),hitTag:hit?.tagName,railSame:s===window.__liveMainRail,railScroll:s.scrollTop,railRect:[b.x,b.y,b.width,b.height]}})()`);
+  const initial=await preparePointer(evaluate,`main a[href="${printPath}"]`);await click(initial);
+  let during;
+  await wait(async()=>{during=await sample();return during.path===printPath&&during.animation==='page-in'&&during.opacity>.05&&during.opacity<.95;},'incoming visible mid-fade was not observed',5000);
+  receipt.liveMain={during};
+  // Deliberately do not wait for stationary geometry: this must be a real mid-animation gesture.
+  await click(during.point);
+  await wait(()=>evaluate(`location.pathname===${JSON.stringify(modulePath)}`),'trusted incoming mid-fade breadcrumb click was ignored',5000);
+  receipt.liveMain.after=await sample();
+  assert(during.live,'entrance must animate the live main, not a snapshot');assert.equal(during.nativeCapture,false);assert.equal(during.mainCapture,'none');assert.equal(during.duration,'0.17s');assert(during.hit,'visible incoming link is not the pointer target');assert(during.railSame&&receipt.liveMain.after.railSame,'live sidebar DOM was replaced');
+  assert.deepEqual(exceptions,[]);receipt.checks.push('trusted incoming main breadcrumb remains usable during identical170ms live entrance');
+ };
+ if(liveMain){await proveLiveMain();console.log(JSON.stringify(receipt,null,2));break spaRun;}
  receipt.bootstrap=await evaluate(`(()=>{const scripts=[...document.querySelectorAll('script[data-doc-bootstrap]')],script=scripts[0],chrome=[['html',document.documentElement],['header',document.querySelector('.top')],['sidebar',document.querySelector('.side')],['footer',document.querySelector('.foot')]],inlineScopeRules=[];const walk=rules=>{for(const rule of rules){if(rule.selectorText?.includes('data-astro-transition-scope'))inlineScopeRules.push({selector:rule.selectorText,style:rule.style?.cssText??''});if(rule.cssRules)walk(rule.cssRules);}};for(const style of document.querySelectorAll('style'))if(style.sheet)walk(style.sheet.cssRules);return{count:scripts.length,url:script?.src??'',inlineEmpty:!(script?.textContent??'').trim(),inlineBytes:new TextEncoder().encode(script?.textContent??'').length,inHead:!!script&&document.head.contains(script),async:script?.hasAttribute('async'),defer:script?.hasAttribute('defer'),type:script?.type??'',installed:typeof window.jacketBootstrap?.prepare==='function',order:window.__bootstrapOrder,chrome:chrome.map(([name,node])=>({name,present:!!node,capture:node?getComputedStyle(node).viewTransitionName:null,transitionAttributes:node?node.getAttributeNames().filter(name=>name.startsWith('data-astro-transition')):[]})),mainCapture:getComputedStyle(document.querySelector('main')).viewTransitionName,inlineScopeRules};})()`);
  assert.equal(receipt.bootstrap.count,1,'production head must own exactly one bootstrap');
  assert(receipt.bootstrap.url,'bootstrap must be an external hashed asset rather than repeated inline page code');
@@ -82,7 +103,7 @@ spaRun: try{
  for(const stage of ['body','main','frame','domContentLoaded']){assert(receipt.bootstrap.order[stage]?.installed,`bootstrap installed after observed ${stage}`);assert(receipt.bootstrap.order[stage]?.js,`prepaint js state missing at observed ${stage}`);}
  assert.equal(receipt.bootstrap.order.body.readyState,'loading','body sample was not taken during parsing');
  for(const chrome of receipt.bootstrap.chrome){assert(chrome.present,`${chrome.name} chrome missing`);assert.equal(chrome.capture,'none',`${chrome.name} chrome acquired a native capture`);assert.deepEqual(chrome.transitionAttributes,[],`${chrome.name} retains obsolete Astro transition directives`);}
- assert.equal(receipt.bootstrap.mainCapture,'main','main capture was not preserved');assert.deepEqual(receipt.bootstrap.inlineScopeRules,[],'per-page Astro transition scope CSS remains in static chrome');
+ assert.equal(receipt.bootstrap.mainCapture,'none','live main acquired a native capture');assert.deepEqual(receipt.bootstrap.inlineScopeRules,[],'per-page Astro transition scope CSS remains in static chrome');
  assert.equal(requests.filter(row=>row.url===bootstrapURL.href).length,1,'initial bootstrap was requested more or less than once');
  receipt.checks.push(`${development?'Vite source':'Vite-hashed'} synchronous classic bootstrap executes before parsed body/main and first body frame; static chrome has no generated transition scopes`);
  receipt.versionSlot=await evaluate(`(async()=>{const button=document.querySelector('#ver-button');if(!button)return null;await document.fonts.ready;const initial=button.disabled,rows=[];try{for(const disabled of [true,false]){button.disabled=disabled;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));rows.push({disabled,boxes:[...document.querySelectorAll('.top .search-wrap,.top .site-nav,.top .site-nav > *')].map(node=>{const r=node.getBoundingClientRect();return[r.x,r.y,r.width,r.height];})});}return rows;}finally{button.disabled=initial;}})()`);
@@ -162,6 +183,7 @@ spaRun: try{
  }
  }
  if(pointerOnly){if(traceTransitions)receipt.transitionTrace=await evaluate('window.__transitionTrace');receipt.requests=responses.filter(row=>row.mime==='text/html');console.log(JSON.stringify({...receipt,exceptions},null,2));assert.deepEqual(exceptions,[],'browser runtime exceptions');break spaRun;}
+ await proveLiveMain();
  await cdp('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
  // Exercise the actual production bootstrap with failed stores, not a replacement implementation.
  for(const blockedRead of [true,false]){

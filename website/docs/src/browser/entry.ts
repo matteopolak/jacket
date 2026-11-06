@@ -10,12 +10,57 @@ import { compatibleShell, observeTransition } from './lifetime.ts';
 const lifecycle = new AbortController();
 let page: AbortController | undefined;
 let body: HTMLElement | undefined;
-function cleanup(): void { page?.abort(); page = undefined; body = undefined; }
+let entering: HTMLElement | undefined;
+let detachEntrance: (() => void) | undefined;
+/** Own the incoming main before its page enhancement lifetime exists. */
+function clearEntrance(): void {
+  const main = entering; entering = undefined;
+  detachEntrance?.(); detachEntrance = undefined;
+  main?.classList.remove('doc-main-pending', 'doc-main-enter');
+}
+function prepareEntrance(main: HTMLElement, signal: AbortSignal): void {
+  if (signal.aborted || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  clearEntrance(); entering = main;
+  const abort = (): void => { if (entering === main) clearEntrance(); };
+  signal.addEventListener('abort', abort, { once: true });
+  // Enhancement failures leave readable content and retain their ordinary error reporting.
+  window.addEventListener('error', abort); window.addEventListener('unhandledrejection', abort);
+  detachEntrance = () => {
+    signal.removeEventListener('abort', abort);
+    window.removeEventListener('error', abort); window.removeEventListener('unhandledrejection', abort);
+  };
+  main.classList.add('doc-main-pending');
+}
+/** Start after Astro restores scroll and navigation claims its untransformed outline. */
+function startEntrance(signal: AbortSignal): void {
+  const main = entering;
+  if (!main) return;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  if (signal.aborted || reduced.matches) { clearEntrance(); return; }
+  const finish = (): void => { if (entering === main) clearEntrance(); };
+  const end = (event: AnimationEvent): void => {
+    if (event.target === main && event.animationName === 'page-in') finish();
+  };
+  const previous = detachEntrance;
+  signal.addEventListener('abort', finish, { once: true });
+  reduced.addEventListener('change', finish, { once: true });
+  main.addEventListener('animationend', end); main.addEventListener('animationcancel', end);
+  detachEntrance = () => {
+    previous?.(); signal.removeEventListener('abort', finish); reduced.removeEventListener('change', finish);
+    main.removeEventListener('animationend', end); main.removeEventListener('animationcancel', end);
+  };
+  main.classList.remove('doc-main-pending'); main.classList.add('doc-main-enter');
+}
+function endPage(): void { page?.abort(); page = undefined; body = undefined; }
+function cleanup(): void { clearEntrance(); endPage(); }
 function setup(): void {
   if (body === document.body && page && !page.signal.aborted) return;
-  cleanup(); body = document.body; page = new AbortController();
+  endPage(); body = document.body; page = new AbortController();
   const signal = page.signal, base = body.dataset['base'] ?? '/';
-  setupControls(signal); setupNavigation(signal); initExamples(base, signal, document.body.dataset['runtimeEngine']&&document.body.dataset['runtimeWasm']?{engine:document.body.dataset['runtimeEngine'],wasm:document.body.dataset['runtimeWasm']}:undefined); initSearch(document.body.dataset['searchSource']??'', browserResolver(base), signal, (url: string) => { void navigate(url); });
+  try {
+    setupControls(signal); setupNavigation(signal); initExamples(base, signal, document.body.dataset['runtimeEngine']&&document.body.dataset['runtimeWasm']?{engine:document.body.dataset['runtimeEngine'],wasm:document.body.dataset['runtimeWasm']}:undefined); initSearch(document.body.dataset['searchSource']??'', browserResolver(base), signal, (url: string) => { void navigate(url); });
+    startEntrance(signal);
+  } catch (error) { cleanup(); throw error; }
   // A legacy slash URL probes only its same-origin slashless candidate, without following redirects.
   if (body.dataset['page'] === '404.html' && location.pathname.startsWith(base)
       && location.pathname.length > base.length && location.pathname.endsWith('/')) {
@@ -24,14 +69,14 @@ function setup(): void {
       .then(response => { if (!signal.aborted && response.status === 200) location.replace(candidate.href); }).catch(() => {});
   }
 }
-// Astro retains its router, fetching, history, scripts and native main transition.
+// Astro retains routing, fetching, history and scripts; the live main owns its entrance.
 // Its supported custom swap keeps live chrome attached, avoiding the default persist lift.
 document.addEventListener('astro:before-preparation', event => {
   const load = event.loader;
   event.loader = async () => { await load(); if (!event.signal.aborted && !compatibleShell(document, event.newDocument)) event.preventDefault(); };
 }, { signal: lifecycle.signal });
 document.addEventListener('astro:before-swap', event => {
-  void observeTransition(event.viewTransition); cleanup();
+  void observeTransition(event.viewTransition); event.viewTransition.skipTransition(); cleanup();
   event.swap = () => {
     const next = event.newDocument;
     document.body.querySelectorAll(':scope > .astro-route-announcer').forEach(node => node.remove());
@@ -39,6 +84,9 @@ document.addEventListener('astro:before-swap', event => {
     const main = document.querySelector<HTMLElement>('.wrap > main')!, incoming = next.querySelector<HTMLElement>('.wrap > main')!;
     const wrap = main.parentElement!, nextWrap = incoming.parentElement!;
     const outline = wrap.querySelector(':scope > .toc'), nextOutline = nextWrap.querySelector(':scope > .toc');
+    prepareEntrance(incoming, event.signal);
+    // observeTransition reports DOM failures; this handler only releases hidden state.
+    void event.viewTransition.updateCallbackDone.then(undefined, () => { if (entering === incoming) clearEntrance(); });
     main.replaceWith(incoming);
     if (outline && nextOutline) outline.replaceWith(nextOutline);
     else if (outline) outline.remove();
