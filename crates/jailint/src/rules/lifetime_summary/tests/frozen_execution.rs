@@ -101,14 +101,14 @@ fn frozen_execution_runtime_negative_diagnostics_survive_release() {
 fn frozen_execution_selected_runtime_handler_is_not_compile_time_only() {
     let folder = test_support::TempDir::new("frozen-execution-runtime-handler");
     std::fs::create_dir(folder.join("Runtime_Support")).unwrap();
-    std::fs::write(folder.join("Runtime_Support/module.jai"), r#"
+    std::fs::write(folder.join("Runtime_Support/module.jai"), r"
         #module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);
         Context_Base :: struct {}
         helper :: () -> int #no_context { return 9; }
         run_for_test :: () -> int #no_context { __jaic_check_failed(0,0,0,false,0,null); return helper(); }
         #scope_file
         __jaic_check_failed :: (reason:s64, a:s64, b:s64, fatal:bool, line:s64, filename:*u8) #no_context { helper(); }
-    "#).unwrap();
+    ").unwrap();
     let path = folder.join("main.jai");
     std::fs::write(
         &path,
