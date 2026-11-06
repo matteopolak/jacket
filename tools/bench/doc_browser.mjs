@@ -13,6 +13,7 @@ import {Connection,runtimeException} from '../dev/chrome_cdp.mjs';
 import {waitForDevToolsPort} from '../dev/chrome_startup.mjs';
 import {RequestLedger,summarizeRequests,summarizeObservations,observerSource} from './doc_browser_accounting.mjs';
 import {contentProbeSource,armCompletion} from './doc_browser_content.mjs';
+import {preparePointer} from './doc_browser_pointer.mjs';
 const option=name=>process.argv[process.argv.indexOf(name)+1];
 assert(process.argv.includes('--plan'),'provide --plan PATH');const plan=JSON.parse(await readFile(option('--plan'),'utf8'));
 const validName=value=>typeof value==='string'&&/^[a-z0-9][a-z0-9_-]*$/u.test(value);
@@ -73,7 +74,7 @@ async function session(variant,profile,scenario,repetition){
    }
    throw new Error(`content-ready deadline: ${expected.path} ${expected.selector}`);
   }
-  async function point(selector){const value=await evaluate(`(()=>{const node=document.querySelector(${JSON.stringify(selector)});if(!node)return null;node.scrollIntoView({block:'center'});const r=node.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);assert(value,`missing action target ${selector}`);return value;}
+  const point=async selector=>{const {x,y}=await preparePointer(evaluate,selector);return{x,y};};
   for(const [index,action]of scenario.actions.entries()){
    currentAction=index;const row={action,index,startRequest:ledger.rows.length};actions.push(row);const hostStart=performance.now();
    row.performanceBefore=await cdp('Performance.getMetrics');
