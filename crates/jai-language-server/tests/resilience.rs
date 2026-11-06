@@ -5,12 +5,23 @@ use serde_json::{Value, json};
 use test_support::lsp::{environment, utf16_len};
 
 fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
-    session
+    let output: Vec<serde_json::Value> = session
         .handle_json(&message.to_string())
         .unwrap()
         .iter()
         .map(|s| serde_json::from_str(s).unwrap())
-        .collect()
+        .collect();
+    if message["method"] == "initialize"
+        && output.first().is_some_and(|m| m.get("result").is_some())
+    {
+        assert!(
+            session
+                .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+                .unwrap()
+                .is_empty()
+        );
+    }
+    output
 }
 
 fn open(session: &mut JsonSession, uri: &str, version: i32, text: &str) -> Vec<Value> {
@@ -43,7 +54,7 @@ fn a_panic_is_an_error_response_and_the_server_keeps_working() {
     let mut s = JsonSession::new(Limits::default());
     send(
         &mut s,
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } }),
     );
     let uri = "file:///resilience/main.jai";
     open(&mut s, uri, 1, "answer :: 42;\nmain :: () {}\n");
@@ -93,7 +104,7 @@ fn settings_files_that_do_not_parse_are_reported_once() {
     let mut s = with_environment();
     send(
         &mut s,
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } }),
     );
     let dir = "file:///resilience-config";
     let broken = "[lint.rules\nunused_variable = \"deny\"\n";
@@ -126,7 +137,7 @@ fn a_bad_project_file_is_reported_once_by_open_or_completion() {
     let mut s = with_environment();
     send(
         &mut s,
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } }),
     );
     let dir = "file:///resilience-project";
     let mut found = messages(&open(
@@ -179,7 +190,7 @@ fn completion_items_replace_the_whole_word_in_utf16() {
     let mut s = with_environment();
     send(
         &mut s,
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } }),
     );
     let uri = "file:///resilience-edit/main.jai";
     // The emoji is two UTF-16 units; the cursor is in the middle of `render_all`.
@@ -212,7 +223,7 @@ fn unfinished_config_edits_do_not_apply_or_warn_until_saved() {
     let mut s = with_environment();
     send(
         &mut s,
-        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}),
+        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{ "capabilities": {} }}),
     );
     let config = "file:///saved-config/jacket.toml";
     let main = "file:///saved-config/main.jai";

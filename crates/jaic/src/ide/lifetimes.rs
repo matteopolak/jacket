@@ -751,6 +751,7 @@ impl Compiler {
     pub(crate) fn lifetime_begin_body(&mut self, f: &mut FnCtx, id: ProcId) {
         use crate::ide::Recorder;
         if self.ed.facts().is_some_and(|i| i.lint) && !self.ed.sketching() {
+            self.ed.facts_mut().unwrap().invalidate_execution();
             self.ed.facts_mut().unwrap().lifetime_bodies.remove(&id);
             f.lifetimes = Some(Box::new(LifetimeRecording {
                 context_types: self.ty.context_type.into_iter().collect(),
@@ -846,6 +847,7 @@ impl Compiler {
             if !ids.contains(&id) {
                 ids.push(id);
             }
+            facts.invalidate_execution();
             facts.lifetime_bodies.insert(
                 id,
                 crate::ide::lifetimes::LifetimeBody {

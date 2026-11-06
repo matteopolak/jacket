@@ -1,0 +1,111 @@
+{
+  "general": {
+    "positionEncodings": [
+      "utf-16"
+    ]
+  },
+  "workspace": {
+    "workspaceFolders": true,
+    "configuration": true,
+    "didChangeConfiguration": {},
+    "didChangeWatchedFiles": {},
+    "diagnostics": {
+      "refreshSupport": true
+    }
+  },
+  "textDocument": {
+    "synchronization": {
+      "didSave": true
+    },
+    "hover": {
+      "contentFormat": [
+        "markdown",
+        "plaintext"
+      ]
+    },
+    "completion": {
+      "completionItem": {
+        "snippetSupport": true,
+        "documentationFormat": [
+          "markdown",
+          "plaintext"
+        ],
+        "labelDetailsSupport": true,
+        "insertReplaceSupport": true,
+        "resolveSupport": {
+          "properties": [
+            "documentation",
+            "detail"
+          ]
+        }
+      },
+      "contextSupport": true
+    },
+    "references": {},
+    "definition": {
+      "linkSupport": false
+    },
+    "rename": {
+      "prepareSupport": true
+    },
+    "signatureHelp": {
+      "signatureInformation": {
+        "documentationFormat": [
+          "markdown",
+          "plaintext"
+        ],
+        "parameterInformation": {
+          "labelOffsetSupport": true
+        }
+      }
+    },
+    "inlayHint": {},
+    "formatting": {},
+    "rangeFormatting": {},
+    "documentSymbol": {
+      "hierarchicalDocumentSymbolSupport": true
+    },
+    "semanticTokens": {
+      "requests": {
+        "full": {
+          "delta": true
+        },
+        "range": true
+      },
+      "tokenTypes": [
+        "keyword",
+        "string",
+        "number",
+        "variable",
+        "function",
+        "type",
+        "property",
+        "parameter",
+        "macro",
+        "operator",
+        "namespace",
+        "typeParameter",
+        "enumMember",
+        "decorator",
+        "formatSpecifier"
+      ],
+      "tokenModifiers": [
+        "declaration",
+        "readonly",
+        "macro"
+      ],
+      "formats": [
+        "relative"
+      ]
+    },
+    "publishDiagnostics": {
+      "relatedInformation": true,
+      "versionSupport": true,
+      "codeDescriptionSupport": true
+    },
+    "diagnostic": {
+      "dynamicRegistration": false,
+      "relatedDocumentSupport": true
+    }
+  }
+}

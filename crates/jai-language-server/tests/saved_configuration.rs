@@ -62,11 +62,21 @@ fn valid_changes_wait_for_save_and_unsaved_edits_are_discarded() {
 }
 
 fn send(s: &mut JsonSession, value: Value) -> Vec<Value> {
-    s.handle_json(&value.to_string())
+    let output: Vec<serde_json::Value> = s
+        .handle_json(&value.to_string())
         .unwrap()
         .iter()
         .map(|t| serde_json::from_str(t).unwrap())
-        .collect()
+        .collect();
+    if value["method"] == "initialize" && output.first().is_some_and(|m| m.get("result").is_some())
+    {
+        assert!(
+            s.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+                .unwrap()
+                .is_empty()
+        );
+    }
+    output
 }
 
 fn warnings(messages: &[Value]) -> usize {
@@ -88,7 +98,7 @@ fn save_and_watcher_notifications_report_one_problem() {
     let mut s = JsonSession::with_environment(Limits::default(), test_support::lsp::environment());
     let init = send(
         &mut s,
-        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":test_support::lsp::uri_of(&dir).as_str()}}),
+        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{},"rootUri":test_support::lsp::uri_of(&dir).as_str()}}),
     );
     assert_eq!(
         init[0]["result"]["capabilities"]["textDocumentSync"]["save"],

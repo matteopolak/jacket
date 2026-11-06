@@ -13,11 +13,11 @@ pub fn native_environment(stdlib: PathBuf) -> Environment {
     Environment {
         services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |main| {
+        options: Box::new(move |fs, main| {
             let mut options = jaic::sema::Options::host();
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
             options.import_paths = jaic::project::import_paths(&dir, &[], &[], &stdlib);
-            options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
+            options.set_stdlib(fs, &stdlib);
             options
         }),
     }

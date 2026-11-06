@@ -49,6 +49,7 @@ const request = (method, params) => {
 };
 const legend = request("initialize", { capabilities: { textDocument: { hover: { contentFormat: ["markdown", "plaintext"] } } } }).capabilities.semanticTokensProvider.legend;
 assert(legend.tokenTypes.includes("formatSpecifier") && legend.tokenModifiers.includes("macro"));
+engine.lsp({ jsonrpc: "2.0", method: "initialized", params: {} });
 const uri = "file:///jai-script/main.jai";
 const source = [
   '#import "Basic";',

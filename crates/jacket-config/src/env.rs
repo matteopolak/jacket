@@ -126,6 +126,18 @@ macro_rules! vars {
 }
 
 vars! {
+    /// Enable bounded native language-server timing attribution.
+    LSP_TRACE {
+        name: "JAIC_LSP_TRACE", group: Settings, readers: [Jailsp],
+        default: "Disabled.",
+        summary: "Set to `1` with `JAIC_LSP_TRACE_FILE` to record bounded, redacted native language-server timing events.",
+    }
+    /// A fresh regular-file destination for native language-server traces.
+    LSP_TRACE_FILE {
+        name: "JAIC_LSP_TRACE_FILE", group: Settings, readers: [Jailsp],
+        default: "Unset; no trace file is created.",
+        summary: "A new regular-file path for an enabled language-server trace. Existing files are not overwritten.",
+    }
     /// Exact retained-fact measurements with the dedicated counted-allocator example.
     LIFETIME_MEMORY {
         name: "JAILINT_LIFETIME_MEMORY", group: Settings, readers: [Jailint, Tests],
@@ -342,6 +354,11 @@ vars! {
         name: "JAIC_WASM_TEST", group: Testing, readers: [Tests],
         default: "unset",
         summary: "A value the WebAssembly test passes to the program, which prints it back.",
+    }
+    SCALE_SANDBOX_INPUTS {
+        name: "JAILSP_SCALE_SANDBOX_INPUTS", group: Testing, readers: [Tests],
+        default: "unset",
+        summary: "Rejected obsolete upstream scale input selector; it never grants permission to run outside the bench sandbox.",
     }
     ENFORCE_SCALE_BUDGET {
         name: "JAILSP_ENFORCE_SCALE_BUDGET", group: Testing, readers: [Tests],

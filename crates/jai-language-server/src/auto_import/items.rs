@@ -1,6 +1,6 @@
 //! Project symbols and the completion items an auto import offers.
 use super::names::{builds_for, module_of};
-use super::{MAX_ITEMS, MAX_OVERLOADS, MIN_PREFIX, Modules, Source, hash};
+use super::{MAX_ITEMS, MAX_OVERLOADS, MIN_PREFIX, Modules, Source};
 use crate::analysis::Span;
 use crate::document::DocumentUri;
 use crate::exports::{self, Decl};
@@ -12,31 +12,60 @@ use jaic::sema::{ModuleRanking, Rank};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
+#[derive(Default)]
+pub(crate) struct BuildRequests {
+    pub(crate) entries: Vec<PathBuf>,
+    pub(crate) pending: Vec<PathBuf>,
+    pub(crate) failed: bool,
+}
+
+enum WarmStatus {
+    Complete,
+    Pending,
+    Unavailable,
+}
+
 impl Session {
+    pub(crate) fn last_good_import_dirs(&self, uri: &crate::DocumentUri) -> Vec<PathBuf> {
+        let Some(env) = self.environment.as_ref() else {
+            return Vec::new();
+        };
+        let mut sources = self.sources(env);
+        sources.use_advisory();
+        let mut index = self.index.borrow_mut();
+        let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
+        sources
+            .import_dirs(&mut index, &program.root, &self.workspace_folders)
+            .0
+    }
+
+
     /// Reads the module indexes auto-import completion offers from (the stdlib's and the
     /// project's), which cost a few hundred milliseconds the first time and nothing after, so
     /// the first completion of a name does not pay for them. A transport calls this when it
     /// has nothing else to do; it does nothing without auto-import or an open document.
     pub fn warm_auto_import(&self) {
-        self.warm_auto_import_inner(false);
+        let _ = self.warm_auto_import_inner(false);
     }
 
     /// Warms indexes until newer input arrives. Partial module lists and loader graphs are
     /// discarded; the transport retries while idle. Requests never see partial indexes.
+    /// True also means unavailable input has exhausted immediately useful work; a later
+    /// event or foreground query can try again without an idle rescan loop.
     pub fn warm_auto_import_unless_interrupted(&self) -> bool {
         jaic::interrupt::arm();
-        self.warm_auto_import_inner(true);
-        !jaic::interrupt::disarm()
+        let status = self.warm_auto_import_inner(true);
+        !jaic::interrupt::disarm() && !matches!(status, WarmStatus::Pending)
     }
 
-    fn warm_auto_import_inner(&self, stoppable: bool) {
+    fn warm_auto_import_inner(&self, stoppable: bool) -> WarmStatus {
         let Some(env) = self.environment.as_ref().filter(|_| self.auto_import) else {
-            return;
+            return WarmStatus::Complete;
         };
         let Some(uri) = self.documents.keys().next() else {
-            return;
+            return WarmStatus::Complete;
         };
-        let mut sources = self.sources(env);
+        let mut sources = self.advisory_sources(env);
         sources.stoppable = stoppable;
         let file = sources.key(Path::new(uri.path()));
         // Cheap shared scans/module lists are cloned; only complete results are committed.
@@ -54,58 +83,54 @@ impl Session {
             sources.stdlib(&mut index, stdlib);
         }
         if sources.stopped() {
-            // Only completed scans/modules are reusable. Derived folder lists and graphs may
-            // be partial, so leave them out and invalidate graphs that used older scans.
-            let mut kept = self.index.borrow_mut();
-            kept.files = index.files;
-            kept.open = index.open;
-            kept.loads_seen = index.loads_seen;
-            kept.graph_epoch = index.graph_epoch;
-            kept.graphs.clear();
-            kept.warming = index.warming;
-            kept.resume_warm = true;
-        } else {
-            index.resume_warm = false;
-            index.warming.clear();
-            *self.index.borrow_mut() = index;
+            if sources.snapshot_current() {
+                // Only fully scanned individual entries survive interruption. Incomplete
+                // walks/graphs/module lists never become the complete catalogue.
+                let mut kept = self.index.borrow_mut();
+                kept.files = index.files;
+                kept.open = index.open;
+                kept.loads_seen = index.loads_seen;
+                kept.graph_epoch = index.graph_epoch;
+                kept.graphs.clear();
+                kept.warming = index.warming;
+                kept.resume_warm = true;
+                return WarmStatus::Pending;
+            }
+            return WarmStatus::Unavailable;
         }
+        if !sources.accept_advisory() {
+            return WarmStatus::Pending;
+        }
+        index.resume_warm = false;
+        index.warming.clear();
+        *self.index.borrow_mut() = index;
+        WarmStatus::Complete
     }
 
-    /// Auto-import items for `prefix` at the cursor of `uri` (whose text is `text`), leaving out
-    /// `visible` names; and whether the list is incomplete (more matches, or too short a prefix
-    /// yet, so the client asks again as the word grows).
-    /// The `[project] entry` files whose run is still unknown and could attribute `uri` to a
-    /// program, with a hash of what each would be run from (see `Index::probed`).
-    pub(crate) fn unrecorded_builds(&self, uri: &DocumentUri) -> Vec<(PathBuf, u64)> {
+    /// Configured entries whose checked build outcome is needed to attribute this document.
+    /// Proven absence, failed attempts and unattempted producers remain distinct.
+    pub(crate) fn unrecorded_builds(&self, uri: &DocumentUri) -> BuildRequests {
         let Some(env) = self.environment.as_ref() else {
-            return Vec::new();
+            return BuildRequests::default();
         };
         let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
         let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
-        let mut out = Vec::new();
+        let entries = program.entries.iter().cloned().collect();
+        let mut pending = Vec::new();
+        let mut failed = false;
         for entry in program.unattributed {
-            if index.builds.contains_key(&entry) {
-                continue;
-            }
-            // Everything the run reads: the metaprogram, what it loads, the settings file.
-            let mut files: Vec<PathBuf> = sources.closure(&mut index, &entry).into_iter().collect();
-            if let Some((folder, _)) = sources.config(&mut index, &entry) {
-                files.push(folder.join(jacket_config::FILE_NAME));
-            }
-            let mut texts = String::new();
-            for file in files {
-                texts.push_str(&file.to_string_lossy());
-                texts.push('\0');
-                texts.push_str(&sources.read(&file).unwrap_or_default());
-                texts.push('\0');
-            }
-            let hash = hash(&texts);
-            if index.probed.get(&entry) != Some(&hash) {
-                out.push((entry, hash));
+            match index.probed.get(&entry) {
+                Some(crate::semantic::ProbeStatus::Complete) => {}
+                Some(crate::semantic::ProbeStatus::Failed) => failed = true,
+                None => pending.push(entry),
             }
         }
-        out
+        BuildRequests {
+            entries,
+            pending,
+            failed,
+        }
     }
 
     /// The entry file of the project program `uri` belongs to (`[project] entry`, an
@@ -141,8 +166,8 @@ impl Session {
         let Some(env) = self.environment.as_ref().filter(|_| room > 0) else {
             return Vec::new();
         };
-        let sources = self.sources(env);
-        let mut index = self.index.borrow_mut();
+        let sources = self.advisory_sources(env);
+        let mut index = self.index.borrow().clone();
         let mut folders: BTreeSet<PathBuf> = self.workspace_folders.iter().cloned().collect();
         for uri in self.documents.keys() {
             folders.insert(
@@ -156,7 +181,7 @@ impl Session {
             files.extend(sources.project_files(&mut index, folder));
         }
         let mut out = Vec::new();
-        for file in files {
+        'files: for file in files {
             // Listed files are keys, as are the open documents'.
             if sources.open.contains_key(&file) {
                 continue;
@@ -170,17 +195,18 @@ impl Session {
             if hits.is_empty() {
                 continue;
             }
-            let Some(bytes) = env.fs.read(&file) else {
+            let Some(bytes) = sources.base.read(&file) else {
+                sources.reject_advisory();
                 continue;
             };
             let text = String::from_utf8_lossy(&bytes);
             let lines = crate::position::LineIndex::new(&text);
-            let Some(uri) = self.client_uri(&file) else {
+            let Some(uri) = self.projected_uri(&sources.disk_fs(), &file) else {
                 continue;
             };
             for symbol in hits {
                 if out.len() >= room {
-                    return out;
+                    break 'files;
                 }
                 let Ok(range) = lines.range(
                     &text,
@@ -206,7 +232,12 @@ impl Session {
                 });
             }
         }
-        out
+        if sources.accept_advisory() {
+            *self.index.borrow_mut() = index;
+            out
+        } else {
+            Vec::new()
+        }
     }
 
     pub(crate) fn auto_import_items(
@@ -222,11 +253,11 @@ impl Session {
         if prefix.chars().count() < MIN_PREFIX {
             return (Vec::new(), true);
         }
-        let sources = self.sources(env);
+        let sources = self.advisory_sources(env);
         let file = sources.key(Path::new(uri.path()));
         let here = file.parent().unwrap_or(Path::new("/")).to_path_buf();
         let lower = prefix.to_lowercase();
-        let mut index = self.index.borrow_mut();
+        let mut index = self.index.borrow().clone();
         let program = sources.program(&mut index, &file, &self.workspace_folders);
         let current = sources.scan(&mut index, &file);
         let mut import_counts: HashMap<String, u32> = HashMap::default();
@@ -319,7 +350,10 @@ impl Session {
                 }
             }
         }
-        drop(index);
+        if !sources.accept_advisory() {
+            return (Vec::new(), true);
+        }
+        *self.index.borrow_mut() = index;
         found.sort_by(|a, b| {
             (&a.2.lower, &a.2.name, a.0, &a.1).cmp(&(&b.2.lower, &b.2.name, b.0, &b.1))
         });

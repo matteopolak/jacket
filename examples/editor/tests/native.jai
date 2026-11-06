@@ -67,3 +67,55 @@ save_as_only_changes_identity_after_success :: (t: *Test) {
     expect(old_ok);
     expect_equal(old, "original");
 } @test
+
+unsaved_paths_keep_their_canonical_identity_after_creation :: (t: *Test) {
+    root, root_ok := get_absolute_path(temp_dir(t));
+
+    defer free(root);
+    expect(root_ok);
+    spelled := tprint("%/./unsaved.txt", root);
+    expected := tprint("%/unsaved.txt", root);
+
+    expect_equal(absolute_path(spelled), expected);
+    ed: Editor;
+    ed.root = root;
+    defer free(ed.status);
+    doc := open_document(*ed, spelled);
+
+    defer {
+        for opened: ed.docs close_document_data(opened);
+        array_free(ed.docs);
+    }
+
+    expect_equal(doc.path, expected);
+    set_contents(*doc.edit, "created");
+    expect(save_document(*ed));
+    canonical, ok := get_absolute_path(spelled);
+
+    defer free(canonical);
+    expect(ok);
+    expect_equal(doc.path, canonical);
+    expect(open_document(*ed, spelled) == doc);
+    expect_equal(ed.docs.count, 1);
+} @test
+
+parent_directories_preserve_absolute_drive_roots :: (t: *Test) {
+    expect_equal(parent_directory("C:\\name"), "C:\\");
+    expect_equal(parent_directory("C:/name"), "C:/");
+    expect_equal(parent_directory("/name"), "/");
+} @test
+
+closing_editor_keeps_configuration_strings_independently_owned :: (t: *Test) {
+    root := temp_dir(t);
+    path := tprint("%/close-config.json", root);
+    ed: Editor;
+    ed.root = copy_string(root);
+    ed.config_file = copy_string(path);
+    ed.config.last_root = copy_string("previous-root");
+
+    close_editor(*ed);
+    saved := load_config(path);
+
+    defer free_json(*saved);
+    expect_equal(saved.last_root, root);
+} @test

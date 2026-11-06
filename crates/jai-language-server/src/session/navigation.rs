@@ -8,70 +8,98 @@ use crate::{
 };
 use std::path::Path;
 
+enum MacroHover {
+    Captured(Option<jaic::ide::meta::IdeExpansion>),
+    LookupAfterDocs,
+}
+
+struct HoverSelection {
+    facts: semantic::HoverFacts,
+    expansion: MacroHover,
+}
+
 impl Session {
     pub fn definition(
         &self,
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Vec<Location>, Error> {
-        let (uri, doc) = self.document_entry(uri)?;
+        let _query = self.discovery_query();
+        let fs = self.config_filesystem();
+        let (uri, doc) = if let Some(fs) = &fs {
+            self.projected_document_entry(fs, uri)?
+        } else {
+            self.document_entry(uri)?
+        };
         let byte = doc.index.byte(&doc.text, position);
         if let Some(location) = self.link_definition(uri, byte) {
-            return Ok(vec![location]);
+            return Ok(location.into_iter().collect());
         }
         if let Some(locations) = self.doc_link_definition(uri, byte) {
             return Ok(locations);
         }
         {
-            let (found, shift) = self
-                .with_semantic_at(uri, &doc.text, byte, |a, path, at| {
-                    Some(a.definition(path, at)).filter(|d| !d.is_empty())
-                })
+            let locations = self
+                .with_best_effort_semantic_at_projected(
+                    uri,
+                    &doc.text,
+                    byte,
+                    |a, path, at, shift| {
+                        let fs = self.config_filesystem()?;
+                        let found = a.definition(path, at);
+                        let locations: Vec<Location> = found
+                            .into_iter()
+                            .filter_map(|(path, text, start, end, file_path)| {
+                                let target = if file_path {
+                                    self.projected_compiler_file_uri(&fs, Path::new(&path))
+                                } else {
+                                    self.projected_uri(&fs, Path::new(&path))
+                                }?;
+                                // A target in this file is where the edits since the compile left it.
+                                let moved = target == *uri && !shift.is_none();
+                                let (start, end) = if moved {
+                                    (shift.to_new(start)?, shift.to_new(end)?)
+                                } else {
+                                    (start, end)
+                                };
+                                let text: std::sync::Arc<str> = if moved {
+                                    doc.text.as_str().into()
+                                } else {
+                                    text
+                                };
+                                // An open document's own text and index, else the compiled file's.
+                                let range = match self.documents.get(&target) {
+                                    Some(open) if open.same_positions(&text) => open
+                                        .index
+                                        .range(
+                                            &open.text,
+                                            Span {
+                                                start,
+                                                end,
+                                            },
+                                        )
+                                        .ok()?,
+                                    _ => LineIndex::new(&text)
+                                        .range(
+                                            &text,
+                                            Span {
+                                                start,
+                                                end,
+                                            },
+                                        )
+                                        .ok()?,
+                                };
+                                Some(Location {
+                                    uri: target.as_str().into(),
+                                    range,
+                                })
+                            })
+                            .collect();
+                        (!locations.is_empty()).then_some(locations)
+                    },
+                )
+                .map(|(locations, _)| locations)
                 .unwrap_or_default();
-            let locations: Vec<Location> = found
-                .into_iter()
-                .filter_map(|(path, text, start, end)| {
-                    let target = self.client_uri(Path::new(&path))?;
-                    // A target in this file is where the edits since the compile left it.
-                    let moved = target == *uri && !shift.is_none();
-                    let (start, end) = if moved {
-                        (shift.to_new(start)?, shift.to_new(end)?)
-                    } else {
-                        (start, end)
-                    };
-                    let text: std::sync::Arc<str> = if moved {
-                        doc.text.as_str().into()
-                    } else {
-                        text
-                    };
-                    // An open document's own text and index, else the compiled file's.
-                    let range = match self.documents.get(&target) {
-                        Some(open) if open.same_positions(&text) => open
-                            .index
-                            .range(
-                                &open.text,
-                                Span {
-                                    start,
-                                    end,
-                                },
-                            )
-                            .ok()?,
-                        _ => LineIndex::new(&text)
-                            .range(
-                                &text,
-                                Span {
-                                    start,
-                                    end,
-                                },
-                            )
-                            .ok()?,
-                    };
-                    Some(Location {
-                        uri: target.as_str().into(),
-                        range,
-                    })
-                })
-                .collect();
             if !locations.is_empty() {
                 return Ok(locations);
             }
@@ -202,9 +230,28 @@ impl Session {
         position: Position,
         kind: MarkupKind,
     ) -> Result<Option<Hover>, Error> {
-        let (uri, doc) = self.document_entry(uri)?;
+        let _query = self.discovery_query();
+        let mapping = std::cell::RefCell::new(crate::semantic::Observations::default());
+        let base = self.config_filesystem();
+        let fs = base.as_ref().map(|base| crate::semantic::ObservedFs {
+            base,
+            proof: Some(&mapping),
+            secondary: None,
+        });
+        let (uri, doc) = match &fs {
+            Some(fs) => self.projected_document_entry(fs, uri)?,
+            None => self.document_entry(uri)?,
+        };
         let byte = doc.index.byte(&doc.text, position);
         let found = |start: usize, end: usize, text: HoverText| -> Result<Option<Hover>, Error> {
+            // Syntax-only hovers need the same request-alias guarantee as semantic hovers.
+            if self
+                .environment
+                .as_ref()
+                .is_some_and(|env| !mapping.borrow().matches(&*env.fs))
+            {
+                return Ok(None);
+            }
             Ok(Some(Hover {
                 contents: MarkupContent {
                     kind,
@@ -219,8 +266,11 @@ impl Session {
                 )?,
             }))
         };
-        if let Some((start, end, text)) = self.link_hover(uri, byte) {
-            return found(start, end, text);
+        if let Some(link) = self.link_hover(uri, byte) {
+            return match link {
+                Some((start, end, text)) => found(start, end, text),
+                None => Ok(None),
+            };
         }
         if let Some((start, end, text)) = self.format_hover(uri, byte) {
             return found(start, end, text);
@@ -248,7 +298,11 @@ impl Session {
                 None => Ok(None),
             };
         };
-        if let Some(facts) = self.semantic_hover(uri, &doc.text, byte) {
+        if let Some(HoverSelection {
+            facts,
+            expansion,
+        }) = self.semantic_hover(uri, &doc.text, byte, kind)
+        {
             let (start, end) = (facts.start, facts.end);
             let text = self.hover_with_docs(
                 uri,
@@ -257,7 +311,12 @@ impl Session {
                 &facts.decls,
                 kind,
             );
-            let text = self.with_macro_expansion(uri, start, text);
+            let text = match expansion {
+                MacroHover::Captured(expansion) => {
+                    self.append_macro_expansion(uri, expansion.as_ref(), text)
+                }
+                MacroHover::LookupAfterDocs => self.with_macro_expansion(uri, start, text),
+            };
             return found(start, end, text);
         }
         let rows = self.bindings(uri, position)?;
@@ -290,21 +349,54 @@ impl Session {
         found(token.span.start, token.span.end, text)
     }
 
-    /// Hover from the type checker, on the text as typed.
-    pub(crate) fn semantic_hover(
+    /// Hover and eligible macro facts from one selected type-checked context.
+    fn semantic_hover(
         &self,
         uri: &DocumentUri,
         text: &str,
         byte: usize,
-    ) -> Option<semantic::HoverFacts> {
-        let (mut facts, shift) =
-            self.with_semantic_at(uri, text, byte, semantic::Analysis::hover)?;
-        // Past an edit the compile did not see, the word hovered is where it is now.
+        kind: MarkupKind,
+    ) -> Option<HoverSelection> {
+        let ((mut facts, expansion), shift) = self.with_best_effort_semantic_at_projected(
+            uri,
+            text,
+            byte,
+            |analysis, path, at, shift| {
+                let facts = analysis.hover(path, at)?;
+                // Markdown links can enrich the compiler before macro lookup. Preserve that
+                // ordering, as well as exact lookup for older/alternate/advisory hovers.
+                let docs_are_pure = kind == MarkupKind::PlainText
+                    || facts.decls.iter().all(|(_, source, start, _)| {
+                        crate::docs::declaration(source, *start)
+                            .is_none_or(|raw| crate::docs::link_names(&raw).is_empty())
+                    });
+                let exact = analysis.reference_records_allowed()
+                    && shift.is_none()
+                    && analysis.compiled_text(path).is_some_and(|compiled| {
+                        compiled == self.documents[uri].ide_text().as_ref()
+                    });
+                let expansion = if exact && docs_are_pure {
+                    let file = analysis.file(path)?;
+                    MacroHover::Captured(analysis.compiler.ide_expansions(file).into_iter().find(
+                        |expansion| {
+                            expansion.kind == jaic::ide::meta::IdeExpansionKind::Macro
+                                && expansion.span.start as usize == facts.start
+                        },
+                    ))
+                } else {
+                    MacroHover::LookupAfterDocs
+                };
+                Some((facts, expansion))
+            },
+        )?;
         facts.start = shift.to_new(facts.start)?;
         facts.end = shift.to_new(facts.end)?;
         (facts.end <= text.len()
             && text.is_char_boundary(facts.start)
             && text.is_char_boundary(facts.end))
-        .then_some(facts)
+        .then_some(HoverSelection {
+            facts,
+            expansion,
+        })
     }
 }

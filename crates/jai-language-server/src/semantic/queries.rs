@@ -6,11 +6,11 @@ use jaic::ide::IdeName;
 use jaic::intern::Sym;
 use jaic::source::{FileId, Suggestion};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 /// How many of a program's first errors get their render-time help (see
-/// `Analysis::check_findings`) for the editor.
+/// `Analysis::staged_check_findings`) for the editor.
 const ENRICHED_ERRORS: usize = 50;
 
 /// A compile error or warning placed in one file.
@@ -62,10 +62,8 @@ pub enum LimitKind {
 /// A compile-time evaluation or check that a limit stopped, found by a compile.
 pub struct LimitHit {
     pub kind: LimitKind,
-    pub path: String,
-    pub text: Arc<str>,
-    pub start: usize,
-    pub end: usize,
+    /// Original compiler source frame, frozen without later filesystem reinterpretation.
+    pub location: crate::Location,
     /// The first line of the diagnostic.
     pub message: String,
 }
@@ -92,10 +90,20 @@ pub(super) fn limit_hits(
             let file = compiler.src.sources.try_get(d.span.file)?;
             Some(LimitHit {
                 kind,
-                path: file.path.to_string(),
-                text: file.text.clone(),
-                start: d.span.start as usize,
-                end: d.span.end as usize,
+                location: crate::Location {
+                    uri: crate::DocumentUri::from_path(std::path::Path::new(
+                        &file.path.to_string(),
+                    ))
+                    .ok()?
+                    .as_str()
+                    .into(),
+                    range: crate::position::LineIndex::new(&file.text)
+                        .range(
+                            &file.text,
+                            crate::analysis::Span::new(d.span.start as usize, d.span.end as usize),
+                        )
+                        .ok()?,
+                },
                 message: d.message.lines().next().unwrap_or_default().to_string(),
             })
         })
@@ -103,6 +111,50 @@ pub(super) fn limit_hits(
 }
 
 impl Analysis {
+    /// Reject an incompatible initial cache candidate before importing its history.
+    /// A fresh capture may already contain a newer closed dependency; full guards still
+    /// validate every candidate that passes this negative screen.
+    pub(crate) fn actual_inputs_compatible_with_capture(&self) -> bool {
+        match (&self.input_epoch, &self.actual_inputs) {
+            (Some(owner), Some(original)) => owner
+                .upgrade()
+                .is_some_and(|epoch| epoch.ready() || original.agrees_with(&epoch.actual_inputs())),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+
+    /// Restore the exact actual responses that produced this compiler before cached use.
+    pub(crate) fn restore_actual_inputs(&self) -> bool {
+        match (&self.input_epoch, &self.actual_inputs) {
+            (Some(owner), Some(original)) => owner
+                .upgrade()
+                .is_some_and(|epoch| epoch.reuse_actual(original)),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+
+    /// Freeze the augmented producer history only after preserving its original responses.
+    pub(crate) fn freeze_actual_inputs(&mut self) -> bool {
+        if !self.restore_actual_inputs() {
+            return false;
+        }
+        if let Some(epoch) = self.input_epoch.as_ref().and_then(std::rc::Weak::upgrade) {
+            self.actual_inputs = Some(epoch.actual_inputs());
+        }
+        true
+    }
+
+    pub(crate) fn retained_cost(&self) -> usize {
+        self.cost
+            + self.reads.borrow().retained_bytes()
+            + self
+                .actual_inputs
+                .as_ref()
+                .map_or(0, super::input_epoch::ActualInputs::retained_bytes)
+    }
+
     /// The top-level compile-time evaluations of the program and of the programs its
     /// metaprogram built, costliest first. A run inside another counts in the one around it.
     pub fn evaluation_costs(&self) -> Vec<EvalCost> {
@@ -134,18 +186,6 @@ impl Analysis {
         costs
     }
 
-    /// The paths the compile asked about so far, and a hash of each open text among them.
-    pub(crate) fn inputs_read(&self) -> (super::Reads, BTreeMap<PathBuf, u64>) {
-        let reads = self.reads.borrow().clone();
-        let buffers = self
-            .files
-            .iter()
-            .filter(|(path, _)| reads.concerns(path))
-            .map(|(path, bytes)| (path.clone(), super::text_hash(bytes)))
-            .collect();
-        (reads, buffers)
-    }
-
     pub(crate) fn polymorph_compilers(
         &self,
     ) -> impl Iterator<Item = (&jaic::sema::Compiler, bool)> {
@@ -173,8 +213,49 @@ impl Analysis {
         std::mem::swap(&mut self.complete, &mut other.complete);
         std::mem::swap(&mut self.errors, &mut other.errors);
         std::mem::swap(&mut self.lints, &mut other.lints);
-        std::mem::swap(&mut self.enriched, &mut other.enriched);
+        std::mem::swap(&mut self.references, &mut other.references);
+        std::mem::swap(&mut self.reference_owner, &mut other.reference_owner);
         self.found.borrow_mut().clear();
+    }
+
+    /// Immutable resolution within one semantic query. Mutable query boundaries invalidate
+    /// every view explicitly; entity/type mutation cannot be inferred from collection sizes.
+    pub(crate) fn reference_index(&mut self) -> std::rc::Rc<jaic::ide::meta::ReferenceIndex> {
+        self.references
+            .get_or_insert_with(|| std::rc::Rc::new(self.compiler.ide_reference_index()))
+            .clone()
+    }
+
+    pub(crate) fn invalidate_reference_views(&mut self, cancelled: bool) {
+        self.references = None;
+        for program in &mut self.others {
+            program.references = None;
+        }
+        self.query_valid &= !cancelled;
+    }
+
+    pub(crate) fn reference_records_allowed(&self) -> bool {
+        self.os.is_none() && self.query_valid && !self.advisory
+    }
+
+    pub(crate) fn reference_programs(
+        &mut self,
+    ) -> impl Iterator<
+        Item = (
+            &jaic::sema::Compiler,
+            &std::rc::Rc<()>,
+            &mut Option<std::rc::Rc<jaic::ide::meta::ReferenceIndex>>,
+        ),
+    > {
+        std::iter::once((&self.compiler, &self.reference_owner, &mut self.references)).chain(
+            self.others.iter_mut().map(|program| {
+                (
+                    &program.compiler,
+                    &program.reference_owner,
+                    &mut program.references,
+                )
+            }),
+        )
     }
 
     /// jailint's findings in `path` (computed once per compile).
@@ -220,39 +301,50 @@ impl Analysis {
     /// The compile errors and warnings located in `path`, each at its own span when that is in
     /// the file, else at the first of its notes that is (a module procedure the file called).
     /// Errors come first, then warnings.
-    pub fn check_findings(&mut self, path: &Path) -> Vec<CheckFinding> {
+    pub(crate) fn staged_check_findings(&mut self, path: &Path) -> Vec<CheckFinding> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
-        if self.enriched.is_none() {
-            // The render-time help (similar names, the imports that declare a name) of the
-            // first errors: working out each one reads the standard library.
-            let enriched = self
-                .errors
-                .iter()
-                .enumerate()
-                .map(|(i, e)| {
-                    let wanted = i < ENRICHED_ERRORS;
-                    wanted
-                        .then(|| self.compiler.with_name_suggestion(e))
-                        .flatten()
-                        .unwrap_or_else(|| e.clone())
-                })
-                .collect();
-            self.enriched = Some(enriched);
-        }
+        let observer = if self.errors.is_empty() && self.compiler.diag.warnings.is_empty() {
+            None
+        } else {
+            self.hints.observer(self)
+        };
+        let context = jaic::sema::HintContext::default();
+        let errors: Vec<_> = self
+            .errors
+            .iter()
+            .enumerate()
+            .map(|(i, error)| {
+                (i < ENRICHED_ERRORS || error.operator_import_hint().is_some())
+                    .then(|| {
+                        observer.as_ref().and_then(|observer| {
+                            self.compiler
+                                .with_name_suggestion_in(error, &context, observer)
+                        })
+                    })
+                    .flatten()
+                    .unwrap_or_else(|| error.clone())
+            })
+            .collect();
         let warnings: Vec<_> = self
             .compiler
             .diag
             .warnings
             .iter()
-            .map(|w| {
-                self.compiler
-                    .with_name_suggestion(w)
-                    .unwrap_or_else(|| w.clone())
+            .map(|warning| {
+                observer
+                    .as_ref()
+                    .and_then(|observer| {
+                        self.compiler
+                            .with_name_suggestion_in(warning, &context, observer)
+                    })
+                    .unwrap_or_else(|| warning.clone())
             })
             .collect();
-        let errors = self.enriched.as_deref().unwrap_or_default();
+        if let Some(observer) = &observer {
+            self.hints.add(self, &observer.reads.borrow());
+        }
         let mut out: Vec<CheckFinding> = Vec::new();
         let mut seen = HashSet::default();
         let tagged = errors
@@ -545,20 +637,32 @@ impl Analysis {
         out
     }
 
-    /// Declarations the identifier at `offset` names, as (path, text, start, end) with byte
-    /// offsets into that file's text (which may be a module or stdlib file, not an open document).
+    /// Declarations at `offset`, as `(path, text, start, end, file_path)` with byte offsets.
+    /// `file_path` comes from `SourcePath::File`; virtual origins need general URI projection.
+    /// For example, a definition in a closed library file retains that file identity.
     pub fn definition(
         &mut self,
         path: &Path,
         offset: usize,
-    ) -> Vec<(String, Arc<str>, usize, usize)> {
+    ) -> Vec<(String, Arc<str>, usize, usize, bool)> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
         self.compiler
             .ide_definition(file, offset as u32)
             .into_iter()
-            .filter_map(|span| self.location(span))
+            .filter_map(|span| {
+                let file_path = self
+                    .compiler
+                    .src
+                    .sources
+                    .try_get(span.file)?
+                    .path
+                    .as_file()
+                    .is_some();
+                self.location(span)
+                    .map(|(path, text, start, end)| (path, text, start, end, file_path))
+            })
             .collect()
     }
 
@@ -626,4 +730,96 @@ impl Analysis {
         }
         members
     }
+}
+
+#[cfg(all(test, unix))]
+use crate::projection_fixture as action_projection_fixture;
+
+#[cfg(all(test, unix))]
+#[test]
+fn action_payload_secondary_locations_stay_within_the_lint_query_guard() {
+    // Current lifetime labels have no fixes. Seed the full supported Lint payload shape
+    // explicitly, so a future checker adding a labelled fix cannot bypass this boundary.
+    fn seed_payload(session: &crate::Session) {
+        let _query = session.discovery_query();
+        let uri = session
+            .documents
+            .keys()
+            .next()
+            .expect("owned fixture document");
+        let text = session.documents[uri].text.clone();
+        session
+            .lint_config(std::path::Path::new(uri.path()))
+            .expect("seed available lint configuration");
+        session
+            .with_semantic(uri, &text, |analysis, path| {
+                let file = analysis.file(path)?;
+                let source = analysis.compiler.src.sources.get(file);
+                let start = text.find("local").unwrap();
+                let path = source.path.to_string();
+                analysis.lints.insert(
+                    file,
+                    vec![jailint::Lint {
+                        rule: "bool_comparison",
+                        level: jailint::config::Level::Warn,
+                        path: path.clone(),
+                        start,
+                        end: start + 5,
+                        message: "projection witness".into(),
+                        label: None,
+                        help: None,
+                        notes: Vec::new(),
+                        secondary: vec![jailint::SecondaryLabel {
+                            path,
+                            text: source.text.clone(),
+                            start,
+                            end: start + 5,
+                            message: "owned related source".into(),
+                        }],
+                        fix: Some(jailint::Fix {
+                            title: "projection witness".into(),
+                            machine_applicable: true,
+                            edits: vec![jailint::Edit {
+                                start,
+                                end: start + 5,
+                                text: "local".into(),
+                            }],
+                        }),
+                    }],
+                );
+                Some(())
+            })
+            .expect("seed accepted lint payload");
+    }
+
+    action_projection_fixture::exercise_query_with_settled_setup(
+        |session| seed_payload(session),
+        |session| seed_payload(session),
+        false,
+        action_projection_fixture::REFERENCES,
+        0,
+        1,
+        |session, uri, position| {
+            let text = session.documents[uri].text.clone();
+            let actions = session.lint_actions(
+                uri,
+                0,
+                text.len(),
+                &crate::lints::ActionContext {
+                    only: Some(vec!["quickfix".into()]),
+                    diagnostics: Vec::new(),
+                },
+            );
+            let _ = position;
+            Ok(actions
+                .into_iter()
+                .flat_map(|action| action.diagnostics)
+                .flat_map(|diagnostic| diagnostic.related)
+                .map(|related| crate::Location {
+                    uri: related.uri,
+                    range: related.range,
+                })
+                .collect())
+        },
+    );
 }

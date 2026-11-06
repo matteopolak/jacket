@@ -195,7 +195,7 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
         return skip(report, "unreadable", String::new());
     };
     let env = typing_files::native_environment(args.stdlib.clone());
-    let oracle = match oracle::compile((env.options)(&path), &path, &text) {
+    let oracle = match oracle::compile((env.options)(&*env.fs, &path), &path, &text) {
         Ok(o) => o,
         Err(e) => return skip(report, "compile", e),
     };

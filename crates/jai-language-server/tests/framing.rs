@@ -1,73 +1,88 @@
-use jai_language_server::framing::{FrameDecoder, FrameError, encode};
+//! Framing is consumed by lsp-server; the host adapter enforces allocation/encoding limits.
+use jai_language_server::transport::{BoundedReader, Input};
+use std::io::{BufReader, Cursor};
+
+fn frame(body: &str) -> Vec<u8> {
+    format!("Content-Length: {}\r\n\r\n{body}", body.len()).into_bytes()
+}
 
 #[test]
 fn fragmented_and_coalesced_frames_count_utf8_bytes() {
-    let messages = ["{\"text\":\"🦀é\"}", "{\"next\":2}"];
-    let wire = messages
-        .iter()
-        .flat_map(|message| encode(message))
-        .collect::<Vec<_>>();
-    let mut decoder = FrameDecoder::new(1024);
-    let mut output = vec![];
-    for chunk in wire.chunks(3) {
-        output.extend(decoder.push(chunk).unwrap());
-    }
-    decoder.finish().unwrap();
-    assert_eq!(output, messages);
-}
-
-#[test]
-fn invalid_framing_never_accepts_conflicting_lengths_or_encodings() {
-    let cases: [(&[u8], FrameError); 3] = [
-        (
-            b"Content-Length: 1\r\ncontent-length: 1\r\n\r\na",
-            FrameError::InvalidLength,
-        ),
-        (
-            b"Content-Length: 1\r\n\
-              Content-Type: application/vscode-jsonrpc; charset=utf-16\r\n\r\na",
-            FrameError::UnsupportedEncoding,
-        ),
-        (b"Content-Length: 1\r\n\r\n\xff", FrameError::InvalidUtf8),
+    let bodies = [
+        r#"{"jsonrpc":"2.0","id":"🦀é","method":"unknown"}"#,
+        r#"{"jsonrpc":"2.0","method":"exit"}"#,
     ];
-    for (frame, error) in cases {
-        assert_eq!(FrameDecoder::new(128).push(frame), Err(error));
+    let wire = bodies
+        .iter()
+        .flat_map(|body| frame(body))
+        .collect::<Vec<_>>();
+    let mut reader = BoundedReader::new(BufReader::with_capacity(3, Cursor::new(wire)), 1024);
+    for body in bodies {
+        let Some(Input::Message {
+            message,
+            bytes,
+        }) = reader.read_frame().unwrap()
+        else {
+            panic!("valid message")
+        };
+        assert_eq!(bytes, body.len());
+        assert_eq!(
+            serde_json::to_value(message).unwrap()["method"],
+            serde_json::from_str::<serde_json::Value>(body).unwrap()["method"]
+        );
     }
-    let mut incomplete = FrameDecoder::new(128);
-    incomplete.push(b"Content-Length: 3\r\n\r\na").unwrap();
-    assert_eq!(incomplete.finish(), Err(FrameError::Incomplete));
+    assert!(reader.read_frame().unwrap().is_none());
 }
 
 #[test]
-fn an_oversized_message_is_skipped_and_the_stream_stays_in_step() {
-    let big = "x".repeat(300);
-    let wire = [encode("{\"a\":1}"), encode(&big), encode("{\"b\":2}")].concat();
-    let mut decoder = FrameDecoder::new(128);
-    let mut output = vec![];
-    for chunk in wire.chunks(7) {
-        output.extend(decoder.push(chunk).unwrap());
+fn conflicting_lengths_unsupported_encoding_and_truncation_are_terminal() {
+    for wire in [
+        b"Content-Length: 1\r\ncontent-length: 1\r\n\r\na".as_slice(),
+        b"Content-Length: 1\r\nContent-Type: application/vscode-jsonrpc; charset=utf-16\r\n\r\na",
+        b"Content-Length: 3\r\n\r\na",
+        b"Content-Length: 3\r\n",
+    ] {
+        assert!(
+            BoundedReader::new(Cursor::new(wire), 128)
+                .read_frame()
+                .is_err()
+        );
     }
-    decoder.finish().unwrap();
-    assert_eq!(output, ["{\"a\":1}", "{\"b\":2}"]);
-    let skipped = decoder.take_oversized();
-    assert_eq!(skipped.len(), 1);
-    assert_eq!(skipped[0].length, 300);
-    assert_eq!(skipped[0].head, big.as_bytes());
-    assert!(decoder.take_oversized().is_empty());
+    let wire = b"Content-Length: 1\r\n\r\n\xff";
+    assert!(matches!(
+        BoundedReader::new(Cursor::new(wire), 128)
+            .read_frame()
+            .unwrap(),
+        Some(Input::Rejected { .. })
+    ));
 }
 
-/// A message just under the limit, then the next one, arriving in one chunk that is larger
-/// than the room left: both are read.
 #[test]
-fn a_message_near_the_limit_followed_by_another_in_one_chunk() {
-    let frame = |body: &str| format!("Content-Length: {}\r\n\r\n{body}", body.len());
-    let big = "x".repeat(20_000);
-    let small = "y".repeat(10_000);
-    let stream = format!("{}{}", frame(&big), frame(&small));
-    let mut decoder = FrameDecoder::new(20_000);
-    // The second chunk holds the last 1000 bytes of the first body and all of the second.
-    let first_cut = frame(&big).len() - 1000;
-    let mut messages = decoder.push(&stream.as_bytes()[..first_cut]).unwrap();
-    messages.extend(decoder.push(&stream.as_bytes()[first_cut..]).unwrap());
-    assert_eq!(messages, vec![big, small]);
+fn an_oversized_body_is_terminal_before_consumption() {
+    let wire = frame(&"x".repeat(300));
+    assert!(
+        BoundedReader::new(Cursor::new(wire), 128)
+            .read_frame()
+            .is_err()
+    );
+}
+
+#[test]
+fn a_message_at_the_limit_can_be_followed_by_another() {
+    let body = format!(
+        r#"{{"jsonrpc":"2.0","method":"unknown","params":{{"text":"{}"}}}}"#,
+        "x".repeat(20000)
+    );
+    let small = r#"{"jsonrpc":"2.0","method":"exit"}"#;
+    let wire = [frame(&body), frame(small)].concat();
+    let mut reader = BoundedReader::new(BufReader::with_capacity(7, Cursor::new(wire)), body.len());
+    assert!(matches!(
+        reader.read_frame().unwrap(),
+        Some(Input::Message { .. })
+    ));
+    assert!(matches!(
+        reader.read_frame().unwrap(),
+        Some(Input::Message { .. })
+    ));
+    assert!(reader.read_frame().unwrap().is_none());
 }

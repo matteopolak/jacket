@@ -121,7 +121,8 @@ close_editor :: (ed: *Editor) {
     free_json(*ed.completions);
     free_text_edit(*ed.completion_filter);
     ed.config.sidebar_width = ed.sidebar;
-    ed.config.last_root = ed.root;
+    free(ed.config.last_root);
+    ed.config.last_root = copy_string(ed.root);
     save_config(ed.config, ed.config_file);
 
     if ed.watcher_initialized deinit(*ed.watcher);
@@ -621,6 +622,13 @@ compare_names :: (a: string, b: string) -> int {
 
 on_file_change :: (watcher: *File_Watcher(Editor), change: *File_Change, ed: *Editor) {
     ed.tree_dirty = true;
+    if ed.language.ready && !ed.language.failed {
+        kind := 2;
+        if (change.events & (.REMOVED | .MOVED_FROM)) != 0 kind = 3;
+        else if (change.events & (.ADDED | .MOVED_TO)) != 0 kind = 1;
+
+        Lsp.send(*ed.language, "workspace/didChangeWatchedFiles", tprint("{\"changes\":[{\"uri\":%,\"type\":%}]}", Lsp.quote(Lsp.uri(change.full_path)), kind));
+    }
 
     // A document that is open and unchanged follows the file on disk.
     for ed.docs {
@@ -660,19 +668,30 @@ parent_directory :: (path: string) -> string {
     while i >= 0 && path.data[i] != #char "/" && path.data[i] != #char "\\" i -= 1;
     if i < 0 return ".";
     if i == 0 return "/";
+    if i == 2 && path.data[1] == #char ":" return string.{ 3, path.data };
 
     return string.{ i, path.data };
 }
 
-// `path` made absolute against the working directory.
+// Make a path absolute, resolving existing ancestors even before a file is created.
+// On Unix, an unsaved file below a symlinked project root keeps its identity after saving.
 absolute_path :: (path: string) -> string {
     push_allocator(temp);
     canonical, ok := get_absolute_path(path);
     if ok return canonical;
-    if is_absolute(path) return path;
 
-    cwd := get_working_directory();
-    if path == "." return cwd;
+    full := path;
+    if !is_absolute(full) full = tprint("%/%", get_working_directory(), full);
 
-    return tprint("%/%", cwd, path);
+    parent := parent_directory(full);
+    if parent == full return full;
+
+    base := absolute_path(parent);
+    leaf := file_name_of(full);
+
+    if !leaf.count || leaf == "." return base;
+    if leaf == ".." return parent_directory(base);
+    if base.count && (base.data[base.count - 1] == #char "/" || base.data[base.count - 1] == #char "\\") return tprint("%%", base, leaf);
+
+    return tprint("%/%", base, leaf);
 }

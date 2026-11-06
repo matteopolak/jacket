@@ -664,6 +664,11 @@ fn files_changed_on_disk_are_read_again() {
 fn request(session: &mut JsonSession, id: i64, method: &str, params: Value) -> Value {
     let message = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
     let out = session.handle_json(&message.to_string()).unwrap();
+    if method == "initialize" {
+        session
+            .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+            .unwrap();
+    }
     out.iter()
         .map(|m| serde_json::from_str::<Value>(m).unwrap())
         .find(|m| m["id"] == json!(id))
@@ -685,7 +690,7 @@ fn json_protocol_and_settings() {
         &mut s,
         1,
         "initialize",
-        json!({ "initializationOptions": { "completion": { "autoImport": true } } }),
+        json!({ "capabilities": {}, "initializationOptions": { "completion": { "autoImport": true } } }),
     );
     notify(&mut s, "initialized", json!({}));
     let uri = "file:///auto-import/json/main.jai";

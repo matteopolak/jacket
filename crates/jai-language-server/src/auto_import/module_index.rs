@@ -307,7 +307,7 @@ impl Sources<'_> {
             index.files.retain(|path, _| !path.starts_with(dir));
         }
         let outer = self.recording.replace(Some(Recorded {
-            own: resumed,
+            own: resumed || self.role.is_some(),
             ..Recorded::default()
         }));
         let modules = self.read_stdlib(index, dir);
@@ -432,14 +432,15 @@ impl SharedStdlib {
             .open
             .keys()
             .all(|open| !open.ancestors().any(|path| self.paths.contains(path)))
-            && self.stamps.iter().all(|(path, stamp)| {
-                !sources.stopped() && sources.env.fs.stamp(path) == Some(*stamp)
-            })
+            && self
+                .stamps
+                .iter()
+                .all(|(path, stamp)| !sources.stopped() && sources.base.stamp(path) == Some(*stamp))
             && self.options.iter().all(|(root, (import_paths, preload))| {
                 if sources.stopped() {
                     return false;
                 }
-                let options = (sources.env.options)(root);
+                let options = sources.options(root);
                 options.import_paths == *import_paths && options.preload == *preload
             })
     }

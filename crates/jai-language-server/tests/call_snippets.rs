@@ -212,6 +212,11 @@ fn case_expands_only_inside_the_braces_of_an_if_on_a_value() {
 fn request(session: &mut JsonSession, id: u64, method: &str, params: Value) -> Value {
     let message = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
     let out = session.handle_json(&message.to_string()).unwrap();
+    if method == "initialize" {
+        session
+            .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+            .unwrap();
+    }
     out.iter()
         .map(|m| serde_json::from_str::<Value>(m).unwrap())
         .find(|m| m["id"] == json!(id))
@@ -410,7 +415,7 @@ fn the_closing_brace_setting_arrives_over_the_protocol() {
         &mut s,
         1,
         "initialize",
-        json!({ "initializationOptions": { "inlayHints": { "closingBraceMinLines": 0 } } }),
+        json!({ "capabilities": {}, "initializationOptions": { "inlayHints": { "closingBraceMinLines": 0 } } }),
     );
     notify(&mut s, "initialized", json!({}));
     let uri = "file:///call-snippets/closing.jai";

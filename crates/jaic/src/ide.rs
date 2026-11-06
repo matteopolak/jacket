@@ -8,6 +8,7 @@ mod definition;
 mod describe;
 mod doc_site;
 mod editor;
+pub mod execution;
 mod facts;
 mod hover;
 pub mod interval;

@@ -45,10 +45,20 @@ pub enum Data {
     Module(u32),
 }
 
+/// Owned lookup keys for external operator-import help, evaluated only when rendered.
+/// No compiler type or scope identities escape into a diagnostic.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OperatorImportHint {
+    pub operator: String,
+    pub operands: Vec<String>,
+    pub homes: Vec<String>,
+}
+
 /// Optional diagnostic details share one allocation to keep parser errors small.
 #[derive(Clone, Debug, Default)]
 pub struct DiagnosticDetails {
     suggestions: Suggestions,
+    operator_import: Option<OperatorImportHint>,
     secondary: Vec<(Span, String)>,
 }
 
@@ -150,10 +160,29 @@ impl Diagnostic {
             .map_or(&[], |details| &details.suggestions.0)
     }
 
-    /// Remove fixes without losing explicit source labels.
+    /// The pending external operator-import lookup, if rendering has not prepared its fixes.
+    pub fn operator_import_hint(&self) -> Option<&OperatorImportHint> {
+        self.details.as_deref()?.operator_import.as_ref()
+    }
+
+    /// Defer an external import lookup without retaining compiler identities.
+    /// For example, a compiler can attach normalized operand names before discarding types.
+    #[must_use]
+    pub fn with_operator_import_hint(mut self, hint: OperatorImportHint) -> Self {
+        self.details.get_or_insert_default().operator_import = Some(hint);
+        self
+    }
+
+    /// Consume a pending lookup on an owned clone before preparing its fixes.
+    pub fn take_operator_import_hint(&mut self) -> Option<OperatorImportHint> {
+        self.details.as_deref_mut()?.operator_import.take()
+    }
+
+    /// Remove prepared and pending fixes without losing explicit source labels.
     pub fn clear_suggestions(&mut self) {
         if let Some(details) = &mut self.details {
             details.suggestions.0.clear();
+            details.operator_import = None;
         }
     }
 

@@ -139,6 +139,7 @@ fn the_setting_turns_the_lenses_off_and_asks_the_client_to_fetch_again() {
         "jsonrpc": "2.0", "id": 1, "method": "initialize",
         "params": { "capabilities": { "workspace": { "codeLens": { "refreshSupport": true } } } },
     }));
+    send(json!({"jsonrpc":"2.0","method":"initialized","params":{}}));
     send(json!({
         "jsonrpc": "2.0", "method": "textDocument/didOpen",
         "params": { "textDocument": {

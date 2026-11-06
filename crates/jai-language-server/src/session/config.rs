@@ -4,6 +4,7 @@ use crate::semantic::{self, Environment};
 use crate::{DocumentUri, Error, Limits, VirtualSources};
 use jaic::ide::lint_compile::CheckLimits;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 impl Session {
     /// Basic blocks one compile-time evaluation may run before it fails (`0`: no limit).
@@ -34,6 +35,7 @@ impl Session {
     /// Whether to send `jai/compileTimeLimit` when a limit stops compile-time code.
     pub fn set_limit_notices(&mut self, on: bool) {
         self.limit_notices = on;
+        self.semantic.borrow_mut().set_limit_notices(on);
     }
 
     fn change_limits(&mut self, limits: CheckLimits) {
@@ -41,7 +43,9 @@ impl Session {
             self.check_limits = limits;
             self.polymorph_index.borrow_mut().clear();
             self.call_graphs.borrow_mut().clear();
+            self.reference_records.borrow_mut().clear();
             self.semantic.borrow_mut().set_limits(limits);
+            self.sync_builds(&self.semantic.borrow());
         }
     }
 
@@ -80,6 +84,24 @@ impl Session {
         self.semantic.borrow().counts()
     }
 
+    /// Retained reference document records and their conservative accounted bytes. For
+    /// example, checks of unrelated programs may drop full compilers while this count stays.
+    pub fn reference_record_counts(&self) -> (usize, usize) {
+        self.reference_records.borrow().counts()
+    }
+
+    /// Retained build-probe results, accounted bytes (including advisory metadata), and
+    /// current transient proof bytes. Outside a request the transient count is zero.
+    pub fn build_probe_counts(&self) -> (usize, usize, usize) {
+        self.semantic.borrow().probe_counts()
+    }
+
+    /// Accounted bytes in the latest native discovery proof, separate from retained records.
+    /// For example, compare this with `reference_record_counts()` after checking several roots.
+    pub fn discovery_proof_bytes(&self) -> usize {
+        self.input_proof.borrow().retained_bytes()
+    }
+
     /// Coverage for the current open buffer and its real analysis context. A lack
     /// of file-local diagnostics is not proof that the compiler reached the file.
     pub fn semantic_coverage(
@@ -110,20 +132,22 @@ impl Session {
     pub fn reset_caches(&self) {
         self.polymorph_index.borrow_mut().clear();
         self.call_graphs.borrow_mut().clear();
-        // What the metaprograms did is not lost with the compiles that recorded it.
+        self.reference_records.borrow_mut().clear();
+        // Old discoveries remain hints; a reset may also change the environment options.
         let trusted = self.semantic.borrow().trusted();
-        let recorded = std::mem::take(&mut self.semantic.borrow_mut().recorded);
-        let version = self.semantic.borrow().recorded_version;
+        let advisory = self.semantic.borrow().advisory_builds();
         *self.semantic.borrow_mut() = crate::semantic::Cache::default();
         {
             let mut cache = self.semantic.borrow_mut();
             cache.set_trusted(trusted);
             cache.set_limits(self.check_limits);
-            cache.recorded = recorded;
-            cache.recorded_version = version + 1;
+            cache.set_limit_notices(self.limit_notices);
+            cache.restore_advisory(advisory);
         }
         *self.index.borrow_mut() = crate::auto_import::Index::default();
         self.synced_builds.set(0);
+        *self.input_proof.borrow_mut() = semantic::Observations::default();
+        *self.memo_input_proof.borrow_mut() = semantic::Observations::default();
         self.touch();
     }
 
@@ -134,11 +158,13 @@ impl Session {
         if self.semantic.borrow().trusted() != trusted {
             self.polymorph_index.borrow_mut().clear();
             self.call_graphs.borrow_mut().clear();
+            self.reference_records.borrow_mut().clear();
             self.semantic.borrow_mut().set_trusted(trusted);
             // Without trust nothing runs, so discovery falls back to the static scan; what
             // earlier runs recorded goes with the cache.
             let mut index = self.index.borrow_mut();
             index.builds.clear();
+            index.advisory_builds.clear();
             index.probed.clear();
             index.import_dirs.clear();
             self.synced_builds.set(0);
@@ -155,8 +181,14 @@ impl Session {
             .and_then(|env| env.services.as_ref())
             .is_some_and(|services| services.take_arrivals());
         if arrived {
-            self.semantic.borrow_mut().forget_compiles();
+            {
+                let mut cache = self.semantic.borrow_mut();
+                cache.forget_compiles();
+                cache.forget_probe_authority();
+            }
+            self.sync_builds(&self.semantic.borrow());
             self.call_graphs.borrow_mut().clear();
+            self.reference_records.borrow_mut().clear();
             self.touch();
         }
         arrived
@@ -180,6 +212,15 @@ impl Session {
 
     /// The inputs of a compile may have changed.
     fn touch(&self) {
+        self.config_recovery.borrow_mut().take();
+        if let Some(epoch) = &self.input_epoch {
+            epoch.begin_capture();
+        }
+        self.touch_buffers();
+    }
+
+    /// Versioned overlays change independently from the accepted closed-file epoch.
+    fn touch_buffers(&self) {
         self.generation.set(self.generation.get() + 1);
         *self.inputs.borrow_mut() = None;
         *self.open_file_identities.borrow_mut() = None;
@@ -191,8 +232,11 @@ impl Session {
     }
 
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
+        self.semantic.borrow_mut().forget_probe_authority();
+        self.sync_builds(&self.semantic.borrow());
         self.polymorph_index.borrow_mut().clear();
         self.call_graphs.borrow_mut().clear();
+        self.reference_records.borrow_mut().clear();
         let mut keys: Vec<_> = Vec::with_capacity(folders.len());
         for key in folders.iter().map(|p| jaic::paths::identity_spelling(p)) {
             if !keys.contains(&key) {
@@ -206,7 +250,96 @@ impl Session {
     /// A file changed on disk (`created_or_deleted` when it appeared or went away): what was
     /// read from it is read again.
     pub fn file_changed(&mut self, path: &Path, created_or_deleted: bool) {
+        self.saved_file_changed(path, created_or_deleted);
+    }
+
+    pub(super) fn native_file_changed(&mut self, path: &Path, created_or_deleted: bool) {
+        let previous = self.semantic.borrow().known_path(path);
+        // A known native event revokes sealed responses before identity or config reads.
+        self.document_changed(path, created_or_deleted);
+        let key = self.environment.as_ref().map_or_else(
+            || jaic::paths::identity_spelling(path),
+            |env| crate::auto_import::canonical_key(env, path),
+        );
+        let name = match (path.parent(), path.file_name(), self.environment.as_ref()) {
+            (Some(parent), Some(name), Some(env)) => {
+                crate::auto_import::canonical_key(env, parent).join(name)
+            }
+            _ => key.clone(),
+        };
+        let fresh_event = self.input_epoch.as_ref().map(|epoch| epoch.actual_inputs());
+        for changed in previous.iter().chain([&key, &name]) {
+            self.semantic
+                .borrow_mut()
+                .invalidate_path_since(changed, fresh_event.as_ref());
+            self.reference_records
+                .borrow_mut()
+                .invalidate_since(changed, fresh_event.as_ref());
+        }
+        self.call_graphs.borrow_mut().clear();
+    }
+
+    fn retire_configuration_authority(&self) {
+        self.reference_records.borrow_mut().clear();
+        self.call_graphs.borrow_mut().clear();
+        self.polymorph_index.borrow_mut().clear();
+        self.semantic.borrow_mut().forget_probe_authority();
+        self.sync_builds(&self.semantic.borrow());
+        self.index.borrow_mut().discard_input_memos();
+        *self.input_proof.borrow_mut() = semantic::Observations::default();
+        *self.memo_input_proof.borrow_mut() = semantic::Observations::default();
+    }
+
+    /// Overlay changes retain older compilers for shifted exploratory answers. Exact cache
+    /// and reference lookups independently compare the complete relevant overlay manifest.
+    pub(super) fn document_changed(&mut self, path: &Path, created_or_deleted: bool) {
         self.touch();
+        if jacket_config::is_config_file(path) {
+            // Saved configuration is an overlay outside compiler Buffers. Its lifecycle
+            // retires exact authority; unfinished config edits never reach this boundary.
+            self.retire_configuration_authority();
+        }
+        self.invalidate_document_indexes(path, created_or_deleted);
+    }
+
+    /// Install an independently accepted settings capture without new filesystem calls.
+    pub(super) fn accept_recovered_settings(
+        &mut self,
+        uri: DocumentUri,
+        saved: super::saved_configs::SavedConfig,
+    ) -> bool {
+        let previous = self.saved_configs.get(&uri).map(|old| old.identity.clone());
+        self.touch();
+        self.retire_configuration_authority();
+        let raw = jaic::paths::identity_spelling(std::path::Path::new(uri.path()));
+        for path in previous.iter().chain([&saved.identity, &raw]) {
+            self.semantic.borrow_mut().invalidate_path(path);
+            self.reference_records.borrow_mut().invalidate(path);
+            self.polymorph_index.borrow_mut().invalidate(path, true);
+            self.index.borrow_mut().created_or_deleted(path);
+        }
+        if !self.restore_input_epoch(saved.actual_inputs.as_ref()) {
+            return false;
+        }
+        self.saved_configs.insert(uri, saved);
+        self.semantic.borrow_mut().forget_lints();
+        true
+    }
+
+    /// An ordinary edit changes the overlay, not the filesystem responses it overlays.
+    pub(super) fn buffer_changed(&mut self, path: &Path) {
+        self.touch_buffers();
+        self.invalidate_document_indexes(path, false);
+    }
+
+    /// Opening or closing a source changes overlays while preserving closed input ownership.
+    /// Example: opening a second program retains the first program's accepted disk inputs.
+    pub(super) fn source_buffer_changed(&mut self, path: &Path) {
+        self.touch_buffers();
+        self.invalidate_document_indexes(path, true);
+    }
+
+    fn invalidate_document_indexes(&mut self, path: &Path, created_or_deleted: bool) {
         if created_or_deleted {
             self.semantic.borrow_mut().forget_paths();
         }
@@ -227,10 +360,120 @@ impl Session {
     }
 
     /// A session that also type-checks the open documents against `environment`'s modules.
-    pub fn with_environment(limits: Limits, environment: Environment) -> Self {
+    pub fn with_environment(limits: Limits, mut environment: Environment) -> Self {
+        let session = Self::new(limits);
+        let input_epoch = environment.fs.is_native().then(|| {
+            Rc::new(
+                semantic::input_epoch::InputEpochFs::new(environment.fs.clone())
+                    .with_read_owner(&session.input_proof),
+            )
+        });
+        if let Some(epoch) = &input_epoch {
+            environment.fs = epoch.clone();
+        }
         Self {
+            input_epoch,
             environment: Some(environment),
-            ..Self::new(limits)
+            ..session
+        }
+    }
+
+    /// Finish an answer's capture after all selection and projection operations.
+    pub(crate) fn accept_input_epoch(&self) -> bool {
+        !self.configuration_input_failed.get()
+            && !self.documents.values().any(|doc| doc.identity_pending)
+            && self
+                .input_epoch
+                .as_ref()
+                .is_none_or(|epoch| epoch.seal_after_validation())
+            && !jaic::interrupt::fired()
+    }
+
+    /// Retained facts keep their producer's exact actual response history.
+    pub(crate) fn restore_input_epoch(
+        &self,
+        original: Option<&semantic::input_epoch::ActualInputs>,
+    ) -> bool {
+        match (&self.input_epoch, original) {
+            (Some(epoch), Some(original)) => epoch.reuse_actual(original),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+
+    /// Active parent coverage needs another bounded service turn without an idle poll.
+    /// For example, a newly opened source can finish its queued identities between batches.
+    pub fn input_epoch_hydration_pending(&self) -> bool {
+        self.trusted()
+            && self
+                .input_epoch
+                .as_ref()
+                .is_some_and(|epoch| epoch.has_pending_coverage())
+    }
+
+    /// Whether an accepted native epoch can be reconciled between requests.
+    pub fn has_input_epoch_work(&self) -> bool {
+        self.trusted()
+            && self.input_epoch.as_ref().is_some_and(|epoch| {
+                epoch.has_work()
+                    || self.has_config_recovery_work()
+                    || self.documents.values().any(|doc| doc.identity_pending)
+            })
+    }
+
+    /// Check one bounded native-input reconciliation slice. Known buffer events stay immediate.
+    /// Returns whether a changed input or newly covered successor needs client updates.
+    /// For example, a native host calls this once per scheduled service turn.
+    pub fn reconcile_input_epoch(&mut self) -> bool {
+        if !self.trusted() {
+            return false;
+        }
+        struct InterruptSpan(bool);
+        impl Drop for InterruptSpan {
+            fn drop(&mut self) {
+                if self.0 {
+                    jaic::interrupt::disarm();
+                }
+            }
+        }
+        let owns_interrupt = !jaic::interrupt::armed();
+        if owns_interrupt {
+            jaic::interrupt::arm();
+        }
+        let _interrupt = InterruptSpan(owns_interrupt);
+        if self.resolve_buffer_identities() {
+            return true;
+        }
+        let recovery_turn = self
+            .config_recovery_turn
+            .replace(!self.config_recovery_turn.get());
+        let ordinary_work = self
+            .input_epoch
+            .as_ref()
+            .is_some_and(|epoch| epoch.has_work());
+        if (recovery_turn || !ordinary_work)
+            && let Some(changed) = self.service_config_recovery(std::time::Instant::now())
+        {
+            return changed;
+        }
+        // Saved-input recovery and ordinary replay share this owner turn's IO budget.
+        // Keep fair service without adding a second multi-operation lane beside recovery.
+        let ordinary_ops = if self.has_config_recovery_work() {
+            1
+        } else {
+            32
+        };
+        let changed = self
+            .input_epoch
+            .as_ref()
+            .and_then(|epoch| epoch.reconcile_step(ordinary_ops, 256 * 1024));
+        if let Some(path) = changed {
+            self.file_changed(&path, true);
+            true
+        } else {
+            self.input_epoch
+                .as_ref()
+                .is_some_and(|epoch| epoch.take_updates_pending())
         }
     }
 

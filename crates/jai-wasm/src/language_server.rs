@@ -82,11 +82,10 @@ impl Bridge {
 /// Hover and completion type-check against the bundled stdlib, as the playground compiles.
 pub fn lsp_environment() -> Environment {
     let fs = Rc::new(virtual_fs(&BTreeMap::new()));
-    let option_fs = fs.clone();
     Environment {
         services: None,
         fs,
-        options: Box::new(move |main| program_options(&*option_fs, main, Path::new(STDLIB_ROOT))),
+        options: Box::new(move |fs, main| program_options(fs, main, Path::new(STDLIB_ROOT))),
     }
 }
 
@@ -197,7 +196,18 @@ mod tests {
             assert_eq!(bridge.push(u32::from(byte)), 0);
         }
         assert_eq!(bridge.dispatch(), 0);
-        String::from_utf8(bridge.output.clone()).unwrap()
+        let output = String::from_utf8(bridge.output.clone()).unwrap();
+        let input: serde_json::Value = serde_json::from_str(message).unwrap();
+        if input["method"] == "initialize" {
+            let replies: serde_json::Value = serde_json::from_str(&output).unwrap();
+            if replies[0].get("result").is_some() {
+                send(
+                    bridge,
+                    r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#,
+                );
+            }
+        }
+        output
     }
 
     #[test]

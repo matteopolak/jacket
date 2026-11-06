@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       jobs:
-        description: 'Comma-separated job ids to run (empty runs everything); select needed jobs together'
+        description: 'Comma-separated job ids to run (empty runs default jobs); name opt-in jobs explicitly'
         required: false
         default: ''
       tier:
@@ -275,7 +275,10 @@ jobs:
         env:
           JAILSP_ENFORCE_SCALE_BUDGET: '1'
         run: |
+          bash tools/ci/apt_install.sh bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           python3 tools/fetch_upstreams.py --only focus-editor/focus
+          cargo build --locked -p jai-language-server --example lsp_scale_worker
           cargo nextest run --profile ci -p jai-language-server --locked --test scale
       - name: Native tests with every program divided into parts
         id: split-native
@@ -1422,3 +1425,8 @@ jobs:
           name: smoke-screenshots-windows-x64
           path: target/smoke-screenshots
           if-no-files-found: ignore
+
+  lsp-transport:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' && contains(fromJSON(needs.changes.outputs.jobs), 'lsp-transport')
+    uses: ./.github/workflows/lsp-transport.yml

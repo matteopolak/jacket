@@ -2,9 +2,9 @@
 use super::errno::{EBADF, EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM};
 use super::globals::ZeroedBlock;
 use super::sandbox::guest::{fill, read_bytes, read_u8, write_u32, write_u64, write_units};
+use super::sandbox::join;
 use super::sandbox::symbols::WinFn;
 use super::sandbox::{O_CREAT, O_EXCL, O_RDWR, O_TRUNC, O_WRONLY};
-use super::sandbox::{absolute, join};
 use crate::fxhash::HashMap;
 use crate::interp::word_or_zero;
 
@@ -65,6 +65,8 @@ const FILE_ATTRIBUTE_NORMAL: u32 = 0x80;
 const GENERIC_READ: u64 = 0x8000_0000;
 const GENERIC_WRITE: u64 = 0x4000_0000;
 const ERROR_FILE_NOT_FOUND: u64 = 2;
+const ERROR_NOT_SUPPORTED: u64 = 50;
+const ERROR_INVALID_NAME: u64 = 123;
 const ERROR_PATH_NOT_FOUND: u64 = 3;
 const ERROR_ACCESS_DENIED: u64 = 5;
 const ERROR_INVALID_HANDLE: u64 = 6;
@@ -152,11 +154,96 @@ fn put_wide_path(text: &str, out: u64, room: u64) -> u64 {
     n
 }
 
+/// Preserve a Windows drive/share root while normalizing only its rooted suffix.
+/// The backend provides one current directory; another drive's relative directory is unknown.
+/// For example, `C:\base` plus `\file` resolves to `C:/file`, while `C:other` uses that base.
+fn windows_path(cwd: &str, path: &str) -> Result<String, u64> {
+    fn spelling(path: &str) -> Result<String, u64> {
+        // Stripping the verbatim prefix must not turn an invalid drive name into C:relative.
+        if let Some(rest) = path.strip_prefix(r"\\?\")
+            && !rest.starts_with(r"UNC\")
+            && !matches!(rest.as_bytes(), [drive, b':', b'\\', ..] if drive.is_ascii_alphabetic())
+        {
+            return Err(ERROR_NOT_SUPPORTED);
+        }
+        crate::paths::native_spelling(path, true).ok_or(ERROR_NOT_SUPPORTED)
+    }
+    fn drive(path: &str) -> bool {
+        path.as_bytes().get(1) == Some(&b':') && path.as_bytes()[0].is_ascii_alphabetic()
+    }
+    fn root(path: &str) -> Result<(&str, &str), u64> {
+        if let Some(unc) = path.strip_prefix("//") {
+            let mut parts = unc.splitn(3, '/');
+            let server = parts.next().unwrap_or_default();
+            let share = parts.next().unwrap_or_default();
+            if matches!(server, "." | "?") {
+                return Err(ERROR_NOT_SUPPORTED);
+            }
+            if server.is_empty()
+                || share.is_empty()
+                || server == ".."
+                || matches!(share, "." | "..")
+            {
+                return Err(ERROR_INVALID_NAME);
+            }
+            let end = 2 + server.len() + 1 + share.len();
+            return Ok((&path[..end], &path[end..]));
+        }
+        if drive(path) && path[2..].starts_with('/') {
+            return Ok((&path[..2], &path[2..]));
+        }
+        if path.starts_with('/') {
+            return Ok(("", path));
+        }
+        Err(ERROR_NOT_SUPPORTED)
+    }
+    fn normalized(prefix: &str, tail: &str) -> String {
+        let rooted = format!("/{}", tail.trim_start_matches('/'));
+        let suffix = crate::paths::slashed(&crate::paths::normalize(std::path::Path::new(&rooted)));
+        format!("{prefix}{suffix}")
+    }
+    if path.is_empty() {
+        return Err(ERROR_INVALID_NAME);
+    }
+    let path = spelling(path)?;
+    if path.starts_with("//") || (drive(&path) && path[2..].starts_with('/')) {
+        let (prefix, tail) = root(&path)?;
+        return Ok(normalized(prefix, tail));
+    }
+    let cwd = spelling(cwd)?;
+    let (prefix, tail) = root(&cwd)?;
+    if drive(&path) {
+        if !drive(prefix) || !prefix.eq_ignore_ascii_case(&path[..2]) {
+            return Err(ERROR_NOT_SUPPORTED);
+        }
+        return Ok(normalized(prefix, &join(tail, &path[2..])));
+    }
+    if path.as_bytes().get(1) == Some(&b':') {
+        return Err(ERROR_INVALID_NAME);
+    }
+    if path.starts_with('/') {
+        return Ok(normalized(prefix, &path));
+    }
+    Ok(normalized(prefix, &join(tail, &path)))
+}
+
+// Every caller keeps its own Win32 failure sentinel; unsupported paths never reach the backend.
+macro_rules! resolved_path {
+    ($calls:ident, $backend:ident, $ptr:expr, $failure:expr) => {
+        match $calls.wide_path($backend, $ptr) {
+            Ok(path) => path,
+            Err(error) => {
+                $calls.last_error = error;
+                return Some($failure);
+            }
+        }
+    };
+}
+
 impl WindowsCalls {
     /// A Windows path argument, resolved like the C library's.
-    fn wide_path(&self, backend: &impl WindowsBackend, ptr: u64) -> String {
-        let path = crate::paths::to_slash(&wide_string(ptr));
-        absolute(&backend.cwd(), &path)
+    fn wide_path(&self, backend: &impl WindowsBackend, ptr: u64) -> Result<String, u64> {
+        windows_path(&backend.cwd(), &wide_string(ptr))
     }
 
     fn fail(&mut self, error: u64) -> u64 {
@@ -302,7 +389,7 @@ impl WindowsCalls {
                 put_wide_path(&backend.cwd(), arg(1), arg(0) as u32 as u64)
             }
             WinFn::SetCurrentDirectoryW => {
-                let path = self.wide_path(backend, arg(0));
+                let path = resolved_path!(self, backend, arg(0), 0);
                 if !backend.is_dir(&path) {
                     return Some(self.fail(ERROR_PATH_NOT_FOUND));
                 }
@@ -310,14 +397,14 @@ impl WindowsCalls {
                 self.win_result(result)
             }
             WinFn::GetFullPathNameW => {
-                let path = self.wide_path(backend, arg(0));
+                let path = resolved_path!(self, backend, arg(0), 0);
                 if arg(3) != 0 {
                     write_u64(arg(3), 0);
                 }
                 put_wide_path(&path, arg(2), arg(1) as u32 as u64)
             }
             WinFn::GetFileAttributesW => {
-                let path = self.wide_path(backend, arg(0));
+                let path = resolved_path!(self, backend, arg(0), INVALID_FILE_ATTRIBUTES);
                 if let Some(details) = backend.details(&path) {
                     details.attributes as u64
                 } else {
@@ -326,7 +413,7 @@ impl WindowsCalls {
                 }
             }
             WinFn::GetFileAttributesExW => {
-                let path = self.wide_path(backend, arg(0));
+                let path = resolved_path!(self, backend, arg(0), 0);
                 let Some(details) = backend.details(&path) else {
                     return Some(self.fail(ERROR_FILE_NOT_FOUND));
                 };
@@ -343,8 +430,8 @@ impl WindowsCalls {
                 1
             }
             WinFn::CopyFileW | WinFn::CreateHardLinkW => {
-                let first = self.wide_path(backend, arg(0));
-                let second = self.wide_path(backend, arg(1));
+                let first = resolved_path!(self, backend, arg(0), 0);
+                let second = resolved_path!(self, backend, arg(1), 0);
                 let result = if fun == WinFn::CopyFileW {
                     if arg(2) != 0 && backend.exists_file(&second) {
                         return Some(self.fail(ERROR_FILE_EXISTS));
@@ -356,7 +443,7 @@ impl WindowsCalls {
                 self.win_result(result)
             }
             WinFn::CreateDirectoryW => {
-                let path = self.wide_path(backend, arg(0));
+                let path = resolved_path!(self, backend, arg(0), 0);
                 if backend.is_dir(&path) || backend.exists_file(&path) {
                     return Some(self.fail(ERROR_ALREADY_EXISTS));
                 }
@@ -365,20 +452,20 @@ impl WindowsCalls {
             }
 
             WinFn::RemoveDirectoryW => {
-                let path = self.wide_path(backend, arg(0));
+                let path = resolved_path!(self, backend, arg(0), 0);
                 let result = backend.remove_dir(&path);
                 self.win_result(result)
             }
             WinFn::DeleteFileW => {
-                let path = self.wide_path(backend, arg(0));
+                let path = resolved_path!(self, backend, arg(0), 0);
                 let result = backend.delete_file(&path);
                 self.win_result(result)
             }
 
             WinFn::MoveFileExW | WinFn::MoveFileW => {
                 let (from, to) = (
-                    self.wide_path(backend, arg(0)),
-                    self.wide_path(backend, arg(1)),
+                    resolved_path!(self, backend, arg(0), 0),
+                    resolved_path!(self, backend, arg(1), 0),
                 );
                 // Without MOVEFILE_REPLACE_EXISTING an existing target stays.
                 if (fun == WinFn::MoveFileW || arg(2) & 1 == 0) && backend.exists_file(&to) {
@@ -430,7 +517,7 @@ impl WindowsCalls {
                 1
             }
             WinFn::CreateFileW => {
-                let path = self.wide_path(backend, arg(0));
+                let path = resolved_path!(self, backend, arg(0), INVALID_HANDLE_VALUE);
                 let access = arg(1) & (GENERIC_READ | GENERIC_WRITE);
                 let mut flags = match access {
                     GENERIC_WRITE => O_WRONLY,
@@ -529,7 +616,7 @@ impl WindowsCalls {
             }
             WinFn::FindFirstFileW | WinFn::FindFirstFileExW => {
                 // `dir/*`, `dir/*.*` or one exact name.
-                let pattern = self.wide_path(backend, arg(0));
+                let pattern = resolved_path!(self, backend, arg(0), INVALID_HANDLE_VALUE);
                 let out = if fun == WinFn::FindFirstFileExW {
                     arg(2)
                 } else {
@@ -669,5 +756,52 @@ impl WindowsCalls {
             }
             _ => return None,
         })
+    }
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+
+    #[test]
+    fn windows_roots_and_known_current_directories_are_host_independent() {
+        for (cwd, path, expected) in [
+            (r"C:\base\dir", "C:/absolute/../flag", "C:/flag"),
+            (r"C:\base\dir", r"\flag", "C:/flag"),
+            (r"\\server\share\base", r"\flag", "//server/share/flag"),
+            (r"C:\base\dir", "../../../../flag", "C:/flag"),
+            (r"C:\base", "C:flag", "C:/base/flag"),
+            (r"C:\base", "C:", "C:/base"),
+            (r"C:\base", r"c:\flag", "C:/flag"),
+            ("/tmp/base", "../flag", "/tmp/flag"),
+            ("/tmp", "/elsewhere/flag", "/elsewhere/flag"),
+            ("/tmp", r"\\server\share\file", "//server/share/file"),
+            ("/tmp", r"\\server\share\..\file", "//server/share/file"),
+            ("/tmp", r"\\?\C:\file", "C:/file"),
+            ("/tmp", r"\\?\UNC\server\share\file", "//server/share/file"),
+        ] {
+            assert_eq!(
+                windows_path(cwd, path),
+                Ok(expected.into()),
+                "{cwd:?}, {path:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn unsupported_windows_contexts_never_become_missing_file_paths() {
+        for (cwd, path, code) in [
+            (r"C:\base", "D:relative", ERROR_NOT_SUPPORTED),
+            ("/tmp", "C:relative", ERROR_NOT_SUPPORTED),
+            (r"C:\base", "", ERROR_INVALID_NAME),
+            (r"C:\base", r"\\server", ERROR_INVALID_NAME),
+            (r"C:\base", r"\\server\", ERROR_INVALID_NAME),
+            (r"C:\base", r"\\.\pipe\name", ERROR_NOT_SUPPORTED),
+            (r"C:\base", r"\\?\C:\odd.\file", ERROR_NOT_SUPPORTED),
+            (r"C:\base", r"\\?\C:relative", ERROR_NOT_SUPPORTED),
+            (r"C:\base", r"\\?\C:", ERROR_NOT_SUPPORTED),
+        ] {
+            assert_eq!(windows_path(cwd, path), Err(code));
+        }
     }
 }

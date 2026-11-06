@@ -39,6 +39,7 @@ impl Sources<'_> {
             root: root.to_path_buf(),
             folders: folders.clone(),
             config: config.as_ref().map(|(dir, _)| dir.clone()),
+            advisory: self.advisory,
         };
         // Cached until a file it was read from changes: every semantic request asks, and
         // finding the folders lexes the root file (a large one is megabytes of tokens).
@@ -97,7 +98,7 @@ impl Sources<'_> {
             }
             deps.push(entry.clone());
             // A metaprogram that ran: the folders its build options really had.
-            if let Some(facts) = index.builds.get(&self.key(&entry)) {
+            if let Some(facts) = self.known_build(index, &self.key(&entry)) {
                 dirs.extend(
                     facts
                         .programs
@@ -145,7 +146,7 @@ impl crate::Session {
     /// module folders `import_dirs` finds in front of the standard library.
     pub(crate) fn options_for(&self, root: &Path) -> Option<jaic::sema::Options> {
         let env = self.environment.as_ref()?;
-        let mut options = (env.options)(root);
+        let mut options = (env.options)(&self.config_filesystem()?, root);
         project::add_import_dirs(&mut options.import_paths, &self.import_dirs(root));
         Some(options)
     }

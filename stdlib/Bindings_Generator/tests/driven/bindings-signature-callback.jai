@@ -46,6 +46,13 @@ main :: () {
         expected_type = *type;
         expected_func = *function;
         selected[0] = *replacement;
+
+        defer {
+            expected_type = null;
+            expected_func = null;
+            selected[0] = null;
+        }
+
         output: String_Builder;
 
         defer free_buffers(*output);

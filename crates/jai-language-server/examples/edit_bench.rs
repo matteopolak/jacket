@@ -14,10 +14,10 @@ fn environment(stdlib: PathBuf) -> Environment {
     Environment {
         services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
+        options: Box::new(move |fs, _| {
             let mut options = jaic::sema::Options::host();
             options.import_paths = vec![stdlib.clone()];
-            options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
+            options.set_stdlib(fs, &stdlib);
             options
         }),
     }
@@ -72,6 +72,13 @@ fn main() {
         started.elapsed().as_secs_f64() * 1e3,
         session.compile_counts().0
     );
+    let (records, bytes) = session.reference_record_counts();
+    println!("reference records: {records}, accounted bytes: {bytes}");
+    println!(
+        "discovery proof accounted bytes: {}, build probes (count, retained bytes, transient bytes): {:?}",
+        session.discovery_proof_bytes(),
+        session.build_probe_counts()
+    );
     let mut total = 0.0;
     for round in 0..edits {
         let inserted = round % 2 == 0;
@@ -107,6 +114,13 @@ fn main() {
         session.change(&uri, round + 2, &[change]).expect("change");
         let (diagnostics, hover) = answer(&session, inserted);
         let ms = started.elapsed().as_secs_f64() * 1e3;
+        let (records, bytes) = session.reference_record_counts();
+        println!("reference records after edit {round}: {records}, accounted bytes: {bytes}");
+        println!(
+            "discovery proof accounted bytes: {}, build probes (count, retained bytes, transient bytes): {:?}",
+            session.discovery_proof_bytes(),
+            session.build_probe_counts()
+        );
         total += ms;
         println!(
             "edit {round}: {ms:.0} ms, {} compiles, {diagnostics} diagnostics, hover {hover}",

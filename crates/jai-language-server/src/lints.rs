@@ -59,6 +59,7 @@ impl Session {
     }
 
     fn find_lint_config(&self, path: &Path) -> Option<Config> {
+        let _query = self.discovery_query();
         let mut index = self.index.borrow_mut();
         let loaded = crate::config::load(
             &crate::config::SessionFiles(self),
@@ -69,24 +70,12 @@ impl Session {
         Config::from_lint(&loaded.config.lint, loaded.dir()).ok()
     }
 
-    /// Lints of the open document `uri`, from the cached compile of its program.
-    pub(crate) fn lints(&self, uri: &DocumentUri) -> Vec<Lint> {
-        let Ok(doc) = self.document(uri) else {
-            return Vec::new();
-        };
-        if crate::semantic::parse_error(&doc.text).is_some() {
-            return Vec::new();
-        }
-        let Some(config) = self.lint_config(Path::new(uri.path())) else {
-            return Vec::new();
-        };
-        self.with_semantic(uri, &doc.text, |analysis, path| {
-            analysis.lints(path, &config)
-        })
-        .unwrap_or_default()
-    }
-
-    fn lint_diagnostic(&self, uri: &DocumentUri, l: &Lint) -> Option<Diagnostic> {
+    fn lint_diagnostic_with(
+        &self,
+        uri: &DocumentUri,
+        l: &Lint,
+        location: impl Fn(&str, &std::sync::Arc<str>, usize, usize) -> Option<crate::Location>,
+    ) -> Option<Diagnostic> {
         let range = self.range_of(uri, crate::analysis::Span::new(l.start, l.end))?;
         let mut message = l.message.clone();
         if let Some(help) = &l.help {
@@ -104,7 +93,7 @@ impl Session {
                 .secondary
                 .iter()
                 .filter_map(|label| {
-                    let at = self.location_in(&label.path, &label.text, label.start, label.end)?;
+                    let at = location(&label.path, &label.text, label.start, label.end)?;
                     Some(crate::model::RelatedInformation {
                         uri: at.uri,
                         range: at.range,
@@ -116,10 +105,19 @@ impl Session {
     }
 
     /// The lints of `uri` as diagnostics: the rule is the code, `jailint` the source.
-    pub(crate) fn lint_diagnostics(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
-        self.lints(uri)
+    pub(crate) fn projected_lint_diagnostics_from(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        uri: &DocumentUri,
+        lints: &[Lint],
+    ) -> Vec<Diagnostic> {
+        lints
             .iter()
-            .filter_map(|l| self.lint_diagnostic(uri, l))
+            .filter_map(|l| {
+                self.lint_diagnostic_with(uri, l, |path, text, start, end| {
+                    self.projected_location(fs, path, text, start, end)
+                })
+            })
             .collect()
     }
 
@@ -144,14 +142,52 @@ impl Session {
         end: usize,
         context: &ActionContext,
     ) -> Vec<CodeAction> {
-        let lints = self.lints(uri);
+        let _query = self.discovery_query();
+        let base = self.config_filesystem();
+        let (uri, doc) = match &base {
+            Some(fs) => match self.projected_document_entry(fs, uri) {
+                Ok(entry) => entry,
+                Err(_) => return Vec::new(),
+            },
+            None => match self.document_entry(uri) {
+                Ok(entry) => entry,
+                Err(_) => return Vec::new(),
+            },
+        };
+        if crate::semantic::parse_error(&doc.text).is_some() {
+            return Vec::new();
+        }
+        let Some(config) = self.lint_config(Path::new(uri.path())) else {
+            return Vec::new();
+        };
+        self.with_semantic(uri, &doc.text, |analysis, path| {
+            let lints = analysis.lints(path, &config)?;
+            let fs = self.config_filesystem()?;
+            Some(self.lint_actions_from(&fs, uri, start, end, context, &lints))
+        })
+        .unwrap_or_default()
+    }
+
+    fn lint_actions_from(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        uri: &DocumentUri,
+        start: usize,
+        end: usize,
+        context: &ActionContext,
+        lints: &[Lint],
+    ) -> Vec<CodeAction> {
         let mut actions = Vec::new();
         if context.wants("quickfix") {
-            for l in &lints {
+            for l in lints {
                 let Some(fix) = &l.fix else {
                     continue;
                 };
-                let Some(diagnostic) = self.lint_diagnostic(uri, l) else {
+                let Some(diagnostic) =
+                    self.lint_diagnostic_with(uri, l, |path, text, start, end| {
+                        self.projected_location(fs, path, text, start, end)
+                    })
+                else {
                     continue;
                 };
                 let named = context
@@ -176,7 +212,7 @@ impl Session {
             }
         }
         if context.wants(FIX_ALL_KIND)
-            && let Some(all) = self.fix_all(uri, &lints)
+            && let Some(all) = self.fix_all(fs, uri, lints)
         {
             actions.push(all);
         }
@@ -185,7 +221,12 @@ impl Session {
 
     /// Every machine-applicable fix of `lints` that does not overlap an earlier one, as one
     /// edit (the same choice `jailint --fix` makes).
-    fn fix_all(&self, uri: &DocumentUri, lints: &[Lint]) -> Option<CodeAction> {
+    fn fix_all(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        uri: &DocumentUri,
+        lints: &[Lint],
+    ) -> Option<CodeAction> {
         let safe: Vec<&Lint> = lints
             .iter()
             .filter(|l| l.fix.as_ref().is_some_and(|f| f.machine_applicable))
@@ -196,7 +237,9 @@ impl Session {
         for l in chosen {
             let fix = l.fix.as_ref()?;
             edits.extend(self.edits(uri, fix)?);
-            diagnostics.extend(self.lint_diagnostic(uri, l));
+            diagnostics.extend(self.lint_diagnostic_with(uri, l, |path, text, start, end| {
+                self.projected_location(fs, path, text, start, end)
+            }));
         }
         if edits.is_empty() {
             return None;

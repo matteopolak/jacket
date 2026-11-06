@@ -5,10 +5,49 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+/// A small shared owner for read bytes. A weak owner retains only this indirection;
+/// dropping its last strong reference releases its byte Arc independently.
+#[derive(Debug, PartialEq, Eq)]
+pub struct ReadBuffer(Arc<[u8]>);
+
+impl ReadBuffer {
+    /// Wrap existing immutable bytes without copying them; for example an open buffer.
+    pub fn new(bytes: Arc<[u8]>) -> Self {
+        Self(bytes)
+    }
+
+    /// The byte allocation captured by comparison proofs, shared without a copy.
+    pub fn bytes(&self) -> &Arc<[u8]> {
+        &self.0
+    }
+
+    /// The read response; for example compare it with a fresh native read.
+    pub fn as_slice(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl std::ops::Deref for ReadBuffer {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
 /// Source access. Native builds read the filesystem; the browser supplies a
 /// virtual file system containing the workspace, prelude and stdlib.
 pub trait FileSystem {
     fn read(&self, path: &Path) -> Option<Vec<u8>>;
+
+    /// The same read response with shared immutable ownership. Wrappers record this exact Arc
+    /// before returning it, so a proof can own bytes without a second retained allocation.
+    /// For example, an observed provider clones the Arc into its Read observation.
+    fn read_shared(&self, path: &Path) -> Option<Arc<ReadBuffer>> {
+        self.read(path)
+            .map(|bytes| Arc::new(ReadBuffer::new(Arc::from(bytes))))
+    }
+
     fn is_file(&self, path: &Path) -> bool;
     fn is_dir(&self, path: &Path) -> bool;
 
@@ -23,9 +62,33 @@ pub trait FileSystem {
         Some(self.canonical(path))
     }
 
+    /// Certify resolving absence and its exact native fallback identity, or return no authority.
+    /// `Some(key)` promises that `canonical_exact(path)` is unavailable and
+    /// `paths::file_identity(self, path)` would equal `key`. Files, directories, permission
+    /// errors and uncertain providers must return `None`; `!is_file(path)` is insufficient.
+    /// Callers must replay this operation to reuse an absence fact. For example, an absent
+    /// `/project/Mod.jai` can return that normalized identity until the file appears.
+    fn missing_file_key(&self, _path: &Path) -> Option<PathBuf> {
+        None
+    }
+
     /// Whether this is the real filesystem, which worker threads may read directly.
     fn is_native(&self) -> bool {
         false
+    }
+
+    /// Whether observations from this provider require explicit input-authority checks.
+    /// A sealed native-derived provider returns `true` while denying direct native I/O.
+    /// This flag is not validation: callers must also check `input_epoch_valid` and proof.
+    fn tracks_native_inputs(&self) -> bool {
+        self.is_native()
+    }
+
+    /// Current sealed-epoch readiness, or `None` for a provider without a sealed epoch.
+    /// `Some(false)` rejects publication even if placeholder responses match a proof.
+    /// For example, an unknown sealed `read` marks its request unavailable without I/O.
+    fn input_epoch_valid(&self) -> Option<bool> {
+        None
     }
 
     /// Names (and whether each is a directory) directly inside `path`; used by the sandbox host.
@@ -77,6 +140,20 @@ impl FileSystem for NativeFs {
 
     fn canonical_exact(&self, path: &Path) -> Option<PathBuf> {
         crate::paths::canonicalize(path).ok()
+    }
+
+    fn missing_file_key(&self, path: &Path) -> Option<PathBuf> {
+        match std::fs::metadata(path) {
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+                ) =>
+            {
+                Some(crate::paths::identity_spelling(&normalize(path)))
+            }
+            _ => None,
+        }
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {

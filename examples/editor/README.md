@@ -118,3 +118,18 @@ Dependencies include Process, Thread, Unicode, file/watcher/clipboard modules,
 Extensions/{Args,Json,Jai_Format,Text_Buffer,UI,Desktop}, FreeType, native window libraries and
 WebGPU. Tests for protocol, layout, menu models and synthetic composition need no GPU or window.
 See [FRICTION.md](FRICTION.md) for limitations.
+
+## Document identity and live smoke
+
+On Unix, existing files and unsaved destinations resolve existing ancestors through `get_absolute_path`, so opening or saving through a symlinked project or temporary directory keeps one document and LSP URI. Windows keeps its existing textual absolute-path normalization; its `get_absolute_path` does not resolve junctions or symbolic links. Definition navigation stores the document identity with the exact byte cursor; requests and replies convert between bytes and UTF-16.
+
+To run the live checks with matched tools, set explicit executable paths and require the server:
+
+```sh
+JAIC=/absolute/path/to/jaic PATH=/directory/containing/jailsp:$PATH \
+  T=/absolute/build-directory sh examples/editor/tools/smoke.sh
+```
+
+The smoke script requires live LSP when it finds `jailsp` on `PATH`. For an already built editor, `EDITOR_REQUIRE_LSP=1 JAI_EDITOR_SERVER=/absolute/path/to/jailsp /absolute/path/to/editor --smoke` makes the requirement explicit. `TMPDIR` selects its scratch root; exercise a symlink spelling as well as a physical directory when changing path handling. The checks cover same-file and cross-file return locations, UTF-16 positions, unsaved save/reopen identity, Save As, cancellation and stale replies. GPU acceptance is controlled separately by `EDITOR_SMOKE_GPU`.
+
+Change path identity in `editor.jai::absolute_path` and its caller lifecycle in `native.jai`; keep the native path/reopen tests and live navigation assertions together. A return-location assertion must compare the filesystem identity of the origin, since a spelled `/tmp` path can resolve to `/private/tmp`.

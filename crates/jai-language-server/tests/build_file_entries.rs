@@ -36,6 +36,19 @@ fn check_via(
         files.push(("jacket.toml", toml));
     }
     let dir = project(name, &files);
+    if build.contains("{DIR}") {
+        let leaf = dir.file_name().unwrap().to_str().unwrap();
+        let resolved = build.replace("{DIR}", leaf);
+        std::fs::write(dir.join(build_path), resolved).unwrap();
+        assert_eq!(
+            dir.join("..")
+                .join(leaf)
+                .join("src/main.jai")
+                .canonicalize()
+                .unwrap(),
+            dir.join("src/main.jai").canonicalize().unwrap()
+        );
+    }
     let Some(editor_dir) = via(&dir) else {
         return;
     };
@@ -142,9 +155,7 @@ fn spellings_of_the_added_path() {
     ] {
         for toml in [None, BUILD_TOML] {
             // `{DIR}` is the project folder's own name.
-            let leaf = format!("jailsp-buildfile-{name}-{}", std::process::id());
-            let path = spelled.replace("{DIR}", &leaf);
-            let build = BUILD.replace("\"src/main.jai\"", &format!("\"{path}\""));
+            let build = BUILD.replace("\"src/main.jai\"", &format!("\"{spelled}\""));
             check_with(name, toml, "build.jai", &build);
         }
     }

@@ -19,7 +19,7 @@ use crate::model::CompletionKind;
 use crate::project::{self};
 use crate::semantic::Environment;
 use crate::session::Session;
-use jaic::sema::ModuleRanking;
+use jaic::sema::{FileSystem, ModuleRanking};
 use jaic::target::TargetOs;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -85,6 +85,7 @@ pub(crate) struct ImportKey {
     pub(crate) root: PathBuf,
     pub(crate) folders: Vec<PathBuf>,
     pub(crate) config: Option<PathBuf>,
+    pub(crate) advisory: bool,
 }
 
 #[derive(Clone, Default)]
@@ -92,13 +93,13 @@ pub(crate) struct Index {
     /// Module folders found for a program root (`modules.rs`), with the files they were read from,
     /// by everything the answer depends on besides those files.
     pub(crate) import_dirs: BTreeMap<ImportKey, (Vec<PathBuf>, Vec<PathBuf>)>,
-    /// What each build metaprogram did when it last ran to the end (`semantic::BuildFacts`),
-    /// by its canonical path. Where a metaprogram has an entry here, discovery follows it
-    /// instead of reading the metaprogram's text.
-    pub(crate) builds: BTreeMap<PathBuf, crate::semantic::BuildFacts>,
-    /// The build files run to see what they build, with a hash of everything they were run
-    /// from: a metaprogram is run again only after that changes.
-    pub(crate) probed: BTreeMap<PathBuf, u64>,
+    /// Proven positive memberships from completed producers, including checked children
+    /// of a workspace with an unrelated child failure. Current proof is owned by `Cache`.
+    pub(crate) builds: BTreeMap<PathBuf, Rc<crate::semantic::BuildFacts>>,
+    /// Last-good hints; exact discovery never consumes this map.
+    pub(crate) advisory_builds: BTreeMap<PathBuf, Rc<crate::semantic::BuildFacts>>,
+    /// Completed probe status projections; failure never establishes a no-child result.
+    pub(crate) probed: BTreeMap<PathBuf, crate::semantic::ProbeStatus>,
     /// Module lists. A file that changes makes stale only the modules read from it, which are
     /// made again when the list is next asked for.
     stdlib: Option<(PathBuf, ModuleCache)>,
@@ -127,12 +128,21 @@ pub(crate) struct Index {
     pending: Vec<String>,
     /// Log lines for the client not sent yet, and the ones sent (each goes out once).
     logs: Vec<String>,
-    /// The settings read for each config directory, with a hash of the text they were read from.
-    pub(crate) configs: BTreeMap<PathBuf, (u64, jacket_config::Loaded)>,
     logged: BTreeSet<String>,
 }
 
 impl Index {
+    /// Helper caches are not semantic input authority. Recompute them on an input memo miss.
+    pub(crate) fn discard_input_memos(&mut self) {
+        self.import_dirs.clear();
+        self.files.clear();
+        self.open.clear();
+        self.graphs.clear();
+        self.loads_seen.clear();
+        self.walked.clear();
+        self.graph_epoch += 1;
+    }
+
     /// The settings file `path` does not parse: tell the client once per distinct problem.
     pub(crate) fn bad_config(&mut self, path: &Path, problem: &str) {
         if self.reported.get(path).is_some_and(|p| p == problem) {
@@ -266,17 +276,28 @@ struct Program {
     stdlib: Option<PathBuf>,
 }
 
+struct AdvisoryInputs<'a> {
+    session: &'a Session,
+    selected_generation: u64,
+    valid: std::cell::Cell<bool>,
+}
+
 /// Files as the server sees them: open documents over the environment's file system.
 /// Made for one request: the file system is taken not to change while it lives.
 pub(crate) struct Sources<'a> {
     /// Only transactional background scans may return partial results.
     stoppable: bool,
     pub(crate) env: &'a Environment,
+    base: Rc<dyn FileSystem>,
+    role: Option<AdvisoryInputs<'a>>,
     pub(crate) open: BTreeMap<PathBuf, &'a str>,
     /// `canonical_key` of the paths asked about, each a few file system calls.
     keys: jaic::paths::CanonCache,
     /// While the stdlib's modules are read for sharing: what they were read from.
     recording: RefCell<Option<Recorded>>,
+    input_proof: Option<&'a RefCell<crate::semantic::Observations>>,
+    pub(crate) advisory: bool,
+    request_input_proof: Option<&'a RefCell<crate::semantic::Observations>>,
 }
 
 /// The paths a module list was read from (keys, with their stamps), the options asked for
@@ -295,31 +316,76 @@ struct Recorded {
 impl Session {
     /// The open documents and lint configurations over the file system of `env`.
     pub(crate) fn sources<'a>(&'a self, env: &'a Environment) -> Sources<'a> {
+        self.sources_with_provider(env, env.fs.clone(), None)
+    }
+
+    /// Advisory catalogue rows keep their existing notification-governed freshness.
+    /// They never borrow semantic or strict diagnostic-hint input authority.
+    fn advisory_sources<'a>(&'a self, env: &'a Environment) -> Sources<'a> {
+        let base = self
+            .input_epoch
+            .as_ref()
+            .map_or_else(|| env.fs.clone(), |epoch| epoch.advisory_provider());
+        let role = AdvisoryInputs {
+            session: self,
+            selected_generation: self.semantic_revision(),
+            valid: std::cell::Cell::new(true),
+        };
+        self.sources_with_provider(env, base, Some(role))
+    }
+
+    fn sources_with_provider<'a>(
+        &'a self,
+        env: &'a Environment,
+        base: Rc<dyn FileSystem>,
+        role: Option<AdvisoryInputs<'a>>,
+    ) -> Sources<'a> {
+        let capture = role.is_none() && self.capture_inputs.get() > 0;
         let keys = jaic::paths::CanonCache::new();
+        let observed = crate::semantic::ObservedFs {
+            base: &*base,
+            proof: capture.then_some(&self.input_proof),
+            secondary: capture.then_some(&self.request_input_proof),
+        };
         let open = self
             .documents
             .iter()
             .map(|(u, d)| (u, d.text.as_str()))
-            .chain(
-                self.saved_configs
-                    .iter()
-                    .map(|(u, text)| (u, text.as_str())),
-            )
-            .map(|(u, text)| (memo_key(&keys, env, Path::new(u.path())), text))
+            .chain(self.saved_configs.keys().filter_map(|u| {
+                let saved = if let Some(role) = &role {
+                    let saved = self.saved_configs.get(u)?;
+                    if saved.unavailable() {
+                        role.valid.set(false);
+                        return None;
+                    }
+                    saved
+                } else {
+                    self.saved_config_for_use(u)?
+                };
+                saved.text().map(|text| (u, text))
+            }))
+            .map(|(u, text)| {
+                let key = keys.get_or_insert_with(Path::new(u.path()), |path| {
+                    filesystem_key(&observed, path)
+                });
+                (key, text)
+            })
             .collect();
         Sources {
             stoppable: false,
             env,
+            base,
+            role,
             open,
             keys,
             recording: RefCell::default(),
+            input_proof: capture.then_some(&self.input_proof),
+            advisory: !capture,
+            request_input_proof: capture.then_some(&self.request_input_proof),
         }
     }
 }
 
-fn memo_key(keys: &jaic::paths::CanonCache, env: &Environment, path: &Path) -> PathBuf {
-    keys.get_or_insert_with(path, |path| canonical_key(env, path))
-}
 
 pub(crate) fn hash(text: &str) -> u64 {
     use std::hash::{Hash, Hasher};
@@ -331,15 +397,19 @@ pub(crate) fn hash(text: &str) -> u64 {
 /// Filesystem identity for index keys, including unsaved or not-yet-created files.
 /// Existing ancestors establish alias identity; spelling and case are otherwise preserved.
 pub(crate) fn canonical_key(env: &Environment, path: &Path) -> PathBuf {
-    let canonical = env.fs.canonical(path);
-    if canonical != project::normalize(path) || env.fs.is_file(path) || env.fs.is_dir(path) {
+    filesystem_key(&*env.fs, path)
+}
+
+pub(crate) fn filesystem_key(fs: &dyn jaic::sema::FileSystem, path: &Path) -> PathBuf {
+    let canonical = fs.canonical(path);
+    if canonical != project::normalize(path) || fs.is_file(path) || fs.is_dir(path) {
         return jaic::paths::identity_spelling(&canonical);
     }
     for parent in path.ancestors().skip(1) {
-        if env.fs.is_dir(parent) {
+        if fs.is_dir(parent) {
             let suffix = path.strip_prefix(parent).expect("ancestor prefix");
             return jaic::paths::identity_spelling(
-                &jaic::paths::file_identity(&*env.fs, parent).join(suffix),
+                &jaic::paths::file_identity(fs, parent).join(suffix),
             );
         }
     }
@@ -347,12 +417,57 @@ pub(crate) fn canonical_key(env: &Environment, path: &Path) -> PathBuf {
 }
 
 impl Sources<'_> {
+    pub(crate) fn use_advisory(&mut self) {
+        self.advisory = true;
+    }
+
+    pub(crate) fn known_build<'a>(
+        &self,
+        index: &'a Index,
+        entry: &Path,
+    ) -> Option<&'a crate::semantic::BuildFacts> {
+        index
+            .builds
+            .get(entry)
+            .or_else(|| {
+                self.advisory
+                    .then(|| index.advisory_builds.get(entry))
+                    .flatten()
+            })
+            .map(Rc::as_ref)
+    }
+
+    fn disk_fs(&self) -> crate::semantic::ObservedFs<'_> {
+        crate::semantic::ObservedFs {
+            base: &*self.base,
+            proof: self.input_proof,
+            secondary: self.request_input_proof,
+        }
+    }
+
+    fn snapshot_current(&self) -> bool {
+        self.role.as_ref().is_none_or(|role| {
+            role.valid.get() && role.session.semantic_revision() == role.selected_generation
+        })
+    }
+
     fn stopped(&self) -> bool {
-        self.stoppable && jaic::interrupt::should_stop()
+        !self.snapshot_current() || (self.stoppable && jaic::interrupt::should_stop())
+    }
+
+    fn reject_advisory(&self) {
+        if let Some(role) = &self.role {
+            role.valid.set(false);
+        }
+    }
+
+    fn accept_advisory(&self) -> bool {
+        !self.stopped() && (self.role.is_none() || !jaic::interrupt::fired())
     }
 
     pub(crate) fn key(&self, path: &Path) -> PathBuf {
-        memo_key(&self.keys, self.env, path)
+        self.keys
+            .get_or_insert_with(path, |path| filesystem_key(&self.disk_fs(), path))
     }
 
     /// While recording, `key` was read from the file system (`open`: from an open document).
@@ -363,7 +478,7 @@ impl Sources<'_> {
             } else if !recorded.stamps.contains_key(key) {
                 recorded
                     .stamps
-                    .insert(key.to_path_buf(), self.env.fs.stamp(key));
+                    .insert(key.to_path_buf(), self.base.stamp(key));
             }
         }
     }
@@ -377,7 +492,7 @@ impl Sources<'_> {
 
     /// The compiler options for `root`.
     pub(crate) fn options(&self, root: &Path) -> jaic::sema::Options {
-        let options = (self.env.options)(root);
+        let options = (self.env.options)(&self.disk_fs(), root);
         if let Some(recorded) = self.recording.borrow_mut().as_mut() {
             recorded.options.insert(
                 root.to_path_buf(),
@@ -396,11 +511,18 @@ impl Sources<'_> {
         self.note(&key, open.is_some());
         match open {
             Some(text) => Some((*text).to_string()),
-            None => self
-                .env
-                .fs
-                .read(path)
-                .map(|b| String::from_utf8_lossy(&b).into_owned()),
+            None => {
+                if let Some(bytes) = self.disk_fs().read(path) {
+                    Some(String::from_utf8_lossy(&bytes).into_owned())
+                } else {
+                    // Discovery probes absent entry candidates deliberately. Only certified
+                    // absence is a usable negative; unknown I/O cannot complete a catalogue.
+                    if self.role.is_some() && self.disk_fs().missing_file_key(path).is_none() {
+                        self.reject_advisory();
+                    }
+                    None
+                }
+            }
         }
     }
 
@@ -408,7 +530,7 @@ impl Sources<'_> {
         let key = self.key(path);
         let open = self.open.contains_key(&key);
         self.note(&key, open);
-        open || self.env.fs.is_file(path)
+        open || self.disk_fs().is_file(path)
     }
 
     /// Whether an open document lies under `key`.
@@ -420,7 +542,7 @@ impl Sources<'_> {
         let key = self.key(path);
         let open = self.open_under(&key);
         self.note(&key, open);
-        open || self.env.fs.is_dir(path)
+        open || self.disk_fs().is_dir(path)
     }
 
     /// Entries of `dir` (name, is a folder): on disk and open documents below it.
@@ -430,7 +552,8 @@ impl Sources<'_> {
         }
         let key = self.key(dir);
         self.note(&key, self.open_under(&key));
-        let mut entries: BTreeSet<(String, bool)> = self.env.fs.list_dir(dir).into_iter().collect();
+        let mut entries: BTreeSet<(String, bool)> =
+            self.disk_fs().list_dir(dir).into_iter().collect();
         for open in self.open.keys() {
             if let Ok(rest) = open.strip_prefix(&key) {
                 let mut parts = rest.iter();
@@ -455,14 +578,17 @@ impl Sources<'_> {
         self.note(path, self.open.contains_key(path));
         if let Some(text) = self.open.get(path) {
             let h = hash(text);
-            if let Some((seen, scan)) = index.open.get(path)
+            if self.advisory
+                && let Some((seen, scan)) = index.open.get(path)
                 && *seen == h
             {
                 return scan.clone();
             }
             let scan = Rc::new(exports::scan(text));
             index.note_loads(path, &scan);
-            index.open.insert(path.to_path_buf(), (h, scan.clone()));
+            if self.advisory {
+                index.open.insert(path.to_path_buf(), (h, scan.clone()));
+            }
             return scan;
         }
         if let Some(scan) = index.files.get(path) {
@@ -478,3 +604,35 @@ impl Sources<'_> {
         scan
     }
 }
+
+#[cfg(test)]
+mod exact_input_tests {
+    use super::*;
+
+    #[test]
+    fn captured_input_scan_cannot_inherit_an_advisory_hash_collision() {
+        let mut session = Session::with_environment(
+            crate::Limits::default(),
+            Environment {
+                fs: Rc::new(jaic::sema::NativeFs),
+                options: Box::new(|_, _| jaic::sema::Options::host()),
+                services: None,
+            },
+        );
+        let uri = crate::DocumentUri::parse("file:///scan-proof/main.jai").unwrap();
+        session.open(uri.clone(), 1, "new :: 2;".into()).unwrap();
+        let _capture = session.capture_discovery_inputs();
+        let sources = session.sources(session.environment.as_ref().unwrap());
+        let path = sources.key(Path::new(uri.path()));
+        let mut index = Index::default();
+        index.open.insert(
+            path.clone(),
+            (hash("new :: 2;"), Rc::new(exports::scan("old :: 1;"))),
+        );
+        let scan = sources.scan(&mut index, &path);
+        assert_eq!(scan.decls[0].name, "new");
+    }
+}
+
+#[cfg(test)]
+mod advisory_tests;

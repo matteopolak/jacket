@@ -7,6 +7,9 @@ inputs:
   triple:
     description: Rust target triple
     required: true
+  llvm:
+    description: Install the LLVM backend toolchain (frontend-only jobs can disable it)
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -32,6 +35,7 @@ runs:
       with: {node-version: '24'}
     # Downloaded each run (install_pinned.py llvm-release): the archive is ~0.9 GB and a cached copy buys nothing over the download.
     - name: Install the official LLVM release
+      if: inputs.llvm == 'true'
       shell: bash
       env:
         CPU: ${{ inputs.cpu }}

@@ -48,7 +48,10 @@ fn compile(main: &str) -> (Result<(), Box<Diagnostic>>, Vec<Diagnostic>, Compile
     // The modules above are also the standard library that imports are suggested from.
     options.preload_stdlib = Some(PathBuf::from("/modules"));
     let mut compiler = Compiler::new(options, Rc::new(fs));
-    let result = compiler.compile_program(Path::new("/main.jai"));
+    // These assertions inspect prepared user-facing help, rather than unresolved metadata.
+    let result = compiler
+        .compile_program(Path::new("/main.jai"))
+        .map_err(|error| Box::new(compiler.with_name_suggestion(&error).unwrap_or(*error)));
     let warnings = compiler.diag.warnings.clone();
     (result, warnings, compiler)
 }
@@ -375,5 +378,102 @@ fn the_same_use_inside_an_imported_module_is_silent() {
             .iter()
             .all(|w| !w.message.contains("is not in scope")),
         "{warnings:?}"
+    );
+}
+
+#[test]
+fn caller_owned_hint_context_reads_the_supplied_filesystem() {
+    let (result, _, compiler) = compile("main :: () { value := Wanted; }");
+    let error = result.expect_err("unknown identifier");
+    let legacy = compiler.with_name_suggestion(&error).unwrap();
+    assert!(
+        !import_suggestions(&legacy)
+            .iter()
+            .any(|name| name == "Widgets")
+    );
+    let mut hints = VirtualFs::default();
+    hints.insert("/modules/Widgets/module.jai", b"Wanted :: 42;".as_slice());
+    let context = jaic::sema::HintContext::default();
+    let enriched = compiler
+        .with_name_suggestion_in(&error, &context, &hints)
+        .unwrap();
+    assert_eq!(import_suggestions(&enriched), ["Widgets"]);
+    let legacy_again = compiler.with_name_suggestion(&error).unwrap();
+    assert_eq!(
+        import_suggestions(&legacy),
+        import_suggestions(&legacy_again),
+        "explicit hints cannot replace legacy compiler caches"
+    );
+}
+
+#[test]
+fn caller_owned_hint_context_observes_neighboring_builders_through_its_filesystem() {
+    let (result, _, compiler) = compile("main :: () { value := Wanted; }");
+    let error = result.expect_err("unknown identifier");
+    let mut hints = VirtualFs::default();
+    hints.insert(
+        "/builder.jai",
+        br#"#run add_build_string("Wanted :: 42;");"#.as_slice(),
+    );
+    let enriched = compiler
+        .with_name_suggestion_in(&error, &jaic::sema::HintContext::default(), &hints)
+        .unwrap();
+    assert!(
+        enriched
+            .help
+            .iter()
+            .any(|line| line.contains("builder.jai")),
+        "{enriched:?}"
+    );
+    let legacy = compiler.with_name_suggestion(&error).unwrap();
+    assert!(!legacy.help.iter().any(|line| line.contains("builder.jai")));
+}
+
+#[test]
+fn deferred_operator_imports_use_the_current_render_index_ranking() {
+    let mut fs = VirtualFs::default();
+    fs.insert(
+        "/main.jai",
+        b"Thing :: struct { n: int; } main :: () { a,b: Thing; c := a+b; }".as_slice(),
+    );
+    let overload =
+        b"Thing :: struct { n: int; }\noperator + :: (a: Thing, b: Thing) -> Thing { return a; }";
+    for module in ["AOps", "ZOps"] {
+        fs.insert(format!("/modules/{module}/module.jai"), overload.as_slice());
+    }
+    let fs = Rc::new(fs);
+    let mut options = Options::host();
+    options.runtime_support = false;
+    options.import_paths = vec![PathBuf::from("/modules")];
+    options.preload_stdlib = Some(PathBuf::from("/modules"));
+    let mut compiler = Compiler::new(options, fs.clone());
+    let raw = compiler
+        .compile_program(Path::new("/main.jai"))
+        .unwrap_err();
+    assert!(raw.operator_import_hint().is_some());
+    let early = compiler
+        .with_name_suggestion_in(&raw, &jaic::sema::HintContext::default(), &*fs)
+        .unwrap();
+    assert_eq!(import_suggestions(&early), ["AOps", "ZOps"]);
+    let mut later_fs = VirtualFs::default();
+    for module in ["AOps", "ZOps"] {
+        later_fs.insert(format!("/modules/{module}/module.jai"), overload.as_slice());
+    }
+    later_fs.insert(
+        "/modules/Popularity/module.jai",
+        b"#import \"ZOps\";".as_slice(),
+    );
+    let later = compiler
+        .with_name_suggestion_in(&raw, &jaic::sema::HintContext::default(), &later_fs)
+        .unwrap();
+    assert_eq!(
+        import_suggestions(&later),
+        ["ZOps", "AOps"],
+        "pending help uses the accepted render context rather than a diagnostic-creation ranking"
+    );
+    assert_eq!(
+        import_suggestions(&early),
+        ["AOps", "ZOps"],
+        "already prepared immutable output remains unchanged"
     );
 }

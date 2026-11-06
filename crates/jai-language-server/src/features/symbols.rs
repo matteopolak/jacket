@@ -146,6 +146,10 @@ impl Session {
     /// Over each polymorphic procedure, how many instances checking created and of what, and
     /// over each test the lenses that run it.
     pub fn code_lenses(&self, uri: &DocumentUri) -> Result<Vec<CodeLens>, Error> {
+        self.projected_document_query(uri, |key| self.code_lenses_at_key(key))
+    }
+
+    fn code_lenses_at_key(&self, uri: &DocumentUri) -> Result<Vec<CodeLens>, Error> {
         let mut lenses = self.polymorph_lenses(uri)?;
         lenses.extend(self.test_code_lenses(uri)?);
         lenses.extend(self.cost_code_lenses(uri)?);
@@ -181,6 +185,11 @@ impl Session {
 
     /// Instances of the polymorphic procedure named at `position` (for `jai.showPolymorphs`).
     pub fn polymorphs(&self, uri: &DocumentUri, position: Position) -> Vec<String> {
+        self.projected_document_query(uri, |key| Ok(self.polymorphs_at_key(key, position)))
+            .unwrap_or_default()
+    }
+
+    fn polymorphs_at_key(&self, uri: &DocumentUri, position: Position) -> Vec<String> {
         self.polymorph_rows(uri)
             .into_iter()
             .find(|(range, _, _)| range.start <= position && position <= range.end)

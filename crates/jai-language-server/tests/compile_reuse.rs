@@ -86,3 +86,67 @@ fn a_buffer_compile_time_code_read_recompiles_the_program() {
         "the edited data.txt must reach the `#run`: {after:?}"
     );
 }
+
+#[test]
+fn missing_load_diagnostics_do_not_observe_other_tests_scratch_directories() {
+    use jaic::sema::{FileSystem, NativeFs};
+    use std::path::{Path, PathBuf};
+    use std::{cell::RefCell, rc::Rc};
+    struct ChurningFs {
+        shared: PathBuf,
+        sibling: RefCell<Option<test_support::TempDir>>,
+    }
+    impl FileSystem for ChurningFs {
+        fn is_native(&self) -> bool {
+            true
+        }
+        fn read(&self, path: &Path) -> Option<Vec<u8>> {
+            NativeFs.read(path)
+        }
+        fn is_file(&self, path: &Path) -> bool {
+            NativeFs.is_file(path)
+        }
+        fn is_dir(&self, path: &Path) -> bool {
+            NativeFs.is_dir(path)
+        }
+        fn canonical(&self, path: &Path) -> PathBuf {
+            NativeFs.canonical(path)
+        }
+        fn canonical_exact(&self, path: &Path) -> Option<PathBuf> {
+            NativeFs.canonical_exact(path)
+        }
+        fn stamp(&self, path: &Path) -> Option<u64> {
+            NativeFs.stamp(path)
+        }
+        fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
+            let result = NativeFs.list_dir(path);
+            if NativeFs.canonical(path) == self.shared && self.sibling.borrow().is_none() {
+                *self.sibling.borrow_mut() =
+                    Some(test_support::TempDir::new("unrelated-help-churn"));
+            }
+            result
+        }
+    }
+    let main = "#load \"gen.jai\"; main :: () { generated(); }";
+    let dir = project("help-lookup-isolation", &[("main.jai", main)]);
+    let base = jacket_config::env::TEST_TMPDIR
+        .os()
+        .map_or_else(std::env::temp_dir, PathBuf::from);
+    let fs = Rc::new(ChurningFs {
+        shared: base.canonicalize().unwrap(),
+        sibling: RefCell::default(),
+    });
+    let mut env = test_support::lsp::environment();
+    env.fs = fs.clone();
+    let mut session = Session::with_environment(jai_language_server::Limits::default(), env);
+    let uri = uri_of(&dir.join("main.jai"));
+    session.open(uri.clone(), 1, main.into()).unwrap();
+    assert!(
+        !messages(&session, &uri).is_empty(),
+        "missing-load diagnostics need a stable private lookup scope"
+    );
+    assert!(
+        fs.sibling.borrow().is_none(),
+        "nearby-name help must stay inside this fixture's owned ancestry"
+    );
+}

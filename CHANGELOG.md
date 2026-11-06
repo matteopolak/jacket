@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The language server keeps edits current while refreshing external file changes in the background.
+- Malformed requests, cancelled checks and temporary settings-file errors no longer prevent later editor requests.
+
 ## [0.33.0] - 2026-11-04
 
 ### New

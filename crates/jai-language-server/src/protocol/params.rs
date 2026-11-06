@@ -1,98 +1,46 @@
 //! Typed request parameters as they arrive on the wire.
 use super::RequestId;
-use crate::{CallHierarchyItem, Position, Range, SymbolKind, TextChange};
+use crate::{CallHierarchyItem, Position, Range, SymbolKind};
 use serde::Deserialize;
-use serde_json::Value;
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct DocumentItem {
-    pub(super) uri: String,
-    pub(super) language_id: String,
-    pub(super) version: i32,
-    pub(super) text: String,
-}
+pub(super) use gen_lsp_types::{
+    CallHierarchyIncomingCallsParams, CallHierarchyOutgoingCallsParams, CodeActionParams,
+    DidChangeTextDocumentParams as ChangeParams, DidOpenTextDocumentParams as OpenParams,
+    DocumentDiagnosticParams as DiagnosticParams, ExecuteCommandParams as CommandParams,
+    PreviousResultId as PreviousResult, ReferenceContext, RenameParams,
+    SelectionRangeParams as SelectionParams, TextDocumentIdentifier as DocumentIdentifier,
+    TextDocumentPositionParams as PositionParams, TypeHierarchySubtypesParams,
+    TypeHierarchySupertypesParams, WorkspaceSymbolParams,
+};
 
-#[derive(Deserialize)]
-pub(super) struct DocumentIdentifier {
-    pub(super) uri: String,
-}
-
-#[derive(Deserialize)]
-pub(super) struct VersionedIdentifier {
-    pub(super) uri: String,
-    pub(super) version: i32,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct OpenParams {
-    pub(super) text_document: DocumentItem,
-}
-
+/// Shared document-only envelope for standard and Jai extension requests.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct DocumentParams {
     pub(super) text_document: DocumentIdentifier,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ChangeParams {
-    pub(super) text_document: VersionedIdentifier,
-    pub(super) content_changes: Vec<TextChange>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct PositionParams {
-    pub(super) text_document: DocumentIdentifier,
-    pub(super) position: Position,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct SelectionParams {
-    pub(super) text_document: DocumentIdentifier,
-    pub(super) positions: Vec<Position>,
-}
-
-/// The call hierarchy item a client sends back; only where it points matters.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct HierarchyItem {
-    name: String,
-    #[serde(default)]
-    detail: Option<String>,
-    uri: String,
-    range: Range,
-    selection_range: Range,
-}
-
-impl HierarchyItem {
-    pub(super) fn into_item(self) -> CallHierarchyItem {
-        self.with_kind(SymbolKind::Function)
-    }
-
-    pub(super) fn into_type(self) -> CallHierarchyItem {
-        self.with_kind(SymbolKind::Struct)
-    }
-
-    fn with_kind(self, kind: SymbolKind) -> CallHierarchyItem {
-        CallHierarchyItem {
-            name: self.name,
-            detail: self.detail.unwrap_or_default(),
-            kind,
-            uri: self.uri,
-            range: self.range,
-            selection_range: self.selection_range,
-        }
+/// The compiler uses only the returned item's location and declaration extent.
+pub(super) fn call_item(item: gen_lsp_types::CallHierarchyItem) -> CallHierarchyItem {
+    CallHierarchyItem {
+        name: item.name,
+        detail: item.detail.unwrap_or_default(),
+        kind: SymbolKind::Function,
+        uri: item.uri.as_str().to_owned(),
+        range: item.range,
+        selection_range: item.selection_range,
     }
 }
 
-#[derive(Deserialize)]
-pub(super) struct HierarchyParams {
-    pub(super) item: HierarchyItem,
+pub(super) fn type_item(item: gen_lsp_types::TypeHierarchyItem) -> CallHierarchyItem {
+    CallHierarchyItem {
+        name: item.name,
+        detail: item.detail.unwrap_or_default(),
+        kind: SymbolKind::Struct,
+        uri: item.uri.as_str().to_owned(),
+        range: item.range,
+        selection_range: item.selection_range,
+    }
 }
 
 #[derive(Deserialize)]
@@ -102,39 +50,7 @@ pub(super) struct RangeParams {
     pub(super) range: Range,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct CodeActionParams {
-    pub(super) text_document: DocumentIdentifier,
-    pub(super) range: Range,
-    #[serde(default)]
-    pub(super) context: Option<CodeActionContext>,
-}
-
-#[derive(Deserialize, Default)]
-pub(super) struct CodeActionContext {
-    #[serde(default)]
-    pub(super) diagnostics: Vec<WireDiagnostic>,
-    #[serde(default)]
-    pub(super) only: Option<Vec<String>>,
-}
-
-/// The parts of a client's diagnostic that identify a lint.
-#[derive(Deserialize)]
-pub(super) struct WireDiagnostic {
-    pub(super) range: Range,
-    #[serde(default)]
-    pub(super) code: Option<Value>,
-    #[serde(default)]
-    pub(super) source: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ReferenceContext {
-    pub(super) include_declaration: bool,
-}
-
+/// Legacy callers may omit context; its default includes declarations.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct ReferenceParams {
@@ -145,36 +61,9 @@ pub(super) struct ReferenceParams {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct RenameParams {
-    pub(super) text_document: DocumentIdentifier,
-    pub(super) position: Position,
-    pub(super) new_name: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct DiagnosticParams {
-    pub(super) text_document: DocumentIdentifier,
-    #[serde(default)]
-    pub(super) previous_result_id: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub(super) struct WorkspaceDiagnosticParams {
     #[serde(default)]
     pub(super) previous_result_ids: Vec<PreviousResult>,
-}
-
-#[derive(Deserialize)]
-pub(super) struct PreviousResult {
-    pub(super) uri: String,
-    pub(super) value: String,
-}
-
-#[derive(Deserialize)]
-pub(super) struct WorkspaceSymbolParams {
-    pub(super) query: String,
 }
 
 #[derive(Deserialize)]
@@ -184,21 +73,50 @@ pub(super) struct CommandTarget {
 }
 
 #[derive(Deserialize)]
-pub(super) struct CommandParams {
-    pub(super) command: String,
-    #[serde(default)]
-    pub(super) arguments: Vec<CommandTarget>,
-}
-
-#[derive(Deserialize)]
 pub(super) struct CancelParams {
     pub(super) id: RequestId,
 }
 
-#[derive(Deserialize)]
-pub(super) struct Envelope {
-    pub(super) jsonrpc: String,
-    pub(super) method: String,
-    #[serde(default)]
-    pub(super) params: Value,
+/// Admit edit shape before the generated untagged partial/whole union can discard an invalid range.
+/// For example, a negative line with a replacement text must fail instead of replacing the file.
+pub(super) fn change_params(
+    params: serde_json::Value,
+) -> Result<
+    (
+        gen_lsp_types::VersionedTextDocumentIdentifier,
+        Vec<crate::TextChange>,
+    ),
+    super::methods::Failure,
+> {
+    use super::helpers::decode;
+    let mut lengths = Vec::new();
+    if let Some(changes) = params
+        .get("contentChanges")
+        .and_then(serde_json::Value::as_array)
+    {
+        for change in changes {
+            if let Some(range) = change.get("range").filter(|range| !range.is_null()) {
+                let _: crate::Range = decode(range.clone())?;
+            }
+            let length = change
+                .get("rangeLength")
+                .filter(|length| !length.is_null())
+                .cloned()
+                .map(decode::<u32>)
+                .transpose()?;
+            lengths.push(length);
+        }
+    }
+    let params: ChangeParams = decode(params)?;
+    let changes = params.content_changes.into_iter().zip(lengths).map(|(change, range_length)| {
+        match change {
+            gen_lsp_types::TextDocumentContentChangeEvent::TextDocumentContentChangePartial(change) => crate::TextChange {
+                range: Some(change.range), range_length, text: change.text,
+            },
+            gen_lsp_types::TextDocumentContentChangeEvent::TextDocumentContentChangeWholeDocument(change) => crate::TextChange {
+                range: None, range_length, text: change.text,
+            },
+        }
+    }).collect();
+    Ok((params.text_document, changes))
 }

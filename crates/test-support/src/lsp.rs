@@ -26,6 +26,18 @@ pub fn repo_path(relative: &str) -> PathBuf {
     crate::repo::path(relative)
 }
 
+/// The native identity used by compiler paths, including Windows drive and separator rules.
+/// Construct watcher keys and expected native paths before installing a counting filesystem.
+///
+/// ```
+/// let path = test_support::lsp::native_identity(std::path::Path::new("."));
+/// assert!(path.is_absolute());
+/// ```
+#[must_use]
+pub fn native_identity(path: &Path) -> PathBuf {
+    jaic::paths::file_identity(&jaic::sema::NativeFs, path)
+}
+
 /// An environment that type-checks against the repository's stdlib.
 pub fn environment() -> Environment {
     environment_at(stdlib_dir(), None)
@@ -36,13 +48,13 @@ pub fn environment_at(stdlib: PathBuf, os: Option<TargetOs>) -> Environment {
     Environment {
         services: None,
         fs: Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
+        options: Box::new(move |fs, _| {
             let mut options = Options::host();
             if let Some(os) = os {
                 options.os = os;
             }
             options.import_paths = vec![stdlib.clone()];
-            options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
+            options.set_stdlib(fs, &stdlib);
             options
         }),
     }
@@ -57,14 +69,14 @@ pub fn modules_environment(os: Option<TargetOs>) -> Environment {
     Environment {
         services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |main| {
+        options: Box::new(move |fs, main| {
             let mut options = jaic::sema::Options::host();
             if let Some(os) = os {
                 options.os = os;
             }
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
             options.import_paths = jaic::project::import_paths(&dir, &[], &[], &stdlib);
-            options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
+            options.set_stdlib(fs, &stdlib);
             options
         }),
     }
@@ -75,7 +87,7 @@ pub fn lean_environment() -> Environment {
     Environment {
         services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(|_| {
+        options: Box::new(|_, _| {
             let mut options = jaic::sema::Options::host();
             options.runtime_support = false;
             options.stack_trace = false;
@@ -112,7 +124,7 @@ pub fn session_over(
         Environment {
             services: None,
             fs,
-            options: Box::new(move |_| {
+            options: Box::new(move |_, _| {
                 let mut options = Options::host();
                 options.runtime_support = false;
                 options.stack_trace = false;
@@ -187,11 +199,12 @@ pub fn open(text: &str) -> Session {
     s
 }
 
-/// Writes `files` under a fresh temporary directory named after `name` and returns it. The
-/// directory is removed when the guard drops.
+/// Writes `files` below private ancestors in a fresh scratch tree and returns its project view.
+/// Nearby-name help stays within that owned tree; dropping the guard removes every ancestor.
+/// For example, `project("sample", &[("main.jai", "main :: () {}")])` gives a root for `uri_of`.
 #[must_use]
 pub fn project(name: &str, files: &[(&str, &str)]) -> TempDir {
-    let dir = TempDir::new(&format!("jailsp-{name}"));
+    let dir = TempDir::new(&format!("jailsp-{name}")).nested("workspace/project/source");
     dir.write_all(files);
     dir
 }

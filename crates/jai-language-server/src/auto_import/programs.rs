@@ -100,7 +100,7 @@ impl Sources<'_> {
         file: &Path,
         base: Option<&Path>,
     ) -> PathBuf {
-        let stdlib = (self.env.options)(file).stdlib_root().map(|p| self.key(p));
+        let stdlib = self.options(file).stdlib_root().map(|p| self.key(p));
         let search = match stdlib {
             Some(s) if file.starts_with(&s) => Some(s),
             _ => base.map(Path::to_path_buf),
@@ -141,9 +141,7 @@ impl Sources<'_> {
                     .map(|p| self.key(&p)),
             );
         }
-        let mut fallback = BTreeSet::new();
         for path in open {
-            let program = self.program(index, path, folders);
             if let Some((dir, config)) = self.config(index, path) {
                 entries.extend(
                     project::entry_files(&dir, Some(&config))
@@ -153,12 +151,14 @@ impl Sources<'_> {
                         .map(|p| self.key(&p)),
                 );
             }
-            if !jaic::paths::is_module_entry(&program.root) {
-                fallback.insert(program.root);
-            }
         }
         if entries.is_empty() {
-            entries = fallback;
+            for path in open {
+                let program = self.program(index, path, folders);
+                if !jaic::paths::is_module_entry(&program.root) {
+                    entries.insert(program.root);
+                }
+            }
         }
         entries
     }
@@ -242,7 +242,7 @@ impl Sources<'_> {
             Some(base) if entries.contains(&root) => base.clone(),
             _ => root_dir.clone(),
         };
-        let mut options = (self.env.options)(&root);
+        let mut options = self.options(&root);
         let found = self.import_dirs(index, &root, folders).0;
         jaic::project::add_import_dirs(&mut options.import_paths, &found);
         let stdlib = options.stdlib_root().map(Path::to_path_buf);
@@ -273,6 +273,69 @@ impl Sources<'_> {
             module_dirs,
             os: options.os,
             stdlib,
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::Cell;
+
+    #[test]
+    fn explicit_entries_skip_unused_fallbacks_but_unconfigured_files_keep_loaders() {
+        for configured in [false, true] {
+            let mut fs = jaic::sema::VirtualFs::default();
+            for (path, text) in [
+                ("/loose/fragment.jai", "value :: 1;"),
+                ("/loose/owner.jai", "#load \"fragment.jai\"; main :: () {}"),
+                ("/selected/extra.jai", "extra :: 1;"),
+                ("/selected/a.jai", "main :: () {}"),
+                ("/selected/jacket.toml", "[project]\nentry=[\"a.jai\"]\n"),
+            ] {
+                fs.insert(path, text.as_bytes());
+            }
+            let calls = Rc::new(Cell::new(0));
+            let counted = calls.clone();
+            let session = crate::Session::with_environment(
+                crate::Limits::default(),
+                crate::Environment {
+                    fs: Rc::new(fs),
+                    services: None,
+                    options: Box::new(move |_, _| {
+                        counted.set(counted.get() + 1);
+                        let mut options = jaic::sema::Options::host();
+                        options.runtime_support = false;
+                        options.stack_trace = false;
+                        options
+                    }),
+                },
+            );
+            let mut open = vec![PathBuf::from("/loose/fragment.jai")];
+            if configured {
+                open.push("/selected/extra.jai".into());
+            }
+            let sources = session.sources(session.environment.as_ref().unwrap());
+            let entries = sources.workspace_entries(&mut Index::default(), &[], &open);
+            let expected = if configured {
+                "/selected/a.jai"
+            } else {
+                "/loose/owner.jai"
+            };
+            assert_eq!(entries, BTreeSet::from([PathBuf::from(expected)]));
+            if configured {
+                assert_eq!(
+                    calls.get(),
+                    0,
+                    "a later configured entry makes every fallback unnecessary"
+                );
+            } else {
+                assert!(
+                    calls.get() > 0,
+                    "without entries, the original loader fallback still runs"
+                );
+            }
         }
     }
 }

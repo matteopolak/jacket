@@ -78,7 +78,7 @@ Cargo only selects crate versions published at least 14 days ago, direct and tra
 
 `inkwell` comes from a pinned git commit until a crates.io release supports the LLVM version we build against; then switch back to `version = "..."` and drop `allowBuiltinFetchGit` in `nix/jaic.nix`. Put shared dependencies in `[workspace.dependencies]`, prefer exact versions, and never weaken the age policy to resolve a conflict.
 
-`cargo machete` and `cargo deny` run in the `dependency-hygiene` job; `deny.toml` holds the license and source policy.
+`cargo machete` and `cargo deny` run in the `dependency-hygiene` job; `deny.toml` holds the license and source policy. The generated LSP schema uses `fluent-uri`, whose `borrow-or-share` dependency carries MIT-0 (MIT No Attribution); its shipped grant and warranty terms were reviewed before adding that license to the allowlist.
 
 ## Fixing reported bugs
 

@@ -119,11 +119,23 @@ impl Session {
     }
 
     pub(crate) fn reachable(&self, uri: &DocumentUri) -> Vec<&DocumentUri> {
+        self.reachable_with(uri, None)
+    }
+
+    pub(crate) fn reachable_with(
+        &self,
+        uri: &DocumentUri,
+        fs: Option<&crate::semantic::ObservedFs<'_>>,
+    ) -> Vec<&DocumentUri> {
         let mut pending = vec![uri.clone()];
         let mut seen = BTreeSet::new();
         let mut out = vec![];
         while let Some(next) = pending.pop() {
-            let next = self.document_uri(&next).unwrap_or(next);
+            let next = match fs {
+                Some(fs) => self.projected_uri(fs, std::path::Path::new(next.path())),
+                None => self.document_uri(&next),
+            }
+            .unwrap_or(next);
             if !seen.insert(next.clone()) {
                 continue;
             }
@@ -160,7 +172,29 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Vec<(&DocumentUri, &SymbolRow)>, Error> {
-        let (uri, doc) = self.document_entry(uri)?;
+        self.bindings_with(uri, position, None)
+    }
+
+    /// Resolve client-buffer lexical bindings while capturing actual alias identity reads.
+    pub(crate) fn projected_bindings(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        uri: &DocumentUri,
+        position: Position,
+    ) -> Result<Vec<(&DocumentUri, &SymbolRow)>, Error> {
+        self.bindings_with(uri, position, Some(fs))
+    }
+
+    fn bindings_with(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+        fs: Option<&crate::semantic::ObservedFs<'_>>,
+    ) -> Result<Vec<(&DocumentUri, &SymbolRow)>, Error> {
+        let (uri, doc) = match fs {
+            Some(fs) => self.projected_document_entry(fs, uri)?,
+            None => self.document_entry(uri)?,
+        };
         let byte = doc.index.byte(&doc.text, position);
         let Some((at, token)) = self.word(uri, position)? else {
             return Ok(vec![]);
@@ -206,7 +240,7 @@ impl Session {
             return Ok(vec![(uri, *row)]);
         }
         let mut out = vec![];
-        for candidate in self.reachable(uri) {
+        for candidate in self.reachable_with(uri, fs) {
             for row in &self.analyses[candidate].rows {
                 if row.parent.is_none()
                     && !row.local

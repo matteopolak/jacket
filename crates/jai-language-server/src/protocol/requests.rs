@@ -1,16 +1,19 @@
 //! Request handlers.
-use super::helpers::{array, at, decode, document, domain, fail, folder_path, internal, uri};
-use super::methods::{ErrorCode, Failure, Reply, Request, ServerCommand};
+use super::helpers::{array, at, decode, document, domain, fail, internal, uri};
+use super::methods::{ErrorCode, Failure, Request, ServerCommand};
 use super::params::{
-    CodeActionParams, CommandParams, DiagnosticParams, DocumentIdentifier, HierarchyParams,
-    RangeParams, ReferenceParams, RenameParams, SelectionParams, WorkspaceDiagnosticParams,
-    WorkspaceSymbolParams,
+    CallHierarchyIncomingCallsParams, CallHierarchyOutgoingCallsParams, CodeActionParams,
+    CommandParams, CommandTarget, DiagnosticParams, DocumentIdentifier, RangeParams,
+    ReferenceParams, RenameParams, SelectionParams, TypeHierarchySubtypesParams,
+    TypeHierarchySupertypesParams, WorkspaceDiagnosticParams, WorkspaceSymbolParams, call_item,
+    type_item,
 };
 use super::wire::{
-    SymbolsWire, capabilities, code_action_wire, code_lens_wire, document_report, edit_wire,
+    code_action_wire, code_lens_wire, document_report, document_symbol_wire, edit_wire,
     expansion_wire, folding_wire, hierarchy_call_wire, hierarchy_item_wire, hover_kind, hover_wire,
-    inlay_wire, locations_wire, selection_wire, semantic_tokens_wire, signature_kind,
-    signature_wire, symbol_information_wire, token_edit, workspace_edit_wire,
+    initialize_wire, inlay_wire, locations_wire, selection_wire, semantic_tokens_wire,
+    signature_kind, signature_wire, standard_uri, standard_value, symbol_information_wire,
+    token_delta_wire, workspace_document_report, workspace_edit_wire,
 };
 use super::{JsonSession, Lifecycle};
 use crate::DocumentUri;
@@ -19,7 +22,8 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 
 impl JsonSession {
-    pub(super) fn request(&mut self, method: &str, params: Value) -> Result<Reply, Failure> {
+    pub(super) fn request(&mut self, method: &str, params: Value) -> Result<Value, Failure> {
+        let _inputs = self.session.discovery_query();
         let request = Request::parse(method);
         if request != Some(Request::Initialize) {
             self.ensure_running()?;
@@ -48,7 +52,8 @@ impl JsonSession {
             Request::Completion => {
                 let (document, position) = at(params)?;
                 let list = self.session.completion(&document, position);
-                completion_wire(&list.map_err(domain)?)
+                return serde_json::to_value(completion_wire(list.map_err(domain)?))
+                    .map_err(internal);
             }
             Request::CompletionResolve => self.resolve_completion(params),
             Request::Definition => {
@@ -74,7 +79,10 @@ impl JsonSession {
                 if ranges.is_empty() {
                     Value::Null
                 } else {
-                    json!({ "ranges": ranges, "wordPattern": "[A-Za-z_][A-Za-z0-9_]*" })
+                    standard_value(gen_lsp_types::LinkedEditingRanges {
+                        ranges,
+                        word_pattern: Some("[A-Za-z_][A-Za-z0-9_]*".into()),
+                    })
                 }
             }
             Request::PrepareTypeHierarchy => {
@@ -86,13 +94,13 @@ impl JsonSession {
                 }
             }
             Request::Supertypes => {
-                let p: HierarchyParams = decode(params)?;
-                let items = self.session.supertypes(&p.item.into_type());
+                let p: TypeHierarchySupertypesParams = decode(params)?;
+                let items = self.session.supertypes(&type_item(p.item));
                 array(&items.map_err(domain)?, hierarchy_item_wire)
             }
             Request::Subtypes => {
-                let p: HierarchyParams = decode(params)?;
-                let items = self.session.subtypes(&p.item.into_type());
+                let p: TypeHierarchySubtypesParams = decode(params)?;
+                let items = self.session.subtypes(&type_item(p.item));
                 array(&items.map_err(domain)?, hierarchy_item_wire)
             }
             Request::Declaration => {
@@ -113,13 +121,13 @@ impl JsonSession {
                 let p: RangeParams = decode(params)?;
                 let edits = self
                     .session
-                    .format(&uri(&p.text_document.uri)?, Some(p.range));
+                    .format(&uri(p.text_document.uri.as_str())?, Some(p.range));
                 array(&edits.map_err(domain)?, edit_wire)
             }
             Request::References => {
                 let p: ReferenceParams = decode(params)?;
                 let declaration = p.context.is_none_or(|c| c.include_declaration);
-                let document = uri(&p.text_document.uri)?;
+                let document = uri(p.text_document.uri.as_str())?;
                 let found = self.session.references(&document, p.position, declaration);
                 locations_wire(&found.map_err(domain)?)
             }
@@ -132,8 +140,9 @@ impl JsonSession {
             }
             Request::Rename => {
                 let p: RenameParams = decode(params)?;
-                let document = uri(&p.text_document.uri)?;
-                let edits = self.session.rename(&document, p.position, &p.new_name);
+                let at = p.text_document_position_params;
+                let document = uri(at.text_document.uri.as_str())?;
+                let edits = self.session.rename(&document, at.position, &p.new_name);
                 edits
                     .map_err(domain)?
                     .map_or(Value::Null, workspace_edit_wire)
@@ -141,10 +150,12 @@ impl JsonSession {
             Request::DocumentHighlight => {
                 let (document, position) = at(params)?;
                 let ranges = self.session.document_highlights(&document, position);
-                array(
-                    ranges.map_err(domain)?,
-                    |range| json!({ "range": range, "kind": 1 }),
-                )
+                array(ranges.map_err(domain)?, |range| {
+                    standard_value(gen_lsp_types::DocumentHighlight {
+                        range,
+                        kind: Some(gen_lsp_types::DocumentHighlightKind::Text),
+                    })
+                })
             }
             Request::WorkspaceSymbol => {
                 let p: WorkspaceSymbolParams = decode(params)?;
@@ -155,10 +166,14 @@ impl JsonSession {
             }
             Request::DocumentLink => {
                 let links = self.session.document_links(&document(params)?);
-                array(
-                    links.map_err(domain)?,
-                    |(range, target)| json!({ "range": range, "target": target }),
-                )
+                array(links.map_err(domain)?, |(range, target)| {
+                    standard_value(gen_lsp_types::DocumentLink {
+                        range,
+                        target: Some(standard_uri(&target)),
+                        tooltip: None,
+                        data: None,
+                    })
+                })
             }
             Request::FoldingRange => {
                 let ranges = self.session.folding_ranges(&document(params)?);
@@ -168,7 +183,7 @@ impl JsonSession {
                 let p: RangeParams = decode(params)?;
                 let hints = self
                     .session
-                    .inlay_hints(&uri(&p.text_document.uri)?, p.range);
+                    .inlay_hints(&uri(p.text_document.uri.as_str())?, p.range);
                 array(&hints.map_err(domain)?, inlay_wire)
             }
             Request::SignatureHelp => {
@@ -189,20 +204,20 @@ impl JsonSession {
                 }
             }
             Request::IncomingCalls => {
-                let p: HierarchyParams = decode(params)?;
-                let calls = self.session.incoming_calls(&p.item.into_item());
+                let p: CallHierarchyIncomingCallsParams = decode(params)?;
+                let calls = self.session.incoming_calls(&call_item(p.item));
                 array(&calls.map_err(domain)?, |c| hierarchy_call_wire(c, "from"))
             }
             Request::OutgoingCalls => {
-                let p: HierarchyParams = decode(params)?;
-                let calls = self.session.outgoing_calls(&p.item.into_item());
+                let p: CallHierarchyOutgoingCallsParams = decode(params)?;
+                let calls = self.session.outgoing_calls(&call_item(p.item));
                 array(&calls.map_err(domain)?, |c| hierarchy_call_wire(c, "to"))
             }
             Request::SelectionRange => {
                 let p: SelectionParams = decode(params)?;
                 let ranges = self
                     .session
-                    .selection_ranges(&uri(&p.text_document.uri)?, &p.positions);
+                    .selection_ranges(&uri(p.text_document.uri.as_str())?, &p.positions);
                 array(&ranges.map_err(domain)?, selection_wire)
             }
             Request::CodeLens => {
@@ -220,14 +235,17 @@ impl JsonSession {
             }
             Request::DocumentDiagnostic => {
                 let p: DiagnosticParams = decode(params)?;
-                let target = uri(&p.text_document.uri)?;
-                let (version, diagnostics) = self.pulled(&target);
-                document_report(None, version, &diagnostics, p.previous_result_id.as_deref())
+                let target = uri(p.text_document.uri.as_str())?;
+                let (_, diagnostics) = self.pulled(&target)?;
+                standard_value(document_report(
+                    &diagnostics,
+                    p.previous_result_id.as_deref(),
+                ))
             }
             Request::WorkspaceDiagnostic => self.workspace_diagnostics(params)?,
             Request::Source => self.source(params)?,
         };
-        Ok(Reply::Value(result))
+        Ok(result)
     }
 
     fn initialize(&mut self, params: Value) -> Result<Value, Failure> {
@@ -237,89 +255,98 @@ impl JsonSession {
                 "Server is already initialized",
             ));
         }
-        if !params.is_object() && !params.is_null() {
-            return Err(fail(
-                ErrorCode::InvalidParams,
-                "Initialize parameters must be an object",
-            ));
-        }
-        self.lifecycle = Lifecycle::Running;
-        self.hover_kind = hover_kind(&params);
-        self.signature_kind = signature_kind(&params);
-        self.pull_diagnostics = params
-            .pointer("/capabilities/textDocument/diagnostic")
-            .is_some_and(Value::is_object);
+        let params: gen_lsp_types::InitializeParams = decode(params)?;
+        let caps = &params.capabilities;
+        let document = caps.text_document.as_ref();
+        let workspace = caps.workspace.as_ref();
+        self.lifecycle = Lifecycle::AwaitInitialized;
+        self.hover_kind = hover_kind(caps);
+        self.signature_kind = signature_kind(caps);
+        self.pull_diagnostics = document.and_then(|d| d.diagnostic.as_ref()).is_some();
         self.refresh_diagnostics = self.pull_diagnostics
-            && params
-                .pointer("/capabilities/workspace/diagnostics/refreshSupport")
-                .and_then(Value::as_bool)
+            && workspace
+                .and_then(|w| w.diagnostics.as_ref())
+                .and_then(|d| d.refresh_support)
                 == Some(true);
-        self.refresh_code_lenses = params
-            .pointer("/capabilities/workspace/codeLens/refreshSupport")
-            .and_then(Value::as_bool)
+        self.refresh_code_lenses = workspace
+            .and_then(|w| w.code_lens.as_ref())
+            .and_then(|c| c.refresh_support)
             == Some(true);
-        let refreshes =
-            |pointer: &str| params.pointer(pointer).and_then(Value::as_bool) == Some(true);
-        self.refresh_inlay_hints = refreshes("/capabilities/workspace/inlayHint/refreshSupport");
-        self.refresh_semantic_tokens =
-            refreshes("/capabilities/workspace/semanticTokens/refreshSupport");
+        self.refresh_inlay_hints = workspace
+            .and_then(|w| w.inlay_hint.as_ref())
+            .and_then(|c| c.refresh_support)
+            == Some(true);
+        self.refresh_semantic_tokens = workspace
+            .and_then(|w| w.semantic_tokens.as_ref())
+            .and_then(|c| c.refresh_support)
+            == Some(true);
         self.session.set_snippet_support(
-            params
-                .pointer("/capabilities/textDocument/completion/completionItem/snippetSupport")
-                .and_then(Value::as_bool)
+            document
+                .and_then(|d| d.completion.as_ref())
+                .and_then(|c| c.completion_item.as_ref())
+                .and_then(|c| c.snippet_support)
                 == Some(true),
         );
-        self.configure(&params["initializationOptions"]);
-        // A server started untrusted (`--untrusted`) stays so unless the client grants
-        // trust later; initialization options can only withhold it.
-        if params["initializationOptions"]["trusted"].as_bool() == Some(false) {
+        let options = params.initialization_options.unwrap_or(Value::Null);
+        self.configure(&options);
+        // An untrusted server stays so unless the client explicitly grants trust later.
+        if options["trusted"].as_bool() == Some(false) {
             self.session.set_trusted(false);
         }
-        let folders: Vec<PathBuf> = match params["workspaceFolders"].as_array() {
-            Some(folders) => folders
+        let path = |uri: &gen_lsp_types::Uri| {
+            DocumentUri::parse(uri.as_str())
+                .ok()
+                .map(|uri| PathBuf::from(uri.path()))
+        };
+        #[expect(deprecated, reason = "rootUri remains supported for older clients")]
+        let folders = match params.workspace_folders_initialize_params.workspace_folders {
+            Some(gen_lsp_types::WorkspaceFolders::WorkspaceFolderList(folders)) => folders
                 .iter()
-                .filter_map(|f| folder_path(&f["uri"]))
+                .filter_map(|folder| path(&folder.uri))
                 .collect(),
-            None => folder_path(&params["rootUri"]).into_iter().collect(),
+            None | Some(gen_lsp_types::WorkspaceFolders::Null) => params
+                .root_uri
+                .as_ref()
+                .and_then(path)
+                .into_iter()
+                .collect(),
         };
         self.session.set_workspace_folders(folders);
-        Ok(json!({
-            "capabilities": capabilities(self.pull_diagnostics),
-            "serverInfo": {
-                "name": "jai-language-server",
-                "version": env!("CARGO_PKG_VERSION"),
-            },
-        }))
+        Ok(initialize_wire(self.pull_diagnostics))
     }
 
     /// The whole document's tokens, remembered under a new result id for `delta` requests.
-    fn semantic_tokens(&mut self, params: Value) -> Result<Reply, Failure> {
+    fn semantic_tokens(&mut self, params: Value) -> Result<Value, Failure> {
         let document = document(params)?;
         let tokens = self.session.semantic_tokens(&document).map_err(domain)?;
         let data = semantic_tokens_wire(&tokens);
         drop(tokens);
         let id = self.remember_tokens(&document, &data);
-        let data = serde_json::to_string(&data).map_err(internal)?;
-        Ok(Reply::Raw(format!(
-            "{{\"resultId\":\"{id}\",\"data\":{data}}}"
-        )))
+        serde_json::to_value(&gen_lsp_types::SemanticTokens {
+            result_id: Some(id.to_string()),
+            data,
+        })
+        .map_err(internal)
     }
 
     /// The tokens that start inside a range, encoded from the start of the document.
-    fn semantic_tokens_range(&mut self, params: Value) -> Result<Reply, Failure> {
+    fn semantic_tokens_range(&mut self, params: Value) -> Result<Value, Failure> {
         let p: RangeParams = decode(params)?;
-        let document = uri(&p.text_document.uri)?;
+        let document = uri(p.text_document.uri.as_str())?;
         let tokens = self
             .session
             .semantic_tokens_in(&document, p.range)
             .map_err(domain)?;
-        let data = serde_json::to_string(&semantic_tokens_wire(&tokens)).map_err(internal)?;
-        Ok(Reply::Raw(format!("{{\"data\":{data}}}")))
+        serde_json::to_value(&gen_lsp_types::SemanticTokens {
+            result_id: None,
+            data: semantic_tokens_wire(&tokens),
+        })
+        .map_err(internal)
     }
 
     /// What changed since the tokens `previousResultId` named, as one edit of the integer
     /// array; the whole array when that result is not the last one sent.
-    fn semantic_tokens_delta(&mut self, params: Value) -> Result<Reply, Failure> {
+    fn semantic_tokens_delta(&mut self, params: Value) -> Result<Value, Failure> {
         let previous = params["previousResultId"].as_str().map(str::to_owned);
         let document = document(params)?;
         let tokens = self.session.semantic_tokens(&document).map_err(domain)?;
@@ -327,25 +354,26 @@ impl JsonSession {
         drop(tokens);
         let old = self.token_results.get(document.as_str()).cloned();
         let id = self.remember_tokens(&document, &data);
-        let text = match old {
+        let value = match old {
             Some((old_id, old_data))
                 if previous.as_deref() == Some(old_id.to_string().as_str()) =>
             {
-                let (start, delete, insert) = token_edit(&old_data, &data);
-                let insert = serde_json::to_string(insert).map_err(internal)?;
-                format!(
-                    "{{\"resultId\":\"{id}\",\"edits\":[{{\"start\":{start},\"deleteCount\":{delete},\"data\":{insert}}}]}}"
-                )
+                token_delta_wire(id, &old_data, &data).map_err(internal)?
             }
-            _ => {
-                let data = serde_json::to_string(&data).map_err(internal)?;
-                format!("{{\"resultId\":\"{id}\",\"data\":{data}}}")
-            }
+            _ => serde_json::to_value(&gen_lsp_types::SemanticTokens {
+                result_id: Some(id.to_string()),
+                data,
+            })
+            .map_err(internal)?,
         };
-        Ok(Reply::Raw(text))
+        Ok(value)
     }
 
-    fn remember_tokens(&mut self, document: &DocumentUri, data: &[u32]) -> u64 {
+    fn remember_tokens(
+        &mut self,
+        document: &DocumentUri,
+        data: &[gen_lsp_types::SemanticToken],
+    ) -> u64 {
         self.token_result_ids += 1;
         // Closed documents are not forgotten one by one; the table is just kept small.
         if self.token_results.len() > 64 {
@@ -358,13 +386,13 @@ impl JsonSession {
         self.token_result_ids
     }
 
-    fn document_symbols(&mut self, params: Value) -> Result<Reply, Failure> {
+    fn document_symbols(&mut self, params: Value) -> Result<Value, Failure> {
         let symbols = self
             .session
             .document_symbols(&document(params)?)
             .map_err(domain)?;
-        let text = serde_json::to_string(&SymbolsWire(&symbols)).map_err(internal)?;
-        Ok(Reply::Raw(text))
+        let symbols: Vec<_> = symbols.into_iter().map(document_symbol_wire).collect();
+        serde_json::to_value(symbols).map_err(internal)
     }
 
     /// The documentation of an item whose list left it out.
@@ -377,32 +405,49 @@ impl JsonSession {
             })
         });
         if let Some(doc) = data.and_then(|d| self.session.completion_documentation(&d)) {
-            item["documentation"] = json!({ "kind": "markdown", "value": doc });
+            item["documentation"] = standard_value(gen_lsp_types::MarkupContent {
+                kind: gen_lsp_types::MarkupKind::Markdown,
+                value: doc,
+            });
         }
         item
     }
 
     fn code_actions(&mut self, params: Value) -> Result<Value, Failure> {
         let p: CodeActionParams = decode(params)?;
-        let context = p.context.unwrap_or_default();
+        let context = p.context;
         let context = crate::lints::ActionContext {
-            only: context.only,
+            only: context.only.map(|kinds| {
+                kinds
+                    .into_iter()
+                    .map(|kind| kind.as_str().to_owned())
+                    .collect()
+            }),
             diagnostics: context
                 .diagnostics
                 .into_iter()
                 .filter(|d| matches!(d.source.as_deref(), Some("jailint" | "jaic")))
-                .filter_map(|d| Some((d.code?.as_str()?.to_string(), d.range)))
+                .filter_map(|d| match d.code? {
+                    gen_lsp_types::Code::String(code) => Some((code, d.range)),
+                    gen_lsp_types::Code::Int(_) => None,
+                })
                 .collect(),
         };
-        let actions = self
-            .session
-            .code_actions_in(&uri(&p.text_document.uri)?, p.range, &context);
+        let actions =
+            self.session
+                .code_actions_in(&uri(p.text_document.uri.as_str())?, p.range, &context);
         Ok(array(&actions.map_err(domain)?, code_action_wire))
     }
 
     fn execute_command(&mut self, params: Value) -> Result<Value, Failure> {
         let p: CommandParams = decode(params)?;
-        let Some(target) = p.arguments.first() else {
+        let targets: Vec<CommandTarget> = p
+            .arguments
+            .unwrap_or_default()
+            .into_iter()
+            .map(decode)
+            .collect::<Result<_, _>>()?;
+        let Some(target) = targets.first() else {
             return Err(fail(
                 ErrorCode::InvalidParams,
                 "The command needs a {uri, position} argument",
@@ -433,30 +478,37 @@ impl JsonSession {
 
     fn workspace_diagnostics(&mut self, params: Value) -> Result<Value, Failure> {
         let p: WorkspaceDiagnosticParams = decode(params)?;
-        let items: Vec<Value> = self
+        let items = self
             .session
-            .publications()
+            .diagnostic_reports()
+            .map_err(domain)?
             .into_iter()
             .map(|(target, version, diagnostics)| {
                 let previous = p
                     .previous_result_ids
                     .iter()
-                    .find(|r| r.uri == target)
+                    .find(|r| r.uri.as_str() == target)
                     .map(|r| r.value.as_str());
-                document_report(Some(&target), Some(version), &diagnostics, previous)
+                workspace_document_report(&target, Some(version), &diagnostics, previous)
             })
             .collect();
-        Ok(json!({ "items": items }))
+        Ok(standard_value(gen_lsp_types::WorkspaceDiagnosticReport {
+            items,
+        }))
     }
 
     /// The text of a definition's file the client has not opened (a module or stdlib file), so a
     /// browser editor can show it read-only; or of a `jai-expansion:` document.
     fn source(&mut self, params: Value) -> Result<Value, Failure> {
         let p: DocumentIdentifier = decode(params)?;
-        let text = if p.uri.starts_with(crate::features::EXPANSION_SCHEME) {
-            self.session.expansion_source(&p.uri)
+        let text = if p
+            .uri
+            .as_str()
+            .starts_with(crate::features::EXPANSION_SCHEME)
+        {
+            self.session.expansion_source(p.uri.as_str())
         } else {
-            self.session.source(&uri(&p.uri)?)
+            self.session.source(&uri(p.uri.as_str())?)
         };
         Ok(text.map_or(Value::Null, Value::String))
     }

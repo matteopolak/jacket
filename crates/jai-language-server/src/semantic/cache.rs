@@ -13,8 +13,62 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
+/// A selected analysis whose captured inputs were just validated by this cache.
+/// It is borrow-scoped and consumed once by the semantic query transaction.
+pub(crate) struct QueryAnalysis<'a>(&'a mut Analysis);
+
+impl std::ops::Deref for QueryAnalysis<'_> {
+    type Target = Analysis;
+
+    fn deref(&self) -> &Analysis {
+        self.0
+    }
+}
+
+impl<'a> QueryAnalysis<'a> {
+    pub(crate) fn focus(&mut self, path: &Path) {
+        self.0.focus(path);
+    }
+
+    pub(crate) fn into_analysis(self) -> &'a mut Analysis {
+        self.0
+    }
+
+    /// Detached/advisory work enters through an explicit complete validation.
+    pub(crate) fn validate(
+        analysis: &'a mut Analysis,
+        env: &Environment,
+        proof: &super::Observations,
+    ) -> Option<Self> {
+        analysis.reads.borrow_mut().disk.merge(proof);
+        if !analysis.query_valid
+            || !analysis.restore_actual_inputs()
+            || jaic::interrupt::fired()
+            || !analysis.reads.borrow().is_current(&*env.fs)
+        {
+            analysis.invalidate_reference_views(true);
+            return None;
+        }
+        Some(Self(analysis))
+    }
+}
+
+pub(crate) enum QuerySelection<'a> {
+    Exact { compile: bool, os: Option<TargetOs> },
+    Latest,
+    Prefix { path: &'a Path, prefix: &'a [u8] },
+}
+
+enum BuildKind {
+    Exact(Option<TargetOs>),
+    Advisory,
+}
+
 pub struct Cache {
+    input_epoch: Option<std::rc::Weak<super::input_epoch::InputEpochFs>>,
+    authority: Rc<()>,
     entries: Vec<Analysis>,
+    input_proof: super::Observations,
     /// Canonical forms of the paths compiled, so a request does not ask the file system again.
     canonical: jaic::paths::CanonCache,
     /// Programs compiled so far.
@@ -28,27 +82,32 @@ pub struct Cache {
     /// What bounds a compile's compile-time code (the client's settings); change it with
     /// `set_limits`.
     limits: CheckLimits,
-    /// The last good run of each build metaprogram (by its canonical root path). A run that
-    /// fails or runs out of budget leaves these alone.
-    pub(crate) recorded: BTreeMap<PathBuf, BuildFacts>,
-    /// Moves on whenever `recorded` changes.
+    /// Currently proven positive build memberships, by canonical producer path.
+    /// Last-good advisory metadata is retained separately by `probes`.
+    pub(crate) recorded: BTreeMap<PathBuf, Rc<BuildFacts>>,
+    probes: super::probes::Probes,
+    /// Moves on when published probe memberships or statuses change.
     pub(crate) recorded_version: u64,
     /// Limits the compiles since the last `take_limit_hits` ran into.
-    limit_hits: Vec<super::queries::LimitHit>,
+    limit_hits: super::notices::Notices,
 }
 
 impl Default for Cache {
     fn default() -> Self {
         Cache {
+            input_epoch: None,
+            authority: Rc::new(()),
             entries: Vec::new(),
+            input_proof: super::Observations::default(),
             canonical: jaic::paths::CanonCache::default(),
             compiles: 0,
             parses: shared_parses(),
             untrusted: false,
             limits: CheckLimits::default(),
             recorded: BTreeMap::new(),
+            probes: super::probes::Probes::default(),
             recorded_version: 0,
-            limit_hits: Vec::new(),
+            limit_hits: super::notices::Notices::default(),
         }
     }
 }
@@ -114,16 +173,170 @@ fn quick_key(root: &Path, dirs: &[PathBuf], files: &Buffers, os: Option<TargetOs
 }
 
 impl Cache {
+    pub(crate) fn set_input_epoch(
+        &mut self,
+        epoch: Option<std::rc::Weak<super::input_epoch::InputEpochFs>>,
+    ) {
+        self.input_epoch = epoch;
+    }
+
+    /// Select and validate immediately before a semantic callback.
+    /// Example: an exact deferred request uses `Exact { compile: false, os: None }`.
+    pub(crate) fn query(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+        files: Buffers,
+        selection: QuerySelection<'_>,
+    ) -> Option<QueryAnalysis<'_>> {
+        match selection {
+            QuerySelection::Exact {
+                compile,
+                os,
+            } => {
+                let analysis = if compile {
+                    self.analyze_for(env, root, dirs, files, os)?
+                } else {
+                    let at = self.lookup(env, root, dirs, &files, os).ok()?;
+                    &mut self.entries[at]
+                };
+                Some(QueryAnalysis(analysis))
+            }
+            QuerySelection::Latest => self.latest(env, root, dirs).map(QueryAnalysis),
+            QuerySelection::Prefix {
+                path,
+                prefix,
+            } => self
+                .compiled_before(env, root, dirs, files, path, prefix)
+                .map(QueryAnalysis),
+        }
+    }
+
+    pub(crate) fn authority(&self) -> &Rc<()> {
+        &self.authority
+    }
+
+    pub(crate) fn set_input_proof(&mut self, proof: super::Observations) {
+        self.input_proof = proof;
+    }
+
+    fn refresh_probe_views(&mut self) {
+        self.recorded = self.probes.facts();
+        self.recorded_version += 1;
+    }
+
+    pub(crate) fn restore_advisory(&mut self, facts: BTreeMap<PathBuf, Rc<BuildFacts>>) {
+        self.probes.restore_advisory(facts);
+        self.refresh_probe_views();
+    }
+
+    pub(crate) fn probe_statuses(&self) -> BTreeMap<PathBuf, super::ProbeStatus> {
+        self.probes.statuses()
+    }
+
+    pub(crate) fn advisory_builds(&self) -> BTreeMap<PathBuf, Rc<BuildFacts>> {
+        self.probes.advisory()
+    }
+
+    pub(crate) fn probe_counts(&self) -> (usize, usize, usize) {
+        self.probes.counts()
+    }
+
+    pub(crate) fn probe_reads(&self, entries: &[PathBuf]) -> Vec<Rc<super::Reads>> {
+        self.probes.inputs_for(entries)
+    }
+
+    pub(crate) fn validate_probes(&mut self, env: &Environment, files: &Buffers) -> bool {
+        let changed = self.probes.validate(env, files, &self.authority);
+        if changed {
+            self.refresh_probe_views();
+        }
+        changed
+    }
+
+    pub(crate) fn end_request(&mut self) -> bool {
+        let changed = self.probes.end_request();
+        if changed {
+            self.refresh_probe_views();
+        }
+        changed
+    }
+
+    pub(crate) fn forget_probe_authority(&mut self) {
+        self.authority = Rc::new(());
+        self.entries.clear();
+        self.probes.clear_exact();
+        self.refresh_probe_views();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_probe_budget(&mut self, budget: usize) {
+        self.probes.set_budget(budget);
+        self.refresh_probe_views();
+    }
+
+    pub(crate) fn probe(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+        files: Buffers,
+    ) -> Option<super::ProbeStatus> {
+        if self.untrusted {
+            return None;
+        }
+        let analysis = self.analyze(env, root, dirs, files)?;
+        let history = RefCell::new(super::Observations::default());
+        let fs = super::ObservedFs {
+            base: &*env.fs,
+            proof: Some(&history),
+            secondary: None,
+        };
+        let key = jaic::paths::file_identity(&fs, root);
+        analysis
+            .reads
+            .borrow_mut()
+            .disk
+            .merge(&history.into_inner());
+        if jaic::interrupt::fired()
+            || !analysis.reads.borrow().is_current(&*env.fs)
+            || analysis
+                .input_epoch
+                .as_ref()
+                .and_then(std::rc::Weak::upgrade)
+                .is_some_and(|epoch| !epoch.validate_actual())
+            || !analysis.freeze_actual_inputs()
+            || jaic::interrupt::fired()
+        {
+            analysis.query_valid = false;
+            return None;
+        }
+        let status = if analysis.build_complete {
+            super::ProbeStatus::Complete
+        } else {
+            super::ProbeStatus::Failed
+        };
+        // Clone only immutable proof/source bytes; no compiler or compiler ID escapes.
+        let proof = super::probes::ProbeCapture::new(analysis);
+        self.probes.remember_capture(key, proof);
+        self.refresh_probe_views();
+        Some(status)
+    }
+
     /// Whether compile-time code may run. A change drops every compile kept, which were made
     /// under the other setting.
     pub fn set_trusted(&mut self, trusted: bool) {
         if self.untrusted != trusted {
             return;
         }
+        let notices = self.limit_hits.enabled();
         *self = Self {
             untrusted: !trusted,
+            limits: self.limits,
             ..Self::default()
         };
+        self.limit_hits.set_enabled(notices);
     }
 
     /// The limits compiles run under. A change drops every compile kept: its errors and its
@@ -131,13 +344,24 @@ impl Cache {
     pub fn set_limits(&mut self, limits: CheckLimits) {
         if self.limits != limits {
             self.entries.clear();
+            self.forget_probe_authority();
             self.limits = limits;
         }
     }
 
-    /// The limits compiles ran into since the last call.
-    pub(crate) fn take_limit_hits(&mut self) -> Vec<super::queries::LimitHit> {
-        std::mem::take(&mut self.limit_hits)
+    pub(crate) fn limit_notice_counts(&self) -> (usize, usize, usize) {
+        self.limit_hits.counts()
+    }
+
+    pub(crate) fn set_limit_notices(&mut self, enabled: bool) {
+        self.limit_hits.set_enabled(enabled);
+    }
+
+    /// Historical accepted-build events since the last drain; no source text is retained.
+    pub(crate) fn take_limit_hits(
+        &mut self,
+    ) -> std::collections::VecDeque<super::queries::LimitHit> {
+        self.limit_hits.take()
     }
 
     pub fn trusted(&self) -> bool {
@@ -152,12 +376,44 @@ impl Cache {
     /// Files appeared or went away: canonical paths are asked for again.
     pub fn forget_paths(&mut self) {
         self.canonical.clear();
+        for analysis in &self.entries {
+            analysis.overlay.forget_paths();
+        }
     }
 
     /// Drop every compile (answers they were made without have arrived); recorded build runs
     /// stay.
     pub fn forget_compiles(&mut self) {
         self.entries.clear();
+    }
+
+    /// A previously proven path identity, useful when a watched alias has just been deleted.
+    pub(crate) fn known_path(&self, path: &Path) -> Option<PathBuf> {
+        self.canonical.get(path)
+    }
+
+    /// Retire analyses that observed a watched path, including failed file lookups and
+    /// directory searches. Unrelated disk edits leave exact checked programs reusable.
+    pub fn invalidate_path(&mut self, path: &Path) {
+        self.invalidate_path_since(path, None);
+    }
+
+    /// Only native event dispatch supplies fresh post-revocation observations here.
+    pub(crate) fn invalidate_path_since(
+        &mut self,
+        path: &Path,
+        current: Option<&super::input_epoch::ActualInputs>,
+    ) {
+        self.entries.retain(|analysis| {
+            !analysis.reads.borrow().concerns_tree(path)
+                && !analysis
+                    .actual_inputs
+                    .as_ref()
+                    .is_some_and(|actual| actual.concerns_tree_since(path, current))
+        });
+        if self.probes.invalidate_path(path, current) {
+            self.refresh_probe_views();
+        }
     }
 
     /// Drop the lints found so far (their settings changed); the compiles stay.
@@ -183,7 +439,7 @@ impl Cache {
             }
             return;
         }
-        let small = |a: &Analysis| a.cost <= SMALL_COST;
+        let small = |a: &Analysis| a.retained_cost() <= SMALL_COST;
         loop {
             let (light, heavy): (Vec<usize>, Vec<usize>) = (0..self.entries.len())
                 .filter(|&i| self.entries[i].os.is_none())
@@ -200,6 +456,7 @@ impl Cache {
                 .or_else(|| {
                     (0..self.entries.len())
                         .filter(|&i| own(&self.entries[i]))
+                        // Proof bytes count toward retention, not parsed compiler work.
                         .max_by_key(|&i| self.entries[i].cost)
                 })
                 .or_else(|| self.entries.iter().rposition(|a| a.os.is_none()));
@@ -236,6 +493,7 @@ impl Cache {
         path: &Path,
         prefix: &[u8],
     ) -> Option<&mut Analysis> {
+        self.retire_changed(env, root, dirs);
         let canonical: BTreeMap<PathBuf, Arc<[u8]>> = files
             .iter()
             .map(|(p, t)| (jaic::paths::file_identity(&*env.fs, p), t.clone()))
@@ -243,6 +501,7 @@ impl Cache {
         let path = jaic::paths::file_identity(&*env.fs, path);
         let at = self.entries.iter().rposition(|a| {
             a.usable
+                && a.query_valid
                 && a.os.is_none()
                 && a.root == root
                 && a.dirs == dirs
@@ -278,7 +537,7 @@ impl Cache {
         files: Buffers,
         os: Option<TargetOs>,
     ) -> Option<&mut Analysis> {
-        let at = match self.lookup(env, root, dirs, &files, os, true) {
+        let at = match self.lookup(env, root, dirs, &files, os) {
             Ok(at) => at,
             Err(inputs) => {
                 // A compile of the same program from text that parses will check, and
@@ -295,7 +554,7 @@ impl Cache {
                         .retain(|a| !(a.root == root && a.dirs == dirs && a.os == os));
                 }
                 self.make_room(os, root);
-                let analysis = self.build(env, root, dirs, files, inputs, os)?;
+                let analysis = self.build(env, root, dirs, files, inputs, BuildKind::Exact(os))?;
                 if replaces {
                     self.entries
                         .retain(|a| !(a.root == root && a.dirs == dirs && a.os == os));
@@ -318,17 +577,161 @@ impl Cache {
         dirs: &[PathBuf],
         files: &Buffers,
     ) -> Option<&mut Analysis> {
-        let at = self.lookup(env, root, dirs, files, None, false).ok()?;
+        let at = self.lookup(env, root, dirs, files, None).ok()?;
         Some(&mut self.entries[at])
+    }
+
+    // These negative-only predicates decide whether a first cold context may start a
+    // native transaction. Presence grants no authority and never calls focus/find_file.
+    pub(crate) fn has_accepted_source(&self, path: &Path) -> bool {
+        let owns = |compiler: &jaic::sema::Compiler| {
+            (0..compiler.src.sources.len() as u32).any(|id| {
+                compiler
+                    .src
+                    .sources
+                    .get(jaic::source::FileId(id))
+                    .path
+                    .as_file()
+                    == Some(path)
+            })
+        };
+        self.entries.iter().any(|analysis| {
+            analysis.usable
+                && analysis.query_valid
+                && !analysis.advisory
+                && analysis.facts_accepted.get()
+                && analysis.os.is_none()
+                && (analysis
+                    .found
+                    .borrow()
+                    .get(path)
+                    .is_some_and(Option::is_some)
+                    || owns(&analysis.compiler)
+                    || analysis
+                        .others
+                        .iter()
+                        .any(|program| owns(&program.compiler)))
+        })
+    }
+
+    pub(crate) fn has_accepted_context(
+        &self,
+        root: &Path,
+        dirs: &[PathBuf],
+        os: Option<TargetOs>,
+    ) -> bool {
+        self.entries.iter().any(|analysis| {
+            analysis.usable
+                && analysis.query_valid
+                && !analysis.advisory
+                && analysis.facts_accepted.get()
+                && analysis.root == root
+                && analysis.dirs == dirs
+                && analysis.os == os
+        })
+    }
+
+    /// Freeze a published view only from the exact quick candidate normal lookup selects.
+    /// No compiler query, focus switch or filesystem access occurs here.
+    pub(crate) fn published_reference_inputs(
+        &self,
+        root: &Path,
+        dirs: &[PathBuf],
+        files: &Buffers,
+        owner: &Rc<()>,
+        index: &Rc<jaic::ide::meta::ReferenceIndex>,
+    ) -> Option<super::CheckedInputs> {
+        let at = self.published_reference_candidate(root, dirs, files)?;
+        let analysis = &self.entries[at];
+        if !analysis.reference_records_allowed()
+            || !analysis.facts_accepted.get()
+            || !Rc::ptr_eq(&analysis.reference_owner, owner)
+            || !analysis
+                .references
+                .as_ref()
+                .is_some_and(|current| Rc::ptr_eq(current, index))
+        {
+            return None;
+        }
+        Some(super::CheckedInputs::capture(analysis))
+    }
+
+    fn published_reference_candidate(
+        &self,
+        root: &Path,
+        dirs: &[PathBuf],
+        files: &Buffers,
+    ) -> Option<usize> {
+        let quick = quick_key(root, dirs, files, None);
+        self.entries.iter().position(|analysis| {
+            analysis.query_valid
+                && analysis.os.is_none()
+                && analysis.root == root
+                && analysis.dirs == dirs
+                && analysis
+                    .quick
+                    .as_ref()
+                    .is_some_and(|(key, raw)| *key == quick && Rc::ptr_eq(raw, files))
+        })
+    }
+
+    /// Retire only the admitted candidate after a failed immutable-answer guard.
+    /// The next request can rebuild; historical records retain their original authority.
+    pub(crate) fn retire_published_reference_view(
+        &mut self,
+        root: &Path,
+        dirs: &[PathBuf],
+        files: &Buffers,
+        owner: &Rc<()>,
+        index: &Rc<jaic::ide::meta::ReferenceIndex>,
+    ) {
+        if let Some(at) = self.published_reference_candidate(root, dirs, files) {
+            let analysis = &mut self.entries[at];
+            if Rc::ptr_eq(&analysis.reference_owner, owner)
+                && analysis
+                    .references
+                    .as_ref()
+                    .is_some_and(|current| Rc::ptr_eq(current, index))
+            {
+                analysis.query_valid = false;
+            }
+        }
+    }
+
+    fn retire_changed(&mut self, env: &Environment, root: &Path, dirs: &[PathBuf]) {
+        let before = self.entries.len();
+        let proof = &self.input_proof;
+        self.entries.retain(|a| {
+            if !a.query_valid {
+                return false;
+            }
+            if a.root != root || a.dirs != dirs || a.os.is_some() {
+                return true;
+            }
+            if !a.actual_inputs_compatible_with_capture() || !a.restore_actual_inputs() {
+                return false;
+            }
+            let mut reads = a.reads.borrow_mut();
+            reads.disk.merge(proof);
+            reads.is_current(&*env.fs)
+        });
+        if self.entries.len() != before {
+            self.forget_paths();
+        }
     }
 
     /// The kept analysis of `root` that was used last, whatever text it compiled: an answer
     /// from it is about older text, for the caller to move to the text now.
-    pub fn latest(&mut self, root: &Path, dirs: &[PathBuf]) -> Option<&mut Analysis> {
-        self.entries
-            .iter_mut()
-            .rev()
-            .find(|a| a.usable && a.os.is_none() && a.root == root && a.dirs == dirs)
+    pub fn latest(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+    ) -> Option<&mut Analysis> {
+        self.retire_changed(env, root, dirs);
+        self.entries.iter_mut().rev().find(|a| {
+            a.usable && a.query_valid && a.os.is_none() && a.root == root && a.dirs == dirs
+        })
     }
 
     /// An analysis of `root` that the cache does not keep, for work beside the editor's (the
@@ -347,7 +750,7 @@ impl Cache {
             let checked = self
                 .entries
                 .iter()
-                .rposition(|a| a.usable && a.os.is_none() && a.root == root);
+                .rposition(|a| a.usable && a.query_valid && a.os.is_none() && a.root == root);
             let mut at = 0;
             self.entries.retain(|a| {
                 let keep = a.os.is_some() || at == active || Some(at) == checked;
@@ -355,7 +758,18 @@ impl Cache {
                 keep
             });
         }
-        self.build(env, root, dirs, files, inputs, None)
+        self.build(env, root, dirs, files, inputs, BuildKind::Exact(None))
+    }
+
+    pub(crate) fn advisory_analysis(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+        files: Buffers,
+    ) -> Option<Analysis> {
+        let inputs = self.inputs(env, root, dirs, &files, None);
+        self.build(env, root, dirs, files, inputs, BuildKind::Advisory)
     }
 
     /// The canonical texts and keys of a compile's inputs.
@@ -367,6 +781,9 @@ impl Cache {
         given: &Buffers,
         os: Option<TargetOs>,
     ) -> Inputs {
+        if env.fs.tracks_native_inputs() {
+            self.canonical.clear();
+        }
         let files: BTreeMap<PathBuf, Arc<[u8]>> = given
             .iter()
             .map(|(p, t)| {
@@ -384,7 +801,7 @@ impl Cache {
     }
 
     /// Where a kept analysis answers for these inputs, else the inputs worked out for a new
-    /// compile. When `remember`, the analysis found takes the inputs as its own.
+    /// compile. Reuse updates the compiler's live overlay and its manifest together.
     fn lookup(
         &mut self,
         env: &Environment,
@@ -392,17 +809,29 @@ impl Cache {
         dirs: &[PathBuf],
         given: &Buffers,
         os: Option<TargetOs>,
-        remember: bool,
     ) -> Result<usize, Inputs> {
         // The same buffers as last time (the session hands out its inputs again until a
         // document changes): no need to hash megabytes of text to know it is the same program.
+        // Other programs remain bounded candidates, validated only when selected.
+        self.entries.retain(|a| a.query_valid);
         let quick = quick_key(root, dirs, given, os);
-        if let Some(at) = self
-            .entries
-            .iter()
-            .position(|a| a.quick.as_ref().is_some_and(|(k, _)| *k == quick))
-        {
-            return Ok(at);
+        if let Some(at) = self.entries.iter().position(|a| {
+            a.query_valid
+                && a.os == os
+                && a.root == root
+                && a.dirs == dirs
+                && a.quick
+                    .as_ref()
+                    .is_some_and(|(k, kept)| *k == quick && Rc::ptr_eq(kept, given))
+        }) {
+            let entry = &mut self.entries[at];
+            if entry.actual_inputs_compatible_with_capture() {
+                entry.reads.borrow_mut().disk.merge(&self.input_proof);
+                if entry.restore_actual_inputs() && entry.reads.borrow().is_current(&*env.fs) {
+                    return Ok(at);
+                }
+            }
+            entry.query_valid = false;
         }
         let inputs = self.inputs(env, root, dirs, given, os);
         // The very same texts, or texts that differ only in files the compile never read: a
@@ -410,23 +839,51 @@ impl Cache {
         let at = self
             .entries
             .iter()
-            .position(|a| a.key == inputs.key)
+            .position(|a| {
+                a.query_valid
+                    && a.key == inputs.key
+                    && a.os == os
+                    && a.root == root
+                    && a.dirs == dirs
+                    && a.files == inputs.files
+            })
             .or_else(|| {
                 self.entries.iter().rposition(|a| {
-                    a.os == os && a.root == root && a.dirs == dirs && unaffected(a, &inputs.files)
+                    a.query_valid
+                        && a.os == os
+                        && a.root == root
+                        && a.dirs == dirs
+                        && unaffected(a, &inputs.files)
                 })
             });
         let Some(at) = at else {
             return Err(inputs);
         };
-        if remember {
-            let entry = &mut self.entries[at];
-            entry.quick = Some((inputs.quick, given.clone()));
-            if entry.key != inputs.key {
-                entry.key = inputs.key;
-                entry.files = inputs.files;
+        let entry = &mut self.entries[at];
+        if !entry.actual_inputs_compatible_with_capture() || !entry.restore_actual_inputs() {
+            entry.query_valid = false;
+            return Err(inputs);
+        }
+        entry.reads.borrow_mut().disk.merge(&self.input_proof);
+        if env.fs.tracks_native_inputs() {
+            let mut observed = entry.reads.borrow_mut();
+            for path in given.keys() {
+                observed.observe_canonical(
+                    path.clone(),
+                    self.canonical.get(path).expect("canonical reuse input"),
+                );
+            }
+            if !observed.is_current(&*env.fs) {
+                entry.query_valid = false;
+                return Err(inputs);
             }
         }
+        if entry.files != inputs.files {
+            entry.overlay.replace_files(inputs.files.clone());
+        }
+        entry.quick = Some((inputs.quick, given.clone()));
+        entry.key = inputs.key;
+        entry.files = inputs.files;
         Ok(at)
     }
 
@@ -438,9 +895,45 @@ impl Cache {
         dirs: &[PathBuf],
         given: Buffers,
         inputs: Inputs,
-        os: Option<TargetOs>,
+        kind: BuildKind,
     ) -> Option<Analysis> {
+        if env.fs.input_epoch_valid() == Some(false) {
+            return None;
+        }
+        let (os, advisory) = match kind {
+            BuildKind::Exact(os) => (os, false),
+            BuildKind::Advisory => (None, true),
+        };
+        // Reject contradictory discovery/input identities before starting compile work.
+        // These are already observed responses from input assembly, not a fresh replay.
+        let mut accepted_inputs = super::Reads::default();
+        accepted_inputs.disk.merge(&self.input_proof);
+        if env.fs.tracks_native_inputs() {
+            for path in given.keys() {
+                accepted_inputs.observe_canonical(
+                    path.clone(),
+                    self.canonical
+                        .get(path)
+                        .expect("canonical input captured before compiling"),
+                );
+            }
+        }
+        let registry_key = {
+            let history = RefCell::new(super::Observations::default());
+            let fs = super::ObservedFs {
+                base: &*env.fs,
+                proof: Some(&history),
+                secondary: None,
+            };
+            let key = jaic::paths::file_identity(&fs, root);
+            accepted_inputs.disk.merge(&history.into_inner());
+            key
+        };
+        if !accepted_inputs.disk.is_consistent() || env.fs.input_epoch_valid() == Some(false) {
+            return None;
+        }
         self.compiles += 1;
+        let trace_job = crate::trace::global().and_then(crate::trace::Trace::job_start);
         let Inputs {
             quick,
             key,
@@ -449,22 +942,13 @@ impl Cache {
         let snapshot = files.clone();
         // Folders a past run of this metaprogram added are not handed back to it: it adds
         // them again if it still does, and a removed `import_path` line must disappear.
-        let past = self
-            .recorded
-            .get(&jaic::paths::file_identity(&*env.fs, root));
+        let past = self.recorded.get(&registry_key);
         let given_dirs: Vec<PathBuf> = dirs
             .iter()
             .filter(|d| !past.is_some_and(|f| f.programs.iter().any(|p| p.import_dirs.contains(d))))
             .cloned()
             .collect();
-        let Compiled {
-            compiler,
-            errors,
-            others,
-            facts,
-            stopped,
-            reads,
-        } = compile(
+        let compiled = compile(
             env,
             root,
             &given_dirs,
@@ -475,21 +959,49 @@ impl Cache {
                 untrusted: self.untrusted,
                 limits: self.limits,
             },
-        )?;
-        // Stopped for a newer request: the compile is partial, and nothing of it is kept.
-        if jaic::interrupt::fired() {
+        );
+        let Some(compiled) = compiled else {
+            if let Some(job) = trace_job {
+                job.finish(crate::trace::Outcome::Abandoned);
+            }
+            return None;
+        };
+        let Compiled {
+            compiler,
+            errors,
+            others,
+            facts,
+            stopped,
+            reads,
+            overlay,
+        } = compiled;
+        reads.borrow_mut().merge(&accepted_inputs);
+        // The same observed identity selects prior import directories and names publication.
+        let producer_key = (!advisory
+            && os.is_none()
+            && facts
+                .as_ref()
+                .is_some_and(|facts| !facts.programs.is_empty()))
+        .then_some(registry_key);
+        // Stopped or mixed disk inputs: none of the partial context is accepted.
+        if jaic::interrupt::fired()
+            || !reads.borrow().is_current(&*env.fs)
+            || self
+                .input_epoch
+                .as_ref()
+                .and_then(std::rc::Weak::upgrade)
+                .is_some_and(|epoch| !epoch.validate_actual())
+            || jaic::interrupt::fired()
+        {
+            if let Some(job) = trace_job {
+                job.finish(crate::trace::Outcome::Abandoned);
+            }
             return None;
         }
-        // Another target's compile says nothing new about what the metaprogram did.
-        if let Some(facts) = facts.filter(|f| os.is_none() && !f.programs.is_empty()) {
-            let key = jaic::paths::file_identity(&*env.fs, root);
-            if self.recorded.get(&key) != Some(&facts) {
-                self.recorded.insert(key, facts);
-                self.recorded_version += 1;
-            }
+        if self.limit_hits.enabled() {
+            self.limit_hits
+                .extend(super::queries::limit_hits(&compiler, &errors));
         }
-        self.limit_hits
-            .extend(super::queries::limit_hits(&compiler, &errors));
         let cost = std::iter::once(&compiler)
             .chain(others.iter().map(|p| &p.compiler))
             .flat_map(|c| {
@@ -501,8 +1013,25 @@ impl Cache {
                 .ed
                 .facts()
                 .is_some_and(|ide| !ide.scopes.is_empty());
-        Some(Analysis {
+        let analysis = Analysis {
+            input_epoch: self.input_epoch.clone(),
+            actual_inputs: self
+                .input_epoch
+                .as_ref()
+                .and_then(std::rc::Weak::upgrade)
+                .map(|epoch| epoch.actual_inputs()),
+            authority: self.authority.clone(),
+            facts_accepted: Rc::new(std::cell::Cell::new(true)),
             compiler,
+            build_complete: facts.is_some()
+                && errors.is_empty()
+                && facts
+                    .as_ref()
+                    .is_none_or(|f| f.programs.iter().all(|p| p.checked))
+                && !stopped,
+            build_facts: facts,
+            advisory,
+            query_valid: true,
             entry: Some(root.to_path_buf()),
             key,
             quick: Some((quick, given)),
@@ -511,14 +1040,29 @@ impl Cache {
             dirs: dirs.to_vec(),
             files: snapshot,
             reads,
+            overlay,
             usable,
             cost,
             complete: errors.is_empty() && !stopped,
             errors,
             lints: BTreeMap::new(),
-            enriched: None,
+            references: None,
+            reference_owner: Rc::new(()),
+            hints: Rc::default(),
             found: RefCell::default(),
             others,
-        })
+        };
+        if let Some(key) = producer_key {
+            self.probes.remember(key, &analysis);
+            self.refresh_probe_views();
+        }
+        if let Some(job) = trace_job {
+            job.finish(crate::trace::Outcome::Accepted);
+        }
+        Some(analysis)
     }
 }
+
+#[cfg(test)]
+#[path = "cache_tests.rs"]
+mod tests;

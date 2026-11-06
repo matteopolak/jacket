@@ -1,5 +1,4 @@
-use crate::{Error, Range};
-use serde::Deserialize;
+use crate::Error;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -194,10 +193,13 @@ fn normalize(path: &str, windows: bool) -> Result<String, Error> {
     Ok(result)
 }
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+/// An edit applied to an open session document after protocol admission.
+/// `range: None` replaces the whole text; positions use UTF-16 columns.
+/// For example: `TextChange { range: None, range_length: None, text: "main :: () {}".into() }`.
+#[derive(Clone, Debug)]
 pub struct TextChange {
-    pub range: Option<Range>,
+    pub range: Option<crate::Range>,
+    /// Deprecated client length metadata; the checked range determines the edit.
     pub range_length: Option<u32>,
     pub text: String,
 }

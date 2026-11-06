@@ -122,6 +122,9 @@ impl Session {
         let Some(analysis) = self.analysis_for(uri) else {
             return Ok(Vec::new());
         };
+        if analysis.test_procedures.is_empty() {
+            return Ok(Vec::new());
+        }
         let path = Path::new(uri.path());
         let root = test_root(path);
         let project = path

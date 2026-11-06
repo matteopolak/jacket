@@ -905,3 +905,84 @@ fn darwin_file_records_match_stat_and_dirent_layouts() {
         S_IFDIR
     );
 }
+
+#[test]
+fn windows_drive_qualified_files_use_native_keys() {
+    let mut files = crate::sema::VirtualFs::default();
+    files.insert("C:/fixture/flag.txt", b"on".to_vec());
+    let mut h = SandboxHost::with_files(std::rc::Rc::new(files), r"C:\fixture");
+    let name = wide("C:/fixture/flag.txt");
+    let handle = call(
+        &mut h,
+        "CreateFileW",
+        &[name.as_ptr() as u64, 0x8000_0000, 0, 0, 3, 0x80, 0],
+    );
+    assert_ne!(
+        handle,
+        u64::MAX,
+        "a drive-qualified file must not be prefixed with the current directory"
+    );
+    let mut bytes = [0u8; 2];
+    let mut done = 0u32;
+    let ok = call(
+        &mut h,
+        "ReadFile",
+        &[
+            handle,
+            bytes.as_mut_ptr() as u64,
+            bytes.len() as u64,
+            &raw mut done as u64,
+            0,
+        ],
+    );
+    assert_eq!((ok, done, bytes), (1, 2, *b"on"));
+    assert_eq!(call(&mut h, "CloseHandle", &[handle]), 1);
+}
+
+#[test]
+fn unsupported_windows_paths_keep_api_failure_sentinels_and_last_error() {
+    let mut h = host();
+    h.cwd = r"C:\base".into();
+    let name = wide("D:unknown-directory.txt");
+    assert_eq!(
+        call(
+            &mut h,
+            "CreateFileW",
+            &[name.as_ptr() as u64, 0x8000_0000, 0, 0, 3, 0x80, 0]
+        ),
+        u64::MAX
+    );
+    assert_eq!(call(&mut h, "GetLastError", &[]), 50);
+    assert_eq!(
+        call(&mut h, "GetFileAttributesW", &[name.as_ptr() as u64]),
+        u32::MAX as u64
+    );
+    assert_eq!(call(&mut h, "GetLastError", &[]), 50);
+    let mut data = [0u8; 592];
+    assert_eq!(
+        call(
+            &mut h,
+            "FindFirstFileW",
+            &[name.as_ptr() as u64, data.as_mut_ptr() as u64]
+        ),
+        u64::MAX
+    );
+    assert_eq!(call(&mut h, "GetLastError", &[]), 50);
+    let mut output = [0x55u16; 32];
+    assert_eq!(
+        call(
+            &mut h,
+            "GetFullPathNameW",
+            &[
+                name.as_ptr() as u64,
+                output.len() as u64,
+                output.as_mut_ptr() as u64,
+                0
+            ]
+        ),
+        0
+    );
+    assert_eq!(output, [0x55u16; 32]);
+    assert_eq!(call(&mut h, "DeleteFileW", &[name.as_ptr() as u64]), 0);
+    assert_eq!(call(&mut h, "GetLastError", &[]), 50);
+}

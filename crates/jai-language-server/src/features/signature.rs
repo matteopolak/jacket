@@ -24,6 +24,17 @@ impl Session {
         position: Position,
         kind: MarkupKind,
     ) -> Result<Option<SignatureHelp>, Error> {
+        self.projected_document_query(uri, |key| {
+            self.signature_help_as_at_key(key, position, kind)
+        })
+    }
+
+    fn signature_help_as_at_key(
+        &self,
+        uri: &DocumentUri,
+        position: Position,
+        kind: MarkupKind,
+    ) -> Result<Option<SignatureHelp>, Error> {
         let doc = self.document(uri)?;
         let text = &doc.text;
         let byte = doc.index.byte(text, position);
@@ -46,7 +57,8 @@ impl Session {
                 .into_iter()
                 .find(|c| c.span.start as usize == start && open < c.span.end as usize)
             {
-                return Some((call.signatures, call.active));
+                let docs = crate::doc_view::own_signature_documentation(a, &call.signatures);
+                return Some((call.signatures, call.active, docs));
             }
             // The callee is looked up in the scope.
             let scope = a.compiler.ide_scope_at(file, start as u32)?;
@@ -63,7 +75,10 @@ impl Session {
                     .map(|p| a.compiler.ide_signature(p))
                     .collect()
             };
-            (!found.is_empty()).then_some((found, 0))
+            (!found.is_empty()).then(|| {
+                let docs = crate::doc_view::own_signature_documentation(a, &found);
+                (found, 0, docs)
+            })
         };
         // Typing in the call has edited the text since the compile, which still describes it.
         let found = if self.may_compile() {
@@ -74,7 +89,7 @@ impl Session {
                 lookup(a, path, start, shift.to_old_or_edit(open))
             })
         };
-        let Some((mut signatures, active)) = found else {
+        let Some((mut signatures, active, docs)) = found else {
             return Ok(None);
         };
         // Under the name called: an alias or a `#bake_arguments` copy names the original.
@@ -95,7 +110,7 @@ impl Session {
             active_arg.min(last)
         };
         let active_parameter = signatures.get(active).map_or(0, parameter);
-        let documented = self.signature_docs(uri, &signatures, kind);
+        let documented = self.signature_docs(uri, &signatures, docs, kind);
         Ok(Some(SignatureHelp {
             signatures: signatures
                 .into_iter()

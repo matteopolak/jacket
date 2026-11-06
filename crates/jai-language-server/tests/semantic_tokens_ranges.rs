@@ -6,19 +6,30 @@ const URI: &str = "file:///workspace/tokens.jai";
 const TEXT: &str = "first :: () -> int { return 1; }\nsecond :: () -> int { return 2; }\nthird :: () -> int { return 3; }\n";
 
 fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
-    session
+    let output: Vec<serde_json::Value> = session
         .handle_json(&message.to_string())
         .unwrap()
         .iter()
         .map(|s| serde_json::from_str(s).unwrap())
-        .collect()
+        .collect();
+    if message["method"] == "initialize"
+        && output.first().is_some_and(|m| m.get("result").is_some())
+    {
+        assert!(
+            session
+                .handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+                .unwrap()
+                .is_empty()
+        );
+    }
+    output
 }
 
 fn opened() -> JsonSession {
     let mut session = JsonSession::new(Limits::default());
     send(
         &mut session,
-        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} }}),
     );
     send(
         &mut session,
@@ -66,7 +77,7 @@ fn the_capabilities_offer_range_and_delta() {
     let mut session = JsonSession::new(Limits::default());
     let out = send(
         &mut session,
-        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} }}),
     );
     let provider = &out[0]["result"]["capabilities"]["semanticTokensProvider"];
     assert_eq!(provider["range"], true);

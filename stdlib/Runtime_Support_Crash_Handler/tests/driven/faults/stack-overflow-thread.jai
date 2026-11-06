@@ -21,4 +21,5 @@ main :: () {
     assert(T.thread_init(*thread, worker));
     T.thread_start(*thread);
     T.thread_is_done(*thread, -1);
+    T.thread_deinit(*thread);
 }

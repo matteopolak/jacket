@@ -1,4 +1,6 @@
 //! A file system that overlays open buffers on disk.
+use super::observations::{Observation, Observations};
+use jaic::filesystem::ReadBuffer;
 use jaic::sema::FileSystem;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -12,14 +14,134 @@ use std::sync::Arc;
 /// change the compile.
 #[derive(Clone, Debug, Default)]
 pub struct Reads {
-    files: BTreeSet<PathBuf>,
-    dirs: BTreeSet<PathBuf>,
+    files: Arc<BTreeSet<PathBuf>>,
+    dirs: Arc<BTreeSet<PathBuf>>,
+    identities: Arc<BTreeMap<PathBuf, PathBuf>>,
+    pub(crate) disk: Observations,
 }
 
 impl Reads {
-    /// Whether a file appearing, going away or changing at `path` could change the compile.
+    /// Exact native observations, independent of notifications and metadata fingerprints.
+    pub(crate) fn is_current(&self, fs: &dyn FileSystem) -> bool {
+        fs.input_epoch_valid() != Some(false)
+            && (!fs.tracks_native_inputs() || self.disk.matches(fs))
+            && fs.input_epoch_valid() != Some(false)
+    }
+
+    pub(super) fn observe_canonical(&mut self, path: PathBuf, target: PathBuf) {
+        #[cfg(test)]
+        crate::reference_records::request_work_tests::outside_identity(&path);
+        self.disk.record(path, Observation::Canonical(target));
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.files.is_empty()
+            && self.dirs.is_empty()
+            && self.identities.is_empty()
+            && self.disk.is_empty()
+    }
+
+    /// Combine exact histories in an owned input or derived-output proof without changing their first responses.
+    pub(crate) fn merge(&mut self, other: &Self) {
+        if !Arc::ptr_eq(&self.files, &other.files) {
+            for path in other.files.iter() {
+                if !self.files.contains(path) {
+                    self.note_file(path.clone());
+                }
+            }
+        }
+        if !Arc::ptr_eq(&self.dirs, &other.dirs) {
+            for path in other.dirs.iter() {
+                if !self.dirs.contains(path) {
+                    self.note_directory(path.clone());
+                }
+            }
+        }
+        if !Arc::ptr_eq(&self.identities, &other.identities) {
+            for (name, target) in other.identities.iter() {
+                if self.identities.get(name) != Some(target) {
+                    self.note_identity(name.clone(), target.clone());
+                }
+            }
+        }
+        self.disk.merge(&other.disk);
+    }
+
+    fn note_file(&mut self, path: PathBuf) {
+        if !self.files.contains(&path) {
+            Arc::make_mut(&mut self.files).insert(path);
+        }
+    }
+
+    fn note_directory(&mut self, path: PathBuf) {
+        if !self.dirs.contains(&path) {
+            Arc::make_mut(&mut self.dirs).insert(path);
+        }
+    }
+
+    fn note_identity(&mut self, name: PathBuf, target: PathBuf) {
+        if self.identities.get(&name) != Some(&target) {
+            Arc::make_mut(&mut self.identities).insert(name, target);
+        }
+    }
+
+    /// Whether a file appearing, going away or changing could affect the compile.
     pub fn concerns(&self, path: &Path) -> bool {
+        self.directly_concerns(path)
+            || self
+                .identities
+                .get(path)
+                .is_some_and(|target| self.directly_concerns_tree(target))
+    }
+
+    fn directly_concerns(&self, path: &Path) -> bool {
         self.files.contains(path) || path.ancestors().any(|dir| self.dirs.contains(dir))
+    }
+
+    fn directly_concerns_tree(&self, path: &Path) -> bool {
+        self.directly_concerns(path)
+            || self
+                .files
+                .range(path.to_path_buf()..)
+                .next()
+                .is_some_and(|read| read.starts_with(path))
+            || self
+                .dirs
+                .range(path.to_path_buf()..)
+                .next()
+                .is_some_and(|read| read.starts_with(path))
+    }
+
+    /// Watched directory removal also affects any observed descendant. Keep this search
+    /// outside ordinary overlay comparisons, where only the changed file matters.
+    pub(crate) fn concerns_tree(&self, path: &Path) -> bool {
+        self.directly_concerns_tree(path)
+            || self
+                .identities
+                .range(path.to_path_buf()..)
+                .take_while(|(name, _)| name.starts_with(path))
+                .any(|(_, target)| self.directly_concerns_tree(target))
+    }
+
+    /// Conservative retained dependency storage, including tree-node metadata.
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.disk.retained_bytes()
+            + 2 * std::mem::size_of::<BTreeSet<PathBuf>>()
+            + std::mem::size_of::<BTreeMap<PathBuf, PathBuf>>()
+            + 6 * std::mem::size_of::<usize>()
+            + self
+                .files
+                .iter()
+                .chain(self.dirs.iter())
+                .map(|path| path.capacity() + std::mem::size_of::<PathBuf>() + 64)
+                .sum::<usize>()
+            + self
+                .identities
+                .iter()
+                .map(|(name, target)| {
+                    name.capacity() + target.capacity() + 2 * std::mem::size_of::<PathBuf>() + 64
+                })
+                .sum::<usize>()
     }
 }
 
@@ -30,7 +152,9 @@ pub(super) struct OverlayFs {
     /// is wherever the editor started it, and a build metaprogram names its files and module
     /// folders relative to itself.
     pub(super) dir: PathBuf,
-    pub(super) files: BTreeMap<PathBuf, Arc<[u8]>>,
+    pub(super) files: RefCell<BTreeMap<PathBuf, Arc<[u8]>>>,
+    /// Synthetic program roots belong to the compile, independently of current open overlays.
+    pub(super) generated: BTreeMap<PathBuf, Arc<[u8]>>,
     /// `canonical` answers so far: a compile asks about the same paths over and over.
     pub(super) canonical: jaic::paths::CanonCache,
     /// What was asked so far; shared with the analysis, since queries after the compile can
@@ -39,6 +163,28 @@ pub(super) struct OverlayFs {
 }
 
 impl OverlayFs {
+    /// An isolated observer over the same selected inputs; reads never enter compiler proof.
+    pub(super) fn separate_observer(&self) -> Self {
+        Self {
+            base: self.base.clone(),
+            dir: self.dir.clone(),
+            files: RefCell::new(self.files.borrow().clone()),
+            generated: self.generated.clone(),
+            canonical: jaic::paths::CanonCache::default(),
+            reads: Rc::default(),
+        }
+    }
+
+    /// Called only after checked dependencies prove that changed buffers are unrelated.
+    pub(super) fn replace_files(&self, files: BTreeMap<PathBuf, Arc<[u8]>>) {
+        *self.files.borrow_mut() = files;
+    }
+
+    pub(super) fn forget_paths(&self) {
+        self.canonical.clear();
+    }
+
+
     fn at<'a>(&self, path: &'a Path) -> std::borrow::Cow<'a, Path> {
         if path.is_relative() {
             self.dir.join(path).into()
@@ -47,56 +193,246 @@ impl OverlayFs {
         }
     }
 
+    /// Keep the observed leaf name as well as its resolved target: removing or retargeting a
+    /// file symlink changes a load even when the old target still exists.
+    fn observed_name(&self, path: &Path) -> PathBuf {
+        let absolute = self.at(path);
+        match (absolute.parent(), absolute.file_name()) {
+            (Some(parent), Some(name)) => self.canonical_of(parent).join(name),
+            _ => self.canonical_of(path),
+        }
+    }
+
+    fn record_file(&self, path: &Path, key: PathBuf) {
+        self.observe_identity(path);
+        let name = self.observed_name(path);
+        let mut reads = self.reads.borrow_mut();
+        reads.note_file(key);
+        reads.note_file(name);
+    }
+
+    fn record_directory(&self, path: &Path, key: PathBuf) {
+        self.observe_identity(path);
+        let name = self.observed_name(path);
+        let mut reads = self.reads.borrow_mut();
+        reads.note_directory(key);
+        reads.note_directory(name);
+    }
+
+    fn observe_identity(&self, path: &Path) -> PathBuf {
+        #[cfg(test)]
+        crate::reference_records::request_work_tests::overlay_identity(|| {
+            (self.at(path).into_owned(), false)
+        });
+        let known = self.canonical.get(path);
+        let key = known.clone().unwrap_or_else(|| self.canonical_of(path));
+        let absolute = self.at(path);
+        if known.is_none() {
+            // The loader may resolve a symlink before reading its target. Retain those names,
+            // but invalidate only when the resolved target was actually observed by the check.
+            for name in absolute.ancestors() {
+                let target = self.canonical_of(name);
+                let leaf = self.observed_name(name);
+                let mut reads = self.reads.borrow_mut();
+                reads.note_identity(name.to_path_buf(), target.clone());
+                reads.note_identity(leaf, target);
+            }
+        }
+        key
+    }
+
+    fn observe(&self, path: &Path, value: Observation) {
+        if self.base.tracks_native_inputs() {
+            self.reads
+                .borrow_mut()
+                .disk
+                .record(self.at(path).into_owned(), value);
+        }
+    }
+
     fn canonical_of(&self, path: &Path) -> PathBuf {
+        #[cfg(test)]
+        crate::reference_records::request_work_tests::overlay_identity(|| {
+            (self.at(path).into_owned(), false)
+        });
         self.canonical.get_or_insert_with(path, |path| {
-            jaic::paths::file_identity(&*self.base, &self.at(path))
+            let resolved = jaic::paths::file_identity(&*self.base, &self.at(path));
+            self.observe(path, Observation::Canonical(resolved.clone()));
+            resolved
         })
     }
 }
 
 impl FileSystem for OverlayFs {
+    fn tracks_native_inputs(&self) -> bool {
+        self.base.tracks_native_inputs()
+    }
+
+    fn input_epoch_valid(&self) -> Option<bool> {
+        self.base.input_epoch_valid()
+    }
+
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
-        let key = self.canonical_of(path);
-        let found = self.files.get(&key);
-        self.reads.borrow_mut().files.insert(key);
-        match found {
-            Some(bytes) => Some(bytes.to_vec()),
-            None => self.base.read(&self.at(path)),
+        if !self.base.tracks_native_inputs() {
+            #[cfg(test)]
+            let _work = crate::reference_records::request_work_tests::overlay_scope("read");
+            let key = self.observe_identity(path);
+            let found = self
+                .generated
+                .get(&key)
+                .cloned()
+                .or_else(|| self.files.borrow().get(&key).cloned());
+            self.record_file(path, key);
+            return found
+                .map(|bytes| bytes.to_vec())
+                .or_else(|| self.base.read(&self.at(path)));
+        }
+        self.read_shared(path).map(|bytes| bytes.to_vec())
+    }
+
+    fn read_shared(&self, path: &Path) -> Option<Arc<ReadBuffer>> {
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("read");
+        let key = self.observe_identity(path);
+        let found = self
+            .generated
+            .get(&key)
+            .cloned()
+            .or_else(|| self.files.borrow().get(&key).cloned());
+        self.record_file(path, key);
+        if let Some(bytes) = found {
+            Some(Arc::new(ReadBuffer::new(bytes)))
+        } else {
+            let bytes = self.base.read_shared(&self.at(path));
+            self.observe(
+                path,
+                Observation::Read(bytes.as_ref().map(|bytes| bytes.bytes().clone())),
+            );
+            if self.base.tracks_native_inputs()
+                && let Some(owner) = &bytes
+            {
+                self.reads
+                    .borrow_mut()
+                    .disk
+                    .record_read_owner(self.at(path).into_owned(), owner.clone());
+            }
+            bytes
         }
     }
 
     fn is_file(&self, path: &Path) -> bool {
-        let key = self.canonical_of(path);
-        let open = self.files.contains_key(&key);
-        self.reads.borrow_mut().files.insert(key);
-        open || self.base.is_file(&self.at(path))
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("file");
+        #[cfg(test)]
+        crate::reference_records::request_work_tests::overlay_identity(|| {
+            (
+                self.at(path).into_owned(),
+                self.canonical.get(path).is_none(),
+            )
+        });
+        // A cached identity can still select an open file after its disk alias disappears.
+        // Only a new name may use exact absence, and an unsaved/generated fallback wins.
+        if self.base.tracks_native_inputs()
+            && self.canonical.get(path).is_none()
+            && let Some(key) = self.base.missing_file_key(&self.at(path))
+            && !self.generated.contains_key(&key)
+            && !self.files.borrow().contains_key(&key)
+        {
+            self.observe(path, Observation::Absence(key.clone()));
+            let raw = self.at(path).into_owned();
+            let mut reads = self.reads.borrow_mut();
+            reads.note_file(raw);
+            reads.note_file(key);
+            return false;
+        }
+        let key = self.observe_identity(path);
+        let open = self.generated.contains_key(&key) || self.files.borrow().contains_key(&key);
+        self.record_file(path, key);
+        open || {
+            let value = self.base.is_file(&self.at(path));
+            self.observe(path, Observation::File(value));
+            value
+        }
     }
 
     fn is_dir(&self, path: &Path) -> bool {
-        let p = self.canonical_of(path);
-        self.reads.borrow_mut().dirs.insert(p.clone());
-        self.files.keys().any(|k| k.starts_with(&p) && *k != p) || self.base.is_dir(&self.at(path))
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("directory");
+        let p = self.observe_identity(path);
+        self.record_directory(path, p.clone());
+        self.files
+            .borrow()
+            .keys()
+            .chain(self.generated.keys())
+            .any(|k| k.starts_with(&p) && *k != p)
+            || {
+                let value = self.base.is_dir(&self.at(path));
+                self.observe(path, Observation::Directory(value));
+                value
+            }
     }
 
     fn canonical(&self, path: &Path) -> PathBuf {
-        self.canonical_of(path)
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("canonical");
+        self.observe_identity(path)
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
-        self.base.list_dir(&self.at(path))
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("listing");
+        let key = self.observe_identity(path);
+        self.record_directory(path, key.clone());
+        let mut base = self.base.list_dir(&self.at(path));
+        base.sort();
+        self.observe(path, Observation::Listing(base.clone()));
+        let mut entries: BTreeMap<String, bool> = base.into_iter().collect();
+        // An open document is a file even before it is saved. Its ancestors are directories;
+        // only the immediate child belongs in this listing. Exact overlays replace disk entries.
+        for file in self.files.borrow().keys().chain(self.generated.keys()) {
+            let Ok(relative) = file.strip_prefix(&key) else {
+                continue;
+            };
+            let mut components = relative.components();
+            let Some(std::path::Component::Normal(name)) = components.next() else {
+                continue;
+            };
+            entries.insert(
+                name.to_string_lossy().into_owned(),
+                components.next().is_some(),
+            );
+        }
+        entries.into_iter().collect()
     }
 
     fn stamp(&self, path: &Path) -> Option<u64> {
-        let key = self.canonical_of(path);
+        #[cfg(test)]
+        let _work = crate::reference_records::request_work_tests::overlay_scope("stamp");
+        let key = self.observe_identity(path);
         let open = self
-            .files
+            .generated
             .get(&key)
-            .map(|bytes| jaic::sema::content_stamp(bytes));
+            .cloned()
+            .or_else(|| self.files.borrow().get(&key).cloned())
+            .map(|bytes| jaic::sema::content_stamp(&bytes));
+        if open.is_none() && self.is_dir(path) {
+            use std::hash::{Hash, Hasher};
+            let mut hash = jaic::fxhash::FxHasher::default();
+            self.list_dir(path).hash(&mut hash);
+            return Some(hash.finish());
+        }
         // What is stamped counts as read: the compile it belongs to depends on it.
-        self.reads.borrow_mut().files.insert(key);
-        match open {
-            Some(stamp) => Some(stamp),
-            None => self.base.stamp(&self.at(path)),
+        self.record_file(path, key);
+        if let Some(stamp) = open {
+            Some(stamp)
+        } else {
+            let stamp = self.base.stamp(&self.at(path));
+            self.observe(path, Observation::Stamp(stamp));
+            stamp
         }
     }
 }
+
+#[cfg(test)]
+#[path = "overlay_tests.rs"]
+mod tests;

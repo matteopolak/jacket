@@ -1,12 +1,14 @@
 //! Opening, changing and closing documents, and their diagnostics.
+use super::saved_configs::{ConfigCapture, ConfigFailure, SavedConfigState};
 use super::{Document, Session};
 use crate::analysis::Span;
 use crate::{
     Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, RelatedInformation,
     TextChange, analysis::Analysis, position::LineIndex,
 };
-use std::cell::OnceCell;
-use std::path::Path;
+use jaic::sema::FileSystem;
+use std::cell::{Cell, OnceCell};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 /// A compile diagnostic with where it is (bytes) and what can fix it.
@@ -19,18 +21,34 @@ pub(crate) struct Finding {
 
 impl Session {
     pub fn open(&mut self, uri: DocumentUri, version: i32, text: String) -> Result<(), Error> {
-        if self.document_uri(&uri).is_some() {
+        if self.documents.contains_key(&uri) || self.lint_configs.contains_key(&uri) {
             return Err(Error::AlreadyOpen);
         }
         if self.documents.len() + self.lint_configs.len() >= self.limits.documents {
             return Err(Error::Limit("open document count exceeded"));
         }
         self.admit(&uri, text.len(), 0)?;
-        self.file_changed(Path::new(uri.path()), true);
+        let config = crate::lints::is_config(&uri);
+        let mut identity_pending = !config && !self.begin_cold_input_capture();
+        if config {
+            self.document_changed(Path::new(uri.path()), true);
+        }
+        if !identity_pending {
+            let existing = self.document_uri(&uri);
+            identity_pending = self
+                .environment
+                .as_ref()
+                .is_some_and(|env| env.fs.input_epoch_valid() == Some(false));
+            if !identity_pending && existing.is_some() {
+                return Err(Error::AlreadyOpen);
+            }
+        }
+        if !config {
+            self.source_buffer_changed(Path::new(uri.path()));
+        }
         let map = if crate::lints::is_config(&uri) {
-            let saved = self
-                .config_on_disk(Path::new(uri.path()))
-                .unwrap_or_else(|| text.clone());
+            let saved = self.capture_saved_config(&uri, ConfigCapture::Initial(&text))?;
+            self.admit_saved_config(&uri, &saved, uri.as_str().len() + text.len())?;
             self.saved_configs.insert(uri.clone(), saved);
             // Lints computed with the old settings are stale.
             self.semantic.borrow_mut().forget_lints();
@@ -42,6 +60,10 @@ impl Session {
             uri,
             Document {
                 version,
+                identity_pending,
+                identity_recovery_token: None,
+                initial_links_accepted: Cell::new(false),
+                initial_costs_accepted: Cell::new(false),
                 index: LineIndex::new(&text),
                 text,
                 asm: OnceCell::new(),
@@ -98,7 +120,7 @@ impl Session {
             crate::lexical_recovery::update(&document.text, &text, &document.lexical_damage);
         let config = self.lint_configs.contains_key(uri);
         if !config {
-            self.file_changed(Path::new(uri.path()), false);
+            self.buffer_changed(Path::new(uri.path()));
         }
         let map = if config {
             &mut self.lint_configs
@@ -106,8 +128,14 @@ impl Session {
             &mut self.documents
         };
         let current = map.get_mut(uri).expect("checked document");
+        let identity_pending = current.identity_pending;
+        let identity_recovery_token = current.identity_recovery_token;
         *current = Document {
             version,
+            identity_pending,
+            identity_recovery_token,
+            initial_links_accepted: Cell::new(false),
+            initial_costs_accepted: Cell::new(false),
             index,
             text,
             asm: OnceCell::new(),
@@ -120,28 +148,49 @@ impl Session {
         Ok(())
     }
 
-    /// Commit an open settings buffer; ordinary source saves need no additional analysis.
+    /// Commit settings edits, or invalidate closed native inputs after a source save.
+    /// For example, the next diagnostics query may observe a changed closed dependency.
     pub fn save(&mut self, uri: &DocumentUri) -> Result<(), Error> {
         let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
         if let Some(config) = self.lint_configs.get(&key) {
-            self.saved_configs.insert(key.clone(), config.text.clone());
-            self.file_changed(Path::new(key.path()), false);
+            let text = config.text.clone();
+            self.document_changed(Path::new(key.path()), false);
+            let required = std::cell::Cell::new(usize::MAX);
+            let candidate = self.capture_saved_config(&key, ConfigCapture::Buffer(&text));
+            let saved = match candidate.and_then(|saved| {
+                required.set(saved.storage(&key));
+                self.admit_saved_config(&key, &saved, 0)?;
+                Ok(saved)
+            }) {
+                Ok(saved) => saved,
+                Err(error) => {
+                    let reason = if matches!(error, Error::Limit(_)) {
+                        ConfigFailure::Budget {
+                            required: required.get(),
+                        }
+                    } else {
+                        ConfigFailure::Input
+                    };
+                    self.unavailable_saved_config(&key, reason);
+                    return Err(error);
+                }
+            };
+            self.saved_configs.insert(key.clone(), saved);
             self.semantic.borrow_mut().forget_lints();
             self.rebuild();
+        } else {
+            self.file_changed(Path::new(key.path()), false);
         }
         Ok(())
     }
 
-    pub(crate) fn config_on_disk(&self, path: &Path) -> Option<String> {
-        self.read_config_on_disk(path).ok()
-    }
-
-    /// [`Self::config_on_disk`], with the reason a file could not be read.
+    /// Read native configuration with the reason a file could not be read.
     pub(crate) fn read_config_on_disk(&self, path: &Path) -> std::io::Result<String> {
         match &self.environment {
-            Some(env) => {
-                let bytes = env
-                    .fs
+            Some(_) => {
+                let bytes = self
+                    .config_filesystem()
+                    .expect("environment")
                     .read(path)
                     .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))?;
 
@@ -158,23 +207,89 @@ impl Session {
 
     /// Watch notifications describe disk state, never the unfinished editor buffer.
     pub(crate) fn saved_file_changed(&mut self, path: &Path, created_or_deleted: bool) {
-        if let Some(uri) = self.open_file_uri(path)
-            && self.saved_configs.contains_key(&uri)
-        {
-            if let Some(text) = self.config_on_disk(path) {
-                self.saved_configs.insert(uri, text);
-            } else {
-                self.saved_configs.remove(&uri);
+        let raw = jaic::paths::identity_spelling(path);
+        let mut affected: std::collections::BTreeSet<_> = self
+            .saved_configs
+            .iter()
+            .filter(|(uri, saved)| Path::new(uri.path()) == path || saved.identity == raw)
+            .map(|(uri, _)| uri.clone())
+            .collect();
+        self.native_file_changed(path, created_or_deleted);
+        let key = self.environment.as_ref().map_or_else(
+            || raw.clone(),
+            |env| crate::auto_import::canonical_key(env, path),
+        );
+        for uri in self.lint_configs.keys() {
+            let identity = self.environment.as_ref().map_or_else(
+                || jaic::paths::identity_spelling(Path::new(uri.path())),
+                |env| crate::auto_import::canonical_key(env, Path::new(uri.path())),
+            );
+            if identity == key || Path::new(uri.path()) == path {
+                affected.insert(uri.clone());
+            }
+        }
+        for uri in affected {
+            let required = std::cell::Cell::new(usize::MAX);
+            let candidate = self
+                .capture_saved_config(&uri, ConfigCapture::Disk)
+                .and_then(|mut saved| {
+                    if matches!(saved.state, SavedConfigState::Missing)
+                        && let Some(previous) = self.saved_configs.get(&uri)
+                    {
+                        saved.identity.clone_from(&previous.identity);
+                    }
+                    required.set(saved.storage(&uri));
+                    self.admit_saved_config(&uri, &saved, 0)?;
+                    Ok(saved)
+                });
+            match candidate {
+                Ok(saved) => {
+                    self.saved_configs.insert(uri, saved);
+                }
+                Err(error) => {
+                    let reason = if matches!(error, Error::Limit(_)) {
+                        ConfigFailure::Budget {
+                            required: required.get(),
+                        }
+                    } else {
+                        ConfigFailure::Input
+                    };
+                    self.unavailable_saved_config(&uri, reason);
+                    if matches!(error, Error::Limit(_)) {
+                        self.notify("jailsp could not retain saved settings: workspace byte budget exceeded".into());
+                    }
+                }
             }
             self.semantic.borrow_mut().forget_lints();
         }
-        self.file_changed(path, created_or_deleted);
     }
 
     pub fn close(&mut self, uri: &DocumentUri) -> Result<(), Error> {
-        let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
+        let raw = self.documents.contains_key(uri) || self.lint_configs.contains_key(uri);
+        if !raw && !self.begin_cold_input_capture() {
+            return Err(Error::DiagnosticsUnavailable);
+        }
+        let key = if raw {
+            uri.clone()
+        } else {
+            let key = self.document_uri(uri);
+            if self
+                .environment
+                .as_ref()
+                .is_some_and(|env| env.fs.input_epoch_valid() == Some(false))
+            {
+                return Err(Error::DiagnosticsUnavailable);
+            }
+            key.ok_or(Error::MissingDocument)?
+        };
         let uri = &key;
-        self.file_changed(Path::new(uri.path()), true);
+        if self.lint_configs.contains_key(uri) {
+            self.document_changed(Path::new(uri.path()), true);
+        } else {
+            // The raw client key already identifies its owned buffer. Closing it cannot
+            // depend on whether unrelated settings or semantic input is available.
+            self.source_buffer_changed(Path::new(uri.path()));
+        }
         if self.lint_configs.remove(uri).is_some() {
             self.saved_configs.remove(uri);
             self.semantic.borrow_mut().forget_lints();
@@ -183,8 +298,58 @@ impl Session {
         }
         self.documents.remove(uri).ok_or(Error::MissingDocument)?;
         self.call_graphs.borrow_mut().remove(uri);
+        self.reference_records.borrow_mut().remove(uri);
         self.rebuild();
         Ok(())
+    }
+
+    /// Resolve pending raw registrations using sealed responses only.
+    /// Missing operations queue ordinary hydration; conflicting aliases stay unavailable.
+    pub(super) fn resolve_buffer_identities(&mut self) -> bool {
+        let Some(epoch) = &self.input_epoch else {
+            return false;
+        };
+        if !self.documents.values().any(|doc| doc.identity_pending) {
+            return false;
+        }
+        let retry = self.documents.values().any(|doc| {
+            doc.identity_pending && doc.identity_recovery_token != Some(epoch.capture_identity())
+        });
+        if !epoch.prepare_buffer_identity_hydration(retry) {
+            return false;
+        }
+        for doc in self
+            .documents
+            .values_mut()
+            .filter(|doc| doc.identity_pending)
+        {
+            doc.identity_recovery_token = Some(epoch.capture_identity());
+        }
+        let fs = &**epoch;
+        let mut keys = std::collections::BTreeMap::<PathBuf, Vec<DocumentUri>>::new();
+        let mut complete = true;
+        for uri in self.documents.keys().chain(self.lint_configs.keys()) {
+            let path = Path::new(uri.path());
+            if fs.canonical_exact(path).is_none() && fs.missing_file_key(path).is_none() {
+                complete = false;
+            }
+            keys.entry(crate::auto_import::filesystem_key(fs, path))
+                .or_default()
+                .push(uri.clone());
+        }
+        if !complete || !epoch.buffer_identity_inputs_ready() || jaic::interrupt::fired() {
+            return false;
+        }
+        let mut changed = false;
+        for uris in keys.values().filter(|uris| uris.len() == 1) {
+            if let Some(doc) = self.documents.get_mut(&uris[0]) {
+                changed |= std::mem::replace(&mut doc.identity_pending, false);
+            }
+        }
+        if !self.documents.values().any(|doc| doc.identity_pending) {
+            epoch.finish_buffer_identity_hydration();
+        }
+        changed
     }
 
     /// `publications`, unless the transport asked for the check to stop (see
@@ -196,20 +361,31 @@ impl Session {
         (!jaic::interrupt::disarm()).then_some(all)
     }
 
+    /// Ready diagnostic replacements. An unavailable document is omitted so clients keep
+    /// its last accepted diagnostics until a new trigger can produce a valid replacement.
     pub fn publications(&self) -> Vec<(String, i32, Vec<Diagnostic>)> {
+        let _query = self.discovery_query();
+        let _background = self.background();
+        self.documents
+            .iter()
+            .filter_map(|(uri, doc)| {
+                self.diagnostics(uri)
+                    .ok()
+                    .map(|items| (uri.as_str().into(), doc.version, items))
+            })
+            .collect()
+    }
+
+    /// Collect a workspace pull without representing an unavailable document as clean.
+    /// Unlike push, a failed batch returns an error instead of silently omitting a report.
+    pub(crate) fn diagnostic_reports(&self) -> Result<Vec<(String, i32, Vec<Diagnostic>)>, Error> {
+        let _query = self.discovery_query();
         let _background = self.background();
         self.documents
             .iter()
             .map(|(uri, doc)| {
-                let mut diagnostics = self
-                    .analysis_for(uri)
-                    .expect("opened document has analysis")
-                    .diagnostics
-                    .clone();
-                diagnostics.extend(self.check_diagnostics(uri));
-                diagnostics.extend(self.unreachable_diagnostics(uri));
-                diagnostics.extend(self.lint_diagnostics(uri));
-                (uri.as_str().into(), doc.version, diagnostics)
+                self.diagnostics(uri)
+                    .map(|items| (uri.as_str().into(), doc.version, items))
             })
             .collect()
     }
@@ -231,14 +407,22 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
-        let found = self
-            .with_semantic(uri, &doc.text, |analysis, path| {
-                let findings = analysis.check_findings(path);
-                self.remember_call_graphs(uri, analysis);
-                analysis.focus(path);
-                Some(findings)
-            })
-            .unwrap_or_default();
+        self.with_semantic(uri, &doc.text, |analysis, path| {
+            let findings = analysis.staged_check_findings(path);
+            let _ = self.remember_call_graphs(uri, analysis);
+            analysis.focus(path);
+            Some(self.findings_from(&self.config_filesystem()?, uri, findings))
+        })
+        .unwrap_or_default()
+    }
+
+    /// Project accepted checker rows into the document's protocol ranges and related locations.
+    fn findings_from(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        uri: &DocumentUri,
+        found: Vec<crate::semantic::CheckFinding>,
+    ) -> Vec<Finding> {
         let syntax = &self
             .analysis_for(uri)
             .expect("opened document has analysis")
@@ -258,7 +442,7 @@ impl Session {
                     .related
                     .iter()
                     .filter_map(|r| {
-                        let at = self.location_in(&r.path, &r.text, r.start, r.end)?;
+                        let at = self.projected_location(fs, &r.path, &r.text, r.start, r.end)?;
                         Some(RelatedInformation {
                             uri: at.uri,
                             range: at.range,
@@ -286,43 +470,59 @@ impl Session {
             .collect()
     }
 
-    /// Hints that fade the code of `uri` the compile found can never run.
-    pub(crate) fn unreachable_diagnostics(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
-        let Ok(doc) = self.document(uri) else {
-            return Vec::new();
-        };
-        let found = self
-            .with_semantic(uri, &doc.text, |analysis, path| {
-                Some(analysis.unreachable(path))
-            })
-            .unwrap_or_default();
-        found
-            .into_iter()
-            .filter_map(|(start, end)| {
-                Some(Diagnostic {
-                    range: self.range_of(uri, Span::new(start, end))?,
-                    severity: DiagnosticSeverity::Hint,
-                    code: DiagnosticCode::Unreachable,
-                    message: "unreachable code".into(),
-                    related: Vec::new(),
-                })
-            })
-            .collect()
-    }
-
     /// Syntax and source diagnostics of `uri`, then its type error and lints.
     pub fn diagnostics(&self, uri: &DocumentUri) -> Result<Vec<Diagnostic>, Error> {
+        let _query = self.discovery_query();
         // A pull is a request for the check itself: it is the one request that compiles.
         let _background = self.background();
-        self.document(uri)?;
+        let fs = self.config_filesystem();
+        let (uri, _) = if let Some(fs) = &fs {
+            self.projected_document_entry(fs, uri)?
+        } else {
+            self.document_entry(uri)?
+        };
         let mut diagnostics = self
             .analysis_for(uri)
             .expect("opened document has analysis")
             .diagnostics
             .clone();
-        diagnostics.extend(self.check_diagnostics(uri));
-        diagnostics.extend(self.unreachable_diagnostics(uri));
-        diagnostics.extend(self.lint_diagnostics(uri));
+        // No configured semantic provider is an explicitly syntax-only session.
+        if self.environment.is_none() {
+            return Ok(diagnostics);
+        }
+        let doc = self.document(uri)?;
+        let config = if crate::semantic::parse_error(&doc.text).is_none() {
+            self.lint_config(Path::new(uri.path()))
+        } else {
+            None
+        };
+        let (checks, unreachable, lints) = self
+            .with_semantic(uri, &doc.text, |analysis, path| {
+                let checks = analysis.staged_check_findings(path);
+                let _ = self.remember_call_graphs(uri, analysis);
+                analysis.focus(path);
+                let unreachable = analysis.unreachable(path);
+                let lints = match config.as_ref() {
+                    Some(config) => analysis.lints(path, config)?,
+                    None => Vec::new(),
+                };
+                let fs = self.config_filesystem()?;
+                let checks = self.findings_from(&fs, uri, checks);
+                let lints = self.projected_lint_diagnostics_from(&fs, uri, &lints);
+                Some((checks, unreachable, lints))
+            })
+            .ok_or(Error::DiagnosticsUnavailable)?;
+        diagnostics.extend(checks.into_iter().map(|f| f.diagnostic));
+        diagnostics.extend(unreachable.into_iter().filter_map(|(start, end)| {
+            Some(Diagnostic {
+                range: self.range_of(uri, Span::new(start, end))?,
+                severity: DiagnosticSeverity::Hint,
+                code: DiagnosticCode::Unreachable,
+                message: "unreachable code".into(),
+                related: Vec::new(),
+            })
+        }));
+        diagnostics.extend(lints);
         Ok(diagnostics)
     }
 
@@ -330,16 +530,10 @@ impl Session {
         if bytes > self.limits.document_bytes {
             return Err(Error::Limit("document byte budget exceeded"));
         }
-        let current = self
-            .documents
-            .iter()
-            .chain(&self.lint_configs)
-            .try_fold(0usize, |n, (name, doc)| {
-                n.checked_add(name.as_str().len() + doc.text.len())
-            })
-            .ok_or(Error::Limit("workspace byte overflow"))?;
+        let current = self.buffer_storage()?;
         let total = current
-            .checked_sub(old)
+            .checked_add(self.saved_config_storage()?)
+            .and_then(|sum| sum.checked_sub(old))
             .and_then(|n| n.checked_add(uri.as_str().len() + bytes))
             .ok_or(Error::Limit("workspace byte overflow"))?;
         if total > self.limits.workspace_bytes {
@@ -364,6 +558,57 @@ impl Session {
             .ok_or(Error::MissingDocument)
     }
 
+    /// Select the stored client key under observation, then validate that mapping after use.
+    /// Example: a physical request URI can address a buffer opened through a symlink.
+    pub(crate) fn projected_document_query<T: Default>(
+        &self,
+        uri: &DocumentUri,
+        query: impl FnOnce(&DocumentUri) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        let _query = self.discovery_query();
+        let mapping = std::cell::RefCell::new(crate::semantic::Observations::default());
+        let base = self.config_filesystem();
+        let fs = base.as_ref().map(|base| crate::semantic::ObservedFs {
+            base,
+            proof: Some(&mapping),
+            secondary: None,
+        });
+        let (key, _) = match &fs {
+            Some(fs) => self.projected_document_entry(fs, uri)?,
+            None => self.document_entry(uri)?,
+        };
+        if jaic::interrupt::fired() {
+            return Ok(T::default());
+        }
+        let answer = query(key)?;
+        if jaic::interrupt::fired()
+            || self
+                .environment
+                .as_ref()
+                .is_some_and(|env| !mapping.borrow().matches(&*env.fs))
+            || !self.accept_input_epoch()
+            || jaic::interrupt::fired()
+        {
+            return Ok(T::default());
+        }
+        Ok(answer)
+    }
+
+    /// Resolve an exact request spelling inside its existing discovery transaction.
+    /// Example: a physical URI may select the buffer opened through a symlink.
+    pub(crate) fn projected_document_entry(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        uri: &DocumentUri,
+    ) -> Result<(&DocumentUri, &Document), Error> {
+        let key = self
+            .projected_uri(fs, Path::new(uri.path()))
+            .ok_or(Error::MissingDocument)?;
+        self.documents
+            .get_key_value(&key)
+            .ok_or(Error::MissingDocument)
+    }
+
     pub(crate) fn document_uri(&self, uri: &DocumentUri) -> Option<DocumentUri> {
         if self.documents.contains_key(uri) || self.lint_configs.contains_key(uri) {
             return Some(uri.clone());
@@ -379,6 +624,47 @@ impl Session {
             .or_else(|| DocumentUri::from_path(path).ok())
     }
 
+    /// Stage a client spelling through actual observed responses before its output guard.
+    /// The caller must include this observer's history in the accepted result's final proof.
+    pub(crate) fn projected_uri(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        path: &Path,
+    ) -> Option<DocumentUri> {
+        self.projected_uri_with(fs, path, || crate::auto_import::filesystem_key(fs, path))
+    }
+
+    /// Project a selected compiler `SourcePath::File`, whose file identity the compiler owns.
+    /// Virtual and arbitrary request paths must use `projected_uri` instead. Open aliases
+    /// still use their full observed identities and the enclosing query's final guard.
+    pub(crate) fn projected_compiler_file_uri(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        path: &Path,
+    ) -> Option<DocumentUri> {
+        self.projected_uri_with(fs, path, || jaic::paths::file_identity(fs, path))
+    }
+
+    fn projected_uri_with(
+        &self,
+        fs: &crate::semantic::ObservedFs<'_>,
+        path: &Path,
+        identity: impl FnOnce() -> PathBuf,
+    ) -> Option<DocumentUri> {
+        if let Ok(uri) = DocumentUri::from_path(path)
+            && (self.documents.contains_key(&uri) || self.lint_configs.contains_key(&uri))
+        {
+            return Some(uri);
+        }
+        let want = identity();
+        self.documents
+            .keys()
+            .chain(self.lint_configs.keys())
+            .find(|uri| crate::auto_import::filesystem_key(fs, Path::new(uri.path())) == want)
+            .cloned()
+            .or_else(|| DocumentUri::from_path(path).ok())
+    }
+
     pub(crate) fn open_file_uri(&self, path: &Path) -> Option<DocumentUri> {
         if let Ok(uri) = DocumentUri::from_path(path)
             && (self.documents.contains_key(&uri) || self.lint_configs.contains_key(&uri))
@@ -387,23 +673,36 @@ impl Session {
         }
         let env = self.environment.as_ref()?;
         let want = crate::auto_import::canonical_key(env, path);
-        let mut identities = self.open_file_identities.borrow_mut();
-        let known = identities.get_or_insert_with(|| {
-            self.documents
-                .keys()
-                .chain(self.lint_configs.keys())
-                .map(|uri| {
-                    (
-                        crate::auto_import::canonical_key(env, Path::new(uri.path())),
-                        uri.clone(),
-                    )
-                })
-                .collect()
-        });
-        known
+        self.open_identities()?
             .iter()
             .find(|(path, _)| *path == want)
             .map(|(_, uri)| uri.clone())
+    }
+
+    /// Current canonical buffer identities, shared by navigation and snapshot validation.
+    pub(crate) fn open_identities(&self) -> Option<std::cell::Ref<'_, [(PathBuf, DocumentUri)]>> {
+        let env = self.environment.as_ref()?;
+        if env.fs.tracks_native_inputs() {
+            *self.open_file_identities.borrow_mut() = None;
+        }
+        if self.open_file_identities.borrow().is_none() {
+            *self.open_file_identities.borrow_mut() = Some(
+                self.documents
+                    .keys()
+                    .chain(self.lint_configs.keys())
+                    .map(|uri| {
+                        (
+                            crate::auto_import::canonical_key(env, Path::new(uri.path())),
+                            uri.clone(),
+                        )
+                    })
+                    .collect(),
+            );
+        }
+        Some(std::cell::Ref::map(
+            self.open_file_identities.borrow(),
+            |identities| identities.as_ref().unwrap().as_slice(),
+        ))
     }
 
     pub(crate) fn analysis_for(&self, uri: &DocumentUri) -> Option<&Rc<Analysis>> {

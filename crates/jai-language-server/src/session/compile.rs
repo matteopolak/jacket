@@ -1,13 +1,25 @@
 //! Rebuilding analyses and running semantic compiles for a document.
 use super::{CompileInputs, Session};
 use crate::analysis::Span;
-use crate::semantic::{self};
+use crate::semantic::{self, QueryAnalysis, QuerySelection};
 use crate::{DiagnosticCode, DiagnosticSeverity, DocumentUri, analysis::Analysis};
+use jaic::sema::FileSystem;
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+
+enum SemanticOutcome<T> {
+    Accepted(Option<T>),
+    Unavailable,
+}
+
+enum BuildAuthority {
+    Proven,
+    Advisory,
+    Unavailable,
+}
 
 impl Session {
     pub(super) fn rebuild(&mut self) {
@@ -17,7 +29,9 @@ impl Session {
         let mut analyses: BTreeMap<DocumentUri, Rc<Analysis>> = BTreeMap::new();
         for (uri, document) in &self.documents {
             let kept = self.analysis_for(uri).filter(|a| {
-                a.loads.is_empty() && a.key == crate::semantic::text_key(&document.text)
+                a.loads.is_empty()
+                    && a.key == crate::semantic::text_key(&document.text)
+                    && *a.source == document.text
             });
             if let Some(kept) = kept {
                 analyses.insert(uri.clone(), kept.clone());
@@ -25,6 +39,7 @@ impl Session {
             }
             let mut analysis = Analysis::build(&document.ide_text(), uri, self.limits);
             analysis.key = crate::semantic::text_key(&document.text);
+            analysis.source = document.text.as_str().into();
             for span in &document.lexical_damage {
                 let end = document.text[span.start..span.end]
                     .find('\n')
@@ -62,36 +77,70 @@ impl Session {
     /// The document a check of `uri` starts from: an open document that `#load`s it (directly or
     /// not) and is loaded by none, else `uri` itself.
     pub(crate) fn root(&self, uri: &DocumentUri) -> DocumentUri {
-        let actual = self.document_uri(uri).unwrap_or_else(|| uri.clone());
+        self.root_with(uri, None)
+    }
+
+    /// Choose an exact open-load owner using actual observed native identities.
+    /// Example: a physical loaded file can belong to a loader opened through an alias.
+    pub(crate) fn projected_root(&self, uri: &DocumentUri) -> DocumentUri {
+        self.root_with(uri, self.config_filesystem().as_ref())
+    }
+
+    fn root_with(
+        &self,
+        uri: &DocumentUri,
+        fs: Option<&crate::semantic::ObservedFs<'_>>,
+    ) -> DocumentUri {
+        let resolve = |uri: &DocumentUri| {
+            match fs {
+                Some(fs) => self.projected_uri(fs, Path::new(uri.path())),
+                None => self.document_uri(uri),
+            }
+            .unwrap_or_else(|| uri.clone())
+        };
+        let actual = resolve(uri);
         let uri = &actual;
         let loaded: BTreeSet<DocumentUri> = self
             .analyses
             .values()
-            .flat_map(|a| {
-                a.loads
-                    .iter()
-                    .map(|(target, _)| self.document_uri(target).unwrap_or_else(|| target.clone()))
-            })
+            .flat_map(|analysis| analysis.loads.iter().map(|(target, _)| resolve(target)))
             .collect();
         if !loaded.contains(uri) {
             return uri.clone();
         }
         self.documents
             .keys()
-            .find(|d| !loaded.contains(*d) && self.reachable(d).contains(&uri))
+            .find(|document| {
+                !loaded.contains(*document) && self.reachable_with(document, fs).contains(&uri)
+            })
             .unwrap_or(uri)
             .clone()
     }
 
     /// What a compile of the program containing `uri` needs, with `uri`'s text replaced by
     /// `text`: the open files, the program's root file and the module folders searched.
-    fn compile_inputs(&self, uri: &DocumentUri, text: &str) -> Option<CompileInputs> {
-        let key = self.document_uri(uri)?;
+    pub(crate) fn compile_inputs(&self, uri: &DocumentUri, text: &str) -> Option<CompileInputs> {
+        let _query = self.discovery_query();
+        // The outer scope already validated the retained discovery proof. New observations
+        // remain sticky; misses validate before memo publication, and semantic consumers
+        // validate their complete accumulated context before accepting an answer.
+        if self.documents.values().any(|doc| doc.identity_pending)
+            || !self.input_proof.borrow().is_consistent()
+            || self
+                .environment
+                .as_ref()
+                .is_some_and(|env| env.fs.input_epoch_valid() == Some(false))
+        {
+            return None;
+        }
+        self.sync_builds(&self.semantic.borrow());
+        let key = self.projected_uri(&self.config_filesystem()?, Path::new(uri.path()))?;
         let uri = &key;
         // The document's own text (as most requests pass it) needs no comparing: any change to
         // a document moves the generation on.
         let own = self.is_own_text(uri, text);
-        if let Some((generation, last, last_text, inputs)) = &*self.inputs.borrow()
+        let memo = self.inputs.borrow();
+        if let Some((generation, last, last_text, inputs, actual)) = &*memo
             && *generation == self.generation.get()
             && last == uri
             && match last_text {
@@ -99,19 +148,80 @@ impl Session {
                 Some(last_text) => last_text == text,
             }
         {
-            return Some(inputs.clone());
+            let restored = self.restore_input_epoch(actual.as_ref());
+            // This matching memo's originals and the outer discovery scope already own
+            // the sealed input view. New URI observations must still fit that same view.
+            let ready = self.input_epoch.as_ref().is_some_and(|epoch| epoch.ready())
+                && self
+                    .environment
+                    .as_ref()
+                    .is_some_and(|env| env.fs.input_epoch_valid() == Some(true));
+            let accepted = restored
+                && if ready {
+                    self.input_proof.borrow().is_consistent()
+                        && !self.configuration_input_failed.get()
+                        && !jaic::interrupt::fired()
+                } else {
+                    self.discovery_inputs_current()
+                };
+            let answer = accepted.then(|| inputs.clone());
+            drop(memo);
+            if !accepted {
+                // A selected old memo cannot be rediscovered under a contradictory history
+                // in this same transaction. The next request may capture fresh inputs.
+                *self.inputs.borrow_mut() = None;
+                *self.memo_input_proof.borrow_mut() = semantic::Observations::default();
+            }
+            return answer;
         }
+        drop(memo);
+        if !self
+            .semantic
+            .borrow()
+            .has_accepted_source(Path::new(uri.path()))
+            && !self.begin_cold_input_capture()
+        {
+            return None;
+        }
+        self.index.borrow_mut().discard_input_memos();
+        *self.input_proof.borrow_mut() = self.request_input_proof.borrow().clone();
+        let _capture = self.capture_discovery_inputs();
         let inputs = self.work_out_inputs(uri, text)?;
+        if !self.discovery_inputs_current() {
+            return None;
+        }
         if self.builds_skipped.replace(false) {
             return Some(inputs);
         }
+        *self.memo_input_proof.borrow_mut() = self.input_proof.borrow().clone();
         *self.inputs.borrow_mut() = Some((
             self.generation.get(),
             uri.clone(),
             (!own).then(|| text.to_string()),
             inputs.clone(),
+            self.input_epoch.as_ref().map(|epoch| epoch.actual_inputs()),
         ));
         Some(inputs)
+    }
+
+    // A missing compiler or initial workspace context may capture before selection.
+    // A failed selected transaction or coverage miss must never reach this reset.
+    pub(crate) fn begin_cold_input_capture(&self) -> bool {
+        if !self.input_proof.borrow().is_consistent()
+            || self.configuration_input_failed.get()
+            || jaic::interrupt::fired()
+        {
+            return false;
+        }
+        let Some(epoch) = &self.input_epoch else {
+            return true;
+        };
+        if !epoch.ready() {
+            return epoch.input_epoch_valid() != Some(false);
+        }
+        let original = epoch.actual_inputs();
+        epoch.begin_request_capture();
+        epoch.reuse_actual(&original)
     }
 
     /// Whether `text` is the open document's own buffer, not a copy or an edited probe.
@@ -121,6 +231,7 @@ impl Session {
     }
 
     fn work_out_inputs(&self, uri: &DocumentUri, text: &str) -> Option<CompileInputs> {
+        let _query = self.discovery_query();
         let environment = self.environment.as_ref()?;
         let files: BTreeMap<PathBuf, Arc<[u8]>> = self
             .documents
@@ -143,10 +254,27 @@ impl Session {
         // The open document no other open document loads, compiled from the project's entry
         // file (which may load it, or build it from a metaprogram), so the files of the program
         // that are not open are checked too.
-        let open_root = self.root(uri);
-        self.run_unrecorded_builds(&open_root, &files);
+        let open_root = self.projected_root(uri);
+        {
+            let buffers = Rc::new(files.clone());
+            let mut cache = self.semantic.borrow_mut();
+            cache.validate_probes(environment, &buffers);
+            self.sync_builds(&cache);
+        }
+        match self.run_unrecorded_builds(&open_root, &files) {
+            BuildAuthority::Proven => {}
+            BuildAuthority::Advisory => {
+                let dirs = self.last_good_import_dirs(uri);
+                if !self.index.borrow().advisory_builds.is_empty() {
+                    *self.advisory_inputs.borrow_mut() =
+                        Some((Rc::new(files), PathBuf::from(uri.path()), dirs));
+                }
+                return None;
+            }
+            BuildAuthority::Unavailable => return None,
+        }
         let root = match self.project_root(&open_root) {
-            Some(entry) if environment.fs.is_file(&entry) => entry,
+            Some(entry) if self.config_filesystem()?.is_file(&entry) => entry,
             _ => PathBuf::from(open_root.path()),
         };
         // Untrusted: the metaprogram that would build the open file does not run, so the file
@@ -175,13 +303,24 @@ impl Session {
                     None
                 });
         }
+        let _query = self.discovery_query();
         let environment = self.environment.as_ref()?;
         let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let mut cache = self.semantic.borrow_mut();
-        let analysis = cache.analyze(environment, &root, &dirs, files)?;
+        cache.set_input_proof(self.input_proof.borrow().clone());
+        let mut analysis = cache.query(
+            environment,
+            &root,
+            &dirs,
+            files,
+            QuerySelection::Exact {
+                compile: true,
+                os: None,
+            },
+        )?;
         let path = Path::new(uri.path());
         analysis.focus(path);
-        let answer = query(analysis, path);
+        let answer = self.semantic_query(analysis, path, query);
         self.sync_builds(&cache);
         answer
     }
@@ -194,13 +333,187 @@ impl Session {
         text: &str,
         query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
     ) -> Option<Option<T>> {
+        let _query = self.discovery_query();
         let environment = self.environment.as_ref()?;
         let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let mut cache = self.semantic.borrow_mut();
-        let analysis = cache.cached(environment, &root, &dirs, &files)?;
+        cache.set_input_proof(self.input_proof.borrow().clone());
+        let mut analysis = cache.query(
+            environment,
+            &root,
+            &dirs,
+            files,
+            QuerySelection::Exact {
+                compile: false,
+                os: None,
+            },
+        )?;
         let path = Path::new(uri.path());
         analysis.focus(path);
-        Some(query(analysis, path))
+        Some(self.semantic_query(analysis, path, query))
+    }
+
+    /// Best-effort hints may use last-good import discovery, never an exact compiler entry.
+    pub(crate) fn with_best_effort_semantic<T>(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        query: impl Fn(&mut semantic::Analysis, &Path) -> Option<T>,
+    ) -> Option<T> {
+        let _scope = self.discovery_query();
+        if let Some(answer) = self.with_semantic(uri, text, &query) {
+            return Some(answer);
+        }
+        if !self.may_compile() || !self.discovery_inputs_current() {
+            return None;
+        }
+        let (files, root, dirs) = self.advisory_inputs.borrow().clone()?;
+        let env = self.environment.as_ref()?;
+        let mut cache = self.semantic.borrow_mut();
+        cache.set_input_proof(self.input_proof.borrow().clone());
+        let mut analysis = cache.advisory_analysis(env, &root, &dirs, files)?;
+        self.stale_used.set(true);
+        let analysis = QueryAnalysis::validate(&mut analysis, env, &self.input_proof.borrow())?;
+        self.semantic_query(analysis, Path::new(uri.path()), query)
+    }
+
+    /// Project offset-sensitive output before the selected Analysis's final guard.
+    /// Example: definition locations apply the selected older-text shift inside this callback.
+    pub(crate) fn with_best_effort_semantic_at_projected<T>(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        byte: usize,
+        query: impl Fn(&mut semantic::Analysis, &Path, usize, &semantic::Shift) -> Option<T>,
+    ) -> Option<(T, semantic::Shift)> {
+        let _scope = self.discovery_query();
+        let exact = if self.may_compile() {
+            self.compiled_at(uri, text, byte, |a, path| {
+                query(a, path, byte, &semantic::Shift::none())
+            })
+            .map(|answer| (answer, semantic::Shift::none()))
+        } else {
+            self.on_older_compile(uri, text, |a, path, shift| {
+                let at = shift.to_old(byte)?;
+                Some((query(a, path, at, shift)?, *shift))
+            })
+        };
+        if exact.is_some() {
+            return exact;
+        }
+        if !self.may_compile() || !self.discovery_inputs_current() {
+            return None;
+        }
+        let (files, root, dirs) = self.advisory_inputs.borrow().clone()?;
+        let env = self.environment.as_ref()?;
+        let mut cache = self.semantic.borrow_mut();
+        cache.set_input_proof(self.input_proof.borrow().clone());
+        let mut analysis = cache.advisory_analysis(env, &root, &dirs, files)?;
+        self.stale_used.set(true);
+        let analysis = QueryAnalysis::validate(&mut analysis, env, &self.input_proof.borrow())?;
+        self.semantic_query(analysis, Path::new(uri.path()), |a, path| {
+            query(a, path, byte, &semantic::Shift::none())
+        })
+        .map(|answer| (answer, semantic::Shift::none()))
+    }
+
+    /// Every callback may resolve existing entities or add facts without changing a counter.
+    /// Freeze resulting primary-program views only after the query completes without cancellation.
+    fn semantic_query<T>(
+        &self,
+        analysis: QueryAnalysis<'_>,
+        path: &Path,
+        query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
+    ) -> Option<T> {
+        match self.semantic_query_outcome(analysis, path, query) {
+            SemanticOutcome::Accepted(answer) => answer,
+            SemanticOutcome::Unavailable => None,
+        }
+    }
+
+    /// Distinguish accepted emptiness from a failed transaction before alternate selection.
+    /// Example: a rejected native proof must not trigger a same-request recheck.
+    fn semantic_query_outcome<T>(
+        &self,
+        analysis: QueryAnalysis<'_>,
+        path: &Path,
+        query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
+    ) -> SemanticOutcome<T> {
+        let analysis = analysis.into_analysis();
+        let _hints = analysis.hint_query();
+        let Some(environment) = self.environment.as_ref() else {
+            return SemanticOutcome::Unavailable;
+        };
+        let fs = &*environment.fs;
+        let capture_identity = self
+            .input_epoch
+            .as_ref()
+            .map(|epoch| epoch.capture_identity());
+        if let Some(epoch) = &self.input_epoch {
+            analysis.input_epoch = Some(Rc::downgrade(epoch));
+            if analysis
+                .actual_inputs
+                .as_ref()
+                .is_some_and(|original| !epoch.reuse_actual(original))
+            {
+                analysis.invalidate_reference_views(true);
+                return SemanticOutcome::Unavailable;
+            }
+        }
+        analysis
+            .reads
+            .borrow_mut()
+            .disk
+            .merge(&self.input_proof.borrow());
+        if jaic::interrupt::fired() || !analysis.reads.borrow().disk.is_consistent() {
+            analysis.invalidate_reference_views(true);
+            return SemanticOutcome::Unavailable;
+        }
+        // Input equality does not prove equality of compiler facts after an IDE query.
+        // Retire only this Analysis owner, preserving unrelated and evicted contexts.
+        let graph_owners = self.call_graph_owners(&analysis.facts_accepted);
+        analysis.facts_accepted.set(false);
+        analysis.facts_accepted = Rc::new(std::cell::Cell::new(false));
+        analysis.invalidate_reference_views(false);
+        let answer = query(analysis, path);
+        self.refresh_call_graphs(&graph_owners, analysis);
+        analysis.focus(path);
+        analysis.invalidate_reference_views(false);
+        analysis
+            .reads
+            .borrow_mut()
+            .disk
+            .merge(&self.input_proof.borrow());
+        let references = self.capture_reference_records(analysis);
+        if !analysis.freeze_actual_inputs() {
+            analysis.invalidate_reference_views(true);
+            return SemanticOutcome::Unavailable;
+        }
+        let cancelled = jaic::interrupt::fired()
+            || self.configuration_input_failed.get()
+            || !analysis.reads.borrow().is_current(fs);
+        let hints_current = !cancelled && analysis.hints_current(fs);
+        let unchanged = self
+            .input_epoch
+            .as_ref()
+            .map(|epoch| epoch.capture_identity())
+            == capture_identity;
+        // Optional output failure cannot poison an otherwise accepted semantic epoch.
+        let epoch_current = cancelled || (unchanged && self.accept_input_epoch());
+        let cancelled = cancelled || !epoch_current || jaic::interrupt::fired();
+        analysis.facts_accepted.set(!cancelled);
+        if cancelled {
+            analysis.invalidate_reference_views(true);
+            self.call_graphs
+                .borrow_mut()
+                .retain(|_, graph| graph.accepted());
+            return SemanticOutcome::Unavailable;
+        }
+        if !hints_current {
+            return SemanticOutcome::Unavailable;
+        }
+        self.publish_reference_records(references);
+        SemanticOutcome::Accepted(answer)
     }
 
     /// Whether a compile may be made now: always, until `defer_compiles` turns it off for
@@ -235,33 +548,47 @@ impl Session {
     /// changed since), once each, so their recorded facts decide which program `uri` is in
     /// instead of a scan of their text. A run that fails is not repeated until the
     /// metaprogram, what it loads or `jacket.toml` changes.
-    fn run_unrecorded_builds(&self, uri: &DocumentUri, files: &BTreeMap<PathBuf, Arc<[u8]>>) {
+    fn run_unrecorded_builds(
+        &self,
+        uri: &DocumentUri,
+        files: &BTreeMap<PathBuf, Arc<[u8]>>,
+    ) -> BuildAuthority {
         let Some(environment) = self.environment.as_ref() else {
-            return;
+            return BuildAuthority::Unavailable;
         };
         if !self.trusted() {
-            return;
+            return BuildAuthority::Proven;
         }
-        let pending = self.unrecorded_builds(uri);
-        if pending.is_empty() {
-            return;
-        }
-        if !self.may_compile() {
-            self.builds_skipped.set(true);
-            return;
-        }
+        let initial = self.unrecorded_builds(uri);
         let buffers: semantic::Buffers = Rc::new(files.clone());
-        for (entry, hash) in pending {
-            self.index.borrow_mut().probed.insert(entry.clone(), hash);
+        if !initial.pending.is_empty() && !self.may_compile() {
+            self.builds_skipped.set(true);
+            return BuildAuthority::Unavailable;
+        }
+        for entry in initial.pending {
             let dirs = self.import_dirs(&entry);
             let mut cache = self.semantic.borrow_mut();
+            cache.set_input_proof(self.input_proof.borrow().clone());
             if cache
-                .analyze(environment, &entry, &dirs, buffers.clone())
+                .probe(environment, &entry, &dirs, buffers.clone())
                 .is_none()
             {
-                return;
+                return BuildAuthority::Unavailable;
             }
             self.sync_builds(&cache);
+        }
+        let current = self.unrecorded_builds(uri);
+        let proofs = self.semantic.borrow().probe_reads(&current.entries);
+        for reads in proofs {
+            self.input_proof.borrow_mut().merge(&reads.disk);
+            self.request_input_proof.borrow_mut().merge(&reads.disk);
+        }
+        if !current.pending.is_empty() || !self.discovery_inputs_current() {
+            BuildAuthority::Unavailable
+        } else if current.failed {
+            BuildAuthority::Advisory
+        } else {
+            BuildAuthority::Proven
         }
     }
 
@@ -274,7 +601,9 @@ impl Session {
         self.synced_builds.set(cache.recorded_version);
         let mut index = self.index.borrow_mut();
         index.builds = cache.recorded.clone();
-        index.import_dirs.clear();
+        index.probed = cache.probe_statuses();
+        index.advisory_builds = cache.advisory_builds();
+        index.discard_input_memos();
         *self.inputs.borrow_mut() = None;
     }
 
@@ -312,35 +641,33 @@ impl Session {
         text: &str,
         query: impl FnOnce(&mut semantic::Analysis, &Path, &semantic::Shift) -> Option<T>,
     ) -> Option<T> {
+        let _query = self.discovery_query();
         let environment = self.environment.as_ref()?;
         let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let path = Path::new(uri.path());
         let mut cache = self.semantic.borrow_mut();
-        if let Some(exact) = cache.cached(environment, &root, &dirs, &files) {
+        cache.set_input_proof(self.input_proof.borrow().clone());
+        if let Some(mut exact) = cache.query(
+            environment,
+            &root,
+            &dirs,
+            files.clone(),
+            QuerySelection::Exact {
+                compile: false,
+                os: None,
+            },
+        ) {
             exact.focus(path);
-            return query(exact, path, &semantic::Shift::none());
+            return self.semantic_query(exact, path, |a, path| {
+                query(a, path, &semantic::Shift::none())
+            });
         }
         self.want_compile(uri, text);
-        let analysis = cache.latest(&root, &dirs)?;
+        let mut analysis = cache.query(environment, &root, &dirs, files, QuerySelection::Latest)?;
         let old = analysis.compiled_text(path)?;
         let shift = semantic::Shift::between(old.as_bytes(), text.as_bytes());
         analysis.focus(path);
-        query(analysis, path, &shift)
-    }
-
-    /// Like `with_semantic` for a query that asks about no offset of `text`, so the last
-    /// compile answers when none fits `text` and requests may not compile.
-    pub(crate) fn with_semantic_or_older<T>(
-        &self,
-        uri: &DocumentUri,
-        text: &str,
-        query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
-    ) -> Option<T> {
-        if self.may_compile() {
-            self.with_semantic(uri, text, query)
-        } else {
-            self.on_older_compile(uri, text, |a, path, _| query(a, path))
-        }
+        self.semantic_query(analysis, path, |a, path| query(a, path, &shift))
     }
 
     fn compiled_at<T>(
@@ -350,22 +677,35 @@ impl Session {
         byte: usize,
         query: impl Fn(&mut semantic::Analysis, &Path) -> Option<T>,
     ) -> Option<T> {
+        let _query = self.discovery_query();
         let environment = self.environment.as_ref()?;
         let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let path = Path::new(uri.path());
         let mut cache = self.semantic.borrow_mut();
-        let analysis = cache.analyze(environment, &root, &dirs, files.clone())?;
+        cache.set_input_proof(self.input_proof.borrow().clone());
+        let mut analysis = cache.query(
+            environment,
+            &root,
+            &dirs,
+            files.clone(),
+            QuerySelection::Exact {
+                compile: true,
+                os: None,
+            },
+        )?;
         analysis.focus(path);
-        let first = query(analysis, path);
+        let first = self.semantic_query_outcome(analysis, path, &query);
         self.sync_builds(&cache);
-        if let Some(found) = first {
-            return Some(found);
+        match first {
+            SemanticOutcome::Accepted(Some(found)) => return Some(found),
+            SemanticOutcome::Accepted(None) => {}
+            SemanticOutcome::Unavailable => return None,
         }
         let analysis = cache.analyze(environment, &root, &dirs, files.clone())?;
         if !analysis.skipped(path, byte) {
             return None;
         }
-        let own = (environment.options)(&root).os;
+        let own = (environment.options)(&self.config_filesystem()?, &root).os;
         let mut unreached = self.unreached.borrow_mut();
         if unreached.0 != self.generation.get() {
             *unreached = (self.generation.get(), BTreeMap::default());
@@ -379,20 +719,53 @@ impl Session {
                     && !unreached
                         .1
                         .get(&(path.to_path_buf(), os as u8))
-                        .is_some_and(|spans| spans.iter().any(|&(a, b)| a <= byte && byte <= b))
+                        .is_some_and(|(input, spans)| {
+                            input.root == root
+                                && input.dirs == dirs
+                                && input.os == Some(os)
+                                && input.is_current(environment, &files, cache.authority())
+                                && spans.iter().any(|&(a, b)| a <= byte && byte <= b)
+                        })
             })
             .collect();
         for os in order {
-            let analysis = cache.analyze_for(environment, &root, &dirs, files.clone(), Some(os))?;
+            if !cache.has_accepted_context(&root, &dirs, Some(os))
+                && !self.begin_cold_input_capture()
+            {
+                return None;
+            }
+            let mut analysis = cache.query(
+                environment,
+                &root,
+                &dirs,
+                files.clone(),
+                QuerySelection::Exact {
+                    compile: true,
+                    os: Some(os),
+                },
+            )?;
             analysis.focus(path);
             if let Some(span) = analysis.skipped_span(path, byte) {
-                unreached
+                unreached.1.insert(
+                    (path.to_path_buf(), os as u8),
+                    (semantic::CheckedInputs::capture(&analysis), vec![span]),
+                );
+                while unreached
                     .1
-                    .entry((path.to_path_buf(), os as u8))
-                    .or_default()
-                    .push(span);
+                    .iter()
+                    .map(|((path, _), (input, spans))| {
+                        path.capacity()
+                            + input.bytes
+                            + spans.capacity() * std::mem::size_of::<(usize, usize)>()
+                            + 128
+                    })
+                    .sum::<usize>()
+                    > 16 << 20
+                {
+                    unreached.1.pop_first();
+                }
             } else {
-                return query(analysis, path);
+                return self.semantic_query(analysis, path, &query);
             }
         }
         None
@@ -408,19 +781,23 @@ impl Session {
         at: usize,
         query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
     ) -> Option<T> {
+        let _query = self.discovery_query();
         let environment = self.environment.as_ref()?;
         let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let mut cache = self.semantic.borrow_mut();
+        cache.set_input_proof(self.input_proof.borrow().clone());
         let path = Path::new(uri.path());
-        let analysis = cache.compiled_before(
+        let analysis = cache.query(
             environment,
             &root,
             &dirs,
             files,
-            path,
-            &text.as_bytes()[..at],
+            QuerySelection::Prefix {
+                path,
+                prefix: &text.as_bytes()[..at],
+            },
         )?;
-        query(analysis, path)
+        self.semantic_query(analysis, path, query)
     }
 }
 
@@ -432,3 +809,7 @@ impl Drop for Background<'_> {
         self.0.background.set(self.0.background.get() - 1);
     }
 }
+
+#[cfg(test)]
+#[path = "compile_tests.rs"]
+mod tests;

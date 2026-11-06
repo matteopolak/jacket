@@ -473,3 +473,28 @@ impl Compiler {
         twin.load_module(&name, &path, params, Span::NONE).ok()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exact_hint_index_policy_reaches_host_twin_source_preparation() {
+        let mut fs = super::super::VirtualFs::default();
+        fs.insert("/main.jai", b"main :: () {}".as_slice());
+        let mut options = Options::host();
+        options.runtime_support = false;
+        options.hint_index_mode = super::super::HintIndexMode::PerCompiler;
+        let mut compiler = Compiler::new(options, std::rc::Rc::new(fs));
+        compiler
+            .compile_program(std::path::Path::new("/main.jai"))
+            .unwrap();
+        let twin = compiler.build_twin().unwrap();
+        assert!(twin.meta.twin);
+        assert_eq!(
+            twin.options.hint_index_mode,
+            super::super::HintIndexMode::PerCompiler
+        );
+        assert!(!twin.src.sources.is_empty());
+    }
+}

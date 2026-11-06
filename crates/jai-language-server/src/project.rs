@@ -90,7 +90,7 @@ mod tests {
             Environment {
                 services: None,
                 fs: std::rc::Rc::new(jaic::sema::NativeFs),
-                options: Box::new(|_| jaic::sema::Options::host()),
+                options: Box::new(|_, _| jaic::sema::Options::host()),
             },
         );
         session.set_workspace_folders(vec![dir.clone()]);

@@ -59,11 +59,22 @@ fn a_declaration_whose_initializer_fails_still_declares_its_name() {
 }
 
 fn messages(json: &mut JsonSession, message: serde_json::Value) -> Vec<serde_json::Value> {
-    json.handle_json(&message.to_string())
+    let output: Vec<serde_json::Value> = json
+        .handle_json(&message.to_string())
         .unwrap()
         .iter()
         .map(|m| serde_json::from_str(m).unwrap())
-        .collect()
+        .collect();
+    if message["method"] == "initialize"
+        && output.first().is_some_and(|m| m.get("result").is_some())
+    {
+        assert!(
+            json.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+                .unwrap()
+                .is_empty()
+        );
+    }
+    output
 }
 
 fn initialized(capabilities: serde_json::Value) -> (JsonSession, serde_json::Value) {
@@ -193,5 +204,84 @@ fn a_format_argument_count_mismatch_is_a_warning() {
         found[0]
             .message
             .contains("incorrect number of arguments supplied to `print`")
+    );
+}
+
+#[test]
+fn diagnostics_changed_during_an_outstanding_refresh_are_not_lost() {
+    let (mut session, _) = initialized(serde_json::json!({
+        "textDocument": {"diagnostic": {}},
+        "workspace": {"diagnostics": {"refreshSupport": true}}
+    }));
+    let changed = serde_json::json!({"jsonrpc":"2.0",
+        "method":"workspace/didChangeConfiguration", "params":{"settings":{}}});
+    let first = messages(&mut session, changed.clone());
+    assert_eq!(first.len(), 1);
+    assert_eq!(first[0]["method"], "workspace/diagnostic/refresh");
+    assert!(messages(&mut session, changed.clone()).is_empty());
+    assert!(messages(&mut session, changed).is_empty());
+    assert!(
+        messages(
+            &mut session,
+            serde_json::json!({"jsonrpc":"2.0",
+        "id":"unknown-refresh", "result":null})
+        )
+        .is_empty()
+    );
+    let followup = messages(
+        &mut session,
+        serde_json::json!({"jsonrpc":"2.0",
+        "id":first[0]["id"], "result":null}),
+    );
+    assert_eq!(
+        followup.len(),
+        1,
+        "a later change needs one coalesced refresh"
+    );
+    assert_eq!(followup[0]["method"], "workspace/diagnostic/refresh");
+    assert_ne!(followup[0]["id"], first[0]["id"]);
+    assert!(
+        messages(
+            &mut session,
+            serde_json::json!({"jsonrpc":"2.0",
+        "id":first[0]["id"], "result":null})
+        )
+        .is_empty()
+    );
+    assert!(
+        messages(
+            &mut session,
+            serde_json::json!({"jsonrpc":"2.0",
+        "id":followup[0]["id"], "result":null})
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn shutdown_does_not_reissue_a_dirty_refresh() {
+    let (mut session, _) = initialized(serde_json::json!({
+        "textDocument": {"diagnostic": {}},
+        "workspace": {"diagnostics": {"refreshSupport": true}}
+    }));
+    let changed = serde_json::json!({"jsonrpc":"2.0",
+        "method":"workspace/didChangeConfiguration", "params":{"settings":{}}});
+    let first = messages(&mut session, changed.clone());
+    assert_eq!(first.len(), 1);
+    assert!(messages(&mut session, changed).is_empty());
+    let shutdown = messages(
+        &mut session,
+        serde_json::json!({"jsonrpc":"2.0",
+        "id":"stop", "method":"shutdown", "params":null}),
+    );
+    assert_eq!(shutdown.len(), 1);
+    assert!(shutdown[0].get("result").is_some());
+    assert!(
+        messages(
+            &mut session,
+            serde_json::json!({"jsonrpc":"2.0",
+        "id":first[0]["id"], "result":null})
+        )
+        .is_empty()
     );
 }

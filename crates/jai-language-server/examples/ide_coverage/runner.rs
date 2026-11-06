@@ -363,8 +363,8 @@ impl Audit {
         let mut env = environment(self.args.stdlib.clone(), self.args.runtime);
         let options = env.options;
         let (os, cpu) = (self.args.os, self.args.cpu);
-        env.options = Box::new(move |path| {
-            let mut options = options(path);
+        env.options = Box::new(move |fs, path| {
+            let mut options = options(fs, path);
             jaic::target::select_os_cpu(&mut options, os, cpu);
             options
         });

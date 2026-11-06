@@ -37,3 +37,9 @@ With lint facts on (`IdeFacts::lint`), each checked body also records a compact 
 - For cursor positions use `refs_at` / `member_use_at` in `facts.rs`, which match by offset instead of exact span.
 
 Tests: `crates/jaic/tests/ide_span_index.rs`.
+
+## Owned reference queries
+
+`Compiler::ide_reference_index()` exports a `ReferenceIndex` that can answer after the compiler is dropped. For example, `let index = compiler.ide_reference_index();` followed by `index.references(file, offset)` preserves the live query's selection and reference semantics. File and target numbers belong to that exported value; callers must retain its source table and prove input freshness before using positions in a newer document.
+
+The language server owns [snapshot validity and memory pressure](lsp-snapshots.md); the compiler owns symbol resolution, member precedence and overload closure. Extend both the live and owned query in `ide/meta/references.rs`, then compare every cursor in the relevant fixture with `tests/ide_reference_index.rs`.

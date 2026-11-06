@@ -57,9 +57,15 @@ fn explicit_secondary_labels_render_in_plain_snippets_across_files() {
 fn clearing_fixes_preserves_labels_and_parser_error_size() {
     let mut d = Diagnostic::new(Code::LintFinding, Span::NONE, "message")
         .with_secondary_label(Span::NONE, "retained label")
-        .with_replacement("fix", Span::NONE, "replacement");
+        .with_replacement("fix", Span::NONE, "replacement")
+        .with_operator_import_hint(OperatorImportHint {
+            operator: "+".into(),
+            operands: vec!["Thing".into()],
+            homes: vec!["Things".into()],
+        });
     d.clear_suggestions();
     assert!(d.suggestions().is_empty());
+    assert!(d.operator_import_hint().is_none());
     assert_eq!(
         d.secondary_labels(),
         [(Span::NONE, "retained label".into())]

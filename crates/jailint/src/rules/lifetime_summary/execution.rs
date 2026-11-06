@@ -2,57 +2,23 @@
 //! Procedure values and global relocations participate, so freezing a callback does
 //! not make its later runtime calls inherit compile-time storage semantics.
 use super::{Compiler, HashSet, ProcId};
-use jaic::ir::{self, Callee, FuncId, GlobalId, Inst};
+use jaic::ir::{FuncId, GlobalId};
 use jaic::sema::procs::ProcTarget;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-enum Node {
-    Function(FuncId),
-    Global(GlobalId),
-}
+use jaic::ide::execution::{Call, Node, View};
 
-fn reachable(program: &ir::Program, roots: impl IntoIterator<Item = Node>) -> HashSet<Node> {
+fn reachable(graph: &View<'_>, roots: impl IntoIterator<Item = Node>) -> Option<HashSet<Node>> {
     let mut seen = HashSet::default();
     let mut pending: Vec<_> = roots.into_iter().collect();
     while let Some(node) = pending.pop() {
-        if !seen.insert(node) {
-            continue;
+        if !graph.available() || jaic::interrupt::should_stop() {
+            return None;
         }
-        match node {
-            Node::Function(id) => {
-                let Some(function) = program.funcs.get(id.0 as usize).and_then(Option::as_ref)
-                else {
-                    continue;
-                };
-                for inst in function.blocks.iter().flat_map(|b| &b.insts) {
-                    match inst {
-                        Inst::Call(call) => {
-                            if let Callee::Func(id) = call.callee {
-                                pending.push(Node::Function(id));
-                            }
-                        }
-                        Inst::FuncAddr {
-                            func, ..
-                        } => pending.push(Node::Function(*func)),
-                        Inst::GlobalAddr {
-                            global, ..
-                        } => pending.push(Node::Global(*global)),
-                        _ => {}
-                    }
-                }
-            }
-            Node::Global(id) => {
-                for reloc in &program.globals[id.0 as usize].relocs {
-                    match reloc.target {
-                        ir::RelocTarget::Func(id) => pending.push(Node::Function(id)),
-                        ir::RelocTarget::Global(id) => pending.push(Node::Global(id)),
-                        ir::RelocTarget::Foreign(_) => {}
-                    }
-                }
-            }
+        if seen.insert(node) && !graph.visit_edges(node, |node| pending.push(node)) {
+            return None;
         }
     }
-    seen
+    (graph.available() && !jaic::interrupt::should_stop()).then_some(seen)
 }
 
 pub(super) fn compile_time_only(
@@ -60,34 +26,40 @@ pub(super) fn compile_time_only(
     targets: &crate::rules::lifetime_targets::Universe,
     entry_module: Option<jaic::sema::ModuleId>,
 ) -> (HashSet<ProcId>, HashSet<ProcId>) {
-    let program = &compiler.out.program;
-    let host = reachable(
-        program,
-        program.funcs.iter().enumerate().filter_map(|(i, f)| {
-            f.as_ref()
-                .filter(|f| f.origin != ir::FuncOrigin::Procedure)
+    let Some(graph) = compiler.lifetime_execution() else {
+        return (HashSet::default(), HashSet::default());
+    };
+    let Some(host) = reachable(
+        &graph,
+        (0..graph.function_count()).filter_map(|i| {
+            graph
+                .function(FuncId(i as u32))
+                .filter(|f| !f.procedure)
                 .map(|_| Node::Function(FuncId(i as u32)))
         }),
-    );
-    let mut roots: Vec<_> = program
-        .funcs
-        .iter()
-        .enumerate()
-        .filter_map(|(i, f)| {
+    ) else {
+        return (HashSet::default(), HashSet::default());
+    };
+    let mut roots: Vec<_> = (0..graph.function_count())
+        .filter_map(|i| {
             let id = FuncId(i as u32);
-            f.as_ref()
-                .filter(|f| {
-                    f.origin == ir::FuncOrigin::Procedure
-                        && (!host.contains(&Node::Function(id))
-                            || matches!(f.linkage, ir::Linkage::Export(_)))
-                })
+            graph
+                .function(id)
+                .filter(|f| f.procedure && (!host.contains(&Node::Function(id)) || f.exported))
                 .map(|_| Node::Function(id))
         })
         .collect();
-    if let Some(id) = compiler.pr.entry_point
-        && let Some(ProcTarget::Func(id)) = compiler.pr.procs[id.0 as usize].target
-    {
-        roots.push(Node::Function(id));
+    roots.extend(graph.check_handler().map(Node::Function));
+    if let Some(id) = compiler.pr.entry_point {
+        let Some(proc) = compiler.pr.procs.get(id.0 as usize) else {
+            return (HashSet::default(), HashSet::default());
+        };
+        match proc.target {
+            Some(ProcTarget::Func(id)) => roots.push(Node::Function(id)),
+            Some(ProcTarget::Foreign(id))
+                if (id.0 as usize) < compiler.out.program.foreigns.len() => {}
+            _ => return (HashSet::default(), HashSet::default()),
+        }
     }
     // Lint checking does not select `pr.entry_point`, but the configured root
     // procedure still runs at runtime even when a #run also invokes it.
@@ -102,14 +74,13 @@ pub(super) fn compile_time_only(
             ProcTarget::Foreign(_) => None,
         })
     }));
-    roots.extend(
-        program
-            .globals
-            .iter()
-            .enumerate()
-            .filter_map(|(i, g)| g.export.as_ref().map(|_| Node::Global(GlobalId(i as u32)))),
-    );
-    let runtime = reachable(program, roots);
+    roots.extend((0..graph.global_count()).filter_map(|i| {
+        let id = GlobalId(i as u32);
+        graph.global_exported(id).then_some(Node::Global(id))
+    }));
+    let Some(runtime) = reachable(&graph, roots) else {
+        return (HashSet::default(), HashSet::default());
+    };
     let only: HashSet<_> = compiler
         .pr
         .procs
@@ -123,31 +94,14 @@ pub(super) fn compile_time_only(
                 .then_some(ProcId(i as u32))
         })
         .collect();
-    let roots: HashSet<_> = program
-        .funcs
-        .iter()
-        .filter_map(Option::as_ref)
-        .filter(|f| f.origin != ir::FuncOrigin::Procedure)
-        .filter(|f| f.blocks.len() == 1)
-        .filter_map(|f| {
-            // Argument expressions can call procedures before the outer call.
-            // Only the final activation can be frozen before another call reuses
-            // its stack. Branching thunks need a separate path proof.
-            f.blocks[0]
-                .insts
-                .iter()
-                .rev()
-                .find_map(|inst| {
-                    if let Inst::Call(call) = inst {
-                        Some(match call.callee {
-                            Callee::Func(id) => Some(id),
-                            _ => None,
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .flatten()
+    let roots: HashSet<_> = (0..graph.function_count())
+        .filter_map(|i| {
+            graph.function(FuncId(i as u32)).and_then(|f| {
+                match (f.procedure, f.generated_single_block_last_call) {
+                    (false, Some(Call::Direct(id))) => Some(id),
+                    _ => None,
+                }
+            })
         })
         .collect();
     let mut nested = HashSet::default();
@@ -181,5 +135,9 @@ pub(super) fn compile_time_only(
     let frozen = only.iter().copied().filter(|id| {
         !nested.contains(id) && matches!(compiler.pr.procs[id.0 as usize].target, Some(ProcTarget::Func(f)) if roots.contains(&f))
     }).collect();
-    (only, frozen)
+    if graph.available() && !jaic::interrupt::should_stop() {
+        (only, frozen)
+    } else {
+        (HashSet::default(), HashSet::default())
+    }
 }

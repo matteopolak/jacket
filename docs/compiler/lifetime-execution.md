@@ -1,0 +1,15 @@
+# Lifetime checks after executable code is released
+
+The editor keeps a small execution topology so lifetime checks can distinguish compile-time-only calls from code that can also run at runtime. A value returned by a root `#run` can be frozen immediately; the same procedure reached through a runtime callback must keep ordinary stack lifetime rules.
+
+The compiler records direct calls, function/global addresses, global relocations, export flags and the last actual call of a single-block thunk before it releases executable IR. Jailint uses one classifier with either a borrowed live-program view or a read-only retained lease. Its configured entry, indirect target universe and nested-call policy remain in jailint. The actual selected native check handler is a runtime root because native check instructions can invoke it without an ordinary IR call.
+
+Call `release_lowered_code_with_lifetime_execution(complete)` only with that program's actual compile-and-audit result. The language server passes the root's completion and each generated program's own completion separately. The generic release method retains no execution certificate. Refused compile-time work, cancellation, invalid references or incomplete checks cannot supply a certificate.
+
+The snapshot binds target/ABI and entry settings, checked procedure names/body identities, function targets and root metadata. Body recording and lifetime-fact clearing drop it. Access and repeated release reject reintroduced code or global data before another erasure can hide the change. Invalidation removes the owner snapshot even while another reader is alive. Old leases reject traversal; their shared buffers are freed when those readers drop. No graph is copied for a lease. Once code is released, an invalidated snapshot cannot be reconstructed from partial IR; use a fresh compiler for a new complete analysis.
+
+To change this path, update `jaic::ide::execution` for new structural IR edges and `jailint::rules::lifetime_summary::execution` for lifetime policy. Keep the same-compiler before/after-release diagnostic test and runtime callback, export, global relocation and native-handler controls. Changes to release/recording must preserve the absorbing invalidation and clear tests.
+
+Capture has an internal 8 MiB owned-data cap and an 8-million-visit work cap in `jaic::ide::execution`; neither is a timing claim. Work includes input instructions and relocations even when projection would omit them. Snapshot allocation/refcount header, vector capacities and owned entry-name bytes are counted; shared syntax pointees and allocator rounding are excluded. `Compiler::lifetime_execution_usage()` reports owner-held bytes and charged visits; temporarily retired reader buffers are excluded. Over-budget capture provides no exemption and drops its buffers.
+
+This path depends on the checked semantic lifetime sidecar, IR program identities and the existing jailint target/reachability analysis. It retains no executable instruction bodies or global byte images.

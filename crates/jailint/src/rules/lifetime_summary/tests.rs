@@ -1,5 +1,6 @@
 mod descriptors;
 mod exact_cleanup;
+mod frozen_execution;
 mod native_releases;
 mod stdlib_allocations;
 

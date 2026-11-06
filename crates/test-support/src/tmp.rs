@@ -15,6 +15,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 #[derive(Debug)]
 pub struct TempDir {
     path: PathBuf,
+    cleanup: PathBuf,
 }
 
 impl TempDir {
@@ -47,8 +48,27 @@ impl TempDir {
             .unwrap_or_else(|error| panic!("cannot create {}: {error}", path.display()));
         let path = path.canonicalize().unwrap_or(path);
         TempDir {
+            cleanup: path.clone(),
             path,
         }
+    }
+
+    /// View a private descendant while preserving ownership of the outer scratch tree.
+    /// For example, LSP fixtures use `nested("workspace/project/source")` so nearby-name
+    /// searches cannot observe another test's files. Dropping the view removes every parent.
+    #[cfg(any(feature = "lsp", test))]
+    pub(crate) fn nested(mut self, relative: &str) -> Self {
+        assert!(
+            Path::new(relative)
+                .components()
+                .all(|component| matches!(component, std::path::Component::Normal(_)))
+        );
+        let path = self.path.join(relative);
+        std::fs::create_dir_all(&path).expect("private fixture ancestors can be created");
+        self.path = path
+            .canonicalize()
+            .expect("created private fixture directory");
+        self
     }
 
     /// The directory.
@@ -76,7 +96,7 @@ impl TempDir {
         }
     }
 
-    /// The directory's path, leaving it in place after the test: for a path that outlives the
+    /// The directory's path, leaving its owned tree in place after the test: for a path that outlives the
     /// guard, such as a child process's working directory.
     #[must_use]
     pub fn keep(self) -> PathBuf {
@@ -92,7 +112,7 @@ impl Drop for TempDir {
             eprintln!("test files kept in {}", self.path.display());
             return;
         }
-        let _ = std::fs::remove_dir_all(&self.path);
+        let _ = std::fs::remove_dir_all(&self.cleanup);
     }
 }
 
@@ -149,5 +169,20 @@ mod tests {
         assert!(dir.exists());
         let name = dir.file_name().unwrap().to_string_lossy().into_owned();
         assert!(name.starts_with("jaic-test-a_b_c-"), "{name}");
+    }
+
+    #[test]
+    fn nested_views_keep_outer_cleanup_ownership() {
+        let temp = TempDir::new("nested-owner");
+        let outer = temp.path().to_path_buf();
+        let nested = temp.nested("workspace/project/source");
+        let file = nested.write("main.jai", "main :: () {}");
+        assert!(file.exists());
+        assert!(nested.path().starts_with(&outer));
+        drop(nested);
+        assert!(
+            !outer.exists(),
+            "private ancestors belong to the same guard"
+        );
     }
 }

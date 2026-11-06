@@ -227,7 +227,12 @@ fn stdlib_instances_include_closed_callers() {
     let row = lenses
         .iter()
         .find(|l| l.range.start.line == line)
-        .expect("array_add item overload");
+        .unwrap_or_else(|| {
+            panic!(
+                "array_add item overload; lenses={lenses:?}; counts={:?}",
+                s.compile_counts()
+            )
+        });
     let values = s.polymorphs(&uri, row.range.start);
     assert!(
         values.contains(&"T = u32".into()) && values.contains(&"T = s64".into()),
@@ -461,6 +466,10 @@ fn background_summaries_refresh_code_lenses() {
             "capabilities": { "workspace": { "codeLens": { "refreshSupport": true } } },
             "workspaceFolders": [{ "uri": folder.as_str(), "name": "app" }],
         } }),
+    );
+    send(
+        &mut s,
+        json!({"jsonrpc":"2.0","method":"initialized","params":{}}),
     );
     let only_a = uri_of(&dir.join("only_a.jai"));
     let b_lib = uri_of(&dir.join("b_lib.jai"));
