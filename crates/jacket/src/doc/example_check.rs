@@ -12,6 +12,10 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 /// The Node script that runs programs in the browser bundle, as `run-worker.js` does.
 const SCRIPT: &str = include_str!("run_examples.mjs");
 
+#[cfg(test)]
+#[path = "example_check_tests.rs"]
+mod tests;
+
 /// An example's program, as the Run button would send it.
 #[derive(Clone, Debug)]
 pub struct Program {
@@ -190,7 +194,12 @@ fn browser(
     let list = dir.join("programs.json");
     let json: Vec<_> = programs
         .iter()
-        .map(|p| serde_json::json!({ "text": p.text }))
+        .map(|p| {
+            serde_json::json!({
+                "text": p.text,
+                "timeoutSeconds": p.timeout.unwrap_or(DEFAULT_TIMEOUT.as_secs()).to_string(),
+            })
+        })
         .collect();
     std::fs::write(&list, serde_json::to_vec(&json).map_err(|e| e.to_string())?)
         .map_err(|e| format!("cannot write {}: {e}", list.display()))?;
