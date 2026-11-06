@@ -136,7 +136,7 @@ jobs:
           python3 -m unittest bench.test_doc_site bench.test_doc_server
           python3 -m unittest discover -s tools/ci -p test_check_docs_size.py
           node --test tools/dev/test_chrome_startup.mjs tools/dev/test_chrome_cdp.mjs tools/dev/test_doc_samples.mjs tools/dev/test_doc_sidebar.mjs tools/dev/test_doc_diagnostic_fixtures.mjs
-          node --test tools/bench/test_doc_browser_accounting.mjs tools/bench/test_doc_browser_content.mjs tools/bench/doc_validate.test.mjs
+          node --test tools/bench/test_doc_browser_accounting.mjs tools/bench/test_doc_browser_content.mjs tools/bench/doc_validate.test.mjs tools/bench/doc_browser_pointer.test.mjs
       - name: Check documentation accessibility and layout
         if: ${{ inputs.browser_checks || vars.DOCS_BROWSER_CHECKS != 'false' }}
         run: |
