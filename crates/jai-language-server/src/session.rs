@@ -10,6 +10,9 @@ use std::rc::Rc;
 
 pub(crate) struct Document {
     pub(crate) version: i32,
+    /// Raw notification text is retained while sealed identity coverage is unresolved.
+    pub(crate) identity_pending: bool,
+    pub(crate) identity_recovery_token: Option<u64>,
     pub(crate) text: String,
     pub(crate) index: LineIndex,
     /// Whether `text` has an `#asm` block anywhere, worked out on first use.
@@ -64,6 +67,7 @@ pub struct Session {
     pub(crate) parsed: BTreeMap<DocumentUri, Rc<Analysis>>,
     /// Type-checked answers (absent: syntax only).
     pub(crate) environment: Option<Environment>,
+    pub(crate) input_epoch: Option<Rc<semantic::input_epoch::InputEpochFs>>,
     pub(crate) semantic: Rc<RefCell<semantic::Cache>>,
     pub(crate) reference_records: RefCell<crate::reference_records::Store>,
     pub(crate) call_graphs: RefCell<BTreeMap<DocumentUri, Rc<crate::hierarchy::CallGraph>>>,
@@ -74,7 +78,11 @@ pub struct Session {
     /// They are not Jai documents, so they get no analysis or diagnostics of their own.
     pub(crate) lint_configs: BTreeMap<DocumentUri, Document>,
     /// Configuration snapshots committed by opening or saving, separate from edits.
-    pub(crate) saved_configs: BTreeMap<DocumentUri, String>,
+    pub(crate) saved_configs: BTreeMap<DocumentUri, saved_configs::SavedConfig>,
+    pub(crate) configuration_input_failed: std::cell::Cell<bool>,
+    config_recovery: RefCell<Option<saved_configs::ConfigRecovery>>,
+    config_recovery_cursor: std::cell::Cell<usize>,
+    config_recovery_turn: std::cell::Cell<bool>,
     /// Auto-import completion is on (`jai.completion.autoImport`).
     pub(crate) auto_import: bool,
     /// What bounds the compile-time code of a check (the client's settings).
@@ -135,8 +143,14 @@ pub struct Session {
 pub(crate) type CompileInputs = (semantic::Buffers, PathBuf, Vec<PathBuf>);
 
 /// `compile_inputs`' last answer: generation, document, its text (`None` for the document's
-/// own) and the inputs.
-pub(crate) type InputsMemo = (u64, DocumentUri, Option<String>, CompileInputs);
+/// own), inputs and the original actual responses that selected them.
+pub(crate) type InputsMemo = (
+    u64,
+    DocumentUri,
+    Option<String>,
+    CompileInputs,
+    Option<semantic::input_epoch::ActualInputs>,
+);
 
 /// What completion asks the type checker: the word being typed, the names it could be, and the
 /// path of each file they are declared in (by file number).
@@ -150,6 +164,7 @@ impl Session {
             analyses: BTreeMap::new(),
             parsed: BTreeMap::new(),
             environment: None,
+            input_epoch: None,
             semantic: Rc::default(),
             reference_records: RefCell::default(),
             call_graphs: RefCell::default(),
@@ -157,6 +172,10 @@ impl Session {
             synced_builds: std::cell::Cell::new(0),
             lint_configs: BTreeMap::new(),
             saved_configs: BTreeMap::new(),
+            configuration_input_failed: std::cell::Cell::new(false),
+            config_recovery: RefCell::default(),
+            config_recovery_cursor: std::cell::Cell::new(0),
+            config_recovery_turn: std::cell::Cell::new(false),
             auto_import: true,
             check_limits: jaic::ide::lint_compile::CheckLimits::default(),
             limit_notices: false,
@@ -223,6 +242,7 @@ mod completion;
 mod config;
 mod documents;
 mod navigation;
+pub(crate) mod saved_configs;
 mod symbols;
 mod tokens;
 #[cfg(test)]

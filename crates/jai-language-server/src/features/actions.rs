@@ -21,6 +21,7 @@ impl Session {
         context: &crate::lints::ActionContext,
     ) -> Result<Vec<CodeAction>, Error> {
         let _query = self.discovery_query();
+        let direct = self.documents.contains_key(uri);
         let mapping = std::cell::RefCell::new(crate::semantic::Observations::default());
         let base = self.config_filesystem();
         let fs = base.as_ref().map(|base| crate::semantic::ObservedFs {
@@ -33,10 +34,12 @@ impl Session {
             None => self.document_entry(uri)?,
         };
         let mut actions = self.all_code_actions(uri, range, context)?;
-        if self
-            .environment
-            .as_ref()
-            .is_some_and(|env| !mapping.borrow().matches(&*env.fs))
+        if jaic::interrupt::fired()
+            || (!direct
+                && self
+                    .environment
+                    .as_ref()
+                    .is_some_and(|env| !mapping.borrow().matches(&*env.fs)))
         {
             return Ok(Vec::new());
         }

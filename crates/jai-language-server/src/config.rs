@@ -51,7 +51,15 @@ pub(crate) struct SessionFiles<'a>(pub &'a Session);
 impl Files for SessionFiles<'_> {
     fn is_file(&self, path: &Path) -> bool {
         self.0.open_file_uri(path).is_some_and(|u| {
-            self.0.saved_configs.contains_key(&u) || self.0.documents.contains_key(&u)
+            if self.0.saved_configs.contains_key(&u) {
+                return self.0.saved_config_for_use(&u).is_none_or(|saved| {
+                    !matches!(
+                        saved.state,
+                        crate::session::saved_configs::SavedConfigState::Missing
+                    )
+                });
+            }
+            self.0.documents.contains_key(&u)
         }) || self.0.environment.as_ref().map_or_else(
             || path.is_file(),
             |_| {
@@ -65,8 +73,13 @@ impl Files for SessionFiles<'_> {
 
     fn read(&self, path: &Path) -> std::io::Result<String> {
         if let Some(uri) = self.0.open_file_uri(path) {
-            if let Some(text) = self.0.saved_configs.get(&uri) {
-                return Ok(text.clone());
+            if self.0.saved_configs.contains_key(&uri) {
+                return self
+                    .0
+                    .saved_config_for_use(&uri)
+                    .and_then(|saved| saved.text())
+                    .map(str::to_owned)
+                    .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound));
             }
             if let Some(doc) = self.0.documents.get(&uri) {
                 return Ok(doc.text.clone());

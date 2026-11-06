@@ -74,6 +74,22 @@ use std::{cell::Cell, rc::Rc};
 use support::RetargetFs;
 use test_support::lsp::at_nth;
 
+// Native callback reducers begin an explicit transaction. Warm sealed views are
+// covered separately and intentionally do not run these native injection callbacks.
+struct CaptureAdmission(test_support::TempDir);
+
+impl CaptureAdmission {
+    fn new() -> Self {
+        let owned = test_support::TempDir::new("native-capture-admission");
+        std::fs::write(owned.path().join("event"), "known native event").unwrap();
+        Self(owned)
+    }
+
+    fn begin(&self, session: &mut api::Session) {
+        session.file_changed(&self.0.path().join("event"), false);
+    }
+}
+
 /// The request's physical spelling must not be mapped to a buffer using an unguarded alias.
 fn input_mapping() {
     input_mapping_consumer(0);
@@ -136,7 +152,8 @@ fn input_mapping_consumer(consumer: usize) {
     let position = at_nth(source, "local", 0, 1);
     session.open(uri, 1, source.into()).unwrap();
     session.diagnostics(&physical).unwrap();
-    let query = || -> Result<usize, api::Error> {
+    let admission = CaptureAdmission::new();
+    let query = |session: &api::Session| -> Result<usize, api::Error> {
         Ok(match consumer {
             0 => session.references(&physical, position, true)?.len(),
             1 => session.document_highlights(&physical, position)?.len(),
@@ -151,7 +168,7 @@ fn input_mapping_consumer(consumer: usize) {
         })
     };
     assert_eq!(
-        query().unwrap(),
+        query(&session).unwrap(),
         if consumer == 2 {
             1
         } else {
@@ -159,9 +176,10 @@ fn input_mapping_consumer(consumer: usize) {
         }
     );
     let compiled = session.compile_counts().0;
+    admission.begin(&mut session);
     fs.canonical_calls.set(0);
     fs.retarget_at.set(Some(2));
-    let found = query().unwrap_or_default();
+    let found = query(&session).unwrap_or_default();
     assert!(
         fs.changed.get(),
         "actual input alias response must trigger retarget"
@@ -206,21 +224,25 @@ fn alias_retarget_during_call_target_mapping_cannot_change_the_answer_uri() {
 
 #[test]
 fn preparing_an_external_call_never_combines_an_old_definition_with_new_source() {
-    let (_dir, session, fs, uri, source) = external_rewrite_fixture();
+    let (_dir, mut session, fs, uri, source) = external_rewrite_fixture();
+    let admission = CaptureAdmission::new();
     let position = at_nth(source, "leaf", 0, 1);
-    let query = || session.prepare_call_hierarchy(&uri, position).unwrap();
-    assert_eq!(query()[0].name, "leaf");
+    let query = |session: &api::Session| session.prepare_call_hierarchy(&uri, position).unwrap();
+    assert_eq!(query(&session)[0].name, "leaf");
+    admission.begin(&mut session);
     fs.reads.set(0);
-    let expected = query();
+    let expected = query(&session);
     let reads = fs.reads.get();
     assert!(reads > 0);
+    admission.begin(&mut session);
     fs.reads.set(0);
-    assert_eq!(query(), expected);
+    assert_eq!(query(&session), expected);
     assert_eq!(fs.reads.get(), reads, "stable native control");
     let compiled = session.compile_counts().0;
+    admission.begin(&mut session);
     fs.reads.set(0);
     fs.rewrite_at.set(Some(reads));
-    let found = query();
+    let found = query(&session);
     assert!(fs.changed.get());
     assert!(
         found.is_empty() || found == expected,
@@ -231,7 +253,7 @@ fn preparing_an_external_call_never_combines_an_old_definition_with_new_source()
         compiled,
         "unstable derivation must not retry a check"
     );
-    let settled = query();
+    let settled = query(&session);
     assert_eq!(settled.len(), 1);
     assert_eq!(settled[0].name, "leaf");
     assert_eq!(settled[0].selection_range.start.line, 1);
@@ -354,21 +376,25 @@ fn external_rewrite_fixture() -> (
 
 #[test]
 fn failed_live_reference_guard_does_not_start_a_same_request_recheck() {
-    let (_dir, session, fs, uri, source) = external_rewrite_fixture();
+    let (_dir, mut session, fs, uri, source) = external_rewrite_fixture();
+    let admission = CaptureAdmission::new();
     let position = at_nth(source, "leaf", 0, 1);
-    let query = || session.references(&uri, position, true).unwrap();
-    assert_eq!(query().len(), 2);
+    let query = |session: &api::Session| session.references(&uri, position, true).unwrap();
+    assert_eq!(query(&session).len(), 2);
+    admission.begin(&mut session);
     fs.reads.set(0);
-    let expected = query();
+    let expected = query(&session);
     let reads = fs.reads.get();
     assert!(reads > 0);
+    admission.begin(&mut session);
     fs.reads.set(0);
-    assert_eq!(query(), expected);
+    assert_eq!(query(&session), expected);
     assert_eq!(fs.reads.get(), reads);
     let compiled = session.compile_counts().0;
+    admission.begin(&mut session);
     fs.reads.set(0);
     fs.rewrite_at.set(Some(reads));
-    let found = query();
+    let found = query(&session);
     assert!(fs.changed.get());
     assert!(found.is_empty() || found == expected);
     assert_eq!(
@@ -376,7 +402,7 @@ fn failed_live_reference_guard_does_not_start_a_same_request_recheck() {
         compiled,
         "a selected failed live transaction must not fall through to a new compiler"
     );
-    let settled = query();
+    let settled = query(&session);
     assert_eq!(settled.len(), 2);
     assert!(
         settled
@@ -440,16 +466,20 @@ fn a_self_load_link_cannot_mix_resolution_with_a_later_alias_mapping() {
     );
     let uri = api::DocumentUri::from_path(&alias.join("main.jai")).unwrap();
     session.open(uri.clone(), 1, source.into()).unwrap();
+    let admission = CaptureAdmission::new();
+    admission.begin(&mut session);
     fs.canonical_calls.set(0);
     let expected = session.document_links(&uri).unwrap();
     assert_eq!(expected.len(), 1);
     assert_eq!(expected[0].1, uri.as_str());
     let calls = fs.canonical_calls.get();
     assert!(calls > 0);
+    admission.begin(&mut session);
     fs.canonical_calls.set(0);
     assert_eq!(session.document_links(&uri).unwrap(), expected);
     assert_eq!(fs.canonical_calls.get(), calls);
     let compiled = session.compile_counts().0;
+    admission.begin(&mut session);
     fs.canonical_calls.set(0);
     fs.retarget_at.set(Some(calls));
     let found = session.document_links(&uri).unwrap();
@@ -537,10 +567,12 @@ fn physical_request_for_aliased_buffer_keeps_linked_ranges() {
 
 #[test]
 fn failed_prepare_rename_member_guard_does_not_start_a_same_request_recheck() {
-    let (_dir, session, fs, uri, source) = external_rewrite_fixture();
+    let (_dir, mut session, fs, uri, source) = external_rewrite_fixture();
+    let admission = CaptureAdmission::new();
     let position = at_nth(source, "leaf", 0, 1);
     let expected = session.prepare_rename(&uri, position).unwrap();
     assert!(expected.is_some());
+    admission.begin(&mut session);
     fs.reads.set(0);
     assert_eq!(session.prepare_rename(&uri, position).unwrap(), expected);
     assert!(
@@ -548,13 +580,16 @@ fn failed_prepare_rename_member_guard_does_not_start_a_same_request_recheck() {
         "discovery, selection and first final guard control"
     );
     let compiled = session.compile_counts().0;
+    admission.begin(&mut session);
     fs.reads.set(0);
+    // This ordinal now mutates capture admission, not the selected member callback.
+    // The private recovery control observes the cache borrow to pin that distinction.
     fs.rewrite_at.set(Some(3));
     let found = session.prepare_rename(&uri, position).unwrap();
     assert!(fs.changed.get());
     assert!(
         found.is_none(),
-        "a failed selected member query is unavailable: {found:?}"
+        "a failed native admission is unavailable: {found:?}"
     );
     assert_eq!(
         session.compile_counts().0,
@@ -568,12 +603,14 @@ fn failed_prepare_rename_member_guard_does_not_start_a_same_request_recheck() {
 
 #[test]
 fn failed_published_reference_guard_preserves_restored_evicted_facts() {
-    let (_dir, session, fs, uri, source) = external_rewrite_fixture();
+    let (_dir, mut session, fs, uri, source) = external_rewrite_fixture();
+    let admission = CaptureAdmission::new();
     let position = at_nth(source, "leaf", 0, 1);
     let expected = session.references(&uri, position, true).unwrap();
     assert_eq!(expected.len(), 2);
     let modified = std::fs::metadata(&fs.path).unwrap().modified().unwrap();
     let compiled = session.compile_counts().0;
+    admission.begin(&mut session);
     fs.reads.set(0);
     fs.rewrite_at.set(Some(2));
     assert!(session.references(&uri, position, true).unwrap().is_empty());
@@ -605,11 +642,13 @@ fn interruption_during_published_reference_replay_returns_no_answer() {
             jaic::interrupt::request(false);
         }
     }
-    let (_dir, session, fs, uri, source) = external_rewrite_fixture();
+    let (_dir, mut session, fs, uri, source) = external_rewrite_fixture();
+    let admission = CaptureAdmission::new();
     let position = at_nth(source, "leaf", 0, 1);
     let expected = session.references(&uri, position, true).unwrap();
     assert_eq!(expected.len(), 2);
     let compiled = session.compile_counts().0;
+    admission.begin(&mut session);
     fs.reads.set(0);
     fs.interrupt_at.set(Some(2));
     jaic::interrupt::request(false);

@@ -79,7 +79,36 @@ pub(crate) fn exercise_query(
         api::Position,
     ) -> Result<Vec<api::Location>, api::Error>,
 ) {
+    exercise_query_with_settled_setup(
+        before_warm,
+        |_| {},
+        retained,
+        source,
+        occurrence,
+        expected_count,
+        request,
+    );
+}
+
+/// Seed synthetic producer facts outside the armed consumer transaction.
+/// For example, labelled lint fixtures seed the initial and later stable compiler owners.
+pub(crate) fn exercise_query_with_settled_setup(
+    before_warm: impl FnOnce(&mut api::Session),
+    before_settled: impl FnOnce(&mut api::Session),
+    retained: bool,
+    source: &str,
+    occurrence: usize,
+    expected_count: usize,
+    request: impl Fn(
+        &api::Session,
+        &api::DocumentUri,
+        api::Position,
+    ) -> Result<Vec<api::Location>, api::Error>,
+) {
     let temp = test_support::TempDir::new("postguard-uri-projection");
+    let events = test_support::TempDir::new("projection-capture-events");
+    let event = events.path().join("changed-input");
+    std::fs::write(&event, "known native event").unwrap();
     let first = temp.path().join("first");
     let second = temp.path().join("second");
     let alias = temp.path().join("alias");
@@ -118,11 +147,15 @@ pub(crate) fn exercise_query(
     let initial = query(&session).unwrap();
     assert_eq!(initial.len(), expected_count);
     let compiled = session.compile_counts().0;
+    // Each native retarget measurement explicitly begins a new accepted-input
+    // transaction. Unchanged warm epochs are covered separately and do no native IO.
+    session.file_changed(&event, false);
     fs.canonical_calls.set(0);
     let expected = query(&session).unwrap();
     assert_eq!(expected.len(), expected_count);
     assert!(expected.iter().all(|at| at.uri == uri.as_str()));
     let warm_calls = fs.canonical_calls.get();
+    session.file_changed(&event, false);
     fs.canonical_calls.set(0);
     assert_eq!(query(&session).unwrap(), expected);
     assert_eq!(
@@ -130,9 +163,10 @@ pub(crate) fn exercise_query(
         warm_calls,
         "stable unchanged-query setup"
     );
-    // The current mapper asks for each returned location's open identity separately.
-    // Derive the first such call from the stable control trace, rather than a wall-clock race.
+    // Arm real alias churn from the same stable native admission trace.
+    // Epoch replay adds canonical calls, so this ordinal does not identify output mapping alone.
     assert!(warm_calls >= expected.len());
+    session.file_changed(&event, false);
     fs.retarget_at.set(Some(warm_calls - expected.len() + 1));
     fs.canonical_calls.set(0);
     let found = match query(&session) {
@@ -158,6 +192,7 @@ pub(crate) fn exercise_query(
     if retained {
         session.defer_compiles(false);
     }
+    before_settled(&mut session);
     let settled = query(&session).unwrap();
     assert_eq!(
         settled, expected,

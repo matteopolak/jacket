@@ -78,7 +78,7 @@ impl Index {
         // A new file can satisfy an import that failed, under a spelling the compile may not
         // have asked about: every summary is stale, though none is dropped.
         for snapshot in self.programs.values_mut() {
-            snapshot.stale |= topology || snapshot.input.reads.concerns(path);
+            snapshot.stale |= topology || snapshot.input.concerns_tree(path);
         }
     }
 
@@ -204,7 +204,13 @@ impl Session {
             .borrow_mut()
             .disk
             .merge(&self.input_proof.borrow());
-        if !analysis.reads.borrow().is_current(&*env.fs) {
+        if !analysis.reads.borrow().is_current(&*env.fs)
+            || self
+                .input_epoch
+                .as_ref()
+                .is_some_and(|epoch| !epoch.validate_actual())
+            || jaic::interrupt::fired()
+        {
             return;
         }
         snapshot.input = CheckedInputs::capture(analysis);
@@ -361,6 +367,9 @@ impl Session {
             bytes -= index.programs.remove(&root).unwrap().bytes();
         }
         drop(index);
+        if !self.accept_input_epoch() {
+            return Vec::new();
+        }
         combined
             .into_iter()
             .map(|((_, start, name), row)| {

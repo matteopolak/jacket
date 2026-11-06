@@ -1,6 +1,7 @@
 //! Render-time dependencies must not become compiler-resolution authority.
 use super::*;
 use serde_json::{Value, json};
+use std::cell::Cell;
 
 fn fixture() -> (
     test_support::TempDir,
@@ -220,6 +221,7 @@ fn failed_hint_guard_keeps_semantic_queries_and_nonempty_references_available() 
             .iter()
             .any(|d| d.message.contains("Widgets"))
     );
+    session.input_epoch.as_ref().unwrap().begin_capture();
     session.defer_compiles(true);
     let before = session.compile_counts();
     assert_eq!(
@@ -263,6 +265,7 @@ fn multiple_hint_batches_union_their_observations_until_query_acceptance() {
     let text = String::from_utf8(files[&main].to_vec()).unwrap();
     session.open(uri.clone(), 1, text.clone()).unwrap();
     session.diagnostics(&uri).unwrap();
+    session.input_epoch.as_ref().unwrap().begin_capture();
     assert_eq!(
         session.with_semantic(&uri, &text, |analysis, path| {
             assert!(
@@ -585,6 +588,7 @@ fn rejected_hint_output_cannot_clear_an_existing_semantic_error() {
     let prior = session.diagnostics(&uri).unwrap();
     assert!(prior.iter().any(|d| d.message.contains("Wanted")));
     let compiles = session.compile_counts();
+    session.input_epoch.as_ref().unwrap().begin_capture();
     fs.reads.set(0);
     fs.armed.set(true);
     let next = session.diagnostics(&uri);
@@ -624,6 +628,7 @@ fn rejected_hint_output_cannot_publish_an_empty_replacement() {
             .any(|(_, _, items)| items.iter().any(|d| d.message.contains("Wanted")))
     );
     let compiles = session.compile_counts();
+    session.input_epoch.as_ref().unwrap().begin_capture();
     fs.reads.set(0);
     fs.armed.set(true);
     let next = session.publications();
@@ -894,6 +899,12 @@ fn diagnostic_pull_rejection(method: &str) {
             .any(|d| d["message"].as_str().unwrap().contains("Wanted"))
     );
     let compiles = protocol.compile_counts();
+    protocol
+        .session()
+        .input_epoch
+        .as_ref()
+        .unwrap()
+        .begin_capture();
     fs.reads.set(0);
     fs.armed.set(true);
     let params = if method == "workspace/diagnostic" {
@@ -953,6 +964,12 @@ fn rejected_hint_push_does_not_emit_a_clean_wire_replacement() {
                         .iter()
                         .any(|d| d["message"].as_str().unwrap().contains("Wanted"))))
     );
+    protocol
+        .session()
+        .input_epoch
+        .as_ref()
+        .unwrap()
+        .begin_capture();
     fs.reads.set(0);
     fs.armed.set(true);
     let next = protocol_messages(
@@ -990,4 +1007,165 @@ fn native_parser_diagnostics_and_explicit_syntax_only_sessions_remain_available(
                 .any(|d| d.code == crate::DiagnosticCode::Parser)
         }));
     }
+}
+
+#[test]
+fn warm_hint_coverage_recovers_without_retiring_semantic_facts() {
+    let (_temp, mut env, main, module, files) = fixture();
+    let fs = Rc::new(ChurningFs {
+        module: module.clone(),
+        armed: Cell::new(false),
+        reads: Cell::new(0),
+    });
+    env.fs = fs.clone();
+    let text = String::from_utf8(files[&main].to_vec()).unwrap();
+    let clean = text.replace("value := Wanted;", "");
+    std::fs::write(&main, &clean).unwrap();
+    let mut session = crate::Session::with_environment(crate::Limits::default(), env);
+    session.set_auto_import(false);
+    let uri = crate::DocumentUri::from_path(&main).unwrap();
+    session.open(uri.clone(), 1, clean).unwrap();
+    let clean_diagnostics = session.diagnostics(&uri).unwrap();
+    assert!(clean_diagnostics.is_empty(), "{clean_diagnostics:?}");
+    session
+        .change(
+            &uri,
+            2,
+            &[crate::TextChange {
+                range: None,
+                range_length: None,
+                text: text.clone(),
+            }],
+        )
+        .unwrap();
+    assert_eq!(
+        session.diagnostics(&uri),
+        Err(crate::Error::DiagnosticsUnavailable)
+    );
+    assert!(session.input_epoch.as_ref().unwrap().ready());
+    assert!(
+        session.inputs.borrow().is_some(),
+        "optional failure retains accepted semantic discovery"
+    );
+    let counts = session.compile_counts();
+    session.defer_compiles(true);
+    assert_eq!(
+        session.with_semantic(&uri, &text, |_, _| Some(43)),
+        Some(43)
+    );
+    assert_eq!(
+        session
+            .references(&uri, crate::Position::new(0, 11), true)
+            .unwrap()
+            .len(),
+        2
+    );
+    let mut accepted = None;
+    for _ in 0..16 {
+        let mut ready = false;
+        for _ in 0..256 {
+            session.reconcile_input_epoch();
+            let parent = session.input_epoch.as_ref().unwrap();
+            if parent
+                .hint_fork()
+                .is_some_and(|fork| fork.input_epoch_valid() == Some(true))
+            {
+                ready = true;
+                break;
+            }
+        }
+        assert!(
+            ready,
+            "queued optional inputs receive bounded service between requests"
+        );
+        assert_eq!(
+            session.compile_counts(),
+            counts,
+            "input service does not compile inline"
+        );
+        match session.diagnostics(&uri) {
+            Ok(items) => {
+                accepted = Some(items);
+                break;
+            }
+            Err(crate::Error::DiagnosticsUnavailable) => {
+                assert!(
+                    session
+                        .input_epoch
+                        .as_ref()
+                        .unwrap()
+                        .hint_fork()
+                        .unwrap()
+                        .has_pending_coverage(),
+                    "another transaction may wait only for demonstrated new coverage"
+                );
+            }
+            Err(error) => panic!("unexpected diagnostic failure: {error}"),
+        }
+    }
+    let accepted = accepted.expect("the real unloaded Widgets module becomes available");
+    assert!(accepted.iter().any(|d| d.message.contains("Wanted")));
+    assert!(accepted.iter().any(|d| d.message.contains("Widgets")));
+    fs.reads.set(0);
+    fs.armed.set(true);
+    assert_eq!(session.diagnostics(&uri).unwrap(), accepted);
+    assert_eq!(
+        fs.reads.get(),
+        0,
+        "warm help reuses its accepted input view"
+    );
+    fs.armed.set(false);
+    let modified = std::fs::metadata(&module).unwrap().modified().unwrap();
+    std::fs::write(&module, "Absent :: 42;").unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&module)
+        .unwrap()
+        .set_times(std::fs::FileTimes::new().set_modified(modified))
+        .unwrap();
+    assert_eq!(
+        session.diagnostics(&uri).unwrap(),
+        accepted,
+        "a missed external event keeps the coherent old optional view until reconciliation"
+    );
+    let mut updated = None;
+    for _ in 0..2048 {
+        session.reconcile_input_epoch();
+        let ready = session
+            .input_epoch
+            .as_ref()
+            .unwrap()
+            .hint_fork()
+            .is_some_and(|fork| fork.input_epoch_valid() == Some(true));
+        if !ready {
+            continue;
+        }
+        match session.diagnostics(&uri) {
+            Ok(items) if !items.iter().any(|d| d.message.contains("Widgets")) => {
+                updated = Some(items);
+                break;
+            }
+            Ok(_) => {}
+            Err(crate::Error::DiagnosticsUnavailable) => {
+                assert!(
+                    session
+                        .input_epoch
+                        .as_ref()
+                        .unwrap()
+                        .hint_fork()
+                        .unwrap()
+                        .has_pending_coverage()
+                );
+            }
+            Err(error) => panic!("unexpected diagnostic failure: {error}"),
+        }
+    }
+    let updated =
+        updated.expect("read replay discovers changed optional bytes despite equal mtime");
+    assert!(updated.iter().any(|d| d.message.contains("Wanted")));
+    assert_eq!(
+        session.compile_counts(),
+        counts,
+        "hint-only refresh preserves the semantic compiler"
+    );
 }

@@ -17,6 +17,7 @@ const BUDGET: usize = 16 << 20;
 type Sources = BTreeMap<FileId, (String, Arc<str>)>;
 
 struct Snapshot {
+    actual_inputs: Option<crate::semantic::input_epoch::ActualInputs>,
     validated_generation: std::cell::Cell<Option<u64>>,
     root: PathBuf,
     dirs: Vec<PathBuf>,
@@ -51,8 +52,22 @@ impl Store {
     }
 
     pub(crate) fn invalidate(&mut self, path: &std::path::Path) {
-        self.records
-            .retain(|r| !r.snapshot.reads.concerns_tree(path));
+        self.invalidate_since(path, None);
+    }
+
+    pub(crate) fn invalidate_since(
+        &mut self,
+        path: &std::path::Path,
+        current: Option<&crate::semantic::input_epoch::ActualInputs>,
+    ) {
+        self.records.retain(|r| {
+            !r.snapshot.reads.concerns_tree(path)
+                && !r
+                    .snapshot
+                    .actual_inputs
+                    .as_ref()
+                    .is_some_and(|actual| actual.concerns_tree_since(path, current))
+        });
     }
 
     pub(crate) fn counts(&self) -> (usize, usize) {
@@ -193,8 +208,12 @@ impl Session {
             .filter(|(path, _)| reads.concerns(path))
             .map(|(path, text)| (path.clone(), text.clone()))
             .collect();
+        let actual_inputs = self.input_epoch.as_ref().map(|epoch| epoch.actual_inputs());
         for (selected, index, owner, sources) in programs {
-            let bytes = reads.retained_bytes()
+            let bytes = actual_inputs.as_ref().map_or(
+                0,
+                crate::semantic::input_epoch::ActualInputs::retained_bytes,
+            ) + reads.retained_bytes()
                 + index.retained_bytes()
                 + std::mem::size_of::<Snapshot>()
                 + sources
@@ -219,6 +238,7 @@ impl Session {
                 + dirs.capacity() * std::mem::size_of::<PathBuf>()
                 + dirs.iter().map(PathBuf::capacity).sum::<usize>();
             let snapshot = Rc::new(Snapshot {
+                actual_inputs: actual_inputs.clone(),
                 validated_generation: std::cell::Cell::new(None),
                 root: root.clone(),
                 dirs: dirs.clone(),
@@ -290,7 +310,9 @@ impl Session {
             )
         };
         let answer = (|| {
-            if jaic::interrupt::fired() {
+            if !self.restore_input_epoch(snapshot.actual_inputs.as_ref())
+                || jaic::interrupt::fired()
+            {
                 return None;
             }
             let fs = self.config_filesystem()?;
@@ -312,6 +334,7 @@ impl Session {
             reads.merge(&snapshot.reads);
             if jaic::interrupt::fired()
                 || !reads.is_current(&*environment.fs)
+                || !self.accept_input_epoch()
                 || jaic::interrupt::fired()
             {
                 return None;
@@ -344,6 +367,9 @@ impl Session {
         let store = self.reference_records.borrow();
         let record = store.records.iter().rev().find(|r| &r.uri == uri)?;
         let snapshot = &record.snapshot;
+        if !self.restore_input_epoch(snapshot.actual_inputs.as_ref()) {
+            return None;
+        }
         if root != snapshot.root || dirs != snapshot.dirs {
             return None;
         }
@@ -378,7 +404,7 @@ impl Session {
         // successful check. Freeze the union, then accept without further filesystem work.
         let mut reads = (*snapshot.reads).clone();
         reads.disk.merge(&self.input_proof.borrow());
-        if !reads.is_current(&*environment.fs) {
+        if !reads.is_current(&*environment.fs) || !self.accept_input_epoch() {
             return None;
         }
         snapshot
@@ -461,6 +487,7 @@ mod tests {
 
     fn snapshot(bytes: usize) -> Rc<Snapshot> {
         Rc::new(Snapshot {
+            actual_inputs: None,
             validated_generation: std::cell::Cell::new(None),
             root: PathBuf::from("/main.jai"),
             dirs: vec![],
@@ -561,6 +588,9 @@ mod tests {
             .unwrap()
             .snapshot
             .clone();
+        // Native callback churn is a new-capture admission control. Warm accepted
+        // epochs deliberately do not invoke the native mapper before every query.
+        session.input_epoch.as_ref().unwrap().begin_capture();
         let answer = session.with_semantic(&uri, source, |_, _| {
             fs.calls.set(Some(0));
             Some(42)
@@ -930,14 +960,26 @@ mod tests {
         let large = dir.path().join("large-data.txt");
         let payload = vec![b'x'; BUDGET + 1];
         std::fs::write(&large, &payload).unwrap();
+        let before = session.compile_counts().0;
+        let missed = session.with_cached_semantic(&uri, source, |a, _| {
+            a.compiler.src.fs.read(&large)?;
+            Some(a.retained_cost())
+        });
+        // Epoch policy intentionally differs from the former live late-read contract:
+        // an unknown operation cannot read through, retry or compile in this request.
+        assert_eq!(missed, Some(None));
+        assert_eq!(session.compile_counts().0, before);
+        assert!((0..256).any(|_| session.reconcile_input_epoch()));
+        // Oversized hydration schedules a separate native transaction. Its exact Read
+        // proof owns the payload; the epoch keeps only a checked weak reference.
         let observed = session
-            .with_cached_semantic(&uri, source, |a, _| {
+            .with_semantic(&uri, source, |a, _| {
                 let bytes = a.compiler.src.fs.read(&large)?;
                 assert_eq!(bytes.len(), payload.len());
                 Some(a.retained_cost())
             })
-            .flatten()
             .unwrap();
+        assert_eq!(session.compile_counts().0, before + 1);
         assert!(
             observed > payload.len(),
             "external proof is charged to compiler retention cost"

@@ -5,10 +5,49 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+/// A small shared owner for read bytes. A weak owner retains only this indirection;
+/// dropping its last strong reference releases its byte Arc independently.
+#[derive(Debug, PartialEq, Eq)]
+pub struct ReadBuffer(Arc<[u8]>);
+
+impl ReadBuffer {
+    /// Wrap existing immutable bytes without copying them; for example an open buffer.
+    pub fn new(bytes: Arc<[u8]>) -> Self {
+        Self(bytes)
+    }
+
+    /// The byte allocation captured by comparison proofs, shared without a copy.
+    pub fn bytes(&self) -> &Arc<[u8]> {
+        &self.0
+    }
+
+    /// The read response; for example compare it with a fresh native read.
+    pub fn as_slice(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl std::ops::Deref for ReadBuffer {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
 /// Source access. Native builds read the filesystem; the browser supplies a
 /// virtual file system containing the workspace, prelude and stdlib.
 pub trait FileSystem {
     fn read(&self, path: &Path) -> Option<Vec<u8>>;
+
+    /// The same read response with shared immutable ownership. Wrappers record this exact Arc
+    /// before returning it, so a proof can own bytes without a second retained allocation.
+    /// For example, an observed provider clones the Arc into its Read observation.
+    fn read_shared(&self, path: &Path) -> Option<Arc<ReadBuffer>> {
+        self.read(path)
+            .map(|bytes| Arc::new(ReadBuffer::new(Arc::from(bytes))))
+    }
+
     fn is_file(&self, path: &Path) -> bool;
     fn is_dir(&self, path: &Path) -> bool;
 
@@ -36,6 +75,20 @@ pub trait FileSystem {
     /// Whether this is the real filesystem, which worker threads may read directly.
     fn is_native(&self) -> bool {
         false
+    }
+
+    /// Whether observations from this provider require explicit input-authority checks.
+    /// A sealed native-derived provider returns `true` while denying direct native I/O.
+    /// This flag is not validation: callers must also check `input_epoch_valid` and proof.
+    fn tracks_native_inputs(&self) -> bool {
+        self.is_native()
+    }
+
+    /// Current sealed-epoch readiness, or `None` for a provider without a sealed epoch.
+    /// `Some(false)` rejects publication even if placeholder responses match a proof.
+    /// For example, an unknown sealed `read` marks its request unavailable without I/O.
+    fn input_epoch_valid(&self) -> Option<bool> {
+        None
     }
 
     /// Names (and whether each is a directory) directly inside `path`; used by the sandbox host.

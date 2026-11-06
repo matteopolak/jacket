@@ -7,6 +7,7 @@ pub(crate) use checked_inputs::CheckedInputs;
 mod compile;
 pub(crate) use self::compile::find_file;
 mod hints;
+pub(crate) mod input_epoch;
 mod notices;
 mod observations;
 pub(crate) use observations::{Observations, ObservedFs};
@@ -174,6 +175,8 @@ pub type Buffers = Rc<BTreeMap<PathBuf, Arc<[u8]>>>;
 type ReferenceCache = Option<Rc<jaic::ide::meta::ReferenceIndex>>;
 
 pub struct Analysis {
+    pub(crate) input_epoch: Option<std::rc::Weak<input_epoch::InputEpochFs>>,
+    pub(crate) actual_inputs: Option<input_epoch::ActualInputs>,
     pub(crate) authority: Rc<()>,
     /// Analysis-wide accepted mutable-fact view, shared by every contained Program.
     pub(crate) facts_accepted: Rc<std::cell::Cell<bool>>,

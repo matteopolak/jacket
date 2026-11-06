@@ -40,6 +40,7 @@ impl Session {
             .environment
             .as_ref()
             .is_some_and(|env| !history.borrow().matches(&*env.fs))
+            || !self.accept_input_epoch()
         {
             return None;
         }
@@ -146,6 +147,7 @@ impl Session {
             .environment
             .as_ref()
             .is_some_and(|env| !history.borrow().matches(&*env.fs))
+            || !self.accept_input_epoch()
         {
             return Ok(Vec::new());
         }

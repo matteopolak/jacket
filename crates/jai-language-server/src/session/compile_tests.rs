@@ -45,7 +45,7 @@ impl FileSystem for CountingFs {
 }
 
 #[test]
-fn discovery_memo_hit_uses_its_scope_validation_without_repeating_it() {
+fn accepted_epoch_discovery_memo_is_coherent_and_new_capture_rejects_churn() {
     let temp = test_support::TempDir::new("discovery-validation-scope");
     let root = temp.path().join("workspace/project/source");
     std::fs::create_dir_all(&root).unwrap();
@@ -79,35 +79,39 @@ fn discovery_memo_hit_uses_its_scope_validation_without_repeating_it() {
         "native configuration was actually observed"
     );
     fs.reads.set(0);
-    let text = session.document_text(&uri).unwrap();
-    assert_eq!(session.with_semantic(&uri, text, |_, _| Some(42)), Some(42));
+    let text = session.document_text(&uri).unwrap().to_owned();
+    assert_eq!(
+        session.with_semantic(&uri, &text, |_, _| Some(42)),
+        Some(42)
+    );
     assert_eq!(
         fs.reads.get(),
-        3,
-        "one discovery selection, one cache grant and one final validation"
+        0,
+        "an accepted epoch does not replay native discovery inputs on each query"
     );
     {
         let _scope = session.discovery_query();
         std::fs::write(&config, "[project]\nentry = [\"other.jai\"]\n").unwrap();
         assert_eq!(
-            session.with_semantic(&uri, text, |_, _| Some(42)),
-            None,
-            "a silent change after scope validation still cannot authorize an answer"
+            session.with_semantic(&uri, &text, |_, _| Some(42)),
+            Some(42),
+            "silent changes do not replace the accepted epoch before an event or reconciliation"
         );
     }
     std::fs::write(&config, "[project]\nentry = [\"main.jai\"]\n").unwrap();
+    session.file_changed(&config, false);
     assert_eq!(
-        session.with_semantic(&uri, text, |_, _| {
+        session.with_semantic(&uri, &text, |_, _| {
             std::fs::write(&config, "[project]\nentry = [\"other.jai\"]\n").unwrap();
             Some(42)
         }),
         None,
-        "final replay still rejects a config change during the callback"
+        "new-epoch acceptance still rejects a config change during the callback"
     );
 }
 
 #[test]
-fn exact_query_validates_its_native_proof_once_before_and_once_after() {
+fn exact_query_compares_epoch_proof_once_before_and_once_after() {
     let temp = test_support::TempDir::new("query-validation-grant");
     let root = temp.path().join("workspace/project/source");
     std::fs::create_dir_all(&root).unwrap();
@@ -139,15 +143,22 @@ fn exact_query_validates_its_native_proof_once_before_and_once_after() {
         })
         .unwrap();
     fs.reads.set(0);
+    let logical = crate::reference_records::request_work_tests::ReadComparisons::start(&fs.path);
     assert_eq!(
         session.with_semantic(&uri, source, |_, _| Some(42)),
         Some(42)
     );
     assert_eq!(
-        fs.reads.get(),
+        logical.count(),
         2,
-        "a single-use validated lookup replaces only the immediately repeated preguard"
+        "the original logical proof comparison count is unchanged"
     );
+    assert_eq!(
+        fs.reads.get(),
+        0,
+        "warm epoch proof comparisons do not read native bytes"
+    );
+    drop(logical);
     session.defer_compiles(true);
     let edited = format!("{source}// typing");
     session
@@ -162,25 +173,39 @@ fn exact_query_validates_its_native_proof_once_before_and_once_after() {
         )
         .unwrap();
     fs.reads.set(0);
+    let logical = crate::reference_records::request_work_tests::ReadComparisons::start(&fs.path);
     assert_eq!(
         session.on_older_compile(&uri, &edited, |_, _, _| Some(42)),
         Some(42)
     );
     assert_eq!(
         fs.reads.get(),
-        2,
-        "shifted grant merges discovery before its one prevalidation"
+        0,
+        "shifted grant reads the accepted epoch, with no native replay"
     );
+    assert_eq!(
+        logical.count(),
+        2,
+        "shifted proof still has one pre/post comparison"
+    );
+    drop(logical);
     fs.reads.set(0);
+    let logical = crate::reference_records::request_work_tests::ReadComparisons::start(&fs.path);
     assert_eq!(
         session.with_compiled_before(&uri, &edited, 8, |_, _| Some(42)),
         Some(42)
     );
     assert_eq!(
         fs.reads.get(),
-        2,
-        "prefix grant also needs only one prevalidation"
+        0,
+        "prefix grant reads the accepted epoch, with no native replay"
     );
+    assert_eq!(
+        logical.count(),
+        2,
+        "prefix proof still has one pre/post comparison"
+    );
+    drop(logical);
     session
         .change(
             &uri,
@@ -193,13 +218,15 @@ fn exact_query_validates_its_native_proof_once_before_and_once_after() {
         )
         .unwrap();
     session.defer_compiles(false);
+    // Native callback churn is an admission test, not warm-epoch silent freshness.
+    session.input_epoch.as_ref().unwrap().begin_capture();
     let rejected = session.with_semantic(&uri, source, |_, _| {
         std::fs::write(&data, "changed").unwrap();
         Some(42)
     });
     assert_eq!(
         rejected, None,
-        "final full native validation remains mandatory"
+        "new-capture final native validation remains mandatory"
     );
 }
 
@@ -240,12 +267,18 @@ fn counted_semantic_dependency(
 #[test]
 fn diagnostic_components_share_one_checked_context() {
     let (_temp, fs, session, uri) = counted_semantic_dependency("main :: () {}");
+    let logical = crate::reference_records::request_work_tests::ReadComparisons::start(&fs.path);
     let before = session.compile_counts();
     assert!(session.diagnostics(&uri).unwrap().is_empty());
     assert_eq!(
-        fs.reads.get(),
+        logical.count(),
         2,
         "checks, reachability and lints need one selected context and final replay"
+    );
+    assert_eq!(
+        fs.reads.get(),
+        0,
+        "an accepted warm epoch makes no native reads"
     );
     assert_eq!(session.compile_counts(), before);
 }
@@ -253,13 +286,19 @@ fn diagnostic_components_share_one_checked_context() {
 #[test]
 fn absent_incomplete_switch_does_not_rebuild_diagnostic_hints() {
     let (_temp, fs, session, uri) = counted_semantic_dependency("main :: () {}");
+    let logical = crate::reference_records::request_work_tests::ReadComparisons::start(&fs.path);
     let actions =
         session.complete_switch_actions(&uri, 0, 0, &crate::lints::ActionContext::default());
     assert!(actions.is_empty());
     assert_eq!(
-        fs.reads.get(),
+        logical.count(),
         2,
         "an accepted empty switch-error set cannot produce a switch quick fix"
+    );
+    assert_eq!(
+        fs.reads.get(),
+        0,
+        "an accepted warm epoch makes no native reads"
     );
 }
 
@@ -365,7 +404,14 @@ fn silent_conditional_dependency_retires_alternate_target_negative_spans() {
         !session.unreached.borrow().1.is_empty(),
         "must exercise retained alternate negatives"
     );
-    std::fs::write(flag, "ENABLED :: true;").unwrap();
+    std::fs::write(&flag, "ENABLED :: true;").unwrap();
+    assert!(
+        session
+            .with_semantic_at(&uri, source, byte, query)
+            .is_none(),
+        "silent changes retain accepted alternate-target negatives until reconciliation or an event"
+    );
+    session.file_changed(&flag, false);
     assert!(
         session
             .with_semantic_at(&uri, source, byte, query)
@@ -516,11 +562,17 @@ fn ordinary_hover_gathers_macro_facts_in_its_selected_query() {
     let expected = session.hover(&uri, position).unwrap().unwrap();
     assert!(expected.contents.value.contains("local"));
     fs.reads.set(0);
+    let logical = crate::reference_records::request_work_tests::ReadComparisons::start(&fs.path);
     assert_eq!(session.hover(&uri, position).unwrap(), Some(expected));
     assert_eq!(
-        fs.reads.get(),
+        logical.count(),
         3,
         "one discovery validation, one selected preguard and one final guard; macro enrichment must not select another compiler"
+    );
+    assert_eq!(
+        fs.reads.get(),
+        0,
+        "an accepted warm epoch makes no native reads"
     );
 }
 
@@ -645,11 +697,17 @@ fn unchanged_references_validate_a_published_view_once() {
     let expected = session.references(&uri, position, true).unwrap();
     assert_eq!(expected.len(), 3);
     fs.reads.set(0);
+    let logical = crate::reference_records::request_work_tests::ReadComparisons::start(&fs.path);
     assert_eq!(session.references(&uri, position, true).unwrap(), expected);
     assert_eq!(
-        fs.reads.get(),
+        logical.count(),
         2,
         "one discovery validation and one final union replay; an already published exact view needs no mutable compiler callback"
+    );
+    assert_eq!(
+        fs.reads.get(),
+        0,
+        "an accepted warm epoch makes no native reads"
     );
 }
 
@@ -697,3 +755,57 @@ fn frozen_execution_lints_use_retained_topology_after_editor_release() {
         "the actual adapter supplies complete-program retention at release"
     );
 }
+
+struct ContextCountingFs(std::cell::Cell<usize>);
+
+impl FileSystem for ContextCountingFs {
+    fn is_native(&self) -> bool {
+        true
+    }
+
+    fn read(&self, path: &Path) -> Option<Vec<u8>> {
+        self.0.set(self.0.get() + 1);
+        NativeFs.read(path)
+    }
+
+    fn is_file(&self, path: &Path) -> bool {
+        self.0.set(self.0.get() + 1);
+        NativeFs.is_file(path)
+    }
+
+    fn is_dir(&self, path: &Path) -> bool {
+        self.0.set(self.0.get() + 1);
+        NativeFs.is_dir(path)
+    }
+
+    fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
+        self.0.set(self.0.get() + 1);
+        NativeFs.list_dir(path)
+    }
+
+    fn canonical(&self, path: &Path) -> PathBuf {
+        self.0.set(self.0.get() + 1);
+        NativeFs.canonical(path)
+    }
+
+    fn canonical_exact(&self, path: &Path) -> Option<PathBuf> {
+        self.0.set(self.0.get() + 1);
+        NativeFs.canonical_exact(path)
+    }
+
+    fn missing_file_key(&self, path: &Path) -> Option<PathBuf> {
+        self.0.set(self.0.get() + 1);
+        NativeFs.missing_file_key(path)
+    }
+
+    fn stamp(&self, path: &Path) -> Option<u64> {
+        self.0.set(self.0.get() + 1);
+        NativeFs.stamp(path)
+    }
+}
+
+#[path = "input_epoch_tests.rs"]
+mod input_epochs;
+
+#[path = "input_epoch_lifecycle_tests.rs"]
+mod input_epoch_lifecycle;

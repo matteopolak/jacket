@@ -585,6 +585,8 @@ fn missing_probe_selected_failure_is_terminal_and_later_stable_query_recovers() 
     let expected = session.references(&uri, at, true).unwrap();
     assert_eq!(expected.len(), 2);
     let counts = session.compile_counts();
+    // Exercise native capture admission; a warm accepted epoch intentionally has no native replay.
+    session.input_epoch.as_ref().unwrap().begin_capture();
     *base.create_at.borrow_mut() = Some(candidate);
     assert!(session.references(&uri, at, true).unwrap().is_empty());
     assert!(
@@ -608,6 +610,8 @@ fn missing_probe_replay_interruption_cannot_publish_an_answer() {
     let expected = session.references(&uri, at, true).unwrap();
     assert_eq!(expected.len(), 2);
     let counts = session.compile_counts();
+    // Exercise native capture admission; a warm accepted epoch intentionally has no native replay.
+    session.input_epoch.as_ref().unwrap().begin_capture();
     *base.stop_at.borrow_mut() = Some(candidate);
     jaic::interrupt::arm();
     let result = session.references(&uri, at, true).unwrap();

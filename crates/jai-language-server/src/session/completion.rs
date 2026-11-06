@@ -216,14 +216,31 @@ impl Session {
         if !self.documents.contains_key(&uri) {
             return None;
         }
-        let _background = self.background();
-        jaic::interrupt::arm();
-        let _ = self.with_semantic(&uri, &text, |_, _| Some(()));
-        if jaic::interrupt::disarm() {
+        if self
+            .input_epoch
+            .as_ref()
+            .is_some_and(|epoch| epoch.has_pending_coverage())
+        {
+            // Coverage has its own bounded service. Do not compile or signal a successful
+            // check while that transaction is still unavailable.
             *self.compile_pending.borrow_mut() = Some((uri, text));
             return None;
         }
-        Some(self.document(&uri).is_ok_and(|d| d.text == text))
+        let _background = self.background();
+        jaic::interrupt::arm();
+        let accepted = self.with_semantic(&uri, &text, |_, _| Some(())).is_some();
+        let interrupted = jaic::interrupt::disarm();
+        if interrupted
+            || (!accepted
+                && self
+                    .input_epoch
+                    .as_ref()
+                    .is_some_and(|epoch| epoch.has_pending_coverage()))
+        {
+            *self.compile_pending.borrow_mut() = Some((uri, text));
+            return None;
+        }
+        accepted.then(|| self.document(&uri).is_ok_and(|d| d.text == text))
     }
 
     pub fn completion(

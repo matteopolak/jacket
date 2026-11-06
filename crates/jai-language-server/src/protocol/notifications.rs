@@ -66,7 +66,7 @@ impl JsonSession {
     pub(super) fn edited(&mut self, settings_touched: bool) -> Vec<Value> {
         let mut messages = self.publications();
         if settings_touched {
-            messages.extend(self.refresh());
+            messages.extend(self.diagnostic_refresh());
         }
         messages
     }
@@ -148,7 +148,7 @@ impl JsonSession {
         self.session.close(&closed).map_err(domain)?;
         if self.pull_diagnostics {
             return Ok(if crate::lints::is_config(&closed) {
-                self.refresh()
+                self.diagnostic_refresh()
             } else {
                 Vec::new()
             });
@@ -174,7 +174,7 @@ impl JsonSession {
             } else {
                 self.publications()
             };
-        messages.extend(self.refresh());
+        messages.extend(self.diagnostic_refresh());
         if lenses != self.session.test_lenses_enabled() {
             messages.extend(self.code_lens_refresh());
         }
@@ -219,7 +219,7 @@ impl JsonSession {
 
     /// A request for the client to pull again, when it supports being asked: settings files
     /// changed the diagnostics of documents that did not.
-    fn refresh(&mut self) -> Vec<Value> {
+    pub(super) fn diagnostic_refresh(&mut self) -> Vec<Value> {
         if !self.refresh_diagnostics {
             return Vec::new();
         }

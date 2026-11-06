@@ -1,5 +1,6 @@
 //! A file system that overlays open buffers on disk.
 use super::observations::{Observation, Observations};
+use jaic::filesystem::ReadBuffer;
 use jaic::sema::FileSystem;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -22,7 +23,9 @@ pub struct Reads {
 impl Reads {
     /// Exact native observations, independent of notifications and metadata fingerprints.
     pub(crate) fn is_current(&self, fs: &dyn FileSystem) -> bool {
-        !fs.is_native() || self.disk.matches(fs)
+        fs.input_epoch_valid() != Some(false)
+            && (!fs.tracks_native_inputs() || self.disk.matches(fs))
+            && fs.input_epoch_valid() != Some(false)
     }
 
     pub(super) fn observe_canonical(&mut self, path: PathBuf, target: PathBuf) {
@@ -205,7 +208,7 @@ impl OverlayFs {
     }
 
     fn observe(&self, path: &Path, value: Observation) {
-        if self.base.is_native() {
+        if self.base.tracks_native_inputs() {
             self.reads
                 .borrow_mut()
                 .disk
@@ -227,7 +230,33 @@ impl OverlayFs {
 }
 
 impl FileSystem for OverlayFs {
+    fn tracks_native_inputs(&self) -> bool {
+        self.base.tracks_native_inputs()
+    }
+
+    fn input_epoch_valid(&self) -> Option<bool> {
+        self.base.input_epoch_valid()
+    }
+
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
+        if !self.base.tracks_native_inputs() {
+            #[cfg(test)]
+            let _work = crate::reference_records::request_work_tests::overlay_scope("read");
+            let key = self.observe_identity(path);
+            let found = self
+                .generated
+                .get(&key)
+                .cloned()
+                .or_else(|| self.files.borrow().get(&key).cloned());
+            self.record_file(path, key);
+            return found
+                .map(|bytes| bytes.to_vec())
+                .or_else(|| self.base.read(&self.at(path)));
+        }
+        self.read_shared(path).map(|bytes| bytes.to_vec())
+    }
+
+    fn read_shared(&self, path: &Path) -> Option<Arc<ReadBuffer>> {
         #[cfg(test)]
         let _work = crate::reference_records::request_work_tests::overlay_scope("read");
         let key = self.observe_identity(path);
@@ -238,10 +267,21 @@ impl FileSystem for OverlayFs {
             .or_else(|| self.files.borrow().get(&key).cloned());
         self.record_file(path, key);
         if let Some(bytes) = found {
-            Some(bytes.to_vec())
+            Some(Arc::new(ReadBuffer::new(bytes)))
         } else {
-            let bytes = self.base.read(&self.at(path));
-            self.observe(path, Observation::Read(bytes.as_deref().map(Arc::from)));
+            let bytes = self.base.read_shared(&self.at(path));
+            self.observe(
+                path,
+                Observation::Read(bytes.as_ref().map(|bytes| bytes.bytes().clone())),
+            );
+            if self.base.tracks_native_inputs()
+                && let Some(owner) = &bytes
+            {
+                self.reads
+                    .borrow_mut()
+                    .disk
+                    .record_read_owner(self.at(path).into_owned(), owner.clone());
+            }
             bytes
         }
     }
@@ -258,7 +298,7 @@ impl FileSystem for OverlayFs {
         });
         // A cached identity can still select an open file after its disk alias disappears.
         // Only a new name may use exact absence, and an unsaved/generated fallback wins.
-        if self.base.is_native()
+        if self.base.tracks_native_inputs()
             && self.canonical.get(path).is_none()
             && let Some(key) = self.base.missing_file_key(&self.at(path))
             && !self.generated.contains_key(&key)

@@ -124,7 +124,13 @@ impl Session {
         // The outer scope already validated the retained discovery proof. New observations
         // remain sticky; misses validate before memo publication, and semantic consumers
         // validate their complete accumulated context before accepting an answer.
-        if !self.input_proof.borrow().is_consistent() {
+        if self.documents.values().any(|doc| doc.identity_pending)
+            || !self.input_proof.borrow().is_consistent()
+            || self
+                .environment
+                .as_ref()
+                .is_some_and(|env| env.fs.input_epoch_valid() == Some(false))
+        {
             return None;
         }
         self.sync_builds(&self.semantic.borrow());
@@ -133,7 +139,8 @@ impl Session {
         // The document's own text (as most requests pass it) needs no comparing: any change to
         // a document moves the generation on.
         let own = self.is_own_text(uri, text);
-        if let Some((generation, last, last_text, inputs)) = &*self.inputs.borrow()
+        let memo = self.inputs.borrow();
+        if let Some((generation, last, last_text, inputs, actual)) = &*memo
             && *generation == self.generation.get()
             && last == uri
             && match last_text {
@@ -141,7 +148,40 @@ impl Session {
                 Some(last_text) => last_text == text,
             }
         {
-            return Some(inputs.clone());
+            let restored = self.restore_input_epoch(actual.as_ref());
+            // This matching memo's originals and the outer discovery scope already own
+            // the sealed input view. New URI observations must still fit that same view.
+            let ready = self.input_epoch.as_ref().is_some_and(|epoch| epoch.ready())
+                && self
+                    .environment
+                    .as_ref()
+                    .is_some_and(|env| env.fs.input_epoch_valid() == Some(true));
+            let accepted = restored
+                && if ready {
+                    self.input_proof.borrow().is_consistent()
+                        && !self.configuration_input_failed.get()
+                        && !jaic::interrupt::fired()
+                } else {
+                    self.discovery_inputs_current()
+                };
+            let answer = accepted.then(|| inputs.clone());
+            drop(memo);
+            if !accepted {
+                // A selected old memo cannot be rediscovered under a contradictory history
+                // in this same transaction. The next request may capture fresh inputs.
+                *self.inputs.borrow_mut() = None;
+                *self.memo_input_proof.borrow_mut() = semantic::Observations::default();
+            }
+            return answer;
+        }
+        drop(memo);
+        if !self
+            .semantic
+            .borrow()
+            .has_accepted_source(Path::new(uri.path()))
+            && !self.begin_cold_input_capture()
+        {
+            return None;
         }
         self.index.borrow_mut().discard_input_memos();
         *self.input_proof.borrow_mut() = self.request_input_proof.borrow().clone();
@@ -159,8 +199,29 @@ impl Session {
             uri.clone(),
             (!own).then(|| text.to_string()),
             inputs.clone(),
+            self.input_epoch.as_ref().map(|epoch| epoch.actual_inputs()),
         ));
         Some(inputs)
+    }
+
+    // A genuinely absent compiler context can capture new operations before selection.
+    // A failed selected transaction or coverage miss must never reach this reset.
+    pub(super) fn begin_cold_input_capture(&self) -> bool {
+        if !self.input_proof.borrow().is_consistent()
+            || self.configuration_input_failed.get()
+            || jaic::interrupt::fired()
+        {
+            return false;
+        }
+        let Some(epoch) = &self.input_epoch else {
+            return true;
+        };
+        if !epoch.ready() {
+            return epoch.input_epoch_valid() != Some(false);
+        }
+        let original = epoch.actual_inputs();
+        epoch.begin_request_capture();
+        epoch.reuse_actual(&original)
     }
 
     /// Whether `text` is the open document's own buffer, not a copy or an edited probe.
@@ -384,6 +445,21 @@ impl Session {
             return SemanticOutcome::Unavailable;
         };
         let fs = &*environment.fs;
+        let capture_identity = self
+            .input_epoch
+            .as_ref()
+            .map(|epoch| epoch.capture_identity());
+        if let Some(epoch) = &self.input_epoch {
+            analysis.input_epoch = Some(Rc::downgrade(epoch));
+            if analysis
+                .actual_inputs
+                .as_ref()
+                .is_some_and(|original| !epoch.reuse_actual(original))
+            {
+                analysis.invalidate_reference_views(true);
+                return SemanticOutcome::Unavailable;
+            }
+        }
         analysis
             .reads
             .borrow_mut()
@@ -409,9 +485,22 @@ impl Session {
             .disk
             .merge(&self.input_proof.borrow());
         let references = self.capture_reference_records(analysis);
-        let cancelled = jaic::interrupt::fired() || !analysis.reads.borrow().is_current(fs);
+        if !analysis.freeze_actual_inputs() {
+            analysis.invalidate_reference_views(true);
+            return SemanticOutcome::Unavailable;
+        }
+        let cancelled = jaic::interrupt::fired()
+            || self.configuration_input_failed.get()
+            || !analysis.reads.borrow().is_current(fs);
         let hints_current = !cancelled && analysis.hints_current(fs);
-        let cancelled = cancelled || jaic::interrupt::fired();
+        let unchanged = self
+            .input_epoch
+            .as_ref()
+            .map(|epoch| epoch.capture_identity())
+            == capture_identity;
+        // Optional output failure cannot poison an otherwise accepted semantic epoch.
+        let epoch_current = cancelled || (unchanged && self.accept_input_epoch());
+        let cancelled = cancelled || !epoch_current || jaic::interrupt::fired();
         analysis.facts_accepted.set(!cancelled);
         if cancelled {
             analysis.invalidate_reference_views(true);
@@ -640,6 +729,11 @@ impl Session {
             })
             .collect();
         for os in order {
+            if !cache.has_accepted_context(&root, &dirs, Some(os))
+                && !self.begin_cold_input_capture()
+            {
+                return None;
+            }
             let mut analysis = cache.query(
                 environment,
                 &root,

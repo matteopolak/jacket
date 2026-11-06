@@ -669,3 +669,101 @@ fn rebuild_protection_does_not_confuse_proof_storage_with_compiler_work() {
         "memory accounting must not replace the rebuild-work protection score"
     );
 }
+
+#[test]
+fn accepted_compiler_keeps_actual_listing_history_across_capture_restart() {
+    use jaic::sema::{FileSystem, NativeFs};
+    struct OrderedFs {
+        directory: PathBuf,
+        reversed: std::cell::Cell<bool>,
+    }
+    impl FileSystem for OrderedFs {
+        fn read(&self, path: &Path) -> Option<Vec<u8>> {
+            NativeFs.read(path)
+        }
+        fn is_file(&self, path: &Path) -> bool {
+            NativeFs.is_file(path)
+        }
+        fn is_dir(&self, path: &Path) -> bool {
+            NativeFs.is_dir(path)
+        }
+        fn canonical(&self, path: &Path) -> PathBuf {
+            NativeFs.canonical(path)
+        }
+        fn canonical_exact(&self, path: &Path) -> Option<PathBuf> {
+            NativeFs.canonical_exact(path)
+        }
+        fn stamp(&self, path: &Path) -> Option<u64> {
+            NativeFs.stamp(path)
+        }
+        fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
+            let mut rows = NativeFs.list_dir(path);
+            if path == self.directory {
+                rows.sort();
+                if self.reversed.get() {
+                    rows.reverse();
+                }
+            }
+            rows
+        }
+        fn is_native(&self) -> bool {
+            true
+        }
+    }
+    let temp = test_support::TempDir::new("epoch-producer-original");
+    let root = temp.path().join("main.jai");
+    let directory = temp.path().join("listing");
+    std::fs::create_dir(&directory).unwrap();
+    std::fs::write(directory.join("a"), "a").unwrap();
+    std::fs::write(directory.join("b"), "b").unwrap();
+    let native = Rc::new(OrderedFs {
+        directory: directory.clone(),
+        reversed: std::cell::Cell::new(false),
+    });
+    let epoch = Rc::new(super::super::input_epoch::InputEpochFs::new(native.clone()));
+    let watched = directory.clone();
+    let env = Environment {
+        fs: epoch.clone(),
+        services: None,
+        options: Box::new(move |fs, _| {
+            assert_eq!(fs.list_dir(&watched).len(), 2);
+            let mut options = jaic::sema::Options::host();
+            options.runtime_support = false;
+            options.stack_trace = false;
+            options
+        }),
+    };
+    let files = Rc::new(BTreeMap::from([(
+        root.clone(),
+        Arc::from(&b"main :: () {}"[..]),
+    )]));
+    let mut cache = Cache::default();
+    cache.set_input_epoch(Some(Rc::downgrade(&epoch)));
+    let analysis = cache.analyze(&env, &root, &[], files.clone()).unwrap();
+    assert!(
+        analysis.actual_inputs.is_some(),
+        "accepted build must own actual origin"
+    );
+    let original = super::super::CheckedInputs::capture(analysis);
+    assert!(original.is_current(&env, &files, &analysis.authority));
+    let mut comparison = super::super::Observations::default();
+    comparison.record(
+        directory.clone(),
+        super::super::observations::Observation::Listing(vec![
+            ("a".into(), false),
+            ("b".into(), false),
+        ]),
+    );
+    epoch.begin_capture();
+    native.reversed.set(true);
+    assert!(
+        comparison.matches(&*epoch),
+        "normalized listings remain equal"
+    );
+    assert!(
+        !analysis.restore_actual_inputs(),
+        "raw original order cannot be replaced by current capture"
+    );
+    assert!(!original.is_current(&env, &files, &analysis.authority));
+    assert!(!epoch.seal_after_validation());
+}

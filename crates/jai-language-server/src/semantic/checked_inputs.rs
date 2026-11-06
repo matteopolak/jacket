@@ -4,6 +4,8 @@ use std::{collections::BTreeMap, path::PathBuf, rc::Rc, sync::Arc};
 
 #[derive(Clone)]
 pub(crate) struct CheckedInputs {
+    input_epoch: Option<std::rc::Weak<super::input_epoch::InputEpochFs>>,
+    actual_inputs: Option<super::input_epoch::ActualInputs>,
     authority: Rc<()>,
     pub(crate) root: PathBuf,
     pub(crate) dirs: Vec<PathBuf>,
@@ -14,6 +16,37 @@ pub(crate) struct CheckedInputs {
 }
 
 impl CheckedInputs {
+    /// Retire exact owners affected by a known event before importing their old history.
+    pub(crate) fn concerns_tree(&self, path: &std::path::Path) -> bool {
+        self.reads.concerns_tree(path)
+            || self
+                .actual_inputs
+                .as_ref()
+                .is_some_and(|actual| actual.concerns_tree(path))
+    }
+
+    pub(crate) fn concerns_tree_since(
+        &self,
+        path: &std::path::Path,
+        current: Option<&super::input_epoch::ActualInputs>,
+    ) -> bool {
+        self.reads.concerns_tree(path)
+            || self
+                .actual_inputs
+                .as_ref()
+                .is_some_and(|actual| actual.concerns_tree_since(path, current))
+    }
+
+    fn actual_current(&self) -> bool {
+        match (&self.input_epoch, &self.actual_inputs) {
+            (Some(owner), Some(original)) => owner
+                .upgrade()
+                .is_some_and(|epoch| epoch.reuse_actual(original)),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+
     pub(crate) fn capture(analysis: &Analysis) -> Self {
         Self::capture_reads(analysis, Rc::new(analysis.reads.borrow().clone()))
     }
@@ -35,7 +68,19 @@ impl CheckedInputs {
             .filter(|(path, _)| reads.concerns(path))
             .map(|(path, bytes)| (path.clone(), bytes.clone()))
             .collect();
-        let bytes = analysis.root.capacity()
+        // Never relabel old compiler facts with a later capture's raw response history.
+        let original_restored = analysis.restore_actual_inputs();
+        let actual_inputs = analysis
+            .input_epoch
+            .as_ref()
+            .and_then(std::rc::Weak::upgrade)
+            .filter(|_| original_restored)
+            .map(|epoch| epoch.actual_inputs())
+            .or_else(|| analysis.actual_inputs.clone());
+        let bytes = actual_inputs
+            .as_ref()
+            .map_or(0, |actual| actual.retained_bytes_with_proof(&reads.disk))
+            + analysis.root.capacity()
             + analysis.dirs.capacity() * std::mem::size_of::<PathBuf>()
             + analysis.dirs.iter().map(PathBuf::capacity).sum::<usize>()
             + reads.retained_bytes()
@@ -47,6 +92,8 @@ impl CheckedInputs {
                 })
                 .sum::<usize>();
         Self {
+            input_epoch: analysis.input_epoch.clone(),
+            actual_inputs,
             authority: analysis.authority.clone(),
             root: analysis.root.clone(),
             dirs: analysis.dirs.clone(),
@@ -57,13 +104,35 @@ impl CheckedInputs {
         }
     }
 
+    /// Derived hint inputs have their own native-response owner, never the compiler's map.
+    pub(super) fn capture_hint(
+        analysis: &Analysis,
+        reads: Rc<Reads>,
+        files: &BTreeMap<PathBuf, Arc<[u8]>>,
+        epoch: &Rc<super::input_epoch::InputEpochFs>,
+    ) -> Self {
+        let mut captured = Self::capture_with_files(analysis, reads, files);
+        let old = captured.actual_inputs.as_ref().map_or(0, |actual| {
+            actual.retained_bytes_with_proof(&captured.reads.disk)
+        });
+        let actual = epoch.actual_inputs();
+        captured.bytes = captured
+            .bytes
+            .saturating_sub(old)
+            .saturating_add(actual.retained_bytes_with_proof(&captured.reads.disk));
+        captured.input_epoch = Some(Rc::downgrade(epoch));
+        captured.actual_inputs = Some(actual);
+        captured
+    }
+
     /// Selected analyses already own canonical overlay keys.
     pub(super) fn matches_selected(
         &self,
         analysis: &Analysis,
         fs: &dyn jaic::sema::FileSystem,
     ) -> bool {
-        Rc::ptr_eq(&self.authority, &analysis.authority)
+        self.actual_current()
+            && Rc::ptr_eq(&self.authority, &analysis.authority)
             && self.reads.is_current(fs)
             && analysis
                 .files
@@ -109,6 +178,11 @@ impl CheckedInputs {
     ) -> bool {
         self.projected_reads(env, files, authority, ignored, output)
             .is_some_and(|reads| reads.is_current(&*env.fs))
+            && self
+                .input_epoch
+                .as_ref()
+                .is_none_or(|owner| owner.upgrade().is_some_and(|epoch| epoch.validate_actual()))
+            && !jaic::interrupt::fired()
     }
 
     /// Stage one retained context for a combined answer's single final native replay.
@@ -121,6 +195,9 @@ impl CheckedInputs {
         ignored: Option<&std::path::Path>,
         output: &super::Observations,
     ) -> Option<Reads> {
+        if !self.actual_current() {
+            return None;
+        }
         if !Rc::ptr_eq(&self.authority, authority) {
             return None;
         }
@@ -227,6 +304,8 @@ mod tests {
         let mut reads = Reads::default();
         reads.observe_canonical(alias.clone(), jaic::paths::file_identity(&NativeFs, &alias));
         let checked = CheckedInputs {
+            input_epoch: None,
+            actual_inputs: None,
             authority: authority.clone(),
             root: first,
             dirs: Vec::new(),

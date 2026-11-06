@@ -1,5 +1,7 @@
 # Checked reference snapshots
 
+Native freshness is now governed by [input epochs](lsp-input-epochs.md): full native validation accepts a capture; warm proof checks use its sealed responses until a known event or reconciliation invalidates it. References to freshness guards below include those sealed checks, and do not promise detecting silent disk changes before each query.
+
 The language server retains checked reference facts separately from full compilers. References and linked editing can answer after checks of other open programs evict the original compiler. Rename still uses its exact compiler path.
 
 ## Ownership and queries

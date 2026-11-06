@@ -42,6 +42,7 @@ impl<'a> QueryAnalysis<'a> {
     ) -> Option<Self> {
         analysis.reads.borrow_mut().disk.merge(proof);
         if !analysis.query_valid
+            || !analysis.restore_actual_inputs()
             || jaic::interrupt::fired()
             || !analysis.reads.borrow().is_current(&*env.fs)
         {
@@ -64,6 +65,7 @@ enum BuildKind {
 }
 
 pub struct Cache {
+    input_epoch: Option<std::rc::Weak<super::input_epoch::InputEpochFs>>,
     authority: Rc<()>,
     entries: Vec<Analysis>,
     input_proof: super::Observations,
@@ -93,6 +95,7 @@ pub struct Cache {
 impl Default for Cache {
     fn default() -> Self {
         Cache {
+            input_epoch: None,
             authority: Rc::new(()),
             entries: Vec::new(),
             input_proof: super::Observations::default(),
@@ -170,6 +173,13 @@ fn quick_key(root: &Path, dirs: &[PathBuf], files: &Buffers, os: Option<TargetOs
 }
 
 impl Cache {
+    pub(crate) fn set_input_epoch(
+        &mut self,
+        epoch: Option<std::rc::Weak<super::input_epoch::InputEpochFs>>,
+    ) {
+        self.input_epoch = epoch;
+    }
+
     /// Select and validate immediately before a semantic callback.
     /// Example: an exact deferred request uses `Exact { compile: false, os: None }`.
     pub(crate) fn query(
@@ -291,6 +301,12 @@ impl Cache {
             .merge(&history.into_inner());
         if jaic::interrupt::fired()
             || !analysis.reads.borrow().is_current(&*env.fs)
+            || analysis
+                .input_epoch
+                .as_ref()
+                .and_then(std::rc::Weak::upgrade)
+                .is_some_and(|epoch| !epoch.validate_actual())
+            || !analysis.freeze_actual_inputs()
             || jaic::interrupt::fired()
         {
             analysis.query_valid = false;
@@ -379,8 +395,25 @@ impl Cache {
     /// Retire analyses that observed a watched path, including failed file lookups and
     /// directory searches. Unrelated disk edits leave exact checked programs reusable.
     pub fn invalidate_path(&mut self, path: &Path) {
-        self.entries
-            .retain(|analysis| !analysis.reads.borrow().concerns_tree(path));
+        self.invalidate_path_since(path, None);
+    }
+
+    /// Only native event dispatch supplies fresh post-revocation observations here.
+    pub(crate) fn invalidate_path_since(
+        &mut self,
+        path: &Path,
+        current: Option<&super::input_epoch::ActualInputs>,
+    ) {
+        self.entries.retain(|analysis| {
+            !analysis.reads.borrow().concerns_tree(path)
+                && !analysis
+                    .actual_inputs
+                    .as_ref()
+                    .is_some_and(|actual| actual.concerns_tree_since(path, current))
+        });
+        if self.probes.invalidate_path(path, current) {
+            self.refresh_probe_views();
+        }
     }
 
     /// Drop the lints found so far (their settings changed); the compiles stay.
@@ -548,6 +581,56 @@ impl Cache {
         Some(&mut self.entries[at])
     }
 
+    // These negative-only predicates decide whether a first cold context may start a
+    // native transaction. Presence grants no authority and never calls focus/find_file.
+    pub(crate) fn has_accepted_source(&self, path: &Path) -> bool {
+        let owns = |compiler: &jaic::sema::Compiler| {
+            (0..compiler.src.sources.len() as u32).any(|id| {
+                compiler
+                    .src
+                    .sources
+                    .get(jaic::source::FileId(id))
+                    .path
+                    .as_file()
+                    == Some(path)
+            })
+        };
+        self.entries.iter().any(|analysis| {
+            analysis.usable
+                && analysis.query_valid
+                && !analysis.advisory
+                && analysis.facts_accepted.get()
+                && analysis.os.is_none()
+                && (analysis
+                    .found
+                    .borrow()
+                    .get(path)
+                    .is_some_and(Option::is_some)
+                    || owns(&analysis.compiler)
+                    || analysis
+                        .others
+                        .iter()
+                        .any(|program| owns(&program.compiler)))
+        })
+    }
+
+    pub(crate) fn has_accepted_context(
+        &self,
+        root: &Path,
+        dirs: &[PathBuf],
+        os: Option<TargetOs>,
+    ) -> bool {
+        self.entries.iter().any(|analysis| {
+            analysis.usable
+                && analysis.query_valid
+                && !analysis.advisory
+                && analysis.facts_accepted.get()
+                && analysis.root == root
+                && analysis.dirs == dirs
+                && analysis.os == os
+        })
+    }
+
     /// Freeze a published view only from the exact quick candidate normal lookup selects.
     /// No compiler query, focus switch or filesystem access occurs here.
     pub(crate) fn published_reference_inputs(
@@ -625,6 +708,9 @@ impl Cache {
             if a.root != root || a.dirs != dirs || a.os.is_some() {
                 return true;
             }
+            if !a.actual_inputs_compatible_with_capture() || !a.restore_actual_inputs() {
+                return false;
+            }
             let mut reads = a.reads.borrow_mut();
             reads.disk.merge(proof);
             reads.is_current(&*env.fs)
@@ -695,7 +781,7 @@ impl Cache {
         given: &Buffers,
         os: Option<TargetOs>,
     ) -> Inputs {
-        if env.fs.is_native() {
+        if env.fs.tracks_native_inputs() {
             self.canonical.clear();
         }
         let files: BTreeMap<PathBuf, Arc<[u8]>> = given
@@ -739,9 +825,11 @@ impl Cache {
                     .is_some_and(|(k, kept)| *k == quick && Rc::ptr_eq(kept, given))
         }) {
             let entry = &mut self.entries[at];
-            entry.reads.borrow_mut().disk.merge(&self.input_proof);
-            if entry.reads.borrow().is_current(&*env.fs) {
-                return Ok(at);
+            if entry.actual_inputs_compatible_with_capture() {
+                entry.reads.borrow_mut().disk.merge(&self.input_proof);
+                if entry.restore_actual_inputs() && entry.reads.borrow().is_current(&*env.fs) {
+                    return Ok(at);
+                }
             }
             entry.query_valid = false;
         }
@@ -772,8 +860,12 @@ impl Cache {
             return Err(inputs);
         };
         let entry = &mut self.entries[at];
+        if !entry.actual_inputs_compatible_with_capture() || !entry.restore_actual_inputs() {
+            entry.query_valid = false;
+            return Err(inputs);
+        }
         entry.reads.borrow_mut().disk.merge(&self.input_proof);
-        if env.fs.is_native() {
+        if env.fs.tracks_native_inputs() {
             let mut observed = entry.reads.borrow_mut();
             for path in given.keys() {
                 observed.observe_canonical(
@@ -805,6 +897,9 @@ impl Cache {
         inputs: Inputs,
         kind: BuildKind,
     ) -> Option<Analysis> {
+        if env.fs.input_epoch_valid() == Some(false) {
+            return None;
+        }
         let (os, advisory) = match kind {
             BuildKind::Exact(os) => (os, false),
             BuildKind::Advisory => (None, true),
@@ -813,7 +908,7 @@ impl Cache {
         // These are already observed responses from input assembly, not a fresh replay.
         let mut accepted_inputs = super::Reads::default();
         accepted_inputs.disk.merge(&self.input_proof);
-        if env.fs.is_native() {
+        if env.fs.tracks_native_inputs() {
             for path in given.keys() {
                 accepted_inputs.observe_canonical(
                     path.clone(),
@@ -834,7 +929,7 @@ impl Cache {
             accepted_inputs.disk.merge(&history.into_inner());
             key
         };
-        if !accepted_inputs.disk.is_consistent() {
+        if !accepted_inputs.disk.is_consistent() || env.fs.input_epoch_valid() == Some(false) {
             return None;
         }
         self.compiles += 1;
@@ -891,6 +986,11 @@ impl Cache {
         // Stopped or mixed disk inputs: none of the partial context is accepted.
         if jaic::interrupt::fired()
             || !reads.borrow().is_current(&*env.fs)
+            || self
+                .input_epoch
+                .as_ref()
+                .and_then(std::rc::Weak::upgrade)
+                .is_some_and(|epoch| !epoch.validate_actual())
             || jaic::interrupt::fired()
         {
             if let Some(job) = trace_job {
@@ -914,6 +1014,12 @@ impl Cache {
                 .facts()
                 .is_some_and(|ide| !ide.scopes.is_empty());
         let analysis = Analysis {
+            input_epoch: self.input_epoch.clone(),
+            actual_inputs: self
+                .input_epoch
+                .as_ref()
+                .and_then(std::rc::Weak::upgrade)
+                .map(|epoch| epoch.actual_inputs()),
             authority: self.authority.clone(),
             facts_accepted: Rc::new(std::cell::Cell::new(true)),
             compiler,

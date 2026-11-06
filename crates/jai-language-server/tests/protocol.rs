@@ -431,3 +431,74 @@ fn an_unknown_cancellation_does_not_cancel_a_later_request() {
     assert_eq!(output[0]["id"], 7);
     assert_eq!(output[0]["error"]["code"], -32601);
 }
+
+#[test]
+fn reconciliation_queues_updates_without_compiling_and_stops_after_shutdown() {
+    use jai_language_server::{DocumentUri, Environment};
+    use std::rc::Rc;
+    let temp = test_support::TempDir::new("epoch-protocol-reconcile");
+    let main = temp.path().join("main.jai");
+    let dependency = temp.path().join("dependency.jai");
+    let source =
+        "#load \"dependency.jai\"; main :: () { value: Value; value = 1; if value == 1 {} }";
+    std::fs::write(&main, source).unwrap();
+    std::fs::write(&dependency, "Value :: int;").unwrap();
+    let uri = DocumentUri::from_path(&main).unwrap();
+    let mut session = JsonSession::with_environment(
+        Limits::default(),
+        Environment {
+            fs: Rc::new(jaic::sema::NativeFs),
+            services: None,
+            options: Box::new(|_, _| {
+                let mut options = jaic::sema::Options::host();
+                options.runtime_support = false;
+                options.stack_trace = false;
+                options
+            }),
+        },
+    );
+    session.defer_publications(true);
+    assert!(!session.has_input_epoch_work());
+    send(
+        &mut session,
+        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+            "capabilities":{"workspace":{"semanticTokens":{"refreshSupport":true}}}
+        }}),
+    );
+    send(
+        &mut session,
+        json!({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{
+            "textDocument":{"uri":uri.as_str(),"languageId":"jai","version":1,"text":source}
+        }}),
+    );
+    assert!(session.session().diagnostics(&uri).unwrap().is_empty());
+    session.flush_publications_messages().unwrap();
+    assert!(session.has_input_epoch_work());
+    let counts = session.compile_counts();
+    std::fs::write(&dependency, "Value :: struct { field: int; };").unwrap();
+    let mut updates = Vec::new();
+    for _ in 0..256 {
+        updates.extend(session.reconcile_input_epoch_messages().unwrap());
+        if session.publications_pending() {
+            break;
+        }
+    }
+    assert!(session.publications_pending());
+    assert_eq!(
+        session.compile_counts().0,
+        counts.0,
+        "reconciliation cannot start a compile inline"
+    );
+    assert!(updates.iter().any(
+        |message| matches!(message, lsp_server::Message::Request(request)
+        if request.method == "workspace/semanticTokens/refresh")
+    ));
+    assert!(!session.session().diagnostics(&uri).unwrap().is_empty());
+    assert!(session.has_input_epoch_work());
+    send(
+        &mut session,
+        json!({"jsonrpc":"2.0","id":2,"method":"shutdown","params":null}),
+    );
+    assert!(!session.has_input_epoch_work());
+    assert!(session.reconcile_input_epoch_messages().unwrap().is_empty());
+}

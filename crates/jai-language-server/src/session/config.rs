@@ -4,6 +4,7 @@ use crate::semantic::{self, Environment};
 use crate::{DocumentUri, Error, Limits, VirtualSources};
 use jaic::ide::lint_compile::CheckLimits;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 impl Session {
     /// Basic blocks one compile-time evaluation may run before it fails (`0`: no limit).
@@ -211,6 +212,15 @@ impl Session {
 
     /// The inputs of a compile may have changed.
     fn touch(&self) {
+        self.config_recovery.borrow_mut().take();
+        if let Some(epoch) = &self.input_epoch {
+            epoch.begin_capture();
+        }
+        self.touch_buffers();
+    }
+
+    /// Versioned overlays change independently from the accepted closed-file epoch.
+    fn touch_buffers(&self) {
         self.generation.set(self.generation.get() + 1);
         *self.inputs.borrow_mut() = None;
         *self.open_file_identities.borrow_mut() = None;
@@ -240,24 +250,33 @@ impl Session {
     /// A file changed on disk (`created_or_deleted` when it appeared or went away): what was
     /// read from it is read again.
     pub fn file_changed(&mut self, path: &Path, created_or_deleted: bool) {
-        let key = self.semantic.borrow().known_path(path).unwrap_or_else(|| {
-            self.environment.as_ref().map_or_else(
-                || jaic::paths::identity_spelling(path),
-                |env| crate::auto_import::canonical_key(env, path),
-            )
-        });
+        self.saved_file_changed(path, created_or_deleted);
+    }
+
+    pub(super) fn native_file_changed(&mut self, path: &Path, created_or_deleted: bool) {
+        let previous = self.semantic.borrow().known_path(path);
+        // A known native event revokes sealed responses before identity or config reads.
+        self.document_changed(path, created_or_deleted);
+        let key = self.environment.as_ref().map_or_else(
+            || jaic::paths::identity_spelling(path),
+            |env| crate::auto_import::canonical_key(env, path),
+        );
         let name = match (path.parent(), path.file_name(), self.environment.as_ref()) {
             (Some(parent), Some(name), Some(env)) => {
                 crate::auto_import::canonical_key(env, parent).join(name)
             }
             _ => key.clone(),
         };
-        for changed in [&key, &name] {
-            self.semantic.borrow_mut().invalidate_path(changed);
-            self.reference_records.borrow_mut().invalidate(changed);
+        let fresh_event = self.input_epoch.as_ref().map(|epoch| epoch.actual_inputs());
+        for changed in previous.iter().chain([&key, &name]) {
+            self.semantic
+                .borrow_mut()
+                .invalidate_path_since(changed, fresh_event.as_ref());
+            self.reference_records
+                .borrow_mut()
+                .invalidate_since(changed, fresh_event.as_ref());
         }
         self.call_graphs.borrow_mut().clear();
-        self.document_changed(path, created_or_deleted);
     }
 
     fn retire_configuration_authority(&self) {
@@ -274,12 +293,53 @@ impl Session {
     /// Overlay changes retain older compilers for shifted exploratory answers. Exact cache
     /// and reference lookups independently compare the complete relevant overlay manifest.
     pub(super) fn document_changed(&mut self, path: &Path, created_or_deleted: bool) {
+        self.touch();
         if jacket_config::is_config_file(path) {
             // Saved configuration is an overlay outside compiler Buffers. Its lifecycle
             // retires exact authority; unfinished config edits never reach this boundary.
             self.retire_configuration_authority();
         }
+        self.invalidate_document_indexes(path, created_or_deleted);
+    }
+
+    /// Install an independently accepted settings capture without new filesystem calls.
+    pub(super) fn accept_recovered_settings(
+        &mut self,
+        uri: DocumentUri,
+        saved: super::saved_configs::SavedConfig,
+    ) -> bool {
+        let previous = self.saved_configs.get(&uri).map(|old| old.identity.clone());
         self.touch();
+        self.retire_configuration_authority();
+        let raw = jaic::paths::identity_spelling(std::path::Path::new(uri.path()));
+        for path in previous.iter().chain([&saved.identity, &raw]) {
+            self.semantic.borrow_mut().invalidate_path(path);
+            self.reference_records.borrow_mut().invalidate(path);
+            self.polymorph_index.borrow_mut().invalidate(path, true);
+            self.index.borrow_mut().created_or_deleted(path);
+        }
+        if !self.restore_input_epoch(saved.actual_inputs.as_ref()) {
+            return false;
+        }
+        self.saved_configs.insert(uri, saved);
+        self.semantic.borrow_mut().forget_lints();
+        true
+    }
+
+    /// An ordinary edit changes the overlay, not the filesystem responses it overlays.
+    pub(super) fn buffer_changed(&mut self, path: &Path) {
+        self.touch_buffers();
+        self.invalidate_document_indexes(path, false);
+    }
+
+    /// Opening or closing a source changes overlays while preserving closed input ownership.
+    /// Example: opening a second program retains the first program's accepted disk inputs.
+    pub(super) fn source_buffer_changed(&mut self, path: &Path) {
+        self.touch_buffers();
+        self.invalidate_document_indexes(path, true);
+    }
+
+    fn invalidate_document_indexes(&mut self, path: &Path, created_or_deleted: bool) {
         if created_or_deleted {
             self.semantic.borrow_mut().forget_paths();
         }
@@ -300,10 +360,118 @@ impl Session {
     }
 
     /// A session that also type-checks the open documents against `environment`'s modules.
-    pub fn with_environment(limits: Limits, environment: Environment) -> Self {
+    pub fn with_environment(limits: Limits, mut environment: Environment) -> Self {
+        let input_epoch = environment.fs.is_native().then(|| {
+            Rc::new(semantic::input_epoch::InputEpochFs::new(
+                environment.fs.clone(),
+            ))
+        });
+        if let Some(epoch) = &input_epoch {
+            environment.fs = epoch.clone();
+        }
         Self {
+            input_epoch,
             environment: Some(environment),
             ..Self::new(limits)
+        }
+    }
+
+    /// Finish an answer's capture after all selection and projection operations.
+    pub(crate) fn accept_input_epoch(&self) -> bool {
+        !self.configuration_input_failed.get()
+            && !self.documents.values().any(|doc| doc.identity_pending)
+            && self
+                .input_epoch
+                .as_ref()
+                .is_none_or(|epoch| epoch.seal_after_validation())
+            && !jaic::interrupt::fired()
+    }
+
+    /// Retained facts keep their producer's exact actual response history.
+    pub(crate) fn restore_input_epoch(
+        &self,
+        original: Option<&semantic::input_epoch::ActualInputs>,
+    ) -> bool {
+        match (&self.input_epoch, original) {
+            (Some(epoch), Some(original)) => epoch.reuse_actual(original),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+
+    /// Active parent coverage needs another bounded service turn without an idle poll.
+    /// For example, a newly opened source can finish its queued identities between batches.
+    pub fn input_epoch_hydration_pending(&self) -> bool {
+        self.trusted()
+            && self
+                .input_epoch
+                .as_ref()
+                .is_some_and(|epoch| epoch.has_pending_coverage())
+    }
+
+    /// Whether an accepted native epoch can be reconciled between requests.
+    pub fn has_input_epoch_work(&self) -> bool {
+        self.trusted()
+            && self.input_epoch.as_ref().is_some_and(|epoch| {
+                epoch.has_work()
+                    || self.has_config_recovery_work()
+                    || self.documents.values().any(|doc| doc.identity_pending)
+            })
+    }
+
+    /// Check one bounded native-input reconciliation slice. Known buffer events stay immediate.
+    /// Returns whether a changed input or newly covered successor needs client updates.
+    /// For example, a native host calls this once per scheduled service turn.
+    pub fn reconcile_input_epoch(&mut self) -> bool {
+        if !self.trusted() {
+            return false;
+        }
+        struct InterruptSpan(bool);
+        impl Drop for InterruptSpan {
+            fn drop(&mut self) {
+                if self.0 {
+                    jaic::interrupt::disarm();
+                }
+            }
+        }
+        let owns_interrupt = !jaic::interrupt::armed();
+        if owns_interrupt {
+            jaic::interrupt::arm();
+        }
+        let _interrupt = InterruptSpan(owns_interrupt);
+        if self.resolve_buffer_identities() {
+            return true;
+        }
+        let recovery_turn = self
+            .config_recovery_turn
+            .replace(!self.config_recovery_turn.get());
+        let ordinary_work = self
+            .input_epoch
+            .as_ref()
+            .is_some_and(|epoch| epoch.has_work());
+        if (recovery_turn || !ordinary_work)
+            && let Some(changed) = self.service_config_recovery(std::time::Instant::now())
+        {
+            return changed;
+        }
+        // Saved-input recovery and ordinary replay share this owner turn's IO budget.
+        // Keep fair service without adding a second multi-operation lane beside recovery.
+        let ordinary_ops = if self.has_config_recovery_work() {
+            1
+        } else {
+            32
+        };
+        let changed = self
+            .input_epoch
+            .as_ref()
+            .and_then(|epoch| epoch.reconcile_step(ordinary_ops, 256 * 1024));
+        if let Some(path) = changed {
+            self.file_changed(&path, true);
+            true
+        } else {
+            self.input_epoch
+                .as_ref()
+                .is_some_and(|epoch| epoch.take_updates_pending())
         }
     }
 

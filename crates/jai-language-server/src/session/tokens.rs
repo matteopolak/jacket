@@ -21,7 +21,23 @@ impl Session {
         Ok(tokens)
     }
 
+    /// Current-buffer syntax with independently accepted semantic refinements.
+    /// For example, `42` remains a number while another input is hydrating.
     pub fn semantic_tokens(&self, uri: &DocumentUri) -> Result<Vec<SemanticToken>, Error> {
+        if let Some((key, _)) = self.documents.get_key_value(uri) {
+            let _query = self.discovery_query();
+            if jaic::interrupt::fired() {
+                return Ok(Vec::new());
+            }
+            // This client spelling already owns the buffer. Optional checked providers
+            // accept their own rows; no native identity lookup authorizes the syntax rows.
+            let tokens = self.semantic_tokens_at_key(key)?;
+            return Ok(if jaic::interrupt::fired() {
+                Vec::new()
+            } else {
+                tokens
+            });
+        }
         self.projected_document_query(uri, |key| self.semantic_tokens_at_key(key))
     }
 

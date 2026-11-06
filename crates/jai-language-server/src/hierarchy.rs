@@ -564,6 +564,7 @@ impl Session {
         joined.disk.merge(&self.input_proof.borrow());
         !jaic::interrupt::fired()
             && joined.is_current(&*env.fs)
+            && self.accept_input_epoch()
             && !jaic::interrupt::fired()
             && contexts.iter().all(|(graph, _)| graph.accepted())
     }

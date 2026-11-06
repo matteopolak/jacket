@@ -11,22 +11,36 @@ const DIAGNOSTICS_DEBOUNCE: std::ops::RangeInclusive<std::time::Duration> =
 #[cfg(not(target_arch = "wasm32"))]
 const SERVICE_POLL: std::time::Duration = std::time::Duration::from_millis(25);
 
+/// Reconciliation gets a service opportunity even when request traffic never becomes idle.
+#[cfg(not(target_arch = "wasm32"))]
+const INPUT_RECONCILE_POLL: std::time::Duration = std::time::Duration::from_millis(25);
+
+/// Open the optional native trace before serving; disabled tracing allocates no recorder.
+#[cfg(not(target_arch = "wasm32"))]
+fn native_trace() -> std::io::Result<jai_language_server::trace::Trace> {
+    Ok(
+        if jacket_config::env::LSP_TRACE.get().as_deref() == Some("1") {
+            let destination = jacket_config::env::LSP_TRACE_FILE
+                .os()
+                .ok_or_else(|| std::io::Error::other("LSP trace destination required"))?;
+            let trace = jai_language_server::trace::Trace::open_new(
+                std::path::Path::new(&destination),
+                16384,
+            )
+            .map_err(|_| std::io::Error::other("cannot initialize LSP trace"))?;
+            jai_language_server::trace::install(trace.clone())
+                .map_err(|_| std::io::Error::other("LSP trace already initialized"))?;
+            trace
+        } else {
+            jai_language_server::trace::Trace::disabled()
+        },
+    )
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
     let limits = jai_language_server::Limits::default();
-    let trace = if jacket_config::env::LSP_TRACE.get().as_deref() == Some("1") {
-        let destination = jacket_config::env::LSP_TRACE_FILE
-            .os()
-            .ok_or_else(|| std::io::Error::other("LSP trace destination required"))?;
-        let trace =
-            jai_language_server::trace::Trace::open_new(std::path::Path::new(&destination), 16384)
-                .map_err(|_| std::io::Error::other("cannot initialize LSP trace"))?;
-        jai_language_server::trace::install(trace.clone())
-            .map_err(|_| std::io::Error::other("LSP trace already initialized"))?;
-        trace
-    } else {
-        jai_language_server::trace::Trace::disabled()
-    };
+    let trace = native_trace()?;
     let mut session =
         jai_language_server::JsonSession::with_environment(limits, native_environment());
     use crossbeam_channel::{RecvTimeoutError, TryRecvError};
@@ -39,6 +53,8 @@ fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
     }
     let mut last_publication = std::time::Duration::from_millis(40);
     let mut warm_needed = false;
+    let mut quiet_since = std::time::Instant::now();
+    let mut reconcile_due = std::time::Instant::now() + INPUT_RECONCILE_POLL;
     let mut held = None;
     let mut shutdown_deadline = None;
     #[cfg(unix)]
@@ -65,17 +81,34 @@ fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
                 transport.send(session.service_arrivals_messages()?)?;
             }
             jaic::interrupt::request(false);
+            // This runs between bounded input batches, not just on an idle timeout.
+            // The slice checks cancellation after its first operation to avoid starvation.
+            if session.has_input_epoch_work() && std::time::Instant::now() >= reconcile_due {
+                transport.send(session.reconcile_input_epoch_messages()?)?;
+                reconcile_due = std::time::Instant::now()
+                    + if session.input_epoch_hydration_pending() {
+                        std::time::Duration::ZERO
+                    } else {
+                        INPUT_RECONCILE_POLL
+                    };
+            }
+            let quiet_due = quiet_since
+                + (last_publication / 4)
+                    .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
             let wait = if session.publications_pending() || session.compile_pending() {
-                Some(
-                    (last_publication / 4)
-                        .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end()),
-                )
+                Some(quiet_due.saturating_duration_since(std::time::Instant::now()))
             } else if warm_needed || session.has_background_work() {
                 Some(std::time::Duration::ZERO)
             } else if session.services_waiting() {
                 Some(SERVICE_POLL)
             } else {
                 None
+            };
+            let wait = if session.has_input_epoch_work() {
+                let remaining = reconcile_due.saturating_duration_since(std::time::Instant::now());
+                Some(wait.map_or(remaining, |wait| wait.min(remaining)))
+            } else {
+                wait
             };
             let wait = if let Some(deadline) = shutdown_deadline {
                 let now = std::time::Instant::now();
@@ -125,6 +158,13 @@ fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
                         Ok(arrival) => arrival,
                         Err(TryRecvError::Disconnected) => continue,
                         Err(TryRecvError::Empty) => {
+                            // A reconciliation wake must not bypass the independent typing
+                            // debounce or restart it indefinitely on each short timer.
+                            if (session.publications_pending() || session.compile_pending())
+                                && std::time::Instant::now() < quiet_due
+                            {
+                                continue;
+                            }
                             if session.publications_pending() {
                                 let started = std::time::Instant::now();
                                 let messages =
@@ -146,6 +186,7 @@ fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
                 }
             };
             warm_needed = true;
+            quiet_since = std::time::Instant::now();
             let frame = arrival.frame();
             let Some(input) = transport.take(arrival)? else {
                 transport.send(session.flush_publications_messages()?)?;
@@ -251,9 +292,19 @@ fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
             }
         }
     })();
+    export_trace(&trace, &transport, finish_attempted)?;
+    result
+}
+
+/// Export outside request intervals, retaining incomplete tails after aborted transport work.
+#[cfg(not(target_arch = "wasm32"))]
+fn export_trace(
+    trace: &jai_language_server::trace::Trace,
+    transport: &jai_language_server::transport::HostTransport,
+    finish_attempted: bool,
+) -> std::io::Result<()> {
     if trace.enabled() {
-        // Export is outside request intervals. Abort paths retain their incomplete tail
-        // rather than joining a reader whose client kept stdin open.
+        // Never join a reader whose client kept stdin open or repeat a failed writer drain.
         if !finish_attempted {
             let _ = transport.finish();
         }
@@ -261,7 +312,7 @@ fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
             .finish_output(transport.trace_quiesced())
             .map_err(|_| std::io::Error::other("cannot export LSP trace"))?;
     }
-    result
+    Ok(())
 }
 
 #[cfg(not(target_arch = "wasm32"))]

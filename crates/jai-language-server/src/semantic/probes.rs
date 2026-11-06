@@ -192,6 +192,25 @@ impl Probes {
         self.ephemeral = None;
     }
 
+    /// Known events revoke exact captured histories; last-good metadata stays advisory.
+    pub(crate) fn invalidate_path(
+        &mut self,
+        path: &std::path::Path,
+        current: Option<&super::input_epoch::ActualInputs>,
+    ) -> bool {
+        let before = self.retained.len();
+        self.retained
+            .retain(|probe| !probe.input.concerns_tree_since(path, current));
+        let ephemeral_changed = self
+            .ephemeral
+            .as_ref()
+            .is_some_and(|probe| probe.input.concerns_tree_since(path, current));
+        if ephemeral_changed {
+            self.ephemeral = None;
+        }
+        self.retained.len() != before || ephemeral_changed
+    }
+
     pub(crate) fn end_request(&mut self) -> bool {
         self.ephemeral.take().is_some()
     }
@@ -301,6 +320,66 @@ mod tests {
                 options
             }),
         }
+    }
+
+    #[test]
+    fn watched_paths_retire_only_affected_retained_and_ephemeral_probe_authority() {
+        let temp = test_support::TempDir::new("probe-event-retirement");
+        let first = temp.path().join("first/build.jai");
+        let second = temp.path().join("second/build.jai");
+        for root in [&first, &second] {
+            std::fs::create_dir_all(root.parent().unwrap()).unwrap();
+            std::fs::write(root, "#run {}").unwrap();
+        }
+        let files: Buffers = Rc::new(
+            [first.clone(), second.clone()]
+                .into_iter()
+                .map(|path| (path, Arc::from(&b"#run {}"[..])))
+                .collect(),
+        );
+        let env = environment();
+        let mut cache = super::super::Cache::default();
+        for root in [&first, &second] {
+            assert_eq!(
+                cache.probe(&env, root, &[], files.clone()),
+                Some(ProbeStatus::Complete)
+            );
+        }
+        let second_key = jaic::paths::file_identity(&*env.fs, &second);
+        std::fs::write(&first, "#run { changed := 1; }").unwrap();
+        cache.invalidate_path(first.parent().unwrap());
+        assert_eq!(
+            cache.probe_statuses(),
+            [(second_key.clone(), ProbeStatus::Complete)].into(),
+            "ancestor events retire affected proof, not independent probe ownership"
+        );
+        assert!(
+            !cache.validate_probes(&env, &files),
+            "the surviving probe is actually current"
+        );
+        let before = cache.counts().0;
+        assert_eq!(
+            cache.probe(&env, &second, &[], files.clone()),
+            Some(ProbeStatus::Complete)
+        );
+        assert_eq!(
+            cache.counts().0,
+            before,
+            "the unaffected producer remains useful without recompiling"
+        );
+        cache.set_probe_budget(0);
+        assert_eq!(
+            cache.probe(&env, &first, &[], files),
+            Some(ProbeStatus::Complete)
+        );
+        assert!(cache.probe_counts().2 > 0);
+        cache.invalidate_path(&second);
+        assert!(
+            cache.probe_counts().2 > 0,
+            "an unrelated event preserves the ephemeral current request"
+        );
+        cache.invalidate_path(first.parent().unwrap());
+        assert_eq!(cache.probe_counts(), (0, 0, 0));
     }
 
     #[test]

@@ -34,6 +34,44 @@ thread_local! {
     static COST_PATHS: RefCell<Option<std::collections::BTreeSet<PathBuf>>> = const { RefCell::new(None) };
 }
 
+/// Count one watched input's logical proof reads without performing filesystem work.
+pub(crate) struct ReadComparisons(std::marker::PhantomData<Rc<()>>);
+
+thread_local! {
+    static READ_COMPARISONS: RefCell<Option<(std::ffi::OsString, usize)>> = const { RefCell::new(None) };
+}
+
+impl ReadComparisons {
+    pub(crate) fn start(path: &Path) -> Self {
+        READ_COMPARISONS.with_borrow_mut(|slot| {
+            assert!(slot.is_none(), "logical read counter is not nested");
+            *slot = Some((path.as_os_str().to_owned(), 0));
+        });
+        Self(std::marker::PhantomData)
+    }
+
+    pub(crate) fn count(&self) -> usize {
+        READ_COMPARISONS.with_borrow(|slot| slot.as_ref().unwrap().1)
+    }
+}
+
+impl Drop for ReadComparisons {
+    fn drop(&mut self) {
+        READ_COMPARISONS.with_borrow_mut(|slot| *slot = None);
+    }
+}
+
+/// Instrument the comparison boundary, not native calls or epoch lookup/hydration.
+pub(crate) fn logical_read(path: &Path) {
+    READ_COMPARISONS.with_borrow_mut(|slot| {
+        if let Some((watched, count)) = slot
+            && watched == path.as_os_str()
+        {
+            *count += 1;
+        }
+    });
+}
+
 #[derive(Default)]
 struct OverlayWork {
     current: &'static str,
@@ -359,7 +397,7 @@ fn record_index(session: &Session, uri: &DocumentUri) -> Option<Rc<ReferenceInde
 
 fn eligible(session: &Session, uri: &DocumentUri) -> Option<bool> {
     let memo = session.inputs.borrow();
-    let (_, last, _, (files, root, dirs)) = memo.as_ref()?;
+    let (_, last, _, (files, root, dirs), _) = memo.as_ref()?;
     if last != uri {
         return Some(false);
     }

@@ -13,6 +13,7 @@ impl Drop for Capture<'_> {
 /// Nested semantic work shares one discovery transaction; a new request may start afresh.
 pub(crate) struct Query {
     depth: std::rc::Rc<std::cell::Cell<usize>>,
+    epoch: Option<std::rc::Weak<crate::semantic::input_epoch::InputEpochFs>>,
     prefix: std::rc::Rc<std::cell::RefCell<crate::semantic::Observations>>,
     proof: std::rc::Rc<std::cell::RefCell<crate::semantic::Observations>>,
     memo_proof: std::rc::Rc<std::cell::RefCell<crate::semantic::Observations>>,
@@ -26,6 +27,17 @@ impl Drop for Query {
     fn drop(&mut self) {
         self.depth.set(self.depth.get() - 1);
         if self.depth.get() == 0 {
+            if self
+                .epoch
+                .as_ref()
+                .and_then(std::rc::Weak::upgrade)
+                .is_some_and(|epoch| epoch.needs_recapture() && !epoch.has_pending_coverage())
+            {
+                // Do not seed the next capture with discovery originals just rejected by
+                // this transaction. Pending hydration and hint-only failure keep theirs.
+                *self.inputs.borrow_mut() = None;
+                *self.memo_proof.borrow_mut() = Observations::default();
+            }
             let mut cache = self.semantic.borrow_mut();
             if cache.end_request() {
                 let mut index = self.index.borrow_mut();
@@ -49,6 +61,16 @@ impl Drop for Query {
 impl Session {
     pub(crate) fn discovery_query(&self) -> Query {
         if self.input_queries.get() == 0 {
+            self.configuration_input_failed.set(false);
+            if let Some(epoch) = &self.input_epoch
+                && epoch.needs_recapture()
+                && !epoch.has_pending_coverage()
+            {
+                epoch.begin_request_capture();
+            }
+            self.semantic
+                .borrow_mut()
+                .set_input_epoch(self.input_epoch.as_ref().map(std::rc::Rc::downgrade));
             self.validate_discovery_inputs();
             *self.request_input_proof.borrow_mut() = Observations::default();
             *self.advisory_inputs.borrow_mut() = None;
@@ -56,6 +78,7 @@ impl Session {
         self.input_queries.set(self.input_queries.get() + 1);
         Query {
             depth: self.input_queries.clone(),
+            epoch: self.input_epoch.as_ref().map(std::rc::Rc::downgrade),
             prefix: self.request_input_proof.clone(),
             proof: self.input_proof.clone(),
             memo_proof: self.memo_input_proof.clone(),
@@ -84,14 +107,33 @@ impl Session {
         let Some(env) = &self.environment else {
             return;
         };
-        if !env.fs.is_native() {
+        if !env.fs.tracks_native_inputs() {
+            return;
+        }
+        if self
+            .input_epoch
+            .as_ref()
+            .is_some_and(|epoch| epoch.has_pending_coverage())
+        {
+            return;
+        }
+        // Seed the actual originals before normalized replay can create equal temporary
+        // read owners or normalize a changed listing/canonical response.
+        let original = self.inputs.borrow().as_ref().map(|memo| memo.4.clone());
+        if let Some(original) = original
+            && !self.restore_input_epoch(original.as_ref())
+        {
+            *self.inputs.borrow_mut() = None;
+            *self.memo_input_proof.borrow_mut() = Observations::default();
+            *self.input_proof.borrow_mut() = Observations::default();
             return;
         }
         let changed = self.input_proof.borrow_mut().remove_invalid(&*env.fs);
-        if changed.is_empty() {
+        if changed.is_empty() && env.fs.input_epoch_valid() != Some(false) {
             return;
         }
         *self.inputs.borrow_mut() = None;
+        *self.memo_input_proof.borrow_mut() = Observations::default();
         *self.open_file_identities.borrow_mut() = None;
         let mut index = self.index.borrow_mut();
         for path in changed {
@@ -101,9 +143,15 @@ impl Session {
     }
 
     pub(crate) fn discovery_inputs_current(&self) -> bool {
-        self.environment
-            .as_ref()
-            .is_none_or(|env| !env.fs.is_native() || self.input_proof.borrow().matches(&*env.fs))
+        !self.configuration_input_failed.get()
+            && self.environment.as_ref().is_none_or(|env| {
+                (!env.fs.tracks_native_inputs() || self.input_proof.borrow().matches(&*env.fs))
+                    && self
+                        .input_epoch
+                        .as_ref()
+                        .is_none_or(|epoch| epoch.validate_actual())
+                    && !jaic::interrupt::fired()
+            })
     }
 }
 
@@ -153,6 +201,10 @@ mod tests {
             "helper populated a cache outside input capture"
         );
         std::fs::write(&entry, "supplied :: 42;").unwrap();
+        assert!(
+            session.compile_inputs(&uri, source).is_none(),
+            "a helper's earlier raw history cannot be relabeled as a new accepted capture"
+        );
         let (_, actual, _) = session.compile_inputs(&uri, source).unwrap();
         assert_eq!(
             actual,
@@ -248,10 +300,15 @@ mod tests {
             "all full compilers actually evicted"
         );
         std::fs::write(&flag, "on").unwrap();
+        assert!(
+            errors(&session) > 0,
+            "evicting compilers does not replace the accepted closed-input epoch"
+        );
+        session.file_changed(&flag, false);
         assert_eq!(
             errors(&session),
             0,
-            "silent external data must retire the negative discovery outcome"
+            "a known external data change retires the negative discovery outcome"
         );
     }
 

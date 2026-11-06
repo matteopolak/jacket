@@ -276,12 +276,20 @@ struct Program {
     stdlib: Option<PathBuf>,
 }
 
+struct AdvisoryInputs<'a> {
+    session: &'a Session,
+    selected_generation: u64,
+    valid: std::cell::Cell<bool>,
+}
+
 /// Files as the server sees them: open documents over the environment's file system.
 /// Made for one request: the file system is taken not to change while it lives.
 pub(crate) struct Sources<'a> {
     /// Only transactional background scans may return partial results.
     stoppable: bool,
     pub(crate) env: &'a Environment,
+    base: Rc<dyn FileSystem>,
+    role: Option<AdvisoryInputs<'a>>,
     pub(crate) open: BTreeMap<PathBuf, &'a str>,
     /// `canonical_key` of the paths asked about, each a few file system calls.
     keys: jaic::paths::CanonCache,
@@ -308,21 +316,54 @@ struct Recorded {
 impl Session {
     /// The open documents and lint configurations over the file system of `env`.
     pub(crate) fn sources<'a>(&'a self, env: &'a Environment) -> Sources<'a> {
+        self.sources_with_provider(env, env.fs.clone(), None)
+    }
+
+    /// Advisory catalogue rows keep their existing notification-governed freshness.
+    /// They never borrow semantic or strict diagnostic-hint input authority.
+    fn advisory_sources<'a>(&'a self, env: &'a Environment) -> Sources<'a> {
+        let base = self
+            .input_epoch
+            .as_ref()
+            .map_or_else(|| env.fs.clone(), |epoch| epoch.advisory_provider());
+        let role = AdvisoryInputs {
+            session: self,
+            selected_generation: self.semantic_revision(),
+            valid: std::cell::Cell::new(true),
+        };
+        self.sources_with_provider(env, base, Some(role))
+    }
+
+    fn sources_with_provider<'a>(
+        &'a self,
+        env: &'a Environment,
+        base: Rc<dyn FileSystem>,
+        role: Option<AdvisoryInputs<'a>>,
+    ) -> Sources<'a> {
+        let capture = role.is_none() && self.capture_inputs.get() > 0;
         let keys = jaic::paths::CanonCache::new();
         let observed = crate::semantic::ObservedFs {
-            base: &*env.fs,
-            proof: (self.capture_inputs.get() > 0).then_some(&self.input_proof),
-            secondary: (self.capture_inputs.get() > 0).then_some(&self.request_input_proof),
+            base: &*base,
+            proof: capture.then_some(&self.input_proof),
+            secondary: capture.then_some(&self.request_input_proof),
         };
         let open = self
             .documents
             .iter()
             .map(|(u, d)| (u, d.text.as_str()))
-            .chain(
-                self.saved_configs
-                    .iter()
-                    .map(|(u, text)| (u, text.as_str())),
-            )
+            .chain(self.saved_configs.keys().filter_map(|u| {
+                let saved = if let Some(role) = &role {
+                    let saved = self.saved_configs.get(u)?;
+                    if saved.unavailable() {
+                        role.valid.set(false);
+                        return None;
+                    }
+                    saved
+                } else {
+                    self.saved_config_for_use(u)?
+                };
+                saved.text().map(|text| (u, text))
+            }))
             .map(|(u, text)| {
                 let key = keys.get_or_insert_with(Path::new(u.path()), |path| {
                     filesystem_key(&observed, path)
@@ -333,13 +374,14 @@ impl Session {
         Sources {
             stoppable: false,
             env,
+            base,
+            role,
             open,
             keys,
             recording: RefCell::default(),
-            input_proof: (self.capture_inputs.get() > 0).then_some(&self.input_proof),
-            advisory: self.capture_inputs.get() == 0,
-            request_input_proof: (self.capture_inputs.get() > 0)
-                .then_some(&self.request_input_proof),
+            input_proof: capture.then_some(&self.input_proof),
+            advisory: !capture,
+            request_input_proof: capture.then_some(&self.request_input_proof),
         }
     }
 }
@@ -397,14 +439,30 @@ impl Sources<'_> {
 
     fn disk_fs(&self) -> crate::semantic::ObservedFs<'_> {
         crate::semantic::ObservedFs {
-            base: &*self.env.fs,
+            base: &*self.base,
             proof: self.input_proof,
             secondary: self.request_input_proof,
         }
     }
 
+    fn snapshot_current(&self) -> bool {
+        self.role.as_ref().is_none_or(|role| {
+            role.valid.get() && role.session.semantic_revision() == role.selected_generation
+        })
+    }
+
     fn stopped(&self) -> bool {
-        self.stoppable && jaic::interrupt::should_stop()
+        !self.snapshot_current() || (self.stoppable && jaic::interrupt::should_stop())
+    }
+
+    fn reject_advisory(&self) {
+        if let Some(role) = &self.role {
+            role.valid.set(false);
+        }
+    }
+
+    fn accept_advisory(&self) -> bool {
+        !self.stopped() && (self.role.is_none() || !jaic::interrupt::fired())
     }
 
     pub(crate) fn key(&self, path: &Path) -> PathBuf {
@@ -420,7 +478,7 @@ impl Sources<'_> {
             } else if !recorded.stamps.contains_key(key) {
                 recorded
                     .stamps
-                    .insert(key.to_path_buf(), self.env.fs.stamp(key));
+                    .insert(key.to_path_buf(), self.base.stamp(key));
             }
         }
     }
@@ -453,10 +511,18 @@ impl Sources<'_> {
         self.note(&key, open.is_some());
         match open {
             Some(text) => Some((*text).to_string()),
-            None => self
-                .disk_fs()
-                .read(path)
-                .map(|b| String::from_utf8_lossy(&b).into_owned()),
+            None => {
+                if let Some(bytes) = self.disk_fs().read(path) {
+                    Some(String::from_utf8_lossy(&bytes).into_owned())
+                } else {
+                    // Discovery probes absent entry candidates deliberately. Only certified
+                    // absence is a usable negative; unknown I/O cannot complete a catalogue.
+                    if self.role.is_some() && self.disk_fs().missing_file_key(path).is_none() {
+                        self.reject_advisory();
+                    }
+                    None
+                }
+            }
         }
     }
 
@@ -567,3 +633,6 @@ mod exact_input_tests {
         assert_eq!(scan.decls[0].name, "new");
     }
 }
+
+#[cfg(test)]
+mod advisory_tests;

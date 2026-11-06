@@ -111,8 +111,48 @@ pub(super) fn limit_hits(
 }
 
 impl Analysis {
+    /// Reject an incompatible initial cache candidate before importing its history.
+    /// A fresh capture may already contain a newer closed dependency; full guards still
+    /// validate every candidate that passes this negative screen.
+    pub(crate) fn actual_inputs_compatible_with_capture(&self) -> bool {
+        match (&self.input_epoch, &self.actual_inputs) {
+            (Some(owner), Some(original)) => owner
+                .upgrade()
+                .is_some_and(|epoch| epoch.ready() || original.agrees_with(&epoch.actual_inputs())),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+
+    /// Restore the exact actual responses that produced this compiler before cached use.
+    pub(crate) fn restore_actual_inputs(&self) -> bool {
+        match (&self.input_epoch, &self.actual_inputs) {
+            (Some(owner), Some(original)) => owner
+                .upgrade()
+                .is_some_and(|epoch| epoch.reuse_actual(original)),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+
+    /// Freeze the augmented producer history only after preserving its original responses.
+    pub(crate) fn freeze_actual_inputs(&mut self) -> bool {
+        if !self.restore_actual_inputs() {
+            return false;
+        }
+        if let Some(epoch) = self.input_epoch.as_ref().and_then(std::rc::Weak::upgrade) {
+            self.actual_inputs = Some(epoch.actual_inputs());
+        }
+        true
+    }
+
     pub(crate) fn retained_cost(&self) -> usize {
-        self.cost + self.reads.borrow().retained_bytes()
+        self.cost
+            + self.reads.borrow().retained_bytes()
+            + self
+                .actual_inputs
+                .as_ref()
+                .map_or(0, super::input_epoch::ActualInputs::retained_bytes)
     }
 
     /// The top-level compile-time evaluations of the program and of the programs its
@@ -265,7 +305,11 @@ impl Analysis {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
-        let observer = self.overlay.separate_observer();
+        let observer = if self.errors.is_empty() && self.compiler.diag.warnings.is_empty() {
+            None
+        } else {
+            self.hints.observer(self)
+        };
         let context = jaic::sema::HintContext::default();
         let errors: Vec<_> = self
             .errors
@@ -274,8 +318,10 @@ impl Analysis {
             .map(|(i, error)| {
                 (i < ENRICHED_ERRORS || error.operator_import_hint().is_some())
                     .then(|| {
-                        self.compiler
-                            .with_name_suggestion_in(error, &context, &observer)
+                        observer.as_ref().and_then(|observer| {
+                            self.compiler
+                                .with_name_suggestion_in(error, &context, observer)
+                        })
                     })
                     .flatten()
                     .unwrap_or_else(|| error.clone())
@@ -287,12 +333,18 @@ impl Analysis {
             .warnings
             .iter()
             .map(|warning| {
-                self.compiler
-                    .with_name_suggestion_in(warning, &context, &observer)
+                observer
+                    .as_ref()
+                    .and_then(|observer| {
+                        self.compiler
+                            .with_name_suggestion_in(warning, &context, observer)
+                    })
                     .unwrap_or_else(|| warning.clone())
             })
             .collect();
-        self.hints.add(self, &observer.reads.borrow());
+        if let Some(observer) = &observer {
+            self.hints.add(self, &observer.reads.borrow());
+        }
         let mut out: Vec<CheckFinding> = Vec::new();
         let mut seen = HashSet::default();
         let tagged = errors
@@ -668,7 +720,6 @@ impl Analysis {
     }
 }
 
-
 #[cfg(all(test, unix))]
 use crate::projection_fixture as action_projection_fixture;
 
@@ -677,53 +728,67 @@ use crate::projection_fixture as action_projection_fixture;
 fn action_payload_secondary_locations_stay_within_the_lint_query_guard() {
     // Current lifetime labels have no fixes. Seed the full supported Lint payload shape
     // explicitly, so a future checker adding a labelled fix cannot bypass this boundary.
-    action_projection_fixture::exercise_query(
-        |_| {},
+    fn seed_payload(session: &crate::Session) {
+        let _query = session.discovery_query();
+        let uri = session
+            .documents
+            .keys()
+            .next()
+            .expect("owned fixture document");
+        let text = session.documents[uri].text.clone();
+        session
+            .lint_config(std::path::Path::new(uri.path()))
+            .expect("seed available lint configuration");
+        session
+            .with_semantic(uri, &text, |analysis, path| {
+                let file = analysis.file(path)?;
+                let source = analysis.compiler.src.sources.get(file);
+                let start = text.find("local").unwrap();
+                let path = source.path.to_string();
+                analysis.lints.insert(
+                    file,
+                    vec![jailint::Lint {
+                        rule: "bool_comparison",
+                        level: jailint::config::Level::Warn,
+                        path: path.clone(),
+                        start,
+                        end: start + 5,
+                        message: "projection witness".into(),
+                        label: None,
+                        help: None,
+                        notes: Vec::new(),
+                        secondary: vec![jailint::SecondaryLabel {
+                            path,
+                            text: source.text.clone(),
+                            start,
+                            end: start + 5,
+                            message: "owned related source".into(),
+                        }],
+                        fix: Some(jailint::Fix {
+                            title: "projection witness".into(),
+                            machine_applicable: true,
+                            edits: vec![jailint::Edit {
+                                start,
+                                end: start + 5,
+                                text: "local".into(),
+                            }],
+                        }),
+                    }],
+                );
+                Some(())
+            })
+            .expect("seed accepted lint payload");
+    }
+
+    action_projection_fixture::exercise_query_with_settled_setup(
+        |session| seed_payload(session),
+        |session| seed_payload(session),
         false,
         action_projection_fixture::REFERENCES,
         0,
         1,
         |session, uri, position| {
             let text = session.documents[uri].text.clone();
-            session
-                .with_semantic(uri, &text, |analysis, path| {
-                    let file = analysis.file(path)?;
-                    let source = analysis.compiler.src.sources.get(file);
-                    let start = text.find("local").unwrap();
-                    let path = source.path.to_string();
-                    analysis.lints.insert(
-                        file,
-                        vec![jailint::Lint {
-                            rule: "bool_comparison",
-                            level: jailint::config::Level::Warn,
-                            path: path.clone(),
-                            start,
-                            end: start + 5,
-                            message: "projection witness".into(),
-                            label: None,
-                            help: None,
-                            notes: Vec::new(),
-                            secondary: vec![jailint::SecondaryLabel {
-                                path,
-                                text: source.text.clone(),
-                                start,
-                                end: start + 5,
-                                message: "owned related source".into(),
-                            }],
-                            fix: Some(jailint::Fix {
-                                title: "projection witness".into(),
-                                machine_applicable: true,
-                                edits: vec![jailint::Edit {
-                                    start,
-                                    end: start + 5,
-                                    text: "local".into(),
-                                }],
-                            }),
-                        }],
-                    );
-                    Some(())
-                })
-                .expect("seed accepted lint payload");
             let actions = session.lint_actions(
                 uri,
                 0,

@@ -139,6 +139,30 @@ impl JsonSession {
         out
     }
 
+    /// Whether active coverage should receive the next bounded owner service opportunity.
+    /// Completed, unavailable and shutdown epochs keep the ordinary polling cadence.
+    pub fn input_epoch_hydration_pending(&self) -> bool {
+        self.lifecycle == Lifecycle::Running && self.session.input_epoch_hydration_pending()
+    }
+
+    /// Reconciliation stays separate from finite semantic background work.
+    pub fn has_input_epoch_work(&self) -> bool {
+        self.lifecycle == Lifecycle::Running && self.session.has_input_epoch_work()
+    }
+
+    /// Service one native reconciliation slice without compiling diagnostics inline.
+    /// A changed input invalidates its epoch before scheduling client updates.
+    pub fn reconcile_input_epoch_messages(&mut self) -> Result<Vec<Message>, ProtocolError> {
+        if self.lifecycle != Lifecycle::Running || !self.session.reconcile_input_epoch() {
+            return Ok(Vec::new());
+        }
+        self.publications_pending |= !self.pull_diagnostics;
+        let mut messages = self.compile_refreshes();
+        messages.extend(self.diagnostic_refresh());
+        messages.extend(self.code_lens_refresh());
+        self.encode_unprompted(messages)
+    }
+
     /// Whether `background_work` has something to do.
     pub fn has_background_work(&self) -> bool {
         self.lifecycle == Lifecycle::Running && self.session.has_background_work()
