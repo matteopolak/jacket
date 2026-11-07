@@ -123,7 +123,40 @@ Peak memory of `game2d` went from 383 MB to 326 MB (smaller modules).
 - Line tables only: `opt -passes=strip-nonlinetable-debuginfo` before `llc` saves 6%, and `-no_debug_info` 33% of codegen CPU. Both lose `frame variable` or the line tables backtraces use, so debug info stays.
 - `-codegen_units` above 30 for `game2d`: no further gain (85, 86, 85 ms at 30, 40, 60).
 
-**Proposal: cache stdlib object code.** Most of `game2d`'s IR is library code that does not change between builds. A cache keyed by a hash of each unit's functions (IR, types and debug info they reference) could skip codegen for them. Today it cannot be done safely: internal symbols are named `name.<function index>`, so adding one function renames everything after it; the unit plan (`partition::flat`) depends on the whole program; and debug-map objects must stay where the debugger finds them. It needs content-based symbol names and a stable per-module split first (for example one unit per stdlib module), then a cache directory with the object per module hash. It would pay in an edit-compile loop and not at all for a first build; measure how much of a typical program is library code before building it.
+**Object reuse is not implemented.** Source-module identity is insufficient for a library cache: generated specializations can depend on user types and constants, internal symbols contain program indices, and `partition::flat` balances the complete program. A module boundary needs a canonical dependency closure and stable symbols before it can be reused independently. Library IR percentage alone does not measure saved wall time.
+
+An alternative is to key the exact LLVM module **after lowering**. This keeps existing names and partitions: an insertion that renumbers symbols causes a miss, while unchanged units can still match. It pays lowering, serialization and hashing on every build; at `-O0` it can save only machine-code emission. A key before the optimizer can also save optimization, but must cover the complete pipeline and imported bodies. Neither design can reuse objects from source timestamps alone, or skip frontend/metaprogram finalization.
+
+Any implementation must include the actual compiler/backend and LLVM identities, resolved target/CPU/features, ABI, optimization/check/sanitizer settings, globals/relocations and debug data in its contract. `jaic_native::backend::stamp` checks ABI compatibility; it is not a full codegen identity. Reused objects must be copied to each output's retained object paths so macOS debug maps survive cache eviction. Compare the current compiler, cache-disabled overhead, cold writes and representative edit sequences before adopting either design. See [LLVM proof boundaries](../native/llvm-backend.md#additional-facts-proof-boundary).
+
+### Exact-unit reuse experiment
+
+A private prototype keyed each exact lowered LLVM module before optimization. It verified cached object hashes and copied objects to the current output paths, keeping the normal partition, optimizer and linker. Disabled, cold and warm runs used the same binary. The prototype did not establish the predeclared gate of a repeatable 10% wall reduction on both nontrivial applications, so no cache implementation was retained.
+
+The test used an Apple M5 with 16 GiB, macOS 27.0, AC power and the LLVM dylib identified by SHA256 prefix `c644c75bd471` (full identity and tool version are retained with the private experiment evidence). The release compiler was based on `49da19c88` plus the private probe (binary SHA256 starts `7d2bbb72c856`). Each row has two warmup pairs and nine alternating measured pairs. Source and output paths stayed fixed, with a fresh user-body literal each round. Both sides used `-timings`; filesystem reads were warm, with no system-cache purge.
+
+Cold means a fresh empty object cache; warm means entries from prior edits. The ratio is the median of paired enabled/disabled wall times, so it can differ from the ratio of the column medians. Lower is better.
+
+| Mode | Program | Cache | Disabled median (ms) | Enabled median (ms) | Paired ratio (95% bootstrap interval) |
+| --- | --- | --- | ---: | ---: | --- |
+| O0 | game2d | warm | 473 | 394 | 0.825 (0.641–0.954) |
+| O0 | ui-gallery | warm | 250 | 648 | 2.400 (0.496–3.503) |
+| O0 | game2d | cold | 397 | 704 | 1.773 (1.570–2.243) |
+| O0 | ui-gallery | cold | 479 | 606 | 2.086 (0.502–2.768) |
+| O2 | game2d | warm | 1065 | 836 | 0.797 (0.689–0.947) |
+| O2 | ui-gallery | warm | 910 | 1021 | 1.422 (0.933–1.667) |
+| O2 | game2d | cold | 1069 | 1266 | 1.229 (0.995–1.258) |
+| O2 | ui-gallery | cold | 1119 | 879 | 0.813 (0.641–1.597) |
+
+These are qualified observations, not accepted speedups. The replacement O0 warm block passed its boundary quiet checks but had large link-time excursions. The O0 cold, O2 warm and O2 cold blocks exceeded the post-load guard (2.83, 2.73 and 4.97 against 2.5). Compilation itself can raise load, and boundary snapshots cannot rule out transient interference. An earlier O0 block with busy indexing was excluded in full; its raw rounds were preserved.
+
+The intervals are imprecise with nine pairs. UI gallery did not show the required benefit, and cold costs were uncertain or unfavorable.
+
+The namespace was precomputed, so timings exclude identity acquisition. Separate Python SHA256 measurements of the compiler and LLVM dylib on warm files took medians of 4.15 ms and 56.27 ms. An immutable embedded identity might amortize that cost, but was not implemented or validated. Per-unit serialization/hash and read/verification/materialization intervals overlap; their sums cannot predict saved wall time.
+
+Fresh body edits reused 28/30 and 24/26 O0 units for game2d and UI, and 7/8 and 5/6 at O2. Adding a genuinely called early procedure shifted symbol indices and missed every O0 unit; removing it recovered most hits. These matches are useful evidence for exact-unit reuse, not proof of a reusable library dependency closure.
+
+All 18 disabled/cold/warm smoke builds succeeded; hello executed identically, matching O0 objects were byte-identical, and the O2 dSYMs passed structural verification with matching executable UUIDs. GUI execution, debugger behavior after eviction, complete invalidation, other supported targets, concurrent writers, corruption recovery and bounded storage were not validated. The rejected prototype does not establish a no-go for canonical library artifacts or other designs with different lowering, keying and materialization costs; those need their own proof and cache-disabled/cold/edit measurements.
 
 ### Optimized builds
 

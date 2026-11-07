@@ -15,7 +15,11 @@ Results are never committed. Keep a baseline per machine with `--out` and pass i
 
 ## How it works
 
-Every result has three numbers, each as median, min, max, MAD and p95: `wall` seconds, `cpu` seconds (process plus waited-for children), and `rss_mib` (peak of the largest single process). The harness warms the file cache (`--warmup`, default 1) and then takes `--repeat` timed runs (default 5).
+Every result has three numbers, each as median, min, max, MAD and p95: `wall` seconds, `cpu` seconds (POSIX process plus waited-for children, or the Windows Job), and `rss_mib` (peak of the largest measured process). The harness warms the file cache (`--warmup`, default 1) and then takes `--repeat` timed runs (default 5).
+
+`bench.measure.run_measured` cleans its private POSIX process group on timeout, interruption and normal exit. A descendant that starts another group/session is outside that boundary: nested runners such as `jacket test` need cooperative cleanup, not just termination of their parent group. Windows uses a Job Object for descendant ownership; setup failures also close the new Job and terminate a suspended process if assignment failed.
+
+For long diagnostic runs, `run_measured(command, output=log_file)` streams stdout and stderr to an open binary file; the result keeps status and resource metrics with empty output strings. The caller owns the file. PGO's current sweep compiler/executable launches inherit the outer group, but a tested program can still detach itself; this helper is not universal POSIX tree containment.
 
 `--compare old.json` flags a result when wall, CPU or RSS grew by more than `--threshold`, more than `--min-seconds`/`--min-mib`, and more than three MADs. A workload that worked before and fails now is a regression too. Compare runs from one machine only.
 
@@ -53,6 +57,7 @@ python tools\bench\main.py compare --baseline C:\jai\bin\jai.exe --candidate C:\
 - **New lint or fmt scenario:** add a `Scenario` in `cmd_lint.py` or `cmd_fmt.py`.
 - **A compiler with another command line:** subclass `Dialect` in `dialects.py`.
 - **`compare` internals:** workloads in `cmd_compare.py`, noise thresholds in `quiet.py`, statistics in `pairing.py`.
+- **Process ownership:** `measure.py` handles POSIX cleanup and file destinations; `winjob.py` owns Windows job lifetime. Preserve exception cleanup and caller-owned streams when extending either path; regressions are in `test_compile_cmd.py` and `test_windows.py`.
 - Gotchas: `jaic -timings` goes before a lone `-`. Seatbelt matches real paths (`/private/var/folders`).
 
 ## Profiling
