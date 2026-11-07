@@ -1,7 +1,7 @@
 // Public finalization operates on the trailing (less than 256-byte) input region.
 // r1/r3 are residual scratch operands. Their precise ancillary contract and the
 // dump format require review; standard calico hash/seed output is tested.
-// Finishes a hash from the state registers and the trailing `Len & 255` bytes at `Source`; the
+// Finishes a hash from the state registers and exactly `Len & 255` readable bytes at `Source`; the
 // result is left in `h0`. `r1` and `r3` are scratch registers.
 MeowEnd :: (Len: u64, Source: *void, r1: reg, r3: reg, h0: reg, h1: reg, h2: reg, h3: reg, h4: reg, h5: reg, h6: reg, h7: reg, Store128: *void) #expand {
     finish(Len, Source, r1, r3, h0, h1, h2, h3, h4, h5, h6, h7, Store128, false);
@@ -65,7 +65,17 @@ finish :: (Len: u64, Source: *void, r1: reg, r3: reg, h0: reg, h1: reg, h2: reg,
             if cast(u64) last > last_ok alignment = cast(u64) last & 15;
 
             adjustment := MeowShiftAdjust.data + alignment;
-            input := last - alignment;
+            // Reconstruct the legacy shuffle window from this residual object only.
+            // Neither the first block nor allocator/page padding belongs to it.
+            window: [16] u8;
+            start := cast(s64) (tail & 0xf0) - cast(s64) alignment;
+
+            for i: 0..15 {
+                at := start + i;
+                if at >= 0 && at < cast(s64) tail window[i] = source[at];
+            }
+
+            input := window.data;
 
             #asm {
                 movdqu.x c, [adjustment];

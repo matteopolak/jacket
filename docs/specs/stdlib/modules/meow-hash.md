@@ -41,8 +41,10 @@ Visible public declarations and module-conditional variants are listed below. Pr
 
 ## Behavioral contract and constraints
 
-This module is a Jai port of Meow Hash and exposes the hash state, update, and finalization surface. It is a non-cryptographic hash; callers must follow the input-length/alignment requirements of the selected routine and provide enough readable input. No cryptographic or cross-version stability guarantee is made.
+This module is a Jai port of Meow Hash and exposes the hash state, update, and finalization surface. It is a non-cryptographic hash; one-shot and streaming inputs need exactly their stated readable byte lengths, with arbitrary alignment. Register finalization needs exactly `Len & 255` residual bytes; block absorption needs `BlockCount * 256` bytes. Zero-length null input is valid. No cryptographic or cross-version stability guarantee is made.
 
 `reg` aliases Preload's distinct `__reg` operand type. In this module it denotes a compiler-managed 128-bit SIMD register operand for inline assembly, despite the source-level `__reg` declaration having the distinct `u16` type. It is not a 16-bit scalar value or a general-purpose storage representation. The public `MeowU64From` and `MeowU32From` expansions extract one indexed 64-bit or 32-bit lane from a register into the declared scalar result; their register arguments must remain SIMD register operands through expansion.
 
 `MeowDefaultSeed`, `MeowMaskLen`, and `MeowShiftAdjust` are mutable initialized public arrays (`: Type = initializer`). The hash routines read these arrays when called, so element edits affect subsequent calls process-wide. They are not compile-time constants.
+
+External partial tails reconstruct the legacy shuffle window using only residual bytes; positions outside that object are zero, including with mutated tables. Stream finalization uses its internal buffer and retains mutable-mask visibility of buffered stale bytes. See [exact-buffer safety](../../../stdlib/meow-hash-safety.md).

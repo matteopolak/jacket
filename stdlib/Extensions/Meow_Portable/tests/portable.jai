@@ -11,23 +11,23 @@ main :: () {
     empty := hash_bytes(.[]);
 
     assert(empty[0] == 0x657ca02a5859c045 && empty[1] == 0x75a7b5550383265e);
-    bytes: [1000] u8;
+    bytes: [8193] u8;
     for *bytes it.* = cast(u8) ((it_index * 37 + 11) & 255);
 
-    // The register path of `MeowHash` may load past the end of its input, so it is fed a padded copy.
-    // The portable hash gets the exact-size buffer.
+    // Both implementations receive the same exact input extent.
     for count: int.[1, 15, 16, 17, 31, 32, 33, 100, 255, 256, 257, 300, 511, 512, 700, 1000] {
         check_length(bytes.data, count);
     }
 
-    // Inputs that end exactly at the end of their allocation, for every short length.
-    for count: 0..64 check_length(bytes.data, count);
+    // Exact logical lengths through Basic; native malloc-boundary coverage is in meow_hash/tests/exact.jai.
+    for count: 0..513 check_length(bytes.data, count);
+    for count: int.[1023, 1024, 1025, 4095, 4096, 4097, 8193] check_length(bytes.data, count);
 
     check_fixture();
     print("ok\n");
 }
 
-// Hashes `count` bytes of `source` from a heap block of exactly that size.
+// Hashes `count` logical bytes; Basic may reserve alignment slack beyond them.
 check_length :: (source: *u8, count: int) {
     exact := cast(*u8) alloc(max(count, 1));
 
@@ -48,6 +48,8 @@ check_length :: (source: *u8, count: int) {
 
     #if CPU == .X64 {
         #asm { pxor hash:, hash; }
+        MeowHash(MeowDefaultSeed, cast(u64) count, exact, hash);
+        assert(portable[0] == MeowU64From(hash, 0) && portable[1] == MeowU64From(hash, 1));
         MeowHash(MeowDefaultSeed, cast(u64) count, padded, hash);
         assert(portable[0] == MeowU64From(hash, 0) && portable[1] == MeowU64From(hash, 1));
     }

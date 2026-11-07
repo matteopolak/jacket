@@ -40,7 +40,7 @@ MeowAbsorb :: (State: *meow_state, Len: u64, Source: *void) {
 }
 
 // Hashes `Len` bytes at `Source` with `Seed` in one call, leaving the 128-bit result in the
-// register `h0`. Read it with `MeowU64From` or `MeowU32From`. Needs an x64 CPU with AES-NI.
+// register `h0`. Exactly `Len` readable bytes suffice, at any alignment. Read it with `MeowU64From` or `MeowU32From`. Needs an x64 CPU with AES-NI.
 //
 // ```jai,ignore
 // data := "meow";
