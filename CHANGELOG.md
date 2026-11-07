@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### New
+
+- `Extensions/Toml` reads and writes TOML 1.1; `jaifmt` uses it to parse configuration.
+
 ## [0.33.0] - 2026-11-04
 
 ### New

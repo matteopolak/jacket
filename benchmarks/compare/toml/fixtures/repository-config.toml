@@ -1,0 +1,366 @@
+[lint]
+# jailint settings for this repository; see docs/tools/jailint.md.
+
+# Every Jai file the repository owns is linted, except:
+# - tests/corpus/negative: programs that must fail to compile.
+# - stdlib tests' negative/, probes/ and driven/ directories: programs that must fail to compile,
+#   known compiler gaps, and sources only a tool builds with its own flags.
+# - tests/lint: each rule's bad cases, which must trigger it.
+# - stdlib/Extensions/Jai_Format/tests/fixtures and range-fixtures: formatter golden inputs, whose code is only there to be
+#   formatted.
+# - fuzz: fuzzer seeds and byte-exact regressions, many deliberately broken.
+exclude = [
+    ".claude/**",
+    "tests/corpus/negative/**",
+    "tests/lint/**",
+    "stdlib/**/tests/negative/**",
+    "stdlib/**/tests/probes/**",
+    "stdlib/**/tests/driven/**",
+    "stdlib/Extensions/Jai_Format/tests/fixtures/**",
+    "stdlib/Extensions/Jai_Format/tests/range-fixtures/**",
+    "fuzz/**",
+]
+
+# Procedures over this mark carry a `// jailint: allow(cognitive_complexity)` on their first
+# line; lower it as they are split.
+max_complexity = 100
+
+# Off-by-default rules this repository holds itself to.
+[lint.rules]
+shadowed_local = "warn"
+lossy_xx = "warn"
+neg_cmp_float = "warn"
+large_stack_array = "warn"
+todo_marker = "warn"
+detached_doc_comment = "warn"
+incomplete_enum_switch = "warn"
+temp_storage_escape = "warn"
+excessive_nesting = "warn"
+leaked_allocation = "warn"
+cognitive_complexity = "warn"
+platform_leak = "warn"
+
+# Exact float comparisons in library code are checked; tests compare exact results on purpose.
+[[lint.overrides]]
+paths = ["stdlib/**"]
+rules = { float_equality = "warn" }
+
+[[lint.overrides]]
+paths = ["stdlib/**/tests/**"]
+rules = { float_equality = "allow" }
+
+# Corpus fixtures are pinned by hash, so a case that is one `case` and a default stays as written.
+[[lint.overrides]]
+paths = ["tests/corpus/positive/case-selection.jai"]
+rules = { single_case_switch = "allow" }
+
+# This hash-pinned fixture specifically tests lexical shadowing during code insertion.
+[[lint.overrides]]
+paths = ["tests/corpus/positive/source-code-capture.jai"]
+rules = { shadowed_local = "allow" }
+
+# Tests, regressions and benchmarks write the flagged shapes on purpose: hand-written copy loops,
+# one-element arrays, wide shifts and unsigned bounds are the inputs under test.
+[[lint.overrides]]
+paths = ["tests/**", "benchmarks/**", "stdlib/**/tests/**"]
+rules = { manual_memcpy = "allow", manual_array_find = "allow", useless_format = "allow", unsigned_range_end_minus_one = "allow", useless_resizable = "allow", shift_overflow = "allow", lossy_float_literal = "allow", format_push_string = "allow" }
+
+# The standard library builds on every operating system unless a file below says otherwise;
+# `platform_leak` compiles it once per system and reports portable code that imports a file
+# one of them does not build.
+[lint.portability]
+portable = ["stdlib/**"]
+
+# Files limited to some systems; `[]` is a file none of the three builds (or, for tests, that
+# is not checked). A file here that portable code imports without an `#if OS ==` guard is a
+# leak; the most specific glob wins.
+[lint.portability.platforms]
+# Tests and their fixtures may be written for one system.
+"stdlib/**/tests/**" = []
+# Android (the compiler checks Linux, macOS and Windows; Android has no target of its own).
+"stdlib/Android/**" = []
+# WebAssembly only.
+"stdlib/Wasi_Numeric_Runtime/**" = []
+"stdlib/Extensions/Wasi_Runtime/**" = []
+# Asserts a Windows host, not a Windows target.
+"stdlib/linux_build/**" = []
+# Linux on ARM64 only.
+"stdlib/internal/bindings/linux-arm64-kernel/**" = []
+# Android only (its native-app glue).
+"stdlib/internal/bindings/android-commands/**" = []
+# Unix.
+"stdlib/POSIX/**" = ["linux", "macos"]
+# Linux.
+"stdlib/Linux/**" = ["linux"]
+"stdlib/X11/**" = ["linux"]
+"stdlib/Extensions/Io_Uring/**" = ["linux"]
+# macOS.
+"stdlib/macOS/**" = ["macos"]
+"stdlib/Metal/**" = ["macos"]
+"stdlib/Objective_C/**" = ["macos"]
+"stdlib/internal/bindings/fsevents-context/**" = ["macos"]
+"stdlib/internal/bindings/nsgl/**" = ["macos"]
+"stdlib/internal/bindings/objc-api/**" = ["macos"]
+"stdlib/internal/bindings/inotify/**" = ["linux"]
+"stdlib/internal/bindings/posix-api/**" = ["linux", "macos"]
+# The per-system halves of modules that pick one with `#if OS ==`.
+"stdlib/internal/files/filesystem.jai" = ["linux", "macos"]
+"stdlib/internal/files/native-unix.jai" = ["linux", "macos"]
+"stdlib/internal/process/**" = ["linux", "macos"]
+"stdlib/internal/system/unix.jai" = ["linux", "macos"]
+"stdlib/internal/window/connection.jai" = ["linux"]
+"stdlib/internal/window/cocoa*.jai" = ["macos"]
+"stdlib/Extensions/Desktop/cocoa*.jai" = ["macos"]
+"stdlib/Extensions/Desktop/windows*.jai" = ["windows"]
+"stdlib/internal/window/win32-*.jai" = ["windows"]
+"stdlib/internal/clipboard/cocoa.jai" = ["macos"]
+"stdlib/internal/clipboard/linux.jai" = ["linux"]
+"stdlib/internal/clipboard/win32.jai" = ["windows"]
+"stdlib/internal/audio/windows-abi.jai" = ["windows"]
+"stdlib/internal/developer-tools/debug-dialog-linux.jai" = ["linux"]
+"stdlib/internal/ipc/channel-posix.jai" = ["linux", "macos"]
+"stdlib/internal/ipc/channel-windows.jai" = ["windows"]
+"stdlib/internal/net/socket-abi-android.jai" = []
+"stdlib/internal/net/socket-abi-linux.jai" = ["linux"]
+"stdlib/internal/net/socket-abi-macos.jai" = ["macos"]
+"stdlib/internal/net/socket-abi-windows.jai" = ["windows"]
+"stdlib/internal/net/socket-fields-macos.jai" = ["macos"]
+"stdlib/internal/net/socket-fields-tcp-unix.jai" = ["linux"]
+"stdlib/internal/net/socket-fields-windows.jai" = ["windows"]
+"stdlib/internal/net/socket-posix.jai" = ["linux", "macos"]
+"stdlib/internal/net/socket-windows.jai" = ["windows"]
+"stdlib/internal/watching/inotify.jai" = ["linux"]
+"stdlib/internal/watching/windows.jai" = ["windows"]
+"stdlib/internal/input/cocoa-events.jai" = ["macos"]
+"stdlib/internal/input/x11-*.jai" = ["linux"]
+"stdlib/internal/input/windows-*.jai" = ["windows"]
+"stdlib/internal/input/windows-devices/**" = ["windows"]
+"stdlib/internal/files/filesystem-windows.jai" = ["windows"]
+"stdlib/internal/files/native-windows.jai" = ["windows"]
+"stdlib/internal/files/windows-abi.jai" = ["windows"]
+"stdlib/internal/files/windows-text.jai" = ["windows"]
+"stdlib/internal/build/cpp-windows.jai" = ["windows"]
+"stdlib/internal/process/windows.jai" = ["windows"]
+"stdlib/internal/process/windows-types.jai" = ["windows"]
+"stdlib/internal/system/windows.jai" = ["windows"]
+"stdlib/internal/windows-resources/**" = ["windows"]
+"stdlib/internal/bindings/wgl/**" = ["windows"]
+"stdlib/internal/bindings/dxc-wide/**" = ["windows"]
+"stdlib/internal/bindings/windows-api/**" = ["windows"]
+# Windows.
+"stdlib/Windows/**" = ["windows"]
+"stdlib/d3d11/**" = ["windows"]
+"stdlib/d3d12/**" = ["windows"]
+"stdlib/d3d_compiler/**" = ["windows"]
+"stdlib/dxc_compiler/**" = ["windows"]
+"stdlib/dxgi/**" = ["windows"]
+"stdlib/nvidia_aftermath/**" = ["windows"]
+"stdlib/internal/bindings/dxc-compile/**" = ["windows"]
+"stdlib/internal/runtime/windows-crash-cleanup/**" = ["windows"]
+"stdlib/internal/windows-registry/**" = ["windows"]
+
+[format]
+# jaifmt settings for this repository; see docs/tools/jaifmt.md.
+indent_width = 4
+max_width = 100
+max_blank_lines = 1
+brace_style = "same_line"
+# Stricter, opt-in spacing inside code blocks (see docs/tools/jaifmt.md).
+blank_line_after_declarations = true # after a run of declarations
+blank_lines_around_blocks = true # around statements with a block body
+blank_line_after_guards = true # after a run of one-line if/for/while
+blank_line_before_return = true # above a return in a longer body
+
+# Every Jai file the repository owns is formatted, except:
+# - tests/corpus: fixtures pinned by sha256 in tests/corpus/manifest.json, and negative cases
+#   that are deliberately malformed.
+# - stdlib/Extensions/Jai_Format/tests/fixtures and range-fixtures: golden inputs, kept unformatted.
+# - tests/compiler/native/debug-info: the debugger test sets breakpoints at fixed line numbers.
+# - fuzz: seeds are fuzzer inputs (odd layout is the point, and the jaifmt target starts from
+#   them) and regressions are byte-exact reproducers.
+ignore = ["tests/corpus/**", "stdlib/Extensions/Jai_Format/tests/fixtures/**", "stdlib/Extensions/Jai_Format/tests/range-fixtures/**", "tests/compiler/native/debug-info/**", "fuzz/**"]
+
+[test]
+# `jacket test` runs every folder under stdlib that has a `tests/` folder or a `module.jai`
+# (see docs/tools/jacket-test.md). Run inside one, it runs only that one.
+paths = ["stdlib/**"]
+
+# `jacket doc` with no path documents this. Patterns match module folders, as elsewhere here.
+[doc]
+url = "https://jacket.matteopolak.com"
+og_image = "editors/vscode/images/doc-og.png"
+path = "stdlib"
+name = "Jacket"
+breadcrumb = "std"
+description = "API documentation for the Jai standard library that ships with Jacket."
+home = "docs/reference/home.md"
+logo = "editors/vscode/images/icon.svg"
+repo = "https://github.com/matteopolak/jacket"
+since = "crates/jacket/src/doc/since.tsv"
+pages_title = "Guides"
+
+# Doc comment examples are short; the extra blank lines make them airy.
+[doc.format]
+blank_line_after_declarations = false
+blank_lines_around_blocks = false
+blank_line_after_guards = false
+blank_line_before_return = false
+
+# A module goes under the last category that matches it.
+[[doc.category]]
+name = "Standard library"
+modules = ["stdlib/**"]
+
+[[doc.category]]
+name = "Extensions"
+modules = ["stdlib/Extensions/**"]
+badge = "extension"
+tip = "Extension: not part of the standard library"
+color = "#1d7282"
+color_dark = "#6cc4d4"
+
+[[doc.page]]
+file = "docs/guides/testing.md"
+name = "Testing"
+
+[[doc.page]]
+file = "docs/guides/benchmarking.md"
+name = "Benchmarking"
+
+[[doc.page]]
+file = "docs/guides/documenting.md"
+name = "Documenting a library"
+
+[[doc.section]]
+file = "docs/reference/tools.md"
+name = "Tools"
+
+[[doc.section]]
+file = "docs/reference/lint-rules.md"
+name = "Lint rules"
+
+[[doc.section]]
+file = "docs/tools/jaifmt-rules.md"
+name = "Format rules"
+
+# Every module is in one group; `jacket doc --check` fails on one that is not, and on a pattern
+# that matches no module. A module goes in the last group that matches it.
+[[doc.group]]
+name = "Core"
+modules = [
+    "stdlib/prelude", "stdlib/Basic", "stdlib/Runtime_Support", "stdlib/Runtime_Support_Crash_Handler",
+    "stdlib/Remap_Context", "stdlib/Reflection", "stdlib/Soa", "stdlib/Relative_Pointers",
+    "stdlib/Deep_Copy", "stdlib/Extensions/Variant",
+]
+
+[[doc.group]]
+name = "Math and numbers"
+modules = [
+    "stdlib/Math", "stdlib/Sloppy_Math", "stdlib/Float16", "stdlib/Random", "stdlib/PCG",
+    "stdlib/Bit_Operations", "stdlib/SIMD", "stdlib/Srgb", "stdlib/Color_Interpolation",
+    "stdlib/Extensions/SIMD", "stdlib/Extensions/Long_Double",
+]
+
+[[doc.group]]
+name = "Memory and allocators"
+modules = [
+    "stdlib/Memory", "stdlib/Default_Allocator", "stdlib/Flat_Pool", "stdlib/Pool",
+    "stdlib/Overwriting_Allocator", "stdlib/Unmapping_Allocator", "stdlib/rpmalloc",
+]
+
+[[doc.group]]
+name = "Data structures and sorting"
+modules = [
+    "stdlib/Bit_Array", "stdlib/Bucket_Array", "stdlib/Hash_Table", "stdlib/Xar", "stdlib/Sort",
+    "stdlib/IntroSort", "stdlib/RadixSort", "stdlib/Extensions/Hash_Map",
+]
+
+[[doc.group]]
+name = "Text and formats"
+modules = [
+    "stdlib/String", "stdlib/Unicode", "stdlib/Base64", "stdlib/Print_Color",
+    "stdlib/Text_File_Handler", "stdlib/Subtitles", "stdlib/Extensions/Json", "stdlib/Extensions/Toml",
+    "stdlib/Extensions/Regex", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/Text_Buffer",
+    "stdlib/Extensions/Protobuf", "stdlib/Extensions/Protobuf/Schema",
+    "stdlib/Extensions/Byte_Search", "stdlib/Extensions/String_Literal", "stdlib/Extensions/Web",
+]
+
+[[doc.group]]
+name = "Files and OS"
+modules = [
+    "stdlib/File", "stdlib/File_Utilities", "stdlib/File_Watcher", "stdlib/Process",
+    "stdlib/System", "stdlib/Clipboard", "stdlib/Command_Line", "stdlib/Simple_Package",
+    "stdlib/Extensions/Args", "stdlib/Extensions/Environment", "stdlib/Extensions/Assets", "stdlib/Extensions/Pty",
+]
+
+[[doc.group]]
+name = "Threads and concurrency"
+modules = [
+    "stdlib/Thread", "stdlib/Atomics", "stdlib/Shared_Memory_Channel", "stdlib/Extensions/Io",
+    "stdlib/Extensions/Io_Uring",
+]
+
+[[doc.group]]
+name = "Networking"
+modules = [
+    "stdlib/Socket", "stdlib/Curl", "stdlib/Mail", "stdlib/Extensions/Http",
+    "stdlib/Extensions/Tls", "stdlib/Extensions/Postgres",
+]
+
+[[doc.group]]
+name = "Graphics and windows"
+modules = [
+    "stdlib/GL", "stdlib/Simp", "stdlib/GetRect", "stdlib/GetRect_LeftHanded",
+    "stdlib/Window_Creation", "stdlib/Window_Type", "stdlib/Input", "stdlib/Keymap",
+    "stdlib/Gamepad", "stdlib/Gamepad/SDL_Input_Map", "stdlib/Icon", "stdlib/Ico_File",
+    "stdlib/ImGui", "stdlib/SDL", "stdlib/Extensions/SDL3", "stdlib/Extensions/UI", "stdlib/Extensions/Desktop",
+    "stdlib/Extensions/Image", "stdlib/Extensions/WebGPU",
+]
+
+[[doc.group]]
+name = "Audio and video"
+modules = [
+    "stdlib/Adpcm", "stdlib/Sound_Player", "stdlib/Wav_File", "stdlib/stb_vorbis", "stdlib/pl_mpeg",
+    "stdlib/Extensions/Audio_Stream",
+]
+
+[[doc.group]]
+name = "Compression and hashing"
+modules = [
+    "stdlib/Crc", "stdlib/Hash", "stdlib/md5", "stdlib/xxHash", "stdlib/meow_hash", "stdlib/Extensions/Meow_Portable", "stdlib/lz4",
+    "stdlib/Zip_File_Directory", "stdlib/Extensions/Deflate",
+]
+
+[[doc.group]]
+name = "Debugging, profiling and testing"
+modules = [
+    "stdlib/Debug", "stdlib/Debug_Info", "stdlib/Print_Vars", "stdlib/Iprof",
+    "stdlib/Performance_Report", "stdlib/telemetry3", "stdlib/Treemap",
+    "stdlib/Protocol_For_Memory_Visualization", "stdlib/Extensions/Testing",
+    "stdlib/Extensions/Testing/Discovery", "stdlib/Extensions/Fuzz", "stdlib/Extensions/Iprof_Trace",
+    "stdlib/Extensions/Iprof_Trace/observer",
+]
+
+[[doc.group]]
+name = "Compiler and metaprogramming"
+modules = [
+    "stdlib/Compiler", "stdlib/Check", "stdlib/Code_Visit", "stdlib/Rewrite", "stdlib/Autorun",
+    "stdlib/Default_Metaprogram", "stdlib/Minimal_Metaprogram", "stdlib/Metaprogram_Plugins",
+    "stdlib/Example_Plugin", "stdlib/BuildCpp", "stdlib/Bindings_Generator",
+    "stdlib/Generate_C_Header", "stdlib/Jai_Lexer", "stdlib/Project_Generator",
+    "stdlib/MacOS_Bundler", "stdlib/Codex", "stdlib/Program_Print", "stdlib/Machine_X64",
+    "stdlib/executable_formats", "stdlib/linux_build", "stdlib/Extensions/Service",
+]
+
+[[doc.group]]
+name = "Platform bindings"
+modules = [
+    "stdlib/Android/AAudio", "stdlib/Android/EGL", "stdlib/Android/Toolchain", "stdlib/Android",
+    "stdlib/Linux", "stdlib/Windows", "stdlib/macOS", "stdlib/iOS", "stdlib/Objective_C",
+    "stdlib/Objective_C/AppKit", "stdlib/POSIX", "stdlib/X11", "stdlib/Metal", "stdlib/Vulkan",
+    "stdlib/d3d11", "stdlib/d3d12", "stdlib/d3d_compiler", "stdlib/dxc_compiler", "stdlib/dxgi",
+    "stdlib/nvidia_aftermath", "stdlib/MojoShader", "stdlib/freetype", "stdlib/meshoptimizer",
+    "stdlib/nvtt", "stdlib/stb_image", "stdlib/stb_image_resize", "stdlib/stb_image_write",
+    "stdlib/Windows_Registry", "stdlib/Windows_Resources", "stdlib/Windows_Utf8",
+    "stdlib/Wasi_Numeric_Runtime", "stdlib/Extensions/Wasi_Runtime",
+]

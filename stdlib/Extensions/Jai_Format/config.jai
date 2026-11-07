@@ -1,5 +1,4 @@
-// jacket.toml `[format]` parsing, and ignore globs. No file access: the caller reads the file.
-
+// jacket.toml schema adaptation and ignore globs. The shared TOML module validates whole files.
 #scope_module
 
 resolved_case_indent :: (config: Format_Config) -> int {
@@ -12,217 +11,98 @@ resolved_case_body_indent :: (config: Format_Config) -> int {
     return config.case_body_indent;
 }
 
-// Parses the jacket.toml `text` into `config`; on failure returns false and a message naming the
-// line. Only the settings under `format` and `doc.format` count and everything else is skipped.
-// Keys the format settings do not have are dropped into `config.unknown_keys` (as `key`, or
-// `format.key` for a sub-table, or `doc.format.key`), not errors.
-//
-// The TOML read is the part a config uses: `key = value` pairs, `[table]` headers, bare and quoted
-// keys, dotted keys (`format.indent_width = 2`), inline tables (`format = { indent_width = 2 }`),
-// basic and literal strings, and arrays or inline tables that continue over several lines.
+// Validate the whole file once. Ordered source statements preserve header warnings and raw
+// override lexemes; decoded values handle the formatter schema independently of TOML syntax.
 parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
-    line_number := 0;
-    rest := text;
+    doc, error := Toml.parse_toml(text, .{ record_statements = true });
+    if error.kind != .NONE return false, tprint("line %: %", error.line, error.message);
 
-    // The keys of the `[table]` header in force.
-    table: [..] string;
+    defer Toml.free_toml(*doc);
+    format := Toml.toml_get(doc.root, "format");
+    docs := Toml.toml_get(Toml.toml_get(doc.root, "doc"), "format");
 
-    // A value may continue over several lines: `statement` collects the lines from the first one
-    // until its brackets close, and `depth` counts the brackets still open.
-    statement: string;
-    statement_line := 0;
-    depth := 0;
+    if format && format.kind != .TABLE return false, tprint("line %: format must be a table", config_line(text, format.span.start));
+    if docs && docs.kind != .TABLE return false, tprint("line %: doc.format must be a table", config_line(text, docs.span.start));
 
-    while rest.count {
-        line: string;
-        newline := find_index_from_left(rest, #char "\n");
+    // The path helper writes every returned element; reuse storage without clearing an
+    // unused tail for every source event. Persisted settings copy their strings below.
+    buffer: [128] string;
+    index := 0;
 
-        if newline < 0 {
-            line = rest;
-            rest = "";
-        } else {
-            line = slice(rest, 0, newline);
-            rest = slice(rest, newline + 1, rest.count - newline - 1);
+    while index < doc.statements.count {
+        statement := doc.statements[index];
+        path, path_error := Toml.toml_statement_path(*doc, statement, buffer);
+
+        if path_error.kind != .NONE return false, tprint("line %: %", statement.line, path_error.message);
+
+        is_doc := path.count >= 2 && path[0] == "doc" && path[1] == "format";
+        is_format := path.count >= 1 && path[0] == "format";
+
+        if !is_doc && !is_format {
+            index += 1;
+            continue;
         }
 
-        line_number += 1;
-        line = trim(strip_comment(line));
+        first := ifx is_doc then 2 else 1;
 
-        if depth > 0 {
-            statement = tprint("% %", statement, line);
-            depth += bracket_delta(line);
-        } else {
-            if !line.count continue;
-
-            statement = line;
-            statement_line = line_number;
-            depth = bracket_delta(line);
+        if statement.kind != .ASSIGNMENT {
+            if path.count > first array_add(*config.unknown_keys, config_dotted_path(path, 0));
+            index += 1;
+            continue;
         }
 
-        if depth > 0 continue;
-
-        depth = 0;
-
-        if statement[0] == #char "[" {
-            header, ok := parse_table_header(statement);
-            if !ok return false, tprint("line %: malformed table header", statement_line);
-
-            table = header;
-
-            if table[0] == "format" && table.count > 1 array_add(*config.unknown_keys, dotted(table, 0));
-            if is_doc_format(table) && table.count > 2 array_add(*config.unknown_keys, dotted(table, 0));
-        } else {
-            ok, message := apply_pair(config, table, statement, statement_line);
-            if !ok return false, message;
+        if statement.header_depth > first {
+            index += 1;
+            continue;
         }
-    }
 
-    if depth > 0 return false, tprint("line %: this array or table is never closed", statement_line);
+        if path.count == first {
+            // `format={...}` / `doc.format={...}`: the child assignments carry their own spans.
+            index += 1;
+            continue;
+        }
 
-    return true, "";
-}
+        if path.count > first + 1 {
+            array_add(*config.unknown_keys, config_dotted_path(path, ifx is_doc then 0 else first));
+        } else {
+            key := path[first];
+            if is_doc && !is_doc_format_key(key) {
+                array_add(*config.unknown_keys, copy_string(tprint("doc.format.%", key)));
+            } else if is_doc {
+                scratch: Format_Config;
+                ok, message := apply_toml_key(*scratch, key, statement.value, statement.line);
 
-// The keys of a `[a.b]` (or `[[a.b]]`) header line.
-parse_table_header :: (header: string) -> [..] string, bool {
-    none: [..] string;
-    open := 1;
+                if !ok return false, message;
 
-    if begins_with(header, "[[") open = 2;
+                span := statement.value.span;
+                raw := slice(doc.source, span.start, span.end - span.start);
 
-    if header.count < 2 * open + 1 return none, false;
+                array_add(*config.doc_format, Doc_Setting.{ copy_string(key), copy_string(raw) });
+            } else {
+                ok, message := apply_toml_key(config, key, statement.value, statement.line);
+                if !ok return false, message;
+            }
+        }
 
-    for 1..open if header[header.count - it] != #char "]" return none, false;
-
-    path, ok, after := parse_key_path(slice(header, open, header.count - 2 * open));
-    if !ok || trim(after).count return none, false;
-
-    return path, true;
-}
-
-// One `key = value` statement (its arrays and inline tables are closed) found under the `[table]`
-// header whose keys are `table`.
-apply_pair :: (config: *Format_Config, table: [] string, statement: string, line_number: int) -> bool, string {
-    in_format := table.count && (table[0] == "format" || is_doc_format(table));
-
-    path, ok, after := parse_key_path(statement);
-    after = trim(after);
-
-    if !ok || !after.count || after[0] != #char "=" {
-        if in_format return false, tprint("line %: expected `key = value`", line_number);
-        return true, "";
-    }
-
-    value := trim(slice(after, 1, after.count - 1));
-
-    keys: [..] string;
-
-    for table array_add(*keys, it);
-    for path array_add(*keys, it);
-
-    // The format settings are the keys under `format`, however they are written: in a `[format]`
-    // table, as `format.name = ...`, or in `format = { ... }`.
-    // The same keys under `doc.format` are overrides for the examples in doc comments.
-    doc := is_doc_format(keys);
-
-    if keys[0] != "format" && !doc return true, "";
-
-    first := 1;
-    if doc first = 2;
-
-    // A `[format.sub]` table was reported when its header was read.
-    if table.count > first return true, "";
-
-    if keys.count == first return apply_inline_table(config, value, line_number, doc);
-
-    return apply_setting(config, keys, first, value, line_number, doc);
-}
-
-// Whether `keys` start with `doc.format`.
-is_doc_format :: (keys: [] string) -> bool {
-    return keys.count >= 2 && keys[0] == "doc" && keys[1] == "format";
-}
-
-// The settings in `{ key = value, ... }`, the value of `format` (or `doc.format`) itself.
-apply_inline_table :: (config: *Format_Config, value: string, line_number: int, doc: bool) -> bool, string {
-    if value.count < 2 || value[0] != #char "{" || value[value.count - 1] != #char "}" {
-        return false, tprint("line %: format must be a table", line_number);
-    }
-
-    items := slice(value, 1, value.count - 2);
-
-    while true {
-        items = trim(items);
-        if !items.count break;
-
-        item, after := split_first_item(items);
-
-        items = after;
-
-        path, ok, rest := parse_key_path(item);
-        rest = trim(rest);
-
-        if !ok || !rest.count || rest[0] != #char "=" return false, tprint("line %: expected `key = value`", line_number);
-
-        applied, message := apply_setting(config, path, 0, trim(slice(rest, 1, rest.count - 1)), line_number, doc);
-        if !applied return false, message;
+        // A setting's nested value is consumed as a whole, including ignored unknown settings.
+        // It must not also produce warnings or overrides for assignments inside its inline tables.
+        index += 1;
+        while index < doc.statements.count && doc.statements[index].span.start < statement.span.end index += 1;
     }
 
     return true, "";
 }
 
-// Applies `keys` from `first` on as the path of one format setting: a single name is a setting, a
-// dotted path names something the formatter does not have.
-apply_setting :: (config: *Format_Config, keys: [] string, first: int, value: string, line_number: int, doc: bool) -> bool, string {
-    if keys.count - first == 1 {
-        if doc return apply_doc_key(config, keys[first], value, line_number);
-        return apply_key(config, keys[first], value, line_number);
-    }
-
-    if doc {
-        array_add(*config.unknown_keys, copy_string(tprint("doc.format.%", dotted(keys, first,, temp))));
-    } else {
-        array_add(*config.unknown_keys, dotted(keys, first));
-    }
-
-    return true, "";
+config_line :: (text: string, offset: int) -> int {
+    line := 1;
+    for 0..offset - 1 if text[it] == 10 line += 1;
+    return line;
 }
 
-// Records one `doc.format` override after checking the value as `[format]` would; a key that is
-// not one of DOC_FORMAT_KEYS is dropped into `config.unknown_keys`.
-apply_doc_key :: (config: *Format_Config, key: string, value: string, line_number: int) -> bool, string {
-    if !is_doc_format_key(key) {
-        array_add(*config.unknown_keys, copy_string(tprint("doc.format.%", key)));
-        return true, "";
-    }
-
-    scratch: Format_Config;
-
-    ok, message := apply_key(*scratch, key, value, line_number);
-
-    if !ok return false, message;
-
-    array_add(*config.doc_format, Doc_Setting.{ copy_string(key), copy_string(value) });
-
-    return true, "";
-}
-
-is_doc_format_key :: (key: string) -> bool {
-    for DOC_FORMAT_KEYS if it == key return true;
-    return false;
-}
-
-// `config` with its `doc_format` overrides applied: the settings for the examples in doc comments.
-doc_example_config :: (config: Format_Config) -> Format_Config {
-    inner := config;
-
-    for config.doc_format apply_key(*inner, it.key, it.value, 0);
-
-    return inner;
-}
-
-// `keys` from `first` on, joined by dots.
-dotted :: (keys: [] string, first: int) -> string {
+config_dotted_path :: (keys: [] string, first: int) -> string {
     out: String_Builder;
+
+    defer free_buffers(*out);
 
     for first..keys.count - 1 {
         if it > first append(*out, ".");
@@ -232,63 +112,9 @@ dotted :: (keys: [] string, first: int) -> string {
     return builder_to_string(*out);
 }
 
-// The text before the first comma that is outside strings and brackets, and the text after it.
-split_first_item :: (text: string) -> item: string, rest: string {
-    scan: Quote_Scan;
-    depth := 0;
-
-    for text {
-        if in_string(*scan, it) continue;
-
-        if it == #char "[" || it == #char "{" depth += 1;
-        if it == #char "]" || it == #char "}" depth -= 1;
-
-        if it == #char "," && depth == 0 return slice(text, 0, it_index), slice(text, it_index + 1, text.count - it_index - 1);
-    }
-
-    return text, "";
-}
-
-// The dotted key `a."b c".d` at the start of `text`: its parts, and the text after it.
-parse_key_path :: (text: string) -> [..] string, bool, string {
-    keys: [..] string;
-    rest := trim(text);
-
-    while true {
-        rest = trim(rest);
-        if !rest.count return keys, false, rest;
-
-        if rest[0] == #char "\"" || rest[0] == #char "'" {
-            key, ok, after := parse_quoted_prefix(rest);
-            if !ok return keys, false, rest;
-
-            array_add(*keys, key);
-            rest = after;
-        } else {
-            length := 0;
-            while length < rest.count && is_bare_key_character(rest[length]) length += 1;
-            if !length return keys, false, rest;
-
-            array_add(*keys, copy_string(slice(rest, 0, length)));
-            rest = slice(rest, length, rest.count - length);
-        }
-
-        rest = trim(rest);
-
-        if !rest.count || rest[0] != #char "." return keys, true, rest;
-
-        rest = slice(rest, 1, rest.count - 1);
-    }
-
-    return keys, false, rest;
-}
-
-is_bare_key_character :: (c: u8) -> bool {
-    return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || (c >= #char "0" && c <= #char "9") || c == #char "_" || c == #char "-";
-}
-
-// Sets one `key = value` pair; on failure returns false and a message naming the line.
-apply_key :: (config: *Format_Config, key: string, value: string, line_number: int) -> bool, string {
+// The schema consumes decoded types rather than reparsing raw TOML syntax. This accepts all
+// valid integer/string spellings while preserving the formatter's range/type diagnostics.
+apply_toml_key :: (config: *Format_Config, key: string, value: *Toml.Toml_Value, line_number: int) -> bool, string {
     if key == {
         case "indent_width";
             ok := parse_count(value, *config.indent_width, 1, 16);
@@ -306,8 +132,9 @@ apply_key :: (config: *Format_Config, key: string, value: string, line_number: i
             ok := parse_count(value, *config.max_width, 10, 10000);
             if !ok return false, tprint("line %: max_width must be an integer from 10 to 10000", line_number);
         case "brace_style";
-            style, ok := parse_quoted(value);
-            if !ok return false, tprint("line %: brace_style must be a quoted string", line_number);
+            style := value.text;
+
+            if value.kind != .STRING return false, tprint("line %: brace_style must be a quoted string", line_number);
 
             if style == "same_line" {
                 config.brace_style = .SAME_LINE;
@@ -317,9 +144,9 @@ apply_key :: (config: *Format_Config, key: string, value: string, line_number: i
                 return false, tprint("line %: brace_style must be \"same_line\" or \"preserve\"", line_number);
             }
         case "blank_lines_between_items";
-            if value == "true" {
+            if value.kind == .BOOL && value.boolean {
                 config.blank_lines_between_items = true;
-            } else if value == "false" {
+            } else if value.kind == .BOOL && !value.boolean {
                 config.blank_lines_between_items = false;
             } else {
                 return false, tprint("line %: blank_lines_between_items must be true or false", line_number);
@@ -346,28 +173,51 @@ apply_key :: (config: *Format_Config, key: string, value: string, line_number: i
             ok := parse_flag(value, *config.format_doc_examples);
             if !ok return false, tprint("line %: format_doc_examples must be true or false", line_number);
         case "ignore";
-            if !value.count || value[0] != #char "[" || value[value.count - 1] != #char "]" {
-                return false, tprint("line %: ignore must be an array of quoted globs", line_number);
-            }
-
-            items := slice(value, 1, value.count - 2);
-
-            while true {
-                items = trim(items);
-                if !items.count break;
-
-                glob, ok, after := parse_quoted_prefix(items);
-                if !ok return false, tprint("line %: ignore entries must be quoted strings", line_number);
-
-                array_add(*config.ignore, glob);
-                items = trim(after);
-                if items.count && items[0] == #char "," items = slice(items, 1, items.count - 1);
-            }
+            if value.kind != .ARRAY return false, tprint("line %: ignore must be an array of quoted globs", line_number);
+            for value.items if it.kind != .STRING return false, tprint("line %: ignore entries must be quoted strings", line_number);
+            for value.items array_add(*config.ignore, copy_string(it.text));
         case;
             array_add(*config.unknown_keys, copy_string(key));
     }
 
     return true, "";
+}
+
+apply_setting_text :: (config: *Format_Config, key: string, text: string, line: int) -> bool, string {
+    doc, error := Toml.parse_toml(tprint("value = %", text));
+    if error.kind != .NONE return false, tprint("line %: %", line, error.message);
+
+    defer Toml.free_toml(*doc);
+    if doc.root.members.count != 1 return false, tprint("line %: expected one setting value", line);
+
+    return apply_toml_key(config, key, Toml.toml_get(doc.root, "value"), line);
+}
+
+apply_doc_key :: (config: *Format_Config, key: string, value: string, line_number: int) -> bool, string {
+    if !is_doc_format_key(key) {
+        array_add(*config.unknown_keys, copy_string(tprint("doc.format.%", key)));
+        return true, "";
+    }
+
+    scratch: Format_Config;
+    ok, message := apply_setting_text(*scratch, key, value, line_number);
+
+    if !ok return false, message;
+
+    array_add(*config.doc_format, Doc_Setting.{ copy_string(key), copy_string(value) });
+
+    return true, "";
+}
+
+is_doc_format_key :: (key: string) -> bool {
+    for DOC_FORMAT_KEYS if it == key return true;
+    return false;
+}
+
+doc_example_config :: (config: Format_Config) -> Format_Config {
+    inner := config;
+    for config.doc_format apply_setting_text(*inner, it.key, it.value, 0);
+    return inner;
 }
 
 // `line 0: message` -> `message`, for settings that did not come from a file.
@@ -522,142 +372,14 @@ edit_distance :: (a: string, b: string) -> int {
     return previous[b.count];
 }
 
-// Where a scan along a line of TOML is: inside a basic ("...", with escapes) or a literal ('...')
-// string, or not.
-Quote_Scan :: struct {
-    quote: u8;
-    escaped: bool;
-}
-
-// Feeds the next character to `scan`; true when it belongs to a string, quotes included.
-in_string :: (scan: *Quote_Scan, c: u8) -> bool {
-    if scan.quote {
-        if scan.escaped {
-            scan.escaped = false;
-        } else if c == #char "\\" && scan.quote == #char "\"" {
-            scan.escaped = true;
-        } else if c == scan.quote {
-            scan.quote = 0;
-        }
-
-        return true;
-    }
-
-    if c == #char "\"" || c == #char "'" {
-        scan.quote = c;
-        return true;
-    }
-
-    return false;
-}
-
-strip_comment :: (line: string) -> string {
-    scan: Quote_Scan;
-
-    for *line {
-        if in_string(*scan, it.*) continue;
-        if it.* == #char "#" return slice(line, 0, it_index);
-    }
-
-    return line;
-}
-
-// Brackets and braces opened minus closed in `text`, not counting those inside strings.
-bracket_delta :: (text: string) -> int {
-    scan: Quote_Scan;
-    delta := 0;
-
-    for text {
-        if in_string(*scan, it) continue;
-        if it == #char "[" || it == #char "{" delta += 1;
-        if it == #char "]" || it == #char "}" delta -= 1;
-    }
-
-    return delta;
-}
-
-parse_count :: (text: string, result: *int, low: int, high: int) -> bool {
-    if !text.count return false;
-
-    value := 0;
-
-    for text {
-        c := it;
-        if c < #char "0" || c > #char "9" return false;
-        value = value * 10 + (c - #char "0");
-        if value > high return false;
-    }
-
-    if value < low return false;
-
-    result.* = value;
-
+parse_count :: (value: *Toml.Toml_Value, result: *int, low: int, high: int) -> bool {
+    if value.kind != .INTEGER || value.integer < low || value.integer > high return false;
+    result.* = value.integer;
     return true;
 }
 
-parse_flag :: (text: string, result: *bool) -> bool {
-    if text == "true" {
-        result.* = true;
-        return true;
-    }
-
-    if text == "false" {
-        result.* = false;
-        return true;
-    }
-
-    return false;
-}
-
-parse_quoted :: (text: string) -> string, bool {
-    value, ok, rest := parse_quoted_prefix(text);
-    if !ok || trim(rest).count return "", false;
-    return value, true;
-}
-
-// The string at the start of `text`: basic ("..." with the escapes \" \\ \n \t \r) or literal
-// ('...', verbatim). `value` is newly allocated.
-parse_quoted_prefix :: (text: string) -> value: string, ok: bool, rest: string {
-    if text.count < 2 return "", false, text;
-
-    if text[0] == #char "'" {
-        close := find_index_from_left(slice(text, 1, text.count - 1), #char "'");
-        if close < 0 return "", false, text;
-
-        return copy_string(slice(text, 1, close)), true, slice(text, close + 2, text.count - close - 2);
-    }
-
-    if text[0] != #char "\"" return "", false, text;
-
-    out: String_Builder;
-    i := 1;
-
-    while i < text.count {
-        c := text[i];
-
-        if c == #char "\"" return builder_to_string(*out), true, slice(text, i + 1, text.count - i - 1);
-
-        if c == #char "\\" {
-            i += 1;
-            if i >= text.count break;
-
-            if text[i] == #char "n" {
-                append(*out, "\n");
-            } else if text[i] == #char "t" {
-                append(*out, "\t");
-            } else if text[i] == #char "r" {
-                append(*out, "\r");
-            } else if text[i] == #char "\"" || text[i] == #char "\\" {
-                append(*out, slice(text, i, 1));
-            } else {
-                return "", false, text;
-            }
-        } else {
-            append(*out, slice(text, i, 1));
-        }
-
-        i += 1;
-    }
-
-    return "", false, text;
+parse_flag :: (value: *Toml.Toml_Value, result: *bool) -> bool {
+    if value.kind != .BOOL return false;
+    result.* = value.boolean;
+    return true;
 }

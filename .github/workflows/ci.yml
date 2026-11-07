@@ -712,6 +712,8 @@ jobs:
     timeout-minutes: ${{ matrix.timeout || 60 }}
     env:
       CARGO_INCREMENTAL: '0'
+      # TOML1.1 independent reader; managed separately from the tools Python pin.
+      TOML_ORACLE_PYTHON: '3.15.0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
@@ -810,6 +812,82 @@ jobs:
           run=() require=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24") require=(--require-adapter)
           "${run[@]}" python3 -u tools/bindings/run_webgpu_native.py --jaic target/debug/jaic --test window --frames 120 "${require[@]}"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: ${{ !cancelled() && matrix.platform == 'linux-x64' && startsWith(matrix.tooling_part, '1/') }}
+        with: {python-version: '${{ env.TOML_ORACLE_PYTHON }}'}
+      - name: Focused TOML CI routing and pin regressions
+        if: ${{ !cancelled() && matrix.platform == 'linux-x64' && startsWith(matrix.tooling_part, '1/') }}
+        run: |
+          status=0
+          for suite in test_pins.py test_job_inputs.py test_ci_changes.py; do
+            python3 -m unittest discover -s tools/ci -p "$suite" || status=1
+          done
+          python3 -m unittest discover -s benchmarks/compare/toml -p 'test_*.py' || status=1
+          exit "$status"
+      - name: TOML independent settings and mutation oracles
+        if: ${{ !cancelled() && matrix.platform == 'linux-x64' && startsWith(matrix.tooling_part, '1/') }}
+        run: |
+          python3 tools/stdlib/toml/build_oracle.py --target-dir target --receipt target/toml-oracles/rust-build.json
+          target/release/jaic tools/stdlib/toml/settings.jai -O0 -exe settings -output_path target/toml-oracles
+          status=0
+          python3 -m unittest discover -s tools/stdlib/toml -p 'test_*.py' || status=1
+          python3 tools/stdlib/toml/settings.py --own target/toml-oracles/settings --rust target/release/examples/toml-oracle --report target/toml-oracles/settings.json || status=1
+          exit "$status"
+      - name: Complete pinned TOML decoder and encoder conformance
+        if: ${{ !cancelled() && ((startsWith(matrix.platform, 'linux-') && startsWith(matrix.tooling_part, '1/')) || (startsWith(matrix.platform, 'macos-') && matrix.shard == 'suites')) }}
+        run: |
+          status=0
+          python3 tools/stdlib/toml/run.py --jaic target/release/jaic --cache target/toml-conformance --report target/toml-conformance/default.json || status=1
+          python3 tools/stdlib/toml/run.py --jaic target/release/jaic --cache target/toml-conformance --report target/toml-conformance/statements.json --record-statements || status=1
+          exit "$status"
+      - name: TOML authored values and mutation agreement
+        if: ${{ !cancelled() && matrix.platform == 'linux-x64' && startsWith(matrix.tooling_part, '1/') }}
+        run: python3 tools/stdlib/toml/differential.py --own target/toml-conformance/decoder --rust target/release/examples/toml-oracle --report target/toml-oracles/differential.json
+      - name: Keep independent TOML oracle outcomes
+        if: ${{ always() && !cancelled() && matrix.platform == 'linux-x64' && startsWith(matrix.tooling_part, '1/') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: toml-independent-oracles
+          path: target/toml-oracles/*.json
+          if-no-files-found: error
+      - name: Complete pinned TOML conformance under WASI
+        if: ${{ !cancelled() && matrix.platform == 'linux-x64' && startsWith(matrix.tooling_part, '1/') }}
+        run: |
+          status=0
+          python3 tools/stdlib/toml/run_wasi.py --jaic target/release/jaic --cache target/toml-wasi-conformance --report target/toml-wasi-conformance/default.json || status=1
+          python3 tools/stdlib/toml/run_wasi.py --jaic target/release/jaic --cache target/toml-wasi-conformance --report target/toml-wasi-conformance/statements.json --record-statements || status=1
+          exit "$status"
+      - name: Require both WASI TOML profiles
+        if: ${{ always() && !cancelled() && matrix.platform == 'linux-x64' && startsWith(matrix.tooling_part, '1/') }}
+        run: |
+          test -s target/toml-wasi-conformance/default.json
+          test -s target/toml-wasi-conformance/statements.json
+      - name: Keep complete WASI TOML case outcomes
+        if: ${{ always() && !cancelled() && matrix.platform == 'linux-x64' && startsWith(matrix.tooling_part, '1/') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: toml-wasi-conformance-${{ matrix.platform }}
+          path: |
+            target/toml-wasi-conformance/default.json
+            target/toml-wasi-conformance/statements.json
+            target/toml-wasi-conformance/inventory.json
+            target/toml-wasi-conformance/adapter.wasm
+          if-no-files-found: error
+      - name: Require both TOML conformance profiles
+        if: ${{ always() && !cancelled() && ((startsWith(matrix.platform, 'linux-') && startsWith(matrix.tooling_part, '1/')) || (startsWith(matrix.platform, 'macos-') && matrix.shard == 'suites')) }}
+        run: |
+          test -s target/toml-conformance/default.json
+          test -s target/toml-conformance/statements.json
+      - name: Keep complete TOML case outcomes
+        if: ${{ always() && !cancelled() && ((startsWith(matrix.platform, 'linux-') && startsWith(matrix.tooling_part, '1/')) || (startsWith(matrix.platform, 'macos-') && matrix.shard == 'suites')) }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: toml-conformance-${{ matrix.platform }}
+          path: |
+            target/toml-conformance/default.json
+            target/toml-conformance/statements.json
+            target/toml-conformance/inventory.json
+          if-no-files-found: error
   upstream-smoke:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'upstream-smoke')
@@ -1555,6 +1633,31 @@ jobs:
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" --interp || status=1
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" -- -O2 || status=1
           exit $status
+      - name: Complete pinned TOML decoder and encoder conformance
+        if: ${{ !cancelled() && startsWith(matrix.shard, '1/') }}
+        run: |
+          status=0
+          controller=()
+          # The published x64 Go controller drives the native ARM64 parser under Windows 11.
+          if [[ "${{ matrix.cpu }}" == arm64 ]]; then controller=(--runner-asset windows-amd64.exe); fi
+          python tools/stdlib/toml/run.py --jaic "$JAIC" --cache target/toml-conformance --report target/toml-conformance/default.json --expected-windows-cpu "${{ matrix.cpu }}" "${controller[@]}" || status=1
+          python tools/stdlib/toml/run.py --jaic "$JAIC" --cache target/toml-conformance --report target/toml-conformance/statements.json --record-statements --expected-windows-cpu "${{ matrix.cpu }}" "${controller[@]}" || status=1
+          exit "$status"
+      - name: Require both TOML conformance profiles
+        if: ${{ always() && !cancelled() && startsWith(matrix.shard, '1/') }}
+        run: |
+          test -s target/toml-conformance/default.json
+          test -s target/toml-conformance/statements.json
+      - name: Keep complete TOML case outcomes
+        if: ${{ always() && !cancelled() && startsWith(matrix.shard, '1/') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: toml-conformance-windows-${{ matrix.cpu }}
+          path: |
+            target/toml-conformance/default.json
+            target/toml-conformance/statements.json
+            target/toml-conformance/inventory.json
+          if-no-files-found: error
       - name: Free disk space
         if: ${{ always() }}
         shell: pwsh

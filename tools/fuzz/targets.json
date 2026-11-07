@@ -55,5 +55,24 @@
     "allow": ["decode"],
     "hooks": "properties/Protobuf.jai",
     "known": {}
+  },
+  "Extensions/Toml": {
+    "deny": {
+      "parse_toml": "lifecycle hook pairs accepted documents with writer checks and destruction",
+      "free_toml": "requires an owned document, covered by lifecycle hooks",
+      "toml_get": "requires a valid document-owned node, covered by semantic comparison",
+      "toml_get_path": "requires a valid document-owned node and segment view, covered by lookup tests",
+      "toml_statement_path": "requires a parsed statement and caller buffer, covered by projection tests",
+      "write_toml": "requires a valid tree, covered by constructed-value and round-trip hooks",
+      "new_toml_document": "owning result requires paired destruction in lifecycle hooks",
+      "toml_new_value": "requires a document allocator and ownership registry",
+      "toml_set_text": "requires a string node in the owning document",
+      "toml_set_fraction": "requires a temporal node in the owning document",
+      "toml_insert": "requires detached same-document nodes; construction hook covers ownership",
+      "toml_push": "requires detached same-document nodes; array fixture hooks cover serialization",
+      "toml_error_path": "requires an initialized error record, covered by failure diagnostics"
+    },
+    "hooks": "properties/Toml.jai",
+    "known": {}
   }
 }

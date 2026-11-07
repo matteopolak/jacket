@@ -40,6 +40,9 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 
 ## Standard library
 
+- [TOML](extensions/toml.md): general values, semantic writing and formatter configuration
+- [TOML measurements](extensions/toml-performance.md) — historical broad comparisons
+- [TOML performance follow-up](extensions/toml-performance-followup.md) — current warm comparisons, allocation changes and reproduction
 - [Math](specs/stdlib/modules/math.md), [Extensions](extensions/README.md) (Io, Http, Tls, Json, [UI](extensions/ui.md), [Desktop](extensions/desktop.md) and the rest), [crypto helpers](stdlib/crypto.md), [MeowHash input safety](stdlib/meow-hash-safety.md)
 - [Native layout](stdlib-native-layout.md), [float conversion](stdlib-float-conversion.md), [third-party native libraries](tools/native-libs.md), [Unicode tables](tools/regex-unicode-tables.md), [benchmarks](tools/stdlib-benchmarks.md)
 - Postgres: [overview](postgres/design.md), [typed queries](postgres/typed-queries.md), [ORM](postgres/orm.md), [schema](postgres/schema.md), [migrations](postgres/migrations.md), [schema diff](postgres/diff.md), [COPY](postgres/copy.md), [managed server](postgres/managed.md), [conformance](postgres/conformance.md), [load test](postgres/benchmark.md)

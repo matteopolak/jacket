@@ -40,6 +40,7 @@ RULES = {
         (WORKFLOWS, r"python-version: '([\d.]+)'"),
         (ACTIONS, r"python-version: '([\d.]+)'"),
     ],
+    "python_toml": [(WORKFLOWS, r"TOML_ORACLE_PYTHON: '([\d.]+)'")],
     "cargo_fuzz": [(WORKFLOWS, r"tool: cargo-fuzz@([\d.]+)")],
     "ruff": [(WORKFLOWS, r"ruff==([\d.]+)")],
     "llvm_mingw": [(WORKFLOWS, r"LLVM_MINGW_VERSION: '(\d+)'")],

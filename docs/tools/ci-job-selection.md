@@ -8,9 +8,11 @@ For a gated job, `job_inputs.inputs()` collects:
 
 - every path in the job's `run:` lines and `with:` values, and in the composite actions it uses;
 - root and nested `.gitattributes` policies when an actual expanded step uses `actions/checkout`, because checkout can change exact file bytes. This dependency also matches new or deleted policies and conditional checkout steps; jobs without checkout do not gain it. Script literals and nested `env`/`with` keys named `uses` are not action references;
-- the closure of those scripts (Python imports and path strings; paths named in shell, PowerShell and Nix files);
+- the closure of those scripts (Python imports, path strings and exact sibling data/license/entry-source filenames; paths named in shell, PowerShell and Nix files);
 - for each `cargo build|test -p NAME`, the crate and its path dependencies, plus `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml` (dev-dependencies only for jobs that run tests);
 - for each `.jai` file a step compiles, the stdlib modules it reads (from `jaic -deps` if a binary exists, else a static scan).
+
+A Python literal naming an existing sibling file also follows that file, including `HERE / "pin.json"`, a license or a Jai entry source. The graph uses indexed filenames; add new inputs to the index (or use `git add -N`) before inspecting a local graph.
 
 `ci_changes.py` matches the changed files against each area's patterns and writes the `jobs=` and `<area>=` outputs `ci.yml` reads. If the computation fails, everything runs.
 
@@ -54,6 +56,8 @@ Everything else runs every test: any file outside those patterns (compiler, runt
 ## Configuration
 
 `ci_changes.py` reads the GitHub event variables (`GITHUB_EVENT_NAME`, `EVENT_BEFORE`, `SHA`, the pull request base). `JAIC_DEPS_JAIC` names a `jaic` for the stdlib closure. `GITHUB_REF` decides the branch rule above; `JACKET_TEST_CHANGED` is read by `stdlib_jacket_test.sh`.
+
+The first Linux x64 TOML tooling leg runs `test_pins.py`, `test_job_inputs.py` and `test_ci_changes.py` once with its pinned Python. This keeps pin isolation, input closure and matrix assignment regressions in a selectable relevant job group, without requiring the compiler test matrix. Extend those modules when changing the corresponding CI behavior; the TOML conformance predicates are covered in `test_ci_changes.py`.
 
 ## Jacket partition evidence
 

@@ -288,7 +288,7 @@ check_config_parsing :: () {
     note = format_unknown_setting_note("doc.format.indent_widht", "jacket.toml");
     if note != "unknown setting `doc.format.indent_widht` in jacket.toml (ignored); did you mean `doc.format.indent_width`?" fail("doc unknown key note: %", note);
 
-    docs_inline, docs_inline_ok := parse_config("doc.format.max_width = 60\n[doc]\nformat = { blank_lines_around_blocks = true }\n");
+    docs_inline, docs_inline_ok := parse_config("doc.format.max_width = 60\ndoc.format.blank_lines_around_blocks = true\n");
     if !docs_inline_ok || docs_inline.doc_format.count != 2 fail("inline and dotted [doc.format] forms not parsed");
 
     for string.["[doc.format]\nindent_width = x\n", "[doc.format]\nbrace_style = \"weird\"\n", "[doc.format]\nblank_line_before_return = 1\n", "[doc]\nformat = 3\n"] {

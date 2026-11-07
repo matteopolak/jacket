@@ -94,8 +94,8 @@ format_range :: (text: string, from: s64, to: s64, config: Format_Config = .{}) 
     return formatted.output, true, "";
 }
 
-// Parses the `[format]` section of jacket.toml text (see the docs for the keys). Other tables are
-// skipped; without a `[format]` section the result is the default config. Bad values are errors,
+// Parses a complete TOML 1.1 jacket.toml and consumes its `[format]`/`[doc.format]` settings.
+// Other tables are validated and ignored; without a `[format]` section the result is the default config. Bad values are errors,
 // reported as `line N: ...`; unknown keys are dropped and listed in `unknown_keys`.
 //
 // ```jai
@@ -145,7 +145,7 @@ format_apply_setting :: (config: *Format_Config, assignment: string) -> ok: bool
 
     if !known return false, tprint("unknown setting `%`", key);
 
-    ok, message := apply_key(config, key, value, 0);
+    ok, message := apply_setting_text(config, key, value, 0);
     if !ok return false, without_line_prefix(message);
 
     return true, "";
@@ -249,6 +249,7 @@ format_count_long_lines :: (text: string, max_width: int) -> int {
 
 #import "Basic";
 #import "String";
+Toml :: #import "Extensions/Toml";
 
 #load "lexer.jai";
 #load "config.jai";

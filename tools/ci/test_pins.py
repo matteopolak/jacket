@@ -38,6 +38,15 @@ class Pins(unittest.TestCase):
                 "python-version: '3.14'\n",
             )
 
+    def test_oracle_python_pin_does_not_rewrite_tools_python(self):
+        text = "python-version: '3.14'\nTOML_ORACLE_PYTHON: '3.15.0'\npython-version: '${{ env.TOML_ORACLE_PYTHON }}'\n"
+        _, regex = pins.RULES['python_toml'][0]
+        updated, count, changed = pins.rewrite(text, regex, '3.15.1')
+        self.assertEqual((count, changed), (1, 1))
+        self.assertIn("python-version: '3.14'", updated)
+        self.assertIn("TOML_ORACLE_PYTHON: '3.15.1'", updated)
+        self.assertIn("python-version: '${{ env.TOML_ORACLE_PYTHON }}'", updated)
+
     def test_llvm_forms_derive_from_the_one_pin(self):
         self.assertEqual(
             pins.llvm_env({"llvm": "31.4.1"}),
