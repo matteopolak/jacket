@@ -2,10 +2,14 @@
 
 import csv
 import io
+import shutil
 from pathlib import Path
 import struct
 import sys
 import xml.etree.ElementTree as ET
+import zlib
+
+from toolkit.repo import ROOT
 
 root = Path(sys.argv[1])
 root.mkdir(parents=True, exist_ok=True)
@@ -30,6 +34,82 @@ if len(sys.argv) > 2 and sys.argv[2] == "fixtures":
         for value in (row * 10, column * 10, 60 + row, 255)
     )
     (root / "gradient-resized.bgra").write_bytes(bgra)
+
+    def png_chunk(kind, data):
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data))
+        )
+
+    def png(channels, color_type):
+        rows = b"".join(
+            b"\0" + bytes(value for x in range(16) for value in channels(x, 15 - y))
+            for y in range(16)
+        )
+        return (
+            b"\x89PNG\r\n\x1a\n"
+            + png_chunk(
+                b"IHDR", struct.pack(">IIBBBBB", 16, 16, 8, color_type, 0, 0, 0)
+            )
+            + png_chunk(b"IDAT", zlib.compress(rows))
+            + png_chunk(b"IEND", b"")
+        )
+
+    def rgba(x, y):
+        return (60 + y, x * 10, y * 10, 0 if x == 0 else 128 if x == 1 else 255)
+
+    (root / "rgba.png").write_bytes(png(rgba, 6))
+    palette = bytes(v for y in range(16) for x in range(16) for v in rgba(x, y)[:3])
+    transparency = bytes(rgba(x, y)[3] for y in range(16) for x in range(16))
+    indices = b"".join(
+        b"\0" + bytes((15 - y) * 16 + x for x in range(16)) for y in range(16)
+    )
+    (root / "palette.png").write_bytes(
+        b"\x89PNG\r\n\x1a\n"
+        + png_chunk(b"IHDR", struct.pack(">IIBBBBB", 16, 16, 8, 3, 0, 0, 0))
+        + png_chunk(b"PLTE", palette)
+        + png_chunk(b"tRNS", transparency)
+        + png_chunk(b"IDAT", zlib.compress(indices))
+        + png_chunk(b"IEND", b"")
+    )
+    (root / "rgb.ppm").write_bytes(
+        b"P6\n16 16\n255\n"
+        + bytes(v for y in range(15, -1, -1) for x in range(16) for v in rgba(x, y)[:3])
+    )
+    (root / "rgba.qoi").write_bytes(
+        b"qoif"
+        + struct.pack(">II", 16, 16)
+        + bytes((4, 0))
+        + bytes(
+            v for y in range(15, -1, -1) for x in range(16) for v in (255, *rgba(x, y))
+        )
+        + bytes((0, 0, 0, 0, 0, 0, 0, 1))
+    )
+    shutil.copyfile(
+        ROOT / "stdlib/Extensions/Image/tests/fixtures/jpeg/block8.jpg",
+        root / "rgb.jpg",
+    )
+    oversized = (
+        b"\x89PNG\r\n\x1a\n"
+        + png_chunk(b"IHDR", struct.pack(">IIBBBBB", 8193, 8193, 8, 6, 0, 0, 0))
+        + png_chunk(b"IDAT", zlib.compress(b""))
+        + png_chunk(b"IEND", b"")
+    )
+    (root / "oversized.png").write_bytes(oversized)
+    (root / "gray-alpha.png").write_bytes(png(lambda x, y: (x * 10, 128), 4))
+    (root / "gray.pgm").write_bytes(b"P5\n16 16\n255\n" + bytes(range(256)))
+    (root / "truncated.png").write_bytes((root / "rgba.png").read_bytes()[:24])
+    # Uncompressed 32-bit TGA, bottom-up BGRA; preserves native-only acceptance.
+    tga = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, 16, 16, 32, 8)
+    tga += bytes(
+        v
+        for y in range(16)
+        for x in range(16)
+        for v in (y * 10, x * 10, 60 + y, rgba(x, y)[3])
+    )
+    (root / "rgba.tga").write_bytes(tga)
     sys.exit(0)
 
 data = (root / "package.simp").read_bytes()

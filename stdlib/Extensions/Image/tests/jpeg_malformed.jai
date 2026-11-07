@@ -25,41 +25,6 @@ find_fixture :: (name: string) -> [] u8 {
     return .[];
 }
 
-// Offset of the nth (from 0) marker segment with this code, or -1.
-find_marker :: (bytes: [] u8, code: u8, nth := 0) -> int {
-    seen := 0;
-    at := 2;
-
-    while at + 4 <= bytes.count {
-        if bytes[at] != 0xFF {
-            at += 1;
-            continue;
-        }
-
-        marker := bytes[at + 1];
-        if marker == 0 || marker == 0xFF || (marker >= 0xD0 && marker <= 0xD8) {
-            at += 1;
-            continue;
-        }
-
-        if marker == code {
-            if seen == nth return at;
-            seen += 1;
-        }
-
-        length := (cast(int) bytes[at + 2] << 8) | bytes[at + 3];
-
-        at += 2 + length;
-
-        // Entropy-coded data follows a scan header: skip to the next marker.
-        if marker == 0xDA {
-            while at + 1 < bytes.count && !(bytes[at] == 0xFF && bytes[at + 1] != 0 && !(bytes[at + 1] >= 0xD0 && bytes[at + 1] <= 0xD7)) at += 1;
-        }
-    }
-
-    return -1;
-}
-
 copy_of :: (bytes: [] u8) -> [] u8 {
     copy := NewArray(bytes.count, u8);
     memcpy(copy.data, bytes.data, bytes.count);
@@ -172,7 +137,7 @@ only_differs_in_mcu :: (image: Image, reference: Image, mcu: int) -> bool {
 
 main :: () {
     base := find_fixture("base444");
-    sof := find_marker(base, 0xC0);
+    sof := jpeg_find_marker(base, 0xC0);
 
     check(sof > 0, "base444 has a SOF0");
 
@@ -195,7 +160,7 @@ main :: () {
         copy[sof + 6] = 0;
         _, ok2, error2 := decode_image(copy);
 
-        check(!ok2 && error2 == "JPEG has a zero dimension", "zero height");
+        check(!ok2 && error2 == "JPEG deferred height has no DNL", "zero height requires DNL");
 
         for 5..8 copy[sof + it] = 0xFF;
 
@@ -233,7 +198,7 @@ main :: () {
     }
 
     // Scan header.
-    sos := find_marker(base, 0xDA);
+    sos := jpeg_find_marker(base, 0xDA);
 
     check(sos > 0, "base444 has a SOS");
     expect_error(base, sos + 4, 0, "bad scan header", "scan with no components");
@@ -249,7 +214,7 @@ main :: () {
         defer array_free(copy);
 
         while true {
-            at := find_marker(copy, 0xDB);
+            at := jpeg_find_marker(copy, 0xDB);
             if at < 0 break;
             copy[at + 1] = 0xFE;
         }
@@ -265,7 +230,7 @@ main :: () {
         defer array_free(copy);
 
         while true {
-            at := find_marker(copy, 0xC4);
+            at := jpeg_find_marker(copy, 0xC4);
             if at < 0 break;
             copy[at + 1] = 0xFE;
         }
@@ -276,7 +241,7 @@ main :: () {
     }
 
     // Tables.
-    dht := find_marker(base, 0xC4);
+    dht := jpeg_find_marker(base, 0xC4);
 
     expect_error(base, dht + 4, 0x20, "bad Huffman table", "Huffman class 2");
     expect_error(base, dht + 4, 0x04, "bad Huffman table", "Huffman table id 4");
@@ -293,10 +258,27 @@ main :: () {
         check(!ok && error == "bad Huffman table", "more than 256 symbols");
     }
 
-    dqt := find_marker(base, 0xDB);
+    dqt := jpeg_find_marker(base, 0xDB);
 
     expect_error(base, dqt + 4, 0x20, "bad quantization table", "quantization precision 2");
     expect_error(base, dqt + 4, 0x05, "bad quantization table", "quantization table id 5");
+    expect_error(base, dqt + 5, 0, "bad quantization table", "zero 8-bit quantizer");
+
+    for fixture: jpeg_fixtures {
+        if fixture.name != "wide_quant" continue;
+
+        wide := copy_of(jpeg_bytes(fixture.jpeg));
+
+        defer array_free(wide);
+        at := jpeg_find_marker(wide, 0xDB);
+
+        assert(at >= 0 && wide[at + 4] >> 4 == 1);
+        wide[at + 5] = 0;
+        wide[at + 6] = 0;
+        _, accepted, error := decode_image(wide);
+
+        check(!accepted && error == "bad quantization table", "zero 16-bit quantizer");
+    }
 
     // Cut-off headers.
     for length: 0..sof + 10 {
@@ -345,14 +327,14 @@ main :: () {
 
     // Progressive scan parameters.
     progressive := find_fixture("progressive420");
-    first := find_marker(progressive, 0xDA);
+    first := jpeg_find_marker(progressive, 0xDA);
 
     check(first > 0, "progressive420 has scans");
     count := cast(int) progressive[first + 4];
 
     expect_error(progressive, first + 5 + count * 2 + 1, 1, "bad progressive scan header", "a DC scan with a spectral end");
     expect_error(progressive, first + 5 + count * 2, 70, "bad progressive scan header", "a spectral start above 63");
-    second := find_marker(progressive, 0xDA, 1);
+    second := jpeg_find_marker(progressive, 0xDA, 1);
 
     check(second > 0, "progressive420 has a second scan");
 

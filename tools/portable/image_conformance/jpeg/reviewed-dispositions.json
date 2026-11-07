@@ -1,0 +1,160 @@
+{
+  "reviewed_by": "root",
+  "review_receipt": "root-image-policy-2026-11-05-v2",
+  "proposal_sha256": "eea9d925aaf7173303f6e38bcf6d1a6f1d629aed099bdb24974c434496444070",
+  "cases": [
+    {
+      "id": "codec-corpus/jpeg-conformance/crash-repro/jpeg-decoder/jd_169_corrupt_no_error.jpg",
+      "sha256": "cf0b1a160da784d51cc7144e31d8b91902e5da4a9c8e6ba3d67806c9f1e60ed1",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged-data recovery; different recovered pixels have no claimed normative oracle. Preserve measured maximum/mean errors and existing reference diagnostics, with no tolerance changes. Reference diagnostic: Corrupt JPEG data: premature end of data segment"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/crash-repro/jpeg-decoder/jd_251_fill_buffer.jpg",
+      "sha256": "a24684611e112bb6ec13f38ece3ad2960bf39387b09467f703e0c9a776bc67a1",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged-data recovery; different recovered pixels have no claimed normative oracle. Preserve measured maximum/mean errors and existing reference diagnostics, with no tolerance changes. Reference diagnostic: Premature end of JPEG file"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/crash-repro/jpeg-decoder-257/1133349251_i_5957_full.jpg",
+      "sha256": "0a36c17fb4a03ea398f0c039485399c38d26d478878fc0ab9e0956489e6918c4",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged-data recovery; different recovered pixels have no claimed normative oracle. Preserve measured maximum/mean errors and existing reference diagnostics, with no tolerance changes. Reference diagnostic: Premature end of JPEG file"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/crash-repro/jpeg-decoder-257/Greenwich 80.JPG",
+      "sha256": "5f187c4f04026afd5203ca3c5fc503c2312c653873b22fe54e0bc33c103edbaf",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged-data recovery; different recovered pixels have no claimed normative oracle. Preserve measured maximum/mean errors and existing reference diagnostics, with no tolerance changes. Reference diagnostic: Premature end of JPEG file"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/crash-repro/jpeg-decoder-257/fantasy-20180613-the-shrine-zhenshchina-koloss-kamni.jpg",
+      "sha256": "01a748d05b3f7c5f6c9b459ef764799e169ba2401cc61aa64b8b1c1a43f315ec",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged-data recovery; different recovered pixels have no claimed normative oracle. Preserve measured maximum/mean errors and existing reference diagnostics, with no tolerance changes. Reference diagnostic: Premature end of JPEG file"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/crash-repro/jpeg-decoder-257/textures-20181017-osen-listia-fon-background-autumn-leaves-osennie-maple.jpg",
+      "sha256": "2ba653ff8aec270bdec9dcb219829617042d6e4bf85f9eb9e3847f0911a0c38e",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged-data recovery; different recovered pixels have no claimed normative oracle. Preserve measured maximum/mean errors and existing reference diagnostics, with no tolerance changes. Reference diagnostic: Premature end of JPEG file"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/crash-repro/zune-jpeg/zj_008_shifted_rows.jpg",
+      "sha256": "5a00bdfcdfab403d2f366bfca7e246373cc5bdb09a3a770a5e16f1606b0ff504",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged-data recovery; different recovered pixels have no claimed normative oracle. Preserve measured maximum/mean errors and existing reference diagnostics, with no tolerance changes. Reference diagnostic: Corrupt JPEG data: 33 extraneous bytes before marker 0xd2"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/crash-repro/zune-jpeg/zj_067_no_more_bytes.jpg",
+      "sha256": "3125bafa9aa26e58dc408f9b376f61f1b8c85a8829b4a113e22d54f05804dc6d",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged-data recovery; different recovered pixels have no claimed normative oracle. Preserve measured maximum/mean errors and existing reference diagnostics, with no tolerance changes. Reference diagnostic: Premature end of JPEG file"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/1cbb1bb37d62c44f67374cd451643dc4.jpg",
+      "sha256": "7b42873450fad46402fbcdab2463dc85067f14ecabdf2c222185190ad381aa89",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged data handled by the documented recovery policy; acceptance and any measured pixel mismatch remain visible. Reference diagnostic: Corrupt JPEG data: premature end of data segment"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/316be81dfdeeb942e904feb3a77f4f83.jpg",
+      "sha256": "06239c321880733aad329338a647b565bf7321d74523ea3fc3b6ced45d7b2058",
+      "expectation": "retained-compatibility-extension",
+      "reason": "P8 SOF2 with 16-bit quantizers (maximum403). Original T81 B2.4.1 disallows this combination, but existing API deliberately supports wide quantizers and the independent corpus also has a valid-labelled 16bit-qtables case. Proposed retained interoperability extension, not strict T81 conformance."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/32d08f4a5eb10332506ebedbb9bc7257.jpg",
+      "sha256": "e0dd0577b6df911c09b66d4fbc6cd90f5b1addff8f5c5c8412d5b2e3f537aaa7",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged data handled by the documented recovery policy; acceptance and any measured pixel mismatch remain visible. Reference diagnostic: Premature end of JPEG file"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/4838ece0d3900220d33528ee027289bc.jpg",
+      "sha256": "79458c8f88ad6578c48f4a0e111064d24d4ddbb89c4781f33bf4632ca4a7593e",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Two extraneous 00 bytes at offsets799\u2013800 between APP0 and DQT; preserve reference warning and measured exact pixel result as documented marker-boundary recovery, not a valid codestream claim."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/865db3dd2d380626f16b6f9dc6d62dba.jpg",
+      "sha256": "0e333f7fa22fe0a080ead395fefa9d23db99072110b4371e1e581890f3d2b019",
+      "expectation": "reject",
+      "reason": "Root-reviewed independent full Huffman walk proves two zero residual padding bits at byte3342. Require generic actual-bit scan/restart boundary validation, with normal/synthetic bit handling and no filename exception. Preserve original acceptance failure, corrected-bit positive and independent coefficient hashes."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/d22db5be7594c17a18a047ca9264ea0a.jpg",
+      "sha256": "ff20d5d0ad75e648b1ea388f65fb41d02bd2a049cd22ef86a4648b357bde94ce",
+      "expectation": "metadata-outside-core",
+      "reason": "Root-reviewed report establishes JFIF1.00 plus JFXX profile conflict; bounded exact RGB thumbnail and full main-image baseline entropy walk found no additional defect. Pixel decoder may ignore application metadata; retain original invalid label and all bounds/pixel checks, no whole-file/JFIF conformance claim."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/dc-predictor-overflow.jpg",
+      "sha256": "94f3270e02c0bb6816cf81f35a3398821fce968ee7e65a8b700c71d4bac43d49",
+      "expectation": "documented-recovery",
+      "reason": "Recovery/safety/interoperability observation only; retain exact warnings and pixel mismatches. Reference-reported damage is not independently validated entropy or a valid-input pixel pass. Reference-reported damaged data handled by the documented recovery policy; acceptance and any measured pixel mismatch remain visible. Reference diagnostic: Corrupt JPEG data: premature end of data segment"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/image00971.jpg",
+      "sha256": "4793aef30d2d042f15723bf22fa8c5b9932c6b5e97bc090e7a82c0845b2a47db",
+      "expectation": "metadata-outside-core",
+      "reason": "Bounded APP1 application payload starts with Adobe XMP URI, not Exif despite upstream SOURCES labeling. Pixel decoder does not parse XMP; T81 B2.4.6 leaves APP payload semantics to applications. Reference pixels exact without warnings."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/image01088.jpg",
+      "sha256": "99366772dd3e323d52bf6667b2955c8a2859f0ba9d88d96c2c0a0ade16d96d9e",
+      "expectation": "metadata-outside-core",
+      "reason": "Bounded APP1 application payload starts with Adobe XMP URI, not Exif despite upstream SOURCES labeling. Pixel decoder does not parse XMP; T81 B2.4.6 leaves APP payload semantics to applications. Reference pixels exact without warnings."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/image01137.jpg",
+      "sha256": "d28160c63cbb4c9a9709e917b1bf0208d6240d1d3e22b28ec23abb08f957c52c",
+      "expectation": "metadata-outside-core",
+      "reason": "Bounded APP1 application payload starts with Adobe XMP URI, not Exif despite upstream SOURCES labeling. Pixel decoder does not parse XMP; T81 B2.4.6 leaves APP payload semantics to applications. Reference pixels exact without warnings."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/image01551.jpg",
+      "sha256": "ef8e654304d58238af70f4ba8f52b095c8d801ebba0dfb6b089b53d835c36c5a",
+      "expectation": "metadata-outside-core",
+      "reason": "Bounded APP1 application payload starts with Adobe XMP URI, not Exif despite upstream SOURCES labeling. Pixel decoder does not parse XMP; T81 B2.4.6 leaves APP payload semantics to applications. Reference pixels exact without warnings."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/image01713.jpg",
+      "sha256": "5281b682dc913fee5a3b7d172bfb8c8068a1bcc3138c3d29f98db34bc807798c",
+      "expectation": "metadata-outside-core",
+      "reason": "Bounded APP1 application payload starts with Adobe XMP URI, not Exif despite upstream SOURCES labeling. Pixel decoder does not parse XMP; T81 B2.4.6 leaves APP payload semantics to applications. Reference pixels exact without warnings."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/image01980.jpg",
+      "sha256": "0eda850fefce6ae4c148815bfb20962309b75e542de421845615ccef7a962f00",
+      "expectation": "metadata-outside-core",
+      "reason": "Bounded APP1 application payload starts with Adobe XMP URI, not Exif despite upstream SOURCES labeling. Pixel decoder does not parse XMP; T81 B2.4.6 leaves APP payload semantics to applications. Reference pixels exact without warnings."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/invalid/image02206.jpg",
+      "sha256": "527ae341310acbdeedf60d1087a23081ed279e3e6ecdd7e4b82d586acfbc0735",
+      "expectation": "metadata-outside-core",
+      "reason": "Bounded APP1 application payload starts with Adobe XMP URI, not Exif despite upstream SOURCES labeling. Pixel decoder does not parse XMP; T81 B2.4.6 leaves APP payload semantics to applications. Reference pixels exact without warnings."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/valid/mjpeg.jpg",
+      "sha256": "7762b7960f899868bf60dfbb0b8a66e5563b040b9d889c1c097bdf938ce972a0",
+      "expectation": "reject",
+      "reason": "Standalone stateless JPEG API has no installed external Huffman table context; rejection is required here. Do not guess defaults from AVI1. Retain this as unverified external-context interoperability, not a passed complete MJPEG profile.",
+      "classification": "external-context-required"
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/valid/partial_progressive.jpg",
+      "sha256": "3b809d450dedbe4fc8b12afc57e64f296eee89ae61e69563e7b44e4e9049e7d9",
+      "expectation": "reject",
+      "reason": "T81 B2.3/G1.1.1.1-.2: component3 AC refinement at byte1310 has Ah1/Al0 without prior AC initialization; also non-marker gap bytes. Reference recovers with67warnings; valid directory label is not a conforming progression."
+    },
+    {
+      "id": "codec-corpus/jpeg-conformance/valid/progressive-missing-dc.jpg",
+      "sha256": "102f457601e15b5d44c6afad9d8a79e32338081012deb5878e46a65b859c3a9e",
+      "expectation": "reject",
+      "reason": "T81 B2.3/G1.1.1.1-.2: sole SOS starts AC coefficient1 with no DC scan. Reference warns about inconsistent progression. Valid directory label conflicts with progression syntax."
+    }
+  ],
+  "unresolved_cases": [],
+  "forensic_report_sha256": "225cfd9b553dc794944c49138edcf8be95139cbcd58294d15eaa026d16fa3552"
+}

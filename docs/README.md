@@ -43,7 +43,7 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 - [TOML](extensions/toml.md): general values, semantic writing and formatter configuration
 - [TOML measurements](extensions/toml-performance.md) — historical broad comparisons
 - [TOML performance follow-up](extensions/toml-performance-followup.md) — current warm comparisons, allocation changes and reproduction
-- [Math](specs/stdlib/modules/math.md), [Extensions](extensions/README.md) (Io, Http, Tls, Json, [UI](extensions/ui.md), [Desktop](extensions/desktop.md) and the rest), [crypto helpers](stdlib/crypto.md), [MeowHash input safety](stdlib/meow-hash-safety.md)
+- [Math](specs/stdlib/modules/math.md), [Extensions](extensions/README.md) (Io, Http, Tls, Json, [UI](extensions/ui.md), [Desktop](extensions/desktop.md) and the rest), [crypto helpers](stdlib/crypto.md), [MeowHash input safety](stdlib/meow-hash-safety.md), [ICO file creation](stdlib/ico-files.md)
 - [Native layout](stdlib-native-layout.md), [float conversion](stdlib-float-conversion.md), [third-party native libraries](tools/native-libs.md), [Unicode tables](tools/regex-unicode-tables.md), [benchmarks](tools/stdlib-benchmarks.md)
 - Postgres: [overview](postgres/design.md), [typed queries](postgres/typed-queries.md), [ORM](postgres/orm.md), [schema](postgres/schema.md), [migrations](postgres/migrations.md), [schema diff](postgres/diff.md), [COPY](postgres/copy.md), [managed server](postgres/managed.md), [conformance](postgres/conformance.md), [load test](postgres/benchmark.md)
 
@@ -53,6 +53,7 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 - Quality: [diagnostic coverage](tools/diagnostic-coverage.md), [stdlib doc gaps](tools/stdlib-doc-gaps.md), [determinism](tools/determinism.md), [coverage](tools/coverage.md), [Rust coverage](tools/rust-coverage.md), [sanitizers and Miri](tools/sanitizers.md), [mutation testing](tools/mutation-testing.md).
 - Fuzzing: [stdlib fuzzing](tools/stdlib-fuzzing.md), [language server typing sessions](tools/lsp-fuzzing.md), [language server oracle](tools/lsp-oracle.md).
 - Performance: [benchmarks and profiling](tools/benchmarks.md), [stdlib benchmarks](tools/stdlib-benchmarks.md), [library comparisons](tools/library-comparisons.md), [performance gate](tools/perf-gate.md).
+- Image codecs: [coverage, alternatives and conformance](tools/image-conformance.md).
 - Corpus and releases: [upstream corpus](tools/upstream-corpus.md), [dogfood applications](tools/dogfood.md), [releases](tools/releases.md), [release smoke tests](tools/release-smoke.md), [Windows probe](tools/windows-probe.md), [license](license.md).
 
 ## Reference

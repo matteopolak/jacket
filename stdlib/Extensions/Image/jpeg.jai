@@ -37,6 +37,7 @@ decode_jpeg :: (data: [] u8, max_pixels: s64) -> image: Image, ok: bool, error: 
     d.end = data.count;
     d.pos = 2;
     d.adobe_transform = -1;
+    d.dnl_at = -1;
 
     error := jpeg_read_segments(d, max_pixels);
     if error.count return .{}, false, error;
@@ -70,6 +71,7 @@ Jpeg_Component :: struct {
     quant_taken: bool;
     quant: [64] s32; // dequantizers in zigzag order
     quant_natural: [64] s32;
+    bit_levels: [64] s8; // last transmitted progressive level, or -1 before the first scan
 }
 
 Jpeg_Decoder :: struct {
@@ -98,6 +100,8 @@ Jpeg_Decoder :: struct {
     adobe_transform: s32;
     adobe_seen: bool;
     jfif_seen: bool;
+    dnl_at: s64;
+    dnl_seen: bool;
 
     comps: [4] Jpeg_Component;
     quant_defined: [4] bool;
@@ -131,7 +135,9 @@ jpeg_read_segments :: (d: *Jpeg_Decoder, max_pixels: s64) -> string {
         code := d.data[d.pos];
 
         d.pos += 1;
-        if code == 0 || code == 1 || (code >= 0xD0 && code <= 0xD8) continue;
+        if code == 0 || code == 1 || (code >= 0xD0 && code <= 0xD7) continue;
+        if code == 0xD8 return "JPEG has more than one start marker";
+        if code == 0xDE || code == 0xDF return "hierarchical JPEG is not supported";
         if code == 0xD9 break;
 
         if d.pos + 2 > d.end return "truncated JPEG";
@@ -162,8 +168,12 @@ jpeg_read_segments :: (d: *Jpeg_Decoder, max_pixels: s64) -> string {
         } else if code == 0xDD {
             if size < 2 return "bad restart interval segment";
             d.restart_interval = jpeg_be16(segment);
+        } else if code == 0xDC {
+            if !d.frame_seen || d.scans != 1 || d.dnl_seen || d.pos - 1 != d.dnl_at return "DNL must follow the first JPEG scan exactly once";
+            if size < 2 || jpeg_be16(segment) != d.height return "bad JPEG line count";
+            d.dnl_seen = true;
         } else if code == 0xE0 {
-            if size >= 5 && segment[0] == #char "J" && segment[1] == #char "F" && segment[2] == #char "I" && segment[3] == #char "F" && segment[4] == 0 d.jfif_seen = true;
+            if size >= 14 && segment[0] == #char "J" && segment[1] == #char "F" && segment[2] == #char "I" && segment[3] == #char "F" && segment[4] == 0 d.jfif_seen = true;
         } else if code == 0xEE {
             if size >= 12 && segment[0] == #char "A" && segment[1] == #char "d" && segment[2] == #char "o" && segment[3] == #char "b" && segment[4] == #char "e" {
                 d.adobe_seen = true;
@@ -174,6 +184,8 @@ jpeg_read_segments :: (d: *Jpeg_Decoder, max_pixels: s64) -> string {
             error = jpeg_read_scan(d, segment, size);
             if error.count return error;
             continue;
+        } else if !(code >= 0xE0 && code <= 0xEF) && code != 0xFE {
+            return "unsupported JPEG marker";
         }
 
         if error.count return error;
@@ -183,6 +195,7 @@ jpeg_read_segments :: (d: *Jpeg_Decoder, max_pixels: s64) -> string {
 
     if !d.frame_seen return "JPEG has no frame header";
     if d.scans == 0 return "JPEG has no image data";
+    if d.dnl_at >= 0 && !d.dnl_seen return "JPEG line count was not reached";
     if d.progressive jpeg_finish_progressive(d);
 
     return "";
@@ -206,6 +219,8 @@ jpeg_read_quant_tables :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string 
             } else {
                 d.quant_tables[id][it] = jpeg_be16(segment + at + it * 2);
             }
+
+            if d.quant_tables[id][it] == 0 return "bad quantization table";
         }
 
         d.quant_defined[id] = true;
@@ -240,6 +255,60 @@ jpeg_read_huffman_tables :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> strin
     return "";
 }
 
+// Reads only marker framing through the first entropy segment, before allocating planes.
+// For example, a zero-height SOF followed by a one-line DNL allocates one line, not zero.
+jpeg_resolve_height :: (d: *Jpeg_Decoder, at: s64, declared: s32) -> height: s32, dnl_at: s64, error: string {
+    height = declared;
+    dnl_at = -1;
+    entropy := false;
+    bytes := string.{ d.end, d.data };
+
+    while at < d.end {
+        if entropy {
+            at = Byte_Search.find(bytes, 0xFF, at);
+            if at < 0 break;
+        }
+
+        if at >= d.end break;
+        if d.data[at] != 0xFF return 0, -1, "bad JPEG marker framing";
+        while at < d.end && d.data[at] == 0xFF at += 1;
+        if at >= d.end break;
+
+        code_at := at;
+        code := d.data[at];
+
+        at += 1;
+        if entropy && (code == 0 || (code >= 0xD0 && code <= 0xD7)) continue;
+
+        if entropy {
+            if code != 0xDC break;
+            if at + 4 > d.end || jpeg_be16(d.data + at) < 4 return 0, -1, "bad JPEG line count segment";
+
+            if at + jpeg_be16(d.data + at) > d.end return 0, -1, "truncated JPEG line count segment";
+
+            height = jpeg_be16(d.data + at + 2);
+            if height == 0 return 0, -1, "JPEG has a zero line count";
+
+            return height, code_at, "";
+        }
+
+        if code == 0xDC return 0, -1, "DNL precedes the first JPEG scan";
+        if code == 0xD9 break;
+        if code == 0 || code == 1 || (code >= 0xD0 && code <= 0xD8) continue;
+        if at + 2 > d.end return 0, -1, "truncated JPEG";
+
+        length := cast(s64) jpeg_be16(d.data + at);
+        if length < 2 || at + length > d.end return 0, -1, "truncated JPEG";
+
+        at += length;
+        if code == 0xDA entropy = true;
+    }
+
+    if height == 0 return 0, -1, "JPEG deferred height has no DNL";
+
+    return height, -1, "";
+}
+
 jpeg_read_frame :: (d: *Jpeg_Decoder, segment: *u8, size: s64, progressive: bool, max_pixels: s64) -> string {
     if d.frame_seen return "JPEG has more than one frame";
     if size < 6 return "bad frame header";
@@ -249,9 +318,15 @@ jpeg_read_frame :: (d: *Jpeg_Decoder, segment: *u8, size: s64, progressive: bool
     width := jpeg_be16(segment + 3);
     ncomp := cast(s32) segment[5];
 
-    if width == 0 || height == 0 return "JPEG has a zero dimension";
+    if width == 0 return "JPEG has a zero dimension";
     if ncomp != 1 && ncomp != 3 && ncomp != 4 return "unsupported number of JPEG components";
     if size != 6 + 3 * ncomp return "bad frame header";
+
+    resolved, dnl_at, height_error := jpeg_resolve_height(d, d.pos + size + 2, height);
+    if height_error.count return height_error;
+
+    height = resolved;
+    d.dnl_at = dnl_at;
     if cast(s64) width * height > max_pixels return "image is larger than the pixel limit";
 
     hmax: s32 = 1;
@@ -260,6 +335,13 @@ jpeg_read_frame :: (d: *Jpeg_Decoder, segment: *u8, size: s64, progressive: bool
     for 0..ncomp - 1 {
         c := *d.comps[it];
         c.id = segment[6 + it * 3];
+
+        for previous: 0..it - 1 {
+            if d.comps[previous].id == c.id return "duplicate JPEG frame component";
+        }
+
+        for level: 0..63 c.bit_levels[level] = -1;
+
         c.h = segment[7 + it * 3] >> 4;
         c.v = segment[7 + it * 3] & 15;
         c.quant_id = segment[8 + it * 3];

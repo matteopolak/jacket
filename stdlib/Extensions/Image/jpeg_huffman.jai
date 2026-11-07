@@ -211,6 +211,24 @@ jpeg_refill_slow :: (d: *Jpeg_Decoder) #no_abc {
     }
 }
 
+// Checks only real alignment bits at an observed entropy boundary. Synthetic refill bits
+// and intervals with unread entropy retain the decoder's separate damaged-data recovery.
+jpeg_padding_valid :: (d: *Jpeg_Decoder) -> bool {
+    real_bits := d.nbits - d.pad;
+    if real_bits <= 0 || real_bits > 7 return true;
+
+    boundary := d.marker != 0 || d.pos >= d.end;
+    if !boundary && d.pos + 1 < d.end {
+        boundary = d.data[d.pos] == 0xFF && d.data[d.pos + 1] != 0;
+    }
+
+    if !boundary return true;
+
+    remaining := d.bits >> cast(u64) (64 - real_bits);
+
+    return remaining == (cast(u64) 1 << cast(u64) real_bits) - 1;
+}
+
 // Called between restart intervals: drops the buffered bits and finds the next RSTn marker.
 // `expected` is the number (0..7) the next restart marker should carry; `skipped` returns how
 // many whole intervals were lost when the marker found is further ahead. False when the entropy

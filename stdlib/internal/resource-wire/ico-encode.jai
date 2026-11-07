@@ -72,6 +72,16 @@ create_ico_file :: (x: s32, y: s32, comp: s32, image_data: *u8) -> string {
             return "";
         }
 
+        if comp == 4 {
+            mask := result.data + cursor + 40 + size * size * 4;
+            stride := ((size + 31) / 32) * 4;
+
+            for row: 0..size - 1 for column : 0..size - 1 {
+                alpha := result.data[cursor + 40 + (row * size + column) * 4 + 3];
+                if alpha == 0 mask[row * stride + column / 8] |= cast(u8) (128 >> (column % 8));
+            }
+        }
+
         cursor += length;
     }
 

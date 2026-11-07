@@ -33,7 +33,6 @@ parser.add_argument("--native-libs", type=Path)
 parser.add_argument("--compiler", type=Path)
 parser.add_argument("--formatter", type=Path)
 parser.add_argument("--linter", type=Path)
-parser.add_argument("--probe-unsupported-wasi-images", action="store_true")
 parser.add_argument("--lint-only", action="store_true", help="seven source/lint target contexts; no program execution")
 args = parser.parse_args()
 output = args.output_root.resolve()
@@ -63,48 +62,57 @@ def run(*args):
     print("+", *map(str, args), flush=True)
     subprocess.run(list(map(str, args)), cwd=ROOT, env=env, check=True)
 
-def wasm_test(source, name):
+def check_gdi(name):
+    """Read generated icons through Win32 after each mode; e.g. check_gdi("ico-gdi")."""
+    if name == "ico-gdi" and os.name == "nt":
+        run(sys.executable, "tools/portable/portable_data/sdk_icon_render.py", output)
+
+def wasm_test(source, name, *arguments):
     wasm = output / f"{name}.wasm"
     try:
         run(compiler, "-os", "wasm", "-O2", source, "-exe", wasm)
-        run("node", "--no-warnings", "tools/wasi_run.mjs", wasm, output)
+        run("node", "--no-warnings", "tools/wasi_run.mjs", wasm, *(arguments or (output,)))
     except subprocess.CalledProcessError:
         failures.append(f"WASI {name}")
 
+run(sys.executable, "tools/portable/test_portable_data_arguments.py")
 run(sys.executable, "tools/portable/portable_data/api_inventory.py")
 run(formatter, "--check", *sources)
 context_lint()
 run(sys.executable, "tools/portable/portable_data/wire_consumer.py", output, "fixtures")
 PROGRAMS = {
     "ico-wire": "stdlib/Ico_File/tests/wire.jai",
+    "ico-gdi": "stdlib/Ico_File/tests/gdi.jai",
     "ico-filename": "stdlib/Ico_File/tests/filename.jai",
     "package-contract": "stdlib/Simple_Package/tests/package.jai",
     "subtitles-contract": "stdlib/Subtitles/tests/parsing.jai",
     "icon-plugin": "stdlib/Icon/tests/plugin.jai",
     "icon-phase": "stdlib/Icon/tests/phase.jai",
 }
-for name in ("ico-wire", "ico-filename", "package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
+for name in ("ico-wire", "ico-gdi", "ico-filename", "package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
     source = PROGRAMS[name]
     # ico-filename reads its bitmaps from one folder and writes to another; both are `output` here.
     arguments = (output, output) if name == "ico-filename" else (output,)
     run(compiler, "-interp", source, "--", *arguments)
+    check_gdi(name)
     for mode in ("O0", "O2"):
         binary = output / f"{name}-{mode}"
         run(compiler, f"-{mode}", source, "-exe", binary)
         run(binary, *arguments)
+        check_gdi(name)
 for name in ("package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
     wasm_test(PROGRAMS[name], name)
+wasm_test(PROGRAMS["ico-filename"], "ico-filename", output, output)
 resource_test = "stdlib/Ico_File/tests/resource.jai"
 run(compiler, "-interp", resource_test, "--", output)
 for mode in ("O0", "O2"):
     binary = output / f"resource-directory-{mode}"
     run(compiler, f"-{mode}", resource_test, "-exe", binary)
     run(binary, output)
-if args.probe_unsupported_wasi_images:
-    # Explicit unsupported-target probe: failures stay failures and exit nonzero.
-    wasm_test("stdlib/Ico_File/tests/wire.jai", "ico-wire")
-    wasm_test("stdlib/Ico_File/tests/filename.jai", "ico-filename")
-    wasm_test(resource_test, "resource-directory")
+wasm_test(PROGRAMS["ico-wire"], "ico-wire")
+wasm_test(PROGRAMS["ico-gdi"], "ico-gdi")
+check_gdi("ico-gdi")
+wasm_test(resource_test, "resource-directory")
 for mode in ("O0", "O2"):
     binary = output / f"manifest-{mode}"
     run(compiler, f"-{mode}", "stdlib/Windows_Resources/tests/manifest.jai", "-exe", binary)

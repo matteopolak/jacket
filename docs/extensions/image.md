@@ -20,11 +20,11 @@ An `Image` is `width`, `height`, `format` and `pixels`, rows packed top to botto
 - `decode_image` picks the decoder from the signature (`detect_image_format`) and returns the file's own format; `decode_image_as` then calls `convert`.
 - **PNG**: returns the nearest of the four 8-bit formats. Palettes expand, a `tRNS` key adds alpha, low-depth gray scales to 0..255, 16-bit keeps the high byte. All filters and Adam7 work. Critical-chunk CRCs are checked; other ancillary chunks are ignored, and APNG yields only the default image. The decoder inflates `IDAT` straight into one buffer sized from the header, unfilters with loops specialised on bytes per pixel (the Up filter uses SIMD), and for common layouts reuses that buffer as `pixels`.
 - **`encode_png`**: levels 1-8 pick one filter per row by a sampled sum-of-absolute-values heuristic; level 9 tries all five over the whole row; level 0 stores. No palette reduction.
-- **QOI**: 3 or 4 channels. **BMP**: OS/2, V3-V5 headers, palettes, RLE, bitfields, bottom-up and top-down; `encode_bmp` writes 24-bit or 32-bit with alpha. **PNM**: `P2/P3/P5/P6`; `encode_ppm` writes `P6` or `P5`.
-- **JPEG**: baseline, extended and progressive Huffman, 8-bit, any sampling factors 1-4, restart intervals. One component gives `GRAY8`, everything else `RGB8` (YCbCr, Adobe RGB, CMYK/YCCK). Arithmetic, 12-bit, lossless and hierarchical files are refused; EXIF orientation is not applied. Damaged data never goes out of bounds: truncated entropy data stays mid-grey, and a bad restart interval costs only its own MCUs.
+- **QOI**: 3 or 4 channels. The API requires one fully framed file: an exact end marker, no excess chunks and no run past the declared pixel count. **BMP**: OS/2, V3-V5 headers, palettes, RLE, bitfields, bottom-up and top-down; `encode_bmp` writes 24-bit or 32-bit with alpha. **PNM**: `P2/P3/P5/P6`; `encode_ppm` writes `P6` or `P5`.
+- **JPEG**: baseline, extended and progressive Huffman, 8-bit, any sampling factors 1-4, restart intervals. One component gives `GRAY8`, everything else `RGB8` (YCbCr, Adobe RGB, CMYK/YCCK). Deferred height is resolved from the DNL marker after the first scan before allocating pixels. JFIF takes precedence over conflicting Adobe color hints; ordinary CMYK and Adobe-inverted CMYK use their respective conversions. Arithmetic, 12-bit, lossless and hierarchical files are refused; EXIF orientation is not applied. Structural errors, including zero quantizers, invalid scan order or progressive refinement history, are rejected. DNL validates dimensions and placement; the permissive entropy reader does not certify that the encoded MCU-row count matches that declaration. Truncated entropy data is recovered with neutral samples, and a bad restart interval costs only its own MCUs; this recovery is not strict validation of every damaged stream.
 - **`convert`** has one loop per format pair from a single template. Gray from colour is Rec. 709 luma in fixed point; alpha is added as 255 and dropped without compositing.
 - **`resize`**: `NEAREST`, `BILINEAR`, or `BOX` (averages the exact area; best for big shrinks). Filtered modes are separable with weights summing to exactly one. Alpha is not premultiplied, so call `premultiply_alpha` first if transparent colours must not bleed. `crop` returns `ok = false` for an empty or outside rectangle; `flip_*` work in place; `rotate_90` returns a new image.
-- ICO: `decode_ico(data, entry = -1)` decodes one icon entry (PNG-compressed or 32/24-bit truecolor BMP) and picks the largest when `entry` is `-1`. Lives in `ico.jai`; `decode_image` doesn't detect ICO files, so call it directly.
+- ICO: `decode_ico(data, entry = -1)` decodes one icon entry (PNG-compressed or 32/24-bit truecolor BMP) and picks the largest when `entry` is `-1`. Lives in `ico.jai`; `decode_image` doesn't detect ICO files, so call it directly. AND bits become transparency; background-dependent legacy XOR/invert effects are not represented by the RGBA result.
 
 ## How to change it
 
@@ -32,7 +32,7 @@ An `Image` is `width`, `height`, `format` and `pixels`, rows packed top to botto
 - Check sizes with `image_size_ok` and the data length before allocating; call `image_is_valid` at the top of anything taking an `Image`.
 - New pixel format: add it to `Pixel_Format`, `bytes_per_pixel`, `has_alpha` and every pair in `convert` (the `#complete` switches fail to compile until you do).
 - PNG unfilter kernels are `png_unfilter_bpp` (`$BPP` is compile-time) and `png_paeth`; `png_filter_rows` is the encoder's mirror and must pick the same predictors.
-- JPEG: sampling and colour are in `jpeg_output.jai`; a new scan type goes in `jpeg_decode_scan`. The hot procedures are `#no_abc`, so keep every index guarded and rerun `tests/jpeg_robust.jai` plus a fuzz run under `-sanitize address`. Fixtures come from `tests/fixtures/jpeg/make_fixtures.sh` (needs `cjpeg`, `djpeg`, `python3`).
+- JPEG: sampling and colour are in `jpeg_output.jai`; a new scan type goes in `jpeg_decode_scan`. Keep DNL preflight and normal marker validation consistent, and maintain each coefficient's progressive bit history in `jpeg_read_scan`. The hot procedures are `#no_abc`, so keep every index guarded and rerun `tests/jpeg_robust.jai` plus a fuzz run under `-sanitize address`. Fixtures come from `tests/fixtures/jpeg/make_fixtures.sh` (needs `cjpeg`, `djpeg`, `python3`).
 - Casts check overflow: narrowing needs `cast,trunc`, and `cast(u32) x << 8` casts the whole shift, so parenthesise.
 
 ## Tests and benchmarks
@@ -54,4 +54,10 @@ The benchmark compares against `stb_image`, `stb_image_write` and `stb_image_res
 | resize down 4x | 3.3-4.0x |
 | resize up 2x | 1.1-1.3x |
 
-PNG time is mostly [Deflate](deflate.md). Also uses `Extensions/SIMD` for unfilter and resize loops.
+PNG time is mostly [Deflate](deflate.md). Also uses `Extensions/SIMD` for unfilter and resize loops, and `Extensions/Byte_Search` for JPEG marker preflight.
+
+`Ico_File.create_ico_file_from_bitmap_filename` uses these decoders on wasm. It applies `DEFAULT_MAX_PIXELS` (`1 << 26`) and requires RGB or RGBA output before conversion. Native filename loading retains stb and its format coverage. The consumer creates ICO bytes; `decode_image` does not read ICO files. See [ICO file creation](../stdlib/ico-files.md) for ownership, limits and WASI execution.
+
+See [image codec coverage](../tools/image-conformance.md) for complete pinned corpora, independent encoder checks, alternative API profiles and reproducible validation commands.
+
+JPEG checks real byte-alignment fill bits at observed scan and restart boundaries: each remaining bit must be one. Synthetic refill bits and unread damaged entropy retain the documented recovery behavior; this check does not certify complete encoded MCU rows.

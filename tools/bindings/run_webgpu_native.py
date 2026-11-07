@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Run stdlib/Extensions/WebGPU/tests/driven/headless.jai (or, with --test window, stdlib/Extensions/WebGPU/tests/driven/window.jai) natively:
+"""Run native WebGPU primitive, window or UI image tests:
+headless/window live in stdlib/Extensions/WebGPU/tests/driven; --test ui-images runs
+stdlib/Extensions/UI/tests/driven/images.jai through the production UI renderer.
 interpreted (`jaic -interp`, which loads the shared wgpu-native) and built (`jaic`, which links
 the static one), on this host's GPU or a software adapter (Mesa's lavapipe on Linux, WARP on
 Windows).
@@ -33,6 +35,7 @@ TESTS = {
     name: ROOT / "stdlib/Extensions/WebGPU/tests/driven" / f"{name}.jai"
     for name in ("headless", "window")
 }
+TESTS["ui-images"] = ROOT / "stdlib/Extensions/UI/tests/driven/images.jai"
 NO_ADAPTER = 77
 # A run that hangs (a present that never returns) fails instead of using up the job.
 TIMEOUT = 600
