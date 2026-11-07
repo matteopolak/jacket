@@ -44,38 +44,50 @@ DEFAULT_MAX_OUTPUT :: 1 << 30;
 // assert(!ok);
 // ```
 inflate :: (data: [] u8, container := Deflate_Container.ZLIB, max_output: s64 = DEFAULT_MAX_OUTPUT) -> output: [] u8, ok: bool, error: string {
-    s := New(Inflater);
+    output, ok, error = inflate_member(data, container, max_output);
+    return output, ok, error;
+}
 
-    defer free(s);
+// Decompresses a complete protocol payload, rejecting trailing bytes. Gzip members
+// are concatenated in order and share one aggregate decompressed-output limit.
+// Every checksum must pass before any output is returned; release success with free.
+//
+// ```jai
+// packed := deflate(cast([] u8) "hello", .GZIP);
+// output, ok := inflate_complete(packed, .GZIP, 1024);
+// assert(ok && cast(string) output == "hello");
+// free(output.data);
+// free(packed.data);
+// ```
+inflate_complete :: (data: [] u8, container := Deflate_Container.ZLIB, max_output: s64 = DEFAULT_MAX_OUTPUT) -> output: [] u8, ok: bool, error: string {
+    if max_output < 0 return .[], false, "negative output limit";
 
-    s.growable = true;
-    s.max_output = max_output;
+    result: [..] u8;
+    at: s64;
 
-    hint := data.count * 4;
+    while true {
+        remaining: [] u8 = .{ data.count - at, data.data + at };
+        member, valid, failure, consumed := inflate_member(remaining, container, max_output - result.count);
 
-    // A gzip trailer states the size; believe it when a stream this small could produce it.
-    if container == .GZIP && data.count >= GZIP_MIN_SIZE {
-        size := cast(s64) le32(data.data + data.count - 4);
-        if size <= data.count * MAX_RATIO hint = size;
+        if !valid || consumed <= 0 || consumed > remaining.count {
+            array_reset(*result);
+            if member.data free(member.data);
+            return .[], false, ifx failure.count then failure else "invalid container length";
+        }
+
+        array_reserve(*result, result.count + member.count);
+        if member.count memcpy(result.data + result.count, member.data, member.count);
+
+        result.count += member.count;
+        free(member.data);
+        at += consumed;
+        if at == data.count return .{ result.count, result.data }, true, "";
+
+        if container != .GZIP {
+            array_reset(*result);
+            return .[], false, "trailing bytes after stream";
+        }
     }
-
-    hint = max(min(max(hint, 4096), max_output), 0);
-
-    s.cap = hint;
-    s.out = alloc(max(hint, 1));
-
-    error := inflate_container(s, data, container);
-
-    if error.count {
-        free(s.out);
-        return .[], false, error;
-    }
-
-    result: [] u8;
-    result.data = s.out;
-    result.count = s.o;
-
-    return result, true, "";
 }
 
 // Like [inflate], into a buffer the caller sized. Fails with "output is too small" when the
@@ -149,3 +161,40 @@ adler32 :: (data: [] u8, adler: u32 = 1) -> u32 {
 #scope_module
 
 #import "Basic";
+
+#scope_file
+
+inflate_member :: (data: [] u8, container := Deflate_Container.ZLIB, max_output: s64 = DEFAULT_MAX_OUTPUT) -> output: [] u8, ok: bool, error: string, consumed: s64 {
+    s := New(Inflater);
+
+    defer free(s);
+
+    s.growable = true;
+    s.max_output = max_output;
+
+    hint := data.count * 4;
+
+    // A gzip trailer states the size; believe it when a stream this small could produce it.
+    if container == .GZIP && data.count >= GZIP_MIN_SIZE {
+        size := cast(s64) le32(data.data + data.count - 4);
+        if size <= data.count * MAX_RATIO hint = size;
+    }
+
+    hint = max(min(max(hint, 4096), max_output), 0);
+
+    s.cap = hint;
+    s.out = alloc(max(hint, 1));
+
+    error := inflate_container(s, data, container);
+
+    if error.count {
+        free(s.out);
+        return .[], false, error, 0;
+    }
+
+    result: [] u8;
+    result.data = s.out;
+    result.count = s.o;
+
+    return result, true, "", s.consumed;
+}

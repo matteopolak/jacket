@@ -267,7 +267,7 @@ sleep :: (milliseconds: s64) -> Io_Error {
     if fiber.canceled return .CANCELED;
     if milliseconds <= 0 return yield();
 
-    end := now_nanoseconds() + milliseconds * 1_000_000;
+    end := deadline_after_ms(milliseconds);
     limited := fiber.deadline != 0 && fiber.deadline <= end;
 
     if limited end = fiber.deadline;
@@ -711,9 +711,10 @@ fire_timers :: (scheduler: *Scheduler) {
             if fiber.waiter {
                 waiter_unlink(fiber.waiter);
                 fiber.waiter = null;
+                wake(fiber, .TIMED_OUT);
+            } else {
+                wake(fiber);
             }
-
-            wake(fiber);
         }
     }
 }

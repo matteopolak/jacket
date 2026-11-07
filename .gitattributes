@@ -29,3 +29,6 @@
 
 # The recorded TOML benchmark workload has an exact input hash on every checkout.
 /benchmarks/compare/toml/fixtures/repository-config.toml -text
+
+# The HTTP file-response test asserts the exact LF payload and content length.
+/stdlib/Extensions/Http/tests/fixtures/stream-file.txt text eol=lf

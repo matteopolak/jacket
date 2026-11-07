@@ -22,7 +22,9 @@
     // Custom deinitialization procedure name.
     MAP_DEINIT := "",
     // Strip ENUM_NAME_ from enum values where a valid identifier remains.
-    STRIP_ENUM_PREFIX := false
+    STRIP_ENUM_PREFIX := false,
+    // Emit typed native gRPC services using this same message graph.
+    GRPC := false
 );
 
 // The generated map representation; ARRAY preserves duplicate entries.
@@ -46,6 +48,8 @@ Generate_Options :: struct {
     map_insert: string;
     map_deinit: string;
     strip_enum_prefix: bool;
+    // Opt in to typed gRPC clients and server registration.
+    grpc: bool;
 }
 
 // Schema failure at a one-based line and column. Free message with Basic.free;
@@ -107,7 +111,7 @@ protobuf_generate :: (text: string, options := Generate_Options.{}) -> string, S
 proto_generate_schema :: () -> string {
     options := Generate_Options.{ path = PATH, map = MAP, map_module = MAP_MODULE,
         map_type = MAP_TYPE, map_insert = MAP_INSERT, map_deinit = MAP_DEINIT,
-        strip_enum_prefix = STRIP_ENUM_PREFIX, import_paths = IMPORT_PATHS, dir = DIR };
+        strip_enum_prefix = STRIP_ENUM_PREFIX, grpc = GRPC, import_paths = IMPORT_PATHS, dir = DIR };
     if !options.path.count options.path = "<text.proto>";
 
     count := cast(s64) (PATH.count != 0) + cast(s64) (TEXT.count != 0) + cast(s64) (DIR.count != 0);

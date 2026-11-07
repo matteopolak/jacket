@@ -31,16 +31,26 @@ h2_client_headers :: (conn: *H2_Conn, id: u32, stream: *H2_Stream, block: Hpack_
         return .NO_ERROR;
     }
 
-    if stream.has_head {
-        // Trailers end the response; their fields are not used.
+    // HPACK finishes decoding the entire block to keep its table synchronized,
+    // but an oversized block must never expose its retained prefix.
+    if owned.too_large {
         hpack_block_free(*owned);
+        h2_reset_stream(conn, stream, .ENHANCE_YOUR_CALM);
 
-        if !end_stream {
+        return .NO_ERROR;
+    }
+
+    if stream.has_head {
+        // Trailer blocks cannot contain pseudo headers or connection fields and
+        // must end the response. Validate before transferring ownership.
+        if !end_stream || stream.remote_ended || !h2_valid_trailers(owned.fields) {
+            hpack_block_free(*owned);
             h2_reset_stream(conn, stream, .PROTOCOL_ERROR);
 
             return .NO_ERROR;
         }
 
+        stream.trailers = owned;
         h2_end_response(conn, stream);
 
         return .NO_ERROR;
@@ -51,7 +61,7 @@ h2_client_headers :: (conn: *H2_Conn, id: u32, stream: *H2_Stream, block: Hpack_
     saw_regular := false;
 
     for field: owned.fields {
-        if h2_has_uppercase(field.name) || h2_connection_specific(field.name) {
+        if !h2_field_syntax_ok(field) || h2_connection_specific(field.name) {
             hpack_block_free(*owned);
             h2_reset_stream(conn, stream, .PROTOCOL_ERROR);
 
@@ -96,6 +106,7 @@ h2_client_headers :: (conn: *H2_Conn, id: u32, stream: *H2_Stream, block: Hpack_
     stream.status = status;
     stream.declared = declared;
     stream.has_head = true;
+    stream.head_ended = end_stream;
 
     if end_stream {
         h2_end_response(conn, stream);
@@ -110,14 +121,13 @@ h2_client_headers :: (conn: *H2_Conn, id: u32, stream: *H2_Stream, block: Hpack_
 
 // The peer ended the response: check the length it promised.
 h2_end_response :: (conn: *H2_Conn, stream: *H2_Stream) {
-    stream.remote_ended = true;
-
     if stream.declared >= 0 && stream.declared != stream.received && stream.status != HTTP_NOT_MODIFIED && !stream.head_only {
         h2_reset_stream(conn, stream, .PROTOCOL_ERROR);
 
         return;
     }
 
+    stream.remote_ended = true;
     Io.notify_all(*stream.changed);
     h2_check_closed(stream);
 }
@@ -170,7 +180,7 @@ h2_connection :: (client: *Client, url: Url) -> *H2_Conn {
     for pool.h2 {
         if !h2_same_origin(it.owner, it.host, it.port, it.tls, owner, url.host, url.port, tls) continue;
 
-        if it.dead || it.goaway_received || it.goaway_sent continue;
+        if it.dead || it.closing || it.goaway_received || it.goaway_sent continue;
 
         if it.open_local == 0 && now - it.idle_since > client_settings.idle_timeout {
             h2_close_connection(it);
@@ -194,6 +204,7 @@ h2_connection :: (client: *Client, url: Url) -> *H2_Conn {
 h2_close_connection :: (conn: *H2_Conn) {
     conn.closing = true;
     conn.goaway_sent = true;
+    if conn.admission_changed Io.notify_all(conn.admission_changed);
 
     Io.notify_all(*conn.wake_writer);
     Io.cancel(conn.reader);
@@ -215,6 +226,7 @@ h2_adopt :: (client: *Client, url: Url, link: Link) -> *H2_Conn {
     conn.port = url.port;
     conn.tls = tls_config_of(client, url);
     conn.owner = client.transport.data;
+    conn.admission_changed = *pool.h2_capacity;
     conn.write_timeout = H2_CLIENT_WRITE_TIMEOUT;
     conn.max_header_list = H2_CLIENT_HEAD_LIMIT;
     conn.idle_since = now_ms();
@@ -235,32 +247,33 @@ h2_adopt :: (client: *Client, url: Url, link: Link) -> *H2_Conn {
 h2_client_reader :: (conn: *H2_Conn) {
     h2_read_loop(conn);
 
-    // Out of the pool, so nobody starts a stream on it.
-    pool := client_pool();
-
-    for pool.h2 {
-        if it == conn {
-            remove it;
-
-            h2_conn_release(conn);
-
-            break;
-        }
-    }
-
     // Streams still waiting find out; what is queued is sent, then the socket closes.
     conn.closing = true;
 
     Io.notify_all(*conn.wake_writer);
     h2_mark_dead(conn);
 
+    joined: Io.Io_Error;
+
     Io.with_grace(H2_CLIENT_WRITE_TIMEOUT, #code {
+        joined = Io.wait(*conn.tasks);
+    });
+    if joined != .NONE Io.cancel(conn.writer);
+
+    // A canceled write still owns its TLS buffers until completion.
+    Io.with_grace(Io.NO_DEADLINE, #code {
         Io.wait(*conn.tasks);
     });
 
     close(conn.link);
 
     conn.link_closed = true;
+    pool := client_pool();
+    for pool.h2 if it == conn {
+        remove it;
+        h2_conn_release(conn);
+        break;
+    }
 
     Io.notify_all(*conn.closed);
     h2_conn_release(conn);
@@ -282,9 +295,7 @@ h2_close_idle :: (pool: *Client_Pool) {
     }
 
     for closing {
-        while !it.link_closed {
-            if Io.wait(*it.closed) != .NONE break;
-        }
+        h2_join_closed(it);
 
         h2_conn_release(it);
     }
@@ -503,6 +514,12 @@ h2_source_release :: (source: *Body_Source) {
 
     conn := stream.conn;
 
+    if source.finished && stream.remote_ended && !stream.reset_by_peer && !stream.reset_sent {
+        source.h2_trailers = stream.trailers;
+        stream.trailers = .{};
+        source.h2_complete = true;
+    }
+
     source.h2 = null;
     source.held = false;
 
@@ -515,7 +532,7 @@ h2_source_release :: (source: *Body_Source) {
 // A connection for a request to `url`: an HTTP/2 one with room (the request holds a reference to it), or
 // a link for HTTP/1.1. Requests that arrive while the first connection to a likely HTTP/2 origin is being
 // made wait for it, so that they share it instead of each making its own.
-open_connection :: (client: *Client, url: Url) -> conn: *H2_Conn, link: Link, reused: bool, Client_Error {
+open_connection :: (client: *Client, url: Url, max_h2_connections := 0, http2_only := false) -> conn: *H2_Conn, link: Link, reused: bool, Client_Error {
     pool := client_pool();
     owner := client.transport.data;
     tls := tls_config_of(client, url);
@@ -525,27 +542,55 @@ open_connection :: (client: *Client, url: Url) -> conn: *H2_Conn, link: Link, re
 
         if conn return conn, .{}, true, .{};
 
-        gate: *H2_Connecting;
-
-        if h2_offered(client, url) && !h2_known_http1(pool, owner, url, tls) {
+        offer_h2 := h2_offered(client, url) && (http2_only || !h2_known_http1(pool, owner, url, tls));
+        if offer_h2 {
             waiting: *H2_Connecting;
 
             for pool.connecting {
                 if h2_same_origin(it.owner, it.host, it.port, it.tls, owner, url.host, url.port, tls) {
                     waiting = it;
-
                     break;
                 }
             }
 
             if waiting {
                 error := Io.wait(*waiting.done);
-
                 if error != .NONE return null, .{}, false, io_failure(error, tprint("waiting for the connection to %:%", url.host, url.port));
+                continue;
+            }
+        }
+
+        // Admission covers live resources, including connecting and peer-ended
+        // connections whose writer/TLS teardown has not completed.
+        if max_h2_connections > 0 {
+            count := 0;
+            for pool.h2 if it.owner == owner && !it.link_closed count += 1;
+            for pool.connecting if it.owner == owner count += 1;
+
+            if count >= max_h2_connections {
+                // At the connection cap, peer stream limits cause admission to
+                // wait before any request is assigned an id or transmitted.
+                saturated := false;
+
+                for pool.h2 {
+                    if !h2_same_origin(it.owner, it.host, it.port, it.tls, owner, url.host, url.port, tls) continue;
+                    if it.dead || it.closing || it.goaway_received || it.goaway_sent continue;
+                    it.admission_changed = *pool.h2_capacity;
+                    saturated = true;
+                }
+
+                if !saturated return null, .{}, false, client_error(.TOO_LARGE, .NONE, "HTTP/2 channel connection limit reached");
+
+                error := Io.wait(*pool.h2_capacity);
+                if error != .NONE return null, .{}, false, io_failure(error, "waiting for HTTP/2 stream capacity");
 
                 continue;
             }
+        }
 
+        gate: *H2_Connecting;
+
+        if offer_h2 {
             gate = New(H2_Connecting);
 
             gate.owner = owner;
@@ -562,7 +607,7 @@ open_connection :: (client: *Client, url: Url) -> conn: *H2_Conn, link: Link, re
 
         if error.kind == .NONE && link.h2 {
             opened = h2_adopt(client, url, link);
-        } else if error.kind == .NONE && gate {
+        } else if error.kind == .NONE && gate && !http2_only {
             array_add(*pool.http1_only, H2_Known_Origin.{ owner = owner, host = copy_string(url.host), port = url.port, tls = tls, since = now_ms() });
         }
 
@@ -615,3 +660,10 @@ h2_known_http1 :: (pool: *Client_Pool, owner: *void, url: Url, tls: *Tls.Tls_Con
 }
 
 H2_MAX_STATUS :: 599;
+
+// TLS configuration may be freed only after the reader and writer release it.
+h2_join_closed :: (conn: *H2_Conn) {
+    Io.with_grace(Io.NO_DEADLINE, #code {
+        while !conn.link_closed Io.wait(*conn.closed);
+    });
+}

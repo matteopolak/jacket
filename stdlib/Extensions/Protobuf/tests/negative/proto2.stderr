@@ -1,4 +1,4 @@
-../../Schema/module.jai:95:9: error[metaprogram-report]: expected syntax = 'proto2' or 'proto3'
+../../Schema/module.jai:99:9: error[metaprogram-report]: expected syntax = 'proto2' or 'proto3'
     #insert #run proto_generate_schema();
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: reported for <text.proto>:1:8

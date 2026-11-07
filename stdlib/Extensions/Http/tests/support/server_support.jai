@@ -55,6 +55,7 @@ run_server :: (app: *App, body: Server_Test) {
 
         stop(server);
         wait(server);
+        close_server(*server);
     }
 
     data := Run_Data.{ app, body };
@@ -74,15 +75,9 @@ Run_Data :: struct {
     body: Server_Test;
 }
 
-// Whether this platform can run the tests (Windows has no IO engine yet).
+// The HTTP server harness needs native Io fibers; Windows uses its IOCP backend.
 supported :: () -> bool {
-    #if OS == .WINDOWS {
-        print("skipped: Extensions/Io has no IO on Windows yet\n");
-
-        return false;
-    }
-
-    return true;
+    return OS != .WASM;
 }
 
 // A response with its body read, for checks that look at both. Everything is in temporary

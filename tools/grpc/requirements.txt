@@ -1,0 +1,5 @@
+grpcio==1.78.0
+grpcio-tools==1.78.0
+protobuf==6.33.5
+typing-extensions==4.16.0
+setuptools==84.2.1

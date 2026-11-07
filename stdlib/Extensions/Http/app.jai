@@ -556,6 +556,22 @@ options :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $
     add_route(group.app, group.middleware, .OPTIONS, P, template, handler, max_body, loc);
 }
 
+// Registers a callback without extractors, with separate caller-owned state for
+// each route. The state must outlive serving; middleware and normal route matching
+// still apply. Invalid/conflicting paths are reported by start like other routes.
+//
+// ```jai,ignore
+// register_handler(*app, .POST, "/example.Service/Method", callback, *service);
+// ```
+register_handler :: (app: *App, method: Method, path: string, handler: Context_Handler, data: *void, max_body: s64 = 0) {
+    if !handler {
+        array_add(*app.setup_errors, copy_string("route callback is null"));
+        return;
+    }
+
+    register_route(app, method, path, null, .[], max_body, handler, data);
+}
+
 #scope_module
 
 add_route :: (app: *App, middleware: [] Middleware, $METHOD: Method, $PREFIX: string, $TEMPLATE: string, $handler: $H, max_body: s64, $LOC: Source_Code_Location) {
@@ -581,12 +597,14 @@ join_template :: (prefix: string, template: string) -> string {
     return tprint("%%", prefix, template);
 }
 
-register_route :: (app: *App, method: Method, template: string, handler: Handler, middleware: [] Middleware, max_body: s64) {
+register_route :: (app: *App, method: Method, template: string, handler: Handler, middleware: [] Middleware, max_body: s64, context_handler: Context_Handler = null, data: *void = null) {
     route := New(Route);
 
     route.method = method;
-    route.template = template;
+    route.template = copy_string(template);
     route.handler = handler;
+    route.context_handler = context_handler;
+    route.handler_data = data;
     route.max_body = max_body;
 
     if middleware.count {
@@ -604,6 +622,7 @@ register_route :: (app: *App, method: Method, template: string, handler: Handler
 
         array_reset(*route.names);
         array_free(route.middleware);
+        free(route.template.data);
         free(route);
     }
 }
@@ -618,6 +637,8 @@ handle_request :: (app: *App, request: *Request) -> Response {
     frame.chain = app.middleware;
     frame.cursor = 0;
     frame.endpoint = dispatch_route;
+    frame.context_endpoint = null;
+    frame.endpoint_data = null;
     frame.body.limit = app.config.max_body_size;
 
     return call_next(request);
@@ -633,6 +654,8 @@ call_next :: (request: *Request) -> Response {
 
         return middleware(request, call_next);
     }
+
+    if frame.context_endpoint return frame.context_endpoint(request, frame.endpoint_data);
 
     return frame.endpoint(request);
 }
@@ -704,6 +727,8 @@ dispatch_route :: (request: *Request) -> Response {
     frame.chain = route.middleware;
     frame.cursor = 0;
     frame.endpoint = route.handler;
+    frame.context_endpoint = route.context_handler;
+    frame.endpoint_data = route.handler_data;
 
     if route.max_body != 0 frame.body.limit = route.max_body;
 

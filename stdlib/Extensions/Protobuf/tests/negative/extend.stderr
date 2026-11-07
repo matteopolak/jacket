@@ -1,4 +1,4 @@
-../../Schema/module.jai:95:9: error[metaprogram-report]: invalid value for 'features.field_presence'
+../../Schema/module.jai:99:9: error[metaprogram-report]: invalid value for 'features.field_presence'
     #insert #run proto_generate_schema();
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: reported for <text.proto>:1:64

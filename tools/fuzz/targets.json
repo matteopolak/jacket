@@ -74,5 +74,12 @@
     },
     "hooks": "properties/Toml.jai",
     "known": {}
+  },
+  "Extensions/Grpc": {
+    "allow": [
+      "frame_message"
+    ],
+    "hooks": "properties/Grpc.jai",
+    "known": {}
   }
 }

@@ -9,19 +9,22 @@ main :: () {
 
     defer free(args.data);
 
-    if args.count != 2 {
-        print("usage: gen schema.proto\n");
+    grpc := args.count == 3 && args[1] == "--grpc";
+    if args.count != 2 && !grpc {
+        print("usage: gen [--grpc] schema.proto\n");
         exit(2);
     }
 
-    text, ok := read_entire_file(args[1]);
+    path := args[ifx grpc then 2 else 1];
+    text, ok := read_entire_file(path);
+
     if !ok {
-        print("cannot read %\n", args[1]);
+        print("cannot read %\n", path);
         exit(1);
     }
 
     defer free(text);
-    output, error := Schema.protobuf_generate(text, .{ path = args[1] });
+    output, error := Schema.protobuf_generate(text, .{ path = path, grpc = grpc });
     if error.message.count {
         print("%:%:%: %\n", error.path, error.line, error.column, error.message);
         free(error.message);

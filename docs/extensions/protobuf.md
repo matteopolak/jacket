@@ -268,3 +268,22 @@ python3 -I tools/protobuf_schemas/measure.py --jaic target/release/jaic --json o
 - **Well-known types:** `Schema/well_known/schemas.jai`, as our own text.
 - **Generated size:** keep it small. Every program that imports a schema compiles what `emit.jai` writes, so new per-field logic goes into a runtime helper, not into the generated text.
 - **Tests:** `stdlib/Extensions/Protobuf/tests/` (hex fixtures, spec cases and Fuzz properties), with schema errors in `negative/`.
+
+## Generated gRPC services
+
+Message-only generation remains the default and does not import Http or Tls.
+Enable `GRPC = true` on a Schema import, `Generate_Options.grpc = true` with
+`protobuf_generate`, or `--grpc` in the standalone `stdlib/Extensions/Protobuf/tools/gen.jai` command to emit
+[gRPC services](grpc.md). Service/method options are parsed, endpoints must resolve
+to visible messages, and independent client/server streaming flags support all four
+RPC cardinalities. Original package/service/method names define wire paths; Jai
+identifier escaping does not change them. Service/member/package collisions are
+reported at schema locations. Generated transport is native-only.
+
+Each service exposes typed client/server contexts, method descriptors, unary call
+conveniences and a `Handlers`/`register` server API. Handlers and their state belong
+to the caller and outlive all registered requests. Generated adapters use the same
+message types and common Grpc runtime; they do not regenerate a separate Schema
+module or duplicate framing. When GRPC is false, service bodies retain the previous
+skip behavior. See the [independent peer procedure](../tools/grpc-interop.md) for the
+required generated-client/generated-server interoperability matrix.

@@ -26,6 +26,7 @@
 | `Iprof_Trace` | records Iprof zones as nested per-frame timelines and saves/loads them in a small binary format (`.jipt`); `@experimental` | [iprof-trace](iprof-trace.md) |
 | `Meow_Portable` | `hash_bytes`: the Meow hash in portable scalar code, same lanes as `meow_hash` on CPUs without AES-NI; `@experimental` | — |
 | `Assets` | `load_asset`: a program's files from disk natively, over `fetch` in the playground | [assets](assets.md) |
+| `Grpc` | TLS HTTP/2 RPC client/server, all four modes and typed generated services | [gRPC](grpc.md), [independent interop](../tools/grpc-interop.md) |
 | `Http` | sans-IO HTTP/1.x codec, plus a fiber server and client | [codec](http-codec.md), [server](http-server.md), [client](http-client.md), [HTTP/2](http2.md) |
 | `SIMD` | portable fixed-width vectors | [simd](simd.md) |
 | `Hash_Map` | opt-in SwissTable hash map: single-key, 16-slot SIMD group probing | [hash-map](hash-map.md) |

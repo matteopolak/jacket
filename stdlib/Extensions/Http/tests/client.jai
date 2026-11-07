@@ -960,13 +960,16 @@ failures_of_transport :: (base: string, server: *Server) {
         Io.close(listener);
     }
 
-    response, error = send(*api, .{ url = refused_url, timeout = 2000 });
+    // Refusal classification must not race the OS SYN-retransmission delay.
+    // The test runner bounds this program; the separate 150 ms check above
+    // still verifies request deadlines.
+    response, error = send(*api, .{ url = refused_url, timeout = 0 });
     check(error.kind == .TRANSPORT && error.transport == .CONNECTION_REFUSED, "a refused connection: % %", error_text(error), error.transport);
     free_error(*error);
 
     // URLs.
     // https is a scheme like http: a closed port refuses the connection before any TLS starts.
-    response, error = send(*api, .{ url = tprint("https%", slice(refused_url, 4, refused_url.count - 4)), timeout = 2000 });
+    response, error = send(*api, .{ url = tprint("https%", slice(refused_url, 4, refused_url.count - 4)), timeout = 0 });
     check(error.kind == .TRANSPORT && error.transport == .CONNECTION_REFUSED, "https to a closed port: % %", error_text(error), error.transport);
     free_error(*error);
 

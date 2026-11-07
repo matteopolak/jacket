@@ -25,6 +25,7 @@ proto_Schema :: struct {
     package: string;
     roots: [..] *proto_Node;
     nodes: [..] *proto_Node;
+    services: [..] *proto_Service;
     imports: [..] proto_Import;
     sources: [..] *proto_Source;
     source: *proto_Source;

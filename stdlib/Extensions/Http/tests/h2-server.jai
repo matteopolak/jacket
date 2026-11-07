@@ -65,6 +65,8 @@ produce :: (stream: *Stream, data: *void) {
 
         Io.sleep(5);
     }
+
+    check(finish_stream(stream, Header_Field.[.{ name = "grpc-status", value = "0" }]), "finish streamed response with trailers");
 }
 
 streamed :: () -> Response {
@@ -582,6 +584,7 @@ large_response :: (base: string, server: *Server) {
 
     check(streamed_result.status == 200 && text_of(streamed_result) == "part 1;part 2;part 3;part 4;part 5;", "a streamed response: '%'", text_of(streamed_result));
     check(header_of(streamed_result, "content-length").count == 0, "has no length");
+    check(header_of(streamed_result, "grpc-status") == "0", "stream terminal fields reach peer");
 }
 
 // A request body larger than the window the server gives: the peer has to wait for the server's updates.
@@ -714,7 +717,7 @@ protocol_errors :: (base: string, server: *Server) {
     check(result.status == 200, "and the connection keeps working");
 
     // Connection-specific headers, a missing :path, and a body of another length than announced.
-    bad_cases := Header_Field.[.{ name = "connection", value = "close" }, .{ name = "transfer-encoding", value = "chunked" }, .{ name = "te", value = "gzip" }];
+    bad_cases := Header_Field.[.{ name = "connection", value = "close" }, .{ name = "transfer-encoding", value = "chunked" }, .{ name = "te", value = "gzip" }, .{ name = "bad name", value = "value" }, .{ name = "x-bad", value = "bad\r\nvalue" }];
 
     for bad_cases {
         id = request(peer, "GET", "/ping", .[it]);

@@ -172,7 +172,6 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
     }
 
     // These names are the public generator API and module parameters in this same scope.
-    reserved_api :: string.["Map_Mode", "Generate_Options", "Schema_Error", "protobuf_generate", "PATH", "TEXT", "DIR", "IMPORT_PATHS", "MAP", "MAP_MODULE", "MAP_TYPE", "MAP_INSERT", "MAP_DEINIT", "STRIP_ENUM_PREFIX", "proto_registry"];
 
     // Every package and each of its dotted ancestors, mapped to the first root declared under it.
     package_roots: proto_symbols.Map(string, *proto_Node);
@@ -199,7 +198,7 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
             break;
         }
 
-        for reserved_api {
+        for proto_RESERVED_API {
             if root_package == it proto_schema_fail(s, root.token, "package name is reserved by the Schema module API");
             if !root.package.count && root.name == it proto_schema_fail(s, root.token, "type name is reserved by the Schema module API");
         }
@@ -214,6 +213,8 @@ proto_resolve_schema :: (s: *proto_Schema) { // jailint: allow(cognitive_complex
         proto_symbols.insert(*s.names, node.full, node);
         proto_symbols.insert(*s.jai_names, node.jai, node);
     }
+
+    proto_resolve_services(s);
 
     for node: s.nodes {
 
@@ -444,3 +445,65 @@ proto_oneof_name :: (name: string) -> string {
 
     return result;
 }
+
+proto_resolve_services :: (s: *proto_Schema) {
+    for service: s.services {
+        root_package := service.package;
+
+        for service.package if it == #char "." {
+            root_package.count = it_index;
+            break;
+        }
+
+        for proto_RESERVED_API {
+            if root_package == it || (!service.package.count && service.name == it) proto_schema_fail(s, service.token, "service namespace is reserved by the Schema module API");
+        }
+
+        packages: [..] string;
+        for s.nodes array_add(*packages, it.package);
+        for s.services array_add(*packages, it.package);
+
+        for package: packages {
+            current := package;
+            while current.count {
+                renamed := proto_qualified_jai(current,, temp);
+                if current == service.full || renamed == service.jai proto_schema_fail(s, service.token, "package and service have the same name");
+
+                last: s64 = -1;
+                for current if it == #char "." last = it_index;
+                if last < 0 break;
+
+                current.count = last;
+            }
+        }
+
+        if proto_symbols.find(*s.names, service.full) || proto_symbols.find(*s.jai_names, service.jai) proto_schema_fail(s, service.token, "service and type have the same name");
+
+        for other: s.services {
+            if other == service break;
+            if other.full == service.full || other.jai == service.jai proto_schema_fail(s, service.token, "duplicate service name after Jai renaming");
+        }
+
+        names: [..] string;
+
+        array_add(*names, "Handlers");
+        array_add(*names, "register");
+        array_add(*names, "state");
+        array_add(*names, "options");
+
+        for *method: service.methods {
+            for suffix: string.["", "_Client", "_Server", "_open", "_call", "_serve"] {
+                name := proto_schema_format("%%", method.jai, suffix);
+                for names if it == name proto_schema_fail(s, method.token, "duplicate generated service member name");
+                array_add(*names, name);
+            }
+
+            method.input = proto_find_type(s, service.package, method.input_name, service.source);
+            method.output = proto_find_type(s, service.package, method.output_name, service.source);
+            if !method.input || !method.output proto_schema_fail(s, method.token, "unknown RPC input or output message");
+            else if method.input.kind != .MESSAGE || method.output.kind != .MESSAGE proto_schema_fail(s, method.token, "RPC endpoints must be messages");
+        }
+    }
+}
+
+proto_RESERVED_API :: string.["Map_Mode", "Generate_Options", "Schema_Error", "protobuf_generate", "PATH", "TEXT", "DIR", "IMPORT_PATHS", "MAP", "MAP_MODULE", "MAP_TYPE", "MAP_INSERT", "MAP_DEINIT", "STRIP_ENUM_PREFIX", "GRPC", "proto_registry"];

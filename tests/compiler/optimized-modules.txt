@@ -21,3 +21,4 @@ Ico_File
 Srgb
 
 Extensions/Meow_Portable
+Extensions/Grpc

@@ -18,6 +18,9 @@ Request :: struct {
 // A handler after its extractors are built: `(request) -> Response`. Routes store one per route.
 Handler :: #type (request: *Request) -> Response;
 
+// A route callback with caller-owned state, borrowed until the app stops.
+Context_Handler :: #type (request: *Request, data: *void) -> Response;
+
 // The rest of the middleware chain and then the handler: `next(request)` runs it and returns its
 // response, which the middleware may change or replace.
 Next :: #type (request: *Request) -> Response;
@@ -531,6 +534,8 @@ Request_Frame :: struct {
     chain: [] Middleware;
     cursor: int;
     endpoint: Handler;
+    context_endpoint: Context_Handler;
+    endpoint_data: *void;
     query_pairs: [] Pair;
     query_parsed: bool;
 

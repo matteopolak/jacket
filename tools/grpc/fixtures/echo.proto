@@ -1,0 +1,9 @@
+syntax = "proto3";
+package fixture;
+message Payload { bytes data = 1; }
+service Echo {
+  rpc Unary(Payload) returns (Payload);
+  rpc ServerStream(Payload) returns (stream Payload);
+  rpc ClientStream(stream Payload) returns (Payload);
+  rpc Bidi(stream Payload) returns (stream Payload);
+}

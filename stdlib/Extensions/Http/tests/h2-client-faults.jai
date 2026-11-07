@@ -21,6 +21,7 @@ load :: (name: string) -> string {
 }
 
 Mode :: enum {
+    TRAILERS;
     REFUSE_FIRST;
     GOAWAY_AFTER_THREE;
 }
@@ -111,13 +112,29 @@ respond :: (tls: *Tls.Tls_Stream, encoder: *Hpack_Encoder, id: u32, path: string
 
     hpack_encode_start(encoder, *block);
     hpack_encode_field(encoder, *block, ":status", "200");
+    if path == "/head-name" hpack_encode_field(encoder, *block, "bad name", "value");
+    if path == "/head-value" hpack_encode_field(encoder, *block, "x-bad", "bad\r\nvalue");
+    if path == "/trailer-length" hpack_encode_field(encoder, *block, "content-length", "100");
 
     body := tprint("ok %", path);
     out: [..] u8;
     out.allocator = temp;
 
     h2_put_headers(*out, id, block, false, 16384);
-    h2_put_data(*out, id, .{ body.count, body.data }, true);
+    if path != "/trailer-empty" h2_put_data(*out, id, .{ body.count, body.data }, false);
+
+    block.count = 0;
+    hpack_encode_start(encoder, *block);
+    if path == "/trailer-pseudo" hpack_encode_field(encoder, *block, ":status", "200");
+    if path == "/trailer-upper" hpack_encode_field(encoder, *block, "X-Bad", "value");
+    if path == "/trailer-name" hpack_encode_field(encoder, *block, "bad name", "value");
+    if path == "/trailer-value" hpack_encode_field(encoder, *block, "x-bad", "a\r\nb");
+    if path == "/trailer-framing" hpack_encode_field(encoder, *block, "content-length", "0");
+
+    hpack_encode_field(encoder, *block, "grpc-status", "0");
+    hpack_encode_field(encoder, *block, "x-repeat", "first");
+    hpack_encode_field(encoder, *block, "x-repeat", "second");
+    h2_put_headers(*out, id, block, path != "/trailer-open", 16384);
 
     put(tls, out);
 }
@@ -201,6 +218,10 @@ handle_connection :: (handling: Handling) {
         id := frame.header.stream;
 
         if script.mode == {
+            case .TRAILERS;
+                respond(tls, *encoder, id, path);
+                script.answered[index] += 1;
+
             case .REFUSE_FIRST;
                 if index == 0 && script.requests[index] == 1 {
                     reply: [..] u8;
@@ -266,6 +287,14 @@ fetch_one :: (job: Job) {
 
     response, error := get(*api, job.path);
 
+    defer close(*response);
+    defer free_error(*error);
+
+    if job.path == "/head-name" || job.path == "/head-value" {
+        check(error.kind == .TRANSPORT && response.status == 0, "malformed initial fields fail the head: %", job.path);
+        return;
+    }
+
     if error.kind != .NONE {
         job.body.* = sprint("error: %", error_text(error));
 
@@ -274,9 +303,33 @@ fetch_one :: (job: Job) {
 
     job.status.* = response.status;
 
-    text, _ := read_text(*response);
+    text, read_error := read_text(*response);
+
+    if job.path == "/trailer-pseudo" || job.path == "/trailer-open" || job.path == "/trailer-upper" || job.path == "/trailer-length" || job.path == "/trailer-name" || job.path == "/trailer-value" || job.path == "/trailer-framing" {
+        check(read_error.kind != .NONE, "malformed trailers fail the body read: %", job.path);
+        _, complete := response_trailers(*response);
+
+        check(!complete, "malformed trailers do not establish completion");
+        close(*response);
+
+        return;
+    }
+
+    check(read_error.kind == .NONE, "valid body read");
 
     job.body.* = copy_string(text);
+
+    // Reading the body releases the H2 stream; terminal fields must remain owned by
+    // the response, including repeated names and their original order.
+    fields, complete := response_trailers(*response);
+
+    check(complete, "terminal headers available after body consumption");
+    check(fields.count == 3, "all trailers retained: %", fields.count);
+
+    if fields.count == 3 {
+        check(fields[0].name == "grpc-status" && fields[0].value == "0", "RPC completion trailer");
+        check(fields[1].value == "first" && fields[2].value == "second", "repeated trailer order");
+    }
 
     close(*response);
 }
@@ -326,6 +379,11 @@ run_script :: (mode: Mode, paths: [] string, checks: #type (script: *Script, bod
     Io.close(script.listener);
 }
 
+trailers :: (script: *Script, bodies: [] string, statuses: [] int) {
+    check(bodies[0] == "", "empty DATA body retains terminal fields");
+    check(bodies[4] == "ok /valid", "unrelated stream survives malformed trailers");
+}
+
 refused :: (script: *Script, bodies: [] string, statuses: [] int) {
     check(statuses[0] == 200 && bodies[0] == "ok /refused", "a refused stream is sent again: % '%'", statuses[0], bodies[0]);
 
@@ -351,6 +409,7 @@ goaway :: (script: *Script, bodies: [] string, statuses: [] int) {
 
 main :: () {
     entry :: (_: *void) {
+        run_script(.TRAILERS, string.["/trailer-empty", "/trailer-pseudo", "/trailer-open", "/trailer-upper", "/valid", "/trailer-length", "/trailer-name", "/trailer-value", "/trailer-framing", "/head-name", "/head-value"], trailers);
         run_script(.REFUSE_FIRST, string.["/refused"], refused);
         run_script(.GOAWAY_AFTER_THREE, string.["/r0", "/r1", "/r2"], goaway);
     }

@@ -167,13 +167,7 @@ backend: App;
 empty_backend: App;
 
 supported :: () -> bool {
-    #if OS == .WINDOWS {
-        print("skipped: Extensions/Io has no IO on Windows yet\n");
-
-        return false;
-    }
-
-    return true;
+    return OS != .WASM;
 }
 
 // What a failed expectation printed, without the line that names the file.
