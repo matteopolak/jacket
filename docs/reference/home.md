@@ -44,6 +44,8 @@ Every module is in the sidebar. Press <kbd>/</kbd> to search by name, or by sign
 
 ## Guides
 
+- [Implicit context](../language/context.md): `#Context`, the active `context` value and scoped overrides.
+
 - [Testing](../guides/testing.md): `@test` procedures, golden files and checked doc examples.
 - [Benchmarking](../guides/benchmarking.md): `@bench` procedures and comparing runs against a baseline.
 - [Documenting a library](../guides/documenting.md): doc comments, runnable examples and building a site like this one.

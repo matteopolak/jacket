@@ -2,6 +2,7 @@
 // No npm install: one hash-pinned axe-core distribution and Node's built-in CDP WebSocket.
 // axe-core 4.10.3 predates the dependency-age policy's 14-day minimum. No transitive packages.
 import assert from 'node:assert/strict';
+import { firstGuidePath, pageStatus } from './doc_samples.mjs';
 import { waitForDevToolsPort } from './chrome_startup.mjs';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
@@ -88,17 +89,13 @@ try {
     publicationOrigin = new URL(publication).origin;
     await cdp('Fetch.enable', { patterns: [{ urlPattern: publicationOrigin + '/*', requestStage: 'Request' }, { urlPattern: new URL('404.html', base).href, requestStage: 'Request' }] });
   }
-  const guidesPath = home.match(/>API<\/a><a href="([^"]+)">/)?.[1];
-  assert(guidesPath, 'No guides link');
-  const guides = await (await get(guidesPath)).text();
-  const guide = guides.match(/<a class="card" href="([^"]+)"/)?.[1];
-  assert(guide, 'No guide page');
+  const guide = firstGuidePath(home);
   const pages = ['', 'api/String', 'api/Basic/print', foreignPath, guide, '404.html'];
   await cdp('Page.enable');
   await cdp('Runtime.enable');
   let failures = 0, runs = 0;
   for (const page of pages) {
-    await get(page);
+    assert.equal(await pageStatus(new URL(page, base)), 200, `${page}: HTTP status`);
     for (const theme of ['light', 'dark']) {
       for (const width of [1280, 320]) {
         const url = new URL(page, base).href;
@@ -115,6 +112,7 @@ try {
         assert(loads > before && await evaluate(`location.href === ${JSON.stringify(url)} && document.readyState === 'complete'`), 'Page did not load');
         await evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`);
         await delay(400); // colour transitions settle
+        assert.equal(await evaluate(`document.querySelector('#search-q')?.labels?.[0]?.textContent.trim()`), 'Search the docs', 'Search input accessible name');
         await evaluate(axe);
         const result = await evaluate(`axe.run(document, {runOnly:{type:'tag', values:${JSON.stringify(tags)}}}).then(r => ({violations:r.violations.map(v => ({id:v.id, nodes:v.nodes.map(n => ({target:n.target, summary:n.failureSummary}))})), incomplete:r.incomplete.length}))`);
         const overflow = await evaluate('document.documentElement.scrollWidth > innerWidth');

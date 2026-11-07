@@ -126,6 +126,14 @@ impl Reader<'_> {
             | ExprKind::TypeDirective {
                 ..
             } => true,
+            ExprKind::UnknownDirective(directive)
+                if matches!(
+                    directive.kind,
+                    crate::ast::DirectiveKind::Context | crate::ast::DirectiveKind::JaicType
+                ) =>
+            {
+                true
+            }
             ExprKind::Unary(UnOp::Star, inner) => self.value_is_type(file, inner, depth - 1),
             ExprKind::Call {
                 callee, ..

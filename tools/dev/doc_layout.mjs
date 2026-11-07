@@ -22,6 +22,7 @@
 // A page that reaches the screen in one shape and then rearranges itself is exactly what the
 // second check catches, including changes too small or too quick for the first.
 import assert from 'node:assert/strict';
+import { pageStatus, waitForFrames } from './doc_samples.mjs';
 import { waitForDevToolsPort } from './chrome_startup.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -251,6 +252,8 @@ class Tab {
       await delay(25);
     }
     await delay(SETTLE_MS);
+    // Wall time alone need not include a recorded animation frame on a loaded runner.
+    await waitForFrames(expression => this.evaluate(expression));
   }
   read() { return this.evaluate('window.__rec ? window.__rec.read() : null'); }
   close() { this.conn.close(); return this.browser.cdp('Target.closeTarget', { targetId: this.id }).catch(() => {}); }
@@ -473,8 +476,7 @@ async function runCombo(tab, page, width, theme) {
 // ---------------------------------------------------------------------------------------------
 
 async function pagesToCheck() {
-  const get = async relative => { const r = await fetch(new URL(relative, base)); return r; };
-  const sitemap = await get('sitemap.xml');
+  const sitemap = await fetch(new URL('sitemap.xml', base));
   assert(sitemap.ok, `sitemap.xml: HTTP ${sitemap.status}`);
   const root = base.pathname;
   // The sitemap names the publication origin; only its paths matter here.
@@ -504,7 +506,7 @@ async function pagesToCheck() {
   ];
   const pages = [];
   for (const [kind, p] of sample) {
-    if (p === undefined || (!known.has(p) && p !== '404.html' && !(await get(p)).ok)) { notes.push(`skipped ${kind}: ${p ?? '(none)'} is not in this site`); continue; }
+    if (p === undefined || (!known.has(p) && p !== '404.html' && (await pageStatus(new URL(p, base))) !== 200)) { notes.push(`skipped ${kind}: ${p ?? '(none)'} is not in this site`); continue; }
     if (p.includes(only)) pages.push(p);
   }
   return { pages, notes };

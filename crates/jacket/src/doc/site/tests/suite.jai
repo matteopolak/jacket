@@ -143,6 +143,7 @@ examples_and_legacy_escaping :: () {
     ExampleBlock(*out, *e);
     expect(contains(to_string(*out), "disabled title=\"Can't run &quot;x&quot; &amp; y\""));
     expect(!contains(to_string(*out), "ex-note"));
+    expect(!contains(to_string(*out), "class=\"ed\""));
     reset(*out);
     id := "abc";
     e.id = *id;
@@ -151,6 +152,11 @@ examples_and_legacy_escaping :: () {
     expect(contains(to_string(*out), "ex compact"));
     expect(contains(to_string(*out), "data-act=\"reset\""));
     expect(contains(to_string(*out), "data-program=\"abc\""));
+    expect(contains(to_string(*out), "<div class=\"ed\"><pre class=\"code\"><code><b>x</b></code></pre></div>"));
+    reset(*out);
+    e.compact = false;
+    ExampleBlock(*out, *e);
+    expect(contains(to_string(*out), "<div class=\"ed\"><pre class=\"code\"><code><b>x</b></code></pre></div>"));
     reset(*out);
     e.plain = true;
     ExampleBlock(*out, *e);
@@ -414,4 +420,28 @@ the_prelude_is_imported_by_every_program :: () {
     expect(contains(other, "<span class=\"d\">#import</span> <span class=\"s\">\"Steady\"</span>;"));
     expect(!contains(implicit, "#import"));
     expect(contains(implicit, "Every program imports this module"));
+} @test
+
+search_has_an_explicit_accessible_name :: () {
+    site := fixture(Site_View, "site");
+    defer free_json(*site);
+    out: Out;
+    defer deinit(*out);
+    Header(*out, *site);
+    text := to_string(*out);
+    expect(contains(text, "<label class=\"sr\" for=\"search-q\">Search the docs</label>"));
+    expect(contains(text, "<input id=\"search-q\" type=\"search\""));
+} @test
+
+sidebar_initializers_precede_the_body_and_finish_after_navigation :: () {
+    site := fixture(Site_View, "site");
+    defer free_json(*site);
+    site.early_js = copy_string("/*sidebar-state*/");
+    page := render(*site, *site.index);
+    defer free(page);
+    state := find_index_from_left(page, "/*sidebar-state*/");
+    head := find_index_from_left(page, "</head>");
+    nav := find_index_from_left(page, "</nav></details>");
+    ready := find_index_from_left(page, "<script>jacketSide()</script>");
+    expect(state >= 0 && state < head && nav > head && ready > nav);
 } @test

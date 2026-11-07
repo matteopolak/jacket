@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 import bump_version as bv
+import release
 from generators import generate_version_files as gen
 
 MANIFEST = '[workspace]\nmembers = ["a"]\n\n[workspace.package]\nversion = "0.1.0"\nrust-version = "1.95"\n'
@@ -53,6 +54,47 @@ class Bump(unittest.TestCase):
         self.assertEqual(
             bv.read(self.root, "CHANGELOG.md"),
             "# Changelog\n\n## [0.2.0] - 2026-02-02\n\n### New\n\n- A thing.\n\n## [0.1.0] - 2026-01-01\n\nOld.\n")
+
+    def test_unreleased_forms_preserve_notes_and_extract_only_new_release(self):
+        for heading in ("## Unreleased", "## [Unreleased]", "## Unreleased   "):
+            with self.subTest(heading=heading):
+                before = f"# Changelog\n\n{heading}\n\n### Added\n\n- New.\n\n## [0.1.0]\nOld.\n"
+                after = bv.bump_changelog(before, "0.2.0", "2026-02-02")
+                self.assertEqual(after, before.replace(heading, "## [0.2.0] - 2026-02-02"))
+                self.assertEqual(release.changelog_section(after, "0.2.0"), "### Added\n\n- New.\n")
+
+    def test_prewritten_version_section_keeps_its_heading_suffix(self):
+        text = "## [0.2.0] - pending\nWritten.\n## Unreleased\nLater.\n"
+        self.assertEqual(bv.bump_changelog(text, "0.2.0", "today"), text)
+
+    def test_unreleased_preserves_final_newline_presence(self):
+        for ending in ("", "\n", "\r\n"):
+            before = "## Unreleased\n- New." + ending
+            self.assertEqual(bv.bump_changelog(before, "0.2.0", "today"),
+                             "## [0.2.0] - today\n- New." + ending)
+
+    def test_fenced_headings_do_not_steal_release(self):
+        for fence in ("```", "~~~~"):
+            before = f"# Changelog\n\n{fence}markdown\n## [0.2.0]\n## Unreleased\n{fence}\n\n## Unreleased\nReal.\n"
+            self.assertEqual(bv.bump_changelog(before, "0.2.0", "today"),
+                             before.replace("## Unreleased\nReal.", "## [0.2.0] - today\nReal."))
+
+    def test_inline_backticks_do_not_hide_the_real_unreleased_heading(self):
+        before = "# Changelog\n\n```example```\n\n## Unreleased\nNew.\n\n## [0.1.0]\nOld.\n"
+        after = bv.bump_changelog(before, "0.2.0", "today")
+        self.assertEqual(after, before.replace("## Unreleased", "## [0.2.0] - today"))
+        self.assertEqual(release.changelog_section(after, "0.2.0"), "New.\n")
+
+    def test_tilde_info_may_contain_backticks(self):
+        before = "~~~example`\n## [0.2.0]\n## Unreleased\n~~~\n\n## Unreleased\nNew.\n"
+        self.assertEqual(bv.bump_changelog(before, "0.2.0", "today"),
+                         before.replace("## Unreleased\nNew.", "## [0.2.0] - today\nNew."))
+
+    def test_unreleased_lookalikes_are_not_renamed(self):
+        for heading in ("### Unreleased", "## Unreleasedness", "## [Unreleased", "## Unreleased]", "## [Unreleased] suffix", "prose Unreleased"):
+            before = heading + "\n\n## [0.1.0]\nOld.\n"
+            self.assertEqual(bv.bump_changelog(before, "0.2.0", "today"),
+                             heading + "\n\n## [0.2.0] - today\n\n## [0.1.0]\nOld.\n")
 
     def test_bad_versions_are_refused(self):
         for bad in ("1.2", "v1.2.3", "1.2.3-rc1", "0.1.0"):

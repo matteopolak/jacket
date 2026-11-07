@@ -45,6 +45,8 @@ html::-webkit-scrollbar-thumb:hover, .side::-webkit-scrollbar-thumb:hover, .side
 body { margin: 0; font-family: var(--sans); font-size: 15.5px; line-height: 1.7; color: var(--fg); background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; }
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
+/* Links embedded in content need a cue beyond colour, including linked code names. */
+main a { text-decoration: underline; text-underline-offset: 0.15em; }
 code, .mono { font-family: var(--mono); }
 code { font-size: 0.9em; }
 button, select, input { font: inherit; color: inherit; }
@@ -297,7 +299,7 @@ main .overload > h3 + .defs { margin-top: 0; margin-bottom: 0; border-radius: 0;
 .ex-row { display: flex; align-items: flex-start; gap: 8px; padding: 10px 10px 10px 16px; }
 /* An editable example: the textarea lies over the coloured code and shows through it. */
 .ed { position: relative; }
-.ed .code { overflow: hidden; }
+.js .ed .code { overflow: hidden; }
 .ed textarea { position: absolute; inset: 0; width: 100%; height: 100%; box-sizing: border-box; -webkit-appearance: none; appearance: none; border: 0; border-radius: 0; background: transparent; color: transparent; caret-color: var(--fg); font-family: var(--mono); resize: none; overflow-x: auto; overflow-y: hidden; white-space: pre; tab-size: 4; outline: none; }
 .ed textarea::selection { background: var(--sel); color: transparent; }
 .ex-out { border-top: 1px solid var(--hair); padding: 10px 18px; font-family: var(--mono); font-size: 12.5px; color: var(--ok); background: var(--okbg); }

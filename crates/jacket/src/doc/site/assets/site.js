@@ -39,11 +39,10 @@
     });
   }
 
-  // The side navigation starts closed on a phone. On a wide screen the blocking script right after
-  // it has already put it back where it was. Its place and open groups are kept for the next page.
+  // Markup sets the viewport state before parsing the navigation; the blocking script after
+  // it restores groups and scroll. Keep later reader changes when this deferred script arrives.
   var side = document.querySelector('details.side');
   if (side) {
-    if (window.matchMedia('(max-width: 899px)').matches) side.open = false;
     window.addEventListener('pagehide', function () {
       try {
         var nav = side.querySelector('nav');
@@ -457,16 +456,14 @@
   function editable(figure) {
     var runButton = figure.querySelector('button[data-act="run"][data-program]');
     var pre = figure.querySelector('pre.code');
-    if (!runButton || !pre || figure.querySelector('.ed')) return;
+    var wrap = pre && pre.parentElement;
+    if (!runButton || !pre || !wrap || !wrap.classList.contains('ed') || wrap.querySelector('textarea')) return;
     var code = pre.querySelector('code');
     var original = pre.textContent;
     var originalHtml = code.innerHTML;
     var reset = figure.querySelector('button[data-act="reset"]');
     var open = figure.querySelector('a.btn[href]');
     var openHref = open && open.getAttribute('href');
-    var wrap = el('div', 'ed');
-    pre.parentNode.insertBefore(wrap, pre);
-    wrap.appendChild(pre);
     var area = el('textarea');
     area.value = original;
     area.spellcheck = false;
@@ -697,15 +694,15 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) { set(false); btn.focus(); } });
   })();
 
-  // A code block wider than its column scrolls on its own; give it a tab stop so the keyboard
-  // can scroll it too.
+  // Content wider than its column scrolls on its own; give each overflowing region a tab
+  // stop so the keyboard can scroll code, tables and field lists too.
   // All widths are read before any tab stop changes, so this lays the page out once.
-  var pres = [], sizing = false;
+  var scrollRegions = [], sizing = false;
   function scrollable() {
     sizing = false;
-    var wide = Array.prototype.map.call(pres, function (pre) { return pre.scrollWidth > pre.clientWidth; });
-    Array.prototype.forEach.call(pres, function (pre, i) {
-      if (wide[i]) pre.tabIndex = 0; else pre.removeAttribute('tabindex');
+    var wide = Array.prototype.map.call(scrollRegions, function (region) { return region.scrollWidth > region.clientWidth; });
+    Array.prototype.forEach.call(scrollRegions, function (region, i) {
+      if (wide[i]) region.tabIndex = 0; else region.removeAttribute('tabindex');
     });
   }
   window.addEventListener('resize', function () {
@@ -742,7 +739,7 @@
     page = new AbortController();
     outline(page.signal);
     Array.prototype.forEach.call(document.querySelectorAll('figure.ex'), editable);
-    pres = document.querySelectorAll('main pre');
+    scrollRegions = document.querySelectorAll('main pre, main table, main .defs');
     scrollable();
     folds();
     openTarget();

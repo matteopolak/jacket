@@ -536,3 +536,38 @@ fn the_prelude_page_has_nothing_to_import() {
     };
     assert_eq!(import, "Io");
 }
+
+#[test]
+fn documentation_sidebar_sections_precede_library_categories() {
+    let mut site = fixture();
+    site.categories.insert(
+        0,
+        categories::Category {
+            name: "Standard library".into(),
+            ..categories::Category::default()
+        },
+    );
+    site.modules[0].category = Some(1);
+    site.modules[1].category = Some(0);
+    site.extra_nav = ["Guides", "Tools", "Reference"]
+        .into_iter()
+        .map(|label| NavCategory {
+            label: label.into(),
+            groups: Vec::new(),
+        })
+        .collect();
+    let nav = super::build::nav(&site, Some(0));
+    let labels: Vec<_> = nav.iter().map(|category| category.label.as_str()).collect();
+    assert_eq!(
+        labels,
+        [
+            "Guides",
+            "Tools",
+            "Reference",
+            "Standard library",
+            "Extensions"
+        ]
+    );
+    assert!(nav[4].groups[0].open);
+    assert_eq!(nav[4].groups[0].links[0].href, "/docs/api/Vendor/Nested");
+}

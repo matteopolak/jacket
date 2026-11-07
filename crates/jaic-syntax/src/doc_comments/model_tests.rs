@@ -198,6 +198,34 @@ fn declarations_of_foreign_procedures_are_listed_as_bindings() {
 }
 
 #[test]
+fn private_foreign_helpers_do_not_make_own_declarations_bindings() {
+    for scope in ["#scope_file", "#scope_module"] {
+        let source = format!(
+            "Case :: struct {{ value: int; }}\nMode :: enum {{ A; }}\nLIMIT :: 8;\npublic_call :: native_call;\n{scope}\nlib :: #library \"native\";\nnative_call :: () #foreign lib;\n"
+        );
+        let dir = library(
+            &format!("private-binding-{scope}"),
+            &[("module.jai", &source)],
+        );
+        let model = module(&dir, Path::new("/nowhere"));
+        for name in ["Case", "Mode", "LIMIT"] {
+            let item = model.items.iter().find(|item| item.name == name).unwrap();
+            assert!(!item.binding, "{scope}: {name} is an own declaration");
+        }
+        assert!(
+            model
+                .items
+                .iter()
+                .find(|item| item.name == "public_call")
+                .unwrap()
+                .binding
+        );
+        assert!(model.items.iter().all(|item| item.name != "native_call"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[test]
 fn module_parameters_come_with_their_docs() {
     let dir = library(
         "parameters",
@@ -618,4 +646,59 @@ fn links_that_name_nothing_are_listed_with_their_line() {
     }
     assert!(!tail.contains("[cut]") && !tail.contains("[x]"), "{tail}");
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn directives_are_not_same_spelled_declaration_references() {
+    assert_eq!(type_paths("*#Context"), Vec::<Vec<String>>::new());
+    assert_eq!(
+        type_paths("#type (a: Context) -> Other.Context"),
+        [vec!["a"], vec!["Context"], vec!["Other", "Context"]]
+    );
+    assert_eq!(type_paths("#arbitrary Context"), [vec!["Context"]]);
+    let dir = library(
+        "context-directive",
+        &[
+            (
+                "module.jai",
+                "Other :: #import,file \"other.jai\";\nContext :: struct { local: int; }\nActive :: #Context;\nuse :: (active: *#Context, alias: *Active, ordinary: *Context, qualified: *Other.Context) {}\n",
+            ),
+            ("other.jai", "Context :: struct { remote: int; }\n"),
+        ],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let alias = model.items.iter().find(|i| i.name == "Active").unwrap();
+    assert!(alias.refs.is_empty());
+    let procedure = model.items.iter().find(|i| i.name == "use").unwrap();
+    let params = &procedure.overloads[0].params;
+    assert!(params[0].refs.is_empty());
+    assert!(params[1].refs.iter().any(|r| r.path == "Active"));
+    assert!(
+        params[2]
+            .refs
+            .iter()
+            .any(|r| r.path == "Context" && r.file == dir.join("module.jai"))
+    );
+    assert!(
+        params[3]
+            .refs
+            .iter()
+            .any(|r| r.path == "Other.Context" && r.file == dir.join("other.jai"))
+    );
+}
+
+#[test]
+fn language_type_directive_aliases_are_type_items() {
+    let dir = library(
+        "language-type-directives",
+        &[(
+            "module.jai",
+            "Active :: #Context;\nExtended :: #jaic_type long_double;\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    for name in ["Active", "Extended"] {
+        let item = model.items.iter().find(|i| i.name == name).unwrap();
+        assert_eq!(item.kind, "type", "{name}");
+    }
 }

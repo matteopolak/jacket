@@ -2,6 +2,7 @@ import importlib
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 import build_portable as bp
@@ -36,7 +37,11 @@ class Fixtures(unittest.TestCase):
 
     def test_zip_fixtures_are_deterministic(self):
         names = ["valid.zip", "empty.zip", "truncated.zip", "zip64.zip"]
-        self.assertEqual(self.build("zip", "zip", names), self.build("zip", "zip", names))
+        builds = []
+        for seconds in (0, 2):
+            with patch("zipfile.time.localtime", return_value=(2020, 1, 2, 3, 4, seconds, 3, 2, -1)):
+                builds.append(self.build("zip", "zip", names))
+        self.assertEqual(builds[0], builds[1])
 
     def test_archive_fixtures(self):
         built = self.build("archive", "archive-fixtures", ["classic.a", "gnu.a", "coff.a", "bsd-big.a", "bad-size.a"])

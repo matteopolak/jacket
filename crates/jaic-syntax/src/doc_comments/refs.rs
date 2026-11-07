@@ -25,6 +25,7 @@ pub(super) const BUILTIN_TYPES: &[&str] = &[
 
 /// The names in a type as written, `Hash.Table` as one: `[3] Hash.Table(string, T)` has
 /// `Hash.Table`, `string` and `T`. A `$T` that the call binds is left out.
+/// Directive identifiers are syntax: `*#Context` contributes no declaration name.
 pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
     let chars: Vec<char> = ty.chars().collect();
     let mut out = Vec::new();
@@ -43,6 +44,15 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
                 } else {
                     i += 1;
                 }
+            }
+            continue;
+        }
+        // A directive is language syntax, not a same-spelled declaration: #Context
+        // must not resolve to a user type named Context. Its operands are still read.
+        if c == '#' {
+            i += 1;
+            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+                i += 1;
             }
             continue;
         }

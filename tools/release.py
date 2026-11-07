@@ -15,7 +15,7 @@ Steps, in release order (docs/tools/releases.md):
     homebrew     push the rendered formula to matteopolak/homebrew-tap
     nvim-stamp   stamp the version and the release's toolchain manifest into editors/nvim
     nvim-mirror  replace matteopolak/jacket.nvim's main branch with editors/nvim and tag it
-    portfolio    dispatch the portfolio's jai-web.yml for the tag
+    portfolio    dispatch the portfolio's jacket-web.yml for the tag
     all          the publishing steps (publish .. portfolio) in that order
 
 Every option defaults to the environment variable the workflow sets (TAG, CURRENT_VERSION, GITHUB_REPOSITORY,
@@ -36,13 +36,15 @@ import tempfile
 from pathlib import Path
 
 from generators import generate_version_files
+from toolkit.changelog import headings, release_name
+from toolkit.platforms import PLATFORMS as BUILD_PLATFORMS, WINDOWS
 from toolkit.repo import ROOT
 from toolkit.version import workspace_version
 
 TAP_REPOSITORY = "matteopolak/homebrew-tap"
 MIRROR_REPOSITORY = "matteopolak/jacket.nvim"
 PORTFOLIO_REPOSITORY = "matteopolak/portfolio"
-PORTFOLIO_WORKFLOW = "jai-web.yml"
+PORTFOLIO_WORKFLOW = "jacket-web.yml"
 NAMESPACE = "matteopolak"
 # GitHub's published ed25519 host key fingerprint, so the mirror push cannot go to an impostor.
 GITHUB_HOST_KEY = "SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU"
@@ -54,6 +56,12 @@ PLATFORMS = {
     "macOS-X64": "macos-x64",
     "macOS-ARM64": "macos-arm64",
 }
+# package_release.sh emits a ZIP on Windows and a tarball elsewhere.
+DISTRIBUTIONS = frozenset(
+    f"jacket-{platform}" + (".zip" if platform in WINDOWS else ".tar.gz")
+    for platform in BUILD_PLATFORMS
+) | {"SHA256SUMS", "toolchain-manifest.json"}
+VERSIONED_DISTRIBUTION = re.compile(r"jacket-(?:docs-\d+\.\d+\.\d+\.tar\.gz|vscode-\d+\.\d+\.\d+\.vsix)")
 # What `all` runs, after the build and packaging jobs.
 PUBLISHING = ("publish", "marketplace", "open-vsx", "homebrew", "nvim-stamp", "nvim-mirror", "portfolio")
 
@@ -135,18 +143,15 @@ def step_meta(args, shell):
 # notes
 
 def changelog_section(changelog, version):
-    """The text under `## [version]` up to the next `## [`; empty when there is none or it is blank."""
+    """Extract `## [1.2.3]` notes for `1.2.3`/`v1.2.3`, ignoring fenced headings."""
     version = version.removeprefix("v")
-    lines, inside = [], False
-    for line in changelog.splitlines():
-        if line.startswith("## ["):
-            if inside:
-                break
-            inside = line.startswith(f"## [{version}]")
-            continue
-        if inside:
-            lines.append(line)
-    return "\n".join(lines).strip("\n") + "\n" if "".join(lines).strip() else ""
+    sections = list(headings(changelog))
+    for i, (_, end, title) in enumerate(sections):
+        if release_name(title) == version:
+            stop = sections[i + 1][0] if i + 1 < len(sections) else len(changelog)
+            notes = "\n".join(changelog[end:stop].splitlines()).strip("\n")
+            return notes + "\n" if notes.strip() else ""
+    return ""
 
 
 def step_notes(args, shell):
@@ -243,11 +248,16 @@ def step_published(args, shell):
 # publish
 
 def step_publish(args, shell):
-    """Create the GitHub release for the tag from dist/ and notes.md; update it when it exists and is mutable."""
+    """Publish archives, VSIX, manifest and checksums from dist/; never deployment/diagnostic artifacts."""
     tag, repo = args.tag, args.repo
     title = f"Jacket {tag.removeprefix('v')}"
     current = tag == f"v{args.current_version}"
-    files = [str(path) for path in sorted(args.dist.glob("*"))] or [str(args.dist / "*")]
+    files = [str(path) for path in sorted(args.dist.glob("*")) if path.is_file()
+             and (path.name in DISTRIBUTIONS or VERSIONED_DISTRIBUTION.fullmatch(path.name))]
+    if not files:
+        if not shell.dry_run:
+            raise SystemExit(f"no release distributions in {args.dist}")
+        files = [str(args.dist / "*")]
     view = ["gh", "release", "view", tag, "--repo", repo, "--json", "isImmutable"]
     upload = ["gh", "release", "upload", tag, *files, "--repo", repo, "--clobber"]
     edit = ["gh", "release", "edit", tag, "--repo", repo, "--title", title, "--notes-file", str(args.notes)]
@@ -433,7 +443,7 @@ def step_portfolio(args, shell):
         return
     if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", args.tag):
         raise SystemExit(f"portfolio: expected a tag like v1.2.3, got {args.tag}")
-    shell.run(["gh", "workflow", "run", PORTFOLIO_WORKFLOW, "-R", PORTFOLIO_REPOSITORY, "-f", f"jai_ref={args.tag}"])
+    shell.run(["gh", "workflow", "run", PORTFOLIO_WORKFLOW, "-R", PORTFOLIO_REPOSITORY, "-f", f"jai_ref={args.tag}", "-f", "update_pointer=true"])
 
 
 # command line
@@ -500,7 +510,7 @@ def build_parser():
     option(sub, "--editor-version", "EDITOR_VERSION")
     sub.add_argument("--work", type=Path, default=runner_temp)
 
-    sub = step("portfolio", step_portfolio, "dispatch the portfolio's jai-web.yml for the tag")
+    sub = step("portfolio", step_portfolio, "dispatch the portfolio's jacket-web.yml for the tag")
     option(sub, "--tag", "TAG")
 
     sub = step("all", lambda args, shell: step_all(args), "run the publishing steps in release order")

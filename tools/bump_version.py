@@ -6,7 +6,7 @@
     python3 tools/bump_version.py --check         # only fail when the copies disagree
 
 Updates the root Cargo.toml `[workspace.package] version`, the path packages of Cargo.lock and
-fuzz/Cargo.lock that carry that version, and renames CHANGELOG.md's `## [Unreleased]` heading to
+fuzz/Cargo.lock that carry that version, and renames CHANGELOG.md's `## [Unreleased]` or `## Unreleased` heading to
 `## [X.Y.Z] - <today>` (or adds that header when there is no such section and none for X.Y.Z yet).
 The generated copies (jaifmt/version.jai, editors/nvim/lua/jai/version.lua) are rewritten by
 tools/generators/generate_version_files.py, which this runs last. editors/vscode/package.json is left
@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 from generators import generate_version_files
+from toolkit.changelog import headings, release_name
 from toolkit.repo import ROOT
 from toolkit.version import WORKSPACE_VERSION, workspace_version
 
@@ -59,16 +60,18 @@ def bump_lock(text, old, new):
 
 
 def bump_changelog(text, new, today):
-    if re.search(rf"^## \[{re.escape(new)}\]", text, re.M):
+    """Rename `## Unreleased`/`## [Unreleased]` to `## [new] - today`, keeping notes."""
+    sections = [(start, end, release_name(title)) for start, end, title in headings(text)]
+    if any(name == new for _, _, name in sections):
         return text
-    unreleased = re.search(r"^## \[Unreleased\][^\n]*$", text, re.M)
-    if unreleased:
-        return text[:unreleased.start()] + f"## [{new}] - {today}" + text[unreleased.end():]
-    first = re.search(r"^## \[", text, re.M)
+    for start, end, name in sections:
+        if name == "Unreleased":
+            return text[:start] + f"## [{new}] - {today}" + text[end:]
+    first = next((start for start, _, name in sections if name is not None), None)
     header = f"## [{new}] - {today}\n\n"
     if first is None:
         return text.rstrip("\n") + "\n\n" + header.rstrip("\n") + "\n"
-    return text[:first.start()] + header + text[first.start():]
+    return text[:first] + header + text[first:]
 
 
 def bump(root, new, today=None):
