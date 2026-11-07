@@ -330,6 +330,9 @@ impl Interp {
     }
 
     pub fn new(host: Box<dyn Host>) -> Self {
+        if host.native_linking() {
+            native::waits::prepare();
+        }
         Self {
             stack: ValueStack::default(),
             sp: 0,

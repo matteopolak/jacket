@@ -1,10 +1,9 @@
 //! `jaic` command line: `jaic [options] file.jai [options] [+Plugin ...] [- metaprogram args] [-- program args]`.
 #![forbid(unsafe_code)]
-use self::cli::Cli;
-use self::options::{Action, CliError, CliOption, OPTIONS, Request, Section};
 use self::parse::{color_choice, parse, report_cli_error};
 use self::run::run;
 use self::usage::usage_text;
+use jaic_cli_args::options::Request;
 use std::process::ExitCode;
 
 /// Every Rust allocation goes through the counter that enforces `JAIC_MEMORY_LIMIT`; unarmed it
@@ -131,12 +130,10 @@ mod timings {
 }
 
 mod backend;
-mod cli;
 mod leak;
-mod options;
+mod native_paths;
 mod parse;
 mod run;
-mod tuning;
 mod usage;
 
 fn main() -> ExitCode {
@@ -269,7 +266,6 @@ mod tests {
     use super::*;
     #[cfg(feature = "llvm")]
     use crate::backend::native_backend;
-    use crate::cli::{Added, Flavor, Mode, Plugin};
     use crate::run::disable_check_bindings;
     #[cfg(feature = "llvm")]
     use jaic::build::BuildSettings;
@@ -278,6 +274,8 @@ mod tests {
     #[cfg(feature = "llvm")]
     use jaic::target::Target;
     use jaic::target::{TargetCpu, TargetOs};
+    use jaic_cli_args::cli::{Added, Cli, Flavor, Mode, Plugin};
+    use jaic_cli_args::options::CliError;
     use std::path::{Path, PathBuf};
 
     fn triple(args: &[&str], host_os: TargetOs, host_cpu: TargetCpu) -> Option<String> {
@@ -364,6 +362,31 @@ mod tests {
                 .message
                 .contains("unknown option")
         );
+    }
+
+    #[test]
+    fn unicode_file_names_are_not_attached_level_flags() {
+        let parsed = cli(&["名.jai", "-check"]);
+        assert_eq!(parsed.file, "名.jai");
+        assert!(parsed.mode == Mode::Check);
+    }
+
+    #[test]
+    fn inspected_missing_values_keep_the_compiler_diagnostic() {
+        for option in [
+            "-exe",
+            "-output_path",
+            "-threads",
+            "-D",
+            "-add",
+            "-os",
+            "-cpu",
+            "-target",
+        ] {
+            let words = ["main.jai", option];
+            let parsed = jaic_cli_args::arguments::target_flags(&args(&words)).unwrap_err();
+            assert_eq!(parsed, error(&words).message, "{option}");
+        }
     }
 
     #[test]

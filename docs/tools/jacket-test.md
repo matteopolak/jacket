@@ -1,6 +1,6 @@
 # `jacket test`
 
-The test runner for Jai projects. It builds a folder's tests once, runs each test in its own process (in parallel), and reports as text, JSON lines or JUnit XML. Tests are written with the [`Testing` module](../extensions/testing.md); golden-output and compile-fail files need no module. How to use it is in the [testing guide](../guides/testing.md); this page is the reference and how it works.
+The test runner for Jai projects. It builds a folder's unit programs once, runs their cases and separate golden programs in parallel, and reports as text, JSON lines or JUnit XML. Tests are written with the [`Testing` module](../extensions/testing.md); golden-output and compile-fail files need no module. How to use it is in the [testing guide](../guides/testing.md); this page is the reference and how it works.
 
 ```
 $ jacket test
@@ -19,6 +19,18 @@ $ jacket test
 ```
 
 Exit status: 0 when every test passed (or was skipped, or failed under `@xfail`), 1 when a test failed, 2 when nothing matched, the tests didn't compile, or the command line or `jacket.toml` was wrong. Every flag is in the [command-line reference](../reference/tools.md#testing).
+
+`--list` preserves the host catalogue. Use `--list --list-target` when the catalogue must match
+another target's compile-time `#if OS` or `#if CPU` declarations. Pass the same compiler flags
+as the run; discovery uses them without executing test bodies:
+
+```sh
+jacket test --list --list-target --interp -- -os=wasm
+jacket test --interp -- -os=wasm
+```
+
+The listing view is selected in `test/build.rs`; keep it separate from the shared compiler
+argument/target policy. Dependency probes use that catalogue's same compiler setup and target; actual runs and checks use their selected target. CI uses the selected-target view for coverage and changed-file filters.
 
 ## Where tests are
 
@@ -114,7 +126,7 @@ The target decides which examples take part: `only(...)` and `skip_on(...)` note
 Examples of every flag are in the [guide](../guides/testing.md#running-tests).
 
 - Each unit test runs as `tests --run NAME` in its own process, `-j` at a time (default: the machine's threads). `@slow` tests start first, `@serial` ones run last, alone. With `--interp` or `--no-isolation`, tests are batched `-j` ways per process, because every `-interp` process compiles again; a crash fails that test and a new process picks up at the next one.
-- A test's output is captured and shown with its failure (`--no-capture` streams it, one test at a time). A test past its timeout has its process group killed and is `TIMEOUT`. `--quiet` prints only failures and the summary.
+- A test's output is captured and shown with its failure (`--no-capture` streams it, one test at a time). A test past its timeout has its process group killed and is `TIMEOUT`. Plain golden programs use their declared timeout from process launch, even without Testing records; framed unit programs retain a separate deadline for each test. Closing both output streams does not end supervision: Jacket waits for the process and checks its completion before declaring an expired deadline. A timeout of 0 disables that limit. `--quiet` prints only failures and the summary.
 - A test whose process dies of a signal (or a Windows exception such as `0xC0000005`) shows the last 64 lines of its stdout and stderr under the failure, for unit tests and golden tests alike. Native test builds pass `-backtrace_on_crash`, so stderr also has `crash signal N at 0xADDR` and a `native stack:` trace (`stdlib/internal/runtime/crash-native/runtime.c`). `-no_backtrace_on_crash` after `--` turns the trace off; `--interp` runs have none.
 - Each test gets a fresh `temp_dir`; a failing test's is kept and printed (`--keep-temp` keeps all).
 - Statuses: `PASS`, `FAIL`, `SKIP`, `TIMEOUT`, `XFAIL`, `XPASS` (fails the run so the note gets removed), `FLAKY` (failed, then passed on a `--retries` attempt; a pass unless `flaky_fails`). `--fail-fast` starts no new tests after the first failure.
@@ -236,3 +248,35 @@ Flags win over the profile, the profile over `[test]`. Environment: `JAIC_STDLIB
 ## Dependencies
 
 `jaic` and the `Extensions/Testing` module; `serde_json` for JSON output and `regex-lite` for `/regex/` filters. `--coverage` needs `llvm-dwarfdump` and `jaic -coverage`. `--runner` programs such as `node` are the user's.
+
+## Effective compiler target
+
+Target filters, cross-target skips and runner routing use the final compiler arguments.
+`jacket test --os windows -- -os=wasm` therefore selects wasm tests and needs a wasm
+runner. Repeated OS/CPU flags keep the last value; `-target` overrides OS and CPU,
+regardless of their order. CPU aliases and defaults come from the compiler's shared
+`Selection` policy. Cross-OS checking defaults to x64; wasm builds have a wasm CPU.
+
+Host-side discovery removes target options, including inline values and triples, using
+`jaic-cli-args`'s compiler option table. Values of unrelated flags, plugin options and arguments
+after `-` or `--` retain their meaning. Target-side builds keep the user's argument bytes.
+A metaprogram that changes its workspace target is outside this command-line selection;
+its target cannot be inferred before that program runs.
+
+To extend target selection, update the shared policy in `jaic::target` and compiler option
+metadata in `jaic-cli-args`, then exercise `crates/jacket/tests/forwarded_targets.rs`. Keep
+selection and build/runner behavior in the same regression. Forwarded `-interp` selects interpreted execution too; use
+`--doc --check-only` for compile-only examples (`-check` alone cannot run unit tests).
+The neutral argument layer shares its option table with the compiler binary. Backend,
+allocator and panic initialization remain binary concerns.
+
+Compile-only cases use checking target rules. Native link support is validated by the
+compiler when a program is built. This lets compile-fail and check-only examples select
+cross-target OS/CPU filters without requiring a foreign native linker. Wasm has its own CPU
+class in every mode, so native CPU filters have the same meaning when interpreted.
+
+Forwarded compiler mode switches are resolved once, then removed before jacket builds its
+per-case compiler commands. Compile-fail cases therefore keep `-check` even during an
+interpreted run, and host discovery keeps its own interpreter mode. Compiler conflicts
+such as `-check -interp` remain errors, including with `--check-only`. For dependency
+listing use `jacket test --list --deps`; forwarding compiler `-deps` is rejected.

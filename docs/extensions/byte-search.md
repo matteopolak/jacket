@@ -24,6 +24,8 @@ at = Byte_Search.find(*digits, text);
 - Substring search: `make_finder` picks the needle's two rarest bytes (`rarity`), checks both in the vector loop and verifies with `memcmp`. When candidates keep failing it switches to Two-Way, which is linear time and constant space.
 - Byte searches exist as a 16-byte version and a 32-byte one compiled with `#target_features "avx2"`. `dispatch` generates both and the first call picks one with `pick_target` ([choosing code by CPU](simd.md#choosing-code-by-cpu)). `Byte_Set` searches stay 16 bytes wide.
 
+Compile-time calls select the portable 16-byte implementation without ISA probing. Macros that inspect another CPU target's caller `Code` therefore do not attempt that target's feature instructions. Running programs keep normal CPU dispatch.
+
 ## How to change it
 
 - New byte search: add an `#insert #run dispatch(...)` line in `#scope_module` using `forward_search`/`backward_search`, then a one-line public procedure.

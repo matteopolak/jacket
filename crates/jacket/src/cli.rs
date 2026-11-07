@@ -155,6 +155,9 @@ pub struct TestArgs {
     /// Print the tests (and benchmarks) instead of running them
     #[arg(long)]
     pub list: bool,
+    /// With `--list`: discover the selected target's compile-time cases instead of the host's
+    #[arg(long, requires = "list")]
+    pub list_target: bool,
     /// Print the test roots (the folders `[test] paths` expands to, narrowed by the current
     /// directory), one per line, and nothing else
     #[arg(long, conflicts_with_all = ["list", "review", "coverage"])]

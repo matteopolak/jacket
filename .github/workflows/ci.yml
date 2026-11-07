@@ -23,6 +23,18 @@ on:
         type: choice
         options: [full, fast]
         default: full
+      fuzz_summary:
+        description: 'Run isolated synthetic panic summary validation'
+        type: boolean
+        default: false
+      jacket_inventory:
+        description: 'Save compiler-target and jacket discovery, assignment and outcome inventories'
+        type: boolean
+        default: false
+      io_investigation:
+        description: 'Run five independent Io backend attempts per native mode on Linux x64/ARM64'
+        type: boolean
+        default: false
 permissions:
   contents: read
 env:
@@ -157,6 +169,58 @@ jobs:
         run: python3 tools/ci/check_dependency_age.py --lockfile fuzz/Cargo.lock
       - name: Replay fuzz/regressions through the harnesses
         run: cargo test --locked --manifest-path fuzz/harness/Cargo.toml
+  fuzz-summary-acceptance:
+    if: github.event_name == 'workflow_dispatch' && inputs.fuzz_summary
+    name: synthetic panic summary acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - name: Install the pinned toolchain
+        run: python3 tools/ci/install_pinned.py rust
+      - name: Validate real Rust panic capture and summary
+        run: python3 tools/fuzz/validate_crash_summary.py --out "$RUNNER_TEMP/panic-summary"
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: synthetic-panic-summary-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/panic-summary/summary.md
+            ${{ runner.temp }}/panic-summary/replay.json
+            ${{ runner.temp }}/panic-summary/crash-*
+          if-no-files-found: error
+  io-investigation:
+    if: github.event_name == 'workflow_dispatch' && inputs.io_investigation
+    name: Io backend investigation (${{ matrix.runner }})
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/io-investigation-build
+      JAIC_STDLIB: ${{ github.workspace }}/stdlib
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-unix
+        with:
+          native-libs: 'false'
+          font: 'false'
+      - name: Build production compiler and test runner
+        run: cargo build --release --locked -p jaic-cli -p jacket
+      - name: Run the predeclared five attempts per mode
+        run: python3 tools/ci/investigate_io.py --jacket "$CARGO_TARGET_DIR/release/jacket" --out target/ci-io-investigation --attempts 5
+      - name: Upload every diagnostic attempt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: io-investigation-${{ matrix.runner }}
+          path: target/ci-io-investigation
+          if-no-files-found: error
   dependency-hygiene:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'dependency-hygiene')
@@ -323,7 +387,10 @@ jobs:
         env:
           JAILSP_ENFORCE_SCALE_BUDGET: '1'
         run: |
+          bash tools/ci/apt_install.sh bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           python3 tools/fetch_upstreams.py --only focus-editor/focus
+          cargo build --locked -p jai-language-server --example lsp_scale_worker
           cargo nextest run --profile ci -p jai-language-server --locked --test scale
       - name: Native tests with every program divided into parts
         id: split-native
@@ -336,28 +403,59 @@ jobs:
         id: stdlib-targets
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',targets,') }}
         # Every stdlib module with -no_dce for linux, macos, windows and wasm, against
-        # tests/compiler/stdlib-targets.txt, one share of the module and target pairs per shard
-        # (JACKET_STDLIB_TARGETS_PART); every Objective-C selector against its arguments and, on
-        # macOS, the runtime (docs/tools/testing.md), in the first shard.
+        # tests/compiler/stdlib-targets.txt. targets_part can share this work independently
+        # of native Rust's shard. Objective-C selectors check their arguments and, on macOS,
+        # the runtime (docs/tools/testing.md), only in the first target share.
         env:
-          JACKET_STDLIB_TARGETS_PART: ${{ matrix.shard }}
+          JACKET_STDLIB_TARGETS_PART: ${{ matrix.targets_part || matrix.shard }}
+          INVENTORY: ${{ inputs.jacket_inventory }}
         run: |
           objc=()
           [[ "$JACKET_STDLIB_TARGETS_PART" == 1/* ]] && objc=(--test objc_selectors)
-          cargo nextest run --profile ci --ignore-default-filter -p jaic-cli --locked --test stdlib_targets "${objc[@]}"
+          run_targets() {
+            cargo nextest run --profile ci --ignore-default-filter -p jaic-cli --locked --test stdlib_targets "${objc[@]}"
+          }
+          if [[ "$INVENTORY" == true ]]; then
+            reports="$RUNNER_TEMP/compiler-target-inventory"
+            mkdir -p "$reports"
+            python3 tools/ci/jacket_inventory.py metadata --partition "count:$JACKET_STDLIB_TARGETS_PART" > "$reports/metadata.json"
+            export NEXTEST_SUCCESS_OUTPUT=final
+            set +e
+            run_targets 2>&1 | tee /dev/stderr | python3 tools/ci/compiler_target_inventory.py collect > "$reports/modules.jsonl"
+            codes=("${PIPESTATUS[@]}")
+            set -e
+            printf '{"command":%d,"tee":%d,"capture":%d}\n' "${codes[0]}" "${codes[1]}" "${codes[2]}" > "$reports/module-status.json"
+            for code in "${codes[@]}"; do
+              if [[ "$code" != 0 ]]; then exit "$code"; fi
+            done
+          else
+            run_targets
+          fi
       - name: Stdlib doc examples type-check for every OS
         id: doc-targets
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',targets,') }}
         # Every doc example of the standard library, type-checked (not built or run) for linux,
         # macos, windows and wasm, so a mistake that only shows on another OS fails here and not
-        # after the merge (docs/tools/jacket-test.md). The shard's share of each target's examples.
+        # after the merge (docs/tools/jacket-test.md). The target-work share of each OS's examples.
         env:
-          JACKET_PART: ${{ matrix.shard }}
+          JACKET_PART: ${{ matrix.targets_part || matrix.shard }}
+          INVENTORY: ${{ inputs.jacket_inventory }}
         run: |
           cargo build -q -p jaic-cli -p jacket --locked
-          for os in linux macos windows wasm; do
-            target/debug/jacket test -q --doc --check-only --os "$os" --partition "count:$JACKET_PART"
-          done
+          if [[ "$INVENTORY" == true ]]; then
+            bash tools/ci/compiler_doc_inventory.sh target/debug/jacket "$RUNNER_TEMP/compiler-target-inventory" "$JACKET_PART"
+          else
+            for os in linux macos windows wasm; do
+              target/debug/jacket test -q --doc --check-only --os "$os" --partition "count:$JACKET_PART"
+            done
+          fi
+      - name: Upload compiler target identities and completed outcomes
+        if: ${{ always() && !cancelled() && inputs.jacket_inventory && contains(matrix.parts, ',targets,') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: compiler-target-inventory-${{ matrix.runner }}-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/compiler-target-inventory
+          if-no-files-found: error
       - name: Prepare hash-pinned SDL Python test inputs
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') }}
         run: python3 tools/bindings/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
@@ -631,7 +729,15 @@ jobs:
           JACKET_TEST_CHANGED: ${{ needs.changes.outputs.stdlib_changed }}
           WASM: ${{ matrix.wasm }}
           JACKET_TEST_PARTITION: ${{ matrix.jacket_test }}
+          JACKET_TEST_REPORT_DIR: ${{ inputs.jacket_inventory && format('{0}/jacket-inventory', runner.temp) || '' }}
         run: bash tools/ci/stdlib_jacket_test.sh
+      - name: Upload jacket test inventory
+        if: ${{ always() && !cancelled() && inputs.jacket_inventory && matrix.jacket_test }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jacket-inventory-${{ matrix.platform }}-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/jacket-inventory
+          if-no-files-found: error
       - name: Stdlib test coverage against the recorded baseline
         # `jacket test --coverage` over the whole standard library, natively: the per-module table goes to
         # the job summary and the step fails when a module covers over 0.5 points fewer lines than
@@ -745,16 +851,17 @@ jobs:
     # Native builds of the test programs under AddressSanitizer and the IR-level UBSan checks,
     # with the interpreter's expectations; any sanitizer report fails the case
     # (docs/native/sanitizers.md).
-    name: native tests under ASan and UBSan (${{ matrix.runner }}, ${{ matrix.shard }})
+    name: native tests under ASan and UBSan (${{ matrix.runner }}, ${{ matrix.shard }}${{ matrix.mode && format(', {0}', matrix.mode) || '' }})
     strategy:
       fail-fast: false
       matrix:
         # From tools/ci/ci_changes.py (sanitizer_matrix): Linux split in shards
         # (tools/differential/jaic_sweep.py --shard); macOS in the full tier, and on pushes that
-        # change what ASan builds (the `sanitizers-macos` area): its slot is the scarcest.
+        # change what ASan builds (the `sanitizers-macos` area). Full Mac O0/O2 have separate
+        # jobs, so each complete mode retains the existing 45-minute budget.
         include: ${{ fromJSON(needs.changes.outputs.sanitizer_matrix) }}
     concurrency:
-      group: ${{ github.workflow }}-sanitizers-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.shard }}
+      group: ${{ github.workflow }}-sanitizers-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.shard }}${{ matrix.mode == 'O2' && '-O2' || '' }}
       cancel-in-progress: true
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
@@ -782,16 +889,17 @@ jobs:
       # behaviour and the bounds checks see the most objects. The stdlib modules' tests run through
       # `jacket test` (tools/ci/stdlib_jacket_sanitize.sh), on a virtual display on Linux.
       - name: Corpus and compiler tests under ASan and UBSan (-O0)
+        if: ${{ matrix.mode != 'O2' }}
         run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus regressions negative
       - name: Stdlib module tests under ASan and UBSan (-O0)
-        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' }}
+        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' && matrix.mode != 'O2' }}
         run: tools/ci/stdlib_jacket_sanitize.sh O0 ${{ matrix.shard }}
       - name: Corpus and compiler tests under ASan and UBSan (-O2)
         # Full tier only (tools/ci/ci_changes.py).
-        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' && needs.changes.outputs.full == 'true' }}
+        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' && needs.changes.outputs.full == 'true' && matrix.mode != 'O0' }}
         run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus regressions
       - name: Stdlib module tests under ASan and UBSan (-O2)
-        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' && needs.changes.outputs.full == 'true' }}
+        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' && needs.changes.outputs.full == 'true' && matrix.mode != 'O0' }}
         run: tools/ci/stdlib_jacket_sanitize.sh O2 ${{ matrix.shard }}
   sdl3:
     # SDL3 built from the pinned source on every platform, its installed SDK audited and the

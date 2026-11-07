@@ -1,6 +1,6 @@
 //! Help text and command line error messages.
-use super::options::{CliError, NO_MAIN_STATUS, Section};
-use super::tuning;
+use jaic_cli_args::options::{CliError, NO_MAIN_STATUS, Section};
+use jaic_cli_args::tuning;
 
 /// The `-help` lines of the options in `section`.
 fn option_help(section: Section) -> String {

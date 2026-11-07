@@ -11,6 +11,7 @@
     the `Cargo.toml` files, plus the lock and toolchain files,
   * the Jai sources the `.jai` programs among them read: `jaic -deps` when a compiler is at hand
     (`$JAIC_DEPS_JAIC`), otherwise a scan of their `#import`/`#load` lines, plus the prelude,
+  * root/nested .gitattributes for jobs whose expanded steps use actions/checkout,
   * EXTRA, the few inputs no step names.
 
 Patterns are paths or globs (`*` within a directory, `**` across them). A directory is `dir/**`.
@@ -63,6 +64,9 @@ CRATES = {
 }
 # Files every job that builds a crate reads.
 CARGO_FILES = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml"]
+
+# Checkout attributes can change the bytes of any consumed file, even a deleted/new policy.
+CHECKOUT_INPUTS = (".gitattributes", "**/.gitattributes")
 
 # Inputs no step names: what a tool reads by its own rule. Keep this short.
 EXTRA = {
@@ -461,8 +465,67 @@ def strip_comments(text):
     )
 
 
+def step_uses(text):
+    """Action references from block-style step mappings, excluding script/input text.
+
+    For example, `steps: ... - name: Get source ... uses: actions/checkout@REF` is an
+    action even with `if:`; an `env` key or a literal script line named `uses` is not.
+    """
+    steps_indent = step_indent = field_indent = scalar_indent = None
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+        if scalar_indent is not None:
+            if not stripped or indent > scalar_indent:
+                continue
+            scalar_indent = None
+        if not stripped or stripped.startswith("#"):
+            continue
+        item = stripped == "-" or stripped.startswith("- ")
+        # Both literal/folded scalars can contain YAML-looking examples. Do not parse them.
+        if re.search(r":[ \t]*[|>](?:[+-]?[1-9]?|[1-9][+-]?)[ \t]*(?:#.*)?$", line):
+            scalar_indent = (
+                indent + len(stripped) - len(stripped[1:].lstrip()) if item else indent
+            )
+            if (
+                steps_indent is not None
+                and item
+                and (step_indent is None or indent == step_indent)
+            ):
+                step_indent, field_indent = indent, scalar_indent
+            continue
+        if steps_indent is not None and (
+            indent < steps_indent or (indent == steps_indent and not item)
+        ):
+            steps_indent = step_indent = field_indent = None
+        if steps_indent is None:
+            if re.fullmatch(r"steps:[ \t]*(?:#.*)?", stripped):
+                steps_indent = indent
+            continue
+        field = None
+        if item and (step_indent is None or indent == step_indent):
+            step_indent = indent
+            field = stripped[1:].lstrip()
+            field_indent = indent + len(stripped) - len(field) if field else None
+        elif step_indent is not None and indent > step_indent:
+            if field_indent is None:
+                field_indent = indent
+            if indent == field_indent:
+                field = stripped
+        if field is not None:
+            found = re.fullmatch(
+                r"uses:[ \t]*(?:'([^']+)'|\"([^\"]+)\"|([^\s#]+))[ \t]*(?:#.*)?", field
+            )
+            if found:
+                yield next(value for value in found.groups() if value is not None)
+
+
 def actions_of(text):
-    return re.findall(r"uses:\s*\./(\.github/actions/[\w-]+)", text)
+    return [
+        found.group(1)
+        for ref in step_uses(text)
+        if (found := re.fullmatch(r"\./(\.github/actions/[\w/-]+)", ref))
+    ]
 
 
 def step_text(repo, text, seen=None):
@@ -614,6 +677,11 @@ def inputs(
     result = closure(repo, seeds, jaic, via)
     result |= seeds
     result.discard(RUNNER)
+    if any(
+        ref.partition("@")[0].casefold() == "actions/checkout" and ref.partition("@")[2]
+        for ref in step_uses(text)
+    ):
+        result.update(CHECKOUT_INPUTS)
     names = crates.get(job, [])
     if names:
         graph = graph if graph is not None else crate_graph(repo)

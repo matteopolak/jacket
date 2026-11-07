@@ -201,7 +201,14 @@ impl Interp {
                                 } else {
                                     // Native code of unknown purpose may print.
                                     crate::progress::before_output();
-                                    self.call_native(program, addr, argv, sig, None, true)?
+                                    self.call_native(
+                                        program,
+                                        addr,
+                                        argv,
+                                        sig,
+                                        None,
+                                        super::foreign::NativeScheduling::Short,
+                                    )?
                                 }
                             }
                         }

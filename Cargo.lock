@@ -342,6 +342,7 @@ dependencies = [
  "clap",
  "jacket-config",
  "jaic",
+ "jaic-cli-args",
  "jailint",
  "pulldown-cmark",
  "regex-lite",
@@ -410,11 +411,19 @@ version = "0.33.0"
 dependencies = [
  "jacket-config",
  "jaic",
+ "jaic-cli-args",
  "jaic-llvm",
  "jaic-native",
  "mimalloc",
  "serde_json",
  "test-support",
+]
+
+[[package]]
+name = "jaic-cli-args"
+version = "0.33.0"
+dependencies = [
+ "jaic",
 ]
 
 [[package]]

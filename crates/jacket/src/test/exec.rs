@@ -92,6 +92,8 @@ pub enum Live<'a> {
 
 /// Limits of one process: the running test's timeout and when it counts as slow.
 pub struct Limits<'a> {
+    /// Total run limit for a plain program, measured from process launch.
+    pub process_timeout: Option<Duration>,
     pub timeout: &'a dyn Fn(&str) -> Option<Duration>,
     pub slow: Option<Duration>,
     pub stream: bool,
@@ -253,6 +255,7 @@ pub fn top_name(name: &str) -> &str {
 #[derive(Debug)]
 pub struct Started {
     child: Child,
+    launched: Instant,
     rx: mpsc::Receiver<Chunk>,
     open: usize,
     out: Demux,
@@ -262,12 +265,14 @@ pub struct Started {
 
 /// Starts `invocation` and begins reading its output.
 pub fn start(invocation: &Invocation) -> std::io::Result<Started> {
+    let launched = Instant::now();
     let mut child = spawn(invocation)?;
     let (tx, rx) = mpsc::channel();
     reader(child.stdout.take().expect("piped"), true, tx.clone());
     reader(child.stderr.take().expect("piped"), false, tx);
     Ok(Started {
         child,
+        launched,
         rx,
         open: 2,
         out: Demux::default(),
@@ -359,6 +364,7 @@ pub fn run_child(
     };
     let Started {
         mut child,
+        launched,
         rx,
         mut open,
         backlog,
@@ -384,10 +390,19 @@ pub fn run_child(
             Chunk::Closed => {}
         }
     }
+    let process_deadline = limits.process_timeout.map(|limit| launched + limit);
     let mut timed_out = false;
-    while open > 0 {
+    let mut status = None;
+    loop {
+        // Closing captured output does not mean the program has exited.
+        if open == 0
+            && let Some(exited) = child.try_wait().transpose()
+        {
+            status = Some(exited);
+            break;
+        }
         let now = Instant::now();
-        let (deadline, slow_at) =
+        let (test_deadline, slow_at) =
             state
                 .running(&outcome)
                 .map_or((None, None), |(name, started)| {
@@ -398,6 +413,10 @@ pub fn run_child(
                         .map(|s| started + s);
                     (deadline, slow)
                 });
+        let deadline = [test_deadline, process_deadline]
+            .into_iter()
+            .flatten()
+            .min();
         let wake = [deadline, slow_at]
             .into_iter()
             .flatten()
@@ -405,36 +424,52 @@ pub fn run_child(
             .map_or(Duration::from_millis(500), |at| {
                 at.saturating_duration_since(now)
             });
-        match rx.recv_timeout(wake) {
-            Ok(Chunk::Closed) => open -= 1,
-            Ok(Chunk::Out(bytes)) => state.stdout(&bytes, &mut outcome, limits.stream, live),
-            Ok(Chunk::Err(bytes)) => state.stderr(&bytes, &mut outcome, limits.stream, live),
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+        if open > 0 {
+            match rx.recv_timeout(wake) {
+                Ok(Chunk::Closed) => open -= 1,
+                Ok(Chunk::Out(bytes)) => state.stdout(&bytes, &mut outcome, limits.stream, live),
+                Ok(Chunk::Err(bytes)) => state.stderr(&bytes, &mut outcome, limits.stream, live),
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => open = 0,
+            }
+        } else {
+            // There are no readers to wake us; poll exit without spinning or missing a deadline.
+            std::thread::sleep(wake.min(Duration::from_millis(50)));
+        }
+        // The child may have exited while we waited with its streams already closed.
+        let observation = after_wait(
+            open,
+            || child.try_wait().transpose(),
+            || deadline.is_some_and(|d| Instant::now() >= d),
+        );
+        if let WaitState::Exited(exited) = observation {
+            status = Some(exited);
+            break;
         }
         let now = Instant::now();
-        if let Some((name, started)) = state.running(&outcome) {
-            if deadline.is_some_and(|d| now >= d) {
-                kill_tree(&mut child);
-                timed_out = true;
-                // Drain what is left; the pipes close once the processes are gone.
-                while open > 0 {
-                    match rx.recv_timeout(Duration::from_secs(2)) {
-                        Ok(Chunk::Closed) => open -= 1,
-                        Ok(Chunk::Out(bytes)) => state.stdout(&bytes, &mut outcome, false, live),
-                        Ok(Chunk::Err(bytes)) => state.stderr(&bytes, &mut outcome, false, live),
-                        Err(_) => break,
-                    }
+        if matches!(observation, WaitState::TimedOut) {
+            kill_tree(&mut child);
+            timed_out = true;
+            // Drain what is left; the pipes close once the processes are gone.
+            while open > 0 {
+                match rx.recv_timeout(Duration::from_secs(2)) {
+                    Ok(Chunk::Closed) => open -= 1,
+                    Ok(Chunk::Out(bytes)) => state.stdout(&bytes, &mut outcome, false, live),
+                    Ok(Chunk::Err(bytes)) => state.stderr(&bytes, &mut outcome, false, live),
+                    Err(_) => break,
                 }
-                break;
             }
-            if slow_at.is_some_and(|s| now >= s) && !state.reported_slow {
-                state.reported_slow = true;
-                live(Live::Slow(&name, now - started));
-            }
+            break;
+        }
+        if let Some((name, started)) = state.running(&outcome)
+            && slow_at.is_some_and(|s| now >= s)
+            && !state.reported_slow
+        {
+            state.reported_slow = true;
+            live(Live::Slow(&name, now - started));
         }
     }
-    let status = child.wait();
+    let status = status.unwrap_or_else(|| child.wait());
     state.finish(&mut outcome);
     outcome.ending = if timed_out {
         Ending::TimedOut
@@ -475,6 +510,32 @@ fn ending_of(status: std::process::ExitStatus) -> Ending {
         }
     }
     Ending::Exited(status.code().unwrap_or(-1))
+}
+
+/// Completion wins over expiry after a wait when every captured stream has closed.
+/// Open streams still need draining, including output inherited by descendants.
+fn after_wait<T>(
+    open: usize,
+    completed: impl FnOnce() -> Option<T>,
+    expired: impl FnOnce() -> bool,
+) -> WaitState<T> {
+    if open == 0
+        && let Some(status) = completed()
+    {
+        return WaitState::Exited(status);
+    }
+    if expired() {
+        WaitState::TimedOut
+    } else {
+        WaitState::Waiting
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum WaitState<T> {
+    Exited(T),
+    TimedOut,
+    Waiting,
 }
 
 /// Who the output belongs to while the process runs.
@@ -649,6 +710,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn completion_observed_after_wait_wins_over_an_expired_clock() {
+        // The child exits during the final poll interval; no OS scheduling promise is needed.
+        assert_eq!(after_wait(0, || Some(0), || true), WaitState::Exited(0));
+        assert_eq!(after_wait(0, || None::<i32>, || true), WaitState::TimedOut);
+        assert_eq!(after_wait(0, || None::<i32>, || false), WaitState::Waiting);
+        assert_eq!(
+            after_wait(1, || panic!("open output must drain"), || true),
+            WaitState::<i32>::TimedOut
+        );
+    }
+
+    #[test]
     fn records_split_across_reads() {
         let mut demux = Demux::default();
         let mut pieces = demux.feed(b"hi\x02start\x1fa");
@@ -698,6 +771,7 @@ mod process_tests {
     #[test]
     fn records_become_tests() {
         let limits = Limits {
+            process_timeout: None,
             timeout: &no_limit,
             slow: None,
             stream: false,
@@ -716,6 +790,7 @@ mod process_tests {
     #[test]
     fn records_taken_first_leave_the_rest_for_the_run() {
         let limits = Limits {
+            process_timeout: None,
             timeout: &no_limit,
             slow: None,
             stream: false,
@@ -746,42 +821,138 @@ mod process_tests {
     }
 
     #[test]
-    fn a_timeout_kills_the_process_and_what_it_started() {
-        let sleeper = std::env::temp_dir().join(format!("jacket-sleeper-{}", std::process::id()));
-        let second = |_: &str| Some(Duration::from_millis(300));
+    fn a_quick_plain_program_keeps_its_output() {
+        let outcome = super::super::golden::run_plain(
+            &script("printf out; printf err >&2"),
+            Some(Duration::from_secs(1)),
+            &mut |_| {},
+        );
+        assert_eq!(outcome.ending, Ending::Exited(0));
+        assert_eq!(outcome.preamble_stdout, b"out");
+        assert_eq!(outcome.preamble, b"err");
+    }
+
+    #[test]
+    fn closing_output_does_not_disable_the_running_process_deadline() {
+        let limit = |_: &str| Some(Duration::from_millis(50));
+        for framed in [false, true] {
+            let limits = Limits {
+                process_timeout: None,
+                timeout: &limit,
+                slow: None,
+                stream: false,
+            };
+            let prefix = if framed {
+                r"printf '\002start\037a\003' >&2;"
+            } else {
+                ""
+            };
+            // Self-ending even if the supervisor incorrectly stops watching closed pipes.
+            let invocation = script(&format!("{prefix} exec 1>&- 2>&-; sleep 1"));
+            let outcome = if framed {
+                run(&invocation, &limits, &mut |_| {})
+            } else {
+                super::super::golden::run_plain(&invocation, limit(""), &mut |_| {})
+            };
+            assert_eq!(outcome.ending, Ending::TimedOut, "framed={framed}");
+        }
+    }
+
+    #[test]
+    fn a_quick_plain_program_can_close_its_output() {
+        for body in [
+            "exec 1>&- 2>&-; exit 0",
+            "exec 1>&- 2>&-; sleep 0.01; exit 0",
+        ] {
+            let outcome = super::super::golden::run_plain(&script(body), None, &mut |_| {});
+            assert_eq!(outcome.ending, Ending::Exited(0), "{body}");
+        }
+    }
+
+    #[test]
+    fn framed_tests_keep_individual_deadlines() {
+        let limit = |_: &str| Some(Duration::from_secs(2));
         let limits = Limits {
-            timeout: &second,
+            process_timeout: None,
+            timeout: &limit,
             slow: None,
             stream: false,
         };
-        let started = Instant::now();
         let outcome = run(
-            &script(&format!(
-                r"printf '\002start\037a\003' >&2; sleep 30 & echo $! > {sleeper}; wait",
-                sleeper = sleeper.display()
-            )),
+            &script(
+                r"printf '\002start\037a\003' >&2; sleep 1.2; printf '\002end\037a\037pass\003\002start\037b\003' >&2; sleep 1.2; printf '\002end\037b\037pass\003' >&2",
+            ),
             &limits,
             &mut |_| {},
         );
+        assert_eq!(outcome.ending, Ending::Exited(0));
+        assert_eq!(outcome.tests.len(), 2);
+        assert!(
+            outcome
+                .tests
+                .iter()
+                .all(|test| test.end.as_deref() == Some("pass"))
+        );
+    }
+
+    #[test]
+    fn plain_program_timeout_does_not_wait_for_testing_records() {
+        // The child ends by itself so a broken supervisor cannot hang this regression.
+        let outcome = super::super::golden::run_plain(
+            &script("sleep 1"),
+            Some(Duration::from_millis(50)),
+            &mut |_| {},
+        );
         assert_eq!(outcome.ending, Ending::TimedOut);
-        assert!(started.elapsed() < Duration::from_secs(10));
-        // The grandchild is gone too, and this test process is still here to check.
-        let pid = std::fs::read_to_string(&sleeper).unwrap();
-        let _ = std::fs::remove_file(&sleeper);
-        // SIGKILL lands asynchronously and a killed process stays a zombie until it is reaped,
-        // so wait for it to go or to be a zombie.
-        let running = || {
-            let state = Command::new("ps")
-                .args(["-o", "stat=", "-p", pid.trim()])
-                .output()
-                .unwrap();
-            let state = String::from_utf8_lossy(&state.stdout);
-            !state.trim().is_empty() && !state.trim().starts_with('Z')
-        };
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while running() && Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(50));
+    }
+
+    #[test]
+    fn a_timeout_kills_the_process_and_what_it_started() {
+        for framed in [false, true] {
+            let sleeper =
+                std::env::temp_dir().join(format!("jacket-sleeper-{}", std::process::id()));
+            let second = |_: &str| Some(Duration::from_millis(300));
+            let limits = Limits {
+                process_timeout: None,
+                timeout: &second,
+                slow: None,
+                stream: false,
+            };
+            let started = Instant::now();
+            let prefix = if framed {
+                r"printf '\002start\037a\003' >&2;"
+            } else {
+                ""
+            };
+            let invocation = script(&format!(
+                r"{prefix} sleep 30 & echo $! > {sleeper}; wait",
+                sleeper = sleeper.display()
+            ));
+            let outcome = if framed {
+                run(&invocation, &limits, &mut |_| {})
+            } else {
+                super::super::golden::run_plain(&invocation, second(""), &mut |_| {})
+            };
+            assert_eq!(outcome.ending, Ending::TimedOut);
+            assert!(started.elapsed() < Duration::from_secs(10));
+            // The grandchild is gone too, and this test process is still here to check.
+            let pid = std::fs::read_to_string(&sleeper).unwrap();
+            let _ = std::fs::remove_file(&sleeper);
+            // SIGKILL lands asynchronously and a killed process stays a zombie until it is reaped,
+            // so wait for it to go or to be a zombie.
+            let running = || {
+                let state = Command::new("ps")
+                    .args(["-o", "stat=", "-p", pid.trim()])
+                    .output()
+                    .unwrap();
+                let state = String::from_utf8_lossy(&state.stdout);
+                !state.trim().is_empty() && !state.trim().starts_with('Z')
+            };
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while running() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            assert!(!running(), "the sleep the test started is still running");
         }
-        assert!(!running(), "the sleep the test started is still running");
     }
 }

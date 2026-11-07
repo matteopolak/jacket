@@ -100,6 +100,7 @@ add_work :: (group: *Thread_Group, work: *void, logging_name := "") {
     entry.work_list_index = selected;
     add_outstanding(group, 1);
     append_work(*group.worker_info[selected].available, entry);
+    signal(*group.worker_info[selected].available.semaphore);
 
     if group.logging {
         message := sprint("% queued %\n", group.name, logging_name);
@@ -224,6 +225,7 @@ init_work_list :: (list: *Work_List) {
     init(*list.semaphore, 0);
 }
 
+// Publish one entry. The caller wakes only queues with a consumer waiting for notifications.
 append_work :: (list: *Work_List, entry: *Work_Entry) {
     lock(*list.mutex);
     entry.next = null;
@@ -233,7 +235,6 @@ append_work :: (list: *Work_List, entry: *Work_Entry) {
     list.last = entry;
     list.count += 1;
     unlock(*list.mutex);
-    signal(*list.semaphore);
 }
 
 take_work :: (list: *Work_List) -> *Work_Entry {

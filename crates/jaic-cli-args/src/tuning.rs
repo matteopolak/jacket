@@ -11,7 +11,7 @@ use crate::options::store;
 
 /// What the flags here set, in `Cli::tuning`.
 #[derive(Default)]
-pub(super) struct Tuning {
+pub struct Tuning {
     /// `-codegen_units N`: exactly this many code modules.
     pub codegen_units: Option<usize>,
     /// `-threads N`: the size of the shared thread pool.
@@ -38,44 +38,8 @@ pub(super) struct Tuning {
     pub split_units: Option<usize>,
 }
 
-/// Code generation switches that hold for every workspace a backend writes.
-#[cfg(feature = "llvm")]
-#[derive(Clone, Default)]
-pub(super) struct CodegenSwitches {
-    pub units: Option<usize>,
-    pub split_units: Option<usize>,
-    pub verify_ir: bool,
-    pub o0_passes: Option<String>,
-}
-
-#[cfg(feature = "llvm")]
-impl CodegenSwitches {
-    /// The `jaic_native::Codegen` fields these set; the rest is the default.
-    pub(super) fn codegen(&self) -> jaic_native::Codegen {
-        jaic_native::Codegen {
-            units: self.units,
-            split_units: self.split_units,
-            verify_ir: self.verify_ir.then_some(true),
-            o0_passes: self.o0_passes.clone(),
-            ..Default::default()
-        }
-    }
-}
-
-impl Tuning {
-    #[cfg(feature = "llvm")]
-    pub(super) fn switches(&self) -> CodegenSwitches {
-        CodegenSwitches {
-            units: self.codegen_units,
-            split_units: self.split_units,
-            verify_ir: self.verify_ir,
-            o0_passes: self.o0_passes.clone(),
-        }
-    }
-}
-
 /// The process-wide switches these flags set.
-pub(super) fn knobs(cli: &Cli) -> jaic::knobs::Knobs {
+pub fn knobs(cli: &Cli) -> jaic::knobs::Knobs {
     let t = &cli.tuning;
     jaic::knobs::Knobs {
         threads: t.threads,
@@ -106,9 +70,9 @@ fn parse_count(text: &str, flag: &str) -> Result<usize, CliError> {
     })
 }
 
-/// Every option of jaic's own: the main table of `main.rs`, then these.
-pub(super) fn all_options() -> impl Iterator<Item = &'static CliOption> {
-    super::OPTIONS.iter().chain(OPTIONS)
+/// Every compiler option: the main option table, then the tuning options.
+pub fn all_options() -> impl Iterator<Item = &'static CliOption> {
+    crate::options::OPTIONS.iter().chain(OPTIONS)
 }
 
 const OPTIONS: &[CliOption] = &[
