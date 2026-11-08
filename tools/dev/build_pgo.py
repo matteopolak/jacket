@@ -367,37 +367,21 @@ def lsp_session(jailsp, env, output=None):
 
 
 def profile_input(path, training):
-    """Resolve a readable profile before clearing generated evidence.
+    """The resolved, readable profile file, which must lie outside the `training` folder the build clears.
 
-    For example, `profile_input("saved.profdata", work / "training")` rejects both
-    a profile inside that directory and an outside symlink that resolves into it.
-    The compiler still validates the profile format/version when consuming it.
+    For example, `profile_input("saved.profdata", work / "training")` exits for a profile inside that
+    folder, including a symlink elsewhere that points into it. The compiler checks the profile format.
     """
-    supplied = Path(path)
-    lexical = Path(os.path.abspath(supplied))
-    training = Path(os.path.abspath(training))
-    message = f"build_pgo: --profile must be outside the training evidence directory `{training}`"
-    # Check the supplied path as well as its target: deleting a symlink inside training
-    # would destroy the requested input path even when its target is elsewhere.
-    if lexical.is_relative_to(training):
-        sys.exit(message)
     try:
-        resolved = supplied.resolve(strict=True)
-        target = training.resolve()
-        if resolved.is_relative_to(target):
-            sys.exit(message)
-        if target.exists():
-            # Resolved POSIX paths can retain a different spelling on a case-insensitive
-            # filesystem. Compare ancestor identities before deleting the directory.
-            for ancestor in (*supplied.parents, *resolved.parents):
-                if ancestor.samefile(target):
-                    sys.exit(message)
+        resolved = Path(path).resolve(strict=True)
+        if resolved.is_relative_to(Path(training).resolve()):
+            sys.exit(f"build_pgo: --profile must be outside the training evidence directory `{training}`")
         if not resolved.is_file():
-            sys.exit(f"build_pgo: --profile must name a file: `{supplied}`")
+            sys.exit(f"build_pgo: --profile must name a file: `{path}`")
         with resolved.open("rb") as stream:
             stream.read(1)
     except (OSError, RuntimeError) as error:
-        sys.exit(f"build_pgo: cannot read --profile `{supplied}`: {error}")
+        sys.exit(f"build_pgo: cannot read --profile `{path}`: {error}")
     return resolved
 
 

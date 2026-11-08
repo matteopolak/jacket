@@ -121,28 +121,7 @@ jobs:
           python-version: '3.14'
           architecture: ${{ matrix.architecture }}
       - name: Verify native Python process architecture
-        shell: python {0}
-        env:
-          EXPECTED_MACHINE: ${{ matrix.machine }}
-        run: |
-          import ctypes
-          import json
-          import os
-          import platform
-          import sys
-          import sysconfig
-          kernel = ctypes.WinDLL('kernel32', use_last_error=True)
-          kernel.GetCurrentProcess.restype = ctypes.c_void_p
-          kernel.IsWow64Process2.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort)]
-          kernel.IsWow64Process2.restype = ctypes.c_int
-          process, native = ctypes.c_ushort(), ctypes.c_ushort()
-          if not kernel.IsWow64Process2(kernel.GetCurrentProcess(), ctypes.byref(process), ctypes.byref(native)):
-              raise ctypes.WinError(ctypes.get_last_error())
-          print(json.dumps({'python': sys.executable, 'platform': sysconfig.get_platform(),
-                            'machine': platform.machine(), 'process_machine': hex(process.value),
-                            'native_machine': hex(native.value)}))
-          assert process.value == 0, 'Python must run natively rather than under emulation'
-          assert native.value == int(os.environ['EXPECTED_MACHINE'], 0), 'Unexpected native machine'
+        run: python tools/ci/check_native_python.py ${{ matrix.machine }}
       - name: Exercise real process groups, Job Objects and PGO diagnostics
         run: python tools/run_tests.py -p test_build_pgo.py -p tools/bench/test_compile_cmd.py -p tools/bench/test_windows.py -j 1
   fuzz-regressions:
