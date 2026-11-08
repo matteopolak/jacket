@@ -47,7 +47,7 @@ The RFC splits errors in two, and the code follows:
 - A **connection error** returns a non-`NO_ERROR` `H2_Error` from a frame handler, which makes the reader call `h2_terminate` (GOAWAY, then close).
 - A **stream error** calls `h2_reset_stream` (RST_STREAM) and keeps the connection.
 
-Header blocks larger than `H2_BLOCK_FACTOR` × the header list limit are refused before they are decoded.
+Header blocks larger than `H2_BLOCK_FACTOR` × the header list limit, or spread over more than `H2_MAX_CONTINUATIONS` CONTINUATION frames, are refused before they are decoded (`ENHANCE_YOUR_CALM`). The frame count matters because empty CONTINUATION frames add no bytes.
 
 Graceful shutdown (`h2_shutdown`) sends GOAWAY with the last stream the peer opened and sets `draining`, so new streams are refused while open ones finish. The client marks streams the server never processed as `refused` (by REFUSED_STREAM, or above GOAWAY's last stream). The client's request loop retries those once.
 

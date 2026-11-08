@@ -115,6 +115,7 @@ H2_Conn :: struct {
     fragment: [..] u8;
     fragment_stream: u32;
     fragment_flags: u8;
+    fragment_frames: int;
 
     // Limits and timeouts, in milliseconds (0 or less: none).
     write_timeout: s64;
@@ -714,6 +715,7 @@ h2_on_headers :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2
 
         conn.fragment_stream = header.stream;
         conn.fragment_flags = header.flags;
+        conn.fragment_frames = 0;
 
         return .NO_ERROR;
     }
@@ -722,6 +724,10 @@ h2_on_headers :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2
 }
 
 h2_on_continuation :: (conn: *H2_Conn, header: H2_Frame_Header, payload: [] u8) -> H2_Error {
+    conn.fragment_frames += 1;
+
+    if conn.fragment_frames > H2_MAX_CONTINUATIONS return .ENHANCE_YOUR_CALM;
+
     if conn.fragment.count + payload.count > conn.max_header_list * H2_BLOCK_FACTOR return .ENHANCE_YOUR_CALM;
 
     append_bytes(*conn.fragment, payload.data, payload.count);

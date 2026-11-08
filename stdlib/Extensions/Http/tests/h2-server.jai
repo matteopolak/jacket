@@ -839,6 +839,28 @@ protocol_errors :: (base: string, server: *Server) {
     expect_goaway(server, "CONTINUATION with no HEADERS", .PROTOCOL_ERROR, (out: *[..] u8) {
         h2_put_frame_header(out, 0, .CONTINUATION, H2_END_HEADERS, 1);
     });
+    expect_goaway(server, "a header block that grows past the limit in CONTINUATION frames", .ENHANCE_YOUR_CALM, (out: *[..] u8) {
+        filler := NewArray(16384, u8,, temp);
+
+        // The server's limit is 128 KiB of header list, and it tolerates four times that on the
+        // wire: 32 full frames fit, and one more byte does not. Nothing follows the last frame,
+        // so the server has no unread input and the GOAWAY is not lost to a reset.
+        h2_put_frame_header(out, 16384, .HEADERS, 0, 1);
+        add_bytes(out, filler.data, filler.count);
+
+        for 0..30 {
+            h2_put_frame_header(out, 16384, .CONTINUATION, 0, 1);
+            add_bytes(out, filler.data, filler.count);
+        }
+
+        h2_put_frame_header(out, 1, .CONTINUATION, 0, 1);
+        add_bytes(out, filler.data, 1);
+    });
+    expect_goaway(server, "endless empty CONTINUATION frames", .ENHANCE_YOUR_CALM, (out: *[..] u8) {
+        h2_put_frame_header(out, 0, .HEADERS, 0, 1);
+
+        for 0..H2_MAX_CONTINUATIONS + 8 h2_put_frame_header(out, 0, .CONTINUATION, 0, 1);
+    });
     expect_goaway(server, "a stream id the client may not use", .PROTOCOL_ERROR, (out: *[..] u8) {
         encoder: Hpack_Encoder;
 

@@ -27,6 +27,10 @@ H2_LARGEST_FRAME_SIZE :: 16777215;
 H2_DEFAULT_WINDOW :: 65535;
 H2_LARGEST_WINDOW :: 0x7fffffff;
 
+// A header block may span at most this many CONTINUATION frames, however small they are: empty
+// ones add no bytes to the block, so a size limit alone would never stop a stream of them.
+H2_MAX_CONTINUATIONS :: 1024;
+
 H2_END_STREAM: u8 : 0x1; // DATA, HEADERS
 H2_ACK: u8 : 0x1; // SETTINGS, PING
 H2_END_HEADERS: u8 : 0x4; // HEADERS, CONTINUATION
