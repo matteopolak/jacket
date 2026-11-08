@@ -735,5 +735,9 @@
   {
     "name": "rules-workspaces",
     "interpreter_only": true
+  },
+  {
+    "name": "checked-operand-types",
+    "interpreter_only": true
   }
 ]

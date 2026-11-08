@@ -104,7 +104,7 @@ To add a target: `pub fn <name>(data: &[u8])` in `harness/src/lib.rs`, a file in
 
 Stdlib tests run under [`jacket test`](jacket-test.md) (every folder under `[test] paths` in `jacket.toml`): natively, interpreted, at `-O2`, as WebAssembly on Linux x64 (`tools/ci/stdlib_jacket_test.sh`) and under sanitizers (`stdlib_jacket_sanitize.sh`). Put a module's tests in its `tests/` directory.
 
-`tools/stdlib/stdlib_runtime.py` runs the compiler regressions in `tests/compiler/regressions/` in modes `interp`, `native`, `wasm-interp`, `wasm-native` and `check`. Each top-level `*.jai` is a case that must build and exit 0. The folder's `manifest.json` refines cases (expected output, platform, unsupported modes); `interpreter_only: true` marks a metaprogram that works at compile time.
+`tools/stdlib/stdlib_runtime.py` runs the compiler regressions in `tests/compiler/regressions/` in modes `interp`, `native`, `wasm-interp`, `wasm-native` and `check`. Each top-level `*.jai` is a case that must build and exit 0. The folder's `manifest.json` refines cases (expected output, platform, unsupported modes); `interpreter_only: true` marks a metaprogram that works at compile time. The checked-operand metadata regression also belongs to `crates/jaic-cli/tests/code_roundtrips.rs`, which compiles and runs it at native O0/O2 so that the catalogue classification retains explicit native coverage.
 
 ```sh
 PYTHONPATH=tools python3 tools/native/build_native_libs.py

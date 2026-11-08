@@ -39,6 +39,7 @@ const CASES: &[(&str, &str)] = &[
         "fixtures/code-roundtrip/edited-nodes-roundtrip.jai",
         "edited nodes ok\n",
     ),
+    ("compiler/regressions/checked-operand-types.jai", ""),
 ];
 
 fn source(path: &str) -> PathBuf {
