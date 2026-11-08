@@ -13,7 +13,7 @@ re-archiving, the extracted files are.
     python3 tools/protobuf_schemas/fetch.py onnx k8s         # some sets
     python3 tools/protobuf_schemas/fetch.py --print-hashes   # show digests instead of failing (re-pinning)
 
-The cache is `$PROTOBUF_SCHEMAS_CACHE`, `--cache DIR`, or /Volumes/LodestoneScratch/protobuf-schemas.
+The cache is `--cache DIR`, `$PROTOBUF_SCHEMAS_CACHE`, or `protobuf-schemas` in the repo's output folder (`target/`, see `tools/repo_output.py`).
 """
 from __future__ import annotations
 
@@ -32,8 +32,10 @@ import urllib.request
 from pathlib import Path, PurePosixPath
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))
+from repo_output import output_dir  # noqa: E402
 PINS = HERE / "schemas.json"
-DEFAULT_CACHE = "/Volumes/LodestoneScratch/protobuf-schemas"
+DEFAULT_CACHE = str(output_dir("protobuf-schemas"))
 USER_AGENT = "jacket-tools"
 ATTEMPTS = 5
 IMPORT = re.compile(r'^\s*import\s+(?:public\s+|weak\s+)?"([^"]+)"', re.M)

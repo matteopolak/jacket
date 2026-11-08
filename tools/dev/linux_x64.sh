@@ -9,8 +9,8 @@
 #
 # Environment:
 #   LINUX_ARCH             amd64 (default; also x64, x86_64) or arm64 (aarch64): the VM's architecture
-#   LINUX_X64_SCRATCH      folder holding target/ and cargo/ for amd64 (default /Volumes/LodestoneScratch/jai-targets/linux-x64)
-#   LINUX_ARM64_SCRATCH    the same for arm64 (default /Volumes/LodestoneScratch/jai-targets/linux-arm64)
+#   LINUX_X64_SCRATCH      folder holding target/ and cargo/ for amd64 (default target/linux-x64 in the repo)
+#   LINUX_ARM64_SCRATCH    the same for arm64 (default target/linux-arm64 in the repo)
 #   LINUX_X64_IMAGE        image (default docker.io/library/rust:1-bookworm)
 #   LINUX_MEMORY, LINUX_CPUS  VM size (default 8G and 4; rustc is killed in a smaller VM)
 #   JAIC_OFFICIAL_MODULES  host folder of a module set used as JAIC_STDLIB (mounted read-only at /modules)
@@ -21,11 +21,11 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 case "${LINUX_ARCH:-amd64}" in
   amd64 | x64 | x86_64 | x86-64)
     arch=amd64
-    scratch="${LINUX_X64_SCRATCH:-/Volumes/LodestoneScratch/jai-targets/linux-x64}"
+    scratch="${LINUX_X64_SCRATCH:-$repo/target/linux-x64}"
     ;;
   arm64 | aarch64)
     arch=arm64
-    scratch="${LINUX_ARM64_SCRATCH:-/Volumes/LodestoneScratch/jai-targets/linux-arm64}"
+    scratch="${LINUX_ARM64_SCRATCH:-$repo/target/linux-arm64}"
     ;;
   *)
     echo "LINUX_ARCH must be amd64 or arm64" >&2

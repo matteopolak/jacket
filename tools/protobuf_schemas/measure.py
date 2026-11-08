@@ -29,8 +29,10 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_CACHE = "/Volumes/LodestoneScratch/protobuf-schemas"
-DEFAULT_OUT = "/Volumes/LodestoneScratch/protobuf-schemas-out"
+sys.path.insert(0, str(HERE.parent))
+from repo_output import output_dir  # noqa: E402
+DEFAULT_CACHE = str(output_dir("protobuf-schemas"))
+DEFAULT_OUT = str(output_dir("protobuf-schemas-out"))
 TIMEOUT = 900
 
 PROGRAM = """#import "Basic";
@@ -161,12 +163,19 @@ def main() -> None:
     parser.add_argument("--lock", help="mkdir lock shared with other heavy jobs")
     parser.add_argument("--params", default="", help='extra module parameters, e.g. ", STRIP_ENUM_PREFIX = true"')
     parser.add_argument("--check-only", action="store_true", help="skip the -O2 build (parameter sweeps)")
-    parser.add_argument("--protoc", action="store_true", help="also time protoc --cpp_out (sandboxed)")
+    parser.add_argument("--protoc", action="store_true", help="also time protoc --cpp_out (sandboxed); needs the protoc path and protobuf source")
     parser.add_argument("--cxx", action="store_true", help="with --protoc: compile the generated C++ with clang++ -O2 -c")
-    parser.add_argument("--jai-protobuf", action="store_true", help="also try segcore/jai-protobuf (sandboxed)")
+    parser.add_argument("--cxx-include", action="append", default=[], metavar="DIR", help="with --cxx: extra include folder (repeatable)")
+    parser.add_argument("--jai-protobuf", action="store_true", help="also try segcore/jai-protobuf (sandboxed); needs the protobuf source")
+    parser.add_argument("--protoc-path", default=os.environ.get("PROTOC"), help="protoc binary (default: $PROTOC)")
+    parser.add_argument("--protobuf-src", default=os.environ.get("PROTOBUF_SRC"), help="protobuf `src` folder with google/protobuf/*.proto (default: $PROTOBUF_SRC)")
     parser.add_argument("--third-party-only", action="store_true", help="skip our own measurements")
     parser.add_argument("--json", help="write results here")
     arguments = parser.parse_args()
+    if (arguments.protoc or arguments.jai_protobuf) and not arguments.protobuf_src:
+        parser.error("--protoc and --jai-protobuf need --protobuf-src or $PROTOBUF_SRC")
+    if arguments.protoc and not arguments.protoc_path:
+        parser.error("--protoc needs --protoc-path or $PROTOC")
     sys.path.insert(0, str(HERE))
     import third_party
 

@@ -250,6 +250,8 @@ python3 -I tools/protobuf_schemas/fetch.py
 python3 -I tools/protobuf_schemas/measure.py --jaic target/release/jaic --json out.json
 ```
 
+Schemas are cached in `target/protobuf-schemas` and scratch output goes to `target/protobuf-schemas-out` (`--cache`, `--out`, `$PROTOBUF_SCHEMAS_CACHE`). `--protoc` and `--jai-protobuf` add sandboxed protoc and jai-protobuf rows; they need `--protoc-path`/`$PROTOC` and `--protobuf-src`/`$PROTOBUF_SRC`, and `--cxx-include DIR` for extra C++ headers.
+
 ## How it works
 
 - **Generation:** `Schema/module.jai` runs `#insert #run` over the module parameters. Each file is lexed and parsed, and imports are loaded into one graph, deduplicated by real path. Then `resolve.jai` handles scoping, names and checks, and `emit.jai` writes the Jai.

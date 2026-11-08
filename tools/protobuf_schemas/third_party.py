@@ -15,11 +15,7 @@ from pathlib import Path
 import measure
 
 HERE = Path(__file__).resolve().parent
-PROTOC = "/Volumes/LodestoneScratch/protobuf-compare/build-conf2/protoc-38.0.0"
-PROTOBUF_SRC = "/Volumes/LodestoneScratch/protobuf-compare/protobuf/src"
 JAI_PROTOBUF = HERE.parents[1] / "corpus" / "upstream" / "segcore--jai-protobuf"
-if not JAI_PROTOBUF.is_dir():  # a worktree does not carry the corpus: use the main checkout's
-    JAI_PROTOBUF = Path("/Users/matthew/projects/jai/corpus/upstream/segcore--jai-protobuf")
 
 GEN_JP = """#import,dir "%LIB%";
 #import "Basic";
@@ -110,8 +106,9 @@ def measure_protoc(variant: dict, arguments, cache: Path, work: Path) -> dict:
     out.mkdir(parents=True)
     extra = cache / "descriptor"
     files = closure(proto_files(variant, set_root), [set_root, extra])
-    wrap, env = sandboxed(arguments, work, [Path(PROTOC).parent, set_root, Path(PROTOBUF_SRC)])
-    command = [PROTOC, f"--cpp_out={out}", "-I", str(set_root), "-I", PROTOBUF_SRC, *files]
+    protoc, src = arguments.protoc_path, arguments.protobuf_src
+    wrap, env = sandboxed(arguments, work, [Path(protoc).parent, set_root, Path(src)])
+    command = [protoc, f"--cpp_out={out}", "-I", str(set_root), "-I", src, *files]
     wall, done = run_boxed(wrap, command, None, work, env)
     result: dict = {"protoc_s": round(wall, 3), "protoc_ok": done.returncode == 0}
     if done.returncode != 0:
@@ -120,7 +117,9 @@ def measure_protoc(variant: dict, arguments, cache: Path, work: Path) -> dict:
     generated = [p for p in out.rglob("*") if p.suffix in (".h", ".cc")]
     result["cpp_bytes"] = sum(p.stat().st_size for p in generated)
     if arguments.cxx:
-        include = ["-I", str(out), "-I", PROTOBUF_SRC, "-I", "/opt/homebrew/include"]
+        include = ["-I", str(out), "-I", src]
+        for folder in arguments.cxx_include:
+            include += ["-I", folder]
         total = 0
         spent = 0.0
         for source in [p for p in generated if p.suffix == ".cc"]:
@@ -138,9 +137,11 @@ def measure_protoc(variant: dict, arguments, cache: Path, work: Path) -> dict:
 
 
 def measure_jai_protobuf(variant: dict, arguments, cache: Path, work: Path) -> dict:
+    if not JAI_PROTOBUF.is_dir():
+        raise SystemExit(f"{JAI_PROTOBUF} is missing: run tools/fetch_upstreams.py first")
     set_root = cache / variant["set"]
     files = proto_files(variant, set_root)
-    dirs = [str(set_root), str(cache / "descriptor"), PROTOBUF_SRC]
+    dirs = [str(set_root), str(cache / "descriptor"), arguments.protobuf_src]
 
     def quote(items):
         return ", ".join(json.dumps(i) for i in items)
@@ -154,7 +155,7 @@ def measure_jai_protobuf(variant: dict, arguments, cache: Path, work: Path) -> d
     body = "\n".join(f"    value_{i}: {t};" for i, t in enumerate(variant["types"]))
     (jp / "prog.jai").write_text(PROG_JP.replace("%LIB%", str(JAI_PROTOBUF)).replace("%FILES%", quote(files))
                                  .replace("%DIRS%", quote(dirs)).replace("%BODY%", body))
-    wrap, env = sandboxed(arguments, jp, [JAI_PROTOBUF, set_root, cache / "descriptor", Path(PROTOBUF_SRC)])
+    wrap, env = sandboxed(arguments, jp, [JAI_PROTOBUF, set_root, cache / "descriptor", Path(arguments.protobuf_src)])
     jaic = arguments.jaic
     threads = ["-threads", str(arguments.threads)]
     result: dict = {}
