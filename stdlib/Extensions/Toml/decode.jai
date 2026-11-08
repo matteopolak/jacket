@@ -411,8 +411,10 @@ toml_unknown_pair :: (r: *Toml_Reader, frame: *Toml_Frame) -> bool {
 
     defer toml_release_keys(r, *keys, slot);
     saved_statement := r.statement_at;
+    saved_value := r.value_at;
 
     defer r.statement_at = saved_statement;
+    defer r.value_at = saved_value;
     r.statement_at = r.pos;
     if !toml_keys(r, *keys) return false;
     if toml_peek(r) != 61 return toml_fail(r, .SYNTAX, "expected '=' after key");
@@ -501,8 +503,10 @@ toml_decode_pair :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, prefix: [] s
 
     // An inline table's members are statements of their own; the enclosing one resumes after.
     saved_statement := r.statement_at;
+    saved_value := r.value_at;
 
     defer r.statement_at = saved_statement;
+    defer r.value_at = saved_value;
     r.statement_at = r.pos;
 
     keys: [..] string;
