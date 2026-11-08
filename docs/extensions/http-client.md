@@ -39,3 +39,5 @@ created := post(*api, "/users", New_User.{ name = "Ada" });   // struct body is 
 - A `Client_Response` is shared by value: copies point at one `Body_Source`, and `expect.jai` relies on that.
 - `client_settings` (`max_idle_per_host`, `idle_timeout`, `user_agent`, `max_open_responses`) is a plain global; set it before starting threads.
 - Tests: `stdlib/Extensions/Http/tests/client.jai` and `https.jai`.
+
+Tests of a specific transport failure phase should inject a `Transport` whose writer accepts the request and whose reader returns the intended `Io_Error`. Keep wall-clock timeout tests separate: a deadline can expire during connecting, writing or reading.

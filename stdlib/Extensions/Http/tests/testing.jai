@@ -662,7 +662,15 @@ failure_messages :: () {
     // No response at all names the request and why.
     begin_failure_capture();
 
-    slow := send(api, .{ url = "/rest/300", timeout = 20 });
+    // Force the read phase without depending on how quickly the scheduler runs.
+    timed: Client;
+
+    timed.base_url = "http://timeout.test";
+    timed.transport.open = timeout_open;
+
+    slow, timeout_error := send(*timed, .{ url = "/rest/300" });
+
+    assert(timeout_error.kind == .TIMED_OUT);
 
     expect_status(slow, 200);
 
@@ -711,4 +719,22 @@ main :: () {
         .{ "bodies in failures", bodies_in_failures },
         .{ "the text of every other failed check", failure_messages },
     ]);
+}
+
+// A transport that accepts the request, then reports a read timeout to the real client.
+timeout_open :: (data: *void, url: Url) -> Link, Io.Io_Error {
+    link: Link;
+
+    link.reader.read_proc = timeout_read;
+    link.writer.write_proc = timeout_write;
+
+    return link, .NONE;
+}
+
+timeout_read :: (data: *void, buffer: [] u8) -> s64, Io.Io_Error {
+    return 0, .TIMED_OUT;
+}
+
+timeout_write :: (data: *void, bytes: [] u8) -> s64, Io.Io_Error {
+    return bytes.count, .NONE;
 }
