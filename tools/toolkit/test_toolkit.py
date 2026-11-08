@@ -142,6 +142,12 @@ class PinnedDownloadTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first.read_bytes(), self.DATA)
 
+    def test_pinned_to_copies_the_cached_file(self):
+        target = Path(self.tmp.name) / "out.bin"
+        with mock.patch.object(download, "fetch", return_value=self.DATA):
+            download.pinned_to("https://example.invalid/f", sha256_bytes(self.DATA), target)
+        self.assertEqual(target.read_bytes(), self.DATA)
+
     def test_wrong_digest_exits_and_drops_the_file(self):
         with mock.patch.object(download, "fetch", return_value=self.DATA):
             with self.assertRaises(SystemExit):

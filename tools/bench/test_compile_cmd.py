@@ -228,6 +228,13 @@ class MeasureTests(unittest.TestCase):
         self.assertTrue(slow.timed_out)
         self.assertIn('timed out', slow.failure())
 
+    @unittest.skipIf(sys.platform == 'win32', 'resource limits are POSIX only')
+    def test_limits_apply_to_the_child(self):
+        import resource
+        script = 'import resource; print(resource.getrlimit(resource.RLIMIT_FSIZE)[0])'
+        run = run_measured([PYTHON, '-c', script], limits={resource.RLIMIT_FSIZE: 123456})
+        self.assertEqual(run.stdout.strip(), '123456')
+
     # os.kill(pid, 0) probes on POSIX but would terminate the process on Windows; test_windows covers the job tree kill.
     @unittest.skipIf(sys.platform == 'win32', 'probes the child with os.kill(pid, 0); test_windows covers job objects')
     def test_a_timeout_kills_the_children_too(self):

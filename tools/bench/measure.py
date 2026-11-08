@@ -70,12 +70,14 @@ def kill_group(pid: int) -> None:
 
 
 def run_measured(command: list[str], cwd: Path | None = None, env: dict[str, str] | None = None,
-                 timeout: float = 900, stdin_bytes: bytes | None = None, output=None) -> Run:
+                 timeout: float = 900, stdin_bytes: bytes | None = None, output=None,
+                 limits: dict[int, int] | None = None) -> Run:
     """Run `command` to completion or its timeout (RSS is the largest measured process).
     POSIX wait4 accounting includes waited-for children; Windows accounts for the Job. A private POSIX group is killed on timeout,
     interruption and exit; a descendant starting a new group/session is outside this boundary.
     Windows uses a Job Object for descendant ownership. With `output=log_file`, stdout and stderr
-    stream to that binary file instead of being retained in the result strings."""
+    stream to that binary file instead of being retained in the result strings. `limits` maps `resource`
+    limits to values (`{resource.RLIMIT_CPU: 180}`), set in the child before it runs; POSIX only."""
     with tempfile.TemporaryFile() as captured_out, tempfile.TemporaryFile() as captured_err, tempfile.TemporaryFile() as feed:
         out = captured_out if output is None else output
         err = captured_err if output is None else output
@@ -88,7 +90,7 @@ def run_measured(command: list[str], cwd: Path | None = None, env: dict[str, str
             return run_on_windows(command, cwd, env, stdin, out, err, timeout, capture=output is None)
         start = time.perf_counter()
         process = Popen(command, cwd=cwd, env=env, stdin=stdin, stdout=out, stderr=err,
-                         start_new_session=True)
+                         start_new_session=True, preexec_fn=apply_limits(limits) if limits else None)
         deadline = start + timeout
         timed_out = False
         try:
@@ -115,6 +117,15 @@ def run_measured(command: list[str], cwd: Path | None = None, env: dict[str, str
             stdout, stderr = out.read().decode(errors='replace'), err.read().decode(errors='replace')
         return Run(wall=wall, cpu=usage.ru_utime + usage.ru_stime, rss_mib=usage.ru_maxrss / RSS_UNIT,
                    returncode=process.returncode, stdout=stdout, stderr=stderr, timed_out=timed_out)
+
+
+def apply_limits(limits: dict[int, int]):
+    """A `preexec_fn` that sets each `resource` limit (soft and hard) in the child."""
+    def apply() -> None:
+        import resource
+        for kind, value in limits.items():
+            resource.setrlimit(kind, (value, value))
+    return apply
 
 
 def run_on_windows(command, cwd, env, stdin, out, err, timeout, *, capture=True) -> Run:

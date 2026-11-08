@@ -1,6 +1,7 @@
 """Downloads pinned by SHA-256, cached under `$XDG_CACHE_HOME/jaic/` (default `~/.cache/jaic/`)."""
 
 import os
+import shutil
 import sys
 import time
 import urllib.error
@@ -12,7 +13,7 @@ from pathlib import Path
 
 from toolkit.hashing import sha256_file
 
-__all__ = ["cache_dir", "fetch", "pinned"]
+__all__ = ["cache_dir", "fetch", "pinned", "pinned_to"]
 
 ATTEMPTS = 6
 TRANSIENT = {408, 429, 500, 502, 503, 504}
@@ -41,6 +42,14 @@ def pinned(url: str, sha256: str, name: str, *, timeout: float = 120) -> Path:
         path.unlink()
         raise SystemExit(f"{url}: SHA-256 {digest} does not match the pinned {sha256}")
     return path
+
+
+def pinned_to(url: str, sha256: str, destination: Path, *, timeout: float = 120) -> None:
+    """Copy the pinned file to `destination`, downloading it into the cache first if needed.
+
+    For example `pinned_to(url, digest, corpus / "a.png")`; exits like `pinned` on a wrong digest.
+    """
+    shutil.copyfile(pinned(url, sha256, f"pinned/{sha256}", timeout=timeout), destination)
 
 
 # Some hosts (get.nexte.st) refuse urllib's default "Python-urllib/x.y" agent with 403.
