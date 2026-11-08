@@ -125,7 +125,7 @@ Local contract validation also passed 21 interpreted core tests, 22 native tests
 
 The browser compiler engine passed the signed-zero, minimum-subnormal, wide-index and formatter consumer checks on the current insertion-cursor source bundle under Node 24.12.0. All 30 formatter golden cases, valid wrong-type schema rejection and malformed unrelated-section rejection also passed through that engine. These checks exercise the browser engine, not Chrome UI behavior. Linux/Windows execution and required final-head CI remain separate acceptance gates.
 
-[TOML measurements](toml-performance.md) records the storage decision, final allocation payload, formatter artifact cost and equivalent-task benchmark procedure.
+[TOML performance](toml-performance.md) gives the measurement method, current results and how to rerun them.
 
 Reproduce the native suite through the shared local heavy-job gate:
 
