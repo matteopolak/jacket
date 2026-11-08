@@ -37,6 +37,14 @@ Toml_Reader :: struct {
     path: [..] Toml_Path_Part;
     key_buffers: [..] Toml_Key_Buffer;
     key_scope: int;
+
+    // Typed decoding (decode.jai) reuses the scalar and string readers without a document:
+    // each scalar lands in `scratch` and is consumed at once.
+    stream: bool;
+    scratch: Toml_Value;
+    stream_nodes: int;
+    statement_at: int;
+    header_keys: [..] string;
 }
 
 toml_fail :: (r: *Toml_Reader, kind: Toml_Error_Kind, message: string, at: int = -1, related := Toml_Span.{}) -> bool {
@@ -107,6 +115,20 @@ toml_gap :: (r: *Toml_Reader) -> bool {
 }
 
 toml_node :: (r: *Toml_Reader, kind: Toml_Kind) -> *Toml_Value {
+    if r.stream {
+        r.stream_nodes += 1;
+
+        if r.stream_nodes > r.options.max_nodes {
+            toml_fail(r, .LIMIT, "node limit exceeded");
+            return null;
+        }
+
+        r.scratch = .{};
+        r.scratch.kind = kind;
+
+        return *r.scratch;
+    }
+
     if r.doc.nodes.count >= r.options.max_nodes {
         toml_fail(r, .LIMIT, "node limit exceeded");
         return null;
@@ -544,27 +566,32 @@ toml_value :: (r: *Toml_Reader) -> *Toml_Value {
         r.pos += 1;
         r.declarations[node.internal_index].kind = .CLOSED;
     } else {
-        while r.pos < r.text.count {
-            byte := toml_peek(r);
-            if byte == 9 || byte == 10 || byte == 13 || byte == 35 || byte == 44 || byte == 93 || byte == 125 break;
-
-            if byte == 32 {
-                // A date and time can be separated by one space.
-                if r.pos - start != 10 || toml_peek(r, 1) < 48 || toml_peek(r, 1) > 57 break;
-            }
-
-            r.pos += 1;
-        }
-
-        token := slice(r.text, start, r.pos - start);
-
-        node = toml_scalar(r, token, start);
+        node = toml_scalar(r, toml_token(r), start);
         if !node return null;
     }
 
     node.span = .{ start, r.pos };
 
     return node;
+}
+
+// The bytes of one scalar token, which ends at a delimiter or comment.
+toml_token :: (r: *Toml_Reader) -> string {
+    start := r.pos;
+
+    while r.pos < r.text.count {
+        byte := toml_peek(r);
+        if byte == 9 || byte == 10 || byte == 13 || byte == 35 || byte == 44 || byte == 93 || byte == 125 break;
+
+        if byte == 32 {
+            // A date and time can be separated by one space.
+            if r.pos - start != 10 || toml_peek(r, 1) < 48 || toml_peek(r, 1) > 57 break;
+        }
+
+        r.pos += 1;
+    }
+
+    return slice(r.text, start, r.pos - start);
 }
 
 // Account capacity before every retained allocation; allocator metadata is outside this limit.

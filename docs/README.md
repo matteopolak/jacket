@@ -44,6 +44,7 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 ## Standard library
 
 - [TOML](extensions/toml.md): general values, semantic writing and formatter configuration
+- [Typed TOML](extensions/toml-typed.md): `from_toml` and `to_toml` for structs
 - [TOML measurements](extensions/toml-performance.md) — historical broad comparisons
 - [TOML performance follow-up](extensions/toml-performance-followup.md) — current warm comparisons, allocation changes and reproduction
 - [Math](specs/stdlib/modules/math.md), [Extensions](extensions/README.md) (Io, Http, Tls, Json, [UI](extensions/ui.md), [Desktop](extensions/desktop.md) and the rest), [crypto helpers](stdlib/crypto.md), [MeowHash input safety](stdlib/meow-hash-safety.md), [ICO file creation](stdlib/ico-files.md)

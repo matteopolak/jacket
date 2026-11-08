@@ -116,6 +116,28 @@ Toml_Options :: struct {
     max_number_bytes: int = 4096;
     max_retained_bytes: int = 128 << 20;
     max_output_bytes: int = 32 << 20;
+
+    // Typed decoding only: a key the target type does not declare is an error, as if every
+    // struct had `@toml(deny_unknown_fields)`.
+    deny_unknown_fields: bool;
+}
+
+// A date or time field of a typed struct: which of the four spellings it is, and its fields.
+// A value whose kind is not temporal is never written.
+Toml_Datetime :: struct {
+    kind: Toml_Kind;
+    value: Toml_Temporal;
+}
+
+// One key a typed decode had no field for, collected into a struct's `@toml(unknown)` list.
+// `path` is the dotted key below that table (`a.b` for `a.b = 1` or `[x.a.b]` under `x`);
+// start and end are the half-open source bytes of the statement, so the value text of an
+// assignment is `source[start:end]`. `header` marks `[table]` and `[[table]]` lines.
+Toml_Unknown :: struct {
+    path: string;
+    start: int;
+    end: int;
+    header: bool;
 }
 
 // Owns the source, nodes and decoded strings; release with free_toml.
@@ -252,10 +274,130 @@ parse_toml :: (text: string, options := Toml_Options.{}) -> Toml_Document, Toml_
     return .{}, reader.error;
 }
 
+#scope_export
+
+// Decodes `text` into a `T`, which must be a struct, without building a document. The result
+// takes its strings, arrays and pointers from context.allocator; free_toml_value releases
+// them. After a failure everything was freed already and the value is a default `T`.
+//
+// Fields are matched by name (after `@toml(rename=...)` and `rename_all=`), and TOML's rules
+// are enforced as `parse_toml` does: duplicate keys, redefined tables, syntax, UTF-8 and the
+// limits in `options`. The notes are `rename=`, `alias=`, `rename_all=` (also for enum names,
+// default snake_case), `skip`, `skip_serializing`, `skip_deserializing`,
+// `skip_serializing_if=empty|zero|null`, `default`, `flatten`, `as_number`, `range=lo..hi`,
+// `message="..."` (the text of the type and range errors of the field), `unknown` (a
+// `[..] Toml_Unknown` field that collects ignored keys) and, on the struct, `rename_all=`,
+// `default` and `deny_unknown_fields`. A field without `default` and without an initializer
+// of its own is required.
+//
+// Supported field types: integers, floats (integers are accepted), bool, string, enums (by
+// name), Toml_Datetime, structs (tables), pointers (optional values), `[..] T` and `[] T`
+// (arrays, and arrays of tables with `[[x]]` for `[..]` of structs).
+//
+// ```jai
+// Server :: struct {
+//     host: string;
+//     port: int; @toml(default)
+//     tags: [..] string; @toml(default)
+// }
+//
+// server, error := from_toml(Server, "host = 'a'\nport = 80\n");
+// assert(error.kind == .NONE && server.host == "a" && server.port == 80);
+// free_toml_value(*server);
+// ```
+from_toml :: ($T: Type, text: string, options := Toml_Options.{}) -> T, Toml_Error {
+    result: T;
+    error := toml_decode(text, *result, options);
+
+    return result, error;
+}
+
+// Decodes `text` into `out`, which must hold a default `T`; see [from_toml].
+toml_decode :: (text: string, out: *$T, options := Toml_Options.{}) -> Toml_Error {
+    return toml_decode_text(text, out, options);
+}
+
+// Writes a struct as a TOML document: key/value lines first, then `[table]` and
+// `[[array of tables]]` headers for struct fields; null pointers are omitted. Honors the
+// notes of [from_toml] and the output limits of `options`. Free the text with `free`.
+//
+// ```jai
+// Point :: struct {
+//     x: float64;
+//     y: float64;
+// }
+//
+// text, error := to_toml(Point.{ 1, 2.5 });
+// assert(error.kind == .NONE && text == "x = 1.0\ny = 2.5\n");
+// free(text);
+// ```
+to_toml :: (value: $T, options := Toml_Options.{}) -> string, Toml_Error {
+    copy := value;
+
+    return toml_encode(*copy, options);
+}
+
+toml_encode :: (value: *$T, options := Toml_Options.{}) -> string, Toml_Error {
+    return toml_encode_text(value, options);
+}
+
+// Releases what a decode allocated, for a decoded struct: strings, arrays, pointers (and what
+// they point to) and nested structs. Fields still holding their declared default are left
+// alone, so `name := "guest"` is safe. The fields are reset; a second call does nothing.
+//
+// ```jai
+// Host :: struct {
+//     name: string;
+// }
+//
+// host, _ := from_toml(Host, "name = 'a'\n");
+// free_toml_value(*host);
+// assert(host.name.count == 0);
+// ```
+free_toml_value :: (value: *$T) {
+    defaults: T;
+
+    toml_free_fields(value, *defaults);
+}
+
 #scope_module
+
+toml_descend :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, keys: [] string, index: int, op: Toml_Op, nav: int) -> bool {
+    #insert -> string {
+        return generate_descend(T);
+    };
+}
+
+toml_finish :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, at: int) -> bool {
+    #insert -> string {
+        return generate_finish(T);
+    };
+}
+
+toml_free_fields :: (value: *$T, defaults: *T) {
+    #insert -> string {
+        return generate_freer(T);
+    };
+} @FreesArgument
+
+toml_encode_body :: (w: *Toml_Writer, value: *$T) {
+    #insert -> string {
+        return generate_body_encoder(T);
+    };
+}
+
+toml_encode_inline :: (w: *Toml_Writer, value: *$T) {
+    #insert -> string {
+        return generate_inline_encoder(T);
+    };
+}
+
 #import "Basic";
 #import "String";
+#import "Compiler";
 #load "build.jai";
+#load "generate.jai";
+#load "decode.jai";
 #load "key-storage.jai";
 #load "index.jai";
 #load "reader.jai";

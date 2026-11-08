@@ -1,6 +1,6 @@
 # TOML values and configuration
 
-`Extensions/Toml` is an in-memory TOML 1.1 parser and semantic writer. It represents strings, signed 64-bit integers, binary64 floats, booleans, arrays, tables and the four TOML date/time categories. It has no null value. Typed reflection mapping and comment-preserving editing are outside this module.
+`Extensions/Toml` is an in-memory TOML 1.1 parser and semantic writer. It represents strings, signed 64-bit integers, binary64 floats, booleans, arrays, tables and the four TOML date/time categories. It has no null value. Comment-preserving editing is outside this module. [Typed decoding and encoding](toml-typed.md) (`from_toml`, `to_toml`) maps structs without building this document.
 
 ## Ownership and flow
 

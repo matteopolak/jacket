@@ -42,6 +42,7 @@ Toml_Writer :: struct {
     bytes: int;
     nodes: int;
     path: [..] Toml_Path_Part;
+    depth: int;
 }
 
 toml_emit :: (w: *Toml_Writer, text: string) {
@@ -539,6 +540,98 @@ toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_tabl
     }
 
     if inline_table toml_emit(w, "}");
+}
+
+// ---- typed output ----
+
+toml_encode_text :: (value: *$T, options: Toml_Options) -> string, Toml_Error {
+    writer: Toml_Writer;
+    writer.options = options;
+
+    defer free_buffers(*writer.builder);
+    defer free_buffers(*writer.float_scratch);
+    defer array_free(writer.path);
+
+    if !toml_options_valid(options) {
+        toml_write_fail(*writer, .LIMIT, "limits must be nonnegative");
+        return "", writer.error;
+    }
+
+    toml_encode_body(*writer, value);
+
+    if writer.error.kind != .NONE return "", writer.error;
+    if writer.builder.failed return "", .{ kind = .OUTPUT, message = "output allocation failed" };
+
+    return builder_to_string(*writer.builder), .{};
+}
+
+// Counts one table or array against the node and depth limits; pair with toml_end_value.
+toml_begin_value :: (w: *Toml_Writer) -> bool {
+    if w.error.kind != .NONE return false;
+
+    w.nodes += 1;
+
+    if w.nodes > w.options.max_nodes {
+        toml_write_fail(w, .LIMIT, "writer node limit exceeded");
+        return false;
+    }
+
+    w.depth += 1;
+
+    if w.depth > w.options.max_depth {
+        toml_write_fail(w, .LIMIT, "writer nesting limit exceeded");
+        return false;
+    }
+
+    return true;
+}
+
+toml_end_value :: (w: *Toml_Writer) {
+    w.depth -= 1;
+}
+
+toml_path_index_for_write :: (w: *Toml_Writer, index: int) -> int {
+    saved := w.path.count;
+    array_add(*w.path, Toml_Path_Part.{ index = index });
+
+    return saved;
+}
+
+// `[a.b]` or `[[a.b]]` for the table named by the path (array positions are not part of it),
+// after a blank line unless it opens the output.
+toml_write_header :: (w: *Toml_Writer, array: bool) {
+    if w.bytes > 0 toml_emit(w, "\n");
+
+    toml_emit(w, ifx array then "[[" else "[");
+
+    first := true;
+
+    for w.path if it.index < 0 {
+        if !first toml_emit(w, ".");
+
+        first = false;
+        toml_write_key(w, it.name);
+    }
+
+    toml_emit(w, ifx array then "]]\n" else "]\n");
+}
+
+// TOML integers are signed 64-bit.
+toml_write_unsigned :: (w: *Toml_Writer, value: u64) {
+    if value > 0x7fffffffffffffff {
+        toml_write_fail(w, .RANGE, "integer out of signed 64-bit range");
+        return;
+    }
+
+    toml_write_integer(w, cast(s64) value);
+}
+
+toml_write_datetime :: (w: *Toml_Writer, value: *Toml_Datetime) {
+    node: Toml_Value;
+
+    node.kind = value.kind;
+    node.temporal = value.value;
+    toml_write_value(w, *node, 0);
 }
 
 toml_write_fail :: (w: *Toml_Writer, kind: Toml_Error_Kind, message: string) {
