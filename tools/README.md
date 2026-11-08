@@ -292,11 +292,11 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_portable_stdlib.py` | Build the portable stdlib's native fixtures and run its integration checks. | tools |
 | `check_portable_watcher.py` | Build and execute the real FSEvents watcher tests against the production stdlib (macOS). | tools |
 | `image_conformance/check_registration.py` | Require discovery and actual execution of the standalone codec regressions. | CI |
-| `image_conformance/fetch.py` | Fetch every pinned image corpus member and verify its SHA-256 before use. | - |
+| `image_conformance/fetch.py` | Fetch the pinned PNG, BMP, PNM, QOI and ICO corpora and derive their case lists. | - |
 | `image_conformance/jpeg/build_reference.py` | Build and test the exact libjpeg-turbo release used by the independent JPEG oracle. | CI |
 | `image_conformance/jpeg/check.py` | Check pinned inventory and gate-policy invariants without running a compiler or decoder. | CI |
 | `image_conformance/jpeg/check_node_sandbox.py` | Exercise the Linux sandbox with setup-node's external installation. | CI |
-| `image_conformance/jpeg/fetch.py` | Download the complete pinned JPEG inputs and attribution; verify every byte before reuse. | CI |
+| `image_conformance/jpeg/fetch.py` | Download the pinned JPEG corpus and attribution files and verify every byte. | CI |
 | `image_conformance/jpeg/run.py` | Full pinned JPEG differential gate. Fetch first; run only against a reviewed candidate. | CI, tools |
 | `image_conformance/run.py` | Run complete pinned PNG/BMP/PNM/QOI/ICO corpora and independent encoder checks. | CI |
 | `portable_data_context_lint.py` | Strict public-context lint of the unchanged portable-data source inventory. | tools |

@@ -8,12 +8,11 @@ import struct
 import sys
 
 root = Path(sys.argv[1]).resolve()
-manifest = json.loads((root / "source-manifest.json").read_text())
+source = root / "pillow-ico"
 inventory = {
     "files": [
-        {"path": f["path"].removeprefix("pillow-ico/assets/")}
-        for f in manifest["files"]
-        if f["path"].startswith("pillow-ico/assets/") and f["path"].endswith(".ico")
+        {"path": path.relative_to(source).as_posix()}
+        for path in sorted(source.rglob("*.ico"))
     ]
 }
 inputs = root / "ico-inputs"
@@ -22,7 +21,7 @@ inputs.mkdir(exist_ok=True)
 oracle.mkdir(exist_ok=True)
 cases = []
 for item in inventory["files"]:
-    path = root / "pillow-ico/assets" / item["path"]
+    path = source / item["path"]
     data = path.read_bytes()
     name = item["path"].replace("/", "-")
     (inputs / name).write_bytes(data)

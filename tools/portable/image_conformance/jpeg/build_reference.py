@@ -7,14 +7,15 @@ library is substituted when the pinned source/version is unavailable.
 """
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import tarfile
-import urllib.request
+
+from toolkit.download import fetch
+from toolkit.hashing import sha256_bytes, sha256_file
 
 HERE = Path(__file__).resolve().parent
 
@@ -59,12 +60,8 @@ def main():
     if args.archive:
         data = args.archive.read_bytes()
     else:
-        request = urllib.request.Request(
-            pin["url"], headers={"User-Agent": "JPEG-reference-build"}
-        )
-        with urllib.request.urlopen(request, timeout=60) as response:
-            data = response.read()
-    actual = hashlib.sha256(data).hexdigest()
+        data = fetch(pin["url"])
+    actual = sha256_bytes(data)
     if actual != pin["sha256"]:
         raise ValueError("reference archive hash mismatch: " + actual)
     archive.write_bytes(data)
@@ -127,9 +124,7 @@ def main():
                 receipt["commands_completed"] += 1
         shutil.copyfile(source / "LICENSE.md", output / "LICENSE.md")
         receipt["installed_sha256"] = {
-            str(path.relative_to(install)): hashlib.sha256(
-                path.read_bytes()
-            ).hexdigest()
+            str(path.relative_to(install)): sha256_file(path)
             for folder in ("include", "lib")
             for path in (install / folder).rglob("*")
             if path.is_file()

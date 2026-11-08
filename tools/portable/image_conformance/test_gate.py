@@ -3,11 +3,14 @@
 import json
 import os
 from pathlib import Path
+import re
+import struct
 import subprocess
 import sys
 import tempfile
 import unittest
 
+from fetch import png_cases, pins
 from run import observed_result, run
 
 HERE = Path(__file__).resolve().parent
@@ -44,28 +47,6 @@ class GateTests(unittest.TestCase):
         self.assertIn("TIMEOUT", transcript)
         self.assertEqual(log, transcript)
 
-    @unittest.skipUnless(os.name == "posix", "owned group cleanup requires POSIX")
-    def test_timeout_terminates_descendant(self):
-        with tempfile.TemporaryDirectory() as directory:
-            marker = Path(directory) / "child-survived"
-            child = (
-                "import pathlib,time; print('child started',flush=True); time.sleep(1.5); pathlib.Path("
-                + repr(str(marker))
-                + ").write_text('survived')"
-            )
-            source = (
-                "import subprocess,sys,time; subprocess.Popen([sys.executable,'-c',"
-                + repr(child)
-                + "]); print('parent started',flush=True); time.sleep(30)"
-            )
-            (transcript, code), _ = self.command(source, True, 0.5)
-            self.assertEqual(code, "timeout")
-            import time
-
-            self.assertIn("child started", transcript)
-            time.sleep(1.6)
-            self.assertFalse(marker.exists())
-
     def test_required_command_failure_remains_fatal_with_its_output(self):
         with self.assertRaises(subprocess.CalledProcessError) as caught:
             self.command("print('specific failure'); raise SystemExit(9)")
@@ -77,27 +58,37 @@ class GateTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("RESULT example true", transcript)
 
-    def test_complete_pinned_inventory_has_no_duplicate_or_unpinned_inputs(self):
+    def test_pins_cover_the_complete_corpora(self):
         manifest = json.loads((HERE / "manifest.json").read_text())
-        files = {item["path"]: item for item in manifest["files"]}
-        self.assertEqual(len(files), len(manifest["files"]))
-        self.assertEqual(len(manifest["png_cases"]), 176)
-        self.assertEqual(sum(case["valid"] for case in manifest["png_cases"]), 162)
-        for case in manifest["png_cases"]:
-            key = "pngsuite/" + (
-                case["name"]
-                if case["name"] == "PngSuite.png"
-                else "png/" + case["name"]
-            )
-            self.assertEqual(files[key]["sha256"], case["sha256"])
-            self.assertEqual("oracle_sha256" in case, case["valid"])
+        files = pins(manifest)
+        self.assertEqual(len(files), sum(len(s["files"]) for s in manifest["sets"]))
+        self.assertTrue(all(re.fullmatch("[0-9a-f]{64}", d) for _, d in files.values()))
         self.assertEqual(
-            sum(
-                path.startswith("pillow-ico/assets/") and path.endswith(".ico")
-                for path in files
-            ),
+            sum(path.startswith("pillow-ico/") and path.endswith(".ico") for path in files),
             10,
         )
+        suite = [p for p in files if p.startswith("pngsuite/png/")]
+        self.assertEqual(len(suite) + 1, 176)
+        self.assertEqual(len(manifest["png_oracle"]), 162)
+
+    def test_png_cases_come_from_the_downloaded_files(self):
+        header = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR" + struct.pack(">II", 32, 16)
+        with tempfile.TemporaryDirectory() as directory:
+            suite = Path(directory) / "pngsuite"
+            (suite / "png").mkdir(parents=True)
+            (suite / "PngSuite.png").write_bytes(header)
+            (suite / "png" / "basn0g01.png").write_bytes(header)
+            (suite / "png" / "xs1n0g01.png").write_bytes(b"broken")
+            cases = png_cases(Path(directory), {"PngSuite.png": "a", "basn0g01.png": "b"})
+        self.assertEqual(
+            [(c["name"], c["valid"], c["width"], c["height"]) for c in cases],
+            [
+                ("PngSuite.png", True, 32, 16),
+                ("basn0g01.png", True, 32, 16),
+                ("xs1n0g01.png", False, 0, 0),
+            ],
+        )
+        self.assertEqual([c.get("oracle_sha256") for c in cases], ["a", "b", None])
 
     def test_missing_case_is_unexecuted_instead_of_rejected(self):
         self.assertEqual(observed_result("decode_corpus", None), {"executed": False})

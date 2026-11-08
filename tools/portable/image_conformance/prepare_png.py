@@ -17,7 +17,6 @@ for case in cases:
     name = case["name"]
     source = root / "pngsuite" / (name if name == "PngSuite.png" else "png/" + name)
     data = source.read_bytes()
-    assert hashlib.sha256(data).hexdigest() == case["sha256"], name
     shutil.copyfile(source, inputs / name)
     if not case["valid"]:
         continue

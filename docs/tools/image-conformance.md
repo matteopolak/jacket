@@ -15,7 +15,7 @@ The portable API returns 8-bit gray, gray-alpha, RGB, RGBA or BGRA pixels. PNG i
 | [libjpeg-turbo 3.2.0](https://github.com/libjpeg-turbo/libjpeg-turbo/tree/c85e6b905bf237038faa936dab160ebfc5da0344) (C) | JPEG codec and command-line tools, not a multi-format image API. | Reference uses accurate integer IDCT, fancy upsampling and unprofiled CMYK conversion. | Native reference built from pinned source; the reference rejects DNL. | Independent JPEG pixel/diagnostic oracle; not an oracle for every T.81 feature. |
 | [Rust `image` 0.25.8](https://docs.rs/image/0.25.8/image/codecs/index.html) | PNG/JPEG/BMP/ICO/QOI encode/decode; PNM and additional formats behind features. | Generic pixel types; codec-specific precision and color behavior. | Feature-dependent dependencies; its platform/limit behavior was not executed here. | Published API comparison at [source `98b001d`](https://github.com/image-rs/image/tree/98b001da0ddcd91936a716696fba877df910b61d), not suite or timing evidence. |
 
-These alternatives serve different purposes. The filename adapter preserves native coverage; the portable codecs provide interpreter/WASI execution and a common allocation contract. Features documented by alternatives are not interoperability or performance results for this suite.
+The filename adapter keeps native coverage; the portable codecs add interpreter/WASI execution and one allocation contract. Features listed for the alternatives are not results of this suite.
 
 ## Complete pinned inventories
 
@@ -29,7 +29,7 @@ These alternatives serve different purposes. The filename adapter preserves nati
 | JPEG community and upstream corpora | All 258 pinned files at the actual production cap in every mode, including large crash reproducers. Original valid/invalid/non-conformant/crash categories and independent reference warnings remain visible. Above-cap inputs receive actual rejection calls. |
 | Encoders | Every valid PngSuite image, its native decoded format and BGRA conversion, all PNG levels 0–9, plus BMP/QOI/PNM. Independent Pillow and official QOI decoding check pixels; separate checks inspect PNG CRC/zlib framing, BMP/PNM framing and QOI padding. PNM intentionally drops alpha. |
 
-The original PNG oracle also agrees with an independent stb decode. Its low-depth `tRNS` comparison happens before rescaling, as [PNG specifies](https://www.w3.org/TR/2003/REC-PNG-20031110/#11tRNS); this corrects a Pillow 10.4 oracle defect without changing expected codec behavior. Regenerated oracle hashes must match the checked-in manifest.
+The original PNG oracle also agrees with an independent stb decode. Its low-depth `tRNS` comparison happens before rescaling, as [PNG specifies](https://www.w3.org/TR/2003/REC-PNG-20031110/#11tRNS); this corrects a Pillow 10.4 oracle defect without changing expected codec behavior. Regenerated oracle hashes must match `png_oracle` in the manifest.
 
 The standalone JPEG API requires tables within the input: abbreviated MJPEG requiring externally supplied tables is rejected, with no guessed defaults. P8 streams using 16-bit quantization tables remain a documented interoperability extension, separately counted rather than claimed as strict T.81 conformance.
 
@@ -39,7 +39,7 @@ The [official classic JPEG T.83 package](https://www.itu.int/rec/T-REC-T.83/en) 
 
 ## Run and update
 
-Dependencies: the source-built compiler and its LLVM/sanitizer runtime, C compiler, CMake, Node 24, and Python 3.10 or newer with the pinned Pillow oracle. The default modes are native O0 with `address,undefined`, native O2, and actual Node WASI O2. Leak detection is disabled; the compiler's `undefined` mode checks LLVM local bounds, not every C UBSan category. WASI has no sanitizer claim. WASI probes receive only explicit input, oracle and output directory mounts, without the host environment or root filesystem. Non-JPEG probes have a 600-second group timeout; JPEG probes use the documented per-case resource bounds. Compilation keeps the whole-job deadline. Cleanup covers the runner-owned process group, not descendants that create a new session.
+Needs the source-built compiler with its LLVM/sanitizer runtime, a C compiler, CMake, Node 24 and Python 3.10+ with the pinned Pillow oracle. The default modes are native O0 with `address,undefined`, native O2 and Node WASI O2. Leak detection is off, `undefined` checks LLVM local bounds only, and WASI has no sanitizer claim. WASI probes see only explicit input, oracle and output mounts. Non-JPEG probes time out after 600 seconds; JPEG probes use per-case CPU, wall and file-size limits. Timeouts kill the runner's process group, not descendants that start a new session.
 
 ```sh
 python3 -m venv target/image-oracle
@@ -48,17 +48,21 @@ python3 -m pip install --only-binary=:all: -r tools/portable/image_conformance/r
 PYTHONPATH=tools python3 tools/portable/image_conformance/run.py --jaic target/debug/jaic --output target/image-corpus-run
 ```
 
-Use a fresh output directory for each run; prior receipts must remain intact. `--modes` supports diagnosis but proves only the named modes. `--expected-source SHA` requires a clean checkout at that commit. `result.json` records input/pixel pins, source/compiler identity, every case outcome and independent encoder counts; raw commands stay in the output folder. The JPEG runner has separate corpus/reference/output arguments and incremental ledgers. It does not overwrite the initial failure audit.
+Use a fresh output directory per run; `result.json` from an earlier run is never overwritten. `--modes` is for diagnosis and proves only the modes it names. `--expected-source SHA` requires a clean checkout at that commit. `result.json` records source and compiler identity, input and oracle pins, every case outcome and the independent encoder counts. The JPEG runner takes its corpus, reference and output folders as arguments; see its [README](../../tools/portable/image_conformance/jpeg/README.md).
 
-The manual-only `image-conformance` CI job runs the complete inventories on Linux without uploading raw corpus artifacts. Its sandbox must allow the Node installation to run before corpus execution. Existing Windows native legs run `portable_data`, including `GetIconInfo` mask extraction and actual `DrawIconEx` compositing after native and WASI production on x64 and ARM64. UI acceptance separately uses actual WebGPU renderer readback; a missing adapter is an explicit skip, never pixel acceptance.
+The manual-only `image-conformance` CI job runs everything on Linux and uploads no corpus files. Windows native legs run `portable_data`, including `GetIconInfo` mask extraction and `DrawIconEx` compositing on x64 and ARM64. UI acceptance uses WebGPU renderer readback; a missing adapter is a skip, never a pass.
 
-Standalone regression programs need `.exit` expectations so Jacket discovers and runs them separately. The required-ID check executes `jpeg_dnl`, `jpeg_structure`, `jpeg_padding` and `qoi_framing`, plus `Ico_File::gdi`, through Jacket in interpreted, sanitized native, optimized native and WASI modes; missing IDs, skipped cases and incomplete runs fail. The portable ICO producer is also a golden program with its own temporary directory. The Windows SDK runner independently consumes its output after each producer mode on both CPUs.
+Standalone regression programs need `.exit` expectations so Jacket runs them separately. `check_registration.py` runs `jpeg_dnl`, `jpeg_structure`, `jpeg_padding`, `qoi_framing` and `Ico_File::gdi` through Jacket in interpreted, sanitized native, optimized native and WASI modes; a missing ID or skipped case fails.
 
-To extend a codec, first add a regression and the complete relevant corpus inventory. Update hashes, license/provenance records, expected case classes and direct/detected/cap checks together. Keep tolerances and reference warning baselines fixed until an independently reviewed reason supports changing them. Respect upstream redistribution terms: the runners download mixed-license corpora into their output directories rather than checking raw files into this repository.
+## Pins
 
-## Equivalent-task measurements
+Each corpus is pinned in `manifest.json` (`jpeg/manifest.json` for JPEG) as repository, revision and the SHA-256 of every file; the BMP Suite is one pinned zip. The case lists are derived from the downloaded files: PngSuite files starting with `x` are invalid, sizes come from IHDR, and JPEG classes come from the corpus folders. Only facts the files cannot show are stored: the independent PNG oracle hashes, JPEG expectation exceptions, unsupported processes and reference baselines. Downloads go through `toolkit.download` and are checked before use.
 
-The [JPEG benchmark](../../stdlib/Extensions/Image/bench/jpeg_bench.jai) compares complete decode, allocation and free work against pinned stb with equal requested channel counts. Its reproducible one-megapixel workload generates deterministic baseline, progressive, grayscale and restart cases through pinned native stb and `cjpeg`. Build the optimized benchmark and native providers before timing in an exclusive, quiet window; do not time alongside compilation.
+To extend a codec, add a regression and the full corpus first, then update the pins, license notes and expectations together. Keep tolerances and reference baselines fixed unless an independent review supports a change. Mixed-license corpora are downloaded into the output folder and never checked in.
+
+## JPEG decode benchmark
+
+[`jpeg_bench.jai`](../../stdlib/Extensions/Image/bench/jpeg_bench.jai) compares complete decode, allocation and free work against the pinned stb build with equal requested channel counts, on a deterministic one-megapixel workload (baseline, progressive, grayscale and restart cases generated through native stb and `cjpeg`). Build it and the native providers first, and time in a quiet window, never alongside a compile.
 
 ```sh
 JAIC_NATIVE_LIBS=target/native-libs/macos-arm64 JAIC_STDLIB=stdlib \
@@ -66,19 +70,4 @@ JAIC_NATIVE_LIBS=target/native-libs/macos-arm64 JAIC_STDLIB=stdlib \
 target/jpeg-bench 1
 ```
 
-Measured on Apple M5, ARM64 macOS 27.0, with Image source `290f12e25806` and the repository's default O2 stb build at `2c980bb`. Both decoders run in the same native O2 benchmark binary. `cjpeg` 3.2.0 generates the additional JPEG cases before timing. Each image is 1154×865 pixels. Each value is the median of three process minima; parentheses give the Image range across those minima. Each minimum covers 3–40 complete decode/allocation/free calls. Time excludes encoding and file I/O. A time ratio below 1 means Image completed the same decode task in less time than this stb build.
-
-| JPEG workload | Image MP/s (range) | stb MP/s | Image time / stb |
-| --- | ---: | ---: | ---: |
-| baseline 4:2:0 q75 (stb) | 329.4 (328.5–332.0) | 249.4 | 0.76× |
-| baseline 4:4:4 q95 (stb) | 168.0 (167.9–168.8) | 118.5 | 0.71× |
-| baseline 4:2:2 q85 | 258.3 (257.1–260.5) | 189.2 | 0.73× |
-| baseline 4:2:0 q75 optimized | 340.5 (337.3–342.3) | 254.0 | 0.75× |
-| baseline 4:2:0 q75 restarts | 330.2 (323.7–332.3) | 248.9 | 0.75× |
-| progressive 4:2:0 q75 | 144.7 (144.7–145.4) | 116.3 | 0.80× |
-| progressive 4:4:4 q95 | 66.0 (65.7–66.0) | 49.9 | 0.76× |
-| grayscale q85 | 483.2 (462.8–484.1) | 308.6 | 0.64× |
-
-The [machine-readable measurement](../benchmarks/image-codecs.json) records source/compiler/library hashes and all three samples. These minima describe throughput on this workload, not a latency distribution. Repeat all cases with the same reference build and update the table and receipt together when changing the decoder or benchmark.
-
-The existing PNG/resize microbenchmark table remains in [Image](../extensions/image.md). Neither table measures UI drawing or establishes untested competitor throughput.
+The program prints MP/s for both decoders per workload; a time ratio below 1 means Image is faster. Results are not checked in. The PNG/resize microbenchmark table is in [Image](../extensions/image.md).

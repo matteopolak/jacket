@@ -2,11 +2,11 @@
 
 This runner verifies the complete pinned 258-file JPEG inventory against a chosen source receipt in native ASan/bounds, native O2 and WASI O2 configurations. It preserves strict suite failures separately from damaged-data recovery, unsupported process rejection and owner-reviewed suite classifications. T.83 paid compliance data is unavailable; this is not official certification.
 
-Use `PYTHONPATH="$REPO/tools"` for these repository helpers. Run `python3 check.py` for inventory and policy invariants without any compiler/decoder execution.
+Use `PYTHONPATH="$REPO/tools"` for these repository helpers. Run `python3 check.py` for inventory and policy invariants and `python3 test_inventory.py` for the derivation, without any compiler/decoder execution.
 
 ## Fetch and execute
 
-`fetch.py` downloads all 296 pinned source files: JPEG cases, original attribution, licenses and other files in the two complete source directories. Existing files must match their exact hashes; a mismatch fails rather than overwriting or retrying. No third-party code or binaries from the corpus run. The manifest pins original repositories, commits, URLs, lengths and SHA-256 values.
+`fetch.py` downloads all 296 pinned source files: JPEG cases, original attribution, licenses and other files in the two complete source directories. Existing files must match their exact hashes; a mismatch fails rather than overwriting. No third-party code or binaries from the corpus run. `manifest.json` pins each repository, commit and the SHA-256 of every file; the URLs and the 258-case list are derived from those pins (see `inventory.py`), and a JPEG that is present but unpinned fails the fetch.
 
 ```sh
 python3 fetch.py --output "$CORPUS"
@@ -24,7 +24,7 @@ The reference is built through the installed public libjpeg API; the expected li
 
 ## Policy and modes
 
-Every mode uses `Image.DEFAULT_MAX_PIXELS`, checks its actual emitted value against the manifest's production default, and calls both `decode_jpeg` and `decode_image` on every input. Successful pixels must agree between entry points, dimensions/count must be valid, exact pixel caps must accept with identical pixels, and cap-minus-one calls must reject without pixels. Rejections must agree and return empty pixels. Error strings can differ for a non-JPEG input rejected by format detection.
+Every mode uses `Image.DEFAULT_MAX_PIXELS`, checks its actual emitted value against the manifest's `production_default_pixels`, and calls both `decode_jpeg` and `decode_image` on every input. Successful pixels must agree between entry points, dimensions/count must be valid, exact pixel caps must accept with identical pixels, and cap-minus-one calls must reject without pixels. Rejections must agree and return empty pixels. Error strings can differ for a non-JPEG input rejected by format detection.
 
 All four formerly cap-limited inputs receive real calls in all three modes. The two valid-size 69M crash fixtures must reject at the actual default cap; two malformed extreme-dimension files may reject structurally earlier. None is counted as a successful full decode. Every input hash must match the pinned inventory. A focused `--modes` run is explicitly `PARTIAL`; only all three complete inventories can pass the final gate.
 
@@ -36,7 +36,7 @@ The bounded `wasi_probe.mjs` exposes only `/input` (the corpus) and `/output` (t
 
 ## Expected results and reviewed exceptions
 
-The original corpus categories remain immutable in the manifest. Valid supported files require acceptance; documented arithmetic/12-bit/etc negatives require rejection. Invalid-class files require rejection unless an exact-input-hash, reasoned owner/root disposition is provided. Non-conformant and crash reproducers retain both decode and independent reference evidence. In particular, partial/progressive/MJPEG labels may conflict with reference warnings or application framing assumptions; those remain reviewable findings.
+A case's class is its corpus folder (`valid`, `invalid`, `non-conformant`, `crash-repro`, or `upstream-reference` for libjpeg-turbo's own images), and its expectation is the class default unless `expectations` in the manifest lists an exception. Valid supported files require acceptance; documented arithmetic/12-bit/etc negatives require rejection. Invalid-class files require rejection unless an exact-input-hash, reasoned owner/root disposition is provided. Non-conformant and crash reproducers retain both decode and independent reference evidence. In particular, partial/progressive/MJPEG labels may conflict with reference warnings or application framing assumptions; those remain reviewable findings.
 
 `--reviewed-dispositions` accepts an explicit JSON document with `reviewed_by`, `review_receipt` and `cases`. Every entry requires `id`, exact `sha256`, `reason` and an expectation from `reject`, `accept`, `metadata-outside-core`, `documented-recovery`, `suite-label-inconsistency`, or `retained-compatibility-extension`. The reviewer must approve the classification before execution; a populated field is not itself proof of approval. Do not generate exceptions merely to turn the gate green. The checked-in reviewed classifications bind exact input hashes and reasons to their review receipt. Unresolved inputs retain their original strict expectations; this file is not a generic format or safety waiver.
 
@@ -46,14 +46,14 @@ Reviewed invalid-class acceptances are still reported as acceptances, never stri
 
 `receipt.json` pins source/compiler/harness/reference identities and bounds. `builds.json` retains each compile outcome. `cases.json` retains all input/mode outcomes and pixels, including process stderr and reference diagnostics; it is written incrementally. `summary.json` reports per-mode acceptance, rejection, failure/review counts, strict invalid rejections, reviewed invalid acceptances, process/sanitizer errors and damaged recovery mismatches. Inventory equality checks use case ID plus hash, not counts alone. Large temporary raw outputs are removed after comparison; binaries and compact ledgers remain for review.
 
-The independent files have mixed MIT, IJG/BSD, AGPL, CC0 and incompletely enumerated upstream licenses. The manifest preserves attribution and marks per-file license gaps; do not assume a uniform permissive license or redistribute unknown-attribution crash files. Fetch from their primary pinned repositories for private/CI testing, retain license documents, and review artifact contents before publication. Do not upload the raw mixed-license corpus as a project artifact by default.
+The independent files have mixed MIT, IJG/BSD, AGPL, CC0 and incompletely enumerated upstream licenses. Each source set in the manifest carries its license note, including the per-file gaps; do not assume a uniform permissive license or redistribute unknown-attribution crash files. Fetch from their primary pinned repositories for private/CI testing, retain license documents, and review artifact contents before publication. Do not upload the raw mixed-license corpus as a project artifact by default.
 
 T.83 document/data access, DNL positive-oracle support, generic component/profile applicability and above-default full decoding remain explicit gaps. The independent corpus is comprehensive for its pinned inventory, not an exhaustive official test-ID mapping. The frozen audit and its failure ledgers live outside this runner and must not be overwritten. Run against reviewed source, inspect all build diagnostics, and require the complete mode matrix before final acceptance. A launch error is an unverified decision, never a decoder rejection.
 
-To extend coverage, add the complete new upstream source inventory, commit/hash/license metadata and per-case expectation provenance, then review the inventory delta. Keep comparison tolerances fixed. Fix decoder causes or obtain evidence-backed scope decisions; do not filter inputs or alter reference warning baselines after a failure to make results pass.
+To extend coverage, add the complete new upstream source set (repository, revision, every file's hash and license note) and any expectation provenance, then review the inventory delta. Keep comparison tolerances fixed. Fix decoder causes or obtain evidence-backed scope decisions; do not filter inputs or alter reference warning baselines after a failure to make results pass.
 
 ## Reproduce the reference
 
 `build_reference.py --output NEWDIR` fetches the independently pinned 3.2.0 implementation archive, verifies its hash/version, builds the shared libjpeg API with at most two workers, runs every configured upstream CTest, and installs into `NEWDIR/install`. The newer upstream test-image corpus revision is deliberately separate from this implementation pin. Pass its `install/include` and `install/lib` to the gate. `--archive FILE` can reuse identical locally cached bytes; mismatched bytes fail. Existing output directories are never overwritten.
 
-The non-conformant `multiple-0xff-before-eoi.jpg` case has seven zero entropy alignment bits before its legal FF marker fill. Its required-rejection expectation records the independent full-Huffman-walk provenance in the manifest. The padding-only correction preserves all decoded coefficients and pixels with fill present or removed; marker fill remains a supported positive case in the generated regression.
+The non-conformant `multiple-0xff-before-eoi.jpg` case has seven zero entropy alignment bits before its legal FF marker fill. Its required-rejection expectation records the independent full-Huffman-walk provenance in `expectation_provenance` in the manifest. The padding-only correction preserves all decoded coefficients and pixels with fill present or removed; marker fill remains a supported positive case in the generated regression.

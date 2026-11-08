@@ -3,17 +3,19 @@
 
 import argparse
 import collections
-import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
-import signal
 import shutil
 import subprocess
 import sys
-import time
 
+from bench.measure import run_measured
+from bench.sandbox import Sandbox
+from inventory import cases as manifest_cases, check_corpus
+from toolkit.hashing import sha256_file as digest
 from toolkit.repo import cargo_target_dir
 
 MODES = ("native-asan", "native-o2", "wasi-o2")
@@ -25,10 +27,6 @@ POLICY = {
     "cmyk": "unprofiled conventional; Adobe marker selects inverted components",
     "official_T83": "unavailable paid document/data; no certification claim",
 }
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def save(path, value):
@@ -89,52 +87,29 @@ def parse_args():
 
 
 def process(command, *, cwd, env, timeout, sandbox=None, cpu=0, file_bytes=0):
-    def bounds():
-        import resource
+    """Run one bounded command; e.g. process([probe, case], cwd=work, env=env, timeout=240, cpu=180).
 
-        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-        if cpu:
-            resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
-        if file_bytes:
-            resource.setrlimit(resource.RLIMIT_FSIZE, (file_bytes, file_bytes))
+    Returns exit (`"timeout"` when the wall bound killed it), stdout, stderr and elapsed_seconds.
+    """
+    import resource
 
     wrapped = (
         sandbox.wrap(list(map(str, command))) if sandbox else list(map(str, command))
     )
-    started = time.monotonic()
-    p = subprocess.Popen(
-        wrapped,
-        cwd=cwd,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        preexec_fn=bounds if os.name == "posix" else None,
-        start_new_session=True,
+    limits = {resource.RLIMIT_CORE: 0}
+    if cpu:
+        limits[resource.RLIMIT_CPU] = cpu
+    if file_bytes:
+        limits[resource.RLIMIT_FSIZE] = file_bytes
+    run = run_measured(
+        wrapped, cwd=cwd, env=env, timeout=timeout or math.inf, limits=limits
     )
-    try:
-        stdout, stderr = p.communicate(timeout=timeout)
-        code = p.returncode
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(p.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        stdout, stderr = p.communicate()
-        code = "timeout"
-    except BaseException:
-        try:
-            os.killpg(p.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        p.wait()
-        raise
-    result = {
-        "exit": code,
-        "stdout": stdout.decode(errors="replace"),
-        "stderr": stderr.decode(errors="replace"),
+    return {
+        "exit": "timeout" if run.timed_out else run.returncode,
+        "stdout": run.stdout,
+        "stderr": run.stderr,
+        "elapsed_seconds": run.wall,
     }
-    result["elapsed_seconds"] = time.monotonic() - started
-    return result
 
 
 def pixel_compare(actual, reference, reference_header, decoded):
@@ -315,20 +290,10 @@ def main():
     if len(modes) != len(set(modes)) or any(mode not in MODES for mode in modes):
         raise SystemExit("Invalid/duplicate mode; use native-asan,native-o2,wasi-o2.")
     manifest = json.loads(args.manifest.read_text())
-    cases = manifest["cases"]
-    if len(cases) != 258 or len({c["id"] for c in cases}) != 258:
-        raise SystemExit("Pinned full inventory must contain 258 unique cases.")
-    for item in manifest["sources"]:
-        path = args.corpus / item["local_path"]
-        if (
-            not path.is_file()
-            or path.stat().st_size != item["bytes"]
-            or digest(path) != item["sha256"]
-        ):
-            raise SystemExit("Corpus/source integrity failure: " + item["local_path"])
-    for case in cases:
-        if digest(args.corpus / case["id"]) != case["sha256"]:
-            raise SystemExit("Case integrity failure: " + case["id"])
+    cases = manifest_cases(manifest)
+    errors = check_corpus(manifest, args.corpus, digest)
+    if errors:
+        raise SystemExit("Corpus integrity failure:\n" + "\n".join(errors))
     dispositions = review_map(args.reviewed_dispositions, cases)
     head = subprocess.check_output(
         ["git", "-C", str(args.repo), "rev-parse", "HEAD"], text=True
@@ -374,9 +339,6 @@ def main():
         else None,
     }
     save(args.output / "receipt.json", receipt)
-    sys.path.insert(0, str(args.repo / "tools/bench"))
-    from sandbox import Sandbox
-
     node = shutil.which(args.node)
     if node is None:
         raise SystemExit("Node executable unavailable: " + args.node)

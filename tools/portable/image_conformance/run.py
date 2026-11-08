@@ -7,16 +7,17 @@ The default runs native ASan/UBSan, optimized native, and actual Node WASI. A fo
 """
 
 import argparse
-import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
-import signal
 import subprocess
 import sys
 
+from bench.measure import run_measured
 from fetch import fetch_all
+from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT, cargo_binary
 
 HERE = Path(__file__).resolve().parent
@@ -28,31 +29,16 @@ def run(command, *, environment, log, allow_failure=False, timeout=None):
     start = log.tell()
     log.write("COMMAND " + " ".join(map(str, command)) + "\n")
     log.flush()
-    process = subprocess.Popen(
+    result = run_measured(
         list(map(str, command)),
         cwd=ROOT,
         env=environment,
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
+        timeout=timeout or math.inf,
+        output=log,
     )
-    try:
-        code = process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        process.wait()
-        code = "timeout"
+    code = "timeout" if result.timed_out else result.returncode
+    if result.timed_out:
         log.write("TIMEOUT owned process group terminated\n")
-    except BaseException:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        process.wait()
-        raise
     log.flush()
     log.seek(start)
     transcript = log.read()
@@ -162,19 +148,17 @@ def main():
         "source": head,
         "dirty": dirty,
         "image_source_hashes": {
-            str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+            str(path.relative_to(ROOT)): sha256_file(path)
             for path in (ROOT / "stdlib/Extensions/Image").rglob("*.jai")
         },
         "harness_hashes": {
-            str(path.relative_to(HERE)): hashlib.sha256(path.read_bytes()).hexdigest()
+            str(path.relative_to(HERE)): sha256_file(path)
             for path in HERE.rglob("*")
             if path.is_file()
             and path.suffix in (".py", ".jai", ".mjs", ".json", ".c", ".txt")
         },
-        "compiler_sha256": hashlib.sha256(compiler.read_bytes()).hexdigest(),
-        "manifest_sha256": hashlib.sha256(
-            (HERE / "manifest.json").read_bytes()
-        ).hexdigest(),
+        "compiler_sha256": sha256_file(compiler),
+        "manifest_sha256": sha256_file(HERE / "manifest.json"),
         "modes": {},
         "coverage": "FULL" if set(modes) == set(MODES) else "PARTIAL",
         "leak_detection": False,

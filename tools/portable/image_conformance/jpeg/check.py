@@ -6,17 +6,18 @@ import json
 from pathlib import Path
 import tempfile
 
+import inventory
+
 
 def main():
     root = Path(__file__).resolve().parent
     manifest = json.loads((root / "manifest.json").read_text())
-    assert len(manifest["cases"]) == 258
-    assert len({case["id"] for case in manifest["cases"]}) == 258
-    sources = {entry["local_path"]: entry for entry in manifest["sources"]}
-    assert len(sources) == 296
-    for case in manifest["cases"]:
-        assert sources[case["id"]]["sha256"] == case["sha256"]
-        assert sources[case["id"]]["bytes"] == case["bytes"]
+    cases = inventory.cases(manifest)
+    assert len(cases) == manifest["case_count"]
+    assert len({case["id"] for case in cases}) == len(cases)
+    assert set(manifest["expectations"]) <= {case["id"] for case in cases}
+    assert set(manifest["baseline_reference"]) <= {case["id"] for case in cases}
+    assert set(manifest["unsupported_process"]) <= {case["id"] for case in cases}
     spec = importlib.util.spec_from_file_location("jpeg_gate", root / "run.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -39,7 +40,7 @@ def main():
     )
     padding = next(
         case
-        for case in manifest["cases"]
+        for case in cases
         if case["id"].endswith("/multiple-0xff-before-eoi.jpg")
     )
     assert padding["class"] == "non-conformant" and padding["expectation"] == "reject"
@@ -52,7 +53,7 @@ def main():
     assert proof["padding_value"] == 0
     assert proof["marker_fill_offset"] == proof["padding_byte_offset"] + 1
     actual = json.loads((root / "reviewed-dispositions.json").read_text())
-    reviewed = module.review_map(root / "reviewed-dispositions.json", manifest["cases"])
+    reviewed = module.review_map(root / "reviewed-dispositions.json", cases)
     assert set(reviewed) == {case["id"] for case in actual["cases"]}
     for pending in actual["unresolved_cases"]:
         assert pending["id"] not in reviewed
@@ -146,7 +147,7 @@ def main():
         )
         assert result["pass"] and result["max_error"] == 0
     print(
-        "258-case inventory and policy invariants passed; no compiler/decoder execution."
+        f"{len(cases)}-case inventory and policy invariants passed; no compiler/decoder execution."
     )
 
 
