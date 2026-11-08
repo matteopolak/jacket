@@ -172,12 +172,6 @@ fn first_error(stderr: &str, stdlib: &str) -> String {
     format!("{file}: {message}")
 }
 
-/// Reserved one-line records let CI prove the real enumeration and returned compilers.
-/// Nextest normally hides successful output; `NEXTEST_SUCCESS_OUTPUT=final` exposes it.
-fn report_inventory(record: serde_json::Value) {
-    eprintln!("STDLIB_TARGET_INVENTORY {record}");
-}
-
 /// The share of the module and target pairs this run checks: `JACKET_STDLIB_TARGETS_PART=K/N` takes
 /// every Nth pair from the Kth, so CI can spread the check over N jobs. Unset, it checks them all.
 fn part() -> (usize, usize) {
@@ -207,7 +201,6 @@ fn every_stdlib_module_checks_for_every_target() {
         .into_iter()
         .flat_map(|m| TARGETS.map(|os| (m.clone(), os)))
         .collect();
-    report_inventory(serde_json::json!({"event": "full", "pairs": &all_jobs}));
     assert!(
         !all_jobs.is_empty(),
         "stdlib/target catalogue must not be empty"
@@ -218,7 +211,6 @@ fn every_stdlib_module_checks_for_every_target() {
         .filter(|(index, _)| index % parts == part)
         .map(|(_, job)| job)
         .collect();
-    report_inventory(serde_json::json!({"event": "assigned", "pairs": &jobs}));
     let checked: BTreeSet<String> = jobs.iter().map(|(m, os)| format!("{m} {os}")).collect();
     let next = Mutex::new(jobs.into_iter());
     let actual = Mutex::new(BTreeMap::new());
@@ -261,9 +253,6 @@ fn every_stdlib_module_checks_for_every_target() {
                         .current_dir(&stdlib)
                         .output()
                         .unwrap();
-                    report_inventory(
-                        serde_json::json!({"event": "completed", "pair": [&module, os]}),
-                    );
                     if !output.status.success() {
                         let stderr = String::from_utf8_lossy(&output.stderr);
                         actual.lock().unwrap().insert(
@@ -303,5 +292,4 @@ fn every_stdlib_module_checks_for_every_target() {
         problems.len(),
         problems.join("\n")
     );
-    report_inventory(serde_json::json!({"event": "verified"}));
 }
