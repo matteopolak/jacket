@@ -117,7 +117,7 @@ class HostPaths(unittest.TestCase):
 
     def test_other_paths_and_allowed_files_pass(self):
         self.assertEqual(style.check_host_paths("a.sh", "/home/linuxbrew/.linuxbrew/bin/brew\n/usr/home\n"), [])
-        self.assertEqual(style.check_host_paths("tools/ci/test_jacket_inventory.py", "/Users/me/x\n"), [])
+        self.assertEqual(style.check_host_paths("tools/ci/test_check_source_style.py", "/Users/me/x\n"), [])
         self.assertEqual(style.check_host_paths("corpus/upstream/a.jai", "/Users/me/x\n"), [])
 
     def test_allow_list_names_real_files(self):

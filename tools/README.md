@@ -84,10 +84,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_source_style.py` | Fail when a tracked Rust file is too long or a Rust or Python file carries a banner comment. | tools |
 | `check_stdlib_docs.py` | Fail when a public standard-library declaration has no doc comment (docs/tools/stdlib-doc-gaps.md). | tools |
 | `ci_changes.py` | Decide which path-gated CI jobs run, and write `<area>=true\|false` lines to $GITHUB_OUTPUT. | CI, tools |
-| `compiler_target_inventory.py` | Collect and verify actual compiler target-work identities from an opt-in CI run. | CI |
 | `install_pinned.py` | Install a tool at the version .github/pins.json pins, verifying what it downloads. | CI, tools |
-| `investigate_io.py` | Run a predeclared number of independent Io::backends diagnostic attempts. | CI |
-| `jacket_inventory.py` | Allowlist public coverage evidence from jacket JSON without retaining test output. | CI, tools |
 | `job_inputs.py` | The files each CI job reads, computed from the workflow instead of listed by hand. | tools |
 | `package_bindings_helpers.py` | Put the native helpers Bindings_Generator needs into a release archive's native-libs/<platform>. | CI, tools |
 | `pins.py` | Keep the tool versions that the workflows spell out equal to .github/pins.json. | CI, tools |
@@ -95,7 +92,6 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `run_miri.py` | Run Miri on the parts of the compiler that handle raw memory and need nothing from the operating system. | CI |
 | `select_tests.py` | List the stdlib tests a change can affect, for the `jacket test` CI steps. | tools |
 | `toolchain_manifest.py` | Write `toolchain-manifest.json`: which toolchain release the editors download, and each archive's SHA-256. | CI |
-| `verify_jacket_inventory.py` | Compare downloaded jacket inventories before accepting a CI partition change. | tools |
 
 ## `corpus/`
 

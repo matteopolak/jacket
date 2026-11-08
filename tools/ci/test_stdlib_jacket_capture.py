@@ -1,4 +1,4 @@
-"""Consume the real CI shell driver through display wrappers with both stream policies."""
+"""Run the real CI shell driver against a controlled jacket and display wrapper."""
 import json
 import os
 from pathlib import Path
@@ -52,10 +52,8 @@ else:
     if os.environ.get("FAIL_INTERP") and "--interp" in args:
         raise SystemExit(23)
 """)
-        self.reports = self.root / "reports"
         self.env = {**os.environ, "PATH": str(self.bin) + os.pathsep + os.environ["PATH"],
                     "GITHUB_SHA": "a" * 40, "GITHUB_ACTIONS": "true",
-                    "JACKET_TEST_REPORT_DIR": str(self.reports),
                     "JACKET_TEST_PARTITION": "hash:1/4", "JACKET_TEST_CHANGED": "", "WASM": "false",
                     "COMMAND_LOG": str(self.root / "commands.jsonl")}
 
@@ -68,40 +66,19 @@ else:
                               cwd=self.root, env={**self.env, "MERGE_CLIENT_STDERR": str(merge).lower(), **extra},
                               capture_output=True, text=True)
 
-    def test_json_and_diagnostics_stay_separate_with_merging_display_wrapper(self):
-        for merge in (True, False):
-            with self.subTest(merge=merge):
-                (self.root / "commands.jsonl").unlink(missing_ok=True)
-                result = self.invoke(merge)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn("jacket: root controlled-root", result.stderr)
-                for mode in ("native", "interp", "o2"):
-                    for suffix in ("all", "part", "outcomes"):
-                        text = (self.reports / f"{mode}-{suffix}.jsonl").read_text()
-                        values = [json.loads(line) for line in text.splitlines()]
-                        self.assertTrue(values)
-                        self.assertNotIn("controlled-root", text)
-                commands = [json.loads(line) for line in (self.root / "commands.jsonl").read_text().splitlines()]
-                self.assertEqual(len(commands), 9)
-                self.assertEqual(sum("--list" not in args for args in commands), 3)
-                self.assertTrue(all("--list-target" in args for args in commands if "--list" in args))
-                self.assertEqual(sum(args[-2:] == ["--", "-O2"] for args in commands), 3)
-                self.assertEqual(sum("--partition" in args for args in commands), 6)
-                (self.root / "commands.jsonl").unlink()
-
     def test_default_driver_keeps_original_three_mode_invocations(self):
-        result = self.invoke(True, JACKET_TEST_REPORT_DIR="")
+        result = self.invoke(True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("jacket: root controlled-root", result.stderr)
+        self.assertIn("jacket: root controlled-root", result.stdout + result.stderr)
         commands = [json.loads(line) for line in (self.root / "commands.jsonl").read_text().splitlines()]
         self.assertEqual(len(commands), 3)
         self.assertTrue(all("--list" not in args and "--format" not in args for args in commands))
         self.assertEqual(sum("--interp" in args for args in commands), 1)
         self.assertEqual(sum(args[-2:] == ["--", "-O2"] for args in commands), 1)
-        self.assertFalse(self.reports.exists())
+        self.assertEqual(sum("--partition" in args for args in commands), 3)
 
     def test_empty_host_selection_does_not_hide_affected_wasm_cases(self):
-        result = self.invoke(True, JACKET_TEST_REPORT_DIR="", WASM="true", NARROW_WASM="true",
+        result = self.invoke(True, WASM="true", NARROW_WASM="true",
                              JACKET_TEST_CHANGED='["stdlib/Module/module.jai"]')
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = [json.loads(line) for line in (self.root / "commands.jsonl").read_text().splitlines()]
@@ -114,8 +91,7 @@ else:
         result = self.invoke(True, FAIL_INTERP="true")
         self.assertNotEqual(result.returncode, 0)
         commands = [json.loads(line) for line in (self.root / "commands.jsonl").read_text().splitlines()]
-        self.assertEqual(len(commands), 9)
-        self.assertTrue((self.reports / "o2-outcomes.jsonl").read_text())
+        self.assertEqual(len(commands), 3)
 
 
 if __name__ == "__main__":

@@ -64,7 +64,6 @@ HOST_PATH_ALLOWED = {
     "tools/bench/test_workloads.py": "a Windows-style symlink target",
     "tools/ci/check_source_style.py": "documents the rule",
     "tools/ci/test_check_source_style.py": "host-path samples",
-    "tools/ci/test_jacket_inventory.py": "fake home in the inventory fixture",
     "tools/corpus/test_scan_upstream.py": "a credential-path sample",
     "editors/vscode/test/unit/discovery.test.ts": "home expansion",
     "editors/vscode/test/unit/toolEnvironment.test.ts": "environment fixture",

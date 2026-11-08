@@ -16,10 +16,9 @@ display=(env)
 if [[ "$(uname -s)" == Linux ]] && command -v xvfb-run > /dev/null; then
   display=(xvfb-run -a -s "-screen 0 1280x1024x24")
 fi
-# Keep the client's JSON stdout separate even when xvfb-run merges client stderr.
-# Example: with_display "$jacket" test --list --format json
+# Example: with_display "$jacket" test -q
 with_display() {
-  "${display[@]}" sh -c 'exec "$@" 2>&9 9>&-' sh "$@" 9>&2
+  "${display[@]}" "$@"
 }
 PYTHONPATH=tools python3 -B tools/portable/build_portable.py data
 partition=()
@@ -27,15 +26,6 @@ case "${JACKET_TEST_PARTITION:-all}" in
   all) ;;
   *) partition=(--partition "$JACKET_TEST_PARTITION") ;;
 esac
-# Optional full evidence for matrix experiments. Discovery is recorded independently of
-# execution: listed target/capability skips must still be checked in the outcome inventory.
-reports="${JACKET_TEST_REPORT_DIR:-}"
-diagnostics=()
-if [[ "${GITHUB_ACTIONS:-}" == true ]]; then diagnostics=(--diagnostics); fi
-if [[ -n "$reports" ]]; then
-  mkdir -p "$reports"
-  python3 tools/ci/jacket_inventory.py metadata --partition "${JACKET_TEST_PARTITION:-all}" > "$reports/metadata.json"
-fi
 run() {
   local mode="$1"
   shift
@@ -56,13 +46,7 @@ run() {
     fi
     rm -f "$names"
   fi
-  if [[ -n "$reports" ]]; then
-    with_display "$jacket" test --list --list-target --format json --needs display "${only[@]}" "$@" | python3 tools/ci/jacket_inventory.py list > "$reports/$mode-all.jsonl" || status=1
-    with_display "$jacket" test --list --list-target --format json --needs display "${partition[@]}" "${only[@]}" "$@" | python3 tools/ci/jacket_inventory.py list > "$reports/$mode-part.jsonl" || status=1
-    with_display "$jacket" test -q --format json --needs display "${partition[@]}" "${only[@]}" "$@" | python3 tools/ci/jacket_inventory.py outcomes "${diagnostics[@]}" | tee "$reports/$mode-outcomes.jsonl" || status=1
-  else
-    with_display "$jacket" test -q --needs display "${partition[@]}" "${only[@]}" "$@" || status=1
-  fi
+  with_display "$jacket" test -q --needs display "${partition[@]}" "${only[@]}" "$@" || status=1
 }
 run native
 run interp --interp

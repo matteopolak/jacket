@@ -132,12 +132,6 @@ platform; `WASM=true` additionally runs interpreted and built wasm on Linux x64.
 fails; `JACKET_TEST_PARTITION` then selects `all` or `hash:K/N`. Never substitute one mode
 or producer suite for another when moving work between jobs.
 
-Set `JACKET_TEST_REPORT_DIR=target/jacket-inventory` to save each mode's full discovery,
-assigned discovery and execution outcomes. The CI `jacket_inventory` manual input enables
-this and artifact upload. `tools/ci/verify_jacket_inventory.py` compares downloaded runs;
-see [CI selection](ci-job-selection.md#jacket-partition-evidence). These optional listings
-cost additional compiler work, so compare runs with the same reporting setting.
-
 Matrix assignments live in `tools/ci/ci_changes.py`; coverage invariants are tested in
-`test_ci_changes.py`. The shell runner owns execution/reporting, and the workflow owns
-runner setup and artifact retention. Prefer existing jobs when testing new assignments.
+`test_ci_changes.py`. The shell runner owns execution, and the workflow owns
+runner setup. Prefer existing jobs when testing new assignments.
