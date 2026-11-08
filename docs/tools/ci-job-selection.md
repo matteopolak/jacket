@@ -1,18 +1,18 @@
 # CI job selection
 
-`tools/ci/ci_changes.py` decides which path-gated jobs of `ci.yml` run for a push or pull request. It keeps no path list per job: `tools/ci/job_inputs.py` computes each job's input files from the job itself, so a new `#import`, a new crate dependency or a new script called from a step selects the right jobs with no edit under `tools/ci/`.
+`tools/ci/ci_changes.py` decides which path-gated jobs of `ci.yml` run for a push or pull request. It keeps no path list per job: `tools/ci/job_inputs.py` computes each job's inputs from the job itself, so a new `#import`, crate dependency or script selects the right jobs with no edit under `tools/ci/`.
 
 ## How it works
 
 For a gated job, `job_inputs.inputs()` collects:
 
 - every path in the job's `run:` lines and `with:` values, and in the composite actions it uses;
-- root and nested `.gitattributes` policies when an actual expanded step uses `actions/checkout`, because checkout can change exact file bytes. This dependency also matches new or deleted policies and conditional checkout steps; jobs without checkout do not gain it. Script literals and nested `env`/`with` keys named `uses` are not action references;
+- `.gitattributes` policies (root and nested), when a step uses `actions/checkout`, because checkout can change file bytes. Script literals and `env`/`with` keys named `uses` are not action references;
 - the closure of those scripts (Python imports, path strings and exact sibling data/license/entry-source filenames; paths named in shell, PowerShell and Nix files);
 - for each `cargo build|test -p NAME`, the crate and its path dependencies, plus `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml` (dev-dependencies only for jobs that run tests);
 - for each `.jai` file a step compiles, the stdlib modules it reads (from `jaic -deps` if a binary exists, else a static scan).
 
-A Python literal naming an existing sibling file also follows that file, including `HERE / "pin.json"`, a license or a Jai entry source. The graph uses indexed filenames; add new inputs to the index (or use `git add -N`) before inspecting a local graph.
+A Python literal naming an existing sibling file follows that file too (`HERE / "pin.json"`, a license, a Jai entry source). The graph uses indexed filenames: `git add -N` new inputs before inspecting a local graph.
 
 `ci_changes.py` matches the changed files against each area's patterns and writes the `jobs=` and `<area>=` outputs `ci.yml` reads. If the computation fails, everything runs.
 
@@ -25,23 +25,17 @@ Hand-written policy in `ci_changes.py`:
 | `OWN_PATHS_ONLY` | `sdl3` does not run for a workflow edit. |
 | `PROSE`, `READ_BY_TESTS` | Docs-only changes skip the code jobs, except docs a test reads. Checkout policies are code inputs even under `docs/`. |
 
-## Compiler target work
+## Splitting work across jobs
 
-Full-tier Intel macOS divides the stdlib module/target checks and cross-OS documentation checks between its existing `rust` and `checks` jobs. The jobs use `targets_part=2/2` and `1/2` respectively. This distributes a large aggregate check without changing nextest's per-test limits, job budgets or case inventory. Objective-C selectors run only in the first target share.
+**Compiler target checks.** Full-tier Intel macOS divides the stdlib module/target checks and the cross-OS doc checks between its `rust` and `checks` jobs (`targets_part=2/2` and `1/2`). Objective-C selectors run only in the first share. `matrix.shard` still selects the whole native Rust suite on each full-tier Mac Rust job; the target steps use `matrix.targets_part` when set, else `matrix.shard`. When changing the matrix, update both target-step environment values together and keep a complete, disjoint set of shares per platform. `test_ci_changes.py` checks the shares.
 
-`matrix.shard` still selects the complete native Rust suite on each full-tier Mac Rust job. The target steps use `matrix.targets_part` when present, otherwise `matrix.shard`; fast Mac, ARM Mac and Linux keep their existing assignments. When changing the matrix, update both target-step environment values together and keep a complete, disjoint set of shares per platform. `test_ci_changes.py` checks those shares and guards against accidentally splitting native Rust coverage.
+**Producer suites.** Full-tier Intel macOS runs `tooling` and `bindings` on its catalogue job; the other producer suites stay with the native/interpreted/O2 Jacket run. Tooling rebuilds native tools that bindings reads, so keep them together (`check_stdlib_suites.py` runs them in one resource group). The `suites` matrix field selects the drivers. Keep each producer suite exactly once, keep the independent catalogue, Jacket and WebGPU coverage, and update `test_ci_changes.py` with the matrix.
 
-The owning Rust test emits reserved `STDLIB_TARGET_INVENTORY` JSON records for the canonical full and assigned pair lists, returned compiler processes, and a final marker after its existing expectation assertions. A compiler exit failure can be expected for an unsupported target; completion alone does not prove verification. Successful nextest output is normally hidden; `NEXTEST_SUCCESS_OUTPUT=final` exposes these records without changing the test limit.
-
-## Producer work
-
-Full-tier Intel macOS runs `tooling` and `bindings` on its existing catalogue job. The other producer suites stay with the complete native/interpreted/O2 Jacket run. This keeps the long tooling run from leaving bindings only the remainder of the same job budget. Both jobs retain their 150-minute limit, existing test commands and complete case inventories; other platforms and the fast tier keep their assignments.
-
-The `suites` matrix field selects these existing drivers. Keep tooling and bindings together: tooling rebuilds native tools that bindings reads, so `check_stdlib_suites.py` runs them in one resource group. Each CI job has its own workspace. When changing assignments, preserve each complete producer suite exactly once and retain the independent catalogue, Jacket and WebGPU coverage; update `test_ci_changes.py` alongside the matrix.
+**Jacket partitions.** `jacket_test` gives each platform a complete, disjoint set of `hash:K/N` shares; `all` is one full share. The job-count limits of the fast and full tiers still apply.
 
 ## Narrowing the stdlib tests
 
-The `stdlib-runtime` legs run `jacket test` over the whole standard library (`tools/ci/stdlib_jacket_test.sh`). When a pull request or a push to a branch other than `main` or `staging` changes only stdlib module sources (`stdlib/**.jai`) and golden outputs (`tests/**.stdout|stderr|exit`), at most 100 files, `ci_changes.py` writes them as the JSON `stdlib_changed` output. The leg passes it as `JACKET_TEST_CHANGED`, and `tools/ci/select_tests.py` asks `jacket test --list --list-target --changed FILE...` with each mode's exact arguments. The dependency graph is what `jaic -deps` says each test program read, so no module map is kept in CI. Each mode uses its own names as `--exact` filters before `--partition`. A native empty selection skips only that mode: target-only WASM declarations may still be affected. Any failed query runs the complete mode instead of narrowing.
+The `stdlib-runtime` legs run `jacket test` over the whole standard library (`tools/ci/stdlib_jacket_test.sh`). When a pull request, or a push to a branch other than `main` or `staging`, changes only stdlib module sources (`stdlib/**.jai`) and golden outputs (`tests/**.stdout|stderr|exit`), at most 100 files, `ci_changes.py` writes them as the JSON `stdlib_changed` output. The leg passes it as `JACKET_TEST_CHANGED`, and `tools/ci/select_tests.py` asks `jacket test --list --list-target --changed FILE...` with each mode's exact arguments; the dependency graph is what `jaic -deps` says each test program read, so CI keeps no module map. Each mode uses its own names as `--exact` filters before `--partition`. An empty native selection skips only that mode, since target-only WASM declarations may still be affected. A failed query runs the whole mode.
 
 Everything else runs every test: any file outside those patterns (compiler, runtime, tools, CI config, a stdlib `.c`/`.h`/data file), pushes to `main`/`staging`, scheduled and manual runs, an undiffable range, and any failure of `jacket` or the script (exit 3). To force a full run on a branch, include a non-stdlib file in the change or run the workflow by hand. `Basic` and other widely imported modules select nearly everything on their own. The Windows and sanitizer `jacket test` steps and the `sdl3` jobs are not narrowed this way (`sdl3` stays own-paths-only).
 
@@ -58,31 +52,16 @@ Everything else runs every test: any file outside those patterns (compiler, runt
 
 `ci_changes.py` reads the GitHub event variables (`GITHUB_EVENT_NAME`, `EVENT_BEFORE`, `SHA`, the pull request base). `JAIC_DEPS_JAIC` names a `jaic` for the stdlib closure. `GITHUB_REF` decides the branch rule above; `JACKET_TEST_CHANGED` is read by `stdlib_jacket_test.sh`.
 
-The first Linux x64 TOML tooling leg runs `test_pins.py`, `test_job_inputs.py` and `test_ci_changes.py` once with its pinned Python. This keeps pin isolation, input closure and matrix assignment regressions in a selectable relevant job group, without requiring the compiler test matrix. Extend those modules when changing the corresponding CI behavior; the TOML conformance predicates are covered in `test_ci_changes.py`.
+The first Linux x64 TOML tooling leg runs `test_pins.py`, `test_job_inputs.py` and `test_ci_changes.py` once with its pinned Python, so pin, input-closure and matrix regressions have a job that needs no compiler matrix. Extend those modules when changing the matching CI behavior.
 
-## Jacket partitions
+## Manual image jobs
 
-`jacket_test` assigns a complete, disjoint set of `hash:K/N` shares to each platform.
-`all` is a single full share. Catalogue modes/O2, producer suites, WebGPU and the Linux
-coverage baseline are independent inventory and must remain when changing assignments.
-The fast/full job-count limits still apply; splitting jacket work does not add runner slots.
-
-## Focused Intel image acceptance
-
-`images-ui-intel` is manual-only: it is never added to ordinary push, pull request or nightly runs unless explicitly requested. It runs on `macos-15-intel` with a focused 60-minute job budget. It reuses the existing production tool/native-library setup, then checks runtime SIMD dispatch and cross-target Web macros, the portable foundation producer, filename-to-ICO native/WASI execution and UI image readback. These are separate steps so a failed check does not hide the remaining results. It adds no artifact uploads and does not replace or change the full matrix.
-
-```sh
-gh workflow run ci.yml --ref BRANCH -f tier=fast -f jobs=test,stdlib-runtime,windows-native,scripting-wasm,docs,images-ui-intel
-```
-
-`tools/ci/check_images_ui.py` runs the focused CPU/docs checks locally (`--jaic`, `--jacket`, `--output-root`). It uses Jacket's existing case budgets and the whole-job bound, without killing a direct parent process on a separate timer. It records the host architecture, checks Linux/macOS/Windows x64 and ARM64 macros, runs dispatch in interpreted/native O0/O2 modes, and checks the three Web documentation examples for each native OS. Extend its test list when changing the stage boundary. `job_inputs.py` still records its real input closure for drift checks. The job explicitly uses its isolated checkout's `target` directory and the existing Rust/native cache actions.
-
-The UI runner still reports an explicit skip if a hosted Metal adapter is unavailable. That skip is build evidence, not native GPU acceptance; actual local Metal and required Linux/Windows software-adapter checks remain distinct evidence. A focused green job does not declare the separate whole-tooling producer job complete.
-
-## Complete image corpus acceptance
-
-`image-conformance` is also manual-only. It adds no automatic fast/full work and changes no existing matrix or timeout. Its separate Linux job runs complete pinned image inventories in native sanitizer, optimized native and actual WASI modes, plus independent encoder checks. It builds the pinned JPEG reference instead of substituting the runner's older system library. Corpora, reference builds and results stay in the job's temporary directory; no new artifacts are uploaded. See [image codec coverage](image-conformance.md) for profiles, pins and commands.
+`images-ui-intel` and `image-conformance` are manual-only: they run only when named in a `jobs=` request, never on push, pull request or nightly, and upload no artifacts.
 
 ```sh
 gh workflow run ci.yml --ref BRANCH -f tier=fast -f jobs=test,stdlib-runtime,windows-native,scripting-wasm,docs,images-ui-intel,image-conformance
 ```
+
+`images-ui-intel` runs on `macos-15-intel` (60 minutes) with the usual tool and native-library setup, in separate steps: runtime SIMD dispatch and cross-target Web macros, the portable foundation producer, filename-to-ICO native/WASI execution and UI image readback. `tools/ci/check_images_ui.py` runs the CPU and doc checks locally (`--jaic`, `--jacket`, `--output-root`): it records the host architecture, checks Linux/macOS/Windows x64 and ARM64 macros, runs dispatch interpreted and native O0/O2, and checks the three Web doc examples for each native OS. Extend its test list when the stage boundary changes. The UI runner skips explicitly when no hosted Metal adapter exists; that is build evidence, not GPU acceptance.
+
+`image-conformance` runs the complete pinned image inventories on Linux in sanitized native, optimized native and WASI modes, plus independent encoder checks, with the pinned JPEG reference built from source. See [image codec coverage](image-conformance.md).
