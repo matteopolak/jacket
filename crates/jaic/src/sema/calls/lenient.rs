@@ -466,10 +466,8 @@ impl Compiler {
             return Ok(());
         }
         let declared = self.entity(id).span;
-        let (used_at, declared_at) = (self.insert_origin(span), self.insert_origin(declared));
-        if declared_at.file != used_at.file || used_at.start >= declared_at.start {
-            return Ok(());
-        }
+        let mut used_at = self.insert_origin(span);
+        let declared_at = self.insert_origin(declared);
         // Only a use the declaration's own scope encloses is read in order: a macro body or code
         // inserted into another scope reaches the name by another route.
         let mut procedures = 0;
@@ -485,7 +483,14 @@ impl Compiler {
                 return Ok(());
             }
             match self.scope(sid).kind {
-                scope::ScopeKind::Macro => return Ok(()),
+                // A struct body describes a type; it is not a statement in the enclosing
+                // procedure. Its own methods still stop at their home scope above.
+                scope::ScopeKind::Struct(_) | scope::ScopeKind::Macro => return Ok(()),
+                scope::ScopeKind::StructParams => {
+                    if let Some(site) = self.scope(sid).order_site {
+                        used_at = self.insert_origin(site);
+                    }
+                }
                 scope::ScopeKind::Proc if self.scope(sid).proc.is_some() => {
                     // Text outside the procedure's body (its header, written elsewhere than
                     // the code it is read in) has no reading order against the body.
@@ -498,7 +503,8 @@ impl Compiler {
             }
             current = self.scope(sid).parent;
         }
-        if procedures >= 2 {
+        if procedures >= 2 || declared_at.file != used_at.file || used_at.start >= declared_at.start
+        {
             return Ok(());
         }
         Err(Box::new(

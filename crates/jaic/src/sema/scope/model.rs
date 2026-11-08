@@ -110,6 +110,8 @@ impl UsingEntry {
 
 pub struct Scope {
     pub kind: ScopeKind,
+    /// Deferred headers read enclosing declarations at their instantiation site.
+    pub order_site: Option<Span>,
     pub parent: Option<ScopeId>,
     /// A Code insertion's synthetic lookup scope declares into this lexical
     /// scope. Its parent still supplies captured-name lookup; real blocks have

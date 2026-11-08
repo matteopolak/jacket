@@ -297,6 +297,7 @@ impl Compiler {
         }
         let module = self.scope(def_scope).module;
         let param_scope = self.new_scope(ScopeKind::StructParams, Some(def_scope), module, None);
+        self.scope_mut(param_scope).order_site = Some(span);
         let mut values: Vec<Option<Operand>> = vec![None; lit.params.len()];
         // `struct(types: ..Type)`: the positional arguments from the variadic parameter on
         // become one constant `[] Type`.

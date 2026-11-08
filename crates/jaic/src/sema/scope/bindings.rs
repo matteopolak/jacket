@@ -25,6 +25,7 @@ impl Compiler {
             kind,
             parent,
             inserted_into: None,
+            order_site: None,
             module,
             file,
             names: HashMap::default(),

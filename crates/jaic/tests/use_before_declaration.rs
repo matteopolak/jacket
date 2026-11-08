@@ -91,3 +91,47 @@ fn the_same_error_is_reported_in_an_imported_module() {
     .expect_err("must be rejected");
     assert_eq!(d.code, Code::UseBeforeDeclaration, "{d:?}");
 }
+
+#[test]
+fn struct_bodies_are_declarative_even_inside_ordered_procedures() {
+    for parameter in ["", "(N:int)"] {
+        let instance = if parameter.is_empty() {
+            "Box"
+        } else {
+            "Box(1)"
+        };
+        for before in [true, false] {
+            let declaration = "later :: 3; make :: ()->string {return \"value:int = 42;\";}";
+            let object = format!("box:{instance};");
+            let tail = if before {
+                format!("{object} {declaration}")
+            } else {
+                format!("{declaration} {object}")
+            };
+            compile(&format!("main :: () {{ Box :: struct{parameter} {{ cells:[later]int; #insert #run make(); }} {tail} }}"), &[]).unwrap();
+        }
+    }
+}
+
+#[test]
+fn generic_headers_observe_the_instantiation_site() {
+    compile(
+        "main :: () { Box :: struct(N:Later) { x:int; } Later :: int; box:Box(1); }",
+        &[],
+    )
+    .unwrap();
+    rejected("main :: () { Box :: struct(N:Later) { x:int; } box:Box(1); Later :: int; }");
+}
+
+#[test]
+fn declarative_scopes_do_not_relax_order_inside_methods_or_enums() {
+    rejected("main :: () { R :: struct { method :: () { f(); f :: () {} } } R.method(); }");
+    rejected("main :: () { E :: enum { ONE :: later; } later :: 17; e:E; }");
+    rejected("main :: () { E :: enum Later { ONE; } Later :: u8; e:E; }");
+    let error = compile(
+        "main :: () { R :: struct { items:[n]int; } n:=3; r:R; }",
+        &[],
+    )
+    .unwrap_err();
+    assert_eq!(error.code, Code::LocalNotAccessible, "{error:?}");
+}

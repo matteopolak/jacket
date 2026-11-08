@@ -9,7 +9,7 @@ New here: [features](features.md), [the command line](tools/cli.md), [install ch
 
 ## Language
 
-One page per topic in [language/](language/): [modules](language/modules-and-imports.md), [procedures](language/procedures.md), [polymorphism](language/polymorphism.md), [macros](language/macros-and-custom-iteration.md), [inline holes](language/interpolates.md), [numbers](language/numbers.md), [strings](language/strings-and-literals.md), [operator overloading](language/operator-overloading.md), [enums](language/enums.md), [structs and default overrides](language/structs.md), [unions](language/unions.md), [control flow](language/control-flow.md), [context](language/context.md), and [leniencies](language/leniencies.md) (what jaic accepts that the official compiler rejects).
+One page per topic in [language/](language/): [modules](language/modules-and-imports.md), [scoping](language/scoping.md), [procedures](language/procedures.md), [polymorphism](language/polymorphism.md), [macros](language/macros-and-custom-iteration.md), [inline holes](language/interpolates.md), [numbers](language/numbers.md), [strings](language/strings-and-literals.md), [operator overloading](language/operator-overloading.md), [enums](language/enums.md), [structs and default overrides](language/structs.md), [unions](language/unions.md), [control flow](language/control-flow.md), [context](language/context.md), and [leniencies](language/leniencies.md) (what jaic accepts that the official compiler rejects).
 
 ## Metaprogramming
 
