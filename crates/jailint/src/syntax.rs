@@ -23,7 +23,7 @@ pub(crate) struct Cx<'a> {
     pub stmts: &'a [Stmt],
     pub procs: Vec<ProcSite<'a>>,
     /// Full-source ownership ranges, retained when procedure collection starts a new walk.
-    code_operands: Vec<Span>,
+    code_operands: SpanIndex,
     pub imports: Vec<crate::rules::unused_import::Unused>,
     /// Links in doc comments that name nothing (`broken_doc_link`).
     pub doc_links: Vec<crate::rules::broken_doc_link::Broken>,
@@ -82,6 +82,7 @@ impl<'a> Cx<'a> {
         collect_procs(&ast.stmts, None, false, false, compiler, &mut procs);
         let mut code_operands = Vec::new();
         collect_code_operands(&ast.stmts, &mut code_operands);
+        let code_operands = SpanIndex::new(code_operands);
         Self {
             compiler,
             file: ast.file,
@@ -109,9 +110,7 @@ impl<'a> Cx<'a> {
     /// Whether source belongs to a #run/#code/#insert operand, including a nested
     /// procedure collected independently, e.g. `N :: #run -> int { return 1; };`.
     pub fn in_code_operand(&self, span: Span) -> bool {
-        self.code_operands.iter().any(|owner| {
-            owner.file == span.file && owner.start <= span.start && span.end <= owner.end
-        })
+        self.code_operands.covers(span)
     }
 
     /// Source text of `span` (empty when out of range).
@@ -398,6 +397,47 @@ pub(crate) fn header_is_poly(h: &ProcHeader) -> bool {
             .any(|r| r.ty.as_ref().is_some_and(jaic::sema::procs::has_poly))
 }
 
+/// Spans sorted by start, answering "does some span contain this one" by binary search.
+/// The spans may nest or overlap.
+struct SpanIndex {
+    /// `(span, largest end among this and every earlier span)`, ordered by file, then start.
+    spans: Vec<(Span, u32)>,
+}
+
+impl SpanIndex {
+    fn new(mut spans: Vec<Span>) -> Self {
+        spans.sort_by_key(|s| (s.file, s.start));
+        let mut reach = 0;
+        let mut file = None;
+        let spans = spans
+            .into_iter()
+            .map(|s| {
+                if file != Some(s.file) {
+                    file = Some(s.file);
+                    reach = 0;
+                }
+                reach = reach.max(s.end);
+                (s, reach)
+            })
+            .collect();
+        Self {
+            spans,
+        }
+    }
+
+    /// Some indexed span of the same file starts at or before `span` and ends at or after it.
+    fn covers(&self, span: Span) -> bool {
+        let upto = self
+            .spans
+            .partition_point(|(s, _)| (s.file, s.start) <= (span.file, span.start));
+        // Every span before `upto` that is in this file starts early enough, and the entry
+        // just before `upto` holds the largest end among them (earlier files reset the reach).
+        upto.checked_sub(1)
+            .map(|i| &self.spans[i])
+            .is_some_and(|(s, reach)| s.file == span.file && span.end <= *reach)
+    }
+}
+
 /// Index opaque source before independent procedure walks discard its ancestors.
 fn collect_code_operands(stmts: &[Stmt], out: &mut Vec<Span>) {
     jaic::ast::walk::walk(stmts, &mut |node, _| {
@@ -563,5 +603,53 @@ pub(crate) fn only_statement(body: &Stmt) -> Option<&Stmt> {
             _ => None,
         },
         _ => Some(body),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn span(file: u32, start: u32, end: u32) -> Span {
+        Span {
+            file: FileId(file),
+            start,
+            end,
+        }
+    }
+
+    fn naive(spans: &[Span], q: Span) -> bool {
+        spans
+            .iter()
+            .any(|o| o.file == q.file && o.start <= q.start && q.end <= o.end)
+    }
+
+    #[test]
+    fn span_index_matches_a_linear_scan_with_nested_and_overlapping_spans() {
+        let spans = vec![
+            span(1, 50, 60),
+            span(1, 0, 100),
+            span(1, 10, 20),
+            span(1, 150, 160),
+            span(2, 0, 5),
+            span(1, 120, 130),
+        ];
+        let index = SpanIndex::new(spans.clone());
+        for file in 0..4 {
+            for start in (0..170).step_by(3) {
+                for len in [0, 1, 7, 40, 101] {
+                    let q = span(file, start, start + len);
+                    assert_eq!(index.covers(q), naive(&spans, q), "{q:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn span_index_answers_queries_over_many_spans() {
+        let spans: Vec<Span> = (0..50_000).map(|i| span(1, i * 10, i * 10 + 5)).collect();
+        let index = SpanIndex::new(spans);
+        assert!(index.covers(span(1, 499_991, 499_994)));
+        assert!(!index.covers(span(1, 499_996, 499_998)));
     }
 }
