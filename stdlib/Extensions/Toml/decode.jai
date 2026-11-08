@@ -419,6 +419,7 @@ toml_unknown_pair :: (r: *Toml_Reader, frame: *Toml_Frame) -> bool {
 
     r.pos += 1;
     toml_space(r);
+    r.value_at = r.pos;
 
     saved := r.path.count;
 
@@ -477,7 +478,7 @@ toml_record_unknown :: (r: *Toml_Reader, list: *[..] Toml_Unknown, keys: [] stri
         append(*path, keys[it]);
     }
 
-    array_add(list, Toml_Unknown.{ path = builder_to_string(*path), start = r.statement_at, end = r.pos, header = header });
+    array_add(list, Toml_Unknown.{ path = builder_to_string(*path), start = r.statement_at, value = ifx header then -1 else r.value_at, end = r.pos, header = header });
 }
 
 toml_clear_header_keys :: (r: *Toml_Reader) {
@@ -515,6 +516,7 @@ toml_decode_pair :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, prefix: [] s
 
     r.pos += 1;
     toml_space(r);
+    r.value_at = r.pos;
 
     saved_path := r.path.count;
 
@@ -604,10 +606,10 @@ toml_decode_document :: (r: *Toml_Reader, out: *$T) -> bool {
 }
 
 // An inline table `{ ... }` read into a struct. Its members have their own declaration scope.
-toml_inline :: (r: *Toml_Reader, out: *$T) -> bool {
+toml_inline :: (r: *Toml_Reader, out: *$T, message: string) -> bool {
     start := r.pos;
 
-    if toml_peek(r) != 123 return toml_fail(r, .TYPE, "expected a table", start);
+    if toml_peek(r) != 123 return toml_fail(r, .TYPE, ifx message.count then message else "expected a table", start);
     if !toml_enter_nested(r, "table") return false;
 
     frame := toml_new_frame();

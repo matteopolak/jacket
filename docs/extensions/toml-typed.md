@@ -43,7 +43,7 @@ Integers (range-checked), floats (integers are accepted), `bool`, `string`, enum
 | `range=lo..hi` | integer field | Narrower bounds than the type |
 | `message="..."` | field | Static text for the field's type and range errors |
 | `as_number` | enum field | Read and write the integer value |
-| `unknown` | `[..] Toml_Unknown` field | Collects ignored keys: dotted `path`, source `start`/`end`, `header` |
+| `unknown` | `[..] Toml_Unknown` field | Collects ignored keys: dotted `path`, the statement `start`/`end`, the assignment's `value` offset and `header` |
 | `deny_unknown_fields` | struct | Unknown keys are `.TYPE` errors; `Toml_Options.deny_unknown_fields` does it for every struct |
 
 A field is required unless it has `default` (or its struct does). A missing key is a `.TYPE` error whose path names it. Type and range errors point at the value; duplicates at the second declaration.

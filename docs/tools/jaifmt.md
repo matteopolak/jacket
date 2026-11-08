@@ -25,7 +25,7 @@ Paths are files or directories (searched for `*.jai`, skipping dot-directories a
 
 - `lexer.jai`: the same token boundaries as `crates/jaic-syntax/src/lexer.rs`, but comments are tokens and each token records the whitespace before it.
 - `format.jai`: `plan_lines` decides line breaks, then the emit loop writes each line with indentation from a stack of frames and zero or one space between tokens (`spacing_rule`).
-- `config.jai`: `[format]` parsing and ignore globs, for standalone use and the browser.
+- `config.jai`: `[format]` parsing and ignore globs, for standalone use and the browser. `Format_Config` carries `@toml(...)` notes (range, error message, skipped fields) and the file is read with [typed TOML decoding](../extensions/toml-typed.md), so a new setting is one field with a note plus a line in `move_setting` and `FORMAT_KEYS`.
 - `project.jai`: the upward search for the governing `jacket.toml`.
 - `range.jai`: `--range` / `format_range`. The file is lexed and cut into top-level statements (ending at a `;`, at a `}` that closes a body without `;`, `else` or a note after it, or at a `#scope_*` line). Statements the byte range overlaps are formatted as a text of their own and spliced back; everything else is copied byte for byte. The region grows to take statements that share a line with it, and an empty range picks the statement it sits in. A range in no statement, or after a `// jaifmt: off`, changes nothing. Blank lines between the region and its neighbours are kept as written, and an error is reported against the region, not the file.
 

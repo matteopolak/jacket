@@ -674,7 +674,7 @@ emit_read :: (g: *Gen, target: string, info: *Type_Info, leaf: *Leaf) {
             emit_read_array(g, target, cast(*Type_Info_Array) info, leaf);
         case .STRUCT;
             if is_datetime(info) print(out, "if !toml_read_datetime(r, %, %) return false;\n", address_of(target), message);
-            else print(out, "if !toml_inline(r, %) return false;\n", address_of(target));
+            else print(out, "if !toml_inline(r, %, %) return false;\n", address_of(target), message);
         case;
             fail(g, tprint("cannot decode %", type_label(info)));
     }

@@ -131,11 +131,13 @@ Toml_Datetime :: struct {
 
 // One key a typed decode had no field for, collected into a struct's `@toml(unknown)` list.
 // `path` is the dotted key below that table (`a.b` for `a.b = 1` or `[x.a.b]` under `x`);
-// start and end are the half-open source bytes of the statement, so the value text of an
-// assignment is `source[start:end]`. `header` marks `[table]` and `[[table]]` lines.
+// start and end are the half-open source bytes of the statement and value is where an
+// assignment's value begins (-1 for headers), so the value text is `source[value:end]`.
+// `header` marks `[table]` and `[[table]]` lines.
 Toml_Unknown :: struct {
     path: string;
     start: int;
+    value: int;
     end: int;
     header: bool;
 }

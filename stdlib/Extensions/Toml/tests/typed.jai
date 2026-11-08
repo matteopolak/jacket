@@ -161,6 +161,7 @@ TOML;
     assert(config.items[0].points[1].x == 3 && config.items[0].points[1].y == 4 && config.items[1].name == "second");
     assert(config.extra.count == 1 && config.extra[0].path == "unknown_top" && !config.extra[0].header);
     assert(slice(source, config.extra[0].start, config.extra[0].end - config.extra[0].start) == "unknown_top = { a = 1 }");
+    assert(slice(source, config.extra[0].value, config.extra[0].end - config.extra[0].value) == "{ a = 1 }");
 
     // What it writes decodes to the same value, and the DOM sees the same document.
     text, write_error := to_toml(config);

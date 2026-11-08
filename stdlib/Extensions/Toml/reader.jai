@@ -44,6 +44,7 @@ Toml_Reader :: struct {
     scratch: Toml_Value;
     stream_nodes: int;
     statement_at: int;
+    value_at: int;
     header_keys: [..] string;
 }
 

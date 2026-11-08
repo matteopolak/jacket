@@ -1,4 +1,4 @@
-// jacket.toml schema adaptation and ignore globs. The shared TOML module validates whole files.
+// jacket.toml schema adaptation and ignore globs. The typed TOML layer validates whole files.
 #scope_module
 
 resolved_case_indent :: (config: Format_Config) -> int {
@@ -11,84 +11,84 @@ resolved_case_body_indent :: (config: Format_Config) -> int {
     return config.case_body_indent;
 }
 
-// Validate the whole file once. Ordered source statements preserve header warnings and raw
-// override lexemes; decoded values handle the formatter schema independently of TOML syntax.
+// The tables of a jacket.toml this module reads. Other tables are validated as TOML and
+// ignored; the settings and their messages are the `@toml` notes of Format_Config.
+Config_File :: struct {
+    format: Config_Section; @toml(default, message="format must be a table")
+    doc: Config_Doc; @toml(default, message="doc must be a table")
+}
+
+Config_Doc :: struct {
+    format: Config_Doc_Section; @toml(default, message="doc.format must be a table")
+}
+
+// `[format]`: the settings plus every key the formatter does not know, in file order.
+Config_Section :: struct {
+    settings: Format_Config; @toml(flatten, default)
+    unknown: [..] Toml.Toml_Unknown; @toml(unknown)
+}
+
+// `[doc.format]` keeps each key with its text as written; only the keys of DOC_FORMAT_KEYS are
+// settings, and they are checked below against the same schema as `[format]`.
+Config_Doc_Section :: struct {
+    unknown: [..] Toml.Toml_Unknown; @toml(unknown)
+}
+
+// Validates the whole file once and reads `[format]` and `[doc.format]`. `[doc.format]` values
+// keep their source text (a later pass applies them to code blocks), so they are checked here
+// but stored raw.
 parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
-    doc, error := Toml.parse_toml(text, .{ record_statements = true });
+    file: Config_File;
+    error := Toml.toml_decode(text, *file);
+
     if error.kind != .NONE return false, tprint("line %: %", error.line, error.message);
 
-    defer Toml.free_toml(*doc);
-    format := Toml.toml_get(doc.root, "format");
-    docs := Toml.toml_get(Toml.toml_get(doc.root, "doc"), "format");
+    defer Toml.free_toml_value(*file);
 
-    if format && format.kind != .TABLE return false, tprint("line %: format must be a table", config_line(text, format.span.start));
-    if docs && docs.kind != .TABLE return false, tprint("line %: doc.format must be a table", config_line(text, docs.span.start));
+    // Unknown keys of both tables are listed in file order.
+    format := file.format.unknown;
+    docs := file.doc.format.unknown;
+    next_format := 0;
+    next_docs := 0;
 
-    // The path helper writes every returned element; reuse storage without clearing an
-    // unused tail for every source event. Persisted settings copy their strings below.
-    buffer: [128] string;
-    index := 0;
+    while next_format < format.count || next_docs < docs.count {
+        take_format := next_docs >= docs.count || (next_format < format.count && format[next_format].start < docs[next_docs].start);
 
-    while index < doc.statements.count {
-        statement := doc.statements[index];
-        path, path_error := Toml.toml_statement_path(*doc, statement, buffer);
+        if take_format {
+            entry := format[next_format];
+            next_format += 1;
+            array_add(*config.unknown_keys, ifx entry.header then tprint("format.%", entry.path) else copy_string(entry.path));
 
-        if path_error.kind != .NONE return false, tprint("line %: %", statement.line, path_error.message);
-
-        is_doc := path.count >= 2 && path[0] == "doc" && path[1] == "format";
-        is_format := path.count >= 1 && path[0] == "format";
-
-        if !is_doc && !is_format {
-            index += 1;
             continue;
         }
 
-        first := ifx is_doc then 2 else 1;
+        entry := docs[next_docs];
 
-        if statement.kind != .ASSIGNMENT {
-            if path.count > first array_add(*config.unknown_keys, config_dotted_path(path, 0));
-            index += 1;
+        next_docs += 1;
+
+        if entry.header || !is_doc_format_key(entry.path) {
+            array_add(*config.unknown_keys, tprint("doc.format.%", entry.path));
             continue;
         }
 
-        if statement.header_depth > first {
-            index += 1;
-            continue;
-        }
+        raw := slice(text, entry.value, entry.end - entry.value);
+        ok, message := check_setting_text(entry.path, raw, config_line(text, entry.start));
 
-        if path.count == first {
-            // `format={...}` / `doc.format={...}`: the child assignments carry their own spans.
-            index += 1;
-            continue;
-        }
+        if !ok return false, message;
 
-        if path.count > first + 1 {
-            array_add(*config.unknown_keys, config_dotted_path(path, ifx is_doc then 0 else first));
-        } else {
-            key := path[first];
-            if is_doc && !is_doc_format_key(key) {
-                array_add(*config.unknown_keys, copy_string(tprint("doc.format.%", key)));
-            } else if is_doc {
-                scratch: Format_Config;
-                ok, message := apply_toml_key(*scratch, key, statement.value, statement.line);
-
-                if !ok return false, message;
-
-                span := statement.value.span;
-                raw := slice(doc.source, span.start, span.end - span.start);
-
-                array_add(*config.doc_format, Doc_Setting.{ copy_string(key), copy_string(raw) });
-            } else {
-                ok, message := apply_toml_key(config, key, statement.value, statement.line);
-                if !ok return false, message;
-            }
-        }
-
-        // A setting's nested value is consumed as a whole, including ignored unknown settings.
-        // It must not also produce warnings or overrides for assignments inside its inline tables.
-        index += 1;
-        while index < doc.statements.count && doc.statements[index].span.start < statement.span.end index += 1;
+        array_add(*config.doc_format, Doc_Setting.{ copy_string(entry.path), copy_string(raw) });
     }
+
+    // The settings move into the result; the rest of the decoded file is released.
+    keep := config.unknown_keys;
+    doc_keep := config.doc_format;
+    root := config.root;
+
+    config.* = file.format.settings;
+    config.unknown_keys = keep;
+    config.doc_format = doc_keep;
+    config.root = root;
+    file.format.settings = .{};
 
     return true, "";
 }
@@ -99,98 +99,65 @@ config_line :: (text: string, offset: int) -> int {
     return line;
 }
 
-config_dotted_path :: (keys: [] string, first: int) -> string {
-    out: String_Builder;
+// Decodes `key = text` as a `[format]` table. The key is one of the settings, so what
+// comes back is that setting alone, validated by the schema.
+decode_setting :: (key: string, text: string, line: int) -> Config_Section, bool, string {
+    section: Config_Section;
+    error := Toml.toml_decode(tprint("% = %\n", key, text), *section);
 
-    defer free_buffers(*out);
+    if error.kind != .NONE return section, false, tprint("line %: %", line, error.message);
 
-    for first..keys.count - 1 {
-        if it > first append(*out, ".");
-        append(*out, keys[it]);
-    }
-
-    return builder_to_string(*out);
+    return section, true, "";
 }
 
-// The schema consumes decoded types rather than reparsing raw TOML syntax. This accepts all
-// valid integer/string spellings while preserving the formatter's range/type diagnostics.
-apply_toml_key :: (config: *Format_Config, key: string, value: *Toml.Toml_Value, line_number: int) -> bool, string {
-    if key == {
-        case "indent_width";
-            ok := parse_count(value, *config.indent_width, 1, 16);
-            if !ok return false, tprint("line %: indent_width must be an integer from 1 to 16", line_number);
-        case "case_indent";
-            ok := parse_count(value, *config.case_indent, 0, 16);
-            if !ok return false, tprint("line %: case_indent must be an integer from 0 to 16", line_number);
-        case "case_body_indent";
-            ok := parse_count(value, *config.case_body_indent, 0, 16);
-            if !ok return false, tprint("line %: case_body_indent must be an integer from 0 to 16", line_number);
-        case "max_blank_lines";
-            ok := parse_count(value, *config.max_blank_lines, 0, 100);
-            if !ok return false, tprint("line %: max_blank_lines must be an integer from 0 to 100", line_number);
-        case "max_width";
-            ok := parse_count(value, *config.max_width, 10, 10000);
-            if !ok return false, tprint("line %: max_width must be an integer from 10 to 10000", line_number);
-        case "brace_style";
-            style := value.text;
+check_setting_text :: (key: string, text: string, line: int) -> bool, string {
+    section, ok, message := decode_setting(key, text, line);
 
-            if value.kind != .STRING return false, tprint("line %: brace_style must be a quoted string", line_number);
+    defer Toml.free_toml_value(*section);
 
-            if style == "same_line" {
-                config.brace_style = .SAME_LINE;
-            } else if style == "preserve" {
-                config.brace_style = .PRESERVE;
-            } else {
-                return false, tprint("line %: brace_style must be \"same_line\" or \"preserve\"", line_number);
-            }
-        case "blank_lines_between_items";
-            if value.kind == .BOOL && value.boolean {
-                config.blank_lines_between_items = true;
-            } else if value.kind == .BOOL && !value.boolean {
-                config.blank_lines_between_items = false;
-            } else {
-                return false, tprint("line %: blank_lines_between_items must be true or false", line_number);
-            }
-        case "blank_line_after_declarations";
-            ok := parse_flag(value, *config.blank_line_after_declarations);
-            if !ok return false, tprint("line %: blank_line_after_declarations must be true or false", line_number);
-        case "blank_lines_around_blocks";
-            ok := parse_flag(value, *config.blank_lines_around_blocks);
-            if !ok return false, tprint("line %: blank_lines_around_blocks must be true or false", line_number);
-        case "blank_line_between_cases";
-            ok := parse_flag(value, *config.blank_line_between_cases);
-            if !ok return false, tprint("line %: blank_line_between_cases must be true or false", line_number);
-        case "blank_line_before_comments";
-            ok := parse_flag(value, *config.blank_line_before_comments);
-            if !ok return false, tprint("line %: blank_line_before_comments must be true or false", line_number);
-        case "blank_line_after_guards";
-            ok := parse_flag(value, *config.blank_line_after_guards);
-            if !ok return false, tprint("line %: blank_line_after_guards must be true or false", line_number);
-        case "blank_line_before_return";
-            ok := parse_flag(value, *config.blank_line_before_return);
-            if !ok return false, tprint("line %: blank_line_before_return must be true or false", line_number);
-        case "format_doc_examples";
-            ok := parse_flag(value, *config.format_doc_examples);
-            if !ok return false, tprint("line %: format_doc_examples must be true or false", line_number);
-        case "ignore";
-            if value.kind != .ARRAY return false, tprint("line %: ignore must be an array of quoted globs", line_number);
-            for value.items if it.kind != .STRING return false, tprint("line %: ignore entries must be quoted strings", line_number);
-            for value.items array_add(*config.ignore, copy_string(it.text));
-        case;
-            array_add(*config.unknown_keys, copy_string(key));
+    return ok, message;
+}
+
+// Sets one `[format]` setting from `key = text`, the value written as in the file.
+apply_setting_text :: (config: *Format_Config, key: string, text: string, line: int) -> bool, string {
+    section, ok, message := decode_setting(key, text, line);
+
+    defer Toml.free_toml_value(*section);
+
+    if !ok return false, message;
+
+    if section.unknown.count {
+        array_add(*config.unknown_keys, copy_string(key));
+        return true, "";
     }
+
+    move_setting(config, *section.settings, key);
 
     return true, "";
 }
 
-apply_setting_text :: (config: *Format_Config, key: string, text: string, line: int) -> bool, string {
-    doc, error := Toml.parse_toml(tprint("value = %", text));
-    if error.kind != .NONE return false, tprint("line %: %", line, error.message);
-
-    defer Toml.free_toml(*doc);
-    if doc.root.members.count != 1 return false, tprint("line %: expected one setting value", line);
-
-    return apply_toml_key(config, key, Toml.toml_get(doc.root, "value"), line);
+// Copies the setting `key` from a decoded section. The names are FORMAT_KEYS.
+move_setting :: (config: *Format_Config, from: *Format_Config, key: string) {
+    if key == {
+        case "indent_width"; config.indent_width = from.indent_width;
+        case "case_indent"; config.case_indent = from.case_indent;
+        case "case_body_indent"; config.case_body_indent = from.case_body_indent;
+        case "max_blank_lines"; config.max_blank_lines = from.max_blank_lines;
+        case "max_width"; config.max_width = from.max_width;
+        case "brace_style"; config.brace_style = from.brace_style;
+        case "blank_lines_between_items"; config.blank_lines_between_items = from.blank_lines_between_items;
+        case "blank_line_after_declarations"; config.blank_line_after_declarations = from.blank_line_after_declarations;
+        case "blank_lines_around_blocks"; config.blank_lines_around_blocks = from.blank_lines_around_blocks;
+        case "blank_line_between_cases"; config.blank_line_between_cases = from.blank_line_between_cases;
+        case "blank_line_before_comments"; config.blank_line_before_comments = from.blank_line_before_comments;
+        case "blank_line_after_guards"; config.blank_line_after_guards = from.blank_line_after_guards;
+        case "blank_line_before_return"; config.blank_line_before_return = from.blank_line_before_return;
+        case "format_doc_examples"; config.format_doc_examples = from.format_doc_examples;
+        case "ignore";
+            array_free(config.ignore);
+            config.ignore = from.ignore;
+            from.ignore = .{};
+    }
 }
 
 apply_doc_key :: (config: *Format_Config, key: string, value: string, line_number: int) -> bool, string {
@@ -199,8 +166,7 @@ apply_doc_key :: (config: *Format_Config, key: string, value: string, line_numbe
         return true, "";
     }
 
-    scratch: Format_Config;
-    ok, message := apply_setting_text(*scratch, key, value, line_number);
+    ok, message := check_setting_text(key, value, line_number);
 
     if !ok return false, message;
 
@@ -370,16 +336,4 @@ edit_distance :: (a: string, b: string) -> int {
     }
 
     return previous[b.count];
-}
-
-parse_count :: (value: *Toml.Toml_Value, result: *int, low: int, high: int) -> bool {
-    if value.kind != .INTEGER || value.integer < low || value.integer > high return false;
-    result.* = value.integer;
-    return true;
-}
-
-parse_flag :: (value: *Toml.Toml_Value, result: *bool) -> bool {
-    if value.kind != .BOOL return false;
-    result.* = value.boolean;
-    return true;
 }
