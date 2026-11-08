@@ -64,7 +64,7 @@ impl Resolver<'_> {
                         .get(&field)
                         .into_iter()
                         .flatten()
-                        .any(|v| self.may_temporary(*v, all, &mut HashSet::default(), 0))
+                        .any(|v| self.may_temporary(*v, all, &mut HashMap::default(), 0))
                     {
                         continue;
                     }
@@ -87,7 +87,7 @@ impl Resolver<'_> {
                     }
                 }
             }
-            if paths.is_empty() && self.may_temporary(source, all, &mut HashSet::default(), 0) {
+            if paths.is_empty() && self.may_temporary(source, all, &mut HashMap::default(), 0) {
                 paths.push((target, false));
             }
         }
@@ -115,7 +115,7 @@ impl Resolver<'_> {
         ty: super::TypeId,
         all: &HashMap<ProcId, Summary>,
     ) -> bool {
-        if self.may_temporary(source, all, &mut HashSet::default(), 0) {
+        if self.may_temporary(source, all, &mut HashMap::default(), 0) {
             return true;
         }
         let header = self.places.place(source, ty);
@@ -128,7 +128,7 @@ impl Resolver<'_> {
                 .get(&p)
                 .into_iter()
                 .flatten()
-                .any(|v| self.may_temporary(*v, all, &mut HashSet::default(), 0))
+                .any(|v| self.may_temporary(*v, all, &mut HashMap::default(), 0))
         })
     }
 
@@ -278,11 +278,16 @@ impl Resolver<'_> {
         &self,
         v: super::Val,
         all: &HashMap<ProcId, Summary>,
-        seen: &mut HashSet<super::Val>,
+        memo: &mut HashMap<(super::Val, usize), bool>,
         depth: usize,
     ) -> bool {
-        if depth > 24 || !seen.insert(v) {
+        // Shared value branches are one subproblem per remaining traversal depth. Keying only
+        // by value would incorrectly reuse a depth-limited answer from a longer route.
+        if depth > 24 {
             return false;
+        }
+        if let Some(&answer) = memo.get(&(v, depth)) {
+            return answer;
         }
         let temporary = self
             .value(v, all)
@@ -296,7 +301,7 @@ impl Resolver<'_> {
                     super::Def::Call(callee, _, index) => all
                         .get(callee)
                         .is_some_and(|s| s.may_returns.contains(index)),
-                    super::Def::Copy(source) => self.may_temporary(*source, all, seen, depth + 1),
+                    super::Def::Copy(source) => self.may_temporary(*source, all, memo, depth + 1),
                     super::Def::Address(p)
                         if !self.exposed.contains(p)
                             && self
@@ -314,7 +319,7 @@ impl Resolver<'_> {
                             .get(p)
                             .into_iter()
                             .flatten()
-                            .any(|source| self.may_temporary(*source, all, seen, depth + 1))
+                            .any(|source| self.may_temporary(*source, all, memo, depth + 1))
                     }
                     super::Def::Load(p, _) | super::Def::Borrow(p) => {
                         let (root, projections) = &self.places.paths[*p];
@@ -322,7 +327,7 @@ impl Resolver<'_> {
                             .get(p)
                             .into_iter()
                             .flatten()
-                            .any(|source| self.may_temporary(*source, all, seen, depth + 1))
+                            .any(|source| self.may_temporary(*source, all, memo, depth + 1))
                             || !projections.is_empty()
                                 && self.field_may_temporary(
                                     root.0,
@@ -334,7 +339,7 @@ impl Resolver<'_> {
                     }
                     _ => false,
                 });
-        seen.remove(&v);
+        memo.insert((v, depth), temporary);
         temporary
     }
 }

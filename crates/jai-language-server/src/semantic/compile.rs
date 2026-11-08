@@ -365,6 +365,22 @@ pub(super) fn compile(
     recorded.sort_by_key(|(id, _)| *id);
     let facts = (ran_to_the_end && !stopped).then(|| BuildFacts {
         programs: recorded.into_iter().map(|(_, p)| p).collect(),
+        sources: std::iter::once(&compiler)
+            .chain(others.iter().map(|p| &p.compiler))
+            .flat_map(|compiler| {
+                (0..compiler.src.sources.len() as u32).filter_map(|id| {
+                    let source = compiler.src.sources.get(FileId(id));
+                    source.path.as_file().map(|path| {
+                        (
+                            jaic::paths::file_identity(&*env.fs, path),
+                            super::text_hash(source.text.as_bytes()),
+                        )
+                    })
+                })
+            })
+            .collect(),
+        dependencies: reads.borrow().clone(),
+        checked: 0,
     });
     Some(Compiled {
         compiler,

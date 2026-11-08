@@ -122,6 +122,8 @@ pub struct Session {
     stale_used: std::cell::Cell<bool>,
     /// A request skipped running the project's build files, so its inputs are not kept.
     builds_skipped: std::cell::Cell<bool>,
+    workspace_index: RefCell<indexing::WorkspaceIndex>,
+    workspace_diagnostics: RefCell<workspace_diagnostics::WorkspaceDiagnostics>,
 }
 
 /// The open files, the root file and the module folders of a compile.
@@ -168,6 +170,8 @@ impl Session {
             compile_pending: RefCell::default(),
             stale_used: std::cell::Cell::new(false),
             builds_skipped: std::cell::Cell::new(false),
+            workspace_index: RefCell::default(),
+            workspace_diagnostics: RefCell::default(),
         }
     }
 }
@@ -208,12 +212,14 @@ mod compile;
 mod completion;
 mod config;
 mod documents;
+mod indexing;
 mod navigation;
 mod symbols;
 mod tokens;
 #[cfg(test)]
 #[path = "uri_alias_tests.rs"]
 mod uri_alias_tests;
+mod workspace_diagnostics;
 
 /// Where the top-level declaration around `byte` starts: the last line before it that begins in
 /// column 0 with something other than a closing brace or a comment.

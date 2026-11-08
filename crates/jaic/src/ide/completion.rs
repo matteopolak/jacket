@@ -149,10 +149,9 @@ impl Compiler {
             if entity.file_private {
                 continue;
             }
-            // Facades often export procedures through aliases. Syntax alone calls
-            // these constants, even when their targets are overload sets. Resolve
-            // only simple aliases through the usual lookup/visibility rules; do
-            // not eagerly compile every unrelated declaration or procedure body.
+            // Export aliases and explicit type signatures with their resolved kind, so
+            // opening a consumer cannot change a procedure type from a constant to a type.
+            // The ordinary declaration resolver preserves visibility and lazy procedure bodies.
             if matches!(entity.state, EntityState::Unresolved)
                 && let EntityKind::Decl {
                     decl, ..
@@ -160,7 +159,13 @@ impl Compiler {
                 && decl.kind == ast::DeclKind::Const
                 && matches!(
                     decl.value.as_ref().map(|v| &v.kind),
-                    Some(ast::ExprKind::Ident(_) | ast::ExprKind::Member(..))
+                    Some(
+                        ast::ExprKind::Ident(_)
+                            | ast::ExprKind::Member(..)
+                            | ast::ExprKind::TypeDirective { .. }
+                            | ast::ExprKind::ProcType(_)
+                            | ast::ExprKind::ArrayType { .. }
+                    )
                 )
             {
                 let _ = self.resolve_entity(id);

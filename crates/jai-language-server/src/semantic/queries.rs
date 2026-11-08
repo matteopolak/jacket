@@ -103,6 +103,76 @@ pub(super) fn limit_hits(
 }
 
 impl Analysis {
+    /// Filesystem sources retained by the entry and its build-created programs.
+    pub(crate) fn workspace_sources(&self) -> BTreeMap<PathBuf, Arc<str>> {
+        self.polymorph_compilers()
+            .flat_map(|(compiler, _)| {
+                (0..compiler.src.sources.len() as u32).filter_map(|id| {
+                    let source = compiler.src.sources.get(FileId(id));
+                    source
+                        .path
+                        .as_file()
+                        .map(|path| (path.to_path_buf(), source.text.clone()))
+                })
+            })
+            .collect()
+    }
+
+    /// Batch files sharing settings so interprocedural lint summaries are built once per
+    /// program, rather than once for each newly opened document.
+    pub(crate) fn warm_lints(
+        &mut self,
+        groups: &[(jailint::config::Config, Vec<PathBuf>)],
+    ) -> bool {
+        fn program(
+            compiler: &mut jaic::sema::Compiler,
+            complete: bool,
+            cache: &mut BTreeMap<FileId, Vec<jailint::Lint>>,
+            groups: &[(jailint::config::Config, Vec<PathBuf>)],
+        ) -> bool {
+            for (config, paths) in groups {
+                let files: Vec<_> = paths
+                    .iter()
+                    .filter_map(|p| find_file(compiler, p))
+                    .collect();
+                if files.is_empty() {
+                    continue;
+                }
+                let found = jailint::lint_files(
+                    compiler,
+                    &files,
+                    &jailint::config::Configs::new(config),
+                    complete,
+                );
+                if jaic::interrupt::fired() {
+                    return false;
+                }
+                for file in files {
+                    let path = compiler.src.sources.get(file).path.to_string();
+                    cache.insert(
+                        file,
+                        found.iter().filter(|l| l.path == path).cloned().collect(),
+                    );
+                }
+            }
+            true
+        }
+        if !program(&mut self.compiler, self.complete, &mut self.lints, groups) {
+            return false;
+        }
+        for other in &mut self.others {
+            if !program(
+                &mut other.compiler,
+                other.complete,
+                &mut other.lints,
+                groups,
+            ) {
+                return false;
+            }
+        }
+        true
+    }
+
     /// The top-level compile-time evaluations of the program and of the programs its
     /// metaprogram built, costliest first. A run inside another counts in the one around it.
     pub fn evaluation_costs(&self) -> Vec<EvalCost> {

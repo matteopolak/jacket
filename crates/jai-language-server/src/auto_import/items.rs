@@ -85,11 +85,17 @@ impl Session {
         let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
         let mut out = Vec::new();
         for entry in program.unattributed {
-            if index.builds.contains_key(&entry) {
+            if index.builds.contains_key(&entry) && !index.stale_source_graphs.contains_key(&entry)
+            {
                 continue;
             }
             // Everything the run reads: the metaprogram, what it loads, the settings file.
             let mut files: Vec<PathBuf> = sources.closure(&mut index, &entry).into_iter().collect();
+            if let Some(facts) = index.builds.get(&entry) {
+                files.extend(facts.sources.keys().cloned());
+                files.sort();
+                files.dedup();
+            }
             if let Some((folder, _)) = sources.config(&mut index, &entry) {
                 files.push(folder.join(jacket_config::FILE_NAME));
             }

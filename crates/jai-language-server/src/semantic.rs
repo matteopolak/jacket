@@ -12,6 +12,7 @@ pub use self::cache::Cache;
 pub use self::overlay::Reads;
 pub(crate) use self::parses::text_key;
 pub use self::parses::{note_parse, parse_error};
+pub(crate) use self::queries::CheckFinding;
 pub use self::queries::EvalCost;
 pub(crate) use self::queries::LimitKind;
 pub use self::shift::Shift;
@@ -140,13 +141,20 @@ pub const OTHER_TARGETS: [TargetOs; 4] = [
     TargetOs::Wasm,
 ];
 
-/// What one run of a build metaprogram did: per workspace it created, the files it added with
+/// A completed check's source graph and filesystem dependencies, plus what its build metaprogram
+/// did: per workspace it created, the files it added with
 /// `add_build_file` (canonical keys), how many strings with `add_build_string`, and the module
 /// folders its build options add to the import path. Recorded while the metaprogram runs, so
 /// computed paths (`tprint`, variables, loops) are known exactly.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BuildFacts {
     pub programs: Vec<BuiltProgram>,
+    /// Every filesystem source actually checked, including file imports and child workspaces.
+    /// Content stamps let discovery invalidate this graph when a source changes.
+    pub sources: BTreeMap<PathBuf, u64>,
+    pub dependencies: Reads,
+    /// A fresh check supersedes the previous graph even when it found the same sources.
+    pub checked: usize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

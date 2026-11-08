@@ -30,6 +30,8 @@ impl JsonSession {
             pull_diagnostics: false,
             defer_publications: false,
             publications_pending: false,
+            index_progress: super::progress::IndexProgress::default(),
+            workspace_published: std::collections::BTreeSet::new(),
             refresh_diagnostics: false,
             refreshes: 0,
             refresh_code_lenses: false,
@@ -127,6 +129,11 @@ impl JsonSession {
         out
     }
 
+    /// Project checks still pending, independently of lens summaries and publications.
+    pub fn indexing_pending(&self) -> bool {
+        self.session.indexing_pending()
+    }
+
     /// Whether `background_work` has something to do.
     pub fn has_background_work(&self) -> bool {
         self.session.has_background_work()
@@ -136,11 +143,18 @@ impl JsonSession {
     /// transport to do while no input waits. Once none is left, a client that supports it is
     /// asked to fetch the code lenses it changed again.
     pub fn background_work(&mut self) -> Result<Vec<String>, ProtocolError> {
+        let indexing = self.session.indexing_pending();
         let changed = self.guarded("background work", |this| Ok(this.session.background_work()));
         let mut messages = match changed {
             Ok(changed) => {
                 self.lenses_changed |= changed;
-                Vec::new()
+                if indexing && changed && !self.session.indexing_pending() {
+                    let mut messages = self.compile_refreshes();
+                    messages.extend(self.workspace_diagnostics_ready());
+                    messages
+                } else {
+                    Vec::new()
+                }
             }
             Err((_, message)) => vec![log_error(&message)],
         };
@@ -215,6 +229,7 @@ impl JsonSession {
         if input.len() > self.session.limits().message_bytes {
             return Err(ProtocolError::MessageLimit);
         }
+        self.progress_reply(input);
         match incoming(input) {
             Err(error) => self.encode(vec![error], None),
             // The client's answer to a request of ours (a refresh): nothing to do.
@@ -236,9 +251,7 @@ impl JsonSession {
     /// one that ends the session. Cancellations among them are noted first, so a request
     /// queued behind the work in front of it can still be cancelled.
     pub fn handle_batch(&mut self, inputs: &[String]) -> Result<Vec<Vec<String>>, ProtocolError> {
-        for input in inputs {
-            self.note_cancellation(input);
-        }
+        self.note_cancellations(inputs);
         let mut answers = Vec::with_capacity(inputs.len());
         for input in inputs {
             answers.push(self.handle_json(input)?);
@@ -247,6 +260,14 @@ impl JsonSession {
             }
         }
         Ok(answers)
+    }
+
+    /// Register queued cancellations before serving requests individually. Native transports
+    /// use this before `handle_json` so each reply can be flushed without waiting for the batch.
+    pub fn note_cancellations(&mut self, inputs: &[String]) {
+        for input in inputs {
+            self.note_cancellation(input);
+        }
     }
 
     fn note_cancellation(&mut self, input: &str) {
@@ -428,7 +449,10 @@ impl JsonSession {
 
     /// `messages` that no request asked for. Over the output cap they are replaced by a log line:
     /// there is no request to fail, and the server keeps running.
-    fn encode_unprompted(&self, messages: Vec<Value>) -> Result<Vec<String>, ProtocolError> {
+    pub(super) fn encode_unprompted(
+        &self,
+        messages: Vec<Value>,
+    ) -> Result<Vec<String>, ProtocolError> {
         match self.encode(messages, None) {
             Err(ProtocolError::OutputLimit) => self.encode(vec![log_error(OUTPUT_LIMIT)], None),
             other => other,

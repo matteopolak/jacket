@@ -88,11 +88,15 @@ impl Session {
 
     fn lint_diagnostic(&self, uri: &DocumentUri, l: &Lint) -> Option<Diagnostic> {
         let range = self.range_of(uri, crate::analysis::Span::new(l.start, l.end))?;
+        Some(self.lint_diagnostic_at(l, range))
+    }
+
+    pub(crate) fn lint_diagnostic_at(&self, l: &Lint, range: crate::Range) -> Diagnostic {
         let mut message = l.message.clone();
         if let Some(help) = &l.help {
             message = format!("{message}\n{help}");
         }
-        Some(Diagnostic {
+        Diagnostic {
             range,
             severity: match l.level {
                 Level::Deny => DiagnosticSeverity::Error,
@@ -112,7 +116,7 @@ impl Session {
                     })
                 })
                 .collect(),
-        })
+        }
     }
 
     /// The lints of `uri` as diagnostics: the rule is the code, `jailint` the source.

@@ -21,7 +21,12 @@ impl JsonSession {
         };
         match notification {
             // `$/cancelRequest` and `exit` are handled before the lifecycle is checked.
-            Notification::Initialized | Notification::Cancel | Notification::Exit => Ok(vec![]),
+            Notification::Initialized => {
+                self.index_progress.initialized = true;
+                self.session.enable_workspace_diagnostics();
+                Ok(vec![])
+            }
+            Notification::Cancel | Notification::Exit => Ok(vec![]),
             Notification::DidOpen => self.did_open(params),
             Notification::DidChange => self.did_change(params),
             Notification::DidSave => {
@@ -41,7 +46,11 @@ impl JsonSession {
                     ));
                 };
                 self.session.set_trusted(on);
-                Ok(self.edited(true))
+                let mut messages = self.edited(true);
+                if !self.pull_diagnostics {
+                    messages.extend(self.workspace_diagnostics_ready());
+                }
+                Ok(messages)
             }
             Notification::DidChangeWorkspaceFolders => {
                 self.did_change_workspace_folders(&params["event"]);
@@ -128,11 +137,7 @@ impl JsonSession {
             let mut messages = vec![super::helpers::log_error(&message)];
             messages.extend(self.edited(settings));
             if !self.pull_diagnostics {
-                messages.push(json!({
-                    "jsonrpc": "2.0",
-                    "method": "textDocument/publishDiagnostics",
-                    "params": { "uri": target.as_str(), "diagnostics": [] },
-                }));
+                messages.push(self.closed_publication(&target));
             }
             return Ok(messages);
         }
@@ -148,19 +153,28 @@ impl JsonSession {
         };
         self.session.close(&closed).map_err(domain)?;
         if self.pull_diagnostics {
-            return Ok(if crate::lints::is_config(&closed) {
-                self.refresh()
-            } else {
-                Vec::new()
-            });
+            return Ok(
+                if crate::lints::is_config(&closed)
+                    || self.session.closed_workspace_diagnostics(&closed).is_some()
+                {
+                    self.refresh()
+                } else {
+                    Vec::new()
+                },
+            );
         }
         let mut publications = self.publications();
-        publications.push(json!({
-            "jsonrpc": "2.0",
-            "method": "textDocument/publishDiagnostics",
-            "params": { "uri": closed.as_str(), "diagnostics": [] },
-        }));
+        publications.push(self.closed_publication(&closed));
         Ok(publications)
+    }
+
+    fn closed_publication(&self, target: &crate::DocumentUri) -> Value {
+        let diagnostics = self
+            .session
+            .closed_workspace_diagnostics(target)
+            .unwrap_or_default();
+        json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{
+            "uri":target.as_str(),"diagnostics":diagnostics.iter().map(diagnostic_wire).collect::<Vec<_>>()}})
     }
 
     fn did_change_configuration(&mut self, params: &Value) -> Vec<Value> {
@@ -180,6 +194,9 @@ impl JsonSession {
                 self.publications()
             };
         messages.extend(self.refresh());
+        if trusted != self.session.trusted() && !self.pull_diagnostics {
+            messages.extend(self.workspace_diagnostics_ready());
+        }
         if lenses != self.session.test_lenses_enabled() {
             messages.extend(self.code_lens_refresh());
         }
@@ -218,7 +235,7 @@ impl JsonSession {
 
     /// A request for the client to pull again, when it supports being asked: settings files
     /// changed the diagnostics of documents that did not.
-    fn refresh(&mut self) -> Vec<Value> {
+    pub(super) fn refresh(&mut self) -> Vec<Value> {
         if !self.refresh_diagnostics {
             return Vec::new();
         }
@@ -259,6 +276,29 @@ impl JsonSession {
                 })
             })
             .collect()
+    }
+
+    /// Publish one completed workspace snapshot, or ask a pulling client to fetch it.
+    pub(super) fn workspace_diagnostics_ready(&mut self) -> Vec<Value> {
+        if self.pull_diagnostics {
+            return self.refresh();
+        }
+        let Some(reports) = self.session.workspace_reports() else {
+            return Vec::new();
+        };
+        let current = reports.iter().map(|(uri, _, _)| uri.clone()).collect();
+        let mut messages: Vec<_> = reports.into_iter().map(|(uri, version, diagnostics)| {
+            let mut params = json!({"uri":uri,"diagnostics":diagnostics.iter().map(diagnostic_wire).collect::<Vec<_>>()});
+            if let Some(version) = version { params["version"] = json!(version); }
+            json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":params})
+        }).collect();
+        for removed in self.workspace_published.difference(&current) {
+            if uri(removed).is_ok_and(|u| self.session.version(&u).is_err()) {
+                messages.push(json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":removed,"diagnostics":[]}}));
+            }
+        }
+        self.workspace_published = current;
+        messages
     }
 
     /// Apply the settings in `settings` (`initializationOptions`, or the `jai` section of

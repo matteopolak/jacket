@@ -194,7 +194,7 @@ impl Session {
 
     /// Whether `background_work` has something to do.
     pub fn has_background_work(&self) -> bool {
-        self.polymorph_index.borrow().has_pending()
+        self.indexing_pending() || self.polymorph_index.borrow().has_pending()
     }
 
     /// Summarize one stale program a lens request left for later, for a transport to call
@@ -209,7 +209,7 @@ impl Session {
         let (buffers, open) = self.polymorph_buffers();
         loop {
             let Some(root) = self.polymorph_index.borrow_mut().pending.pop_first() else {
-                return false;
+                return self.index_workspace().is_some() && !self.indexing_pending();
             };
             if !self.polymorph_index.borrow().programs.contains_key(&root) {
                 continue;

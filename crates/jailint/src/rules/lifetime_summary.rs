@@ -869,6 +869,9 @@ impl Summaries {
             eprintln!("lifetime-summary-writes-begin bodies={}", valid.len());
         }
         all.propagate_writes(&mut cache, compiler, &valid, &components, &graph);
+        if jaic::interrupt::fired() {
+            return Self::default();
+        }
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-end");
         }

@@ -42,6 +42,7 @@ impl Session {
             self.polymorph_index.borrow_mut().clear();
             self.call_graphs.borrow_mut().clear();
             self.semantic.borrow_mut().set_limits(limits);
+            self.workspace_diagnostics.borrow_mut().invalidate_all();
         }
     }
 
@@ -101,6 +102,27 @@ impl Session {
             .or(base))
     }
 
+    /// Whether the compiler resolved this position to a built-in without a source declaration.
+    /// Coverage tools use this to distinguish primitive types from missing navigation.
+    pub fn semantic_builtin_reference(
+        &self,
+        uri: &DocumentUri,
+        position: crate::Position,
+    ) -> Result<bool, Error> {
+        let doc = self.document(uri)?;
+        let byte = doc.index.byte(&doc.text, position);
+        Ok(self
+            .with_semantic_at(uri, &doc.text, byte, |analysis, path, at| {
+                let file = analysis.file(path)?;
+                let facts = analysis.compiler.ed.facts()?;
+                if facts.refs_at(file, at as u32).is_empty() {
+                    return None;
+                }
+                Some(analysis.compiler.ide_builtin_reference(file, at as u32))
+            })
+            .is_some_and(|(builtin, _)| builtin))
+    }
+
     /// Queue a message for the user (`window/showMessage`), sent once.
     pub fn notify(&self, message: String) {
         self.index.borrow_mut().notify(message);
@@ -132,15 +154,15 @@ impl Session {
     /// under the other setting; the caller republishes diagnostics.
     pub fn set_trusted(&mut self, trusted: bool) {
         if self.semantic.borrow().trusted() != trusted {
+            self.workspace_diagnostics.borrow_mut().clear();
             self.polymorph_index.borrow_mut().clear();
             self.call_graphs.borrow_mut().clear();
             self.semantic.borrow_mut().set_trusted(trusted);
             // Without trust nothing runs, so discovery falls back to the static scan; what
             // earlier runs recorded goes with the cache.
             let mut index = self.index.borrow_mut();
-            index.builds.clear();
+            index.record_builds(std::collections::BTreeMap::new());
             index.probed.clear();
-            index.import_dirs.clear();
             self.synced_builds.set(0);
             self.touch();
         }
@@ -156,6 +178,7 @@ impl Session {
             .is_some_and(|services| services.take_arrivals());
         if arrived {
             self.semantic.borrow_mut().forget_compiles();
+            self.workspace_diagnostics.borrow_mut().invalidate_all();
             self.call_graphs.borrow_mut().clear();
             self.touch();
         }
@@ -179,7 +202,7 @@ impl Session {
     }
 
     /// The inputs of a compile may have changed.
-    fn touch(&self) {
+    pub(super) fn touch(&self) {
         self.generation.set(self.generation.get() + 1);
         *self.inputs.borrow_mut() = None;
         *self.open_file_identities.borrow_mut() = None;
@@ -191,6 +214,7 @@ impl Session {
     }
 
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
+        self.workspace_diagnostics.borrow_mut().invalidate_all();
         self.polymorph_index.borrow_mut().clear();
         self.call_graphs.borrow_mut().clear();
         let mut keys: Vec<_> = Vec::with_capacity(folders.len());
@@ -206,6 +230,17 @@ impl Session {
     /// A file changed on disk (`created_or_deleted` when it appeared or went away): what was
     /// read from it is read again.
     pub fn file_changed(&mut self, path: &Path, created_or_deleted: bool) {
+        self.inputs_changed(path, created_or_deleted, true);
+    }
+
+    pub(super) fn buffer_changed(&mut self, path: &Path, created_or_deleted: bool) {
+        self.inputs_changed(path, created_or_deleted, false);
+    }
+
+    fn inputs_changed(&mut self, path: &Path, created_or_deleted: bool, disk: bool) {
+        self.workspace_diagnostics
+            .borrow_mut()
+            .invalidate(path, created_or_deleted);
         self.touch();
         if created_or_deleted {
             self.semantic.borrow_mut().forget_paths();
@@ -215,6 +250,11 @@ impl Session {
             |env| crate::auto_import::canonical_key(env, path),
         );
         let path = path.as_path();
+        if disk {
+            self.semantic
+                .borrow_mut()
+                .invalidate(path, created_or_deleted);
+        }
         self.polymorph_index
             .borrow_mut()
             .invalidate(path, created_or_deleted);

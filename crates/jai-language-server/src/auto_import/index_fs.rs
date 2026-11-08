@@ -81,6 +81,21 @@ impl project::ProjectFs for IndexFs<'_, '_> {
     /// Kept until a file's `#load`s change (an edit that leaves them alone keeps it), so the
     /// program of a document is found without reading the whole tree again.
     fn loader_graph(&self, folder: &Path) -> Option<project::LoaderGraph> {
+        // Refresh changed sources before checking the graph epoch: rescanning only after
+        // a cache miss would keep a removed/restored #load hidden behind the cached graph.
+        let dirty: Vec<_> = self
+            .index
+            .borrow()
+            .loads_dirty
+            .iter()
+            .filter(|p| p.starts_with(folder))
+            .cloned()
+            .collect();
+        for path in dirty {
+            let mut index = self.index.borrow_mut();
+            self.sources.scan(&mut index, &path);
+            index.loads_dirty.remove(&path);
+        }
         let files = self.project_files(folder);
         if let Some((epoch, seen, graph)) = self.index.borrow().graphs.get(folder)
             && *epoch == self.index.borrow().graph_epoch

@@ -25,7 +25,11 @@ impl Session {
         {
             let (found, shift) = self
                 .with_semantic_at(uri, &doc.text, byte, |a, path, at| {
-                    Some(a.definition(path, at)).filter(|d| !d.is_empty())
+                    let definitions = a.definition(path, at);
+                    let builtin = a
+                        .file(path)
+                        .is_some_and(|file| a.compiler.ide_builtin_reference(file, at as u32));
+                    (!definitions.is_empty() || builtin).then_some(definitions)
                 })
                 .unwrap_or_default();
             let locations: Vec<Location> = found
@@ -175,7 +179,7 @@ impl Session {
     }
 
     /// Text of a file the editor may not have open (a definition in a module or the stdlib):
-    /// the open document's text, else the environment's file system.
+    /// the open document's text, else the environment's file system, decoded like the compiler.
     pub fn source(&self, uri: &DocumentUri) -> Option<String> {
         if let Some(key) = self.document_uri(uri)
             && let Some(doc) = self
@@ -186,7 +190,7 @@ impl Session {
             return Some(doc.text.clone());
         }
         let bytes = self.environment.as_ref()?.fs.read(Path::new(uri.path()))?;
-        String::from_utf8(bytes).ok()
+        Some(String::from_utf8_lossy(&bytes).into_owned())
     }
 
     /// Hover as plain text.

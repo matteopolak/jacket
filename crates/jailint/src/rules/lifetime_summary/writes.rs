@@ -196,11 +196,17 @@ impl super::Summaries {
     ) {
         // Returns are stable. Solve callees before callers, iterating only recursive SCCs.
         for component in components {
+            if jaic::interrupt::should_stop() {
+                return;
+            }
             let recursive = component.len() > 1 || graph[&component[0]].contains(&component[0]);
             let mut resolvers = HashMap::default();
             loop {
                 let mut changed = false;
                 for id in component {
+                    if jaic::interrupt::should_stop() {
+                        return;
+                    }
                     let resolver = resolvers.entry(*id).or_insert_with(|| {
                         Resolver::cached(
                             cache,

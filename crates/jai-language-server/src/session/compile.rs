@@ -144,9 +144,9 @@ impl Session {
         // file (which may load it, or build it from a metaprogram), so the files of the program
         // that are not open are checked too.
         let open_root = self.root(uri);
-        self.run_unrecorded_builds(&open_root, &files);
-        let root = match self.project_root(&open_root) {
-            Some(entry) if environment.fs.is_file(&entry) => entry,
+        self.run_unrecorded_builds(uri, &files);
+        let root = match self.project_root(uri) {
+            Some(entry) if environment.fs.is_file(&entry) || files.contains_key(&entry) => entry,
             _ => PathBuf::from(open_root.path()),
         };
         // Untrusted: the metaprogram that would build the open file does not run, so the file
@@ -273,8 +273,7 @@ impl Session {
         }
         self.synced_builds.set(cache.recorded_version);
         let mut index = self.index.borrow_mut();
-        index.builds = cache.recorded.clone();
-        index.import_dirs.clear();
+        index.record_builds(cache.recorded.clone());
         *self.inputs.borrow_mut() = None;
     }
 

@@ -1,9 +1,8 @@
 //! Native transport only. The library and wasm caller never touch stdio.
 /// How long input must be quiet before the diagnostics of the edits so far are computed and
-/// published: a quarter of the last publication's time, within these bounds. A compile cannot be
-/// interrupted, so starting one on every `didChange` made the completion queued behind it wait
-/// for it; but edits that arrive while one runs are read together afterwards, so a short wait is
-/// enough for a small program (whose compile is quick) and only a large one needs the long one.
+/// published: a quarter of the last publication's time, within these bounds. Checks stop for
+/// newer interactive input; debouncing also avoids starting them for every keystroke. Edits
+/// already waiting are read together, so small programs only need a short quiet interval.
 #[cfg(not(target_arch = "wasm32"))]
 const DIAGNOSTICS_DEBOUNCE: std::ops::RangeInclusive<std::time::Duration> =
     std::time::Duration::from_millis(15)..=std::time::Duration::from_millis(200);
@@ -13,207 +12,258 @@ const DIAGNOSTICS_DEBOUNCE: std::ops::RangeInclusive<std::time::Duration> =
 const SERVICE_POLL: std::time::Duration = std::time::Duration::from_millis(25);
 
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> std::process::ExitCode {
+fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
     use std::io::{Read, Write};
-    fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
-        let limits = jai_language_server::Limits::default();
-        let mut session =
-            jai_language_server::JsonSession::with_environment(limits, native_environment());
-        let mut decoder = jai_language_server::framing::FrameDecoder::new(limits.message_bytes);
-        session.defer_publications(true);
-        session.defer_compiles(true);
-        if untrusted {
-            session.set_trusted(false);
+    let limits = jai_language_server::Limits::default();
+    let mut session =
+        jai_language_server::JsonSession::with_environment(limits, native_environment());
+    session.defer_publications(true);
+    session.defer_compiles(true);
+    if untrusted {
+        session.set_trusted(false);
+    }
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    // Decode on the reader thread so only complete interactive messages interrupt checks.
+    // Background diagnostic polls and replies must not repeatedly restart idle analysis.
+    #[derive(Default)]
+    struct Input {
+        messages: Vec<String>,
+        oversized: Vec<jai_language_server::framing::Oversized>,
+        ended: bool,
+    }
+    impl Input {
+        fn end() -> Self {
+            Self {
+                ended: true,
+                ..Self::default()
+            }
         }
-        let stdout = std::io::stdout();
-        let mut output = stdout.lock();
-        // A thread reads stdin so the loop below can wait for more input with a timeout.
-        let (chunks, input) = std::sync::mpsc::channel::<std::io::Result<Vec<u8>>>();
-        std::thread::spawn(move || {
-            let mut stdin = std::io::stdin().lock();
-            let mut chunk = vec![0u8; 64 * 1024];
-            loop {
-                let sent = match stdin.read(&mut chunk) {
-                    Ok(count) => {
-                        let done = count == 0;
-                        (chunks.send(Ok(chunk[..count].to_vec())).is_err(), done)
-                    }
-                    Err(error) => (chunks.send(Err(error)).is_err(), true),
-                };
-                // A check that can be stopped stops for input (see `jaic::interrupt`); the
-                // request follows the send, so the loop that clears it and then looks at the
-                // channel never misses input that is really waiting.
-                jaic::interrupt::request(true);
-                if sent.0 || sent.1 {
-                    return;
-                }
-            }
-        });
-        #[cfg(unix)]
-        let mut compiles = 0;
-        // How long the last publication took, which sets how long to wait for more edits.
-        let mut last_publication = std::time::Duration::from_millis(40);
-        let mut warm_needed = false;
+    }
+    #[derive(serde::Deserialize)]
+    struct Route<'a> {
+        #[serde(borrow)]
+        method: Option<&'a str>,
+    }
+    let (chunks, input) = std::sync::mpsc::channel::<std::io::Result<Input>>();
+    std::thread::spawn(move || {
+        let mut stdin = std::io::stdin().lock();
+        let mut chunk = vec![0u8; 64 * 1024];
+        let mut decoder = jai_language_server::framing::FrameDecoder::new(limits.message_bytes);
         loop {
-            // A compile (or the eviction it caused) freed many small blocks: hand their pages
-            // back while the editor is idle (see `large_alloc`).
-            #[cfg(unix)]
+            let received = (|| -> std::io::Result<Input> {
+                let count = stdin.read(&mut chunk)?;
+                if count == 0 {
+                    decoder.finish().map_err(std::io::Error::other)?;
+                    return Ok(Input::end());
+                }
+                let messages = decoder
+                    .push(&chunk[..count])
+                    .map_err(std::io::Error::other)?;
+                Ok(Input {
+                    messages,
+                    oversized: decoder.take_oversized(),
+                    ended: false,
+                })
+            })();
+            let (urgent, done) = match &received {
+                Ok(batch) => (
+                    batch.ended
+                        || !batch.oversized.is_empty()
+                        || batch.messages.iter().any(|m| {
+                            serde_json::from_str::<Route<'_>>(m).map_or(true, |route| {
+                                route.method.is_some_and(|m| m != "workspace/diagnostic")
+                            })
+                        }),
+                    batch.ended,
+                ),
+                Err(_) => (true, true),
+            };
+            if received
+                .as_ref()
+                .is_ok_and(|b| !b.ended && b.messages.is_empty() && b.oversized.is_empty())
             {
-                let (started, _) = session.compile_counts();
-                if started != compiles {
-                    compiles = started;
-                    jai_language_server::large_alloc::release_free_memory();
-                }
+                continue;
             }
-            // Compile-time service answers that compiles read as pending: once one is in, the
-            // open files are checked again (published after the usual debounce).
-            if session.services_waiting() {
-                for message in session.service_arrivals()? {
-                    output.write_all(&jai_language_server::framing::encode(&message))?;
-                }
-                output.flush()?;
+            let disconnected = chunks.send(received).is_err();
+            // Send before requesting interruption: the worker clears the flag then checks
+            // the channel, so it cannot miss an interactive message already waiting there.
+            if urgent {
+                jaic::interrupt::request(true);
             }
-            // Diagnostics for edits wait until no input has come for `DIAGNOSTICS_DEBOUNCE`, so
-            // requests that are queued (completion, hover) are answered first and a burst of
-            // keystrokes costs one compile.
-            let received = if session.publications_pending() {
-                let wait = (last_publication / 4)
-                    .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
-                match input.recv_timeout(wait) {
-                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                        // The check stops for input that arrives while it runs; input already
-                        // here is read first.
-                        jaic::interrupt::request(false);
-                        match input.try_recv() {
-                            Ok(received) => received,
-                            Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),
-                            Err(std::sync::mpsc::TryRecvError::Empty) => {
-                                let started = std::time::Instant::now();
-                                let published = session.flush_publications_unless_interrupted()?;
-                                // A stopped check says nothing about how long one takes.
-                                if !published.is_empty() {
-                                    last_publication = started.elapsed();
-                                }
-                                for response in published {
-                                    output.write_all(&jai_language_server::framing::encode(
-                                        &response,
-                                    ))?;
-                                }
-                                output.flush()?;
-                                continue;
+            if disconnected || done {
+                return;
+            }
+        }
+    });
+    #[cfg(unix)]
+    let mut compiles = 0;
+    // How long the last publication took, which sets how long to wait for more edits.
+    let mut last_publication = std::time::Duration::from_millis(40);
+    let mut warm_needed = false;
+    loop {
+        // A compile (or the eviction it caused) freed many small blocks: hand their pages
+        // back while the editor is idle (see `large_alloc`).
+        #[cfg(unix)]
+        {
+            let (started, _) = session.compile_counts();
+            if started != compiles {
+                compiles = started;
+                jai_language_server::large_alloc::release_free_memory();
+            }
+        }
+        // Compile-time service answers that compiles read as pending: once one is in, the
+        // open files are checked again (published after the usual debounce).
+        if session.services_waiting() {
+            for message in session.service_arrivals()? {
+                output.write_all(&jai_language_server::framing::encode(&message))?;
+            }
+            output.flush()?;
+        }
+        // Diagnostics for edits wait until no input has come for `DIAGNOSTICS_DEBOUNCE`, so
+        // requests that are queued (completion, hover) are answered first and a burst of
+        // keystrokes costs one compile.
+        let working = session.indexing_pending() || session.compile_pending();
+        let (awaiting_progress, messages) = session.indexing_progress(working)?;
+        for message in messages {
+            output.write_all(&jai_language_server::framing::encode(&message))?;
+        }
+        output.flush()?;
+        let received = if awaiting_progress {
+            input.recv().unwrap_or(Ok(Input::end()))
+        } else if session.publications_pending() {
+            let wait = (last_publication / 4)
+                .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
+            match input.recv_timeout(wait) {
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    // The check stops for input that arrives while it runs; input already
+                    // here is read first.
+                    jaic::interrupt::request(false);
+                    match input.try_recv() {
+                        Ok(received) => received,
+                        Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Input::end()),
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            let started = std::time::Instant::now();
+                            let published = session.flush_publications_unless_interrupted()?;
+                            // A stopped check says nothing about how long one takes.
+                            if !published.is_empty() {
+                                last_publication = started.elapsed();
                             }
+                            for response in published {
+                                output
+                                    .write_all(&jai_language_server::framing::encode(&response))?;
+                            }
+                            output.flush()?;
+                            continue;
                         }
                     }
-                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
-                    Ok(received) => received,
                 }
-            } else if session.compile_pending() {
-                // The compile that ranks completion waits for quiet input like the diagnostics
-                // do, so it does not hold up the next keystroke's request.
-                let wait = (last_publication / 4)
-                    .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
-                match input.recv_timeout(wait) {
-                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                        jaic::interrupt::request(false);
-                        match input.try_recv() {
-                            Ok(received) => received,
-                            Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),
-                            Err(std::sync::mpsc::TryRecvError::Empty) => {
-                                for message in session.warm_pending()? {
-                                    output.write_all(&jai_language_server::framing::encode(
-                                        &message,
-                                    ))?;
-                                }
-                                output.flush()?;
-                                continue;
-                            }
-                        }
-                    }
-                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
-                    Ok(received) => received,
-                }
-            } else if warm_needed || session.has_background_work() {
-                // Idle after a message: read the indexes completion will want, then do the
-                // work requests left for later one piece at a time, unless input is waiting.
-                jaic::interrupt::request(false);
-                match input.try_recv() {
-                    Ok(received) => received,
-                    Err(std::sync::mpsc::TryRecvError::Empty) => {
-                        if warm_needed {
-                            warm_needed = !session.warm_up_unless_interrupted();
-                        } else {
-                            for message in session.background_work()? {
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Input::end()),
+                Ok(received) => received,
+            }
+        } else if session.compile_pending() {
+            // The compile that ranks completion waits for quiet input like the diagnostics
+            // do, so it does not hold up the next keystroke's request.
+            let wait = (last_publication / 4)
+                .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
+            match input.recv_timeout(wait) {
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    jaic::interrupt::request(false);
+                    match input.try_recv() {
+                        Ok(received) => received,
+                        Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Input::end()),
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            for message in session.warm_pending()? {
                                 output
                                     .write_all(&jai_language_server::framing::encode(&message))?;
                             }
                             output.flush()?;
+                            continue;
                         }
-                        continue;
                     }
-                    Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),
                 }
-            } else if session.services_waiting() {
-                match input.recv_timeout(SERVICE_POLL) {
-                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
-                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
-                    Ok(received) => received,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Input::end()),
+                Ok(received) => received,
+            }
+        } else if warm_needed || session.has_background_work() {
+            // Idle after a message: read the indexes completion will want, then do the
+            // work requests left for later one piece at a time, unless input is waiting.
+            jaic::interrupt::request(false);
+            match input.try_recv() {
+                Ok(received) => received,
+                Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    if warm_needed {
+                        warm_needed = !session.warm_up_unless_interrupted();
+                    } else {
+                        for message in session.background_work()? {
+                            output.write_all(&jai_language_server::framing::encode(&message))?;
+                        }
+                        output.flush()?;
+                    }
+                    continue;
                 }
-            } else {
-                input.recv().unwrap_or(Ok(Vec::new()))
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Input::end()),
+            }
+        } else if session.services_waiting() {
+            match input.recv_timeout(SERVICE_POLL) {
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Input::end()),
+                Ok(received) => received,
+            }
+        } else {
+            input.recv().unwrap_or(Ok(Input::end()))
+        };
+        warm_needed = true;
+        let batch = received?;
+        // Collect queued cancellations before serving requests, preserving wire order.
+        let mut messages = batch.messages;
+        let mut oversized = batch.oversized;
+        let mut ended = batch.ended;
+        while !ended {
+            let Ok(more) = input.try_recv() else {
+                break;
             };
-            warm_needed = true;
-            let chunk = received?;
-            if chunk.is_empty() {
-                decoder.finish()?;
-                for response in session.flush_publications()? {
-                    output.write_all(&jai_language_server::framing::encode(&response))?;
-                }
-                output.flush()?;
-                return Ok(session.exit_status().unwrap_or(1));
+            let more = more?;
+            ended = more.ended;
+            messages.extend(more.messages);
+            oversized.extend(more.oversized);
+        }
+        session.note_cancellations(&messages);
+        for message in &messages {
+            for response in session.handle_json(message)? {
+                output.write_all(&jai_language_server::framing::encode(&response))?;
             }
-            // Whatever else has already arrived is read with it, so a cancellation can reach a
-            // request that is still waiting its turn.
-            let mut messages = decoder.push(&chunk)?;
-            let mut ended = false;
-            while let Ok(more) = input.try_recv() {
-                let more = more?;
-                if more.is_empty() {
-                    ended = true;
-                    break;
-                }
-                messages.extend(decoder.push(&more)?);
-            }
-            for responses in session.handle_batch(&messages)? {
-                for response in responses {
-                    output.write_all(&jai_language_server::framing::encode(&response))?;
-                }
-                output.flush()?;
-            }
-            if let Some(status) = session.exit_status() {
-                for response in session.flush_publications()? {
-                    output.write_all(&jai_language_server::framing::encode(&response))?;
-                }
-                output.flush()?;
-                return Ok(status);
-            }
-            if ended {
-                decoder.finish()?;
-                for response in session.flush_publications()? {
-                    output.write_all(&jai_language_server::framing::encode(&response))?;
-                }
-                output.flush()?;
-                return Ok(session.exit_status().unwrap_or(1));
-            }
-            // A message over the size limit was skipped unread: say so rather than go quiet.
-            for message in decoder.take_oversized() {
-                for reply in jai_language_server::oversized_replies(&message, limits.message_bytes)
-                {
-                    output.write_all(&jai_language_server::framing::encode(&reply))?;
-                }
-                output.flush()?;
+            output.flush()?;
+            if session.exit_status().is_some() {
+                break;
             }
         }
+        if let Some(status) = session.exit_status() {
+            for response in session.flush_publications()? {
+                output.write_all(&jai_language_server::framing::encode(&response))?;
+            }
+            output.flush()?;
+            return Ok(status);
+        }
+        if ended {
+            for response in session.flush_publications()? {
+                output.write_all(&jai_language_server::framing::encode(&response))?;
+            }
+            output.flush()?;
+            return Ok(session.exit_status().unwrap_or(1));
+        }
+        // A message over the size limit was skipped unread: say so rather than go quiet.
+        for message in oversized {
+            for reply in jai_language_server::oversized_replies(&message, limits.message_bytes) {
+                output.write_all(&jai_language_server::framing::encode(&reply))?;
+            }
+            output.flush()?;
+        }
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn main() -> std::process::ExitCode {
     let untrusted = match command_line() {
         Err(code) => return code,
         Ok(untrusted) => untrusted,

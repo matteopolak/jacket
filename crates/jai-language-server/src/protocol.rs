@@ -4,6 +4,7 @@ mod helpers;
 mod methods;
 mod notifications;
 mod params;
+mod progress;
 mod request_id;
 mod requests;
 mod wire;
@@ -74,6 +75,8 @@ pub struct JsonSession {
     defer_publications: bool,
     /// An edit since the last flush has diagnostics to publish.
     publications_pending: bool,
+    index_progress: progress::IndexProgress,
+    workspace_published: std::collections::BTreeSet<String>,
 }
 
 

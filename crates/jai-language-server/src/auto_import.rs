@@ -92,10 +92,12 @@ pub(crate) struct Index {
     /// Module folders found for a program root (`modules.rs`), with the files they were read from,
     /// by everything the answer depends on besides those files.
     pub(crate) import_dirs: BTreeMap<ImportKey, (Vec<PathBuf>, Vec<PathBuf>)>,
-    /// What each build metaprogram did when it last ran to the end (`semantic::BuildFacts`),
+    /// Each completed program's source graph and build metaprogram facts (`semantic::BuildFacts`),
     /// by its canonical path. Where a metaprogram has an entry here, discovery follows it
     /// instead of reading the metaprogram's text.
     pub(crate) builds: BTreeMap<PathBuf, crate::semantic::BuildFacts>,
+    source_graphs_dirty: BTreeSet<PathBuf>,
+    pub(crate) stale_source_graphs: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
     /// The build files run to see what they build, with a hash of everything they were run
     /// from: a metaprogram is run again only after that changes.
     pub(crate) probed: BTreeMap<PathBuf, u64>,
@@ -113,6 +115,7 @@ pub(crate) struct Index {
     graphs: BTreeMap<PathBuf, (u64, Vec<PathBuf>, project::LoaderGraph)>,
     /// Moves on whenever a file's `#load`s are not what the last scan of it saw.
     graph_epoch: u64,
+    loads_dirty: BTreeSet<PathBuf>,
     /// The `#load` paths each file had when it was last scanned.
     loads_seen: BTreeMap<PathBuf, Vec<String>>,
     /// Scans of files read from the environment.
@@ -178,9 +181,20 @@ impl Index {
         std::mem::take(&mut self.pending)
     }
 
+    /// Replace compiler-observed build edges and invalidate closures derived from older edges.
+    pub(crate) fn record_builds(&mut self, builds: BTreeMap<PathBuf, crate::semantic::BuildFacts>) {
+        self.stale_source_graphs
+            .retain(|root, _| builds.get(root) == self.builds.get(root));
+        self.builds = builds;
+        self.graph_epoch += 1;
+        self.graphs.clear();
+        self.import_dirs.clear();
+    }
+
     /// `scan` is the latest of `path`: when its `#load`s differ from the scan before, the loader
     /// graphs are out of date.
     fn note_loads(&mut self, path: &Path, scan: &FileScan) {
+        self.loads_dirty.remove(path);
         let same = self.loads_seen.get(path).is_some_and(|seen| {
             seen.len() == scan.loads.len()
                 && seen.iter().zip(&scan.loads).all(|(a, b)| *a == b.path)
@@ -196,6 +210,10 @@ impl Index {
 
     /// `path` changed: its scan and the module index it is part of are stale.
     pub(crate) fn changed(&mut self, path: &Path) {
+        self.source_graphs_dirty.insert(path.to_path_buf());
+        if path.extension().is_some_and(|e| e == "jai") {
+            self.loads_dirty.insert(path.to_path_buf());
+        }
         self.files.remove(path);
         self.warming
             .retain(|_, module| !module.files.contains(path));

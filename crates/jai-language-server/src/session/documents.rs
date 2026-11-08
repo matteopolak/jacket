@@ -26,7 +26,17 @@ impl Session {
             return Err(Error::Limit("open document count exceeded"));
         }
         self.admit(&uri, text.len(), 0)?;
-        self.file_changed(Path::new(uri.path()), true);
+        let unchanged = !crate::lints::is_config(&uri)
+            && self.environment.as_ref().is_some_and(|env| {
+                env.fs
+                    .read(Path::new(uri.path()))
+                    .is_some_and(|bytes| String::from_utf8_lossy(&bytes) == text)
+            });
+        if unchanged {
+            self.touch();
+        } else {
+            self.buffer_changed(Path::new(uri.path()), true);
+        }
         let map = if crate::lints::is_config(&uri) {
             let saved = self
                 .config_on_disk(Path::new(uri.path()))
@@ -98,7 +108,7 @@ impl Session {
             crate::lexical_recovery::update(&document.text, &text, &document.lexical_damage);
         let config = self.lint_configs.contains_key(uri);
         if !config {
-            self.file_changed(Path::new(uri.path()), false);
+            self.buffer_changed(Path::new(uri.path()), false);
         }
         let map = if config {
             &mut self.lint_configs
@@ -174,7 +184,18 @@ impl Session {
     pub fn close(&mut self, uri: &DocumentUri) -> Result<(), Error> {
         let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
         let uri = &key;
-        self.file_changed(Path::new(uri.path()), true);
+        let unchanged = self.documents.get(uri).is_some_and(|doc| {
+            self.environment.as_ref().is_some_and(|env| {
+                env.fs
+                    .read(Path::new(uri.path()))
+                    .is_some_and(|bytes| String::from_utf8_lossy(&bytes) == doc.text)
+            })
+        });
+        if unchanged {
+            self.touch();
+        } else {
+            self.buffer_changed(Path::new(uri.path()), true);
+        }
         if self.lint_configs.remove(uri).is_some() {
             self.saved_configs.remove(uri);
             self.semantic.borrow_mut().forget_lints();
@@ -254,36 +275,44 @@ impl Session {
                 }) {
                     return None;
                 }
-                let related = f
-                    .related
-                    .iter()
-                    .filter_map(|r| {
-                        let at = self.location_in(&r.path, &r.text, r.start, r.end)?;
-                        Some(RelatedInformation {
-                            uri: at.uri,
-                            range: at.range,
-                            message: r.message.clone(),
-                        })
-                    })
-                    .collect();
-                Some(Finding {
-                    diagnostic: Diagnostic {
-                        range,
-                        severity: if f.warning {
-                            DiagnosticSeverity::Warning
-                        } else {
-                            DiagnosticSeverity::Error
-                        },
-                        code: DiagnosticCode::Check,
-                        message: f.display,
-                        related,
-                    },
-                    start: f.start,
-                    end: f.end,
-                    suggestions: f.suggestions,
-                })
+                Some(self.check_finding_at(f, range))
             })
             .collect()
+    }
+
+    pub(super) fn check_finding_at(
+        &self,
+        f: crate::semantic::CheckFinding,
+        range: crate::Range,
+    ) -> Finding {
+        let related = f
+            .related
+            .iter()
+            .filter_map(|r| {
+                let at = self.location_in(&r.path, &r.text, r.start, r.end)?;
+                Some(RelatedInformation {
+                    uri: at.uri,
+                    range: at.range,
+                    message: r.message.clone(),
+                })
+            })
+            .collect();
+        Finding {
+            diagnostic: Diagnostic {
+                range,
+                severity: if f.warning {
+                    DiagnosticSeverity::Warning
+                } else {
+                    DiagnosticSeverity::Error
+                },
+                code: DiagnosticCode::Check,
+                message: f.display,
+                related,
+            },
+            start: f.start,
+            end: f.end,
+            suggestions: f.suggestions,
+        }
     }
 
     /// Hints that fade the code of `uri` the compile found can never run.
@@ -312,6 +341,9 @@ impl Session {
 
     /// Syntax and source diagnostics of `uri`, then its type error and lints.
     pub fn diagnostics(&self, uri: &DocumentUri) -> Result<Vec<Diagnostic>, Error> {
+        if let Some(cached) = self.cached_workspace_diagnostics(uri) {
+            return Ok(cached);
+        }
         // A pull is a request for the check itself: it is the one request that compiles.
         let _background = self.background();
         self.document(uri)?;

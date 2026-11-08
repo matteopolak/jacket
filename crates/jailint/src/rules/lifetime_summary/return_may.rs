@@ -98,7 +98,7 @@ impl Resolver<'_> {
                 .get(&field)
                 .into_iter()
                 .flatten()
-                .any(|v| self.may_temporary(*v, all, &mut HashSet::default(), depth + 1))
+                .any(|v| self.may_temporary(*v, all, &mut HashMap::default(), depth + 1))
         {
             return true;
         }
@@ -163,7 +163,7 @@ impl Resolver<'_> {
             return false;
         };
         if path.steps.is_empty() {
-            return self.may_temporary(value, all, &mut HashSet::default(), depth + 1);
+            return self.may_temporary(value, all, &mut HashMap::default(), depth + 1);
         }
         let projections = path
             .steps
@@ -209,7 +209,7 @@ impl Resolver<'_> {
                         }
                 );
                 if self.compiler.ty.types.as_struct(*ty).is_none()
-                    && (self.may_temporary(*value, all, &mut HashSet::default(), 0)
+                    && (self.may_temporary(*value, all, &mut HashMap::default(), 0)
                         || descriptor
                             && self.field_may_temporary(
                                 *value,

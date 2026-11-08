@@ -148,6 +148,13 @@ impl Compiler {
         w
     }
 
+    /// Whether this compiler records editor facts for `file`, including sources loaded before
+    /// their editor buffers open. Use this with an exact source-text comparison before reusing
+    /// an indexed analysis for a newly opened buffer.
+    pub fn ide_records_source(&self, file: FileId) -> bool {
+        self.ide_wants_now(file)
+    }
+
     /// Whether the roots of the analysis cover `file`, worked out afresh.
     pub(super) fn ide_wants_now(&self, file: FileId) -> bool {
         let Some(ide) = self.ed.facts() else {

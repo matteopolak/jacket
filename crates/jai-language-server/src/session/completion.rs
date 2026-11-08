@@ -133,19 +133,15 @@ impl Session {
         prefix: String,
         recorded: bool,
     ) -> Option<Completions> {
-        const PLACEHOLDER: &str = "__jailsp_member";
-        let ident = jaic::lexicon::is_identifier_char;
-        let tail = byte
-            + text[byte..]
-                .find(|c: char| !ident(c))
-                .unwrap_or(text.len() - byte);
-        let candidate = format!("{}{PLACEHOLDER}{}", &text[..=dot], &text[tail..]);
         let ask = |a: &mut semantic::Analysis, path: &Path, dot: usize| {
             let mut names = if recorded {
                 a.complete_recorded(path, dot + 1)?
             } else {
                 a.complete_inferred(path, dot + 1)?
             };
+            if !recorded && names.is_empty() {
+                return None;
+            }
             // Only matching candidates reach the client. Resolving aliases for every visible
             // name scans declarations and documentation that the prefix will discard.
             let lower = prefix.to_lowercase();
@@ -155,6 +151,22 @@ impl Session {
             let files = a.decl_files(&names);
             Some((names, files))
         };
+        // A checked member expression already has the receiver's type. Replacing its name
+        // with a placeholder would recompile the entire program and its build metaprogram.
+        if let Some(((names, files), _)) =
+            self.with_semantic_at(uri, text, dot + 1, |a, path, at| {
+                ask(a, path, at.checked_sub(1)?)
+            })
+        {
+            return Some((prefix, names, files));
+        }
+        const PLACEHOLDER: &str = "__jailsp_member";
+        let ident = jaic::lexicon::is_identifier_char;
+        let tail = byte
+            + text[byte..]
+                .find(|c: char| !ident(c))
+                .unwrap_or(text.len() - byte);
+        let candidate = format!("{}{PLACEHOLDER}{}", &text[..=dot], &text[tail..]);
         let found = if self.may_compile() {
             self.with_semantic(uri, &candidate, |a, path| ask(a, path, dot))
         } else {

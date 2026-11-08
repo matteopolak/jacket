@@ -1,5 +1,8 @@
 # Documentation
 
+- [LSP project indexing](tools/lsp-project-indexing.md), [inclusion-graph audit](tools/lsp-graph-audit.md).
+- [Memory debugger](stdlib/memory-debugger.md): allocation tracking, empty ranges and viewer configuration.
+
 Jacket is a compiler and toolchain for the Jai language. `jaic` is the compiler (lexer, parser, type checker, interpreter, LLVM backend for native code and WebAssembly, metaprogramming API). `jailsp`, `jaifmt` and `jailint` share its front end, and `jacket` runs them all from one `jacket.toml`. The standard library in `stdlib/` is written in Jai.
 
 New here: [features](features.md), [the command line](tools/cli.md), [install channels](tools/releases.md). Contributing: [CONTRIBUTING.md](../CONTRIBUTING.md) and [development](tools/development.md).

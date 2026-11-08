@@ -244,6 +244,10 @@ impl JsonSession {
             ));
         }
         self.lifecycle = Lifecycle::Running;
+        self.index_progress.supported = params
+            .pointer("/capabilities/window/workDoneProgress")
+            .and_then(Value::as_bool)
+            == Some(true);
         self.hover_kind = hover_kind(&params);
         self.signature_kind = signature_kind(&params);
         self.pull_diagnostics = params
@@ -433,9 +437,14 @@ impl JsonSession {
 
     fn workspace_diagnostics(&mut self, params: Value) -> Result<Value, Failure> {
         let p: WorkspaceDiagnosticParams = decode(params)?;
-        let items: Vec<Value> = self
-            .session
-            .publications()
+        let reports = self.session.workspace_reports().unwrap_or_else(|| {
+            self.session
+                .publications()
+                .into_iter()
+                .map(|(u, v, d)| (u, Some(v), d))
+                .collect()
+        });
+        let mut items: Vec<Value> = reports
             .into_iter()
             .map(|(target, version, diagnostics)| {
                 let previous = p
@@ -443,9 +452,23 @@ impl JsonSession {
                     .iter()
                     .find(|r| r.uri == target)
                     .map(|r| r.value.as_str());
-                document_report(Some(&target), Some(version), &diagnostics, previous)
+                document_report(Some(&target), version, &diagnostics, previous)
             })
             .collect();
+        if !self.session.indexing_pending() {
+            for previous in p.previous_result_ids {
+                if !items.iter().any(|item| item["uri"] == previous.uri)
+                    && uri(&previous.uri).is_ok_and(|u| self.session.version(&u).is_err())
+                {
+                    items.push(document_report(
+                        Some(&previous.uri),
+                        None,
+                        &[],
+                        Some(&previous.value),
+                    ));
+                }
+            }
+        }
         Ok(json!({ "items": items }))
     }
 

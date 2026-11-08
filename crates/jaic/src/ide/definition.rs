@@ -86,6 +86,47 @@ impl Compiler {
         }
     }
 
+    /// Whether every recorded reference at this position is language-provided, with no
+    /// source declaration. This is independent of whether go-to-definition succeeded.
+    pub fn ide_builtin_reference(&self, file: FileId, offset: u32) -> bool {
+        let Some(ide) = self.ed.facts() else {
+            return false;
+        };
+        let refs = ide.refs_at(file, offset);
+        let builtin_type = |mut ty| {
+            ty = self.ty.types.repr_struct(ty);
+            while let TypeKind::Pointer(inner) = *self.ty.types.kind(ty) {
+                ty = self.ty.types.repr_struct(inner);
+            }
+            !matches!(
+                self.ty.types.kind(ty),
+                TypeKind::Struct(_) | TypeKind::Enum(_)
+            )
+        };
+        !refs.is_empty()
+            && refs.iter().all(|r| match &r.what {
+                IdeWhat::Type(ty) => {
+                    !matches!(self.ty.types.kind(*ty), TypeKind::Distinct(_))
+                        && !ide
+                            .type_names
+                            .get(&r.span)
+                            .is_some_and(|id| self.entity(*id).span != Span::NONE)
+                        && builtin_type(*ty)
+                }
+                IdeWhat::Member(_) => ide
+                    .receivers
+                    .get(&r.span)
+                    .copied()
+                    .flatten()
+                    .is_some_and(builtin_type),
+                IdeWhat::Entity(id) => self.entity(*id).span == Span::NONE,
+                IdeWhat::Procs(ids) => {
+                    !ids.is_empty() && ids.iter().all(|id| self.proc(*id).span == Span::NONE)
+                }
+                IdeWhat::Module(_) => false,
+            })
+    }
+
     /// Declarations the identifier at `offset` names: an entity's declaration, each procedure
     /// of an overload set, a struct or enum. Spans are narrowed to the declared name when it
     /// starts the declaration (`name :: ...`).

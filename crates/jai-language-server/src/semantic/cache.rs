@@ -72,16 +72,39 @@ struct Inputs {
 }
 
 /// Whether `analysis` answers for `files` as well as for the texts it was compiled from: every
-/// buffer that changed, appeared or went away is one it never read, tested or searched a
-/// folder for.
-fn unaffected(analysis: &Analysis, files: &BTreeMap<PathBuf, Arc<[u8]>>) -> bool {
+/// changed buffer is unrelated, and opened or closed inputs still have their checked bytes.
+fn unaffected(
+    analysis: &Analysis,
+    files: &BTreeMap<PathBuf, Arc<[u8]>>,
+    base: &dyn jaic::sema::FileSystem,
+) -> bool {
     let reads = analysis.reads.borrow();
     let same = |old: &Arc<[u8]>, new: &Arc<[u8]>| Arc::ptr_eq(old, new) || old == new;
     analysis.files.iter().all(|(path, old)| {
-        files.get(path).is_some_and(|new| same(old, new)) || !reads.concerns(path)
-    }) && files
-        .keys()
-        .all(|path| analysis.files.contains_key(path) || !reads.concerns(path))
+        !reads.concerns(path)
+            || match files.get(path) {
+                Some(new) => same(old, new),
+                None => base
+                    .read(path)
+                    .is_some_and(|bytes| bytes.as_slice() == old.as_ref()),
+            }
+    }) && files.iter().all(|(path, text)| {
+        analysis.files.contains_key(path)
+            || !reads.concerns(path)
+            || std::iter::once(&analysis.compiler)
+                .chain(analysis.others.iter().map(|p| &p.compiler))
+                .any(|compiler| {
+                    super::compile::find_file(compiler, path).is_some_and(|file| {
+                        compiler.ide_records_source(file)
+                            && compiler.src.sources.get(file).text.as_bytes() == text.as_ref()
+                    })
+                })
+            || reads.only_checked_present(path)
+                && base.is_file(path)
+                && base
+                    .read(path)
+                    .is_some_and(|bytes| bytes.as_slice() == text.as_ref())
+    })
 }
 
 pub(super) fn hash(
@@ -152,6 +175,12 @@ impl Cache {
     /// Files appeared or went away: canonical paths are asked for again.
     pub fn forget_paths(&mut self) {
         self.canonical.clear();
+    }
+
+    /// Disk or buffer contents changed; opening identical disk text does not call this.
+    pub fn invalidate(&mut self, path: &Path, topology: bool) {
+        self.entries
+            .retain(|a| !topology && !a.reads.borrow().concerns(path));
     }
 
     /// Drop every compile (answers they were made without have arrived); recorded build runs
@@ -413,7 +442,10 @@ impl Cache {
             .position(|a| a.key == inputs.key)
             .or_else(|| {
                 self.entries.iter().rposition(|a| {
-                    a.os == os && a.root == root && a.dirs == dirs && unaffected(a, &inputs.files)
+                    a.os == os
+                        && a.root == root
+                        && a.dirs == dirs
+                        && unaffected(a, &inputs.files, &*env.fs)
                 })
             });
         let Some(at) = at else {
@@ -481,7 +513,8 @@ impl Cache {
             return None;
         }
         // Another target's compile says nothing new about what the metaprogram did.
-        if let Some(facts) = facts.filter(|f| os.is_none() && !f.programs.is_empty()) {
+        if let Some(mut facts) = facts.filter(|_| os.is_none()) {
+            facts.checked = self.compiles;
             let key = jaic::paths::file_identity(&*env.fs, root);
             if self.recorded.get(&key) != Some(&facts) {
                 self.recorded.insert(key, facts);
