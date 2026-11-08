@@ -9,6 +9,12 @@ def data_global(symbol="compiler.global_data.g9", payload=r"\01\02\03\04", size=
 
 
 class HostDataNormalizationTests(unittest.TestCase):
+    def test_llvm_backslash_bytes_do_not_break_payload_matching(self):
+        first = data_global(payload=r"0\\\CA\F2", size=4)
+        second = data_global(payload=r"0\\\CAk", size=4)
+        self.assertEqual(strip_global_data(first), strip_global_data(second))
+        self.assertIn(b'c"<host-data>"', strip_global_data(first))
+
     def test_emitted_global_names_normalize_only_the_host_payload(self):
         first = data_global()
         second = data_global(payload=r"\05\06\07\08")

@@ -96,7 +96,7 @@ def run(argv, cwd, timeout=TIMEOUT, seed=None):
 
 
 GLOBAL_DATA = re.compile(rb"^@compiler\.global_data\.g\d+ = .*$", re.MULTILINE)
-BYTE_LITERAL = re.compile(rb'c"(?:\\[0-9A-Fa-f]{2}|[^"\\])*"')
+BYTE_LITERAL = re.compile(rb'c"(?:\\[0-9A-Fa-f]{2}|\\\\|[^"\\])*"')
 
 
 def strip_global_data(ir: bytes) -> bytes:
