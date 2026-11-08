@@ -39,7 +39,8 @@ main :: () {
         implicit := pack_stack_trace();
 
         defer array_free(implicit);
-        assert(implicit.count == 2 && implicit[0].info == *first_info);
+        assert(implicit.count == 3 && implicit[0].info.name == "pack_stack_trace");
+        assert(implicit[1].info == *first_info && implicit[2].info == *second_info);
         strings := get_stack_trace_strings(packed.data);
 
         assert(strings.count == 2);

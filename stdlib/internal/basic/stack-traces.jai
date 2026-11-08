@@ -1,6 +1,11 @@
 // Copies the current stack trace into a slice that stays valid after the call returns. Empty when the program keeps no
-// stack trace.
-pack_stack_trace :: () -> [] Stack_Trace_Node #no_debug {
+// stack trace. The first captured frame is this zero-argument helper.
+//
+// ```jai,no_run
+// trace := pack_stack_trace();
+// defer free(trace.data);
+// ```
+pack_stack_trace :: () -> [] Stack_Trace_Node {
     if !context.stack_trace return .{};
     head := context.stack_trace.*;
     return pack_stack_trace(*head);
