@@ -1,6 +1,7 @@
-// Public finalization operates on the trailing (less than 256-byte) input region.
-// r1/r3 are residual scratch operands. Their precise ancillary contract and the
-// dump format require review; standard calico hash/seed output is tested.
+// Public finalization operates on the trailing (less than 256-byte) input region and never reads
+// outside it: the 16-byte tail window is a direct load when it lies inside the region, a load of
+// the region's last 16 bytes shifted into place when it runs past the end, and a bounded copy only
+// for regions under 16 bytes.
 // Finishes a hash from the state registers and exactly `Len & 255` readable bytes at `Source`; the
 // result is left in `h0`. `r1` and `r3` are scratch registers.
 MeowEnd :: (Len: u64, Source: *void, r1: reg, r3: reg, h0: reg, h1: reg, h2: reg, h3: reg, h4: reg, h5: reg, h6: reg, h7: reg, Store128: *void) #expand {
@@ -31,6 +32,9 @@ MeowEnd :: (State: *meow_state, h0: reg, Store128: *void = null) #expand {
 
 #scope_file
 B :: #import "Basic";
+
+// `pshufb` controls that move a loaded vector down by 0..15 bytes and zero the rest.
+MeowTailShift: [32] u8 = u8.[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80];
 
 finish :: (Len: u64, Source: *void, r1: reg, r3: reg, h0: reg, h1: reg, h2: reg, h3: reg, h4: reg, h5: reg, h6: reg, h7: reg, Store128: *void, $PADDED: bool) #expand {
     tail := Len & 255;
@@ -65,17 +69,41 @@ finish :: (Len: u64, Source: *void, r1: reg, r3: reg, h0: reg, h1: reg, h2: reg,
             if cast(u64) last > last_ok alignment = cast(u64) last & 15;
 
             adjustment := MeowShiftAdjust.data + alignment;
-            // Reconstruct the legacy shuffle window from this residual object only.
-            // Neither the first block nor allocator/page padding belongs to it.
-            window: [16] u8;
+            // The shuffle window is the 16 bytes at `start`, zero outside the residual object:
+            // neither the first block nor allocator or page padding belongs to it.
             start := cast(s64) (tail & 0xf0) - cast(s64) alignment;
+            input: *u8;
+            window: [16] u8;
 
-            for i: 0..15 {
-                at := start + i;
-                if at >= 0 && at < cast(s64) tail window[i] = source[at];
+            if start >= 0 && start + 16 <= cast(s64) tail {
+                input = source + start;
+            } else if start >= 0 && tail >= 16 {
+                // The window runs past the end: load the last 16 bytes and shift them down.
+                shift := start + 16 - cast(s64) tail;
+                last16 := source + tail - 16;
+                shuffle := MeowTailShift.data + shift;
+                out := window.data;
+
+                #asm {
+                    movdqu.x w:, [last16];
+                    movdqu.x s:, [shuffle];
+                    pshufb w, s;
+                    movdqu.x [out], w;
+                }
+
+                input = out;
+            } else {
+                // Fewer than 16 bytes are readable at all: copy them into the zeroed window.
+                first := start;
+                stop := start + 16;
+
+                if first < 0 first = 0;
+                if stop > cast(s64) tail stop = cast(s64) tail;
+
+                if stop > first memcpy(window.data + (first - start), source + first, stop - first);
+
+                input = window.data;
             }
-
-            input := window.data;
 
             #asm {
                 movdqu.x c, [adjustment];
