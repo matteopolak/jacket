@@ -83,10 +83,11 @@ main :: () {
         defer array_free(redefined);
         redefined[frame + 5] = 0;
         redefined[frame + 6] = cast(u8) (height + 8);
-        redefined_image, redefined_ok := decode_jpeg(redefined, DEFAULT_MAX_PIXELS);
+        rejected(redefined, "DNL with a nonzero frame height");
+        same_height := insert(source, end, marker);
 
-        defer deinit(*redefined_image);
-        check(redefined_ok && redefined_image.height == height, "DNL redefines a nonzero frame height");
+        defer array_free(same_height);
+        rejected(same_height, "DNL repeating a nonzero frame height");
         duplicate := insert(deferred, end + 6, marker);
 
         defer array_free(duplicate);

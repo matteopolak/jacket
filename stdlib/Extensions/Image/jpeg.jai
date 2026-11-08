@@ -282,6 +282,7 @@ jpeg_resolve_height :: (d: *Jpeg_Decoder, at: s64, declared: s32) -> height: s32
 
         if entropy {
             if code != 0xDC break;
+            if declared != 0 return 0, -1, "JPEG line count marker needs a zero frame height";
             if at + 4 > d.end || jpeg_be16(d.data + at) < 4 return 0, -1, "bad JPEG line count segment";
 
             if at + jpeg_be16(d.data + at) > d.end return 0, -1, "truncated JPEG line count segment";
