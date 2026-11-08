@@ -252,6 +252,9 @@ pub struct SandboxHost {
     allocations: HashMap<u64, (ZeroedBlock, usize)>,
     #[cfg(unix)]
     mappings: BTreeMap<u64, virtual_memory::Mapping>,
+    /// Bytes held by `mappings`, capped at `virtual_memory::MAX_MAPPED_BYTES`.
+    #[cfg(unix)]
+    mapped_bytes: u64,
     /// Virtual clock ticks (nanoseconds) handed out by `clock_gettime`; the sandbox has no real
     /// time source on wasm32, so every query advances this by one microsecond.
     clock_ns: u64,

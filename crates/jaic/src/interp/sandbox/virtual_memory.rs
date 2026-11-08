@@ -3,6 +3,11 @@
 use super::{EINVAL, EPERM};
 use super::{LibcFn, SandboxHost};
 
+/// The most address space one sandbox host maps in total. Compile-time code that maps without
+/// freeing would otherwise reserve memory for as long as the compiler runs.
+#[cfg(unix)]
+pub(super) const MAX_MAPPED_BYTES: u64 = 1 << 30;
+
 pub(super) fn page_size() -> u64 {
     #[cfg(unix)]
     {
@@ -123,9 +128,13 @@ impl SandboxHost {
                 {
                     return Some(self.set_errno(EPERM));
                 }
+                if self.mapped_bytes.saturating_add(length) > MAX_MAPPED_BYTES {
+                    return Some(self.set_errno(super::super::errno::ENOMEM));
+                }
                 let Some(mapping) = Mapping::reserve(length, arg(2) as i32) else {
                     return Some(self.set_errno(super::super::errno::ENOMEM));
                 };
+                self.mapped_bytes += length;
                 let base = mapping.base;
                 self.mappings.insert(base, mapping);
                 return Some(base);
@@ -164,6 +173,7 @@ impl SandboxHost {
                 self.mappings.insert(key, mapping);
                 return Some(self.set_errno(EINVAL));
             }
+            self.mapped_bytes -= length;
             let old_end = mapping.base + mapping.len;
             mapping.len = 0;
             if key < base {

@@ -83,6 +83,41 @@ fn process_creation_and_shared_memory_are_refused() {
     assert_eq!(call(&mut h, "posix_spawnp", &[0, 0, 0, 0, 0, 0]), EPERM);
 }
 
+#[cfg(unix)]
+#[test]
+fn anonymous_mappings_share_one_total_cap_per_host() {
+    const ENOMEM: u32 = 12;
+    let mut h = host();
+    h.darwin_files = cfg!(target_os = "macos");
+    let flags = if h.darwin_files {
+        2 | 0x1000
+    } else {
+        2 | 0x20
+    };
+    let map = |h: &mut SandboxHost, len: u64| call(h, "mmap", &[0, len, 3, flags, u64::MAX, 0]);
+    let half = virtual_memory::MAX_MAPPED_BYTES / 2;
+    let page = virtual_memory::page_size();
+
+    // One request over the cap is refused outright.
+    assert_eq!(map(&mut h, 2 * half + page), u64::MAX);
+    assert_eq!(errno(&h), ENOMEM);
+
+    let first = map(&mut h, half);
+    let second = map(&mut h, half);
+    assert_ne!(first, u64::MAX);
+    assert_ne!(second, u64::MAX);
+    // The total, not each request, is capped.
+    assert_eq!(map(&mut h, page), u64::MAX);
+    assert_eq!(errno(&h), ENOMEM);
+
+    // Unmapping gives the bytes back, whole or in part.
+    assert_eq!(call(&mut h, "munmap", &[first, half]), 0);
+    let again = map(&mut h, page);
+    assert_ne!(again, u64::MAX);
+    assert_eq!(call(&mut h, "munmap", &[second, page]), 0);
+    assert_eq!(call(&mut h, "munmap", &[again, page]), 0);
+}
+
 #[test]
 fn darwin_error_and_realpath_names_are_served() {
     let mut h = host();
