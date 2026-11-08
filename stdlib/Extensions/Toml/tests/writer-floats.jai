@@ -76,9 +76,7 @@ intrinsic_allocations :: () -> int {
         real: float64 = 1.25;
         format: FormatFloat;
         format.value = real;
-        format.mode = .SCIENTIFIC;
-        format.trailing_width = 16;
-        format.zero_removal = .NO;
+        format.mode = .SHORTEST;
 
         for 1..12 {
             print_float(*scratch, format);
@@ -124,8 +122,25 @@ main :: () {
     assert(error.kind == .NONE);
     text, write_error := write_toml(doc.root);
 
-    assert(write_error.kind == .NONE && text == "x = 1.2500000000000000e+00\n", text);
+    assert(write_error.kind == .NONE && text == "x = 1.25\n", text);
     free(text);
     free_toml(*doc);
+
+    // Shortest spelling: plain decimals while the exponent is small, always a float.
+    spellings := string.["1.0", "-0.0", "100.0", "0.1", "0.05", "0.00012", "123456.789", "1.5e-7", "1e+21", "5e-324", "1.7976931348623157e+308", "123456789012345680.0", "0.0001"];
+
+    for spellings {
+        source := tprint("x = %\n", it);
+        parsed, parse_error := parse_toml(source);
+
+        assert(parse_error.kind == .NONE, it);
+        written, written_error := write_toml(parsed.root);
+
+        assert(written_error.kind == .NONE);
+        assert(written == source || (it == "1.5e-7" && written == "x = 1.5e-07\n"), tprint("% -> %", it, written));
+        free(written);
+        free_toml(*parsed);
+    }
+
     print("ok\n");
 }

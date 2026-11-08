@@ -166,38 +166,8 @@ toml_write_value :: (w: *Toml_Writer, node: *Toml_Value, depth: int) {
     if node.kind == .STRING toml_write_string(w, node.text);
     else if node.kind == .INTEGER toml_write_integer(w, node.integer);
     else if node.kind == .BOOL toml_emit(w, ifx node.boolean then "true" else "false");
-    else if node.kind == .FLOAT {
-        bits := cast,force(u64) node.real;
-        if (bits & 0x7fffffffffffffff) > 0x7ff0000000000000 toml_emit(w, "nan");
-        else if (bits & 0x7fffffffffffffff) == 0x7ff0000000000000 toml_emit(w, ifx (bits >> 63) != 0 then "-inf" else "inf");
-        else {
-            format: FormatFloat;
-            format.value = node.real;
-            format.width = -1;
-            format.mode = .SCIENTIFIC;
-            format.trailing_width = 16;
-            format.zero_removal = .NO;
-            format.thousand_separators = false;
-            format.decimal_separator_character = 46;
-            format.exponent_character = 101;
-            format.positive_number_prefix = .NONE;
-            print_float(*w.float_scratch, format);
-
-            if w.float_scratch.failed {
-                toml_write_fail(w, .OUTPUT, "float formatting allocation failed");
-                return;
-            }
-
-            // Keep conversion scratch separate: output admission still precedes every copy.
-            buffer := get_base_buffer(*w.float_scratch);
-            while buffer {
-                toml_emit(w, string.{ buffer.count, get_buffer_data(buffer) });
-                buffer = buffer.next;
-            }
-
-            reset(*w.float_scratch);
-        }
-    } else if node.kind == .ARRAY {
+    else if node.kind == .FLOAT toml_write_float(w, node.real);
+    else if node.kind == .ARRAY {
         toml_emit(w, "[");
 
         for node.items {
@@ -290,6 +260,181 @@ toml_write_value :: (w: *Toml_Writer, node: *Toml_Value, depth: int) {
             toml_emit(w, string.{ suffix.count, suffix.data });
         }
     }
+}
+
+// The shortest digits that read back as the same binary64 (signed zeros and subnormals
+// included), laid out as a plain decimal when the exponent is small and kept scientific
+// otherwise. Every spelling has a fraction or an exponent, so it stays a float.
+toml_write_float :: (w: *Toml_Writer, value: float64) {
+    bits := cast,force(u64) value;
+
+    if (bits & 0x7fffffffffffffff) > 0x7ff0000000000000 {
+        toml_emit(w, "nan");
+        return;
+    }
+
+    if (bits & 0x7fffffffffffffff) == 0x7ff0000000000000 {
+        toml_emit(w, ifx (bits >> 63) != 0 then "-inf" else "inf");
+        return;
+    }
+
+    format: FormatFloat;
+    format.value = value;
+    format.width = -1;
+    format.mode = .SHORTEST;
+    format.thousand_separators = false;
+    format.decimal_separator_character = 46;
+    format.exponent_character = 101;
+    format.positive_number_prefix = .NONE;
+    print_float(*w.float_scratch, format);
+
+    if w.float_scratch.failed {
+        toml_write_fail(w, .OUTPUT, "float formatting allocation failed");
+        return;
+    }
+
+    // At most 24 bytes: sign, 17 digits, point, exponent. Conversion scratch stays separate so
+    // output admission still precedes every copy.
+    raw: [32] u8 = ---;
+    raw_count := 0;
+    buffer := get_base_buffer(*w.float_scratch);
+
+    while buffer {
+        for 0..buffer.count - 1 {
+            if raw_count < raw.count {
+                raw[raw_count] = get_buffer_data(buffer)[it];
+                raw_count += 1;
+            }
+        }
+
+        buffer = buffer.next;
+    }
+
+    reset(*w.float_scratch);
+
+    negative := raw_count > 0 && raw[0] == 45;
+    digits: [24] u8 = ---;
+    digit_count := 0;
+    exponent := 0;
+    point := -1;
+    cursor := ifx negative then 1 else 0;
+    has_exponent := false;
+
+    while cursor < raw_count {
+        c := raw[cursor];
+
+        if c == 46 point = digit_count;
+        else if c == 101 {
+            has_exponent = true;
+            cursor += 1;
+            exponent_negative := cursor < raw_count && raw[cursor] == 45;
+
+            if cursor < raw_count && (raw[cursor] == 45 || raw[cursor] == 43) cursor += 1;
+
+            while cursor < raw_count {
+                exponent = exponent * 10 + raw[cursor] - 48;
+                cursor += 1;
+            }
+
+            if exponent_negative exponent = -exponent;
+
+            break;
+        } else if digit_count < digits.count {
+            digits[digit_count] = c;
+            digit_count += 1;
+        }
+
+        cursor += 1;
+    }
+
+    if point < 0 point = digit_count;
+
+    // `0.05` arrives as digits 005 with the point after the first.
+    while digit_count > 1 && digits[0] == 48 {
+        for 1..digit_count - 1 digits[it - 1] = digits[it];
+
+        digit_count -= 1;
+        point -= 1;
+    }
+
+    // Position of the decimal point relative to the digit string.
+    point += exponent;
+
+    out: [64] u8 = ---;
+    count := 0;
+
+    if negative {
+        out[0] = 45;
+        count = 1;
+    }
+
+    if has_exponent && (point > 21 || point < -4) {
+        // Scientific: d[.ddd]e+XX, shortest digits as printed.
+        out[count] = digits[0];
+        count += 1;
+
+        if digit_count > 1 {
+            out[count] = 46;
+            count += 1;
+
+            for 1..digit_count - 1 {
+                out[count] = digits[it];
+                count += 1;
+            }
+        }
+
+        out[count] = 101;
+        count += 1;
+        scientific := point - 1;
+
+        if scientific < 0 {
+            out[count] = 45;
+            scientific = -scientific;
+        } else out[count] = 43;
+
+        count += 1;
+
+        if scientific >= 100 {
+            out[count] = cast(u8) (48 + scientific / 100);
+            count += 1;
+        }
+
+        out[count] = cast(u8) (48 + (scientific / 10) % 10);
+        out[count + 1] = cast(u8) (48 + scientific % 10);
+        count += 2;
+    } else if point <= 0 {
+        out[count] = 48;
+        out[count + 1] = 46;
+        count += 2;
+
+        for 1..-point {
+            out[count] = 48;
+            count += 1;
+        }
+
+        for 0..digit_count - 1 {
+            out[count] = digits[it];
+            count += 1;
+        }
+    } else {
+        for 0..max(point, digit_count) - 1 {
+            if it == point {
+                out[count] = 46;
+                count += 1;
+            }
+
+            out[count] = ifx it < digit_count then digits[it] else 48;
+            count += 1;
+        }
+
+        if point >= digit_count {
+            out[count] = 46;
+            out[count + 1] = 48;
+            count += 2;
+        }
+    }
+
+    toml_emit(w, string.{ count, out.data });
 }
 
 // Callers validate fixed civil fields first; every requested digit fits its width.
