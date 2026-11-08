@@ -30,6 +30,7 @@ pub(super) mod symbols;
 #[cfg(test)]
 mod tests;
 mod time;
+mod virtual_memory;
 mod windows;
 
 use guest::{
@@ -249,6 +250,8 @@ pub struct SandboxHost {
     /// Write order across the two streams: `(to_stderr, bytes)` runs, adjacent runs merged.
     pub order: Vec<(bool, usize)>,
     allocations: HashMap<u64, (ZeroedBlock, usize)>,
+    #[cfg(unix)]
+    mappings: BTreeMap<u64, virtual_memory::Mapping>,
     /// Virtual clock ticks (nanoseconds) handed out by `clock_gettime`; the sandbox has no real
     /// time source on wasm32, so every query advances this by one microsecond.
     clock_ns: u64,
@@ -263,7 +266,7 @@ pub struct SandboxHost {
     /// `FILE*` handle address -> descriptor.
     streams: HashMap<u64, i64>,
     dirs: HashMap<u64, DirStream>,
-    /// Darwin stat/dirent layouts for sandboxed host-target metaprograms.
+    /// Darwin POSIX layouts and configuration query numbers for host-target metaprograms.
     darwin_files: bool,
     errno_cell: u64,
     /// Windows' `GetLastError`.
@@ -287,8 +290,9 @@ pub struct SandboxHost {
 }
 
 impl SandboxHost {
-    /// Select the POSIX file-record layout of code running on this host. Wasm uses the
-    /// library's Linux-compatible records. Call before running a different target's code.
+    /// Select the POSIX ABI of code running on this host, including file records and
+    /// `sysconf` query numbers. Wasm uses the library's Linux-compatible ABI.
+    /// Call before running a different target's code.
     pub fn set_file_target(&mut self, os: crate::target::TargetOs) {
         self.darwin_files = os == crate::target::TargetOs::MacOS;
     }
@@ -606,6 +610,7 @@ impl Host for SandboxHost {
         let served = self
             .stdin_foreign(fun, args)
             .or_else(|| self.memory_call(fun, arg))
+            .or_else(|| self.virtual_memory_call(fun, arg))
             .or_else(|| self.time_call(fun, arg))
             .or_else(|| self.numeric_call(fun, arg))
             .or_else(|| self.socket_call(fun, arg))

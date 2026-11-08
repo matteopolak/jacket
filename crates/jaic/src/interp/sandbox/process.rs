@@ -39,10 +39,11 @@ impl SandboxHost {
             LibcFn::JaiHostProvides => 0,
             LibcFn::WasmDebugBreak => return Some(Err("debug_break() was called".into())),
             LibcFn::SchedYield => 0,
-            // One processor, 4 KiB pages: the browser sandbox is a single cooperative thread.
-            LibcFn::Sysconf => match arg(0) as i32 {
-                83 | 84 => 1,
-                30 => 4096,
+            // One processor, and the page size of the sandbox's private mappings. Query numbers belong to the program's ABI,
+            // including native-target metaprograms checked by the editor.
+            LibcFn::Sysconf => match (self.darwin_files, arg(0) as i32) {
+                (true, 57 | 58) | (false, 83 | 84) => 1,
+                (true, 29) | (false, 30) => super::virtual_memory::page_size(),
                 _ => self.set_errno(EINVAL),
             },
             LibcFn::Getpid => 1,

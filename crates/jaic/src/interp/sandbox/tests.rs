@@ -38,6 +38,29 @@ fn errno(host: &SandboxHost) -> u32 {
 }
 
 #[test]
+fn sysconf_queries_follow_the_programs_posix_target() {
+    use crate::target::TargetOs;
+
+    let mut h = host();
+    for (os, page, configured, online) in [
+        (TargetOs::MacOS, 29, 57, 58),
+        (TargetOs::Linux, 30, 83, 84),
+        (TargetOs::Wasm, 30, 83, 84),
+    ] {
+        h.set_file_target(os);
+        assert_eq!(
+            call(&mut h, "sysconf", &[page]),
+            super::virtual_memory::page_size(),
+            "{os:?}"
+        );
+        assert_eq!(call(&mut h, "sysconf", &[configured]), 1, "{os:?}");
+        assert_eq!(call(&mut h, "sysconf", &[online]), 1, "{os:?}");
+        assert_eq!(call(&mut h, "sysconf", &[u64::MAX]), u64::MAX);
+        assert_eq!(errno(&h), EINVAL as u32);
+    }
+}
+
+#[test]
 fn process_creation_and_shared_memory_are_refused() {
     let mut h = host();
     for symbol in [
