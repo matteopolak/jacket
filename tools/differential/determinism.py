@@ -95,14 +95,15 @@ def run(argv, cwd, timeout=TIMEOUT, seed=None):
     return (-1, b"", b"timeout")
 
 
-GLOBAL_DATA = re.compile(rb"^(@compiler\.global_data\.\d+ = [^<]*)<\{.*$", re.MULTILINE)
+GLOBAL_DATA = re.compile(rb"^@compiler\.global_data\.g\d+ = .*$", re.MULTILINE)
+BYTE_LITERAL = re.compile(rb'c"(?:\\[0-9A-Fa-f]{2}|[^"\\])*"')
 
 
 def strip_global_data(ir: bytes) -> bytes:
     """The IR without the contents of `@compiler.global_data.*`: compile-time values placed in the program
     (a `Code` or a node list the metaprogram built) hold addresses of the compiler's own memory, which differ
-    from process to process."""
-    return GLOBAL_DATA.sub(rb"\1", ir)
+    from process to process. Symbol identity, storage layout and alignment remain checked."""
+    return GLOBAL_DATA.sub(lambda match: BYTE_LITERAL.sub(b'c"<host-data>"', match.group()), ir)
 
 
 def digest(data: bytes) -> str:

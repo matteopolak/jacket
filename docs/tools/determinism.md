@@ -25,7 +25,7 @@ A full run with `--scramble 1,2` takes about an hour. CI runs it nightly (`deter
 - **Where to get declaration order.** A scope's `names` map iterates in symbol-number order. Anything a user can see (which error comes first, the order of suggestions, the type table) takes its order from `Scope::declared()`, which lists `(entity, name)` in declaration order. A pass whose result does not depend on the order (an `any`, a sum, a set that is sorted afterwards) can keep iterating the map.
 - **Fast guard.** `cargo test -p jaic-cli --test symbol_order` compiles a few programs from `tests/fixtures/symbol-order/` (and the type-table and metaprogramming cases) under three seeds with `-serial_parse` and requires identical output (`test_support::determinism::assert_stable`); it takes about a second. Add a program there when a new visible symptom is fixed.
 - **Machine code.** Compared byte for byte, except that unoptimized macOS links hash the kept objects (the debug map stores object times).
-- **Host addresses.** Compile-time values placed in the program hold compiler memory addresses, so the check blanks `@compiler.global_data.*` initializers (`strip_global_data`). `HOST_ADDRESS_CASES` lists programs that do this on purpose and compare only diagnostics.
+- **Host addresses.** Compile-time values placed in the program hold compiler memory addresses, so the check normalizes byte-string payloads of `@compiler.global_data.g<id>` globals (`strip_global_data`). It still compares symbol identity, storage layout, alignment and all other globals. `HOST_ADDRESS_CASES` lists programs that do this on purpose and compare only diagnostics.
 - A timeout is repeated once; only a second timeout counts.
 
 ## How to change it
@@ -38,3 +38,9 @@ A full run with `--scramble 1,2` takes about an hour. CI runs it nightly (`deter
 ## Configuration
 
 `--jaic`, `--jailsp`, `--repeat` (2), `--filter`, `--jobs`, `--shard K/N`, `--no-lsp`, `--no-build`, `--scramble`.
+
+`tools/differential/test_determinism.py` pins the emitter's global-name format and
+the normalization boundary. Run it with
+`PYTHONPATH=tools python3 -m unittest differential.test_determinism`. When changing
+LLVM symbol naming, update this matcher and the artifact tests together; do not
+add affected programs to `HOST_ADDRESS_CASES` just to bypass comparison.
