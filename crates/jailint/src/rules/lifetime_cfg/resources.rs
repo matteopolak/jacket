@@ -52,7 +52,10 @@ pub(super) enum Op {
         cell: usize,
         span: Span,
         callee: ProcId,
+        /// Only what the value owns is released, so the value itself stays usable.
         contents: bool,
+        /// With `contents`, the members holding the released storage; `None` means unknown.
+        fields: Option<Vec<jaic::intern::Sym>>,
     },
     FreeRegion {
         region: usize,

@@ -1,6 +1,7 @@
 mod descriptors;
 mod exact_cleanup;
 mod native_releases;
+mod releases;
 mod stdlib_allocations;
 
 use super::*;

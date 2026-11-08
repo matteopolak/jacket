@@ -111,6 +111,14 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 {
                     continue;
                 }
+                // The other members of a value whose contents were released are still valid.
+                if let Some(freed) = released_members(model, &witnesses)
+                    && let Some(member) =
+                        used_member(&cx.compiler.src.sources.get(at.file).text[at.start as usize..])
+                    && !freed.iter().any(|f| f.as_str() == member)
+                {
+                    continue;
+                }
                 if matches!(kind, Origin::Stack(_) | Origin::Statement(_)) {
                     let mut f = finding(*at,"this pointer refers to stack storage whose lifetime has ended".into(),Some("keep the value in the enclosing scope, or copy it into caller-owned storage".into()));
                     label(&mut f, origin, &witnesses);
@@ -181,6 +189,16 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                         ..
                     })
                 ) {
+                    continue;
+                }
+                if let CfgOp::Resource(Op::Free {
+                    contents: true,
+                    fields: Some(now),
+                    ..
+                }) = &block.op
+                    && let Some(before) = released_members(model, &witnesses)
+                    && !now.iter().any(|f| before.contains(f))
+                {
                     continue;
                 }
                 let name = free_name(cx, body, *span);
@@ -1024,4 +1042,34 @@ fn entrypoint_activation(cx: &Cx, body: &LifetimeBody) -> bool {
                 _ => false,
             })
     })
+}
+
+/// The members that every witness released, when each one released only named members of its
+/// argument.
+fn released_members(model: &Model, witnesses: &[(usize, Span)]) -> Option<Vec<jaic::intern::Sym>> {
+    let mut all = Vec::new();
+    for (j, _) in witnesses {
+        let CfgOp::Resource(Op::Free {
+            contents: true,
+            fields: Some(fields),
+            ..
+        }) = &model.blocks[*j].op
+        else {
+            return None;
+        };
+        all.extend(fields.iter().copied());
+    }
+    (!all.is_empty()).then_some(all)
+}
+
+/// The member `text` reads from the variable it starts with: `names` for `*r.names`.
+fn used_member(text: &str) -> Option<&str> {
+    let ident = |t: &str| {
+        t.find(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .unwrap_or(t.len())
+    };
+    let text = text.trim_start_matches(['*', '&']);
+    let rest = text[ident(text)..].strip_prefix('.')?;
+    let member = &rest[..ident(rest)];
+    (!member.is_empty()).then_some(member)
 }

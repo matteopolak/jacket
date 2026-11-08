@@ -5,6 +5,16 @@ use super::{
 };
 use crate::rules::lifetime_summary::Resolver;
 
+/// The type is a pointer to a struct, whose members a callee can release one by one.
+fn points_to_struct(c: &jaic::sema::Compiler, ty: jaic::types::TypeId) -> bool {
+    c.ty.types.pointee(ty).is_some_and(|ty| {
+        matches!(
+            c.ty.types.kind(c.ty.types.repr_struct(ty)),
+            TypeKind::Struct(_)
+        )
+    })
+}
+
 impl Builder<'_> {
     pub(super) fn call(
         &self,
@@ -38,17 +48,13 @@ impl Builder<'_> {
             && let Some(arg) = args.iter().find(|a| a.formal == formal)
             && let Some(cell) = operand_cell(cx, places, cells, arg)
         {
-            let contents = c.ty.types.pointee(arg.ty).is_some_and(|ty| {
-                matches!(
-                    c.ty.types.kind(c.ty.types.repr_struct(ty)),
-                    TypeKind::Struct(_)
-                )
-            });
+            let contents = points_to_struct(c, arg.ty);
             ops.push(Op::Free {
                 cell,
                 span: *span,
                 callee: *callee,
                 contents,
+                fields: None,
             });
         }
         let guaranteed = resolver.call_effects(event, &summaries.procs, true);
@@ -62,6 +68,32 @@ impl Builder<'_> {
                         span: *span,
                         callee: *callee,
                         contents: false,
+                        fields: None,
+                    });
+                }
+            }
+        }
+        // A body that frees what an argument owns, and does not give those places a new value,
+        // leaves the argument holding released storage: the same contract the note states.
+        if !frees
+            && direct
+            && let Some(summary) = summaries.procs.get(callee)
+        {
+            let whole = resolver.released_formals(event, &summaries.procs, true);
+            for (formal, contents) in summary.released_contents_all() {
+                if contents.reset || whole.contains(&formal) {
+                    continue;
+                }
+                if let Some(arg) = args.iter().find(|a| a.formal == formal)
+                    && points_to_struct(c, arg.ty)
+                    && let Some(cell) = operand_cell(cx, places, cells, arg)
+                {
+                    ops.push(Op::Free {
+                        cell,
+                        span: *span,
+                        callee: *callee,
+                        contents: true,
+                        fields: contents.fields,
                     });
                 }
             }
@@ -252,6 +284,7 @@ impl Builder<'_> {
                 span: *span,
                 callee: jaic::sema::ProcId(u32::MAX),
                 contents: false,
+                fields: None,
             });
         }
         ops

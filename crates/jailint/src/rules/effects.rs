@@ -33,44 +33,49 @@ impl Effect {
             Self::Minimum => summary.ordering == Some(lifetime_summary::Ordering::Minimum),
             Self::Maximum => summary.ordering == Some(lifetime_summary::Ordering::Maximum),
             Self::Cleanup | Self::CleanupFirst | Self::ReleasedFirst => {
-                summary.may.keys().any(|e| {
-                    let lifetime_summary::Root::Parameter(n) = e.target.root else {
-                        return false;
-                    };
-                    if e.kind != lifetime_summary::Kind::Free
-                        || !matches!(self, Self::Cleanup) && n != 0
-                    {
-                        return false;
-                    }
-                    if e.target.steps.is_empty() {
-                        return true;
-                    }
-                    if !lifetime_summary::descriptor_storage(&e.target.steps) {
-                        return false;
-                    }
-                    let Some(ty) = cx.compiler.pr.procs[proc.0 as usize]
-                        .sig
-                        .as_ref()
-                        .and_then(|s| s.params.get(n))
-                        .map(|p| p.ty)
-                    else {
-                        return false;
-                    };
-                    let descriptor = |ty| {
-                        matches!(
-                            cx.compiler.ty.types.kind(ty),
-                            jaic::types::TypeKind::String
-                                | jaic::types::TypeKind::Array {
-                                    kind: jaic::types::ArrayKind::View
-                                        | jaic::types::ArrayKind::Resizable,
-                                    ..
-                                }
-                        )
-                    };
-                    descriptor(ty)
-                        || !matches!(self, Self::ReleasedFirst)
-                            && cx.compiler.ty.types.pointee(ty).is_some_and(descriptor)
-                })
+                // What the call frees below an argument on every path is released too.
+                summary
+                    .released_contents_all()
+                    .iter()
+                    .any(|(n, _)| matches!(self, Self::Cleanup) || *n == 0)
+                    || summary.may.keys().any(|e| {
+                        let lifetime_summary::Root::Parameter(n) = e.target.root else {
+                            return false;
+                        };
+                        if e.kind != lifetime_summary::Kind::Free
+                            || !matches!(self, Self::Cleanup) && n != 0
+                        {
+                            return false;
+                        }
+                        if e.target.steps.is_empty() {
+                            return true;
+                        }
+                        if !lifetime_summary::descriptor_storage(&e.target.steps) {
+                            return false;
+                        }
+                        let Some(ty) = cx.compiler.pr.procs[proc.0 as usize]
+                            .sig
+                            .as_ref()
+                            .and_then(|s| s.params.get(n))
+                            .map(|p| p.ty)
+                        else {
+                            return false;
+                        };
+                        let descriptor = |ty| {
+                            matches!(
+                                cx.compiler.ty.types.kind(ty),
+                                jaic::types::TypeKind::String
+                                    | jaic::types::TypeKind::Array {
+                                        kind: jaic::types::ArrayKind::View
+                                            | jaic::types::ArrayKind::Resizable,
+                                        ..
+                                    }
+                            )
+                        };
+                        descriptor(ty)
+                            || !matches!(self, Self::ReleasedFirst)
+                                && cx.compiler.ty.types.pointee(ty).is_some_and(descriptor)
+                    })
             }
         }
     }

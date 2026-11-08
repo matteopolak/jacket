@@ -40,3 +40,13 @@ warning[defer_in_loop]: this `defer` runs at the end of every iteration, not whe
    = help: move it before the loop if it should run once
    = note: `defer_in_loop` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/defer_in_loop
+
+warning[defer_in_loop]: this `defer` runs at the end of every iteration, not when the procedure returns
+  --> tests/lint/defer_in_loop/bad.jai:61:9
+   |
+61 |         defer clear_registry(*registry);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: move it before the loop if it should run once
+   = note: `defer_in_loop` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/defer_in_loop

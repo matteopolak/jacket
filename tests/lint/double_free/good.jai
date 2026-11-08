@@ -10,7 +10,39 @@ Holder :: struct {
 
 release_holder :: (holder: *Holder) {
     free(holder.name);
-} @FreesArgument
+}
+
+// Frees the name and gives the field a new value, so a second call frees nothing.
+reset_holder :: (holder: *Holder) {
+    free(holder.name);
+    holder.name = "";
+}
+
+// Frees only a copy of its own.
+release_scratch :: (holder: *Holder) {
+    scratch := copy_string("scratch");
+    free(scratch);
+}
+
+// Frees only on one path.
+release_sometimes :: (holder: *Holder, really: bool) {
+    if really free(holder.name);
+}
+
+main_repeats :: (really: bool) {
+    resettable := New(Holder);
+    resettable.name = copy_string("held");
+    reset_holder(resettable);
+    reset_holder(resettable);
+
+    scratch := New(Holder);
+    release_scratch(scratch);
+    release_scratch(scratch);
+
+    sometimes := New(Holder);
+    release_sometimes(sometimes, really);
+    release_sometimes(sometimes, really);
+}
 
 main :: () {
     // A new value in between.

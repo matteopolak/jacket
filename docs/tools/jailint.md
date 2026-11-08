@@ -81,7 +81,7 @@ To change what a rule recognises, annotate the declaration; the linter has no na
 | `@RemovesFromArray` | `remove_in_for`, lifetime rules | removes elements; `(ordered,1)`/`(unordered,1)` name the index argument, `(last)` pops |
 | `@GrowsArray` | `pointer_into_resizable` | may reallocate the resizable array its first argument points to |
 | `@AddsToArray` | `useless_resizable` | adds one element to that array |
-| `@FreesArgument` | `defer_in_loop`, lifetime rules | an argument's memory is gone after the call (the first, or `@FreesArgument(1)`); needed only when the body frees part of it or keeps it reusable |
+| `@FreesArgument` | `defer_in_loop`, lifetime rules | an argument's memory is gone after the call (the first, or `@FreesArgument(1)`); needed only on a declaration without a body, since a body that frees the argument or what it owns says it already |
 | `@Allocates` | `leaked_allocation`, `leaked_temporary` | the result is newly allocated and the caller owns it (bodiless only) |
 | `@TakesByteCount` | `element_count_as_bytes` | the last argument is a byte count |
 | `@Locks`, `@Unlocks` | `unpaired_lock` | takes or gives back the lock its first argument names |
@@ -94,6 +94,17 @@ To change what a rule recognises, annotate the declaration; the linter has no na
 | `@Opens`, `@Closes` | `unclosed_resource` | acquires or gives back a resource |
 
 Notes marked "bodiless only" are read only on a declaration without a body, such as a `#foreign` one. Otherwise the linter works the effect out from the checked body and the bodies it calls: a procedure that returns `alloc`'s result allocates, one whose every path reaches `exit` exits, a macro that pushes a context or assigns into `context` changes it, and `a < b` choosing between its two arguments makes a minimum or maximum. A note on a procedure with a body is ignored for these, so the declaration and the body can't disagree.
+
+A body that frees what a pointer argument owns (`free(h.name)`, `array_reset(*h.items)`, an allocator `.FREE` call on `h.storage`, or a call to another such procedure) releases that argument's contents. The struct stays valid; only the members it freed on every path are gone, so reading `h.count` afterwards is fine and `h.name` is not. A second call frees the same storage again (`double_free`) and a `defer` of it in a loop runs every iteration (`defer_in_loop`). A procedure that writes over what it freed (`h.name = ""`, `h.* = .{}`) leaves the struct reusable, so later reads and repeated calls are quiet. Frees that happen on only some paths, or of a temporary the procedure made itself, release nothing.
+
+```jai
+drop_label :: (r: *Registry) { free(r.label); }
+
+p := New(Registry);
+drop_label(p);
+print("%\n", p.count);   // fine
+print("%\n", p.label);   // use_after_free
+```
 
 Results are followed through struct fields, so a string or array view whose `data` came from `tprint` or `alloc` is temporary or owned like the pointer itself. A global that briefly holds temporary storage is fine when every path clears it before temporary storage is reset or the procedure returns:
 

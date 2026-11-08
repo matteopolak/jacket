@@ -62,4 +62,28 @@ main :: () {
         defer free(scratch);
         print("%\n", it);
     }
+
+    registry: Registry;
+
+    for 1..2 {
+        // Neither call releases what the registry owns on every path.
+        defer touch_registry(*registry);
+        defer clear_sometimes(*registry, it == 1);
+    }
+}
+
+Registry :: struct {
+    label: string;
+    count: int;
+}
+
+// Frees only a copy of its own.
+touch_registry :: (registry: *Registry) {
+    scratch := copy_string("scratch");
+    free(scratch);
+}
+
+// Frees only on one path.
+clear_sometimes :: (registry: *Registry, really: bool) {
+    if really free(registry.label);
 }

@@ -550,8 +550,8 @@ fn lifetime_summaries_work_when_a_module_is_checked_alone() {
 fn lifetime_resource_migration_preserves_existing_cases() {
     let mut failures = Vec::new();
     for (rule, expected) in [
-        ("use_after_free", 4),
-        ("double_free", 3),
+        ("use_after_free", 7),
+        ("double_free", 5),
         ("returned_local_address", 5),
         ("temp_storage_escape", 3),
     ] {

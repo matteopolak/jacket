@@ -39,3 +39,16 @@ help: the deferred call runs after the value is returned: drop the `defer`, or r
    |
    = note: `defer_frees_returned` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned
+
+error[defer_frees_returned]: `registry` is returned, but the `defer` above frees it
+  --> tests/lint/defer_frees_returned/bad.jai:37:12
+   |
+37 |     return registry;
+   |            ^^^^^^^^
+   |
+help: the deferred call runs after the value is returned: drop the `defer`, or return a copy
+   |
+36 -     defer clear_registry(registry);
+   |
+   = note: `defer_frees_returned` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/defer_frees_returned

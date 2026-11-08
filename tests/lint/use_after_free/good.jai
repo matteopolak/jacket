@@ -22,7 +22,66 @@ Holder :: struct {
 // Releases what the holder owns; the holder itself stays valid.
 release_holder :: (holder: *Holder) {
     free(holder.name);
-} @FreesArgument
+}
+
+Registry :: struct {
+    label: string;
+    count: int;
+}
+
+drop_label :: (registry: *Registry) {
+    free(registry.label);
+}
+
+// Frees the label and gives the field a new value, so the registry is reusable.
+reset_label :: (registry: *Registry) {
+    free(registry.label);
+    registry.label = "";
+}
+
+// Frees only a copy of its own.
+drop_scratch :: (registry: *Registry) {
+    scratch := copy_string("scratch");
+    free(scratch);
+}
+
+// Frees only on one path.
+drop_sometimes :: (registry: *Registry, really: bool) {
+    if really free(registry.label);
+}
+
+other_field_after_drop :: () {
+    registry := New(Registry);
+    registry.label = copy_string("gone");
+    registry.count = 3;
+
+    drop_label(registry);
+    print("%\n", registry.count);
+}
+
+reused_after_reset :: () {
+    registry := New(Registry);
+    registry.label = copy_string("gone");
+
+    reset_label(registry);
+    print("%\n", registry.label);
+}
+
+after_scratch_drop :: () {
+    registry := New(Registry);
+    registry.label = copy_string("kept");
+
+    drop_scratch(registry);
+    print("%\n", registry.label);
+}
+
+after_conditional_drop :: (really: bool) {
+    registry := New(Registry);
+    registry.label = copy_string("maybe");
+
+    drop_sometimes(registry, really);
+    print("%\n", registry.label);
+}
 
 restart :: (holder: *Holder) {
     release_holder(holder);

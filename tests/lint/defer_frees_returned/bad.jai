@@ -20,7 +20,25 @@ make_buffer :: (size: int, zeroed: bool) -> *u8 {
     return xx buffer;
 }
 
+Registry :: struct {
+    label: string;
+}
+
+// Frees what the registry owns.
+clear_registry :: (registry: *Registry) {
+    free(registry.label);
+}
+
+make_registry :: () -> *Registry {
+    registry := New(Registry);
+    registry.label = copy_string("kept");
+
+    defer clear_registry(registry);
+    return registry;
+}
+
 main :: () {
+    print("%\n", make_registry());
     print("%\n", make_name("Ann"));
     print("%\n", make_buffer(8, true));
 }

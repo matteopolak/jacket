@@ -21,3 +21,34 @@ main :: () {
     array_free(items);
     array_free(items);
 }
+
+Holder :: struct {
+    name: string;
+    items: [..] int;
+}
+
+release_name :: (holder: *Holder) {
+    free(holder.name);
+}
+
+// Reaches the storage through another helper.
+release_all :: (holder: *Holder) {
+    release_name(holder);
+    array_reset(*holder.items);
+}
+
+release_twice :: () {
+    holder := New(Holder);
+    holder.name = copy_string("held");
+
+    release_name(holder);
+    release_name(holder);
+}
+
+release_all_twice :: () {
+    holder := New(Holder);
+    holder.name = copy_string("held");
+
+    release_all(holder);
+    release_all(holder);
+}

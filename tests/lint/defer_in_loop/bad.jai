@@ -41,3 +41,23 @@ unnoted_release :: () {
         defer dispose_quietly(buffer);
     }
 }
+
+Registry :: struct {
+    label: string;
+    items: [..] int;
+}
+
+// Frees what the registry owns, then makes it reusable.
+clear_registry :: (registry: *Registry) {
+    free(registry.label);
+    array_reset(*registry.items);
+    registry.* = .{};
+}
+
+clear_in_loop :: () {
+    registry: Registry;
+
+    for 1..2 {
+        defer clear_registry(*registry);
+    }
+}
