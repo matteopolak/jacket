@@ -28,6 +28,15 @@ Exit status: 0 clean, 1 a denied finding or a program that did not compile fully
 
 In editors, diagnostics carry the rule as `code` and link to its `### <rule>` section below; `deny` rules are errors. Settings come from the `[lint]` table of the nearest `jacket.toml` ([language server](../compiler/language-server.md#lints-and-quick-fixes)).
 
+Style rules that exclude metaprogram operands use `Cx::in_code_operand` in
+`crates/jailint/src/syntax.rs`. It indexes ownership in the full source before
+procedures are collected separately. This keeps a procedure literal inside
+`#code`, `#run` or `#insert` inside that boundary even after it checks successfully.
+`redundant_alias` and `unused_variable` share the lookup; ordinary procedures
+called by `#run` remain eligible because their source is outside the operand.
+There are no extra settings. When extending source traversal, keep the ownership
+lookup and `rules/accuracy.rs` regressions together.
+
 ## Project and explicit-path runs
 
 With no paths, `jailint` and `jacket lint` use the nearest configured `[project] entry` list, or the first existing inferred entry (`build.jai`, `first.jai`, `main.jai`, `src/main.jai`, `module.jai`). The build metaprogram supplies each child workspace's source and module parameters. Only selected project sources actually visited by those checks are linted; unrelated vendor examples and other-platform sources are not compiled as separate programs. Real check failures still produce incomplete-check errors, and the manifest lists unvisited files.

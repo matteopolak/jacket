@@ -424,3 +424,65 @@ fn lifetime_ci_local_element_field() {
     assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
     assert!(lints.iter().all(|l| l.start > text.find("bad ::").unwrap()));
 }
+
+#[test]
+fn code_operand_roots_preserve_style_rule_ownership() {
+    let path = repo().join("tests/compiler/semantics/code-roundtrip-attributes.jai");
+    let levels = [
+        ("redundant_alias", Level::Warn),
+        ("unused_variable", Level::Warn),
+    ];
+    let mut options = jaic::sema::Options::host();
+    options.os = jaic::target::TargetOs::MacOS;
+    let (findings, text) = lint_target(&path, &levels, Config::default(), options);
+    assert!(findings.is_empty(), "{}", rendered(&findings, &text, &path));
+}
+
+#[test]
+fn ordinary_procedures_called_at_compile_time_still_get_style_diagnostics() {
+    let root = TempDir::new("style-ordinary-compile-time-body");
+    let path = root.join("main.jai");
+    std::fs::write(
+        &path,
+        r"
+ordinary :: () -> int {
+    unused_local := 0;
+    answer := 11;
+    return answer;
+}
+VALUE :: #run ordinary();
+main :: () {}
+",
+    )
+    .unwrap();
+    let (findings, text) = lint(
+        &path,
+        &[
+            ("redundant_alias", Level::Warn),
+            ("unused_variable", Level::Warn),
+        ],
+    );
+    assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
+    assert!(findings.iter().any(|f| f.rule == "redundant_alias"));
+    assert!(findings.iter().any(|f| f.rule == "unused_variable"));
+}
+
+#[test]
+fn nested_procedures_in_run_and_insert_operands_keep_their_boundaries() {
+    for definition in [
+        "VALUE :: #run -> int { unused_local := 0; answer := 11; return answer; };",
+        "#insert -> string { unused_local := 0; answer := \"\"; return answer; };",
+    ] {
+        let root = TempDir::new("style-code-operand-body");
+        let path = root.join("main.jai");
+        std::fs::write(&path, format!("{definition}\nmain :: () {{}}\n")).unwrap();
+        let (findings, text) = lint(
+            &path,
+            &[
+                ("redundant_alias", Level::Warn),
+                ("unused_variable", Level::Warn),
+            ],
+        );
+        assert!(findings.is_empty(), "{}", rendered(&findings, &text, &path));
+    }
+}

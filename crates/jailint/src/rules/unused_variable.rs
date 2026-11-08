@@ -44,15 +44,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             // Declarations inside `#run` / `#code` / `#insert` operands are not this body's.
-            if chain.iter().any(|a| {
-                matches!(
-                    a,
-                    Node::Expr(Expr {
-                        kind: E::Run { .. } | E::Code(_) | E::Insert(_),
-                        ..
-                    })
-                )
-            }) {
+            if cx.in_code_operand(d.span) {
                 return false;
             }
             let block = chain

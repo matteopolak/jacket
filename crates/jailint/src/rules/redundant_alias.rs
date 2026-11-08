@@ -30,7 +30,6 @@
 use super::{callee_procs, statement_lists};
 use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
-use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Decl, DeclKind, Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;
@@ -53,24 +52,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro {
             continue;
         }
-        let mut opaque: Vec<Span> = Vec::new();
-        walk(&p.body.stmts, &mut |n, _| {
-            if let Node::Expr(e) = n
-                && matches!(e.kind, E::Run { .. } | E::Code(_) | E::Insert(_))
-            {
-                opaque.push(e.span);
-            }
-            true
-        });
         let return_tys = return_types(cx, p.header.span);
         let body = p.body.span;
         statement_lists(&p.body.stmts, &mut |list| {
             for pair in list.windows(2) {
                 let (first, next) = (&pair[0], &pair[1]);
-                if opaque
-                    .iter()
-                    .any(|o| o.start <= first.span.start && next.span.end <= o.end)
-                {
+                if cx.in_code_operand(first.span) || cx.in_code_operand(next.span) {
                     continue;
                 }
                 let S::Decl(a) = &first.kind else {

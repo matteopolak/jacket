@@ -22,6 +22,8 @@ pub(crate) struct Cx<'a> {
     /// The file's top-level statements.
     pub stmts: &'a [Stmt],
     pub procs: Vec<ProcSite<'a>>,
+    /// Full-source ownership ranges, retained when procedure collection starts a new walk.
+    code_operands: Vec<Span>,
     pub imports: Vec<crate::rules::unused_import::Unused>,
     /// Links in doc comments that name nothing (`broken_doc_link`).
     pub doc_links: Vec<crate::rules::broken_doc_link::Broken>,
@@ -78,6 +80,8 @@ impl<'a> Cx<'a> {
     ) -> Self {
         let mut procs = Vec::new();
         collect_procs(&ast.stmts, None, false, false, compiler, &mut procs);
+        let mut code_operands = Vec::new();
+        collect_code_operands(&ast.stmts, &mut code_operands);
         Self {
             compiler,
             file: ast.file,
@@ -87,6 +91,7 @@ impl<'a> Cx<'a> {
             comments,
             stmts: &ast.stmts,
             procs,
+            code_operands,
             imports,
             doc_links: Vec::new(),
             complete: true,
@@ -99,6 +104,14 @@ impl<'a> Cx<'a> {
             magic_numbers: crate::config::MagicNumbers::default(),
             run,
         }
+    }
+
+    /// Whether source belongs to a #run/#code/#insert operand, including a nested
+    /// procedure collected independently, e.g. `N :: #run -> int { return 1; };`.
+    pub fn in_code_operand(&self, span: Span) -> bool {
+        self.code_operands.iter().any(|owner| {
+            owner.file == span.file && owner.start <= span.start && span.end <= owner.end
+        })
     }
 
     /// Source text of `span` (empty when out of range).
@@ -383,6 +396,30 @@ pub(crate) fn header_is_poly(h: &ProcHeader) -> bool {
         || h.returns
             .iter()
             .any(|r| r.ty.as_ref().is_some_and(jaic::sema::procs::has_poly))
+}
+
+/// Index opaque source before independent procedure walks discard its ancestors.
+fn collect_code_operands(stmts: &[Stmt], out: &mut Vec<Span>) {
+    jaic::ast::walk::walk(stmts, &mut |node, _| {
+        let opaque = match node {
+            Node::Expr(e) => matches!(e.kind, E::Run { .. } | E::Code(_) | E::Insert(_)),
+            Node::Stmt(s) => matches!(s.kind, S::Run(_) | S::Insert(_)),
+        };
+        if opaque {
+            out.push(jaic::ast::walk::extent(node));
+            return false;
+        }
+        match node.expr().map(|e| &e.kind) {
+            Some(E::Proc(lit)) => {
+                if let Some(body) = &lit.body {
+                    collect_code_operands(&body.stmts, out);
+                }
+            }
+            Some(E::Struct(st)) => collect_code_operands(&st.body, out),
+            _ => {}
+        }
+        true
+    });
 }
 
 /// Every procedure literal with a body under `list`, at any depth (inside other procedures,
