@@ -35,6 +35,8 @@ A big compile is hundreds of MiB, so `semantic::Cache` keeps two compiles plus a
 
 ### Requests without a compile
 
+Inlay hints, semantic identifier classes, format-string classifications and interpolation modes use `checked_decorations` to retain the last checked facts during edits. It queues the background check and maps complete unchanged spans through `semantic::Shift`; spans crossing the edit are omitted. Span ends stay before text inserted at their boundary, while spans after the insertion move with their source. Hint source checks use the current text, and callee queries map current positions back to the checked text. A comment edit therefore does not replace the document with syntax-only colours and closing-brace hints.
+
 Handlers query the compile through `with_semantic` (exact text or nothing), `with_semantic_at` and `on_older_compile` (the last compile, for hover, definition, signature help and completion), so a new handler gets the rule by using them. `Session::background()` is the guard that lets a compile happen (diagnostics, `warm_pending`, rename). Tests: `tests/no_compile_in_requests.rs`; latency: `tools/bench/typing_latency.py` (`--immediate` types a key right after Enter).
 
 Outgoing call hierarchy also reads the last checked snapshot while an edit is pending. `hierarchy.rs` finds the caller in that snapshot, moves surviving call sites and same-file callee declarations to the current text, and omits calls whose text changed until they are checked again. It queues the fresh check without compiling in the request. Regression tests in `tests/hierarchy.rs` cover shifted declarations, removed calls and changed arguments.

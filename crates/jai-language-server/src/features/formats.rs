@@ -27,28 +27,32 @@ impl Session {
                 .cloned()
                 .collect();
         }
-        let semantic = self.calls(uri);
+        let formats = self
+            .checked_decorations(uri, |a, f, shift| {
+                let mut formats = std::collections::BTreeSet::new();
+                for call in a.compiler.ide_calls(f) {
+                    let Some(param) = call.format_param else {
+                        continue;
+                    };
+                    for arg in call
+                        .args
+                        .iter()
+                        .filter(|arg| !arg.named && arg.param == param)
+                    {
+                        if let Some((start, _)) =
+                            shift.to_new_range(arg.span.start as usize, arg.span.end as usize)
+                        {
+                            formats.insert(start);
+                        }
+                    }
+                }
+                formats
+            })
+            .unwrap_or_default();
         analysis
             .format_calls
             .iter()
-            .filter(|call| {
-                semantic
-                    .iter()
-                    .filter(|c| {
-                        c.span.start as usize <= call.string.start
-                            && call.string.end <= c.span.end as usize
-                    })
-                    .min_by_key(|c| c.span.end - c.span.start)
-                    .is_some_and(|info| {
-                        info.format_param.is_some_and(|param| {
-                            info.args.iter().any(|a| {
-                                a.span.start as usize == call.string.start
-                                    && !a.named
-                                    && a.param == param
-                            })
-                        })
-                    })
-            })
+            .filter(|call| formats.contains(&call.string.start))
             .cloned()
             .collect()
     }

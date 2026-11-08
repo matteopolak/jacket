@@ -188,14 +188,24 @@ impl Session {
             .unwrap_or_default()
     }
 
+    fn recorded_identifier_classes(&self, uri: &DocumentUri) -> Vec<(Span, IdeClass)> {
+        self.checked_decorations(uri, |a, f, shift| {
+            a.compiler
+                .ide_classes(f)
+                .into_iter()
+                .filter_map(|(span, class)| {
+                    let (start, end) =
+                        shift.to_new_range(span.start as usize, span.end as usize)?;
+                    Some((Span::new(start, end), class))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+    }
+
     /// Classes of the identifiers the check recorded in the document, by span.
     pub(crate) fn identifier_classes(&self, uri: &DocumentUri) -> Vec<(Span, IdeClass)> {
-        let classes: Vec<(Span, IdeClass)> = self
-            .checked(uri, |a, f| a.compiler.ide_classes(f))
-            .unwrap_or_default()
-            .into_iter()
-            .map(|(s, c)| (Span::new(s.start as usize, s.end as usize), c))
-            .collect();
+        let classes = self.recorded_identifier_classes(uri);
         // A callee the check recorded nothing for: its call is still being typed. Asking for the
         // call's target here, not leaving it to a signature help or completion request that may
         // never come, keeps the color from depending on which requests were made.
@@ -218,7 +228,14 @@ impl Session {
         if callees.is_empty() {
             return classes;
         }
-        let found = self.checked(uri, |a, f| {
+        let found = self.checked_decorations(uri, |a, f, shift| {
+            let callees: Vec<_> = callees
+                .iter()
+                .filter_map(|&(span, open)| {
+                    shift.to_old_range(span.start, span.end)?;
+                    Some((span, shift.to_old(open as usize)? as u32))
+                })
+                .collect();
             let opens: Vec<u32> = callees.iter().map(|&(_, open)| open).collect();
             let classes = a.compiler.ide_callee_classes(f, &opens);
             // Both lists are in source order, and `classes` is a subsequence of `callees`.
@@ -238,12 +255,7 @@ impl Session {
         // Resolving a callee checks the code around it and records what it found, even when it
         // is no procedure (`Shape(1, ` names a type; a top-level `#run` body is checked this
         // way too), so the classes are asked for again.
-        let mut classes: Vec<(Span, IdeClass)> = self
-            .checked(uri, |a, f| a.compiler.ide_classes(f))
-            .unwrap_or_default()
-            .into_iter()
-            .map(|(s, c)| (Span::new(s.start as usize, s.end as usize), c))
-            .collect();
+        let mut classes = self.recorded_identifier_classes(uri);
         let known: HashSet<usize> = classes.iter().map(|(s, _)| s.start).collect();
         classes.extend(found.into_iter().filter(|(s, _)| !known.contains(&s.start)));
         classes

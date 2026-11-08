@@ -76,6 +76,26 @@ impl Session {
         })
     }
 
+    /// Decorations may retain checked facts outside an edit while a fresh check is pending.
+    /// The query must move every source span through `shift` before returning it to the editor.
+    pub(crate) fn checked_decorations<T>(
+        &self,
+        uri: &DocumentUri,
+        query: impl FnOnce(&mut semantic::Analysis, FileId, &semantic::Shift) -> T,
+    ) -> Option<T> {
+        if self.may_compile() {
+            self.checked(uri, |analysis, file| {
+                query(analysis, file, &semantic::Shift::none())
+            })
+        } else {
+            let doc = self.document(uri).ok()?;
+            self.on_older_compile(uri, &doc.text, |analysis, path, shift| {
+                let file = analysis.file(path)?;
+                Some(query(analysis, file, shift))
+            })
+        }
+    }
+
     /// `span` of an open document as a range, if it lies on character boundaries.
     pub(crate) fn range_of(&self, uri: &DocumentUri, span: Span) -> Option<Range> {
         let doc = self.document(uri).ok()?;

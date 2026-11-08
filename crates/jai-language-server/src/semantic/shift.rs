@@ -77,6 +77,31 @@ impl Shift {
         }
     }
 
+    /// Move a complete unchanged span. Its end stays before an insertion at that boundary;
+    /// its start follows an insertion before the span. Spans crossing an edit are omitted.
+    pub fn to_new_range(self, start: usize, end: usize) -> Option<(usize, usize)> {
+        if self.is_none() || end <= self.prefix {
+            Some((start, end))
+        } else if start >= self.old_tail {
+            Some((
+                start - self.old_tail + self.new_tail,
+                end - self.old_tail + self.new_tail,
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// The unchanged current span's coordinates in the checked text.
+    pub fn to_old_range(self, start: usize, end: usize) -> Option<(usize, usize)> {
+        Self {
+            old_tail: self.new_tail,
+            new_tail: self.old_tail,
+            ..self
+        }
+        .to_new_range(start, end)
+    }
+
     /// Like `to_new`, an offset inside the edit staying where it is.
     pub fn to_new_or_same(self, old: usize) -> usize {
         self.to_new(old).unwrap_or(old)

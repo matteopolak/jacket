@@ -173,12 +173,21 @@ impl Session {
             return Vec::new();
         };
         let facts = self
-            .checked(uri, |a, f| a.compiler.ide_interpolations(f))
+            .checked_decorations(uri, |a, f, shift| {
+                a.compiler
+                    .ide_interpolations(f)
+                    .into_iter()
+                    .filter_map(|fact| {
+                        let (start, end) = shift
+                            .to_new_range(fact.string.start as usize, fact.string.end as usize)?;
+                        Some((Span::new(start, end), fact.mode))
+                    })
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
         facts
             .iter()
-            .filter_map(|fact| {
-                let string = Span::new(fact.string.start as usize, fact.string.end as usize);
+            .filter_map(|&(string, mode)| {
                 let at = analysis
                     .tokens
                     .partition_point(|t| t.span.start < string.start);
@@ -189,7 +198,7 @@ impl Session {
                 let Tok::Str(value) = &analysis.syntax_tokens.get(at)?.tok else {
                     return None;
                 };
-                Site::new(&doc.text, string, value.clone(), fact.mode)
+                Site::new(&doc.text, string, value.clone(), mode)
             })
             .collect()
     }

@@ -136,14 +136,19 @@ impl Session {
         let text = &doc.text;
         let first = doc.index.byte(text, range.start);
         let last = doc.index.byte(text, range.end);
-        let Some((types, calls, expansions, loop_names)) = self.checked(uri, |a, f| {
-            (
-                a.compiler.ide_declared_type_labels(f),
-                a.compiler.ide_calls(f),
-                a.compiler.ide_expansions(f),
-                a.compiler.ide_implicit_loop_names(f),
-            )
-        }) else {
+        let Some(((types, calls, expansions, loop_names), shift)) =
+            self.checked_decorations(uri, |a, f, shift| {
+                (
+                    (
+                        a.compiler.ide_declared_type_labels(f),
+                        a.compiler.ide_calls(f),
+                        a.compiler.ide_expansions(f),
+                        a.compiler.ide_implicit_loop_names(f),
+                    ),
+                    *shift,
+                )
+            })
+        else {
             return Ok(Vec::new());
         };
         let mut hints: Vec<(usize, InlayHint)> = Vec::new();
@@ -167,7 +172,9 @@ impl Session {
         };
         let inferred = inferred_name_ends(&doc.ide_text());
         for (span, ty) in types {
-            let end = span.end as usize;
+            let Some((_, end)) = shift.to_new_range(span.start as usize, span.end as usize) else {
+                continue;
+            };
             // `?` stands in for a type nothing could name: say nothing, not that.
             if ty.as_str() == "?" || end > text.len() || !inferred.contains(&(end as u32)) {
                 continue;
@@ -192,8 +199,11 @@ impl Session {
         }
         // `for xs {` declares `it` and `it_index`: name them before the iterated expression.
         for (at, label) in loop_names {
+            let Some(at) = shift.to_new(at as usize) else {
+                continue;
+            };
             hint(
-                at as usize,
+                at,
                 clip(&label, HINT_CHARS),
                 Some(InlayHintKind::Type),
                 false,
@@ -205,7 +215,11 @@ impl Session {
             let signature = &call.signatures[call.active];
             let ambiguous = ambiguous_params(&signature.params);
             for arg in &call.args {
-                let (s, e) = (arg.span.start as usize, arg.span.end as usize);
+                let Some((s, e)) =
+                    shift.to_new_range(arg.span.start as usize, arg.span.end as usize)
+                else {
+                    continue;
+                };
                 if arg.named
                     || arg.variadic
                     || arg.spread
@@ -236,7 +250,11 @@ impl Session {
             if e.kind != IdeExpansionKind::Run || e.texts.len() != 1 || e.texts[0].is_empty() {
                 continue;
             }
-            let span = span_of(e);
+            let old = span_of(e);
+            let Some((start, end)) = shift.to_new_range(old.start, old.end) else {
+                continue;
+            };
+            let span = crate::analysis::Span::new(start, end);
             if span.end > text.len() {
                 continue;
             }
