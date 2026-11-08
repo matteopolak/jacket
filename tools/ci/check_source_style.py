@@ -17,6 +17,10 @@ and `repo_output.output_dir()` for scratch. Setting the variable for a child pro
 
 Repo root: a Python script under tools/ may not work the root out from `__file__` (`Path(__file__).resolve().parents[2]`).
 Import `toolkit.repo.ROOT`. `ROOT_ALLOWED` lists the files that run without `tools/` on the import path.
+
+Host paths: no tracked text file may name a machine-specific location (`/Volumes/...`, a user's home such as
+`/Users/<name>/` or `/home/<name>/`). Use a repo-relative path, `~`, or an environment variable. `HOST_PATH_ALLOWED`
+lists the tests that use fake home folders on purpose.
 """
 
 import ast
@@ -50,6 +54,22 @@ ROOT_ALLOWED = {
     "tools/dev/pre_push_clippy.py": "a git hook, run without PYTHONPATH",
 }
 TARGET_ENV = "CARGO_TARGET_DIR"
+
+# Tests that use made-up home folders as input, and why.
+HOST_PATH_ALLOWED = {
+    "crates/jacket/src/upgrade/managed.rs": "cache and install paths for fake homes",
+    "crates/jai-language-server/src/document.rs": "Windows file URI and path conversion cases",
+    "stdlib/Extensions/Postgres/tests/managed.jai": "per-OS cache folder for fake homes",
+    "tools/bench/test_compare_cmd.py": "sample `ps` output",
+    "tools/bench/test_workloads.py": "a Windows-style symlink target",
+    "tools/ci/check_source_style.py": "documents the rule",
+    "tools/ci/test_check_source_style.py": "host-path samples",
+    "tools/ci/test_jacket_inventory.py": "fake home in the inventory fixture",
+    "tools/corpus/test_scan_upstream.py": "a credential-path sample",
+    "editors/vscode/test/unit/discovery.test.ts": "home expansion",
+    "editors/vscode/test/unit/toolEnvironment.test.ts": "environment fixture",
+}
+HOST_PATH = re.compile(r"/Volumes/|/(?:Users|home)/(?!linuxbrew/)[A-Za-z][\w.-]*/")
 
 BANNER = re.compile(r"^\s*(//|#)\s*[-=*#~]{3,}\s*$")
 
@@ -156,6 +176,17 @@ def root_problems(source: str, name: str = "") -> list[str]:
     ]
 
 
+def check_host_paths(name, text):
+    """Errors for each line of `text` that names a machine-specific path."""
+    if name in HOST_PATH_ALLOWED or name.startswith("corpus/upstream/"):
+        return []
+    return [
+        f"{name}:{i}: machine-specific path {match.group(0)}; use a repo-relative path, ~ or an environment variable"
+        for i, line in enumerate(text.splitlines(), 1)
+        if (match := HOST_PATH.search(line))
+    ]
+
+
 def main():
     counts, errors = {}, []
     for path in git_files("*.rs"):
@@ -169,6 +200,11 @@ def main():
             errors += check_banners(
                 path, (ROOT / path).read_text(encoding="utf-8", errors="replace")
             )
+    for path in git_files():
+        if (ROOT / path).is_file():
+            data = (ROOT / path).read_bytes()
+            if b"\0" not in data:
+                errors += check_host_paths(path, data.decode("utf-8", errors="replace"))
     for path in git_files("tools/*.py"):
         if (ROOT / path).is_file():
             text = (ROOT / path).read_text(encoding="utf-8")

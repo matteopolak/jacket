@@ -109,5 +109,21 @@ class Banners(unittest.TestCase):
         )
 
 
+class HostPaths(unittest.TestCase):
+    def test_volumes_and_home_folders_are_flagged(self):
+        self.assertEqual(len(style.check_host_paths("a.py", "x = '/Volumes/Disk/t'\n")), 1)
+        self.assertEqual(len(style.check_host_paths("a.md", "ok\n/Users/jo/proj\n")), 1)
+        self.assertEqual(len(style.check_host_paths("a.sh", "cd /home/jo/x\n")), 1)
+
+    def test_other_paths_and_allowed_files_pass(self):
+        self.assertEqual(style.check_host_paths("a.sh", "/home/linuxbrew/.linuxbrew/bin/brew\n/usr/home\n"), [])
+        self.assertEqual(style.check_host_paths("tools/ci/test_jacket_inventory.py", "/Users/me/x\n"), [])
+        self.assertEqual(style.check_host_paths("corpus/upstream/a.jai", "/Users/me/x\n"), [])
+
+    def test_allow_list_names_real_files(self):
+        for name in style.HOST_PATH_ALLOWED:
+            self.assertTrue((style.ROOT / name).is_file(), name)
+
+
 if __name__ == "__main__":
     unittest.main()

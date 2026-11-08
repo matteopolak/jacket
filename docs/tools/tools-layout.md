@@ -46,7 +46,7 @@ Import them folder-qualified: `from toolkit.hashing import sha256_file`.
 | `toolkit.coverage_json` | `dumps(value)`: the coverage ledger format, one declaration per line |
 | `toolkit.cli` | `add_jaic_argument(parser)`: the shared `--jaic` option |
 
-Add a helper to `toolkit/` when a third script needs it, with a test in `toolkit/test_toolkit.py`. Folder-specific helpers stay in the folder. Scratch output goes through `repo_output.output_dir()`, never `ROOT / "target"`; `check_source_style.py` enforces this. Script file names are `snake_case`.
+Add a helper to `toolkit/` when a third script needs it, with a test in `toolkit/test_toolkit.py`. Folder-specific helpers stay in the folder. Scratch output goes through `repo_output.output_dir()`, never `ROOT / "target"`; `check_source_style.py` enforces this, and also rejects machine-specific paths (a mounted volume or a user's home folder) in any tracked file (tests with fake homes are listed in `HOST_PATH_ALLOWED`). Script file names are `snake_case`.
 
 ## Generated files
 
