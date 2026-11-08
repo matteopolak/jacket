@@ -40,6 +40,7 @@ RULES = {
         (WORKFLOWS, r"python-version: '([\d.]+)'"),
         (ACTIONS, r"python-version: '([\d.]+)'"),
     ],
+    # Separate from `python`: interop.py rejects any other patch release, so tooling Python can move without it.
     "python_grpc": [(WORKFLOWS, r"GRPC_PEER_PYTHON: '([\d.]+)'")],
     "python_toml": [(WORKFLOWS, r"TOML_ORACLE_PYTHON: '([\d.]+)'")],
     "cargo_fuzz": [(WORKFLOWS, r"tool: cargo-fuzz@([\d.]+)")],

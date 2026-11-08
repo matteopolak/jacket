@@ -1,5 +1,6 @@
 grpcio==1.78.0
 grpcio-tools==1.78.0
 protobuf==6.33.5
+# Required by grpcio (typing-extensions) and grpcio-tools (setuptools); pinned for a reproducible peer.
 typing-extensions==4.16.0
 setuptools==84.2.1
