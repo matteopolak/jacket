@@ -28,6 +28,18 @@ Exit status: 0 clean, 1 a denied finding or a program that did not compile fully
 
 In editors, diagnostics carry the rule as `code` and link to its `### <rule>` section below; `deny` rules are errors. Settings come from the `[lint]` table of the nearest `jacket.toml` ([language server](../compiler/language-server.md#lints-and-quick-fixes)).
 
+## Project and explicit-path runs
+
+With no paths, `jailint` and `jacket lint` use the nearest configured `[project] entry` list, or the first existing inferred entry (`build.jai`, `first.jai`, `main.jai`, `src/main.jai`, `module.jai`). The build metaprogram supplies each child workspace's source and module parameters. Only selected project sources actually visited by those checks are linted; unrelated vendor examples and other-platform sources are not compiled as separate programs. Real check failures still produce incomplete-check errors, and the manifest lists unvisited files.
+
+```sh
+jacket lint                 # current project's compiled inclusion graph
+jailint .                   # explicitly scan the directory as independent roots
+jailint --context first.jai src/draw.jai  # one file in its build context
+```
+
+If no project entry exists, the default remains a recursive scan. Explicit files and directories retain their existing selection semantics. `--context` selects an enclosing program explicitly. Change default entry selection in the CLI and root planning in `driver/plan.rs`; `driver/lint_root.rs` uses the actual child compilers rather than reconstructing their parameters.
+
 ## Target checking
 
 ```sh
@@ -329,7 +341,7 @@ Anything reached through a pointer the lint can't resolve (a heap field a callee
 
 ### Lifetime rules
 
-`use_after_free`, `double_free`, `returned_local_address`, `temp_storage_escape`, `pointer_into_resizable`, `remove_in_for` and `pointer_lifetime` share one engine over the checked control flow. They differ only in which storage they watch: heap blocks, stack frames, temporary storage, array buffers, element slots, workers. Each finding labels where the pointer came from and what invalidated it.
+`use_after_free`, `double_free`, `returned_local_address`, `temp_storage_escape`, `pointer_into_resizable`, `remove_in_for` and `pointer_lifetime` share one engine over the checked control flow. They differ only in which storage they watch: heap blocks, stack frames, temporary storage, array buffers, element slots, workers. Each finding labels where the pointer came from and what invalidated it. Temporary-origin queries memoize shared value branches by value and traversal depth, preserving the existing depth bound while avoiding repeated exploration of the same branches.
 
 **Must and strict.** By default (`must`) a rule fires only when every path invalidates. `strict` also reports "may" effects (growth only when full, conditional frees, sorts) and anything a foreign or unknown procedure could do to an argument it was given:
 

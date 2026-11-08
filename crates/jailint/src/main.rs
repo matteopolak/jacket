@@ -28,6 +28,31 @@ fn main() -> ExitCode {
 /// Passes `--fix` makes at most: lint, apply what can go together, lint again.
 const MAX_FIX_PASSES: usize = 5;
 
+/// Select configured entries, or the first inferred entry, for a no-path invocation.
+/// For example, running `jailint` beside `first.jai` reports only that program's graph.
+fn project_entries(
+    options: &mut jailint::driver::Options,
+    cwd: &std::path::Path,
+) -> Result<Option<Vec<PathBuf>>, String> {
+    let loaded = jacket_config::load(&jacket_config::Disk, cwd).map_err(|e| e.to_string())?;
+    let configured = loaded.as_ref().filter(|c| !c.config.project.is_empty());
+    let base = configured.map_or(cwd, |c| c.dir());
+    let found = jacket_config::entry_files(base, configured.map(|c| &c.config.project));
+    let entries = if found.declared {
+        Some(found.paths)
+    } else {
+        found
+            .paths
+            .into_iter()
+            .find(|p| p.is_file())
+            .map(|entry| vec![entry])
+    };
+    if entries.is_some() {
+        options.paths = vec![base.to_path_buf()];
+    }
+    Ok(entries)
+}
+
 fn run() -> Result<ExitCode, String> {
     let Some(args) = cli::parse(std::env::args().skip(1))? else {
         return Ok(ExitCode::SUCCESS);
@@ -127,7 +152,7 @@ fn run() -> Result<ExitCode, String> {
     let mut compiler_options = jaic::sema::Options::host();
     args.common.target.apply(&mut compiler_options)?;
     let limits = args.limits();
-    let options = jailint::driver::Options {
+    let mut options = jailint::driver::Options {
         compiler_options,
         source: args.context,
         paths: args.paths.clone(),
@@ -139,7 +164,16 @@ fn run() -> Result<ExitCode, String> {
         add_sources: args.common.add,
         limits,
     };
-    let outcome = jailint::driver::run(&options);
+    let entries = if args.default_project {
+        project_entries(&mut options, &cwd)?
+    } else {
+        None
+    };
+    let lint = || match &entries {
+        Some(entries) => jailint::driver::run_project(&options, entries),
+        None => jailint::driver::run(&options),
+    };
+    let outcome = lint();
     for note in &outcome.config_notes {
         eprintln!("jailint: {note}");
     }
@@ -245,7 +279,7 @@ fn run() -> Result<ExitCode, String> {
             if pending == 0 || pass + 1 == MAX_FIX_PASSES {
                 break;
             }
-            later = Some(jailint::driver::run(&options));
+            later = Some(lint());
         }
         if total > 0 {
             eprintln!("jailint: applied {total} fixes; run again to see what remains");

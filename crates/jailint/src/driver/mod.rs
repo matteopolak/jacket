@@ -113,8 +113,19 @@ impl Options {
 
 /// Lint what `options` names.
 pub fn run(options: &Options) -> Outcome {
+    run_planned(options, None)
+}
+
+/// Lint the sources actually included by project entries, in their compiled contexts.
+/// `paths` bounds reporting; files outside those entries' graphs remain unvisited.
+/// For example, a CLI with no paths uses `run_project(options, &["first.jai".into()])`.
+pub fn run_project(options: &Options, entries: &[PathBuf]) -> Outcome {
+    run_planned(options, Some(entries))
+}
+
+fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
     let configs = Configs::new(&options.config);
-    let (roots, report) = plan::plan(options, &configs);
+    let (roots, report) = plan::plan(options, &configs, entries);
     let mut results: Vec<Option<RootResult>> = (0..roots.len()).map(|_| None).collect();
     let next = std::sync::atomic::AtomicUsize::new(0);
     let collected = std::sync::Mutex::new(Vec::new());

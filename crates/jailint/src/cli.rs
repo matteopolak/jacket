@@ -11,6 +11,7 @@ use std::path::PathBuf;
 /// What the command line asked for.
 #[derive(Default)]
 pub struct Args {
+    pub default_project: bool,
     pub context: Option<PathBuf>,
     pub manifest: Option<PathBuf>,
     pub checked_files: Option<PathBuf>,
@@ -60,12 +61,12 @@ fn number<T: std::str::FromStr>(
 #[command(
     name = "jailint",
     version,
-    about = "Lints the Jai files under each path (default: the current directory).",
+    about = "Lints the current project's inclusion graph, or the files under explicit paths.",
     color = clap::ColorChoice::Never,
     disable_help_subcommand = true
 )]
 struct Own {
-    /// Files, or folders that hold them (default: the current directory)
+    /// Files or folders to scan explicitly; without paths, use the project's entrypoints
     #[arg(value_name = "paths")]
     paths: Vec<PathBuf>,
     /// Apply the fixes that are safe to apply automatically
@@ -282,11 +283,13 @@ pub fn parse(argv: impl IntoIterator<Item = String>) -> Result<Option<Args>, Str
         }
         return Ok(None);
     }
+    let default_project = own.paths.is_empty() && own.context.is_none();
     let mut paths = own.paths;
     if paths.is_empty() {
         paths.push(".".into());
     }
     Ok(Some(Args {
+        default_project,
         context: own.context,
         manifest: own.manifest,
         checked_files: own.checked_files,

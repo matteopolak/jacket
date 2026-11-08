@@ -134,7 +134,11 @@ pub fn root_import_paths(options: &Options, file: &Path) -> Vec<PathBuf> {
 }
 
 /// Roots to compile and the files to report on.
-pub(super) fn plan(options: &Options, configs: &Configs) -> (Vec<Program>, BTreeSet<PathBuf>) {
+pub(super) fn plan(
+    options: &Options,
+    configs: &Configs,
+    entries: Option<&[PathBuf]>,
+) -> (Vec<Program>, BTreeSet<PathBuf>) {
     let mut listed = BTreeSet::new();
     for p in &options.paths {
         expand(p, configs, &mut listed);
@@ -144,7 +148,24 @@ pub(super) fn plan(options: &Options, configs: &Configs) -> (Vec<Program>, BTree
         loaded_by_listed.extend(project::reachable_loads(&DiskFs, f, usize::MAX));
     }
     let mut loader_cache = LoadCache::default();
-    let mut roots: Vec<Program> = if let Some(source) = &options.source {
+    let mut roots: Vec<Program> = if let Some(entries) = entries {
+        entries
+            .iter()
+            .map(|entry| {
+                let entry = canonical(entry);
+                let program = program_of(options, configs, &entry, &mut loader_cache);
+                match &program.root {
+                    Root::Module {
+                        entry: module, ..
+                    } if *module == entry => program,
+                    _ => {
+                        let inputs = program_inputs(options, configs, &entry);
+                        program_for(Root::Program(entry), &inputs)
+                    }
+                }
+            })
+            .collect()
+    } else if let Some(source) = &options.source {
         let source = canonical(source);
         let inputs = program_inputs(options, configs, &source);
         vec![program_for(Root::Program(source), &inputs)]

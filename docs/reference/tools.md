@@ -169,7 +169,7 @@ jacket init [OPTIONS]
 
 `jacket lint` runs `jailint` with the project's `[lint]` settings; its flags are those of `jailint`. [Lint rules](lint-rules.md) lists every rule, and [jailint](../tools/jailint.md) says how to configure and silence them.
 
-Lints the Jai files under each path (default: the current directory).
+Lints the current project's inclusion graph, or the files under explicit paths.
 
 ```text
 jailint [OPTIONS] [paths]...
@@ -179,7 +179,7 @@ jailint [OPTIONS] [paths]...
 
 | Argument | Meaning |
 | --- | --- |
-| `[paths]...` | Files, or folders that hold them (default: the current directory) |
+| `[paths]...` | Files or folders to scan explicitly; without paths, use the project's entrypoints |
 
 #### Options
 
