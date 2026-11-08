@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run required TLS interop in both directions, with raw and generated services.
 
-Install requirements.txt into a Python 3.14.3 environment first. Example:
+Install requirements.txt into the python_grpc environment pinned in .github/pins.json. Example:
 PYTHONPATH=tools python tools/grpc/interop.py --jaic target/debug/jaic --peer-python target/grpc-peer/bin/python
 """
 import argparse
@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 
+from ci.pins import load as load_pins
 from toolkit.repo import ROOT, cargo_target_dir
 FIXTURES = ROOT / "tools/grpc/fixtures"
 CERTS = ROOT / "stdlib/Extensions/Tls/tests/fixtures"
@@ -58,8 +59,9 @@ def peer_metadata(peer, jaic):
     for name, version in {"grpcio": "1.78.0", "grpcio-tools": "1.78.0", "protobuf": "6.33.5"}.items():
         if metadata[name] != version:
             raise RuntimeError(f"peer {name} must be {version}, found {metadata[name]}")
-    if metadata["python"].split()[0] != "3.14.3":
-        raise RuntimeError("interop peer requires pinned Python 3.14.3")
+    expected_python = load_pins()["python_grpc"]
+    if metadata["python"].split()[0] != expected_python:
+        raise RuntimeError(f"interop peer requires pinned Python {expected_python}")
     protoc = subprocess.check_output([str(peer), "-m", "grpc_tools.protoc", "--version"], text=True).strip()
     if protoc != "libprotoc 31.1":
         raise RuntimeError(f"bundled protoc must be 31.1, found {protoc}")

@@ -1,6 +1,7 @@
 {
   "node": "24",
   "python": "3.14",
+  "python_grpc": "3.14.3",
   "python_toml": "3.15.0",
   "just": "1.58.0",
   "just_sha256_linux_x64": "4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d",

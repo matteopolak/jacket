@@ -223,7 +223,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 
 | Script | What it does | Called by |
 | --- | --- | --- |
-| `interop.py` | Run required TLS interop in both directions, with raw and generated services. | CI |
+| `interop.py` | Run required TLS interop in both directions, with raw and generated services. | CI, tools |
 | `peer.py` | Independent grpcio peer using public generic-service APIs and opaque payloads. | tools |
 | `windows_acceptance.py` | Run required Windows Io/TLS and HTTP/gRPC cases with verified execution IDs. | CI |
 

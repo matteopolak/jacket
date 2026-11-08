@@ -57,6 +57,15 @@ class Pins(unittest.TestCase):
             },
         )
 
+    def test_grpc_python_pin_does_not_rewrite_tools_python(self):
+        text = "python-version: '3.14'\nGRPC_PEER_PYTHON: '3.14.3'\npython-version: '${{ env.GRPC_PEER_PYTHON }}'\n"
+        _, regex = pins.RULES['python_grpc'][0]
+        updated, count, changed = pins.rewrite(text, regex, '3.14.4')
+        self.assertEqual((count, changed), (1, 1))
+        self.assertIn("python-version: '3.14'", updated)
+        self.assertIn("GRPC_PEER_PYTHON: '3.14.4'", updated)
+        self.assertIn("python-version: '${{ env.GRPC_PEER_PYTHON }}'", updated)
+
     def test_the_full_llvm_version_is_spelled_out_in_pins_json_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

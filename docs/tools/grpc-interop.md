@@ -9,7 +9,11 @@ deadlines, explicit cancellation and a successful sibling call afterward.
 
 ## Run it
 
-Use Python 3.14.3 and a current compiler from this checkout. The test packages are
+Use the exact `python_grpc` interpreter pinned in `.github/pins.json` and a current
+compiler from this checkout. CI exports it as `GRPC_PEER_PYTHON`; `peer_metadata`
+reads the same pin and rejects a different patch release. Change the manifest and
+run `PYTHONPATH=tools python3 tools/ci/pins.py sync` to update the CI selection
+without changing the general tooling Python pin. The test packages are
 pinned in `tools/grpc/requirements.txt`: grpcio/grpcio-tools 1.78.0, Protobuf 6.33.5,
 and their Python dependencies. `grpc_tools.protoc` supplies the pinned generator;
 a system protoc is neither required nor used.

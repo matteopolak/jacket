@@ -10,6 +10,14 @@ import interop
 
 
 class PublicReports(unittest.TestCase):
+    def test_python_identity_must_match_the_manifest_patch_version(self):
+        versions = json.dumps({"python": "3.14.3", "grpcio": "1.78.0",
+                               "grpcio-tools": "1.78.0", "protobuf": "6.33.5"})
+        with patch.object(interop, "load_pins", return_value={"python_grpc": "3.14.4"}), \
+                patch.object(interop.subprocess, "check_output", return_value=versions):
+            with self.assertRaisesRegex(RuntimeError, "3.14.4"):
+                interop.peer_metadata(Path("peer"), Path("compiler"))
+
     def test_peer_identity_keeps_versions_and_digests_only(self):
         with tempfile.TemporaryDirectory(prefix="private-user-host-") as folder:
             compiler = Path(folder) / "private-compiler"

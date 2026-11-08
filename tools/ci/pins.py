@@ -40,6 +40,7 @@ RULES = {
         (WORKFLOWS, r"python-version: '([\d.]+)'"),
         (ACTIONS, r"python-version: '([\d.]+)'"),
     ],
+    "python_grpc": [(WORKFLOWS, r"GRPC_PEER_PYTHON: '([\d.]+)'")],
     "python_toml": [(WORKFLOWS, r"TOML_ORACLE_PYTHON: '([\d.]+)'")],
     "cargo_fuzz": [(WORKFLOWS, r"tool: cargo-fuzz@([\d.]+)")],
     "ruff": [(WORKFLOWS, r"ruff==([\d.]+)")],
@@ -53,6 +54,7 @@ RULES = {
 
 # pin -> the script that reads it from pins.json itself (so no literal is spelled out elsewhere).
 READ_BY = {
+    "python_grpc": "tools/grpc/interop.py",
     "llvm": "tools/ci/install_pinned.py",
     "just": "tools/ci/install_pinned.py",
     "just_sha256_linux_x64": "tools/ci/install_pinned.py",

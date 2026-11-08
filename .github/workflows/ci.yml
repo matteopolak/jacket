@@ -710,6 +710,7 @@ jobs:
         shell: bash
     env:
       CARGO_BUILD_JOBS: '2'
+      GRPC_PEER_PYTHON: '3.14.3'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
@@ -719,7 +720,7 @@ jobs:
           native-libs: 'false'
           font: 'false'
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with: {python-version: '3.14'}
+        with: {python-version: '${{ env.GRPC_PEER_PYTHON }}'}
       - uses: ./.github/actions/setup-windows
         if: runner.os == 'Windows'
         with:
