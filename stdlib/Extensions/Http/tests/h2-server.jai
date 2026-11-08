@@ -919,7 +919,10 @@ negotiation :: (base: string, server: *Server) {
 
     check(Tls.tls_config_init(*config).kind == .NONE, "config");
 
-    defer Tls.tls_config_free(*config);
+    defer {
+        close_idle_connections();
+        Tls.tls_config_free(*config);
+    }
 
     api: Client;
 
@@ -942,7 +945,10 @@ negotiation :: (base: string, server: *Server) {
 
     check(Tls.tls_config_init(*none).kind == .NONE, "config");
 
-    defer Tls.tls_config_free(*none);
+    defer {
+        close_idle_connections();
+        Tls.tls_config_free(*none);
+    }
 
     api.tls = *none;
 
