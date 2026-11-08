@@ -21,9 +21,10 @@
   },
   "usage": "Private contextual scalar typedefs and CF byte conversion contract; public exports come from reviewed specs.; CGL native test signatures and pixel-format tokens.; FSEvents private context order, synchronous copy and native callback lifetime contract.",
   "curl_runtime_version": "libcurl/8.7.1 SecureTransport (LibreSSL/3.3.6) zlib/1.2.12 nghttp2/1.69.0",
+  "freetype_version": "2.14.3",
   "freetype_installed_inputs": {
-    "/opt/homebrew/Cellar/freetype/2.14.3/include/freetype2/freetype/freetype.h": "fd45e7ee01c8f0f2419186d3fc9dd58e25cd866ef0c49f0b347c2d141665a364",
-    "/opt/homebrew/Cellar/freetype/2.14.3/include/freetype2/freetype/fttypes.h": "27663e885fdb62982c221cbe1dba3e2f0d2730f5aa54aec333613bc60e05d1fe",
-    "/opt/homebrew/Cellar/freetype/2.14.3/lib/libfreetype.6.dylib": "e4b41d886673fd1c282764a3113224d83b09bd705d12db7c36366fb04b7592dc"
+    "include/freetype2/freetype/freetype.h": "fd45e7ee01c8f0f2419186d3fc9dd58e25cd866ef0c49f0b347c2d141665a364",
+    "include/freetype2/freetype/fttypes.h": "27663e885fdb62982c221cbe1dba3e2f0d2730f5aa54aec333613bc60e05d1fe",
+    "lib/libfreetype.6.dylib": "e4b41d886673fd1c282764a3113224d83b09bd705d12db7c36366fb04b7592dc"
   }
 }
