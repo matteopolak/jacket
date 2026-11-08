@@ -219,11 +219,20 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `window_render_feature_font.py` | Generate an original, deterministic TrueType/GSUB native test asset. | tools |
 | `window_render_gl_formats.py` | Emit private GL texel descriptions from our reviewed-format/native-SDK mapping ledger. | tools |
 
+## `grpc/`
+
+| Script | What it does | Called by |
+| --- | --- | --- |
+| `interop.py` | Run required TLS interop in both directions, with raw and generated services. | CI |
+| `peer.py` | Independent grpcio peer using public generic-service APIs and opaque payloads. | tools |
+| `windows_acceptance.py` | Run required Windows Io/TLS and HTTP/gRPC cases with verified execution IDs. | CI |
+
 ## `lsp/`
 
 | Script | What it does | Called by |
 | --- | --- | --- |
-| `oracle.py` | Language-server oracle checks over every file `jaic -check` accepts (docs/tools/lsp-oracle.md). | CI |
+| `oracle.py` | Language-server oracle checks over every file `jaic -check` accepts (docs/tools/lsp-oracle.md). | CI, tools |
+| `project_graph.py` | Audit the compiler's actual project inclusion graph in reproducible file-open orders. | - |
 | `scale_sandbox.py` | Run the established upstream LSP scale case under the bench sandbox, without fallback. | - |
 
 ## `native/`
@@ -314,6 +323,17 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `io_stress.py` | Run the Io and Http tests many copies at a time, to shake out bugs that depend on timing. | CI, tools |
 | `stdlib_runtime.py` | Run the compiler regressions through one catalogue. | CI, tools |
 | `stdlib_test_catalog.py` | Discovery and per-case metadata for the compiler regression tests the Python runner executes. | tools |
+| `toml/build_oracle.py` | Build the independent release Rust oracle with a checked source/binary receipt. | CI |
+| `toml/community_pipeline.py` | Black-box community-library interoperability adapter, not a pure parser/writer result. | tools |
+| `toml/compare_conformance.py` | Run the same pinned cases against independent Rust/Python and a permitted Jai black box. | - |
+| `toml/differential.py` | Reproducible authored-value and byte-mutation differential checks on the shared profile. | CI |
+| `toml/features.py` | Observe precision, profile and limit boundaries without conflating differences with failures. | - |
+| `toml/prepare_community.py` | Prepare an authenticated opaque comparison checkout, without inspecting implementation. | - |
+| `toml/python_decoder.py` | toml-test tagged decoder for the installed Python tomllib (no writer supplied). | tools |
+| `toml/run.py` | Build and check both TOML adapters against every pinned profile case, without exclusions. | CI, tools |
+| `toml/run_wasi.py` | Run the complete pinned decoder/encoder inventory under WASI, without exclusions. | CI |
+| `toml/settings.py` | Compare the real Jai formatter consumer with the independent existing Rust schema. | CI |
+| `toml/workloads.py` | Independently authored, deterministic TOML workloads; no runtime dependency or private input. | - |
 
 ## `window_render/`
 
