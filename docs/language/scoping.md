@@ -20,7 +20,8 @@ secret :: 1;         // this file only
 - `#import "Math";` inside a procedure body works, and its names are visible in every file of the module {#scope.10}.
 - A name that isn't a procedure, declared in a module, wins over what one of its files imports, though the file is nearer: the module's own `errno` variable isn't hidden by an imported `errno` procedure {#scope.18}. Procedures from both sides form one overload set, where the calling module's is preferred ([procedures](procedures.md)). The official compiler rejects the clash in the program's own files, so only those warn (`declaration-hides-import`, [leniencies](leniencies.md)).
 - A procedure declared inside a procedure hides module-level and imported procedures of its name; used as a value (`apply(sin, 1.0)`) it is chosen without ambiguity {#scope.20}.
-- A constant, procedure or type declared in a body is visible only below its declaration: using it above is `` error: `x` is used above its declaration `` (`use-before-declaration`, in modules too) {#scope.19}. This covers two local procedures that call each other, a type position, a constant using a later one, `#run`, `#assert`, `#if` and `#insert` text. A use inside a procedure nested in another local procedure isn't checked. Struct bodies are declarative: field types, constant defaults and generated members can refer to later enclosing constants or generators. A generic struct's parameter types and defaults observe declaration order at its instantiation site, rather than their written position. Method bodies still enforce their own local declaration order; runtime locals cannot become compile-time field bounds.
+- A constant, procedure or type declared in a body is visible only below its declaration: using it above is `` error: `x` is used above its declaration `` (`use-before-declaration`, in modules too) {#scope.19}. This covers two local procedures that call each other, type positions, a constant using a later one, `#run`, `#assert`, `#if` and `#insert` text. A use inside a procedure nested in another local procedure isn't checked.
+- Struct bodies are declarative: field types, constant defaults and generated members may refer to later enclosing constants or generators. A generic struct's parameter types and defaults follow declaration order at the instantiation site. Method bodies keep their own local order, and runtime locals cannot become compile-time field bounds.
 
 ## using
 
@@ -39,9 +40,4 @@ secret :: 1;         // this file only
 
 Visibility is `declare_stmt` in `sema/modules.rs` (`file_private`, `target_scope`). Lookup is `sema/scope.rs` (`Found::Using`, `module_lookup`). Conditional expansion is `expand_pending`/`expand_plain_ifs`; keep `plain_condition` free of calls so the early pass can't run code too soon. `OS` and `CPU` come from `Options::os`/`cpu`; `jaic -check -os linux|windows|macos` overrides the OS. See [modules and imports](modules-and-imports.md).
 
-Deferred generic headers store their instantiation span on the parameter scope.
-`note_use_before_declaration` in `sema/calls/lenient.rs` follows scope boundaries:
-struct bodies stop the enclosing statement-order check, while parameter scopes
-substitute their instantiation site. Change these rules together with local
-struct tests in `use_before_declaration.rs`; do not bypass lexical lookup or
-runtime-capture checks. There are no flags or external dependencies.
+Deferred generic headers store their instantiation span on the parameter scope. `note_use_before_declaration` in `sema/calls/lenient.rs` follows scope boundaries: struct bodies stop the enclosing statement-order check, and parameter scopes substitute their instantiation site. Change these rules together with the local struct tests in `use_before_declaration.rs`, and keep lexical lookup and runtime-capture checks intact.

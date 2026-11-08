@@ -4,10 +4,7 @@ While a program runs (under `jaic -interp` or compiled), `context.stack_trace` p
 
 ## Capturing a trace
 
-`pack_stack_trace()` copies the current chain, with its own helper frame first,
-then its caller and the caller's ancestors. Inline and `#no_debug` procedures have
-no frame. When tracing is disabled, the result is empty. The explicit-node overload
-copies exactly the supplied chain, without adding a capture frame.
+`pack_stack_trace()` copies the current chain: its own helper frame, then its caller and the caller's ancestors. Inline and `#no_debug` procedures have no frame. With tracing disabled the result is empty. The explicit-node overload copies exactly the chain you pass.
 
 ```jai
 trace := pack_stack_trace();
@@ -15,12 +12,7 @@ defer free(trace.data);
 // trace[0].info.name is "pack_stack_trace" when tracing is enabled.
 ```
 
-The copied `next` pointers refer to nodes in the returned allocation, so the trace
-remains valid after the captured procedures return. Procedure-info records belong
-to the program. The helper lives in `stdlib/internal/basic/stack-traces.jai` and
-uses Basic's allocator; there are no additional flags or dependencies. Change its
-tracing policy with the real-chain regression in `stack-capture-frame.jai` and the
-synthetic-chain test in `stdlib/Basic/tests/stack-traces.jai`.
+The copied `next` pointers point into the returned allocation, so the trace stays valid after the captured procedures return; procedure-info records belong to the program. The helper is in `stdlib/internal/basic/stack-traces.jai` and uses Basic's allocator. Test changes with the real-chain regression in `stack-capture-frame.jai` and the synthetic-chain test in `stdlib/Basic/tests/stack-traces.jai`.
 
 ## How it works
 
