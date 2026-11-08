@@ -2,7 +2,8 @@
 // How the HTTP/2 client behaves when the server misbehaves in ways our own server never does, using a
 // hand-written HTTP/2 server over TLS: a stream refused with REFUSED_STREAM is sent again, and a
 // GOAWAY in the middle of a batch of requests lets the streams it covers finish while the ones above
-// its last stream id are sent again on a new connection. Run from this directory.
+// its last stream id are sent again on a new connection. A call made as an HTTP/2 exchange (what gRPC
+// uses) is never sent again. Run from this directory.
 #load "support/server_support.jai";
 #load "../bytes.jai";
 #load "../h2_frame.jai";
@@ -334,10 +335,8 @@ fetch_one :: (job: Job) {
     close(*response);
 }
 
-run_script :: (mode: Mode, paths: [] string, checks: #type (script: *Script, bodies: [] string, statuses: [] int)) {
-    script: Script;
-
-    script.mode = mode;
+// Starts the fake server for `script` and returns the base URL clients reach it at.
+begin_script :: (script: *Script, client_config: *Tls.Tls_Config) -> string {
     script.config.certificate_chain_pem = load("server.pem");
     script.config.private_key_pem = load("server.key");
     script.config.alpn = string.["h2"];
@@ -352,16 +351,23 @@ run_script :: (mode: Mode, paths: [] string, checks: #type (script: *Script, bod
 
     address, _ := Io.local_address(listener);
 
-    Io.spawn(accept_connections, *script);
-
-    client_config: Tls.Tls_Config;
+    Io.spawn(accept_connections, script);
 
     client_config.roots_pem = load("ca.pem");
     client_config.alpn = string.["h2", "http/1.1"];
 
-    check(Tls.tls_config_init(*client_config).kind == .NONE, "client config");
+    check(Tls.tls_config_init(client_config).kind == .NONE, "client config");
 
-    base := tprint("https://%", Io.address_to_string(address));
+    return tprint("https://%", Io.address_to_string(address));
+}
+
+run_script :: (mode: Mode, paths: [] string, checks: #type (script: *Script, bodies: [] string, statuses: [] int)) {
+    script: Script;
+    client_config: Tls.Tls_Config;
+
+    script.mode = mode;
+
+    base := begin_script(*script, *client_config);
 
     group: Io.Wait_Group;
     bodies := NewArray(paths.count, string);
@@ -376,6 +382,46 @@ run_script :: (mode: Mode, paths: [] string, checks: #type (script: *Script, bod
     checks(*script, bodies, statuses);
 
     close_idle_connections();
+    Io.close(script.listener);
+}
+
+// A call made as an HTTP/2 exchange, the way gRPC makes one, is never sent again: the stream the
+// server refuses ends the call with the refusal reported, and the server sees the request once.
+exchange_not_replayed :: () {
+    script: Script;
+    client_config: Tls.Tls_Config;
+
+    script.mode = .REFUSE_FIRST;
+
+    base := begin_script(*script, *client_config);
+
+    channel: Http2_Channel;
+
+    channel.base_url = base;
+    channel.tls = *client_config;
+
+    exchange, failure := open_http2_exchange(*channel, "/refused", .[]);
+
+    check(failure.kind == .NONE, "the exchange opens");
+
+    _, _, head_error := exchange_head(*exchange);
+
+    check(head_error.kind != .NONE, "the refused stream fails the exchange");
+
+    terminal := exchange_terminal(*exchange);
+
+    check(terminal.kind == .RESET && terminal.code == cast(u32) H2_Error.REFUSED_STREAM && terminal.not_processed, "the refusal is reported, not hidden");
+
+    close_exchange(*exchange);
+    free_error(*head_error);
+    close_http2_channel(*channel);
+
+    total := 0;
+
+    for script.requests total += it;
+
+    check(total == 1 && script.connections == 1, "the server saw the request once, on one connection: % requests, % connections", total, script.connections);
+
     Io.close(script.listener);
 }
 
@@ -412,6 +458,7 @@ main :: () {
         run_script(.TRAILERS, string.["/trailer-empty", "/trailer-pseudo", "/trailer-open", "/trailer-upper", "/valid", "/trailer-length", "/trailer-name", "/trailer-value", "/trailer-framing", "/head-name", "/head-value"], trailers);
         run_script(.REFUSE_FIRST, string.["/refused"], refused);
         run_script(.GOAWAY_AFTER_THREE, string.["/r0", "/r1", "/r2"], goaway);
+        exchange_not_replayed();
     }
 
     Io.io_run(entry, null);
