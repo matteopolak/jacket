@@ -226,6 +226,7 @@ impl Compiler {
         let no_padding = src.lit.flags.has(ast::StructBits::NO_PADDING);
         let mut fields = Vec::new();
         let mut inits = Vec::new();
+        let mut overrides = Vec::new();
         let mut end = 0u64;
         let mut align = 1u64;
         let mut aliases = Vec::new();
@@ -236,6 +237,7 @@ impl Compiler {
         let mut declared_at: HashMap<Sym, Span> = HashMap::default();
         for item in items {
             match item {
+                FieldItem::Default(stmt, scope) => overrides.push((stmt, scope)),
                 FieldItem::Declaration(..) => unreachable!("field declarations were resolved"),
                 FieldItem::Alias(alias) => aliases.push(alias),
                 FieldItem::Place(path, names, span) => {
@@ -452,7 +454,9 @@ impl Compiler {
         info.size = size;
         info.align = align;
         info.layout = LayoutState::Done;
-        self.ty.struct_asts.get_mut(&s).unwrap().inits = inits;
+        let source = self.ty.struct_asts.get_mut(&s).unwrap();
+        source.inits = inits;
+        source.overrides = overrides;
         if self.ed.is_live() {
             self.ide_note_layout(s);
         }

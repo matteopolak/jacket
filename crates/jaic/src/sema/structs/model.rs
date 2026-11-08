@@ -14,6 +14,8 @@ pub struct StructSource {
     pub extra: Vec<(Arc<ast::Decl>, ScopeId)>,
     /// Initializer of each laid-out field, with the scope to evaluate it in.
     pub inits: Vec<(Option<ast::Expr>, ScopeId)>,
+    /// Expanded default assignments, in source order and their lexical scopes.
+    pub overrides: Vec<(ast::Stmt, ScopeId)>,
 }
 
 pub struct PolyStruct {
@@ -107,6 +109,7 @@ pub(super) struct FieldDecl {
 }
 
 pub(super) enum FieldItem {
+    Default(ast::Stmt, ScopeId),
     Declaration(ScopeId, Arc<ast::Decl>),
     Field(FieldDecl),
     /// `using,only(a, b) field.inner;`: names reached through a path of members.

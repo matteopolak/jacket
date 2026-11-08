@@ -23,6 +23,33 @@ Rgba  :: struct { union { using c: struct { r, g, b, a: u8; }; packed: u32; } }
 - An overlay takes no positional value, so `Rect.{0, 0, 640, 480}` fills `x`, `y`, `w`, `h` of a `Rect` that overlays `pos` on `x` and `size` on `w` {#struct.25}.
 - A constant view (`[] T`) given for a struct parameter declared `[$N] T` is taken as the fixed array of its elements, so `N` is its count: `Wrapper(registry)` with `registry :: #run make_types();` {#struct.26}.
 
+## Default overrides
+
+Struct-body assignments replace subobjects of the default value. Targets can be direct
+or promoted fields, aliases, and nested fixed-array elements. Selected `#if` branches
+and expanded `#insert` text use the same rules and assignment order.
+
+```jai
+Grid :: struct {
+    rows: [2][3]int;
+    #insert "rows[1][2] = 17;";
+    rows[0][0], rows[0][1] = 3, 5;
+}
+grid: Grid; // grid.rows[1][2] == 17
+```
+
+Indexes must be constant and within the fixed array. Defaults cannot write through
+pointers or index views or dynamic arrays. Invalid targets, incompatible values,
+compound operators and mismatched value counts are errors. A single value broadcasts
+to several targets; multiple results pair with targets in order. Nested defaults and
+pointer relocations survive writes to other subobjects.
+
+The compiler retains assignments during `sema/structs/fields.rs` expansion and stores
+them with the completed layout. `defaults.rs` builds the shared image used by variables,
+literals and `initializer_of`; `using_members.rs` resolves targets with the ordinary
+filtered member resolver. Extend these paths together when adding a target form.
+There are no default-override flags or external dependencies.
+
 ## Layout
 
 - Layout is lazy, but every top-level struct is laid out before compilation ends, so a member of an undefined type is always an error {#struct.5}. By-value recursion is caught.

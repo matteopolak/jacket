@@ -945,6 +945,16 @@ impl Compiler {
         scope: ScopeId,
         expr: &ast::Expr,
     ) -> Result<Vec<Operand>> {
+        self.eval_const_all_expected(scope, expr, None)
+    }
+
+    /// Constant results with contextual typing, e.g. `a, b = .MEMBER` in struct defaults.
+    pub(super) fn eval_const_all_expected(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        expected: Option<TypeId>,
+    ) -> Result<Vec<Operand>> {
         if let ast::ExprKind::Run {
             body,
             flags,
@@ -976,7 +986,7 @@ impl Compiler {
         let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
         f.constant_only = Some("constant declaration needs a constant value");
         let scope = self.thunk_scope(scope);
-        let op = self.check_expr(&mut f, scope, expr, None)?;
+        let op = self.check_expr(&mut f, scope, expr, expected)?;
         let value = match &op {
             Operand::Callable {
                 operand, ..

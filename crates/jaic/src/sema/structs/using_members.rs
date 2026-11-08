@@ -180,96 +180,85 @@ impl Compiler {
         Ok(None)
     }
 
-    // Default values
-
-    /// Offset, type and authored declaration of `name` in a `using` field of `s`.
-    fn find_used_member(
-        &mut self,
-        s: StructId,
-        name: Sym,
-        span: Span,
-    ) -> Result<Option<(u64, TypeId, Span)>> {
-        self.layout_struct(s, span)?;
-        let fields = self.ty.types.struct_info(s).fields.clone();
-        for f in fields.iter().filter(|f| f.using) {
-            let Some(inner) = self.ty.types.as_struct(f.ty) else {
-                continue;
-            };
-            self.layout_struct(inner, span)?;
-            let inner_fields = self.ty.types.struct_info(inner).fields.clone();
-            if let Some(m) = inner_fields.iter().find(|m| m.name == Some(name)) {
-                return Ok(Some((f.offset + m.offset, m.ty, m.span)));
-            }
-            if let Some((o, t, decl)) = self.find_used_member(inner, name, span)? {
-                return Ok(Some((f.offset + o, t, decl)));
-            }
-        }
-        Ok(None)
-    }
-
-    /// Offset and type of the member a struct-body override assigns: `name` (a field, or a
-    /// member of a `using` field) or a path into a field (`base.callback`).
+    /// Resolve an inline default-assignment place, including promoted fields and fixed indexes.
+    /// `cells[1].value = 17` writes only that subobject of the shared default image.
     pub(super) fn override_target(
         &mut self,
-        s: StructId,
-        lhs: &ast::Expr,
-        span: Span,
-    ) -> Result<Option<(u64, TypeId)>> {
-        match &lhs.kind {
-            E::Ident(name) => Ok(self
-                .struct_member(s, *name, span)?
-                .map(|(offset, ty, decl)| {
-                    self.ide_note_named_field(lhs.span, *name, decl, ty);
-                    (offset, ty)
-                })),
-            E::Member(base, name) => {
-                let Some((offset, ty)) = self.override_path(s, base, span)? else {
-                    return Ok(None);
-                };
-                let Some(inner) = self.ty.types.as_struct(ty) else {
-                    return Ok(None);
-                };
-                Ok(self
-                    .struct_member(inner, name.name, span)?
-                    .map(|(o, t, decl)| {
-                        self.ide_note_named_field(name.span, name.name, decl, t);
-                        (offset + o, t)
-                    }))
-            }
-            _ => Ok(None),
-        }
-    }
-
-    /// `override_target` for an intermediate path segment, which may also be a direct field.
-    fn override_path(
-        &mut self,
-        s: StructId,
+        root: TypeId,
+        scope: ScopeId,
         expr: &ast::Expr,
-        span: Span,
-    ) -> Result<Option<(u64, TypeId)>> {
-        if let E::Ident(name) = &expr.kind {
-            return Ok(self
-                .struct_member(s, *name, span)?
-                .map(|(offset, ty, decl)| {
-                    self.ide_note_named_field(expr.span, *name, decl, ty);
-                    (offset, ty)
-                }));
+    ) -> Result<(u64, TypeId)> {
+        match &expr.kind {
+            E::Ident(name) => self.override_member(root, *name, expr.span),
+            E::Member(base, name) => {
+                let (offset, ty) = self.override_target(root, scope, base)?;
+                let (inner, ty) = self.override_member(ty, name.name, name.span)?;
+                Ok((offset + inner, ty))
+            }
+            E::Index(base, index) => {
+                let (offset, ty) = self.override_target(root, scope, base)?;
+                let crate::types::TypeKind::Array {
+                    elem,
+                    kind: crate::types::ArrayKind::Fixed(count),
+                } = *self.ty.types.kind(self.ty.types.repr(ty))
+                else {
+                    return err(
+                        Code::AssignTargetInvalid,
+                        base.span,
+                        "a struct default can index only an inline fixed array",
+                    );
+                };
+                let crate::sema::Value::Int(index_value) =
+                    self.const_value_of_type(scope, index, TypeId::S64)?
+                else {
+                    unreachable!("an s64 constant is an integer");
+                };
+                if index_value < 0 || index_value >= i128::from(count) {
+                    return err(
+                        Code::ArrayIndex,
+                        index.span,
+                        format!(
+                            "struct default index {index_value} is out of bounds for {count} elements"
+                        ),
+                    );
+                }
+                let size = self.size_of(elem, expr.span)?;
+                Ok((offset + index_value as u64 * size, elem))
+            }
+            _ => err(
+                Code::AssignTargetInvalid,
+                expr.span,
+                "a struct default target must be an inline member or fixed-array element",
+            ),
         }
-        self.override_target(s, expr, span)
     }
 
-    /// Offset, type and authored declaration of a field, directly or through `using` fields.
-    fn struct_member(
-        &mut self,
-        s: StructId,
-        name: Sym,
-        span: Span,
-    ) -> Result<Option<(u64, TypeId, Span)>> {
-        self.layout_struct(s, span)?;
-        let fields = self.ty.types.struct_info(s).fields.clone();
-        if let Some(f) = fields.iter().find(|f| f.name == Some(name)) {
-            return Ok(Some((f.offset, f.ty, f.span)));
+    fn override_member(&mut self, owner: TypeId, name: Sym, span: Span) -> Result<(u64, TypeId)> {
+        let Some((path, ty, origin)) = self.find_member_in(owner, name, span, &mut Vec::new())?
+        else {
+            return err(
+                Code::StructNotMember,
+                span,
+                format!("`{name}` is not a member of {}", self.ty.types.name(owner)),
+            );
+        };
+        let mut offset = 0;
+        for step in path {
+            match step {
+                super::model::PathStep::Offset(bytes) => offset += bytes,
+                super::model::PathStep::Deref => {
+                    return err(
+                        Code::AssignTargetInvalid,
+                        span,
+                        "a struct default cannot write through a pointer",
+                    );
+                }
+            }
         }
-        self.find_used_member(s, name, span)
+        if let Some((s, index)) = origin {
+            let field = &self.ty.types.struct_info(s).fields[index];
+            self.ide_note_named_field(span, name, field.span, ty);
+        }
+        Ok((offset, ty))
     }
 }

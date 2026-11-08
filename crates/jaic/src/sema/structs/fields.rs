@@ -16,6 +16,11 @@ impl Compiler {
     ) -> Result<()> {
         for stmt in stmts {
             match &stmt.kind {
+                ast::StmtKind::Assign {
+                    ..
+                } => {
+                    out.push(FieldItem::Default(stmt.clone(), scope));
+                }
                 ast::StmtKind::Decl(decl) if decl.kind == ast::DeclKind::Var => {
                     self.ty.collect_decl_fields(scope, decl, out)?;
                 }

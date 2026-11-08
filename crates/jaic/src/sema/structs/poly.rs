@@ -106,6 +106,7 @@ impl Compiler {
                 scope,
                 extra: Vec::new(),
                 inits: Vec::new(),
+                overrides: Vec::new(),
             },
         );
         ty

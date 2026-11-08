@@ -50,28 +50,73 @@ impl Compiler {
                         }
                     }
                 }
-                // `member = value;` in the body overrides the default of a member
-                // reached through a `using` field.
-                let (lit, scope) = {
-                    let src = &self.ty.struct_asts[&s];
-                    (src.lit.clone(), src.scope)
-                };
-                for stmt in &lit.body {
+                // Field collection already selected #if branches and expanded #insert once.
+                for (stmt, scope) in self.ty.struct_asts[&s].overrides.clone() {
                     let ast::StmtKind::Assign {
-                        op: ast::AssignOp::Assign,
+                        op,
                         lhs,
                         rhs,
                     } = &stmt.kind
                     else {
-                        continue;
+                        unreachable!("only assignments are retained as defaults");
                     };
-                    let ([l], [r]) = (lhs.as_slice(), rhs.as_slice()) else {
-                        continue;
-                    };
-                    if let Some((offset, fty)) = self.override_target(s, l, span)? {
-                        let value = self.const_value_of_type(scope, r, fty)?;
-                        let agg = image_of(&mut image, size, span)?;
-                        self.write_value(agg, offset, &value, fty, r.span)?;
+                    if *op != ast::AssignOp::Assign {
+                        return err(
+                            Code::AssignTargetInvalid,
+                            stmt.span,
+                            "a struct default requires a plain assignment",
+                        );
+                    }
+                    if rhs.len() != 1 && rhs.len() != lhs.len() {
+                        return err(
+                            Code::NamesButValues,
+                            stmt.span,
+                            format!("{} names but {} values", lhs.len(), rhs.len()),
+                        );
+                    }
+                    let targets = lhs
+                        .iter()
+                        .map(|target| self.override_target(ty, scope, target))
+                        .collect::<Result<Vec<_>>>()?;
+                    let mut values = Vec::new();
+                    for (index, value) in rhs.iter().enumerate() {
+                        let expected = targets[if rhs.len() == 1 {
+                            0
+                        } else {
+                            index
+                        }]
+                        .1;
+                        values.extend(
+                            self.eval_const_all_expected(scope, value, Some(expected))?
+                                .into_iter()
+                                .map(|op| (op, value.span)),
+                        );
+                    }
+                    if values.len() != 1 && values.len() != targets.len() {
+                        return err(
+                            Code::NamesButValues,
+                            stmt.span,
+                            format!("{} names but {} values", targets.len(), values.len()),
+                        );
+                    }
+                    let mut writes = Vec::new();
+                    for (index, (offset, fty)) in targets.into_iter().enumerate() {
+                        let (value, at) = &values[if values.len() == 1 {
+                            0
+                        } else {
+                            index
+                        }];
+                        let value = self.const_value_of_operand(scope, value.clone(), fty, *at)?;
+                        writes.push((offset, fty, value, *at));
+                    }
+                    for (offset, fty, value, at) in writes {
+                        self.write_value(
+                            image_of(&mut image, size, span)?,
+                            offset,
+                            &value,
+                            fty,
+                            at,
+                        )?;
                     }
                 }
                 image.map(Arc::new)

@@ -34,4 +34,4 @@ get_x(*d);                                // get_x :: (b: *Base) -> int
 
 ## How to change it
 
-Member-side logic: `using_member`, `using_target`, `find_used_member`, `override_target` in `sema/structs.rs`; clashes are `check_using_clashes` (end of layout, field names only). Scope-level: `sema/scope.rs`, `check_using` in `sema/stmt.rs`, `resolve_module_filter` in `sema/using.rs`. Inline `#overlay` and `#place` targets use the same promoted-field resolver, limited to fields already laid out; pointer-backed promoted storage has no inline offset and is rejected. Tests: `tests/compiler/regressions/using-*.jai`.
+Member-side logic: `using_member`, `using_target`, `find_member_in`, `override_target` in `sema/structs.rs`; clashes are `check_using_clashes` (end of layout, field names only). Scope-level: `sema/scope.rs`, `check_using` in `sema/stmt.rs`, `resolve_module_filter` in `sema/using.rs`. Inline `#overlay` and `#place` targets use the same promoted-field resolver, limited to fields already laid out; pointer-backed promoted storage has no inline offset and is rejected. Tests: `tests/compiler/regressions/using-*.jai`.
