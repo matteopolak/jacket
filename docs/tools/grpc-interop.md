@@ -1,22 +1,12 @@
-# Independent gRPC interoperability
+# gRPC interoperability and conformance
 
-`tools/grpc/interop.py` runs Jai and grpcio as independent TLS peers in both
-directions, using handwritten encoded payloads and generated typed service adapters.
-Both the handwritten and generated cases exercise unary, server-streaming,
-client-streaming and bidirectional methods in each direction. Unary coverage includes empty payloads,
-application errors and initial/repeated/binary metadata in both directions. Both directions also check incoming
-deadlines, explicit cancellation and a successful sibling call afterward.
+What checks `Extensions/Grpc` against independent implementations, and how to run and extend them. The [runtime contract](../extensions/grpc.md) says what the module supports. A built fixture is never a passed case; unexecuted or unsupported cases are listed as such.
 
-## Run it
+## Interop matrix
 
-Use the exact `python_grpc` interpreter pinned in `.github/pins.json` and a current
-compiler from this checkout. CI exports it as `GRPC_PEER_PYTHON`; `peer_metadata`
-reads the same pin and rejects a different patch release. Change the manifest and
-run `PYTHONPATH=tools python3 tools/ci/pins.py sync` to update the CI selection
-without changing the general tooling Python pin. The test packages are
-pinned in `tools/grpc/requirements.txt`: grpcio/grpcio-tools 1.78.0, Protobuf 6.33.5,
-and their Python dependencies. `grpc_tools.protoc` supplies the pinned generator;
-a system protoc is neither required nor used.
+`tools/grpc/interop.py` runs Jai and grpcio as TLS peers in both directions, with handwritten payloads and generated typed services. Each direction runs unary, server-streaming, client-streaming and bidirectional methods, empty payloads, application errors, initial/repeated/binary metadata, incoming deadlines and cancellation followed by a successful sibling call.
+
+Use the `python_grpc` interpreter from `.github/pins.json` (CI exports it as `GRPC_PEER_PYTHON`; the harness rejects another patch release). Packages are pinned in `tools/grpc/requirements.txt`; `grpc_tools.protoc` is the generator, so no system protoc is used. To change the interpreter pin, edit the manifest and run `PYTHONPATH=tools python3 tools/ci/pins.py sync`.
 
 ```sh
 export JAIC_NATIVE_LIBS="$(PYTHONPATH=tools python3 -c 'from toolkit.repo import cargo_target_dir; from repo_output import host_platform; print(cargo_target_dir(resolve=True) / "http-native" / host_platform())')"
@@ -27,57 +17,90 @@ PYTHONPATH=tools python3 tools/grpc/interop.py --jaic target/debug/jaic \
   --peer-python target/grpc-peer/bin/python --output target/grpc-interop
 ```
 
-`PYTHONPATH=tools` exposes the shared repository path helpers. The default output
-directory follows `CARGO_TARGET_DIR` (otherwise Cargo’s target directory); `--output`
-overrides it. The HTTP native profile builds the hash-pinned MbedTLS archive and C adapter used
-by `Extensions/Tls`; a system OpenSSL or MbedTLS package does not provide that
-contract. It needs a C compiler and network access for the pinned source cache.
-`JAIC_NATIVE_LIBS` selects that provider for the compiler. The harness requires
-loopback listeners and TLS support. It trusts the repository's
-test CA and verifies the server identity; it never disables verification. The Jai
-client requires ALPN `h2`, so successful calls exercise HTTP/2. Fixtures and their
-schema live together under `tools/grpc/fixtures`; Python peer handlers use documented
-grpcio public APIs. There is no runtime gRPC dependency in Jai applications.
+The native profile builds the hash-pinned MbedTLS archive and C adapter that `Extensions/Tls` uses (needs a C compiler and network for the source cache). The harness needs loopback listeners, trusts the repository's test CA and verifies the server identity, and requires ALPN `h2`. `--timeout` bounds each peer operation and readiness wait (30 s); readiness uses a port file. A teardown timeout is a failure, and failed cases are not retried.
 
-`--timeout` bounds each peer operation and readiness wait (default 30 seconds).
-Readiness uses an explicit port file, rather than assuming a sleep was sufficient.
-The harness stops each server and treats a teardown timeout as failure. It neither
-retries failed cases nor reports a built fixture as a passed RPC.
+The output folder keeps compile and peer logs, exact invocations, the generated Python codecs and `result.json` (package versions, OS/architecture, compiler and schema hashes, completed directions; no machine paths or hostnames). A failed run writes only a failed outcome and the exception class; raw diagnostics stay in local logs. Privacy tests: `PYTHONPATH=tools python3 -m unittest discover -s tools/grpc`.
 
-## Evidence and changes
+The CI `grpc-interop` job is required for changes to Http, Grpc, Protobuf, Tls, Io or Deflate. It uploads `result.json` and, on failure, an allowlist of native JSON/stderr and peer/compiler logs. The Linux x64 and Windows x64 legs are independent; other Windows architectures have no peer gate. The Windows leg first runs `tools/grpc/windows_acceptance.py` (below).
 
-The output directory retains compile logs, peer logs, exact invocations, generated
-Python message codecs and `result.json`. The report includes Python/RPC/protoc package
-versions, OS/architecture, compiler/schema SHA256 hashes, required transport and each
-completed matrix direction. Python build strings and machine paths or hostnames are
-excluded. A partial run fails and writes only a failed outcome and exception class;
-exception text and raw diagnostics stay in the local logs.
+The matrix covers what it executes. Scheduler, flow control, malformed input and cleanup need their focused module tests.
 
-Change `echo.proto` and both generated-service fixtures when extending the contract;
-keep the independent Python codec generated by pinned protoc. Add failure cases to
-the peer's public handler/client API, never by copying another implementation's
-internals. The CI `grpc-interop` job is required for changes to Http, Grpc, Protobuf,
-Tls, Io or Deflate, and uploads the sanitized `result.json`, including a failure
-summary when the harness fails. After a failed acceptance step it also archives
-allowlisted native JSON/stderr and peer/compiler logs from the hosted runner.
-Its Linux x64 and Windows x64 legs run independently.
-The Windows leg first invokes `tools/grpc/windows_acceptance.py`: real Io/Tls
-module roots, exact prerequisite IDs checked as executed/passed, and the Http/Grpc
-module cases with a finite external test watchdog. A zero-case or skipped
-prerequisite report fails. It uses the existing Windows runtime provider and puts the
-pinned TLS SDK DLL directory on the process search path. It then runs the same
-raw/generated peer matrix. Windows runtime support requires these actual gates;
-source availability and cross-target checks are not substitutes. Other Windows
-architectures have no independent-peer gate yet.
-Private workstation logs, executables, generated codec files, environment dumps,
-certificates and keys stay local. The hosted failure-diagnostic allowlist contains
-only test/peer logs and normal hosted runner paths. A tracked-input guard rejects
-source changes; it does not redefine the full Git-status cleanliness metadata.
-Run the report-privacy tests with
-`PYTHONPATH=tools python3 -m unittest discover -s tools/grpc`. Compiler/schema/transport edits
-invalidate earlier-head evidence and require rerunning the matrix.
+## Protocol conformance
 
-The matrix establishes the cases it executes. Scheduler/flow-control, malformed
-input, cancellation, deadlines and cleanup also need their focused module tests;
-interop does not substitute for those checks or unexecuted resource, native platform,
-CI or sanitizer gates.
+Full acceptance also needs the canonical TestService cases, negative HTTP/2 peers, framing tests, HPACK stories and the Protobuf conformance runner. Fixtures use the synthetic test certificate and key, which must stay out of published binaries; independent clients must verify its CA. Use `JAIC_NATIVE_LIBS` for the native provider and an absolute `GRPC_PROTO_ROOT` for the pinned schema tree.
+
+**HTTP/2 server.** `conformance/h2-server.jai` serves TLS with ALPN `h2` and drains request bodies through a fixed buffer. Arguments are a ready file (receives the port) and a stop file (creating it shuts the server down).
+
+```sh
+JAIC_STDLIB="$PWD/stdlib" jaic tools/grpc/conformance/h2-server.jai -exe target/h2-server
+./target/h2-server target/h2.port target/h2.stop
+```
+
+**HPACK.** `conformance/hpack.jai` takes a JSON array of story files from [http2jp/hpack-test-case](https://github.com/http2jp/hpack-test-case) (MIT). Each story gets a fresh context. Output lines hold the story, case index, decoder outcome, advertised table limit and our encoded block. `hpack-decoder.go` decodes every emitted block with `golang.org/x/net/http2/hpack`, built inside the pinned grpc-go module with its unchanged `go.mod`; decoding our own output alone proves nothing. All 478 stories pass: 47,142 supplied blocks and 50,526 emitted blocks.
+
+```sh
+JAIC_STDLIB="$PWD/stdlib" jaic tools/grpc/conformance/hpack.jai -exe target/hpack-corpus
+./target/hpack-corpus target/hpack-stories.json > target/hpack-records.jsonl
+```
+
+**h2spec 2.6.0** targets RFC 7540; the transport targets RFC 9113. Of 147 strict cases, 143 pass. The four failures (`http2/5.1/8`, `http2/5.1/11`, `http2/5.3.1/1`, `http2/5.3.1/2`) are RFC version differences and stay failures in the ledger. `Http::h2-current-profile` checks the RFC 9113 behaviour separately: closed-stream DATA credit, HPACK sync after closed HEADERS, deprecated PRIORITY.
+
+**Canonical cases.** The pinned catalogue has 30 cases. The 21 supported core cases pass in both directions and both adapters (84 runs): the canonical C++ client against Jai servers, and Jai clients against the official Go TestService (14 cases, plus scaling and both soaks through the adapter below) or the C++ server (four compression cases). Go lacks the compression probes and the peer-address extension, so those route to C++ and to an adapter that fills the real peer address (`conformance/test-service-peer.go`, built in the pinned grpc-go checkout with `go build -mod=readonly`; the optional `observed-peer` argument enables only that extension). Soaks run 1,000 iterations with zero allowed failures, 1,000 ms per call and 1,200 s overall; never use the C++ tool's zero defaults. Connection scaling needs `GRPC_EXPERIMENTAL_MAX_CONCURRENT_STREAMS_CONNECTION_SCALING=true` and `--service_config_json='{"connectionScaling":{"maxConnectionsPerSubchannel":2}}'`. Set `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` to the test CA.
+
+Nine cases are outside the supported API and are not run: cloud credential providers (`compute_engine_creds`, `jwt_token_creds`, `oauth2_auth_token`, `per_rpc_creds`, `google_default_credentials`, `compute_engine_channel_credentials`), `cacheable_unary` (GET/caching proxies) and ORCA (`orca_per_rpc`, `orca_oob`). They stay in the denominator.
+
+The Protobuf conformance ledger is 6,699 cases: 5,786 binary/JSON passes, 909 unsupported text cases and four unsupported future-edition cases.
+
+**Test-service fixtures.** `test-service-common.jai` holds the schema import and shared helpers; `test-service-server.jai` takes `raw` or `typed`; the client is built twice with `TYPED :: false` and `TYPED :: true`.
+
+```sh
+jaic tools/grpc/conformance/test-service-server.jai -add 'GRPC_PROTO_ROOT :: "/abs/grpc";' -exe target/test-service-server
+./target/test-service-server raw target/server.port target/server.stop
+jaic tools/grpc/conformance/test-service-client.jai -add 'GRPC_PROTO_ROOT :: "/abs/grpc"; TYPED :: false;' -exe target/test-service-raw-client
+```
+
+**Negative HTTP/2 peer.** The pinned gRPC negative peer predates Python 3 and current `h2`. `conformance/negative-peer.py` writes a patched copy (original and adapted SHA-256 and a unified diff are kept; the original tree is untouched). It also fixes a defect where a valid empty END_STREAM DATA frame parsed the retained request twice; `negative-peer-regression.py COPY` checks that fix and all five incomplete-prefix lengths. It is a patched fixture, not an unchanged upstream run. It needs `h2==4.3.0`, `Twisted==25.5.0` and the recorded Protobuf runtime. A wrapper terminates test TLS and forwards the HTTP/2 bytes to the cleartext peer. `conformance/run-negative.py` verifies the upstream revision and runs all eight cases in raw and typed mode (16 runs), failing on any client, peer, setup or timeout failure; each case must record both client and peer exits.
+
+```sh
+PYTHONPATH=tools python tools/grpc/conformance/run-negative.py \
+  --upstream target/grpc-upstream --python target/peer-venv/bin/python \
+  --raw-client target/test-service-raw-client --typed-client target/test-service-typed-client \
+  --scratch target/negative --output target/negative-results
+```
+
+Its result exports only the exception class for a harness error. The padded-DATA and one-stream concurrent-call cases have direct regressions in `Http/tests/h2-padding.jai` and `Http/tests/h2-channel-lifecycle.jai`. Gzip framing also has a fuzz property for fragmentation, bounds and corrupted member lengths.
+
+**Windows gate.** `tools/grpc/windows_acceptance.py` runs the real Io/Tls module roots with exact prerequisite IDs, then the Http/Grpc roots, and accepts only complete reports in which every required ID passed. Missing, skipped, duplicate, list-only or unfinished results fail even if the runner exits zero. Each program has a 120 s external watchdog. Rename tests together with the required IDs.
+
+```sh
+PYTHONPATH=tools python tools/grpc/windows_acceptance.py --jacket target/debug/jacket.exe --output target/grpc-windows
+```
+
+## Comparison with other implementations
+
+| Implementation | Pin | Used for |
+| --- | --- | --- |
+| gRPC C++ | [`f2f2334f`](https://github.com/grpc/grpc/tree/f2f2334fb937ec78b3dc629ccc163b06913deb40) | Unmodified canonical interop client (Release build) against Jai servers; also the compression server |
+| grpc-go | [`v1.85.0`](https://github.com/grpc/grpc-go/tree/c9ab42cdb0a2b3e7b9d5510ebbc999638ee41eb7) | Official TestService server for Jai clients |
+| grpcio | 1.78.0, Python 3.14.3, Protobuf 6.33.5 | The interop matrix above |
+
+No Jai gRPC library was found in the [community catalogue](https://github.com/Jai-Community/Jai-Community-Library/wiki/References) or GitHub searches on 2026-11-04. That is a bounded search, not proof, and nothing was compared.
+
+Unary RPC with a 271,828-byte request and 314,159-byte response over one reused TLS/HTTP/2 channel, measured with the same optimized Jai client against an optimized Jai server and the Go TestService server (Apple M5, four interleaved repetitions of 1,010 calls, first ten discarded): median p50 1.50 ms for Jai and 1.24 ms for Go. Both include TLS, so it is an application-task comparison, not server CPU time; Jai's MbedTLS ChaCha20-Poly1305 dominated its sampled stacks. There is no earlier Jai gRPC implementation to compare against.
+
+To rerun, build the Jai client and server with `-O2` and the pinned Go peer, wait for a quiet machine, and run `tools/grpc/conformance/compare-unary.py`. The server fixture takes `GRPC_PROTO_ROOT`; the client also takes `TYPED :: false`. The harness alternates provider order, keeps every timing and reports ranges.
+
+```sh
+PYTHONPATH=tools python tools/grpc/conformance/compare-unary.py \
+  --client target/benchmark-client --jai-server target/benchmark-server \
+  --go-server target/test-service-peer --scratch target/grpc-comparison \
+  --output target/grpc-comparison-results
+```
+
+## Changing it
+
+- Contract changes touch `tools/grpc/fixtures/echo.proto` and both the raw and generated fixtures; keep the Python codec generated by the pinned protoc.
+- Add failure cases through the peer's public handler and client API, never by copying another implementation's internals.
+- Keep suite data and oracles independent of our code, and pin revisions, corpus hashes and case IDs. Public reports must exclude machine paths and secrets.
+- Compiler, schema or transport edits invalidate earlier evidence: rerun the matrix. Update the comparison table with runtime profile or dependency changes.
+- Go and Python peers are test dependencies only; applications need the Jai modules and the native TLS provider.

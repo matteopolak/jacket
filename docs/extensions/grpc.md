@@ -204,5 +204,5 @@ until their writer and TLS teardown finishes. A second call to the same connecti
 origin waits for and shares that attempt; another resource scope is rejected at the
 configured channel connection limit.
 
-See the [feature/coverage comparison](../tools/grpc-comparison.md) for pinned peers,
-tested versus documented capabilities and performance measurement boundaries.
+See the [interop and comparison guide](../tools/grpc-interop.md) for pinned peers and the
+benchmark method.
