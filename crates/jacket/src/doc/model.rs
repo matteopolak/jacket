@@ -174,8 +174,14 @@ pub struct Parameter {
 
 #[derive(Clone, Debug, Default)]
 pub struct Module {
-    /// `String`, `Extensions/Http`: what `#import` takes.
+    /// `String`, `Extensions/Http`: the page's place below the documented folder. Documenting
+    /// `stdlib/Extensions/Http` alone makes it `Http`.
     pub id: String,
+    /// The name the compiler's `jaidoc:` links use for the module; empty means `id`. It does not
+    /// change with the folder being documented: `Extensions/Http` stays so for `Http` alone.
+    pub doc_key: String,
+    /// What an example imports the module as; empty means `id`.
+    pub import_path: String,
     pub file: String,
     pub docs: String,
     /// The line the module's own doc comment starts on, 0 when it has none.
@@ -207,6 +213,25 @@ pub struct Module {
 }
 
 impl Module {
+    /// What `jaidoc:` links call the module.
+    pub fn key(&self) -> &str {
+        if self.doc_key.is_empty() {
+            &self.id
+        } else {
+            &self.doc_key
+        }
+    }
+
+    /// The path an example's `#import` names: `Extensions/Http`, also when only that folder is
+    /// documented.
+    pub fn import_name(&self) -> &str {
+        if self.import_path.is_empty() {
+            &self.id
+        } else {
+            &self.import_path
+        }
+    }
+
     /// `Http` for `Extensions/Http`.
     pub fn title(&self) -> &str {
         self.id.rsplit('/').next().unwrap_or(&self.id)
@@ -358,8 +383,29 @@ fn below(stdlib: &Path, file: &str) -> String {
 /// An item and whether the module exports it.
 type Flagged = (bool, Item);
 
-/// The module `id` from what `jaic -doc_model` printed.
-pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
+/// The compiler's name for the module folder `root/id` in links, and the path that imports it.
+/// Inside `stdlib` both are the path below it; elsewhere a link names the folder alone, and an
+/// import is `id`, found through `-import_dir root`.
+fn identity(id: &str, root: &Path, stdlib: &Path) -> (String, String) {
+    let canonical = |p: &Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+    let dir = canonical(&root.join(id));
+    match dir.strip_prefix(canonical(stdlib)) {
+        Ok(below) => {
+            let key = jacket_config::slashed(below);
+            (key.clone(), key)
+        }
+        Err(_) => (
+            dir.file_name()
+                .map_or_else(String::new, |n| n.to_string_lossy().into_owned()),
+            id.to_owned(),
+        ),
+    }
+}
+
+/// The module `id` (a folder below `root`) from what `jaic -doc_model` printed. `stdlib` is the
+/// standard library folder, which names a module for links and imports whatever `root` is.
+pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module, String> {
+    let (doc_key, import_path) = identity(id, root, stdlib);
     let v: Value = serde_json::from_str(json).map_err(|e| format!("{id}: {e}"))?;
     let (private, items): (Vec<Flagged>, Vec<Flagged>) = list(&v, "items")
         .iter()
@@ -434,6 +480,8 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
     );
     let mut module = Module {
         id: id.to_owned(),
+        doc_key,
+        import_path,
         file: below(stdlib, &text(&v, "file")),
         docs: text(&v, "docs"),
         docs_line: number(&v, "docs_line"),
@@ -582,7 +630,7 @@ mod tests {
 {"name":"trim","kind":"procedure","file":"/s/internal/string/bytes.jai","line":3,"docs":"","value":"","overloads":[{"file":"/s/internal/string/bytes.jai","line":3,"signature":"","params":[{"name":"s","type":"string","default":"","doc":"the text"}],"returns":[],"docs":"Trims.","docs_line":2,"flags":[]}],"members":[]},
 {"name":"scan","kind":"procedure","file":"/s/internal/string/scan.jai","line":9,"docs":"","value":"","overloads":[],"members":[]},
 {"name":"LIMIT","kind":"constant","file":"/s/internal/string/bytes.jai","line":1,"docs":"","value":"4","overloads":[],"members":[]}]}"#;
-        let module = parse("String", json, Path::new("/s")).unwrap();
+        let module = parse("String", json, Path::new("/s"), Path::new("/s")).unwrap();
         assert_eq!(module.file, "String/module.jai");
         assert_eq!(module.items[0].file, "internal/string/bytes.jai");
         assert_eq!(module.items[0].overloads[0].params[0].doc, "the text");
@@ -595,9 +643,21 @@ mod tests {
     }
 
     #[test]
+    fn a_module_documented_alone_keeps_the_names_the_compiler_uses() {
+        let json = r#"{"file":"/s/Extensions/Json/module.jai","docs":"","docs_line":1,"platforms":[],"items":[]}"#;
+        let inside = parse("Json", json, Path::new("/s/Extensions"), Path::new("/s")).unwrap();
+        assert_eq!(inside.id, "Json");
+        assert_eq!(inside.key(), "Extensions/Json");
+        assert_eq!(inside.import_name(), "Extensions/Json");
+        let outside = parse("Acme/Json", json, Path::new("/lib"), Path::new("/s")).unwrap();
+        assert_eq!(outside.key(), "Json");
+        assert_eq!(outside.import_name(), "Acme/Json");
+    }
+
+    #[test]
     fn links_that_name_nothing_keep_their_place() {
         let json = r#"{"file":"/s/String/module.jai","docs":"","docs_line":1,"platforms":[],"items":[],"unresolved":[{"file":"/s/String/module.jai","line":7,"text":"[Gone]"}]}"#;
-        let module = parse("String", json, Path::new("/s")).unwrap();
+        let module = parse("String", json, Path::new("/s"), Path::new("/s")).unwrap();
         assert_eq!(module.unresolved, ["String/module.jai:7: [Gone]"]);
     }
 
@@ -607,7 +667,7 @@ mod tests {
 {"name":"open","kind":"procedure","file":"/s/File/a.jai","line":1,"docs":"","value":"","platforms":[],"overloads":[],"members":[]},
 {"name":"map","kind":"procedure","file":"/s/File/a.jai","line":2,"docs":"","value":"","platforms":["WINDOWS"],"overloads":[],"members":[]},
 {"name":"all","kind":"procedure","file":"/s/File/a.jai","line":3,"docs":"","value":"","platforms":["MACOS","LINUX","WINDOWS","WASM"],"overloads":[],"members":[]}]}"#;
-        let mut module = parse("File", json, Path::new("/s")).unwrap();
+        let mut module = parse("File", json, Path::new("/s"), Path::new("/s")).unwrap();
         assert_eq!(module.systems(), ["macOS", "Linux", "Windows"]);
         assert!(module.item_missing(&module.items[0]).is_empty());
         assert_eq!(module.item_missing(&module.items[1]), ["macOS", "Linux"]);

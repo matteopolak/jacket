@@ -96,6 +96,8 @@ mod tests {
     fn module(id: &str, names: &[&str]) -> Module {
         Module {
             id: id.into(),
+            doc_key: String::new(),
+            import_path: String::new(),
             file: String::new(),
             docs: String::new(),
             docs_line: 0,

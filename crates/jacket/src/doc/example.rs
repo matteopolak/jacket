@@ -121,7 +121,7 @@ pub fn view(
     let skipped = why_not_run(&block);
     let text = skipped
         .is_none()
-        .then(|| doctest::generate(&block, &module.id).0);
+        .then(|| doctest::generate(&block, module.import_name()).0);
     if let Some(text) = &text {
         site.add_runnable(
             &program_id(text),
@@ -135,15 +135,15 @@ pub fn view(
     let note = skipped.or_else(|| (!site.runtime).then(|| NO_RUNTIME.to_owned()));
     let program = text.filter(|_| note.is_none()).map(|text| {
         let parts = serde_json::json!({
-            "run": template_json(&doctest::generate_template(&block, &module.id)),
-            "open": standalone_ok(&block, &module.id)
-                .then(|| template_json(&doctest::standalone_template(&block, &module.id))),
+            "run": template_json(&doctest::generate_template(&block, module.import_name())),
+            "open": standalone_ok(&block, module.import_name())
+                .then(|| template_json(&doctest::standalone_template(&block, module.import_name()))),
             "playground": site.playground,
         });
         site.add_example(&text, parts.to_string())
     });
-    let standalone = (standalone_ok(&block, &module.id) && !site.playground.is_empty())
-        .then(|| doctest::standalone(&block, &module.id))
+    let standalone = (standalone_ok(&block, module.import_name()) && !site.playground.is_empty())
+        .then(|| doctest::standalone(&block, module.import_name()))
         .flatten()
         .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));
     Example {

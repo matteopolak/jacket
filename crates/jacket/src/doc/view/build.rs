@@ -916,12 +916,14 @@ fn see_also(site: &Site, mi: usize, item: &Item, same: &[&Item], at: usize) -> V
             .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == '/'))
             .unwrap_or(tail.len());
         if let Some((module, name)) = tail[..end].rsplit_once('/')
-            && let Some(other) = site.module_index(module)
+            && let Some(other) = site.module_for_link(module)
             && site.modules[other].item(name).is_some()
-            && !(module == m.id && name == item.name)
-            && !found.iter().any(|(a, b)| a == module && b == name)
+            && !(other == mi && name == item.name)
+            && !found
+                .iter()
+                .any(|(a, b)| *a == site.modules[other].id && b == name)
         {
-            found.push((module.into(), name.into()));
+            found.push((site.modules[other].id.clone(), name.into()));
         }
         rest = &tail[end..];
     }

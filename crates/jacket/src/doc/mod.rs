@@ -102,7 +102,7 @@ fn read_models(
                         .output();
                     let result = match output {
                         Ok(o) if o.status.success() => {
-                            model::parse(id, &String::from_utf8_lossy(&o.stdout), root).map(
+                            model::parse(id, &String::from_utf8_lossy(&o.stdout), root, stdlib).map(
                                 |mut module| {
                                     module.wasm = builds_for_wasm(jaic, stdlib, root, &module, i);
                                     module
@@ -154,7 +154,7 @@ fn builds_for_wasm(jaic: &Path, stdlib: &Path, root: &Path, module: &Module, n: 
         return false;
     }
     let file = dir.join(format!("{n}.jai"));
-    let program = format!("#import \"{}\";\nmain :: () {{}}\n", module.id);
+    let program = format!("#import \"{}\";\nmain :: () {{}}\n", module.import_name());
     let ok = std::fs::write(&file, program).is_ok()
         && Command::new(jaic)
             .env(jacket_config::env::STDLIB.name, stdlib)

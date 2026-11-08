@@ -45,6 +45,9 @@ pub struct Site {
     /// Whether the site carries a browser compiler.
     pub runtime: bool,
     by_id: BTreeMap<String, usize>,
+    /// Modules by the name the compiler's `jaidoc:` links give them; `None` for a name two
+    /// modules share, which no link may guess.
+    by_key: BTreeMap<String, Option<usize>>,
     /// `Module/name` of an item whose page folder is not its plain slug, because another item
     /// of its module differs from it only in case (`Head` and `head`) and the two folders
     /// would be one on a case-insensitive file system.
@@ -118,6 +121,13 @@ impl Site {
             .enumerate()
             .map(|(i, m)| (m.id.clone(), i))
             .collect();
+        let mut by_key: BTreeMap<String, Option<usize>> = BTreeMap::new();
+        for (i, m) in modules.iter().enumerate() {
+            by_key
+                .entry(m.key().to_owned())
+                .and_modify(|seen| *seen = None)
+                .or_insert(Some(i));
+        }
         // Where each documented item is declared, so a name the compiler resolved to a
         // declaration finds the page (or pages, when several modules re-export it).
         let mut decls: BTreeMap<(String, usize), Vec<(usize, String)>> = BTreeMap::new();
@@ -152,6 +162,7 @@ impl Site {
             breadcrumb: String::new(),
             runtime,
             by_id,
+            by_key,
             folders,
             decls,
             examples: RefCell::new(BTreeMap::new()),
@@ -162,6 +173,11 @@ impl Site {
 
     pub fn module_index(&self, id: &str) -> Option<usize> {
         self.by_id.get(id).copied()
+    }
+
+    /// The module a `jaidoc:` link names.
+    pub fn module_for_link(&self, key: &str) -> Option<usize> {
+        self.by_key.get(key).copied().flatten()
     }
 
     // Where pages are.
@@ -281,9 +297,8 @@ impl Site {
             .split_once('#')
             .map_or((rest, None), |(p, m)| (p, Some(m)));
         let found = path.rsplit_once('/').and_then(|(module, name)| {
-            let m = self.module_index(module)?;
-            let item = self.modules[m].item(name)?;
-            Some((module, item))
+            let module = &self.modules[self.module_for_link(module)?];
+            Some((module.id.as_str(), module.item(name)?))
         });
         let Some((module, item)) = found else {
             self.broken.borrow_mut().push(format!("{path} (in {from})"));
@@ -848,6 +863,33 @@ mod tests {
         assert_eq!(site.item_href("Http", "Head"), "/api/Http/Head-struct");
         assert_eq!(site.item_href("Http", "HEAD"), "/api/Http/HEAD-constant");
         assert_eq!(site.item_href("Http", "body"), "/api/Http/body");
+    }
+
+    #[test]
+    fn a_link_finds_a_module_documented_alone_by_the_compilers_name() {
+        let site = Site::new(
+            vec![Module {
+                id: "Json".into(),
+                doc_key: "Extensions/Json".into(),
+                items: vec![Item {
+                    name: "parse".into(),
+                    kind: Kind::Procedure,
+                    ..Item::default()
+                }],
+                ..Module::default()
+            }],
+            Vec::new(),
+            "/".into(),
+            "0.0.0".into(),
+            String::new(),
+            String::new(),
+            false,
+        );
+        assert_eq!(
+            site.doc_link("jaidoc:Extensions/Json/parse", "here"),
+            Some("/api/Json/parse".to_owned())
+        );
+        assert!(site.broken_links().is_empty());
     }
 
     #[test]
