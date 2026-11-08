@@ -882,6 +882,48 @@ close_idle_connections :: () {
     h2_close_idle(pool);
 }
 
+// Frees a client TLS config that connections were made with. It closes every pooled connection of the
+// running scheduler that uses the config (HTTP/1.1 and HTTP/2, and the `h2`-less copy that
+// `client_settings.http2 = false` makes of it), forgets what the pool knew about the config, then
+// releases it like `Tls.tls_config_free`. Use this instead of `Tls.tls_config_free` for a config that was
+// a `client.tls`: a pooled connection closes through its config, and a config allocated at the same
+// address later would otherwise be given connections that were made with the old one.
+//
+// Responses made with the config must be read to the end or closed first, and no request using it may
+// be in flight. Call it on the scheduler that made the requests: pools are per scheduler.
+//
+// ```jai,skip_on(wasm)
+// Tls :: #import "Extensions/Tls";
+//
+// config: Tls.Tls_Config;
+// config.alpn = .["h2", "http/1.1"];
+// assert(Tls.tls_config_init(*config).kind == .NONE);
+//
+// api: Client;
+// api.tls = *config;
+//
+// // ... requests with `api`, every response read or closed ...
+//
+// release_tls_config(*config);
+// assert(config.native == null);
+// ```
+release_tls_config :: (config: *Tls.Tls_Config) {
+    derived := take_quiet_copy(config);
+
+    // Outside a scheduler no pool exists: a call made there closes its connections when it ends.
+    if Io.in_scheduler() evict_tls_config(client_pool(), config, derived);
+
+    if derived {
+        kept := derived.alpn.data;
+
+        Tls.tls_config_free(derived);
+        free(kept);
+        free(derived);
+    }
+
+    Tls.tls_config_free(config);
+}
+
 // What the running scheduler's pools hold right now, for tests and diagnostics (nothing here is
 // needed to use the module). Call it on a scheduler: inside `Io.io_run` or a test client call.
 Http_Statistics :: struct {
@@ -934,6 +976,44 @@ http_statistics :: () -> Http_Statistics {
 }
 
 #scope_module
+
+// Closes the pooled connections made with `config` or `derived` and forgets the pool's records of them.
+evict_tls_config :: (pool: *Client_Pool, config: *Tls.Tls_Config, derived: *Tls.Tls_Config) {
+    // An entry leaves the pool before it closes: a close can wait, and other fibers use the pool meanwhile.
+    while true {
+        index := -1;
+
+        for pool.idle {
+            if tls_matches(it.tls, config, derived) {
+                index = it_index;
+
+                break;
+            }
+        }
+
+        if index < 0 break;
+
+        drop_entry(pool, index);
+    }
+
+    h2_close_idle(pool, config, derived);
+
+    for pool.open {
+        assert(!tls_matches(it.tls, config, derived), "release_tls_config: read or close every response made with the config first");
+    }
+
+    for pool.h2 {
+        assert(!tls_matches(it.tls, config, derived), "release_tls_config: a request using the config is still in flight");
+    }
+
+    for *pool.http1_only {
+        if tls_matches(it.tls, config, derived) it.tls = null;
+    }
+}
+
+tls_matches :: (candidate: *Tls.Tls_Config, config: *Tls.Tls_Config, derived: *Tls.Tls_Config) -> bool {
+    return candidate != null && (candidate == config || candidate == derived);
+}
 
 with_json_headers :: (headers: [] Header_Field) -> [] Header_Field {
     list: [..] Header_Field;
@@ -2237,6 +2317,31 @@ without_h2 :: (source: *Tls.Tls_Config) -> *Tls.Tls_Config {
     array_add(*quiet_tls, .{ source, source.native, copy });
 
     return copy;
+}
+
+// Removes and returns the `h2`-less copy `without_h2` made of `source`, or null.
+take_quiet_copy :: (source: *Tls.Tls_Config) -> *Tls.Tls_Config {
+    while true {
+        exchanged, _ := compare_and_swap(*quiet_tls_lock, 0, 1);
+
+        if exchanged break;
+
+        Io.sleep(1);
+    }
+
+    defer atomic_store(*quiet_tls_lock, cast(s32) 0);
+
+    for quiet_tls {
+        if it.source == source {
+            copy := it.copy;
+
+            array_unordered_remove_by_index(*quiet_tls, it_index);
+
+            return copy;
+        }
+    }
+
+    return null;
 }
 
 // The default for clients with no `tls`: system roots, ALPN `http/1.1`. Built once by whichever

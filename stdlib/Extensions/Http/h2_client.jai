@@ -280,13 +280,15 @@ h2_client_reader :: (conn: *H2_Conn) {
 }
 
 // Closes the connections that have no stream in flight and waits until their links are closed, so
-// that the TLS configs they were made from may be freed afterwards.
-h2_close_idle :: (pool: *Client_Pool) {
+// that the TLS configs they were made from may be freed afterwards. With `config` set, just the
+// connections made with it or with `derived` (its `h2`-less copy).
+h2_close_idle :: (pool: *Client_Pool, config: *Tls.Tls_Config = null, derived: *Tls.Tls_Config = null) {
     closing: [..] *H2_Conn;
     closing.allocator = temp;
 
     for pool.h2 {
         if it.open_local != 0 continue;
+        if config && !tls_matches(it.tls, config, derived) continue;
 
         it.refs += 1;
 

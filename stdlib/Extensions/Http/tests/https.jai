@@ -5,7 +5,7 @@
 // bodies and graceful shutdown. Run from this directory, once per backend (JAI_IO_BACKEND).
 #load "support/server_support.jai";
 
-#load "support/tls_support.jai";
+Tls :: #import "Extensions/Tls";
 
 // The certificates of the Tls tests, as string constants (see ../../Tls/tests/data/make_certs.sh).
 #load "../../Tls/tests/fixtures/certs.jai";
@@ -116,7 +116,7 @@ round_trips :: (base: string, server: *Server) {
 
     client_config := make_client_config();
 
-    defer free_client_config(*client_config);
+    defer release_tls_config(*client_config);
 
     api: Client;
 
@@ -186,7 +186,7 @@ round_trips :: (base: string, server: *Server) {
 certificate_failures :: (base: string, server: *Server) {
     unknown := make_client_config("", "other_ca");
 
-    defer free_client_config(*unknown);
+    defer release_tls_config(*unknown);
 
     api: Client;
 
@@ -201,7 +201,7 @@ certificate_failures :: (base: string, server: *Server) {
     // Switching the check off connects.
     unchecked := make_client_config("", "", verify = false);
 
-    defer free_client_config(*unchecked);
+    defer release_tls_config(*unchecked);
 
     check(Tls.tls_config_init(*unchecked).kind == .NONE, "re-init is harmless");
 
@@ -240,7 +240,7 @@ logging_app: App;
 wrong_name :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer free_client_config(*client_config);
+    defer release_tls_config(*client_config);
 
     api: Client;
 
@@ -258,7 +258,7 @@ expired_app: App;
 expired :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer free_client_config(*client_config);
+    defer release_tls_config(*client_config);
 
     api: Client;
 
@@ -278,8 +278,8 @@ client_certificates :: (base: string, server: *Server) {
     with := make_client_config("client");
     without := make_client_config();
 
-    defer free_client_config(*with);
-    defer free_client_config(*without);
+    defer release_tls_config(*with);
+    defer release_tls_config(*without);
 
     api: Client;
 
@@ -303,8 +303,8 @@ alpn :: (base: string, server: *Server) {
     h2_only := make_client_config("", "ca", string.["h2"]);
     none := make_client_config("", "ca", .[]);
 
-    defer free_client_config(*h2_only);
-    defer free_client_config(*none);
+    defer release_tls_config(*h2_only);
+    defer release_tls_config(*none);
 
     api: Client;
 
@@ -355,7 +355,7 @@ bad_handshakes :: (base: string, server: *Server) {
     // And the server still works.
     client_config := make_client_config();
 
-    defer free_client_config(*client_config);
+    defer release_tls_config(*client_config);
 
     api: Client;
 
@@ -375,7 +375,7 @@ buffers_held :: () -> int {
 idle_holds_no_buffer :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer free_client_config(*client_config);
+    defer release_tls_config(*client_config);
 
     api: Client;
 
@@ -459,7 +459,7 @@ crowd_client :: (crowd: *Crowd) {
 many_clients :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer free_client_config(*client_config);
+    defer release_tls_config(*client_config);
 
     crowd := Crowd.{ base = base, config = *client_config };
 
@@ -482,7 +482,7 @@ many_clients :: (base: string, server: *Server) {
 shutdown :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer free_client_config(*client_config);
+    defer release_tls_config(*client_config);
 
     api: Client;
 
@@ -639,7 +639,7 @@ stop_ragged :: (state: *Ragged) {
 ragged_eof :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer free_client_config(*client_config);
+    defer release_tls_config(*client_config);
 
     server_config := make_server_config("server");
 
@@ -727,7 +727,7 @@ ragged_eof :: (base: string, server: *Server) {
 ragged_clients :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer free_client_config(*client_config);
+    defer release_tls_config(*client_config);
 
     // Handshakes and leaves, with and without a request.
     for 0..3 {
@@ -781,6 +781,41 @@ ragged_clients :: (base: string, server: *Server) {
     check(reply.status == 200 && reply.body == "pong", "the server is fine after clients that left: %", reply.status);
 }
 
+// Freeing a config that an idle pooled connection was made with closes the connection, and a config
+// that later takes the same address does not inherit it.
+released_config :: (base: string, server: *Server) {
+    client_config := make_client_config();
+
+    api: Client;
+
+    api.base_url = base;
+    api.tls = *client_config;
+
+    reply := get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.body == "pong", "a request: % '%'", reply.status, reply.body);
+    check(http_statistics().idle_connections == 1, "the connection is pooled: %", http_statistics().idle_connections);
+
+    release_tls_config(*client_config);
+
+    check(http_statistics().idle_connections == 0, "releasing the config closes its pooled connections: %", http_statistics().idle_connections);
+    check(client_config.native == null, "and frees the config");
+
+    // The same variable, so the same address: nothing of the old config is reused.
+    client_config = make_client_config();
+
+    before := http_statistics().connections_opened;
+
+    reply = get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.body == "pong", "a request with the new config: % '%'", reply.status, reply.body);
+    check(http_statistics().connections_opened == before + 1, "it opened a connection of its own: %", http_statistics().connections_opened - before);
+
+    release_tls_config(*client_config);
+
+    check(http_statistics().idle_connections == 0, "released again: %", http_statistics().idle_connections);
+}
+
 main :: () {
     if !supported() return;
 
@@ -801,6 +836,7 @@ main :: () {
     defer app.config.tls = null;
 
     run_server(*app, round_trips);
+    run_server(*app, released_config);
     run_server(*app, certificate_failures);
     run_server(*app, alpn);
     run_server(*app, idle_holds_no_buffer);

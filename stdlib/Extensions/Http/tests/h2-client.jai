@@ -5,7 +5,7 @@
 // other way round). Run from this directory.
 #load "support/server_support.jai";
 
-#load "support/tls_support.jai";
+Tls :: #import "Extensions/Tls";
 
 #load "../../Tls/tests/fixtures/certs.jai";
 
@@ -115,7 +115,7 @@ fan_out :: (fan: Fan) {
 shared_connection :: (base: string, server: *Server) {
     config := client_config(string.["h2", "http/1.1"]);
 
-    defer free_client_config(*config);
+    defer release_tls_config(*config);
 
     api: Client;
 
@@ -194,7 +194,7 @@ shared_connection :: (base: string, server: *Server) {
 http1_server :: (base: string, server: *Server) {
     config := client_config(string.["h2", "http/1.1"]);
 
-    defer free_client_config(*config);
+    defer release_tls_config(*config);
 
     api: Client;
 
@@ -226,7 +226,7 @@ http1_server :: (base: string, server: *Server) {
 http1_client :: (base: string, server: *Server) {
     config := client_config(string.["http/1.1"]);
 
-    defer free_client_config(*config);
+    defer release_tls_config(*config);
 
     api: Client;
 
@@ -251,7 +251,7 @@ http1_client :: (base: string, server: *Server) {
 switched_off :: (base: string, server: *Server) {
     config := client_config(string.["h2", "http/1.1"]);
 
-    defer free_client_config(*config);
+    defer release_tls_config(*config);
 
     api: Client;
 
@@ -268,7 +268,7 @@ switched_off :: (base: string, server: *Server) {
 client_off :: (base: string, server: *Server) {
     config := client_config(string.["h2", "http/1.1"]);
 
-    defer free_client_config(*config);
+    defer release_tls_config(*config);
 
     api: Client;
 
@@ -290,6 +290,46 @@ client_off :: (base: string, server: *Server) {
     close_all();
 
     client_settings.http2 = true;
+}
+
+// Freeing a config closes the idle HTTP/2 connection made with it, and the `h2`-less copy that
+// `client_settings.http2 = false` makes of it.
+released_config :: (base: string, server: *Server) {
+    config := client_config(string.["h2", "http/1.1"]);
+
+    api: Client;
+
+    api.base_url = base;
+    api.tls = *config;
+
+    reply := get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.http2, "an HTTP/2 request");
+    check(http_statistics().idle_connections == 1, "the connection is pooled: %", http_statistics().idle_connections);
+
+    client_settings.http2 = false;
+
+    reply = get_path(*api, "/ping");
+
+    check(reply.status == 200 && !reply.http2, "an HTTP/1.1 request through the copy of the config");
+    check(http_statistics().idle_connections == 2, "both connections are pooled: %", http_statistics().idle_connections);
+
+    client_settings.http2 = true;
+
+    release_tls_config(*config);
+
+    check(http_statistics().idle_connections == 0, "releasing the config closes both: %", http_statistics().idle_connections);
+
+    config = client_config(string.["h2", "http/1.1"]);
+
+    before := http_statistics().connections_opened;
+
+    reply = get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.http2, "a new config at the same address");
+    check(http_statistics().connections_opened == before + 1, "gets a connection of its own: %", http_statistics().connections_opened - before);
+
+    release_tls_config(*config);
 }
 
 register :: (app: *App) {
@@ -342,6 +382,7 @@ main :: () {
     defer legacy.config.tls = null;
 
     run_server(*app, shared_connection);
+    run_server(*app, released_config);
     run_server(*legacy, http1_server);
     run_server(*app, http1_client);
     run_server(*quiet, switched_off);
