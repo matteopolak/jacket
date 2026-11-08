@@ -5,7 +5,7 @@
 // other way round). Run from this directory.
 #load "support/server_support.jai";
 
-Tls :: #import "Extensions/Tls";
+#load "support/tls_support.jai";
 
 #load "../../Tls/tests/fixtures/certs.jai";
 
@@ -115,7 +115,7 @@ fan_out :: (fan: Fan) {
 shared_connection :: (base: string, server: *Server) {
     config := client_config(string.["h2", "http/1.1"]);
 
-    defer Tls.tls_config_free(*config);
+    defer free_client_config(*config);
 
     api: Client;
 
@@ -194,7 +194,7 @@ shared_connection :: (base: string, server: *Server) {
 http1_server :: (base: string, server: *Server) {
     config := client_config(string.["h2", "http/1.1"]);
 
-    defer Tls.tls_config_free(*config);
+    defer free_client_config(*config);
 
     api: Client;
 
@@ -226,7 +226,7 @@ http1_server :: (base: string, server: *Server) {
 http1_client :: (base: string, server: *Server) {
     config := client_config(string.["http/1.1"]);
 
-    defer Tls.tls_config_free(*config);
+    defer free_client_config(*config);
 
     api: Client;
 
@@ -251,7 +251,7 @@ http1_client :: (base: string, server: *Server) {
 switched_off :: (base: string, server: *Server) {
     config := client_config(string.["h2", "http/1.1"]);
 
-    defer Tls.tls_config_free(*config);
+    defer free_client_config(*config);
 
     api: Client;
 
@@ -268,7 +268,7 @@ switched_off :: (base: string, server: *Server) {
 client_off :: (base: string, server: *Server) {
     config := client_config(string.["h2", "http/1.1"]);
 
-    defer Tls.tls_config_free(*config);
+    defer free_client_config(*config);
 
     api: Client;
 

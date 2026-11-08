@@ -5,7 +5,7 @@
 // bodies and graceful shutdown. Run from this directory, once per backend (JAI_IO_BACKEND).
 #load "support/server_support.jai";
 
-Tls :: #import "Extensions/Tls";
+#load "support/tls_support.jai";
 
 // The certificates of the Tls tests, as string constants (see ../../Tls/tests/data/make_certs.sh).
 #load "../../Tls/tests/fixtures/certs.jai";
@@ -116,7 +116,7 @@ round_trips :: (base: string, server: *Server) {
 
     client_config := make_client_config();
 
-    defer Tls.tls_config_free(*client_config);
+    defer free_client_config(*client_config);
 
     api: Client;
 
@@ -186,7 +186,7 @@ round_trips :: (base: string, server: *Server) {
 certificate_failures :: (base: string, server: *Server) {
     unknown := make_client_config("", "other_ca");
 
-    defer Tls.tls_config_free(*unknown);
+    defer free_client_config(*unknown);
 
     api: Client;
 
@@ -201,7 +201,7 @@ certificate_failures :: (base: string, server: *Server) {
     // Switching the check off connects.
     unchecked := make_client_config("", "", verify = false);
 
-    defer Tls.tls_config_free(*unchecked);
+    defer free_client_config(*unchecked);
 
     check(Tls.tls_config_init(*unchecked).kind == .NONE, "re-init is harmless");
 
@@ -240,7 +240,7 @@ logging_app: App;
 wrong_name :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer Tls.tls_config_free(*client_config);
+    defer free_client_config(*client_config);
 
     api: Client;
 
@@ -258,7 +258,7 @@ expired_app: App;
 expired :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer Tls.tls_config_free(*client_config);
+    defer free_client_config(*client_config);
 
     api: Client;
 
@@ -278,8 +278,8 @@ client_certificates :: (base: string, server: *Server) {
     with := make_client_config("client");
     without := make_client_config();
 
-    defer Tls.tls_config_free(*with);
-    defer Tls.tls_config_free(*without);
+    defer free_client_config(*with);
+    defer free_client_config(*without);
 
     api: Client;
 
@@ -303,8 +303,8 @@ alpn :: (base: string, server: *Server) {
     h2_only := make_client_config("", "ca", string.["h2"]);
     none := make_client_config("", "ca", .[]);
 
-    defer Tls.tls_config_free(*h2_only);
-    defer Tls.tls_config_free(*none);
+    defer free_client_config(*h2_only);
+    defer free_client_config(*none);
 
     api: Client;
 
@@ -355,7 +355,7 @@ bad_handshakes :: (base: string, server: *Server) {
     // And the server still works.
     client_config := make_client_config();
 
-    defer Tls.tls_config_free(*client_config);
+    defer free_client_config(*client_config);
 
     api: Client;
 
@@ -375,7 +375,7 @@ buffers_held :: () -> int {
 idle_holds_no_buffer :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer Tls.tls_config_free(*client_config);
+    defer free_client_config(*client_config);
 
     api: Client;
 
@@ -459,7 +459,7 @@ crowd_client :: (crowd: *Crowd) {
 many_clients :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer Tls.tls_config_free(*client_config);
+    defer free_client_config(*client_config);
 
     crowd := Crowd.{ base = base, config = *client_config };
 
@@ -482,7 +482,7 @@ many_clients :: (base: string, server: *Server) {
 shutdown :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer Tls.tls_config_free(*client_config);
+    defer free_client_config(*client_config);
 
     api: Client;
 
@@ -540,6 +540,7 @@ Ragged :: struct {
     config: *Tls.Tls_Config;
     mode: Ragged_Mode;
     accepted: int;
+    group: Io.Wait_Group;
 }
 
 RAGGED_SIZE :: 200_000;
@@ -574,6 +575,8 @@ read_request_head :: (stream: *Tls.Tls_Stream) -> bool {
 }
 
 ragged_server :: (state: *Ragged) {
+    defer Io.done(*state.group);
+
     while true {
         tcp, accept_error := Io.accept(state.listener);
 
@@ -622,6 +625,7 @@ start_ragged :: (state: *Ragged, mode: Ragged_Mode, config: *Tls.Tls_Config) -> 
 
     address, _ := Io.local_address(state.listener);
 
+    Io.add(*state.group, 1);
     Io.spawn(ragged_server, state);
 
     return tprint("https://%", Io.address_to_string(address));
@@ -629,13 +633,13 @@ start_ragged :: (state: *Ragged, mode: Ragged_Mode, config: *Tls.Tls_Config) -> 
 
 stop_ragged :: (state: *Ragged) {
     Io.close(state.listener);
-    Io.sleep(20);
+    Io.wait(*state.group);
 }
 
 ragged_eof :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer Tls.tls_config_free(*client_config);
+    defer free_client_config(*client_config);
 
     server_config := make_server_config("server");
 
@@ -723,7 +727,7 @@ ragged_eof :: (base: string, server: *Server) {
 ragged_clients :: (base: string, server: *Server) {
     client_config := make_client_config();
 
-    defer Tls.tls_config_free(*client_config);
+    defer free_client_config(*client_config);
 
     // Handshakes and leaves, with and without a request.
     for 0..3 {

@@ -8,7 +8,7 @@
 #load "../h2_frame.jai";
 #load "../hpack.jai";
 
-Tls :: #import "Extensions/Tls";
+#load "support/tls_support.jai";
 
 #load "../../Tls/tests/fixtures/certs.jai";
 
@@ -919,10 +919,7 @@ negotiation :: (base: string, server: *Server) {
 
     check(Tls.tls_config_init(*config).kind == .NONE, "config");
 
-    defer {
-        close_idle_connections();
-        Tls.tls_config_free(*config);
-    }
+    defer free_client_config(*config);
 
     api: Client;
 
@@ -945,10 +942,7 @@ negotiation :: (base: string, server: *Server) {
 
     check(Tls.tls_config_init(*none).kind == .NONE, "config");
 
-    defer {
-        close_idle_connections();
-        Tls.tls_config_free(*none);
-    }
+    defer free_client_config(*none);
 
     api.tls = *none;
 

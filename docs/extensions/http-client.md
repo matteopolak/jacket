@@ -41,3 +41,5 @@ created := post(*api, "/users", New_User.{ name = "Ada" });   // struct body is 
 - Tests: `stdlib/Extensions/Http/tests/client.jai` and `https.jai`.
 
 Tests of a specific transport failure phase should inject a `Transport` whose writer accepts the request and whose reader returns the intended `Io_Error`. Keep wall-clock timeout tests separate: a deadline can expire during connecting, writing or reading.
+
+The HTTP TLS fixtures share `tests/support/tls_support.jai`: `free_client_config` closes idle connections and asserts that no response still holds one before freeing its configuration. Raw test servers join their serving fiber before releasing its configuration or reusing the server state. Keep these cleanup boundaries when adding TLS cases.
