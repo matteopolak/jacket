@@ -140,6 +140,10 @@ unlink_debug_allocation_locked :: (record: *Allocation) {
 }
 
 debug_record :: (owner: Allocator, memory: *void, size: s64, heap: bool, trace: *Stack_Trace_Node) {
+    // Empty ranges need not have distinct addresses, even from a later nonempty allocation.
+    // Heap records use size zero too, but their handles still have identity.
+    if !heap && size == 0 return;
+
     push_context, defer_pop;
     context.inside_memory_debugger = true;
     context.logger = runtime_support_default_logger;
