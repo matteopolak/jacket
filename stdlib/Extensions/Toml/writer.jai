@@ -5,6 +5,8 @@
 write_toml :: (root: *Toml_Value, options := Toml_Options.{}) -> string, Toml_Error {
     writer: Toml_Writer;
     writer.options = options;
+    nanoseconds, _ := to_nanoseconds(current_time_monotonic());
+    writer.seed = cast(u64) (nanoseconds ^ cast(s64) cast(*void) *writer);
 
     if !toml_options_valid(options) {
         toml_write_fail(*writer, .LIMIT, "limits must be nonnegative");
@@ -43,6 +45,7 @@ Toml_Writer :: struct {
     nodes: int;
     path: [..] Toml_Path_Part;
     depth: int;
+    seed: u64; // randomizes the key hash of duplicate checks
 }
 
 toml_emit :: (w: *Toml_Writer, text: string) {
@@ -60,6 +63,30 @@ toml_emit :: (w: *Toml_Writer, text: string) {
 toml_write_string :: (w: *Toml_Writer, text: string) {
     if text.count > w.options.max_string_bytes {
         toml_write_fail(w, .LIMIT, "writer string byte limit exceeded");
+        return;
+    }
+
+    // Plain ASCII needs neither escapes nor a UTF-8 proof: one scan, one limit check.
+    plain := true;
+
+    for text if it == 34 || it == 92 || it < 32 || it >= 127 {
+        plain = false;
+        break;
+    }
+
+    if plain {
+        if w.error.kind != .NONE return;
+
+        if text.count + 2 > w.options.max_output_bytes - w.bytes {
+            toml_write_fail(w, .LIMIT, "output byte limit exceeded");
+            return;
+        }
+
+        append(*w.builder, "\"");
+        append(*w.builder, text);
+        append(*w.builder, "\"");
+        w.bytes += text.count + 2;
+
         return;
     }
 
@@ -490,14 +517,122 @@ toml_index_proves_unique :: (table: *Toml_Value) -> bool {
     return visited == count && pushed == count;
 }
 
+// Duplicate detection for a table without a trusted index: an open-addressing set of member
+// numbers with a 32-bit tag per slot. Keys are hashed with a seed picked per write, so keys an
+// attacker chooses cannot be steered into one bucket; the structure never outlives the write.
+Toml_Key_Slot :: struct {
+    tag: u32;
+    member: u32; // member number plus one; zero is empty
+}
+
+Toml_Key_Set :: struct {
+    slots: [] Toml_Key_Slot;
+    mask: u64;
+    seed: u64;
+    inline_slots: [256] Toml_Key_Slot = ---;
+    heap: bool;
+    usable: bool;
+}
+
+toml_hash_key :: (key: string, seed: u64) -> u64 {
+    hash := seed ^ (cast(u64) key.count * 0x9e3779b97f4a7c15);
+    at := 0;
+
+    while at + 8 <= key.count {
+        word: u64 = ---;
+
+        memcpy(*word, key.data + at, 8);
+        hash = (hash ^ word) * 0xff51afd7ed558ccd;
+        hash ^= hash >> 32;
+        at += 8;
+    }
+
+    if at < key.count {
+        word: u64 = 0;
+
+        memcpy(*word, key.data + at, key.count - at);
+        hash = (hash ^ word) * 0xc4ceb9fe1a85ec53;
+        hash ^= hash >> 29;
+    }
+
+    hash ^= hash >> 33;
+    hash *= 0xff51afd7ed558ccd;
+    hash ^= hash >> 33;
+
+    return hash;
+}
+
+// `expected` is the number of keys that will be added at most.
+toml_key_set_init :: (set: *Toml_Key_Set, w: *Toml_Writer, expected: int) {
+    if expected <= 0 || expected >= 0x40000000 return;
+
+    capacity := 32;
+    while capacity < expected * 2 capacity *= 2;
+
+    if capacity <= set.inline_slots.count {
+        set.slots = .{ capacity, set.inline_slots.data };
+    } else {
+        bytes := capacity * size_of(Toml_Key_Slot);
+
+        set.slots = .{ capacity, cast(*Toml_Key_Slot) alloc(bytes) };
+        set.heap = true;
+    }
+
+    memset(set.slots.data, 0, set.slots.count * size_of(Toml_Key_Slot));
+
+    set.mask = cast(u64) set.slots.count - 1;
+    set.seed = w.seed;
+    set.usable = true;
+}
+
+toml_key_set_free :: (set: *Toml_Key_Set) {
+    if set.heap free(set.slots.data);
+}
+
+// False when the key of member `index` equals an earlier member's key.
+toml_key_set_add :: (set: *Toml_Key_Set, members: [] Toml_Member, index: int) -> bool {
+    key := members[index].key;
+
+    // Without a set (an absurd member count, or no node quota left) compare directly.
+    if !set.usable {
+        for previous: 0..index - 1 if members[previous].key == key return false;
+
+        return true;
+    }
+
+    hash := toml_hash_key(key, set.seed);
+    tag := cast(u32) (hash >> 32);
+    slot := hash & set.mask;
+
+    while true {
+        entry := *set.slots[slot];
+
+        if !entry.member {
+            entry.tag = tag;
+            entry.member = cast(u32) index + 1;
+
+            return true;
+        }
+
+        if entry.tag == tag && members[entry.member - 1].key == key return false;
+
+        slot = (slot + 1) & set.mask;
+    }
+
+    return true;
+}
+
 toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_table: bool) {
-    keys: Toml_Index;
+    // A cached index that proves uniqueness (parsed and builder tables) needs no key set.
     // Do not pre-walk more immediate members than the remaining node quota permits.
-    // Incremental fallback preserves the existing first-error path for smaller limits.
+    // Incremental checks preserve the existing first-error path for smaller limits.
     proven := node.members.count <= w.options.max_nodes - w.nodes && toml_index_proves_unique(node);
     tiny := node.members.count <= 16;
+    keys: Toml_Key_Set;
 
-    defer array_free(keys.nodes);
+    if !proven && !tiny toml_key_set_init(*keys, w, min(node.members.count, w.options.max_nodes - w.nodes + 1));
+
+    defer toml_key_set_free(*keys);
     if inline_table toml_emit(w, "{");
 
     for node.members {
@@ -507,7 +642,6 @@ toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_tabl
 
         if !proven {
             duplicate := -1;
-            hint: Toml_Insert_Hint;
 
             if tiny {
                 for previous: 0..it_index - 1 {
@@ -516,14 +650,9 @@ toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_tabl
                         break;
                     }
                 }
-            } else duplicate = toml_probe_index(node, *keys, it.key, *hint);
+            } else if !toml_key_set_add(*keys, node.members, it_index) duplicate = 0;
 
             if duplicate >= 0 {
-                toml_write_fail(w, .OUTPUT, "duplicate constructed table key");
-                return;
-            }
-
-            if !tiny && toml_tree_add(node, *keys, it_index, *hint, false) >= 0 {
                 toml_write_fail(w, .OUTPUT, "duplicate constructed table key");
                 return;
             }
