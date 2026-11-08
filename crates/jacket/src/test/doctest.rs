@@ -275,7 +275,8 @@ pub(crate) fn generate(block: &Block, module: &str) -> (String, Vec<u32>) {
     let mut out = String::new();
     let mut lines = Vec::new();
     let mut push = |text: &str, from: u32| {
-        for line in text.lines() {
+        // `str::lines` would drop an empty source line and shift every line after it.
+        for line in text.split('\n') {
             out.push_str(line);
             out.push('\n');
             lines.push(from);
@@ -752,6 +753,25 @@ mod tests {
         let blocks = fenced(&["```jai,skip_on(wasm),timeout(3)", "x := 1;", "```"]);
         assert_eq!(blocks[0].1.options.skip_on[0].names, ["wasm"]);
         assert_eq!(blocks[0].1.options.timeout, Some(3));
+    }
+
+    #[test]
+    fn blank_lines_in_an_example_keep_their_place() {
+        let block = Block {
+            name: "M.f#1".into(),
+            file: "/m/module.jai".into(),
+            line: 4,
+            code: "main :: () {\n    x := 1;\n\n    y := 2;\n}\n".into(),
+            mode: Mode::Run,
+            options: TestOptions::default(),
+            problems: Vec::new(),
+        };
+        let (text, lines) = generate(&block, "M");
+        assert_eq!(text.lines().count(), lines.len());
+        let y = text.lines().position(|l| l == "    y := 2;").unwrap();
+        assert_eq!(lines[y], 8);
+        assert_eq!(text.lines().nth(y - 1), Some(""));
+        assert_eq!(lines[y - 1], 7);
     }
 
     #[test]
