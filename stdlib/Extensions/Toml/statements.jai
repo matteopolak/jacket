@@ -7,6 +7,7 @@ Toml_Statement_Kind :: enum u8 {
     ARRAY_TABLE;
 }
 
+// One optional source projection record; spans and values belong to its document.
 Toml_Statement :: struct {
     kind: Toml_Statement_Kind;
     value: *Toml_Value;

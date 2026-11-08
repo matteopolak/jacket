@@ -7,6 +7,8 @@
 // assert(toml_get(doc.root, "name").text == "tool");
 // free_toml(*doc);
 // ```
+
+// The value stored in a TOML node; temporal spellings retain their distinct kinds.
 Toml_Kind :: enum u8 {
     TABLE;
     ARRAY;
@@ -20,11 +22,13 @@ Toml_Kind :: enum u8 {
     OFFSET_DATETIME;
 }
 
+// Half-open byte offsets in the document source; -1 means no source location.
 Toml_Span :: struct {
     start: int = -1;
     end: int = -1;
 }
 
+// Failure category; NONE means parsing or writing succeeded.
 Toml_Error_Kind :: enum u8 {
     NONE;
     SYNTAX;
@@ -72,6 +76,7 @@ Toml_Temporal :: struct {
     negative_zero_offset: bool;
 }
 
+// One decoded table key and its document-owned value, in insertion order.
 Toml_Member :: struct {
     key: string;
     value: *Toml_Value;
@@ -100,6 +105,8 @@ Toml_Value :: struct {
     internal_height: int;
 }
 
+// Memory, nesting and output limits shared by parsing and writing.
+// Set record_statements before parsing to retain source statement order.
 Toml_Options :: struct {
     max_input_bytes: int = 16 << 20;
     max_depth: int = 128;
@@ -111,6 +118,8 @@ Toml_Options :: struct {
     max_output_bytes: int = 32 << 20;
 }
 
+// Owns the source, nodes and decoded strings; release with free_toml.
+// Node pointers and statement records remain valid until that release.
 Toml_Document :: struct {
     root: *Toml_Value;
     source: string;
