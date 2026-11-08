@@ -123,6 +123,8 @@ struct Args {
     progress: Option<PathBuf>,
     inputs: Option<Vec<String>>,
     selected: Option<HashSet<String>>,
+    order_seed: Option<u64>,
+    observation_details: Option<PathBuf>,
 }
 
 fn parse_args() -> Result<Args, String> {
@@ -141,6 +143,8 @@ fn parse_args() -> Result<Args, String> {
         progress: None,
         inputs: None,
         selected: None,
+        order_seed: None,
+        observation_details: None,
     };
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -148,6 +152,8 @@ fn parse_args() -> Result<Args, String> {
             args.next().ok_or_else(|| format!("{arg} requires a value"))
         };
         match arg.as_str() {
+            "--observation-details" => parsed.observation_details = Some(PathBuf::from(next(&mut args)?)),
+            "--order-seed" => { parsed.order_seed = Some(next(&mut args)?.parse().map_err(|_| "invalid order seed")?); }
             "--json" => parsed.json = true,
             "--strict" => parsed.strict = true,
             "--redacted" => parsed.redacted = true,
@@ -175,7 +181,7 @@ fn parse_args() -> Result<Args, String> {
             }
             // Replaced by structured file/gap/failure records.
             "--list" | "--errors" | "--stats" => {}
-            "--help" => return Err("ide_coverage [--json] [--strict] [--redacted] [--review FILE] [--case-id ID] [--progress NEW_JSONL] [--inputs RELATIVE_PATHS_JSON] [--only-inputs ID,ID] [--stdlib DIR] [--stdlib-id ID] [--no-runtime] [--os OS] [--cpu CPU] DIR...".into()),
+            "--help" => return Err("ide_coverage [--json] [--strict] [--redacted] [--review FILE] [--case-id ID] [--progress NEW_JSONL] [--order-seed N] [--observation-details NEW_JSONL] [--inputs RELATIVE_PATHS_JSON] [--only-inputs ID,ID] [--stdlib DIR] [--stdlib-id ID] [--no-runtime] [--os OS] [--cpu CPU] DIR...".into()),
             _ if arg.starts_with('-') => return Err(format!("unknown option {arg}")),
             _ => parsed.dirs.push(PathBuf::from(arg)),
         }
@@ -200,6 +206,18 @@ fn parse_args() -> Result<Args, String> {
     }
     if parsed.progress.as_ref().is_some_and(|p| p.exists()) {
         return Err("progress path must be new; preserve prior evidence".into());
+    }
+    if parsed.observation_details.is_some()
+        && (parsed.progress.is_none() || parsed.order_seed.is_none())
+    {
+        return Err("observation details require --progress and --order-seed".into());
+    }
+    if parsed
+        .observation_details
+        .as_ref()
+        .is_some_and(|p| p.exists())
+    {
+        return Err("observation details path must be new; preserve prior evidence".into());
     }
     parsed.stdlib = parsed
         .stdlib
@@ -296,7 +314,11 @@ impl Audit {
         files: Vec<Result<PathBuf, String>>,
     ) -> Vec<(File, DocumentUri, String)> {
         let mut opened = Vec::new();
-        for (index, path) in files.into_iter().enumerate() {
+        let mut files: Vec<_> = files.into_iter().enumerate().collect();
+        if let Some(seed) = self.args.order_seed {
+            super::order::shuffle(&mut files, seed);
+        }
+        for (index, path) in files {
             let mut file = File {
                 case_id: id.to_owned(),
                 input_id: format!("f{index:06}"),
@@ -318,8 +340,9 @@ impl Audit {
                 }
             };
             file.path = Some(path.to_string_lossy().into_owned());
-            let text = match std::fs::read_to_string(&path) {
-                Ok(text) => text,
+            let text = match std::fs::read(&path) {
+                // Match the compiler and the UTF-8 text an editor sends for legacy sources.
+                Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
                 Err(e) => {
                     file.failures.push(failure("read", e.to_string()));
                     self.report.files.push(file);
@@ -336,7 +359,20 @@ impl Audit {
                 }
             };
             match session.open(document.clone(), 1, text.clone()) {
-                Ok(()) => opened.push((file, document, text)),
+                Ok(()) => {
+                    if self.args.order_seed.is_some() {
+                        super::order::checkpoint(
+                            self.args.progress.as_deref(),
+                            self.args.observation_details.as_deref(),
+                            "opened",
+                            &file.input_id,
+                            session,
+                            &document,
+                            &text,
+                        );
+                    }
+                    opened.push((file, document, text));
+                }
                 Err(e) => {
                     file.failures.push(failure("open", format!("{e:?}")));
                     self.report.files.push(file);
@@ -370,6 +406,11 @@ impl Audit {
         });
         let mut session = Session::with_environment(Limits::default(), env);
         session.set_workspace_folders(vec![dir.canonicalize().unwrap_or(dir)]);
+        if self.args.order_seed.is_some() {
+            while session.indexing_pending() {
+                session.index_workspace();
+            }
+        }
         let opened = self.open_files(&mut session, &id, files);
         for file in &self.report.files {
             checkpoint_file(progress.as_deref(), file)?;
@@ -403,6 +444,17 @@ impl Audit {
                 .is_some_and(|s| !s.contains(&file.input_id))
             {
                 continue;
+            }
+            if self.args.order_seed.is_some() {
+                super::order::checkpoint(
+                    progress.as_deref(),
+                    self.args.observation_details.as_deref(),
+                    "final",
+                    &file.input_id,
+                    &session,
+                    &uri,
+                    &text,
+                );
             }
             self.audit_file(&mut session, file, &uri, &text, &destinations)?;
         }
@@ -545,7 +597,8 @@ impl Audit {
                     character: l.range.start.character,
                 })
                 .collect();
-            let definition = role == Role::Directive || !definitions.is_empty();
+            let builtin = session.semantic_builtin_reference(uri, at).unwrap_or(false);
+            let definition = role == Role::Directive || !definitions.is_empty() || builtin;
             let mut wrong = false;
             for (i, oracle) in self
                 .args

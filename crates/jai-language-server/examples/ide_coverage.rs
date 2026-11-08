@@ -28,9 +28,14 @@ fn environment(stdlib: PathBuf, runtime_support: bool) -> Environment {
     Environment {
         services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
+        options: Box::new(move |main| {
             let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
+            options.import_paths = jaic::project::import_paths(
+                main.parent().unwrap_or(std::path::Path::new("/")),
+                &[],
+                &[],
+                &stdlib,
+            );
             options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options.runtime_support = runtime_support;
             options.stack_trace = runtime_support;
@@ -76,6 +81,8 @@ fn using_modifier(tokens: &[jaic::lexer::Token], i: usize) -> bool {
         && matches!(&tokens[i-2].tok,Tok::Ident(name) if name.as_str()=="using")
 }
 
+#[path = "ide_coverage/order.rs"]
+mod order;
 #[path = "ide_coverage/report.rs"]
 mod report;
 #[path = "ide_coverage/runner.rs"]
