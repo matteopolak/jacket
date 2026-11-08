@@ -8,6 +8,7 @@ use super::{
 };
 use crate::diagnostics::Code;
 use crate::ide::Recorder;
+use crate::sema::err;
 
 /// Where a cross build keeps its twin.
 #[derive(Default)]
@@ -197,6 +198,13 @@ impl Compiler {
     ) -> Result<Option<Vec<Operand>>> {
         if !self.host_twin_wanted(flags) || self.runs_need_target(span) {
             return Ok(None);
+        }
+        if self.ed.type_probe {
+            return err(
+                Code::ContextualTypeInference,
+                span,
+                "contextual type inference requires compile-time execution",
+            );
         }
         let mut twin = match self.ct.twin.compiler.take() {
             Some(twin) => twin,

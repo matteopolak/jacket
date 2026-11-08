@@ -389,7 +389,7 @@ pub(super) fn procedure_flags(h: &ast::ProcHeader, polymorphic: bool) -> i64 {
 /// Records for a `#code` value outside its compiler (`compiler_get_nodes`): the root node
 /// and every node below it.
 pub fn export_code(r: &mut Records, body: &ast::CodeBody) -> (i64, Vec<i64>) {
-    export_code_in(None, ScopeId(0), r, body)
+    export_code_in(None, ScopeId(0), r, body, None)
 }
 
 /// `export_code`, with names resolved and types filled in by `c` when given: identifiers
@@ -399,6 +399,7 @@ pub(super) fn export_code_in(
     scope: ScopeId,
     r: &mut Records,
     body: &ast::CodeBody,
+    code: Option<usize>,
 ) -> (i64, Vec<i64>) {
     let mut out = Typechecked::default();
     let own = c.is_some();
@@ -409,6 +410,7 @@ pub(super) fn export_code_in(
         sub: Vec::new(),
         locals: Vec::new(),
         procedure: None,
+        code,
         compound_members: Vec::new(),
         own,
         out: &mut out,

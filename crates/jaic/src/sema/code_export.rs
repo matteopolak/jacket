@@ -26,6 +26,7 @@ mod typechecked;
 pub use self::constants::message_kind;
 use self::constants::node;
 pub use self::procs::export_code;
+pub(in crate::sema) use self::state::ExpressionOwner;
 pub use self::state::{ExportState, FileEvent, Modification};
 pub use self::typechecked::Contents;
 use super::{Compiler, ProcId, ScopeId, Span, Sym, TypeId, ast};
@@ -79,6 +80,8 @@ pub(super) struct Exporter<'a> {
     locals: Vec<(Sym, i64)>,
     /// Body whose checked results are being exported (templates have no snapshot).
     procedure: Option<ProcId>,
+    /// Standalone quoted code has its own optional checking pass.
+    code: Option<usize>,
     /// The records are for this compiler's own compile-time code (`compiler_get_nodes`):
     /// types refer to its real descriptors.
     own: bool,

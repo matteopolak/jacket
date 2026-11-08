@@ -3,7 +3,7 @@ use super::constants::node;
 use super::{Exporter, bin_op};
 use crate::builtin_keys::SyntaxKey;
 use crate::records::{Field, FieldRef, Item, Record, RecordTag};
-use crate::sema::{Sym, TypeId, ast};
+use crate::sema::{Sym, ast};
 
 impl Exporter<'_> {
     pub(super) fn expr_inner(&mut self, e: &ast::Expr) -> i64 {
@@ -92,29 +92,6 @@ impl Exporter<'_> {
             },
             E::Ident(name) => return self.ident(*name, span),
         };
-        let mut rec = rec;
-        // Typechecked expressions carry their type (Epic_Fail compares operand types).
-        if rec.field("type").is_none()
-            && matches!(
-                e.kind,
-                E::Binary(..)
-                    | E::Unary(..)
-                    | E::Int(..)
-                    | E::Float(..)
-                    | E::Str(_)
-                    | E::Char(_)
-                    | E::Bool(_)
-                    | E::Index(..)
-                    | E::Member(..)
-                    | E::Cast { .. }
-            )
-            && let Some(ty) = self.expr_type(e)
-        {
-            let ty = self.ty(ty);
-            if ty != 0 {
-                rec.ptr("type", ty);
-            }
-        }
         self.add(rec)
     }
 
@@ -644,43 +621,6 @@ impl Exporter<'_> {
             }
             _ => unreachable!("dispatched only for this group's operations"),
         })
-    }
-
-    /// The type `e` checks to in the exported code's scope, when it checks there.
-    fn expr_type(&mut self, e: &ast::Expr) -> Option<TypeId> {
-        if self.procedure.is_some() {
-            return None;
-        }
-        // Locals are not in that scope: checking would fail after a costly search for the
-        // name, or find a global the local shadows.
-        if self.reads_local(e) {
-            return None;
-        }
-        let scope = self.scope;
-        let c = self.c.as_deref_mut()?;
-        let ty = c.check_expr_no_emit(scope, e).ok()?.ty();
-        (ty != TypeId::COMPILE_TIME).then_some(ty)
-    }
-
-    /// Does `e` name a local of the exported code (looking through operators, members,
-    /// indexing, casts and calls)?
-    fn reads_local(&self, e: &ast::Expr) -> bool {
-        use ast::ExprKind as E;
-        match &e.kind {
-            E::Ident(name) => self.locals.iter().any(|(n, _)| n == name),
-            E::Binary(_, a, b) | E::Index(a, b) => self.reads_local(a) || self.reads_local(b),
-            E::Unary(_, a)
-            | E::Member(a, _)
-            | E::Cast {
-                value: a, ..
-            } => self.reads_local(a),
-            E::Call {
-                callee,
-                args,
-                ..
-            } => self.reads_local(callee) || args.iter().any(|a| self.reads_local(&a.value)),
-            _ => false,
-        }
     }
 
     /// `Code_Argument` records and the argument values.

@@ -266,15 +266,79 @@ impl Exporter<'_> {
         flags
     }
 
+    /// Quoted code has no prior checking pass. Infer standalone expressions in their
+    /// captured scope, without executing #run/#insert or borrowing another code's facts.
+    fn check_quoted_expression(&mut self, e: &ast::Expr) {
+        let Some(code) = self.code.filter(|_| self.procedure.is_none()) else {
+            return;
+        };
+        use ast::ExprKind as E;
+        if !matches!(
+            e.kind,
+            E::Ident(_)
+                | E::Int(..)
+                | E::Char(_)
+                | E::Float(..)
+                | E::Str(_)
+                | E::Bool(_)
+                | E::Null
+                | E::Context
+                | E::Binary(..)
+                | E::Unary(..)
+                | E::Member(..)
+                | E::InferredMember(_)
+                | E::Index(..)
+                | E::Cast { .. }
+                | E::Call { .. }
+        ) {
+            return;
+        }
+        let mut safe = true;
+        ast::walk::walk_node(e.into(), &mut Vec::new(), &mut |node, _| {
+            if let Some(e) = node.expr()
+                && (matches!(e.kind, E::Run { .. } | E::Insert(..))
+                    || matches!(e.kind, E::Ident(name) if self.locals.iter().any(|(n,_)| *n==name)))
+            {
+                safe = false;
+            }
+            safe
+        });
+        if !safe {
+            return;
+        }
+        let Some(c) = self.c.as_deref_mut() else {
+            return;
+        };
+        if c.meta
+            .export
+            .code_expression_types
+            .get(&code)
+            .and_then(|t| t.get(e.span))
+            .is_some()
+        {
+            return;
+        }
+        let mut f = c.scratch_ctx(self.scope);
+        f.expression_code = Some(code);
+        let previous = std::mem::replace(&mut c.ed.type_probe, true);
+        let _ = c.check_expr(&mut f, self.scope, e, None);
+        c.ed.type_probe = previous;
+    }
+
     pub(super) fn expr(&mut self, e: &ast::Expr) -> i64 {
+        self.check_quoted_expression(e);
         let id = self.expr_inner(e);
         // Use the result of actual checking in the correct instance/scope, not
         // another check in the global scope (which loses locals and overloads).
-        let checked = self.procedure.and_then(|procedure| {
-            self.c
-                .as_ref()
-                .and_then(|c| c.meta.export.expression_types.get(&procedure))
-                .and_then(|types| types.get(e.span))
+        let checked = self.c.as_ref().and_then(|c| {
+            let types = if let Some(procedure) = self.procedure {
+                c.meta.export.expression_types.get(&procedure)
+            } else if let Some(code) = self.code {
+                c.meta.export.code_expression_types.get(&code)
+            } else {
+                c.meta.export.scope_expression_types.get(&self.scope)
+            }?;
+            types.get(e.span)
         });
         if let Some(checked) = checked {
             // An ambiguous expansion must not inherit a guessed identifier/call type.

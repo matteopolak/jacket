@@ -291,6 +291,9 @@ pub struct FnCtx {
     pub(crate) lifetime_comparing: bool,
     pub(crate) lifetime_metadata_base: Option<Span>,
     pub proc: Option<ProcId>,
+    /// Lexical owner of checked compile-time expressions outside a procedure body.
+    pub expression_scope: Option<ScopeId>,
+    pub(in crate::sema) expression_code: Option<usize>,
     pub runtime_storage_constants: Vec<i64>,
     /// Current `context` pointer (absent in #`c_call/#no_context` code).
     context: Option<Val>,
@@ -497,6 +500,8 @@ impl FnCtx {
             lifetime_comparing: false,
             lifetime_metadata_base: None,
             proc: None,
+            expression_scope: None,
+            expression_code: None,
             runtime_storage_constants: Vec::new(),
             context: None,
             context_slot: None,

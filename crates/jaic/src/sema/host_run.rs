@@ -15,6 +15,13 @@ impl Compiler {
         body: &ast::RunBody,
         span: Span,
     ) -> Result<Vec<Operand>> {
+        if self.ed.type_probe {
+            return err(
+                Code::ContextualTypeInference,
+                span,
+                "contextual type inference requires compile-time execution",
+            );
+        }
         let mut options = self.options.clone();
         let host = options.host;
         (options.os, options.cpu, options.long_double) = (host.os, host.cpu, host.long_double);

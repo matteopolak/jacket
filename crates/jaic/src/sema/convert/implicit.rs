@@ -17,6 +17,22 @@ impl Compiler {
         at: impl Into<Site>,
     ) -> Result<Operand> {
         let at = at.into();
+        let result = self.convert_inner(f, op, to, at);
+        if at.expression
+            && let Ok(op) = &result
+        {
+            self.record_expression_type(f, at.span, op.ty(), true);
+        }
+        result
+    }
+
+    fn convert_inner(
+        &mut self,
+        f: &mut FnCtx,
+        op: Operand,
+        to: TypeId,
+        at: Site,
+    ) -> Result<Operand> {
         let span = at.span;
         if let Operand::Callable {
             operand,

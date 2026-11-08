@@ -1,20 +1,22 @@
 //! Constant folding of binary expressions.
-use super::num;
+use super::{Binary, num};
 use crate::ast::BinOp;
 use crate::diagnostics::Code;
 use crate::int_arith::{DivideByZero, IntOp, int_binop};
-use crate::sema::lower::{Operand, Origin};
+use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::{Compiler, Result, Span, TypeId, Value, err};
 use crate::types::TypeKind;
 
 impl Compiler {
     pub(in crate::sema) fn fold_binary(
         &mut self,
-        op: BinOp,
+        f: &FnCtx,
+        node: Binary<'_>,
         lhs: &Operand,
         rhs: &Operand,
         span: Span,
     ) -> Result<Option<Operand>> {
+        let op = node.op;
         let (
             Operand::Const {
                 ty: lt,
@@ -33,7 +35,17 @@ impl Compiler {
             return Ok(None);
         };
         if self.ty.types.wide_float(*lt).is_some() || self.ty.types.wide_float(*rt).is_some() {
-            return Ok(self.wide_fold(op, (*lt, lv), (*rt, rv)));
+            let folded = self.wide_fold(op, (*lt, lv), (*rt, rv));
+            if folded.is_some() {
+                let ty = if self.ty.types.wide_float(*lt).is_some() {
+                    *lt
+                } else {
+                    *rt
+                };
+                self.record_expression_type(f, node.a.span, ty, true);
+                self.record_expression_type(f, node.b.span, ty, true);
+            }
+            return Ok(folded);
         }
         let untyped = *lu && *ru;
         let is_shift = matches!(op, BinOp::Shl | BinOp::Shr | BinOp::Rotl | BinOp::Rotr);
@@ -216,6 +228,28 @@ impl Compiler {
         } else {
             ty
         };
+        let operand_ty = if !self.ty.types.is_float(ty)
+            && (matches!(lv, Value::Float(_, _)) || matches!(rv, Value::Float(_, _)))
+        {
+            if self.ty.types.is_float(*rt) {
+                *rt
+            } else {
+                *lt
+            }
+        } else {
+            ty
+        };
+        self.record_expression_type(f, node.a.span, operand_ty, true);
+        self.record_expression_type(
+            f,
+            node.b.span,
+            if is_shift {
+                *rt
+            } else {
+                operand_ty
+            },
+            true,
+        );
         Ok(Some(Operand::Const {
             ty: rty,
             value,

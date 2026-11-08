@@ -1,4 +1,5 @@
 //! State kept across exports: modified statements, expression types and the pending procedures.
+use crate::ide::Recorder;
 use crate::sema::{
     Arc, EntityId, FileId, HashMap, HashSet, ModuleId, PathBuf, ProcId, ScopeId, Span, Sym, TypeId,
     ast,
@@ -66,6 +67,16 @@ pub struct ExportState {
     /// Checked results, scoped to a concrete procedure instance. Repeated source
     /// spans with incompatible expansion types are ambiguous rather than guessed.
     pub(in crate::sema) expression_types: HashMap<ProcId, ExpressionTypes>,
+    /// Checked constants and defaults owned by a file or concrete struct scope.
+    pub(in crate::sema) scope_expression_types: HashMap<ScopeId, ExpressionTypes>,
+    pub(super) code_expression_types: HashMap<usize, ExpressionTypes>,
+}
+
+#[derive(Clone, Copy)]
+pub(in crate::sema) enum ExpressionOwner {
+    Procedure(ProcId),
+    Scope(ScopeId),
+    Code(usize),
 }
 
 /// The types a body's expressions checked to, in checking order. Only a metaprogram reading
@@ -73,36 +84,73 @@ pub struct ExportState {
 /// `get` is built on a read, and again if more were recorded since.
 #[derive(Default)]
 pub(in crate::sema) struct ExpressionTypes {
-    log: Vec<(Span, TypeId)>,
-    table: std::cell::RefCell<(usize, HashMap<Span, Option<TypeId>>)>,
+    log: Vec<(Span, TypeId, bool)>,
+    table: std::cell::RefCell<(usize, HashMap<Span, ExpressionTypeHistory>)>,
+}
+
+struct ExpressionTypeHistory {
+    previous: Option<TypeId>,
+    current: TypeId,
+    ambiguous: bool,
 }
 
 impl ExpressionTypes {
     pub(in crate::sema) fn record(&mut self, span: Span, ty: TypeId) {
-        self.log.push((span, ty));
+        self.log.push((span, ty, false));
     }
 
-    /// `Some(None)`: the span checked to different types in different expansions.
+    /// Settle the most recent check, keeping earlier expansions separate. Logging remains
+    /// constant-time; the exporter builds the lookup only when a metaprogram reads it.
+    pub(in crate::sema) fn refine(&mut self, span: Span, ty: TypeId) {
+        self.log.push((span, ty, true));
+    }
+
+    /// `Some(None)`: completed checks at this span have incompatible contextual types.
     pub(in crate::sema) fn get(&self, span: Span) -> Option<Option<TypeId>> {
         let mut table = self.table.borrow_mut();
         if table.0 != self.log.len() {
             let (done, map) = &mut *table;
-            for &(span, ty) in &self.log[*done..] {
-                map.entry(span)
-                    .and_modify(|known| {
-                        if *known != Some(ty) {
-                            *known = None;
-                        }
-                    })
-                    .or_insert(Some(ty));
+            for &(span, ty, refine) in &self.log[*done..] {
+                if refine {
+                    if let Some(history) = map.get_mut(&span) {
+                        history.current = ty;
+                    }
+                } else {
+                    map.entry(span)
+                        .and_modify(|history| {
+                            history.ambiguous |=
+                                history.previous.is_some_and(|t| t != history.current);
+                            history.previous = Some(history.current);
+                            history.current = ty;
+                        })
+                        .or_insert(ExpressionTypeHistory {
+                            previous: None,
+                            current: ty,
+                            ambiguous: false,
+                        });
+                }
             }
             *done = self.log.len();
         }
-        table.1.get(&span).copied()
+        table.1.get(&span).map(|history| {
+            (!history.ambiguous && history.previous.is_none_or(|t| t == history.current))
+                .then_some(history.current)
+        })
     }
 }
 
 impl ExportState {
+    pub(in crate::sema) fn expression_types_mut(
+        &mut self,
+        owner: ExpressionOwner,
+    ) -> &mut ExpressionTypes {
+        match owner {
+            ExpressionOwner::Procedure(p) => self.expression_types.entry(p).or_default(),
+            ExpressionOwner::Scope(scope) => self.scope_expression_types.entry(scope).or_default(),
+            ExpressionOwner::Code(code) => self.code_expression_types.entry(code).or_default(),
+        }
+    }
+
     /// Forget cached name lookups when entities were added since they were made.
     pub(super) fn refresh_name_caches(&mut self, entities: usize) {
         if self.name_lookups_at != entities {
@@ -126,3 +174,84 @@ impl ExportState {
 
 /// A FILE or IMPORT message: (event kind, message record).
 pub type FileEvent = (i64, i64);
+
+impl crate::sema::Compiler {
+    /// Retain actual semantic results; exporting syntax must not recheck it in another scope.
+    pub(in crate::sema) fn record_expression_type(
+        &mut self,
+        f: &crate::sema::lower::FnCtx,
+        span: Span,
+        ty: TypeId,
+        refine: bool,
+    ) {
+        if (f.type_only && f.expression_code.is_none())
+            || self.ed.sketching()
+            || ty == TypeId::COMPILE_TIME
+        {
+            return;
+        }
+        let mut procedure = f.proc;
+        let mut owner = f.expression_scope;
+        if procedure.is_none() {
+            while let Some(scope) = owner {
+                let info = self.scope(scope);
+                use crate::sema::scope::ScopeKind;
+                match info.kind {
+                    ScopeKind::Struct(_)
+                    | ScopeKind::StructParams
+                    | ScopeKind::File
+                    | ScopeKind::Module
+                    | ScopeKind::Root => break,
+                    ScopeKind::Proc if info.proc.is_some() => {
+                        procedure = info.proc;
+                        break;
+                    }
+                    _ => owner = info.parent,
+                }
+            }
+        }
+        let owner = if let Some(code) = f.expression_code {
+            ExpressionOwner::Code(code)
+        } else if let Some(procedure) = procedure {
+            ExpressionOwner::Procedure(procedure)
+        } else if let Some(scope) = owner {
+            ExpressionOwner::Scope(scope)
+        } else {
+            return;
+        };
+        if crate::sema::speculative::log_expression(owner, span, ty, refine) {
+            return;
+        }
+        let types = self.meta.export.expression_types_mut(owner);
+        if refine {
+            types.refine(span, ty);
+        } else {
+            types.record(span, ty);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn contextual_refinements_preserve_expansion_ambiguity_across_reads() {
+        let mut types = ExpressionTypes::default();
+        let at = Span::NONE;
+        types.record(at, TypeId::S64);
+        types.refine(at, TypeId::U8);
+        assert_eq!(types.get(at), Some(Some(TypeId::U8)));
+        types.record(at, TypeId::S64);
+        types.refine(at, TypeId::U8);
+        assert_eq!(types.get(at), Some(Some(TypeId::U8)));
+        types.record(at, TypeId::S64);
+        types.refine(at, TypeId::U16);
+        assert_eq!(types.get(at), Some(None));
+        types.refine(at, TypeId::U8);
+        assert_eq!(types.get(at), Some(Some(TypeId::U8)));
+        types.record(at, TypeId::U16);
+        types.record(at, TypeId::U8);
+        assert_eq!(types.get(at), Some(None));
+    }
+}

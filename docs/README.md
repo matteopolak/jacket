@@ -14,7 +14,7 @@ One page per topic in [language/](language/): [modules](language/modules-and-imp
 ## Metaprogramming
 
 - [Compile-time execution, `#code` and `#insert`](metaprogramming/compile-time-execution.md)
-- [Compiler module](metaprogramming/compiler-module.md)
+- [Compiler module and checked AST types](metaprogramming/compiler-module.md)
 - [Workspaces and plugins](metaprogramming/workspaces.md)
 - [Build options](metaprogramming/build-options.md)
 - [Reflection and type info](metaprogramming/reflection-and-type-info.md)

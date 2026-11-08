@@ -86,8 +86,12 @@ impl Compiler {
                             index
                         }]
                         .1;
+                        let hint = (rhs.len() != 1
+                            || targets.len() == 1
+                            || crate::sema::calls::is_deferred(value))
+                        .then_some(expected);
                         values.extend(
-                            self.eval_const_all_expected(scope, value, Some(expected))?
+                            self.eval_const_all_expected(scope, value, hint)?
                                 .into_iter()
                                 .map(|op| (op, value.span)),
                         );
@@ -153,7 +157,7 @@ impl Compiler {
         ty: TypeId,
     ) -> Result<Value> {
         let op = self.eval_const(scope, expr, Some(ty))?;
-        self.const_value_of_operand(scope, op, ty, expr.span)
+        self.const_value_of_operand_at(scope, op, ty, Site::from(expr))
     }
 
     /// Convert an evaluated constant operand to type `ty` and read its value.
@@ -164,6 +168,17 @@ impl Compiler {
         ty: TypeId,
         span: Span,
     ) -> Result<Value> {
+        self.const_value_of_operand_at(scope, op, ty, Site::opaque(span))
+    }
+
+    fn const_value_of_operand_at(
+        &mut self,
+        scope: ScopeId,
+        op: Operand,
+        ty: TypeId,
+        at: Site,
+    ) -> Result<Value> {
+        let span = at.span;
         let file = self.scope_file(scope);
         let mut scratch = FnCtx::new(
             "const".into(),
@@ -178,12 +193,11 @@ impl Compiler {
             file,
         );
         scratch.compile_time = true;
+        scratch.expression_scope = Some(scope);
         scratch.set_context(Some(scratch.b.param(0)));
         // Lexical callable headers annotate operands, not the constant value
         // stored in a generic binding. Preserve the ordinary conversion first.
-        let converted = self
-            .convert(&mut scratch, op, ty, Site::opaque(span))?
-            .without_callable();
+        let converted = self.convert(&mut scratch, op, ty, at)?.without_callable();
         match converted {
             Operand::Const {
                 value, ..

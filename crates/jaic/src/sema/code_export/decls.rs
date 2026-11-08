@@ -399,6 +399,14 @@ impl Exporter<'_> {
         defined: Option<TypeId>,
         name: Sym,
     ) -> i64 {
+        let previous = (self.scope, self.procedure);
+        self.procedure = None;
+        if let Some(scope) = defined.and_then(|ty| {
+            let c = self.c.as_ref()?;
+            Some(c.ty.struct_asts.get(&c.ty.types.as_struct(ty)?)?.scope)
+        }) {
+            self.scope = scope;
+        }
         let start = self.sub.len();
         let block = self.block(&lit.body, 2, lit.span);
         let arguments = if lit.params.is_empty() {
@@ -463,6 +471,7 @@ impl Exporter<'_> {
         let id = self.add(rec);
         let sub = self.sub[start..].to_vec();
         self.out.structs.push((id, sub));
+        (self.scope, self.procedure) = previous;
         id
     }
 }

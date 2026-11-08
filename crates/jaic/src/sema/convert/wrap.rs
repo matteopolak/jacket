@@ -37,6 +37,7 @@ impl Wrap {
 #[derive(Clone, Copy, Debug)]
 pub(in crate::sema) struct Site {
     pub span: Span,
+    pub expression: bool,
     extent: Span,
     atomic: bool,
     /// An edit can stand for the value. False for one of several values from a single
@@ -50,6 +51,7 @@ impl Site {
     pub(in crate::sema) fn opaque(span: Span) -> Self {
         Self {
             span,
+            expression: false,
             extent: span,
             atomic: false,
             wrappable: true,
@@ -60,6 +62,7 @@ impl Site {
     pub(in crate::sema) fn name(span: Span) -> Self {
         Self {
             span,
+            expression: false,
             extent: span,
             atomic: true,
             wrappable: true,
@@ -71,6 +74,7 @@ impl Site {
     pub(in crate::sema) fn one_of(e: &Expr) -> Self {
         Self {
             wrappable: false,
+            expression: false,
             ..Self::from(e)
         }
     }
@@ -80,6 +84,7 @@ impl From<&Expr> for Site {
     fn from(e: &Expr) -> Self {
         Self {
             span: e.span,
+            expression: true,
             extent: e.extent(),
             atomic: e.is_atomic_written(),
             wrappable: true,

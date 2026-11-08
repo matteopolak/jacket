@@ -56,13 +56,13 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - `export_file_events` emits an IMPORT record per module before its first file {#records.1} and a FILE record per file {#records.2}. Module types: Preload is `PRELOAD`, Runtime_Support `RUNTIME_SUPPORT`, the main module `MAIN_PROGRAM`, the rest `UNINITIALIZED` {#records.3}.
 - `export_typechecked` resolves and exports every new top-level declaration of a user module with its type {#records.4}. User means not Preload or Runtime_Support and not under the system module directory. Headers, bodies and struct literals go into `procedure_headers`, `procedure_bodies` and `structs`, and every node into `subexpressions`. Declarations that fail to resolve are skipped.
 - What a TYPECHECKED message carries depends on what the sources can read (`Contents`, `build/drive.rs`). If no source names `Message_Typechecked`, the lists are empty. If some do but none can reach a procedure body, bodies are left out (headers have a null `body_or_null`), which is the largest part of the export. A source reaches bodies by naming `procedure_bodies`, `body_or_null`, `subexpressions`, `Code_Procedure_Body`, `PROCEDURE_BODY`, `.all` or `all` (`SourceMap::reads_procedure_bodies`). Left-out bodies are exported later if such a source turns up. The check looks at words, so printing a whole message with reflection does not count, and `Code_Procedure_Header.serial` shifts when bodies are skipped.
-- Global declarations, parameters, returns and type instantiations get `type`; local declarations and other expressions do not {#records.5}. A variadic parameter's `type_inst` has `inst_flags = .VARARGS` (Check's `@PrintLike` looks for it). Notes after a procedure body attach to the declaration and the header {#records.6}. `Code_Node.serial` is the record id.
+- Checked declarations, parameters, returns, type instantiations and value expressions get `type`; unresolved template syntax may have none {#records.5}. A variadic parameter's `type_inst` has `inst_flags = .VARARGS` (Check's `@PrintLike` looks for it). Notes after a procedure body attach to the declaration and the header {#records.6}. `Code_Node.serial` is the record id.
 - `type_record` makes `Type_Info` records, memoised per `TypeId`. Primitive types carry `__builtin` so `decl.type == type_info(int)` works {#records.7}. Polymorphic struct instances get `specified_parameters`, `constant_storage` and a generic `polymorph_source_struct` {#records.8}.
 - The record builder resolves declared member layouts, flattening promoted fields; a record maps to one pointer {#records.9}.
 - Libraries like or_return, MetaThreadSafe and Jai-Shader-Transpiler read `resolved_procedure_expression`, `resolved_declaration` and `Code_Node.type` {#records.10}. Those need the compiler, which a compiler operation cannot reach while the interpreter runs, so jaic traps and reruns.
 - Type records carry `__address`, the real descriptor in this program, so `type == type_info(T)` works {#records.11}.
 - Rust converts the editable node graph into a new `Code`; names resolve in the copied scope {#records.12}.
-- Value expressions get `type` by checking them in the code's scope without emitting. One that reads a local gets none. Untyped literals report their default (`s64`, `float32`) {#records.13}.
+- Value expressions retain types from actual semantic checking in their owning file, struct or procedure instance. Contextual conversions settle literal types: in `x:u8=3; same:=x==3;`, both comparison operands report `u8`. Folded global comparisons retain these facts too; export does not recheck expressions or rerun compile-time code. A source location expanded with incompatible types remains untyped {#records.13}.
 - `-1` and `-1.5` export as one negative `Code_Literal` {#records.14}.
 - Backticked identifiers and declarations set `HAS_SCOPE_MODIFIER` {#records.15}. `#assert` and `#run` export as `Code_Directive_Run` {#records.16}, `#exists(x)` as `Code_Directive_Exists` {#records.17}.
 - Procedure edits convert every current statement, including edits to existing records, and are queued until the next workspace step; the body is replaced and re-lowered, so the modified body runs {#records.18}.
@@ -77,3 +77,20 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - A call to a polymorphic procedure resolves to the instance it made (`call_instances`, `instance_called_at`) {#records.30}. The instance's header has no `POLYMORPHIC` flag, and its body is reported later, in the scope of its bindings.
 - A static `#if` in such a body has `static_if_flags` `EVALUATED_AS_TRUE` when the condition held, and a static `if x == {` switch has `static_if_accepted_case`, so a checker can follow only the branch the compiler took. In a generic body neither is set {#records.31}.
 - Declarations of file-level names carry `IS_GLOBAL`, and `SCOPE_FILE` below a `#scope_file` {#records.32}.
+
+Checked expression facts are collected in `sema/expr.rs`, refined at implicit
+conversions and constant folding, and read by `sema/code_export/syntax.rs`.
+`code_export/state.rs` keeps scopes separate from procedure instances; a relowered
+body drops its old facts. Speculative bodies commit the same observation log,
+remapping scope owners with their scopes. Extend these paths together when adding
+a type-changing expression or conversion. The lazy lookup compares completed
+checks, so an initial literal type is not mistaken for a second macro expansion.
+This depends on semantic scopes and canonical type descriptors, with no export flags
+or external services. Regression: `tests/compiler/regressions/checked-operand-types.jai`.
+
+Quoted `#code` has not necessarily been checked. `compiler_get_nodes(#code 7)`
+infers standalone expression types in the code's captured scope, with facts
+kept per Code value. It does not execute quoted `#run` or `#insert`; type probes
+also refuse execution through host workspaces. Names declared only inside
+unresolved quoted blocks remain syntax. This separate checking step does not
+replace facts from actual TYPECHECKED expressions.

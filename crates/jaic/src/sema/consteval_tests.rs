@@ -27,3 +27,32 @@ fn contextual_type_probes_refuse_compile_time_execution() {
         .unwrap();
     assert!(compiler.ct.executions > 0);
 }
+
+#[test]
+fn host_type_probes_refuse_isolated_and_twin_execution() {
+    use crate::target::TargetOs;
+    for cross in [false, true] {
+        let mut options = Options::host();
+        options.runtime_support = false;
+        if cross {
+            options.os = if options.os == TargetOs::Windows {
+                TargetOs::Linux
+            } else {
+                TargetOs::Windows
+            };
+        }
+        let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+        compiler.ed.type_probe = true;
+        let error = compiler
+            .compile_sources(&[ProgramSource::String(
+                "VALUE :: #run,host -> int { return 7; }; main :: () {}".into(),
+            )])
+            .expect_err("type probes must not launch a host workspace");
+        assert_eq!(
+            error.code,
+            crate::diagnostics::Code::ContextualTypeInference
+        );
+        assert_eq!(compiler.ct.executions, 0);
+        assert_eq!(compiler.ct.interp.effects, 0);
+    }
+}

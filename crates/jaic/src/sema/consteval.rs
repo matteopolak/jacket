@@ -460,6 +460,13 @@ impl Compiler {
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
+        if self.ed.type_probe {
+            return err(
+                Code::ContextualTypeInference,
+                span,
+                "contextual type inference requires compile-time execution",
+            );
+        }
         if flags.iter().any(|flag| flag.name.as_str() == "host") && self.options.is_cross_build() {
             let results = self.check_isolated_host_run_all(body, span)?;
             return Ok(results.into_iter().next().unwrap_or(Operand::Void));

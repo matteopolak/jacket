@@ -93,6 +93,7 @@ impl Compiler {
                     sub: Vec::new(),
                     locals: Vec::new(),
                     procedure: None,
+                    code: None,
                     compound_members: Vec::new(),
                     own: false,
                     out: &mut out,
@@ -251,6 +252,7 @@ impl Compiler {
             sub: Vec::new(),
             locals: Vec::new(),
             procedure: None,
+            code: None,
             compound_members: Vec::new(),
             own: false,
             out: &mut out,
@@ -302,6 +304,7 @@ impl Compiler {
                     sub: Vec::new(),
                     locals: Vec::new(),
                     procedure: None,
+                    code: None,
                     compound_members: Vec::new(),
                     own: false,
                     out,
@@ -339,6 +342,7 @@ impl Compiler {
                 sub: Vec::new(),
                 locals: Vec::new(),
                 procedure: None,
+                code: None,
                 compound_members: Vec::new(),
                 own: false,
                 out,
@@ -386,7 +390,7 @@ impl Compiler {
         // No further requests while exporting: nested compile-time code gets plain nodes.
         let outer = self.ct.interp.run_effects.take();
         let mut records = Records::lend(&mut shared.borrow_mut().records);
-        let exported = export_code_in(Some(self), scope, &mut records, &body);
+        let exported = export_code_in(Some(self), scope, &mut records, &body, Some(code));
         Records::give_back(&mut shared.borrow_mut().records, records);
         self.ct.interp.run_effects = outer;
         self.ct

@@ -914,6 +914,7 @@ impl Compiler {
     ) -> Result<Operand> {
         let file = self.scope_file(scope);
         let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
+        f.expression_scope = Some(scope);
         f.constant_only = what;
         // Runtime locals of the enclosing procedure are not visible to constants.
         let scope = self.thunk_scope(scope);
@@ -984,6 +985,7 @@ impl Compiler {
         };
         let file = self.scope_file(scope);
         let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
+        f.expression_scope = Some(scope);
         f.constant_only = Some("constant declaration needs a constant value");
         let scope = self.thunk_scope(scope);
         let op = self.check_expr(&mut f, scope, expr, expected)?;

@@ -101,22 +101,8 @@ impl Compiler {
         {
             result = Ok(op);
         }
-        if !f.type_only
-            && !self.ed.sketching()
-            && let Some(procedure) = f.proc
-            && let Ok(op) = &result
-            && op.ty() != TypeId::COMPILE_TIME
-        {
-            let ty = op.ty();
-            // A speculative body keeps the log until it is committed.
-            if !crate::sema::speculative::log_expression(procedure, expr.span, ty) {
-                self.meta
-                    .export
-                    .expression_types
-                    .entry(procedure)
-                    .or_default()
-                    .record(expr.span, ty);
-            }
+        if let Ok(op) = &result {
+            self.record_expression_type(f, expr.span, op.ty(), false);
         }
         f.lifetime_metadata_base = metadata_base;
         if self.ed.is_live()

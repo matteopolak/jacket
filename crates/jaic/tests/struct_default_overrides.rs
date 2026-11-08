@@ -40,13 +40,13 @@ main :: () {}
 #[test]
 fn default_targets_follow_using_aliases_and_filters() {
     check(
-        r#"
+        r"
 Inner :: struct { value:int; }
 R :: struct { item:Inner; using item; value = 17; }
 probe :: () -> bool { r:R; return r.item.value==17; }
 #assert probe();
 main :: () {}
-"#,
+",
     )
     .unwrap();
 }
@@ -72,13 +72,26 @@ fn invalid_default_assignments_are_not_silently_discarded() {
 #[test]
 fn multiple_default_targets_consume_each_result_once() {
     check(
-        r#"
+        r"
 pair :: () -> int, int { return 17,29; }
 R :: struct { a,b:int; a,b = #run pair(); }
 probe :: () -> bool { r:R; return r.a==17 && r.b==29; }
 #assert probe();
 main :: () {}
-"#,
+",
+    )
+    .unwrap();
+}
+
+#[test]
+fn broadcast_literals_keep_each_targets_conversion() {
+    check(
+        r"
+R :: struct { a:float32; b:u8; a,b = 3; }
+probe :: () -> bool { r:R; return r.a==3 && r.b==3; }
+#assert probe();
+main :: () {}
+",
     )
     .unwrap();
 }

@@ -13,6 +13,7 @@
 //! cargo feature, which turns every write to a `Probed` table into a check; without it the
 //! hooks compile to nothing and the flag only prints a notice.
 use super::body_probe::{self, W};
+use super::code_export::ExpressionOwner;
 use super::procs::BodyState;
 use super::scope::{Entity, EntityId, EntityKind, EntityState, Scope, ScopeId, UsingEntry};
 use super::{Compiler, ProcId};
@@ -53,7 +54,7 @@ thread_local! {
     /// The write the body was abandoned at.
     static BLOCKER: Cell<usize> = const { Cell::new(0) };
     /// The expression types the body logged.
-    static EXPRESSIONS: RefCell<Vec<(ProcId, Span, crate::types::TypeId)>> = const { RefCell::new(Vec::new()) };
+    static EXPRESSIONS: RefCell<Vec<(ExpressionOwner, Span, crate::types::TypeId, bool)>> = const { RefCell::new(Vec::new()) };
     /// Length of the program's globals when the body began, and the globals it asked for.
     static LOCAL_GLOBALS: RefCell<(usize, Vec<LocalGlobal>)> = const { RefCell::new((0, Vec::new())) };
     /// Changes the body made to shared tables in place, taken back out when it ends.
@@ -275,11 +276,16 @@ pub(super) fn journal(
 
 /// A speculative body notes the type an expression checked to; `false`: not speculating.
 #[inline]
-pub(super) fn log_expression(procedure: ProcId, span: Span, ty: crate::types::TypeId) -> bool {
+pub(super) fn log_expression(
+    owner: ExpressionOwner,
+    span: Span,
+    ty: crate::types::TypeId,
+    refine: bool,
+) -> bool {
     if !BUILT || !ACTIVE.with(Cell::get) {
         return false;
     }
-    EXPRESSIONS.with(|e| e.borrow_mut().push((procedure, span, ty)));
+    EXPRESSIONS.with(|e| e.borrow_mut().push((owner, span, ty, refine)));
     true
 }
 
@@ -353,7 +359,7 @@ pub(super) struct Delta {
     scopes: Vec<Scope>,
     entities: Vec<Entity>,
     deposit: Deposit,
-    expressions: Vec<(ProcId, Span, crate::types::TypeId)>,
+    expressions: Vec<(ExpressionOwner, Span, crate::types::TypeId, bool)>,
     ops: Vec<Op>,
     /// The scopes it made a thunk scope for: another body may have made one for them since.
     thunk_keys: Vec<ScopeId>,
@@ -728,13 +734,17 @@ impl Compiler {
         }
         self.diag.dependencies.begin_body(id);
         self.meta.export.expression_types.remove(&id);
-        for (procedure, span, ty) in expressions {
-            self.meta
-                .export
-                .expression_types
-                .entry(procedure)
-                .or_default()
-                .record(span, ty);
+        for (owner, span, ty, refine) in expressions {
+            let owner = match owner {
+                ExpressionOwner::Scope(scope) => ExpressionOwner::Scope(shift.scope(scope)),
+                other @ (ExpressionOwner::Procedure(_) | ExpressionOwner::Code(_)) => other,
+            };
+            let types = self.meta.export.expression_types_mut(owner);
+            if refine {
+                types.refine(span, ty);
+            } else {
+                types.record(span, ty);
+            }
         }
         for op in ops {
             op(self, &shift);
