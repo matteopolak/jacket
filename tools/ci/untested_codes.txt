@@ -121,7 +121,6 @@ compound-assignment
 condition-must-compile
 constant-declaration
 constant-declaration-requires-compile
-contextual-type-inference
 convert-cannot-cast
 convert-cannot-to
 convert-no-overload-matches
