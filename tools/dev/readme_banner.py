@@ -76,7 +76,7 @@ def glyph_paths(font_file):
 def rough(paths):
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(["npm", "install", "--silent", "--no-audit", "--no-fund", "roughjs"], cwd=tmp, check=True)
-        script = Path(__file__).with_name("readme_banner_rough.mjs")
+        script = Path(__file__).with_name("readme_banner_rough.ts")
         shutil_copy = Path(tmp) / script.name
         shutil_copy.write_text(script.read_text())
         res = subprocess.run(

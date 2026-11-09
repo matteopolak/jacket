@@ -327,7 +327,7 @@ def main():
         "harness_hashes": {
             p.name: digest(p)
             for p in Path(__file__).parent.iterdir()
-            if p.is_file() and p.suffix in (".py", ".jai", ".c", ".json", ".mjs")
+            if p.is_file() and p.suffix in (".py", ".jai", ".c", ".json", ".ts")
         },
         "bounds": {
             "cpu_seconds": args.cpu_seconds,
@@ -350,7 +350,7 @@ def main():
             node_install,
             args.corpus,
             args.output,
-            Path(__file__).with_name("wasi_probe.mjs"),
+            Path(__file__).with_name("wasi_probe.ts"),
             args.reference_include,
             args.reference_library,
         ],
@@ -509,7 +509,7 @@ def main():
                 command = [
                     args.node,
                     "--no-warnings",
-                    here / "wasi_probe.mjs",
+                    here / "wasi_probe.ts",
                     binaries[mode],
                     args.corpus,
                     work,

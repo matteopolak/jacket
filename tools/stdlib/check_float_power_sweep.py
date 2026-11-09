@@ -108,7 +108,7 @@ def main():
                 [
                     "node",
                     "--no-warnings",
-                    ROOT / "tools/browser/run_foundations_wasm.mjs",
+                    ROOT / "tools/browser/run_foundations_wasm.ts",
                     binary,
                 ]
                 if extra

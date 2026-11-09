@@ -194,7 +194,7 @@ def run_wasm_contract(compiler, source, output, env, attempt):
         results.append(
             built
             and attempt(
-                ["node", "--no-warnings", ROOT / "tools/wasi_run.mjs", executable],
+                ["node", "--no-warnings", ROOT / "tools/wasi_run.ts", executable],
                 env,
                 "ok\n",
             )

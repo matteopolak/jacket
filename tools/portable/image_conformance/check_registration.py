@@ -120,7 +120,7 @@ def verify_scratch(compiler, output):
         [
             "node",
             "--no-warnings",
-            str(Path(__file__).with_name("wasi_registration.mjs")),
+            str(Path(__file__).with_name("wasi_registration.ts")),
             str(binary),
         ],
         cwd=source,
@@ -140,7 +140,7 @@ def verify_scratch(compiler, output):
         [
             "node",
             "--no-warnings",
-            str(Path(__file__).with_name("wasi_registration.mjs")),
+            str(Path(__file__).with_name("wasi_registration.ts")),
             str(binary),
             str(source),
         ],
@@ -164,7 +164,7 @@ def verify_scratch(compiler, output):
         [
             "node",
             "--no-warnings",
-            str(Path(__file__).with_name("wasi_registration.mjs")),
+            str(Path(__file__).with_name("wasi_registration.ts")),
             str(output / "missing.wasm"),
         ],
         cwd=source,
@@ -235,7 +235,7 @@ def main():
             str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in (
                 Path(__file__).resolve(),
-                Path(__file__).with_name("wasi_registration.mjs"),
+                Path(__file__).with_name("wasi_registration.ts"),
                 Path(__file__).with_name("registration_scratch.jai"),
                 ROOT / "stdlib/Ico_File/tests/gdi.jai",
                 ROOT / "stdlib/Ico_File/tests/gdi.exit",
@@ -267,7 +267,7 @@ def main():
                         [
                             "node",
                             "--no-warnings",
-                            str(Path(__file__).with_name("wasi_registration.mjs")),
+                            str(Path(__file__).with_name("wasi_registration.ts")),
                         ]
                     ),
                     "--",

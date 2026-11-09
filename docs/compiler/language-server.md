@@ -90,7 +90,7 @@ Without `entry`, the server infers `build.jai`, `first.jai`, `main.jai` or `src/
 - New request: add it to `Request::METHODS` or `Notification::METHODS` and an arm in `JsonSession`.
 - Token legend: append a `SemanticTokenKind`, never reorder.
 - Print-family names (`format::PRINT_FAMILY`) must stay in step with `stdlib/Basic/Print.jai`.
-- Tests: `crates/jai-language-server/tests/` and `crates/jai-wasm/src/language_server.rs`; `node tools/browser/check_scripting_wasm.mjs <wasm>` runs them against the real module.
+- Tests: `crates/jai-language-server/tests/` and `crates/jai-wasm/src/language_server.rs`; `node tools/browser/check_scripting_wasm.ts <wasm>` runs them against the real module.
 
 ## Configuration
 

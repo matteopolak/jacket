@@ -3,7 +3,7 @@
 
 Scans docs/**/*.md (whole files, plus relative link targets), the workflows and actions under
 .github/ (whole files) and the leading comment block of
-tools/**/*.{py,sh,mjs}, Justfile, .githooks/*, fuzz/jai.dict and editors/*/*.yaml. A mention is a
+tools/**/*.{py,sh,ts}, Justfile, .githooks/*, fuzz/jai.dict and editors/*/*.yaml. A mention is a
 token that starts with a top-level repo folder (`tools/x.py`, `docs/tools/y.md`). Tokens with a glob,
 placeholder or variable are skipped, as are paths under GENERATED (build products, fetched corpora)
 and the ALLOW set (mentions of files that only exist in a user's checkout).
@@ -263,7 +263,7 @@ def check_index(root=ROOT):
 def headed(rel):
     parts = Path(rel).parts
     if parts[0] == "tools":
-        return parts[-1].endswith((".py", ".sh", ".mjs"))
+        return parts[-1].endswith((".py", ".sh", ".ts"))
     if parts[0] == "editors" and len(parts) == 3:
         return parts[-1].endswith((".yaml", ".yml"))
     return rel in ("Justfile", "fuzz/jai.dict") or parts[0] == ".githooks"

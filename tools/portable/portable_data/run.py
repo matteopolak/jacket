@@ -71,7 +71,7 @@ def wasm_test(source, name, *arguments):
     wasm = output / f"{name}.wasm"
     try:
         run(compiler, "-os", "wasm", "-O2", source, "-exe", wasm)
-        run("node", "--no-warnings", "tools/wasi_run.mjs", wasm, *(arguments or (output,)))
+        run("node", "--no-warnings", "tools/wasi_run.ts", wasm, *(arguments or (output,)))
     except subprocess.CalledProcessError:
         failures.append(f"WASI {name}")
 

@@ -70,7 +70,7 @@ MODE_OPTIONS = {
         "-os",
         "wasm",
         "--runner",
-        "node --no-warnings tools/wasi_run.mjs",
+        "node --no-warnings tools/wasi_run.ts",
     ],
 }
 

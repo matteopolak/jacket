@@ -301,7 +301,7 @@ def package(root, output, target_dir=None, jaic=None):
         subprocess.run(
             [
                 browser_tool("node", root),
-                str(root / "tools/browser/check_browser_release.mjs"),
+                str(root / "tools/browser/check_browser_release.ts"),
                 str(stage),
                 "--report",
                 str(proof_path),

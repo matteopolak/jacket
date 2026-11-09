@@ -235,7 +235,7 @@ slow = 30                # seconds before a SLOW line
 retries = 0
 fail_fast = false
 flaky_fails = false      # FLAKY fails the run
-runner = "node --no-warnings tools/wasi_run.mjs"
+runner = "node --no-warnings tools/wasi_run.ts"
 needs = ["network"]
 
 [test.profile.ci]        # --profile ci: these over [test]

@@ -117,7 +117,7 @@ fn insertion_scope_runs_native_o0_o2_and_wasi() {
             );
             success(
                 toolchain::command("node")
-                    .arg(root().join("tools/browser/run_foundations_wasm.mjs"))
+                    .arg(root().join("tools/browser/run_foundations_wasm.ts"))
                     .arg(module)
                     .output()
                     .unwrap(),

@@ -176,7 +176,7 @@ fn host_values_runs_as_a_real_wasi_command() {
             .arg(&module),
     );
     let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tools/browser/run_foundations_wasm.mjs");
+        .join("../../tools/browser/run_foundations_wasm.ts");
     success(toolchain::command("node").arg(runner).arg(module));
 }
 

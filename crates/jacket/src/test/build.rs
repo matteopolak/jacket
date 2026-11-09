@@ -33,7 +33,7 @@ pub struct Toolchain {
     /// `-os`, `-cpu`, the user's extra flags.
     pub flags: Vec<String>,
     pub interp: bool,
-    /// Starts test programs built for another target (`node tools/wasi_run.mjs`).
+    /// Starts test programs built for another target (`node tools/wasi_run.ts`).
     pub runner: Vec<String>,
     /// The target OS (`wasm` programs are `.wasm` files).
     pub os: String,
@@ -717,9 +717,9 @@ mod tests {
 
     #[test]
     fn a_runner_starts_the_program() {
-        let runner = ["node".to_string(), "wasi_run.mjs".to_string()];
+        let runner = ["node".to_string(), "wasi_run.ts".to_string()];
         let (program, args) = program_and_args(Path::new("/b/t.wasm"), &runner);
         assert_eq!(program, PathBuf::from("node"));
-        assert_eq!(args, ["wasi_run.mjs", "/b/t.wasm"]);
+        assert_eq!(args, ["wasi_run.ts", "/b/t.wasm"]);
     }
 }

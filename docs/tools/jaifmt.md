@@ -79,7 +79,7 @@ formatted, ok, error := format_source(source, config);   // free `formatted`; on
 ## Browser
 
 - `jaifmt/playground.jai` runs in the wasm engine; `tools/browser/build_scripting_wasm.py` stages it in every browser bundle.
-- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config-text $'[format]\nindent_width = 2' < in.jai`. It is much faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine otherwise. `node tools/browser/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native.
+- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.ts jaifmt.wasm --config-text $'[format]\nindent_width = 2' < in.jai`. It is much faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine otherwise. `node tools/browser/check_jaifmt_wasm.ts wasi jaifmt.wasm target/jaifmt` compares it with native.
 
 ## How to change it
 

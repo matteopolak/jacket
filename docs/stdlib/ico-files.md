@@ -18,7 +18,7 @@ Both loaders reject encoded files larger than `0x7fffffff` bytes. Wasm additiona
 PYTHONPATH=tools python3 tools/portable/portable_data/wire_consumer.py /tmp/ico-test fixtures
 jaic -interp stdlib/Ico_File/tests/filename.jai -- /tmp/ico-test /tmp/ico-test
 jaic -os wasm stdlib/Ico_File/tests/filename.jai -exe /tmp/ico-test/filename.wasm
-node --no-warnings tools/wasi_run.mjs /tmp/ico-test/filename.wasm /tmp/ico-test /tmp/ico-test
+node --no-warnings tools/wasi_run.ts /tmp/ico-test/filename.wasm /tmp/ico-test /tmp/ico-test
 ```
 
 The two arguments are the input fixture folder and writable output folder. The WASI run requires Node 24 or newer and a filesystem host. It does not provide browser access to native paths. The portable-data suite requires the filename, ICO wire and resource-directory WASI cases as well as native interpreted, O0 and O2 execution. Its fixture generator constructs independent PNG/BMP/TGA data; assertions inspect directory offsets and same-size BGRA orientation/alpha without decoding the resulting ICO through our own decoder.

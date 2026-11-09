@@ -63,7 +63,7 @@ Dependencies are `Basic`, `String`, `Base64`, internal SHA-1, and `Extensions/De
 export PATH="$TOOLCHAIN/bin:$PATH" JAIC_STDLIB="$PWD/stdlib"
 jacket test --path stdlib/Extensions/WebSocket
 jacket test --path stdlib/Extensions/WebSocket --interp
-jacket test --path stdlib/Extensions/WebSocket --os wasm --runner 'node tools/wasi_run.mjs'
+jacket test --path stdlib/Extensions/WebSocket --os wasm --runner 'node tools/wasi_run.ts'
 jacket bench --path stdlib/Extensions/WebSocket
 ```
 

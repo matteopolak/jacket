@@ -34,7 +34,7 @@ def main():
         raise RuntimeError('report already exists; retain it and choose a fresh report path')
     cache = args.cache.resolve()
     cache.mkdir(parents=True, exist_ok=True)
-    source_files = [*sorted((ROOT / 'stdlib').rglob('*.jai')), HERE / 'adapter.jai', HERE / 'wasi.mjs']
+    source_files = [*sorted((ROOT / 'stdlib').rglob('*.jai')), HERE / 'adapter.jai', HERE / 'wasi.ts']
     sources = {str(path.relative_to(ROOT)): sha(path) for path in source_files}
     wasm = cache / 'adapter.wasm'
     command = [str(args.jaic.resolve()), str(HERE / 'adapter.jai'), '-os', 'wasm', '-O0', '-exe', str(wasm), '-output_path', str(cache / 'build')]
@@ -42,7 +42,7 @@ def main():
     if sources != {str(path.relative_to(ROOT)): sha(path) for path in source_files}:
         raise RuntimeError('sources changed during WASI adapter compilation')
     decoder = cache / 'wasi-decoder'
-    node = ['node', '--no-warnings', str(HERE / 'wasi.mjs'), str(wasm)]
+    node = ['node', '--no-warnings', str(HERE / 'wasi.ts'), str(wasm)]
     decoder.write_text('#!/bin/sh\ncase "$0" in\n  *encoder) exec ' + shlex.join([*node, 'encode']) + ' ;;\n  *) exec ' + shlex.join(node) + ' ;;\nesac\n')
     decoder.chmod(0o755)
     run = [sys.executable, str(HERE / 'run.py'), '--adapter', str(decoder), '--cache', str(cache), '--report', str(args.report.resolve())]

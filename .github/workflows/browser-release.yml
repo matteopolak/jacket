@@ -68,7 +68,7 @@ jobs:
       - name: Check packaging helpers
         run: |
           python3 tools/run_tests.py -v -p test_package_browser_release.py -p test_build_scripting_wasm.py -p test_cargo_build_paths.py
-          node --test tools/browser/test_*.mjs
+          node --test tools/browser/test_*.ts
       # The language-server tests execute the real native formatter; packaging also needs
       # this compiler (LLVM and wasm-ld) to produce jaifmt.wasm.
       - uses: ./.github/actions/setup-llvm

@@ -10,10 +10,10 @@ Backends:
   interp     `jaic -interp`: the interpreter on the host OS
   native     `jaic` (LLVM, -O0) and run the executable
   native-O2  the same with -O2
-  wasm       the browser engine (crates/jai-wasm in node, tools/differential/jaic_diff_wasm.mjs): the interpreter compiled
+  wasm       the browser engine (crates/jai-wasm in node, tools/differential/jaic_diff_wasm.ts): the interpreter compiled
              to wasm32, target OS .WASM, sandboxed host
   wasm-native  `jaic -os wasm` (LLVM, wasm64 with Wasi_Runtime) run by node's WASI
-             (tools/wasi_run.mjs); only when asked for, it needs wasm-ld and node 24
+             (tools/wasi_run.ts); only when asked for, it needs wasm-ld and node 24
 
 A result is (status, stdout, stderr). Status is `exit N` or `runtime error` (an interpreter runtime error,
 a native trap or signal: the backends report these differently, so only the fact is compared). stdout must
@@ -143,7 +143,7 @@ class WasmPool:
     def proc(self):
         p = getattr(self.local, "proc", None)
         if p is None or p.poll() is not None:
-            p = subprocess.Popen(["node", "--stack-size=4000", str(ROOT / "tools/differential/jaic_diff_wasm.mjs"), str(self.bundle)],
+            p = subprocess.Popen(["node", "--stack-size=4000", str(ROOT / "tools/differential/jaic_diff_wasm.ts"), str(self.bundle)],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
             self.local.proc = p
         return p
@@ -242,7 +242,7 @@ class Runner:
             # A metaprogram that takes over the build (its own workspaces, NO_OUTPUT) decides what gets
             # written; the program it compiled is not this executable.
             return Result("unsupported", note="the build wrote no executable at -exe (the program's metaprogram controls output)")
-        run = ["node", "--no-warnings", ROOT / "tools/wasi_run.mjs", exe] if wasm else [exe]
+        run = ["node", "--no-warnings", ROOT / "tools/wasi_run.ts", exe] if wasm else [exe]
         out, err, code = self.capped([*run, *case.args], case.path.parent, jaic=False)
         exe.unlink(missing_ok=True)
         if wasm and (missing := re.search(r"wasm link error: .*", err)):

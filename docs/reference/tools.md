@@ -348,7 +348,7 @@ jacket test [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--interp` | Run the tests in jaic's interpreter |
 | `--os <OS>` | Target OS, as jaic's -os (also spelt `-os`) [possible values: linux, windows, macos, wasm] |
 | `--cpu <CPU>` | Target CPU, as jaic's -cpu (also spelt `-cpu`) |
-| `--runner <COMMAND>` | Command that runs test programs built for another target (`node tools/wasi_run.mjs`) |
+| `--runner <COMMAND>` | Command that runs test programs built for another target (`node tools/wasi_run.ts`) |
 | `--needs <LIST>` | Capabilities this machine has, for tests with `@needs` (`network,gpu`) |
 | `--profile <NAME>` | Use `[test.profile.NAME]` from jacket.toml |
 | `--path <DIR>` | Test the `tests/` of these folders instead of the project's |
@@ -413,7 +413,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--interp` | Run the tests in jaic's interpreter |
 | `--os <OS>` | Target OS, as jaic's -os (also spelt `-os`) [possible values: linux, windows, macos, wasm] |
 | `--cpu <CPU>` | Target CPU, as jaic's -cpu (also spelt `-cpu`) |
-| `--runner <COMMAND>` | Command that runs test programs built for another target (`node tools/wasi_run.mjs`) |
+| `--runner <COMMAND>` | Command that runs test programs built for another target (`node tools/wasi_run.ts`) |
 | `--needs <LIST>` | Capabilities this machine has, for tests with `@needs` (`network,gpu`) |
 | `--profile <NAME>` | Use `[test.profile.NAME]` from jacket.toml |
 | `--path <DIR>` | Test the `tests/` of these folders instead of the project's |

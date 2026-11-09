@@ -155,7 +155,7 @@ def main():
             str(path.relative_to(HERE)): sha256_file(path)
             for path in HERE.rglob("*")
             if path.is_file()
-            and path.suffix in (".py", ".jai", ".mjs", ".json", ".c", ".txt")
+            and path.suffix in (".py", ".jai", ".ts", ".json", ".c", ".txt")
         },
         "compiler_sha256": sha256_file(compiler),
         "manifest_sha256": sha256_file(HERE / "manifest.json"),
@@ -217,7 +217,7 @@ def main():
                         command = [
                             "node",
                             "--no-warnings",
-                            HERE / "wasi_corpus.mjs",
+                            HERE / "wasi_corpus.ts",
                             *command,
                         ]
                     transcript, exit_code = run(

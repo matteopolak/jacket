@@ -251,7 +251,7 @@ pub struct TestArgs {
     /// Target CPU, as jaic's -cpu (also spelt `-cpu`)
     #[arg(long, value_name = "CPU", value_parser = parse_cpu)]
     pub cpu: Option<String>,
-    /// Command that runs test programs built for another target (`node tools/wasi_run.mjs`)
+    /// Command that runs test programs built for another target (`node tools/wasi_run.ts`)
     #[arg(long, value_name = "COMMAND")]
     pub runner: Option<String>,
     /// Capabilities this machine has, for tests with `@needs` (`network,gpu`)

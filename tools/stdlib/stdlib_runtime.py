@@ -335,7 +335,7 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             except (OSError, ValueError) as error:
                 return False, "Windows native DLL deployment failed: " + str(error)
         command = (
-            ["node", "--no-warnings", str(ROOT / "tools/wasi_run.mjs"), str(built[0])]
+            ["node", "--no-warnings", str(ROOT / "tools/wasi_run.ts"), str(built[0])]
             if wasm
             else [str(built[0])]
         )

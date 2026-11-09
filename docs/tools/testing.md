@@ -52,7 +52,7 @@ Output must not depend on threads or hash order: [determinism](determinism.md). 
 | --- | --- |
 | `interp` | `jaic -interp` |
 | `native` / `native-O2` | `jaic -O0` / `-O2`, then the executable |
-| `wasm` | the browser engine (`crates/jai-wasm`) via `jaic_diff_wasm.mjs` |
+| `wasm` | the browser engine (`crates/jai-wasm`) via `jaic_diff_wasm.ts` |
 | `wasm-native` | `jaic -os wasm` under node's WASI; only when named in `--backends`; needs `wasm-ld` and node 24 |
 
 ```sh

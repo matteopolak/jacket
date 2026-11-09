@@ -94,15 +94,15 @@ jobs:
       - name: Check documentation validation helpers
         run: |
           PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py
-          node --test tools/dev/test_chrome_startup.mjs tools/dev/test_doc_samples.mjs tools/dev/test_doc_sidebar.mjs
+          node --test tools/dev/test_chrome_startup.ts tools/dev/test_doc_samples.ts tools/dev/test_doc_sidebar.ts
       - name: Check documentation accessibility and layout
         if: ${{ inputs.browser_checks || vars.DOCS_BROWSER_CHECKS != 'false' }}
         run: |
           python3 tools/dev/doc_serve.py --port 8000 --directory target/doc-site &
           SERVER_PID=$!
           trap 'kill "$SERVER_PID"' EXIT
-          node tools/dev/doc_a11y.mjs http://127.0.0.1:8000/
-          node tools/dev/doc_layout.mjs http://127.0.0.1:8000/
+          node tools/dev/doc_a11y.ts http://127.0.0.1:8000/
+          node tools/dev/doc_layout.ts http://127.0.0.1:8000/
       - name: Pack it for the release
         if: inputs.pack
         env:

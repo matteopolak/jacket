@@ -31,11 +31,11 @@ fn jaic(dir: &Path, args: &[&str]) -> Option<Output> {
     Some(output)
 }
 
-/// Runs a WASI command module through `tools/wasi_run.mjs`, with `stdin` as its input.
+/// Runs a WASI command module through `tools/wasi_run.ts`, with `stdin` as its input.
 fn wasi_run(module: &Path, args: &[&str], stdin: &str) -> Output {
     let mut child = node()
         .unwrap()
-        .arg(repo_root().join("tools/wasi_run.mjs"))
+        .arg(repo_root().join("tools/wasi_run.ts"))
         .arg(module)
         .args(args)
         .stdin(Stdio::piped())
@@ -103,7 +103,7 @@ main :: () -> s32 {
     assert_eq!(&std::fs::read(&module).unwrap()[..4], b"\0asm");
     let mut run = node().unwrap();
     let output = run
-        .arg(repo_root().join("tools/wasi_run.mjs"))
+        .arg(repo_root().join("tools/wasi_run.ts"))
         .arg(&module)
         .args(["one", "two"])
         .env("JAIC_WASM_TEST", "set")
@@ -196,7 +196,7 @@ fn wasm_examples_run_as_wasi_commands() {
         }
         let output = node()
             .unwrap()
-            .arg(repo_root().join("tools/wasi_run.mjs"))
+            .arg(repo_root().join("tools/wasi_run.ts"))
             .arg("--unknown-imports-trap")
             .arg(&module)
             .current_dir(&folder)
@@ -262,7 +262,7 @@ main :: () {
         let file_name = format!("{name}-temporary.txt");
         let output = node()
             .unwrap()
-            .arg(repo_root().join("tools/wasi_run.mjs"))
+            .arg(repo_root().join("tools/wasi_run.ts"))
             .arg(dir.join("temporary.wasm"))
             .arg(&file_name)
             .env("TMPDIR", &temporary)
@@ -401,7 +401,7 @@ fn wasm_bare_module_imports_and_exports() {
 }
 
 /// jaifmt compiled to WebAssembly formats every golden case exactly as expected
-/// (`tools/browser/check_jaifmt_wasm.mjs`, which CI also runs against native jaifmt).
+/// (`tools/browser/check_jaifmt_wasm.ts`, which CI also runs against native jaifmt).
 #[test]
 fn jaifmt_wasm_formats_the_golden_cases() {
     let dir = TempDir::new("wasm-jaifmt");
@@ -421,7 +421,7 @@ fn jaifmt_wasm_formats_the_golden_cases() {
     }
     let output = node()
         .unwrap()
-        .arg(repo_root().join("tools/browser/check_jaifmt_wasm.mjs"))
+        .arg(repo_root().join("tools/browser/check_jaifmt_wasm.ts"))
         .arg("wasi")
         .arg(dir.join("jaifmt.wasm"))
         .output()

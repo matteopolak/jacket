@@ -21,6 +21,6 @@ defer array_free(bytes);
 
 - The host protocol lives in three places that must agree: `stdlib/Extensions/Assets/module.jai`, `assetFunctions` in `crates/jai-wasm/js/engine.mjs`, and the stubs in `Wasi_Runtime`.
 - The path rule is duplicated: `asset_path_is_relative` and `relative` in `engine.mjs`.
-- Bundled asset types and size limits: `tools/browser/build_scripting_wasm.py`, `package_browser_release.py`, `check_browser_release.mjs`.
+- Bundled asset types and size limits: `tools/browser/build_scripting_wasm.py`, `package_browser_release.py`, `check_browser_release.ts`.
 
 Configure the browser side with `createEngine(bytes, { assets: { base, limit } })`.

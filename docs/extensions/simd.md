@@ -55,7 +55,7 @@ Gotchas: `lookup` isn't faster in an AVX2 version (it lowers for the build's fea
 
 - New operation: write a loop over `lanes` in an `inline` procedure, then check `-O2` vectorizes it (`-emit_ir`, or `otool -tV`/`objdump -d`). If LLVM keeps a per-lane loop or branch, reformulate or add an intrinsic (compiler work).
 - Inside `#modify`, `$V: Type` is a variable: use `type_info`, not `size_of(V)` or `V.T`.
-- Tests: `jacket test --path stdlib/Extensions/SIMD` (add `--interp`, or `-os wasm --runner "node --no-warnings tools/wasi_run.mjs"`). Interpreted and native results must agree. Dispatch tests: `tests/cpu-dispatch.jai`.
+- Tests: `jacket test --path stdlib/Extensions/SIMD` (add `--interp`, or `-os wasm --runner "node --no-warnings tools/wasi_run.ts"`). Interpreted and native results must agree. Dispatch tests: `tests/cpu-dispatch.jai`.
 
 Its caller-Code macro covers target-stage dispatch, long byte searches and runtime table resets after compile-time selection. Cross-check it on an ARM64 host:
 

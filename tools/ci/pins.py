@@ -95,7 +95,7 @@ def llvm_env(manifest):
 # Where the full LLVM version must not be spelled out (pins.json is its one home): the CI
 # configuration, the scripts it runs and the docs about them.
 LITERAL_DIRS = [".github", "tools", "docs"]
-LITERAL_SUFFIXES = {".yml", ".yaml", ".py", ".sh", ".ps1", ".json", ".md", ".toml", ".mjs"}
+LITERAL_SUFFIXES = {".yml", ".yaml", ".py", ".sh", ".ps1", ".json", ".md", ".toml", ".ts"}
 LITERAL_SKIP_DIRS = {"node_modules", "target", "__pycache__"}
 LITERAL_ALLOWED = {".github/pins.json"}
 

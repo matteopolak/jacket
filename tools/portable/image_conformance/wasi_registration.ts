@@ -11,15 +11,19 @@ if (args.length > 1 || (args.length && (!isAbsolute(args[0]) || args[0] === '/')
 const work = mkdtempSync(join(tmpdir(), 'jai-image-registration-'));
 try {
   // Jacket's $TEMP stays the same guest argument, but aliases fresh owned storage.
-  const preopens = { '/work': work };
+  const preopens: Record<string, string> = { '/work': work };
   if (args.length) preopens[args[0]] = work;
   const wasi = new WASI({
-    version: 'preview1', args: [basename(binary), ...args],
-    env: { PWD: '/work', TMPDIR: '/work' }, preopens,
+    version: 'preview1',
+    args: [basename(binary), ...args],
+    env: { PWD: '/work', TMPDIR: '/work' },
+    preopens,
     returnOnExit: true,
   });
   const module = await WebAssembly.compile(readFileSync(binary));
-  const instance = await WebAssembly.instantiate(module, { wasi_snapshot_preview1: wasi.wasiImport });
+  const instance = await WebAssembly.instantiate(module, {
+    wasi_snapshot_preview1: wasi.wasiImport,
+  });
   process.exitCode = wasi.start(instance);
 } catch (error) {
   console.error(error);

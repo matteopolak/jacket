@@ -4,7 +4,7 @@
 // working directory, which Wasi_Runtime starts from (WASI itself has no working directory).
 // `/tmp` is a separate preopen of the host's real temporary directory (TMPDIR on
 // Unix). This also avoids routing temporary files through a host `/tmp` symlink.
-// Usage: node --no-warnings tools/wasi_run.mjs [--unknown-imports-trap] module.wasm [args...]
+// Usage: node --no-warnings tools/wasi_run.ts [--unknown-imports-trap] module.wasm [args...]
 // Needs node 24 or newer: jaic's modules use 64-bit memory (Memory64).
 //
 // A trap (`unreachable`, an out-of-bounds access, a stack overflow) prints `wasm trap: ...` and
@@ -21,7 +21,7 @@ if (trapUnknown) options = options.slice(1);
 const [path, ...rawArgs] = options;
 // A WASI module has no drive letters: `/` is the root of the current drive on Windows, so a
 // path on that drive (`D:\a\b`, `D:/a/b`) is given as `/a/b`.
-const guestPath = (text) => {
+const guestPath = (text: string) => {
   if (process.platform !== 'win32') return text;
   const drive = /^([A-Za-z]):[\\/]/.exec(text);
   const here = /^([A-Za-z]):/.exec(process.cwd());
@@ -30,7 +30,7 @@ const guestPath = (text) => {
 };
 const args = rawArgs.map(guestPath);
 if (!path) {
-  console.error('usage: node tools/wasi_run.mjs [--unknown-imports-trap] module.wasm [args...]');
+  console.error('usage: node tools/wasi_run.ts [--unknown-imports-trap] module.wasm [args...]');
   process.exit(2);
 }
 const wasi = new WASI({
@@ -43,15 +43,14 @@ const wasi = new WASI({
 const module = await WebAssembly.compile(readFileSync(path));
 // Name every import WASI does not provide (an `env` import is a C function nothing defined),
 // rather than node's error about the first missing import module.
-const provided = wasi.getImportObject();
+const provided = wasi.getImportObject() as Record<string, Record<string, WebAssembly.ImportValue>>;
 const absent = WebAssembly.Module.imports(module).filter(
-  (i) => !(i.module in provided) || !(i.name in provided[i.module]),
+  (i) => !(i.module in provided) || !(i.name in (provided[i.module] ?? {})),
 );
 if (trapUnknown) {
-  for (const i of absent.filter((i) => i.kind === 'function')) {
-    provided[i.module] ??= {};
-    provided[i.module][i.name] = () => {
-      throw new WebAssembly.RuntimeError(`called the missing import ${i.module}.${i.name}`);
+  for (const fn of absent.filter((i) => i.kind === 'function')) {
+    (provided[fn.module] ??= {})[fn.name] = () => {
+      throw new WebAssembly.RuntimeError(`called the missing import ${fn.module}.${fn.name}`);
     };
   }
 }
@@ -62,7 +61,7 @@ if (missing.length) {
   console.error(`wasm link error: missing imports ${missing.join(', ')}`);
   process.exit(127);
 }
-let instance;
+let instance: WebAssembly.Instance;
 try {
   instance = await WebAssembly.instantiate(module, provided);
 } catch (e) {

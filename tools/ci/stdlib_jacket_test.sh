@@ -53,6 +53,6 @@ run interp --interp
 run o2 -- -O2
 if [[ "${WASM:-}" == true ]]; then
   run wasm-interp --interp -os wasm
-  run wasm-native -os wasm --runner "node --no-warnings tools/wasi_run.mjs"
+  run wasm-native -os wasm --runner "node --no-warnings tools/wasi_run.ts"
 fi
 exit $status

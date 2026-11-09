@@ -87,7 +87,7 @@ def native_scenarios(jaifmt: Path, inputs: Inputs) -> list[Scenario]:
 
 def wasm_scenarios(node: str, wasm: Path, inputs: Inputs) -> list[Scenario]:
     # The module takes the text of the configuration, not a path.
-    command = [node, '--no-warnings', str(ROOT / 'tools' / 'wasi_run.mjs'), str(wasm), '--name', 'main.jai',
+    command = [node, '--no-warnings', str(ROOT / 'tools' / 'wasi_run.ts'), str(wasm), '--name', 'main.jai',
                '--config', CONFIG.read_text(encoding='utf-8')]
     return [Scenario('wasm-stdin-formatted', command, stdin_bytes=inputs.formatted.read_bytes()),
             Scenario('wasm-stdin-unformatted', command, stdin_bytes=inputs.unformatted.read_bytes())]

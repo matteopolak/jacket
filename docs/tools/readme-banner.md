@@ -4,4 +4,4 @@
 
 The wordmark is [Lilita One](https://fonts.google.com/specimen/Lilita+One) (SIL Open Font License 1.1, which allows embedding and converting outlines). Its glyphs are converted to paths and drawn with rough.js, so the image needs no font and renders in an `<img>`. The logo is embedded unchanged. The wordmark is ink-coloured, and a `<style>` block in the SVG turns it off-white in dark mode. The logo keeps its dark outline in both modes.
 
-To regenerate, follow the commands in the script's docstring. It needs Python with `fonttools`, plus Node and network access for rough.js (`tools/dev/readme_banner_rough.mjs`); nothing shipped uses them. To change the look, edit `WORD`, `KERN`, `ROUGH` or the layout constants at the top of the script and rerun.
+To regenerate, follow the commands in the script's docstring. It needs Python with `fonttools`, plus Node and network access for rough.js (`tools/dev/readme_banner_rough.ts`); nothing shipped uses them. To change the look, edit `WORD`, `KERN`, `ROUGH` or the layout constants at the top of the script and rerun.

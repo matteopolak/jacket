@@ -1,10 +1,10 @@
 // Formatter test inputs are text. Only a named, structurally complete AppleDouble
 // v2 sidecar is transport metadata (the same boundary used by objc_selectors.rs).
-import { readFileSync, readdirSync } from "node:fs";
-import path from "node:path";
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 
-export function isAppleDoubleMetadata(name, bytes) {
-  if (!name.startsWith("._") || bytes.length < 26) return false;
+export function isAppleDoubleMetadata(name: string, bytes: Buffer) {
+  if (!name.startsWith('._') || bytes.length < 26) return false;
   if (!bytes.subarray(0, 8).equals(Buffer.from([0, 5, 0x16, 7, 0, 2, 0, 0]))) return false;
   const count = bytes.readUInt16BE(24);
   const tableEnd = 26 + count * 12;
@@ -17,23 +17,27 @@ export function isAppleDoubleMetadata(name, bytes) {
   return true;
 }
 
-export function goldenCaseNames(directory) {
+export function goldenCaseNames(directory: string) {
   return readdirSync(directory)
-    .filter(name => name.endsWith(".in.jai") &&
-      !isAppleDoubleMetadata(name, readFileSync(path.join(directory, name))))
-    .map(name => name.slice(0, -".in.jai".length)).sort();
+    .filter(
+      (name) =>
+        name.endsWith('.in.jai') &&
+        !isAppleDoubleMetadata(name, readFileSync(path.join(directory, name))),
+    )
+    .map((name) => name.slice(0, -'.in.jai'.length))
+    .toSorted();
 }
 
-export function readUtf8(file) {
+export function readUtf8(file: string) {
   // Preserve a leading BOM, and reject invalid bytes rather than replacing them.
-  return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(file));
+  return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(readFileSync(file));
 }
 
-export function optionalConfig(file) {
+export function optionalConfig(file: string) {
   try {
     return readUtf8(file);
   } catch (error) {
-    if (error.code === "ENOENT") return undefined;
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
     throw error;
   }
 }
