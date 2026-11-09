@@ -10,10 +10,10 @@ On macOS and Linux:
 brew install matteopolak/tap/jacket
 ```
 
-Without Homebrew, `curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh | sh`. On Windows, in PowerShell:
+Without Homebrew, `curl -fsSL https://jacket.matteopolak.com/install.sh | sh`. On Windows, in PowerShell:
 
 ```sh
-irm https://raw.githubusercontent.com/matteopolak/jacket/main/install.ps1 | iex
+irm https://jacket.matteopolak.com/install.ps1 | iex
 ```
 
 `jacket upgrade` updates it. Editors: the [VS Code extension](../tools/vscode-extension.md), [jacket.nvim](../../editors/nvim/README.md) for Neovim, or `jailsp` as a language server anywhere else.

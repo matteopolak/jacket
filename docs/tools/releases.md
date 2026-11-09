@@ -7,8 +7,8 @@
 | Channel | Platforms | Command |
 | --- | --- | --- |
 | Homebrew tap | macOS, Linux | `brew install matteopolak/tap/jacket` |
-| `install.sh` | macOS, Linux | `curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh \| sh` |
-| `install.ps1` | Windows x64, arm64 | `irm https://raw.githubusercontent.com/matteopolak/jacket/main/install.ps1 \| iex` |
+| `install.sh` | macOS, Linux | `curl -fsSL https://jacket.matteopolak.com/install.sh \| sh` |
+| `install.ps1` | Windows x64, arm64 | `irm https://jacket.matteopolak.com/install.ps1 \| iex` |
 | VS Code, Open VSX | any | the `matteopolak.jacket` extension ([VS Code](vscode-extension.md)) |
 | Neovim | any | the `matteopolak/jacket.nvim` plugin ([Neovim](neovim-plugin.md)) |
 | Nix flake | Linux, macOS (from source) | `nix profile install github:matteopolak/jacket` |

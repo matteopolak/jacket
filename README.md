@@ -21,9 +21,9 @@
 ## Install
 
 ```sh
-brew install matteopolak/tap/jacket                                                      # macOS, Linux
-curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh | sh     # macOS, Linux
-irm https://raw.githubusercontent.com/matteopolak/jacket/main/install.ps1 | iex          # Windows (PowerShell)
+brew install matteopolak/tap/jacket                          # macOS, Linux
+curl -fsSL https://jacket.matteopolak.com/install.sh | sh    # macOS, Linux
+irm https://jacket.matteopolak.com/install.ps1 | iex         # Windows (PowerShell)
 ```
 
 Update with `jacket upgrade`. Other channels (Nix, prebuilt archives, CI, building from source) are in [installation](docs/tools/releases.md#install-channels).

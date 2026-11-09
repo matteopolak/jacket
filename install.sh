@@ -2,7 +2,7 @@
 # Installs Jacket, the Jai toolchain (jacket, jaic, jailsp, jailint, jaifmt) from a GitHub release of
 # https://github.com/matteopolak/jacket, verified against the release's SHA256SUMS:
 #
-#   curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh | sh
+#   curl -fsSL https://jacket.matteopolak.com/install.sh | sh
 #
 # Environment:
 #   JAI_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
