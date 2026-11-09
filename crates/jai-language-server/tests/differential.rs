@@ -17,7 +17,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use test_support::lsp::{environment, project, uri_of};
 
-// ---------------------------------------------------------------------------------------------
 // Randomness
 
 struct Rng(u64);
@@ -46,7 +45,6 @@ fn env_number(name: &str, default: u64) -> u64 {
         .unwrap_or(default)
 }
 
-// ---------------------------------------------------------------------------------------------
 // A client for one server: records what the server sent and answers its requests.
 
 const REFRESHES: [&str; 4] = [
@@ -220,7 +218,6 @@ impl Client {
     }
 }
 
-// ---------------------------------------------------------------------------------------------
 // The world: a project on disk and the buffers the editor has open.
 
 const FILES: [&str; 5] = ["main.jai", "a.jai", "b.jai", "c.jai", "d.jai"];
@@ -323,7 +320,6 @@ fn mutate(rng: &mut Rng, name: &str, text: &str, counter: u64) -> String {
     out
 }
 
-// ---------------------------------------------------------------------------------------------
 // Events
 
 fn step(rng: &mut Rng, world: &mut World, client: &mut Client, counter: u64) {
@@ -464,7 +460,6 @@ fn watch(world: &World, client: &mut Client, name: &str, kind: u32) {
     );
 }
 
-// ---------------------------------------------------------------------------------------------
 // Snapshots
 
 /// Sorted, with what legitimately differs between two servers (versions, result ids) removed.
@@ -586,7 +581,6 @@ fn first_difference(path: &str, a: &Value, b: &Value) -> Option<String> {
     }
 }
 
-// ---------------------------------------------------------------------------------------------
 // The test
 
 fn run(seed: u64, steps: u64) {

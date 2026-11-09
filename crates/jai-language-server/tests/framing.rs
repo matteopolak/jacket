@@ -80,7 +80,7 @@ fn an_absurd_content_length_is_skipped_without_buffering() {
     let header = format!("Content-Length: {}\r\n\r\n", usize::MAX);
     assert!(decoder.push(header.as_bytes()).unwrap().is_empty());
     for _ in 0..64 {
-        assert!(decoder.push(&[b'x'; 64 * 1024]).unwrap().is_empty());
+        assert!(decoder.push(&vec![b'x'; 64 * 1024]).unwrap().is_empty());
     }
     let skipped = decoder.take_oversized();
     assert_eq!(skipped.len(), 1);
