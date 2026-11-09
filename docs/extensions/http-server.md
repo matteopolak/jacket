@@ -133,7 +133,7 @@ main :: () { run_tests(.[ .{ "creates a note and reads it back", creates_and_rea
 
 Also `app.state`, `app.on_error`, `app.json_options`.
 
-Tests: `server-routing`, `server-extractors`, `server-responses`, `testing`, `server-bodies`, `server-connections`, `https` and `client` in `stdlib/Extensions/Http/tests/`. Benchmarks in `bench/` (`-O2`). `tools/stdlib/http_conformance.py` also builds `tools/stdlib/http_garden/server.jai`, an echo server for an http-garden image.
+Tests: `server-routing`, `server-extractors`, `server-responses`, `testing`, `server-bodies`, `server-connections`, `https` and `client` in `stdlib/Extensions/Http/tests/`. Run parser benchmarks with `jacket bench --path stdlib/Extensions/Http`; the network experiments remain standalone in `bench/`. The server load needs a peer that persists across samples, and the client/idle experiments report RSS or stack residency. The supplied runner provides neither per-run fixture teardown nor those memory metrics. `tools/stdlib/http_conformance.py` also builds `tools/stdlib/http_garden/server.jai`, an echo server for an http-garden image.
 
 ## Compared with the community servers
 

@@ -1,13 +1,6 @@
-// Throughput of the HTTP parser with the scalar scans and with the vector scans, in MB/s of
-// message bytes and in requests per second.
-//
-//     jaic -O2 stdlib/Extensions/Http/bench/bench.jai -exe /tmp/http-bench
-//     /tmp/http-bench
-//
-// Three streams: small requests (a browser's: nine headers), requests with large headers
-// (cookies, long targets) and large chunked bodies. Each stream is fed in 4 KiB reads, the way a
-// socket would deliver it.
-
+#scope_file
+// Run with jacket bench --path stdlib/Extensions/Http.
+#import "Extensions/Testing";
 #import "Basic";
 #import "Extensions/Http";
 
@@ -15,6 +8,7 @@ BROWSER :: "GET /static/js/app.4f3a9c.js?v=20260112&lang=en-US HTTP/1.1\r\nHost:
 
 make_stream :: (unit: string, copies: int) -> string {
     builder: String_Builder;
+    defer free_buffers(*builder);
 
     for 1..copies append(*builder, unit);
 
@@ -23,6 +17,8 @@ make_stream :: (unit: string, copies: int) -> string {
 
 make_large_headers :: (copies: int) -> string {
     cookie: String_Builder;
+
+    defer free_buffers(*cookie);
 
     for 0..40 print_to_builder(*cookie, "k%=%; ", it, "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz");
 
@@ -33,6 +29,8 @@ make_large_headers :: (copies: int) -> string {
 
 make_chunked :: (chunks: int, size: int) -> string {
     builder: String_Builder;
+
+    defer free_buffers(*builder);
     payload: [..] u8;
 
     defer array_reset(*payload);
@@ -107,34 +105,131 @@ run :: (stream: string, repeat: int, require_host: bool) -> int {
     return ends;
 }
 
-measure :: (name: string, stream: string, repeat: int) {
-    for mode: 0..1 {
-        http_use_simd = mode == 1;
-        best: float64 = 1.0e30;
-        ends := 0;
+#scope_export
+browser_scalar :: (b: *Bench) {
+    stream := make_stream(BROWSER, 200);
 
-        for 1..3 {
-            start := seconds_since_init();
-            ends = run(stream, repeat, true);
-            elapsed := seconds_since_init() - start;
+    defer free(stream);
+    http_use_simd = false;
+    defer http_use_simd = true;
+    set_bytes(b, stream.count);
+    reset_timer(b);
 
-            if elapsed < best best = elapsed;
-        }
-
-        megabytes := cast(float64) stream.count * repeat / 1.0e6;
-        label := "scalar";
-
-        if mode == 1 label = "vector";
-
-        print("%: % -> % MB/s, % requests/s\n", name, label, formatFloat(megabytes / best, trailing_width = 0), formatFloat(ends / best, trailing_width = 0));
+    for 0..b.iterations - 1 {
+        ends := run(black_box(stream), 1, true);
+        assert(ends >= 0);
+        black_box(ends);
     }
+} @bench
 
+browser_vector :: (b: *Bench) {
+    stream := make_stream(BROWSER, 200);
+
+    defer free(stream);
     http_use_simd = true;
-}
+    defer http_use_simd = true;
+    set_bytes(b, stream.count);
+    reset_timer(b);
 
-main :: () {
-    measure("browser requests ", make_stream(BROWSER, 200), 400);
-    measure("large headers    ", make_large_headers(20), 400);
-    measure("chunked 64 KiB   ", make_chunked(256, 65536), 8);
-    measure("chunked 100 B    ", make_chunked(40000, 100), 20);
-}
+    for 0..b.iterations - 1 {
+        ends := run(black_box(stream), 1, true);
+        assert(ends >= 0);
+        black_box(ends);
+    }
+} @bench
+
+headers_scalar :: (b: *Bench) {
+    stream := make_large_headers(20);
+
+    defer free(stream);
+    http_use_simd = false;
+    defer http_use_simd = true;
+    set_bytes(b, stream.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        ends := run(black_box(stream), 1, true);
+        assert(ends >= 0);
+        black_box(ends);
+    }
+} @bench
+
+headers_vector :: (b: *Bench) {
+    stream := make_large_headers(20);
+
+    defer free(stream);
+    http_use_simd = true;
+    defer http_use_simd = true;
+    set_bytes(b, stream.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        ends := run(black_box(stream), 1, true);
+        assert(ends >= 0);
+        black_box(ends);
+    }
+} @bench
+
+chunked_64k_scalar :: (b: *Bench) {
+    stream := make_chunked(256, 65536);
+
+    defer free(stream);
+    http_use_simd = false;
+    defer http_use_simd = true;
+    set_bytes(b, stream.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        ends := run(black_box(stream), 1, true);
+        assert(ends >= 0);
+        black_box(ends);
+    }
+} @bench
+
+chunked_64k_vector :: (b: *Bench) {
+    stream := make_chunked(256, 65536);
+
+    defer free(stream);
+    http_use_simd = true;
+    defer http_use_simd = true;
+    set_bytes(b, stream.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        ends := run(black_box(stream), 1, true);
+        assert(ends >= 0);
+        black_box(ends);
+    }
+} @bench
+
+chunked_100_scalar :: (b: *Bench) {
+    stream := make_chunked(40000, 100);
+
+    defer free(stream);
+    http_use_simd = false;
+    defer http_use_simd = true;
+    set_bytes(b, stream.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        ends := run(black_box(stream), 1, true);
+        assert(ends >= 0);
+        black_box(ends);
+    }
+} @bench
+
+chunked_100_vector :: (b: *Bench) {
+    stream := make_chunked(40000, 100);
+
+    defer free(stream);
+    http_use_simd = true;
+    defer http_use_simd = true;
+    set_bytes(b, stream.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        ends := run(black_box(stream), 1, true);
+        assert(ends >= 0);
+        black_box(ends);
+    }
+} @bench
