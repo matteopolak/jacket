@@ -569,6 +569,30 @@ jobs:
           name: vscode-extension
           path: editors/vscode/jacket-vscode.vsix
           if-no-files-found: error
+  doc-site-assets:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'doc-site-assets')
+    # The JS and CSS of the documentation site, crates/jacket/src/doc/site/assets: lint, types,
+    # formatting (docs/tools/doc-site-assets.md). Runs only when they or their tooling change.
+    name: Documentation site assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24'}
+      - name: Validate the pnpm version's age before installing
+        run: node editors/vscode/scripts/check-dependency-age.ts --dir crates/jacket/src/doc/site-tools
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: crates/jacket/src/doc/site-tools/package.json
+      - name: Install npm dependencies
+        working-directory: crates/jacket/src/doc/site-tools
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Lint, type-check and check the formatting of crates/jacket/src/doc/site/assets
+        working-directory: crates/jacket/src/doc/site-tools
+        run: pnpm run lint
   neovim-plugin:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'neovim-plugin')

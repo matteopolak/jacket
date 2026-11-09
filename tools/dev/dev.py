@@ -5,6 +5,7 @@
     python3 tools/dev/dev.py fmt  [--check] [--lang jai|rust|all] [--staged] [-j N] [paths...]
     python3 tools/dev/dev.py lint [--fix] [--lang jai|rust|all] [--os linux|windows|macos|wasm] [--staged] [-j N] [paths...]
     python3 tools/dev/dev.py editor
+    python3 tools/dev/dev.py site-assets [--fix]
     python3 tools/dev/dev.py repo-checks [style|paths|ci-sources|stdlib-docs ...]
     python3 tools/dev/dev.py precommit
     python3 tools/dev/dev.py hooks
@@ -398,6 +399,21 @@ def cmd_editor(args) -> int:
     for script in EDITOR_SCRIPTS:
         failed |= bool(run(["node", f"scripts/{script[0]}", *script[1:], "--check"], cwd=ROOT / "editors" / "vscode"))
     return int(failed)
+
+
+def cmd_site_assets(args) -> int:
+    """Lint, type-check and format-check the doc site's JS and CSS (needs pnpm); --fix formats them."""
+    tools = ROOT / "crates" / "jacket" / "src" / "doc" / "site-tools"
+    pnpm = shutil.which("pnpm")
+    if pnpm is None:
+        print("pnpm not found: install pnpm (the version package.json names) to check the site assets")
+        return 1
+    if not (tools / "node_modules").is_dir():
+        if run([pnpm, "install", "--frozen-lockfile", "--ignore-scripts"], cwd=tools):
+            return 1
+    if args.fix:
+        return run([pnpm, "run", "fmt"], cwd=tools)
+    return run([pnpm, "run", "lint"], cwd=tools)
 
 
 def cmd_nvim(args) -> int:
@@ -836,7 +852,7 @@ def cmd_precommit(args) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    for name, fn in (("build", cmd_build), ("docs", cmd_docs), ("run-example", cmd_run_example), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor),
+    for name, fn in (("build", cmd_build), ("docs", cmd_docs), ("run-example", cmd_run_example), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor), ("site-assets", cmd_site_assets),
                      ("nvim", cmd_nvim), ("vscode-try", cmd_vscode_try), ("test", cmd_test),
                      ("repo-checks", cmd_repo_checks), ("precommit", cmd_precommit), ("hooks", cmd_hooks)):
         p = sub.add_parser(name)
@@ -855,6 +871,8 @@ def main() -> int:
             p.add_argument("--no-test-examples", action="store_true", help="skip running the examples (faster)")
             p.add_argument("--serve", action="store_true")
             p.add_argument("--port", default="8000")
+        if name == "site-assets":
+            p.add_argument("--fix", action="store_true", help="format the assets instead of checking")
         if name in ("fmt", "lint"):
             p.add_argument("--lang", choices=["jai", "rust", "all"], default="all")
             p.add_argument("--staged", action="store_true")

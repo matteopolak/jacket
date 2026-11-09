@@ -8,12 +8,15 @@
 // Runs before any install, so it reads the lockfile with a few regular expressions instead of a YAML
 // library. Fails closed.
 //
-//   node scripts/check-dependency-age.ts [--days 14]
+//   node scripts/check-dependency-age.ts [--days 14] [--dir <package directory>]
+//
+// `--dir` checks another pnpm project (relative to the working directory) instead of this one.
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const dirArg = process.argv.indexOf("--dir");
+const root = dirArg > 0 ? resolve(process.argv[dirArg + 1]) : join(dirname(fileURLToPath(import.meta.url)), "..");
 const daysArg = process.argv.indexOf("--days");
 const days = daysArg > 0 ? Number(process.argv[daysArg + 1]) : 14;
 const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;

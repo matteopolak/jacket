@@ -43,6 +43,7 @@ GATED = {
     "clipboard-linux",
     "nix",
     "shellcheck",
+    "doc-site-assets",
     "install-sh",
     "install-ps1",
     "homebrew",
@@ -88,6 +89,8 @@ EXTRA = {
     "homebrew": ["packaging/**"],
     # The native test reads every program under tests/compiler/native.
     "windows-native": ["tests/compiler/native/**"],
+    # The lint step reads the assets through `../site/assets`, which no step names.
+    "doc-site-assets": ["crates/jacket/src/doc/site/**", "crates/jacket/src/doc/site-tools/**", "editors/vscode/scripts/check-dependency-age.ts"],
     # `nix flake check` evaluates the flake, whose files `nix/` imports.
     "nix": ["flake.nix", "flake.lock"],
 }

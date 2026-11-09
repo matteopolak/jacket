@@ -45,6 +45,7 @@ JOBS = {
     "scripting-wasm": "code",
     "test": "code",
     "vscode-extension": "code",
+    "doc-site-assets": "site-assets",
     "neovim-plugin": "code",
     "stdlib-runtime": "code",
     "images-ui-intel": None,

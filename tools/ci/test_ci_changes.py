@@ -237,6 +237,17 @@ class RealWorkflow(unittest.TestCase):
                 self.assertTrue(selects("shell", path))
         self.assertFalse(selects("shell", "stdlib/Basic/module.jai"))
 
+    def test_site_asset_checks_run_only_for_the_assets_and_their_tooling(self):
+        for path in [
+            "crates/jacket/src/doc/site/assets/site.js",
+            "crates/jacket/src/doc/site/assets/site.css",
+            "crates/jacket/src/doc/site-tools/package.json",
+        ]:
+            with self.subTest(path=path):
+                self.assertTrue(selects("site-assets", path))
+        self.assertFalse(selects("site-assets", "crates/jacket/src/doc/view.rs"))
+        self.assertFalse(selects("site-assets", "stdlib/Basic/module.jai"))
+
     def test_the_flake_builds_the_compiler_and_the_stdlib(self):
         for path in [
             "flake.nix",

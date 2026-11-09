@@ -50,6 +50,12 @@ lint fix="false" staged="false" release="false" lang="all" os="" jobs=default_jo
 editor:
     {{ py }} tools/dev/dev.py editor
 
+# Lint, type-check and format-check the documentation site's JS and CSS (needs pnpm); --fix formats them.
+[group('check')]
+[arg("fix", long, value="true")]
+site-assets fix="":
+    {{ py }} tools/dev/dev.py site-assets {{ if fix == "true" { "--fix" } else { "" } }}
+
 # Run the Neovim plugin's headless tests (editors/nvim); builds a debug jailsp for the end-to-end ones. Skipped without nvim 0.11.
 [group('test')]
 [arg("unit", long, value="true")]
