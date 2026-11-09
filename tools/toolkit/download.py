@@ -89,7 +89,8 @@ def fetch(
             return body
         except urllib.error.HTTPError as error:
             if error.code not in TRANSIENT or attempt == attempts:
-                raise
+                # `str(HTTPError)` leaves out the URL; keep the type and code, name the URL.
+                raise urllib.error.HTTPError(url, error.code, f"{error.msg} for {url}", error.headers, None) from error
             wait = _retry_after(error) or 5 * attempt
         except (OSError, HTTPException):
             if attempt == attempts:

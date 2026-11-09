@@ -217,7 +217,7 @@ class Fetch(unittest.TestCase):
         sleep.assert_called_once_with(5)
         missing = urllib.error.HTTPError("https://example.invalid/f", 404, "no", {}, None)
         with mock.patch("urllib.request.urlopen", side_effect=missing), mock.patch("time.sleep") as sleep:
-            with self.assertRaises(urllib.error.HTTPError):
+            with self.assertRaisesRegex(urllib.error.HTTPError, "404: no for https://example.invalid/f"):
                 download.fetch("https://example.invalid/f")
         sleep.assert_not_called()
 
