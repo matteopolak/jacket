@@ -1,8 +1,6 @@
 #scope_file
 #import "Basic";
 #import "String";
-#import "File";
-#import "Extensions/Environment";
 #import "Extensions/Testing";
 #import "Extensions/Gltf";
 Raster :: #import "Extensions/Image";
@@ -97,50 +95,6 @@ image_resources_and_budgets :: () {
     }
 
     check_document(external, false);
-} @test
-
-remaining_validator_regressions :: () {
-    base := environment_variable("JACKET_OUTPUT_DIR");
-    if !base.count base = tprint("%../../../../target", #filepath);
-
-    root := tprint("%/gltf-conformance/validator/test/base/data", base);
-
-    for name: string.[
-        "mesh_data/joints_weights_complex",
-        "mesh/unequal_joints",
-        "skin/no_joints_in_scene",
-        "skin_data/invalid_ibm",
-        "animation/channel_duplicate_targets",
-        "node/matrix_indecomposable",
-        "image/invalid_image_data",
-        "image/invalid_data_uri",
-        "image/not_found",
-        "image/invalid_uri_scheme",
-        "image/png_eos",
-        "image/invalid_data_uri_mime_type"
-    ] {
-        path := tprint("%/%.gltf", root, name);
-        bytes, ok := read_entire_file(path);
-
-        require(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py data` first");
-        defer free(bytes);
-        slash := find_index_from_right(path, #char "/");
-        folder := slice(path, 0, slash);
-        tally: Tally;
-        rejected: bool;
-
-        {
-            push_allocator(tally_proc, *tally);
-            a, e := gltf_load(bytes, .{ gltf_local_resolve, *folder });
-
-            rejected = e.kind != .NONE;
-            gltf_free(*a);
-            gltf_error_free(*e);
-        }
-
-        expect(rejected, name);
-        expect_equal(tally.outstanding, 0, name);
-    }
 } @test
 
 matrix_decomposition :: () {

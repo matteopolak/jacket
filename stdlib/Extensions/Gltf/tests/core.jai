@@ -177,44 +177,6 @@ truncation_and_ownership :: () {
     expect(balanced && tally.outstanding == 0);
 } @test
 
-#scope_file
-#import "File";
-
-#scope_export
-local_resolver_containment :: (t: *Test) {
-    folder := tprint("%/asset", temp_dir(t));
-
-    require(make_directory_if_it_does_not_exist(folder));
-    require(write_entire_file(tprint("%/ok.bin", folder), "abc"));
-    require(write_entire_file(tprint("%/outside.bin", temp_dir(t)), "secret"));
-    data, ok := gltf_local_resolve(*folder, "ok%2ebin", 3);
-
-    defer free(data);
-    expect(ok && data == "abc");
-
-    for uri: string.["../outside.bin", "%2e%2e/outside.bin", "/outside.bin", "x%00.bin", "file:ok.bin", "bad%q0", "ok.bin?x"] {
-        bytes, allowed := gltf_local_resolve(*folder, uri, 100);
-        free(bytes);
-        expect(!allowed, uri);
-    }
-
-    _, too_big := gltf_local_resolve(*folder, "ok.bin", 2);
-
-    expect(!too_big);
-
-    #if OS != .WINDOWS {
-        P :: #import "internal/bindings/posix-api";
-        link := to_c_string(tprint("%/escape", folder));
-
-        defer free(link);
-        require(P.symlink("../outside.bin", link) == 0);
-        escaped, allowed := gltf_local_resolve(*folder, "escape", 100);
-
-        free(escaped);
-        expect(!allowed);
-    }
-} @test
-
 numeric_accessors_and_matrix_padding :: () {
     text :: "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":12,\"uri\":\"data:application/octet-stream;base64,gH8A/wECAAMEBQAA\"}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":2},{\"buffer\":0,\"byteOffset\":4,\"byteLength\":6}],\"accessors\":[{\"bufferView\":0,\"componentType\":5120,\"normalized\":true,\"count\":2,\"type\":\"SCALAR\"},{\"bufferView\":1,\"componentType\":5121,\"count\":1,\"type\":\"MAT2\"}]}";
     a, e := gltf_load(text);

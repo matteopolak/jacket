@@ -35,6 +35,8 @@ resolver := Gltf_Resolver.{gltf_local_resolve, *folder};
 asset, error := gltf_load(text, resolver);
 ```
 
+`gltf_local_resolve` is not available on wasm (it needs POSIX directory handles or a Windows file API). Everything else works there: `gltf_load`, `gltf_validate`, `gltf_write`, accessors, GLB and data URIs. On wasm pass a `Gltf_Resolver` of your own for external files, or none to accept only embedded data. Tests that read files (`tests/files.jai`, `tests/conformance.jai`) are skipped on wasm; the rest run under `jacket test --interp -- -os=wasm`.
+
 `gltf_local_resolve` decodes percent escapes, rejects absolute paths, schemes and NULs, and restricts files to the supplied folder. Unix lookups use directory descriptors and refuse symlinks and parent components. Windows checks the opened handle's canonical path.
 
 ## Accessors and output
@@ -49,7 +51,7 @@ asset, error := gltf_load(text, resolver);
 
 Add core fields in `types.jai`, reference and layout rules in `validate.jai`, and binary interpretation in `accessor.jai`. Preserve validation order: storage precedes accessor reads, which precede graph and semantic checks. `schema.jai` handles constraints that cannot survive typed defaults. Keep regression fixtures in `tests/`; do not weaken the invalid-fixture expectation to hide missing checks.
 
-Dependencies are `Extensions/Json`, `Base64`, `Hash_Table`, `Basic`, `String`, `Math`, `Extensions/Image`, and `File`; the optional Unix file resolver uses the repository's POSIX bindings. There is no renderer, extension interpretation, Draco or meshopt decompression.
+Dependencies are `Extensions/Json`, `Base64`, `Hash_Table`, `Basic`, `String`, `Math`, `Extensions/Image`, and, off wasm, `File`; the Unix file resolver uses the repository's POSIX bindings. There is no renderer, extension interpretation, Draco or meshopt decompression.
 
 ## Verification
 

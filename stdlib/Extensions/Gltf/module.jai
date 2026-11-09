@@ -227,7 +227,6 @@ reference :: (value: Json_Maybe(u32)) -> s64 {
 #import "Hash_Table";
 #import "Extensions/Json";
 #import "Base64";
-File :: #import "File";
 
 // One bounded URI path for both buffer and image resources.
 resolve_resource :: (uri: string, resolver: Gltf_Resolver, limit: s64, image: bool) -> string, bool {
