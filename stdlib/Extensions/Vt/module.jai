@@ -1,5 +1,25 @@
-// Sans-IO DEC ANSI byte parser. Callback slices are borrowed until the callback returns.
-// Example: p: Vt_Parser; vt_feed(*p, "hello\x1b[31m", on_action, user_data);
+// A sans-IO parser for terminal output: the DEC ANSI state machine behind escape sequences. Feed it
+// bytes in any chunking and it calls you back with printable text, control bytes and CSI, ESC, OSC
+// and DCS sequences. A [Vt_Parser] owns nothing, so there is nothing to free. Slices in a
+// [Vt_Action] are borrowed until the callback returns.
+//
+// ```jai
+// #import "Extensions/Vt";
+//
+// count_prints :: (data: *void, action: Vt_Action) {
+//     if action.kind != .PRINT return;
+//     count := cast(*int) data;
+//     count.* += 1;
+// }
+//
+// printed := 0;
+// parser: Vt_Parser;
+// error := vt_feed(*parser, "hi\x1b[31m!", count_prints, *printed);
+// assert(error.kind == .NONE && printed == 3);
+// ```
+
+// Limits and modes for a [Vt_Parser]; set them before the first [vt_feed]. A sequence that goes over
+// a limit is dropped and reported as `.LIMIT`.
 Vt_Options :: struct {
     max_params: int = 32; // includes colon subparameters and OSC fields, at most 64
     max_param_value: u32 = 65535;
@@ -8,34 +28,40 @@ Vt_Options :: struct {
     c1: bool; // raw 8-bit controls; UTF-8 continuation bytes take precedence in ground
 }
 
+// Why [vt_feed] reported a problem.
 Vt_Error_Kind :: enum u8 {
     NONE;
-    LIMIT;
-    OPTIONS;
+    LIMIT; // a sequence exceeded one of the [Vt_Options] limits and was dropped
+    OPTIONS; // the options are out of range or the callback is missing; no bytes were consumed
 }
 
+// The outcome of [vt_feed]; `kind` is `.NONE` on success. `message` is static and `offset` counts
+// bytes since the parser started.
 Vt_Error :: struct {
     kind: Vt_Error_Kind;
     message: string;
     offset: u64;
 }
 
+// What a [Vt_Action] reports.
 Vt_Kind :: enum u8 {
-    PRINT;
-    EXECUTE;
-    CSI_DISPATCH;
-    ESC_DISPATCH;
-    OSC_DISPATCH;
-    DCS_HOOK;
-    DCS_PUT;
-    DCS_UNHOOK;
+    PRINT; // a printable codepoint
+    EXECUTE; // a C0 or C1 control byte
+    CSI_DISPATCH; // a complete control sequence (`ESC [ ...`)
+    ESC_DISPATCH; // a complete escape sequence
+    OSC_DISPATCH; // a complete operating system command
+    DCS_HOOK; // a device control string begins
+    DCS_PUT; // one byte of a device control string
+    DCS_UNHOOK; // a device control string ends
 }
 
+// One numeric parameter of a control sequence.
 Vt_Param :: struct {
     value: u32;
     subparam: bool; // preceded by ':' instead of ';'
 }
 
+// A parsed event passed to a [Vt_Callback]. Which fields are set depends on `kind`.
 Vt_Action :: struct {
     kind: Vt_Kind;
     code: u32; // codepoint for PRINT, byte/final otherwise
@@ -45,8 +71,10 @@ Vt_Action :: struct {
     osc: [] string; // split on ';', preserving empty fields
 }
 
+// Receives each [Vt_Action]; `data` is what you gave [vt_feed]. Do not reenter the parser from it.
 Vt_Callback :: (data: *void, action: Vt_Action);
 
+// The parser's position in the escape-sequence grammar, between bytes.
 Vt_State :: enum u8 {
     GROUND;
     ESCAPE;
