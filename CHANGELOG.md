@@ -4,6 +4,7 @@
 
 ### New
 
+- `Extensions/Csv`: streaming CSV reader and writer with limits, error positions and typed rows from structs (`@csv(name=...)`).
 - `Extensions/Toml` reads and writes TOML 1.1, including table and array-of-table headers, and decodes structs directly (fixed-size arrays and `[[x]]` tables into slices too); `jaifmt` uses it to parse configuration.
 - `Extensions/Grpc` adds clients and servers over HTTP/2, with generated Protobuf service types.
 - `Extensions/Gltf` loads, validates and writes glTF and GLB assets.
@@ -23,6 +24,7 @@
 
 ### Fixed
 
+- `@toml(...)` note values resolve `\n`, `\t` and `\r` escapes instead of dropping the backslash.
 - ICO creation from image filenames works on WASI, and transparent icons render correctly on Windows.
 - JPEG color handling, invalid JPEG scans and incomplete QOI files.
 - Struct default overrides, declaration order in struct scopes and contextual expression types.
