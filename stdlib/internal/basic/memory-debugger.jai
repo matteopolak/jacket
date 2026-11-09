@@ -57,7 +57,7 @@ create_heap :: (a: Allocator) -> Allocator {
 destroy_heap :: (b: Allocator) {
     #if MEMORY_DEBUGGER Memory_Debugger.check_destroy_heap(b);
     b.proc(.DESTROY_HEAP, 0, 0, null, b.data);
-} @FreesArgument
+}
 
 #load "allocator-call.jai";
 

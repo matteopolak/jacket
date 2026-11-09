@@ -266,7 +266,7 @@ deinit :: (report: *Leak_Report) {
 
     RP.release(*report.pool);
     report.* = .{};
-} @FreesArgument
+}
 
 log_leak_report :: (report: Leak_Report, options: Leak_Report_Options = .{}) {
     count: s64;
