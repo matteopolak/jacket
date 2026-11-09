@@ -66,9 +66,9 @@ pub(super) fn run_worker(
         Ok(value) => value,
         Err(cancelled) if cancelled.is::<WorkerCancelled>() => {
             let mut s = shared.lock();
+            s.finish(id);
             let thread = &mut s.threads[id];
             thread.start.take();
-            thread.finished = true;
             thread.result = CANCELLED_EXIT_CODE as u64;
             shared.cv.notify_all();
             CANCELLED_EXIT_CODE as u64

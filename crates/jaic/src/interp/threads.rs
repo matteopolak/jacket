@@ -104,8 +104,8 @@ mod pthread_name_tests {
         let shared = interp.shared();
         let mut thread = GThread::new(false, None);
         thread.finished = true;
-        shared.lock().threads.push(thread);
-        shared.lock().threads.push(GThread::new(false, None));
+        shared.lock().add(thread);
+        shared.lock().add(GThread::new(false, None));
         for handle in [2, 3] {
             assert!(
                 interp

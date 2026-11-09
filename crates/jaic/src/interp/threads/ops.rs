@@ -252,9 +252,9 @@ impl Interp {
                 stack: ValueStack::heap(THREAD_STACK / 8),
                 ..ExecState::default()
             };
-            s.threads.push(GThread::new(false, Some(state)));
-            s.threads.last_mut().unwrap().suspend_count = u32::from(suspended);
-            s.threads.len() - 1
+            let mut thread = GThread::new(false, Some(state));
+            thread.suspend_count = u32::from(suspended);
+            s.add(thread)
         };
         let program = std::ptr::from_ref::<Program>(program) as usize;
         let thread_shared = shared.clone();
@@ -267,8 +267,10 @@ impl Interp {
         let worker = match spawned {
             Ok(worker) => worker,
             Err(error) => {
-                shared.lock().threads[id].finished = true;
-                shared.lock().threads[id].start.take();
+                let mut s = shared.lock();
+                s.finish(id);
+                s.threads[id].start.take();
+                drop(s);
                 #[cfg(windows)]
                 {
                     win32::creation_error(&error);
@@ -420,7 +422,7 @@ impl Interp {
         let Some(me) = s.current else {
             return Ok(());
         };
-        if !(0..s.threads.len()).any(|t| t != me && s.runnable(t)) {
+        if !s.live_slots().any(|t| t != me && s.runnable(t)) {
             return Ok(());
         }
         let state = self.take_exec_state();
@@ -471,7 +473,7 @@ impl Interp {
         drop(self.take_exec_state());
         let shared = self.shared();
         let mut s = shared.lock();
-        s.threads[me].finished = true;
+        s.finish(me);
         s.threads[me].result = result;
         s.wake(Block::Join(me));
         // Its Win32 handle is now signaled.

@@ -5,6 +5,7 @@ use super::sched::{Block, DEADLOCK_GRACE, GThread, NATIVE_SLICE, Sched, Shared, 
 use super::win32;
 use crate::interp::thread_sync::{CondQueues, Mutexes};
 use crate::interp::{HashMap, Interp, Program, Trap, native};
+use std::collections::BTreeSet;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Instant;
 
@@ -16,6 +17,7 @@ impl Shared {
         Arc::new(Shared {
             sched: Mutex::new(Sched {
                 threads: vec![main],
+                live: BTreeSet::from([0]),
                 current: Some(0),
                 last: 0,
                 in_native: false,
@@ -287,7 +289,7 @@ impl native::Gate for Shared {
                 let Some(acquired) = self.acquire_callback(s, me) else {
                     // A callback lease that never entered must also be released at shutdown.
                     let mut cancelled = self.lock();
-                    cancelled.threads[me].finished = true;
+                    cancelled.finish(me);
                     cancelled.spare.push(me);
                     self.cv.notify_all();
                     return Err(GONE.into());
@@ -314,7 +316,7 @@ impl native::Gate for Shared {
                 self.cv.notify_all();
             }
         } else {
-            s.threads[me].finished = true;
+            s.finish(me);
             s.spare.push(me);
             s.release(None);
             self.cv.notify_all();
@@ -342,7 +344,7 @@ mod native_handoff_tests {
     #[test]
     fn a_blocking_native_wait_hands_available_work_to_a_peer_before_calling_c() {
         let shared = Shared::new(17);
-        shared.lock().threads.push(GThread::new(false, None));
+        shared.lock().add(GThread::new(false, None));
         let caller = shared.enter_native(17, true);
         let sched = shared.lock();
         assert_eq!(
@@ -357,7 +359,7 @@ mod native_handoff_tests {
     #[test]
     fn a_short_native_call_retains_the_existing_fast_call_policy() {
         let shared = Shared::new(17);
-        shared.lock().threads.push(GThread::new(false, None));
+        shared.lock().add(GThread::new(false, None));
         assert_eq!(shared.enter_native(17, false), 0);
         let sched = shared.lock();
         assert_eq!(sched.current, Some(0));

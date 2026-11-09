@@ -100,7 +100,7 @@ fn suspend_only_aliases_are_identified_without_query_rights() {
     // SAFETY: the full-rights private handle supports GetThreadId.
     thread.native_id = unsafe { GetThreadId(raw) };
     thread.worker = Some(worker);
-    shared.lock().threads.push(thread);
+    shared.lock().add(thread);
     let alias_raw = alias.as_raw_handle() as u64;
     // SAFETY: SetLastError/GetLastError operate on this OS thread only.
     unsafe { SetLastError(1234) };

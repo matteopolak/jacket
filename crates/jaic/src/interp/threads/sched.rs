@@ -2,6 +2,7 @@
 use super::{pthread, win32};
 use crate::interp::thread_sync::{CondQueues, Mutexes};
 use crate::interp::{ExecState, HashMap};
+use std::collections::BTreeSet;
 use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
 
@@ -107,7 +108,11 @@ impl GThread {
 }
 
 pub(in crate::interp) struct Sched {
+    /// Every slot ever made; a slot number is the thread id, so slots never move. Add through
+    /// `add` and end through `finish`, which keep `live` in step.
     pub(super) threads: Vec<GThread>,
+    /// The slots of threads that have not finished: the only ones a scan visits.
+    pub(super) live: BTreeSet<usize>,
     /// The thread holding the baton (`None`: free, nothing runnable yet).
     pub(super) current: Option<usize>,
     /// The last thread given the baton: the round robin starts after it.
@@ -140,6 +145,27 @@ pub(in crate::interp) struct Sched {
 }
 
 impl Sched {
+    /// Put a thread in the next slot and return its number.
+    pub(super) fn add(&mut self, thread: GThread) -> usize {
+        let id = self.threads.len();
+        if !thread.finished {
+            self.live.insert(id);
+        }
+        self.threads.push(thread);
+        id
+    }
+
+    /// Mark thread `t` finished and stop scanning its slot.
+    pub(super) fn finish(&mut self, t: usize) {
+        self.threads[t].finished = true;
+        self.live.remove(&t);
+    }
+
+    /// The slots of unfinished threads, in order.
+    pub(super) fn live_slots(&self) -> impl Iterator<Item = usize> + '_ {
+        self.live.iter().copied()
+    }
+
     pub(super) fn runnable(&self, t: usize) -> bool {
         !self.threads[t].finished
             && self.threads[t].suspend_count == 0
@@ -149,7 +175,7 @@ impl Sched {
     /// Make runnable every thread whose sleep or timed wait is over.
     pub(super) fn expire_waits(&mut self) {
         let now = Instant::now();
-        for t in 0..self.threads.len() {
+        for &t in &self.live {
             match self.threads[t].block {
                 Block::Sleep(d) | Block::Object(Some(d)) if d <= now => {
                     self.threads[t].block = Block::None;
@@ -166,7 +192,8 @@ impl Sched {
 
     /// Make runnable every thread blocked for `reason`.
     pub(super) fn wake(&mut self, reason: Block) {
-        for thread in &mut self.threads {
+        for &t in &self.live {
+            let thread = &mut self.threads[t];
             if thread.block == reason {
                 thread.block = Block::None;
                 self.woke = true;
@@ -176,7 +203,8 @@ impl Sched {
 
     /// Let every thread waiting on Win32 handles check them again.
     pub(super) fn wake_object_waiters(&mut self) {
-        for thread in &mut self.threads {
+        for &t in &self.live {
+            let thread = &mut self.threads[t];
             if matches!(thread.block, Block::Object(_)) {
                 thread.block = Block::None;
                 self.woke = true;
@@ -187,9 +215,11 @@ impl Sched {
     /// Give the free baton to the next runnable thread after the last holder.
     pub(super) fn pick(&mut self) -> bool {
         self.expire_waits();
-        let n = self.threads.len();
-        let next = (1..=n)
-            .map(|k| (self.last + k) % n)
+        let next = self
+            .live
+            .range(self.last + 1..)
+            .chain(self.live.range(..=self.last))
+            .copied()
             .find(|&t| self.runnable(t));
         if let Some(t) = next {
             self.current = Some(t);
@@ -202,9 +232,8 @@ impl Sched {
     /// No thread can ever run again: none is runnable, waiting for a deadline or in native code
     /// (which may come back and wake the others).
     pub(super) fn stuck(&self) -> bool {
-        self.threads.iter().all(|t| {
-            t.finished
-                || t.suspend_count != 0
+        self.live_slots().map(|t| &self.threads[t]).all(|t| {
+            t.suspend_count != 0
                 || (t.block != Block::None
                     && t.block != Block::Native
                     && t.block.deadline().is_none())
@@ -224,8 +253,9 @@ impl Sched {
     }
 
     pub(super) fn report_deadlock(&mut self, report: Option<usize>) {
-        let first = (0..self.threads.len())
-            .find(|&t| !self.threads[t].finished && self.threads[t].suspend_count == 0);
+        let first = self
+            .live_slots()
+            .find(|&t| self.threads[t].suspend_count == 0);
         if let Some(t) = report.or(first) {
             self.threads[t].block = Block::None;
             self.threads[t].deadlocked = true;
@@ -238,10 +268,10 @@ impl Sched {
     pub(super) fn adopt(&mut self) -> usize {
         if let Some(t) = self.spare.pop() {
             self.threads[t] = GThread::new(true, None);
+            self.live.insert(t);
             return t;
         }
-        self.threads.push(GThread::new(true, None));
-        self.threads.len() - 1
+        self.add(GThread::new(true, None))
     }
 }
 
@@ -250,4 +280,58 @@ impl Sched {
 pub(in crate::interp) struct Shared {
     pub(super) sched: Mutex<Sched>,
     pub(super) cv: Condvar,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    fn sched_with(count: usize) -> Arc<Shared> {
+        let shared = Shared::new(0);
+        for _ in 1..count {
+            shared.lock().add(GThread::new(false, None));
+        }
+        shared
+    }
+
+    #[test]
+    fn finished_slots_leave_the_scan_and_the_round_robin_skips_them() {
+        let shared = sched_with(4);
+        let mut s = shared.lock();
+        s.finish(2);
+        assert_eq!(s.live_slots().collect::<Vec<_>>(), [0, 1, 3]);
+        s.last = 1;
+        assert!(s.pick());
+        assert_eq!(s.current, Some(3));
+        assert!(s.pick());
+        assert_eq!(s.current, Some(0), "the scan wraps past the finished slot");
+        assert_eq!(
+            s.threads.len(),
+            4,
+            "slot numbers are thread ids and stay put"
+        );
+    }
+
+    #[test]
+    fn a_reused_adopted_slot_is_scanned_again() {
+        let shared = sched_with(1);
+        let mut s = shared.lock();
+        let slot = s.adopt();
+        s.finish(slot);
+        s.spare.push(slot);
+        assert_eq!(s.live_slots().collect::<Vec<_>>(), [0]);
+        assert_eq!(s.adopt(), slot);
+        assert_eq!(s.live_slots().collect::<Vec<_>>(), [0, slot]);
+    }
+
+    #[test]
+    fn a_thread_added_already_finished_is_not_scanned() {
+        let shared = sched_with(1);
+        let mut s = shared.lock();
+        let mut done = GThread::new(false, None);
+        done.finished = true;
+        assert_eq!(s.add(done), 1);
+        assert_eq!(s.live_slots().collect::<Vec<_>>(), [0]);
+    }
 }
