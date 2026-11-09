@@ -1,0 +1,21 @@
+name: Cache the pinned downloads
+description: Keeps the SHA-256-pinned downloads of tools/toolkit/download.py (the Unicode data, generator inputs) between runs and points XDG_CACHE_HOME at them.
+runs:
+  using: composite
+  steps:
+    # raw.githubusercontent.com and unicode.org rate-limit runners. Every file is checked against
+    # its pin, so an older cache is safe to restore; main saves, other refs only restore.
+    - shell: bash
+      run: echo "XDG_CACHE_HOME=$RUNNER_TEMP/pinned-downloads" >> "$GITHUB_ENV"
+    - if: github.ref == 'refs/heads/main'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.XDG_CACHE_HOME }}
+        key: pinned-downloads-${{ runner.os }}-${{ hashFiles('tools/generators/gen_*.py', 'tools/*_conformance/fetch.py') }}
+        restore-keys: pinned-downloads-${{ runner.os }}-
+    - if: github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.XDG_CACHE_HOME }}
+        key: pinned-downloads-${{ runner.os }}-${{ hashFiles('tools/generators/gen_*.py', 'tools/*_conformance/fetch.py') }}
+        restore-keys: pinned-downloads-${{ runner.os }}-

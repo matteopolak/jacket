@@ -47,4 +47,6 @@ runs:
         # and the llvm-config front that llvm-sys needs (docs/tools/llvm-setup.md).
         bash tools/ci/windows-llvm/prepare.sh "$llvm"
     # The dependencies' build output, restored everywhere and saved from main.
+    # The pinned downloads the generators and the stdlib test data read (./.github/actions/pinned-downloads-cache).
+    - uses: ./.github/actions/pinned-downloads-cache
     - uses: ./.github/actions/rust-cache

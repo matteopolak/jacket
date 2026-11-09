@@ -73,4 +73,6 @@ runs:
         echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"
     # The dependencies' build output, restored everywhere and saved from main. Last, so that the
     # key sees the RUSTFLAGS the LLVM steps set.
+    # The pinned downloads the generators and the stdlib test data read (./.github/actions/pinned-downloads-cache).
+    - uses: ./.github/actions/pinned-downloads-cache
     - uses: ./.github/actions/rust-cache
