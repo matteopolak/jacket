@@ -1,11 +1,14 @@
 #scope_export
-// Writes a deterministic semantic TOML document. Comments/layout are not preserved. All nested
-// tables are written inline, retaining empty tables and mixed arrays without header ambiguity.
+// Writes a deterministic semantic TOML document. Comments/layout are not preserved. A table
+// inside a table is written under a `[header]` and a nonempty array of tables under `[[header]]`,
+// after the table's own `key = value` lines. A table that is empty or inside any other array
+// stays inline.
 // Example: text, error := write_toml(doc.root); defer free(text);
 write_toml :: (root: *Toml_Value, options := Toml_Options.{}) -> string, Toml_Error {
     writer: Toml_Writer;
     writer.options = options;
     nanoseconds, _ := to_nanoseconds(current_time_monotonic());
+
     writer.seed = cast(u64) (nanoseconds ^ cast(s64) cast(*void) *writer);
 
     if !toml_options_valid(options) {
@@ -172,24 +175,31 @@ toml_write_integer :: (w: *Toml_Writer, value: s64) {
     toml_emit(w, string.{ bytes.count - start, bytes.data + start });
 }
 
-toml_write_value :: (w: *Toml_Writer, node: *Toml_Value, depth: int) {
-    if w.error.kind != .NONE return;
+// Counts `node` against the node and depth limits; false once the writer has failed.
+toml_count_node :: (w: *Toml_Writer, node: *Toml_Value, depth: int) -> bool {
+    if w.error.kind != .NONE return false;
 
     w.nodes += 1;
     if w.nodes > w.options.max_nodes {
         toml_write_fail(w, .LIMIT, "writer node limit exceeded");
-        return;
+        return false;
     }
 
     if !node {
         toml_write_fail(w, .OUTPUT, "null is not a TOML value");
-        return;
+        return false;
     }
 
     if depth > w.options.max_depth {
         toml_write_fail(w, .LIMIT, "writer nesting limit exceeded");
-        return;
+        return false;
     }
+
+    return true;
+}
+
+toml_write_value :: (w: *Toml_Writer, node: *Toml_Value, depth: int) {
+    if !toml_count_node(w, node, depth) return;
 
     if node.kind == .STRING toml_write_string(w, node.text);
     else if node.kind == .INTEGER toml_write_integer(w, node.integer);
@@ -622,6 +632,23 @@ toml_key_set_add :: (set: *Toml_Key_Set, members: [] Toml_Member, index: int) ->
     return true;
 }
 
+// A nonempty table written under its own `[header]`; an empty one stays inline.
+toml_is_header_table :: (node: *Toml_Value) -> bool {
+    return node && node.kind == .TABLE && node.members.count > 0;
+}
+
+// A nonempty array whose items are all tables, written as `[[header]]` per item.
+toml_is_table_array :: (node: *Toml_Value) -> bool {
+    if !node || node.kind != .ARRAY || !node.items.count return false;
+
+    for node.items if !it || it.kind != .TABLE return false;
+
+    return true;
+}
+
+// Writes the members of `node`. With `inline_table` they are `{a = 1, b = 2}`; otherwise they
+// are the body of the table named by `w.path`: `key = value` lines first, then the headers of
+// its tables and arrays of tables in member order (TOML needs that order).
 toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_table: bool) {
     // A cached index that proves uniqueness (parsed and builder tables) needs no key set.
     // Do not pre-walk more immediate members than the remaining node quota permits.
@@ -658,6 +685,11 @@ toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_tabl
             }
         }
 
+        if !inline_table && (toml_is_header_table(it.value) || toml_is_table_array(it.value)) {
+            w.path.count = saved_path;
+            continue;
+        }
+
         if inline_table && it_index toml_emit(w, ", ");
 
         toml_write_key(w, it.key);
@@ -668,7 +700,42 @@ toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_tabl
         if w.error.kind != .NONE return;
     }
 
-    if inline_table toml_emit(w, "}");
+    if inline_table {
+        toml_emit(w, "}");
+        return;
+    }
+
+    for node.members {
+        is_table := toml_is_header_table(it.value);
+
+        if !is_table && !toml_is_table_array(it.value) continue;
+
+        saved_path := w.path.count;
+
+        array_add(*w.path, Toml_Path_Part.{ name = it.key });
+
+        if !toml_count_node(w, it.value, depth + 1) return;
+
+        if is_table {
+            toml_write_header(w, false);
+            toml_write_table(w, it.value, depth + 1, false);
+        } else {
+            for item: it.value.items {
+                item_path := w.path.count;
+
+                array_add(*w.path, Toml_Path_Part.{ index = it_index });
+                if !toml_count_node(w, item, depth + 2) return;
+
+                toml_write_header(w, true);
+                toml_write_table(w, item, depth + 2, false);
+                w.path.count = item_path;
+                if w.error.kind != .NONE return;
+            }
+        }
+
+        w.path.count = saved_path;
+        if w.error.kind != .NONE return;
+    }
 }
 
 // ---- typed output ----
