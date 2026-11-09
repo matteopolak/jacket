@@ -43,11 +43,23 @@ reap :: (thread:u64)->u64 #no_context {
 }
 ";
 
+/// A test program around `body`, a `check` body that returns a bool.
 pub(in crate::interp) fn posix(body: &str) -> String {
-    // Compile-time code is compiled lazily and not while a thread exists: call `reap` once
-    // (on no thread) before the first thread starts.
+    posix_warmed(&[], body)
+}
+
+/// Like `posix`, with each of `entries` (thread entry points defined in the program) run once
+/// on a thread of its own first. Compile-time code is compiled lazily and not while a thread
+/// exists, so every entry a test starts later must already have run once, alone. `reap` is
+/// always warmed. An entry that writes a global leaves it changed: reset it at the start of
+/// `body`.
+pub(in crate::interp) fn posix_warmed(entries: &[&str], body: &str) -> String {
+    let warm: String = entries
+        .iter()
+        .map(|entry| format!("    reap(spawn_on(cast(*void){entry},0));\n"))
+        .collect();
     format!(
-        "{POSIX}\ncheck :: ()->bool #no_context {{\n    if reap(0)!=0 return false;\n{body}\n}}\n"
+        "{POSIX}\ncheck :: ()->bool #no_context {{\n    if reap(0)!=0 return false;\n{warm}{body}\n}}\n"
     )
 }
 
@@ -185,15 +197,13 @@ macro_rules! posix_slot_tests {
         #[test]
         fn detaching_a_thread_wakes_a_blocked_joiner_with_an_error() {
             // The target waits for a lock main holds, so it cannot end first.
-            let source = posix(
+            let source = posix_warmed(
+                &["joiner"],
                 "
     if pthread_mutex_init(*gate,null)!=0 return false;
-    // Entry points are compiled when first used, and not while another thread exists: run the
-    // joiner once on its own, then undo what it did.
     helper:u64;
     result:*void;
-    pthread_create(*helper,null,cast(*void)joiner,null);
-    if pthread_join(helper,*result)!=0 return false;
+    // Warming ran the joiner once: undo what it did.
     join_status=-1;
     if pthread_mutex_lock(*gate)!=0 return false;
     pthread_create(*target,null,cast(*void)blocked,null);

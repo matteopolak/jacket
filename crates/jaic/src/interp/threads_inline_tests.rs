@@ -1,7 +1,7 @@
 //! The inline scheduler's thread slots, seen from Jai code. The POSIX tests are the ones the
 //! native scheduler runs (`threads/slot_tests.rs`).
 use super::SandboxHost;
-use super::threads::slot_tests::{posix, posix_slot_tests};
+use super::threads::slot_tests::{posix, posix_slot_tests, posix_warmed};
 use crate::ir::{FuncId, Linkage};
 use crate::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
