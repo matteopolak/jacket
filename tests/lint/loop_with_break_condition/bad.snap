@@ -75,11 +75,8 @@ warning[loop_with_break_condition]: this loop leaves on its first statement; the
    |
 help: write `while i <= 40` and drop the `if`
    |
-34 -     while true {
-35 -         // wait for the flag
+34 ~     while i <= 40 {
 36 -         if i > 40 break;
-34 +     while i <= 40 {
-35 +         // wait for the flag
    |
    = note: `loop_with_break_condition` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/loop_with_break_condition

@@ -372,3 +372,94 @@ fn scoped_style_stays_on_its_thread() {
     });
     assert_eq!(style(), global);
 }
+
+/// Fix previews omit unchanged boundaries and retain each side's line numbers.
+#[test]
+fn fix_diff_omits_unchanged_lines() {
+    for newline in ["\n", "\r\n"] {
+        let text = ["keep;", "dead;", "stay;", "old;", "end;"].join(newline);
+        let dead = text.find("dead;").unwrap();
+        let old = text.find("old;").unwrap();
+        let edits = [
+            (dead - newline.len(), dead + 5, String::new()),
+            (old, old + 4, "new;".into()),
+        ];
+        assert_eq!(
+            changed_lines(&text, &LineIndex::new(&text), &edits),
+            vec![
+                ("2".into(), '-', "dead;".into()),
+                ("3".into(), '~', "new;".into()),
+            ]
+        );
+    }
+    let text = "keep;\ndead;";
+    assert_eq!(
+        changed_lines(
+            text,
+            &LineIndex::new(text),
+            &[(5, text.len(), String::new())]
+        ),
+        vec![("2".into(), '-', "dead;".into())]
+    );
+}
+
+#[test]
+fn fix_diff_handles_inline_insertions_and_blank_lines() {
+    let cases = [
+        (
+            "a\nb\nc",
+            vec![(0, 5, "A\nc\nb".into())],
+            vec![("1", '~', "A"), ("2", '~', "c"), ("3", '~', "b")],
+        ),
+        ("a;", vec![(2, 2, "\n".into())], vec![("1", '~', "a;")]),
+        (
+            "a; dead; b;",
+            vec![(3, 9, String::new())],
+            vec![("1", '~', "a; b;")],
+        ),
+        (
+            "a;\nb;",
+            vec![(3, 3, "new;\n".into())],
+            vec![("2", '+', "new;")],
+        ),
+        (
+            "a;\n\nb;",
+            vec![(3, 4, String::new())],
+            vec![("2", '-', "")],
+        ),
+        (
+            "dead;",
+            vec![(0, 5, String::new())],
+            vec![("1", '-', "dead;")],
+        ),
+        (
+            "a;\nb;",
+            vec![(3, 5, String::new())],
+            vec![("2", '-', "b;")],
+        ),
+    ];
+    for (text, edits, expected) in cases {
+        assert_eq!(
+            changed_lines(text, &LineIndex::new(text), &edits),
+            expected
+                .into_iter()
+                .map(|(n, mark, text)| (n.into(), mark, text.into()))
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
+fn warning_fix_deletion_marker_is_red() {
+    let mut report = unknown_name();
+    report.severity = Severity::Warning;
+    let start = SOURCE.find("    counter").unwrap();
+    let end = SOURCE[start..].find('\n').unwrap() + start + 1;
+    report.help[0].fix.as_mut().unwrap().edits = vec![(start, end, String::new())];
+    let text = report.render_with(Style {
+        layout: Layout::Ascii,
+        color: true,
+    });
+    assert!(text.contains("\x1b[1;33mwarning"), "{text}");
+    assert!(text.contains("\x1b[31m-\x1b[0m"), "{text}");
+}

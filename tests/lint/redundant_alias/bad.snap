@@ -69,11 +69,8 @@ warning[redundant_alias]: `wide` only exists to be copied into `area`
    |
 help: declare `area` with the value directly
    |
-30 -     wide := (n + 1) *
-31 -         (n + 2);
+30 ~     area := (n + 1) *
 32 -     area := wide;
-30 +     area := (n + 1) *
-31 +         (n + 2);
    |
    = note: `redundant_alias` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/redundant_alias

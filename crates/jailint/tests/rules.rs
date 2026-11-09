@@ -1174,3 +1174,6 @@ mod diagnostic_ranges;
 
 #[path = "rules/lifetime_returns.rs"]
 mod lifetime_returns;
+
+#[path = "rules/fix_previews.rs"]
+mod fix_previews;
