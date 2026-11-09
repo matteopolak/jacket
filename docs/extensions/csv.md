@@ -45,6 +45,23 @@ because stray quotes usually indicate damaged data. Set `lax_quotes = true`
 to treat quotes inside unquoted fields literally, matching Python csv's default
 handling of those fields. Text after a closing quote remains an error.
 
+`borrow = true` makes a typed row's strings (and the strings behind its `*string`
+members) slices of the input when the field needed no unquoting, and copies when it
+had doubled quotes. It saves one allocation per string field. It needs a slice input:
+`csv_reader(Row, source, ...)` with `borrow` fails with `OPTIONS`, because a chunk
+buffer is reused. Untyped records are borrowed already, so it changes nothing there.
+The input must outlive the rows, and a borrowed row must not go through
+`csv_row_free(*row)`: decode into `temp` or an arena and reset that, or release a row
+with `csv_row_free(*reader, *row)`, which frees only the optional pointers.
+
+```jai
+reader := csv_reader(Person, input, .{header = true, borrow = true});
+defer csv_reader_free(*reader);
+person, present, error := csv_next(*reader,, temp);
+// person.name points into `input`
+reset_temporary_storage();
+```
+
 `trim = true` strips ASCII spaces and tabs from unquoted fields and accepts them
 after a closing quote. Quoted whitespace remains data. `require_equal_width`
 compares all records with the first record, including a header.
@@ -81,15 +98,35 @@ Person :: struct {
     nickname: *string;
     local: int; @csv(skip)
 }
-r := csv_reader(cast([] u8) "full-name,age,nickname\nAda,36,\n", .{header = true});
+r := csv_reader(Person, cast([] u8) "full-name,age,nickname\nAda,36,\n", .{header = true});
 defer csv_reader_free(*r);
-person, present, error := csv_next_row(Person, *r);
+person, present, error := csv_next(*r);
 assert(present && error.kind == .NONE && person.nickname == null);
 csv_row_free(*person);
 ```
 
+The row type belongs to the reader: `Csv_Reader(Row)`, made by `csv_reader(Row, input, options)`
+or `csv_reader(Row, source, options)`. `csv_next(*r)` then returns `Row, bool, Csv_Error`;
+a reader without a row type (`Csv_Reader`, i.e. `Csv_Reader(void)`) returns `[] string, bool, Csv_Error`.
+`csv_reader_free` and the writers work for both. A reader is also iterable, and
+`reader.error` says afterwards why the loop ended (`.NONE` at the end of the input):
+
+```jai
+for person, index: r {
+    defer csv_row_free(*person);
+    print("%: %\n", index, person.name);
+}
+if r.error.kind != .NONE print("%\n", r.error.message);
+```
+
+`Csv_Reader(Row)` wraps the untyped parser state (`Csv_Core`) through `#as using`, so
+its fields (`error`, `header`, `options`) read the same on both kinds.
+
 Without a header, fields follow declaration order, excluding constants and
-skipped members. With a header, matching uses a hash map built once per reader.
+skipped members. With a header, the reader looks each member up in a hash map
+once, when its first row is read, and every later row reads by column number.
+A member missing from the header fails with `HEADER` on the first row, not on
+a header-only document.
 Extra columns are permitted; missing required columns are errors. Integers are
 range-checked, floats retain round-trip precision when written, booleans use
 `true`/`false`, and decoded strings are owned. Pointers to these scalar types
@@ -128,7 +165,7 @@ csv-spectrum archive and extracts CSV/JSON fixtures under
 relocates the download cache. Benchmarks are in `benches/bench.jai`.
 
 The reader scans runs of plain bytes in the current window with a 256-entry table
-(`Csv_Reader.stops`, built from the options) and handles only delimiters, quotes
+(`Csv_Core.stops`, built from the options) and handles only delimiters, quotes
 and line breaks one byte at a time. A run is checked against the field and record
 limits once, and fails at the same byte a byte-by-byte reader would. Line and
 column are not tracked per byte: a reader keeps the line number and where the

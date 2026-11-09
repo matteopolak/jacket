@@ -1,5 +1,6 @@
 // Reads and writes CSV with explicit limits. A record read from a [Csv_Reader] is borrowed until
-// the next call; copy it to keep it. Typed rows own their strings.
+// the next call; copy it to keep it. A reader made with a row type (`csv_reader(User, ...)`)
+// decodes each record into that struct; its rows own their strings unless `borrow` is set.
 //
 // ```jai
 // #import "Extensions/Csv";
@@ -9,6 +10,18 @@
 // fields, present, error := csv_next(*r);
 // assert(present && error.kind == .NONE);
 // assert(fields[0] == "ada" && fields[1] == "36");
+//
+// User :: struct {
+//     name: string;
+//     age: int;
+// }
+// typed := csv_reader(User, cast([] u8) "name,age\nada,36\n", .{ header = true });
+// defer csv_reader_free(*typed);
+// for user: typed {
+//     defer csv_row_free(*user);
+//     assert(user.name == "ada" && user.age == 36);
+// }
+// assert(typed.error.kind == .NONE);
 // ```
 
 // How a CSV document is read and written.
@@ -23,6 +36,21 @@ Csv_Options :: struct {
     max_fields: int = 16384; // per record
     max_record_bytes: int = 16 << 20;
     line_ending := Csv_Line_Ending.CRLF; // used when writing; reading accepts all three
+
+    // A typed row's strings (and the strings behind its optional pointers) are slices of the input
+    // when the field needed no unquoting, and copies when it had doubled quotes. The input must
+    // outlive the rows, and a row must not go through `csv_row_free(*row)`: decode with
+    // `context.allocator` set to an arena or `temp` and reset that, or free through
+    // `csv_row_free(*reader, *row)`, which leaves slices alone. Only for a slice input: a chunked
+    // source reuses its buffer, so `csv_reader(.., source, ..)` fails with `.OPTIONS`. Untyped
+    // records are always borrowed, so it changes nothing there.
+    //
+    // ```jai
+    // reader := csv_reader(User, input, .{ header = true, borrow = true },, temp);
+    // user, ok, error := csv_next(*reader,, temp); // user.name is a slice of `input`
+    // reset_temporary_storage();
+    // ```
+    borrow: bool;
 }
 
 // The record terminator written by [csv_write_record].
@@ -62,9 +90,9 @@ Csv_Error :: struct {
 // is the same type.
 Csv_Source :: Pieces.Byte_Source;
 
-// A reader over CSV bytes or a chunk source. Create it with [csv_reader], advance it with
-// [csv_next] and release it with [csv_reader_free]. The fields are internal state.
-Csv_Reader :: struct {
+// The parser state every reader shares: the input window, the position, the header and the column
+// mapping. [Csv_Reader] wraps it; the fields are internal.
+Csv_Core :: struct {
     source: Csv_Source;
     chunk: [8192] u8;
     eof: bool;
@@ -79,7 +107,8 @@ Csv_Reader :: struct {
     header_ready: bool;
     header: [] string;
     header_index: Hash_Map.Map(string, int);
-    columns: [..] Csv_Column;
+    columns: [..] int; // the document column of each struct member, in declaration order (-1: none)
+    bound: bool; // `columns` is filled
     width: int = -1;
     buffer: [..] u8;
     cells: [..] Csv_Cell;
@@ -91,56 +120,199 @@ Csv_Reader :: struct {
     record_line_start: int;
 }
 
-// Creates a reader borrowing input; release its storage with csv_reader_free.
-// Example: r := csv_reader(cast([] u8) "one,two\n", .{header = true}).
+// A reader over CSV bytes or a chunk source. Create it with [csv_reader], advance it with
+// [csv_next] (or `for row: reader`) and release it with [csv_reader_free]. `Row` is the struct each
+// record is decoded into; the default `void` reads records as `[] string`. Once reading stops,
+// `reader.error` says why (`.NONE` at the end of the input).
+Csv_Reader :: struct(Row: Type = void) {
+    #as using core: Csv_Core;
+}
+
+// Creates a reader of records over `input`, which it borrows; release it with csv_reader_free.
+// Example:
+// ```jai
+// r := csv_reader(cast([] u8) "one,two\n", .{ header = true });
+// defer csv_reader_free(*r);
+// ```
 csv_reader :: (input: [] u8, options := Csv_Options.{}) -> Csv_Reader {
     r: Csv_Reader;
-    r.input = input;
-    r.options = options;
-    r.error = validate_options(options);
-    r.stops = make_stops(options);
+    open_input(*r.core, input, options);
 
     return r;
 }
 
-// Creates a chunked reader using Json's existing fill-buffer source convention.
-// Example: r := csv_reader(Csv_Source.{*state, fill}); csv_reader_free(*r).
+// Creates a reader of records over a chunk source, which uses Json's fill-buffer convention.
+// Example:
+// ```jai
+// #import "Extensions/Csv";
+//
+// #import "String";
+//
+// Feed :: struct {
+//     text: string;
+// }
+//
+// fill :: (data: *void, buffer: [] u8) -> s64, string {
+//     feed := cast(*Feed) data;
+//     count := min(buffer.count, feed.text.count);
+//     memcpy(buffer.data, feed.text.data, count);
+//     feed.text = slice(feed.text, count, feed.text.count - count);
+//     return count, "";
+// }
+//
+// feed := Feed.{ "one,two\n" };
+// r := csv_reader(Csv_Source.{ *feed, fill });
+// defer csv_reader_free(*r);
+// fields, present, error := csv_next(*r);
+// assert(present && fields[1] == "two");
+// ```
 csv_reader :: (source: Csv_Source, options := Csv_Options.{}) -> Csv_Reader {
     r: Csv_Reader;
-    r.source = source;
-    r.options = options;
-    r.error = validate_options(options);
-    r.stops = make_stops(options);
-    if !source.fill r.error = .{ kind = .OPTIONS, message = "missing source callback", line = 1, column = 1 };
+    open_source(*r.core, source, options);
 
     return r;
 }
 
-// Returns the next data record, or false with NONE at EOF. Header mode consumes one header.
-// Example: fields, present, error := csv_next(*reader).
-csv_next :: (r: *Csv_Reader) -> [] string, bool, Csv_Error {
-    if r.error.kind != .NONE return .[], false, r.error;
+// Creates a reader that decodes each record into a `Row` struct, matching header names (or
+// declaration order without a header; see `@csv(name=...)` and `@csv(skip)`). It maps the columns
+// once, when the first row is read. Release it with csv_reader_free.
+// Example:
+// ```jai
+// #import "Extensions/Csv";
+//
+// User :: struct {
+//     name: string;
+//     age: int;
+// }
+//
+// r := csv_reader(User, cast([] u8) "age,name\n36,ada\n", .{ header = true });
+// defer csv_reader_free(*r);
+// user, present, error := csv_next(*r);
+// assert(present && user.name == "ada" && user.age == 36);
+// csv_row_free(*user);
+// ```
+csv_reader :: ($Row: Type, input: [] u8, options := Csv_Options.{}) -> Csv_Reader(Row) {
+    r: Csv_Reader(Row);
+    open_input(*r.core, input, options);
 
-    if r.options.header && !r.header_ready {
-        header, ok := read_record(r);
-        if !ok return .[], false, r.error;
+    return r;
+}
 
-        r.header = csv_record_copy(header);
-        r.header_ready = true;
-        for r.header {
-            _, replaced := Hash_Map.insert(*r.header_index, it, it_index);
-            if replaced {
-                fail(r, .HEADER, "duplicate header");
-                r.error.column_name = it;
-                locate_error(r, it_index);
-                return .[], false, r.error;
-            }
-        }
+// Creates a typed reader over a chunk source; `options.borrow` is rejected, since the chunk is
+// reused. See the chunk source example of [csv_reader].
+// Example:
+// ```jai
+// #import "Extensions/Csv";
+//
+// User :: struct {
+//     name: string;
+// }
+//
+// fill :: (data: *void, buffer: [] u8) -> s64, string {
+//     return 0, "";
+// }
+//
+// r := csv_reader(User, Csv_Source.{ null, fill }, .{ header = true });
+// defer csv_reader_free(*r);
+// _, present, error := csv_next(*r);
+// assert(!present && error.kind == .NONE);
+// ```
+csv_reader :: ($Row: Type, source: Csv_Source, options := Csv_Options.{}) -> Csv_Reader(Row) {
+    r: Csv_Reader(Row);
+    open_source(*r.core, source, options);
+
+    return r;
+}
+
+// Returns the next record as borrowed fields, or false with `.NONE` at the end of the input. With
+// a header the first record is consumed as the column names.
+// Example:
+// ```jai
+// #import "Extensions/Csv";
+//
+// r := csv_reader(cast([] u8) "a,b\n1,2\n");
+// defer csv_reader_free(*r);
+// fields, present, error := csv_next(*r);
+// assert(present && fields.count == 2 && fields[1] == "b");
+// ```
+csv_next :: (r: *Csv_Reader(void)) -> [] string, bool, Csv_Error {
+    return next_fields(*r.core);
+}
+
+// Returns the next record decoded into the reader's `Row`, or false with `.NONE` at the end of
+// the input. The row owns its strings (see `Csv_Options.borrow`); release it with csv_row_free.
+// A failure is final: the row holds what was decoded before it, already released.
+// Example:
+// ```jai
+// #import "Extensions/Csv";
+//
+// User :: struct {
+//     name: string;
+//     age: int;
+// }
+//
+// r := csv_reader(User, cast([] u8) "ada,36\nbob,x\n");
+// defer csv_reader_free(*r);
+// user, present, error := csv_next(*r);
+// assert(present && user.age == 36);
+// csv_row_free(*user);
+// _, present, error = csv_next(*r);
+// assert(!present && error.kind == .TYPE && error.column_name == "age");
+// ```
+csv_next :: (r: *Csv_Reader($Row)) -> Row, bool, Csv_Error #modify {
+    return Row != void;
+} {
+    value: Row;
+    fields, ok, error := next_fields(*r.core);
+
+    if !ok return value, false, error;
+    if !r.bound bind_columns(r);
+
+    if !decode_row(*r.core, fields, *value) {
+        csv_row_free(r, *value);
+        return value, false, r.error;
     }
 
-    row, ok := read_record(r);
+    return value, true, .{};
+}
 
-    return row, ok, r.error;
+// Iterates a reader: `for row: reader` runs the body per record (a `[] string` or a `Row`) until
+// the input ends or a record fails, and `reader.error` then says which. A typed row is released
+// by the body.
+// Example:
+// ```jai
+// #import "Extensions/Csv";
+//
+// User :: struct {
+//     name: string;
+//     age: int;
+// }
+//
+// reader := csv_reader(User, cast([] u8) "name,age\nada,36\nbob,x\n", .{ header = true });
+// defer csv_reader_free(*reader);
+// count := 0;
+// for user, index: reader {
+//     defer csv_row_free(*user);
+//     assert(user.name == "ada" && index == 0);
+//     count += 1;
+// }
+// assert(count == 1 && reader.error.kind == .TYPE);
+// ```
+for_expansion :: (r: *Csv_Reader($Row), body: Code, flags: For_Flags) #expand {
+    #assert (flags & .POINTER) == 0 "Csv rows are iterated by value";
+    #assert (flags & .REVERSE) == 0 "a Csv reader cannot be iterated backwards";
+
+    index := 0;
+
+    while true {
+        value, present := csv_next(r);
+        if !present break;
+
+        `it := value;
+        `it_index := index;
+        index += 1;
+        #insert body;
+    }
 }
 
 // Copies a borrowed record into independently owned fields.
@@ -161,9 +333,9 @@ csv_record_free :: (fields: [] string) {
     if fields.data free(fields.data);
 }
 
-// Releases reader storage; input and source state stay caller-owned.
+// Releases reader storage; input and source state stay caller-owned. Works for both kinds of reader.
 // Example: csv_reader_free(*reader).
-csv_reader_free :: (r: *Csv_Reader) {
+csv_reader_free :: (r: *Csv_Reader($Row)) {
     array_free(r.buffer);
     array_free(r.cells);
     array_free(r.columns);
@@ -254,13 +426,50 @@ Csv_Cell :: struct {
     text: string;
 }
 
-// What a typed member last found in the header: the member's name and its column (-1: none).
-Csv_Column :: struct {
-    name: string;
-    index: int;
+open_input :: (r: *Csv_Core, input: [] u8, options: Csv_Options) {
+    r.input = input;
+    r.options = options;
+    r.error = validate_options(options);
+    r.stops = make_stops(options);
 }
 
-// Bits of `Csv_Reader.stops`: the bytes that end a run of plain bytes in an unquoted or a quoted field.
+open_source :: (r: *Csv_Core, source: Csv_Source, options: Csv_Options) {
+    r.source = source;
+    r.options = options;
+    r.error = validate_options(options);
+    r.stops = make_stops(options);
+
+    if !source.fill r.error = .{ kind = .OPTIONS, message = "missing source callback", line = 1, column = 1 };
+    else if options.borrow && r.error.kind == .NONE r.error = .{ kind = .OPTIONS, message = "borrow needs a slice input", line = 1, column = 1 };
+}
+
+// The next record's fields, reading the header first when there is one.
+next_fields :: (r: *Csv_Core) -> [] string, bool, Csv_Error {
+    if r.error.kind != .NONE return .[], false, r.error;
+
+    if r.options.header && !r.header_ready {
+        header, ok := read_record(r);
+        if !ok return .[], false, r.error;
+
+        r.header = csv_record_copy(header);
+        r.header_ready = true;
+        for r.header {
+            _, replaced := Hash_Map.insert(*r.header_index, it, it_index);
+            if replaced {
+                fail(r, .HEADER, "duplicate header");
+                r.error.column_name = it;
+                locate_error(r, it_index);
+                return .[], false, r.error;
+            }
+        }
+    }
+
+    row, ok := read_record(r);
+
+    return row, ok, r.error;
+}
+
+// Bits of `Csv_Core.stops`: the bytes that end a run of plain bytes in an unquoted or a quoted field.
 STOP_UNQUOTED :: 1;
 STOP_QUOTED :: 2;
 
@@ -333,18 +542,18 @@ space :: (c: u8) -> bool {
     return c == 32 || c == 9;
 }
 
-fail :: (r: *Csv_Reader, kind: Csv_Error_Kind, message: string) -> bool {
+fail :: (r: *Csv_Core, kind: Csv_Error_Kind, message: string) -> bool {
     if r.error.kind == .NONE r.error = .{ kind = kind, message = message, line = r.line, column = r.offset - r.line_start + 1, offset = r.offset };
     return false;
 }
 
-peek :: inline (r: *Csv_Reader, ahead: int = 0) -> int {
+peek :: inline (r: *Csv_Core, ahead: int = 0) -> int {
     if r.position + ahead < r.input.count return r.input[r.position + ahead];
     return fill_to(r, ahead);
 }
 
 // The slow half of `peek`: refills the window from the source until it holds the byte `ahead`, or returns -1.
-fill_to :: (r: *Csv_Reader, ahead: int) -> int {
+fill_to :: (r: *Csv_Core, ahead: int) -> int {
     while r.position + ahead >= r.input.count {
         if !r.source.fill || r.eof || r.error.kind != .NONE return -1;
 
@@ -368,7 +577,7 @@ fill_to :: (r: *Csv_Reader, ahead: int) -> int {
 }
 
 // Takes one byte, counting a line break when it is CR or LF (CRLF is one). Runs of other bytes go through `span`.
-take :: inline (r: *Csv_Reader) -> int {
+take :: inline (r: *Csv_Core) -> int {
     c := peek(r);
     if c < 0 return c;
 
@@ -394,7 +603,7 @@ take :: inline (r: *Csv_Reader) -> int {
 }
 
 // The first byte in the window at or after the read position whose `stops` entry has a `mask` bit, or the window's end.
-scan :: inline (r: *Csv_Reader, mask: u8) -> int {
+scan :: inline (r: *Csv_Core, mask: u8) -> int {
     i := r.position;
     count := r.input.count;
     data := r.input.data;
@@ -405,11 +614,11 @@ scan :: inline (r: *Csv_Reader, mask: u8) -> int {
     return i;
 }
 
-field_length :: inline (r: *Csv_Reader, cell: *Csv_Cell) -> int {
+field_length :: inline (r: *Csv_Core, cell: *Csv_Cell) -> int {
     return r.buffer.count - cell.start + cell.text.count;
 }
 
-append_bytes :: (r: *Csv_Reader, data: *u8, count: int) {
+append_bytes :: (r: *Csv_Core, data: *u8, count: int) {
     needed := r.buffer.count + count;
     if needed > r.buffer.allocated array_reserve(*r.buffer, max(needed, max(64, r.buffer.allocated * 2)));
 
@@ -418,7 +627,7 @@ append_bytes :: (r: *Csv_Reader, data: *u8, count: int) {
 }
 
 // Moves bytes held uncopied in `cell.text` into the buffer, before anything else is added to the field.
-flush_text :: (r: *Csv_Reader, cell: *Csv_Cell) {
+flush_text :: (r: *Csv_Core, cell: *Csv_Cell) {
     if !cell.text.count return;
 
     append_bytes(r, cell.text.data, cell.text.count);
@@ -427,7 +636,7 @@ flush_text :: (r: *Csv_Reader, cell: *Csv_Cell) {
 
 // Adds the `count` bytes at the read position to the field. They stay in the borrowed input when they
 // are all the field has; a chunked source overwrites its window, so those bytes are copied.
-add_run :: inline (r: *Csv_Reader, cell: *Csv_Cell, count: int) {
+add_run :: inline (r: *Csv_Core, cell: *Csv_Cell, count: int) {
     if !r.source.fill && !cell.text.count && r.buffer.count == cell.start {
         cell.text = .{ count, r.input.data + r.position };
         return;
@@ -436,14 +645,14 @@ add_run :: inline (r: *Csv_Reader, cell: *Csv_Cell, count: int) {
     copy_run(r, cell, count);
 }
 
-copy_run :: (r: *Csv_Reader, cell: *Csv_Cell, count: int) {
+copy_run :: (r: *Csv_Core, cell: *Csv_Cell, count: int) {
     if count <= 0 return;
 
     flush_text(r, cell);
     append_bytes(r, r.input.data + r.position, count);
 }
 
-consume :: inline (r: *Csv_Reader, count: int) {
+consume :: inline (r: *Csv_Core, count: int) {
     r.position += count;
     r.offset += count;
     r.previous_cr = false;
@@ -451,7 +660,7 @@ consume :: inline (r: *Csv_Reader, count: int) {
 
 // Takes `count` bytes with no CR or LF in them into the field, failing where taking them one at a
 // time would: the record limit on the byte past it, the field limit on the byte that does not fit.
-span :: inline (r: *Csv_Reader, cell: *Csv_Cell, count: int) -> bool {
+span :: inline (r: *Csv_Core, cell: *Csv_Cell, count: int) -> bool {
     record_room := r.options.max_record_bytes - (r.offset - r.record_offset);
     field_room := r.options.max_field_bytes - field_length(r, cell);
 
@@ -465,7 +674,7 @@ span :: inline (r: *Csv_Reader, cell: *Csv_Cell, count: int) -> bool {
 }
 
 // `span` for a run that does not fit: take what does, then fail.
-span_at_limit :: (r: *Csv_Reader, cell: *Csv_Cell, record_room: int, field_room: int) -> bool {
+span_at_limit :: (r: *Csv_Core, cell: *Csv_Cell, record_room: int, field_room: int) -> bool {
     if record_room <= field_room {
         add_run(r, cell, record_room);
         consume(r, record_room);
@@ -478,7 +687,7 @@ span_at_limit :: (r: *Csv_Reader, cell: *Csv_Cell, record_room: int, field_room:
     return fail(r, .FIELD_LIMIT, "field exceeds limit");
 }
 
-put :: (r: *Csv_Reader, cell: *Csv_Cell, c: u8) -> bool {
+put :: (r: *Csv_Core, cell: *Csv_Cell, c: u8) -> bool {
     if field_length(r, cell) >= r.options.max_field_bytes return fail(r, .FIELD_LIMIT, "field exceeds limit");
 
     flush_text(r, cell);
@@ -487,7 +696,7 @@ put :: (r: *Csv_Reader, cell: *Csv_Cell, c: u8) -> bool {
     return true;
 }
 
-read_field :: (r: *Csv_Reader) -> bool {
+read_field :: (r: *Csv_Core) -> bool {
     cell := Csv_Cell.{ offset = r.offset, line = r.line, line_start = r.line_start, start = r.buffer.count };
     quote := r.options.quote;
     quoted := peek(r) == quote;
@@ -568,7 +777,7 @@ read_field :: (r: *Csv_Reader) -> bool {
     return true;
 }
 
-read_record :: (r: *Csv_Reader) -> [] string, bool {
+read_record :: (r: *Csv_Core) -> [] string, bool {
     r.buffer.count = 0;
     r.cells.count = 0;
     r.fields.count = 0;

@@ -17,10 +17,10 @@ typed_rows :: () {
 
     {
         push_allocator(tally_proc, *tally);
-        reader := csv_reader(cast([] u8) "age,full-name,score,active,nick\n42,Ada,1.25,true,Al\n7,Bob,2,false,\n", .{ header = true });
+        reader := csv_reader(Person, cast([] u8) "age,full-name,score,active,nick\n42,Ada,1.25,true,Al\n7,Bob,2,false,\n", .{ header = true });
 
         defer csv_reader_free(*reader);
-        a, ok, e := csv_next_row(Person, *reader);
+        a, ok, e := csv_next(*reader);
 
         require(ok && e.kind == .NONE);
         defer csv_row_free(*a);
@@ -29,7 +29,7 @@ typed_rows :: () {
         expect_equal(a.score, 1.25);
         require(a.nick != null);
         expect_equal(a.nick.*, "Al");
-        b, valid := csv_next_row(Person, *reader);
+        b, valid := csv_next(*reader);
 
         require(valid);
         defer csv_row_free(*b);
@@ -43,10 +43,10 @@ typed_rows :: () {
         text := builder_to_string(*builder);
 
         defer free(text);
-        again := csv_reader(cast([] u8) text, .{ header = true });
+        again := csv_reader(Person, cast([] u8) text, .{ header = true });
 
         defer csv_reader_free(*again);
-        row, present, err := csv_next_row(Person, *again);
+        row, present, err := csv_next(*again);
 
         require(present && err.kind == .NONE);
         expect_equal(row.name, "Ada");
@@ -62,10 +62,10 @@ typed_errors :: () {
 
         {
             push_allocator(tally_proc, *tally);
-            reader := csv_reader(cast([] u8) text);
+            reader := csv_reader(Person, cast([] u8) text);
 
             defer csv_reader_free(*reader);
-            row, ok, e := csv_next_row(Person, *reader);
+            row, ok, e := csv_next(*reader);
 
             expect(!ok && e.kind == .TYPE);
             expect(e.column_name.count > 0);
@@ -75,10 +75,10 @@ typed_errors :: () {
         expect_equal(tally.outstanding, 0);
     }
 
-    reader := csv_reader(cast([] u8) "age,age\n1,2", .{ header = true });
+    reader := csv_reader(Person, cast([] u8) "age,age\n1,2", .{ header = true });
 
     defer csv_reader_free(*reader);
-    _, ok, error := csv_next_row(Person, *reader);
+    _, ok, error := csv_next(*reader);
 
     expect(!ok && error.kind == .HEADER);
 } @test
@@ -89,10 +89,10 @@ Defaults :: struct {
 }
 
 default_ownership :: () {
-    reader := csv_reader(cast([] u8) "wrong,age\nx,no", .{ header = true });
+    reader := csv_reader(Defaults, cast([] u8) "wrong,age\nx,no", .{ header = true });
 
     defer csv_reader_free(*reader);
-    row, ok, error := csv_next_row(Defaults, *reader);
+    row, ok, error := csv_next(*reader);
 
     expect(!ok && error.kind == .HEADER);
     expect_equal(row.name, "guest");
@@ -105,10 +105,10 @@ Numbers :: struct {
 }
 
 numbers :: () {
-    reader := csv_reader(cast([] u8) "18446744073709551615,1.2345678901234567");
+    reader := csv_reader(Numbers, cast([] u8) "18446744073709551615,1.2345678901234567");
 
     defer csv_reader_free(*reader);
-    row, ok, e := csv_next_row(Numbers, *reader);
+    row, ok, e := csv_next(*reader);
 
     require(ok && e.kind == .NONE);
     expect_equal(row.unsigned, cast(u64) 0xffffffffffffffff);
@@ -122,21 +122,21 @@ numbers :: () {
     text := builder_to_string(*builder);
 
     defer free(text);
-    again := csv_reader(cast([] u8) text, .{ header = true });
+    again := csv_reader(Numbers, cast([] u8) text, .{ header = true });
 
     defer csv_reader_free(*again);
-    decoded, valid, err := csv_next_row(Numbers, *again);
+    decoded, valid, err := csv_next(*again);
 
     require(valid && err.kind == .NONE);
     expect_equal(decoded.real, row.real);
 } @test
 
 typed_location :: () {
-    reader := csv_reader(cast([] u8) "1,2\r\n4,no");
+    reader := csv_reader(Numbers, cast([] u8) "1,2\r\n4,no");
 
     defer csv_reader_free(*reader);
-    csv_next_row(Numbers, *reader);
-    _, ok, error := csv_next_row(Numbers, *reader);
+    csv_next(*reader);
+    _, ok, error := csv_next(*reader);
 
     expect(!ok && error.kind == .TYPE);
     expect_equal(error.line, 2);
@@ -149,10 +149,10 @@ Small :: struct {
 }
 
 small_rounding :: () {
-    reader := csv_reader(cast([] u8) "1.0000000596046447753906250000000000000000000000000001");
+    reader := csv_reader(Small, cast([] u8) "1.0000000596046447753906250000000000000000000000000001");
 
     defer csv_reader_free(*reader);
-    value, ok, error := csv_next_row(Small, *reader);
+    value, ok, error := csv_next(*reader);
 
     require(ok && error.kind == .NONE);
     expect_equal(value.number, cast(float32) 1.00000011920928955078125);
@@ -169,10 +169,10 @@ optional_number_ownership :: () {
 
         {
             push_allocator(tally_proc, *tally);
-            reader := csv_reader(cast([] u8) input);
+            reader := csv_reader(Optional_Number, cast([] u8) input);
 
             defer csv_reader_free(*reader);
-            row, ok, error := csv_next_row(Optional_Number, *reader);
+            row, ok, error := csv_next(*reader);
 
             expect_equal(ok, input != "a,bad");
             expect_equal(error.kind, ifx input == "a,bad" then Csv_Error_Kind.TYPE else .NONE);
@@ -199,10 +199,10 @@ quoted_note :: () {
     text := builder_to_string(*builder);
 
     defer free(text);
-    reader := csv_reader(cast([] u8) text, .{ header = true });
+    reader := csv_reader(Named, cast([] u8) text, .{ header = true });
 
     defer csv_reader_free(*reader);
-    row, ok, e := csv_next_row(Named, *reader);
+    row, ok, e := csv_next(*reader);
 
     require(ok && e.kind == .NONE);
     expect_equal(row.value, "Ada");
@@ -232,29 +232,187 @@ Left :: struct {
     a: int;
 }
 
-Right :: struct {
-    a: int;
-    c: int;
-}
-
-// A reader remembers which header column each member read, but one reader may decode different structs.
-reader_shared_by_types :: () {
-    reader := csv_reader(cast([] u8) "a,b,c\n1,2,3\n4,5,6\n7,8,9\n", .{ header = true });
+// The reader maps columns once; every row then reads the same columns, whatever the header order.
+columns_fixed_per_reader :: () {
+    reader := csv_reader(Left, cast([] u8) "a,b,c\n1,2,3\n4,5,6\n7,8,9\n", .{ header = true });
 
     defer csv_reader_free(*reader);
-    first, ok, e := csv_next_row(Left, *reader);
+    first, ok, e := csv_next(*reader);
 
     require(ok && e.kind == .NONE);
     expect_equal(first.b, 2);
     expect_equal(first.a, 1);
-    second, valid, e2 := csv_next_row(Right, *reader);
+    second, valid, e2 := csv_next(*reader);
 
     require(valid && e2.kind == .NONE);
+    expect_equal(second.b, 5);
     expect_equal(second.a, 4);
-    expect_equal(second.c, 6);
-    third, again, e3 := csv_next_row(Left, *reader);
+    third, again, e3 := csv_next(*reader);
 
     require(again && e3.kind == .NONE);
     expect_equal(third.b, 8);
     expect_equal(third.a, 7);
+    _, more, e4 := csv_next(*reader);
+
+    expect(!more && e4.kind == .NONE);
+} @test
+
+// A header that lacks a member is an error on the first row, not on a header-only document.
+missing_column :: () {
+    only_header := csv_reader(Left, cast([] u8) "a,c\n", .{ header = true });
+
+    defer csv_reader_free(*only_header);
+    _, present, error := csv_next(*only_header);
+
+    expect(!present && error.kind == .NONE);
+
+    reader := csv_reader(Left, cast([] u8) "a,c\n1,2\n", .{ header = true });
+
+    defer csv_reader_free(*reader);
+    _, ok, e := csv_next(*reader);
+
+    expect(!ok && e.kind == .HEADER);
+    expect_equal(e.column_name, "b");
+} @test
+
+// `for row: reader` yields decoded rows and stops at the end or on an error, which stays in `error`.
+iterate_typed :: () {
+    reader := csv_reader(Person, cast([] u8) "full-name,age,score,active,nick\nAda,36,1.5,true,\nBob,41,2,false,Rob\n", .{ header = true });
+
+    defer csv_reader_free(*reader);
+    count := 0;
+
+    for row, index: reader {
+        defer csv_row_free(*row);
+        expect_equal(index, count);
+        expect_equal(row.name, ifx index == 0 then "Ada" else "Bob");
+        count += 1;
+    }
+
+    expect_equal(count, 2);
+    expect_equal(reader.error.kind, Csv_Error_Kind.NONE);
+} @test
+
+iterate_stops_on_error :: () {
+    reader := csv_reader(Numbers, cast([] u8) "1,2\n3,x\n5,6\n");
+
+    defer csv_reader_free(*reader);
+    count := 0;
+
+    for row: reader count += 1;
+
+    expect_equal(count, 1);
+    expect_equal(reader.error.kind, Csv_Error_Kind.TYPE);
+    expect_equal(reader.error.line, 2);
+} @test
+
+iterate_untyped :: () {
+    reader := csv_reader(cast([] u8) "x,y\n1,2\n3,4\n5,6\n", .{ header = true });
+
+    defer csv_reader_free(*reader);
+    total := 0;
+
+    for fields: reader {
+        total += fields.count;
+        if fields[0] == "3" break;
+    }
+
+    expect_equal(total, 4);
+} @test
+
+Borrowed :: struct {
+    id: int;
+    plain: string;
+    quoted: string;
+    doubled: string;
+    nick: *string;
+}
+
+inside :: (text: string, input: string) -> bool {
+    return text.data >= input.data && text.data + text.count <= input.data + input.count;
+}
+
+// With `borrow`, a string that needs no unquoting is a slice of the input and the rest is copied.
+borrowed_strings :: () {
+    input := "id,plain,quoted,doubled,nick\n7,abc,\"x, y\",\"say \"\"hi\"\"\",nick\n";
+    reader := csv_reader(Borrowed, cast([] u8) input, .{ header = true, borrow = true });
+
+    defer csv_reader_free(*reader);
+    row, ok, error := csv_next(*reader);
+
+    require(ok && error.kind == .NONE);
+    expect_equal(row.plain, "abc");
+    expect_equal(row.quoted, "x, y");
+    expect_equal(row.doubled, "say \"hi\"");
+    expect_equal(row.nick.*, "nick");
+    expect(inside(row.plain, input));
+    expect(inside(row.quoted, input));
+    expect(inside(row.nick.*, input));
+    expect(!inside(row.doubled, input));
+
+    // Releasing through the reader frees only what the row owns: the pointer. The copied string is the caller's.
+    free(row.doubled.data);
+    csv_row_free(*reader, *row);
+    expect(row.nick == null);
+    expect_equal(row.plain, "");
+} @test
+
+// Neither a failed decode nor `csv_row_free(*reader, ...)` frees a borrowed slice.
+borrowed_failure_and_free :: () {
+    tally: Tally;
+
+    {
+        push_allocator(tally_proc, *tally);
+        reader := csv_reader(Borrowed, cast([] u8) "id,plain,quoted,doubled,nick\nx,abc,def,ghi,jkl\n", .{ header = true, borrow = true });
+
+        defer csv_reader_free(*reader);
+        _, ok, error := csv_next(*reader);
+
+        expect(!ok && error.kind == .TYPE);
+    }
+
+    expect_equal(tally.outstanding, 0);
+
+    tally = .{};
+
+    {
+        push_allocator(tally_proc, *tally);
+        reader := csv_reader(Borrowed, cast([] u8) "id,plain,quoted,doubled,nick\n1,a,b,c,d\n", .{ header = true, borrow = true });
+
+        defer csv_reader_free(*reader);
+        row, ok, error := csv_next(*reader);
+
+        require(ok && error.kind == .NONE);
+        csv_row_free(*reader, *row);
+    }
+
+    expect_equal(tally.outstanding, 0);
+} @test
+
+// Without `borrow` strings are owned copies.
+owned_strings :: () {
+    input := "id,plain,quoted,doubled,nick\n7,abc,def,ghi,\n";
+    reader := csv_reader(Borrowed, cast([] u8) input, .{ header = true });
+
+    defer csv_reader_free(*reader);
+    row, ok, error := csv_next(*reader);
+
+    require(ok && error.kind == .NONE);
+    defer csv_row_free(*row);
+    expect(!inside(row.plain, input));
+} @test
+
+empty_fill :: (data: *void, buffer: [] u8) -> s64, string {
+    return 0, "";
+}
+
+// A chunk's window is reused, so a borrowed string would dangle: the option is rejected.
+borrow_needs_slice_input :: () {
+    state: int;
+    reader := csv_reader(Numbers, Csv_Source.{ *state, empty_fill }, .{ borrow = true });
+
+    defer csv_reader_free(*reader);
+    _, present, error := csv_next(*reader);
+
+    expect(!present && error.kind == .OPTIONS);
 } @test

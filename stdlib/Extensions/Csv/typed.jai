@@ -1,25 +1,21 @@
-// Decodes the next row by header names or declaration order; pointers are optional.
-// Example: row, ok, error := csv_next_row(User, *reader); if ok csv_row_free(*row).
-csv_next_row :: ($T: Type, r: *Csv_Reader) -> T, bool, Csv_Error {
-    value: T;
-    fields, ok, error := csv_next(r);
-
-    if !ok return value, false, error;
-
-    if !decode_row(r, fields, *value) {
-        csv_row_free(*value);
-        return value, false, r.error;
-    }
-
-    return value, true, .{};
-}
-
-// Releases strings and optional pointers owned by a typed row; resets decoded fields.
+// Releases strings and optional pointers owned by a typed row; resets decoded fields. Not for a
+// row read with `Csv_Options.borrow`: use the reader form below.
 // Example: csv_row_free(*row).
 csv_row_free :: (value: *$T) {
     #insert -> string {
         return generate_csv(T, .FREE);
     };
+}
+
+// Releases a row of `reader` the way its options allow: with `borrow` only the optional pointers
+// and not the strings, which may be slices of the input; otherwise as csv_row_free(*row).
+// Example: csv_row_free(*reader, *row).
+csv_row_free :: (reader: *Csv_Reader($Row), value: *Row) {
+    if reader.options.borrow {
+        #insert -> string {
+            return generate_csv(Row, .FREE_BORROWED);
+        };
+    } else csv_row_free(value);
 }
 
 // Writes a struct array with a header, honoring @csv(name=...) and @csv(skip).
@@ -60,13 +56,13 @@ csv_write_rows :: (out: *String_Builder, rows: [] $T, options := Csv_Options.{})
 }
 
 #scope_module
-decode_row :: (r: *Csv_Reader, fields: [] string, value: *$T) -> bool {
+decode_row :: (r: *Csv_Core, fields: [] string, value: *$T) -> bool {
     #insert -> string {
         return generate_csv(T, .DECODE);
     };
 }
 
-locate_error :: (r: *Csv_Reader, index: int) {
+locate_error :: (r: *Csv_Core, index: int) {
     offset := r.record_offset;
     line := r.record_line;
     line_start := r.record_line_start;
@@ -83,26 +79,23 @@ locate_error :: (r: *Csv_Reader, index: int) {
     r.error.column = offset - line_start + 1;
 }
 
-column_index :: (r: *Csv_Reader, name: string, order: int) -> int {
-    if !r.options.header return order;
+// Finds the document column of each member of `Row`, once per reader: by header name, or by
+// declaration order without a header. A member the header lacks gets -1, which decoding reports.
+bind_columns :: (r: *Csv_Reader($Row)) {
+    #insert -> string {
+        return generate_csv(Row, .BIND);
+    };
 
-    // Rows of one type ask for the same names in the same order, so each member keeps its answer.
-    // Names are literals: the same address and length mean the same text.
-    if order < r.columns.count {
-        known := r.columns[order];
-        if known.name.data == name.data && known.name.count == name.count return known.index;
-    }
-
-    index := Hash_Map.get(*r.header_index, name, -1);
-
-    while r.columns.count <= order array_add(*r.columns, .{});
-
-    r.columns[order] = .{ name, index };
-
-    return index;
+    r.bound = true;
 }
 
-read_cell :: (r: *Csv_Reader, text: string, out: *$T, name: string) -> bool {
+member_column :: (r: *Csv_Core, name: string, order: int) -> int {
+    if !r.options.header return order;
+
+    return Hash_Map.get(*r.header_index, name, -1);
+}
+
+read_cell :: (r: *Csv_Core, text: string, out: *$T, name: string) -> bool {
     #if type_info(T).type == .POINTER {
         if !text.count {
             out.* = null;
@@ -113,7 +106,11 @@ read_cell :: (r: *Csv_Reader, text: string, out: *$T, name: string) -> bool {
 
         return read_cell(r, text, out.*, name);
     } else #if T == string {
-        out.* = copy_string(text);
+        // With `borrow` the input is a slice and outlives the row; text read through the buffer
+        // (doubled quotes) is outside it and is copied.
+        if r.options.borrow && text.data >= r.input.data && text.data < r.input.data + r.input.count out.* = text;
+        else out.* = copy_string(text);
+
         return true;
     } else #if T == bool {
         if text == "true" {
@@ -161,6 +158,14 @@ free_cell :: (value: *$T) {
     } else #if T == string {
         if value.data free(value.data);
         value.* = "";
+    }
+}
+
+// Releases an optional pointer but not what it points at, which a borrowing row does not own.
+free_pointer :: (value: *$T) {
+    if value.* {
+        free(value.*);
+        value.* = null;
     }
 }
 

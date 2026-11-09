@@ -2,6 +2,8 @@
 
 Csv_Generation :: enum {
     DECODE;
+    BIND;
+    FREE_BORROWED;
     FREE;
     HEADER;
     ENCODE;
@@ -16,7 +18,8 @@ generate_csv :: (T: Type, mode: Csv_Generation) -> string {
     }
 
     out: String_Builder;
-    if mode == .FREE append(*out, "defaults: T;\n");
+    if mode == .FREE || mode == .FREE_BORROWED append(*out, "defaults: type_of(value.*);\n");
+    if mode == .DECODE append(*out, "columns := r.columns.data;\n");
 
     order := 0;
 
@@ -62,9 +65,16 @@ generate_csv :: (T: Type, mode: Csv_Generation) -> string {
         key := jai_quote(name);
 
         if mode == .DECODE {
-            print(*out, "{\nindex := column_index(r, %, %);\n", key, order);
+            print(*out, "{\nindex := columns[%];\n", order);
             print(*out, "if index < 0 || index >= fields.count { fail(r, .HEADER, \"missing column\"); r.error.column_name = %; locate_error(r, -1); return false; }\n", key);
             print(*out, "if !read_cell(r, fields[index], *value.%, %) { locate_error(r, index); return false; }\n}\n", member.name, key);
+        } else if mode == .BIND {
+            print(*out, "array_add(*r.columns, member_column(*r.core, %, %));\n", key, order);
+        } else if mode == .FREE_BORROWED {
+            // Strings may be slices of the input, so only the pointers are released.
+            if member.type.type == .POINTER print(*out, "if value.% != defaults.% free_pointer(*value.%);\n", member.name, member.name, member.name);
+
+            print(*out, "value.% = defaults.%;\n", member.name, member.name);
         } else if mode == .FREE {
             if member.type.type == .STRING {
                 print(*out, "if value.%.data != defaults.%.data free_cell(*value.%);\n", member.name, member.name, member.name);

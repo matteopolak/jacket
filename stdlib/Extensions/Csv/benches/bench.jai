@@ -57,11 +57,11 @@ read_typed :: (b: *Bench) {
     reset_timer(b);
 
     for 0..b.iterations - 1 {
-        reader := csv_reader(cast([] u8) black_box(data), .{ header = true });
+        reader := csv_reader(Row, cast([] u8) black_box(data), .{ header = true });
         count := 0;
 
         while true {
-            row, ok, error := csv_next_row(Row, *reader);
+            row, ok, error := csv_next(*reader);
 
             assert(error.kind == .NONE);
             if !ok break;

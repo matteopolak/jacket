@@ -164,17 +164,17 @@ prepare :: () {
     jaicsv_rows, jaicsv_ok := jaicsv_typed(text);
 
     require(jaicsv_ok && jaicsv_rows.count == ROWS, "jai-csv could not parse the typed rows");
-    reader = csv_reader(cast([] u8) text, .{ header = true });
+    typed_reader := csv_reader(Row, cast([] u8) text, .{ header = true });
 
     for jaicsv_rows {
-        row, ok, error := csv_next_row(Row, *reader);
+        row, ok, error := csv_next(*typed_reader);
 
         require(ok && error.kind == .NONE, "Csv could not read a typed row");
         require(row.id == it.id && row.name == it.name && row.value == it.value && row.note == it.note, "the libraries disagree on a typed row");
         csv_row_free(*row);
     }
 
-    csv_reader_free(*reader);
+    csv_reader_free(*typed_reader);
 
     jacket_builder: String_Builder;
     jaicsv_builder: String_Builder;
@@ -212,11 +212,11 @@ typed__jacket :: (b: *Bench) {
 
     for 0..b.iterations - 1 {
         push_allocator(flat_pool_allocator_proc, *pool);
-        reader := csv_reader(cast([] u8) black_box(text), .{ header = true });
+        reader := csv_reader(Row, cast([] u8) black_box(text), .{ header = true });
         count := 0;
 
         while true {
-            row, ok, error := csv_next_row(Row, *reader);
+            row, ok, error := csv_next(*reader);
 
             require(error.kind == .NONE, "Csv rejected a typed row");
             if !ok break;

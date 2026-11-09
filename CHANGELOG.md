@@ -5,7 +5,7 @@
 ### New
 
 - `jacket doc` documents what a module's public top-level `#insert` declares, from the text it produces with the module's default parameters. Those items carry a "generated" tag on pages, module rows and in search, and `--check` fails when one has no docs. An `#insert` inside generated text is followed too, and a long expansion is read in full.
-- `Extensions/Csv`: streaming CSV reader and writer with limits, error positions and typed rows from structs (`@csv(name=...)`).
+- `Extensions/Csv`: streaming CSV reader and writer with limits, error positions and typed rows from structs (`@csv(name=...)`). The row type belongs to the reader (`csv_reader(User, input, options)`, `csv_next(*r)` returns `User, bool, Csv_Error`, `for row: r` iterates and leaves the outcome in `r.error`), and the header is matched to the struct once per reader. `borrow = true` makes typed rows' strings slices of the input when the field needed no unquoting.
 - `Extensions/Time`: dates, clock readings and exact instants, IANA zones from TZif and POSIX rules with DST gap and fold handling, calendar-aware spans with rounding, ISO and pattern text, and Json and `Basic` interop.
 - `Extensions/Toml` reads and writes TOML 1.1, including table and array-of-table headers, and decodes structs directly (fixed-size arrays and `[[x]]` tables into slices too); `jaifmt` uses it to parse configuration.
 - `Extensions/Grpc` adds clients and servers over HTTP/2, with generated Protobuf service types.
