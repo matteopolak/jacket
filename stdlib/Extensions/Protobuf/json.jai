@@ -440,10 +440,10 @@ json_write_enum :: (o: *Json_Out, value: $T, $flags: Json_Flags, names: [] strin
     }
 
     if !o.options.enum_numbers {
-        info := type_info(T);
+        name, found := enum_json_name(T, number, names);
 
-        for info.values if it == number {
-            Json.json_write_string(*o.w, ifx names.count then names[it_index] else info.names[it_index]);
+        if found {
+            Json.json_write_string(*o.w, name);
             return;
         }
     }
@@ -1141,11 +1141,50 @@ json_read_float :: (i: *Json_In, out: *$T) -> bool {
     return true;
 }
 
+// The JSON name of the enum member numbered `number`: the matching entry of `names` when it has
+// any (the options of the field), else the name it is declared with. The body is written for `T`
+// when the program compiles.
+enum_json_name :: ($T: Type, number: s64, names: [] string) -> string, bool {
+    #insert #run enum_json_name_code(T);
+}
+
+// Sets `out` to the member of `T` that `text` names, the reverse of `enum_json_name`.
+enum_from_json_name :: ($T: Type, text: string, names: [] string, out: *T) -> bool {
+    #insert #run enum_from_json_name_code(T);
+}
+
+enum_json_name_code :: (T: Type) -> string {
+    info := cast(*Type_Info_Enum) type_info(T);
+    b: String_Builder;
+    b.allocator = temp;
+
+    for info.values {
+        print(*b, "if number == % return (ifx names.count then names[%] else %), true;\n", it, it_index, json_jai_literal(info.names[it_index], false,, temp));
+    }
+
+    append(*b, "return \"\", false;");
+
+    return builder_to_string(*b);
+}
+
+enum_from_json_name_code :: (T: Type) -> string {
+    info := cast(*Type_Info_Enum) type_info(T);
+    b: String_Builder;
+    b.allocator = temp;
+
+    for info.values {
+        print(*b, "if text == (ifx names.count then names[%] else %) {\n    out.* = cast(T) %;\n    return true;\n}\n", it_index, json_jai_literal(info.names[it_index], false,, temp), it);
+    }
+
+    append(*b, "return false;");
+
+    return builder_to_string(*b);
+}
+
 json_read_enum :: (i: *Json_In, out: *$T, $flags: Json_Flags, names: [] string) -> bool {
     r := *i.r;
     c := Json.json_peek(r);
     start := r.pos;
-    info := type_info(T);
 
     #if flags & .NULL if c == #char "n" {
         out.* = cast(T) 0;
@@ -1156,12 +1195,7 @@ json_read_enum :: (i: *Json_In, out: *$T, $flags: Json_Flags, names: [] string) 
         text, ok := Json.json_read_name(r);
         if !ok return false;
 
-        list := ifx names.count then names else info.names;
-
-        for list if it == text {
-            out.* = cast(T) info.values[it_index];
-            return true;
-        }
+        if enum_from_json_name(T, text, names, out) return true;
 
         if i.options.ignore_unknown_fields {
             i.skipped = true;
@@ -1177,10 +1211,7 @@ json_read_enum :: (i: *Json_In, out: *$T, $flags: Json_Flags, names: [] string) 
     if !json_read_integer(i, *number) return false;
 
     #if flags & .CLOSED {
-        known := false;
-        for info.values if it == number known = true;
-
-        if !known {
+        if !enum_known(cast(T) number) {
             if i.options.ignore_unknown_fields {
                 i.skipped = true;
                 return true;

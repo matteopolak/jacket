@@ -14,6 +14,7 @@ import 'google/protobuf/struct.proto';
 import 'google/protobuf/timestamp.proto';
 import 'google/protobuf/wrappers.proto';
 enum Color { COLOR_UNSPECIFIED = 0; RED = 1; GREEN = 2; }
+enum Odd { ODD_ZERO = 0; if = 1; cast = 2; string = 3; }
 message Inner { int32 a = 1; repeated string tags = 2; }
 message All {
   int32 i32 = 1;
@@ -40,6 +41,8 @@ message All {
   string type = 24;
   int32 renamed = 25 [json_name = "Other"];
   int32 after = 26;
+  Odd odd = 27;
+  repeated Odd odds = 28;
 }
 message Known {
   google.protobuf.Timestamp time = 1;
@@ -157,6 +160,10 @@ json_enums :: () {
     rejects(Api.demo.All, "{\"color\": true}", .BAD_JSON);
     // Ignoring unknown fields also drops unknown enum names, wherever they are.
     round_trip(Api.demo.All, "{\"color\": \"BLUE\", \"colors\": [\"BLUE\", \"RED\"], \"byFlag\": {\"true\": \"BLUE\", \"false\": \"RED\"}, \"shade\": \"BLUE\"}", "{\"colors\":[\"RED\"],\"byFlag\":{\"false\":\"RED\"}}", .{ ignore_unknown_fields = true });
+
+    // Values whose Jai names differ from the .proto names still go by the .proto names.
+    round_trip(Api.demo.All, "{\"odd\": \"cast\", \"odds\": [\"if\", \"string\", \"ODD_ZERO\", 2]}", "{\"odd\":\"cast\",\"odds\":[\"if\",\"string\",\"ODD_ZERO\",\"cast\"]}");
+    rejects(Api.demo.All, "{\"odd\": \"nope\"}", .BAD_VALUE, "odd");
 
     // A closed enum rejects unknown numbers too.
     round_trip(Closed.M, "{\"e\": \"B\", \"es\": [\"A\", 2]}", "{\"e\":\"B\",\"es\":[\"A\",\"B\"]}");
