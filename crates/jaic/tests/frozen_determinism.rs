@@ -18,7 +18,7 @@ fn globals(source: &str) -> Vec<(String, Vec<u8>, Vec<u64>)> {
         .iter()
         .map(|g| {
             (
-                g.name.to_string(),
+                g.name.clone(),
                 g.init.clone(),
                 g.relocs.iter().map(|r| r.offset).collect(),
             )

@@ -173,9 +173,7 @@ fn runs_over_rounds(n: usize, rounds: usize) -> u64 {
     options.stack_trace = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     compiler
-        .begin_sources(&[super::ProgramSource::String(
-            failing_and_good_bodies(n).into(),
-        )])
+        .begin_sources(&[super::ProgramSource::String(failing_and_good_bodies(n))])
         .unwrap();
     for _ in 0..rounds {
         compiler.lower_reachable();
