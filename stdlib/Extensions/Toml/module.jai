@@ -339,6 +339,20 @@ to_toml :: (value: $T, options := Toml_Options.{}) -> string, Toml_Error {
     return toml_encode(*copy, options);
 }
 
+// Encodes the value `value` points to as TOML, like [to_toml] without copying it first. Returns
+// owned text to `free`, or an empty string and the error.
+//
+// ```jai
+// Point :: struct {
+//     x: float64;
+//     y: float64;
+// }
+//
+// p := Point.{ 1, 2.5 };
+// text, error := toml_encode(*p);
+// assert(error.kind == .NONE && text == "x = 1.0\ny = 2.5\n");
+// free(text);
+// ```
 toml_encode :: (value: *$T, options := Toml_Options.{}) -> string, Toml_Error {
     return toml_encode_text(value, options);
 }
