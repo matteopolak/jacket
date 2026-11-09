@@ -179,7 +179,7 @@ class PreCommitHookTests(unittest.TestCase):
         value = sh(["git", "config", "core.hooksPath"], self.repo).stdout.strip()
         self.assertEqual(value, ".githooks")
 
-    def test_missing_python_skips_the_checks(self):
+    def test_missing_python_fails_with_an_install_hint(self):
         self.tool("target/jaifmt")
         self.write("a.jai", "BAD\n")
         sh(["git", "add", "a.jai"], self.repo)
@@ -192,8 +192,8 @@ class PreCommitHookTests(unittest.TestCase):
                 (bin_dir / name).symlink_to(found)
         self.env["PATH"] = str(bin_dir)
         result = self.commit()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("python3 not found", result.stderr)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("python3 not found: install it", result.stderr)
 
     def test_only_matching_staged_files_reach_each_tool(self):
         self.tool("target/jaifmt")

@@ -34,7 +34,7 @@ To add a recipe, give it a doc comment and a `[group(...)]`, keep the body to on
 
 ## Pre-commit hook
 
-`.githooks/pre-commit` runs `python3 tools/dev/dev.py precommit`. Enable it with `just hooks`; skip once with `--no-verify`. It checks the staged contents exported to a temp directory, so a partly staged file is checked as staged. The hook path is relative, so each worktree runs its own hooks.
+`.githooks/pre-commit` runs `python3 tools/dev/dev.py precommit`. Enable it with `just hooks`; skip once with `--no-verify`. It checks the staged contents exported to a temp directory, so a partly staged file is checked as staged. The hook path is relative, so each worktree runs its own hooks. It fails with an install hint when `python3` is missing; use `--no-verify` to skip it.
 
 | Staged files | Check |
 | --- | --- |
