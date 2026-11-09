@@ -20,24 +20,21 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import sys
 import tarfile
-import time
-import urllib.error
-import urllib.request
 from pathlib import Path, PurePosixPath
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 from repo_output import output_dir  # noqa: E402
+from toolkit.download import fetch  # noqa: E402
 PINS = HERE / "schemas.json"
 DEFAULT_CACHE = str(output_dir("protobuf-schemas"))
-USER_AGENT = "jacket-tools"
-ATTEMPTS = 5
 IMPORT = re.compile(r'^\s*import\s+(?:public\s+|weak\s+)?"([^"]+)"', re.M)
 
 
@@ -47,24 +44,6 @@ def cache_root(argument: str | None) -> Path:
 
 def load_pins() -> dict:
     return json.loads(PINS.read_text())
-
-
-def download(url: str, target: Path) -> None:
-    """Stream `url` to `target`, retrying rate limits, 5xx answers and dropped connections."""
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    for attempt in range(1, ATTEMPTS + 1):
-        try:
-            print(f"downloading {url}", file=sys.stderr)
-            with urllib.request.urlopen(request, timeout=120) as response, open(target, "wb") as out:
-                shutil.copyfileobj(response, out, 1 << 20)
-            return
-        except urllib.error.HTTPError as error:
-            if error.code not in (408, 429, 500, 502, 503, 504) or attempt == ATTEMPTS:
-                raise SystemExit(f"{url}: HTTP {error.code}")
-        except (urllib.error.URLError, OSError) as error:
-            if attempt == ATTEMPTS:
-                raise SystemExit(f"{url}: {error}")
-        time.sleep(2 ** attempt)
 
 
 def selected(mount: dict, relative: str) -> str | None:
@@ -82,29 +61,25 @@ def selected(mount: dict, relative: str) -> str | None:
     return mount["dst"] + rest
 
 
-def extract(source: dict, mounts: list[tuple[dict, Path]], scratch: Path) -> None:
-    tarball = scratch / "source.tar.gz"
-    download(f"https://codeload.github.com/{source['repo']}/tar.gz/{source['commit']}", tarball)
-    try:
-        with tarfile.open(tarball, "r|gz") as archive:
-            for member in archive:
-                if not member.isfile():  # symlinks and devices are never extracted
+def extract(source: dict, mounts: list[tuple[dict, Path]]) -> None:
+    tarball = fetch(f"https://codeload.github.com/{source['repo']}/tar.gz/{source['commit']}", timeout=120)
+    with tarfile.open(fileobj=io.BytesIO(tarball), mode="r|gz") as archive:
+        for member in archive:
+            if not member.isfile():  # symlinks and devices are never extracted
+                continue
+            relative = member.name.split("/", 1)[1] if "/" in member.name else ""
+            data = None  # a stream cannot seek back: read once for every mount that wants it
+            for mount, root in mounts:
+                destination = selected(mount, relative)
+                if destination is None:
                     continue
-                relative = member.name.split("/", 1)[1] if "/" in member.name else ""
-                data = None  # a stream cannot seek back: read once for every mount that wants it
-                for mount, root in mounts:
-                    destination = selected(mount, relative)
-                    if destination is None:
-                        continue
-                    path = root / destination
-                    if root.resolve() not in path.resolve().parents:
-                        raise SystemExit(f"{member.name}: escapes the cache")
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    if data is None:
-                        data = archive.extractfile(member).read()
-                    path.write_bytes(data)
-    finally:
-        tarball.unlink(missing_ok=True)
+                path = root / destination
+                if root.resolve() not in path.resolve().parents:
+                    raise SystemExit(f"{member.name}: escapes the cache")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if data is None:
+                    data = archive.extractfile(member).read()
+                path.write_bytes(data)
 
 
 def tree_digest(root: Path) -> tuple[str, int, int]:
@@ -149,10 +124,8 @@ def fetch_sets(names: list[str], cache: Path, print_hashes: bool, force: bool) -
         shutil.rmtree(cache / (name + ".partial"), ignore_errors=True)
         for mount in sets[name]["mounts"]:
             todo.setdefault(mount["source"], []).append((mount, cache / (name + ".partial")))
-    scratch = cache / ".download"
-    scratch.mkdir(exist_ok=True)
     for source_name, mounts in todo.items():
-        extract(pins["sources"][source_name], mounts, scratch)
+        extract(pins["sources"][source_name], mounts)
     for name in names:
         partial = cache / (name + ".partial")
         if partial.exists():
