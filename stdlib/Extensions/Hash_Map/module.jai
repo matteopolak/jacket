@@ -578,7 +578,7 @@ claim :: (map: *Map, key: map.Key, value: map.Value, start: s64, tag: u8, free_s
     // Only an empty slot counts against the load limit: a deleted one was already spent. When
     // the limit is reached the map is rebuilt first, which moves where free slots are.
     if map.control[slot] == EMPTY && map.growth_left == 0 {
-        if map.count + 1 <= max_load(map.capacity) / 2 rebuild(map, map.capacity);
+        if map.count < max_load(map.capacity) / 2 rebuild(map, map.capacity);
         else rebuild(map, map.capacity * 2);
 
         slot = first_free_slot(map, start);
