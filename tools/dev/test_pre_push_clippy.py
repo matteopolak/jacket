@@ -24,5 +24,12 @@ class PackagesTests(unittest.TestCase):
                 pre_push_clippy.packages({"Cargo.toml"})
 
 
+class NoCargoTests(unittest.TestCase):
+    def test_opt_in_skips_clippy_without_reading_refs(self):
+        with mock.patch.dict("os.environ", {"JACKET_HOOKS_NO_CARGO": "1"}), mock.patch("sys.stdin") as stdin:
+            self.assertEqual(pre_push_clippy.main(), 0)
+        stdin.read.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

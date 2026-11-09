@@ -6,6 +6,7 @@
 #
 # Environment: JAI_HOOK_SKIP="jaifmt jailint rustfmt spacing shellcheck repo locks editor" skips those checks,
 # JAI_HOOK_NO_BUILD=1 never rebuilds a stale tool, JAI_HOOK_VERBOSE=1 prints what runs.
+# JACKET_HOOKS_NO_CARGO=1 skips the steps that need cargo, for jobs with only a prebuilt toolchain.
 
 root=$(git rev-parse --show-toplevel) || exit 0
 cd "$root" || exit 0

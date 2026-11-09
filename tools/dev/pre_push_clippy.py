@@ -7,6 +7,7 @@ working tree, so uncommitted Rust changes are linted too (a warning says so).
 """
 
 import json
+import os
 import platform
 import re
 import shutil
@@ -48,7 +49,7 @@ def packages(files: set[str]) -> list[str]:
         return []
     if shutil.which("cargo") is None:
         raise SystemExit(
-            f"pre-push: cargo not found: install Rust ({RUSTUP}), or skip with JAI_HOOK_SKIP=clippy or git push --no-verify"
+            f"pre-push: cargo not found: install Rust ({RUSTUP}), or skip with JAI_HOOK_SKIP=clippy or git push --no-verify, or set JACKET_HOOKS_NO_CARGO=1 in a job with only a prebuilt toolchain"
         )
     metadata = subprocess.run(
         ["cargo", "metadata", "--no-deps", "--format-version", "1", "--offline"],
@@ -103,6 +104,9 @@ def lint_x86_tests(selected: list[str]) -> int:
 
 
 def main() -> int:
+    if os.environ.get("JACKET_HOOKS_NO_CARGO"):
+        print("pre-push: JACKET_HOOKS_NO_CARGO is set; skipping clippy", file=sys.stderr)
+        return 0
     selected = packages(changed_files(sys.stdin.read().splitlines()))
     if not selected:
         return 0

@@ -292,6 +292,51 @@ class PreCommitHookTests(unittest.TestCase):
         self.assertIn("no jaifmt built", result.stderr)
         self.assertIn("jailint not found", result.stderr)
 
+    def without_cargo(self):
+        """Only the commands the hook needs on PATH, so no cargo or rustfmt."""
+        bin_dir = Path(self.tmp.name) / "no-cargo-bin"
+        bin_dir.mkdir(exist_ok=True)
+        for name in ("git", "python3", "sh", "grep"):
+            link = bin_dir / name
+            if not link.exists():
+                link.symlink_to(shutil.which(name))
+        self.env["PATH"] = str(bin_dir)
+        self.env.pop("JAI_HOOK_NO_BUILD")
+        self.env.pop("JAI_HOOK_SKIP")
+
+    def test_missing_cargo_fails_with_an_install_hint(self):
+        self.without_cargo()
+        self.write("a.jai", "main :: () {}\n")
+        sh(["git", "add", "a.jai"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("cargo not found", result.stderr)
+        self.assertIn("rustup.rs", result.stderr)
+        self.assertIn("JACKET_HOOKS_NO_CARGO=1", result.stderr)
+
+    def test_no_cargo_opt_in_skips_only_the_cargo_steps(self):
+        self.without_cargo()
+        self.env["JACKET_HOOKS_NO_CARGO"] = "1"
+        self.tool("target/jaifmt")
+        self.tool("target/debug/jailint")
+        self.write("crates/x/src/lib.rs", "fn a() {\n    1;\n}\nfn  b( ) { }\n")
+        self.write("Cargo.toml", "[package]\n")
+        self.write("a.jai", "main :: () {}\n")
+        sh(["git", "add", "crates", "Cargo.toml", "a.jai"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertNotIn("cargo not found", result.stderr)
+        # The spacing check needs no cargo and still runs; the unformatted file is rustfmt's, which is skipped.
+        self.assertIn("needs item spacing", result.stderr)
+        self.write("crates/x/src/lib.rs", "fn a() {\n    1;\n}\n")
+        sh(["git", "add", "crates"], self.repo)
+        self.write("b.jai", "BAD\n")
+        sh(["git", "add", "b.jai"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("b.jai: BAD", result.stderr)
+        self.assertNotIn("cargo", result.stderr.replace("JACKET_HOOKS_NO_CARGO", ""))
+
     def test_item_spacing_is_checked(self):
         self.write("crates/x/src/lib.rs", "fn a() {\n    1;\n}\nfn b() {\n    2;\n}\n")
         sh(["git", "add", "crates"], self.repo)

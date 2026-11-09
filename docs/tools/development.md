@@ -53,6 +53,9 @@ Tools are built from this checkout (`jailint` through cargo, `jaifmt` rebuilt wh
 | `JAI_HOOK_SKIP` | Space-separated checks to skip: `jaifmt jailint rustfmt spacing shellcheck actionlint repo locks editor` (pre-commit); `actions clippy` (pre-push) |
 | `JAI_HOOK_NO_BUILD=1` | Never build a tool; use what exists |
 | `JAI_HOOK_VERBOSE=1` | Say which checks run |
+| `JACKET_HOOKS_NO_CARGO=1` | For jobs with only a prebuilt toolchain and no Rust: skip the cargo steps (below) |
+
+Cargo is needed to build `jaic` and `jailint`, run `rustfmt` and check lock files. When it is missing the hook fails with an install hint. Set `JACKET_HOOKS_NO_CARGO=1` to opt out: those steps are skipped, nothing is built, and `jaifmt` and `jailint` must already exist (otherwise the hook warns and skips their checks, as above). Everything else still runs: item spacing, shellcheck, actionlint, repo checks, the editor check. No CI job runs the hooks today; a job that does and has no Rust should set it.
 
 A new per-system file under `stdlib/internal` (imports `windows-api`, `posix-api`, X11, or `#assert`s an OS) must be listed in `[lint.portability.platforms]` in `jacket.toml`, or the `platform_leak` check fails. Tests: `tools/ci/test_pre_commit_hook.py`.
 
@@ -62,6 +65,8 @@ A new per-system file under `stdlib/internal` (imports `windows-api`, `posix-api
 
 - `actions`: `tools/ci/check_action_pins.py` ([action pins](action-pins.md)). A broken or unreachable check blocks the push; available updates are only printed.
 - `clippy`: CI's clippy on the packages whose Rust or `Cargo.toml` files differ from the remote, via `tools/dev/pre_push_clippy.py`. It fails, rather than skipping, when Rust files changed and `cargo` is missing or `cargo metadata` fails.
+
+With `JACKET_HOOKS_NO_CARGO=1` the clippy check is skipped; without it, missing `cargo` fails as above.
 
 The hook fails when `python3` is missing, unless both checks are skipped.
 

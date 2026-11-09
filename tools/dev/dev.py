@@ -627,7 +627,25 @@ class Hook:
         self.fixes: list[str] = []
         self.skip = os.environ.get("JAI_HOOK_SKIP", "").split()
         self.verbose = bool(os.environ.get("JAI_HOOK_VERBOSE"))
-        self.no_build = bool(os.environ.get("JAI_HOOK_NO_BUILD"))
+        # Prebuilt-toolchain jobs have no Rust: the opt-in skips every step that needs cargo (and never builds).
+        self.no_cargo = bool(os.environ.get("JACKET_HOOKS_NO_CARGO"))
+        self.no_build = bool(os.environ.get("JAI_HOOK_NO_BUILD")) or self.no_cargo
+        self.cargo_missing = False
+
+    def need_cargo(self, step: str) -> bool:
+        """Whether `step` can use cargo. Without cargo and without the opt-in it fails the hook, once."""
+        if self.no_cargo:
+            self.say(f"JACKET_HOOKS_NO_CARGO is set; skipping {step}")
+            return False
+        if shutil.which("cargo"):
+            return True
+        if not self.cargo_missing:
+            self.cargo_missing = True
+            print(f"pre-commit: cargo not found (needed to {step}): install Rust (https://rustup.rs), "
+                  "or set JACKET_HOOKS_NO_CARGO=1 in a job with only a prebuilt toolchain", file=sys.stderr)
+            self.failed = True
+            self.fixes.append("install Rust, or export JACKET_HOOKS_NO_CARGO=1 (jobs without Rust only)")
+        return False
 
     def skipped(self, name: str) -> bool:
         return name in self.skip
@@ -657,7 +675,7 @@ def hook_jaic(hook: Hook) -> Path | None:
     """The debug jaic cargo builds from this checkout (a no-op when current), else the newest existing one."""
     if hook.no_build:
         return None
-    if shutil.which("cargo"):
+    if hook.need_cargo("build jaic"):
         hook.say("building jaic")
         if run_captured(["cargo", "build", "--quiet", "-p", "jaic-cli"])[0] == 0:
             built = cargo_binary("jaic", "debug")
@@ -687,7 +705,7 @@ def hook_jailint(hook: Hook) -> str | None:
     """The debug jailint cargo builds from this checkout, else an existing one newer than its sources, else any
     existing one, else PATH. Cargo links this checkout's build into the target directory even when nothing
     changed, so a shared directory never keeps another checkout's binary under the name."""
-    if not hook.no_build and shutil.which("cargo"):
+    if not hook.no_build and hook.need_cargo("build jailint"):
         hook.say("building jailint")
         if run_captured(["cargo", "build", "--quiet", "-p", "jailint"])[0] == 0:
             return str(cargo_binary("jailint", "debug"))
@@ -728,7 +746,7 @@ def check_jai(hook: Hook, jai: list[str]) -> None:
 
 
 def check_rust(hook: Hook, rust: list[str]) -> None:
-    if not hook.skipped("rustfmt"):
+    if not hook.skipped("rustfmt") and hook.need_cargo("run rustfmt"):
         if not shutil.which("rustfmt"):
             hook_warn("rustfmt not found; skipping the Rust format check")
         else:
@@ -851,8 +869,8 @@ def cmd_precommit(args) -> int:
             for script, output in repo_check_failures([n for n in REPO_CHECKS if n not in BUILT_REPO_CHECKS], skip_missing=True).items():
                 hook.fail(f"python3 {script}", output)
         staged_text = "\n".join(everything)
-        if (not hook.skipped("locks") and shutil.which("cargo")
-                and re.search(r"Cargo\.(toml|lock)$", staged_text, re.M)):
+        if (not hook.skipped("locks") and re.search(r"Cargo\.(toml|lock)$", staged_text, re.M)
+                and hook.need_cargo("check the lock files")):
             check_locks(hook)
         if (not hook.skipped("editor") and (ROOT / "editors" / "vscode" / "scripts").is_dir()
                 and re.search(r"^(crates/|editors/vscode/)", staged_text, re.M)):
