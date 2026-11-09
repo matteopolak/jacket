@@ -224,10 +224,9 @@ main :is(p, li, dd, td, blockquote) a {
   text-underline-offset: 0.15em;
 }
 
-/* In code a link keeps the code's own colours and shows itself on hover. */
-main pre a,
-main pre a:is(:hover, :focus-visible) {
-  color: inherit;
+/* In code a link is coloured but not underlined until hovered. */
+main pre a {
+  color: var(--link);
 }
 
 main pre a:hover {
