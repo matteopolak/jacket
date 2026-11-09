@@ -2015,10 +2015,37 @@ a.btn:hover {
 
   .top-in {
     padding: 10px 16px;
+    row-gap: 0;
   }
 
   .logo {
     padding-left: 0;
+  }
+
+  /* Two fixed rows: the logo with the site links on the right, then the module button and search.
+     The button's label changes from page to page, so nothing else may sit beside it on its row. */
+  .site-nav {
+    margin-left: auto;
+  }
+
+  .modules-btn {
+    order: 4;
+    max-width: 45%;
+    margin-top: 10px;
+  }
+
+  .search-wrap {
+    order: 5;
+    flex: 1 1 0;
+    min-width: 0;
+    margin-top: 10px;
+  }
+
+  /* The row break; the rows' gap is the margin above the second row. */
+  .top-in::after {
+    content: '';
+    order: 3;
+    flex-basis: 100%;
   }
 
   /* Without scripts the sidebar stays open above the page. */
@@ -2133,12 +2160,6 @@ a.btn:hover {
 
   .site-nav {
     gap: 14px;
-    flex-wrap: wrap;
-  }
-
-  .search-wrap {
-    order: 5;
-    flex-basis: 100%;
   }
 
   .ex-row {
