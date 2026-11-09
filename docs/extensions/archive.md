@@ -57,3 +57,6 @@ The pinned download contains [Go's ZIP/TAR fixture directories](https://github.c
 ## Dependencies
 
 Archive uses `Extensions/Deflate` for raw DEFLATE, gzip and CRC-32, `Extensions/Hash_Map` for extraction preflight, `Extensions/Io` for output sinks, `Unicode` for strict UTF-8, and `Sort` for overlap validation. Safe extraction uses POSIX directory-relative filesystem operations. Python's standard library and `tools/toolkit/download.py` supply conformance fetching, differential validation, and benchmark comparison.
+
+Run benchmarks with `jacket bench --path stdlib/Extensions/Archive`. Cases live in `benches/`; setup precedes `reset_timer`, and inputs/results use `black_box`.
+Prepare the shared ZIP/TAR payloads with `PYTHONPATH=tools python3 tools/portable/build_portable.py data`. Indexing and extraction are separate cases; extraction includes removing its output after each sample.

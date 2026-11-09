@@ -68,10 +68,10 @@ def main():
         bench(work)
 
 
-def bench(work):
-    """Compare indexing plus filesystem extraction of the same 32 MiB payloads, three runs."""
-    exe = work / "bench"
-    subprocess.run(["jaic", "-O2", str(ROOT / "stdlib/Extensions/Archive/bench/bench.jai"), "-exe", str(exe)], check=True)
+def bench_fixtures():
+    """The shared 32 MiB inputs for the Jacket and Python archive benchmarks."""
+    work = output_dir("archive-bench")
+    work.mkdir(parents=True, exist_ok=True)
     payload = random.Random(42).randbytes(128 * 1024)
     for label in ["stored.zip", "deflate.zip", "plain.tar"]:
         path = work / label
@@ -87,14 +87,23 @@ def bench(work):
                     entry = tarfile.TarInfo(f"files/{i:04d}")
                     entry.size = len(payload)
                     archive.addfile(entry, io.BytesIO(payload))
+
+
+def bench(work):
+    """Compare the standard runner's cases with Python on the shared payloads."""
+    import json
+    bench_fixtures()
+    work = output_dir("archive-bench")
+    output = subprocess.check_output(["jacket", "bench", "--path", "stdlib/Extensions/Archive",
+                                      "--format", "json"], cwd=ROOT, text=True)
+    measured = {row["name"]: row for row in json.loads(output)["results"]}
+    for label in ["stored.zip", "deflate.zip", "plain.tar"]:
+        path = work / label
+        kind = "zip" if label.endswith("zip") else "tar"
         data = path.read_bytes()
-        jai, python = [], []
+        python = []
         for _ in range(3):
-            dest = work / "extract-bench"
-            dest.mkdir()
-            out = subprocess.check_output([str(exe), str(path), kind, str(dest)], text=True)
-            jai.append(tuple(map(float, out.split())))
-            shutil.rmtree(dest)
+            dest = work / "extract-python"
             dest.mkdir()
             start = time.perf_counter()
             archive = zipfile.ZipFile(io.BytesIO(data)) if kind == "zip" else tarfile.open(fileobj=io.BytesIO(data))
@@ -109,7 +118,8 @@ def bench(work):
             python.append((indexed - start, done - indexed))
             archive.close()
             shutil.rmtree(dest)
-        j = [statistics.median(v[i] for v in jai) for i in range(2)]
+        case = {"stored.zip": "stored", "deflate.zip": "deflate", "plain.tar": "tar"}[label]
+        j = [measured[f"{case}_{operation}"]["time_ns"]["estimate"] / 1e9 for operation in ("index", "extract")]
         p = [statistics.median(v[i] for v in python) for i in range(2)]
         print(f"{label}: Jai list {j[0]*1000:.2f} ms, extract {32/j[1]:.1f} MiB/s; "
               f"Python list {p[0]*1000:.2f} ms, extract {32/p[1]:.1f} MiB/s")
