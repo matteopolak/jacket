@@ -25,8 +25,7 @@ across a DST change; 24 hours advances exactly 24 hours.
 
 `Span` keeps ten units separately, with one shared sign. Years, months and weeks
 need a relative date or zoned value to acquire an elapsed length. Zoned days
-also vary in length. Span conversions involving calendar units require exactly
-one of `relative_date` and `relative_zoned`; clock-only conversions need neither.
+also vary in length. Span conversions involving calendar units use overloads taking `relative: Date` or `relative: Zoned`; clock-only conversions need neither.
 `Signed_Duration` represents exact elapsed seconds and nanoseconds. Timestamp
 span arithmetic rejects every calendar unit, including days.
 
@@ -42,20 +41,13 @@ overflow. Field widths alone do not make arbitrary arithmetic safe.
 Timestamp and duration nanoseconds have magnitude below one billion and the
 seconds' sign when seconds are nonzero. With zero seconds either remainder sign
 is valid: Unix -0.001 seconds is `{seconds = 0, nanoseconds = -1000000}`.
-UTC timestamps are restricted to years -9999..9999. Conversions that leave the
-supported civil or UTC range return `OUT_OF_RANGE`.
+Timestamps cover -9999-01-02T01:59:59Z through 9999-12-30T22:00:00Z
+(inclusive), so every valid offset maps into the civil range; conversions from
+civil values outside that instant range return `OUT_OF_RANGE`.
 
-The requested identical civil/UTC ranges cannot guarantee conversion of every
-boundary value at every offset: civil `9999-12-31T23:59:59` at `-01:00` is in
-UTC year 10000. That guarantee requires a wider instant range or a narrower civil
-range. The declaration preserves the requested ranges and exposes conversion
-errors; the boundary guarantee needs a design decision before implementation.
-
-Public structs also permit direct literals and field writes. Constructors can
-validate their results but cannot prevent `Date.{month = 13}`. The declaration
-preserves the requested public fields. Preventing invalid construction requires
-opaque representations and accessors instead; merely validating every operation
-would provide a weaker contract.
+Public fields are transparent: constructors and parsers validate, other procedures
+assume valid values, and invalid literals have unspecified results but never permit
+out-of-bounds access, crashes or unbounded work.
 
 Fallible procedures return a value and `Time_Error`; `.NONE` means success.
 An error has a static message and a zero-based byte offset for text/binary
@@ -137,5 +129,5 @@ jacket test --path stdlib/Extensions/Time
 jacket test --path stdlib/Extensions/Time --interp
 jailint -D warnings stdlib/Extensions/Time/module.jai
 jaifmt stdlib/Extensions/Time/module.jai
-jacket doc --check
+jacket doc stdlib/Extensions/Time --check
 ```

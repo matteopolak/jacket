@@ -64,8 +64,8 @@ Zoned :: struct {
     offset: Offset;
 }
 
-// Separate calendar and clock units, all zero or sharing one sign; e.g. `span(.{days = 1})`.
-// Raw field assignment does not validate: use span before passing caller-built values to arithmetic.
+// Separate calendar and clock units, all zero or sharing one sign; e.g. `span_check(.{days = 1})`.
+// Raw field assignment does not validate: use span_check before passing caller-built values to arithmetic.
 Span :: struct {
     years: s32;
     months: s32;
@@ -199,8 +199,8 @@ time_of_day :: (hour: s64, minute: s64, second: s64, nanosecond: s64 = 0) -> Tim
 
 // Validates and combines civil components.
 // Example: `dt, error := date_time(day, clock)`.
-date_time :: (day: Date, clock: Time_Of_Day) -> Date_Time, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+date_time :: (day: Date, clock: Time_Of_Day) -> Date_Time {
+    return .{};
 }
 
 // Validates a civil date and clock reading together.
@@ -222,8 +222,8 @@ signed_duration :: (seconds: s64, nanoseconds: s64 = 0) -> Signed_Duration, Time
 }
 
 // Validates the single-sign invariant without balancing units.
-// Example: `s, error := span(.{months = 1, days = 2})`.
-span :: (value: Span) -> Span, Time_Error {
+// Example: `s, error := span_check(.{months = 1, days = 2})`.
+span_check :: (value: Span) -> Span, Time_Error {
     return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
@@ -234,45 +234,45 @@ days_in_month :: (year: s64, month: s64) -> s64, Time_Error {
 }
 
 // Tests the Gregorian leap rule within the supported year range.
-// Example: `leap, error := is_leap_year(2000)`.
-is_leap_year :: (year: s64) -> bool, Time_Error {
-    return false, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `leap := is_leap_year(2000)`.
+is_leap_year :: (year: s64) -> bool {
+    return false;
 }
 
 // Returns the ISO weekday after validating the date.
-// Example: `day, error := weekday(value)`.
-weekday :: (value: Date) -> Weekday, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `day := weekday(value)`.
+weekday :: (value: Date) -> Weekday {
+    return .{};
 }
 
 // Returns the ordinal day, starting at one.
-// Example: `ordinal, error := day_of_year(value)`.
-day_of_year :: (value: Date) -> s64, Time_Error {
-    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `ordinal := day_of_year(value)`.
+day_of_year :: (value: Date) -> s64 {
+    return 0;
 }
 
 // Returns ISO week-year and week number; week one contains January 4.
-// Example: `year, week, error := iso_week(value)`.
-iso_week :: (value: Date) -> s64, s64, Time_Error {
-    return 0, 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `year, week := iso_week(value)`.
+iso_week :: (value: Date) -> s64, s64 {
+    return 0, 0;
 }
 
 // Validates and converts an ISO week date.
 // Example: `d, error := date_from_iso_week(2024, 1, .MONDAY)`.
-date_from_iso_week :: (year: s64, week: s64, day: Weekday) -> Date, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+date_from_iso_week :: (year: s64, week: s64, day: Weekday) -> Date {
+    return .{};
 }
 
 // Returns the first day of the validated date's month.
-// Example: `d, error := first_of_month(value)`.
-first_of_month :: (value: Date) -> Date, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `d := first_of_month(value)`.
+first_of_month :: (value: Date) -> Date {
+    return .{};
 }
 
 // Returns the last day of the validated date's month.
-// Example: `d, error := last_of_month(value)`.
-last_of_month :: (value: Date) -> Date, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `d := last_of_month(value)`.
+last_of_month :: (value: Date) -> Date {
+    return .{};
 }
 
 // Finds occurrence 1..5 or -1..-5 from the end; missing occurrences fail.
@@ -347,33 +347,83 @@ since :: (a: Zoned, b: Zoned, largest := Unit.DAY, smallest := Unit.NANOSECOND, 
     return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
-// Balances to largest; calendar conversions require exactly one relative value.
-// Example: `value, error := span_balance(value, .DAY, relative_date = *day)`.
-span_balance :: (value: Span, largest: Unit, relative_date: *Date = null, relative_zoned: *Zoned = null) -> Span, Time_Error {
+// Balances to largest; calendar conversions require a relative value.
+// Example: `value, error := span_balance(value, .DAY, relative = day)`.
+span_balance :: (value: Span, largest: Unit) -> Span, Time_Error {
+    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+}
+
+// Uses a relative Date; e.g. `span_balance(value, relative = origin)`.
+span_balance :: (value: Span, largest: Unit, relative: Date) -> Span, Time_Error {
+    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+}
+
+// Uses a relative Zoned; e.g. `span_balance(value, relative = origin)`.
+span_balance :: (value: Span, largest: Unit, relative: Zoned) -> Span, Time_Error {
     return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
 // Rounds to a positive increment, then balances; calendar rounding needs a relative value.
 // Example: `value, error := span_round(value, .MINUTE, .HOUR)`.
-span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative_date: *Date = null, relative_zoned: *Zoned = null) -> Span, Time_Error {
+span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1) -> Span, Time_Error {
+    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+}
+
+// Uses a relative Date; e.g. `span_round(value, relative = origin)`.
+span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative: Date) -> Span, Time_Error {
+    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+}
+
+// Uses a relative Zoned; e.g. `span_round(value, relative = origin)`.
+span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative: Zoned) -> Span, Time_Error {
     return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
 // Returns a possibly fractional total; zoned days follow actual day lengths.
-// Example: `value, error := span_total(value, .HOUR, relative_zoned = *z)`.
-span_total :: (value: Span, unit: Unit, relative_date: *Date = null, relative_zoned: *Zoned = null) -> float64, Time_Error {
+// Example: `value, error := span_total(value, .HOUR, relative = z)`.
+span_total :: (value: Span, unit: Unit) -> float64, Time_Error {
+    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+}
+
+// Uses a relative Date; e.g. `span_total(value, relative = origin)`.
+span_total :: (value: Span, unit: Unit, relative: Date) -> float64, Time_Error {
+    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+}
+
+// Uses a relative Zoned; e.g. `span_total(value, relative = origin)`.
+span_total :: (value: Span, unit: Unit, relative: Zoned) -> float64, Time_Error {
     return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
 // Returns -1/0/1 by elapsed length; calendar units require a shared relative value.
-// Example: `value, error := span_compare(a, b, relative_date = *day)`.
-span_compare :: (a: Span, b: Span, relative_date: *Date = null, relative_zoned: *Zoned = null) -> int, Time_Error {
+// Example: `value, error := span_compare(a, b, relative = day)`.
+span_compare :: (a: Span, b: Span) -> int, Time_Error {
+    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+}
+
+// Uses a relative Date; e.g. `span_compare(value, relative = origin)`.
+span_compare :: (a: Span, b: Span, relative: Date) -> int, Time_Error {
+    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+}
+
+// Uses a relative Zoned; e.g. `span_compare(value, relative = origin)`.
+span_compare :: (a: Span, b: Span, relative: Zoned) -> int, Time_Error {
     return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
 // Converts clock units to elapsed time; calendar units require a relative value.
 // Example: `value, error := span_to_duration(value)`.
-span_to_duration :: (value: Span, relative_date: *Date = null, relative_zoned: *Zoned = null) -> Signed_Duration, Time_Error {
+span_to_duration :: (value: Span) -> Signed_Duration, Time_Error {
+    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+}
+
+// Uses a relative Date; e.g. `span_to_duration(value, relative = origin)`.
+span_to_duration :: (value: Span, relative: Date) -> Signed_Duration, Time_Error {
+    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+}
+
+// Uses a relative Zoned; e.g. `span_to_duration(value, relative = origin)`.
+span_to_duration :: (value: Span, relative: Zoned) -> Signed_Duration, Time_Error {
     return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
@@ -383,16 +433,16 @@ duration_from_span :: (value: Span) -> Signed_Duration, Time_Error {
     return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
-// Reverses every field, rejecting the signed minimum rather than overflowing.
-// Example: `s, error := span_negate(value)`.
-span_negate :: (value: Span) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Reverses every field of a validated span.
+// Example: `s := span_negate(value)`.
+span_negate :: (value: Span) -> Span {
+    return .{};
 }
 
-// Returns a nonnegative span, rejecting unrepresentable signed minima.
-// Example: `s, error := span_abs(value)`.
-span_abs :: (value: Span) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Returns a nonnegative span; span_check rejects signed minima.
+// Example: `s := span_abs(value)`.
+span_abs :: (value: Span) -> Span {
+    return .{};
 }
 
 // Reads Basic.current_time_consensus and converts its Apollo epoch; no new clock path.
@@ -438,9 +488,9 @@ add :: (value: Timestamp, amount: Span) -> Timestamp, Time_Error {
 }
 
 // Returns exact b minus a without calendar interpretation.
-// Example: `elapsed, error := duration_between(a, b)`.
-duration_between :: (a: Timestamp, b: Timestamp) -> Signed_Duration, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `elapsed := duration_between(a, b)`.
+duration_between :: (a: Timestamp, b: Timestamp) -> Signed_Duration {
+    return .{};
 }
 
 // Returns the allocation-free UTC zone.
@@ -450,9 +500,9 @@ time_zone_utc :: () -> Time_Zone {
 }
 
 // Validates and constructs an allocation-free fixed-offset zone.
-// Example: `zone, error := time_zone_fixed(value)`.
-time_zone_fixed :: (value: Offset) -> Time_Zone, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `zone := time_zone_fixed(value)`.
+time_zone_fixed :: (value: Offset) -> Time_Zone {
+    return .{};
 }
 
 // Loads and caches a safe IANA name; directory overrides TZDIR for deterministic fixtures.
@@ -490,21 +540,21 @@ time_zone_retain :: (value: Time_Zone) -> Time_Zone {
 time_zone_free :: (value: *Time_Zone) {}
 
 // Resolves the offset at an exact instant, using footer rules beyond stored transitions.
-// Example: `o, error := offset_at(zone, instant)`.
-offset_at :: (zone: Time_Zone, instant: Timestamp) -> Offset, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `o := offset_at(zone, instant)`.
+offset_at :: (zone: Time_Zone, instant: Timestamp) -> Offset {
+    return .{};
 }
 
 // Returns a zone-borrowed abbreviation for formatting and conformance.
-// Example: `text, error := abbreviation_at(zone, instant)`.
-abbreviation_at :: (zone: Time_Zone, instant: Timestamp) -> string, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `text := abbreviation_at(zone, instant)`.
+abbreviation_at :: (zone: Time_Zone, instant: Timestamp) -> string {
+    return .{};
 }
 
 // Converts an instant in an explicit zone, rejecting civil range overflow.
-// Example: `wall, error := to_civil(zone, instant)`.
-to_civil :: (zone: Time_Zone, instant: Timestamp) -> Date_Time, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `wall := to_civil(zone, instant)`.
+to_civil :: (zone: Time_Zone, instant: Timestamp) -> Date_Time {
+    return .{};
 }
 
 // Resolves gaps/folds using the requested policy and checks UTC range.
@@ -514,9 +564,9 @@ to_timestamp :: (zone: Time_Zone, wall: Date_Time, disambiguation := Disambiguat
 }
 
 // Starts a borrowed cursor strictly after instant (strictly before when reverse).
-// Example: `cursor, error := transitions(zone, instant)`.
-transitions :: (zone: Time_Zone, instant: Timestamp, reverse := false) -> Time_Transitions, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `cursor := transitions(zone, instant)`.
+transitions :: (zone: Time_Zone, instant: Timestamp, reverse := false) -> Time_Transitions {
+    return .{};
 }
 
 // Advances a transition cursor; false with no error means the range is exhausted.
@@ -526,15 +576,15 @@ next :: (cursor: *Time_Transitions) -> Time_Transition, bool, Time_Error {
 }
 
 // Resolves an instant and borrows its zone; the zone owner must outlive the result.
-// Example: `z, error := zoned(instant, zone)`.
-zoned :: (instant: Timestamp, zone: Time_Zone) -> Zoned, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `z := zoned(instant, zone)`.
+zoned :: (instant: Timestamp, zone: Time_Zone) -> Zoned {
+    return .{};
 }
 
 // Resolves civil time and borrows the explicit zone.
 // Example: `z, error := to_zoned(wall, zone, .LATER)`.
-to_zoned :: (wall: Date_Time, zone: Time_Zone, disambiguation := Disambiguation.COMPATIBLE) -> Zoned, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+to_zoned :: (wall: Date_Time, zone: Time_Zone, disambiguation := Disambiguation.COMPATIBLE) -> Zoned {
+    return .{};
 }
 
 // Reads the existing Basic consensus clock in an explicit borrowed zone.
@@ -544,9 +594,9 @@ zoned_now :: (zone: Time_Zone) -> Zoned, Time_Error {
 }
 
 // Keeps the instant while borrowing a different zone and resolving its offset.
-// Example: `z, error := with_zone(value, time_zone_utc())`.
-with_zone :: (value: Zoned, zone: Time_Zone) -> Zoned, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Example: `z := with_zone(value, time_zone_utc())`.
+with_zone :: (value: Zoned, zone: Time_Zone) -> Zoned {
+    return .{};
 }
 
 // Adds calendar units in civil time, resolves, then adds clock units on the timeline.
@@ -627,6 +677,7 @@ parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error 
     return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
+// Uses [String_Builder](https://jacketlang.com/docs/api/String/String_Builder.html).
 // Appends canonical ISO text, trims fractional zeros and uses UTC Z for timestamps.
 // Example: `error := format(*builder, instant)`.
 format :: (builder: *String_Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> Time_Error {
@@ -645,10 +696,12 @@ parse_format :: ($T: Type, pattern: string, text: string, options: Time_Options 
     return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
+// Uses [Json_Writer](https://jacketlang.com/docs/api/Extensions/Json/Json_Writer.html).
 // Custom Json field encoder; canonical ISO strings use Json's writer limits.
 // Example: `time_json_encode :: Time.time_json_encode // in an @json(with=time_json) struct`.
 time_json_encode :: (writer: *Json.Json_Writer, value: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) {}
 
+// Uses [Json_Reader](https://jacketlang.com/docs/api/Extensions/Json/Json_Reader.html).
 // Custom Json field decoder; parse errors become Json INVALID_VALUE and output stays unchanged.
 // Example: `time_json_decode :: Time.time_json_decode // alongside time_json_encode`.
 time_json_decode :: (reader: *Json.Json_Reader, out: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> bool {
