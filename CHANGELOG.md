@@ -4,7 +4,7 @@
 
 ### New
 
-- `Extensions/Toml` reads and writes TOML 1.1, including table and array-of-table headers, and decodes structs directly; `jaifmt` uses it to parse configuration.
+- `Extensions/Toml` reads and writes TOML 1.1, including table and array-of-table headers, and decodes structs directly (fixed-size arrays and `[[x]]` tables into slices too); `jaifmt` uses it to parse configuration.
 - `Extensions/Grpc` adds clients and servers over HTTP/2, with generated Protobuf service types.
 - `Extensions/Gltf` loads, validates and writes glTF and GLB assets.
 - `Extensions/Archive` (ZIP and TAR), `Unicode_Text` (normalization and segmentation), `Uuid` (RFC 9562) and `Vt` (terminal sequence parsing) are new. `WebSocket` runs connections on fibers, `Deflate` handles sync-flushed messages and `Http` routes protocol upgrades.
@@ -30,6 +30,7 @@
 - The language server merges diagnostics for a file shared by several programs, cancels unfinished pulls and notices files changed on disk.
 - `jacket doc` shows every `#if` variant of a declaration and the right import path for a module documented by its folder.
 - `Hash_Map` rebuild threshold, glTF skin validation and `jaifmt` setting migration.
+- `Toml` writes empty tables as headers and `float32` values in their shortest form, names array-of-tables elements in error paths, and no longer slows down quadratically on wide unknown tables.
 
 ## [0.33.0] - 2026-11-04
 
