@@ -122,6 +122,7 @@ mod tests {
                     since: String::new(),
                     experimental: false,
                     binding: false,
+                    generated: false,
                     refs: Vec::new(),
                     declaration: String::new(),
                     decl_refs: Vec::new(),
@@ -136,7 +137,7 @@ mod tests {
             experimental: false,
             parameters: Vec::new(),
             unresolved: Vec::new(),
-            inserts: Vec::new(),
+            unexpanded: Vec::new(),
             test_notes: Vec::new(),
         }
     }

@@ -109,6 +109,7 @@ pub(super) fn nav(site: &Site, current: Option<usize>) -> Vec<NavCategory> {
                                     .count(),
                                 current: current == Some(i),
                                 experimental: m.experimental,
+                                generated: false,
                             }
                         })
                         .collect(),
@@ -574,6 +575,7 @@ fn row(site: &Site, mi: usize, item: &Item) -> Row {
             String::new()
         },
         foreign: item.binding,
+        generated: item.generated,
         experimental: item.experimental,
         overloads: overloads(item),
         platforms: m.item_missing(item).into_iter().map(String::from).collect(),
@@ -786,6 +788,7 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                     depth: 0,
                     current: false,
                     experimental: i.experimental,
+                    generated: i.generated,
                 })
                 .collect()
         })
@@ -839,6 +842,7 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                     kind: "module".into(),
                     procedure: false,
                     foreign: false,
+                    generated: false,
                     category: category(site, m),
                     experimental: m.experimental,
                     overloads: None,
@@ -1136,6 +1140,7 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
                 kind: item.kind.label().into(),
                 procedure: item.kind == Kind::Procedure,
                 foreign: item.binding,
+                generated: item.generated,
                 category: category(site, m),
                 experimental: item.experimental,
                 overloads: overloads(item),

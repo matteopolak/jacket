@@ -1,6 +1,6 @@
 NavLink :: (out: *Out, link: *Nav_Link) {
     html(out, #string HTML
-<li><a href="{esc(link.href)}"{if link.title} title="{esc(link.title.*)}"{end}{if link.depth > 0} style="--depth:{link.depth}"{end}{if link.current} aria-current="page"{end}>{esc(link.label)}{ExperimentalDot(link.experimental)}</a></li>
+<li><a href="{esc(link.href)}"{if link.title} title="{esc(link.title.*)}"{end}{if link.depth > 0} style="--depth:{link.depth}"{end}{if link.current} aria-current="page"{end}>{esc(link.label)}{GeneratedDot(link.generated)}{ExperimentalDot(link.experimental)}</a></li>
 HTML
     );
 }

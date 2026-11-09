@@ -112,6 +112,30 @@ foreign_declarations_follow_the_own_items_and_have_pages :: () {
     expect(contains(page, "href=\"/api/Vendor/MAX\""));
 } @test
 
+generated_items_are_tagged_on_rows_pages_and_neighbours :: () {
+    site := fixture(Site_View, "site");
+    made := fixture(Module_View, "generated");
+    defer {
+        free_json(*site);
+        free_json(*made);
+    }
+    page := render(*site, *made.page, *made);
+    defer free(page);
+    own := find_index_from_left(page, "id=\"own\"");
+    max := find_index_from_left(page, "id=\"MAX\"");
+    expect(own >= 0 && max > own);
+    // Only the row of `own` carries the tag.
+    expect(contains(advance(page, own), "class=\"badge sm generated\""));
+    expect(find_index_from_left(advance(page, max), "class=\"badge sm generated\"") < 0);
+    item := render(*site, *made.items[0], *made);
+    defer free(item);
+    expect(contains(item, "<span class=\"badge generated\""));
+    expect(contains(item, "moving<span class=\"dot generated\""));
+    other := render(*site, *made.items[1], *made);
+    defer free(other);
+    expect(!contains(other, "<span class=\"badge generated\""));
+} @test
+
 module_parameters_have_a_section_before_the_items :: () {
     site := fixture(Site_View, "site");
     steady := fixture(Module_View, "steady");

@@ -114,6 +114,7 @@ Nav_Link :: struct {
     depth: int;
     current: bool;
     experimental: bool;
+    generated: bool; @json(default)
 }
 
 Platform :: struct {
@@ -186,6 +187,7 @@ Title :: struct {
     kind: string;
     procedure: bool;
     foreign: bool;
+    generated: bool; @json(default)
     category: *Badge;
     experimental: bool;
     overloads: *int;
@@ -219,6 +221,7 @@ Row :: struct {
     href: string;
     kind_badge: string;
     foreign: bool;
+    generated: bool; @json(default)
     experimental: bool;
     overloads: *int;
     platforms: [] string;

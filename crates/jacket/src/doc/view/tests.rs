@@ -136,7 +136,7 @@ fn badges_and_flags_are_resolved_before_rendering() {
         .iter()
         .map(|r| r[6].as_u64().unwrap())
         .collect();
-    assert_eq!(flags, [5, 7, 5, 7, 0, 0]);
+    assert_eq!(flags, [9, 11, 9, 11, 0, 0]);
     assert_eq!(search["cats"][0][0], "extension");
 }
 
@@ -174,6 +174,42 @@ fn foreign_rows_follow_own_rows_and_have_item_pages() {
     assert!(!value_html.is_empty());
     let mode = sections.iter().find(|s| s.id == "types").unwrap();
     assert_eq!(mode.groups[0].rows[0].members[0].name, "FAST");
+}
+
+#[test]
+fn generated_items_are_tagged_on_rows_pages_and_neighbours() {
+    let mut site = fixture();
+    site.modules[0].items[1].generated = true;
+    let bundle = module(&site, 0);
+    let Content::Module {
+        sections, ..
+    } = &bundle.page.content
+    else {
+        panic!()
+    };
+    let constants = sections.iter().find(|s| s.id == "constants").unwrap();
+    let rows = &constants.groups[0].rows;
+    assert!(rows[0].generated && !rows[1].generated);
+    let page = bundle
+        .items
+        .iter()
+        .find(|p| p.path == "api/Vendor/Nested/own.html")
+        .unwrap();
+    let Content::Item {
+        title, ..
+    } = &page.content
+    else {
+        panic!()
+    };
+    assert!(title.generated);
+    let tagged: Vec<_> = bundle
+        .nav
+        .iter()
+        .flatten()
+        .filter(|l| l.generated)
+        .map(|l| l.label.as_str())
+        .collect();
+    assert_eq!(tagged, ["own"]);
 }
 
 #[test]

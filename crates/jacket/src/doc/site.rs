@@ -248,6 +248,8 @@ impl Site {
         if self.repo.is_empty() {
             return None;
         }
+        // Generated text has no file; its link leads to the `#insert` that made it.
+        let (file, line) = super::model::source_place(file, line);
         let at = match &self.commit {
             Some(commit) if !self.dirty.contains(file) => commit,
             _ if !self.source_ref.is_empty() => &self.source_ref,

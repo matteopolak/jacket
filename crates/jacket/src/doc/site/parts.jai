@@ -31,6 +31,17 @@ ExperimentalBadge :: (out: *Out, enabled: bool, small: bool) {
     html(out, "{if enabled}<span class=\"badge exp{ifx small then \" sm\" else \"\"}\" title=\"Experimental: may change or go away\">experimental</span>{end}");
 }
 
+GeneratedDot :: (out: *Out, enabled: bool) {
+    html(out, #run trim(#string HTML
+{if enabled}<span class="dot generated" role="img" title="Generated: declared by the text an #insert produced" aria-label="Generated: declared by the text an #insert produced"><span class="sr">Generated</span></span>{end}
+HTML
+    ));
+}
+
+GeneratedBadge :: (out: *Out, enabled: bool, small: bool) {
+    html(out, "{if enabled}<span class=\"badge{ifx small then \" sm\" else \"\"} generated\" title=\"Declared by the text an #insert produced\">generated</span>{end}");
+}
+
 CategoryBadge :: (out: *Out, c: *Badge, small: bool) {
     html(out, "{if c}<span class=\"badge {esc(c.class)}{ifx small then \" sm\" else \"\"}\" title=\"{esc(c.tip)}\">{esc(c.label)}</span>{end}");
 }
@@ -73,7 +84,7 @@ HTML
 
 PageTitle :: (out: *Out, t: *Title) {
     html(out, #string HTML
-<div class="titlebar"><h1{if t.mono} class="mono"{end}>{esc(t.label)}</h1>{if t.procedure}<span class="badge proc">procedure</span>{else}<span class="badge">{esc(t.kind)}</span>{end}{ForeignBadge(t.foreign, false)}{CategoryBadge(t.category, false)}{ExperimentalBadge(t.experimental, false)}{Overloads(t.overloads)}{Since(t.since)}{Source(t.source_url)}</div>
+<div class="titlebar"><h1{if t.mono} class="mono"{end}>{esc(t.label)}</h1>{if t.procedure}<span class="badge proc">procedure</span>{else}<span class="badge">{esc(t.kind)}</span>{end}{ForeignBadge(t.foreign, false)}{GeneratedBadge(t.generated, false)}{CategoryBadge(t.category, false)}{ExperimentalBadge(t.experimental, false)}{Overloads(t.overloads)}{Since(t.since)}{Source(t.source_url)}</div>
 HTML
     );
 }

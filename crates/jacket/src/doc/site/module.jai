@@ -17,7 +17,7 @@ HTML
 ItemRow :: (out: *Out, r: *Row) {
     html(out, #string HTML
 <article class="row" id="{esc(r.id)}">
-<div class="row-head"><a class="name" href="{esc(r.href)}">{esc(r.id)}</a>{if r.kind_badge.count}<span class="badge sm">{esc(r.kind_badge)}</span>{end}{ForeignBadge(r.foreign, true)}{ExperimentalBadge(r.experimental, true)}{Overloads(r.overloads)}{Missing(r.platforms)}{Since(r.since)}{Source(r.source_url)}</div>
+<div class="row-head"><a class="name" href="{esc(r.href)}">{esc(r.id)}</a>{if r.kind_badge.count}<span class="badge sm">{esc(r.kind_badge)}</span>{end}{ForeignBadge(r.foreign, true)}{GeneratedBadge(r.generated, true)}{ExperimentalBadge(r.experimental, true)}{Overloads(r.overloads)}{Missing(r.platforms)}{Since(r.since)}{Source(r.source_url)}</div>
 {for line: r.lines_html}<div class="sig-line">{cast(Html) line}</div>
 {end}{if r.summary_html.count}<p class="summary">{cast(Html) r.summary_html}</p>
 {end}{if r.declaration_html.count}<div class="fold members" data-fold="240">

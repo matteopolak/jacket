@@ -103,9 +103,9 @@ fn search_results_carry_the_flag() {
         .iter()
         .map(|r| r[6].as_i64().unwrap())
         .collect();
-    // Each module, then its items: moving, steady. Above the low two bits, one more than the
+    // Each module, then its items: moving, steady. Above the low three bits, one more than the
     // index of the category whose badge they carry.
-    assert_eq!(flags, [9, 9, 9, 0, 1, 0]);
+    assert_eq!(flags, [17, 17, 17, 0, 1, 0]);
     assert_eq!(index["cats"][1][0], "extension");
 }
 
@@ -122,6 +122,39 @@ fn native_declarations_are_searchable_but_flagged() {
         .collect();
     // The module, then own, MAX, Mode.
     assert_eq!(flags, [0, 0, 2, 2]);
+}
+
+#[test]
+fn generated_declarations_carry_their_own_flag() {
+    let made = |name: &str, generated| Item {
+        name: name.into(),
+        kind: Kind::Constant,
+        generated,
+        ..Item::default()
+    };
+    let site = Site::new(
+        vec![Module {
+            id: "Gen".into(),
+            items: vec![made("hand_written", false), made("made", true)],
+            ..Module::default()
+        }],
+        Vec::new(),
+        "/".into(),
+        "0.0.0".into(),
+        String::new(),
+        String::new(),
+        false,
+    );
+    let index: serde_json::Value =
+        serde_json::from_str(&super::super::search::index(&site)).unwrap();
+    let flags: Vec<i64> = index["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r[6].as_i64().unwrap())
+        .collect();
+    // The module, then hand_written, made.
+    assert_eq!(flags, [0, 0, 4]);
 }
 
 fn files_site(item: Item) -> Site {

@@ -1,7 +1,7 @@
 //! The search index the page loads on first use: every item by name and every overload by the
 //! types it takes and returns, so `-> bool` and `string -> [] string` find procedures. The last
 //! column of an item is a bit set: 1 for `@experimental`, 2 for a native binding (which the page
-//! ranks below the hand-written API); above those, one more than the index in `cats` of the
+//! ranks below the hand-written API), 4 for an item an `#insert` generated; above those, one more than the index in `cats` of the
 //! badge its module's category carries, 0 for none. An item whose page folder is not its slug (it differs from
 //! another only in case) carries the folder as one more column.
 use super::markdown::{self, Segment, Settings, plain};
@@ -50,7 +50,7 @@ pub fn index(site: &Site) -> String {
     for (mi, m) in site.modules.iter().enumerate() {
         let badge = site
             .badge_of(m)
-            .map_or(0, |c| u32::try_from(c + 1).unwrap_or(0) << 2);
+            .map_or(0, |c| u32::try_from(c + 1).unwrap_or(0) << 3);
         items.push(json!([
             mi,
             "",
@@ -110,7 +110,10 @@ pub fn index(site: &Site) -> String {
                     }
                 },
                 shapes,
-                u32::from(item.experimental) | (u32::from(item.binding) << 1) | badge
+                u32::from(item.experimental)
+                    | (u32::from(item.binding) << 1)
+                    | (u32::from(item.generated) << 2)
+                    | badge
             ]);
             // The page folder, when it is not the slug the page works out from the name.
             let folder = site.folder(&m.id, &item.name);

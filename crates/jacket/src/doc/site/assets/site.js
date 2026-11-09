@@ -16,7 +16,7 @@
   /**
    * @typedef {{
    *   module: string, title: string, name: string, kind: string, summary: string, sig: string,
-   *   shapes: Shape[], experimental: boolean, native: boolean, cat: number, folder?: string,
+   *   shapes: Shape[], experimental: boolean, native: boolean, generated: boolean, cat: number, folder?: string,
    *   lname: string, lpath: string, lsum: string,
    * }} Item  A search-index entry with the lowercase forms the search matches against.
    */
@@ -479,7 +479,8 @@
               shapes: r[5],
               experimental: (r[6] & 1) === 1,
               native: (r[6] & 2) === 2,
-              cat: (r[6] >> 2) - 1,
+              generated: (r[6] & 4) === 4,
+              cat: (r[6] >> 3) - 1,
               folder: r[7],
               lname: r[1].toLowerCase(),
               lpath: (title + '.' + r[1]).toLowerCase(),
@@ -676,6 +677,7 @@
       a.appendChild(el('code', '', '')).appendChild(name);
       // Flags are dots here, coloured like the badges on the pages; the word is the tooltip.
       if (it.native) a.appendChild(dot('foreign', 'Foreign: a binding to a native library'));
+      if (it.generated) a.appendChild(dot('generated', 'Generated: declared by the text an #insert produced'));
       if (it.cat >= 0 && cats[it.cat]) a.appendChild(dot('cat-' + it.cat, cats[it.cat][1]));
       if (it.experimental) a.appendChild(dot('exp', 'Experimental: may change or go away'));
       // The signature column already says what procedures, types and constants are.

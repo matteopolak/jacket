@@ -145,6 +145,7 @@ fn link(href: &str, label: &str) -> NavLink {
         depth: 0,
         current: false,
         experimental: false,
+        generated: false,
     }
 }
 

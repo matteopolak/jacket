@@ -124,6 +124,8 @@ pub struct NavLink {
     pub depth: usize,
     pub current: bool,
     pub experimental: bool,
+    /// Declared by the text a top-level `#insert` generated.
+    pub generated: bool,
 }
 
 #[derive(Serialize)]
@@ -195,6 +197,7 @@ pub struct Title {
     pub kind: String,
     pub procedure: bool,
     pub foreign: bool,
+    pub generated: bool,
     pub category: Option<Badge>,
     pub experimental: bool,
     pub overloads: Option<usize>,
@@ -245,6 +248,7 @@ pub struct Row {
     pub href: String,
     pub kind_badge: String,
     pub foreign: bool,
+    pub generated: bool,
     pub experimental: bool,
     pub overloads: Option<usize>,
     /// Systems the module runs on that this item does not.

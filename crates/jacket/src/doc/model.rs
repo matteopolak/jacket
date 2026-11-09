@@ -126,6 +126,9 @@ pub struct Item {
     pub experimental: bool,
     /// Declared by a native binding: badged "foreign" and listed after the module's own items.
     pub binding: bool,
+    /// Declared by the text a top-level `#insert` generates: badged "generated". `file` and
+    /// `line` name that text; see [`source_place`].
+    pub generated: bool,
     /// A struct, union or enum as written, without comments; empty for anything else.
     pub declaration: String,
     /// The declarations the type names in `declaration` stand for.
@@ -182,9 +185,9 @@ pub struct Module {
     /// Links in its doc comments that read as intra-doc links and name nothing, as
     /// `file:line: [text]`.
     pub unresolved: Vec<String>,
-    /// Where each top-level `#insert` that is not private to its file is, as `file:line`. What
-    /// it declares is not in the model.
-    pub inserts: Vec<String>,
+    /// Each public top-level `#insert` that could not be expanded, as its `file:line` and the
+    /// reason. What it declares is not in the model.
+    pub unexpanded: Vec<(String, String)>,
     /// The notes of the `// test:` lines that open its `module.jai`, which every example of the
     /// module takes as `jacket test` gives them to its doc tests.
     pub test_notes: Vec<String>,
@@ -358,6 +361,12 @@ fn below(stdlib: &Path, file: &str) -> String {
         .replace('\\', "/")
 }
 
+/// The file and line a source link leads to for a declaration at `line` of `file`: the
+/// `#insert` that generated it when `file` names generated text, else the place itself.
+pub fn source_place(file: &str, line: usize) -> (&str, usize) {
+    jaic::doc_comments::generated_origin(file).unwrap_or((file, line))
+}
+
 /// An item and whether the module exports it.
 type Flagged = (bool, Item);
 
@@ -410,6 +419,7 @@ fn item_of(i: &Value, stdlib: &Path) -> Item {
             .collect(),
         refs: type_refs(i, stdlib),
         binding: i.get("binding").and_then(Value::as_bool).unwrap_or(false),
+        generated: i.get("generated").and_then(Value::as_bool) == Some(true),
         overloads,
         members: list(i, "members")
             .iter()
@@ -510,9 +520,14 @@ pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module,
                 )
             })
             .collect(),
-        inserts: list(&v, "inserts")
+        unexpanded: list(&v, "unexpanded")
             .iter()
-            .map(|i| format!("{}:{}", below(stdlib, &text(i, "file")), number(i, "line")))
+            .map(|i| {
+                (
+                    format!("{}:{}", below(stdlib, &text(i, "file")), number(i, "line")),
+                    text(i, "reason"),
+                )
+            })
             .collect(),
         test_notes: crate::test::options::header_notes(
             &std::fs::read_to_string(stdlib.join(id).join("module.jai")).unwrap_or_default(),
@@ -591,6 +606,7 @@ fn title_case(stem: &str) -> String {
 /// would (two or more files); other items by what they are.
 fn assign_groups(module: &mut Module) {
     let stem = |file: &str| {
+        let (file, _) = source_place(file, 0);
         let name = file.rsplit('/').next().unwrap_or(file);
         let stem = name.strip_suffix(".jai").unwrap_or(name);
         if stem == "module" {
