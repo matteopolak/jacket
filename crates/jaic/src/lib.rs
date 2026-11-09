@@ -40,6 +40,7 @@ pub mod sema;
 pub mod service;
 pub mod stack_trace;
 pub mod target;
+pub mod test_notes;
 pub mod toolchain;
 pub mod types;
 pub mod wide_float;

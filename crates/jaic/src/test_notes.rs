@@ -1,0 +1,230 @@
+//! The notes of a `// test:` comment at the top of a source file, and the target filters
+//! (`only(.WINDOWS)`, `skip_on(.WASM)`) among them. `jacket test` reads them to decide what to
+//! run; `jailint` reads them to decide what to compile a file as.
+
+use std::fmt;
+
+
+/// Where tests run: the target and how.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Target {
+    pub os: String,
+    pub cpu: String,
+    pub interp: bool,
+}
+
+pub const OS_NAMES: [&str; 5] = ["linux", "macos", "windows", "wasm", "android"];
+pub const CPU_NAMES: [&str; 2] = ["x64", "arm64"];
+pub const MODE_NAMES: [&str; 2] = ["interp", "native"];
+
+/// The arguments of one `only(...)` or `skip_on(...)` call: target names (an OS, a CPU or a
+/// mode, as in `.WASM`, `.ARM64`, `.INTERP`), and `mode = .NATIVE` or `cpu = .ARM64`, which
+/// narrow the whole call, and `reason = "text"`, which only explains it.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TargetFilter {
+    pub names: Vec<String>,
+    pub mode: Option<String>,
+    pub cpu: Option<String>,
+    /// Why the call is there (`reason = "needs threads"`), shown with the skip.
+    pub reason: Option<String>,
+}
+
+impl TargetFilter {
+    /// `.WASM, .WINDOWS, cpu = .ARM64` as a filter. `call` is `only` or `skip_on`.
+    pub fn parse(call: &str, args: &str) -> Result<TargetFilter, String> {
+        let mut filter = TargetFilter::default();
+        for item in split_outside_quotes(args)
+            .iter()
+            .map(|i| i.trim())
+            .filter(|i| !i.is_empty())
+        {
+            if let Some((key, value)) = item.split_once('=') {
+                let key = key.trim();
+                if key == "reason" {
+                    let reason = text(Some(value));
+                    if reason.is_empty() || filter.reason.replace(reason).is_some() {
+                        return Err(format!("`@{call}` takes one non-empty `reason = \"text\"`"));
+                    }
+                    continue;
+                }
+                let value = value.trim().trim_start_matches('.').to_ascii_lowercase();
+                let (slot, allowed) = match key {
+                    "mode" => (&mut filter.mode, &MODE_NAMES),
+                    "cpu" => (&mut filter.cpu, &CPU_NAMES),
+                    _ => {
+                        return Err(format!(
+                            "`@{call}` does not know the argument `{key}`; use `mode =`, `cpu =` or `reason =`"
+                        ));
+                    }
+                };
+                if !allowed.contains(&value.as_str()) {
+                    return Err(format!(
+                        "`@{call}` does not know the {key} `{value}`; use {}",
+                        dotted(allowed)
+                    ));
+                }
+                if slot.replace(value).is_some() {
+                    return Err(format!("`@{call}` gives `{key} =` twice"));
+                }
+                continue;
+            }
+            let name = item.trim_start_matches('.').to_ascii_lowercase();
+            if ![&OS_NAMES[..], &CPU_NAMES[..], &MODE_NAMES[..]]
+                .iter()
+                .any(|names| names.contains(&name.as_str()))
+            {
+                return Err(format!(
+                    "`@{call}` does not know the target `{name}`; use .LINUX, .MACOS, .WINDOWS, .WASM, .ANDROID, .X64, .ARM64, .INTERP or .NATIVE, and `mode =` or `cpu =` to narrow them"
+                ));
+            }
+            filter.names.push(name);
+        }
+        if filter.names.is_empty() && filter.mode.is_none() && filter.cpu.is_none() {
+            return Err(format!("`@{call}` needs targets, as in `@{call}(.LINUX)`"));
+        }
+        Ok(filter)
+    }
+
+    pub fn reason_suffix(&self) -> String {
+        self.reason
+            .as_ref()
+            .map_or_else(String::new, |r| format!(": {r}"))
+    }
+
+    pub fn named(target: &Target, mode: &str, name: &str) -> bool {
+        name == target.os || name == target.cpu || name == mode
+    }
+
+    /// `mode =` and `cpu =`, which every target of the call must satisfy.
+    fn narrowed(&self, target: &Target, mode: &str) -> bool {
+        self.mode.as_deref().is_none_or(|m| m == mode)
+            && self.cpu.as_deref().is_none_or(|c| c == target.cpu)
+    }
+
+    /// Whether `target` is one the call names: any of the names (any OS if there are none), and
+    /// the mode and CPU.
+    pub fn matches(&self, target: &Target, mode: &str) -> bool {
+        (self.names.is_empty() || self.names.iter().any(|n| Self::named(target, mode, n)))
+            && self.narrowed(target, mode)
+    }
+
+    /// Whether `target` passes an `only` call: each kind of name given (OS, CPU, mode) must
+    /// match one of that kind, so `only(.LINUX, .X64)` is Linux on x64.
+    pub fn allows(&self, target: &Target, mode: &str) -> bool {
+        [&OS_NAMES[..], &CPU_NAMES[..], &MODE_NAMES[..]]
+            .iter()
+            .all(|kind| {
+                let mut named = self
+                    .names
+                    .iter()
+                    .filter(|n| kind.contains(&n.as_str()))
+                    .peekable();
+                named.peek().is_none() || named.any(|n| Self::named(target, mode, n))
+            })
+            && self.narrowed(target, mode)
+    }
+}
+
+impl fmt::Display for TargetFilter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut parts = self.names.clone();
+        parts.extend(self.mode.iter().map(|m| format!("mode = {m}")));
+        parts.extend(self.cpu.iter().map(|c| format!("cpu = {c}")));
+        f.write_str(&parts.join(", "))
+    }
+}
+
+/// `a, "b, c", d` as `["a", " \"b, c\"", " d"]`: commas inside quotes do not split.
+fn split_outside_quotes(args: &str) -> Vec<String> {
+    let mut items = vec![String::new()];
+    let mut quoted = false;
+    let mut chars = args.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' if quoted => {
+                items.last_mut().unwrap().push(c);
+                items.last_mut().unwrap().extend(chars.next());
+                continue;
+            }
+            '"' => quoted = !quoted,
+            ',' if !quoted => {
+                items.push(String::new());
+                continue;
+            }
+            _ => {}
+        }
+        items.last_mut().unwrap().push(c);
+    }
+    items
+}
+
+fn dotted(names: &[&str]) -> String {
+    let named: Vec<String> = names.iter().map(|n| n.to_ascii_uppercase()).collect();
+    format!(".{}", named.join(" or ."))
+}
+
+
+/// A note's argument as written (case kept), without the quotes around it.
+pub fn text(args: Option<&str>) -> String {
+    let args = args.unwrap_or("").trim();
+    args.strip_prefix('"')
+        .and_then(|a| a.strip_suffix('"'))
+        .unwrap_or(args)
+        .to_string()
+}
+
+
+/// The notes of the `// test:` comments at the top of `source`, before its first line of code.
+pub fn header_notes(source: &str) -> Vec<String> {
+    let mut notes = Vec::new();
+    for line in source.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Some(comment) = line.strip_prefix("//") else {
+            break;
+        };
+        if let Some(items) = comment.trim().strip_prefix("test:") {
+            notes.extend(split_notes(items));
+        }
+    }
+    notes
+}
+
+/// `timeout(10) only(.LINUX, .MACOS)` as `["timeout(10)", "only(.LINUX,.MACOS)"]`: spaces
+/// inside parentheses do not split.
+fn split_notes(items: &str) -> Vec<String> {
+    let mut notes = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0usize;
+    let mut quoted = false;
+    let mut escaped = false;
+    for c in items.chars() {
+        if std::mem::take(&mut escaped) {
+            current.push(c);
+            continue;
+        }
+        match c {
+            '\\' if quoted => escaped = true,
+            '"' => quoted = !quoted,
+            '(' if !quoted => depth += 1,
+            ')' if !quoted => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+        if c.is_whitespace() && depth == 0 && !quoted {
+            if !current.is_empty() {
+                notes.push(std::mem::take(&mut current));
+            }
+            continue;
+        }
+        current.push(c);
+    }
+    if !current.is_empty() {
+        notes.push(current);
+    }
+    notes
+        .into_iter()
+        .map(|n| n.trim_start_matches('@').to_string())
+        .collect()
+}
