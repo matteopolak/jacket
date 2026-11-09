@@ -83,7 +83,7 @@ Sets: `grid` (tables in `compare_grid.py`), `rewrite:PATHS` (text edits of exist
 
 cargo-fuzz (libFuzzer). Every panic, abort, hang, stack overflow and runaway allocation is a bug: bad input must give a diagnostic. `jaifmt` must also not change what a program means.
 
-`fuzz/` is its own Cargo workspace. `fuzz/harness` has one function per target taking `&[u8]`, plus the grammar-based generator; `cargo test` replays inputs through it. `fuzz/targets.json` is the one list of targets (length, timeout, seed tree). Targets: `lexer`, `parser`, `check`, `interp`, `generated`, `lsp`, `lsp_json`, `lsp_edits`, `lsp_typing`, `lsp_workspace`, `jaifmt`, `jailint_fix`, `jacket_config`, `metaprogram`.
+`fuzz/` is its own Cargo workspace. `fuzz/harness` has one function per target taking `&[u8]`, plus the grammar-based generator; `cargo test` replays inputs through it. `fuzz/targets.json` is the one list of targets (length, timeout, seed tree). `lsp_json` also checks that the framing layer gives the same messages however its input is cut into pieces (the first two input bytes choose the piece size and body limit). Targets: `lexer`, `parser`, `check`, `interp`, `generated`, `lsp`, `lsp_json`, `lsp_edits`, `lsp_typing`, `lsp_workspace`, `jaifmt`, `jailint_fix`, `jacket_config`, `metaprogram`.
 
 ```sh
 cargo install cargo-fuzz

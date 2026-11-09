@@ -330,16 +330,64 @@ pub fn lsp(data: &[u8]) {
     });
 }
 
-/// Newline-separated JSON-RPC messages into the language server's JSON session, after a
-/// standard `initialize` handshake.
-pub fn lsp_json(data: &[u8]) {
-    let Ok(text) = std::str::from_utf8(data) else {
-        // The framing layer sees raw bytes.
-        let mut decoder = jai_language_server::framing::FrameDecoder::new(1 << 20);
-        let _ = decoder.push(data);
-        let _ = decoder.finish();
+/// Push `stream` through a frame decoder in pieces of `chunk` bytes: what it gave, or `Err`
+/// as soon as any push or the finish failed.
+fn decode_chunked(
+    stream: &[u8],
+    chunk: usize,
+    limit: usize,
+) -> Result<(Vec<String>, Vec<jai_language_server::framing::Oversized>), ()> {
+    let mut decoder = jai_language_server::framing::FrameDecoder::new(limit);
+    let mut messages = Vec::new();
+    for piece in stream.chunks(chunk) {
+        messages.extend(decoder.push(piece).map_err(|_| ())?);
+    }
+    decoder.finish().map_err(|_| ())?;
+    Ok((messages, decoder.take_oversized()))
+}
+
+/// The framing layer on raw bytes: where the bytes are cut must not change what comes out.
+/// The first two bytes pick the piece size and the body limit; the rest is the stream.
+fn lsp_framing(data: &[u8]) {
+    let [chunk, limit, stream @ ..] = data else {
         return;
     };
+    let chunk = usize::from(*chunk % 64) + 1;
+    let limit = 16usize << (*limit % 6);
+    let whole = decode_chunked(stream, stream.len().max(1), limit);
+    let pieces = decode_chunked(stream, chunk, limit);
+    match (&whole, &pieces) {
+        (Ok(a), Ok(b)) => {
+            assert_eq!(a.0, b.0, "messages differ at piece size {chunk}");
+            assert_eq!(a.1, b.1, "oversized messages differ at piece size {chunk}");
+        }
+        (Err(()), Err(())) => {}
+        _ => panic!("whole {whole:?} but pieces {pieces:?} at piece size {chunk}"),
+    }
+}
+
+/// What `lines` encode to decodes back to them, cut into pieces of `chunk` bytes.
+fn framing_round_trip(lines: &[&str], chunk: usize) {
+    let stream: Vec<u8> = lines
+        .iter()
+        .flat_map(|line| jai_language_server::framing::encode(line))
+        .collect();
+    let (messages, oversized) =
+        decode_chunked(&stream, chunk, 1 << 20).expect("encoded messages decode");
+    assert!(oversized.is_empty());
+    assert_eq!(messages, lines, "round trip at piece size {chunk}");
+}
+
+/// Newline-separated JSON-RPC messages into the language server's JSON session, after a
+/// standard `initialize` handshake. The same bytes also go to the framing layer, and as text
+/// the lines are framed, cut into pieces and checked to come back unchanged.
+pub fn lsp_json(data: &[u8]) {
+    lsp_framing(data);
+    let Ok(text) = std::str::from_utf8(data) else {
+        return;
+    };
+    let lines: Vec<&str> = text.split('\n').collect();
+    framing_round_trip(&lines, data.first().map_or(1, |b| usize::from(*b % 64) + 1));
     on_compiler_stack(|| {
         let mut session = jai_language_server::JsonSession::with_environment(
             Limits::default(),
@@ -349,7 +397,7 @@ pub fn lsp_json(data: &[u8]) {
             r#"{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"capabilities":{}}}"#,
         );
         let _ = session.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#);
-        for line in text.split('\n') {
+        for line in lines {
             let _ = session.handle_json(line);
         }
     });
