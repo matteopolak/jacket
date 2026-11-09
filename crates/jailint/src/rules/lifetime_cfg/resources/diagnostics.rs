@@ -217,6 +217,18 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 if witnesses.is_empty() || witnesses.iter().all(|(_, site)| *site == *span) {
                     continue;
                 }
+                // The contents went first; freeing the memory that held them is a different release.
+                if witnesses.iter().all(|(j, _)| {
+                    matches!(
+                        model.blocks[*j].op,
+                        CfgOp::Resource(Op::Free {
+                            contents: true,
+                            ..
+                        })
+                    )
+                }) {
+                    continue;
+                }
                 let mut f = finding(*span,"this call frees storage that was already released".into(),Some("remove the second call, or initialize the released field with a new allocation first".into()));
                 label(&mut f, origin, &witnesses);
                 push(&mut out.double_free, f);

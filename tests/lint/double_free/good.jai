@@ -1,5 +1,7 @@
 #import "Basic";
 
+libc :: #system_library "libc";
+
 Node :: struct {
     value: int;
 }
@@ -10,6 +12,38 @@ Holder :: struct {
 
 release_holder :: (holder: *Holder) {
     free(holder.name);
+}
+
+Link :: struct {
+    wake: s64;
+    allocator: Allocator;
+}
+
+close_descriptor :: (descriptor: s64) #foreign libc "close"; @FreesArgument
+
+// Closes what the link holds; the link itself stays allocated.
+close_link :: (link: *Link) {
+    close_descriptor(link.wake);
+}
+
+// Frees the memory with the allocator that owns it.
+release_owned :: (memory: *void, owner: Allocator) {
+    push_allocator(owner);
+    free(memory);
+}
+
+Engine :: struct {
+    pool: *Link;
+}
+
+// Closing the contents first, then freeing the link, releases different storage.
+detach_link :: (engine: *Engine) {
+    link := engine.pool;
+    if !link return;
+
+    close_link(link);
+    release_owned(link, link.allocator);
+    engine.pool = null;
 }
 
 // Frees the name and gives the field a new value, so a second call frees nothing.
