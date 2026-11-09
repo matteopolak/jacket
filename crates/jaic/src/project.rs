@@ -674,7 +674,10 @@ pub fn module_of(fs: &dyn ProjectFs, file: &Path, import_dirs: &[PathBuf]) -> Op
     dirs.sort_by_key(|dir| std::cmp::Reverse(dir.components().count()));
     for dir in dirs {
         if let Ok(relative) = file.strip_prefix(&dir) {
-            let name = if crate::paths::is_module_entry(relative) {
+            // Below an import folder, a `modules` folder is the folder of a program beside it,
+            // and the modules in it are that program's: they import their siblings.
+            let (dir, relative) = crate::paths::innermost_modules_folder(&dir, relative);
+            let name = if crate::paths::is_module_entry(&relative) {
                 relative.parent()?.to_path_buf()
             } else {
                 relative.with_extension("")

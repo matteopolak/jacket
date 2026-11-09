@@ -297,3 +297,20 @@ fn directory_scan_skips_the_negative_program_parameter_fixture() {
     let result = run(&options(&root, fixtures));
     assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
 }
+
+#[test]
+fn module_in_a_modules_folder_sees_its_sibling_modules() {
+    let root = fixture("module-siblings");
+    let modules = root.join("stdlib/Thing/tests/modules");
+    std::fs::create_dir_all(modules.join("Facade")).unwrap();
+    std::fs::create_dir_all(modules.join("Provider")).unwrap();
+    std::fs::write(
+        modules.join("Provider/module.jai"),
+        "answer :: () -> int { return 1; }",
+    )
+    .unwrap();
+    let facade = modules.join("Facade/module.jai");
+    std::fs::write(&facade, "P :: #import \"Provider\";").unwrap();
+    let result = run(&options(&root, facade));
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+}

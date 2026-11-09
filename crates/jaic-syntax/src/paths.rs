@@ -19,6 +19,23 @@ pub fn module_entry(dir: &Path) -> PathBuf {
     dir.join(MODULE_ENTRY)
 }
 
+/// `dir` and the `relative` path below it, moved down into the last `modules` folder on that
+/// path, if there is one: `(dir/a/modules, X/module.jai)` for `a/modules/X/module.jai`.
+pub fn innermost_modules_folder(dir: &Path, relative: &Path) -> (PathBuf, PathBuf) {
+    let parts: Vec<_> = relative.components().collect();
+    let Some(at) = parts
+        .iter()
+        .take(parts.len().saturating_sub(1))
+        .rposition(|c| c.as_os_str() == "modules")
+    else {
+        return (dir.to_path_buf(), relative.to_path_buf());
+    };
+    (
+        dir.join(parts[..=at].iter().collect::<PathBuf>()),
+        parts[at + 1..].iter().collect(),
+    )
+}
+
 pub use jacket_config::{slashed, to_slash};
 
 /// The name a module is known by: its path below an import directory, `/`-separated
