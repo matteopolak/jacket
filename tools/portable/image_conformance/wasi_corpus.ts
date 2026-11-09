@@ -1,4 +1,4 @@
-// Bounded WASI host: expose only the explicitly supplied corpus/oracle/output directories.
+// Bounded WASI host: expose only the explicitly supplied corpus, oracle and output directories.
 // node wasi_corpus.ts probe.wasm DIRECTORY...
 import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
