@@ -13,11 +13,14 @@ inspect :: () -> string {
 
     compiler_begin_intercept(workspace);
     add_build_string("answer :: () -> int { return 42; }", workspace);
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
     }
+
     compiler_end_intercept(workspace);
+
     return helper_name();
 }
 

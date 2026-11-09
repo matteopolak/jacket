@@ -6,8 +6,10 @@ use std::path::Path;
 use test_support::lsp::{environment, project, uri_of};
 
 const MAIN: &str = "#import \"Basic\";\n#load \"a.jai\";\nmain :: () { use_it(); }\n";
+
 const BOTH: &str =
     "#import \"Basic\";\n#load \"a.jai\";\n#load \"b.jai\";\nmain :: () { use_it(); }\n";
+
 const A: &str = "use_it :: () { x := helper(); print(\"%\\n\", x); }\n";
 const B: &str = "helper :: () -> int { return 1; }\n";
 
