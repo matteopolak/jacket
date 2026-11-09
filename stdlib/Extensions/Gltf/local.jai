@@ -63,7 +63,18 @@
 
             defer free(canonical);
 
-            if !begins_with(canonical, tprint("%/", base)) {
+            // Compare final paths on both sides: the asset folder may be a link, a short name or spelled with other separators.
+            root := File.file_get_canonical_path(base);
+
+            defer free(root);
+            contained := false;
+
+            if canonical.count && root.count {
+                inside := tprint("%/", plain_path(root));
+                contained = begins_with(plain_path(canonical), inside);
+            }
+
+            if !contained {
                 File.file_close(*file);
                 return "", false;
             }
@@ -139,5 +150,26 @@
         if c >= #char "a" && c <= #char "f" return c - #char "a" + 10;
         if c >= #char "A" && c <= #char "F" return c - #char "A" + 10;
         return -1;
+    }
+
+    #if OS == .WINDOWS {
+        // A final path from the file system as `/`-separated text without the `\\?\` prefix Windows adds, in temporary storage.
+        plain_path :: (path: string) -> string {
+            text := path;
+
+            if begins_with(text, "\\\\?\\UNC\\") {
+                text = tprint("\\\\%", slice(text, 8, text.count - 8));
+            } else if begins_with(text, "\\\\?\\") {
+                text = slice(text, 4, text.count - 4);
+            }
+
+            result := tprint("%", text);
+
+            for *result {
+                if it.* == #char "\\" it.* = #char "/";
+            }
+
+            return result;
+        }
     }
 }

@@ -37,7 +37,7 @@ asset, error := gltf_load(text, resolver);
 
 `gltf_local_resolve` is not available on wasm (it needs POSIX directory handles or a Windows file API). Everything else works there: `gltf_load`, `gltf_validate`, `gltf_write`, accessors, GLB and data URIs. On wasm pass a `Gltf_Resolver` of your own for external files, or none to accept only embedded data. Tests that read files (`tests/files.jai`, `tests/conformance.jai`) are skipped on wasm; the rest run under `jacket test --interp -- -os=wasm`.
 
-`gltf_local_resolve` decodes percent escapes, rejects absolute paths, schemes and NULs, and restricts files to the supplied folder. Unix lookups use directory descriptors and refuse symlinks and parent components. Windows checks the opened handle's canonical path.
+`gltf_local_resolve` decodes percent escapes, rejects absolute paths, schemes and NULs, and restricts files to the supplied folder. Unix lookups use directory descriptors and refuse symlinks and parent components. Windows checks the opened handle's final path against the asset folder's final path, ignoring the `\\?\` prefix and the separator style.
 
 ## Accessors and output
 

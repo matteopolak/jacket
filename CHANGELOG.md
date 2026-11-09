@@ -27,6 +27,7 @@
 
 ### Fixed
 
+- `Extensions/Gltf`: `gltf_local_resolve` loads files on Windows. Its containment check compared a `\\?\`-prefixed path with a `/` one and rejected every file.
 - `jacket test --path stdlib/Extensions/Protobuf` compiles in seconds again. A `json_name` with a control character made the generated Json note unreadable, so compiling reported an error for every message, and each report slowed the compiler further. Quoted note values in Args, Csv, Json and Toml accept `\uXXXX`.
 - A metaprogram that reads typechecked procedures no longer rescans every procedure for each message it receives, and reports from compile-time code no longer search all loaded files or lex the whole file each time.
 - `Extensions/Archive` and `Extensions/Gltf` compile and work on wasm for in-memory data. `write_archive` and `copy_entry` take an `Archive_Writer` instead of an `Io.Writer`; `gltf_local_resolve` and `extract` need a native file system.
