@@ -364,6 +364,8 @@ Anything reached through a pointer the lint can't resolve (a heap field a callee
 
 `use_after_free`, `double_free`, `returned_local_address`, `temp_storage_escape`, `pointer_into_resizable`, `remove_in_for` and `pointer_lifetime` share one engine over the checked control flow. They differ only in which storage they watch: heap blocks, stack frames, temporary storage, array buffers, element slots, workers. Each finding labels where the pointer came from and what invalidated it. Temporary-origin queries memoize shared value branches by value and traversal depth, preserving the existing depth bound while avoiding repeated exploration of the same branches.
 
+**Replaced fields.** What a body frees through a parameter's field depends on where it frees. `h.p = q; free(h.p);` frees `q`, the second argument, so a caller that still uses `q` is reported, while `free(h.p); h.p = q;` frees what `h.p` held on entry. A caller does not yet report a use of that old pointer when the call also replaces the field. Only a store in the same straight-line stretch as the free, with no call between, is followed; a free that a store may precede from another block still reads as the field's old value.
+
 **Must and strict.** By default (`must`) a rule fires only when every path invalidates. `strict` also reports "may" effects (growth only when full, conditional frees, sorts) and anything a foreign or unknown procedure could do to an argument it was given:
 
 ```toml

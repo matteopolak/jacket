@@ -102,6 +102,8 @@ impl Resolver<'_> {
                     {
                         let source = self.load_sources.get(&v)?;
                         self.trace(*source, summaries, visiting, depth + 1)?
+                    } else if let Some(source) = self.stored_loads.get(&v) {
+                        self.trace(*source, summaries, visiting, depth + 1)?
                     } else if !self.places.paths[*p].1.is_empty() {
                         self.location(*p, summaries, visiting, depth + 1)?
                             .append(&[Step::Deref])?

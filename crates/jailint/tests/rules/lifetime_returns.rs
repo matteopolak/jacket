@@ -49,3 +49,15 @@ fn lifetime_wrappers_return_aliases_or_fresh_storage() {
         );
     }
 }
+
+#[test]
+fn lifetime_field_replacement_orders_the_free_against_the_store() {
+    let path = repo().join("tests/lint/pointer_lifetime/resources/storage-versions.jai");
+    let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(
+        finding_procedures(&lints, &text),
+        ["unsafe_replacement"],
+        "{}",
+        rendered(&lints, &text, &path)
+    );
+}

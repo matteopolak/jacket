@@ -9,6 +9,8 @@ use std::rc::Rc;
 
 pub(in crate::rules) struct Core<'a> {
     pub(super) load_sources: HashMap<jaic::ir::Val, jaic::ir::Val>,
+    /// Loads of a field outside this body's own locals that read back the value just stored.
+    pub(super) stored_loads: HashMap<jaic::ir::Val, jaic::ir::Val>,
     pub(super) write_sources: HashMap<usize, jaic::ir::Val>,
     pub(super) nullable_sources: HashMap<usize, jaic::ir::Val>,
     // Calls in expansions can share both a callee SSA value and a source span.
@@ -39,6 +41,7 @@ impl<'a> Prepared<'a> {
         let mut places = Places::new(compiler, body);
         let mut core = Core {
             load_sources: HashMap::default(),
+            stored_loads: HashMap::default(),
             write_sources: HashMap::default(),
             nullable_sources: HashMap::default(),
             interfaces: interfaces::collect(body),

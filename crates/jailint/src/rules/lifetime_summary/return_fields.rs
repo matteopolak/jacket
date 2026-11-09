@@ -25,6 +25,7 @@ impl super::prepared::Core<'_> {
             })
             .collect();
         self.load_sources = ordered_load_sources(body, places, &self.write_sources, &self.owned);
+        self.stored_loads = stored_loads(body, places, &self.write_sources, &self.owned);
         let empty_descriptors: HashMap<_, _> = body
             .blocks
             .iter()
@@ -837,6 +838,110 @@ fn ordered_load_sources(
                 })
             {
                 result.insert(value, source);
+            }
+        }
+    }
+    result
+}
+
+/// A field of caller-owned memory (`h.storage` through a parameter) that is loaded after
+/// this body stored the only value it ever stores there, with nothing in between that could
+/// write memory. The load yields that value, not what the field held on entry.
+///
+/// ```jai
+/// replace_then_free :: (h: *Holder, new: *int) { h.storage = new; free(h.storage); }  // frees `new`
+/// free_then_replace :: (h: *Holder, new: *int) { free(h.storage); h.storage = new; }  // frees the old value
+/// ```
+fn stored_loads(
+    body: &super::LifetimeBody,
+    places: &super::Places,
+    unique: &HashMap<usize, Val>,
+    owned: &HashSet<usize>,
+) -> HashMap<Val, Val> {
+    let local = |place: usize| owned.contains(&places.root_of(place)) && !places.unresolved(place);
+    let outside = |place: usize| !local(place) && !places.paths[place].1.is_empty();
+    let mut result = HashMap::default();
+    for block in &body.blocks {
+        // The value last stored to each place since the block began.
+        let mut stored = HashMap::<usize, Val>::default();
+        for event in &block.events {
+            match *event {
+                Event::Store {
+                    place,
+                    value,
+                    ty,
+                    ..
+                } => match places.existing(place, ty) {
+                    Some(place) if outside(place) && unique.get(&place) == Some(&value) => {
+                        stored.insert(place, value);
+                    }
+                    Some(place) if local(place) => {}
+                    _ => stored.clear(),
+                },
+                Event::Load {
+                    place,
+                    value,
+                    ty,
+                    ..
+                } => {
+                    if let Some(place) = places.existing(place, ty)
+                        && let Some(&source) = stored.get(&place)
+                    {
+                        result.insert(value, source);
+                    }
+                }
+                Event::Expression {
+                    ..
+                }
+                | Event::Use {
+                    ..
+                }
+                | Event::Address {
+                    ..
+                }
+                | Event::Field {
+                    ..
+                }
+                | Event::Copy {
+                    ..
+                }
+                | Event::Offset {
+                    ..
+                }
+                | Event::IntegerBinary {
+                    ..
+                }
+                | Event::Index {
+                    ..
+                }
+                | Event::Borrow {
+                    ..
+                }
+                | Event::View {
+                    ..
+                }
+                | Event::Local {
+                    ..
+                }
+                | Event::Parameter {
+                    ..
+                }
+                | Event::ReadMemory {
+                    ..
+                }
+                | Event::EmptyDescriptor {
+                    ..
+                }
+                | Event::Procedure {
+                    ..
+                }
+                | Event::StatementEnd {
+                    ..
+                }
+                | Event::ScopeEnd {
+                    ..
+                } => {}
+                _ => stored.clear(),
             }
         }
     }
