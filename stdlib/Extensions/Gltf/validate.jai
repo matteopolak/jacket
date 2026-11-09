@@ -13,7 +13,12 @@
 gltf_validate :: (asset: *Gltf_Asset, options := Gltf_Options.{}) -> Gltf_Error {
     for validate: ((asset: *Gltf_Asset, options: Gltf_Options) -> Gltf_Error).[validate_storage, validate_layout, validate_hierarchy, validate_meshes, validate_resources, validate_animations, validate_cameras] {
         e := validate(asset, options);
-        if e.kind != .NONE return e;
+
+        if e.kind != .NONE {
+            array_free(asset.parents);
+            asset.parents = .{};
+            return e;
+        }
     }
 
     return .{};
@@ -131,10 +136,12 @@ validate_layout :: (asset: *Gltf_Asset, options: Gltf_Options) -> Gltf_Error {
 
 validate_hierarchy :: (asset: *Gltf_Asset, options: Gltf_Options) -> Gltf_Error {
     d := *asset.document;
-    parents: [..] s64;
 
-    array_resize(*parents, d.nodes.count);
-    defer array_free(parents);
+    // The parent index stays on the asset for gltf_node_world; gltf_validate drops it on failure.
+    array_free(asset.parents);
+    asset.parents = .{};
+    array_resize(*asset.parents, d.nodes.count);
+    parents := asset.parents;
     for *parents it.* = -1;
 
     for n, i: d.nodes {

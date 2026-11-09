@@ -95,6 +95,7 @@ Gltf_Resolver :: struct {
 Gltf_Asset :: struct {
     document: Gltf_Document;
     buffers: [..] string;
+    parents: [..] s64; // each node's parent, or -1; built by validation for [gltf_node_world]
 }
 
 // A position in an accessor's elements, for [gltf_next_floats] and [gltf_next_index]. Start one
@@ -276,7 +277,9 @@ gltf_load :: (bytes: string, resolver := Gltf_Resolver.{}, options := Gltf_Optio
 // ```
 gltf_free :: (asset: *Gltf_Asset) {
     for asset.buffers free(it);
+
     array_free(asset.buffers);
+    array_free(asset.parents);
     free_json(*asset.document);
     asset.* = .{};
 }
@@ -299,6 +302,7 @@ gltf_error_free :: (error: *Gltf_Error) {
 #load "schema.jai";
 #load "validate.jai";
 #load "accessor.jai";
+#load "transform.jai";
 #load "write.jai";
 #load "local.jai";
 
