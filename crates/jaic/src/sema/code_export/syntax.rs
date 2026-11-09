@@ -320,9 +320,8 @@ impl Exporter<'_> {
         }
         let mut f = c.scratch_ctx(self.scope);
         f.expression_code = Some(code);
-        let previous = std::mem::replace(&mut c.ed.type_probe, true);
-        let _ = c.check_expr(&mut f, self.scope, e, None);
-        c.ed.type_probe = previous;
+        let scope = self.scope;
+        let _ = c.probing_types(|c| c.check_expr(&mut f, scope, e, None));
     }
 
     pub(super) fn expr(&mut self, e: &ast::Expr) -> i64 {

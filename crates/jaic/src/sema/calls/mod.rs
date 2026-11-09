@@ -21,6 +21,7 @@ use super::{
 };
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::ir::Ty;
 use crate::macros::raw_enum;
 use crate::source::{Applicability, Suggestion};
@@ -504,27 +505,36 @@ impl Compiler {
         let mut args = args.to_vec();
         args[argument].op = None;
         args[argument].expr = None;
-        let previous = std::mem::replace(&mut self.ed.type_probe, true);
-        let result = (|| {
-            let (mut best, _) = self.rank_candidates(procs, &args, span);
-            self.order_candidates(&mut best);
+        self.probing_types(|this| {
+            let (mut best, _) = this.rank_candidates(procs, &args, span);
+            this.order_candidates(&mut best);
             let Some(first) = best.first() else {
                 return Vec::new();
             };
-            let rank = self.candidate_rank(first);
+            let rank = this.candidate_rank(first);
             let mut types = Vec::new();
             for candidate in &best {
-                if self.candidate_rank(candidate) != rank {
+                if this.candidate_rank(candidate) != rank {
                     break;
                 }
-                if let Ok(Some(ty)) = self.argument_param_type(candidate, argument, span)
+                if let Ok(Some(ty)) = this.argument_param_type(candidate, argument, span)
                     && !types.contains(&ty)
                 {
                     types.push(ty);
                 }
             }
             types
-        })();
+        })
+    }
+
+    /// Runs `probe` as a contextual type probe: it may inspect signatures and check
+    /// expressions but never executes compile-time code, and what it could not decide is not
+    /// an error of the program, so the editor keeps none of the errors it recorded.
+    pub(crate) fn probing_types<T>(&mut self, probe: impl FnOnce(&mut Self) -> T) -> T {
+        let previous = std::mem::replace(&mut self.ed.type_probe, true);
+        let recorded = self.ed.error_count();
+        let result = probe(self);
+        self.ed.forget_errors(recorded);
         self.ed.type_probe = previous;
         result
     }
