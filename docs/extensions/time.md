@@ -1,8 +1,8 @@
 # Time
 
 `#import "Extensions/Time"` declares civil dates, exact instants, explicit time
-zones and calendar-aware spans. Civil construction, calendar helpers, arithmetic
-and ISO text are implemented. Later phases supply exact instants, rule zones,
+zones and calendar-aware spans. Civil construction, calendar helpers, arithmetic, exact instants,
+fixed offsets and ISO text are implemented. Later phases supply rule zones,
 span differences and interop; declarations for those still return `UNSUPPORTED`.
 
 ## Concepts

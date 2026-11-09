@@ -222,13 +222,14 @@ date_time :: (year: s64, month: s64, day: s64, hour: s64 = 0, minute: s64 = 0, s
 // Validates seconds east of UTC, including historical second offsets.
 // Example: `o, error := offset(-14400)`.
 offset :: (seconds: s64) -> Offset, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if seconds < -93599 || seconds > 93599 return .{}, range_error();
+    return .{ cast(s32) seconds }, .{};
 }
 
 // Normalizes signed seconds and nanoseconds, checking representability.
 // Example: `d, error := signed_duration(1, -1)`.
 signed_duration :: (seconds: s64, nanoseconds: s64 = 0) -> Signed_Duration, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return duration_wide(wide_mul(seconds, NS) + to_s128(nanoseconds));
 }
 
 // Validates the single-sign invariant without balancing units.
@@ -520,7 +521,8 @@ span_to_duration :: (value: Span, relative: Zoned) -> Signed_Duration, Time_Erro
 // Converts clock units only; years, months, weeks and days are errors.
 // Example: `value, error := duration_from_span(value)`.
 duration_from_span :: (value: Span) -> Signed_Duration, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if calendar_nonzero(value) return .{}, .{ .RELATIVE_REQUIRED, "calendar units require a relative value", -1 };
+    return duration_wide(clock_ns(value));
 }
 
 // Reverses every field of a validated span.
@@ -543,49 +545,52 @@ span_abs :: (value: Span) -> Span {
 // Reads Basic.current_time_consensus and converts its Apollo epoch; no new clock path.
 // Example: `instant, error := timestamp_now()`.
 timestamp_now :: () -> Timestamp, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return timestamp_from_apollo(Basic.current_time_consensus());
 }
 
 // Converts signed Unix seconds, checking the UTC year range.
 // Example: `instant, error := timestamp_from_seconds(-1)`.
 timestamp_from_seconds :: (value: s64) -> Timestamp, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return timestamp_wide(wide_mul(value, NS));
 }
 
 // Converts signed Unix milliseconds, checking the UTC year range.
 // Example: `instant, error := timestamp_from_millis(-1)`.
 timestamp_from_millis :: (value: s64) -> Timestamp, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return timestamp_wide(wide_mul(value / 1000, NS) + wide_mul(value % 1000, NS / 1000));
 }
 
 // Converts signed Unix microseconds, checking the UTC year range.
 // Example: `instant, error := timestamp_from_micros(-1)`.
 timestamp_from_micros :: (value: s64) -> Timestamp, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return timestamp_wide(wide_mul(value / 1000000, NS) + wide_mul(value % 1000000, NS / 1000000));
 }
 
 // Converts signed Unix nanoseconds, checking the UTC year range.
 // Example: `instant, error := timestamp_from_nanos(-1)`.
 timestamp_from_nanos :: (value: s64) -> Timestamp, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return timestamp_wide(wide_mul(value / 1000000000, NS) + wide_mul(value % 1000000000, NS / 1000000000));
 }
 
 // Adds exact elapsed time with checked range and normalization.
 // Example: `instant, error := add(value, duration)`.
 add :: (value: Timestamp, amount: Signed_Duration) -> Timestamp, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return timestamp_wide(stamp_ns(value) + wide_mul(amount.seconds, NS) + to_s128(amount.nanoseconds));
 }
 
 // Adds clock units only; calendar units, including days, fail.
 // Example: `instant, error := add(value, Span.{hours = 24})`.
 add :: (value: Timestamp, amount: Span) -> Timestamp, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    d, e := duration_from_span(amount);
+    if e.kind != .NONE return .{}, e;
+    return timestamp_wide(stamp_ns(value) + wide_mul(d.seconds, NS) + to_s128(d.nanoseconds));
 }
 
 // Returns exact b minus a without calendar interpretation.
 // Example: `elapsed := duration_between(a, b)`.
 duration_between :: (a: Timestamp, b: Timestamp) -> Signed_Duration {
-    return .{};
+    q, r := wide_div(stamp_ns(b) - stamp_ns(a), NS);
+    return .{ narrow(q), cast(s32) r };
 }
 
 // Returns the allocation-free UTC zone.
@@ -597,7 +602,7 @@ time_zone_utc :: () -> Time_Zone {
 // Validates and constructs an allocation-free fixed-offset zone.
 // Example: `zone := time_zone_fixed(value)`.
 time_zone_fixed :: (value: Offset) -> Time_Zone {
-    return .{};
+    return .{ .FIXED, value, null };
 }
 
 // Loads and caches a safe IANA name; directory overrides TZDIR for deterministic fixtures.
@@ -637,25 +642,43 @@ time_zone_free :: (value: *Time_Zone) {}
 // Resolves the offset at an exact instant, using footer rules beyond stored transitions.
 // Example: `o := offset_at(zone, instant)`.
 offset_at :: (zone: Time_Zone, instant: Timestamp) -> Offset {
+    if zone.kind == .FIXED return zone.offset;
     return .{};
 }
 
 // Returns a zone-borrowed abbreviation for formatting and conformance.
 // Example: `text := abbreviation_at(zone, instant)`.
 abbreviation_at :: (zone: Time_Zone, instant: Timestamp) -> string {
-    return .{};
+    if zone.kind == .UTC return "UTC";
+    return "";
 }
 
 // Converts an instant in an explicit zone, rejecting civil range overflow.
 // Example: `wall := to_civil(zone, instant)`.
 to_civil :: (zone: Time_Zone, instant: Timestamp) -> Date_Time {
-    return .{};
+    seconds := instant.seconds + offset_at(zone, instant).seconds;
+    ns: s64 = instant.nanoseconds;
+
+    if ns < 0 {
+        seconds -= 1;
+        ns += NS;
+    }
+
+    return .{ civil_day(floor_div(seconds, 86400)), clock_from_ns(modulo(seconds, 86400) * NS + ns) };
 }
 
 // Resolves gaps/folds using the requested policy and checks UTC range.
 // Example: `instant, error := to_timestamp(zone, wall, .REJECT)`.
 to_timestamp :: (zone: Time_Zone, wall: Date_Time, disambiguation := Disambiguation.COMPATIBLE) -> Timestamp, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    d, e := date(wall.date.year, wall.date.month, wall.date.day);
+    if e.kind != .NONE return .{}, e;
+
+    t, te := time_of_day(wall.time.hour, wall.time.minute, wall.time.second, wall.time.nanosecond);
+    if te.kind != .NONE return .{}, te;
+
+    o := offset_at(zone, .{});
+
+    return timestamp_wide(wide_mul(date_days(d) * 86400 - o.seconds, NS) + to_s128(time_ns(t)));
 }
 
 // Starts a borrowed cursor strictly after instant (strictly before when reverse).
@@ -751,13 +774,38 @@ equal :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Off
 // Hashes semantic fields, never padding or rule pointers; equal values have equal hashes.
 // Example: `key := hash(value)`.
 hash :: (value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned]) -> u32 {
-    return 0;
+    h: u32 = 2166136261;
+
+    #if T == Date {
+        h = hash_part(h, value.year);
+        h = hash_part(h, value.month);
+        h = hash_part(h, value.day);
+    } else #if T == Time_Of_Day {
+        h = hash_part(h, time_ns(value));
+    } else #if T == Date_Time {
+        h = hash_part(h, hash(value.date));
+        h = hash_part(h, hash(value.time));
+    } else #if T == Timestamp || T == Signed_Duration {
+        h = hash_part(h, value.seconds);
+        h = hash_part(h, value.nanoseconds);
+    } else #if T == Offset {
+        h = hash_part(h, value.seconds);
+    } else #if T == Zoned {
+        return hash(value.timestamp);
+    } else {
+        h = hash_part(h, cast(s64) value.kind);
+    }
+
+    return h;
 }
 
 // Converts the Apollo epoch, rejecting subnanosecond precision instead of discarding it.
 // Example: `instant, error := timestamp_from_apollo(Basic.APOLLO_TIME_FOR_JAN_1_1970)`.
 timestamp_from_apollo :: (value: Basic.Apollo_Time) -> Timestamp, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    delta := cast(S128) value - cast(S128) Basic.APOLLO_TIME_FOR_JAN_1_1970;
+    q, r := wide_div(delta, 1000000);
+    if r != 0 return .{}, .{ .INVALID_VALUE, "subnanosecond Apollo precision", -1 };
+    return timestamp_wide(q);
 }
 
 // Converts a validated instant to Basic's femtosecond Apollo representation.
@@ -809,6 +857,21 @@ parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error 
         v := read_wall(*r);
         if r.error.kind == .NONE && r.at != text.count text_fail(*r);
         return v, r.error;
+    } else #if T == Offset {
+        v := read_offset(*r);
+        if r.error.kind == .NONE && r.at != text.count text_fail(*r);
+        return v, r.error;
+    } else #if T == Timestamp {
+        wall := read_wall(*r);
+        o := read_offset(*r);
+
+        if r.error.kind == .NONE && r.at != text.count text_fail(*r);
+        if r.error.kind != .NONE return .{}, r.error;
+
+        v, e := to_timestamp(time_zone_fixed(o), wall);
+        if e.kind != .NONE e.offset = r.at;
+
+        return v, e;
     } else {
         return .{}, .{ .UNSUPPORTED, "format not implemented yet", 0 };
     }
@@ -843,6 +906,24 @@ format :: (builder: *String_Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, 
         if e.kind != .NONE return e;
         append(builder, "T");
         return format(builder, value.time);
+    } else #if T == Offset {
+        seconds: s64 = value.seconds;
+
+        append(builder, ifx seconds < 0 then "-" else "+");
+        if seconds < 0 seconds = -seconds;
+
+        digits(builder, seconds / 3600, 2);
+        append(builder, ":");
+        digits(builder, seconds / 60 % 60, 2);
+
+        if seconds % 60 != 0 {
+            append(builder, ":");
+            digits(builder, seconds % 60, 2);
+        }
+    } else #if T == Timestamp {
+        e := format(builder, to_civil(time_zone_utc(), value));
+        if e.kind != .NONE return e;
+        append(builder, "Z");
     } else {
         return .{ .UNSUPPORTED, "format not implemented yet", -1 };
     }
@@ -1154,4 +1235,69 @@ fraction :: (b: *String_Builder, ns: s64) {
 
     append(b, ".");
     digits(b, v, width);
+}
+
+hash_part :: (h: u32, v: s64) -> u32 #no_aoc {
+    r := h;
+    n := cast,no_check(u64) v;
+
+    for 0..7 {
+        r = (r ^ cast,trunc(u32) n) * 16777619;
+        n >>= 8;
+    }
+
+    return r;
+}
+
+stamp_ns :: (v: Timestamp) -> S128 {
+    return wide_mul(v.seconds, NS) + to_s128(v.nanoseconds);
+}
+
+duration_wide :: (v: S128) -> Signed_Duration, Time_Error {
+    q, r := wide_div(v, NS);
+    if q < to_s128(MIN_I64) || q > to_s128(MAX_I64) return .{}, range_error();
+    return .{ narrow(q), cast(s32) r }, .{};
+}
+
+timestamp_wide :: (v: S128) -> Timestamp, Time_Error {
+    lo := wide_mul(date_days(.{ -9999, 1, 2 }) * 86400 + 7199, NS);
+    hi := wide_mul(date_days(.{ 9999, 12, 30 }) * 86400 + 79200, NS);
+
+    if v < lo || v > hi return .{}, range_error();
+
+    q, r := wide_div(v, NS);
+
+    return .{ narrow(q), cast(s32) r }, .{};
+}
+
+read_offset :: (r: *Text_Reader) -> Offset {
+    c := peek(r);
+    if c == 90 || c == 122 {
+        r.at += 1;
+        return .{};
+    }
+
+    if c != 43 && c != 45 {
+        text_fail(r);
+        return .{};
+    }
+
+    r.at += 1;
+    h := read_number(r, 2);
+
+    expect_byte(r, 58);
+    m := read_number(r, 2);
+    sec: s64;
+
+    if peek(r) == 58 {
+        r.at += 1;
+        sec = read_number(r, 2);
+    }
+
+    if m > 59 || sec > 59 text_fail(r, .INVALID_VALUE, "invalid offset component");
+
+    v, e := offset((h * 3600 + m * 60 + sec) * (ifx c == 45 then -1 else 1));
+    if e.kind != .NONE text_fail(r, e.kind, e.message);
+
+    return v;
 }
