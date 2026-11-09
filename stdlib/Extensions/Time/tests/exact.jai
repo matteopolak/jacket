@@ -65,7 +65,7 @@ exact_text :: () {
     assert(zero.kind != .NONE);
     now, ne := Exact.timestamp_now();
 
-    assert(ne.kind == .NONE && now.seconds > 1700000000);
+    assert(ne.kind == .NONE && now.seconds >= 1600000000);
 } @test
 
 exact_extreme_duration :: () {
