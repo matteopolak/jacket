@@ -12,7 +12,7 @@ free :: (using subtitles: *Subtitles) {
     if data_owned && data.data != null Basic.free(data);
 
     subtitles.* = .{};
-} @FreesArgument
+}
 
 // Reads and parses a subtitle file. Returns false when it cannot be read or is malformed; the
 // problem is reported through the log. Free the result with `free`.
