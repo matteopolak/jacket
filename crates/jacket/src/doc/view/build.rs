@@ -941,17 +941,22 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
     let own = blocks_at(site, &item.docs, &from, 1);
     let (file, line) = docs_place(item);
     let lead_owner = lead(&own).is_some();
-    let summary_segs = if lead_owner {
-        own.clone()
+    let leads: Vec<_> = item
+        .overloads
+        .iter()
+        .map(|o| lead(&blocks(site, &o.docs, &from)).map(|(_, h)| h))
+        .collect();
+    let summary_html = if lead_owner {
+        lead(&own).map_or_else(String::new, |(_, h)| h)
     } else {
-        item.overloads
-            .first()
-            .map_or_else(Vec::new, |o| blocks(site, &o.docs, &from))
+        leads.first().cloned().flatten().unwrap_or_default()
     };
-    let summary_html = lead(&summary_segs).map_or_else(String::new, |(_, h)| h);
-    // A lone overload's lead is the page's summary and its card shows the rest; with several, the
-    // summary is a copy of the first one's lead and no card loses text.
-    let single = item.kind == Kind::Procedure && item.overloads.len() == 1 && !lead_owner;
+    // When every overload opens with the same lead it becomes the page's summary and leaves the
+    // cards; when they differ each card keeps its own and the page shows none, so nothing repeats.
+    let lifted = item.kind == Kind::Procedure
+        && !lead_owner
+        && leads.first().is_some_and(Option::is_some)
+        && leads.iter().all(|l| *l == leads[0]);
     let skip = if lead_owner {
         lead(&own).map(|(i, _)| i)
     } else {
@@ -968,7 +973,7 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
     if item.kind == Kind::Procedure {
         let labels = super::super::site::overload_labels(item);
         for (n, o) in item.overloads.iter().enumerate() {
-            overload_views.push(overload(site, mi, item, n, o, n == 0 && single));
+            overload_views.push(overload(site, mi, item, n, o, lifted));
             if item.overloads.len() > 1 {
                 anchors.push(Link {
                     href: format!("#o{}", n + 1),
@@ -1071,7 +1076,11 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
                 source_url: site.source_url(file, line),
                 mono: true,
             },
-            summary_html,
+            summary_html: if lead_owner || lifted || item.kind != Kind::Procedure {
+                summary_html
+            } else {
+                String::new()
+            },
             docs: segments(site, m, file, line, &remaining),
             overloads: overload_views,
             private: false,

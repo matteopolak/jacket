@@ -638,7 +638,7 @@ fn overloads_with_different_docs_each_keep_their_whole_text() {
         "Goes one way.\n\nAlso stops.",
         "Goes the other way.\n\nAlso waits.",
     ]));
-    assert!(summary.contains("Goes one way."), "{summary}");
+    assert!(summary.is_empty(), "{summary}");
     for (card, words) in cards
         .iter()
         .zip([["one way", "stops"], ["other way", "waits"]])
@@ -646,6 +646,18 @@ fn overloads_with_different_docs_each_keep_their_whole_text() {
         for word in words {
             assert!(card.contains(word), "{word} missing from {card}");
         }
+    }
+}
+
+#[test]
+fn overloads_that_share_a_lead_lift_it_to_the_page() {
+    let (summary, cards) = item_parts(&procedure_site(&[
+        "Goes.\n\nOne way.",
+        "Goes.\n\nThe other way.",
+    ]));
+    assert!(summary.contains("Goes."), "{summary}");
+    for (card, word) in cards.iter().zip(["One way.", "The other way."]) {
+        assert!(!card.contains("Goes.") && card.contains(word), "{cards:?}");
     }
 }
 
