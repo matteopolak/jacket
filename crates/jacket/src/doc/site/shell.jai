@@ -70,7 +70,7 @@ Header :: (out: *Out, site: *Site_View, path: string = "", label: string = "Modu
     html(out, #run trim(#string HTML
 <header class="top"><div class="top-in">
 <a class="logo" href="{cast(Html) site.base}" aria-label="{esc(site.name)} API documentation">{LogoImage(site)}<span class="wordmark">{esc(site.name)}</span></a>
-<button type="button" id="modules-btn" class="modules-btn js-only" aria-expanded="false" aria-controls="side">{esc(label)}</button>
+<button type="button" id="modules-btn" class="modules-btn js-only" aria-expanded="false" aria-controls="side"><span class="modules-label">{esc(label)}</span><svg aria-hidden="true" width="12" height="12"><use href="{esc(site.icons_url)}#chevron"/></svg></button>
 <div class="search-wrap js-only">
 <label class="sr" for="search-q">Search the docs</label>
 <div class="search"><svg aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#search"/></svg><input id="search-q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list"><kbd>/</kbd></div>

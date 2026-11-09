@@ -104,7 +104,6 @@
   function setupDrawer(drawer) {
     var button = document.getElementById('modules-btn');
     var wideQuery = matchMedia('(min-width: 900px)');
-    var header = document.querySelector('.top');
     var modal = function () {
       return drawer.matches(':modal');
     };
@@ -115,9 +114,6 @@
     };
     var open = function () {
       if (modal() || wideQuery.matches) return;
-      // The drawer starts under the header, which stays in view above the dimmed page.
-      var top = header ? Math.max(0, Math.round(header.getBoundingClientRect().bottom)) : 0;
-      drawer.style.setProperty('--drawer-top', top + 'px');
       if (drawer.open) drawer.close();
       drawer.showModal();
       lock(true);
@@ -1499,7 +1495,7 @@
     var words = label && label.getAttribute('aria-label');
     if (words) {
       rail.setAttribute('aria-label', words);
-      var opener = document.getElementById('modules-btn');
+      var opener = document.querySelector('#modules-btn .modules-label');
       if (opener) opener.textContent = words;
     }
     nav.replaceWith(next);

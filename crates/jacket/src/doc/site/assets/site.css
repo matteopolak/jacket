@@ -623,19 +623,30 @@ body > .wrap {
 .modules-btn {
   display: none;
   align-items: center;
-  height: 36px;
-  padding: 0 12px;
+  gap: 4px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
   font: inherit;
-  font-weight: 600;
-  color: var(--fg);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 6px;
   cursor: pointer;
 }
 
+.modules-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modules-btn:hover,
 .modules-btn[aria-expanded='true'] {
-  border-color: var(--link);
+  color: var(--fg);
+  background: var(--surface);
 }
 
 .nav-h {
@@ -2029,19 +2040,35 @@ a.btn:hover {
     display: inline-flex;
   }
 
-  /* The drawer: a modal dialog from the left edge, under the header, over a dimmed page. */
+  /* The drawer: a full-width sheet that rises from the bottom over a dimmed, blurred page. */
   .side:modal {
     position: fixed;
-    inset: var(--drawer-top, 0) auto 0 0;
-    width: min(320px, 86vw);
+    inset: auto 0 0;
+    width: 100%;
     max-width: none;
     height: auto;
-    max-height: none;
-    padding: 12px 12px 24px 16px;
+    max-height: 85dvh;
+    padding: 8px 16px calc(24px + env(safe-area-inset-bottom));
     overflow-y: auto;
     overscroll-behavior: contain;
     background: var(--bg);
-    border-right: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 32px rgb(0 0 0 / 25%);
+  }
+
+  /* A grab handle that stays at the top while the list scrolls, so the sheet reads as one. */
+  .side:modal::before {
+    content: '';
+    position: sticky;
+    top: -8px;
+    z-index: 1;
+    display: block;
+    height: 24px;
+    margin: -8px -16px 4px;
+    background:
+      linear-gradient(var(--border), var(--border)) center / 36px 4px no-repeat,
+      var(--bg);
   }
 
   .side:modal > nav {
@@ -2050,7 +2077,8 @@ a.btn:hover {
   }
 
   .side::backdrop {
-    background: rgb(0 0 0 / 45%);
+    background: rgb(0 0 0 / 40%);
+    backdrop-filter: blur(3px);
   }
 
   html.drawer-open {
@@ -2069,7 +2097,7 @@ a.btn:hover {
 
   @keyframes drawer-in {
     from {
-      transform: translateX(-100%);
+      transform: translateY(100%);
     }
   }
 
