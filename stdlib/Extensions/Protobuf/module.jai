@@ -151,14 +151,14 @@ merge :: (value: *$T, bytes: [] u8, options := Decode_Options.{}) -> Error {
 // Releases a decoded message recursively and resets it; safe to call twice.
 free :: (value: *$T) {
     T.proto_free(value);
-} @FreesArgument
+}
 
 // Releases the error path and resets the error; safe to call twice.
 free :: (error: *Error) {
     Basic.free(error.path);
     Basic.free(error.message);
     error.* = .{};
-} @FreesArgument
+}
 
 // Deep equality of generated messages, including preserved unknown bytes.
 equal :: (a: $T, b: T) -> bool {
