@@ -448,6 +448,30 @@ impl Compiler {
         self.ide_narrow_decls(spans)
     }
 
+    /// The procedures the plain name `name` has in `scope` by ordinary lookup (an alias of a
+    /// procedure is that procedure), as the name spans `ide_definition` gives; empty when the
+    /// name is anything else or nothing. A check on go-to-definition for calls that does not
+    /// use the references the compile recorded.
+    pub fn ide_scope_procs(&mut self, scope: ScopeId, name: Sym) -> Vec<Span> {
+        let Ok(Found::Entities(ids)) = self.lookup_full(scope, name) else {
+            return Vec::new();
+        };
+        let mut spans = Vec::new();
+        for id in ids {
+            let procs = match self.resolve_entity(id) {
+                Ok(Resolved::Proc(p)) => vec![p],
+                Ok(Resolved::ProcSet(ps)) => ps,
+                _ => return Vec::new(),
+            };
+            spans.extend(
+                procs
+                    .into_iter()
+                    .map(|p| (self.proc(p).span, self.proc(p).name.to_string())),
+            );
+        }
+        self.ide_narrow_decls(spans)
+    }
+
     /// `[Ring.items]` where `Ring` is a polymorphic struct: a parameter or a declaration of its
     /// body, found in its source, so it resolves whether or not the program instantiates it.
     fn ide_poly_struct_member(&mut self, scope: ScopeId, path: &[Sym], name: Sym) -> Vec<Span> {

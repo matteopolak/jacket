@@ -632,6 +632,61 @@ impl Analysis {
             .collect()
     }
 
+    /// The procedures the scope at `offset` gives the bare name written there, by an ordinary
+    /// scope lookup that does not use the compile's recorded references: an independent answer
+    /// to compare `definition` with. `None` when the position is not a plain name the compile
+    /// resolved to a declaration (a member, a module's name, a built-in, a qualified name).
+    /// Empty when the name is not a procedure.
+    pub fn scope_procedures(
+        &mut self,
+        path: &Path,
+        offset: usize,
+    ) -> Option<Vec<(String, Arc<str>, usize, usize)>> {
+        let file = self.file(path)?;
+        let text = self.compiler.src.sources.try_get(file)?.text.clone();
+        let bytes = text.as_bytes();
+        let word = |b: u8| b == b'_' || b.is_ascii_alphanumeric();
+        if !bytes.get(offset).copied().is_some_and(word) {
+            return None;
+        }
+        let start = (0..=offset).rev().take_while(|&i| word(bytes[i])).last()?;
+        let end = (offset..bytes.len())
+            .take_while(|&i| word(bytes[i]))
+            .last()?
+            + 1;
+        // A qualified name (`a.b`, `Module.name`) is not a scope lookup.
+        let before = bytes[..start]
+            .iter()
+            .rposition(|b| !b.is_ascii_whitespace());
+        if before.is_some_and(|i| bytes[i] == b'.') {
+            return None;
+        }
+        let facts = self.compiler.ed.facts()?;
+        let recorded = facts.refs_at(file, offset as u32);
+        let declared = !recorded.is_empty()
+            && recorded.iter().all(|r| {
+                !r.decl
+                    && matches!(
+                        r.what,
+                        jaic::ide::IdeWhat::Entity(_)
+                            | jaic::ide::IdeWhat::Procs(_)
+                            | jaic::ide::IdeWhat::Type(_)
+                    )
+            });
+        if !declared || self.compiler.ide_builtin_reference(file, offset as u32) {
+            return None;
+        }
+        let scope = self.compiler.ide_scope_at(file, offset as u32)?;
+        let name = jaic::intern::Sym::intern(&text[start..end]);
+        let spans = self.compiler.ide_scope_procs(scope, name);
+        Some(
+            spans
+                .into_iter()
+                .filter_map(|span| self.location(span))
+                .collect(),
+        )
+    }
+
     /// The members of the enum an inferred `.NAME` at `offset` is expected to be.
     pub fn complete_inferred(&mut self, path: &Path, offset: usize) -> Option<Vec<IdeName>> {
         let file = self.file(path)?;

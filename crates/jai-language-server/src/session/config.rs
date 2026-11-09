@@ -123,6 +123,36 @@ impl Session {
             .is_some_and(|(builtin, _)| builtin))
     }
 
+    /// The procedures a plain scope lookup gives the name at `position`, independent of the
+    /// references the compile recorded (see `Analysis::scope_procedures`), as `(file URI,
+    /// start position)`. `None` when the position is not a name that lookup applies to.
+    /// Coverage tools compare it with `definition`.
+    pub fn semantic_scope_targets(
+        &self,
+        uri: &DocumentUri,
+        position: crate::Position,
+    ) -> Result<Option<Vec<(String, crate::Position)>>, Error> {
+        let doc = self.document(uri)?;
+        let byte = doc.index.byte(&doc.text, position);
+        let found = self
+            .with_semantic_at(uri, &doc.text, byte, |analysis, path, at| {
+                analysis.scope_procedures(path, at)
+            })
+            .map(|(found, _)| found);
+        Ok(found.map(|found| {
+            found
+                .into_iter()
+                .filter_map(|(path, text, start, _)| {
+                    let target = self.client_uri(Path::new(&path))?;
+                    let at = crate::position::LineIndex::new(&text)
+                        .position(&text, start)
+                        .ok()?;
+                    Some((target.as_str().to_string(), at))
+                })
+                .collect()
+        }))
+    }
+
     /// Queue a message for the user (`window/showMessage`), sent once.
     pub fn notify(&self, message: String) {
         self.index.borrow_mut().notify(message);

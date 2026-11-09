@@ -468,3 +468,37 @@ fn hover_of_a_pointer_constant_leaves_out_its_address() {
         "NONE :: *void = null"
     );
 }
+
+/// What the compile recorded for a call and what a plain scope lookup finds for the same name
+/// agree: the cross-check `examples/ide_coverage.rs` runs at every name.
+#[test]
+fn definition_of_a_call_is_what_the_scope_lookup_finds() {
+    let text = r#"#import "Basic";
+size :: (v: int) -> int { return v; }
+size :: (v: string) -> int { return v.count; }
+area :: size;
+main :: () {
+    a := size(1);
+    b := area("x");
+    print("%\n", a + b);
+}
+"#;
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    for needle in ["size(1", "area(\"", "print("] {
+        let at = at_nth(text, needle, 0, 0);
+        let scope = s.semantic_scope_targets(&uri(), at).unwrap();
+        let scope = scope.unwrap_or_else(|| panic!("{needle}: not a plain name"));
+        assert!(!scope.is_empty(), "{needle}: scope found no procedure");
+        let definitions = s.definition(&uri(), at).unwrap();
+        assert!(!definitions.is_empty(), "{needle}: no definition");
+        for target in &definitions {
+            assert!(
+                scope.iter().any(|(uri, p)| *uri == target.uri.as_str()
+                    && p.line == target.range.start.line
+                    && p.character == target.range.start.character),
+                "{needle}: {target:?} not in {scope:?}"
+            );
+        }
+    }
+}

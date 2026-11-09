@@ -630,6 +630,21 @@ impl Audit {
                     .collect::<Vec<_>>();
                 wrong = !report::definitions_match(&expected, &definitions);
             }
+            // The compiler's own scope lookup for the plain name must agree: every target
+            // `definition` gives is among what the scope gives that name.
+            if !wrong
+                && !definitions.is_empty()
+                && let Ok(Some(scope)) = session.semantic_scope_targets(uri, at)
+                && !scope.is_empty()
+            {
+                wrong = !definitions.iter().all(|target| {
+                    scope.iter().any(|(uri, at)| {
+                        *uri == target.uri
+                            && at.line == target.line
+                            && at.character == target.character
+                    })
+                });
+            }
             if hover && definition && !wrong {
                 continue;
             }
