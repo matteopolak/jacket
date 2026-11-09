@@ -701,6 +701,10 @@ fn names_a_type_binds_for_itself_are_not_references() {
         [vec!["Flags"], vec!["void"]]
     );
     assert_eq!(
+        type_paths("(items: ..Item, flags: Flags = .NONE)"),
+        [vec!["Item"], vec!["Flags"]]
+    );
+    assert_eq!(
         type_paths("Table(key = Key, $V, V)"),
         [vec!["Table"], vec!["Key"]]
     );

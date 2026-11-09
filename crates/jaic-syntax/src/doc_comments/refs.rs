@@ -75,8 +75,8 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
         }
         let baked = i > 0 && chars[i - 1] == '$';
         let first = i;
-        // `.NONE` is a member of a type the context knows, not a name of its own.
-        let leading_dot = i > 0 && chars[i - 1] == '.';
+        // `.NONE` is a member of a type the context knows, not a name of its own; `..T` is variadic.
+        let leading_dot = i > 0 && chars[i - 1] == '.' && !(i > 1 && chars[i - 2] == '.');
         let mut path = Vec::new();
         loop {
             let start = i;
