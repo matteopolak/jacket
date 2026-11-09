@@ -42,3 +42,32 @@ zip64_count :: (t: *Test) {
     expect(a.entries.count == items.count);
     free_archive(*a);
 } @test @timeout(60)
+
+collect_bytes :: (data: *void, bytes: [] u8) -> bool {
+    out := cast(*[..] u8) data;
+    for bytes array_add(out, it);
+    return true;
+}
+
+// A caller's own sink works on every target, wasm included.
+custom_sink :: (t: *Test) {
+    items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "streamed", method = .DEFLATE }];
+
+    for format: Archive_Format.[.ZIP, .TAR, .TAR_GZIP] {
+        out: [..] u8;
+        error := write_archive(Archive_Writer.{ data = *out, write_proc = collect_bytes }, items, format);
+
+        require(error.kind == .NONE);
+        archive, failure := read_archive(.{ out.count, out.data }, format);
+
+        require(failure.kind == .NONE);
+        copied: [..] u8;
+
+        error = copy_entry(*archive, 0, Archive_Writer.{ data = *copied, write_proc = collect_bytes });
+
+        expect(error.kind == .NONE && cast(string) (cast([] u8) copied) == "streamed");
+        free_archive(*archive);
+        array_free(copied);
+        array_free(out);
+    }
+} @test

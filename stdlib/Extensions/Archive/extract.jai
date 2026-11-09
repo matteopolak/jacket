@@ -73,7 +73,7 @@ extract :: (a: *Archive, dest_dir: string, limits := Archive_Limits.{}) -> Archi
                     fd := Posix.openat(parent, component, Posix.O_WRONLY | Posix.O_CREAT | Posix.O_EXCL | Posix.O_NOFOLLOW | Posix.O_CLOEXEC, cast(u32) 420);
                     if fd < 0 return problem(.IO, "cannot create extraction file", e.offset, e.name);
 
-                    error := copy_entry(a, i, Io.Writer.{ data = *fd, write_proc = extraction_write });
+                    error := copy_entry(a, i, Archive_Writer.{ data = *fd, write_proc = extraction_write });
 
                     Posix.close(fd);
                     if error.kind != .NONE return error;
@@ -91,11 +91,18 @@ extract :: (a: *Archive, dest_dir: string, limits := Archive_Limits.{}) -> Archi
 #if OS == .MACOS || OS == .LINUX {
     Posix :: #import "POSIX";
 
-    extraction_write :: (data: *void, bytes: [] u8) -> s64, Io.Io_Error {
+    extraction_write :: (data: *void, bytes: [] u8) -> bool {
         fd := cast(*s32) data;
-        n := Posix.write(fd.*, bytes.data, cast(u64) bytes.count);
-        if n <= 0 return 0, .OTHER;
-        return n, .NONE;
+        at: s64;
+
+        while at < bytes.count {
+            n := Posix.write(fd.*, bytes.data + at, cast(u64) (bytes.count - at));
+            if n <= 0 return false;
+
+            at += n;
+        }
+
+        return true;
     }
 }
 

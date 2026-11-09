@@ -25,13 +25,19 @@ ZIP parsing follows the central directory, checks local names, sizes, CRC fields
 
 TAR supports ustar prefixes, pax `path`, `linkpath`, `size`, and fractional `mtime`, and GNU long names and links. Unknown pax keys are ignored except GNU sparse keys, which are rejected. An empty pax value deletes the keyword: in a global header it forgets the earlier global value, in a local header it also hides the global value for that entry, so the header block field is used. Header-only links, directories, and device entries do not consume a declared payload. Special files can be listed but cannot be extracted. Writers emit ustar and use pax for long paths and large sizes; long link targets and timestamps outside the ustar range are rejected. Global pax values apply to subsequent entries. Empty-value keyword deletion is not modeled; empty numeric overrides are rejected.
 
-`read_entry` verifies ZIP CRC and exact decoded size. Stored byte-view entries borrow input without copying; seekable-source entries allocate only their payload. `copy_entry` sends stored data to an `Extensions/Io.Writer` in 64 KiB pieces. DEFLATE currently buffers a bounded compressed and decoded entry because Deflate has no incremental public codec. Gzip TAR buffers the bounded decoded container. This is not a complete incremental streaming codec.
+`read_entry` verifies ZIP CRC and exact decoded size. Stored byte-view entries borrow input without copying; seekable-source entries allocate only their payload. `copy_entry` sends stored data to an `Archive_Writer` in 64 KiB pieces. DEFLATE currently buffers a bounded compressed and decoded entry because Deflate has no incremental public codec. Gzip TAR buffers the bounded decoded container. This is not a complete incremental streaming codec.
 
-`write_archive` writes to an Io sink without seeking and uses ZIP data descriptors. Its inputs are byte views; it buffers one compressed entry and the central directory. `encode_archive` additionally buffers the output and returns caller-owned bytes. Release those bytes with `free(bytes.data)`. `free_archive` releases indexes, entry results, and error entry names. Error messages are static; error entry names are owned copies.
+`write_archive` writes to an `Archive_Writer` without seeking and uses ZIP data descriptors. Its inputs are byte views; it buffers one compressed entry and the central directory. `encode_archive` additionally buffers the output and returns caller-owned bytes. Release those bytes with `free(bytes.data)`. `free_archive` releases indexes, entry results, and error entry names. Error messages are static; error entry names are owned copies.
+
+`Archive_Writer` is a pointer plus a `write_proc(data, bytes) -> bool`, so it needs no I/O layer. To write to an `Extensions/Io` file or socket, forward to `Io.write` from your own `write_proc` (example in the `Archive_Writer` docs).
+
+## WebAssembly
+
+Everything on byte buffers works on wasm: reading, `read_entry`, `copy_entry`, `encode_archive` and `write_archive` with your own `Archive_Writer`, for ZIP, TAR and gzip TAR. `extract` compiles but returns `UNSUPPORTED`, as on Windows, because it needs POSIX directory handles. Tests that touch files (`tests/extraction.jai`, `tests/conformance.jai`, `tests/io-writer.jai`) are skipped on wasm; everything else runs under `jacket test --interp -- -os=wasm`.
 
 ## Safe extraction
 
-`extract(*archive, dest_dir, limits)` requires an existing destination directory. On macOS and Linux it pins directory descriptors and uses `openat` with `O_NOFOLLOW`; created files use `O_EXCL`. Existing files are never replaced. Existing symlinks cannot redirect traversal. Other operating systems return `UNSUPPORTED` before writing.
+`extract(*archive, dest_dir, limits)` requires an existing destination directory. On macOS and Linux it pins directory descriptors and uses `openat` with `O_NOFOLLOW`; created files use `O_EXCL`. Existing files are never replaced. Existing symlinks cannot redirect traversal. Other operating systems, wasm included, return `UNSUPPORTED` before writing.
 
 All archive symlinks, hardlinks, and special files are rejected. Preflight rejects absolute paths, backslashes and UNC paths, colons and drive letters, NULs, `..` components, duplicate normalized paths, and files used as parent directories. It checks the supplied extraction limits again before creating anything. Failures name the entry when one is known. Extraction may leave earlier files or a partial current file; use a new destination and discard it on failure. It does not recursively unpack nested archives.
 
@@ -56,7 +62,7 @@ The pinned download contains [Go's ZIP/TAR fixture directories](https://github.c
 
 ## Dependencies
 
-Archive uses `Extensions/Deflate` for raw DEFLATE, gzip and CRC-32, `Extensions/Hash_Map` for extraction preflight, `Extensions/Io` for output sinks, `Unicode` for strict UTF-8, and `Sort` for overlap validation. Safe extraction uses POSIX directory-relative filesystem operations. Python's standard library and `tools/toolkit/download.py` supply conformance fetching, differential validation, and benchmark comparison.
+Archive uses `Extensions/Deflate` for raw DEFLATE, gzip and CRC-32, `Extensions/Hash_Map` for extraction preflight, `Unicode` for strict UTF-8, and `Sort` for overlap validation. Safe extraction uses POSIX directory-relative filesystem operations. Python's standard library and `tools/toolkit/download.py` supply conformance fetching, differential validation, and benchmark comparison.
 
 Run benchmarks with `jacket bench --path stdlib/Extensions/Archive`. Cases live in `benches/`; setup precedes `reset_timer`, and inputs/results use `black_box`.
 Prepare the shared ZIP/TAR payloads with `PYTHONPATH=tools python3 tools/portable/build_portable.py data`. Indexing and extraction are separate cases; extraction includes removing its output after each sample.

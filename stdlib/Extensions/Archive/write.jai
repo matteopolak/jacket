@@ -1,7 +1,7 @@
 // Encodes entries into an owned byte buffer. Example: bytes, e := encode_archive(items, .ZIP);
 encode_archive :: (items: [] Archive_Item, format: Archive_Format, limits := Archive_Limits.{}) -> [] u8, Archive_Error {
     buffer: Archive_Buffer;
-    error := write_archive(Io.Writer.{ data = *buffer, write_proc = buffer_write }, items, format, limits);
+    error := write_archive(Archive_Writer.{ data = *buffer, write_proc = buffer_write }, items, format, limits);
 
     if error.kind != .NONE {
         array_free(buffer.bytes);
@@ -11,9 +11,9 @@ encode_archive :: (items: [] Archive_Item, format: Archive_Format, limits := Arc
     return .{ buffer.bytes.count, buffer.bytes.data }, .{};
 }
 
-// Writes to an Io sink without seeking; ZIP uses data descriptors. Deflate buffers one entry.
-// Example: error := write_archive(Io.writer_of(*file), items, .ZIP);
-write_archive :: (writer: Io.Writer, items: [] Archive_Item, format: Archive_Format, limits := Archive_Limits.{}) -> Archive_Error {
+// Writes to a sink without seeking; ZIP uses data descriptors. Deflate buffers one entry.
+// Example: error := write_archive(sink, items, .ZIP);
+write_archive :: (writer: Archive_Writer, items: [] Archive_Item, format: Archive_Format, limits := Archive_Limits.{}) -> Archive_Error {
     if !valid_limits(limits) || items.count > limits.max_entries return problem(.LIMIT, "invalid limits or entry count");
 
     total: s64;
@@ -50,8 +50,7 @@ write_archive :: (writer: Io.Writer, items: [] Archive_Item, format: Archive_For
         defer free(gzip.data);
         if gzip.count > limits.max_archive return problem(.LIMIT, "archive output limit");
 
-        _, failure := Io.write(writer, gzip);
-        if failure != .NONE return problem(.IO, "archive write failed");
+        if !writer.write_proc(writer.data, gzip) return problem(.IO, "archive write failed");
 
         return .{};
     }
@@ -70,13 +69,13 @@ Archive_Buffer :: struct {
 }
 
 Archive_Output :: struct {
-    writer: Io.Writer;
+    writer: Archive_Writer;
     at: s64;
     limit: s64;
     error: Archive_Error;
 }
 
-buffer_write :: (data: *void, bytes: [] u8) -> s64, Io.Io_Error {
+buffer_write :: (data: *void, bytes: [] u8) -> bool {
     b := cast(*Archive_Buffer) data;
 
     array_reserve(*b.bytes, b.bytes.count + bytes.count);
@@ -84,7 +83,7 @@ buffer_write :: (data: *void, bytes: [] u8) -> s64, Io.Io_Error {
 
     b.bytes.count += bytes.count;
 
-    return bytes.count, .NONE;
+    return true;
 }
 
 emit :: (w: *Archive_Output, b: [] u8) {
@@ -95,8 +94,7 @@ emit :: (w: *Archive_Output, b: [] u8) {
         return;
     }
 
-    _, error := Io.write(w.writer, b);
-    if error != .NONE {
+    if !w.writer.write_proc(w.writer.data, b) {
         w.error = problem(.IO, "archive write failed", w.at);
         return;
     }

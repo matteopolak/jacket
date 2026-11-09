@@ -144,8 +144,8 @@ read_entry :: (a: *Archive, index: s64) -> Archive_Data, Archive_Error {
 }
 
 // Copies stored data in 64 KiB pieces; deflate uses one bounded entry buffer.
-// Example: error := copy_entry(*a, 0, Io.writer_of(*file));
-copy_entry :: (a: *Archive, index: s64, writer: Io.Writer) -> Archive_Error {
+// Example: error := copy_entry(*a, 0, sink);
+copy_entry :: (a: *Archive, index: s64, writer: Archive_Writer) -> Archive_Error {
     if index < 0 || index >= a.entries.count return problem(.INVALID, "entry index out of range");
 
     e := a.entries[index];
@@ -154,8 +154,7 @@ copy_entry :: (a: *Archive, index: s64, writer: Io.Writer) -> Archive_Error {
         if error.kind != .NONE return error;
 
         defer free_archive(*value);
-        _, failure := Io.write(writer, value.bytes);
-        if failure != .NONE return problem(.IO, "entry write failed", e.offset, e.name);
+        if !writer.write_proc(writer.data, value.bytes) return problem(.IO, "entry write failed", e.offset, e.name);
 
         return .{};
     }
@@ -175,8 +174,7 @@ copy_entry :: (a: *Archive, index: s64, writer: Io.Writer) -> Archive_Error {
         }
 
         crc = Deflate.crc32(chunk, crc);
-        _, failure := Io.write(writer, chunk);
-        if failure != .NONE return problem(.IO, "entry write failed", e.offset + at, e.name);
+        if !writer.write_proc(writer.data, chunk) return problem(.IO, "entry write failed", e.offset + at, e.name);
 
         at += n;
     }
@@ -205,6 +203,27 @@ free_archive :: (data: *Archive_Data) {
     data.* = .{};
 }
 
+// Receives output bytes; returns false when it cannot take them all. `data` is the sink's own state.
+Archive_Write_Proc :: #type (data: *void, bytes: [] u8) -> bool;
+
+// A byte sink for `write_archive` and `copy_entry`. It owns nothing and works on every target, wasm
+// included. To write to a file or socket, point `data` at it and forward to its own write, as
+// `forward` does for an `Extensions/Io` writer.
+//
+// ```jai,ignore
+// forward :: (data: *void, bytes: [] u8) -> bool {
+//     _, error := Io.write((cast(*Io.Writer) data).*, bytes);
+//     return error == .NONE;
+// }
+//
+// io_writer := Io.writer_of(*file);
+// error := write_archive(Archive_Writer.{ data = *io_writer, write_proc = forward }, items, .ZIP);
+// ```
+Archive_Writer :: struct {
+    data: *void;
+    write_proc: Archive_Write_Proc;
+}
+
 // Releases the error's entry name. Example: free_archive(*error);
 free_archive :: (error: *Archive_Error) {
     if error.entry.data free(error.entry);
@@ -221,7 +240,6 @@ free_archive :: (error: *Archive_Error) {
 #import "String";
 #import "Sort";
 Deflate :: #import "Extensions/Deflate";
-Io :: #import "Extensions/Io";
 Unicode :: #import "Unicode";
 Map :: #import "Extensions/Hash_Map";
 
