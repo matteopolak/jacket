@@ -9,7 +9,7 @@
 
 | Module | What it is for | Docs |
 | --- | --- | --- |
-| `Time` | API declarations for civil time, exact instants, zones and calendar spans | [time](time.md) |
+| `Time` | Civil time, exact instants, TZif zones and calendar-aware spans | [time](time.md) |
 | `Archive` | bounded ZIP/ZIP64 and TAR codecs, CRC checks and safe extraction | [archive](archive.md) |
 | `Environment` | reading environment variables, UTF-8 on every platform | [environment](environment.md) |
 | `Testing` | `@test` procedures, checks, subtests and a leak-checking allocator, run by `jacket test` | [testing](testing.md) |

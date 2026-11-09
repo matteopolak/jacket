@@ -28,6 +28,7 @@ time_conformance :: () {
     cursor: s64;
     zones := vector_number(data, *cursor, 4);
     cases: s64;
+    resolution_cases: s64;
 
     for 1..zones {
         length := vector_number(data, *cursor, 2);
@@ -58,6 +59,8 @@ time_conformance :: () {
 
         resolutions := vector_number(data, *cursor, 4);
 
+        resolution_cases += resolutions;
+
         for 1..resolutions {
             wall_second := vector_number(data, *cursor, 8);
             early := vector_number(data, *cursor, 8);
@@ -77,6 +80,6 @@ time_conformance :: () {
         }
     }
 
-    assert(cursor == data.count && zones > 590 && cases > 100000);
-    print("% zones, % offsets and abbreviations\n", zones, cases);
+    assert(cursor == data.count && zones == 598 && cases == 678820 && resolution_cases == 65521);
+    print("% zones, % offsets/abbreviations, % gap/fold cases (four modes), no skips\n", zones, cases, resolution_cases);
 } @test @timeout(180)

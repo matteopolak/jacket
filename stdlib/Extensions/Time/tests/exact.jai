@@ -67,3 +67,20 @@ exact_text :: () {
 
     assert(ne.kind == .NONE && now.seconds > 1700000000);
 } @test
+
+exact_extreme_duration :: () {
+    for v: Exact.Signed_Duration.[.{ -9223372036854775808, -999999999 }, .{ 9223372036854775807, 999999999 }, .{ 0, -1 }] {
+        b: String_Builder;
+
+        defer free_buffers(*b);
+        e := Exact.format(*b, v);
+
+        assert(e.kind == .NONE);
+        text := builder_to_string(*b);
+
+        defer free(text);
+        copy, ce := Exact.parse(Exact.Signed_Duration, text);
+
+        assert(ce.kind == .NONE && Exact.equal(v, copy), text);
+    }
+} @test

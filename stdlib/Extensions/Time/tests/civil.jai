@@ -100,3 +100,24 @@ civil_random_roundtrip :: () #no_aoc {
         assert(ce.kind == .NONE && T.equal(d, copy));
     }
 } @test
+
+// Calendar examples: https://docs.rs/jiff/latest/jiff/civil/struct.Date.html#method.checked_add
+// Jiff's Date + clock-unit examples are outside this API: Date explicitly rejects clock units.
+// Temporal examples: https://tc39.es/proposal-temporal/docs/plaindate.html#dateaddduration-temporalduration--object--string-options-object--temporalplaindate
+published_calendar_examples :: () {
+    for months, i: s64.[1, 2, -1] {
+        expected := T.Date.[.{ 2024, 4, 30 }, .{ 2024, 5, 31 }, .{ 2024, 2, 29 }];
+        got, e := T.add(T.Date.{ 2024, 3, 31 }, T.Span.{ months = cast(s32) months });
+        assert(e.kind == .NONE && T.equal(got, expected[i]));
+    }
+
+    got, e := T.add(T.Date.{ 2006, 8, 24 }, T.Span.{ years = 20, months = 4 });
+
+    assert(e.kind == .NONE && T.equal(got, T.Date.{ 2026, 12, 24 }));
+    diff, de := T.until(T.Date.{ 2006, 8, 24 }, T.Date.{ 2019, 1, 31 }, .YEAR);
+
+    assert(de.kind == .NONE && diff.years == 12 && diff.months == 5 && diff.days == 7);
+    days, dye := T.until(T.Date.{ 2006, 8, 24 }, T.Date.{ 2019, 1, 31 });
+
+    assert(dye.kind == .NONE && days.days == 4543);
+} @test

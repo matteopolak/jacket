@@ -175,7 +175,7 @@ Time_Transition :: struct {
     abbreviation_after: string;
 }
 
-// A constant-space cursor borrowing a zone; e.g. `cursor, error := transitions(zone, instant)`.
+// A constant-space cursor borrowing a zone; e.g. `cursor := transitions(zone, instant)`.
 Time_Transitions :: struct {
     zone: Time_Zone;
     cursor: Timestamp;
@@ -183,8 +183,7 @@ Time_Transitions :: struct {
     exhausted: bool;
 }
 
-// Validates Gregorian components without clamping.
-// Example: `d, error := date(2024, 2, 29)`.
+// Validates Gregorian components without clamping. Example: `d, error := date(2024, 2, 29)`.
 date :: (year: s64, month: s64, day: s64) -> Date, Time_Error {
     n, e := days_in_month(year, month);
     if e.kind != .NONE return .{}, e;
@@ -192,21 +191,18 @@ date :: (year: s64, month: s64, day: s64) -> Date, Time_Error {
     return .{ cast(s16) year, cast(s8) month, cast(s8) day }, .{};
 }
 
-// Validates a clock reading; leap seconds are rejected.
-// Example: `t, error := time_of_day(23, 59, 59, 1)`.
+// Validates a clock reading; leap seconds are rejected. Example: `t, error := time_of_day(23, 59, 59, 1)`.
 time_of_day :: (hour: s64, minute: s64, second: s64, nanosecond: s64 = 0) -> Time_Of_Day, Time_Error {
     if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 || nanosecond < 0 || nanosecond >= NS return .{}, .{ .INVALID_VALUE, "invalid clock component", -1 };
     return .{ cast(s8) hour, cast(s8) minute, cast(s8) second, cast(s32) nanosecond }, .{};
 }
 
-// Validates and combines civil components.
-// Example: `dt, error := date_time(day, clock)`.
+// Combines validated civil components. Example: `dt := date_time(day, clock)`.
 date_time :: (day: Date, clock: Time_Of_Day) -> Date_Time {
     return .{ day, clock };
 }
 
-// Validates a civil date and clock reading together.
-// Example: `dt, error := date_time(2024, 3, 10, 2, 30)`.
+// Validates a civil date and clock reading together. Example: `dt, error := date_time(2024, 3, 10, 2, 30)`.
 date_time :: (year: s64, month: s64, day: s64, hour: s64 = 0, minute: s64 = 0, second: s64 = 0, nanosecond: s64 = 0) -> Date_Time, Time_Error {
     d, e := date(year, month, day);
     if e.kind != .NONE return .{}, e;
@@ -217,21 +213,18 @@ date_time :: (year: s64, month: s64, day: s64, hour: s64 = 0, minute: s64 = 0, s
     return .{ d, t }, .{};
 }
 
-// Validates seconds east of UTC, including historical second offsets.
-// Example: `o, error := offset(-14400)`.
+// Validates seconds east of UTC, including historical second offsets. Example: `o, error := offset(-14400)`.
 offset :: (seconds: s64) -> Offset, Time_Error {
     if seconds < -93599 || seconds > 93599 return .{}, range_error();
     return .{ cast(s32) seconds }, .{};
 }
 
-// Normalizes signed seconds and nanoseconds, checking representability.
-// Example: `d, error := signed_duration(1, -1)`.
+// Normalizes signed seconds and nanoseconds, checking representability. Example: `d, error := signed_duration(1, -1)`.
 signed_duration :: (seconds: s64, nanoseconds: s64 = 0) -> Signed_Duration, Time_Error {
     return duration_wide(wide_mul(seconds, NS) + to_s128(nanoseconds));
 }
 
-// Validates the single-sign invariant without balancing units.
-// Example: `s, error := span_check(.{months = 1, days = 2})`.
+// Validates the single-sign invariant without balancing units. Example: `s, error := span_check(.{months = 1, days = 2})`.
 span_check :: (value: Span) -> Span, Time_Error {
     sign: s64;
 
@@ -248,34 +241,29 @@ span_check :: (value: Span) -> Span, Time_Error {
     return value, .{};
 }
 
-// Returns the Gregorian month length after validating year and month.
-// Example: `n, error := days_in_month(2024, 2)`.
+// Returns the Gregorian month length after validating year and month. Example: `n, error := days_in_month(2024, 2)`.
 days_in_month :: (year: s64, month: s64) -> s64, Time_Error {
     if year < -9999 || year > 9999 return 0, .{ .OUT_OF_RANGE, "year outside civil range", -1 };
     if month < 1 || month > 12 return 0, .{ .INVALID_VALUE, "invalid month", -1 };
     return month_length(year, month), .{};
 }
 
-// Tests the Gregorian leap rule within the supported year range.
-// Example: `leap := is_leap_year(2000)`.
+// Tests the Gregorian leap rule within the supported year range. Example: `leap := is_leap_year(2000)`.
 is_leap_year :: (year: s64) -> bool {
     return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 }
 
-// Returns the ISO weekday after validating the date.
-// Example: `day := weekday(value)`.
+// Returns the ISO weekday after validating the date. Example: `day := weekday(value)`.
 weekday :: (value: Date) -> Weekday {
     return cast(Weekday) (modulo(date_days(value) + 3, 7) + 1);
 }
 
-// Returns the ordinal day, starting at one.
-// Example: `ordinal := day_of_year(value)`.
+// Returns the ordinal day, starting at one. Example: `ordinal := day_of_year(value)`.
 day_of_year :: (value: Date) -> s64 {
     return date_days(value) - date_days(.{ value.year, 1, 1 }) + 1;
 }
 
-// Returns ISO week-year and week number; week one contains January 4.
-// Example: `year, week := iso_week(value)`.
+// Returns ISO week-year and week number; week one contains January 4. Example: `year, week := iso_week(value)`.
 iso_week :: (value: Date) -> s64, s64 {
     thursday := date_days(value) + 4 - cast(s64) weekday(value);
     d := civil_day(thursday);
@@ -283,8 +271,7 @@ iso_week :: (value: Date) -> s64, s64 {
     return d.year, (thursday - (jan4 + 4 - cast(s64) weekday(.{ d.year, 1, 4 }))) / 7 + 1;
 }
 
-// Validates and converts an ISO week date.
-// Example: `d, error := date_from_iso_week(2024, 1, .MONDAY)`.
+// Validates and converts an ISO week date. Example: `d, error := date_from_iso_week(2024, 1, .MONDAY)`.
 date_from_iso_week :: (year: s64, week: s64, day: Weekday) -> Date, Time_Error {
     if year < -9999 || year > 9999 || week < 1 || week > 53 || cast(s64) day < 1 || cast(s64) day > 7 return .{}, .{ .INVALID_VALUE, "invalid ISO week date", -1 };
 
@@ -299,20 +286,17 @@ date_from_iso_week :: (year: s64, week: s64, day: Weekday) -> Date, Time_Error {
     return result, .{};
 }
 
-// Returns the first day of the validated date's month.
-// Example: `d := first_of_month(value)`.
+// Returns the first day of the validated date's month. Example: `d := first_of_month(value)`.
 first_of_month :: (value: Date) -> Date {
     return .{ value.year, value.month, 1 };
 }
 
-// Returns the last day of the validated date's month.
-// Example: `d := last_of_month(value)`.
+// Returns the last day of the validated date's month. Example: `d := last_of_month(value)`.
 last_of_month :: (value: Date) -> Date {
     return .{ value.year, value.month, cast(s8) month_length(value.year, value.month) };
 }
 
-// Finds occurrence 1..5 or -1..-5 from the end; missing occurrences fail.
-// Example: `d, error := nth_weekday_of_month(2024, 3, .SUNDAY, 2)`.
+// Finds occurrence 1..5 or -1..-5 from the end; missing occurrences fail. Example: `d, error := nth_weekday_of_month(2024, 3, .SUNDAY, 2)`.
 nth_weekday_of_month :: (year: s64, month: s64, day: Weekday, nth: s64) -> Date, Time_Error {
     first, e := date(year, month, 1);
     if e.kind != .NONE return .{}, e;
@@ -327,8 +311,7 @@ nth_weekday_of_month :: (year: s64, month: s64, day: Weekday, nth: s64) -> Date,
     return date(year, month, d);
 }
 
-// Applies years/months with month-end policy, then weeks/days; clock units fail.
-// Example: `d, error := add(value, Span.{months = 1}, .REJECT)`.
+// Applies years/months with month-end policy, then weeks/days; clock units fail. Example: `d, error := add(value, Span.{months = 1}, .REJECT)`.
 add :: (value: Date, amount: Span, overflow := Overflow.CONSTRAIN) -> Date, Time_Error {
     if clock_nonzero(amount) return .{}, .{ .INVALID_VALUE, "date arithmetic rejects clock units", -1 };
 
@@ -353,8 +336,7 @@ add :: (value: Date, amount: Span, overflow := Overflow.CONSTRAIN) -> Date, Time
     return checked_day(date_days(shifted) + cast(s64) amount.weeks * 7 + amount.days);
 }
 
-// Applies calendar units before exact clock units, carrying across midnight.
-// Example: `dt, error := add(value, Span.{days = 1, hours = 2})`.
+// Applies calendar units before exact clock units, carrying across midnight. Example: `dt, error := add(value, Span.{days = 1, hours = 2})`.
 add :: (value: Date_Time, amount: Span, overflow := Overflow.CONSTRAIN) -> Date_Time, Time_Error {
     calendar := amount;
 
@@ -378,8 +360,7 @@ add :: (value: Date_Time, amount: Span, overflow := Overflow.CONSTRAIN) -> Date_
     return .{ d, clock_from_ns(r) }, .{};
 }
 
-// Adds clock units modulo one day; all calendar units fail.
-// Example: `t, error := add(value, Span.{hours = 25})`.
+// Adds clock units modulo one day; all calendar units fail. Example: `t, error := add(value, Span.{hours = 25})`.
 add :: (value: Time_Of_Day, amount: Span) -> Time_Of_Day, Time_Error {
     if calendar_nonzero(amount) return .{}, .{ .INVALID_VALUE, "clock arithmetic rejects calendar units", -1 };
     total := clock_ns(amount) + Basic.to_s128(time_ns(value));
@@ -387,74 +368,64 @@ add :: (value: Time_Of_Day, amount: Span) -> Time_Of_Day, Time_Error {
     return clock_from_ns(modulo(rem, DAY_NS)), .{};
 }
 
-// Measures b minus a; validates units, positive increments and range.
-// Example: `s, error := until(a, b)`.
+// Measures b minus a; validates units, positive increments and range. Example: `s, error := until(a, b)`.
 until :: (a: Date, b: Date, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(a, b, largest, smallest, rounding, increment);
 }
 
-// Measures b minus a; validates units, positive increments and range.
-// Example: `s, error := until(a, b)`.
+// Measures b minus a; validates units, positive increments and range. Example: `s, error := until(a, b)`.
 until :: (a: Date_Time, b: Date_Time, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(a, b, largest, smallest, rounding, increment);
 }
 
-// Measures b minus a; validates units, positive increments and range.
-// Example: `s, error := until(a, b)`.
+// Measures b minus a; validates units, positive increments and range. Example: `s, error := until(a, b)`.
 until :: (a: Timestamp, b: Timestamp, largest := Unit.SECOND, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(a, b, largest, smallest, rounding, increment);
 }
 
-// Measures b minus a; calendar units use the receiver's zone and real day lengths.
-// Example: `s, error := until(a, b)`.
+// Measures b minus a; calendar units use the receiver's zone and real day lengths. Example: `s, error := until(a, b)`.
 until :: (a: Zoned, b: Zoned, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1, disambiguation := Disambiguation.COMPATIBLE) -> Span, Time_Error {
     return difference(a, b, largest, smallest, rounding, increment, disambiguation);
 }
 
-// Measures a minus b; validates units, positive increments and range.
-// Example: `s, error := since(a, b)`.
+// Measures a minus b; validates units, positive increments and range. Example: `s, error := since(a, b)`.
 since :: (a: Date, b: Date, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(b, a, largest, smallest, rounding, increment);
 }
 
-// Measures a minus b; validates units, positive increments and range.
-// Example: `s, error := since(a, b)`.
+// Measures a minus b; validates units, positive increments and range. Example: `s, error := since(a, b)`.
 since :: (a: Date_Time, b: Date_Time, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(b, a, largest, smallest, rounding, increment);
 }
 
-// Measures a minus b; validates units, positive increments and range.
-// Example: `s, error := since(a, b)`.
+// Measures a minus b; validates units, positive increments and range. Example: `s, error := since(a, b)`.
 since :: (a: Timestamp, b: Timestamp, largest := Unit.SECOND, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(b, a, largest, smallest, rounding, increment);
 }
 
-// Measures a minus b; calendar units use the receiver's zone and real day lengths.
-// Example: `s, error := since(a, b)`.
+// Measures a minus b; calendar units use the receiver's zone and real day lengths. Example: `s, error := since(a, b)`.
 since :: (a: Zoned, b: Zoned, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1, disambiguation := Disambiguation.COMPATIBLE) -> Span, Time_Error {
     return difference(b, a, largest, smallest, rounding, increment, disambiguation);
 }
 
-// Balances to largest; calendar conversions require a relative value.
-// Example: `value, error := span_balance(value, .DAY, relative = day)`.
+// Balances to largest; calendar conversions require a relative value. Example: `value, error := span_balance(value, .DAY, relative = day)`.
 span_balance :: (value: Span, largest: Unit) -> Span, Time_Error {
     if largest > .DAY return .{}, .{ .RELATIVE_REQUIRED, "calendar balancing requires relative value", -1 };
     if value.years != 0 || value.months != 0 || value.weeks != 0 return .{}, .{ .RELATIVE_REQUIRED, "calendar balancing requires relative value", -1 };
     return split_time(clock_ns(value) + wide_mul(value.days, DAY_NS), largest);
 }
 
-// Uses a relative Date; e.g. `span_balance(value, relative = origin)`.
+// Uses a relative Date; e.g. `span_balance(value, .DAY, origin)`.
 span_balance :: (value: Span, largest: Unit, relative: Date) -> Span, Time_Error {
     return balance_relative(value, largest, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned; e.g. `span_balance(value, relative = origin)`.
+// Uses a relative Zoned; e.g. `span_balance(value, .DAY, origin)`.
 span_balance :: (value: Span, largest: Unit, relative: Zoned) -> Span, Time_Error {
     return balance_relative(value, largest, relative);
 }
 
-// Rounds to a positive increment, then balances; calendar rounding needs a relative value.
-// Example: `value, error := span_round(value, .MINUTE, .HOUR)`.
+// Rounds to a positive increment, then balances; calendar rounding needs a relative value. Example: `value, error := span_round(value, .MINUTE, .HOUR)`.
 span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1) -> Span, Time_Error {
     if smallest > .DAY || largest > .DAY return .{}, .{ .RELATIVE_REQUIRED, "calendar rounding requires relative value", -1 };
     if increment < 1 || smallest > largest return .{}, .{ .INVALID_VALUE, "invalid rounding units or increment", -1 };
@@ -466,36 +437,34 @@ span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.
     return split_time(rounded, largest);
 }
 
-// Uses a relative Date; e.g. `span_round(value, relative = origin)`.
+// Uses a relative Date; e.g. `span_round(value, .MINUTE, .HOUR, relative = origin)`.
 span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative: Date) -> Span, Time_Error {
     return round_relative(value, smallest, largest, rounding, increment, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned; e.g. `span_round(value, relative = origin)`.
+// Uses a relative Zoned; e.g. `span_round(value, .MINUTE, .HOUR, relative = origin)`.
 span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative: Zoned) -> Span, Time_Error {
     return round_relative(value, smallest, largest, rounding, increment, relative);
 }
 
-// Returns a possibly fractional total; zoned days follow actual day lengths.
-// Example: `value, error := span_total(value, .HOUR, relative = z)`.
+// Returns a possibly fractional total; zoned days follow actual day lengths. Example: `value, error := span_total(value, .HOUR, relative = z)`.
 span_total :: (value: Span, unit: Unit) -> float64, Time_Error {
     if unit > .DAY return 0, .{ .RELATIVE_REQUIRED, "calendar total requires relative value", -1 };
     if value.years != 0 || value.months != 0 || value.weeks != 0 return 0, .{ .RELATIVE_REQUIRED, "calendar total requires relative value", -1 };
     return wide_float(clock_ns(value) + wide_mul(value.days, DAY_NS)) / cast(float64) unit_scale(unit), .{};
 }
 
-// Uses a relative Date; e.g. `span_total(value, relative = origin)`.
+// Uses a relative Date; e.g. `span_total(value, .HOUR, origin)`.
 span_total :: (value: Span, unit: Unit, relative: Date) -> float64, Time_Error {
     return total_relative(value, unit, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned; e.g. `span_total(value, relative = origin)`.
+// Uses a relative Zoned; e.g. `span_total(value, .HOUR, origin)`.
 span_total :: (value: Span, unit: Unit, relative: Zoned) -> float64, Time_Error {
     return total_relative(value, unit, relative);
 }
 
-// Returns -1/0/1 by elapsed length; calendar units require a shared relative value.
-// Example: `value, error := span_compare(a, b, relative = day)`.
+// Returns -1/0/1 by elapsed length; calendar units require a shared relative value. Example: `value, error := span_compare(a, b, relative = day)`.
 span_compare :: (a: Span, b: Span) -> int, Time_Error {
     if calendar_nonzero(a) || calendar_nonzero(b) {
         if a.years != 0 || a.months != 0 || a.weeks != 0 || b.years != 0 || b.months != 0 || b.weeks != 0 return 0, .{ .RELATIVE_REQUIRED, "calendar comparison requires relative value", -1 };
@@ -507,24 +476,23 @@ span_compare :: (a: Span, b: Span) -> int, Time_Error {
     return wide_compare(left, right), .{};
 }
 
-// Uses a relative Date; e.g. `span_compare(value, relative = origin)`.
+// Uses a relative Date; e.g. `span_compare(a, b, origin)`.
 span_compare :: (a: Span, b: Span, relative: Date) -> int, Time_Error {
     return compare_relative(a, b, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned; e.g. `span_compare(value, relative = origin)`.
+// Uses a relative Zoned; e.g. `span_compare(a, b, origin)`.
 span_compare :: (a: Span, b: Span, relative: Zoned) -> int, Time_Error {
     return compare_relative(a, b, relative);
 }
 
-// Converts clock units to elapsed time; calendar units require a relative value.
-// Example: `value, error := span_to_duration(value)`.
+// Converts clock units to elapsed time; calendar units require a relative value. Example: `value, error := span_to_duration(value)`.
 span_to_duration :: (value: Span) -> Signed_Duration, Time_Error {
     if value.years != 0 || value.months != 0 || value.weeks != 0 return .{}, .{ .RELATIVE_REQUIRED, "calendar conversion requires relative value", -1 };
     return duration_wide(clock_ns(value) + wide_mul(cast(s64) value.days, DAY_NS));
 }
 
-// Uses a relative Date; e.g. `span_to_duration(value, relative = origin)`.
+// Uses a relative Date; e.g. `span_to_duration(value, origin)`.
 span_to_duration :: (value: Span, relative: Date) -> Signed_Duration, Time_Error {
     origin := Date_Time.{ relative, .{} };
     end, e := add(origin, value);
@@ -532,7 +500,7 @@ span_to_duration :: (value: Span, relative: Date) -> Signed_Duration, Time_Error
     return duration_wide(value_ns(end) - value_ns(origin));
 }
 
-// Uses a relative Zoned; e.g. `span_to_duration(value, relative = origin)`.
+// Uses a relative Zoned; e.g. `span_to_duration(value, origin)`.
 span_to_duration :: (value: Span, relative: Zoned) -> Signed_Duration, Time_Error {
     origin := relative;
     end, e := add(origin, value);
@@ -540,21 +508,18 @@ span_to_duration :: (value: Span, relative: Zoned) -> Signed_Duration, Time_Erro
     return duration_wide(value_ns(end) - value_ns(origin));
 }
 
-// Converts clock units only; years, months, weeks and days are errors.
-// Example: `value, error := duration_from_span(value)`.
+// Converts clock units only; years, months, weeks and days are errors. Example: `value, error := duration_from_span(value)`.
 duration_from_span :: (value: Span) -> Signed_Duration, Time_Error {
     if calendar_nonzero(value) return .{}, .{ .RELATIVE_REQUIRED, "calendar units require a relative value", -1 };
     return duration_wide(clock_ns(value));
 }
 
-// Reverses every field of a validated span.
-// Example: `s := span_negate(value)`.
+// Reverses every field of a validated span. Example: `s := span_negate(value)`.
 span_negate :: (value: Span) -> Span {
     return .{ -value.years, -value.months, -value.weeks, -value.days, -value.hours, -value.minutes, -value.seconds, -value.milliseconds, -value.microseconds, -value.nanoseconds };
 }
 
-// Returns a nonnegative span; span_check rejects signed minima.
-// Example: `s := span_abs(value)`.
+// Returns a nonnegative span; span_check rejects signed minima. Example: `s := span_abs(value)`.
 span_abs :: (value: Span) -> Span {
     for field: span_fields(value) {
         if field < 0 return span_negate(value);
@@ -564,71 +529,60 @@ span_abs :: (value: Span) -> Span {
     return value;
 }
 
-// Reads Basic.current_time_consensus and converts its Apollo epoch; no new clock path.
-// Example: `instant, error := timestamp_now()`.
+// Reads Basic.current_time_consensus and converts its Apollo epoch; no new clock path. Example: `instant, error := timestamp_now()`.
 timestamp_now :: () -> Timestamp, Time_Error {
     return timestamp_from_apollo(Basic.current_time_consensus());
 }
 
-// Converts signed Unix seconds, checking the UTC year range.
-// Example: `instant, error := timestamp_from_seconds(-1)`.
+// Converts signed Unix seconds, checking the UTC year range. Example: `instant, error := timestamp_from_seconds(-1)`.
 timestamp_from_seconds :: (value: s64) -> Timestamp, Time_Error {
     return timestamp_wide(wide_mul(value, NS));
 }
 
-// Converts signed Unix milliseconds, checking the UTC year range.
-// Example: `instant, error := timestamp_from_millis(-1)`.
+// Converts signed Unix milliseconds, checking the UTC year range. Example: `instant, error := timestamp_from_millis(-1)`.
 timestamp_from_millis :: (value: s64) -> Timestamp, Time_Error {
     return timestamp_wide(wide_mul(value / 1000, NS) + wide_mul(value % 1000, NS / 1000));
 }
 
-// Converts signed Unix microseconds, checking the UTC year range.
-// Example: `instant, error := timestamp_from_micros(-1)`.
+// Converts signed Unix microseconds, checking the UTC year range. Example: `instant, error := timestamp_from_micros(-1)`.
 timestamp_from_micros :: (value: s64) -> Timestamp, Time_Error {
     return timestamp_wide(wide_mul(value / 1000000, NS) + wide_mul(value % 1000000, NS / 1000000));
 }
 
-// Converts signed Unix nanoseconds, checking the UTC year range.
-// Example: `instant, error := timestamp_from_nanos(-1)`.
+// Converts signed Unix nanoseconds, checking the UTC year range. Example: `instant, error := timestamp_from_nanos(-1)`.
 timestamp_from_nanos :: (value: s64) -> Timestamp, Time_Error {
     return timestamp_wide(wide_mul(value / 1000000000, NS) + wide_mul(value % 1000000000, NS / 1000000000));
 }
 
-// Adds exact elapsed time with checked range and normalization.
-// Example: `instant, error := add(value, duration)`.
+// Adds exact elapsed time with checked range and normalization. Example: `instant, error := add(value, duration)`.
 add :: (value: Timestamp, amount: Signed_Duration) -> Timestamp, Time_Error {
     return timestamp_wide(stamp_ns(value) + wide_mul(amount.seconds, NS) + to_s128(amount.nanoseconds));
 }
 
-// Adds clock units only; calendar units, including days, fail.
-// Example: `instant, error := add(value, Span.{hours = 24})`.
+// Adds clock units only; calendar units, including days, fail. Example: `instant, error := add(value, Span.{hours = 24})`.
 add :: (value: Timestamp, amount: Span) -> Timestamp, Time_Error {
     d, e := duration_from_span(amount);
     if e.kind != .NONE return .{}, e;
     return timestamp_wide(stamp_ns(value) + wide_mul(d.seconds, NS) + to_s128(d.nanoseconds));
 }
 
-// Returns exact b minus a without calendar interpretation.
-// Example: `elapsed := duration_between(a, b)`.
+// Returns exact b minus a without calendar interpretation. Example: `elapsed := duration_between(a, b)`.
 duration_between :: (a: Timestamp, b: Timestamp) -> Signed_Duration {
     q, r := wide_div(stamp_ns(b) - stamp_ns(a), NS);
     return .{ narrow(q), cast(s32) r };
 }
 
-// Returns the allocation-free UTC zone.
-// Example: `zone := time_zone_utc()`.
+// Returns the allocation-free UTC zone. Example: `zone := time_zone_utc()`.
 time_zone_utc :: () -> Time_Zone {
     return .{};
 }
 
-// Validates and constructs an allocation-free fixed-offset zone.
-// Example: `zone := time_zone_fixed(value)`.
+// Validates and constructs an allocation-free fixed-offset zone. Example: `zone := time_zone_fixed(value)`.
 time_zone_fixed :: (value: Offset) -> Time_Zone {
     return .{ .FIXED, value, null };
 }
 
-// Loads and caches a safe IANA name; directory overrides TZDIR for deterministic fixtures.
-// Example: `zone, error := time_zone_get("America/New_York")`.
+// Loads and caches a safe IANA name; directory overrides TZDIR for deterministic fixtures. Example: `zone, error := time_zone_get("America/New_York")`.
 time_zone_get :: (name: string, options: Time_Options = .{}, directory: string = "") -> Time_Zone, Time_Error {
     if !valid_options(options) || name.count == 0 || name.count > options.max_text return .{}, .{ .INVALID_VALUE, "invalid zone name", -1 };
     for c: name if !((c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c == 47 || c == 95 || c == 45 || c == 43) return .{}, .{ .INVALID_VALUE, "unsafe zone name", -1 };
@@ -684,10 +638,11 @@ time_zone_get :: (name: string, options: Time_Options = .{}, directory: string =
     return z, .{};
 }
 
-// Uses TZ, otherwise /etc/localtime; Windows without TZ returns UNSUPPORTED.
-// Example: `zone, error := time_zone_system()`.
+// Uses TZ, otherwise /etc/localtime; Windows without TZ returns UNSUPPORTED. Example: `zone, error := time_zone_system()`.
 time_zone_system :: (options: Time_Options = .{}) -> Time_Zone, Time_Error {
     text := Env.environment_variable("TZ");
+    if text.count == 0 && Env.has_environment_variable("TZ") return time_zone_utc(), .{};
+
     if text.count != 0 {
         if text[0] == 58 return time_zone_get(slice(text, 1, text.count - 1), options);
         zone, e := time_zone_from_posix(text, options);
@@ -715,8 +670,7 @@ time_zone_system :: (options: Time_Options = .{}) -> Time_Zone, Time_Error {
     }
 }
 
-// Copies validated TZif v1-v4 rules and POSIX footer within bounded storage.
-// Example: `zone, error := time_zone_from_tzif("Example/Zone", bytes)`.
+// Copies validated TZif v1-v4 rules and POSIX footer within bounded storage. Example: `zone, error := time_zone_from_tzif("Example/Zone", bytes)`.
 time_zone_from_tzif :: (name: string, bytes: [] u8, options: Time_Options = .{}) -> Time_Zone, Time_Error {
     if !valid_options(options) || bytes.count > options.max_tzif_bytes || name.count > options.max_text return .{}, .{ .LIMIT, "zone data limit", 0 };
 
@@ -819,8 +773,7 @@ time_zone_from_tzif :: (name: string, bytes: [] u8, options: Time_Options = .{})
     return .{ .RULES, .{}, owner }, .{};
 }
 
-// Parses POSIX TZ rules including M/J/Julian forms and extended transition times.
-// Example: `zone, error := time_zone_from_posix("EST5EDT,M3.2.0/2,M11.1.0/2")`.
+// Parses POSIX TZ rules including M/J/Julian forms and extended transition times. Example: `zone, error := time_zone_from_posix("EST5EDT,M3.2.0/2,M11.1.0/2")`.
 time_zone_from_posix :: (text: string, options: Time_Options = .{}) -> Time_Zone, Time_Error {
     if !valid_options(options) || text.count > options.max_text return .{}, .{ .LIMIT, "zone text limit", 0 };
 
@@ -838,8 +791,7 @@ time_zone_from_posix :: (text: string, options: Time_Options = .{}) -> Time_Zone
     return .{ .RULES, .{}, owner }, .{};
 }
 
-// Acquires an independent owner; UTC and fixed zones need no reference count.
-// Example: `owned := time_zone_retain(borrowed)`.
+// Acquires an independent owner; UTC and fixed zones need no reference count. Example: `owned := time_zone_retain(borrowed)`.
 time_zone_retain :: (value: Time_Zone) -> Time_Zone {
     if value.kind == .RULES && value.rules != null {
         r := lookup_rules(value.rules);
@@ -850,8 +802,7 @@ time_zone_retain :: (value: Time_Zone) -> Time_Zone {
     return value;
 }
 
-// Releases one owned reference and resets the handle to UTC; borrowed copies become invalid.
-// Example: `time_zone_free(*zone)`.
+// Releases one owned reference and resets the handle to UTC; borrowed copies become invalid. Example: `time_zone_free(*zone)`.
 time_zone_free :: (value: *Time_Zone) {
     if value.kind == .RULES && value.rules != null {
         r := lookup_rules(value.rules);
@@ -873,8 +824,7 @@ time_zone_free :: (value: *Time_Zone) {
     value.* = .{};
 }
 
-// Resolves the offset at an exact instant, using footer rules beyond stored transitions.
-// Example: `o := offset_at(zone, instant)`.
+// Resolves the offset at an exact instant, using footer rules beyond stored transitions. Example: `o := offset_at(zone, instant)`.
 offset_at :: (zone: Time_Zone, instant: Timestamp) -> Offset {
     if zone.kind == .FIXED return zone.offset;
     if zone.kind != .RULES || zone.rules == null return .{};
@@ -895,8 +845,7 @@ offset_at :: (zone: Time_Zone, instant: Timestamp) -> Offset {
     return .{ cast(s32) be_signed(r.source, r.type_at + index * 6, 4) };
 }
 
-// Returns a zone-borrowed abbreviation for formatting and conformance.
-// Example: `text := abbreviation_at(zone, instant)`.
+// Returns a zone-borrowed abbreviation for formatting and conformance. Example: `text := abbreviation_at(zone, instant)`.
 abbreviation_at :: (zone: Time_Zone, instant: Timestamp) -> string {
     if zone.kind == .UTC return "UTC";
     if zone.kind != .RULES || zone.rules == null return "";
@@ -922,8 +871,7 @@ abbreviation_at :: (zone: Time_Zone, instant: Timestamp) -> string {
     return string.{ end - at, r.source.data + at };
 }
 
-// Converts an instant in an explicit zone, rejecting civil range overflow.
-// Example: `wall := to_civil(zone, instant)`.
+// Converts an instant in an explicit zone, rejecting civil range overflow. Example: `wall := to_civil(zone, instant)`.
 to_civil :: (zone: Time_Zone, instant: Timestamp) -> Date_Time {
     seconds := instant.seconds + offset_at(zone, instant).seconds;
     ns: s64 = instant.nanoseconds;
@@ -936,8 +884,7 @@ to_civil :: (zone: Time_Zone, instant: Timestamp) -> Date_Time {
     return .{ civil_day(floor_div(seconds, 86400)), clock_from_ns(modulo(seconds, 86400) * NS + ns) };
 }
 
-// Resolves gaps/folds using the requested policy and checks UTC range.
-// Example: `instant, error := to_timestamp(zone, wall, .REJECT)`.
+// Resolves gaps/folds using the requested policy and checks UTC range. Example: `instant, error := to_timestamp(zone, wall, .REJECT)`.
 to_timestamp :: (zone: Time_Zone, wall: Date_Time, disambiguation := Disambiguation.COMPATIBLE) -> Timestamp, Time_Error {
     d, e := date(wall.date.year, wall.date.month, wall.date.day);
     if e.kind != .NONE return .{}, e;
@@ -1022,14 +969,12 @@ to_timestamp :: (zone: Time_Zone, wall: Date_Time, disambiguation := Disambiguat
     return .{}, range_error();
 }
 
-// Starts a borrowed cursor strictly after instant (strictly before when reverse).
-// Example: `cursor := transitions(zone, instant)`.
+// Starts a borrowed cursor strictly after instant (strictly before when reverse). Example: `cursor := transitions(zone, instant)`.
 transitions :: (zone: Time_Zone, instant: Timestamp, reverse := false) -> Time_Transitions {
     return .{ zone, instant, reverse, false };
 }
 
-// Advances a transition cursor; false with no error means the range is exhausted.
-// Example: `change, found, error := next(*cursor)`.
+// Advances a transition cursor; false with no error means the range is exhausted. Example: `change, found, error := next(*cursor)`.
 next :: (cursor: *Time_Transitions) -> Time_Transition, bool, Time_Error {
     if cursor.exhausted || cursor.zone.kind != .RULES || cursor.zone.rules == null return .{}, false, .{};
 
@@ -1091,36 +1036,31 @@ next :: (cursor: *Time_Transitions) -> Time_Transition, bool, Time_Error {
     return .{ instant, offset_at(cursor.zone, before), offset_at(cursor.zone, instant), abbreviation_at(cursor.zone, before), abbreviation_at(cursor.zone, instant) }, true, .{};
 }
 
-// Resolves an instant and borrows its zone; the zone owner must outlive the result.
-// Example: `z := zoned(instant, zone)`.
+// Resolves an instant and borrows its zone; the zone owner must outlive the result. Example: `z := zoned(instant, zone)`.
 zoned :: (instant: Timestamp, zone: Time_Zone) -> Zoned {
     return .{ instant, zone, offset_at(zone, instant) };
 }
 
-// Resolves civil time and borrows the explicit zone.
-// Example: `z, error := to_zoned(wall, zone, .LATER)`.
+// Resolves civil time and borrows the explicit zone. Example: `z, error := to_zoned(wall, zone, .LATER)`.
 to_zoned :: (wall: Date_Time, zone: Time_Zone, disambiguation := Disambiguation.COMPATIBLE) -> Zoned, Time_Error {
     t, e := to_timestamp(zone, wall, disambiguation);
     if e.kind != .NONE return .{}, e;
     return zoned(t, zone), .{};
 }
 
-// Reads the existing Basic consensus clock in an explicit borrowed zone.
-// Example: `z, error := zoned_now(zone)`.
+// Reads the existing Basic consensus clock in an explicit borrowed zone. Example: `z, error := zoned_now(zone)`.
 zoned_now :: (zone: Time_Zone) -> Zoned, Time_Error {
     t, e := timestamp_now();
     if e.kind != .NONE return .{}, e;
     return zoned(t, zone), .{};
 }
 
-// Keeps the instant while borrowing a different zone and resolving its offset.
-// Example: `z := with_zone(value, time_zone_utc())`.
+// Keeps the instant while borrowing a different zone and resolving its offset. Example: `z := with_zone(value, time_zone_utc())`.
 with_zone :: (value: Zoned, zone: Time_Zone) -> Zoned {
     return .{ value.timestamp, zone, offset_at(zone, value.timestamp) };
 }
 
-// Adds calendar units in civil time, resolves, then adds clock units on the timeline.
-// Example: `z, error := add(value, Span.{days = 1})`.
+// Adds calendar units in civil time, resolves, then adds clock units on the timeline. Example: `z, error := add(value, Span.{days = 1})`.
 add :: (value: Zoned, amount: Span, overflow := Overflow.CONSTRAIN, disambiguation := Disambiguation.COMPATIBLE) -> Zoned, Time_Error {
     instant := value.timestamp;
 
@@ -1141,8 +1081,7 @@ add :: (value: Zoned, amount: Span, overflow := Overflow.CONSTRAIN, disambiguati
     return zoned(result, value.zone), .{};
 }
 
-// Finds the first valid instant of the local date, including days starting after midnight.
-// Example: `start, error := start_of_day(value)`.
+// Finds the first valid instant of the local date, including days starting after midnight. Example: `start, error := start_of_day(value)`.
 start_of_day :: (value: Zoned) -> Zoned, Time_Error {
     wall := to_civil(value.zone, value.timestamp);
     wall.time = .{};
@@ -1158,8 +1097,7 @@ start_of_day :: (value: Zoned) -> Zoned, Time_Error {
     return zoned(t, value.zone), .{};
 }
 
-// Returns exact elapsed hours between consecutive local day starts.
-// Example: `hours, error := hours_in_day(value)`.
+// Returns exact elapsed hours between consecutive local day starts. Example: `hours, error := hours_in_day(value)`.
 hours_in_day :: (value: Zoned) -> float64, Time_Error {
     start, e := start_of_day(value);
     if e.kind != .NONE return 0, e;
@@ -1180,8 +1118,7 @@ hours_in_day :: (value: Zoned) -> float64, Time_Error {
     return (cast(float64) delta.seconds + cast(float64) delta.nanoseconds / NS) / 3600, .{};
 }
 
-// Orders values (-1/0/1); Zoned and Timestamp use only the instant. Zones order by kind and rule content.
-// Example: `order := compare(a, b)`.
+// Orders values (-1/0/1); Zoned and Timestamp use only the instant. Zones order by kind and rule content. Example: `order := compare(a, b)`.
 compare :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], b: T) -> int {
     #if T == Date {
         c := cmp64(a.year, b.year);
@@ -1221,14 +1158,12 @@ compare :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, O
     }
 }
 
-// Tests value equality consistent with compare and hash; Zoned ignores its zone.
-// Example: `same := equal(a, b)`.
+// Tests value equality consistent with compare and hash; Zoned ignores its zone. Example: `same := equal(a, b)`.
 equal :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], b: T) -> bool {
     return compare(a, b) == 0;
 }
 
-// Hashes semantic fields, never padding or rule pointers; equal values have equal hashes.
-// Example: `key := hash(value)`.
+// Hashes semantic fields, never padding or rule pointers; equal values have equal hashes. Example: `key := hash(value)`.
 hash :: (value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned]) -> u32 {
     h: u32 = 2166136261;
 
@@ -1262,8 +1197,7 @@ hash :: (value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, 
     return h;
 }
 
-// Converts the Apollo epoch, rejecting subnanosecond precision instead of discarding it.
-// Example: `instant, error := timestamp_from_apollo(Basic.APOLLO_TIME_FOR_JAN_1_1970)`.
+// Converts the Apollo epoch, rejecting subnanosecond precision instead of discarding it. Example: `instant, error := timestamp_from_apollo(Basic.APOLLO_TIME_FOR_JAN_1_1970)`.
 timestamp_from_apollo :: (value: Basic.Apollo_Time) -> Timestamp, Time_Error {
     delta := cast(S128) value - cast(S128) Basic.APOLLO_TIME_FOR_JAN_1_1970;
     q, r := wide_div(delta, 1000000);
@@ -1271,40 +1205,37 @@ timestamp_from_apollo :: (value: Basic.Apollo_Time) -> Timestamp, Time_Error {
     return timestamp_wide(q);
 }
 
-// Converts a validated instant to Basic's femtosecond Apollo representation.
-// Example: `apollo, error := timestamp_to_apollo(instant)`.
-timestamp_to_apollo :: (value: Timestamp) -> Basic.Apollo_Time, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Converts a validated instant to Basic's femtosecond Apollo representation. Example: `apollo := timestamp_to_apollo(instant)`.
+timestamp_to_apollo :: (value: Timestamp) -> Basic.Apollo_Time {
+    return Basic.seconds_to_apollo(value.seconds) + Basic.nanoseconds_to_apollo(value.nanoseconds) + Basic.APOLLO_TIME_FOR_JAN_1_1970;
 }
 
-// Treats Apollo as a duration (no epoch); subnanosecond input fails.
-// Example: `duration, error := duration_from_apollo(value)`.
+// Treats Apollo as a duration (no epoch); subnanosecond input fails. Example: `duration, error := duration_from_apollo(value)`.
 duration_from_apollo :: (value: Basic.Apollo_Time) -> Signed_Duration, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    q, r := wide_div(cast(S128) value, 1000000);
+    if r != 0 return .{}, .{ .INVALID_VALUE, "subnanosecond Apollo precision", -1 };
+    return duration_wide(q);
 }
 
-// Converts an exact duration without adding an epoch.
-// Example: `apollo, error := duration_to_apollo(value)`.
-duration_to_apollo :: (value: Signed_Duration) -> Basic.Apollo_Time, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Converts an exact duration without adding an epoch. Example: `apollo := duration_to_apollo(value)`.
+duration_to_apollo :: (value: Signed_Duration) -> Basic.Apollo_Time {
+    return Basic.seconds_to_apollo(value.seconds) + Basic.nanoseconds_to_apollo(value.nanoseconds);
 }
 
-// Validates Basic's zero-based components; ignores zone and derived weekday metadata.
-// Example: `wall, error := date_time_from_calendar(calendar)`.
+// Validates Basic's zero-based components; ignores zone and derived weekday metadata. Example: `wall, error := date_time_from_calendar(calendar)`.
 date_time_from_calendar :: (value: Basic.Calendar_Time) -> Date_Time, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return date_time(value.year, cast(s64) value.month_starting_at_0 + 1, cast(s64) value.day_of_month_starting_at_0 + 1, value.hour, value.minute, value.second, cast(s64) value.millisecond * 1000000);
 }
 
-// Converts a civil reading as UTC-tagged fields; rejects submillisecond precision.
-// Example: `calendar, error := date_time_to_calendar(wall)`.
+// Converts a civil reading as UTC-tagged fields; rejects submillisecond precision. Example: `calendar, error := date_time_to_calendar(wall)`.
 date_time_to_calendar :: (value: Date_Time) -> Basic.Calendar_Time, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if value.time.nanosecond % 1000000 != 0 return .{}, .{ .INVALID_VALUE, "submillisecond calendar precision", -1 };
+    return .{ year = value.date.year, month_starting_at_0 = value.date.month - 1, day_of_month_starting_at_0 = value.date.day - 1, day_of_week_starting_at_0 = cast(s8) (cast(s64) weekday(value.date) % 7), hour = value.time.hour, minute = value.time.minute, second = value.time.second, millisecond = cast(s16) (value.time.nanosecond / 1000000), time_zone = .UTC }, .{};
 }
 
-// Reads the type's ISO text; Zoned rejects conflicting offsets and accepts bare zone annotations.
-// Example: `value, error := parse(Timestamp, "2024-03-10T07:30:00Z")`.
+// Reads the type's ISO text; Zoned rejects conflicting offsets and accepts bare zone annotations. Example: `value, error := parse(Timestamp, "2024-03-10T07:30:00Z")`.
 parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error {
-    if options.max_text < 0 || text.count > options.max_text return .{}, .{ .LIMIT, "text limit", 0 };
+    if !valid_options(options) || text.count > options.max_text return .{}, .{ .LIMIT, "text limit", 0 };
 
     r := Text_Reader.{ text = text };
 
@@ -1379,18 +1310,16 @@ parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error 
         v := read_span(*r);
         return v, r.error;
     } else #if T == Signed_Duration {
-        v := read_span(*r);
-        if r.error.kind != .NONE return .{}, r.error;
-        return duration_from_span(v);
+        v := read_duration(*r);
+        return v, r.error;
     } else {
         return .{}, .{ .UNSUPPORTED, "unsupported time type", 0 };
     }
 }
 
-// Uses [String_Builder](https://jacket.matteopolak.com/api/String/String_Builder.html).
-// Appends canonical ISO text, trims fractional zeros and uses UTC Z for timestamps.
-// Example: `error := format(*builder, instant)`.
-format :: (builder: *String_Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> Time_Error {
+// Uses [String_Builder](https://github.com/matteopolak/jacket/blob/main/docs/specs/stdlib/modules/basic.md).
+// Appends canonical ISO text, trims fractional zeros and uses UTC Z for timestamps. Example: `error := format(*builder, instant)`.
+format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> Time_Error {
     #if T == Date {
         y: s64 = value.year;
         if y < 0 {
@@ -1508,7 +1437,15 @@ format :: (builder: *String_Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, 
             }
         }
     } else #if T == Signed_Duration {
-        return format(builder, Span.{ seconds = value.seconds, nanoseconds = value.nanoseconds });
+        total := wide_mul(value.seconds, NS) + to_s128(value.nanoseconds);
+        if total.high < 0 append(builder, "-");
+
+        append(builder, "PT");
+        q, r := wide_div(wide_abs(total), NS);
+
+        digits(builder, q.low);
+        fraction(builder, r);
+        append(builder, "S");
     } else {
         return .{ .UNSUPPORTED, "unsupported time type", -1 };
     }
@@ -1518,28 +1455,268 @@ format :: (builder: *String_Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, 
     return .{};
 }
 
-// Appends English strftime text with the documented directive set and padding flags.
-// Example: `error := format(*builder, wall, "%Y-%m-%d %H:%M:%S")`.
-format :: (builder: *String_Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], pattern: string, options: Time_Options = .{}) -> Time_Error {
-    return .{ .UNSUPPORTED, "Time API declaration only", -1 };
+// Appends English strftime text with the documented directive set and padding flags. Example: `error := format(*builder, wall, "%Y-%m-%d %H:%M:%S")`.
+format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], pattern: string, options: Time_Options = .{}) -> Time_Error {
+    if !valid_options(options) || pattern.count > options.max_text return .{ .LIMIT, "pattern limit", 0 };
+
+    f := pattern_fields(value);
+    p := Text_Reader.{ text = pattern };
+
+    while p.at < pattern.count {
+        c := peek(*p);
+
+        p.at += 1;
+
+        if c != 37 {
+            append(builder, c);
+            continue;
+        }
+
+        d, pad, width := pattern_directive(*p);
+
+        if p.error.kind != .NONE return p.error;
+
+        if d == 37 {
+            append(builder, "%");
+            continue;
+        }
+
+        if (contains("Ymd ejabBVGuA", d) && !f.has_date) || (contains("HIMSpfF", d) && !f.has_time) return .{ .INVALID_VALUE, "directive requires missing civil fields", p.at - 1 };
+
+        n: s64;
+        word: string;
+
+        if d == 89 n = f.wall.date.year;
+        else if d == 109 n = f.wall.date.month;
+        else if d == 100 || d == 101 n = f.wall.date.day;
+        else if d == 72 n = f.wall.time.hour;
+        else if d == 73 {
+            n = f.wall.time.hour % 12;
+            if n == 0 n = 12;
+        } else if d == 77 n = f.wall.time.minute;
+        else if d == 83 n = f.wall.time.second;
+        else if d == 102 n = f.wall.time.nanosecond;
+        else if d == 70 {
+            fraction(builder, f.wall.time.nanosecond);
+            continue;
+        } else if d == 112 word = ifx f.wall.time.hour < 12 then "AM" else "PM";
+        else if d == 106 n = day_of_year(f.wall.date);
+        else if d == 97 || d == 65 {
+            index := cast(s64) weekday(f.wall.date) - 1;
+            word = WEEKDAYS[index];
+            if d == 97 word = slice(word, 0, 3);
+        } else if d == 98 || d == 66 {
+            index := cast(s64) f.wall.date.month - 1;
+            if index < 0 || index >= 12 return .{ .INVALID_VALUE, "invalid month", -1 };
+            word = MONTHS[index];
+            if d == 98 word = slice(word, 0, 3);
+        } else if d == 71 || d == 86 {
+            year, week := iso_week(f.wall.date);
+            n = ifx d == 71 then year else week;
+        } else if d == 117 n = cast(s64) weekday(f.wall.date);
+        else if d == 115 {
+            if !f.has_stamp return .{ .INVALID_VALUE, "epoch directive needs an instant", p.at - 1 };
+            n = floor_seconds(f.stamp);
+        } else if d == 122 || d == 99 {
+            if !f.has_offset return .{ .INVALID_VALUE, "offset directive needs a zone", p.at - 1 };
+
+            if d == 99 {
+                e := format(builder, f.offset);
+                if e.kind != .NONE return e;
+            } else {
+                off: s64 = f.offset.seconds;
+
+                append(builder, ifx off < 0 then "-" else "+");
+                if off < 0 off = -off;
+
+                digits(builder, off / 3600, 2);
+                digits(builder, off / 60 % 60, 2);
+                if off % 60 != 0 digits(builder, off % 60, 2);
+            }
+
+            continue;
+        } else if d == 90 word = f.abbreviation;
+        else if d == 81 word = f.name;
+        else return .{ .SYNTAX, "unknown pattern directive", p.at - 1 };
+
+        if d == 90 || d == 81 {
+            if word.count == 0 return .{ .INVALID_VALUE, "zone identifier is unavailable", p.at - 1 };
+        }
+
+        if word.count != 0 append(builder, word);
+        else digits(builder, n, width, pad);
+    }
+
+    if builder.failed return .{ .LIMIT, "builder allocation failed", -1 };
+
+    return .{};
 }
 
-// Reads the documented English directives; missing or conflicting required fields fail.
-// Example: `wall, error := parse_format(Date_Time, "%Y-%m-%d %H:%M", "2024-03-10 02:30")`.
+// Reads the documented English directives; missing or conflicting required fields fail. Example: `wall, error := parse_format(Date_Time, "%Y-%m-%d %H:%M", "2024-03-10 02:30")`.
 parse_format :: ($T: Type, pattern: string, text: string, options: Time_Options = .{}) -> T, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if !valid_options(options) || text.count > options.max_text || pattern.count > options.max_text return .{}, .{ .LIMIT, "pattern text limit", 0 };
+
+    r := Text_Reader.{ text = text };
+    p := Text_Reader.{ text = pattern };
+    v: Pattern_Parse;
+
+    while p.at < pattern.count && r.error.kind == .NONE {
+        c := peek(*p);
+
+        p.at += 1;
+
+        if c != 37 {
+            expect_byte(*r, c);
+            continue;
+        }
+
+        d, pad, width := pattern_directive(*p);
+
+        if p.error.kind != .NONE {
+            text_fail(*r, .SYNTAX, "invalid pattern");
+            break;
+        }
+
+        if d == 37 {
+            expect_byte(*r, 37);
+            continue;
+        }
+
+        if d == 122 || d == 99 {
+            if d == 99 v.offset = read_offset(*r);
+            else {
+                sign := peek(*r);
+                if sign != 43 && sign != 45 text_fail(*r);
+                else r.at += 1;
+
+                h := read_number(*r, 2);
+                m := read_number(*r, 2);
+                sec: s64;
+
+                if peek(*r) >= 48 && peek(*r) <= 57 sec = read_number(*r, 2);
+
+                off, e := offset((h * 3600 + m * 60 + sec) * (ifx sign == 45 then -1 else 1));
+
+                if m > 59 || sec > 59 || e.kind != .NONE text_fail(*r, .INVALID_VALUE, "invalid numeric offset");
+
+                v.offset = off;
+            }
+
+            v.has_offset = true;
+            continue;
+        }
+
+        if d == 81 || d == 90 {
+            read_pattern_zone(*r, *v, d);
+            continue;
+        }
+
+        if d == 97 || d == 65 || d == 98 || d == 66 || d == 112 {
+            read_pattern_word(*r, *v, d);
+            continue;
+        }
+
+        if !contains("Ymd eHIMSfjGVusF", d) {
+            text_fail(*r, .SYNTAX, "unknown pattern directive");
+            break;
+        }
+
+        if d == 70 {
+            ns: s64;
+            count: s64;
+
+            if peek(*r) == 46 {
+                r.at += 1;
+                while peek(*r) >= 48 && peek(*r) <= 57 && count < 9 {
+                    ns = ns * 10 + peek(*r) - 48;
+                    r.at += 1;
+                    count += 1;
+                }
+
+                if count == 0 text_fail(*r);
+                for count..8 ns *= 10;
+            }
+
+            set_pattern_number(*r, *v, 102, ns);
+            continue;
+        }
+
+        sign: s64 = 1;
+
+        if d == 89 || d == 71 || d == 115 {
+            if peek(*r) == 45 || peek(*r) == 43 {
+                if peek(*r) == 45 sign = -1;
+                r.at += 1;
+                if d != 115 width = 6;
+            }
+        }
+
+        if pad == 32 {
+            for 1..width - 1 {
+                if peek(*r) != 32 break;
+                r.at += 1;
+                width -= 1;
+            }
+        }
+
+        n: s64;
+        if width == 0 || d == 115 n = read_variable_checked(*r);
+        else n = read_number(*r, width);
+
+        set_pattern_number(*r, *v, d, n * sign);
+    }
+
+    if r.error.kind == .NONE && r.at != text.count text_fail(*r);
+    if r.error.kind != .NONE return .{}, r.error;
+
+    return finish_pattern(T, *v, *r, options);
 }
 
-// Uses [Json_Writer](https://jacket.matteopolak.com/api/Extensions/Json/Json_Writer.html).
-// Custom Json field encoder; canonical ISO strings use Json's writer limits.
-// Example: `time_json_encode :: Time.time_json_encode // in an @json(with=time_json) struct`.
-time_json_encode :: (writer: *Json.Json_Writer, value: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) {}
+// Uses [Json_Writer](https://github.com/matteopolak/jacket/blob/main/docs/extensions/json.md).
+// Custom Json field encoder; canonical ISO strings use Json's writer limits. Example: `time_json_encode :: Time.time_json_encode // in an @json(with=time_json) struct`.
+time_json_encode :: (writer: *Json_Writer, value: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) {
+    b: String_Builder;
 
-// Uses [Json_Reader](https://jacket.matteopolak.com/api/Extensions/Json/Json_Reader.html).
-// Custom Json field decoder; parse errors become Json INVALID_VALUE and output stays unchanged.
-// Example: `time_json_decode :: Time.time_json_decode // alongside time_json_encode`.
-time_json_decode :: (reader: *Json.Json_Reader, out: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> bool {
-    return false;
+    defer free_buffers(*b);
+    e := format(*b, value.*);
+    if e.kind != .NONE {
+        writer.builder.failed = true;
+        return;
+    }
+
+    text := builder_to_string(*b);
+
+    defer free(text);
+    Json.json_write_string(writer, text);
+}
+
+// Uses [Json_Reader](https://github.com/matteopolak/jacket/blob/main/docs/extensions/json.md).
+// Custom Json field decoder; parse errors become Json INVALID_VALUE and output stays unchanged. Example: `time_json_decode :: Time.time_json_decode // alongside time_json_encode`.
+time_json_decode :: (reader: *Json_Reader, out: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> bool {
+    text, ok := Json.json_read_name(reader);
+    if !ok return false;
+
+    v, e := parse(T, text);
+    if e.kind != .NONE return Json.json_fail(reader, .INVALID_VALUE, e.message);
+
+    // Json has no cleanup hook for owning with= handlers when a later field fails.
+    #if T == Time_Zone {
+        if v.kind == .RULES {
+            time_zone_free(*v);
+            return Json.json_fail(reader, .INVALID_VALUE, "rule-zone Json decoding needs an owning handler cleanup hook");
+        }
+    }
+
+    #if T == Zoned {
+        if v.zone.kind == .RULES {
+            time_zone_free(*v.zone);
+            return Json.json_fail(reader, .INVALID_VALUE, "rule-zone Json decoding needs an owning handler cleanup hook");
+        }
+    }
+
+    out.* = v;
+
+    return true;
 }
 
 #scope_module
@@ -1608,7 +1785,7 @@ civil_day :: (days: s64) -> Date {
 
     if m <= 2 y += 1;
 
-    return .{ cast(s16) y, cast(s8) m, cast(s8) d };
+    return .{ cast,trunc(s16) y, cast,trunc(s8) m, cast,trunc(s8) d };
 }
 
 checked_day :: (days: s64) -> Date, Time_Error {
@@ -1785,15 +1962,15 @@ read_wall :: (r: *Text_Reader) -> Date_Time {
     return .{ d, t };
 }
 
-digits :: (b: *String_Builder, n: s64, width: s64 = 1, pad: u8 = 48) {
+digits :: (b: *String_Builder, n: $N, width: s64 = 1, pad: u8 = 48) #no_aoc {
     storage: [24] u8;
     at := storage.count;
-    v := n;
+    v := cast,no_check(u64) n;
 
-    if v < 0 {
+    if n < 0 {
         append(b, "-");
-        v = -(v / 10);
-    } // Invalid literals remain bounded.
+        v = 0 - v;
+    }
 
     while true {
         at -= 1;
@@ -2693,4 +2870,448 @@ read_span :: (r: *Text_Reader) -> Span {
     if !any || (clock && !time_any) text_fail(r);
 
     return v;
+}
+
+WEEKDAYS :: string.["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+MONTHS :: string.["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+Pattern_Fields :: struct {
+    wall: Date_Time;
+    has_date: bool;
+    has_time: bool;
+    has_offset: bool;
+    has_stamp: bool;
+    offset: Offset;
+    stamp: Timestamp;
+    name: string;
+    abbreviation: string;
+}
+
+pattern_fields :: (v: $T) -> Pattern_Fields {
+    f: Pattern_Fields;
+
+    #if T == Date {
+        f.wall.date = v;
+        f.has_date = true;
+    } else #if T == Time_Of_Day {
+        f.wall.time = v;
+        f.has_time = true;
+    } else #if T == Date_Time {
+        f.wall = v;
+        f.has_date = true;
+        f.has_time = true;
+    } else #if T == Timestamp || T == Zoned {
+        zone: Time_Zone;
+
+        #if T == Timestamp f.stamp = v;
+        else {
+            f.stamp = v.timestamp;
+            zone = v.zone;
+        }
+
+        f.wall = to_civil(zone, f.stamp);
+        f.offset = offset_at(zone, f.stamp);
+        f.abbreviation = abbreviation_at(zone, f.stamp);
+        f.has_date = true;
+        f.has_time = true;
+        f.has_offset = true;
+        f.has_stamp = true;
+        if zone.kind == .UTC f.name = "UTC";
+        else if zone.kind == .RULES {
+            r := lookup_rules(zone.rules);
+            if r != null f.name = r.name;
+        }
+    } else #if T == Offset {
+        f.offset = v;
+        f.has_offset = true;
+    } else #if T == Time_Zone {
+        f.offset = v.offset;
+        f.has_offset = v.kind != .RULES;
+
+        if v.kind == .UTC {
+            f.name = "UTC";
+            f.abbreviation = "UTC";
+        } else if v.kind == .RULES {
+            r := lookup_rules(v.rules);
+            if r != null f.name = r.name;
+        }
+    } else #if T == Signed_Duration {
+        f.stamp = .{ v.seconds, v.nanoseconds };
+        f.has_stamp = true;
+    }
+
+    return f;
+}
+
+floor_seconds :: (v: Timestamp) -> s64 {
+    return v.seconds - (ifx v.nanoseconds < 0 then 1 else 0);
+}
+
+pattern_directive :: (p: *Text_Reader) -> u8, u8, s64 {
+    pad: u8 = 48;
+    width: s64 = 2;
+    c := peek(p);
+
+    if c == 45 {
+        width = 0;
+        p.at += 1;
+    } else if c == 95 {
+        pad = 32;
+        p.at += 1;
+    }
+
+    c = peek(p);
+    p.at += 1;
+
+    if c == 46 {
+        expect_byte(p, 102);
+        return 70, pad, 0;
+    }
+
+    if c == 58 {
+        expect_byte(p, 122);
+        return 99, pad, 0;
+    }
+
+    if width != 0 {
+        if c == 89 || c == 71 width = 4;
+        else if c == 106 width = 3;
+        else if c == 102 width = 9;
+        else if c == 117 width = 1;
+    }
+
+    if c == 101 pad = 32;
+
+    return c, pad, width;
+}
+
+Pattern_Parse :: struct {
+    values: [16] s64;
+    seen: [16] bool;
+    ampm: s64 = -1;
+    weekday: s64;
+    seen_weekday: bool;
+    has_offset: bool;
+    offset: Offset;
+    name: string;
+    abbreviation: string;
+}
+
+pattern_index :: (d: u8) -> s64 {
+    for c, i: "YmdHMSfjGVusI" if c == d return i;
+    if d == 101 return 2;
+    return -1;
+}
+
+set_pattern_number :: (r: *Text_Reader, v: *Pattern_Parse, d: u8, n: s64) {
+    i := pattern_index(d);
+    if i < 0 {
+        text_fail(r);
+        return;
+    }
+
+    if v.seen[i] && v.values[i] != n text_fail(r, .INVALID_VALUE, "conflicting pattern fields");
+
+    v.values[i] = n;
+    v.seen[i] = true;
+}
+
+read_variable_checked :: (r: *Text_Reader) -> s64 {
+    n: s64;
+    begin := r.at;
+
+    while peek(r) >= 48 && peek(r) <= 57 {
+        d: s64 = peek(r) - 48;
+        if n > (MAX_I64 - d) / 10 {
+            text_fail(r, .OUT_OF_RANGE, "pattern integer overflow");
+            break;
+        }
+
+        n = n * 10 + d;
+        r.at += 1;
+    }
+
+    if begin == r.at text_fail(r);
+
+    return n;
+}
+
+consume_word :: (r: *Text_Reader, word: string) -> bool {
+    if r.text.count - r.at < word.count return false;
+    if !equal_nocase(string.{ word.count, r.text.data + r.at }, word) return false;
+    r.at += word.count;
+    return true;
+}
+
+finish_pattern :: ($T: Type, v: *Pattern_Parse, r: *Text_Reader, options: Time_Options) -> T, Time_Error {
+    zone: Time_Zone;
+    keep := false;
+
+    defer if !keep time_zone_free(*zone);
+
+    if v.name.count != 0 {
+        if v.name != "UTC" {
+            z, e := time_zone_get(v.name, options);
+            if e.kind != .NONE {
+                e.offset = r.at;
+                return .{}, e;
+            }
+
+            zone = z;
+        }
+    } else if v.has_offset zone = time_zone_fixed(v.offset);
+    else if v.abbreviation == "UTC" || v.abbreviation == "GMT" {
+        v.has_offset = true;
+    } else if v.abbreviation.count != 0 return .{}, .{ .INVALID_VALUE, "abbreviation requires an explicit zone", r.at };
+
+    #if T == Time_Zone {
+        if v.name.count == 0 && !v.has_offset return .{}, .{ .INVALID_VALUE, "zone field required", r.at };
+        keep = true;
+        return zone, .{};
+    }
+
+    #if T == Offset {
+        if !v.has_offset return .{}, .{ .INVALID_VALUE, "offset field required", r.at };
+        return v.offset, .{};
+    }
+
+    d: Date;
+    t: Time_Of_Day;
+    has_date := false;
+
+    if v.seen[0] && v.seen[1] && v.seen[2] {
+        value, e := date(v.values[0], v.values[1], v.values[2]);
+        if e.kind != .NONE {
+            e.offset = r.at;
+            return .{}, e;
+        }
+
+        d = value;
+        has_date = true;
+    }
+
+    if v.seen[7] {
+        if !v.seen[0] || v.values[7] < 1 || v.values[7] > 366 return .{}, .{ .INVALID_VALUE, "ordinal needs a valid year and day", r.at };
+
+        first, e := date(v.values[0], 1, 1);
+        if e.kind != .NONE {
+            e.offset = r.at;
+            return .{}, e;
+        }
+
+        value, ve := checked_day(date_days(first) + v.values[7] - 1);
+        if ve.kind != .NONE || value.year != first.year || (has_date && compare(d, value) != 0) return .{}, .{ .INVALID_VALUE, "conflicting ordinal date", r.at };
+
+        d = value;
+        has_date = true;
+    }
+
+    if v.seen[8] || v.seen[9] {
+        if !v.seen[8] || !v.seen[9] || !v.seen[10] return .{}, .{ .INVALID_VALUE, "incomplete ISO week date", r.at };
+
+        if v.values[10] < 1 || v.values[10] > 7 return .{}, .{ .INVALID_VALUE, "invalid ISO weekday", r.at };
+
+        value, e := date_from_iso_week(v.values[8], v.values[9], cast(Weekday) v.values[10]);
+        if e.kind != .NONE || (has_date && compare(d, value) != 0) return .{}, .{ .INVALID_VALUE, "conflicting ISO week date", r.at };
+
+        d = value;
+        has_date = true;
+    }
+
+    if has_date && ((v.seen[0] && v.values[0] != d.year) || (v.seen[1] && v.values[1] != d.month) || (v.seen[2] && v.values[2] != d.day) || (v.seen[10] && v.values[10] != cast(s64) weekday(d))) return .{}, .{ .INVALID_VALUE, "conflicting civil fields", r.at };
+    if v.seen_weekday && has_date && cast(s64) weekday(d) != v.weekday return .{}, .{ .INVALID_VALUE, "weekday conflicts with date", r.at };
+
+    hour := v.values[3];
+
+    if v.seen[12] {
+        if v.values[12] < 1 || v.values[12] > 12 || v.ampm < 0 return .{}, .{ .INVALID_VALUE, "12-hour clock requires AM or PM", r.at };
+        h := (v.values[12] % 12) + v.ampm * 12;
+        if v.seen[3] && h != hour return .{}, .{ .INVALID_VALUE, "conflicting hours", r.at };
+        hour = h;
+    }
+
+    clock, e := time_of_day(hour, v.values[4], v.values[5], v.values[6]);
+    if e.kind != .NONE {
+        e.offset = r.at;
+        return .{}, e;
+    }
+
+    t = clock;
+
+    #if T == Date {
+        if !has_date return .{}, .{ .INVALID_VALUE, "complete date required", r.at };
+        return d, .{};
+    }
+
+    #if T == Time_Of_Day {
+        if !v.seen[3] && !v.seen[12] return .{}, .{ .INVALID_VALUE, "hour required", r.at };
+        return t, .{};
+    }
+
+    #if T == Date_Time {
+        if !has_date || (!v.seen[3] && !v.seen[12]) return .{}, .{ .INVALID_VALUE, "complete date and clock required", r.at };
+        return .{ d, t }, .{};
+    }
+
+    #if T == Signed_Duration {
+        if !v.seen[11] return .{}, .{ .INVALID_VALUE, "epoch seconds required", r.at };
+        return signed_duration(v.values[11], v.values[6]);
+    }
+
+    #if T == Timestamp || T == Zoned {
+        instant: Timestamp;
+
+        if v.seen[11] {
+            ts, te := timestamp_wide(wide_mul(v.values[11], NS) + to_s128(v.values[6]));
+            if te.kind != .NONE {
+                te.offset = r.at;
+                return .{}, te;
+            }
+
+            instant = ts;
+        } else {
+            if !has_date || (v.name.count == 0 && !v.has_offset) return .{}, .{ .INVALID_VALUE, "complete date and explicit zone required", r.at };
+
+            ts, te := to_timestamp(ifx v.has_offset then time_zone_fixed(v.offset) else zone, .{ d, t });
+            if te.kind != .NONE {
+                te.offset = r.at;
+                return .{}, te;
+            }
+
+            instant = ts;
+        }
+
+        if v.has_offset && offset_at(zone, instant).seconds != v.offset.seconds return .{}, .{ .OFFSET_CONFLICT, "conflicting offset", r.at };
+        if v.abbreviation.count != 0 && abbreviation_at(zone, instant) != v.abbreviation return .{}, .{ .INVALID_VALUE, "conflicting abbreviation", r.at };
+        if v.seen[11] && has_date && compare(to_civil(zone, instant).date, d) != 0 return .{}, .{ .INVALID_VALUE, "conflicting epoch date", r.at };
+
+        if v.seen[11] {
+            wall := to_civil(zone, instant);
+            if (v.seen[3] || v.seen[12]) && wall.time.hour != t.hour || v.seen[4] && wall.time.minute != t.minute || v.seen[5] && wall.time.second != t.second return .{}, .{ .INVALID_VALUE, "conflicting epoch clock", r.at };
+        }
+
+        #if T == Timestamp return instant, .{};
+        else {
+            keep = true;
+            return zoned(instant, zone), .{};
+        }
+    }
+
+    return .{}, .{ .UNSUPPORTED, "unsupported pattern type", r.at };
+}
+
+read_pattern_word :: (r: *Text_Reader, v: *Pattern_Parse, d: u8) {
+    which: s64 = -1;
+
+    if d == 112 {
+        for word, i: string.["AM", "PM"] if consume_word(r, word) {
+            which = i;
+            break;
+        }
+
+        if which >= 0 v.ampm = which;
+    } else if d == 97 || d == 65 {
+        for word, i: WEEKDAYS {
+            part := word;
+            if d == 97 part = slice(word, 0, 3);
+
+            if consume_word(r, part) {
+                which = i;
+                break;
+            }
+        }
+
+        if which >= 0 {
+            v.weekday = which + 1;
+            v.seen_weekday = true;
+        }
+    } else {
+        for word, i: MONTHS {
+            part := word;
+            if d == 98 part = slice(word, 0, 3);
+
+            if consume_word(r, part) {
+                which = i;
+                break;
+            }
+        }
+
+        if which >= 0 set_pattern_number(r, v, 109, which + 1);
+    }
+
+    if which < 0 text_fail(r);
+
+}
+
+Builder :: Basic.String_Builder;
+Json_Writer :: Json.Json_Writer;
+Json_Reader :: Json.Json_Reader;
+
+read_pattern_zone :: (r: *Text_Reader, v: *Pattern_Parse, d: u8) {
+    begin := r.at;
+
+    while r.at < r.text.count {
+        c2 := peek(r);
+        if (c2 >= 65 && c2 <= 90) || (c2 >= 97 && c2 <= 122) || (c2 >= 48 && c2 <= 57) || c2 == 47 || c2 == 95 || c2 == 45 || c2 == 43 || c2 == 58 r.at += 1;
+        else break;
+    }
+
+    word := string.{ r.at - begin, r.text.data + begin };
+    if word.count == 0 text_fail(r);
+    if d == 81 v.name = word;
+    else v.abbreviation = word;
+
+}
+
+read_duration :: (r: *Text_Reader) -> Signed_Duration {
+    negative := peek(r) == 45;
+    if negative r.at += 1;
+
+    expect_byte(r, 80);
+    expect_byte(r, 84);
+    begin := r.at;
+    n: u64;
+    limit: u64 = 9223372036854775807;
+
+    if negative limit += 1;
+
+    while peek(r) >= 48 && peek(r) <= 57 {
+        digit: u64 = peek(r) - 48;
+        if n > (limit - digit) / 10 {
+            text_fail(r, .OUT_OF_RANGE, "duration integer overflow");
+            return .{};
+        }
+
+        n = n * 10 + digit;
+        r.at += 1;
+    }
+
+    if begin == r.at text_fail(r);
+
+    ns: s64;
+
+    if peek(r) == 46 {
+        r.at += 1;
+        count: s64;
+        while peek(r) >= 48 && peek(r) <= 57 && count < 9 {
+            ns = ns * 10 + peek(r) - 48;
+            r.at += 1;
+            count += 1;
+        }
+
+        if count == 0 text_fail(r);
+        for count..8 ns *= 10;
+    }
+
+    expect_byte(r, 83);
+    if r.at != r.text.count text_fail(r);
+
+    total := S128.{ n, 0 };
+
+    if negative {
+        total = S128.{} - total;
+        ns = -ns;
+    }
+
+    return .{ narrow(total), cast(s32) ns };
 }

@@ -48,3 +48,70 @@ forged_zone_handle :: () {
     Zone_Test.abbreviation_at(bad, .{});
     Zone_Test.time_zone_free(*bad);
 } @test
+
+posix_julian_and_extended :: () {
+    for rules, index: string.["AAA0BBB,J60/0,J300/0", "AAA0BBB,59/0,300/0"] {
+        zone, e := Zone_Test.time_zone_from_posix(rules);
+
+        assert(e.kind == .NONE);
+        defer Zone_Test.time_zone_free(*zone);
+        leap, _ := Zone_Test.parse(Zone_Test.Timestamp, "2024-02-29T12:00:00Z");
+        march, _ := Zone_Test.parse(Zone_Test.Timestamp, "2024-03-01T12:00:00Z");
+
+        assert(Zone_Test.offset_at(zone, leap).seconds == (ifx index == 0 then 0 else 3600));
+        assert(Zone_Test.offset_at(zone, march).seconds == 3600);
+    }
+
+    zone, e := Zone_Test.time_zone_from_posix("AAA0BBB,M3.1.0/-2,M11.1.0/26");
+
+    assert(e.kind == .NONE);
+    defer Zone_Test.time_zone_free(*zone);
+    spring, _ := Zone_Test.parse(Zone_Test.Timestamp, "2024-03-02T22:30:00Z");
+    fall, _ := Zone_Test.parse(Zone_Test.Timestamp, "2024-11-04T01:00:00Z");
+
+    assert(Zone_Test.offset_at(zone, spring).seconds == 3600 && Zone_Test.offset_at(zone, fall).seconds == 0);
+} @test
+
+all_tzif_versions :: () {
+    header: [54] u8;
+    header[0] = 84;
+    header[1] = 90;
+    header[2] = 105;
+    header[3] = 102;
+    header[39] = 1;
+    header[43] = 4;
+    header[50] = 85;
+    header[51] = 84;
+    header[52] = 67;
+    first, e := Zone_Test.time_zone_from_tzif("", header);
+
+    assert(e.kind == .NONE);
+    Zone_Test.time_zone_free(*first);
+
+    for version: 50..52 {
+        bytes: [114] u8;
+
+        for c, i: header {
+            bytes[i] = c;
+            bytes[54 + i] = c;
+        }
+
+        bytes[4] = cast(u8) version;
+        bytes[58] = cast(u8) version;
+        bytes[108] = 10;
+        bytes[109] = 85;
+        bytes[110] = 84;
+        bytes[111] = 67;
+        bytes[112] = 48;
+        bytes[113] = 10;
+        zone, ze := Zone_Test.time_zone_from_tzif("Example/Zone", bytes);
+
+        assert(ze.kind == .NONE);
+        Zone_Test.time_zone_free(*zone);
+
+        for cut: 0..113 {
+            _, bad := Zone_Test.time_zone_from_tzif("", .{ cut, bytes.data });
+            assert(bad.kind != .NONE);
+        }
+    }
+} @test
