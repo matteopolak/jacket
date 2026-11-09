@@ -78,7 +78,10 @@ Archive_Output :: struct {
 buffer_write :: (data: *void, bytes: [] u8) -> bool {
     b := cast(*Archive_Buffer) data;
 
-    array_reserve(*b.bytes, b.bytes.count + bytes.count);
+    // Reserve is exact, so grow by doubling to keep appends linear overall.
+    needed := b.bytes.count + bytes.count;
+
+    if needed > b.bytes.allocated array_reserve(*b.bytes, max(needed, b.bytes.allocated * 2));
     if bytes.count memcpy(b.bytes.data + b.bytes.count, bytes.data, bytes.count);
 
     b.bytes.count += bytes.count;

@@ -43,6 +43,39 @@ zip64_count :: (t: *Test) {
     free_archive(*a);
 } @test @timeout(60)
 
+Resize_Count :: struct {
+    backing: Allocator;
+    resizes: s64;
+}
+
+count_resizes :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
+    count := cast(*Resize_Count) data;
+
+    if mode == .RESIZE count.resizes += 1;
+
+    return count.backing.proc(mode, size, old_size, old_memory, count.backing.data);
+}
+
+// The output buffer grows geometrically: appending many small records must not reallocate per record.
+encode_grows_geometrically :: (t: *Test) {
+    items: [] Archive_Item = .{ 20000, alloc(20000 * size_of(Archive_Item)) };
+
+    defer free(items.data);
+    for *items it.* = .{ name = "x" };
+
+    count := Resize_Count.{ backing = context.allocator };
+    outer := context.allocator;
+
+    context.allocator = .{ count_resizes, *count };
+    bytes, error := encode_archive(items, .ZIP);
+
+    context.allocator = outer;
+
+    require(error.kind == .NONE);
+    free(bytes.data);
+    expect(count.resizes < 200, tprint("% reallocations", count.resizes));
+} @test
+
 collect_bytes :: (data: *void, bytes: [] u8) -> bool {
     out := cast(*[..] u8) data;
     for bytes array_add(out, it);
