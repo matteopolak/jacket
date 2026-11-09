@@ -29,7 +29,7 @@ release_block :: (block: *void) {
 }
 
 a_block_that_moved_is_still_accepted :: () {
-    block := D.allocator_proc(.ALLOCATE, 8, 0, null, null);
+    block := D.allocator_proc(.ALLOCATE, 60, 0, null, null);
 
     for size: 16..4096 {
         block = D.allocator_proc(.RESIZE, size * 4, (size - 1) * 4, block, null);
