@@ -25,6 +25,10 @@
 
 - Comparing an integer variable with a float variable (`n < x`) is an error with a `cast` suggestion; an integer the float represents entirely (`s16` with `float32`, `s32` with `float64`) and untyped literals still compare. The standard library's audio mixer and profiler overlay compared mixed types and now cast.
 
+### Fixed
+
+- A default value of the wrong type in a struct nothing uses is reported.
+
 ## [0.34.0] - 2026-11-09
 
 ### New

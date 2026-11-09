@@ -585,10 +585,12 @@ impl Compiler {
             && self.src.insert_depth.contains_key(&p.span.file)
     }
 
-    /// Lay out every top-level struct and union declaration, also those nothing uses.
+    /// Lay out every top-level struct and union declaration, also those nothing uses, and
+    /// check their member defaults.
     /// Jai type-checks all declarations (dead-code elimination only skips procedure
-    /// bodies), so a member typed by an undefined name is an error even in a struct the
-    /// program never touches; demand-driven checking alone would miss it.
+    /// bodies), so a member typed by an undefined name, or a default of the wrong type, is an
+    /// error even in a struct the program never touches; demand-driven checking alone would
+    /// miss it.
     /// Polymorphic structs are checked per instance, when one is made.
     fn check_declared_structs(&mut self) -> Result<()> {
         let mut index = 0;
@@ -624,6 +626,8 @@ impl Compiler {
                 && let TypeKind::Struct(s) = self.ty.types.kind(t).clone()
             {
                 self.layout_struct(s, span)?;
+                // Member defaults are otherwise evaluated when a value is first made.
+                self.default_initializer(t, span)?;
             }
         }
         Ok(())

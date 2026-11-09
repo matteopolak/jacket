@@ -52,7 +52,7 @@ There are no default-override flags or external dependencies.
 
 ## Layout
 
-- Layout is lazy, but every top-level struct is laid out before compilation ends, so a member of an undefined type is always an error {#struct.5}. By-value recursion is caught.
+- Layout is lazy, but every top-level struct is laid out before compilation ends, so a member of an undefined type is always an error {#struct.5}. By-value recursion is caught. The member defaults of every non-polymorphic top-level struct are evaluated too, so a default of the wrong type is an error even in an unused struct.
 - Fields are naturally aligned and the size rounds up to the struct alignment {#struct.6}. `#no_padding` packs members with no gaps {#struct.7}; `#align N` raises the alignment {#struct.8}.
 - `#place a; b: int;` overlays `b` on `a`'s offset {#struct.9}. `#overlay(a) b: u32;` overlays only `b` and leaves following members where they were; `b` gets the `OVERLAY` flag in its `Type_Info_Struct_Member`, so serializers can skip it {#struct.18}.
 - `#overlay(a)` is allowed only in struct bodies (including `#if`, `#insert`ed members, unions and nested anonymous structs); several may share a target, and the struct's size is the farthest member's end {#struct.22}. Elsewhere it is an error. The target may be a path, `#overlay(base.table)`, adding the inner member's offset {#struct.24}. `#place` takes a path too.

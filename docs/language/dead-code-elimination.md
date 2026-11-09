@@ -26,7 +26,7 @@ The same declarations in an imported module go unchecked until something calls t
 - An inactive `#if` branch declares nothing, so nothing in it is checked {#dce.5}.
 - `#run`s inside bodies checked this way run, after the top-level `#run`s {#dce.11}. In modules, a body nothing reaches is never checked and its `#run`s never run {#dce.6}.
 - `.NONE` applies the program-file rules to every module {#dce.8}. `.ALL` checks only what the program reaches {#dce.9}.
-- In every mode, every non-polymorphic struct and union is laid out, so a member of an undefined type is an error even in an unused struct {#dce.10}.
+- In every mode, every non-polymorphic struct and union is laid out, so a member of an undefined type, or a default of the wrong type, is an error even in an unused struct {#dce.10}.
 - Compiled output holds only functions that the exported entry points, globals and runtime information reach; code lowered only to check something is dropped {#dce.12}.
 - Declarations are visited in creation order, so which error is reported does not depend on hashing.
 
