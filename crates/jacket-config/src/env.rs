@@ -236,7 +236,7 @@ vars! {
     OUTPUT_DIR {
         name: "JACKET_OUTPUT_DIR", group: Settings, readers: [Jaic, Jacket],
         default: "`target/` in the project",
-        summary: "Relocates the build output directory (the `native-libs/` lookup and `jacket test --coverage` reports follow it).",
+        summary: "Relocates the build output directory (the `native-libs/` lookup and `jacket test --coverage` reports follow it). A relative path is below the checkout the tools and standard library are in, not the working directory.",
     }
     CHECK_TIME_LIMIT {
         name: "JACKET_CHECK_TIME_LIMIT", group: Settings, readers: [Jailint, Jailsp],
