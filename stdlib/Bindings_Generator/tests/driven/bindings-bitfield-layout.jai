@@ -43,9 +43,9 @@ main :: () {
     assert(contains(text, "__bitfield_1: u32;") && contains(text, "__bitfield_2: u16;"));
     assert(contains(text, "  _: u32; /* 5 bits */") && !contains(text, "__bitfield_3: u32;\n /*\n  c: u32;"));
 
-    // Source comments are carried into the member list and cannot end it early.
-    assert(contains(text, "// prefix line one\n") && contains(text, "// postfix on count"));
-    assert(contains(text, "/ * an opener / * inside a comment * /"));
+    // Source comments are carried into the member list as joined `//` paragraphs and cannot end it early.
+    assert(contains(text, "// prefix line one prefix line two\n") && contains(text, "// postfix on count"));
+    assert(contains(text, "// an opener / * inside a comment\n") && !contains(text, "inside a comment * /"));
 
     // Packed and padded records are placed field by field.
     assert(contains(text, "BfPack1 :: struct #no_padding {") && contains(text, "__padding_1: [1] u8;"));
