@@ -115,6 +115,7 @@ Csv_Core :: struct {
     cells: [..] Csv_Cell;
     fields: [..] string;
     stops: [256] u8;
+    marks: Csv_Marks;
     block_base: int = -1; // the window offset of the 64-byte block the two masks describe (-1: none)
     block_unquoted: u64; // bit i: byte `block_base + i` ends a run in an unquoted field
     block_quoted: u64; // the same for a quoted field
@@ -445,12 +446,32 @@ Csv_Cell :: struct {
     text: string;
 }
 
+// The bytes `load_block` compares each block against, spread over all 64 lanes once per reader
+// rather than once per block.
+Csv_Marks :: struct {
+    line_feed: Simd.u8x64;
+    carriage_return: Simd.u8x64;
+    delimiter: Simd.u8x64;
+    quote: Simd.u8x64;
+}
+
+make_marks :: (options: Csv_Options) -> Csv_Marks {
+    marks: Csv_Marks = ---;
+    marks.line_feed = Simd.splat(Simd.u8x64, 10);
+    marks.carriage_return = Simd.splat(Simd.u8x64, 13);
+    marks.delimiter = Simd.splat(Simd.u8x64, options.delimiter);
+    marks.quote = Simd.splat(Simd.u8x64, options.quote);
+
+    return marks;
+}
+
 open_input :: (r: *Csv_Core, input: [] u8, options: Csv_Options) {
     r.allocator = context.allocator;
     r.input = input;
     r.options = options;
     r.error = validate_options(options);
     r.stops = make_stops(options);
+    r.marks = make_marks(options);
 }
 
 open_source :: (r: *Csv_Core, source: Csv_Source, options: Csv_Options) {
@@ -459,6 +480,7 @@ open_source :: (r: *Csv_Core, source: Csv_Source, options: Csv_Options) {
     r.options = options;
     r.error = validate_options(options);
     r.stops = make_stops(options);
+    r.marks = make_marks(options);
 
     if !source.fill r.error = .{ kind = .OPTIONS, message = "missing source callback", line = 1, column = 1 };
     else if options.borrow && r.error.kind == .NONE r.error = .{ kind = .OPTIONS, message = "borrow needs a slice input", line = 1, column = 1 };
@@ -709,9 +731,10 @@ load_block :: (r: *Csv_Core, base: int) {
     if left >= 64 bytes = Simd.load(Simd.u8x64, data);
     else bytes = Simd.load_partial(Simd.u8x64, data, left);
 
-    breaks := Simd.to_bits(Simd.eq(bytes, cast(u8) 10) | Simd.eq(bytes, cast(u8) 13));
-    delimiters := Simd.to_bits(Simd.eq(bytes, r.options.delimiter));
-    quotes := Simd.to_bits(Simd.eq(bytes, r.options.quote));
+    marks := *r.marks;
+    breaks := Simd.to_bits(Simd.eq(bytes, marks.line_feed) | Simd.eq(bytes, marks.carriage_return));
+    delimiters := Simd.to_bits(Simd.eq(bytes, marks.delimiter));
+    quotes := Simd.to_bits(Simd.eq(bytes, marks.quote));
 
     r.block_base = base;
     r.block_quoted = breaks | quotes;
