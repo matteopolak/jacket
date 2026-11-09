@@ -188,25 +188,35 @@ Time_Transitions :: struct {
 // Validates Gregorian components without clamping.
 // Example: `d, error := date(2024, 2, 29)`.
 date :: (year: s64, month: s64, day: s64) -> Date, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    n, e := days_in_month(year, month);
+    if e.kind != .NONE return .{}, e;
+    if day < 1 || day > n return .{}, .{ .INVALID_VALUE, "invalid day", -1 };
+    return .{ cast(s16) year, cast(s8) month, cast(s8) day }, .{};
 }
 
 // Validates a clock reading; leap seconds are rejected.
 // Example: `t, error := time_of_day(23, 59, 59, 1)`.
 time_of_day :: (hour: s64, minute: s64, second: s64, nanosecond: s64 = 0) -> Time_Of_Day, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 || nanosecond < 0 || nanosecond >= NS return .{}, .{ .INVALID_VALUE, "invalid clock component", -1 };
+    return .{ cast(s8) hour, cast(s8) minute, cast(s8) second, cast(s32) nanosecond }, .{};
 }
 
 // Validates and combines civil components.
 // Example: `dt, error := date_time(day, clock)`.
 date_time :: (day: Date, clock: Time_Of_Day) -> Date_Time {
-    return .{};
+    return .{ day, clock };
 }
 
 // Validates a civil date and clock reading together.
 // Example: `dt, error := date_time(2024, 3, 10, 2, 30)`.
 date_time :: (year: s64, month: s64, day: s64, hour: s64 = 0, minute: s64 = 0, second: s64 = 0, nanosecond: s64 = 0) -> Date_Time, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    d, e := date(year, month, day);
+    if e.kind != .NONE return .{}, e;
+
+    t, te := time_of_day(hour, minute, second, nanosecond);
+    if te.kind != .NONE return .{}, te;
+
+    return .{ d, t }, .{};
 }
 
 // Validates seconds east of UTC, including historical second offsets.
@@ -224,85 +234,165 @@ signed_duration :: (seconds: s64, nanoseconds: s64 = 0) -> Signed_Duration, Time
 // Validates the single-sign invariant without balancing units.
 // Example: `s, error := span_check(.{months = 1, days = 2})`.
 span_check :: (value: Span) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    sign: s64;
+
+    for field: span_fields(value) {
+        if field == MIN_I64 || field == -2147483648 return .{}, .{ .OUT_OF_RANGE, "span field cannot be negated", -1 };
+
+        current := cmp64(field, 0);
+        if current != 0 {
+            if sign != 0 && current != sign return .{}, .{ .INVALID_VALUE, "mixed span signs", -1 };
+            sign = current;
+        }
+    }
+
+    return value, .{};
 }
 
 // Returns the Gregorian month length after validating year and month.
 // Example: `n, error := days_in_month(2024, 2)`.
 days_in_month :: (year: s64, month: s64) -> s64, Time_Error {
-    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if year < -9999 || year > 9999 return 0, .{ .OUT_OF_RANGE, "year outside civil range", -1 };
+    if month < 1 || month > 12 return 0, .{ .INVALID_VALUE, "invalid month", -1 };
+    return month_length(year, month), .{};
 }
 
 // Tests the Gregorian leap rule within the supported year range.
 // Example: `leap := is_leap_year(2000)`.
 is_leap_year :: (year: s64) -> bool {
-    return false;
+    return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 }
 
 // Returns the ISO weekday after validating the date.
 // Example: `day := weekday(value)`.
 weekday :: (value: Date) -> Weekday {
-    return .{};
+    return cast(Weekday) (modulo(date_days(value) + 3, 7) + 1);
 }
 
 // Returns the ordinal day, starting at one.
 // Example: `ordinal := day_of_year(value)`.
 day_of_year :: (value: Date) -> s64 {
-    return 0;
+    return date_days(value) - date_days(.{ value.year, 1, 1 }) + 1;
 }
 
 // Returns ISO week-year and week number; week one contains January 4.
 // Example: `year, week := iso_week(value)`.
 iso_week :: (value: Date) -> s64, s64 {
-    return 0, 0;
+    thursday := date_days(value) + 4 - cast(s64) weekday(value);
+    d := civil_day(thursday);
+    jan4 := date_days(.{ d.year, 1, 4 });
+    return d.year, (thursday - (jan4 + 4 - cast(s64) weekday(.{ d.year, 1, 4 }))) / 7 + 1;
 }
 
 // Validates and converts an ISO week date.
 // Example: `d, error := date_from_iso_week(2024, 1, .MONDAY)`.
-date_from_iso_week :: (year: s64, week: s64, day: Weekday) -> Date {
-    return .{};
+date_from_iso_week :: (year: s64, week: s64, day: Weekday) -> Date, Time_Error {
+    if year < -9999 || year > 9999 || week < 1 || week > 53 || cast(s64) day < 1 || cast(s64) day > 7 return .{}, .{ .INVALID_VALUE, "invalid ISO week date", -1 };
+
+    jan4 := Date.{ cast(s16) year, 1, 4 };
+    result, e := checked_day(date_days(jan4) - cast(s64) weekday(jan4) + 1 + (week - 1) * 7 + cast(s64) day - 1);
+
+    if e.kind != .NONE return .{}, e;
+
+    y, w := iso_week(result);
+    if y != year || w != week return .{}, .{ .INVALID_VALUE, "ISO week does not exist", -1 };
+
+    return result, .{};
 }
 
 // Returns the first day of the validated date's month.
 // Example: `d := first_of_month(value)`.
 first_of_month :: (value: Date) -> Date {
-    return .{};
+    return .{ value.year, value.month, 1 };
 }
 
 // Returns the last day of the validated date's month.
 // Example: `d := last_of_month(value)`.
 last_of_month :: (value: Date) -> Date {
-    return .{};
+    return .{ value.year, value.month, cast(s8) month_length(value.year, value.month) };
 }
 
 // Finds occurrence 1..5 or -1..-5 from the end; missing occurrences fail.
 // Example: `d, error := nth_weekday_of_month(2024, 3, .SUNDAY, 2)`.
 nth_weekday_of_month :: (year: s64, month: s64, day: Weekday, nth: s64) -> Date, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    first, e := date(year, month, 1);
+    if e.kind != .NONE return .{}, e;
+    if nth == 0 || nth < -5 || nth > 5 || cast(s64) day < 1 || cast(s64) day > 7 return .{}, .{ .INVALID_VALUE, "invalid weekday occurrence", -1 };
+
+    n := month_length(year, month);
+    d: s64;
+
+    if nth > 0 d = 1 + modulo(cast(s64) day - cast(s64) weekday(first), 7) + (nth - 1) * 7;
+    else d = n - modulo(cast(s64) weekday(last_of_month(first)) - cast(s64) day, 7) + (nth + 1) * 7;
+
+    return date(year, month, d);
 }
 
 // Applies years/months with month-end policy, then weeks/days; clock units fail.
 // Example: `d, error := add(value, Span.{months = 1}, .REJECT)`.
 add :: (value: Date, amount: Span, overflow := Overflow.CONSTRAIN) -> Date, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if clock_nonzero(amount) return .{}, .{ .INVALID_VALUE, "date arithmetic rejects clock units", -1 };
+
+    y: s64 = value.year;
+    m: s64 = value.month;
+    months := y * 12 + m - 1 + cast(s64) amount.years * 12 + amount.months;
+
+    y = floor_div(months, 12);
+    m = modulo(months, 12) + 1;
+    if y < -9999 || y > 9999 return .{}, range_error();
+
+    d: s64 = value.day;
+    n := month_length(y, m);
+
+    if d > n {
+        if overflow == .REJECT return .{}, .{ .INVALID_VALUE, "day absent in target month", -1 };
+        d = n;
+    }
+
+    shifted := Date.{ cast(s16) y, cast(s8) m, cast(s8) d };
+
+    return checked_day(date_days(shifted) + cast(s64) amount.weeks * 7 + amount.days);
 }
 
 // Applies calendar units before exact clock units, carrying across midnight.
 // Example: `dt, error := add(value, Span.{days = 1, hours = 2})`.
 add :: (value: Date_Time, amount: Span, overflow := Overflow.CONSTRAIN) -> Date_Time, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    calendar := amount;
+
+    clear_clock(*calendar);
+    d, e := add(value.date, calendar, overflow);
+    if e.kind != .NONE return .{}, e;
+
+    total := clock_ns(amount) + Basic.to_s128(time_ns(value.time));
+    q, r := wide_div(total, DAY_NS);
+
+    if r < 0 {
+        q -= Basic.to_s128(1);
+        r += DAY_NS;
+    }
+
+    if q < Basic.to_s128(-8000000) || q > Basic.to_s128(8000000) return .{}, range_error();
+
+    d, e = checked_day(date_days(d) + narrow(q));
+    if e.kind != .NONE return .{}, e;
+
+    return .{ d, clock_from_ns(r) }, .{};
 }
 
 // Adds clock units modulo one day; all calendar units fail.
 // Example: `t, error := add(value, Span.{hours = 25})`.
 add :: (value: Time_Of_Day, amount: Span) -> Time_Of_Day, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if calendar_nonzero(amount) return .{}, .{ .INVALID_VALUE, "clock arithmetic rejects calendar units", -1 };
+    total := clock_ns(amount) + Basic.to_s128(time_ns(value));
+    _, rem := wide_div(total, DAY_NS);
+    return clock_from_ns(modulo(rem, DAY_NS)), .{};
 }
 
 // Measures b minus a; validates units, positive increments and range.
 // Example: `s, error := until(a, b)`.
 until :: (a: Date, b: Date, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if largest != .DAY || (smallest != .DAY && smallest != .NANOSECOND) || increment < 1 return .{}, .{ .UNSUPPORTED, "calendar rounding is not implemented yet", -1 };
+    return .{ days = cast(s32) (date_days(b) - date_days(a)) }, .{};
 }
 
 // Measures b minus a; validates units, positive increments and range.
@@ -326,7 +416,7 @@ until :: (a: Zoned, b: Zoned, largest := Unit.DAY, smallest := Unit.NANOSECOND, 
 // Measures a minus b; validates units, positive increments and range.
 // Example: `s, error := since(a, b)`.
 since :: (a: Date, b: Date, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return until(b, a, largest, smallest, rounding, increment);
 }
 
 // Measures a minus b; validates units, positive increments and range.
@@ -436,13 +526,18 @@ duration_from_span :: (value: Span) -> Signed_Duration, Time_Error {
 // Reverses every field of a validated span.
 // Example: `s := span_negate(value)`.
 span_negate :: (value: Span) -> Span {
-    return .{};
+    return .{ -value.years, -value.months, -value.weeks, -value.days, -value.hours, -value.minutes, -value.seconds, -value.milliseconds, -value.microseconds, -value.nanoseconds };
 }
 
 // Returns a nonnegative span; span_check rejects signed minima.
 // Example: `s := span_abs(value)`.
 span_abs :: (value: Span) -> Span {
-    return .{};
+    for field: span_fields(value) {
+        if field < 0 return span_negate(value);
+        if field > 0 return value;
+    }
+
+    return value;
 }
 
 // Reads Basic.current_time_consensus and converts its Apollo epoch; no new clock path.
@@ -620,13 +715,37 @@ hours_in_day :: (value: Zoned) -> float64, Time_Error {
 // Orders values (-1/0/1); Zoned and Timestamp use only the instant. Zones order by kind and rule content.
 // Example: `order := compare(a, b)`.
 compare :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], b: T) -> int {
-    return 0;
+    #if T == Date {
+        c := cmp64(a.year, b.year);
+        if c != 0 return c;
+
+        c = cmp64(a.month, b.month);
+        if c != 0 return c;
+
+        return cmp64(a.day, b.day);
+    } else #if T == Time_Of_Day {
+        return cmp64(time_ns(a), time_ns(b));
+    } else #if T == Date_Time {
+        c := compare(a.date, b.date);
+        if c != 0 return c;
+        return compare(a.time, b.time);
+    } else #if T == Timestamp || T == Signed_Duration {
+        c := cmp64(a.seconds, b.seconds);
+        if c != 0 return c;
+        return cmp64(a.nanoseconds, b.nanoseconds);
+    } else #if T == Offset {
+        return cmp64(a.seconds, b.seconds);
+    } else #if T == Zoned {
+        return compare(a.timestamp, b.timestamp);
+    } else {
+        return cmp64(cast(s64) a.kind, cast(s64) b.kind);
+    }
 }
 
 // Tests value equality consistent with compare and hash; Zoned ignores its zone.
 // Example: `same := equal(a, b)`.
 equal :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], b: T) -> bool {
-    return false;
+    return compare(a, b) == 0;
 }
 
 // Hashes semantic fields, never padding or rule pointers; equal values have equal hashes.
@@ -674,14 +793,63 @@ date_time_to_calendar :: (value: Date_Time) -> Basic.Calendar_Time, Time_Error {
 // Reads the type's ISO text; Zoned rejects conflicting offsets and accepts bare zone annotations.
 // Example: `value, error := parse(Timestamp, "2024-03-10T07:30:00Z")`.
 parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if options.max_text < 0 || text.count > options.max_text return .{}, .{ .LIMIT, "text limit", 0 };
+
+    r := Text_Reader.{ text = text };
+
+    #if T == Date {
+        v := read_date(*r);
+        if r.error.kind == .NONE && r.at != text.count text_fail(*r);
+        return v, r.error;
+    } else #if T == Time_Of_Day {
+        v := read_clock(*r);
+        if r.error.kind == .NONE && r.at != text.count text_fail(*r);
+        return v, r.error;
+    } else #if T == Date_Time {
+        v := read_wall(*r);
+        if r.error.kind == .NONE && r.at != text.count text_fail(*r);
+        return v, r.error;
+    } else {
+        return .{}, .{ .UNSUPPORTED, "format not implemented yet", 0 };
+    }
 }
 
 // Uses [String_Builder](https://jacketlang.com/docs/api/String/String_Builder.html).
 // Appends canonical ISO text, trims fractional zeros and uses UTC Z for timestamps.
 // Example: `error := format(*builder, instant)`.
 format :: (builder: *String_Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> Time_Error {
-    return .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    #if T == Date {
+        y: s64 = value.year;
+        if y < 0 {
+            append(builder, "-");
+            digits(builder, -y, 6);
+        } else {
+            digits(builder, y, 4);
+        }
+
+        append(builder, "-");
+        digits(builder, value.month, 2);
+        append(builder, "-");
+        digits(builder, value.day, 2);
+    } else #if T == Time_Of_Day {
+        digits(builder, value.hour, 2);
+        append(builder, ":");
+        digits(builder, value.minute, 2);
+        append(builder, ":");
+        digits(builder, value.second, 2);
+        fraction(builder, value.nanosecond);
+    } else #if T == Date_Time {
+        e := format(builder, value.date);
+        if e.kind != .NONE return e;
+        append(builder, "T");
+        return format(builder, value.time);
+    } else {
+        return .{ .UNSUPPORTED, "format not implemented yet", -1 };
+    }
+
+    if builder.failed return .{ .LIMIT, "builder allocation failed", -1 };
+
+    return .{};
 }
 
 // Appends English strftime text with the documented directive set and padding flags.
@@ -713,3 +881,277 @@ time_json_decode :: (reader: *Json.Json_Reader, out: *$T/ .[Date, Time_Of_Day, D
 Basic :: #import "Basic";
 #import "String";
 Json :: #import "Extensions/Json";
+
+using,except(Time_Zone) Basic;
+NS :: 1000000000;
+DAY_NS :: 86400000000000;
+MIN_I64 :: -9223372036854775808;
+MAX_I64 :: 9223372036854775807;
+
+range_error :: () -> Time_Error {
+    return .{ .OUT_OF_RANGE, "outside supported range", -1 };
+}
+
+cmp64 :: (a: s64, b: s64) -> int {
+    if a < b return -1;
+    if a > b return 1;
+    return 0;
+}
+
+floor_div :: (a: s64, b: s64) -> s64 {
+    q := a / b;
+    if a % b < 0 q -= 1;
+    return q;
+}
+
+modulo :: (a: s64, b: s64) -> s64 {
+    r := a % b;
+    if r < 0 r += b;
+    return r;
+}
+
+month_length :: (year: s64, month: s64) -> s64 {
+    if month == 2 return ifx is_leap_year(year) then 29 else 28;
+    if month == 4 || month == 6 || month == 9 || month == 11 return 30;
+    return 31;
+}
+
+date_days :: (d: Date) -> s64 {
+    y: s64 = d.year;
+    m: s64 = d.month;
+
+    if m <= 2 y -= 1;
+
+    era := floor_div(y, 400);
+    yo := y - era * 400;
+    mp := m + (ifx m > 2 then -3 else 9);
+
+    return era * 146097 + yo * 365 + yo / 4 - yo / 100 + (153 * mp + 2) / 5 + d.day - 1 - 719468;
+}
+
+civil_day :: (days: s64) -> Date {
+    z := days + 719468;
+    era := floor_div(z, 146097);
+    doe := z - era * 146097;
+    yo := (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    y := yo + era * 400;
+    doy := doe - (yo * 365 + yo / 4 - yo / 100);
+    mp := (5 * doy + 2) / 153;
+    d := doy - (153 * mp + 2) / 5 + 1;
+    m := mp + (ifx mp < 10 then 3 else -9);
+
+    if m <= 2 y += 1;
+
+    return .{ cast(s16) y, cast(s8) m, cast(s8) d };
+}
+
+checked_day :: (days: s64) -> Date, Time_Error {
+    if days < date_days(.{ -9999, 1, 1 }) || days > date_days(.{ 9999, 12, 31 }) return .{}, range_error();
+    return civil_day(days), .{};
+}
+
+time_ns :: (t: Time_Of_Day) -> s64 {
+    return ((cast(s64) t.hour * 60 + t.minute) * 60 + t.second) * NS + t.nanosecond;
+}
+
+clock_from_ns :: (n: s64) -> Time_Of_Day {
+    return .{ cast(s8) (n / (3600 * NS)), cast(s8) (n / (60 * NS) % 60), cast(s8) (n / NS % 60), cast(s32) (n % NS) };
+}
+
+span_fields :: (v: Span) -> [10] s64 {
+    return .[v.years, v.months, v.weeks, v.days, v.hours, v.minutes, v.seconds, v.milliseconds, v.microseconds, v.nanoseconds];
+}
+
+calendar_nonzero :: (v: Span) -> bool {
+    return v.years != 0 || v.months != 0 || v.weeks != 0 || v.days != 0;
+}
+
+clock_nonzero :: (v: Span) -> bool {
+    return v.hours != 0 || v.minutes != 0 || v.seconds != 0 || v.milliseconds != 0 || v.microseconds != 0 || v.nanoseconds != 0;
+}
+
+clear_clock :: (v: *Span) {
+    v.hours = 0;
+    v.minutes = 0;
+    v.seconds = 0;
+    v.milliseconds = 0;
+    v.microseconds = 0;
+    v.nanoseconds = 0;
+}
+
+wide_mul :: (a: s64, b: s64) -> S128 {
+    negative := (a < 0) != (b < 0);
+    ua := cast,no_check(u64) a;
+
+    if a < 0 ua = 0 - ua;
+
+    ub := cast,no_check(u64) b;
+    if b < 0 ub = 0 - ub;
+
+    h, l := multiply_64bits_with_overflow(ua, ub);
+    v := S128.{ l, cast, no_check(s64) h };
+
+    if negative v = S128.{} - v;
+
+    return v;
+}
+
+narrow :: (v: S128) -> s64 {
+    return cast,no_check(s64) v.low;
+}
+
+wide_div :: (v: S128, divisor: s64) -> S128, s64 {
+    if v == to_s128(narrow(v)) return to_s128(narrow(v) / divisor), narrow(v) % divisor;
+    q, r, _ := signed_divide_with_remainder(v, to_s128(divisor));
+    return q, narrow(r);
+}
+
+clock_ns :: (v: Span) -> S128 {
+    return wide_mul(v.hours, 3600 * NS) + wide_mul(v.minutes, 60 * NS) + wide_mul(v.seconds, NS) + wide_mul(v.milliseconds, 1000000) + wide_mul(v.microseconds, 1000) + to_s128(v.nanoseconds);
+}
+
+Text_Reader :: struct {
+    text: string;
+    at: s64;
+    error: Time_Error;
+}
+
+text_fail :: (r: *Text_Reader, kind := Time_Error_Kind.SYNTAX, message: string = "invalid time text", at: s64 = -1) {
+    if r.error.kind == .NONE r.error = .{ kind, message, ifx at < 0 then r.at else at };
+}
+
+peek :: (r: *Text_Reader) -> u8 {
+    if r.at >= r.text.count return 0;
+    return r.text[r.at];
+}
+
+expect_byte :: (r: *Text_Reader, c: u8) {
+    if peek(r) != c {
+        text_fail(r);
+        return;
+    }
+
+    r.at += 1;
+}
+
+read_number :: (r: *Text_Reader, count: s64) -> s64 {
+    n: s64;
+
+    for 1..count {
+        c := peek(r);
+        if c < 48 || c > 57 {
+            text_fail(r);
+            return n;
+        }
+
+        n = n * 10 + c - 48;
+        r.at += 1;
+    }
+
+    return n;
+}
+
+read_date :: (r: *Text_Reader) -> Date {
+    sign: s64 = 1;
+    width: s64 = 4;
+
+    if peek(r) == 45 || peek(r) == 43 {
+        if peek(r) == 45 sign = -1;
+        r.at += 1;
+        width = 6;
+    }
+
+    y := read_number(r, width) * sign;
+
+    expect_byte(r, 45);
+    m := read_number(r, 2);
+
+    expect_byte(r, 45);
+    d := read_number(r, 2);
+    v, e := date(y, m, d);
+
+    if e.kind != .NONE text_fail(r, e.kind, e.message, 0);
+
+    return v;
+}
+
+read_clock :: (r: *Text_Reader) -> Time_Of_Day {
+    h := read_number(r, 2);
+
+    expect_byte(r, 58);
+    m := read_number(r, 2);
+
+    expect_byte(r, 58);
+    sec := read_number(r, 2);
+    ns: s64;
+
+    if peek(r) == 46 {
+        r.at += 1;
+        count: s64;
+        while peek(r) >= 48 && peek(r) <= 57 && count < 9 {
+            ns = ns * 10 + peek(r) - 48;
+            r.at += 1;
+            count += 1;
+        }
+
+        if count == 0 text_fail(r);
+        for count..8 ns *= 10;
+    }
+
+    v, e := time_of_day(h, m, sec, ns);
+    if e.kind != .NONE text_fail(r, e.kind, e.message);
+
+    return v;
+}
+
+read_wall :: (r: *Text_Reader) -> Date_Time {
+    d := read_date(r);
+    c := peek(r);
+
+    if c != 84 && c != 116 && c != 32 {
+        text_fail(r);
+        return .{};
+    }
+
+    r.at += 1;
+    t := read_clock(r);
+
+    return .{ d, t };
+}
+
+digits :: (b: *String_Builder, n: s64, width: s64 = 1, pad: u8 = 48) {
+    storage: [24] u8;
+    at := storage.count;
+    v := n;
+
+    if v < 0 {
+        append(b, "-");
+        v = -(v / 10);
+    } // Invalid literals remain bounded.
+
+    while true {
+        at -= 1;
+        storage[at] = cast(u8) (v % 10 + 48);
+        v /= 10;
+        if v == 0 break;
+    }
+
+    for 1..width - (storage.count - at) append(b, pad);
+
+    append(b, string.{ storage.count - at, storage.data + at });
+}
+
+fraction :: (b: *String_Builder, ns: s64) {
+    if ns <= 0 return;
+
+    width: s64 = 9;
+    v := ns;
+
+    while v % 10 == 0 && width > 1 {
+        v /= 10;
+        width -= 1;
+    }
+
+    append(b, ".");
+    digits(b, v, width);
+}

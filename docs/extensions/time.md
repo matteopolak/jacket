@@ -1,9 +1,9 @@
 # Time
 
 `#import "Extensions/Time"` declares civil dates, exact instants, explicit time
-zones and calendar-aware spans. This is the API declaration phase: bodies are
-stubs, fallible calls return `UNSUPPORTED`, and no time calculations are
-implemented yet. The contracts below describe the intended implementation.
+zones and calendar-aware spans. Civil construction, calendar helpers, arithmetic
+and ISO text are implemented. Later phases supply exact instants, rule zones,
+span differences and interop; declarations for those still return `UNSUPPORTED`.
 
 ## Concepts
 
