@@ -94,33 +94,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 if witnesses.is_empty() {
                     continue;
                 }
-                let contents = witnesses.iter().any(|(j, _)| {
-                    matches!(
-                        model.blocks[*j].op,
-                        CfgOp::Resource(Op::Free {
-                            contents: true,
-                            ..
-                        })
-                    )
-                });
-                let suffix = &cx.compiler.src.sources.get(at.file).text[at.end as usize..];
-                if contents
-                    && !matches!(block.op, CfgOp::Resource(Op::Read { .. }))
-                    && (suffix.trim_start().starts_with(".* =")
-                        || (!suffix.starts_with('.') && !suffix.starts_with('[')))
-                {
-                    continue;
-                }
-                // The other members of a value whose contents were released are still valid.
-                if let Some(freed) = released_members(model, &witnesses)
-                    && let Some(member) = used_member(suffix, true).or_else(|| {
-                        used_member(
-                            &cx.compiler.src.sources.get(at.file).text[at.start as usize..],
-                            false,
-                        )
-                    })
-                    && !freed.iter().any(|f| f.as_str() == member)
-                {
+                if keeps_use(cx, model, &block.op, &witnesses, *at) {
                     continue;
                 }
                 if matches!(kind, Origin::Stack(_) | Origin::Statement(_)) {
@@ -281,6 +255,38 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
             }
         }
     }
+}
+
+/// Whether a use survives a call that released only an argument's contents: the value itself stays valid, and so do
+/// the members that call did not free.
+fn keeps_use(
+    cx: &Cx<'_>,
+    model: &Model,
+    op: &CfgOp,
+    witnesses: &[(usize, Span)],
+    at: Span,
+) -> bool {
+    let contents = witnesses.iter().any(|(j, _)| {
+        matches!(
+            model.blocks[*j].op,
+            CfgOp::Resource(Op::Free {
+                contents: true,
+                ..
+            })
+        )
+    });
+    let text = &cx.compiler.src.sources.get(at.file).text;
+    let suffix = &text[at.end as usize..];
+    if contents
+        && !matches!(op, CfgOp::Resource(Op::Read { .. }))
+        && (suffix.trim_start().starts_with(".* =")
+            || (!suffix.starts_with('.') && !suffix.starts_with('[')))
+    {
+        return true;
+    }
+    released_members(model, witnesses)
+        .zip(used_member(suffix, true).or_else(|| used_member(&text[at.start as usize..], false)))
+        .is_some_and(|(freed, member)| !freed.iter().any(|f| f.as_str() == member))
 }
 
 impl Proof<'_> {

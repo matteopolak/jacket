@@ -54,7 +54,7 @@ fn bodies_release_what_their_argument_owns() {
         main :: () {}
     "#,
     );
-    let strings = |names: &[&str]| names.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+    let strings = |names: &[&str]| names.iter().map(ToString::to_string).collect::<Vec<_>>();
     assert_eq!(
         contents(&c, &all, "rel_name"),
         Some((strings(&["name"]), false))
