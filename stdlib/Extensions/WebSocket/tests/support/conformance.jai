@@ -1,6 +1,6 @@
 // External conformance driver: run from the repository root after compiling bench/bench.jai.
 // Example: ws-conformance python3.14 /tmp/ws-bench /tmp/ws-interop
-// No fallback scenarios are skipped. HTTP/2 and other extensions are outside v1.
+// No scenario is skipped. HTTP/2 and other extensions are outside v1.
 #import "Basic";
 #import "String";
 #import "Process";

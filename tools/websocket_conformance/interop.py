@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the pinned Python fallback in both directions and compare echo performance.
+"""Run the pinned Python peer against the Jai client and server and compare echo performance.
 
 Example: PYTHONPATH=tools python3.14 tools/websocket_conformance/interop.py --binary /tmp/ws-bench --output /tmp/ws-run
 Build bench/bench.jai with the prebuilt jaic before running; the runner never builds.
