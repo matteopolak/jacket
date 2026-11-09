@@ -299,6 +299,34 @@ fn directory_scan_skips_the_negative_program_parameter_fixture() {
 }
 
 #[test]
+fn program_marked_for_another_system_is_compiled_for_it() {
+    let root = fixture("marked-target");
+    std::fs::write(
+        root.join("stdlib/prelude/module.jai"),
+        "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }",
+    )
+    .unwrap();
+    let marked = root.join("app/wasm-only.jai");
+    std::fs::write(
+        &marked,
+        "// test: only(.WASM)\n#assert OS == .WASM;\nmain :: () {}\n",
+    )
+    .unwrap();
+    let result = run(&options(&root, marked));
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+    // A test file in the library is compiled as a module, for the system it names too.
+    std::fs::create_dir_all(root.join("stdlib/Thing/tests")).unwrap();
+    let library_test = root.join("stdlib/Thing/tests/wasm-only.jai");
+    std::fs::copy(root.join("app/wasm-only.jai"), &library_test).unwrap();
+    let result = run(&options(&root, library_test));
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+    let unmarked = root.join("app/unmarked.jai");
+    std::fs::write(&unmarked, "#assert OS == .WASM;\nmain :: () {}\n").unwrap();
+    let result = run(&options(&root, unmarked));
+    assert_eq!(result.incomplete.len(), 1, "{:?}", result.incomplete);
+}
+
+#[test]
 fn module_in_a_modules_folder_sees_its_sibling_modules() {
     let root = fixture("module-siblings");
     let modules = root.join("stdlib/Thing/tests/modules");

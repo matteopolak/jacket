@@ -30,6 +30,7 @@ mod claims;
 mod compile;
 mod leak;
 mod lint_root;
+mod marked_target;
 mod plan;
 mod rooted_fs;
 

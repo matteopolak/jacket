@@ -80,7 +80,7 @@ pub(super) fn leak_pass(
                         done,
                         error,
                         ..
-                    } = compile_root(root, options, Some(os), None, canon, options.limits);
+                    } = compile_root(root, options, Some(os), None, None, canon, options.limits);
                     if error.is_none() {
                         let _ = jaic::build::finish_all(
                             &workspaces,

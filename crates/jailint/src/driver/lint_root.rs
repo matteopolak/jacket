@@ -2,6 +2,7 @@
 use super::asserts::{AssertFailure, failures_of};
 use super::claims::{Claims, Release};
 use super::compile::{Compiled, compile_root};
+use super::marked_target::marked_target;
 use super::plan::canonical;
 use super::{CheckedContext, Options};
 use crate::config::Configs;
@@ -38,6 +39,15 @@ pub(super) fn lint_root(
         index,
     };
     let limits = options.limits;
+    // A file that says it is for another system (`// test: only(.WINDOWS)`) is compiled for it,
+    // as a program or, when it sits in an import folder, as the module it counts as.
+    let (os, cpu) = std::fs::read_to_string(root.path()).map_or((None, None), |source| {
+        marked_target(
+            &source,
+            options.compiler_options.os,
+            options.compiler_options.cpu,
+        )
+    });
     let Compiled {
         mut compiler,
         workspaces,
@@ -45,7 +55,7 @@ pub(super) fn lint_root(
         reports,
         error,
         host,
-    } = compile_root(root, options, None, Some(report), canon, limits);
+    } = compile_root(root, options, os, cpu, Some(report), canon, limits);
     let mut error = error;
     let top_complete = error.is_none();
     if top_complete

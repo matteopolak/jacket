@@ -9,7 +9,7 @@ use jaic::interp::SandboxHost;
 use jaic::paths::CanonCache;
 use jaic::project::{Program, Root};
 use jaic::sema::{Compiler, FileSystem, ProgramSource};
-use jaic::target::TargetOs;
+use jaic::target::{TargetCpu, TargetOs};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -52,13 +52,14 @@ pub(super) struct Compiled {
     pub(super) host: Rc<RefCell<SandboxHost>>,
 }
 
-/// Compile `root` for `os` (the options' own when `None`; the compiler picks the CPU). With a
+/// Compile `root` for `os` and `cpu` (the options' own when `None`). With a
 /// `report` set the compile records lint facts for those files; without one it records every
 /// failing `#assert` instead of stopping at the first and records no lint facts.
 pub(super) fn compile_root(
     program: &Program,
     options: &Options,
     os: Option<TargetOs>,
+    cpu: Option<TargetCpu>,
     report: Option<&BTreeSet<PathBuf>>,
     canon: &CanonCache,
     limits: CheckLimits,
@@ -66,7 +67,7 @@ pub(super) fn compile_root(
     let root = &program.root;
     let main_dir = root.main_dir();
     let mut copts = options.compiler_options.clone();
-    jaic::target::select_os_cpu(&mut copts, os, None);
+    jaic::target::select_os_cpu(&mut copts, os, cpu);
     // RootedFs resolves program-generated relative paths from the source root. Import
     // directories are invocation configuration, so anchor them before that rebasing.
     // Also anchor nonexistent roots: they must not accidentally find a source-local shadow.
