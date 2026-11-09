@@ -1,5 +1,6 @@
-// Shared by the compile-time halves of Json and Toml: renaming rules for keys and the splitting of
-// `@json(...)` / `@toml(...)` note options. `#load`ed into each module, so it adds no public names.
+// Shared by the compile-time halves of Args, Csv, Json and Toml: renaming rules for keys, the
+// splitting of `@json(...)`-style note options, and quoting strings in and out of generated
+// source. `#load`ed into each module, so it adds no public names.
 
 #scope_module
 
@@ -125,4 +126,62 @@ split_note_option :: (text: string) -> bool, string, string {
     }
 
     return false, text, "";
+}
+
+// ---- quoting ----
+
+// A quoted note value without its quotes, with `\\`, `\"`, `\n`, `\r` and `\t` resolved; text
+// that is not quoted comes back as it is. False for any other escape or a trailing backslash.
+//
+//     unquote("\"a\\\"b\"")  // a"b, true
+unquote :: (text: string) -> string, bool {
+    if text.count < 2 || text[0] != #char "\"" || text[text.count - 1] != #char "\"" return text, true;
+
+    builder: String_Builder;
+    escaped := false;
+
+    for slice(text, 1, text.count - 2) {
+        if escaped {
+            if it == {
+                case #char "\\"; #through;
+                case #char "\""; append(*builder, it);
+                case #char "n"; append(*builder, #char "\n");
+                case #char "r"; append(*builder, #char "\r");
+                case #char "t"; append(*builder, #char "\t");
+                case; return "", false;
+            }
+
+            escaped = false;
+        } else if it == #char "\\" {
+            escaped = true;
+        } else {
+            append(*builder, it);
+        }
+    }
+
+    if escaped return "", false;
+
+    return builder_to_string(*builder,, temp), true;
+}
+
+// `text` as a Jai string literal, for generated source.
+//
+//     jai_quote("say \"hi\"\n")  // "say \"hi\"\n" with the quotes and newline escaped
+jai_quote :: (text: string) -> string {
+    builder: String_Builder;
+
+    append(*builder, "\"");
+
+    for text {
+        if it == #char "\"" append(*builder, "\\\"");
+        else if it == #char "\\" append(*builder, "\\\\");
+        else if it == #char "\n" append(*builder, "\\n");
+        else if it == #char "\r" append(*builder, "\\r");
+        else if it == #char "\t" append(*builder, "\\t");
+        else append(*builder, it);
+    }
+
+    append(*builder, "\"");
+
+    return builder_to_string(*builder,, temp);
 }

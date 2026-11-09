@@ -88,9 +88,8 @@ read_options :: (notes: [] string) -> [..] Option {
                 option.has_value = true;
                 if begins_with(option.value, "\"") {
                     option.quoted = true;
-                    push_allocator(temp);
-                    decoded, error := from_json(string, option.value);
-                    if error.kind != .NONE compiler_report("Json: invalid quoted option value in @json");
+                    decoded, ok := unquote(option.value);
+                    if !ok compiler_report("Json: invalid quoted option value in @json");
 
                     option.value = decoded;
                 }
@@ -450,25 +449,6 @@ next_id :: (g: *Gen) -> int {
     g.uid += 1;
 
     return g.uid;
-}
-
-jai_quote :: (text: string) -> string {
-    builder: String_Builder;
-
-    append(*builder, "\"");
-
-    for text {
-        if it == #char "\"" append(*builder, "\\\"");
-        else if it == #char "\\" append(*builder, "\\\\");
-        else if it == #char "\n" append(*builder, "\\n");
-        else if it == #char "\r" append(*builder, "\\r");
-        else if it == #char "\t" append(*builder, "\\t");
-        else append(*builder, it);
-    }
-
-    append(*builder, "\"");
-
-    return builder_to_string(*builder,, temp);
 }
 
 // The text a key or name has once it is a JSON string, as Jai source.

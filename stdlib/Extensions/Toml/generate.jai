@@ -55,26 +55,6 @@ trim_spaces :: (text: string) -> string {
     return result;
 }
 
-// A quoted option value without its quotes, escapes resolved.
-unquote :: (text: string) -> string {
-    if text.count < 2 || text[0] != #char "\"" || text[text.count - 1] != #char "\"" return text;
-
-    builder: String_Builder;
-    escaped := false;
-
-    for slice(text, 1, text.count - 2) {
-        if !escaped && it == #char "\\" {
-            escaped = true;
-            continue;
-        }
-
-        escaped = false;
-        append(*builder, it);
-    }
-
-    return builder_to_string(*builder,, temp);
-}
-
 // The options inside the `@toml(...)` notes of a member or struct, as `name` or `name=value`.
 read_options :: (notes: [] string) -> [..] Option {
     options: [..] Option;
@@ -93,7 +73,10 @@ read_options :: (notes: [] string) -> [..] Option {
 
             if equals >= 0 {
                 option.name = trim_spaces(slice(piece, 0, equals));
-                option.value = unquote(trim_spaces(slice(piece, equals + 1, piece.count - equals - 1)));
+                value, ok := unquote(trim_spaces(slice(piece, equals + 1, piece.count - equals - 1)));
+                if !ok compiler_report("Toml: invalid escape in a quoted @toml option value");
+
+                option.value = value;
                 option.has_value = true;
             } else {
                 option.name = piece;
@@ -428,25 +411,6 @@ next_id :: (g: *Gen) -> int {
     g.uid += 1;
 
     return g.uid;
-}
-
-jai_quote :: (text: string) -> string {
-    builder: String_Builder;
-
-    append(*builder, "\"");
-
-    for text {
-        if it == #char "\"" append(*builder, "\\\"");
-        else if it == #char "\\" append(*builder, "\\\\");
-        else if it == #char "\n" append(*builder, "\\n");
-        else if it == #char "\r" append(*builder, "\\r");
-        else if it == #char "\t" append(*builder, "\\t");
-        else append(*builder, it);
-    }
-
-    append(*builder, "\"");
-
-    return builder_to_string(*builder,, temp);
 }
 
 // `*x`, except that `p.*` is just `p`.

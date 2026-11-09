@@ -426,24 +426,6 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis { // jailint: a
 
 // ---- source writing ----
 
-quote :: (text: string) -> string {
-    builder: String_Builder;
-
-    append(*builder, "\"");
-
-    for text {
-        c := it;
-        if c == #char "\"" append(*builder, "\\\"");
-        else if c == #char "\\" append(*builder, "\\\\");
-        else if c == #char "\n" append(*builder, "\\n");
-        else append(*builder, string.{ 1, *c });
-    }
-
-    append(*builder, "\"");
-
-    return builder_to_string(*builder,, temp);
-}
-
 // The display name of a field in messages: `--jobs`, or `<PATHS>` for a positional.
 display_name :: (field: *Field) -> string {
     if field.positional {
@@ -457,7 +439,7 @@ range_literal :: (field: *Field) -> string {
     if !field.has_range return "NO_RANGE";
 
     kind := ifx field.kind == .LIST then field.element_kind else field.kind;
-    text := quote(tprint("%..%", field.range_lo, field.range_hi));
+    text := jai_quote(tprint("%..%", field.range_lo, field.range_hi));
 
     if kind == .FLOAT return tprint("Range.{ present = true, flo = %, fhi = %, text = % }", field.range_lo, field.range_hi, text);
 
@@ -502,14 +484,14 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string { // jail
         append(*out, "    lowered := to_lower_copy(text,, temp);\n");
 
         for enum_info.names {
-            print(*out, "    if lowered == % { dest.* = .%; return true; }\n", quote(names[it_index]), it);
+            print(*out, "    if lowered == % { dest.* = .%; return true; }\n", jai_quote(names[it_index]), it);
         }
 
         append(*out, "    bad_choice(state, display, text, .[");
 
         for names {
             if it_index append(*out, ", ");
-            append(*out, quote(it));
+            append(*out, jai_quote(it));
         }
 
         append(*out, "]);\n    return false;\n}\n");
@@ -568,12 +550,12 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string { // jail
 
             if pass == 0 {
                 if !field.short continue;
-                print(*out, "            case %; %return opt_%(state, out, set, %, true, rest, has_rest, false);\n", quote(short_text(field.short)), guard, field.name, quote(tprint("-%", short_text(field.short))));
+                print(*out, "            case %; %return opt_%(state, out, set, %, true, rest, has_rest, false);\n", jai_quote(short_text(field.short)), guard, field.name, jai_quote(tprint("-%", short_text(field.short))));
             } else {
-                print(*out, "            case %; %return opt_%(state, out, set, %, false, rest, has_rest, false);\n", quote(field.long), guard, field.name, quote(tprint("--%", field.long)));
+                print(*out, "            case %; %return opt_%(state, out, set, %, false, rest, has_rest, false);\n", jai_quote(field.long), guard, field.name, jai_quote(tprint("--%", field.long)));
 
                 if field.kind == .FLAG {
-                    print(*out, "            case %; %return opt_%(state, out, set, %, false, rest, has_rest, true);\n", quote(tprint("no-%", field.long)), guard, field.name, quote(tprint("--no-%", field.long)));
+                    print(*out, "            case %; %return opt_%(state, out, set, %, false, rest, has_rest, true);\n", jai_quote(tprint("no-%", field.long)), guard, field.name, jai_quote(tprint("--no-%", field.long)));
                 }
             }
         }
@@ -591,7 +573,7 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string { // jail
     for *field: fields {
         if !field.positional || field.kind == .INVALID continue;
 
-        display := quote(display_name(field));
+        display := jai_quote(display_name(field));
 
         if field.kind == .LIST {
             print(*out, "    if index >= % {\n        item: type_of(T.{}.%[0]);\n        %", position, field.name, store_statement(field, "*item", display, "false"));
@@ -621,10 +603,10 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string { // jail
             value_name: string;
             for enum_info.names if kebab(it) == kebab(field.name) value_name = it;
 
-            print(*out, "        case %;\n", quote(field.long));
+            print(*out, "        case %;\n", jai_quote(field.long));
             print(*out, "            out.% = .%;\n            set.% = true;\n", selector.name, value_name, selector.name);
             append(*out, "            link := Global_Link.{ out = out_v, set = set_v, handle = h_option, next = state.globals };\n            state.globals = *link;\n");
-            print(*out, "            array_add(*state.path, %);\n", quote(field.long));
+            print(*out, "            array_add(*state.path, %);\n", jai_quote(field.long));
             print(*out, "            ok := parse_command(type_of(T.{}.%), help.%, state, *out.%, *set.%);\n", field.name, field.name, field.name, field.name);
             append(*out, "            state.globals = link.next;\n            return ifx ok then Outcome.DONE else Outcome.ERROR;\n");
         }
@@ -641,8 +623,8 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string { // jail
     for *field: fields {
         if !field.env.count || field.kind == .INVALID continue;
 
-        print(*out, "    if !set.% {\n        env := environment_lookup(state, %);\n        if env.count {\n            value := env;\n", field.name, quote(field.env));
-        display := quote(tprint("$%", field.env));
+        print(*out, "    if !set.% {\n        env := environment_lookup(state, %);\n        if env.count {\n            value := env;\n", field.name, jai_quote(field.env));
+        display := jai_quote(tprint("$%", field.env));
 
         print(*out, "            %", store_statement(field, tprint("*out.%", field.name), display, "false"));
         print(*out, "            set.% = true;\n        }\n    }\n", field.name);
@@ -654,7 +636,7 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string { // jail
 
     for *field: fields {
         if !field.required || field.kind == .INVALID continue;
-        print(*out, "    if !set.% {\n        fail(state, .MISSING_REQUIRED, %, \"\", \"the % `%` is required\");\n        return false;\n    }\n", field.name, quote(display_name(field)), ifx field.positional then "argument" else "option", display_name(field));
+        print(*out, "    if !set.% {\n        fail(state, .MISSING_REQUIRED, %, \"\", \"the % `%` is required\");\n        return false;\n    }\n", field.name, jai_quote(display_name(field)), ifx field.positional then "argument" else "option", display_name(field));
     }
 
     for *field: fields {
@@ -663,13 +645,13 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string { // jail
         for other: field.conflicts {
             target := find_field(fields, other);
             if !target continue;
-            print(*out, "    if set.% && set.% {\n        fail(state, .CONFLICT, %, %, \"`%` cannot be used with `%`\");\n        return false;\n    }\n", field.name, other, quote(display_name(field)), quote(display_name(target)), display_name(field), display_name(target));
+            print(*out, "    if set.% && set.% {\n        fail(state, .CONFLICT, %, %, \"`%` cannot be used with `%`\");\n        return false;\n    }\n", field.name, other, jai_quote(display_name(field)), jai_quote(display_name(target)), display_name(field), display_name(target));
         }
 
         for other: field.requires {
             target := find_field(fields, other);
             if !target continue;
-            print(*out, "    if set.% && !set.% {\n        fail(state, .REQUIRES, %, %, \"`%` requires `%`\");\n        return false;\n    }\n", field.name, other, quote(display_name(field)), quote(display_name(target)), display_name(field), display_name(target));
+            print(*out, "    if set.% && !set.% {\n        fail(state, .REQUIRES, %, %, \"`%` requires `%`\");\n        return false;\n    }\n", field.name, other, jai_quote(display_name(field)), jai_quote(display_name(target)), display_name(field), display_name(target));
         }
     }
 
@@ -691,15 +673,15 @@ generate_description :: (analysis: *Analysis) -> string {
         if field.kind == .INVALID || field.kind == .SELECTOR continue;
 
         if field.kind == .SUBCOMMAND {
-            print(*out, "array_add(*spec.subcommands, describe(type_of(T.{}.%), help.%, %));\n", field.name, field.name, quote(field.long));
+            print(*out, "array_add(*spec.subcommands, describe(type_of(T.{}.%), help.%, %));\n", field.name, field.name, jai_quote(field.long));
             continue;
         }
 
         append(*out, "{\n    option: Option_Spec;\n");
-        print(*out, "    option.field = %;\n    option.long = %;\n", quote(field.name), quote(field.long));
+        print(*out, "    option.field = %;\n    option.long = %;\n", jai_quote(field.name), jai_quote(field.long));
         if field.short print(*out, "    option.short = %;\n", cast(s64) field.short);
-        if field.env.count print(*out, "    option.env = %;\n", quote(field.env));
-        if field.value_name.count print(*out, "    option.value_name = %;\n", quote(field.value_name));
+        if field.env.count print(*out, "    option.env = %;\n", jai_quote(field.env));
+        if field.value_name.count print(*out, "    option.value_name = %;\n", jai_quote(field.value_name));
         if !field.hidden print(*out, "    option.help = help.%;\n", field.name);
 
         kind_name := "VALUE";
@@ -720,7 +702,7 @@ generate_description :: (analysis: *Analysis) -> string {
 
             for enum_info.names {
                 if it_index append(*out, ", ");
-                append(*out, quote(kebab(it)));
+                append(*out, jai_quote(kebab(it)));
             }
 
             append(*out, "];\n");
@@ -732,7 +714,7 @@ generate_description :: (analysis: *Analysis) -> string {
             print(*out, "    option.default_text = default_text(defaults.%);\n", field.name);
         }
 
-        if field.has_range print(*out, "    option.range_text = %;\n", quote(tprint("%..%", field.range_lo, field.range_hi)));
+        if field.has_range print(*out, "    option.range_text = %;\n", jai_quote(tprint("%..%", field.range_lo, field.range_hi)));
 
         print(*out, "    array_add(*spec.%, option);\n}\n", ifx field.positional then "positionals" else "options");
     }
@@ -755,7 +737,7 @@ generate_help_checks :: (analysis: *Analysis) -> string {
 
     for *field: analysis.fields {
         if field.kind == .INVALID || field.kind == .SELECTOR || field.kind == .SUBCOMMAND || field.hidden continue;
-        print(*out, "#run warn_missing_help(%, %, help.%);\n", quote(analysis.type_name), quote(field.name), field.name);
+        print(*out, "#run warn_missing_help(%, %, help.%);\n", jai_quote(analysis.type_name), jai_quote(field.name), field.name);
     }
 
     return builder_to_string(*out);

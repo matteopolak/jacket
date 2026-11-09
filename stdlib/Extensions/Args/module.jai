@@ -255,6 +255,7 @@ help_text :: ($T: Type, $help: Help(T), program := "", color := false) -> string
 #load "render.jai";
 #load "platform.jai";
 #load "generate.jai";
+#load "../../internal/derive-notes/notes.jai";
 #load "completions.jai";
 
 // The generated parser for `T`; recursive for subcommands.
