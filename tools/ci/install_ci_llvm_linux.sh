@@ -23,7 +23,7 @@ llvm_prefix="/usr/lib/llvm-$LLVM_MAJOR"
 source "$(dirname "${BASH_SOURCE[0]}")/apt_lib.sh"
 apt_configure /etc/apt
 
-task_temp=$(mktemp -d)
+task_temp=$(mktemp -d "${TMPDIR:-/tmp}/ci-llvm.XXXXXX")
 trap 'rm -rf "$task_temp"' EXIT
 curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 --retry 5 --retry-all-errors --retry-delay 5 \
   https://apt.llvm.org/llvm-snapshot.gpg.key -o "$task_temp/key.asc"

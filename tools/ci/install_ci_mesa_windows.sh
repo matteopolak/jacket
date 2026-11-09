@@ -15,7 +15,7 @@ case "$cpu" in
   arm64) : "${MESA_SHA256_ARM64:?}"; sha=$MESA_SHA256_ARM64 ;;
   *) echo "unknown cpu: $cpu" >&2; exit 2 ;;
 esac
-work=$(mktemp -d)
+work=$(mktemp -d "${TMPDIR:-/tmp}/mesa.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 --retry 5 --retry-all-errors --retry-delay 5 \
   "https://github.com/mmozeiko/build-mesa/releases/download/$MESA_VERSION/mesa-llvmpipe-$cpu-$MESA_VERSION.7z" \

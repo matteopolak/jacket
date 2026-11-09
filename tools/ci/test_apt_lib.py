@@ -108,6 +108,17 @@ apt_get install --yes llvm""")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout + result.stderr, "")
 
+    def test_log_goes_under_tmpdir(self):
+        # BSD mktemp ignores $TMPDIR when given no template.
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_bash(
+                'source "$1"; sudo() { true; }; TMPDIR="$2"; export TMPDIR;'
+                ' mktemp() { printf "%s\n" "$*" >&2; command mktemp "$@"; }; apt_get update',
+                tmp,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(result.stderr.startswith(tmp + "/"), result.stderr)
+
     def test_prefetch_downloads_each_planned_package_and_never_fails(self):
         result = self.run_bash("""source "$1"
 sudo() {

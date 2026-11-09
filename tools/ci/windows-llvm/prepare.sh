@@ -13,7 +13,7 @@ llvm="$1"
 here="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=tools/ci/llvm_env.sh
 source "$here/../llvm_env.sh"
-work="$(mktemp -d)"
+work="$(mktemp -d "${TMPDIR:-/tmp}/windows-llvm.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 clang="$llvm/bin/clang"
 lib_tool="$llvm/bin/llvm-lib"

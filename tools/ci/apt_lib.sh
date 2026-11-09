@@ -67,7 +67,7 @@ apt_update() {
 
 apt_get() {
   local attempt log
-  log=$(mktemp)
+  log=$(mktemp "${TMPDIR:-/tmp}/apt-get.XXXXXX")
   for attempt in 1 2 3 4 5; do
     # shellcheck disable=SC2024 # the log is ours; only apt-get needs root
     if sudo timeout 180 apt-get "$@" > "$log" 2>&1; then
