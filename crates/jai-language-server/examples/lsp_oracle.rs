@@ -154,18 +154,35 @@ fn parse_args() -> Result<Args, String> {
     Ok(parsed)
 }
 
-/// A session with `text` open as `path`, made the entry by a `jacket.toml` beside it, as an editor
-/// opening a project's main file has it.
+/// The settings an editor opening `path` as a project's main file has: the nearest `jacket.toml`
+/// above it, with `[project] entry` naming `path`, so `[lint]` excludes and overrides apply as in
+/// the project. Without a `jacket.toml` the settings are only the entry, beside the file. `None`
+/// when the nearest one already has a `[project]` table, which this cannot extend.
+fn project_settings(path: &Path) -> Option<(PathBuf, String)> {
+    let dir = path.parent()?;
+    let base = dir
+        .ancestors()
+        .find(|d| d.join("jacket.toml").is_file())
+        .unwrap_or(dir);
+    let existing = std::fs::read_to_string(base.join("jacket.toml")).unwrap_or_default();
+    if existing.lines().any(|l| l.trim() == "[project]") {
+        return None;
+    }
+    let entry = serde_json::to_string(path.strip_prefix(base).ok()?.to_str()?).ok()?;
+    let text = format!("{existing}\n[project]\nentry = [{entry}]\n");
+    Some((base.join("jacket.toml"), text))
+}
+
+/// A session with `text` open as `path`, made the entry as an editor opening a project's main
+/// file has it (see [`project_settings`]).
 fn open(args: &Args, path: &Path, uri: &DocumentUri, text: &str) -> Option<Session> {
     let mut session = Session::with_environment(
         Limits::default(),
         typing_files::native_environment(args.stdlib.clone()),
     );
-    let config = DocumentUri::from_path(&path.parent()?.join("jacket.toml")).ok()?;
-    let entry = serde_json::to_string(path.file_name()?.to_str()?).ok()?;
-    session
-        .open(config, 1, format!("[project]\nentry = [{entry}]\n"))
-        .ok()?;
+    let (location, settings) = project_settings(path)?;
+    let config = DocumentUri::from_path(&location).ok()?;
+    session.open(config, 1, settings).ok()?;
     session.set_auto_import(false);
     session.open(uri.clone(), 1, text.to_owned()).ok()?;
     Some(session)
@@ -314,4 +331,54 @@ fn main() {
         println!("{}", serde_json::to_string(&report).expect("JSON report"));
     }
     std::process::exit(i32::from(failed));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::project_settings;
+    use std::path::PathBuf;
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("lsp-oracle-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("driven")).unwrap();
+        dir
+    }
+
+    #[test]
+    fn the_project_lint_settings_apply_to_the_checked_file() {
+        let dir = scratch("settings");
+        std::fs::write(
+            dir.join("jacket.toml"),
+            "[lint]\nexclude = [\"driven/**\"]\n",
+        )
+        .unwrap();
+        let file = dir.join("driven/case.jai");
+        let (location, text) = project_settings(&file).unwrap();
+        assert_eq!(location, dir.join("jacket.toml"));
+        assert!(text.contains("exclude = [\"driven/**\"]"), "{text}");
+        assert!(text.contains("entry = [\"driven/case.jai\"]"), "{text}");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_file_without_a_project_file_is_its_own_entry() {
+        let dir = scratch("alone");
+        let (location, text) = project_settings(&dir.join("driven/case.jai")).unwrap();
+        assert_eq!(location, dir.join("driven/jacket.toml"));
+        assert_eq!(text, "\n[project]\nentry = [\"case.jai\"]\n");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_project_table_of_its_own_is_refused() {
+        let dir = scratch("table");
+        std::fs::write(
+            dir.join("jacket.toml"),
+            "[project]\nentry = [\"main.jai\"]\n",
+        )
+        .unwrap();
+        assert!(project_settings(&dir.join("driven/case.jai")).is_none());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

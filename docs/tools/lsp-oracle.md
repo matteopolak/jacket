@@ -16,6 +16,8 @@ CI runs it nightly in four shards (`.github/workflows/lsp-oracle.yml`). Upstream
 
 `tools/lsp/oracle.py` picks files, keeps those `jaic -check` accepts, and passes them in chunks to the `lsp_oracle` example (`crates/jai-language-server/examples/lsp_oracle.rs` and `lsp_oracle/`). It opens each file in a `Session` and prints one JSON report per file.
 
+The session is set up as an editor has it: the nearest `jacket.toml` above the file, plus a `[project] entry` naming the file. So `[lint]` excludes and overrides apply, and lint errors count as errors of check (a) only where the project lints the file. A file whose nearest `jacket.toml` has its own `[project]` table is reported with status `open` and skipped.
+
 | Check | Fails when |
 | --- | --- |
 | a | accepted code has an error diagnostic, a request errors or hangs, or a region marked unreachable actually runs |
