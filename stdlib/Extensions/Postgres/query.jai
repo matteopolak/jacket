@@ -489,20 +489,35 @@ free_result :: (r: *Result) {
 
 #scope_module
 
-run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Format, cache := false, expected := "") -> Result, Pg_Error {
-    error := begin_request(c, sql);
-    if error.kind != .NONE return .{}, error;
-
-    defer c.busy = false;
-    if args.count > 65535 return .{}, make_error(.USAGE, "% parameters; Postgres allows at most 65535", args.count);
+// Encodes the arguments as `encode_param` does. The typed macros encode theirs where the call is
+// (see `arguments_code`) and send them with `run_encoded`.
+encode_arguments :: (args: [] Any) -> [] Param, Pg_Error {
+    if args.count > 65535 return .[], make_error(.USAGE, "% parameters; Postgres allows at most 65535", args.count);
 
     params := NewArray(args.count, Param,, temp);
 
     for args {
         why: string;
         params[it_index], why = encode_param(it);
-        if why return .{}, make_error(.USAGE, "parameter $%: %", it_index + 1, why);
+        if why return .[], make_error(.USAGE, "parameter $%: %", it_index + 1, why);
     }
+
+    return params, .{};
+}
+
+run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Format, cache := false, expected := "") -> Result, Pg_Error {
+    params, argument_error := encode_arguments(args);
+
+    return run_encoded(c, sql, params, argument_error, result_format, cache, expected);
+}
+
+// Runs a statement whose arguments are encoded already; `argument_error` is why they were not.
+run_encoded :: (c: *Connection, sql: string, params: [] Param, argument_error: Pg_Error, result_format: Format, cache := false, expected := "") -> Result, Pg_Error {
+    error := begin_request(c, sql);
+    if error.kind != .NONE return .{}, error;
+
+    defer c.busy = false;
+    if argument_error.kind != .NONE return .{}, argument_error;
 
     types := NewArray(params.count, u32,, temp);
     for params types[it_index] = it.oid;

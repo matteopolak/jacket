@@ -236,6 +236,51 @@ value_arguments :: (call_node: *Code_Procedure_Call, first: s64) -> [] *Code_Nod
     return nodes;
 }
 
+// The type of the `index`th argument that fills a placeholder, as the compiler knows it.
+argument_type :: (call: Code, sql_index: s64, index: s64) -> Type {
+    values := value_arguments(call_of(call), sql_index + 1);
+
+    return cast(Type) values[index].type;
+}
+
+// The statements that turn the arguments of a typed macro (`args`, boxed by the call) into
+// `params` and `argument_error`. Each argument whose type has an encoder is sent by it, chosen
+// here from the type at the call; an argument list spread from an array is encoded as it comes.
+arguments_code :: (call: Code, sql_index: s64) -> string {
+    call_node := call_of(call);
+    first := sql_index + 1;
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    append(*builder, "params: [] Param;\nargument_error: Pg_Error;\n");
+
+    if has_spread(call_node, first) {
+        append(*builder, "params, argument_error = encode_arguments(args);\n");
+
+        return builder_to_string(*builder);
+    }
+
+    values := value_arguments(call_node, first);
+
+    if !values.count return builder_to_string(*builder);
+
+    print_to_builder(*builder, "argument_buffer: [%] Param;\nargument_why: string;\nparams = .{ %, argument_buffer.data };\n", values.count, values.count);
+
+    for node: values {
+        typed := node.type && has_typed_encoder(node.type);
+
+        print_to_builder(*builder, "if argument_error.kind == .NONE {\nargument_buffer[%], argument_why = ", it_index);
+
+        if typed print_to_builder(*builder, "argument_param(args[%], #run argument_type(call, %, %));\n", it_index, sql_index, it_index);
+        else print_to_builder(*builder, "encode_param(args[%]);\n", it_index);
+
+        append(*builder, "if argument_why argument_error = make_error(.USAGE, \"parameter $%: %\", ");
+        print_to_builder(*builder, "%, argument_why);\n}\n", it_index + 1);
+    }
+
+    return builder_to_string(*builder);
+}
+
 check_arguments :: (prepared: *Prepared, first: s64) {
     call_node := prepared.call_node;
     values := value_arguments(call_node, first);

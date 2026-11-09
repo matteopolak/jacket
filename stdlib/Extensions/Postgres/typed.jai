@@ -257,10 +257,11 @@ for_expansion :: (rows: *Rows($T), body: Code, flags: For_Flags) #expand {
 // - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 query :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
+    #insert #run arguments_code(call, 1);
 
     rows: Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))));
     error: Pg_Error;
-    rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, json, #run expected_columns(sql, call, 1));
+    rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), params, argument_error, plan, json, #run expected_columns(sql, call, 1));
 
     return rows, error;
 } @Interpolates("sql")
@@ -276,9 +277,10 @@ query :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Opt
 // - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 query_one :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
+    #insert #run arguments_code(call, 1);
 
     value: #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)));
-    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, json, #run expected_columns(sql, call, 1));
+    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), params, argument_error, plan, json, #run expected_columns(sql, call, 1));
 
     if error.kind != .NONE return value, error;
 
@@ -308,9 +310,10 @@ query_one :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json
 // - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 query_opt :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), bool, Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
+    #insert #run arguments_code(call, 1);
 
     value: #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)));
-    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, json, #run expected_columns(sql, call, 1));
+    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), params, argument_error, plan, json, #run expected_columns(sql, call, 1));
 
     if error.kind != .NONE return value, false, error;
 
@@ -340,8 +343,9 @@ query_opt :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json
 // - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $project_file := "", $call := #caller_code) -> s64, Pg_Error #expand {
     #run check_statement(sql, call, 1, false, project_file);
+    #insert #run arguments_code(call, 1);
 
-    result, error := run_statement(db, #run rewritten_sql(sql, call, 1, project_file), #run binary_results(sql, call, 1, project_file), args, plan, json, #run expected_columns(sql, call, 1, project_file));
+    result, error := run_statement(db, #run rewritten_sql(sql, call, 1, project_file), #run binary_results(sql, call, 1, project_file), params, argument_error, plan, json, #run expected_columns(sql, call, 1, project_file));
     if error.kind != .NONE return 0, error;
 
     count := result.rows_affected;
@@ -371,10 +375,11 @@ execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_O
 // Not run: it needs a PostgreSQL server.
 queue :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pending(Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
+    #insert #run arguments_code(call, 1);
 
     pending: Pending(Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)))));
     pending.serial = p.queued;
-    error := queue_typed(p, #run rewritten_sql(sql, call, 1), "", args, ifx (#run binary_results(sql, call, 1)).binary then Format.BINARY else .TEXT);
+    error := queue_encoded(p, #run rewritten_sql(sql, call, 1), "", params, argument_error, ifx (#run binary_results(sql, call, 1)).binary then Format.BINARY else .TEXT);
 
     return pending, error;
 } @Interpolates("sql")
@@ -387,10 +392,11 @@ queue :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pen
 // - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 queue_execute :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pending(s64), Pg_Error #expand {
     #run check_statement(sql, call, 1, false);
+    #insert #run arguments_code(call, 1);
 
     pending: Pending(s64);
     pending.serial = p.queued;
-    error := queue_typed(p, #run rewritten_sql(sql, call, 1), "", args, ifx (#run binary_results(sql, call, 1)).binary then Format.BINARY else .TEXT);
+    error := queue_encoded(p, #run rewritten_sql(sql, call, 1), "", params, argument_error, ifx (#run binary_results(sql, call, 1)).binary then Format.BINARY else .TEXT);
 
     return pending, error;
 } @Interpolates("sql")
@@ -419,6 +425,7 @@ queue_execute :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code
 // Not run: it needs a PostgreSQL server.
 stream :: (c: *Connection, error: *Pg_Error, $sql: string, args: ..Any, batch := 1000, $call := #caller_code) -> Row_Stream(#run row_type(sql, call, 2, #insert,scope(call) #run row_table_type(sql, call, 2, #insert,scope(call) #run row_table_exists(sql, call, 2)), Row(#run row_shape(sql, call, 2)))) #expand {
     #run check_statement(sql, call, 2, true);
+    #insert #run arguments_code(call, 2);
 
     meta :: #run binary_results(sql, call, 2);
     out: Row_Stream(#run row_type(sql, call, 2, #insert,scope(call) #run row_table_type(sql, call, 2, #insert,scope(call) #run row_table_exists(sql, call, 2)), Row(#run row_shape(sql, call, 2))));
@@ -426,7 +433,7 @@ stream :: (c: *Connection, error: *Pg_Error, $sql: string, args: ..Any, batch :=
     error.* = .{};
     out.error = error;
     out.meta = meta;
-    error.* = start_stream(c, *out.pipeline, #run rewritten_sql(sql, call, 2), args, ifx meta.binary then Format.BINARY else .TEXT, batch);
+    error.* = start_stream(c, *out.pipeline, #run rewritten_sql(sql, call, 2), params, argument_error, ifx meta.binary then Format.BINARY else .TEXT, batch);
 
     return out;
 } @Interpolates("sql")
@@ -502,9 +509,10 @@ for_expansion :: (stream: *Row_Stream($T), body: Code, flags: For_Flags) #expand
 // - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> type_of(Scalar(#run scalar_type(sql, call, 1)).value), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
+    #insert #run arguments_code(call, 1);
 
     value: type_of(Scalar(#run scalar_type(sql, call, 1)).value);
-    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, json, #run expected_columns(sql, call, 1));
+    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), params, argument_error, plan, json, #run expected_columns(sql, call, 1));
 
     if error.kind != .NONE return value, error;
 
@@ -537,12 +545,13 @@ query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := J
 // - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 query_as :: ($T: Type, db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $project_file := "", $call := #caller_code) -> Rows(T), Pg_Error #expand {
     #run check_statement_as(T, sql, call, 2, project_file);
+    #insert #run arguments_code(call, 2);
 
     rows: Rows(T);
     error: Pg_Error;
 
     #insert #run field_map_code(T, sql, call, 2, project_file);
-    rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 2, project_file), #run binary_results(sql, call, 2, project_file), args, plan, json, #run expected_columns(sql, call, 2, project_file));
+    rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 2, project_file), #run binary_results(sql, call, 2, project_file), params, argument_error, plan, json, #run expected_columns(sql, call, 2, project_file));
 
     return rows, error;
 } @Interpolates("sql")
@@ -554,8 +563,8 @@ Scalar :: struct($type_text: string) {
 
 #scope_module
 
-run_statement :: (db: *Connection, sql: string, meta: Statement_Meta, args: [] Any, plan: Plan, json: Json_Options, expected: string) -> Result, Pg_Error {
-    result, error := run_extended(db, sql, args, ifx meta.binary then Format.BINARY else .TEXT, plan == .AUTO, expected);
+run_statement :: (db: *Connection, sql: string, meta: Statement_Meta, params: [] Param, argument_error: Pg_Error, plan: Plan, json: Json_Options, expected: string) -> Result, Pg_Error {
+    result, error := run_encoded(db, sql, params, argument_error, ifx meta.binary then Format.BINARY else .TEXT, plan == .AUTO, expected);
 
     apply_statement_meta(*result, meta, json);
 
@@ -582,11 +591,11 @@ apply_statement_meta :: (result: *Result, meta: Statement_Meta, json: Json_Optio
     }
 }
 
-run_statement :: (pool: *Pool, sql: string, meta: Statement_Meta, args: [] Any, plan: Plan, json: Json_Options, expected: string) -> Result, Pg_Error {
+run_statement :: (pool: *Pool, sql: string, meta: Statement_Meta, params: [] Param, argument_error: Pg_Error, plan: Plan, json: Json_Options, expected: string) -> Result, Pg_Error {
     c, acquire_error := acquire(pool);
     if acquire_error.kind != .NONE return .{}, acquire_error;
 
-    result, error := run_statement(c, sql, meta, args, plan, json, expected);
+    result, error := run_statement(c, sql, meta, params, argument_error, plan, json, expected);
 
     release(pool, c);
 
@@ -594,14 +603,14 @@ run_statement :: (pool: *Pool, sql: string, meta: Statement_Meta, args: [] Any, 
 }
 
 // Enters pipeline mode, queues the statement and its sync point, and asks for its rows in batches.
-start_stream :: (c: *Connection, pipeline: **Pipeline, sql: string, args: [] Any, result_format: Format, batch: s64) -> Pg_Error {
+start_stream :: (c: *Connection, pipeline: **Pipeline, sql: string, params: [] Param, argument_error: Pg_Error, result_format: Format, batch: s64) -> Pg_Error {
     if batch < 1 return make_error(.USAGE, "batch must be at least 1, not %", batch);
     if c && c.pipeline.active return make_error(.USAGE, "the connection is already in pipeline mode");
 
     p, error := pipeline_enter(c);
     if error.kind != .NONE return error;
 
-    error = queue_typed(p, sql, "", args, result_format);
+    error = queue_encoded(p, sql, "", params, argument_error, result_format);
     if error.kind == .NONE error = pipeline_sync(p);
     if error.kind == .NONE && !pipeline_chunked_rows(p, batch) error = make_error(.USAGE, "the statement's rows could not be asked for in batches");
 

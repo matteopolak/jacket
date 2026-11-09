@@ -4,7 +4,8 @@
 // one element's binary form, and `array_param_of` sends a whole array; `copy.jai` uses the last two
 // for the members of a COPY row. A value that arrives as `Any` is handed to these by
 // `encode_param` (codecs.jai) when its type is one of PLAIN_TYPES, and goes through the slower
-// walkers there otherwise.
+// walkers there otherwise. The typed query macros know each argument's type from the call and
+// use `argument_param`, which skips that test.
 #scope_module
 
 // The types an `Any` argument is sent to a typed encoder for. Each name is written into the
@@ -281,6 +282,76 @@ patch_u32 :: (out: *[..] u8, at: s64, value: u32) {
     (bytes + 1).* = cast,trunc(u8) (value >> 16);
     (bytes + 2).* = cast,trunc(u8) (value >> 8);
     (bytes + 3).* = cast,trunc(u8) value;
+}
+
+// Whether `info` is one of PLAIN_TYPES.
+is_plain_type :: (info: *Type_Info) -> bool {
+    #insert -> string {
+        builder: String_Builder;
+        builder.allocator = temp;
+
+        for name: PLAIN_TYPES print_to_builder(*builder, "if info == type_info(%) return true;\n", name);
+
+        return builder_to_string(*builder);
+    };
+
+    return false;
+}
+
+// Whether `info` is a `Nullable` of one of PLAIN_TYPES.
+is_plain_nullable :: (info: *Type_Info) -> bool {
+    return is_nullable_info(info) && is_plain_type(nullable_value_type(info));
+}
+
+// Whether `info` is an array that `array_param_of` sends: not bytes, and of PLAIN_TYPES or of
+// `Nullable` of one.
+is_plain_array :: (info: *Type_Info) -> bool {
+    if info.type != .ARRAY return false;
+
+    element := (cast(*Type_Info_Array) info).element_type;
+
+    if element == type_info(u8) return false;
+
+    return is_plain_type(element) || is_plain_nullable(element);
+}
+
+// Whether `argument_param` has an encoder written for arguments of this type.
+has_typed_encoder :: (info: *Type_Info) -> bool {
+    return is_plain_type(info) || is_plain_nullable(info) || is_plain_array(info);
+}
+
+array_element_type :: (T: Type) -> Type {
+    return cast(Type) (cast(*Type_Info_Array) type_info(T)).element_type;
+}
+
+// The query parameter for an argument whose type `T` the call site knows. Plain types, arrays of
+// them and `Nullable`s of them go straight to their encoder with no test of the type; the value is
+// read through the `Any` the call built. Anything else, or an `Any` of another type than `T`, is
+// sent as `encode_param` would.
+//
+// - value: the argument, boxed.
+// - T: the argument's static type.
+argument_param :: (value: Any, $T: Type) -> Param, string {
+    #if #run has_typed_encoder(type_info(T)) {
+        if value.type == type_info(T) {
+            #if #run is_plain_type(type_info(T)) {
+                return param_of(cast(*T) value.value_pointer);
+            } else #if #run is_plain_nullable(type_info(T)) {
+                item := cast(*T) value.value_pointer;
+
+                if item.null return .{ null = true }, "";
+
+                return param_of(*item.value);
+            } else {
+                E :: #run array_element_type(T);
+                view := any_array_view(value);
+
+                return array_param_of(([] E).{ view.count / size_of(E), cast(*E) view.data });
+            }
+        }
+    }
+
+    return encode_param(value);
 }
 
 // The source of `any_param`: for each of PLAIN_TYPES, a test of the argument's type and a call of

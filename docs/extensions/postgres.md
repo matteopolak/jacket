@@ -49,7 +49,7 @@ error := Pg.transaction(pool, user_id, (tx: *Pg.Connection, id: s64) -> Pg.Pg_Er
 
 ## How to change it
 
-- New type: add its OID to `Oid` and a branch to `decode` in `codecs.jai` for both formats; if it can be a parameter, a branch in `scalar_oid`, `put_scalar` and `param_of` in `encoders.jai` and a name in `PLAIN_TYPES` (arguments passed as `Any` are sent to the encoder written for their type, arrays of it included; a type outside that list is read from its type information in `encode_param`); for an array, the pair in `ARRAY_TYPES`; and a row in `test_values` in `tests/server.jai`.
+- New type: add its OID to `Oid` and a branch to `decode` in `codecs.jai` for both formats; if it can be a parameter, a branch in `scalar_oid`, `put_scalar` and `param_of` in `encoders.jai` and a name in `PLAIN_TYPES` (arguments passed as `Any` are sent to the encoder written for their type, arrays of it included; a type outside that list is read from its type information in `encode_param`; the typed query macros pick the encoder from the argument's type at the call, in `argument_param`); for an array, the pair in `ARRAY_TYPES`; and a row in `test_values` in `tests/server.jai`.
 - New pipeline step: add a `Pipeline_Step`, a `queue_*` function that writes its messages and calls `add_step`, and a case in `consume` saying which message ends it.
 - Traced message: add it to `trace_frontend` or `trace_backend` and compare against a `.trace` file.
 - New auth method: a case in `answer_authentication` (`startup.jai`). Keep the rule that a method weaker than `channel_binding = .REQUIRE` allows fails before sending anything.

@@ -647,21 +647,21 @@ copy_columns :: (columns: [] Column) -> [] Column {
 }
 
 queue_typed :: (p: *Pipeline, sql: string, statement: string, args: [] Any, result_format: Format) -> Pg_Error {
+    params, argument_error := encode_arguments(args);
+
+    return queue_encoded(p, sql, statement, params, argument_error, result_format);
+}
+
+// Queues a statement whose arguments are encoded already; `argument_error` is why they were not.
+queue_encoded :: (p: *Pipeline, sql: string, statement: string, params: [] Param, argument_error: Pg_Error, result_format: Format) -> Pg_Error {
     error := check_queue(p);
     if error.kind != .NONE return error;
-    if args.count > 65535 return make_error(.USAGE, "% parameters; Postgres allows at most 65535", args.count);
     if contains_zero(sql) || contains_zero(statement) return make_error(.USAGE, "the name or SQL holds a zero byte");
+    if argument_error.kind != .NONE return argument_error;
 
-    params := NewArray(args.count, Param,, temp);
-    types := NewArray(args.count, u32,, temp);
+    types := NewArray(params.count, u32,, temp);
 
-    for args {
-        why: string;
-        params[it_index], why = encode_param(it);
-        if why return make_error(.USAGE, "parameter $%: %", it_index + 1, why);
-
-        types[it_index] = params[it_index].oid;
-    }
+    for params types[it_index] = it.oid;
 
     queue_query(p, sql, statement, types, params, result_format);
 
