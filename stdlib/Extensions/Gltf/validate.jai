@@ -182,26 +182,60 @@ validate_hierarchy :: (asset: *Gltf_Asset, options: Gltf_Options) -> Gltf_Error 
     defer array_free(roots);
     for node: queue roots[node] = ifx parents[node] < 0 then node else roots[parents[node]];
 
+    return validate_skins(asset, parents, roots);
+}
+
+validate_skins :: (asset: *Gltf_Asset, parents: [] s64, roots: [] s64) -> Gltf_Error {
+    d := *asset.document;
+    seen: [..] bool;
+
+    array_resize(*seen, d.nodes.count);
+    defer array_free(seen);
+
     for skin, i: d.skins {
         if !skin.joints.count || !valid_ref(skin.skeleton, d.nodes.count) || !valid_ref(skin.inverse_bind_matrices, d.accessors.count) return failure(.INVALID, "invalid skin reference", tprint("/skins/%", i));
         for joint: skin.joints if joint >= d.nodes.count return failure(.INVALID, "joint index out of range", tprint("/skins/%/joints", i));
 
-        first := skin.joints[0];
-        root := roots[first];
+        root := roots[skin.joints[0]];
 
         for joint: skin.joints if roots[joint] != root return failure(.INVALID, "skin joints have no common root", tprint("/skins/%/joints", i));
 
-        if skin.skeleton.state == .SET {
-            // Every joint is the skeleton or one of its descendants; parents are acyclic here.
-            for joint: skin.joints {
-                node: s64 = joint;
-                while node >= 0 && node != skin.skeleton.value node = parents[node];
-                if node < 0 return failure(.INVALID, "skeleton is not an ancestor of every joint", tprint("/skins/%/skeleton", i));
-            }
-        }
+        duplicate := first_duplicate(skin.joints, seen);
+        if duplicate >= 0 return failure(.INVALID, "skin joints must be unique", tprint("/skins/%/joints/%", i, duplicate));
+
+        if skin.skeleton.state == .SET && !skeleton_covers(skin, parents) return failure(.INVALID, "skeleton is not an ancestor of every joint", tprint("/skins/%/skeleton", i));
     }
 
     return validate_scenes(asset, parents, roots);
+}
+
+// The position of the first joint that repeats an earlier one, or -1. `seen` is all false and is left that way.
+first_duplicate :: (joints: [] u32, seen: [] bool) -> s64 {
+    duplicate := -1;
+
+    for joint, j: joints {
+        if seen[joint] {
+            duplicate = j;
+            break;
+        }
+
+        seen[joint] = true;
+    }
+
+    for joint: joints seen[joint] = false;
+
+    return duplicate;
+}
+
+// Whether every joint is the skin's skeleton node or one of its descendants. Parents must be acyclic.
+skeleton_covers :: (skin: Gltf_Skin, parents: [] s64) -> bool {
+    for joint: skin.joints {
+        node: s64 = joint;
+        while node >= 0 && node != skin.skeleton.value node = parents[node];
+        if node < 0 return false;
+    }
+
+    return true;
 }
 
 validate_scenes :: (asset: *Gltf_Asset, parents: [] s64, roots: [] s64) -> Gltf_Error {
