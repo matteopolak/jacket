@@ -76,3 +76,27 @@ civil_text :: () {
         assert(cut.kind != .NONE);
     }
 } @test
+
+civil_random_roundtrip :: () #no_aoc {
+    seed: u64 = 42;
+
+    for 1..1000 {
+        seed = seed * 6364136223846793005 + 1;
+        year := cast(s64) (seed % 19999) - 9999;
+        month := cast(s64) ((seed >> 16) % 12) + 1;
+        day := cast(s64) ((seed >> 32) % 28) + 1;
+        d, e := T.date(year, month, day);
+
+        assert(e.kind == .NONE);
+        b: String_Builder;
+        fe := T.format(*b, d);
+
+        assert(fe.kind == .NONE);
+        text := builder_to_string(*b);
+
+        defer free(text);
+        copy, ce := T.parse(T.Date, text);
+
+        assert(ce.kind == .NONE && T.equal(d, copy));
+    }
+} @test

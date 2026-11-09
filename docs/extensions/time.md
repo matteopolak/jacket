@@ -1,9 +1,8 @@
 # Time
 
 `#import "Extensions/Time"` declares civil dates, exact instants, explicit time
-zones and calendar-aware spans. Civil construction, calendar helpers, arithmetic, exact instants,
-fixed offsets, TZif/POSIX rule zones and ISO text are implemented. Zoned conversions, calendar/clock arithmetic and RFC 9557 text are also
-implemented. Later phases supply span differences and interop.
+zones and calendar-aware spans. Calendar differences, balancing, rounding and totals
+use the same ordered arithmetic as addition, including variable-length zoned days.
 
 ## Concepts
 
@@ -36,7 +35,10 @@ checked `s64` intermediates before narrowing. Span calendar fields are `s32` and
 clock fields are `s64`; even the latter cannot safely be multiplied into one
 nanosecond counter. The implementation must check operations before arithmetic,
 using quotient/remainder decomposition where a scaled intermediate would
-overflow. Field widths alone do not make arbitrary arithmetic safe.
+overflow. Exact clock sums use Basic `S128` intermediates before checked narrowing.
+`span_check` excludes each field's signed minimum so negation is total.
+Without a relative value, days balance as 24 hours; months, years and weeks require
+a relative value. Timestamp span addition still rejects days.
 
 Timestamp and duration nanoseconds have magnitude below one billion and the
 seconds' sign when seconds are nonzero. With zero seconds either remainder sign

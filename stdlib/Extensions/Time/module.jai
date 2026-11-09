@@ -1,6 +1,4 @@
 // Exact instants, civil values, explicit zones and calendar-aware spans.
-// API declaration phase: procedure bodies are stubs; this module is not usable yet.
-// Fallible stubs return UNSUPPORTED and never claim a successful calculation.
 
 // A Gregorian date in years -9999..9999; construct with `date(2024, 3, 10)`.
 Date :: struct {
@@ -237,8 +235,8 @@ signed_duration :: (seconds: s64, nanoseconds: s64 = 0) -> Signed_Duration, Time
 span_check :: (value: Span) -> Span, Time_Error {
     sign: s64;
 
-    for field: span_fields(value) {
-        if field == MIN_I64 || field == -2147483648 return .{}, .{ .OUT_OF_RANGE, "span field cannot be negated", -1 };
+    for field, i: span_fields(value) {
+        if field == MIN_I64 || (i < 4 && field == -2147483648) return .{}, .{ .OUT_OF_RANGE, "span field cannot be negated", -1 };
 
         current := cmp64(field, 0);
         if current != 0 {
@@ -392,130 +390,154 @@ add :: (value: Time_Of_Day, amount: Span) -> Time_Of_Day, Time_Error {
 // Measures b minus a; validates units, positive increments and range.
 // Example: `s, error := until(a, b)`.
 until :: (a: Date, b: Date, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
-    if largest != .DAY || (smallest != .DAY && smallest != .NANOSECOND) || increment < 1 return .{}, .{ .UNSUPPORTED, "calendar rounding is not implemented yet", -1 };
-    return .{ days = cast(s32) (date_days(b) - date_days(a)) }, .{};
+    return difference(a, b, largest, smallest, rounding, increment);
 }
 
 // Measures b minus a; validates units, positive increments and range.
 // Example: `s, error := until(a, b)`.
 until :: (a: Date_Time, b: Date_Time, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return difference(a, b, largest, smallest, rounding, increment);
 }
 
 // Measures b minus a; validates units, positive increments and range.
 // Example: `s, error := until(a, b)`.
 until :: (a: Timestamp, b: Timestamp, largest := Unit.SECOND, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return difference(a, b, largest, smallest, rounding, increment);
 }
 
 // Measures b minus a; calendar units use the receiver's zone and real day lengths.
 // Example: `s, error := until(a, b)`.
 until :: (a: Zoned, b: Zoned, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1, disambiguation := Disambiguation.COMPATIBLE) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return difference(a, b, largest, smallest, rounding, increment, disambiguation);
 }
 
 // Measures a minus b; validates units, positive increments and range.
 // Example: `s, error := since(a, b)`.
 since :: (a: Date, b: Date, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
-    return until(b, a, largest, smallest, rounding, increment);
+    return difference(b, a, largest, smallest, rounding, increment);
 }
 
 // Measures a minus b; validates units, positive increments and range.
 // Example: `s, error := since(a, b)`.
 since :: (a: Date_Time, b: Date_Time, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return difference(b, a, largest, smallest, rounding, increment);
 }
 
 // Measures a minus b; validates units, positive increments and range.
 // Example: `s, error := since(a, b)`.
 since :: (a: Timestamp, b: Timestamp, largest := Unit.SECOND, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return difference(b, a, largest, smallest, rounding, increment);
 }
 
 // Measures a minus b; calendar units use the receiver's zone and real day lengths.
 // Example: `s, error := since(a, b)`.
 since :: (a: Zoned, b: Zoned, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1, disambiguation := Disambiguation.COMPATIBLE) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return difference(b, a, largest, smallest, rounding, increment, disambiguation);
 }
 
 // Balances to largest; calendar conversions require a relative value.
 // Example: `value, error := span_balance(value, .DAY, relative = day)`.
 span_balance :: (value: Span, largest: Unit) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if largest > .DAY return .{}, .{ .RELATIVE_REQUIRED, "calendar balancing requires relative value", -1 };
+    if value.years != 0 || value.months != 0 || value.weeks != 0 return .{}, .{ .RELATIVE_REQUIRED, "calendar balancing requires relative value", -1 };
+    return split_time(clock_ns(value) + wide_mul(value.days, DAY_NS), largest);
 }
 
 // Uses a relative Date; e.g. `span_balance(value, relative = origin)`.
 span_balance :: (value: Span, largest: Unit, relative: Date) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return balance_relative(value, largest, Date_Time.{ relative, .{} });
 }
 
 // Uses a relative Zoned; e.g. `span_balance(value, relative = origin)`.
 span_balance :: (value: Span, largest: Unit, relative: Zoned) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return balance_relative(value, largest, relative);
 }
 
 // Rounds to a positive increment, then balances; calendar rounding needs a relative value.
 // Example: `value, error := span_round(value, .MINUTE, .HOUR)`.
 span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if smallest > .DAY || largest > .DAY return .{}, .{ .RELATIVE_REQUIRED, "calendar rounding requires relative value", -1 };
+    if increment < 1 || smallest > largest return .{}, .{ .INVALID_VALUE, "invalid rounding units or increment", -1 };
+    if value.years != 0 || value.months != 0 || value.weeks != 0 return .{}, .{ .RELATIVE_REQUIRED, "calendar rounding requires relative value", -1 };
+
+    n := clock_ns(value) + wide_mul(value.days, DAY_NS);
+    rounded := round_wide(n, wide_mul(unit_scale(smallest), increment), rounding);
+
+    return split_time(rounded, largest);
 }
 
 // Uses a relative Date; e.g. `span_round(value, relative = origin)`.
 span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative: Date) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return round_relative(value, smallest, largest, rounding, increment, Date_Time.{ relative, .{} });
 }
 
 // Uses a relative Zoned; e.g. `span_round(value, relative = origin)`.
 span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative: Zoned) -> Span, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return round_relative(value, smallest, largest, rounding, increment, relative);
 }
 
 // Returns a possibly fractional total; zoned days follow actual day lengths.
 // Example: `value, error := span_total(value, .HOUR, relative = z)`.
 span_total :: (value: Span, unit: Unit) -> float64, Time_Error {
-    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if unit > .DAY return 0, .{ .RELATIVE_REQUIRED, "calendar total requires relative value", -1 };
+    if value.years != 0 || value.months != 0 || value.weeks != 0 return 0, .{ .RELATIVE_REQUIRED, "calendar total requires relative value", -1 };
+    return wide_float(clock_ns(value) + wide_mul(value.days, DAY_NS)) / cast(float64) unit_scale(unit), .{};
 }
 
 // Uses a relative Date; e.g. `span_total(value, relative = origin)`.
 span_total :: (value: Span, unit: Unit, relative: Date) -> float64, Time_Error {
-    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return total_relative(value, unit, Date_Time.{ relative, .{} });
 }
 
 // Uses a relative Zoned; e.g. `span_total(value, relative = origin)`.
 span_total :: (value: Span, unit: Unit, relative: Zoned) -> float64, Time_Error {
-    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return total_relative(value, unit, relative);
 }
 
 // Returns -1/0/1 by elapsed length; calendar units require a shared relative value.
 // Example: `value, error := span_compare(a, b, relative = day)`.
 span_compare :: (a: Span, b: Span) -> int, Time_Error {
-    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if calendar_nonzero(a) || calendar_nonzero(b) {
+        if a.years != 0 || a.months != 0 || a.weeks != 0 || b.years != 0 || b.months != 0 || b.weeks != 0 return 0, .{ .RELATIVE_REQUIRED, "calendar comparison requires relative value", -1 };
+    }
+
+    left := clock_ns(a) + wide_mul(a.days, DAY_NS);
+    right := clock_ns(b) + wide_mul(b.days, DAY_NS);
+
+    return wide_compare(left, right), .{};
 }
 
 // Uses a relative Date; e.g. `span_compare(value, relative = origin)`.
 span_compare :: (a: Span, b: Span, relative: Date) -> int, Time_Error {
-    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return compare_relative(a, b, Date_Time.{ relative, .{} });
 }
 
 // Uses a relative Zoned; e.g. `span_compare(value, relative = origin)`.
 span_compare :: (a: Span, b: Span, relative: Zoned) -> int, Time_Error {
-    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    return compare_relative(a, b, relative);
 }
 
 // Converts clock units to elapsed time; calendar units require a relative value.
 // Example: `value, error := span_to_duration(value)`.
 span_to_duration :: (value: Span) -> Signed_Duration, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    if value.years != 0 || value.months != 0 || value.weeks != 0 return .{}, .{ .RELATIVE_REQUIRED, "calendar conversion requires relative value", -1 };
+    return duration_wide(clock_ns(value) + wide_mul(cast(s64) value.days, DAY_NS));
 }
 
 // Uses a relative Date; e.g. `span_to_duration(value, relative = origin)`.
 span_to_duration :: (value: Span, relative: Date) -> Signed_Duration, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    origin := Date_Time.{ relative, .{} };
+    end, e := add(origin, value);
+    if e.kind != .NONE return .{}, e;
+    return duration_wide(value_ns(end) - value_ns(origin));
 }
 
 // Uses a relative Zoned; e.g. `span_to_duration(value, relative = origin)`.
 span_to_duration :: (value: Span, relative: Zoned) -> Signed_Duration, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    origin := relative;
+    end, e := add(origin, value);
+    if e.kind != .NONE return .{}, e;
+    return duration_wide(value_ns(end) - value_ns(origin));
 }
 
 // Converts clock units only; years, months, weeks and days are errors.
@@ -1353,12 +1375,19 @@ parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error 
         }
 
         return zoned(instant, v), .{};
+    } else #if T == Span {
+        v := read_span(*r);
+        return v, r.error;
+    } else #if T == Signed_Duration {
+        v := read_span(*r);
+        if r.error.kind != .NONE return .{}, r.error;
+        return duration_from_span(v);
     } else {
-        return .{}, .{ .UNSUPPORTED, "format not implemented yet", 0 };
+        return .{}, .{ .UNSUPPORTED, "unsupported time type", 0 };
     }
 }
 
-// Uses [String_Builder](https://jacketlang.com/docs/api/String/String_Builder.html).
+// Uses [String_Builder](https://jacket.matteopolak.com/api/String/String_Builder.html).
 // Appends canonical ISO text, trims fractional zeros and uses UTC Z for timestamps.
 // Example: `error := format(*builder, instant)`.
 format :: (builder: *String_Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> Time_Error {
@@ -1427,8 +1456,61 @@ format :: (builder: *String_Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, 
         if e.kind != .NONE return e;
 
         return format(builder, value.zone);
+    } else #if T == Span {
+        v := span_abs(value);
+
+        if compare_sign(value) < 0 append(builder, "-");
+
+        append(builder, "P");
+
+        if v.years != 0 {
+            digits(builder, v.years);
+            append(builder, "Y");
+        }
+
+        if v.months != 0 {
+            digits(builder, v.months);
+            append(builder, "M");
+        }
+
+        if v.weeks != 0 {
+            digits(builder, v.weeks);
+            append(builder, "W");
+        }
+
+        if v.days != 0 {
+            digits(builder, v.days);
+            append(builder, "D");
+        }
+
+        total := wide_mul(v.seconds, NS) + wide_mul(v.milliseconds, 1000000) + wide_mul(v.microseconds, 1000) + to_s128(v.nanoseconds);
+
+        if clock_nonzero(v) || !calendar_nonzero(v) {
+            append(builder, "T");
+
+            if v.hours != 0 {
+                digits(builder, v.hours);
+                append(builder, "H");
+            }
+
+            if v.minutes != 0 {
+                digits(builder, v.minutes);
+                append(builder, "M");
+            }
+
+            if total != S128.{} || (v.hours == 0 && v.minutes == 0) {
+                q, r := wide_div(total, NS);
+                if q > to_s128(MAX_I64) return range_error();
+
+                digits(builder, narrow(q));
+                fraction(builder, r);
+                append(builder, "S");
+            }
+        }
+    } else #if T == Signed_Duration {
+        return format(builder, Span.{ seconds = value.seconds, nanoseconds = value.nanoseconds });
     } else {
-        return .{ .UNSUPPORTED, "format not implemented yet", -1 };
+        return .{ .UNSUPPORTED, "unsupported time type", -1 };
     }
 
     if builder.failed return .{ .LIMIT, "builder allocation failed", -1 };
@@ -1448,12 +1530,12 @@ parse_format :: ($T: Type, pattern: string, text: string, options: Time_Options 
     return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
 }
 
-// Uses [Json_Writer](https://jacketlang.com/docs/api/Extensions/Json/Json_Writer.html).
+// Uses [Json_Writer](https://jacket.matteopolak.com/api/Extensions/Json/Json_Writer.html).
 // Custom Json field encoder; canonical ISO strings use Json's writer limits.
 // Example: `time_json_encode :: Time.time_json_encode // in an @json(with=time_json) struct`.
 time_json_encode :: (writer: *Json.Json_Writer, value: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) {}
 
-// Uses [Json_Reader](https://jacketlang.com/docs/api/Extensions/Json/Json_Reader.html).
+// Uses [Json_Reader](https://jacket.matteopolak.com/api/Extensions/Json/Json_Reader.html).
 // Custom Json field decoder; parse errors become Json INVALID_VALUE and output stays unchanged.
 // Example: `time_json_decode :: Time.time_json_decode // alongside time_json_encode`.
 time_json_decode :: (reader: *Json.Json_Reader, out: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> bool {
@@ -2192,6 +2274,423 @@ read_zone :: (r: *Text_Reader, options: Time_Options) -> Time_Zone {
 
     v, e := time_zone_get(text, options);
     if e.kind != .NONE text_fail(r, e.kind, e.message, begin);
+
+    return v;
+}
+
+unit_scale :: (u: Unit) -> s64 {
+    if u == .NANOSECOND return 1;
+    if u == .MICROSECOND return 1000;
+    if u == .MILLISECOND return 1000000;
+    if u == .SECOND return NS;
+    if u == .MINUTE return 60 * NS;
+    if u == .HOUR return 3600 * NS;
+
+    return DAY_NS;
+}
+
+unit_field :: (v: Span, u: Unit) -> s64 {
+    if u == .YEAR return v.years;
+    if u == .MONTH return v.months;
+    if u == .WEEK return v.weeks;
+    if u == .DAY return v.days;
+    if u == .HOUR return v.hours;
+    if u == .MINUTE return v.minutes;
+    if u == .SECOND return v.seconds;
+    if u == .MILLISECOND return v.milliseconds;
+    if u == .MICROSECOND return v.microseconds;
+
+    return v.nanoseconds;
+}
+
+put_unit :: (v: *Span, u: Unit, n: s64) {
+    if u == .YEAR v.years = cast,trunc(s32) n;
+    else if u == .MONTH v.months = cast,trunc(s32) n;
+    else if u == .WEEK v.weeks = cast,trunc(s32) n;
+    else if u == .DAY v.days = cast,trunc(s32) n;
+    else if u == .HOUR v.hours = n;
+    else if u == .MINUTE v.minutes = n;
+    else if u == .SECOND v.seconds = n;
+    else if u == .MILLISECOND v.milliseconds = n;
+    else if u == .MICROSECOND v.microseconds = n;
+    else v.nanoseconds = n;
+}
+
+wide_compare :: (a: S128, b: S128) -> int {
+    if a < b return -1;
+    if a > b return 1;
+    return 0;
+}
+
+wide_abs :: (v: S128) -> S128 {
+    if v.high < 0 return S128.{} - v;
+    return v;
+}
+
+wide_float :: (v: S128) -> float64 {
+    n := wide_abs(v);
+    f := cast(float64) n.high * 18446744073709551616.0 + cast(float64) n.low;
+    return ifx v.high < 0 then -f else f;
+}
+
+round_up :: (mode: Rounding, negative: bool, parity: bool, dist: S128, other: S128) -> bool {
+    if mode == .TRUNC return false;
+    if mode == .EXPAND return true;
+    if mode == .FLOOR return negative;
+    if mode == .CEIL return !negative;
+    if dist != other return dist > other;
+    if mode == .HALF_TRUNC return false;
+    if mode == .HALF_EVEN return parity;
+    if mode == .HALF_FLOOR return negative;
+    if mode == .HALF_CEIL return !negative;
+
+    return true;
+}
+
+round_wide :: (v: S128, step: S128, mode: Rounding) -> S128 {
+    q, r, _ := signed_divide_with_remainder(v, step);
+    if r == S128.{} return v;
+
+    base := v - r;
+
+    if round_up(mode, v.high < 0, (q.low & 1) != 0, wide_abs(r), step - wide_abs(r)) {
+        if v.high < 0 base -= step;
+        else base += step;
+    }
+
+    return base;
+}
+
+split_time :: (ns: S128, largest: Unit) -> Span, Time_Error {
+    if largest > .DAY return .{}, .{ .INVALID_VALUE, "invalid exact largest unit", -1 };
+
+    result: Span;
+    remaining := ns;
+
+    for < i: 0..cast(s64) largest {
+        u := cast(Unit) i;
+        q, r := wide_div(remaining, unit_scale(u));
+        bound := ifx u == .DAY then 2147483647 else MAX_I64;
+
+        if q > to_s128(bound) || q < to_s128(-bound) return .{}, range_error();
+
+        put_unit(*result, u, narrow(q));
+        remaining = to_s128(r);
+    }
+
+    return result, .{};
+}
+
+value_ns :: (v: $T) -> S128 {
+    #if T == Date return wide_mul(date_days(v), DAY_NS);
+    else #if T == Date_Time return wide_mul(date_days(v.date), DAY_NS) + to_s128(time_ns(v.time));
+    else #if T == Timestamp return stamp_ns(v);
+    else return stamp_ns(v.timestamp);
+}
+
+calendar_limit :: (u: Unit) -> s64 {
+    if u == .YEAR return 20000;
+    if u == .MONTH return 240000;
+    if u == .WEEK return 1100000;
+    return 7400000;
+}
+
+difference_raw :: (a: $T, b: T, largest: Unit, stop: Unit, policy: Disambiguation) -> Span, Time_Error {
+    result: Span;
+    sign := wide_compare(value_ns(b), value_ns(a));
+
+    if sign == 0 return result, .{};
+
+    #if T != Timestamp {
+        for < i: cast(s64) stop..cast(s64) largest {
+            u := cast(Unit) i;
+            if u < .DAY || (u == .WEEK && largest != .WEEK) continue;
+
+            lo: s64;
+            hi := calendar_limit(u);
+
+            while lo < hi {
+                mid := lo + (hi - lo + 1) / 2;
+                trial := result;
+
+                put_unit(*trial, u, mid * sign);
+                valid := false;
+
+                #if T == Zoned {
+                    v, ve := add(a, trial, disambiguation = policy);
+                    valid = ve.kind == .NONE && wide_compare(value_ns(v), value_ns(b)) * sign <= 0;
+                } else {
+                    v, ve := add(a, trial);
+                    valid = ve.kind == .NONE && wide_compare(value_ns(v), value_ns(b)) * sign <= 0;
+                }
+
+                if valid lo = mid;
+                else hi = mid - 1;
+            }
+
+            put_unit(*result, u, lo * sign);
+        }
+    }
+
+    #if T == Date {
+        return result, .{};
+    } else {
+        current: T;
+        #if T == Timestamp current = a;
+        else #if T == Zoned {
+            v, e := add(a, result, disambiguation = policy);
+            if e.kind != .NONE return .{}, e;
+            current = v;
+        } else {
+            v, e := add(a, result);
+            if e.kind != .NONE return .{}, e;
+            current = v;
+        }
+
+        if stop >= .DAY return result, .{};
+
+        top := ifx largest >= .DAY then Unit.HOUR else largest;
+        clock, clock_error := split_time(value_ns(b) - value_ns(current), top);
+
+        if clock_error.kind != .NONE return .{}, clock_error;
+
+        result.hours = clock.hours;
+        result.minutes = clock.minutes;
+        result.seconds = clock.seconds;
+        result.milliseconds = clock.milliseconds;
+        result.microseconds = clock.microseconds;
+        result.nanoseconds = clock.nanoseconds;
+
+        return result, .{};
+    }
+}
+
+difference :: (a: $T, b: T, largest: Unit, smallest: Unit, mode: Rounding, increment: s64, policy := Disambiguation.COMPATIBLE) -> Span, Time_Error {
+    small := smallest;
+
+    #if T == Date {
+        if small == .NANOSECOND small = .DAY;
+        if small < .DAY || largest < .DAY return .{}, .{ .INVALID_VALUE, "date differences require calendar units", -1 };
+    }
+
+    #if T == Timestamp {
+        if largest >= .DAY return .{}, .{ .INVALID_VALUE, "instant differences require clock units", -1 };
+    }
+
+    if largest > .YEAR || small > largest || increment < 1 return .{}, .{ .INVALID_VALUE, "invalid difference units or increment", -1 };
+
+    result, e := difference_raw(a, b, largest, small, policy);
+    if e.kind != .NONE return .{}, e;
+
+    if small < .DAY {
+        ns := clock_ns(result);
+        rounded := round_wide(ns, wide_mul(unit_scale(small), increment), mode);
+
+        clear_clock(*result);
+        clock, ce := split_time(rounded, ifx largest >= .DAY then Unit.HOUR else largest);
+        if ce.kind != .NONE return .{}, ce;
+
+        result.hours = clock.hours;
+        result.minutes = clock.minutes;
+        result.seconds = clock.seconds;
+        result.milliseconds = clock.milliseconds;
+        result.microseconds = clock.microseconds;
+        result.nanoseconds = clock.nanoseconds;
+    } else {
+        count := unit_field(result, small);
+        sign := wide_compare(value_ns(b), value_ns(a));
+
+        if sign == 0 return result, .{};
+
+        base := count / increment * increment;
+
+        put_unit(*result, small, base);
+
+        #if T != Timestamp {
+            lower, le := add(a, result);
+            if le.kind != .NONE return .{}, le;
+            if value_ns(lower) == value_ns(b) return result, .{};
+            if increment > 2147483647 return .{}, range_error();
+
+            trial := result;
+
+            put_unit(*trial, small, base + sign * increment);
+            upper, ue := add(a, trial);
+            if ue.kind != .NONE return .{}, ue;
+            if round_up(mode, sign < 0, (base / increment) % 2 != 0, wide_abs(value_ns(b) - value_ns(lower)), wide_abs(value_ns(upper) - value_ns(b))) result = trial;
+        }
+    }
+
+    #if T == Timestamp return result, .{};
+    else {
+        end, ee := add(a, result);
+        if ee.kind != .NONE return .{}, ee;
+        return difference_raw(a, end, largest, .NANOSECOND, policy);
+    }
+}
+
+balance_relative :: (v: Span, largest: Unit, origin: $T) -> Span, Time_Error {
+    end, e := add(origin, v);
+    if e.kind != .NONE return .{}, e;
+    return difference(origin, end, largest, .NANOSECOND, .TRUNC, 1);
+}
+
+round_relative :: (v: Span, smallest: Unit, largest: Unit, mode: Rounding, increment: s64, origin: $T) -> Span, Time_Error {
+    end, e := add(origin, v);
+    if e.kind != .NONE return .{}, e;
+    return difference(origin, end, largest, smallest, mode, increment);
+}
+
+compare_relative :: (a: Span, b: Span, origin: $T) -> int, Time_Error {
+    left, e := add(origin, a);
+    if e.kind != .NONE return 0, e;
+
+    right, re := add(origin, b);
+    if re.kind != .NONE return 0, re;
+
+    return wide_compare(value_ns(left), value_ns(right)), .{};
+}
+
+total_relative :: (v: Span, unit: Unit, origin: $T) -> float64, Time_Error {
+    if unit > .YEAR return 0, .{ .INVALID_VALUE, "invalid total unit", -1 };
+
+    end, e := add(origin, v);
+    if e.kind != .NONE return 0, e;
+    if unit < .DAY return wide_float(value_ns(end) - value_ns(origin)) / cast(float64) unit_scale(unit), .{};
+
+    diff, de := difference_raw(origin, end, unit, unit, .COMPATIBLE);
+    if de.kind != .NONE return 0, de;
+
+    count := unit_field(diff, unit);
+    base, be := add(origin, diff);
+
+    if be.kind != .NONE return 0, be;
+
+    rest := value_ns(end) - value_ns(base);
+    if rest == S128.{} return cast(float64) count, .{};
+
+    sign := ifx rest.high < 0 then -1 else 1;
+
+    put_unit(*diff, unit, count + sign);
+    next, ne := add(origin, diff);
+    if ne.kind != .NONE return 0, ne;
+
+    length := wide_abs(value_ns(next) - value_ns(base));
+    if length == S128.{} return 0, .{ .INVALID_VALUE, "zero-length calendar unit", -1 };
+
+    return cast(float64) count + wide_float(rest) / wide_float(length), .{};
+}
+
+compare_sign :: (v: Span) -> s64 {
+    for field: span_fields(v) {
+        if field < 0 return -1;
+        if field > 0 return 1;
+    }
+
+    return 0;
+}
+
+read_span :: (r: *Text_Reader) -> Span {
+    v: Span;
+    sign: s64 = 1;
+
+    if peek(r) == 45 {
+        sign = -1;
+        r.at += 1;
+    }
+
+    expect_byte(r, 80);
+    clock := false;
+    any := false;
+    time_any := false;
+    last: s64 = 11;
+
+    while r.at < r.text.count && r.error.kind == .NONE {
+        if peek(r) == 84 {
+            if clock {
+                text_fail(r);
+                break;
+            }
+
+            clock = true;
+            r.at += 1;
+            last = 6;
+            continue;
+        }
+
+        begin := r.at;
+        n: s64;
+
+        while peek(r) >= 48 && peek(r) <= 57 {
+            digit: s64 = peek(r) - 48;
+            if n > (MAX_I64 - digit) / 10 {
+                text_fail(r, .OUT_OF_RANGE, "span integer overflow");
+                break;
+            }
+
+            n = n * 10 + digit;
+            r.at += 1;
+        }
+
+        if r.at == begin {
+            text_fail(r);
+            break;
+        }
+
+        ns: s64;
+        fractional := false;
+
+        if peek(r) == 46 {
+            fractional = true;
+            r.at += 1;
+            count: s64;
+            while peek(r) >= 48 && peek(r) <= 57 && count < 9 {
+                ns = ns * 10 + peek(r) - 48;
+                r.at += 1;
+                count += 1;
+            }
+
+            if count == 0 text_fail(r);
+            for count..8 ns *= 10;
+        }
+
+        c := peek(r);
+
+        if r.at < r.text.count r.at += 1;
+
+        u := Unit.NANOSECOND;
+
+        if !clock {
+            if c == 89 u = .YEAR;
+            else if c == 77 u = .MONTH;
+            else if c == 87 u = .WEEK;
+            else if c == 68 u = .DAY;
+            else text_fail(r);
+        } else {
+            if c == 72 u = .HOUR;
+            else if c == 77 u = .MINUTE;
+            else if c == 83 u = .SECOND;
+            else text_fail(r);
+
+            time_any = true;
+        }
+
+        if cast(s64) u >= last || (fractional && u != .SECOND) text_fail(r);
+        if u >= .DAY && n > 2147483647 text_fail(r, .OUT_OF_RANGE, "span calendar overflow");
+
+        put_unit(*v, u, n * sign);
+
+        if fractional {
+            v.milliseconds = ns / 1000000 * sign;
+            v.microseconds = (ns / 1000 % 1000) * sign;
+            v.nanoseconds = (ns % 1000) * sign;
+        }
+
+        last = cast(s64) u;
+        any = true;
+    }
+
+    if !any || (clock && !time_any) text_fail(r);
 
     return v;
 }
