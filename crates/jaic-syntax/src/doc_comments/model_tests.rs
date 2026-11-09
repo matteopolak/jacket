@@ -942,7 +942,7 @@ fn a_public_top_level_insert_is_reported_with_its_place() {
         .iter()
         .map(|(file, line)| (file.file_name().unwrap().to_str().unwrap(), *line))
         .collect();
-    places.sort();
+    places.sort_unstable();
     // The private one declares nothing a reader could use; the one in a branch is still public.
     assert_eq!(places, [("module.jai", 5), ("more.jai", 3)]);
     let json = to_json(&model, &|_| None);
