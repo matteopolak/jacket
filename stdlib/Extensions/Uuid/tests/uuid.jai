@@ -80,17 +80,11 @@ uuid_conformance :: () {
         assert(built == "id=919108f7-52d1-4320-9bac-f847db4148a8");
         free(built);
         namespace := must("6ba7b810-9dad-11d1-80b4-00c04fd430c8");
-        a, e3 := uuid_v3(namespace, "www.example.com");
-        b, e5 := uuid_v5(namespace, "www.example.com");
+        a := uuid_v3(namespace, "www.example.com");
+        b := uuid_v5(namespace, "www.example.com");
 
-        assert(e3.kind == .NONE && a == must(vectors[1]));
-        assert(e5.kind == .NONE && b == must(vectors[3]));
-        _, limit := uuid_v5(namespace, "long", .{ max_name_size = 3 });
-
-        assert(limit.kind == .LIMIT && limit.offset == 3);
-        _, limit3 := uuid_v3(namespace, "long", .{ max_name_size = 3 });
-
-        assert(limit3.kind == .LIMIT);
+        assert(a == must(vectors[1]));
+        assert(b == must(vectors[3]));
         raw := must("919108f7-52d1-3320-5bac-f847db4148a8");
 
         U.set_layout(*raw, 4);
@@ -181,9 +175,8 @@ name_boundaries :: () {
 
         // Python uuid reference results across hash-block/padding boundaries and UTF-8.
         for name, i: names {
-            a, e3 := uuid_v3(namespace, name);
-            b, e5 := uuid_v5(namespace, name);
-            assert(e3.kind == .NONE && e5.kind == .NONE);
+            a := uuid_v3(namespace, name);
+            b := uuid_v5(namespace, name);
             assert(a == must(v3[i]) && b == must(v5[i]));
         }
     }

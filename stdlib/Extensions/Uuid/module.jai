@@ -10,7 +10,6 @@ Uuid_Error_Kind :: enum u8 {
     NONE;
     LENGTH;
     SYNTAX;
-    LIMIT;
     RANDOM;
     CLOCK;
     EXHAUSTED;
@@ -28,10 +27,6 @@ Uuid_Variant :: enum u8 {
     RFC;
     MICROSOFT;
     FUTURE;
-}
-
-Uuid_Options :: struct {
-    max_name_size := 1 << 20;
 }
 
 // Reads canonical hex, urn:uuid:hex, or {hex}; e.g. `id, err := parse_uuid(text)`.
@@ -141,10 +136,10 @@ uuid_v7 :: () -> Uuid, Uuid_Error {
     return v7_advance(*v7_state, ms, value);
 }
 
-// MD5 name UUID for legacy interoperability; e.g. `id, err := uuid_v3(namespace, "name")`.
+// MD5 name UUID for legacy interoperability; e.g. `id := uuid_v3(namespace, "name")`.
 uuid_v3 :: #bake_arguments name_uuid(sha = false);
 
-// SHA-1 name UUID; e.g. `id, err := uuid_v5(namespace, "name")`. Names are exact bytes.
+// SHA-1 name UUID; e.g. `id := uuid_v5(namespace, "name")`. Names are exact bytes.
 uuid_v5 :: #bake_arguments name_uuid(sha = true);
 
 // Json with=uuid_json encoder; e.g. `id: Uuid; @json(with=uuid_json)` with aliases in the struct.
@@ -241,10 +236,7 @@ v7_advance :: (state: *u64, ms: s64, random: Uuid) -> Uuid, Uuid_Error {
     return value, .{};
 }
 
-name_uuid :: (namespace: Uuid, name: string, options := Uuid_Options.{}, sha: bool) -> Uuid, Uuid_Error {
-    // The hard ceiling also keeps the legacy MD5 padding arithmetic safely in range.
-    if name.count < 0 || name.count > min(options.max_name_size, 1 << 30) return .{}, .{ .LIMIT, "UUID name exceeds size limit", clamp(options.max_name_size, 0, 1 << 30) };
-
+name_uuid :: (namespace: Uuid, name: string, sha: bool) -> Uuid {
     input := alloc_string(16 + name.count);
 
     defer free(input);
@@ -264,5 +256,5 @@ name_uuid :: (namespace: Uuid, name: string, options := Uuid_Options.{}, sha: bo
         set_layout(*value, 3);
     }
 
-    return value, .{};
+    return value;
 }

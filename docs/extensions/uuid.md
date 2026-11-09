@@ -41,12 +41,10 @@ millisecond range return `.CLOCK`. Successful calls are ordered by their atomic
 state update; thread scheduling can reorder when callers observe completion.
 State lasts for the process and is not persisted across restarts.
 
-`uuid_v3(namespace, name, options)` and `uuid_v5(namespace, name, options)` hash
+`uuid_v3(namespace, name)` and `uuid_v5(namespace, name)` hash
 namespace bytes followed by the exact name bytes, then set version and variant.
 Names are not normalized or interpreted as text. V3 uses existing MD5 for legacy
 compatibility; v5 uses existing SHA-1. Neither is a security primitive.
-`Uuid_Options.max_name_size` defaults to 1 MiB and has a hard ceiling of 1 GiB;
-the bound is checked before concatenation or hashing.
 
 ## Comparison, maps and JSON
 
