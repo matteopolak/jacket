@@ -2219,6 +2219,16 @@ SQL
 
     assert(Pg.get(*text, 1, 14, string) == "sad" && Pg.is_null(*text, 1, 17));
 
+    // An enum is read back by its label; a text that is none of them is a decode error.
+    mood, mood_error := Pg.get(*text, 0, 14, Copy_Mood);
+
+    assert(mood_error.kind == .NONE && mood == .happy, "got %", Pg.error_text(mood_error));
+
+    _, label_error := Pg.get(*text, 0, 15, Copy_Mood);
+
+    assert(label_error.kind == .DECODE && contains(label_error.message, "is not a label of"), "got %", Pg.error_text(label_error));
+    Pg.free_error(*label_error);
+
     // A value that is not an enum member fails the COPY with the member named.
     bad_mood: [1] Copy_Kinds;
     bad_mood[0].o = cast(Copy_Mood) 7;

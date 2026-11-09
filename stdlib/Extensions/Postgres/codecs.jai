@@ -59,6 +59,24 @@ Format :: enum u16 {
 
 #scope_module
 
+// Sets `out` to the member of `T` whose Postgres label is `text`: a comparison per member, written
+// for `T` when the program compiles.
+enum_from_label :: (text: string, out: *$T) -> bool {
+    #insert -> string {
+        info := cast(*Type_Info_Enum) type_info(T);
+        builder: String_Builder;
+        builder.allocator = temp;
+
+        for info.values {
+            print_to_builder(*builder, "if text == % {\n    out.* = cast,no_check(T) %;\n    return true;\n}\n", jai_string(enum_label(info.names[it_index]),, temp), it);
+        }
+
+        return builder_to_string(*builder);
+    };
+
+    return false;
+}
+
 // Decodes one non-null value into `out`. Returns "" on success, otherwise why it failed.
 decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Layers = null) -> string {
     text := cast(string) bytes;
@@ -76,15 +94,8 @@ decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Layers 
 
         return "";
     } else #if type_info(T).type == .ENUM {
-        // A Postgres enum is its label in both formats; a generated enum spells it with
-        // `enum_member_name`.
-        member := enum_member_name(text);
-        info := cast(*Type_Info_Enum) type_info(T);
-
-        for info.names if it == member {
-            out.* = cast,no_check(T) info.values[it_index];
-            return "";
-        }
+        // A Postgres enum is its label in both formats.
+        if enum_from_label(text, out) return "";
 
         return tprint("\"%\" is not a label of %", text, T);
     } else #if type_info(T).type == .INTEGER {

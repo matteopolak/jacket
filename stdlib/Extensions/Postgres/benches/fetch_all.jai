@@ -5,11 +5,18 @@
 #import "Extensions/Testing";
 Fetch_Pg :: #import "Extensions/Postgres";
 
+Bench_Level :: enum {
+    low;
+    mid;
+    high;
+}
+
 Bench_Row :: struct {
     id: s64;
     email: string;
     name: Fetch_Pg.Nullable(string);
     tags: [] string;
+    level: Bench_Level;
 }
 
 ROWS :: 200;
@@ -20,12 +27,12 @@ make_result :: () -> Fetch_Pg.Result {
     result.allocator = context.allocator;
     result.row_count = ROWS;
 
-    names := string.["id", "email", "name", "tags"];
-    oids := Fetch_Pg.Oid.[.INT8, .TEXT, .TEXT, .TEXT];
+    names := string.["id", "email", "name", "tags", "level"];
+    oids := Fetch_Pg.Oid.[.INT8, .TEXT, .TEXT, .TEXT, .TEXT];
 
-    result.columns = NewArray(4, Fetch_Pg.Column);
+    result.columns = NewArray(5, Fetch_Pg.Column);
 
-    for 0..3 {
+    for 0..4 {
         result.columns[it].name = copy_string(names[it]);
         result.columns[it].type_oid = xx oids[it];
         result.columns[it].format = .TEXT;
@@ -41,6 +48,7 @@ make_result :: () -> Fetch_Pg.Result {
         else add_value(*result, tprint("User number %", row));
 
         add_value(*result, "{alpha,beta,gamma}");
+        add_value(*result, ifx row % 3 == 0 then "high" else "mid");
     }
 
     return result;
