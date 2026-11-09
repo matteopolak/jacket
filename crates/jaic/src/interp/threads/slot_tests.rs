@@ -316,3 +316,49 @@ check :: ()->bool #no_context {{
         "the first thread, the kept one and one reused slot"
     );
 }
+
+/// A kernel-backed thread handle (`CreateThread` on Windows) is closed once, which frees its
+/// slot, and a second `CloseHandle` on it fails the way the kernel reports a dead handle.
+#[cfg(windows)]
+#[test]
+fn closing_a_closed_kernel_thread_handle_fails_with_invalid_handle() {
+    let source = format!(
+        "{WIN32}
+GetLastError :: ()->u32 #foreign;
+check :: ()->bool #no_context {{
+    h := start(9);
+    if WaitForSingleObject(h,0xffffffff)!=0 return false;
+    if CloseHandle(h)==0 return false;
+    if CloseHandle(h)!=0 return false;
+    // ERROR_INVALID_HANDLE
+    return GetLastError()==6;
+}}
+"
+    );
+    assert_eq!(
+        slots_after(&source),
+        2,
+        "the first thread and one worker slot"
+    );
+}
+
+/// Closing a kernel-backed handle whose thread may still be running frees the slot once the
+/// thread ends, so later threads reuse it.
+#[cfg(windows)]
+#[test]
+fn closing_a_running_kernel_thread_handle_frees_its_slot_when_it_ends() {
+    let source = format!(
+        "{WIN32}
+check :: ()->bool #no_context {{
+    count:u64=0;
+    while count<50 {{
+        h := start(count);
+        if CloseHandle(h)==0 return false;
+        count+=1;
+    }}
+    return true;
+}}
+"
+    );
+    assert!(slots_after(&source) <= 4);
+}

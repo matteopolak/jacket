@@ -187,3 +187,44 @@ fn interpreter_teardown_closes_its_owned_thread_handle() {
     // SAFETY: WaitForSingleObject accepts invalid handles and reports WAIT_FAILED.
     assert_eq!(unsafe { WaitForSingleObject(raw, 0) }, u32::MAX);
 }
+
+#[cfg(windows)]
+#[test]
+fn joining_an_ended_worker_handle_returns() {
+    use std::os::windows::io::OwnedHandle;
+    let worker = OwnedHandle::from(std::thread::spawn(|| {}));
+    join_worker(worker);
+}
+
+#[cfg(windows)]
+#[test]
+fn joining_a_running_worker_handle_waits_for_it() {
+    use std::os::windows::io::OwnedHandle;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let done = std::sync::Arc::new(AtomicBool::new(false));
+    let flag = done.clone();
+    let worker = OwnedHandle::from(std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        flag.store(true, Ordering::SeqCst);
+    }));
+    join_worker(worker);
+    assert!(
+        done.load(Ordering::SeqCst),
+        "join returned before the thread ended"
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn releasing_a_protected_thread_handle_closes_it() {
+    use std::os::windows::io::{AsRawHandle, OwnedHandle};
+    let handle = OwnedHandle::from(std::thread::spawn(|| {}));
+    let raw = handle.as_raw_handle() as usize;
+    // SAFETY: raw borrows the live OwnedHandle; waiting and protecting need no other state.
+    assert_eq!(unsafe { WaitForSingleObject(raw, 5000) }, 0);
+    // SAFETY: as above; protect-from-close would make a plain drop fail.
+    assert_ne!(unsafe { SetHandleInformation(raw, 2, 2) }, 0);
+    release_thread_handle(handle);
+    // SAFETY: WaitForSingleObject accepts invalid handles and reports WAIT_FAILED.
+    assert_eq!(unsafe { WaitForSingleObject(raw, 0) }, u32::MAX);
+}
