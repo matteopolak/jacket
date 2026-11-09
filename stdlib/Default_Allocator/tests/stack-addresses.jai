@@ -1,7 +1,6 @@
 // A local's address is not a block of the allocator: freeing or resizing it is reported on every target instead of corrupting the heap.
 #import "Extensions/Testing";
 D :: #import "Default_Allocator";
-T :: #import "Thread";
 
 freeing_a_local_is_reported :: () {
     local: [64] u8;
@@ -46,28 +45,33 @@ freeing_a_block_twice_is_reported :: () {
     D.allocator_proc(.FREE, 0, 24, block, null);
 } @test @should_fail("Default_Allocator received an invalid pointer")
 
-blocks: [4] *void;
+// The Thread module has no wasm target.
+#if OS != .WASM {
+    T :: #import "Thread";
 
-blocks_freed_on_other_threads_are_accepted :: () {
-    for *slot: blocks slot.* = D.allocator_proc(.ALLOCATE, 48, 0, null, null);
+    blocks: [4] *void;
 
-    workers: [4] T.Thread;
-    for *worker: workers {
-        worker.data = *blocks[it_index];
-        expect(T.thread_init(worker, release_slot));
-        T.thread_start(worker);
+    blocks_freed_on_other_threads_are_accepted :: () {
+        for *slot: blocks slot.* = D.allocator_proc(.ALLOCATE, 48, 0, null, null);
+
+        workers: [4] T.Thread;
+        for *worker: workers {
+            worker.data = *blocks[it_index];
+            expect(T.thread_init(worker, release_slot));
+            T.thread_start(worker);
+        }
+
+        for *worker: workers {
+            expect(T.thread_is_done(worker, 10000));
+            T.thread_deinit(worker);
+        }
+    } @test
+
+    release_slot :: (worker: *T.Thread) -> s64 {
+        slot := cast(**void) worker.data;
+
+        D.allocator_proc(.FREE, 0, 48, slot.*, null);
+
+        return 0;
     }
-
-    for *worker: workers {
-        expect(T.thread_is_done(worker, 10000));
-        T.thread_deinit(worker);
-    }
-} @test
-
-release_slot :: (worker: *T.Thread) -> s64 {
-    slot := cast(**void) worker.data;
-
-    D.allocator_proc(.FREE, 0, 48, slot.*, null);
-
-    return 0;
 }
