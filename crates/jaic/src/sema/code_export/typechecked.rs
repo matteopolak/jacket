@@ -272,24 +272,22 @@ impl Compiler {
         // A concrete procedure may be reached through a member or procedure value,
         // without the syntax exporter's call lookup finding it. Lowering is the
         // authority for these events, not whether its source has a global name.
-        let completed: Vec<_> = self
-            .pr
-            .procs
+        let seen = std::mem::replace(&mut self.meta.export.done_seen, self.pr.done_log.len());
+        let mut completed: Vec<_> = self.pr.done_log[seen..]
             .iter()
-            .enumerate()
-            .filter(|(index, p)| {
+            .copied()
+            .filter(|&id| {
+                let p = self.proc(id);
                 p.body_state == procs::BodyState::Done
                     && p.lit.body.is_some()
                     && !p.is_poly
                     && !p.is_macro
-                    && !self
-                        .meta
-                        .export
-                        .scheduled_bodies
-                        .contains(&ProcId(*index as u32))
+                    && !self.meta.export.scheduled_bodies.contains(&id)
             })
-            .map(|(index, _)| ProcId(index as u32))
             .collect();
+        // Procedure order, as a scan of every procedure would give.
+        completed.sort_unstable();
+        completed.dedup();
         for p in completed {
             let scope = self.proc(p).bindings.unwrap_or(self.proc(p).scope);
             if !full {

@@ -9,6 +9,7 @@ use crate::interp::{Trap, TrapFrame, TrapKind};
 use crate::ir;
 use crate::sema::SourceState;
 use crate::source::{FileId, Span};
+use std::rc::Rc;
 
 /// Call stack lines shown before the rest are summarized.
 const MAX_STACK_LINES: usize = 12;
@@ -419,11 +420,18 @@ impl SourceState {
 
     /// The loaded file at `path`, compared as given and as an absolute path.
     fn file_by_path(&self, path: &str) -> Option<FileId> {
+        if let Some(&known) = self.reported_files.borrow().get(path) {
+            return Some(known);
+        }
         let wanted = std::path::absolute(path).ok();
-        (0..self.sources.len() as u32).map(FileId).find(|&id| {
+        let found = (0..self.sources.len() as u32).map(FileId).find(|&id| {
             let have = &self.sources.get(id).path;
             have.to_string() == path || wanted.as_deref().is_some_and(|w| have.to_path() == w)
-        })
+        })?;
+        self.reported_files
+            .borrow_mut()
+            .insert(path.to_string(), found);
+        Some(found)
     }
 
     /// Where a metaprogram's report at `loc` points. Inside a string literal (a byte of SQL, say)
@@ -434,12 +442,19 @@ impl SourceState {
             return statement;
         };
         let at = statement.start as usize;
-        let (tokens, _) = crate::lexer::lex_ide(FileId(loc.0), &source.text);
-        let inside = tokens.iter().any(|t| {
-            matches!(t.tok, crate::lexer::Tok::Str(_))
-                && (t.span.start as usize) < at
-                && at < t.span.end as usize
+        let key = (loc.0, source.text.as_ptr() as usize, source.text.len());
+        let ranges = self.string_ranges.borrow().get(&key).cloned();
+        let ranges = ranges.unwrap_or_else(|| {
+            let (tokens, _) = crate::lexer::lex_ide(FileId(loc.0), &source.text);
+            let ranges: Rc<[(usize, usize)]> = tokens
+                .iter()
+                .filter(|t| matches!(t.tok, crate::lexer::Tok::Str(_)))
+                .map(|t| (t.span.start as usize, t.span.end as usize))
+                .collect();
+            self.string_ranges.borrow_mut().insert(key, ranges.clone());
+            ranges
         });
+        let inside = ranges.iter().any(|&(start, end)| start < at && at < end);
         if !inside {
             return statement;
         }

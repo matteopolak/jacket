@@ -27,6 +27,13 @@ pub struct SourceState {
         Probed<HashMap<(PathBuf, ModuleId), modules::FileLoadState>, { W::SrcFileByPath as usize }>,
     /// Whether each source file is the stdlib's, for trap reports (a `#run` can trap often).
     pub(in crate::sema) library_files: RefCell<HashMap<u32, bool>>,
+    /// Where the string literals of each source file are, as byte ranges. Worked out once per
+    /// file and text (a file whose text was replaced is worked out again): a `#run` that reports often asks for every report (`SourceState::reported_span`).
+    pub(in crate::sema) string_ranges: RefCell<HashMap<(u32, usize, usize), Rc<[(usize, usize)]>>>,
+    /// The file a metaprogram's report named, by the path it gave (`SourceState::file_by_path`).
+    /// Only found files are kept: the first file with a path never changes, a missing one can
+    /// still be loaded.
+    pub(in crate::sema) reported_files: RefCell<HashMap<String, FileId>>,
     /// Sources added so far (labels of added strings).
     pub(crate) added: usize,
     /// Body `#import`s already added to their file scope (by statement span).
@@ -62,6 +69,8 @@ impl SourceState {
             origins: Probed::default(),
             file_by_path: Probed::default(),
             library_files: RefCell::default(),
+            string_ranges: RefCell::default(),
+            reported_files: RefCell::default(),
             added: 0,
             hoisted_imports: Probed::default(),
             provided_texts: Probed::default(),

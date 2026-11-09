@@ -758,6 +758,7 @@ impl Compiler {
         crate::progress::procedure_checked();
         self.pr.lenient_failures.remove(&id);
         self.pr.procs[id.0 as usize].body_state = BodyState::Done;
+        self.pr.done_log.push(id);
         STATS.with(|s| {
             let mut s = s.borrow_mut();
             s.committed += 1;

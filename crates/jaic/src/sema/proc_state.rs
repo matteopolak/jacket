@@ -31,6 +31,10 @@ pub struct ProcState {
     /// `$$x` variants: (procedure, which auto-bake params are baked) -> procedure.
     pub(in crate::sema) auto_bake_variants:
         Probed<HashMap<(ProcId, Vec<calls::AutoBake>), ProcId>, { W::PrAutoBakeVariants as usize }>,
+    /// Every procedure whose body reached `Done`, in the order it did (a procedure can appear
+    /// again if it is lowered again). Metaprogram exports read it from a cursor, so reporting
+    /// finished bodies costs what is new, not every procedure of the program.
+    pub(in crate::sema) done_log: Vec<ProcId>,
     /// Procedures that need their bodies lowered.
     pub body_queue: Probed<Vec<ProcId>, { W::PrBodyQueue as usize }>,
     /// Queued bodies whose last lenient attempt failed at `parked_epoch`: skipped as a group by

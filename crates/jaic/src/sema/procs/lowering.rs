@@ -76,6 +76,7 @@ impl Compiler {
         self.pr.procs[id.0 as usize].body_state = if result.is_ok() {
             crate::progress::procedure_checked();
             self.pr.lenient_failures.remove(&id);
+            self.pr.done_log.push(id);
             BodyState::Done
         } else {
             BodyState::Queued

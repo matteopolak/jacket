@@ -32,6 +32,8 @@ pub struct ExportState {
     /// (procedure, header record, scope for type expressions). The body is reported
     /// in a later TYPECHECKED message, once lowered (like Jai, unused bodies never are).
     pub(super) pending_bodies: Vec<(ProcId, i64, ScopeId)>,
+    /// How much of `ProcState::done_log` has been looked at.
+    pub(super) done_seen: usize,
     /// A procedure may be reached through several aliases and call records.
     pub(super) scheduled_bodies: HashSet<ProcId>,
     pub(super) reported_headers: HashSet<ProcId>,
