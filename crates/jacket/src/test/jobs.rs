@@ -410,21 +410,26 @@ fn resolve(case: &Case, index: usize, raw: &exec::Raw, ending: Option<&Ending>) 
 
 /// `@should_fail` and `@xfail` turn the outcome around.
 fn expectations(case: &Case, outcome: &mut Outcome) {
-    if let Some(text) = &case.options.should_fail {
+    if let Some(texts) = &case.options.should_fail {
         outcome.status = match outcome.status {
             Status::Fail | Status::Timeout => {
-                let found = text.is_empty()
-                    || outcome
-                        .failures
-                        .iter()
-                        .any(|f| f.message.contains(text.as_str()))
-                    || outcome.problems.iter().any(|p| p.contains(text.as_str()))
-                    || String::from_utf8_lossy(&outcome.stderr).contains(text.as_str());
+                let stderr = String::from_utf8_lossy(&outcome.stderr);
+                let found = texts.is_empty()
+                    || texts.iter().any(|text| {
+                        outcome.failures.iter().any(|f| f.message.contains(text))
+                            || outcome.problems.iter().any(|p| p.contains(text))
+                            || stderr.contains(text)
+                    });
                 if found {
                     Status::Pass
                 } else {
+                    let wanted = texts
+                        .iter()
+                        .map(|t| format!("`{t}`"))
+                        .collect::<Vec<_>>()
+                        .join(" or ");
                     outcome.problems.push(format!(
-                        "it failed, but no failure message or standard error contains `{text}`"
+                        "it failed, but no failure message or standard error contains {wanted}"
                     ));
                     Status::Fail
                 }
@@ -583,7 +588,7 @@ mod tests {
         );
 
         let mut should = case("t", Kind::Test);
-        should.options.should_fail = Some("bounds".into());
+        should.options.should_fail = Some(vec!["bounds".into()]);
         let mut failing = raw(Some("fail"));
         failing.failures.push(Failure {
             test: "t".into(),
@@ -596,8 +601,11 @@ mod tests {
             resolve(&should, 0, &raw(Some("pass")), None).status,
             Status::Fail
         );
-        should.options.should_fail = Some("other".into());
+        should.options.should_fail = Some(vec!["other".into()]);
         assert_eq!(resolve(&should, 0, &failing, None).status, Status::Fail);
+        // Any one of several texts is enough.
+        should.options.should_fail = Some(vec!["other".into(), "bounds".into()]);
+        assert_eq!(resolve(&should, 0, &failing, None).status, Status::Pass);
 
         let mut known = case("t", Kind::Test);
         known.options.xfail = Some(String::new());

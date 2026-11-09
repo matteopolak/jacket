@@ -24,8 +24,8 @@ pub struct TestOptions {
     pub native_only: bool,
     /// The program is expected to exit with this status, without a failed check.
     pub exit: Option<i32>,
-    /// The test must fail; with text, a failure message or its standard error must contain it.
-    pub should_fail: Option<String>,
+    /// The test must fail; with texts, a failure message or its standard error must contain one.
+    pub should_fail: Option<Vec<String>>,
     /// A known failure, with the reason. Passing is an error, so the note gets removed.
     pub xfail: Option<String>,
     pub allow_leaks: bool,
@@ -92,7 +92,15 @@ impl TestOptions {
                 }
             }
             "needs" => self.needs = list(),
-            "should_fail" => self.should_fail = Some(text(args)),
+            "should_fail" => {
+                self.should_fail = Some(match args {
+                    Some(args) if args.contains('"') => quoted_list(args),
+                    _ => Some(text(args))
+                        .filter(|t| !t.is_empty())
+                        .into_iter()
+                        .collect(),
+                })
+            }
             "xfail" => self.xfail = Some(text(args)),
             "warns" => {
                 let want = text(args);
@@ -284,7 +292,7 @@ mod tests {
         assert_eq!(options.timeout, Some(5));
         assert_eq!(options.only.len(), 1);
         assert_eq!(options.only[0].names, ["linux", "macos"]);
-        assert_eq!(options.should_fail.as_deref(), Some("bounds"));
+        assert_eq!(options.should_fail, Some(vec!["bounds".to_string()]));
         assert!(options.serial);
         assert_eq!(options.exit, Some(3));
     }
@@ -327,7 +335,10 @@ mod tests {
         let notes = header_notes(source);
         let (options, warnings) = TestOptions::default().with_notes(&notes);
         assert!(warnings.is_empty(), "{warnings:?}");
-        assert_eq!(options.should_fail.as_deref(), Some("Index out of range"));
+        assert_eq!(
+            options.should_fail,
+            Some(vec!["Index out of range".to_string()])
+        );
         assert_eq!(options.args, ["a b", "$TEMP/Data"]);
         assert_eq!(options.warns.as_deref(), Some("not in scope"));
         assert!(options.check_only);
@@ -512,6 +523,21 @@ mod tests {
             assert_eq!(warnings.len(), 1, "{note}: {warnings:?}");
             assert!(warnings[0].contains(expect), "{note}: {warnings:?}");
         }
+    }
+
+    #[test]
+    fn should_fail_takes_one_or_several_texts() {
+        let parse = |note: &str| {
+            let (options, warnings) = TestOptions::default().with_notes(&[note.to_string()]);
+            assert!(warnings.is_empty(), "{warnings:?}");
+            options.should_fail
+        };
+        assert_eq!(parse("should_fail"), Some(vec![]));
+        assert_eq!(parse("should_fail(want:)"), Some(vec!["want:".to_string()]));
+        assert_eq!(
+            parse(r#"should_fail("a, b", "AddressSanitizer")"#),
+            Some(vec!["a, b".to_string(), "AddressSanitizer".to_string()])
+        );
     }
 
     #[test]

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `@should_fail("a", "b")` passes when any one of the texts is in the failure; the `Default_Allocator` misuse tests accept AddressSanitizer's report, which comes first under `-sanitize address`.
 - The `Android` (adb, asn1, digests, zip-wire) and `Bindings_Generator` driven tests read and write their scratch and fixture files through `output_path`, so `JACKET_OUTPUT_DIR` relocates them.
 - A relative `JACKET_OUTPUT_DIR` is below the checkout everywhere, not the working directory: `jacket test`, the Python and TypeScript tools, `jaic`'s `native-libs/` lookup and `Extensions/Environment` (`output_directory`; new `resolve_output_directory`) agree.
 - `jacket test` no longer builds the fixture data for a suite whose source only names a fixture path in a comment, such as the `Extensions/Environment` doc examples.

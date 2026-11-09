@@ -253,7 +253,7 @@ known_bug :: () {
 | `@only(.LINUX, .MACOS)` | run only there; `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE` also work |
 | `@skip_on(.WINDOWS,reason="paths")` | skip there |
 | `@needs(.NETWORK)` | skip unless run with `--needs network` |
-| `@should_fail`, `@should_fail(word)` | must fail, with `word` in the message |
+| `@should_fail`, `@should_fail(word)`, `@should_fail("a", "b")` | must fail, with `word` (or any one of the quoted texts) in the message |
 | `@xfail`, `@xfail(reason)` | a known failure; reported `XFAIL`, and passing is an error |
 | `@exit(N)` | the program must exit with status N |
 | `@allow_leaks` | don't fail on leaks |

@@ -80,7 +80,7 @@ The [testing guide](../guides/testing.md) has examples of tests, checks, `@cases
 | `optional(NAME)` | skip, instead of failing, when an `args(...)` entry uses `${NAME}` and the variable is unset (`optional(JAIC_TEST_FONT_PATH)`) |
 | `@interp_only`, `@native_only` | run only with / without `--interp` |
 | `@exit(N)` | the program must exit with status N, with no failed check |
-| `@should_fail`, `@should_fail(word)` | must fail; with a word, the failure message or stderr must contain it |
+| `@should_fail`, `@should_fail(word)`, `@should_fail("a", "b")` | must fail; with text, the failure message or stderr must contain it (any one of several) |
 | `@xfail`, `@xfail(reason)` | known failure, reported `XFAIL`; passing is an error |
 | `@allow_leaks` | the tracking allocator reports no leaks |
 | `@args("a", "b $TEMP/x")` | golden: program arguments. `$TEMP` is a fresh folder, `$DIR` the test file's folder, `${NAME}` an environment variable (must be set, so a missing input is never a silent pass) |
