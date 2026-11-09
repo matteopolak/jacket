@@ -230,6 +230,33 @@ typed__jacket :: (b: *Bench) {
     }
 } @bench @samples(10)
 
+// The same rows with `borrow`: strings that need no unquoting are slices of the input. Run with
+// `--libraries jacket,jaicsv,jacket_borrow` to see it beside the others.
+typed__jacket_borrow :: (b: *Bench) {
+    prepare();
+    set_bytes(b, text.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        push_allocator(flat_pool_allocator_proc, *pool);
+        reader := csv_reader(Row, cast([] u8) black_box(text), .{ header = true, borrow = true });
+        count := 0;
+
+        while true {
+            row, ok, error := csv_next(*reader);
+
+            require(error.kind == .NONE, "Csv rejected a typed row");
+            if !ok break;
+
+            count += 1;
+            black_box(row);
+        }
+
+        black_box(count);
+        reset(*pool);
+    }
+} @bench @samples(10)
+
 write__jacket :: (b: *Bench) {
     prepare();
     set_bytes(b, written_text.count);
