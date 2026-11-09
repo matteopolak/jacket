@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "String";
 #import "File";
 B :: #import "Bindings_Generator";
@@ -232,11 +233,11 @@ check_by_value_bindings :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_opaque", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     options.add_generator_command = false;
     options.visitor = select_by_value;
-    path := tprint("%../../../../target/generator-opaque-by-value-rejected.jai", #filepath);
+    path := output_path("generator-opaque-by-value-rejected.jai");
 
     for name: string.["opaque_by_value_return", "opaque_by_value_argument"] {
         selected_function = name;
@@ -313,12 +314,12 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_opaque", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     options.add_generator_command = false;
     check_invalid_metadata(options);
     check_canonical_print(options);
-    assert(B.generate_bindings(options, tprint("%../../../../target/generator-opaque-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("generator-opaque-generated.jai"), log_results = false));
     check_by_value_bindings();
     print("ok\n");
 }

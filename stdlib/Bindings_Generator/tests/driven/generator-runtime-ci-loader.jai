@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 B :: #import "Bindings_Generator";
 P :: #import "POSIX";
 
@@ -9,7 +10,7 @@ gp_library_close :: (image: *void) #foreign provider;
 
 main :: () {
     suffix := ifx OS == .MACOS then ".dylib" else ".so";
-    path := to_c_string(tprint("%../../../../target/libruntime_ci_probe%", #filepath, suffix));
+    path := to_c_string(output_path(tprint("libruntime_ci_probe%", suffix)));
 
     defer free(path);
     name := to_c_string("runtime_ci_value");
@@ -26,7 +27,7 @@ main :: () {
         gp_library_close(image);
     }
 
-    paths := string.[tprint("%../../../../target", #filepath)];
+    paths := string.[output_directory()];
     library := B.os_load_library(paths, "probe", "runtime_ci_probe", false);
 
     assert(library != null && library.is_shared_library);

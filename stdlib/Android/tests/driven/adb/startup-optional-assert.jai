@@ -1,5 +1,6 @@
 // Default-import ADB assertions vary; verification is a separate enabled instance.
 #import "Basic"()(ENABLE_ASSERT = true);
+#import "Extensions/Environment";
 A :: #import "Android/Toolchain";
 S :: #import "String";
 
@@ -16,8 +17,8 @@ continue_failure :: (location: Source_Code_Location, message: string) -> bool {
 }
 
 main :: () {
-    path := sprint("%/../../../../target/portable-adb/sdk protocol fixture", S.path_strip_filename(#file));
-    failing := sprint("%/../../../../target/portable-adb/start failure SDK/platform-tools/adb", S.path_strip_filename(#file));
+    path := copy_string(output_path("portable-adb/sdk protocol fixture"));
+    failing := copy_string(output_path("portable-adb/start failure SDK/platform-tools/adb"));
 
     defer free(path);
     defer free(failing);

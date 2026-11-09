@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 B :: #import "Bindings_Generator";
 
 choose_enum :: (decl: *B.Declaration) -> string {
@@ -23,11 +24,11 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_merge", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     options.convert_macro_value_to_enum_callback = choose_enum;
     options.visitor = visit;
     options.add_generator_command = false;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-macro-merge-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-macro-merge-generated.jai"), log_results = false));
     print("ok\n");
 }

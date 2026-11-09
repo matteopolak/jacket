@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 B :: #import "Bindings_Generator";
 
@@ -34,7 +35,7 @@ main :: () {
     assert(B.clang_VirtualFileOverlay_writeToBuffer(overlay, 0, *buffer, *size) == .Success);
     assert(buffer != null && size > 0);
     defer B.clang_free(buffer);
-    overlay_file := tprint("%../../../../target/developer-tools-overlay.yaml", #filepath);
+    overlay_file := output_path("developer-tools-overlay.yaml");
 
     assert(write_entire_file(overlay_file, string.{ cast(s64) size, buffer }));
     index := B.clang_createIndex(0, 0);
@@ -82,7 +83,7 @@ main :: () {
     assert(B.clang_ModuleMapDescriptor_writeToBuffer(descriptor, 0, *module_buffer, *module_size) == .Success);
     assert(module_buffer != null && module_size > 0);
     defer B.clang_free(module_buffer);
-    assert(write_entire_file(tprint("%../../../../target/developer-tools-frameworks/OriginalNative.framework/Modules/module.modulemap", #filepath),
+    assert(write_entire_file(output_path("developer-tools-frameworks/OriginalNative.framework/Modules/module.modulemap"),
                             string.{ cast(s64) module_size, module_buffer }));
     print("ok\n");
 }

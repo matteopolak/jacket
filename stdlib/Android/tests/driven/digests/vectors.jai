@@ -1,11 +1,12 @@
 // Actual Python native hashlib digests; production hashing remains independent Jai.
 #import "Basic";
+#import "Extensions/Environment";
 A :: #import "Android/Toolchain";
 F :: #import "File";
 S :: #import "String";
 
 main :: () {
-    filename := sprint("%/../../../../target/portable-sha/vectors.bin", S.path_strip_filename(#file));
+    filename := copy_string(output_path("portable-sha/vectors.bin"));
 
     defer free(filename);
     data, loaded := F.read_entire_file(filename);

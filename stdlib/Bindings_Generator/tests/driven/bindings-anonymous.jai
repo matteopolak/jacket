@@ -1,5 +1,6 @@
 // Reviewed anonymous typedef naming/omission and canonical cursor identity.
 #import "Basic";
+#import "Extensions/Environment";
 B :: #import "Bindings_Generator";
 
 records: s64;
@@ -41,14 +42,14 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ identifier = "native", filename = "developer_tools_anonymous" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     options.visitor = inspect;
     options.strip_enum_prefixes = false;
     options.add_generator_command = false;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-anonymous-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-anonymous-generated.jai"), log_results = false));
     assert(records == 3 && enums == 1 && omitted_aliases == 3);
     options.visitor = null;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-anonymous-default.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-anonymous-default.jai"), log_results = false));
     print("ok\n");
 }

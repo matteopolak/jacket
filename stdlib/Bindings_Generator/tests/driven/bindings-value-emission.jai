@@ -1,5 +1,6 @@
 // Original values/expressions exercise generated Jai, not exact formatting.
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 B :: #import "Bindings_Generator";
 
@@ -100,6 +101,6 @@ main :: () {
     text := builder_to_string(*source);
 
     defer free(text);
-    assert(write_entire_file(tprint("%../../../../target/developer-tools-value-emission-generated.jai", #filepath), text));
+    assert(write_entire_file(output_path("developer-tools-value-emission-generated.jai"), text));
     print("ok\n");
 }

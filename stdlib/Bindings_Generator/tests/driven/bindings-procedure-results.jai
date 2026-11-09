@@ -1,6 +1,7 @@
 // A function that returns a procedure is printed with the result in parentheses, so the directives that follow the
 // declaration belong to it and not to the result, and the generated file compiles.
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 #import "String";
 B :: #import "Bindings_Generator";
@@ -11,7 +12,7 @@ main :: () {
     array_add(*options.source_files, tprint("%bindings-procedure-results.h", #filepath));
     array_add(*options.extra_clang_arguments, "-x");
     array_add(*options.extra_clang_arguments, "c");
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     array_add(*options.libraries, B.Library.{ "libdeveloper_tools_procedure_results", "native" });
 
     defer array_free(options.source_files);
@@ -33,6 +34,6 @@ main :: () {
     assert(contains(text, "set_signal :: (number: s32, handler: (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #c_call #foreign native;"));
     assert(contains(text, "set_error_handler :: (handler: ErrorHandler) -> ErrorHandler #c_call #foreign native;"));
     assert(!contains(text, "#c_call #c_call"));
-    assert(write_entire_file(tprint("%../../../../target/developer-tools-procedure-results-generated.jai", #filepath), text));
+    assert(write_entire_file(output_path("developer-tools-procedure-results-generated.jai"), text));
     print("ok\n");
 }

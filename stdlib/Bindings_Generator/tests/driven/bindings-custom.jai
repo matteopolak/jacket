@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "String";
 #import "File";
 B :: #import "Bindings_Generator";
@@ -62,7 +63,7 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_bindings", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     options.visitor = customize;
     count: s64;
@@ -80,14 +81,14 @@ main :: () {
     defer free(text);
     assert(contains(text, "call_callback ::") && contains(text, "Sample_Record :: struct"));
     assert(contains(text, "#foreign native \"callback_apply\""));
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-custom-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-custom-generated.jai"), log_results = false));
     options.source_files[0] = tprint("%bindings-model-input.h", #filepath);
     options.visitor = null;
     options.log_stripped_declarations = false;
     options.get_func_args_for_printing = B._default_get_func_args_for_printing;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-model-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-model-generated.jai"), log_results = false));
     options.source_files[0] = tprint("%bindings-input.h", #filepath);
-    path := tprint("%../../../../target/developer-tools-custom-rejected.jai", #filepath);
+    path := output_path("developer-tools-custom-rejected.jai");
 
     assert(write_entire_file(path, "existing output"));
     options.visitor = invalidate;
@@ -103,7 +104,7 @@ main :: () {
     defer free(preserved);
     assert(errors == 2 && preserved_ok && preserved == "existing output");
     // Represented VARIADIC alone is accepted; never call this mutated native ABI.
-    variadic_path := tprint("%../../../../target/developer-tools-custom-variadic-generated.jai", #filepath);
+    variadic_path := output_path("developer-tools-custom-variadic-generated.jai");
 
     options.visitor = add_variadic_tail;
 

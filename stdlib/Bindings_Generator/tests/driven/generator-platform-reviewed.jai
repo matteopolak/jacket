@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 B :: #import "Bindings_Generator";
 
@@ -31,12 +32,12 @@ main :: () {
         assert(B.find_lib_for_foreign_name("absent") == null);
     }
 
-    source := tprint("%../../../../target/generator-platform-macho.o", #filepath);
+    source := output_path("generator-platform-macho.o");
     bytes, read_ok := read_entire_file(source);
 
     assert(read_ok);
     defer free(bytes);
-    path := sprint("%../../../../target/generator-platform-cache.o", #filepath);
+    path := copy_string(output_path("generator-platform-cache.o"));
 
     defer free(path);
 
@@ -78,7 +79,7 @@ main :: () {
     assert(B.library_symbol_cache[0].os == OS && B.library_symbol_cache[0].cpu == CPU);
     assert(B.library_symbol_cache[0].full_path == path);
     assert(write_entire_file(path, bytes));
-    different_path := sprint("%../../../../target/./generator-platform-cache.o", #filepath);
+    different_path := copy_string(output_path("./generator-platform-cache.o"));
 
     defer free(different_path);
 

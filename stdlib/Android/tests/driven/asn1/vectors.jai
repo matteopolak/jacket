@@ -1,5 +1,6 @@
 // Independently generated Python integer/base128 wire vectors.
 #import "Basic";
+#import "Extensions/Environment";
 A :: #import "Android/Toolchain";
 F :: #import "File";
 S :: #import "String";
@@ -28,7 +29,7 @@ block :: (s: *string) -> string {
 }
 
 main :: () {
-    filename := sprint("%/../../../../target/portable-asn1/vectors.bin", S.path_strip_filename(#file));
+    filename := copy_string(output_path("portable-asn1/vectors.bin"));
 
     defer free(filename);
     data, loaded := F.read_entire_file(filename);

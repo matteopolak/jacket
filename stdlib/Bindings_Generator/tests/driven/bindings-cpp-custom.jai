@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 B :: #import "Bindings_Generator";
 
@@ -71,11 +72,11 @@ callback_visit :: (declaration: *B.Declaration, parent: *B.Declaration) -> B.Dec
 generate_callback_control :: () {
     options: B.Generate_Bindings_Options;
 
-    array_add(*options.source_files, tprint("%../../../../target/developer-tools-cpp-callback.h", #filepath));
+    array_add(*options.source_files, output_path("developer-tools-cpp-callback.h"));
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_cpp_callback", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     options.add_generator_command = false;
     options.visitor = callback_visit;
@@ -84,7 +85,7 @@ generate_callback_control :: () {
     outer_before := outer_prints;
     inner_before := inner_prints;
 
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-cpp-callback-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-cpp-callback-generated.jai"), log_results = false));
     // One real pointer-to-value wrapper needs each of the three argument views.
     assert(foreign_prints == foreign_before + 1);
     assert(outer_prints == outer_before + 1 && inner_prints == inner_before + 1);
@@ -97,7 +98,7 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_cpp_custom", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     array_add(*options.extra_clang_arguments, "-x", "c++", "-std=c++17");
     defer array_free(options.extra_clang_arguments);
@@ -106,7 +107,7 @@ main :: () {
     options.visitor_with_data = visit_data;
     options.visitor_data = *visits;
     options.get_func_args_for_printing = arguments;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-cpp-custom-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-cpp-custom-generated.jai"), log_results = false));
     // Four visible non-wrapper functions, including both overloads; the
     // omitted declaration and repeated integer declaration add no callbacks.
     assert(visits > 0 && ordinary_functions == 4);
@@ -116,7 +117,7 @@ main :: () {
     inner_before := inner_prints;
 
     options.header = tprint("#include \"%bindings-cpp-custom.h\"\n", #filepath);
-    assert(B.generate_bridge(options, tprint("%../../../../target/developer-tools-cpp-custom.cpp", #filepath)));
+    assert(B.generate_bridge(options, output_path("developer-tools-cpp-custom.cpp")));
     // C adapters consume represented arguments, independently of Jai printing.
     assert(foreign_prints == foreign_before && outer_prints == outer_before && inner_prints == inner_before);
     // A separate schema describes the actual C adapter ABI. Ordinary bindings
@@ -135,8 +136,8 @@ native :: #library "developer_tools_cpp_custom";
 #assert align_of(Custom_Record) == 4;
 #assert offset_of(Custom_Record, "number") == 0;
 END
-    assert(write_entire_file(tprint("%../../../../target/developer-tools-cpp-custom-bridge.jai", #filepath), bridge_schema));
-    path := tprint("%../../../../target/developer-tools-cpp-custom-rejected.jai", #filepath);
+    assert(write_entire_file(output_path("developer-tools-cpp-custom-bridge.jai"), bridge_schema));
+    path := output_path("developer-tools-cpp-custom-rejected.jai");
 
     assert(write_entire_file(path, "original custom destination\n"));
     invalid_names = true;

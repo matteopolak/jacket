@@ -1,11 +1,12 @@
 // Independent native-zlib CRC vectors, read through reviewed binary cursors.
 #import "Basic";
+#import "Extensions/Environment";
 A :: #import "Android/Toolchain";
 F :: #import "File";
 S :: #import "String";
 
 main :: () {
-    filename := sprint("%/../../../../target/portable-zip-wire/crc-vectors.bin", S.path_strip_filename(#file));
+    filename := copy_string(output_path("portable-zip-wire/crc-vectors.bin"));
 
     defer free(filename);
     data, loaded := F.read_entire_file(filename);

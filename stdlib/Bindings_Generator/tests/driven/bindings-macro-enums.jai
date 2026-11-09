@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 #import "String";
 B :: #import "Bindings_Generator";
@@ -57,7 +58,7 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_macros", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     // A nonmatching prefix activates the callback without built-in grouping.
     array_add(*options.generate_enums_from_macros_with_prefixes, "UNUSED_BINDINGS_ENUM_");
@@ -65,9 +66,9 @@ main :: () {
     options.visitor = visit;
     options.convert_macro_value_to_enum_callback = choose_enum;
     options.add_generator_command = false;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-macro-enums-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-macro-enums-generated.jai"), log_results = false));
     assert(enum_selections == 4);
-    mixed := tprint("%../../../../target/developer-tools-macro-mixed-generated.jai", #filepath);
+    mixed := output_path("developer-tools-macro-mixed-generated.jai");
 
     assert(write_entire_file(mixed, "existing bindings"));
     options.visitor = null;

@@ -1,5 +1,6 @@
 // Reviewed source_files array: shared native declarations across multiple headers.
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 B :: #import "Bindings_Generator";
 
@@ -32,27 +33,27 @@ main :: () {
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_multi", identifier = "native" });
     defer array_free(options.source_files);
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     normalized, ok := B.normalize_options(options);
 
     assert(ok && normalized.source_files.count == 3);
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-multi-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-multi-generated.jai"), log_results = false));
     options.visitor = customize;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-multi-custom.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-multi-custom.jai"), log_results = false));
     assert(record_visits == 1 && sum_visits == 1);
 
     options.visitor = null;
     options.libraries[0].filename = "developer_tools_multi_cpp";
     array_add(*options.extra_clang_arguments, "-x", "c++", "-std=c++17");
     defer array_free(options.extra_clang_arguments);
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-multi-cpp-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-multi-cpp-generated.jai"), log_results = false));
     options.header = tprint("#include \"%bindings-multi-base.h\"\n#include \"%bindings-multi-extra.h\"\n", #filepath, #filepath);
-    assert(B.generate_bridge(options, tprint("%../../../../target/developer-tools-multi-cpp-bridge.cpp", #filepath)));
+    assert(B.generate_bridge(options, output_path("developer-tools-multi-cpp-bridge.cpp")));
     options.header = "";
     options.extra_clang_arguments.count = 0;
 
-    path := tprint("%../../../../target/developer-tools-multi-preserved.jai", #filepath);
+    path := output_path("developer-tools-multi-preserved.jai");
 
     assert(write_entire_file(path, "preserve"));
     options.source_files[1] = tprint("%bindings-malformed.h", #filepath);

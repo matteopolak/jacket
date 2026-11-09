@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 #import "String";
 B :: #import "Bindings_Generator";
@@ -24,11 +25,11 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_macros", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     options.visitor = visit;
     options.add_generator_command = false;
-    path := tprint("%../../../../target/developer-tools-macros-custom-generated.jai", #filepath);
+    path := output_path("developer-tools-macros-custom-generated.jai");
 
     assert(B.generate_bindings(options, path, log_results = false));
     assert(macros == 6);

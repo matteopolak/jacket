@@ -1,5 +1,6 @@
 // Public zero-to-null normalization must not mutate a shared source literal.
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 B :: #import "Bindings_Generator";
 
@@ -70,6 +71,6 @@ main :: () {
     text := builder_to_string(*builder);
 
     defer free(text);
-    assert(write_entire_file(tprint("%../../../../target/developer-tools-pointer-defaults-generated.jai", #filepath), text));
+    assert(write_entire_file(output_path("developer-tools-pointer-defaults-generated.jai"), text));
     print("ok\n");
 }

@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 B :: #import "Bindings_Generator";
 P :: #import "POSIX";
@@ -16,7 +17,7 @@ release :: (names: [] string) {
 }
 
 main :: () {
-    path := tprint("%../../../../target/generator-platform-macho.o", #filepath);
+    path := output_path("generator-platform-macho.o");
     ok, names := B.os_get_symbol_names_from_file(path);
 
     assert(ok && names.count == 3);
@@ -29,7 +30,7 @@ main :: () {
 
     assert(read_ok);
     defer free(bytes);
-    content_ok, content_names := B.os_get_symbol_names_from_file_content(bytes, tprint("%../../../../target/diagnostic-only.o", #filepath));
+    content_ok, content_names := B.os_get_symbol_names_from_file_content(bytes, output_path("diagnostic-only.o"));
 
     assert(content_ok && content_names.count == names.count);
     defer release(content_names);
@@ -40,7 +41,7 @@ main :: () {
     }
 
     for suffix: string.["elf.o", "coff.o", "a.a", "macho-o2.o"] {
-        other_path := tprint("%../../../../target/generator-platform-%", #filepath, suffix);
+        other_path := output_path(tprint("generator-platform-%", suffix));
         other_ok, others := B.os_get_symbol_names_from_file(other_path);
 
         assert(other_ok && others.count == 3);
@@ -75,7 +76,7 @@ main :: () {
         assert(!invalid_ok && invalid_names.count == 0);
     }
 
-    root := tprint("%../../../../target", #filepath);
+    root := output_directory();
     paths := string.[root];
     static_lib := B.os_load_library(paths, "Fixture_Static", "generator-platform-a", true);
 

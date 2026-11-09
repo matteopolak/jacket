@@ -1,10 +1,11 @@
 // Live public reexport/configuration storage must affect the command procedure.
 #import "Basic";
+#import "Extensions/Environment";
 A :: #import "Android/Toolchain";
 S :: #import "String";
 
 main :: () {
-    path := sprint("%/../../../../target/portable-adb/sdk protocol fixture", S.path_strip_filename(#file));
+    path := copy_string(output_path("portable-adb/sdk protocol fixture"));
 
     defer free(path);
     A.__adb_path = path;

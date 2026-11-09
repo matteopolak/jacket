@@ -1,6 +1,7 @@
 // Reviewed Android/Toolchain API and official SDK CLI protocol.
 // This native protocol fixture is not an Android SDK/device integration claim.
 #import "Basic";
+#import "Extensions/Environment";
 A :: #import "Android/Toolchain";
 S :: #import "String";
 F :: #import "File";
@@ -20,7 +21,7 @@ continue_failure :: (location: Source_Code_Location, message: string) -> bool {
 }
 
 exercise :: () {
-    path := sprint("%/../../../../target/portable-adb/sdk protocol fixture", S.path_strip_filename(#file));
+    path := copy_string(output_path("portable-adb/sdk protocol fixture"));
 
     defer free(path);
     A.__adb_path = path;
@@ -44,7 +45,7 @@ exercise :: () {
     assert(devices_ok && devices.count == 1 && devices[0].serial == "ready-1");
 
     installed, sdk_path := A.is_adb_installed();
-    expected_sdk_path := sprint("%/../../../../target/portable-adb/SDK space/platform-tools/adb", S.path_strip_filename(#file));
+    expected_sdk_path := copy_string(output_path("portable-adb/SDK space/platform-tools/adb"));
 
     defer free(expected_sdk_path);
 
@@ -53,7 +54,7 @@ exercise :: () {
     defer free(absolute_expected);
 
     assert(installed && resolved && sdk_path == absolute_expected);
-    malformed := sprint("%/../../../../target/portable-adb/malformed SDK fixture", S.path_strip_filename(#file));
+    malformed := copy_string(output_path("portable-adb/malformed SDK fixture"));
 
     defer free(malformed);
     A.__adb_path = malformed;

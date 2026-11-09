@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 #import "String";
 B :: #import "Bindings_Generator";
@@ -14,11 +15,11 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_macros", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     options.add_generator_command = false;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-macros-generated.jai", #filepath), log_results = false));
-    path := tprint("%../../../../target/developer-tools-macros-unsupported.jai", #filepath);
+    assert(B.generate_bindings(options, output_path("developer-tools-macros-generated.jai"), log_results = false));
+    path := output_path("developer-tools-macros-unsupported.jai");
 
     options.visitor = visit;
     // Wide strings are not representable byte-string constants: the macro is

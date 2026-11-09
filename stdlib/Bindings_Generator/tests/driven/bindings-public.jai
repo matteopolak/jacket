@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 #import "String";
 B :: #import "Bindings_Generator";
@@ -29,7 +30,7 @@ main :: () {
     assert(cast(s64) declaration.macro_value_result == 1);
     array_add(*options.source_files, tprint("%bindings-input.h", #filepath));
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_bindings", identifier = "native" });
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     options.will_print_bindings = before_print;
     builder, ok := B.generate_bindings(options);
 
@@ -42,9 +43,9 @@ main :: () {
     assert(contains(text, "Original SDK-style record documentation."));
     assert(contains(text, "ADD :: cast(u32) (3)"));
     assert(contains(text, "MODE_ADD :: ADD"));
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-public-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-public-generated.jai"), log_results = false));
     assert(callbacks == 2);
-    path := tprint("%../../../../target/developer-tools-public-reject.jai", #filepath);
+    path := output_path("developer-tools-public-reject.jai");
 
     assert(write_entire_file(path, "preserve existing bindings"));
     options.source_files[0] = tprint("%bindings-malformed.h", #filepath);

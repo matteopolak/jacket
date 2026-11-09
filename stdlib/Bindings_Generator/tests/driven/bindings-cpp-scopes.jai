@@ -1,5 +1,6 @@
 // Real public C++ workflow with explicitly flattened callback-provided names.
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 #import "String";
 B :: #import "Bindings_Generator";
@@ -89,17 +90,17 @@ main :: () {
     array_add(*options.extra_clang_arguments, "-x", "c++", "-std=c++17");
     defer array_free(options.source_files);
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     defer array_free(options.extra_clang_arguments);
     options.visitor = customize;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-cpp-scopes-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-cpp-scopes-generated.jai"), log_results = false));
     options.header = tprint("#include \"%bindings-cpp-scopes.h\"\n", #filepath);
-    assert(B.generate_bridge(options, tprint("%../../../../target/developer-tools-cpp-scopes-bridge.cpp", #filepath)));
+    assert(B.generate_bridge(options, output_path("developer-tools-cpp-scopes-bridge.cpp")));
     assert(namespaces == 6 && records == 4 && functions == 16);
     // Duplicate output names are repaired and nested scopes are qualified,
     // rather than rejected.
-    path := tprint("%../../../../target/developer-tools-cpp-scopes-bridge-variants.cpp", #filepath);
+    path := output_path("developer-tools-cpp-scopes-bridge-variants.cpp");
 
     unique_names = false;
     assert(B.generate_bridge(options, path));
@@ -116,7 +117,7 @@ main :: () {
     free(text);
 
     // A visitor that makes the namespace graph cyclic fails the run and leaves the destination alone.
-    path = tprint("%../../../../target/developer-tools-cpp-scopes-preserved.jai", #filepath);
+    path = output_path("developer-tools-cpp-scopes-preserved.jai");
 
     assert(write_entire_file(path, "preserve"));
     flatten = true;

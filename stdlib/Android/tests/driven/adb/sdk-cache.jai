@@ -1,5 +1,6 @@
 // Reviewed SDK directory order/cache/server contracts; explicit host-only fixture.
 #import "Basic";
+#import "Extensions/Environment";
 A :: #import "Android/Toolchain";
 F :: #import "File";
 S :: #import "String";
@@ -31,7 +32,7 @@ environment :: (name: string, value: string) {
 
 main :: () {
     context.logger = capture;
-    root_name := sprint("%/../../../../target/portable-adb", S.path_strip_filename(#file));
+    root_name := copy_string(output_path("portable-adb"));
 
     defer free(root_name);
     root, resolved := F.get_absolute_path(root_name);

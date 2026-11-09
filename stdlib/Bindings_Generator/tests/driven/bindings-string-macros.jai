@@ -1,5 +1,6 @@
 // Reviewed evaluated string literals and public real macro generation.
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 #import "String";
 B :: #import "Bindings_Generator";
@@ -32,20 +33,20 @@ main :: () {
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_string_macros", identifier = "native" });
     defer array_free(options.source_files);
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-string-macros-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-string-macros-generated.jai"), log_results = false));
     options.visitor = customize;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-string-macros-custom.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-string-macros-custom.jai"), log_results = false));
     assert(strings == 6);
 
     options.visitor = null;
     options.source_files[0] = tprint("%bindings-macro-string.h", #filepath);
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-original-string-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-original-string-generated.jai"), log_results = false));
 
     // The public generator drops byte-string macros it cannot represent
     // instead of failing the run: wide strings never reach the visitor.
-    unsupported := tprint("%../../../../target/developer-tools-string-macros-unsupported.jai", #filepath);
+    unsupported := output_path("developer-tools-string-macros-unsupported.jai");
 
     options.source_files[0] = tprint("%bindings-macro-wide-string.h", #filepath);
 

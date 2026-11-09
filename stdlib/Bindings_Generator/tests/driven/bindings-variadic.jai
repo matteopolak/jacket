@@ -1,5 +1,6 @@
 // Reviewed VARIADIC model flag; raw C stdarg ABI, with printf wrappers disabled.
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 B :: #import "Bindings_Generator";
 
@@ -23,13 +24,13 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ identifier = "native", filename = "developer_tools_variadic" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     options.generate_printf_wrappers = false;
     options.add_generator_command = false;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-variadic-default.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-variadic-default.jai"), log_results = false));
     options.visitor = inspect;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-variadic-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-variadic-generated.jai"), log_results = false));
     integer: B.CType;
     integer.number_flags = .SIGNED | ._32BIT;
     integer.size = 4;
@@ -52,6 +53,6 @@ main :: () {
     text := builder_to_string(*builder);
 
     defer free(text);
-    assert(write_entire_file(tprint("%../../../../target/developer-tools-variadic-signature.jai", #filepath), text));
+    assert(write_entire_file(output_path("developer-tools-variadic-signature.jai"), text));
     print("ok\n");
 }

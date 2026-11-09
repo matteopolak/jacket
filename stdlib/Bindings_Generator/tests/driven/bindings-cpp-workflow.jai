@@ -1,4 +1,5 @@
 #import "Basic";
+#import "Extensions/Environment";
 #import "File";
 #import "String";
 B :: #import "Bindings_Generator";
@@ -12,20 +13,20 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_cpp_workflow", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     array_add(*options.extra_clang_arguments, "-x", "c++", "-std=c++17");
     defer array_free(options.extra_clang_arguments);
     options.add_generator_command = false;
     options.log_stripped_declarations = false;
-    assert(B.generate_bindings(options, tprint("%../../../../target/developer-tools-cpp-workflow-generated.jai", #filepath), log_results = false));
+    assert(B.generate_bindings(options, output_path("developer-tools-cpp-workflow-generated.jai"), log_results = false));
 
     assert(generate_linux());
     assert(generate_windows());
 
     options.header = tprint("#include \"%bindings-cpp-workflow.h\"\n", #filepath);
-    assert(B.generate_bridge(options, tprint("%../../../../target/developer-tools-cpp-workflow.cpp", #filepath)));
-    nonpod_path := tprint("%../../../../target/developer-tools-cpp-nonpod-generated.jai", #filepath);
+    assert(B.generate_bridge(options, output_path("developer-tools-cpp-workflow.cpp")));
+    nonpod_path := output_path("developer-tools-cpp-nonpod-generated.jai");
 
     options.source_files[0] = tprint("%bindings-cpp-nonpod.h", #filepath);
     options.header = "";
@@ -46,7 +47,7 @@ generate_linux :: () -> bool {
     defer array_free(options.source_files);
     array_add(*options.libraries, BL.Library.{ filename = "developer_tools_cpp_workflow", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     array_add(*options.extra_clang_arguments, "-x", "c++", "-std=c++17");
     defer array_free(options.extra_clang_arguments);
@@ -54,7 +55,7 @@ generate_linux :: () -> bool {
     options.log_stripped_declarations = false;
     options.cpu = .X64;
 
-    return BL.generate_bindings(options, tprint("%../../../../target/developer-tools-cpp-workflow-linux.jai", #filepath), log_results = false);
+    return BL.generate_bindings(options, output_path("developer-tools-cpp-workflow-linux.jai"), log_results = false);
 }
 
 generate_windows :: () -> bool {
@@ -64,7 +65,7 @@ generate_windows :: () -> bool {
     defer array_free(options.source_files);
     array_add(*options.libraries, BW.Library.{ filename = "developer_tools_cpp_workflow", identifier = "native" });
     defer array_free(options.libraries);
-    array_add(*options.library_search_paths, tprint("%../../../../target", #filepath));
+    array_add(*options.library_search_paths, output_directory());
     defer array_free(options.library_search_paths);
     array_add(*options.extra_clang_arguments, "-x", "c++", "-std=c++17");
     defer array_free(options.extra_clang_arguments);
@@ -74,7 +75,7 @@ generate_windows :: () -> bool {
     options.strip_flags = .FUNCTIONS_WITH_VALIST;
     options.visitor = bind_windows_library;
 
-    return BW.generate_bindings(options, tprint("%../../../../target/developer-tools-cpp-workflow-windows.jai", #filepath), log_results = false);
+    return BW.generate_bindings(options, output_path("developer-tools-cpp-workflow-windows.jai"), log_results = false);
 }
 
 // The host library cannot resolve Microsoft-mangled names, so bind each function to the configured library directly.
