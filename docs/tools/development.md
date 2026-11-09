@@ -61,7 +61,7 @@ A new per-system file under `stdlib/internal` (imports `windows-api`, `posix-api
 `.githooks/pre-push` runs two checks. Skip either with `--no-verify` or `JAI_HOOK_SKIP`.
 
 - `actions`: `tools/ci/check_action_pins.py` ([action pins](action-pins.md)). A broken or unreachable check blocks the push; available updates are only printed.
-- `clippy`: CI's clippy on the packages whose Rust or `Cargo.toml` files differ from the remote, via `tools/dev/pre_push_clippy.py`.
+- `clippy`: CI's clippy on the packages whose Rust or `Cargo.toml` files differ from the remote, via `tools/dev/pre_push_clippy.py`. It fails, rather than skipping, when Rust files changed and `cargo` is missing or `cargo metadata` fails.
 
 The hook fails when `python3` is missing, unless both checks are skipped.
 

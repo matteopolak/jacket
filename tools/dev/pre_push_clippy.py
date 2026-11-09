@@ -9,11 +9,13 @@ working tree, so uncommitted Rust changes are linted too (a warning says so).
 import json
 import platform
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+RUSTUP = "https://rustup.rs"
 ZERO = "0" * 40
 # Code gated to x86-64 is not compiled, so not linted, on an arm64 Mac.
 X86_TARGET = "x86_64-apple-darwin"
@@ -41,6 +43,13 @@ def changed_files(lines: list[str]) -> set[str]:
 
 
 def packages(files: set[str]) -> list[str]:
+    """The workspace packages owning the changed Rust or `Cargo.toml` files; exits when cargo cannot say."""
+    if not any(file.endswith((".rs", "Cargo.toml")) for file in files):
+        return []
+    if shutil.which("cargo") is None:
+        raise SystemExit(
+            f"pre-push: cargo not found: install Rust ({RUSTUP}), or skip with JAI_HOOK_SKIP=clippy or git push --no-verify"
+        )
     metadata = subprocess.run(
         ["cargo", "metadata", "--no-deps", "--format-version", "1", "--offline"],
         cwd=ROOT,
@@ -48,7 +57,9 @@ def packages(files: set[str]) -> list[str]:
         text=True,
     )
     if metadata.returncode != 0:
-        return []
+        raise SystemExit(
+            f"pre-push: cargo metadata failed; skip with JAI_HOOK_SKIP=clippy or git push --no-verify\n{metadata.stderr}"
+        )
     dirs = {
         Path(p["manifest_path"]).parent.relative_to(ROOT).as_posix(): p["name"]
         for p in json.loads(metadata.stdout)["packages"]

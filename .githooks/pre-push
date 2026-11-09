@@ -32,7 +32,7 @@ if ! skipped actions; then
     esac
 fi
 
-if ! skipped clippy && command -v cargo >/dev/null 2>&1; then
+if ! skipped clippy; then
     printf '%s\n' "$refs" | python3 tools/dev/pre_push_clippy.py || status=1
 fi
 exit $status
