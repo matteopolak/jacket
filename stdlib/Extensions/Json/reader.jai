@@ -17,6 +17,21 @@ Path_Segment :: struct {
 
 // Reads one JSON document. Every reading procedure returns false after recording an error in
 // `error`; the first error wins, and callers must stop at once and return false themselves.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "[1, 2]");
+// defer json_reader_free(*r);
+// total: s64;
+// first := true;
+// ok := json_begin_array(*r);
+// while ok && json_array_next(*r, *first) == .ITEM {
+//     n: s64;
+//     ok = json_read_signed(*r, *n, 0, 10, "digit");
+//     total += n;
+// }
+// assert(ok && total == 3);
+// ```
 Json_Reader :: struct {
     text: string;
     pos: int;
@@ -38,6 +53,20 @@ Json_Reader :: struct {
 }
 
 // What [json_object_next] found: a key, the end of the object, or an error.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "{\"a\": 1}");
+// defer json_reader_free(*r);
+// assert(json_begin_object(*r));
+// first := true;
+// key, status := json_object_next(*r, *first);
+// assert(status == .KEY && key == "a");
+// n: s64;
+// assert(json_read_signed(*r, *n, 0, 10, "digit"));
+// _, end := json_object_next(*r, *first);
+// assert(end == .END);
+// ```
 Object_Status :: enum u8 {
     ERROR;
     KEY;
@@ -45,6 +74,15 @@ Object_Status :: enum u8 {
 }
 
 // What [json_array_next] found: an item, the end of the array, or an error.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "[]");
+// defer json_reader_free(*r);
+// assert(json_begin_array(*r));
+// first := true;
+// assert(json_array_next(*r, *first) == .END);
+// ```
 Array_Status :: enum u8 {
     ERROR;
     ITEM;
@@ -73,11 +111,33 @@ reader_free :: (r: *Json_Reader) {
 #scope_export
 
 // Records an error at the current position (when there is none yet) and returns false.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "1");
+// defer json_reader_free(*r);
+// ok := json_fail(*r, .INVALID_VALUE, "not allowed");
+// assert(!ok);
+// error := json_reader_error(*r);
+// assert(error.kind == .INVALID_VALUE);
+// free_json(*error);
+// ```
 json_fail :: (r: *Json_Reader, kind: Json_Error_Kind, message: string) -> bool {
     return json_fail_at(r, kind, message, r.pos);
 }
 
 // Like [json_fail], at the byte `offset`.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "[1, 2]");
+// defer json_reader_free(*r);
+// ok := json_fail_at(*r, .INVALID_VALUE, "bad", 4);
+// assert(!ok);
+// error := json_reader_error(*r);
+// assert(error.offset == 4 && error.column == 5);
+// free_json(*error);
+// ```
 json_fail_at :: (r: *Json_Reader, kind: Json_Error_Kind, message: string, offset: int) -> bool {
     if r.error.kind == .NONE {
         r.error.kind = kind;
@@ -90,6 +150,17 @@ json_fail_at :: (r: *Json_Reader, kind: Json_Error_Kind, message: string, offset
 
 // Say the value being read is at `key` / `index` of its parent. The generated decoders call
 // these while an error travels up, so the error's path reads `address.tags[2]`.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "[]");
+// defer json_reader_free(*r);
+// json_path_key(*r, "address");
+// json_fail(*r, .TYPE, "bad");
+// error := json_reader_error(*r);
+// assert(error.path == "address");
+// free_json(*error);
+// ```
 json_path_key :: (r: *Json_Reader, key: string) {
     segment: Path_Segment;
     segment.is_key = true;
@@ -98,6 +169,18 @@ json_path_key :: (r: *Json_Reader, key: string) {
 }
 
 // Like [json_path_key], for an array element.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "[]");
+// defer json_reader_free(*r);
+// json_path_index(*r, 2); // innermost first, as an error travels up
+// json_path_key(*r, "tags");
+// json_fail(*r, .TYPE, "bad");
+// error := json_reader_error(*r);
+// assert(json_path_text(error) == "$.tags[2]");
+// free_json(*error);
+// ```
 json_path_index :: (r: *Json_Reader, index: int) {
     segment: Path_Segment;
     segment.index = index;
@@ -174,6 +257,13 @@ wrong_type :: (r: *Json_Reader, expected: string) -> bool {
 #scope_export
 
 // The next significant byte (0 at the end of the input).
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "  [1]");
+// defer json_reader_free(*r);
+// assert(json_peek(*r) == #char "[");
+// ```
 json_peek :: inline (r: *Json_Reader) -> u8 {
     skip_whitespace(r);
 
@@ -195,21 +285,61 @@ enter_nesting :: (r: *Json_Reader) -> bool {
 #scope_export
 
 // Records a duplicate-field error for `key`.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "{}");
+// defer json_reader_free(*r);
+// json_duplicate_field(*r, "id");
+// error := json_reader_error(*r);
+// assert(error.kind == .DUPLICATE_FIELD);
+// free_json(*error);
+// ```
 json_duplicate_field :: (r: *Json_Reader, key: string) {
     json_fail_at(r, .DUPLICATE_FIELD, tprint("duplicate field `%`", key), r.key_start);
 }
 
 // Records an unknown-field error for `key`.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "{}");
+// defer json_reader_free(*r);
+// json_unknown_field(*r, "extra");
+// error := json_reader_error(*r);
+// assert(error.kind == .UNKNOWN_FIELD);
+// free_json(*error);
+// ```
 json_unknown_field :: (r: *Json_Reader, key: string) {
     json_fail_at(r, .UNKNOWN_FIELD, tprint("unknown field `%`", key), r.key_start);
 }
 
 // Records a missing-field error for `key`.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "{}");
+// defer json_reader_free(*r);
+// json_missing_field(*r, "id");
+// error := json_reader_error(*r);
+// assert(error.kind == .MISSING_FIELD);
+// free_json(*error);
+// ```
 json_missing_field :: (r: *Json_Reader, key: string) {
     json_fail_at(r, .MISSING_FIELD, tprint("missing field `%`", key), r.pos - 1);
 }
 
 // Consumes the `{`; false (with an error) when the next value is not an object.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "{}");
+// defer json_reader_free(*r);
+// assert(json_begin_object(*r));
+// first := true;
+// _, status := json_object_next(*r, *first);
+// assert(status == .END);
+// ```
 json_begin_object :: (r: *Json_Reader) -> bool {
     if json_peek(r) != #char "{" return wrong_type(r, "an object");
 
@@ -220,6 +350,23 @@ json_begin_object :: (r: *Json_Reader) -> bool {
 
 // Reads up to the next member of the object: its key (valid until the next read) and the colon
 // after it, or the closing brace. `first` is true before the first call.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "{\"a\": 1, \"b\": 2}");
+// defer json_reader_free(*r);
+// assert(json_begin_object(*r));
+// first := true;
+// sum: s64;
+// while true {
+//     key, status := json_object_next(*r, *first);
+//     if status != .KEY break;
+//     n: s64;
+//     assert(json_read_signed(*r, *n, 0, 100, "number"));
+//     sum += n;
+// }
+// assert(sum == 3);
+// ```
 json_object_next :: (r: *Json_Reader, first: *bool) -> string, Object_Status {
     c := json_peek(r);
 
@@ -271,6 +418,16 @@ json_object_next :: (r: *Json_Reader, first: *bool) -> string, Object_Status {
 }
 
 // Consumes the `[`; false (with an error) when the next value is not an array.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "{}");
+// defer json_reader_free(*r);
+// assert(!json_begin_array(*r)); // an object is not an array
+// error := json_reader_error(*r);
+// assert(error.kind == .TYPE);
+// free_json(*error);
+// ```
 json_begin_array :: (r: *Json_Reader) -> bool {
     if json_peek(r) != #char "[" return wrong_type(r, "an array");
 
@@ -281,6 +438,21 @@ json_begin_array :: (r: *Json_Reader) -> bool {
 
 // Moves to the next element of the array: `.ITEM` with the reader at its value, or `.END`.
 // `first` is true before the first call.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "[true, false]");
+// defer json_reader_free(*r);
+// assert(json_begin_array(*r));
+// first := true;
+// count: int;
+// while json_array_next(*r, *first) == .ITEM {
+//     _, ok := json_read_bool(*r);
+//     assert(ok);
+//     count += 1;
+// }
+// assert(count == 2);
+// ```
 json_array_next :: (r: *Json_Reader, first: *bool) -> Array_Status {
     c := json_peek(r);
 
@@ -610,6 +782,15 @@ unescape_into :: (raw: string, dest: *u8) -> int {
 
 // A string value, copied into new memory from context.allocator (with `borrow`, a slice of the
 // input when it has no escapes).
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "\"a\\nb\"");
+// defer json_reader_free(*r);
+// text, ok := json_read_string(*r);
+// assert(ok && text == "a\nb");
+// free(text);
+// ```
 json_read_string :: (r: *Json_Reader) -> string, bool {
     if json_peek(r) != #char "\"" return "", wrong_type(r, "a string");
 
@@ -634,6 +815,14 @@ json_read_string :: (r: *Json_Reader) -> string, bool {
 
 // A string value without copying: a view of the input, or of the reader's scratch space when
 // it has escapes. Valid until the next read; copy it to keep it.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "\"key\"");
+// defer json_reader_free(*r);
+// name, ok := json_read_name(*r);
+// assert(ok && name == "key");
+// ```
 json_read_name :: (r: *Json_Reader) -> string, bool {
     if json_peek(r) != #char "\"" return "", wrong_type(r, "a string");
 
@@ -650,6 +839,18 @@ json_read_name :: (r: *Json_Reader) -> string, bool {
 
 // Keeps a key from json_read_name: a slice of the input with `borrow` (unless it had escapes and
 // lives in the scratch space), else a copy.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "{\"k\": 1}");
+// defer json_reader_free(*r);
+// assert(json_begin_object(*r));
+// first := true;
+// name, _ := json_object_next(*r, *first);
+// key := json_keep_key(*r, name);
+// defer free(key);
+// assert(key == "k");
+// ```
 json_keep_key :: (r: *Json_Reader, key: string) -> string {
     if !key.count return "";
     if r.borrow && key.data >= r.text.data && key.data < r.text.data + r.text.count return key;
@@ -658,6 +859,14 @@ json_keep_key :: (r: *Json_Reader, key: string) -> string {
 }
 
 // Reads `true` or `false`.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "true");
+// defer json_reader_free(*r);
+// value, ok := json_read_bool(*r);
+// assert(ok && value);
+// ```
 json_read_bool :: (r: *Json_Reader) -> bool, bool {
     c := json_peek(r);
 
@@ -677,11 +886,27 @@ json_read_bool :: (r: *Json_Reader) -> bool, bool {
 }
 
 // Whether the next value is `null`, without consuming it.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "null");
+// defer json_reader_free(*r);
+// assert(json_next_is_null(*r));
+// assert(json_read_null(*r));
+// assert(!json_next_is_null(*r));
+// ```
 json_next_is_null :: (r: *Json_Reader) -> bool {
     return json_peek(r) == #char "n";
 }
 
 // Consumes a `null`.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "null");
+// defer json_reader_free(*r);
+// assert(json_read_null(*r));
+// ```
 json_read_null :: (r: *Json_Reader) -> bool {
     json_peek(r);
 
@@ -817,6 +1042,15 @@ parse_integer_token :: (token: string) -> bool, u64, bool #no_aoc {
 
 // Reads an integer into `out`, which must fit between `low` and `high`. `type_name` appears in
 // the message when it does not.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "-5");
+// defer json_reader_free(*r);
+// n: s64;
+// assert(json_read_signed(*r, *n, -10, 10, "small number"));
+// assert(n == -5);
+// ```
 json_read_signed :: (r: *Json_Reader, out: *s64, low: s64, high: s64, type_name: string) -> bool {
     if !starts_number(json_peek(r)) return wrong_type(r, "an integer");
 
@@ -857,6 +1091,15 @@ json_read_signed :: (r: *Json_Reader, out: *s64, low: s64, high: s64, type_name:
 }
 
 // Like [json_read_signed], for an unsigned integer up to `high`.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "250");
+// defer json_reader_free(*r);
+// n: u64;
+// assert(json_read_unsigned(*r, *n, 255, "byte"));
+// assert(n == 250);
+// ```
 json_read_unsigned :: (r: *Json_Reader, out: *u64, high: u64, type_name: string) -> bool {
     if !starts_number(json_peek(r)) return wrong_type(r, "an integer");
 
@@ -885,6 +1128,15 @@ json_read_unsigned :: (r: *Json_Reader, out: *u64, high: u64, type_name: string)
 }
 
 // Reads any number into a float64.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "2.5");
+// defer json_reader_free(*r);
+// x: float64;
+// assert(json_read_float64(*r, *x));
+// assert(x == 2.5);
+// ```
 json_read_float64 :: (r: *Json_Reader, out: *float64) -> bool {
     if !starts_number(json_peek(r)) return wrong_type(r, "a number");
 
@@ -903,6 +1155,15 @@ json_read_float64 :: (r: *Json_Reader, out: *float64) -> bool {
 }
 
 // Reads any number into a float32.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "0.5");
+// defer json_reader_free(*r);
+// x: float32;
+// assert(json_read_float32(*r, *x));
+// assert(x == 0.5);
+// ```
 json_read_float32 :: (r: *Json_Reader, out: *float32) -> bool {
     if !starts_number(json_peek(r)) return wrong_type(r, "a number");
 
@@ -922,6 +1183,14 @@ json_read_float32 :: (r: *Json_Reader, out: *float32) -> bool {
 
 // A number's text, checked against the JSON grammar but not converted, for types the readers
 // above don't cover (exact decimals, 128-bit integers).
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "123456789012345678901234567890");
+// defer json_reader_free(*r);
+// text, ok := json_read_number(*r);
+// assert(ok && text == "123456789012345678901234567890");
+// ```
 json_read_number :: (r: *Json_Reader) -> string, bool {
     if !starts_number(json_peek(r)) return "", wrong_type(r, "a number");
 
@@ -951,17 +1220,42 @@ json_reader_init :: (r: *Json_Reader, text: string, options := Json_Options.{}) 
 }
 
 // Releases a reader's scratch space. Its error is not released: take it with json_reader_error.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "[1]");
+// defer json_reader_free(*r);
+// assert(json_begin_array(*r));
+// ```
 json_reader_free :: (r: *Json_Reader) {
     reader_free(r);
 }
 
 // The reader's error with its line, column and path filled in; the caller owns it and frees it
 // with free_json.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "[1, 2");
+// defer json_reader_free(*r);
+// assert(!json_skip_value(*r));
+// error := json_reader_error(*r);
+// assert(error.kind == .SYNTAX && error.line == 1);
+// free_json(*error);
+// ```
 json_reader_error :: (r: *Json_Reader) -> Json_Error {
     return finish_error(r);
 }
 
 // Checks the next value and moves past it without keeping anything.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "{\"a\": [1, 2]} 3");
+// defer json_reader_free(*r);
+// assert(json_skip_value(*r));
+// assert(json_peek(*r) == #char "3");
+// ```
 json_skip_value :: (r: *Json_Reader) -> bool {
     c := json_peek(r);
 
@@ -1052,6 +1346,16 @@ take_members :: (r: *Json_Reader, base: int) -> [..] Json_Member {
 
 // Reads any value into a Json_Value. On failure `out` holds what was read so far, and
 // free_json releases it.
+//
+// ```jai
+// r: Json_Reader;
+// json_reader_init(*r, "{\"a\": [1, true]}");
+// defer json_reader_free(*r);
+// value: Json_Value;
+// assert(json_read_value(*r, *value));
+// assert(json_count(json_get(*value, "a")) == 2);
+// free_json(*value);
+// ```
 json_read_value :: (r: *Json_Reader, out: *Json_Value) -> bool {
     c := json_peek(r);
 

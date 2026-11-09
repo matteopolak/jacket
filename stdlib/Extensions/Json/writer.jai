@@ -152,6 +152,13 @@ put :: inline (builder: *String_Builder, byte: u8) {
 
 // Appends `text` as a JSON string with its quotes. Control characters, quotes and backslashes
 // are escaped; bytes that are not valid UTF-8 become U+FFFD so the output is always valid JSON.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// append_json_string(*builder, "say \"hi\"\n");
+// assert(builder_to_string(*builder,, temp) == "\"say \\\"hi\\\"\\n\"");
+// ```
 append_json_string :: (builder: *String_Builder, text: string) #no_abc {
     // The opening quote is written when the first piece is (a string that needs no escaping,
     // the common case, is then one reservation: quote, bytes, quote).
@@ -272,6 +279,15 @@ append_json_string :: (builder: *String_Builder, text: string) #no_abc {
 
 // Where an encoder writes: the builder, whether to indent, and the nesting depth. Set `builder`
 // (and `pretty`) and pass it to [json_encode].
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_write_string(*w, "ok");
+// assert(builder_to_string(*builder,, temp) == "\"ok\"");
+// ```
 Json_Writer :: struct {
     builder: *String_Builder;
     pretty: bool;
@@ -336,16 +352,43 @@ count_digits :: inline (value: u64) -> s64 {
 #scope_export
 
 // Writes `null`.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_write_null(*w);
+// assert(builder_to_string(*builder,, temp) == "null");
+// ```
 json_write_null :: inline (w: *Json_Writer) {
     put(w.builder, "null");
 }
 
 // Writes `true` or `false`.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_write_bool(*w, true);
+// assert(builder_to_string(*builder,, temp) == "true");
+// ```
 json_write_bool :: inline (w: *Json_Writer, value: bool) {
     put(w.builder, ifx value then "true" else "false");
 }
 
 // Writes an unsigned integer.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_write_uint(*w, 18446744073709551615);
+// assert(builder_to_string(*builder,, temp) == "18446744073709551615");
+// ```
 json_write_uint :: (w: *Json_Writer, value: u64) {
     out := builder_reserve(w.builder, MAX_U64_DIGITS);
 
@@ -365,6 +408,15 @@ json_write_uint :: (w: *Json_Writer, value: u64) {
 }
 
 // Writes a signed integer.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_write_int(*w, -42);
+// assert(builder_to_string(*builder,, temp) == "-42");
+// ```
 json_write_int :: (w: *Json_Writer, value: s64) {
     if value >= 0 {
         json_write_uint(w, cast(u64) value);
@@ -390,32 +442,91 @@ json_write_int :: (w: *Json_Writer, value: s64) {
 }
 
 // Writes a float64; NaN and infinities have no JSON spelling and are written as `null`.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_write_float64(*w, 1.5);
+// assert(builder_to_string(*builder,, temp) == "1.5");
+// ```
 json_write_float64 :: (w: *Json_Writer, value: float64) {
     append_float64(w.builder, value);
 }
 
 // Writes a float32, like [json_write_float64].
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_write_float32(*w, 0.25);
+// assert(builder_to_string(*builder,, temp) == "0.25");
+// ```
 json_write_float32 :: (w: *Json_Writer, value: float32) {
     append_float32(w.builder, value);
 }
 
 // Writes a quoted, escaped string.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_write_string(*w, "a\tb");
+// assert(builder_to_string(*builder,, temp) == "\"a\\tb\"");
+// ```
 json_write_string :: (w: *Json_Writer, value: string) {
     append_json_string(w.builder, value);
 }
 
 // Appends text that is already JSON, as is.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_write_raw(*w, "{\"already\":true}");
+// assert(builder_to_string(*builder,, temp) == "{\"already\":true}");
+// ```
 json_write_raw :: (w: *Json_Writer, text: string) {
     put(w.builder, text);
 }
 
 // `{`. Pair it with json_end_object and put a json_key before each member.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_begin_object(*w);
+// first := true;
+// json_key_dynamic(*w, *first, "id");
+// json_write_int(*w, 7);
+// json_end_object(*w, first);
+// assert(builder_to_string(*builder,, temp) == "{\"id\":7}");
+// ```
 json_begin_object :: inline (w: *Json_Writer) {
     put(w.builder, #char "{");
     w.depth += 1;
 }
 
 // `}`, on a line of its own when pretty-printing. `empty` is true when no member was written.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_begin_object(*w);
+// json_end_object(*w, true);
+// assert(builder_to_string(*builder,, temp) == "{}");
+// ```
 json_end_object :: (w: *Json_Writer, empty: bool) {
     w.depth -= 1;
 
@@ -425,12 +536,37 @@ json_end_object :: (w: *Json_Writer, empty: bool) {
 }
 
 // `[`. Pair it with [json_end_array] and call [json_item] before each element.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_begin_array(*w);
+// first := true;
+// for 1..3 {
+//     json_item(*w, *first);
+//     json_write_int(*w, it);
+// }
+// json_end_array(*w, first);
+// assert(builder_to_string(*builder,, temp) == "[1,2,3]");
+// ```
 json_begin_array :: inline (w: *Json_Writer) {
     put(w.builder, #char "[");
     w.depth += 1;
 }
 
 // `]`, on a line of its own when pretty-printing. `empty` is true when no element was written.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_begin_array(*w);
+// json_end_array(*w, true);
+// assert(builder_to_string(*builder,, temp) == "[]");
+// ```
 json_end_array :: (w: *Json_Writer, empty: bool) {
     w.depth -= 1;
 
@@ -441,6 +577,21 @@ json_end_array :: (w: *Json_Writer, empty: bool) {
 
 // Starts a member: the separator, then the key. `quoted_key` is the key with its quotes and
 // escapes already applied (the generated code does that at compile time).
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_begin_object(*w);
+// first := true;
+// json_key(*w, *first, "\"id\"");
+// json_write_int(*w, 1);
+// json_key(*w, *first, "\"ok\"");
+// json_write_bool(*w, true);
+// json_end_object(*w, first);
+// assert(builder_to_string(*builder,, temp) == "{\"id\":1,\"ok\":true}");
+// ```
 json_key :: (w: *Json_Writer, first: *bool, quoted_key: string) {
     if !first.* put(w.builder, #char ",");
 
@@ -454,6 +605,19 @@ json_key :: (w: *Json_Writer, first: *bool, quoted_key: string) {
 
 // json_key with the compact forms prebuilt at compile time: `first_form` is `"key":` and
 // `next_form` is `,"key":`, so compact output costs one append.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_begin_object(*w);
+// first := true;
+// json_key_fixed(*w, *first, "\"id\"", "\"id\":", ",\"id\":");
+// json_write_int(*w, 1);
+// json_end_object(*w, first);
+// assert(builder_to_string(*builder,, temp) == "{\"id\":1}");
+// ```
 json_key_fixed :: inline (w: *Json_Writer, first: *bool, quoted_key: string, first_form: string, next_form: string) {
     if w.pretty {
         json_key(w, first, quoted_key);
@@ -467,6 +631,19 @@ json_key_fixed :: inline (w: *Json_Writer, first: *bool, quoted_key: string, fir
 }
 
 // A member whose key is only known at run time (a Hash_Table's).
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_begin_object(*w);
+// first := true;
+// json_key_dynamic(*w, *first, "id");
+// json_write_int(*w, 7);
+// json_end_object(*w, first);
+// assert(builder_to_string(*builder,, temp) == "{\"id\":7}");
+// ```
 json_key_dynamic :: (w: *Json_Writer, first: *bool, key: string) {
     if !first.* put(w.builder, #char ",");
 
@@ -479,6 +656,21 @@ json_key_dynamic :: (w: *Json_Writer, first: *bool, key: string) {
 }
 
 // Starts an array element.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// json_begin_array(*w);
+// first := true;
+// for 1..3 {
+//     json_item(*w, *first);
+//     json_write_int(*w, it);
+// }
+// json_end_array(*w, first);
+// assert(builder_to_string(*builder,, temp) == "[1,2,3]");
+// ```
 json_item :: inline (w: *Json_Writer, first: *bool) {
     if !first.* put(w.builder, #char ",");
 
@@ -488,6 +680,17 @@ json_item :: inline (w: *Json_Writer, first: *bool) {
 }
 
 // Writes a [Json_Value].
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// w: Json_Writer;
+// w.builder = *builder;
+// value, _ := from_json(Json_Value, "{\"a\": [1, null]}");
+// defer free_json(*value);
+// json_write_value(*w, *value);
+// assert(builder_to_string(*builder,, temp) == "{\"a\":[1,null]}");
+// ```
 json_write_value :: (w: *Json_Writer, value: *Json_Value) {
     if value.kind == {
         case .NULL;

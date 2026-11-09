@@ -20,6 +20,15 @@
 // ```
 
 // Why decoding failed.
+//
+// ```jai
+// _, wrong_type := from_json(s64, "\"x\"");
+// assert(wrong_type.kind == .TYPE);
+// free_json(*wrong_type);
+// _, too_big := from_json(u8, "300");
+// assert(too_big.kind == .OUT_OF_RANGE);
+// free_json(*too_big);
+// ```
 Json_Error_Kind :: enum u8 {
     NONE;
     SYNTAX; // not JSON
@@ -53,6 +62,19 @@ Json_Error :: struct {
 }
 
 // What a repeated key in an object does; see [Json_Options].
+//
+// ```jai
+// Point :: struct {
+//     x: int;
+// }
+//
+// _, strict := from_json(Point, "{\"x\": 1, \"x\": 2}");
+// assert(strict.kind == .DUPLICATE_FIELD);
+// free_json(*strict);
+//
+// point, error := from_json(Point, "{\"x\": 1, \"x\": 2}", .{ duplicate_keys = .LAST });
+// assert(error.kind == .NONE && point.x == 2);
+// ```
 Json_Duplicate_Keys :: enum u8 {
     ERROR; // a repeated key in an object is a .DUPLICATE_FIELD error
     LAST; // the last one wins (what Postgres jsonb keeps); the earlier value is released
@@ -101,6 +123,15 @@ Json_Options :: struct {
 // value decodes into `value` and gives `.SET`. Encoding omits the key for `.MISSING`, writes
 // `null` for `.NULL` and the value for `.SET`. Outside a struct member (the document, an array
 // element) `.MISSING` encodes as `null`. free_json releases `value` when it is `.SET`.
+//
+// ```jai
+// Patch :: struct {
+//     nickname: Json_Maybe(string);
+// }
+//
+// patch, _ := from_json(Patch, "{\"nickname\": null}");
+// assert(patch.nickname.state == .NULL);
+// ```
 Json_Presence :: enum u8 {
     MISSING;
     NULL;
@@ -136,6 +167,15 @@ json_use_simd := true;
 json_index_min_size := 256;
 
 // How the structural index fared since the program began, for tests and curiosity.
+//
+// ```jai
+// text := to_json(s64.[1, 2, 3]);
+// defer free(text);
+// before := json_index_stats.parsed;
+// values, _ := from_json([] s64, text);
+// defer free_json(*values);
+// assert(json_index_stats.parsed >= before); // small texts are parsed without an index
+// ```
 Json_Index_Stats :: struct {
     parsed: int; // texts decoded with an index
     unindexable: int; // texts stage 1 declined (control characters in strings, bad UTF-8...)
@@ -227,6 +267,13 @@ error_text :: (error: Json_Error) -> string {
 }
 
 // Releases the `message` and `path` of an error and clears it.
+//
+// ```jai
+// _, error := from_json(s64, "oops");
+// assert(error.message.count > 0);
+// free_json(*error);
+// assert(error.message.count == 0);
+// ```
 free_json :: (error: *Json_Error) {
     if error.message.data free(error.message);
     if error.path.data free(error.path);
@@ -275,9 +322,38 @@ write_json :: (builder: *String_Builder, value: $T, pretty := false) {
 // `buffer` and returns how many bytes it wrote (0 at the end), and a non-empty string when the
 // source failed (what went wrong). `data` is handed to it as it is. Json does not know what the
 // pieces come from; `Io.read_json` makes one from an `Io.Reader`.
+//
+// ```jai,no_run
+// fill :: (data: *void, buffer: [] u8) -> s64, string {
+//     return 0, ""; // an empty source
+// }
+// ```
 Json_Fill :: Pieces.Byte_Fill;
 
 // A document that arrives in pieces; see [Json_Fill]. `Csv_Source` is the same type.
+//
+// ```jai
+// Chunks :: struct {
+//     done: bool;
+// }
+//
+// fill :: (data: *void, buffer: [] u8) -> s64, string {
+//     chunks := cast(*Chunks) data;
+//     if chunks.done return 0, "";
+//     chunks.done = true;
+//     text := "[1, 2]";
+//     memcpy(buffer.data, text.data, text.count);
+//     return text.count, "";
+// }
+//
+// main :: () {
+//     chunks: Chunks;
+//     source := Json_Source.{ fill = fill, data = *chunks };
+//     values, error := from_json([] s64, source);
+//     assert(error.kind == .NONE && values.count == 2);
+//     free_json(*values);
+// }
+// ```
 Json_Source :: Pieces.Byte_Source;
 
 // Decodes a `T` from a source in pieces. The pieces are gathered in one buffer (the decoder wants
@@ -494,6 +570,26 @@ json_encode :: (w: *Json_Writer, value: *$T) {
 }
 
 // Reads a `T` into `out` from the reader `r`; false after recording an error. See [json_encode].
+//
+// ```jai
+// Price :: struct {
+//     cents: s64; @json(with=dollars)
+//
+//     dollars_encode :: (w: *Json_Writer, value: *s64) {
+//         json_write_float64(w, cast(float64) value.* / 100.0);
+//     }
+//
+//     dollars_decode :: (r: *Json_Reader, out: *s64) -> bool {
+//         dollars: float64;
+//         if !json_read_float64(r, *dollars) return false;
+//         out.* = cast(s64) (dollars * 100.0 + 0.5);
+//         return true;
+//     }
+// }
+//
+// price, error := from_json(Price, "{\"cents\": 3.25}");
+// assert(error.kind == .NONE && price.cents == 325);
+// ```
 json_decode :: (r: *Json_Reader, out: *$T) -> bool {
     #insert -> string {
         return generate_decoder(T);

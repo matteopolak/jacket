@@ -8,6 +8,18 @@
 // and `Params` extractors call these.
 
 // One `key=value` of a query or a form, already percent-decoded.
+//
+// ```jai
+// Search :: struct {
+//     q: string;
+//     page: int;
+// }
+//
+// pairs := Query_Pair.[.{ "q", "jai" }, .{ "page", "2" }];
+// search, error := from_query(Search, pairs);
+// assert(error.kind == .NONE && search.q == "jai" && search.page == 2);
+// free_json(*search);
+// ```
 Query_Pair :: struct {
     key: string;
     value: string;

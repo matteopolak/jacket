@@ -1,6 +1,13 @@
 // Json_Value: a parsed document of unknown shape, and the procedures that build and read one.
 
 // What a [Json_Value] holds.
+//
+// ```jai
+// value, _ := from_json(Json_Value, "[1]");
+// assert(value.kind == .ARRAY);
+// assert(json_at(*value, 0).kind == .NUMBER);
+// free_json(*value);
+// ```
 Json_Kind :: enum u8 {
     NULL;
     BOOL;
@@ -39,17 +46,34 @@ Json_Value :: struct {
 }
 
 // One `key: value` of an object.
+//
+// ```jai
+// object, _ := from_json(Json_Value, "{\"a\": 1}");
+// member := object.members[0];
+// assert(member.key == "a" && member.value.kind == .NUMBER);
+// free_json(*object);
+// ```
 Json_Member :: struct {
     key: string;
     value: Json_Value;
 }
 
 // A JSON `null`.
+//
+// ```jai
+// assert(json_null().kind == .NULL);
+// ```
 json_null :: () -> Json_Value {
     return .{};
 }
 
 // A JSON `true` or `false`.
+//
+// ```jai
+// value := json_bool(true);
+// flag, ok := json_as_bool(*value);
+// assert(ok && flag);
+// ```
 json_bool :: (value: bool) -> Json_Value {
     result: Json_Value;
     result.kind = .BOOL;
@@ -59,6 +83,13 @@ json_bool :: (value: bool) -> Json_Value {
 }
 
 // A JSON number from a signed integer.
+//
+// ```jai
+// value := json_int(-7);
+// n, ok := json_as_s64(*value);
+// assert(ok && n == -7);
+// free_json(*value);
+// ```
 json_int :: (value: s64) -> Json_Value {
     result: Json_Value;
     result.kind = .NUMBER;
@@ -68,6 +99,13 @@ json_int :: (value: s64) -> Json_Value {
 }
 
 // A JSON number from an unsigned integer.
+//
+// ```jai
+// value := json_uint(18446744073709551615);
+// n, ok := json_as_u64(*value);
+// assert(ok && n == 18446744073709551615);
+// free_json(*value);
+// ```
 json_uint :: (value: u64) -> Json_Value {
     result: Json_Value;
     result.kind = .NUMBER;
@@ -118,6 +156,11 @@ json_string :: (value: string) -> Json_Value {
 }
 
 // An empty JSON array; fill it with [json_push].
+//
+// ```jai
+// list := json_array();
+// assert(list.kind == .ARRAY && json_count(*list) == 0);
+// ```
 json_array :: () -> Json_Value {
     result: Json_Value;
     result.kind = .ARRAY;
@@ -126,6 +169,11 @@ json_array :: () -> Json_Value {
 }
 
 // An empty JSON object; fill it with [json_set].
+//
+// ```jai
+// object := json_object();
+// assert(object.kind == .OBJECT && json_count(*object) == 0);
+// ```
 json_object :: () -> Json_Value {
     result: Json_Value;
     result.kind = .OBJECT;
@@ -263,6 +311,17 @@ json_as_s64 :: (value: *Json_Value) -> s64, bool {
 }
 
 // The same as [json_as_s64], for an unsigned integer.
+//
+// ```jai
+// n, _ := from_json(Json_Value, "18446744073709551615");
+// value, ok := json_as_u64(*n);
+// assert(ok && value == 18446744073709551615);
+// negative, _ := from_json(Json_Value, "-1");
+// _, ok = json_as_u64(*negative);
+// assert(!ok);
+// free_json(*n);
+// free_json(*negative);
+// ```
 json_as_u64 :: (value: *Json_Value) -> u64, bool {
     if value.kind != .NUMBER return 0, false;
 
@@ -292,6 +351,16 @@ json_as_float64 :: (value: *Json_Value) -> float64, bool {
 }
 
 // The boolean and true, or false and false when the value is not a boolean.
+//
+// ```jai
+// value, _ := from_json(Json_Value, "true");
+// flag, ok := json_as_bool(*value);
+// assert(ok && flag);
+// number, _ := from_json(Json_Value, "1");
+// _, ok = json_as_bool(*number);
+// assert(!ok);
+// free_json(*number);
+// ```
 json_as_bool :: (value: *Json_Value) -> bool, bool {
     if value.kind != .BOOL return false, false;
 
@@ -299,6 +368,13 @@ json_as_bool :: (value: *Json_Value) -> bool, bool {
 }
 
 // The text and true, or "" and false when the value is not a string. The text belongs to the value.
+//
+// ```jai
+// value, _ := from_json(Json_Value, "\"hi\"");
+// text, ok := json_as_string(*value);
+// assert(ok && text == "hi");
+// free_json(*value);
+// ```
 json_as_string :: (value: *Json_Value) -> string, bool {
     if value.kind != .STRING return "", false;
 
@@ -306,6 +382,12 @@ json_as_string :: (value: *Json_Value) -> string, bool {
 }
 
 // Releases everything `value` owns and leaves it null.
+//
+// ```jai
+// value, _ := from_json(Json_Value, "[1, 2]");
+// free_json(*value);
+// assert(value.kind == .NULL);
+// ```
 free_json :: (value: *Json_Value) {
     if value.kind == .STRING || value.kind == .NUMBER {
         if value.text.count free(value.text);
