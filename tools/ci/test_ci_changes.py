@@ -173,6 +173,8 @@ class RealWorkflow(unittest.TestCase):
             # Evaluate only literal booleans/comparisons after replacing matrix references.
             expression = expression.removeprefix("${{ ").removesuffix(" }}")
             expression = expression.replace("!cancelled()", "True").replace("always()", "True")
+            # Matrix selection is checked for a run whose earlier steps succeeded.
+            expression = re.sub(r"steps\.[\w-]+\.outcome == 'success'", "True", expression)
             expression = re.sub(r"startsWith\(matrix\.(\w+), '([^']*)'\)", lambda m: repr(str(row.get(m[1], "")).startswith(m[2])), expression)
             expression = re.sub(r"matrix\.(\w+)", lambda m: repr(row.get(m[1], "")), expression)
             tree = ast.parse(expression.replace("&&", "and").replace("||", "or"), mode="eval")
