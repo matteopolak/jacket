@@ -67,12 +67,20 @@ decode_row :: (r: *Csv_Reader, fields: [] string, value: *$T) -> bool {
 }
 
 locate_error :: (r: *Csv_Reader, index: int) {
-    location := Csv_Location.{ r.record_offset, r.record_line, r.record_column };
-    if index >= 0 && index < r.locations.count location = r.locations[index];
+    offset := r.record_offset;
+    line := r.record_line;
+    line_start := r.record_line_start;
 
-    r.error.offset = location.offset;
-    r.error.line = location.line;
-    r.error.column = location.column;
+    if index >= 0 && index < r.cells.count {
+        cell := r.cells[index];
+        offset = cell.offset;
+        line = cell.line;
+        line_start = cell.line_start;
+    }
+
+    r.error.offset = offset;
+    r.error.line = line;
+    r.error.column = offset - line_start + 1;
 }
 
 column_index :: (r: *Csv_Reader, name: string, order: int) -> int {

@@ -55,7 +55,7 @@ Csv_Reader :: struct {
     position: int;
     offset: int;
     line: int = 1;
-    column: int = 1;
+    line_start: int;
     previous_cr: bool;
     started: bool;
     header_ready: bool;
@@ -63,13 +63,13 @@ Csv_Reader :: struct {
     header_index: Hash_Map.Map(string, int);
     width: int = -1;
     buffer: [..] u8;
-    ends: [..] int;
-    locations: [..] Csv_Location;
+    cells: [..] Csv_Cell;
     fields: [..] string;
+    stops: [256] u8;
     error: Csv_Error;
     record_offset: int;
     record_line: int;
-    record_column: int;
+    record_line_start: int;
 }
 
 // Creates a reader borrowing input; release its storage with csv_reader_free.
@@ -79,6 +79,7 @@ csv_reader :: (input: [] u8, options := Csv_Options.{}) -> Csv_Reader {
     r.input = input;
     r.options = options;
     r.error = validate_options(options);
+    r.stops = make_stops(options);
 
     return r;
 }
@@ -90,6 +91,7 @@ csv_reader :: (source: Csv_Source, options := Csv_Options.{}) -> Csv_Reader {
     r.source = source;
     r.options = options;
     r.error = validate_options(options);
+    r.stops = make_stops(options);
     if !source.fill r.error = .{ kind = .OPTIONS, message = "missing source callback", line = 1, column = 1 };
 
     return r;
@@ -144,8 +146,7 @@ csv_record_free :: (fields: [] string) {
 // Example: csv_reader_free(*reader).
 csv_reader_free :: (r: *Csv_Reader) {
     array_free(r.buffer);
-    array_free(r.ends);
-    array_free(r.locations);
+    array_free(r.cells);
     array_free(r.fields);
     Hash_Map.deinit(*r.header_index);
     csv_record_free(r.header);
@@ -206,10 +207,32 @@ Hash_Map :: #import "Extensions/Hash_Map";
 #load "typed.jai";
 #load "generate.jai";
 
-Csv_Location :: struct {
+// One field of the current record. `start`..`end` is where its bytes sit in `buffer`; a field read
+// straight from a borrowed input is `text` instead and leaves the buffer alone. `offset`, `line`
+// and `line_start` say where the field began, for typed errors.
+Csv_Cell :: struct {
     offset: int;
     line: int;
-    column: int;
+    line_start: int;
+    start: int;
+    end: int;
+    text: string;
+}
+
+// Bits of `Csv_Reader.stops`: the bytes that end a run of plain bytes in an unquoted or a quoted field.
+STOP_UNQUOTED :: 1;
+STOP_QUOTED :: 2;
+
+make_stops :: (o: Csv_Options) -> [256] u8 {
+    stops: [256] u8;
+
+    stops[o.delimiter] |= STOP_UNQUOTED;
+    stops[10] |= STOP_UNQUOTED | STOP_QUOTED;
+    stops[13] |= STOP_UNQUOTED | STOP_QUOTED;
+    stops[o.quote] |= STOP_QUOTED;
+    if !o.lax_quotes stops[o.quote] |= STOP_UNQUOTED;
+
+    return stops;
 }
 
 validate_options :: (o: Csv_Options) -> Csv_Error {
@@ -233,11 +256,17 @@ space :: (c: u8) -> bool {
 }
 
 fail :: (r: *Csv_Reader, kind: Csv_Error_Kind, message: string) -> bool {
-    if r.error.kind == .NONE r.error = .{ kind = kind, message = message, line = r.line, column = r.column, offset = r.offset };
+    if r.error.kind == .NONE r.error = .{ kind = kind, message = message, line = r.line, column = r.offset - r.line_start + 1, offset = r.offset };
     return false;
 }
 
-peek :: (r: *Csv_Reader, ahead: int = 0) -> int {
+peek :: inline (r: *Csv_Reader, ahead: int = 0) -> int {
+    if r.position + ahead < r.input.count return r.input[r.position + ahead];
+    return fill_to(r, ahead);
+}
+
+// The slow half of `peek`: refills the window from the source until it holds the byte `ahead`, or returns -1.
+fill_to :: (r: *Csv_Reader, ahead: int) -> int {
     while r.position + ahead >= r.input.count {
         if !r.source.fill || r.eof || r.error.kind != .NONE return -1;
 
@@ -260,7 +289,8 @@ peek :: (r: *Csv_Reader, ahead: int = 0) -> int {
     return r.input[r.position + ahead];
 }
 
-take :: (r: *Csv_Reader) -> int {
+// Takes one byte, counting a line break when it is CR or LF (CRLF is one). Runs of other bytes go through `span`.
+take :: inline (r: *Csv_Reader) -> int {
     c := peek(r);
     if c < 0 return c;
 
@@ -274,43 +304,141 @@ take :: (r: *Csv_Reader) -> int {
 
     if c == 13 {
         r.line += 1;
-        r.column = 1;
+        r.line_start = r.offset;
+        r.previous_cr = true;
     } else if c == 10 {
         if !r.previous_cr r.line += 1;
-        r.column = 1;
-    } else r.column += 1;
-
-    r.previous_cr = c == 13;
+        r.line_start = r.offset;
+        r.previous_cr = false;
+    } else r.previous_cr = false;
 
     return c;
 }
 
-put :: (r: *Csv_Reader, c: int, start: int) -> bool {
-    if r.buffer.count - start >= r.options.max_field_bytes return fail(r, .FIELD_LIMIT, "field exceeds limit");
-    array_add(*r.buffer, cast(u8) c);
+// The first byte in the window at or after the read position whose `stops` entry has a `mask` bit, or the window's end.
+scan :: inline (r: *Csv_Reader, mask: u8) -> int {
+    i := r.position;
+    count := r.input.count;
+    data := r.input.data;
+    stops := r.stops.data;
+
+    while i < count && !(stops[data[i]] & mask) i += 1;
+
+    return i;
+}
+
+field_length :: inline (r: *Csv_Reader, cell: *Csv_Cell) -> int {
+    return r.buffer.count - cell.start + cell.text.count;
+}
+
+append_bytes :: (r: *Csv_Reader, data: *u8, count: int) {
+    needed := r.buffer.count + count;
+    if needed > r.buffer.allocated array_reserve(*r.buffer, max(needed, max(64, r.buffer.allocated * 2)));
+
+    memcpy(r.buffer.data + r.buffer.count, data, count);
+    r.buffer.count = needed;
+}
+
+// Moves bytes held uncopied in `cell.text` into the buffer, before anything else is added to the field.
+flush_text :: (r: *Csv_Reader, cell: *Csv_Cell) {
+    if !cell.text.count return;
+
+    append_bytes(r, cell.text.data, cell.text.count);
+    cell.text = "";
+}
+
+// Adds the `count` bytes at the read position to the field. They stay in the borrowed input when they
+// are all the field has; a chunked source overwrites its window, so those bytes are copied.
+add_run :: inline (r: *Csv_Reader, cell: *Csv_Cell, count: int) {
+    if !r.source.fill && !cell.text.count && r.buffer.count == cell.start {
+        cell.text = .{ count, r.input.data + r.position };
+        return;
+    }
+
+    copy_run(r, cell, count);
+}
+
+copy_run :: (r: *Csv_Reader, cell: *Csv_Cell, count: int) {
+    if count <= 0 return;
+
+    flush_text(r, cell);
+    append_bytes(r, r.input.data + r.position, count);
+}
+
+consume :: inline (r: *Csv_Reader, count: int) {
+    r.position += count;
+    r.offset += count;
+    r.previous_cr = false;
+}
+
+// Takes `count` bytes with no CR or LF in them into the field, failing where taking them one at a
+// time would: the record limit on the byte past it, the field limit on the byte that does not fit.
+span :: inline (r: *Csv_Reader, cell: *Csv_Cell, count: int) -> bool {
+    record_room := r.options.max_record_bytes - (r.offset - r.record_offset);
+    field_room := r.options.max_field_bytes - field_length(r, cell);
+
+    if count <= record_room && count <= field_room {
+        add_run(r, cell, count);
+        consume(r, count);
+        return true;
+    }
+
+    return span_at_limit(r, cell, record_room, field_room);
+}
+
+// `span` for a run that does not fit: take what does, then fail.
+span_at_limit :: (r: *Csv_Reader, cell: *Csv_Cell, record_room: int, field_room: int) -> bool {
+    if record_room <= field_room {
+        add_run(r, cell, record_room);
+        consume(r, record_room);
+        return fail(r, .RECORD_LIMIT, "record exceeds limit");
+    }
+
+    add_run(r, cell, field_room);
+    consume(r, field_room + 1);
+
+    return fail(r, .FIELD_LIMIT, "field exceeds limit");
+}
+
+put :: (r: *Csv_Reader, cell: *Csv_Cell, c: u8) -> bool {
+    if field_length(r, cell) >= r.options.max_field_bytes return fail(r, .FIELD_LIMIT, "field exceeds limit");
+
+    flush_text(r, cell);
+    array_add(*r.buffer, c);
+
     return true;
 }
 
 read_field :: (r: *Csv_Reader) -> bool {
-    start := r.buffer.count;
-    quoted := peek(r) == r.options.quote;
+    cell := Csv_Cell.{ offset = r.offset, line = r.line, line_start = r.line_start, start = r.buffer.count };
+    quote := r.options.quote;
+    quoted := peek(r) == quote;
 
     if quoted {
-        take(r);
+        if take(r) < 0 return false;
 
         while true {
-            c := take(r);
-            if c < 0 {
+            if r.position >= r.input.count && peek(r) < 0 {
                 fail(r, .QUOTE, "unterminated quoted field");
                 return false;
             }
 
-            if c == r.options.quote {
-                if peek(r) != r.options.quote break;
-                take(r);
+            end := scan(r, STOP_QUOTED);
+            if end > r.position {
+                if !span(r, *cell, end - r.position) return false;
+                if r.position >= r.input.count continue;
             }
 
-            if !put(r, c, start) return false;
+            c := r.input[r.position];
+
+            if take(r) < 0 return false;
+
+            if c == quote {
+                if peek(r) != quote break;
+                if take(r) < 0 return false;
+            }
+
+            if !put(r, *cell, c) return false;
         }
 
         if r.options.trim while peek(r) != r.options.delimiter && space(cast(u8) max(0, peek(r))) {
@@ -323,58 +451,71 @@ read_field :: (r: *Csv_Reader) -> bool {
             return false;
         }
     } else {
-        while true {
+        if r.options.trim while true {
             c := peek(r);
-            if c < 0 || c == r.options.delimiter || c == 10 || c == 13 break;
+            if c < 0 || (r.stops[c] & STOP_UNQUOTED) || !space(cast(u8) c) break;
+            if take(r) < 0 return false;
+        }
 
-            if c == r.options.quote && !r.options.lax_quotes {
+        while !(r.position >= r.input.count && peek(r) < 0) {
+            end := scan(r, STOP_UNQUOTED);
+            if end > r.position {
+                if !span(r, *cell, end - r.position) return false;
+                if r.position >= r.input.count continue;
+            }
+
+            if r.input[r.position] == quote && !r.options.lax_quotes {
                 fail(r, .QUOTE, "quote in unquoted field");
                 return false;
             }
 
-            c = take(r);
-            if c < 0 return false;
-
-            if !(r.options.trim && r.buffer.count == start && space(cast(u8) c)) {
-                if !put(r, c, start) return false;
-            }
+            break;
         }
 
-        if r.options.trim while r.buffer.count > start && space(r.buffer[r.buffer.count - 1]) r.buffer.count -= 1;
+        if r.options.trim {
+            while cell.text.count && space(cell.text[cell.text.count - 1]) cell.text.count -= 1;
+            while r.buffer.count > cell.start && space(r.buffer[r.buffer.count - 1]) r.buffer.count -= 1;
+        }
     }
 
-    return r.error.kind == .NONE;
+    if r.error.kind != .NONE return false;
+
+    cell.end = r.buffer.count;
+
+    if r.cells.count >= r.cells.allocated array_reserve(*r.cells, max(16, r.cells.allocated * 2));
+
+    r.cells.data[r.cells.count] = cell;
+    r.cells.count += 1;
+
+    return true;
 }
 
 read_record :: (r: *Csv_Reader) -> [] string, bool {
     r.buffer.count = 0;
-    r.ends.count = 0;
-    r.locations.count = 0;
+    r.cells.count = 0;
     r.fields.count = 0;
-    r.record_offset = r.offset;
     if !r.started {
         r.started = true;
         if peek(r) == 239 && peek(r, 1) == 187 && peek(r, 2) == 191 {
             r.position = 3;
             r.offset = 3;
+            r.line_start = 3;
         }
     }
 
     r.record_offset = r.offset;
     r.record_line = r.line;
-    r.record_column = r.column;
+    r.record_line_start = r.line_start;
     if peek(r) < 0 return .[], false;
 
     while true {
-        if r.ends.count >= r.options.max_fields {
+        if r.cells.count >= r.options.max_fields {
             fail(r, .FIELD_COUNT, "too many fields");
             return .[], false;
         }
 
-        array_add(*r.locations, Csv_Location.{ r.offset, r.line, r.column });
         if !read_field(r) return .[], false;
 
-        array_add(*r.ends, r.buffer.count);
         delimiter := peek(r);
         if delimiter == r.options.delimiter {
             if take(r) < 0 return .[], false;
@@ -391,13 +532,13 @@ read_record :: (r: *Csv_Reader) -> [] string, bool {
 
     if r.error.kind != .NONE return .[], false;
 
-    start := 0;
+    array_reserve(*r.fields, r.cells.count);
+    r.fields.count = r.cells.count;
 
-    for end: r.ends {
-        field: string = .{ end - start, r.buffer.data + start };
-        // Quoted whitespace is data: trimming applies only while reading unquoted fields.
-        array_add(*r.fields, field);
-        start = end;
+    // Quoted whitespace is data: trimming applies only while reading unquoted fields.
+    for r.cells {
+        if it.end > it.start r.fields[it_index] = .{ it.end - it.start, r.buffer.data + it.start };
+        else r.fields[it_index] = it.text;
     }
 
     if r.width < 0 r.width = r.fields.count;
