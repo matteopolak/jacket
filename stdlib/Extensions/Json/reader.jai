@@ -68,7 +68,7 @@ reader_free :: (r: *Json_Reader) {
     array_free(r.scratch);
     array_free(r.values);
     array_free(r.members);
-} @FreesArgument
+}
 
 #scope_export
 
@@ -953,7 +953,7 @@ json_reader_init :: (r: *Json_Reader, text: string, options := Json_Options.{}) 
 // Releases a reader's scratch space. Its error is not released: take it with json_reader_error.
 json_reader_free :: (r: *Json_Reader) {
     reader_free(r);
-} @FreesArgument
+}
 
 // The reader's error with its line, column and path filled in; the caller owns it and frees it
 // with free_json.

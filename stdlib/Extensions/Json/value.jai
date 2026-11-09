@@ -324,4 +324,4 @@ free_json :: (value: *Json_Value) {
     array_free(value.members);
 
     value.* = .{};
-} @FreesArgument
+}
