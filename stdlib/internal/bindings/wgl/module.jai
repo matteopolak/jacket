@@ -112,7 +112,9 @@ W :: #import "internal/bindings/windows-api";
 F :: #import "internal/bindings/wgl-format";
 
 libc :: #library,system "c"; @native(external)
+
 #import "internal/libc";
+
 strlen :: (text: *u8) -> u64 #foreign libc;
 Choose :: #type (dc: W.HDC, integers: *s32, floats: *float, limit: u32, formats: *s32, count: *u32) -> s32 #c_call;
 Query :: #type (dc: W.HDC, format: s32, layer: s32, count: u32, attributes: *s32, values: *s32) -> s32 #c_call;

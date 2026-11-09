@@ -74,7 +74,6 @@ COMMAND_DESTROY :: 15;
 P :: #import "internal/bindings/posix-api";
 Native :: #import "internal/bindings/native";
 
-libc :: #library,system "c"; @native(external)
 #import "internal/libc";
 
 require :: (status: s32) {
