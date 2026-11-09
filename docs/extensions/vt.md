@@ -98,14 +98,10 @@ The compiled tests use the committed data port and need no network or downloaded
 ## Benchmark and dependencies
 
 The runtime depends only on `Basic`; it has no OS, terminal, allocator or external library requirement.
-The benchmark generates text, SGR and cursor commands, optionally recording the bytes for the
-Python reference. Both parsers use a counting callback/listener without a screen; Python may batch
-text callbacks. Measure after builds finish. The reference script requires the `pyte` Python package.
+The benchmark generates text, SGR and cursor commands and feeds a counting callback without a screen. Setup is outside the measured loop. The separate Python reference accepts a recorded stream and requires `pyte`; Python may batch text callbacks.
 
 ```sh
-jaic -O2 stdlib/Extensions/Vt/bench/bench.jai -exe target/vt-bench
-target/vt-bench target/vt-mixed.bin
-python3 stdlib/Extensions/Vt/bench/reference.py target/vt-mixed.bin
+jacket bench --path stdlib/Extensions/Vt
 ```
 
 Unrestricted random-byte differential testing against pyte is not included: its stream exposes
