@@ -494,7 +494,16 @@ valid_ref :: (r: Json_Maybe(u32), count: s64) -> bool {
 
 // Whether `value` is a member of its enum; hand-built assets can hold others.
 known :: (value: $T) -> bool {
-    for (cast(*Type_Info_Enum) type_info(T)).values if it == cast(s64) value return true;
+    // One comparison per member, written for T when the program compiles.
+    #insert -> string {
+        info := cast(*Type_Info_Enum) type_info(T);
+        b: String_Builder;
+        b.allocator = temp;
+        for info.values print(*b, "if cast(s64) value == % return true;\n", it);
+
+        return builder_to_string(*b);
+    };
+
     return false;
 }
 
