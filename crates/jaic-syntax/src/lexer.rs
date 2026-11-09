@@ -12,12 +12,13 @@ mod value_map;
 
 pub use self::api::{
     CPU_TAGS, Comment, CommentKind, Lexed, OS_TAGS, PlatformTarget, lex, lex_for_target, lex_ide,
-    lex_with_trivia, lexical_regions,
+    lex_stoppable, lex_with_trivia, lexical_regions,
 };
 pub use self::floats::{FloatLiteralPrecision, float_literal_precision, has_big_float32_exponent};
 pub use self::here::{LANGUAGE_TAGS, here_string_tag, names_language};
 pub use self::punct::{P, spellings as punctuation_spellings};
 pub use self::quote::{QuoteMode, quote, quote_bytes};
+pub use self::scan::STOP_POLL_TOKENS;
 pub(crate) use self::scan::is_ident_char;
 pub use self::value_map::string_value_map;
 use crate::intern::Sym;

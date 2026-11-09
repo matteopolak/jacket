@@ -60,15 +60,17 @@ pub fn parse_file(file: FileId, text: &str) -> Result<File, Diagnostic> {
 }
 
 /// `parse_file` for text a program produced at compile time (an `#insert`ed string), which can
-/// be of any size. `stop` is asked once every [`STOP_POLL_STATEMENTS`] statements, at any depth,
-/// and a `true` ends the parse early: the result is `None`. It costs nothing per token.
+/// be of any size. `stop` is asked once every [`STOP_POLL_TOKENS`](crate::lexer::STOP_POLL_TOKENS)
+/// tokens while lexing and once every [`STOP_POLL_STATEMENTS`] statements, at any depth, while
+/// parsing, and a `true` ends the work early: the result is `None`.
 pub fn parse_file_stoppable(
     file: FileId,
     text: &str,
     stop: &mut dyn FnMut() -> bool,
 ) -> Option<Result<File, Diagnostic>> {
-    let tokens = match lex(file, text) {
-        Ok(tokens) => tokens,
+    let tokens = match crate::lexer::lex_stoppable(file, text, &mut *stop) {
+        Ok(Some(tokens)) => tokens,
+        Ok(None) => return None,
         Err(error) => return Some(Err(error)),
     };
     let mut parser = Parser::new(text, tokens);

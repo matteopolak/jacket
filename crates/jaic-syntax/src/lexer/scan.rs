@@ -28,7 +28,16 @@ pub(super) struct Lexer<'a> {
     pub(super) braces: Vec<bool>,
     /// How many of `braces` are not such `#if` blocks.
     pub(super) opaque_braces: usize,
+    /// Asked every `STOP_POLL_TOKENS` tokens (`lex_stoppable`).
+    pub(super) stop: Option<&'a mut dyn FnMut() -> bool>,
+    /// Tokens left until `stop` is asked; `u32::MAX` (never reached in practice) without one.
+    countdown: u32,
+    /// `stop` said yes: the lexer jumped to the end of the text and its tokens are incomplete.
+    pub(super) stopped: bool,
 }
+
+/// How many tokens `lex_stoppable` makes between two questions to `stop`.
+pub const STOP_POLL_TOKENS: u32 = 1024;
 
 /// The offset just past the closing quote of a string whose body starts at `at`.
 fn skip_string(src: &[u8], mut at: usize) -> usize {
@@ -78,6 +87,28 @@ impl<'a> Lexer<'a> {
             platform: None,
             braces: Vec::new(),
             opaque_braces: 0,
+            stop: None,
+            countdown: u32::MAX,
+            stopped: false,
+        }
+    }
+
+    /// Ask `stop` every `STOP_POLL_TOKENS` tokens from now on.
+    pub(super) fn set_stop(&mut self, stop: &'a mut dyn FnMut() -> bool) {
+        self.stop = Some(stop);
+        self.countdown = STOP_POLL_TOKENS;
+    }
+
+    /// The countdown ran out: ask `stop` and, when it says yes, move to the end of the text so
+    /// the main loop finishes with the end marker.
+    #[cold]
+    fn poll_stop(&mut self) {
+        self.countdown = STOP_POLL_TOKENS;
+        if let Some(stop) = self.stop.as_mut()
+            && stop()
+        {
+            self.stopped = true;
+            self.at = self.src.len();
         }
     }
 
@@ -132,6 +163,10 @@ impl<'a> Lexer<'a> {
             newline_before: self.newline,
         });
         self.newline = false;
+        self.countdown -= 1;
+        if self.countdown == 0 {
+            self.poll_stop();
+        }
     }
 
     pub(super) fn run(&mut self) -> Result<(), Diagnostic> {

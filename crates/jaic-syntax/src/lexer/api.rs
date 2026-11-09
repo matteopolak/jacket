@@ -17,6 +17,20 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
     Ok(lx.out)
 }
 
+/// `lex` for text a program produced at compile time, which can be of any size. `stop` is asked
+/// once every [`STOP_POLL_TOKENS`] tokens, and a `true` ends the lexing early: the result is
+/// `Ok(None)`. Costs a counter decrement per token.
+pub fn lex_stoppable(
+    file: FileId,
+    text: &str,
+    stop: &mut dyn FnMut() -> bool,
+) -> Result<Option<Vec<Token>>, Diagnostic> {
+    let mut lx = Lexer::new(file, text, expected_tokens(text));
+    lx.set_stop(stop);
+    lx.run()?;
+    Ok((!lx.stopped).then_some(lx.out))
+}
+
 /// The platform a library file is read for. File-level `#if` conditions made only of `OS` and
 /// `CPU` tests against it are decided while lexing, and the body of a branch they rule out is
 /// stepped over byte by byte instead of becoming tokens. The `{` and `}` stay, so the parser

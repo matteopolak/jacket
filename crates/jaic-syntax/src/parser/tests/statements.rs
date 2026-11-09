@@ -402,3 +402,22 @@ fn a_stoppable_parse_ends_when_asked_even_inside_a_block() {
         assert!(parsed.is_some_and(|p| p.is_ok()));
     }
 }
+
+#[test]
+fn a_stoppable_lex_ends_when_asked_in_the_middle_of_a_statement() {
+    use crate::lexer::{STOP_POLL_TOKENS, lex_stoppable};
+    use crate::source::FileId;
+    // One statement, so only the lexer can be asked.
+    let list = vec!["1"; STOP_POLL_TOKENS as usize * 10].join(", ");
+    let text = format!("a := int.[{list}];");
+    let mut asked = 0;
+    let stopped = lex_stoppable(FileId(0), &text, &mut || {
+        asked += 1;
+        asked == 3
+    });
+    assert!(stopped.is_ok_and(|tokens| tokens.is_none()));
+    assert_eq!(asked, 3, "the lexing went on after it was told to stop");
+    let mut never = || false;
+    let lexed = lex_stoppable(FileId(0), &text, &mut never);
+    assert!(lexed.is_ok_and(|tokens| tokens.is_some()));
+}

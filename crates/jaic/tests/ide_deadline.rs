@@ -129,6 +129,23 @@ fn a_long_inserted_string_stops_in_the_parser() {
 }
 
 #[test]
+fn a_long_inserted_string_stops_in_the_lexer() {
+    // One statement of many tokens: the parser has no statement boundary to ask at, so a stop
+    // that lands before the inserted text is checked came from the lexer.
+    let program = |elements: usize| {
+        let list = vec!["1"; elements].join(", ");
+        format!("main :: () {{ #insert \"a := int.[{list}];\"; }}\n")
+    };
+    let (error, stopped, base) = check_polls(&program(1), u64::MAX);
+    assert!(!stopped, "{error}");
+    let (error, stopped, _) = check_polls(&program(200_000), base + 5);
+    assert!(error.contains("checking stopped"), "{error}");
+    assert!(error.contains("main.jai"), "{error}");
+    assert!(!error.contains("#insert at"), "{error}");
+    assert!(stopped);
+}
+
+#[test]
 fn a_very_wide_expression_stops_at_the_limit() {
     let program = |elements: usize| {
         let list = vec!["1"; elements].join(", ");

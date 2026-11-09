@@ -6,7 +6,7 @@
 
 - `Toml` typed decoding takes `Table(string, V)` fields (inline tables, dotted keys and `[a.key]` headers), `Toml_Value` fields (any value, or tables built from headers, as an untyped tree the target owns) and `[N] T` fields from `[[x]]` headers. The typed encoder writes them back.
 - `Extensions/Gltf` unpacks a whole accessor into floats (`gltf_unpack_floats`), gives local and world node matrices (`gltf_node_local`, `gltf_node_world`) and decodes KHR_materials_emissive_strength, ior, transmission, clearcoat, KHR_texture_transform and KHR_lights_punctual into typed structs (`gltf_extension`).
-- The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies, macro expansion, polymorphic instances), not only compile-time code that is running. This includes each statement of a body and the parsing of `#insert`ed strings.
+- The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies and each of their statements, macro expansion, polymorphic instances, lexing and parsing of `#insert`ed text), not only compile-time code that is running.
 - `Extensions/Toml`: `toml_encode` now counts scalars and arrays of tables toward `max_depth`, with the root at depth 0, so it refuses the same documents as `write_toml`. Its output limit errors for a value's line break now name the table, like `write_toml`.
 - `Extensions/Time`: `first_of_year` and `last_of_year` join `first_of_month` and `last_of_month`. A period's end is its last day, inclusive, because a `Date` is a whole day; add one day for an exclusive bound.
 - `jacket doc --check` on one module no longer fails on types it names from modules it imports; they have no page in that site and show as plain text.
