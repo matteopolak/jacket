@@ -815,7 +815,7 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                 import: if m.implicit {
                     String::new()
                 } else {
-                    m.id.clone()
+                    m.import_name().to_owned()
                 },
                 implicit: m.implicit,
                 docs: segments(site, m, &m.file, 1, &segs),
