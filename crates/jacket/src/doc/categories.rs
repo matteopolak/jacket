@@ -26,6 +26,9 @@ pub struct Layout {
 /// CSS named colours from <https://www.w3.org/TR/css-color-4/#named-colors>.
 /// Alpha colours are composited against the page before calculating relative luminance.
 fn channels(color: &str) -> Option<[f64; 4]> {
+    if let Some(args) = color.strip_prefix("oklch(") {
+        return oklch(args.strip_suffix(')')?);
+    }
     let named;
     let hex = if let Some(hex) = color.strip_prefix('#') {
         hex
@@ -60,6 +63,48 @@ fn channels(color: &str) -> Option<[f64; 4]> {
             };
     }
     Some(rgba)
+}
+
+/// `L C H [/ A]` as written inside `oklch()`, to sRGB clamped into the gamut. `L` and `A` may
+/// be percentages and `H` may end in `deg`.
+///
+/// ```text
+/// oklch(51.1% 0.081 213.4deg)  =>  about [0.114, 0.447, 0.510, 1.0]  (#1d7282)
+/// ```
+fn oklch(args: &str) -> Option<[f64; 4]> {
+    let number = |s: &str, percent: f64| -> Option<f64> {
+        let (s, scale) = s.strip_suffix('%').map_or((s, 1.0), |s| (s, percent));
+        let v: f64 = s.parse().ok()?;
+        v.is_finite().then_some(v * scale)
+    };
+    let (lch, alpha) = args.split_once('/').unwrap_or((args, "1"));
+    let [l, c, h] = <[&str; 3]>::try_from(lch.split_whitespace().collect::<Vec<_>>()).ok()?;
+    let l = number(l, 0.01)?;
+    let c = number(c, 0.004)?;
+    let h = number(h.strip_suffix("deg").unwrap_or(h), f64::NAN)?.to_radians();
+    let alpha = number(alpha.trim(), 0.01)?.clamp(0.0, 1.0);
+    let (a, b) = (c * h.cos(), c * h.sin());
+    let cube = |x: f64| x * x * x;
+    let lms = [
+        cube(l + 0.396_337_777_4 * a + 0.215_803_757_3 * b),
+        cube(l - 0.105_561_345_8 * a - 0.063_854_172_8 * b),
+        cube(l - 0.089_484_177_5 * a - 1.291_485_548_0 * b),
+    ];
+    let linear = [
+        [4.076_741_662_1, -3.307_711_591_3, 0.230_969_929_2],
+        [-1.268_438_004_6, 2.609_757_401_1, -0.341_319_396_5],
+        [-0.004_196_086_3, -0.703_418_614_7, 1.707_614_701_0],
+    ]
+    .map(|row| row.iter().zip(lms).map(|(m, v)| m * v).sum::<f64>());
+    let [r, g, b] = linear.map(|v| {
+        let v = v.clamp(0.0, 1.0);
+        if v <= 0.003_130_8 {
+            v * 12.92
+        } else {
+            1.055 * v.powf(1.0 / 2.4) - 0.055
+        }
+    });
+    Some([r, g, b, alpha])
 }
 
 fn luminance(rgb: &[f64]) -> f64 {
@@ -116,15 +161,15 @@ pub fn layout(
         for (key, value) in [("color", &mut color), ("color_dark", &mut color_dark)] {
             if !value.is_empty() && channels(value).is_none() {
                 problems.push(format!(
-                    "category `{}`: `{key}` `{value}` is not a `#rrggbb` colour or a colour name",
+                    "category `{}`: `{key}` `{value}` is not a `#rrggbb`, `oklch()` or named colour",
                     c.name
                 ));
                 value.clear();
             }
         }
         for (key, value, bg) in [
-            ("color", &color, "#fafafa"),
-            ("color_dark", &color_dark, "#1b1b1f"),
+            ("color", &color, "oklch(98.5% 0 0deg)"),
+            ("color_dark", &color_dark, "oklch(22.4% 0.008 285.8deg)"),
         ] {
             if let Some(ratio) = contrast(value, bg)
                 && ratio < 4.5
@@ -264,12 +309,42 @@ mod tests {
     }
 
     #[test]
+    fn contrast_reads_oklch() {
+        assert!((contrast("oklch(0% 0 0deg)", "oklch(100% 0 0deg)").unwrap() - 21.0).abs() < 0.001);
+        assert!((contrast("oklch(0% 0 0)", "#ffffff").unwrap() - 21.0).abs() < 0.001);
+        // #1d7282 and #6cc4d4, the stdlib's Experimental badge.
+        let teal = channels("oklch(51.1% 0.081 213.4deg)").unwrap();
+        assert!(
+            teal[..3]
+                .iter()
+                .zip([0x1d, 0x72, 0x82])
+                .all(|(v, w)| (v * 255.0 - f64::from(w)).abs() < 1.0),
+            "{teal:?}"
+        );
+        assert!(contrast("oklch(0.771 0.088 210.7deg)", "#1b1b1f").unwrap() > 4.5);
+        assert_eq!(contrast("oklch(0% 0 0deg / 0%)", "#ffffff"), Some(1.0));
+        assert_eq!(channels("oklch(0% 0 0deg / 0.5)").unwrap()[3], 0.5);
+        for bad in [
+            "oklch(0.5 0.1)",
+            "oklch(50% 0.1 20deg 30)",
+            "oklch(a b c)",
+            "oklch(0.5 0.1 20",
+            "oklch(50% 0.1 20deg);}x{",
+        ] {
+            assert_eq!(channels(bad), None, "{bad}");
+        }
+    }
+
+    #[test]
     fn colours_must_be_plain() {
         let mut c = category("X", &["A"]);
         c.color = Some("red;}body{".into());
         let err = layout(&[c], &[], &strings(&["A"]), &strings(&["A"]))
             .err()
             .unwrap();
-        assert!(err.contains("not a `#rrggbb` colour"), "{err}");
+        assert!(
+            err.contains("not a `#rrggbb`, `oklch()` or named colour"),
+            "{err}"
+        );
     }
 }
