@@ -1168,3 +1168,6 @@ fn lifetime_array_capacity_separates_possible_from_required_growth() {
 
 #[path = "rules/accuracy.rs"]
 mod accuracy;
+
+#[path = "rules/diagnostic_ranges.rs"]
+mod diagnostic_ranges;

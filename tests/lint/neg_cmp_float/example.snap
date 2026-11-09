@@ -5,7 +5,7 @@ warning[neg_cmp_float]: `!(x < limit)` is not `x >= limit` when a float is NaN
   --> tests/lint/neg_cmp_float/example.jai:4:12
    |
  4 |     return !(x < limit);
-   |            ^^^^^^^^^^^
+   |            ^^^^^^^^^^^^
    |
 help: write the inverted comparison if NaN should not take the branch, or test for NaN explicitly if it should
    |
