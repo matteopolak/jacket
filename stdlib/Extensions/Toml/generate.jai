@@ -1185,7 +1185,7 @@ emit_member_line :: (g: *Gen, leaf: *Leaf, key: string, value: string) {
 
     print(out, "if % {\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = % });\ntoml_write_key(w, %, \" = \");\n", condition, key, key);
     emit_write(g, value, leaf.info, leaf);
-    print(out, "toml_emit(w, \"\\n\");\nw.path.count = mark;\n}\n");
+    print(out, "w.path.count = mark;\ntoml_emit(w, \"\\n\");\n}\n");
 }
 
 // The `[header]` or `[[header]]` tables of one member, after all the lines of its table.
