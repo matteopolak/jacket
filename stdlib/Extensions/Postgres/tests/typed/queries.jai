@@ -110,6 +110,8 @@ test_query :: (db: *Pg.Connection) {
 
     defer array_free(copied);
     check(copied.count == 2 && copied[0].email == "a@example.com" && copied[0].tags.count == 2 && copied[0].tags[1] == "y", "fetch_all copies");
+    check(copied.count == 2 && copied[0].tags[0] == "x" && copied[1].email == "b@example.com" && copied[1].tags.count == 0, "fetch_all copies every row");
+    check(copied.count == 2 && !copied[0].settings.null && contains(copied[0].settings.value.text, "\"dark\"") && copied[1].settings.null, "fetch_all copies json documents");
 
     copied_temp := Pg.fetch_all(*all, temp);
 

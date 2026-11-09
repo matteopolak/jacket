@@ -75,6 +75,7 @@ Decoding strictness is `Pg.Json_Options` (`unknown_fields`, `missing_fields`, `d
 - Cache format: `entry.jai`. Entries record `ENTRY_FORMAT`; bump it when the description, the `%` rewrite or the alias syntax changes, and old files are described again.
 - Schema database naming and pruning: `schema_databases.jai`. Statement cache: `statements.jai`.
 - Macros are `#expand` with `@Interpolates("sql")` in `typed.jai`.
+- Row decoding (`read_row_code`) and the copy in `fetch_all` (`copy_size_code`, `copy_into_code`) are written per row type at compile time. A new kind of owned member (a string, array or pointer is one) goes in `copy_needed` and both generators.
 
 Gotchas:
 

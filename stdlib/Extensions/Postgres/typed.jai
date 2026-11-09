@@ -67,7 +67,9 @@ fetch_all :: (rows: *Rows($T), allocator := context.allocator) -> [] T {
     head := align_copy_size(decoded.count * size_of(T));
     size := head;
 
-    for *decoded size += copy_size(it, type_info(T));
+    #if #run copy_needed(type_info(T)) {
+        for *decoded size += copy_size(it);
+    }
 
     block := cast(*u8) alloc(size,, allocator);
 
@@ -76,8 +78,10 @@ fetch_all :: (rows: *Rows($T), allocator := context.allocator) -> [] T {
     items.data = cast(*T) block;
     items.count = decoded.count;
 
-    cursor := block + head;
-    for *items copy_into(it, type_info(T), *cursor);
+    #if #run copy_needed(type_info(T)) {
+        cursor := block + head;
+        for *items copy_into(it, *cursor);
+    }
 
     return items;
 }
@@ -88,108 +92,126 @@ align_copy_size :: (size: s64) -> s64 {
     return (size + 7) & ~7;
 }
 
-// The bytes `value` points to (not counting its own), each piece rounded up to 8.
-copy_size :: (value: *void, info: *Type_Info) -> s64 {
-    if info.type == {
-        case .STRING;
-            return align_copy_size((cast(*string) value).count);
-
-        case .STRUCT;
-            total := 0;
-
-            for (cast(*Type_Info_Struct) info).members {
-                if it.flags & .CONSTANT continue;
-                total += copy_size((cast(*u8) value) + it.offset_in_bytes, it.type);
-            }
-
-            return total;
-
-        case .ARRAY;
-            array := cast(*Type_Info_Array) info;
-            element := array.element_type;
-            count, data := array_parts(value, array);
-            total := ifx array.array_type == .FIXED then 0 else align_copy_size(count * element.runtime_size);
-
-            for 0..count - 1 total += copy_size(data + it * element.runtime_size, element);
-
-            return total;
-
-        case .POINTER;
-            target := (cast(*Type_Info_Pointer) info).pointer_to;
-            pointer := (cast(**u8) value).*;
-
-            if !pointer || !target || target.runtime_size <= 0 return 0;
-
-            return align_copy_size(target.runtime_size) + copy_size(pointer, target);
-        case; // Other members deliberately do nothing.
-    }
-
-    return 0;
+// The bytes `value` points to (not counting its own), each piece rounded up to 8. The body is
+// written for `T` when the program compiles, so a row costs straight-line code, not a type walk.
+copy_size :: (value: *$T) -> s64 {
+    #insert #run copy_size_code(T);
 }
 
 // Moves what `value` points to into the block at `cursor`, and points `value` there.
-copy_into :: (value: *void, info: *Type_Info, cursor: **u8) {
+copy_into :: (value: *$T, cursor: **u8) {
+    #insert #run copy_into_code(T);
+}
+
+// Whether a value of this type points to anything that `fetch_all` has to copy.
+copy_needed :: (info: *Type_Info) -> bool {
     if info.type == {
         case .STRING;
-            text := cast(*string) value;
-            if !text.count return;
-
-            memcpy(cursor.*, text.data, text.count);
-            text.data = cursor.*;
-            cursor.* += align_copy_size(text.count);
-
-        case .STRUCT;
-            for (cast(*Type_Info_Struct) info).members {
-                if it.flags & .CONSTANT continue;
-                copy_into((cast(*u8) value) + it.offset_in_bytes, it.type, cursor);
-            }
-
-        case .ARRAY;
-            array := cast(*Type_Info_Array) info;
-            element := array.element_type;
-            count, data := array_parts(value, array);
-
-            if array.array_type != .FIXED {
-                if !count return;
-
-                memcpy(cursor.*, data, count * element.runtime_size);
-                data = cursor.*;
-                cursor.* += align_copy_size(count * element.runtime_size);
-
-                // A copied [..] array is a view into the block: it must not grow in place.
-                view := cast(*Array_View_64) value;
-                view.data = data;
-
-                if array.array_type == .RESIZABLE {
-                    resizable := cast(*Resizable_Array) value;
-                    resizable.allocated = count;
-                    resizable.allocator = .{};
-                }
-            }
-
-            for 0..count - 1 copy_into(data + it * element.runtime_size, element, cursor);
+            return true;
 
         case .POINTER;
             target := (cast(*Type_Info_Pointer) info).pointer_to;
-            pointer := cast(**u8) value;
 
-            if !pointer.* || !target || target.runtime_size <= 0 return;
+            return target && target.runtime_size > 0;
 
-            memcpy(cursor.*, pointer.*, target.runtime_size);
-            pointer.* = cursor.*;
-            cursor.* += align_copy_size(target.runtime_size);
+        case .ARRAY;
+            array := cast(*Type_Info_Array) info;
 
-            copy_into(pointer.*, target, cursor);
-        case; // Other members deliberately do nothing.
+            return array.array_type != .FIXED || copy_needed(array.element_type);
+
+        case .STRUCT;
+            for (cast(*Type_Info_Struct) info).members {
+                if (it.flags & .CONSTANT) == 0 && copy_needed(it.type) return true;
+            }
+
+        case; // Other types own nothing.
     }
+
+    return false;
 }
 
-array_parts :: (value: *void, array: *Type_Info_Array) -> count: s64, data: *u8 {
-    if array.array_type == .FIXED return array.array_count, cast(*u8) value;
+copy_size_code :: (T: Type) -> string {
+    info := type_info(T);
+    builder: String_Builder;
+    builder.allocator = temp;
 
-    view := cast(*Array_View_64) value;
+    if !copy_needed(info) return "return 0;";
 
-    return view.count, view.data;
+    if info.type == {
+        case .STRING;
+            append(*builder, "return align_copy_size(value.count);");
+
+        case .POINTER;
+            append(*builder, "if !value.* return 0;\nreturn align_copy_size(size_of(type_of(value.*.*))) + copy_size(value.*);");
+
+        case .ARRAY;
+            array := cast(*Type_Info_Array) info;
+
+            append(*builder, "total := 0;\n");
+            if array.array_type != .FIXED append(*builder, "total += align_copy_size(value.count * size_of(type_of(value.data.*)));\n");
+            if copy_needed(array.element_type) append(*builder, "for *value.* total += copy_size(it);\n");
+
+            append(*builder, "return total;");
+
+        case .STRUCT;
+            append(*builder, "total := 0;\n");
+
+            for (cast(*Type_Info_Struct) info).members {
+                if (it.flags & .CONSTANT) || !copy_needed(it.type) continue;
+
+                if !it.name.count {
+                    compiler_report(tprint("Postgres: % has an unnamed member that holds strings, arrays or pointers; fetch_all cannot copy it", T));
+                    continue;
+                }
+
+                print_to_builder(*builder, "total += copy_size(*value.%);\n", it.name);
+            }
+
+            append(*builder, "return total;");
+
+        case; // Other types own nothing.
+    }
+
+    return builder_to_string(*builder);
+}
+
+copy_into_code :: (T: Type) -> string {
+    info := type_info(T);
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    if !copy_needed(info) return "";
+
+    if info.type == {
+        case .STRING;
+            append(*builder, "if !value.count return;\nmemcpy(cursor.*, value.data, value.count);\nvalue.data = cursor.*;\ncursor.* += align_copy_size(value.count);");
+
+        case .POINTER;
+            append(*builder, "if !value.* return;\nsize :: size_of(type_of(value.*.*));\nmemcpy(cursor.*, value.*, size);\nvalue.* = cast(type_of(value.*)) cursor.*;\ncursor.* += align_copy_size(size);\ncopy_into(value.*, cursor);");
+
+        case .ARRAY;
+            array := cast(*Type_Info_Array) info;
+
+            if array.array_type != .FIXED {
+                append(*builder, "if !value.count return;\nbytes := value.count * size_of(type_of(value.data.*));\nmemcpy(cursor.*, value.data, bytes);\nvalue.data = cast(type_of(value.data)) cursor.*;\ncursor.* += align_copy_size(bytes);\n");
+
+                // A copied [..] array is a view into the block: it must not grow in place.
+                if array.array_type == .RESIZABLE append(*builder, "value.allocated = value.count;\nvalue.allocator = .{};\n");
+            }
+
+            if copy_needed(array.element_type) append(*builder, "for *value.* copy_into(it, cursor);");
+
+        case .STRUCT;
+            for (cast(*Type_Info_Struct) info).members {
+                if (it.flags & .CONSTANT) || !copy_needed(it.type) || !it.name.count continue;
+
+                print_to_builder(*builder, "copy_into(*value.%, cursor);\n", it.name);
+            }
+
+        case; // Other types own nothing.
+    }
+
+    return builder_to_string(*builder);
 }
 
 #scope_export
