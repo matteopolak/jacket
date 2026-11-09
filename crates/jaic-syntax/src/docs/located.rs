@@ -68,3 +68,26 @@ pub fn opening(text: &str) -> Option<Located> {
     }
     located(&t, &run)
 }
+
+/// Where the comments [`super::declaration`] reads for a field or member named at `at` start:
+/// the lines above it, else its trailing comment.
+pub fn declaration_comments(text: &str, at: usize) -> Vec<usize> {
+    if !valid(text, at) {
+        return Vec::new();
+    }
+    let t = trivia(text);
+    if super::enclosing_header_in(&t, at).is_some() {
+        return Vec::new();
+    }
+    if super::above_in(&t, at).is_some() {
+        return t
+            .docs_run(line_start(&t.text, at))
+            .into_iter()
+            .map(Trivia::start)
+            .collect();
+    }
+    if super::trailing_in(&t, at).is_some() {
+        return t.comment_after(at).map(Trivia::start).into_iter().collect();
+    }
+    Vec::new()
+}

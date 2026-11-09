@@ -10,15 +10,16 @@ use crate::source::FileId;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-/// `text` without its comments. Comment-only lines go, a line that ends in a comment loses the
-/// trailing space, and blank lines are not stacked; everything else keeps its layout. The
-/// lexer says what a comment is, so `//` in a string stays.
+/// `text` without the comments `drop` accepts (it is given each comment's start offset). Comment-only
+/// lines go, a line that ends in a comment loses the trailing space, and blank lines are not
+/// stacked; everything else keeps its layout. The lexer says what a comment is, so `//` in a
+/// string stays.
 ///
 /// Also for each line of `text` the line it is in the result, `None` for a line that went.
-pub(super) fn stripped(text: &str) -> (String, Vec<Option<usize>>) {
+pub(super) fn stripped(text: &str, drop: &dyn Fn(usize) -> bool) -> (String, Vec<Option<usize>>) {
     let (_, comments, _) = lex_with_trivia(FileId(0), text);
     let mut dropped = vec![false; text.len()];
-    for c in &comments {
+    for c in comments.iter().filter(|c| drop(c.span.start as usize)) {
         let (start, end) = (c.span.start as usize, (c.span.end as usize).min(text.len()));
         for (at, byte) in text.bytes().enumerate().take(end).skip(start) {
             dropped[at] = byte != b'\n';
@@ -218,7 +219,13 @@ impl Reader<'_> {
         let Some(written) = text.get(start..end.min(text.len())) else {
             return;
         };
-        let (plain, places) = stripped(written);
+        // A field's docs are its member's; any other comment stays where it was written.
+        let member_docs: BTreeSet<usize> = item
+            .members
+            .iter()
+            .flat_map(|m| docs::declaration_comments(text, m.at))
+            .collect();
+        let (plain, places) = stripped(written, &|at| member_docs.contains(&(start + at)));
         plain
             .trim_end_matches(';')
             .trim_end()

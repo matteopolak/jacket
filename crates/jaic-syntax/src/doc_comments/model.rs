@@ -211,7 +211,7 @@ pub struct Item {
     /// Other declarations of the name (one per branch of an `#if`) that this item stands for.
     pub also: Vec<(PathBuf, usize)>,
     /// A struct, union or enum as written (`Channel :: struct(T: Type) { ... }`), without its
-    /// comments.
+    /// field and member docs (those are on `members`); other comments stay.
     pub declaration: String,
     /// The declarations the type names in `declaration` stand for.
     pub decl_refs: Vec<TypeRef>,

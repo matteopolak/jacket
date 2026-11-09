@@ -1191,7 +1191,7 @@ pub use experimental::{EXPERIMENTAL, noted, strip_experimental};
 mod forward;
 pub use forward::{Resolver, alias_target, docs_site};
 mod located;
-pub use located::{Located, located_above, opening};
+pub use located::{Located, declaration_comments, located_above, opening};
 mod items;
 pub mod unresolved;
 pub use items::without_items;

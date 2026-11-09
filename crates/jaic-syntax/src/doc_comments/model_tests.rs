@@ -506,7 +506,7 @@ fn a_type_item_carries_its_declaration_without_comments() {
         "declaration",
         &[(
             "module.jai",
-            "// A channel.\nChannel :: struct(T: Type, N := 4) {\n    // The queue.\n    buffer: *T; // trailing\n    url := \"http://x\"; // not a comment inside the string\n\n    /* block\n       comment */\n    \n    count: int @Counted;\n    next: *Channel(T);\n}\n\nMode :: enum u8 {\n    // Slow.\n    SLOW :: 0;\n    FAST :: 1; // quick\n}\n",
+            "// A channel.\nChannel :: struct(T: Type, N := 4) {\n    buffer: *T; // trailing\n    url := \"http://x\"; // not a comment inside the string\n\n    /* block\n       comment */\n    count: int @Counted;\n    next: *Channel(T);\n}\n\nMode :: enum u8 {\n    // Slow.\n    SLOW :: 0;\n    FAST :: 1; // quick\n}\n",
         )],
     );
     let model = module(&dir, Path::new("/nowhere"));
@@ -523,17 +523,56 @@ fn a_type_item_carries_its_declaration_without_comments() {
     assert!(item("Channel").decl_refs.iter().all(|r| r.path != "T"));
     let json = to_json(&model, &|_| None);
     assert!(json.contains("\"declaration\":\"Channel :: struct(T: Type, N := 4) {\\n"));
-    assert!(!json.contains("trailing"));
+    // The comment is the field's docs, so it is not in the declaration too.
+    assert!(!json.contains("*T; // trailing"));
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn comment_stripping_keeps_slashes_in_strings() {
     use super::declaration::stripped;
-    let (text, places) =
-        stripped("a :: \"// kept\"; // gone\n// whole line\nb :: 1; /* x */ c :: 2;\n");
+    let (text, places) = stripped(
+        "a :: \"// kept\"; // gone\n// whole line\nb :: 1; /* x */ c :: 2;\n",
+        &|_| true,
+    );
     assert_eq!(text, "a :: \"// kept\";\nb :: 1;  c :: 2;");
     assert_eq!(places, [Some(0), None, Some(1), None]);
+}
+
+#[test]
+fn comment_stripping_leaves_the_comments_it_is_not_asked_to_drop() {
+    use super::declaration::stripped;
+    let (text, places) = stripped("a :: 1; // gone\n// kept\nb :: 2; // kept too\n", &|at| {
+        at < 15
+    });
+    assert_eq!(text, "a :: 1;\n// kept\nb :: 2; // kept too");
+    assert_eq!(places, [Some(0), Some(1), Some(2), None]);
+}
+
+#[test]
+fn a_declaration_keeps_the_comments_that_are_not_field_docs() {
+    let dir = library(
+        "declaration-comments",
+        &[(
+            "module.jai",
+            "Packet :: struct {\n    // The size.\n    size: int; // in bytes\n\n    // How the body is stored.\n    Body :: []u8;\n\n    body: Body;\n    // That is all.\n}\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let item = model.items.iter().find(|i| i.name == "Packet").unwrap();
+    // The size's docs are its member's; the rest, a trailing comment the docs above displace
+    // included, stays where it was written.
+    assert_eq!(
+        item.declaration,
+        "Packet :: struct {\n    size: int; // in bytes\n\n    // How the body is stored.\n    Body :: []u8;\n\n    body: Body;\n    // That is all.\n}"
+    );
+    let lines: Vec<_> = item
+        .members
+        .iter()
+        .map(|m| (m.name.as_str(), m.line))
+        .collect();
+    assert_eq!(lines, [("size", Some(1)), ("body", Some(6))]);
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
