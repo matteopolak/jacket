@@ -12,6 +12,12 @@ use crate::source::{FileId, SourceMap, Span};
 use super::modules::{self, FileSystem};
 use super::{FileInfo, ModuleId};
 
+/// The string literal byte ranges of one source text.
+pub(in crate::sema) struct StringRanges {
+    pub text: std::sync::Arc<str>,
+    pub ranges: Rc<[(usize, usize)]>,
+}
+
 pub struct SourceState {
     pub fs: Rc<dyn FileSystem>,
     /// Real paths already worked out (see [`SourceState::canon`]).
@@ -27,9 +33,10 @@ pub struct SourceState {
         Probed<HashMap<(PathBuf, ModuleId), modules::FileLoadState>, { W::SrcFileByPath as usize }>,
     /// Whether each source file is the stdlib's, for trap reports (a `#run` can trap often).
     pub(in crate::sema) library_files: RefCell<HashMap<u32, bool>>,
-    /// Where the string literals of each source file are, as byte ranges. Worked out once per
-    /// file and text (a file whose text was replaced is worked out again): a `#run` that reports often asks for every report (`SourceState::reported_span`).
-    pub(in crate::sema) string_ranges: RefCell<HashMap<(u32, usize, usize), Rc<[(usize, usize)]>>>,
+    /// Where the string literals of each source file are, as byte ranges, with the text they were
+    /// found in: a file whose text was replaced is worked out again. A `#run` that reports often
+    /// asks on every report (`SourceState::reported_span`).
+    pub(in crate::sema) string_ranges: RefCell<HashMap<u32, StringRanges>>,
     /// The file a metaprogram's report named, by the path it gave (`SourceState::file_by_path`).
     /// Only found files are kept: the first file with a path never changes, a missing one can
     /// still be loaded.

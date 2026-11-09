@@ -442,16 +442,26 @@ impl SourceState {
             return statement;
         };
         let at = statement.start as usize;
-        let key = (loc.0, source.text.as_ptr() as usize, source.text.len());
-        let ranges = self.string_ranges.borrow().get(&key).cloned();
-        let ranges = ranges.unwrap_or_else(|| {
+        let cached = self
+            .string_ranges
+            .borrow()
+            .get(&loc.0)
+            .filter(|c| std::sync::Arc::ptr_eq(&c.text, &source.text))
+            .map(|c| c.ranges.clone());
+        let ranges = cached.unwrap_or_else(|| {
             let (tokens, _) = crate::lexer::lex_ide(FileId(loc.0), &source.text);
             let ranges: Rc<[(usize, usize)]> = tokens
                 .iter()
                 .filter(|t| matches!(t.tok, crate::lexer::Tok::Str(_)))
                 .map(|t| (t.span.start as usize, t.span.end as usize))
                 .collect();
-            self.string_ranges.borrow_mut().insert(key, ranges.clone());
+            self.string_ranges.borrow_mut().insert(
+                loc.0,
+                super::source_state::StringRanges {
+                    text: source.text.clone(),
+                    ranges: ranges.clone(),
+                },
+            );
             ranges
         });
         let inside = ranges.iter().any(|&(start, end)| start < at && at < end);
