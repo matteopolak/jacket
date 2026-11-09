@@ -201,6 +201,11 @@ tzdata wheel, unpacks its TZif files and writes offsets, abbreviations and gap/f
 vectors using Python `zoneinfo`. `JACKET_OUTPUT_DIR` relocates these fixtures along
 with other repository output.
 
+The tests read these fixtures, not the system zone files (`/usr/share/zoneinfo`, `TZDIR`),
+so they behave the same on every machine. `jacket test` builds them before the run when
+`target/time-conformance` is missing; offline, or without Python 3, the run stops with the
+command to run by hand. A test run any other way fails with that command in its message.
+
 Benchmarks live in `benches/bench.jai`. They measure civil add/until, zone conversion, RFC
 3339 text, cached lookup, and offset lookup with table and POSIX rules. Python's `datetime` uses microseconds, so its
 parse/format comparison does less precision work.

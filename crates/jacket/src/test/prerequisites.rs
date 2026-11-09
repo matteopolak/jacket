@@ -26,7 +26,7 @@ struct Setup {
     outputs: &'static [&'static str],
 }
 
-const SETUPS: [Setup; 2] = [
+const SETUPS: [Setup; 3] = [
     Setup {
         what: "the fixture data",
         script: "tools/portable/build_portable.py",
@@ -41,6 +41,17 @@ const SETUPS: [Setup; 2] = [
             "target/portable-tests/zip",
             "target/portable-tests/archive-fixtures",
             "target/portable-tests/mpeg",
+        ],
+    },
+    Setup {
+        what: "the time zone data",
+        script: "tools/portable/build_portable.py",
+        args: &["data"],
+        mentions: &["time-conformance/"],
+        below: None,
+        outputs: &[
+            "target/time-conformance/vectors.bin",
+            "target/time-conformance/zoneinfo",
         ],
     },
     Setup {
@@ -114,7 +125,13 @@ fn prepare_with(python: &str, files: &[PathBuf], stdlib: &Path) -> Result<(), St
     let Some(root) = stdlib.parent() else {
         return Ok(());
     };
+    let mut ran: Vec<(&str, &[&str])> = Vec::new();
     for setup in needed(files, stdlib, root) {
+        // One script builds several outputs; a run that was due for two of them is one run.
+        if ran.contains(&(setup.script, setup.args)) {
+            continue;
+        }
+        ran.push((setup.script, setup.args));
         eprintln!(
             "jacket: building {} (first run in this checkout)",
             setup.what
@@ -459,6 +476,9 @@ mod tests {
         std::fs::write(&plain, "main :: () {}").unwrap();
         let debug = stdlib.join("Debug/tests/ownership.jai");
         std::fs::write(&debug, "main :: () {}").unwrap();
+        std::fs::create_dir_all(stdlib.join("Extensions/Time/tests")).unwrap();
+        let zones = stdlib.join("Extensions/Time/tests/zones.jai");
+        std::fs::write(&zones, "x := \"%/time-conformance/zoneinfo\";").unwrap();
 
         let names = |files: &[PathBuf]| -> Vec<&'static str> {
             needed(files, &stdlib, &root)
@@ -473,12 +493,19 @@ mod tests {
             ["the Debug native helper"]
         );
         assert_eq!(names(&[reads, debug]).len(), 2);
+        assert_eq!(names(std::slice::from_ref(&zones)), ["the time zone data"]);
 
-        // Built outputs, or no build scripts (a package), need nothing.
+        // Built outputs, or no build scripts (a package), need nothing. The zone data is built
+        // apart from the other fixtures, and one does not stand in for the other.
         std::fs::create_dir_all(root.join("target/portable-tests/zip")).unwrap();
         std::fs::create_dir_all(root.join("target/portable-tests/archive-fixtures")).unwrap();
         std::fs::create_dir_all(root.join("target/portable-tests/mpeg")).unwrap();
         assert!(names(&[stdlib.join("Zip/tests/reads.jai")]).is_empty());
+        assert_eq!(names(std::slice::from_ref(&zones)), ["the time zone data"]);
+        std::fs::create_dir_all(root.join("target/time-conformance/zoneinfo")).unwrap();
+        assert_eq!(names(std::slice::from_ref(&zones)), ["the time zone data"]);
+        std::fs::write(root.join("target/time-conformance/vectors.bin"), "").unwrap();
+        assert!(names(std::slice::from_ref(&zones)).is_empty());
         std::fs::remove_dir_all(root.join("tools")).unwrap();
         assert!(names(&[stdlib.join("Debug/tests/ownership.jai")]).is_empty());
         let _ = std::fs::remove_dir_all(&root);
