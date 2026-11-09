@@ -469,6 +469,37 @@ async function runCombo(tab, page, width, theme) {
     });
   };
   await swaps('sidebar', SIDE_OTHER, SIDE_SELF);
+
+  // Clicking a sidebar link moves the page only to where the link leads: the top of another page,
+  // and nowhere for the row of the page that is open.
+  await guard('sidebar click at the bottom', async () => {
+    await tab.goto('about:blank');
+    await tab.goto(url);
+    // Content below the fold settles its height as it is reached, so scroll until it holds still.
+    let y = -1;
+    for (let i = 0; i < 20; i++) {
+      await tab.evaluate(`window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' })`);
+      await delay(100);
+      const now = await tab.evaluate('Math.round(scrollY)');
+      if (now === y) break;
+      y = now;
+    }
+    if (y < 40) { record('sidebar click at the bottom', [], { note: 'not scrollable' }); return; }
+    const footer = await tab.evaluate(`document.querySelector('.foot').getBoundingClientRect().bottom <= innerHeight + 1`);
+    const problems = [];
+    if (!footer) problems.push('the footer is not in view at the bottom of the page');
+    const self = await afterClick(tab, 'self', SIDE_SELF, { self: true });
+    if (!self.skipped) {
+      const at = await tab.evaluate('Math.round(scrollY)');
+      if (Math.abs(at - y) > 2) problems.push(`the row of the open page moved the scroll: ${y} -> ${at}`);
+    }
+    const other = await afterClick(tab, 'other', SIDE_OTHER);
+    if (!other.skipped) {
+      const at = await tab.evaluate('Math.round(scrollY)');
+      if (at !== 0) problems.push(`a link to another page left the scroll at ${at}, not at its top`);
+    }
+    record('sidebar click at the bottom', problems);
+  });
   await swaps('header API', HEADER_API, HEADER_API);
   return results;
 }

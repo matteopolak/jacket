@@ -1338,6 +1338,8 @@
         // back to the top without loading again.
         if (u.hash) return;
         e.preventDefault();
+        // The sidebar's row for the open page leaves the reading position alone.
+        if (ancestor(e, 'details.side')) return;
         if (u.href !== location.href) history.pushState({ y: 0 }, '', u.href);
         window.scrollTo(0, 0);
         return;
