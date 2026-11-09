@@ -314,6 +314,39 @@ impl Reader<'_> {
 }
 
 impl Reader<'_> {
+    /// What an `#insert` declares is known only by running it, which `expand` does. Its text is
+    /// read as a file of its own that `file` loads, queued after the files before it. An
+    /// `#insert` in generated text is not followed.
+    fn expand_inserts(
+        &mut self,
+        file: &Path,
+        parsed: &Parsed,
+        expand: Expander,
+        out: &mut Module,
+        queue: &mut Vec<PathBuf>,
+    ) {
+        if generated_origin(&file.to_string_lossy()).is_some() {
+            return;
+        }
+        for (span, visibility) in ide_facts::top_level_inserts(&parsed.parse.file) {
+            if visibility != Visibility::Export {
+                continue;
+            }
+            let line = self.line_of(&parsed.text, span.start as usize);
+            match expand(file, line) {
+                Ok(inserted) if inserted.trim().is_empty() => {}
+                Ok(inserted) => {
+                    let made = generated_path(file, line);
+                    self.files.add_generated(&made, inserted.into(), file);
+                    queue.push(made);
+                }
+                Err(reason) => out.unexpanded.push((file.to_path_buf(), line, reason)),
+            }
+        }
+    }
+}
+
+impl Reader<'_> {
     fn parsed(&mut self, file: &Path) -> Option<Rc<Parsed>> {
         if let Some(found) = self.parsed.get(file) {
             return found.clone();
@@ -742,25 +775,7 @@ pub fn module_expanding(dir: &Path, stdlib: &Path, expand: Expander) -> Module {
         let mut first_statement = None;
         let mut loads = Vec::new();
         let index = TopIndex::new(&parsed);
-        // What an `#insert` declares is known only by running it, which `expand` does. Its text
-        // is read as a file of its own that `file` loads. An `#insert` in generated text is
-        // not followed.
-        let generated_here = generated_origin(&file.to_string_lossy()).is_some();
-        for (span, visibility) in ide_facts::top_level_inserts(&parsed.parse.file) {
-            if visibility != Visibility::Export || generated_here {
-                continue;
-            }
-            let line = reader.line_of(&text, span.start as usize);
-            match expand(&file, line) {
-                Ok(inserted) if inserted.trim().is_empty() => {}
-                Ok(inserted) => {
-                    let made = generated_path(&file, line);
-                    reader.files.add_generated(&made, inserted.into(), &file);
-                    queue.push(made);
-                }
-                Err(reason) => out.unexpanded.push((file.clone(), line, reason)),
-            }
-        }
+        reader.expand_inserts(&file, &parsed, expand, &mut out, &mut queue);
         for item in &index.tops {
             first_statement.get_or_insert(item.span.start as usize);
             match item.kind {
