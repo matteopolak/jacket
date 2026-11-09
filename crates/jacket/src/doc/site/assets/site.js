@@ -135,7 +135,7 @@
     /** @param {boolean} [now] */
     var close = function (now) {
       lock(false);
-      if (!modal() || drawer.classList.contains('closing')) return;
+      if (!modal() || (!now && drawer.classList.contains('closing'))) return;
       var finish = function () {
         drawer.classList.remove('closing');
         if (modal()) drawer.close();

@@ -114,3 +114,75 @@ test('the early outline selects its first section when all headings are below th
   toc.querySelectorAll = () => [];
   assert.doesNotThrow(() => context.window.jacketPage(false), 'an empty outline has no section to select');
 });
+
+const site = await readFile(new URL('../../crates/jacket/src/doc/site/assets/site.js', import.meta.url), 'utf8');
+
+// `setupDrawer` of site.js with a dialog that models open, modal and the asynchronous close event.
+function drawerPage() {
+  const start = site.indexOf('function setupDrawer(drawer) {');
+  const end = site.indexOf('\n  function sideGroups', start);
+  assert(start >= 0 && end > start, 'site.js has setupDrawer before sideGroups');
+  const listeners = {};
+  const media = { matches: false, change: null, addEventListener: (_, f) => { media.change = f; } };
+  const slide = { release: null };
+  const drawer = {
+    open: false, modal: false,
+    classes: new Set(),
+    classList: {
+      add: c => drawer.classes.add(c), remove: c => drawer.classes.delete(c),
+      contains: c => drawer.classes.has(c),
+    },
+    matches: s => s === ':modal' && drawer.modal,
+    querySelector: () => null,
+    contains: () => false,
+    getAnimations: () => drawer.classes.has('closing')
+      ? [{ finished: new Promise(resolve => { slide.release = resolve; }) }] : [],
+    getBoundingClientRect: () => ({ left: 0, right: 0, top: 0, bottom: 0 }),
+    showModal() { drawer.open = true; drawer.modal = true; },
+    show() { drawer.open = true; drawer.modal = false; },
+    close() {
+      drawer.open = false; drawer.modal = false;
+      queueMicrotask(() => (listeners.close || []).forEach(f => f()));
+    },
+    addEventListener: (name, f) => { (listeners[name] ||= []).push(f); },
+  };
+  const button = {
+    setAttribute() {}, focus() {}, contains: () => false,
+    addEventListener: (name, f) => { listeners['button:' + name] = [f]; },
+  };
+  const context = {
+    matchMedia: () => media,
+    document: { getElementById: () => button, addEventListener() {} },
+    root: { classList: { toggle() {} } },
+    ancestor: () => null,
+    drawer,
+  };
+  vm.runInNewContext(`${site.slice(start, end)}\nsetupDrawer(drawer);`, context);
+  return { drawer, media, slide, click: () => listeners['button:click'][0]() };
+}
+
+const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+
+test('widening the window while the drawer slides away leaves the sidebar open', async () => {
+  const p = drawerPage();
+  p.click();
+  assert(p.drawer.open && p.drawer.modal, 'the button opens the drawer as a modal');
+  p.click();
+  assert(p.drawer.classes.has('closing'), 'the drawer is sliding away');
+  p.media.matches = true;
+  p.media.change({ matches: true });
+  p.slide.release?.();
+  await settle();
+  assert.equal(p.drawer.open, true, 'beside the page the sidebar is open');
+  assert.equal(p.drawer.modal, false, 'and is no longer a modal');
+});
+
+test('widening the window with the drawer open leaves the sidebar open', async () => {
+  const p = drawerPage();
+  p.click();
+  p.media.matches = true;
+  p.media.change({ matches: true });
+  await settle();
+  assert.equal(p.drawer.open, true);
+  assert.equal(p.drawer.modal, false);
+});
