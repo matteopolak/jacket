@@ -1,6 +1,6 @@
 //! Build project analyses from their entries before individual documents need them.
 use super::Session;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -12,6 +12,15 @@ pub(super) struct IndexCounts {
     diagnostics: (usize, usize),
 }
 
+/// The workspace's entry programs, with what they were worked out from.
+#[derive(Default)]
+pub(super) struct EntryMemo {
+    key: Option<(u64, u64, Vec<PathBuf>)>,
+    entries: Rc<BTreeSet<PathBuf>>,
+    /// How many times they were worked out (see `Session::entry_scans`).
+    scans: u64,
+}
+
 #[derive(Default)]
 pub(super) struct WorkspaceIndex {
     generation: Option<u64>,
@@ -20,6 +29,44 @@ pub(super) struct WorkspaceIndex {
 }
 
 impl Session {
+    /// The programs the workspace is made of: the entries of the workspace folders and of the
+    /// open documents' projects (`Sources::workspace_entries`). Worked out again only when
+    /// what it reads changed: the generation (open documents, edits, notified file changes),
+    /// the index's epoch (disk changes, build facts recorded by a compile) or the folders. A
+    /// file changed on disk without a notification is noticed when one of those moves.
+    pub(crate) fn workspace_entry_set(
+        &self,
+        env: &crate::semantic::Environment,
+    ) -> Rc<BTreeSet<PathBuf>> {
+        let key = (
+            self.generation.get(),
+            self.index.borrow().epoch(),
+            self.workspace_folders.clone(),
+        );
+        let mut memo = self.entries.borrow_mut();
+        if memo.key.as_ref() == Some(&key) {
+            return memo.entries.clone();
+        }
+        let sources = self.sources(env);
+        let open = self
+            .documents
+            .keys()
+            .map(|u| PathBuf::from(u.path()))
+            .collect::<Vec<_>>();
+        let entries =
+            sources.workspace_entries(&mut self.index.borrow_mut(), &self.workspace_folders, &open);
+        memo.scans += 1;
+        memo.entries = Rc::new(entries);
+        // Working them out reads `epoch`: take it again, as the walk can have recorded edits.
+        memo.key = Some((key.0, self.index.borrow().epoch(), key.2));
+        memo.entries.clone()
+    }
+
+    /// How many times `workspace_entry_set` worked the entries out rather than reusing them.
+    pub fn entry_scans(&self) -> u64 {
+        self.entries.borrow().scans
+    }
+
     /// One combined `(finished, total)` over both indexing phases: the entries analysed, then
     /// the diagnostic roots checked. The diagnostics total is the entry total until that phase
     /// reports its own, so the count does not start over when the phases hand over. `(0, 0)`
@@ -71,14 +118,8 @@ impl Session {
             Vec::new()
         };
         drop(state);
-        let sources = self.sources(env);
-        let open = self
-            .documents
-            .keys()
-            .map(|u| PathBuf::from(u.path()))
-            .collect::<Vec<_>>();
-        let mut index = self.index.borrow_mut();
-        let entries = sources.workspace_entries(&mut index, &self.workspace_folders, &open);
+        let entries = self.workspace_entry_set(env);
+        let index = self.index.borrow();
         let pending = entries.iter().any(|entry| {
             !done.contains(entry)
                 && (!index.builds.contains_key(entry)
@@ -88,7 +129,7 @@ impl Session {
             *self.workspace_index.borrow_mut() = WorkspaceIndex {
                 generation: Some(generation),
                 next: entries.len(),
-                entries: entries.into_iter().collect(),
+                entries: entries.iter().cloned().collect(),
             };
         }
         pending
@@ -111,14 +152,7 @@ impl Session {
     fn index_workspace_entry(&self) -> Option<(usize, usize)> {
         let env = self.environment.as_ref()?;
         let generation = self.generation.get();
-        let sources = self.sources(env);
-        let open = self
-            .documents
-            .keys()
-            .map(|u| PathBuf::from(u.path()))
-            .collect::<Vec<_>>();
-        let entries =
-            sources.workspace_entries(&mut self.index.borrow_mut(), &self.workspace_folders, &open);
+        let entries = self.workspace_entry_set(env);
         if self.workspace_index.borrow().generation != Some(generation) {
             *self.workspace_index.borrow_mut() = WorkspaceIndex {
                 generation: Some(generation),

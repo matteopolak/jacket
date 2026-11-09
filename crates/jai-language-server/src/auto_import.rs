@@ -113,6 +113,9 @@ pub(crate) struct Index {
     module_dirs: BTreeMap<PathBuf, ModuleCache>,
     /// Direct loaders of each file under a folder, as of `graph_epoch` and the files given.
     graphs: BTreeMap<PathBuf, (u64, Vec<PathBuf>, project::LoaderGraph)>,
+    /// Moves on whenever a file changes or the compiler records new build facts: what the
+    /// workspace's entry programs are worked out from.
+    epoch: u64,
     /// Moves on whenever a file's `#load`s are not what the last scan of it saw.
     graph_epoch: u64,
     loads_dirty: BTreeSet<PathBuf>,
@@ -136,6 +139,10 @@ pub(crate) struct Index {
 }
 
 impl Index {
+    pub(crate) fn epoch(&self) -> u64 {
+        self.epoch
+    }
+
     /// The settings file `path` does not parse: tell the client once per distinct problem.
     pub(crate) fn bad_config(&mut self, path: &Path, problem: &str) {
         if self.reported.get(path).is_some_and(|p| p == problem) {
@@ -186,6 +193,7 @@ impl Index {
         self.stale_source_graphs
             .retain(|root, _| builds.get(root) == self.builds.get(root));
         self.builds = builds;
+        self.epoch += 1;
         self.graph_epoch += 1;
         self.graphs.clear();
         self.import_dirs.clear();
@@ -210,6 +218,7 @@ impl Index {
 
     /// `path` changed: its scan and the module index it is part of are stale.
     pub(crate) fn changed(&mut self, path: &Path) {
+        self.epoch += 1;
         self.source_graphs_dirty.insert(path.to_path_buf());
         if path.extension().is_some_and(|e| e == "jai") {
             self.loads_dirty.insert(path.to_path_buf());

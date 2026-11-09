@@ -237,19 +237,7 @@ impl Session {
         let Some(env) = &self.environment else {
             return Vec::new();
         };
-        let open_paths: Vec<_> = self
-            .documents
-            .keys()
-            .map(|u| PathBuf::from(u.path()))
-            .collect();
-        let mut roots = {
-            let sources = self.sources(env);
-            sources.workspace_entries(
-                &mut self.index.borrow_mut(),
-                &self.workspace_folders,
-                &open_paths,
-            )
-        };
+        let mut roots = self.workspace_entry_set(env).as_ref().clone();
         if roots.is_empty() {
             roots.insert(PathBuf::from(uri.path()));
         }

@@ -22,6 +22,8 @@ Lifetime lint queries memoize shared temporary-value paths by value and depth; w
 
 Member completion first uses receiver types from the indexed program. A placeholder compile is needed only when that context is missing. Known built-in types and members have no source definition and do not trigger cross-target searches for one. Public type-alias signatures are resolved before module completion so their kind is stable.
 
+The entry set (`Session::workspace_entry_set`) is memoized on the session generation, the index epoch (disk changes and newly recorded build facts) and the workspace folders, so progress checks and idle work do not re-walk the open files' projects. A file changed on disk without a notification is noticed when one of those moves; `tests/entry_traversals.rs` bounds the walks.
+
 Use the [graph audit](lsp-graph-audit.md) to check every included repository file in several open orders.
 
 ## Configuration

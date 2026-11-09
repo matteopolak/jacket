@@ -69,18 +69,7 @@ impl Session {
             return None;
         }
         let env = self.environment.as_ref()?;
-        let sources = self.sources(env);
-        let open = self
-            .documents
-            .keys()
-            .map(|u| PathBuf::from(u.path()))
-            .collect::<Vec<_>>();
-        Some(
-            sources
-                .workspace_entries(&mut self.index.borrow_mut(), &self.workspace_folders, &open)
-                .into_iter()
-                .collect(),
-        )
+        Some(self.workspace_entry_set(env).iter().cloned().collect())
     }
 
     pub(super) fn workspace_diagnostics_pending(&self) -> bool {
