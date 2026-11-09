@@ -32,7 +32,7 @@ run() {
   local only=()
   if [[ -n "${JACKET_TEST_CHANGED:-}" ]]; then
     local names selection
-    names="$(mktemp)"
+    names="$(mktemp "${TMPDIR:-/tmp}/stdlib-test-names.XXXXXX")"
     selection=0
     python3 -B tools/ci/select_tests.py --jacket "$jacket" --out "$names" -- "$@" || selection=$?
     if [[ $selection == 0 ]]; then
