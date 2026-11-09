@@ -604,13 +604,21 @@ emit_read_array :: (g: *Gen, target: string, array: *Type_Info_Array, leaf: *Lea
     out := *g.out;
     message := jai_quote(leaf.message);
 
+    id := next_id(g);
+
     if array.array_type == .FIXED {
-        fail(g, "a fixed-size array cannot be decoded; use `[..]` or `[]`");
+        // Exactly as many elements as the array holds; the extra one is the error.
+        print(out, "{\nif !toml_array_begin(r, %) return false;\nfirst_% := true;\nindex_% := 0;\n", message, id, id);
+        print(out, "while true {\nstatus_% := toml_array_next(r, *first_%);\nif status_% < 0 return false;\nif status_% == 0 break;\n", id, id, id, id);
+        print(out, "if index_% >= % return toml_fail(r, .TYPE, %, r.pos);\n", id, array.array_count, jai_quote(tprint("array has more than % elements", array.array_count)));
+        print(out, "mark_% := toml_path_index(r, index_%);\n", id, id);
+        emit_read(g, tprint("%[index_%]", target, id), array.element_type, leaf);
+        print(out, "r.path.count = mark_%;\nindex_% += 1;\n}\n", id, id);
+        print(out, "if index_% != % return toml_fail(r, .TYPE, %, r.pos);\n}\n", id, array.array_count, jai_quote(tprint("array needs % elements", array.array_count)));
 
         return;
     }
 
-    id := next_id(g);
     view := array.array_type == .VIEW;
     list := ifx view then tprint("list_%", id) else target;
 
@@ -692,11 +700,19 @@ generate_descend :: (T: Type) -> string {
             }
 
             print(out, "if step == .FINAL_ARRAY return toml_fail(r, .TYPE, \"key is not an array of tables\", r.statement_at);\nif !decl.child decl.child = toml_new_frame();\nif step == .FINAL_TABLE return true;\nreturn toml_descend(r, %, decl.child, keys, index + 1, op, nav);\n}\n", address_of(table));
-        } else if shape == .VIEW {
-            print(out, "return toml_fail(r, .TYPE, \"arrays of tables need a resizable array\", r.statement_at);\n}\n");
         } else {
             print(out, "if step == .FINAL_ARRAY {\nif decl.child {\nif %.count {\nelement_mark := toml_path_index(r, %.count - 1);\nif !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\ntoml_free_frame(decl.child);\n}\n", place, place, place, place);
-            print(out, "decl.child = toml_new_frame();\narray_add(*%);\nreturn true;\n}\n", place);
+            print(out, "decl.child = toml_new_frame();\n");
+
+            if shape == .VIEW {
+                // The view keeps no capacity of its own; the declaration does. The new view is
+                // published at once, so a failure frees the storage wherever it stands.
+                print(out, "{\ngrown: [..] type_of(%[0]);\ngrown.data = %.data;\ngrown.count = %.count;\ngrown.allocated = decl.capacity;\narray_add(*grown);\n% = .{ grown.count, grown.data };\ndecl.capacity = grown.allocated;\n}\n", place, place, place, place);
+            } else {
+                print(out, "array_add(*%);\n", place);
+            }
+
+            print(out, "return true;\n}\n");
             print(out, "if step == .FINAL_TABLE || decl.kind != .ARRAY_TABLE || !%.count return toml_fail(r, .TYPE, \"key is not a table\", r.statement_at);\n", place);
             print(out, "array_add(*r.path, Toml_Path_Part.{ index = %.count - 1 });\nreturn toml_descend(r, *%[%.count - 1], decl.child, keys, index + 1, op, nav);\n}\n", place, place, place);
         }
@@ -752,7 +768,7 @@ generate_finish :: (T: Type) -> string {
 
             if shape == .STRUCT print(out, "if !toml_finish(r, *%, decl.child, decl.span.start) return false;\n", place);
             else if shape == .POINTER print(out, "if % && !toml_finish(r, %, decl.child, decl.span.start) return false;\n", place, place);
-            else if shape == .ARRAY print(out, "if %.count {\nelement_mark := toml_path_index(r, %.count - 1);\nif !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\n", place, place, place, place);
+            else if shape == .ARRAY || shape == .VIEW print(out, "if %.count {\nelement_mark := toml_path_index(r, %.count - 1);\nif !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\n", place, place, place, place);
 
             print(out, "r.path.count = mark;\n");
         }

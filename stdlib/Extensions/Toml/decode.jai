@@ -12,6 +12,7 @@ Toml_Decl :: struct {
     kind: Toml_Declaration_Kind;
     span: Toml_Span;
     child: *Toml_Frame;
+    capacity: int; // of a `[]` view that `[[x]]` headers fill; its elements are appended in place
 }
 
 Toml_Unknown_State :: struct {

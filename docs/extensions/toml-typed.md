@@ -26,7 +26,7 @@ Encoding writes key/value lines first, then `[table]` and `[[array of tables]]` 
 
 ## Supported types
 
-Integers (range-checked), floats (integers are accepted), `bool`, `string`, enums (by name; `as_number` for numbers), `Toml_Datetime`, structs, pointers (absent keys stay null), `[..] T` and `[] T`. Arrays of tables (`[[x]]`) need a `[..]` of structs; a `[]` view can only be assigned an inline array. Fixed-size arrays, unions, maps and `Toml_Value` fields are not supported.
+Integers (range-checked), floats (integers are accepted), `bool`, `string`, enums (by name; `as_number` for numbers), `Toml_Datetime`, structs, pointers (absent keys stay null), `[..] T` and `[] T`. Arrays of tables (`[[x]]`) go into a `[..]` or `[]` of structs; a `[]` view is grown in place, so it must start empty. A fixed-size array `[N] T` takes an inline array of exactly `N` elements. Unions, `Hash_Table` maps and `Toml_Value` fields are not supported.
 
 ## Notes
 
@@ -61,4 +61,4 @@ A field is required unless it has `default` (or its struct does). A missing key 
 
 ## Configuration and dependencies
 
-`Toml_Options` (see [TOML](toml.md)) plus `deny_unknown_fields`. Needs only `Basic`, `String` and `Compiler`. Tests: `stdlib/Extensions/Toml/tests/typed.jai` (also `error-paths.jai`, `unknown-wide.jai`, `writer-limits.jai`), which also checks that decoding, success or failure, leaves no allocation behind.
+`Toml_Options` (see [TOML](toml.md)) plus `deny_unknown_fields`. Needs only `Basic`, `String` and `Compiler`. Tests: `stdlib/Extensions/Toml/tests/typed.jai` (also `typed-shapes.jai`, `error-paths.jai`, `unknown-wide.jai`, `writer-limits.jai`), which also checks that decoding, success or failure, leaves no allocation behind.
