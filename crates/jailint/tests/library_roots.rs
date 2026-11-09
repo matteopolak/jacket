@@ -273,3 +273,27 @@ fn stdlib_scan_skips_expected_failures_and_keeps_real_findings_fatal() {
     );
     assert!(String::from_utf8_lossy(&output.stdout).contains("unused variable `lost`"));
 }
+
+#[test]
+fn module_that_sets_program_parameters_is_incomplete_like_the_compiler() {
+    let root = fixture("module-program-parameters");
+    std::fs::create_dir_all(root.join("stdlib/Probe")).unwrap();
+    std::fs::create_dir_all(root.join("stdlib/Inner")).unwrap();
+    std::fs::write(
+        root.join("stdlib/Inner/module.jai"),
+        "#module_parameters()(FLAG: bool = false);",
+    )
+    .unwrap();
+    let module = root.join("stdlib/Probe/module.jai");
+    std::fs::write(&module, "#import \"Inner\"()(FLAG = true);").unwrap();
+    let result = run(&options(&root, module));
+    assert_eq!(result.incomplete.len(), 1, "{:?}", result.incomplete);
+}
+
+#[test]
+fn directory_scan_skips_the_negative_program_parameter_fixture() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let fixtures = root.join("stdlib/Basic/tests/config-negative");
+    let result = run(&options(&root, fixtures));
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+}
