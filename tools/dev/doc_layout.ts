@@ -483,6 +483,24 @@ const SIDE_OTHER = `(() => {
   const i = links.indexOf(cur);
   return links.find((a, n) => n > i && a !== cur && a.getAttribute('aria-current') !== 'page') || links.find(a => a !== cur);
 })()`;
+// Rows of the sidebar and outline off whole pixels from their rail's top. The page-change
+// transition shows a snapshot of the sidebar, which rounds such rows differently, so they jump.
+const PART_PIXELS = `(() => {
+  const out = [];
+  for (const rail of document.querySelectorAll('dialog.side nav, .toc')) {
+    const top = rail.getBoundingClientRect().top;
+    for (const e of rail.querySelectorAll('*')) {
+      const r = e.getBoundingClientRect();
+      if (!r.height) continue;
+      const part = Math.abs(r.top - top) % 1;
+      if (part > 0.01 && part < 0.99) {
+        out.push('row off whole pixels by ' + part.toFixed(2) + 'px: ' + e.tagName.toLowerCase() + (e.className ? '.' + e.className : '') + ' "' + (e.textContent || '').trim().slice(0, 30) + '"');
+        if (out.length >= 3) return out;
+      }
+    }
+  }
+  return out;
+})()`;
 const SIDE_SELF = `document.querySelector('dialog.side nav [aria-current="page"]')`;
 const HEADER_API = `Array.from(document.querySelectorAll('.site-nav > a')).find(a => a.textContent.trim() === 'API')`;
 
@@ -552,6 +570,7 @@ async function runCombo(tab: Tab, page: string, width: number, theme: string): P
     const rec = await tab.read();
     const problems = analyse(rec);
     if (tab.exceptions.length) problems.push(`script errors: ${tab.exceptions.join('; ')}`);
+    problems.push(...(await tab.evaluate<string[]>(PART_PIXELS)));
     record('load', problems, { frames: frameCount(rec) });
   });
 

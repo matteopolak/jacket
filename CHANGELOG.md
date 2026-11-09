@@ -29,6 +29,7 @@
 ### Fixed
 
 - Doc site search lists a module first when the query is its name (`time` finds the Time module before `Postgres.Time`), and ranks a whole word of a name (`time_of_day`) above names that only share its letters (`timeval32`).
+- Doc site sidebar rows no longer jump when you move to another page with a long sidebar open. The outline on the right marks its guide line in the accent colour beside the items on screen, and the mark grows and shrinks as you scroll; the left sidebar marks the open page's row the same way.
 - The language server no longer reports an error on a macro whose `#insert #run` body is called with `#caller_code`, and no longer reports a returned local address in a procedure only `#run` calls.
 - `jacket test --coverage` fails, and records and compares no baseline, when a test process ends without leaving its coverage (or leaves a file that is cut short), naming the processes. Before, their lines silently counted as never run and a module could read far below what its tests cover.
 - `Extensions/Gltf`: `gltf_local_resolve` loads files on Windows. Its containment check compared a `\\?\`-prefixed path with a `/` one and rejected every file.

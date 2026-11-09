@@ -4,8 +4,9 @@
 (function () {
   'use strict';
   /**
-   * @typedef {{ l: Element, b: Element, user: boolean | null, seen: boolean, open: boolean }} Group
-   * An outline list that folds, with its toggle button.
+   * @typedef {{ l: Element, b: Element, u: HTMLElement, user: boolean | null, seen: boolean, open: boolean,
+   *   y: number, h: number }} Group
+   * An outline list that folds, with its toggle button, and where its guide-line mark runs.
    */
   /**
    * @typedef {{ a: HTMLAnchorElement, h: HTMLElement, g?: Group | null, item?: boolean }} Mark
@@ -257,7 +258,7 @@
         if (!b) return;
         var open = l.classList.contains('open');
         /** @type {Group} */
-        var g = { l: l, b: b, user: null, seen: open, open: open };
+        var g = { l: l, b: b, u: list, user: null, seen: open, open: open, y: 0, h: 0 };
         b.addEventListener('click', function () {
           g.user = !g.open;
           setOpen(g);
@@ -281,6 +282,13 @@
         first = true,
         moved = false;
       var pending = false;
+      /** Lists whose guide line is marked. @type {Group[]} */
+      var lit = [];
+      /** @param {Group} g */
+      var bar = function (g) {
+        g.u.style.setProperty('--bar-y', g.y + 'px');
+        g.u.style.setProperty('--bar-h', String(g.h));
+      };
       // The first mark whose heading is below y (marks follow the page order).
       /** @param {number} y */
       var below = function (y) {
@@ -319,6 +327,18 @@
         // Read where the rail should scroll before changing any class. Marking an entry never
         // moves the others, so these positions stay right, and the frame lays out only once.
         var want = centre(a, b);
+        // Where each list's mark should run: from its first marked item to its last.
+        /** @type {Map<Group, number[]>} */
+        var spans = new Map();
+        for (var k = a; k <= b; k++) {
+          var mg = marks[k].g;
+          if (!mg || !marks[k].item) continue;
+          var top = marks[k].a.offsetTop,
+            end = top + marks[k].a.offsetHeight;
+          var span = spans.get(mg);
+          if (span) span[1] = end;
+          else spans.set(mg, [top, end]);
+        }
         moved = false;
         /** @type {Group[]} */
         var seen = [];
@@ -348,6 +368,22 @@
           if (g) setOpen(g);
         }
         seen.forEach(setOpen);
+        // A mark grows and shrinks toward the items it gains or loses. A list the page left
+        // behind shrinks to the edge the reading moved past.
+        var down = a > from;
+        lit.forEach(function (g) {
+          if (spans.has(g)) return;
+          if (down) g.y += g.h;
+          g.h = 0;
+          bar(g);
+        });
+        lit = [];
+        spans.forEach(function (span, g) {
+          g.y = span[0];
+          g.h = span[1] - span[0];
+          bar(g);
+          lit.push(g);
+        });
         from = a;
         to = b;
         // Animate folding only after the first layout, so a page load doesn't show lists closing.
