@@ -309,7 +309,8 @@ modules = [
 name = "Networking"
 modules = [
     "stdlib/Socket", "stdlib/Curl", "stdlib/Mail", "stdlib/Extensions/Http",
-    "stdlib/Extensions/Tls", "stdlib/Extensions/Postgres", "stdlib/Extensions/Grpc",
+    "stdlib/Extensions/Tls", "stdlib/Extensions/WebSocket", "stdlib/Extensions/Postgres",
+    "stdlib/Extensions/Grpc",
 ]
 
 [[doc.group]]
