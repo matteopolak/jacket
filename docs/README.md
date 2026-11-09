@@ -44,6 +44,7 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 
 ## Standard library
 
+- [Time](extensions/time.md): API declarations for civil time, exact instants, zones and spans
 - [Archive](extensions/archive.md): bounded ZIP/ZIP64, TAR and safe extraction
 - [VT parser](extensions/vt.md): streaming terminal actions without a grid
 

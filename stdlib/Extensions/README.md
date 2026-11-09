@@ -8,6 +8,7 @@ their path, so the import says the code is jaic-only:
 
 | Import | What it is for |
 | --- | --- |
+| `#import "Extensions/Time";` | API declarations for civil time, exact instants, zones and calendar spans ([docs](../../docs/extensions/time.md)) |
 | `#import "Extensions/Archive";` | ZIP/ZIP64 and TAR codecs with bounded decoding and safe extraction ([docs](../../docs/extensions/archive.md)) |
 | `#import "Extensions/Long_Double";` | C's `long double` in the target's format, for C functions that take or return one |
 | `#import "Extensions/Args";` | A typed command-line parser generated at compile time (clap-style: notes, subcommands, help, completions) |

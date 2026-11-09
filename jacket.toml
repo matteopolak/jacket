@@ -290,6 +290,7 @@ modules = [
     "stdlib/Extensions/Protobuf", "stdlib/Extensions/Protobuf/Schema",
     "stdlib/Extensions/Byte_Search", "stdlib/Extensions/String_Literal", "stdlib/Extensions/Web",
     "stdlib/Extensions/Unicode_Text", "stdlib/Extensions/Uuid", "stdlib/Extensions/Vt",
+    "stdlib/Extensions/Time",
 ]
 
 [[doc.group]]
