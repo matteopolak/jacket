@@ -56,6 +56,7 @@ main :: () {
         test_execute_and_scalar(db);
         test_nullability(db);
         test_arguments(db);
+        test_argument_mix(db);
         test_query_as(db);
         test_json_and_arrays(db);
         test_statement_cache(db, config);
@@ -225,6 +226,37 @@ test_arguments :: (db: *Pg.Connection) {
     like, like_error := Pg.query_one(db, "select count(*) as n from users where email like '%@example.com'");
 
     check(like_error.kind == .NONE && like.n == 2, "percent inside a string is text");
+}
+
+// Each kind of argument in one call, an argument list spread from an array, and an argument
+// that cannot be sent.
+test_argument_mix :: (db: *Pg.Connection) {
+    a: s64 = 5;
+    b: s32 = -3;
+    c: s16 = 2;
+    d: float64 = 1.5;
+    flag := true;
+    text := "x y";
+    ids := s64.[1, 2];
+    name := Pg.some("Alice");
+    nothing: Pg.Nullable(string);
+    nothing.null = true;
+
+    row, error := Pg.query_one(db, "select (%::int8 + %::int4 + %::int2)::int8 as \"total!\", %::float8 as \"real!\", %::bool as \"flag!\", %::text as \"text!\", (select count(*) from users where id = any(%)) as \"users!\", (select count(*) from users where display_name is not distinct from %) as \"named!\", (select count(*) from users where display_name is not distinct from %) as \"none!\"", a, b, c, d, flag, text, ids, name, nothing);
+
+    check(error.kind == .NONE, "mixed arguments");
+    check(row.total == 4 && row.real == 1.5 && row.flag && row.text == "x y", "scalars in a mixed call");
+    check(row.users == 2 && row.named == 1 && row.none == 1, "array and Nullable in a mixed call");
+
+    fixed := Any.[1, "Alice"];
+    values: [] Any = fixed;
+    spread, spread_error := Pg.query_one(db, "select count(*) as n from users where id = % and display_name = %", ..values);
+
+    check(spread_error.kind == .NONE && spread.n == 1, "arguments spread from an array");
+
+    _, zero_error := Pg.execute(db, "select %::text", "a\0b");
+
+    check(zero_error.kind == .USAGE && begins_with(zero_error.message, "parameter $1: "), "a string with a zero byte is refused");
 }
 
 test_query_as :: (db: *Pg.Connection) {
