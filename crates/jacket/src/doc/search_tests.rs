@@ -123,3 +123,58 @@ fn native_declarations_are_searchable_but_flagged() {
     // The module, then own, MAX, Mode.
     assert_eq!(flags, [0, 0, 2, 2]);
 }
+
+fn files_site(item: Item) -> Site {
+    Site::new(
+        vec![Module {
+            id: "Files".into(),
+            items: vec![item],
+            ..Module::default()
+        }],
+        Vec::new(),
+        "/".into(),
+        "0.0.0".into(),
+        String::new(),
+        String::new(),
+        false,
+    )
+}
+
+#[test]
+fn every_definition_of_a_name_is_searchable() {
+    let def = |value: &str| Item {
+        name: "Handle".into(),
+        kind: Kind::Constant,
+        value: value.into(),
+        ..Item::default()
+    };
+    let mut handle = def("s32");
+    handle.variants = vec![def("*void")];
+    let index: serde_json::Value =
+        serde_json::from_str(&super::super::search::index(&files_site(handle))).unwrap();
+    let line = index["items"][1][4].as_str().unwrap();
+    assert!(line.contains("s32") && line.contains("*void"), "{line}");
+}
+
+#[test]
+fn a_procedure_is_found_by_the_types_of_every_definition() {
+    use super::super::model::{Overload, Param};
+    let def = |ty: &str| Item {
+        name: "open".into(),
+        kind: Kind::Procedure,
+        overloads: vec![Overload {
+            params: vec![Param {
+                ty: ty.into(),
+                ..Param::default()
+            }],
+            ..Overload::default()
+        }],
+        ..Item::default()
+    };
+    let mut open = def("int");
+    open.variants = vec![def("string")];
+    let index: serde_json::Value =
+        serde_json::from_str(&super::super::search::index(&files_site(open))).unwrap();
+    let shapes = index["items"][1][5].as_array().unwrap();
+    assert_eq!(shapes.len(), 2, "{shapes:?}");
+}

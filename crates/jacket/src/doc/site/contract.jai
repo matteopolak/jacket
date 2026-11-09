@@ -229,6 +229,14 @@ Row :: struct {
     declaration_html: string;
     members: [] Definition;
     example: *Example;
+    variants: [] Row_Variant;
+}
+
+Row_Variant :: struct {
+    label: string;
+    lines_html: [] string;
+    declaration_html: string;
+    members: [] Definition;
 }
 
 Overload_View :: struct {

@@ -722,6 +722,47 @@ fn a_type_defined_once_per_system_shows_each_definition_under_its_systems() {
 }
 
 #[test]
+fn a_module_row_shows_each_definition_of_a_name_under_its_systems() {
+    let constant = |value: &str, platforms: &[&str]| Item {
+        name: "Handle".into(),
+        kind: Kind::Constant,
+        value: value.into(),
+        platforms: platforms.iter().map(|p| (*p).to_owned()).collect(),
+        defined_on: platforms.iter().map(|p| (*p).to_owned()).collect(),
+        ..Item::default()
+    };
+    let mut handle = constant("s32", &["MACOS"]);
+    handle.variants = vec![constant("*void", &["LINUX", "WINDOWS"])];
+    let site = Site::new(
+        vec![Module {
+            id: "Files".into(),
+            items: vec![handle],
+            ..Module::default()
+        }],
+        Vec::new(),
+        "/".into(),
+        String::new(),
+        String::new(),
+        String::new(),
+        false,
+    );
+    let bundle = module(&site, 0);
+    let Content::Module {
+        sections, ..
+    } = &bundle.page.content
+    else {
+        panic!()
+    };
+    let rows = &sections[0].groups[0].rows;
+    let variants = &rows[0].variants;
+    let labels: Vec<_> = variants.iter().map(|v| v.label.as_str()).collect();
+    assert_eq!(labels, ["macOS", "Linux and Windows"]);
+    assert!(variants[0].lines_html[0].contains("s32"));
+    assert!(variants[1].lines_html[0].contains("void"));
+    assert!(rows[0].lines_html.is_empty());
+}
+
+#[test]
 fn a_lone_overload_gives_the_page_its_lead_and_keeps_the_rest() {
     let (summary, cards) = item_parts(&procedure_site(&["Goes one way.\n\nAlso stops."]));
     assert!(summary.contains("Goes one way."), "{summary}");

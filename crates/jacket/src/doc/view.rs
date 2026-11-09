@@ -256,6 +256,18 @@ pub struct Row {
     pub declaration_html: String,
     pub members: Vec<Definition>,
     pub example: Option<Example>,
+    /// The definitions of a name that is written once per system, each under its systems; then
+    /// the lines, declaration and members above are empty.
+    pub variants: Vec<RowVariant>,
+}
+
+/// One definition of a name that differs by system, as a module page row shows it.
+#[derive(Serialize)]
+pub struct RowVariant {
+    pub label: String,
+    pub lines_html: Vec<String>,
+    pub declaration_html: String,
+    pub members: Vec<Definition>,
 }
 
 #[derive(Serialize)]

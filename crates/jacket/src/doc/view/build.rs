@@ -6,8 +6,11 @@ use super::super::site::{Site, item_line, signature_html, signature_line_html};
 use super::{
     Badge, Category, Content, Crumb, Definition, DocSegment, Image, Link, ModuleView, NavCategory,
     NavGroup, NavLink, Outline, OutlineItem, OverloadView, PageHead, PageView, Platform, Row,
-    RowGroup, Section, Sidebar, SiteView, Title, VariantView,
+    RowGroup, RowVariant, Section, Sidebar, SiteView, Title,
 };
+
+mod variants;
+use variants::{definitions_of, system_list, variant_views};
 
 pub(super) fn blocks(site: &Site, md: &str, from: &str) -> Vec<Segment> {
     blocks_at(site, md, from, 2)
@@ -502,6 +505,32 @@ fn declaration(site: &Site, mi: usize, item: &Item) -> String {
     site.declaration_html(&item.declaration, &item.decl_refs, mi, &item.name)
 }
 
+/// What a module page row shows of one definition: its signature or value lines, or its
+/// declaration, and the fields a declaration does not list.
+fn row_body(site: &Site, mi: usize, item: &Item) -> (Vec<String>, String, Vec<Definition>) {
+    let declaration_html = declaration(site, mi, item);
+    let lines = if !declaration_html.is_empty() {
+        Vec::new()
+    } else if item.kind == Kind::Procedure {
+        item.overloads
+            .iter()
+            .map(|o| signature_line_html(site, o, mi))
+            .collect::<Vec<_>>()
+    } else {
+        vec![site.type_html(&item_line(item), &item.refs, mi)]
+    };
+    let members = if declaration_html.is_empty() {
+        members(site, mi, item, "", &|_| true)
+    } else {
+        Vec::new()
+    };
+    (
+        lines.into_iter().filter(|s| !s.is_empty()).collect(),
+        declaration_html,
+        members,
+    )
+}
+
 fn row(site: &Site, mi: usize, item: &Item) -> Row {
     let m = &site.modules[mi];
     let segs = blocks(site, item_docs(item), &format!("{}.{}", m.id, item.name));
@@ -515,16 +544,26 @@ fn row(site: &Site, mi: usize, item: &Item) -> Row {
         }
         _ => None,
     });
-    let declaration_html = declaration(site, mi, item);
-    let lines = if !declaration_html.is_empty() {
+    let variants: Vec<RowVariant> = if item.variants.is_empty() {
         Vec::new()
-    } else if item.kind == Kind::Procedure {
-        item.overloads
-            .iter()
-            .map(|o| signature_line_html(site, o, mi))
-            .collect::<Vec<_>>()
     } else {
-        vec![site.type_html(&item_line(item), &item.refs, mi)]
+        definitions_of(item)
+            .into_iter()
+            .map(|(d, platforms)| {
+                let (lines_html, declaration_html, members) = row_body(site, mi, d);
+                RowVariant {
+                    label: system_list(platforms),
+                    lines_html,
+                    declaration_html,
+                    members,
+                }
+            })
+            .collect()
+    };
+    let (lines_html, declaration_html, members) = if variants.is_empty() {
+        row_body(site, mi, item)
+    } else {
+        Default::default()
     };
     Row {
         id: item.name.clone(),
@@ -540,15 +579,12 @@ fn row(site: &Site, mi: usize, item: &Item) -> Row {
         platforms: m.item_missing(item).into_iter().map(String::from).collect(),
         since: item.since.clone(),
         source_url: site.source_url(file, line),
-        lines_html: lines.into_iter().filter(|s| !s.is_empty()).collect(),
+        lines_html,
         summary_html: lead(&segs).map_or_else(String::new, |(_, h)| h),
-        members: if declaration_html.is_empty() {
-            members(site, mi, item, "", &|_| true)
-        } else {
-            Vec::new()
-        },
+        members,
         declaration_html,
         example: sample,
+        variants,
     }
 }
 
@@ -971,60 +1007,6 @@ fn written(site: &Site, mi: usize, item: &Item, anchor: &str) -> (String, Vec<De
         defs
     };
     (declaration_html, member_defs)
-}
-
-/// The systems of `platforms` in words: `macOS`, `Linux and Windows`.
-fn system_list(platforms: &[String]) -> String {
-    if platforms.is_empty() {
-        return "Every system".into();
-    }
-    let names: Vec<&str> = platforms
-        .iter()
-        .map(|p| super::super::model::system_name(p).unwrap_or(p.as_str()))
-        .collect();
-    match names.split_last() {
-        Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
-        _ => names.join(""),
-    }
-}
-
-/// Each definition of an item that differs by system, the item's own first, under the systems it
-/// is for; empty for an item with one definition. Anchors start with `d<n>-`.
-fn variant_views(site: &Site, mi: usize, item: &Item) -> Vec<VariantView> {
-    if item.variants.is_empty() {
-        return Vec::new();
-    }
-    let m = &site.modules[mi];
-    let from = format!("{}.{}", m.id, item.name);
-    let all: Vec<(&Item, &[String])> = std::iter::once((item, item.defined_on.as_slice()))
-        .chain(item.variants.iter().map(|v| (v, v.platforms.as_slice())))
-        .collect();
-    all.iter()
-        .enumerate()
-        .map(|(n, (d, platforms))| {
-            let (declaration_html, member_defs) = written(site, mi, d, &format!("d{}-m-", n + 1));
-            let (file, line) = docs_place(d);
-            // The first definition's docs are the page's own.
-            let docs = if n == 0 {
-                Vec::new()
-            } else {
-                segments(site, m, file, line, &blocks_at(site, &d.docs, &from, 1))
-            };
-            VariantView {
-                id: format!("d{}", n + 1),
-                label: system_list(platforms),
-                declaration_html,
-                value_html: if d.kind != Kind::Procedure && !d.value.is_empty() {
-                    site.type_html(&d.value, &d.refs, mi)
-                } else {
-                    String::new()
-                },
-                docs,
-                members_label: members_label(d),
-                members: member_defs,
-            }
-        })
-        .collect()
 }
 
 fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usize) -> PageView {

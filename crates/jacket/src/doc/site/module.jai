@@ -24,6 +24,13 @@ ItemRow :: (out: *Out, r: *Row) {
 <pre class="sig decl"><code>{cast(Html) r.declaration_html}</code></pre><script>fold()</script></div><button type="button" class="btn fold-btn">Show more</button>
 {end}{if r.members.count}<div class="fold members" data-fold="240">
 {Definitions(r.members)}<script>fold()</script></div><button type="button" class="btn fold-btn">Show more</button>
+{end}{for v: r.variants}<div class="row-variant"><h3 class="variant-label">{esc(v.label)}</h3>
+{for line: v.lines_html}<div class="sig-line">{cast(Html) line}</div>
+{end}{if v.declaration_html.count}<div class="fold members" data-fold="240">
+<pre class="sig decl"><code>{cast(Html) v.declaration_html}</code></pre><script>fold()</script></div><button type="button" class="btn fold-btn">Show more</button>
+{end}{if v.members.count}<div class="fold members" data-fold="240">
+{Definitions(v.members)}<script>fold()</script></div><button type="button" class="btn fold-btn">Show more</button>
+{end}</div>
 {end}{if r.example}{ExampleBlock(r.example)}{end}</article>
 HTML
     );

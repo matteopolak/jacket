@@ -1387,6 +1387,13 @@ h3:hover .anchor,
   overflow-wrap: anywhere;
 }
 
+.row-variant > h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg2);
+}
+
 .summary {
   margin: 0;
   font-size: 15px;

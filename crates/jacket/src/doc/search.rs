@@ -5,7 +5,7 @@
 //! badge its module's category carries, 0 for none. An item whose page folder is not its slug (it differs from
 //! another only in case) carries the folder as one more column.
 use super::markdown::{self, Segment, Settings, plain};
-use super::model::Kind;
+use super::model::{Item, Kind};
 use super::site::{Site, item_line, signature_marked};
 use serde_json::{Value, json};
 
@@ -68,9 +68,11 @@ pub fn index(site: &Site) -> String {
             };
             // A binding is found by name only, with its signature as plain text: its types are
             // many and the index loads on the first keystroke.
-            let shapes: Vec<Value> = item
-                .overloads
+            // Every definition that differs by system counts, so each is found.
+            let defs: Vec<&Item> = std::iter::once(item).chain(&item.variants).collect();
+            let shapes: Vec<Value> = defs
                 .iter()
+                .flat_map(|d| &d.overloads)
                 .filter(|_| !item.binding)
                 .map(|o| {
                     json!([
@@ -91,7 +93,12 @@ pub fn index(site: &Site) -> String {
                 summary(site, docs, &item.name),
                 match (item.kind, item.overloads.first()) {
                     (Kind::Procedure, Some(o)) if !item.binding => signature_marked(site, o, mi),
-                    _ => item_line(item),
+                    // Each definition's value, so the result shows what every system gets.
+                    _ => {
+                        let mut lines: Vec<String> = defs.iter().map(|d| item_line(d)).collect();
+                        lines.dedup();
+                        lines.join("  |  ")
+                    }
                 },
                 shapes,
                 u32::from(item.experimental) | (u32::from(item.binding) << 1) | badge
