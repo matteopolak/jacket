@@ -376,9 +376,14 @@ fn a_field_default_has_the_same_color_whether_or_not_the_struct_is_used() {
             "{source}"
         );
     }
-    // As in compilation, a default nothing makes a value with is not reported.
+    // As in compilation, a wrong default is reported even when nothing uses the struct.
     let unused = "Bad :: struct {\n    descriptor: Type = 3;\n}\nmain :: () {\n}\n";
-    assert_eq!(messages(&open(unused)), Vec::<String>::new());
+    assert_eq!(
+        messages(&open(unused)),
+        [
+            "Range { start: Position { line: 1, character: 23 }, end: Position { line: 1, character: 24 } } type mismatch: expected `Type`, found `s64`"
+        ]
+    );
 }
 
 #[test]
