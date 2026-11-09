@@ -198,10 +198,11 @@ jaic tests.jai -quiet [-os/-cpu/flags] [-import_dir ROOT_PARENT] -exe tests +Ext
 The Discovery plugin finds the `@test` and `@bench` procedures, adds the test table and entry point, and prints a `manifest` record per test on stdout. One compile finds the tests and builds them. Roots build in parallel (at most four). A root that doesn't compile stops the run before any test starts.
 
 - **`--interp`** has no program to write. The first `jaic -interp` process runs with the plugin and starts the first tests; jacket then writes `program.jai` (which compiles only what tests reach) for the other processes.
+- **`--interp` roots beyond `-j`**: only the first `-j` roots keep their compiling process waiting (`warm` in `build::unit`); each waiting process is a whole compiler in memory. The others compile again when they run, as `program.jai` processes do.
 - **`--interp -os wasm`**: the sandbox prints only when the program ends, so the first process runs `-- --list` and every run is a `program.jai` process.
 - **`--list`** builds and runs nothing; `--list --deps` prints the source files the compiles read.
 
-The test program (`stdlib/Extensions/Testing/runner.jai`) takes `--list`, `--run NAME... [--temp DIR]`, `--seed N`, `--accept` and `--args-from FILE`. With `--run` it writes records to stderr: `\x02`, the kind, fields separated by `\x1f`, then `\x03`. Kinds: `start`, `fail` (name, file, line, message), `skip`, `end` (`pass`/`fail`/`skip`), `missing`, and `case` (with `--list`, on stdout). Everything else on either stream is the test's own output. A process that stops after `start` without `end` crashed in that test (`exec.rs` turns its status into the reason).
+The test program (`stdlib/Extensions/Testing/runner.jai`) takes `--list`, `--run NAME... [--temp DIR]`, `--seed N`, `--accept` and `--args-from-stdin` (block until standard input ends, then read the arguments from it; how `--interp` hands its first tests to the process that compiled them). With `--run` it writes records to stderr: `\x02`, the kind, fields separated by `\x1f`, then `\x03`. Kinds: `start`, `fail` (name, file, line, message), `skip`, `end` (`pass`/`fail`/`skip`), `missing`, and `case` (with `--list`, on stdout). Everything else on either stream is the test's own output. A process that stops after `start` without `end` crashed in that test (`exec.rs` turns its status into the reason).
 
 `--watch` polls the test roots and import folders for `.jai` changes and reruns after 200 ms of quiet; if every changed file is a test file only those tests run.
 

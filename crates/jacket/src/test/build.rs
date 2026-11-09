@@ -11,8 +11,8 @@
 //!   does, so a second root file loads the tests and the code the plugin printed and names the
 //!   entry point in a `#run`: `program.jai`, which all processes but the first run. The first
 //!   is started at once with the plugin: it compiles while jacket reads what it printed, then
-//!   waits for a file with its arguments (`--args-from`), which jacket writes when it hands the
-//!   process its first tests;
+//!   blocks reading its arguments from standard input (`--args-from-stdin`), which jacket writes
+//!   when it hands the process its first tests;
 //! - `--list` is that first process too, told to name the cases of the `@cases` tests (`--list`)
 //!   and not to run anything.
 use super::exec::{self, Demux, Invocation, Piece, Started};
@@ -102,7 +102,6 @@ pub struct Built {
 #[derive(Debug)]
 pub struct Warm {
     process: Option<Started>,
-    plan: PathBuf,
 }
 
 impl Drop for Warm {
@@ -202,12 +201,17 @@ pub enum Listing {
 
 /// Builds the unit tests of `files` in `work` (a fresh folder). A listing discovers declarations
 /// for its requested view without building a native program or running compile-time tests.
+///
+/// With `--interp`, `warm` leaves the compiling process waiting for the first run of the root;
+/// without it the process ends once it has found the tests, and the run compiles again. Each
+/// waiting process is a compiler held in memory, so the caller bounds how many there are.
 pub fn unit(
     files: &[PathBuf],
     root_flags: &[String],
     work: &Path,
     toolchain: &Toolchain,
     listing: Option<Listing>,
+    warm: bool,
 ) -> Result<Built, String> {
     std::fs::create_dir_all(work).map_err(|e| format!("cannot create {}: {e}", work.display()))?;
     let mut loads = String::from("// Written by `jacket test`: every unit test file of a root.\n");
@@ -217,7 +221,7 @@ pub fn unit(
     let root = work.join("tests.jai");
     write(&root, &loads)?;
     if listing.is_some() || toolchain.interp {
-        return interpreted(&loads, &root, work, root_flags, toolchain, listing);
+        return interpreted(&loads, &root, work, root_flags, toolchain, listing, warm);
     }
     let wasm = targets_wasm(toolchain);
     let exe = work.join(if wasm {
@@ -263,16 +267,16 @@ fn interpreted(
     root_flags: &[String],
     toolchain: &Toolchain,
     listing: Option<Listing>,
+    warm: bool,
 ) -> Result<Built, String> {
     let list = listing.is_some();
-    let plan = work.join("plan.txt");
     // A process can wait for its arguments only if what it prints reaches jacket before it ends
     // and it can read the file: neither holds for a wasm target, whose program runs in the
     // interpreter's sandbox. That one, a listing and a run that measures coverage (each run
     // writes what it ran into a folder of its own) run to their end with `--list` and compile
     // again for each run.
     // A run under `--coverage` needs its own process to report what it ran.
-    let waits = !list && !targets_wasm(toolchain) && !toolchain.coverage;
+    let waits = warm && !list && !targets_wasm(toolchain) && !toolchain.coverage;
     // The caller resolved one view for declarations and dependency queries together.
     let mut args = vec![path_text(root), "-interp".into(), "-quiet".into()];
     args.extend(toolchain.flags.iter().cloned());
@@ -284,7 +288,7 @@ fn interpreted(
     }
     args.push("--".into());
     if waits {
-        args.extend(["--args-from".into(), path_text(&plan)]);
+        args.push("--args-from-stdin".into());
     } else {
         args.push("--list".into());
     }
@@ -293,6 +297,7 @@ fn interpreted(
         args,
         cwd: work.to_path_buf(),
         env: toolchain.jaic_env(),
+        pipe_input: waits,
     })
     .map_err(|e| format!("could not start `{}`: {e}", toolchain.jaic.display()))?;
     let found = process.records(waits.then_some("discovered"));
@@ -329,20 +334,9 @@ fn interpreted(
     if warm.is_some() {
         *result.warm.lock().expect("lock") = Some(Warm {
             process: warm,
-            plan,
         });
     }
     Ok(result)
-}
-
-/// Hands the process waiting for `--args-from plan` its arguments, one per line. The file is
-/// moved into place whole, for a process that waits for it.
-fn write_plan(plan: &Path, arguments: &[String]) -> Result<(), String> {
-    let mut text = arguments.join("\n");
-    text.push('\n');
-    let partial = plan.with_extension("partial");
-    write(&partial, &text)?;
-    std::fs::rename(&partial, plan).map_err(|e| format!("cannot write {}: {e}", plan.display()))
 }
 
 /// Runs a compile and returns what it printed on standard output.
@@ -505,6 +499,7 @@ pub fn invocation(
         } else {
             Vec::new()
         },
+        ..Invocation::default()
     }
 }
 
@@ -513,8 +508,15 @@ pub fn invocation(
 /// (once; later runs compile by themselves). `None` when there is no such process.
 pub fn warm_start(built: &Built, names: &[String], temp: &Path, run: &RunFlags) -> Option<Started> {
     let mut warm = built.warm.lock().ok()?.take()?;
-    write_plan(&warm.plan, &run_arguments(names, temp, run)).ok()?;
-    warm.process.take()
+    let mut process = warm.process.take()?;
+    // One argument per line; the process reads to the end of its input.
+    let mut text = run_arguments(names, temp, run).join("\n");
+    text.push('\n');
+    if process.hand_over(&text).is_err() {
+        process.kill();
+        return None;
+    }
+    Some(process)
 }
 
 /// `exe`, or the runner with `exe` as its first argument.
@@ -685,19 +687,26 @@ mod tests {
         assert!(!targets_wasm(&toolchain("linux", &["-os", "macos"])));
     }
 
+    #[cfg(unix)]
     #[test]
     fn the_waiting_process_gets_its_arguments_once() {
         let dir = std::env::temp_dir().join(format!("jacket-warm-start-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let plan = dir.join("plan.txt");
-        let _ = std::fs::remove_file(&plan);
+        let received = dir.join("received.txt");
+        let process = exec::start(&Invocation {
+            program: PathBuf::from("/bin/sh"),
+            args: vec!["-c".into(), format!("cat > '{}'", received.display())],
+            cwd: dir.clone(),
+            pipe_input: true,
+            ..Invocation::default()
+        })
+        .unwrap();
         let built = Built {
             entries: Vec::new(),
             program: PathBuf::from("/b/program.jai"),
             cases: Vec::new(),
             warm: Mutex::new(Some(Warm {
-                process: None,
-                plan: plan.clone(),
+                process: Some(process),
             })),
         };
         let run = RunFlags {
@@ -705,13 +714,65 @@ mod tests {
             accept: false,
         };
         let names = ["a".to_string(), "b/c".to_string()];
-        assert!(warm_start(&built, &names, Path::new("/t"), &run).is_none());
+        let process = warm_start(&built, &names, Path::new("/t"), &run).unwrap();
+        // Closing its input is what lets the process go on: it ends once it has read them all.
+        process.finish().unwrap();
         assert_eq!(
-            std::fs::read_to_string(&plan).unwrap(),
+            std::fs::read_to_string(&received).unwrap(),
             "--seed\n7\n--run\na\nb/c\n--temp\n/t\n"
         );
         // The process is spoken for: the next run starts its own.
         assert!(built.warm.lock().unwrap().is_none());
+        assert!(warm_start(&built, &names, Path::new("/t"), &run).is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A compiler that prints `discovered` and, told to wait for arguments, does not end.
+    #[cfg(unix)]
+    fn waiting_jaic(dir: &Path) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::create_dir_all(dir).unwrap();
+        let jaic = dir.join("jaic");
+        std::fs::write(
+            &jaic,
+            "#!/bin/sh\nprintf '\\002discovered\\003'\ncase \"$*\" in *--args-from*) exec sleep 30;; esac\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&jaic, std::fs::Permissions::from_mode(0o755)).unwrap();
+        jaic
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn only_a_root_asked_to_keep_its_process_waiting_does() {
+        let dir = std::env::temp_dir().join(format!("jacket-warm-limit-{}", std::process::id()));
+        let toolchain = Toolchain {
+            jaic: waiting_jaic(&dir),
+            stdlib: PathBuf::from("/stdlib"),
+            flags: Vec::new(),
+            interp: true,
+            runner: Vec::new(),
+            os: "linux".into(),
+            coverage: false,
+            coverage_dir: None,
+            check_only: false,
+        };
+        let built = |name: &str, warm: bool| {
+            unit(
+                &[PathBuf::from("/t/a.jai")],
+                &[],
+                &dir.join(name),
+                &toolchain,
+                None,
+                warm,
+            )
+            .unwrap()
+        };
+        let waiting = built("waiting", true);
+        let cold = built("cold", false);
+        assert!(waiting.warm.lock().unwrap().is_some());
+        assert!(cold.warm.lock().unwrap().is_none());
+        drop(waiting);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

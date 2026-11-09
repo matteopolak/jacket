@@ -325,6 +325,7 @@ fn measure(run: &Run, case: &Case) -> Result<Measure, String> {
         args: words,
         cwd: run.roots[run.root_of(case)].dir.clone(),
         env: Vec::new(),
+        ..Invocation::default()
     };
     let limit = case.options.timeout.unwrap_or(run.settings.timeout);
     let (stdout, stderr, status) =

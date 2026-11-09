@@ -8,9 +8,9 @@
 //! One process runs one or more tests in order. It may stop early (a crash, `exit`, or a kill
 //! after a timeout); [`run`] says which tests it finished, and the caller starts another process
 //! for the rest.
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
@@ -22,6 +22,8 @@ pub struct Invocation {
     pub cwd: PathBuf,
     /// Environment variables set for it, over those it inherits.
     pub env: Vec<(String, String)>,
+    /// Gives the process a pipe for standard input ([`Started::hand_over`]); else it has none.
+    pub pipe_input: bool,
 }
 
 /// One failed check, as the test program reported it.
@@ -233,7 +235,11 @@ pub(super) fn spawn(invocation: &Invocation) -> std::io::Result<Child> {
         .args(&invocation.args)
         .envs(invocation.env.iter().map(|(name, value)| (name, value)))
         .current_dir(&invocation.cwd)
-        .stdin(Stdio::null())
+        .stdin(if invocation.pipe_input {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     #[cfg(unix)]
@@ -255,6 +261,7 @@ pub fn top_name(name: &str) -> &str {
 #[derive(Debug)]
 pub struct Started {
     child: Child,
+    input: Option<ChildStdin>,
     launched: Instant,
     rx: mpsc::Receiver<Chunk>,
     open: usize,
@@ -267,11 +274,13 @@ pub struct Started {
 pub fn start(invocation: &Invocation) -> std::io::Result<Started> {
     let launched = Instant::now();
     let mut child = spawn(invocation)?;
+    let input = child.stdin.take();
     let (tx, rx) = mpsc::channel();
     reader(child.stdout.take().expect("piped"), true, tx.clone());
     reader(child.stderr.take().expect("piped"), false, tx);
     Ok(Started {
         child,
+        input,
         launched,
         rx,
         open: 2,
@@ -334,6 +343,15 @@ impl Started {
             Ok(status) if status.success() => Ok(()),
             _ => Err(self.failure()),
         }
+    }
+
+    /// Writes `text` to its standard input and closes it, which is what a process blocked
+    /// reading its arguments waits for.
+    pub fn hand_over(&mut self, text: &str) -> std::io::Result<()> {
+        let mut input = self.input.take().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::BrokenPipe, "no standard input to write")
+        })?;
+        input.write_all(text.as_bytes())
     }
 
     /// Stops it and what it started.

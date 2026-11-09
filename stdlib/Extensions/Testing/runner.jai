@@ -8,8 +8,9 @@
 //     --run NAME...          run these tests (`test` or `test/subtest`) and report to jacket
 //     --temp DIR             with --run: the I-th test's directory is DIR/I
 //     --accept               snapshots that differ or are new replace the stored ones
-//     --args-from FILE       alone: wait for FILE to exist, then take the arguments from it, one
-//                            per line (a program that is started before it is known what to run)
+//     --args-from-stdin      alone: block until standard input ends, then take the arguments from
+//                            it, one per line (a program that is started before it is known what
+//                            to run); not available on wasm
 //     --seed N               the seed property tests start from
 //     --bench NAME...        measure these benchmarks and print a `bench` record each to standard
 //                            output; --samples N, --warmup MS and --measure-ms MS change the run
@@ -47,7 +48,7 @@ run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
     runner_allocator = context.allocator;
     arguments := get_command_line_arguments();
 
-    if arguments.count == 3 && arguments[1] == "--args-from" arguments = arguments_from(arguments[0], arguments[2]);
+    if arguments.count == 2 && arguments[1] == "--args-from-stdin" arguments = arguments_from_stdin(arguments[0]);
 
     names: [..] string;
     bench_names: [..] string;
@@ -275,14 +276,49 @@ run_subtest :: (t: *Test, name: string, body: (t: *Test), body_with_data: (t: *T
 
 #scope_file
 
-// The program's name, then the lines of `path` once it exists.
-arguments_from :: (program: string, path: string) -> [] string {
-    text, found := read_entire_file(path, log_errors = false);
+#if OS == .WINDOWS {
+    kernel32 :: #system_library "kernel32"; @native(external)
+    GetStdHandle :: (identifier: s32) -> *void #foreign kernel32;
+    ReadFile :: (handle: *void, buffer: *void, count: u32, read: *u32, overlapped: *void) -> s32 #foreign kernel32;
+} else #if OS != .WASM {
+    libc :: #system_library "libc"; @native(external)
+    read :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc;
+}
 
-    while !found {
-        sleep_milliseconds(2);
-        text, found = read_entire_file(path, log_errors = false);
+// What standard input holds up to its end. The call blocks in the system until jacket writes the
+// arguments and closes the pipe, so a process that waits costs nothing.
+read_standard_input :: () -> string {
+    #if OS == .WASM {
+        assert(false, "`--args-from-stdin` is not available on wasm");
+        return "";
+    } else {
+        builder: String_Builder;
+        buffer: [4096] u8;
+
+        while true {
+            count: s64;
+
+            #if OS == .WINDOWS {
+                got: u32;
+                handle := GetStdHandle(-10);
+                if ReadFile(handle, buffer.data, buffer.count, *got, null) == 0 break;
+                count = got;
+            } else {
+                count = read(0, buffer.data, buffer.count);
+            }
+
+            if count <= 0 break;
+
+            append(*builder, string.{ count, buffer.data });
+        }
+
+        return builder_to_string(*builder,, runner_allocator);
     }
+}
+
+// The program's name, then the lines standard input holds.
+arguments_from_stdin :: (program: string) -> [] string {
+    text := read_standard_input();
 
     arguments: [..] string;
 

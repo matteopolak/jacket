@@ -150,6 +150,7 @@ fn built(
                     .into_iter()
                     .chain(toolchain.jaic_env())
                     .collect(),
+                ..Invocation::default()
             },
             stdout: Vec::new(),
             stderr: Vec::new(),
@@ -233,6 +234,7 @@ fn built(
             args,
             cwd: cwd.to_path_buf(),
             env,
+            ..Invocation::default()
         },
         stdout: output.stdout,
         stderr: output.stderr,

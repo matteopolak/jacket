@@ -572,6 +572,7 @@ fn run_once(
         listing,
         bench,
         settings.jobs.min(4),
+        settings.jobs,
     );
     if let (Some(coverage), Some(dir)) = (&coverage, &compile_coverage) {
         coverage.collect_once(dir);
@@ -1053,7 +1054,9 @@ fn execute(
 /// A root's build: nothing to build, the built program, or the compile errors.
 type BuildResult = Result<Option<Built>, String>;
 
-/// Builds every root's unit tests, `parallel` at a time.
+/// Builds every root's unit tests, `parallel` at a time. Under `--interp` the first `warm_limit`
+/// roots (the test workers that run at once) keep their compiler waiting for the run; the others
+/// compile again when they run, so no more processes sit idle than can work.
 fn build_all(
     roots: &[discover::Root],
     root_flags: &[Vec<String>],
@@ -1062,6 +1065,7 @@ fn build_all(
     listing: Option<build::Listing>,
     bench: bool,
     parallel: usize,
+    warm_limit: usize,
 ) -> Vec<BuildResult> {
     let next = AtomicUsize::new(0);
     let results: Mutex<Vec<Option<BuildResult>>> =
@@ -1088,6 +1092,7 @@ fn build_all(
                             &work.join(format!("build-{i}")),
                             toolchain,
                             listing,
+                            i < warm_limit,
                         )
                         .map(Some)
                     };
