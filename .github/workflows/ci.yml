@@ -254,7 +254,7 @@ jobs:
           node --version
           node tools/browser/check_scripting_wasm.ts target/ci-wasm/jai_wasm.wasm
           node tools/browser/check_jaifmt_wasm.ts engine target/ci-wasm/jai_wasm.wasm
-          node --test tools/browser/test_*.ts tools/dev/test_chrome_startup.ts tools/dev/test_doc_samples.ts tools/dev/test_doc_sidebar.ts
+          node --test tools/browser/test_*.ts tools/dev/test_chrome_startup.ts tools/dev/test_doc_samples.ts tools/dev/test_doc_sidebar.ts tools/dev/test_doc_search.ts
       - name: WebGPU host bridge (mock WebGPU; the engine suspends through JSPI)
         # docs/extensions/webgpu.md#tests. Node 24 has JSPI behind a V8 flag, so the file runs
         # directly (node:test in this process) rather than in a `--test` child without the flag.

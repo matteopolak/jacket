@@ -94,7 +94,7 @@ jobs:
       - name: Check documentation validation helpers
         run: |
           PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py
-          node --test tools/dev/test_chrome_startup.ts tools/dev/test_doc_samples.ts tools/dev/test_doc_sidebar.ts
+          node --test tools/dev/test_chrome_startup.ts tools/dev/test_doc_samples.ts tools/dev/test_doc_sidebar.ts tools/dev/test_doc_search.ts
       - name: Check documentation accessibility and layout
         if: ${{ inputs.browser_checks || vars.DOCS_BROWSER_CHECKS != 'false' }}
         run: |

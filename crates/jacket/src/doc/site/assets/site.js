@@ -482,7 +482,8 @@
               generated: (r[6] & 4) === 4,
               cat: (r[6] >> 3) - 1,
               folder: r[7],
-              lname: r[1].toLowerCase(),
+              // A module's row has no name; it is found by its own, the last part of its path.
+              lname: (r[1] || title).toLowerCase(),
               lpath: (title + '.' + r[1]).toLowerCase(),
               lsum: r[3].toLowerCase(),
             };
@@ -556,12 +557,17 @@
       for (var i = 0; i < terms.length; i++) {
         var t = terms[i];
         var s = 0;
+        var at = it.lname.indexOf(t);
+        var after = it.lname.charAt(at + t.length);
+        // A whole word of the name (`time` in `time_of_day`) beats letters it shares (`timeval32`).
         if (it.lname === t) s = 1000;
-        else if (it.lname.indexOf(t) === 0) s = 800;
-        else if (it.lname.indexOf(t) > 0) s = 600;
+        else if (at === 0) s = after === '_' ? 900 : 800;
+        else if (at > 0) s = it.lname.indexOf('_' + t) >= 0 ? 700 : 600;
         else if (it.lpath.indexOf(t) >= 0) s = 400;
         else if (it.lsum.indexOf(t) >= 0) s = 100;
         if (!s) return;
+        // Items of the module the term names come before other modules' matches of the same kind.
+        if (it.title.toLowerCase() === t) s += 50;
         score += s;
       }
       if (it.kind === 'module') score += 50;
