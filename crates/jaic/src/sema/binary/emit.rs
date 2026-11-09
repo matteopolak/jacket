@@ -93,7 +93,7 @@ impl Compiler {
             }
         }
         // Unify operand types.
-        let ty = self.binary_operand_type(&lhs, &rhs, expected, is_shift, (a, b), span)?;
+        let ty = self.binary_operand_type(&lhs, &rhs, expected, op, (a, b), span)?;
         // A negative constant cannot meet a `u64`: nothing wider takes its place.
         if !is_shift {
             for (constant, other) in [(&rhs, &lhs), (&lhs, &rhs)] {

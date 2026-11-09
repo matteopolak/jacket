@@ -21,6 +21,10 @@
 - The typed `Postgres` macros (`query`, `query_one`, `query_opt`, `execute`, `query_scalar`, `query_as`, `queue`, `queue_execute`, `stream`) read each argument's type at the call and encode plain, `Nullable` and array arguments with the encoder for that type, with no test of the type at run time. Other types and spread argument lists behave as before.
 - `jaifmt` and `Jai_Format` set a `[format]` setting by name with code written from `Format_Config` when the program compiles.
 
+### Changed
+
+- Comparing an integer variable with a float variable (`n < x`) is an error with a `cast` suggestion; an integer the float represents entirely (`s16` with `float32`, `s32` with `float64`) and untyped literals still compare. The standard library's audio mixer and profiler overlay compared mixed types and now cast.
+
 ## [0.34.0] - 2026-11-09
 
 ### New

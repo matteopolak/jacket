@@ -1,5 +1,6 @@
 //! Literal fitting and the type a binary expression takes.
-use crate::ast::Expr;
+use super::{is_comparison, is_shift};
+use crate::ast::{BinOp, Expr};
 use crate::diagnostics::Code;
 use crate::int_arith::wrap;
 use crate::sema::TypeState;
@@ -14,7 +15,7 @@ impl Compiler {
         lhs: &Operand,
         rhs: &Operand,
         expected: Option<TypeId>,
-        is_shift: bool,
+        op: BinOp,
         operands: (&Expr, &Expr),
         span: Span,
     ) -> Result<TypeId> {
@@ -32,6 +33,7 @@ impl Compiler {
                 ..
             }
         );
+        let is_shift = is_shift(op);
         let (lt, rt) = (lhs.ty(), rhs.ty());
         let patterns = (lhs.bit_pattern(), rhs.bit_pattern());
         if is_shift {
@@ -92,12 +94,16 @@ impl Compiler {
                 if self.implicit_cost(lt, false, rt).is_some() {
                     return Ok(rt);
                 }
-                // An integer meeting a float in arithmetic becomes that float.
-                if self.ty.types.is_float(lt) && self.ty.types.is_integer(rt) {
-                    return Ok(lt);
-                }
-                if self.ty.types.is_integer(lt) && self.ty.types.is_float(rt) {
-                    return Ok(rt);
+                // An integer meeting a float in arithmetic becomes that float. A comparison
+                // has no such conversion: integer and float variables compare only after a cast.
+                let mixed = (self.ty.types.is_float(lt) && self.ty.types.is_integer(rt))
+                    || (self.ty.types.is_integer(lt) && self.ty.types.is_float(rt));
+                if mixed && !is_comparison(op) {
+                    return Ok(if self.ty.types.is_float(lt) {
+                        lt
+                    } else {
+                        rt
+                    });
                 }
                 let (li, ri) = (self.ty.types.int_info(lt), self.ty.types.int_info(rt));
                 if let (Some((lb, _)), Some((rb, _))) = (li, ri) {

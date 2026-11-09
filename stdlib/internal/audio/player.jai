@@ -332,7 +332,7 @@ pre_entity_update :: () {
 
     for stream: active_streams {
         stream.marked = player_config.keep_sounds_alive_by_default;
-        if !(stream.user_flags & .REPEATING) && stream.repeat_end_position >= 0 && stream.play_cursor >= stream.repeat_end_position
+        if !(stream.user_flags & .REPEATING) && stream.repeat_end_position >= 0 && stream.play_cursor >= cast(float64) stream.repeat_end_position
             stream.internal_flags |= .FADING_OUT;
         stream.samples_streamed_since_entity_update = 0;
     }

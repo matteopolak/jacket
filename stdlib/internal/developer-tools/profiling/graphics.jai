@@ -83,6 +83,7 @@ draw :: (x: float, y: float, full_width: float, requested_height: float, config:
     defer Profile_Context.set_active(prior_runtime_guard);
 
     assert(config != null && full_width >= 0 && requested_height >= 0);
+    mouse_x, mouse_y := cast(float) profile_mouse_x, cast(float) profile_mouse_y;
     report := create_report();
     step := cast(float) max(cast(s32) 1, config.font_character_height + config.line_spacing);
 
@@ -119,7 +120,7 @@ draw :: (x: float, y: float, full_width: float, requested_height: float, config:
             tprint("%", formatFloat(row.heat, trailing_width = 2))];
         for value, j: values config.draw_text(columns[j + 1], row_y + cast(float) config.text_y_offset, value, color);
 
-        if profile_mouse_valid && profile_mouse_x >= x && profile_mouse_x <= x + full_width && profile_mouse_y >= row_y && profile_mouse_y < row_y + step {
+        if profile_mouse_valid && mouse_x >= x && mouse_x <= x + full_width && mouse_y >= row_y && mouse_y < row_y + step {
             next_zone_under_cursor = row.zone;
             set_cursor(i);
         }
@@ -133,6 +134,8 @@ draw_graph :: (sx: float, sy: float, requested_width: float, requested_height: f
     defer Profile_Context.set_active(prior_runtime_guard);
 
     assert(config != null && requested_width >= 0 && requested_height >= 0);
+    mouse_x, mouse_y := cast(float) profile_mouse_x, cast(float) profile_mouse_y;
+
     Prof_init_highlevel();
     now := profile_now();
     dt := ifx profile_graph_last_tick > 0 then cast(float64) (now - profile_graph_last_tick) * profile_nominal_seconds else 0.0;
@@ -162,8 +165,8 @@ draw_graph :: (sx: float, sy: float, requested_width: float, requested_height: f
         zone_under_cursor = null;
         mouse_sample: s64 = -1;
 
-        if profile_mouse_valid && profile_mouse_x >= sx && profile_mouse_x <= sx + width && profile_mouse_y >= sy && profile_mouse_y <= sy + height {
-            mouse_sample = cast(s64) ((cast(float) profile_mouse_x - sx) / width * cast(float) max(cast(s64) 1, samples - 1));
+        if profile_mouse_valid && mouse_x >= sx && mouse_x <= sx + width && mouse_y >= sy && mouse_y <= sy + height {
+            mouse_sample = cast(s64) ((mouse_x - sx) / width * cast(float) max(cast(s64) 1, samples - 1));
             mouse_sample = min(mouse_sample, samples - 1);
             current_graph_window_selected_sample = (history_index + NUM_FRAME_SLOTS - samples + mouse_sample) % NUM_FRAME_SLOTS;
         }

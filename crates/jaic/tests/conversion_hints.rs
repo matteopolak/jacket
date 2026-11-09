@@ -194,6 +194,45 @@ fn a_bool_meeting_a_number_is_cast_to_the_number() {
 }
 
 #[test]
+fn an_integer_variable_does_not_compare_with_a_float_variable() {
+    fixes_to(
+        "c := a < b;",
+        "type mismatch: `s64` and `float32` cannot be combined",
+        "convert the left operand with `cast(float32)`",
+        "c := cast(float32) a < b;",
+    );
+    fixes_to(
+        "c := b == a;",
+        "type mismatch: `float32` and `s64` cannot be combined",
+        "convert the right operand with `cast(float32)`",
+        "c := b == cast(float32) a;",
+    );
+    // An integer the float represents entirely widens implicitly; any other does not.
+    let d = error_of(&program("n: s32 = 1; d: float = 2; c := n >= d;"));
+    assert_eq!(
+        d.message,
+        "type mismatch: `s32` and `float32` cannot be combined"
+    );
+    let d = error_of(&program("d: float64 = 2; c := a >= d;"));
+    assert_eq!(
+        d.message,
+        "type mismatch: `s64` and `float64` cannot be combined"
+    );
+}
+
+#[test]
+fn an_integer_that_fits_a_float_compares_with_it() {
+    let source = program("n: s16 = 1; w: s32 = 1; d: float64 = 2; c := n >= b; e := w < d;");
+    assert!(compile(&source).0.is_ok());
+}
+
+#[test]
+fn a_literal_compares_with_either_kind_of_number() {
+    let source = program("c := a < 2; d := b > 1; e := 3 == b; f := 1.5 > a;");
+    assert!(compile(&source).0.is_ok());
+}
+
+#[test]
 fn a_binary_operand_with_no_conversion_has_no_cast_suggestion() {
     let d = error_of(&program("s := \"x\"; c := a + s;"));
     assert_eq!(

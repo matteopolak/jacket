@@ -74,7 +74,7 @@ maybe_wrap_play_cursor :: (stream: *Sound_Stream) {
     if stream.repeat_end_position >= 0 end = min(end, stream.repeat_end_position);
 
     start := max(cast(s64) 0, stream.repeat_start_position);
-    if end <= start || stream.play_cursor < end return;
+    if end <= start || stream.play_cursor < cast(float64) end return;
 
     stream.play_cursor = start + fmod(stream.play_cursor - start, cast(float64) (end - start));
 }
@@ -99,7 +99,7 @@ accumulate_buffer_f :: (accumulator: *Audio_Dest_Sample, num_samples: s64, sourc
     cursor := source_cursor;
     written: s64;
 
-    while written < num_samples && cursor >= page_start && cursor < page_end {
+    while written < num_samples && cursor >= cast(float64) page_start && cursor < cast(float64) page_end {
         sample: Audio_Source_Sample;
 
         sample_n_channels(stream, cast(*s16) page, page_start, page_end, cursor, sample.channels, no_overflow);
@@ -153,7 +153,7 @@ accumulate_stream :: (stream: *Sound_Stream, accumulator: [] Audio_Dest_Sample, 
 
         maybe_wrap_play_cursor(stream);
 
-        if missing_page || stream.play_cursor < 0 || stream.play_cursor >= end {
+        if missing_page || stream.play_cursor < 0 || stream.play_cursor >= cast(float64) end {
             catch_up_volumes(stream);
             stream.current_rate += clamp(stream.desired_rate - stream.current_rate, DELTA_RATE_MIN, DELTA_RATE_MAX);
             stream.play_cursor += stream.current_rate;

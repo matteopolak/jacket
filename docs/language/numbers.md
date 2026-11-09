@@ -39,6 +39,7 @@ Typing flows up the tree. An untyped literal takes the other operand's type.
 - The complement of a constant (`~0x7`, `~0`) is a 64-bit pattern that doesn't adapt: next to a `u8`, `u16`, `u32` or `s32` it makes the operation `s64`, so `y: u32 = x & ~0x7;` is an error. Write `~cast(u32) 7`. Next to a `u64` it is the `u64` pattern. `y: u32 = ~0;` still fills the declared type.
 - Two typed integer constants meet in the wider type: `cast(s16) 1 + cast(s32) 2` is `s32`.
 - A `float32` operand meeting a float literal that needs `float64` (`x + 0.1591549431`) widens the operation to `float64`; only a declaration, argument or return taking it as `float32` is an error {#num.22}.
+- An integer variable and a float variable don't compare: `n < x` with `n: s64` and `x: float32` is `type mismatch: ... cannot be combined`, with a `cast` suggested. An integer type that the float represents entirely (`s16` with `float32`, `s32` with `float64`) widens, and an untyped literal takes the other side's type.
 - A cast is none of these: `cast(T) expr` types `expr` on its own ([casts](casts-and-conversions.md)) {#num.17}.
 
 ## Overflow checks
