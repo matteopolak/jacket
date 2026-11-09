@@ -1,18 +1,33 @@
-// RFC 9562 UUIDs in network byte order. No owned memory is stored in a Uuid.
+// UUIDs as defined by RFC 9562: parsing, formatting, comparing and generating versions 3, 4, 5 and 7.
+// A [Uuid] is 16 bytes with no owned memory, stored in network byte order.
+//
+// ```jai
+// #import "Extensions/Uuid";
+//
+// id, error := parse_uuid("123e4567-e89b-12d3-a456-426614174000");
+// assert(error.kind == .NONE && uuid_version(id) == 1);
+// assert(format_uuid(id) == "123e4567-e89b-12d3-a456-426614174000");
+// ```
+
+// A 128-bit universally unique identifier.
 Uuid :: struct {
     bytes: [16] u8;
 }
 
+// The all-zero UUID.
 UUID_NIL :: Uuid.{};
+
+// The all-ones UUID.
 UUID_MAX :: Uuid.{ .[255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255] };
 
+// Why parsing or generating a UUID failed.
 Uuid_Error_Kind :: enum u8 {
     NONE;
-    LENGTH;
-    SYNTAX;
-    RANDOM;
-    CLOCK;
-    EXHAUSTED;
+    LENGTH; // the text has no valid UUID length
+    SYNTAX; // a misplaced hyphen or brace, or a non-hex digit
+    RANDOM; // the system random generator failed
+    CLOCK; // the clock is outside the range a version 7 timestamp can hold
+    EXHAUSTED; // too many version 7 UUIDs in one millisecond; retry after the clock advances
 }
 
 // Messages are static; offsets are zero-based bytes. No error needs freeing.
@@ -22,6 +37,7 @@ Uuid_Error :: struct {
     offset: int;
 }
 
+// The layout family a UUID belongs to, from its top bits. RFC 9562 UUIDs are `.RFC`.
 Uuid_Variant :: enum u8 {
     NCS;
     RFC;
