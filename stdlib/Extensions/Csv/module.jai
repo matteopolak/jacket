@@ -578,7 +578,12 @@ read_record :: (r: *Csv_Reader) -> [] string, bool {
 
         delimiter := peek(r);
         if delimiter == r.options.delimiter {
-            if take(r) < 0 return .[], false;
+            if r.offset - r.record_offset >= r.options.max_record_bytes {
+                fail(r, .RECORD_LIMIT, "record exceeds limit");
+                return .[], false;
+            }
+
+            consume(r, 1);
             continue;
         }
 

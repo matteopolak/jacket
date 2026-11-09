@@ -169,6 +169,10 @@ limits_and_positions_mid_run :: () {
     expect_error_at("ab,abcdefgh\n", .{ max_record_bytes = 6 }, .RECORD_LIMIT, 6, 1, 7);
     expect_error_at("x\n\"abcdefghij\"\n", .{ max_record_bytes = 5 }, .RECORD_LIMIT, 7, 2, 6);
 
+    // The limit can fall on a delimiter or a line ending.
+    expect_error_at("a,b", .{ max_record_bytes = 1 }, .RECORD_LIMIT, 1, 1, 2);
+    expect_error_at("ab\r\n", .{ max_record_bytes = 2 }, .RECORD_LIMIT, 2, 1, 3);
+
     // Where both limits are reached at once, the record limit comes first.
     expect_error_at("abcdef", .{ max_record_bytes = 3, max_field_bytes = 3 }, .RECORD_LIMIT, 3, 1, 4);
 
