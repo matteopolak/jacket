@@ -645,14 +645,19 @@ def data_fixtures():
     meow_fixtures(False)
     # The inputs taken from pinned downloads: Unicode's test files and Go's ZIP/TAR fixtures.
     from unicode_text_conformance.fetch import write_suites
+
     write_suites()
     from archive_conformance.fetch import fetch as archive_suites
+
     archive_suites()
     from gltf_conformance.fetch import fetch as gltf_suites
+
     gltf_suites()
     from csv_conformance.fetch import fetch as csv_suite
+
     csv_suite()
     from time_conformance.fetch import fetch as time_suites
+
     time_suites()
 
 
