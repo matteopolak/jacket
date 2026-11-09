@@ -55,6 +55,9 @@ RULES = {
 
 # pin -> the script that reads it from pins.json itself (so no literal is spelled out elsewhere).
 READ_BY = {
+    "python_websocket": "tools/websocket_conformance/interop.py",
+    "websockets": "tools/websocket_conformance/fetch.py",
+    "websockets_sha256": "tools/websocket_conformance/fetch.py",
     "python_grpc": "tools/grpc/interop.py",
     "llvm": "tools/ci/install_pinned.py",
     "just": "tools/ci/install_pinned.py",

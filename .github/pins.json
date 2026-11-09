@@ -1,6 +1,9 @@
 {
   "node": "24",
   "python": "3.14",
+  "python_websocket": "3.14.3",
+  "websockets": "15.0.1",
+  "websockets_sha256": "f7a866fbc1e97b5c617ee4116daaa09b722101d4a3c170c787450ba409f9736f",
   "python_grpc": "3.14.3",
   "python_toml": "3.15.0",
   "just": "1.58.0",
