@@ -36463,23 +36463,23 @@ ssize_t :: s64;
 }
 
 #if OS == .LINUX {
-    close :: (__fd: s32) -> s32 #foreign libc; @MaybeFreesArgument
+    close :: (__fd: s32) -> s32 #foreign libc; @FreesArgument
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
-    close :: (unknown0: s32) -> s32 #foreign libc; @MaybeFreesArgument
+    close :: (unknown0: s32) -> s32 #foreign libc; @FreesArgument
 }
 
 #if OS == .MACOS && CPU == .X64 {
-    close :: (unknown0: s32) -> s32 #foreign libc; @MaybeFreesArgument
+    close :: (unknown0: s32) -> s32 #foreign libc; @FreesArgument
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
-    close :: (__fd: s32) -> s32 #foreign libc; @MaybeFreesArgument
+    close :: (__fd: s32) -> s32 #foreign libc; @FreesArgument
 }
 
 #if OS == .ANDROID && CPU == .X64 {
-    close :: (__fd: s32) -> s32 #foreign libc; @MaybeFreesArgument
+    close :: (__fd: s32) -> s32 #foreign libc; @FreesArgument
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -46581,23 +46581,23 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX {
-    write :: (__fd: s32, __buf: *void, __n: u64) -> s64 #foreign libc;
+    write :: (__fd: s32, __buf: *void, __n: u64) -> s64 #foreign libc; @WritesOutput(0)
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
-    write :: (__fd: s32, __buf: *void, __nbyte: u64) -> s64 #foreign libc;
+    write :: (__fd: s32, __buf: *void, __nbyte: u64) -> s64 #foreign libc; @WritesOutput(0)
 }
 
 #if OS == .MACOS && CPU == .X64 {
-    write :: (__fd: s32, __buf: *void, __nbyte: u64) -> s64 #foreign libc;
+    write :: (__fd: s32, __buf: *void, __nbyte: u64) -> s64 #foreign libc; @WritesOutput(0)
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
-    write :: (__fd: s32, __buf: *void, __count: u64) -> s64 #foreign libc;
+    write :: (__fd: s32, __buf: *void, __count: u64) -> s64 #foreign libc; @WritesOutput(0)
 }
 
 #if OS == .ANDROID && CPU == .X64 {
-    write :: (__fd: s32, __buf: *void, __count: u64) -> s64 #foreign libc;
+    write :: (__fd: s32, __buf: *void, __count: u64) -> s64 #foreign libc; @WritesOutput(0)
 }
 
 #if OS == .LINUX {

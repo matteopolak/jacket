@@ -148,7 +148,7 @@ compile_time_unknown :: (message: string) #compiler #no_context {}
 } else {
     libc :: #system_library "libc"; @native(external)
     c_read :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc "read";
-    c_write :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc "write";
+    c_write :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc "write"; @WritesOutput(0)
     c_dup :: (fd: s32) -> s32 #foreign libc "dup";
     c_dup2 :: (fd: s32, to: s32) -> s32 #foreign libc "dup2";
 

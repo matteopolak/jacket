@@ -16,7 +16,7 @@ use_handle :: (h: int) -> int {
     return h;
 }
 
-close_handle :: (owner: int, h: int) {} @Closes(1)
+close_handle :: (owner: int, h: int) {} @FreesArgument(1)
 lib :: #library "c";
 
 unknown :: (p: *int) #foreign lib "lifetime_fixture_unknown";

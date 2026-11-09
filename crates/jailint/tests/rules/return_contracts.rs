@@ -105,7 +105,7 @@ fn lifetime_mixed_return_contracts_remain_possible_without_tainting_heap_copies(
 }
 
 #[test]
-fn lifetime_failed_windows_close_is_not_a_must_release() {
+fn lifetime_windows_close_releases_even_when_it_fails() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/failed-close.jai");
     let mut target = jaic::sema::Options::host();
     target.os = jaic::target::TargetOs::Windows;
@@ -119,7 +119,8 @@ fn lifetime_failed_windows_close_is_not_a_must_release() {
         Config::default(),
         target,
     );
-    assert!(findings.is_empty(), "{}", rendered(&findings, &text, &path));
+    assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
+    assert_eq!(findings[0].rule, "double_free");
 }
 
 #[test]

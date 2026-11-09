@@ -1306,7 +1306,7 @@ accept :: (s: SOCKET, addr: *sockaddr, addrlen: *s32) -> SOCKET #foreign ws2_32;
 
 bind :: (s: SOCKET, name: *sockaddr, namelen: s32) -> s32 #foreign ws2_32;
 
-closesocket :: (s: SOCKET) -> s32 #foreign ws2_32; @MaybeFreesArgument
+closesocket :: (s: SOCKET) -> s32 #foreign ws2_32; @FreesArgument
 
 connect :: (s: SOCKET, name: *sockaddr, namelen: s32) -> s32 #foreign ws2_32;
 

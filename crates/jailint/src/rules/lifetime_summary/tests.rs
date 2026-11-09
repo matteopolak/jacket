@@ -408,7 +408,7 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
         let source = r#"
             #import "Basic";
             lib :: #system_library "c";
-            raw_write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign lib "write";
+            raw_write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign lib "write"; @WritesOutput(0)
             raw_exit :: (code: s32) #foreign lib "exit"; @Exits
             select_output :: (error: bool) {
                 fd: s32 = 1;

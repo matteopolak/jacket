@@ -6404,7 +6404,7 @@ winmm :: #library,system "winmm"; @native(external)
 }
 
 #if OS == .WINDOWS {
-    CloseHandle :: (handle: HANDLE) -> s32 #foreign kernel32; @MaybeFreesArgument
+    CloseHandle :: (handle: HANDLE) -> s32 #foreign kernel32; @FreesArgument
 }
 
 #if OS == .WINDOWS {
@@ -6940,7 +6940,7 @@ winmm :: #library,system "winmm"; @native(external)
 }
 
 #if OS == .WINDOWS {
-    GetStdHandle :: (handle: s32) -> HANDLE #foreign kernel32;
+    GetStdHandle :: (handle: s32) -> HANDLE #foreign kernel32; @ReturnsStandardHandle
 }
 
 #if OS == .WINDOWS {
@@ -7688,7 +7688,7 @@ winmm :: #library,system "winmm"; @native(external)
 }
 
 #if OS == .WINDOWS {
-    WriteFile :: (handle: HANDLE, buffer: *void, buffer_length: DWORD, written_result: *DWORD, overlapped: *void) -> BOOL #foreign kernel32;
+    WriteFile :: (handle: HANDLE, buffer: *void, buffer_length: DWORD, written_result: *DWORD, overlapped: *void) -> BOOL #foreign kernel32; @WritesOutput(0)
 }
 
 // Convenience operations

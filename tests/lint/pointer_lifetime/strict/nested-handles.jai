@@ -1,7 +1,7 @@
 #import "Basic";
 
 lib :: #library "c";
-close_handle :: (handle: s64) #foreign lib "close_handle"; @Closes
+close_handle :: (handle: s64) #foreign lib "close_handle"; @FreesArgument
 access_handle :: (handle: s64) #foreign lib "access_handle"; @NoLifetimeEffects
 
 Inner :: struct {

@@ -1190,7 +1190,7 @@ close_without_waiting :: (handle: Handle) {
     else if engine.backend == .IO_URING && handle.kind == .SOCKET uring_listener_abandoned(scheduler, engine, handle.fd);
 
     sys_close_handle(handle);
-} @FreesArgument
+}
 
 // Closes a handle that never reached the engine, or whose operations all finished.
 discard_handle :: (handle: Handle) {

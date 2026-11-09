@@ -4,7 +4,7 @@ Point :: struct {
     value: int;
 }
 
-close_handle :: (handle: int) {} @Closes
+close_handle :: (handle: int) {} @FreesArgument
 
 conditional_free :: (flag: bool) {
     p := New(int);

@@ -82,7 +82,7 @@ To change what a rule recognises, annotate the declaration; the linter has no na
 | `@GrowsArray` | `pointer_into_resizable` | may reallocate the resizable array its first argument points to |
 | `@AddsToArray` | `useless_resizable` | adds one element to that array |
 | `@FreesArgument` | `defer_in_loop`, lifetime rules | an argument's memory is gone after the call (the first, or `@FreesArgument(1)`); needed only on a declaration without a body, since a body that frees the argument or what it owns says it already |
-| `@MaybeFreesArgument` | lifetime rules | like `@FreesArgument` for a release that can fail and leave the resource live (`close`, `munmap`); the argument is released on some paths, not every one |
+| `@MaybeFreesArgument` | lifetime rules | like `@FreesArgument` for a release that can fail and leave the resource live (`munmap`, `VirtualFree`); the argument is released on some paths, not every one |
 | `@Allocates` | `leaked_allocation`, `leaked_temporary` | the result is newly allocated and the caller owns it (bodiless only) |
 | `@TakesByteCount` | `element_count_as_bytes` | the last argument is a byte count |
 | `@Locks`, `@Unlocks` | `unpaired_lock` | takes or gives back the lock its first argument names |
@@ -92,7 +92,7 @@ To change what a rule recognises, annotate the declaration; the linter has no na
 | `@PrintLike`, `@FormatsToString` | `leaked_temporary`, `useless_format`, `format_push_string` | first string argument is a format string; the latter returns the text |
 | `@AppendsString` | `format_push_string` | adds its second argument to the builder in its first |
 | `@TempAllocates` | `temp_storage_escape` | the result lives in temporary storage, where the body can't show it |
-| `@Opens`, `@Closes` | `unclosed_resource` | acquires or gives back a resource |
+| `@Opens` | `unclosed_resource` | acquires a resource the caller must give back; a procedure that frees its argument (see `@FreesArgument`) gives it back |
 
 Notes marked "bodiless only" are read only on a declaration without a body, such as a `#foreign` one. The linter keeps no list of library or symbol names: a foreign `free`, `close`, `exit` or `printf` carries its note where it is declared (`c_free :: (memory: *void) #foreign libc "free"; @FreesArgument`), and a wrapper around it works out the rest from its body. Otherwise the linter works the effect out from the checked body and the bodies it calls: a procedure that returns `alloc`'s result allocates, one whose every path reaches `exit` exits, a macro that pushes a context or assigns into `context` changes it, and `a < b` choosing between its two arguments makes a minimum or maximum. A note on a procedure with a body is ignored for these, so the declaration and the body can't disagree.
 

@@ -218,7 +218,7 @@ LookupAccountNameW :: (system: *u16, account: *u16, sid: *void, sid_bytes: *u32,
 ConvertSidToStringSidW :: (sid: *void, text: **u16) -> s32 #foreign advapi32;
 RegOpenKeyExW :: (key: *void, name: *u16, options: u32, access: u32, result: **void) -> s32 #foreign advapi32;
 RegQueryValueExW :: (key: *void, value: *u16, reserved: *u32, type: *u32, data: *u8, bytes: *u32) -> s32 #foreign advapi32;
-RegCloseKey :: (key: *void) -> s32 #foreign advapi32; @MaybeFreesArgument
+RegCloseKey :: (key: *void) -> s32 #foreign advapi32; @FreesArgument
 ExpandEnvironmentStringsW :: (source: *u16, destination: *u16, capacity: u32) -> u32 #foreign kernel32;
 
 temporary_text :: (text: *u16, count: s64) -> string, bool {
@@ -230,7 +230,7 @@ temporary_text :: (text: *u16, count: s64) -> string, bool {
 
 close_native_handle :: (handle: W.HANDLE) {
     assert(W.CloseHandle(handle) != 0, "native handle cleanup failed");
-} @FreesArgument
+}
 
 release_local_memory :: (memory: *void) {
     assert(W.LocalFree(memory) == null, "native memory cleanup failed");

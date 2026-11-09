@@ -121,3 +121,39 @@ fn foreign_declarations_release_only_through_their_notes() {
     assert!(frees(get("second_free"), 1));
     assert!(!frees(get("second_free"), 0));
 }
+
+#[test]
+fn narrowing_a_handle_keeps_it_the_released_argument() {
+    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let mut options = Options::host();
+    options.import_paths = vec![stdlib.clone()];
+    options.set_stdlib(&NativeFs, &stdlib);
+    let mut c = Compiler::new(options, Rc::new(NativeFs));
+    let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+    facts.lint = true;
+    c.ed.record(facts);
+    c.begin_sources(&[ProgramSource::String(
+        r#"
+        lib :: #system_library "c";
+        raw_close :: (fd: s32) -> s32 #foreign lib "close"; @FreesArgument
+        close_wide :: (fd: s64) -> s64 { return cast(s64) raw_close(cast(s32) fd); }
+        main :: () {}
+    "#
+        .into(),
+    )])
+    .unwrap();
+    c.finish_program().unwrap();
+    assert!(c.ide_check_all().is_empty());
+    let summaries = Summaries::build(&c);
+    let id =
+        c.pr.procs
+            .iter()
+            .position(|p| p.name.as_str() == "close_wide")
+            .unwrap();
+    assert!(
+        summaries.procs[&ProcId(id as u32)]
+            .guaranteed
+            .keys()
+            .any(|e| e.kind == Kind::Free && e.target.root == Root::Parameter(0))
+    );
+}

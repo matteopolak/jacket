@@ -127,7 +127,7 @@ file_close :: (file: *File) {
     }
 
     file.handle = W.INVALID_HANDLE_VALUE;
-} @Closes
+} @FreesArgument
 
 // Reads up to `bytes_to_read` bytes from the current position into `vdata`, and returns `(success, total_read)`.
 //

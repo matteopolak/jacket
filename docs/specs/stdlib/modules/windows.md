@@ -975,7 +975,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `VirtualLock :: (lpAddress: *void, dwSize: u64) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `VirtualProtect :: (lpAddress: *void, dwSize: u64, flNewProtect: u32, lpflOldProtect: *u32) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `VirtualQuery :: (lpAddress: *void, lpBuffer: *MEMORY_BASIC_INFORMATION, dwLength: SIZE_T) -> SIZE_T #foreign kernel32`
-- [OS == .WINDOWS] `CloseHandle :: (handle: HANDLE) -> s32 #foreign kernel32 @MaybeFreesArgument`
+- [OS == .WINDOWS] `CloseHandle :: (handle: HANDLE) -> s32 #foreign kernel32 @FreesArgument`
 - [OS == .WINDOWS] `SetHandleInformation :: (hObject: HANDLE, dwMask: DWORD, dwFlags: DWORD) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `FreeLibrary :: (module: HMODULE) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `GetModuleFileNameA :: (module: HANDLE, result: *u8, size: s32) -> s32 #foreign kernel32`
@@ -1038,7 +1038,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `AllocConsole :: () -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `FreeConsole :: () -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `CONSOLE_SCREEN_BUFFER_INFO :: struct`
-- [OS == .WINDOWS] `GetStdHandle :: (handle: s32 ) -> HANDLE #foreign kernel32`
+- [OS == .WINDOWS] `GetStdHandle :: (handle: s32 ) -> HANDLE #foreign kernel32 @ReturnsStandardHandle`
 - [OS == .WINDOWS] `GetConsoleScreenBufferInfo :: (hConsoleOutput: HANDLE, lpConsoleScreenBufferInfo : *CONSOLE_SCREEN_BUFFER_INFO) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `SetConsoleTextAttribute :: (hConsoleOutput: HANDLE, wAttributes : u16) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `GetConsoleMode :: (hConsoleHandle: HANDLE, lpMode: *DWORD) -> BOOL #foreign kernel32`
@@ -1245,7 +1245,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `SetFileInformationByHandle :: (File: HANDLE, FileInformationClass: FILE_INFO_BY_HANDLE_CLASS, FileInformation: *void, BufferSize: u32) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `SetFilePointer :: (hFile: HANDLE, liDistanceToMove: s32, lpNewFilePointer: *s32, dwMoveMethod: SetFilePointer_MoveMethod) -> u32 #foreign kernel32`
 - [OS == .WINDOWS] `SetFilePointerEx :: (hFile: HANDLE, liDistanceToMove: LARGE_INTEGER, lpNewFilePointer: *LARGE_INTEGER, dwMoveMethod: SetFilePointer_MoveMethod) -> BOOL #foreign kernel32`
-- [OS == .WINDOWS] `WriteFile :: (handle: HANDLE, buffer: *void, buffer_length: DWORD, written_result: *DWORD, overlapped: *void) -> BOOL #foreign kernel32`
+- [OS == .WINDOWS] `WriteFile :: (handle: HANDLE, buffer: *void, buffer_length: DWORD, written_result: *DWORD, overlapped: *void) -> BOOL #foreign kernel32 @WritesOutput(0)`
 - [OS == .WINDOWS] `DwmIsCompositionEnabled :: (pfEnabled: *BOOL) -> HRESULT #foreign Dwmapi`
 - [OS == .WINDOWS] `IMAGE_FILE_MACHINE_I386 :: 0x014c`
 - [OS == .WINDOWS] `IMAGE_FILE_MACHINE_IA64 :: 0x0200`

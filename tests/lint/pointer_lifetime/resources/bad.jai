@@ -8,7 +8,7 @@ release_inferred :: (p: *void) {
     free(p);
 }
 
-close_handle :: (handle: int) {} @Closes
+close_handle :: (handle: int) {} @FreesArgument
 
 alias_after_free :: () {
     p := New(int);

@@ -9,7 +9,7 @@ SEEK_CUR :: 1;
 SEEK_END :: 2;
 
 fopen :: (name: *u8, mode: *u8) -> *FILE #foreign libc;
-close :: (fd: s32) -> s32 #foreign libc; @MaybeFreesArgument
+close :: (fd: s32) -> s32 #foreign libc; @FreesArgument
 fclose :: (file: *FILE) -> s32 #foreign libc; @FreesArgument
 fread :: (data: *void, size: u64, count: u64, file: *FILE) -> u64 #foreign libc;
 fwrite :: (data: *void, size: u64, count: u64, file: *FILE) -> u64 #foreign libc;

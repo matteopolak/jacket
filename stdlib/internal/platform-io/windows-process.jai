@@ -300,7 +300,7 @@ valid_handle :: (handle: W.HANDLE) -> bool {
 
 checked_close :: (handle: W.HANDLE) {
     assert(W.CloseHandle(handle) != 0, "Windows process handle cleanup failed");
-} @FreesArgument
+}
 
 wait_handles :: (count: u32, handles: *W.HANDLE, milliseconds: s64) -> u32 {
     if milliseconds == 0 return W.WaitForMultipleObjects(count, handles, 0, 0);

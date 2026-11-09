@@ -12,9 +12,8 @@
 //! // no builder_to_string, free_buffers or reset
 //! ```
 //!
-//! Procedures declare their part with notes: `@Opens` on one that acquires something, `@Closes`
-//! on one that gives it back (a procedure that frees its argument closes too, whether a note or its
-//! body says so). An opener is either
+//! A procedure declares that it acquires something with `@Opens`; one that gives it back is any
+//! procedure that frees its argument, whether a note or its body says so. An opener is either
 //! assigned (`file, ok := file_open(path);`, the first name is the resource) or called as a
 //! statement on a local's address (`append(*builder, s);`, `init_string_builder(*builder);`).
 //! The local must be declared in the procedure.

@@ -93,7 +93,7 @@ pub(super) fn result_indices(compiler: &Compiler, proc: ProcId, name: &str) -> V
 }
 
 pub(super) fn released_formal(compiler: &Compiler, proc: ProcId) -> Option<usize> {
-    noted_formal(compiler, proc, &["FreesArgument", "Closes"])
+    noted_formal(compiler, proc, &["FreesArgument"])
 }
 
 /// The argument a procedure may release: `@MaybeFreesArgument`, for a release that can fail and leave the

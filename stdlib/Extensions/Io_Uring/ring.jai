@@ -402,7 +402,7 @@ libc :: #system_library "libc"; @native(external)
 
 mmap :: (address: *void, length: u64, protection: s32, flags: s32, descriptor: s32, offset: s64) -> *void #foreign libc;
 munmap :: (address: *void, length: u64) -> s32 #foreign libc; @MaybeFreesArgument
-close :: (descriptor: s32) -> s32 #foreign libc; @MaybeFreesArgument
+close :: (descriptor: s32) -> s32 #foreign libc; @FreesArgument
 errno_location :: () -> *s32 #foreign libc "__errno_location";
 
 PROT_READ_WRITE :: 3;

@@ -1,7 +1,7 @@
 #assert OS == .WINDOWS;
 LSTATUS :: s32;
 REGSAM :: u32;
-RegCloseKey :: (hKey: HKEY) -> LSTATUS #foreign advapi; @MaybeFreesArgument
+RegCloseKey :: (hKey: HKEY) -> LSTATUS #foreign advapi; @FreesArgument
 RegEnumKeyExA :: (hKey: HKEY, dwIndex: DWORD, lpName: *u8, lpcchName: *DWORD, lpReserved: *DWORD, lpClass: *u8, lpcchClass: *DWORD, lpftLastWriteTime: *FILETIME) -> LSTATUS #foreign advapi;
 RegGetValueA :: (hkey: HKEY, lpSubKey: *u8, lpValue: *u8, dwFlags: DWORD, pdwType: *DWORD, pvData: *void, pcbData: *DWORD) -> LSTATUS #foreign advapi;
 RegOpenKeyExA :: (hKey: HKEY, lpSubKey: *u8, ulOptions: DWORD, samDesired: REGSAM, phkResult: *HKEY) -> LSTATUS #foreign advapi;

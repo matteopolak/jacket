@@ -12,7 +12,7 @@ C :: Protocol.conformance;
 
 libc :: #system_library "c";
 read_fd :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "read";
-write_fd :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write";
+write_fd :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write"; @WritesOutput(0)
 
 read_exact :: (bytes: [] u8) -> bool {
     pos: s64;

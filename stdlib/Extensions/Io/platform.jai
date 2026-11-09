@@ -176,12 +176,12 @@ MAX_TRANSFER :: 0x4000_0000;
     c_send :: (fd: s32, buffer: *void, length: u64, flags: s32) -> s64 #foreign libc "send";
     c_recv :: (fd: s32, buffer: *void, length: u64, flags: s32) -> s64 #foreign libc "recv";
     c_read :: (fd: s32, buffer: *void, length: u64) -> s64 #foreign libc "read";
-    c_write :: (fd: s32, buffer: *void, length: u64) -> s64 #foreign libc "write";
+    c_write :: (fd: s32, buffer: *void, length: u64) -> s64 #foreign libc "write"; @WritesOutput(0)
     c_pread :: (fd: s32, buffer: *void, length: u64, offset: s64) -> s64 #foreign libc "pread";
     c_pwrite :: (fd: s32, buffer: *void, length: u64, offset: s64) -> s64 #foreign libc "pwrite";
     // open and fcntl are variadic in C, which matters on Apple arm64 (variadic arguments go on the stack).
     c_open :: (path: *u8, flags: s32, args: ..Any) -> s32 #foreign libc "open";
-    c_close :: (fd: s32) -> s32 #foreign libc "close"; @MaybeFreesArgument
+    c_close :: (fd: s32) -> s32 #foreign libc "close"; @FreesArgument
     c_unlink :: (path: *u8) -> s32 #foreign libc "unlink";
     c_fcntl :: (fd: s32, command: s32, args: ..Any) -> s32 #foreign libc "fcntl";
     c_pipe :: (fds: *s32) -> s32 #foreign libc "pipe";
@@ -300,7 +300,7 @@ MAX_TRANSFER :: 0x4000_0000;
 
     sys_close :: (fd: s64) -> s64 {
         return checked(c_close(cast(s32) fd));
-    } @FreesArgument
+    }
 
     // A pipe whose read end is non-blocking when `nonblocking` (the backend waits for readiness);
     // the write end always blocks, which a one-byte wake-up never does for long.
