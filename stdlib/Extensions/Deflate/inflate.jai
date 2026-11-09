@@ -58,6 +58,7 @@ Inflater :: struct {
     o: s64;
     growable: bool;
     max_output: s64;
+    window_limit: s64 = 32768;
 
     fixed_loaded: bool;
     literal_table: [LITERAL_TABLE_SIZE] u32;
@@ -335,8 +336,8 @@ inflate_codes :: (s: *Inflater) -> string #no_abc {
             bits >>= dtotal;
             nbits -= dtotal;
 
-            if distance > o {
-                error = "distance is before the start of the output";
+            if distance > o || distance > s.window_limit {
+                error = ifx distance > o then "distance is before the start of the output" else "distance exceeds history window";
                 finished = true;
                 break;
             }
@@ -446,8 +447,8 @@ inflate_codes :: (s: *Inflater) -> string #no_abc {
         bits >>= dtotal;
         nbits -= dtotal;
 
-        if distance > o {
-            error = "distance is before the start of the output";
+        if distance > o || distance > s.window_limit {
+            error = ifx distance > o then "distance is before the start of the output" else "distance exceeds history window";
             break;
         }
 

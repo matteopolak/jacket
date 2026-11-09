@@ -151,6 +151,52 @@ adler32 :: (data: [] u8, adler: u32 = 1) -> u32 {
     return adler32_update(data, adler);
 }
 
+// Encodes a raw DEFLATE message ending at Z_SYNC_FLUSH, with the four-byte tail omitted.
+// A borrowed dictionary seeds compression history; only its last 32 KiB are used.
+// Example: packed := deflate_sync(cast([] u8) "hello"); free(packed.data).
+deflate_sync :: (data: [] u8, level: s32 = 6, dictionary: [] u8 = .[]) -> [] u8 {
+    return compress(data, .RAW, level, true, dictionary);
+}
+
+// Decodes a sync-flushed message with a borrowed history tail (at most 32 KiB).
+// Output excludes the dictionary and must be freed. The output budget excludes history too.
+// Example: plain, ok := inflate_sync(packed, .[], 1024); if ok free(plain.data).
+inflate_sync :: (data: [] u8, dictionary: [] u8, max_output: s64 = DEFAULT_MAX_OUTPUT, window_bits: int = 15) -> output: [] u8, ok: bool, error: string {
+    if window_bits < 8 || window_bits > 15 return .[], false, "invalid window bits";
+    if dictionary.count > (1 << window_bits) || max_output < 0 || max_output > 0x7FFFFFFFFFFFFFFF - 32768 return .[], false, "invalid dictionary or output limit";
+
+    input: [..] u8;
+
+    defer array_free(input);
+    array_reserve(*input, data.count + 9);
+    if data.count memcpy(input.data, data.data, data.count);
+
+    input.count = data.count;
+    for u8.[0, 0, 255, 255, 1, 0, 0, 255, 255] array_add(*input, it);
+
+    s := New(Inflater);
+
+    defer free(s);
+    s.growable = true;
+    s.max_output = max_output + dictionary.count;
+    s.window_limit = 1 << window_bits;
+    s.cap = min(s.max_output, max(4096, dictionary.count));
+    s.out = alloc(max(1, s.cap));
+    if dictionary.count memcpy(s.out, dictionary.data, dictionary.count);
+
+    s.o = dictionary.count;
+    failure := inflate_container(s, input, .RAW);
+    if failure.count || s.consumed != input.count {
+        free(s.out);
+        return .[], false, ifx failure.count then failure else "premature final DEFLATE block";
+    }
+
+    count := s.o - dictionary.count;
+    for i: 0..count - 1 s.out[i] = s.out[i + dictionary.count];
+
+    return .{ count, s.out }, true, "";
+}
+
 #load "tables.jai";
 #load "checksum.jai";
 #load "huffman.jai";

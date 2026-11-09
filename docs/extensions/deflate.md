@@ -36,3 +36,23 @@ jaic -O2 stdlib/Extensions/Deflate/bench/bench.jai -exe /tmp/deflate-bench && /t
 - Decoder tables: an entry is `kind | value << 16 | codelen << 5 | total_bits`. Keep every index the `#no_abc` loop uses inside the table, and `FAST_OUTPUT_ROOM` at least the longest write of `copy_match`.
 - Gotcha: `cast(T) x << n` shifts in `x`'s type before casting; parenthesize.
 - Tests: `tests/roundtrip.jai`, `vectors.jai`, `malformed.jai`, `limits.jai`, and `stb.jai` (native only). `#no_abc` code doesn't trap out-of-bounds reads in the interpreter, so after touching the fast loop also run natively with `-sanitize address`. Fuzz: `PYTHONPATH=tools python3 tools/fuzz/stdlib_fuzz.py Extensions/Deflate --count 500`.
+
+## Sync-flushed protocol messages
+
+`deflate_sync(data, level = 6, dictionary = .[])` writes raw blocks ending at a
+sync-flush boundary with the final four bytes omitted, as used by
+[WebSocket permessage-deflate](websocket.md). `inflate_sync(data, dictionary,
+max_output, window_bits = 15)` restores that boundary and requires the complete
+message to end there. Example: `plain, ok := inflate_sync(packed, .[], 1024);`
+Free successful outputs with `free(plain.data)` and compressed results likewise.
+Errors are static strings; failure returns no allocated result.
+
+Dictionary input is borrowed; the encoder uses its last 32 KiB and the decoder
+requires it to fit the selected window. The output budget excludes history, and
+matches beyond the negotiated 8–15 bit window are rejected in both decoder paths.
+Callers retain only the tail of prior decompressed messages for context takeover;
+pass an empty dictionary to reset it. This is a message boundary API, not an
+arbitrary-chunk streaming decoder. It shares the ordinary encoder/block decoder,
+so changes belong in `compress_blocks`, `inflate_blocks` and `module.jai`, with
+`tests/sync.jai` covering history, boundaries and output limits. No new dependency
+or global configuration is needed.

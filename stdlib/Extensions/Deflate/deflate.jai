@@ -619,11 +619,15 @@ flush_block :: (e: *Encoder, start: s64, end: s64, final: bool) {
 
 // The main loop --------------------------------------------------------------------------
 
-compress_blocks :: (e: *Encoder, last_segment: bool) {
+compress_blocks :: (e: *Encoder, last_segment: bool, prefix: s64 = 0) {
     n := e.size;
     s := e.settings;
-    pos: s64;
-    block_start: s64;
+    pos := prefix;
+    block_start := prefix;
+
+    for i: 0..min(prefix, n - 3) - 1 insert_position(e, i);
+
+    e.inserted = prefix;
     pending_length: s64; // a match found at `pos` while looking ahead from the position before
     pending_distance: s64;
 
@@ -676,7 +680,21 @@ compress_blocks :: (e: *Encoder, last_segment: bool) {
     flush_block(e, block_start, n, last_segment);
 }
 
-compress :: (data: [] u8, container: Deflate_Container, level: s32) -> [] u8 {
+compress :: (data: [] u8, container: Deflate_Container, level: s32, sync := false, dictionary: [] u8 = .[]) -> [] u8 {
+    data := data;
+    prefix: s64;
+    joined: [] u8;
+
+    defer if joined.data free(joined.data);
+
+    if sync && level > 0 && data.count > 0 && dictionary.count > 0 {
+        prefix = min(dictionary.count, WINDOW);
+        joined = NewArray(prefix + data.count, u8, false);
+        memcpy(joined.data, dictionary.data + dictionary.count - prefix, prefix);
+        memcpy(joined.data + prefix, data.data, data.count);
+        data = joined;
+    }
+
     e: Encoder;
     e.data = data.data;
     e.size = data.count;
@@ -706,14 +724,14 @@ compress :: (data: [] u8, container: Deflate_Container, level: s32) -> [] u8 {
 
     if data.count == 0 {
         if lvl == 0 {
-            write_stored(*e, 0, 0, true);
+            write_stored(*e, 0, 0, !sync);
         } else {
             reserve_output(*e, 16);
-            put_bits(*e, 3, 3);
+            put_bits(*e, ifx sync then 2 else 3, 3);
             put_bits(*e, 0, 7);
         }
     } else if lvl == 0 {
-        write_stored(*e, 0, data.count, true);
+        write_stored(*e, 0, data.count, !sync);
     } else {
         e.settings = settings_for(lvl);
 
@@ -750,7 +768,7 @@ compress :: (data: [] u8, container: Deflate_Container, level: s32) -> [] u8 {
 
             last := start + e.size >= data.count;
 
-            compress_blocks(*e, last);
+            compress_blocks(*e, last && !sync, ifx start == 0 then prefix else 0);
 
             start += e.size;
             if last break;
@@ -762,7 +780,10 @@ compress :: (data: [] u8, container: Deflate_Container, level: s32) -> [] u8 {
     }
 
     reserve_output(*e, 16);
+    if sync write_stored(*e, 0, 0, false);
+
     align_output(*e);
+    if sync e.out_used -= 4;
 
     if container == .ZLIB {
         adler := adler32_update(data, 1);
