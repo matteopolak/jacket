@@ -262,10 +262,10 @@ impl InlineSched {
     fn satisfied(&self, thread: usize, wait: Wait) -> bool {
         match wait {
             Wait::None => true,
-            Wait::Join(handle) => self
-                .slots
-                .resolve(handle)
-                .is_none_or(|t| self.threads[t].state == State::Finished),
+            // Over once the thread ended, or its handle is gone (detached while waiting).
+            Wait::Join(handle) => self.slots.resolve(handle).is_none_or(|t| {
+                self.threads[t].state == State::Finished || self.slots.is_released(t)
+            }),
             Wait::Mutex(addr) => self.mutexes.available_to(addr, thread),
             Wait::Cond(token) => self.woken.contains(&token),
             Wait::Time => false,

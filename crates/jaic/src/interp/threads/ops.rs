@@ -331,7 +331,8 @@ impl Interp {
         }
         let (result, worker) = loop {
             let step = self.with_sched(|s| {
-                if s.resolve(handle) != Some(id) {
+                // Detached (or joined by another thread) while waiting: the handle is dead.
+                if s.resolve(handle) != Some(id) || s.slots.is_released(id) {
                     return Err(());
                 }
                 if !s.threads[id].finished {
@@ -357,6 +358,8 @@ impl Interp {
     fn thread_detach(&mut self, handle: u64) -> u64 {
         let released = self.with_sched(|s| {
             let id = s.resolve_joinable(handle)?;
+            // A thread already blocked in `pthread_join` on it fails now (`EINVAL`).
+            s.wake(Block::Join(id));
             Some(s.release_handle(id))
         });
         match released {

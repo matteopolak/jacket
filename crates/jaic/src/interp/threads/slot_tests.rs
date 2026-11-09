@@ -183,6 +183,51 @@ macro_rules! posix_slot_tests {
         }
 
         #[test]
+        fn detaching_a_thread_wakes_a_blocked_joiner_with_an_error() {
+            // The target waits for a lock main holds, so it cannot end first.
+            let source = posix(
+                "
+    if pthread_mutex_init(*gate,null)!=0 return false;
+    // Entry points are compiled when first used, and not while another thread exists: run the
+    // joiner once on its own, then undo what it did.
+    helper:u64;
+    result:*void;
+    pthread_create(*helper,null,cast(*void)joiner,null);
+    if pthread_join(helper,*result)!=0 return false;
+    join_status=-1;
+    if pthread_mutex_lock(*gate)!=0 return false;
+    pthread_create(*target,null,cast(*void)blocked,null);
+    sched_yield();
+    pthread_create(*helper,null,cast(*void)joiner,null);
+    sched_yield();
+    if pthread_detach(target)!=0 return false;
+    turns:u64=0;
+    while join_status==-1 && turns<20 {
+        sched_yield();
+        turns+=1;
+    }
+    // The joiner got EINVAL while the thread was still running.
+    if join_status==-1 || join_status==0 return false;
+    // Joining it now is refused at once as well.
+    if pthread_join(target,*result)==0 return false;
+    if pthread_mutex_unlock(*gate)!=0 return false;
+    if pthread_join(helper,*result)!=0 return false;
+    return true;",
+            ) + "
+gate:[8]u64;
+target:u64;
+join_status:s32=-1;
+blocked :: (argument:*void)->*void #c_call { pthread_mutex_lock(*gate); pthread_mutex_unlock(*gate); return argument; }
+joiner :: (argument:*void)->*void #c_call {
+    result:*void;
+    join_status = pthread_join(target,*result);
+    return argument;
+}
+";
+            $slots_after(&source);
+        }
+
+        #[test]
         fn a_lock_held_by_a_finished_thread_stays_held_among_many_mutexes() {
             // A thread that ends holding a lock leaves it held, and threads that take its
             // slot never own it, however many other mutexes there are.
