@@ -103,35 +103,89 @@ is_unknown_list :: (info: *Type_Info) -> bool {
     return array.array_type == .RESIZABLE && array.element_type == type_info(Toml_Unknown);
 }
 
-// A struct that is a table of its own: the target of `[header]` and inline tables.
+// A struct that is a table of its own: the target of `[header]` and inline tables. That is a
+// plain struct, a `Table(string, V)` (see `is_map`) and a `Toml_Value`.
 is_table_struct :: (info: *Type_Info) -> bool {
     return info.type == .STRUCT && !is_datetime(info);
+}
+
+// The untyped tree of values: any TOML value, kept as the document parser builds it.
+is_value :: (info: *Type_Info) -> bool {
+    return info == type_info(Toml_Value);
+}
+
+// A `Table(Key, Value)`: recognized by its name and its `entries`.
+is_map :: (info: *Type_Info) -> bool {
+    if info.type != .STRUCT return false;
+
+    struct_info := cast(*Type_Info_Struct) info;
+
+    if !begins_with(struct_info.name, "Table") return false;
+
+    for struct_info.members if it.name == "entries" return true;
+
+    return false;
+}
+
+has_string_keys :: (info: *Type_Info) -> bool {
+    key, _ := map_types(info);
+
+    return key.type == .STRING;
+}
+
+// A struct whose members are the table's keys.
+is_plain_struct :: (info: *Type_Info) -> bool {
+    return is_table_struct(info) && !is_value(info) && !is_map(info);
+}
+
+// The key and value types of a `Table`, read from its entries.
+map_types :: (info: *Type_Info) -> key: *Type_Info, value: *Type_Info {
+    key: *Type_Info;
+    value: *Type_Info;
+
+    for (cast(*Type_Info_Struct) info).members {
+        if it.name != "entries" continue;
+
+        entry := cast(*Type_Info_Struct) (cast(*Type_Info_Array) it.type).element_type;
+
+        for entry.members {
+            if it.name == "key" key = it.type;
+            if it.name == "value" value = it.type;
+        }
+    }
+
+    return key, value;
 }
 
 Table_Shape :: enum u8 {
     NONE;
     STRUCT;
+    VALUE; // a `Toml_Value`: a table or not, as the data says
     POINTER;
     ARRAY;
     VIEW;
+    FIXED;
 }
 
 // How a field takes part in table headers: structs, pointers to structs, and arrays of structs.
 table_shape :: (info: *Type_Info) -> Table_Shape {
+    if is_value(info) return .VALUE;
     if is_table_struct(info) return .STRUCT;
 
+    // Pointers to and arrays of `Toml_Value` are inline values: any element may be a scalar.
     if info.type == .POINTER {
         pointee := (cast(*Type_Info_Pointer) info).pointer_to;
 
-        if is_table_struct(pointee) return .POINTER;
+        if is_table_struct(pointee) && !is_value(pointee) return .POINTER;
     }
 
     if info.type == .ARRAY {
         array := cast(*Type_Info_Array) info;
 
-        if is_table_struct(array.element_type) {
+        if is_table_struct(array.element_type) && !is_value(array.element_type) {
             if array.array_type == .RESIZABLE return .ARRAY;
             if array.array_type == .VIEW return .VIEW;
+            if array.array_type == .FIXED return .FIXED;
         }
     }
 
@@ -323,7 +377,7 @@ collect_leaves :: (plan: *Plan, info: *Type_Info_Struct, path_prefix: string, st
         if flatten {
             if leaf.skip_serializing && leaf.skip_deserializing continue;
 
-            if !is_table_struct(member.type) {
+            if !is_plain_struct(member.type) {
                 complain(plan.type_name, member.name, tprint("`flatten` needs a struct field, not %", type_label(member.type)));
                 plan.ok = false;
 
@@ -513,8 +567,15 @@ emit_read :: (g: *Gen, target: string, info: *Type_Info, leaf: *Leaf) {
         case .ARRAY;
             emit_read_array(g, target, cast(*Type_Info_Array) info, leaf);
         case .STRUCT;
-            if is_datetime(info) print(out, "if !toml_read_datetime(r, %, %) return false;\n", address_of(target), message);
-            else print(out, "if !toml_inline(r, %, %) return false;\n", address_of(target), message);
+            if is_datetime(info) {
+                print(out, "if !toml_read_datetime(r, %, %) return false;\n", address_of(target), message);
+            } else if is_value(info) {
+                print(out, "if !toml_read_value(r, %) return false;\n", address_of(target));
+            } else if is_map(info) && !has_string_keys(info) {
+                fail(g, "a Hash_Table must have string keys to be decoded from a table");
+            } else {
+                print(out, "if !toml_inline(r, %, %) return false;\n", address_of(target), message);
+            }
         case;
             fail(g, tprint("cannot decode %", type_label(info)));
     }
@@ -616,7 +677,101 @@ key_test :: (leaf: *Leaf) -> string {
     return builder_to_string(*builder,, temp);
 }
 
+// What a key does once it reached `place` (of type `leaf.info`) and was declared as `decl`: store
+// an assigned value, or take part in the table headers and dotted keys below it. Every path ends
+// in a `return`.
+emit_step :: (g: *Gen, place: string, leaf: *Leaf) {
+    out := *g.out;
+    shape := table_shape(leaf.info);
+
+    if shape == .NONE {
+        print(out, "if step != .FINAL_ASSIGN return toml_fail(r, .TYPE, \"key is not a table\", r.statement_at);\n");
+        emit_read(g, place, leaf.info, leaf);
+        print(out, "return true;\n");
+
+        return;
+    }
+
+    print(out, "if step == .FINAL_ASSIGN {\n");
+    emit_read(g, place, leaf.info, leaf);
+    print(out, "return true;\n}\n");
+
+    if shape == .STRUCT || shape == .VALUE || shape == .POINTER {
+        table := place;
+
+        if shape == .POINTER {
+            print(out, "if !% % = New(type_of(%.*));\n", place, place, place);
+            table = tprint("%.*", place);
+        }
+
+        print(out, "if step == .FINAL_ARRAY return toml_fail(r, .TYPE, \"key is not an array of tables\", r.statement_at);\nif !decl.child decl.child = toml_new_frame();\nif step == .FINAL_TABLE return true;\nreturn toml_descend(r, %, decl.child, keys, index + 1, op, nav);\n", address_of(table));
+
+        return;
+    }
+
+    if shape == .FIXED {
+        // The elements are counted in `decl.capacity`; `[[x]]` headers fill the array in order.
+        count := (cast(*Type_Info_Array) leaf.info).array_count;
+
+        print(out, "if step == .FINAL_ARRAY {\nif decl.capacity >= % return toml_fail(r, .TYPE, %, r.statement_at);\n", count, jai_quote(tprint("array has more than % elements", count)));
+        print(out, "if decl.child {\nif decl.capacity {\nelement_mark := toml_path_index(r, decl.capacity - 1);\nif !toml_finish(r, *%[decl.capacity - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\ntoml_free_frame(decl.child);\n}\n", place);
+        print(out, "decl.child = toml_new_frame();\ndecl.capacity += 1;\nreturn true;\n}\n");
+        print(out, "if step == .FINAL_TABLE || decl.kind != .ARRAY_TABLE || !decl.capacity return toml_fail(r, .TYPE, \"key is not a table\", r.statement_at);\n");
+        print(out, "array_add(*r.path, Toml_Path_Part.{ index = decl.capacity - 1 });\nreturn toml_descend(r, *%[decl.capacity - 1], decl.child, keys, index + 1, op, nav);\n", place);
+
+        return;
+    }
+
+    print(out, "if step == .FINAL_ARRAY {\nif decl.child {\nif %.count {\nelement_mark := toml_path_index(r, %.count - 1);\nif !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\ntoml_free_frame(decl.child);\n}\n", place, place, place, place);
+    print(out, "decl.child = toml_new_frame();\n");
+
+    if shape == .VIEW {
+        // The view keeps no capacity of its own; the declaration does. The new view is
+        // published at once, so a failure frees the storage wherever it stands.
+        print(out, "{\ngrown: [..] type_of(%[0]);\ngrown.data = %.data;\ngrown.count = %.count;\ngrown.allocated = decl.capacity;\narray_add(*grown);\n% = .{ grown.count, grown.data };\ndecl.capacity = grown.allocated;\n}\n", place, place, place, place);
+    } else {
+        print(out, "array_add(*%);\n", place);
+    }
+
+    print(out, "return true;\n}\n");
+    print(out, "if step == .FINAL_TABLE || decl.kind != .ARRAY_TABLE || !%.count return toml_fail(r, .TYPE, \"key is not a table\", r.statement_at);\n", place);
+    print(out, "array_add(*r.path, Toml_Path_Part.{ index = %.count - 1 });\nreturn toml_descend(r, *%[%.count - 1], decl.child, keys, index + 1, op, nav);\n", place, place, place);
+}
+
+// The descent into a `Table(string, V)`: each key is a record in the frame, and the value is
+// added to the table the first time the key is declared.
+generate_map_descend :: (T: Type) -> string {
+    g: Gen;
+    info := type_info(T);
+    key, element := map_types(info);
+
+    g.type_name = tprint("%", T);
+
+    if key.type != .STRING {
+        fail(*g, "a Hash_Table must have string keys to be decoded from a table");
+
+        return "return false;";
+    }
+
+    leaf: Leaf;
+
+    leaf.info = element;
+
+    print(*g.out, "key := keys[index];\nstep := toml_step(op, index, keys.count, nav);\npath_mark := r.path.count;\narray_add(*r.path, Toml_Path_Part.{ name = key });\ndefer r.path.count = path_mark;\nentry := toml_frame_entry(r, frame, key);\nfresh := !entry.decl.declared;\ndecl := *entry.decl;\nif !toml_enter(r, decl, step, r.statement_at) return false;\n");
+    print(*g.out, "if fresh {\nitem: type_of(out.entries[0].value);\ntable_add(out, copy_string(key), item);\n}\nslot := table_find_pointer(out, key);\n");
+    emit_step(*g, "slot.*", *leaf);
+
+    if !g.ok return "return false;";
+
+    return builder_to_string(*g.out,, temp);
+}
+
 generate_descend :: (T: Type) -> string {
+    info := type_info(T);
+
+    if is_value(info) return "return toml_descend_value(r, out, frame, keys, index, op, nav);";
+    if is_map(info) return generate_map_descend(T);
+
     g: Gen;
     plan := analyze(T);
 
@@ -637,49 +792,11 @@ generate_descend :: (T: Type) -> string {
         if leaf.skip_deserializing continue;
 
         g.field = leaf.member;
-        place := tprint("out.%", leaf.path);
-        shape := table_shape(leaf.info);
 
         print(out, "%if % {\ndecl := *frame.fields[%];\nif !toml_enter(r, decl, step, r.statement_at) return false;\n", ifx chain then "else " else "", key_test(leaf), it_index);
         chain = true;
-
-        if shape == .NONE {
-            print(out, "if step != .FINAL_ASSIGN return toml_fail(r, .TYPE, \"key is not a table\", r.statement_at);\n");
-            emit_read(*g, place, leaf.info, leaf);
-            print(out, "return true;\n}\n");
-
-            continue;
-        }
-
-        print(out, "if step == .FINAL_ASSIGN {\n");
-        emit_read(*g, place, leaf.info, leaf);
-        print(out, "return true;\n}\n");
-
-        if shape == .STRUCT || shape == .POINTER {
-            table := place;
-
-            if shape == .POINTER {
-                print(out, "if !% % = New(type_of(%.*));\n", place, place, place);
-                table = tprint("%.*", place);
-            }
-
-            print(out, "if step == .FINAL_ARRAY return toml_fail(r, .TYPE, \"key is not an array of tables\", r.statement_at);\nif !decl.child decl.child = toml_new_frame();\nif step == .FINAL_TABLE return true;\nreturn toml_descend(r, %, decl.child, keys, index + 1, op, nav);\n}\n", address_of(table));
-        } else {
-            print(out, "if step == .FINAL_ARRAY {\nif decl.child {\nif %.count {\nelement_mark := toml_path_index(r, %.count - 1);\nif !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\ntoml_free_frame(decl.child);\n}\n", place, place, place, place);
-            print(out, "decl.child = toml_new_frame();\n");
-
-            if shape == .VIEW {
-                // The view keeps no capacity of its own; the declaration does. The new view is
-                // published at once, so a failure frees the storage wherever it stands.
-                print(out, "{\ngrown: [..] type_of(%[0]);\ngrown.data = %.data;\ngrown.count = %.count;\ngrown.allocated = decl.capacity;\narray_add(*grown);\n% = .{ grown.count, grown.data };\ndecl.capacity = grown.allocated;\n}\n", place, place, place, place);
-            } else {
-                print(out, "array_add(*%);\n", place);
-            }
-
-            print(out, "return true;\n}\n");
-            print(out, "if step == .FINAL_TABLE || decl.kind != .ARRAY_TABLE || !%.count return toml_fail(r, .TYPE, \"key is not a table\", r.statement_at);\n", place);
-            print(out, "array_add(*r.path, Toml_Path_Part.{ index = %.count - 1 });\nreturn toml_descend(r, *%[%.count - 1], decl.child, keys, index + 1, op, nav);\n}\n", place, place, place);
-        }
+        emit_step(*g, tprint("out.%", leaf.path), leaf);
+        print(out, "}\n");
     }
 
     g.field = "";
@@ -702,9 +819,60 @@ generate_descend :: (T: Type) -> string {
     return builder_to_string(*g.out,, temp);
 }
 
+// Checks what a declared table or array of tables at `place` still needs once it is closed,
+// with `decl` its declaration and `name` the key for error paths.
+emit_finish_child :: (g: *Gen, place: string, info: *Type_Info, name: string) {
+    shape := table_shape(info);
+    out := *g.out;
+
+    if shape == .NONE || shape == .VALUE return;
+
+    print(out, "mark := r.path.count;\narray_add(*r.path, Toml_Path_Part.{ name = % });\n", name);
+
+    if shape == .STRUCT print(out, "if !toml_finish(r, *%, decl.child, decl.span.start) return false;\n", place);
+    else if shape == .POINTER print(out, "if % && !toml_finish(r, %, decl.child, decl.span.start) return false;\n", place, place);
+    else if shape == .FIXED {
+        count := (cast(*Type_Info_Array) info).array_count;
+
+        print(out, "if decl.capacity != % return toml_fail(r, .TYPE, %, decl.span.start);\n", count, jai_quote(tprint("array needs % elements", count)));
+        print(out, "{\nelement_mark := toml_path_index(r, decl.capacity - 1);\nif !toml_finish(r, *%[decl.capacity - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\n", place);
+    } else {
+        print(out, "if %.count {\nelement_mark := toml_path_index(r, %.count - 1);\nif !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\n", place, place, place, place);
+    }
+
+    print(out, "r.path.count = mark;\n");
+}
+
+// The finish of a `Table(string, V)`: its values that are tables, found by the keys the frame
+// recorded.
+generate_map_finish :: (T: Type) -> string {
+    g: Gen;
+    info := type_info(T);
+    _, element := map_types(info);
+
+    g.type_name = tprint("%", T);
+
+    shape := table_shape(element);
+
+    if shape == .NONE || shape == .VALUE return "return true;";
+
+    out := *g.out;
+
+    print(out, "for *entry: frame.unknown {\nif !entry.decl.child || entry.decl.kind == .CLOSED continue;\ndecl := *entry.decl;\nslot := table_find_pointer(out, entry.name);\n");
+    emit_finish_child(*g, "slot.*", element, "entry.name");
+    print(out, "}\nreturn true;\n");
+
+    return builder_to_string(*g.out,, temp);
+}
+
 // The required-key check, run once a table can no longer change: after the document for the
 // root and its tables, after each inline table, and when a `[[x]]` element is replaced.
 generate_finish :: (T: Type) -> string {
+    info := type_info(T);
+
+    if is_value(info) return "return true;";
+    if is_map(info) return generate_map_finish(T);
+
     g: Gen;
     plan := analyze(T);
 
@@ -720,22 +888,13 @@ generate_finish :: (T: Type) -> string {
         if leaf.skip_deserializing continue;
 
         place := tprint("out.%", leaf.path);
-        shape := table_shape(leaf.info);
 
         print(out, "{\ndecl := *frame.fields[%];\n", it_index);
 
         if leaf.optional print(out, "if decl.declared && decl.kind != .CLOSED && decl.child {\n");
         else print(out, "if !decl.declared return toml_missing_key(r, %, at);\nif decl.kind != .CLOSED && decl.child {\n", jai_quote(leaf.key));
 
-        if shape != .NONE {
-            print(out, "mark := r.path.count;\narray_add(*r.path, Toml_Path_Part.{ name = % });\n", jai_quote(leaf.key));
-
-            if shape == .STRUCT print(out, "if !toml_finish(r, *%, decl.child, decl.span.start) return false;\n", place);
-            else if shape == .POINTER print(out, "if % && !toml_finish(r, %, decl.child, decl.span.start) return false;\n", place, place);
-            else if shape == .ARRAY || shape == .VIEW print(out, "if %.count {\nelement_mark := toml_path_index(r, %.count - 1);\nif !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\n", place, place, place, place);
-
-            print(out, "r.path.count = mark;\n");
-        }
+        emit_finish_child(*g, place, leaf.info, jai_quote(leaf.key));
 
         print(out, "}\n}\n");
     }
@@ -822,7 +981,18 @@ emit_free :: (g: *Gen, target: string, info: *Type_Info, default: string) {
 
             print(out, "}\n");
         case .STRUCT;
-            if default.count {
+            if is_value(info) {
+                print(out, "toml_free_tree(%);\n", address_of(target));
+            } else if is_map(info) {
+                key, element := map_types(info);
+                id := next_id(g);
+
+                print(out, "for *entry_%, key_%: % {\n", id, id, target);
+                if key.type == .STRING print(out, "if key_%.count { free(key_%.data); }\n", id, id);
+
+                emit_free(g, tprint("entry_%.*", id), element, "");
+                print(out, "}\ndeinit(%);\n", address_of(target));
+            } else if default.count {
                 print(out, "toml_free_fields(%, %);\n", address_of(target), address_of(default));
             } else {
                 id := next_id(g);
@@ -835,6 +1005,14 @@ emit_free :: (g: *Gen, target: string, info: *Type_Info, default: string) {
 
 generate_freer :: (T: Type) -> string {
     g: Gen;
+    info := type_info(T);
+
+    if is_value(info) || is_map(info) {
+        emit_free(*g, "value.*", info, "");
+
+        return builder_to_string(*g.out,, temp);
+    }
+
     plan := analyze(T, true);
 
     g.type_name = plan.type_name;
@@ -905,6 +1083,7 @@ emit_write :: (g: *Gen, value: string, info: *Type_Info, leaf: *Leaf) {
             print(out, "w.path.count = mark_%;\nif w.error.kind != .NONE break;\n}\ntoml_emit(w, \"]\");\ntoml_end_value(w);\n}\n", id);
         case .STRUCT;
             if is_datetime(info) print(out, "toml_write_datetime(w, %);\n", address_of(value));
+            else if is_value(info) print(out, "toml_write_value(w, %, w.depth);\n", address_of(value));
             else print(out, "toml_encode_inline(w, %);\n", address_of(value));
         case;
             fail(g, tprint("cannot encode %", type_label(info)));
@@ -992,16 +1171,97 @@ write_condition :: (g: *Gen, leaf: *Leaf, value: string) -> string {
     return builder_to_string(*builder,, temp);
 }
 
+// The `key = value` line of one member (a field or a map entry; `key` is Jai source for its
+// name). Members that are tables are left for `emit_member_table`.
+emit_member_line :: (g: *Gen, leaf: *Leaf, key: string, value: string) {
+    out := *g.out;
+    shape := table_shape(leaf.info);
+    condition := write_condition(g, leaf, value);
+
+    // Arrays of tables are written as headers unless empty: an empty one would vanish.
+    if shape == .ARRAY || shape == .VIEW condition = tprint("(%) && %.count == 0", condition, value);
+    else if shape == .VALUE condition = tprint("(%) && !toml_is_header_table(%) && !toml_is_table_array(%)", condition, address_of(value), address_of(value));
+    else if shape != .NONE return;
+
+    print(out, "if % {\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = % });\ntoml_write_key(w, %, \" = \");\n", condition, key, key);
+    emit_write(g, value, leaf.info, leaf);
+    print(out, "toml_emit(w, \"\\n\");\nw.path.count = mark;\n}\n");
+}
+
+// The `[header]` or `[[header]]` tables of one member, after all the lines of its table.
+emit_member_table :: (g: *Gen, leaf: *Leaf, key: string, value: string) {
+    out := *g.out;
+    shape := table_shape(leaf.info);
+
+    if shape == .NONE return;
+
+    condition := write_condition(g, leaf, value);
+
+    print(out, "if % {\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = % });\n", condition, key);
+
+    if shape == .STRUCT {
+        print(out, "toml_write_header(w, false);\ntoml_encode_body(w, %);\n", address_of(value));
+    } else if shape == .POINTER {
+        print(out, "toml_write_header(w, false);\ntoml_encode_body(w, %);\n", value);
+    } else if shape == .VALUE {
+        print(out, "if toml_is_header_table(%) {\ntoml_write_header(w, false);\ntoml_encode_body(w, %);\n} else if toml_is_table_array(%) {\n", address_of(value), address_of(value), address_of(value));
+        print(out, "if !toml_begin_value(w) return;\nfor item: %.items {\nitem_mark := toml_path_index_for_write(w, it_index);\ntoml_write_header(w, true);\ntoml_encode_body(w, item);\nw.path.count = item_mark;\nif w.error.kind != .NONE break;\n}\ntoml_end_value(w);\n}\n", value);
+    } else {
+        print(out, "if !toml_begin_value(w) return;\nfor *item: % {\nitem_mark := toml_path_index_for_write(w, it_index);\ntoml_write_header(w, true);\ntoml_encode_body(w, item);\nw.path.count = item_mark;\nif w.error.kind != .NONE break;\n}\ntoml_end_value(w);\n", value);
+    }
+
+    print(out, "w.path.count = mark;\n}\n");
+}
+
+// The entries of a `Table(string, V)` as the members of a table, or null if it cannot be written.
+map_leaf :: (g: *Gen, info: *Type_Info) -> *Leaf {
+    key, element := map_types(info);
+
+    if key.type != .STRING {
+        fail(g, "a Hash_Table must have string keys to be encoded as a table");
+
+        return null;
+    }
+
+    leaf := New(Leaf,, temp);
+
+    leaf.info = element;
+
+    return leaf;
+}
+
 // Writes `key = value` lines then the sub-tables, for the body of a table or array element.
 generate_body_encoder :: (T: Type) -> string {
     g: Gen;
+    info := type_info(T);
+
+    if is_value(info) return "if !toml_begin_value(w) return;\ntoml_write_table(w, value, w.depth - 1, false);\ntoml_end_value(w);\n";
+
+    out := *g.out;
+
+    if is_map(info) {
+        g.type_name = tprint("%", T);
+        leaf := map_leaf(*g, info);
+
+        if !leaf return "";
+
+        print(out, "if !toml_begin_value(w) return;\n");
+        print(out, "for *entry, key: value.* {\n");
+        emit_member_line(*g, leaf, "key", "entry.*");
+        print(out, "}\nfor *entry, key: value.* {\n");
+        emit_member_table(*g, leaf, "key", "entry.*");
+        print(out, "}\ntoml_end_value(w);\n");
+
+        if !g.ok return "";
+
+        return builder_to_string(*g.out,, temp);
+    }
+
     plan := analyze(T);
 
     g.type_name = plan.type_name;
 
     if !plan.ok return "";
-
-    out := *g.out;
 
     print(out, "if !toml_begin_value(w) return;\n");
 
@@ -1009,41 +1269,14 @@ generate_body_encoder :: (T: Type) -> string {
         if leaf.skip_serializing continue;
 
         g.field = leaf.member;
-        value := tprint("value.%", leaf.path);
-        shape := table_shape(leaf.info);
-        condition := write_condition(*g, leaf, value);
-
-        // Arrays of tables are written as headers unless empty: an empty one would vanish.
-        if shape == .ARRAY || shape == .VIEW condition = tprint("(%) && %.count == 0", condition, value);
-        else if shape != .NONE continue;
-
-        print(out, "if % {\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = % });\ntoml_write_key(w, %, \" = \");\n", condition, jai_quote(leaf.key), jai_quote(leaf.key));
-        emit_write(*g, value, leaf.info, leaf);
-        print(out, "toml_emit(w, \"\\n\");\nw.path.count = mark;\n}\n");
+        emit_member_line(*g, leaf, jai_quote(leaf.key), tprint("value.%", leaf.path));
     }
 
     for *leaf: plan.leaves {
         if leaf.skip_serializing continue;
 
-        shape := table_shape(leaf.info);
-
-        if shape == .NONE continue;
-
         g.field = leaf.member;
-        value := tprint("value.%", leaf.path);
-        condition := write_condition(*g, leaf, value);
-
-        print(out, "if % {\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = % });\n", condition, jai_quote(leaf.key));
-
-        if shape == .STRUCT {
-            print(out, "toml_write_header(w, false);\ntoml_encode_body(w, %);\n", address_of(value));
-        } else if shape == .POINTER {
-            print(out, "toml_write_header(w, false);\ntoml_encode_body(w, %);\n", value);
-        } else {
-            print(out, "if !toml_count_leaf(w) return;\nfor *item: % {\nitem_mark := toml_path_index_for_write(w, it_index);\ntoml_write_header(w, true);\ntoml_encode_body(w, item);\nw.path.count = item_mark;\nif w.error.kind != .NONE break;\n}\n", value);
-        }
-
-        print(out, "w.path.count = mark;\n}\n");
+        emit_member_table(*g, leaf, jai_quote(leaf.key), tprint("value.%", leaf.path));
     }
 
     print(out, "toml_end_value(w);\n");
@@ -1056,13 +1289,29 @@ generate_body_encoder :: (T: Type) -> string {
 // `{ key = value, ... }`, for a struct inside an array or another inline table.
 generate_inline_encoder :: (T: Type) -> string {
     g: Gen;
+    info := type_info(T);
+    out := *g.out;
+
+    if is_map(info) {
+        g.type_name = tprint("%", T);
+        leaf := map_leaf(*g, info);
+
+        if !leaf return "";
+
+        print(out, "if !toml_begin_value(w) return;\ntoml_emit(w, \"{\");\nfirst := true;\nfor *entry, key: value.* {\nif !first toml_emit(w, \", \");\nfirst = false;\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = key });\ntoml_write_key(w, key, \" = \");\n");
+        emit_write(*g, "entry.*", leaf.info, leaf);
+        print(out, "w.path.count = mark;\n}\ntoml_emit(w, \"}\");\ntoml_end_value(w);\n");
+
+        if !g.ok return "";
+
+        return builder_to_string(*g.out,, temp);
+    }
+
     plan := analyze(T);
 
     g.type_name = plan.type_name;
 
     if !plan.ok return "";
-
-    out := *g.out;
 
     print(out, "if !toml_begin_value(w) return;\ntoml_emit(w, \"{\");\nfirst := true;\n");
 

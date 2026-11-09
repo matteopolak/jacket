@@ -207,28 +207,7 @@ free_toml :: (doc: *Toml_Document) {
 
     push_allocator(doc.allocator);
 
-    for node: doc.nodes {
-        if node.kind == .STRING {
-            if node.text.data free(node.text);
-        } else if node.kind == .TABLE {
-            if node.internal_lookup {
-                array_free(node.internal_lookup.nodes);
-                free(node.internal_lookup);
-            }
-
-            for member: node.members if member.key.data && !toml_key_uses_source(doc.source, member.key) free(member.key);
-
-            array_free(node.members);
-        } else if node.kind == .ARRAY array_free(node.items);
-        else if node.kind == .LOCAL_DATE || node.kind == .LOCAL_TIME || node.kind == .LOCAL_DATETIME || node.kind == .OFFSET_DATETIME {
-            if node.temporal.fraction.data free(node.temporal.fraction);
-        }
-
-        free(node);
-    }
-
-    array_free(doc.nodes);
-    array_free(doc.statements);
+    toml_free_nodes(doc);
     if doc.source.data free(doc.source);
 
     doc.* = .{};
@@ -293,8 +272,9 @@ parse_toml :: (text: string, options := Toml_Options.{}) -> Toml_Document, Toml_
 // of its own is required.
 //
 // Supported field types: integers, floats (integers are accepted), bool, string, enums (by
-// name), Toml_Datetime, structs (tables), pointers (optional values), `[..] T` and `[] T`
-// (arrays, and arrays of tables with `[[x]]` for `[..]` of structs).
+// name), Toml_Datetime, structs (tables), pointers (optional values), `[..] T`, `[] T` and
+// `[N] T` (arrays, and arrays of tables with `[[x]]` for arrays of structs), `Table(string, V)`
+// (a table with any keys) and `Toml_Value` (any value, as an untyped tree).
 //
 // ```jai
 // Server :: struct {
@@ -378,6 +358,34 @@ free_toml_value :: (value: *$T) {
 
 #scope_module
 
+// Releases the nodes, their strings and the statement list; the source stays.
+toml_free_nodes :: (doc: *Toml_Document) {
+    push_allocator(doc.allocator);
+
+    for node: doc.nodes {
+        if node.kind == .STRING {
+            if node.text.data free(node.text);
+        } else if node.kind == .TABLE {
+            if node.internal_lookup {
+                array_free(node.internal_lookup.nodes);
+                free(node.internal_lookup);
+            }
+
+            for member: node.members if member.key.data && !toml_key_uses_source(doc.source, member.key) free(member.key);
+
+            array_free(node.members);
+        } else if node.kind == .ARRAY array_free(node.items);
+        else if node.kind == .LOCAL_DATE || node.kind == .LOCAL_TIME || node.kind == .LOCAL_DATETIME || node.kind == .OFFSET_DATETIME {
+            if node.temporal.fraction.data free(node.temporal.fraction);
+        }
+
+        free(node);
+    }
+
+    array_free(doc.nodes);
+    array_free(doc.statements);
+}
+
 toml_descend :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, keys: [] string, index: int, op: Toml_Op, nav: int) -> bool {
     #insert -> string {
         return generate_descend(T);
@@ -411,6 +419,7 @@ toml_encode_inline :: (w: *Toml_Writer, value: *$T) {
 #import "Basic";
 #import "String";
 #import "Compiler";
+#import "Hash_Table";
 #load "build.jai";
 #load "../../internal/derive-notes/notes.jai";
 #load "generate.jai";

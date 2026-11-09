@@ -19,6 +19,7 @@ Toml_Unknown_State :: struct {
     name: string;
     owned: bool;
     elements: int; // `[[name]]` headers seen so far
+    member: int; // in a `Toml_Value` table: the position of this key's member
     decl: Toml_Decl;
 }
 
@@ -500,10 +501,9 @@ toml_unknown_pair :: (r: *Toml_Reader, frame: *Toml_Frame) -> bool {
     return toml_unknown_step(r, frame, keys, 0, .ASSIGN, 0);
 }
 
-// Applies one segment of a key path to a key the target type has no field for, and everything
-// below it. Nothing is stored: the records only decide whether the document is valid.
-toml_unknown_step :: (r: *Toml_Reader, frame: *Toml_Frame, keys: [] string, index: int, op: Toml_Op, nav: int) -> bool {
-    key := keys[index];
+// The record of `key` in a table whose keys are not fields of a struct: the keys of a
+// `Hash_Table` or a `Toml_Value`, and the ignored keys of a struct. Added on first use.
+toml_frame_entry :: (r: *Toml_Reader, frame: *Toml_Frame, key: string) -> *Toml_Unknown_State {
     entry := toml_unknown_find(frame, key);
 
     if !entry {
@@ -519,7 +519,17 @@ toml_unknown_step :: (r: *Toml_Reader, frame: *Toml_Frame, keys: [] string, inde
         toml_unknown_register(frame);
     }
 
+    return entry;
+}
+
+// Applies one segment of a key path to a key the target type has no field for, and everything
+// below it. Nothing is stored: the records only decide whether the document is valid.
+toml_unknown_step :: (r: *Toml_Reader, frame: *Toml_Frame, keys: [] string, index: int, op: Toml_Op, nav: int) -> bool {
+    key := keys[index];
+    entry := toml_frame_entry(r, frame, key);
+
     step := toml_step(op, index, keys.count, nav);
+
     if !toml_enter(r, *entry.decl, step, r.statement_at) return false;
 
     if step == .FINAL_ASSIGN return toml_skip_value(r);
@@ -713,6 +723,188 @@ toml_missing_key :: (r: *Toml_Reader, key: string, at: int) -> bool {
     array_add(*r.path, Toml_Path_Part.{ name = key });
 
     return toml_fail(r, .TYPE, "missing required key", at);
+}
+
+// ---- Toml_Value fields ----
+//
+// A `Toml_Value` in a typed struct (or a `Hash_Table` value) is an untyped tree the target owns:
+// every node, string and key is its own allocation, so nothing borrows the input and
+// `free_toml_value` releases it. Assigned values (`x = ...`) are read by the document parser
+// into a scratch document and copied out; tables made by headers and dotted keys are built here
+// under the same declaration rules as every other typed table.
+
+toml_new_node :: (kind: Toml_Kind, span: Toml_Span) -> *Toml_Value {
+    node := New(Toml_Value);
+
+    node.kind = kind;
+    node.span = span;
+
+    return node;
+}
+
+toml_copy_tree :: (source: *Toml_Value) -> *Toml_Value {
+    node := toml_new_node(source.kind, source.span);
+
+    if source.kind == {
+        case .STRING;
+            node.text = copy_string(source.text);
+        case .INTEGER;
+            node.integer = source.integer;
+        case .FLOAT;
+            node.real = source.real;
+        case .BOOL;
+            node.boolean = source.boolean;
+        case .TABLE;
+            array_reserve(*node.members, source.members.count);
+
+            for source.members array_add(*node.members, Toml_Member.{ key = copy_string(it.key), value = toml_copy_tree(it.value), key_span = it.key_span });
+        case .ARRAY;
+            array_reserve(*node.items, source.items.count);
+
+            for source.items array_add(*node.items, toml_copy_tree(it));
+        case;
+            node.temporal = source.temporal;
+            node.temporal.fraction = copy_string(source.temporal.fraction);
+    }
+
+    return node;
+}
+
+// Releases what `node` owns and leaves an empty table; the node itself is the caller's.
+toml_free_tree :: (node: *Toml_Value) {
+    if node.kind == {
+        case .STRING;
+            if node.text.data free(node.text.data);
+        case .TABLE;
+            for node.members {
+                if it.key.data free(it.key.data);
+
+                if it.value {
+                    toml_free_tree(it.value);
+                    free(it.value);
+                }
+            }
+
+            array_free(node.members);
+        case .ARRAY;
+            for node.items if it {
+                toml_free_tree(it);
+                free(it);
+            }
+
+            array_free(node.items);
+        case .INTEGER;
+        case .FLOAT;
+        case .BOOL;
+        case;
+            if node.temporal.fraction.data free(node.temporal.fraction.data);
+    }
+
+    node.* = .{};
+}
+
+// Reads the value at the reader's position, of any shape, into a new tree. The document parser
+// does the reading in a scratch reader that shares the text, the limits and the error path; its
+// nodes are copied out and released.
+toml_read_tree :: (r: *Toml_Reader) -> *Toml_Value {
+    scratch: Toml_Reader;
+
+    scratch.text = r.text;
+    scratch.pos = r.pos;
+    scratch.options = r.options;
+    scratch.options.max_nodes = max(0, r.options.max_nodes - r.stream_nodes);
+    scratch.options.record_statements = false;
+    scratch.doc.options = scratch.options;
+    scratch.doc.allocator = context.allocator;
+    scratch.doc.source = r.doc.source;
+    scratch.doc.retained_bytes = r.doc.retained_bytes;
+    scratch.depth = r.depth;
+
+    for r.path array_add(*scratch.path, Toml_Path_Part.{ name = it.name, index = it.index });
+
+    value := toml_value(*scratch);
+    copy: *Toml_Value;
+
+    if value && scratch.error.kind == .NONE copy = toml_copy_tree(value);
+
+    r.pos = scratch.pos;
+    r.error = scratch.error;
+    r.stream_nodes += scratch.doc.nodes.count;
+    toml_free_scratch(*scratch);
+    r.doc.retained_bytes = scratch.doc.retained_bytes;
+    toml_free_nodes(*scratch.doc);
+
+    return copy;
+}
+
+toml_read_value :: (r: *Toml_Reader, out: *Toml_Value) -> bool {
+    copy := toml_read_tree(r);
+
+    if !copy return false;
+
+    out.* = copy.*;
+    free(copy);
+
+    return true;
+}
+
+// `[a.b]`, `[[a.b]]` and dotted keys below a `Toml_Value` table. `frame` holds a record per key,
+// whose `member` is where the key's value sits in `node.members`.
+toml_descend_value :: (r: *Toml_Reader, node: *Toml_Value, frame: *Toml_Frame, keys: [] string, index: int, op: Toml_Op, nav: int) -> bool {
+    key := keys[index];
+    step := toml_step(op, index, keys.count, nav);
+    path_mark := r.path.count;
+
+    array_add(*r.path, Toml_Path_Part.{ name = key });
+    defer r.path.count = path_mark;
+
+    entry := toml_frame_entry(r, frame, key);
+    fresh := !entry.decl.declared;
+    decl := *entry.decl;
+
+    if !toml_enter(r, decl, step, r.statement_at) return false;
+
+    child: *Toml_Value;
+
+    if fresh {
+        if step == .FINAL_ASSIGN {
+            child = toml_read_tree(r);
+
+            if !child return false;
+        } else {
+            child = toml_new_node(ifx step == .FINAL_ARRAY then Toml_Kind.ARRAY else .TABLE, .{ r.statement_at, r.pos });
+        }
+
+        entry.member = node.members.count;
+        array_add(*node.members, Toml_Member.{ key = copy_string(key), value = child, key_span = .{ r.statement_at, r.pos } });
+    } else {
+        child = node.members[entry.member].value;
+    }
+
+    if step == .FINAL_ASSIGN return true;
+
+    if step == .FINAL_ARRAY {
+        if decl.child toml_free_frame(decl.child);
+
+        decl.child = toml_new_frame();
+        array_add(*child.items, toml_new_node(.TABLE, .{ r.statement_at, r.pos }));
+
+        return true;
+    }
+
+    if !decl.child decl.child = toml_new_frame();
+
+    if step == .FINAL_TABLE return true;
+
+    table := child;
+
+    // Below a `[[x]]` header the keys belong to its latest element.
+    if decl.kind == .ARRAY_TABLE {
+        array_add(*r.path, Toml_Path_Part.{ index = child.items.count - 1 });
+        table = child.items[child.items.count - 1];
+    }
+
+    return toml_descend_value(r, table, decl.child, keys, index + 1, op, nav);
 }
 
 // ---- entry points ----
