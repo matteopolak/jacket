@@ -285,7 +285,7 @@ modules = [
 name = "Text and formats"
 modules = [
     "stdlib/String", "stdlib/Unicode", "stdlib/Base64", "stdlib/Print_Color",
-    "stdlib/Text_File_Handler", "stdlib/Subtitles", "stdlib/Extensions/Json", "stdlib/Extensions/Toml",
+    "stdlib/Text_File_Handler", "stdlib/Subtitles", "stdlib/Extensions/Csv", "stdlib/Extensions/Json", "stdlib/Extensions/Toml",
     "stdlib/Extensions/Regex", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/Text_Buffer",
     "stdlib/Extensions/Protobuf", "stdlib/Extensions/Protobuf/Schema",
     "stdlib/Extensions/Byte_Search", "stdlib/Extensions/String_Literal", "stdlib/Extensions/Web",

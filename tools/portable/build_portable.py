@@ -650,15 +650,19 @@ def data_fixtures():
     archive_suites()
     from gltf_conformance.fetch import fetch as gltf_suites
     gltf_suites()
+    from csv_conformance.fetch import fetch as csv_suite
+    csv_suite()
 
 
 def bench_data():
-    """The inputs `jacket bench` reads: Archive payloads and real-world JSON files."""
+    """The inputs `jacket bench` reads: Archive payloads, real-world JSON files and a large CSV."""
     from archive_conformance.differential import bench_fixtures
+    from csv_conformance.fetch import bench_input
     from dev.json_bench_data import fetch_data
 
     bench_fixtures()
     fetch_data()
+    bench_input()
 
 
 def main(argv=None):
