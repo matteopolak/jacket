@@ -73,7 +73,7 @@ Rust lints live in the root `[workspace.lints]`, thresholds in `clippy.toml`. `s
 
 ## Output directory
 
-Build products, downloads and scratch output go under `target/`. `playground/` is also ignored, for local experiments; never commit it. Use `tools/repo_output.py` (`output_dir`, `shared_output_dir`) or `tools/repo_output.mjs` instead of hard-coding a path. `JACKET_OUTPUT_DIR` relocates the tree; `shared_output_dir` resolves to the main checkout so worktrees reuse native builds.
+Build products, downloads and scratch output go under `target/`. `playground/` is also ignored, for local experiments; never commit it. Use `tools/repo_output.py` (`output_dir`, `shared_output_dir`) or `tools/repo_output.ts` instead of hard-coding a path. `JACKET_OUTPUT_DIR` relocates the tree; `shared_output_dir` resolves to the main checkout so worktrees reuse native builds.
 
 ## Dependency policy
 
@@ -127,7 +127,7 @@ The expensive cache is `target/native-libs` (`.github/actions/native-libs-cache`
 
 ## Dependencies
 
-[just](https://github.com/casey/just) 1.58+, `python3`, the pinned Rust toolchain, `pnpm` (for `just vscode`), and the repo-built `jaifmt` and `jailint`.
+[just](https://github.com/casey/just) 1.58+, `python3`, the pinned Rust toolchain, `pnpm` (for `just vscode`, `just site-assets` and `just tools-scripts`), and the repo-built `jaifmt` and `jailint`.
 
 ### Investigating jacket CI partitions
 

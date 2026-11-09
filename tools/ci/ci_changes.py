@@ -46,6 +46,7 @@ JOBS = {
     "test": "code",
     "vscode-extension": "code",
     "doc-site-assets": "site-assets",
+    "tools-scripts": "tools-scripts",
     "neovim-plugin": "code",
     "stdlib-runtime": "code",
     "images-ui-intel": None,

@@ -13,12 +13,15 @@ Docs do not count.
 There is no single front-door script on purpose: CI job selection reads script paths out of the workflows, and one
 front door would hide them.
 
-`node tools/dev/doc_a11y.mjs http://127.0.0.1:8000/` checks a served documentation site with
+The Node scripts under `tools/` are erasable TypeScript that `node` runs directly (no build step). Their lint,
+type and format checks are `just tools-scripts` ([docs/tools/tools-scripts.md](../docs/tools/tools-scripts.md)).
+
+`node tools/dev/doc_a11y.ts http://127.0.0.1:8000/` checks a served documentation site with
 hash-pinned axe-core and installed Chrome (`CHROME_PATH` overrides discovery). It checks six page kinds
 in both themes at desktop and 320px widths. `PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py`
 checks palette contrast. Both run in the documentation publishing workflow.
 
-`node tools/dev/doc_layout.mjs http://127.0.0.1:8000/` checks the same site for layout shift: a sample of
+`node tools/dev/doc_layout.ts http://127.0.0.1:8000/` checks the same site for layout shift: a sample of
 page kinds (or `--all`) loaded, reloaded, left and returned to, and swapped in by the site's navigator, at
 1280px and 375px in both themes, failing on any layout shift or any element that moves after the first
 frame. It runs in the same workflow step.
@@ -38,6 +41,13 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `regex_bench.py` | Benchmark jaic's Extensions/Regex against other regex engines. | - |
 | `release.py` | The release command: every step the release workflow and a maintainer run, by name. | CI, tools |
 | `run_tests.py` | Run the unittest suites under tools/: one `unittest discover` per folder and pattern, in parallel. | CI, tools |
+
+## `archive_conformance/`
+
+| Script | What it does | Called by |
+| --- | --- | --- |
+| `differential.py` | Round-trip Archive and Python in both directions, including ZIP64 streaming descriptors. | - |
+| `fetch.py` | Unpack Go's BSD-licensed ZIP/TAR test fixtures from a pinned source archive into | - |
 
 ## `bench/`
 
@@ -75,7 +85,8 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 
 | Script | What it does | Called by |
 | --- | --- | --- |
-| `check_action_pins.py` | Check that pinned GitHub Actions match their tags and are 14 days old; `--update` applies newer releases (docs/tools/action-pins.md). | CI, tools |
+| `announce_release.py` | Post a release to Zulip (.github/workflows/zulip-release.yml, docs/tools/community-chat.md). | CI |
+| `check_action_pins.py` | Check the SHA-pinned GitHub Actions in `.github/workflows` and `.github/actions` and update them. | CI, hook, tools |
 | `check_ci_sources.py` | Check literal Rust includes against public checkout inputs before compiling. | tools |
 | `check_dependency_age.py` | Fail closed for every registry dependency, including existing lock entries. | CI, tools |
 | `check_diagnostics_covered.py` | Fail when a compiler diagnostic code has no test that expects it (docs/tools/diagnostic-coverage.md). | CI |
@@ -113,6 +124,13 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `report.py` | Line and function coverage for `jaic -coverage` programs (docs/tools/coverage.md). | tools |
 | `rust_cold.py` | Summarize a Rust lcov file (`cargo llvm-cov report --lcov`) as the coldest code, for choosing what to test next. | CI |
 
+## `csv_conformance/`
+
+| Script | What it does | Called by |
+| --- | --- | --- |
+| `bench.py` | Compare the CSV benchmark input with Python csv: PYTHONPATH=tools python3 tools/csv_conformance/bench.py. | tools |
+| `fetch.py` | Fetch pinned csv-spectrum fixtures and make the CSV benchmark input. | - |
+
 ## `dev/`
 
 | Script | What it does | Called by |
@@ -124,8 +142,9 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `doc_diff.py` | Compare built documentation sites byte for byte, grouping differences by page kind. | - |
 | `doc_serve.py` | Serves a `jacket doc` site the way GitHub Pages does. | CI, tools |
 | `fetch_mini_test.py` | Fetch mini.test, the Neovim plugin tests' runner, at the commit pinned in .github/pins.json. | tools |
+| `json_bench_data.py` | Fetch the real-world inputs for `jacket bench --path stdlib/Extensions/Json`. | - |
 | `lsp_partial_edits.py` | Run source-built IDE correctness checks in timeout-isolated per-file processes. | - |
-| `pre_push_clippy.py` | Clippy for the crates a push changes. Called by .githooks/pre-push with git's ref lines on stdin. | tools |
+| `pre_push_clippy.py` | Clippy for the crates a push changes. Called by .githooks/pre-push with git's ref lines on stdin. | hook, tools |
 | `render_packages.py` | Render the Homebrew formula for a release from packaging/. | CI, tools |
 | `rust_item_spacing.py` | Enforce a blank line between Rust items, which rustfmt does not do. | tools |
 
@@ -149,6 +168,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_developer_debug_lifecycle.py` | Original POSIX SDK signal/assertion lifecycle effects, separate from Windows. | tools |
 | `check_developer_debug_windows.py` | Cross-build owned Windows Debug code; never claim Windows execution on macOS. | tools |
 | `check_developer_declaration_visitors.py` | Public callable omission visitor over real canonical model/closure storage. | tools |
+| `check_developer_doc_comments.py` | Check header comment emission and the same parameter doc model used by hover. | tools |
 | `check_developer_dwarf_frames.py` | Produce original DWARF4 debug_frame bytes and native SDK FDE range oracles. | tools |
 | `check_developer_dwarf_line_wire.py` | Stage the owned DWARF line decoder and compare native bytes with existing SDK row oracles. | tools |
 | `check_developer_dwarf_lines.py` | Original native DWARF4 line fixtures and independently decoded SDK row oracles. | tools |
@@ -203,6 +223,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_generated.py` | Run every generator of checked-in files with --check: each must reproduce its output exactly. | CI, tools |
 | `gen_io_uring.py` | Generate stdlib/Extensions/Io_Uring/bindings.jai from the kernel's UAPI header linux/io_uring.h. | tools |
 | `gen_regex_unicode.py` | Generate stdlib/Extensions/Regex/unicode_data.jai from the Unicode Character Database. | tools |
+| `gen_unicode_text.py` | Generate compact normalization and segmentation tables from the shared pinned UCD. | tools |
 | `generate_doc_since.py` | Record the release each documented standard-library item first appeared in, for `jacket doc`. | tools |
 | `generate_float_powers.py` | Emit the 128-bit significands of the powers of five used by decimal to binary float parsing. | tools |
 | `generate_jai_lexer_contract.py` | Emit the runtime lexer's public data declarations from the reviewed API page. | tools |
@@ -217,6 +238,12 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `window_render_feature_font.py` | Generate an original, deterministic TrueType/GSUB native test asset. | tools |
 | `window_render_gl_formats.py` | Emit private GL texel descriptions from our reviewed-format/native-SDK mapping ledger. | tools |
 
+## `gltf_conformance/`
+
+| Script | What it does | Called by |
+| --- | --- | --- |
+| `fetch.py` | Fetch pinned Khronos glTF fixtures. Run with PYTHONPATH=tools; pass --samples for the 1.1 GB sample models. | CI |
+
 ## `grpc/`
 
 | Script | What it does | Called by |
@@ -230,7 +257,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | Script | What it does | Called by |
 | --- | --- | --- |
 | `oracle.py` | Language-server oracle checks over every file `jaic -check` accepts (docs/tools/lsp-oracle.md). | CI, tools |
-| `project_graph.py` | Audit the compiler's actual project inclusion graph in reproducible file-open orders. | - |
+| `project_graph.py` | Audit the compiler's actual project inclusion graph in reproducible file-open orders. | CI |
 | `scale_sandbox.py` | Run the established upstream LSP scale case under the bench sandbox, without fallback. | - |
 
 ## `native/`
@@ -332,6 +359,25 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `toml/run_wasi.py` | Run the complete pinned decoder/encoder inventory under WASI, without exclusions. | CI |
 | `toml/settings.py` | Compare the real Jai formatter consumer with the independent existing Rust schema. | CI |
 | `toml/workloads.py` | Independently authored, deterministic TOML workloads; no runtime dependency or private input. | - |
+
+## `unicode_text_conformance/`
+
+| Script | What it does | Called by |
+| --- | --- | --- |
+| `fetch.py` | Extract the four Unicode_Text conformance suites from the Regex generator's pinned UCD into | - |
+
+## `vt_conformance/`
+
+| Script | What it does | Called by |
+| --- | --- | --- |
+| `fetch.py` | Fetch the vte parser expectations used by Extensions/Vt/tests/conformance.jai. | - |
+
+## `websocket_conformance/`
+
+| Script | What it does | Called by |
+| --- | --- | --- |
+| `fetch.py` | Fetch the pinned pure-Python WebSocket interop peer into the download cache. | tools |
+| `interop.py` | Run the pinned Python peer against the Jai client and server and compare echo performance. | tools |
 
 ## `window_render/`
 

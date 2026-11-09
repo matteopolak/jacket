@@ -248,6 +248,18 @@ class RealWorkflow(unittest.TestCase):
         self.assertFalse(selects("site-assets", "crates/jacket/src/doc/view.rs"))
         self.assertFalse(selects("site-assets", "stdlib/Basic/module.jai"))
 
+    def test_tools_script_checks_run_only_for_the_scripts_and_their_tooling(self):
+        for path in [
+            "tools/wasi_run.ts",
+            "tools/package.json",
+            "tools/oxlint.config.ts",
+            "tools/tsconfig.json",
+        ]:
+            with self.subTest(path=path):
+                self.assertTrue(selects("tools-scripts", path))
+        self.assertFalse(selects("tools-scripts", "crates/jacket/src/doc/view.rs"))
+        self.assertFalse(selects("tools-scripts", "stdlib/Basic/module.jai"))
+
     def test_the_flake_builds_the_compiler_and_the_stdlib(self):
         for path in [
             "flake.nix",

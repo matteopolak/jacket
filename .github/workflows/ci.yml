@@ -252,17 +252,17 @@ jobs:
       - name: Execute the real WebAssembly module
         run: |
           node --version
-          node tools/browser/check_scripting_wasm.mjs target/ci-wasm/jai_wasm.wasm
-          node tools/browser/check_jaifmt_wasm.mjs engine target/ci-wasm/jai_wasm.wasm
-          node --test tools/browser/test_*.mjs tools/dev/test_chrome_startup.mjs tools/dev/test_doc_samples.mjs tools/dev/test_doc_sidebar.mjs
+          node tools/browser/check_scripting_wasm.ts target/ci-wasm/jai_wasm.wasm
+          node tools/browser/check_jaifmt_wasm.ts engine target/ci-wasm/jai_wasm.wasm
+          node --test tools/browser/test_*.ts tools/dev/test_chrome_startup.ts tools/dev/test_doc_samples.ts tools/dev/test_doc_sidebar.ts
       - name: WebGPU host bridge (mock WebGPU; the engine suspends through JSPI)
         # docs/extensions/webgpu.md#tests. Node 24 has JSPI behind a V8 flag, so the file runs
         # directly (node:test in this process) rather than in a `--test` child without the flag.
-        run: JAI_WASM_DIR=target/ci-wasm node --experimental-wasm-jspi tools/bindings/test_webgpu_host.mjs
+        run: JAI_WASM_DIR=target/ci-wasm node --experimental-wasm-jspi tools/bindings/test_webgpu_host.ts
       - name: Run every stdlib test in the browser engine
         # Some tests are skipped because they need what the browser lacks (native libraries, windows); a test that only
         # partly does skips that part itself under `OS == .WASM`. The browser release runs the same check.
-        run: node tools/browser/check_playground_stdlib.mjs target/ci-wasm
+        run: node tools/browser/check_playground_stdlib.ts target/ci-wasm
   test:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'test')
@@ -502,7 +502,7 @@ jobs:
           python3 tools/stdlib/check_platform_io.py --jaic target/debug/jaic --stdlib stdlib --wasm --case File/tests/unicode-paths
           target/debug/jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe target/jaifmt.wasm
           ls -l target/jaifmt.wasm
-          node --no-warnings tools/browser/check_jaifmt_wasm.mjs wasi target/jaifmt.wasm target/jaifmt
+          node --no-warnings tools/browser/check_jaifmt_wasm.ts wasi target/jaifmt.wasm target/jaifmt
   vscode-extension:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'vscode-extension')
@@ -587,6 +587,30 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Lint, type-check and check the formatting of crates/jacket/src/doc/site/assets
         working-directory: crates/jacket/src/doc/site-tools
+        run: pnpm run lint
+  tools-scripts:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'tools-scripts')
+    # The TypeScript scripts under tools/ (node runs them directly): lint, types, formatting
+    # (docs/tools/tools-scripts.md). Runs only when they or their tooling change.
+    name: Tools scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24'}
+      - name: Validate the pnpm version's age before installing
+        run: node editors/vscode/scripts/check-dependency-age.ts --dir tools
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: tools/package.json
+      - name: Install npm dependencies
+        working-directory: tools
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Lint, type-check and check the formatting of tools/**/*.ts
+        working-directory: tools
         run: pnpm run lint
   neovim-plugin:
     needs: changes

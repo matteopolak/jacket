@@ -27,7 +27,7 @@ INDEX = "tools/README.md"
 HOOKS = ".git" + "hooks/"  # the repository's git hooks folder
 SKIPPED_PARTS = {"__pycache__", "node_modules", "target", "fixtures"}
 MAIN_GUARD = re.compile(r"""^if\s+__name__\s*==\s*["']__main__["']\s*:""", re.MULTILINE)
-TEXT_SUFFIXES = {".py", ".sh", ".yml", ".yaml", ".json", ".mjs", ".ps1", ".toml", ".nix"}
+TEXT_SUFFIXES = {".py", ".sh", ".yml", ".yaml", ".json", ".ts", ".ps1", ".toml", ".nix"}
 
 HEADER = """# Tools
 
@@ -44,12 +44,15 @@ Docs do not count.
 There is no single front-door script on purpose: CI job selection reads script paths out of the workflows, and one
 front door would hide them.
 
-`node tools/dev/doc_a11y.mjs http://127.0.0.1:8000/` checks a served documentation site with
+The Node scripts under `tools/` are erasable TypeScript that `node` runs directly (no build step). Their lint,
+type and format checks are `just tools-scripts` ([docs/tools/tools-scripts.md](../docs/tools/tools-scripts.md)).
+
+`node tools/dev/doc_a11y.ts http://127.0.0.1:8000/` checks a served documentation site with
 hash-pinned axe-core and installed Chrome (`CHROME_PATH` overrides discovery). It checks six page kinds
 in both themes at desktop and 320px widths. `PYTHONPATH=tools python3 -m unittest discover -s tools/dev -p test_doc_palette.py`
 checks palette contrast. Both run in the documentation publishing workflow.
 
-`node tools/dev/doc_layout.mjs http://127.0.0.1:8000/` checks the same site for layout shift: a sample of
+`node tools/dev/doc_layout.ts http://127.0.0.1:8000/` checks the same site for layout shift: a sample of
 page kinds (or `--all`) loaded, reloaded, left and returned to, and swapped in by the site's navigator, at
 1280px and 375px in both themes, failing on any layout shift or any element that moves after the first
 frame. It runs in the same workflow step.

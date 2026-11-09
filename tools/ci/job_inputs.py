@@ -44,6 +44,7 @@ GATED = {
     "nix",
     "shellcheck",
     "doc-site-assets",
+    "tools-scripts",
     "install-sh",
     "install-ps1",
     "homebrew",
@@ -91,6 +92,8 @@ EXTRA = {
     "windows-native": ["tests/compiler/native/**"],
     # The lint step reads the assets through `../site/assets`, which no step names.
     "doc-site-assets": ["crates/jacket/src/doc/site/**", "crates/jacket/src/doc/site-tools/**", "editors/vscode/scripts/check-dependency-age.ts"],
+    # The lint step covers every script under tools/, whichever step runs it.
+    "tools-scripts": ["tools/**.ts", "tools/package.json", "tools/pnpm-lock.yaml", "tools/pnpm-workspace.yaml", "tools/tsconfig.json", "tools/oxlint.config.ts", "tools/oxfmt.config.ts", "editors/vscode/scripts/check-dependency-age.ts"],
     # `nix flake check` evaluates the flake, whose files `nix/` imports.
     "nix": ["flake.nix", "flake.lock"],
 }

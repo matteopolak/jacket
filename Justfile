@@ -56,6 +56,12 @@ editor:
 site-assets fix="":
     {{ py }} tools/dev/dev.py site-assets {{ if fix == "true" { "--fix" } else { "" } }}
 
+# Lint, type-check and format-check the TypeScript scripts under tools/ (needs pnpm); --fix formats them.
+[group('check')]
+[arg("fix", long, value="true")]
+tools-scripts fix="":
+    {{ py }} tools/dev/dev.py tools-scripts {{ if fix == "true" { "--fix" } else { "" } }}
+
 # Run the Neovim plugin's headless tests (editors/nvim); builds a debug jailsp for the end-to-end ones. Skipped without nvim 0.11.
 [group('test')]
 [arg("unit", long, value="true")]

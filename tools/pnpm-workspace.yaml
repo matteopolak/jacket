@@ -1,0 +1,5 @@
+# The 14-day rule of editors/vscode (docs/tools/development.md), applied when resolving too: pnpm
+# does not pick a version published less than 20160 minutes ago.
+minimumReleaseAge: 20160
+# No install scripts run, as with --ignore-scripts in CI.
+allowBuilds: {}
