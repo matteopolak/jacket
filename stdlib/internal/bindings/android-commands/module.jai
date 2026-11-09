@@ -15,7 +15,7 @@ release_saved_state :: (app: *$T) {
         app.savedState = null;
         app.savedStateSize = 0;
     }
-} @FreesArgument
+}
 
 pre_state :: (app: *$T, cmd: s8) {
     if cmd == COMMAND_INIT_WINDOW {
