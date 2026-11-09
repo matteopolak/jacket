@@ -22,6 +22,46 @@ civil_validation :: () {
     T.last_of_month(T.Date.{ 2024, 127, 1 }); // Invalid literals remain memory-safe.
 } @test
 
+period_ends :: () {
+    // Month ends: leap and common February, December, 30 and 31 day months.
+    assert(T.last_of_month(T.Date.{ 2024, 2, 10 }).day == 29);
+    assert(T.last_of_month(T.Date.{ 2023, 2, 10 }).day == 28);
+    assert(T.last_of_month(T.Date.{ 1900, 2, 1 }).day == 28);
+    assert(T.last_of_month(T.Date.{ 2000, 2, 1 }).day == 29);
+    assert(T.last_of_month(T.Date.{ 2024, 12, 1 }).day == 31);
+    assert(T.last_of_month(T.Date.{ 2024, 4, 1 }).day == 30);
+
+    // Year ends keep the year and land on 31 December, leap or not.
+    for year: .[2023, 2024, 1900, 2000, -9999, 9999] {
+        d := T.Date.{ cast(s16) year, 6, 15 };
+        last := T.last_of_year(d);
+        first := T.first_of_year(d);
+
+        assert(last.year == d.year && last.month == 12 && last.day == 31);
+        assert(first.year == d.year && first.month == 1 && first.day == 1);
+        assert(T.day_of_year(last) == (ifx T.is_leap_year(year) then 366 else 365));
+    }
+
+    // The day after the last day of the year is the first day of the next.
+    next, e := T.add(T.last_of_year(T.Date.{ 2024, 3, 1 }), T.Span.{ days = 1 });
+
+    assert(e.kind == .NONE && next.year == 2025 && next.month == 1 && next.day == 1);
+
+    // A zoned value takes its local date: 2024-12-31 23:30 in UTC+14 is already
+    // 2025 in UTC+14 but still 2024 in UTC.
+    plus14, oe := T.offset(14 * 3600);
+
+    assert(oe.kind == .NONE);
+    zone := T.time_zone_fixed(plus14);
+    stamp, se := T.to_timestamp(T.time_zone_utc(), T.Date_Time.{ .{ 2024, 12, 31 }, .{ 12, 0, 0, 0 } });
+
+    assert(se.kind == .NONE);
+    local := T.to_civil(zone, stamp).date;
+
+    assert(local.year == 2025 && T.last_of_year(local).year == 2025);
+    assert(T.last_of_year(T.to_civil(T.time_zone_utc(), stamp).date).year == 2024);
+} @test
+
 civil_arithmetic :: () {
     d, e := T.add(T.Date.{ 2024, 1, 31 }, T.Span.{ months = 1 });
 

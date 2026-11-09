@@ -29,6 +29,8 @@ vary in length. Span conversions involving calendar units use overloads taking
 `Signed_Duration` represents exact elapsed seconds and nanoseconds. Timestamp span
 arithmetic rejects every calendar unit, including days.
 
+Period helpers on `Date` (`first_of_month`, `last_of_month`, `first_of_year`, `last_of_year`) return days, so an end is the last day, inclusive. Zoned day ranges (`start_of_day`, `hours_in_day`) are half-open, ending at the next day's start. For a Zoned value, take its local date with `to_civil(zone, instant).date` first; the zone decides which year a late-evening instant belongs to.
+
 ## Representation and errors
 
 Civil fields use compact widths; calculations widen to `s64` before narrowing. Span
@@ -133,9 +135,9 @@ value carries no implicit local zone.
 | Json | `time_json` field handler | none |
 | Basic interop | `Apollo_Time`, `Calendar_Time` | `to_apollo_time`, current date from `Calendar_Time` |
 | Allocation | calculations allocate nothing | parsing builds a compiled regex once; `string_from_date` allocates |
-| End of month or year | no helper; use `days_in_month` | `end_of` |
+| First and last day of a month or year | `first_of_month`, `last_of_month`, `first_of_year`, `last_of_year` | `end_of` |
 
-Time is a full time library; jai-date is a date adder. The differences that matter are explicit zones with DST handling, exact instants, spans, and parse errors that say where. jai-date's only extra is `end_of`, which Time doesn't offer as one call, and German dates, which a pattern covers (`%d.%m.%Y`).
+Time is a full time library; jai-date is a date adder. The differences that matter are explicit zones with DST handling, exact instants, spans, and parse errors that say where. jai-date's only extra is German dates, which a pattern covers (`%d.%m.%Y`).
 
 ## Configuration and dependencies
 

@@ -153,6 +153,30 @@ last_of_month :: (value: Date) -> Date {
     return .{ value.year, value.month, cast(s8) month_length(value.year, value.month) };
 }
 
+// Returns 1 January of the validated date's year.
+//
+// ```jai
+// d := first_of_year(Date.{ 2024, 3, 15 });
+// assert(d.month == 1 && d.day == 1);
+// ```
+first_of_year :: (value: Date) -> Date {
+    return .{ value.year, 1, 1 };
+}
+
+// Returns 31 December of the validated date's year.
+//
+// A Date is a whole day, so the end of a period is its last day, inclusive, like
+// `last_of_month`. For an exclusive bound, add one day. For a Zoned value, pass the
+// local date: `to_civil(value.zone, value.timestamp).date`.
+//
+// ```jai
+// d := last_of_year(Date.{ 2024, 3, 15 });
+// assert(d.month == 12 && d.day == 31);
+// ```
+last_of_year :: (value: Date) -> Date {
+    return .{ value.year, 12, 31 };
+}
+
 // Finds occurrence 1..5 or -1..-5 from the end; missing occurrences fail.
 //
 // ```jai

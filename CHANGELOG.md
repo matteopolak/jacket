@@ -38,6 +38,10 @@
 
 - The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies, macro expansion, polymorphic instances), not only compile-time code that is running.
 
+### New
+
+- `Extensions/Time`: `first_of_year` and `last_of_year` join `first_of_month` and `last_of_month`. A period's end is its last day, inclusive, because a `Date` is a whole day; add one day for an exclusive bound.
+
 ## [0.34.0] - 2026-11-09
 
 ### New
