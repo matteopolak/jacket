@@ -41,7 +41,7 @@ An `Image` is `width`, `height`, `format` and `pixels`, rows packed top to botto
 `stdlib/Extensions/Image/tests/` covers PNG (125 generated fixtures, regenerate with `python3 stdlib/Extensions/Image/tests/fixtures/generate_png_cases.py`), QOI, BMP, PNM, conversion, transforms, and `malformed.jai` (every decoder on files cut and mutated at every byte, under a tracking allocator). `stb_png.jai` needs the C libraries (native and interp only). Fuzz: `PYTHONPATH=tools python3 tools/fuzz/stdlib_fuzz.py Extensions/Image --jaic <jaic>`.
 
 ```sh
-jaic -O2 stdlib/Extensions/Image/bench/bench.jai -exe /tmp/image-bench && /tmp/image-bench quick
+jacket bench --path stdlib/Extensions/Image
 ```
 
 The benchmark compares against `stb_image`, `stb_image_write` and `stb_image_resize` on synthetic photo and UI content (Apple M-series, 8.4 MP):
@@ -62,3 +62,5 @@ PNG time is mostly [Deflate](deflate.md). Also uses `Extensions/SIMD` for unfilt
 See [image codec coverage](../tools/image-conformance.md) for complete pinned corpora, independent encoder checks, alternative API profiles and reproducible validation commands.
 
 JPEG checks real byte-alignment fill bits at observed scan and restart boundaries: each remaining bit must be one. Synthetic refill bits and unread damaged entropy retain the documented recovery behavior; this check does not certify complete encoded MCU rows.
+
+The PNG/QOI/conversion/resize case matrix is emitted by `image_benches` in `benches/bench.jai`; add shapes or operations there. JPEG cases are in `benches/jpeg_bench.jai` and need the native stb providers plus `cjpeg` for progressive, grayscale and restart fixtures. Generated files use `target/jpeg-bench`, relocated by `JACKET_OUTPUT_DIR`.

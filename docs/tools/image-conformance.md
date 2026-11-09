@@ -62,12 +62,11 @@ To extend a codec, add a regression and the full corpus first, then update the p
 
 ## JPEG decode benchmark
 
-[`jpeg_bench.jai`](../../stdlib/Extensions/Image/bench/jpeg_bench.jai) compares complete decode, allocation and free work against the pinned stb build with equal requested channel counts, on a deterministic one-megapixel workload (baseline, progressive, grayscale and restart cases generated through native stb and `cjpeg`). Build it and the native providers first, and time in a quiet window, never alongside a compile.
+[`jpeg_bench.jai`](../../stdlib/Extensions/Image/benches/jpeg_bench.jai) compares complete decode, allocation and free work against the pinned stb build with equal requested channel counts, on deterministic one- and twelve-megapixel workloads (baseline, progressive, grayscale and restart cases generated through native stb and `cjpeg`). Build the native providers first, and time in a quiet window, never alongside a compile.
 
 ```sh
 JAIC_NATIVE_LIBS=target/native-libs/macos-arm64 JAIC_STDLIB=stdlib \
-  target/debug/jaic -O2 stdlib/Extensions/Image/bench/jpeg_bench.jai -exe target/jpeg-bench
-target/jpeg-bench 1
+  jacket bench --path stdlib/Extensions/Image jpeg_
 ```
 
-The program prints MP/s for both decoders per workload; a time ratio below 1 means Image is faster. Results are not checked in. The PNG/resize microbenchmark table is in [Image](../extensions/image.md).
+Each decoder/input pair is a separate `@bench`, reporting time and compressed MB/s. Filter cases by name to select a shape. Results are not checked in. The PNG/resize microbenchmark table is in [Image](../extensions/image.md).
