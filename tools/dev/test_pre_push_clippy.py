@@ -4,7 +4,7 @@ import subprocess
 import unittest
 from unittest import mock
 
-from dev import pre_push_clippy
+import pre_push_clippy
 
 
 class PackagesTests(unittest.TestCase):
