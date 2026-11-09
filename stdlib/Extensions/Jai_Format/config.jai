@@ -134,7 +134,8 @@ apply_setting_text :: (config: *Format_Config, key: string, text: string, line: 
 
 // Copies the setting `key` from a decoded section: the member of Format_Config with that name.
 // `ignore` is the one setting that owns memory; the globs it replaces are released and the
-// decoded ones move over.
+// decoded ones move over. The other members are copied by statements written from the struct
+// while compiling (`setting_moves`), so a lookup is a comparison of `key` and one assignment.
 move_setting :: (config: *Format_Config, from: *Format_Config, key: string) {
     if key == "ignore" {
         for config.ignore free(it);
@@ -146,11 +147,9 @@ move_setting :: (config: *Format_Config, from: *Format_Config, key: string) {
         return;
     }
 
-    member, offset := get_field(cast(*Type_Info_Struct) type_info(Format_Config), key);
-
-    if !member return;
-
-    memcpy(cast(*u8) config + offset, cast(*u8) from + offset, member.type.runtime_size);
+    #insert -> string {
+        return setting_moves(Format_Config);
+    };
 }
 
 // Records the `[doc.format]` setting `key` (one of DOC_FORMAT_KEYS) after checking its value.
@@ -301,6 +300,31 @@ glob_match :: (pattern: string, text: string) -> bool {
 }
 
 #scope_file
+
+// The source of `move_setting` for the plain settings of `T`, written while compiling: one
+// `if key == "name" { config.name = from.name; return; }` per member. A member that a file
+// cannot set (`@toml(skip)`) and the lists, which own memory, are left out. Add a setting to
+// Format_Config and it is moved with no change here; a setting that owns memory needs its own
+// case in `move_setting`.
+setting_moves :: (T: Type) -> string {
+    info := cast(*Type_Info_Struct) type_info(T);
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    for member: info.members {
+        if member.type.type == .ARRAY continue;
+
+        skipped := false;
+
+        for member.notes if it == "toml(skip)" skipped = true;
+
+        if skipped continue;
+
+        print_to_builder(*builder, "if key == \"%\" { config.% = from.%; return; }\n", member.name, member.name, member.name);
+    }
+
+    return builder_to_string(*builder,, temp);
+}
 
 // Insertions, deletions and substitutions turning `a` into `b`; names past 63 bytes count as far.
 edit_distance :: (a: string, b: string) -> int {
