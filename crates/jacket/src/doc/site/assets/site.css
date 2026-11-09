@@ -12,9 +12,9 @@
   --muted: oklch(52.4% 0.016 285.9deg);
   --border: oklch(94.1% 0.004 286.3deg);
   --hair: oklch(95.9% 0.003 286.3deg);
-  --link: oklch(50% 0.1 72deg);
-  --accent: oklch(50% 0.1 72deg);
-  --sel: oklch(96.6% 0.028 84deg);
+  --link: oklch(48% 0.06 75deg);
+  --accent: oklch(48% 0.06 75deg);
+  --sel: oklch(96.8% 0.012 85deg);
   --type: oklch(52.2% 0.067 185.9deg);
   --str: oklch(52.7% 0.085 64.7deg);
   --kw: oklch(51.6% 0.111 298deg);
@@ -23,8 +23,8 @@
   --err: oklch(54% 0.144 27.6deg);
   --errbg: oklch(97.5% 0.008 27.2deg);
   --shadow: oklch(21% 0.006 285.9deg / 8%);
-  --warn: oklch(52% 0.14 45deg);
-  --warnbg: oklch(96.5% 0.02 50deg);
+  --warn: oklch(50.85% 0.1025 70.8deg);
+  --warnbg: oklch(96.1% 0.028 84.6deg);
   --foreign: oklch(53.7% 0.144 27.2deg);
   --tint: 11%;
   --scroll: oklch(89.6% 0.005 286.3deg);
@@ -47,9 +47,9 @@
   --muted: oklch(69.2% 0.012 286.1deg);
   --border: oklch(28.7% 0.009 285.8deg);
   --hair: oklch(26.2% 0.007 285.9deg);
-  --link: oklch(80% 0.115 82deg);
-  --accent: oklch(74.98% 0.1277 79.99deg);
-  --sel: oklch(29% 0.04 78deg);
+  --link: oklch(86% 0.055 85deg);
+  --accent: oklch(82% 0.07 82deg);
+  --sel: oklch(29% 0.014 80deg);
   --type: oklch(75.8% 0.068 181.3deg);
   --str: oklch(77% 0.066 72deg);
   --kw: oklch(73.3% 0.09 296.7deg);
@@ -58,8 +58,8 @@
   --err: oklch(72.2% 0.117 25.5deg);
   --errbg: oklch(25.7% 0.017 18.3deg);
   --shadow: oklch(0% 0 0deg / 40%);
-  --warn: oklch(76% 0.12 50deg);
-  --warnbg: oklch(27.5% 0.03 50deg);
+  --warn: oklch(79% 0.105 77.5deg);
+  --warnbg: oklch(27.4% 0.025 79.5deg);
   --foreign: oklch(73.5% 0.121 26.6deg);
   --tint: 17%;
   --scroll: oklch(34.3% 0.01 285.8deg);
@@ -79,9 +79,9 @@
     --muted: oklch(69.2% 0.012 286.1deg);
     --border: oklch(28.7% 0.009 285.8deg);
     --hair: oklch(26.2% 0.007 285.9deg);
-    --link: oklch(80% 0.115 82deg);
-    --accent: oklch(74.98% 0.1277 79.99deg);
-    --sel: oklch(29% 0.04 78deg);
+    --link: oklch(86% 0.055 85deg);
+    --accent: oklch(82% 0.07 82deg);
+    --sel: oklch(29% 0.014 80deg);
     --type: oklch(75.8% 0.068 181.3deg);
     --str: oklch(77% 0.066 72deg);
     --kw: oklch(73.3% 0.09 296.7deg);
@@ -90,8 +90,8 @@
     --err: oklch(72.2% 0.117 25.5deg);
     --errbg: oklch(25.7% 0.017 18.3deg);
     --shadow: oklch(0% 0 0deg / 40%);
-    --warn: oklch(76% 0.12 50deg);
-    --warnbg: oklch(27.5% 0.03 50deg);
+    --warn: oklch(79% 0.105 77.5deg);
+    --warnbg: oklch(27.4% 0.025 79.5deg);
     --foreign: oklch(73.5% 0.121 26.6deg);
     --tint: 17%;
     --scroll: oklch(34.3% 0.01 285.8deg);
@@ -218,8 +218,19 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Links in running text need a cue beyond colour, including linked code names and the type names in a code block. Lists of pages are not prose. */
-main :is(p, li, dd, td, blockquote, pre) a {
+/* Links in running text need a cue beyond colour. Lists of pages are not prose. */
+main :is(p, li, dd, td, blockquote) a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+/* In code a link keeps the code's own colours and shows itself on hover. */
+main pre a,
+main pre a:is(:hover, :focus-visible) {
+  color: inherit;
+}
+
+main pre a:hover {
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
@@ -636,9 +647,9 @@ html:not(.mac) .key-mac {
 }
 
 #search-results .hit[aria-selected='true'] {
-  background: var(--sel);
-  outline: 2px solid var(--link);
-  outline-offset: -2px;
+  background: color-mix(in oklch, var(--surface), var(--fg) 6%);
+  outline: 1px solid var(--border);
+  outline-offset: -1px;
 }
 
 /* What a hit is, as an icon in a tinted tile, coloured like the code highlighting. */
@@ -1517,41 +1528,9 @@ h3:hover .anchor,
   text-decoration: none;
 }
 
-/* A marked item reads bold, from a bold copy of its name laid over it. Showing the copy only
-   swaps colours, which needs no layout: on a big page each layout after a scroll is costly. */
-.toc li a[data-t] {
-  position: relative;
-}
-
-.toc li a[data-t]::after {
-  content: attr(data-t) / '';
-  position: absolute;
-  inset: 0;
-  padding: inherit;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-  color: transparent;
-  pointer-events: none;
-}
-
+/* A marked item only changes colour: on a big page each layout after a scroll is costly. */
 .toc li a.active {
-  color: transparent;
-}
-
-.toc li a.active::after {
-  color: var(--link);
-}
-
-@media (forced-colors: active) {
-  .toc li a[data-t]::after {
-    content: none;
-  }
-
-  .toc li a.active {
-    font-weight: 600;
-  }
+  color: var(--fg);
 }
 
 @media (width >= 1200px) {

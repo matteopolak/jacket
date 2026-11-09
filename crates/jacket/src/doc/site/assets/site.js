@@ -30,6 +30,10 @@
 
   var root = document.documentElement;
   var base = document.body.getAttribute('data-base') || '/';
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)');
+  // Opens a page of the site. Once the page swapper is set up it moves there in place.
+  /** @type {(href: string) => void} */
+  var navigate = location.assign.bind(location);
 
   // Pages have no trailing slash. An old link that has one lands on the 404 page, which sends it on.
   if (document.body.getAttribute('data-page') === '404.html') {
@@ -270,14 +274,12 @@
         // A heading with no list under it (a guide's outline) is an item too; a heading with a
         // list only opens it.
         m.item = !m.g || /** @type {Node} */ (li.parentNode).parentNode === m.g.l;
-        if (m.item) m.a.setAttribute('data-t', m.a.textContent);
       });
       var rail = /** @type {HTMLElement} */ (document.querySelector('.toc'));
       var from = -1,
         to = -1,
         first = true,
         moved = false;
-      var still = window.matchMedia('(prefers-reduced-motion: reduce)');
       var pending = false;
       // The first mark whose heading is below y (marks follow the page order).
       /** @param {number} y */
@@ -698,7 +700,6 @@
     else input.removeAttribute('aria-activedescendant');
     paintGhost();
   }
-  var still = window.matchMedia('(prefers-reduced-motion: reduce)');
   /** Where each row sits before a redraw, by its key, and how tall the list is. */
   function measure() {
     /** @type {Record<string, number>} */
@@ -716,10 +717,21 @@
     var ease = 'cubic-bezier(0.2, 0, 0, 1)';
     var height = box.offsetHeight;
     if (before.height !== height) {
-      box.animate([{ height: before.height + 'px' }, { height: height + 'px' }], {
-        duration: 200,
-        easing: ease,
-      });
+      // No scrollbar while the list grows past rows it is about to fit.
+      box.style.overflowY = 'hidden';
+      box
+        .animate([{ height: before.height + 'px' }, { height: height + 'px' }], {
+          duration: 200,
+          easing: ease,
+        })
+        .finished.then(
+          function () {
+            box.style.overflowY = '';
+          },
+          function () {
+            box.style.overflowY = '';
+          },
+        );
     }
     box.querySelectorAll('.hit').forEach(function (h, i) {
       if (!(h instanceof HTMLElement)) return;
@@ -780,6 +792,12 @@
     input.focus();
     input.select();
   }
+  // The dialog fades out while the page moves to the chosen hit.
+  /** @param {Item} it */
+  function openHit(it) {
+    closeSearch();
+    navigate(hrefOf(it));
+  }
   function closeSearch() {
     if (!spot || !spot.open || spot.classList.contains('closing')) return;
     var dialog = spot;
@@ -832,14 +850,13 @@
       } else if (e.key === 'Enter') {
         if (picked >= 0 && hits[picked]) {
           e.preventDefault();
-          window.location.href = hrefOf(hits[picked]);
+          openHit(hits[picked]);
         }
       }
     });
     box.addEventListener('click', function (e) {
       var row = ancestor(e, '.hit');
-      if (row && !ancestor(e, 'a') && hits[+row.id.slice(4)])
-        window.location.href = hrefOf(hits[+row.id.slice(4)]);
+      if (row && !ancestor(e, 'a') && hits[+row.id.slice(4)]) openHit(hits[+row.id.slice(4)]);
     });
     document.addEventListener('keydown', function (e) {
       // Ctrl K or ⌘K works anywhere, even while typing elsewhere; / only outside text fields.
@@ -1535,17 +1552,23 @@
             remember();
             history.pushState({ y: 0 }, '', href);
           }
-          swap(doc);
-          var id = decodeURIComponent(new URL(href).hash.slice(1));
-          var target = id && document.getElementById(id);
-          // A new page starts where it should be, without the smooth scroll the page has.
-          if (!push && history.state) jump(history.state.y || 0);
-          else if (target) target.scrollIntoView({ behavior: 'instant' });
-          else jump(0);
-          if (keyboard)
-            /** @type {HTMLElement} */ (document.getElementById('main-content')).focus({
-              preventScroll: true,
-            });
+          var land = function () {
+            swap(doc);
+            var id = decodeURIComponent(new URL(href).hash.slice(1));
+            var target = id && document.getElementById(id);
+            // A new page starts where it should be, without the smooth scroll the page has.
+            if (!push && history.state) jump(history.state.y || 0);
+            else if (target) target.scrollIntoView({ behavior: 'instant' });
+            else jump(0);
+            if (keyboard)
+              /** @type {HTMLElement} */ (document.getElementById('main-content')).focus({
+                preventScroll: true,
+              });
+          };
+          // The new content fades in as on a full page load (the `main` view transition in
+          // site.css); the header and sidebar stay put.
+          if (document.startViewTransition && !still.matches) document.startViewTransition(land);
+          else land();
         })
         .catch(function () {
           if (n === going) location.assign(href);
@@ -1574,6 +1597,9 @@
       e.preventDefault();
       go(u.href, true, e.detail === 0);
     });
+    navigate = function (href) {
+      go(new URL(href, location.href).href, true, false);
+    };
     window.addEventListener('popstate', function () {
       // Back or forward within the page that is shown: only the scroll changes.
       if (document.body.getAttribute('data-shown') === bare(location.href)) {
