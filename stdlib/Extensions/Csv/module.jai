@@ -61,6 +61,7 @@ Csv_Reader :: struct {
     header_ready: bool;
     header: [] string;
     header_index: Hash_Map.Map(string, int);
+    columns: [..] Csv_Column;
     width: int = -1;
     buffer: [..] u8;
     cells: [..] Csv_Cell;
@@ -147,6 +148,7 @@ csv_record_free :: (fields: [] string) {
 csv_reader_free :: (r: *Csv_Reader) {
     array_free(r.buffer);
     array_free(r.cells);
+    array_free(r.columns);
     array_free(r.fields);
     Hash_Map.deinit(*r.header_index);
     csv_record_free(r.header);
@@ -232,6 +234,12 @@ Csv_Cell :: struct {
     start: int;
     end: int;
     text: string;
+}
+
+// What a typed member last found in the header: the member's name and its column (-1: none).
+Csv_Column :: struct {
+    name: string;
+    index: int;
 }
 
 // Bits of `Csv_Reader.stops`: the bytes that end a run of plain bytes in an unquoted or a quoted field.

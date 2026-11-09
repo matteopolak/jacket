@@ -85,7 +85,21 @@ locate_error :: (r: *Csv_Reader, index: int) {
 
 column_index :: (r: *Csv_Reader, name: string, order: int) -> int {
     if !r.options.header return order;
-    return Hash_Map.get(*r.header_index, name, -1);
+
+    // Rows of one type ask for the same names in the same order, so each member keeps its answer.
+    // Names are literals: the same address and length mean the same text.
+    if order < r.columns.count {
+        known := r.columns[order];
+        if known.name.data == name.data && known.name.count == name.count return known.index;
+    }
+
+    index := Hash_Map.get(*r.header_index, name, -1);
+
+    while r.columns.count <= order array_add(*r.columns, .{});
+
+    r.columns[order] = .{ name, index };
+
+    return index;
 }
 
 read_cell :: (r: *Csv_Reader, text: string, out: *$T, name: string) -> bool {

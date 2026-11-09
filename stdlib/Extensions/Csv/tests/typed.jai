@@ -226,3 +226,35 @@ escaped_note_name :: () {
     defer free(text);
     expect_equal(text, "\"say \"\"hi\"\"\tthen\"\r\nx\r\n");
 } @test
+
+Left :: struct {
+    b: int;
+    a: int;
+}
+
+Right :: struct {
+    a: int;
+    c: int;
+}
+
+// A reader remembers which header column each member read, but one reader may decode different structs.
+reader_shared_by_types :: () {
+    reader := csv_reader(cast([] u8) "a,b,c\n1,2,3\n4,5,6\n7,8,9\n", .{ header = true });
+
+    defer csv_reader_free(*reader);
+    first, ok, e := csv_next_row(Left, *reader);
+
+    require(ok && e.kind == .NONE);
+    expect_equal(first.b, 2);
+    expect_equal(first.a, 1);
+    second, valid, e2 := csv_next_row(Right, *reader);
+
+    require(valid && e2.kind == .NONE);
+    expect_equal(second.a, 4);
+    expect_equal(second.c, 6);
+    third, again, e3 := csv_next_row(Left, *reader);
+
+    require(again && e3.kind == .NONE);
+    expect_equal(third.b, 8);
+    expect_equal(third.a, 7);
+} @test
