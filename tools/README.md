@@ -93,6 +93,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_images_ui.py` | Check cross-target macros and runtime dispatch used by images and UI. | CI |
 | `check_native_libs.py` | Every native library the shipped standard library binds must come with the release archive. | tools |
 | `check_native_python.py` | Fail when Python on a Windows runner is emulated or the runner's CPU is not the expected one. | CI |
+| `check_pin_updates.py` | Compare the tool pins with the latest upstream stable release and keep one issue about the ones behind. | CI |
 | `check_repo_paths.py` | Fail when a doc or a tool/config header names a repo path that does not exist. | tools |
 | `check_source_style.py` | Fail when a tracked Rust file is too long or a Rust or Python file carries a banner comment. | tools |
 | `check_stdlib_docs.py` | Fail when a public standard-library declaration has no doc comment (docs/tools/stdlib-doc-gaps.md). | tools |

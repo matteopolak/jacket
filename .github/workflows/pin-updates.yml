@@ -1,0 +1,32 @@
+name: pin updates
+# Weekly, and by hand: compares the tool pins (rust, llvm, just, nextest) with the latest upstream
+# stable release and keeps one issue listing the ones behind (tools/ci/check_pin_updates.py,
+# docs/tools/pin-updates.md). The issue closes itself when everything is current.
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+env:
+  # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
+  PYTHONPATH: ${{ github.workspace }}/tools
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+jobs:
+  pins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            tools
+            .github/pins.json
+            rust-toolchain.toml
+      - name: Compare the pins with upstream and update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 tools/ci/check_pin_updates.py

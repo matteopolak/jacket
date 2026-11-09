@@ -58,7 +58,7 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 
 ## Building and testing
 
-- Workflow: [development](tools/development.md), [README banner](tools/readme-banner.md), [action pins](tools/action-pins.md), [testing](tools/testing.md), [test harness](tools/test-harness.md), [tools layout](tools/tools-layout.md), [CI job selection](tools/ci-job-selection.md), [LLVM setup](tools/llvm-setup.md), [Linux container](tools/linux-container.md).
+- Workflow: [development](tools/development.md), [README banner](tools/readme-banner.md), [action pins](tools/action-pins.md), [pin updates](tools/pin-updates.md), [testing](tools/testing.md), [test harness](tools/test-harness.md), [tools layout](tools/tools-layout.md), [CI job selection](tools/ci-job-selection.md), [LLVM setup](tools/llvm-setup.md), [Linux container](tools/linux-container.md).
 - Quality: [diagnostic coverage](tools/diagnostic-coverage.md), [stdlib doc gaps](tools/stdlib-doc-gaps.md), [determinism](tools/determinism.md), [coverage](tools/coverage.md), [Rust coverage](tools/rust-coverage.md), [sanitizers and Miri](tools/sanitizers.md), [mutation testing](tools/mutation-testing.md).
 - Fuzzing: [stdlib fuzzing](tools/stdlib-fuzzing.md), [language server typing sessions](tools/lsp-fuzzing.md), [language server oracle](tools/lsp-oracle.md).
 - Performance: [benchmarks and profiling](tools/benchmarks.md), [stdlib benchmarks](tools/stdlib-benchmarks.md), [library comparisons](tools/library-comparisons.md), [performance gate](tools/perf-gate.md).
