@@ -6,6 +6,7 @@ use jaic::ast::walk::{self, Node};
 use jaic::ast::{Expr, ExprKind, StmtKind};
 use jaic::source::FileId;
 use std::collections::BTreeSet;
+use std::path::Path;
 
 impl Site {
     pub fn unlinked_types(&self) -> Vec<String> {
@@ -94,14 +95,29 @@ impl Site {
         required
             .into_iter()
             .filter(|name| {
+                if self.type_is_linked(name, refs, mi) {
+                    return false;
+                }
                 // Only declarations proven private, internal, or supplied by the prelude can
-                // lack a page. A documented alias hop still links through the normal resolver.
-                let unpublished = refs.iter().any(|r| {
-                    (r.path == *name || name.starts_with(&format!("{}.", r.path))) && r.private
-                });
-                !self.type_is_linked(name, refs, mi) && !unpublished
+                // lack a page, and so can those of a module that is not documented here: a
+                // library documented alone cannot link what it imports from another one.
+                let named =
+                    |r: &&TypeRef| r.path == *name || name.starts_with(&format!("{}.", r.path));
+                !refs
+                    .iter()
+                    .filter(named)
+                    .any(|r| r.private || self.outside_documented(&r.file))
             })
             .collect()
+    }
+
+    /// Whether `file` is not in the folder of any module of the site.
+    fn outside_documented(&self, file: &str) -> bool {
+        !self.modules.iter().any(|m| {
+            Path::new(&m.file)
+                .parent()
+                .is_some_and(|dir| !m.file.is_empty() && Path::new(file).starts_with(dir))
+        })
     }
 
     fn type_is_linked(&self, path: &str, refs: &[TypeRef], here: usize) -> bool {

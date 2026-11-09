@@ -44,6 +44,8 @@
 
 - `Extensions/Time`: `first_of_year` and `last_of_year` join `first_of_month` and `last_of_month`. A period's end is its last day, inclusive, because a `Date` is a whole day; add one day for an exclusive bound.
 
+- `jacket doc --check` on one module no longer fails on types it names from modules it imports; they have no page in that site and show as plain text.
+
 ## [0.34.0] - 2026-11-09
 
 ### New

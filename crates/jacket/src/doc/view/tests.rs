@@ -1,5 +1,5 @@
 use super::super::categories;
-use super::super::model::{Item, Kind, Member, Module, Overload, Parameter, TypeRef};
+use super::super::model::{Item, Kind, Member, Module, Overload, Param, Parameter, TypeRef};
 use super::super::site::Site;
 use super::*;
 
@@ -805,5 +805,85 @@ fn a_lone_overload_gives_the_page_its_lead_and_keeps_the_rest() {
     assert!(
         !cards[0].contains("Goes one way.") && cards[0].contains("Also stops."),
         "{cards:?}"
+    );
+}
+
+/// `A` names `Thing` of `B` and `Local` of its own folder, which has no page.
+fn importing_site(with_b: bool) -> Site {
+    let reference = |path: &str, file: &str| TypeRef {
+        path: path.into(),
+        file: file.into(),
+        line: 3,
+        private: false,
+    };
+    let param = |name: &str, ty: &str, file: &str| Param {
+        name: name.into(),
+        ty: ty.into(),
+        refs: vec![reference(ty, file)],
+        ..Param::default()
+    };
+    let mut modules = vec![Module {
+        id: "A".into(),
+        file: "A/module.jai".into(),
+        items: vec![Item {
+            name: "take".into(),
+            kind: Kind::Procedure,
+            file: "A/module.jai".into(),
+            line: 9,
+            overloads: vec![Overload {
+                params: vec![
+                    param("thing", "Thing", "B/module.jai"),
+                    param("local", "Local", "A/module.jai"),
+                ],
+                ..Overload::default()
+            }],
+            ..Item::default()
+        }],
+        ..Module::default()
+    }];
+    if with_b {
+        modules.push(Module {
+            id: "B".into(),
+            file: "B/module.jai".into(),
+            items: vec![Item {
+                name: "Thing".into(),
+                kind: Kind::Struct,
+                file: "B/module.jai".into(),
+                line: 3,
+                ..Item::default()
+            }],
+            ..Module::default()
+        });
+    }
+    Site::new(
+        modules,
+        Vec::new(),
+        "/docs/".into(),
+        String::new(),
+        String::new(),
+        String::new(),
+        false,
+    )
+}
+
+#[test]
+fn a_type_of_an_import_that_is_not_documented_is_not_reported() {
+    let unlinked = importing_site(false).unlinked_types();
+    // `Local` is in the documented folder and has no page: that stays a gap.
+    assert_eq!(unlinked.len(), 1, "{unlinked:?}");
+    assert!(unlinked[0].ends_with("`Local`"), "{unlinked:?}");
+}
+
+#[test]
+fn a_type_of_a_documented_import_links_to_its_page() {
+    let site = importing_site(true);
+    let unlinked = site.unlinked_types();
+    assert_eq!(unlinked.len(), 1, "{unlinked:?}");
+    assert!(unlinked[0].ends_with("`Local`"), "{unlinked:?}");
+    let thing = &site.modules[0].items[0].overloads[0].params[0];
+    let html = site.type_html(&thing.ty, &thing.refs, 0);
+    assert!(
+        html.contains("<a ") && html.contains("/docs/api/B/Thing"),
+        "{html}"
     );
 }
