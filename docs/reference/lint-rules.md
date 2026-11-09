@@ -253,8 +253,8 @@ main :: () {
 error[double_free]: `node` is freed a second time
   --> example.jai:13:5
    |
-10 |     print("%\n", node.value);
-   |                       ----- storage derived here
+ 8 |     node := New(Node);
+   |             --------- storage derived here
    ...
 12 |     free(node);
    |     ---------- storage invalidated here
@@ -792,9 +792,11 @@ main :: () {
 error[use_after_free]: `node` is used after the call above freed it
   --> example.jai:12:18
    |
+ 8 |     node := New(Node);
+   |             --------- storage derived here
+   ...
 11 |     free(node);
    |     ---------- storage invalidated here
-   |          ---- storage derived here
 12 |     print("%\n", node.value);
    |                  ^^^^
    |
@@ -1096,9 +1098,7 @@ warning[duplicate_condition]: `key == 1` was already tested earlier in this chai
    |
 help: this branch can never run: was another condition meant?
    |
- 5 -     else if key == 2 print("two\n");
  6 -     else if key == 1 print("uno\n");
- 5 +     else if key == 2 print("two\n");
    |
    = note: `duplicate_condition` is `warn` by default
 ```
@@ -2555,12 +2555,8 @@ warning[manual_index_counter]: `n` always equals `it_index` of the loop that fol
 help: use `it_index` instead of counting by hand
    |
  4 -     n := 0;
- 5 - 
- 6 -     for names {
  7 -         print("% %\n", n, it);
  8 -         n += 1;
- 4 + 
- 5 +     for names {
  6 +         print("% %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
@@ -3340,10 +3336,8 @@ help: write an `if` instead
 10 -     if mode == {
 11 -         case .VERBOSE;
 12 -             print("loud\n");
-13 -     }
 10 +     if mode == .VERBOSE {
 11 +         print("loud\n");
-12 +     }
    |
    = note: `single_case_switch` is `warn` by default
 ```
@@ -4173,9 +4167,7 @@ help: list the values together: `case .PNG, .JPEG;`
 11 -         case .PNG;
 12 -             return "image";
 13 -         case .JPEG;
-14 -             return "image";
 11 +         case .PNG, .JPEG;
-12 +             return "image";
    |
 ```
 
@@ -4240,9 +4232,7 @@ help: test `ready` first and swap the branches
    |
  6 ~     if ready {
  7 ~         print("going\n");
- 8 ~     } else {
  9 ~         print("waiting\n");
-10 ~     }
    |
 ```
 
@@ -4404,8 +4394,6 @@ warning[leaked_allocation]: `parser` holds memory from `New` that is never freed
    |
 help: free it when done, for example `defer free(parser);` right after this line
    |
- 8 -     parser := New(Parser);
- 8 +     parser := New(Parser);
  9 +     defer free(parser);
    |
 ```
@@ -5108,7 +5096,7 @@ It fires only when every path to a use of `p := *xs[i]` passes a call that grows
 
 The pointer is followed through copies: other locals, struct fields, pointer arithmetic, casts, and views or strings made from the array (`v: []int = xs;` then `v.data`). `*outer[0].inner[0]` points into the inner array, so growing `outer` leaves it alone; `*outer[0].inner` points into `outer` and is invalidated. A `@GrowsArray` call that returns a pointer into its argument (`p := array_add(*xs);`) counts as a fresh derivation. Reading `v.count` or replacing `v.data` after growth is not a use.
 
-Anything reached through a pointer the lint can't resolve (a heap field a callee could rebind, an overlapping union field) is unknown, so it stays quiet. A callee that keeps or writes through a pointer argument in a way the lint can't follow makes only that argument unknown. `JAILINT_LIFETIME_STATS=1` prints per-file counts of bodies analysed and why others were skipped.
+Anything reached through a pointer the lint can't resolve (a heap field a callee could rebind, an overlapping union field, a struct passed as a different struct type with `cast(*B) *a` whose member has no twin of the same type at the same byte offset) is unknown, so it stays quiet. A callee that keeps or writes through a pointer argument in a way the lint can't follow makes only that argument unknown. `JAILINT_LIFETIME_STATS=1` prints per-file counts of bodies analysed and why others were skipped.
 
 ### print_in_module
 
