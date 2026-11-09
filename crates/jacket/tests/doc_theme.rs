@@ -2,19 +2,13 @@
 mod doc {
     use std::path::{Path, PathBuf};
     use std::process::Command;
-    use test_support::TempDir;
+    use test_support::{TempDir, toolchain};
 
     static RUN: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     fn tools() -> Option<(PathBuf, PathBuf)> {
         let jacket = PathBuf::from(env!("CARGO_BIN_EXE_jacket"));
-        let jaic = jacket
-            .parent()?
-            .join(format!("jaic{}", std::env::consts::EXE_SUFFIX));
-        if !jaic.is_file() {
-            eprintln!("skipped: build `jaic` first (`cargo build -p jaic-cli`)");
-            return None;
-        }
+        let jaic = toolchain::jaic_beside(&jacket)?;
         Some((jacket, jaic))
     }
 
@@ -224,15 +218,9 @@ mod doc {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let jacket = Path::new(env!("CARGO_BIN_EXE_jacket"));
-        if !jacket
-            .parent()
-            .unwrap()
-            .join(format!("jaic{}", std::env::consts::EXE_SUFFIX))
-            .is_file()
-        {
+        let Some((jacket, _)) = tools() else {
             return;
-        }
+        };
         let temp = TempDir::new("doc-metadata");
         temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\nbreadcrumb='std'\nurl='https://example.com'\nsite_name='Tiny std'\nog_image='https://example.com/og.png'\ncanonical_version='2'\n[[doc.page]]\nfile='guide.md'\nname='Guide'\n[[doc.section]]\nfile='rules.md'\nname='Rules'\n");
         temp.write(
@@ -245,7 +233,7 @@ mod doc {
             "# Rules\n\nEvery rule.\n\n## Group\n\n### one\n\nThe first rule.\n",
         );
         let run = |version: &str| {
-            Command::new(jacket)
+            Command::new(&jacket)
                 .args([
                     "doc",
                     "--version",

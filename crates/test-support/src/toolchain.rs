@@ -121,6 +121,20 @@ fn resolve(name: &str, must_exist: bool) -> Option<PathBuf> {
     found
 }
 
+/// The `jaic` that sits beside the `jacket` executable `jacket`, as in an unpacked archive. `None`
+/// (after a note) when it has not been built: `cargo test -p jacket` alone does not build it.
+#[must_use]
+pub fn jaic_beside(jacket: &Path) -> Option<PathBuf> {
+    let jaic = jacket
+        .parent()?
+        .join(format!("jaic{}", std::env::consts::EXE_SUFFIX));
+    if !jaic.is_file() {
+        skip("build `jaic` first (`cargo build -p jaic-cli`)");
+        return None;
+    }
+    Some(jaic)
+}
+
 /// The C compiler for host builds: `CC`, else `clang` on Windows (MSVC hosts have no `cc`)
 /// and `cc` elsewhere.
 #[must_use]
@@ -243,6 +257,16 @@ mod tests {
         let dir = crate::tmp::TempDir::new("toolchain-direct");
         let file = dir.write("tool", "");
         assert_eq!(find_in(file.to_str().unwrap(), [], None), Some(file));
+    }
+
+    #[test]
+    fn jaic_is_found_beside_jacket_and_a_missing_one_skips() {
+        let dir = crate::tmp::TempDir::new("toolchain-jaic");
+        let suffix = std::env::consts::EXE_SUFFIX;
+        let jacket = dir.join(format!("jacket{suffix}"));
+        assert_eq!(jaic_beside(&jacket), None);
+        let jaic = dir.write(&format!("jaic{suffix}"), "");
+        assert_eq!(jaic_beside(&jacket), Some(jaic));
     }
 
     #[test]

@@ -1,9 +1,9 @@
 //! A test program killed by a signal: `jacket test` shows the tail of its output and the crash
 //! handler's report, so a crash can be read from a CI log alone.
 #![cfg(unix)]
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use test_support::TempDir;
+use test_support::{TempDir, toolchain};
 
 const PROGRAM: &str = r#"#import "Basic";
 libc :: #system_library "libc";
@@ -14,20 +14,11 @@ main :: () {
 }
 "#;
 
-/// The directory holding `jaic` beside `jacket`; `None` when `jaic` has not been built.
-fn jaic_dir() -> Option<PathBuf> {
-    let dir = Path::new(env!("CARGO_BIN_EXE_jacket"))
-        .parent()?
-        .to_path_buf();
-    dir.join("jaic").is_file().then_some(dir)
-}
-
 #[test]
 fn golden_killed_by_a_signal_shows_output_and_native_stack() {
-    let Some(_) = jaic_dir() else {
-        eprintln!("skipped: build `jaic` first (`cargo build -p jaic-cli`)");
+    if toolchain::jaic_beside(Path::new(env!("CARGO_BIN_EXE_jacket"))).is_none() {
         return;
-    };
+    }
     let project = TempDir::new("jacket-crash-golden");
     let tests = project.join("tests");
     std::fs::create_dir_all(&tests).unwrap();

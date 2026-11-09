@@ -1,16 +1,8 @@
 //! A compile-fail test with no `.stderr` yet gets one on the first run, and says so; under `CI`
 //! the missing file is a failure.
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
-use test_support::TempDir;
-
-/// The directory holding `jaic` beside `jacket`; `None` when `jaic` has not been built.
-fn jaic_dir() -> Option<PathBuf> {
-    let dir = Path::new(env!("CARGO_BIN_EXE_jacket"))
-        .parent()?
-        .to_path_buf();
-    dir.join("jaic").is_file().then_some(dir)
-}
+use test_support::{TempDir, toolchain};
 
 fn project() -> TempDir {
     let project = TempDir::new("jacket-new-golden");
@@ -47,8 +39,7 @@ fn text(out: &Output) -> String {
 
 #[test]
 fn a_missing_compile_fail_stderr_is_written_on_the_first_run() {
-    if jaic_dir().is_none() {
-        eprintln!("skipped: build `jaic` first (`cargo build -p jaic-cli`)");
+    if toolchain::jaic_beside(Path::new(env!("CARGO_BIN_EXE_jacket"))).is_none() {
         return;
     }
     let project = project();
@@ -74,8 +65,7 @@ fn a_missing_compile_fail_stderr_is_written_on_the_first_run() {
 
 #[test]
 fn under_ci_a_missing_stderr_still_fails_and_is_not_written() {
-    if jaic_dir().is_none() {
-        eprintln!("skipped: build `jaic` first (`cargo build -p jaic-cli`)");
+    if toolchain::jaic_beside(Path::new(env!("CARGO_BIN_EXE_jacket"))).is_none() {
         return;
     }
     let project = project();

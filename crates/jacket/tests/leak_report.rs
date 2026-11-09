@@ -1,8 +1,8 @@
 //! A leak found by the test framework's allocator tracking is reported at the line in the test that asked for the memory,
 //! not at the allocator or the library code between the two.
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use test_support::TempDir;
+use test_support::{TempDir, toolchain};
 
 const PROGRAM: &str = r#"#import "Basic";
 #import "String";
@@ -26,20 +26,11 @@ grows_an_array_and_forgets :: () {
 /// What `jacket test -q` must show for those three tests. The line after each "made here" is the source line.
 const GOLDEN: &str = include_str!("golden/leak_report.txt");
 
-/// The directory holding `jaic` beside `jacket`; `None` when `jaic` has not been built.
-fn jaic_dir() -> Option<PathBuf> {
-    let dir = Path::new(env!("CARGO_BIN_EXE_jacket"))
-        .parent()?
-        .to_path_buf();
-    dir.join("jaic").is_file().then_some(dir)
-}
-
 #[test]
 fn golden_a_leak_is_reported_where_the_test_allocated() {
-    let Some(_) = jaic_dir() else {
-        eprintln!("skipped: build `jaic` first (`cargo build -p jaic-cli`)");
+    if toolchain::jaic_beside(Path::new(env!("CARGO_BIN_EXE_jacket"))).is_none() {
         return;
-    };
+    }
     let project = TempDir::new("jacket-leak-golden");
     let tests = project.join("tests");
     std::fs::create_dir_all(&tests).unwrap();

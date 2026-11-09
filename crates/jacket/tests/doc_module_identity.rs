@@ -1,17 +1,11 @@
 //! These tests share the integration suite's gate: jaic must be built beside jacket.
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use test_support::TempDir;
+use test_support::{TempDir, toolchain};
 
 fn tools() -> Option<PathBuf> {
     let jacket = PathBuf::from(env!("CARGO_BIN_EXE_jacket"));
-    let jaic = jacket
-        .parent()?
-        .join(format!("jaic{}", std::env::consts::EXE_SUFFIX));
-    if !jaic.is_file() {
-        eprintln!("skipped: build `jaic` first (`cargo build -p jaic-cli`)");
-        return None;
-    }
+    toolchain::jaic_beside(&jacket)?;
     Some(jacket)
 }
 
