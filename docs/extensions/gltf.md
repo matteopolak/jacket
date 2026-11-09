@@ -43,6 +43,16 @@ asset, error := gltf_load(text, resolver);
 
 `gltf_accessor(*asset, index)` returns a cursor over an asset already checked by `gltf_load` or `gltf_validate`. It does not repeat whole-asset validation for each accessor. Keep the asset alive and unchanged while using it. `gltf_next_floats(*cursor)` returns sixteen float32 lanes, a boolean indicating an element, and an error. Use `cursor.components` lanes; matrices are column-major. Signed normalization clamps the minimum value to -1. Sparse replacement is merged in a single forward pass; absent base storage reads as zero. `gltf_next_index` reads unsigned SCALAR values directly into `u32`, avoiding float rounding. End of iteration returns false without an error.
 
+`gltf_unpack_floats(*asset, index)` reads a whole accessor into a flat `[] float32` of `count * components`, by stepping the same cursor, so component types, normalization, padding and sparse replacement behave exactly as above. The caller frees `floats.data`.
+
+## Node transforms
+
+`gltf_node_local(node)` gives a `Matrix4` (`Math`, row-major, column vectors) from `matrix` (converted from glTF's column-major order) or from translation, rotation and scale. `gltf_node_world(*asset, index)` multiplies the local matrices from the root down and returns false for a bad index. Validation records each node's parent in `asset.parents` once, so a world matrix only walks its own ancestors; `gltf_validate` clears the index when it fails, and a hand-built asset has none until it is validated.
+
+## Extensions
+
+`extensions` and `extras` stay raw `Json_Value`s. `gltf_extension(*object.extensions, "KHR_materials_ior", Gltf_Ior)` decodes one named extension object into a typed struct through Json's generated decoder, and returns `found` and a `.JSON` error for a mistyped object. Typed structs exist for `KHR_materials_emissive_strength` (`Gltf_Emissive_Strength`), `KHR_materials_ior` (`Gltf_Ior`), `KHR_materials_transmission` (`Gltf_Transmission`), `KHR_materials_clearcoat` (`Gltf_Clearcoat`), `KHR_texture_transform` (`Gltf_Texture_Transform`) and `KHR_lights_punctual` (`Gltf_Lights` on the document, `Gltf_Node_Light` on a node). Others are read with `json_get`. The decoded copies are read-only: writing still uses the raw `extensions`. Add a new extension by declaring a struct with `@json` notes in `extensions.jai`.
+
 `gltf_write(*asset)` embeds buffers in JSON data URIs. `gltf_write(*asset, true)` puts buffer zero in a padded BIN chunk and embeds subsequent buffers as data URIs, preserving buffer indices used by opaque extension payloads. Image URIs remain unchanged. Output bytes belong to the caller. Caller-created structures may borrow strings and arrays for validation and writing; `gltf_free` is for loaded assets.
 
 ## Limits and changes
@@ -51,7 +61,7 @@ asset, error := gltf_load(text, resolver);
 
 Add core fields in `types.jai`, reference and layout rules in `validate.jai`, and binary interpretation in `accessor.jai`. Preserve validation order: storage precedes accessor reads, which precede graph and semantic checks. `schema.jai` handles constraints that cannot survive typed defaults. Keep regression fixtures in `tests/`; do not weaken the invalid-fixture expectation to hide missing checks.
 
-Dependencies are `Extensions/Json`, `Base64`, `Hash_Table`, `Basic`, `String`, `Math`, `Extensions/Image`, and, off wasm, `File`; the Unix file resolver uses the repository's POSIX bindings. There is no renderer, extension interpretation, Draco or meshopt decompression.
+Dependencies are `Extensions/Json`, `Base64`, `Hash_Table`, `Basic`, `String`, `Math`, `Extensions/Image`, and, off wasm, `File`; the Unix file resolver uses the repository's POSIX bindings. There is no renderer, Draco or meshopt decompression.
 
 ## Verification
 
@@ -80,16 +90,16 @@ Run `jacket bench --path stdlib/Extensions/Gltf` to measure loading the pinned B
 | `.gltf` and `.glb` | both | both; GLB must be one JSON chunk then one BIN chunk, one buffer | both |
 | Data-URI buffers | yes, base64 decoded and bounds-checked | no, the URI is joined to the file path and read | yes |
 | External buffers | via `Gltf_Resolver`, no filesystem unless supplied; `gltf_local_resolve` stays inside the folder | `gltf_load_buffers` joins the buffer URI to the file path, no escape check | `cgltf_load_buffers` reads the path next to the file, no escape check |
-| Accessor reading | cursor: strides, normalized, sparse, matrices, `u32` indices | copies into a `[..]` of your type, cast per component; no sparse or normalized handling | `cgltf_accessor_unpack_floats` (sparse applied, normalized converted); `read_float` rejects sparse |
+| Accessor reading | cursor: strides, normalized, sparse, matrices, `u32` indices; `gltf_unpack_floats` for a whole accessor | copies into a `[..]` of your type, cast per component; no sparse or normalized handling | `cgltf_accessor_unpack_floats` (sparse applied, normalized converted); `read_float` rejects sparse |
 | Validation | full structural and semantic checks against the Khronos invalid fixtures | none; asserts on missing fields | `cgltf_validate`: accessor, view and sparse ranges, indices, skins; much less than Gltf |
 | Errors | kind, message, byte offset, JSON pointer | log and `exit(-1)` | result code only |
-| Extensions | `extensions` and `extras` kept as `Json_Value`; no KHR_* typed | typed: lights_punctual, emissive_strength, ior, transmission, texture_transform | typed: lights, texture_transform, ~15 KHR_materials_*, variants, Draco/meshopt/basisu/webp records, mesh_gpu_instancing |
+| Extensions | `extensions` and `extras` kept as `Json_Value`; typed `gltf_extension` for lights_punctual, emissive_strength, ior, transmission, clearcoat and texture_transform | typed: lights_punctual, emissive_strength, ior, transmission, texture_transform | typed: lights, texture_transform, ~15 KHR_materials_*, variants, Draco/meshopt/basisu/webp records, mesh_gpu_instancing |
 | Animation, skins | yes, validated; KHR_animation_pointer accepted | yes | yes |
 | Morph targets | yes, validated | not parsed | yes |
-| Cameras, lights | cameras typed and validated; lights opaque (KHR_lights_punctual) | both typed | both typed |
-| Node transforms | no helpers | local and world matrices | local and world matrices |
+| Cameras, lights | cameras typed and validated; lights typed (KHR_lights_punctual) | both typed | both typed |
+| Node transforms | `gltf_node_local` and `gltf_node_world` | local and world matrices | local and world matrices |
 | Writing | `gltf_write`, JSON or GLB | no | bound (`cgltf_write`, `cgltf_write_file`); its README says no write API |
 | Limits on untrusted input | bytes, buffer bytes, object count, depth | none | none (only a JSON token count option) |
 | Allocation | one owned `Gltf_Asset`, `context.allocator`; failed loads free themselves | arrays on the `GLTF_Data` allocator; accessor reads allocate temporary arrays | C `malloc` by default, replaceable through `cgltf_memory_options`; `cgltf_free` |
 
-Gltf is the only one that treats the file as hostile: it bounds sizes, validates before any accessor read, reports where the problem is, and returns errors instead of exiting. gltf_parser's unchecked offsets and `exit` on bad input make it unsuitable for untrusted files. cgltf has the widest extension coverage and transform helpers, which Gltf lacks.
+Gltf is the only one that treats the file as hostile: it bounds sizes, validates before any accessor read, reports where the problem is, and returns errors instead of exiting. gltf_parser's unchecked offsets and `exit` on bad input make it unsuitable for untrusted files. cgltf has the widest extension coverage; Gltf types six of its extensions and leaves the rest as raw Json.
