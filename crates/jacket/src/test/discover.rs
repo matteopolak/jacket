@@ -136,6 +136,7 @@ impl Root {
         dir: PathBuf,
         stdlib: &Path,
         jaic: &Path,
+        import_dirs: &[PathBuf],
         seen: &mut BTreeSet<PathBuf>,
         doc_tests: bool,
     ) -> Result<Root, String> {
@@ -163,7 +164,7 @@ impl Root {
         let library = dir.join("module.jai").is_file();
         let module = module_name(&dir, stdlib).unwrap_or_else(|| label.clone());
         let mut docs = if library && doc_tests && !is_private(&module) {
-            super::doctest::blocks(&dir, &module, (jaic, stdlib), seen)?
+            super::doctest::blocks(&dir, &module, (jaic, stdlib), import_dirs, seen)?
         } else {
             Vec::new()
         };
@@ -484,6 +485,7 @@ mod tests {
             dir.clone(),
             Path::new("/nowhere"),
             Path::new("jaic"),
+            &[],
             &mut BTreeSet::new(),
             false,
         )

@@ -68,14 +68,15 @@ fn declares_bodiless_procs(file: &crate::ast::File) -> bool {
 }
 
 /// Every public procedure, struct, enum and alias of the library in `dir`, and the module
-/// itself, with whether each has docs and an example. Sorted by file and line.
-pub fn gaps(dir: &Path, stdlib: &Path) -> Vec<Entry> {
+/// itself, with whether each has docs and an example. Sorted by file and line. Imports are found
+/// in the library, then `import_dirs`, then `stdlib`.
+pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
     let mut own = Vec::new();
     super::own_files(dir, true, &mut own);
     let module_file = super::canonical(&crate::paths::module_entry(dir));
     let mut queue: Vec<PathBuf> = own;
     let mut seen = BTreeSet::new();
-    let mut files = Files::new(stdlib);
+    let mut files = Files::new(stdlib).with_import_dirs(import_dirs);
     let mut out = Vec::new();
     while let Some(file) = queue.pop() {
         let file = super::canonical(&file);
@@ -195,7 +196,7 @@ mod tests {
                 ),
             ],
         );
-        let found = gaps(&dir, Path::new("/nowhere"));
+        let found = gaps(&dir, Path::new("/nowhere"), &[]);
         let module = rows(&found);
         assert!(module.contains(&("module", "", true, false)), "{module:?}");
         assert!(module.contains(&("procedure", "documented", true, true)));
@@ -216,7 +217,7 @@ mod tests {
             "opening",
             &[("module.jai", "// About the procedure.\nfirst :: () {}\n")],
         );
-        let found = gaps(&dir, Path::new("/nowhere"));
+        let found = gaps(&dir, Path::new("/nowhere"), &[]);
         assert_eq!(
             rows(&found),
             [
@@ -236,7 +237,7 @@ mod tests {
                 "// Wraps a helper.\n\nwrapper :: () {}\n\nPoint :: struct { x: int; }\n\n#scope_file\n\nhelper :: (x: int) -> int #foreign lib;\n",
             )],
         );
-        let found = gaps(&dir, Path::new("/nowhere"));
+        let found = gaps(&dir, Path::new("/nowhere"), &[]);
         assert_eq!(
             rows(&found),
             [
@@ -263,7 +264,7 @@ mod tests {
                 ),
             ],
         );
-        let found = gaps(&dir, Path::new("/nowhere"));
+        let found = gaps(&dir, Path::new("/nowhere"), &[]);
         assert_eq!(
             rows(&found),
             [
@@ -271,6 +272,31 @@ mod tests {
                 ("procedure", "wrapper", false, false)
             ]
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn an_alias_of_a_module_in_an_import_dir_has_the_docs_of_its_target() {
+        let dir = library(
+            "import-dir",
+            &[
+                (
+                    "lib/module.jai",
+                    "// A module.\n\nShapes :: #import \"Shapes\";\n\nmake :: Shapes.make;\n",
+                ),
+                ("more/Shapes/module.jai", "// Makes one.\nmake :: () {}\n"),
+            ],
+        );
+        let (lib, more) = (dir.join("lib"), vec![dir.join("more")]);
+        let alias = |import_dirs: &[PathBuf]| {
+            let found = gaps(&lib, Path::new("/nowhere"), import_dirs);
+            rows(&found)
+                .into_iter()
+                .find(|r| r.1 == "make")
+                .map(|r| r.2)
+        };
+        assert_eq!(alias(&[]), Some(false));
+        assert_eq!(alias(&more), Some(true));
         let _ = std::fs::remove_dir_all(dir);
     }
 }

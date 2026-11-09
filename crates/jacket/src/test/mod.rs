@@ -159,10 +159,6 @@ fn host_cpu() -> &'static str {
     }
 }
 
-/// The jaic flags whose value is a path. jacket runs jaic in a folder of its own, so a relative
-/// value would be read from there.
-const PATH_FLAGS: [&str; 4] = ["-import_dir", "-I", "-output_path", "-emit_ir"];
-
 /// `args` with every path the user wrote made absolute from `cwd`: the one place where the
 /// current directory is applied to them (`--path`, `--junit` and the paths among the jaic flags).
 fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
@@ -183,18 +179,7 @@ fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
     {
         *path = cwd.join(&*path);
     }
-    // The same compiler argument walk owns arity, target filtering and path values.
-    // A malformed sequence is diagnosed before any compiler process is started in run_once.
-    if let Ok(parsed) = jaic_cli_args::arguments::target_flags(&args.jaic_args) {
-        for value in parsed.values {
-            if PATH_FLAGS.contains(&value.name.as_str()) {
-                value.replace(
-                    &mut args.jaic_args,
-                    cwd.join(&value.value).to_string_lossy().into_owned(),
-                );
-            }
-        }
-    }
+    crate::compile::absolute_flag_paths(&mut args.jaic_args, cwd);
     args
 }
 
@@ -511,8 +496,9 @@ fn run_once(
         .then(|| format!("built for {os} {cpu}; `--runner <command>` runs it"));
 
     let mut roots: Vec<discover::Root> = Vec::new();
+    let import_dirs = jaic_cli_args::arguments::import_dirs(&toolchain.flags);
     for dir in discover::roots(&args.path, &configured, &project_dir, cwd) {
-        match discover::Root::read(dir, &stdlib, &jaic, &mut doc_files, !bench) {
+        match discover::Root::read(dir, &stdlib, &jaic, &import_dirs, &mut doc_files, !bench) {
             Ok(root) if !root.is_empty() => roots.push(root),
             Ok(_) => {}
             Err(error) => return fail(error),

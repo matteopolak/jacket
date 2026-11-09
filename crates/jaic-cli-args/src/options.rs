@@ -48,8 +48,8 @@ pub enum Request {
     /// Print the standard library folder in use.
     Stdlib,
     /// Print the doc comments of the library in a folder.
-    DocComments(String),
-    DocGaps(String),
+    DocComments(String, Vec<std::path::PathBuf>),
+    DocGaps(String, Vec<std::path::PathBuf>),
     /// Print the documentation model of the library in a folder as JSON.
     DocModel(String, Vec<std::path::PathBuf>),
     /// Print the procedures of the library folders (a path list) for a target.
@@ -435,12 +435,12 @@ pub const OPTIONS: &[CliOption] = {
         CliOption::new(&["-doc_comments"], Action::DocComments).help(
             Diagnostics,
             "-doc_comments <dir>",
-            "print the doc comments of the library in <dir> as records, for `jacket test`",
+            "print the doc comments of the library in <dir> as records, for `jacket test`; -import_dir folders are searched for the modules it imports",
         ),
         CliOption::new(&["-doc_gaps"], Action::DocGaps).help(
             Diagnostics,
             "-doc_gaps <dir>",
-            "print which public declarations of the library in <dir> have docs and an example",
+            "print which public declarations of the library in <dir> have docs and an example; -import_dir folders are searched for the modules it imports",
         ),
         CliOption::new(&["-doc_model"], Action::DocModel).help(
             Diagnostics,

@@ -45,6 +45,7 @@
 - `pthread_detach` of a thread another thread is already joining makes that `pthread_join` return `EINVAL` at once instead of waiting for the thread to end.
 - The memory debugger no longer keeps ranges from a `Flat_Pool` or `Pool` live after `reset`, `release` or `fini`, so leak reports stay right and a later allocation at the same address is no longer reported as a duplicate. Allocators of your own that free everything at once can call the new `release_all_allocations(allocator)` from `Basic`.
 - `jacket doc` finds the modules a library imports through its own folder and `[project] import_path`, as the compiler does, so a type from another of the library's modules links on the pages instead of failing `--check` as unlinked.
+- `jacket test` doc examples and `jaic -doc_comments` and `-doc_gaps` follow an alias into a module found through `-import_dir`, so it takes that module's docs instead of showing none; both flags accept `-import_dir`.
 - `jailint` lints a test file inside a library folder that imports a module with program parameters (`#import "Basic"()(MEMORY_DEBUGGER = true)`) as a program, like `jacket test`, instead of failing with "PROGRAM parameters may only be supplied by the main program".
 
 ## [0.34.0] - 2026-11-09

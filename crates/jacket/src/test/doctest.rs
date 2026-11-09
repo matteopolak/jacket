@@ -14,6 +14,7 @@ use super::golden::{self, Checked};
 use super::jobs::ending_text;
 use super::options::TestOptions;
 use std::collections::{BTreeMap, BTreeSet};
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
@@ -100,8 +101,20 @@ fn parse_records(text: &str) -> Vec<DocComment> {
         .collect()
 }
 
+/// The command line of `jaic -doc_comments` for the library in `dir`, which finds imported
+/// modules in `import_dirs` as the compiler does.
+fn doc_comments_args(dir: &Path, import_dirs: &[PathBuf]) -> Vec<OsString> {
+    let mut args = Vec::new();
+    for import_dir in import_dirs {
+        args.extend(["-import_dir".into(), import_dir.into()]);
+    }
+    args.extend(["-doc_comments".into(), dir.into()]);
+    args
+}
+
 /// Every doc block of the library `module` in `dir`, as `jaic -doc_comments` finds its docs. A
-/// file in `seen` was read for an earlier library and is not read again.
+/// file in `seen` was read for an earlier library and is not read again. `import_dirs` are the
+/// `-import_dir` folders the tests are compiled with.
 ///
 /// Fails when `jaic` cannot be started or cannot read the docs: a library whose examples were
 /// not read has not been tested.
@@ -109,12 +122,12 @@ pub fn blocks(
     dir: &Path,
     module: &str,
     (jaic, stdlib): (&Path, &Path),
+    import_dirs: &[PathBuf],
     seen: &mut BTreeSet<PathBuf>,
 ) -> Result<Vec<Block>, String> {
     let output = Command::new(jaic)
         .env(jacket_config::env::STDLIB.name, stdlib)
-        .arg("-doc_comments")
-        .arg(dir)
+        .args(doc_comments_args(dir, import_dirs))
         .output();
     let records = match output {
         Ok(output) if output.status.success() => {
@@ -661,11 +674,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_doc_comments_are_read_with_the_projects_import_dirs() {
+        let args = doc_comments_args(Path::new("lib"), &["/a".into(), "/b".into()]);
+        assert_eq!(
+            args,
+            [
+                "-import_dir",
+                "/a",
+                "-import_dir",
+                "/b",
+                "-doc_comments",
+                "lib"
+            ]
+        );
+        assert_eq!(
+            doc_comments_args(Path::new("lib"), &[]),
+            ["-doc_comments", "lib"]
+        );
+    }
+
+    #[test]
     fn a_compiler_that_cannot_start_is_an_error_not_zero_examples() {
         let error = blocks(
             Path::new("."),
             "M",
             (Path::new("/nowhere/jaic"), Path::new("/nowhere")),
+            &[],
             &mut BTreeSet::new(),
         )
         .unwrap_err();
@@ -679,6 +713,7 @@ mod tests {
             Path::new("."),
             "M",
             (Path::new("false"), Path::new("/nowhere")),
+            &[],
             &mut BTreeSet::new(),
         )
         .unwrap_err();

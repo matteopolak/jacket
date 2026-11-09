@@ -16,8 +16,7 @@ use crate::parser::ide_facts::{self, TopLevelKind};
 use crate::source::FileId;
 pub use gaps::{Entry as GapEntry, gaps, records as gap_records};
 pub use model::{
-    Expander, generated_origin, generated_path, print as model_json,
-    print_expanding as model_json_expanding,
+    Expander, generated_origin, generated_path, print_expanding as model_json_expanding,
 };
 use std::collections::{BTreeSet, VecDeque};
 use std::path::{Path, PathBuf};
@@ -67,8 +66,9 @@ fn canonical(path: &Path) -> PathBuf {
 }
 
 /// Every doc comment of the library in `dir`, in the order its files are reached. `stdlib` is
-/// where the `internal/` modules are.
-pub fn library_docs(dir: &Path, stdlib: &Path) -> Vec<LibraryDoc> {
+/// where the `internal/` modules are. Imports are found in the library, then `import_dirs`, then
+/// `stdlib`.
+pub fn library_docs(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<LibraryDoc> {
     let mut own = Vec::new();
     own_files(dir, true, &mut own);
     let module_file = canonical(&crate::paths::module_entry(dir));
@@ -86,7 +86,7 @@ pub fn library_docs(dir: &Path, stdlib: &Path) -> Vec<LibraryDoc> {
         let parsed = crate::parser::parse_file_ide(FileId(0), &text);
         let base = file.parent().unwrap_or(Path::new("."));
         let mut documented_from = None;
-        let mut files = forward::Files::new(stdlib);
+        let mut files = forward::Files::new(stdlib).with_import_dirs(import_dirs);
         for item in ide_facts::top_level(&parsed.file) {
             match item.kind {
                 TopLevelKind::Decl(decl) if decl.kind == crate::ast::DeclKind::Const => {
@@ -228,7 +228,7 @@ mod tests {
             ("more.jai", "// Loaded.\nextra :: 1;\n"),
             ("tests/t.jai", "// Not read.\nt :: 1;\n"),
         ]);
-        let found = library_docs(&dir, Path::new("/nowhere"));
+        let found = library_docs(&dir, Path::new("/nowhere"), &[]);
         let described: Vec<(Option<&str>, &str)> = found
             .iter()
             .map(|d| (d.symbol.as_deref(), d.text.as_str()))
@@ -266,7 +266,7 @@ mod tests {
             ("module.jai", "Outer :: #import \"internal/outer\";\n"),
             ("only.jai", "x :: 1;\n"),
         ]);
-        let found = library_docs(&dir, &std);
+        let found = library_docs(&dir, &std, &[]);
         let names: Vec<_> = found.iter().filter_map(|d| d.symbol.as_deref()).collect();
         assert_eq!(names, ["outer_part", "inner_item"]);
         let _ = std::fs::remove_dir_all(dir);
@@ -299,7 +299,7 @@ mod tests {
                 "// Greets.\n//\n// ```jai\n// hello();\n// ```\nhello :: () {}\n\n// Counts.\ncount :: () {}\n\nbare :: () {}\n",
             ),
         ]);
-        let found = library_docs(&dir, Path::new("/nowhere"));
+        let found = library_docs(&dir, Path::new("/nowhere"), &[]);
         assert_eq!(
             described(&found),
             [
@@ -331,7 +331,7 @@ mod tests {
             ("more.jai", "// Loaded.\nextra :: 1;\n"),
             ("other.jai", "// Loaded.\nmore :: 2;\n"),
         ]);
-        let found = library_docs(&dir, Path::new("/nowhere"));
+        let found = library_docs(&dir, Path::new("/nowhere"), &[]);
         let records = records(&found);
         let fences = |record: &&str| record.matches("\\n```jai").count();
         let runnable: Vec<&str> = records
@@ -357,5 +357,29 @@ mod tests {
             forwarded: None,
         };
         assert_eq!(records(&[doc]), "/a.jai\t3\tf\tone\\ttwo\\nthree\\\\\t\n");
+    }
+
+    #[test]
+    fn an_alias_of_a_module_in_an_import_dir_shows_its_docs() {
+        let dir = library(&[
+            (
+                "lib/module.jai",
+                "Shapes :: #import \"Shapes\";\n\nmake :: Shapes.make;\n",
+            ),
+            ("more/Shapes/module.jai", "// Makes one.\nmake :: () {}\n"),
+        ]);
+        let (lib, more) = (dir.join("lib"), vec![dir.join("more")]);
+        let without = library_docs(&lib, Path::new("/nowhere"), &[]);
+        assert!(without.iter().all(|d| d.symbol.is_none()), "{without:?}");
+        let found = library_docs(&lib, Path::new("/nowhere"), &more);
+        assert_eq!(
+            described(&found),
+            [(
+                "module.jai:make".to_string(),
+                "Makes one.",
+                Some("Shapes.make")
+            )]
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

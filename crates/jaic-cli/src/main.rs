@@ -165,18 +165,20 @@ fn main() -> ExitCode {
             println!("{}", jaic::paths::default_stdlib_dir().display());
             return ExitCode::SUCCESS;
         }
-        Ok(Request::DocComments(dir)) => {
+        Ok(Request::DocComments(dir, import_dirs)) => {
             let docs = jaic::doc_comments::library_docs(
                 std::path::Path::new(&dir),
                 &jaic::paths::default_stdlib_dir(),
+                &import_dirs,
             );
             print!("{}", jaic::doc_comments::records(&docs));
             return ExitCode::SUCCESS;
         }
-        Ok(Request::DocGaps(dir)) => {
+        Ok(Request::DocGaps(dir, import_dirs)) => {
             let gaps = jaic::doc_comments::gaps(
                 std::path::Path::new(&dir),
                 &jaic::paths::default_stdlib_dir(),
+                &import_dirs,
             );
             print!("{}", jaic::doc_comments::gap_records(&gaps));
             return ExitCode::SUCCESS;

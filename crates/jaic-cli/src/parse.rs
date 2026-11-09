@@ -105,10 +105,16 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
         return Err(no_file_error());
     };
     if doc_comments {
-        return Ok(Request::DocComments(file));
+        return Ok(Request::DocComments(
+            file,
+            jaic_cli_args::arguments::import_dirs(args),
+        ));
     }
     if doc_gaps {
-        return Ok(Request::DocGaps(file));
+        return Ok(Request::DocGaps(
+            file,
+            jaic_cli_args::arguments::import_dirs(args),
+        ));
     }
     if doc_model {
         return Ok(Request::DocModel(

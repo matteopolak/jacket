@@ -124,6 +124,23 @@ fn supplied(loaded: &Loaded) -> Vec<Supplied> {
     out
 }
 
+/// The jaic flags whose value is a path. jacket runs jaic in a folder of its own, so a relative
+/// value would be read from there.
+const PATH_FLAGS: [&str; 4] = ["-import_dir", "-I", "-output_path", "-emit_ir"];
+
+/// Makes the path values among the jaic `flags` absolute from `cwd`. A malformed sequence is
+/// left as written: jaic diagnoses it when it is started.
+pub fn absolute_flag_paths(flags: &mut [String], cwd: &Path) {
+    // The same compiler argument walk owns arity, target filtering and path values.
+    if let Ok(parsed) = jaic_cli_args::arguments::target_flags(flags) {
+        for value in parsed.values {
+            if PATH_FLAGS.contains(&value.name.as_str()) {
+                value.replace(flags, cwd.join(&value.value).to_string_lossy().into_owned());
+            }
+        }
+    }
+}
+
 /// The flags the project adds in front of `args` (jaic's arguments, user-written): its import
 /// folders, and each `[experimental]` setting the arguments do not already carry. `build`,
 /// `check`, `run` and `test` all take their compiler flags from here.
