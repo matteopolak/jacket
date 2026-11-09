@@ -161,3 +161,41 @@ fn a_file_loaded_by_two_entries_reports_errors_from_either_program() {
     let errors = closed_errors(&mut json, &x).expect("x.jai is part of both programs");
     assert!(!errors.is_empty(), "two.jai has no helper: {errors:?}");
 }
+
+fn open_and_pull(json: &mut JsonSession, file: &Path, text: &str) -> Value {
+    send(
+        json,
+        &json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {
+            "textDocument": {"uri": uri_of(file).as_str(), "languageId": "jai",
+                "version": 1, "text": text}}}),
+    );
+    let mut reply = send(
+        json,
+        &json!({"jsonrpc": "2.0", "id": 9, "method": "textDocument/diagnostic",
+            "params": {"textDocument": {"uri": uri_of(file).as_str()}}}),
+    );
+    reply.remove(0)["result"].clone()
+}
+
+/// A file indexed while closed, then opened with the same text, reports what a server that
+/// opened it from the start reports: the warning about a `#load` nothing can read included.
+#[test]
+fn opening_an_indexed_file_keeps_its_unreadable_load_warning() {
+    let main = "#import \"Basic\";\n#load \"gone.jai\";\nmain :: () {}\n";
+    let dir = project(
+        "indexed-open-warning",
+        &[("main.jai", main), ("gone.jai", "gone :: () {}\n")],
+    );
+    let path = dir.join("main.jai");
+    let mut json = start(&dir);
+    settle(&mut json);
+    let gone = dir.join("gone.jai");
+    std::fs::remove_file(&gone).unwrap();
+    watched(&mut json, &gone, 3);
+    settle(&mut json);
+    let opened = open_and_pull(&mut json, &path, main);
+    let mut cold = start(&dir);
+    let fresh = open_and_pull(&mut cold, &path, main);
+    settle(&mut cold);
+    assert_eq!(opened["items"], fresh["items"]);
+}

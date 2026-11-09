@@ -32,21 +32,7 @@ impl Session {
                 analysis.diagnostic(&document.index, &document.text, Span::new(span.start, end), DiagnosticSeverity::Error, DiagnosticCode::Lexer,
                     "Incomplete lexical edit; this literal or comment is omitted from IDE analysis.");
             }
-            for (target, span) in analysis.loads.clone() {
-                // A file the environment can read is loaded by the compile; only when nothing
-                // can read it (no open document, no file system) does the syntax-only view warn.
-                if self.document(&target).is_err() && self.source(&target).is_none() {
-                    analysis.diagnostic(
-                        &document.index,
-                        &document.text,
-                        span,
-                        DiagnosticSeverity::Warning,
-                        DiagnosticCode::Source,
-                        "The #load file is not open in this session; \
-                         no filesystem fallback is permitted.",
-                    );
-                }
-            }
+            self.warn_unreadable_loads(&mut analysis, &document.index, &document.text);
             analyses.insert(uri.clone(), Rc::new(analysis));
         }
         for (uri, analysis) in &analyses {
@@ -57,6 +43,30 @@ impl Session {
         self.parsed
             .retain(|uri, _| self.documents.contains_key(uri));
         self.analyses = analyses;
+    }
+
+    /// A warning on each `#load` of `analysis` whose file nothing can read: no open document
+    /// and no file the environment can see. A file the environment can read is loaded by the
+    /// compile, so only then does the syntax-only view warn.
+    pub(super) fn warn_unreadable_loads(
+        &self,
+        analysis: &mut Analysis,
+        index: &crate::position::LineIndex,
+        text: &str,
+    ) {
+        for (target, span) in analysis.loads.clone() {
+            if self.document(&target).is_err() && self.source(&target).is_none() {
+                analysis.diagnostic(
+                    index,
+                    text,
+                    span,
+                    DiagnosticSeverity::Warning,
+                    DiagnosticCode::Source,
+                    "The #load file is not open in this session; \
+                     no filesystem fallback is permitted.",
+                );
+            }
+        }
     }
 
     /// The document a check of `uri` starts from: an open document that `#load`s it (directly or

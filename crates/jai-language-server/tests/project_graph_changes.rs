@@ -178,3 +178,27 @@ fn a_loaded_file_created_or_deleted_gives_what_a_fresh_session_gives() {
     rewrite(&mut s, &dir.join("gone.jai"), "gone :: () {}\n");
     assert_eq!(s.diagnostics(&uri).unwrap(), fresh(&dir));
 }
+
+#[test]
+fn opening_a_loader_after_its_target_was_deleted_gives_what_a_fresh_session_gives() {
+    let main = "#import \"Basic\";\n#load \"gone.jai\";\nmain :: () {}\n";
+    let dir = project(
+        "load-warning-open",
+        &[
+            ("main.jai", main),
+            ("gone.jai", "gone :: () {}\n"),
+            ("other.jai", "o :: () {}\n"),
+        ],
+    );
+    let (mut s, other, _) = open_file(&dir, "other.jai");
+    let _ = s.diagnostics(&other).unwrap();
+    remove(&mut s, &dir.join("gone.jai"));
+    let path = dir.join("main.jai");
+    let uri = uri_of(&path);
+    s.open(uri.clone(), 1, main.into()).unwrap();
+    let (fresh, fresh_uri, _) = open_file(&dir, "main.jai");
+    assert_eq!(
+        s.diagnostics(&uri).unwrap(),
+        fresh.diagnostics(&fresh_uri).unwrap()
+    );
+}

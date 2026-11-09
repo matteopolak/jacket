@@ -163,10 +163,12 @@ impl Session {
                     .document(&uri)
                     .map_or_else(|_| compiled_text.to_string(), |doc| doc.text.clone());
                 let lines = LineIndex::new(&text);
-                let syntax = self
-                    .analysis_for(&uri)
-                    .cloned()
-                    .unwrap_or_else(|| Rc::new(Analysis::build(&text, &uri, self.limits)));
+                let syntax = self.analysis_for(&uri).cloned().unwrap_or_else(|| {
+                    // A closed file is warned about unreadable loads like an open one.
+                    let mut built = Analysis::build(&text, &uri, self.limits);
+                    self.warn_unreadable_loads(&mut built, &lines, &text);
+                    Rc::new(built)
+                });
                 let mut items = syntax.diagnostics.clone();
                 analysis.focus(&path);
                 for finding in analysis.check_findings(&path) {
