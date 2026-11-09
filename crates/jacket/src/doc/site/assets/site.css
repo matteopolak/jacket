@@ -3,32 +3,32 @@
   /* The sticky header's height, which the sidebar and outline stick below: `.top-in` is this tall
      (less its border) wherever they stick, so the first paint is already right. */
   --header-offset: 63px;
-  --bg: #fafafa;
-  --glass: rgb(250 250 250 / 94%);
-  --surface: #fdfdfd;
-  --sunken: #f3f3f5;
-  --fg: #2f2f35;
-  --fg2: #56565e;
-  --muted: #696973;
-  --border: #ebebee;
-  --hair: #f1f1f3;
-  --link: #4a63c8;
-  --accent: #4860c4;
-  --sel: #f0f2fa;
-  --type: #36766f;
-  --str: #8d6032;
-  --kw: #70589f;
-  --ok: #2f7d4d;
-  --okbg: #f4f9f6;
-  --err: #b3463d;
-  --errbg: #fcf5f4;
-  --shadow: rgb(24 24 27 / 8%);
-  --warn: #8a5a12;
-  --warnbg: #fbf1dd;
-  --foreign: #b2453d;
+  --bg: oklch(98.5% 0 0deg);
+  --glass: oklch(98.5% 0 0deg / 94%);
+  --surface: oklch(99.4% 0 0deg);
+  --sunken: oklch(96.5% 0.003 286.3deg);
+  --fg: oklch(30.8% 0.011 285.8deg);
+  --fg2: oklch(45.6% 0.013 285.9deg);
+  --muted: oklch(52.4% 0.016 285.9deg);
+  --border: oklch(94.1% 0.004 286.3deg);
+  --hair: oklch(95.9% 0.003 286.3deg);
+  --link: oklch(53.4% 0.159 269.8deg);
+  --accent: oklch(52.4% 0.158 270deg);
+  --sel: oklch(96.2% 0.011 274.9deg);
+  --type: oklch(52.2% 0.067 185.9deg);
+  --str: oklch(52.7% 0.085 64.7deg);
+  --kw: oklch(51.6% 0.111 298deg);
+  --ok: oklch(52.8% 0.108 153.4deg);
+  --okbg: oklch(97.8% 0.007 160.1deg);
+  --err: oklch(54% 0.144 27.6deg);
+  --errbg: oklch(97.5% 0.008 27.2deg);
+  --shadow: oklch(21% 0.006 285.9deg / 8%);
+  --warn: oklch(50.85% 0.1025 70.8deg);
+  --warnbg: oklch(96.1% 0.028 84.6deg);
+  --foreign: oklch(53.7% 0.144 27.2deg);
   --tint: 11%;
-  --scroll: #dcdce0;
-  --scroll-hover: #b8b8bf;
+  --scroll: oklch(89.6% 0.005 286.3deg);
+  --scroll-hover: oklch(78.5% 0.01 286.2deg);
   --sans: inter, system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', sans-serif;
   --mono:
     'JetBrains Mono', ui-monospace, 'SF Mono', sfmono-regular, menlo, consolas, 'Liberation Mono',
@@ -38,64 +38,64 @@
 }
 
 :root[data-theme='dark'] {
-  --bg: #1b1b1f;
-  --glass: rgb(27 27 31 / 90%);
-  --surface: #1e1e22;
-  --sunken: #161619;
-  --fg: #d4d4d8;
-  --fg2: #b0b0b8;
-  --muted: #9b9ba3;
-  --border: #2a2a2f;
-  --hair: #242428;
-  --link: #a1abf0;
-  --accent: #8e99e6;
-  --sel: #262a40;
-  --type: #7fbfb3;
-  --str: #cfae86;
-  --kw: #ae9ddb;
-  --ok: #6dc98f;
-  --okbg: #1a2620;
-  --err: #e5877f;
-  --errbg: #2b2020;
-  --shadow: rgb(0 0 0 / 40%);
-  --warn: #e0b26a;
-  --warnbg: #2e2619;
-  --foreign: #ec8a80;
+  --bg: oklch(22.4% 0.008 285.8deg);
+  --glass: oklch(22.4% 0.008 285.8deg / 90%);
+  --surface: oklch(23.7% 0.008 285.8deg);
+  --sunken: oklch(20.2% 0.006 285.9deg);
+  --fg: oklch(87.1% 0.005 286.3deg);
+  --fg2: oklch(76% 0.011 286.1deg);
+  --muted: oklch(69.2% 0.012 286.1deg);
+  --border: oklch(28.7% 0.009 285.8deg);
+  --hair: oklch(26.2% 0.007 285.9deg);
+  --link: oklch(75.9% 0.1 277.4deg);
+  --accent: oklch(70.5% 0.113 276.9deg);
+  --sel: oklch(29.2% 0.041 275.7deg);
+  --type: oklch(75.8% 0.068 181.3deg);
+  --str: oklch(77% 0.066 72deg);
+  --kw: oklch(73.3% 0.09 296.7deg);
+  --ok: oklch(76.3% 0.122 154.6deg);
+  --okbg: oklch(25.5% 0.02 162.9deg);
+  --err: oklch(72.2% 0.117 25.5deg);
+  --errbg: oklch(25.7% 0.017 18.3deg);
+  --shadow: oklch(0% 0 0deg / 40%);
+  --warn: oklch(79% 0.105 77.5deg);
+  --warnbg: oklch(27.4% 0.025 79.5deg);
+  --foreign: oklch(73.5% 0.121 26.6deg);
   --tint: 17%;
-  --scroll: #38383e;
-  --scroll-hover: #4c4c54;
+  --scroll: oklch(34.3% 0.01 285.8deg);
+  --scroll-hover: oklch(41.9% 0.013 285.8deg);
 
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root[data-theme='system'] {
-    --bg: #1b1b1f;
-    --glass: rgb(27 27 31 / 90%);
-    --surface: #1e1e22;
-    --sunken: #161619;
-    --fg: #d4d4d8;
-    --fg2: #b0b0b8;
-    --muted: #9b9ba3;
-    --border: #2a2a2f;
-    --hair: #242428;
-    --link: #a1abf0;
-    --accent: #8e99e6;
-    --sel: #262a40;
-    --type: #7fbfb3;
-    --str: #cfae86;
-    --kw: #ae9ddb;
-    --ok: #6dc98f;
-    --okbg: #1a2620;
-    --err: #e5877f;
-    --errbg: #2b2020;
-    --shadow: rgb(0 0 0 / 40%);
-    --warn: #e0b26a;
-    --warnbg: #2e2619;
-    --foreign: #ec8a80;
+    --bg: oklch(22.4% 0.008 285.8deg);
+    --glass: oklch(22.4% 0.008 285.8deg / 90%);
+    --surface: oklch(23.7% 0.008 285.8deg);
+    --sunken: oklch(20.2% 0.006 285.9deg);
+    --fg: oklch(87.1% 0.005 286.3deg);
+    --fg2: oklch(76% 0.011 286.1deg);
+    --muted: oklch(69.2% 0.012 286.1deg);
+    --border: oklch(28.7% 0.009 285.8deg);
+    --hair: oklch(26.2% 0.007 285.9deg);
+    --link: oklch(75.9% 0.1 277.4deg);
+    --accent: oklch(70.5% 0.113 276.9deg);
+    --sel: oklch(29.2% 0.041 275.7deg);
+    --type: oklch(75.8% 0.068 181.3deg);
+    --str: oklch(77% 0.066 72deg);
+    --kw: oklch(73.3% 0.09 296.7deg);
+    --ok: oklch(76.3% 0.122 154.6deg);
+    --okbg: oklch(25.5% 0.02 162.9deg);
+    --err: oklch(72.2% 0.117 25.5deg);
+    --errbg: oklch(25.7% 0.017 18.3deg);
+    --shadow: oklch(0% 0 0deg / 40%);
+    --warn: oklch(79% 0.105 77.5deg);
+    --warnbg: oklch(27.4% 0.025 79.5deg);
+    --foreign: oklch(73.5% 0.121 26.6deg);
     --tint: 17%;
-    --scroll: #38383e;
-    --scroll-hover: #4c4c54;
+    --scroll: oklch(34.3% 0.01 285.8deg);
+    --scroll-hover: oklch(41.9% 0.013 285.8deg);
 
     color-scheme: dark;
   }
@@ -482,7 +482,7 @@ html:not(.mac) .key-mac {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 24px 64px rgb(0 0 0 / 35%);
+  box-shadow: 0 24px 64px oklch(0% 0 0deg / 35%);
   overflow: hidden;
   flex-direction: column;
 }
@@ -492,7 +492,7 @@ html:not(.mac) .key-mac {
 }
 
 .spotlight::backdrop {
-  background: rgb(0 0 0 / 40%);
+  background: oklch(0% 0 0deg / 40%);
   backdrop-filter: blur(6px);
 }
 
@@ -1245,7 +1245,7 @@ main h2 + h3 {
 .js .fold:not(.open) {
   max-height: 360px;
   overflow: hidden;
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent);
+  mask-image: linear-gradient(to bottom, oklch(0% 0 0deg) calc(100% - 72px), transparent);
 }
 
 .btn.fold-btn {
@@ -2275,7 +2275,7 @@ a.btn:hover {
     background: var(--bg);
     border-top: 1px solid var(--border);
     border-radius: 24px 24px 0 0;
-    box-shadow: 0 -8px 32px rgb(0 0 0 / 25%);
+    box-shadow: 0 -8px 32px oklch(0% 0 0deg / 25%);
   }
 
   /* A grab handle that stays at the top while the list scrolls, so the sheet reads as one. */
@@ -2298,7 +2298,7 @@ a.btn:hover {
   }
 
   .side::backdrop {
-    background: rgb(0 0 0 / 40%);
+    background: oklch(0% 0 0deg / 40%);
     backdrop-filter: blur(3px);
   }
 

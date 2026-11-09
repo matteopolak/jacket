@@ -35,8 +35,8 @@ Layout :: (out: *Out, page: *Page($C)) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(page.view.title)}</title>
 {HeadMeta(page.site, page.view)}
-<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1b1b1f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="oklch(98.5% 0 0deg)" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="oklch(22.4% 0.008 285.8deg)" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
 {Icon(page.site)}<script>{cast(Html) EARLY}</script>
 <script>{cast(Html) page.site.early_js}</script>

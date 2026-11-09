@@ -216,8 +216,8 @@ name = "Extensions"
 modules = ["stdlib/Extensions/**"]
 badge = "extension"
 tip = "Extension: not part of the standard library"
-color = "#1d7282"
-color_dark = "#6cc4d4"
+color = "oklch(51.07% 0.0806 213.4deg)"
+color_dark = "oklch(77.12% 0.0876 210.7deg)"
 
 [[doc.page]]
 file = "docs/guides/testing.md"

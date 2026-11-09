@@ -87,8 +87,8 @@ name = "Experimental"
 modules = ["src/my_lib/Labs/**"]
 badge = "labs"                      # beside the module and its items; default: no badge
 tip = "Not stable yet"              # hover text; default: the name
-color = "#8a5a12"                   # #hex or a colour name; default: muted
-color_dark = "#e0b26a"              # default: color
+color = "oklch(51% 0.1 70.8deg)"      # oklch(), #hex or a colour name; default: muted
+color_dark = "oklch(80% 0.11 75.4deg)" # default: color
 
 # Folding groups inside each heading. With any, every module must be in one (last match wins).
 [[doc.group]]
@@ -141,8 +141,9 @@ The site targets WCAG 2.2 AA:
   - A wide code block, table or field list gets a tab stop so it can be scrolled; resizing or navigating updates those tab stops.
 - **Motion and zoom:** smooth scrolling only without reduced motion; layouts work at 320px.
 - **Contrast:**
+  - Every colour in `site.css` and the theme is `oklch()`, written as `oklch(L% C Hdeg)` (stylelint enforces the notation); keep new ones in that form.
   - `tools/dev/test_doc_palette.py` checks every colour token in `site.css` in both themes: 4.5:1 for text, including the search field's placeholder on its fill (the field has no border).
-  - `jacket doc` rejects a `[doc.category]` `color`/`color_dark` under 4.5:1 and prints the measured ratio.
+  - `jacket doc` rejects a `[doc.category]` `color`/`color_dark` under 4.5:1 and prints the measured ratio. It reads `oklch()` (out-of-gamut colours are clamped to sRGB to measure), `#hex` and colour names.
 - **CI:** `tools/dev/doc_a11y.mjs <url>` runs axe-core on six pages in both themes at 1280px and 320px. It needs Chrome (`CHROME_PATH` overrides its location). When browser checks are enabled, `docs-pages.yml` runs it after the build. Its guide sample is the direct header navigation target; changes to that markup should update `doc_samples.mjs` and its fixture tests.
 - **HTTP probes:** status-only page checks use `HEAD`, so they leave no unread response body in Node. The configured static server must support `HEAD`; the included `doc_serve.py` does. Browser navigation and asset interception still read the actual page content.
 - **Browser readiness:** both browser checks wait up to ten seconds for a complete, valid DevTools port record. File creation alone is not readiness. Startup failures report elapsed time, the last record, child exit/signal and bounded Chrome stderr. Run `node --test tools/dev/test_chrome_startup.mjs tools/dev/test_doc_samples.mjs tools/dev/test_doc_sidebar.mjs` to check partial writes, read failures, the startup deadline and sidebar parser-state restoration without launching Chrome.

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """WCAG contrast checks for both explicit themes, system dark, and category badges."""
+import math
 import re
 import tomllib
 import unittest
@@ -11,8 +12,24 @@ TEXT = "fg fg2 muted link accent type str kw ok err warn foreign".split()
 SURFACES = "bg surface sunken sel okbg errbg warnbg".split()
 
 
+OKLCH = r"oklch\(([\d.]+)% ([\d.]+) ([\d.]+)deg\)"
+
+
 def rgb(value):
-    return tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))
+    """sRGB channels (0-255, unrounded) of `#rrggbb` or `oklch(L% C Hdeg)`, clamped into the gamut."""
+    if value.startswith("#"):
+        return tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))
+    lightness, chroma, hue = map(float, re.fullmatch(OKLCH, value).groups())
+    lightness /= 100
+    a, b = chroma * math.cos(math.radians(hue)), chroma * math.sin(math.radians(hue))
+    lms = [(lightness + x * a + y * b) ** 3 for x, y in
+           ((.3963377774, .2158037573), (-.1055613458, -.0638541728), (-.0894841775, -1.2914855480))]
+    linear = [sum(m * v for m, v in zip(row, lms)) for row in
+              ((4.0767416621, -3.3077115913, .2309699292),
+               (-1.2684380046, 2.6097574011, -.3413193965),
+               (-.0041960863, -.7034186147, 1.7076147010))]
+    return tuple(255 * (v * 12.92 if v <= .0031308 else 1.055 * v ** (1 / 2.4) - .055)
+                 for v in (min(max(v, 0), 1) for v in linear))
 
 
 def luminance(color):
@@ -31,7 +48,7 @@ def mix(a, b, fraction):
 
 
 def palettes():
-    return [dict(re.findall(r"--([\w-]+):\s*(#[\da-f]{6})", block))
+    return [dict(re.findall(r"--([\w-]+):\s*(oklch\([\d.% deg]+\))", block))
             for block in re.findall(r":root[^{}]*\{([^{}]+)\}", CSS.read_text())[:3]]
 
 
@@ -57,11 +74,12 @@ class PaletteTests(unittest.TestCase):
                     self.assertGreaterEqual(ratio, required, f"{ratio:.3f}:1 needs {required}:1")
 
     def test_translucent_header(self):
-        glasses = re.findall(r"--glass: rgb\((\d+) (\d+) (\d+) / (\d+)%\)", CSS.read_text())
+        glasses = re.findall(r"--glass: (oklch\([\d.% deg]+?) / (\d+)%\)", CSS.read_text())
         self.assertEqual(glasses[1], glasses[2])
         for dark in (0, 1):
-            r, g, b, percent = map(float, glasses[dark])
-            alpha = percent / 100
+            color, percent = glasses[dark]
+            r, g, b = rgb(color.rstrip() + ")")
+            alpha = float(percent) / 100
             # Worst underlying content: black in light mode, white in dark mode.
             background = mix((r, g, b), (255 if dark else 0,) * 3, alpha)
             for token in ("fg", "fg2", "muted", "link"):
