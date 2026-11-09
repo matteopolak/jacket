@@ -13,7 +13,9 @@ use std::path::{Path, PathBuf};
 /// `text` without its comments. Comment-only lines go, a line that ends in a comment loses the
 /// trailing space, and blank lines are not stacked; everything else keeps its layout. The
 /// lexer says what a comment is, so `//` in a string stays.
-pub(super) fn without_comments(text: &str) -> String {
+///
+/// Also for each line of `text` the line it is in the result, `None` for a line that went.
+pub(super) fn stripped(text: &str) -> (String, Vec<Option<usize>>) {
     let (_, comments, _) = lex_with_trivia(FileId(0), text);
     let mut dropped = vec![false; text.len()];
     for c in &comments {
@@ -22,9 +24,11 @@ pub(super) fn without_comments(text: &str) -> String {
             dropped[at] = byte != b'\n';
         }
     }
-    let mut lines: Vec<String> = Vec::new();
+    let mut lines: Vec<(String, usize)> = Vec::new();
     let mut offset = 0;
-    for line in text.split('\n') {
+    let mut source_lines = 0;
+    for (number, line) in text.split('\n').enumerate() {
+        source_lines = number + 1;
         let end = offset + line.len();
         let had_comment = dropped[offset..end].iter().any(|d| *d);
         let kept: String = line
@@ -34,20 +38,22 @@ pub(super) fn without_comments(text: &str) -> String {
             .collect();
         offset = end + 1;
         if !had_comment {
-            lines.push(kept);
+            lines.push((kept, number));
             continue;
         }
         let kept = kept.trim_end().to_owned();
         if !kept.trim().is_empty() {
-            lines.push(kept);
+            lines.push((kept, number));
         }
     }
     let mut out: Vec<String> = Vec::new();
-    for line in lines {
+    let mut place: Vec<Option<usize>> = vec![None; source_lines];
+    for (line, number) in lines {
         let blank = line.trim().is_empty();
         if blank && out.last().is_none_or(|last| last.trim().is_empty()) {
             continue;
         }
+        place[number] = Some(out.len());
         out.push(if blank {
             String::new()
         } else {
@@ -57,7 +63,13 @@ pub(super) fn without_comments(text: &str) -> String {
     while out.last().is_some_and(String::is_empty) {
         out.pop();
     }
-    out.join("\n")
+    // A line past the end that was only blank is gone with it.
+    for line in &mut place {
+        if line.is_some_and(|l| l >= out.len()) {
+            *line = None;
+        }
+    }
+    (out.join("\n"), place)
 }
 
 /// Where the names a declaration introduces are written: its own, its parameters', its fields',
@@ -69,6 +81,11 @@ fn declared_names(decl: &Decl) -> Vec<(usize, usize)> {
                 StmtKind::Decl(d) => from_decl(d, out),
                 StmtKind::Expr(e) => from_expr(e, out),
                 StmtKind::StaticIf(branches) => {
+                    // The condition is an expression about the build, not a type.
+                    out.push((
+                        branches.cond.span.start as usize,
+                        branches.cond.span.end as usize,
+                    ));
                     from_stmts(&branches.then_branch, out);
                     from_stmts(&branches.else_branch, out);
                 }
@@ -201,10 +218,18 @@ impl Reader<'_> {
         let Some(written) = text.get(start..end.min(text.len())) else {
             return;
         };
-        without_comments(written)
+        let (plain, places) = stripped(written);
+        plain
             .trim_end_matches(';')
             .trim_end()
             .clone_into(&mut item.declaration);
+        for member in &mut item.members {
+            member.line = member
+                .at
+                .checked_sub(start)
+                .and_then(|at| written.get(..at))
+                .and_then(|before| places.get(before.matches('\n').count()).copied().flatten());
+        }
         let mut refs = self.type_refs(file, &blanked(written, start, decl));
         refs.retain(|r| {
             let root = r.path.split('.').next().unwrap_or(&r.path);

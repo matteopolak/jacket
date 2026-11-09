@@ -172,6 +172,11 @@ pub struct Member {
     pub doc: String,
     /// The declarations the names in a field's type stand for.
     pub refs: Vec<TypeRef>,
+    /// Where the name is written, as an offset in its file.
+    pub at: usize,
+    /// The line of the item's `declaration` that holds it, counted from the line of the item's
+    /// name; set with the declaration.
+    pub line: Option<usize>,
 }
 
 #[derive(Debug, Default)]
@@ -488,29 +493,42 @@ fn members(decl: &Decl, text: &str) -> Vec<Member> {
     let mut out = Vec::new();
     match decl.value.as_ref().map(|v| &v.kind) {
         Some(ExprKind::Struct(lit)) => {
-            for stmt in &lit.body {
-                let StmtKind::Decl(field) = &stmt.kind else {
-                    continue;
-                };
-                if field.kind != DeclKind::Var {
-                    continue;
-                }
-                for name in &field.names {
-                    out.push(Member {
-                        refs: Vec::new(),
-                        name: name.name.as_str().to_owned(),
-                        ty: field.ty.as_ref().map_or_else(
-                            || {
-                                field.value.as_ref().map_or(String::new(), |v| {
-                                    format!(":= {}", slice(text, v.span.start, v.span.end))
-                                })
-                            },
-                            |t| slice(text, t.span.start, t.span.end),
-                        ),
-                        doc: docs::declaration(text, name.span.start as usize).unwrap_or_default(),
-                    });
+            // Both branches of an `#if` are listed: a field is documented wherever it is declared.
+            fn walk(stmts: &[Stmt], text: &str, out: &mut Vec<Member>) {
+                for stmt in stmts {
+                    match &stmt.kind {
+                        StmtKind::StaticIf(branches) => {
+                            walk(&branches.then_branch, text, out);
+                            walk(&branches.else_branch, text, out);
+                        }
+                        StmtKind::Decl(field) if field.kind == DeclKind::Var => {
+                            for name in &field.names {
+                                out.push(Member {
+                                    refs: Vec::new(),
+                                    name: name.name.as_str().to_owned(),
+                                    ty: field.ty.as_ref().map_or_else(
+                                        || {
+                                            field.value.as_ref().map_or(String::new(), |v| {
+                                                format!(
+                                                    ":= {}",
+                                                    slice(text, v.span.start, v.span.end)
+                                                )
+                                            })
+                                        },
+                                        |t| slice(text, t.span.start, t.span.end),
+                                    ),
+                                    doc: docs::declaration(text, name.span.start as usize)
+                                        .unwrap_or_default(),
+                                    at: name.span.start as usize,
+                                    line: None,
+                                });
+                            }
+                        }
+                        _ => {}
+                    }
                 }
             }
+            walk(&lit.body, text, &mut out);
         }
         Some(ExprKind::Enum(lit)) => {
             fn walk(items: &[EnumItem], text: &str, out: &mut Vec<Member>) {
@@ -525,6 +543,8 @@ fn members(decl: &Decl, text: &str) -> Vec<Member> {
                                 .map_or(String::new(), |v| slice(text, v.span.start, v.span.end)),
                             doc: docs::declaration(text, m.name.span.start as usize)
                                 .unwrap_or_default(),
+                            at: m.name.span.start as usize,
+                            line: None,
                         }),
                         EnumItem::If {
                             then_items,
@@ -1021,10 +1041,11 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             .iter()
             .map(|m| {
                 format!(
-                    "{{\"name\":{},\"type\":{},\"doc\":{}{}}}",
+                    "{{\"name\":{},\"type\":{},\"doc\":{}{}{}}}",
                     json(&m.name),
                     json(&m.ty),
                     json(&md_at(&m.doc, &item.file, item.line, listed)),
+                    m.line.map_or_else(String::new, |l| format!(",\"line\":{l}")),
                     refs_json(&m.refs)
                 )
             })

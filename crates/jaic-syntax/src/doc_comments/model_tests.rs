@@ -529,11 +529,11 @@ fn a_type_item_carries_its_declaration_without_comments() {
 
 #[test]
 fn comment_stripping_keeps_slashes_in_strings() {
-    use super::declaration::without_comments;
-    assert_eq!(
-        without_comments("a :: \"// kept\"; // gone\n// whole line\nb :: 1; /* x */ c :: 2;\n"),
-        "a :: \"// kept\";\nb :: 1;  c :: 2;"
-    );
+    use super::declaration::stripped;
+    let (text, places) =
+        stripped("a :: \"// kept\"; // gone\n// whole line\nb :: 1; /* x */ c :: 2;\n");
+    assert_eq!(text, "a :: \"// kept\";\nb :: 1;  c :: 2;");
+    assert_eq!(places, [Some(0), None, Some(1), None]);
 }
 
 #[test]
@@ -701,4 +701,34 @@ fn language_type_directive_aliases_are_type_items() {
         let item = model.items.iter().find(|i| i.name == name).unwrap();
         assert_eq!(item.kind, "type", "{name}");
     }
+}
+
+#[test]
+fn fields_under_a_static_if_are_members_on_their_declaration_lines() {
+    let dir = library(
+        "static-if-fields",
+        &[(
+            "module.jai",
+            "// Flagged.\nFlagged :: struct {\n    // Always there.\n    a: int;\n    #if FEATURE {\n        // Only with the feature.\n        b: int;\n    } else {\n        c: s32 = -1;\n    }\n    nested: struct {\n        inner: int;\n    };\n}\n\nFEATURE :: true;\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let item = model.items.iter().find(|i| i.name == "Flagged").unwrap();
+    let members: Vec<_> = item
+        .members
+        .iter()
+        .map(|m| (m.name.as_str(), m.doc.as_str(), m.line))
+        .collect();
+    assert_eq!(
+        members,
+        [
+            ("a", "Always there.", Some(1)),
+            ("b", "Only with the feature.", Some(3)),
+            ("c", "", Some(5)),
+            ("nested", "", Some(7)),
+        ]
+    );
+    // The condition names a constant, not a type to follow.
+    assert!(item.decl_refs.iter().all(|r| r.path != "FEATURE"));
+    let _ = std::fs::remove_dir_all(&dir);
 }
