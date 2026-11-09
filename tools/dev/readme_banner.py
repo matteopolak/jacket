@@ -3,8 +3,8 @@
 
 The wordmark is Lilita One (SIL Open Font License 1.1) converted to outlines
 and run through rough.js, so it matches the logo's double-stroke style and
-renders in <img> tags without any font. The logo is embedded unchanged; in
-dark mode a stylesheet lightens its ink.
+renders in <img> tags without any font. The logo is embedded unchanged. The
+wordmark is ink on light backgrounds and off-white on dark ones.
 
 Rerun (needs Node, npm and network access; nothing shipped needs them):
 
@@ -39,9 +39,8 @@ WIDTH, HEIGHT = 650, 190
 LOGO_SIZE = 186  # logo is drawn square at this size
 GAP = 26  # between logo and wordmark
 ROUGH = {"roughness": 0.75, "bowing": 1.2, "strokeWidth": 2.4, "seed": 7, "maxRandomnessOffset": 1.6}
-FILL = "oklch(74.98% 0.1277 79.99)"
-INK = "oklch(31.04% 0.0088 116.10)"
-INK_DARK = "oklch(90% 0.03 85)"
+INK = "oklch(31.04% 0.0088 116.10)"  # the logo's outline colour
+INK_DARK = "oklch(94% 0.01 85)"
 
 
 def glyph_paths(font_file):
@@ -100,12 +99,12 @@ def main():
     fills = "".join(f'<path d="{short(d)}" fill-rule="evenodd"/>' for g in drawn for d in g["fill"])
     strokes = "".join(f'<path d="{short(d)}"/>' for g in drawn for d in g["stroke"])
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" role="img" aria-labelledby="title"><title id="title">Jacket</title>
-<style>.ink{{stroke:{INK}}}@media (prefers-color-scheme:dark){{.ink,[stroke^="oklch(31"]{{stroke:{INK_DARK}}}}}</style>
+<style>.fill{{fill:{INK}}}.edge{{stroke:{INK}}}@media (prefers-color-scheme:dark){{.fill{{fill:{INK_DARK}}}.edge{{stroke:{INK_DARK}}}}}</style>
 <svg x="0" y="{(HEIGHT - LOGO_SIZE) / 2}" width="{LOGO_SIZE}" height="{LOGO_SIZE}" viewBox="{vb}">
 {inner}
 </svg>
-<g fill="{FILL}" stroke="none">{fills}</g>
-<g class="ink" fill="none" stroke-width="{ROUGH['strokeWidth']}" stroke-linecap="round" stroke-linejoin="round">{strokes}</g>
+<g class="fill" stroke="none">{fills}</g>
+<g class="edge" fill="none" stroke-width="{ROUGH['strokeWidth']}" stroke-linecap="round" stroke-linejoin="round">{strokes}</g>
 </svg>
 """
     OUT.write_text(svg)
