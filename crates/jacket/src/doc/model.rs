@@ -42,44 +42,15 @@ pub struct Member {
     pub ty: String,
     pub doc: String,
     pub refs: Vec<TypeRef>,
+    /// The line of the item's `declaration` that declares it, counted from 0 at the item's name.
+    pub line: Option<usize>,
 }
 
 impl Item {
-    /// For each member, the line of `declaration` that declares it: a line at the body's own
-    /// indentation that starts with the name (or with a list of names, `a, b: int`). `None` when the line is not found, and for every
-    /// member when a line holds an unfinished string.
+    /// For each member, the line of `declaration` that declares it, as `jaic -doc_model` counted
+    /// it (`None` when it has no line there). Members on one line (`a, b: int;`) share it.
     pub fn member_lines(&self) -> Vec<Option<usize>> {
-        let lines: Vec<&str> = self.declaration.split('\n').collect();
-        let none = vec![None; self.members.len()];
-        if lines.iter().any(|l| l.matches('"').count() % 2 == 1) {
-            return none;
-        }
-        let indent = |l: &str| l.len() - l.trim_start().len();
-        let Some(base) = lines
-            .iter()
-            .skip(1)
-            .find(|l| !l.trim().is_empty())
-            .map(|l| indent(l))
-        else {
-            return none;
-        };
-        let mut from = 1;
-        self.members
-            .iter()
-            .map(|m| {
-                let found = (from..lines.len()).find(|&i| {
-                    let written = lines[i].trim_start();
-                    let written = written.strip_prefix("using ").unwrap_or(written);
-                    let head = written.split([':', ';', '=']).next().unwrap_or_default();
-                    indent(lines[i]) == base
-                        && !m.name.is_empty()
-                        && head.split(',').any(|name| name.trim() == m.name)
-                });
-                // `a, b: int;` declares both on one line.
-                from = found.unwrap_or(from);
-                found
-            })
-            .collect()
+        self.members.iter().map(|m| m.line).collect()
     }
 }
 
@@ -446,6 +417,7 @@ pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module,
                         ty: text(m, "type"),
                         doc: text(m, "doc"),
                         refs: type_refs(m, stdlib),
+                        line: m.get("line").and_then(Value::as_u64).map(|l| l as usize),
                     })
                     .collect(),
                 also: list(i, "also")
@@ -652,6 +624,17 @@ mod tests {
         let outside = parse("Acme/Json", json, Path::new("/lib"), Path::new("/s")).unwrap();
         assert_eq!(outside.key(), "Json");
         assert_eq!(outside.import_name(), "Acme/Json");
+    }
+
+    #[test]
+    fn a_member_keeps_the_declaration_line_the_compiler_gave_it() {
+        let json = r#"{"file":"/s/S/module.jai","docs":"","docs_line":1,"platforms":[],"items":[
+{"name":"Flagged","kind":"struct","file":"/s/S/module.jai","line":1,"docs":"","value":"","declaration":"Flagged :: struct {\n    a: int;\n    #if X {\n        b: int;\n    }\n}","overloads":[],"members":[{"name":"a","type":"int","doc":"","line":1},{"name":"b","type":"int","doc":"","line":3},{"name":"c","type":"int","doc":""}]}]}"#;
+        let module = parse("S", json, Path::new("/s"), Path::new("/s")).unwrap();
+        assert_eq!(
+            module.items[0].member_lines(),
+            [Some(1), Some(3), None]
+        );
     }
 
     #[test]

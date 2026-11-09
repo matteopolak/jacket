@@ -333,6 +333,7 @@ fn declared_site() -> Site {
                             name: "senders".into(),
                             ty: "Waiter".into(),
                             refs: vec![reference("Waiter", "Io/sync.jai", 3, true)],
+                            line: Some(1),
                             ..Member::default()
                         },
                         Member {
@@ -340,11 +341,13 @@ fn declared_site() -> Site {
                             ty: "Allocator".into(),
                             refs: vec![reference("Allocator", "prelude/allocation.jai", 31, true)],
                             doc: "Where it allocates, see `Allocator`.".into(),
+                            line: Some(2),
                         },
                         Member {
                             name: "limit".into(),
                             ty: "int".into(),
                             doc: "How many it holds. Zero means no limit.\n\n```jai\nlimit = 4;\n```".into(),
+                            line: Some(4),
                             ..Member::default()
                         },
                     ],
