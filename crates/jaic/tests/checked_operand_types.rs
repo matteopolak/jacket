@@ -1,7 +1,7 @@
 //! Exported operands retain contextual types from actual checking, including folded globals.
 use jaic::{
     records::{FieldRef, Item, RecordTag, Records},
-    sema::{Compiler, Options, VirtualFs},
+    sema::{Compiler, NativeFs, Options, ProgramSource, VirtualFs},
 };
 use std::{path::Path, rc::Rc};
 
@@ -143,4 +143,48 @@ fn mixed_numeric_comparisons_export_the_arithmetic_operand_type() {
         result.iter().all(|(tag, size, _)| *tag == 1 && *size == 4),
         "{result:?}"
     );
+}
+
+#[test]
+fn arguments_boxed_for_any_keep_their_own_types() {
+    let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let mut options = Options::host();
+    options.import_paths = vec![stdlib.clone()];
+    options.set_stdlib(&NativeFs, &stdlib);
+    let mut c = Compiler::new(options, Rc::new(NativeFs));
+    c.compile_sources(&[ProgramSource::String(
+        "#import \"Basic\"; show :: (args: ..Any) {} main :: () { x: u8 = 1; show(0, x, 1.5, true, 7.0); }"
+            .to_string(),
+    )])
+    .unwrap();
+    let mut records = Records::default();
+    let mut calls: Vec<Vec<i64>> = Vec::new();
+    while let Some(message) = c.export_typechecked(&mut records) {
+        for checked in list(&records, message, "all") {
+            for node in list(&records, checked, "subexpressions") {
+                if records.get(node).unwrap().tag != RecordTag::CodeProcedureCall {
+                    continue;
+                }
+                let sorted = list(&records, node, "arguments_sorted");
+                if sorted.len() != 5 {
+                    continue;
+                }
+                let tags: Option<Vec<i64>> = sorted
+                    .into_iter()
+                    .map(|argument| {
+                        let Some(FieldRef::Ref(ty)) = records.field(argument, "type") else {
+                            return None;
+                        };
+                        let Some(FieldRef::Int(tag)) = records.field(ty, "type") else {
+                            return None;
+                        };
+                        Some(tag)
+                    })
+                    .collect();
+                calls.extend(tags);
+            }
+        }
+    }
+    // Integer, integer, float, bool, float: never the `Any` the arguments are converted to.
+    assert!(calls.contains(&vec![0, 0, 1, 2, 1]), "{calls:?}");
 }

@@ -28,6 +28,7 @@
 ### Fixed
 
 - `Extensions/Archive` and `Extensions/Gltf` compile and work on wasm for in-memory data. `write_archive` and `copy_entry` take an `Archive_Writer` instead of an `Io.Writer`; `gltf_local_resolve` and `extract` need a native file system.
+- A macro or metaprogram reading the code of a call sees the type of an argument passed to an `Any` parameter as the argument's own type, not `Any`. This made the Postgres typed query checks reject `Pg.queue_execute` and similar calls.
 - `WebSocket` compresses with the negotiated `permessage-deflate` window below 15 bits instead of sending stored blocks, and `deflate_sync` takes a `window_bits` argument.
 - `Http` no longer gives a TLS config the pooled connections of an earlier config that was freed with `Tls.tls_config_free` and set up again at the same address. `Tls.tls_config_generation` tells setups apart.
 - `jacket test` fails when it cannot read a library's doc comments, instead of warning and running no examples.

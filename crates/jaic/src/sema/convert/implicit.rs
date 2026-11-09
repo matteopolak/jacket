@@ -18,7 +18,9 @@ impl Compiler {
     ) -> Result<Operand> {
         let at = at.into();
         let result = self.convert_inner(f, op, to, at);
+        // Boxing into `Any` wraps the value; the expression keeps the type it checked to.
         if at.expression
+            && to != TypeId::ANY
             && let Ok(op) = &result
         {
             self.record_expression_type(f, at.span, op.ty(), true);
