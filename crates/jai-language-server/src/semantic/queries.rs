@@ -514,7 +514,7 @@ impl Analysis {
 
     /// A span of any compiled file as (path, text, start, end); `None` for a span in no file
     /// (`Span::NONE`, which builtins carry).
-    pub fn location(&self, span: jaic::source::Span) -> Option<(String, Arc<str>, usize, usize)> {
+    pub fn location(&self, span: jaic::source::Span) -> Option<Decl> {
         let source = self.compiler.src.sources.try_get(span.file)?;
         Some((
             source.path.to_string(),
@@ -617,11 +617,7 @@ impl Analysis {
 
     /// Declarations the identifier at `offset` names, as (path, text, start, end) with byte
     /// offsets into that file's text (which may be a module or stdlib file, not an open document).
-    pub fn definition(
-        &mut self,
-        path: &Path,
-        offset: usize,
-    ) -> Vec<(String, Arc<str>, usize, usize)> {
+    pub fn definition(&mut self, path: &Path, offset: usize) -> Vec<Decl> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
@@ -637,11 +633,7 @@ impl Analysis {
     /// to compare `definition` with. `None` when the position is not a plain name the compile
     /// resolved to a declaration (a member, a module's name, a built-in, a qualified name).
     /// Empty when the name is not a procedure.
-    pub fn scope_procedures(
-        &mut self,
-        path: &Path,
-        offset: usize,
-    ) -> Option<Vec<(String, Arc<str>, usize, usize)>> {
+    pub fn scope_procedures(&mut self, path: &Path, offset: usize) -> Option<Vec<Decl>> {
         let file = self.file(path)?;
         let text = self.compiler.src.sources.try_get(file)?.text.clone();
         let bytes = text.as_bytes();
