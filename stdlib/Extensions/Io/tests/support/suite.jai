@@ -1362,38 +1362,33 @@ test_close_with_queued_connections :: () {
 }
 
 test_close_now_releases_the_port :: () {
-    // Another process can take the freed port before it is listened on again (the runtime tests
-    // and tools/stdlib/io_stress.py run many programs at once), so a taken port is tried again with a new
-    // one. A listener that `close(now = true)` did not release fails every attempt.
-    ATTEMPTS :: 10;
+    // The port is kept busy by an accepted connection while the listener is gone, so no other
+    // program can be handed it by the kernel in between. Listening on it again then relies on
+    // address reuse (a port with a live connection, as after a server restart) and succeeds only
+    // if `close(now = true)` released the listener itself.
+    pair := make_pair();
+    address, _ := Io.local_address(pair.listener);
 
-    for 1..ATTEMPTS {
-        listener, error := Io.tcp_listen(LOOPBACK);
+    // Arms a second accept, then gives up on it.
+    listener := pair.listener;
+    error: Io.Io_Error;
 
-        assert(error == .NONE);
+    Io.with_deadline(5, #code {
+        _, error = Io.accept(listener);
+    });
 
-        address, _ := Io.local_address(listener);
+    assert(error == .TIMED_OUT);
 
-        // Arms the accept, then gives up on it.
-        Io.with_deadline(5, #code {
-            _, error = Io.accept(listener);
-        });
+    Io.close(pair.listener, now = true);
+    Io.sleep(5);
 
-        assert(error == .TIMED_OUT);
+    again, again_error := Io.tcp_listen(address);
 
-        Io.close(listener, now = true);
-        Io.sleep(5);
+    assert(again_error == .NONE, "relisten: %", again_error);
 
-        again, again_error := Io.tcp_listen(address);
-
-        if again_error == .NONE {
-            Io.close(again);
-
-            return;
-        }
-
-        assert(again_error == .ADDRESS_IN_USE && it < ATTEMPTS, "relisten: %", again_error);
-    }
+    Io.close(again);
+    Io.close(pair.client);
+    Io.close(pair.server);
 }
 
 // Threads: one scheduler each, listeners sharing a port
