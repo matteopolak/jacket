@@ -166,7 +166,7 @@ free_app :: (app: *App) {
     array_reset(*app.groups);
     array_reset(*app.middleware);
     array_reset(*app.setup_errors);
-} @FreesArgument
+}
 
 // Adds middleware that wraps every request (in the order added), including ones with no route.
 //
