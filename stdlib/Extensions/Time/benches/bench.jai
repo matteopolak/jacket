@@ -71,3 +71,34 @@ time_cached_zone :: (b: *Bench) {
         BT.time_zone_free(*v);
     }
 } @bench
+
+time_posix_to_civil :: (b: *Bench) {
+    zone, e := BT.time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+
+    assert(e.kind == .NONE);
+    defer BT.time_zone_free(*zone);
+    instant, _ := BT.timestamp_from_seconds(1710055800);
+
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        v := BT.to_civil(black_box(zone), black_box(instant));
+        black_box(v);
+    }
+} @bench
+
+time_civil_to_instant :: (b: *Bench) {
+    zone, e := BT.time_zone_get("America/New_York");
+
+    assert(e.kind == .NONE);
+    defer BT.time_zone_free(*zone);
+    wall := BT.Date_Time.{ .{ 2024, 3, 10 }, .{ 12, 0, 0, 0 } };
+
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        v, ve := BT.to_timestamp(black_box(zone), black_box(wall));
+        black_box(v);
+        black_box(ve);
+    }
+} @bench

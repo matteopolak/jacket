@@ -74,26 +74,33 @@ to_timestamp :: (zone: Time_Zone, wall: Date_Time, disambiguation := Disambiguat
 
     if zone.kind == .RULES r = lookup_rules(zone.rules);
 
-    offsets: [258] s64;
+    offsets: [258] s64 = ---;
     count: s64 = 1;
 
     offsets[0] = zone.offset.seconds;
     if zone.kind == .UTC offsets[0] = 0;
 
     if r != null {
-        count = 0;
+        // An instant that reads `local` lies within the largest offset of it, so only offsets in
+        // effect during that window can match: the one at its start and those after each transition.
+        window_end := local + 93599;
+        cursor := raw_stamp(local - 93599, 0);
 
-        for i: 0..r.types - 1 {
-            offsets[count] = be_signed(r.source, r.type_at + i * 6, 4);
-            count += 1;
-        }
+        offsets[0] = offset_at(zone, cursor).seconds;
+        count = 1;
 
-        if r.footer.present {
-            offsets[count] = r.footer.standard;
-            count += 1;
+        while true {
+            at, more := transition_after(r, cursor, false);
+            if !more || at > window_end break;
 
-            if r.footer.dst {
-                offsets[count] = r.footer.daylight;
+            cursor = raw_stamp(at, 0);
+            off := offset_at(zone, cursor).seconds;
+            known := false;
+
+            for 0..count - 1 if offsets[it] == off known = true;
+
+            if !known {
+                offsets[count] = off;
                 count += 1;
             }
         }
@@ -157,42 +164,7 @@ next :: (cursor: *Time_Transitions) -> Time_Transition, bool, Time_Error {
     r := lookup_rules(cursor.zone.rules);
     if r == null return .{}, false, .{};
 
-    found := false;
-    chosen: s64;
-    lo: s64;
-    hi := r.count;
-
-    while lo < hi {
-        mid := lo + (hi - lo) / 2;
-        seconds := be_signed(r.source, r.ta + mid * r.width, r.width);
-        c := compare(Timestamp.{ seconds, 0 }, cursor.cursor);
-
-        if c < 0 || (!cursor.reverse && c == 0) lo = mid + 1;
-        else hi = mid;
-    }
-
-    index := ifx cursor.reverse then lo - 1 else lo;
-    if index >= 0 && index < r.count {
-        chosen = be_signed(r.source, r.ta + index * r.width, r.width);
-        found = true;
-    }
-
-    if r.footer.present && r.footer.dst {
-        y: s64 = to_civil(time_zone_utc(), cursor.cursor).date.year;
-        last := MIN_I64;
-
-        if r.count > 0 last = be_signed(r.source, r.ta + (r.count - 1) * r.width, r.width);
-
-        for year: y - 1..y + 1 {
-            for event: s64.[rule_in_year(r.footer.start, year, r.footer.standard), rule_in_year(r.footer.end, year, r.footer.daylight)] {
-                c := compare(Timestamp.{ event, 0 }, cursor.cursor);
-                if event > last && ((cursor.reverse && c < 0) || (!cursor.reverse && c > 0)) && (!found || (cursor.reverse && event > chosen) || (!cursor.reverse && event < chosen)) {
-                    chosen = event;
-                    found = true;
-                }
-            }
-        }
-    }
+    chosen, found := transition_after(r, cursor.cursor, cursor.reverse);
 
     if !found {
         cursor.exhausted = true;
@@ -329,30 +301,91 @@ rule_in_year :: (rule: Zone_Rule, year: s64, offset: s64) -> s64 {
     return (date_days(.{ cast(s16) year, 1, 1 }) + ordinal) * 86400 + rule.seconds - offset;
 }
 
+// Records the latest of year's two rule events that is not after seconds.
+posix_scan :: (p: Posix_Rules, year: s64, seconds: s64, last: *s64, dst: *bool) {
+    start := rule_in_year(p.start, year, p.standard);
+    end := rule_in_year(p.end, year, p.daylight);
+
+    if start <= seconds && start > last.* {
+        last.* = start;
+        dst.* = true;
+    }
+
+    if end <= seconds && end > last.* {
+        last.* = end;
+        dst.* = false;
+    }
+}
+
 posix_at :: (p: Posix_Rules, seconds: s64) -> s64, string {
     if !p.dst return p.standard, p.standard_name;
 
     year: s64 = civil_day(floor_div(seconds, 86400)).year;
-    // Extended transition times can cross the year boundary: choose the last event.
     last: s64 = MIN_I64;
     dst := false;
 
-    for y: year - 1..year + 1 {
-        start := rule_in_year(p.start, y, p.standard);
-        end := rule_in_year(p.end, y, p.daylight);
+    posix_scan(p, year, seconds, *last, *dst);
 
-        if start <= seconds && start > last {
-            last = start;
-            dst = true;
-        }
+    // Extended transition times reach under ten days past a year's ends, so a neighbouring year
+    // matters only when this one has no event yet or seconds is that close to its edge.
+    reach := 10 * 86400;
+    year_start := date_days(.{ cast,trunc(s16) year, 1, 1 }) * 86400;
 
-        if end <= seconds && end > last {
-            last = end;
-            dst = false;
-        }
-    }
+    if last == MIN_I64 || seconds - year_start < reach posix_scan(p, year - 1, seconds, *last, *dst);
+    if date_days(.{ cast,trunc(s16) (year + 1), 1, 1 }) * 86400 - seconds <= reach posix_scan(p, year + 1, seconds, *last, *dst);
 
     if dst return p.daylight, p.daylight_name;
 
     return p.standard, p.standard_name;
+}
+
+// The Unix second of the first transition strictly after `from` (strictly before when reverse):
+// stored transitions first, then the footer rules beyond them.
+transition_after :: (r: *Zone_Rules, from: Timestamp, reverse: bool) -> s64, bool {
+    found := false;
+    chosen: s64;
+    lo: s64;
+    hi := r.count;
+
+    while lo < hi {
+        mid := lo + (hi - lo) / 2;
+        seconds := be_signed(r.source, r.ta + mid * r.width, r.width);
+        c := compare(Timestamp.{ seconds, 0 }, from);
+
+        if c < 0 || (!reverse && c == 0) lo = mid + 1;
+        else hi = mid;
+    }
+
+    index := ifx reverse then lo - 1 else lo;
+
+    if index >= 0 && index < r.count {
+        chosen = be_signed(r.source, r.ta + index * r.width, r.width);
+        found = true;
+    }
+
+    if !r.footer.present || !r.footer.dst return chosen, found;
+
+    last := MIN_I64;
+    if r.count > 0 last = be_signed(r.source, r.ta + (r.count - 1) * r.width, r.width);
+
+    // Footer events all follow the last stored transition: a stored one ahead of the cursor
+    // beats them, and none can precede a cursor that is not past the stored table.
+    if reverse {
+        if from.seconds <= last return chosen, found;
+    } else if found return chosen, found;
+
+    y: s64 = to_civil(time_zone_utc(), from).date.year;
+
+    for year: y - 1..y + 1 {
+        for event: s64.[rule_in_year(r.footer.start, year, r.footer.standard), rule_in_year(r.footer.end, year, r.footer.daylight)] {
+            c := compare(Timestamp.{ event, 0 }, from);
+
+            if event > last && ((reverse && c < 0) || (!reverse && c > 0)) && (!found || (reverse && event > chosen) || (!reverse && event < chosen)) {
+                chosen = event;
+                found = true;
+            }
+        }
+    }
+
+    return chosen, found;
 }

@@ -66,9 +66,14 @@ duration_wide :: (v: S128) -> Signed_Duration, Time_Error {
     return .{ narrow(q), cast(s32) r }, .{};
 }
 
+// Unix seconds of -9999-01-02T01:59:59 and 9999-12-30T22:00:00: the instants whose reading in any
+// offset (+/-25:59:59) stays inside the civil range.
+MIN_SECONDS :: -4371586 * 86400 + 7199;
+MAX_SECONDS :: 2932895 * 86400 + 79200;
+
 timestamp_wide :: (v: S128) -> Timestamp, Time_Error {
-    lo := wide_mul(date_days(.{ -9999, 1, 2 }) * 86400 + 7199, NS);
-    hi := wide_mul(date_days(.{ 9999, 12, 30 }) * 86400 + 79200, NS);
+    lo := wide_mul(MIN_SECONDS, NS);
+    hi := wide_mul(MAX_SECONDS, NS);
 
     if v < lo || v > hi return .{}, range_error();
 

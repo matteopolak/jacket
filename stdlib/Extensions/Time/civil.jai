@@ -194,8 +194,12 @@ civil_day :: (days: s64) -> Date {
     return .{ cast,trunc(s16) y, cast,trunc(s8) m, cast,trunc(s8) d };
 }
 
+// Days since 1970-01-01 of -9999-01-01 and 9999-12-31, the ends of the civil range.
+MIN_DAY :: -4371587;
+MAX_DAY :: 2932896;
+
 checked_day :: (days: s64) -> Date, Time_Error {
-    if days < date_days(.{ -9999, 1, 1 }) || days > date_days(.{ 9999, 12, 31 }) return .{}, range_error();
+    if days < MIN_DAY || days > MAX_DAY return .{}, range_error();
     return civil_day(days), .{};
 }
 
