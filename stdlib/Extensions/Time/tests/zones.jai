@@ -66,6 +66,36 @@ stale_zone_handle :: () {
     assert(Zone_Test.abbreviation_at(stale, .{}) == "");
 } @test
 
+Edge_Reading :: struct {
+    text: string;
+    offset: s64;
+}
+
+// Daylight time starts a week before the new year (J1/-167) and ends in July, so the event that
+// governs a late-December reading belongs to the following year's rule.
+posix_events_across_year_edges :: () {
+    zone, e := Zone_Test.time_zone_from_posix("AAA0BBB,J1/-167,J200/0");
+
+    assert(e.kind == .NONE);
+    defer Zone_Test.time_zone_free(*zone);
+
+    for expected: Edge_Reading.[
+        .{ "2025-12-24T12:00:00Z", 0 },
+        .{ "2025-12-25T00:59:59Z", 0 },
+        .{ "2025-12-25T01:00:00Z", 3600 },
+        .{ "2025-12-28T12:00:00Z", 3600 },
+        .{ "2026-01-03T12:00:00Z", 3600 },
+        .{ "2026-07-18T22:59:59Z", 3600 },
+        .{ "2026-07-18T23:00:00Z", 0 },
+        .{ "2026-10-01T00:00:00Z", 0 }
+    ] {
+        instant, pe := Zone_Test.parse(Zone_Test.Timestamp, expected.text);
+
+        assert(pe.kind == .NONE);
+        assert(Zone_Test.offset_at(zone, instant).seconds == expected.offset);
+    }
+} @test
+
 posix_julian_and_extended :: () {
     for rules, index: string.["AAA0BBB,J60/0,J300/0", "AAA0BBB,59/0,300/0"] {
         zone, e := Zone_Test.time_zone_from_posix(rules);
