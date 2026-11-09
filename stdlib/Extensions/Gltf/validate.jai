@@ -1,4 +1,15 @@
-// Check core references, layouts and hierarchy. Example: error := gltf_validate(*asset);
+// Check core references, layouts and hierarchy.
+//
+// ```jai
+// asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"mesh\":0}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1}]}],\"buffers\":[{\"byteLength\":42,\"uri\":\"data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAABAAIA\"}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\",\"min\":[0,0,0],\"max\":[1,1,0]},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}]}");
+// assert(error.kind == .NONE);
+// defer gltf_free(*asset);
+// assert(gltf_validate(*asset).kind == .NONE);
+//
+// limited := gltf_validate(*asset, .{ max_count = 1 }); // fewer objects than the document has
+// assert(limited.kind == .LIMIT);
+// gltf_error_free(*limited);
+// ```
 gltf_validate :: (asset: *Gltf_Asset, options := Gltf_Options.{}) -> Gltf_Error {
     for validate: ((asset: *Gltf_Asset, options: Gltf_Options) -> Gltf_Error).[validate_storage, validate_layout, validate_hierarchy, validate_meshes, validate_resources, validate_animations, validate_cameras] {
         e := validate(asset, options);

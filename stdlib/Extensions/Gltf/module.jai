@@ -13,6 +13,12 @@
 // ```
 
 // Which stage of loading or validating failed.
+//
+// ```jai
+// _, error := gltf_load("{");
+// assert(error.kind == .JSON);
+// gltf_error_free(*error);
+// ```
 Gltf_Error_Kind :: enum {
     NONE;
     JSON; // the text is not valid JSON for the schema
@@ -23,6 +29,13 @@ Gltf_Error_Kind :: enum {
 }
 
 // The outcome of a glTF operation; `kind` is `.NONE` on success. Release it with [gltf_error_free].
+//
+// ```jai
+// _, error := gltf_load("glTF");
+// assert(error.kind == .CONTAINER);
+// gltf_error_free(*error);
+// assert(error.message.count == 0);
+// ```
 Gltf_Error :: struct {
     kind: Gltf_Error_Kind;
     message: string;
@@ -31,6 +44,13 @@ Gltf_Error :: struct {
 }
 
 // Limits that keep hostile input bounded; each is checked while loading.
+//
+// ```jai
+// text := "{\"asset\":{\"version\":\"2.0\"}}";
+// _, error := gltf_load(text, .{}, .{ max_size = 8 });
+// assert(error.kind == .LIMIT);
+// gltf_error_free(*error);
+// ```
 Gltf_Options :: struct {
     max_size: s64 = 64 * 1024 * 1024; // input bytes
     max_buffer_bytes: s64 = 512 * 1024 * 1024; // all buffers together
@@ -43,6 +63,20 @@ Gltf_Resolve :: #type (user: *void, uri: string, limit: s64) -> string, bool;
 
 // Fetches the external buffers and images of a document for [gltf_load]. `resolve` is called with
 // `user`; leave it unset to refuse every URI except base64 `data:` ones.
+//
+// ```jai
+// resolve :: (user: *void, uri: string, limit: s64) -> string, bool {
+//     if uri != "data.bin" return "", false;
+//     return copy_string("\x00\x00\x00\x00"), true; // owned by the loader
+// }
+//
+// main :: () {
+//     text := "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":4,\"uri\":\"data.bin\"}]}";
+//     asset, error := gltf_load(text, .{ resolve = resolve });
+//     assert(error.kind == .NONE && asset.buffers[0].count == 4);
+//     gltf_free(*asset);
+// }
+// ```
 Gltf_Resolver :: struct {
     resolve: Gltf_Resolve;
     user: *void;
@@ -50,6 +84,14 @@ Gltf_Resolver :: struct {
 
 // A loaded asset: the decoded `document` plus the bytes of each of its buffers, in the document's
 // order. Owned; release it with [gltf_free].
+//
+// ```jai
+// asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":4,\"uri\":\"data:application/octet-stream;base64,AAAAAA==\"}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":4,\"target\":34962}]}");
+// assert(error.kind == .NONE);
+// defer gltf_free(*asset);
+// assert(asset.document.buffers.count == 1);
+// assert(asset.buffers[0].count == 4); // the bytes of buffer 0
+// ```
 Gltf_Asset :: struct {
     document: Gltf_Document;
     buffers: [..] string;
@@ -58,6 +100,14 @@ Gltf_Asset :: struct {
 // A position in an accessor's elements, for [gltf_next_floats] and [gltf_next_index]. Start one
 // with [gltf_accessor]; the asset must outlive it and stay unchanged. `components` is the number
 // of values per element.
+//
+// ```jai
+// asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"mesh\":0}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1}]}],\"buffers\":[{\"byteLength\":42,\"uri\":\"data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAABAAIA\"}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\",\"min\":[0,0,0],\"max\":[1,1,0]},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}]}");
+// assert(error.kind == .NONE);
+// defer gltf_free(*asset);
+// cursor, _ := gltf_accessor(*asset, 0);
+// assert(cursor.components == 3); // a VEC3 element has three values
+// ```
 Gltf_Cursor :: struct {
     asset: *Gltf_Asset;
     accessor: s64;
@@ -66,7 +116,18 @@ Gltf_Cursor :: struct {
     components: s64;
 }
 
-// Decode text or GLB bytes and validate before returning. Example: a, e := gltf_load(text);
+// Decode text or GLB bytes and validate before returning.
+//
+// ```jai
+// asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"mesh\":0}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1}]}],\"buffers\":[{\"byteLength\":42,\"uri\":\"data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAABAAIA\"}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\",\"min\":[0,0,0],\"max\":[1,1,0]},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}]}");
+// assert(error.kind == .NONE);
+// defer gltf_free(*asset);
+// assert(asset.document.meshes.count == 1);
+// assert(asset.document.accessors[0].type == .VEC3);
+//
+// _, bad := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{\"children\":[3]}]}");
+// assert(bad.kind == .INVALID);
+// ```
 gltf_load :: (bytes: string, resolver := Gltf_Resolver.{}, options := Gltf_Options.{}) -> Gltf_Asset, Gltf_Error {
     result: Gltf_Asset;
     if bytes.count > options.max_size || options.max_size < 0 || options.max_buffer_bytes < 0 || options.max_count < 0 || options.max_depth < 1 return result, failure(.LIMIT, "invalid limits or input too large", "/");
@@ -204,7 +265,15 @@ gltf_load :: (bytes: string, resolver := Gltf_Resolver.{}, options := Gltf_Optio
     return result, .{};
 }
 
-// Release a loaded asset. Example: gltf_free(*asset);
+// Release a loaded asset.
+//
+// ```jai
+// asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":4,\"uri\":\"data:application/octet-stream;base64,AAAAAA==\"}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":4,\"target\":34962}]}");
+// assert(error.kind == .NONE);
+// defer gltf_free(*asset);
+// gltf_free(*asset);
+// assert(asset.buffers.count == 0);
+// ```
 gltf_free :: (asset: *Gltf_Asset) {
     for asset.buffers free(it);
     array_free(asset.buffers);
@@ -212,7 +281,14 @@ gltf_free :: (asset: *Gltf_Asset) {
     asset.* = .{};
 }
 
-// Release an error's owned strings. Example: gltf_error_free(*error);
+// Release an error's owned strings.
+//
+// ```jai
+// _, error := gltf_load("{");
+// assert(error.kind == .JSON);
+// gltf_error_free(*error);
+// assert(error.kind == .NONE);
+// ```
 gltf_error_free :: (error: *Gltf_Error) {
     free(error.message);
     free(error.path);

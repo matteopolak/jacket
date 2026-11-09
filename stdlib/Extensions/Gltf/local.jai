@@ -1,6 +1,13 @@
 #if OS != .WASM {
     // Pass the asset's folder as user data, pointing to a string. Resolves only contained files.
-    // Example: folder := "assets"; resolver := Gltf_Resolver.{gltf_local_resolve, *folder};
+    //
+    // ```jai,no_run,skip_on(wasm)
+    // folder := "assets"; // contains the .bin and image files the glTF names
+    // resolver := Gltf_Resolver.{ gltf_local_resolve, *folder };
+    // asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"}}", resolver);
+    // assert(error.kind == .NONE);
+    // gltf_free(*asset);
+    // ```
     gltf_local_resolve :: (user: *void, uri: string, limit: s64) -> string, bool {
         if !user || limit < 0 || !uri.count return "", false;
 
