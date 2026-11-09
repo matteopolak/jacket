@@ -6,16 +6,21 @@
 
 - `Toml` typed decoding takes `Table(string, V)` fields (inline tables, dotted keys and `[a.key]` headers), `Toml_Value` fields (any value, or tables built from headers, as an untyped tree the target owns) and `[N] T` fields from `[[x]]` headers. The typed encoder writes them back.
 - `Extensions/Gltf` unpacks a whole accessor into floats (`gltf_unpack_floats`), gives local and world node matrices (`gltf_node_local`, `gltf_node_world`) and decodes KHR_materials_emissive_strength, ior, transmission, clearcoat, KHR_texture_transform and KHR_lights_punctual into typed structs (`gltf_extension`).
-- The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies, macro expansion, polymorphic instances), not only compile-time code that is running.
+- The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies, macro expansion, polymorphic instances), not only compile-time code that is running. This includes each statement of a body and the parsing of `#insert`ed strings.
 - `Extensions/Toml`: `toml_encode` now counts scalars and arrays of tables toward `max_depth`, with the root at depth 0, so it refuses the same documents as `write_toml`. Its output limit errors for a value's line break now name the table, like `write_toml`.
 - `Extensions/Time`: `first_of_year` and `last_of_year` join `first_of_month` and `last_of_month`. A period's end is its last day, inclusive, because a `Date` is a whole day; add one day for an exclusive bound.
 - `jacket doc --check` on one module no longer fails on types it names from modules it imports; they have no page in that site and show as plain text.
+- `Extensions/Json`: `from_json(T, *tree)` decodes a `Json_Value` directly, and `to_json_value(value)` encodes into one.
+- `Extensions/Gltf`: typed structs for KHR_materials_sheen, specular, volume, iridescence, anisotropy and unlit, and `gltf_set_extension` / `gltf_use_extension` to write an edited typed extension back with `gltf_write`.
+- `Extensions/Gltf`: `gltf_write` rejects extension objects that `extensionsUsed` does not list, since the output would not load.
 
 ### Improved
 
 - `Postgres` query arguments (integers, floats, strings, bools, uuids, dates and times, numerics, json and arrays of them) and `copy_in` array and json members are encoded by code written for each type when the program compiles, not a walk over type information per value. Array arguments and array members encode about 1.8 times faster. Types outside that set (enums, `Json(T)`, arrays of them) behave as before.
 - The typed `Postgres` macros (`query`, `query_one`, `query_opt`, `execute`, `query_scalar`, `query_as`, `queue`, `queue_execute`, `stream`) read each argument's type at the call and encode plain, `Nullable` and array arguments with the encoder for that type, with no test of the type at run time. Other types and spread argument lists behave as before.
 - `jaifmt` and `Jai_Format` set a `[format]` setting by name with code written from `Format_Config` when the program compiles.
+- `gltf_extension` decodes the Json tree directly instead of writing it out and parsing it again, about 2.5 times faster; its error offset is now 0.
+- `Extensions/Csv` reads chunked sources about 2.2 times faster and `trim` input about 1.7 times faster: both now go through the 64-byte block scanner that slices use, and a record that crosses a chunk boundary is scanned once it is whole. A reader no longer keeps a position per field; a typed error finds its line and column again from the start of the record, with the same results.
 
 ### Changed
 
@@ -28,22 +33,7 @@
 - A default value of the wrong type in a struct nothing uses is reported.
 - `jailsp` checks an open file that several program entries reach under each of them, so what only one program finds wrong still shows after an edit; hover and navigation keep answering from the first entry.
 - `jailsp` says a project file that no entry loads or imports is in no program (an information diagnostic, `not-in-program`) and reports only its syntax errors, instead of leaving it silently unchecked.
-
-- The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies, macro expansion, polymorphic instances), not only compile-time code that is running. This includes each statement of a body and the parsing of `#insert`ed strings.
-
-## [Unreleased]
-
-### Fixed
-
 - A long `#run` that starts many short threads no longer grows the interpreter's thread table: a thread's slot is reused once it has ended and its handle is joined, detached or closed, and a handle kept past that point is rejected instead of naming a later thread.
-
-- `Extensions/Json`: `from_json(T, *tree)` decodes a `Json_Value` directly, and `to_json_value(value)` encodes into one.
-- `Extensions/Gltf`: typed structs for KHR_materials_sheen, specular, volume, iridescence, anisotropy and unlit, and `gltf_set_extension` / `gltf_use_extension` to write an edited typed extension back with `gltf_write`.
-- `Extensions/Gltf`: `gltf_write` rejects extension objects that `extensionsUsed` does not list, since the output would not load.
-
-### Changed
-
-- `gltf_extension` decodes the Json tree directly instead of writing it out and parsing it again, about 2.5 times faster; its error offset is now 0.
 
 ## [0.34.0] - 2026-11-09
 
