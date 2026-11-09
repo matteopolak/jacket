@@ -16,7 +16,7 @@
         for 1..64 {
             zone, e := Cache_Time.time_zone_get("America/New_York", directory = input.directory);
 
-            assert(e.kind == .NONE);
+            assert(e.kind == .NONE, tprint("America/New_York: % (build the zone data: `PYTHONPATH=tools python3 tools/portable/build_portable.py data`)", e.message));
             instant, _ := Cache_Time.timestamp_from_seconds(1710055800);
 
             assert(Cache_Time.offset_at(zone, instant).seconds == -14400);

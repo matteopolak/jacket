@@ -68,7 +68,7 @@ zoned_historical_days :: () {
     for name: string.["America/Sao_Paulo", "Asia/Gaza", "Pacific/Apia"] {
         zone, e := ZT.time_zone_get(name, directory = tprint("%/time-conformance/zoneinfo", root));
 
-        assert(e.kind == .NONE);
+        assert(e.kind == .NONE, tprint("%: % (build the zone data: `PYTHONPATH=tools python3 tools/portable/build_portable.py data`)", name, e.message));
         defer ZT.time_zone_free(*zone);
         wall := ZT.Date_Time.{ .{ 2018, 11, 4 }, .{ 12, 0, 0, 0 } };
         if name == "Asia/Gaza" wall.date = .{ 2020, 3, 28 };

@@ -23,7 +23,7 @@ time_conformance :: () {
 
     data, ok := Files_Time.read_entire_file(tprint("%/time-conformance/vectors.bin", root));
 
-    assert(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py data` first");
+    assert(ok, "no zone data: build it with `PYTHONPATH=tools python3 tools/portable/build_portable.py data`");
     defer free(data);
     cursor: s64;
     zones := vector_number(data, *cursor, 4);
@@ -37,7 +37,7 @@ time_conformance :: () {
         cursor += length;
         zone, error := Conformance_Time.time_zone_get(name, directory = tprint("%/time-conformance/zoneinfo", root));
 
-        assert(error.kind == .NONE, tprint("%: % at %", name, error.message, error.offset));
+        assert(error.kind == .NONE, tprint("%: % at % (build the zone data: `PYTHONPATH=tools python3 tools/portable/build_portable.py data`)", name, error.message, error.offset));
         defer Conformance_Time.time_zone_free(*zone);
         count := vector_number(data, *cursor, 4);
         for 1..count {
