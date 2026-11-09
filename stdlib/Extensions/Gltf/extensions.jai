@@ -34,8 +34,8 @@ gltf_extension :: (extensions: *Json_Value, name: string, $T: Type) -> T, bool, 
 // Store a typed extension in the `extensions` of a document, node, material or texture reference,
 // replacing the extension of that name: the write-back of [gltf_extension]. An `extensions` that is
 // absent becomes an object. The value is encoded straight away, so it may be freed or changed
-// afterwards. A struct that does not encode, or an `extensions` that is not an object, gives an
-// error and leaves it unchanged. Declare the extension with [gltf_use_extension], or the written
+// afterwards. An `extensions` that is not an object gives an error and is left
+// unchanged. Declare the extension with [gltf_use_extension], or the written
 // asset will not load.
 //
 // ```jai
@@ -53,17 +53,9 @@ gltf_extension :: (extensions: *Json_Value, name: string, $T: Type) -> T, bool, 
 gltf_set_extension :: (extensions: *Json_Value, name: string, value: $T) -> Gltf_Error {
     if extensions.kind != .NULL && extensions.kind != .OBJECT return failure(.INVALID, "extensions must be an object", "");
 
-    encoded, encode_error := to_json_value(value);
-
-    if encode_error.kind != .NONE {
-        e := failure(.JSON, encode_error.message, json_path_text(encode_error), encode_error.offset);
-        free_json(*encode_error);
-        return e;
-    }
-
     if extensions.kind == .NULL extensions.* = json_object();
 
-    json_set(extensions, name, encoded);
+    json_set(extensions, name, to_json_value(value));
 
     return .{};
 }

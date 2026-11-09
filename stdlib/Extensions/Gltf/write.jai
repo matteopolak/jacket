@@ -22,30 +22,20 @@ gltf_write :: (asset: *Gltf_Asset, binary := false, options := Gltf_Options.{}) 
     if e.kind != .NONE return "", e;
 
     // A typed copy keeps ownership and optional-field presence independent of the caller.
-    original := to_json(asset.document);
+    tree := to_json_value(asset.document);
 
-    defer free(original);
-    if original.count > options.max_size return "", failure(.LIMIT, "JSON exceeds output limit", "/");
+    defer free_json(*tree);
 
     // The output must load again: extension objects need their names in `extensionsUsed`.
-    shape, shape_json := from_json(Json_Value, original, Json_Options.{ max_size = options.max_size, max_depth = options.max_depth });
-
-    if shape_json.kind != .NONE {
-        e = failure(.JSON, shape_json.message, tprint("/%", shape_json.path), shape_json.offset);
-        free_json(*shape_json);
-        return "", e;
-    }
-
     used: Table(string, bool);
 
     defer table_reset(*used);
     for name: asset.document.extensions_used table_add(*used, name, true);
 
-    e = check_shape(*shape, "", *used, options);
-    free_json(*shape);
+    e = check_shape(*tree, "", *used, options);
     if e.kind != .NONE return "", e;
 
-    doc, je := from_json(Gltf_Document, original, Json_Options.{ max_size = options.max_size, max_depth = options.max_depth });
+    doc, je := from_json(Gltf_Document, *tree, Json_Options.{ max_depth = options.max_depth });
     if je.kind != .NONE {
         e = failure(.JSON, je.message, tprint("/%", je.path), je.offset);
         free_json(*je);
