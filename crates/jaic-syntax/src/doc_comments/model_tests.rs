@@ -903,6 +903,25 @@ fn a_modules_tests_and_benches_are_not_documented() {
 }
 
 #[test]
+fn directive_operands_are_not_type_references() {
+    let dir = library(
+        "directive-operands",
+        &[(
+            "module.jai",
+            "Slot :: struct {\n    base: Header;\n    #place base;\n    items: [#run count_of(Count)] u8;\n    next: *Slot;\n}\n\nHeader :: struct {}\nbase :: struct {}\nCount :: struct {}\ncount_of :: (x: Type) -> int { return 1; }\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let item = model.items.iter().find(|i| i.name == "Slot").unwrap();
+    let mut paths: Vec<_> = item.decl_refs.iter().map(|r| r.path.as_str()).collect();
+    paths.sort_unstable();
+    paths.dedup();
+    // `base` and `Count` are named by directives, as an expression and a field, not as types.
+    assert_eq!(paths, ["Header", "Slot"]);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn a_public_top_level_insert_is_reported_with_its_place() {
     let dir = library(
         "top-level-insert",

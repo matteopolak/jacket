@@ -2,6 +2,7 @@
 //! leads a reader to.
 use super::super::refs::TypeRef;
 use super::{Item, Module, Reader, TopIndex, class_kind, os_names, struct_params};
+use crate::ast::walk::{Node, walk_node};
 use crate::ast::{Decl, EnumItem, Expr, ExprKind, Stmt, StmtKind};
 use crate::docs;
 use crate::lexer::lex_with_trivia;
@@ -81,6 +82,10 @@ fn declared_names(decl: &Decl) -> Vec<(usize, usize)> {
             match &stmt.kind {
                 StmtKind::Decl(d) => from_decl(d, out),
                 StmtKind::Expr(e) => from_expr(e, out),
+                // `#place field;` names a field of this struct, not a type.
+                StmtKind::Place(e) | StmtKind::Overlay(e) => {
+                    out.push((e.span.start as usize, e.span.end as usize));
+                }
                 StmtKind::StaticIf(branches) => {
                     // The condition is an expression about the build, not a type.
                     out.push((
@@ -100,9 +105,40 @@ fn declared_names(decl: &Decl) -> Vec<(usize, usize)> {
                 .iter()
                 .map(|n| (n.span.start as usize, n.span.end as usize)),
         );
+        if let Some(ty) = &decl.ty {
+            value_directives(ty, out);
+        }
+        if let Some(value) = &decl.value {
+            value_directives(value, out);
+        }
         if let Some(value) = &decl.value {
             from_expr(value, out);
         }
+    }
+    /// The directives under `expr` whose operands are values, not types (`[#run count(T)] u8`):
+    /// the whole directive, which is not entered.
+    fn value_directives(expr: &Expr, out: &mut Vec<(usize, usize)>) {
+        walk_node(Node::Expr(expr), &mut Vec::new(), &mut |node, _| {
+            let Node::Expr(e) = node else {
+                return true;
+            };
+            if matches!(
+                e.kind,
+                ExprKind::Run { .. }
+                    | ExprKind::Code(_)
+                    | ExprKind::Insert(_)
+                    | ExprKind::Location(_)
+                    | ExprKind::ProcedureName(_)
+                    | ExprKind::Bake { .. }
+                    | ExprKind::ProcedureOfCall(_)
+                    | ExprKind::Exists(..)
+                    | ExprKind::Bytes(_)
+            ) {
+                out.push((e.span.start as usize, e.span.end as usize));
+                return false;
+            }
+            true
+        });
     }
     fn from_members(items: &[EnumItem], out: &mut Vec<(usize, usize)>) {
         for item in items {

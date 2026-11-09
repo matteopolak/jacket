@@ -37,6 +37,7 @@
 - Struct default overrides, declaration order in struct scopes and contextual expression types.
 - HTTP bounds `CONTINUATION` frames per header block and closes pooled TLS connections with their config.
 - The language server merges diagnostics for a file shared by several programs, cancels unfinished pulls and notices files changed on disk.
+- `jacket doc` no longer links a name in `#run`, `#place` or another value directive's operand in a declaration to a same-named type.
 - `jacket doc` search results show every overload's signature, not only the first.
 - `jacket doc` warns, with file and line, about a public top-level `#insert`: what it declares is not documented, because the model reads source and never runs it.
 - `jacket doc` keeps comments in a struct, union or enum declaration that are not a field's docs, such as one on a nested type alias or a closing note.
