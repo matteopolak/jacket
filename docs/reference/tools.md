@@ -466,7 +466,7 @@ jacket doc [OPTIONS] [PATH]
 | `--version <VERSION>` | The version shown in the header [default: none] |
 | `--logo <FILE>` | An SVG or PNG for the header and the page icon, over `[doc] logo` [default: none] |
 | `--repo <URL>` | The repository's web address, over `[doc] repo`; Source links go to `<URL>/blob/<ref>/<file>` [default: none, and no Source links] |
-| `--runtime <DIR>` | A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so the Run buttons work; without it they are shown disabled |
+| `--runtime <DIR>` | A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so the Run buttons work; without it they are shown disabled. The examples are then tested in that compiler under Node (standard library only; an error without `node`) |
 | `--playground-url <URL>` | Where "open in playground" and the Playground link go, over `[doc] playground` [default: none, and no links] |
 | `--source-ref <REF>` | The tag, branch or commit Source links point at [default: the checkout's commit] |
 | `--module <NAME>` | Document only these modules (`String`, `Extensions/Http`); repeatable |

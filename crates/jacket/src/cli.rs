@@ -334,7 +334,8 @@ pub struct DocArgs {
     #[arg(long, value_name = "URL")]
     pub repo: Option<String>,
     /// A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so
-    /// the Run buttons work; without it they are shown disabled
+    /// the Run buttons work; without it they are shown disabled. The examples are then tested in
+    /// that compiler under Node (standard library only; an error without `node`)
     #[arg(long, value_name = "DIR")]
     pub runtime: Option<std::path::PathBuf>,
     /// Where "open in playground" and the Playground link go, over `[doc] playground`
