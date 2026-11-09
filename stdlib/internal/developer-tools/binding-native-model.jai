@@ -835,9 +835,9 @@ emit_model :: (builder: *String_Builder, model: *Native_Model, options: Generate
         if !declaration.type || !looks_like_valid_identifier(declaration.output_name) return false;
 
         if options.try_to_preserve_comments && declaration.comment.text {
-            lines := split(declaration.comment.text, "\n");
-            defer free(lines.data);
-            for line: lines print_to_builder(builder, "// %\n", line);
+            prefix := declaration.comment;
+            prefix.location.line = 1;
+            ge_prefix_comment(builder, prefix, false);
         }
 
         if declaration.kind == .TYPEDEF && declaration.type.type_of_struct && declaration.output_name == declaration.type.type_of_struct.output_name continue;

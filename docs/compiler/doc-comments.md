@@ -30,6 +30,24 @@ Fenced code in a doc comment is a doc test that `jacket test` runs. Untagged fen
 - ```` ```jai,ignore ```` is skipped.
 - `skip_on(wasm)`, `only(linux, macos)`, `needs(...)` and `timeout(...)` work as in [jacket test](../tools/jacket-test.md).
 
+## Header documentation in Bindings_Generator
+
+With `try_to_preserve_comments` (the default), `Bindings_Generator` turns libclang header comments into Markdown doc comments; turning it off drops them. Visitors still see the raw text.
+
+| Header | Output |
+| --- | --- |
+| `@brief text` | `text` |
+| `@param[in] x text` | `- x: text` (consecutive params form one list) |
+| `@return text` | `Returns text` |
+| `@note`, `@warning`, `@deprecated` | `**Note** text`, ... |
+| `@see`, `@sa` | `See also: text` |
+| `@code` ... `@endcode` | a ```` ```c ```` fence |
+| other `@tag text` | `tag text` |
+
+Backslash tags work too. Each tag starts its own paragraph. Prose wraps at `[format].max_width` from the nearest `jacket.toml` above the working directory. A trailing `///<` member doc stays on the member's line, since a doc below a field would document the next one.
+
+The conversion is in `stdlib/internal/developer-tools/generator-emission.jai`. `tools/developer_checks/check_developer_doc_comments.py` checks the exact output, the configured width, and that `jacket doc` reads the parameter docs.
+
 ## How it works
 
 - `crates/jaic-syntax/src/docs.rs` (shared with jailint) works from lexer tokens, no parse. A comment belongs to the declaration whose first token follows it. Links come from `pulldown-cmark`.

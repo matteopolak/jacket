@@ -3,10 +3,14 @@ prepend_comment :: (comment: *Comment, text: string) {
     ge_prepend_comment(comment, text);
 }
 
+// Emit header documentation as Markdown // lines above a declaration.
+// Example: append_prefix_comment(*builder, .{ text = "/** Summary. */", location = .{ line = 1 } }, false);
 append_prefix_comment :: (builder: *String_Builder, comment: Comment, indent: bool) {
     ge_prefix_comment(builder, comment, indent);
 }
 
+// Emit a trailing member doc on its declaration line.
+// Example: append_postfix_comment(*builder, .{ text = "///< Stored value." });
 append_postfix_comment :: (builder: *String_Builder, comment: Comment) {
     ge_postfix_comment(builder, comment);
 }

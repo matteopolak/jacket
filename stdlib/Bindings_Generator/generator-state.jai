@@ -48,6 +48,7 @@ Generator :: struct #type_info_none {
     int128_was_referenced: bool;
     generated_printf_wrapper: bool;
     tab_depth := 0;
+    comment_max_width: int;
     template_depth := 0;
     clang_index: CXIndex;
     translation_unit: CXTranslationUnit;

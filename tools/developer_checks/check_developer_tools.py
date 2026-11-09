@@ -42,6 +42,7 @@ CHECKS = [
     ("check_developer_cpp_wrappers", ("Darwin", "Linux")),
     ("check_developer_type_emission", ()),
     ("check_developer_value_emission", ()),
+    ("check_developer_doc_comments", ()),
     ("check_developer_check", ()),
     ("check_developer_check_plugin", ()),
     ("check_developer_refined_emission", ()),

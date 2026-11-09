@@ -42,7 +42,7 @@ main :: () {
         free(text);
         B.append_prefix_comment(*builder, .{ text = "// alpha\n// beta" }, true);
         text = extract(*builder);
-        assert(text == "// alpha\n  // beta\n  ");
+        assert(text == "// alpha beta\n  ");
         free(text);
     }
 
@@ -66,15 +66,15 @@ main :: () {
     B.append_postfix_comment(*builder, .{ text = "///< value" });
     text := extract(*builder);
 
-    assert(text == " ///< value");
+    assert(text == " // value");
     free(text);
     B.append_prefix_comment(*builder, .{ text = " \t// trimmed\r\n \t// next\t ", location = .{ line = 2 } }, false);
     text = extract(*builder);
-    assert(text == "// trimmed\n// next\n");
+    assert(text == "// trimmed next\n");
     free(text);
     B.append_postfix_comment(*builder, .{ text = "// one\r// two" });
     text = extract(*builder);
-    assert(text == " // one\n// two");
+    assert(text == " // one two");
     free(text);
     B.append_prefix_comment(*builder, .{ text = "///< value" }, false);
     B.append_postfix_comment(*builder, .{ text = "// prefix", location = .{ line = 1 } });
