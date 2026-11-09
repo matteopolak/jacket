@@ -24,10 +24,17 @@ pub(super) const BUILTIN_TYPES: &[&str] = &[
 ];
 
 /// The names in a type as written, `Hash.Table` as one: `[3] Hash.Table(string, T)` has
-/// `Hash.Table`, `string` and `T`. A `$T` that the call binds is left out.
-/// Directive identifiers are syntax: `*#Context` contributes no declaration name.
+/// `Hash.Table`, `string` and `T`. Directive identifiers are syntax: `*#Context` contributes no
+/// declaration name. Names the type binds for itself are not references either: a `$T` and every
+/// later use of `T` in it, a parameter's name in `(a: T)`, and a named argument's in `F(key = V)`.
 pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
     let chars: Vec<char> = ty.chars().collect();
+    let bound = bound_names(&chars);
+    // The first character after the spaces from `at`.
+    let after = |at: usize| {
+        let at = (at..chars.len()).find(|&n| chars[n] != ' ')?;
+        Some((chars[at], chars.get(at + 1).copied()))
+    };
     let mut out = Vec::new();
     let mut i = 0;
     while i < chars.len() {
@@ -83,11 +90,37 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
             }
             i += 1;
         }
-        if !baked {
+        // `a: T` declares `a`; `key = V` names a parameter. `::`, `:=` and `==` are neither.
+        let declares = matches!(after(i), Some((':', next)) if !matches!(next, Some(':' | '=')))
+            || matches!(after(i), Some(('=', next)) if next != Some('='));
+        if !baked && !declares && !bound.contains(&path[0]) {
             out.push(path);
         }
     }
     out
+}
+
+/// The names `$Name` and `$$Name` bind in a type written as `chars`.
+fn bound_names(chars: &[char]) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] != '$' {
+            i += 1;
+            continue;
+        }
+        while chars.get(i) == Some(&'$') {
+            i += 1;
+        }
+        let start = i;
+        while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+            i += 1;
+        }
+        if i > start {
+            names.push(chars[start..i].iter().collect());
+        }
+    }
+    names
 }
 
 /// `,"refs":[["Hash.Table","Hash_Table/table.jai",12]]`, or nothing when no name resolved.

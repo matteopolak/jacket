@@ -653,7 +653,7 @@ fn directives_are_not_same_spelled_declaration_references() {
     assert_eq!(type_paths("*#Context"), Vec::<Vec<String>>::new());
     assert_eq!(
         type_paths("#type (a: Context) -> Other.Context"),
-        [vec!["a"], vec!["Context"], vec!["Other", "Context"]]
+        [vec!["Context"], vec!["Other", "Context"]]
     );
     assert_eq!(type_paths("#arbitrary Context"), [vec!["Context"]]);
     let dir = library(
@@ -685,6 +685,35 @@ fn directives_are_not_same_spelled_declaration_references() {
             .iter()
             .any(|r| r.path == "Other.Context" && r.file == dir.join("other.jai"))
     );
+}
+
+/// A directive's operands are read in their own scope: a parameter's name and a `$T` bound in
+/// the same type are not references, even when the library declares the same name.
+#[test]
+fn names_a_type_binds_for_itself_are_not_references() {
+    assert_eq!(
+        type_paths("#type (a: $T, b: *T, c: Other.T) -> T"),
+        [vec!["Other", "T"]]
+    );
+    assert_eq!(
+        type_paths("Table(key = Key, $V, V)"),
+        [vec!["Table"], vec!["Key"]]
+    );
+    let dir = library(
+        "bound-names",
+        &[(
+            "module.jai",
+            "T :: struct { x: int; }\na :: 1;\nuse :: (callback: #type (a: $T, b: T) -> T) {}\n",
+        )],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let procedure = model.items.iter().find(|i| i.name == "use").unwrap();
+    let refs: Vec<_> = procedure.overloads[0].params[0]
+        .refs
+        .iter()
+        .map(|r| r.path.as_str())
+        .collect();
+    assert!(refs.is_empty(), "{refs:?}");
 }
 
 #[test]
