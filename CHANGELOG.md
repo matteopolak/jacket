@@ -30,6 +30,7 @@
 - The language server merges diagnostics for a file shared by several programs, cancels unfinished pulls and notices files changed on disk.
 - `jacket doc` shows every `#if` variant of a declaration and the right import path for a module documented by its folder.
 - `Hash_Map` rebuild threshold, glTF skin validation and `jaifmt` setting migration.
+- `Archive` rejects ZIP files with repeated central ZIP64 records, and treats an empty pax value in a TAR header as deleting the field.
 - `Toml` writes empty tables as headers and `float32` values in their shortest form, names array-of-tables elements in error paths, and no longer slows down quadratically on wide unknown tables.
 
 ## [0.33.0] - 2026-11-04
