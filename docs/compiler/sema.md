@@ -57,7 +57,7 @@ The editor fades code that cannot run, and batch compiles warn after `return`, `
 ### Pending and deferred work
 
 - Resolving an undefined `#placeholder` makes dependent items wait and retry at the next settle, since a metaprogram may define it later.
-- `drain_bodies_lenient` lowers what it can before a thunk runs; `drain_bodies` retries failures while any progress is made, then reports the first error.
+- `drain_bodies_lenient` lowers what it can before a thunk runs; a body that failed, including one whose compile-time code trapped, is skipped until `lower_epoch` moves, so its `#insert`s do not run again on every call; `drain_bodies` retries failures while any progress is made, then reports the first error.
 - The parser keeps how a literal was spelled; sema carries it on the constant for messages.
 
 ## How to change it

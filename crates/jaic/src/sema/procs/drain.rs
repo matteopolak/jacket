@@ -133,12 +133,6 @@ impl Compiler {
                         progress |= (id.0 as usize) < existing;
                         self.pr.lenient_failures.remove(&id);
                     }
-                    Err(e) if self.ct.traps != traps => {
-                        // Running it again would repeat compile-time code on top of what the
-                        // failed run left behind.
-                        finished_error.get_or_insert(e);
-                        finished.push(id);
-                    }
                     Err(e) => {
                         // Waiting for a `#placeholder` is settled by the metaprogram, at any time;
                         // something in progress (a signature, a layout) by the caller finishing.
@@ -149,6 +143,14 @@ impl Compiler {
                         {
                             let epoch = self.lower_epoch();
                             self.pr.lenient_failures.insert(id, (epoch, e.clone()));
+                        }
+                        if self.ct.traps != traps {
+                            // Running it again would repeat compile-time code on top of what the
+                            // failed run left behind: not within this call, and in a later one
+                            // only once something changed (the failure above is reused until then).
+                            finished_error.get_or_insert(e);
+                            finished.push(id);
+                            continue;
                         }
                         first.get_or_insert(e);
                         retry.push(id);

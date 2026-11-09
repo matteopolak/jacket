@@ -145,3 +145,46 @@ fn removing_ide_facts_keeps_strict_lowering_unmemoized() {
         "strict lowering must really execute, not consult IDE failure facts"
     );
 }
+
+/// `bad<i>` traps in its `#insert`; `good<i>` lowers fine. Both are exports, so a lenient
+/// lowering takes them up.
+fn failing_and_good_bodies(n: usize) -> String {
+    let mut source = String::new();
+    for i in 0..n {
+        source += &format!(
+            "bad{i} :: () -> s64 #program_export {{ #insert -> string {{ a: [2] s64; k := {i} + 5; a[k] = 1; return \"inserted := {i};\"; }} return {i}; }}\n"
+        );
+    }
+    for i in 0..n {
+        source += &format!("good{i} :: () -> s64 #program_export {{ return {i}; }}\n");
+    }
+    source += "main :: () {";
+    for i in 0..n {
+        source += &format!(" bad{i}(); good{i}();");
+    }
+    source + " }"
+}
+
+/// The compile-time runs done by `rounds` calls of `lower_reachable`, the way a metaprogram
+/// that keeps asking for more lowering makes them, over `n` bodies whose `#insert` traps.
+fn runs_over_rounds(n: usize, rounds: usize) -> u64 {
+    let mut options = Options::host();
+    options.runtime_support = false;
+    options.stack_trace = false;
+    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    compiler
+        .begin_sources(&[super::ProgramSource::String(
+            failing_and_good_bodies(n).into(),
+        )])
+        .unwrap();
+    for _ in 0..rounds {
+        compiler.lower_reachable();
+    }
+    compiler.ct.executions
+}
+
+#[test]
+fn a_body_whose_insert_trapped_is_not_run_again_while_nothing_changed() {
+    let (one, many) = (runs_over_rounds(4, 1), runs_over_rounds(4, 6));
+    assert_eq!(many, one, "later rounds must not redo the failing bodies");
+}
