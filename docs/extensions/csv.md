@@ -168,21 +168,35 @@ csv-spectrum archive and extracts CSV/JSON fixtures under
 `JACKET_OUTPUT_DIR` relocates fixtures and output; `XDG_CACHE_HOME`
 relocates the download cache. Benchmarks are in `benches/bench.jai`.
 
-The reader scans runs of plain bytes in the current window with a 256-entry table
-(`Csv_Core.stops`, built from the options) and handles only delimiters, quotes
-and line breaks one byte at a time. A run is checked against the field and record
-limits once, and fails at the same byte a byte-by-byte reader would. A 16-byte
-vector scan (`Extensions/SIMD`) in place of the table loop was slower (about 130 ms
-against 85 ms for records on the benchmark file): its fields average ten bytes, so
-a vector rarely gets past one. A document of long fields may differ; measure first. Line and
-column are not tracked per byte: a reader keeps the line number and where the
-line began, and each field remembers both for typed errors. When the input is a
-slice, a field with no doubled quotes is a view of the input; otherwise, and for
-every chunked source, its bytes are copied into one reused buffer. The writer
+A slice input is read a record at a time by `read_record_fast`. Every 64 bytes
+of the window get two bitmasks from `load_block` (`Extensions/SIMD`, one 64-byte
+compare per byte class): the bytes that end an unquoted field (delimiter, CR, LF,
+and the quote unless `lax_quotes`) and those that end a quoted run (quote, CR,
+LF). `scan_from` takes the next set bit with a count of trailing zeros, so a
+field costs one bit scan instead of a loop over its bytes, and one block serves
+about six fields. The masks are cached per block and dropped when a chunked
+source refills its window. The simdcsv-style prefix XOR of the quote mask is not
+used: it assumes well-formed quotes, and the reader must also report quote
+errors by position, honour `lax_quotes` and stop at the exact byte of a limit.
+Following the quote state field by field gives the speed without those
+exceptions. A vector scan that read 16 bytes per field was slower (about
+130 ms against 85 ms for records): fields average ten bytes.
+
+The fast path keeps a field as a view of the input, or decodes it into the reused
+buffer when it holds doubled quotes. It leaves the reader untouched until the
+whole record is read and within its limits; anything else (a quote error, a
+limit, EOF inside quotes) makes `read_record` read the record again byte by
+byte, which also reports the error. Chunked sources and `trim` always use that
+byte path, with the same masks finding runs. Line and column are not tracked
+per byte: a reader keeps the line number and where the line began, advanced at
+line breaks (CRLF counts once), and each field remembers both for typed errors.
+The fields of a chunked source are copied into one reused buffer. The writer
 checks each field once, sizes the record exactly and builds it in place in the
-builder. Change the scanning in `read_field`, `span` and `take` together; the
-chunk and limit tests in `tests/streaming.jai` compare slice and chunked input
-byte for byte, including error positions.
+builder. Change `read_record_fast` and `read_field`, `span` and `take` together:
+`tests/scanner.jai` puts every byte class on each side of a block boundary and
+compares slice input (fast path) with chunked input (byte path) on random
+documents and random byte soup, and the chunk and limit tests in
+`tests/streaming.jai` compare them byte for byte, including error positions.
 
 The spectrum test compares all twelve CSV/JSON pairs with no skipped cases.
 At the pinned revision, `location_coordinates.json` gives a different phone
@@ -191,15 +205,17 @@ chunk boundaries, typed conversions and allocation balance.
 
 ## Compared with the community libraries
 
-`benchmarks/compare/csv/benches/csv.jai` (`tools/bench/library_compare.py csv`, see [library comparisons](../tools/library-comparisons.md)) runs Csv and [rluba/jai-csv](https://github.com/rluba/jai-csv) on the ~50 MB mixed file (about a million rows, LF endings so jai-csv can read it) and on 100,000 records written (Apple M5, one thread):
+`benchmarks/compare/csv/benches/csv.jai` (`tools/bench/library_compare.py csv`, see [library comparisons](../tools/library-comparisons.md)) runs Csv and [rluba/jai-csv](https://github.com/rluba/jai-csv) on two ~50 MB files of a million rows (LF endings so jai-csv can read them) and on 100,000 records written (Apple M5, one thread). "Quoted" repeats one row of an integer, a quoted name with a comma, a float, a bool and a quoted field with doubled quotes. "Plain" is closer to exported data: varied ids, names, numbers and notes, with one row in twenty holding a quoted name with a comma.
 
 | Workload | Csv | Csv with `borrow` | jai-csv |
 | --- | --- | --- | --- |
-| records (parse all) | 69 ms, 800 MB/s | | 74 ms, 745 MB/s |
-| typed rows | 112 ms, 490 MB/s | 105 ms, 525 MB/s | 113 ms, 490 MB/s |
-| write | 6.4 ms, 860 MB/s | | 7.6 ms, 725 MB/s |
+| records, quoted | 48 ms, 1140 MB/s | | 83 ms, 666 MB/s |
+| typed rows, quoted | 97 ms, 569 MB/s | 92 ms, 601 MB/s | 122 ms, 453 MB/s |
+| records, plain | 36 ms, 1420 MB/s | | 53 ms, 974 MB/s |
+| typed rows, plain | 88 ms, 590 MB/s | 62 ms, 832 MB/s | 95 ms, 546 MB/s |
+| write | 6.6 ms, 839 MB/s | | 7.7 ms, 718 MB/s |
 
-Three runs, each with both libraries, with a one-minute load average of 10 to 15 on the 10 cores; the typed rows of Csv and jai-csv swapped places between runs (0.98x to 1.04x). Csv parses records about 7% faster and writes about 15% faster; typed rows are level, and `borrow` is about 7% faster than either. The reader maps header names once, so a row only decodes its members. jai-csv does less: it keeps no position, has no limits and takes the whole input at once. jai-csv has no record reader, so "records" calls its `csv_consume_col` per field, and "typed" uses `csv_parse` into the same struct without the `bool` column, which it can't read. Both libraries produce the same counts, rows and written bytes, checked before the timer.
+One run of both libraries at a one-minute load average of 5 to 9 on the 10 cores; the spread within a run was under 3% except for typed rows with `borrow`, and jai-csv varied between runs (records 75 to 83 ms on the quoted file). Before the block scanner the same benchmark gave 74 ms (746 MB/s) and 64 ms (805 MB/s) for records, 120 ms and 105 ms for typed rows, so records now parse 1.5x to 1.8x faster than before and 1.5x to 1.7x faster than jai-csv; typed rows are about 1.2x faster than before and 1.1x to 1.3x faster than jai-csv, and `borrow` saves another 5% to 30% (more on the plain file, where fewer strings need copying). Typed rows spend most of their time decoding members, not scanning, so they gained less. Writing is unchanged, 1.2x faster than jai-csv. The reader maps header names once, so a row only decodes its members. jai-csv does less: it keeps no position, has no limits and takes the whole input at once. jai-csv has no record reader, so "records" calls its `csv_consume_col` per field, and "typed" uses `csv_parse` into the same struct without the `bool` column, which it can't read. Both libraries produce the same counts, rows and written bytes on both files, checked before the timer.
 
 | Feature | Csv | jai-csv |
 | --- | --- | --- |
