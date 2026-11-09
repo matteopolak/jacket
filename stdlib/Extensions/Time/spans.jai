@@ -305,6 +305,12 @@ calendar_limit :: (u: Unit) -> s64 {
     return 7400000;
 }
 
+// Adds a span, applying the gap/overlap policy where the type is zoned.
+add_with :: (a: $T, s: Span, policy: Disambiguation) -> T, Time_Error {
+    #if T == Zoned return add(a, s, disambiguation = policy);
+    else return add(a, s);
+}
+
 // Whether a plus `n` of `u` (on top of base, in direction sign) stays on a's side of b.
 unit_fits :: (a: $T, b: T, base: Span, u: Unit, sign: s64, n: s64, policy: Disambiguation) -> bool {
     trial := base;
@@ -491,7 +497,7 @@ difference :: (a: $T, b: T, largest: Unit, smallest: Unit, mode: Rounding, incre
         put_unit(*result, small, base);
 
         #if T != Timestamp {
-            lower, le := add(a, result);
+            lower, le := add_with(a, result, policy);
             if le.kind != .NONE return .{}, le;
             if value_ns(lower) == value_ns(b) return result, .{};
             if increment > 2147483647 return .{}, range_error();
@@ -499,7 +505,7 @@ difference :: (a: $T, b: T, largest: Unit, smallest: Unit, mode: Rounding, incre
             trial := result;
 
             put_unit(*trial, small, base + sign * increment);
-            upper, ue := add(a, trial);
+            upper, ue := add_with(a, trial, policy);
             if ue.kind != .NONE return .{}, ue;
 
             if round_up(mode, sign < 0, (base / increment) % 2 != 0, wide_abs(value_ns(b) - value_ns(lower)), wide_abs(value_ns(upper) - value_ns(b))) {
@@ -514,7 +520,7 @@ difference :: (a: $T, b: T, largest: Unit, smallest: Unit, mode: Rounding, incre
 
     #if T == Timestamp return result, .{};
     else {
-        end, ee := add(a, result);
+        end, ee := add_with(a, result, policy);
         if ee.kind != .NONE return .{}, ee;
         return difference_raw(a, end, largest, .NANOSECOND, policy);
     }

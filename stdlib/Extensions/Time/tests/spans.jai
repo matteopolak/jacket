@@ -114,3 +114,22 @@ span_zoned_relative :: () {
 
     assert(be.kind == .NONE && ST.equal(back, end));
 } @test
+
+// Rounding to days measures the neighbouring days with the caller's gap policy: with .EARLIER
+// the day after 02:30 on 2024-03-09 starts an hour sooner than with the default, so the same
+// end is past the midpoint instead of exactly on it.
+rounding_follows_disambiguation :: () {
+    zone, ze := ST.time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+
+    assert(ze.kind == .NONE);
+    defer ST.time_zone_free(*zone);
+    a, ae := ST.to_zoned(.{ .{ 2024, 3, 9 }, .{ 2, 30, 0, 0 } }, zone);
+    b, be := ST.to_zoned(.{ .{ 2024, 3, 10 }, .{ 15, 0, 0, 0 } }, zone);
+
+    assert(ae.kind == .NONE && be.kind == .NONE);
+    tie, te := ST.until(a, b, .DAY, .DAY, .HALF_TRUNC, 1, .COMPATIBLE);
+    early, ee := ST.until(a, b, .DAY, .DAY, .HALF_TRUNC, 1, .EARLIER);
+
+    assert(te.kind == .NONE && ee.kind == .NONE);
+    assert(tie.days == 1 && early.days == 2);
+} @test
