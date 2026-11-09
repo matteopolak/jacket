@@ -4,13 +4,13 @@
   <p>
     <a href="https://github.com/matteopolak/jacket/actions/workflows/ci.yml"><img src="https://github.com/matteopolak/jacket/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="https://github.com/matteopolak/jacket/releases/latest"><img src="https://img.shields.io/github/v/release/matteopolak/jacket" alt="Latest release"></a>
-    <a href="https://jacket.zulipchat.com/join/rzi2dto5ll5s3fhjc3rk6sgl/"><img src="https://img.shields.io/badge/chat-on%20Zulip-blue?logo=zulip" alt="Chat on Zulip"></a>
+    <a href="https://jacket.zulipchat.com/register/"><img src="https://img.shields.io/badge/chat-on%20Zulip-blue?logo=zulip" alt="Chat on Zulip"></a>
   </p>
   <p>
     <a href="https://jacket.matteopolak.com"><b>API docs</b></a> ·
     <a href="docs/README.md"><b>Guides and reference</b></a> ·
     <a href="https://matteopolak.com/playground/jacket">Playground</a> ·
-    <a href="https://jacket.zulipchat.com/join/rzi2dto5ll5s3fhjc3rk6sgl/">Chat (Zulip)</a> ·
+    <a href="https://jacket.zulipchat.com/register/">Chat (Zulip)</a> ·
     <a href="CHANGELOG.md">Changelog</a>
   </p>
 </div>
