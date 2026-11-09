@@ -23,6 +23,7 @@ copy_in :: (c: *Connection, sql: string, rows: [] $Row, columns: [] string = .[]
     state.data = cast(*u8) rows.data;
     state.count = rows.count;
     state.stride = size_of(Row);
+    state.put_member = #bake_arguments copy_put_erased(Row = Row);
 
     error := copy_fields(*state, type_info(Row), columns);
     if error.kind != .NONE return 0, error;
@@ -403,6 +404,8 @@ Copy_State :: struct {
     count: s64;
     stride: s64;
     fields: [..] Copy_Field;
+    // Writes one member of a row of the struct being sent (`copy_put_member`, for that struct).
+    put_member: (out: *[..] u8, row: *u8, field: Copy_Field) -> string;
 
     next: s64; // the next row to encode
     started: bool; // the header is sent
@@ -412,7 +415,8 @@ Copy_State :: struct {
 }
 
 Copy_Field :: struct {
-    member: *Type_Info_Struct_Member;
+    member: s64; // index in the struct's members
+    name: string;
     json_text: bool; // `@pg_json`: a json document goes as `json`, without jsonb's version byte
 }
 
@@ -429,19 +433,19 @@ copy_fields :: (state: *Copy_State, info: *Type_Info, columns: [] string) -> Pg_
     if !columns.count {
         for *struct_info.members {
             if it.flags & .CONSTANT continue;
-            array_add(*state.fields, .{ member = it, json_text = has_note(it, "pg_json") });
+            array_add(*state.fields, .{ it_index, it.name, has_note(it, "pg_json") });
         }
 
         return .{};
     }
 
     for name: columns {
-        found: *Type_Info_Struct_Member;
-        for *struct_info.members if it.name == name && !(it.flags & .CONSTANT) found = it;
+        found := -1;
+        for *struct_info.members if it.name == name && !(it.flags & .CONSTANT) found = it_index;
 
-        if !found return make_error(.USAGE, "% has no member \"%\" to copy", type_to_string(info,, temp), name);
+        if found < 0 return make_error(.USAGE, "% has no member \"%\" to copy", type_to_string(info,, temp), name);
 
-        array_add(*state.fields, .{ member = found, json_text = has_note(found, "pg_json") });
+        array_add(*state.fields, .{ found, name, has_note(*struct_info.members[found], "pg_json") });
     }
 
     return .{};
@@ -470,11 +474,11 @@ copy_next_chunk :: (hooks: *Script_Hooks, copy: *Copy_Info) -> data: string, don
         put_u16(*state.buffer, cast(u16) state.fields.count);
 
         for state.fields {
-            why := put_copy_value(*state.buffer, Any.{ it.member.type, row + it.member.offset_in_bytes }, it.json_text);
+            why := state.put_member(*state.buffer, row, it);
 
             if why {
                 // copy_in consumes and copies this error in the same fiber before its scratch storage is reset.
-                state.problem = tprint("row %, member %: %", state.next + 1, it.member.name, why);
+                state.problem = tprint("row %, member %: %", state.next + 1, it.name, why);
                 return "", false, state.problem;
             }
         }
@@ -493,8 +497,138 @@ copy_count :: (hooks: *Script_Hooks, result: *Result) {
     state.stored += result.rows_affected;
 }
 
-// One field: its length (or -1 for null), then its binary form.
-put_copy_value :: (out: *[..] u8, value: Any, json_text: bool) -> string {
+// Writes member `field.member` of `row`: its length (or -1 for null), then its binary form.
+copy_put_erased :: ($Row: Type, out: *[..] u8, row: *u8, field: Copy_Field) -> string {
+    return copy_put_member(out, cast(*Row) row, field);
+}
+
+// The body is written for `Row` when the program compiles: one case per member, each encoding its
+// own type, so a row costs no type walk.
+copy_put_member :: (out: *[..] u8, row: *$Row, field: Copy_Field) -> string {
+    #insert #run copy_put_member_code(Row);
+
+    return "";
+}
+
+copy_put_member_code :: (Row: Type) -> string {
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    append(*builder, "if field.member == {\n");
+
+    for (cast(*Type_Info_Struct) type_info(Row)).members {
+        if it.flags & .CONSTANT continue;
+
+        if !it.name.count {
+            compiler_report(tprint("Postgres: copy_in cannot send the unnamed member % of %", it_index, Row));
+            continue;
+        }
+
+        print_to_builder(*builder, "    case %; return put_copy_value(out, *row.%, field.json_text);\n", it_index, it.name);
+    }
+
+    append(*builder, "}\n");
+
+    return builder_to_string(*builder);
+}
+
+// One field: its length (or -1 for null), then its binary form. Scalars, strings, enums and
+// numerics are written by code made for their type; arrays and json documents go through
+// `put_copy_value_any`.
+put_copy_value :: (out: *[..] u8, value: *$T, json_text: bool) -> string {
+    #if #run is_nullable(T) {
+        if value.null {
+            put_u32(out, COPY_NULL);
+            return "";
+        }
+
+        return put_copy_value(out, *value.value, json_text);
+    } else #if type_info(T).type == .BOOL {
+        put_u32(out, 1);
+        put_u8(out, xx value.*);
+    } else #if type_info(T).type == .INTEGER {
+        SIGNED :: #run (cast(*Type_Info_Integer) type_info(T)).signed;
+        v := cast,no_check(s64) value.*;
+
+        #if size_of(T) <= 1 || (size_of(T) == 2 && SIGNED) {
+            put_u32(out, 2);
+            put_u16(out, cast,no_check(u16) v);
+        } else #if size_of(T) <= 2 || (size_of(T) == 4 && SIGNED) {
+            put_u32(out, 4);
+            put_u32(out, cast,no_check(u32) v);
+        } else {
+            #if size_of(T) == 8 && !SIGNED {
+                if value.* > xx S64_MAX return "a u64 parameter above S64_MAX does not fit in int8";
+            }
+
+            put_u32(out, 8);
+            put_u64(out, cast,no_check(u64) v);
+        }
+    } else #if type_info(T).type == .FLOAT {
+        #if size_of(T) == 4 {
+            put_u32(out, 4);
+            put_u32(out, (cast(*u32) value).*);
+        } else {
+            put_u32(out, 8);
+            put_u64(out, (cast(*u64) value).*);
+        }
+    } else #if type_info(T).type == .STRING {
+        if contains_zero(value.*) return "a string parameter holds a zero byte, which Postgres text cannot store";
+
+        put_u32(out, cast(u32) value.count);
+        put_bytes(out, value.*);
+    } else #if type_info(T).type == .ENUM {
+        label, found := enum_label_of(value.*);
+        if !found return tprint("% holds a value that is none of its members", T);
+
+        put_u32(out, cast(u32) label.count);
+        put_bytes(out, label);
+    } else #if T == Uuid {
+        put_u32(out, 16);
+        put_bytes(out, cast([] u8) value.bytes);
+    } else #if T == Timestamp || T == Local_Timestamp || T == Time {
+        put_u32(out, 8);
+        put_u64(out, cast,no_check(u64) (cast(*s64) value).*);
+    } else #if T == Date {
+        put_u32(out, 4);
+        put_u32(out, cast,no_check(u32) (cast(*s32) value).*);
+    } else #if T == Interval {
+        put_u32(out, 16);
+        put_u64(out, cast,no_check(u64) value.microseconds);
+        put_u32(out, cast,no_check(u32) value.days);
+        put_u32(out, cast,no_check(u32) value.months);
+    } else #if T == Numeric {
+        bytes, why := numeric_binary(value.text);
+        if why return why;
+
+        put_u32(out, cast(u32) bytes.count);
+        put_bytes(out, bytes);
+    } else {
+        return put_copy_value_any(out, Any.{ type_info(T), value }, json_text);
+    }
+
+    return "";
+}
+
+// The label of an enum value as Postgres spells it, by a comparison per member written for `T`.
+enum_label_of :: (value: $T) -> string, bool {
+    #insert -> string {
+        info := cast(*Type_Info_Enum) type_info(T);
+        builder: String_Builder;
+        builder.allocator = temp;
+
+        for info.values {
+            print_to_builder(*builder, "if cast(s64) value == % return %, true;\n", it, jai_string(enum_label(info.names[it_index]),, temp));
+        }
+
+        return builder_to_string(*builder);
+    };
+
+    return "", false;
+}
+
+// One field of a type only known as `Any`.
+put_copy_value_any :: (out: *[..] u8, value: Any, json_text: bool) -> string {
     info := value.type;
     data := value.value_pointer;
 
@@ -512,7 +646,7 @@ put_copy_value :: (out: *[..] u8, value: Any, json_text: bool) -> string {
             return "";
         }
 
-        return put_copy_value(out, Any.{ inner_member.type, data + inner_member.offset_in_bytes }, json_text);
+        return put_copy_value_any(out, Any.{ inner_member.type, data + inner_member.offset_in_bytes }, json_text);
     }
 
     bytes: string;

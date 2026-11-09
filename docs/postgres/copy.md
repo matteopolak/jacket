@@ -22,7 +22,7 @@ The callback form hands each piece to you as it arrives, in any format. The row 
 
 ## How it works
 
-- `copy_in` feeds `run_script` from a `Script_Hooks.copy_in` hook (`copy.jai`): header, rows in 64 KiB pieces, then the trailer. Each row is a field count plus a length and binary form per member (`encode_binary`, `encode_array`, `numeric_binary` in `codecs.jai`).
+- `copy_in` feeds `run_script` from a `Script_Hooks.copy_in` hook (`copy.jai`): header, rows in 64 KiB pieces, then the trailer. Each row is a field count plus a length and binary form per member. `copy_put_member` is written for the row struct at compile time: one case per member, each calling `put_copy_value` for its type, which writes numbers, strings, enums, `Uuid`, dates, `Interval` and `Numeric` straight into the buffer. Arrays and json documents go through `put_copy_value_any` (`encode_array`, `json_parameter_text` in `codecs.jai`).
 - `columns` picks members by name in the statement's column order. Empty means every member.
 - `copy_many` builds its statement at compile time from `@pg_table` and the fields without `@pg_default`/`@pg_generated`.
 - `copy_out` decodes rows with the same decoders as `get`. A NULL needs a `Nullable` member; a wrong width, text format or count mismatch is an error.
@@ -30,7 +30,7 @@ The callback form hands each piece to you as it arrives, in any format. The row 
 
 ## How to change it
 
-A new type goes in `encode_binary` (parameters get it too), or in `put_copy_value` if it only makes sense in COPY.
+A new type goes in `encode_binary` (parameters get it too) and in `put_copy_value`, which has its own typed branch per type; a type with no branch there falls to `put_copy_value_any`, which calls `encode_binary`.
 
 Gotchas:
 
@@ -41,4 +41,4 @@ Gotchas:
 
 ## Dependencies
 
-`query.jai` (`run_script`, `Script_Hooks`), `codecs.jai`, `orm.jai` (`copy_many`). Tests: `test_copy_out` in `tests/server.jai` and `test_copy` in `tests/orm/main.jai`.
+`query.jai` (`run_script`, `Script_Hooks`), `codecs.jai`, `orm.jai` (`copy_many`). Tests: `test_copy_out` in `tests/server.jai` (it copies one column of each scalar kind) and `test_copy` in `tests/orm/main.jai`.

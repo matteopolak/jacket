@@ -2021,6 +2021,34 @@ Copy_Row :: struct {
     flag: bool;
 }
 
+Copy_Mood :: enum {
+    sad;
+    ok;
+    happy;
+}
+
+// One member of each scalar kind copy_in writes, in the columns of `kinds` below.
+Copy_Kinds :: struct {
+    a: s8;
+    b: s16;
+    c: u16;
+    d: s32;
+    e: s64;
+    f: u32;
+    g: float32;
+    h: float64;
+    i: bool;
+    j: Pg.Uuid;
+    k: Pg.Local_Timestamp;
+    l: Pg.Date;
+    m: Pg.Time;
+    n: Pg.Interval;
+    o: Copy_Mood;
+    p: string;
+    q: Pg.Numeric;
+    r: Pg.Nullable(s64);
+}
+
 Copy_Pieces :: struct {
     text: [..] u8;
     calls: s64;
@@ -2162,6 +2190,43 @@ SQL
 
     assert(count_error.kind == .USAGE, "got %", Pg.error_text(count_error));
     Pg.free_error(*count_error);
+    assert(scalar(db, "select 1", s64) == 1);
+
+    // One column of each scalar kind: each is written by the encoder made for its type.
+    assert_ok(Pg.execute_script(db, "create type pg_temp.copy_mood as enum ('sad', 'ok', 'happy'); create temp table kinds (a int2, b int2, c int4, d int4, e int8, f int8, g float4, h float8, i bool, j uuid, k timestamp, l date, m time, n interval, o pg_temp.copy_mood, p text, q numeric, r int8)"), "create kinds");
+
+    kinds: [2] Copy_Kinds;
+    kinds[0] = .{ a = -5, b = -300, c = 65535, d = -2_000_000_000, e = 1 << 40, f = 4_000_000_000, g = 1.5, h = -2.25, i = true, k = .{ 86_400_000_000 }, l = .{ -3 }, m = .{ 3_600_000_000 }, n = .{ months = 14, days = -2, microseconds = 5_000_001 }, o = .happy, p = "caf\u00e9", q = .{ "-12.50" }, r = .{ value = 9 } };
+    kinds[0].j.bytes = .[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    kinds[1].o = .sad;
+    kinds[1].q = .{ "0" };
+    kinds[1].r.null = true;
+
+    kinds_stored, kinds_error := Pg.copy_in(db, "copy kinds from stdin (format binary)", kinds);
+
+    assert_ok(kinds_error, "copy_in scalar kinds");
+    assert(kinds_stored == 2);
+
+    text, text_query_error := Pg.query_dynamic(db, "select a::text, b::text, c::text, d::text, e::text, f::text, g::text, h::text, i::text, j::text, k::text, l::text, m::text, n::text, o::text, p, q::text, r::text from kinds order by e desc");
+
+    assert_ok(text_query_error, "read the kinds back");
+    defer Pg.free_result(*text);
+    assert(text.row_count == 2);
+
+    expected := string.["-5", "-300", "65535", "-2000000000", "1099511627776", "4000000000", "1.5", "-2.25", "true", "01020304-0506-0708-090a-0b0c0d0e0f10", "2000-01-02 00:00:00", "1999-12-29", "01:00:00", "1 year 2 mons -2 days +00:00:05.000001", "happy", "caf\u00e9", "-12.50", "9"];
+
+    for expected assert(Pg.get(*text, 0, it_index, string) == it, "kinds column %: % instead of %", it_index, Pg.get(*text, 0, it_index, string), it);
+
+    assert(Pg.get(*text, 1, 14, string) == "sad" && Pg.is_null(*text, 1, 17));
+
+    // A value that is not an enum member fails the COPY with the member named.
+    bad_mood: [1] Copy_Kinds;
+    bad_mood[0].o = cast(Copy_Mood) 7;
+
+    _, bad_error := Pg.copy_in(db, "copy kinds from stdin (format binary)", bad_mood);
+
+    assert(contains(bad_error.message, "member o: Copy_Mood holds a value that is none of its members"), "got %", Pg.error_text(bad_error));
+    Pg.free_error(*bad_error);
     assert(scalar(db, "select 1", s64) == 1);
 
     // A pool lends a connection for the call.
