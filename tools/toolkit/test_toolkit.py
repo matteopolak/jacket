@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -86,6 +87,19 @@ class Repo(unittest.TestCase):
             self.assertEqual(git_files("*.py", root=root), [])
             self.assertEqual(sorted(git_files(root=root, untracked=True)), ["a.rs", "b.py"])
             self.assertEqual(git_files("*.py", root=root, untracked=True), ["b.py"])
+
+
+class RunTree(unittest.TestCase):
+    def test_timeout_kills_descendants(self):
+        # The child starts a grandchild that would write the marker after 3 s, then waits.
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "marker"
+            grandchild = f"import time, pathlib; time.sleep(3); pathlib.Path({str(marker)!r}).write_text('x')"
+            script = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', {grandchild!r}]); time.sleep(30)"
+            with self.assertRaises(subprocess.TimeoutExpired):
+                run([PY, "-c", script], echo=False, timeout=1, capture=True)
+            time.sleep(3.5)
+            self.assertFalse(marker.exists())
 
 
 class RunExpect(unittest.TestCase):

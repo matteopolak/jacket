@@ -25,6 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from toolkit import llvm
 from toolkit.host import brew_prefix
+from toolkit.process import NEW_GROUP, kill_tree
 from toolkit.repo import ROOT
 from toolkit.cli import add_jaic_argument
 from corpus import select_upstream_cases
@@ -285,11 +286,12 @@ def run_limited(command, cwd, timeout, limit_bytes, jaic=True, environment=None)
             stdin=subprocess.DEVNULL,
             stdout=out_file,
             stderr=err_file,
+            **NEW_GROUP,
         )
         try:
             code = proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
-            proc.kill()
+            kill_tree(proc)
             proc.wait()
             return "", "timeout", -1
         out_file.seek(0)
