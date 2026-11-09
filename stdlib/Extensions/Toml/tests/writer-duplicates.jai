@@ -13,6 +13,7 @@ build :: (count: int, repeat_from: int, repeat_of: int) -> Toml_Value, [] Toml_V
         it.integer = it_index;
         key := tprint("k%", (it_index * 7919) % 100003);
         if repeat_from >= 0 && it_index == repeat_from key = tprint("k%", (repeat_of * 7919) % 100003);
+
         array_add(*root.members, Toml_Member.{ key = key, value = it });
     }
 
@@ -26,6 +27,7 @@ main :: () {
 
         assert(error.kind == .NONE, tprint("% unique keys: %", count, error.message));
         doc, read := parse_toml(text, .{ max_nodes = 1 << 24 });
+
         assert(read.kind == .NONE && doc.root.members.count == count);
         free_toml(*doc);
         free(text);
@@ -45,10 +47,12 @@ main :: () {
         }
     }
 
-    // A node quota smaller than the table still reports the limit, not a duplicate.
-    wide, wide_values := build(500, -1, -1);
+    // A node quota smaller than the table still reports the limit, not a duplicate past it.
+    wide, wide_values := build(500, 400, 0);
     _, limited := write_toml(*wide, .{ max_nodes = 100 });
 
-    assert(limited.kind == .LIMIT);
+    assert(limited.kind == .LIMIT, limited.message);
+    array_free(wide.members);
+    free(wide_values.data);
     print("ok\n");
 }
