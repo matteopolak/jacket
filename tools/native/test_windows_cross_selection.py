@@ -287,8 +287,8 @@ class Selection(unittest.TestCase):
             ):
                 with (
                     patch.object(
-                        cross.subprocess,
-                        "run",
+                        cross,
+                        "toolkit_run",
                         return_value=subprocess.CompletedProcess(
                             [], 0, b"ok\n", stderr
                         ),
