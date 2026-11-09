@@ -1,42 +1,63 @@
-// Bounded glTF and GLB decoding, validation and accessor iteration, without implicit IO.
-// Example: asset, error := gltf_load(text); defer gltf_free(*asset);
-// Closed sets in the document are enums: `asset.document.accessors[0].component_type == .FLOAT`, `.type == .VEC3`.
+// Loads, validates and writes glTF 2.0 assets (JSON text or binary GLB) within explicit limits. Nothing
+// here touches the file system or network: external buffers and images come from a [Gltf_Resolver]
+// you supply. Closed sets in the document are enums, such as
+// `asset.document.accessors[0].component_type == .FLOAT` and `.type == .VEC3`.
+//
+// ```jai
+// #import "Extensions/Gltf";
+//
+// asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"}}");
+// assert(error.kind == .NONE);
+// defer gltf_free(*asset);
+// assert(asset.document.asset.version == "2.0");
+// ```
+
+// Which stage of loading or validating failed.
 Gltf_Error_Kind :: enum {
     NONE;
-    JSON;
-    CONTAINER;
-    LIMIT;
-    RESOLVE;
-    INVALID;
+    JSON; // the text is not valid JSON for the schema
+    CONTAINER; // a malformed GLB header, chunk or binary buffer
+    LIMIT; // a [Gltf_Options] bound was exceeded
+    RESOLVE; // a buffer or image could not be fetched or was the wrong size
+    INVALID; // the document breaks a glTF rule
 }
 
+// The outcome of a glTF operation; `kind` is `.NONE` on success. Release it with [gltf_error_free].
 Gltf_Error :: struct {
     kind: Gltf_Error_Kind;
     message: string;
-    offset: s64;
-    path: string;
+    offset: s64; // byte offset in the input, when known
+    path: string; // JSON pointer to the offending value, such as `/accessors/3`
 }
 
+// Limits that keep hostile input bounded; each is checked while loading.
 Gltf_Options :: struct {
-    max_size: s64 = 64 * 1024 * 1024;
-    max_buffer_bytes: s64 = 512 * 1024 * 1024;
-    max_count: s64 = 1000000;
-    max_depth: s64 = 64;
+    max_size: s64 = 64 * 1024 * 1024; // input bytes
+    max_buffer_bytes: s64 = 512 * 1024 * 1024; // all buffers together
+    max_count: s64 = 1000000; // objects in the whole document
+    max_depth: s64 = 64; // JSON nesting
 }
 
 // Resolver results are owned allocations, including on failure. Never return more than limit.
 Gltf_Resolve :: #type (user: *void, uri: string, limit: s64) -> string, bool;
 
+// Fetches the external buffers and images of a document for [gltf_load]. `resolve` is called with
+// `user`; leave it unset to refuse every URI except base64 `data:` ones.
 Gltf_Resolver :: struct {
     resolve: Gltf_Resolve;
     user: *void;
 }
 
+// A loaded asset: the decoded `document` plus the bytes of each of its buffers, in the document's
+// order. Owned; release it with [gltf_free].
 Gltf_Asset :: struct {
     document: Gltf_Document;
     buffers: [..] string;
 }
 
+// A position in an accessor's elements, for [gltf_next_floats] and [gltf_next_index]. Start one
+// with [gltf_accessor]; the asset must outlive it and stay unchanged. `components` is the number
+// of values per element.
 Gltf_Cursor :: struct {
     asset: *Gltf_Asset;
     accessor: s64;
