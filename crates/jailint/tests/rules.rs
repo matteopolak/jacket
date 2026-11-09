@@ -1171,3 +1171,6 @@ mod accuracy;
 
 #[path = "rules/diagnostic_ranges.rs"]
 mod diagnostic_ranges;
+
+#[path = "rules/lifetime_returns.rs"]
+mod lifetime_returns;

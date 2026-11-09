@@ -458,8 +458,35 @@ impl Resolver<'_> {
             .then(|| path.clone());
         };
         let arg = args.iter().find(|a| a.formal == formal)?;
+        if path.steps.iter().any(|s| matches!(s, Step::Field(_))) && self.reinterpreted(arg) {
+            return None;
+        }
         self.argument_trace(arg, summaries, visiting, depth + 1)?
             .append(&path.steps)
+    }
+
+    /// Whether the argument views a struct through a different struct type, as in
+    /// `get(cast(*B) *a)`. Member names of the formal's type then name other bytes than the
+    /// same names on the actual object, so a path through them cannot be carried over.
+    fn reinterpreted(&self, arg: &LifetimeArgument) -> bool {
+        let types = &self.compiler.ty.types;
+        let (Some(v), Some(viewed)) = (value(arg), types.pointee(arg.ty)) else {
+            return false;
+        };
+        let Some(p) = self.stored_address(v, &mut HashSet::default()) else {
+            return false;
+        };
+        let held = self.places.types.get(&p).copied().or_else(|| {
+            self.places.paths[p]
+                .1
+                .is_empty()
+                .then_some(self.places.paths[p].0.1)
+        });
+        held.is_some_and(|held| {
+            held != viewed
+                && matches!(types.kind(held), TypeKind::Struct(_))
+                && matches!(types.kind(viewed), TypeKind::Struct(_))
+        })
     }
 
     pub fn effects(
