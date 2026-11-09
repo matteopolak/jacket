@@ -2,7 +2,6 @@
   "extends": "stylelint-config-standard",
   "rules": {
     "property-no-vendor-prefix": [true, { "ignoreProperties": ["appearance", "backdrop-filter", "mask-image"] }],
-    "number-max-precision": 5,
-    "no-descending-specificity": null
+    "number-max-precision": 5
   }
 }

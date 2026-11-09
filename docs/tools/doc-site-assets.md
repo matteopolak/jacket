@@ -25,9 +25,9 @@ CI runs the same `pnpm run lint` in the `doc-site-assets` job, only when a file 
 - **Types.** Each script starts with `// @ts-check`. What the scripts put on `window` for each other (`jacketPage`, `jacketSide`, `jacketRestore`) and shared shapes are declared in `site-tools/globals.d.ts`. Prefer a typedef or a narrowing check to a cast; do not add `@ts-ignore`.
 - **Rules.** `oxlint.config.ts`, `.stylelintrc.json` and `oxfmt.config.ts` (typed `defineConfig` exports; single quotes, 100 columns) live in `site-tools/`. Rules turned off, and why:
   - oxlint `unicorn/require-post-message-target-origin`: it asks for a target origin, which `Worker.postMessage` does not have.
-  - stylelint `no-descending-specificity`: the sheet orders states and variants by hand, and the rule asks for reordering that would change the cascade.
   - stylelint `property-no-vendor-prefix` ignores `appearance`, `backdrop-filter` and `mask-image`, and `number-max-precision` is 5.
   - One inline `oxlint-disable no-control-regex` in `site.js`: the search index marks links with U+0001 to U+0003 on purpose.
+- **CSS order.** `no-descending-specificity` is on: among selectors that end in the same element or class (`a`, `.toc .tog::after`), a later one may not be less specific than an earlier one. A rule goes after the more general rules for the same target. Moving a rule only matters against rules of equal specificity that set the same property on the same element, so check those first; compare computed styles before and after when in doubt.
 - **Not under `site/`.** `crates/jacket/build.rs` embeds every file under `doc/site/` except dotfiles, so the tooling lives beside it in `site-tools/`.
 
 ## Dependencies

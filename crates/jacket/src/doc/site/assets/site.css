@@ -135,6 +135,33 @@ html {
   }
 }
 
+:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+  border-radius: 4px;
+  scroll-margin-top: 160px;
+}
+
+/* One card per list, rows split by hairlines, and one shared name column: as wide as the
+   longest name, up to half the width. */
+.defs {
+  display: grid;
+  grid-template-columns: fit-content(50%) minmax(0, 1fr);
+  column-gap: 24px;
+  margin: 0 0 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+pre,
+table,
+.defs {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 html,
 .side,
 .side > nav,
@@ -214,10 +241,6 @@ a {
   text-decoration: none;
 }
 
-a:hover {
-  text-decoration: underline;
-}
-
 /* Links in running text need a cue beyond colour. Lists of pages are not prose. */
 main :is(p, li, dd, td, blockquote) a {
   text-decoration: underline;
@@ -227,6 +250,212 @@ main :is(p, li, dd, td, blockquote) a {
 /* In code a link is coloured but not underlined until hovered. */
 main pre a {
   color: var(--link);
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+.ver-menu a {
+  display: block;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--fg2);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.search svg {
+  flex: none;
+}
+
+/* The shortcut that opens search: ⌘K on Apple systems, Ctrl K elsewhere (/ works too). */
+.search-keys {
+  display: flex;
+  flex: none;
+  gap: 3px;
+}
+
+/* A phone has no keyboard to press it on. */
+@media (pointer: coarse) {
+  .search-keys,
+  .spot-field kbd {
+    display: none;
+  }
+}
+
+.spot-field input,
+.spot-ghost {
+  font: inherit;
+  font-size: 17px;
+  letter-spacing: normal;
+}
+
+.spot-field input {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  color: var(--fg);
+  background: none;
+  border: 0;
+  outline: none;
+  appearance: none;
+}
+
+.site-nav a {
+  color: var(--fg2);
+}
+
+/* Layout */
+body > .wrap {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 56px;
+  align-items: flex-start;
+}
+
+.nav-list a,
+.back {
+  display: block;
+  color: var(--muted);
+  padding: 5px 10px;
+  border-radius: 6px;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-cat > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--fg2);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.foot > div {
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.crumbs a {
+  color: var(--muted);
+}
+
+/* Module and item titles share one line height, so the chips below sit at the same place. */
+h1 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 40px;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.titlebar h1 {
+  margin-right: 10px;
+}
+
+.platforms > li {
+  display: flex;
+  margin: 0;
+}
+
+main > p,
+.fold > p,
+.prose p {
+  margin: 0 0 16px;
+  color: var(--fg2);
+  max-width: 72ch;
+}
+
+h2 .anchor,
+h3 .anchor {
+  margin-left: 8px;
+  color: var(--muted);
+  font-weight: 400;
+  opacity: 0;
+  text-decoration: none;
+  transition: opacity 0.12s;
+  display: inline-flex;
+  min-width: 24px;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+}
+
+.toc .tog {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.overload-head a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ty,
+a.ty {
+  color: var(--type);
+}
+
+.foot a {
+  color: var(--muted);
+}
+
+.titlebar > a,
+.row-head > a {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.site-nav a,
+.toc li a,
+.toc .tog {
+  min-height: 24px;
+}
+
+.toc li a {
+  display: block;
+  padding: 5px 10px;
+  border-radius: 6px;
+  color: var(--fg2);
+  font-size: 13.5px;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 main pre a:hover {
@@ -241,13 +470,6 @@ code,
 
 code {
   font-size: 0.9em;
-}
-
-button,
-select,
-input {
-  font: inherit;
-  color: inherit;
 }
 
 .sr {
@@ -269,13 +491,6 @@ html:not(.js) .js-only {
 .muted {
   color: var(--muted);
   font-size: 13px;
-}
-
-:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 2px;
-  border-radius: 4px;
-  scroll-margin-top: 160px;
 }
 
 /* Header */
@@ -346,6 +561,11 @@ html:not(.js) .js-only {
   cursor: default;
 }
 
+#ver-button svg {
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+
 #ver-button:disabled svg {
   visibility: hidden;
 }
@@ -353,11 +573,6 @@ html:not(.js) .js-only {
 #ver-button:not(:disabled):hover,
 #ver-button[aria-expanded='true'] {
   color: var(--fg);
-}
-
-#ver-button svg {
-  color: var(--muted);
-  transition: transform 0.15s;
 }
 
 #ver-button[aria-expanded='true'] svg {
@@ -375,15 +590,6 @@ html:not(.js) .js-only {
   border-radius: 10px;
   box-shadow: 0 12px 32px var(--shadow);
   z-index: 7;
-}
-
-.ver-menu a {
-  display: block;
-  padding: 6px 10px;
-  border-radius: 6px;
-  color: var(--fg2);
-  font-weight: 400;
-  white-space: nowrap;
 }
 
 .ver-menu a:hover {
@@ -441,10 +647,6 @@ html:not(.js) .js-only {
   box-shadow: 0 0 0 3px var(--sel);
 }
 
-.search svg {
-  flex: none;
-}
-
 .search-ph {
   flex: 1;
   min-width: 0;
@@ -465,24 +667,9 @@ kbd {
   background: var(--surface);
 }
 
-/* The shortcut that opens search: ⌘K on Apple systems, Ctrl K elsewhere (/ works too). */
-.search-keys {
-  display: flex;
-  flex: none;
-  gap: 3px;
-}
-
 .mac .key-other,
 html:not(.mac) .key-mac {
   display: none;
-}
-
-/* A phone has no keyboard to press it on. */
-@media (pointer: coarse) {
-  .search-keys,
-  .spot-field kbd {
-    display: none;
-  }
 }
 
 /* The search dialog: a box near the top of the screen over a dimmed, blurred page. */
@@ -527,25 +714,6 @@ html:not(.mac) .key-mac {
   flex: 1;
   min-width: 0;
   height: 100%;
-}
-
-.spot-field input,
-.spot-ghost {
-  font: inherit;
-  font-size: 17px;
-  letter-spacing: normal;
-}
-
-.spot-field input {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  color: var(--fg);
-  background: none;
-  border: 0;
-  outline: none;
-  appearance: none;
 }
 
 /* The grey completion behind the typed text: the typed part is invisible and holds the place. */
@@ -721,13 +889,13 @@ html:not(.mac) .key-mac {
   --c: var(--warn);
 }
 
-#search-results .dot {
-  margin-left: -4px;
-}
-
 .side a .dot {
   margin-left: 7px;
   vertical-align: 1px;
+}
+
+#search-results .dot {
+  margin-left: -4px;
 }
 
 #search-results .hit-sig {
@@ -740,6 +908,11 @@ html:not(.mac) .key-mac {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+
+.pname {
+  color: var(--fg);
+  font-weight: 500;
 }
 
 #search-results .hit-sig .pname {
@@ -772,10 +945,6 @@ html:not(.mac) .key-mac {
   font-weight: 500;
 }
 
-.site-nav a {
-  color: var(--fg2);
-}
-
 .site-nav a[aria-current='page'] {
   color: var(--fg);
 }
@@ -791,19 +960,6 @@ html:not(.mac) .key-mac {
   background: var(--surface);
   color: var(--fg2);
   cursor: pointer;
-}
-
-/* Layout */
-body > .wrap {
-  flex: 1 0 auto;
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 32px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 56px;
-  align-items: flex-start;
 }
 
 /* The sidebar is a dialog that is always open beside the page; on a phone it is a drawer (below). */
@@ -877,18 +1033,6 @@ body > .wrap {
   padding: 0;
 }
 
-.nav-list a,
-.back {
-  display: block;
-  color: var(--muted);
-  padding: 5px 10px;
-  border-radius: 6px;
-  line-height: 1.5;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .nav-list a:hover {
   color: var(--fg);
   text-decoration: none;
@@ -917,20 +1061,6 @@ body > .wrap {
 
 .nav-cat {
   margin: 0;
-}
-
-.nav-cat > summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  cursor: pointer;
-  list-style: none;
-  padding: 6px 10px;
-  border-radius: 6px;
-  color: var(--fg2);
-  font-size: 13.5px;
-  line-height: 1.5;
 }
 
 .nav-cat > summary::-webkit-details-marker {
@@ -1002,20 +1132,11 @@ main {
   font-size: 13px;
 }
 
-.foot > div {
-  max-width: 1360px;
-  margin: 0 auto;
-}
-
 /* Page furniture */
 .crumbs {
   font-size: 13px;
   color: var(--muted);
   margin-bottom: 10px;
-}
-
-.crumbs a {
-  color: var(--muted);
 }
 
 .titlebar {
@@ -1026,22 +1147,14 @@ main {
   margin-bottom: 10px;
 }
 
-.titlebar h1 {
-  margin-right: 10px;
+.since {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .titlebar .since {
   margin-left: 4px;
-}
-
-/* Module and item titles share one line height, so the chips below sit at the same place. */
-h1 {
-  margin: 0;
-  font-size: 32px;
-  line-height: 40px;
-  letter-spacing: -0.02em;
-  font-weight: 700;
-  overflow-wrap: anywhere;
 }
 
 h1.mono {
@@ -1151,11 +1264,6 @@ div.meta {
   box-shadow: inset 0 0 0 1.5px var(--c);
 }
 
-.platforms > li {
-  display: flex;
-  margin: 0;
-}
-
 .pf.sm {
   height: 20px;
   gap: 5px;
@@ -1168,15 +1276,19 @@ div.meta {
   height: 6px;
 }
 
-.since {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
 .since + .since::before {
   content: '·';
   margin-right: 8px;
+}
+
+.sig-line {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .sig-line:has(+ .sig-line) {
@@ -1227,14 +1339,6 @@ div.meta {
   max-width: 72ch;
 }
 
-main > p,
-.fold > p,
-.prose p {
-  margin: 0 0 16px;
-  color: var(--fg2);
-  max-width: 72ch;
-}
-
 main ul,
 main ol {
   color: var(--fg2);
@@ -1257,6 +1361,10 @@ main pre code,
 
 main h2 + h3 {
   margin-top: 0;
+}
+
+.fold:focus {
+  outline: none;
 }
 
 .js .fold:not(.open) {
@@ -1287,33 +1395,14 @@ main h2 + h3 {
   display: flex;
 }
 
-.fold:focus {
-  outline: none;
-}
-
 /* Lists of items */
 .group {
   margin-bottom: 40px;
 }
 
-h2 .anchor,
-h3 .anchor {
-  margin-left: 8px;
-  color: var(--muted);
-  font-weight: 400;
-  opacity: 0;
-  text-decoration: none;
-  transition: opacity 0.12s;
-  display: inline-flex;
-  min-width: 24px;
-  min-height: 24px;
-  align-items: center;
-  justify-content: center;
-}
-
+.anchor:focus-visible,
 h2:hover .anchor,
-h3:hover .anchor,
-.anchor:focus-visible {
+h3:hover .anchor {
   opacity: 1;
 }
 
@@ -1340,6 +1429,19 @@ h3:hover .anchor,
   transition: border-color 0.15s;
 }
 
+/* Item pages */
+.overload {
+  --px: 24px;
+  --py: 22px;
+
+  overflow: hidden;
+  margin: 0 0 18px;
+  padding: var(--py) var(--px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
 .row:hover,
 .overload:hover {
   border-color: color-mix(in oklch, var(--border), var(--fg) 10%);
@@ -1347,6 +1449,15 @@ h3:hover .anchor,
 
 .row:has(.row-head a.name) {
   cursor: pointer;
+}
+
+/* Examples */
+.ex {
+  margin: 0 0 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--sunken);
+  overflow: hidden;
 }
 
 .row .ex {
@@ -1375,16 +1486,6 @@ h3:hover .anchor,
   font-family: var(--mono);
   font-size: 15px;
   font-weight: 500;
-}
-
-.sig-line {
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--muted);
-  margin-bottom: 12px;
-  line-height: 1.65;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 .row-variant > h3 {
@@ -1422,16 +1523,8 @@ h3:hover .anchor,
   padding: 0;
 }
 
-.toc li a {
-  display: block;
-  padding: 5px 10px;
-  border-radius: 6px;
-  color: var(--fg2);
-  font-size: 13.5px;
-  line-height: 1.5;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.overload-head a:hover {
+  color: var(--fg);
 }
 
 .toc li.sub a {
@@ -1449,21 +1542,6 @@ h3:hover .anchor,
   min-width: 0;
 }
 
-.toc .tog {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin-right: 4px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  cursor: pointer;
-}
-
 .toc .tog::after {
   content: '';
   width: 5px;
@@ -1471,10 +1549,6 @@ h3:hover .anchor,
   border-right: 1px solid var(--muted);
   border-bottom: 1px solid var(--muted);
   transform: rotate(45deg);
-}
-
-.js .toc li.has-list:has(+ li.items:not(.open)) .tog::after {
-  transform: rotate(-45deg);
 }
 
 .toc .tog:hover::after {
@@ -1495,6 +1569,10 @@ h3:hover .anchor,
     transform 0.18s ease-out;
 }
 
+.js .toc li.has-list:has(+ li.items:not(.open)) .tog::after {
+  transform: rotate(-45deg);
+}
+
 /* With JS a list starts closed; the script opens the one being read. */
 .js .toc li:not(.items) + li.items:not(.open) {
   grid-template-rows: 0fr;
@@ -1513,13 +1591,13 @@ h3:hover .anchor,
   border-left: 1px solid var(--hair);
 }
 
+.toc li.sub + li.items > ul {
+  margin-left: 20px;
+}
+
 .js .toc li:not(.items) + li.items:not(.open) > ul {
   margin-top: 0;
   margin-bottom: 0;
-}
-
-.toc li.sub + li.items > ul {
-  margin-left: 20px;
 }
 
 .toc li.items a {
@@ -1574,19 +1652,6 @@ h3:hover .anchor,
   }
 }
 
-/* Item pages */
-.overload {
-  --px: 24px;
-  --py: 22px;
-
-  overflow: hidden;
-  margin: 0 0 18px;
-  padding: var(--py) var(--px);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
 /* An example in a card is a band across it, flush with the card's edges; at the bottom it is the card's floor. */
 .row .ex,
 .overload .ex {
@@ -1616,13 +1681,36 @@ h3:hover .anchor,
   color: var(--muted);
 }
 
-.overload-head a {
-  color: inherit;
-  text-decoration: none;
+pre.sig {
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  background: var(--sunken);
+  border-radius: 8px;
+  font-size: 13.5px;
+  line-height: 1.75;
 }
 
-.overload-head a:hover {
-  color: var(--fg);
+.guide h3 {
+  font-size: 16px;
+  color: var(--fg2);
+  margin-top: 24px;
+}
+
+/* A list under a heading reads as one captioned table: the heading is its tinted top bar. */
+main h3:has(+ .defs) {
+  margin: 24px 0 0;
+  padding: 7px 16px;
+  background: color-mix(in oklch, var(--surface), var(--fg) 5%);
+  border: 1px solid var(--border);
+  border-bottom-color: var(--hair);
+  border-radius: 10px 10px 0 0;
+  font-size: 12.5px;
+  color: var(--fg2);
+}
+
+main h3 + .defs {
+  border-top-width: 0;
+  border-radius: 0 0 10px 10px;
 }
 
 .overload > pre.sig,
@@ -1642,6 +1730,18 @@ h3:hover .anchor,
 
 .overload > .defs {
   border-width: 1px 0;
+}
+
+.def {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: baseline;
+  padding: 10px 16px;
+}
+
+.def + .def {
+  border-top: 1px solid var(--hair);
 }
 
 .overload > .defs .def {
@@ -1675,74 +1775,14 @@ pre {
   overflow-wrap: anywhere;
 }
 
-pre.sig {
-  margin: 0 0 20px;
-  padding: 14px 18px;
-  background: var(--sunken);
-  border-radius: 8px;
-  font-size: 13.5px;
-  line-height: 1.75;
-}
-
 .fn {
   font-weight: 500;
-}
-
-.ty,
-a.ty {
-  color: var(--type);
-}
-
-/* One card per list, rows split by hairlines, and one shared name column: as wide as the
-   longest name, up to half the width. */
-.defs {
-  display: grid;
-  grid-template-columns: fit-content(50%) minmax(0, 1fr);
-  column-gap: 24px;
-  margin: 0 0 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.def {
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-column: 1 / -1;
-  align-items: baseline;
-  padding: 10px 16px;
-}
-
-.def + .def {
-  border-top: 1px solid var(--hair);
-}
-
-/* A list under a heading reads as one captioned table: the heading is its tinted top bar. */
-main h3:has(+ .defs) {
-  margin: 24px 0 0;
-  padding: 7px 16px;
-  background: color-mix(in oklch, var(--surface), var(--fg) 5%);
-  border: 1px solid var(--border);
-  border-bottom-color: var(--hair);
-  border-radius: 10px 10px 0 0;
-  font-size: 12.5px;
-  color: var(--fg2);
-}
-
-main h3 + .defs {
-  border-top-width: 0;
-  border-radius: 0 0 10px 10px;
 }
 
 .def dt {
   font-size: 13.5px;
   overflow-wrap: anywhere;
   min-width: 0;
-}
-
-.def dd:empty {
-  display: none;
 }
 
 .def dd {
@@ -1752,9 +1792,8 @@ main h3 + .defs {
   min-width: 0;
 }
 
-.pname {
-  color: var(--fg);
-  font-weight: 500;
+.def dd:empty {
+  display: none;
 }
 
 .colon {
@@ -1780,15 +1819,6 @@ main h3 + .defs {
   gap: 8px;
 }
 
-/* Examples */
-.ex {
-  margin: 0 0 20px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--sunken);
-  overflow: hidden;
-}
-
 .ex-bar {
   display: flex;
   flex-wrap: wrap;
@@ -1802,52 +1832,6 @@ main h3 + .defs {
 
 .ex-title {
   font-weight: 500;
-}
-
-.ex .code,
-.ex .ed textarea {
-  margin: 0;
-  padding: 16px 18px;
-  font-size: 13.5px;
-  line-height: 1.7;
-}
-
-.ex .code code {
-  white-space: pre;
-  font-size: inherit;
-}
-
-.ex.compact .code,
-.ex.compact .ed textarea {
-  padding: 0;
-  font-size: 13px;
-}
-
-.ex.compact .code,
-.ex.compact .ed {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-/* The editor's scrollbar sits on top of the code below it, so a compact example keeps room for it. */
-.ex.compact .ed .code {
-  padding-bottom: 8px;
-}
-
-.ex-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 10px 10px 16px;
-}
-
-/* An editable example: the textarea lies over the coloured code and shows through it. */
-.ed {
-  position: relative;
-}
-
-.js .ed .code {
-  overflow: hidden;
 }
 
 .ed textarea {
@@ -1868,6 +1852,56 @@ main h3 + .defs {
   white-space: pre;
   tab-size: 4;
   outline: none;
+}
+
+.ex .code,
+.ex .ed textarea {
+  margin: 0;
+  padding: 16px 18px;
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.compare figcaption code {
+  font-weight: 400;
+}
+
+.ex .code code {
+  white-space: pre;
+  font-size: inherit;
+}
+
+.ex.compact .code,
+.ex.compact .ed textarea {
+  padding: 0;
+  font-size: 13px;
+}
+
+/* An editable example: the textarea lies over the coloured code and shows through it. */
+.ed {
+  position: relative;
+}
+
+.ex.compact .code,
+.ex.compact .ed {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.js .ed .code {
+  overflow: hidden;
+}
+
+/* The editor's scrollbar sits on top of the code below it, so a compact example keeps room for it. */
+.ex.compact .ed .code {
+  padding-bottom: 8px;
+}
+
+.ex-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 10px 10px 16px;
 }
 
 .ed textarea::selection {
@@ -2076,12 +2110,6 @@ a.btn:hover {
   margin-top: 36px;
 }
 
-.guide h3 {
-  font-size: 16px;
-  color: var(--fg2);
-  margin-top: 24px;
-}
-
 .guide td:first-child code {
   white-space: nowrap;
 }
@@ -2127,6 +2155,11 @@ a.btn:hover {
   min-width: 0;
 }
 
+.example-group figure {
+  margin: 0;
+  min-width: 0;
+}
+
 .compare figure + figure {
   border-left: 1px solid var(--border);
 }
@@ -2136,10 +2169,6 @@ a.btn:hover {
   font-weight: 600;
   color: var(--muted);
   padding: 10px 18px 0;
-}
-
-.compare figcaption code {
-  font-weight: 400;
 }
 
 .guide .compare pre.code {
@@ -2154,11 +2183,6 @@ a.btn:hover {
   background: var(--sunken);
   border-radius: 8px;
   overflow: hidden;
-}
-
-.example-group figure {
-  margin: 0;
-  min-width: 0;
 }
 
 .example-group figure + figure {
@@ -2499,10 +2523,6 @@ a.btn:hover {
   }
 }
 
-.foot a {
-  color: var(--muted);
-}
-
 /* A type's fields or members: a full-width band of its row, cut short (with Show more) when long. */
 .row > .members {
   margin: 14px calc(-1 * var(--px)) 0;
@@ -2510,6 +2530,10 @@ a.btn:hover {
 
 .row > .members:last-child {
   margin-bottom: calc(-1 * var(--py));
+}
+
+.row > .members .def {
+  padding: 7px var(--px);
 }
 
 .row > .members:last-child .def:last-child {
@@ -2529,10 +2553,6 @@ a.btn:hover {
 
 .row > .members:not(:last-child) > .defs {
   border-bottom-width: 1px;
-}
-
-.row > .members .def {
-  padding: 7px var(--px);
 }
 
 .row > .members .def dt {
@@ -2596,12 +2616,7 @@ a.btn:hover {
   transform: none;
 }
 
-pre,
-table,
-.defs {
-  max-width: 100%;
-  overflow-x: auto;
-}
+/* Selected options have a cue in addition to colour. */
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -2610,21 +2625,6 @@ table,
     transition: none !important;
     animation: none !important;
   }
-}
-
-.toc li a,
-.toc .tog,
-.site-nav a {
-  min-height: 24px;
-}
-
-/* Selected options have a cue in addition to colour. */
-
-.titlebar > a,
-.row-head > a {
-  min-height: 24px;
-  display: inline-flex;
-  align-items: center;
 }
 
 /* A page swap that takes a moment dims the content it replaces. */
