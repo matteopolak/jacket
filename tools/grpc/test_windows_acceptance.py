@@ -167,6 +167,15 @@ class WindowsAcceptance(unittest.TestCase):
         self.assertNotIn("--path stdlib/Extensions/Io/tests/", job)
         self.assertIn("grpc-windows/result.json", job)
 
+    def test_result_uploads_wait_for_the_step_that_writes_them(self):
+        blocks = grpc_workflow_job().split("      - uses: actions/upload-artifact@")
+        for artifact, step in (
+            ("grpc-interop-", "independent-peer-acceptance"),
+            ("grpc-windows-acceptance-", "windows-native-acceptance"),
+        ):
+            (block,) = [b for b in blocks if "name: " + artifact in b]
+            self.assertIn("steps." + step + ".outcome != 'skipped'", block)
+
     def test_workflow_preserves_only_failed_hosted_diagnostics(self):
         blocks = grpc_workflow_job().split("      - uses: actions/upload-artifact@")
         matches = [

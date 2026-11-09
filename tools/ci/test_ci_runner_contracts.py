@@ -31,6 +31,20 @@ def load_function(path, name, namespace):
 
 
 class RunnerContracts(unittest.TestCase):
+    def test_windows_jobs_stop_checks_when_the_build_fails(self):
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+        for job, next_job in (
+            ("windows-native", "windows-stdlib"),
+            ("windows-stdlib", "windows-smoke"),
+        ):
+            text = workflow.split("\n  " + job + ":\n", 1)[1].split(
+                "\n  " + next_job + ":\n", 1
+            )[0]
+            self.assertIn("        id: build\n", text)
+            for line in text.splitlines():
+                if "!cancelled()" in line:
+                    self.assertIn("steps.build.outcome == 'success'", line)
+
     def test_native_provider_refuses_existing_output_without_building_or_deleting(self):
         with tempfile.TemporaryDirectory(dir=SCRATCH) as directory:
             marker = Path(directory) / "preserved-receipt"
