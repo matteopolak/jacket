@@ -97,6 +97,17 @@ pub struct Coverage {
     known: Mutex<BTreeMap<String, Option<PathBuf>>>,
     /// The first program whose debug info could not be read.
     failure: Mutex<Option<String>>,
+    /// Test processes that ran and did not leave what they ran.
+    lost: Mutex<Vec<String>>,
+}
+
+/// What the run files of a folder held.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Collected {
+    /// Files that were what a process writes when it ends.
+    pub recorded: usize,
+    /// Files that were not: cut short, or from something else.
+    pub unreadable: usize,
 }
 
 /// What a run measured.
@@ -139,6 +150,7 @@ impl Coverage {
             entries: Mutex::new(Files::new()),
             known: Mutex::new(BTreeMap::new()),
             failure: Mutex::new(None),
+            lost: Mutex::new(Vec::new()),
         })
     }
 
@@ -153,8 +165,11 @@ impl Coverage {
     /// Merges what the processes that were given `dir` wrote into the blocks of their program,
     /// to be read after the run, and deletes the folder. For a program many processes run. What
     /// an interpreted run wrote is lines already, and is added at once.
-    pub fn collect(&self, dir: &Path) {
-        for run in runs(dir) {
+    pub fn collect(&self, dir: &Path) -> Collected {
+        let found = runs(dir);
+        let collected = found.counted();
+        self.lose_files(&found.unreadable);
+        for run in found.runs {
             match run {
                 Run::Blocks(program, blocks) => {
                     let mut programs = self.programs.lock().expect("lock");
@@ -169,12 +184,15 @@ impl Coverage {
             }
         }
         let _ = std::fs::remove_dir_all(dir);
+        collected
     }
 
     /// Reads the lines of the programs the processes that were given `dir` ran now, and deletes
     /// the folder. For a program built to run once, which is read while it still exists.
     pub fn collect_once(&self, dir: &Path) {
-        for run in runs(dir) {
+        let found = runs(dir);
+        self.lose_files(&found.unreadable);
+        for run in found.runs {
             let (program, blocks) = match run {
                 Run::Blocks(program, blocks) => (program, blocks),
                 Run::Lines(lines) => {
@@ -191,6 +209,39 @@ impl Coverage {
             }
         }
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Notes that a test process ran and left no coverage: `what` says which. Any such process
+    /// makes the report incomplete, so the numbers cannot be trusted or recorded.
+    pub fn lost(&self, what: String) {
+        self.lost.lock().expect("lock").push(what);
+    }
+
+    fn lose_files(&self, names: &[String]) {
+        for name in names {
+            self.lost(format!("{name} is not a coverage file a process finished"));
+        }
+    }
+
+    /// Why the numbers are too low, when processes that ran left no coverage.
+    fn incomplete(&self) -> Option<String> {
+        const LISTED: usize = 10;
+        let lost = self.lost.lock().expect("lock");
+        if lost.is_empty() {
+            return None;
+        }
+        let mut text = format!(
+            "{} test processes ended without leaving the coverage of what they ran, so the numbers are too low:",
+            lost.len()
+        );
+        for what in lost.iter().take(LISTED) {
+            text.push_str("\n  ");
+            text.push_str(what);
+        }
+        if lost.len() > LISTED {
+            text.push_str(&format!("\n  and {} more", lost.len() - LISTED));
+        }
+        Some(text)
     }
 
     /// Writes the report and prints the table: to standard output, or to standard error when
@@ -231,6 +282,10 @@ impl Coverage {
             );
         }
         eprintln!("jacket: coverage written to {}", out.display());
+        // Neither compared with a baseline nor recorded as one: it would count what never ran.
+        if let Some(why) = self.incomplete() {
+            return Err(why);
+        }
         self.compare(data)
     }
 
@@ -380,14 +435,39 @@ enum Run {
     Lines(Files),
 }
 
-/// What every run file in `dir` holds.
-fn runs(dir: &Path) -> Vec<Run> {
-    std::fs::read_dir(dir)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|entry| parse_run(&std::fs::read_to_string(entry.path()).ok()?))
-        .collect()
+/// What every run file in a folder holds.
+struct Found {
+    runs: Vec<Run>,
+    /// The names of the files that hold none.
+    unreadable: Vec<String>,
+}
+
+impl Found {
+    fn counted(&self) -> Collected {
+        Collected {
+            recorded: self.runs.len(),
+            unreadable: self.unreadable.len(),
+        }
+    }
+}
+
+fn runs(dir: &Path) -> Found {
+    let mut found = Found {
+        runs: Vec::new(),
+        unreadable: Vec::new(),
+    };
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        match std::fs::read_to_string(entry.path())
+            .ok()
+            .and_then(|text| parse_run(&text))
+        {
+            Some(run) => found.runs.push(run),
+            None => found
+                .unreadable
+                .push(entry.file_name().to_string_lossy().into_owned()),
+        }
+    }
+    found
 }
 
 /// The file a process wrote on exit. A program built with `jaic -coverage` writes
@@ -516,31 +596,7 @@ mod tests {
 
     #[test]
     fn files_in_tests_folders_are_not_reported() {
-        let coverage = Coverage {
-            output: Output {
-                out: PathBuf::new(),
-                format: CoverageFormat::Lcov,
-                by: CoverageBy::File,
-                baseline: None,
-                margin: 0.0,
-                record: None,
-                summary: None,
-            },
-            entries: Mutex::default(),
-            dir: PathBuf::new(),
-            include: vec![PathBuf::from("/")],
-            exclude: Vec::new(),
-            base: PathBuf::new(),
-            dwarfdump: None,
-            jaic: PathBuf::new(),
-            stdlib: PathBuf::new(),
-            jaic_flags: Vec::new(),
-            next: AtomicUsize::new(0),
-            programs: Mutex::default(),
-            files: Mutex::default(),
-            known: Mutex::default(),
-            failure: Mutex::default(),
-        };
+        let coverage = bare();
         let dir = std::env::temp_dir().join(format!("jacket-cov-reported-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("tests")).unwrap();
@@ -564,6 +620,80 @@ mod tests {
         );
         assert!(coverage.reported("/nowhere/at/all.jai").is_none());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn bare() -> Coverage {
+        Coverage {
+            output: Output {
+                out: PathBuf::new(),
+                format: CoverageFormat::Lcov,
+                by: CoverageBy::File,
+                baseline: None,
+                margin: 0.0,
+                record: None,
+                summary: None,
+            },
+            entries: Mutex::default(),
+            dir: PathBuf::new(),
+            include: Vec::new(),
+            exclude: Vec::new(),
+            base: PathBuf::new(),
+            dwarfdump: None,
+            jaic: PathBuf::new(),
+            stdlib: PathBuf::new(),
+            jaic_flags: Vec::new(),
+            next: AtomicUsize::new(0),
+            programs: Mutex::default(),
+            files: Mutex::default(),
+            known: Mutex::default(),
+            failure: Mutex::default(),
+            lost: Mutex::default(),
+        }
+    }
+
+    #[test]
+    fn collecting_says_how_many_runs_were_recorded_and_how_many_files_were_not_runs() {
+        let coverage = bare();
+        let dir = std::env::temp_dir().join(format!("jacket-cov-collect-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(coverage.collect(&dir).recorded, 0, "deleted already");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("tests.1.cov"), RUN).unwrap();
+        std::fs::write(dir.join("tests.2.cov"), "jaic-coverage 1\ninterp\n").unwrap();
+        std::fs::write(dir.join("tests.3.cov"), "jaic-coverage 1\nexe /w/t\n10 1\n").unwrap();
+        let found = coverage.collect(&dir);
+        assert_eq!((found.recorded, found.unreadable), (2, 1));
+        assert!(!dir.exists(), "the folder is deleted");
+        // A file that cannot be read is lost coverage too, even though the process wrote one.
+        let text = coverage.incomplete().expect("incomplete");
+        assert!(text.contains("tests.3.cov"), "{text}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn coverage_a_process_did_not_write_makes_the_report_incomplete() {
+        let coverage = bare();
+        assert!(coverage.incomplete().is_none());
+        coverage.lost("/p/Uuid (Uuid::a) exited with status 0 but wrote no coverage".into());
+        coverage.lost("/p/Vt (Vt::b) exited with status 0 but wrote no coverage".into());
+        let text = coverage.incomplete().expect("incomplete");
+        assert!(text.contains("2 test processes"), "{text}");
+        assert!(text.contains("/p/Uuid (Uuid::a)"), "{text}");
+        assert!(text.contains("/p/Vt (Vt::b)"), "{text}");
+    }
+
+    #[test]
+    fn only_the_first_lost_runs_are_listed() {
+        let coverage = bare();
+        for n in 0..30 {
+            coverage.lost(format!("process {n}"));
+        }
+        let text = coverage.incomplete().expect("incomplete");
+        assert!(text.contains("30 test processes"), "{text}");
+        assert!(text.contains("process 0"), "{text}");
+        assert!(!text.contains("process 29"), "{text}");
+        assert!(text.contains("and 20 more"), "{text}");
     }
 
     #[test]

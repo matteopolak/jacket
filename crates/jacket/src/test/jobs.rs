@@ -256,7 +256,20 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
             None => exec::run(&invocation, &limits, live),
         };
         if let (Some(coverage), Some(dir)) = (&plan.coverage, &run_dir) {
-            coverage.collect(dir);
+            let found = coverage.collect(dir);
+            // A process that ends by itself runs its exit handlers, so it wrote what it ran.
+            if found.recorded == 0
+                && found.unreadable == 0
+                && let Ending::Exited(_) = &run.ending
+                && !run.ending.crashed()
+            {
+                coverage.lost(format!(
+                    "{} ({}) {} but wrote no coverage",
+                    cwd.display(),
+                    names.join(", "),
+                    ending_text(&run.ending),
+                ));
+            }
         }
         let mut done = 0;
         for (n, raw) in run.tests.iter().enumerate() {

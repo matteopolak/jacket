@@ -27,6 +27,7 @@
 
 ### Fixed
 
+- `jacket test --coverage` fails, and records and compares no baseline, when a test process ends without leaving its coverage (or leaves a file that is cut short), naming the processes. Before, their lines silently counted as never run and a module could read far below what its tests cover.
 - `Extensions/Gltf`: `gltf_local_resolve` loads files on Windows. Its containment check compared a `\\?\`-prefixed path with a `/` one and rejected every file.
 - `jacket test --path stdlib/Extensions/Protobuf` compiles in seconds again. A `json_name` with a control character made the generated Json note unreadable, so compiling reported an error for every message, and each report slowed the compiler further. Quoted note values in Args, Csv, Json and Toml accept `\uXXXX`.
 - A metaprogram that reads typechecked procedures no longer rescans every procedure for each message it receives, and reports from compile-time code no longer search all loaded files or lex the whole file each time.

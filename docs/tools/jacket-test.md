@@ -170,6 +170,8 @@ src/Mathy/module.jai       7/8   87.5%          2/2  100.0%
 
 Every program the run executes is built with `jaic -coverage` ([coverage](coverage.md)); lines add up across unit tests, golden programs and doc examples. Native coverage needs `llvm-dwarfdump` (`LLVM_PREFIX`, Homebrew LLVM or `PATH`). With `--interp` every program runs as `jaic -interp -coverage` and needs no LLVM. Build unoptimized; `-O2` moves blocks. Procedures nothing references are added as never run.
 
+A test process that ends on its own (exit status, no crash) writes its coverage as it exits. One that ends without, or whose file is cut short, makes the run fail with exit code 2 after the report is written, naming the processes, and no baseline is compared or recorded: counting what it ran as never run would make the numbers too low. Look at how that program exits (`_exit`, a handler that never returns) before suspecting the report.
+
 Baselines keep coverage from dropping: `--coverage-record FILE` writes per-module numbers as JSON, `--coverage-baseline FILE` exits 1 when a module or the total falls more than `--coverage-margin` points (default 0.5) below it and runs more than 5 lines fewer than the baseline's share would (fewer is timing noise), and `--coverage-summary FILE` appends a markdown table. CI runs `tools/ci/stdlib_coverage.sh` against `tools/ci/coverage-baseline.json`; re-record with `tools/ci/stdlib_coverage.sh --record`.
 
 ## Output formats
