@@ -74,6 +74,9 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
             continue;
         }
         let baked = i > 0 && chars[i - 1] == '$';
+        let first = i;
+        // `.NONE` is a member of a type the context knows, not a name of its own.
+        let leading_dot = i > 0 && chars[i - 1] == '.';
         let mut path = Vec::new();
         loop {
             let start = i;
@@ -91,9 +94,15 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
             i += 1;
         }
         // `a: T` declares `a`; `key = V` names a parameter. `::`, `:=` and `==` are neither.
+        let named_argument = matches!(after(i), Some(('=', next)) if next != Some('='))
+            && chars[..first]
+                .iter()
+                .rev()
+                .find(|c| **c != ' ')
+                .is_some_and(|c| matches!(c, '(' | ','));
         let declares = matches!(after(i), Some((':', next)) if !matches!(next, Some(':' | '=')))
-            || matches!(after(i), Some(('=', next)) if next != Some('='));
-        if !baked && !declares && !bound.contains(&path[0]) {
+            || named_argument;
+        if !baked && !declares && !leading_dot && !bound.contains(&path[0]) {
             out.push(path);
         }
     }

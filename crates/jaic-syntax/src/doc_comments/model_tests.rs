@@ -695,6 +695,11 @@ fn names_a_type_binds_for_itself_are_not_references() {
         type_paths("#type (a: $T, b: *T, c: Other.T) -> T"),
         [vec!["Other", "T"]]
     );
+    // A default value follows a type, which is still a reference.
+    assert_eq!(
+        type_paths("#type (flags: Flags = .NONE) -> void"),
+        [vec!["Flags"], vec!["void"]]
+    );
     assert_eq!(
         type_paths("Table(key = Key, $V, V)"),
         [vec!["Table"], vec!["Key"]]
