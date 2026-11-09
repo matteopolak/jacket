@@ -105,7 +105,9 @@ impl Session {
             })
             .cloned();
         let Some(root) = root else {
-            return removed.then_some((entries.len(), entries.len()));
+            let counts = (entries.len(), entries.len());
+            self.record_diagnostic_counts(counts);
+            return removed.then_some(counts);
         };
         let env = self.environment.as_ref()?;
         let buffers = Rc::new(
@@ -230,6 +232,7 @@ impl Session {
             .values()
             .filter(|s| !s.stale)
             .count();
+        self.record_diagnostic_counts((done, entries.len()));
         Some((done, entries.len()))
     }
 

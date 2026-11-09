@@ -5,6 +5,13 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
+/// How far each indexing phase has got: `(finished, total)` entries, then diagnostic roots.
+#[derive(Clone, Copy, Default)]
+pub(super) struct IndexCounts {
+    semantic: (usize, usize),
+    diagnostics: (usize, usize),
+}
+
 #[derive(Default)]
 pub(super) struct WorkspaceIndex {
     generation: Option<u64>,
@@ -13,27 +20,28 @@ pub(super) struct WorkspaceIndex {
 }
 
 impl Session {
-    /// Discovered workspace files; build metaprograms can expand this set while indexing.
-    pub fn indexing_message(&self) -> String {
-        let files = self
-            .index
-            .borrow()
-            .builds
-            .values()
-            .flat_map(|facts| facts.sources.keys())
-            .filter(|path| {
-                self.workspace_folders
-                    .iter()
-                    .any(|dir| path.starts_with(dir))
-            })
-            .cloned()
-            .collect::<std::collections::BTreeSet<_>>()
-            .len();
-        if files == 0 {
-            "indexing".into()
-        } else {
-            format!("indexing {files} files")
-        }
+    /// One combined `(finished, total)` over both indexing phases: the entries analysed, then
+    /// the diagnostic roots checked. The diagnostics total is the entry total until that phase
+    /// reports its own, so the count does not start over when the phases hand over. `(0, 0)`
+    /// until a step has run.
+    pub fn indexing_counts(&self) -> (usize, usize) {
+        let counts = self.index_counts.get();
+        let (done, total) = counts.semantic;
+        let (checked, roots) = counts.diagnostics;
+        let roots = if roots == 0 { total } else { roots };
+        (done + checked, total + roots)
+    }
+
+    /// Forget the counts when indexing finishes, so the next run starts from zero.
+    pub fn reset_indexing_counts(&self) {
+        self.index_counts.set(IndexCounts::default());
+    }
+
+    pub(super) fn record_diagnostic_counts(&self, counts: (usize, usize)) {
+        let mut all = self.index_counts.get();
+        all.semantic.0 = all.semantic.1;
+        all.diagnostics = counts;
+        self.index_counts.set(all);
     }
 
     /// Whether workspace entries still need indexing for the current source snapshot.
@@ -89,6 +97,14 @@ impl Session {
         if !self.semantic_indexing_pending() {
             return self.index_workspace_diagnostics();
         }
+        let counts = self.index_workspace_entry()?;
+        let mut all = self.index_counts.get();
+        all.semantic = counts;
+        self.index_counts.set(all);
+        Some(counts)
+    }
+
+    fn index_workspace_entry(&self) -> Option<(usize, usize)> {
         let env = self.environment.as_ref()?;
         let generation = self.generation.get();
         let sources = self.sources(env);

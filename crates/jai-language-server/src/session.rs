@@ -123,6 +123,7 @@ pub struct Session {
     /// A request skipped running the project's build files, so its inputs are not kept.
     builds_skipped: std::cell::Cell<bool>,
     workspace_index: RefCell<indexing::WorkspaceIndex>,
+    index_counts: std::cell::Cell<indexing::IndexCounts>,
     workspace_diagnostics: RefCell<workspace_diagnostics::WorkspaceDiagnostics>,
 }
 
@@ -171,6 +172,7 @@ impl Session {
             stale_used: std::cell::Cell::new(false),
             builds_skipped: std::cell::Cell::new(false),
             workspace_index: RefCell::default(),
+            index_counts: std::cell::Cell::default(),
             workspace_diagnostics: RefCell::default(),
         }
     }
