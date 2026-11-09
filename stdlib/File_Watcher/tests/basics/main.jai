@@ -1,9 +1,9 @@
 #import "Basic";
 W :: #import "File_Watcher";
 F :: #import "File";
-S :: #import "String";
 P :: #import "Process";
 N :: #import "POSIX";
+#import "Extensions/Environment";
 
 libc :: #system_library "libc";
 c_free :: (pointer: *void) #foreign libc "free"; @FreesArgument
@@ -101,9 +101,8 @@ run_cases :: () {
     assert(!W.init(*invalid, changed, merge_window_seconds = nonfinite));
     assert(invalid.pool == null && invalid.callback == null);
     W.deinit(invalid);
-    root := sprint("%/../../../../target/portable-tests/watch fixtures", S.path_strip_filename(#file));
+    root := output_path("portable-tests/watch fixtures");
 
-    defer free(root);
     command("/bin/rm", "-rf", root);
     command("/bin/mkdir", "-p", root);
     name := to_c_string(root);

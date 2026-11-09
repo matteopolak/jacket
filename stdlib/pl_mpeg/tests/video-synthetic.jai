@@ -1,11 +1,9 @@
 #import "Basic";
 M :: #import "pl_mpeg";
-S :: #import "String";
+#import "Extensions/Environment";
 
 main :: () {
-    root := sprint("%/../../../target/portable-tests/mpeg/", S.path_strip_filename(#file));
-
-    defer free(root);
+    root := output_path("portable-tests/mpeg/");
     filename := sprint("%reordered.m1v", root);
 
     defer free(filename);

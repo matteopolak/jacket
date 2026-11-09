@@ -1,6 +1,6 @@
 #import "Basic";
 M :: #import "pl_mpeg";
-S :: #import "String";
+#import "Extensions/Environment";
 
 Tracking :: struct {
     base: Allocator;
@@ -35,10 +35,9 @@ run_cases :: () {
     #assert !#exists(M.scale_samples);
     #assert !#exists(M.Audio_Private);
     #assert !#exists(M.crc_bits);
-    root := sprint("%/../../../target/portable-tests/mpeg/", S.path_strip_filename(#file));
-
-    defer free(root);
+    root := output_path("portable-tests/mpeg/");
     names := string.["stereo", "dual", "joint", "joint-crc"];
+
     for names {
         filename := sprint("%%.mp2", root, it);
         buffer := M.buffer_create_with_filename(filename);

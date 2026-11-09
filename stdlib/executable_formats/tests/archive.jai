@@ -1,6 +1,6 @@
 #import "Basic";
 E :: #import "executable_formats";
-S :: #import "String";
+#import "Extensions/Environment";
 
 Tracking :: struct {
     base: Allocator;
@@ -73,9 +73,7 @@ run_cases :: () {
 
     assert((cast(*Type_Info_Struct) type_info(E.Archive)).name == "Archive");
     assert((cast(*Type_Info_Struct) type_info(E.Archive_File)).name == "Archive_File");
-    root := sprint("%/../../../target/portable-tests/archive-fixtures/", S.path_strip_filename(#file));
-
-    defer free(root);
+    root := output_path("portable-tests/archive-fixtures/");
 
     for label: string.["classic", "bsd-big", "bsd-little", "gnu", "coff", "native"] {
         path := sprint("%%.a", root, label);

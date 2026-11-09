@@ -35,6 +35,32 @@ has_environment_variable :: (name: string) -> bool {
     return set;
 }
 
+// The directory the repository's tools write generated test and benchmark data to, which tests and benches read it from:
+// `JACKET_OUTPUT_DIR` when that is set and not empty, else the `target` folder of the checkout the standard library is in.
+//
+// The string is in temporary storage. Use it to find data that a `jacket test` or `jacket bench` setup builds, instead of
+// spelling `target` in the path, which a relocated output directory breaks.
+//
+// ```jai,skip_on(wasm)
+// assert(output_directory().count > 0);
+// ```
+output_directory :: () -> string {
+    over := environment_variable("JACKET_OUTPUT_DIR");
+    if over.count return over;
+
+    return tprint("%../../../target", #filepath);
+}
+
+// `relative` below [output_directory], joined with `/`, in temporary storage.
+//
+// ```jai,skip_on(wasm)
+// path := output_path("portable-tests/zip/a.zip");
+// assert(path.count > "portable-tests/zip/a.zip".count);
+// ```
+output_path :: (relative: string) -> string {
+    return tprint("%/%", output_directory(), relative);
+}
+
 #scope_file
 
 #import "Basic";

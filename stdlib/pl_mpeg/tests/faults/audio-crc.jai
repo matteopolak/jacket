@@ -2,12 +2,10 @@
 #import "Basic";
 M :: #import "pl_mpeg";
 F :: #import "File";
-S :: #import "String";
+#import "Extensions/Environment";
 
 main :: () {
-    filename := sprint("%/../../../../target/portable-tests/mpeg/joint-crc.mp2", S.path_strip_filename(#file));
-
-    defer free(filename);
+    filename := output_path("portable-tests/mpeg/joint-crc.mp2");
     bytes, loaded := F.read_entire_file(filename);
 
     assert(loaded && bytes.count == 834);

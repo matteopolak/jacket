@@ -2,6 +2,7 @@
 M :: #import "pl_mpeg";
 F :: #import "File";
 S :: #import "String";
+#import "Extensions/Environment";
 
 Counts :: struct {
     video, audio: s64;
@@ -168,9 +169,8 @@ run_cases :: () {
     defer free(repeated);
     for 0..23 memcpy(repeated + it * clip.count, clip.data, clip.count);
 
-    large_filename := sprint("%/../../../target/portable-tests/mpeg-refill.mpg", S.path_strip_filename(#file));
+    large_filename := output_path("portable-tests/mpeg-refill.mpg");
 
-    defer free(large_filename);
     assert(F.write_entire_file(large_filename, (.{ data = cast(*u8) repeated, count = clip.count * 24 })));
     plm = M.create_with_filename(large_filename);
     assert(plm != null && M.has_headers(plm));

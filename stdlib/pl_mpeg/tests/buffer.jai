@@ -1,7 +1,7 @@
 #import "Basic";
 M :: #import "pl_mpeg";
 F :: #import "File";
-S :: #import "String";
+#import "Extensions/Environment";
 
 Load_State :: struct {
     calls: s64;
@@ -77,9 +77,8 @@ main :: () {
     M.buffer_set_load_callback(buffer, load, *state);
     assert(M.buffer_read(buffer, 16) == 0x9876 && state.calls == 1);
     M.buffer_destroy(buffer);
-    filename := sprint("%/../../../target/portable-tests/mpeg-buffer.bin", S.path_strip_filename(#file));
+    filename := output_path("portable-tests/mpeg-buffer.bin");
 
-    defer free(filename);
     assert(F.write_entire_file(filename, "abcde"));
     buffer = M.buffer_create_with_filename(filename);
     assert(buffer != null && M.buffer_get_size(buffer) == 5);

@@ -1,7 +1,7 @@
 #import "Basic";
 Z :: #import "Zip_File_Directory";
 F :: #import "File";
-S :: #import "String";
+#import "Extensions/Environment";
 
 Tracking :: struct {
     base: Allocator;
@@ -33,9 +33,7 @@ main :: () {
 }
 
 run_cases :: () {
-    fixture_root := sprint("%/../../../target/portable-tests/zip/", S.path_strip_filename(#file));
-
-    defer free(fixture_root);
+    fixture_root := output_path("portable-tests/zip/");
     filename := sprint("%valid.zip", fixture_root);
 
     defer free(filename);

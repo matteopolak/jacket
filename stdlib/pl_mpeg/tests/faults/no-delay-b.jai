@@ -1,12 +1,10 @@
 // test: should_fail("MPEG B picture violates no-delay assumption")
 #import "Basic";
 M :: #import "pl_mpeg";
-S :: #import "String";
+#import "Extensions/Environment";
 
 main :: () {
-    filename := sprint("%/../../../../target/portable-tests/mpeg/reordered.m1v", S.path_strip_filename(#file));
-
-    defer free(filename);
+    filename := output_path("portable-tests/mpeg/reordered.m1v");
     buffer := M.buffer_create_with_filename(filename);
 
     assert(buffer != null);

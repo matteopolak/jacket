@@ -4,6 +4,7 @@
 
 ### New
 
+- `Extensions/Environment`: `output_directory` and `output_path` give the directory the repository's tools write generated test data to (`JACKET_OUTPUT_DIR`, else `target/`). The `File_Watcher`, `pl_mpeg`, `Zip_File_Directory`, `executable_formats` and `Machine_X64` tests read it there instead of always in `target/`.
 - `Extensions/Gltf`: `gltf_remove_extension` removes an extension from an object and, once nothing uses it, from `extensionsUsed` and `extensionsRequired`.
 - `Extensions/Json`: `json_remove` takes the members of an object named by a key out of a `Json_Value`.
 - `jacket doc` takes compiler flags after `--`, as `jacket test` does: `jacket doc lib -- -import_dir vendor` lets the library import modules from `vendor`.
