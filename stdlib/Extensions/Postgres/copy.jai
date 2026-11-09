@@ -532,9 +532,8 @@ copy_put_member_code :: (Row: Type) -> string {
     return builder_to_string(*builder);
 }
 
-// One field: its length (or -1 for null), then its binary form. Scalars, strings, enums and
-// numerics are written by code made for their type; arrays and json documents go through
-// `put_copy_value_any`.
+// One field: its length (or -1 for null), then its binary form. Every type is written by code
+// made for it, so a field costs no walk of type information.
 put_copy_value :: (out: *[..] u8, value: *$T, json_text: bool) -> string {
     #if #run is_nullable(T) {
         if value.null {
@@ -603,8 +602,34 @@ put_copy_value :: (out: *[..] u8, value: *$T, json_text: bool) -> string {
 
         put_u32(out, cast(u32) bytes.count);
         put_bytes(out, bytes);
+    } else #if #run is_json_value(T) {
+        text, why := json_text_of(value);
+        if why return why;
+
+        if json_text {
+            put_u32(out, cast(u32) text.count);
+        } else {
+            // jsonb starts with its version byte.
+            put_u32(out, cast(u32) text.count + 1);
+            put_u8(out, 1);
+        }
+
+        put_bytes(out, text);
+    } else #if #run is_bytes(T) {
+        view: [] u8 = value.*;
+
+        put_u32(out, cast(u32) view.count);
+        put_bytes(out, view);
+    } else #if #run is_enum_array(T) {
+        return "COPY cannot send arrays of enums; insert them instead";
+    } else #if type_info(T).type == .ARRAY {
+        param, why := array_param_of(value.*);
+        if why return why;
+
+        put_u32(out, cast(u32) param.data.count);
+        put_bytes(out, param.data);
     } else {
-        return put_copy_value_any(out, Any.{ type_info(T), value }, json_text);
+        return tprint("Postgres has no encoding for COPY members of type %", T);
     }
 
     return "";
@@ -625,64 +650,4 @@ enum_label_of :: (value: $T) -> string, bool {
     };
 
     return "", false;
-}
-
-// One field of a type only known as `Any`.
-put_copy_value_any :: (out: *[..] u8, value: Any, json_text: bool) -> string {
-    info := value.type;
-    data := value.value_pointer;
-
-    if is_nullable_info(info) {
-        s := cast(*Type_Info_Struct) info;
-        null_member, inner_member: *Type_Info_Struct_Member;
-
-        for *s.members {
-            if it.name == "null" null_member = it;
-            if it.name == "value" inner_member = it;
-        }
-
-        if (cast(*bool) (data + null_member.offset_in_bytes)).* {
-            put_u32(out, COPY_NULL);
-            return "";
-        }
-
-        return put_copy_value_any(out, Any.{ inner_member.type, data + inner_member.offset_in_bytes }, json_text);
-    }
-
-    bytes: string;
-
-    if info.type == .ENUM {
-        label, found := enum_value_label(value);
-        if !found return tprint("% holds a value that is none of its members", type_to_string(info,, temp));
-
-        bytes = label;
-    } else if info.type == .ARRAY && (cast(*Type_Info_Array) info).element_type == type_info(u8) {
-        bytes = cast(string) any_array_view(value);
-    } else if info.type == .ARRAY {
-        if (cast(*Type_Info_Array) info).element_type.type == .ENUM return "COPY cannot send arrays of enums; insert them instead";
-
-        param, why := encode_array(value);
-        if why return why;
-
-        bytes = param.data;
-    } else if info == type_info(Numeric) {
-        why: string;
-        bytes, why = numeric_binary((cast(*Numeric) data).text);
-        if why return why;
-    } else if json_text && (is_json_info(info) || info == type_info(Json_Raw)) {
-        text, why := json_parameter_text(value);
-        if why return why;
-
-        bytes = text;
-    } else {
-        param, why := encode_binary(value);
-        if why return why;
-
-        bytes = param.data;
-    }
-
-    put_u32(out, cast(u32) bytes.count);
-    put_bytes(out, bytes);
-
-    return "";
 }

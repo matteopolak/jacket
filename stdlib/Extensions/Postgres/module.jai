@@ -97,6 +97,7 @@ System :: #import "System";
 #import "Extensions/Environment";
 
 #load "wire.jai";
+#load "encoders.jai";
 #load "startup.jai";
 #load "tls_name.jai";
 #load "scram.jai";

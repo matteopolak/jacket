@@ -22,7 +22,7 @@ The callback form hands each piece to you as it arrives, in any format. The row 
 
 ## How it works
 
-- `copy_in` feeds `run_script` from a `Script_Hooks.copy_in` hook (`copy.jai`): header, rows in 64 KiB pieces, then the trailer. Each row is a field count plus a length and binary form per member. `copy_put_member` is written for the row struct at compile time: one case per member, each calling `put_copy_value` for its type, which writes numbers, strings, enums, `Uuid`, dates, `Interval` and `Numeric` straight into the buffer. Arrays and json documents go through `put_copy_value_any` (`encode_array`, `json_parameter_text` in `codecs.jai`).
+- `copy_in` feeds `run_script` from a `Script_Hooks.copy_in` hook (`copy.jai`): header, rows in 64 KiB pieces, then the trailer. Each row is a field count plus a length and binary form per member. `copy_put_member` is written for the row struct at compile time: one case per member, each calling `put_copy_value` for its type, which writes numbers, strings, enums, `Uuid`, dates, `Interval`, `Numeric`, byte strings, arrays and json documents straight into the buffer. Arrays use `array_param_of` and elements use `put_scalar` (`encoders.jai`), both made for the element type, so no row walks type information.
 - `columns` picks members by name in the statement's column order. Empty means every member.
 - `copy_many` builds its statement at compile time from `@pg_table` and the fields without `@pg_default`/`@pg_generated`.
 - `copy_out` decodes rows with the same decoders as `get`. A NULL needs a `Nullable` member; a wrong width, text format or count mismatch is an error.
@@ -30,7 +30,7 @@ The callback form hands each piece to you as it arrives, in any format. The row 
 
 ## How to change it
 
-A new type goes in `encode_binary` (parameters get it too) and in `put_copy_value`, which has its own typed branch per type; a type with no branch there falls to `put_copy_value_any`, which calls `encode_binary`.
+A new type goes in `scalar_oid` and `put_scalar` (`encoders.jai`; query arguments and array elements get it too, once it is in `PLAIN_TYPES`) and in `put_copy_value`, which has its own typed branch per type. A type with no branch there is an error naming it.
 
 Gotchas:
 

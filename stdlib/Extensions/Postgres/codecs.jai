@@ -908,14 +908,22 @@ Param :: struct {
 // Picks a format and OID for one argument. Plain numbers, strings and bools go as text with OID
 // 0, so the server infers the type from the query; types whose meaning would be lost as text
 // (bytea, floats, uuid, dates and times, arrays) go as binary with their OID.
+//
+// The types in PLAIN_TYPES, and arrays of them, are sent by the encoder written for the type
+// (encoders.jai). The rest (enums, `Json(T)`, a `Nullable` of those, other arrays) are read from
+// their type information here.
 encode_param :: (value: Any) -> Param, string {
     info := value.type;
     data := value.value_pointer;
 
-    if is_json_info(info) || info == type_info(Json_Raw) {
+    param, why, handled := any_param(value);
+
+    if handled return param, why;
+
+    if is_json_info(info) {
         // No type OID: the server reads the text as json or jsonb, whichever the statement wants.
-        text, why := json_parameter_text(value);
-        return .{ data = text }, why;
+        text, json_why := json_parameter_text(value);
+        return .{ data = text }, json_why;
     }
 
     if is_nullable_info(info) {
@@ -940,17 +948,10 @@ encode_param :: (value: Any) -> Param, string {
 
         if array.element_type.type == .ENUM return encode_enum_array(value);
 
+        array_param, array_why, array_handled := any_array_param(value);
+        if array_handled return array_param, array_why;
+
         return encode_array(value);
-    }
-
-    if info.type == .STRING {
-        text := (cast(*string) data).*;
-        if contains_zero(text) return .{}, "a string parameter holds a zero byte, which Postgres text cannot store";
-        return .{ data = text }, "";
-    }
-
-    if info.type == .INTEGER && info.runtime_size == 8 && !(cast(*Type_Info_Integer) info).signed {
-        return .{ data = tprint("%", (cast(*u64) data).*) }, "";
     }
 
     if info.type == .ENUM {
@@ -961,100 +962,50 @@ encode_param :: (value: Any) -> Param, string {
         return .{ data = label }, "";
     }
 
-    if info.type == .INTEGER {
-        return .{ data = tprint("%", any_integer(value)) }, "";
-    }
-    if info.type == .BOOL {
-        return .{ data = ifx (cast(*bool) data).* then "t" else "f" }, "";
-    }
-
-    param, why := encode_binary(value);
-
-    return param, why;
+    return .{}, tprint("Postgres has no encoding for parameters of type %", type_to_string(info,, temp));
 }
 
-// The binary form and OID of a non-null scalar.
-encode_binary :: (value: Any) -> Param, string {
+// An `Any` holding one of PLAIN_TYPES, sent by the encoder written for its type. `handled` is
+// false for any other type.
+any_param :: (value: Any) -> Param, string, bool {
     info := value.type;
-    data := value.value_pointer;
-    out: [..] u8;
-    out.allocator = temp;
-    oid: Oid;
 
-    if info.type == .BOOL {
-        oid = .BOOL;
-        put_u8(*out, xx (cast(*bool) data).*);
-    } else if info.type == .INTEGER {
-        v := any_integer(value);
+    #insert -> string {
+        return param_cases();
+    };
 
-        if info.runtime_size <= 1 {
-            oid = .INT2;
-            put_u16(*out, cast,no_check(u16) v);
-        } else if info.runtime_size == 2 && (cast(*Type_Info_Integer) info).signed {
-            oid = .INT2;
-            put_u16(*out, cast,no_check(u16) v);
-        } else if info.runtime_size <= 2 || (info.runtime_size == 4 && (cast(*Type_Info_Integer) info).signed) {
-            oid = .INT4;
-            put_u32(*out, cast,no_check(u32) v);
-        } else {
-            if info.runtime_size == 8 && !(cast(*Type_Info_Integer) info).signed && (cast(*u64) data).* > xx S64_MAX {
-                return .{}, "a u64 parameter above S64_MAX does not fit in int8";
-            }
-
-            oid = .INT8;
-            put_u64(*out, cast,no_check(u64) v);
-        }
-    } else if info.type == .FLOAT {
-        if info.runtime_size == 4 {
-            oid = .FLOAT4;
-            put_u32(*out, (cast(*u32) data).*);
-        } else {
-            oid = .FLOAT8;
-            put_u64(*out, (cast(*u64) data).*);
-        }
-    } else if info.type == .STRING {
-        text := (cast(*string) data).*;
-        if contains_zero(text) return .{}, "a string parameter holds a zero byte, which Postgres text cannot store";
-        oid = .TEXT;
-        put_bytes(*out, text);
-    } else if info == type_info(Uuid) {
-        oid = .UUID;
-        put_bytes(*out, cast([] u8) (cast(*Uuid) data).bytes);
-    } else if info == type_info(Timestamp) || info == type_info(Local_Timestamp) {
-        oid = ifx info == type_info(Timestamp) then Oid.TIMESTAMPTZ else .TIMESTAMP;
-        put_u64(*out, cast,no_check(u64) (cast(*s64) data).*);
-    } else if info == type_info(Date) {
-        oid = .DATE;
-        put_u32(*out, cast,no_check(u32) (cast(*s32) data).*);
-    } else if info == type_info(Time) {
-        oid = .TIME;
-        put_u64(*out, cast,no_check(u64) (cast(*s64) data).*);
-    } else if info == type_info(Interval) {
-        oid = .INTERVAL;
-        interval := cast(*Interval) data;
-
-        put_u64(*out, cast,no_check(u64) interval.microseconds);
-        put_u32(*out, cast,no_check(u32) interval.days);
-        put_u32(*out, cast,no_check(u32) interval.months);
-    } else if is_json_info(info) || info == type_info(Json_Raw) {
-        text, why := json_parameter_text(value);
-        if why return .{}, why;
-
-        oid = .JSONB;
-        put_u8(*out, 1);
-        put_bytes(*out, text);
-    } else if info == type_info(Numeric) {
-        // Numerics go as text: the server parses them exactly.
-        return .{ oid = xx Oid.NUMERIC, data = (cast(*Numeric) data).text }, "";
-    } else {
-        return .{}, tprint("Postgres has no encoding for parameters of type %", type_to_string(info,, temp));
-    }
-
-    return .{ oid = xx oid, format = .BINARY, data = cast(string) out }, "";
+    return .{}, "", false;
 }
 
-// A one-dimensional binary array: dimensions, has-nulls, element OID, length, lower bound, then
-// each element as a length and its binary form.
+// An `Any` holding an array of PLAIN_TYPES (or a `Nullable` of one), sent by the array encoder
+// written for the element type. `handled` is false for any other element type.
+any_array_param :: (value: Any) -> Param, string, bool {
+    array := cast(*Type_Info_Array) value.type;
+    view := any_array_view(value);
+    element := array.element_type;
+    count := view.count / element.runtime_size;
+
+    #insert -> string {
+        return array_cases();
+    };
+
+    return .{}, "", false;
+}
+
+// The binary form of an `Any` holding one of PLAIN_TYPES, written to `out`, and its OID.
+// `handled` is false for any other type.
+any_put_scalar :: (out: *[..] u8, value: Any) -> Oid, string, bool {
+    info := value.type;
+
+    #insert -> string {
+        return scalar_cases();
+    };
+
+    return cast(Oid) 0, "", false;
+}
+
+// A one-dimensional binary array of elements whose types are only known as type information: the
+// element types that have no encoder written for them. Each element is a length and its binary form.
 encode_array :: (value: Any) -> Param, string {
     array := cast(*Type_Info_Array) value.type;
     view := any_array_view(value);
@@ -1081,7 +1032,7 @@ encode_array :: (value: Any) -> Param, string {
 
     elements: [..] u8;
     elements.allocator = temp;
-    element_oid: u32;
+    element_oid: Oid;
     has_nulls := false;
 
     for 0..count - 1 {
@@ -1092,53 +1043,73 @@ encode_array :: (value: Any) -> Param, string {
             continue;
         }
 
-        param: Param;
-        why: string;
+        // The length is not known until the element is written, so it is filled in after.
+        start := elements.count;
 
-        if inner_info.type == .ARRAY {
-            param = .{ oid = xx Oid.BYTEA, format = .BINARY, data = cast(string) any_array_view(Any.{ inner_info, at + inner_offset }) };
-        } else if inner_info == type_info(Numeric) {
-            // An array element is binary, so the numeric's text is turned into binary form.
-            param.data, why = numeric_binary((cast(*Numeric) (at + inner_offset)).text);
-            if why return .{}, why;
+        put_u32(*elements, 0);
 
-            param.oid = xx Oid.NUMERIC;
-        } else {
-            param, why = encode_binary(Any.{ inner_info, at + inner_offset });
-            if why return .{}, why;
-        }
+        oid, why := put_any_element(*elements, Any.{ inner_info, at + inner_offset });
+        if why return .{}, why;
 
-        element_oid = param.oid;
-        put_u32(*elements, cast(u32) param.data.count);
-        put_bytes(*elements, param.data);
+        element_oid = oid;
+        patch_u32(*elements, start, cast(u32) (elements.count - start - 4));
     }
 
     if !element_oid {
         // An empty or all-null array still needs an element type.
-        probe: [16] u8;
-
         if inner_info.type == .ARRAY {
-            element_oid = xx Oid.BYTEA;
+            element_oid = .BYTEA;
         } else {
-            param, why := encode_binary(Any.{ inner_info, probe.data });
+            probe: [16] u8;
+            scratch: [..] u8;
+            scratch.allocator = temp;
+
+            oid, why := put_any_element(*scratch, Any.{ inner_info, probe.data });
             if why return .{}, why;
-            element_oid = param.oid;
+
+            element_oid = oid;
         }
     }
 
-    array_oid := array_oid_of(element_oid);
-    if !array_oid return .{}, tprint("Postgres has no array type for % elements here", type_name(element_oid));
+    array_oid := array_oid_of(cast(u32) element_oid);
+    if !array_oid return .{}, tprint("Postgres has no array type for % elements here", type_name(cast(u32) element_oid));
 
     out: [..] u8;
     out.allocator = temp;
     put_u32(*out, 1);
     put_u32(*out, xx has_nulls);
-    put_u32(*out, element_oid);
+    put_u32(*out, cast(u32) element_oid);
     put_u32(*out, cast(u32) count);
     put_u32(*out, 1);
     put_bytes(*out, cast([] u8) elements);
 
     return .{ oid = array_oid, format = .BINARY, data = cast(string) out }, "";
+}
+
+// The binary form of one array element known only by its type information, and its OID: a
+// byte string, a `Json(T)`, or one of PLAIN_TYPES.
+put_any_element :: (out: *[..] u8, value: Any) -> Oid, string {
+    info := value.type;
+
+    if info.type == .ARRAY {
+        put_bytes(out, any_array_view(value));
+        return .BYTEA, "";
+    }
+
+    if is_json_info(info) {
+        text, why := json_parameter_text(value);
+        if why return cast(Oid) 0, why;
+
+        put_u8(out, 1);
+        put_bytes(out, text);
+
+        return .JSONB, "";
+    }
+
+    oid, why, handled := any_put_scalar(out, value);
+    if !handled return cast(Oid) 0, tprint("Postgres has no encoding for parameters of type %", type_to_string(info,, temp));
+
+    return oid, why;
 }
 
 is_nullable :: ($T: Type) -> bool {
