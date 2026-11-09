@@ -106,7 +106,7 @@ By default jaic builds a native executable. Options may come before or after the
 | `-print_stdlib` | print the standard library folder jaic uses and exit |
 | `-doc_comments <dir>` | print the doc comments of the library in &lt;dir&gt; as records, for `jacket test` |
 | `-doc_gaps <dir>` | print which public declarations of the library in &lt;dir&gt; have docs and an example |
-| `-doc_model <dir>` | print the documentation of the library in &lt;dir&gt; (items, signatures, docs) as JSON, for `jacket doc` |
+| `-doc_model <dir>` | print the documentation of the library in &lt;dir&gt; (items, signatures, docs) as JSON, with what its public top-level `#insert`s declare (compiled once with default module parameters), for `jacket doc` |
 | `-procedures <dirs>` | print every procedure with a body below the folders &lt;dirs&gt; (a path list) as records, for `jacket test --coverage`; `-os` and `-cpu` pick the `#if` branches |
 | `-V, -version, --version` | print the version |
 | `-profile` | count what the interpreter runs per procedure and print the busiest |
