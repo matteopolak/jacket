@@ -2,10 +2,10 @@
 #import "Extensions/Toml";
 
 // Nested tables are written under `[table]` headers and arrays of tables under `[[array]]`;
-// a table inside a mixed array, and an empty table, stay inline.
+// a table inside a mixed array stays inline. An empty table is a bare header.
 SOURCE :: "title = 'x'\nserver = { host = 'a', tls = { on = true }, tags = [] }\nempty = {}\nmixed = [{ a = 1 }, 2]\nitems = [{ n = 1, sub = { k = 2 }, list = [{ z = 3 }] }, {}]\n";
 
-EXPECTED :: "title = \"x\"\nempty = {}\nmixed = [{a = 1}, 2]\n\n[server]\nhost = \"a\"\ntags = []\n\n[server.tls]\non = true\n\n[[items]]\nn = 1\n\n[items.sub]\nk = 2\n\n[[items.list]]\nz = 3\n\n[[items]]\n";
+EXPECTED :: "title = \"x\"\nmixed = [{a = 1}, 2]\n\n[server]\nhost = \"a\"\ntags = []\n\n[server.tls]\non = true\n\n[empty]\n\n[[items]]\nn = 1\n\n[items.sub]\nk = 2\n\n[[items.list]]\nz = 3\n\n[[items]]\n";
 
 main :: () {
     doc, error := parse_toml(SOURCE);

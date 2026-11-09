@@ -1,8 +1,8 @@
 #scope_export
 // Writes a deterministic semantic TOML document. Comments/layout are not preserved. A table
 // inside a table is written under a `[header]` and a nonempty array of tables under `[[header]]`,
-// after the table's own `key = value` lines. A table that is empty or inside any other array
-// stays inline.
+// after the table's own `key = value` lines (an empty table is a bare `[header]`, as in the typed
+// encoder). A table inside any other array stays inline.
 // Example: text, error := write_toml(doc.root); defer free(text);
 write_toml :: (root: *Toml_Value, options := Toml_Options.{}) -> string, Toml_Error {
     writer: Toml_Writer;
@@ -632,9 +632,9 @@ toml_key_set_add :: (set: *Toml_Key_Set, members: [] Toml_Member, index: int) ->
     return true;
 }
 
-// A nonempty table written under its own `[header]`; an empty one stays inline.
+// A table written under its own `[header]`, empty or not.
 toml_is_header_table :: (node: *Toml_Value) -> bool {
-    return node && node.kind == .TABLE && node.members.count > 0;
+    return node && node.kind == .TABLE;
 }
 
 // A nonempty array whose items are all tables, written as `[[header]]` per item.
