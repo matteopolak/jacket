@@ -182,7 +182,7 @@ impl Session {
         };
         let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
-        !sources.scan(&mut index, root).builds.is_empty()
+        sources.scan(&mut index, root).adds_build_files
     }
 
     /// Top-level declarations of the project's `.jai` files that are not open, whose name

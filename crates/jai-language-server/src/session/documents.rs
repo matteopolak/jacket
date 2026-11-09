@@ -385,6 +385,7 @@ impl Session {
         found.extend(self.lint_diagnostics(uri));
         let others = self.sibling_program_diagnostics(uri)?;
         super::workspace_diagnostics::merge(&mut found, &others);
+        // After the checks: they run the build metaprograms whose facts say what is reached.
         if self.is_unreached(uri) {
             all.push(super::workspace_diagnostics::not_in_program(
                 &self.document(uri)?.text,

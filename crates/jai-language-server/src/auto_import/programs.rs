@@ -279,7 +279,7 @@ impl Sources<'_> {
             let metaprogram = self
                 .closure(index, entry)
                 .iter()
-                .any(|file| !self.scan(index, file).builds.is_empty());
+                .any(|file| self.scan(index, file).adds_build_files);
             match index.builds.get(entry) {
                 Some(facts) if !index.stale_source_graphs.contains_key(entry) => {
                     reached.extend(facts.sources.keys().cloned());

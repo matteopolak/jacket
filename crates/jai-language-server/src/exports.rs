@@ -105,6 +105,10 @@ pub struct FileScan {
     /// call, anywhere in the file. A static scan for a metaprogram that has not run: once it has,
     /// the files it really added (`semantic::BuildFacts`) are used instead.
     pub builds: Vec<String>,
+    /// The file calls `add_build_file` at all, whatever it passes: a path built at run time
+    /// (`tprint`, a variable) is not in `builds`, but the file is still a metaprogram whose
+    /// run decides what the program contains.
+    pub adds_build_files: bool,
     /// The targets a top-level `#assert OS == .A || OS == .B` allows (`["A", "B"]`).
     pub only_os: Option<Vec<String>>,
     /// The file declares `main` at its top level (it is a program's entry, not a part).
@@ -129,6 +133,10 @@ pub fn scan(text: &str) -> FileScan {
     let mut out = FileScan {
         text_hash: crate::auto_import::hash(text),
         builds: build_files(tokens),
+        adds_build_files: tokens.windows(2).any(|w| {
+            matches!((&w[0].tok, &w[1].tok),
+                (Tok::Ident(name), Tok::Punct(P::LParen)) if name.as_str() == "add_build_file")
+        }),
         import_paths: import_paths(tokens),
         first_code: tokens.first().map(|t| t.span.start as usize),
         ..FileScan::default()
@@ -429,6 +437,15 @@ hidden :: () {}
             "build :: () {\n    w := compiler_create_workspace();\n    add_build_file(\"src/main.jai\", w);\n}\n",
         );
         assert_eq!(scan.builds, ["src/main.jai"]);
+        assert!(scan.adds_build_files);
+    }
+
+    #[test]
+    fn a_computed_build_file_still_marks_a_metaprogram() {
+        let scan = scan("build :: () { add_build_file(tprint(\"%/main.jai\", dir), w); }\n");
+        assert!(scan.builds.is_empty());
+        assert!(scan.adds_build_files);
+        assert!(!super::scan("main :: () {}\n").adds_build_files);
     }
 
     #[test]

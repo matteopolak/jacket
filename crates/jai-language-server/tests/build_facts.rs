@@ -1,7 +1,7 @@
 //! Project discovery follows what a build metaprogram did when it ran, not a scan of its
 //! text: computed paths, files added in a loop, and import paths built with `tprint` or kept
 //! in a variable are all found, and a metaprogram that fails later leaves the last good facts.
-use jai_language_server::{DiagnosticCode, DocumentUri, Session};
+use jai_language_server::{DiagnosticCode, DocumentUri, Session, TextChange};
 use test_support::TempDir;
 use test_support::lsp::{at_offset, open_from_disk as open, project, workspace_session as session};
 
@@ -255,4 +255,64 @@ fn the_run_cannot_write_files() {
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
     works(&s, &uri, &text, "sandbox");
     assert!(!target.exists(), "the metaprogram wrote {target:?}");
+}
+
+fn codes(s: &Session, uri: &DocumentUri) -> Vec<DiagnosticCode> {
+    s.diagnostics(uri)
+        .unwrap()
+        .into_iter()
+        .map(|d| d.code)
+        .collect()
+}
+
+fn built_project(name: &str) -> TempDir {
+    let build = build_with(
+        "",
+        "    add_build_file(tprint(\"%/src/main.jai\", #filepath), w);\n",
+    );
+    project(
+        name,
+        &[
+            ("jacket.toml", TOML),
+            ("build.jai", &build),
+            ("src/main.jai", MAIN),
+            ("src/loose.jai", "loose :: () {}\n"),
+        ],
+    )
+}
+
+/// Asking whether a file is reached before the metaprogram has run does not note a file the
+/// build adds, and leaves the facts that run records to be used afterwards.
+#[test]
+fn a_file_the_build_adds_is_not_noted_by_the_first_pull() {
+    let dir = built_project("first-pull");
+    let mut s = session(&dir);
+    let (uri, text) = open(&mut s, &dir, "src/main.jai");
+    let first = codes(&s, &uri);
+    assert!(!first.contains(&DiagnosticCode::NotInProgram), "{first:?}");
+    works(&s, &uri, &text, "after the first pull");
+}
+
+/// A file the build does not add is noted once the run is known, and is noted again when an
+/// edit to a file of the build graph is reverted.
+#[test]
+fn the_note_returns_when_an_edit_to_the_build_graph_is_reverted() {
+    let dir = built_project("note-revert");
+    let mut s = session(&dir);
+    let (main, text) = open(&mut s, &dir, "src/main.jai");
+    let (loose, _) = open(&mut s, &dir, "src/loose.jai");
+    assert!(!codes(&s, &main).contains(&DiagnosticCode::NotInProgram));
+    assert!(codes(&s, &loose).contains(&DiagnosticCode::NotInProgram));
+    let edit = |s: &mut Session, version, text: &str| {
+        let change = TextChange {
+            range: None,
+            range_length: None,
+            text: text.to_string(),
+        };
+        s.change(&main, version, &[change]).unwrap();
+    };
+    edit(&mut s, 2, &format!("{text}\n// edited\n"));
+    codes(&s, &loose);
+    edit(&mut s, 3, &text);
+    assert!(codes(&s, &loose).contains(&DiagnosticCode::NotInProgram));
 }
