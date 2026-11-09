@@ -111,7 +111,7 @@ pump :: (p: *Playback) -> bool {
         if !it.stream continue;
 
         cursor := it.stream.play_cursor;
-        if cursor >= it.data.nsamples_times_nchannels / 2 {
+        if cursor >= cast(float64) (it.data.nsamples_times_nchannels / 2) {
             p.position = max(p.position, it.start + cast(float64) (it.data.nsamples_times_nchannels / 2) / p.mixer.output_rate);
             SP.stop_stream_abruptly(*it.data);
             continue;

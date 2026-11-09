@@ -31,7 +31,7 @@ mix :: (m: *Mixer, stereo: [] s16, gain: float = 1) -> s64 {
     written: s64;
     step := cast(float64) m.reader.rate / m.output_rate;
 
-    while written < stereo.count / 2 && m.cursor < m.reader.frames && !m.failed {
+    while written < stereo.count / 2 && m.cursor < cast(float64) m.reader.frames && !m.failed {
         index := cast(s64) m.cursor;
         remainder := m.cursor - index;
 
