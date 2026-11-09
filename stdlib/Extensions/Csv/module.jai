@@ -115,6 +115,9 @@ Csv_Core :: struct {
     cells: [..] Csv_Cell;
     fields: [..] string;
     stops: [256] u8;
+    block_base: int = -1; // the window offset of the 64-byte block the two masks describe (-1: none)
+    block_unquoted: u64; // bit i: byte `block_base + i` ends a run in an unquoted field
+    block_quoted: u64; // the same for a quoted field
     error: Csv_Error;
     record_offset: int;
     record_line: int;
@@ -417,6 +420,7 @@ csv_write_record :: (out: *String_Builder, fields: [] string, options := Csv_Opt
 #import "String";
 #import "Compiler";
 Pieces :: #import "internal/byte-source";
+Simd :: #import "Extensions/SIMD";
 Hash_Map :: #import "Extensions/Hash_Map";
 #load "../../internal/derive-notes/notes.jai";
 #load "typed.jai";
@@ -573,6 +577,7 @@ fill_to :: (r: *Csv_Core, ahead: int) -> int {
         for 0..left - 1 r.chunk[it] = r.input[r.position + it];
 
         r.position = 0;
+        r.block_base = -1;
         target: [] u8 = .{ r.chunk.count - left, r.chunk.data + left };
         count, error := r.source.fill(r.source.data, target);
 
@@ -614,16 +619,51 @@ take :: inline (r: *Csv_Core) -> int {
     return c;
 }
 
-// The first byte in the window at or after the read position whose `stops` entry has a `mask` bit, or the window's end.
+// The first byte in the window at or after the read position that ends a run in an unquoted
+// (`STOP_UNQUOTED`) or quoted (`STOP_QUOTED`) field, or the window's end. It reads the stop masks
+// of the 64-byte block holding the position, which `load_block` builds once for all the fields in it.
 scan :: inline (r: *Csv_Core, mask: u8) -> int {
-    i := r.position;
+    return scan_from(r, r.position, mask);
+}
+
+// `scan` from the window offset `from`.
+scan_from :: inline (r: *Csv_Core, from: int, mask: u8) -> int {
+    i := from;
     count := r.input.count;
-    data := r.input.data;
-    stops := r.stops.data;
 
-    while i < count && !(stops[data[i]] & mask) i += 1;
+    while i < count {
+        base := i & ~63;
+        if base != r.block_base load_block(r, base);
 
-    return i;
+        bits := ifx mask == STOP_QUOTED then r.block_quoted else r.block_unquoted;
+        bits >>= cast(u64) (i - base);
+
+        if bits return i + Simd.trailing_zeros(bits);
+
+        i = base + 64;
+    }
+
+    return count;
+}
+
+// Builds the stop masks of the 64 bytes at `base`; the bytes past the window's end are zero, which
+// stops nothing.
+load_block :: (r: *Csv_Core, base: int) {
+    data := r.input.data + base;
+    left := r.input.count - base;
+    bytes: Simd.u8x64 = ---;
+
+    if left >= 64 bytes = Simd.load(Simd.u8x64, data);
+    else bytes = Simd.load_partial(Simd.u8x64, data, left);
+
+    breaks := Simd.to_bits(Simd.eq(bytes, cast(u8) 10) | Simd.eq(bytes, cast(u8) 13));
+    delimiters := Simd.to_bits(Simd.eq(bytes, r.options.delimiter));
+    quotes := Simd.to_bits(Simd.eq(bytes, r.options.quote));
+
+    r.block_base = base;
+    r.block_quoted = breaks | quotes;
+    r.block_unquoted = breaks | delimiters;
+    if !r.options.lax_quotes r.block_unquoted |= quotes;
 }
 
 field_length :: inline (r: *Csv_Core, cell: *Csv_Cell) -> int {
@@ -789,6 +829,136 @@ read_field :: (r: *Csv_Core) -> bool {
     return true;
 }
 
+// Reads the record at the read position of a slice input in one go, with `scan` finding where each
+// field ends, and returns whether it did. The reader moves on only when the record is complete and
+// within its limits: anything else (an error, a limit, EOF inside quotes) leaves the reader as it
+// was, for `read_record`'s byte-by-byte path to read again and report exactly. A slice's offset is
+// its position, and the line counts only at line breaks, which the scan stops on.
+read_record_fast :: (r: *Csv_Core) -> bool {
+    data := r.input.data;
+    count := r.input.count;
+    delimiter := r.options.delimiter;
+    quote := r.options.quote;
+    max_field := r.options.max_field_bytes;
+    max_fields := r.options.max_fields;
+
+    p := r.position;
+    line := r.line;
+    line_start := r.line_start;
+    k := 0;
+    end: int;
+    ended_by_cr := false;
+    in_buffer := false;
+
+    if r.cells.allocated < 16 array_reserve(*r.cells, 16);
+    if r.fields.allocated < r.cells.allocated array_reserve(*r.fields, r.cells.allocated);
+
+    capacity := min(r.cells.allocated, r.fields.allocated);
+
+    while true {
+        if k >= max_fields return false;
+
+        if k >= capacity {
+            array_reserve(*r.cells, capacity * 2);
+            array_reserve(*r.fields, capacity * 2);
+            capacity = min(r.cells.allocated, r.fields.allocated);
+        }
+
+        cell := Csv_Cell.{ offset = p, line = line, line_start = line_start };
+        stop: int;
+
+        if p < count && data[p] == quote {
+            from := p + 1;
+            at := from;
+            first := r.buffer.count;
+
+            while true {
+                q := scan_from(r, at, STOP_QUOTED);
+                if q >= count return false;
+
+                c := data[q];
+
+                if c == quote {
+                    if q + 1 < count && data[q + 1] == quote {
+                        // A doubled quote: the field is decoded into the buffer.
+                        append_bytes(r, data + from, q + 1 - from);
+                        from = q + 2;
+                        at = from;
+                        continue;
+                    }
+
+                    if r.buffer.count > first {
+                        append_bytes(r, data + from, q - from);
+                        cell.start = first;
+                        cell.end = r.buffer.count;
+                        in_buffer = true;
+                        if cell.end - cell.start > max_field return false;
+                    } else {
+                        if q - from > max_field return false;
+                        cell.text = .{ q - from, data + from };
+                    }
+
+                    stop = q + 1;
+                    break;
+                }
+
+                if c == 13 || data[q - 1] != 13 line += 1;
+
+                line_start = q + 1;
+                at = q + 1;
+            }
+        } else {
+            stop = scan_from(r, p, STOP_UNQUOTED);
+            if stop - p > max_field return false;
+
+            cell.text = .{ stop - p, data + p };
+        }
+
+        r.cells.data[k] = cell;
+        r.fields.data[k] = cell.text;
+        k += 1;
+
+        if stop >= count {
+            end = count;
+            break;
+        }
+
+        c := data[stop];
+
+        if c == delimiter {
+            p = stop + 1;
+            continue;
+        }
+
+        if c != 10 && c != 13 return false;
+
+        end = stop + 1;
+        if c == 13 && end < count && data[end] == 10 end += 1;
+
+        ended_by_cr = data[end - 1] == 13;
+        line += 1;
+        line_start = end;
+        break;
+    }
+
+    if end - r.position > r.options.max_record_bytes return false;
+
+    if in_buffer for 0..k - 1 {
+        cell := *r.cells.data[it];
+        if cell.end > cell.start r.fields.data[it] = .{ cell.end - cell.start, r.buffer.data + cell.start };
+    }
+
+    r.cells.count = k;
+    r.fields.count = k;
+    r.position = end;
+    r.offset = end;
+    r.line = line;
+    r.line_start = line_start;
+    r.previous_cr = ended_by_cr;
+
+    return true;
+}
+
 read_record :: (r: *Csv_Core) -> [] string, bool {
     r.buffer.count = 0;
     r.cells.count = 0;
@@ -806,6 +976,14 @@ read_record :: (r: *Csv_Core) -> [] string, bool {
     r.record_line = r.line;
     r.record_line_start = r.line_start;
     if peek(r) < 0 return .[], false;
+
+    if !r.source.fill && !r.options.trim {
+        if read_record_fast(r) return finish_record(r);
+
+        r.buffer.count = 0;
+        r.cells.count = 0;
+        r.fields.count = 0;
+    }
 
     while true {
         if r.cells.count >= r.options.max_fields {
@@ -845,6 +1023,11 @@ read_record :: (r: *Csv_Core) -> [] string, bool {
         else r.fields[it_index] = it.text;
     }
 
+    return finish_record(r);
+}
+
+// Checks the width of the record in `r.fields`, which is ready, and returns it.
+finish_record :: (r: *Csv_Core) -> [] string, bool {
     if r.width < 0 r.width = r.fields.count;
     else if r.options.require_equal_width && r.width != r.fields.count {
         fail(r, .WIDTH, "ragged record");
