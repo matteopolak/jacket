@@ -149,7 +149,6 @@ tzdata wheel, unpacks its TZif files and writes offsets, abbreviations and gap/f
 vectors using Python `zoneinfo`. `JACKET_OUTPUT_DIR` relocates these fixtures along
 with other repository output.
 
-Benchmarks live in `bench/bench.jai`; `tests/bench.jai` loads their `@bench`
-procedures for Jacket discovery. They measure civil add/until, zone conversion, RFC
+Benchmarks live in `benches/bench.jai`. They measure civil add/until, zone conversion, RFC
 3339 text and cached lookup. Python's `datetime` uses microseconds, so its
 parse/format comparison does less precision work.
