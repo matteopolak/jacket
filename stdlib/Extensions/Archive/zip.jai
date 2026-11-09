@@ -271,6 +271,11 @@ zip_central_entry :: (a: *Archive, d: [] u8, at: s64, start: u64, base: s64) -> 
         }
 
         if tag == 1 {
+            if found {
+                error = problem(.INVALID, "duplicate ZIP64 extra field", cast(s64) start + at, name);
+                break;
+            }
+
             values := slice(extra, p, length);
             q: s64;
 

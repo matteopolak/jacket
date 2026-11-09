@@ -312,6 +312,86 @@ local_zip64_sizes :: (t: *Test) {
     free_archive(*bad);
 } @test
 
+put_le :: (out: *[..] u8, value: s64, width: s64) {
+    for 0..width - 1 array_add(out, cast,trunc(u8) (value >> (8 * it)));
+}
+
+// One empty stored file "x" whose central record carries `records` ZIP64 extra records, each
+// holding a single 8-byte size. The directory size field is 0xffffffff, so one record is needed.
+zip_with_zip64_records :: (records: s64) -> [..] u8 {
+    out: [..] u8;
+
+    put_le(*out, 0x04034b50, 4);
+    put_le(*out, 10, 2);
+    put_le(*out, 0, 2);
+    put_le(*out, 0, 2);
+    put_le(*out, 0, 4);
+    put_le(*out, 0, 4);
+    put_le(*out, 0, 4);
+    put_le(*out, 0, 4);
+    put_le(*out, 1, 2);
+    put_le(*out, 0, 2);
+    array_add(*out, #char "x");
+
+    central := out.count;
+
+    put_le(*out, 0x02014b50, 4);
+    put_le(*out, 45, 2);
+    put_le(*out, 45, 2);
+    put_le(*out, 0, 2);
+    put_le(*out, 0, 2);
+    put_le(*out, 0, 4);
+    put_le(*out, 0, 4);
+    put_le(*out, 0, 4);
+    put_le(*out, 0xffffffff, 4);
+    put_le(*out, 1, 2);
+    put_le(*out, 12 * records, 2);
+    put_le(*out, 0, 2);
+    put_le(*out, 0, 2);
+    put_le(*out, 0, 2);
+    put_le(*out, 0, 4);
+    put_le(*out, 0, 4);
+    array_add(*out, #char "x");
+
+    for 1..records {
+        put_le(*out, 1, 2);
+        put_le(*out, 8, 2);
+        put_le(*out, 0, 8);
+    }
+
+    size := out.count - central;
+
+    put_le(*out, 0x06054b50, 4);
+    put_le(*out, 0, 2);
+    put_le(*out, 0, 2);
+    put_le(*out, 1, 2);
+    put_le(*out, 1, 2);
+    put_le(*out, size, 4);
+    put_le(*out, central, 4);
+    put_le(*out, 0, 2);
+
+    return out;
+}
+
+duplicate_central_zip64 :: (t: *Test) {
+    one := zip_with_zip64_records(1);
+
+    defer array_free(one);
+    a, ok := read_archive(one, .ZIP);
+
+    require(ok.kind == .NONE);
+    free_archive(*a);
+
+    two := zip_with_zip64_records(2);
+
+    defer array_free(two);
+    bad, failure := read_archive(two, .ZIP);
+
+    expect(failure.kind == .INVALID);
+    free_archive(*failure);
+    free_archive(*bad);
+} @test
+
 failed_source :: (data: *void, offset: s64, buffer: [] u8) -> s64, string {
     source := cast(*[] u8) data;
     // Metadata succeeds; entry reads later fail after the source is deliberately shortened.
