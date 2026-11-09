@@ -8,7 +8,7 @@ deinit :: (dir: *Zip_Directory) {
 
     dir.* = .{};
     dir.file = retained;
-} @FreesArgument
+}
 
 // Reads the central directory of a zip file. Returns false when the file cannot be opened or is not
 // a classic zip (zip64 archives and entries with a trailing data descriptor are refused). Call
