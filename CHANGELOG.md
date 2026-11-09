@@ -7,6 +7,14 @@
 - A body whose `#insert` or other compile-time code failed is no longer lowered again, re-running that code, on every later lenient lowering round (a metaprogram that keeps asking for more lowering); it is retried only once something it could be waiting for changed.
 - A constant read from `#run` memory no longer embeds host addresses: a `*void` or a union member pointing at compile-time heap memory is now null, so identical builds produce identical output.
 
+### New
+
+- `Toml` typed decoding takes `Table(string, V)` fields (inline tables, dotted keys and `[a.key]` headers), `Toml_Value` fields (any value, or tables built from headers, as an untyped tree the target owns) and `[N] T` fields from `[[x]]` headers. The typed encoder writes them back.
+
+### Fixed
+
+- The typed `Toml` encoder counts depth as `write_toml` does: an empty table at the depth limit is accepted, a scalar or an array of tables past it is refused.
+
 ### Improved
 
 - `Postgres` query arguments (integers, floats, strings, bools, uuids, dates and times, numerics, json and arrays of them) and `copy_in` array and json members are encoded by code written for each type when the program compiles, not a walk over type information per value. Array arguments and array members encode about 1.8 times faster. Types outside that set (enums, `Json(T)`, arrays of them) behave as before.
