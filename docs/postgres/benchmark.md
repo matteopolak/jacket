@@ -1,26 +1,26 @@
 # Postgres load test
 
-`stdlib/Extensions/Postgres/tests/bench/tpcb.jai` runs pgbench's TPC-B transaction through the client: fibers sharing one `Pool`, each running transactions back to back. pgbench links libpq, so it cannot drive this client; this is the comparable load.
+`stdlib/Extensions/Postgres/benches/tpcb.jai` runs pgbench's TPC-B transaction through eight fibers sharing one `Pool`. Each benchmark sample starts a managed scratch server, loads scale-1 tables and stops it afterwards.
 
 ```sh
-jaic stdlib/Extensions/Postgres/tests/bench/tpcb.jai -exe tpcb -optimized
-DATABASE_URL="postgres://postgres@localhost/bench?host=/tmp" ./tpcb -clients 8 -seconds 10 -scale 1
-pgbench -h /tmp -n -c 8 -j 1 -T 10 -M extended bench      # the same load through libpq
-./tpcb -clients 8 -seconds 10 -scale 1 -no-load -prepared # against pgbench -M prepared
+jacket bench --path stdlib/Extensions/Postgres
+jacket bench --path stdlib/Extensions/Postgres tpcb_prepared
 ```
 
 ## How it works
 
-- It creates the four `pgbench_*` tables with pgbench's row counts, then `vacuum analyze`. `-no-load` reuses them.
-- Each client picks random `aid`, `bid`, `tid`, `delta` and sends `begin`, three updates, a select, an insert and `end` as separate extended-protocol statements, like `pgbench -M extended`. `-prepared` uses the statement cache (`query_cached`), like `-M prepared`.
-- It reports transactions, failures, tps and average latency, and exits 1 on any failure.
+Setup creates the four `pgbench_*` tables with pgbench's row counts, then runs `vacuum analyze`. Each iteration runs one transaction on each of eight clients. A transaction sends `begin`, three updates, a select, an insert and `end` as separate extended-protocol statements. `tpcb_prepared` uses the statement cache; `tpcb_simple` uses unnamed statements. Errors fail the case. The runner reports time and transactions per second.
 
-Compare with `-j 1`, since the client runs all fibers on one thread. At scale 1 every transaction updates the single branch row, so the run measures lock hand-off; a larger scale removes that.
+At scale 1 every transaction updates the single branch row, so the run measures lock hand-off. The scheduler runs on one thread.
 
 ## How to change it
 
-The transaction is the `statements` table in `run_transaction`; keep it in step with pgbench's `tpcb-like` script. To measure typed queries, swap `query_binary` for the typed calls.
+Keep the `statements` table in `run_transaction` in step with pgbench's `tpcb-like` script. The fixture constants control client count and scale. Keep server/table initialization before `reset_timer`.
 
 ## Configuration
 
-`DATABASE_URL`, `-clients`, `-seconds`, `-scale`, `-no-load`, `-prepared`. It drops and recreates `pgbench_*` tables: use a scratch database.
+Jacket benchmark flags control sampling. `JACKET_OUTPUT_DIR` relocates the scratch cluster from `target/tpcb-bench`. No external database or `DATABASE_URL` is used.
+
+## Dependencies
+
+`Extensions/Postgres` managed-server support downloads its pinned PostgreSQL binaries when absent. `Extensions/Io` supplies fibers and pooling.

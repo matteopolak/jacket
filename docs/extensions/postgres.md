@@ -96,3 +96,6 @@ The script needs `initdb`, `pg_ctl` and `psql` (PostgreSQL 15+) on `PATH` or in 
 | fetch 1,000 rows x 24 columns | 1.02 ms | 1.28 ms |
 
 Single statements are level because the time is the server round trip. Jacket wins where the protocol allows it: pipelining is 4x quicker than a loop, COPY 7x, and wide rows decode 1.25x faster. The wrapper has no pool, pipelining, COPY, LISTEN/NOTIFY, cancel or fiber-friendly waiting, and has partial type coverage (no arrays, json, intervals).
+
+Run benchmarks with `jacket bench --path stdlib/Extensions/Postgres`. Cases live in `benches/`; setup precedes `reset_timer`, and inputs/results use `black_box`.
+The TPC-B cases start and stop a managed scratch server, load scale-1 tables, and run eight clients in simple or prepared mode. See [the load test](../postgres/benchmark.md).
