@@ -33,7 +33,7 @@ TAR supports ustar prefixes, pax `path`, `linkpath`, `size`, and fractional `mti
 
 ## WebAssembly
 
-Everything on byte buffers works on wasm: reading, `read_entry`, `copy_entry`, `encode_archive` and `write_archive` with your own `Archive_Writer`, for ZIP, TAR and gzip TAR. `extract` compiles but returns `UNSUPPORTED`, as on Windows, because it needs POSIX directory handles. Tests that touch files (`tests/extraction.jai`, `tests/conformance.jai`, `tests/io-writer.jai`) are skipped on wasm; everything else runs under `jacket test --interp -- -os=wasm`.
+Everything on byte buffers works on wasm: reading, `read_entry`, `copy_entry`, `encode_archive` and `write_archive` with your own `Archive_Writer`, for ZIP, TAR and gzip TAR. `extract` compiles but returns `UNSUPPORTED`, as on Windows, because it needs POSIX directory handles. Tests that touch files (`tests/extraction.jai`, `tests/conformance.jai`, `tests/io-writer.jai`) are skipped on wasm; everything else runs under `jacket test --interp -- -os=wasm`. In `tests/extraction.jai` the tests that expect files on disk run only on macOS and Linux; Windows runs `extract_unsupported` instead.
 
 ## Safe extraction
 

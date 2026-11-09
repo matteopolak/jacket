@@ -61,55 +61,76 @@
         }
     } @test
 
-    nested_archive_is_data :: (t: *Test) {
-        // A nested ZIP is data, never an instruction to recurse during extraction.
-        current, err := encode_archive(Archive_Item.[.{ name = "payload", data = cast([] u8) "content" }], .ZIP);
+    // Writing files is only supported where extract has directory handles; elsewhere it reports UNSUPPORTED.
+    #if OS == .MACOS || OS == .LINUX {
+        nested_archive_is_data :: (t: *Test) {
+            // A nested ZIP is data, never an instruction to recurse during extraction.
+            current, err := encode_archive(Archive_Item.[.{ name = "payload", data = cast([] u8) "content" }], .ZIP);
 
-        require(err.kind == .NONE);
+            require(err.kind == .NONE);
 
-        for 0..4 {
-            next, e := encode_archive(Archive_Item.[.{ name = "nested.zip", data = current, method = .DEFLATE }], .ZIP);
+            for 0..4 {
+                next, e := encode_archive(Archive_Item.[.{ name = "nested.zip", data = current, method = .DEFLATE }], .ZIP);
+                require(e.kind == .NONE);
+                free(current.data);
+                current = next;
+            }
+
+            defer free(current.data);
+            nested, ne := read_archive(current, .ZIP);
+
+            require(ne.kind == .NONE);
+            defer free_archive(*nested);
+            extracted := extract(*nested, temp_dir(t));
+
+            expect(extracted.kind == .NONE);
+            free_archive(*extracted);
+            file, ok := read_entire_file(tprint("%/nested.zip", temp_dir(t)));
+
+            expect(ok && file.count == nested.entries[0].size);
+            free(file);
+        } @test
+
+        extract_regular :: (t: *Test) {
+            bytes, error := encode_archive(Archive_Item.[.{ name = "a", kind = .DIRECTORY }, .{ name = "a/b", data = cast([] u8) "hello" }], .ZIP);
+
+            require(error.kind == .NONE);
+            defer free(bytes.data);
+            a, e := read_archive(bytes, .ZIP);
+
             require(e.kind == .NONE);
-            free(current.data);
-            current = next;
-        }
+            defer free_archive(*a);
+            failure := extract(*a, temp_dir(t));
 
-        defer free(current.data);
-        nested, ne := read_archive(current, .ZIP);
+            require(failure.kind == .NONE);
+            text, ok := read_entire_file(tprint("%/a/b", temp_dir(t)));
 
-        require(ne.kind == .NONE);
-        defer free_archive(*nested);
-        extracted := extract(*nested, temp_dir(t));
+            expect(ok && text == "hello");
+            free(text);
+            again := extract(*a, temp_dir(t));
 
-        expect(extracted.kind == .NONE);
-        free_archive(*extracted);
-        file, ok := read_entire_file(tprint("%/nested.zip", temp_dir(t)));
+            expect(again.kind == .IO);
+            free_archive(*again);
+        } @test
+    } else {
+        extract_unsupported :: (t: *Test) {
+            bytes, error := encode_archive(Archive_Item.[.{ name = "a", data = cast([] u8) "hello" }], .ZIP);
 
-        expect(ok && file.count == nested.entries[0].size);
-        free(file);
-    } @test
+            require(error.kind == .NONE);
+            defer free(bytes.data);
+            a, e := read_archive(bytes, .ZIP);
 
-    extract_regular :: (t: *Test) {
-        bytes, error := encode_archive(Archive_Item.[.{ name = "a", kind = .DIRECTORY }, .{ name = "a/b", data = cast([] u8) "hello" }], .ZIP);
+            require(e.kind == .NONE);
+            defer free_archive(*a);
+            failure := extract(*a, temp_dir(t));
 
-        require(error.kind == .NONE);
-        defer free(bytes.data);
-        a, e := read_archive(bytes, .ZIP);
+            expect(failure.kind == .UNSUPPORTED);
+            free_archive(*failure);
+            _, written := read_entire_file(tprint("%/a", temp_dir(t)));
 
-        require(e.kind == .NONE);
-        defer free_archive(*a);
-        failure := extract(*a, temp_dir(t));
-
-        require(failure.kind == .NONE);
-        text, ok := read_entire_file(tprint("%/a/b", temp_dir(t)));
-
-        expect(ok && text == "hello");
-        free(text);
-        again := extract(*a, temp_dir(t));
-
-        expect(again.kind == .IO);
-        free_archive(*again);
-    } @test
+            expect(!written);
+        } @test
+    }
 
     existing_symlink :: (t: *Test) {
         #if OS == .MACOS || OS == .LINUX {
