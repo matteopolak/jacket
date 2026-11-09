@@ -7,6 +7,7 @@
 #import "Extensions/Gltf";
 Raster :: #import "Extensions/Image";
 #import "Base64";
+#import,file "../../test-support/counting-allocator.jai";
 
 image_resolver :: (user: *void, uri: string, limit: s64) -> string, bool {
     // Exercise the loader's checks even when the callback ignores its limit.

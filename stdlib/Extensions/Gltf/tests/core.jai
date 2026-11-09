@@ -4,7 +4,7 @@
 #import "Extensions/Gltf";
 #import "Extensions/Testing";
 #import "Base64";
-#load "../../test-support/counting-allocator.jai";
+#import,file "../../test-support/counting-allocator.jai";
 
 SPARSE :: "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":8,\"uri\":\"data:application/octet-stream;base64,AQAAAACAAEA=\"}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":1},{\"buffer\":0,\"byteOffset\":4,\"byteLength\":4}],\"accessors\":[{\"componentType\":5126,\"count\":3,\"type\":\"SCALAR\",\"sparse\":{\"count\":1,\"indices\":{\"bufferView\":0,\"componentType\":5121},\"values\":{\"bufferView\":1}}}]}";
 
