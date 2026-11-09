@@ -116,6 +116,7 @@ _check_create_heap :: Impl._check_create_heap;
 _check_destroy_heap :: Impl._check_destroy_heap;
 create_heap :: Impl.create_heap;
 destroy_heap :: Impl.destroy_heap;
+release_all_allocations :: Impl.release_all_allocations;
 memory_visualizer_per_frame_update :: Impl.memory_visualizer_per_frame_update;
 vis_init :: Impl.vis_init;
 vis_update :: Impl.vis_update;

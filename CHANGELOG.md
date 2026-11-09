@@ -40,6 +40,7 @@
 - `jailsp` says a project file that no entry loads or imports is in no program (an information diagnostic, `not-in-program`) and reports only its syntax errors, instead of leaving it silently unchecked.
 - A long `#run` that starts many short threads no longer grows the interpreter's thread table: a thread's slot is reused once it has ended and its handle is joined, detached or closed, and a handle kept past that point is rejected instead of naming a later thread. The same holds in the browser playground's scheduler, where `pthread_detach` now frees a thread's slot too, and a handle already joined or detached can no longer be joined or detached again.
 - `WaitForSingleObject` on a thread, semaphore or event handle that was already closed returns `WAIT_FAILED` instead of failing with "not available here".
+- The memory debugger no longer keeps ranges from a `Flat_Pool` or `Pool` live after `reset`, `release` or `fini`, so leak reports stay right and a later allocation at the same address is no longer reported as a duplicate. Allocators of your own that free everything at once can call the new `release_all_allocations(allocator)` from `Basic`.
 
 ## [0.34.0] - 2026-11-09
 

@@ -54,6 +54,21 @@ create_heap :: (a: Allocator) -> Allocator {
     return result;
 }
 
+// Tells the memory debugger that `a` has given back everything it handed out at once, as a bump allocator does when it
+// resets or is finalized: every range it owns stops being live, and later ones are tracked as new. Does nothing when the
+// debugger is off. Call it from the reset and fini of an allocator that ignores `.FREE`.
+//
+// ```jai
+// arena: int;
+// arena_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
+//     return null;
+// }
+// release_all_allocations(Allocator.{ arena_proc, *arena }); // call this from the arena's reset
+// ```
+release_all_allocations :: (a: Allocator) {
+    Debug_Context.allocator_released_everything(a);
+}
+
 destroy_heap :: (b: Allocator) {
     #if MEMORY_DEBUGGER Memory_Debugger.check_destroy_heap(b);
     b.proc(.DESTROY_HEAP, 0, 0, null, b.data);
@@ -69,6 +84,8 @@ Allocation :: struct {
     previous: *Allocation;
     metadata_allocator: Allocator;
     owner: Allocator;
+    owner_next: *Allocation;
+    owner_previous: *Allocation;
     memory: *void;
     size: s64;
     heap: bool;
@@ -86,6 +103,8 @@ Debug_Index :: #import "Hash_Table";
 
 debug_allocations: Debug_Index.Table(*void, *Allocation);
 debug_heaps: Debug_Index.Table(*void, *Allocation);
+// Each owner's live ranges, as a list threaded through `owner_next`, keyed by the owner's data pointer.
+debug_owners: Debug_Index.Table(*void, *Allocation);
 debug_initialized: bool;
 debug_ordinal: u64;
 debug_baseline: u64;
@@ -114,6 +133,8 @@ initialize_debugger_locked :: () {
 
     debug_allocations.allocator = context.default_allocator;
     debug_heaps.allocator = context.default_allocator;
+    Debug_Context.release_hook = debug_release_owned;
+    debug_owners.allocator = context.default_allocator;
     Debug_Index.table_ensure_space(*debug_allocations, 1);
     Debug_Index.table_ensure_space(*debug_heaps, 1);
     debug_initialized = true;
@@ -131,12 +152,35 @@ unlink_debug_allocation_locked :: (record: *Allocation) {
     else debug_records = record.next;
     if record.next record.next.previous = record.previous;
 
+    if !record.heap unlink_owned_locked(record);
+
     table := ifx record.heap then *debug_heaps else *debug_allocations;
     removed := Debug_Index.table_remove(table, record.memory);
 
     assert(removed, "memory debugger index and allocation list disagree");
     record.next = null;
     record.previous = null;
+}
+
+link_owned_locked :: (record: *Allocation) {
+    head := Debug_Index.table_find_pointer(*debug_owners, record.owner.data);
+
+    if head {
+        record.owner_next = head.*;
+        head.*.owner_previous = record;
+        head.* = record;
+    } else Debug_Index.table_add(*debug_owners, record.owner.data, record);
+}
+
+unlink_owned_locked :: (record: *Allocation) {
+    if record.owner_previous record.owner_previous.owner_next = record.owner_next;
+    else if record.owner_next Debug_Index.table_set(*debug_owners, record.owner.data, record.owner_next);
+    else Debug_Index.table_remove(*debug_owners, record.owner.data);
+
+    if record.owner_next record.owner_next.owner_previous = record.owner_previous;
+
+    record.owner_next = null;
+    record.owner_previous = null;
 }
 
 debug_record :: (owner: Allocator, memory: *void, size: s64, heap: bool, trace: *Stack_Trace_Node) {
@@ -196,6 +240,8 @@ debug_record :: (owner: Allocator, memory: *void, size: s64, heap: bool, trace: 
     record.memory = memory;
     record.size = size;
     record.heap = heap;
+    if !heap link_owned_locked(record);
+
     debug_ordinal += 1;
     record.ordinal = debug_ordinal;
 
@@ -247,27 +293,62 @@ debug_release :: (owner: Allocator, memory: *void, heap: bool) {
         frame_freed_bytes += cast(u64) record.size;
     }
 
-    if heap {
-        allocation := debug_records;
-        while allocation {
-            next := allocation.next;
+    if heap released = take_owned_locked(owner, released);
 
-            if !allocation.heap && allocation.owner.proc == owner.proc && allocation.owner.data == owner.data {
-                unlink_debug_allocation_locked(allocation);
-                allocation.next = released;
-                released = allocation;
+    finish_release_locked(released);
+}
 
-                #if VISUALIZE_MEMORY_DEBUGGER {
-                    frame_frees += 1;
-                    frame_freed_bytes += cast(u64) allocation.size;
-                }
+// Unlinks every live range `owner` holds onto the front of `released` and returns the new head. Costs the number
+// of ranges the owner holds, whatever else is live. An owner whose proc differs but whose data matches is skipped.
+take_owned_locked :: (owner: Allocator, released: *Allocation) -> *Allocation {
+    head := Debug_Index.table_find_pointer(*debug_owners, owner.data);
+    if !head return released;
+
+    allocation := head.*;
+
+    while allocation {
+        next := allocation.owner_next;
+
+        if allocation.owner.proc == owner.proc {
+            unlink_debug_allocation_locked(allocation);
+            allocation.next = released;
+            released = allocation;
+
+            #if VISUALIZE_MEMORY_DEBUGGER {
+                frame_frees += 1;
+                frame_freed_bytes += cast(u64) allocation.size;
             }
-
-            allocation = next;
         }
+
+        allocation = next;
     }
 
+    return released;
+}
+
+// Forgets every live range `owner` has handed out, as when a bump allocator resets or shuts down. Ranges handed out
+// afterwards are tracked as new ones.
+debug_release_owned :: (owner: Allocator) {
+    push_context, defer_pop;
+    context.inside_memory_debugger = true;
+    context.logger = runtime_support_default_logger;
+
+    if owner.data == null {
+        context.assertion_failed(#caller_location,"memory debugger: releasing every range needs an allocator with instance data");
+        return;
+    }
+
+    debug_acquire();
+    released := take_owned_locked(owner, null);
+
+    finish_release_locked(released);
+}
+
+// Reports the unlinked records to the visualizer, drops the lock and frees their metadata.
+finish_release_locked :: (list: *Allocation) {
+    released := list;
     event_record := released;
+
     while event_record {
         if !event_record.heap visualization_note_locked(event_record, true, event_record.size);
         event_record = event_record.next;

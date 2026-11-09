@@ -17,7 +17,7 @@ CAPS_VERSION_STRING :: "modules/Flat_Pool";
 // the allocator interface ignores free, and a resize copies.
 //
 // `reset` rewinds to the start and keeps the committed pages for reuse; `fini` releases the whole range back
-// to the OS. A zeroed `Flat_Pool` is initialized by the first `get`. Not thread safe. Only available where the
+// to the OS. Both tell the memory debugger that everything allocated through `flat_pool_allocator_proc` is gone. A zeroed `Flat_Pool` is initialized by the first `get`. Not thread safe. Only available where the
 // platform has virtual memory (macOS, Linux, Android and Windows).
 //
 // ```jai,skip_on(wasm)
@@ -131,8 +131,11 @@ Flat_Pool :: struct {
     // ```
     reset :: (using pool: *Flat_Pool, overwrite_memory := false) {
         if !memory_base return;
+
         assert(current_point >= memory_base && current_point <= first_uncommitted_page, "invalid flat-pool allocated extent");
+        release_all_allocations(Allocator.{ flat_pool_allocator_proc, pool });
         if overwrite_memory || OVERWRITE_ALL_POOLS_ON_RESET memset(memory_base, 0xcc, current_point - memory_base);
+
         current_point = memory_base;
     } @ResetsElements
 
@@ -141,6 +144,7 @@ Flat_Pool :: struct {
         if !memory_base return;
 
         assert(address_limit > memory_base, "invalid flat-pool reservation extent");
+        release_all_allocations(Allocator.{ flat_pool_allocator_proc, pool });
         released := Native.release(memory_base, cast(u64) (address_limit - memory_base));
         if !released {
             context.logger("flat-pool reservation release failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
