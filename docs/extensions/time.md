@@ -71,8 +71,11 @@ acquires another; `time_zone_free(*zone)` releases an owner and resets it to UTC
 Ordinary assignment borrows a handle. `Zoned`, transition cursors and abbreviation
 slices borrow their zone: an owner must outlive them. UTC and fixed zones own no
 storage. The synchronized named-zone cache retains up to 64 zones; eviction releases
-its reference. Opaque handles are checked in a synchronized registry before use so
-invalid public literals never dereference arbitrary pointers.
+its reference. Opaque handles are checked against a registry before use so invalid
+public literals never dereference arbitrary pointers; recently validated handles are
+found without taking the registry lock, and releasing the last owner clears them first.
+A cached name is found by comparing the stored path with the requested directory and
+name, so a hit allocates nothing and reads only `TZDIR`.
 
 ISO parsing of an owning `Time_Zone` or `Zoned` must return one owned zone
 reference, released through the zone field. An unnamed ruleset has no lossless ISO
@@ -129,8 +132,29 @@ embedded tz database or external service is required.
 
 ## How to change it
 
-Keep public contracts and examples in `module.jai`. Before implementing a phase,
-write its regression tests under this module. Add bounded TZif conformance data
+`module.jai` only loads the module's files; public contracts and examples sit
+beside their code. Each file starts with its public procedures and keeps private
+helpers after `#scope_module`.
+
+| File | Holds |
+| --- | --- |
+| `types.jai` | value, error and option types |
+| `numeric.jai` | checked integer and 128-bit arithmetic |
+| `civil.jai` | dates, clock readings, civil arithmetic |
+| `instants.jai` | timestamps, durations, offsets |
+| `spans.jai` | `until`/`since`, rounding, balancing, totals |
+| `zone_load.jai` | TZif and POSIX loading, the zone cache, the handle registry |
+| `zoned.jai` | offset lookup, civil-to-instant resolution, transitions |
+| `ordering.jai` | `compare`, `equal`, `hash` |
+| `text.jai` | ISO `parse` and `format` |
+| `pattern.jai` | pattern `format` and `parse_format` |
+| `interop.jai` | `Basic` time values and Json |
+
+Calendar differences start from an estimate taken from the calendar fields and widen
+and bisect from it, so a difference costs a few additions rather than a search over
+each unit. Civil-to-instant resolution only considers offsets in effect within 26 hours of
+the reading. Before implementing a phase, write its regression tests under
+this module. Add bounded TZif conformance data
 through the portable data-fixture workflow, not host zone files. Validate native and
 interpreter behavior, allocation balance and malformed-input offsets.
 
@@ -138,7 +162,7 @@ interpreter behavior, allocation balance and malformed-input offsets.
 jacket test --path stdlib/Extensions/Time
 jacket test --path stdlib/Extensions/Time --interp
 jailint -D warnings stdlib/Extensions/Time/module.jai
-jaifmt stdlib/Extensions/Time/module.jai
+jaifmt --check stdlib/Extensions/Time/*.jai
 jacket doc stdlib/Extensions/Time --check
 jacket bench --path stdlib/Extensions/Time
 ```
@@ -150,5 +174,5 @@ vectors using Python `zoneinfo`. `JACKET_OUTPUT_DIR` relocates these fixtures al
 with other repository output.
 
 Benchmarks live in `benches/bench.jai`. They measure civil add/until, zone conversion, RFC
-3339 text and cached lookup. Python's `datetime` uses microseconds, so its
+3339 text, cached lookup, and offset lookup with table and POSIX rules. Python's `datetime` uses microseconds, so its
 parse/format comparison does less precision work.
