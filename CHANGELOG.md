@@ -2,18 +2,14 @@
 
 ## Unreleased
 
-### Fixed
-
-- A body whose `#insert` or other compile-time code failed is no longer lowered again, re-running that code, on every later lenient lowering round (a metaprogram that keeps asking for more lowering); it is retried only once something it could be waiting for changed.
-- A constant read from `#run` memory no longer embeds host addresses: a `*void` or a union member pointing at compile-time heap memory is now null, so identical builds produce identical output.
-
 ### New
 
 - `Toml` typed decoding takes `Table(string, V)` fields (inline tables, dotted keys and `[a.key]` headers), `Toml_Value` fields (any value, or tables built from headers, as an untyped tree the target owns) and `[N] T` fields from `[[x]]` headers. The typed encoder writes them back.
-
-### Fixed
-
-- The typed `Toml` encoder counts depth as `write_toml` does: an empty table at the depth limit is accepted, a scalar or an array of tables past it is refused.
+- `Extensions/Gltf` unpacks a whole accessor into floats (`gltf_unpack_floats`), gives local and world node matrices (`gltf_node_local`, `gltf_node_world`) and decodes KHR_materials_emissive_strength, ior, transmission, clearcoat, KHR_texture_transform and KHR_lights_punctual into typed structs (`gltf_extension`).
+- The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies, macro expansion, polymorphic instances), not only compile-time code that is running.
+- `Extensions/Toml`: `toml_encode` now counts scalars and arrays of tables toward `max_depth`, with the root at depth 0, so it refuses the same documents as `write_toml`. Its output limit errors for a value's line break now name the table, like `write_toml`.
+- `Extensions/Time`: `first_of_year` and `last_of_year` join `first_of_month` and `last_of_month`. A period's end is its last day, inclusive, because a `Date` is a whole day; add one day for an exclusive bound.
+- `jacket doc --check` on one module no longer fails on types it names from modules it imports; they have no page in that site and show as plain text.
 
 ### Improved
 
@@ -27,24 +23,11 @@
 
 ### Fixed
 
+- A body whose `#insert` or other compile-time code failed is no longer lowered again, re-running that code, on every later lenient lowering round (a metaprogram that keeps asking for more lowering); it is retried only once something it could be waiting for changed.
+- A constant read from `#run` memory no longer embeds host addresses: a `*void` or a union member pointing at compile-time heap memory is now null, so identical builds produce identical output.
 - A default value of the wrong type in a struct nothing uses is reported.
-
 - `jailsp` checks an open file that several program entries reach under each of them, so what only one program finds wrong still shows after an edit; hover and navigation keep answering from the first entry.
 - `jailsp` says a project file that no entry loads or imports is in no program (an information diagnostic, `not-in-program`) and reports only its syntax errors, instead of leaving it silently unchecked.
-
-### New
-
-- `Extensions/Gltf` unpacks a whole accessor into floats (`gltf_unpack_floats`), gives local and world node matrices (`gltf_node_local`, `gltf_node_world`) and decodes KHR_materials_emissive_strength, ior, transmission, clearcoat, KHR_texture_transform and KHR_lights_punctual into typed structs (`gltf_extension`).
-
-- The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies, macro expansion, polymorphic instances), not only compile-time code that is running.
-
-- `Extensions/Toml`: `toml_encode` now counts scalars and arrays of tables toward `max_depth`, with the root at depth 0, so it refuses the same documents as `write_toml`. Its output limit errors for a value's line break now name the table, like `write_toml`.
-
-### New
-
-- `Extensions/Time`: `first_of_year` and `last_of_year` join `first_of_month` and `last_of_month`. A period's end is its last day, inclusive, because a `Date` is a whole day; add one day for an exclusive bound.
-
-- `jacket doc --check` on one module no longer fails on types it names from modules it imports; they have no page in that site and show as plain text.
 
 ## [0.34.0] - 2026-11-09
 
