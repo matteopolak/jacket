@@ -7,16 +7,22 @@
 // ```
 allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .ALLOCATE {
-        return obtain_contents(size, PREFIX);
+        return tagged(obtain_contents(size, PREFIX));
     }
 
     if mode == .RESIZE {
-        if !old_memory return obtain_contents(size, PREFIX);
-        return regrow_contents(old_memory, size, PREFIX);
+        if !old_memory return tagged(obtain_contents(size, PREFIX));
+        if !is_tagged(old_memory) return refuse_foreign_pointer();
+        return tagged(regrow_contents(old_memory, size, PREFIX));
     }
 
     if mode == .FREE {
+        if !old_memory return null;
+        if !is_tagged(old_memory) return refuse_foreign_pointer();
+
+        untag(old_memory);
         release_contents(old_memory);
+
         return null;
     }
 
@@ -41,5 +47,37 @@ unsafe_reset :: inline () {}
 #scope_file
 #import "Basic";
 
-// Room for the word aligned-blocks.jai keeps before the contents, kept 16 so they stay malloc-aligned.
+// Room for the two words kept before the contents, so they stay malloc-aligned: the tag, then the word aligned-blocks.jai keeps.
 PREFIX :: 16;
+
+// Every block this allocator hands out carries a tag in the word 16 bytes before its contents:
+// this value mixed with the contents' address. A pointer that never came from here (a local, a
+// global, memory from another allocator) or was already freed does not carry it, so a free or
+// resize of one is refused before it reaches `free` and corrupts the heap. The word is inside the
+// block's own prefix, and the region word next to it is read for every block anyway.
+TAG :: 0x4a41434b45544231;
+
+tag_slot :: (contents: *void) -> *u64 {
+    return cast(*u64) (cast(*u8) contents - 16);
+}
+
+tagged :: (contents: *void) -> *void {
+    if contents tag_slot(contents).* = TAG ^ cast(u64) contents;
+
+    return contents;
+}
+
+is_tagged :: (contents: *void) -> bool {
+    return tag_slot(contents).* == TAG ^ cast(u64) contents;
+}
+
+untag :: (contents: *void) {
+    tag_slot(contents).* = 0;
+}
+
+// The caller handed over something that is not a live block. Nothing is released; it gets the report and null.
+refuse_foreign_pointer :: () -> *void {
+    if ENABLE_ASSERTS assert(false, "Default_Allocator received an invalid pointer or source extent");
+
+    return null;
+}
