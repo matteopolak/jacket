@@ -18,14 +18,9 @@ use std::time::{Duration, Instant};
 
 impl Interp {
     pub(in crate::interp) fn compiler_native_threads_idle(&self) -> bool {
-        self.shared.as_ref().is_none_or(|shared| {
-            shared
-                .lock()
-                .threads
-                .iter()
-                .skip(1)
-                .all(|thread| thread.finished)
-        })
+        self.shared
+            .as_ref()
+            .is_none_or(|shared| shared.lock().only_first_live())
     }
 
     /// Whether the running thread may use the interpreter (and the compiler behind it): no

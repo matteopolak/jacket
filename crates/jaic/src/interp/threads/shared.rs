@@ -244,11 +244,7 @@ impl Shared {
             }
         }
         let mut s = self.lock();
-        while s
-            .threads
-            .iter()
-            .any(|thread| thread.adopted && !thread.finished)
-        {
+        while s.adopted_live() {
             s = self
                 .cv
                 .wait(s)

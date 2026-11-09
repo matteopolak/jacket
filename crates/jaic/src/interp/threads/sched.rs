@@ -166,6 +166,16 @@ impl Sched {
         self.live.iter().copied()
     }
 
+    /// No thread but the first is still running.
+    pub(super) fn only_first_live(&self) -> bool {
+        self.live.iter().all(|&t| t == 0)
+    }
+
+    /// An adopted thread is still inside its callback.
+    pub(super) fn adopted_live(&self) -> bool {
+        self.live_slots().any(|t| self.threads[t].adopted)
+    }
+
     pub(super) fn runnable(&self, t: usize) -> bool {
         !self.threads[t].finished
             && self.threads[t].suspend_count == 0
@@ -311,6 +321,23 @@ mod tests {
             4,
             "slot numbers are thread ids and stay put"
         );
+    }
+
+    #[test]
+    fn idle_and_adopted_queries_look_only_at_unfinished_slots() {
+        let shared = sched_with(3);
+        let mut s = shared.lock();
+        assert!(!s.only_first_live());
+        s.finish(1);
+        s.finish(2);
+        assert!(s.only_first_live());
+        assert!(!s.adopted_live());
+        let slot = s.adopt();
+        assert!(!s.only_first_live());
+        assert!(s.adopted_live());
+        s.finish(slot);
+        assert!(s.only_first_live());
+        assert!(!s.adopted_live());
     }
 
     #[test]
