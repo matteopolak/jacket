@@ -147,7 +147,6 @@ impl Compiler {
         if let Some(name) = &self.proc(id).export {
             f.b.func.linkage = ir::Linkage::Export(name.clone());
         }
-        f.b.func.source_file = file.0;
         if func_id.is_some() {
             f.b.func.debug_hidden = header.flags.no_debug();
             self.begin_func_debug(&mut f, id, span);

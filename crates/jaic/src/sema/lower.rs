@@ -493,8 +493,11 @@ impl FnCtx {
             position: Rc::new(std::cell::Cell::new(0)),
             serial: 0,
         };
+        let mut b = Builder::new(name, sig);
+        // The file its lines are in, for debug info and coverage.
+        b.func.source_file = file.0;
         Self {
-            b: Builder::new(name, sig),
+            b,
             lifetimes: None,
             lifetime_nonuses: [None; 2],
             lifetime_comparing: false,

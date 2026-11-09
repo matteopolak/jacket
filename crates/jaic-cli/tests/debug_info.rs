@@ -233,6 +233,48 @@ fn files_named_like_the_main_file_keep_their_own_line_table_entry() {
     assert!(in_lib, "lib/module.jai has no entry in:\n{lines}");
 }
 
+/// A `#modify` body belongs to the file it is written in, though no scope above it names a file:
+/// its subprogram is in that file's line table entry, not in the first file the compiler read.
+#[test]
+fn a_modify_body_is_in_the_file_it_is_written_in() {
+    let Some(tool) = dwarfdump() else {
+        eprintln!("skipped: llvm-dwarfdump not found");
+        return;
+    };
+    let dir = TempDir::new("debug-info-modify");
+    std::fs::write(
+        dir.join("main.jai"),
+        "#load \"helper.jai\";\nmain :: () { x := widen(2); if x != 2 { x = 0; } }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("helper.jai"),
+        "// padding\n// padding\nwiden :: (a: $T) -> s64 #modify {\n    return true;\n} {\n    return cast(s64) a;\n}\n",
+    )
+    .unwrap();
+    let exe = dir.join("prog");
+    let out = jaic()
+        .arg(dir.join("main.jai"))
+        .arg("-exe")
+        .arg(&exe)
+        .env("JAIC_DSYM", "1")
+        .current_dir(&*dir)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "build failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let (_, info) = run_dwarfdump(&tool, &["--debug-info"], &debug_file(&exe));
+    // The `modify` entry on the line of the `#modify` body.
+    let entry = info
+        .split("\n\n")
+        .find(|e| e.contains("\"modify\"") && e.contains("DW_AT_decl_line") && e.contains("(4)"))
+        .unwrap_or_else(|| panic!("no `modify` on line 4 in:\n{info}"));
+    assert!(entry.contains("helper.jai"), "not in helper.jai:\n{entry}");
+}
+
 #[test]
 fn no_debug_info_flag_omits_it() {
     let (_dir, exe) = build("debug-info-off", "prog", &["-no_debug_info"], None, true);

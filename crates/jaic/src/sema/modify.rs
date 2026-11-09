@@ -225,7 +225,8 @@ impl Compiler {
             c_fixed: 0,
             c_abi: None,
         };
-        let mut f = FnCtx::new("modify".into(), sig, self.scope_file(def_scope));
+        // The block's lines are in the file it is written in; a definition scope may name none.
+        let mut f = FnCtx::new("modify".into(), sig, block.span.file);
         f.compile_time = true;
         f.set_context(Some(f.b.param(0)));
         // `return false, "message"`: the optional message goes to a global (empty by default).
