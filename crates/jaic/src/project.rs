@@ -617,8 +617,15 @@ pub fn resolve_root(
     cache: &mut LoadCache,
 ) -> Root {
     if let Some(import_dirs) = &options.import_dirs
-        && let Some(module) = enclosing_module(fs, file, import_dirs, cache)
-            .or_else(|| module_of(fs, file, import_dirs))
+        && let Some(module) = enclosing_module(fs, file, import_dirs, cache).or_else(|| {
+            // Only a workspace's main program may set program parameters, so a file that
+            // does is a program wherever it lives (a test beside the module it imports).
+            let program = !crate::paths::is_module_entry(file)
+                && fs
+                    .read(file)
+                    .is_some_and(|text| sets_program_parameters(&text));
+            module_of(fs, file, import_dirs).filter(|_| !program)
+        })
     {
         return module;
     }
@@ -626,6 +633,38 @@ pub fn resolve_root(
         Some(program) => Root::Program(program),
         None => Root::Program(file.to_path_buf()),
     }
+}
+
+/// Whether `text` has an `#import` with a non-empty second argument list, as in
+/// `#import "M"()(X = 1)`. Found from tokens, so it works while the text does not parse.
+pub fn sets_program_parameters(text: &str) -> bool {
+    let Ok(tokens) = crate::lexer::lex(crate::source::FileId(0), text) else {
+        return false;
+    };
+    let is =
+        |at: usize, p: P| matches!(tokens.get(at).map(|t| &t.tok), Some(Tok::Punct(q)) if *q == p);
+    let group_end = |open: usize| {
+        let mut depth = 0usize;
+        (open..tokens.len()).find(|&at| {
+            if is(at, P::LParen) {
+                depth += 1;
+            } else if is(at, P::RParen) {
+                depth -= 1;
+            }
+            depth == 0
+        })
+    };
+    scan_directives(&tokens).iter().any(|link| {
+        let Some(string) = tokens
+            .iter()
+            .position(|t| t.span.end as usize == link.string.end)
+        else {
+            return false;
+        };
+        is(string + 1, P::LParen)
+            && group_end(string + 1)
+                .is_some_and(|end| is(end + 1, P::LParen) && !is(end + 2, P::RParen))
+    })
 }
 
 /// The module `file` is the entry of, if it is one: `module.jai`, or a file directly in an
@@ -932,6 +971,17 @@ mod tests {
         assert!(!reachable_loads(&DiskFs, &dir.join("other.jai"), 100).contains(&a));
         // The limit counts the root.
         assert_eq!(load_closure(&DiskFs, &main, 2).len(), 2);
+    }
+
+    #[test]
+    fn program_parameters_are_the_second_import_list() {
+        assert!(sets_program_parameters("#import \"M\"()(A = true);"));
+        assert!(sets_program_parameters(
+            "X :: #import,file \"m.jai\"(f(1))(A = f(2));"
+        ));
+        assert!(!sets_program_parameters("#import \"M\"(A = true);"));
+        assert!(!sets_program_parameters("#import \"M\"()();"));
+        assert!(!sets_program_parameters("#import \"M\"; f :: () {}"));
     }
 
     #[test]

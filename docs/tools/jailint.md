@@ -21,6 +21,7 @@ Exit status: 0 clean, 1 a denied finding or a program that did not compile fully
 ## How it works
 
 - **Plan** (`driver/plan.rs`): paths become `.jai` files minus `exclude`. A module is compiled by importing it from an empty program so every procedure is checked; a file that a module `#load`s is compiled as part of it. Only the listed files are reported.
+  A file under an import folder (the standard library, say) is a module unless it sets program parameters, `#import "M"()(X = 1)`: only a workspace's main program may, so such a file, a test beside its module, is compiled as its own program (`project::sets_program_parameters`, used by `resolve_root`). A `module.jai` is always a module.
 - **Compile** (`driver/compile.rs`): the same lint compile the language server uses, with lint facts on (`IdeFacts::lint`): expression types, constness, cast types and what each name resolved to. Compile-time code runs sandboxed ([limits](../compiler/compile-time-limits.md)).
 - **Lint** (`lib.rs`, `driver/lint_root.rs`): re-parse, build suppressions, run each enabled rule. Where the compiler did not look (an `#if` branch left out, a failed body) rules fall back to text and stay quiet.
 - **Leak pass** (`driver/leak.rs`, only with `platform_leak`): portable roots are compiled again for every target system and the imports and failed asserts are traced.

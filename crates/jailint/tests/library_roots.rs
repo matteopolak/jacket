@@ -203,6 +203,25 @@ fn call_rules_follow_declaration_notes_through_generic_aliases() {
 }
 
 #[test]
+fn file_in_a_library_folder_that_sets_program_parameters_lints_as_a_program() {
+    let root = fixture("program-parameters");
+    std::fs::create_dir_all(root.join("stdlib/Probe/tests")).unwrap();
+    std::fs::write(
+        root.join("stdlib/Probe/module.jai"),
+        "#module_parameters()(FLAG: bool = false); #if FLAG { enabled :: () {} }",
+    )
+    .unwrap();
+    let test = root.join("stdlib/Probe/tests/flagged.jai");
+    std::fs::write(
+        &test,
+        "P :: #import \"Probe\"()(FLAG = true); main :: () { P.enabled(); }",
+    )
+    .unwrap();
+    let result = run(&options(&root, test));
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+}
+
+#[test]
 fn stdlib_scan_skips_expected_failures_and_keeps_real_findings_fatal() {
     let root = fixture("stdlib-scan");
     let tests = root.join("stdlib/Thing/tests");
