@@ -463,35 +463,63 @@ impl Resolver<'_> {
             .then(|| path.clone());
         };
         let arg = args.iter().find(|a| a.formal == formal)?;
-        if path.steps.iter().any(|s| matches!(s, Step::Field(_))) && self.reinterpreted(arg) {
-            return None;
+        let mut steps = path.steps.clone();
+        if steps.iter().any(|s| matches!(s, Step::Field(_)))
+            && let Some((viewed, held)) = self.reinterpreted(arg)
+        {
+            steps = self.same_bytes(&steps, viewed, held)?;
         }
         self.argument_trace(arg, summaries, visiting, depth + 1)?
-            .append(&path.steps)
+            .append(&steps)
     }
 
-    /// Whether the argument views a struct through a different struct type, as in
+    /// The member of `held` that occupies the same bytes, with the same type, as the first
+    /// member of `steps` does in `viewed`; the later steps then continue from that member.
+    fn same_bytes(&self, steps: &[Step], viewed: TypeId, held: TypeId) -> Option<Vec<Step>> {
+        let types = &self.compiler.ty.types;
+        let (Some(Step::Field(name)), TypeKind::Struct(viewed), TypeKind::Struct(held)) =
+            (steps.first(), types.kind(viewed), types.kind(held))
+        else {
+            return None;
+        };
+        let member = types
+            .struct_info(*viewed)
+            .fields
+            .iter()
+            .find(|f| f.name == Some(*name) && !f.overlay)?;
+        let twin = types
+            .struct_info(*held)
+            .fields
+            .iter()
+            .filter(|f| f.offset == member.offset && f.ty == member.ty && !f.overlay)
+            .collect::<Vec<_>>();
+        let [twin] = twin.as_slice() else {
+            return None;
+        };
+        let mut steps = steps.to_vec();
+        steps[0] = Step::Field(twin.name?);
+        Some(steps)
+    }
+
+    /// The struct types an argument is viewed through and actually holds, when they differ, as in
     /// `get(cast(*B) *a)`. Member names of the formal's type then name other bytes than the
-    /// same names on the actual object, so a path through them cannot be carried over.
-    fn reinterpreted(&self, arg: &LifetimeArgument) -> bool {
+    /// same names on the actual object.
+    fn reinterpreted(&self, arg: &LifetimeArgument) -> Option<(TypeId, TypeId)> {
         let types = &self.compiler.ty.types;
         let (Some(v), Some(viewed)) = (value(arg), types.pointee(arg.ty)) else {
-            return false;
+            return None;
         };
-        let Some(p) = self.stored_address(v, &mut HashSet::default()) else {
-            return false;
-        };
+        let p = self.stored_address(v, &mut HashSet::default())?;
         let held = self.places.types.get(&p).copied().or_else(|| {
             self.places.paths[p]
                 .1
                 .is_empty()
                 .then_some(self.places.paths[p].0.1)
-        });
-        held.is_some_and(|held| {
-            held != viewed
-                && matches!(types.kind(held), TypeKind::Struct(_))
-                && matches!(types.kind(viewed), TypeKind::Struct(_))
-        })
+        })?;
+        (held != viewed
+            && matches!(types.kind(held), TypeKind::Struct(_))
+            && matches!(types.kind(viewed), TypeKind::Struct(_)))
+        .then_some((viewed, held))
     }
 
     pub fn effects(

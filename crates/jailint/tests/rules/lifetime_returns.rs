@@ -31,7 +31,10 @@ fn lifetime_wrappers_return_aliases_or_fresh_storage() {
                 "picks_first_freed",
             ],
         ),
-        ("captured-read-returns.jai", vec!["pure_projection"]),
+        (
+            "captured-read-returns.jai",
+            vec!["pure_projection", "cast_same_field_dies"],
+        ),
     ] {
         let path = case.join(file);
         let (lints, text) = lint(

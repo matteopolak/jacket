@@ -358,7 +358,7 @@ It fires only when every path to a use of `p := *xs[i]` passes a call that grows
 
 The pointer is followed through copies: other locals, struct fields, pointer arithmetic, casts, and views or strings made from the array (`v: []int = xs;` then `v.data`). `*outer[0].inner[0]` points into the inner array, so growing `outer` leaves it alone; `*outer[0].inner` points into `outer` and is invalidated. A `@GrowsArray` call that returns a pointer into its argument (`p := array_add(*xs);`) counts as a fresh derivation. Reading `v.count` or replacing `v.data` after growth is not a use.
 
-Anything reached through a pointer the lint can't resolve (a heap field a callee could rebind, an overlapping union field, a struct passed as a different struct type with `cast(*B) *a`) is unknown, so it stays quiet. A callee that keeps or writes through a pointer argument in a way the lint can't follow makes only that argument unknown. `JAILINT_LIFETIME_STATS=1` prints per-file counts of bodies analysed and why others were skipped.
+Anything reached through a pointer the lint can't resolve (a heap field a callee could rebind, an overlapping union field, a struct passed as a different struct type with `cast(*B) *a` whose member has no twin of the same type at the same byte offset) is unknown, so it stays quiet. A callee that keeps or writes through a pointer argument in a way the lint can't follow makes only that argument unknown. `JAILINT_LIFETIME_STATS=1` prints per-file counts of bodies analysed and why others were skipped.
 
 ### Lifetime rules
 

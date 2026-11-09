@@ -69,4 +69,16 @@ captured_old_does_not_become_replacement :: () {
     read(alias);
 }
 
+cast_same_field_dies :: () {
+    left := make();
+    right := make();
+    holder: A;
+    holder.left = left;
+    holder.right = right;
+    alias := get_b(cast(*B) *holder);
+
+    free(right);
+    read(alias);
+}
+
 main :: () {}
