@@ -44,13 +44,13 @@ set(*id);                               // back to the void case
 - `declare_variant` (`layout.jai`) writes all of it with `#insert`, plus `case_type_K` aliases, `case_names` and `case_infos` for printing, equality, freeing and Json.
 - Case names: the named form uses the struct's field names. A type list uses the type's name in snake_case (`HttpServer` and `HTTP_Server` become `http_server`; `*Node` becomes `node`); built-in types get a trailing `_` (`s64_`, `string_`) because `s64: s64` is not allowed. Types without a name (arrays, procedures) and two cases with one name are compile errors that suggest the named form.
 - Read and write cases as fields, checking `which` first. `variant`, `set` and `get_pointer` pick the case by type instead; a type that two cases share is a compile error there, so set `which` and the field yourself.
-- `set` doesn't free the old case. Equality and `free_variant` (`reflect.jai`) walk the live case by type info; only free payloads that came from the allocator. Two Variants on the same `void` case are equal.
+- `set` doesn't free the old case. Equality and `free_variant` (`reflect.jai`) run code written for each Variant type at compile time (`variant_equal_code`, `variant_free_code`, and `value_equal_code`/`value_free_code` for what a case holds); only free payloads that came from the allocator. Printing still reads type information, because it takes an `Any`. Two Variants on the same `void` case are equal.
 - Printing: `use_variant_printing()` installs a struct printer so `print("%", v)` writes the payload (a `void` case prints as its name); `variant_to_string(v)` prints without installing anything. `print("%", v.which)` prints the tag.
 - Json encodes variants by case name: [json](json.md#variants).
 
 ## How to change it
 
-- New operation needing the live case: `live_case(info, data)` (`reflect.jai`) gives the case index; the payload is at `offset_of_member(info, "payload")`.
+- New operation over every case: write a generator like `variant_free_code` (a `switch` on `which` with one `case` per case name) and `#insert #run` it. For one that only has `Type_Info` (printing), `live_case(info, data)` gives the case index; the payload is at `offset_of_member(info, "payload")`.
 - New naming rule or case-list check: `derived_name` and `collect_cases` in `layout.jai`, reporting with `compiler_report`. Names the Variant declares itself are in `RESERVED_NAMES`.
 - A variant can contain itself only through a pointer that passes through a named struct: `Tree :: Variant(Leaf, Branch); Branch :: struct { children: [..] *Tree; }`.
 - Tests: `stdlib/Extensions/Variant/tests/`, with compile errors in `negative/`.

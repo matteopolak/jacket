@@ -186,9 +186,7 @@ get_pointer :: (v: *$V/Variant, $T: Type) -> *T {
 // assert(variant(Id, "a") != variant(Id, cast(s64) 1));
 // ```
 operator == :: (a: $V/Variant, b: V) -> bool {
-    if a.which != b.which return false;
-
-    return values_equal(V.case_infos[cast(s64) a.which], a.payload.data, b.payload.data);
+    return variants_equal(*a, *b);
 }
 
 // The negation of `==`.
@@ -209,7 +207,7 @@ operator != :: (a: $V/Variant, b: V) -> bool {
 // assert(id.which == .NONE);
 // ```
 free_variant :: (v: *$V/Variant) {
-    free_variant_value(type_info(V), v);
+    variant_free(v);
 } @FreesArgument
 
 // ---- printing ----

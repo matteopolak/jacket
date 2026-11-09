@@ -230,6 +230,39 @@ equality :: () {
 
     check(list_a == list_b, "a float case");
 
+    // Floats compare as numbers: 0.0 equals -0.0, and NaN equals nothing.
+    zero: float64 = 0;
+    nan := zero / zero;
+
+    check(variant(Numbers, zero) == variant(Numbers, -zero), "0.0 equals -0.0");
+    check(variant(Numbers, nan) != variant(Numbers, nan), "NaN equals nothing");
+
+    // A view compares element by element, and strings in it by content.
+    Words :: Variant(struct {
+        view: [] string;
+        count: int;
+    });
+
+    words_a: [] string = string.["a", "b"];
+    words_b: [] string = string.["a", "b"];
+    words_c: [] string = string.["a", "c"];
+
+    check(variant(Words, words_a) == variant(Words, words_b) && variant(Words, words_a) != variant(Words, words_c), "a view of strings");
+
+    // A distinct type compares as what it is made from.
+    Name :: #type,distinct string;
+
+    Named :: Variant(struct {
+        name: Name;
+        count: int;
+    });
+
+    name_a := cast(Name) "x";
+    name_b := cast(Name) "x";
+    name_c := cast(Name) "y";
+
+    check(variant(Named, name_a) == variant(Named, name_b) && variant(Named, name_a) != variant(Named, name_c), "a distinct string");
+
     v1: [..] int;
     v2: [..] int;
 

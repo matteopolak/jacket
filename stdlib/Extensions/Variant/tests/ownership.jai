@@ -31,6 +31,13 @@ Outer :: Variant(int, Inner, Named);
 
 Empty :: struct {}
 
+Label :: #type,distinct string;
+
+Labelled :: Variant(struct {
+    label: Label;
+    count: int;
+});
+
 Mixed :: Variant(struct {
     empty: Empty;
     text: string;
@@ -104,6 +111,12 @@ freeing :: () {
         none := variant(Mixed, Empty.{});
 
         free_variant(*none);
+
+        // A distinct type owns what it is made from.
+        owned := variant(Labelled, cast(Label) copy_string("distinct"));
+
+        free_variant(*owned);
+        cleared = cleared && owned.which == .LABEL && cast(string) owned.label == "";
     }
 
     check(tally.outstanding == 0, tprint("free_variant left % blocks allocated", tally.outstanding));
