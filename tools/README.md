@@ -75,6 +75,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 
 | Script | What it does | Called by |
 | --- | --- | --- |
+| `check_action_pins.py` | Check that pinned GitHub Actions match their tags and are 14 days old; `--update` applies newer releases (docs/tools/action-pins.md). | CI, tools |
 | `check_ci_sources.py` | Check literal Rust includes against public checkout inputs before compiling. | tools |
 | `check_dependency_age.py` | Fail closed for every registry dependency, including existing lock entries. | CI, tools |
 | `check_diagnostics_covered.py` | Fail when a compiler diagnostic code has no test that expects it (docs/tools/diagnostic-coverage.md). | CI |
