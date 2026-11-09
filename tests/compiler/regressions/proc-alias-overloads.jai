@@ -1,6 +1,7 @@
 // A procedure alias (`starts_with :: begins_with;` in String) joins the overload set
 // of a same-named procedure in the importing module; an integer meeting a float in
-// arithmetic becomes that float; String's replace reports its occurrence count.
+// arithmetic becomes that float, though comparing them needs a cast; String's replace
+// reports its occurrence count.
 // rules: proc.5
 #import "Basic";
 #import "String";
@@ -20,7 +21,7 @@ main :: () {
     assert(type_of(lines) == float && lines == 3.5);
     big: s64 = 3;
 
-    assert(big * 0.5 == 1.5 && height < top);
+    assert(big * 0.5 == 1.5 && height < cast(float) top);
 
     text, occurrences := replace("a[0]b[0]", "[0]", "[1]");
 
