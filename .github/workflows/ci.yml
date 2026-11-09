@@ -48,12 +48,10 @@ env:
   MESA_SHA256_X64: d1b713ca2a7fba47a50c058099f13c435ddb76a16a422c334e4d787f9755a31d
   MESA_SHA256_ARM64: e7df75398d50e07a68bbffa5cff2ece4c85e5f8ef8bda497f560dd04fe60cbbd
   GALLIUM_DRIVER: llvmpipe
-# A newer push to a branch supersedes the older run there. On main the light jobs (compiler
-# tests, lint, wasm, VS Code) finish for every push, while the heavy ones (stdlib runtime,
-# third-party projects, sanitizers, macOS Intel) set their own concurrency so a newer push to
-# main supersedes them. Cancel a run by hand with `gh run cancel` when it is not needed.
+# A newer push (to main or a pull request) cancels the older run there, so only the latest commit
+# is checked. Nightly and manual runs each get their own group and are never cancelled by a push.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  group: ${{ github.workflow }}-${{ contains(fromJSON('["push","pull_request"]'), github.event_name) && github.ref || github.run_id }}
   cancel-in-progress: true
 jobs:
   changes:
@@ -275,9 +273,6 @@ jobs:
         # The legs and their `part`s come from tools/ci/ci_changes.py (test_matrix): pushes run the
         # fast tier, nightly and manual runs the full one.
         include: ${{ fromJSON(needs.changes.outputs.test_matrix) }}
-    concurrency:
-      group: ${{ github.workflow }}-test-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.part }}-${{ matrix.shard }}-${{ github.sha }}
-      cancel-in-progress: true
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.timeout || 45 }}
     env:
@@ -725,9 +720,6 @@ jobs:
         # `o2` is set; the other legs run the producer suites in `suites`, and the `suites` leg also
         # the WebGPU checks, and `jacket test` where no tooling leg runs it.
         include: ${{ fromJSON(needs.changes.outputs.stdlib_matrix) }}
-    concurrency:
-      group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}-${{ matrix.shard }}-${{ github.sha }}
-      cancel-in-progress: true
     runs-on: ${{ fromJSON('{"macos-arm64":"macos-15","macos-x64":"macos-15-intel","linux-x64":"ubuntu-24.04","linux-arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
     timeout-minutes: ${{ matrix.timeout || 60 }}
     env:
@@ -1024,9 +1016,6 @@ jobs:
       matrix:
         # macOS and Linux arm64 only in the full tier.
         include: ${{ fromJSON(needs.changes.outputs.full == 'true' && '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"}]' || '[{"runner":"ubuntu-24.04","platform":"linux-x64"}]') }}
-    concurrency:
-      group: ${{ github.workflow }}-upstream-smoke-${{ github.ref }}-${{ matrix.platform }}
-      cancel-in-progress: true
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
@@ -1094,9 +1083,6 @@ jobs:
         # change what ASan builds (the `sanitizers-macos` area). Full Mac O0/O2 have separate
         # jobs, so each complete mode retains the existing 45-minute budget.
         include: ${{ fromJSON(needs.changes.outputs.sanitizer_matrix) }}
-    concurrency:
-      group: ${{ github.workflow }}-sanitizers-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.shard }}${{ matrix.mode == 'O2' && '-O2' || '' }}
-      cancel-in-progress: true
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
@@ -1446,9 +1432,6 @@ jobs:
         # From tools/ci/ci_changes.py (windows_cross_matrix): a third of the programs each, arm64
         # only in the full tier. `windows-run-cross` runs the same legs.
         include: ${{ fromJSON(needs.changes.outputs.windows_cross_matrix) }}
-    concurrency:
-      group: ${{ github.workflow }}-windows-cross-${{ github.ref }}-${{ matrix.cpu }}-${{ matrix.shard }}
-      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -1535,9 +1518,6 @@ jobs:
         # tests; `graphics`: everything that links the third-party libraries or draws (Mesa, WGL,
         # WebGPU, the data resource suite and File_Watcher).
         include: ${{ fromJSON(needs.changes.outputs.windows_native_matrix) }}
-    concurrency:
-      group: ${{ github.workflow }}-windows-native-${{ github.ref }}-${{ matrix.cpu }}-${{ matrix.part }}
-      cancel-in-progress: true
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.timeout }}
     env:
@@ -1690,9 +1670,6 @@ jobs:
         # From tools/ci/ci_changes.py (windows_stdlib_matrix): more shards and no -O2 rerun in the
         # fast tier.
         include: ${{ fromJSON(needs.changes.outputs.windows_stdlib_matrix) }}
-    concurrency:
-      group: ${{ github.workflow }}-windows-stdlib-${{ github.ref }}-${{ matrix.cpu }}-${{ matrix.shard }}
-      cancel-in-progress: true
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.timeout }}
     env:
@@ -1793,9 +1770,6 @@ jobs:
     name: third-party projects (Windows x64)
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'windows-smoke')
-    concurrency:
-      group: ${{ github.workflow }}-windows-smoke-${{ github.ref }}
-      cancel-in-progress: true
     runs-on: windows-2025
     timeout-minutes: 90
     defaults:

@@ -117,7 +117,7 @@ Things to know when editing workflows:
 - Workflows call scripts in `tools/ci/` instead of carrying shell logic. A `test_*.py` under `tools/` is picked up by the Python test step; Node tests are added to the job by hand.
 - Apt setup goes through `apt_configure` in `tools/ci/apt_lib.sh`, which isolates the runner's vendor feeds. Register a new required repository there; don't ignore update errors.
 - GitHub runs only five macOS jobs at a time per account, so macOS jobs are merged and the fast tier has exactly five.
-- A push cancels that branch's older run; heavy jobs have job-level `concurrency` so only the newest `main` commit finishes them.
+- A push to `main` or a pull request cancels its older run, so only the newest commit finishes. Nightly and manual runs are never cancelled by a push.
 - Long sweeps split with `--shard K/N`; Rust tests with nextest `--partition slice:K/N`. To change the count edit `shards(N)` in `test_matrix`/`stdlib_matrix`.
 - `release.yml` has one non-cancelling concurrency group per tag.
 
