@@ -126,10 +126,29 @@
       here.focus({ preventScroll: true });
       here.scrollIntoView({ block: 'center', behavior: 'instant' });
     };
-    var close = function () {
+    // The sheet slides away before the dialog closes; under reduced motion there is no animation
+    // and it closes at once. `now` skips the slide where nothing is on screen to watch it.
+    /** @param {boolean} [now] */
+    var close = function (now) {
       lock(false);
-      if (modal()) drawer.close();
+      if (!modal() || drawer.classList.contains('closing')) return;
+      var finish = function () {
+        drawer.classList.remove('closing');
+        if (modal()) drawer.close();
+      };
+      if (now) return finish();
+      drawer.classList.add('closing');
+      Promise.all(
+        drawer.getAnimations({ subtree: true }).map(function (a) {
+          return a.finished;
+        }),
+      ).then(finish, finish);
     };
+    // Escape slides it away too, instead of the browser's instant close.
+    drawer.addEventListener('cancel', function (e) {
+      e.preventDefault();
+      close();
+    });
     if (button)
       button.addEventListener('click', function () {
         if (modal()) close();
@@ -137,6 +156,7 @@
       });
     // Escape and every other way the browser closes it.
     drawer.addEventListener('close', function () {
+      drawer.classList.remove('closing');
       lock(false);
       if (button && !wideQuery.matches) button.focus();
     });
@@ -166,7 +186,7 @@
     // Beside the page the sidebar is always open, where nothing could open it again.
     wideQuery.addEventListener('change', function (e) {
       if (e.matches) {
-        close();
+        close(true);
         if (!drawer.open) drawer.show();
       } else if (drawer.open) {
         drawer.close();
