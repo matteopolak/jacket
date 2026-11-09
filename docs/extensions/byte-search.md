@@ -34,3 +34,5 @@ Compile-time calls select the portable 16-byte implementation without ISA probin
 - Tests: `tests/variants.jai` and `tests/search.jai` compare against naive loops. Run `PYTHONPATH=tools python3 tools/stdlib/stdlib_runtime.py --filter Byte_Search`.
 
 Used by [Regex](regex.md) for match skipping.
+
+Run benchmarks with `jacket bench --path benchmarks/stdlib`. Cases live in `benches/`; setup precedes `reset_timer`, and inputs/results use `black_box`.

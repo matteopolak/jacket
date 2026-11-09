@@ -33,7 +33,11 @@ jacket bench --path benchmarks/bench --baseline before table_
 
 Baselines go to `target/bench-baselines/` and are never committed. Close other programs first.
 
-Two programs outside the suite are timed by themselves: `benchmarks/stdlib/byte-search.jai` and `benchmarks/stdlib/log-scan.jai`.
+Byte search and log scanning run with `jacket bench --path benchmarks/stdlib`; Regex runs with `jacket bench --path benchmarks/regex/jai`. Extension benchmarks live in each module's `benches/` folder and run with `jacket bench --path stdlib/Extensions/<Module>`. Each input and mode is a distinct `@bench`, including reference-library cases where present.
+
+Prepare external data with `PYTHONPATH=tools python3 tools/portable/build_portable.py data`. Missing inputs fail with the fetch command. JSON inputs can also be fetched with `PYTHONPATH=tools python3 tools/dev/json_bench_data.py`. Generated data and scratch files use `target/`, relocated by `JACKET_OUTPUT_DIR`.
+
+For a short sequential smoke check, use `--samples 2 --warmup 1 --measure-ms 1 --resamples 100 -j 1`. These results check that cases run; they are not performance comparisons. TLS, WebSocket and Postgres cases start their own local peers before timing. HTTP's server, client RSS and child-process RSS experiments remain standalone programs: they need a peer that persists across samples or resident-memory/stack-residency metrics the runner does not provide.
 
 ## How to change it
 

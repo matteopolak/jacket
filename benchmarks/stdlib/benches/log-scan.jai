@@ -1,15 +1,10 @@
-// A log scanner: splits a generated access log into lines and fields with Byte_Search, counts
-// the requests per status class and the bytes sent, and finds the lines that mention an error.
-// The search procedures pick their 16- or 32-byte version once, on first use.
-//
-//     jaic benchmarks/stdlib/log-scan.jai -O2 -exe log-scan-bench && ./log-scan-bench
+// Run with jacket bench --path benchmarks/stdlib.
+#import "Extensions/Testing";
 #import "Basic";
 #import "String";
 #import "Extensions/Byte_Search";
-#import "Extensions/SIMD";
 
 LINES :: 400_000;
-ROUNDS :: 7;
 
 METHODS :: string.["GET", "POST", "PUT", "DELETE"];
 PATHS :: string.["/index.html", "/api/v1/users", "/static/app.js", "/api/v1/orders/17", "/health", "/login"];
@@ -17,6 +12,8 @@ STATUS :: int.[200, 200, 200, 204, 301, 404, 500];
 
 make_log :: () -> string {
     builder: String_Builder;
+
+    defer free_buffers(*builder);
     state: u32 = 11;
 
     for 0..LINES - 1 {
@@ -82,27 +79,20 @@ scan :: (log: string, classes: *[6] int) -> int, int, int {
     return lines, sent, errors;
 }
 
-now :: () -> float64 {
-    return to_float64_seconds(current_time_monotonic());
-}
-
-main :: () {
+log_scan :: (b: *Bench) {
     log := make_log();
-    classes: [6] int;
-    best: float64 = 1.0e18;
-    lines, sent, errors: int;
 
-    for 1..ROUNDS {
-        for *classes it.* = 0;
+    defer free(log);
+    set_bytes(b, log.count);
+    reset_timer(b);
 
-        started := now();
+    for 0..b.iterations - 1 {
+        classes: [6] int;
+        lines, sent, errors := scan(black_box(log), *classes);
 
-        lines, sent, errors = scan(log, *classes);
-        elapsed := now() - started;
-        if elapsed < best best = elapsed;
+        black_box(lines);
+        black_box(sent);
+        black_box(errors);
+        black_box(classes);
     }
-
-    print("% lines, % bytes in the log\n", lines, log.count);
-    print("sent %, errors %, classes % % % %\n", sent, errors, classes[2], classes[3], classes[4], classes[5]);
-    print("%: % MB/s\n", best_vector_tier(), formatFloat(cast(float64) log.count / best / 1.0e6, trailing_width = 0));
-}
+} @bench
