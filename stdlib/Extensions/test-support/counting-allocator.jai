@@ -1,6 +1,5 @@
 // Test-only allocator tracking, loaded by the ownership/leak scenarios (not a public module).
 // Count successful allocations, including RESIZE from null; measure every successful RESIZE.
-#import "Basic";
 
 Tally :: struct {
     outstanding: s64;
