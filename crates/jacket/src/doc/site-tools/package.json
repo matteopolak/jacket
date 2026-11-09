@@ -8,8 +8,8 @@
     "lint:js": "cd ../site && oxlint -c ../site-tools/.oxlintrc.json --deny-warnings assets",
     "lint:types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.worker.json",
     "lint:css": "stylelint \"../site/assets/*.css\"",
-    "fmt": "cd ../site && oxfmt assets",
-    "fmt:check": "cd ../site && oxfmt --check assets",
+    "fmt": "cd ../site && oxfmt -c ../site-tools/.oxfmtrc.json assets",
+    "fmt:check": "cd ../site && oxfmt -c ../site-tools/.oxfmtrc.json --check assets",
     "check-ages": "node ../../../../../editors/vscode/scripts/check-dependency-age.ts --dir ."
   },
   "devDependencies": {
