@@ -38,6 +38,7 @@ const WAIT_FAILED: u64 = u32::MAX as u64;
 const STILL_ACTIVE: u32 = 259;
 
 const ERROR_TIMEOUT: u32 = 1460;
+const ERROR_INVALID_HANDLE: u32 = 6;
 const ERROR_INVALID_PARAMETER: u32 = 87;
 const ERROR_TOO_MANY_POSTS: u32 = 298;
 
@@ -686,6 +687,12 @@ impl Interp {
                     return Some(Err(trap));
                 }
                 Ok(1)
+            }
+            // Closed already: fail as Windows does for an invalid handle, instead of asking the
+            // host about a number it never issued.
+            Win32Fn::CloseHandle if self.was_closed(arg(0)) => {
+                set_last_error(ERROR_INVALID_HANDLE);
+                Ok(0)
             }
             Win32Fn::CloseHandle if self.owns(arg(0)) => {
                 #[cfg(windows)]

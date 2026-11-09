@@ -32,6 +32,25 @@ fn waiting_on_a_closed_scheduler_handle_fails_instead_of_reaching_native() {
     assert_eq!(result.unwrap().unwrap(), vec![WAIT_OBJECT_0]);
 }
 
+#[test]
+fn closing_a_closed_scheduler_handle_fails_instead_of_reaching_native() {
+    let mut interp = Interp::default();
+    let program = Program::default();
+    let handle = interp.new_object(Object::Semaphore {
+        count: 0,
+        max: 1,
+    });
+    let result = interp.win32_foreign(&program, "CloseHandle", &[handle]);
+    assert_eq!(result.unwrap().unwrap(), vec![1]);
+    let result = interp.win32_foreign(&program, "CloseHandle", &[handle]);
+    assert_eq!(
+        result
+            .expect("a closed scheduler handle is not a native one")
+            .unwrap(),
+        vec![0]
+    );
+}
+
 #[cfg(windows)]
 #[test]
 fn emulated_errors_survive_the_next_native_foreign_call() {
