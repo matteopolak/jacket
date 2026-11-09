@@ -56,7 +56,11 @@ fn lifetime_field_replacement_orders_the_free_against_the_store() {
     let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
     assert_eq!(
         finding_procedures(&lints, &text),
-        ["unsafe_replacement"],
+        [
+            "unsafe_replacement",
+            "unsafe_branched_replacement",
+            "unsafe_looped_replacement"
+        ],
         "{}",
         rendered(&lints, &text, &path)
     );

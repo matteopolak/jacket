@@ -845,25 +845,29 @@ fn ordered_load_sources(
 }
 
 /// A field of caller-owned memory (`h.storage` through a parameter) that is loaded after
-/// this body stored the only value it ever stores there, with nothing in between that could
-/// write memory. The load yields that value, not what the field held on entry.
+/// this body stored the only value it ever stores there, with nothing on any path in between
+/// that could write memory. The load yields that value, not what the field held on entry.
 ///
 /// ```jai
 /// replace_then_free :: (h: *Holder, new: *int) { h.storage = new; free(h.storage); }  // frees `new`
 /// free_then_replace :: (h: *Holder, new: *int) { free(h.storage); h.storage = new; }  // frees the old value
 /// ```
+///
+/// The stores that reach a block are the ones every path into it agrees on, so a store before a
+/// branch or a loop still counts, and one made on only some paths does not.
 fn stored_loads(
     body: &super::LifetimeBody,
     places: &super::Places,
     unique: &HashMap<usize, Val>,
     owned: &HashSet<usize>,
 ) -> HashMap<Val, Val> {
+    type Stored = HashMap<usize, Val>;
     let local = |place: usize| owned.contains(&places.root_of(place)) && !places.unresolved(place);
     let outside = |place: usize| !local(place) && !places.paths[place].1.is_empty();
-    let mut result = HashMap::default();
-    for block in &body.blocks {
-        // The value last stored to each place since the block began.
-        let mut stored = HashMap::<usize, Val>::default();
+    // What one block leaves stored, given what reached it; loads of stored places go to `found`.
+    let run = |block: &jaic::ide::lifetimes::LifetimeBlock,
+               mut stored: Stored,
+               mut found: Option<&mut HashMap<Val, Val>>| {
         for event in &block.events {
             match *event {
                 Event::Store {
@@ -886,8 +890,9 @@ fn stored_loads(
                 } => {
                     if let Some(place) = places.existing(place, ty)
                         && let Some(&source) = stored.get(&place)
+                        && let Some(found) = found.as_deref_mut()
                     {
-                        result.insert(value, source);
+                        found.insert(value, source);
                     }
                 }
                 Event::Expression {
@@ -940,10 +945,48 @@ fn stored_loads(
                 }
                 | Event::ScopeEnd {
                     ..
+                }
+                | Event::Branch {
+                    ..
+                }
+                | Event::Return {
+                    ..
+                }
+                | Event::StaticChoice {
+                    ..
                 } => {}
                 _ => stored.clear(),
             }
         }
+        stored
+    };
+    // Forward to a fixed point; a block no path has reached yet agrees with whatever arrives first.
+    let mut entering: Vec<Option<Stored>> = vec![None; body.blocks.len()];
+    entering[0] = Some(Stored::default());
+    let mut pending = vec![0];
+    while let Some(at) = pending.pop() {
+        let Some(start) = entering[at].clone() else {
+            continue;
+        };
+        let leaving = run(&body.blocks[at], start, None);
+        for &next in &body.blocks[at].successors {
+            let merged = match &entering[next] {
+                None => leaving.clone(),
+                Some(old) => old
+                    .iter()
+                    .filter(|(place, value)| leaving.get(place) == Some(value))
+                    .map(|(&place, &value)| (place, value))
+                    .collect(),
+            };
+            if entering[next].as_ref() != Some(&merged) {
+                entering[next] = Some(merged);
+                pending.push(next);
+            }
+        }
+    }
+    let mut result = HashMap::default();
+    for (block, start) in body.blocks.iter().zip(entering) {
+        run(block, start.unwrap_or_default(), Some(&mut result));
     }
     result
 }
