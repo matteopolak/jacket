@@ -140,6 +140,7 @@ H2_Connecting :: struct {
     host: string;
     port: u16;
     tls: *Tls.Tls_Config;
+    tls_generation: u64;
     done: Io.Condition;
 }
 
@@ -149,11 +150,12 @@ H2_Known_Origin :: struct {
     host: string;
     port: u16;
     tls: *Tls.Tls_Config;
+    tls_generation: u64;
     since: s64;
 }
 
-h2_same_origin :: (owner: *void, host: string, port: u16, tls: *Tls.Tls_Config, other_owner: *void, other_host: string, other_port: u16, other_tls: *Tls.Tls_Config) -> bool {
-    return owner == other_owner && port == other_port && tls == other_tls && host == other_host;
+h2_same_origin :: (owner: *void, host: string, port: u16, tls: *Tls.Tls_Config, tls_generation: u64, other_owner: *void, other_host: string, other_port: u16, other_tls: *Tls.Tls_Config, other_generation: u64) -> bool {
+    return owner == other_owner && port == other_port && tls == other_tls && tls_generation == other_generation && host == other_host;
 }
 
 // Whether connections for this URL offer `h2`.
@@ -178,7 +180,7 @@ h2_connection :: (client: *Client, url: Url) -> *H2_Conn {
     now := now_ms();
 
     for pool.h2 {
-        if !h2_same_origin(it.owner, it.host, it.port, it.tls, owner, url.host, url.port, tls) continue;
+        if !h2_same_origin(it.owner, it.host, it.port, it.tls, it.tls_generation, owner, url.host, url.port, tls, Tls.tls_config_generation(tls)) continue;
 
         if it.dead || it.closing || it.goaway_received || it.goaway_sent continue;
 
@@ -225,6 +227,7 @@ h2_adopt :: (client: *Client, url: Url, link: Link) -> *H2_Conn {
     conn.host = copy_string(url.host);
     conn.port = url.port;
     conn.tls = tls_config_of(client, url);
+    conn.tls_generation = Tls.tls_config_generation(conn.tls);
     conn.owner = client.transport.data;
     conn.admission_changed = *pool.h2_capacity;
     conn.write_timeout = H2_CLIENT_WRITE_TIMEOUT;
@@ -549,7 +552,7 @@ open_connection :: (client: *Client, url: Url, max_h2_connections := 0, http2_on
             waiting: *H2_Connecting;
 
             for pool.connecting {
-                if h2_same_origin(it.owner, it.host, it.port, it.tls, owner, url.host, url.port, tls) {
+                if h2_same_origin(it.owner, it.host, it.port, it.tls, it.tls_generation, owner, url.host, url.port, tls, Tls.tls_config_generation(tls)) {
                     waiting = it;
                     break;
                 }
@@ -575,7 +578,7 @@ open_connection :: (client: *Client, url: Url, max_h2_connections := 0, http2_on
                 saturated := false;
 
                 for pool.h2 {
-                    if !h2_same_origin(it.owner, it.host, it.port, it.tls, owner, url.host, url.port, tls) continue;
+                    if !h2_same_origin(it.owner, it.host, it.port, it.tls, it.tls_generation, owner, url.host, url.port, tls, Tls.tls_config_generation(tls)) continue;
                     if it.dead || it.closing || it.goaway_received || it.goaway_sent continue;
                     it.admission_changed = *pool.h2_capacity;
                     saturated = true;
@@ -599,6 +602,7 @@ open_connection :: (client: *Client, url: Url, max_h2_connections := 0, http2_on
             gate.host = url.host;
             gate.port = url.port;
             gate.tls = tls;
+            gate.tls_generation = Tls.tls_config_generation(tls);
 
             array_add(*pool.connecting, gate);
         }
@@ -610,7 +614,7 @@ open_connection :: (client: *Client, url: Url, max_h2_connections := 0, http2_on
         if error.kind == .NONE && link.h2 {
             opened = h2_adopt(client, url, link);
         } else if error.kind == .NONE && gate && !http2_only {
-            array_add(*pool.http1_only, H2_Known_Origin.{ owner = owner, host = copy_string(url.host), port = url.port, tls = tls, since = now_ms() });
+            array_add(*pool.http1_only, H2_Known_Origin.{ owner = owner, host = copy_string(url.host), port = url.port, tls = tls, tls_generation = Tls.tls_config_generation(tls), since = now_ms() });
         }
 
         if gate {
@@ -653,7 +657,7 @@ h2_known_http1 :: (pool: *Client_Pool, owner: *void, url: Url, tls: *Tls.Tls_Con
             continue;
         }
 
-        if h2_same_origin(entry.owner, entry.host, entry.port, entry.tls, owner, url.host, url.port, tls) found = true;
+        if h2_same_origin(entry.owner, entry.host, entry.port, entry.tls, entry.tls_generation, owner, url.host, url.port, tls, Tls.tls_config_generation(tls)) found = true;
 
         index += 1;
     }

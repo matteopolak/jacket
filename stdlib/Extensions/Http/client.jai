@@ -1452,6 +1452,7 @@ converse :: (client: *Client, stream: Link, method: Method, method_text: string,
     source.host = copy_string(url.host);
     source.port = url.port;
     source.tls = tls_config_of(client, url);
+    source.tls_generation = Tls.tls_config_generation(source.tls);
     source.max_size = max_response_size;
 
     // The parser does not limit the body: `read_text` and friends do, and `read_some` streams.
@@ -1626,6 +1627,7 @@ Body_Source :: struct {
     host: string;
     port: u16;
     tls: *Tls.Tls_Config; // null: plain http
+    tls_generation: u64;
     held := false; // the connection is checked out: this body is still on the wire
 
     // HTTP/2: the stream the body arrives on instead of a connection of its own, and the data
@@ -1807,7 +1809,7 @@ connection_done :: (source: *Body_Source) {
     source.held = false;
 
     if source.keep_alive && source.kind != .UNTIL_CLOSE && source.input.count == 0 {
-        checkin(source.owner, source.host, source.port, source.tls, source.stream);
+        checkin(source.owner, source.host, source.port, source.tls, source.tls_generation, source.stream);
     } else {
         close(source.stream);
     }
@@ -2108,6 +2110,7 @@ Pool_Entry :: struct {
     host: string;
     port: u16;
     tls: *Tls.Tls_Config; // null for plain http: a TLS connection is only reused under the same config
+    tls_generation: u64; // the setup of `tls` it was made with: a config freed and set up again at the address is another config
     owner: *void; // the transport's data: a connection is only reused by the transport that made it
     stream: Link;
     since: s64;
@@ -2186,6 +2189,7 @@ checkout :: (client: *Client, url: Url) -> Link, reused: bool, Client_Error {
     now := now_ms();
     owner := client.transport.data;
     tls := tls_config_of(client, url);
+    generation := Tls.tls_config_generation(tls);
 
     // Newest first; connections that waited too long are closed on the way.
     index := pool.idle.count - 1;
@@ -2195,7 +2199,7 @@ checkout :: (client: *Client, url: Url) -> Link, reused: bool, Client_Error {
 
         if now - entry.since > client_settings.idle_timeout {
             drop_entry(pool, index);
-        } else if entry.owner == owner && entry.port == url.port && entry.tls == tls && entry.host == url.host {
+        } else if entry.owner == owner && entry.port == url.port && entry.tls == tls && entry.tls_generation == generation && entry.host == url.host {
             stream := entry.stream;
 
             free(entry.host.data);
@@ -2254,7 +2258,7 @@ drop_entry :: (pool: *Client_Pool, index: int) {
     close(entry.stream);
 }
 
-checkin :: (owner: *void, host: string, port: u16, tls: *Tls.Tls_Config, stream: Link) {
+checkin :: (owner: *void, host: string, port: u16, tls: *Tls.Tls_Config, generation: u64, stream: Link) {
     pool := client_pool();
 
     if client_settings.max_idle_per_host <= 0 {
@@ -2268,6 +2272,7 @@ checkin :: (owner: *void, host: string, port: u16, tls: *Tls.Tls_Config, stream:
     entry.host = copy_string(host);
     entry.port = port;
     entry.tls = tls;
+    entry.tls_generation = generation;
     entry.owner = owner;
     entry.stream = stream;
     entry.since = now_ms();
@@ -2279,7 +2284,7 @@ checkin :: (owner: *void, host: string, port: u16, tls: *Tls.Tls_Config, stream:
     count := 0;
 
     for pool.idle {
-        if it.owner == owner && it.port == port && it.tls == tls && it.host == host count += 1;
+        if it.owner == owner && it.port == port && it.tls == tls && it.tls_generation == generation && it.host == host count += 1;
     }
 
     excess: [..] Link;
@@ -2290,7 +2295,7 @@ checkin :: (owner: *void, host: string, port: u16, tls: *Tls.Tls_Config, stream:
     while count > client_settings.max_idle_per_host && index < pool.idle.count {
         it := pool.idle[index];
 
-        if it.owner == owner && it.port == port && it.tls == tls && it.host == host {
+        if it.owner == owner && it.port == port && it.tls == tls && it.tls_generation == generation && it.host == host {
             array_add(*excess, it.stream);
             free(it.host.data);
             array_ordered_remove_by_index(*pool.idle, index);

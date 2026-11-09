@@ -816,6 +816,35 @@ released_config :: (base: string, server: *Server) {
     check(http_statistics().idle_connections == 0, "released again: %", http_statistics().idle_connections);
 }
 
+// A config freed without `release_tls_config` and set up again at its address is a different config: the connection
+// made with the old one is not handed to it.
+rebuilt_config :: (base: string, server: *Server) {
+    client_config := make_client_config();
+
+    api: Client;
+
+    api.base_url = base;
+    api.tls = *client_config;
+
+    reply := get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.body == "pong", "a request: % '%'", reply.status, reply.body);
+    check(http_statistics().idle_connections == 1, "the connection is pooled: %", http_statistics().idle_connections);
+
+    Tls.tls_config_free(*client_config);
+
+    client_config = make_client_config();
+
+    before := http_statistics().connections_opened;
+
+    reply = get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.body == "pong", "a request with the new config: % '%'", reply.status, reply.body);
+    check(http_statistics().connections_opened == before + 1, "the new config did not take the old one's connection: % opened", http_statistics().connections_opened - before);
+
+    release_tls_config(*client_config);
+}
+
 main :: () {
     if !supported() return;
 
@@ -837,6 +866,7 @@ main :: () {
 
     run_server(*app, round_trips);
     run_server(*app, released_config);
+    run_server(*app, rebuilt_config);
     run_server(*app, certificate_failures);
     run_server(*app, alpn);
     run_server(*app, idle_holds_no_buffer);

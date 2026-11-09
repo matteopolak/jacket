@@ -147,4 +147,5 @@
 }
 
 #import "Basic";
+#import "Atomics";
 Io :: #import "Extensions/Io";

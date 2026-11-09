@@ -119,6 +119,9 @@ Tls_Native :: struct {
     crl: *void;
     check_name: bool;
 
+    // Which `tls_config_init` built this: never repeated in a process, unlike an address.
+    generation: u64;
+
     // The ALPN names as C strings and the list mbedTLS holds on to: names, then a null.
     alpn_names: [..] *u8;
     alpn_list: [..] *u8;
@@ -152,6 +155,9 @@ tls_config_init :: (config: *Tls_Config) -> Tls_Error {
     if status != 0 return make_error(.CONFIG, "mbedTLS could not start", status);
 
     native := New(Tls_Native);
+
+    native.generation = atomic_add(*config_generations, cast(u64) 1) + 1;
+
     error := build_native(config, native);
 
     if error.kind != .NONE {
@@ -182,6 +188,27 @@ tls_config_free :: (config: *Tls_Config) {
     config.native = null;
 } @FreesArgument
 
+// Which setup the config is in: every `tls_config_init` that succeeds gives a new number, and 0 means not set up.
+// A pool that keys connections by a config's address can add this to tell the config from a later one at the same address.
+//
+// - config: the config to ask about.
+//
+// ```jai,no_run
+// config: Tls_Config;
+// assert(tls_config_generation(*config) == 0);
+// tls_config_init(*config);
+// first := tls_config_generation(*config);
+// tls_config_free(*config);
+// tls_config_init(*config);
+// assert(first != 0 && tls_config_generation(*config) != first);
+// tls_config_free(*config);
+// ```
+tls_config_generation :: (config: *Tls_Config) -> u64 {
+    if !config || !config.native return 0;
+
+    return config.native.generation;
+}
+
 // Whether `tls_accept` works with this config: it was set up, and has a certificate and key.
 //
 // - config: the config to check.
@@ -197,6 +224,8 @@ can_accept :: (config: *Tls_Config) -> bool {
 }
 
 #scope_module
+
+config_generations: u64;
 
 SYSTEM_VERIFIER :: OS == .MACOS || OS == .WINDOWS;
 

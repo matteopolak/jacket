@@ -132,6 +132,7 @@ H2_Conn :: struct {
     host: string;
     port: u16;
     tls: *Tls.Tls_Config;
+    tls_generation: u64; // which setup of `tls` the connection was made with: an address can be reused
     owner: *void;
     idle_since: s64;
     settings_ack_pending: int;
