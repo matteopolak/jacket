@@ -15,7 +15,7 @@ impl Compiler {
     pub fn lower_body(&mut self, id: ProcId) -> Result<()> {
         // An editor that wants this check to stop (see `interrupt`) gets every body failed at
         // once; what the check produces is thrown away.
-        crate::sema::check_not_interrupted(self.proc(id).span)?;
+        self.check_not_stopped(self.proc(id).span)?;
         // IDE-final checks can enter through a compile-time dependency preflight,
         // not just the lenient queue. Share its failure memo at this common entry.
         if let Some(error) = self.ide_cached_body_failure(id, self.lower_epoch()) {
@@ -506,6 +506,7 @@ impl Compiler {
         bindings: Vec<(Sym, Value, TypeId)>,
         span: Span,
     ) -> Result<ProcId> {
+        self.check_not_stopped(span)?;
         let key: Vec<InstanceKeyValue> = bindings
             .iter()
             .map(|(_, v, t)| crate::sema::instance_key_value(&self.ty.types, v, *t))

@@ -137,6 +137,21 @@ pub fn check_not_interrupted(span: Span) -> Result<()> {
     Ok(())
 }
 
+impl Compiler {
+    /// Fails when the check should stop: an editor asked for it (see [`crate::interrupt`]) or
+    /// the wall-clock limit of the host passed. Asked where the compiler starts a unit of work
+    /// (a body, an entity, a file, a scope), so time spent outside the interpreter is bounded
+    /// too. Without a limit the host's answer is a constant `false`.
+    #[inline]
+    pub fn check_not_stopped(&mut self, span: Span) -> Result<()> {
+        check_not_interrupted(span)?;
+        if self.ct.interp.host.stop_requested() {
+            return Err(Box::new(trap_report::stopped(span)));
+        }
+        Ok(())
+    }
+}
+
 /// Platform on which this compiler binary executes, independent of output options.
 pub fn compiler_host() -> (TargetOs, TargetCpu) {
     #[cfg(not(any(

@@ -20,7 +20,7 @@ pub struct LibraryInfo {
 impl Compiler {
     /// Resolve an entity to its value/storage, checking it on first use.
     pub fn resolve_entity(&mut self, id: EntityId) -> Result<Resolved> {
-        crate::sema::check_not_interrupted(self.entity(id).span)?;
+        self.check_not_stopped(self.entity(id).span)?;
         self.out.begin_runtime_storage_dependencies();
         let result = self.resolve_entity_with_runtime_dependencies(id);
         let values = self.out.end_runtime_storage_dependencies()?;

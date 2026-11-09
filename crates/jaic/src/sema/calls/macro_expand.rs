@@ -421,6 +421,7 @@ impl Compiler {
         args: Vec<CallArg>,
         span: Span,
     ) -> Result<Operand> {
+        self.check_not_stopped(span)?;
         let sig = self.signature(proc, span)?;
         let header = self.proc(proc).lit.header.clone();
         let Some(body) = self.proc(proc).lit.body.clone() else {

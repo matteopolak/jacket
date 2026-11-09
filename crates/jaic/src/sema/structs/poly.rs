@@ -273,6 +273,7 @@ impl Compiler {
         args: Vec<(Option<Sym>, Operand)>,
         span: Span,
     ) -> Result<TypeId> {
+        self.check_not_stopped(span)?;
         let (name, lit, def_scope) = {
             let p = &self.ty.poly_structs[ps.0 as usize];
             (p.name, p.lit.clone(), p.scope)

@@ -36,6 +36,8 @@
 
 - `Extensions/Gltf` unpacks a whole accessor into floats (`gltf_unpack_floats`), gives local and world node matrices (`gltf_node_local`, `gltf_node_world`) and decodes KHR_materials_emissive_strength, ior, transmission, clearcoat, KHR_texture_transform and KHR_lights_punctual into typed structs (`gltf_extension`).
 
+- The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies, macro expansion, polymorphic instances), not only compile-time code that is running.
+
 ## [0.34.0] - 2026-11-09
 
 ### New
