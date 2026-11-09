@@ -1,6 +1,6 @@
 # Documentation
 
-- [LSP project indexing](tools/lsp-project-indexing.md), [inclusion-graph audit](tools/lsp-graph-audit.md).
+- [LSP project indexing](tools/lsp-project-indexing.md), [inclusion-graph audit](tools/lsp-graph-audit.md), [architecture plan](tools/lsp-architecture.md).
 - [Unicode normalization and segmentation](extensions/unicode-text.md): UCD 17.0.0 text forms and byte-offset boundaries.
 - [Memory debugger](stdlib/memory-debugger.md): allocation tracking, empty ranges and viewer configuration.
 
