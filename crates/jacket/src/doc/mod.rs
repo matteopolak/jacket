@@ -219,6 +219,15 @@ fn unexpanded_warnings(modules: &[Module]) -> Vec<String> {
         .collect()
 }
 
+/// Prints [`undocumented_generated`] as errors; whether there were any.
+fn report_undocumented_generated(modules: &[Module]) -> bool {
+    let problems = undocumented_generated(modules);
+    for problem in &problems {
+        eprintln!("jacket: error: {problem}");
+    }
+    !problems.is_empty()
+}
+
 /// An error for each generated item of `modules` without docs. The docs have to be in the text
 /// the generator emits, so each says which `#insert` made the item.
 fn undocumented_generated(modules: &[Module]) -> Vec<String> {
@@ -761,11 +770,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         for warning in unfenced.iter().chain(&unexpanded_warnings(&site.modules)) {
             eprintln!("jacket: warning: {warning}");
         }
-        let undocumented = undocumented_generated(&site.modules);
-        for problem in &undocumented {
-            eprintln!("jacket: error: {problem}");
-        }
-        if !undocumented.is_empty() {
+        if report_undocumented_generated(&site.modules) {
             return Ok(ExitCode::from(1));
         }
         let procedures = site

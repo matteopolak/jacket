@@ -24,12 +24,12 @@ nothing :: () -> string { return ""; }
 #insert #run nothing();
 "#;
 
-const BROKEN: &str = r#"// Cannot be expanded.
+const BROKEN: &str = r"// Cannot be expanded.
 
 broken :: () -> string { return missing_name; }
 
 #insert #run broken();
-"#;
+";
 
 const BARE: &str = r#"// Generates a struct without docs.
 
