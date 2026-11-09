@@ -373,23 +373,25 @@ test_connection_reset :: () {
 }
 
 test_connection_refused :: () {
-    // A port nothing listens on: listen, learn the number, close.
-    listener, error := Io.tcp_listen(LOOPBACK);
+    // A port nothing listens on, but still in use: the listener is closed while an accepted connection keeps
+    // the port busy, so the kernel cannot hand it to another program before the connect below.
+    // (A socket that is bound but never listens does not do: macOS drops the connect instead of refusing it.)
+    pair := make_pair();
+    address, _ := Io.local_address(pair.listener);
 
-    assert(error == .NONE);
-
-    address, _ := Io.local_address(listener);
-
-    assert(Io.close(listener) == .NONE);
+    assert(Io.close(pair.listener) == .NONE);
 
     _, connect_error := Io.connect(address);
 
     assert(connect_error == .CONNECTION_REFUSED, "connect to a closed port gave %", connect_error);
 
     // A refused attempt leaves nothing behind: a new listener and connection on the same scheduler work.
-    pair := make_pair();
+    Io.close(pair.client);
+    Io.close(pair.server);
 
-    close_pair(pair);
+    again := make_pair();
+
+    close_pair(again);
 }
 
 test_address_in_use :: () {
