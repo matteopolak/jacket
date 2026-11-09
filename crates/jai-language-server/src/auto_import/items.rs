@@ -167,19 +167,30 @@ impl Session {
             if sources.open.contains_key(&file) {
                 continue;
             }
-            let scan = sources.scan_keyed(&mut index, &file);
-            let hits: Vec<_> = scan
-                .symbols
-                .iter()
-                .filter(|s| s.name.to_lowercase().contains(query))
-                .collect();
-            if hits.is_empty() {
+            let mut scan = sources.scan_keyed(&mut index, &file);
+            let has_hit = |scan: &crate::exports::FileScan| {
+                scan.symbols
+                    .iter()
+                    .any(|s| s.name.to_lowercase().contains(query))
+            };
+            if !has_hit(&scan) {
                 continue;
             }
             let Some(bytes) = env.fs.read(&file) else {
                 continue;
             };
             let text = String::from_utf8_lossy(&bytes);
+            if scan.text_hash != crate::auto_import::hash(&text) {
+                // Edited on disk without a notification: the cached offsets are for older
+                // text. Scan it again.
+                index.changed(&file);
+                scan = sources.scan_keyed(&mut index, &file);
+            }
+            let hits: Vec<_> = scan
+                .symbols
+                .iter()
+                .filter(|s| s.name.to_lowercase().contains(query))
+                .collect();
             let lines = crate::position::LineIndex::new(&text);
             let Some(uri) = self.client_uri(&file) else {
                 continue;

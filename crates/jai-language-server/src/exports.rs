@@ -88,6 +88,8 @@ pub struct Symbol {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FileScan {
+    /// A hash of the scanned text (`auto_import::hash`): offsets below apply to text with this hash.
+    pub text_hash: u64,
     /// Every top-level declaration, `#scope_file` ones included.
     pub symbols: Vec<Symbol>,
     /// Top-level declarations outside `#scope_file`.
@@ -122,6 +124,7 @@ pub fn scan(text: &str) -> FileScan {
     let tokens = &parsed.tokens;
     let docs = crate::docs::Docs::new(text);
     let mut out = FileScan {
+        text_hash: crate::auto_import::hash(text),
         builds: build_files(tokens),
         import_paths: import_paths(tokens),
         first_code: tokens.first().map(|t| t.span.start as usize),
