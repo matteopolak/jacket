@@ -69,3 +69,27 @@ jaifmt stdlib/Extensions/Gltf
 `tools/gltf_conformance/fetch.py` uses SHA-256-pinned archives and a gitignored download cache. Generated fixtures go under `target/gltf-conformance`, or `JACKET_OUTPUT_DIR/gltf-conformance`. Missing fixtures fail with the command that fetches them. The sample test checks both `glTF` and `glTF-Binary` variants. Its three skips are both `SheenWoodLeatherSofa` variants (WebP image sources) and `MeshoptCubeTest/glTF` (quantized attributes); their extensions are not interpreted. There are no expected core failures. The portable data command fetches only the validator fixtures. The sample models are a 1.1 GB download, fetched with `--samples` and tested only under `--needs gltf_samples`; CI does both in one Linux leg (`gltf_samples` in `tools/ci/ci_changes.py`). The sample test runs natively only (`@only(.NATIVE)`); the interpreter runs the focused tests. The validator test requires rejection of every core fixture whose pinned report contains errors; extension-specific validator fixtures are not checked.
 
 Run `jacket bench --path stdlib/Extensions/Gltf` to measure loading the pinned BoxTextured JSON asset, including its external buffer and PNG image. The benchmark reports JSON input throughput and includes resource IO, validation and freeing. The development cross-check uses Khronos's `gltf-validator` npm package through `npx`; it is not a runtime or CI dependency.
+
+## Compared with the community libraries
+
+[kooparse/gltf_parser](https://github.com/kooparse/gltf_parser) is a pure-Jai parser (about 1,600 lines plus the `jaison` JSON module it bundles). [napina/jai_cgltf](https://github.com/napina/jai_cgltf) is Jai bindings, not a port: it compiles the C library cgltf 1.15 (`src/cgltf.h`, `cgltf_write.h`) into a static library at build time. This comparison is from reading their source; none of it was built or run.
+
+| Feature | Gltf | gltf_parser | jai_cgltf |
+| --- | --- | --- | --- |
+| Language and dependencies | pure Jai; `Extensions/Json`, `Image` | pure Jai; `jaison`, `unicode_utils` | C library built with a C++ compiler |
+| `.gltf` and `.glb` | both | both; GLB must be one JSON chunk then one BIN chunk, one buffer | both |
+| Data-URI buffers | yes, base64 decoded and bounds-checked | no, the URI is joined to the file path and read | yes |
+| External buffers | via `Gltf_Resolver`, no filesystem unless supplied; `gltf_local_resolve` stays inside the folder | `gltf_load_buffers` joins the buffer URI to the file path, no escape check | `cgltf_load_buffers` reads the path next to the file, no escape check |
+| Accessor reading | cursor: strides, normalized, sparse, matrices, `u32` indices | copies into a `[..]` of your type, cast per component; no sparse or normalized handling | `cgltf_accessor_unpack_floats` (sparse applied, normalized converted); `read_float` rejects sparse |
+| Validation | full structural and semantic checks against the Khronos invalid fixtures | none; asserts on missing fields | `cgltf_validate`: accessor, view and sparse ranges, indices, skins; much less than Gltf |
+| Errors | kind, message, byte offset, JSON pointer | log and `exit(-1)` | result code only |
+| Extensions | `extensions` and `extras` kept as `Json_Value`; no KHR_* typed | typed: lights_punctual, emissive_strength, ior, transmission, texture_transform | typed: lights, texture_transform, ~15 KHR_materials_*, variants, Draco/meshopt/basisu/webp records, mesh_gpu_instancing |
+| Animation, skins | yes, validated; KHR_animation_pointer accepted | yes | yes |
+| Morph targets | yes, validated | not parsed | yes |
+| Cameras, lights | cameras typed and validated; lights opaque (KHR_lights_punctual) | both typed | both typed |
+| Node transforms | no helpers | local and world matrices | local and world matrices |
+| Writing | `gltf_write`, JSON or GLB | no | bound (`cgltf_write`, `cgltf_write_file`); its README says no write API |
+| Limits on untrusted input | bytes, buffer bytes, object count, depth | none | none (only a JSON token count option) |
+| Allocation | one owned `Gltf_Asset`, `context.allocator`; failed loads free themselves | arrays on the `GLTF_Data` allocator; accessor reads allocate temporary arrays | C `malloc` by default, replaceable through `cgltf_memory_options`; `cgltf_free` |
+
+Gltf is the only one that treats the file as hostile: it bounds sizes, validates before any accessor read, reports where the problem is, and returns errors instead of exiting. gltf_parser's unchecked offsets and `exit` on bad input make it unsuitable for untrusted files. cgltf has the widest extension coverage and transform helpers, which Gltf lacks.
