@@ -1,68 +1,54 @@
 feed :: (g: *Grid, bytes: string) {
-    for bytes feed_byte(g, it);
+    Vt.vt_feed(*g.parser, bytes, terminal_action, g);
 }
 
-feed_byte :: (g: *Grid, byte: u8) {
-    if byte == 0x18 || byte == 0x1a {
-        g.state = 0;
-        g.utf_left = 0;
+terminal_action :: (data: *void, action: Vt.Vt_Action) {
+    g := cast(*Grid) data;
+
+    if action.kind == .PRINT {
+        put_code(g, action.code);
         return;
     }
 
-    if g.state == 3 || g.state == 4 {
-        if byte == 7 || (g.state == 4 && byte == 92) {
-            text := string.{ g.osc.count, g.osc.data };
-            if begins_with(text, "0;") || begins_with(text, "2;") {
-                free(g.title);
-                g.title = copy_string(slice(text, 2, text.count - 2));
-            }
+    byte := cast(u8) action.code;
 
-            g.state = 0;
-
-            return;
-        }
-
-        g.state = ifx byte == 27 then 4 else 3;
-        if byte != 27 && g.osc.count < 4096 array_add(*g.osc, byte);
-
-        return;
-    }
-
-    if byte == 27 {
-        g.utf_left = 0;
-        g.state = 1;
-        return;
-    }
-
-    if byte < 32 {
+    if action.kind == .EXECUTE {
         if byte == 8 g.x = max(0, g.x - 1);
         if byte == 9 g.x = min(g.cols - 1, (g.x / 8 + 1) * 8);
         if byte == 10 || byte == 11 || byte == 12 linefeed(g);
         if byte == 13 g.x = 0;
 
         g.wrap_pending = false;
+    } else if action.kind == .CSI_DISPATCH {
+        if action.intermediates.count != 0 return;
 
-        return;
-    }
+        g.params = .{};
+        g.param_count = 0;
 
-    if g.state == 5 {
-        g.state = 0;
-        return;
-    }
+        for action.params {
+            if it.subparam return; // The grid supports semicolon SGR only.
+            g.params[g.param_count] = it.value;
+            g.param_count += 1;
+        }
 
-    if g.state == 1 {
-        g.state = 0;
+        if action.private_marker != 0 && action.private_marker != #char "?" return;
 
-        if byte == #char "[" {
-            g.state = 2;
-            g.params = .{};
-            g.param_count = 1;
-            g.private_mode = false;
-            g.sequence_overflow = false;
-        } else if byte == #char "]" {
-            g.state = 3;
-            g.osc.count = 0;
-        } else if byte == #char "7" {
+        g.private_mode = action.private_marker == #char "?";
+        csi(g, byte);
+    } else if action.kind == .OSC_DISPATCH {
+        if action.osc.count < 2 return;
+        if action.osc[0] != "0" && action.osc[0] != "2" return;
+
+        // Preserve semicolons in window titles; fields borrow one contiguous OSC buffer.
+        first := action.osc[1];
+        last := action.osc[action.osc.count - 1];
+
+        free(g.title);
+        g.title = copy_string(string.{ last.data + last.count - first.data, first.data });
+    } else if action.kind == .ESC_DISPATCH {
+        if action.intermediates.count != 0 return;
+
+        if byte == #char "7" {
             g.save_x = g.x;
             g.save_y = g.y;
         } else if byte == #char "8" {
@@ -83,60 +69,9 @@ feed_byte :: (g: *Grid, byte: u8) {
             g.top = 0;
             g.bottom = g.rows - 1;
             for y: 0..g.rows - 1 clear_row(g, y);
-        } else if byte == #char "(" || byte == #char ")" g.state = 5;
 
-        return;
-    }
-
-    if g.state == 2 {
-        if byte >= #char "0" && byte <= #char "9" {
-            at := g.param_count - 1;
-            g.params[at] = min(1000000, g.params[at] * 10 + byte - #char "0");
-        } else if byte == #char ";" {
-            if g.param_count < 32 g.param_count += 1;
-            else g.sequence_overflow = true;
-        } else if byte == #char "?" g.private_mode = true;
-        else if byte >= 0x40 && byte <= 0x7e {
-            if !g.sequence_overflow csi(g, byte);
-            g.state = 0;
         }
-
-        return;
     }
-
-    if byte == 127 return;
-
-    if g.utf_left > 0 {
-        if (byte & 0xc0) == 0x80 {
-            g.utf_code = (g.utf_code << 6) | (byte & 0x3f);
-            g.utf_left -= 1;
-            if g.utf_left == 0 {
-                code := g.utf_code;
-                if code < g.utf_min || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff) code = 0xfffd;
-                put_code(g, code);
-            }
-
-            return;
-        }
-
-        g.utf_left = 0;
-        put_code(g, 0xfffd);
-    }
-
-    if byte < 128 put_code(g, byte);
-    else if byte >= 0xc2 && byte <= 0xdf {
-        g.utf_left = 1;
-        g.utf_min = 0x80;
-        g.utf_code = byte & 0x1f;
-    } else if byte >= 0xe0 && byte <= 0xef {
-        g.utf_left = 2;
-        g.utf_min = 0x800;
-        g.utf_code = byte & 0x0f;
-    } else if byte >= 0xf0 && byte <= 0xf4 {
-        g.utf_left = 3;
-        g.utf_min = 0x10000;
-        g.utf_code = byte & 7;
-    } else put_code(g, 0xfffd);
 }
 
 csi :: (g: *Grid, final: u8) {

@@ -23,6 +23,7 @@
 | `Image` | decode PNG, JPEG, QOI, BMP, PNM and ICO entries; encode PNG, QOI, BMP and PPM; convert, resize, crop, flip, rotate | [image](image.md) |
 | `Deflate` | DEFLATE compression with zlib and gzip framing, CRC-32 and Adler-32 | [deflate](deflate.md) |
 | `Audio_Stream` | bounded, seekable decoding of WAV (PCM, IMA ADPCM) and Ogg Vorbis files into `s16` frames, with Vorbis tags; `@experimental` | [audio-stream](audio-stream.md) |
+| `Vt` | sans-IO streaming DEC ANSI parser with UTF-8, CSI, OSC and DCS callbacks | [vt](vt.md) |
 | `Pty` | nonblocking pseudoterminal sessions on macOS and Linux: spawn, read, write, resize, reap; `@experimental` | [pty](pty.md) |
 | `Iprof_Trace` | records Iprof zones as nested per-frame timelines and saves/loads them in a small binary format (`.jipt`); `@experimental` | [iprof-trace](iprof-trace.md) |
 | `Meow_Portable` | `hash_bytes`: the Meow hash in portable scalar code, same lanes as `meow_hash` on CPUs without AES-NI; `@experimental` | — |

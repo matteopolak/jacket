@@ -1,7 +1,7 @@
 // Streaming VT parser and bounded grid. No window, PTY or UI dependencies.
 #import "Basic";
-#import "String";
 U :: #import "Unicode";
+Vt :: #import "Extensions/Vt";
 #load "grid.jai";
 #load "parser.jai";
 
@@ -43,14 +43,9 @@ Grid :: struct {
     replies: [..] u8;
     cursor_visible: bool = true;
     wrap_pending: bool;
-    state: int; // ground, escape, CSI, OSC, OSC escape, charset
+    parser: Vt.Vt_Parser;
     params: [32] int;
     param_count: int = 1;
     private_mode: bool;
-    sequence_overflow: bool;
-    osc: [..] u8;
     title: string;
-    utf_code: u32;
-    utf_min: u32;
-    utf_left: int;
 }

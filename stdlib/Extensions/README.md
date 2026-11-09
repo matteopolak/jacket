@@ -13,6 +13,7 @@ their path, so the import says the code is jaic-only:
 | `#import "Extensions/Regex";` | Regular expressions like Rust's `regex` crate: Unicode, linear time, and patterns compiled at compile time with typed groups |
 | `#import "Extensions/Uuid";` | RFC 9562 UUIDs: strict text forms, v3/v4/v5/v7, hashing and Json field handlers ([docs](../../docs/extensions/uuid.md)) |
 | `#import "Extensions/Json";` | Typed JSON like Rust's serde_json: encoders and decoders generated from your types at compile time, `@json` attributes, strict parsing |
+| `#import "Extensions/Vt";` | Streaming DEC ANSI terminal byte parser; [UTF-8, CSI, OSC and DCS callbacks](../../docs/extensions/vt.md), without a screen |
 | `#import "Extensions/Variant";` | A tagged union with named cases, like a Rust enum (`Variant(struct { email: string; phone: string; })`, `Variant(Leaf, *Branch)`, a `void` case for "nothing", `.which`, `set`, `get_pointer`); Json encodes and decodes it |
 | `#import "Extensions/Http";` | HTTP/1.1: a strict sans-IO codec (builds for wasm), plus on fibers a router-based server whose handlers declare typed extractors checked against the route at compile time, and a client with a connection pool, both over TLS for HTTPS |
 | `#import "Extensions/SIMD";` | Portable fixed-width vectors (`u8x16`, `f32x4`, ...) with masks, shuffles and table lookups, the same on every target |

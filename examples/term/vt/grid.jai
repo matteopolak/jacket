@@ -1,6 +1,7 @@
 make_grid :: (cols: int, rows: int) -> Grid {
     assert(cols > 0 && rows > 0);
     g := Grid.{ cols = cols, rows = rows, bottom = rows - 1 };
+    g.parser.options.max_param_value = 1000000;
     g.cells = NewArray(cols * rows, Cell);
     g.saved = NewArray(cols * rows, Cell);
 
@@ -11,7 +12,6 @@ free_grid :: (g: *Grid) {
     array_free(g.cells);
     array_free(g.saved);
     array_free(g.history);
-    array_free(g.osc);
     array_free(g.replies);
     free(g.title);
     g.* = .{};

@@ -43,6 +43,8 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 
 ## Standard library
 
+- [VT parser](extensions/vt.md): streaming terminal actions without a grid
+
 - [TOML](extensions/toml.md): general values, semantic writing and formatter configuration
 - [Typed TOML](extensions/toml-typed.md): `from_toml` and `to_toml` for structs
 - [TOML performance](extensions/toml-performance.md) — method, current results and how to rerun
