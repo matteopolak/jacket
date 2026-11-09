@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `jacket test` no longer builds the fixture data for a suite whose source only names a fixture path in a comment, such as the `Extensions/Environment` doc examples.
+
 ## [0.34.0] - 2026-11-09
 
 ### New

@@ -144,9 +144,45 @@ fn output_in(root: &Path, over: Option<std::ffi::OsString>) -> PathBuf {
         .map_or_else(|| root.join("target"), |dir| root.join(dir))
 }
 
+/// `source` with its `//` and `/* */` comments (which nest) blanked, leaving strings alone.
+fn without_comments(source: &str) -> String {
+    let mut out = String::with_capacity(source.len());
+    let mut chars = source.chars().peekable();
+    let mut depth = 0usize;
+    while let Some(c) = chars.next() {
+        match (c, chars.peek()) {
+            ('*', Some('/')) if depth > 0 => {
+                chars.next();
+                depth -= 1;
+            }
+            ('/', Some('*')) => {
+                chars.next();
+                depth += 1;
+            }
+            _ if depth > 0 => {}
+            ('/', Some('/')) => while chars.next_if(|&n| n != '\n').is_some() {},
+            ('"', _) => {
+                out.push(c);
+                while let Some(s) = chars.next() {
+                    out.push(s);
+                    match s {
+                        '\\' => out.extend(chars.next()),
+                        '"' => break,
+                        _ => {}
+                    }
+                }
+            }
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
 impl Setup {
-    fn needed_by(&self, file: &Path, source: &str, stdlib: &Path) -> bool {
-        self.mentions.iter().any(|m| source.contains(m))
+    /// `code` is the source of `file` without its comments ([`without_comments`]): a doc example
+    /// that spells a fixture path reads no data.
+    fn needed_by(&self, file: &Path, code: &str, stdlib: &Path) -> bool {
+        self.mentions.iter().any(|m| code.contains(m))
             || self
                 .below
                 .is_some_and(|dir| file.starts_with(stdlib.join(dir)))
@@ -190,7 +226,7 @@ fn needed(files: &[PathBuf], stdlib: &Path, root: &Path, output: &Path) -> Vec<&
         }
         let wanted = files.iter().any(|file| {
             let source = std::fs::read_to_string(file).unwrap_or_default();
-            setup.needed_by(file, &source, stdlib)
+            setup.needed_by(file, &without_comments(&source), stdlib)
         });
         if wanted {
             found.push(setup);
@@ -697,6 +733,26 @@ mod tests {
             found.push("portable-machine/".into());
         }
         found
+    }
+
+    #[test]
+    fn a_path_in_a_comment_needs_no_data() {
+        let stdlib = Path::new("/checkout/stdlib");
+        let fixtures = &SETUPS[0];
+        let wants = |source: &str| {
+            fixtures.needed_by(Path::new("a.jai"), &without_comments(source), stdlib)
+        };
+        assert!(!wants(
+            "// output_path(\"portable-tests/zip/a.zip\");\nf :: () {}"
+        ));
+        assert!(!wants(
+            "/* a /* nested */ \"portable-tests/zip/\" */ f :: () {}"
+        ));
+        assert!(wants("p :: \"%/portable-tests/zip/a.zip\"; // read it"));
+        // `//` inside a string is not a comment.
+        assert!(wants(
+            "u :: \"http://x\"; p :: \"portable-tests/zip/\\\"\";"
+        ));
     }
 
     #[test]
