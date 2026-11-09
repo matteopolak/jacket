@@ -62,7 +62,6 @@ main :: () {
 
         assert(result == "readyecho");
         free(result);
-        free(*builder);
     });
 }
 
