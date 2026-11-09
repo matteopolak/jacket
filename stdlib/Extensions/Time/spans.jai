@@ -1,6 +1,13 @@
 // Calendar spans: differences, rounding, balancing and totals.
 
-// Validates the single-sign invariant without balancing units. Example: `s, error := span_check(.{months = 1, days = 2})`.
+// Validates the single-sign invariant without balancing units.
+//
+// ```jai
+// ok, error := span_check(.{ months = 1, days = 2 });
+// assert(error.kind == .NONE && ok.days == 2);
+// _, mixed := span_check(.{ years = 1, days = -1 });
+// assert(mixed.kind == .INVALID_VALUE);
+// ```
 span_check :: (value: Span) -> Span, Time_Error {
     sign: s64;
 
@@ -17,64 +24,151 @@ span_check :: (value: Span) -> Span, Time_Error {
     return value, .{};
 }
 
-// Measures b minus a; validates units, positive increments and range. Example: `s, error := until(a, b)`.
+// Measures b minus a; validates units, positive increments and range.
+//
+// ```jai
+// a := Date.{ 2024, 1, 1 };
+// b := Date.{ 2024, 3, 1 };
+// days, _ := until(a, b);
+// assert(days.days == 60);
+// months, _ := until(a, b, largest = .MONTH);
+// assert(months.months == 2);
+// ```
 until :: (a: Date, b: Date, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(a, b, largest, smallest, rounding, increment);
 }
 
-// Measures b minus a; validates units, positive increments and range. Example: `s, error := until(a, b)`.
+// Measures b minus a; validates units, positive increments and range.
+//
+// ```jai
+// a := Date_Time.{ .{ 2024, 3, 10 }, .{ 1, 0, 0, 0 } };
+// b := Date_Time.{ .{ 2024, 3, 11 }, .{ 3, 30, 0, 0 } };
+// span, error := until(a, b);
+// assert(error.kind == .NONE && span.days == 1 && span.hours == 2 && span.minutes == 30);
+// ```
 until :: (a: Date_Time, b: Date_Time, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(a, b, largest, smallest, rounding, increment);
 }
 
-// Measures b minus a; validates units, positive increments and range. Example: `s, error := until(a, b)`.
+// Measures b minus a; validates units, positive increments and range.
+//
+// ```jai
+// a, _ := timestamp_from_seconds(0);
+// b, _ := timestamp_from_seconds(3600);
+// span, error := until(a, b, largest = .MINUTE);
+// assert(error.kind == .NONE && span.minutes == 60);
+// ```
 until :: (a: Timestamp, b: Timestamp, largest := Unit.SECOND, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(a, b, largest, smallest, rounding, increment);
 }
 
-// Measures b minus a; calendar units use the receiver's zone and real day lengths. Example: `s, error := until(a, b)`.
+// Measures b minus a; calendar units use the receiver's zone and real day lengths.
+//
+// ```jai
+// zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+// assert(zone_error.kind == .NONE);
+// defer time_zone_free(*zone);
+// a, _ := to_zoned(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
+// b, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 12, 0, 0, 0 } }, zone);
+// days, _ := until(a, b);
+// hours, _ := until(a, b, largest = .HOUR);
+// assert(days.days == 1 && hours.hours == 23);
+// ```
 until :: (a: Zoned, b: Zoned, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1, disambiguation := Disambiguation.COMPATIBLE) -> Span, Time_Error {
     return difference(a, b, largest, smallest, rounding, increment, disambiguation);
 }
 
-// Measures a minus b; validates units, positive increments and range. Example: `s, error := since(a, b)`.
+// Measures a minus b; validates units, positive increments and range.
+//
+// ```jai
+// span, error := since(Date.{ 2024, 3, 1 }, Date.{ 2024, 1, 1 });
+// assert(error.kind == .NONE && span.days == 60);
+// ```
 since :: (a: Date, b: Date, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(b, a, largest, smallest, rounding, increment);
 }
 
-// Measures a minus b; validates units, positive increments and range. Example: `s, error := since(a, b)`.
+// Measures a minus b; validates units, positive increments and range.
+//
+// ```jai
+// a := Date_Time.{ .{ 2024, 3, 11 }, .{ 3, 30, 0, 0 } };
+// b := Date_Time.{ .{ 2024, 3, 10 }, .{ 1, 0, 0, 0 } };
+// span, error := since(a, b);
+// assert(error.kind == .NONE && span.days == 1 && span.hours == 2);
+// ```
 since :: (a: Date_Time, b: Date_Time, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(b, a, largest, smallest, rounding, increment);
 }
 
-// Measures a minus b; validates units, positive increments and range. Example: `s, error := since(a, b)`.
+// Measures a minus b; validates units, positive increments and range.
+//
+// ```jai
+// a, _ := timestamp_from_seconds(3600);
+// b, _ := timestamp_from_seconds(0);
+// span, error := since(a, b, largest = .MINUTE);
+// assert(error.kind == .NONE && span.minutes == 60);
+// ```
 since :: (a: Timestamp, b: Timestamp, largest := Unit.SECOND, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1) -> Span, Time_Error {
     return difference(b, a, largest, smallest, rounding, increment);
 }
 
-// Measures a minus b; calendar units use the receiver's zone and real day lengths. Example: `s, error := since(a, b)`.
+// Measures a minus b; calendar units use the receiver's zone and real day lengths.
+//
+// ```jai
+// zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+// assert(zone_error.kind == .NONE);
+// defer time_zone_free(*zone);
+// a, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 12, 0, 0, 0 } }, zone);
+// b, _ := to_zoned(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
+// span, error := since(a, b, largest = .HOUR);
+// assert(error.kind == .NONE && span.hours == 23);
+// ```
 since :: (a: Zoned, b: Zoned, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1, disambiguation := Disambiguation.COMPATIBLE) -> Span, Time_Error {
     return difference(b, a, largest, smallest, rounding, increment, disambiguation);
 }
 
-// Balances to largest; calendar conversions require a relative value. Example: `value, error := span_balance(value, .DAY, relative = day)`.
+// Balances to largest; calendar conversions require a relative value.
+//
+// ```jai
+// span, error := span_balance(.{ minutes = 90 }, .HOUR);
+// assert(error.kind == .NONE && span.hours == 1 && span.minutes == 30);
+// ```
 span_balance :: (value: Span, largest: Unit) -> Span, Time_Error {
     if largest > .DAY return .{}, .{ .RELATIVE_REQUIRED, "calendar balancing requires relative value", -1 };
     if value.years != 0 || value.months != 0 || value.weeks != 0 return .{}, .{ .RELATIVE_REQUIRED, "calendar balancing requires relative value", -1 };
     return split_time(clock_ns(value) + wide_mul(value.days, DAY_NS), largest);
 }
 
-// Uses a relative Date; e.g. `span_balance(value, .DAY, origin)`.
+// Uses a relative Date.
+//
+// ```jai
+// span, error := span_balance(.{ days = 40 }, .MONTH, Date.{ 2024, 1, 1 });
+// assert(error.kind == .NONE && span.months == 1 && span.days == 9);
+// ```
 span_balance :: (value: Span, largest: Unit, relative: Date) -> Span, Time_Error {
     return balance_relative(value, largest, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned; e.g. `span_balance(value, .DAY, origin)`.
+// Uses a relative Zoned.
+//
+// ```jai
+// zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+// assert(zone_error.kind == .NONE);
+// defer time_zone_free(*zone);
+// start, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
+// span, error := span_balance(.{ hours = 30 }, .DAY, start);
+// assert(error.kind == .NONE && span.days == 1 && span.hours == 7);
+// ```
 span_balance :: (value: Span, largest: Unit, relative: Zoned) -> Span, Time_Error {
     return balance_relative(value, largest, relative);
 }
 
-// Rounds to a positive increment, then balances; calendar rounding needs a relative value. Example: `value, error := span_round(value, .MINUTE, .HOUR)`.
+// Rounds to a positive increment, then balances; calendar rounding needs a relative value.
+//
+// ```jai
+// span, error := span_round(.{ hours = 1, minutes = 40 }, .HOUR, .HOUR);
+// assert(error.kind == .NONE && span.hours == 2);
+// ```
 span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1) -> Span, Time_Error {
     if smallest > .DAY || largest > .DAY return .{}, .{ .RELATIVE_REQUIRED, "calendar rounding requires relative value", -1 };
     if increment < 1 || smallest > largest return .{}, .{ .INVALID_VALUE, "invalid rounding units or increment", -1 };
@@ -86,34 +180,72 @@ span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.
     return split_time(rounded, largest);
 }
 
-// Uses a relative Date; e.g. `span_round(value, .MINUTE, .HOUR, relative = origin)`.
+// Uses a relative Date.
+//
+// ```jai
+// span, error := span_round(.{ months = 1, days = 20 }, .MONTH, .MONTH, relative = Date.{ 2024, 1, 1 });
+// assert(error.kind == .NONE && span.months == 2);
+// ```
 span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative: Date) -> Span, Time_Error {
     return round_relative(value, smallest, largest, rounding, increment, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned; e.g. `span_round(value, .MINUTE, .HOUR, relative = origin)`.
+// Uses a relative Zoned.
+//
+// ```jai
+// zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+// assert(zone_error.kind == .NONE);
+// defer time_zone_free(*zone);
+// start, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
+// span, error := span_round(.{ hours = 12 }, .DAY, .DAY, relative = start);
+// assert(error.kind == .NONE && span.days == 1);
+// ```
 span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative: Zoned) -> Span, Time_Error {
     return round_relative(value, smallest, largest, rounding, increment, relative);
 }
 
-// Returns a possibly fractional total; zoned days follow actual day lengths. Example: `value, error := span_total(value, .HOUR, relative = z)`.
+// Returns a possibly fractional total; zoned days follow actual day lengths.
+//
+// ```jai
+// hours, error := span_total(.{ hours = 1, minutes = 30 }, .HOUR);
+// assert(error.kind == .NONE && hours == 1.5);
+// ```
 span_total :: (value: Span, unit: Unit) -> float64, Time_Error {
     if unit > .DAY return 0, .{ .RELATIVE_REQUIRED, "calendar total requires relative value", -1 };
     if value.years != 0 || value.months != 0 || value.weeks != 0 return 0, .{ .RELATIVE_REQUIRED, "calendar total requires relative value", -1 };
     return wide_float(clock_ns(value) + wide_mul(value.days, DAY_NS)) / cast(float64) unit_scale(unit), .{};
 }
 
-// Uses a relative Date; e.g. `span_total(value, .HOUR, origin)`.
+// Uses a relative Date.
+//
+// ```jai
+// days, error := span_total(.{ months = 1 }, .DAY, Date.{ 2024, 2, 1 });
+// assert(error.kind == .NONE && days == 29);
+// ```
 span_total :: (value: Span, unit: Unit, relative: Date) -> float64, Time_Error {
     return total_relative(value, unit, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned; e.g. `span_total(value, .HOUR, origin)`.
+// Uses a relative Zoned.
+//
+// ```jai
+// zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+// assert(zone_error.kind == .NONE);
+// defer time_zone_free(*zone);
+// start, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
+// hours, error := span_total(.{ days = 1 }, .HOUR, start);
+// assert(error.kind == .NONE && hours == 23);
+// ```
 span_total :: (value: Span, unit: Unit, relative: Zoned) -> float64, Time_Error {
     return total_relative(value, unit, relative);
 }
 
-// Returns -1/0/1 by elapsed length; calendar units require a shared relative value. Example: `value, error := span_compare(a, b, relative = day)`.
+// Returns -1/0/1 by elapsed length; calendar units require a shared relative value.
+//
+// ```jai
+// order, error := span_compare(.{ hours = 2 }, .{ minutes = 90 });
+// assert(error.kind == .NONE && order == 1);
+// ```
 span_compare :: (a: Span, b: Span) -> int, Time_Error {
     if calendar_nonzero(a) || calendar_nonzero(b) {
         if a.years != 0 || a.months != 0 || a.weeks != 0 || b.years != 0 || b.months != 0 || b.weeks != 0 return 0, .{ .RELATIVE_REQUIRED, "calendar comparison requires relative value", -1 };
@@ -125,23 +257,47 @@ span_compare :: (a: Span, b: Span) -> int, Time_Error {
     return wide_compare(left, right), .{};
 }
 
-// Uses a relative Date; e.g. `span_compare(a, b, origin)`.
+// Uses a relative Date.
+//
+// ```jai
+// order, error := span_compare(.{ months = 1 }, .{ days = 30 }, Date.{ 2024, 1, 1 });
+// assert(error.kind == .NONE && order == 1);
+// ```
 span_compare :: (a: Span, b: Span, relative: Date) -> int, Time_Error {
     return compare_relative(a, b, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned; e.g. `span_compare(a, b, origin)`.
+// Uses a relative Zoned.
+//
+// ```jai
+// zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+// assert(zone_error.kind == .NONE);
+// defer time_zone_free(*zone);
+// start, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
+// order, error := span_compare(.{ days = 1 }, .{ hours = 24 }, start);
+// assert(error.kind == .NONE && order == -1);
+// ```
 span_compare :: (a: Span, b: Span, relative: Zoned) -> int, Time_Error {
     return compare_relative(a, b, relative);
 }
 
-// Converts clock units to elapsed time; calendar units require a relative value. Example: `value, error := span_to_duration(value)`.
+// Converts clock units to elapsed time; calendar units require a relative value.
+//
+// ```jai
+// d, error := span_to_duration(.{ minutes = 2, seconds = 3 });
+// assert(error.kind == .NONE && d.seconds == 123);
+// ```
 span_to_duration :: (value: Span) -> Signed_Duration, Time_Error {
     if value.years != 0 || value.months != 0 || value.weeks != 0 return .{}, .{ .RELATIVE_REQUIRED, "calendar conversion requires relative value", -1 };
     return duration_wide(clock_ns(value) + wide_mul(cast(s64) value.days, DAY_NS));
 }
 
-// Uses a relative Date; e.g. `span_to_duration(value, origin)`.
+// Uses a relative Date.
+//
+// ```jai
+// d, error := span_to_duration(.{ days = 2 }, Date.{ 2024, 3, 10 });
+// assert(error.kind == .NONE && d.seconds == 2 * 86400);
+// ```
 span_to_duration :: (value: Span, relative: Date) -> Signed_Duration, Time_Error {
     origin := Date_Time.{ relative, .{} };
     end, e := add(origin, value);
@@ -149,7 +305,16 @@ span_to_duration :: (value: Span, relative: Date) -> Signed_Duration, Time_Error
     return duration_wide(value_ns(end) - value_ns(origin));
 }
 
-// Uses a relative Zoned; e.g. `span_to_duration(value, origin)`.
+// Uses a relative Zoned.
+//
+// ```jai
+// zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+// assert(zone_error.kind == .NONE);
+// defer time_zone_free(*zone);
+// start, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
+// d, error := span_to_duration(.{ days = 1 }, start);
+// assert(error.kind == .NONE && d.seconds == 23 * 3600);
+// ```
 span_to_duration :: (value: Span, relative: Zoned) -> Signed_Duration, Time_Error {
     origin := relative;
     end, e := add(origin, value);
@@ -157,18 +322,35 @@ span_to_duration :: (value: Span, relative: Zoned) -> Signed_Duration, Time_Erro
     return duration_wide(value_ns(end) - value_ns(origin));
 }
 
-// Converts clock units only; years, months, weeks and days are errors. Example: `value, error := duration_from_span(value)`.
+// Converts clock units only; years, months, weeks and days are errors.
+//
+// ```jai
+// d, error := duration_from_span(.{ hours = 1 });
+// assert(error.kind == .NONE && d.seconds == 3600);
+// _, calendar := duration_from_span(.{ days = 1 });
+// assert(calendar.kind != .NONE);
+// ```
 duration_from_span :: (value: Span) -> Signed_Duration, Time_Error {
     if calendar_nonzero(value) return .{}, .{ .RELATIVE_REQUIRED, "calendar units require a relative value", -1 };
     return duration_wide(clock_ns(value));
 }
 
-// Reverses every field of a validated span. Example: `s := span_negate(value)`.
+// Reverses every field of a validated span.
+//
+// ```jai
+// s := span_negate(.{ months = 1, days = 2 });
+// assert(s.months == -1 && s.days == -2);
+// ```
 span_negate :: (value: Span) -> Span {
     return .{ -value.years, -value.months, -value.weeks, -value.days, -value.hours, -value.minutes, -value.seconds, -value.milliseconds, -value.microseconds, -value.nanoseconds };
 }
 
-// Returns a nonnegative span; span_check rejects signed minima. Example: `s := span_abs(value)`.
+// Returns a nonnegative span; span_check rejects signed minima.
+//
+// ```jai
+// s := span_abs(.{ hours = -3 });
+// assert(s.hours == 3);
+// ```
 span_abs :: (value: Span) -> Span {
     for field: span_fields(value) {
         if field < 0 return span_negate(value);

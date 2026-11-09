@@ -1,16 +1,35 @@
 // Building zones from TZif files and POSIX rules, the cache and the handle registry.
 
-// Returns the allocation-free UTC zone. Example: `zone := time_zone_utc()`.
+// Returns the allocation-free UTC zone.
+//
+// ```jai
+// zone := time_zone_utc();
+// assert(zone.kind == .UTC);
+// ```
 time_zone_utc :: () -> Time_Zone {
     return .{};
 }
 
-// Validates and constructs an allocation-free fixed-offset zone. Example: `zone := time_zone_fixed(value)`.
+// Validates and constructs an allocation-free fixed-offset zone.
+//
+// ```jai
+// o, _ := offset(19800);
+// zone := time_zone_fixed(o);
+// assert(zone.kind == .FIXED && zone.offset.seconds == 19800);
+// ```
 time_zone_fixed :: (value: Offset) -> Time_Zone {
     return .{ .FIXED, value, null };
 }
 
-// Loads and caches a safe IANA name; directory overrides TZDIR for deterministic fixtures. Example: `zone, error := time_zone_get("America/New_York")`.
+// Loads and caches a safe IANA name; directory overrides TZDIR for deterministic fixtures.
+//
+// ```jai,no_run
+// zone, error := time_zone_get("America/New_York");
+// assert(error.kind == .NONE);
+// defer time_zone_free(*zone);
+// instant, _ := timestamp_from_seconds(1720000000);
+// assert(offset_at(zone, instant).seconds == -14400);
+// ```
 time_zone_get :: (name: string, options: Time_Options = .{}, directory: string = "") -> Time_Zone, Time_Error {
     if !valid_options(options) || name.count == 0 || name.count > options.max_text return .{}, .{ .INVALID_VALUE, "invalid zone name", -1 };
 
@@ -61,7 +80,16 @@ time_zone_get :: (name: string, options: Time_Options = .{}, directory: string =
     return z, .{};
 }
 
-// Uses TZ, otherwise /etc/localtime; Windows without TZ returns UNSUPPORTED. Example: `zone, error := time_zone_system()`.
+// Uses TZ, otherwise /etc/localtime; Windows without TZ returns UNSUPPORTED.
+//
+// ```jai,no_run
+// zone, error := time_zone_system();
+// if error.kind == .NONE {
+//     defer time_zone_free(*zone);
+//     wall := to_civil(zone, timestamp_now());
+//     print("local hour: %\n", wall.time.hour);
+// }
+// ```
 time_zone_system :: (options: Time_Options = .{}) -> Time_Zone, Time_Error {
     text := Env.environment_variable("TZ");
     if text.count == 0 && Env.has_environment_variable("TZ") return time_zone_utc(), .{};
@@ -93,7 +121,20 @@ time_zone_system :: (options: Time_Options = .{}) -> Time_Zone, Time_Error {
     }
 }
 
-// Copies validated TZif v1-v4 rules and POSIX footer within bounded storage. Example: `zone, error := time_zone_from_tzif("Example/Zone", bytes)`.
+// Copies validated TZif v1-v4 rules and POSIX footer within bounded storage.
+//
+// ```jai
+// bytes := u8.[
+//     0x54, 0x5a, 0x69, 0x66, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 4,
+//     0, 0, 0x1c, 0x20, 0, 0, 0x4d, 0x59, 0x54, 0, // one type: +02:00 "MYT"
+// ];
+// zone, error := time_zone_from_tzif("Example/Zone", bytes);
+// assert(error.kind == .NONE);
+// defer time_zone_free(*zone);
+// instant, _ := timestamp_from_seconds(0);
+// assert(offset_at(zone, instant).seconds == 7200);
+// ```
 time_zone_from_tzif :: (name: string, bytes: [] u8, options: Time_Options = .{}) -> Time_Zone, Time_Error {
     if !valid_options(options) || bytes.count > options.max_tzif_bytes || name.count > options.max_text return .{}, .{ .LIMIT, "zone data limit", 0 };
 
@@ -196,7 +237,15 @@ time_zone_from_tzif :: (name: string, bytes: [] u8, options: Time_Options = .{})
     return .{ .RULES, .{}, owner }, .{};
 }
 
-// Parses POSIX TZ rules including M/J/Julian forms and extended transition times. Example: `zone, error := time_zone_from_posix("EST5EDT,M3.2.0/2,M11.1.0/2")`.
+// Parses POSIX TZ rules including M/J/Julian forms and extended transition times.
+//
+// ```jai
+// zone, error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+// assert(error.kind == .NONE);
+// defer time_zone_free(*zone);
+// summer, _ := parse(Timestamp, "2024-07-01T00:00:00Z");
+// assert(offset_at(zone, summer).seconds == -14400);
+// ```
 time_zone_from_posix :: (text: string, options: Time_Options = .{}) -> Time_Zone, Time_Error {
     if !valid_options(options) || text.count > options.max_text return .{}, .{ .LIMIT, "zone text limit", 0 };
 
@@ -214,7 +263,16 @@ time_zone_from_posix :: (text: string, options: Time_Options = .{}) -> Time_Zone
     return .{ .RULES, .{}, owner }, .{};
 }
 
-// Acquires an independent owner; UTC and fixed zones need no reference count. Example: `owned := time_zone_retain(borrowed)`.
+// Acquires an independent owner; UTC and fixed zones need no reference count.
+//
+// ```jai
+// zone, _ := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+// owned := time_zone_retain(zone);
+// time_zone_free(*zone);
+// now_instant, _ := timestamp_from_seconds(1720000000);
+// assert(offset_at(owned, now_instant).seconds == -14400);
+// time_zone_free(*owned);
+// ```
 time_zone_retain :: (value: Time_Zone) -> Time_Zone {
     if value.kind == .RULES && value.rules != null {
         r := lookup_rules(value.rules);
@@ -225,7 +283,13 @@ time_zone_retain :: (value: Time_Zone) -> Time_Zone {
     return value;
 }
 
-// Releases one owned reference and resets the handle to UTC; borrowed copies become invalid. Example: `time_zone_free(*zone)`.
+// Releases one owned reference and resets the handle to UTC; borrowed copies become invalid.
+//
+// ```jai
+// zone, _ := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
+// time_zone_free(*zone);
+// assert(zone.kind == .UTC);
+// ```
 time_zone_free :: (value: *Time_Zone) {
     if value.kind == .RULES && value.rules != null {
         r := lookup_rules(value.rules);

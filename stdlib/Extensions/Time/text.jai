@@ -1,6 +1,13 @@
 // ISO text parsing and formatting.
 
-// Reads the type's ISO text; Zoned rejects conflicting offsets and accepts bare zone annotations. Example: `value, error := parse(Timestamp, "2024-03-10T07:30:00Z")`.
+// Reads the type's ISO text; Zoned rejects conflicting offsets and accepts bare zone annotations.
+//
+// ```jai
+// instant, error := parse(Timestamp, "2024-03-10T07:30:00Z");
+// assert(error.kind == .NONE && instant.seconds == 1710055800);
+// _, bad := parse(Date, "2024/02-29");
+// assert(bad.kind == .SYNTAX && bad.offset == 4);
+// ```
 parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error {
     if !valid_options(options) || text.count > options.max_text return .{}, .{ .LIMIT, "text limit", 0 };
 
@@ -85,7 +92,18 @@ parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error 
 }
 
 // Uses [String_Builder](https://github.com/matteopolak/jacket/blob/main/docs/specs/stdlib/modules/basic.md).
-// Appends canonical ISO text, trims fractional zeros and uses UTC Z for timestamps. Example: `error := format(*builder, instant)`.
+// Appends canonical ISO text, trims fractional zeros and uses UTC Z for timestamps.
+//
+// ```jai
+// instant, _ := timestamp_from_seconds(1710055800);
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// error := format(*builder, instant);
+// assert(error.kind == .NONE);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "2024-03-10T07:30:00Z");
+// ```
 format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> Time_Error {
     #if T == Date {
         y: s64 = value.year;
@@ -222,7 +240,18 @@ format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timesta
     return .{};
 }
 
-// Appends English strftime text with the documented directive set and padding flags. Example: `error := format(*builder, wall, "%Y-%m-%d %H:%M:%S")`.
+// Appends English strftime text with the documented directive set and padding flags.
+//
+// ```jai
+// wall := Date_Time.{ .{ 2024, 3, 10 }, .{ 2, 30, 0, 0 } };
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// error := format(*builder, wall, "%A %b %-d, %H:%M");
+// assert(error.kind == .NONE);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "Sunday Mar 10, 02:30");
+// ```
 format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], pattern: string, options: Time_Options = .{}) -> Time_Error {
     if !valid_options(options) || pattern.count > options.max_text return .{ .LIMIT, "pattern limit", 0 };
 

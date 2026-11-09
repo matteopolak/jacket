@@ -1,6 +1,13 @@
 // Pattern text: English strftime-style formatting and parsing.
 
-// Reads the documented English directives; missing or conflicting required fields fail. Example: `wall, error := parse_format(Date_Time, "%Y-%m-%d %H:%M", "2024-03-10 02:30")`.
+// Reads the documented English directives; missing or conflicting required fields fail.
+//
+// ```jai
+// wall, error := parse_format(Date_Time, "%Y-%m-%d %H:%M", "2024-03-10 02:30");
+// assert(error.kind == .NONE && wall.date.day == 10 && wall.time.minute == 30);
+// _, missing := parse_format(Date, "%m-%d", "03-10");
+// assert(missing.kind != .NONE);
+// ```
 parse_format :: ($T: Type, pattern: string, text: string, options: Time_Options = .{}) -> T, Time_Error {
     if !valid_options(options) || text.count > options.max_text || pattern.count > options.max_text return .{}, .{ .LIMIT, "pattern text limit", 0 };
 

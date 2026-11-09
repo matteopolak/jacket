@@ -1,6 +1,12 @@
 // Comparison, equality and hashing of the value types.
 
-// Orders values (-1/0/1); Zoned and Timestamp use only the instant. Zones order by kind and rule content. Example: `order := compare(a, b)`.
+// Orders values (-1/0/1); Zoned and Timestamp use only the instant. Zones order by kind and rule content.
+//
+// ```jai
+// a := Date.{ 2024, 1, 1 };
+// b := Date.{ 2024, 2, 1 };
+// assert(compare(a, b) == -1 && compare(b, a) == 1 && compare(a, a) == 0);
+// ```
 compare :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], b: T) -> int {
     #if T == Date {
         c := cmp64(a.year, b.year);
@@ -40,12 +46,24 @@ compare :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, O
     }
 }
 
-// Tests value equality consistent with compare and hash; Zoned ignores its zone. Example: `same := equal(a, b)`.
+// Tests value equality consistent with compare and hash; Zoned ignores its zone.
+//
+// ```jai
+// a, _ := timestamp_from_seconds(5);
+// b, _ := timestamp_from_seconds(5);
+// assert(equal(a, b));
+// ```
 equal :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], b: T) -> bool {
     return compare(a, b) == 0;
 }
 
-// Hashes semantic fields, never padding or rule pointers; equal values have equal hashes. Example: `key := hash(value)`.
+// Hashes semantic fields, never padding or rule pointers; equal values have equal hashes.
+//
+// ```jai
+// a := Date.{ 2024, 1, 1 };
+// b := Date.{ 2024, 1, 1 };
+// assert(hash(a) == hash(b));
+// ```
 hash :: (value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned]) -> u32 {
     h: u32 = 2166136261;
 

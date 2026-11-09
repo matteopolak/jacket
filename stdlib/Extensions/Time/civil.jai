@@ -1,6 +1,13 @@
 // Dates, clock readings and civil calendar arithmetic.
 
-// Validates Gregorian components without clamping. Example: `d, error := date(2024, 2, 29)`.
+// Validates Gregorian components without clamping.
+//
+// ```jai
+// d, error := date(2024, 2, 29);
+// assert(error.kind == .NONE && d.day == 29);
+// _, bad := date(2023, 2, 29);
+// assert(bad.kind == .INVALID_VALUE);
+// ```
 date :: (year: s64, month: s64, day: s64) -> Date, Time_Error {
     n, e := days_in_month(year, month);
     if e.kind != .NONE return .{}, e;
@@ -8,18 +15,37 @@ date :: (year: s64, month: s64, day: s64) -> Date, Time_Error {
     return .{ cast(s16) year, cast(s8) month, cast(s8) day }, .{};
 }
 
-// Validates a clock reading; leap seconds are rejected. Example: `t, error := time_of_day(23, 59, 59, 1)`.
+// Validates a clock reading; leap seconds are rejected.
+//
+// ```jai
+// t, error := time_of_day(23, 59, 59, 1);
+// assert(error.kind == .NONE && t.nanosecond == 1);
+// _, bad := time_of_day(24, 0, 0);
+// assert(bad.kind == .INVALID_VALUE);
+// ```
 time_of_day :: (hour: s64, minute: s64, second: s64, nanosecond: s64 = 0) -> Time_Of_Day, Time_Error {
     if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 || nanosecond < 0 || nanosecond >= NS return .{}, .{ .INVALID_VALUE, "invalid clock component", -1 };
     return .{ cast(s8) hour, cast(s8) minute, cast(s8) second, cast(s32) nanosecond }, .{};
 }
 
-// Combines validated civil components. Example: `dt := date_time(day, clock)`.
+// Combines validated civil components.
+//
+// ```jai
+// day, _ := date(2024, 3, 10);
+// clock, _ := time_of_day(2, 30, 0);
+// wall := date_time(day, clock);
+// assert(wall.date.month == 3 && wall.time.hour == 2);
+// ```
 date_time :: (day: Date, clock: Time_Of_Day) -> Date_Time {
     return .{ day, clock };
 }
 
-// Validates a civil date and clock reading together. Example: `dt, error := date_time(2024, 3, 10, 2, 30)`.
+// Validates a civil date and clock reading together.
+//
+// ```jai
+// wall, error := date_time(2024, 3, 10, 2, 30);
+// assert(error.kind == .NONE && wall.time.minute == 30);
+// ```
 date_time :: (year: s64, month: s64, day: s64, hour: s64 = 0, minute: s64 = 0, second: s64 = 0, nanosecond: s64 = 0) -> Date_Time, Time_Error {
     d, e := date(year, month, day);
     if e.kind != .NONE return .{}, e;
@@ -30,29 +56,54 @@ date_time :: (year: s64, month: s64, day: s64, hour: s64 = 0, minute: s64 = 0, s
     return .{ d, t }, .{};
 }
 
-// Returns the Gregorian month length after validating year and month. Example: `n, error := days_in_month(2024, 2)`.
+// Returns the Gregorian month length after validating year and month.
+//
+// ```jai
+// n, error := days_in_month(2024, 2);
+// assert(error.kind == .NONE && n == 29);
+// ```
 days_in_month :: (year: s64, month: s64) -> s64, Time_Error {
     if year < -9999 || year > 9999 return 0, .{ .OUT_OF_RANGE, "year outside civil range", -1 };
     if month < 1 || month > 12 return 0, .{ .INVALID_VALUE, "invalid month", -1 };
     return month_length(year, month), .{};
 }
 
-// Tests the Gregorian leap rule within the supported year range. Example: `leap := is_leap_year(2000)`.
+// Tests the Gregorian leap rule within the supported year range.
+//
+// ```jai
+// assert(is_leap_year(2000));
+// assert(!is_leap_year(1900));
+// ```
 is_leap_year :: (year: s64) -> bool {
     return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 }
 
-// Returns the ISO weekday after validating the date. Example: `day := weekday(value)`.
+// Returns the ISO weekday after validating the date.
+//
+// ```jai
+// day, _ := date(2024, 3, 11);
+// assert(weekday(day) == .MONDAY);
+// ```
 weekday :: (value: Date) -> Weekday {
     return cast(Weekday) (modulo(date_days(value) + 3, 7) + 1);
 }
 
-// Returns the ordinal day, starting at one. Example: `ordinal := day_of_year(value)`.
+// Returns the ordinal day, starting at one.
+//
+// ```jai
+// day, _ := date(2024, 3, 1);
+// assert(day_of_year(day) == 61);
+// ```
 day_of_year :: (value: Date) -> s64 {
     return date_days(value) - date_days(.{ value.year, 1, 1 }) + 1;
 }
 
-// Returns ISO week-year and week number; week one contains January 4. Example: `year, week := iso_week(value)`.
+// Returns ISO week-year and week number; week one contains January 4.
+//
+// ```jai
+// year, week := iso_week(Date.{ 2021, 1, 1 });
+// assert(year == 2020 && week == 53);
+// ```
 iso_week :: (value: Date) -> s64, s64 {
     thursday := date_days(value) + 4 - cast(s64) weekday(value);
     d := civil_day(thursday);
@@ -60,7 +111,14 @@ iso_week :: (value: Date) -> s64, s64 {
     return d.year, (thursday - (jan4 + 4 - cast(s64) weekday(.{ d.year, 1, 4 }))) / 7 + 1;
 }
 
-// Validates and converts an ISO week date. Example: `d, error := date_from_iso_week(2024, 1, .MONDAY)`.
+// Validates and converts an ISO week date.
+//
+// ```jai
+// d, error := date_from_iso_week(2024, 1, .MONDAY);
+// assert(error.kind == .NONE && d.month == 1 && d.day == 1);
+// _, bad := date_from_iso_week(2021, 53, .MONDAY);
+// assert(bad.kind == .INVALID_VALUE);
+// ```
 date_from_iso_week :: (year: s64, week: s64, day: Weekday) -> Date, Time_Error {
     if year < -9999 || year > 9999 || week < 1 || week > 53 || cast(s64) day < 1 || cast(s64) day > 7 return .{}, .{ .INVALID_VALUE, "invalid ISO week date", -1 };
 
@@ -75,17 +133,34 @@ date_from_iso_week :: (year: s64, week: s64, day: Weekday) -> Date, Time_Error {
     return result, .{};
 }
 
-// Returns the first day of the validated date's month. Example: `d := first_of_month(value)`.
+// Returns the first day of the validated date's month.
+//
+// ```jai
+// d := first_of_month(Date.{ 2024, 3, 15 });
+// assert(d.day == 1 && d.month == 3);
+// ```
 first_of_month :: (value: Date) -> Date {
     return .{ value.year, value.month, 1 };
 }
 
-// Returns the last day of the validated date's month. Example: `d := last_of_month(value)`.
+// Returns the last day of the validated date's month.
+//
+// ```jai
+// d := last_of_month(Date.{ 2024, 2, 10 });
+// assert(d.day == 29);
+// ```
 last_of_month :: (value: Date) -> Date {
     return .{ value.year, value.month, cast(s8) month_length(value.year, value.month) };
 }
 
-// Finds occurrence 1..5 or -1..-5 from the end; missing occurrences fail. Example: `d, error := nth_weekday_of_month(2024, 3, .SUNDAY, 2)`.
+// Finds occurrence 1..5 or -1..-5 from the end; missing occurrences fail.
+//
+// ```jai
+// second_sunday, error := nth_weekday_of_month(2024, 3, .SUNDAY, 2);
+// assert(error.kind == .NONE && second_sunday.day == 10);
+// last_friday, _ := nth_weekday_of_month(2024, 3, .FRIDAY, -1);
+// assert(last_friday.day == 29);
+// ```
 nth_weekday_of_month :: (year: s64, month: s64, day: Weekday, nth: s64) -> Date, Time_Error {
     first, e := date(year, month, 1);
     if e.kind != .NONE return .{}, e;
@@ -100,7 +175,14 @@ nth_weekday_of_month :: (year: s64, month: s64, day: Weekday, nth: s64) -> Date,
     return date(year, month, d);
 }
 
-// Applies years/months with month-end policy, then weeks/days; clock units fail. Example: `d, error := add(value, Span.{months = 1}, .REJECT)`.
+// Applies years/months with month-end policy, then weeks/days; clock units fail.
+//
+// ```jai
+// d, error := add(Date.{ 2024, 1, 31 }, Span.{ months = 1 });
+// assert(error.kind == .NONE && d.month == 2 && d.day == 29);
+// _, rejected := add(Date.{ 2024, 1, 31 }, Span.{ months = 1 }, .REJECT);
+// assert(rejected.kind == .INVALID_VALUE);
+// ```
 add :: (value: Date, amount: Span, overflow := Overflow.CONSTRAIN) -> Date, Time_Error {
     if clock_nonzero(amount) return .{}, .{ .INVALID_VALUE, "date arithmetic rejects clock units", -1 };
 
@@ -125,7 +207,12 @@ add :: (value: Date, amount: Span, overflow := Overflow.CONSTRAIN) -> Date, Time
     return checked_day(date_days(shifted) + cast(s64) amount.weeks * 7 + amount.days);
 }
 
-// Applies calendar units before exact clock units, carrying across midnight. Example: `dt, error := add(value, Span.{days = 1, hours = 2})`.
+// Applies calendar units before exact clock units, carrying across midnight.
+//
+// ```jai
+// wall, error := add(Date_Time.{ .{ 2024, 2, 28 }, .{ 23, 0, 0, 0 } }, Span.{ days = 1, hours = 2 });
+// assert(error.kind == .NONE && wall.date.month == 3 && wall.date.day == 1 && wall.time.hour == 1);
+// ```
 add :: (value: Date_Time, amount: Span, overflow := Overflow.CONSTRAIN) -> Date_Time, Time_Error {
     calendar := amount;
 
@@ -149,7 +236,12 @@ add :: (value: Date_Time, amount: Span, overflow := Overflow.CONSTRAIN) -> Date_
     return .{ d, clock_from_ns(r) }, .{};
 }
 
-// Adds clock units modulo one day; all calendar units fail. Example: `t, error := add(value, Span.{hours = 25})`.
+// Adds clock units modulo one day; all calendar units fail.
+//
+// ```jai
+// t, error := add(Time_Of_Day.{ 23, 30, 0, 0 }, Span.{ hours = 25 });
+// assert(error.kind == .NONE && t.hour == 0 && t.minute == 30);
+// ```
 add :: (value: Time_Of_Day, amount: Span) -> Time_Of_Day, Time_Error {
     if calendar_nonzero(amount) return .{}, .{ .INVALID_VALUE, "clock arithmetic rejects calendar units", -1 };
     total := clock_ns(amount) + Basic.to_s128(time_ns(value));
