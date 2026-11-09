@@ -170,8 +170,10 @@ fn every_example_folder_has_a_corpus_case() {
     let mut folders = Vec::new();
     for entry in std::fs::read_dir(examples_dir()).unwrap() {
         let path = entry.unwrap().path();
-        if path.is_dir() {
-            folders.push(path.file_name().unwrap().to_string_lossy().into_owned());
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        // Hidden folders (editor and agent state) are not examples.
+        if path.is_dir() && !name.starts_with('.') {
+            folders.push(name);
         }
     }
     assert!(!folders.is_empty());
