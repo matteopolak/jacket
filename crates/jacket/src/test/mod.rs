@@ -571,8 +571,10 @@ fn run_once(
         &discovery_toolchain,
         listing,
         bench,
-        settings.jobs.min(4),
-        settings.jobs,
+        Workers {
+            builds: settings.jobs.min(4),
+            warm: settings.jobs,
+        },
     );
     if let (Some(coverage), Some(dir)) = (&coverage, &compile_coverage) {
         coverage.collect_once(dir);
@@ -968,7 +970,7 @@ fn execute(
             .options
             .skip_reason(target, &plan.settings.needs)
             .or_else(|| {
-                prerequisites::optional_skip(&case.options, &|name| std::env::var(name).ok())
+                prerequisites::optional_skip(&case.options, &jacket_config::env::for_program)
             })
             .or_else(|| {
                 (!case.compiles_only(&plan.roots, plan.toolchain.check_only))
@@ -1054,9 +1056,15 @@ fn execute(
 /// A root's build: nothing to build, the built program, or the compile errors.
 type BuildResult = Result<Option<Built>, String>;
 
-/// Builds every root's unit tests, `parallel` at a time. Under `--interp` the first `warm_limit`
-/// roots (the test workers that run at once) keep their compiler waiting for the run; the others
-/// compile again when they run, so no more processes sit idle than can work.
+/// How many roots build at once, and how many keep a waiting compiler under `--interp`.
+struct Workers {
+    builds: usize,
+    warm: usize,
+}
+
+/// Builds every root's unit tests, `workers.builds` at a time. Under `--interp` the first
+/// `workers.warm` roots (the test workers that run at once) keep their compiler waiting for the
+/// run; the others compile again when they run, so no more processes sit idle than can work.
 fn build_all(
     roots: &[discover::Root],
     root_flags: &[Vec<String>],
@@ -1064,14 +1072,13 @@ fn build_all(
     toolchain: &Toolchain,
     listing: Option<build::Listing>,
     bench: bool,
-    parallel: usize,
-    warm_limit: usize,
+    workers: Workers,
 ) -> Vec<BuildResult> {
     let next = AtomicUsize::new(0);
     let results: Mutex<Vec<Option<BuildResult>>> =
         Mutex::new((0..roots.len()).map(|_| None).collect());
     std::thread::scope(|scope| {
-        for _ in 0..parallel.max(1).min(roots.len()) {
+        for _ in 0..workers.builds.max(1).min(roots.len()) {
             scope.spawn(|| {
                 loop {
                     let i = next.fetch_add(1, Ordering::Relaxed);
@@ -1092,7 +1099,7 @@ fn build_all(
                             &work.join(format!("build-{i}")),
                             toolchain,
                             listing,
-                            i < warm_limit,
+                            i < workers.warm,
                         )
                         .map(Some)
                     };
