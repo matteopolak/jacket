@@ -14,12 +14,12 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
 
     if !bootstrap return null, null, 0;
 
-    defer if W.DestroyWindow(bootstrap) == 0 abort();
+    defer if W.DestroyWindow(bootstrap) == 0 c_abort();
 
     temporary_dc := W.GetDC(bootstrap);
     if !temporary_dc return null, null, 0;
 
-    defer if W.ReleaseDC(bootstrap, temporary_dc) == 0 abort();
+    defer if W.ReleaseDC(bootstrap, temporary_dc) == 0 c_abort();
 
     descriptor := pixel_descriptor();
     basic_format := W.ChoosePixelFormat(temporary_dc, *descriptor);
@@ -29,14 +29,14 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
     temporary := W.wglCreateContext(temporary_dc);
     if !temporary return null, null, 0;
 
-    defer if W.wglDeleteContext(temporary) == 0 abort();
+    defer if W.wglDeleteContext(temporary) == 0 c_abort();
 
     previous_context := W.wglGetCurrentContext();
     previous_dc := W.wglGetCurrentDC();
 
     if W.wglMakeCurrent(temporary_dc, temporary) == 0 return null, null, 0;
 
-    defer if W.wglMakeCurrent(previous_dc, previous_context) == 0 abort();
+    defer if W.wglMakeCurrent(previous_dc, previous_context) == 0 c_abort();
 
     extensions_arb := cast(Extensions_ARB) resolve("wglGetExtensionsStringARB");
     extensions_ext := cast(Extensions_EXT) resolve("wglGetExtensionsStringEXT");
@@ -69,7 +69,7 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
 
     retained := false;
 
-    defer if !retained && W.ReleaseDC(window, dc) == 0 abort();
+    defer if !retained && W.ReleaseDC(window, dc) == 0 c_abort();
 
     multisample := has_extension(extensions, "WGL_ARB_multisample");
     native: Native = .{ choose = choose, query = query };
@@ -95,7 +95,7 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
     } else {
         result = W.wglCreateContext(dc);
         if result && share && W.wglShareLists(share, result) == 0 {
-            if W.wglDeleteContext(result) == 0 abort();
+            if W.wglDeleteContext(result) == 0 c_abort();
             return null, null, 0;
         }
     }
@@ -112,7 +112,7 @@ W :: #import "internal/bindings/windows-api";
 F :: #import "internal/bindings/wgl-format";
 
 libc :: #library,system "c"; @native(external)
-abort :: () #foreign libc; @Exits
+#import "internal/libc";
 strlen :: (text: *u8) -> u64 #foreign libc;
 Choose :: #type (dc: W.HDC, integers: *s32, floats: *float, limit: u32, formats: *s32, count: *u32) -> s32 #c_call;
 Query :: #type (dc: W.HDC, format: s32, layer: s32, count: u32, attributes: *s32, values: *s32) -> s32 #c_call;

@@ -103,8 +103,8 @@ release_object :: (value: *void) {
 } @FreesArgument
 
 diagnostic :: (text: *u8) {
-    if native_printf("%s\n", text) < 0 native_abort();
-    if native_fflush(null) != 0 native_abort();
+    if native_printf("%s\n", text) < 0 c_abort();
+    if native_fflush(null) != 0 c_abort();
 }
 
 #scope_file
@@ -118,7 +118,7 @@ message :: () #foreign libobjc "objc_msgSend";
 libc :: #library,system "c"; @native(external)
 native_printf :: (fmt: *u8, args: ..Any) -> s32 #foreign libc "printf"; @WritesOutput
 native_fflush :: (stream: *void) -> s32 #foreign libc "fflush";
-native_abort :: () #foreign libc "abort"; @Exits
+#import "internal/libc";
 
 // Complete native attribute values/signatures come from pinned NSOpenGL.h.
 PFA_DOUBLE_BUFFER :: 5;

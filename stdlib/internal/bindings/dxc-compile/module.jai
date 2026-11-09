@@ -145,25 +145,25 @@ libc :: #library,system "c"; @native(external)
 binding_dxc_printf :: (format: *u8, args: ..Any) -> s32 #foreign libc "printf"; @WritesOutput
 binding_dxc_flush :: (stream: *void) -> s32 #foreign libc "fflush";
 binding_dxc_write :: (fd: s32, bytes: *void, count: u32) -> s32 #foreign libc "_write";
-binding_dxc_abort :: () #foreign libc "abort"; @Exits
+#import "internal/libc";
 binding_dxc_copy :: (destination: *void, source: *void, count: u64) -> *void #foreign libc "memcpy";
 
 binding_dxc_message :: (text: *u8) {
-    if binding_dxc_printf("DXC: %s\n", text) < 0 binding_dxc_abort();
-    if binding_dxc_flush(null) != 0 binding_dxc_abort();
+    if binding_dxc_printf("DXC: %s\n", text) < 0 c_abort();
+    if binding_dxc_flush(null) != 0 c_abort();
 }
 
 binding_dxc_diagnostics :: (blob: *IDxcBlob) {
     remaining := IDxcBlob_GetBufferSize(blob);
     cursor := cast(*u8) IDxcBlob_GetBufferPointer(blob);
 
-    if remaining > 0 && !cursor binding_dxc_abort();
+    if remaining > 0 && !cursor c_abort();
 
     while remaining > 0 {
         chunk := ifx remaining > 0x7fff_ffff then 0x7fff_ffff else cast(u32) remaining;
         written := binding_dxc_write(2, cursor, chunk);
 
-        if written <= 0 binding_dxc_abort();
+        if written <= 0 c_abort();
 
         remaining -= cast(u64) written;
         cursor += written;

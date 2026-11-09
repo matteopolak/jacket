@@ -54,7 +54,7 @@ release :: (arguments: [..] string) {
 Basic :: #import "Basic";
 
 libc :: #library,system "c"; @native(external)
-abort :: () #foreign libc; @Exits
+#import "internal/libc";
 
 add :: (arguments: *[..] string, text: string) {
     Basic.array_add(arguments, Basic.copy_string(text));
@@ -68,7 +68,7 @@ join :: (a: string, b: string, c: string) -> string {
     Basic.append(*builder, a);
     Basic.append(*builder, b);
     Basic.append(*builder, c);
-    if builder.failed abort();
+    if builder.failed c_abort();
 
     return Basic.builder_to_string(*builder);
 }

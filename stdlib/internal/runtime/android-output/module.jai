@@ -9,7 +9,7 @@ append :: (s: string, to_standard_error := false) #no_context {
 
 append_unsynchronized :: (s: string, to_standard_error := false) #no_context {
     if s.count < 0 || (s.count > 0 && !s.data) {
-        abort();
+        c_abort();
         return;
     }
 
@@ -54,11 +54,11 @@ standard_output: Queue;
 standard_error: Queue;
 libc :: #system_library "libc"; @native(external)
 write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write";
-abort :: () #foreign libc "abort"; @Exits
+#import "internal/libc";
 
 unlock :: () #no_context {
     released := Lock.release();
-    if !released abort();
+    if !released c_abort();
 }
 
 flush_queue :: (queue: *Queue, fd: s32, force: bool) #no_context {
@@ -73,7 +73,7 @@ emit :: (queue: *Queue, fd: s32, amount: s64) #no_context {
     while cursor < amount {
         written := write(fd, queue.bytes.data + cursor, cast(u64) (amount - cursor));
         if written <= 0 {
-            abort();
+            c_abort();
             return;
         }
 

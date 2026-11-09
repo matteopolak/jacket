@@ -51,7 +51,7 @@ init :: (using group: *Thread_Group, num_threads: s32, group_proc: Thread_Group_
         } else if !created {
             sdk_ok(-1, "worker thread creation failed");
             // Keep running workers' storage alive until process teardown.
-            thread_abort();
+            c_abort();
         }
 
     }
@@ -198,7 +198,7 @@ shutdown :: (using group: *Thread_Group, timeout_milliseconds: s32 = -1) -> bool
 #scope_file
 #if OS != .WINDOWS {
     thread_libc :: #system_library "libc"; @native(external)
-    thread_abort :: () #foreign thread_libc "abort"; @Exits
+    #import "internal/libc";
 }
 
 clock_seconds :: () -> float64 {
@@ -214,7 +214,7 @@ clock_seconds :: () -> float64 {
     } else {
         value: P.timespec;
         result := P.clock_gettime(P.clockid_t.MONOTONIC, *value);
-        if !sdk_ok(result, "thread group clock query failed") thread_abort();
+        if !sdk_ok(result, "thread group clock query failed") c_abort();
         return cast(float64) value.tv_sec + cast(float64) value.tv_nsec / 1000000000.0;
     }
 

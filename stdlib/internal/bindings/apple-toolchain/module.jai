@@ -24,13 +24,13 @@ sdk_pclose :: (stream: *void) -> s32 #foreign libc "pclose";
 sdk_fread :: (ptr: *void, size: u64, count: u64, stream: *void) -> u64 #foreign libc "fread";
 sdk_ferror :: (stream: *void) -> s32 #foreign libc "ferror";
 sdk_write :: (fd: s32, ptr: *u8, count: u64) -> s64 #foreign libc "write";
-sdk_abort :: () #foreign libc "abort"; @Exits
+#import "internal/libc";
 
 sdk_log_failure :: (message: string) {
     written: s64;
     while written < message.count {
         result := sdk_write(2, message.data + written, cast(u64) (message.count - written));
-        if result <= 0 sdk_abort();
+        if result <= 0 c_abort();
         written += result;
     }
 }
@@ -53,7 +53,7 @@ sdk_lookup :: (command: *u8) -> string {
 
     while true {
         if n == capacity {
-            if capacity > 0x3fff_ffff_ffff_ffff sdk_abort();
+            if capacity > 0x3fff_ffff_ffff_ffff c_abort();
 
             capacity *= 2;
             grown := cast(*u8) Native.allocate(capacity);

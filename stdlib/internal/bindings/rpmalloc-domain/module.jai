@@ -27,7 +27,7 @@ ensure :: () -> bool {
 }
 
 enter :: (scope: *Scope) {
-    if !handle abort();
+    if !handle c_abort();
     Bridge.scope_enter(cast(*void) handle, scope);
 }
 
@@ -36,7 +36,7 @@ leave :: (scope: *Scope) {
 }
 
 select :: () -> *void {
-    if !ensure() abort();
+    if !ensure() c_abort();
     return Bridge.select_domain(cast(*void) handle);
 }
 
@@ -53,4 +53,4 @@ destroy :: () {
 Bridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = STATISTICS, RAW = RAW, PUBLIC_HEAPS = PUBLIC_HEAPS, GLOBAL_CACHE = GLOBAL_CACHE, THREAD_CACHE = THREAD_CACHE, ASSERTS = ASSERTS, VALIDATE_ARGS = VALIDATE_ARGS, ADAPTIVE = ADAPTIVE);
 
 libc :: #library,system "c"; @native(external)
-abort :: () #foreign libc; @Exits
+#import "internal/libc";

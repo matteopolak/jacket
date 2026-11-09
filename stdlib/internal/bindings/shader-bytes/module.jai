@@ -12,11 +12,11 @@ copy :: (data: *void, count: u64) -> string {
 require :: (condition: bool, message: string) {
     if condition return;
     Basic.assert(false, message);
-    abort();
+    c_abort();
 }
 
 #scope_file
 Basic :: #import "Basic";
 
 libc :: #library,system "c"; @native(external)
-abort :: () #foreign libc; @Exits
+#import "internal/libc";
