@@ -356,6 +356,11 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 .compare figcaption { font-size: 12px; font-weight: 600; color: var(--muted); padding: 10px 18px 0; }
 .compare figcaption code { font-weight: 400; }
 .guide .compare pre.code { flex: 1; margin: 0; border-radius: 0; background: none; }
+.example-group { margin: 0 0 20px; background: var(--sunken); border-radius: 8px; overflow: hidden; }
+.example-group figure { margin: 0; min-width: 0; }
+.example-group figure + figure { border-top: 1px solid var(--border); }
+.example-group figcaption { font-size: 12px; font-weight: 600; color: var(--muted); padding: 10px 18px 0; }
+.guide .example-group pre.code { margin: 0; border-radius: 0; background: none; }
 @media (max-width: 699px) { .compare { grid-template-columns: minmax(0, 1fr); } .compare figure + figure { border-left: 0; border-top: 1px solid var(--border); } }
 
 @media (max-width: 899px) {

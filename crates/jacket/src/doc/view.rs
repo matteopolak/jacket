@@ -269,12 +269,23 @@ pub enum DocSegment {
         /// Not Jai (a usage line, shell output): long lines wrap instead of scrolling.
         wrap: bool,
     },
+    /// Code with what came of it: an example, the diagnostic it draws, the fixed code.
+    Group {
+        parts: Vec<GroupPart>,
+    },
     /// Code before and after formatting, side by side; `settings` the after side used.
     Compare {
         before_html: String,
         after_html: String,
         settings: String,
     },
+}
+
+/// One block of a group, under its caption.
+#[derive(Serialize)]
+pub struct GroupPart {
+    pub label: String,
+    pub code_html: String,
 }
 
 #[derive(Serialize)]

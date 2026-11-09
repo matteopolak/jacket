@@ -24,9 +24,7 @@ Finds a comparison an unsigned value always passes or fails (`u >= 0`).
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 countdown :: (n: u32) {
@@ -56,9 +54,7 @@ help: `u32` is unsigned and holds nothing below 0; compare with a signed value, 
    = note: `absurd_comparison` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 countdown :: (n: u32) {
@@ -82,9 +78,7 @@ Finds `a = b; b = a;`, a swap that sets both to `b`.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -114,9 +108,7 @@ help: to swap them, write `a, b = b, a;`
    = note: `almost_swapped` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -140,9 +132,7 @@ Finds a mask test that can never match (`(x & 4) == 1`, `(x | 2) == 0`).
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 can_write :: (flags: u32) -> bool {
@@ -168,9 +158,7 @@ help: compare with the mask itself (`(x & m) == m`) or test for non-zero
    = note: `bad_bit_mask` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 can_write :: (flags: u32) -> bool {
@@ -190,9 +178,7 @@ Finds `defer free(p);` followed by `return p;`, which hands back freed memory.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 #import "String";
 
@@ -222,9 +208,7 @@ help: the deferred call runs after the value is returned: drop the `defer`, or r
    = note: `defer_frees_returned` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 #import "String";
 
@@ -248,9 +232,7 @@ Finds two calls that free the same variable with nothing in between (`free(p); f
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 Node :: struct {
@@ -286,9 +268,7 @@ help: remove the second call, or assign `node` a new value in between
    = note: `double_free` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Node :: struct {
@@ -312,9 +292,7 @@ Finds `memcpy(d, xs.data, xs.count)` with elements wider than a byte.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 copy_values :: (dest: [] s32, values: [] s32) {
@@ -343,9 +321,7 @@ help: multiply by the element size: `values.count * size_of(s32)`
    = note: `element_count_as_bytes` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 copy_values :: (dest: [] s32, values: [] s32) {
@@ -368,9 +344,7 @@ Finds comparisons of one integer that never pass together (`x > 5 && x < 3`).
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 is_live :: (code: int) -> bool {
@@ -396,9 +370,7 @@ help: every integer passes one of these comparisons: was `&&` meant?
    = note: `impossible_comparison` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 is_live :: (code: int) -> bool {
@@ -418,9 +390,7 @@ Finds `min(0, max(100, x))`, a clamp that is always one bound.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -444,9 +414,7 @@ help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
    = note: `min_max` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -464,9 +432,7 @@ Finds `a += a + b`, an update that applies the operator to `a` twice.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -493,9 +459,7 @@ help: `+=` already starts from `total`: write `total += price`
    = note: `misrefactored_assign_op` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -516,9 +480,7 @@ Finds `for i: 0..xs.count` indexing `xs[i]`, one past the end.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -543,9 +505,7 @@ help: ranges include their end: write `names.count - 1`
    = note: `range_past_count` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -564,9 +524,7 @@ Finds removing from an array while a `for` walks it forward.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -598,9 +556,7 @@ help: the element moved into the freed slot is skipped; use `remove it;` (or loo
    = note: `remove_in_for` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -624,9 +580,7 @@ Finds `return *x;` with `x` a local, a pointer into a stack frame that is gone.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 Point :: struct {
@@ -656,9 +610,7 @@ error[returned_local_address]: this returns the address of the local `p`, which 
    = note: `returned_local_address` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Point :: struct {
@@ -685,9 +637,7 @@ Finds a range whose start is above its end, which never runs.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -711,9 +661,7 @@ help: to count down, write `for < ...: 0..10`
    = note: `reversed_range` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -731,9 +679,7 @@ Finds a write into a string literal, which is read-only (`s := "abc"; s[0] = x;`
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -757,9 +703,7 @@ help: copy it where `word` is declared: `copy_string("hello")` (free the copy wh
    = note: `string_literal_write` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -778,9 +722,7 @@ Finds a variable declared `= ---` read before anything is written to it.
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 sum :: (xs: [] int) -> int {
@@ -808,9 +750,7 @@ help: `= ---` leaves `total` holding whatever was in memory: give it a value fir
    = note: `uninit_read` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 sum :: (xs: [] int) -> int {
@@ -832,9 +772,7 @@ Finds a variable read after a call freed it (`free(p); use(p);`, or a wrapper th
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 Node :: struct {
@@ -864,9 +802,7 @@ error[use_after_free]: `node` is used after the call above freed it
    = note: `use_after_free` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Node :: struct {
@@ -890,9 +826,7 @@ Finds a constant that wraps to the type the other operand gives it (`(0xffff_fff
 
 Category `correctness`, `deny` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 bucket :: (id: s32) -> s32 {
@@ -918,9 +852,7 @@ help: to use 2147483648, compute in `s64` (`cast(s64) id`); to mean -2147483648,
    = note: `wrapping_constant` is `deny` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 bucket :: (id: s32) -> s32 {
@@ -944,9 +876,7 @@ Finds a bitwise operator that binds differently than in C (`1 << n - 1`).
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 low_bits :: (bits: int) -> int {
@@ -972,9 +902,7 @@ help: `<<` binds first here: write `(1 << bits)`
    = note: `bitwise_precedence` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 low_bits :: (bits: int) -> int {
@@ -994,9 +922,7 @@ Finds an `if` or `while` whose condition the compiler shows is always true or fa
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 check :: (count: s64) {
@@ -1023,9 +949,7 @@ warning[constant_condition]: this condition is always `false`
    = note: `constant_condition` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 check :: (count: s64) {
@@ -1049,9 +973,7 @@ Finds a `defer` in a loop body that cleans up something from outside the loop.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -1076,9 +998,7 @@ warning[defer_in_loop]: this `defer` runs at the end of every iteration, not whe
    = note: `defer_in_loop` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -1102,9 +1022,7 @@ Finds a call drops the `bool` that follows the values it keeps (`n := to_integer
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 parse :: (text: string) -> int, bool {
@@ -1132,9 +1050,7 @@ help: receive the flag, or write `, _` to show it is ignored on purpose
    = note: `dropped_result` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 parse :: (text: string) -> int, bool {
@@ -1157,9 +1073,7 @@ Finds an `else if` that repeats an earlier condition.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 describe :: (key: int) {
@@ -1189,9 +1103,7 @@ help: this branch can never run: was another condition meant?
    = note: `duplicate_condition` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 describe :: (key: int) {
@@ -1213,9 +1125,7 @@ Finds an operation that is always `0` (`x * 0`, `x & 0`).
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 offset :: (row: int, col: int) -> int {
@@ -1241,9 +1151,7 @@ help: `*` with this literal erases `row`: was another value meant?
    = note: `erasing_op` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 offset :: (row: int, col: int) -> int {
@@ -1263,9 +1171,7 @@ Finds an `if`/`else` or `ifx` whose branches are the same.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -1289,9 +1195,7 @@ help: the condition decides nothing: was one branch meant to differ?
    = note: `identical_branches` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -1309,9 +1213,7 @@ Finds an operator with the same expression on both sides (`a == a`).
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 Vec :: struct {
@@ -1339,9 +1241,7 @@ warning[identical_operands]: both sides of `==` are `a.y`
    = note: `identical_operands` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Vec :: struct {
@@ -1366,9 +1266,7 @@ Finds a `while` whose condition nothing in the loop changes.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 sum :: (values: [] int) -> int {
@@ -1398,9 +1296,7 @@ warning[infinite_loop]: this loop's condition never changes inside it
    = note: `infinite_loop` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 sum :: (values: [] int) -> int {
@@ -1428,9 +1324,7 @@ Finds an integer division whose result is used as a float.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -1455,9 +1349,7 @@ help: divide as floats: `cast(float) done / total`
    = note: `integer_division_in_float` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -1476,9 +1368,7 @@ Finds an inferred owned result that is only compared, measured, indexed or print
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 is_seven :: (n: int) -> bool {
@@ -1501,9 +1391,7 @@ warning[leaked_temporary]: the memory `sprint` allocates is only compared and ne
    = note: `leaked_temporary` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 is_seven :: (n: int) -> bool {
@@ -1523,9 +1411,7 @@ Finds a variable bounding a `for` range assigned in the loop, which does not cha
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 count_nonzero :: (xs: [] int) -> int {
@@ -1554,9 +1440,7 @@ warning[modified_range_bound]: `n` bounds this loop's range, which was fixed bef
    = note: `modified_range_bound` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 count_nonzero :: (xs: [] int) -> int {
@@ -1582,9 +1466,7 @@ Finds a statement that computes a value and drops it (`x == 5;`).
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -1608,9 +1490,7 @@ help: to update `total`, write `total += 1;`
    = note: `no_effect` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -1628,9 +1508,7 @@ Finds a pointer into a resizable array used after a `@GrowsArray` call may have 
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 Item :: struct {
@@ -1669,9 +1547,7 @@ warning[pointer_into_resizable]: `first` points into `items`, which `array_add` 
    = note: `pointer_into_resizable` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Item :: struct {
@@ -1710,9 +1586,7 @@ Finds a scoped push directly in an `#if` arm, which lasts past the arm.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 USE_ARENA :: true;
@@ -1747,9 +1621,7 @@ Finds a value assigned to itself (`x = x;`).
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 Size :: struct {
@@ -1777,14 +1649,12 @@ warning[self_assignment]: `width` is assigned to itself
    |
 help: this does nothing; was another value or target meant? (after `using`, both sides name the same field)
    |
- 9 ~ 
+ 9 -     width = width;
    |
    = note: `self_assignment` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Size :: struct {
@@ -1811,9 +1681,7 @@ Finds a nested `for` hides an `it` the enclosing loop uses.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -1837,9 +1705,7 @@ warning[shadowed_it]: this loop's `it` hides the `it` of the loop on line 6, whi
    = note: `shadowed_it` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -1860,9 +1726,7 @@ Finds a shift by at least the bit width of its operand (`x << 40` with `x: s32`)
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 high_word :: (bits: u32) -> u32 {
@@ -1885,9 +1749,7 @@ warning[shift_overflow]: shifting a `u32` by 32 shifts out all 32 of its bits
    = note: `shift_overflow` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 high_word :: (bits: u64) -> u64 {
@@ -1907,9 +1769,7 @@ Finds a local opened by an `@Opens` call (`file_open`, `append(*builder, ..)`) t
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 #import "File";
 
@@ -1936,9 +1796,7 @@ warning[unclosed_resource]: `file` is opened by `file_open` but nothing closes i
    = note: `unclosed_resource` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 #import "File";
 
@@ -1963,9 +1821,7 @@ Finds a `// jailint: allow(...)` comment naming a rule that does not exist.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 // jailint: allow(float_equlity)
@@ -1992,9 +1848,7 @@ help: did you mean `float_equality`? (`--list` shows every rule)
    = note: `unknown_allow` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 // jailint: allow(float_equality)
@@ -2015,9 +1869,7 @@ Finds a `@Locks` call with a path that returns or ends without a matching `@Unlo
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 #import "Thread";
 
@@ -2055,9 +1907,7 @@ warning[unpaired_lock]: this `return` leaves `*state.mutex` locked
    = note: `unpaired_lock` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 #import "Thread";
 
@@ -2093,9 +1943,7 @@ Finds `for 0..n-1` with an unsigned `n`, which wraps around when `n` is 0.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 sum :: (data: *u8, n: u32) -> int {
@@ -2125,9 +1973,7 @@ warning[unsigned_range_end_minus_one]: `n` is unsigned, so this range runs past 
    = note: `unsigned_range_end_minus_one` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 sum :: (data: *u8, n: s64) -> int {
@@ -2154,9 +2000,7 @@ Finds a `#scope_file` declaration that nothing in its file uses.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -2179,9 +2023,7 @@ warning[unused_private_declaration]: `LIMIT` is private to this file and nothing
    = note: `unused_private_declaration` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -2197,9 +2039,7 @@ Finds a call to a `@UseResult` procedure, as a statement.
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 #import "String";
 
@@ -2226,9 +2066,7 @@ help: to update the argument, write `line = trim(line);`
    = note: `unused_result` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 #import "String";
 
@@ -2249,9 +2087,7 @@ Finds a name in a `// jailint: allow(...)` comment or `@jailint_allow` note that
 
 Category `suspicious`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 scale :: (a: int) -> int {
@@ -2277,9 +2113,7 @@ warning[unused_suppression]: `unused_variable` allows nothing here
    = note: `unused_suppression` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 scale :: (a: int) -> int {
@@ -2305,9 +2139,7 @@ Finds comparing a bool with `true` or `false`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -2331,9 +2163,7 @@ help: write `ready`
    = note: `bool_comparison` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -2351,9 +2181,7 @@ Finds an operation that changes nothing (`x + 0`, `x * 1`).
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 size_in_bytes :: (count: int) -> int {
@@ -2379,9 +2207,7 @@ help: write `count`
    = note: `identity_op` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 size_in_bytes :: (count: int) -> int {
@@ -2401,9 +2227,7 @@ Finds `for i: 0..xs.count-1` where `i` only indexes `xs`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 sum :: (xs: [] int) -> int {
@@ -2436,9 +2260,7 @@ help: loop over the elements: `for xs` and `it`
    = note: `index_only_loop` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 sum :: (xs: [] int) -> int {
@@ -2464,9 +2286,7 @@ Finds `x >= y + 1`, which is `x > y`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 over_limit :: (count: int, limit: int) -> bool {
@@ -2492,9 +2312,7 @@ help: write `count > limit`
    = note: `int_plus_one` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 over_limit :: (count: int, limit: int) -> bool {
@@ -2514,9 +2332,7 @@ Finds `while true { if !c break; ... }`, a loop whose condition is its first sta
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -2547,9 +2363,7 @@ help: write `while i < 10` and drop the `if`
    = note: `loop_with_break_condition` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -2571,9 +2385,7 @@ Finds a loop that searches an array and breaks with a found flag or index, which
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 has :: (names: [] string, wanted: string) -> bool {
@@ -2599,15 +2411,13 @@ warning[manual_array_find]: this loop looks for `wanted` in `names` by hand
   --> example.jai:6:5
    |
  6 |     for names {
-   |     ^^^^^^^^^^
+   |     ^^^^^^^^^
    |
    = help: `array_find(names, wanted)` returns whether it was found, and the index after that
    = note: `manual_array_find` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 has :: (names: [] string, wanted: string) -> bool {
@@ -2628,9 +2438,7 @@ Finds `a = a + b` instead of `a += b`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -2657,9 +2465,7 @@ help: write `total += price`
    = note: `manual_assign_op` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -2680,9 +2486,7 @@ Finds a value kept between two constant bounds by hand instead of with `clamp`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -2706,9 +2510,7 @@ help: write `clamp(volume, 0, 100)`
    = note: `manual_clamp` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -2726,9 +2528,7 @@ Finds a counter incremented in a `for` loop that always equals `it_index`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 show :: (names: [] string) {
@@ -2766,9 +2566,7 @@ help: use `it_index` instead of counting by hand
    = note: `manual_index_counter` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 show :: (names: [] string) {
@@ -2790,9 +2588,7 @@ Finds `ifx c then true else false` and `if c return true; else return false;`.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 is_positive :: (n: int) -> bool {
@@ -2821,9 +2617,7 @@ help: write `return n > 0;`
    = note: `needless_bool` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 is_positive :: (n: int) -> bool {
@@ -2843,9 +2637,7 @@ Finds a local that only exists to be copied into another local or returned.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 square :: (n: int) -> int {
@@ -2874,9 +2666,7 @@ help: return the value directly
    = note: `redundant_alias` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 square :: (n: int) -> int {
@@ -2896,9 +2686,7 @@ Finds a cast to the type the value already has.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -2922,9 +2710,7 @@ help: remove the cast
    = note: `redundant_cast` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -2942,9 +2728,7 @@ Finds `p.*.field` where `p.field` means the same.
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 Point :: struct {
@@ -2974,9 +2758,7 @@ help: write `q.x`: member access already looks through the pointer
    = note: `redundant_deref` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Point :: struct {
@@ -3000,9 +2782,7 @@ Finds `cast,force` where the value already has the type or the conversion widens
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 widen :: (a: s32) -> s64 {
@@ -3028,9 +2808,7 @@ help: remove `,force`: the plain cast does the same
    = note: `unnecessary_force_cast` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 widen :: (a: s32) -> s64 {
@@ -3050,9 +2828,7 @@ Finds `tprint("%", s)` or `sprint("%", s)` with a string `s`, which only copies 
 
 Category `complexity`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 greeting :: (name: string) -> string {
@@ -3078,9 +2854,7 @@ help: use the string itself, or `copy_string` for a copy you own
    = note: `useless_format` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 greeting :: (name: string) -> string {
@@ -3104,9 +2878,7 @@ Finds a hand-typed `3.14159` or `1.4142` where `Math` has the constant.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 area :: (r: float) -> float {
@@ -3132,9 +2904,7 @@ help: write `PI` from `Math` (`PI64` for `float64`)
    = note: `approx_constant` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 #import "Math";
 
@@ -3155,9 +2925,7 @@ Finds `assert(true)` or `#assert true`, which can never fail.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -3184,9 +2952,7 @@ help: remove it, or assert the condition it stands in for
    = note: `assert_constant` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -3206,9 +2972,7 @@ Finds a comment that is only a line of `-`, `=` or `*` fencing off a section.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 // -----------------------------------------------------------------------------
@@ -3237,9 +3001,7 @@ help: drop the line, and name the section in one plain `//` line if it needs a n
    = note: `banner_comment` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 // Helpers
@@ -3261,9 +3023,7 @@ Finds a link in a doc comment (`[name]`) that names no declaration.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 Point :: struct {
@@ -3295,9 +3055,7 @@ help: did you mean `print`?
    = note: `broken_doc_link` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Point :: struct {
@@ -3323,9 +3081,7 @@ Finds every member of an enum starts with the enum's name.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 Color :: enum {
@@ -3350,9 +3106,7 @@ warning[enum_member_prefix]: every member of `Color` starts with `Color`
    = note: `enum_member_prefix` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Color :: enum {
@@ -3374,9 +3128,7 @@ Finds a `float32` literal with more digits than a `float32` keeps (`31415.92653`
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -3399,9 +3151,7 @@ help: write `16777.217`, which is the same `float32`
    = note: `lossy_float_literal` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -3418,9 +3168,7 @@ Finds a hex literal with both upper and lower case digits (`0xDeadbeef`).
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -3443,9 +3191,7 @@ help: write `0xFFFF`
    = note: `mixed_case_hex_literals` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -3462,9 +3208,7 @@ Finds a `continue` as the last thing a loop body does.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -3494,9 +3238,7 @@ help: remove it
    = note: `needless_continue` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -3519,9 +3261,7 @@ Finds `x * -1`, which is `-x`.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 flip :: (x: int) -> int {
@@ -3547,9 +3287,7 @@ help: write `-x`
    = note: `neg_multiply` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 flip :: (x: int) -> int {
@@ -3569,9 +3307,7 @@ Finds a `switch` with a single case, which is an `if`.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 Mode :: enum {
@@ -3612,9 +3348,7 @@ help: write an `if` instead
    = note: `single_case_switch` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Mode :: enum {
@@ -3640,9 +3374,7 @@ Finds a `;` that ends nothing (`x = 1;;`, `if c { ... };`).
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -3666,9 +3398,7 @@ help: remove it
    = note: `unnecessary_semicolon` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -3686,9 +3416,7 @@ Finds an `#import` nothing in its scope uses.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 #import "Math";
 
@@ -3711,9 +3439,7 @@ help: remove it
    = note: `unused_import` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -3729,9 +3455,7 @@ Finds a parameter the procedure never uses.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 area_of :: (value: int, factor: int, label: string) -> int {
@@ -3757,9 +3481,7 @@ help: start its name with `_` if the signature must stay, or remove it
    = note: `unused_parameter` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 area_of :: (value: int, factor: int) -> int {
@@ -3779,9 +3501,7 @@ Finds a local variable that is never used.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -3804,9 +3524,7 @@ help: remove it
    = note: `unused_variable` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -3822,9 +3540,7 @@ Finds `cast(*T) 0`, which is `null`.
 
 Category `style`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -3847,9 +3563,7 @@ help: write `null`
    = note: `zero_ptr` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -3870,9 +3584,7 @@ Finds `append(*b, tprint(...))`, which formats into a new string to add it to a 
 
 Category `perf`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 describe :: (name: string, value: int) -> string {
@@ -3903,9 +3615,7 @@ help: `print_to_builder` writes into the builder directly
    = note: `format_push_string` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 describe :: (name: string, value: int) -> string {
@@ -3930,9 +3640,7 @@ Finds `for i: 0..n-1 { dst[i] = src[i]; }`, an element-by-element copy `memcpy` 
 
 Category `perf`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 copy_all :: (dst: *int, src: [] int, count: int) {
@@ -3961,9 +3669,7 @@ warning[manual_memcpy]: this loop copies `src` into `dst` one element at a time
    = note: `manual_memcpy` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 copy_all :: (dst: *int, src: [] int, count: int) {
@@ -3987,9 +3693,7 @@ Finds a local `[..] T` that is only filled with a known number of `array_add` ca
 
 Category `perf`, `warn` by default.
 
-Example:
-
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -4015,9 +3719,7 @@ warning[useless_resizable]: `parts` is a resizable array that only ever holds 2 
    = note: `useless_resizable` is `warn` by default
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -4039,9 +3741,9 @@ Finds `ifx c then 1 else 0`, a `bool` turned into an integer with a branch.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -4064,9 +3766,7 @@ help: write `cast(s64) ready`
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -4084,9 +3784,16 @@ Finds a procedure whose branching scores above `max_complexity` (default 25).
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+Shown with these settings:
+
+```toml
+[lint]
+max_complexity = 4
+```
+
+```jai example
 #import "Basic";
 
 sum_above :: (items: [] int, limit: int) -> int {
@@ -4108,13 +3815,6 @@ main :: () {
 }
 ```
 
-Shown with these settings:
-
-```toml
-[lint]
-max_complexity = 4
-```
-
 ```diagnostic
 warning[cognitive_complexity]: `sum_above` has a cognitive complexity of 5, past the limit of 4
   --> example.jai:3:1
@@ -4125,9 +3825,7 @@ warning[cognitive_complexity]: `sum_above` has a cognitive complexity of 5, past
    = help: split it into smaller procedures, return early, or name parts of long conditions
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 sum_above :: (items: [] int, limit: int) -> int {
@@ -4153,9 +3851,9 @@ Finds a comment that reads as a declaration's docs but has a blank line between 
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 // Adds one to the number it is given.
@@ -4182,9 +3880,7 @@ help: remove the blank line to document it
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 // Adds one to the number it is given.
@@ -4205,9 +3901,9 @@ Finds blocks nested deeper than `max_nesting` (default 6).
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 count_sums :: (a: [] int, b: [] int, c: [] int, target: int) -> int {
@@ -4247,9 +3943,7 @@ warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
    = help: return or `continue` early, or move the inner part into its own procedure
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 count_sums :: (a: [] int, b: [] int, c: [] int, target: int) -> int {
@@ -4284,9 +3978,9 @@ Finds `x: T; x.a = 1; x.b = 2;` where a struct literal `x := T.{ a = 1, b = 2 }`
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 Config :: struct {
@@ -4324,9 +4018,7 @@ help: set the fields in a struct literal where the variable is declared
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Config :: struct {
@@ -4352,9 +4044,9 @@ Finds `==` or `!=` between two computed floats.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 same_total :: (a: float, b: float, expected: float) -> bool {
@@ -4376,9 +4068,7 @@ warning[float_equality]: comparing floats for exact equality
    = help: compare the difference with a tolerance: `abs(a - b) < epsilon`
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 #import "Math";
 
@@ -4399,9 +4089,9 @@ Finds a `while` loop counted in floats (`while t < 1.0 { t += 0.1; }`).
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -4424,9 +4114,7 @@ warning[float_loop_counter]: `t` counts this loop in floats, so rounding error d
    = help: count with an integer and compute the float from it: `for i: 0..n-1 { x := start + i * step; }`
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -4444,9 +4132,9 @@ Finds two cases of a `switch` with the same body, which could list their values 
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 Kind :: enum {
@@ -4491,9 +4179,7 @@ help: list the values together: `case .PNG, .JPEG;`
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Kind :: enum {
@@ -4527,9 +4213,9 @@ Finds an `if` or `ifx` with a negated condition and an `else`.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -4560,9 +4246,7 @@ help: test `ready` first and swap the branches
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -4584,9 +4268,9 @@ Finds a `switch` on an enum that neither covers every member nor has a default c
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 Shape :: enum {
@@ -4619,9 +4303,7 @@ warning[incomplete_enum_switch]: this `switch` on `Shape` does not handle .TRIAN
    = help: handle them, or add `case;` for the rest, or write `#complete` so the compiler checks the list
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Shape :: enum {
@@ -4653,9 +4335,9 @@ Finds a local fixed array bigger than `max_stack_array_bytes` (default 64 KiB).
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -4676,9 +4358,7 @@ warning[large_stack_array]: `scratch` is 1 MiB on the stack, past the limit of 6
    = help: allocate it (`NewArray`, `alloc`), use a resizable array, or keep it in a global
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -4698,9 +4378,9 @@ Finds a local holding inferred owned storage that is never freed, returned or ha
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 Parser :: struct {
@@ -4730,9 +4410,7 @@ help: free it when done, for example `defer free(parser);` right after this line
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Parser :: struct {
@@ -4756,9 +4434,9 @@ Finds `xx` that narrows a number to a smaller type.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -4781,9 +4459,7 @@ help: write `cast(u16)` to make the conversion visible
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -4801,9 +4477,9 @@ Finds an unexplained number in arithmetic, a comparison or an assignment.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 expires :: (start: int) -> int {
@@ -4825,9 +4501,7 @@ warning[magic_number]: magic number `86400` in arithmetic
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 SECONDS_PER_DAY :: 86400;
@@ -4849,9 +4523,9 @@ Finds `!(a < b)` on floats, which differs from `a >= b` when a value is NaN.
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 within :: (x: float, limit: float) -> bool {
@@ -4868,7 +4542,7 @@ warning[neg_cmp_float]: `!(x < limit)` is not `x >= limit` when a float is NaN
   --> example.jai:4:12
    |
  4 |     return !(x < limit);
-   |            ^^^^^^^^^^^
+   |            ^^^^^^^^^^^^
    |
 help: write the inverted comparison if NaN should not take the branch, or test for NaN explicitly if it should
    |
@@ -4876,9 +4550,7 @@ help: write the inverted comparison if NaN should not take the branch, or test f
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 within :: (x: float, limit: float) -> bool {
@@ -4898,9 +4570,9 @@ Finds a local variable named like a parameter or another local in an enclosing s
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 clamp_count :: (count: int) -> int {
@@ -4927,9 +4599,7 @@ warning[shadowed_local]: `count` shadows the variable of that name declared on l
    = help: rename one of them; an assignment here no longer reaches the outer one
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 clamp_count :: (count: int) -> int {
@@ -4954,9 +4624,9 @@ Finds temporary storage (`tprint`, `talloc`, or a procedure returning it) stored
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 current_label: string;
@@ -4982,9 +4652,7 @@ warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, 
    = help: copy it first (`copy_string`) so it outlives the reset
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 current_label: string;
@@ -5008,9 +4676,9 @@ Finds a long number without `_` separators (`1000000`, `0xdeadbeef`).
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 TIMEOUT :: 1000000;
@@ -5033,9 +4701,7 @@ help: write `1_000_000`
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 TIMEOUT :: 1_000_000;
@@ -5053,9 +4719,9 @@ Finds a `using` of a struct whose members share names with parameters, locals or
 
 Category `pedantic`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 Style :: struct {
@@ -5082,9 +4748,7 @@ warning[using_pollution]: `using style` brings in `count`, which is already in s
    = help: list the members that are meant (`using,only(...)`) or write `name.member`
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Style :: struct {
@@ -5113,9 +4777,9 @@ Finds `xx`, the automatic cast, written as an argument of a call.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 draw :: (x: s32, y: s32) -> s32 {
@@ -5142,9 +4806,7 @@ help: write `cast(s32)` to say so
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 draw :: (x: s32, y: s32) -> s32 {
@@ -5166,9 +4828,9 @@ Finds `xx`, the automatic cast, outside a call's arguments.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -5192,9 +4854,7 @@ help: write `cast(u8)` to say so
    |
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -5213,9 +4873,9 @@ Finds a procedure with more `bool` parameters than `max_bools` (default 3).
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 open :: (path: string, read: bool, write: bool, create: bool, truncate: bool) -> int {
@@ -5237,9 +4897,7 @@ warning[excessive_bools]: `open` takes 4 `bool` parameters, past the limit of 3
    = help: use an enum or a `#flags` enum so each argument says what it sets, or split the procedure
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Open_Flags :: enum_flags u8 {
@@ -5266,9 +4924,9 @@ Finds a module ends the process.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 open_config :: (path: string) -> int {
@@ -5290,9 +4948,7 @@ warning[exit_in_module]: a module should not end the process
    = help: return an error and let the program decide whether to exit
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 open_config :: (path: string) -> int, bool {
@@ -5310,9 +4966,9 @@ Finds an exported procedure, struct or enum with no doc comment.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 parse :: (text: string) -> int {
@@ -5334,9 +4990,7 @@ warning[missing_doc]: the exported procedure `parse` has no doc comment
    = help: describe it in a `//` comment on the lines above
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 // Counts the bytes in `text`.
@@ -5357,9 +5011,9 @@ Finds portable code imports something that asserts an operating system it is not
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 P :: #import "POSIX";
 
 main :: () {
@@ -5386,9 +5040,9 @@ Finds a pointer used after its storage moves or its element becomes invalid.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 main :: () {
@@ -5422,9 +5076,7 @@ warning[pointer_lifetime]: `p` points into `xs`, which may be resized: array_add
    = help: take the pointer again after growth, or store an index instead
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 main :: () {
@@ -5464,9 +5116,9 @@ Finds a module writes to the program's output.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 parse :: (text: string) -> int {
@@ -5485,9 +5137,7 @@ warning[print_in_module]: a module should not write to the program's output
    = help: return the text or an error, or log it, and let the program decide what to print
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 parse :: (text: string) -> int {
@@ -5503,9 +5153,9 @@ Finds a comment with a `TODO`, `FIXME`, `XXX` or `HACK` marker.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 // TODO: handle the empty list
@@ -5528,9 +5178,7 @@ warning[todo_marker]: this comment has a `TODO` marker
    = help: finish it, or track it outside the source and remove the marker
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 first :: (items: [] int) -> int {
@@ -5551,9 +5199,9 @@ Finds a procedure with more parameters than `max_arguments` (default 7).
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 draw :: (x: int, y: int, w: int, h: int, r: u8, g: u8, b: u8, a: u8) -> int {
@@ -5575,9 +5223,7 @@ warning[too_many_arguments]: `draw` takes 8 parameters, past the limit of 7
    = help: group parameters that belong together in a struct and pass that
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 Rect :: struct {
@@ -5605,9 +5251,9 @@ Finds `#no_abc`, `#no_aoc` or `#asm` with no comment saying why.
 
 Category `restriction`, `allow` by default.
 
-Example (off by default; shown with the rule enabled):
+Off by default; the example is shown with the rule enabled.
 
-```jai
+```jai example
 #import "Basic";
 
 sum :: (items: [] int) -> int #no_abc {
@@ -5631,9 +5277,7 @@ warning[unchecked_directive]: `#no_abc` has no comment saying why it is needed
    = help: add a `//` comment on this line or the line above: why the checks are not needed here
 ```
 
-Fixed:
-
-```jai
+```jai fixed
 #import "Basic";
 
 sum :: (items: [] int) -> int {

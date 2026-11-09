@@ -4,7 +4,7 @@ use super::super::highlight;
 use super::super::markdown::{self, Segment, Settings, esc};
 use super::super::site::Site;
 use super::{
-    Content, DocSegment, NavCategory, NavGroup, NavLink, Outline, PageHead, PageView, Sidebar,
+    Content, DocSegment, GroupPart, NavCategory, NavGroup, NavLink, Outline, PageHead, PageView, Sidebar,
 };
 use jacket_config::schema::Doc;
 use jaic::fxhash::HashMap;
@@ -345,6 +345,33 @@ fn code_html(info: &str, code: &str) -> String {
     }
 }
 
+/// A `jai example` fence and the fences after it that say what came of it, one group: a
+/// `diagnostic` fence is the finding, a `jai fixed` fence the corrected code. Returns the group
+/// and how many segments it took, starting at `at`.
+fn group(segs: &[Segment], at: usize) -> (DocSegment, usize) {
+    let mut parts = Vec::new();
+    let mut used = 0;
+    while let Some(Segment::Code {
+        info,
+        code,
+    }) = segs.get(at + used)
+    {
+        let words: Vec<&str> = info.split_whitespace().collect();
+        let label = match (words.first(), words.get(1)) {
+            (_, Some(&"example")) if used == 0 => "Example",
+            (Some(&"diagnostic"), _) if used > 0 => "Diagnostic",
+            (_, Some(&"fixed")) if used > 0 => "Fixed",
+            _ => break,
+        };
+        parts.push(GroupPart {
+            label: label.to_owned(),
+            code_html: code_html(info, code),
+        });
+        used += 1;
+    }
+    (DocSegment::Group { parts }, used)
+}
+
 /// `jai before` and `jai after` fences next to each other become one side-by-side block. Words
 /// after `after` (`indent_width=2`) are the settings the after side was formatted with.
 fn segments(segs: &[Segment]) -> Vec<DocSegment> {
@@ -368,6 +395,11 @@ fn segments(segs: &[Segment]) -> Vec<DocSegment> {
                     Segment::Html(_) => None,
                 });
                 match (words.get(1), next) {
+                    (Some(&"example"), _) => {
+                        let (group, used) = group(segs, i);
+                        out.push(group);
+                        i += used - 1;
+                    }
                     (Some(&"before"), Some((after_info, after)))
                         if after_info.split_whitespace().nth(1) == Some("after") =>
                     {
@@ -497,7 +529,37 @@ impl Guides {
 
 #[cfg(test)]
 mod tests {
-    use super::{promote, repo_path, split};
+    use super::{DocSegment, Segment, promote, repo_path, segments, split};
+
+    fn code(info: &str) -> Segment {
+        Segment::Code {
+            info: info.into(),
+            code: "x\n".into(),
+        }
+    }
+
+    #[test]
+    fn an_example_and_what_follows_from_it_are_one_group() {
+        let segs = [
+            code("jai example"),
+            code("diagnostic"),
+            code("jai fixed"),
+            code("jai"),
+        ];
+        let out = segments(&segs);
+        assert_eq!(out.len(), 2);
+        let DocSegment::Group { parts } = &out[0] else {
+            panic!("the first three fences are a group");
+        };
+        let labels: Vec<_> = parts.iter().map(|p| p.label.as_str()).collect();
+        assert_eq!(labels, ["Example", "Diagnostic", "Fixed"]);
+        assert!(matches!(out[1], DocSegment::Code { .. }));
+        // Without an example before it, a diagnostic is a plain block.
+        assert!(matches!(
+            segments(&[code("diagnostic")])[0],
+            DocSegment::Code { .. }
+        ));
+    }
 
     #[test]
     fn repo_links_resolve_from_the_page() {

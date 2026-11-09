@@ -101,14 +101,25 @@ Segments :: (out: *Out, segments: [] Doc_Segment) {
         h0 := get_pointer(s, DocSegment_Html);
         e1 := get_pointer(s, DocSegment_Example);
         c2 := get_pointer(s, DocSegment_Code);
+        g4 := get_pointer(s, DocSegment_Group);
         d3 := get_pointer(s, DocSegment_Compare);
         if h0 append_html(out, cast(Html) h0.prose_html);
         else if e1 ExampleBlock(out, *e1.example);
         else if c2 {
             class := ifx c2.wrap then "code wrap" else "code";
             html(out, "<pre class=\"{class}\"><code>{cast(Html) c2.code_html}</code></pre>\n");
-        } else if d3 Compare(out, d3);
+        } else if g4 Group(out, g4);
+        else if d3 Compare(out, d3);
     }
+}
+
+// An example with the finding it draws and the fixed code: one card, each block under a caption.
+Group :: (out: *Out, g: *DocSegment_Group) {
+    html(out, "<div class=\"example-group\">\n");
+    for p: g.parts {
+        html(out, "<figure><figcaption>{esc(p.label)}</figcaption><pre class=\"code\"><code>{cast(Html) p.code_html}</code></pre></figure>\n");
+    }
+    html(out, "</div>\n");
 }
 
 // Code before and after formatting, side by side; stacked on narrow screens.

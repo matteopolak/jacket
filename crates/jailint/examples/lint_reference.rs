@@ -60,12 +60,11 @@ fn example(rule: &jailint::RuleInfo) -> String {
         .filter(|l| !l.trim_start().starts_with("= note: see http"))
         .map(|l| l.replace(&shown, "example.jai"))
         .collect();
-    let intro = if rule.default() == Level::Allow {
-        "Example (off by default; shown with the rule enabled):"
-    } else {
-        "Example:"
-    };
-    let mut out = format!("{intro}\n\n```jai\n{}\n```\n\n", code.trim_end());
+    // The fences are one group on the site: the example, the finding it draws, the fixed code.
+    let mut out = String::new();
+    if rule.default() == Level::Allow {
+        out.push_str("Off by default; the example is shown with the rule enabled.\n\n");
+    }
     if let Ok(settings) = std::fs::read_to_string(format!("{dir}/example.toml")) {
         let _ = write!(
             out,
@@ -73,13 +72,14 @@ fn example(rule: &jailint::RuleInfo) -> String {
             settings.trim_end()
         );
     }
+    let _ = write!(out, "```jai example\n{}\n```\n\n", code.trim_end());
     let _ = write!(
         out,
         "```diagnostic\n{}\n```\n",
         finding.join("\n").trim_end()
     );
     if let Ok(fixed) = std::fs::read_to_string(format!("{dir}/example-fixed.jai")) {
-        let _ = write!(out, "\nFixed:\n\n```jai\n{}\n```\n", fixed.trim_end());
+        let _ = write!(out, "\n```jai fixed\n{}\n```\n", fixed.trim_end());
     }
     out
 }

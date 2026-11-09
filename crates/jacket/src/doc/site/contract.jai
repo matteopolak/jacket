@@ -130,7 +130,7 @@ Content_Module :: struct {
     since: string;
     import: string;
     implicit: bool;
-    docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
+    docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,group,compare)
     parameters: [] Definition;
     sections: [] Section;
 }
@@ -140,7 +140,7 @@ Content_Item :: struct {
     platforms: [] Platform;
     title: Title;
     summary_html: string;
-    docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
+    docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,group,compare)
     overloads: [] Overload_View;
     private: bool;
     declaration_html: string;
@@ -151,7 +151,7 @@ Content_Item :: struct {
 }
 
 Content_Guide :: struct {
-    segments: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
+    segments: [] Doc_Segment; @json(tag=kind,tags=html,example,code,group,compare)
 }
 
 Content :: Variant(Content_Index, Content_Module, Content_Item, Content_Guide);
@@ -224,10 +224,10 @@ Overload_View :: struct {
     label: *string;
     card: bool;
     signature_html: string;
-    prose: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
+    prose: [] Doc_Segment; @json(tag=kind,tags=html,example,code,group,compare)
     parameters: [] Definition;
     returns: [] Definition;
-    examples: [] Doc_Segment; @json(tag=kind,tags=html,example,code,compare)
+    examples: [] Doc_Segment; @json(tag=kind,tags=html,example,code,group,compare)
 }
 
 DocSegment_Html :: struct {
@@ -243,13 +243,22 @@ DocSegment_Code :: struct {
     wrap: bool;
 }
 
+Group_Part :: struct {
+    label: string;
+    code_html: string;
+}
+
+DocSegment_Group :: struct {
+    parts: [] Group_Part;
+}
+
 DocSegment_Compare :: struct {
     before_html: string;
     after_html: string;
     settings: string;
 }
 
-Doc_Segment :: Variant(DocSegment_Html, DocSegment_Example, DocSegment_Code, DocSegment_Compare);
+Doc_Segment :: Variant(DocSegment_Html, DocSegment_Example, DocSegment_Code, DocSegment_Group, DocSegment_Compare);
 
 Example :: struct {
     plain: bool;
