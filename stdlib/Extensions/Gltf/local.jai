@@ -155,15 +155,15 @@
     #if OS == .WINDOWS {
         // A final path from the file system as `/`-separated text without the `\\?\` prefix Windows adds, in temporary storage.
         plain_path :: (path: string) -> string {
-            text := path;
+            result: string;
 
-            if begins_with(text, "\\\\?\\UNC\\") {
-                text = tprint("\\\\%", slice(text, 8, text.count - 8));
-            } else if begins_with(text, "\\\\?\\") {
-                text = slice(text, 4, text.count - 4);
+            if begins_with(path, "\\\\?\\UNC\\") {
+                result = tprint("\\\\%", slice(path, 8, path.count - 8));
+            } else if begins_with(path, "\\\\?\\") {
+                result = copy_temporary_string(slice(path, 4, path.count - 4));
+            } else {
+                result = copy_temporary_string(path);
             }
-
-            result := tprint("%", text);
 
             for *result {
                 if it.* == #char "\\" it.* = #char "/";
