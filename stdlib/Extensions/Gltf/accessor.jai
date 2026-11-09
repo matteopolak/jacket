@@ -63,6 +63,46 @@ gltf_next_floats :: (cursor: *Gltf_Cursor) -> [16] float32, bool, Gltf_Error {
     return result, true, .{};
 }
 
+// Read a whole accessor into a flat array of `count * components` floats, element after element
+// (matrices column-major). Any component type works; normalized values are converted and sparse
+// replacements applied, as with [gltf_next_floats]. Free the result with `free(floats.data)`.
+//
+// ```jai
+// asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"mesh\":0}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1}]}],\"buffers\":[{\"byteLength\":42,\"uri\":\"data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAABAAIA\"}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\",\"min\":[0,0,0],\"max\":[1,1,0]},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}]}");
+// assert(error.kind == .NONE);
+// defer gltf_free(*asset);
+// floats, unpack_error := gltf_unpack_floats(*asset, 0);
+// assert(unpack_error.kind == .NONE);
+// defer free(floats.data);
+// assert(floats.count == 9); // three VEC3 elements
+// assert(floats[3] == 1 && floats[4] == 0);
+// ```
+gltf_unpack_floats :: (asset: *Gltf_Asset, index: s64) -> [] float32, Gltf_Error {
+    cursor, error := gltf_accessor(asset, index);
+    if error.kind != .NONE return .[], error;
+
+    count := cast(s64) asset.document.accessors[index].count;
+    result: [] float32;
+    result.count = count * cursor.components;
+    if result.count == 0 return result, .{};
+
+    result.data = alloc(result.count * size_of(float32));
+
+    for element: 0..count - 1 {
+        lanes, more, step := gltf_next_floats(*cursor);
+
+        if !more || step.kind != .NONE {
+            free(result.data);
+            if step.kind == .NONE return .[], failure(.INVALID, "accessor ended early", tprint("/accessors/%", index));
+            return .[], step;
+        }
+
+        for lane: 0..cursor.components - 1 result[element * cursor.components + lane] = lanes[lane];
+    }
+
+    return result, .{};
+}
+
 // Read an unsigned SCALAR without float rounding.
 //
 // ```jai
