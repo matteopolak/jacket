@@ -58,7 +58,23 @@ time_conformance :: () {
 
         resolutions := vector_number(data, *cursor, 4);
 
-        cursor += resolutions * 25; // Civil gap/fold checks are enabled with zoned conversions in phase 5.
+        for 1..resolutions {
+            wall_second := vector_number(data, *cursor, 8);
+            early := vector_number(data, *cursor, 8);
+            late := vector_number(data, *cursor, 8);
+            gap := vector_number(data, *cursor, 1) != 0;
+            raw, _ := Conformance_Time.timestamp_from_seconds(wall_second);
+            wall := Conformance_Time.to_civil(Conformance_Time.time_zone_utc(), raw);
+
+            for mode: Conformance_Time.Disambiguation.[.COMPATIBLE, .EARLIER, .LATER, .REJECT] {
+                got, e := Conformance_Time.to_timestamp(zone, wall, mode);
+                if mode == .REJECT assert(e.kind == (ifx gap then .GAP else .FOLD), tprint("% reject %", name, wall_second));
+                else {
+                    expected := ifx mode == .LATER || (mode == .COMPATIBLE && gap) then late else early;
+                    assert(e.kind == .NONE && got.seconds == expected, tprint("% resolution % %: % != % (%)", name, wall_second, mode, got.seconds, expected, e.message));
+                }
+            }
+        }
     }
 
     assert(cursor == data.count && zones > 590 && cases > 100000);

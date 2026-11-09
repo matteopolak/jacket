@@ -2,8 +2,8 @@
 
 `#import "Extensions/Time"` declares civil dates, exact instants, explicit time
 zones and calendar-aware spans. Civil construction, calendar helpers, arithmetic, exact instants,
-fixed offsets, TZif/POSIX rule zones and ISO text are implemented. Later phases supply
-span differences and interop; declarations for those still return `UNSUPPORTED`.
+fixed offsets, TZif/POSIX rule zones and ISO text are implemented. Zoned conversions, calendar/clock arithmetic and RFC 9557 text are also
+implemented. Later phases supply span differences and interop.
 
 ## Concepts
 

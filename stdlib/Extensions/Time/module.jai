@@ -923,9 +923,81 @@ to_timestamp :: (zone: Time_Zone, wall: Date_Time, disambiguation := Disambiguat
     t, te := time_of_day(wall.time.hour, wall.time.minute, wall.time.second, wall.time.nanosecond);
     if te.kind != .NONE return .{}, te;
 
-    o := offset_at(zone, .{});
+    local := date_days(d) * 86400 + time_ns(t) / NS;
+    ns := time_ns(t) % NS;
+    r: *Zone_Rules;
 
-    return timestamp_wide(wide_mul(date_days(d) * 86400 - o.seconds, NS) + to_s128(time_ns(t)));
+    if zone.kind == .RULES r = lookup_rules(zone.rules);
+
+    offsets: [258] s64;
+    count: s64 = 1;
+
+    offsets[0] = zone.offset.seconds;
+    if zone.kind == .UTC offsets[0] = 0;
+
+    if r != null {
+        count = 0;
+
+        for i: 0..r.types - 1 {
+            offsets[count] = be_signed(r.source, r.type_at + i * 6, 4);
+            count += 1;
+        }
+
+        if r.footer.present {
+            offsets[count] = r.footer.standard;
+            count += 1;
+
+            if r.footer.dst {
+                offsets[count] = r.footer.daylight;
+                count += 1;
+            }
+        }
+    }
+
+    found := false;
+    early, late: Timestamp;
+
+    for i: 0..count - 1 {
+        candidate := raw_stamp(local - offsets[i], ns);
+        if offset_at(zone, candidate).seconds != offsets[i] continue;
+
+        if !found {
+            early = candidate;
+            late = candidate;
+            found = true;
+        } else {
+            if compare(candidate, early) < 0 early = candidate;
+            if compare(candidate, late) > 0 late = candidate;
+        }
+    }
+
+    if found {
+        if compare(early, late) != 0 && disambiguation == .REJECT return .{}, .{ .FOLD, "ambiguous civil time", -1 };
+        chosen := ifx disambiguation == .LATER then late else early;
+        return timestamp_wide(stamp_ns(chosen));
+    }
+
+    if r != null {
+        cursor := transitions(zone, raw_stamp(local - 187200, 0));
+
+        // Only transitions in a bounded four-day window can affect this local reading.
+        for 1..r.count + 8 {
+            change, has, error := next(*cursor);
+            if error.kind != .NONE return .{}, error;
+            if !has || change.timestamp.seconds > local + 187200 break;
+
+            before := change.timestamp.seconds + change.before.seconds;
+            after := change.timestamp.seconds + change.after.seconds;
+
+            if before <= local && local < after {
+                if disambiguation == .REJECT return .{}, .{ .GAP, "nonexistent civil time", -1 };
+                off := ifx disambiguation == .EARLIER then change.after else change.before;
+                return timestamp_wide(wide_mul(local - off.seconds, NS) + to_s128(ns));
+            }
+        }
+    }
+
+    return .{}, range_error();
 }
 
 // Starts a borrowed cursor strictly after instant (strictly before when reverse).
@@ -1000,43 +1072,90 @@ next :: (cursor: *Time_Transitions) -> Time_Transition, bool, Time_Error {
 // Resolves an instant and borrows its zone; the zone owner must outlive the result.
 // Example: `z := zoned(instant, zone)`.
 zoned :: (instant: Timestamp, zone: Time_Zone) -> Zoned {
-    return .{};
+    return .{ instant, zone, offset_at(zone, instant) };
 }
 
 // Resolves civil time and borrows the explicit zone.
 // Example: `z, error := to_zoned(wall, zone, .LATER)`.
-to_zoned :: (wall: Date_Time, zone: Time_Zone, disambiguation := Disambiguation.COMPATIBLE) -> Zoned {
-    return .{};
+to_zoned :: (wall: Date_Time, zone: Time_Zone, disambiguation := Disambiguation.COMPATIBLE) -> Zoned, Time_Error {
+    t, e := to_timestamp(zone, wall, disambiguation);
+    if e.kind != .NONE return .{}, e;
+    return zoned(t, zone), .{};
 }
 
 // Reads the existing Basic consensus clock in an explicit borrowed zone.
 // Example: `z, error := zoned_now(zone)`.
 zoned_now :: (zone: Time_Zone) -> Zoned, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    t, e := timestamp_now();
+    if e.kind != .NONE return .{}, e;
+    return zoned(t, zone), .{};
 }
 
 // Keeps the instant while borrowing a different zone and resolving its offset.
 // Example: `z := with_zone(value, time_zone_utc())`.
 with_zone :: (value: Zoned, zone: Time_Zone) -> Zoned {
-    return .{};
+    return .{ value.timestamp, zone, offset_at(zone, value.timestamp) };
 }
 
 // Adds calendar units in civil time, resolves, then adds clock units on the timeline.
 // Example: `z, error := add(value, Span.{days = 1})`.
 add :: (value: Zoned, amount: Span, overflow := Overflow.CONSTRAIN, disambiguation := Disambiguation.COMPATIBLE) -> Zoned, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    instant := value.timestamp;
+
+    if calendar_nonzero(amount) {
+        calendar := amount;
+
+        clear_clock(*calendar);
+        wall, e := add(to_civil(value.zone, instant), calendar, overflow);
+        if e.kind != .NONE return .{}, e;
+
+        instant, e = to_timestamp(value.zone, wall, disambiguation);
+        if e.kind != .NONE return .{}, e;
+    }
+
+    result, e := timestamp_wide(stamp_ns(instant) + clock_ns(amount));
+    if e.kind != .NONE return .{}, e;
+
+    return zoned(result, value.zone), .{};
 }
 
 // Finds the first valid instant of the local date, including days starting after midnight.
 // Example: `start, error := start_of_day(value)`.
 start_of_day :: (value: Zoned) -> Zoned, Time_Error {
-    return .{}, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    wall := to_civil(value.zone, value.timestamp);
+    wall.time = .{};
+    t, e := to_timestamp(value.zone, wall);
+    if e.kind != .NONE return .{}, e;
+
+    if compare(to_civil(value.zone, t), wall) > 0 {
+        cursor := transitions(value.zone, raw_stamp(t.seconds + 1, 0), true);
+        change, has, _ := next(*cursor);
+        if has && compare(to_civil(value.zone, change.timestamp).date, wall.date) == 0 t = change.timestamp;
+    }
+
+    return zoned(t, value.zone), .{};
 }
 
 // Returns exact elapsed hours between consecutive local day starts.
 // Example: `hours, error := hours_in_day(value)`.
 hours_in_day :: (value: Zoned) -> float64, Time_Error {
-    return 0, .{ .UNSUPPORTED, "Time API declaration only", -1 };
+    start, e := start_of_day(value);
+    if e.kind != .NONE return 0, e;
+
+    wall := to_civil(value.zone, start.timestamp);
+    d, de := add(wall.date, Span.{ days = 1 });
+
+    if de.kind != .NONE return 0, de;
+
+    following, fe := to_zoned(.{ d, .{} }, value.zone);
+    if fe.kind != .NONE return 0, fe;
+
+    end, ee := start_of_day(following);
+    if ee.kind != .NONE return 0, ee;
+
+    delta := duration_between(start.timestamp, end.timestamp);
+
+    return (cast(float64) delta.seconds + cast(float64) delta.nanoseconds / NS) / 3600, .{};
 }
 
 // Orders values (-1/0/1); Zoned and Timestamp use only the instant. Zones order by kind and rule content.
@@ -1194,6 +1313,46 @@ parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error 
         if e.kind != .NONE e.offset = r.at;
 
         return v, e;
+    } else #if T == Time_Zone {
+        v := read_zone(*r, options);
+
+        if r.error.kind == .NONE && r.at != text.count {
+            text_fail(*r);
+            time_zone_free(*v);
+        }
+
+        return v, r.error;
+    } else #if T == Zoned {
+        wall := read_wall(*r);
+        has_offset := peek(*r) != 91;
+        o: Offset;
+
+        if has_offset o = read_offset(*r);
+
+        v := read_zone(*r, options);
+
+        if r.error.kind == .NONE && r.at != text.count text_fail(*r);
+
+        if r.error.kind != .NONE {
+            time_zone_free(*v);
+            return .{}, r.error;
+        }
+
+        instant: Timestamp;
+        error: Time_Error;
+
+        if has_offset {
+            instant, error = to_timestamp(time_zone_fixed(o), wall);
+            if error.kind == .NONE && offset_at(v, instant).seconds != o.seconds error = .{ .OFFSET_CONFLICT, "offset conflicts with zone", r.at };
+        } else instant, error = to_timestamp(v, wall);
+
+        if error.kind != .NONE {
+            time_zone_free(*v);
+            error.offset = r.at;
+            return .{}, error;
+        }
+
+        return zoned(instant, v), .{};
     } else {
         return .{}, .{ .UNSUPPORTED, "format not implemented yet", 0 };
     }
@@ -1246,6 +1405,28 @@ format :: (builder: *String_Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, 
         e := format(builder, to_civil(time_zone_utc(), value));
         if e.kind != .NONE return e;
         append(builder, "Z");
+    } else #if T == Time_Zone {
+        append(builder, "[");
+
+        if value.kind == .UTC append(builder, "UTC");
+        else if value.kind == .FIXED {
+            e := format(builder, value.offset);
+            if e.kind != .NONE return e;
+        } else {
+            r := lookup_rules(value.rules);
+            if r == null || r.name.count == 0 return .{ .UNSUPPORTED, "unnamed zone has no ISO identifier", -1 };
+            append(builder, r.name);
+        }
+
+        append(builder, "]");
+    } else #if T == Zoned {
+        e := format(builder, to_civil(value.zone, value.timestamp));
+        if e.kind != .NONE return e;
+
+        e = format(builder, offset_at(value.zone, value.timestamp));
+        if e.kind != .NONE return e;
+
+        return format(builder, value.zone);
     } else {
         return .{ .UNSUPPORTED, "format not implemented yet", -1 };
     }
@@ -1973,4 +2154,44 @@ unregister_rules :: (r: *Zone_Rules) {
     Registry.table_remove(*registered_rules, cast(*void) r);
     if registered_rules.count == 0 Registry.deinit(*registered_rules);
     Atomics.atomic_write(*registry_lock, cast(s32) 0);
+}
+
+raw_stamp :: (seconds: s64, ns: s64) -> Timestamp {
+    q, r := wide_div(wide_mul(seconds, NS) + to_s128(ns), NS);
+    return .{ narrow(q), cast(s32) r };
+}
+
+read_zone :: (r: *Text_Reader, options: Time_Options) -> Time_Zone {
+    if peek(r) != 91 {
+        text_fail(r);
+        return .{};
+    }
+
+    r.at += 1;
+    if peek(r) == 33 r.at += 1;
+
+    begin := r.at;
+
+    while r.at < r.text.count && peek(r) != 93 r.at += 1;
+
+    text := string.{ r.at - begin, r.text.data + begin };
+
+    expect_byte(r, 93);
+    if r.error.kind != .NONE return .{};
+    if text == "UTC" return time_zone_utc();
+
+    if text.count > 0 && (text[0] == 43 || text[0] == 45) {
+        v, e := parse(Offset, text, options);
+        if e.kind != .NONE {
+            text_fail(r, e.kind, e.message, begin + e.offset);
+            return .{};
+        }
+
+        return time_zone_fixed(v);
+    }
+
+    v, e := time_zone_get(text, options);
+    if e.kind != .NONE text_fail(r, e.kind, e.message, begin);
+
+    return v;
 }
