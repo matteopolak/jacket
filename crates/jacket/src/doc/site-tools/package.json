@@ -1,15 +1,16 @@
 {
   "name": "jacket-doc-site-assets",
   "private": true,
+  "type": "module",
   "description": "Development-only lint, format and type checks for the plain JS and CSS in ../site/assets. Nothing here is built or shipped: jacket embeds the asset files as they are.",
   "packageManager": "pnpm@12.6.0",
   "scripts": {
     "lint": "pnpm run lint:js && pnpm run lint:types && pnpm run lint:css && pnpm run fmt:check",
-    "lint:js": "cd ../site && oxlint -c ../site-tools/.oxlintrc.json --deny-warnings assets",
+    "lint:js": "cd ../site && oxlint -c ../site-tools/oxlint.config.ts --deny-warnings assets",
     "lint:types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.worker.json",
     "lint:css": "stylelint \"../site/assets/*.css\"",
-    "fmt": "cd ../site && oxfmt -c ../site-tools/.oxfmtrc.json assets",
-    "fmt:check": "cd ../site && oxfmt -c ../site-tools/.oxfmtrc.json --check assets",
+    "fmt": "cd ../site && oxfmt -c ../site-tools/oxfmt.config.ts assets",
+    "fmt:check": "cd ../site && oxfmt -c ../site-tools/oxfmt.config.ts --check assets",
     "check-ages": "node ../../../../../editors/vscode/scripts/check-dependency-age.ts --dir ."
   },
   "devDependencies": {

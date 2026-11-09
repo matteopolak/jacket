@@ -23,7 +23,7 @@ CI runs the same `pnpm run lint` in the `doc-site-assets` job, only when a file 
 ## How to change it
 
 - **Types.** Each script starts with `// @ts-check`. What the scripts put on `window` for each other (`jacketPage`, `jacketSide`, `jacketRestore`) and shared shapes are declared in `site-tools/globals.d.ts`. Prefer a typedef or a narrowing check to a cast; do not add `@ts-ignore`.
-- **Rules.** `.oxlintrc.json`, `.stylelintrc.json` and `.oxfmtrc.json` (single quotes, 100 columns) live in `site-tools/`. Rules turned off, and why:
+- **Rules.** `oxlint.config.ts`, `.stylelintrc.json` and `oxfmt.config.ts` (typed `defineConfig` exports; single quotes, 100 columns) live in `site-tools/`. Rules turned off, and why:
   - oxlint `unicorn/require-post-message-target-origin`: it asks for a target origin, which `Worker.postMessage` does not have.
   - stylelint `no-descending-specificity`: the sheet orders states and variants by hand, and the rule asks for reordering that would change the cascade.
   - stylelint `property-no-vendor-prefix` ignores `appearance`, `backdrop-filter` and `mask-image`, and `number-max-precision` is 5.
