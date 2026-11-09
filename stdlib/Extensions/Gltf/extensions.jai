@@ -20,10 +20,7 @@ gltf_extension :: (extensions: *Json_Value, name: string, $T: Type) -> T, bool, 
     member := json_get(extensions, name);
     if !member return empty, false, .{};
 
-    text := to_json(member.*);
-
-    defer free(text);
-    value, decode := from_json(T, text);
+    value, decode := from_json(T, member);
 
     if decode.kind != .NONE {
         e := failure(.JSON, decode.message, json_path_text(decode), decode.offset);
