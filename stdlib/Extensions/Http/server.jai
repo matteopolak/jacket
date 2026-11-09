@@ -15,6 +15,30 @@
 
 // Why a server did not start (`Serve_Error.kind`), with `.NONE` for success. The comments say what each kind points at. Routes are
 // checked when the server starts, not when they are added, so a conflict shows up here.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// app: App;
+//
+// main :: () {
+//     // Two routes that match the same requests.
+//     get(*app, "/a/{x}", hello);
+//     get(*app, "/a/{y}", hello);
+//
+//     Io.io_run(() {
+//         server, error := start(*app);
+//         assert(server == null);
+//         assert(error.kind == .INVALID_ROUTES);
+//     });
+//
+//     free_app(*app);
+// }
+// ```
 Serve_Error_Kind :: enum u8 {
     NONE;
     INVALID_ROUTES; // two routes match the same requests; `message` names them
@@ -23,6 +47,31 @@ Serve_Error_Kind :: enum u8 {
 }
 
 // Why a server did not start. A `kind` of `.NONE` is success.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// app: App;
+//
+// main :: () {
+//     // Two routes that match the same requests.
+//     get(*app, "/a/{x}", hello);
+//     get(*app, "/a/{y}", hello);
+//
+//     Io.io_run(() {
+//         server, error := start(*app);
+//         assert(server == null && error.kind == .INVALID_ROUTES);
+//         assert(error.message.count > 0); // names the two routes
+//         assert(error.io_error == .NONE); // only `.CANNOT_LISTEN` has one
+//     });
+//
+//     free_app(*app);
+// }
+// ```
 Serve_Error :: struct {
     kind: Serve_Error_Kind;
     message: string; // in the temporary allocator of the caller
@@ -30,6 +79,30 @@ Serve_Error :: struct {
 }
 
 // A one-line description of why the server did not start.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// app: App;
+//
+// main :: () {
+//     // Two routes that match the same requests.
+//     get(*app, "/a/{x}", hello);
+//     get(*app, "/a/{y}", hello);
+//
+//     Io.io_run(() {
+//         server, error := start(*app);
+//         assert(error_text(error) == error.message);
+//         assert(error_text(Serve_Error.{}) == "no error");
+//     });
+//
+//     free_app(*app);
+// }
+// ```
 error_text :: (error: Serve_Error) -> string {
     if error.kind == .NONE return "no error";
 
@@ -37,6 +110,36 @@ error_text :: (error: Serve_Error) -> string {
 }
 
 // One scheduler's listener and its connections, as [start] returns it.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// app: App;
+//
+// main :: () {
+//     get(*app, "/hello", hello);
+//     app.config.address = "127.0.0.1:0"; // any free port
+//
+//     Io.io_run(() {
+//         server, error := start(*app);
+//         assert(error.kind == .NONE);
+//
+//         assert(server.app == *app);
+//         assert(server.address.port != 0); // the port the system picked
+//         assert(!server.stopping);
+//
+//         stop(server);
+//         wait(server);
+//         close_server(*server);
+//     });
+//
+//     free_app(*app);
+// }
+// ```
 Server :: struct {
     app: *App;
     listener: Io.Tcp_Listener;
@@ -154,6 +257,37 @@ start :: (app: *App, reuse_port := false) -> *Server, Serve_Error {
 
 // The `http://host:port` (`https://` with `config.tls`) the server is reachable at (a wildcard
 // address shows as 127.0.0.1).
+//
+// ```jai,skip_on(wasm)
+// #import "String";
+//
+// Io :: #import "Extensions/Io";
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// app: App;
+//
+// main :: () {
+//     get(*app, "/hello", hello);
+//     app.config.address = "127.0.0.1:0"; // any free port
+//
+//     Io.io_run(() {
+//         server, error := start(*app);
+//         assert(error.kind == .NONE);
+//
+//         url := server_url(server);
+//         assert(begins_with(url, "http://127.0.0.1:"));
+//
+//         stop(server);
+//         wait(server);
+//         close_server(*server);
+//     });
+//
+//     free_app(*app);
+// }
+// ```
 server_url :: (server: *Server) -> string {
     address := server.address;
 
@@ -168,6 +302,35 @@ server_url :: (server: *Server) -> string {
 // Starts the graceful shutdown: no new connections, idle ones close, requests in progress finish
 // (up to `config.shutdown_timeout`, then the connections are cut). Returns at once; `wait`
 // returns when it is done.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// app: App;
+//
+// main :: () {
+//     get(*app, "/hello", hello);
+//     app.config.address = "127.0.0.1:0"; // any free port
+//
+//     Io.io_run(() {
+//         server, error := start(*app);
+//         assert(error.kind == .NONE);
+//
+//         stop(server); // returns at once
+//         assert(server.stopping);
+//         stop(server); // stopping twice is fine
+//
+//         wait(server);
+//         close_server(*server);
+//     });
+//
+//     free_app(*app);
+// }
+// ```
 stop :: (server: *Server) {
     if server.stopping return;
 
@@ -181,6 +344,34 @@ stop :: (server: *Server) {
 // Blocks the calling fiber until the server has stopped and its connections are gone. The
 // `Server` handle stays valid for diagnostics. close_server releases it after
 // every internal fiber and HTTP/2 connection has released its reference.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// app: App;
+//
+// main :: () {
+//     get(*app, "/hello", hello);
+//     app.config.address = "127.0.0.1:0"; // any free port
+//
+//     Io.io_run(() {
+//         server, error := start(*app);
+//         assert(error.kind == .NONE);
+//
+//         stop(server);
+//         wait(server); // returns when the connections are gone
+//         assert(server.count == 0);
+//
+//         close_server(*server);
+//     });
+//
+//     free_app(*app);
+// }
+// ```
 wait :: (server: *Server) {
     if server.finished.count == 0 return;
 

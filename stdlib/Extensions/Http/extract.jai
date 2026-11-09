@@ -15,6 +15,32 @@
 
 // One `{name}` of the route, parsed as a `T`: integers, floats, bools, strings and enums (by
 // member name). A value that does not parse is a 400 that names the parameter.
+//
+// ```jai,skip_on(wasm)
+// find_user :: (id: Path("id", int)) -> string {
+//     return tprint("user %", id.value);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/users/{id}", find_user);
+//
+//     api := test_client(*app);
+//
+//     found, _ := get(api, "/users/7");
+//     defer close(*found);
+//
+//     text, _ := read_text(*found);
+//     defer free(text);
+//     assert(text == "user 7");
+//
+//     invalid, _ := get(api, "/users/seven"); // not an int: 400
+//     defer close(*invalid);
+//     assert(invalid.status == 400);
+// }
+// ```
 Path :: struct(NAME: string, T: Type) {
     value: T;
 }
@@ -53,6 +79,28 @@ Params :: struct(T: Type) {
 }
 
 // The `{name...}` tail of the route as one string (the rest of the path, percent-decoded).
+//
+// ```jai,skip_on(wasm)
+// file :: (path: Rest("path")) -> string {
+//     return path.value;
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/files/{path...}", file);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/files/css/site.css");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "css/site.css");
+// }
+// ```
 Rest :: struct(NAME: string) {
     value: string;
 }
@@ -60,6 +108,37 @@ Rest :: struct(NAME: string) {
 // The query string, decoded into a `T` with the rules and notes of JSON (`default`, `rename`,
 // `alias`...): a field without `default` is required, repeated keys fill arrays. The `T` lives in
 // temporary storage for the request.
+//
+// ```jai,skip_on(wasm)
+// Search :: struct {
+//     term: string;
+//     page: int; @json(default)
+// }
+//
+// search :: (query: Query(Search)) -> string {
+//     return tprint("% on page %", query.temporary.term, query.temporary.page);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/search", search);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/search?term=ada&page=2");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//     assert(text == "ada on page 2");
+//
+//     missing, _ := get(api, "/search"); // `term` is required: 400
+//     defer close(*missing);
+//     assert(missing.status == 400);
+// }
+// ```
 Query :: struct(T: Type) {
     temporary: T;
 }
@@ -106,11 +185,71 @@ Json :: struct(T: Type) {
 
 // An `application/x-www-form-urlencoded` body, read before the handler runs and decoded like a
 // query string. The same limit and the same lifetime as `Json`.
+//
+// ```jai,skip_on(wasm)
+// Signup :: struct {
+//     name: string;
+//     age: int;
+// }
+//
+// signup :: (form: Form(Signup)) -> string {
+//     return tprint("% is %", form.temporary.name, form.temporary.age);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     post(*app, "/signup", signup);
+//
+//     api := test_client(*app);
+//     request := Client_Request.{
+//         method = .POST,
+//         url = "/signup",
+//         headers = Header_Field.[.{ name = "Content-Type", value = "application/x-www-form-urlencoded" }],
+//         body = bytes_of("name=Ada&age=36"),
+//     };
+//
+//     response, _ := send(api, request);
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "Ada is 36");
+// }
+// ```
 Form :: struct(T: Type) {
     temporary: T;
 }
 
 // One request header, parsed as a `T`. A missing header is a 400; `Header_Optional` allows it.
+//
+// ```jai,skip_on(wasm)
+// count :: (count: Header("X-Count", int)) -> string {
+//     return tprint("%", count.value + 1);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/next", count);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/next", Header_Field.[.{ name = "X-Count", value = "41" }]);
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//     assert(text == "42");
+//
+//     missing, _ := get(api, "/next"); // a missing header is a 400
+//     defer close(*missing);
+//     assert(missing.status == 400);
+// }
+// ```
 Header :: struct(NAME: string, T: Type) {
     value: T;
 }
@@ -118,6 +257,35 @@ Header :: struct(NAME: string, T: Type) {
 // One request header that may be missing, parsed as a `T` when it is there. `present` says which; when it is false `value` is
 // the zero value. A header that is present but does not parse as `T` is still a 400. Strings point into the request and
 // last as long as it does.
+//
+// ```jai,skip_on(wasm)
+// trace :: (trace: Header_Optional("X-Trace", string)) -> string {
+//     return ifx trace.present then trace.value else "none";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/trace", trace);
+//
+//     api := test_client(*app);
+//
+//     without, _ := get(api, "/trace");
+//     defer close(*without);
+//
+//     text, _ := read_text(*without);
+//     defer free(text);
+//     assert(text == "none");
+//
+//     with, _ := get(api, "/trace", Header_Field.[.{ name = "X-Trace", value = "abc" }]);
+//     defer close(*with);
+//
+//     text2, _ := read_text(*with);
+//     defer free(text2);
+//     assert(text2 == "abc");
+// }
+// ```
 Header_Optional :: struct(NAME: string, T: Type) {
     value: T;
     present: bool;
@@ -126,6 +294,35 @@ Header_Optional :: struct(NAME: string, T: Type) {
 // The shared state set with `app.state = *my_state`. Take it as `*State(My_State)`; the fields
 // of `My_State` are reachable directly. The pointer is the state itself, not a copy: handlers on
 // several threads see the same memory, so guard what they change.
+//
+// ```jai,skip_on(wasm)
+// Counter :: struct {
+//     hits: int;
+// }
+//
+// bump :: (counter: *State(Counter)) -> string {
+//     counter.hits += 1; // the fields of the state are reachable directly
+//     return tprint("%", counter.hits);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     counter: Counter;
+//     app.state = *counter;
+//     get(*app, "/bump", bump);
+//
+//     api := test_client(*app);
+//
+//     first, _ := get(api, "/bump");
+//     close(*first);
+//     second, _ := get(api, "/bump");
+//     close(*second);
+//
+//     assert(counter.hits == 2);
+// }
+// ```
 State :: struct(T: Type) {
     using value: T;
 }

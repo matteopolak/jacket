@@ -30,6 +30,20 @@
 // `loc` is the caller's location; leave it out.
 
 // The RFC 9457 document the server sends for errors, as `expect_problem` decodes it.
+//
+// ```jai,skip_on(wasm)
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     api := test_client(*app);
+//     problem := expect_problem(get(api, "/missing"), 404, "no route for GET /missing");
+//
+//     assert(problem.title == "Not Found");
+//     assert(problem.status == 404);
+//     assert(problem.instance == "/missing");
+// }
+// ```
 Problem :: struct @json(default) {
     type: string;
     title: string;
@@ -533,6 +547,26 @@ Test_Case :: struct {
 // Runs the tests one after another on the calling thread, prints a line per test (and the
 // details of what failed), then a summary. Exits with status 1 when any expectation failed.
 // Clients made by `test_client` are released after each test.
+//
+// ```jai,skip_on(wasm)
+// adds_up :: () {
+//     expect_equal(1 + 1, 2, "addition");
+// }
+//
+// still_adds_up :: () {
+//     expect(2 * 3 == 6, "multiplication");
+// }
+//
+// main :: () {
+//     // Prints a line per test and a summary; exits with status 1 if a check failed.
+//     run_tests(.[
+//         .{ name = "adds up", run = adds_up },
+//         .{ name = "still adds up", run = still_adds_up },
+//     ]);
+//
+//     assert(test_failure_count() == 0);
+// }
+// ```
 run_tests :: (cases: [] Test_Case) {
     started := to_milliseconds(current_time_monotonic());
 
@@ -572,6 +606,20 @@ run_tests :: (cases: [] Test_Case) {
 // Collects the failure text that would be printed instead of printing it, and does not count the
 // failures against the run: for tests of the test tools themselves. `end_failure_capture`
 // returns the text and how many failures there were.
+//
+// ```jai,skip_on(wasm)
+// #import "String";
+//
+// main :: () {
+//     begin_failure_capture();
+//     expect(1 > 2, "one is bigger");
+//     text, count := end_failure_capture();
+//
+//     assert(count == 1);
+//     assert(find_index_from_left(text, "one is bigger") >= 0);
+//     assert(test_failure_count() == 0); // captured failures are not counted
+// }
+// ```
 begin_failure_capture :: () {
     test_state.capture = New(String_Builder);
     test_state.captured = 0;
@@ -603,6 +651,18 @@ end_failure_capture :: () -> string, int {
 }
 
 // Totals so far, for programs that run their own loop instead of `run_tests`.
+//
+// ```jai,skip_on(wasm)
+// main :: () {
+//     assert(test_failure_count() == 0);
+//
+//     begin_failure_capture();
+//     expect_equal(1, 2);
+//     end_failure_capture();
+//
+//     assert(test_failure_count() == 0); // captured failures do not count
+// }
+// ```
 test_failure_count :: () -> int {
     return test_state.failures;
 }

@@ -70,6 +70,28 @@ Test_Options :: struct {
 // A client for `app`. The app must stay alive and unchanged in its routes while the client is
 // used; its `state` pointer is yours to inspect between requests. The client belongs to the test
 // run (`run_tests` frees it afterwards); `free_test_client` releases one sooner.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app); // in memory: no socket
+//     defer free_test_client(api);
+//
+//     response, error := get(api, "/hello");
+//     assert(error.kind == .NONE);
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 test_client :: (app: *App, options := Test_Options.{}) -> *Client {
     target := New(Test_Target);
 
@@ -96,6 +118,27 @@ test_client :: (app: *App, options := Test_Options.{}) -> *Client {
 
 // Releases a client made by `test_client` before the test ends. `run_tests` frees the clients of a test by itself, so call this
 // only for a client that should not live until then. The client and its responses must not be used afterwards.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     assert(response.status == 200);
+//     close(*response); // responses first: they must not be used after the client is freed
+//
+//     free_test_client(api);
+// }
+// ```
 free_test_client :: (client: *Client) {
     for test_clients {
         if it == client {

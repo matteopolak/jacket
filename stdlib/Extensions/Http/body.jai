@@ -28,6 +28,28 @@
 
 // The body of the request being handled. Take it as a handler parameter (`body: *Body`); it is
 // valid until the handler returns.
+//
+// ```jai,skip_on(wasm)
+// declared :: (body: *Body) -> string {
+//     return tprint("%", body.content_length);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     post(*app, "/size", declared);
+//
+//     api := test_client(*app);
+//     response, _ := send(api, .{ method = .POST, url = "/size", body = bytes_of("abcd") });
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "4");
+// }
+// ```
 Body :: struct {
     // The length the client declared, or -1 when the body is chunked.
     content_length: s64 = -1;
@@ -38,6 +60,39 @@ Body :: struct {
 // within `config.body_timeout`. A body over the route's limit (`max_body`, else
 // `config.max_body_size`) is a 413, and a client that stops sending a 408; the error stays the
 // same on later calls.
+//
+// ```jai,skip_on(wasm)
+// count_bytes :: (body: *Body) -> string, Http_Error {
+//     buffer: [3] u8; // smaller than the body: it takes several reads
+//     total := 0;
+//
+//     while true {
+//         count, error := read(body, buffer);
+//         if error.kind != .NONE return "", error;
+//         if count == 0 break;
+//
+//         total += count;
+//     }
+//
+//     return tprint("%", total), .{};
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     post(*app, "/count", count_bytes);
+//
+//     api := test_client(*app);
+//     response, _ := send(api, .{ method = .POST, url = "/count", body = bytes_of("0123456789") });
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "10");
+// }
+// ```
 read :: (body: *Body, buffer: [] u8) -> int, Http_Error {
     frame := cast(*Body_Frame) body;
 
@@ -65,6 +120,31 @@ read :: (body: *Body, buffer: [] u8) -> int, Http_Error {
 // The rest of the body. The bytes live in the connection's own buffer and stay valid until the
 // response has been written; copy them to keep them longer. Read as `read`: over the limit is a
 // 413, and a declared length over the limit is refused without reading anything.
+//
+// ```jai,skip_on(wasm)
+// shout :: (body: *Body) -> string, Http_Error {
+//     bytes, error := read_all(body);
+//     if error.kind != .NONE return "", error;
+//
+//     return tprint("<%>", cast(string) bytes), .{};
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     post(*app, "/shout", shout);
+//
+//     api := test_client(*app);
+//     response, _ := send(api, .{ method = .POST, url = "/shout", body = bytes_of("hey") });
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "<hey>");
+// }
+// ```
 read_all :: (body: *Body) -> [] u8, Http_Error {
     frame := cast(*Body_Frame) body;
 
@@ -123,6 +203,36 @@ read_all :: (body: *Body) -> [] u8, Http_Error {
 //
 // The value is built in the temporary allocator, like everything a request decodes: strings and
 // arrays in it are gone once the response is written, so `copy_string` what you keep.
+//
+// ```jai,skip_on(wasm)
+// Point :: struct {
+//     x: int;
+//     y: int;
+// }
+//
+// sum :: (body: *Body) -> string, Http_Error {
+//     point, error := read_json(body, Point);
+//     if error.kind != .NONE return "", error;
+//
+//     return tprint("%", point.x + point.y), .{};
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     post(*app, "/sum", sum);
+//
+//     api := test_client(*app);
+//     response, _ := post(api, "/sum", Point.{ x = 3, y = 4 });
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "7");
+// }
+// ```
 read_json :: (body: *Body, $T: Type) -> T, Http_Error {
     frame := cast(*Body_Frame) body;
     request := frame.request;

@@ -43,6 +43,31 @@
 // application without a socket.
 
 // A request. Only `url` is needed; `.{ url = "http://..." }` is a GET.
+//
+// ```jai,skip_on(wasm)
+// who :: (id: Header("X-Id", int)) -> string {
+//     return tprint("%", id.value);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/who", who);
+//
+//     api := test_client(*app);
+//     request := Client_Request.{ url = "/who", headers = Header_Field.[.{ name = "X-Id", value = "7" }] };
+//     assert(request.method == .GET); // the default
+//
+//     response, _ := send(api, request);
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "7");
+// }
+// ```
 Client_Request :: struct {
     method := Method.GET;
 
@@ -68,9 +93,58 @@ Client_Request :: struct {
 }
 
 // Performs an HTTP/1.1 upgrade without redirects or replay, on the current Io fiber.
-// Example: reply, link, pending, error := client_upgrade(*api, url, headers).
 // On success the caller owns link and allocated pending bytes, and must close the reply too.
 // A rejected switch returns its response and a .STATUS error; no connection is handed out.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// handoff :: (link: Link, pending: [] u8, data: *void) {
+//     Io.write(link.writer, "ready"); // the server's side of the switched connection
+// }
+//
+// route :: () -> Response {
+//     return upgrade_response("example", handoff);
+// }
+//
+// main :: () {
+//     Io.io_run(() {
+//         app: App;
+//         defer free_app(*app);
+//
+//         get(*app, "/", route);
+//         api := test_client(*app);
+//
+//         headers := Header_Field.[.{ name = "Connection", value = "Upgrade" }, .{ name = "Upgrade", value = "example" }];
+//         reply, link, pending, error := client_upgrade(api, "http://localhost/", headers);
+//         assert(error.kind == .NONE && reply.status == 101);
+//
+//         defer close(*reply);
+//         defer close(link);
+//         defer free(pending.data);
+//
+//         // Bytes the server sent right behind its head come in `pending`; the rest is read from the link.
+//         builder: String_Builder;
+//         append(*builder, cast(string) pending);
+//
+//         buffer: [16] u8;
+//         total := pending.count;
+//
+//         while total < 5 {
+//             count, read_error := Io.read(link.reader, buffer);
+//             assert(read_error == .NONE && count > 0);
+//
+//             append(*builder, string.{ count, buffer.data });
+//             total += count;
+//         }
+//
+//         text := builder_to_string(*builder);
+//         defer free(text);
+//
+//         assert(text == "ready");
+//     });
+// }
+// ```
 client_upgrade :: (client: *Client, url_text: string, headers: [] Header_Field) -> Client_Response, Link, [] u8, Client_Error {
     if !Io.in_scheduler() return .{}, .{}, .[], client_error(.BODY, .NONE, "upgrades require an Io fiber");
 
@@ -126,6 +200,30 @@ client_upgrade :: (client: *Client, url_text: string, headers: [] Header_Field) 
 // keeps the response can still name the request.
 //
 // Copies of a response share one body: reading it through any copy reads it for all.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     assert(response.status == 200 && response.reason == "OK");
+//     assert(response.method == .GET && response.url == "/hello");
+//     assert(!response.http2);
+//
+//     type, found := find_header(response.headers, "Content-Type");
+//     assert(found && type.count > 0);
+// }
+// ```
 Client_Response :: struct {
     status: int;
     reason: string;
@@ -173,6 +271,16 @@ Client_Error_Kind :: enum u8 {
 // What the client returns when something went wrong. A handler's `Http_Error` is about answering
 // with a status; this is about not getting, or not reading, an answer. `error_text` makes one
 // line of it.
+//
+// ```jai,skip_on(wasm)
+// // A request that cannot be made is an error, and the response beside it is empty.
+// api: Client;
+// response, error := get(*api, "ftp://example.com/file");
+//
+// assert(error.kind == .INVALID_URL);
+// assert(error.detail.count > 0);
+// assert(response.status == 0);
+// ```
 Client_Error :: struct {
     kind: Client_Error_Kind;
     detail: string; // what happened
@@ -236,6 +344,17 @@ free_error :: (error: *Client_Error) {
 }
 
 // How a client reaches a server. Both procedures run on a fiber of the running scheduler.
+//
+// ```jai,skip_on(wasm)
+// plain: Client;
+// assert(plain.transport.open == null); // the default: TCP to the host in the URL
+//
+// app: App;
+// defer free_app(*app);
+//
+// api := test_client(*app);
+// assert(api.transport.open != null); // the app, in memory
+// ```
 Transport :: struct {
     // Passed to both procedures; connections made through one transport are only reused by it.
     data: *void;
@@ -249,6 +368,31 @@ Transport :: struct {
 }
 
 // What requests have in common.
+//
+// ```jai,skip_on(wasm)
+// who :: (token: Header("Authorization", string)) -> string {
+//     return token.value;
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/who", who);
+//
+//     api := test_client(*app);
+//     assert(api.timeout == 10_000 && api.max_redirects == 0); // what `test_client` sets: it does not follow redirects
+//     set_header(api, "Authorization", "Bearer abc"); // sent with every request
+//
+//     response, _ := get(api, "/who");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "Bearer abc");
+// }
+// ```
 Client :: struct {
     // Relative request URLs (`/users/1`) are joined to this: `"http://localhost:8080"`.
     base_url: string;
@@ -272,6 +416,31 @@ Client :: struct {
 
 // Pool settings, for the whole program. Idle connections are closed when they have waited
 // `idle_timeout` milliseconds or when more than `max_idle_per_host` pile up for one host.
+//
+// ```jai,skip_on(wasm)
+// agent :: (agent: Header("User-Agent", string)) -> string {
+//     return agent.value;
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/agent", agent);
+//
+//     client_settings.user_agent = "my-tool/1"; // for the whole program
+//     assert(client_settings.http2 && client_settings.max_idle_per_host == 8);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/agent");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "my-tool/1");
+// }
+// ```
 Client_Settings :: struct {
     max_idle_per_host := 8;
     idle_timeout := 30_000;
@@ -291,6 +460,18 @@ client_settings: Client_Settings;
 
 // A header sent with every request of `client` that does not set it: `set_header(*api,
 // "Authorization", "Bearer abc")`. Setting a name again replaces the value.
+//
+// ```jai,skip_on(wasm)
+// api: Client;
+//
+// set_header(*api, "Authorization", "Bearer abc");
+// set_header(*api, "authorization", "Bearer xyz"); // the same header: replaced
+//
+// assert(api.headers.count == 1);
+// assert(api.headers[0].value == "Bearer xyz");
+//
+// remove_header(*api, "Authorization");
+// ```
 set_header :: (client: *Client, name: string, value: string) {
     for client.headers {
         if equal_nocase(it.name, name) {
@@ -374,6 +555,26 @@ bytes_of :: (text: string) -> [] u8 {
 // fails while draining, is closed. With `now = true` nothing is drained: the connection is closed
 // at once, for code that cannot wait. Safe to call at any time and more than once (it leaves
 // `response` empty), so `defer close(*response)` is always right. After it the body cannot be read.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/hello");
+//
+//     close(*response);
+//     close(*response); // safe again: the response is empty now
+//     assert(response.status == 0);
+// }
+// ```
 close :: (response: *Client_Response, now := false) {
     if response.source {
         if now drop_connection(response.source);
@@ -449,6 +650,26 @@ send :: (client: *Client, request: Client_Request) -> Client_Response, Client_Er
 }
 
 // `GET` with no body.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//     response, error := get(api, "/hello", Header_Field.[.{ name = "Accept", value = "text/plain" }]);
+//     assert(error.kind == .NONE);
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 get :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send(client, .{ method = .GET, url = url, headers = headers });
 }
@@ -505,12 +726,59 @@ options :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Cli
 }
 
 // `DELETE` with no body.
+//
+// ```jai,skip_on(wasm)
+// discard :: (id: Path("id", int)) -> Response {
+//     return status_only(204);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     delete(*app, "/items/{id}", discard);
+//
+//     api := test_client(*app);
+//     response, _ := delete(api, "/items/7");
+//     defer close(*response);
+//
+//     assert(response.status == 204);
+// }
+// ```
 delete :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send(client, .{ method = .DELETE, url = url, headers = headers });
 }
 
 // `POST` with `value` as a JSON body (`Content-Type: application/json`); a struct, array or
 // string is encoded with `Extensions/Json`. A request with any other body is a [send].
+//
+// ```jai,skip_on(wasm)
+// #import "String";
+//
+// Item :: struct {
+//     name: string;
+// }
+//
+// kind :: (type: Header("Content-Type", string)) -> string {
+//     return type.value;
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     post(*app, "/kind", kind);
+//
+//     api := test_client(*app);
+//     response, _ := post(api, "/kind", Item.{ name = "pen" });
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(begins_with(text, "application/json"));
+// }
+// ```
 post :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send_with_json(client, .POST, url, value, headers);
 }
@@ -688,6 +956,36 @@ read_bytes :: (response: *Client_Response) -> [] u8, Client_Error {
 // `Io.read_json` over the response's body, so the body is decoded as it arrives; the limit of
 // `max_response_size` and the read-once rule are the same as for `read_text`. Strings in the
 // value are from the context allocator; `free_json` releases them.
+//
+// ```jai,skip_on(wasm)
+// #import "Extensions/Json";
+//
+// User :: struct {
+//     id: int;
+//     name: string;
+// }
+//
+// ada :: () -> User {
+//     return .{ id = 1, name = "Ada" };
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/user", ada);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/user");
+//     defer close(*response);
+//
+//     user, error := read_json(*response, User);
+//     assert(error.kind == .NONE);
+//     defer free_json(*user);
+//
+//     assert(user.id == 1 && user.name == "Ada");
+// }
+// ```
 read_json :: (response: *Client_Response, $T: Type) -> T, Client_Error {
     status := response.status;
     source, error := readable(response);
@@ -729,6 +1027,30 @@ read_json :: (response: *Client_Response, $T: Type) -> T, Client_Error {
 // The body of a response as an `Io.Reader`, for `read_json`: each read is a `read_some` that stops
 // at the request's `max_response_size` and keeps the client error it ran into, which the reader
 // can only report as an `Io_Error`.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     reader := Body_Reader.{ response = *response, source = response.source };
+//     buffer: [16] u8;
+//
+//     count, _ := body_read_proc(*reader, buffer);
+//     assert(count == 5 && reader.total == 5);
+//     assert(reader.failure.kind == .NONE);
+// }
+// ```
 Body_Reader :: struct {
     response: *Client_Response;
     source: *Body_Source;
@@ -738,6 +1060,32 @@ Body_Reader :: struct {
 
 // The `Io.Reader` read procedure over a response body: it reads through `read_some`, stops at the request's
 // `max_response_size`, and keeps the client error it ran into in the `Body_Reader` (it can report only an `Io_Error`).
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     reader := Body_Reader.{ response = *response, source = response.source };
+//     buffer: [16] u8;
+//
+//     count, error := body_read_proc(*reader, buffer);
+//     assert(error == .NONE && string.{ count, buffer.data } == "hello");
+//
+//     count, error = body_read_proc(*reader, buffer); // the end of the body
+//     assert(error == .NONE && count == 0);
+// }
+// ```
 body_read_proc :: (data: *void, buffer: [] u8) -> s64, Io.Io_Error {
     body := cast(*Body_Reader) data;
 
@@ -925,6 +1273,17 @@ error_for_status :: (response: *Client_Response) -> Client_Error {
 
 // Closes every idle connection of the running scheduler, HTTP/2 ones included (they are also closed when it
 // ends). It returns once they are closed, so a TLS config they used may be freed after it.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         close_idle_connections(); // nothing is pooled yet: nothing to close
+//         assert(http_statistics().idle_connections == 0);
+//     });
+// }
+// ```
 close_idle_connections :: () {
     pool := client_pool();
 
@@ -977,6 +1336,20 @@ release_tls_config :: (config: *Tls.Tls_Config) {
 
 // What the running scheduler's pools hold right now, for tests and diagnostics (nothing here is
 // needed to use the module). Call it on a scheduler: inside `Io.io_run` or a test client call.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         statistics := http_statistics();
+//
+//         assert(statistics.open_responses == 0);
+//         assert(statistics.read_buffers_in_use == 0);
+//         assert(statistics.connections_opened == 0);
+//     });
+// }
+// ```
 Http_Statistics :: struct {
     read_buffers_in_use: int; // server read buffers held by connections that are reading a request
     read_buffers_free: int; // read buffers kept for reuse (a connection between requests holds none)

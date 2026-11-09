@@ -3,6 +3,14 @@
 
 // One decoded `name=value` of a query string or a form, or one path parameter. The same type
 // `Extensions/Json` decodes typed values from.
+//
+// ```jai,skip_on(wasm)
+// pairs := parse_query("a=1&b=two%20words");
+//
+// first: Pair = pairs[0];
+// assert(first.key == "a" && first.value == "1");
+// assert(pairs[1].value == "two words");
+// ```
 Pair :: Query_Pair;
 
 // Decodes `%XX` escapes (and `+` as a space when `plus_is_space`, which forms and queries use but
@@ -126,6 +134,16 @@ percent_encode :: (text: string) -> string {
 
 // The parts of an `http://host:port/path?query` (or `https://`) URL. All strings point into the
 // text given to `parse_url`.
+//
+// ```jai,skip_on(wasm)
+// url, problem := parse_url("https://example.com:8443/a/b?x=1");
+// assert(problem == .NONE);
+//
+// assert(url.scheme == "https" && url.secure);
+// assert(url.host == "example.com" && url.port == 8443);
+// assert(url.target == "/a/b?x=1");
+// assert(url.path == "/a/b" && url.query == "x=1");
+// ```
 Url :: struct {
     scheme: string;
     secure: bool; // `https`
@@ -138,6 +156,20 @@ Url :: struct {
 }
 
 // Why [parse_url] refused a text, with `.NONE` for success.
+//
+// ```jai,skip_on(wasm)
+// _, problem := parse_url("example.com/path");
+// assert(problem == .NOT_A_URL);
+//
+// _, problem = parse_url("ftp://example.com/");
+// assert(problem == .UNSUPPORTED_SCHEME);
+//
+// _, problem = parse_url("http:///path");
+// assert(problem == .NO_HOST);
+//
+// _, problem = parse_url("http://example.com:99999/");
+// assert(problem == .BAD_PORT);
+// ```
 Url_Problem :: enum u8 {
     NONE;
     NOT_A_URL; // no `scheme://`
@@ -266,6 +298,14 @@ parse_url :: (text: string) -> Url, Url_Problem {
 }
 
 // The port a URL without one means.
+//
+// ```jai,skip_on(wasm)
+// url, _ := parse_url("https://example.com/");
+// assert(url.port == 443 && default_port(url) == 443);
+//
+// plain, _ := parse_url("http://example.com:8080/");
+// assert(plain.port == 8080 && default_port(plain) == 80);
+// ```
 default_port :: (url: Url) -> u16 {
     return ifx url.secure then cast(u16) 443 else 80;
 }

@@ -1,5 +1,13 @@
 // A scheduler-bound, HTTP/2-only connection scope. Keep it and its TLS config
 // alive until all exchanges and close_http2_channel have completed.
+//
+// ```jai,skip_on(wasm)
+// channel: Http2_Channel;
+// channel.base_url = "https://example.com";
+//
+// assert(channel.max_connections == 8);
+// assert(channel.active_exchanges == 0);
+// ```
 Http2_Channel :: struct {
     base_url: string;
     tls: *Tls.Tls_Config;
@@ -11,6 +19,12 @@ Http2_Channel :: struct {
 
 // Opaque independently readable/writable stream. One reader and one writer may
 // run concurrently on the same Io scheduler. Release with close_exchange.
+//
+// ```jai,skip_on(wasm)
+// exchange: Http2_Exchange; // a handle that holds no stream
+// assert(exchange.state == null);
+// assert(exchange_cancelled(*exchange));
+// ```
 Http2_Exchange :: struct {
     state: *void;
 }
@@ -149,7 +163,12 @@ accept_http2_exchange :: (request: *Request, headers: [] Header_Field, status :=
 // Replaces deferred server response fields before the first write or finish.
 // Fields are copied; caller storage may be released when this returns. Returns
 // false for a client, committed response, concurrent writer or invalid fields.
-// Example: `assert(exchange_response_headers(*exchange, headers));`.
+//
+// ```jai,skip_on(wasm)
+// // Without a server-side exchange there is nothing to replace.
+// exchange: Http2_Exchange;
+// assert(!exchange_response_headers(*exchange, Header_Field.[.{ name = "x-selected", value = "a" }]));
+// ```
 exchange_response_headers :: (exchange: *Http2_Exchange, headers: [] Header_Field) -> bool {
     state := cast(*H2_Exchange_State) exchange.state;
     if !state || state.stream.conn.role != .SERVER || !state.head_pending || state.writing || h2_exchange_failed(state.stream) || !h2_response_fields_ok(headers) return false;
@@ -159,6 +178,15 @@ exchange_response_headers :: (exchange: *Http2_Exchange, headers: [] Header_Fiel
 
 // Waits for initial response headers. The returned fields borrow exchange storage.
 // Byte EOF and status 200 alone do not establish application-protocol success.
+//
+// ```jai,skip_on(wasm)
+// // A handle that holds no stream has no head to wait for.
+// exchange: Http2_Exchange;
+// status, fields, failure := exchange_head(*exchange);
+//
+// assert(status == 0 && fields.count == 0);
+// assert(failure.kind == .TRANSPORT && failure.detail == "exchange is closed");
+// ```
 exchange_head :: (exchange: *Http2_Exchange) -> status: int, fields: [] Header_Field, failure: Client_Error {
     state := cast(*H2_Exchange_State) exchange.state;
     if !state return 0, .[], client_error(.TRANSPORT, .OTHER, "exchange is closed");
@@ -179,6 +207,11 @@ exchange_head :: (exchange: *Http2_Exchange) -> status: int, fields: [] Header_F
 
 // Whether the initial response block itself ended the peer's send direction.
 // This fact remains stable when later DATA or terminal trailers arrive.
+//
+// ```jai,skip_on(wasm)
+// exchange: Http2_Exchange;
+// assert(!exchange_head_ended(*exchange)); // no head has arrived
+// ```
 exchange_head_ended :: (exchange: *Http2_Exchange) -> bool {
     state := cast(*H2_Exchange_State) exchange.state;
     return state && state.stream.has_head && state.stream.head_ended;
@@ -186,6 +219,11 @@ exchange_head_ended :: (exchange: *Http2_Exchange) -> bool {
 
 // Whether the peer completed a valid response without a stream reset. Upload
 // may already have been stopped; callers can still read its final bytes/trailers.
+//
+// ```jai,skip_on(wasm)
+// exchange: Http2_Exchange;
+// assert(!exchange_response_ended(*exchange)); // no response has completed
+// ```
 exchange_response_ended :: (exchange: *Http2_Exchange) -> bool {
     state := cast(*H2_Exchange_State) exchange.state;
     return state && state.stream.conn.role == .CLIENT && state.stream.remote_ended && !h2_exchange_failed(state.stream);
@@ -193,6 +231,14 @@ exchange_response_ended :: (exchange: *Http2_Exchange) -> bool {
 
 // Sends bytes, borrowing them until this returns. Half-close sends an empty
 // END_STREAM when bytes are empty. Calls are never automatically replayed.
+//
+// ```jai,skip_on(wasm)
+// // A closed handle refuses to write.
+// exchange: Http2_Exchange;
+// failure := exchange_write(*exchange, bytes_of("ping"));
+//
+// assert(failure.kind == .TRANSPORT && failure.detail == "exchange is closed");
+// ```
 exchange_write :: (exchange: *Http2_Exchange, bytes: [] u8, end_stream := false) -> Client_Error {
     state := cast(*H2_Exchange_State) exchange.state;
     if !state return client_error(.TRANSPORT, .OTHER, "exchange is closed");
@@ -208,6 +254,16 @@ exchange_write :: (exchange: *Http2_Exchange, bytes: [] u8, end_stream := false)
 
 // Reads into caller memory. Zero bytes with no error means validated byte EOF.
 // Window credit follows bytes consumed; no background message queue is created.
+//
+// ```jai,skip_on(wasm)
+// // A closed handle has nothing to read.
+// exchange: Http2_Exchange;
+// buffer: [16] u8;
+// count, failure := exchange_read(*exchange, buffer);
+//
+// assert(count == 0);
+// assert(failure.kind == .TRANSPORT && failure.detail == "exchange is closed");
+// ```
 exchange_read :: (exchange: *Http2_Exchange, buffer: [] u8) -> count: int, failure: Client_Error {
     state := cast(*H2_Exchange_State) exchange.state;
     if !state return 0, client_error(.TRANSPORT, .OTHER, "exchange is closed");
@@ -256,6 +312,13 @@ exchange_read :: (exchange: *Http2_Exchange, buffer: [] u8) -> count: int, failu
 
 // Returns terminal fields after exchange_read reports EOF. Storage lives until
 // close_exchange; an empty field list can still be complete.
+//
+// ```jai,skip_on(wasm)
+// exchange: Http2_Exchange;
+// fields, complete := exchange_trailers(*exchange);
+//
+// assert(fields.count == 0 && !complete); // not complete: the body was not read to its end
+// ```
 exchange_trailers :: (exchange: *Http2_Exchange) -> fields: [] Header_Field, complete: bool {
     state := cast(*H2_Exchange_State) exchange.state;
     if !state || !state.read_eof || h2_exchange_failed(state.stream) return .[], false;
@@ -263,6 +326,11 @@ exchange_trailers :: (exchange: *Http2_Exchange) -> fields: [] Header_Field, com
 }
 
 // Ends server output with terminal fields. No DATA may follow this operation.
+//
+// ```jai,skip_on(wasm)
+// exchange: Http2_Exchange;
+// assert(!exchange_finish(*exchange, Header_Field.[.{ name = "grpc-status", value = "0" }]));
+// ```
 exchange_finish :: (exchange: *Http2_Exchange, fields: [] Header_Field) -> bool {
     state := cast(*H2_Exchange_State) exchange.state;
     if !state || state.writing return false;
@@ -279,6 +347,12 @@ exchange_finish :: (exchange: *Http2_Exchange, fields: [] Header_Field) -> bool 
 
 // Cancels the stream and wakes blocked operations. Does not release the handle;
 // wait for its reader/writer fibers before close_exchange.
+//
+// ```jai,skip_on(wasm)
+// exchange: Http2_Exchange;
+// exchange_cancel(*exchange); // a handle with no stream: nothing to cancel
+// assert(exchange_cancelled(*exchange));
+// ```
 exchange_cancel :: (exchange: *Http2_Exchange) {
     state := cast(*H2_Exchange_State) exchange.state;
     if state h2_reset_stream(state.stream.conn, state.stream, .CANCEL);
@@ -286,6 +360,11 @@ exchange_cancel :: (exchange: *Http2_Exchange) {
 
 // Whether a reset or incomplete connection failure has terminated this exchange.
 // Safe to poll from cooperative server work on the owning scheduler.
+//
+// ```jai,skip_on(wasm)
+// exchange: Http2_Exchange;
+// assert(exchange_cancelled(*exchange)); // an exchange that is closed counts as cancelled
+// ```
 exchange_cancelled :: (exchange: *Http2_Exchange) -> bool {
     state := cast(*H2_Exchange_State) exchange.state;
     return !state || h2_exchange_failed(state.stream);
@@ -293,6 +372,13 @@ exchange_cancelled :: (exchange: *Http2_Exchange) -> bool {
 
 // Failure classification returned by exchange_terminal; NONE leaves application
 // completion to the received message and trailers.
+//
+// ```jai,skip_on(wasm)
+// kinds := Http2_Terminal_Kind.[.NONE, .RESET, .GOAWAY, .CONNECTION];
+//
+// exchange: Http2_Exchange;
+// assert(exchange_terminal(*exchange).kind == kinds[3]); // a closed handle: the connection is gone
+// ```
 Http2_Terminal_Kind :: enum u8 {
     NONE;
     RESET;
@@ -302,6 +388,14 @@ Http2_Terminal_Kind :: enum u8 {
 
 // Transport failure facts for status mapping and diagnostics. not_processed
 // records an explicit peer refusal; callers must never infer automatic replay.
+//
+// ```jai,skip_on(wasm)
+// exchange: Http2_Exchange;
+// terminal := exchange_terminal(*exchange);
+//
+// assert(terminal.kind == .CONNECTION);
+// assert(terminal.code == 0 && !terminal.not_processed);
+// ```
 Http2_Terminal :: struct {
     kind: Http2_Terminal_Kind;
     code: u32;
@@ -310,6 +404,11 @@ Http2_Terminal :: struct {
 
 // Exposes protocol failure facts without exposing the private stream. GOAWAY's
 // accepted streams may continue; only refused or failed streams are terminal.
+//
+// ```jai,skip_on(wasm)
+// exchange: Http2_Exchange;
+// assert(exchange_terminal(*exchange).kind == .CONNECTION);
+// ```
 exchange_terminal :: (exchange: *Http2_Exchange) -> Http2_Terminal {
     state := cast(*H2_Exchange_State) exchange.state;
     if !state return .{ kind = .CONNECTION };
@@ -330,6 +429,14 @@ exchange_terminal :: (exchange: *Http2_Exchange) -> Http2_Terminal {
 
 // Releases an exchange; unfinished directions are reset. Readers and writers
 // must have returned first. Calling again on the cleared handle is safe.
+//
+// ```jai,skip_on(wasm)
+// exchange: Http2_Exchange;
+//
+// close_exchange(*exchange);
+// close_exchange(*exchange); // safe again on the cleared handle
+// assert(exchange.state == null);
+// ```
 close_exchange :: (exchange: *Http2_Exchange) {
     state := cast(*H2_Exchange_State) exchange.state;
     if !state return;
@@ -356,6 +463,21 @@ close_exchange :: (exchange: *Http2_Exchange) {
 
 // Closes this scope's connections and waits for TLS links to stop using their
 // configuration. First close all its exchanges. Does not touch other channels.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         channel: Http2_Channel;
+//         channel.base_url = "https://example.com";
+//
+//         // Every exchange is closed first; a channel that opened none has nothing to close.
+//         close_http2_channel(*channel);
+//         assert(channel.active_exchanges == 0);
+//     });
+// }
+// ```
 close_http2_channel :: (channel: *Http2_Channel) {
     assert(channel.active_exchanges == 0, "close every exchange before its channel");
     pool := client_pool();

@@ -151,6 +151,23 @@ App :: struct {
 }
 
 // Releases what the app owns after servers and requests have stopped using it.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//
+//     get(*app, "/hello", hello);
+//     group(*app, "/admin");
+//     assert(app.groups.count == 1);
+//
+//     free_app(*app);
+//     assert(app.groups.count == 0 && app.setup_errors.count == 0);
+// }
+// ```
 free_app :: (app: *App) {
     router_free(*app.router);
 
@@ -215,6 +232,17 @@ shutdown :: (app: *App) {
 
 // A prefix and middleware shared by the routes registered through it. The prefix is part of the
 // type, so a handler's `Path("org", ...)` is checked against the whole route, prefix included.
+//
+// ```jai,skip_on(wasm)
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     v1 := group(*app, "/v1");
+//     assert(v1.app == *app);
+//     assert(v1.middleware.count == 0);
+// }
+// ```
 Group :: struct(PREFIX: string) {
     app: *App;
     middleware: [..] Middleware;
@@ -270,6 +298,30 @@ group :: (app: *App, $prefix: string, middleware: ..Middleware) -> *Group(prefix
 
 // A group nested in `parent`: its prefix is the parent's followed by `prefix`, and its middleware are the parent's followed by
 // `middleware`. Like any group it belongs to the app and is not freed by the caller.
+//
+// ```jai,skip_on(wasm)
+// show :: (id: Path("id", int)) -> string {
+//     return tprint("user %", id.value);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     v1 := group(*app, "/v1");
+//     users := group(v1, "/users");
+//     get(users, "/{id}", show); // GET /v1/users/{id}
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/v1/users/4");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "user 4");
+// }
+// ```
 group :: (parent: *Group($P), $prefix: string, middleware: ..Middleware) -> *Group(#run join_template(P, prefix)) {
     created := New(Group(#run join_template(P, prefix)));
 
@@ -357,6 +409,26 @@ get :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #call
 }
 
 // The `get` for a route under a group's prefix.
+//
+// ```jai,skip_on(wasm)
+// ok :: () -> string {
+//     return "ok";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     admin := group(*app, "/admin");
+//     get(admin, "/thing", ok); // GET /admin/thing
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/admin/thing");
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 get :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
     add_route(group.app, group.middleware, .GET, P, template, handler, max_body, loc);
 }
@@ -394,6 +466,26 @@ post :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #cal
 }
 
 // The `post` for a route under a group's prefix.
+//
+// ```jai,skip_on(wasm)
+// ok :: () -> string {
+//     return "ok";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     admin := group(*app, "/admin");
+//     post(admin, "/thing", ok); // POST /admin/thing
+//
+//     api := test_client(*app);
+//     response, _ := post(api, "/admin/thing");
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 post :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
     add_route(group.app, group.middleware, .POST, P, template, handler, max_body, loc);
 }
@@ -426,6 +518,26 @@ put :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #call
 }
 
 // The `put` for a route under a group's prefix.
+//
+// ```jai,skip_on(wasm)
+// ok :: () -> string {
+//     return "ok";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     admin := group(*app, "/admin");
+//     put(admin, "/thing", ok); // PUT /admin/thing
+//
+//     api := test_client(*app);
+//     response, _ := put(api, "/admin/thing", "value");
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 put :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
     add_route(group.app, group.middleware, .PUT, P, template, handler, max_body, loc);
 }
@@ -456,6 +568,26 @@ patch :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #ca
 }
 
 // The `patch` for a route under a group's prefix.
+//
+// ```jai,skip_on(wasm)
+// ok :: () -> string {
+//     return "ok";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     admin := group(*app, "/admin");
+//     patch(admin, "/thing", ok); // PATCH /admin/thing
+//
+//     api := test_client(*app);
+//     response, _ := patch(api, "/admin/thing", "value");
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 patch :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
     add_route(group.app, group.middleware, .PATCH, P, template, handler, max_body, loc);
 }
@@ -486,6 +618,26 @@ delete :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #c
 }
 
 // The `delete` for a route under a group's prefix.
+//
+// ```jai,skip_on(wasm)
+// ok :: () -> string {
+//     return "ok";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     admin := group(*app, "/admin");
+//     delete(admin, "/thing", ok); // DELETE /admin/thing
+//
+//     api := test_client(*app);
+//     response, _ := delete(api, "/admin/thing");
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 delete :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
     add_route(group.app, group.middleware, .DELETE, P, template, handler, max_body, loc);
 }
@@ -520,6 +672,26 @@ head :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #cal
 }
 
 // The `head` for a route under a group's prefix.
+//
+// ```jai,skip_on(wasm)
+// ok :: () -> string {
+//     return "ok";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     admin := group(*app, "/admin");
+//     head(admin, "/thing", ok); // HEAD /admin/thing
+//
+//     api := test_client(*app);
+//     response, _ := head(api, "/admin/thing");
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 head :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
     add_route(group.app, group.middleware, .HEAD, P, template, handler, max_body, loc);
 }
@@ -552,6 +724,26 @@ options :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #
 }
 
 // The `options` for a route under a group's prefix.
+//
+// ```jai,skip_on(wasm)
+// ok :: () -> string {
+//     return "ok";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     admin := group(*app, "/admin");
+//     options(admin, "/thing", ok); // OPTIONS /admin/thing
+//
+//     api := test_client(*app);
+//     response, _ := options(api, "/admin/thing");
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 options :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
     add_route(group.app, group.middleware, .OPTIONS, P, template, handler, max_body, loc);
 }

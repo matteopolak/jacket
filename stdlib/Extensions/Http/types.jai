@@ -48,6 +48,13 @@ method_name :: (method: Method) -> string {
 }
 
 // The Method for a token (case-sensitive: method names are). Unknown tokens are .OTHER.
+//
+// ```jai
+// assert(parse_method("GET") == .GET);
+// assert(parse_method("PATCH") == .PATCH);
+// assert(parse_method("PURGE") == .OTHER); // not one the codec knows
+// assert(parse_method("get") == .OTHER); // case-sensitive
+// ```
 parse_method :: (text: string) -> Method {
     if text == {
         case "GET"; return .GET;
@@ -66,6 +73,20 @@ parse_method :: (text: string) -> Method {
 
 // The HTTP versions the codec speaks: `HTTP_1_0` and `HTTP_1_1`. Anything else in a start line is refused as
 // `.VERSION_NOT_SUPPORTED` (or `.BAD_VERSION` when it is not shaped like a version).
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+//
+// text := "GET / HTTP/1.0\r\n\r\n";
+// _, event := parse(*parser, .{ text.count, text.data });
+//
+// assert(event.kind == .HEAD);
+// assert(parser.head.version == .HTTP_1_0);
+// assert(version_name(parser.head.version) == "HTTP/1.0");
+// assert(!parser.head.keep_alive); // HTTP/1.0 closes unless asked to keep the connection
+// ```
 Version :: enum u8 {
     HTTP_1_0;
     HTTP_1_1;
@@ -84,6 +105,26 @@ version_name :: (version: Version) -> string {
 }
 
 // What shape the request target has (RFC 9112 3.2).
+//
+// ```jai
+// form_of :: (text: string, kind: Parser_Kind = .REQUEST) -> Target_Form {
+//     parser: Parser;
+//     parser_init(*parser, kind);
+//     defer parser_free(*parser);
+//
+//     parse(*parser, .{ text.count, text.data });
+//
+//     return parser.head.target_form;
+// }
+//
+// main :: () {
+//     assert(form_of("GET /users?id=7 HTTP/1.1\r\nHost: a\r\n\r\n") == .ORIGIN);
+//     assert(form_of("GET http://a/users HTTP/1.1\r\nHost: a\r\n\r\n") == .ABSOLUTE);
+//     assert(form_of("CONNECT a:443 HTTP/1.1\r\nHost: a:443\r\n\r\n") == .AUTHORITY);
+//     assert(form_of("OPTIONS * HTTP/1.1\r\nHost: a\r\n\r\n") == .ASTERISK);
+//     assert(form_of("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n", .RESPONSE) == .NONE);
+// }
+// ```
 Target_Form :: enum u8 {
     NONE; // a response
     ORIGIN; // /path?query
@@ -93,6 +134,25 @@ Target_Form :: enum u8 {
 }
 
 // How a message body is delimited.
+//
+// ```jai
+// body_of :: (text: string, kind: Parser_Kind = .REQUEST) -> Body_Kind {
+//     parser: Parser;
+//     parser_init(*parser, kind);
+//     defer parser_free(*parser);
+//
+//     parse(*parser, .{ text.count, text.data });
+//
+//     return parser.head.body;
+// }
+//
+// main :: () {
+//     assert(body_of("GET / HTTP/1.1\r\nHost: a\r\n\r\n") == .NONE);
+//     assert(body_of("POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 2\r\n\r\nhi") == .LENGTH);
+//     assert(body_of("POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n") == .CHUNKED);
+//     assert(body_of("HTTP/1.1 200 OK\r\n\r\nhi", .RESPONSE) == .UNTIL_CLOSE);
+// }
+// ```
 Body_Kind :: enum u8 {
     NONE;
     LENGTH; // Content-Length bytes
@@ -102,6 +162,20 @@ Body_Kind :: enum u8 {
 
 // Well-known header names. Parsed headers carry the id so code can compare an enum instead of
 // strings; HEADER_NAMES holds the canonical spelling the writers use.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+//
+// text := "GET / HTTP/1.1\r\nHost: example.com\r\nX-Mine: 1\r\n\r\n";
+// parse(*parser, .{ text.count, text.data });
+//
+// headers := parser.head.headers;
+// assert(headers[0].id == .HOST); // a well-known name: compare the id, not the text
+// assert(headers[1].id == .UNKNOWN);
+// assert(header_name_string(.HOST) == "Host");
+// ```
 Header_Name :: enum u8 {
     UNKNOWN;
     ACCEPT;
@@ -252,6 +326,14 @@ HEADER_NAMES :: string.[
 ];
 
 // The number of entries in `Header_Name`, `.UNKNOWN` included. Use it to size a table indexed by header id.
+//
+// ```jai
+// seen: [HEADER_NAME_COUNT] bool; // one slot per header id, `.UNKNOWN` included
+//
+// seen[cast(int) Header_Name.HOST] = true;
+// assert(seen.count == HEADER_NAME_COUNT);
+// assert(header_name_string(.UNKNOWN) == "");
+// ```
 HEADER_NAME_COUNT :: HEADER_NAMES.count;
 
 #assert HEADER_NAME_COUNT == 71;
@@ -316,6 +398,12 @@ header_table :: #run make_header_table();
 #scope_export
 
 // The id of a well-known header name, matched without regard to case; .UNKNOWN otherwise.
+//
+// ```jai
+// assert(lookup_header_name("Content-Type") == .CONTENT_TYPE);
+// assert(lookup_header_name("content-type") == .CONTENT_TYPE); // any case
+// assert(lookup_header_name("X-Mine") == .UNKNOWN);
+// ```
 lookup_header_name :: (name: string) -> Header_Name {
     if name.count < 2 || name.count > 32 return .UNKNOWN;
 
@@ -339,6 +427,14 @@ lookup_header_name :: (name: string) -> Header_Name {
 // One header field line. `name` keeps the spelling on the wire; `id` says which well-known
 // header it is (.UNKNOWN for others). `value` has no leading or trailing blanks. Strings of a
 // parsed head point into the parser's buffer.
+//
+// ```jai
+// field := Header_Field.{ name = "content-length", value = "12" };
+//
+// assert(field.id == .UNKNOWN); // set by whoever knows it: the parser, or `lookup_header_name`
+// field.id = lookup_header_name(field.name);
+// assert(field.id == .CONTENT_LENGTH);
+// ```
 Header_Field :: struct {
     name: string;
     value: string;
@@ -346,6 +442,19 @@ Header_Field :: struct {
 }
 
 // The first header called `name` (any case); `found` says whether there was one.
+//
+// ```jai
+// headers := Header_Field.[
+//     .{ name = "Host", value = "example.com" },
+//     .{ name = "X-Mine", value = "1" },
+// ];
+//
+// value, found := find_header(headers, "host"); // any case
+// assert(found && value == "example.com");
+//
+// _, found = find_header(headers, "Accept");
+// assert(!found);
+// ```
 find_header :: (headers: [] Header_Field, name: string) -> value: string, found: bool {
     id := lookup_header_name(name);
 
@@ -385,6 +494,13 @@ find_header :: (headers: [] Header_Field, id: Header_Name) -> value: string, fou
 
 // True when a comma-separated header value (Connection, Upgrade, Accept-Encoding...) lists
 // `token`, compared without regard to case. Parameters after `;` are ignored.
+//
+// ```jai
+// assert(has_token("keep-alive, Upgrade", "upgrade")); // any case
+// assert(has_token("gzip;q=0.5, br", "gzip")); // parameters are ignored
+// assert(!has_token("keep-alive", "close"));
+// assert(!has_token("upgrades", "upgrade")); // whole tokens only
+// ```
 has_token :: (value: string, token: string) -> bool {
     i := 0;
 
@@ -465,6 +581,19 @@ Parse_Error_Kind :: enum u8 {
 }
 
 // Why parsing stopped. `message` is a static string.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+//
+// text := "GET / HTTP/1.1\r\nHost: a\r\nHost: b\r\n\r\n";
+// _, event := parse(*parser, .{ text.count, text.data });
+//
+// assert(event.kind == .ERROR);
+// assert(parser.error.kind == .DUPLICATE_HOST);
+// assert(parser.error.message.count > 0);
+// ```
 Parse_Error :: struct {
     kind: Parse_Error_Kind;
     message: string;
@@ -472,6 +601,13 @@ Parse_Error :: struct {
 }
 
 // The status code a server answers with for an error kind.
+//
+// ```jai
+// assert(error_status(.BAD_METHOD) == 400);
+// assert(error_status(.URI_TOO_LONG) == 414);
+// assert(error_status(.TOO_MANY_HEADERS) == 431);
+// assert(error_status(.VERSION_NOT_SUPPORTED) == 505);
+// ```
 error_status :: (kind: Parse_Error_Kind) -> int {
     if kind == {
         case .NONE; return 200;
@@ -490,6 +626,21 @@ error_status :: (kind: Parse_Error_Kind) -> int {
 
 // Limits on what the parser accepts. A message over a limit is refused with the kind that maps to
 // the status the limit names.
+//
+// ```jai
+// limits := Limits.{ max_headers = 1 }; // everything else keeps its default
+// assert(limits.max_line_size == 8192);
+//
+// parser: Parser;
+// parser_init(*parser, .REQUEST, limits);
+// defer parser_free(*parser);
+//
+// text := "GET / HTTP/1.1\r\nHost: a\r\nAccept: */*\r\n\r\n";
+// _, event := parse(*parser, .{ text.count, text.data });
+//
+// assert(event.kind == .ERROR);
+// assert(parser.error.kind == .TOO_MANY_HEADERS);
+// ```
 Limits :: struct {
     max_line_size := 8192; // the request line (414) or one header line (431), bytes, CRLF excluded
     max_head_size := 65536; // the request line and headers together (431)
@@ -502,6 +653,18 @@ Limits :: struct {
 }
 
 // Whether a `Parser` reads requests (as a server does) or responses (as a client does). Set once by `parser_init`.
+//
+// ```jai
+// requests: Parser;
+// parser_init(*requests, .REQUEST);
+// defer parser_free(*requests);
+//
+// responses: Parser;
+// parser_init(*responses, .RESPONSE);
+// defer parser_free(*responses);
+//
+// assert(requests.kind == .REQUEST && responses.kind == .RESPONSE);
+// ```
 Parser_Kind :: enum u8 {
     REQUEST;
     RESPONSE;
@@ -509,6 +672,24 @@ Parser_Kind :: enum u8 {
 
 // The head of a message, filled in when the HEAD event is returned and valid until the next
 // message's head begins.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .RESPONSE);
+// defer parser_free(*parser);
+//
+// text := "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nX-Mine: 1\r\n\r\n";
+// _, event := parse(*parser, .{ text.count, text.data });
+//
+// head := parser.head;
+// assert(event.kind == .HEAD);
+// assert(head.status == 404 && head.reason == "Not Found");
+// assert(head.version == .HTTP_1_1 && head.keep_alive);
+// assert(head.body == .NONE);
+//
+// value, found := find_header(head.headers, "x-mine");
+// assert(found && value == "1");
+// ```
 Head :: struct {
     // Requests
     method: Method;
@@ -574,6 +755,30 @@ Event_Kind :: enum u8 {
 
 // One result of `parse`: its `kind` and, for `.BODY`, `data`, a slice of the input that was handed to `parse` (not a copy), so it
 // is valid only as long as that input is. For the other kinds `data` is empty.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+//
+// text := "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 2\r\n\r\nhi";
+// data: [] u8 = .{ text.count, text.data };
+//
+// while true {
+//     used, event := parse(*parser, data);
+//     data = advance(data, used);
+//
+//     if event.kind == .BODY {
+//         // A slice of `text`, not a copy.
+//         assert(string.{ event.data.count, event.data.data } == "hi");
+//         assert(event.data.data >= text.data && event.data.data < text.data + text.count);
+//     } else {
+//         assert(event.data.count == 0);
+//     }
+//
+//     if event.kind == .END break;
+// }
+// ```
 Event :: struct {
     kind: Event_Kind;
     data: [] u8;

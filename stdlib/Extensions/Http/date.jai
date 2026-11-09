@@ -27,6 +27,15 @@ MONTH_CYCLE_DAYS :: 153;
 
 // The date text for the current second, formatted again only when the second changes. One
 // cache per thread (it is not synchronized).
+//
+// ```jai
+// cache: Date_Cache;
+// assert(cache.second == -1); // nothing formatted yet
+//
+// text := http_date(*cache, 784111777);
+// assert(text == "Sun, 06 Nov 1994 08:49:37 GMT");
+// assert(cache.second == 784111777); // asking for the same second again reuses the text
+// ```
 Date_Cache :: struct {
     second: s64 = -1;
     text: [29] u8;

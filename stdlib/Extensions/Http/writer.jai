@@ -4,6 +4,18 @@
 // chunked body at once.
 
 // What the response writer needs to know besides the status and the headers.
+//
+// ```jai
+// out: [..] u8;
+// defer array_free(out);
+//
+// options := Response_Options.{ keep_alive = false, server = "jaic", date = "Sun, 06 Nov 1994 08:49:37 GMT" };
+// kind, ok := write_response_head(*out, 204, .[], 0, options);
+//
+// head := string.{ out.count, out.data };
+// assert(ok && kind == .NONE);
+// assert(head == "HTTP/1.1 204 No Content\r\nDate: Sun, 06 Nov 1994 08:49:37 GMT\r\nServer: jaic\r\nConnection: close\r\n\r\n");
+// ```
 Response_Options :: struct {
     version := Version.HTTP_1_1;
     reason: string; // empty for the standard phrase of the status
@@ -14,6 +26,12 @@ Response_Options :: struct {
 }
 
 // The standard reason phrase of a status, or "" for one this table does not know.
+//
+// ```jai
+// assert(status_reason(200) == "OK");
+// assert(status_reason(404) == "Not Found");
+// assert(status_reason(299) == ""); // not in the table
+// ```
 status_reason :: (status: int) -> string {
     if status == {
         case 100; return "Continue";
@@ -87,6 +105,24 @@ status_reason :: (status: int) -> string {
 // - headers: sent as given. Framing headers (`Content-Length`, `Transfer-Encoding`) are added for you,
 //   so passing one is an error.
 // - body_length: the body size in bytes, 0 for none, or -1 when it is not known yet.
+//
+// ```jai
+// out: [..] u8;
+// defer array_free(out);
+//
+// headers := Header_Field.[.{ name = "Host", value = "example.com" }];
+// kind, ok := write_request_head(*out, "POST", "/items", headers, 5);
+//
+// assert(ok && kind == .LENGTH);
+// assert(string.{ out.count, out.data } == "POST /items HTTP/1.1\r\nHost: example.com\r\nContent-Length: 5\r\n\r\n");
+//
+// // A framing header is the writer's job: the head is refused and `out` is left alone.
+// before := out.count;
+// framed := Header_Field.[.{ name = "Content-Length", value = "5" }];
+// _, ok = write_request_head(*out, "POST", "/items", framed, 5);
+//
+// assert(!ok && out.count == before);
+// ```
 write_request_head :: (out: *[..] u8, method: string, target: string, headers: [] Header_Field, body_length: s64) -> Body_Kind, bool {
     mark := out.count;
 
@@ -145,6 +181,22 @@ write_request_head :: (out: *[..] u8, method: string, target: string, headers: [
 // - headers: sent as given. Framing headers are added for you, so passing one is an error.
 // - body_length: the body size in bytes, 0 for none, or -1 when it is not known yet.
 // - options: version, reason phrase, request method, keep-alive, and the `Date` and `Server` values.
+//
+// ```jai
+// out: [..] u8;
+// defer array_free(out);
+//
+// headers := Header_Field.[.{ name = "Content-Type", value = "text/plain" }];
+// kind, ok := write_response_head(*out, 200, headers, 5);
+//
+// assert(ok && kind == .LENGTH);
+// assert(string.{ out.count, out.data } == "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\n");
+//
+// // A body of unknown length is sent chunked.
+// out.count = 0;
+// kind, ok = write_response_head(*out, 200, .[], -1);
+// assert(ok && kind == .CHUNKED);
+// ```
 write_response_head :: (out: *[..] u8, status: int, headers: [] Header_Field, body_length: s64, options := Response_Options.{}) -> Body_Kind, bool {
     mark := out.count;
 
@@ -228,6 +280,14 @@ write_response_head :: (out: *[..] u8, status: int, headers: [] Header_Field, bo
 
 // `HTTP/1.1 100 Continue`, the answer to a request with `Expect: 100-continue` before its body
 // is read.
+//
+// ```jai
+// out: [..] u8;
+// defer array_free(out);
+//
+// write_continue(*out);
+// assert(string.{ out.count, out.data } == "HTTP/1.1 100 Continue\r\n\r\n");
+// ```
 write_continue :: (out: *[..] u8) {
     put(out, "HTTP/1.1 100 Continue\r\n\r\n");
 }
@@ -257,6 +317,17 @@ write_chunk :: (out: *[..] u8, data: [] u8) {
 }
 
 // The `write_chunk` for a `string`.
+//
+// ```jai
+// out: [..] u8;
+// defer array_free(out);
+//
+// write_chunk(*out, "hello");
+// write_chunk(*out, "");
+// assert(write_last_chunk(*out));
+//
+// assert(string.{ out.count, out.data } == "5\r\nhello\r\n0\r\n\r\n");
+// ```
 write_chunk :: (out: *[..] u8, data: string) {
     bytes: [] u8;
     bytes.count = data.count;
@@ -268,6 +339,14 @@ write_chunk :: (out: *[..] u8, data: string) {
 // The zero-size chunk with optional trailers, which ends a chunked body. False, with nothing
 // written, when a trailer is not valid or is a field a trailer may not be (framing, Host).
 // Appends the zero-size chunk that ends a chunked body, with no trailers. Returns true.
+//
+// ```jai
+// out: [..] u8;
+// defer array_free(out);
+//
+// assert(write_last_chunk(*out)); // no trailers
+// assert(string.{ out.count, out.data } == "0\r\n\r\n");
+// ```
 write_last_chunk :: (out: *[..] u8) -> bool {
     trailers: [] Header_Field;
 

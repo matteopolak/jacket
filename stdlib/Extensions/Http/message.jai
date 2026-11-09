@@ -4,6 +4,33 @@
 // A parsed request, as handlers and middleware see it. The strings (target, header names and
 // values) stay valid until the response has been written: copy what has to outlive the request.
 // The body is not here: take a `*Body` parameter to read it (see `Body`), or `Json(T)`, `Form(T)`.
+//
+// ```jai,skip_on(wasm)
+// describe :: (request: *Request, next: Next) -> Response {
+//     summary := tprint("% % %", request.method, request.path, request.query);
+//
+//     return with_header(next(request), "X-Seen", summary);
+// }
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     use(*app, describe);
+//     get(*app, "/search", hello);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/search?q=ada");
+//     defer close(*response);
+//
+//     seen, found := header(*response, "X-Seen");
+//     assert(found && seen == "GET /search q=ada");
+// }
+// ```
 Request :: struct {
     method: Method;
     method_text: string; // the spelling on the wire, for methods the codec does not know
@@ -38,11 +65,59 @@ Next :: #type (request: *Request) -> Response;
 Middleware :: #type (request: *Request, next: Next) -> Response;
 
 // The value of the first header called `name` (any case), and whether there was one.
+//
+// ```jai,skip_on(wasm)
+// greet :: (request: *Request) -> string {
+//     name, found := header(request, "x-name"); // any case
+//
+//     return ifx found then tprint("hello %", name) else "hello stranger";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/greet", greet);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/greet", Header_Field.[.{ name = "X-Name", value = "Ada" }]);
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "hello Ada");
+// }
+// ```
 header :: (request: *Request, name: string) -> string, bool {
     return find_header(request.headers, name);
 }
 
 // The first query parameter called `name`, percent-decoded, and whether it was given.
+//
+// ```jai,skip_on(wasm)
+// page :: (request: *Request) -> string {
+//     number, given := query_param(request, "page");
+//
+//     return ifx given then tprint("page %", number) else "first page";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/list", page);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/list?page=a%20b"); // decoded: `a b`
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "page a b");
+// }
+// ```
 query_param :: (request: *Request, name: string) -> string, bool {
     for query_pairs(request) {
         if it.key == name return it.value, true;
@@ -53,11 +128,66 @@ query_param :: (request: *Request, name: string) -> string, bool {
 
 // The state of the app that serves `request` (`app.state`), or null when it was never set. For
 // middleware; handlers take a `*State(T)` instead.
+//
+// ```jai,skip_on(wasm)
+// Counter :: struct {
+//     hits: int;
+// }
+//
+// count :: (request: *Request, next: Next) -> Response {
+//     counter := app_state(request, Counter);
+//     if counter counter.hits += 1; // null when the app has no state
+//
+//     return next(request);
+// }
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     counter: Counter;
+//     app.state = *counter;
+//     use(*app, count);
+//     get(*app, "/", hello);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/");
+//     close(*response);
+//
+//     assert(counter.hits == 1);
+// }
+// ```
 app_state :: (request: *Request, $T: Type) -> *T {
     return cast(*T) frame_of(request).app.state;
 }
 
 // `1.2.3.4:5678` or `[::1]:5678`.
+//
+// ```jai,skip_on(wasm)
+// whoami :: (request: *Request) -> string {
+//     return peer_text(request);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/me", whoami);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/me");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "127.0.0.1:0"); // the in-memory connection has no real peer
+// }
+// ```
 peer_text :: (request: *Request) -> string {
     return Io.address_to_string(request.peer);
 }
@@ -67,6 +197,28 @@ peer_text :: (request: *Request) -> string {
 // What a handler returns when it wants full control. The headers and body must stay valid until
 // the response is written: use string literals or the temporary allocator (`tprint`, `,, temp`),
 // which the server resets after each response. The builders below do.
+//
+// ```jai,skip_on(wasm)
+// teapot :: () -> Response {
+//     response := text("short and stout", 418);
+//
+//     return with_header(response, "X-Pot", "tea");
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/pot", teapot);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/pot");
+//     defer close(*response);
+//
+//     pot, found := header(*response, "X-Pot");
+//     assert(response.status == 418 && found && pot == "tea");
+// }
+// ```
 Response :: struct {
     status := 200;
     headers: [..] Header_Field;
@@ -82,8 +234,26 @@ Response :: struct {
 // The server owns and closes the link; the callback must finish before its route state is freed.
 Upgrade_Handler :: #type (link: Link, pending: [] u8, data: *void);
 
-// Builds a routed protocol switch. Example: return upgrade_response("example", run_protocol, state).
+// Builds a routed protocol switch.
 // The callback runs on the connection fiber after the 101 head has been written.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// serve_protocol :: (link: Link, pending: [] u8, data: *void) {
+//     Io.write(link.writer, "hello");
+// }
+//
+// main :: () {
+//     response := upgrade_response("example", serve_protocol);
+//
+//     assert(response.status == 101);
+//     assert(response.upgrade == serve_protocol);
+//
+//     protocol, _ := find_header(response.headers, "Upgrade");
+//     assert(protocol == "example");
+// }
+// ```
 upgrade_response :: (protocol: string, handler: Upgrade_Handler, data: *void = null) -> Response {
     response := with_header(with_header(status_only(101), "Connection", "Upgrade"), "Upgrade", protocol);
     response.upgrade = handler;
@@ -251,6 +421,14 @@ redirect :: (location: string, status := 302) -> Response {
 // Errors
 
 // Whether an `Http_Error` is set: `.NONE` (a handler's `.{}`) or `.STATUS`, an HTTP status to answer with.
+//
+// ```jai,skip_on(wasm)
+// none: Http_Error;
+// assert(none.kind == .NONE); // what a handler returns when nothing went wrong
+//
+// error := not_found("No user 7");
+// assert(error.kind == .STATUS && error.status == 404);
+// ```
 Http_Error_Kind :: enum u8 {
     NONE; // no error: `.{}`
     STATUS; // an HTTP status, from a handler
@@ -456,6 +634,35 @@ error_text :: (error: Http_Error) -> string {
 
 // The response for an error: what `app.on_error` returns, or the problem document. Middleware use
 // it to answer without calling `next`.
+//
+// ```jai,skip_on(wasm)
+// require_token :: (request: *Request, next: Next) -> Response {
+//     _, found := header(request, "Authorization");
+//     if !found return error_response(request, unauthorized("a token is required"));
+//
+//     return next(request);
+// }
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     use(*app, require_token);
+//     get(*app, "/", hello);
+//
+//     api := test_client(*app);
+//
+//     refused, _ := get(api, "/");
+//     defer close(*refused);
+//
+//     type, _ := header(*refused, "Content-Type");
+//     assert(refused.status == 401 && type == "application/problem+json");
+// }
+// ```
 error_response :: (request: *Request, error: Http_Error) -> Response {
     app := frame_of(request).app;
 
@@ -466,6 +673,32 @@ error_response :: (request: *Request, error: Http_Error) -> Response {
 
 // The default format, RFC 9457: `application/problem+json` with `type`, `title`, `status`,
 // `detail`, `instance` (the request path) and, for bad input, `location` and `field`.
+//
+// ```jai,skip_on(wasm)
+// #import "String";
+//
+// gone_away :: (request: *Request, next: Next) -> Response {
+//     return problem_response(request, gone("moved to /new"));
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     use(*app, gone_away);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/old");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(response.status == 410);
+//     assert(find_index_from_left(text, "\"detail\":\"moved to /new\"") >= 0);
+//     assert(find_index_from_left(text, "\"instance\":\"/old\"") >= 0);
+// }
+// ```
 problem_response :: (request: *Request, error: Http_Error) -> Response {
     builder: String_Builder;
 
@@ -522,6 +755,14 @@ problem_response :: (request: *Request, error: Http_Error) -> Response {
 // - location: where the bad input came from, such as `"query"` or `"body"`.
 // - field: which part of it was bad.
 // - detail: what is wrong with it.
+//
+// ```jai,skip_on(wasm)
+// error := input_error(422, "query", "page", "must be a number");
+//
+// assert(error.status == 422);
+// assert(error.location == "query" && error.field == "page");
+// assert(error_text(error) == "422 Unprocessable Content: must be a number");
+// ```
 input_error :: (status: int, location: string, field: string, detail: string) -> Http_Error {
     error := http_error(status);
 

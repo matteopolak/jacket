@@ -22,6 +22,16 @@
 
 // A header line of the head or the trailers, as offsets into the buffer that holds it (the buffer
 // moves while it grows; strings are made once the head is complete).
+//
+// ```jai
+// #import "String";
+//
+// text := "Host: example.org";
+// span := Span.{ name_start = 0, name_end = 4, value_start = 6, value_end = 17, id = .HOST };
+//
+// assert(slice(text, span.name_start, span.name_end - span.name_start) == "Host");
+// assert(slice(text, span.value_start, span.value_end - span.value_start) == "example.org");
+// ```
 Span :: struct {
     name_start: int;
     name_end: int;
@@ -31,6 +41,25 @@ Span :: struct {
 }
 
 // Where the reader is inside a chunk extension (RFC 9112 7.1.1).
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+//
+// // The size line `5;name=` stops right after the `=`.
+// text := "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n5;name=";
+// data: [] u8 = .{ text.count, text.data };
+//
+// while true {
+//     used, event := parse(*parser, data);
+//     data = advance(data, used);
+//
+//     if event.kind == .NEED_MORE break;
+// }
+//
+// assert(parser.ext == .VALUE_START);
+// ```
 Ext_State :: enum u8 {
     BEFORE_SEMI; // after the size or an extension: blanks, then `;` or CRLF
     NAME_START; // after `;`
@@ -45,6 +74,26 @@ Ext_State :: enum u8 {
 }
 
 // Where a `Parser` is in a message. It is bookkeeping for the parser itself; callers watch the events `parse` returns instead.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .RESPONSE);
+// defer parser_free(*parser);
+// assert(parser.state == .START);
+//
+// text := "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+// data: [] u8 = .{ text.count, text.data };
+//
+// while true {
+//     used, event := parse(*parser, data);
+//     data = advance(data, used);
+//
+//     if event.kind == .HEAD assert(parser.state == .BODY_NONE); // no body follows
+//     if event.kind == .END break;
+// }
+//
+// assert(parser.state == .DONE); // `Connection: close`: nothing may follow
+// ```
 Parser_State :: enum u8 {
     START; // reading the start line and the headers
     BODY_NONE; // the head is out and there is no body: END is next
@@ -198,6 +247,23 @@ parser_init :: (p: *Parser, kind: Parser_Kind, limits := Limits.{}) {
 }
 
 // Starts over for a new connection, keeping the allocated buffers.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+//
+// first := "GET /a HTTP/1.1\r\nHost: x\r\n\r\n";
+// _, event := parse(*parser, .{ first.count, first.data });
+// assert(event.kind == .HEAD && parser.head.target == "/a");
+//
+// parser_reset(*parser); // a new connection: starts over and keeps the buffers
+// assert(parser.state == .START && parser.kind == .REQUEST);
+//
+// second := "GET /b HTTP/1.1\r\nHost: x\r\n\r\n";
+// _, event = parse(*parser, .{ second.count, second.data });
+// assert(event.kind == .HEAD && parser.head.target == "/b");
+// ```
 parser_reset :: (p: *Parser) {
     kind := p.kind;
     limits := p.limits;
@@ -228,6 +294,21 @@ parser_reset :: (p: *Parser) {
 
 // Releases the parser's buffers. The parser must not be used afterwards, except to start again with `parser_init`. Strings taken
 // from its head, trailers or events are invalid after this.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+//
+// text := "GET /a HTTP/1.1\r\nHost: x\r\n\r\n";
+// parse(*parser, .{ text.count, text.data });
+// assert(parser.bytes.count > 0);
+//
+// parser_free(*parser);
+// assert(parser.bytes.data == null);
+//
+// parser_init(*parser, .RESPONSE); // a freed parser may start again
+// parser_free(*parser);
+// ```
 parser_free :: (p: *Parser) {
     array_reset(*p.bytes);
     array_reset(*p.spans);
@@ -241,6 +322,27 @@ parser_free :: (p: *Parser) {
 // the six arrays on its own), so a connection that once saw a huge head does not keep it. The
 // previous message's `head` and `trailers` are gone afterwards, like when the next message begins.
 // Does nothing while a message is under way.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+//
+// text := tprint("GET /a HTTP/1.1\r\nHost: x\r\nX-Pad: %\r\n\r\n", "0123456789012345678901234567890123456789");
+// data: [] u8 = .{ text.count, text.data };
+//
+// while true {
+//     used, event := parse(*parser, data);
+//     data = advance(data, used);
+//
+//     if event.kind == .END break;
+// }
+//
+// assert(parser.bytes.allocated > 16);
+//
+// parser_trim(*parser, 16); // between messages: gives the big buffer back
+// assert(parser.bytes.allocated == 0);
+// ```
 parser_trim :: (p: *Parser, limit: int) {
     if p.started return;
 
@@ -283,6 +385,17 @@ parser_trim :: (p: *Parser, limit: int) {
 }
 
 // True when no message has begun: the connection may close without it being an error.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+// assert(parser_idle(*parser)); // nothing has begun
+//
+// text := "GET / HT";
+// parse(*parser, .{ text.count, text.data });
+// assert(!parser_idle(*parser)); // inside a request line
+// ```
 parser_idle :: (p: *Parser) -> bool {
     if p.state != .START return false;
 
@@ -290,6 +403,15 @@ parser_idle :: (p: *Parser) -> bool {
 }
 
 // Drops the first `count` bytes of `data`.
+//
+// ```jai
+// data := "hello";
+// bytes: [] u8 = .{ data.count, data.data };
+//
+// rest := advance(bytes, 2);
+// assert(rest.count == 3);
+// assert(string.{ rest.count, rest.data } == "llo");
+// ```
 advance :: inline (data: [] u8, count: int) -> [] u8 {
     result: [] u8;
     result.count = data.count - count;
@@ -301,6 +423,32 @@ advance :: inline (data: [] u8, count: int) -> [] u8 {
 // Reads from `data` and returns the number of bytes used and one event. Call again with the
 // rest until NEED_MORE (the input is then used up); END and HEAD can come with no bytes used, so
 // loop on the event, not on the byte count. BODY data is a slice of `data`.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+//
+// text := "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 5\r\n\r\nhello";
+// body: [..] u8;
+// defer array_free(body);
+//
+// // One byte at a time: the events add up to the same message.
+// for 0..text.count - 1 {
+//     piece: [] u8 = .{ 1, text.data + it };
+//
+//     while true {
+//         used, event := parse(*parser, piece);
+//         piece = advance(piece, used);
+//
+//         if event.kind == .BODY array_add(*body, ..event.data);
+//         if event.kind == .NEED_MORE || event.kind == .END break;
+//     }
+// }
+//
+// assert(parser.head.content_length == 5);
+// assert(string.{ body.count, body.data } == "hello");
+// ```
 parse :: (p: *Parser, data: [] u8) -> consumed: int, event: Event {
     event: Event;
 
@@ -374,6 +522,36 @@ parse :: (p: *Parser, data: [] u8) -> consumed: int, event: Event {
 
 // The connection has closed. Ends a body that runs until close; reports CLOSED when it fell
 // between messages and an UNEXPECTED_EOF error when it fell inside one.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .RESPONSE);
+// defer parser_free(*parser);
+//
+// // No length and no chunking: the body runs until the connection closes.
+// text := "HTTP/1.1 200 OK\r\n\r\nhello";
+// data: [] u8 = .{ text.count, text.data };
+//
+// while true {
+//     used, event := parse(*parser, data);
+//     data = advance(data, used);
+//
+//     if event.kind == .NEED_MORE break;
+// }
+//
+// assert(parse_eof(*parser).kind == .END);
+//
+// // A connection that closes inside a message is an error.
+// cut: Parser;
+// parser_init(*cut, .REQUEST);
+// defer parser_free(*cut);
+//
+// partial := "GET / HT";
+// parse(*cut, .{ partial.count, partial.data });
+//
+// assert(parse_eof(*cut).kind == .ERROR);
+// assert(cut.error.kind == .UNEXPECTED_EOF);
+// ```
 parse_eof :: (p: *Parser) -> Event {
     event: Event;
 

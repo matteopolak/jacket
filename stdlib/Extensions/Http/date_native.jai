@@ -4,6 +4,15 @@
 #scope_export
 
 // The date for the current time (see http_date).
+//
+// ```jai,skip_on(wasm)
+// #import "String";
+//
+// cache: Date_Cache;
+// text := http_date_now(*cache);
+//
+// assert(text.count == 29 && ends_with(text, " GMT"));
+// ```
 http_date_now :: (cache: *Date_Cache) -> string #no_aoc {
     now := current_time_consensus();
     epoch := APOLLO_TIME_FOR_JAN_1_1970;

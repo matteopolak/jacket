@@ -25,6 +25,36 @@
 Stream_Producer :: #type (stream: *Stream, data: *void);
 
 // The sending end of a streamed response, valid while its producer runs.
+//
+// ```jai,skip_on(wasm)
+// saw_chunked := false;
+//
+// produce :: (stream: *Stream, data: *void) {
+//     saw_chunked = stream.chunked;
+//     send_chunk(stream, "x");
+// }
+//
+// events :: () -> Response {
+//     return stream_response(produce, null, "text/plain");
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/events", events);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/events");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "x");
+//     assert(saw_chunked); // HTTP/1.1: every chunk goes out as one chunk of the body
+// }
+// ```
 Stream :: struct {
     // True on HTTP/1.1, where every `send_chunk` is one chunk of the chunked body.
     chunked: bool;
@@ -36,6 +66,37 @@ Stream :: struct {
 // - data: handed to `produce` untouched. It has to outlive the response.
 // - content_type: the `Content-Type` header value.
 // - status: the HTTP status code.
+//
+// ```jai,skip_on(wasm)
+// name := "Ada";
+//
+// produce :: (stream: *Stream, data: *void) {
+//     who := cast(*string) data;
+//
+//     send_chunk(stream, "hello ");
+//     send_chunk(stream, who.*);
+// }
+//
+// greeting :: () -> Response {
+//     return stream_response(produce, *name, "text/plain");
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/greeting", greeting);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/greeting");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(response.status == 200 && text == "hello Ada");
+// }
+// ```
 stream_response :: (produce: Stream_Producer, data: *void, content_type: string, status := 200) -> Response {
     response: Response;
 
@@ -59,6 +120,29 @@ stream_response :: (produce: Stream_Producer, data: *void, content_type: string,
 // - path: the file to send.
 // - content_type: the `Content-Type` header value. Empty picks one from the extension.
 // - status: the HTTP status code.
+//
+// ```jai,skip_on(wasm)
+// page :: () -> Response {
+//     return file_response("/nonexistent/for/sure/index.html");
+// }
+//
+// main :: () {
+//     response := file_response("/srv/site/style.css"); // nothing is opened until it is sent
+//     type, _ := find_header(response.headers, "Content-Type");
+//     assert(type == "text/css; charset=utf-8"); // chosen from the extension
+//
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/", page);
+//
+//     api := test_client(*app);
+//     missing, _ := get(api, "/");
+//     defer close(*missing);
+//
+//     assert(missing.status == 404); // a file that cannot be opened
+// }
+// ```
 file_response :: (path: string, content_type := "", status := 200) -> Response {
     response: Response;
 
@@ -74,6 +158,34 @@ file_response :: (path: string, content_type := "", status := 200) -> Response {
 
 // Sends `data` to the client now, as one chunk of the body. False when the client has gone or the
 // write timed out: the producer should return.
+//
+// ```jai,skip_on(wasm)
+// produce :: (stream: *Stream, data: *void) {
+//     bytes: [3] u8 = .[104, 105, 33];
+//
+//     if !send_chunk(stream, bytes) return; // false: the client has gone
+// }
+//
+// hi :: () -> Response {
+//     return stream_response(produce, null, "text/plain");
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hi", hi);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/hi");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "hi!");
+// }
+// ```
 send_chunk :: (stream: *Stream, data: [] u8) -> bool {
     frame := cast(*Stream_Frame) stream;
 
@@ -116,6 +228,34 @@ send_chunk :: (stream: *Stream, data: [] u8) -> bool {
 }
 
 // `send_chunk` for text.
+//
+// ```jai,skip_on(wasm)
+// produce :: (stream: *Stream, data: *void) {
+//     for 1..3 {
+//         if !send_chunk(stream, tprint("tick %;", it)) return;
+//     }
+// }
+//
+// ticks :: () -> Response {
+//     return stream_response(produce, null, "text/plain");
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/ticks", ticks);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/ticks");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "tick 1;tick 2;tick 3;");
+// }
+// ```
 send_chunk :: (stream: *Stream, text: string) -> bool {
     return send_chunk(stream, string_bytes(text));
 }
