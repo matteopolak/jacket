@@ -25,8 +25,8 @@
 //! (`pthread_join` or `pthread_detach`, `CloseHandle`; an adopted thread's slot is free when its
 //! callback returns), so a long `#run` that starts many short threads does not grow the
 //! scheduler. Handles carry the slot's generation in their high half, so one kept after its
-//! slot was reused is invalid instead of naming the new thread. Scans visit only
-//! `Sched::live`, the unfinished slots.
+//! slot was reused is invalid instead of naming the new thread (`Slots` in `thread_sync.rs`,
+//! shared with the inline scheduler). Scans visit only `Sched::live`, the unfinished slots.
 //!
 //! The Win32 equivalents (`CreateThread`, critical sections, SRW locks, condition variables,
 //! semaphores and events, waits on their handles) map onto the same scheduler; see `win32.rs`.
@@ -40,7 +40,7 @@ mod pthread;
 mod sched;
 mod shared;
 #[cfg(test)]
-mod slot_tests;
+pub(super) mod slot_tests;
 mod win32;
 mod worker;
 

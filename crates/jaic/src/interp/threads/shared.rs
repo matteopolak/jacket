@@ -3,7 +3,7 @@ use super::pthread;
 use super::sched::{Block, DEADLOCK_GRACE, GThread, NATIVE_SLICE, Sched, Shared, WorkerCancelled};
 #[cfg(windows)]
 use super::win32;
-use crate::interp::thread_sync::{CondQueues, Mutexes};
+use crate::interp::thread_sync::{CondQueues, Mutexes, Slots};
 use crate::interp::{HashMap, Interp, Program, Trap, native};
 use std::collections::BTreeSet;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -14,6 +14,8 @@ impl Shared {
     pub(super) fn new(interp: usize) -> Arc<Shared> {
         let mut main = GThread::new(false, None);
         main.native_pthread = pthread::current();
+        let mut slots = Slots::default();
+        slots.acquire();
         Arc::new(Shared {
             sched: Mutex::new(Sched {
                 threads: vec![main],
@@ -29,7 +31,7 @@ impl Shared {
                 cond_waiters: CondQueues::default(),
                 objects: HashMap::default(),
                 next_object: 0,
-                spare: Vec::new(),
+                slots,
                 interp,
                 dead: false,
             }),

@@ -322,7 +322,7 @@ impl Interp {
     /// already joined or detached is invalid, even when another thread has the slot now.
     fn thread_join(&mut self, handle: u64, result_out: u64) -> Res<u64> {
         let me = self.me();
-        let id = self.with_sched(|s| s.resolve(handle).filter(|&id| !s.threads[id].adopted));
+        let id = self.with_sched(|s| s.resolve_joinable(handle));
         let Some(id) = id else {
             return Ok(EINVAL);
         };
@@ -356,7 +356,7 @@ impl Interp {
     /// `pthread_detach`: nobody will join the thread, so its slot is free once it ends.
     fn thread_detach(&mut self, handle: u64) -> u64 {
         let released = self.with_sched(|s| {
-            let id = s.resolve(handle).filter(|&id| !s.threads[id].adopted)?;
+            let id = s.resolve_joinable(handle)?;
             Some(s.release_handle(id))
         });
         match released {

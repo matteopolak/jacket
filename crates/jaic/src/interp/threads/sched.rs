@@ -1,6 +1,6 @@
 //! Scheduler state: thread slots, blocking reasons and the shared baton.
 use super::{pthread, win32};
-use crate::interp::thread_sync::{CondQueues, Mutexes};
+use crate::interp::thread_sync::{CondQueues, Mutexes, Slots};
 use crate::interp::{ExecState, HashMap};
 use std::collections::BTreeSet;
 use std::sync::{Condvar, Mutex};
@@ -74,12 +74,6 @@ pub(super) struct GThread {
     /// Scheduler state remains alive independently when the user closes a running thread.
     #[cfg(windows)]
     pub(super) native_handle: Option<std::os::windows::io::OwnedHandle>,
-    /// Counts the owners the slot has had; part of every handle to it (`Sched::handle_of`), so
-    /// a handle kept past its thread's end can never name the thread that takes the slot next.
-    pub(super) generation: u32,
-    /// The public handle (`pthread_t`, or a Win32 thread handle) is gone: joined, detached or
-    /// closed. The slot is free once its thread has also finished.
-    pub(super) released: bool,
     pub(super) block: Block,
     /// A timed condition wait ended because its deadline passed.
     pub(super) timed_out: bool,
@@ -103,8 +97,6 @@ impl GThread {
             native_pthread: adopted.then(pthread::current).flatten(),
             #[cfg(windows)]
             native_handle: None,
-            generation: 0,
-            released: false,
             block: Block::None,
             timed_out: false,
             deadlocked: false,
@@ -144,8 +136,9 @@ pub(in crate::interp) struct Sched {
     /// Win32 handles the scheduler made (threads, semaphores, events).
     pub(super) objects: HashMap<u64, win32::Object>,
     pub(super) next_object: u64,
-    /// Free slots: nothing can refer to them any more, and `add` fills them first.
-    pub(super) spare: Vec<usize>,
+    /// Which slots are free and what handles name: nothing can refer to a free slot any
+    /// more, and `add` fills those first.
+    pub(super) slots: Slots,
     /// The interpreter (`*mut Interp`), for threads that start running it.
     pub(super) interp: usize,
     /// The interpreter is gone; callbacks into it fail.
@@ -154,15 +147,13 @@ pub(in crate::interp) struct Sched {
 
 impl Sched {
     /// Put a thread in a free slot, or in a new one, and return its number.
-    pub(super) fn add(&mut self, mut thread: GThread) -> usize {
-        let id = if let Some(id) = self.spare.pop() {
-            thread.generation = self.threads[id].generation;
-            self.threads[id] = thread;
-            id
-        } else {
+    pub(super) fn add(&mut self, thread: GThread) -> usize {
+        let id = self.slots.acquire();
+        if id == self.threads.len() {
             self.threads.push(thread);
-            self.threads.len() - 1
-        };
+        } else {
+            self.threads[id] = thread;
+        }
         if !self.threads[id].finished {
             self.live.insert(id);
         }
@@ -175,7 +166,7 @@ impl Sched {
     pub(super) fn finish(&mut self, t: usize) {
         self.threads[t].finished = true;
         self.live.remove(&t);
-        if self.threads[t].adopted || self.threads[t].released {
+        if self.threads[t].adopted || self.slots.is_released(t) {
             // Whoever runs this is the worker itself or a teardown that joins it: dropping the
             // handle only lets go of it.
             drop(self.recycle(t));
@@ -186,7 +177,7 @@ impl Sched {
     /// the thread has finished, and returns its OS worker to join; otherwise the slot is
     /// freed by `finish`.
     pub(super) fn release_handle(&mut self, t: usize) -> Option<Worker> {
-        if std::mem::replace(&mut self.threads[t].released, true) || !self.threads[t].finished {
+        if !self.slots.release(t, self.threads[t].finished) {
             return None;
         }
         self.recycle(t)
@@ -195,29 +186,31 @@ impl Sched {
     /// Free the finished slot `t` for `add`, and end every handle to it.
     fn recycle(&mut self, t: usize) -> Option<Worker> {
         let thread = &mut self.threads[t];
-        debug_assert!(thread.finished && !self.spare.contains(&t));
-        thread.generation = thread.generation.wrapping_add(1);
-        thread.released = true;
+        debug_assert!(thread.finished);
         thread.start = None;
         let worker = thread.worker.take();
         // The thread's locks stay held, as they would for a thread that exited holding them,
         // but no thread that takes the slot can own them.
         self.mutexes.orphan(t);
-        self.spare.push(t);
+        self.slots.free(t);
         worker
     }
 
-    /// The number Jai code sees for thread `t` (`pthread_t`): the slot plus one, with the
-    /// generation in the high half. The first owner of a slot has just the slot plus one.
+    /// The number Jai code sees for thread `t` (`pthread_t`).
     pub(super) fn handle_of(&self, t: usize) -> u64 {
-        (u64::from(self.threads[t].generation) << 32) | (t as u64 + 1)
+        self.slots.handle_of(t)
     }
 
     /// The slot a handle names, if its thread (or its result) is still there.
     pub(super) fn resolve(&self, handle: u64) -> Option<usize> {
-        let slot = usize::try_from((handle & 0xffff_ffff).checked_sub(1)?).ok()?;
-        let thread = self.threads.get(slot)?;
-        (u64::from(thread.generation) == handle >> 32).then_some(slot)
+        self.slots.resolve(handle)
+    }
+
+    /// The slot a `pthread_join` or `pthread_detach` handle names: a thread Jai code started
+    /// whose handle has not been joined or detached yet.
+    pub(super) fn resolve_joinable(&self, handle: u64) -> Option<usize> {
+        self.resolve(handle)
+            .filter(|&id| !self.threads[id].adopted && !self.slots.is_released(id))
     }
 
     /// The slots of unfinished threads, in order.
@@ -423,10 +416,10 @@ mod tests {
         let handle = s.handle_of(slot);
         s.finish(slot);
         assert_eq!(s.resolve(handle), Some(slot), "a joiner can still read it");
-        assert!(s.spare.is_empty());
+        assert!(s.slots.spare().is_empty());
         s.release_handle(slot);
         assert_eq!(s.resolve(handle), None, "the old handle is dead");
-        assert_eq!(s.spare, [slot]);
+        assert_eq!(s.slots.spare(), [slot]);
     }
 
     #[test]
@@ -436,10 +429,10 @@ mod tests {
         let slot = s.add(GThread::new(false, None));
         let handle = s.handle_of(slot);
         s.release_handle(slot);
-        assert!(s.spare.is_empty(), "still running");
+        assert!(s.slots.spare().is_empty(), "still running");
         assert_eq!(s.resolve(handle), Some(slot));
         s.finish(slot);
-        assert_eq!(s.spare, [slot]);
+        assert_eq!(s.slots.spare(), [slot]);
         assert_eq!(s.resolve(handle), None);
     }
 
@@ -451,7 +444,7 @@ mod tests {
         s.finish(slot);
         s.release_handle(slot);
         s.release_handle(slot);
-        assert_eq!(s.spare, [slot]);
+        assert_eq!(s.slots.spare(), [slot]);
     }
 
     #[test]

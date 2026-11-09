@@ -45,6 +45,8 @@ mod thread_sync;
 #[cfg(not(target_arch = "wasm32"))]
 mod threads;
 mod threads_inline;
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod threads_inline_tests;
 mod trap;
 mod windows;
 mod windows_native;

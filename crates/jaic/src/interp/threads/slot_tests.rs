@@ -1,30 +1,41 @@
 //! Slot reuse seen from Jai code: handles of finished threads, joins and detaches.
+//!
+//! The POSIX tests are a macro so the inline scheduler (`threads_inline_tests.rs`) runs the
+//! same ones.
 use crate::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
 
-/// Run `source` as a compile-time program and return the scheduler's slot count.
+/// Run the `check :: () -> bool` in `source` at compile time and return the scheduler's slot
+/// count.
 fn slots_after(source: &str) -> usize {
     let mut options = Options::host();
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
-    if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source.into())]) {
+    let source = format!("{source}\n#assert check();\n");
+    if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
         panic!("{}", error.render(&compiler.src.sources));
     }
     let shared = compiler.ct.interp.shared.as_ref().unwrap().clone();
     shared.lock().threads.len()
 }
 
-const POSIX: &str = r"
+pub(in crate::interp) const POSIX: &str = r"
 pthread_create :: (thread:*u64,attributes:*void,entry:*void,data:*void)->s32 #foreign;
 pthread_join :: (thread:u64,result:**void)->s32 #foreign;
 pthread_detach :: (thread:u64)->s32 #foreign;
+pthread_mutex_init :: (mutex:*void,attributes:*void)->s32 #foreign;
+pthread_mutex_lock :: (mutex:*void)->s32 #foreign;
+pthread_mutex_unlock :: (mutex:*void)->s32 #foreign;
 sched_yield :: ()->s32 #foreign;
 echo :: (argument:*void)->*void #c_call { return argument; }
-spawn :: (value:u64)->u64 #no_context {
+locker :: (argument:*void)->*void #c_call { pthread_mutex_lock(argument); return argument; }
+unlocker :: (argument:*void)->*void #c_call { return cast(*void)cast(u64)pthread_mutex_unlock(argument); }
+spawn_on :: (entry:*void,value:u64)->u64 #no_context {
     thread:u64;
-    if pthread_create(*thread,null,cast(*void)echo,cast(*void)value)!=0 return 0;
+    if pthread_create(*thread,null,entry,cast(*void)value)!=0 return 0;
     return thread;
 }
+spawn :: (value:u64)->u64 #no_context { return spawn_on(cast(*void)echo,value); }
 reap :: (thread:u64)->u64 #no_context {
     result:*void;
     if pthread_join(thread,*result)!=0 return 0;
@@ -32,18 +43,22 @@ reap :: (thread:u64)->u64 #no_context {
 }
 ";
 
-fn posix(body: &str) -> String {
+pub(in crate::interp) fn posix(body: &str) -> String {
     // Compile-time code is compiled lazily and not while a thread exists: call `reap` once
     // (on no thread) before the first thread starts.
     format!(
-        "{POSIX}\ncheck :: ()->bool #no_context {{\n    if reap(0)!=0 return false;\n{body}\n}}\n#assert check();\n"
+        "{POSIX}\ncheck :: ()->bool #no_context {{\n    if reap(0)!=0 return false;\n{body}\n}}\n"
     )
 }
 
-#[test]
-fn threads_made_and_joined_in_turn_reuse_one_slot() {
-    let source = posix(
-        "
+/// The tests run against each scheduler: `$slots_after` runs a source under it and returns how
+/// many thread slots it made. `posix` must be in scope where this is used.
+macro_rules! posix_slot_tests {
+    ($slots_after:path) => {
+        #[test]
+        fn threads_made_and_joined_in_turn_reuse_one_slot() {
+            let source = posix(
+                "
     value:u64=1;
     while value<=300 {
         thread := spawn(value);
@@ -52,18 +67,18 @@ fn threads_made_and_joined_in_turn_reuse_one_slot() {
         value+=1;
     }
     return true;",
-    );
-    assert_eq!(
-        slots_after(&source),
-        2,
-        "the first thread and one worker slot"
-    );
-}
+            );
+            assert_eq!(
+                $slots_after(&source),
+                2,
+                "the first thread and one worker slot"
+            );
+        }
 
-#[test]
-fn several_live_threads_joined_in_any_order_keep_their_own_results() {
-    let source = posix(
-        "
+        #[test]
+        fn several_live_threads_joined_in_any_order_keep_their_own_results() {
+            let source = posix(
+                "
     round:u64=0;
     while round<40 {
         a := spawn(round*10+1);
@@ -77,17 +92,17 @@ fn several_live_threads_joined_in_any_order_keep_their_own_results() {
         round+=1;
     }
     return true;",
-    );
-    assert!(
-        slots_after(&source) <= 5,
-        "four workers at most are alive together"
-    );
-}
+            );
+            assert!(
+                $slots_after(&source) <= 5,
+                "four workers at most are alive together"
+            );
+        }
 
-#[test]
-fn a_joined_handle_cannot_reach_the_thread_that_took_its_slot() {
-    let source = posix(
-        "
+        #[test]
+        fn a_joined_handle_cannot_reach_the_thread_that_took_its_slot() {
+            let source = posix(
+                "
     first := spawn(11);
     if reap(first)!=11 return false;
     second := spawn(22);
@@ -98,14 +113,14 @@ fn a_joined_handle_cannot_reach_the_thread_that_took_its_slot() {
     if pthread_join(first,*result)==0 return false;
     if reap(second)!=22 return false;
     return true;",
-    );
-    assert_eq!(slots_after(&source), 2);
-}
+            );
+            assert_eq!($slots_after(&source), 2);
+        }
 
-#[test]
-fn a_slot_is_not_reused_while_its_handle_is_unjoined() {
-    let source = posix(
-        "
+        #[test]
+        fn a_slot_is_not_reused_while_its_handle_is_unjoined() {
+            let source = posix(
+                "
     first := spawn(5);
     sched_yield();
     second := spawn(6);
@@ -113,14 +128,14 @@ fn a_slot_is_not_reused_while_its_handle_is_unjoined() {
     if reap(second)!=6 return false;
     if reap(first)!=5 return false;
     return true;",
-    );
-    assert_eq!(slots_after(&source), 3);
-}
+            );
+            assert_eq!($slots_after(&source), 3);
+        }
 
-#[test]
-fn detached_threads_free_their_slots_when_they_end() {
-    let source = posix(
-        "
+        #[test]
+        fn detached_threads_free_their_slots_when_they_end() {
+            let source = posix(
+                "
     count:u64=0;
     while count<200 {
         thread := spawn(count+1);
@@ -131,14 +146,14 @@ fn detached_threads_free_their_slots_when_they_end() {
         count+=1;
     }
     return true;",
-    );
-    assert!(slots_after(&source) <= 3);
-}
+            );
+            assert!($slots_after(&source) <= 3);
+        }
 
-#[test]
-fn a_thread_detached_after_it_ended_frees_its_slot_at_once() {
-    let source = posix(
-        "
+        #[test]
+        fn a_thread_detached_after_it_ended_frees_its_slot_at_once() {
+            let source = posix(
+                "
     count:u64=0;
     while count<100 {
         thread := spawn(count+1);
@@ -147,9 +162,63 @@ fn a_thread_detached_after_it_ended_frees_its_slot_at_once() {
         count+=1;
     }
     return true;",
-    );
-    assert!(slots_after(&source) <= 3);
+            );
+            assert!($slots_after(&source) <= 3);
+        }
+
+        #[test]
+        fn a_detached_handle_is_dead() {
+            let source = posix(
+                "
+    thread := spawn(3);
+    if pthread_detach(thread)!=0 return false;
+    if pthread_detach(thread)==0 return false;
+    result:*void;
+    if pthread_join(thread,*result)==0 return false;
+    sched_yield();
+    if pthread_detach(thread)==0 return false;
+    return true;",
+            );
+            assert_eq!($slots_after(&source), 2);
+        }
+
+        #[test]
+        fn a_lock_held_by_a_finished_thread_stays_held_among_many_mutexes() {
+            // A thread that ends holding a lock leaves it held, and threads that take its
+            // slot never own it, however many other mutexes there are.
+            let source = posix(
+                "
+    locks:[512]u64;
+    index:u64=0;
+    while index<512 {
+        if pthread_mutex_init(*locks[index],null)!=0 return false;
+        index+=1;
+    }
+    // A thread locks the last mutex and ends without unlocking it.
+    last := cast(u64)*locks[511];
+    if reap(spawn_on(cast(*void)locker,last))!=last return false;
+    // The thread that takes its slot does not own the lock.
+    if reap(spawn_on(cast(*void)unlocker,last))==0 return false;
+    count:u64=0;
+    while count<100 {
+        thread := spawn(count);
+        if reap(thread)!=count return false;
+        count+=1;
+    }
+    if pthread_mutex_unlock(*locks[511])==0 return false;
+    // The main thread's own locks still work beside them.
+    if pthread_mutex_lock(*locks[0])!=0 return false;
+    if pthread_mutex_unlock(*locks[0])!=0 return false;
+    return true;",
+            );
+            assert_eq!($slots_after(&source), 2);
+        }
+    };
 }
+
+pub(in crate::interp) use posix_slot_tests;
+
+posix_slot_tests!(slots_after);
 
 const WIN32: &str = r"
 CreateThread :: (security:*void, stack:u64, entry:*void, argument:*void, flags:u32, id:*u32)->u64 #foreign;
@@ -184,7 +253,6 @@ check :: ()->bool #no_context {{
     if code!=7 return false;
     return CloseHandle(kept)!=0;
 }}
-#assert check();
 "
     );
     assert_eq!(

@@ -49,7 +49,9 @@ Every call in `native.rs` goes through one C prototype with 8 integer and 8 `dou
 
 ### Threads
 
-Programs using `Thread` run on a cooperative scheduler, chosen by `Host::cooperative_threads()`. Mutexes and condition queues share one model (`interp/thread_sync.rs`); the schedulers differ only in how a blocked thread gives up its turn.
+Programs using `Thread` run on a cooperative scheduler, chosen by `Host::cooperative_threads()`. Thread slots and handles, mutexes and condition queues share one model (`interp/thread_sync.rs`); the schedulers differ only in how a blocked thread gives up its turn.
+
+A thread's slot is free again once the thread has finished and its handle is gone (`pthread_join`, `pthread_detach`, `CloseHandle`). A handle is the slot plus one with the slot's generation in the high 32 bits, so one kept past that is rejected (`EINVAL`) instead of naming the thread that took the slot. A mutex held by a thread that ended stays held, by nobody; `Mutexes` tracks what each thread owns, so ending a thread costs what it held. Compile-time code cannot suspend, so the inline scheduler's tests run a program (`threads_inline_tests.rs`) where the native ones use `#assert`.
 
 - **Native** (`threads.rs`): several OS threads exist but only the one holding the baton runs interpreted code. Callbacks from foreign threads are adopted into a scheduler slot and may block like a Jai thread.
 - **Win32** (`threads/win32.rs`): `CreateThread`, `WaitFor*`, critical sections and friends map onto the same scheduler.

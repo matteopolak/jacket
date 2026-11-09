@@ -19,10 +19,16 @@
 //!   spinning on a flag another thread sets after a sleep lets the sleep end.
 //! * With nothing runnable, no deadline and nobody yielding, it is a deadlock error.
 //!
+//! * A thread's slot is its id, and Jai code holds it as `pthread_t` (slot plus one, with the
+//!   slot's generation in the high half). The slot is free for the next thread once the thread
+//!   has finished and its handle is gone (`pthread_join`, `pthread_detach`), so a program that
+//!   starts many short threads does not grow the scheduler; a handle kept past that is invalid.
+//!   The bookkeeping is `Slots`, shared with the native scheduler.
+//!
 //! The native interpreter uses real OS threads instead (`threads.rs`).
 #![allow(unsafe_code)]
 
-use super::thread_sync::{CondQueues, Mutexes};
+use super::thread_sync::{CondQueues, Mutexes, Slots};
 use super::{
     ExecState, Frame, FrameExit, FuncId, Interp, Program, Res, Rets, Trap, TrapKind, ValueStack,
     suspended,
@@ -83,7 +89,8 @@ enum State {
 enum Wait {
     /// Yielded: may run again whenever the others let it.
     None,
-    Join(usize),
+    /// The thread a `pthread_t` names; over once that has ended, or its handle has gone.
+    Join(u64),
     Mutex(u64),
     Cond(u64),
     /// Only a deadline ends it (sleep).
@@ -160,7 +167,10 @@ impl ThreadRec {
 }
 
 pub(super) struct InlineSched {
+    /// Indexed by slot (`slots`); a finished thread's slot is reused once its handle is gone
+    /// (`pthread_join`, `pthread_detach`), as in the native scheduler.
     threads: Vec<ThreadRec>,
+    slots: Slots,
     /// The thread running now. Thread 0 is the one `Interp::call` started with.
     current: usize,
     mutexes: Mutexes,
@@ -175,8 +185,11 @@ pub(super) struct InlineSched {
 
 impl InlineSched {
     fn new() -> Self {
+        let mut slots = Slots::default();
+        slots.acquire();
         InlineSched {
             threads: vec![ThreadRec::new(FuncId(0), 0, State::Running)],
+            slots,
             current: 0,
             mutexes: Mutexes::default(),
             cond_waiters: CondQueues::default(),
@@ -187,10 +200,63 @@ impl InlineSched {
         }
     }
 
+    /// The thread slots in use or free.
+    #[cfg(test)]
+    pub(super) fn slot_count(&self) -> usize {
+        self.threads.len()
+    }
+
+    /// Put a new thread in a free slot, or in a new one, and return its number.
+    fn add(&mut self, thread: ThreadRec) -> usize {
+        let id = self.slots.acquire();
+        if id == self.threads.len() {
+            self.threads.push(thread);
+        } else {
+            self.threads[id] = thread;
+        }
+        id
+    }
+
+    /// Thread `t` has ended. Its slot is free at once when its handle is already gone.
+    fn finish(&mut self, t: usize) {
+        self.threads[t].state = State::Finished;
+        if self.slots.is_released(t) {
+            self.free(t);
+        }
+    }
+
+    /// The handle of thread `t` is gone (joined or detached): its slot is free once it ends.
+    fn release_handle(&mut self, t: usize) {
+        if self
+            .slots
+            .release(t, self.threads[t].state == State::Finished)
+        {
+            self.free(t);
+        }
+    }
+
+    /// Free the slot of the finished thread `t`, ending every handle to it. Its locks stay
+    /// held, as they would for a thread that exited holding them, but no thread that takes
+    /// the slot can own them.
+    fn free(&mut self, t: usize) {
+        self.mutexes.orphan(t);
+        self.slots.free(t);
+    }
+
+    /// The slot a `pthread_join` or `pthread_detach` handle names, if its handle is still good.
+    fn resolve_joinable(&self, handle: u64) -> Option<usize> {
+        self.slots
+            .resolve(handle)
+            .filter(|&t| !self.slots.is_released(t))
+    }
+
     fn satisfied(&self, thread: usize, wait: Wait) -> bool {
         match wait {
             Wait::None => true,
-            Wait::Join(t) => self.threads[t].state == State::Finished,
+            Wait::Join(handle) => self
+                .slots
+                .resolve(handle)
+                .is_none_or(|t| self.threads[t].state == State::Finished),
             Wait::Mutex(addr) => self.mutexes.available_to(addr, thread),
             Wait::Cond(token) => self.woken.contains(&token),
             Wait::Time => false,
@@ -300,10 +366,11 @@ impl Interp {
             ThreadFn::Create => self.inline_create(program, arg(0), arg(2), arg(3)),
             ThreadFn::Join => self.inline_join(arg(0), arg(1)),
             ThreadFn::TryJoin => {
-                let id = arg(0).wrapping_sub(1) as usize;
-                match self.isched().threads.get(id) {
-                    Some(t) if t.state == State::Finished => {
-                        let value = t.result;
+                let sched = self.isched();
+                match sched.resolve_joinable(arg(0)) {
+                    Some(id) if sched.threads[id].state == State::Finished => {
+                        let value = sched.threads[id].result;
+                        sched.release_handle(id);
                         if arg(1) != 0
                             && let Err(trap) = self.put(arg(1), &value.to_le_bytes())
                         {
@@ -318,8 +385,20 @@ impl Interp {
                     None => Ok(EINVAL),
                 }
             }
-            ThreadFn::Detach => Ok(0),
-            ThreadFn::SelfId => Ok(self.isched().current as u64 + 1),
+            ThreadFn::Detach => {
+                let sched = self.isched();
+                Ok(match sched.resolve_joinable(arg(0)) {
+                    Some(id) => {
+                        sched.release_handle(id);
+                        0
+                    }
+                    None => EINVAL,
+                })
+            }
+            ThreadFn::SelfId => {
+                let sched = self.isched();
+                Ok(sched.slots.handle_of(sched.current))
+            }
             ThreadFn::SetName | ThreadFn::GetName => self.trap(
                 "pthread naming is unsupported by the inline scheduler (no OS pthread identity)",
             ),
@@ -395,26 +474,30 @@ impl Interp {
         };
         self.require_callable(program, func)?;
         let sched = self.isched();
-        sched
-            .threads
-            .push(ThreadRec::new(func, argument, State::Pending));
-        let id = sched.threads.len() - 1;
+        let id = sched.add(ThreadRec::new(func, argument, State::Pending));
+        let handle = sched.slots.handle_of(id);
         self.multi = true;
         if out != 0 {
-            self.put(out, &(id as u64 + 1).to_le_bytes())?;
+            self.put(out, &handle.to_le_bytes())?;
         }
         Ok(0)
     }
 
     fn inline_join(&mut self, handle: u64, result_out: u64) -> Res<u64> {
-        let me = self.isched().current;
-        let id = handle.wrapping_sub(1) as usize;
-        if id >= self.isched().threads.len() || id == me {
+        let sched = self.isched();
+        let me = sched.current;
+        if sched.resolve_joinable(handle).is_none_or(|id| id == me) {
             return Ok(EINVAL);
         }
-        self.wait_until(Wait::Join(id), None)?;
+        self.wait_until(Wait::Join(handle), None)?;
+        // Another joiner or a detach may have taken the thread while this one waited.
+        let sched = self.isched();
+        let Some(id) = sched.resolve_joinable(handle) else {
+            return Ok(EINVAL);
+        };
+        let value = sched.threads[id].result;
+        sched.release_handle(id);
         if result_out != 0 {
-            let value = self.isched().threads[id].result;
             self.put(result_out, &value.to_le_bytes())?;
         }
         Ok(0)
@@ -661,8 +744,8 @@ impl Interp {
                 Ok(rets) => {
                     let stack = self.take_exec_state().stack;
                     let sched = self.isched();
-                    sched.threads[current].state = State::Finished;
                     sched.threads[current].result = rets.first().copied().unwrap_or(0);
+                    sched.finish(current);
                     sched.spare_stacks.push(stack);
                 }
                 Err(trap) => {
@@ -744,7 +827,7 @@ impl Interp {
         } else {
             let sched = self.isched();
             if sched.threads[current].state == State::Running {
-                sched.threads[current].state = State::Finished;
+                sched.finish(current);
             }
             if !live.stack.is_empty() {
                 sched.spare_stacks.push(live.stack);

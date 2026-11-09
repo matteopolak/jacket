@@ -33,7 +33,7 @@
 - A default value of the wrong type in a struct nothing uses is reported.
 - `jailsp` checks an open file that several program entries reach under each of them, so what only one program finds wrong still shows after an edit; hover and navigation keep answering from the first entry.
 - `jailsp` says a project file that no entry loads or imports is in no program (an information diagnostic, `not-in-program`) and reports only its syntax errors, instead of leaving it silently unchecked.
-- A long `#run` that starts many short threads no longer grows the interpreter's thread table: a thread's slot is reused once it has ended and its handle is joined, detached or closed, and a handle kept past that point is rejected instead of naming a later thread.
+- A long `#run` that starts many short threads no longer grows the interpreter's thread table: a thread's slot is reused once it has ended and its handle is joined, detached or closed, and a handle kept past that point is rejected instead of naming a later thread. The same holds in the browser playground's scheduler, where `pthread_detach` now frees a thread's slot too, and a handle already joined or detached can no longer be joined or detached again.
 
 ## [0.34.0] - 2026-11-09
 
