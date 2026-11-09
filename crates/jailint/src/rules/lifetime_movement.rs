@@ -93,9 +93,18 @@ pub(super) fn result_indices(compiler: &Compiler, proc: ProcId, name: &str) -> V
 }
 
 pub(super) fn released_formal(compiler: &Compiler, proc: ProcId) -> Option<usize> {
+    noted_formal(compiler, proc, &["FreesArgument", "Closes"])
+}
+
+/// The argument a procedure may release: `@MaybeFreesArgument`, for a release that can fail and leave the
+/// resource live (`close`, `munmap`).
+pub(super) fn maybe_released_formal(compiler: &Compiler, proc: ProcId) -> Option<usize> {
+    noted_formal(compiler, proc, &["MaybeFreesArgument"])
+}
+
+fn noted_formal(compiler: &Compiler, proc: ProcId, names: &[&str]) -> Option<usize> {
     notes(compiler, proc).find_map(|n| {
-        let args =
-            parameters(&n.text, "FreesArgument").or_else(|| parameters(&n.text, "Closes"))?;
+        let args = names.iter().find_map(|name| parameters(&n.text, name))?;
         if args.is_empty() {
             Some(0)
         } else {

@@ -16,7 +16,7 @@
 //! harmless: reading or writing a number, bool or enum member through it (`x.count`,
 //! `x.value = 1`, `x[i] = 0`), comparing it, testing it in an `if` or `while`, or standing alone
 //! as a statement. Any other mention counts as handling the memory and silences the rule:
-//! passing `x` (or anything reached through it) to a call, `@FreesArgument` calls and `defer`red
+//! passing `x` (or anything reached through it) to a call, freeing calls and `defer`red
 //! ones included; returning it; assigning it or a pointer into it elsewhere; taking its
 //! address; putting it in a literal; reassigning `x`. Procedure-wide, it stays quiet when the
 //! procedure uses `push_context`, assigns `context`, calls a macro (`push_allocator` is one),

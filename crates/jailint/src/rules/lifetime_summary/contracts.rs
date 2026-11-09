@@ -22,7 +22,6 @@ pub(super) fn seed(
     for id in ids {
         let i = id.0 as usize;
         let mut summary = Summary {
-            observable: super::observable::primitive(compiler, id),
             pushes_context: super::templates::pushes_context(&compiler.pr.procs[i].lit),
             ordering: super::ordering::scalar(&compiler.pr.procs[i].lit),
             ..Default::default()
@@ -38,7 +37,22 @@ pub(super) fn seed(
             summary.observable.output |= compiler.proc_has_note(id, "WritesOutput");
             summary.observable.exit |= compiler.proc_has_note(id, "Exits");
         }
-        super::primitives::seed(compiler, id, &mut summary);
+        if let Some(formal) = super::lifetime_movement::maybe_released_formal(compiler, id)
+            && compiler.pr.procs[i]
+                .sig
+                .as_ref()
+                .is_some_and(|s| formal < s.params.len())
+        {
+            let effect = Effect {
+                target: Path {
+                    root: Root::Parameter(formal),
+                    steps: Vec::new(),
+                },
+                kind: Kind::Free,
+                guard: None,
+            };
+            summary.may.insert(effect, vec![compiler.pr.procs[i].span]);
+        }
         if valid.contains_key(&id) || summary.observable.exit {
             summary.normal_return = Some(false);
         }

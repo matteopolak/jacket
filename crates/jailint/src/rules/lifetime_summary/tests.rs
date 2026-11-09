@@ -409,7 +409,7 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
             #import "Basic";
             lib :: #system_library "c";
             raw_write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign lib "write";
-            raw_exit :: (code: s32) #foreign lib "exit";
+            raw_exit :: (code: s32) #foreign lib "exit"; @Exits
             select_output :: (error: bool) {
                 fd: s32 = 1;
                 if error fd = 2;
@@ -550,8 +550,8 @@ fn foreign_release_protocols_propagate_without_wrapper_notes() {
     let source = r#"
         #import "Basic";
         lib :: #system_library "c";
-        raw_free :: (memory: *void) #foreign lib "free";
-        raw_close :: (handle: s32) -> s32 #foreign lib "close";
+        raw_free :: (memory: *void) #foreign lib "free"; @FreesArgument
+        raw_close :: (handle: s32) -> s32 #foreign lib "close"; @MaybeFreesArgument
         Handle :: struct { value: s32; }
         release_memory :: (memory: *void) { raw_free(memory); }
         release_handle :: (handle: *Handle) {
@@ -697,7 +697,7 @@ fn null_cleanup_paths_are_vacuous_but_unrelated_conditions_remain_possible() {
         Other :: struct { a: *void; b: *void; }
         distinct :: (p: *Other) { if p.a != null free(p.b); }
         lib :: #system_library "c";
-        raw_close :: (handle: s32) -> s32 #foreign lib "close";
+        raw_close :: (handle: s32) -> s32 #foreign lib "close"; @MaybeFreesArgument
         zero_descriptor :: (handle: s32) { if handle != 0 raw_close(handle); }
         main :: () {}
     "#

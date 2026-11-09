@@ -32,7 +32,6 @@ mod ordering;
 mod origins;
 mod possible;
 mod prepared;
-mod primitives;
 mod reads;
 mod releases;
 mod return_fields;

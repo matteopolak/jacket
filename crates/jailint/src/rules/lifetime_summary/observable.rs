@@ -1,4 +1,4 @@
-//! Observable process effects come from selected calls, not wrapper annotations.
+//! Observable process effects: `@Exits` and `@WritesOutput` on bodiless declarations, and the calls that reach them.
 use super::{Event, HashMap, HashSet, LifetimeBody, ProcId, Summary, Val};
 use jaic::sema::{Compiler, procs::ProcTarget};
 
@@ -20,20 +20,6 @@ pub(super) fn symbol(c: &Compiler, p: ProcId) -> Option<&str> {
         return None;
     };
     Some(&c.out.program.foreigns[id.0 as usize].symbol)
-}
-
-pub(super) fn primitive(c: &Compiler, p: ProcId) -> Observable {
-    match symbol(c, p) {
-        Some("exit" | "_exit" | "_Exit" | "abort" | "ExitProcess") => Observable {
-            exit: true,
-            output: false,
-        },
-        Some("printf" | "vprintf" | "puts" | "putchar") => Observable {
-            output: true,
-            exit: false,
-        },
-        _ => Observable::default(),
-    }
 }
 
 pub(super) struct Calls<'a> {
@@ -69,7 +55,6 @@ impl<'a> Calls<'a> {
                 } = event
                 {
                     out.callees.push(*callee);
-                    out.direct.include(primitive(c, *callee));
                     if matches!(symbol(c, *callee), Some("write" | "_write" | "WriteFile")) {
                         let domain = values.get_or_insert_with(|| Values::new(body));
                         out.direct.output |= domain.output(c, *callee, args);
