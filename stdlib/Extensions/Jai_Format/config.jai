@@ -136,28 +136,25 @@ apply_setting_text :: (config: *Format_Config, key: string, text: string, line: 
     return true, "";
 }
 
-// Copies the setting `key` from a decoded section. The names are FORMAT_KEYS.
+// Copies the setting `key` from a decoded section: the member of Format_Config with that name.
+// `ignore` is the one setting that owns memory; the globs it replaces are released and the
+// decoded ones move over.
 move_setting :: (config: *Format_Config, from: *Format_Config, key: string) {
-    if key == {
-        case "indent_width"; config.indent_width = from.indent_width;
-        case "case_indent"; config.case_indent = from.case_indent;
-        case "case_body_indent"; config.case_body_indent = from.case_body_indent;
-        case "max_blank_lines"; config.max_blank_lines = from.max_blank_lines;
-        case "max_width"; config.max_width = from.max_width;
-        case "brace_style"; config.brace_style = from.brace_style;
-        case "blank_lines_between_items"; config.blank_lines_between_items = from.blank_lines_between_items;
-        case "blank_line_after_declarations"; config.blank_line_after_declarations = from.blank_line_after_declarations;
-        case "blank_lines_around_blocks"; config.blank_lines_around_blocks = from.blank_lines_around_blocks;
-        case "blank_line_between_cases"; config.blank_line_between_cases = from.blank_line_between_cases;
-        case "blank_line_before_comments"; config.blank_line_before_comments = from.blank_line_before_comments;
-        case "blank_line_after_guards"; config.blank_line_after_guards = from.blank_line_after_guards;
-        case "blank_line_before_return"; config.blank_line_before_return = from.blank_line_before_return;
-        case "format_doc_examples"; config.format_doc_examples = from.format_doc_examples;
-        case "ignore";
-            array_free(config.ignore);
-            config.ignore = from.ignore;
-            from.ignore = .{};
+    if key == "ignore" {
+        for config.ignore free(it);
+
+        array_free(config.ignore);
+        config.ignore = from.ignore;
+        from.ignore = .{};
+
+        return;
     }
+
+    member, offset := get_field(cast(*Type_Info_Struct) type_info(Format_Config), key);
+
+    if !member return;
+
+    memcpy(cast(*u8) config + offset, cast(*u8) from + offset, member.type.runtime_size);
 }
 
 apply_doc_key :: (config: *Format_Config, key: string, value: string, line_number: int) -> bool, string {
