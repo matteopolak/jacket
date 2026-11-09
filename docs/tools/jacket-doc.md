@@ -133,6 +133,8 @@ The site targets WCAG 2.2 AA:
 - **Structure:** landmarks, a skip link, one `h1` per page, and real lists and buttons. Content links are underlined so colour is not their only cue.
 - **Keyboard:**
   - Search is a modal `<dialog id="search-dialog">` near the top of the screen over a dimmed, blurred page, opened by the header's field-styled button (`#search-open`), by `/` outside text fields, or by ⌘K or Ctrl K anywhere. Its input is a combobox (arrows, Enter). Escape or a click outside fades it away (`.closing`, as with the drawer). The button shows the chord for the reader's system (`html.mac`, set in `EARLY`) and hides it on touch screens.
+  - Each result starts with a tinted icon for its kind (procedure, module, type, constant), and the picked one ends with an Enter icon. The icons are Lucide symbols (ISC) vendored into `assets/icons.svg` as `k-proc`, `k-module`, `k-type`, `k-const` and `enter`; add a kind by adding a symbol and a `.kind.k-<kind>` colour in `site.css`.
+  - The rest of the picked result's name shows in grey behind the typed text, then its module (`.spot-ghost`, `paintGhost` in `site.js`). It matches only when the name starts with the query (the qualified name once the query has a dot). Tab, or → at the end of the text, takes it.
   - The version menu is a menu button.
   - Folds and nav categories set `aria-expanded`.
   - Focus moving into a folded block opens it.

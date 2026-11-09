@@ -378,6 +378,41 @@
   var input = /** @type {HTMLInputElement} */ (document.getElementById('search-q'));
   var box = /** @type {HTMLElement} */ (document.getElementById('search-results'));
   var spot = /** @type {HTMLDialogElement | null} */ (document.getElementById('search-dialog'));
+  var ghost = spot && spot.querySelector('.spot-ghost');
+  // The icon sprite, from the search icon the header already uses.
+  var sprite = (function () {
+    var use = document.querySelector('#search-open use');
+    return use ? /** @type {string} */ (use.getAttribute('href')).split('#')[0] : '';
+  })();
+  /** @param {string} id @param {string} cls */
+  function spriteIcon(id, cls) {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', cls);
+    svg.setAttribute('aria-hidden', 'true');
+    var use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', sprite + '#' + id);
+    svg.appendChild(use);
+    return svg;
+  }
+  /** What a hit is called where the query can complete it: `Module.name` once the query has a dot. @param {Item} it @param {string} q */
+  function completes(it, q) {
+    var full = it.kind === 'module' ? it.title : it.title + '.' + it.name;
+    var name = q.indexOf('.') >= 0 || it.kind === 'module' ? full : it.name;
+    return name.toLowerCase().indexOf(q.toLowerCase()) === 0 ? name : '';
+  }
+  // The rest of the picked hit's name, grey behind what was typed, like a system search bar. It
+  // sits in the field's own text layer, so typing more never moves it.
+  function paintGhost() {
+    if (!ghost) return;
+    ghost.textContent = '';
+    var q = input.value;
+    var it = picked >= 0 ? hits[picked] : null;
+    var name = it && q && !/\s|->/.test(q) ? completes(it, q) : '';
+    if (!it || !name || input.scrollWidth > input.clientWidth) return;
+    ghost.appendChild(el('span', 'typed', q));
+    ghost.appendChild(el('span', 'rest', name.slice(q.length)));
+    ghost.appendChild(el('span', 'where', ' — ' + (it.kind === 'module' ? 'module' : it.title)));
+  }
   var searchOpener = document.getElementById('search-open');
   /** @type {Item[] | null} */
   var items = null;
@@ -634,6 +669,7 @@
         'aria-label',
         (it.kind === 'module' ? it.title : it.title + '.' + it.name) + ': ' + it.summary,
       );
+      a.appendChild(spriteIcon('k-' + it.kind, 'kind k-' + it.kind));
       a.appendChild(el('code', '', '')).appendChild(name);
       // Flags are dots here, coloured like the badges on the pages; the word is the tooltip.
       if (it.native) a.appendChild(dot('foreign', 'Foreign: a binding to a native library'));
@@ -644,22 +680,27 @@
       var sig = el('span', 'sig');
       sig.appendChild(sigNodes(it));
       a.appendChild(sig);
+      if (i === picked) a.appendChild(spriteIcon('enter', 'go'));
       box.appendChild(a);
     });
     var tips = el('div', 'tips');
-    ['↑↓ to move', '↵ to open', 'type -> bool to search by return type'].forEach(function (t) {
-      tips.appendChild(el('span', '', t));
-    });
+    ['↑↓ to move', '↵ to open', 'tab to complete', 'type -> bool to search by return type'].forEach(
+      function (t) {
+        tips.appendChild(el('span', '', t));
+      },
+    );
     tips.setAttribute('role', 'presentation');
     box.appendChild(tips);
     box.hidden = false;
     input.setAttribute('aria-expanded', 'true');
     if (picked >= 0) input.setAttribute('aria-activedescendant', 'hit-' + picked);
     else input.removeAttribute('aria-activedescendant');
+    paintGhost();
   }
   function hide() {
     current++;
     box.hidden = true;
+    if (ghost) ghost.textContent = '';
     input.setAttribute('aria-expanded', 'false');
     input.removeAttribute('aria-activedescendant');
   }
@@ -730,6 +771,16 @@
         e.preventDefault();
         picked = (picked + (e.key === 'ArrowDown' ? 1 : hits.length - 1)) % hits.length;
         show();
+      } else if (
+        (e.key === 'Tab' && !e.shiftKey) ||
+        (e.key === 'ArrowRight' && input.selectionStart === input.value.length)
+      ) {
+        // Take the grey completion.
+        var name = picked >= 0 && hits[picked] ? completes(hits[picked], input.value) : '';
+        if (!name || name === input.value) return;
+        e.preventDefault();
+        input.value = name;
+        update();
       } else if (e.key === 'Enter') {
         if (picked >= 0 && hits[picked]) {
           e.preventDefault();

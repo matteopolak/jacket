@@ -83,7 +83,7 @@ Header :: (out: *Out, site: *Site_View, path: string = "", label: string = "Modu
 <div class="search-wrap js-only">
 <button type="button" id="search-open" class="search" aria-haspopup="dialog" aria-controls="search-dialog"><svg aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#search"/></svg><span class="search-ph">Search by name or signature</span><span class="search-keys" aria-hidden="true"><kbd class="key-mac">⌘</kbd><kbd class="key-other">Ctrl</kbd><kbd>K</kbd></span></button>
 <dialog id="search-dialog" class="spotlight" aria-label="Search the docs">
-<div class="spot-field"><svg aria-hidden="true" width="18" height="18"><use href="{esc(site.icons_url)}#search"/></svg><label class="sr" for="search-q">Search the docs</label><input id="search-q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list"><kbd>Esc</kbd></div>
+<div class="spot-field"><svg aria-hidden="true" width="18" height="18"><use href="{esc(site.icons_url)}#search"/></svg><label class="sr" for="search-q">Search the docs</label><div class="spot-input"><span class="spot-ghost" aria-hidden="true"></span><input id="search-q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list"></div><kbd>Esc</kbd></div>
 <div id="search-results" aria-live="polite" role="listbox" aria-label="Search results" hidden></div>
 </dialog>
 </div>

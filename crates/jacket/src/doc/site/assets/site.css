@@ -506,16 +506,50 @@ html:not(.mac) .key-mac {
   color: var(--muted);
 }
 
-.spot-field input {
+.spot-input {
+  position: relative;
   flex: 1;
   min-width: 0;
   height: 100%;
+}
+
+.spot-field input,
+.spot-ghost {
   font: inherit;
   font-size: 17px;
+  letter-spacing: normal;
+}
+
+.spot-field input {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
   color: var(--fg);
   background: none;
   border: 0;
   outline: none;
+  appearance: none;
+}
+
+/* The grey completion behind the typed text: the typed part is invisible and holds the place. */
+.spot-ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: pre;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.spot-ghost .typed {
+  color: transparent;
+}
+
+.spot-ghost .where {
+  opacity: 0.7;
 }
 
 .spot-field input::placeholder {
@@ -588,7 +622,7 @@ html:not(.mac) .key-mac {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 10px;
+  padding: 6px 10px 6px 6px;
   border-radius: 8px;
   color: var(--fg);
   text-decoration: none;
@@ -598,6 +632,43 @@ html:not(.mac) .key-mac {
   background: var(--sel);
   outline: 2px solid var(--link);
   outline-offset: -2px;
+}
+
+/* What a hit is, as an icon in a tinted tile, coloured like the code highlighting. */
+#search-results .kind {
+  --c: var(--muted);
+
+  flex: none;
+  box-sizing: content-box;
+  width: 16px;
+  height: 16px;
+  padding: 5px;
+  border-radius: 7px;
+  color: var(--c);
+  background: color-mix(in oklch, var(--c) 14%, transparent);
+}
+
+#search-results .k-module {
+  --c: var(--link);
+}
+
+#search-results .k-proc {
+  --c: var(--kw);
+}
+
+#search-results .k-type {
+  --c: var(--type);
+}
+
+#search-results .k-const {
+  --c: var(--str);
+}
+
+#search-results .go {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
 }
 
 #search-results .path {
