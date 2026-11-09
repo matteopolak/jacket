@@ -45,6 +45,14 @@ class Mentions(unittest.TestCase):
             self.check("run tests/codec.jai", doc_dir=self.root / "docs"), []
         )
 
+    def test_slash_header_is_read_only_for_typescript(self):
+        text = "#!/usr/bin/env node\n// see tools/a.ts\n\n// and tools/b.ts\nimport x;\n// tools/c.ts\n"
+        head = paths.header(text, slashes=True)
+        self.assertIn("tools/a.ts", head)
+        self.assertIn("tools/b.ts", head)
+        self.assertNotIn("tools/c.ts", head)
+        self.assertNotIn("tools/a.ts", paths.header(text))
+
     def test_header_stops_after_the_docstring(self):
         text = '#!/usr/bin/env python3\n"""Uses tools/a.py.\n\nMore."""\nimport x  # tools/b.py\n'
         self.assertIn("tools/a.py", paths.header(text))

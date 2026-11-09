@@ -73,11 +73,15 @@ LINK = re.compile(r"\]\(([^)\s#]+)(?:#[^)]*)?\)")
 SKIP_CHARS = set("*<>{}$[]")
 
 
-def header(text):
-    """Leading comment block (shebang, `#` lines, a docstring) of a tool or config file."""
+def header(text, slashes=False):
+    """Leading comment block (shebang, `#` lines, a docstring) of a tool or config file.
+
+    `slashes` is for TypeScript: `//` lines count as comments too.
+    """
+    marks = ("#", "//") if slashes else ("#",)
     lines, out = text.splitlines(), []
     i = 0
-    while i < len(lines) and (lines[i].startswith("#") or not lines[i].strip()):
+    while i < len(lines) and (lines[i].startswith(marks) or not lines[i].strip()):
         out.append(lines[i])
         i += 1
     if i < len(lines) and lines[i].lstrip().startswith(('"""', "'''")):
@@ -285,7 +289,8 @@ def run():
         elif rel.startswith(".github/") and rel.endswith((".yml", ".yaml")):
             errors += check_text(rel, path.read_text(errors="replace"))
         elif headed(rel):
-            errors += check_text(rel, header(path.read_text(errors="replace")))
+            head = header(path.read_text(errors="replace"), slashes=rel.endswith(".ts"))
+            errors += check_text(rel, head)
     return errors
 
 
