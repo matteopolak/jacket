@@ -88,8 +88,8 @@ Gltf_Resolver :: struct {
 // An asset can also be built by hand, starting from `Gltf_Asset.{}`. [gltf_free] releases the
 // document's strings and arrays as `free_json` does, so a hand-built document must hold allocated
 // ones (use `copy_string`), with one exception: `extensions_used` and `extensions_required` may be
-// literals. They are borrowed until [gltf_use_extension] changes them, which copies them into storage
-// the asset owns.
+// literals. They are borrowed until [gltf_use_extension] or [gltf_remove_extension] changes them, which
+// copies them into storage the asset owns.
 //
 // ```jai
 // asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":4,\"uri\":\"data:application/octet-stream;base64,AAAAAA==\"}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":4,\"target\":34962}]}");

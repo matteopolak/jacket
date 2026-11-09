@@ -92,7 +92,79 @@ gltf_use_extension :: (asset: *Gltf_Asset, name: string) {
     used.count = list.count;
 }
 
+// Remove the extension `name` from the `extensions` of a document, node, material or texture
+// reference of `asset`: the undo of [gltf_set_extension]. Once no object of the asset has the
+// extension any more, its name also leaves `extensionsUsed` and `extensionsRequired`, so the
+// asset still writes and loads. The result is false when `extensions` had no such member. `extensions`
+// must belong to `asset`.
+//
+// ```jai
+// asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"extensionsUsed\":[\"KHR_materials_ior\"],\"materials\":[{\"extensions\":{\"KHR_materials_ior\":{\"ior\":1.33}}}]}");
+// assert(error.kind == .NONE);
+// defer gltf_free(*asset);
+// assert(gltf_remove_extension(*asset, *asset.document.materials[0].extensions, "KHR_materials_ior"));
+// assert(asset.document.extensions_used.count == 0);
+// ```
+gltf_remove_extension :: (asset: *Gltf_Asset, extensions: *Json_Value, name: string) -> bool {
+    if !json_remove(extensions, name) return false;
+
+    // The tree is a copy of the document's typed fields and extension payloads, so it holds every
+    // `extensions` object without a walk over each Gltf type.
+    tree := to_json_value(asset.document);
+
+    defer free_json(*tree);
+
+    if has_extension(*tree, name) return true;
+
+    own_extension_lists(asset);
+    drop_name(*asset.document.extensions_used, name);
+    drop_name(*asset.document.extensions_required, name);
+
+    return true;
+}
+
 #scope_file
+
+// Whether any `extensions` object under `value` has a member `name`. Free-form `extras` are skipped.
+has_extension :: (value: *Json_Value, name: string) -> bool {
+    for item: value.items if has_extension(*item, name) return true;
+
+    for member: value.members {
+        if member.key == "extras" continue;
+
+        if member.key == "extensions" && json_get(*member.value, name) return true;
+
+        if has_extension(*member.value, name) return true;
+    }
+
+    return false;
+}
+
+// Removes `name` from an owned list, freeing its string and the old storage.
+drop_name :: (list: *[] string, name: string) {
+    found, index := array_find(list.*, name);
+
+    if !found return;
+
+    free(list.*[index]);
+
+    if list.count == 1 {
+        free(list.data);
+        list.* = .{};
+
+        return;
+    }
+
+    kept: [..] string;
+
+    array_reserve(*kept, list.count - 1);
+
+    for list.* if it_index != index array_add(*kept, it);
+
+    free(list.data);
+    list.data = kept.data;
+    list.count = kept.count;
+}
 
 // Makes the asset the owner of its extension lists: a borrowed list is replaced by a copy.
 own_extension_lists :: (asset: *Gltf_Asset) {

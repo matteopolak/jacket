@@ -318,6 +318,61 @@ surface_extensions :: () {
     expect(still_unlit);
 } @test
 
+// The last object to drop an extension takes its name out of `extensionsUsed` and
+// `extensionsRequired`; while another object still has it, the lists keep it.
+remove_extension_updates_the_lists :: () {
+    asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"extensionsUsed\":[\"KHR_materials_ior\",\"KHR_materials_unlit\"],\"extensionsRequired\":[\"KHR_materials_ior\"],\"materials\":[{\"extensions\":{\"KHR_materials_ior\":{\"ior\":1.8},\"KHR_materials_unlit\":{}}},{\"extensions\":{\"KHR_materials_ior\":{\"ior\":1.2}}}]}");
+
+    require(error.kind == .NONE, error.message);
+    defer gltf_free(*asset);
+    materials := asset.document.materials;
+
+    expect(gltf_remove_extension(*asset, *materials[0].extensions, "KHR_materials_ior"));
+    _, found, _ := gltf_extension(*materials[0].extensions, "KHR_materials_ior", Gltf_Ior);
+
+    expect(!found);
+
+    // Material 1 still uses it.
+    expect_equal(asset.document.extensions_used.count, 2);
+    expect_equal(asset.document.extensions_required.count, 1);
+
+    expect(gltf_remove_extension(*asset, *materials[1].extensions, "KHR_materials_ior"));
+    require(asset.document.extensions_used.count == 1);
+    expect_equal(asset.document.extensions_used[0], "KHR_materials_unlit");
+    expect_equal(asset.document.extensions_required.count, 0);
+
+    // Nothing left to remove.
+    expect(!gltf_remove_extension(*asset, *materials[1].extensions, "KHR_materials_ior"));
+
+    // What remains writes and loads again.
+    bytes, write_error := gltf_write(*asset);
+
+    require(write_error.kind == .NONE, write_error.message);
+    defer free(bytes);
+    again, read_error := gltf_load(bytes);
+
+    require(read_error.kind == .NONE, read_error.message);
+    defer gltf_free(*again);
+    expect_equal(again.document.extensions_used.count, 1);
+} @test
+
+// A use deeper than the object that lost the extension counts: a texture reference's
+// `KHR_texture_transform` keeps the name declared, and `extras` that mention it do not.
+remove_extension_sees_every_user :: () {
+    asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"extensionsUsed\":[\"KHR_texture_transform\",\"EXT_other\"],\"images\":[{\"uri\":\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\"}],\"textures\":[{\"source\":0}],\"materials\":[{\"extras\":{\"extensions\":{\"KHR_texture_transform\":1}},\"emissiveTexture\":{\"index\":0,\"extensions\":{\"KHR_texture_transform\":{\"scale\":[2,2]}}}},{\"extensions\":{\"KHR_texture_transform\":{}}}]}");
+
+    require(error.kind == .NONE, error.message);
+    defer gltf_free(*asset);
+    materials := asset.document.materials;
+
+    expect(gltf_remove_extension(*asset, *materials[1].extensions, "KHR_texture_transform"));
+    expect_equal(asset.document.extensions_used.count, 2);
+
+    expect(gltf_remove_extension(*asset, *materials[0].emissive_texture.extensions, "KHR_texture_transform"));
+    require(asset.document.extensions_used.count == 1);
+    expect_equal(asset.document.extensions_used[0], "EXT_other");
+} @test
+
 // An asset assembled by hand, not loaded: its strings are copies, and `extensions_used` starts empty.
 hand_built_asset_uses_an_extension :: () {
     asset: Gltf_Asset;
