@@ -115,11 +115,12 @@ Segments :: (out: *Out, segments: [] Doc_Segment) {
 
 // An example with the finding it draws and the fixed code: one card, each block under a caption.
 Group :: (out: *Out, g: *DocSegment_Group) {
-    html(out, "<div class=\"example-group\">\n");
-    for p: g.parts {
-        html(out, "<figure><figcaption>{esc(p.label)}</figcaption><pre class=\"code\"><code>{cast(Html) p.code_html}</code></pre></figure>\n");
-    }
-    html(out, "</div>\n");
+    html(out, #string HTML
+<div class="example-group">
+{for p: g.parts}<figure><figcaption>{esc(p.label)}</figcaption><pre class="code"><code>{cast(Html) p.code_html}</code></pre></figure>
+{end}</div>
+HTML
+    );
 }
 
 // Code before and after formatting, side by side; stacked on narrow screens.
