@@ -7,13 +7,10 @@
 #import "Extensions/Gltf";
 
 box_textured :: (b: *Bench) {
-    base := environment_variable("JACKET_OUTPUT_DIR");
-    if !base.count base = tprint("%../../../../target", #filepath);
-
-    folder := tprint("%/gltf-conformance/samples/Models/BoxTextured/glTF", base);
+    folder := output_path("gltf-conformance/samples/Models/BoxTextured/glTF");
     bytes, ok := read_entire_file(tprint("%/BoxTextured.gltf", folder));
 
-    assert(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py data` first");
+    assert(ok, "run `PYTHONPATH=tools python3 tools/gltf_conformance/fetch.py --samples` first (a 1.1 GB download)");
     defer free(bytes);
     set_bytes(b, bytes.count);
     reset_timer(b);

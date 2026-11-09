@@ -82,12 +82,9 @@ count_fields :: (data: string, options: Csv_Options, size: int) -> int {
 }
 
 benchmark_input :: () -> string {
-    base := environment_variable("JACKET_OUTPUT_DIR");
-    if !base.count base = tprint("%../../../../target", #filepath);
+    data, ok := read_entire_file(output_path("csv-conformance/bench.csv"));
 
-    data, ok := read_entire_file(tprint("%/csv-conformance/bench.csv", base));
-
-    assert(ok, "run PYTHONPATH=tools python3 tools/portable/build_portable.py bench");
+    assert(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py bench` first");
 
     return data;
 }
