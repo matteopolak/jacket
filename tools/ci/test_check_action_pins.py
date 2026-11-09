@@ -2,6 +2,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+from toolkit import github
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -263,9 +264,9 @@ class RewriteTests(unittest.TestCase):
 class CacheTests(unittest.TestCase):
     def setUp(self):
         self.fetched = []
-        self.original = pins.fetch
-        pins.fetch = self.fetch
-        self.addCleanup(setattr, pins, "fetch", self.original)
+        self.original = github.fetch
+        github.fetch = self.fetch
+        self.addCleanup(setattr, github, "fetch", self.original)
 
     def fetch(self, url, **_kwargs):
         self.fetched.append(url)
@@ -309,7 +310,7 @@ class CacheTests(unittest.TestCase):
         def refuse(*_args, **_kwargs):
             raise OSError("no route")
 
-        pins.fetch = refuse
+        github.fetch = refuse
         with self.assertRaises(pins.LookupFailed) as caught:
             pins.GitHub(None, NOW)("/repos/o/r/releases")
         self.assertIn("could not reach", str(caught.exception))

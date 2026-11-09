@@ -13,6 +13,7 @@ import urllib.parse
 
 
 from toolkit.age_policy import MIN_AGE, load_cache, parse_time, recent, save_cache
+from toolkit import github
 from toolkit.download import fetch
 
 REGISTRY = "registry+https://github.com/rust-lang/crates.io-index"
@@ -113,14 +114,7 @@ def main():
     def get_commit(owner, repo, sha):
         # One repository often provides several crates at the same commit.
         if (owner, repo, sha) not in commits:
-            headers = {
-                "User-Agent": "jai-rs-dependency-policy/0.1",
-                "Accept": "application/vnd.github+json",
-            }
-            if os.environ.get("GITHUB_TOKEN"):
-                headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
-            url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
-            record = json.loads(fetch(url, timeout=30, headers=headers))
+            record = github.get(f"/repos/{owner}/{repo}/commits/{sha}")
             if record["sha"] != sha:
                 raise ValueError(f"GitHub resolved {sha} to {record['sha']}")
             commits[owner, repo, sha] = record["commit"]["committer"]["date"]

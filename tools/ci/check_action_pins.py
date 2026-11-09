@@ -26,19 +26,17 @@ API answers are cached in `target/action-pins-cache.json` for six hours; `--refr
 """
 
 import argparse
-import json
-import os
 import re
 import sys
 import urllib.error
 import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from http.client import HTTPException
 
 from repo_output import output_dir
 from toolkit.age_policy import MIN_AGE, load_cache, parse_time, recent, save_cache
-from toolkit.download import fetch
+from toolkit import github
+from toolkit.github import LookupFailed, NotFound
 from toolkit.repo import ROOT
 
 CACHE_TTL = timedelta(hours=6)
@@ -48,14 +46,6 @@ USES = re.compile(
 SHA = re.compile(r"[0-9a-f]{40}")
 STABLE = re.compile(r"v?(\d+)(?:\.(\d+))?(?:\.(\d+))?")
 OK, POLICY, UPDATES, UNREACHABLE = 0, 1, 2, 3
-
-
-class LookupFailed(Exception):
-    """GitHub could not be reached or did not answer as expected."""
-
-
-class NotFound(LookupFailed):
-    """GitHub answered 404."""
 
 
 @dataclass(frozen=True)
@@ -129,25 +119,7 @@ class GitHub:
             and recent(entry.get("fetched"), self.now, CACHE_TTL)
         ):
             return entry["body"]
-        headers = {"Accept": "application/vnd.github+json"}
-        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-        if token:
-            headers["Authorization"] = "Bearer " + token
-        try:
-            body = json.loads(
-                fetch("https://api.github.com" + path, timeout=30, headers=headers)
-            )
-        except urllib.error.HTTPError as error:
-            if error.code == 404:
-                raise NotFound(f"GitHub has no {path}") from error
-            hint = (
-                " (rate limited: set GITHUB_TOKEN)" if error.code in (403, 429) else ""
-            )
-            raise LookupFailed(
-                f"GitHub answered {error.code} for {path}{hint}"
-            ) from error
-        except (OSError, HTTPException, ValueError) as error:
-            raise LookupFailed(f"could not reach GitHub for {path}: {error}") from error
+        body = github.get(path)
         self.cache[path] = {"fetched": self.now.isoformat(), "body": body}
         return body
 
