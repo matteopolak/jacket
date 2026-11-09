@@ -24,6 +24,7 @@
 import assert from 'node:assert/strict';
 import { pageStatus, waitForFrames } from './doc_samples.ts';
 import { waitForDevToolsPort } from './chrome_startup.ts';
+import { Connection, exceptionText } from './cdp.ts';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -93,17 +94,6 @@ interface Scenario {
   swapped?: boolean;
 }
 
-interface CdpMessage {
-  id?: number;
-  method?: string;
-  result?: unknown;
-  error?: unknown;
-  params?: {
-    requestId?: string;
-    exceptionDetails?: { text: string; exception?: { description?: string } };
-  };
-}
-
 /** What the drawer scenario reads about the sidebar dialog. */
 interface DrawerState {
   open: boolean;
@@ -116,13 +106,6 @@ interface DrawerState {
   width: number;
   vw: number;
   scrollWidth: number;
-}
-
-interface Pending {
-  resolve(value: unknown): void;
-  reject(error: Error): void;
-  timer: NodeJS.Timeout;
-  method: string;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -242,51 +225,6 @@ function findChrome() {
   );
 }
 
-class Connection {
-  url: string;
-  next = 0;
-  pending = new Map<number, Pending>();
-  listeners: ((message: CdpMessage) => void)[] = [];
-  socket: WebSocket | undefined;
-  constructor(url: string) {
-    this.url = url;
-  }
-  async open() {
-    const socket = new WebSocket(this.url);
-    this.socket = socket;
-    await new Promise<void>((resolve, reject) => {
-      socket.addEventListener('open', () => resolve(), { once: true });
-      socket.addEventListener('error', reject, { once: true });
-    });
-    socket.addEventListener('message', (event) => {
-      const message: CdpMessage = JSON.parse(String(event.data));
-      const entry = message.id === undefined ? undefined : this.pending.get(message.id);
-      if (entry && message.id !== undefined) {
-        this.pending.delete(message.id);
-        clearTimeout(entry.timer);
-        if (message.error)
-          entry.reject(new Error(`${entry.method}: ${JSON.stringify(message.error)}`));
-        else entry.resolve(message.result);
-      } else if (message.method) for (const l of this.listeners) l(message);
-    });
-    return this;
-  }
-  cdp<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const id = ++this.next;
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`${method} timed out`));
-      }, 60_000);
-      this.pending.set(id, { resolve: resolve as Pending['resolve'], reject, timer, method });
-      this.socket?.send(JSON.stringify({ id, method, params }));
-    });
-  }
-  close() {
-    this.socket?.close();
-  }
-}
-
 class Tab {
   browser: Connection;
   id: string;
@@ -313,10 +251,7 @@ class Tab {
         );
       }
       if (m.method === 'Runtime.exceptionThrown') {
-        const text =
-          m.params?.exceptionDetails?.exception?.description ||
-          m.params?.exceptionDetails?.text ||
-          '';
+        const text = exceptionText(m);
         // Headless Chrome aborts cross-document view transitions it never shows; not the site's doing.
         if (!/ViewTransition|Transition was aborted/.test(text)) tab.exceptions.push(text);
       }
@@ -343,17 +278,8 @@ class Tab {
   cdp<T = unknown>(method: string, params?: Record<string, unknown>): Promise<T> {
     return this.conn.cdp<T>(method, params);
   }
-  async evaluate<T = unknown>(expression: string): Promise<T> {
-    const result = await this.cdp<{ result: { value: T }; exceptionDetails?: unknown }>(
-      'Runtime.evaluate',
-      {
-        expression,
-        awaitPromise: true,
-        returnByValue: true,
-      },
-    );
-    assert(!result.exceptionDetails, JSON.stringify(result.exceptionDetails));
-    return result.result.value;
+  evaluate<T = unknown>(expression: string): Promise<T> {
+    return this.conn.evaluate<T>(expression);
   }
   async configure(width: number, theme: string) {
     await this.cdp('Emulation.setDeviceMetricsOverride', {

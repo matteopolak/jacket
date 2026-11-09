@@ -4,25 +4,13 @@
 import assert from 'node:assert/strict';
 import { firstGuidePath, pageStatus } from './doc_samples.ts';
 import { waitForDevToolsPort } from './chrome_startup.ts';
+import { Connection, exceptionText } from './cdp.ts';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-
-interface CdpMessage {
-  id?: number;
-  method?: string;
-  result?: unknown;
-  error?: unknown;
-  params?: {
-    requestId?: string;
-    resourceType?: string;
-    request?: { url: string };
-    exceptionDetails?: { text: string; exception?: { description?: string } };
-  };
-}
 
 /** One item of search-index.json: module index, name, kind, ..., flags, ..., path override. */
 type SearchRow = [number, string, string, unknown, unknown, unknown, number, string?];
@@ -68,7 +56,7 @@ const child = spawn(
   ],
   { stdio: ['ignore', 'ignore', 'pipe'] },
 );
-let socket: WebSocket | undefined;
+let devtools: Connection | undefined;
 try {
   const port = await waitForDevToolsPort(child, profile);
   const targets: { type: string; webSocketDebuggerUrl: string }[] = await (
@@ -76,33 +64,22 @@ try {
   ).json();
   const target = targets.find((t) => t.type === 'page');
   assert(target, 'Chrome opened no page target');
-  const connection = new WebSocket(target.webSocketDebuggerUrl);
-  socket = connection;
-  await new Promise<void>((resolve, reject) => {
-    connection.addEventListener('open', () => resolve(), { once: true });
-    connection.addEventListener('error', reject, { once: true });
-  });
-  let next = 0;
-  const pending = new Map<
-    number,
-    { resolve(value: unknown): void; reject(error: Error): void; timer: NodeJS.Timeout }
-  >();
+  const connection = await new Connection(target.webSocketDebuggerUrl).open();
+  devtools = connection;
+  const cdp = <T = unknown>(method: string, params?: Record<string, unknown>) =>
+    connection.cdp<T>(method, params);
+  const evaluate = <T = unknown>(expression: string) => connection.evaluate<T>(expression);
   const interceptErrors: string[] = [];
   let publicationOrigin = '',
     loads = 0,
     scriptErrors: string[] = [];
-  connection.addEventListener('message', async (event) => {
-    const message: CdpMessage = JSON.parse(String(event.data));
+  connection.listeners.push(async (message) => {
     if (message.method === 'Page.loadEventFired') {
       loads++;
       return;
     }
     if (message.method === 'Runtime.exceptionThrown') {
-      scriptErrors.push(
-        message.params?.exceptionDetails?.exception?.description ||
-          message.params?.exceptionDetails?.text ||
-          '',
-      );
+      scriptErrors.push(exceptionText(message));
       return;
     }
     if (message.method === 'Fetch.requestPaused') {
@@ -134,36 +111,7 @@ try {
       }
       return;
     }
-    const entry = message.id === undefined ? undefined : pending.get(message.id);
-    if (!entry || message.id === undefined) return;
-    pending.delete(message.id);
-    clearTimeout(entry.timer);
-    if (message.error) entry.reject(new Error(JSON.stringify(message.error)));
-    else entry.resolve(message.result);
   });
-  function cdp<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const id = ++next;
-      const timer = setTimeout(() => {
-        pending.delete(id);
-        reject(new Error(`${method} timed out`));
-      }, 60_000);
-      pending.set(id, { resolve: resolve as (value: unknown) => void, reject, timer });
-      connection.send(JSON.stringify({ id, method, params }));
-    });
-  }
-  async function evaluate<T = unknown>(expression: string): Promise<T> {
-    const result = await cdp<{ result: { value: T }; exceptionDetails?: unknown }>(
-      'Runtime.evaluate',
-      {
-        expression,
-        awaitPromise: true,
-        returnByValue: true,
-      },
-    );
-    assert(!result.exceptionDetails, JSON.stringify(result.exceptionDetails));
-    return result.result.value;
-  }
   async function get(relative: string) {
     const response = await fetch(new URL(relative, base));
     assert(response.ok, `${relative}: HTTP ${response.status}`);
@@ -288,7 +236,7 @@ try {
   console.log(`axe: ${runs} page/theme/width checks, ${failures} failures`);
   if (failures) process.exitCode = 1;
 } finally {
-  socket?.close();
+  devtools?.close();
   child.kill();
   await new Promise<void>((resolve) =>
     !child.pid || child.exitCode !== null || child.signalCode !== null
