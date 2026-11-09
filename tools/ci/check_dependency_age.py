@@ -12,6 +12,7 @@ import tomllib
 import urllib.parse
 
 
+from toolkit.age_policy import MIN_AGE, load_cache, parse_time, recent, save_cache
 from toolkit.download import fetch
 
 REGISTRY = "registry+https://github.com/rust-lang/crates.io-index"
@@ -20,38 +21,17 @@ REGISTRY = "registry+https://github.com/rust-lang/crates.io-index"
 PINNED_GITHUB = re.compile(
     r"git\+https://github\.com/([\w.-]+)/([\w.-]+?)(?:\.git)?\?rev=([0-9a-f]{40})#([0-9a-f]{40})"
 )
-MIN_AGE = timedelta(days=14)
 # A publish date never changes, but a release can be yanked later: a cached answer is trusted for
 # this long and looked up again after that.
 CACHE_TTL = timedelta(days=3)
 
 
-def load_cache(path):
-    """The cached registry answers, `{"name@version": {"created_at", "yanked", "fetched"}}`; empty when the file is missing or unreadable."""
-    try:
-        data = json.loads(Path(path).read_text())
-        return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
-        return {}
-
-
 def fresh(entry, now):
-    try:
-        return (
-            isinstance(entry["created_at"], str)
-            and isinstance(entry["yanked"], bool)
-            and now - parse_time(entry["fetched"], "cache") < CACHE_TTL
-            and parse_time(entry["fetched"], "cache") <= now
-        )
-    except (KeyError, TypeError, ValueError):
-        return False
-
-
-def parse_time(text, what):
-    stamp = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    if stamp.tzinfo is None:
-        raise ValueError(f"{what} returned a timestamp without a timezone")
-    return stamp
+    return (
+        isinstance(entry.get("created_at"), str)
+        and isinstance(entry.get("yanked"), bool)
+        and recent(entry.get("fetched"), now, CACHE_TTL)
+    )
 
 
 def check(packages, get_version, now, get_commit=None):
@@ -148,8 +128,7 @@ def main():
 
     errors = check(packages, get_version, datetime.now(timezone.utc), get_commit)
     if args.cache and cache != cached_before:
-        args.cache.parent.mkdir(parents=True, exist_ok=True)
-        args.cache.write_text(json.dumps(cache, sort_keys=True))
+        save_cache(args.cache, cache)
     if errors:
         raise SystemExit("\n".join(errors))
     print(

@@ -41,6 +41,7 @@ Import them folder-qualified: `from toolkit.hashing import sha256_file`.
 | `toolkit.host` | `host_os()`, `host_cpu()`, `exe_name()`, `brew_prefix()` |
 | `toolkit.platforms` | `PLATFORMS`, `TRIPLES`, `WINDOWS_TRIPLES`, `MINGW_PREFIXES`: the `<os>-<cpu>` names and their compiler targets; `toolkit/test_platforms.py` fails when they disagree with `crates/jaic/src/target.rs` (OS and CPU names, Windows and Linux triples) |
 | `toolkit.hashing` | `sha256_file`, `sha256_bytes` |
+| `toolkit.age_policy` | `MIN_AGE` (the 14-day rule), `parse_time`, and the JSON answer cache helpers (`load_cache`, `save_cache`, `recent`) shared by the cargo and action-pin age checks |
 | `toolkit.download` | `fetch(url, ...)` with retries (the one download path; don't call `urllib` directly); `pinned(url, sha256, name)` caches under `~/.cache/jaic/` and exits on a digest mismatch |
 | `toolkit.process` | `run(command, ...)` (checked, echoes the command); `run_expect(...)` raises unless stdout, status and stderr match |
 | `toolkit.coverage_json` | `dumps(value)`: the coverage ledger format, one declaration per line |
