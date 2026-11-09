@@ -677,7 +677,8 @@
       a.appendChild(el('code', '', '')).appendChild(name);
       // Flags are dots here, coloured like the badges on the pages; the word is the tooltip.
       if (it.native) a.appendChild(dot('foreign', 'Foreign: a binding to a native library'));
-      if (it.generated) a.appendChild(dot('generated', 'Generated: declared by the text an #insert produced'));
+      if (it.generated)
+        a.appendChild(dot('generated', 'Generated: declared by the text an #insert produced'));
       if (it.cat >= 0 && cats[it.cat]) a.appendChild(dot('cat-' + it.cat, cats[it.cat][1]));
       if (it.experimental) a.appendChild(dot('exp', 'Experimental: may change or go away'));
       // The signature column already says what procedures, types and constants are.
