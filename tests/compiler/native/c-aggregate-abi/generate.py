@@ -143,7 +143,10 @@ def emit(shape):
     c_checks = " && ".join(f"s{a} == {value(k, t, True)}" for k, (a, t) in enumerate(leaves))
     j_sets = "\n".join(f"    r{a} = {value(k, t, False)};" for k, (a, t) in enumerate(leaves))
     j_checks = " && ".join(f"r{a} == {value(k, t, False)}" for k, (a, t) in enumerate(leaves))
-    longs = lambda n: ", ".join(["long long"] * n)
+
+    def longs(n):
+        return ", ".join(["long long"] * n)
+
     c = []
     c += decls[0]
     c.append(f"{T} ret_{name}(int seed) {{\n    {T} s;\n    memset(&s, 0, sizeof s);\n    {c_sets}\n    return s;\n}}")
@@ -243,7 +246,6 @@ def emit_variadic(shape):
     decls = ([], [])
     _, _, leaves = build(ty, name, *decls)
     T = name
-    seeds = "seed"
     c_checks = " && ".join(f"s{a} == {value(k, t, True)}" for k, (a, t) in enumerate(leaves))
     j_sets = "\n".join(f"    r{a} = {value(k, t, False)};" for k, (a, t) in enumerate(leaves))
     longs = ", ".join(f"long long a{i}" for i in range(1, 8))

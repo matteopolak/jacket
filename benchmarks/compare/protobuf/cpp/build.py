@@ -16,7 +16,6 @@ Use `/usr/bin/clang++`, not Homebrew's clang, which does not agree with the SDK.
 from __future__ import annotations
 
 import argparse
-import re
 import shutil
 import subprocess
 import sys
