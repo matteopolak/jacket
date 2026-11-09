@@ -440,3 +440,45 @@ reader_storage_ignores_call_allocator :: () {
 
     expect_equal(tally.outstanding, 0);
 } @test
+
+Narrow :: struct {
+    small: s8;
+    byte: u8;
+    wide: s64;
+    big: u64;
+}
+
+narrow_integers :: () {
+    accepted := string.["-128,255,-999999999999999999,18446744073709551615", "127,0,0,0", "007,010,000123456789012345,12", "-0,0,999999999999999999,999999999999999999"];
+
+    for text: accepted {
+        reader := csv_reader(Narrow, cast([] u8) text);
+
+        defer csv_reader_free(*reader);
+        _, ok, error := csv_next(*reader);
+
+        expect(ok && error.kind == .NONE);
+    }
+
+    rejected := string.["128,0,0,0", "-129,0,0,0", "0,256,0,0", "0,-1,0,0", "0,0,0,-1", "0,0,0,", "-,0,0,0", "0,0,1x,0", "0,0,0,18446744073709551616", "0,0,9223372036854775808,0"];
+
+    for text: rejected {
+        reader := csv_reader(Narrow, cast([] u8) text);
+
+        defer csv_reader_free(*reader);
+        _, ok, error := csv_next(*reader);
+
+        expect(!ok && error.kind == .TYPE);
+    }
+
+    reader := csv_reader(Narrow, cast([] u8) "-128,255,-5,7");
+
+    defer csv_reader_free(*reader);
+    row, ok, error := csv_next(*reader);
+
+    require(ok && error.kind == .NONE);
+    expect_equal(row.small, -128);
+    expect_equal(row.byte, 255);
+    expect_equal(row.wide, -5);
+    expect_equal(row.big, 7);
+} @test
