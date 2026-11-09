@@ -1,11 +1,21 @@
 #scope_module
 
+// Pax keywords from an extended header. A keyword is unset, set, or (in a local `x` header only)
+// deleted by an empty value, which hides the global value and falls back to the header block.
 Tar_Overrides :: struct {
     path: string;
     link: string;
     size: s64 = -1;
     mtime: float64;
     has_mtime: bool;
+    path_deleted: bool;
+    link_deleted: bool;
+    size_deleted: bool;
+    mtime_deleted: bool;
+}
+
+has_overrides :: (p: Tar_Overrides) -> bool {
+    return p.path.count || p.link.count || p.size >= 0 || p.has_mtime || p.path_deleted || p.link_deleted || p.size_deleted || p.mtime_deleted;
 }
 
 clear_overrides :: (p: *Tar_Overrides) {
@@ -40,7 +50,7 @@ tar_index :: (a: *Archive) -> Archive_Error {
         }
 
         if zero {
-            if pending.path.count || pending.link.count || pending.size >= 0 || pending.has_mtime return problem(.INVALID, "orphan TAR extended header", at);
+            if has_overrides(pending) return problem(.INVALID, "orphan TAR extended header", at);
             return .{};
         }
 
@@ -86,7 +96,7 @@ tar_index :: (a: *Archive) -> Archive_Error {
                 }
             } else {
                 target := ifx kind == #char "g" then *global else *pending;
-                error = parse_pax(payload.bytes, target, at + 512);
+                error = parse_pax(payload.bytes, target, at + 512, kind == #char "x");
             }
 
             free_archive(*payload);
@@ -121,7 +131,7 @@ tar_index :: (a: *Archive) -> Archive_Error {
         at += 512 + size + padding;
     }
 
-    if pending.path.count || pending.link.count || pending.size >= 0 || pending.has_mtime return problem(.INVALID, "orphan TAR extended header", at);
+    if has_overrides(pending) return problem(.INVALID, "orphan TAR extended header", at);
 
     return .{};
 }
@@ -186,7 +196,9 @@ decimal :: (b: [] u8) -> s64, bool {
     return n, true;
 }
 
-parse_pax :: (b: [] u8, p: *Tar_Overrides, offset: s64) -> Archive_Error {
+// Applies the records of one extended header. An empty value deletes the keyword: a global header
+// forgets its earlier value, a local one also hides the global value for this entry.
+parse_pax :: (b: [] u8, p: *Tar_Overrides, offset: s64, local: bool) -> Archive_Error {
     at: s64;
     while at < b.count {
         space := at;
@@ -203,21 +215,48 @@ parse_pax :: (b: [] u8, p: *Tar_Overrides, offset: s64) -> Archive_Error {
         value := slice(b, equal + 1, at + length - equal - 2);
 
         if key == "path" || key == "linkpath" {
+            target := ifx key == "path" then *p.path else *p.link;
+            deleted := ifx key == "path" then *p.path_deleted else *p.link_deleted;
+
+            if !value.count {
+                free(target.*);
+                target.* = .{};
+                deleted.* = local;
+                at += length;
+                continue;
+            }
+
             for value {
                 if it == 0 return problem(.INVALID, "NUL in pax path", offset + equal + 1);
             }
 
             if !valid_utf8(value) return problem(.INVALID, "invalid pax UTF-8", offset + equal + 1);
 
-            target := ifx key == "path" then *p.path else *p.link;
-
             free(target.*);
             target.* = copy_string(cast(string) value);
+            deleted.* = false;
         } else if key == "size" {
+            if !value.count {
+                p.size = -1;
+                p.size_deleted = local;
+                at += length;
+                continue;
+            }
+
             number, valid := decimal(value);
             if !valid return problem(.INVALID, "invalid pax size", offset + equal + 1);
+
             p.size = number;
+            p.size_deleted = false;
         } else if key == "mtime" {
+            if !value.count {
+                p.mtime = 0;
+                p.has_mtime = false;
+                p.mtime_deleted = local;
+                at += length;
+                continue;
+            }
+
             value_text := cast(string) value;
             number, valid, rest := string_to_float64(value_text);
 
@@ -225,6 +264,7 @@ parse_pax :: (b: [] u8, p: *Tar_Overrides, offset: s64) -> Archive_Error {
 
             p.mtime = number;
             p.has_mtime = true;
+            p.mtime_deleted = false;
         } else if key.count >= 10 && slice(key, 0, 10) == "GNU.sparse" return problem(.UNSUPPORTED, "pax sparse TAR", offset + at);
 
         at += length;
@@ -270,19 +310,33 @@ tar_entry :: (h: [] u8, pending: Tar_Overrides, global: Tar_Overrides, size: s64
     e.size = size;
     e.mtime = cast(float64) mtime;
 
-    for p: Tar_Overrides.[global, pending] {
-        if p.path.count {
+    // A local keyword wins over the global one, and a local deletion leaves the header block's value.
+    if !pending.path_deleted {
+        text := ifx pending.path.count then pending.path else global.path;
+
+        if text.count {
             free(e.name);
-            e.name = copy_string(p.path);
+            e.name = copy_string(text);
         }
+    }
 
-        if p.link.count {
+    if !pending.link_deleted {
+        text := ifx pending.link.count then pending.link else global.link;
+
+        if text.count {
             free(e.link);
-            e.link = copy_string(p.link);
+            e.link = copy_string(text);
         }
+    }
 
-        if p.size >= 0 e.size = p.size;
-        if p.has_mtime e.mtime = p.mtime;
+    if !pending.size_deleted {
+        value := ifx pending.size >= 0 then pending.size else global.size;
+        if value >= 0 e.size = value;
+    }
+
+    if !pending.mtime_deleted {
+        if pending.has_mtime e.mtime = pending.mtime;
+        else if global.has_mtime e.mtime = global.mtime;
     }
 
     return e;
