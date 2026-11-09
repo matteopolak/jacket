@@ -152,10 +152,11 @@ adler32 :: (data: [] u8, adler: u32 = 1) -> u32 {
 }
 
 // Encodes a raw DEFLATE message ending at Z_SYNC_FLUSH, with the four-byte tail omitted.
-// A borrowed dictionary seeds compression history; only its last 32 KiB are used.
+// A borrowed dictionary seeds compression history; only its last `2 ^ window_bits` bytes are used, and no match
+// reaches farther back than that (8 to 15, the window a peer's `inflate_sync` is given).
 // Example: packed := deflate_sync(cast([] u8) "hello"); free(packed.data).
-deflate_sync :: (data: [] u8, level: s32 = 6, dictionary: [] u8 = .[]) -> [] u8 {
-    return compress(data, .RAW, level, true, dictionary);
+deflate_sync :: (data: [] u8, level: s32 = 6, dictionary: [] u8 = .[], window_bits: int = 15) -> [] u8 {
+    return compress(data, .RAW, level, true, dictionary, window_bits);
 }
 
 // Decodes a sync-flushed message with a borrowed history tail (at most 32 KiB).

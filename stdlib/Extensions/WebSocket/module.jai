@@ -246,6 +246,15 @@ ws_frame :: (out: *[..] u8, opcode: Ws_Opcode, data: [] u8, final := true, maske
     return .{};
 }
 
+// Compresses one message for sending as `role`, with the window that role negotiated (`client_max_window_bits` for a
+// client, `server_max_window_bits` for a server). `history` is the sender's retained context, empty without it. The result is
+// a sync-flushed raw deflate message that must be freed. Example: packed := ws_deflate(.CLIENT, codec.compression, text, .[]).
+ws_deflate :: (role: Ws_Role, settings: Ws_Deflate, data: [] u8, history: [] u8) -> [] u8 {
+    bits := ifx role == .CLIENT then settings.client_max_window_bits else settings.server_max_window_bits;
+
+    return Deflate.deflate_sync(data, 6, history, bits);
+}
+
 // Releases codec buffers and resets all state. Example: defer ws_free(*codec).
 ws_free :: (c: *Ws_Codec) {
     array_free(c.message);

@@ -140,6 +140,7 @@ Encoder :: struct {
     hash_shift: u32;
     prev_mask: s64;
     inserted: s64; // positions below this are in the hash chains
+    window: s64; // the farthest distance a match may reach
 
     tokens: *u32; // literal: the byte; match: bit 31, (length - 3) << 16, distance - 1
     token_count: s64;
@@ -269,7 +270,7 @@ find_match :: (e: *Encoder, pos: s64, beat: s64, chain_limit: s64) -> s64, s64 #
     here := e.data + pos;
     best := beat;
     best_distance: s64;
-    oldest := max(pos - WINDOW - 1, -1); // a distance of exactly WINDOW is allowed
+    oldest := max(pos - e.window - 1, -1); // a distance of exactly the window is allowed
     chain := chain_limit;
 
     while cand > oldest && chain > 0 {
@@ -680,15 +681,16 @@ compress_blocks :: (e: *Encoder, last_segment: bool, prefix: s64 = 0) {
     flush_block(e, block_start, n, last_segment);
 }
 
-compress :: (data: [] u8, container: Deflate_Container, level: s32, sync := false, dictionary: [] u8 = .[]) -> [] u8 {
+compress :: (data: [] u8, container: Deflate_Container, level: s32, sync := false, dictionary: [] u8 = .[], window_bits: s64 = 15) -> [] u8 {
     data := data;
+    window := cast(s64) 1 << clamp(window_bits, 8, 15);
     prefix: s64;
     joined: [] u8;
 
     defer if joined.data free(joined.data);
 
     if sync && level > 0 && data.count > 0 && dictionary.count > 0 {
-        prefix = min(dictionary.count, WINDOW);
+        prefix = min(dictionary.count, window);
         joined = NewArray(prefix + data.count, u8, false);
         memcpy(joined.data, dictionary.data + dictionary.count - prefix, prefix);
         memcpy(joined.data + prefix, data.data, data.count);
@@ -698,6 +700,7 @@ compress :: (data: [] u8, container: Deflate_Container, level: s32, sync := fals
     e: Encoder;
     e.data = data.data;
     e.size = data.count;
+    e.window = window;
     e.out_cap = 64 + data.count / 2;
     e.out = alloc(e.out_cap);
 

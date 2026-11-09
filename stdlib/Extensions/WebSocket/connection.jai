@@ -417,8 +417,7 @@ send_frames :: (connection: *Ws_Connection, data: [] u8, opcode: Ws_Opcode) -> W
     compressed := connection.codec.compression.enabled && !control;
 
     if compressed {
-        bits := ifx connection.codec.role == .CLIENT then connection.codec.compression.client_max_window_bits else connection.codec.compression.server_max_window_bits;
-        packed = Deflate.deflate_sync(data, ifx bits < 15 then cast(s32) 0 else 6, connection.dictionary);
+        packed = ws_deflate(connection.codec.role, connection.codec.compression, data, connection.dictionary);
         payload = packed;
     }
 

@@ -73,6 +73,28 @@ main :: () {
 
         assert(event.kind == .ERROR);
 
+        // A negotiated window below 15 still compresses, within that window, for either role.
+        for role: Ws_Role.[.CLIENT, .SERVER] for bits : 8..15 {
+            settings: Ws_Deflate;
+            settings.enabled = true;
+            settings.client_max_window_bits = bits;
+            settings.server_max_window_bits = bits;
+
+            text := NewArray(4000, u8);
+
+            defer free(text.data);
+            for *text it.* = cast,trunc(u8) ((it_index % 100) * 37 + (it_index % 100) / 7);
+
+            sent := ws_deflate(role, settings, text, .[]);
+
+            defer free(sent.data);
+            assert(sent.count < text.count / 4, "window bits % stored the message: % of %", bits, sent.count, text.count);
+            plain, ok := D.inflate_sync(sent, .[], 4000, bits);
+
+            assert(ok && cast(string) plain == cast(string) text);
+            free(plain.data);
+        }
+
         // Failed inflation and every truncated/corrupted stream release allocations.
         for i: 0..packed.count {
             plain, ok := D.inflate_sync(.{ i, packed.data }, .[], 64);

@@ -35,4 +35,36 @@ main :: () {
     _, valid := inflate_sync(large, .[], 2048, 8);
 
     assert(!valid);
+
+    // A small window still compresses, and never reaches past it.
+    for bits: 8..15 {
+        repeated := NewArray(4000, u8);
+
+        defer free(repeated.data);
+        for *repeated it.* = cast,trunc(u8) ((it_index % 100) * 37 + (it_index % 100) / 7);
+
+        narrow := deflate_sync(repeated, 6, .[], bits);
+
+        defer free(narrow.data);
+        assert(narrow.count < repeated.count / 4, "window bits % stored the message: % of %", bits, narrow.count, repeated.count);
+        plain, ok = inflate_sync(narrow, .[], 4000, bits);
+        assert(ok && cast(string) plain == cast(string) repeated);
+        free(plain.data);
+    }
+
+    // Matches at 300 bytes back are out of reach of an 8-bit window: the message must still decode with one.
+    far := NewArray(1200, u8);
+
+    defer free(far.data);
+    for i: 0..299 far[i] = cast(u8) ((i * 71 + i / 256) % 256);
+
+    memcpy(far.data + 300, far.data, 300);
+    memcpy(far.data + 600, far.data, 600);
+
+    small := deflate_sync(far, 6, .[], 8);
+
+    defer free(small.data);
+    plain, ok = inflate_sync(small, .[], 1200, 8);
+    assert(ok && cast(string) plain == cast(string) far);
+    free(plain.data);
 }
