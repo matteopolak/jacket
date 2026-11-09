@@ -643,10 +643,6 @@ def data_fixtures():
     for build in (zip_fixtures, archive_fixtures, mpeg_fixtures, machine_fixtures):
         build()
     meow_fixtures(False)
-    from archive_conformance.differential import bench_fixtures
-    bench_fixtures()
-    from dev.json_bench_data import fetch_data
-    fetch_data()
     # The inputs taken from pinned downloads: Unicode's test files and Go's ZIP/TAR fixtures.
     from unicode_text_conformance.fetch import write_suites
     write_suites()
@@ -654,6 +650,15 @@ def data_fixtures():
     archive_suites()
     from gltf_conformance.fetch import fetch as gltf_suites
     gltf_suites()
+
+
+def bench_data():
+    """The inputs `jacket bench` reads: Archive payloads and real-world JSON files."""
+    from archive_conformance.differential import bench_fixtures
+    from dev.json_bench_data import fetch_data
+
+    bench_fixtures()
+    fetch_data()
 
 
 def main(argv=None):
@@ -673,6 +678,9 @@ def main(argv=None):
     commands.add_parser(
         "data", help="All the fixtures the stdlib tests read"
     ).set_defaults(run=lambda args: data_fixtures())
+    commands.add_parser("bench", help=bench_data.__doc__).set_defaults(
+        run=lambda args: bench_data()
+    )
     meow = commands.add_parser("meow", help=meow_fixtures.__doc__.split("\n")[0])
     meow.add_argument("--verify-native", action="store_true")
     meow.set_defaults(run=lambda args: meow_fixtures(args.verify_native))

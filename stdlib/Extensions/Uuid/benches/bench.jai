@@ -6,9 +6,6 @@
 TEXT :: "919108f7-52d1-4320-9bac-f847db4148a8";
 
 uuid_parse :: (b: *Bench) {
-
-    reset_timer(b);
-
     for 0..b.iterations - 1 {
         id, error := parse_uuid(black_box(TEXT));
         assert(error.kind == .NONE);
@@ -29,9 +26,6 @@ uuid_format :: (b: *Bench) {
 } @bench
 
 uuid_v4 :: (b: *Bench) {
-
-    reset_timer(b);
-
     for 0..b.iterations - 1 {
         id, error := uuid_v4();
         assert(error.kind == .NONE);
@@ -40,9 +34,6 @@ uuid_v4 :: (b: *Bench) {
 } @bench
 
 uuid_v7 :: (b: *Bench) {
-
-    reset_timer(b);
-
     for 0..b.iterations - 1 {
         id, error := uuid_v7();
         assert(error.kind == .NONE);

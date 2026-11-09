@@ -12,7 +12,7 @@ archive_case :: (b: *Bench, name: string, format: Archive_Format, extracting: bo
 
     bytes, ok := read_entire_file(tprint("%/archive-bench/%", base, name));
 
-    assert(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py data` first");
+    assert(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py bench` first");
     defer free(bytes);
     a, error := read_archive(cast([] u8) bytes, format);
 

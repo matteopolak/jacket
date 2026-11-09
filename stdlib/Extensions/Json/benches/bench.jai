@@ -135,7 +135,7 @@ json_case :: (b: *Bench, input: int, mode: int, encode: bool, $T: Type) {
         name := string.["twitter.json", "canada.json", "citm_catalog.json"][input - 2];
         ok: bool;
         text, ok = read_entire_file(tprint("%/json-bench-data/%", base, name));
-        assert(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py data` first");
+        assert(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py bench` first");
     }
 
     defer free(text);
