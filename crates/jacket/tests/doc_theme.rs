@@ -225,12 +225,12 @@ mod doc {
             );
             let pages = [
                 ("index.html", "Tiny std"),
-                ("api/String.html", "String — Tiny std"),
-                ("api/String/trim.html", "String.trim — Tiny std"),
-                ("rules.html", "Rules — Tiny std"),
-                ("rules/one.html", "one — Tiny std"),
-                ("guides/guide.html", "Guide — Tiny std"),
-                ("404.html", "Page not found — Tiny std"),
+                ("api/String.html", "String — Tiny"),
+                ("api/String/trim.html", "String.trim — Tiny"),
+                ("rules.html", "Rules — Tiny"),
+                ("rules/one.html", "one — Tiny"),
+                ("guides/guide.html", "Guide — Tiny"),
+                ("404.html", "Page not found — Tiny"),
             ];
             for (path, title) in pages {
                 let page = std::fs::read_to_string(temp.join("site").join(path)).unwrap();

@@ -272,16 +272,7 @@ impl Site {
         if self.name.is_empty() {
             what.to_owned()
         } else {
-            format!(
-                "{what} — {}{}{}",
-                self.name,
-                if self.breadcrumb.is_empty() {
-                    ""
-                } else {
-                    " "
-                },
-                self.breadcrumb
-            )
+            format!("{what} — {}", self.name)
         }
     }
 

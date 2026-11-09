@@ -120,7 +120,7 @@ The standard library's `[doc]` sits in the root `jacket.toml`: categories "Stand
 
 ## Page metadata
 
-Every page gets a title made from `[doc] name` and `breadcrumb` (`String.trim — Jacket std`, `String — Jacket std`; the index is the name alone), a description from the summary (plain text, at most 155 characters), `lang`, `theme-color` for both schemes, a favicon, Open Graph and Twitter tags. Item pages carry `TechArticle` JSON-LD, and pages with a breadcrumb a `BreadcrumbList`. Without `[doc] url` there is no canonical, `og:url`, sitemap or `robots.txt`, and `jacket doc` warns once. A page with an empty description gets no description tags, and `404.html` has no canonical or `og:url`.
+Every page gets a title made from `[doc] name` (`String.trim — Jacket`, `String — Jacket`; the index is the name alone; `breadcrumb` only starts the breadcrumb trail), a description from the summary (plain text, at most 155 characters), `lang`, `theme-color` for both schemes, a favicon, Open Graph and Twitter tags. Item pages carry `TechArticle` JSON-LD, and pages with a breadcrumb a `BreadcrumbList`. Without `[doc] url` there is no canonical, `og:url`, sitemap or `robots.txt`, and `jacket doc` warns once. A page with an empty description gets no description tags, and `404.html` has no canonical or `og:url`.
 
 Rust works out these facts (`metadata.rs`, into each page's `head` in the view) and `HeadMeta` in `shell.jai` writes the tags, leaving out any that are empty.
 
