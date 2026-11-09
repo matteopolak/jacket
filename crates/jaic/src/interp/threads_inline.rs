@@ -36,6 +36,7 @@ use super::{
 use crate::fxhash::HashSet;
 use crate::interp::word_or_zero;
 use crate::macros::raw_enum;
+use std::collections::BTreeSet;
 
 raw_enum! {
     /// A foreign procedure the thread schedulers (`threads` and the inline one here) implement.
@@ -170,6 +171,9 @@ pub(super) struct InlineSched {
     /// Indexed by slot (`slots`); a finished thread's slot is reused once its handle is gone
     /// (`pthread_join`, `pthread_detach`), as in the native scheduler.
     threads: Vec<ThreadRec>,
+    /// The slots of threads that have not finished: the only ones a scan visits. Add through
+    /// `add` and end through `finish`, which keep it in step.
+    live: BTreeSet<usize>,
     slots: Slots,
     /// The thread running now. Thread 0 is the one `Interp::call` started with.
     current: usize,
@@ -189,6 +193,7 @@ impl InlineSched {
         slots.acquire();
         InlineSched {
             threads: vec![ThreadRec::new(FuncId(0), 0, State::Running)],
+            live: BTreeSet::from([0]),
             slots,
             current: 0,
             mutexes: Mutexes::default(),
@@ -214,12 +219,16 @@ impl InlineSched {
         } else {
             self.threads[id] = thread;
         }
+        if self.threads[id].state != State::Finished {
+            self.live.insert(id);
+        }
         id
     }
 
     /// Thread `t` has ended. Its slot is free at once when its handle is already gone.
     fn finish(&mut self, t: usize) {
         self.threads[t].state = State::Finished;
+        self.live.remove(&t);
         if self.slots.is_released(t) {
             self.free(t);
         }
@@ -264,10 +273,13 @@ impl InlineSched {
         }
     }
 
-    /// The other threads, round-robin after the current one, which comes last.
-    fn order(&self) -> impl Iterator<Item = usize> + use<> {
-        let (n, current) = (self.threads.len(), self.current);
-        (1..=n).map(move |k| (current + k) % n)
+    /// The threads that have not finished, round-robin after the current one, which comes
+    /// last (unless it has finished).
+    fn order(&self) -> impl Iterator<Item = usize> + '_ {
+        self.live
+            .range(self.current + 1..)
+            .chain(self.live.range(..=self.current))
+            .copied()
     }
 
     /// May run now without waiting for anything: not started yet, or its wait is over.
@@ -913,5 +925,31 @@ impl Interp {
             }
         }
         Ok(rets.unwrap_or_default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scans_visit_only_threads_that_have_not_finished() {
+        let mut sched = InlineSched::new();
+        let ids: Vec<usize> = (0..3)
+            .map(|n| sched.add(ThreadRec::new(FuncId(0), n, State::Pending)))
+            .collect();
+        assert_eq!(ids, [1, 2, 3]);
+        assert_eq!(sched.order().collect::<Vec<_>>(), [1, 2, 3, 0]);
+        // One thread ended with its handle gone (slot free), one ended with its handle kept.
+        sched.release_handle(ids[0]);
+        sched.finish(ids[0]);
+        sched.finish(ids[1]);
+        assert_eq!(sched.order().collect::<Vec<_>>(), [3, 0]);
+        sched.current = 3;
+        assert_eq!(sched.order().collect::<Vec<_>>(), [0, 3]);
+        // A new thread takes the free slot and is scanned again.
+        let again = sched.add(ThreadRec::new(FuncId(0), 9, State::Pending));
+        assert_eq!(again, 1);
+        assert_eq!(sched.order().collect::<Vec<_>>(), [0, 1, 3]);
     }
 }
