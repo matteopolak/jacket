@@ -1,5 +1,5 @@
 // The part of roughjs that dev/readme_banner_rough.ts uses. The package is installed on demand
-// in a temporary folder by dev/readme_banner.py, not in tools/node_modules.
+// in a temporary folder by dev/readme_banner.py, not in the tools package's own dependencies.
 declare module 'roughjs/bundled/rough.esm.js' {
   interface RoughPath {
     d: string;
