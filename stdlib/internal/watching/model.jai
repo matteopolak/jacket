@@ -36,8 +36,6 @@ File_Change :: struct {
 
 DEFAULT_BUFFER_SIZE :: 8000;
 
-// Keep the macOS storage variant first: the syntax-only doc inventory retains its direct
-// fields, matching the original backend order. Runtime layouts remain platform-specific.
 #if OS == .MACOS {
     // Watches folders for changes and calls a callback for them. `User_Data` is the type of the pointer handed to the callback; the
     // default `void` is for a watcher with none.
