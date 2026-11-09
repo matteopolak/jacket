@@ -94,7 +94,7 @@ The shared-port test keeps the first worker’s port-zero listener open while pu
 
 Unexpected setup, accept, read or write errors emit at most `PORT_DIAGNOSTIC_LIMIT` (32) `IO_PORT_FAILURE` rows, with final port, acceptance and failure counts if an operation or final check fails. Successful runs stay quiet. The helper and limit live beside the shared-port test in `tests/support/suite.jai`; change them there when adding a failure stage. Run the check with `JAIC_STDLIB=$PWD/stdlib jacket test --path stdlib/Extensions/Io --no-doc --exact backends --interp`.
 
-Tests: `stdlib/Extensions/Io/tests/` (`backends.jai` runs every check on each backend the system offers). Benchmarks: `jaic -O2 stdlib/Extensions/Io/bench/bench.jai`. Not done: UDP, provided buffers, zero-copy send, DNS timeout.
+Tests: `stdlib/Extensions/Io/tests/` (`backends.jai` runs every check on each backend the system offers). Benchmarks: `jacket bench --path stdlib/Extensions/Io`. Loopback cases start their own echo peer; file cases prepare cached data and open files before timing. `JAI_IO_BACKEND` still selects the backend, while separate file cases select inline reads or the worker pool. Not done: UDP, provided buffers, zero-copy send, DNS timeout.
 
 ### Large timer budgets
 
@@ -119,3 +119,5 @@ The scheduler removes expired waiters before making them runnable, so a later
 channel handoff or unlock cannot consume an expired waiter. Actual completion
 removes its timer. `Io/tests/sync-deadlines.jai` checks timeout removal for channels,
 wait groups and mutexes; keep pipe/condition waits on this same path when extending it.
+
+The connection cases use sixteen concurrent clients per scheduler, including a four-thread `SO_REUSEPORT` case. Listeners and long-lived echo connections are ready before timing starts.
