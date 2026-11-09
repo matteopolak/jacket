@@ -134,8 +134,10 @@ split_note_option :: (text: string) -> bool, string, string {
 // code point that is not a surrogate) resolved; text that is not quoted comes back as it is.
 // False for any other escape or a trailing backslash.
 //
-//     unquote("\"a\\\"b\"")  // a"b, true
-//     unquote("\"\\u00e9\"")   // \xc3\xa9, true
+// ```jai,ignore
+// unquote("\"a\\\"b\"")  // a"b, true
+// unquote("\"\\u00e9\"")   // \xc3\xa9, true
+// ```
 unquote :: (text: string) -> string, bool {
     if text.count < 2 || text[0] != #char "\"" || text[text.count - 1] != #char "\"" return text, true;
 
@@ -209,7 +211,9 @@ append_code_point :: (builder: *String_Builder, code_point: u32) {
 
 // `text` as a Jai string literal, for generated source.
 //
-//     jai_quote("say \"hi\"\n")  // "say \"hi\"\n" with the quotes and newline escaped
+// ```jai,ignore
+// jai_quote("say \"hi\"\n")  // "say \"hi\"\n" with the quotes and newline escaped
+// ```
 jai_quote :: (text: string) -> string {
     builder: String_Builder;
 
