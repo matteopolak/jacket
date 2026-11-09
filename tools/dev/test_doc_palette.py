@@ -43,9 +43,8 @@ def ratios(palette, dark):
     for token in ("muted", "accent", "warn", "foreign"):
         yield token + " badge", min(contrast(p[token], mix(p[token], p[bg], .17 if dark else .11))
                                     for bg in ("bg", "surface")), 4.5
-    # Decorative hairlines and scrollbars are exempt; the search field's border identifies it.
-    for token in ("control",):
-        yield token, min(contrast(p[token], p[bg]) for bg in ("bg", "surface", "sunken")), 3
+    # The search field has no border; its placeholder and icon identify it on its fill.
+    yield "muted search", min(contrast(p["muted"], p[bg]) for bg in ("sunken", "sel")), 4.5
 
 
 class PaletteTests(unittest.TestCase):

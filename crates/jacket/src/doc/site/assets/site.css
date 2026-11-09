@@ -12,7 +12,6 @@
   --muted: #696973;
   --border: #ebebee;
   --hair: #f1f1f3;
-  --control: #8c8c8e;
   --link: #4a63c8;
   --accent: #4860c4;
   --sel: #f0f2fa;
@@ -48,7 +47,6 @@
   --muted: #9b9ba3;
   --border: #2a2a2f;
   --hair: #242428;
-  --control: #69696c;
   --link: #a1abf0;
   --accent: #8e99e6;
   --sel: #262a40;
@@ -81,7 +79,6 @@
     --muted: #9b9ba3;
     --border: #2a2a2f;
     --hair: #242428;
-    --control: #69696c;
     --link: #a1abf0;
     --accent: #8e99e6;
     --sel: #262a40;
@@ -392,74 +389,195 @@ html:not(.js) .js-only {
 
 .search-wrap {
   flex: 1 1 320px;
-  position: relative;
   display: flex;
   justify-content: center;
 }
 
+/* The header's search is a button that looks like a field; it opens the search dialog. */
 .search {
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   max-width: min(560px, 100%);
   min-width: 0;
+  height: 40px;
+  padding: 0 10px 0 13px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--sunken);
+  box-shadow: inset 0 1px 2px var(--shadow);
+  cursor: text;
+  transition: background-color 0.12s;
+}
+
+.search:hover {
+  background: var(--sel);
+}
+
+.search:focus-visible {
+  outline: none;
+  border-color: var(--link);
+  box-shadow: 0 0 0 3px var(--sel);
 }
 
 .search svg {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--muted);
-  pointer-events: none;
+  flex: none;
 }
 
-.search input {
-  width: 100%;
-  font-size: 14px;
-  padding: 8px 40px 8px 36px;
-  border: 1px solid var(--control);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.search input:focus {
-  border-color: var(--link);
-  outline: none;
-  box-shadow: 0 0 0 3px var(--sel);
+.search-ph {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 kbd {
   font-family: var(--mono);
   font-size: 12px;
+  line-height: 1.5;
   color: var(--muted);
   border: 1px solid var(--border);
   border-bottom-width: 2px;
   border-radius: 5px;
   padding: 0 6px;
-  background: var(--sunken);
+  background: var(--surface);
 }
 
-.search kbd {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  line-height: 1.5;
+/* The shortcut that opens search: ⌘K on Apple systems, Ctrl K elsewhere (/ works too). */
+.search-keys {
+  display: flex;
+  flex: none;
+  gap: 3px;
+}
+
+.mac .key-other,
+html:not(.mac) .key-mac {
+  display: none;
+}
+
+/* A phone has no keyboard to press it on. */
+@media (pointer: coarse) {
+  .search-keys,
+  .spot-field kbd {
+    display: none;
+  }
+}
+
+/* The search dialog: a box near the top of the screen over a dimmed, blurred page. */
+.spotlight {
+  position: fixed;
+  inset: min(12vh, 120px) 0 auto;
+  width: min(640px, calc(100% - 24px));
+  max-width: none;
+  max-height: calc(100dvh - 2 * min(12vh, 120px));
+  margin: 0 auto;
+  padding: 0;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgb(0 0 0 / 35%);
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.spotlight[open] {
+  display: flex;
+}
+
+.spotlight::backdrop {
+  background: rgb(0 0 0 / 40%);
+  backdrop-filter: blur(6px);
+}
+
+.spot-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  height: 56px;
+  padding: 0 16px;
+  color: var(--muted);
+}
+
+.spot-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  font: inherit;
+  font-size: 17px;
+  color: var(--fg);
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+.spot-field input::placeholder {
+  color: var(--muted);
+}
+
+/* The field's own clear button; Escape and the dialog do that job. */
+.spot-field input::-webkit-search-cancel-button {
+  display: none;
 }
 
 #search-results {
-  position: absolute;
-  top: 46px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 640px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px var(--shadow);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px;
-  z-index: 6;
+  border-top: 1px solid var(--border);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .spotlight[open] {
+    animation: spot-in 0.16s ease-out;
+  }
+
+  .spotlight[open]::backdrop {
+    animation: drawer-fade 0.16s ease-out;
+  }
+
+  .spotlight.closing {
+    animation: spot-out 0.12s ease-in forwards;
+  }
+
+  .spotlight.closing::backdrop {
+    animation: drawer-fade-out 0.12s ease-in forwards;
+  }
+}
+
+@keyframes spot-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
+@keyframes drawer-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes drawer-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes spot-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
 }
 
 #search-results[hidden] {
@@ -2015,37 +2133,42 @@ a.btn:hover {
 
   .top-in {
     padding: 10px 16px;
-    row-gap: 0;
+    gap: 10px 12px;
   }
 
   .logo {
     padding-left: 0;
   }
 
-  /* Two fixed rows: the logo with the site links on the right, then the module button and search.
-     The button's label changes from page to page, so nothing else may sit beside it on its row. */
+  /* Two fixed rows: the logo, the module button and the site links on the right, then search.
+     The button's label changes from page to page, so it shrinks and cuts its label short rather
+     than pushing the links onto another row. */
+  .logo,
   .site-nav {
+    flex-shrink: 0;
+  }
+
+  /* Its basis is zero so it never wraps the links; it grows back to its label's width. */
+  .modules-btn {
+    flex: 1 1 0;
+    max-width: max-content;
+    margin-left: -8px;
+  }
+
+  .site-nav {
+    order: 2;
+    gap: 10px;
     margin-left: auto;
   }
 
-  .modules-btn {
-    order: 4;
-    max-width: 45%;
-    margin-top: 10px;
+  .site-nav .icon-btn {
+    width: 32px;
+    height: 32px;
   }
 
   .search-wrap {
-    order: 5;
-    flex: 1 1 0;
-    min-width: 0;
-    margin-top: 10px;
-  }
-
-  /* The row break; the rows' gap is the margin above the second row. */
-  .top-in::after {
-    content: '';
     order: 3;
-    flex-basis: 100%;
+    flex: 1 1 100%;
   }
 
   /* Without scripts the sidebar stays open above the page. */
@@ -2136,21 +2259,9 @@ a.btn:hover {
     }
   }
 
-  @keyframes drawer-fade-out {
-    to {
-      opacity: 0;
-    }
-  }
-
   @keyframes drawer-in {
     from {
       transform: translateY(100%);
-    }
-  }
-
-  @keyframes drawer-fade {
-    from {
-      opacity: 0;
     }
   }
 
@@ -2176,10 +2287,6 @@ a.btn:hover {
 
   .def dd {
     margin-top: 2px;
-  }
-
-  .site-nav {
-    gap: 14px;
   }
 
   .ex-row {
@@ -2434,7 +2541,7 @@ table,
 }
 
 .search-wrap,
-.search input {
+.search {
   min-width: 0;
   max-width: 100%;
 }

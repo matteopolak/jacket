@@ -377,6 +377,8 @@
   // Search.
   var input = /** @type {HTMLInputElement} */ (document.getElementById('search-q'));
   var box = /** @type {HTMLElement} */ (document.getElementById('search-results'));
+  var spot = /** @type {HTMLDialogElement | null} */ (document.getElementById('search-dialog'));
+  var searchOpener = document.getElementById('search-open');
   /** @type {Item[] | null} */
   var items = null;
   /** @type {string[][]} */
@@ -677,7 +679,49 @@
       show();
     });
   }
-  if (input && box) {
+  // Search is a modal dialog over the dimmed page, opened from the header's button or a shortcut.
+  // It fades away before closing, like the drawer, unless motion is reduced.
+  function openSearch() {
+    if (!spot) return;
+    if (!spot.open) {
+      spot.classList.remove('closing');
+      spot.showModal();
+      load();
+    }
+    input.focus();
+    input.select();
+  }
+  function closeSearch() {
+    if (!spot || !spot.open || spot.classList.contains('closing')) return;
+    var dialog = spot;
+    var finish = function () {
+      dialog.classList.remove('closing');
+      if (dialog.open) dialog.close();
+    };
+    dialog.classList.add('closing');
+    Promise.all(
+      dialog.getAnimations({ subtree: true }).map(function (a) {
+        return a.finished;
+      }),
+    ).then(finish, finish);
+  }
+  if (input && box && spot) {
+    var dialog = spot;
+    if (searchOpener) searchOpener.addEventListener('click', openSearch);
+    dialog.addEventListener('cancel', function (e) {
+      e.preventDefault();
+      closeSearch();
+    });
+    dialog.addEventListener('close', function () {
+      dialog.classList.remove('closing');
+    });
+    // A click on the backdrop lands on the dialog itself, outside its box.
+    dialog.addEventListener('click', function (e) {
+      if (e.target !== dialog) return;
+      var r = dialog.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)
+        closeSearch();
+    });
     input.addEventListener('focus', load);
     input.addEventListener('input', update);
     input.addEventListener('keydown', function (e) {
@@ -691,9 +735,6 @@
           e.preventDefault();
           window.location.href = hrefOf(hits[picked]);
         }
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        hide();
       }
     });
     box.addEventListener('click', function (e) {
@@ -701,13 +742,14 @@
       if (row && !ancestor(e, 'a') && hits[+row.id.slice(4)])
         window.location.href = hrefOf(hits[+row.id.slice(4)]);
     });
-    document.addEventListener('click', function (e) {
-      if (!box.contains(/** @type {Node | null} */ (e.target)) && e.target !== input) hide();
-    });
     document.addEventListener('keydown', function (e) {
-      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+      // Ctrl K or ⌘K works anywhere, even while typing elsewhere; / only outside text fields.
+      var chord = (e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey) && !e.altKey;
+      var slash = e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey;
+      if (!chord && !slash) return;
       var t = /** @type {HTMLElement | null} */ (e.target);
       if (
+        slash &&
         t &&
         (t.tagName === 'INPUT' ||
           t.tagName === 'TEXTAREA' ||
@@ -716,8 +758,7 @@
       )
         return;
       e.preventDefault();
-      input.focus();
-      input.select();
+      openSearch();
     });
   }
 
@@ -1513,10 +1554,13 @@
     });
     var label = doc.querySelector('dialog.side');
     var words = label && label.getAttribute('aria-label');
-    if (words) {
+    if (label && words) {
       rail.setAttribute('aria-label', words);
-      var opener = document.querySelector('#modules-btn .modules-label');
-      if (opener) opener.textContent = words;
+      rail.setAttribute('data-title', label.getAttribute('data-title') || words);
+      var button = document.getElementById('modules-btn');
+      var text = button && button.querySelector('.modules-label');
+      if (button) button.setAttribute('aria-label', words);
+      if (text) text.textContent = rail.getAttribute('data-title');
     }
     nav.replaceWith(next);
     if (window.jacketSide) window.jacketSide(state);

@@ -7,7 +7,7 @@ Page :: struct($C: Type) {
     nav_stamps: [] string;
 }
 
-EARLY :: "window.fold=function(){if(++fold.n>6)return;var f=document.currentScript.parentElement;if(f.scrollHeight<=(+f.getAttribute('data-fold')||440))f.classList.add('open')};fold.n=0;(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('jacket-docs-theme');if(t==='light'||t==='dark')d.setAttribute('data-theme',t)}catch(e){}})()";
+EARLY :: "window.fold=function(){if(++fold.n>6)return;var f=document.currentScript.parentElement;if(f.scrollHeight<=(+f.getAttribute('data-fold')||440))f.classList.add('open')};fold.n=0;(function(){var d=document.documentElement;d.classList.add('js');if(/Mac|iP(hone|ad|od)/.test(navigator.platform))d.classList.add('mac');try{var t=localStorage.getItem('jacket-docs-theme');if(t==='light'||t==='dark')d.setAttribute('data-theme',t)}catch(e){}})()";
 
 
 // What the sidebar keeps across pages (open groups, scroll): every page with the site-wide
@@ -15,6 +15,15 @@ EARLY :: "window.fold=function(){if(++fold.n>6)return;var f=document.currentScri
 NavKey :: (view: *Page_View) -> string {
     if view.sidebar.which == .SIDEBAR_MODULES return "modules";
     return view.side_label;
+}
+
+// The header button's text: the module name alone ("Json" for "Json module"), so it fits beside
+// the logo and links on a phone. The full label stays the dialog's accessible name.
+SideTitle :: (label: string) -> string {
+    if !ends_with(label, " module") return label;
+    title := label;
+    title.count -= " module".count;
+    return title;
 }
 
 Layout :: (out: *Out, page: *Page($C)) {
@@ -38,7 +47,7 @@ Layout :: (out: *Out, page: *Page($C)) {
 <a class="skip" href="#main-content">Skip to content</a>
 {Header(page.site, page.view.path, page.view.side_label)}
 <div class="wrap"{if page.view.outline.count} data-toc{end}>
-<dialog class="side" id="side" open aria-label="{esc(page.view.side_label)}">
+<dialog class="side" id="side" open aria-label="{esc(page.view.side_label)}" data-title="{esc(SideTitle(page.view.side_label))}">
 <nav aria-label="{esc(page.view.side_label)}" data-nav="{esc(NavKey(page.view))}">
 {Side(page)}</nav></dialog>
 <script>jacketSide()</script>
@@ -70,11 +79,13 @@ Header :: (out: *Out, site: *Site_View, path: string = "", label: string = "Modu
     html(out, #run trim(#string HTML
 <header class="top"><div class="top-in">
 <a class="logo" href="{cast(Html) site.base}" aria-label="{esc(site.name)} API documentation">{LogoImage(site)}<span class="wordmark">{esc(site.name)}</span></a>
-<button type="button" id="modules-btn" class="modules-btn js-only" aria-expanded="false" aria-controls="side"><span class="modules-label">{esc(label)}</span><svg aria-hidden="true" width="12" height="12"><use href="{esc(site.icons_url)}#chevron"/></svg></button>
+<button type="button" id="modules-btn" class="modules-btn js-only" aria-expanded="false" aria-controls="side" aria-label="{esc(label)}"><span class="modules-label">{esc(SideTitle(label))}</span><svg aria-hidden="true" width="12" height="12"><use href="{esc(site.icons_url)}#chevron"/></svg></button>
 <div class="search-wrap js-only">
-<label class="sr" for="search-q">Search the docs</label>
-<div class="search"><svg aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#search"/></svg><input id="search-q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list"><kbd>/</kbd></div>
+<button type="button" id="search-open" class="search" aria-haspopup="dialog" aria-controls="search-dialog"><svg aria-hidden="true" width="16" height="16"><use href="{esc(site.icons_url)}#search"/></svg><span class="search-ph">Search by name or signature</span><span class="search-keys" aria-hidden="true"><kbd class="key-mac">⌘</kbd><kbd class="key-other">Ctrl</kbd><kbd>K</kbd></span></button>
+<dialog id="search-dialog" class="spotlight" aria-label="Search the docs">
+<div class="spot-field"><svg aria-hidden="true" width="18" height="18"><use href="{esc(site.icons_url)}#search"/></svg><label class="sr" for="search-q">Search the docs</label><input id="search-q" type="search" placeholder="Search by name or signature" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list"><kbd>Esc</kbd></div>
 <div id="search-results" aria-live="polite" role="listbox" aria-label="Search results" hidden></div>
+</dialog>
 </div>
 <nav class="site-nav" aria-label="Site">
 <a href="{cast(Html) site.base}"{if path.count == 0} aria-current="page"{end}>API</a>{HeaderLinks(site)}
