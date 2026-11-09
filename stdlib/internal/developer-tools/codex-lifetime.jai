@@ -7,7 +7,7 @@ deinit :: (using help: *Codex_Help) {
     if help.procedures.data free(help.procedures.data);
 
     help.* = .{};
-} @FreesArgument
+}
 
 #scope_file
 #import "Basic";

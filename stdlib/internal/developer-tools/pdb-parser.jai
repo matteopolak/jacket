@@ -174,4 +174,4 @@ pdb_release :: (pdb: *Pdb) {
     cv_release_types(pdb.ipi);
     msf_release(*pdb.msf);
     pdb.* = .{};
-} @FreesArgument
+}
