@@ -131,3 +131,31 @@ The spectrum test compares all twelve CSV/JSON pairs with no skipped cases.
 At the pinned revision, `location_coordinates.json` gives a different phone
 number than its CSV, so `fetch.py` corrects that one value. Unit tests cover strict rejection, lax quotes, limits, round trips,
 chunk boundaries, typed conversions and allocation balance.
+
+## Compared with the community libraries
+
+`benchmarks/compare/csv/benches/csv.jai` (`tools/bench/library_compare.py csv`, see [library comparisons](../tools/library-comparisons.md)) runs Csv and [rluba/jai-csv](https://github.com/rluba/jai-csv) on the ~50 MB mixed file (about a million rows, LF endings so jai-csv can read it) and on 100,000 records written (Apple M5, one thread):
+
+| Workload | Csv | jai-csv |
+| --- | --- | --- |
+| records (parse all) | 253 ms, 218 MB/s | 83 ms, 666 MB/s |
+| typed rows | 377 ms, 146 MB/s | 122 ms, 451 MB/s |
+| write | 9.9 ms, 553 MB/s | 8.5 ms, 650 MB/s |
+
+jai-csv is about 3x faster at parsing and 15% faster at writing. It does less: it scans for the delimiter with a quote counter, keeps no position, has no limits and takes the whole input at once. Csv's reader moves a byte at a time with line, column and record-size bookkeeping; scanning runs of plain bytes would close most of the gap. jai-csv has no record reader, so "records" calls its `csv_consume_col` per field, and "typed" uses `csv_parse` into the same struct without the `bool` column, which it can't read. Both libraries produce the same counts, rows and written bytes, checked before the timer.
+
+| Feature | Csv | jai-csv |
+| --- | --- | --- |
+| Streaming input | yes, `Csv_Source` chunks | no, whole string |
+| Quoted newlines | yes | yes |
+| CRLF and CR endings | yes | no, only LF (`\r` stays in the last field) |
+| BOM | skipped | kept in the first field |
+| Limits | field, field count, record | none |
+| Error positions | kind, offset, line, column | log message only |
+| Typed rows | all scalars, `bool`, optional, rename and skip notes | string, integer and float via a column callback |
+| Writer | records and typed rows, line ending choice, whitespace protection | `csv_escape` per field, no record writer, `\r` not quoted |
+| Lax quotes | option | no, stray quotes fail |
+
+On the csv-spectrum cases Csv matches all twelve (stray-quote `location_coordinates` with `lax_quotes`). jai-csv, read through `csv_consume_col`, matches eight: it fails on `empty_crlf` and `location_coordinates` (quote errors) and leaves `\r` in the last field of `simple_crlf` and `newlines_crlf`.
+
+Extend `csv.jai` by adding a `WORKLOAD__LIBRARY` pair and a matching check in `prepare`.
