@@ -127,6 +127,19 @@ csv-spectrum archive and extracts CSV/JSON fixtures under
 `JACKET_OUTPUT_DIR` relocates fixtures and output; `XDG_CACHE_HOME`
 relocates the download cache. Benchmarks are in `benches/bench.jai`.
 
+The reader scans runs of plain bytes in the current window with a 256-entry table
+(`Csv_Reader.stops`, built from the options) and handles only delimiters, quotes
+and line breaks one byte at a time. A run is checked against the field and record
+limits once, and fails at the same byte a byte-by-byte reader would. Line and
+column are not tracked per byte: a reader keeps the line number and where the
+line began, and each field remembers both for typed errors. When the input is a
+slice, a field with no doubled quotes is a view of the input; otherwise, and for
+every chunked source, its bytes are copied into one reused buffer. The writer
+checks each field once, sizes the record exactly and builds it in place in the
+builder. Change the scanning in `read_field`, `span` and `take` together; the
+chunk and limit tests in `tests/streaming.jai` compare slice and chunked input
+byte for byte, including error positions.
+
 The spectrum test compares all twelve CSV/JSON pairs with no skipped cases.
 At the pinned revision, `location_coordinates.json` gives a different phone
 number than its CSV, so `fetch.py` corrects that one value. Unit tests cover strict rejection, lax quotes, limits, round trips,
@@ -138,11 +151,11 @@ chunk boundaries, typed conversions and allocation balance.
 
 | Workload | Csv | jai-csv |
 | --- | --- | --- |
-| records (parse all) | 253 ms, 218 MB/s | 83 ms, 666 MB/s |
-| typed rows | 377 ms, 146 MB/s | 122 ms, 451 MB/s |
-| write | 9.9 ms, 553 MB/s | 8.5 ms, 650 MB/s |
+| records (parse all) | 75 ms, 734 MB/s | 80 ms, 689 MB/s |
+| typed rows | 129 ms, 427 MB/s | 122 ms, 451 MB/s |
+| write | 7.0 ms, 788 MB/s | 8.2 ms, 668 MB/s |
 
-jai-csv is about 3x faster at parsing and 15% faster at writing. It does less: it scans for the delimiter with a quote counter, keeps no position, has no limits and takes the whole input at once. Csv's reader moves a byte at a time with line, column and record-size bookkeeping; scanning runs of plain bytes would close most of the gap. jai-csv has no record reader, so "records" calls its `csv_consume_col` per field, and "typed" uses `csv_parse` into the same struct without the `bool` column, which it can't read. Both libraries produce the same counts, rows and written bytes, checked before the timer.
+Measured with a one-minute load average of about 9 on the 10 cores, both libraries in the same run; the spread within a run was under 1%. Csv parses records about 7% faster and writes about 15% faster; typed rows are about 5% slower; the reader is not the difference there, decoding the members is. jai-csv does less: it keeps no position, has no limits and takes the whole input at once. jai-csv has no record reader, so "records" calls its `csv_consume_col` per field, and "typed" uses `csv_parse` into the same struct without the `bool` column, which it can't read. Both libraries produce the same counts, rows and written bytes, checked before the timer.
 
 | Feature | Csv | jai-csv |
 | --- | --- | --- |
