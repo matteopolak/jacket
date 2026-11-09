@@ -173,6 +173,52 @@ mod doc {
     }
 
     #[test]
+    fn the_tab_icon_follows_the_logo_unless_set_apart() {
+        let _serial = RUN
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some((jacket, _)) = tools() else {
+            return;
+        };
+        let temp = TempDir::new("doc-icon");
+        temp.write(
+            "lib/Tiny/module.jai",
+            "// Tiny.\n\n// The answer.\nanswer :: 42;\n",
+        );
+        temp.write("logo.svg", "<svg xmlns='http://www.w3.org/2000/svg'/>");
+        temp.write("icon.png", "png");
+        let index = |config: &str| {
+            temp.write("jacket.toml", config);
+            let output = Command::new(&jacket)
+                .args(["doc", "--out"])
+                .arg(temp.join("site"))
+                .env("JAIC_STDLIB", repo().join("stdlib"))
+                .env("XDG_CACHE_HOME", temp.join("cache"))
+                .current_dir(&temp)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            std::fs::read_to_string(temp.join("site/index.html")).unwrap()
+        };
+        let html = index("[doc]\npath = 'lib'\nlogo = 'logo.svg'\n");
+        assert!(
+            html.contains("<link rel=\"icon\" href=\"/assets/logo.svg\" type=\"image/svg+xml\">"),
+            "{html}"
+        );
+        let html = index("[doc]\npath = 'lib'\nlogo = 'logo.svg'\nicon = 'icon.png'\n");
+        assert!(
+            html.contains("<link rel=\"icon\" href=\"/assets/icon.png\" type=\"image/png\">"),
+            "{html}"
+        );
+        assert!(html.contains("<img src=\"/assets/logo.svg\""), "{html}");
+        assert!(temp.join("site/assets/icon.png").is_file());
+    }
+
+    #[test]
     fn heads_match_page_kinds_and_publication_version() {
         let _serial = RUN
             .lock()

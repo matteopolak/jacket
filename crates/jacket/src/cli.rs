@@ -329,6 +329,9 @@ pub struct DocArgs {
     /// An SVG or PNG for the header and the page icon, over `[doc] logo` [default: none]
     #[arg(long, value_name = "FILE")]
     pub logo: Option<std::path::PathBuf>,
+    /// An SVG or PNG for the page icon alone, over `[doc] icon` [default: the logo]
+    #[arg(long, value_name = "FILE")]
+    pub icon: Option<std::path::PathBuf>,
     /// The repository's web address, over `[doc] repo`; Source links go to
     /// `<URL>/blob/<ref>/<file>` [default: none, and no Source links]
     #[arg(long, value_name = "URL")]

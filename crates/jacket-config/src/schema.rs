@@ -480,9 +480,12 @@ pub struct Doc {
     /// The front page's description for search engines and link previews.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// An `.svg` or `.png` for the header and the tab icon.
+    /// An `.svg` or `.png` for the header, and the tab icon unless `icon` is set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub logo: Option<String>,
+    /// An `.svg` or `.png` for the browser tab when it should differ from the logo.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     /// The repository web address, for Source links (`https://github.com/o/r`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repo: Option<String>,
@@ -753,6 +756,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "breadcrumb",
             "description",
             "logo",
+            "icon",
             "repo",
             "playground",
             "since",

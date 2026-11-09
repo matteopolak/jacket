@@ -4,7 +4,7 @@ use super::super::markdown::{self, Segment, Settings};
 use super::super::model::{Item, Kind, Module, Overload, Support, TypeRef};
 use super::super::site::{Site, item_line, signature_html, signature_line_html};
 use super::{
-    Badge, Category, Content, Crumb, Definition, DocSegment, Link, Logo, ModuleView, NavCategory,
+    Badge, Category, Content, Crumb, Definition, DocSegment, Image, Link, ModuleView, NavCategory,
     NavGroup, NavLink, Outline, OutlineItem, OverloadView, PageHead, PageView, Platform, Row,
     RowGroup, Section, Sidebar, SiteView, Title,
 };
@@ -152,6 +152,19 @@ fn modules_sidebar(site: &Site, current: Option<usize>) -> Sidebar {
     }
 }
 
+/// An image written below `assets/`, linked with its type.
+fn image(site: &Site, file: &str) -> Image {
+    Image {
+        url: site.href(&format!("assets/{file}")),
+        mime: if file.ends_with(".svg") {
+            "image/svg+xml"
+        } else {
+            "image/png"
+        }
+        .into(),
+    }
+}
+
 pub fn site(site: &Site) -> SiteView {
     let mut header_links = Vec::new();
     if let Some(href) = &site.pages_href {
@@ -167,20 +180,13 @@ pub fn site(site: &Site) -> SiteView {
         });
     }
     SiteView {
-        format: 6,
+        format: 7,
         name: site.name.clone(),
         site_name: site.name.clone(),
         base: site.base.clone(),
         version: site.version.clone(),
-        logo: site.logo.as_ref().map(|file| Logo {
-            url: site.href(&format!("assets/{file}")),
-            mime: if file.ends_with(".svg") {
-                "image/svg+xml"
-            } else {
-                "image/png"
-            }
-            .into(),
-        }),
+        logo: site.logo.as_deref().map(|file| image(site, file)),
+        icon: site.icon.as_deref().map(|file| image(site, file)),
         header_links,
         repo: site.repo.clone(),
         categories: site

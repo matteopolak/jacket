@@ -34,6 +34,8 @@ pub struct Site {
     pub playground: String,
     /// The logo's file below `assets/`, if the site has one.
     pub logo: Option<String>,
+    /// The tab icon's file below `assets/`: `[doc] icon`, else the logo.
+    pub icon: Option<String>,
     /// The heading of the extra pages (and their folder, as a slug); empty when there are none.
     pub pages_title: String,
     /// The first extra page, for the header link.
@@ -156,6 +158,7 @@ impl Site {
             source_prefix: String::new(),
             playground,
             logo: None,
+            icon: None,
             pages_title: String::new(),
             pages_href: None,
             extra_nav: Vec::new(),

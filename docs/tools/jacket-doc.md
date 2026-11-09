@@ -65,7 +65,8 @@ name = "my_lib"                     # header and titles; default: the folder nam
 breadcrumb = "my_lib"               # first crumb on every page; default: the folder name
 description = "API docs for my_lib."
 home = "notes/home.md"              # the front page; default: the name and description
-logo = "assets/logo.svg"            # .svg or .png; default: none
+logo = "assets/logo.svg"            # .svg or .png for the header and tab; default: none
+icon = "assets/icon.svg"            # tab icon when it should differ from the logo; default: logo
 repo = "https://github.com/me/my_lib"   # Source links need it
 playground = "https://example.com/play"  # default: none, and no playground links
 since = "notes/since.tsv"           # "since X" labels; used only with --version
@@ -236,7 +237,7 @@ The implicit `#Context` reference is a configured Markdown guide at `guides/cont
 | `--base-url` | `/` | where the site is served, with both slashes |
 | `--runtime` | none | folder with `jai_wasm.wasm` and `engine.mjs` |
 | `PATH` | `[doc] path`, else the stdlib | the library to document |
-| `--name`, `--logo`, `--repo`, `--playground-url` | the `[doc]` setting, else none | override `[doc]` |
+| `--name`, `--logo`, `--icon`, `--repo`, `--playground-url` | the `[doc]` setting, else none | override `[doc]` |
 | `--version` | none | the header's version; also turns on `since` labels |
 | `--source-ref` | the checkout's commit | tag or branch for Source links |
 | `--module` | all | build only these; broken links are then warnings |

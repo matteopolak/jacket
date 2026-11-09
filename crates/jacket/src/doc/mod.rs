@@ -347,19 +347,19 @@ fn target(
     }
 }
 
-/// The logo file's name below `assets/` and its bytes.
-fn read_logo(file: &Path) -> Result<(String, Vec<u8>), String> {
+/// An image's file name below `assets/` (`<what>.svg` or `<what>.png`) and its bytes.
+fn read_image(what: &str, file: &Path) -> Result<(String, Vec<u8>), String> {
     let ext = file
         .extension()
         .and_then(|e| e.to_str())
         .map(str::to_ascii_lowercase);
     let ext = match ext.as_deref() {
         Some(ext @ ("svg" | "png")) => ext.to_owned(),
-        _ => return Err(format!("logo {} is not an .svg or .png", file.display())),
+        _ => return Err(format!("{what} {} is not an .svg or .png", file.display())),
     };
-    let bytes =
-        std::fs::read(file).map_err(|e| format!("cannot read the logo {}: {e}", file.display()))?;
-    Ok((format!("logo.{ext}"), bytes))
+    let bytes = std::fs::read(file)
+        .map_err(|e| format!("cannot read the {what} {}: {e}", file.display()))?;
+    Ok((format!("{what}.{ext}"), bytes))
 }
 
 /// Partial module builds omit external pages, so only a full site can validate its links.
@@ -557,12 +557,18 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             .clone()
             .unwrap_or_else(|| format!("API documentation for {}.", site.name));
         site.repo = pick(&args.repo, &doc.repo);
-        let logo = match (&args.logo, &doc.logo) {
-            (Some(file), _) => Some(read_logo(&cwd.join(file))?),
-            (None, Some(file)) => Some(read_logo(&config_dir.join(file))?),
-            (None, None) => None,
+        let image = |what, arg: &Option<PathBuf>, key: &Option<String>| match (arg, key) {
+            (Some(file), _) => read_image(what, &cwd.join(file)).map(Some),
+            (None, Some(file)) => read_image(what, &config_dir.join(file)).map(Some),
+            (None, None) => Ok(None),
         };
+        let logo = image("logo", &args.logo, &doc.logo)?;
+        let icon = image("icon", &args.icon, &doc.icon)?;
         site.logo = logo.as_ref().map(|(name, _)| name.clone());
+        site.icon = icon
+            .as_ref()
+            .or(logo.as_ref())
+            .map(|(name, _)| name.clone());
         if !doc.page.is_empty() {
             site.pages_title = doc.pages_title.clone().unwrap_or_else(|| "Guides".into());
         }
@@ -614,7 +620,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         }
         let view_elapsed = view_start.elapsed();
         let examples = site.examples();
-        let mut files = auxiliary_files(&site, logo, &version, &examples);
+        let mut files = auxiliary_files(&site, logo.into_iter().chain(icon), &version, &examples);
         files.extend(metadata.files(&urls, image_file));
         shared.written_files = files.iter().map(|(path, _)| path.clone()).collect();
         if site.runtime {
@@ -711,12 +717,12 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
 /// Files owned by the model step; the theme only registers them as link targets.
 fn auxiliary_files(
     site: &Site,
-    logo: Option<(String, Vec<u8>)>,
+    images: impl Iterator<Item = (String, Vec<u8>)>,
     version: &str,
     examples: &BTreeMap<String, String>,
 ) -> Vec<(String, Vec<u8>)> {
     let mut files: Vec<(String, Vec<u8>)> = Vec::new();
-    if let Some((name, bytes)) = logo {
+    for (name, bytes) in images {
         files.push((format!("assets/{name}"), bytes));
     }
     let mut add = |path: String, text: String| files.push((path, text.into_bytes()));

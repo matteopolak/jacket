@@ -11,7 +11,8 @@ pub struct SiteView {
     pub site_name: String,
     pub base: String,
     pub version: String,
-    pub logo: Option<Logo>,
+    pub logo: Option<Image>,
+    pub icon: Option<Image>,
     pub header_links: Vec<Link>,
     pub repo: String,
     pub categories: Vec<Category>,
@@ -28,7 +29,7 @@ pub struct SiteView {
 }
 
 #[derive(Serialize)]
-pub struct Logo {
+pub struct Image {
     pub url: String,
     pub mime: String,
 }

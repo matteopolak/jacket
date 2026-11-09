@@ -7,7 +7,8 @@ Site_View :: struct {
     site_name: string;
     base: string;
     version: string;
-    logo: *Logo;
+    logo: *Image;
+    icon: *Image;
     header_links: [] Link;
     repo: string;
     categories: [] Category;
@@ -28,7 +29,7 @@ Site_View :: struct {
     resolve_links: bool;
 }
 
-Logo :: struct {
+Image :: struct {
     url: string;
     mime: string;
 }

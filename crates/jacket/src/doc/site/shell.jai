@@ -97,7 +97,7 @@ HTML
 }
 
 Icon :: (out: *Out, site: *Site_View) {
-    html(out, "{if site.logo}<link rel=\"icon\" href=\"{esc(site.logo.url)}\" type=\"{cast(Html) site.logo.mime}\">\n{else}<link rel=\"icon\" href=\"{cast(Html) site.base}assets/favicon.svg\" type=\"image/svg+xml\">{end}");
+    html(out, "{if site.icon}<link rel=\"icon\" href=\"{esc(site.icon.url)}\" type=\"{cast(Html) site.icon.mime}\">\n{else}<link rel=\"icon\" href=\"{cast(Html) site.base}assets/favicon.svg\" type=\"image/svg+xml\">{end}");
 }
 
 LogoImage :: (out: *Out, site: *Site_View) {
