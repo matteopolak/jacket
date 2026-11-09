@@ -737,7 +737,7 @@ pub fn generated_origin(path: &str) -> Option<(&str, usize)> {
 /// is unexpanded.
 #[cfg(test)]
 pub fn module(dir: &Path, stdlib: &Path) -> Module {
-    module_expanding(dir, stdlib, &mut |_, _| {
+    module_expanding(dir, stdlib, &[], &mut |_, _| {
         Err("the model reads source and does not run it".to_owned())
     })
 }
@@ -745,12 +745,19 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
 /// The model of the library in `dir`. `expand` gives the text of each public top-level
 /// `#insert` (by file and line); its declarations are items like the others, marked
 /// `generated`, and its failures are in `unexpanded`.
-pub fn module_expanding(dir: &Path, stdlib: &Path, expand: Expander) -> Module {
+///
+/// Imports are found in the library, then `import_dirs`, then `stdlib`.
+pub fn module_expanding(
+    dir: &Path,
+    stdlib: &Path,
+    import_dirs: &[PathBuf],
+    expand: Expander,
+) -> Module {
     let mut own = Vec::new();
     super::own_files(dir, true, &mut own);
     let module_file = super::canonical(&crate::paths::module_entry(dir));
     let mut reader = Reader {
-        files: Files::new(stdlib),
+        files: Files::new(stdlib).with_import_dirs(import_dirs),
         parsed: HashMap::default(),
         module_file: module_file.clone(),
         library: own.iter().map(|f| super::canonical(f)).collect(),
@@ -1077,16 +1084,21 @@ fn add(out: &mut Module, names: &mut Vec<String>, mut item: Item) {
 /// What `jaic -doc_model` prints for the library in `dir`. Links in docs to a name of the
 /// library (or `Module.name` of another library of `stdlib`) become `jaidoc:Module/name` and
 /// `jaidoc:Module/name#member`, for the renderer to turn into pages.
-pub fn print(dir: &Path, stdlib: &Path) -> String {
-    print_expanding(dir, stdlib, &mut |_, _| {
+pub fn print(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> String {
+    print_expanding(dir, stdlib, import_dirs, &mut |_, _| {
         Err("the model reads source and does not run it".to_owned())
     })
 }
 
 /// [`print`] with the text of public top-level `#insert`s from `expand`.
-pub fn print_expanding(dir: &Path, stdlib: &Path, expand: Expander) -> String {
+pub fn print_expanding(
+    dir: &Path,
+    stdlib: &Path,
+    import_dirs: &[PathBuf],
+    expand: Expander,
+) -> String {
     let (dir, stdlib) = (&super::canonical(dir), &super::canonical(stdlib));
-    let model = module_expanding(dir, stdlib, expand);
+    let model = module_expanding(dir, stdlib, import_dirs, expand);
     let key = {
         let canonical = super::canonical(dir);
         let root = super::canonical(stdlib);
@@ -1114,6 +1126,13 @@ pub fn print_expanding(dir: &Path, stdlib: &Path, expand: Expander) -> String {
             });
         }
         let other = names.get(1)?;
+        // Another library's module is named by its folder alone, as the compiler finds it.
+        if import_dirs
+            .iter()
+            .any(|dir| crate::paths::module_entry(&dir.join(first)).is_file())
+        {
+            return Some(format!("jaidoc:{first}/{other}"));
+        }
         let module_dir = stdlib.join(first);
         let ext_dir = stdlib.join("Extensions").join(first);
         if crate::paths::module_entry(&module_dir).is_file() {

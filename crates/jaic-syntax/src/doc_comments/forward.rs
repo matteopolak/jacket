@@ -13,6 +13,8 @@ use std::sync::Arc;
 /// Reads and parses files of a library and the standard library, each once.
 pub(super) struct Files<'a> {
     stdlib: &'a Path,
+    /// The folders `-import_dir` names, searched for modules before the standard library.
+    import_dirs: &'a [PathBuf],
     texts: HashMap<PathBuf, Option<Arc<str>>>,
     tops: HashMap<PathBuf, Option<Arc<Top>>>,
     loaders: HashMap<PathBuf, Vec<PathBuf>>,
@@ -41,10 +43,18 @@ impl<'a> Files<'a> {
     pub(super) fn new(stdlib: &'a Path) -> Self {
         Self {
             stdlib,
+            import_dirs: &[],
             texts: HashMap::default(),
             tops: HashMap::default(),
             loaders: HashMap::default(),
         }
+    }
+
+    /// Looks for imported modules in `dirs` too, as the compiler does, before the standard
+    /// library.
+    pub(super) fn with_import_dirs(mut self, dirs: &'a [PathBuf]) -> Self {
+        self.import_dirs = dirs;
+        self
     }
 
     /// These modules supply language and implementation declarations, not public pages.
@@ -76,13 +86,11 @@ impl<'a> Files<'a> {
             ImportSource::File(path) => vec![base.join(&**path)],
             ImportSource::Module(name) => {
                 let local = base.join("modules").join(&**name);
-                let stdlib = self.stdlib.join(&**name);
-                vec![
-                    local.with_extension("jai"),
-                    crate::paths::module_entry(&local),
-                    stdlib.with_extension("jai"),
-                    crate::paths::module_entry(&stdlib),
-                ]
+                let roots = self.import_dirs.iter().map(PathBuf::as_path);
+                std::iter::once(local)
+                    .chain(roots.chain([self.stdlib]).map(|root| root.join(&**name)))
+                    .flat_map(|at| [at.with_extension("jai"), crate::paths::module_entry(&at)])
+                    .collect()
             }
             ImportSource::Dir(_) | ImportSource::String(_) => return None,
         };

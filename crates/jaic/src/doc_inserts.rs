@@ -125,7 +125,7 @@ fn compile(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Expanded {
 pub fn model_json(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> String {
     let (dir, stdlib) = (canonical(dir), canonical(stdlib));
     let mut expanded: Option<Expanded> = None;
-    crate::doc_comments::model_json_expanding(&dir, &stdlib, &mut |file, line| {
+    crate::doc_comments::model_json_expanding(&dir, &stdlib, import_dirs, &mut |file, line| {
         let expanded = expanded.get_or_insert_with(|| {
             // Compiling needs a large stack, as `jaic` itself runs on.
             std::thread::scope(|scope| {

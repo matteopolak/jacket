@@ -67,13 +67,21 @@ fn discover(dir: &Path, prefix: &str, out: &mut Vec<String>) {
     }
 }
 
-/// `-import_dir root`, so a library's modules find each other; nothing for the standard library.
-fn import_dir(stdlib: &Path, root: &Path) -> Vec<std::ffi::OsString> {
+/// The import folders the compiler would use for the library at `root`: `root` itself, so its
+/// modules find each other, then the project's own (`[project] import_path`, through the same
+/// [`crate::compile::project_flags`] that `build` and `test` take theirs from). Nothing for the
+/// standard library.
+fn import_dir(
+    stdlib: &Path,
+    root: &Path,
+    project: &[std::ffi::OsString],
+) -> Vec<std::ffi::OsString> {
     if root == stdlib {
-        Vec::new()
-    } else {
-        vec!["-import_dir".into(), root.as_os_str().to_owned()]
+        return Vec::new();
     }
+    let mut flags = vec!["-import_dir".into(), root.as_os_str().to_owned()];
+    flags.extend(project.iter().cloned());
+    flags
 }
 
 /// `jaic -doc_model` for each of `ids` (module folders below `root`), a few at a time.
@@ -81,6 +89,7 @@ fn read_models(
     jaic: &Path,
     stdlib: &Path,
     root: &Path,
+    imports: &[std::ffi::OsString],
     ids: &[String],
 ) -> Result<Vec<Module>, String> {
     let next = AtomicUsize::new(0);
@@ -96,7 +105,7 @@ fn read_models(
                     };
                     let output = Command::new(jaic)
                         .env(jacket_config::env::STDLIB.name, stdlib)
-                        .args(import_dir(stdlib, root))
+                        .args(imports)
                         .arg("-doc_model")
                         .arg(root.join(id))
                         .output();
@@ -104,7 +113,8 @@ fn read_models(
                         Ok(o) if o.status.success() => {
                             model::parse(id, &String::from_utf8_lossy(&o.stdout), root, stdlib).map(
                                 |mut module| {
-                                    module.wasm = builds_for_wasm(jaic, stdlib, root, &module, i);
+                                    module.wasm =
+                                        builds_for_wasm(jaic, stdlib, imports, &module, i);
                                     module
                                 },
                             )
@@ -137,7 +147,13 @@ fn read_models(
 /// Whether `module` can be imported when the target is wasm, and most of its items exist there.
 /// Found by checking a program that imports it, so a module that asserts another system, or
 /// leaves everything to other systems, is out. `n` keeps the scratch files of threads apart.
-fn builds_for_wasm(jaic: &Path, stdlib: &Path, root: &Path, module: &Module, n: usize) -> bool {
+fn builds_for_wasm(
+    jaic: &Path,
+    stdlib: &Path,
+    imports: &[std::ffi::OsString],
+    module: &Module,
+    n: usize,
+) -> bool {
     let asserted_elsewhere =
         !module.platforms.is_empty() && !module.platforms.iter().any(|p| p == "WASM");
     let there = module
@@ -159,7 +175,7 @@ fn builds_for_wasm(jaic: &Path, stdlib: &Path, root: &Path, module: &Module, n: 
         && Command::new(jaic)
             .env(jacket_config::env::STDLIB.name, stdlib)
             .args(["-check", "-no_dce", "-os", "wasm"])
-            .args(import_dir(stdlib, root))
+            .args(imports)
             .arg(&file)
             .output()
             .is_ok_and(|o| o.status.success());
@@ -424,14 +440,14 @@ fn canonical(path: &Path) -> Result<PathBuf, String> {
 }
 
 /// The folder to document and the `[doc]` settings for it, with the folder of their
-/// `jacket.toml`. Without a path, the `[doc]` of the nearest `jacket.toml` names the library,
+/// `jacket.toml`, and the compiler flags the project adds (its import folders). Without a path, the `[doc]` of the nearest `jacket.toml` names the library,
 /// else it is the bundled standard library. With one, the nearest `jacket.toml` above it
 /// applies only when its `[doc]` is for that folder.
 fn target(
     path: Option<&Path>,
     stdlib: &Path,
     cwd: &Path,
-) -> Result<(PathBuf, Doc, PathBuf), String> {
+) -> Result<(PathBuf, Doc, PathBuf, Vec<std::ffi::OsString>), String> {
     let start = match path {
         Some(path) => canonical(&cwd.join(path))?,
         None => cwd.to_path_buf(),
@@ -447,18 +463,24 @@ fn target(
     for note in loaded.iter().flat_map(|l| &l.notes) {
         eprintln!("{note}");
     }
+    let project = crate::compile::project_flags(&[], loaded.as_ref());
     let found = loaded.filter(|l| !l.config.doc.is_empty()).map(|l| {
         let dir = l.dir().to_path_buf();
         let lib = dir.join(l.config.doc.path.as_deref().unwrap_or("."));
         (lib, l.config.doc, dir)
     });
     match (path, found) {
-        (None, Some((lib, doc, dir))) => Ok((canonical(&lib)?, doc, dir)),
-        (None, None) => Ok((stdlib.to_path_buf(), Doc::default(), stdlib.to_path_buf())),
+        (None, Some((lib, doc, dir))) => Ok((canonical(&lib)?, doc, dir, project)),
+        (None, None) => Ok((
+            stdlib.to_path_buf(),
+            Doc::default(),
+            stdlib.to_path_buf(),
+            project,
+        )),
         (Some(_), Some((lib, doc, dir))) if lib.canonicalize().ok().as_ref() == Some(&start) => {
-            Ok((start, doc, dir))
+            Ok((start, doc, dir, project))
         }
-        (Some(_), _) => Ok((start.clone(), Doc::default(), start)),
+        (Some(_), _) => Ok((start.clone(), Doc::default(), start, project)),
     }
 }
 
@@ -522,13 +544,14 @@ fn engine<'a>(
     root: &Path,
     stdlib: &'a Path,
     jaic: &'a Path,
+    project: &[std::ffi::OsString],
     has_node: bool,
 ) -> Result<example_check::Engine<'a>, String> {
     let Some(runtime) = runtime else {
         return Ok(example_check::Engine::Interpreter {
             jaic,
             stdlib,
-            import_dir: import_dir(stdlib, root),
+            import_dir: import_dir(stdlib, root, project),
         });
     };
     if !has_node {
@@ -555,13 +578,21 @@ fn test_examples(
     jaic: &Path,
     stdlib: &Path,
     root: &Path,
+    project: &[std::ffi::OsString],
 ) -> Result<bool, String> {
     let programs = site.runnable();
     let has_node = Command::new("node")
         .arg("--version")
         .output()
         .is_ok_and(|o| o.status.success());
-    let engine = engine(args.runtime.as_deref(), root, stdlib, jaic, has_node)?;
+    let engine = engine(
+        args.runtime.as_deref(),
+        root,
+        stdlib,
+        jaic,
+        project,
+        has_node,
+    )?;
     let failed = example_check::run(&engine, &programs)?;
     if !failed.is_empty() {
         eprint!("{}", example_check::report(&failed));
@@ -582,7 +613,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         let base = base_path(&args.base_url)?;
         let jaic = tools::locate(tools::JAIC)?;
         let stdlib = stdlib_dir(&jaic, cwd)?;
-        let (lib, doc, config_dir) = target(args.path.as_deref(), &stdlib, cwd)?;
+        let (lib, doc, config_dir, project) = target(args.path.as_deref(), &stdlib, cwd)?;
         let Library {
             root,
             mut ids,
@@ -612,7 +643,8 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             ids.retain(|id| args.modules.contains(id));
         }
         let models_start = std::time::Instant::now();
-        let mut modules = read_models(&jaic, &stdlib, &root, &ids)?;
+        let imports = import_dir(&stdlib, &root, &project);
+        let mut modules = read_models(&jaic, &stdlib, &root, &imports, &ids)?;
         accounted += timing(args, "models", models_start);
         for module in &mut modules {
             if let Some((category, group)) = place.get(&module.id) {
@@ -781,7 +813,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             .count();
         if !args.check && !args.no_test_examples {
             let started = std::time::Instant::now();
-            if !test_examples(args, &site, &jaic, &stdlib, &root)? {
+            if !test_examples(args, &site, &jaic, &stdlib, &root, &project)? {
                 return Ok(ExitCode::from(1));
             }
             accounted += timing(args, "examples", started);
@@ -1034,7 +1066,7 @@ mod tests {
     fn the_engine_follows_the_flags_and_never_what_is_installed() {
         let (jaic, stdlib) = (Path::new("jaic"), Path::new("/s"));
         let pick = |runtime: Option<&Path>, root: &Path, node: bool| {
-            engine(runtime, root, stdlib, jaic, node)
+            engine(runtime, root, stdlib, jaic, &[], node)
                 .map(|e| matches!(e, example_check::Engine::Browser { .. }))
         };
         // No flag: the interpreter, with or without Node.

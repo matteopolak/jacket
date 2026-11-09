@@ -960,7 +960,7 @@ fn what_a_top_level_insert_declares_is_documented_as_generated() {
         )],
     );
     let origin = dir.join("module.jai");
-    let model = module_expanding(&dir, Path::new("/nowhere"), &mut |_, line| {
+    let model = module_expanding(&dir, Path::new("/nowhere"), &[], &mut |_, line| {
         match line {
         3 => Ok("/// A point made by the generator.\nPoint :: struct { x: int; at: Local; }\n\n/// Moves it.\nmove :: (p: *Point) {}\n".to_owned()),
         5 => Ok("\n".to_owned()),
@@ -995,5 +995,32 @@ fn what_a_top_level_insert_declares_is_documented_as_generated() {
         json.contains("\"reason\":\"make() needs a parameter\""),
         "{json}"
     );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_type_of_a_module_in_an_import_dir_resolves() {
+    let dir = library(
+        "import-dir",
+        &[
+            (
+                "lib/Draw/module.jai",
+                "Shapes :: #import \"Shapes\";\n\nmove :: (p: Shapes.Point) {}\n",
+            ),
+            ("more/Shapes/module.jai", "Point :: struct { x: int; }\n"),
+        ],
+    );
+    let (draw, more) = (dir.join("lib/Draw"), vec![dir.join("more")]);
+    let refs = |import_dirs: &[PathBuf]| {
+        let model = module_expanding(&draw, Path::new("/nowhere"), import_dirs, &mut |_, _| {
+            Err(String::new())
+        });
+        let refs = &model.items[0].overloads[0].params[0].refs;
+        refs.iter().map(|r| r.file.clone()).collect::<Vec<_>>()
+    };
+    assert!(refs(&[]).is_empty());
+    let found = refs(&more);
+    assert_eq!(found.len(), 1);
+    assert!(found[0].ends_with("more/Shapes/module.jai"));
     let _ = std::fs::remove_dir_all(&dir);
 }
