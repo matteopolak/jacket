@@ -11,7 +11,7 @@
     <a href="https://jacket.matteopolak.com"><b>API docs</b></a> ·
     <a href="docs/README.md"><b>Guides and reference</b></a> ·
     <a href="https://matteopolak.com/playground/jacket">Playground</a> ·
-    <a href="https://jacket.zulipchat.com/join/rzi2dto5ll5s3fhjc3rk6sgl/">Chat</a> ·
+    <a href="https://jacket.zulipchat.com/join/rzi2dto5ll5s3fhjc3rk6sgl/">Chat (Zulip)</a> ·
     <a href="CHANGELOG.md">Changelog</a>
   </p>
 </div>
