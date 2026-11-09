@@ -31,7 +31,7 @@ release_scratch :: (storage: *Temporary_Storage, owner: Allocator) {
     reset_temporary_storage(storage);
     if storage.data release_owned(storage.data, owner);
     storage.* = .{};
-} @FreesArgument
+}
 
 // thread_deinit reaps a completed worker; it is not a completion wait.
 finish_thread :: (thread: *Thread.Thread) {
