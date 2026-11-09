@@ -445,7 +445,7 @@ mod other_tests {
 ///
 /// Classes: `de`/`dw` (error and warning, for the header and its markers), `dm` (the muted
 /// frame), `dk` (secondary `---` markers), `dh` (`help:` and `note:` labels), `dc` (a fix line's
-/// `~`), `da` (`+`).
+/// `~`), `da` (`+`), `dd` (`-`).
 pub fn diagnostic(text: &str) -> String {
     let mut level = "de";
     let mut out = Vec::new();
@@ -508,6 +508,7 @@ fn gutter_line(html: &mut String, line: &str, level: &str) {
         '|' => "dm",
         '~' => "dc",
         '+' => "da",
+        '-' => "dd",
         _ => level,
     };
     span(html, class, &sign.to_string());
@@ -547,6 +548,7 @@ mod diagnostic_tests {
         assert!(html.contains("<span class=\"dh\">help:</span> remove it"));
         assert!(html.contains("<span class=\"dc\">~</span>"));
         assert!(html.contains("<span class=\"dh\">= note:</span> `unused_variable`"));
+        assert!(diagnostic(" 4 -     x = x;").contains("<span class=\"dd\">-</span>"));
         // Code that starts with `-` is not a marker.
         assert!(!diagnostic(" 2 |     -x").contains("dk"));
     }
