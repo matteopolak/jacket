@@ -292,6 +292,174 @@ Json_Writer :: struct {
     builder: *String_Builder;
     pretty: bool;
     depth: int;
+    tree: bool; // building a `Json_Value` instead of text (see `to_json_value`)
+    root: Json_Value; // in a tree, the finished value
+    frames: [..] Build_Frame; // the arrays and objects being built in a tree, innermost last
+}
+
+// An array or object being built in a tree, and the key of the member whose value comes next.
+Build_Frame :: struct {
+    value: Json_Value;
+    key: string;
+}
+
+#scope_module
+
+// The tree builder's half of the writer: each value the encoder writes becomes a `Json_Value`
+// that is added to the array or object being built, or is the root.
+tree_put :: (w: *Json_Writer, value: Json_Value) {
+    if !w.frames.count {
+        w.root = value;
+
+        return;
+    }
+
+    frame := *w.frames[w.frames.count - 1];
+
+    if frame.value.kind == .ARRAY {
+        array_add(*frame.value.items, value);
+
+        return;
+    }
+
+    member: Json_Member;
+
+    member.key = frame.key;
+    member.value = value;
+    frame.key = "";
+    array_add(*frame.value.members, member);
+}
+
+tree_begin :: (w: *Json_Writer, kind: Json_Kind) {
+    frame: Build_Frame;
+
+    frame.value.kind = kind;
+    array_add(*w.frames, frame);
+    w.depth += 1;
+}
+
+tree_end :: (w: *Json_Writer) {
+    w.depth -= 1;
+
+    frame := w.frames[w.frames.count - 1];
+
+    w.frames.count -= 1;
+    tree_put(w, frame.value);
+}
+
+tree_set_key :: (w: *Json_Writer, key: string) {
+    w.frames[w.frames.count - 1].key = key;
+}
+
+// An owned copy of `text` as the encoder writes it: bytes that are not valid UTF-8 become U+FFFD.
+tree_text :: (text: string) -> string {
+    if !text.count return "";
+
+    i := 0;
+
+    while i < text.count {
+        if text[i] < 0x80 {
+            i += 1;
+
+            continue;
+        }
+
+        step := utf8_sequence_length(text, i);
+
+        if step == 0 break;
+
+        i += step;
+    }
+
+    if i >= text.count return copy_string(text);
+
+    builder: String_Builder;
+
+    i = 0;
+
+    while i < text.count {
+        step := 1;
+
+        if text[i] >= 0x80 step = utf8_sequence_length(text, i);
+
+        if step == 0 {
+            append(*builder, cast(u8) 0xef);
+            append(*builder, cast(u8) 0xbf);
+            append(*builder, cast(u8) 0xbd);
+            step = 1;
+        } else {
+            append(*builder, slice(text, i, step));
+        }
+
+        i += step;
+    }
+
+    return builder_to_string(*builder);
+}
+
+// An owned copy of the string a quoted JSON literal spells, for the literals the generated
+// encoders write (enum names, tags, keys).
+tree_literal :: (quoted: string) -> string {
+    if find_index_from_left(quoted, #char "\\") < 0 {
+        if quoted.count <= 2 return "";
+
+        return copy_string(slice(quoted, 1, quoted.count - 2));
+    }
+
+    r: Json_Reader;
+
+    reader_init(*r, quoted, .{});
+    defer reader_free(*r);
+
+    text, ok := json_read_string(*r);
+
+    if !ok {
+        free_json(*r.error);
+
+        return "";
+    }
+
+    return text;
+}
+
+// A deep copy, owned by context.allocator.
+tree_copy :: (value: *Json_Value) -> Json_Value {
+    result: Json_Value;
+
+    result.kind = value.kind;
+    result.boolean = value.boolean;
+
+    if value.kind == .STRING || value.kind == .NUMBER {
+        if value.text.count result.text = copy_string(value.text);
+    }
+
+    for *item: value.items array_add(*result.items, tree_copy(item));
+
+    for *member: value.members {
+        copy: Json_Member;
+
+        if member.key.count copy.key = copy_string(member.key);
+
+        copy.value = tree_copy(*member.value);
+        array_add(*result.members, copy);
+    }
+
+    return result;
+}
+
+tree_float :: (w: *Json_Writer, text: string) {
+    if text == "null" {
+        free(text);
+        tree_put(w, json_null());
+
+        return;
+    }
+
+    value: Json_Value;
+
+    value.kind = .NUMBER;
+    value.text = text;
+    tree_put(w, value);
 }
 
 #scope_module
@@ -362,6 +530,12 @@ count_digits :: inline (value: u64) -> s64 {
 // assert(builder_to_string(*builder,, temp) == "null");
 // ```
 json_write_null :: inline (w: *Json_Writer) {
+    if w.tree {
+        tree_put(w, json_null());
+
+        return;
+    }
+
     put(w.builder, "null");
 }
 
@@ -376,6 +550,12 @@ json_write_null :: inline (w: *Json_Writer) {
 // assert(builder_to_string(*builder,, temp) == "true");
 // ```
 json_write_bool :: inline (w: *Json_Writer, value: bool) {
+    if w.tree {
+        tree_put(w, json_bool(value));
+
+        return;
+    }
+
     put(w.builder, ifx value then "true" else "false");
 }
 
@@ -390,6 +570,12 @@ json_write_bool :: inline (w: *Json_Writer, value: bool) {
 // assert(builder_to_string(*builder,, temp) == "18446744073709551615");
 // ```
 json_write_uint :: (w: *Json_Writer, value: u64) {
+    if w.tree {
+        tree_put(w, json_uint(value));
+
+        return;
+    }
+
     out := builder_reserve(w.builder, MAX_U64_DIGITS);
 
     if !out {
@@ -418,6 +604,12 @@ json_write_uint :: (w: *Json_Writer, value: u64) {
 // assert(builder_to_string(*builder,, temp) == "-42");
 // ```
 json_write_int :: (w: *Json_Writer, value: s64) {
+    if w.tree {
+        tree_put(w, json_int(value));
+
+        return;
+    }
+
     if value >= 0 {
         json_write_uint(w, cast(u64) value);
 
@@ -452,6 +644,12 @@ json_write_int :: (w: *Json_Writer, value: s64) {
 // assert(builder_to_string(*builder,, temp) == "1.5");
 // ```
 json_write_float64 :: (w: *Json_Writer, value: float64) {
+    if w.tree {
+        tree_put(w, json_float(value));
+
+        return;
+    }
+
     append_float64(w.builder, value);
 }
 
@@ -466,6 +664,15 @@ json_write_float64 :: (w: *Json_Writer, value: float64) {
 // assert(builder_to_string(*builder,, temp) == "0.25");
 // ```
 json_write_float32 :: (w: *Json_Writer, value: float32) {
+    if w.tree {
+        builder: String_Builder;
+
+        append_float32(*builder, value);
+        tree_float(w, builder_to_string(*builder));
+
+        return;
+    }
+
     append_float32(w.builder, value);
 }
 
@@ -480,6 +687,16 @@ json_write_float32 :: (w: *Json_Writer, value: float32) {
 // assert(builder_to_string(*builder,, temp) == "\"a\\tb\"");
 // ```
 json_write_string :: (w: *Json_Writer, value: string) {
+    if w.tree {
+        copy: Json_Value;
+
+        copy.kind = .STRING;
+        copy.text = tree_text(value);
+        tree_put(w, copy);
+
+        return;
+    }
+
     append_json_string(w.builder, value);
 }
 
@@ -494,6 +711,16 @@ json_write_string :: (w: *Json_Writer, value: string) {
 // assert(builder_to_string(*builder,, temp) == "{\"already\":true}");
 // ```
 json_write_raw :: (w: *Json_Writer, text: string) {
+    if w.tree {
+        copy: Json_Value;
+
+        copy.kind = .STRING;
+        copy.text = tree_literal(text);
+        tree_put(w, copy);
+
+        return;
+    }
+
     put(w.builder, text);
 }
 
@@ -512,6 +739,12 @@ json_write_raw :: (w: *Json_Writer, text: string) {
 // assert(builder_to_string(*builder,, temp) == "{\"id\":7}");
 // ```
 json_begin_object :: inline (w: *Json_Writer) {
+    if w.tree {
+        tree_begin(w, .OBJECT);
+
+        return;
+    }
+
     put(w.builder, #char "{");
     w.depth += 1;
 }
@@ -528,6 +761,12 @@ json_begin_object :: inline (w: *Json_Writer) {
 // assert(builder_to_string(*builder,, temp) == "{}");
 // ```
 json_end_object :: (w: *Json_Writer, empty: bool) {
+    if w.tree {
+        tree_end(w);
+
+        return;
+    }
+
     w.depth -= 1;
 
     if w.pretty && !empty write_newline(w);
@@ -552,6 +791,12 @@ json_end_object :: (w: *Json_Writer, empty: bool) {
 // assert(builder_to_string(*builder,, temp) == "[1,2,3]");
 // ```
 json_begin_array :: inline (w: *Json_Writer) {
+    if w.tree {
+        tree_begin(w, .ARRAY);
+
+        return;
+    }
+
     put(w.builder, #char "[");
     w.depth += 1;
 }
@@ -568,6 +813,12 @@ json_begin_array :: inline (w: *Json_Writer) {
 // assert(builder_to_string(*builder,, temp) == "[]");
 // ```
 json_end_array :: (w: *Json_Writer, empty: bool) {
+    if w.tree {
+        tree_end(w);
+
+        return;
+    }
+
     w.depth -= 1;
 
     if w.pretty && !empty write_newline(w);
@@ -593,6 +844,13 @@ json_end_array :: (w: *Json_Writer, empty: bool) {
 // assert(builder_to_string(*builder,, temp) == "{\"id\":1,\"ok\":true}");
 // ```
 json_key :: (w: *Json_Writer, first: *bool, quoted_key: string) {
+    if w.tree {
+        first.* = false;
+        tree_set_key(w, tree_literal(quoted_key));
+
+        return;
+    }
+
     if !first.* put(w.builder, #char ",");
 
     first.* = false;
@@ -619,6 +877,13 @@ json_key :: (w: *Json_Writer, first: *bool, quoted_key: string) {
 // assert(builder_to_string(*builder,, temp) == "{\"id\":1}");
 // ```
 json_key_fixed :: inline (w: *Json_Writer, first: *bool, quoted_key: string, first_form: string, next_form: string) {
+    if w.tree {
+        first.* = false;
+        tree_set_key(w, tree_literal(quoted_key));
+
+        return;
+    }
+
     if w.pretty {
         json_key(w, first, quoted_key);
 
@@ -645,6 +910,13 @@ json_key_fixed :: inline (w: *Json_Writer, first: *bool, quoted_key: string, fir
 // assert(builder_to_string(*builder,, temp) == "{\"id\":7}");
 // ```
 json_key_dynamic :: (w: *Json_Writer, first: *bool, key: string) {
+    if w.tree {
+        first.* = false;
+        tree_set_key(w, tree_text(key));
+
+        return;
+    }
+
     if !first.* put(w.builder, #char ",");
 
     first.* = false;
@@ -672,6 +944,12 @@ json_key_dynamic :: (w: *Json_Writer, first: *bool, key: string) {
 // assert(builder_to_string(*builder,, temp) == "[1,2,3]");
 // ```
 json_item :: inline (w: *Json_Writer, first: *bool) {
+    if w.tree {
+        first.* = false;
+
+        return;
+    }
+
     if !first.* put(w.builder, #char ",");
 
     first.* = false;
@@ -692,6 +970,12 @@ json_item :: inline (w: *Json_Writer, first: *bool) {
 // assert(builder_to_string(*builder,, temp) == "{\"a\":[1,null]}");
 // ```
 json_write_value :: (w: *Json_Writer, value: *Json_Value) {
+    if w.tree {
+        tree_put(w, tree_copy(value));
+
+        return;
+    }
+
     if value.kind == {
         case .NULL;
             json_write_null(w);

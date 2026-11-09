@@ -40,10 +40,10 @@ from_json :: ($T: Type, value: *Json_Value, options := Json_Options.{}) -> T, Js
 }
 
 // Encodes `value` into a `Json_Value`, the inverse of [from_json] on a value: the tree holds what
-// [to_json] writes, so it can be edited, stored in a larger tree with `json_set`, and decoded
-// again. The encoder is the generated one; the tree is built by reading its output. Release the
-// tree with free_json. The error is set only when the output cannot be read back (it nests
-// deeper than 256 levels).
+// parsing [to_json]'s output gives, so it can be edited, stored in a larger tree with `json_set`,
+// and decoded again. The generated encoder builds the tree directly (a `Json_Writer` in tree mode),
+// so nothing is written out and parsed. Strings are copies, with invalid UTF-8 replaced as the text
+// encoder does. Release the tree with free_json.
 //
 // ```jai
 // Point :: struct {
@@ -51,8 +51,7 @@ from_json :: ($T: Type, value: *Json_Value, options := Json_Options.{}) -> T, Js
 //     y: s32;
 // }
 //
-// tree, error := to_json_value(Point.{ 3, 4 });
-// assert(error.kind == .NONE);
+// tree := to_json_value(Point.{ 3, 4 });
 // assert(json_count(*tree) == 2);
 // x, _ := json_as_s64(json_get(*tree, "x"));
 // assert(x == 3);
@@ -62,10 +61,13 @@ from_json :: ($T: Type, value: *Json_Value, options := Json_Options.{}) -> T, Js
 // assert(point.y == 9);
 // free_json(*tree);
 // ```
-to_json_value :: (value: $T) -> Json_Value, Json_Error {
-    text := to_json(value);
+to_json_value :: (value: $T) -> Json_Value {
+    w: Json_Writer;
 
-    defer free(text);
+    w.tree = true;
+    defer array_free(w.frames);
 
-    return from_json(Json_Value, text);
+    json_encode(*w, *value);
+
+    return w.root;
 }

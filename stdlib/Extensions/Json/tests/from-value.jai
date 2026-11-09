@@ -52,7 +52,55 @@ Doc :: struct @json(rename_all=camelCase) {
     start_index: s32 = 4; @json(default,alias=first)
 }
 
+Flags :: enum_flags u8 {
+    A;
+    B;
+    C;
+}
+
+Notes :: struct @json(rename_all=camelCase) {
+    tags: [] string; @json(default,skip_serializing_if=empty)
+    flags: Flags; @json(default)
+    odd_name: s32; @json(default,rename=strange)
+    price: s64; @json(with=dollars)
+    extras: Json_Value; @json(default,skip_serializing_if=null)
+
+    dollars_encode :: (w: *Json_Writer, value: *s64) {
+        json_write_float64(w, cast(float64) value.* / 100.0);
+    }
+
+    dollars_decode :: (r: *Json_Reader, out: *s64) -> bool {
+        dollars: float64;
+
+        if !json_read_float64(r, *dollars) return false;
+
+        out.* = cast(s64) (dollars * 100.0 + 0.5);
+
+        return true;
+    }
+}
+
+raw :: (bytes: [] u8) -> string {
+    return string.{ bytes.count, bytes.data };
+}
+
 failures := 0;
+
+// The tree to_json_value builds is the one parsing to_json's text gives.
+same_tree :: (value: $T) {
+    tree := to_json_value(value);
+    text := to_json(value,, temp);
+    parsed, parse_error := from_json(Json_Value, text);
+
+    check(parse_error.kind == .NONE, tprint("% is not JSON", text));
+
+    built := to_json(tree,, temp);
+    reparsed := to_json(parsed,, temp);
+
+    check(built == reparsed, tprint("tree differs for %: % against %", text, built, reparsed));
+    free_json(*tree);
+    free_json(*parsed);
+}
 
 check :: (condition: bool, what: string) {
     if condition return;
@@ -192,23 +240,83 @@ main :: () {
 
     check(source_error.kind == .NONE, "source document");
 
-    encoded, encode_error := to_json_value(source);
-
-    check(encode_error.kind == .NONE, "to_json_value");
-
+    encoded := to_json_value(source);
     text := to_json(source,, temp);
-    parsed, _ := from_json(Json_Value, text);
-    again := to_json(encoded,, temp);
-
-    check(again == to_json(parsed,, temp), "the tree holds what to_json writes");
-    free_json(*parsed);
 
     back, back_error := from_json(Doc, *encoded);
 
     check(back_error.kind == .NONE && to_json(back,, temp) == text, "a tree encoded from a value decodes to it");
     free_json(*back);
     free_json(*encoded);
+
+    same_tree(source);
     free_json(*source);
+
+    // The tree is what parsing the text gives, for every kind of value and note.
+    same_tree(s64.[1, -2, 9223372036854775807]);
+    same_tree(u64.[0, 18446744073709551615]);
+    same_tree(float32.[0.1, -2.5, 3.4e38]);
+    same_tree(float64.[0.1, 1e300, -0.0]);
+    zero: float64 = 0;
+    nan := zero / zero;
+    one: float32 = 1;
+    infinity := one / cast(float32) zero;
+
+    same_tree(float64.[nan, 1]);
+    same_tree(float32.[infinity, -infinity]);
+    same_tree(true);
+    same_tree("plain");
+    same_tree("quotes \" backslash \\ newline \n tab \t unicode é€😀");
+    same_tree(raw(u8.[110, 117, 108, 0, 98, 101, 108, 108, 7, 31, 127]));
+    same_tree(raw(u8.[98, 97, 100, 255, 98, 121, 116, 101, 115, 0xc3, 32, 0xe2, 0x82]));
+    same_tree(Color.GREEN);
+    same_tree(Json_Maybe(s32).{ state = .NULL });
+    same_tree(Json_Maybe(string).{ state = .SET, value = "x" });
+    same_tree(Json_Maybe(s32).{});
+    same_tree(Shape.{});
+
+    shape := variant(Shape, Rect.{ 2, 3 });
+
+    same_tree(shape);
+
+    scalar := variant(Scalar, "text");
+
+    same_tree(scalar);
+
+    scalar = variant(Scalar, Color.GREEN);
+    same_tree(scalar);
+
+    scalar = variant(Scalar, cast(s64) 12);
+    same_tree(scalar);
+
+    counts: Table(string, s32);
+
+    table_set(*counts, "one", 1);
+    table_set(*counts, "tw\"o", 2);
+    same_tree(counts);
+    deinit(*counts);
+
+    notes: Notes;
+
+    same_tree(notes);
+
+    notes.tags = .["a", "b"];
+    notes.flags = .A | .C;
+    notes.odd_name = 4;
+    notes.price = 1250;
+    notes.extras = json_array();
+    json_push(*notes.extras, json_int(5));
+    json_push(*notes.extras, json_string("six \xff"));
+    same_tree(notes);
+    free_json(*notes.extras);
+
+    // Json_Value inside a tree is copied.
+    holder, _ := from_json(Json_Value, "{\"k\":[1,{\"z\":\"v\"}],\"n\":null}");
+    copied := to_json_value(holder);
+
+    free_json(*holder);
+    check(to_json(copied,, temp) == "{\"k\":[1,{\"z\":\"v\"}],\"n\":null}", "a Json_Value is copied into the tree");
+    free_json(*copied);
 
     if failures {
         print("% failures\n", failures);
