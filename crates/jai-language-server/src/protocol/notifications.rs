@@ -239,12 +239,9 @@ impl JsonSession {
         if !self.refresh_diagnostics {
             return Vec::new();
         }
-        self.refreshes += 1;
-        vec![json!({
-            "jsonrpc": "2.0",
-            "id": format!("jai-diagnostic-refresh-{}", self.refreshes),
-            "method": "workspace/diagnostic/refresh",
-        })]
+        self.refresh_request("workspace/diagnostic/refresh")
+            .into_iter()
+            .collect()
     }
 
     fn publications(&mut self) -> Vec<Value> {

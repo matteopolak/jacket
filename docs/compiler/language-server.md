@@ -45,6 +45,8 @@ Diagnostics retain resolved call records for checked open documents separately f
 
 The retained records use the stored document identity, so filesystem-proven URI aliases share them. `uri_alias_tests.rs` checks incoming and outgoing requests through an alias without a new compile.
 
+Refresh requests (`workspace/diagnostic/refresh`, `semanticTokens`, `inlayHint`, `codeLens`) are coalesced per method: while one is unanswered a further request is remembered and sent once when the client answers. A client that never answers a refresh therefore stops receiving that method's refreshes; there is no timeout.
+
 A cold file has no semantic snapshot to query. Integration tests that require its complete call tree first send `textDocument/diagnostic` for that document: the diagnostics pull checks its current text before returning. This also synchronizes an editor test after reverting an edit, without a delay or a retried navigation request.
 
 ### Feature list

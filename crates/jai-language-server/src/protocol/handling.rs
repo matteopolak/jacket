@@ -34,6 +34,8 @@ impl JsonSession {
             workspace_published: std::collections::BTreeSet::new(),
             refresh_diagnostics: false,
             refreshes: 0,
+            refresh_outstanding: std::collections::BTreeMap::new(),
+            refresh_dirty: std::collections::BTreeSet::new(),
             refresh_code_lenses: false,
             refresh_inlay_hints: false,
             refresh_semantic_tokens: false,
@@ -118,12 +120,7 @@ impl JsonSession {
             ),
         ] {
             if wanted {
-                self.refreshes += 1;
-                out.push(json!({
-                    "jsonrpc": "2.0",
-                    "id": format!("jai-refresh-{}", self.refreshes),
-                    "method": method,
-                }));
+                out.extend(self.refresh_request(method));
             }
         }
         out
@@ -170,12 +167,45 @@ impl JsonSession {
         if !self.refresh_code_lenses {
             return None;
         }
+        self.refresh_request("workspace/codeLens/refresh")
+    }
+
+    /// A request for the client to fetch again, unless one for `method` is still unanswered:
+    /// then it is remembered and sent once when the answer arrives, so a client busy with a
+    /// refresh neither gets a pile of them nor misses the change that came meanwhile.
+    pub(super) fn refresh_request(&mut self, method: &'static str) -> Option<Value> {
+        if self.refresh_outstanding.values().any(|m| *m == method) {
+            self.refresh_dirty.insert(method);
+            return None;
+        }
         self.refreshes += 1;
-        Some(json!({
-            "jsonrpc": "2.0",
-            "id": format!("jai-code-lens-refresh-{}", self.refreshes),
-            "method": "workspace/codeLens/refresh",
-        }))
+        let id = format!("jai-refresh-{}", self.refreshes);
+        self.refresh_outstanding.insert(id.clone(), method);
+        Some(json!({"jsonrpc": "2.0", "id": id, "method": method}))
+    }
+
+    /// The client answered one of our refresh requests: send the one that was asked for
+    /// meanwhile, if any.
+    fn refresh_answered(&mut self, input: &str) -> Vec<Value> {
+        if self.refresh_outstanding.is_empty() {
+            return Vec::new();
+        }
+        let Ok(value) = serde_json::from_str::<Value>(input) else {
+            return Vec::new();
+        };
+        if value.get("method").is_some() {
+            return Vec::new();
+        }
+        let Some(method) = value["id"]
+            .as_str()
+            .and_then(|id| self.refresh_outstanding.remove(id))
+        else {
+            return Vec::new();
+        };
+        if self.refresh_dirty.remove(method) && self.lifecycle == Lifecycle::Running {
+            return self.refresh_request(method).into_iter().collect();
+        }
+        Vec::new()
     }
 
     /// A compile-time service answer is pending: poll `service_arrivals` now and then.
@@ -232,8 +262,11 @@ impl JsonSession {
         self.progress_reply(input);
         match incoming(input) {
             Err(error) => self.encode(vec![error], None),
-            // The client's answer to a request of ours (a refresh): nothing to do.
-            Ok(None) => Ok(vec![]),
+            // The client's answer to a request of ours (a refresh).
+            Ok(None) => {
+                let again = self.refresh_answered(input);
+                self.encode_unprompted(again)
+            }
             Ok(Some(Incoming {
                 id: Some(id),
                 method,

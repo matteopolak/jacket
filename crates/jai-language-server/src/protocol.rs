@@ -58,6 +58,10 @@ pub struct JsonSession {
     /// It can also be told to pull again (`workspace/diagnostic/refresh`).
     refresh_diagnostics: bool,
     refreshes: u64,
+    /// Refresh requests sent and not yet answered, by request id, with their method.
+    refresh_outstanding: std::collections::BTreeMap<String, &'static str>,
+    /// Methods asked for again while one was outstanding: sent once when it is answered.
+    refresh_dirty: std::collections::BTreeSet<&'static str>,
     /// The client can be told to ask for code lenses again (`workspace/codeLens/refresh`).
     refresh_code_lenses: bool,
     /// And for inlay hints and semantic tokens (`workspace/inlayHint/refresh`,
