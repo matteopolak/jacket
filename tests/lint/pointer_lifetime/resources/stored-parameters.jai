@@ -100,4 +100,26 @@ stored_then_cleared :: () {
     print("%\n", r.item == null);
 }
 
+kept_local_address :: (r: *Registry) {
+    n: Node;
+    keep(r, *n);
+}
+
+kept_local_address_twice :: (r: *Registry) {
+    n: Node;
+    keep_twice(r, *n);
+}
+
+kept_in_local_registry :: () {
+    r: Registry;
+    n: Node;
+    keep(*r, *n);
+    print("%\n", r.item.value);
+}
+
+kept_heap_in_parameter :: (r: *Registry) {
+    n := New(Node);
+    keep(r, n);
+}
+
 main :: () {}

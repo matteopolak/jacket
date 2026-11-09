@@ -76,4 +76,13 @@ fn lifetime_stores_of_a_parameter_into_another_follow_the_body() {
         "{}",
         rendered(&lints, &text, &path)
     );
+    // A stack address handed to a procedure that keeps it in a parameter's field outlives the
+    // frame; the same call on a local registry does not.
+    let (lints, text) = lint(&path, &[("returned_local_address", Level::Deny)]);
+    assert_eq!(
+        finding_procedures(&lints, &text),
+        ["kept_local_address", "kept_local_address_twice"],
+        "{}",
+        rendered(&lints, &text, &path)
+    );
 }

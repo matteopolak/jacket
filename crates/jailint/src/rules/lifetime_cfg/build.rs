@@ -222,6 +222,18 @@ impl Builder<'_> {
                 && let Some(source) = resources::operand_cell(self.cx, self.places, self.cells, arg)
             {
                 let region = self.places.import(&self.resolver.places, id);
+                // The escape observation precedes the copy it checks.
+                ops.extend(
+                    self.resources
+                        .retention_escape(
+                            event,
+                            self.places,
+                            self.cells,
+                            &mut self.resolver,
+                            (region, source, arg.span),
+                        )
+                        .map(Op::Resource),
+                );
                 ops.push(Op::Copy(vec![(self.cells.id(Cell::Place(region)), source)]));
             }
         }

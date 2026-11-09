@@ -2,6 +2,7 @@
 use super::{Builder, Cell, Cells, Event, Op, Places, Root, inside, value_cell};
 use crate::rules::lifetime_summary::Resolver;
 use jaic::ir::Val;
+use jaic::source::Span;
 
 impl Builder<'_> {
     pub(super) fn store_escapes(
@@ -73,6 +74,33 @@ impl Builder<'_> {
         ops
     }
 
+
+    /// The escape of `source` into `region`, a field a callee keeps its argument in, when that
+    /// field outlives the frame: a stack address kept there dangles after the return.
+    pub(in crate::rules::lifetime_cfg) fn retention_escape(
+        &self,
+        event: &Event,
+        places: &Places,
+        cells: &mut Cells,
+        resolver: &mut Resolver<'_>,
+        (region, source, span): (usize, usize, Span),
+    ) -> Option<Op> {
+        if !self.long_lived(places, region) {
+            return None;
+        }
+        let temporary_target = resolver
+            .value(places.paths[region].0.0, &self.summaries.procs)
+            .is_some_and(|p| p.root == Root::Temporary);
+        Some(Op::Escape {
+            cell: source,
+            span,
+            pointer: places.unresolved(region),
+            target: cells.id(Cell::Place(region)),
+            store: true,
+            parameter_target: self.defers_temporary(event, resolver),
+            temporary_target,
+        })
+    }
 
     fn local_store_survives(
         &self,
