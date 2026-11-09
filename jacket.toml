@@ -287,6 +287,7 @@ modules = [
     "stdlib/Extensions/Regex", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/Text_Buffer",
     "stdlib/Extensions/Protobuf", "stdlib/Extensions/Protobuf/Schema",
     "stdlib/Extensions/Byte_Search", "stdlib/Extensions/String_Literal", "stdlib/Extensions/Web",
+    "stdlib/Extensions/Unicode_Text", "stdlib/Extensions/Uuid", "stdlib/Extensions/Vt",
 ]
 
 [[doc.group]]
@@ -332,7 +333,7 @@ modules = [
 name = "Compression and hashing"
 modules = [
     "stdlib/Crc", "stdlib/Hash", "stdlib/md5", "stdlib/xxHash", "stdlib/meow_hash", "stdlib/Extensions/Meow_Portable", "stdlib/lz4",
-    "stdlib/Zip_File_Directory", "stdlib/Extensions/Deflate",
+    "stdlib/Zip_File_Directory", "stdlib/Extensions/Deflate", "stdlib/Extensions/Archive",
 ]
 
 [[doc.group]]
