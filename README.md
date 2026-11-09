@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="docs/images/logo.svg" alt="" width="128" height="128">
-  <h1>Jacket</h1>
+  <img src="docs/images/banner.svg" alt="Jacket" width="420">
   <p>A compiler, standard library, language server, formatter and linter for the <a href="https://en.wikipedia.org/wiki/Jai_(programming_language)">Jai</a> programming language.<br>It builds for macOS, Linux, Windows and WebAssembly.</p>
   <p>
     <a href="https://github.com/matteopolak/jacket/actions/workflows/ci.yml"><img src="https://github.com/matteopolak/jacket/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
