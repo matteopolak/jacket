@@ -20,6 +20,14 @@ from corpus import upstream_sandbox
 from toolkit.repo import ROOT, cargo_target_dir
 
 
+def confinement(reads, writes, policy=upstream_sandbox.policy):
+    """The sandbox the compiler runs in, or None where the policy lets it run unconfined: a CI
+    runner without one. Where the policy refuses (`Unsandboxed`) so does the audit."""
+    if not policy(False):
+        return None
+    return upstream_sandbox.make_sandbox(reads, writes)
+
+
 def run_case(args, project, entry, destination):
     """Discover files by executing the entry's dependency check inside the corpus sandbox.
 
@@ -30,9 +38,7 @@ def run_case(args, project, entry, destination):
     scratch = Path(tempfile.mkdtemp(prefix="lsp-project-graph-"))
     reads = upstream_sandbox.jaic_reads(str(args.jaic), ROOT / "stdlib", project)
     reads += [args.audit.parent.parent, project]
-    if not upstream_sandbox.policy(False):
-        raise RuntimeError("a local sandbox is required")
-    sandbox = upstream_sandbox.make_sandbox(reads, [scratch])
+    sandbox = confinement(reads, [scratch])
 
     def command(argv, timeout):
         confined, env = upstream_sandbox.confine(
