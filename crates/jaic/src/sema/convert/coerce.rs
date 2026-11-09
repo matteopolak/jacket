@@ -218,7 +218,11 @@ impl Compiler {
         let fsigned = self.ty.types.int_info(from).is_some_and(|(_, s)| s);
         let tsigned = self.ty.types.int_info(to).is_some_and(|(_, s)| s);
         let val = numeric_conv(f, v, ft, tt, fsigned, tsigned);
-        if self.ty.types.is_pointer(from) && self.ty.types.is_pointer(to) {
+        // A pointer, or an integer handle resized in passing, still names what it did before.
+        let kept = |t| self.ty.types.is_pointer(t);
+        let integers =
+            self.ty.types.int_info(from).is_some() && self.ty.types.int_info(to).is_some();
+        if (kept(from) && kept(to)) || integers {
             f.lifetime_copy(val, v);
         }
         Ok(Operand::Value {
