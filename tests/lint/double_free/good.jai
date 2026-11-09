@@ -36,10 +36,12 @@ main_repeats :: (really: bool) {
     reset_holder(resettable);
 
     scratch := New(Holder);
+
     release_scratch(scratch);
     release_scratch(scratch);
 
     sometimes := New(Holder);
+
     release_sometimes(sometimes, really);
     release_sometimes(sometimes, really);
 }

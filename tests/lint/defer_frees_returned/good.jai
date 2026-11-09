@@ -51,6 +51,7 @@ keep_registry :: (really: bool) -> *Registry {
 
     defer touch_registry(registry);
     defer clear_sometimes(registry, really);
+
     return registry;
 }
 
