@@ -178,3 +178,26 @@ fn a_procedure_is_found_by_the_types_of_every_definition() {
     let shapes = index["items"][1][5].as_array().unwrap();
     assert_eq!(shapes.len(), 2, "{shapes:?}");
 }
+
+#[test]
+fn a_result_shows_every_overload_signature() {
+    use super::super::model::{Overload, Param};
+    let overload = |ty: &str| Overload {
+        params: vec![Param {
+            name: "x".into(),
+            ty: ty.into(),
+            ..Param::default()
+        }],
+        ..Overload::default()
+    };
+    let write = Item {
+        name: "write".into(),
+        kind: Kind::Procedure,
+        overloads: vec![overload("int"), overload("string")],
+        ..Item::default()
+    };
+    let index: serde_json::Value =
+        serde_json::from_str(&super::super::search::index(&files_site(write))).unwrap();
+    let line = index["items"][1][4].as_str().unwrap();
+    assert!(line.contains("int") && line.contains("string"), "{line}");
+}

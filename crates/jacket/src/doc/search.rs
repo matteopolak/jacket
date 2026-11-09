@@ -91,8 +91,17 @@ pub fn index(site: &Site) -> String {
                 item.name,
                 kind,
                 summary(site, docs, &item.name),
-                match (item.kind, item.overloads.first()) {
-                    (Kind::Procedure, Some(o)) if !item.binding => signature_marked(site, o, mi),
+                match item.kind {
+                    // Every overload of every definition, so a result shows what each takes.
+                    Kind::Procedure if !item.binding && !item.overloads.is_empty() => {
+                        let mut sigs: Vec<String> = defs
+                            .iter()
+                            .flat_map(|d| &d.overloads)
+                            .map(|o| signature_marked(site, o, mi))
+                            .collect();
+                        sigs.dedup();
+                        sigs.join("  |  ")
+                    }
                     // Each definition's value, so the result shows what every system gets.
                     _ => {
                         let mut lines: Vec<String> = defs.iter().map(|d| item_line(d)).collect();

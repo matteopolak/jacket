@@ -37,6 +37,7 @@
 - Struct default overrides, declaration order in struct scopes and contextual expression types.
 - HTTP bounds `CONTINUATION` frames per header block and closes pooled TLS connections with their config.
 - The language server merges diagnostics for a file shared by several programs, cancels unfinished pulls and notices files changed on disk.
+- `jacket doc` search results show every overload's signature, not only the first.
 - `jacket doc` shows every `#if` variant of a declaration on module pages and in search, uses the right import path for a module documented by its folder, leaves `benches/` out of a module's docs, keeps the sidebar open when the window widens, and says when git is missing or the library isn't in a checkout.
 - `Hash_Map` rebuild threshold, glTF skin validation and `jaifmt` setting migration.
 - `Archive` rejects ZIP files with repeated central ZIP64 records, and treats an empty pax value in a TAR header as deleting the field.
