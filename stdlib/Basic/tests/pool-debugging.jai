@@ -23,7 +23,7 @@ main :: () {
         push_allocator(Allocator.{ P.pool_allocator_proc, *pool });
         D.alloc(10);
         D.alloc(20);
-        D.copy_string("abc");
+        assert(D.copy_string("abc") == "abc");
     }
 
     // The pool's blocks go straight to its block allocator, so only the three ranges it handed out show.

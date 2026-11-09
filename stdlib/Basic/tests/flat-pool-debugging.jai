@@ -35,7 +35,7 @@ main :: () {
         push_allocator(Allocator.{ F.flat_pool_allocator_proc, *pool });
         D.alloc(10);
         D.alloc(20);
-        D.copy_string("abc");
+        assert(D.copy_string("abc") == "abc");
     }
 
     count, bytes := live();
