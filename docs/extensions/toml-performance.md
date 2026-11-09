@@ -39,4 +39,4 @@ python3 benchmarks/compare/toml/measure.py --scratch /tmp/toml-bench --rust /tmp
   --rust-receipt /tmp/toml-oracle.json --workloads /tmp/toml-inputs --invalid-workloads /tmp/toml-inputs/invalid --verify-only
 ```
 
-Drop `--verify-only` for `--pilot`, then `--freeze-plan` and `--batch-plan <plan> --run` for a full comparison. For two builds of this module, use `benchmarks/compare/toml/targeted-compare.py` with `--control` and `--candidate` build receipts. `benchmarks/compare/toml/formatter_batch.jai <file> <iterations>` times the `jaifmt` config load.
+Drop `--verify-only` for `--pilot`, then `--freeze-plan` and `--batch-plan <plan> --run` for a full comparison. `benchmarks/compare/toml/formatter_batch.jai <file> <iterations>` times the `jaifmt` config load.
