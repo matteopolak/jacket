@@ -17,6 +17,7 @@ An `Image` is `width`, `height`, `format` and `pixels`, rows packed top to botto
 
 ## How it works
 
+- `read_image_info` reports format, size and channel count from a PNG or JPEG header without decoding or allocating, with the decoders' `max_pixels` check. PNG: signature, then IHDR must be whole with a valid checksum, non-zero size and a valid bit depth and colour type pair; nothing after IHDR is read. JPEG: markers are walked to the first frame header (SOF0-2), which is checked as the decoder checks it, with a deferred height resolved from DNL. Tables, scans and pixel data are not checked, so use `decode_image` to know a file decodes. Other formats return not-ok.
 - `decode_image` picks the decoder from the signature (`detect_image_format`) and returns the file's own format; `decode_image_as` then calls `convert`.
 - **PNG**: returns the nearest of the four 8-bit formats. Palettes expand, a `tRNS` key adds alpha, low-depth gray scales to 0..255, 16-bit keeps the high byte. All filters and Adam7 work. Critical-chunk CRCs are checked; other ancillary chunks are ignored, and APNG yields only the default image. The decoder inflates `IDAT` straight into one buffer sized from the header, unfilters with loops specialised on bytes per pixel (the Up filter uses SIMD), and for common layouts reuses that buffer as `pixels`.
 - **`encode_png`**: levels 1-8 pick one filter per row by a sampled sum-of-absolute-values heuristic; level 9 tries all five over the whole row; level 0 stores. No palette reduction.

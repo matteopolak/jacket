@@ -60,6 +60,14 @@ Image_File_Format :: enum u8 {
     PNM; // PPM (P6), PGM (P5) and their text forms (P3, P2)
 }
 
+// What `read_image_info` learns from a file's header.
+Image_Info :: struct {
+    format: Image_File_Format;
+    width: s32;
+    height: s32;
+    channels: s32; // samples per pixel as stored: 1 gray, 2 gray and alpha, 3 colour, 4 colour and alpha or CMYK
+}
+
 // How `resize` samples the source: `NEAREST` takes the closest pixel, `BILINEAR` blends the four around a
 // point, `BOX` averages the whole area under each output pixel.
 Resize_Filter :: enum u8 {
@@ -175,6 +183,30 @@ decode_image :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Im
     }
 
     return .{}, false, "not a PNG, JPEG, QOI, BMP or PNM image";
+}
+
+// Reads the format, size and channel count from the header of a PNG or JPEG without decoding the
+// pixels or allocating. It checks the header only: later chunks, tables and image data may still
+// be damaged, so use `decode_image` when you need the pixels. Files with more than `max_pixels` pixels
+// are refused, as in `decode_image`. Other formats are reported as not supported.
+//
+// ```jai
+// png := encode_png(make_image(5, 3, .RGBA8));
+// defer free(png.data);
+//
+// info, ok, error := read_image_info(png);
+// assert(ok && info.format == .PNG && info.width == 5 && info.height == 3 && info.channels == 4);
+//
+// _, ok, error = read_image_info(cast([] u8) "not an image");
+// assert(!ok);
+// ```
+read_image_info :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> info: Image_Info, ok: bool, error: string {
+    format := detect_image_format(data);
+    if format == .PNG return png_read_info(data, max_pixels);
+    if format == .JPEG return jpeg_read_info(data, max_pixels);
+    if format == .UNKNOWN return .{}, false, "not a PNG, JPEG, QOI, BMP or PNM image";
+
+    return .{}, false, "reading the header of this format is not supported";
 }
 
 // Like `decode_image`, then converts to `format` if the file holds something else.

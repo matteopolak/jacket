@@ -151,6 +151,23 @@ encode_png :: (image: Image, level: s32 = 6) -> [] u8 {
     return out;
 }
 
+// Checks the signature and the first chunk, which must be a whole IHDR with a valid checksum, and
+// reports its size. Nothing after IHDR is read.
+png_read_info :: (data: [] u8, max_pixels: s64) -> info: Image_Info, ok: bool, error: string {
+    if data.count < 8 + 25 return .{}, false, "truncated PNG chunk";
+    if !png_has_signature(data) return .{}, false, "not a PNG image";
+
+    if png_be32(data, 8) != 13 || png_be32(data, 12) != PNG_IHDR return .{}, false, "PNG does not start with a header";
+    if crc32(byte_range(data, 12, 17)) != cast,trunc(u32) png_be32(data, 29) return .{}, false, "PNG chunk checksum mismatch";
+
+    header: Png_Header;
+    valid, problem := png_parse_header(data, 16, max_pixels, *header);
+
+    if !valid return .{}, false, problem;
+
+    return .{ .PNG, header.width, header.height, cast,trunc(s32) (header.bits_per_pixel / header.depth) }, true, "";
+}
+
 #scope_file
 
 PNG_SIGNATURE :: "\x89PNG\r\n\x1a\n";
