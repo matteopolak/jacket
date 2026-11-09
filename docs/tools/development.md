@@ -50,7 +50,7 @@ Tools are built from this checkout (`jailint` through cargo, `jaifmt` rebuilt wh
 
 | Variable | Effect |
 | --- | --- |
-| `JAI_HOOK_SKIP` | Space-separated checks to skip: `jaifmt jailint rustfmt spacing shellcheck actionlint repo locks editor clippy` |
+| `JAI_HOOK_SKIP` | Space-separated checks to skip: `jaifmt jailint rustfmt spacing shellcheck actionlint repo locks editor` (pre-commit); `actions clippy` (pre-push) |
 | `JAI_HOOK_NO_BUILD=1` | Never build a tool; use what exists |
 | `JAI_HOOK_VERBOSE=1` | Say which checks run |
 
@@ -58,7 +58,12 @@ A new per-system file under `stdlib/internal` (imports `windows-api`, `posix-api
 
 ## Pre-push hook
 
-`.githooks/pre-push` runs CI's clippy on the packages whose Rust or `Cargo.toml` files differ from the remote, via `tools/dev/pre_push_clippy.py`. Skip with `--no-verify` or `JAI_HOOK_SKIP=clippy`.
+`.githooks/pre-push` runs two checks. Skip either with `--no-verify` or `JAI_HOOK_SKIP`.
+
+- `actions`: `tools/ci/check_action_pins.py` ([action pins](action-pins.md)). A broken or unreachable check blocks the push; available updates are only printed.
+- `clippy`: CI's clippy on the packages whose Rust or `Cargo.toml` files differ from the remote, via `tools/dev/pre_push_clippy.py`.
+
+The hook fails when `python3` is missing, unless both checks are skipped.
 
 ## Formatting
 
@@ -106,7 +111,7 @@ Main jobs: `test` (Rust tests in nextest shards, format, lint, repo checks, diff
 
 Things to know when editing workflows:
 
-- Every action is pinned by commit SHA with a version comment; keep `permissions: contents: read`. Dependabot opens a weekly grouped PR for actions only.
+- Every action is pinned by commit SHA with a version comment; keep `permissions: contents: read`. `tools/ci/check_action_pins.py` verifies the pins and applies updates ([action pins](action-pins.md)).
 - Keep each check's step id paired with its `steps.<id>.outcome` test in the job's final enforcement step, or failures are silently ignored.
 - Tool versions the workflows download live in `.github/pins.json`; `PYTHONPATH=tools python3 tools/ci/pins.py check` fails when a workflow disagrees, `pins.py sync` rewrites them.
 - Workflows call scripts in `tools/ci/` instead of carrying shell logic. A `test_*.py` under `tools/` is picked up by the Python test step; Node tests are added to the job by hand.

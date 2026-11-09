@@ -1,11 +1,38 @@
 #!/bin/sh
-# Pre-push hook: clippy on the crates the pushed commits change. See docs/tools/development.md#pre-push-hook.
+# Pre-push hook: pinned GitHub Actions, then clippy on the crates the pushed commits change.
+# See docs/tools/development.md#pre-push-hook and docs/tools/action-pins.md.
 #
-# Skip once with `git push --no-verify`, or always with JAI_HOOK_SKIP="clippy".
+# Skip once with `git push --no-verify`, or always with JAI_HOOK_SKIP="actions clippy" (either word).
 
 root=$(git rev-parse --show-toplevel) || exit 0
 cd "$root" || exit 0
 
-case " ${JAI_HOOK_SKIP:-} " in *" clippy "*) exit 0 ;; esac
-command -v cargo >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 || exit 0
-PYTHONPATH="$root/tools" exec python3 "$root/tools/dev/pre_push_clippy.py"
+skipped() {
+    case " ${JAI_HOOK_SKIP:-} " in *" $1 "*) return 0 ;; esac
+    return 1
+}
+
+refs=$(cat)
+if ! command -v python3 >/dev/null 2>&1; then
+    skipped actions && skipped clippy && exit 0
+    echo 'pre-push: python3 not found: install it, or skip with JAI_HOOK_SKIP="actions clippy" or git push --no-verify' >&2
+    exit 1
+fi
+export PYTHONPATH="$root/tools"
+status=0
+
+if ! skipped actions; then
+    python3 tools/ci/check_action_pins.py
+    case $? in
+        0 | 2) ;; # 2: updates are available, which never blocks a push
+        *)
+            echo "pre-push: action pins failed; fix them, or skip with JAI_HOOK_SKIP=actions or git push --no-verify" >&2
+            status=1
+            ;;
+    esac
+fi
+
+if ! skipped clippy && command -v cargo >/dev/null 2>&1; then
+    printf '%s\n' "$refs" | python3 tools/dev/pre_push_clippy.py || status=1
+fi
+exit $status
