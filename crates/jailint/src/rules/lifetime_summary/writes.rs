@@ -177,10 +177,12 @@ impl Resolver<'_> {
                 _ => {}
             }
         }
+        let retains = self.infer_retains(all, &writes, &unknown_write);
         Writes {
             effects: writes,
             unknown: unknown_write,
             escapes,
+            retains,
         }
     }
 }
@@ -222,6 +224,7 @@ impl super::Summaries {
                         effects: writes,
                         unknown: unknown_write,
                         escapes,
+                        retains,
                     } = resolver.infer_writes(&self.procs);
                     let summary = self.procs.get_mut(id).unwrap();
                     let previous = summary.unknown_write.len() + summary.escapes.len();
@@ -231,6 +234,8 @@ impl super::Summaries {
                     let before = summary.may.len();
                     summary.may.retain(|e, _| !matches!(e.target.root, Root::Parameter(p) if e.kind == Kind::Write && summary.unknown_write.contains(&p)));
                     changed |= before != summary.may.len();
+                    changed |= summary.retains != retains;
+                    summary.retains = retains;
                     for (effect, witness) in writes {
                         if matches!(effect.target.root, Root::Parameter(p) if effect.kind == Kind::Write && summary.unknown_write.contains(&p))
                         {

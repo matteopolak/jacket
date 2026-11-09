@@ -366,6 +366,8 @@ Anything reached through a pointer the lint can't resolve (a heap field a callee
 
 **Replaced fields.** What a body frees through a parameter's field depends on where it frees. `h.p = q; free(h.p);` frees `q`, the second argument, so a caller that still uses `q` is reported, while `free(h.p); h.p = q;` frees what `h.p` held on entry. A caller does not yet report a use of that old pointer when the call also replaces the field. Only a store in the same straight-line stretch as the free, with no call between, is followed; a free that a store may precede from another block still reads as the field's old value.
 
+**Retained parameters.** A body that stores one parameter into a field of another on every return (`r.item = n;`, directly or through a wrapper) leaves that field holding it for its callers, so freeing `n` afterwards leaves `r.item` dangling. A store on some paths only, a second write to the field or a stored local claims nothing. No `@RegistersBorrower` note is needed for this; the note still names the worker protocol (start, completion) a body can't show.
+
 **Must and strict.** By default (`must`) a rule fires only when every path invalidates. `strict` also reports "may" effects (growth only when full, conditional frees, sorts) and anything a foreign or unknown procedure could do to an argument it was given:
 
 ```toml

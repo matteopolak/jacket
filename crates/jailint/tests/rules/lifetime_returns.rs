@@ -61,3 +61,19 @@ fn lifetime_field_replacement_orders_the_free_against_the_store() {
         rendered(&lints, &text, &path)
     );
 }
+
+#[test]
+fn lifetime_stores_of_a_parameter_into_another_follow_the_body() {
+    let path = repo().join("tests/lint/pointer_lifetime/resources/stored-parameters.jai");
+    let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+    assert_eq!(
+        finding_procedures(&lints, &text),
+        [
+            "freed_after_keep",
+            "freed_after_keep_twice",
+            "kept_in_other_field"
+        ],
+        "{}",
+        rendered(&lints, &text, &path)
+    );
+}

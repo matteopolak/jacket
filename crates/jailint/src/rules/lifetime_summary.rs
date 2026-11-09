@@ -34,6 +34,7 @@ mod possible;
 mod prepared;
 mod reads;
 mod releases;
+mod retains;
 mod return_fields;
 mod return_may;
 mod selected;
@@ -104,6 +105,8 @@ pub(super) enum Kind {
     ResetTemporary,
     RestoreTemporary,
     StoreTemporary,
+    /// The target field is left holding this parameter. Only `retains` uses it.
+    Retain(usize),
     Mutation(Mutation),
 }
 
@@ -140,6 +143,8 @@ pub(super) struct Summary {
     pub adjusted_returns: HashSet<usize>,
     pub allocation_effects: HashSet<(Root, Option<(usize, u64)>)>,
     pub elements: HashMap<usize, (Path, Selector)>,
+    /// Fields of parameters that every normal return leaves holding another parameter.
+    pub retains: HashMap<Path, usize>,
 }
 
 impl Summary {
@@ -711,6 +716,7 @@ struct Writes {
     effects: Vec<(Effect, Vec<Span>)>,
     unknown: HashSet<usize>,
     escapes: HashSet<usize>,
+    retains: HashMap<Path, usize>,
 }
 
 fn insert(map: &mut HashMap<Effect, Vec<Span>>, effect: Effect, chain: Vec<Span>) -> bool {

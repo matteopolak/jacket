@@ -215,6 +215,16 @@ impl Builder<'_> {
         // A result borrows the post-call storage; releases within the call precede it.
         // Passthrough results still copy the argument's (possibly dead) generation.
         ops.extend(self.returns(event, at));
+        // A field the callee always leaves holding an argument holds it here too, once the
+        // results have read what the field held before the call.
+        for (dest, arg) in self.resolver.retained(event, &self.summaries.procs) {
+            if let Some(id) = self.resolver.materialize(&dest)
+                && let Some(source) = resources::operand_cell(self.cx, self.places, self.cells, arg)
+            {
+                let region = self.places.import(&self.resolver.places, id);
+                ops.push(Op::Copy(vec![(self.cells.id(Cell::Place(region)), source)]));
+            }
+        }
         ops
     }
 

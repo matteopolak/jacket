@@ -1,7 +1,7 @@
 //! A body that frees storage reachable from a parameter releases that argument.
 use super::*;
 
-fn summaries(source: &str) -> (Compiler, Summaries) {
+pub(super) fn summaries(source: &str) -> (Compiler, Summaries) {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
     options.import_paths = vec![stdlib.clone()];
@@ -18,7 +18,7 @@ fn summaries(source: &str) -> (Compiler, Summaries) {
     (c, all)
 }
 
-fn summary<'a>(c: &Compiler, all: &'a Summaries, name: &str) -> &'a Summary {
+pub(super) fn summary<'a>(c: &Compiler, all: &'a Summaries, name: &str) -> &'a Summary {
     let id =
         c.pr.procs
             .iter()
