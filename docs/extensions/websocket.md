@@ -64,12 +64,17 @@ export PATH="$TOOLCHAIN/bin:$PATH" JAIC_STDLIB="$PWD/stdlib"
 jacket test --path stdlib/Extensions/WebSocket
 jacket test --path stdlib/Extensions/WebSocket --interp
 jacket test --path stdlib/Extensions/WebSocket --os wasm --runner 'node tools/wasi_run.mjs'
-jaic -O2 stdlib/Extensions/WebSocket/bench/bench.jai -exe /tmp/ws-bench
-jaic stdlib/Extensions/WebSocket/tests/support/conformance.jai -exe /tmp/ws-conformance
-XDG_CACHE_HOME=/tmp/ws-cache PYTHONPATH=tools /tmp/ws-conformance python3.14 /tmp/ws-bench /tmp/ws-interop
-XDG_CACHE_HOME=/tmp/ws-cache PYTHONPATH=tools python3.14 tools/websocket_conformance/interop.py --binary /tmp/ws-bench --output /tmp/ws-interop --bench
+jacket bench --path stdlib/Extensions/WebSocket
 ```
 
-The Python fallback downloads the SHA-256-pinned pure-Python `websockets` wheel with `tools/toolkit/download.py`; it uses the Python and package pins in `.github/pins.json`, without installing packages. Set `XDG_CACHE_HOME` outside the worktree. It checks text/binary/empty messages, fragmentation, Unicode, repeated dictionary-dependent messages, subprotocols, ping/pong and close in both directions over ws/wss, with and without compression, plus no-context-takeover from the Python server. Every scenario must pass; none is excluded. The standalone Jai conformance driver asserts the expected ten-result pass list, and Jai fixture assertions validate replies when Jai is the client.
+The benchmark starts its own loopback echo server for ws/wss and plain/Deflate modes using the committed TLS certificates. Setup precedes `reset_timer`; message contents and replies pass through `black_box`. These cases do not run external Python or Autobahn conformance.
 
-The benchmark compares the same Python driver, payload and sequential echo count against separate Jai and Python server processes. Run it after builds finish. The runner is the Python fallback, not an Autobahn runner: it reports that Autobahn was not run. Full Autobahn fuzzingclient/fuzzingserver acceptance remains a separate check requiring Docker; HTTP/2 and other extensions remain outside v1.
+The external Python conformance driver uses a separate echo peer:
+
+```sh
+jaic stdlib/Extensions/WebSocket/tests/support/peer.jai -exe target/ws-peer
+jaic stdlib/Extensions/WebSocket/tests/support/conformance.jai -exe target/ws-conformance
+PYTHONPATH=tools target/ws-conformance python3.14 target/ws-peer target/ws-interop
+```
+
+The driver asserts the expected ten-result pass list over ws/wss, with and without compression, including no-context-takeover. It uses the pinned Python `websockets` wheel and reports that Autobahn was not run. Full Autobahn acceptance requires a separate Docker run.

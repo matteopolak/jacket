@@ -1,46 +1,22 @@
-// Echo server and client for tools/websocket_conformance/interop.py.
-// Example: jaic -O2 stdlib/Extensions/WebSocket/bench/bench.jai -exe /tmp/ws-bench
-// /tmp/ws-bench server /tmp/ws.port  (or: client ws://127.0.0.1:9000/)
-#import "Basic";
+// Echo peer for external conformance, not a timing benchmark.
+// Example: jaic stdlib/Extensions/WebSocket/tests/support/peer.jai -exe target/ws-peer
 #import "File";
-#import "Extensions/WebSocket";
-Http :: #import "Extensions/Http";
-Io :: #import "Extensions/Io";
-Tls :: #import "Extensions/Tls";
-#load "../../Tls/tests/fixtures/certs.jai";
+#load "echo.jai";
 
-args: [] string;
-config: Ws_Config;
-
-fixture :: (name: string) -> string {
-    for DATA if it.name == name return it.text;
-    return "";
-}
-
-echo :: (connection: *Ws_Connection, data: *void) {
-    while true {
-        event := ws_read(connection);
-        if event.kind == .CLOSE || event.kind == .ERROR return;
-        assert(event.kind == .MESSAGE);
-        if ws_write(connection, event.data, event.opcode).kind != .NONE return;
-    }
-}
-
-route :: (request: *Http.Request) -> Http.Response {
-    return ws_upgrade(request, echo, null, config);
-}
+peer_args: [] string;
 
 main :: () {
-    args = get_command_line_arguments();
-    assert(args.count >= 3);
-    config.compression = args.count > 3 && args[3] == "deflate";
+    peer_args = get_command_line_arguments();
+
+    assert(peer_args.count >= 3);
+    config.compression = peer_args.count > 3 && peer_args[3] == "deflate";
     config.protocols = string.["echo"];
     config.handshake_timeout = 5000;
     config.read_timeout = 5000;
     config.close_timeout = 1000;
     config.limits.max_frame_size = 4096;
     Io.io_run(() {
-        if args[1] == "server" {
+        if peer_args[1] == "server" {
             app: Http.App;
 
             defer Http.free_app(*app);
@@ -48,7 +24,7 @@ main :: () {
             app.config.handle_signals = false;
             tls: Tls.Tls_Config;
 
-            if args.count > 4 {
+            if peer_args.count > 4 {
                 tls.certificate_chain_pem = fixture("server.pem");
                 tls.private_key_pem = fixture("server.key");
                 tls.alpn = string.["h2", "http/1.1"];
@@ -62,7 +38,7 @@ main :: () {
 
             assert(error.kind == .NONE);
             defer Http.close_server(*server);
-            assert(write_entire_file(args[2], Io.address_to_string(server.address)));
+            assert(write_entire_file(peer_args[2], Io.address_to_string(server.address)));
             while true Io.sleep(1000);
         } else {
             roots: Tls.Tls_Config;
@@ -72,7 +48,7 @@ main :: () {
             defer Http.release_tls_config(*roots);
             api: Http.Client;
             api.tls = *roots;
-            connection, error := ws_connect(args[2], config, *api);
+            connection, error := ws_connect(peer_args[2], config, *api);
 
             assert(error.kind == .NONE, "%", error.message);
             defer ws_dispose(*connection);
