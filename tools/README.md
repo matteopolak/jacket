@@ -360,6 +360,12 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `toml/settings.py` | Compare the real Jai formatter consumer with the independent existing Rust schema. | CI |
 | `toml/workloads.py` | Independently authored, deterministic TOML workloads; no runtime dependency or private input. | - |
 
+## `time_conformance/`
+
+| Script | What it does | Called by |
+| --- | --- | --- |
+| `fetch.py` | Pinned TZif fixtures and zoneinfo vectors; run through build_portable.py data. | - |
+
 ## `unicode_text_conformance/`
 
 | Script | What it does | Called by |
