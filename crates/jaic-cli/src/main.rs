@@ -181,12 +181,13 @@ fn main() -> ExitCode {
             print!("{}", jaic::doc_comments::gap_records(&gaps));
             return ExitCode::SUCCESS;
         }
-        Ok(Request::DocModel(dir)) => {
+        Ok(Request::DocModel(dir, import_dirs)) => {
             print!(
                 "{}",
-                jaic::doc_comments::model_json(
+                jaic::doc_inserts::model_json(
                     std::path::Path::new(&dir),
                     &jaic::paths::default_stdlib_dir(),
+                    &import_dirs,
                 )
             );
             return ExitCode::SUCCESS;

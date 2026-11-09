@@ -51,7 +51,7 @@ pub enum Request {
     DocComments(String),
     DocGaps(String),
     /// Print the documentation model of the library in a folder as JSON.
-    DocModel(String),
+    DocModel(String, Vec<std::path::PathBuf>),
     /// Print the procedures of the library folders (a path list) for a target.
     Procedures(String, Option<TargetOs>, Option<TargetCpu>),
 }
@@ -445,7 +445,7 @@ pub const OPTIONS: &[CliOption] = {
         CliOption::new(&["-doc_model"], Action::DocModel).help(
             Diagnostics,
             "-doc_model <dir>",
-            "print the documentation of the library in <dir> (items, signatures, docs) as JSON,\nfor `jacket doc`",
+            "print the documentation of the library in <dir> (items, signatures, docs) as JSON, with what its public top-level `#insert`s declare\n(compiled once with default module parameters), for `jacket doc`",
         ),
         CliOption::new(&["-procedures"], Action::Procedures).help(
             Diagnostics,

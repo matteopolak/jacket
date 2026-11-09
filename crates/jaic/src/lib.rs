@@ -15,6 +15,7 @@ macro_rules! eprintln {
 pub mod abi;
 pub mod build;
 pub mod builtin_keys;
+pub mod doc_inserts;
 pub mod fiber;
 pub mod flags;
 pub mod format_string;

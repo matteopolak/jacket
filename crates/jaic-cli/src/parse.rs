@@ -111,7 +111,10 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
         return Ok(Request::DocGaps(file));
     }
     if doc_model {
-        return Ok(Request::DocModel(file));
+        return Ok(Request::DocModel(
+            file,
+            jaic_cli_args::arguments::import_dirs(args),
+        ));
     }
     if procedures {
         return Ok(Request::Procedures(file, cli.os, cli.cpu));
