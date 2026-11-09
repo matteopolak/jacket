@@ -631,10 +631,7 @@ mod tests {
         let json = r#"{"file":"/s/S/module.jai","docs":"","docs_line":1,"platforms":[],"items":[
 {"name":"Flagged","kind":"struct","file":"/s/S/module.jai","line":1,"docs":"","value":"","declaration":"Flagged :: struct {\n    a: int;\n    #if X {\n        b: int;\n    }\n}","overloads":[],"members":[{"name":"a","type":"int","doc":"","line":1},{"name":"b","type":"int","doc":"","line":3},{"name":"c","type":"int","doc":""}]}]}"#;
         let module = parse("S", json, Path::new("/s"), Path::new("/s")).unwrap();
-        assert_eq!(
-            module.items[0].member_lines(),
-            [Some(1), Some(3), None]
-        );
+        assert_eq!(module.items[0].member_lines(), [Some(1), Some(3), None]);
     }
 
     #[test]

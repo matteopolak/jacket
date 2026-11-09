@@ -14,7 +14,14 @@ fn diagnostic_ranges_match_complete_syntax_without_trailing_trivia() {
         let crlf = text.contains("\r\n");
         assert_eq!(
             &text[lints[0].start..lints[0].end],
-            expected.replace('\n', if crlf { "\r\n" } else { "\n" }),
+            expected.replace(
+                '\n',
+                if crlf {
+                    "\r\n"
+                } else {
+                    "\n"
+                }
+            ),
             "{rule}"
         );
     }

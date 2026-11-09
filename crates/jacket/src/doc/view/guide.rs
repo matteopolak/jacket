@@ -4,7 +4,8 @@ use super::super::highlight;
 use super::super::markdown::{self, Segment, Settings, esc};
 use super::super::site::Site;
 use super::{
-    Content, DocSegment, GroupPart, NavCategory, NavGroup, NavLink, Outline, PageHead, PageView, Sidebar,
+    Content, DocSegment, GroupPart, NavCategory, NavGroup, NavLink, Outline, PageHead, PageView,
+    Sidebar,
 };
 use jacket_config::schema::Doc;
 use jaic::fxhash::HashMap;
@@ -369,7 +370,12 @@ fn group(segs: &[Segment], at: usize) -> (DocSegment, usize) {
         });
         used += 1;
     }
-    (DocSegment::Group { parts }, used)
+    (
+        DocSegment::Group {
+            parts,
+        },
+        used,
+    )
 }
 
 /// `jai before` and `jai after` fences next to each other become one side-by-side block. Words
@@ -548,7 +554,10 @@ mod tests {
         ];
         let out = segments(&segs);
         assert_eq!(out.len(), 2);
-        let DocSegment::Group { parts } = &out[0] else {
+        let DocSegment::Group {
+            parts,
+        } = &out[0]
+        else {
             panic!("the first three fences are a group");
         };
         let labels: Vec<_> = parts.iter().map(|p| p.label.as_str()).collect();

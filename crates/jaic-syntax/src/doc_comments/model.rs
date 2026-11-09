@@ -1045,7 +1045,8 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
                     json(&m.name),
                     json(&m.ty),
                     json(&md_at(&m.doc, &item.file, item.line, listed)),
-                    m.line.map_or_else(String::new, |l| format!(",\"line\":{l}")),
+                    m.line
+                        .map_or_else(String::new, |l| format!(",\"line\":{l}")),
                     refs_json(&m.refs)
                 )
             })
