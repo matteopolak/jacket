@@ -118,11 +118,15 @@ Csv_Core :: struct {
     block_base: int = -1; // the window offset of the 64-byte block the two masks describe (-1: none)
     block_unquoted: u64; // bit i: byte `block_base + i` ends a run in an unquoted field
     block_quoted: u64; // the same for a quoted field
+    decoded: [..] Csv_Decoded; // the fields of the current record the block scanner decoded into `buffer`
     bytewise: bool; // read every record byte by byte; the tests use it as the reference for the block scanner
+    source_failed: bool; // the source failed while the block scanner was refilling: `fill_to` reports it
     error: Csv_Error;
     record_offset: int;
     record_line: int;
     record_line_start: int;
+    record_position: int; // where the record began in the window
+    record_scanned: bool; // the block scanner read it, so `cells` is empty and `field_position` finds the fields
 }
 
 // A reader over CSV bytes or a chunk source. Create it with [csv_reader], advance it with
@@ -350,6 +354,7 @@ csv_reader_free :: (r: *Csv_Reader($Row)) {
 
     array_free(r.buffer);
     array_free(r.cells);
+    array_free(r.decoded);
     array_free(r.columns);
     array_free(r.fields);
     Hash_Map.deinit(*r.header_index);
@@ -427,9 +432,10 @@ Hash_Map :: #import "Extensions/Hash_Map";
 #load "typed.jai";
 #load "generate.jai";
 
-// One field of the current record. `start`..`end` is where its bytes sit in `buffer`; a field read
-// straight from a borrowed input is `text` instead and leaves the buffer alone. `offset`, `line`
-// and `line_start` say where the field began, for typed errors.
+// One field of a record read byte by byte (one that did not fit the window, or after a quote error).
+// `start`..`end` is where its bytes sit in `buffer`; a field read straight from a borrowed input is
+// `text` instead and leaves the buffer alone. `offset`, `line` and `line_start` say where the field
+// began, for typed errors. The block scanner keeps none of this: see `field_position`.
 Csv_Cell :: struct {
     offset: int;
     line: int;
@@ -574,24 +580,70 @@ fill_to :: (r: *Csv_Core, ahead: int) -> int {
     while r.position + ahead >= r.input.count {
         if !r.source.fill || r.eof || r.error.kind != .NONE return -1;
 
-        left := r.input.count - r.position;
-        for 0..left - 1 r.chunk[it] = r.input[r.position + it];
+        failure := ifx r.source_failed then SOURCE_FAILED else read_more(r);
 
-        r.position = 0;
-        r.block_base = -1;
-        target: [] u8 = .{ r.chunk.count - left, r.chunk.data + left };
-        count, error := r.source.fill(r.source.data, target);
+        r.source_failed = false;
 
-        if error.count || count < 0 || count > target.count {
-            fail(r, .SOURCE, "source read failed or returned an invalid count");
+        if failure.count {
+            fail(r, .SOURCE, failure);
             return -1;
         }
-
-        r.input = .{ left + count, r.chunk.data };
-        if !count r.eof = true;
     }
 
     return r.input[r.position + ahead];
+}
+
+SOURCE_FAILED :: "source read failed or returned an invalid count";
+
+// Asks the source once for more bytes, after moving the window's unread bytes to its start. Returns
+// why the source failed, or an empty string. The window's end of input is `r.eof`.
+read_more :: (r: *Csv_Core) -> string {
+    left := r.input.count - r.position;
+
+    if r.position > 0 {
+        i := 0;
+
+        while i < left {
+            r.chunk[i] = r.input[r.position + i];
+            i += 1;
+        }
+    }
+
+    r.position = 0;
+    r.block_base = -1;
+    r.input = .{ left, r.chunk.data };
+    target: [] u8 = .{ r.chunk.count - left, r.chunk.data + left };
+    count, error := r.source.fill(r.source.data, target);
+
+    if error.count || count < 0 || count > target.count return SOURCE_FAILED;
+
+    r.input = .{ left + count, r.chunk.data };
+    if !count r.eof = true;
+
+    return "";
+}
+
+// Gives the block scanner more of a record that runs past the window: refills it until the record's
+// part of the window has doubled (so a source of tiny pieces costs a few scans, not one per piece)
+// and returns true, or returns false when it cannot grow (a slice, the end of the input, a record
+// that fills the window or exceeds the record limit) or the source failed. A failure is left for
+// `fill_to` to report: the byte-by-byte path reads the record again and reaches the end of the
+// window, or the next record does.
+grow_window :: (r: *Csv_Core) -> bool {
+    start := r.input.count - r.position;
+    goal := clamp(2 * start, 64, r.chunk.count);
+
+    if !r.source.fill || r.eof || r.source_failed || start >= r.chunk.count || start > r.options.max_record_bytes return false;
+
+    while !r.eof && r.input.count - r.position < goal {
+        if read_more(r).count {
+            r.source_failed = true;
+
+            return r.input.count - r.position > start;
+        }
+    }
+
+    return true;
 }
 
 // Takes one byte, counting a line break when it is CR or LF (CRLF is one). Runs of other bytes go through `span`.
@@ -830,98 +882,140 @@ read_field :: (r: *Csv_Core) -> bool {
     return true;
 }
 
-// Reads the record at the read position of a slice input in one go, with `scan` finding where each
-// field ends, and returns whether it did. The reader moves on only when the record is complete and
-// within its limits: anything else (an error, a limit, EOF inside quotes) leaves the reader as it
-// was, for `read_record`'s byte-by-byte path to read again and report exactly. A slice's offset is
-// its position, and the line counts only at line breaks, which the scan stops on.
-read_record_fast :: (r: *Csv_Core) -> bool {
+// How `read_record_fast` ended.
+FAST_DONE :: 0; // the record is in `fields` and the reader has moved past it
+FAST_FAILED :: 1; // the record is malformed or over a limit: `read_record` reads it byte by byte
+FAST_MORE :: 2; // the window ends inside the record and the source may have more
+
+// A field decoded into `buffer` because it held doubled quotes: field `index` is `start`..`end`.
+Csv_Decoded :: struct {
+    index: int;
+    start: int;
+    end: int;
+}
+
+// The offset of the first byte from `p` on that is not a space or tab (the delimiter stays, even
+// when it is a tab), or the window's end.
+skip_spaces :: (r: *Csv_Core, p: int) -> int {
+    while p < r.input.count && r.input[p] != r.options.delimiter && space(r.input[p]) p += 1;
+
+    return p;
+}
+
+// `read_record_fast` for the quoted field whose opening quote is at `p`, the field number `index`
+// of its record: returns the offset past the closing quote, the field (empty when it holds doubled
+// quotes: it is decoded into the buffer and listed in `r.decoded`) and how it went. `line` and
+// `line_start` advance past the line breaks inside.
+read_quoted_fast :: (r: *Csv_Core, p: int, index: int, delta: int, line: *int, line_start: *int, complete: bool) -> int, string, int {
+    data := r.input.data;
+    count := r.input.count;
+    quote := r.options.quote;
+    from := p + 1;
+    at := from;
+    first := r.buffer.count;
+
+    while true {
+        q := scan_from(r, at, STOP_QUOTED);
+        if q >= count return 0, "", ifx complete then FAST_FAILED else FAST_MORE;
+
+        c := data[q];
+
+        if c == quote {
+            if q + 1 < count && data[q + 1] == quote {
+                // A doubled quote: the field is decoded into the buffer.
+                append_bytes(r, data + from, q + 1 - from);
+                from = q + 2;
+                at = from;
+                continue;
+            }
+
+            if r.buffer.count > first {
+                append_bytes(r, data + from, q - from);
+                if r.buffer.count - first > r.options.max_field_bytes return 0, "", FAST_FAILED;
+
+                array_add(*r.decoded, .{ index, first, r.buffer.count });
+
+                return q + 1, "", FAST_DONE;
+            }
+
+            if q - from > r.options.max_field_bytes return 0, "", FAST_FAILED;
+
+            return q + 1, .{ q - from, data + from }, FAST_DONE;
+        }
+
+        if c == 13 || data[q - 1] != 13 line.* += 1;
+
+        line_start.* = delta + q + 1;
+        at = q + 1;
+    }
+
+    return 0, "", FAST_FAILED;
+}
+
+// Reads the record at the read position in one go, with `scan` finding where each field ends, and
+// returns how it went. The reader moves on only when the record is complete and within its limits:
+// anything else leaves it as it was, for the byte-by-byte path to read again and report exactly, or
+// (`FAST_MORE`) for the caller to refill the window and try again. A field is a view of the window,
+// except one with doubled quotes, which is decoded into the buffer. Positions are not kept: a typed
+// error asks `field_position` to find them again from the start of the record.
+read_record_fast :: (r: *Csv_Core) -> int {
     data := r.input.data;
     count := r.input.count;
     delimiter := r.options.delimiter;
     quote := r.options.quote;
+    trim := r.options.trim;
     max_field := r.options.max_field_bytes;
     max_fields := r.options.max_fields;
+    complete := !r.source.fill || r.eof; // the window ends where the input does
 
+    // The window's offsets plus `delta` are the document's.
+    delta := r.offset - r.position;
     p := r.position;
     line := r.line;
     line_start := r.line_start;
     k := 0;
     end: int;
     ended_by_cr := false;
-    in_buffer := false;
 
-    if r.cells.allocated < 16 array_reserve(*r.cells, 16);
-    if r.fields.allocated < r.cells.allocated array_reserve(*r.fields, r.cells.allocated);
+    if r.fields.allocated < 16 array_reserve(*r.fields, 16);
 
-    capacity := r.cells.allocated;
-    if r.fields.allocated < capacity capacity = r.fields.allocated;
+    capacity := r.fields.allocated;
 
     while true {
-        if k >= max_fields return false;
+        if k >= max_fields return FAST_FAILED;
 
         if k >= capacity {
-            array_reserve(*r.cells, capacity * 2);
             array_reserve(*r.fields, capacity * 2);
-            capacity = r.cells.allocated;
-            if r.fields.allocated < capacity capacity = r.fields.allocated;
+            capacity = r.fields.allocated;
         }
 
-        cell := Csv_Cell.{ offset = p, line = line, line_start = line_start };
+        text: string;
         stop: int;
 
         if p < count && data[p] == quote {
-            from := p + 1;
-            at := from;
-            first := r.buffer.count;
+            status: int;
 
-            while true {
-                q := scan_from(r, at, STOP_QUOTED);
-                if q >= count return false;
+            stop, text, status = read_quoted_fast(r, p, k, delta, *line, *line_start, complete);
+            if status != FAST_DONE return status;
 
-                c := data[q];
-
-                if c == quote {
-                    if q + 1 < count && data[q + 1] == quote {
-                        // A doubled quote: the field is decoded into the buffer.
-                        append_bytes(r, data + from, q + 1 - from);
-                        from = q + 2;
-                        at = from;
-                        continue;
-                    }
-
-                    if r.buffer.count > first {
-                        append_bytes(r, data + from, q - from);
-                        cell.start = first;
-                        cell.end = r.buffer.count;
-                        in_buffer = true;
-                        if cell.end - cell.start > max_field return false;
-                    } else {
-                        if q - from > max_field return false;
-                        cell.text = .{ q - from, data + from };
-                    }
-
-                    stop = q + 1;
-                    break;
-                }
-
-                if c == 13 || data[q - 1] != 13 line += 1;
-
-                line_start = q + 1;
-                at = q + 1;
-            }
+            if trim stop = skip_spaces(r, stop);
         } else {
-            stop = scan_from(r, p, STOP_UNQUOTED);
-            if stop - p > max_field return false;
+            if trim p = skip_spaces(r, p);
 
-            cell.text = .{ stop - p, data + p };
+            stop = scan_from(r, p, STOP_UNQUOTED);
+            if stop - p > max_field return FAST_FAILED;
+
+            text = .{ stop - p, data + p };
+
+            if trim while text.count && space(text[text.count - 1]) text.count -= 1;
         }
 
-        r.cells.data[k] = cell;
-        r.fields.data[k] = cell.text;
+        r.fields.data[k] = text;
         k += 1;
 
         if stop >= count {
+            if !complete return FAST_MORE;
+
             end = count;
             break;
         }
@@ -933,33 +1027,88 @@ read_record_fast :: (r: *Csv_Core) -> bool {
             continue;
         }
 
-        if c != 10 && c != 13 return false;
+        if c != 10 && c != 13 return FAST_FAILED;
 
         end = stop + 1;
-        if c == 13 && end < count && data[end] == 10 end += 1;
+
+        if c == 13 {
+            if end >= count && !complete return FAST_MORE;
+            if end < count && data[end] == 10 end += 1;
+        }
 
         ended_by_cr = data[end - 1] == 13;
         line += 1;
-        line_start = end;
+        line_start = delta + end;
         break;
     }
 
-    if end - r.position > r.options.max_record_bytes return false;
+    if end - r.position > r.options.max_record_bytes return FAST_FAILED;
 
-    if in_buffer for 0..k - 1 {
-        cell := *r.cells.data[it];
-        if cell.end > cell.start r.fields.data[it] = .{ cell.end - cell.start, r.buffer.data + cell.start };
-    }
+    for r.decoded r.fields.data[it.index] = .{ it.end - it.start, r.buffer.data + it.start };
 
-    r.cells.count = k;
     r.fields.count = k;
+    r.record_position = r.position;
+    r.record_scanned = true;
     r.position = end;
-    r.offset = end;
+    r.offset = delta + end;
     r.line = line;
     r.line_start = line_start;
     r.previous_cr = ended_by_cr;
 
-    return true;
+    return FAST_DONE;
+}
+
+// Where field `index` of the record `read_record_fast` read began, as the offset, line and line start
+// that `Csv_Cell` holds for a field read byte by byte. It reads the record's start again: the window
+// still holds it, because nothing has refilled the window since.
+field_position :: (r: *Csv_Core, index: int) -> int, int, int {
+    data := r.input.data;
+    count := r.input.count;
+    quote := r.options.quote;
+    delta := r.record_offset - r.record_position;
+    p := r.record_position;
+    line := r.record_line;
+    line_start := r.record_line_start;
+
+    skipped := 0;
+
+    while skipped < index {
+        skipped += 1;
+
+        if p < count && data[p] == quote {
+            at := p + 1;
+
+            while true {
+                q := scan_from(r, at, STOP_QUOTED);
+                if q >= count break;
+
+                if data[q] == quote {
+                    if q + 1 < count && data[q + 1] == quote {
+                        at = q + 2;
+                        continue;
+                    }
+
+                    p = q + 1;
+                    break;
+                }
+
+                if data[q] == 13 || data[q - 1] != 13 line += 1;
+
+                line_start = delta + q + 1;
+                at = q + 1;
+            }
+
+            if r.options.trim p = skip_spaces(r, p);
+        } else {
+            if r.options.trim p = skip_spaces(r, p);
+
+            p = scan_from(r, p, STOP_UNQUOTED);
+        }
+
+        p += 1; // the delimiter
+    }
+
+    return delta + p, line, line_start;
 }
 
 read_record :: (r: *Csv_Core) -> [] string, bool {
@@ -980,8 +1129,19 @@ read_record :: (r: *Csv_Core) -> [] string, bool {
     r.record_line_start = r.line_start;
     if peek(r) < 0 return .[], false;
 
-    if !r.source.fill && !r.options.trim && !r.bytewise {
-        if read_record_fast(r) return finish_record(r);
+    r.record_scanned = false;
+
+    if !r.bytewise {
+        status := FAST_MORE;
+
+        while status == FAST_MORE {
+            r.buffer.count = 0;
+            r.decoded.count = 0;
+            status = read_record_fast(r);
+
+            if status == FAST_DONE return finish_record(r);
+            if status == FAST_MORE && !grow_window(r) break;
+        }
 
         r.buffer.count = 0;
         r.cells.count = 0;

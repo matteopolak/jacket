@@ -67,11 +67,15 @@ locate_error :: (r: *Csv_Core, index: int) {
     line := r.record_line;
     line_start := r.record_line_start;
 
-    if index >= 0 && index < r.cells.count {
-        cell := r.cells[index];
-        offset = cell.offset;
-        line = cell.line;
-        line_start = cell.line_start;
+    if index >= 0 && index < r.fields.count {
+        if r.record_scanned {
+            offset, line, line_start = field_position(r, index);
+        } else {
+            cell := r.cells[index];
+            offset = cell.offset;
+            line = cell.line;
+            line_start = cell.line_start;
+        }
     }
 
     r.error.offset = offset;
