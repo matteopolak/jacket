@@ -81,7 +81,9 @@ main :: () {
 
         for i: 0..6 {
             mode = i;
-            connection, error := ws_connect("ws://localhost/", .{ protocols = string.["echo"], compression = false, handshake_timeout = 10, close_timeout = 10 }, *api);
+            // Only mode 4 should run out of time; the others get room for a slow runner.
+            handshake_timeout := ifx i == 4 then 10 else 10000;
+            connection, error := ws_connect("ws://localhost/", .{ protocols = string.["echo"], compression = false, handshake_timeout = handshake_timeout, close_timeout = 10 }, *api);
 
             if i >= 1 && i <= 4 {
                 assert(error.kind != .NONE, "mode % accepted invalid handshake", i);
