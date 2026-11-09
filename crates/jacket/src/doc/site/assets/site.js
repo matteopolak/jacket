@@ -662,6 +662,7 @@
     hits.forEach(function (it, i) {
       var a = el('div', 'hit');
       a.id = 'hit-' + i;
+      a.dataset.key = it.kind + ':' + it.title + '.' + it.name;
       a.setAttribute('role', 'option');
       a.setAttribute('aria-selected', i === picked ? 'true' : 'false');
       var name = el('span', 'path', it.kind === 'module' ? it.title : it.title + '.' + it.name);
@@ -677,7 +678,7 @@
       if (it.experimental) a.appendChild(dot('exp', 'Experimental: may change or go away'));
       // The signature column already says what procedures, types and constants are.
       if (it.kind === 'module') a.appendChild(el('span', 'what', 'module'));
-      var sig = el('span', 'sig');
+      var sig = el('span', 'hit-sig');
       sig.appendChild(sigNodes(it));
       a.appendChild(sig);
       if (i === picked) a.appendChild(spriteIcon('enter', 'go'));
@@ -696,6 +697,51 @@
     if (picked >= 0) input.setAttribute('aria-activedescendant', 'hit-' + picked);
     else input.removeAttribute('aria-activedescendant');
     paintGhost();
+  }
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)');
+  /** Where each row sits before a redraw, by its key, and how tall the list is. */
+  function measure() {
+    /** @type {Record<string, number>} */
+    var tops = {};
+    box.querySelectorAll('.hit').forEach(function (h) {
+      if (h instanceof HTMLElement) tops[h.dataset.key || ''] = h.offsetTop;
+    });
+    return { tops: tops, height: box.hidden ? 0 : box.offsetHeight };
+  }
+  // After a new query: rows that stay glide to their new places, new ones fade in a beat apart,
+  // and the list grows or shrinks to its new height.
+  /** @param {{ tops: Record<string, number>, height: number }} before */
+  function settle(before) {
+    if (still.matches) return;
+    var ease = 'cubic-bezier(0.2, 0, 0, 1)';
+    var height = box.offsetHeight;
+    if (before.height !== height) {
+      box.animate([{ height: before.height + 'px' }, { height: height + 'px' }], {
+        duration: 200,
+        easing: ease,
+      });
+    }
+    box.querySelectorAll('.hit').forEach(function (h, i) {
+      if (!(h instanceof HTMLElement)) return;
+      var was = before.tops[h.dataset.key || ''];
+      if (was === undefined) {
+        h.animate(
+          [
+            { opacity: 0, transform: 'translateY(6px)' },
+            { opacity: 1, transform: 'none' },
+          ],
+          { duration: 200, delay: Math.min(i, 8) * 15, easing: ease, fill: 'backwards' },
+        );
+      } else if (was !== h.offsetTop) {
+        h.animate(
+          [{ transform: 'translateY(' + (was - h.offsetTop) + 'px)' }, { transform: 'none' }],
+          {
+            duration: 200,
+            easing: ease,
+          },
+        );
+      }
+    });
   }
   function hide() {
     current++;
@@ -717,7 +763,9 @@
       if (mine !== current) return;
       hits = (q.indexOf('->') >= 0 ? bySignature(q) : byName(q)).slice(0, 12);
       picked = hits.length ? 0 : -1;
+      var before = measure();
       show();
+      settle(before);
     });
   }
   // Search is a modal dialog over the dimmed page, opened from the header's button or a shortcut.
