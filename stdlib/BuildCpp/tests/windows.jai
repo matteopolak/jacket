@@ -7,12 +7,12 @@ S :: #import "String";
 P :: #import "Process";
 W :: #import "Windows";
 Wide :: #import "Windows_Utf8";
+#import "Extensions/Environment";
 
 run_contract :: () {
     assert(B.is_native_msvc(B.default_compiler(false)), "this fixture requires the installed MSVC toolset");
-    root := sprint("%/../../../target/portable-tests/cpp windows build, café", S.path_strip_filename(#file));
+    root := output_path("portable-tests/cpp windows build, café");
 
-    defer free(root);
     assert(F.make_directory_if_it_does_not_exist(root, true));
     source := sprint("%/library source.c", root);
 

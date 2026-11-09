@@ -13,6 +13,7 @@ process_id :: () -> u32 {
 }
 
 U :: #import "File_Utilities";
+#import "Extensions/Environment";
 
 errors: s64;
 information: s64;
@@ -41,9 +42,8 @@ main :: () -> s32 {
 JAI
 
 #run {
-    output := sprint("%/../../../target/portable-tests/autorun build", S.path_strip_filename(#file));
+    output := output_path("portable-tests/autorun build");
 
-    defer free(output);
     assert(F.make_directory_if_it_does_not_exist(output, true));
     workspace := C.compiler_create_workspace("autorun contract");
     options := C.get_build_options(workspace);
@@ -126,8 +126,7 @@ main :: () {
     push_context scoped {
         A.run_native("/does-not-exist-portable-autorun", .[]);
 
-        child := sprint("%/../../../target/portable-tests/autorun build/%", S.path_strip_filename(#file), CHILD_NAME);
-        defer free(child);
+        child := output_path(tprint("portable-tests/autorun build/%", CHILD_NAME));
         A.run_native(child, string.["--fail"]);
     }
 

@@ -2,12 +2,11 @@
 #import "Basic";
 B :: #import "BuildCpp";
 F :: #import "File";
-S :: #import "String";
+#import "Extensions/Environment";
 
 #run {
-    directory := sprint("%/../../../../target/portable-tests/cpp-missing-tool", S.path_strip_filename(#file));
+    directory := output_path("portable-tests/cpp-missing-tool");
 
-    defer free(directory);
     assert(F.make_directory_if_it_does_not_exist(directory, true));
     source := sprint("%/valid.c", directory);
 

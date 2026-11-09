@@ -3,9 +3,10 @@
 #import "File";
 #import "Hash_Table";
 R :: #import "Rewrite";
+#import "Extensions/Environment";
 
 #run {
-    path := tprint("%../../../../target/developer-tools-rewrite-program.jai", #filepath);
+    path := output_path("developer-tools-rewrite-program.jai");
     workspace := compiler_create_workspace("Rewrite independent fixture");
     options := get_build_options(workspace);
     options.output_type = .NO_OUTPUT;

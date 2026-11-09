@@ -1,8 +1,8 @@
 #import "Basic";
 M :: #import "MacOS_Bundler";
 F :: #import "File";
-S :: #import "String";
 P :: #import "Process";
+#import "Extensions/Environment";
 
 capture_error :: (message: string, data: *void, info: Log_Info) {
     assert(message.count > 0 && (info.common_flags & .ERROR) != 0);
@@ -15,9 +15,8 @@ command :: (args: ..string) {
 }
 
 main :: () {
-    root := sprint("%/../../../../target/portable-tests/bundle app fixtures", S.path_strip_filename(#file));
+    root := output_path("portable-tests/bundle app fixtures");
 
-    defer free(root);
     command("/bin/mkdir", "-p", root);
     source := sprint("%/source files", root);
 
@@ -32,9 +31,7 @@ main :: () {
     defer free(executable);
     assert(F.write_entire_file(executable, "#!/bin/sh\nprintf 'bundle-child\\n'\n"));
     command("/bin/chmod", "+x", executable);
-    image := sprint("%/../../../../target/portable-tests/bundle-image.png", S.path_strip_filename(#file));
-
-    defer free(image);
+    image := output_path("portable-tests/bundle-image.png");
     icon := sprint("%/Converted.icns", root);
 
     defer free(icon);

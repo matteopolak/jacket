@@ -1,6 +1,7 @@
 #import "Basic";
 #import "File";
 R :: #import "Rewrite";
+#import "Extensions/Environment";
 
 reports: s64;
 errors: s64;
@@ -24,7 +25,7 @@ main :: () {
 
     defer free(result);
     assert(result == "A\r\nb!gamma");
-    path := tprint("%../../../../target/developer-tools-rewrite.txt", #filepath);
+    path := output_path("developer-tools-rewrite.txt");
 
     file.filename = path;
     assert(write_entire_file(path, file.full_data));

@@ -6,13 +6,13 @@ U :: #import "File_Utilities";
 S :: #import "String";
 P :: #import "Process";
 Native :: #import "POSIX";
+#import "Extensions/Environment";
 
 Answer :: #type () -> s32 #c_call;
 
 #run {
-    root := sprint("%/../../../target/portable-tests/cpp build", S.path_strip_filename(#file));
+    root := output_path("portable-tests/cpp build");
 
-    defer free(root);
     assert(F.make_directory_if_it_does_not_exist(root, true));
     source := sprint("%/library.c", root);
 
