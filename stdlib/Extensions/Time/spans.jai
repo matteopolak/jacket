@@ -305,6 +305,50 @@ calendar_limit :: (u: Unit) -> s64 {
     return 7400000;
 }
 
+// Whether a plus `n` of `u` (on top of base, in direction sign) stays on a's side of b.
+unit_fits :: (a: $T, b: T, base: Span, u: Unit, sign: s64, n: s64, policy: Disambiguation) -> bool {
+    trial := base;
+
+    put_unit(*trial, u, n * sign);
+
+    #if T == Zoned {
+        v, e := add(a, trial, disambiguation = policy);
+        return e.kind == .NONE && wide_compare(value_ns(v), value_ns(b)) * sign <= 0;
+    } else {
+        v, e := add(a, trial);
+        return e.kind == .NONE && wide_compare(value_ns(v), value_ns(b)) * sign <= 0;
+    }
+}
+
+// The calendar date of v in a's calendar: v itself, or the instant seen in a's zone.
+civil_date :: (a: $T, v: T) -> Date {
+    #if T == Date return v;
+    else #if T == Date_Time return v.date;
+    else return to_civil(a.zone, v.timestamp).date;
+}
+
+// An estimate of how many `u` from a, after base, reach b, from the calendar fields alone. It
+// can be off by a unit or two (clock readings, month ends, zone changes); unit_fits settles it.
+unit_guess :: (a: $T, b: T, base: Span, u: Unit, sign: s64) -> s64 {
+    start := civil_date(a, a);
+    finish := civil_date(a, b);
+    months := (cast(s64) finish.year - start.year) * 12 + finish.month - start.month;
+
+    if u == .YEAR return max(months * sign / 12, 0);
+    if u == .MONTH return max(months * sign - cast(s64) base.years * sign * 12, 0);
+
+    // Weeks and days count from the date the larger units already reach.
+    calendar := base;
+
+    clear_clock(*calendar);
+    reached, e := add(start, calendar);
+    if e.kind != .NONE return 0;
+
+    days := (date_days(finish) - date_days(reached)) * sign;
+
+    return max(ifx u == .WEEK then days / 7 else days, 0);
+}
+
 difference_raw :: (a: $T, b: T, largest: Unit, stop: Unit, policy: Disambiguation) -> Span, Time_Error {
     result: Span;
     sign := wide_compare(value_ns(b), value_ns(a));
@@ -316,25 +360,51 @@ difference_raw :: (a: $T, b: T, largest: Unit, stop: Unit, policy: Disambiguatio
             u := cast(Unit) i;
             if u < .DAY || (u == .WEEK && largest != .WEEK) continue;
 
+            // Find the largest count that does not pass b. Counts that fit are monotonic, so
+            // start at the calendar estimate (usually within one of the answer), widen
+            // geometrically to bracket it, then bisect.
             lo: s64;
             hi := calendar_limit(u);
+            guess := unit_guess(a, b, result, u, sign);
+            up := true;
+
+            if guess > hi guess = hi;
+
+            if guess > 0 {
+                if unit_fits(a, b, result, u, sign, guess, policy) lo = guess;
+                else {
+                    hi = guess - 1;
+                    up = false;
+                }
+            }
+
+            step: s64 = 1;
+
+            while lo < hi {
+                probe := hi - step + 1;
+
+                if up {
+                    probe = lo + step;
+                    if probe > hi probe = hi;
+                }
+
+                if probe <= lo break;
+
+                if unit_fits(a, b, result, u, sign, probe, policy) {
+                    lo = probe;
+                    if !up break;
+                } else {
+                    hi = probe - 1;
+                    if up break;
+                }
+
+                step *= 2;
+            }
 
             while lo < hi {
                 mid := lo + (hi - lo + 1) / 2;
-                trial := result;
 
-                put_unit(*trial, u, mid * sign);
-                valid := false;
-
-                #if T == Zoned {
-                    v, ve := add(a, trial, disambiguation = policy);
-                    valid = ve.kind == .NONE && wide_compare(value_ns(v), value_ns(b)) * sign <= 0;
-                } else {
-                    v, ve := add(a, trial);
-                    valid = ve.kind == .NONE && wide_compare(value_ns(v), value_ns(b)) * sign <= 0;
-                }
-
-                if valid lo = mid;
+                if unit_fits(a, b, result, u, sign, mid, policy) lo = mid;
                 else hi = mid - 1;
             }
 
@@ -396,6 +466,9 @@ difference :: (a: $T, b: T, largest: Unit, smallest: Unit, mode: Rounding, incre
         ns := clock_ns(result);
         rounded := round_wide(ns, wide_mul(unit_scale(small), increment), mode);
 
+        // Nothing was rounded away, so the exact difference is already balanced.
+        if rounded == ns return result, .{};
+
         clear_clock(*result);
         clock, ce := split_time(rounded, ifx largest >= .DAY then Unit.HOUR else largest);
         if ce.kind != .NONE return .{}, ce;
@@ -413,6 +486,7 @@ difference :: (a: $T, b: T, largest: Unit, smallest: Unit, mode: Rounding, incre
         if sign == 0 return result, .{};
 
         base := count / increment * increment;
+        changed := base != count;
 
         put_unit(*result, small, base);
 
@@ -427,8 +501,15 @@ difference :: (a: $T, b: T, largest: Unit, smallest: Unit, mode: Rounding, incre
             put_unit(*trial, small, base + sign * increment);
             upper, ue := add(a, trial);
             if ue.kind != .NONE return .{}, ue;
-            if round_up(mode, sign < 0, (base / increment) % 2 != 0, wide_abs(value_ns(b) - value_ns(lower)), wide_abs(value_ns(upper) - value_ns(b))) result = trial;
+
+            if round_up(mode, sign < 0, (base / increment) % 2 != 0, wide_abs(value_ns(b) - value_ns(lower)), wide_abs(value_ns(upper) - value_ns(b))) {
+                result = trial;
+                changed = true;
+            }
         }
+
+        // Only a rounded unit can need balancing into the next larger one.
+        if !changed return result, .{};
     }
 
     #if T == Timestamp return result, .{};
