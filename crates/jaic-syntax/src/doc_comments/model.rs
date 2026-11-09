@@ -9,6 +9,8 @@
 use super::forward::Files;
 #[path = "model_declaration.rs"]
 mod declaration;
+#[path = "model_overloads.rs"]
+mod overloads;
 #[path = "model_resolution.rs"]
 mod resolution;
 use super::refs::{TypeRef, refs_json, refs_named};
@@ -905,6 +907,9 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
         }
     }
     reader.add_private_types(&mut out, &mut names);
+    for item in &mut out.items {
+        overloads::merge_alternatives(&mut item.overloads);
+    }
     take_experimental(&mut out);
     out
 }

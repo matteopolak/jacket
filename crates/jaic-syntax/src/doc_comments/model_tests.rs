@@ -770,3 +770,43 @@ fn fields_under_a_static_if_are_members_on_their_declaration_lines() {
     assert!(item.decl_refs.iter().all(|r| r.path != "FEATURE"));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn declarations_in_exclusive_branches_are_one_procedure() {
+    let dir = library(
+        "exclusive-branches",
+        &[
+            (
+                "module.jai",
+                "#if OS == .MACOS {\n    #load \"mac.jai\";\n} else {\n    #load \"other.jai\";\n}\n#if FLAG {\n    flagged :: (a: int) {}\n} else {\n    flagged :: (a: int) {}\n}\n#if FLAG {\n    varied :: (a: int) {}\n} else {\n    varied :: (a: string) {}\n}\nreal :: (a: int) {}\nreal :: (a: string) {}\nFLAG :: true;\n",
+            ),
+            (
+                "mac.jai",
+                "// Starts it.\nstart :: (path: string) {}\n// Differs.\ndiffers :: () {}\n",
+            ),
+            (
+                "other.jai",
+                "// Starts it.\nstart :: (path: string) {}\n// Differs a lot.\ndiffers :: () {}\n",
+            ),
+        ],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let count = |name: &str| {
+        model
+            .items
+            .iter()
+            .find(|i| i.name == name)
+            .unwrap()
+            .overloads
+            .len()
+    };
+    // The same signature in both branches is one procedure, whatever the condition.
+    assert_eq!(count("flagged"), 1);
+    assert_eq!(count("start"), 1);
+    let start = model.items.iter().find(|i| i.name == "start").unwrap();
+    assert!(start.overloads[0].platforms.is_empty());
+    // Different signatures, or different docs, stay apart; so do real overloads.
+    assert_eq!(count("varied"), 2);
+    assert_eq!(count("differs"), 2);
+    assert_eq!(count("real"), 2);
+}
