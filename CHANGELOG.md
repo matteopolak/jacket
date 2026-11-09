@@ -18,7 +18,7 @@
 
 ### Improved
 
-- `jacket test` builds the `Extensions/Time` zone data on a fresh checkout before the tests that read it, instead of failing them; offline, it stops with the command to run.
+- `jacket test` builds the data that the `Extensions/Time`, `Csv`, `Unicode_Text`, `Archive` and `Gltf` conformance tests and the machine fixture tests read on a fresh checkout, instead of failing them, and looks for it in `JACKET_OUTPUT_DIR` when set, so a relocated output directory is not rebuilt on every run; offline, it stops with the command to run.
 - `Postgres` query arguments (integers, floats, strings, bools, uuids, dates and times, numerics, json and arrays of them) and `copy_in` array and json members are encoded by code written for each type when the program compiles, not a walk over type information per value. Array arguments and array members encode about 1.8 times faster. Types outside that set (enums, `Json(T)`, arrays of them) behave as before.
 - The typed `Postgres` macros (`query`, `query_one`, `query_opt`, `execute`, `query_scalar`, `query_as`, `queue`, `queue_execute`, `stream`) read each argument's type at the call and encode plain, `Nullable` and array arguments with the encoder for that type, with no test of the type at run time. Other types and spread argument lists behave as before.
 - `jaifmt` and `Jai_Format` set a `[format]` setting by name with code written from `Format_Config` when the program compiles.

@@ -2,13 +2,23 @@
 //! above all) has none of them, and each missing one fails every test that uses it with a link
 //! error or a failed `file_open`; this names them once, with the command that builds each.
 //!
-//! The two that are plain files of the checkout, the fixture data and the Debug helper, are also
-//! built before the run, when a selected test needs one that is missing ([`prepare`]).
+//! The ones the checkout can build itself, the fixture and conformance data and the Debug helper,
+//! are also built before the run, when a selected test needs one that is missing ([`prepare`]).
 use super::options::TestOptions;
 use super::{Outcome, Status};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+/// Where a setup's outputs are.
+#[derive(Clone, Copy)]
+enum Under {
+    /// The output directory the tools write to and the tests read from: `target/` of the checkout,
+    /// or `JACKET_OUTPUT_DIR` ([`output_dir`]).
+    Output,
+    /// The checkout itself.
+    Checkout,
+}
 
 /// A build output a test needs: the script that makes it, and how to tell a test needs it.
 struct Setup {
@@ -17,16 +27,21 @@ struct Setup {
     /// The script below the checkout root.
     script: &'static str,
     args: &'static [&'static str],
-    /// The test needs this when its source names one of these paths below `target/`.
+    /// The test needs this when its source names one of these.
     mentions: &'static [&'static str],
     /// The test needs this when its file is below this folder of the standard library.
     below: Option<&'static str>,
-    /// Paths (below the checkout root, with a trailing `*` meaning any file of that prefix) that
-    /// exist once it is built.
+    under: Under,
+    /// Paths (below `under`, with a trailing `*` meaning any file of that prefix) that exist once
+    /// it is built.
     outputs: &'static [&'static str],
 }
 
-const SETUPS: [Setup; 3] = [
+/// The fixtures `build_portable.py data` writes get a setup each. One run builds them all (the
+/// others are skipped once it has run, [`prepare_with`]), but each is checked for the files its
+/// tests read. A test of a new generated directory needs an entry here; the test
+/// `every_generated_directory_the_stdlib_tests_read_has_a_setup` finds a missing one.
+const SETUPS: [Setup; 8] = [
     Setup {
         what: "the fixture data",
         script: "tools/portable/build_portable.py",
@@ -37,11 +52,21 @@ const SETUPS: [Setup; 3] = [
             "portable-tests/mpeg/",
         ],
         below: None,
+        under: Under::Output,
         outputs: &[
-            "target/portable-tests/zip",
-            "target/portable-tests/archive-fixtures",
-            "target/portable-tests/mpeg",
+            "portable-tests/zip",
+            "portable-tests/archive-fixtures",
+            "portable-tests/mpeg",
         ],
+    },
+    Setup {
+        what: "the machine fixture data",
+        script: "tools/portable/build_portable.py",
+        args: &["data"],
+        mentions: &["portable-machine/"],
+        below: None,
+        under: Under::Output,
+        outputs: &["portable-machine/cpuid.bin"],
     },
     Setup {
         what: "the time zone data",
@@ -49,10 +74,51 @@ const SETUPS: [Setup; 3] = [
         args: &["data"],
         mentions: &["time-conformance/"],
         below: None,
+        under: Under::Output,
+        outputs: &["time-conformance/vectors.bin", "time-conformance/zoneinfo"],
+    },
+    Setup {
+        what: "the CSV conformance data",
+        script: "tools/portable/build_portable.py",
+        args: &["data"],
+        mentions: &["csv-conformance/"],
+        below: None,
+        under: Under::Output,
+        outputs: &["csv-conformance/csvs", "csv-conformance/json"],
+    },
+    Setup {
+        what: "the Unicode text conformance data",
+        script: "tools/portable/build_portable.py",
+        args: &["data"],
+        mentions: &["unicode-text-conformance/"],
+        below: None,
+        under: Under::Output,
         outputs: &[
-            "target/time-conformance/vectors.bin",
-            "target/time-conformance/zoneinfo",
+            "unicode-text-conformance/NormalizationTest.txt",
+            "unicode-text-conformance/GraphemeBreakTest.txt",
+            "unicode-text-conformance/WordBreakTest.txt",
+            "unicode-text-conformance/SentenceBreakTest.txt",
         ],
+    },
+    Setup {
+        what: "the archive conformance data",
+        script: "tools/portable/build_portable.py",
+        args: &["data"],
+        mentions: &["archive-conformance"],
+        below: None,
+        under: Under::Output,
+        outputs: &["archive-conformance/zip", "archive-conformance/tar"],
+    },
+    // The sample models are a separate 1.1 GB download that only the tests tagged for them read.
+    // `data` fetches the validator's data, and writes `.complete` last.
+    Setup {
+        what: "the glTF validator data",
+        script: "tools/portable/build_portable.py",
+        args: &["data"],
+        mentions: &["gltf-conformance/validator"],
+        below: None,
+        under: Under::Output,
+        outputs: &["gltf-conformance/validator/.complete"],
     },
     Setup {
         what: "the Debug native helper",
@@ -60,9 +126,23 @@ const SETUPS: [Setup; 3] = [
         args: &[],
         mentions: &[],
         below: Some("Debug"),
+        under: Under::Checkout,
         outputs: &["stdlib/internal/developer-tools/debug-native/libdeveloper_tools_debug.*"],
     },
 ];
+
+/// The directory the repository's tools write to and the tests read from: `target/` of the
+/// checkout `root`, or `JACKET_OUTPUT_DIR`.
+fn output_dir(root: &Path) -> PathBuf {
+    output_in(root, jacket_config::env::OUTPUT_DIR.non_empty())
+}
+
+/// [`output_dir`] for a given `JACKET_OUTPUT_DIR`. Empty is unset, and a relative one is below
+/// the checkout, as `tools/repo_output.py` reads it.
+fn output_in(root: &Path, over: Option<std::ffi::OsString>) -> PathBuf {
+    over.filter(|dir| !dir.is_empty())
+        .map_or_else(|| root.join("target"), |dir| root.join(dir))
+}
 
 impl Setup {
     fn needed_by(&self, file: &Path, source: &str, stdlib: &Path) -> bool {
@@ -72,13 +152,17 @@ impl Setup {
                 .is_some_and(|dir| file.starts_with(stdlib.join(dir)))
     }
 
-    /// Whether every output is there below `root`.
-    fn built(&self, root: &Path) -> bool {
+    /// Whether every output is there, below the output directory `output` or the checkout `root`.
+    fn built(&self, root: &Path, output: &Path) -> bool {
+        let base = match self.under {
+            Under::Output => output,
+            Under::Checkout => root,
+        };
         self.outputs
             .iter()
-            .all(|output| match output.strip_suffix('*') {
+            .all(|file| match file.strip_suffix('*') {
                 Some(prefix) => {
-                    let path = root.join(prefix);
+                    let path = base.join(prefix);
                     let (Some(folder), Some(stem)) = (path.parent(), path.file_name()) else {
                         return false;
                     };
@@ -90,17 +174,18 @@ impl Setup {
                         })
                     })
                 }
-                None => root.join(output).exists(),
+                None => base.join(file).exists(),
             })
     }
 }
 
 /// The setups the `files` need whose outputs are missing below `root`, the checkout the
-/// standard library `stdlib` belongs to. Nothing in a package without the build scripts.
-fn needed(files: &[PathBuf], stdlib: &Path, root: &Path) -> Vec<&'static Setup> {
+/// standard library `stdlib` belongs to, or in the output directory `output`. Nothing in a
+/// package without the build scripts.
+fn needed(files: &[PathBuf], stdlib: &Path, root: &Path, output: &Path) -> Vec<&'static Setup> {
     let mut found: Vec<&'static Setup> = Vec::new();
     for setup in &SETUPS {
-        if !root.join(setup.script).is_file() || setup.built(root) {
+        if !root.join(setup.script).is_file() || setup.built(root, output) {
             continue;
         }
         let wanted = files.iter().any(|file| {
@@ -126,7 +211,7 @@ fn prepare_with(python: &str, files: &[PathBuf], stdlib: &Path) -> Result<(), St
         return Ok(());
     };
     let mut ran: Vec<(&str, &[&str])> = Vec::new();
-    for setup in needed(files, stdlib, root) {
+    for setup in needed(files, stdlib, root, &output_dir(root)) {
         // One script builds several outputs; a run that was due for two of them is one run.
         if ran.contains(&(setup.script, setup.args)) {
             continue;
@@ -222,10 +307,7 @@ pub fn prepare_probes(files: &[PathBuf], stdlib: &Path) -> Option<PathBuf> {
     if !stdlib.join("Compiler/module.jai").is_file() {
         return None;
     }
-    let output = jacket_config::env::OUTPUT_DIR
-        .os()
-        .map_or_else(|| root.join("target"), PathBuf::from)
-        .join("jacket-test-probes");
+    let output = output_dir(root).join("jacket-test-probes");
     let sources: String = files
         .iter()
         .filter_map(|file| std::fs::read_to_string(file).ok())
@@ -480,8 +562,9 @@ mod tests {
         let zones = stdlib.join("Extensions/Time/tests/zones.jai");
         std::fs::write(&zones, "x := \"%/time-conformance/zoneinfo\";").unwrap();
 
+        let output = root.join("target");
         let names = |files: &[PathBuf]| -> Vec<&'static str> {
-            needed(files, &stdlib, &root)
+            needed(files, &stdlib, &root, &output)
                 .iter()
                 .map(|s| s.what)
                 .collect()
@@ -506,9 +589,163 @@ mod tests {
         assert_eq!(names(std::slice::from_ref(&zones)), ["the time zone data"]);
         std::fs::write(root.join("target/time-conformance/vectors.bin"), "").unwrap();
         assert!(names(std::slice::from_ref(&zones)).is_empty());
+
+        // Every generated suite has its own setup, and is built until the files it reads are
+        // there. Each source names a directory of the output directory, as the tests do.
+        let suites: [(&str, &str, &str, &[&str]); 6] = [
+            (
+                "csv.jai",
+                "%/csv-conformance/csvs/a.csv",
+                "the CSV conformance data",
+                &["csv-conformance/csvs", "csv-conformance/json"],
+            ),
+            (
+                "unicode.jai",
+                "%/unicode-text-conformance/%",
+                "the Unicode text conformance data",
+                &[
+                    "unicode-text-conformance/NormalizationTest.txt",
+                    "unicode-text-conformance/GraphemeBreakTest.txt",
+                    "unicode-text-conformance/WordBreakTest.txt",
+                    "unicode-text-conformance/SentenceBreakTest.txt",
+                ],
+            ),
+            (
+                "archive.jai",
+                "%/archive-conformance",
+                "the archive conformance data",
+                &["archive-conformance/zip", "archive-conformance/tar"],
+            ),
+            (
+                "gltf.jai",
+                "%/gltf-conformance/validator/test/base/data",
+                "the glTF validator data",
+                &["gltf-conformance/validator/.complete"],
+            ),
+            (
+                "cpuid.jai",
+                "%/portable-machine/cpuid.bin",
+                "the machine fixture data",
+                &["portable-machine/cpuid.bin"],
+            ),
+            ("samples.jai", "%/gltf-conformance/samples/Models", "", &[]),
+        ];
+        std::fs::create_dir_all(stdlib.join("Extensions/Suites/tests")).unwrap();
+        for (file, source, what, outputs) in suites {
+            let test = stdlib.join("Extensions/Suites/tests").join(file);
+            std::fs::write(&test, source).unwrap();
+            let files = std::slice::from_ref(&test);
+            if what.is_empty() {
+                // The sample models are a separate download that `data` does not fetch.
+                assert!(names(files).is_empty(), "{file}");
+                continue;
+            }
+            assert_eq!(names(files), [what], "{file}");
+            for (i, output_file) in outputs.iter().enumerate() {
+                let path = output.join(output_file);
+                std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+                std::fs::write(&path, "").unwrap();
+                let built = i + 1 == outputs.len();
+                assert_eq!(names(files).is_empty(), built, "{file} after {output_file}");
+            }
+        }
+
+        // The tests read the relocated output directory, so that is where the setup looks: a
+        // relocated one that has the data is built, and one that is missing it is not mistaken for
+        // the checkout's.
+        let moved = root.join("elsewhere");
+        let names_in = |output: &Path, file: &PathBuf| -> Vec<&'static str> {
+            needed(std::slice::from_ref(file), &stdlib, &root, output)
+                .iter()
+                .map(|s| s.what)
+                .collect()
+        };
+        assert_eq!(names_in(&moved, &zones), ["the time zone data"]);
+        std::fs::create_dir_all(moved.join("time-conformance/zoneinfo")).unwrap();
+        std::fs::write(moved.join("time-conformance/vectors.bin"), "").unwrap();
+        assert!(names_in(&moved, &zones).is_empty());
+        std::fs::remove_dir_all(root.join("target/time-conformance")).unwrap();
+        assert!(names_in(&moved, &zones).is_empty());
+        assert_eq!(names_in(&output, &zones), ["the time zone data"]);
+        // The Debug helper is a file of the checkout whatever the output directory is.
         std::fs::remove_dir_all(root.join("tools")).unwrap();
         assert!(names(&[stdlib.join("Debug/tests/ownership.jai")]).is_empty());
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// The generated directories a test source names: a `*-conformance` directory (below `%/` or
+    /// `target/`) with the folder below it, or `portable-machine/`.
+    fn generated_directories(source: &str) -> Vec<String> {
+        let is_name = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_';
+        let mut found = Vec::new();
+        for (at, _) in source.match_indices("-conformance") {
+            let start = source[..at]
+                .rfind(|c: char| !is_name(c))
+                .map_or(0, |i| i + 1);
+            // A path of the output directory, not a name in a comment.
+            if !source[..start].ends_with("%/") && !source[..start].ends_with("target/") {
+                continue;
+            }
+            let mut end = at + "-conformance".len();
+            if source[end..].starts_with('/') {
+                end += 1;
+                end += source[end..].find(|c: char| !is_name(c)).unwrap_or(0);
+            }
+            found.push(source[start..end].to_string());
+        }
+        if source.contains("portable-machine/") {
+            found.push("portable-machine/".into());
+        }
+        found
+    }
+
+    #[test]
+    fn the_output_directory_is_the_one_the_tools_write_to() {
+        let root = Path::new("/checkout");
+        assert_eq!(output_in(root, None), Path::new("/checkout/target"));
+        assert_eq!(
+            output_in(root, Some("".into())),
+            Path::new("/checkout/target")
+        );
+        assert_eq!(
+            output_in(root, Some("/scratch/out".into())),
+            Path::new("/scratch/out")
+        );
+        assert_eq!(
+            output_in(root, Some("out".into())),
+            Path::new("/checkout/out")
+        );
+    }
+
+    #[test]
+    fn every_generated_directory_the_stdlib_tests_read_has_a_setup() {
+        // The tests read what `build_portable.py data` writes, as `%/<directory>/...` below the
+        // output directory or `target/<directory>/...` below the checkout.
+        let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let mut unbuilt = BTreeSet::new();
+        let mut folders = vec![stdlib.clone()];
+        while let Some(folder) = folders.pop() {
+            for entry in std::fs::read_dir(&folder).unwrap().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    folders.push(path);
+                } else if path.extension().is_some_and(|ext| ext == "jai")
+                    && path.components().any(|c| c.as_os_str() == "tests")
+                {
+                    let source = std::fs::read_to_string(&path).unwrap_or_default();
+                    for name in generated_directories(&source) {
+                        let covered = SETUPS
+                            .iter()
+                            .any(|setup| setup.mentions.iter().any(|m| name.starts_with(m)));
+                        // The sample models are fetched on request, by the tests that say so.
+                        if !covered && name != "gltf-conformance/samples" {
+                            unbuilt.insert(format!("{name} (read by {})", path.display()));
+                        }
+                    }
+                }
+            }
+        }
+        assert!(unbuilt.is_empty(), "no setup builds: {unbuilt:?}");
     }
 
     #[test]
