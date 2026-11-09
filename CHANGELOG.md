@@ -4,16 +4,32 @@
 
 ### New
 
-- `Extensions/Toml` reads and writes TOML 1.1; `jaifmt` uses it to parse configuration.
-
+- `Extensions/Toml` reads and writes TOML 1.1, including table and array-of-table headers, and decodes structs directly; `jaifmt` uses it to parse configuration.
 - `Extensions/Grpc` adds clients and servers over HTTP/2, with generated Protobuf service types.
-
+- `Extensions/Gltf` loads, validates and writes glTF and GLB assets.
+- `Extensions/Archive` (ZIP and TAR), `Unicode_Text` (normalization and segmentation), `Uuid` (RFC 9562) and `Vt` (terminal sequence parsing) are new. `WebSocket` runs connections on fibers, `Deflate` handles sync-flushed messages and `Http` routes protocol upgrades.
+- `Image` reads a PNG or JPEG header's format, size and channels without decoding.
+- `jailint`'s lifetime checks infer more from bodies: a callee that releases an argument's contents, keeps one parameter in another's field, or stores a stack address, string or slice where it outlives the call. Findings point at the allocation behind the pointer.
+- Foreign procedures say they release, exit or write output with notes, which `jailint` reads instead of matching names. Generated bindings turn header documentation into Markdown doc comments.
 - A new hand-drawn logo and icon for the docs site, the VS Code extension and `.jai` files. The docs site takes its accent from the logo. `jacket doc` takes `[doc] icon` (or `--icon`) for a browser-tab icon that differs from the logo, and reads `oklch()` category colours.
+- `jacket doc` publishes the files in `[doc] files` at the site root. Search opens in a dialog with icons per kind, phones get a module sheet, and lint rule pages show each example with its finding and fix.
+- The language server reports indexing progress and registers file watchers with clients that allow it.
+- The stdlib benchmarks run with `jacket bench`.
+
+### Improved
+
+- Fix previews show only the lines a fix changes.
+- Fewer false lifetime findings on members of freed structs, cast struct pointers and fields stored in other blocks.
 
 ### Fixed
 
 - ICO creation from image filenames works on WASI, and transparent icons render correctly on Windows.
 - JPEG color handling, invalid JPEG scans and incomplete QOI files.
+- Struct default overrides, declaration order in struct scopes and contextual expression types.
+- HTTP bounds `CONTINUATION` frames per header block and closes pooled TLS connections with their config.
+- The language server merges diagnostics for a file shared by several programs, cancels unfinished pulls and notices files changed on disk.
+- `jacket doc` shows every `#if` variant of a declaration and the right import path for a module documented by its folder.
+- `Hash_Map` rebuild threshold, glTF skin validation and `jaifmt` setting migration.
 
 ## [0.33.0] - 2026-11-04
 
