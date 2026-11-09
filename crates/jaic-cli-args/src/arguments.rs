@@ -2,6 +2,7 @@
 use crate::options::{Action, CliOption};
 use jaic::flags::{Common, Shared};
 use jaic::target::Selection;
+use std::path::PathBuf;
 
 /// Target selection and host arguments with compiler target/mode options removed.
 #[derive(Debug)]
@@ -67,7 +68,7 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
     let mut mode_indices = Vec::new();
     let mut index = 0;
     while let Some(arg) = args.get(index) {
-        if arg == "-" || arg == "--" || arg.starts_with('+') && arg.len() > 1 {
+        if is_boundary(arg) {
             host.extend(args[index..].iter().cloned());
             break;
         }
@@ -148,6 +149,53 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
     })
 }
 
+/// `-`, `--` and `+Plugin` end the compiler's own options: what follows is for the plugin or the
+/// program.
+fn is_boundary(arg: &str) -> bool {
+    arg == "-" || arg == "--" || arg.starts_with('+') && arg.len() > 1
+}
+
+/// The folders `-import_dir` and its short form `-I` name among the compiler arguments, as
+/// written, in order. Values of other options (`-add "-I"`) and everything past a boundary
+/// are not options. Unlike [`target_flags`] it takes a malformed argument as the end of what it
+/// can read, because the compiler is the one to report it.
+///
+/// ```
+/// let args = ["-I", "a", "-import_dir=b", "--", "-I", "c"].map(String::from);
+/// let dirs = jaic_cli_args::arguments::import_dirs(&args);
+/// assert_eq!(dirs, [std::path::PathBuf::from("a"), "b".into()]);
+/// ```
+pub fn import_dirs(args: &[String]) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let mut index = 0;
+    while let Some(arg) = args.get(index) {
+        if is_boundary(arg) {
+            break;
+        }
+        let (name, inline) = split_option(arg);
+        let Some(option) = CliOption::find_value(name) else {
+            index += 1;
+            continue;
+        };
+        let spaced = inline.is_none();
+        if spaced && args.get(index + 1).is_none() {
+            break;
+        }
+        if let Action::Shared(flag) = option.action
+            && let Ok(Shared::ImportDir(dir)) =
+                flag.take(name, inline, || args.get(index + 1).cloned())
+        {
+            dirs.push(dir);
+        }
+        index += if spaced {
+            2
+        } else {
+            1
+        };
+    }
+    dirs
+}
+
 /// The compiler's inline value syntax, shared by parsing and metadata inspection.
 pub fn split_option(arg: &str) -> (&str, Option<String>) {
     match arg.split_once('=') {
@@ -219,6 +267,26 @@ mod tests {
         for (check, interp, deps) in [(true, true, false), (false, true, true)] {
             assert!(crate::cli::Mode::from_flags(check, interp, deps).is_err());
         }
+    }
+
+    #[test]
+    fn import_folders_come_from_the_option_table() {
+        let dirs =
+            |args: &[&str]| import_dirs(&args.iter().map(ToString::to_string).collect::<Vec<_>>());
+        let path = |text: &str| PathBuf::from(text);
+        assert_eq!(
+            dirs(&["-I", "a", "-O1", "-import_dir=b", "-import_dir", "c"]),
+            [path("a"), path("b"), path("c")]
+        );
+        // A value of another option is not an option, whatever it looks like.
+        assert_eq!(dirs(&["-add", "-I", "-I", "x", "-exe", "-I"]), [path("x")]);
+        // Plugin and program arguments are not the compiler's.
+        for boundary in ["-", "--", "+Plugin"] {
+            assert_eq!(dirs(&["-I", "a", boundary, "-I", "b"]), [path("a")]);
+        }
+        // A flag with no value is for the compiler to report.
+        assert_eq!(dirs(&["-I", "a", "-I"]), [path("a")]);
+        assert!(dirs(&[]).is_empty());
     }
 
     #[test]

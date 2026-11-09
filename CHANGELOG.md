@@ -29,6 +29,7 @@
 - `jacket test` fails when it cannot read a library's doc comments, instead of warning and running no examples.
 - `jacket test` stops with an install hint when `python3` is missing or a fixture build script fails, and tests that need `JAIC_TEST_FONT_PATH` fail without it locally as in CI unless they declare `optional(JAIC_TEST_FONT_PATH)`.
 - `jacket test --interp` keeps no more compilers waiting for their first run than it has workers, and a waiting compiler blocks on its input instead of polling every 2 ms.
+- `jacket test` reads `-I` and `-import_dir` as the compiler does, so a plugin or program argument that looks like one is no longer taken for an import folder by `--watch` and coverage.
 - `@toml(...)` note values resolve `\n`, `\t` and `\r` escapes instead of dropping the backslash.
 - ICO creation from image filenames works on WASI, and transparent icons render correctly on Windows.
 - JPEG color handling, invalid JPEG scans and incomplete QOI files.

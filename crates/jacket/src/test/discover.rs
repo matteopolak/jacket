@@ -36,24 +36,14 @@ pub struct Root {
 
 pub const EXPECTED: [&str; 3] = ["stdout", "stderr", "exit"];
 
-/// The folders among jaic `flags` that `-import_dir` and `-I` name (`-I=dir` too), as they are
-/// on disk.
+/// The folders among jaic `flags` that `-import_dir` and `-I` name, as they are on disk. What
+/// counts as an option is the compiler's: see `jaic_cli_args::arguments::import_dirs`.
 pub fn import_folders(flags: &[String]) -> Vec<PathBuf> {
-    let mut folders = Vec::new();
-    let mut flags = flags.iter();
-    while let Some(flag) = flags.next() {
-        let value = match flag.split_once('=') {
-            Some(("-import_dir" | "-I", value)) => Some(value),
-            _ if flag == "-import_dir" || flag == "-I" => flags.next().map(String::as_str),
-            _ => None,
-        };
-        if let Some(folder) = value.map(|v| super::watch::canonical(Path::new(v)))
-            && folder.is_dir()
-        {
-            folders.push(folder);
-        }
-    }
-    folders
+    jaic_cli_args::arguments::import_dirs(flags)
+        .iter()
+        .map(|dir| super::watch::canonical(dir))
+        .filter(|folder| folder.is_dir())
+        .collect()
 }
 
 /// The `.jai` files below `dir` at any depth (`tests/` helper folders included), sorted.
@@ -350,6 +340,15 @@ mod tests {
         let folders = import_folders(&flags);
         assert_eq!(folders.len(), 2, "{folders:?}");
         assert!(folders.iter().all(|f| f.is_dir()));
+    }
+
+    #[test]
+    fn plugin_and_program_values_are_not_import_folders() {
+        let here = std::env::temp_dir().to_string_lossy().into_owned();
+        let flags: Vec<String> = ["-add", "-I", here.as_str(), "+Plugin", "-I", here.as_str()]
+            .map(String::from)
+            .into();
+        assert!(import_folders(&flags).is_empty());
     }
 
     #[test]
