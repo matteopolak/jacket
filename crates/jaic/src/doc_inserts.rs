@@ -2,6 +2,7 @@
 //! reads source and cannot know what an `#insert` declares, so a module that has a public one is
 //! compiled once with its default module parameters and each insert's text goes back into the
 //! model as source it declares.
+use crate::fxhash::HashMap;
 use crate::ide::lint_compile::{CheckLimits, LintCompile, LintSetup};
 use crate::ide::meta::IdeExpansionKind;
 use crate::ide::{IdeFacts, IdeRoot};
@@ -9,7 +10,6 @@ use crate::interp::SandboxHost;
 use crate::project::{ProgramInputs, module_import};
 use crate::sema::{FileSystem, NativeFs, Options, ProgramSource};
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -44,7 +44,7 @@ fn compile(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Expanded {
     let Some((import, _)) = module_import(&entry, &options.import_paths, true, &|p| canonical(p))
     else {
         return Expanded {
-            texts: HashMap::new(),
+            texts: HashMap::default(),
             error: Some(format!("{} is not a module", entry.display())),
         };
     };
@@ -67,7 +67,7 @@ fn compile(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Expanded {
         .record(IdeFacts::new(vec![IdeRoot::under(canonical(dir))]));
     let program = format!("{import}\nmain :: () {{}}\n");
     let result = compiler.begin_sources(&[ProgramSource::String(program)]);
-    let mut texts = HashMap::new();
+    let mut texts = HashMap::default();
     for expansion in compiler.ed.facts().map_or(&[][..], |f| &f.expansions) {
         if expansion.kind != IdeExpansionKind::Insert {
             continue;
@@ -114,7 +114,7 @@ pub fn model_json(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> String 
                     .ok()
                     .and_then(|worker| worker.join().ok())
                     .unwrap_or(Expanded {
-                        texts: HashMap::new(),
+                        texts: HashMap::default(),
                         error: Some("the compiler stopped unexpectedly".to_owned()),
                     })
             })
