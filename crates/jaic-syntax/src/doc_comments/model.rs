@@ -1083,14 +1083,8 @@ fn add(out: &mut Module, names: &mut Vec<String>, mut item: Item) {
 
 /// What `jaic -doc_model` prints for the library in `dir`. Links in docs to a name of the
 /// library (or `Module.name` of another library of `stdlib`) become `jaidoc:Module/name` and
-/// `jaidoc:Module/name#member`, for the renderer to turn into pages.
-pub fn print(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> String {
-    print_expanding(dir, stdlib, import_dirs, &mut |_, _| {
-        Err("the model reads source and does not run it".to_owned())
-    })
-}
-
-/// [`print`] with the text of public top-level `#insert`s from `expand`.
+/// `jaidoc:Module/name#member`, for the renderer to turn into pages. `expand` gives the text of
+/// the public top-level `#insert`s, as in [`module_expanding`].
 pub fn print_expanding(
     dir: &Path,
     stdlib: &Path,
