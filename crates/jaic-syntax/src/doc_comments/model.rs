@@ -220,6 +220,9 @@ pub struct Item {
     /// The systems this declaration alone is for; empty for any. `platforms` covers every
     /// declaration of the name.
     pub defined_on: Vec<String>,
+    /// Declared by the text a top-level `#insert` produced; `file` and `line` then name that
+    /// text (see [`generated_path`]).
+    pub generated: bool,
     /// The definitions of the name that differ from this one, one per branch of an `#if`
     /// (`File_Watcher` is one struct on macOS and another elsewhere), each with its own
     /// `defined_on` in `platforms`. Empty when the name has one definition, or every branch
@@ -252,9 +255,10 @@ pub struct Module {
     pub experimental: bool,
     pub parameters: Vec<Parameter>,
     pub items: Vec<Item>,
-    /// The file and line of each top-level `#insert` that is not private to its file. What it
-    /// declares is not in `items`: the model reads source and never runs it.
-    pub inserts: Vec<(PathBuf, usize)>,
+    /// The file, line and reason for each public top-level `#insert` that could not be
+    /// expanded, so what it declares is missing from `items`. One that expands to nothing is
+    /// not listed.
+    pub unexpanded: Vec<(PathBuf, usize, String)>,
 }
 
 /// A parsed file and its text, read once.
@@ -667,7 +671,38 @@ fn struct_params(decl: &Decl) -> Vec<String> {
         .collect()
 }
 
+/// What the text of a top-level `#insert` at a file and line is, or why that is not known.
+pub type Expander<'a> = &'a mut dyn FnMut(&Path, usize) -> Result<String, String>;
+
+/// The marker between a file and a line in the name of generated text.
+const GENERATED: &str = "#insert:";
+
+/// The name the text of the `#insert` at `line` of `origin` has in the model: its own file, so
+/// the declarations in it keep identities of their own, whose source link leads to the
+/// `#insert` ([`generated_origin`]).
+pub fn generated_path(origin: &Path, line: usize) -> PathBuf {
+    PathBuf::from(format!("{}{GENERATED}{line}", origin.display()))
+}
+
+/// The file and line of the `#insert` that `path` names the text of, or `None` for a real file.
+pub fn generated_origin(path: &str) -> Option<(&str, usize)> {
+    let (file, line) = path.rsplit_once(GENERATED)?;
+    Some((file, line.parse().ok()?))
+}
+
+/// [`module_expanding`] for a reader that cannot run code: every public top-level `#insert`
+/// is unexpanded.
+#[cfg(test)]
 pub fn module(dir: &Path, stdlib: &Path) -> Module {
+    module_expanding(dir, stdlib, &mut |_, _| {
+        Err("the model reads source and does not run it".to_owned())
+    })
+}
+
+/// The model of the library in `dir`. `expand` gives the text of each public top-level
+/// `#insert` (by file and line); its declarations are items like the others, marked
+/// `generated`, and its failures are in `unexpanded`.
+pub fn module_expanding(dir: &Path, stdlib: &Path, expand: Expander) -> Module {
     let mut own = Vec::new();
     super::own_files(dir, true, &mut own);
     let module_file = super::canonical(&crate::paths::module_entry(dir));
@@ -707,11 +742,23 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
         let mut first_statement = None;
         let mut loads = Vec::new();
         let index = TopIndex::new(&parsed);
-        // What an `#insert` declares is known only by running it, which the model never does.
+        // What an `#insert` declares is known only by running it, which `expand` does. Its text
+        // is read as a file of its own that `file` loads. An `#insert` in generated text is
+        // not followed.
+        let generated_here = generated_origin(&file.to_string_lossy()).is_some();
         for (span, visibility) in ide_facts::top_level_inserts(&parsed.parse.file) {
-            if visibility == Visibility::Export {
-                let line = reader.line_of(&text, span.start as usize);
-                out.inserts.push((file.clone(), line));
+            if visibility != Visibility::Export || generated_here {
+                continue;
+            }
+            let line = reader.line_of(&text, span.start as usize);
+            match expand(&file, line) {
+                Ok(inserted) if inserted.trim().is_empty() => {}
+                Ok(inserted) => {
+                    let made = generated_path(&file, line);
+                    reader.files.add_generated(&made, inserted.into(), &file);
+                    queue.push(made);
+                }
+                Err(reason) => out.unexpanded.push((file.clone(), line, reason)),
             }
         }
         for item in &index.tops {
@@ -925,6 +972,12 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
     }
     reader.add_private_types(&mut out, &mut names);
     for item in &mut out.items {
+        item.generated = generated_origin(&item.file.to_string_lossy()).is_some();
+        for variant in &mut item.variants {
+            variant.generated = generated_origin(&variant.file.to_string_lossy()).is_some();
+        }
+    }
+    for item in &mut out.items {
         overloads::merge_alternatives(&mut item.overloads);
     }
     take_experimental(&mut out);
@@ -1000,8 +1053,15 @@ fn add(out: &mut Module, names: &mut Vec<String>, mut item: Item) {
 /// library (or `Module.name` of another library of `stdlib`) become `jaidoc:Module/name` and
 /// `jaidoc:Module/name#member`, for the renderer to turn into pages.
 pub fn print(dir: &Path, stdlib: &Path) -> String {
+    print_expanding(dir, stdlib, &mut |_, _| {
+        Err("the model reads source and does not run it".to_owned())
+    })
+}
+
+/// [`print`] with the text of public top-level `#insert`s from `expand`.
+pub fn print_expanding(dir: &Path, stdlib: &Path, expand: Expander) -> String {
     let (dir, stdlib) = (&super::canonical(dir), &super::canonical(stdlib));
-    let model = module(dir, stdlib);
+    let model = module_expanding(dir, stdlib, expand);
     let key = {
         let canonical = super::canonical(dir);
         let root = super::canonical(stdlib);

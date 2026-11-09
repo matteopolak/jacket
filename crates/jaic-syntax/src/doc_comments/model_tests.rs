@@ -922,7 +922,7 @@ fn directive_operands_are_not_type_references() {
 }
 
 #[test]
-fn a_public_top_level_insert_is_reported_with_its_place() {
+fn a_public_top_level_insert_the_model_cannot_expand_is_reported_with_its_place() {
     let dir = library(
         "top-level-insert",
         &[
@@ -938,14 +938,62 @@ fn a_public_top_level_insert_is_reported_with_its_place() {
     );
     let model = module(&dir, Path::new("/nowhere"));
     let mut places: Vec<_> = model
-        .inserts
+        .unexpanded
         .iter()
-        .map(|(file, line)| (file.file_name().unwrap().to_str().unwrap(), *line))
+        .map(|(file, line, _)| (file.file_name().unwrap().to_str().unwrap(), *line))
         .collect();
     places.sort_unstable();
     // The private one declares nothing a reader could use; the one in a branch is still public.
     assert_eq!(places, [("module.jai", 5), ("more.jai", 3)]);
     let json = to_json(&model, &|_| None);
-    assert!(json.contains("\"inserts\":[{\"file\":"), "{json}");
+    assert!(json.contains("\"unexpanded\":[{\"file\":"), "{json}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn what_a_top_level_insert_declares_is_documented_as_generated() {
+    let dir = library(
+        "generated-items",
+        &[(
+            "module.jai",
+            "Local :: struct { n: int; }\n\n#insert #run make();\n\n#insert #run nothing();\n\n#insert #run broken();\n",
+        )],
+    );
+    let origin = dir.join("module.jai");
+    let model = module_expanding(&dir, Path::new("/nowhere"), &mut |_, line| {
+        match line {
+        3 => Ok("/// A point made by the generator.\nPoint :: struct { x: int; at: Local; }\n\n/// Moves it.\nmove :: (p: *Point) {}\n".to_owned()),
+        5 => Ok("\n".to_owned()),
+        _ => Err("make() needs a parameter".to_owned()),
+    }
+    });
+    let point = model.items.iter().find(|i| i.name == "Point").unwrap();
+    let moved = model.items.iter().find(|i| i.name == "move").unwrap();
+    let local = model.items.iter().find(|i| i.name == "Local").unwrap();
+    assert!(point.generated && moved.generated && !local.generated);
+    assert_eq!(point.docs, "A point made by the generator.");
+    assert_eq!(moved.overloads[0].docs, "Moves it.");
+    assert_eq!(point.members.len(), 2);
+    // Its place names the insert, which is where its source link leads.
+    let name = point.file.to_string_lossy().into_owned();
+    assert_eq!(generated_origin(&name), Some((origin.to_str().unwrap(), 3)));
+    assert!(generated_origin(&local.file.to_string_lossy()).is_none());
+    // Names of the file that holds the `#insert` resolve in what it generated.
+    let at = point.members[1]
+        .refs
+        .iter()
+        .find(|r| r.path == "Local")
+        .unwrap();
+    assert_eq!((&at.file, at.line), (&local.file, local.line));
+    // An empty expansion is silent; a failed one is reported with its reason.
+    assert_eq!(model.unexpanded.len(), 1);
+    assert_eq!(model.unexpanded[0].1, 7);
+    assert_eq!(model.unexpanded[0].2, "make() needs a parameter");
+    let json = to_json(&model, &|_| None);
+    assert!(json.contains("\"generated\":true"), "{json}");
+    assert!(
+        json.contains("\"reason\":\"make() needs a parameter\""),
+        "{json}"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }

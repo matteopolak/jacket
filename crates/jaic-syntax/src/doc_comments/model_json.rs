@@ -83,7 +83,7 @@ fn item_json(
         })
         .collect();
     let written = format!(
-        "{}{}{}",
+        "{}{}{}{}",
         if item.declaration.is_empty() {
             String::new()
         } else {
@@ -92,6 +92,11 @@ fn item_json(
         refs_named("decl_refs", &item.decl_refs),
         if item.private {
             ",\"private\":true"
+        } else {
+            ""
+        },
+        if item.generated {
+            ",\"generated\":true"
         } else {
             ""
         }
@@ -187,7 +192,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
         .map(|item| item_json(item, !item.private, &md_at))
         .collect();
     format!(
-        "{{\"file\":{},\"implicit\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n],\"unresolved\":[{}],\"inserts\":[{}]}}\n",
+        "{{\"file\":{},\"implicit\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n],\"unresolved\":[{}],\"unexpanded\":[{}]}}\n",
         path(&model.file),
         model.implicit,
         json(&md_at(
@@ -220,9 +225,13 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
         items.join(",\n"),
         missed.borrow().join(","),
         model
-            .inserts
+            .unexpanded
             .iter()
-            .map(|(file, line)| format!("{{\"file\":{},\"line\":{line}}}", path(file)))
+            .map(|(file, line, reason)| format!(
+                "{{\"file\":{},\"line\":{line},\"reason\":{}}}",
+                path(file),
+                json(reason)
+            ))
             .collect::<Vec<_>>()
             .join(",")
     )

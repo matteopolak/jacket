@@ -53,6 +53,16 @@ impl<'a> Files<'a> {
             || file.starts_with(self.stdlib.join("internal"))
     }
 
+    /// Text the library's code generated, as a file named `path` that `origin` loads, so the
+    /// names `origin` can see resolve in it.
+    pub(super) fn add_generated(&mut self, path: &Path, text: Arc<str>, origin: &Path) {
+        self.texts.insert(path.to_path_buf(), Some(text));
+        self.loaders
+            .entry(path.to_path_buf())
+            .or_default()
+            .push(origin.to_path_buf());
+    }
+
     fn read(&mut self, file: &Path) -> Option<Arc<str>> {
         self.texts
             .entry(file.to_path_buf())
