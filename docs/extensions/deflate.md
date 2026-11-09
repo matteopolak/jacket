@@ -23,10 +23,10 @@ Results use `context.allocator` and belong to the caller. Errors are static stri
 - Deflate (`deflate.jai`, `huffman.jai`): hash chains over a 32 KiB window, lazy matching from level 4, per-level tuning in `settings_for`. Each block is written as the smallest of stored, fixed or dynamic Huffman. Inputs over 1 GiB are compressed in independent segments.
 - Checksums (`checksum.jai`): CRC-32 by slicing-by-8 over a compile-time table; Adler-32 in 32-byte groups.
 
-Inflate runs at roughly 2.5x stb's speed on text, with level 6 compressing text to 0.20 of its size (stb: 0.30). Run `bench/bench.jai` for numbers:
+Inflate runs at roughly 2.5x stb's speed on text, with level 6 compressing text to 0.20 of its size (stb: 0.30). Run `benches/bench.jai` for numbers:
 
 ```sh
-jaic -O2 stdlib/Extensions/Deflate/bench/bench.jai -exe /tmp/deflate-bench && /tmp/deflate-bench
+jacket bench --path stdlib/Extensions/Deflate
 ```
 
 ## How to change it
@@ -56,3 +56,5 @@ arbitrary-chunk streaming decoder. It shares the ordinary encoder/block decoder,
 so changes belong in `compress_blocks`, `inflate_blocks` and `module.jai`, with
 `tests/sync.jai` covering history, boundaries and output limits. No new dependency
 or global configuration is needed.
+
+`deflate_benches` emits one procedure per generated input and operation. Extend that matrix for new workloads; decompression cases prepare compressed input and scratch storage before `reset_timer`. Both native stb reference operations are separate cases.
