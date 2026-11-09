@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 mod cli;
 
+use jaic::diagnostics::Code;
+use jaic::render::Report;
 use jailint::config::{Category, Config, Level};
 use jailint::render::render;
 use jailint::{Lint, RULES, RuleInfo};
@@ -236,19 +238,25 @@ fn run() -> Result<ExitCode, String> {
     drop(out);
     // Under --allow-incomplete these are expected (other targets' modules, files only their
     // module loads), so one count stands in for the list unless -v asks for it.
+    // They are diagnostics like the findings, in the style of standard error.
+    let incomplete = |message: String| Report::new(Code::LintIncomplete, message);
     if allow_incomplete && !args.verbose {
         if !outcome.incomplete.is_empty() {
-            eprintln!(
-                "jailint: {} did not compile completely on this target; bodies that failed were not linted (-v lists them)",
+            let report = incomplete(format!(
+                "{} did not compile completely on this target; bodies that failed were not linted",
                 count(outcome.incomplete.len(), "program"),
-            );
+            ))
+            .help("-v lists them");
+            eprint!("{}", report.render());
         }
     } else {
         for (root, error) in &outcome.incomplete {
-            eprintln!(
-                "jailint: {} did not compile completely; bodies that failed were not linted\n  {error}",
+            let report = incomplete(format!(
+                "{} did not compile completely; bodies that failed were not linted",
                 shown(&root.to_string_lossy())
-            );
+            ))
+            .note(error.clone());
+            eprint!("{}", report.render());
         }
     }
     if args.fix {

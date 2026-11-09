@@ -248,13 +248,21 @@ fn a_program_that_does_not_compile_fails_the_run_unless_incomplete_is_allowed() 
     )
     .unwrap();
     let (err, code) = jailint(&dir, &["-D", "warnings", "broken.jai"]);
-    assert!(err.contains("did not compile completely"), "{err}");
+    // A diagnostic of its own, like the findings and the errors.
+    assert!(
+        err.contains("warning[lint-incomplete]: broken.jai did not compile completely"),
+        "{err}"
+    );
     assert_eq!(code, Some(1), "{err}");
     let (err, code) = jailint(
         &dir,
         &["-D", "warnings", "--allow-incomplete", "broken.jai"],
     );
-    assert!(err.contains("did not compile completely"), "{err}");
+    assert!(
+        err.contains("warning[lint-incomplete]: 1 program did not compile completely"),
+        "{err}"
+    );
+    assert!(err.contains("help: -v lists them"), "{err}");
     assert_eq!(code, Some(0), "{err}");
 }
 

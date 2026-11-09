@@ -266,6 +266,8 @@ catalog! {
             "the process hit the memory limit set for it";
         LintFinding = "lint-finding", Warning,
             "a finding of a `jailint` rule; the rule's own name is shown in place of this code";
+        LintIncomplete = "lint-incomplete", Warning,
+            "a program `jailint` could not compile completely, so the bodies that failed were not linted";
         InternalError = "internal-error", Error,
             "a bug in the compiler itself";
     }

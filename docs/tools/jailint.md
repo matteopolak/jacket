@@ -16,7 +16,7 @@ jacket lint --list                # rules and default levels
 - `--compile-time-budget <steps>` and `--check-time-limit <seconds>` cap compile-time code per program. They are command-line only, so a project cannot raise them.
 - `-os`, `-cpu`, `-target` pick the system to lint for.
 
-Exit status: 0 clean, 1 a denied finding or a program that did not compile fully (`--allow-incomplete` skips that), 2 usage or configuration error.
+Exit status: 0 clean, 1 a denied finding or a program that did not compile fully (`--allow-incomplete` skips that; each is reported on standard error as `warning[lint-incomplete]`, one line for all of them with `--allow-incomplete` unless `-v` lists them), 2 usage or configuration error.
 
 ## How it works
 
