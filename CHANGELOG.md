@@ -21,6 +21,7 @@
 
 ### Improved
 
+- Native builds on Linux give each `module.jai` its own debug line entry, so `jacket test --coverage` counts the lines of modules whose code is in `module.jai` (`Uuid` and `Vt` read 0%), and debuggers show the right file for them.
 - Fix previews show only the lines a fix changes.
 - Fewer false lifetime findings on members of freed structs, cast struct pointers and fields stored in other blocks.
 - `Postgres` `fetch_all` and `copy_in`, `Variant` `==` and `free_variant`, and enum names in `Protobuf` JSON run code written for each type when the program compiles, not a walk over type information per value. `Variant ==` is about 5 times faster on structs and `copy_in` allocates far less. A struct with an unnamed member that owns strings, arrays or pointers is now a compile error in `fetch_all`, `copy_in` and `Variant`'s `free_variant` and `==`.

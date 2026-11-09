@@ -23,7 +23,7 @@ use inkwell::values::{AsValueRef, BasicValueEnum, FunctionValue, GlobalValue, Po
 use jaic::fxhash::HashMap;
 use jaic::ir::{DebugGlobal, DebugTypeKind, Func, Inst, Program, Term, Val};
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 type Md = LLVMMetadataRef;
 
@@ -589,7 +589,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
             .flatten()
             .find(|f| f.name == "main")
             .map_or(0, |f| f.source_file);
-        this.cu_file = this.file(main_file);
+        this.cu_file = this.unit_file(main_file);
         raw::compile_unit(builder, this.cu_file, optimized);
         this.subroutine_type = raw::subroutine_type(builder, this.cu_file);
         this
@@ -598,6 +598,28 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
     /// Resolve forward references; must run before the module is verified or emitted.
     pub fn finalize(&self) {
         raw::finalize(self.builder);
+    }
+
+    /// The path of source file `id` as an absolute path.
+    fn absolute_path(&self, id: u32) -> PathBuf {
+        let path = self
+            .program
+            .file_paths
+            .get(id as usize)
+            .map_or("<unknown>.jai", |p| p.as_str());
+        std::path::absolute(path).unwrap_or_else(|_| Path::new(path).to_path_buf())
+    }
+
+    /// The file of the compile unit, named by its whole path. DWARF 5 puts it in line table entry
+    /// 0, and LLVM folds every later file with the same name into that entry whatever its folder:
+    /// the lines of each `module.jai` would read as the main file's. A name no other file has
+    /// keeps them apart.
+    fn unit_file(&self, id: u32) -> Md {
+        let absolute = self.absolute_path(id);
+        let dir = absolute
+            .parent()
+            .map_or_else(String::new, |d| d.to_string_lossy().into_owned());
+        raw::file(self.builder, &absolute.to_string_lossy(), &dir)
     }
 
     fn file(&self, id: u32) -> Md {
@@ -609,7 +631,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
             .file_paths
             .get(id as usize)
             .map_or("<unknown>.jai", |p| p.as_str());
-        let absolute = std::path::absolute(path).unwrap_or_else(|_| Path::new(path).to_path_buf());
+        let absolute = self.absolute_path(id);
         let name = absolute
             .file_name()
             .map_or_else(|| path.to_string(), |n| n.to_string_lossy().into_owned());

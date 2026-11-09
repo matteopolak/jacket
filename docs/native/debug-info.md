@@ -34,6 +34,7 @@ $ lldb --batch -o 'b helper.jai:23' -o run -o bt -o 'frame variable' ./prog
 ## Configuration
 
 - Off with `-no_debug_info` or `options.emit_debug_info = .NONE` in a metaprogram.
+- The compile unit's file is named by its whole path. DWARF 5 (not Apple) keeps that file as line table entry 0 and LLVM folds every later file with the same name into it, so without a unique name the lines of every `module.jai` would read as the main file's and a coverage run would count none of them.
 - DWARF 4 on Apple, 5 elsewhere. The compile unit language is C99, so lldb expressions use C syntax (`p xs.data[1]`).
 - `JAIC_DSYM=1`.
 

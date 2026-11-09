@@ -191,6 +191,48 @@ fn dwarf_is_valid_with_split_codegen() {
     assert_eq!(info.matches("DW_TAG_compile_unit").count(), 3, "{info}");
 }
 
+/// Files with the same name in different folders each get a line table entry of their own, also
+/// when one of them is the file of `main`: DWARF 5 on ELF folds a file named like the compile
+/// unit's into entry 0, and the lines of every `module.jai` would read as the main file's.
+#[test]
+fn files_named_like_the_main_file_keep_their_own_line_table_entry() {
+    let Some(tool) = dwarfdump() else {
+        eprintln!("skipped: llvm-dwarfdump not found");
+        return;
+    };
+    let dir = TempDir::new("debug-info-same-name");
+    std::fs::create_dir_all(dir.join("lib")).unwrap();
+    std::fs::write(
+        dir.join("module.jai"),
+        "#load \"lib/module.jai\";\nmain :: () { x := helper(2); if x != 4 { x = 0; } }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("lib/module.jai"),
+        "helper :: (n: s64) -> s64 {\n    return n * 2;\n}\n",
+    )
+    .unwrap();
+    let exe = dir.join("prog");
+    let out = jaic()
+        .arg(dir.join("module.jai"))
+        .arg("-exe")
+        .arg(&exe)
+        .env("JAIC_DSYM", "1")
+        .current_dir(&*dir)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "build failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let (_, lines) = run_dwarfdump(&tool, &["--debug-line"], &debug_file(&exe));
+    let in_lib = lines.lines().any(|l| {
+        l.trim_start().starts_with("include_directories[") && l.trim_end().ends_with("/lib\"")
+    });
+    assert!(in_lib, "lib/module.jai has no entry in:\n{lines}");
+}
+
 #[test]
 fn no_debug_info_flag_omits_it() {
     let (_dir, exe) = build("debug-info-off", "prog", &["-no_debug_info"], None, true);
