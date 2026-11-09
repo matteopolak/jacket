@@ -8,6 +8,8 @@
 
 - `Extensions/Grpc` adds clients and servers over HTTP/2, with generated Protobuf service types.
 
+- A new hand-drawn logo and icon for the docs site, the VS Code extension and `.jai` files. The docs site takes its accent from the logo. `jacket doc` takes `[doc] icon` (or `--icon`) for a browser-tab icon that differs from the logo, and reads `oklch()` category colours.
+
 ### Fixed
 
 - ICO creation from image filenames works on WASI, and transparent icons render correctly on Windows.

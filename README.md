@@ -1,8 +1,18 @@
-# Jacket
-
-A compiler, standard library, language server, formatter and linter for the [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) programming language. It builds for macOS, Linux, Windows and WebAssembly.
-
-**[API docs](https://jacket.matteopolak.com)** · **[Guides and reference](docs/README.md)** · [Playground](https://matteopolak.com/playground/jacket) · [Changelog](CHANGELOG.md)
+<div align="center">
+  <img src="docs/images/logo.svg" alt="" width="128" height="128">
+  <h1>Jacket</h1>
+  <p>A compiler, standard library, language server, formatter and linter for the <a href="https://en.wikipedia.org/wiki/Jai_(programming_language)">Jai</a> programming language.<br>It builds for macOS, Linux, Windows and WebAssembly.</p>
+  <p>
+    <a href="https://github.com/matteopolak/jacket/actions/workflows/ci.yml"><img src="https://github.com/matteopolak/jacket/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://github.com/matteopolak/jacket/releases/latest"><img src="https://img.shields.io/github/v/release/matteopolak/jacket?color=d8a03f" alt="Latest release"></a>
+  </p>
+  <p>
+    <a href="https://jacket.matteopolak.com"><b>API docs</b></a> ·
+    <a href="docs/README.md"><b>Guides and reference</b></a> ·
+    <a href="https://matteopolak.com/playground/jacket">Playground</a> ·
+    <a href="CHANGELOG.md">Changelog</a>
+  </p>
+</div>
 
 > [!NOTE]
 > Jacket is unofficial and is not affiliated with or endorsed by Thekla, Inc. or the official Jai project.
