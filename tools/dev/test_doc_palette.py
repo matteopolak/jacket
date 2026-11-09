@@ -58,10 +58,11 @@ class PaletteTests(unittest.TestCase):
                     self.assertGreaterEqual(ratio, required, f"{ratio:.3f}:1 needs {required}:1")
 
     def test_translucent_header(self):
-        glasses = re.findall(r"--glass: rgba\((\d+), (\d+), (\d+), ([\d.]+)\)", CSS.read_text())
+        glasses = re.findall(r"--glass: rgb\((\d+) (\d+) (\d+) / (\d+)%\)", CSS.read_text())
         self.assertEqual(glasses[1], glasses[2])
         for dark in (0, 1):
-            r, g, b, alpha = map(float, glasses[dark])
+            r, g, b, percent = map(float, glasses[dark])
+            alpha = percent / 100
             # Worst underlying content: black in light mode, white in dark mode.
             background = mix((r, g, b), (255 if dark else 0,) * 3, alpha)
             for token in ("fg", "fg2", "muted", "link"):
