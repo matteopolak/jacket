@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fetch the vte parser expectations used by Extensions/Vt/tests/conformance.jai.
 
-PYTHONPATH=tools XDG_CACHE_HOME=/Volumes/LodestoneScratch/codex/vt-cache python3 tools/vt_conformance/fetch.py
+PYTHONPATH=tools python3 tools/vt_conformance/fetch.py
 """
 from toolkit.download import pinned
 

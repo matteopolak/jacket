@@ -87,18 +87,12 @@ exercise cancellation, malformed headers, all states, numeric saturation, invali
 random byte chunking and zero allocations with a counting allocator.
 
 ```sh
-export PATH="$TOOLCHAIN/bin:$PATH" JAIC_STDLIB="$PWD/stdlib"
-PYTHONPATH=tools XDG_CACHE_HOME=/Volumes/LodestoneScratch/codex/vt-cache \
-  python3 tools/vt_conformance/fetch.py
 jacket test --path stdlib/Extensions/Vt
-jacket test --path stdlib/Extensions/Vt --interp
 jacket test --path examples/term
-jacket test --path examples/term --interp
-jailint -D warnings stdlib/Extensions/Vt examples/term/vt
-jaifmt --check stdlib/Extensions/Vt examples/term/vt
+PYTHONPATH=tools python3 tools/vt_conformance/fetch.py   # only to re-derive the ported cases
 ```
 
-The fetcher uses `tools/toolkit/download.py` and verifies the source SHA-256 in an external cache.
+The fetcher uses `tools/toolkit/download.py` and verifies the source SHA-256.
 The compiled tests use the committed data port and need no network or downloaded source.
 
 ## Benchmark and dependencies
@@ -109,12 +103,9 @@ Python reference. Both parsers use a counting callback/listener without a screen
 text callbacks. Measure after builds finish. The reference script requires the `pyte` Python package.
 
 ```sh
-jaic -O2 stdlib/Extensions/Vt/bench/bench.jai \
-  -exe /Volumes/LodestoneScratch/codex/vt-cache/vt-bench
-/Volumes/LodestoneScratch/codex/vt-cache/vt-bench \
-  /Volumes/LodestoneScratch/codex/vt-cache/mixed.bin
-python3 stdlib/Extensions/Vt/bench/reference.py \
-  /Volumes/LodestoneScratch/codex/vt-cache/mixed.bin
+jaic -O2 stdlib/Extensions/Vt/bench/bench.jai -exe target/vt-bench
+target/vt-bench target/vt-mixed.bin
+python3 stdlib/Extensions/Vt/bench/reference.py target/vt-mixed.bin
 ```
 
 Unrestricted random-byte differential testing against pyte is not included: its stream exposes
