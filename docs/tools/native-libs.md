@@ -1,6 +1,6 @@
 # Third-party native libraries
 
-The stdlib binds libraries no system ships: stb, lz4, meshoptimizer, FreeType, Dear ImGui, MojoShader, mbedTLS, SDL3, xxHash and a few of our own. `tools/native/build_native_libs.py` builds them from pinned, hash-checked sources into `target/native-libs/<os>-<arch>/`. `jaic` searches that directory when resolving a library name, for foreign calls under `-interp` and when linking. Release archives ship the libraries for their platform with licences under `licenses/<source>/`.
+The stdlib binds libraries no system ships: stb, lz4, meshoptimizer, FreeType, Dear ImGui, MojoShader, mbedTLS, SDL3, xxHash and a few of our own. `tools/native/build_native_libs.py` builds them from pinned, hash-checked sources into `target/native-libs/<os>-<arch>/`. `jaic` searches that directory when resolving a library name, for foreign calls under `-interp` and when linking. Release archives ship the libraries for their platform with licences under `licenses/<source>/`. The stb libraries in `target/production-bindings/native` (`tools/native_bindings/build_dependencies.py`) use the same `code` strings from `native-libs.json`, so both directories export the same symbols, such as `jai_stbiw_free`.
 
 ```sh
 PYTHONPATH=tools python3 tools/native/build_native_libs.py                  # all

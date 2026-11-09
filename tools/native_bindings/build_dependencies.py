@@ -109,6 +109,21 @@ def prepare_source(name, source, vendor):
             raise RuntimeError('Native source hash mismatch: ' + str(path))
 
 
+def write_stb_units(objects):
+    """Write the stb_image, stb_image_resize and stb_image_write sources, returning them by library name.
+
+    The sources come from the shared native manifest, so every builder of these libraries exports the same
+    symbols (stb_image_write carries the `jai_stbiw_free` the Deflate oracle test links).
+    """
+    libraries = json.loads((ROOT / 'tools/native/native-libs.json').read_text())['libraries']
+    units = {}
+    for name in ('stb_image', 'stb_image_resize', 'stb_image_write'):
+        path = objects / (name + '.c')
+        path.write_text(libraries[name]['code'])
+        units[name] = [path]
+    return units
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / '.work/native')
@@ -162,14 +177,7 @@ def main():
     if platform.system() == 'Darwin':
         units['fsevents_context_probe'] = [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/fsevents_context_probe.c']
         units['objc_runtime_probe'] = [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/objc_runtime_probe.m']
-    macros = {'stb_image': 'STB_IMAGE_IMPLEMENTATION',
-              'stb_image_resize': 'STB_IMAGE_RESIZE_IMPLEMENTATION',
-              'stb_image_write': 'STB_IMAGE_WRITE_IMPLEMENTATION'}
-    for name, macro in macros.items():
-        header = ('deprecated/' if name == 'stb_image_resize' else '') + name + '.h'
-        path = objects / (name + '.c')
-        path.write_text('#define ' + macro + '\n#include "' + header + '"\n')
-        units[name] = [path]
+    units.update(write_stb_units(objects))
     units['stb_vorbis'] = [vendor/'stb/stb_vorbis.c']
     for name, sources in units.items():
         if name not in selected:
