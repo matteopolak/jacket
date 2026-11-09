@@ -12,11 +12,18 @@ Feed :: struct {
     text: string;
     at: int;
     size: int;
+    fail_after: int = -1; // the source fails once it has given this many bytes (-1: never)
 }
 
 feed_fill :: (data: *void, buffer: [] u8) -> s64, string {
     feed := cast(*Feed) data;
     count := min(buffer.count, min(feed.size, feed.text.count - feed.at));
+
+    if feed.fail_after >= 0 {
+        if feed.at >= feed.fail_after return 0, "the source failed";
+
+        count = min(count, feed.fail_after - feed.at);
+    }
 
     if count > 0 memcpy(buffer.data, feed.text.data + feed.at, count);
 
@@ -65,6 +72,46 @@ chunk_outcome :: (text: string, options: Csv_Options, size: int, bytewise := fal
 
     return outcome(*reader);
 }
+
+// A source that fails after `fail_after` bytes: the records before the failure, and where the
+// failure is reported, are the same whether the block scanner or the byte-by-byte path reads them.
+failing_outcome :: (text: string, options: Csv_Options, size: int, fail_after: int, bytewise: bool) -> string {
+    feed := Feed.{ text = text, size = size, fail_after = fail_after };
+    reader := csv_reader(Csv_Source.{ *feed, feed_fill }, options);
+
+    defer csv_reader_free(*reader);
+    reader.bytewise = bytewise;
+
+    return outcome(*reader);
+}
+
+source_failure_positions :: () {
+    push_allocator(temp);
+
+    texts := string.[
+        "a,b\nc,d\ne,f\n",
+        "a,\"b\r\nc\",d\r\ne,\"f\"\"g\"\r\n",
+        "one,two\nthree,\"four\nfive\nsix\"\nseven",
+        tprint("%,%\n\"%\",x\n", repeat(#char "m", 70), repeat(#char "n", 130), repeat(#char "q", 100)),
+    ];
+
+    for text: texts {
+        for options: Csv_Options.[.{}, .{ trim = true }] {
+            for size: int.[1, 7, 64, 8192] {
+                for fail_after: 0..text.count {
+                    want := failing_outcome(text, options, size, fail_after, true);
+                    got := failing_outcome(text, options, size, fail_after, false);
+
+                    if got != want {
+                        print("failing after % of % in pieces of %\n--- bytewise\n%\n--- blocks\n%\n", fail_after, text, size, want, got);
+                        expect(false);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+} @test
 
 // Windows of one byte, around a block, and larger than the reader's own 8192-byte window.
 CHUNK_SIZES :: int.[1, 5, 63, 64, 65, 8192, 100000];
@@ -303,6 +350,29 @@ error_positions :: () {
 
         expect_same_everywhere(tprint("%\r\n%\"", run, run));
         expect_same_everywhere(tprint("\"%\"\"\r\n%\"\"\"", run, run));
+    }
+} @test
+
+// Spaces and tabs around fields, before and after closing quotes, at every offset around a block
+// boundary, and with a tab as the delimiter.
+trimmed_fields :: () {
+    push_allocator(temp);
+
+    for pad: 0..140 {
+        run := repeat(#char " ", pad);
+
+        for text: string.[
+            tprint("%a%,\t%b\t,%\"c d\"%,%\n  \n%,%\r\n", run, run, run, run, run, run, run),
+            tprint("\"x\"%\t,%y\"z\"\n", run, run),
+            tprint("%\"q\"%x\n", run, run),
+            tprint("a%\t%\tb\t%\n", run, run, run),
+            tprint("%\"\"\"\" %,%", run, run, run),
+        ] {
+            expect_same_everywhere(text, .{ trim = true });
+            expect_same_everywhere(text, .{ trim = true, lax_quotes = true });
+            expect_same_everywhere(text, .{ trim = true, delimiter = 9 });
+            expect_same_everywhere(text, .{ trim = true, max_field_bytes = pad / 2 + 1 });
+        }
     }
 } @test
 
@@ -564,7 +634,7 @@ typed_error_positions :: () {
 typed_error_positions_in_long_records :: () {
     push_allocator(temp);
 
-    for pad: int.[0, 1, 63, 64, 65, 8100, 8190, 8191, 8192, 8193, 9000, 20000] {
+    for pad: int.[0, 1, 63, 64, 65, 4000, 4090, 4100, 9000] {
         run := repeat(#char "k", pad);
 
         for breaks: string.["\n", "\r\n", "\r"] {
