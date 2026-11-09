@@ -129,8 +129,7 @@ json_case :: (b: *Bench, input: int, mode: int, encode: bool, $T: Type) {
     if input == 0 text = generate(4);
     else if input == 1 text = generate_floats(2);
     else {
-        base := environment_variable("JACKET_OUTPUT_DIR");
-        if !base.count base = tprint("%../../../../target", #filepath);
+        base := output_directory();
 
         name := string.["twitter.json", "canada.json", "citm_catalog.json"][input - 2];
         ok: bool;

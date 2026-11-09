@@ -34,9 +34,7 @@ codepoints :: (field: string) -> string {
 }
 
 suite :: (name: string) -> string {
-    // tools/repo_output.py: the repo's target/ unless JACKET_OUTPUT_DIR relocates it.
-    base := environment_variable("JACKET_OUTPUT_DIR");
-    if !base.count base = tprint("%../../../../target", #filepath);
+    base := output_directory();
 
     text, ok := read_entire_file(tprint("%/unicode-text-conformance/%", base, name));
 

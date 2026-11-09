@@ -8,10 +8,10 @@
 
 // Every csv-spectrum case. location_coordinates expects one object rather than an array of them.
 spectrum :: () {
-    base := environment_variable("JACKET_OUTPUT_DIR");
-    if !base.count base = tprint("%../../../../target", #filepath);
+    base := output_directory();
 
     cases := string.["comma_in_quotes", "empty", "empty_crlf", "escaped_quotes", "json", "location_coordinates", "newlines", "newlines_crlf", "quotes_and_newlines", "simple", "simple_crlf", "utf8"];
+
     for name: cases {
         data, found := read_entire_file(tprint("%/csv-conformance/csvs/%.csv", base, name));
 

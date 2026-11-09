@@ -7,8 +7,7 @@
 #import "Extensions/Environment";
 
 archive_case :: (b: *Bench, name: string, format: Archive_Format, extracting: bool) {
-    base := environment_variable("JACKET_OUTPUT_DIR");
-    if !base.count base = tprint("%../../../../target", #filepath);
+    base := output_directory();
 
     bytes, ok := read_entire_file(tprint("%/archive-bench/%", base, name));
 

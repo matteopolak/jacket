@@ -30,8 +30,7 @@
     }
 
     concurrent_zone_cache :: () {
-        root := Cache_Env.environment_variable("JACKET_OUTPUT_DIR");
-        if root.count == 0 root = tprint("%../../../../target", #filepath);
+        root := Cache_Env.output_directory();
 
         input := Cache_Input.{ tprint("%/time-conformance/zoneinfo", root) };
         threads: [4] Cache_Thread.Thread;

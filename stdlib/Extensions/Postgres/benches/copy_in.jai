@@ -44,9 +44,7 @@ copy_in_rows :: (b: *Bench) {
             config.database = "postgres";
             config.ssl_mode = .DISABLE;
         } else {
-            base := environment_variable("JACKET_OUTPUT_DIR");
-
-            if !base.count base = tprint("%../../../../target", #filepath);
+            base := output_directory();
 
             managed: Copy_Pg.Managed_Settings;
             managed.cache_dir = tprint("%/postgres-cache", base);

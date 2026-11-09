@@ -10,8 +10,7 @@
 
     #scope_export
     sample_assets :: () {
-        base := environment_variable("JACKET_OUTPUT_DIR");
-        if !base.count base = tprint("%../../../../target", #filepath);
+        base := output_directory();
 
         root := tprint("%/gltf-conformance/samples/Models", base);
 
@@ -74,8 +73,7 @@
 
     #scope_export
     validator_invalid_samples :: () {
-        base := environment_variable("JACKET_OUTPUT_DIR");
-        if !base.count base = tprint("%../../../../target", #filepath);
+        base := output_directory();
 
         // Extension semantics and their extension-specific validator fixtures are not checked.
         root := tprint("%/gltf-conformance/validator/test/base/data", base);

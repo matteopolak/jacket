@@ -132,8 +132,7 @@ encode_cjpeg :: (pixels: [] u8, width: s32, height: s32, channels: s32, director
 }
 
 jpeg_case :: (b: *Bench, width: s32, height: s32, variant: int, stb: bool) {
-    base := environment_variable("JACKET_OUTPUT_DIR");
-    if !base.count base = tprint("%../../../../target", #filepath);
+    base := output_directory();
 
     make_directory_if_it_does_not_exist(base);
     directory := tprint("%/jpeg-bench", base);

@@ -46,8 +46,7 @@
     } @test
 
     remaining_validator_regressions :: () {
-        base := environment_variable("JACKET_OUTPUT_DIR");
-        if !base.count base = tprint("%../../../../target", #filepath);
+        base := output_directory();
 
         root := tprint("%/gltf-conformance/validator/test/base/data", base);
 

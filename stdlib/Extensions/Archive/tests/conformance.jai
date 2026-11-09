@@ -100,9 +100,7 @@
     ];
 
     conformance :: (t: *Test) {
-        // tools/repo_output.py: the repo's target/ unless JACKET_OUTPUT_DIR relocates it.
-        base := environment_variable("JACKET_OUTPUT_DIR");
-        if !base.count base = tprint("%../../../../target", #filepath);
+        base := output_directory();
 
         root := tprint("%/archive-conformance", base);
 

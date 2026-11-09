@@ -35,8 +35,7 @@ reader :: (job: File_Read) {
 file_ready: bool;
 
 file_case :: (b: *Bench, size: int, fibers: int, inline_reads: bool) {
-    base := environment_variable("JACKET_OUTPUT_DIR");
-    if !base.count base = tprint("%../../../../target", #filepath);
+    base := output_directory();
 
     make_directory_if_it_does_not_exist(base);
     path := tprint("%/io-bench.bin", base);

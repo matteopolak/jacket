@@ -18,8 +18,7 @@ vector_number :: (data: string, cursor: *s64, width: s64) -> s64 {
 }
 
 time_conformance :: () {
-    root := Environment_Time.environment_variable("JACKET_OUTPUT_DIR");
-    if root.count == 0 root = tprint("%../../../../target", #filepath);
+    root := Environment_Time.output_directory();
 
     data, ok := Files_Time.read_entire_file(tprint("%/time-conformance/vectors.bin", root));
 

@@ -62,8 +62,7 @@ zoned_iso :: () {
 ZEnv :: #import "Extensions/Environment";
 
 zoned_historical_days :: () {
-    root := ZEnv.environment_variable("JACKET_OUTPUT_DIR");
-    if root.count == 0 root = tprint("%../../../../target", #filepath);
+    root := ZEnv.output_directory();
 
     for name: string.["America/Sao_Paulo", "Asia/Gaza", "Pacific/Apia"] {
         zone, e := ZT.time_zone_get(name, directory = tprint("%/time-conformance/zoneinfo", root));

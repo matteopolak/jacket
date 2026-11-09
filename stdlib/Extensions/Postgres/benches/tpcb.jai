@@ -20,9 +20,7 @@ run_tpcb :: (b: *Bench, prepared: bool) {
 
     Io.io_run((state: *Pg_Bench) {
         b := state.b;
-        base := environment_variable("JACKET_OUTPUT_DIR");
-
-        if !base.count base = tprint("%../../../../target", #filepath);
+        base := output_directory();
 
         managed: Pg.Managed_Settings;
         managed.cache_dir = tprint("%/postgres-cache", base);
