@@ -12,7 +12,7 @@
 - `jailint`'s lifetime checks infer more from bodies: a callee that releases an argument's contents, keeps one parameter in another's field, or stores a stack address, string or slice where it outlives the call. Findings point at the allocation behind the pointer.
 - Foreign procedures say they release, exit or write output with notes, which `jailint` reads instead of matching names. Generated bindings turn header documentation into Markdown doc comments.
 - A new hand-drawn logo and icon for the docs site, the VS Code extension and `.jai` files. The docs site takes its accent from the logo. `jacket doc` takes `[doc] icon` (or `--icon`) for a browser-tab icon that differs from the logo, and reads `oklch()` category colours.
-- `jacket doc` publishes the files in `[doc] files` at the site root. Search opens in a dialog with icons per kind, phones get a module sheet, and lint rule pages show each example with its finding and fix.
+- `jacket doc` publishes the files in `[doc] files` at the site root. Search opens in a dialog with an icon for each kind of result, on phones the module list slides up from a header button, and lint rule pages show each example with its finding and fix.
 - The language server reports indexing progress and registers file watchers with clients that allow it.
 - The stdlib benchmarks run with `jacket bench`.
 
