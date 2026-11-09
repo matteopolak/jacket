@@ -275,13 +275,10 @@ write_json :: (builder: *String_Builder, value: $T, pretty := false) {
 // `buffer` and returns how many bytes it wrote (0 at the end), and a non-empty string when the
 // source failed (what went wrong). `data` is handed to it as it is. Json does not know what the
 // pieces come from; `Io.read_json` makes one from an `Io.Reader`.
-Json_Fill :: #type (data: *void, buffer: [] u8) -> s64, string;
+Json_Fill :: Pieces.Byte_Fill;
 
-// A document that arrives in pieces; see [Json_Fill].
-Json_Source :: struct {
-    data: *void;
-    fill: Json_Fill;
-}
+// A document that arrives in pieces; see [Json_Fill]. `Csv_Source` is the same type.
+Json_Source :: Pieces.Byte_Source;
 
 // Decodes a `T` from a source in pieces. The pieces are gathered in one buffer (the decoder wants
 // the whole document, and its strings are copied out of it, so the buffer is freed before this
@@ -547,3 +544,4 @@ simd_enabled :: inline () -> bool {
 #import "Compiler";
 #import "Hash_Table";
 #import "Extensions/SIMD";
+Pieces :: #import "internal/byte-source";

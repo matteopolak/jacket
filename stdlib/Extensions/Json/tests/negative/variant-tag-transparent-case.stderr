@@ -1,7 +1,7 @@
 ../../generate.jai:50:5: error[metaprogram-report]: Json: Wrapper: a `transparent` struct cannot be a case of a Variant tagged with `tag=kind`
         compiler_report(tprint("Json: %: %", where, message));
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-../../module.jai:523:13: note: while running compile-time code started here
+../../module.jai:520:13: note: while running compile-time code started here
         #insert -> string {
                 ^^^^^^^^^^^
 
