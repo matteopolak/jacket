@@ -138,6 +138,34 @@ nested_member_after_drop :: () {
     print("%\n", outer.inner.scroll);
 }
 
+Session :: struct {
+    socket: s32;
+    name: string;
+    buffer: *s32;
+    timer: s32;
+}
+
+reset_session :: (using session: *Session) {
+    free(buffer);
+    socket = 0;
+}
+
+// Reads only members that `reset_session` leaves alone.
+watch_session :: (session: *Session) {
+    if session.socket > 0 {
+        print("%\n", session.name);
+    }
+
+    session.timer = 4;
+}
+
+callee_reads_kept_members :: (session: *Session) {
+    if session.timer == 0 return;
+
+    reset_session(session);
+    watch_session(session);
+}
+
 main :: () {
     // A new value ends the freed one.
     node := New(Node);

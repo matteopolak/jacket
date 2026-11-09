@@ -87,6 +87,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
             | CfgOp::Resource(Op::Read {
                 cell,
                 span: at,
+                ..
             }) if index(*cell).is_some_and(|c| super::super::dead(cx, state[c]))
                 && !frees.iter().any(|&span| contains(span, *at)) =>
             {
@@ -293,6 +294,22 @@ fn keeps_use(
         && !matches!(op, CfgOp::Resource(Op::Read { .. }))
         && (suffix.trim_start().starts_with(".* =")
             || (!suffix.starts_with('.') && !suffix.starts_with('[')))
+    {
+        return true;
+    }
+    if let CfgOp::Resource(Op::Read {
+        members: Some(read),
+        ..
+    }) = op
+        && let Some(freed) = released_members(model, witnesses)
+        && !read.iter().any(|chain| {
+            freed.iter().any(|f| {
+                overlaps(
+                    &f.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                    &chain.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                )
+            })
+        })
     {
         return true;
     }

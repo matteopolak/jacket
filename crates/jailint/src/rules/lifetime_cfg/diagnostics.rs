@@ -29,6 +29,7 @@ pub(super) fn emit(
             | Op::Resource(super::resources::Op::Read {
                 cell: id,
                 span: at,
+                ..
             }) => (id, at),
             Op::ObserveValue(id, at) => (id, at),
             _ => continue,

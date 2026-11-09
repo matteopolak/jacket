@@ -125,6 +125,9 @@ pub(super) struct Summary {
     pub address_queries: HashSet<usize>,
     pub read_formals: HashSet<usize>,
     pub may_read_formals: HashSet<usize>,
+    /// For each parameter some read goes through, the member chains read (`[socket]` for
+    /// `p.socket`). A chain that is empty reads the whole pointee.
+    pub read_members: HashMap<usize, HashSet<Vec<jaic::intern::Sym>>>,
     pub unknown_write: HashSet<usize>,
     pub escapes: HashSet<usize>,
     pub normal_return: Option<bool>,

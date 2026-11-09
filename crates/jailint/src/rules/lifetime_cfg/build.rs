@@ -147,6 +147,7 @@ impl Builder<'_> {
                     Op::Resource(resources::Op::Read {
                         cell,
                         span: self.resources.member_read_span(*span),
+                        members: None,
                     }),
                 );
             }
@@ -509,6 +510,7 @@ impl Builder<'_> {
                 ops.push(Op::Resource(resources::Op::Read {
                     cell: self.cells.id(Cell::Value(v)),
                     span: arg.span,
+                    members: resolver.read_members(event, arg, &summaries.procs),
                 }));
             }
         }

@@ -41,6 +41,9 @@ pub(super) enum Op {
     Read {
         cell: usize,
         span: Span,
+        /// For a read made by a callee, the member chains it may read through the value; `None`
+        /// means the whole pointee (a read in this body, or a callee that can't be narrowed).
+        members: Option<Vec<Vec<jaic::intern::Sym>>>,
     },
     Seed {
         possible: bool,
