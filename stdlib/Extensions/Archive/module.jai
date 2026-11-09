@@ -1,73 +1,99 @@
-// Bounded ZIP and TAR containers. Metadata is owned; byte-view input must outlive the archive.
-// Example: a, e := read_archive(bytes, .ZIP); defer free_archive(*a);
+// Reads and writes ZIP and TAR archives within explicit size limits. Entry metadata is owned by the
+// [Archive]; payloads are read on demand. Input bytes (or a source) must outlive the archive.
+//
+// ```jai
+// #import "Extensions/Archive";
+//
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "hi" }];
+// bytes, error := encode_archive(items, .ZIP);
+// assert(error.kind == .NONE);
+// defer free(bytes.data);
+//
+// a, e := read_archive(bytes, .ZIP);
+// assert(e.kind == .NONE);
+// defer free_archive(*a);
+// assert(a.entries.count == 1 && a.entries[0].name == "a.txt");
+// ```
+
+// The container format of an archive.
 Archive_Format :: enum {
     ZIP;
     TAR;
-    TAR_GZIP;
+    TAR_GZIP; // a TAR stream compressed with gzip
 }
 
+// What an entry is.
 Archive_Kind :: enum {
     FILE;
     DIRECTORY;
     SYMLINK;
     HARDLINK;
-    OTHER;
+    OTHER; // a device, FIFO or other special record; readable, never written or extracted
 }
 
+// How a ZIP entry's payload is stored.
 Archive_Method :: enum u16 {
     STORED = 0;
     DEFLATE = 8;
 }
 
+// Why an archive operation failed.
 Archive_Error_Kind :: enum {
     NONE;
-    INVALID;
-    UNSUPPORTED;
-    LIMIT;
-    CHECKSUM;
-    PATH;
-    DUPLICATE;
-    IO;
+    INVALID; // malformed or inconsistent structure
+    UNSUPPORTED; // a valid feature this module does not handle
+    LIMIT; // an [Archive_Limits] bound was exceeded
+    CHECKSUM; // size or CRC mismatch
+    PATH; // an unsafe path while extracting
+    DUPLICATE; // the same name twice while extracting
+    IO; // a source, writer or file operation failed
 }
 
+// The outcome of an operation; `kind` is `.NONE` on success. Release `entry` with [free_archive].
 Archive_Error :: struct {
     kind: Archive_Error_Kind;
     message: string; // static
-    offset: s64;
+    offset: s64; // byte position in the archive where it went wrong, when known
     entry: string; // owned; free_archive releases it
 }
 
+// Bounds applied while indexing, reading, writing and extracting, to contain hostile input.
+// A negative value (or a `max_ratio` of 0 or less) makes the operation fail with `.INVALID`.
 Archive_Limits :: struct {
-    max_archive: s64 = 1 << 30;
-    max_metadata: s64 = 16 << 20;
+    max_archive: s64 = 1 << 30; // archive size in bytes
+    max_metadata: s64 = 16 << 20; // total bytes of names, links and headers
     max_entries: s64 = 100000;
-    max_entry: s64 = 256 << 20;
-    max_total: s64 = 1 << 30;
-    max_ratio: s64 = 1000;
+    max_entry: s64 = 256 << 20; // uncompressed size of one entry
+    max_total: s64 = 1 << 30; // uncompressed size of all entries
+    max_ratio: s64 = 1000; // largest uncompressed-to-stored size ratio of an entry
 }
 
-// A read-at callback may return short reads. Its source must stay alive and unchanged.
+// A seekable byte source for [read_archive]. A read-at callback may return short reads. Its source
+// must stay alive and unchanged.
 Archive_Source :: struct {
-    data: *void;
-    size: s64;
+    data: *void; // passed back to `read_at`
+    size: s64; // total bytes available
     read_at: (data: *void, offset: s64, buffer: [] u8) -> s64, string;
 }
 
+// One indexed archive entry. The strings are owned by the [Archive] that holds the entry.
 Archive_Entry :: struct {
     name: string;
-    link: string;
+    link: string; // the target of a symlink or hardlink
     kind: Archive_Kind;
-    size: s64;
-    compressed_size: s64;
-    mtime: float64;
+    size: s64; // uncompressed size
+    compressed_size: s64; // stored size
+    mtime: float64; // seconds since the Unix epoch
     method: Archive_Method;
-    crc: u32;
-    offset: s64;
-    record_start: s64;
+    crc: u32; // CRC-32 of the uncompressed bytes (ZIP)
+    offset: s64; // where the payload starts in the archive
+    record_start: s64; // where the entry's whole record starts
     record_end: s64;
     zip: bool;
 }
 
+// An open archive: the entry index plus what is needed to read payloads. Release it with
+// [free_archive].
 Archive :: struct {
     entries: [..] Archive_Entry;
     limits: Archive_Limits;
@@ -80,18 +106,22 @@ Archive :: struct {
     total: s64;
 }
 
+// The bytes of one entry from [read_entry]. When `owned` they were allocated and [free_archive]
+// releases them; otherwise they borrow the archive's input.
 Archive_Data :: struct {
     bytes: [] u8;
     owned: bool;
 }
 
+// An entry to write with [write_archive] or [encode_archive]. Nothing is copied: `name`, `data` and
+// `link` must stay valid until the call returns.
 Archive_Item :: struct {
     name: string;
     data: [] u8;
     kind: Archive_Kind;
-    link: string;
-    mtime: s64;
-    method: Archive_Method;
+    link: string; // the target of a symlink or hardlink (TAR only)
+    mtime: s64; // seconds since the Unix epoch
+    method: Archive_Method; // ZIP only
 }
 
 // Reads an index without copying stored payloads. Example: a, e := read_archive(bytes, .TAR);
