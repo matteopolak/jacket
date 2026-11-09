@@ -157,3 +157,24 @@ fn each_workspace_folder_keeps_its_own_entries() {
         assert_eq!(errors.is_empty(), clean, "{}: {errors:?}", folder.display());
     }
 }
+
+/// The warning about a `#load`ed file that nothing can read depends on the disk, so creating
+/// or deleting the file must leave the same diagnostics a fresh session gives.
+#[test]
+fn a_loaded_file_created_or_deleted_gives_what_a_fresh_session_gives() {
+    let main = "#import \"Basic\";\n#load \"gone.jai\";\nmain :: () {}\n";
+    let dir = project(
+        "load-warning",
+        &[("main.jai", main), ("gone.jai", "gone :: () {}\n")],
+    );
+    let (mut s, uri, _) = open_file(&dir, "main.jai");
+    let fresh = |dir: &std::path::Path| {
+        let (s, uri, _) = open_file(dir, "main.jai");
+        s.diagnostics(&uri).unwrap()
+    };
+    assert_eq!(s.diagnostics(&uri).unwrap(), fresh(&dir));
+    remove(&mut s, &dir.join("gone.jai"));
+    assert_eq!(s.diagnostics(&uri).unwrap(), fresh(&dir));
+    rewrite(&mut s, &dir.join("gone.jai"), "gone :: () {}\n");
+    assert_eq!(s.diagnostics(&uri).unwrap(), fresh(&dir));
+}

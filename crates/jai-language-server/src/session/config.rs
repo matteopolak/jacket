@@ -264,6 +264,11 @@ impl Session {
         } else {
             index.changed(path);
         }
+        drop(index);
+        // The warning about a `#load`ed file nothing can read depends on whether the file exists.
+        if created_or_deleted && self.analyses.values().any(|a| !a.loads.is_empty()) {
+            self.rebuild();
+        }
     }
 
     /// A session that also type-checks the open documents against `environment`'s modules.
