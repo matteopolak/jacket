@@ -107,7 +107,6 @@ call-type-cannot-operand
 call-unequal-array-lengths
 call-unknown-polymorphic-struct
 call-variadic-parameter-already
-caller-code
 cannot-bit-complement
 cannot-infer-type-2
 cannot-negate
