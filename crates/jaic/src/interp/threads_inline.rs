@@ -321,13 +321,10 @@ impl Interp {
     /// Merely allocating a callback gate does not start a thread. Dependency
     /// service may retain the main call only while no other managed stack lives.
     pub(super) fn compiler_threads_idle(&self) -> bool {
-        let inline_idle = self.isched.as_ref().is_none_or(|scheduler| {
-            scheduler
-                .threads
-                .iter()
-                .skip(1)
-                .all(|thread| thread.state == State::Finished)
-        });
+        let inline_idle = self
+            .isched
+            .as_ref()
+            .is_none_or(|scheduler| scheduler.live.iter().all(|&t| t == 0));
         #[cfg(not(target_arch = "wasm32"))]
         let native_idle = self.compiler_native_threads_idle();
         #[cfg(target_arch = "wasm32")]
