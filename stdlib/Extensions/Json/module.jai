@@ -641,3 +641,7 @@ simd_enabled :: inline () -> bool {
 #import "Hash_Table";
 #import "Extensions/SIMD";
 Pieces :: #import "internal/byte-source";
+
+#scope_export
+
+#load "tree.jai";

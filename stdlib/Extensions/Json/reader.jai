@@ -13,6 +13,12 @@ Path_Segment :: struct {
     is_key: bool;
 }
 
+// An array or object being read in a tree and how many of its children are consumed.
+Tree_Frame :: struct {
+    value: *Json_Value;
+    next: int;
+}
+
 #scope_export
 
 // Reads one JSON document. Every reading procedure returns false after recording an error in
@@ -50,6 +56,9 @@ Json_Reader :: struct {
     missing_default: bool;
     duplicate_last: bool;
     borrow: bool;
+    tree: bool; // reading a parsed `Json_Value` instead of text (see `from_json` on a value)
+    cur: *Json_Value; // in a tree, the value the next read consumes
+    frames: [..] Tree_Frame; // the arrays and objects being read in a tree, innermost last
 }
 
 // What [json_object_next] found: a key, the end of the object, or an error.
@@ -106,6 +115,79 @@ reader_free :: (r: *Json_Reader) {
     array_free(r.scratch);
     array_free(r.values);
     array_free(r.members);
+    array_free(r.frames);
+}
+
+// A reader over a parsed tree: the generated decoders read `value` as they read text, with the
+// same errors and paths. There is no text, so offsets are 0, lines and columns 1.
+reader_init_tree :: (r: *Json_Reader, value: *Json_Value, options: Json_Options) {
+    reader_init(r, "", options);
+    r.tree = true;
+    r.cur = value;
+}
+
+// The byte that text for the value being read would start with: 0 when there is none.
+tree_byte :: (r: *Json_Reader) -> u8 {
+    value := r.cur;
+
+    if !value return 0;
+
+    if value.kind == {
+        case .OBJECT; return #char "{";
+        case .ARRAY; return #char "[";
+        case .STRING; return #char "\"";
+        case .BOOL; return ifx value.boolean then cast(u8) #char "t" else cast(u8) #char "f";
+        case .NUMBER; return ifx value.text.count then value.text[0] else cast(u8) #char "0";
+        case .NULL; return #char "n";
+    }
+
+    return 0;
+}
+
+tree_object_next :: (r: *Json_Reader, first: *bool) -> string, Object_Status {
+    first.* = false;
+
+    frame := *r.frames[r.frames.count - 1];
+
+    if frame.next >= frame.value.members.count {
+        r.frames.count -= 1;
+        r.depth -= 1;
+
+        return "", .END;
+    }
+
+    member := *frame.value.members[frame.next];
+
+    frame.next += 1;
+    r.cur = *member.value;
+    r.key_start = 0;
+
+    return member.key, .KEY;
+}
+
+tree_array_next :: (r: *Json_Reader, first: *bool) -> Array_Status {
+    first.* = false;
+
+    frame := *r.frames[r.frames.count - 1];
+
+    if frame.next >= frame.value.items.count {
+        r.frames.count -= 1;
+        r.depth -= 1;
+
+        return .END;
+    }
+
+    r.cur = *frame.value.items[frame.next];
+    frame.next += 1;
+
+    return .ITEM;
+}
+
+// Steps into the object or array being read.
+tree_enter :: (r: *Json_Reader) -> bool {
+    array_add(*r.frames, .{ r.cur, 0 });
+
+    return enter_nesting(r);
 }
 
 #scope_export
@@ -237,6 +319,8 @@ value_name :: (c: u8) -> string {
 
 // A syntax error: the next byte is not what the grammar allows.
 unexpected :: (r: *Json_Reader, expected: string) -> bool {
+    if r.tree return json_fail(r, .SYNTAX, tprint("unexpected value, expected %", expected));
+
     if r.pos >= r.text.count return json_fail(r, .SYNTAX, tprint("unexpected end of input, expected %", expected));
 
     return json_fail(r, .SYNTAX, tprint("unexpected %, expected %", describe_byte(r.text[r.pos]), expected));
@@ -245,9 +329,14 @@ unexpected :: (r: *Json_Reader, expected: string) -> bool {
 // The next value is not of the type being read: `expected` is "an object", "an integer"...
 wrong_type :: (r: *Json_Reader, expected: string) -> bool {
     c: u8;
-    if r.pos < r.text.count c = r.text[r.pos];
+    present := r.pos < r.text.count;
 
-    found := ifx r.pos < r.text.count then value_name(c) else "";
+    if r.tree {
+        c = tree_byte(r);
+        present = r.cur != null;
+    } else if present c = r.text[r.pos];
+
+    found := ifx present then value_name(c) else "";
 
     if !found.count return unexpected(r, expected);
 
@@ -265,6 +354,8 @@ wrong_type :: (r: *Json_Reader, expected: string) -> bool {
 // assert(json_peek(*r) == #char "[");
 // ```
 json_peek :: inline (r: *Json_Reader) -> u8 {
+    if r.tree return tree_byte(r);
+
     skip_whitespace(r);
 
     if r.pos >= r.text.count return 0;
@@ -343,6 +434,8 @@ json_missing_field :: (r: *Json_Reader, key: string) {
 json_begin_object :: (r: *Json_Reader) -> bool {
     if json_peek(r) != #char "{" return wrong_type(r, "an object");
 
+    if r.tree return tree_enter(r);
+
     r.pos += 1;
 
     return enter_nesting(r);
@@ -368,6 +461,8 @@ json_begin_object :: (r: *Json_Reader) -> bool {
 // assert(sum == 3);
 // ```
 json_object_next :: (r: *Json_Reader, first: *bool) -> string, Object_Status {
+    if r.tree return tree_object_next(r, first);
+
     c := json_peek(r);
 
     if first.* {
@@ -431,6 +526,8 @@ json_object_next :: (r: *Json_Reader, first: *bool) -> string, Object_Status {
 json_begin_array :: (r: *Json_Reader) -> bool {
     if json_peek(r) != #char "[" return wrong_type(r, "an array");
 
+    if r.tree return tree_enter(r);
+
     r.pos += 1;
 
     return enter_nesting(r);
@@ -454,6 +551,8 @@ json_begin_array :: (r: *Json_Reader) -> bool {
 // assert(count == 2);
 // ```
 json_array_next :: (r: *Json_Reader, first: *bool) -> Array_Status {
+    if r.tree return tree_array_next(r, first);
+
     c := json_peek(r);
 
     if first.* {
@@ -512,6 +611,12 @@ hex4 :: (text: string, at: int) -> int #no_abc {
 // Checks one string (the cursor is on the opening quote) and moves past it. Returns the raw
 // text between the quotes and whether it has escapes.
 scan_string :: (r: *Json_Reader) -> string, bool, bool #no_abc {
+    if r.tree {
+        if tree_byte(r) != #char "\"" return "", false, wrong_type(r, "a string");
+
+        return r.cur.text, false, true;
+    }
+
     text := r.text;
 
     if r.indexed {
@@ -853,6 +958,7 @@ json_read_name :: (r: *Json_Reader) -> string, bool {
 // ```
 json_keep_key :: (r: *Json_Reader, key: string) -> string {
     if !key.count return "";
+    if r.tree return ifx r.borrow then key else copy_string(key);
     if r.borrow && key.data >= r.text.data && key.data < r.text.data + r.text.count return key;
 
     return copy_string(key);
@@ -918,6 +1024,12 @@ json_read_null :: (r: *Json_Reader) -> bool {
 // Consumes `word` at the cursor. A mismatch is a syntax error; the return value is true on
 // success (so `true` reads as its own value).
 read_literal :: (r: *Json_Reader, word: string) -> bool {
+    if r.tree {
+        if tree_byte(r) == word[0] return true;
+
+        return json_fail(r, .SYNTAX, tprint("invalid literal, expected `%`", word));
+    }
+
     if r.pos + word.count <= r.text.count && slice(r.text, r.pos, word.count) == word {
         r.pos += word.count;
 
@@ -930,6 +1042,12 @@ read_literal :: (r: *Json_Reader, word: string) -> bool {
 // Checks the number grammar of RFC 8259 and returns the token's text. Every access is guarded by
 // `i < count`, so the bounds checks are off.
 scan_number :: (r: *Json_Reader) -> string, bool #no_abc {
+    if r.tree {
+        if !r.cur || r.cur.kind != .NUMBER return "", wrong_type(r, "a number");
+
+        return r.cur.text, true;
+    }
+
     data := r.text.data;
     count := r.text.count;
     start := r.pos;

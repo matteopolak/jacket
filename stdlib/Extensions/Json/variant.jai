@@ -600,10 +600,12 @@ Json_Mark :: struct {
     depth: int;
     key_start: int;
     path: int;
+    cur: *Json_Value; // in a tree: the value, and how many arrays and objects were open
+    frames: int;
 }
 
 json_mark :: (r: *Json_Reader) -> Json_Mark {
-    return .{ pos = r.pos, ip = r.ip, depth = r.depth, key_start = r.key_start, path = r.path.count };
+    return .{ pos = r.pos, ip = r.ip, depth = r.depth, key_start = r.key_start, path = r.path.count, cur = r.cur, frames = r.frames.count };
 }
 
 json_rewind :: (r: *Json_Reader, mark: Json_Mark) {
@@ -612,6 +614,8 @@ json_rewind :: (r: *Json_Reader, mark: Json_Mark) {
     r.depth = mark.depth;
     r.key_start = mark.key_start;
     r.path.count = mark.path;
+    r.cur = mark.cur;
+    r.frames.count = mark.frames;
 }
 
 // Whether the next value is a string, without consuming it.
