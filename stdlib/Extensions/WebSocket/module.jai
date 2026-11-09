@@ -1,10 +1,31 @@
-// RFC 6455 framing and messages, with bounded RFC 7692 compression.
-// The codec owns event bytes until the next parse; release it with ws_free.
+// WebSocket (RFC 6455) framing and messages with bounded permessage-deflate (RFC 7692), plus a
+// connection type for servers (`ws_upgrade`) and clients (`ws_connect`). The codec is sans-IO: feed
+// it bytes with [ws_parse] and build frames with [ws_frame]. Event bytes belong to the codec until
+// the next parse; release it with [ws_free].
+//
+// ```jai
+// #import "Extensions/WebSocket";
+//
+// frame: [..] u8;
+// defer array_free(frame);
+// assert(ws_frame(*frame, .TEXT, cast([] u8) "hi").kind == .NONE);
+//
+// codec := Ws_Codec.{ role = .CLIENT };
+// defer ws_free(*codec);
+// used, event := ws_parse(*codec, frame);
+// assert(used == frame.count && event.kind == .MESSAGE);
+// assert(event.data.count == 2);
+// ```
+
+// Which end a [Ws_Codec] is parsing for. A `.SERVER` codec reads frames from a client, which must
+// be masked; a `.CLIENT` codec reads unmasked frames from a server.
 Ws_Role :: enum {
     SERVER;
     CLIENT;
 }
 
+// The kind of a frame, with the protocol's numeric values. Control frames (`CLOSE`, `PING`,
+// `PONG`) are 8 and above.
 Ws_Opcode :: enum u8 {
     CONTINUATION :: 0;
     TEXT :: 1;
@@ -14,29 +35,35 @@ Ws_Opcode :: enum u8 {
     PONG :: 10;
 }
 
+// Why a WebSocket operation failed.
 Ws_Error_Kind :: enum {
     NONE;
-    PROTOCOL;
-    UTF8;
-    LIMIT;
-    COMPRESSION;
-    HANDSHAKE;
-    TRANSPORT;
-    TIMED_OUT;
-    CLOSED;
+    PROTOCOL; // the peer broke the framing rules
+    UTF8; // a text message or close reason is not valid UTF-8
+    LIMIT; // a frame or message exceeds [Ws_Options]
+    COMPRESSION; // a compressed message did not inflate
+    HANDSHAKE; // the upgrade request, response or extension offer was invalid
+    TRANSPORT; // the underlying connection failed
+    TIMED_OUT; // a [Ws_Config] timeout elapsed
+    CLOSED; // the connection is closing or already disposed
 }
 
+// The outcome of a WebSocket operation; `kind` is `.NONE` on success. `message` is static, `offset`
+// is a byte position in the stream when known.
 Ws_Error :: struct {
     kind: Ws_Error_Kind;
     message: string;
     offset: s64;
 }
 
+// Size limits for incoming data and for [ws_frame]. Exceeding one fails with `.LIMIT`.
 Ws_Options :: struct {
     max_frame_size: s64 = 16 << 20;
-    max_message_size: s64 = 64 << 20;
+    max_message_size: s64 = 64 << 20; // after decompression
 }
 
+// The negotiated permessage-deflate settings. Parse an offer or response with [ws_negotiate]; the
+// `*_present` flags record which window parameters were stated explicitly.
 Ws_Deflate :: struct {
     enabled: bool;
     server_window_present: bool;
@@ -47,15 +74,18 @@ Ws_Deflate :: struct {
     client_max_window_bits: int = 15;
 }
 
+// What [ws_parse] and [ws_read] found.
 Ws_Event_Kind :: enum {
-    NEED_MORE;
-    MESSAGE;
+    NEED_MORE; // the input ended mid-frame; feed more bytes
+    MESSAGE; // a complete text or binary message
     PING;
     PONG;
     CLOSE;
-    ERROR;
+    ERROR; // see `error`; the codec stays failed
 }
 
+// One event. `data` is a borrowed view of the message or control payload, valid until the next
+// parse. `opcode` tells text from binary; `code` is the status of a close frame.
 Ws_Event :: struct {
     kind: Ws_Event_Kind;
     opcode: Ws_Opcode;
@@ -64,6 +94,9 @@ Ws_Event :: struct {
     error: Ws_Error;
 }
 
+// An incremental frame parser for one direction of a connection. Set `role`, `options` and
+// `compression` before the first [ws_parse]; the other fields are its state. Release it with
+// [ws_free].
 Ws_Codec :: struct {
     role: Ws_Role;
     options: Ws_Options;

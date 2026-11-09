@@ -1,3 +1,6 @@
+// Settings for [ws_upgrade] and [ws_connect]. `protocols` lists the subprotocols to offer or accept
+// in preference order and must outlive the connection. Timeouts are in milliseconds; 0 or less means
+// none.
 Ws_Config :: struct {
     limits: Ws_Options;
     compression := true;
@@ -24,6 +27,8 @@ Ws_Connection :: struct {
     disposed: bool;
 }
 
+// Runs a server connection after a successful [ws_upgrade]. The connection is borrowed until it
+// returns; `data` is what you passed to `ws_upgrade`.
 Ws_Handler :: #type (connection: *Ws_Connection, data: *void);
 
 // Validates an upgrade and returns a routed response. Example: return ws_upgrade(request, echo).
