@@ -54,7 +54,7 @@ jacket test --path stdlib/Extensions/Unicode_Text
 
 Missing suites fail the conformance tests with the command to run. The tests check every row of all four suites, the normalization-form invariants, quick-check answers, and unchanged scalars omitted from normalization Part 1 (surrogates excepted: they are not valid UTF-8). Safety tests cover malformed input, limits, long sequences, stream-safe idempotence and allocation balance.
 
-For a comparison with Python's `unicodedata`, build `bench/bench.jai` with `-O2`, run it, then run `bench/reference.py`. Both time the same mixed-script corpus. Don't run them alongside builds.
+Run `jacket bench --path stdlib/Extensions/Unicode_Text` for separate NFC and grapheme cases over the generated mixed-script corpus. `bench/reference.py` uses Python's `unicodedata` on the same corpus. Run measurements after builds finish.
 
 ## Dependencies
 
