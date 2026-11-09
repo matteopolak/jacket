@@ -37,6 +37,14 @@
 
 - A long `#run` that starts many short threads no longer grows the interpreter's thread table: a thread's slot is reused once it has ended and its handle is joined, detached or closed, and a handle kept past that point is rejected instead of naming a later thread.
 
+- `Extensions/Json`: `from_json(T, *tree)` decodes a `Json_Value` directly, and `to_json_value(value)` encodes into one.
+- `Extensions/Gltf`: typed structs for KHR_materials_sheen, specular, volume, iridescence, anisotropy and unlit, and `gltf_set_extension` / `gltf_use_extension` to write an edited typed extension back with `gltf_write`.
+- `Extensions/Gltf`: `gltf_write` rejects extension objects that `extensionsUsed` does not list, since the output would not load.
+
+### Changed
+
+- `gltf_extension` decodes the Json tree directly instead of writing it out and parsing it again, about 2.5 times faster; its error offset is now 0.
+
 ## [0.34.0] - 2026-11-09
 
 ### New
