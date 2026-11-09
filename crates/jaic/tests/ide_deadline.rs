@@ -7,12 +7,18 @@ use jaic::sema::{Options, VirtualFs};
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 const PRELUDE: &str = "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }";
 
 /// Compile `source` with a wall-clock limit that has passed before the compiler starts: the
 /// error it fails with, and whether the check says it stopped.
 fn check(source: &str) -> (String, bool) {
+    check_within(source, 1e-9)
+}
+
+/// `check` with a wall-clock limit of `seconds`, counted from the start of the compile.
+fn check_within(source: &str, seconds: f64) -> (String, bool) {
     let mut fs = VirtualFs::default();
     fs.insert("/main.jai", source.as_bytes());
     fs.insert("/prelude/module.jai", PRELUDE.as_bytes());
@@ -26,7 +32,7 @@ fn check(source: &str) -> (String, bool) {
         host: Rc::new(RefCell::new(SandboxHost::default())),
         observer: None,
         report: Box::new(|_, _| {}),
-        limits: CheckLimits::new(CheckLimits::DEFAULT_EVAL_STEPS, 1e-9),
+        limits: CheckLimits::new(CheckLimits::DEFAULT_EVAL_STEPS, seconds),
     });
     let result = lint.compile(LintRoot::Program(Path::new("/main.jai")), &[]);
     let error = result.err().map(|e| e.render(&lint.compiler.src.sources));
@@ -71,4 +77,54 @@ main :: () { x := 0; twice(#code { x += 1; }); b: Box(int); }
     let (error, stopped) = check(source);
     assert!(error.contains("checking stopped"), "{error}");
     assert!(stopped);
+}
+
+#[test]
+fn many_inserted_strings_stop_at_the_limit() {
+    // One body, so no unit of work starts between the inserts: each insert must ask.
+    let mut source = String::from("main :: () { x := 0;\n");
+    for _ in 0..100_000 {
+        source += "#insert \"x += 1;\";\n";
+    }
+    source += "}\n";
+    let (error, stopped) = check_within(&source, 0.05);
+    assert!(error.contains("checking stopped"), "{error}");
+    assert!(stopped);
+}
+
+#[test]
+fn a_long_inserted_string_stops_in_the_parser() {
+    let body = "x += 1;".repeat(100_000);
+    let source = format!("main :: () {{ x := 0; #insert \"{body}\"; }}\n");
+    // Without a limit the check runs to its end; a limit of half of that time stops it, whether
+    // the clock passes during the lexer, the parser or the statements that follow.
+    let start = Instant::now();
+    let (error, stopped) = check_within(&source, 1e6);
+    assert!(!stopped, "{error}");
+    let whole = start.elapsed();
+    let (error, stopped) = check_within(&source, whole.as_secs_f64() / 2.0);
+    assert!(error.contains("checking stopped"), "{error}");
+    assert!(stopped);
+}
+
+#[test]
+fn a_blocking_foreign_call_does_not_hold_the_check() {
+    // The editor's host answers libc itself on a virtual clock: `sleep` does not block, and a
+    // program that sleeps forever is stopped by the limit like any other loop.
+    let source = "
+libc :: #system_library \"libc\";
+sleep :: (seconds: u32) -> u32 #foreign libc;
+#run sleep(3600);
+#run { while true sleep(3600); }
+main :: () {}
+";
+    let start = Instant::now();
+    let (error, stopped) = check_within(source, 0.5);
+    assert!(error.contains("checking stopped"), "{error}");
+    assert!(stopped);
+    assert!(
+        start.elapsed() < Duration::from_secs(30),
+        "{:?}",
+        start.elapsed()
+    );
 }

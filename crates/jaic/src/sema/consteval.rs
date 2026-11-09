@@ -802,6 +802,21 @@ impl CompileTime {
     }
 }
 
+impl Compiler {
+    /// Register the text of an `#insert`ed string and parse it. The text is whatever a
+    /// metaprogram produced, so a check with a wall-clock limit asks before taking it on and
+    /// again while parsing it (every few hundred statements, not per token).
+    pub(super) fn parse_inserted(&mut self, at: Span, text: Arc<str>) -> Result<ast::File> {
+        self.check_not_stopped(at)?;
+        let file = self.src.insert_source(at, text.clone())?;
+        let host = &mut self.ct.interp.host;
+        match crate::parser::parse_file_stoppable(file, &text, &mut || host.stop_requested()) {
+            Some(parsed) => parsed.map_err(Box::new),
+            None => Err(Box::new(super::trap_report::stopped(at))),
+        }
+    }
+}
+
 impl SourceState {
     /// Register the text of an `#insert`ed string inserted at `at`. Inserted text may insert
     /// more (`X :: "#insert X;"`), so nesting is bounded.

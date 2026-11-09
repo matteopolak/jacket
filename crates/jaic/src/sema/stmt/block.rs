@@ -56,6 +56,9 @@ impl Compiler {
         stmt: &ast::Stmt,
         failed: &mut Option<Box<Diagnostic>>,
     ) -> Result<()> {
+        // A body can have any number of statements (a metaprogram wrote it): the limit of an
+        // editor's check ends it here, and is not kept for later like an error of the statement.
+        self.check_not_stopped(stmt.span)?;
         if let Err(error) = self.check_block_stmt(f, scope, stmt) {
             match (
                 self.ed

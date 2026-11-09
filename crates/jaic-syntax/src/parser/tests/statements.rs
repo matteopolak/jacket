@@ -381,3 +381,24 @@ fn assignments() {
     assert_eq!(ops[12], AssignOp::Op(BinOp::And));
     assert_eq!(ops[13], AssignOp::Op(BinOp::Or));
 }
+
+#[test]
+fn a_stoppable_parse_ends_when_asked_even_inside_a_block() {
+    use crate::parser::{STOP_POLL_STATEMENTS, parse_file_stoppable};
+    use crate::source::FileId;
+    let statements = STOP_POLL_STATEMENTS as usize * 10;
+    let flat = "x += 1;".repeat(statements);
+    let nested = format!("f :: () {{ {flat} }}");
+    for text in [flat, nested] {
+        let mut asked = 0;
+        let stopped = parse_file_stoppable(FileId(0), &text, &mut || {
+            asked += 1;
+            asked == 3
+        });
+        assert!(stopped.is_none());
+        assert_eq!(asked, 3, "the parse went on after it was told to stop");
+        let mut never = || false;
+        let parsed = parse_file_stoppable(FileId(0), &text, &mut never);
+        assert!(parsed.is_some_and(|p| p.is_ok()));
+    }
+}

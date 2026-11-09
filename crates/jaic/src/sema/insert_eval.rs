@@ -54,9 +54,7 @@ impl Compiler {
                 ..
             } => {
                 let text: Arc<str> = String::from_utf8_lossy(&s).into();
-                let file = self.src.insert_source(span, text.clone())?;
-                let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
-                Ok(ast.stmts)
+                Ok(self.parse_inserted(span, text)?.stmts)
             }
             Operand::Void => Ok(Vec::new()),
             other => err(
@@ -132,8 +130,7 @@ impl Compiler {
                 let source = String::from_utf8_lossy(&s);
                 let source = source.trim_end().trim_end_matches(';');
                 let text = format!("__jaic_insert :: ({source});");
-                let file = self.src.insert_source(value.span, text.clone().into())?;
-                let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
+                let ast = self.parse_inserted(value.span, text.into())?;
                 match ast.stmts.first().map(|s| &s.kind) {
                     Some(ast::StmtKind::Decl(d)) if d.value.is_some() => {
                         Ok(d.value.clone().unwrap())

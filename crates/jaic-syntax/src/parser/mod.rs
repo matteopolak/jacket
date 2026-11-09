@@ -59,6 +59,34 @@ pub fn parse_file(file: FileId, text: &str) -> Result<File, Diagnostic> {
     })
 }
 
+/// `parse_file` for text a program produced at compile time (an `#insert`ed string), which can
+/// be of any size. `stop` is asked once every [`STOP_POLL_STATEMENTS`] statements, at any depth,
+/// and a `true` ends the parse early: the result is `None`. It costs nothing per token.
+pub fn parse_file_stoppable(
+    file: FileId,
+    text: &str,
+    stop: &mut dyn FnMut() -> bool,
+) -> Option<Result<File, Diagnostic>> {
+    let tokens = match lex(file, text) {
+        Ok(tokens) => tokens,
+        Err(error) => return Some(Err(error)),
+    };
+    let mut parser = Parser::new(text, tokens);
+    parser.stop = Some(stop);
+    let stmts = parser.parse_file_stmts();
+    if parser.stopped {
+        return None;
+    }
+    Some(stmts.map(|stmts| File {
+        file,
+        stmts,
+        lenient: parser.lenient,
+    }))
+}
+
+/// How many statements `parse_file_stoppable` parses between two questions to `stop`.
+pub const STOP_POLL_STATEMENTS: u32 = 256;
+
 /// `parse_file`, for a library file whose dead file-level `#if` branches need be neither
 /// lexed nor parsed (see [`PlatformTarget`]).
 /// Everything a branch could declare is absent from the tree, so a syntax error inside a branch
@@ -160,6 +188,12 @@ pub(crate) struct Parser<'a> {
     file_level_depth: usize,
     /// Constructs accepted although the official compiler rejects them.
     lenient: Vec<crate::ast::ParsedLeniency>,
+    /// Asked every `STOP_POLL_STATEMENTS` statements (`parse_file_stoppable`).
+    stop: Option<&'a mut dyn FnMut() -> bool>,
+    /// Statements left until `stop` is asked.
+    stop_countdown: u32,
+    /// `stop` said yes: the parser is at the end of its tokens and what it built is discarded.
+    stopped: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -188,6 +222,26 @@ impl<'a> Parser<'a> {
             platform: None,
             file_level_depth: 1,
             lenient: Vec::new(),
+            stop: None,
+            stop_countdown: STOP_POLL_STATEMENTS,
+            stopped: false,
+        }
+    }
+
+    /// Called per statement: asks `stop` now and then and, when it says yes, moves to the end of
+    /// the tokens so every enclosing loop ends. Without a `stop` it is one branch.
+    #[inline]
+    fn poll_stop(&mut self) {
+        let Some(stop) = self.stop.as_mut() else {
+            return;
+        };
+        self.stop_countdown -= 1;
+        if self.stop_countdown == 0 {
+            self.stop_countdown = STOP_POLL_STATEMENTS;
+            if stop() {
+                self.stopped = true;
+                self.pos = self.toks.len() - 1;
+            }
         }
     }
 
@@ -220,6 +274,10 @@ impl<'a> Parser<'a> {
     fn parse_file_stmts(&mut self) -> PResult<Vec<Stmt>> {
         let mut stmts = Vec::new();
         while !self.at_eof() {
+            self.poll_stop();
+            if self.stopped {
+                break;
+            }
             let hoisted = self.hoisted.len();
             if let Some(stmt) = self.parse_stmt_recovering(None)? {
                 stmts.extend(self.hoisted.split_off(hoisted));

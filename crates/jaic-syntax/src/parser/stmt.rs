@@ -112,6 +112,7 @@ impl Parser<'_> {
             if self.ide_block_boundary(open) {
                 break;
             }
+            self.poll_stop();
             let hoisted = self.hoisted.len();
             if let Some(stmt) = self.parse_stmt_recovering(Some(open))? {
                 stmts.extend(self.hoisted.split_off(hoisted));
