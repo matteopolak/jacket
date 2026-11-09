@@ -3,14 +3,14 @@
 the small native helper libraries built from our own C sources. One subcommand per output:
 
     build_portable.py zip | archive | mpeg | machine         # fixtures under target/portable-tests/
-    build_portable.py data                                   # all of those, the Meow vectors and the Unicode suites (what `jacket test` reads)
+    build_portable.py data                                   # all of those, the Meow vectors and the conformance suites (what `jacket test` reads)
     build_portable.py meow [--verify-native]                 # stage (and optionally re-derive) the Meow vectors
     build_portable.py clipboard --output DIR                 # Linux X11 clipboard service (libX11)
     build_portable.py runtime [--platform P] [--output-dir D]  # private POSIX crash libraries
     build_portable.py watcher [--output-dir D]               # macOS FSEvents backend
 
-None of them fetches sources or runs a supplied reference binary; `data` also writes Unicode's test files from
-the pinned UCD download (tools/unicode_text_conformance/fetch.py). `runtime` and `watcher` are not steps of
+None of them fetches sources or runs a supplied reference binary; `data` also writes Unicode's and Go's
+conformance files from pinned downloads (tools/unicode_text_conformance, tools/archive_conformance). `runtime` and `watcher` are not steps of
 the normal build: `crates/jaic-cli/build.rs` embeds the same backends in jaic (docs/native/crash-runtime-build.md);
 these are the same recipes for tools that need the libraries (and a hash receipt) as files.
 """
@@ -643,9 +643,11 @@ def data_fixtures():
     for build in (zip_fixtures, archive_fixtures, mpeg_fixtures, machine_fixtures):
         build()
     meow_fixtures(False)
-    # The one input taken from a download: Unicode's own test files, from the pinned UCD.
+    # The inputs taken from pinned downloads: Unicode's test files and Go's ZIP/TAR fixtures.
     from unicode_text_conformance.fetch import write_suites
     write_suites()
+    from archive_conformance.fetch import fetch as archive_suites
+    archive_suites()
 
 
 def main(argv=None):

@@ -44,6 +44,7 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 
 ## Standard library
 
+- [Archive](extensions/archive.md): bounded ZIP/ZIP64, TAR and safe extraction
 - [VT parser](extensions/vt.md): streaming terminal actions without a grid
 
 - [TOML](extensions/toml.md): general values, semantic writing and formatter configuration

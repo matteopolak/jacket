@@ -9,6 +9,7 @@
 
 | Module | What it is for | Docs |
 | --- | --- | --- |
+| `Archive` | bounded ZIP/ZIP64 and TAR codecs, CRC checks and safe extraction | [archive](archive.md) |
 | `Environment` | reading environment variables, UTF-8 on every platform | [environment](environment.md) |
 | `Testing` | `@test` procedures, checks, subtests and a leak-checking allocator, run by `jacket test` | [testing](testing.md) |
 | `Fuzz` | deterministic argument generators and procedure fuzz runners | [stdlib fuzzing](../tools/stdlib-fuzzing.md) |
