@@ -182,21 +182,59 @@ Following the quote state field by field gives the speed without those
 exceptions. A vector scan that read 16 bytes per field was slower (about
 130 ms against 85 ms for records): fields average ten bytes.
 
-The fast path keeps a field as a view of the input, or decodes it into the reused
-buffer when it holds doubled quotes. It leaves the reader untouched until the
-whole record is read and within its limits; anything else (a quote error, a
-limit, EOF inside quotes) makes `read_record` read the record again byte by
-byte, which also reports the error. Chunked sources and `trim` always use that
-byte path, with the same masks finding runs. Line and column are not tracked
-per byte: a reader keeps the line number and where the line began, advanced at
-line breaks (CRLF counts once), and each field remembers both for typed errors.
-The fields of a chunked source are copied into one reused buffer. The writer
-checks each field once, sizes the record exactly and builds it in place in the
-builder. Change `read_record_fast` and `read_field`, `span` and `take` together:
-`tests/scanner.jai` puts every byte class on each side of a block boundary and
-compares slice input (fast path) with chunked input (byte path) on random
-documents and random byte soup, and the chunk and limit tests in
-`tests/streaming.jai` compare them byte for byte, including error positions.
+The fast path takes every record that fits the window, for a slice, a chunked
+source and `trim` alike. A field is a view of the window, or is decoded into the
+reused buffer when it holds doubled quotes. With `trim` the scan skips spaces and
+tabs before an unquoted field and after a closing quote, and cuts them off the end
+of an unquoted one, exactly as the byte path does. The fast path leaves the reader
+untouched until the whole record is read and within its limits; anything else (a
+quote error, a limit, EOF inside quotes, a record longer than the 8192-byte
+window) makes `read_record` read the record again byte by byte, which also
+reports the error.
+
+A chunked source gives the fast path a window that holds the whole record. When
+the scan reaches the window's end before the record's, `grow_window` moves the
+record to the window's start and asks the source for more until the record's
+part has doubled (a source of one-byte pieces costs a few scans, not one per
+byte), and the record is scanned again. The fields of a chunked record are views
+of the window, valid until the next call like any record. A source that fails
+during that refill is not reported at once: the byte path reads the record again
+and `fill_to` reports the failure where it reaches the window's end, so the
+position and the records before it are those of a byte-by-byte read.
+
+Line and column are not tracked per byte or per field: a reader keeps the line
+number and where the line began, advanced at line breaks (CRLF counts once). The
+block scanner keeps nothing per field either; a typed error that needs a field's
+position calls `field_position`, which scans the record again from its start and
+counts the line breaks inside the quoted fields before it. Only a record read
+byte by byte records each field's position in a `Csv_Cell`. The writer checks
+each field once, sizes the record exactly and builds it in place in the builder.
+
+Change `read_record_fast`, `read_quoted_fast`, `field_position`, `read_field`,
+`span` and `take` together. `Csv_Core.bytewise` makes a reader take every record
+byte by byte; the tests use it as the reference. `tests/scanner.jai` puts every
+byte class on each side of a block boundary and compares the block scanner on
+slices and on chunks of 1, 5, 63, 64, 65, 8192 and 100000 bytes with the
+byte-by-byte reader on random documents and random byte soup, with and without
+`trim`, over sources that fail after every byte count, and for typed errors after
+quoted line breaks, including records longer than the window. The chunk and limit
+tests in `tests/streaming.jai` compare them byte for byte, including error
+positions.
+
+`benches/bench.jai` reads the same two ~50 MB files of a million rows as the comparison below ("quoted" is `bench.csv`, "plain" is built in memory) and gives chunked sources 4096 bytes at a time. Median of three alternating runs per version on a shared Apple M5 (load about 5), `jacket bench --samples 10`:
+
+| Workload | Before | After |
+| --- | --- | --- |
+| records, quoted | 46 ms | 47 ms |
+| records, plain | 39 ms | 37 ms |
+| records, plain, `trim` | 69 ms | 40 ms |
+| records, quoted, chunked | 100 ms | 44 ms |
+| records, plain, chunked | 96 ms | 44 ms |
+| records, plain, `trim`, chunked | 96 ms | 47 ms |
+| typed rows, quoted | 107 ms | 108 ms |
+| typed rows, quoted, `borrow` | 89 ms | 86 ms |
+
+Chunked and trimmed input run at the speed of a slice now (2.1x to 2.3x faster for chunks, 1.7x for `trim`). Dropping the per-field `Csv_Cell` changed records and typed rows by less than the spread between runs (about 5%): the scan is not bound by those 64-byte writes, and typed rows spend their time decoding members.
 
 The spectrum test compares all twelve CSV/JSON pairs with no skipped cases.
 At the pinned revision, `location_coordinates.json` gives a different phone
