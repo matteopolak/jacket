@@ -23,7 +23,7 @@ sdk_popen :: (command: *u8, mode: *u8) -> *void #foreign libc "popen";
 sdk_pclose :: (stream: *void) -> s32 #foreign libc "pclose";
 sdk_fread :: (ptr: *void, size: u64, count: u64, stream: *void) -> u64 #foreign libc "fread";
 sdk_ferror :: (stream: *void) -> s32 #foreign libc "ferror";
-sdk_write :: (fd: s32, ptr: *u8, count: u64) -> s64 #foreign libc "write";
+sdk_write :: (fd: s32, ptr: *u8, count: u64) -> s64 #foreign libc "write"; @WritesOutput(0)
 
 #import "internal/libc";
 

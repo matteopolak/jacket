@@ -195,7 +195,7 @@ Runtime_Context_Header :: struct {
 }
 
 libc :: #system_library "libc"; @native(external)
-#if OS != .WINDOWS c_write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write";
+#if OS != .WINDOWS c_write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write"; @WritesOutput(0)
 
 #import "internal/libc";
 

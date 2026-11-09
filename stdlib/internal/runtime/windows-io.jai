@@ -28,6 +28,6 @@ STDOUT_HANDLE_ID :: -11;
 STDERR_HANDLE_ID :: -12;
 
 kernel32 :: #system_library "kernel32"; @native(external)
-GetStdHandle :: (identifier: s32) -> *void #foreign kernel32;
-WriteFile :: (handle: *void, buffer: *void, count: u32, written: *u32, overlapped: *void) -> s32 #foreign kernel32;
+GetStdHandle :: (identifier: s32) -> *void #foreign kernel32; @ReturnsStandardHandle
+WriteFile :: (handle: *void, buffer: *void, count: u32, written: *u32, overlapped: *void) -> s32 #foreign kernel32; @WritesOutput(0)
 DebugBreak :: () #foreign kernel32;

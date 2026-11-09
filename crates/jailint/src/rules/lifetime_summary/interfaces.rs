@@ -21,7 +21,6 @@ pub(super) fn collect(body: &LifetimeBody) -> HashMap<*const Event, Summary> {
                 recognized = true;
             }
             let Some(args) = super::lifetime_movement::parameters(&note.text, "FreesArgument")
-                .or_else(|| super::lifetime_movement::parameters(&note.text, "Closes"))
             else {
                 continue;
             };

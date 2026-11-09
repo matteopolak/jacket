@@ -1,6 +1,6 @@
 //! Observable process effects: `@Exits` and `@WritesOutput` on bodiless declarations, and the calls that reach them.
 use super::{Event, HashMap, HashSet, LifetimeBody, ProcId, Summary, Val};
-use jaic::sema::{Compiler, procs::ProcTarget};
+use jaic::sema::Compiler;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(in crate::rules) struct Observable {
@@ -15,11 +15,14 @@ impl Observable {
     }
 }
 
-pub(super) fn symbol(c: &Compiler, p: ProcId) -> Option<&str> {
-    let ProcTarget::Foreign(id) = c.pr.procs[p.0 as usize].target? else {
-        return None;
-    };
-    Some(&c.out.program.foreigns[id.0 as usize].symbol)
+/// The argument a procedure writes through when it is the standard output or error: `@WritesOutput(0)`.
+fn output_formal(c: &Compiler, p: ProcId) -> Option<usize> {
+    super::lifetime_movement::notes(c, p).find_map(|n| {
+        super::lifetime_movement::parameters(&n.text, "WritesOutput")?
+            .first()?
+            .parse()
+            .ok()
+    })
 }
 
 pub(super) struct Calls<'a> {
@@ -55,9 +58,9 @@ impl<'a> Calls<'a> {
                 } = event
                 {
                     out.callees.push(*callee);
-                    if matches!(symbol(c, *callee), Some("write" | "_write" | "WriteFile")) {
+                    if let Some(formal) = output_formal(c, *callee) {
                         let domain = values.get_or_insert_with(|| Values::new(body));
-                        out.direct.output |= domain.output(c, *callee, args);
+                        out.direct.output |= domain.output(c, formal, args);
                     }
                     if all
                         .get(callee)
@@ -216,20 +219,18 @@ impl<'a> Values<'a> {
         out
     }
 
-    fn output(&self, c: &Compiler, callee: ProcId, args: &[super::LifetimeArgument]) -> bool {
-        let Some(arg) = args.iter().find(|a| a.formal == 0) else {
+    fn output(&self, c: &Compiler, formal: usize, args: &[super::LifetimeArgument]) -> bool {
+        let Some(arg) = args.iter().find(|a| a.formal == formal) else {
             return false;
         };
         let actual = arg
             .constant
             .map(|v| Value::Numbers(vec![v]))
             .or_else(|| super::value(arg).and_then(|v| self.get(c, v, &mut HashSet::default(), 0)));
-        match (symbol(c, callee), actual) {
-            (Some("write" | "_write"), Some(Value::Numbers(v))) => {
-                !v.is_empty() && v.iter().all(|v| matches!(v, 1 | 2))
-            }
-            (Some("WriteFile"), Some(Value::OutputHandle)) => true,
-            _ => false,
+        match actual {
+            Some(Value::Numbers(v)) => !v.is_empty() && v.iter().all(|v| matches!(v, 1 | 2)),
+            Some(Value::OutputHandle) => true,
+            None => false,
         }
     }
 
@@ -253,7 +254,10 @@ impl<'a> Values<'a> {
                         }
                         value?
                     }
-                    Def::Call(p, args) if symbol(c, *p) == Some("GetStdHandle") => {
+                    Def::Call(p, args)
+                        if super::lifetime_movement::notes(c, *p)
+                            .any(|n| n.is("ReturnsStandardHandle")) =>
+                    {
                         let arg = args.iter().find(|a| a.formal == 0)?;
                         let actual =
                             arg.constant.map(|v| Value::Numbers(vec![v])).or_else(|| {

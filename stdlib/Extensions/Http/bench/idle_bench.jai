@@ -19,7 +19,7 @@ Io :: #import "Extensions/Io";
     c_fork :: () -> s32 #foreign libc "fork";
     c_pipe :: (fds: *s32) -> s32 #foreign libc "pipe";
     c_read :: (fd: s32, buffer: *void, length: u64) -> s64 #foreign libc "read";
-    c_write :: (fd: s32, buffer: *void, length: u64) -> s64 #foreign libc "write";
+    c_write :: (fd: s32, buffer: *void, length: u64) -> s64 #foreign libc "write"; @WritesOutput(0)
     c_kill :: (pid: s32, signal: s32) -> s32 #foreign libc "kill";
     c_waitpid :: (pid: s32, status: *s32, options: s32) -> s32 #foreign libc "waitpid";
     c_exit :: (status: s32) #foreign libc "_exit"; @Exits
