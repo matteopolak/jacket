@@ -118,6 +118,7 @@ Csv_Core :: struct {
     block_base: int = -1; // the window offset of the 64-byte block the two masks describe (-1: none)
     block_unquoted: u64; // bit i: byte `block_base + i` ends a run in an unquoted field
     block_quoted: u64; // the same for a quoted field
+    bytewise: bool; // read every record byte by byte; the tests use it as the reference for the block scanner
     error: Csv_Error;
     record_offset: int;
     record_line: int;
@@ -979,7 +980,7 @@ read_record :: (r: *Csv_Core) -> [] string, bool {
     r.record_line_start = r.line_start;
     if peek(r) < 0 return .[], false;
 
-    if !r.source.fill && !r.options.trim {
+    if !r.source.fill && !r.options.trim && !r.bytewise {
         if read_record_fast(r) return finish_record(r);
 
         r.buffer.count = 0;

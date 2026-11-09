@@ -142,9 +142,9 @@ expect_error_at :: (text: string, options: Csv_Options, kind: Csv_Error_Kind, of
     slice_reader := csv_reader(cast([] u8) text, options);
 
     defer csv_reader_free(*slice_reader);
-    errors := Csv_Error.[final_error(*slice_reader), .{}, .{}, .{}];
+    errors := Csv_Error.[final_error(*slice_reader), .{}, .{}, .{}, .{}, .{}, .{}, .{}];
 
-    for size: int.[1, 5, 8192] {
+    for size: int.[1, 5, 63, 64, 65, 8192, 100000] {
         chunks := Chunks.{ text = text, size = size };
         reader := csv_reader(Csv_Source.{ *chunks, fill }, options);
 
@@ -258,7 +258,7 @@ chunked_documents_match :: () {
             array_add(*rows, csv_record_copy(row));
         }
 
-        for size: int.[1, 13, 997, 8192] {
+        for size: int.[1, 13, 63, 64, 65, 997, 8192, 100000] {
             chunks := Chunks.{ text = text, size = size };
             reader := csv_reader(Csv_Source.{ *chunks, fill }, option);
 

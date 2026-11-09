@@ -1,7 +1,8 @@
 // The reader finds delimiters, quotes and line breaks 64 bytes at a time. These tests put every
 // kind of byte on both sides of a 64-byte boundary, at every offset, and check that the result does
 // not depend on where the window starts: slice input and chunked input (whose windows start
-// elsewhere) must agree on records, error kind, offset, line and column.
+// elsewhere) must agree on records, error kind, offset, line and column, and with a reader that
+// takes every record byte by byte (`bytewise`), which is the reference for the block scanner.
 #import "Basic";
 #import "String";
 #import "Extensions/Csv";
@@ -46,27 +47,47 @@ outcome :: (reader: *Csv_Reader) -> string {
     return builder_to_string(*builder);
 }
 
-slice_outcome :: (text: string, options: Csv_Options) -> string {
+slice_outcome :: (text: string, options: Csv_Options, bytewise := false) -> string {
     reader := csv_reader(cast([] u8) text, options);
 
     defer csv_reader_free(*reader);
+    reader.bytewise = bytewise;
 
     return outcome(*reader);
 }
 
-chunk_outcome :: (text: string, options: Csv_Options, size: int) -> string {
+chunk_outcome :: (text: string, options: Csv_Options, size: int, bytewise := false) -> string {
     feed := Feed.{ text = text, size = size };
     reader := csv_reader(Csv_Source.{ *feed, feed_fill }, options);
 
     defer csv_reader_free(*reader);
+    reader.bytewise = bytewise;
 
     return outcome(*reader);
 }
 
-CHUNK_SIZES :: int.[1, 5, 63, 64, 65, 8192];
+// Windows of one byte, around a block, and larger than the reader's own 8192-byte window.
+CHUNK_SIZES :: int.[1, 5, 63, 64, 65, 8192, 100000];
 
 expect_same_everywhere :: (text: string, options := Csv_Options.{}) {
     want := slice_outcome(text, options);
+    reference := slice_outcome(text, options, true);
+
+    if reference != want {
+        print("bytewise differs on %\n--- slice\n%\n--- bytewise\n%\n", text, want, reference);
+        expect(false);
+        return;
+    }
+
+    for size: int.[1, 65, 8192] {
+        got := chunk_outcome(text, options, size, true);
+
+        if got != want {
+            print("bytewise chunks of % differ on %\n--- slice\n%\n--- chunks\n%\n", size, text, want, got);
+            expect(false);
+            return;
+        }
+    }
 
     for CHUNK_SIZES {
         got := chunk_outcome(text, options, it);
@@ -361,6 +382,8 @@ random_documents :: () {
         want := slice_outcome(text, .{});
 
         for CHUNK_SIZES expect_equal(chunk_outcome(text, .{}, it), want);
+
+        expect_equal(slice_outcome(text, .{}, true), want);
     }
 } @test
 
@@ -442,4 +465,149 @@ typed_error_after_quoted_break :: () {
     expect_equal(error.offset, 9);
     expect_equal(error.line, 2);
     expect_equal(error.column, 4);
+} @test
+
+Quad :: struct {
+    a: int;
+    b: string;
+    c: int;
+    d: string;
+}
+
+// The rows read before a typed error and where the error is, as one string, from a slice (`size`
+// 0) or from a chunk source.
+typed_outcome :: (text: string, options: Csv_Options, size: int, bytewise: bool) -> string {
+    feed := Feed.{ text = text, size = size };
+    reader: Csv_Reader(Quad);
+
+    if size > 0 reader = csv_reader(Quad, Csv_Source.{ *feed, feed_fill }, options);
+    else reader = csv_reader(Quad, cast([] u8) text, options);
+
+    defer csv_reader_free(*reader);
+    reader.bytewise = bytewise;
+    rows := 0;
+
+    while true {
+        row, ok, error := csv_next(*reader);
+
+        if !ok return tprint("% rows, % at % line % column % (%)", rows, error.kind, error.offset, error.line, error.column, error.column_name);
+
+        csv_row_free(*row);
+        rows += 1;
+    }
+
+    return "";
+}
+
+// A typed error is placed by the same offset, line and column however the record was read: from a
+// slice, from chunks of every size, or byte by byte.
+expect_typed_error :: (text: string, options: Csv_Options, want: string) {
+    got := typed_outcome(text, options, 0, false);
+
+    if got != want {
+        print("typed error in % is [%], want [%]\n", text, got, want);
+        expect(false);
+        return;
+    }
+
+    for CHUNK_SIZES {
+        got = typed_outcome(text, options, it, false);
+
+        if got != want {
+            print("chunks of % give [%] on %, want [%]\n", it, got, text, want);
+            expect(false);
+            return;
+        }
+    }
+
+    for size: int.[0, 1, 64, 8192] {
+        got = typed_outcome(text, options, size, true);
+
+        if got != want {
+            print("bytewise reading in pieces of % gives [%] on %, want [%]\n", size, got, text, want);
+            expect(false);
+            return;
+        }
+    }
+}
+
+// The failing field comes after quoted fields holding line breaks of every kind and doubled quotes,
+// in the first record and after earlier records.
+typed_error_positions :: () {
+    push_allocator(temp);
+
+    // After one quoted CRLF.
+    expect_typed_error("1,\"q\r\nr\",x\n", .{}, "0 rows, TYPE at 9 line 2 column 4 (c)");
+
+    // The second record, after a quoted LF in the first and a quoted CRLF in itself.
+    expect_typed_error("1,\"a\nb\",2,z\n3,\"c\r\nd\",x,z\n", .{}, "1 rows, TYPE at 21 line 4 column 4 (c)");
+
+    // Quoted CRs alone are line breaks.
+    expect_typed_error("1,\"a\rb\rc\",x", .{}, "0 rows, TYPE at 10 line 3 column 4 (c)");
+
+    // Doubled quotes and a quoted LF, then the failing field.
+    expect_typed_error("1,\"a\"\"\nb\"\"\",x\n", .{}, "0 rows, TYPE at 12 line 2 column 6 (c)");
+
+    // The failing field is the first one, in a later record.
+    expect_typed_error("1,\"a\nb\",2,z\nx,b,3,z\n", .{}, "1 rows, TYPE at 12 line 3 column 1 (a)");
+
+    // Trimmed fields: the failing field starts before its leading spaces.
+    expect_typed_error("1 ,\"q\r\nr\" ,  x ,z\n", .{ trim = true }, "0 rows, TYPE at 11 line 2 column 5 (c)");
+    expect_typed_error("1,\"a\"\"\r\n\" ,  y\n", .{ trim = true }, "0 rows, TYPE at 11 line 2 column 4 (c)");
+
+    // A record with too few fields is placed at its start.
+    expect_typed_error("1,a,2,z\n5,\"q\r\n\"\n", .{}, "1 rows, HEADER at 8 line 2 column 1 (c)");
+} @test
+
+// A record that fits the reader's own 8192-byte window is read by the block scanner and a longer
+// one byte by byte; the error is placed the same way.
+typed_error_positions_in_long_records :: () {
+    push_allocator(temp);
+
+    for pad: int.[0, 1, 63, 64, 65, 8100, 8190, 8191, 8192, 8193, 9000, 20000] {
+        run := repeat(#char "k", pad);
+
+        for breaks: string.["\n", "\r\n", "\r"] {
+            text := tprint("1,\"%%%\"\"%\",x,z\n7,s,8,t\n", run, breaks, run, breaks, run);
+
+            for options: Csv_Options.[.{}, .{ trim = true }] {
+                expect_typed_error(text, options, typed_outcome(text, options, 0, true));
+            }
+        }
+    }
+} @test
+
+// Random documents with a bad number in a random record: every way of reading them places the
+// error at the same byte.
+random_typed_errors :: () {
+    push_allocator(temp);
+
+    rng: Rng;
+
+    rng.state = 424242;
+
+    parts := string.[",", "\"", "\r", "\n", "\r\n", " ", "a", "\"\"", "\t"];
+
+    for 0..299 {
+        records: [..][] string;
+        count := 1 + rng_below(*rng, 5);
+        bad := rng_below(*rng, count);
+
+        for row: 0..count - 1 {
+            fields: [..] string;
+
+            array_add(*fields, ifx rng_below(*rng, 6) == 0 then random_text(*rng, parts, 3) else "5");
+            array_add(*fields, random_text(*rng, parts, rng_below(*rng, 6)));
+            array_add(*fields, ifx row == bad then "no" else "6");
+            array_add(*fields, random_text(*rng, parts, rng_below(*rng, 6)));
+            array_add(*records, fields);
+        }
+
+        ending := ifx rng_below(*rng, 3) == 0 then "\r\n" else ifx rng_below(*rng, 2) == 0 then "\n" else "\r";
+        text := serialize(records, ending, true, rng_below(*rng, 2) == 0);
+
+        for options: Csv_Options.[.{}, .{ trim = true }] {
+            expect_typed_error(text, options, typed_outcome(text, options, 0, true));
+        }
+    }
 } @test
