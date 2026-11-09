@@ -19,6 +19,37 @@ Tree_Frame :: struct {
     next: int;
 }
 
+// How many frames a tree reader keeps inline. Documents nest a few levels, so decoding one
+// allocates nothing; deeper ones spill to the heap.
+INLINE_FRAMES :: 16;
+
+// The frames of the arrays and objects being read in a tree, innermost last. The first
+// `INLINE_FRAMES` live in the reader; `spill` holds the rest and stays empty until a document nests
+// that deep. `count` is the depth, so [json_rewind] restores it by assigning `count`.
+Tree_Stack :: struct {
+    count: int;
+    base: [INLINE_FRAMES] Tree_Frame;
+    spill: [..] Tree_Frame;
+}
+
+stack_push :: (stack: *Tree_Stack, frame: Tree_Frame) {
+    if stack.count < INLINE_FRAMES {
+        stack.base[stack.count] = frame;
+    } else {
+        // A rewind may have left frames above `count`; the spill holds exactly the live ones.
+        stack.spill.count = stack.count - INLINE_FRAMES;
+        array_add(*stack.spill, frame);
+    }
+
+    stack.count += 1;
+}
+
+stack_top :: (stack: *Tree_Stack) -> *Tree_Frame {
+    if stack.count <= INLINE_FRAMES return *stack.base[stack.count - 1];
+
+    return *stack.spill[stack.count - INLINE_FRAMES - 1];
+}
+
 #scope_export
 
 // Reads one JSON document. Every reading procedure returns false after recording an error in
@@ -58,7 +89,7 @@ Json_Reader :: struct {
     borrow: bool;
     tree: bool; // reading a parsed `Json_Value` instead of text (see `from_json` on a value)
     cur: *Json_Value; // in a tree, the value the next read consumes
-    frames: [..] Tree_Frame; // the arrays and objects being read in a tree, innermost last
+    frames: Tree_Stack; // the arrays and objects being read in a tree
 }
 
 // What [json_object_next] found: a key, the end of the object, or an error.
@@ -115,7 +146,7 @@ reader_free :: (r: *Json_Reader) {
     array_free(r.scratch);
     array_free(r.values);
     array_free(r.members);
-    array_free(r.frames);
+    array_free(r.frames.spill);
 }
 
 // A reader over a parsed tree: the generated decoders read `value` as they read text, with the
@@ -147,7 +178,7 @@ tree_byte :: (r: *Json_Reader) -> u8 {
 tree_object_next :: (r: *Json_Reader, first: *bool) -> string, Object_Status {
     first.* = false;
 
-    frame := *r.frames[r.frames.count - 1];
+    frame := stack_top(*r.frames);
 
     if frame.next >= frame.value.members.count {
         r.frames.count -= 1;
@@ -168,7 +199,7 @@ tree_object_next :: (r: *Json_Reader, first: *bool) -> string, Object_Status {
 tree_array_next :: (r: *Json_Reader, first: *bool) -> Array_Status {
     first.* = false;
 
-    frame := *r.frames[r.frames.count - 1];
+    frame := stack_top(*r.frames);
 
     if frame.next >= frame.value.items.count {
         r.frames.count -= 1;
@@ -185,7 +216,7 @@ tree_array_next :: (r: *Json_Reader, first: *bool) -> Array_Status {
 
 // Steps into the object or array being read.
 tree_enter :: (r: *Json_Reader) -> bool {
-    array_add(*r.frames, .{ r.cur, 0 });
+    stack_push(*r.frames, .{ r.cur, 0 });
 
     return enter_nesting(r);
 }

@@ -24,6 +24,7 @@
 - `jaifmt` and `Jai_Format` set a `[format]` setting by name with code written from `Format_Config` when the program compiles.
 - `gltf_extension` decodes the Json tree directly instead of writing it out and parsing it again, about 2.5 times faster; its error offset is now 0.
 - `Extensions/Csv` reads chunked sources about 2.2 times faster and `trim` input about 1.7 times faster: both now go through the 64-byte block scanner that slices use, and a record that crosses a chunk boundary is scanned once it is whole. A reader no longer keeps a position per field; a typed error finds its line and column again from the start of the record, with the same results.
+- Decoding a parsed `Json_Value` with `from_json` keeps its nesting frames inline for the first 16 levels and allocates for them only in deeper documents.
 
 ### Changed
 

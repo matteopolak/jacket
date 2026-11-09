@@ -52,6 +52,12 @@ Doc :: struct @json(rename_all=camelCase) {
     start_index: s32 = 4; @json(default,alias=first)
 }
 
+// A list of nodes that nests as deep as its text does.
+Chain :: struct {
+    value: s32;
+    next: *Chain; @json(default,skip_serializing_if=null)
+}
+
 Flags :: enum_flags u8 {
     A;
     B;
@@ -100,6 +106,19 @@ same_tree :: (value: $T) {
     check(built == reparsed, tprint("tree differs for %: % against %", text, built, reparsed));
     free_json(*tree);
     free_json(*parsed);
+}
+
+// `{"value":1,"next":{"value":1,"next":...}}`, `levels` objects deep.
+chain_text :: (levels: int) -> string {
+    builder: String_Builder;
+
+    for 1..levels append(*builder, "{\"value\":1,\"next\":");
+
+    append(*builder, "null");
+
+    for 1..levels append(*builder, "}");
+
+    return builder_to_string(*builder,, temp);
 }
 
 check :: (condition: bool, what: string) {
@@ -217,6 +236,31 @@ main :: () {
     same(Doc, "{\"id\":1,\"name\":\"a\",\"maybe\":1,\"extras\":[[[[1]]]]}", shallow);
     same(Doc, "{\"id\":1,\"name\":\"a\",\"maybe\":1,\"unknown\":[[[[1]]]]}", shallow);
     same(Doc, "{\"id\":1,\"name\":\"a\",\"maybe\":1,\"list\":[{\"x\":1,\"y\":1}]}", shallow);
+
+    // Nesting deeper than the reader's inline frames spills to the heap and still decodes, in the
+    // same way as text, within the depth limit and past it.
+    deep := Json_Options.{ max_depth = 300 };
+
+    same(Chain, chain_text(100), deep);
+    same(Chain, chain_text(40), deep);
+    same(Chain, chain_text(100), shallow);
+
+    tree_chain, _ := from_json(Json_Value, chain_text(100));
+    chain, chain_error := from_json(Chain, *tree_chain, deep);
+
+    check(chain_error.kind == .NONE, "a chain deeper than the inline frames decodes");
+
+    levels := 0;
+    link := *chain;
+
+    while link {
+        levels += 1;
+        link = link.next;
+    }
+
+    check(levels == 100, tprint("the chain has % levels, not 100", levels));
+    free_json(*chain);
+    free_json(*tree_chain);
 
     // Borrowing: the strings are the tree's own.
     tree, _ := from_json(Json_Value, "{\"id\":1,\"name\":\"borrowed\",\"maybe\":null}");
