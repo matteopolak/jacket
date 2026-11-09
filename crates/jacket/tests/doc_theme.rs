@@ -49,7 +49,7 @@ mod doc {
         let _serial = RUN
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let Some((jacket, jaic)) = tools() else {
+        let Some((jacket, _)) = tools() else {
             return;
         };
         let temp = TempDir::new("doc-theme-e2e");
@@ -89,16 +89,8 @@ mod doc {
             .unwrap()
             .path();
         let native = cache.join(format!("doc-site{}", std::env::consts::EXE_SUFFIX));
-        let mut command = if native.is_file() {
-            Command::new(native)
-        } else {
-            let mut command = Command::new(&jaic);
-            command
-                .arg(cache.join("src/main.jai"))
-                .args(["-interp", "--"]);
-            command
-        };
-        let bad = command
+        assert!(native.is_file(), "the theme is always compiled natively");
+        let bad = Command::new(native)
             .env("JAIC_STDLIB", repo().join("stdlib"))
             .arg(temp.join("input"))
             .arg(temp.join("unused"))

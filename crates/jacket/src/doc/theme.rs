@@ -115,8 +115,7 @@ fn hash_part(hash: &mut Sha256, name: &str, bytes: &[u8]) {
 }
 
 pub struct Prepared {
-    source: PathBuf,
-    binary: Option<PathBuf>,
+    binary: PathBuf,
 }
 
 impl Theme {
@@ -218,8 +217,7 @@ impl Theme {
             result?;
         }
         let binary = dir.join(format!("doc-site{}", std::env::consts::EXE_SUFFIX));
-        let interpreted = dir.join("interpreter-only");
-        if binary.is_file() || interpreted.is_file() {
+        if binary.is_file() {
             if timings {
                 eprintln!(
                     "jacket doc timings: theme compile: cached ({:.3}s)",
@@ -227,8 +225,7 @@ impl Theme {
                 );
             }
             return Ok(Prepared {
-                source,
-                binary: binary.is_file().then_some(binary),
+                binary,
             });
         }
         let temp = dir.join(format!(
@@ -251,7 +248,10 @@ impl Theme {
                 || stdout
                     .contains("built without the `llvm` feature and cannot write native output")
             {
-                std::fs::write(interpreted, b"").map_err(|e| e.to_string())?;
+                return Err(format!(
+                    "{} cannot write native output, which the documentation theme needs: install a jaic with the native backend",
+                    jaic.display()
+                ));
             } else {
                 eprint!("{stderr}");
                 print!("{stdout}");
@@ -270,8 +270,7 @@ impl Theme {
             );
         }
         Ok(Prepared {
-            source,
-            binary: binary.is_file().then_some(binary),
+            binary,
         })
     }
 }
@@ -279,24 +278,12 @@ impl Theme {
 impl Prepared {
     pub fn run(
         &self,
-        jaic: &Path,
         stdlib: &Path,
         input: &Path,
         out: &Path,
         check: bool,
     ) -> Result<ExitCode, String> {
-        let mut command = if let Some(binary) = &self.binary {
-            Command::new(binary)
-        } else {
-            eprintln!(
-                "jacket: warning: jaic has no native backend; interpreting the documentation theme is slow"
-            );
-            let mut command = Command::new(jaic);
-            command
-                .arg(self.source.join("main.jai"))
-                .args(["-interp", "--"]);
-            command
-        };
+        let mut command = Command::new(&self.binary);
         command
             .env(jacket_config::env::STDLIB.name, stdlib)
             .arg(input)
@@ -402,9 +389,10 @@ chmod +x "$last"
                         let prepared = theme
                             .prepare_at(&jaic, &temp.join("stdlib"), false, &temp)
                             .unwrap();
-                        assert!(prepared.binary.as_ref().unwrap().is_file());
+                        assert!(prepared.binary.is_file());
                         assert_eq!(
-                            std::fs::read(prepared.source.join("main.jai")).unwrap(),
+                            std::fs::read(prepared.binary.parent().unwrap().join("src/main.jai"))
+                                .unwrap(),
                             theme.files["main.jai"]
                         );
                     })
@@ -418,16 +406,13 @@ chmod +x "$last"
 
     #[cfg(unix)]
     #[test]
-    fn interpreter_only_compilers_are_cached_and_exit_status_is_preserved() {
+    fn a_compiler_without_a_native_backend_is_an_error_not_a_slower_path() {
         use std::os::unix::fs::PermissionsExt;
         let temp = TempDir::new("doc-interpreted");
         let jaic = temp.write(
             "jaic",
             r#"#!/bin/sh
 if [ "$1" = '-version' ]; then echo 'fake jaic'; exit 0; fi
-case "$2" in
--interp) exit 7 ;;
-esac
 echo 'this jaic was built without the `llvm` feature and cannot write native output' >&2
 exit 1
 "#,
@@ -435,20 +420,14 @@ exit 1
         std::fs::set_permissions(&jaic, std::fs::Permissions::from_mode(0o755)).unwrap();
         temp.write("stdlib/Extensions/Web/module.jai", "Web");
         let theme = Theme::new(None).unwrap();
-        let prepared = theme
+        let error = theme
             .prepare_at(&jaic, &temp.join("stdlib"), false, &temp)
-            .unwrap();
-        assert!(prepared.binary.is_none());
-        assert_eq!(
-            prepared
-                .run(&jaic, &temp.join("stdlib"), &temp, &temp, true)
-                .unwrap(),
-            ExitCode::from(7)
-        );
-        let cached = theme
-            .prepare_at(&jaic, &temp.join("stdlib"), false, &temp)
-            .unwrap();
-        assert_eq!(prepared.source, cached.source);
-        assert!(cached.binary.is_none());
+            .err()
+            .expect("the theme needs the native backend");
+        assert!(error.contains("native backend"), "{error}");
+        assert!(error.contains("install"), "{error}");
+        // Nothing is cached, so a later run with a good compiler is not shadowed.
+        let again = theme.prepare_at(&jaic, &temp.join("stdlib"), false, &temp);
+        assert!(again.is_err());
     }
 }

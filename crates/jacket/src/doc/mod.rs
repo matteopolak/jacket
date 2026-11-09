@@ -399,6 +399,40 @@ fn link_status(args: &DocArgs, broken: &[String], unlinked: &[String], filtered:
     ExitCode::SUCCESS
 }
 
+/// What runs the examples: the browser compiler under Node with `--runtime`, else jaic's
+/// interpreter. A missing `node`, or a library the bundle does not hold, is an error, not a
+/// quiet switch to the other one.
+fn engine<'a>(
+    runtime: Option<&'a Path>,
+    root: &Path,
+    stdlib: &'a Path,
+    jaic: &'a Path,
+    has_node: bool,
+) -> Result<example_check::Engine<'a>, String> {
+    let Some(runtime) = runtime else {
+        return Ok(example_check::Engine::Interpreter {
+            jaic,
+            stdlib,
+            import_dir: import_dir(stdlib, root),
+        });
+    };
+    if !has_node {
+        return Err(
+            "--runtime tests the examples in the browser compiler under Node, and `node` is not on PATH: install Node, or drop --runtime to test them in jaic's interpreter".into(),
+        );
+    }
+    if root != stdlib {
+        return Err(format!(
+            "--runtime tests the examples in the browser compiler, which holds only the standard library, so it cannot run the examples of {}: drop --runtime to test them in jaic's interpreter, or pass --no-test-examples",
+            root.display()
+        ));
+    }
+    Ok(example_check::Engine::Browser {
+        node: PathBuf::from("node"),
+        runtime,
+    })
+}
+
 /// Runs every example with a Run button the way the browser would; false when one fails.
 fn test_examples(
     args: &DocArgs,
@@ -408,33 +442,11 @@ fn test_examples(
     root: &Path,
 ) -> Result<bool, String> {
     let programs = site.runnable();
-    // With the browser compiler at hand the examples run in it, under Node; otherwise
-    // in jaic's interpreter, built for the same target.
-    let node = PathBuf::from("node");
-    let has_node = Command::new(&node)
+    let has_node = Command::new("node")
         .arg("--version")
         .output()
         .is_ok_and(|o| o.status.success());
-    if args.runtime.is_some() && !has_node {
-        eprintln!(
-            "jacket: warning: `node` not found; testing the examples in the interpreter, not the browser compiler"
-        );
-    }
-    let engine = if let Some(runtime) = args.runtime.as_deref()
-        && root == stdlib
-        && has_node
-    {
-        example_check::Engine::Browser {
-            node,
-            runtime,
-        }
-    } else {
-        example_check::Engine::Interpreter {
-            jaic,
-            stdlib,
-            import_dir: import_dir(stdlib, root),
-        }
-    };
+    let engine = engine(args.runtime.as_deref(), root, stdlib, jaic, has_node)?;
     let failed = example_check::run(&engine, &programs)?;
     if !failed.is_empty() {
         eprint!("{}", example_check::report(&failed));
@@ -663,13 +675,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         if !args.check {
             write_site(&args.out, &files, args.runtime.as_deref())?;
         }
-        let rendered = prepared.run(
-            &jaic,
-            &stdlib,
-            &input_dir.path,
-            &cwd.join(&args.out),
-            args.check,
-        )?;
+        let rendered = prepared.run(&stdlib, &input_dir.path, &cwd.join(&args.out), args.check)?;
         accounted += timing(args, "render and write", render_start);
         if rendered != ExitCode::SUCCESS {
             return Ok(rendered);
@@ -807,5 +813,30 @@ mod tests {
         assert_eq!(base_path("/docs/jacket/").unwrap(), "/docs/jacket/");
         assert!(base_path("/docs/jacket").is_err());
         assert!(base_path("docs/").is_err());
+    }
+
+    #[test]
+    fn the_engine_follows_the_flags_and_never_what_is_installed() {
+        let (jaic, stdlib) = (Path::new("jaic"), Path::new("/s"));
+        let pick = |runtime: Option<&Path>, root: &Path, node: bool| {
+            engine(runtime, root, stdlib, jaic, node)
+                .map(|e| matches!(e, example_check::Engine::Browser { .. }))
+        };
+        // No flag: the interpreter, with or without Node.
+        assert_eq!(pick(None, stdlib, false), Ok(false));
+        assert_eq!(pick(None, stdlib, true), Ok(false));
+        // `--runtime` asks for the browser compiler.
+        assert_eq!(pick(Some(Path::new("rt")), stdlib, true), Ok(true));
+        let no_node = pick(Some(Path::new("rt")), stdlib, false).unwrap_err();
+        assert!(
+            no_node.contains("install Node") && no_node.contains("--runtime"),
+            "{no_node}"
+        );
+        // The bundle holds the standard library only.
+        let other = pick(Some(Path::new("rt")), Path::new("/lib"), true).unwrap_err();
+        assert!(
+            other.contains("--runtime") && other.contains("standard library"),
+            "{other}"
+        );
     }
 }
