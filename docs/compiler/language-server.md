@@ -47,6 +47,8 @@ The retained records use the stored document identity, so filesystem-proven URI 
 
 A diagnostics pull whose check was stopped, failed or deferred is answered with `ServerCancelled` (-32802, `data.retriggerRequest: true`), never an empty report that would wipe the client's squiggles. A session with no environment reports its syntax diagnostics only. Pushed diagnostics leave such a document out until the next publication (`Session::publications`, `Session::run_semantic`, `Unchecked`).
 
+When the client advertises `workspace.didChangeWatchedFiles.dynamicRegistration`, `jailsp` registers watchers for `**/*.jai` and `**/jacket.toml` after `initialized`, so any client reports disk changes (created, changed, deleted files and settings). The VS Code client relies on this and has no watcher of its own.
+
 Refresh requests (`workspace/diagnostic/refresh`, `semanticTokens`, `inlayHint`, `codeLens`) are coalesced per method: while one is unanswered a further request is remembered and sent once when the client answers. A client that never answers a refresh therefore stops receiving that method's refreshes; there is no timeout.
 
 A cold file has no semantic snapshot to query. Integration tests that require its complete call tree first send `textDocument/diagnostic` for that document: the diagnostics pull checks its current text before returning. This also synchronizes an editor test after reverting an edit, without a delay or a retried navigation request.

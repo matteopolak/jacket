@@ -24,7 +24,7 @@ impl JsonSession {
             Notification::Initialized => {
                 self.index_progress.initialized = true;
                 self.session.enable_workspace_diagnostics();
-                Ok(vec![])
+                Ok(self.watch_registration())
             }
             Notification::Cancel | Notification::Exit => Ok(vec![]),
             Notification::DidOpen => self.did_open(params),
@@ -237,6 +237,28 @@ impl JsonSession {
             Err(Error::MissingDocument) => Ok((version, Vec::new())),
             Err(error) => Err(domain(error)),
         }
+    }
+
+    /// The registration of the files the server follows on disk (sources and settings), for a
+    /// client that lets it: without notifications a file changed behind the server's back is
+    /// only noticed by what re-reads it.
+    fn watch_registration(&self) -> Vec<Value> {
+        if !self.watch_files {
+            return Vec::new();
+        }
+        vec![json!({
+            "jsonrpc": "2.0",
+            "id": "jai-watch-files",
+            "method": "client/registerCapability",
+            "params": {"registrations": [{
+                "id": "jai-watch-files",
+                "method": "workspace/didChangeWatchedFiles",
+                "registerOptions": {"watchers": [
+                    {"globPattern": "**/*.jai"},
+                    {"globPattern": format!("**/{}", jacket_config::FILE_NAME)},
+                ]},
+            }]},
+        })]
     }
 
     /// A request for the client to pull again, when it supports being asked: settings files

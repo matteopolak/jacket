@@ -248,10 +248,7 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
     // settings go as initialization options and, when they change, as
     // `workspace/didChangeConfiguration` with the whole `jai` section.
     initializationOptions: () => serverSettings(),
-    synchronize: {
-      // Auto-import completion indexes the project's files: tell jailsp when they change.
-      fileEvents: vscode.workspace.createFileSystemWatcher("**/{*.jai,jacket.toml}"),
-    },
+    // File watching is registered by jailsp itself (`workspace/didChangeWatchedFiles`).
     middleware: {
       executeCommand: async (command, args, next) => expansions.handle(command, await next(command, args)),
     },

@@ -258,6 +258,10 @@ impl JsonSession {
                 .pointer("/capabilities/workspace/diagnostics/refreshSupport")
                 .and_then(Value::as_bool)
                 == Some(true);
+        self.watch_files = params
+            .pointer("/capabilities/workspace/didChangeWatchedFiles/dynamicRegistration")
+            .and_then(Value::as_bool)
+            == Some(true);
         self.refresh_code_lenses = params
             .pointer("/capabilities/workspace/codeLens/refreshSupport")
             .and_then(Value::as_bool)

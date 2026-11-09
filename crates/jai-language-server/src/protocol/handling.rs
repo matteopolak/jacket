@@ -34,6 +34,7 @@ impl JsonSession {
             workspace_published: std::collections::BTreeSet::new(),
             refresh_diagnostics: false,
             refreshes: 0,
+            watch_files: false,
             refresh_outstanding: std::collections::BTreeMap::new(),
             refresh_dirty: std::collections::BTreeSet::new(),
             refresh_code_lenses: false,

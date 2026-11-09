@@ -58,6 +58,8 @@ pub struct JsonSession {
     /// It can also be told to pull again (`workspace/diagnostic/refresh`).
     refresh_diagnostics: bool,
     refreshes: u64,
+    /// The client lets the server register watchers for files (`workspace/didChangeWatchedFiles`).
+    watch_files: bool,
     /// Refresh requests sent and not yet answered, by request id, with their method.
     refresh_outstanding: std::collections::BTreeMap<String, &'static str>,
     /// Methods asked for again while one was outstanding: sent once when it is answered.
