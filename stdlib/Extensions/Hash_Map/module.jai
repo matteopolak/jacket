@@ -278,7 +278,7 @@ deinit :: (map: *Map) {
     map.count = 0;
     map.capacity = 0;
     map.growth_left = 0;
-} @FreesArgument
+}
 
 // `for value, key: map {...}` visits every entry: `it` is the value (a pointer to it under
 // `for *`), `it_index` the key. `remove it` takes the current entry out. Anything else that
