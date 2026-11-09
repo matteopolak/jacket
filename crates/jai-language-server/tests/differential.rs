@@ -38,11 +38,8 @@ impl Rng {
     }
 }
 
-fn env_number(name: &str, default: u64) -> u64 {
-    std::env::var(name)
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(default)
+fn env_number(var: &jacket_config::env::Var, default: u64) -> u64 {
+    var.get().and_then(|v| v.parse().ok()).unwrap_or(default)
 }
 
 // A client for one server: records what the server sent and answers its requests.
@@ -348,7 +345,7 @@ fn step(rng: &mut Rng, world: &mut World, client: &mut Client, counter: u64) {
             };
             let (version, text, _) = world.open.get_mut(&name).unwrap();
             *version += 1;
-            *text = previous.clone();
+            text.clone_from(&previous);
             let (version, uri) = (*version, world.uri(&name));
             world.log.push(format!("undo {name}"));
             client.notify(
@@ -633,15 +630,15 @@ fn run(seed: u64, steps: u64) {
 
 #[test]
 fn incremental_answers_equal_a_cold_servers() {
-    let steps = env_number("JAI_DIFF_STEPS", 6);
-    if let Some(seed) = std::env::var("JAI_DIFF_SEED")
-        .ok()
+    let steps = env_number(&jacket_config::env::DIFF_STEPS, 6);
+    if let Some(seed) = jacket_config::env::DIFF_SEED
+        .get()
         .and_then(|s| s.parse().ok())
     {
         run(seed, steps);
         return;
     }
-    for seed in 1..=env_number("JAI_DIFF_SEEDS", 2) {
+    for seed in 1..=env_number(&jacket_config::env::DIFF_SEEDS, 2) {
         run(seed, steps);
     }
 }

@@ -373,6 +373,21 @@ vars! {
         default: "unset",
         summary: "The prelude the child process of the prelude-selection tests must find, or `missing`.",
     }
+    DIFF_STEPS {
+        name: "JAI_DIFF_STEPS", group: Testing, readers: [Tests],
+        default: "6",
+        summary: "How many random edits each seed of the language server differential test makes.",
+    }
+    DIFF_SEEDS {
+        name: "JAI_DIFF_SEEDS", group: Testing, readers: [Tests],
+        default: "2",
+        summary: "How many seeds the language server differential test runs.",
+    }
+    DIFF_SEED {
+        name: "JAI_DIFF_SEED", group: Testing, readers: [Tests],
+        default: "unset",
+        summary: "Run the language server differential test with only this seed.",
+    }
     IDE_AUDIT_REVISION {
         name: "JAI_IDE_AUDIT_REVISION", group: Testing, readers: [Tests],
         default: "unset",
