@@ -901,3 +901,32 @@ fn a_modules_tests_and_benches_are_not_documented() {
     assert_eq!(names, ["own", "extra"]);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_public_top_level_insert_is_reported_with_its_place() {
+    let dir = library(
+        "top-level-insert",
+        &[
+            (
+                "module.jai",
+                "#load \"more.jai\";\n\nvisible :: () {}\n\n#insert #run make(\"made\");\n\n#scope_file\n\n#insert #run make(\"hidden\");\n",
+            ),
+            (
+                "more.jai",
+                "\n#if true {\n    #insert \"extra :: 1;\";\n}\n",
+            ),
+        ],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let mut places: Vec<_> = model
+        .inserts
+        .iter()
+        .map(|(file, line)| (file.file_name().unwrap().to_str().unwrap(), *line))
+        .collect();
+    places.sort();
+    // The private one declares nothing a reader could use; the one in a branch is still public.
+    assert_eq!(places, [("module.jai", 5), ("more.jai", 3)]);
+    let json = to_json(&model, &|_| None);
+    assert!(json.contains("\"inserts\":[{\"file\":"), "{json}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

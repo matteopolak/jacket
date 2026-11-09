@@ -136,6 +136,7 @@ mod tests {
             experimental: false,
             parameters: Vec::new(),
             unresolved: Vec::new(),
+            inserts: Vec::new(),
             test_notes: Vec::new(),
         }
     }

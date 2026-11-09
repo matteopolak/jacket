@@ -252,6 +252,9 @@ pub struct Module {
     pub experimental: bool,
     pub parameters: Vec<Parameter>,
     pub items: Vec<Item>,
+    /// The file and line of each top-level `#insert` that is not private to its file. What it
+    /// declares is not in `items`: the model reads source and never runs it.
+    pub inserts: Vec<(PathBuf, usize)>,
 }
 
 /// A parsed file and its text, read once.
@@ -704,6 +707,13 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
         let mut first_statement = None;
         let mut loads = Vec::new();
         let index = TopIndex::new(&parsed);
+        // What an `#insert` declares is known only by running it, which the model never does.
+        for (span, visibility) in ide_facts::top_level_inserts(&parsed.parse.file) {
+            if visibility == Visibility::Export {
+                let line = reader.line_of(&text, span.start as usize);
+                out.inserts.push((file.clone(), line));
+            }
+        }
         for item in &index.tops {
             first_statement.get_or_insert(item.span.start as usize);
             match item.kind {

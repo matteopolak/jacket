@@ -182,6 +182,9 @@ pub struct Module {
     /// Links in its doc comments that read as intra-doc links and name nothing, as
     /// `file:line: [text]`.
     pub unresolved: Vec<String>,
+    /// Where each top-level `#insert` that is not private to its file is, as `file:line`. What
+    /// it declares is not in the model.
+    pub inserts: Vec<String>,
     /// The notes of the `// test:` lines that open its `module.jai`, which every example of the
     /// module takes as `jacket test` gives them to its doc tests.
     pub test_notes: Vec<String>,
@@ -506,6 +509,10 @@ pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module,
                     text(u, "text")
                 )
             })
+            .collect(),
+        inserts: list(&v, "inserts")
+            .iter()
+            .map(|i| format!("{}:{}", below(stdlib, &text(i, "file")), number(i, "line")))
             .collect(),
         test_notes: crate::test::options::header_notes(
             &std::fs::read_to_string(stdlib.join(id).join("module.jai")).unwrap_or_default(),

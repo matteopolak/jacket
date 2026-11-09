@@ -196,6 +196,28 @@ pub fn top_level(file: &File) -> Vec<TopLevel<'_>> {
     out
 }
 
+/// The `#insert` statements of `file`'s top level (`#if` branches included), each with the
+/// visibility of the names it declares. What they declare is only known by running them, so
+/// `top_level` has no entry for them.
+pub fn top_level_inserts(file: &File) -> Vec<(Span, Visibility)> {
+    fn walk(stmts: &[Stmt], mut visibility: Visibility, out: &mut Vec<(Span, Visibility)>) {
+        for stmt in stmts {
+            match &stmt.kind {
+                StmtKind::Scope(kind) => visibility = (*kind).into(),
+                StmtKind::StaticIf(branches) => {
+                    walk(&branches.then_branch, visibility, out);
+                    walk(&branches.else_branch, visibility, out);
+                }
+                StmtKind::Insert(_) => out.push((stmt.span, visibility)),
+                _ => {}
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(&file.stmts, Visibility::Export, &mut out);
+    out
+}
+
 /// The targets an `#assert OS == .A || OS == .B` allows (`[A, B]`); `None` when it names no
 /// target, or tests `OS` any other way.
 pub fn asserted_targets(assert: &AssertStmt) -> Option<Vec<Sym>> {

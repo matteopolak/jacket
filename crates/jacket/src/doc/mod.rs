@@ -203,6 +203,22 @@ fn indented_code_warnings(modules: &[Module]) -> Vec<String> {
     out
 }
 
+/// A warning for each top-level `#insert` of `modules`: what it declares is known only by running
+/// it, which `jacket doc` does not, so the page leaves those declarations out.
+fn insert_warnings(modules: &[Module]) -> Vec<String> {
+    modules
+        .iter()
+        .flat_map(|m| {
+            m.inserts.iter().map(move |at| {
+                format!(
+                    "{}: the #insert at {at} may declare public items that are not documented; `jacket doc` reads source and does not run it",
+                    m.id
+                )
+            })
+        })
+        .collect()
+}
+
 /// Where `dir` is in its git checkout, with a trailing slash (`stdlib/`), the checkout's commit,
 /// and the files below `dir` that differ from it. `Ok(None)` when `dir` is not in a checkout;
 /// an error when `git` cannot run or fails inside one.
@@ -721,7 +737,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         }
         let broken = report_broken_links(&site, args.allow_broken_links || filtered);
         let unfenced = indented_code_warnings(&site.modules);
-        for warning in &unfenced {
+        for warning in unfenced.iter().chain(&insert_warnings(&site.modules)) {
             eprintln!("jacket: warning: {warning}");
         }
         let procedures = site
@@ -939,6 +955,19 @@ mod tests {
             assert!(state.is_none());
         }
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_top_level_insert_is_a_warning_with_its_place() {
+        let json = r#"{"file":"/s/Bytes/module.jai","docs":"","docs_line":1,"platforms":[],"items":[],"inserts":[{"file":"/s/Bytes/module.jai","line":409}]}"#;
+        let module = model::parse("Bytes", json, Path::new("/s"), Path::new("/s")).unwrap();
+        assert_eq!(module.inserts, ["Bytes/module.jai:409"]);
+        let warnings = insert_warnings(&[module]);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].starts_with("Bytes: the #insert at Bytes/module.jai:409"),
+            "{warnings:?}"
+        );
     }
 
     #[test]

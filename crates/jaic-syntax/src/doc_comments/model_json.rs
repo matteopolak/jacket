@@ -187,7 +187,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
         .map(|item| item_json(item, !item.private, &md_at))
         .collect();
     format!(
-        "{{\"file\":{},\"implicit\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n],\"unresolved\":[{}]}}\n",
+        "{{\"file\":{},\"implicit\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n],\"unresolved\":[{}],\"inserts\":[{}]}}\n",
         path(&model.file),
         model.implicit,
         json(&md_at(
@@ -218,6 +218,12 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             .collect::<Vec<_>>()
             .join(","),
         items.join(",\n"),
-        missed.borrow().join(",")
+        missed.borrow().join(","),
+        model
+            .inserts
+            .iter()
+            .map(|(file, line)| format!("{{\"file\":{},\"line\":{line}}}", path(file)))
+            .collect::<Vec<_>>()
+            .join(",")
     )
 }
