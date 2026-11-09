@@ -36,8 +36,16 @@ pub(super) struct Lexer<'a> {
     pub(super) stopped: bool,
 }
 
-/// How many tokens `lex_stoppable` makes between two questions to `stop`.
+/// How many tokens `lex_stoppable` makes between two questions to `stop`. Long scans inside one
+/// token (comments, strings) pay into the same countdown, one unit per `SCAN_UNIT` bytes, so a
+/// huge comment is asked about as often as the same weight of tokens.
 pub const STOP_POLL_TOKENS: u32 = 1024;
+
+/// How many bytes of a long scan count as one token for the countdown.
+const SCAN_UNIT: usize = 64;
+
+/// A long scan pays into the countdown once per this many bytes, not per byte.
+const SCAN_CHUNK: usize = 4096;
 
 /// The offset just past the closing quote of a string whose body starts at `at`.
 fn skip_string(src: &[u8], mut at: usize) -> usize {
@@ -110,6 +118,35 @@ impl<'a> Lexer<'a> {
             self.stopped = true;
             self.at = self.src.len();
         }
+    }
+
+    /// A scan that began at `*mark` has reached `self.at`: pay for the bytes in between and
+    /// ask `stop` when the countdown runs out. True means stop: the lexer is at the end of the
+    /// text and the scan must return. Called once per `SCAN_CHUNK` bytes, never per byte.
+    #[cold]
+    fn pay_scan(&mut self, mark: &mut usize) -> bool {
+        let bytes = self.at - *mark;
+        *mark = self.at;
+        if self.stop.is_none() {
+            return false;
+        }
+        self.countdown = self.countdown.saturating_sub((bytes / SCAN_UNIT) as u32);
+        if self.countdown == 0 {
+            self.poll_stop();
+        }
+        self.stopped
+    }
+
+    /// The next `SCAN_CHUNK` bytes: the most a long scan looks at between two payments.
+    fn window(&self) -> &'a [u8] {
+        let src = self.src;
+        &src[self.at..(self.at + SCAN_CHUNK).min(src.len())]
+    }
+
+    /// Whether a scan that began at `mark` is due to `pay_scan`.
+    #[inline(always)]
+    fn scan_due(&self, mark: usize) -> bool {
+        self.at - mark >= SCAN_CHUNK
     }
 
     /// Run to the end, restarting after each error; the errors in order.
@@ -530,6 +567,9 @@ impl<'a> Lexer<'a> {
                 run += 1;
             }
             self.at += run;
+            if run >= SCAN_CHUNK && self.pay_scan(&mut (self.at - run)) {
+                return Ok(());
+            }
             let c = self.peek(0);
             if c == 0xc2 && self.peek(1) == 0xa0 {
                 // U+00A0 (no-break space) separates tokens like a space.
@@ -546,7 +586,19 @@ impl<'a> Lexer<'a> {
                 let start = self.at;
                 self.at += 2;
                 let mut depth = 1;
+                let mut mark = start;
                 while depth > 0 {
+                    if self.scan_due(mark) && self.pay_scan(&mut mark) {
+                        return Ok(());
+                    }
+                    // Step over the bytes that can neither open, close nor count a line, a
+                    // chunk at a time so the scan can be asked about.
+                    let rest = self.window();
+                    let special = rest.iter().position(|&c| matches!(c, b'/' | b'*' | b'\n'));
+                    self.at += special.unwrap_or(rest.len());
+                    if special.is_none() && self.at < self.src.len() {
+                        continue;
+                    }
                     if self.at >= self.src.len() {
                         self.note_comment(start, CommentKind::Block, false);
                         let end = Span::new(self.file, self.src.len(), self.src.len());
@@ -697,7 +749,27 @@ impl<'a> Lexer<'a> {
 
     fn string_body(&mut self, start: usize) -> Result<Vec<u8>, Diagnostic> {
         let mut out = Vec::new();
+        let mut mark = self.at;
         loop {
+            if self.scan_due(mark) && self.pay_scan(&mut mark) {
+                return Ok(out);
+            }
+            // Copy the plain run in one go.
+            let rest = self.window();
+            let Some(run) = rest.iter().position(|&c| c == b'"' || c == b'\\') else {
+                out.extend_from_slice(rest);
+                self.at += rest.len();
+                if self.at >= self.src.len() {
+                    return Err(self.err(
+                        Code::LexUnterminatedStringLiteral,
+                        start,
+                        "unterminated string literal",
+                    ));
+                }
+                continue;
+            };
+            out.extend_from_slice(&rest[..run]);
+            self.at += run;
             let Some(&c) = self.src.get(self.at) else {
                 return Err(self.err(
                     Code::LexUnterminatedStringLiteral,
@@ -836,7 +908,11 @@ impl<'a> Lexer<'a> {
         }
         self.at += 1;
         let body_start = self.at.min(self.src.len());
+        let mut mark = body_start;
         while self.at < self.src.len() {
+            if self.scan_due(mark) && self.pay_scan(&mut mark) {
+                return Ok(Vec::new());
+            }
             let line_end = self.src[self.at..]
                 .iter()
                 .position(|&c| c == b'\n')

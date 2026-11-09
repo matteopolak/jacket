@@ -233,4 +233,53 @@ mod tests {
             assert_eq!(e.message, format!("unknown escape sequence '{escape}'"));
         }
     }
+
+    /// Lex `text` with a stop hook that says yes on its first question; how often it was asked.
+    fn asked_before_stopping(text: &str) -> (bool, u32) {
+        let mut asked = 0;
+        let lexed = lex_stoppable(FileId(0), text, &mut || {
+            asked += 1;
+            true
+        });
+        (lexed.is_ok_and(|tokens| tokens.is_none()), asked)
+    }
+
+    #[test]
+    fn a_huge_block_comment_can_be_stopped() {
+        let size = 8 << 20;
+        let plain = format!("/*{}*/ x := 1;", " ".repeat(size));
+        let nested = format!("/*{}*/ x := 1;", "/* a */ ".repeat(size / 8));
+        let lines = format!("/*{}*/ x := 1;", "a\n".repeat(size / 2));
+        for text in [plain, nested, lines] {
+            assert_eq!(asked_before_stopping(&text), (true, 1));
+        }
+    }
+
+    #[test]
+    fn a_huge_string_literal_can_be_stopped() {
+        let size = 8 << 20;
+        let plain = format!("x := \"{}\";", "a".repeat(size));
+        let escaped = format!("x := \"{}\";", "\\n".repeat(size / 2));
+        for text in [plain, escaped] {
+            assert_eq!(asked_before_stopping(&text), (true, 1));
+        }
+    }
+
+    #[test]
+    fn a_huge_here_string_can_be_stopped() {
+        let text = format!("x := #string END\n{}END;", "line of text\n".repeat(1 << 20));
+        assert_eq!(asked_before_stopping(&text), (true, 1));
+    }
+
+    #[test]
+    fn long_scans_that_are_not_stopped_still_lex_in_full() {
+        let text = format!(
+            "/*{}*/ x := \"{}\"; y := #string END\n{}END;",
+            "/* a */ ".repeat(1 << 20),
+            "a".repeat(1 << 22),
+            "line\n".repeat(1 << 20),
+        );
+        let lexed = lex_stoppable(FileId(0), &text, &mut || false);
+        assert!(lexed.is_ok_and(|tokens| tokens.is_some_and(|t| t.len() > 8)));
+    }
 }
