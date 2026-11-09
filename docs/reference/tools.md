@@ -560,7 +560,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_PRELUDE_TEST_CHILD` | Marks the child process of the prelude-selection tests, which run themselves again with `JAIC_PRELUDE` set. | unset | tests |
 | `JAIC_REQUIRE_TOOLCHAIN` | `1`, or a comma list of tool names: a missing tool fails the test instead of skipping it. Always on under `CI`. | unset: a test whose tool is missing skips | tests |
 | `JAIC_SPECULATIVE_BODIES` | When set, checks queued bodies speculatively first, like `-dev_speculative_bodies` (only in a `jaic` built with the `speculative-bodies` feature). | unset | jaic, tests |
-| `JAIC_TEST_FONT_PATH` | A font file for stdlib tests that render text; without it they skip locally and fail under `CI`. | unset | jacket |
+| `JAIC_TEST_FONT_PATH` | A font file for stdlib tests that render text; without it they fail, unless they declare `optional(JAIC_TEST_FONT_PATH)`, which skips them. | unset | jacket |
 | `JAIC_TEST_LIBRARY_MARKER` | A file the native-link test's library writes to, to show it was loaded. | unset | tests |
 | `JAIC_TEST_TMPDIR` | Where test scratch directories are made. | the system temporary directory | tests |
 | `JAIC_WASM_TEST` | A value the WebAssembly test passes to the program, which prints it back. | unset | tests |

@@ -77,6 +77,7 @@ The [testing guide](../guides/testing.md) has examples of tests, checks, `@cases
 | `@only(...)` | run only on these targets: `.LINUX`, `.MACOS`, `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE`; every kind named must match |
 | `@skip_on(...)` | skip on any of these; `reason = "text"` explains |
 | `@needs(.NETWORK)` | skip unless the run has the capability (`--needs network`, `[test] needs`) |
+| `optional(NAME)` | skip, instead of failing, when an `args(...)` entry uses `${NAME}` and the variable is unset (`optional(JAIC_TEST_FONT_PATH)`) |
 | `@interp_only`, `@native_only` | run only with / without `--interp` |
 | `@exit(N)` | the program must exit with status N, with no failed check |
 | `@should_fail`, `@should_fail(word)` | must fail; with a word, the failure message or stderr must contain it |
@@ -156,7 +157,7 @@ Operators, tightest first: `not` / `!`, `and` / `&`, `or` / `|`; parentheses gro
 
 Every `jaic` that `jacket test` starts gets `JAIC_STDLIB` (`stdlib_dir` in `crates/jacket/src/test/mod.rs`). The first of these decides: `JAIC_STDLIB` in the environment; the project's own `stdlib/` if it holds the library (so a git worktree tests its own checkout); else what `jaic -print_stdlib` reports. `$STDLIB` in expectations stands for its canonical path.
 
-Native libraries are searched in `<stdlib>/../target/native-libs/<os>-<cpu>`, then in the main checkout's, where `build_native_libs.py` puts them. Missing test inputs that can be built are prepared once before the run (`prepare` in `crates/jacket/src/test/prerequisites.rs`; add a `SETUPS` entry for a new one). A failure list ending in `missing build outputs` names the rest with the command that builds each; `tools/native/ci_native_deps.sh full` builds them all the way CI does.
+Native libraries are searched in `<stdlib>/../target/native-libs/<os>-<cpu>`, then in the main checkout's, where `build_native_libs.py` puts them. Missing test inputs that can be built are prepared once before the run; if `python3` is missing or a build script fails, the run stops with the command to run by hand (`prepare` in `crates/jacket/src/test/prerequisites.rs`; add a `SETUPS` entry for a new one). A failure list ending in `missing build outputs` names the rest with the command that builds each; `tools/native/ci_native_deps.sh full` builds them all the way CI does.
 
 ### Coverage
 

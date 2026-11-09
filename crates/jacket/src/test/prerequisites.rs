@@ -4,6 +4,7 @@
 //!
 //! The two that are plain files of the checkout, the fixture data and the Debug helper, are also
 //! built before the run, when a selected test needs one that is missing ([`prepare`]).
+use super::options::TestOptions;
 use super::{Outcome, Status};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -103,37 +104,49 @@ fn needed(files: &[PathBuf], stdlib: &Path, root: &Path) -> Vec<&'static Setup> 
 }
 
 /// Builds the outputs that tests among `files` read and a fresh checkout lacks, once, before
-/// anything runs. It costs a few file checks when they are there. A script that cannot run is a
-/// warning; the tests then fail as they would have, and the list of missing build outputs at the
-/// end says what to run.
-pub fn prepare(files: &[PathBuf], stdlib: &Path) {
+/// anything runs. It costs a few file checks when they are there. A script that cannot run is an
+/// error that names the command to run by hand: the tests would only fail later, less clearly.
+pub fn prepare(files: &[PathBuf], stdlib: &Path) -> Result<(), String> {
+    prepare_with("python3", files, stdlib)
+}
+
+fn prepare_with(python: &str, files: &[PathBuf], stdlib: &Path) -> Result<(), String> {
     let Some(root) = stdlib.parent() else {
-        return;
+        return Ok(());
     };
     for setup in needed(files, stdlib, root) {
         eprintln!(
             "jacket: building {} (first run in this checkout)",
             setup.what
         );
-        let status = Command::new("python3")
+        let by_hand = format!(
+            "PYTHONPATH=tools python3 {} {}",
+            setup.script,
+            setup.args.join(" ")
+        );
+        let output = Command::new(python)
             .arg(root.join(setup.script))
             .args(setup.args)
             .env("PYTHONPATH", root.join("tools"))
             .current_dir(root)
-            .output();
-        match status {
-            Ok(output) if output.status.success() => {}
-            Ok(output) => eprintln!(
-                "jacket: warning: could not build {}: {}",
+            .output()
+            .map_err(|error| {
+                format!(
+                    "could not start `{python}` to build {}: {error}\nhelp: install Python 3 and put it on PATH, or build it yourself: {}",
+                    setup.what,
+                    by_hand.trim_end()
+                )
+            })?;
+        if !output.status.success() {
+            return Err(format!(
+                "could not build {}: {}\nhelp: run `{}` to see the failure",
                 setup.what,
-                String::from_utf8_lossy(&output.stderr).trim()
-            ),
-            Err(error) => eprintln!(
-                "jacket: warning: could not start python3 for {}: {error}",
-                setup.what
-            ),
+                String::from_utf8_lossy(&output.stderr).trim(),
+                by_hand.trim_end()
+            ));
         }
     }
+    Ok(())
 }
 
 /// CI must diagnose a missing dependency rather than silently reduce its coverage.
@@ -141,12 +154,21 @@ pub fn in_ci() -> bool {
     jacket_config::env::CI.is_set() || jacket_config::env::GITHUB_ACTIONS.is_set()
 }
 
-pub fn font_skip(args: &[String], ci: bool, font: Option<&Path>) -> Option<String> {
-    (!ci && args
-        .iter()
-        .any(|arg| arg.contains("${JAIC_TEST_FONT_PATH}"))
-        && !font.is_some_and(Path::is_file))
-    .then(|| "missing test prerequisite: JAIC_TEST_FONT_PATH must name a real font file".into())
+/// Why a test that declared `optional(NAME)` is skipped: one of its `args` uses `${NAME}` and
+/// the variable is not set. A test that does not declare it runs and fails, on every machine,
+/// the way [`super::golden`] fails an argument with an unset variable.
+pub fn optional_skip(
+    options: &TestOptions,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> Option<String> {
+    options.optional.iter().find_map(|name| {
+        let used = options
+            .args
+            .iter()
+            .any(|arg| arg.contains(&format!("${{{name}}}")));
+        (used && env(name).is_none_or(|value| value.is_empty()))
+            .then(|| format!("missing optional test prerequisite: {name} is not set"))
+    })
 }
 
 /// Only absent test-driver libraries qualify. Missing production libraries, assertions,
@@ -494,19 +516,56 @@ mod local_prerequisite_tests {
     use super::*;
 
     #[test]
-    fn absent_fonts_skip_only_locally_and_only_when_requested() {
-        let args = vec!["${JAIC_TEST_FONT_PATH}".into()];
-        assert!(font_skip(&args, false, None).is_some());
-        assert!(font_skip(&args, true, None).is_none());
-        assert!(font_skip(&[], false, None).is_none());
+    fn an_unset_variable_skips_only_a_test_that_declares_it_optional() {
+        let mut options = TestOptions::default();
+        options.apply("args(\"${JAIC_TEST_FONT_PATH}\")").unwrap();
+        let unset = |_: &str| None;
+        let set = |_: &str| Some("/fonts/a.ttf".to_string());
+        // Not declared: it runs, and fails for the missing variable.
+        assert!(optional_skip(&options, &unset).is_none());
+        options.apply("optional(JAIC_TEST_FONT_PATH)").unwrap();
+        let reason = optional_skip(&options, &unset).unwrap();
+        assert!(reason.contains("JAIC_TEST_FONT_PATH"), "{reason}");
+        assert!(optional_skip(&options, &set).is_none());
+        assert!(optional_skip(&options, &|_: &str| Some(String::new())).is_some());
+        // Declared but not used by the arguments: nothing to skip.
+        options.args.clear();
+        assert!(optional_skip(&options, &unset).is_none());
+    }
+
+    #[test]
+    fn a_missing_python_or_a_failed_script_is_an_error_with_the_command_to_run() {
+        let root = std::env::temp_dir().join(format!("jacket-prepare-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let stdlib = root.join("stdlib");
+        std::fs::create_dir_all(stdlib.join("Debug/tests")).unwrap();
+        std::fs::create_dir_all(root.join("tools/developer_checks")).unwrap();
+        std::fs::write(
+            root.join("tools/developer_checks/build_developer_debug.py"),
+            "",
+        )
+        .unwrap();
+        let test = stdlib.join("Debug/tests/ownership.jai");
+        std::fs::write(&test, "main :: () {}").unwrap();
+        let files = [test];
+
+        let error = prepare_with("/nowhere/python3", &files, &stdlib).unwrap_err();
         assert!(
-            font_skip(
-                &args,
-                false,
-                Some(&Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"))
-            )
-            .is_none()
+            error.contains("could not start `/nowhere/python3`"),
+            "{error}"
         );
+        assert!(error.contains("build_developer_debug.py"), "{error}");
+        assert!(error.contains("install Python 3"), "{error}");
+        #[cfg(unix)]
+        {
+            let error = prepare_with("false", &files, &stdlib).unwrap_err();
+            assert!(
+                error.contains("could not build the Debug native helper"),
+                "{error}"
+            );
+            assert!(error.contains("PYTHONPATH=tools python3"), "{error}");
+        }
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

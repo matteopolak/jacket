@@ -33,6 +33,9 @@ pub struct TestOptions {
     pub ignore: bool,
     /// Golden tests: the program's command-line arguments. `$TEMP` is a fresh folder.
     pub args: Vec<String>,
+    /// Environment variables the test skips without, when its `args` use them (`${NAME}`); any
+    /// other unset variable fails the test.
+    pub optional: Vec<String>,
     /// Golden tests: only type-check the program (`jaic -check`); it must pass.
     pub check_only: bool,
     /// Golden tests: the build output (compiled) or standard error (interpreted) must contain
@@ -259,6 +262,20 @@ impl TestOptions {
                 self.warns = Some(want);
             }
             "args" => self.args = quoted_list(args.unwrap_or("")),
+            "optional" => {
+                self.optional = args
+                    .unwrap_or("")
+                    .split(',')
+                    .map(|name| name.trim().to_string())
+                    .filter(|name| !name.is_empty())
+                    .collect();
+                if self.optional.is_empty() {
+                    return Err(
+                        "`optional` needs variable names, as in `optional(JAIC_TEST_FONT_PATH)`"
+                            .into(),
+                    );
+                }
+            }
             "check_only" => self.check_only = true,
             "compile_fail" => {
                 let want = text(args);

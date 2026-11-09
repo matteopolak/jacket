@@ -336,7 +336,7 @@ vars! {
     TEST_FONT_PATH {
         name: "JAIC_TEST_FONT_PATH", group: Testing, readers: [Jacket],
         default: "unset",
-        summary: "A font file for stdlib tests that render text; without it they skip locally and fail under `CI`.",
+        summary: "A font file for stdlib tests that render text; without it they fail, unless they declare `optional(JAIC_TEST_FONT_PATH)`, which skips them.",
     }
     TEST_LIBRARY_MARKER {
         name: "JAIC_TEST_LIBRARY_MARKER", group: Testing, readers: [Tests],

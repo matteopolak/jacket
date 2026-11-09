@@ -960,14 +960,15 @@ fn execute(
     reporter.run_started(plan.cases.len());
     let mut outcomes = Vec::new();
     let ci = prerequisites::in_ci();
-    let font = jacket_config::env::TEST_FONT_PATH.os().map(PathBuf::from);
     // Skips are decided before anything runs.
     let mut to_run = Vec::new();
     for (index, case) in plan.cases.iter().enumerate() {
         let reason = case
             .options
             .skip_reason(target, &plan.settings.needs)
-            .or_else(|| prerequisites::font_skip(&case.options.args, ci, font.as_deref()))
+            .or_else(|| {
+                prerequisites::optional_skip(&case.options, &|name| std::env::var(name).ok())
+            })
             .or_else(|| {
                 (!case.compiles_only(&plan.roots, plan.toolchain.check_only))
                     .then(|| cross_skip.map(String::from))
@@ -987,7 +988,9 @@ fn execute(
         .iter()
         .map(|&index| plan.cases[index].file.clone())
         .collect();
-    prerequisites::prepare(&files, &plan.stdlib);
+    if let Err(error) = prerequisites::prepare(&files, &plan.stdlib) {
+        return fail(error);
+    }
     let (parallel, serial) = jobs::jobs(plan, &to_run);
     for (jobs, threads) in [(parallel, plan.settings.jobs), (serial, 1)] {
         jobs::run_jobs(plan, jobs, threads, &mut |message| match message {

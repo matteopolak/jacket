@@ -27,6 +27,7 @@
 - `WebSocket` compresses with the negotiated `permessage-deflate` window below 15 bits instead of sending stored blocks, and `deflate_sync` takes a `window_bits` argument.
 - `Http` no longer gives a TLS config the pooled connections of an earlier config that was freed with `Tls.tls_config_free` and set up again at the same address. `Tls.tls_config_generation` tells setups apart.
 - `jacket test` fails when it cannot read a library's doc comments, instead of warning and running no examples.
+- `jacket test` stops with an install hint when `python3` is missing or a fixture build script fails, and tests that need `JAIC_TEST_FONT_PATH` fail without it locally as in CI unless they declare `optional(JAIC_TEST_FONT_PATH)`.
 - `@toml(...)` note values resolve `\n`, `\t` and `\r` escapes instead of dropping the backslash.
 - ICO creation from image filenames works on WASI, and transparent icons render correctly on Windows.
 - JPEG color handling, invalid JPEG scans and incomplete QOI files.
