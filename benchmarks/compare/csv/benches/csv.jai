@@ -1,7 +1,9 @@
-// Csv against rluba/jai-csv on the ~50 MB mixed file `build_portable.py bench` writes for the
-// stdlib benchmark: one header, then a row of an integer, a quoted field with a comma, a float, a
-// word and a quoted field with doubled quotes, about a million times. The text is rebuilt here
-// (same row, LF endings) because the benchmark runs from a scratch copy that cannot read target/.
+// Csv against rluba/jai-csv on two ~50 MB files of a million rows. "Quoted" is the file
+// `build_portable.py bench` writes for the stdlib benchmark: one header, then a row of an integer, a
+// quoted field with a comma, a float, a word and a quoted field with doubled quotes, repeated. "Plain"
+// is closer to exported data: varied ids, names, numbers and notes, with a quoted field holding a
+// comma in one row of twenty. Both are rebuilt here (LF endings) because the benchmark runs from a
+// scratch copy that cannot read target/. The write benchmarks use the quoted rows.
 //
 // jai-csv ends a record only at LF and has no record reader: "records" below is its public
 // `csv_consume_col` called field by field, and "typed" is its `csv_parse`, which takes a header and
@@ -32,7 +34,8 @@ ROWS :: 1_000_000;
 WRITE_ROWS :: 100_000;
 COLUMNS :: 5;
 
-text: string;
+quoted_text: string;
+plain_text: string;
 pool: Flat_Pool;
 prepared := false;
 
@@ -49,13 +52,37 @@ require :: (ok: bool, what: string) {
     }
 }
 
-make_text :: () -> string {
+make_quoted :: () -> string {
     builder: String_Builder;
 
     append(*builder, "id,name,value,active,note\n");
 
     for 0..ROWS - 1 {
         append(*builder, "12345,\"Ada, Lovelace\",3.14159,true,\"a \"\"quoted\"\" line\"\n");
+    }
+
+    return builder_to_string(*builder);
+}
+
+NAMES :: string.["Ada", "Grace", "Margaret", "Katherine", "Alan", "Edsger", "Barbara", "Donald", "Radia", "Linus", "Dennis", "Frances", "Tim", "Hedy", "Claude", "Shafi"];
+NOTES :: string.["paid in full", "ships next week", "needs review", "returned by customer", "standard delivery", "gift wrapped", "back ordered", "approved"];
+
+make_plain :: () -> string {
+    builder: String_Builder;
+
+    append(*builder, "id,name,value,active,note\n");
+
+    for 0..ROWS - 1 {
+        name := NAMES[(it * 7) % NAMES.count];
+        note := NOTES[(it * 13) % NOTES.count];
+
+        print_to_builder(*builder, "%,", 1_000_003 + it * 7);
+
+        // A name with a comma, quoted, in one row of twenty.
+        if it % 20 == 19 print_to_builder(*builder, "\"%, Jr.\",", name);
+        else print_to_builder(*builder, "%,", name);
+
+        print_to_builder(*builder, "%.%,%,% order %\n", (it * 31) % 9973, 1 + it % 9, ifx it % 3 == 0 then "true" else "false", note, it % 1000);
     }
 
     return builder_to_string(*builder);
@@ -137,29 +164,13 @@ write_jaicsv :: (builder: *String_Builder) {
     }
 }
 
-prepare :: () {
-    if prepared return;
-
-    init(*pool, 1024 * 1024 * 1024);
-    text = make_text();
-
-    // Both libraries must see the same records and fields, the same typed rows and write the same bytes.
+// Checks that both libraries read `data` the same way, before any timer runs.
+check :: (text: string) {
     jacket_records, jacket_fields := jacket_count(text);
     jaicsv_records, jaicsv_fields := jaicsv_count(text);
 
     require(jacket_records == ROWS && jacket_fields == ROWS * COLUMNS, "Csv counted the wrong records");
     require(jaicsv_records == jacket_records && jaicsv_fields == jacket_fields, "the libraries disagree on the record counts");
-
-    reader := csv_reader(cast([] u8) text, .{ header = true });
-
-    for 0..WRITE_ROWS - 1 {
-        row, ok, error := csv_next(*reader);
-
-        require(ok && error.kind == .NONE, "Csv could not read a record to write");
-        array_add(*written, csv_record_copy(row));
-    }
-
-    csv_reader_free(*reader);
 
     jaicsv_rows, jaicsv_ok := jaicsv_typed(text);
 
@@ -175,6 +186,30 @@ prepare :: () {
     }
 
     csv_reader_free(*typed_reader);
+    reset_temporary_storage();
+}
+
+prepare :: () {
+    if prepared return;
+
+    init(*pool, 1024 * 1024 * 1024);
+    quoted_text = make_quoted();
+    plain_text = make_plain();
+
+    // Both libraries must see the same records and fields, the same typed rows and write the same bytes.
+    check(quoted_text);
+    check(plain_text);
+
+    reader := csv_reader(cast([] u8) quoted_text, .{ header = true });
+
+    for 0..WRITE_ROWS - 1 {
+        row, ok, error := csv_next(*reader);
+
+        require(ok && error.kind == .NONE, "Csv could not read a record to write");
+        array_add(*written, csv_record_copy(row));
+    }
+
+    csv_reader_free(*reader);
 
     jacket_builder: String_Builder;
     jaicsv_builder: String_Builder;
@@ -188,9 +223,9 @@ prepare :: () {
     prepared = true;
 }
 
-// ---------------------------------------------------------------------------------- Jacket
+// ---------------------------------------------------------------------------------- Bodies
 
-records__jacket :: (b: *Bench) {
+records_jacket :: (b: *Bench, text: string) {
     prepare();
     set_bytes(b, text.count);
     reset_timer(b);
@@ -203,16 +238,16 @@ records__jacket :: (b: *Bench) {
         black_box(fields);
         reset(*pool);
     }
-} @bench @samples(10)
+}
 
-typed__jacket :: (b: *Bench) {
+typed_jacket :: (b: *Bench, text: string, borrow: bool) {
     prepare();
     set_bytes(b, text.count);
     reset_timer(b);
 
     for 0..b.iterations - 1 {
         push_allocator(flat_pool_allocator_proc, *pool);
-        reader := csv_reader(Row, cast([] u8) black_box(text), .{ header = true });
+        reader := csv_reader(Row, cast([] u8) black_box(text), .{ header = true, borrow = borrow });
         count := 0;
 
         while true {
@@ -228,33 +263,53 @@ typed__jacket :: (b: *Bench) {
         black_box(count);
         reset(*pool);
     }
+}
+
+records_jaicsv :: (b: *Bench, text: string) {
+    prepare();
+    set_bytes(b, text.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        push_allocator(flat_pool_allocator_proc, *pool);
+        records, fields := jaicsv_count(black_box(text));
+
+        black_box(records);
+        black_box(fields);
+        reset(*pool);
+    }
+}
+
+typed_jaicsv :: (b: *Bench, text: string) {
+    prepare();
+    set_bytes(b, text.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        push_allocator(flat_pool_allocator_proc, *pool);
+        rows, ok := jaicsv_typed(black_box(text));
+
+        require(ok, "jai-csv rejected the typed rows");
+        black_box(rows);
+        reset_temporary_storage();
+        reset(*pool);
+    }
+}
+
+// ---------------------------------------------------------------------------------- Quoted rows
+
+records__jacket :: (b: *Bench) {
+    records_jacket(b, quoted_text);
+} @bench @samples(10)
+
+typed__jacket :: (b: *Bench) {
+    typed_jacket(b, quoted_text, false);
 } @bench @samples(10)
 
 // The same rows with `borrow`: strings that need no unquoting are slices of the input. Run with
 // `--libraries jacket,jaicsv,jacket_borrow` to see it beside the others.
 typed__jacket_borrow :: (b: *Bench) {
-    prepare();
-    set_bytes(b, text.count);
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
-        push_allocator(flat_pool_allocator_proc, *pool);
-        reader := csv_reader(Row, cast([] u8) black_box(text), .{ header = true, borrow = true });
-        count := 0;
-
-        while true {
-            row, ok, error := csv_next(*reader);
-
-            require(error.kind == .NONE, "Csv rejected a typed row");
-            if !ok break;
-
-            count += 1;
-            black_box(row);
-        }
-
-        black_box(count);
-        reset(*pool);
-    }
+    typed_jacket(b, quoted_text, true);
 } @bench @samples(10)
 
 write__jacket :: (b: *Bench) {
@@ -272,37 +327,12 @@ write__jacket :: (b: *Bench) {
     }
 } @bench @samples(10)
 
-// ---------------------------------------------------------------------------------- jai-csv
-
 records__jaicsv :: (b: *Bench) {
-    prepare();
-    set_bytes(b, text.count);
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
-        push_allocator(flat_pool_allocator_proc, *pool);
-        records, fields := jaicsv_count(black_box(text));
-
-        black_box(records);
-        black_box(fields);
-        reset(*pool);
-    }
+    records_jaicsv(b, quoted_text);
 } @bench @samples(10)
 
 typed__jaicsv :: (b: *Bench) {
-    prepare();
-    set_bytes(b, text.count);
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
-        push_allocator(flat_pool_allocator_proc, *pool);
-        rows, ok := jaicsv_typed(black_box(text));
-
-        require(ok, "jai-csv rejected the typed rows");
-        black_box(rows);
-        reset_temporary_storage();
-        reset(*pool);
-    }
+    typed_jaicsv(b, quoted_text);
 } @bench @samples(10)
 
 write__jaicsv :: (b: *Bench) {
@@ -318,4 +348,26 @@ write__jaicsv :: (b: *Bench) {
         black_box(builder_to_string(*builder));
         reset(*pool);
     }
+} @bench @samples(10)
+
+// ---------------------------------------------------------------------------------- Plain rows
+
+records_plain__jacket :: (b: *Bench) {
+    records_jacket(b, plain_text);
+} @bench @samples(10)
+
+typed_plain__jacket :: (b: *Bench) {
+    typed_jacket(b, plain_text, false);
+} @bench @samples(10)
+
+typed_plain__jacket_borrow :: (b: *Bench) {
+    typed_jacket(b, plain_text, true);
+} @bench @samples(10)
+
+records_plain__jaicsv :: (b: *Bench) {
+    records_jaicsv(b, plain_text);
+} @bench @samples(10)
+
+typed_plain__jaicsv :: (b: *Bench) {
+    typed_jaicsv(b, plain_text);
 } @bench @samples(10)
