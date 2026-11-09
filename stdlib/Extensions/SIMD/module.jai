@@ -108,8 +108,16 @@ load_partial :: ($V: Type, source: *V.T, count: int, fill: V.T = 0) -> V #modify
     return is_vector(V);
 } {
     assert(count >= 0 && count <= V.N, "SIMD: load_partial of % lanes into a vector of %", count, V.N);
-    result := splat(V, fill);
+    result: V;
+
+    // A new vector is all zero already, so only a lane value that is not integer zero needs spreading
+    // (a float zero may be negative).
+    #if is_integer(V.T) {
+        if fill != 0 result = splat(V, fill);
+    } else result = splat(V, fill);
+
     memcpy(*result, source, count * size_of(V.T));
+
     return result;
 }
 

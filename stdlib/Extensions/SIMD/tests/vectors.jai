@@ -34,6 +34,8 @@ making :: () {
     same(load(u8x16, bytes, 4), .[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], "load from an array");
     same(load(u8x16, "abcdefghijklmnopq", 1), .[#char "b", #char "c", #char "d", #char "e", #char "f", #char "g", #char "h", #char "i", #char "j", #char "k", #char "l", #char "m", #char "n", #char "o", #char "p", #char "q"], "load from a string");
     same(load_partial(u16x8, cast(*u16) bytes.data, 3, 9), .[0x0100, 0x0302, 0x0504, 9, 9, 9, 9, 9], "load_partial");
+    same(load_partial(u16x8, cast(*u16) bytes.data, 3), .[0x0100, 0x0302, 0x0504, 0, 0, 0, 0, 0], "load_partial zero fill");
+    same(load_partial(u8x16, bytes.data, 0), .[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "load_partial of nothing");
 
     out: [8] s32;
 
