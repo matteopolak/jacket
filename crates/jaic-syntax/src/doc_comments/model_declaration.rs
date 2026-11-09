@@ -1,7 +1,7 @@
 //! The written declaration of a struct, union or enum, and the private types a public item
 //! leads a reader to.
 use super::super::refs::TypeRef;
-use super::{EVERY_OS, Item, Module, Reader, TopIndex, class_kind, os_names, struct_params};
+use super::{Item, Module, Reader, TopIndex, class_kind, os_names, struct_params};
 use crate::ast::{Decl, EnumItem, Expr, ExprKind, Stmt, StmtKind};
 use crate::docs;
 use crate::lexer::lex_with_trivia;
@@ -290,13 +290,7 @@ impl Reader<'_> {
                 line,
                 docs: docs::declaration(&target.text, r.at).unwrap_or_default(),
                 scope: struct_params(decl),
-                platforms: os_names(
-                    target
-                        .limits
-                        .get(&name.span.start)
-                        .copied()
-                        .unwrap_or(EVERY_OS),
-                ),
+                platforms: os_names(target.os(name.span.start)),
                 private: true,
                 ..Item::default()
             };

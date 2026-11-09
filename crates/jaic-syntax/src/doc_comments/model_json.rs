@@ -1,5 +1,5 @@
 //! The documentation model as JSON.
-use super::*;
+use super::{Item, Module, Param, Path, docs, refs_json, refs_named};
 
 /// `field` as a JSON string literal.
 pub(in crate::doc_comments) fn json(field: &str) -> String {

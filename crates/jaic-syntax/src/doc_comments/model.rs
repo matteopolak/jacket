@@ -263,6 +263,13 @@ struct Parsed {
     private: BTreeSet<usize>,
 }
 
+impl Parsed {
+    /// The systems the declaration named at `start` is for.
+    fn os(&self, start: u32) -> u8 {
+        self.limits.get(&start).copied().unwrap_or(EVERY_OS)
+    }
+}
+
 /// Ordered declaration identities and whether each hop has no independent public page.
 type RefChain = Vec<(PathBuf, usize, bool, usize)>;
 
@@ -779,20 +786,8 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                                 docs: own_docs.unwrap_or_default(),
                                 value: clip(value),
                                 binding,
-                                platforms: os_names(
-                                    parsed
-                                        .limits
-                                        .get(&name.span.start)
-                                        .copied()
-                                        .unwrap_or(EVERY_OS),
-                                ),
-                                defined_on: os_names(
-                                    parsed
-                                        .limits
-                                        .get(&name.span.start)
-                                        .copied()
-                                        .unwrap_or(EVERY_OS),
-                                ),
+                                platforms: os_names(parsed.os(name.span.start)),
+                                defined_on: os_names(parsed.os(name.span.start)),
                                 ..Item::default()
                             },
                         );
@@ -817,22 +812,12 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                     {
                         kind = "type";
                     }
-                    let alias_limit = parsed
-                        .limits
-                        .get(&name.span.start)
-                        .copied()
-                        .unwrap_or(EVERY_OS);
+                    let alias_limit = parsed.os(name.span.start);
                     // A name declared in each branch of an `#if` is available wherever one is.
                     let target_limit = tindex
                         .constants(tdecl.names[0].name.as_str())
                         .iter()
-                        .map(|(d, _)| {
-                            target
-                                .limits
-                                .get(&d.names[0].span.start)
-                                .copied()
-                                .unwrap_or(EVERY_OS)
-                        })
+                        .map(|(d, _)| target.os(d.names[0].span.start))
                         .fold(0, |acc, mask| acc | mask);
                     let mut found = Item {
                         name: name.name.as_str().to_owned(),
@@ -898,12 +883,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                     let own_limit = if alias_type {
                         alias_limit
                     } else {
-                        target
-                            .limits
-                            .get(&tdecl.names[0].span.start)
-                            .copied()
-                            .unwrap_or(EVERY_OS)
-                            & alias_limit
+                        target.os(tdecl.names[0].span.start) & alias_limit
                     };
                     found.defined_on = os_names(own_limit);
                     found.platforms = os_names(if kind == "procedure" {
@@ -983,7 +963,7 @@ fn add(out: &mut Module, names: &mut Vec<String>, mut item: Item) {
             {
                 same.defined_on = os_names(os_mask(&same.defined_on) | os_mask(&item.defined_on));
             } else {
-                item.platforms = item.defined_on.clone();
+                item.platforms.clone_from(&item.defined_on);
                 have.variants.push(item);
                 return;
             }
