@@ -217,6 +217,11 @@ jobs:
       - name: Duplicate versions, licenses, sources and advisories
         if: ${{ !cancelled() }}
         run: cargo deny --locked check
+      - name: Pinned actions match their tags and are at least 14 days old
+        if: ${{ !cancelled() }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 tools/ci/check_action_pins.py --policy
   scripting-wasm:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'scripting-wasm')
