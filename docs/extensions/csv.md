@@ -13,6 +13,10 @@ fields, present, error := csv_next(*r);
 assert(present && error.kind == .NONE && fields[0] == "Ada");
 ```
 
+A reader's own storage (header, column map, buffers) comes from the allocator that
+was current when it was created, and `csv_reader_free` releases it with that one, so
+a call to `csv_next(*r,, temp)` only moves the decoded row to another allocator.
+
 The reader keeps one decoded record in reusable storage. Fields and their array
 are views valid until the next call; `csv_record_copy` makes independent strings
 and an array, released with `csv_record_free`. The input slice remains borrowed.

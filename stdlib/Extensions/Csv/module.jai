@@ -109,6 +109,7 @@ Csv_Core :: struct {
     header_index: Hash_Map.Map(string, int);
     columns: [..] int; // the document column of each struct member, in declaration order (-1: none)
     bound: bool; // `columns` is filled
+    allocator: Allocator; // owns the storage below, whichever allocator a later call runs under
     width: int = -1;
     buffer: [..] u8;
     cells: [..] Csv_Cell;
@@ -123,7 +124,8 @@ Csv_Core :: struct {
 // A reader over CSV bytes or a chunk source. Create it with [csv_reader], advance it with
 // [csv_next] (or `for row: reader`) and release it with [csv_reader_free]. `Row` is the struct each
 // record is decoded into; the default `void` reads records as `[] string`. Once reading stops,
-// `reader.error` says why (`.NONE` at the end of the input).
+// `reader.error` says why (`.NONE` at the end of the input). The reader's own storage uses the
+// allocator that was current when it was made; a typed row uses the one current at the call.
 Csv_Reader :: struct(Row: Type = void) {
     #as using core: Csv_Core;
 }
@@ -266,7 +268,11 @@ csv_next :: (r: *Csv_Reader($Row)) -> Row, bool, Csv_Error #modify {
     fields, ok, error := next_fields(*r.core);
 
     if !ok return value, false, error;
-    if !r.bound bind_columns(r);
+
+    if !r.bound {
+        push_allocator(r.allocator);
+        bind_columns(r);
+    }
 
     if !decode_row(*r.core, fields, *value) {
         csv_row_free(r, *value);
@@ -336,6 +342,8 @@ csv_record_free :: (fields: [] string) {
 // Releases reader storage; input and source state stay caller-owned. Works for both kinds of reader.
 // Example: csv_reader_free(*reader).
 csv_reader_free :: (r: *Csv_Reader($Row)) {
+    push_allocator(r.allocator);
+
     array_free(r.buffer);
     array_free(r.cells);
     array_free(r.columns);
@@ -427,6 +435,7 @@ Csv_Cell :: struct {
 }
 
 open_input :: (r: *Csv_Core, input: [] u8, options: Csv_Options) {
+    r.allocator = context.allocator;
     r.input = input;
     r.options = options;
     r.error = validate_options(options);
@@ -434,6 +443,7 @@ open_input :: (r: *Csv_Core, input: [] u8, options: Csv_Options) {
 }
 
 open_source :: (r: *Csv_Core, source: Csv_Source, options: Csv_Options) {
+    r.allocator = context.allocator;
     r.source = source;
     r.options = options;
     r.error = validate_options(options);
@@ -445,6 +455,8 @@ open_source :: (r: *Csv_Core, source: Csv_Source, options: Csv_Options) {
 
 // The next record's fields, reading the header first when there is one.
 next_fields :: (r: *Csv_Core) -> [] string, bool, Csv_Error {
+    push_allocator(r.allocator);
+
     if r.error.kind != .NONE return .[], false, r.error;
 
     if r.options.header && !r.header_ready {

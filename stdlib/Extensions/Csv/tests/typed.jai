@@ -416,3 +416,27 @@ borrow_needs_slice_input :: () {
 
     expect(!present && error.kind == .OPTIONS);
 } @test
+
+// The reader's own storage (header, column map, buffers) comes from the allocator it was made with,
+// whatever allocator a call to csv_next runs under; only the row follows the call.
+reader_storage_ignores_call_allocator :: () {
+    tally: Tally;
+
+    {
+        push_allocator(tally_proc, *tally);
+        reader := csv_reader(Borrowed, cast([] u8) "id,plain,quoted,doubled,nick\n1,a,b,c,d\n2,e,f,g,\n", .{ header = true, borrow = true });
+
+        defer csv_reader_free(*reader);
+
+        for 0..1 {
+            row, ok, error := csv_next(*reader,, temp);
+
+            require(ok && error.kind == .NONE);
+            expect_equal(row.id, it + 1);
+        }
+
+        reset_temporary_storage();
+    }
+
+    expect_equal(tally.outstanding, 0);
+} @test

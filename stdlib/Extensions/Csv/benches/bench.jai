@@ -75,3 +75,31 @@ read_typed :: (b: *Bench) {
         csv_reader_free(*reader);
     }
 } @bench @samples(10)
+
+// Typed rows with `borrow`, decoded into temporary storage that is emptied after each row.
+read_typed_borrowed :: (b: *Bench) {
+    data := benchmark_input();
+
+    defer free(data);
+    set_bytes(b, data.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 {
+        reader := csv_reader(Row, cast([] u8) black_box(data), .{ header = true, borrow = true });
+        count := 0;
+
+        while true {
+            row, ok, error := csv_next(*reader,, temp);
+
+            assert(error.kind == .NONE);
+            if !ok break;
+
+            count += row.id;
+            black_box(row);
+            reset_temporary_storage();
+        }
+
+        black_box(count);
+        csv_reader_free(*reader);
+    }
+} @bench @samples(10)
