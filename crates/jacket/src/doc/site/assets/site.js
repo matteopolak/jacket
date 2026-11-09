@@ -218,6 +218,13 @@
   // sidebar's groups: lists with a section on screen are open, the rest closed, and a list
   // the reader opened stays open. Without JS every list is open. `signal` ends its listeners
   // when another page is swapped in.
+  // Places a list's guide-line mark at its current span.
+  /** @param {Group} g */
+  function bar(g) {
+    g.u.style.setProperty('--bar-y', g.y + 'px');
+    g.u.style.setProperty('--bar-h', String(g.h));
+  }
+
   /** @param {AbortSignal} signal */
   function outline(signal) {
     var toc = document.querySelectorAll('.toc a[href^="#"]');
@@ -284,11 +291,6 @@
       var pending = false;
       /** Lists whose guide line is marked. @type {Group[]} */
       var lit = [];
-      /** @param {Group} g */
-      var bar = function (g) {
-        g.u.style.setProperty('--bar-y', g.y + 'px');
-        g.u.style.setProperty('--bar-h', String(g.h));
-      };
       // The first mark whose heading is below y (marks follow the page order).
       /** @param {number} y */
       var below = function (y) {
@@ -371,18 +373,18 @@
         // A mark grows and shrinks toward the items it gains or loses. A list the page left
         // behind shrinks to the edge the reading moved past.
         var down = a > from;
-        lit.forEach(function (g) {
-          if (spans.has(g)) return;
-          if (down) g.y += g.h;
-          g.h = 0;
-          bar(g);
+        lit.forEach(function (left) {
+          if (spans.has(left)) return;
+          if (down) left.y += left.h;
+          left.h = 0;
+          bar(left);
         });
         lit = [];
-        spans.forEach(function (span, g) {
-          g.y = span[0];
-          g.h = span[1] - span[0];
-          bar(g);
-          lit.push(g);
+        spans.forEach(function (range, listed) {
+          listed.y = range[0];
+          listed.h = range[1] - range[0];
+          bar(listed);
+          lit.push(listed);
         });
         from = a;
         to = b;
