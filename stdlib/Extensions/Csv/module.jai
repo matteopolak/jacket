@@ -853,7 +853,8 @@ read_record_fast :: (r: *Csv_Core) -> bool {
     if r.cells.allocated < 16 array_reserve(*r.cells, 16);
     if r.fields.allocated < r.cells.allocated array_reserve(*r.fields, r.cells.allocated);
 
-    capacity := min(r.cells.allocated, r.fields.allocated);
+    capacity := r.cells.allocated;
+    if r.fields.allocated < capacity capacity = r.fields.allocated;
 
     while true {
         if k >= max_fields return false;
@@ -861,7 +862,8 @@ read_record_fast :: (r: *Csv_Core) -> bool {
         if k >= capacity {
             array_reserve(*r.cells, capacity * 2);
             array_reserve(*r.fields, capacity * 2);
-            capacity = min(r.cells.allocated, r.fields.allocated);
+            capacity = r.cells.allocated;
+            if r.fields.allocated < capacity capacity = r.fields.allocated;
         }
 
         cell := Csv_Cell.{ offset = p, line = line, line_start = line_start };
