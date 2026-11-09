@@ -217,20 +217,27 @@ impl Session {
         (!jaic::interrupt::disarm()).then_some(all)
     }
 
+    /// The diagnostics of every open document. One whose check did not finish is left out, so
+    /// the client keeps what it shows until the next publication.
     pub fn publications(&self) -> Vec<(String, i32, Vec<Diagnostic>)> {
         let _background = self.background();
         self.documents
             .iter()
-            .map(|(uri, doc)| {
+            .filter_map(|(uri, doc)| {
                 let mut diagnostics = self
                     .analysis_for(uri)
                     .expect("opened document has analysis")
                     .diagnostics
                     .clone();
-                diagnostics.extend(self.check_diagnostics(uri));
+                diagnostics.extend(
+                    self.try_check_findings(uri)
+                        .ok()?
+                        .into_iter()
+                        .map(|f| f.diagnostic),
+                );
                 diagnostics.extend(self.unreachable_diagnostics(uri));
                 diagnostics.extend(self.lint_diagnostics(uri));
-                (uri.as_str().into(), doc.version, diagnostics)
+                Some((uri.as_str().into(), doc.version, diagnostics))
             })
             .collect()
     }
@@ -249,22 +256,30 @@ impl Session {
 
     /// `check_diagnostics` with the byte range of each and what can fix it.
     pub(crate) fn check_findings(&self, uri: &DocumentUri) -> Vec<Finding> {
+        self.try_check_findings(uri).unwrap_or_default()
+    }
+
+    /// `check_findings`, or `Error::CheckUnavailable` when the check was stopped, failed or
+    /// deferred. A session with nothing to check against has no findings, not an error.
+    pub(crate) fn try_check_findings(&self, uri: &DocumentUri) -> Result<Vec<Finding>, Error> {
         let Ok(doc) = self.document(uri) else {
-            return Vec::new();
+            return Ok(Vec::new());
         };
-        let found = self
-            .with_semantic(uri, &doc.text, |analysis, path| {
-                let findings = analysis.check_findings(path);
-                self.remember_call_graphs(uri, analysis);
-                analysis.focus(path);
-                Some(findings)
-            })
-            .unwrap_or_default();
+        let found = match self.run_semantic(uri, &doc.text, |analysis, path| {
+            let findings = analysis.check_findings(path);
+            self.remember_call_graphs(uri, analysis);
+            analysis.focus(path);
+            Some(findings)
+        }) {
+            Ok(found) => found.unwrap_or_default(),
+            Err(crate::session::compile::Unchecked::NoEnvironment) => Vec::new(),
+            Err(_) => return Err(Error::CheckUnavailable),
+        };
         let syntax = &self
             .analysis_for(uri)
             .expect("opened document has analysis")
             .diagnostics;
-        found
+        Ok(found
             .into_iter()
             .filter_map(|f| {
                 let range = self.range_of(uri, Span::new(f.start, f.end))?;
@@ -277,7 +292,7 @@ impl Session {
                 }
                 Some(self.check_finding_at(f, range))
             })
-            .collect()
+            .collect())
     }
 
     pub(super) fn check_finding_at(
@@ -340,6 +355,8 @@ impl Session {
     }
 
     /// Syntax and source diagnostics of `uri`, then its type error and lints.
+    /// The diagnostics a pull answers with. `Error::CheckUnavailable` when the check did not
+    /// finish (stopped, failed, or deferred): an empty list would wipe what the client shows.
     pub fn diagnostics(&self, uri: &DocumentUri) -> Result<Vec<Diagnostic>, Error> {
         if let Some(cached) = self.cached_workspace_diagnostics(uri) {
             return Ok(cached);
@@ -352,7 +369,11 @@ impl Session {
             .expect("opened document has analysis")
             .diagnostics
             .clone();
-        diagnostics.extend(self.check_diagnostics(uri));
+        diagnostics.extend(
+            self.try_check_findings(uri)?
+                .into_iter()
+                .map(|f| f.diagnostic),
+        );
         diagnostics.extend(self.unreachable_diagnostics(uri));
         diagnostics.extend(self.lint_diagnostics(uri));
         Ok(diagnostics)

@@ -221,7 +221,7 @@ impl JsonSession {
             Request::DocumentDiagnostic => {
                 let p: DiagnosticParams = decode(params)?;
                 let target = uri(&p.text_document.uri)?;
-                let (version, diagnostics) = self.pulled(&target);
+                let (version, diagnostics) = self.pulled(&target)?;
                 document_report(None, version, &diagnostics, p.previous_result_id.as_deref())
             }
             Request::WorkspaceDiagnostic => self.workspace_diagnostics(params)?,

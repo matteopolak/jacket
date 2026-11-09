@@ -16,6 +16,7 @@ pub(super) enum ErrorCode {
     RequestCancelled = -32800,
     ContentModified = -32801,
     RequestFailed = -32803,
+    ServerCancelled = -32802,
 }
 
 pub(super) type Failure = (ErrorCode, String);

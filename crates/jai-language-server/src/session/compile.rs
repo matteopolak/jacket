@@ -167,23 +167,33 @@ impl Session {
         text: &str,
         query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
     ) -> Option<T> {
+        self.run_semantic(uri, text, query).ok().flatten()
+    }
+
+    /// `with_semantic`, saying why there was no check when there was none.
+    pub(crate) fn run_semantic<T>(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
+    ) -> Result<Option<T>, Unchecked> {
+        let environment = self.environment.as_ref().ok_or(Unchecked::NoEnvironment)?;
         if !self.may_compile() {
-            return self
-                .with_cached_semantic(uri, text, query)
-                .unwrap_or_else(|| {
-                    self.want_compile(uri, text);
-                    None
-                });
+            return self.with_cached_semantic(uri, text, query).ok_or_else(|| {
+                self.want_compile(uri, text);
+                Unchecked::Deferred
+            });
         }
-        let environment = self.environment.as_ref()?;
-        let (files, root, dirs) = self.compile_inputs(uri, text)?;
+        let (files, root, dirs) = self.compile_inputs(uri, text).ok_or(Unchecked::Failed)?;
         let mut cache = self.semantic.borrow_mut();
-        let analysis = cache.analyze(environment, &root, &dirs, files)?;
+        let analysis = cache
+            .analyze(environment, &root, &dirs, files)
+            .ok_or(Unchecked::Failed)?;
         let path = Path::new(uri.path());
         analysis.focus(path);
         let answer = query(analysis, path);
         self.sync_builds(&cache);
-        answer
+        Ok(answer)
     }
 
     /// Like `with_semantic`, but only on a compile that is already kept: `None` when there is
@@ -430,4 +440,15 @@ impl Drop for Background<'_> {
     fn drop(&mut self) {
         self.0.background.set(self.0.background.get() - 1);
     }
+}
+
+/// Why a semantic check was not made.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Unchecked {
+    /// The session has no environment to check against: there is nothing to show.
+    NoEnvironment,
+    /// Requests may not compile and no compile is kept; `warm_pending` will make one.
+    Deferred,
+    /// The compile was stopped by newer input or did not complete.
+    Failed,
 }

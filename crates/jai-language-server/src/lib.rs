@@ -122,6 +122,9 @@ pub enum Error {
     AlreadyOpen,
     StaleVersion,
     InvalidEdit(&'static str),
+    /// The check a diagnostics pull needs was stopped, failed or deferred; asking again
+    /// after newer input has settled gives the answer.
+    CheckUnavailable,
 }
 
 impl std::fmt::Display for Error {
@@ -131,6 +134,7 @@ impl std::fmt::Display for Error {
             Self::MissingDocument => "document is not open in this session",
             Self::AlreadyOpen => "document is already open",
             Self::StaleVersion => "document version must strictly increase",
+            Self::CheckUnavailable => "the check did not finish",
         };
         f.write_str(text)
     }

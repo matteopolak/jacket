@@ -70,16 +70,22 @@ pub(super) fn domain(error: Error) -> Failure {
     let code = match error {
         Error::Limit(_) => ErrorCode::RequestFailed,
         Error::StaleVersion => ErrorCode::ContentModified,
+        Error::CheckUnavailable => ErrorCode::ServerCancelled,
         _ => ErrorCode::InvalidParams,
     };
     (code, error.to_string())
 }
 
 pub(super) fn failure(id: Value, code: ErrorCode, message: &str) -> Value {
+    let mut error = json!({ "code": code as i32, "message": message });
+    if code == ErrorCode::ServerCancelled {
+        // The client asks again once input has settled.
+        error["data"] = json!({ "retriggerRequest": true });
+    }
     json!({
         "jsonrpc": "2.0",
         "id": id,
-        "error": { "code": code as i32, "message": message },
+        "error": error,
     })
 }
 

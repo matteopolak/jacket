@@ -226,11 +226,17 @@ impl JsonSession {
 
 
     /// The version and diagnostics of `target` for a pull (none for a document that is not open).
-    pub(super) fn pulled(&self, target: &DocumentUri) -> (Option<i32>, Vec<Diagnostic>) {
-        (
-            self.session.version(target).ok(),
-            self.session.diagnostics(target).unwrap_or_default(),
-        )
+    pub(super) fn pulled(
+        &self,
+        target: &DocumentUri,
+    ) -> Result<(Option<i32>, Vec<Diagnostic>), Failure> {
+        let version = self.session.version(target).ok();
+        match self.session.diagnostics(target) {
+            Ok(diagnostics) => Ok((version, diagnostics)),
+            // A document that is not open has nothing to show.
+            Err(Error::MissingDocument) => Ok((version, Vec::new())),
+            Err(error) => Err(domain(error)),
+        }
     }
 
     /// A request for the client to pull again, when it supports being asked: settings files
