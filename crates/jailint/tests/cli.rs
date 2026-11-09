@@ -280,3 +280,15 @@ fn exclude_applies_with_a_relative_config_path() {
     let (text, _) = jailint(&dir, &["skip/bad.jai"]);
     assert!(text.contains("1 warning"), "{text}");
 }
+
+#[test]
+fn configuration_notes_are_styled_diagnostics() {
+    let dir = scratch("config-note");
+    std::fs::write(dir.join("jacket.toml"), "bogus_setting = 1\n").unwrap();
+    let (err, code) = jailint(&dir, &["game.jai"]);
+    assert!(
+        err.contains("warning[lint-config]: unknown setting `bogus_setting`"),
+        "{err}"
+    );
+    assert_eq!(code, Some(0), "{err}");
+}

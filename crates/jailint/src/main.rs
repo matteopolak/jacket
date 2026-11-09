@@ -27,6 +27,12 @@ fn main() -> ExitCode {
     }
 }
 
+/// A note about the configuration (an unknown setting) as a diagnostic on standard error.
+fn config_note(note: &str) {
+    let text = note.strip_prefix("warning: ").unwrap_or(note);
+    eprint!("{}", Report::from_text(Code::LintConfig, text).render());
+}
+
 /// Passes `--fix` makes at most: lint, apply what can go together, lint again.
 const MAX_FIX_PASSES: usize = 5;
 
@@ -106,7 +112,7 @@ fn run() -> Result<ExitCode, String> {
         })
     };
     for note in &config.notes {
-        eprintln!("jailint: {note}");
+        config_note(note);
     }
     config.discover = args.config.is_none();
     if let Some(mode) = args.lifetime_mode {
@@ -177,7 +183,7 @@ fn run() -> Result<ExitCode, String> {
     };
     let outcome = lint();
     for note in &outcome.config_notes {
-        eprintln!("jailint: {note}");
+        config_note(note);
     }
     if let Some(error) = outcome.config_errors.first() {
         return Err(error.clone());
