@@ -22,7 +22,7 @@ def main():
             command = [executable, output]
         subprocess.run(command, env=ENV, cwd=ROOT, check=True)
     view = output_dir("bindings-doc-comments-view")
-    subprocess.run([cargo_binary("jacket"), "doc", output, "--check", "--emit-input", view], env=ENV, cwd=ROOT, check=True)
+    subprocess.run([cargo_binary("jacket", "release"), "doc", output, "--check", "--emit-input", view], env=ENV, cwd=ROOT, check=True)
     modules = [json.loads(p.read_text()) for p in (view / "modules").glob("*.json")]
     item = next(i["content"] for m in modules for i in m["items"] if i["content"]["title"]["label"] == "documented")
     params = item["overloads"][0]["notes"]
