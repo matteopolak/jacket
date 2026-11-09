@@ -56,14 +56,31 @@ link :: (w: Workspace, phase: *Message_Phase) {
     began := current_time_monotonic();
     result := run_command(..link_arguments(inputs));
 
-    print("bench-phase: link %\n", to_float64_seconds(current_time_monotonic() - began));
+    elapsed, _ := to_float64_seconds(current_time_monotonic() - began);
 
     phase.linker_exit_code = result.exit_code;
+
+    // A failed link has no duration to report: fail the build instead of timing it.
+    if result.type != .EXITED || result.exit_code != 0 {
+        if phase.linker_exit_code == 0 phase.linker_exit_code = -1;
+
+        phase.executable_write_failed = true;
+        log_error("bench: the linker failed (%, exit %)", result.type, result.exit_code);
+        compiler_set_workspace_status(.FAILED, w);
+    } else {
+        print("bench-phase: link %\n", elapsed);
+    }
+
     compiler_custom_link_command_is_complete(w);
 }
 
 ask_xcrun :: (question: string) -> string {
-    _, output := run_command("xcrun", question, capture_and_return_output = true);
+    result, output := run_command("xcrun", question, capture_and_return_output = true);
+    if result.type != .EXITED || result.exit_code != 0 {
+        log_error("bench: `xcrun %` failed (%, exit %)", question, result.type, result.exit_code);
+        exit(1);
+    }
+
     return trim(output);
 }
 
