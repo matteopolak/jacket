@@ -12,6 +12,10 @@ Empty_Key :: struct {
     value: string; @"json(rename=\"\")"
 }
 
+Escaped :: struct {
+    value: string; @"json(rename=\"x\\u000ay\\u0041\")"
+}
+
 #scope_export
 
 quoted_note_names :: () {
@@ -28,4 +32,12 @@ quoted_note_names :: () {
 
     defer free(empty);
     expect_equal(empty, "{\"\":\"yes\"}");
+} @test
+
+// `\uXXXX` in a quoted option value is the code point it names, as JSON writes it.
+quoted_note_unicode_escapes :: () {
+    text := Json.to_json(Escaped.{ "ok" });
+
+    defer free(text);
+    expect_equal(text, "{\"x\\nyA\":\"ok\"}");
 } @test

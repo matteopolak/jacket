@@ -38,7 +38,7 @@ free_json(*user);                               // values, Json_Value, Json_Erro
 | `tag=k`, `content=c`, `untagged`, `tags=a,b` | Variant member | how a [Variant](variant.md) is tagged |
 | `deny_unknown_fields`, `transparent` | struct | unknown keys are errors; one-field struct encodes as its field |
 
-Notes go after the member's `;` (struct-level before `{`). Mistakes are compile errors. A value may be a quoted JSON string when it holds commas or quotes: `@json(rename="a,b")`.
+Notes go after the member's `;` (struct-level before `{`). Mistakes are compile errors. A value may be a quoted JSON string when it holds commas or quotes: `@json(rename="a,b")`. `\\`, `\"`, `\n`, `\r`, `\t` and `\uXXXX` are the escapes it reads.
 
 Runtime `Json_Options`:
 

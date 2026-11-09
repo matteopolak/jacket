@@ -130,24 +130,45 @@ split_note_option :: (text: string) -> bool, string, string {
 
 // ---- quoting ----
 
-// A quoted note value without its quotes, with `\\`, `\"`, `\n`, `\r` and `\t` resolved; text
-// that is not quoted comes back as it is. False for any other escape or a trailing backslash.
+// A quoted note value without its quotes, with `\\`, `\"`, `\n`, `\r`, `\t` and `\uXXXX` (a
+// code point that is not a surrogate) resolved; text that is not quoted comes back as it is.
+// False for any other escape or a trailing backslash.
 //
 //     unquote("\"a\\\"b\"")  // a"b, true
+//     unquote("\"\\u00e9\"")   // \xc3\xa9, true
 unquote :: (text: string) -> string, bool {
     if text.count < 2 || text[0] != #char "\"" || text[text.count - 1] != #char "\"" return text, true;
 
     builder: String_Builder;
     escaped := false;
+    // Hex digits of a `\u` escape still to read, and what they spell so far.
+    digits_left := 0;
+    code_point: u32;
 
     for slice(text, 1, text.count - 2) {
-        if escaped {
+        if digits_left {
+            digit := hex_digit_value(it);
+
+            if digit < 0 return "", false;
+
+            code_point = code_point * 16 + cast(u32) digit;
+            digits_left -= 1;
+
+            if !digits_left {
+                if code_point >= 0xd800 && code_point <= 0xdfff return "", false;
+
+                append_code_point(*builder, code_point);
+            }
+        } else if escaped {
             if it == {
                 case #char "\\"; #through;
                 case #char "\""; append(*builder, it);
                 case #char "n"; append(*builder, #char "\n");
                 case #char "r"; append(*builder, #char "\r");
                 case #char "t"; append(*builder, #char "\t");
+                case #char "u";
+                    digits_left = 4;
+                    code_point = 0;
                 case; return "", false;
             }
 
@@ -159,9 +180,31 @@ unquote :: (text: string) -> string, bool {
         }
     }
 
-    if escaped return "", false;
+    if escaped || digits_left return "", false;
 
     return builder_to_string(*builder,, temp), true;
+}
+
+hex_digit_value :: (c: u8) -> s32 {
+    if c >= #char "0" && c <= #char "9" return c - #char "0";
+    if c >= #char "a" && c <= #char "f" return c - #char "a" + 10;
+    if c >= #char "A" && c <= #char "F" return c - #char "A" + 10;
+
+    return -1;
+}
+
+// `code_point` (at most 0xffff) as UTF-8.
+append_code_point :: (builder: *String_Builder, code_point: u32) {
+    if code_point < 0x80 {
+        append(builder, cast(u8) code_point);
+    } else if code_point < 0x800 {
+        append(builder, cast(u8) (0xc0 | (code_point >> 6)));
+        append(builder, cast(u8) (0x80 | (code_point & 0x3f)));
+    } else {
+        append(builder, cast(u8) (0xe0 | (code_point >> 12)));
+        append(builder, cast(u8) (0x80 | ((code_point >> 6) & 0x3f)));
+        append(builder, cast(u8) (0x80 | (code_point & 0x3f)));
+    }
 }
 
 // `text` as a Jai string literal, for generated source.
