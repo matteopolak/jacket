@@ -274,14 +274,18 @@ impl Sources<'_> {
         }
         let mut reached = BTreeSet::new();
         for entry in entries {
-            if index.stale_source_graphs.contains_key(entry) {
-                return None;
-            }
-            if let Some(facts) = index.builds.get(entry) {
-                reached.extend(facts.sources.keys().cloned());
-            } else if !self.scan(index, entry).builds.is_empty() {
-                // A metaprogram that has not run.
-                return None;
+            // What a build metaprogram added is known from its run; for any other entry the
+            // text says it all, so out-of-date facts of a plain entry are not consulted.
+            let metaprogram = self
+                .closure(index, entry)
+                .iter()
+                .any(|file| !self.scan(index, file).builds.is_empty());
+            match index.builds.get(entry) {
+                Some(facts) if !index.stale_source_graphs.contains_key(entry) => {
+                    reached.extend(facts.sources.keys().cloned());
+                }
+                _ if metaprogram => return None,
+                _ => {}
             }
             let (config, base, _) = self.project_entries(index, entry, folders);
             let configured = match (&base, &config) {
@@ -300,10 +304,8 @@ impl Sources<'_> {
                 ));
             }
             dirs.extend(self.import_dirs(index, entry, folders).0);
-            let mut pending: Vec<PathBuf> = self
-                .closure_with_modules(index, entry, &dirs)
-                .into_iter()
-                .collect();
+            let loaded = self.closure_with_modules(index, entry, &dirs);
+            let mut pending: Vec<PathBuf> = loaded.into_iter().collect();
             while let Some(file) = pending.pop() {
                 if !reached.insert(file.clone()) {
                     continue;

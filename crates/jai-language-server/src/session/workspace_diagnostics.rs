@@ -27,10 +27,13 @@ struct Snapshot {
 pub(super) struct WorkspaceDiagnostics {
     active: bool,
     roots: BTreeMap<PathBuf, Snapshot>,
-    /// The closed project files no entry reaches: their syntax and the note that says so.
+    /// The project files no entry reaches: their syntax and the note that says so.
     unreached: BTreeMap<PathBuf, FileDiagnostics>,
     /// Whether `unreached` is what the programs and files are now.
     unreached_fresh: bool,
+    /// The index epoch it was worked out at: what a build records afterwards (an entry's
+    /// graph was out of date when it ran) decides it again.
+    unreached_epoch: Option<u64>,
 }
 
 /// The note on a file that is part of no program, as an information on its first line.
@@ -185,38 +188,40 @@ impl Session {
     }
 
     /// Bring the closed files no program reaches up to date: their syntax diagnostics and the
-    /// note that says they are not checked as part of a program. `true` when that changed.
+    /// note that says they are not checked as part of a program, open or closed. `true` when that changed.
     fn refresh_unreached(&self) -> bool {
         let Some(env) = self.environment.as_ref() else {
             return false;
         };
-        let wanted: Vec<PathBuf> = self
-            .unreached_files()
-            .into_iter()
-            .filter(|path| {
-                DocumentUri::from_path(path).is_ok_and(|uri| self.document(&uri).is_err())
-            })
-            .collect();
+        let wanted: Vec<PathBuf> = self.unreached_files().into_iter().collect();
         let mut old = std::mem::take(&mut self.workspace_diagnostics.borrow_mut().unreached);
         let mut now = BTreeMap::new();
         let mut changed = false;
         for path in wanted {
-            let Some(bytes) = env.fs.read(&path) else {
+            let Some(uri) = self.client_uri(&path) else {
                 continue;
             };
-            let text = String::from_utf8_lossy(&bytes).into_owned();
+            // What the editor shows when the file is open, else what is on disk.
+            let text = match self.document(&uri) {
+                Ok(doc) => doc.text.clone(),
+                Err(_) => match env.fs.read(&path) {
+                    Some(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
+                    None => continue,
+                },
+            };
             let stamp = text_hash(text.as_bytes());
             let file = match old.remove(&path) {
                 Some(kept) if kept.stamp == stamp => kept,
                 _ => {
                     changed = true;
-                    let Some(uri) = self.client_uri(&path) else {
-                        continue;
+                    let mut items = if let Some(open) = self.analysis_for(&uri) {
+                        open.diagnostics.clone()
+                    } else {
+                        let lines = LineIndex::new(&text);
+                        let mut built = Analysis::build(&text, &uri, self.limits);
+                        self.warn_unreadable_loads(&mut built, &lines, &text);
+                        built.diagnostics
                     };
-                    let lines = LineIndex::new(&text);
-                    let mut built = Analysis::build(&text, &uri, self.limits);
-                    self.warn_unreadable_loads(&mut built, &lines, &text);
-                    let mut items = built.diagnostics;
                     items.push(not_in_program(&text));
                     FileDiagnostics {
                         stamp,
@@ -227,9 +232,11 @@ impl Session {
             now.insert(path, file);
         }
         changed |= !old.is_empty();
+        let epoch = self.index.borrow().epoch();
         let mut state = self.workspace_diagnostics.borrow_mut();
         state.unreached = now;
         state.unreached_fresh = true;
+        state.unreached_epoch = Some(epoch);
         changed
     }
 
@@ -256,6 +263,7 @@ impl Session {
                 .iter()
                 .any(|root| state.roots.get(root).is_none_or(|s| s.stale))
             || !state.unreached_fresh
+            || state.unreached_epoch != Some(self.index.borrow().epoch())
     }
 
     /// Check one program's diagnostics as a batch. Interrupted results never replace a

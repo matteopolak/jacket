@@ -229,16 +229,7 @@ impl Session {
                     .expect("opened document has analysis")
                     .diagnostics
                     .clone();
-                diagnostics.extend(
-                    self.try_check_findings(uri)
-                        .ok()?
-                        .into_iter()
-                        .map(|f| f.diagnostic),
-                );
-                diagnostics.extend(self.unreachable_diagnostics(uri));
-                diagnostics.extend(self.lint_diagnostics(uri));
-                self.add_other_program_diagnostics(uri, &mut diagnostics)
-                    .ok()?;
+                self.add_semantic_diagnostics(uri, &mut diagnostics).ok()?;
                 Some((uri.as_str().into(), doc.version, diagnostics))
             })
             .collect()
@@ -371,30 +362,35 @@ impl Session {
             .expect("opened document has analysis")
             .diagnostics
             .clone();
-        diagnostics.extend(
-            self.try_check_findings(uri)?
-                .into_iter()
-                .map(|f| f.diagnostic),
-        );
-        diagnostics.extend(self.unreachable_diagnostics(uri));
-        diagnostics.extend(self.lint_diagnostics(uri));
-        self.add_other_program_diagnostics(uri, &mut diagnostics)?;
+        self.add_semantic_diagnostics(uri, &mut diagnostics)?;
         Ok(diagnostics)
     }
 
-    /// Add to the diagnostics of the program that answers for `uri` what the other programs it
-    /// is in find (what it has already is not added twice), or the note that it is in none.
-    fn add_other_program_diagnostics(
+    /// Add to the syntax diagnostics `all` of the open document `uri` what its programs find:
+    /// the type checker's errors, the code that never runs, the lints, and what the other
+    /// programs it is in find (what the first has found is not added twice). A file in no
+    /// program has nothing to be checked against: it keeps its syntax diagnostics and gets
+    /// the note that says so.
+    fn add_semantic_diagnostics(
         &self,
         uri: &DocumentUri,
         all: &mut Vec<Diagnostic>,
     ) -> Result<(), Error> {
+        let mut found: Vec<Diagnostic> = self
+            .try_check_findings(uri)?
+            .into_iter()
+            .map(|f| f.diagnostic)
+            .collect();
+        found.extend(self.unreachable_diagnostics(uri));
+        found.extend(self.lint_diagnostics(uri));
         let others = self.sibling_program_diagnostics(uri)?;
-        super::workspace_diagnostics::merge(all, &others);
+        super::workspace_diagnostics::merge(&mut found, &others);
         if self.is_unreached(uri) {
             all.push(super::workspace_diagnostics::not_in_program(
                 &self.document(uri)?.text,
             ));
+        } else {
+            all.extend(found);
         }
         Ok(())
     }

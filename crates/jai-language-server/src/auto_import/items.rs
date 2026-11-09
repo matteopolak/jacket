@@ -130,6 +130,10 @@ impl Session {
         let Some(env) = self.environment.as_ref() else {
             return Vec::new();
         };
+        // Only the workspace's programs: an inferred entry that another entry's program
+        // already includes (a file a build metaprogram compiles) is part of that program,
+        // not a program of its own.
+        let programs = self.workspace_entry_set(env);
         let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
         let path = Path::new(uri.path());
@@ -137,7 +141,7 @@ impl Session {
             .program(&mut index, path, &self.workspace_folders)
             .root;
         let mut roots = sources.reaching_entries(&mut index, path, &self.workspace_folders);
-        roots.retain(|root| *root != primary);
+        roots.retain(|root| *root != primary && programs.contains(root));
         roots
     }
 

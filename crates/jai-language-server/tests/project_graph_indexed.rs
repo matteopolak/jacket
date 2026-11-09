@@ -380,6 +380,10 @@ fn an_open_file_no_entry_reaches_is_noted() {
     settle(&mut json);
     let loose = open_codes(&mut json, &dir.join("loose.jai"), B);
     assert_eq!(loose, vec![(3, "not-in-program".to_string())]);
+    // Names it takes from elsewhere are not reported as unknown, as when it is closed.
+    let uses = "uses_elsewhere :: () { x := helper(); print(\"%\\n\", x); }\n";
+    let loose = open_codes(&mut json, &dir.join("scratch.jai"), uses);
+    assert_eq!(loose, vec![(3, "not-in-program".to_string())]);
     let unloaded = open_codes(&mut json, &dir.join("b.jai"), B);
     assert!(is_noted(&unloaded), "b.jai is not loaded by main.jai");
     let reached = open_codes(&mut json, &dir.join("a.jai"), A);
