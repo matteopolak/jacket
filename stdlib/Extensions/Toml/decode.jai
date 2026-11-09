@@ -17,14 +17,18 @@ Toml_Decl :: struct {
 Toml_Unknown_State :: struct {
     name: string;
     owned: bool;
+    elements: int; // `[[name]]` headers seen so far
     decl: Toml_Decl;
 }
 
 // The declarations inside one table. `fields` has one record per field of the target type; keys the
 // type does not know are tracked by name in `unknown`, so even ignored data obeys TOML's rules.
+// A frame with many unknown keys also keeps `unknown_index`, an open-addressing table of
+// positions in `unknown` plus one (zero is empty), built once the linear scan would get long.
 Toml_Frame :: struct {
     fields: [..] Toml_Decl;
     unknown: [..] Toml_Unknown_State;
+    unknown_index: [..] u32;
 }
 
 Toml_Op :: enum u8 {
@@ -63,7 +67,71 @@ toml_free_frame :: (frame: *Toml_Frame) {
 
     array_free(frame.fields);
     array_free(frame.unknown);
+    array_free(frame.unknown_index);
     free(frame);
+}
+
+// Frames with at most this many unknown keys are searched linearly.
+TOML_UNKNOWN_SCAN :: 8;
+
+// The frame's address varies per run, so keys chosen by an attacker cannot be steered into one bucket.
+toml_unknown_hash :: (frame: *Toml_Frame, key: string) -> u64 {
+    return toml_hash_key(key, cast(u64) cast(*void) frame);
+}
+
+toml_unknown_find :: (frame: *Toml_Frame, key: string) -> *Toml_Unknown_State {
+    if !frame.unknown_index.count {
+        for *frame.unknown if it.name == key return it;
+
+        return null;
+    }
+
+    mask := cast(u64) frame.unknown_index.count - 1;
+    slot := toml_unknown_hash(frame, key) & mask;
+
+    while true {
+        entry := frame.unknown_index[slot];
+
+        if !entry return null;
+
+        found := *frame.unknown[entry - 1];
+
+        if found.name == key return found;
+
+        slot = (slot + 1) & mask;
+    }
+
+    return null;
+}
+
+toml_unknown_index_insert :: (frame: *Toml_Frame, position: int) {
+    mask := cast(u64) frame.unknown_index.count - 1;
+    slot := toml_unknown_hash(frame, frame.unknown[position].name) & mask;
+
+    while frame.unknown_index[slot] slot = (slot + 1) & mask;
+
+    frame.unknown_index[slot] = cast(u32) position + 1;
+}
+
+// Indexes the entry just added to `unknown` (its name is set), building or growing the table
+// when the scan has become long or the table is half full.
+toml_unknown_register :: (frame: *Toml_Frame) {
+    count := frame.unknown.count;
+
+    if !frame.unknown_index.count && count <= TOML_UNKNOWN_SCAN return;
+
+    if count * 2 <= frame.unknown_index.count {
+        toml_unknown_index_insert(frame, count - 1);
+        return;
+    }
+
+    capacity := 32;
+    while capacity < count * 4 capacity *= 2;
+
+    array_resize(*frame.unknown_index, capacity);
+    memset(frame.unknown_index.data, 0, capacity * size_of(u32));
+
+    for 0..count - 1 toml_unknown_index_insert(frame, it);
 }
 
 toml_step :: inline (op: Toml_Op, index: int, count: int, nav: int) -> Toml_Step {
@@ -426,7 +494,7 @@ toml_unknown_pair :: (r: *Toml_Reader, frame: *Toml_Frame) -> bool {
     saved := r.path.count;
 
     defer r.path.count = saved;
-    for keys array_add(*r.path, Toml_Path_Part.{ name = it });
+    array_add(*r.path, Toml_Path_Part.{ name = keys[0] });
 
     return toml_unknown_step(r, frame, keys, 0, .ASSIGN, 0);
 }
@@ -435,12 +503,7 @@ toml_unknown_pair :: (r: *Toml_Reader, frame: *Toml_Frame) -> bool {
 // below it. Nothing is stored: the records only decide whether the document is valid.
 toml_unknown_step :: (r: *Toml_Reader, frame: *Toml_Frame, keys: [] string, index: int, op: Toml_Op, nav: int) -> bool {
     key := keys[index];
-    entry: *Toml_Unknown_State;
-
-    for *frame.unknown if it.name == key {
-        entry = it;
-        break;
-    }
+    entry := toml_unknown_find(frame, key);
 
     if !entry {
         entry = array_add(*frame.unknown);
@@ -451,6 +514,8 @@ toml_unknown_step :: (r: *Toml_Reader, frame: *Toml_Frame, keys: [] string, inde
             entry.name = copy_string(key);
             entry.owned = true;
         }
+
+        toml_unknown_register(frame);
     }
 
     step := toml_step(op, index, keys.count, nav);
@@ -462,11 +527,18 @@ toml_unknown_step :: (r: *Toml_Reader, frame: *Toml_Frame, keys: [] string, inde
     if step == .FINAL_ARRAY {
         toml_free_frame(entry.decl.child);
         entry.decl.child = toml_new_frame();
+        entry.elements += 1;
 
         return true;
     }
 
     if !entry.decl.child entry.decl.child = toml_new_frame();
+
+    // The caller of a step has put the key's name on the path; this one names the next key and,
+    // below a `[[x]]` header, the element.
+    if entry.decl.kind == .ARRAY_TABLE array_add(*r.path, Toml_Path_Part.{ index = entry.elements - 1 });
+
+    array_add(*r.path, Toml_Path_Part.{ name = keys[index + 1] });
 
     return toml_unknown_step(r, entry.decl.child, keys, index + 1, op, nav);
 }
@@ -524,13 +596,10 @@ toml_decode_pair :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, prefix: [] s
 
     saved_path := r.path.count;
 
+    // The descent puts each key (and `[[x]]` element) on the path as it reaches it.
     defer r.path.count = saved_path;
 
-    if !prefix.count {
-        for keys array_add(*r.path, Toml_Path_Part.{ name = it });
-
-        return toml_descend(r, out, frame, keys, 0, .ASSIGN, 0);
-    }
+    if !prefix.count return toml_descend(r, out, frame, keys, 0, .ASSIGN, 0);
 
     full: [..] string;
     full_slot := toml_acquire_keys(r, *full);
@@ -542,7 +611,6 @@ toml_decode_pair :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, prefix: [] s
     // The released buffers free the keys they hold; these are copies of strings owned elsewhere.
     for prefix array_add(*full, it);
     for keys array_add(*full, it);
-    for full array_add(*r.path, Toml_Path_Part.{ name = it });
 
     result := toml_descend(r, out, frame, full, 0, .ASSIGN, prefix.count);
 
@@ -573,8 +641,6 @@ toml_decode_header :: (r: *Toml_Reader, out: *$T, root: *Toml_Frame) -> bool {
 
         r.pos += 1;
     }
-
-    for r.header_keys array_add(*r.path, Toml_Path_Part.{ name = it });
 
     return toml_descend(r, out, root, r.header_keys, 0, ifx array_table then Toml_Op.HEADER_ARRAY else .HEADER, 0);
 }

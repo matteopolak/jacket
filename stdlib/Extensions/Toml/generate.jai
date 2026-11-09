@@ -657,7 +657,7 @@ generate_descend :: (T: Type) -> string {
 
     for *leaf: plan.leaves if leaf.unknown collector = leaf.path;
 
-    print(out, "toml_frame_fields(frame, %);\nkey := keys[index];\nstep := toml_step(op, index, keys.count, nav);\n", plan.leaves.count);
+    print(out, "toml_frame_fields(frame, %);\nkey := keys[index];\nstep := toml_step(op, index, keys.count, nav);\npath_mark := r.path.count;\narray_add(*r.path, Toml_Path_Part.{ name = key });\ndefer r.path.count = path_mark;\n", plan.leaves.count);
 
     chain := false;
 
@@ -695,10 +695,10 @@ generate_descend :: (T: Type) -> string {
         } else if shape == .VIEW {
             print(out, "return toml_fail(r, .TYPE, \"arrays of tables need a resizable array\", r.statement_at);\n}\n");
         } else {
-            print(out, "if step == .FINAL_ARRAY {\nif decl.child {\nif %.count && !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\ntoml_free_frame(decl.child);\n}\n", place, place, place);
+            print(out, "if step == .FINAL_ARRAY {\nif decl.child {\nif %.count {\nelement_mark := toml_path_index(r, %.count - 1);\nif !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\ntoml_free_frame(decl.child);\n}\n", place, place, place, place);
             print(out, "decl.child = toml_new_frame();\narray_add(*%);\nreturn true;\n}\n", place);
             print(out, "if step == .FINAL_TABLE || decl.kind != .ARRAY_TABLE || !%.count return toml_fail(r, .TYPE, \"key is not a table\", r.statement_at);\n", place);
-            print(out, "return toml_descend(r, *%[%.count - 1], decl.child, keys, index + 1, op, nav);\n}\n", place, place);
+            print(out, "array_add(*r.path, Toml_Path_Part.{ index = %.count - 1 });\nreturn toml_descend(r, *%[%.count - 1], decl.child, keys, index + 1, op, nav);\n}\n", place, place, place);
         }
     }
 
@@ -752,7 +752,7 @@ generate_finish :: (T: Type) -> string {
 
             if shape == .STRUCT print(out, "if !toml_finish(r, *%, decl.child, decl.span.start) return false;\n", place);
             else if shape == .POINTER print(out, "if % && !toml_finish(r, %, decl.child, decl.span.start) return false;\n", place, place);
-            else if shape == .ARRAY print(out, "if %.count && !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\n", place, place, place);
+            else if shape == .ARRAY print(out, "if %.count {\nelement_mark := toml_path_index(r, %.count - 1);\nif !toml_finish(r, *%[%.count - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\n", place, place, place, place);
 
             print(out, "r.path.count = mark;\n");
         }

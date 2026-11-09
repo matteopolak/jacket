@@ -20,7 +20,7 @@ free_toml_value(*server);
 
 Decoding reuses the document parser's reader: the same string, number and date grammar, UTF-8 check, error spans and `Toml_Options` limits. A scalar is read into one scratch node and stored at once. What replaces the document is `Toml_Frame` (`decode.jai`): one record per table the input mentions, holding how each key was introduced (implicit parent, `[header]`, dotted key, assigned value, `[[array]]`). Those records are all TOML's rules about duplicate keys and table redefinition need, so `a = 1` then `a = 2`, `[a]` twice, `a.b = 1` then `[a]`, or extending an inline table are rejected as `.DUPLICATE` with the earlier declaration in `related`.
 
-`generate.jai` writes, per struct type at compile time, three procedures that `module.jai` inserts: `toml_descend` (key dispatch and storage), `toml_finish` (required keys, run when a table can no longer change) and `toml_free_fields`. Keys the type has no field for are validated and ignored, tracked by name in the frame, so unknown data still obeys the rules; a field marked `@toml(unknown)` collects them.
+`generate.jai` writes, per struct type at compile time, three procedures that `module.jai` inserts: `toml_descend` (key dispatch and storage), `toml_finish` (required keys, run when a table can no longer change) and `toml_free_fields`. Keys the type has no field for are validated and ignored, tracked by name in the frame, so unknown data still obeys the rules (frames with more than eight unknown keys add a hash index, so wide tables stay linear); a field marked `@toml(unknown)` collects them.
 
 Encoding writes key/value lines first, then `[table]` and `[[array of tables]]` headers for struct fields (TOML requires that order), recursing with the dotted path. Structs inside arrays of non-struct parents are written as inline tables. An empty array of tables is written as `key = []` so the key survives a round trip. Null pointers are omitted. Floats use the shortest round-trip spelling.
 
@@ -46,7 +46,7 @@ Integers (range-checked), floats (integers are accepted), `bool`, `string`, enum
 | `unknown` | `[..] Toml_Unknown` field | Collects ignored keys: dotted `path`, the statement `start`/`end`, the assignment's `value` offset and `header` |
 | `deny_unknown_fields` | struct | Unknown keys are `.TYPE` errors; `Toml_Options.deny_unknown_fields` does it for every struct |
 
-A field is required unless it has `default` (or its struct does). A missing key is a `.TYPE` error whose path names it. Type and range errors point at the value; duplicates at the second declaration.
+A field is required unless it has `default` (or its struct does). A missing key is a `.TYPE` error whose path names it. Error paths include the element of an array of tables: `$["items"][1]["name"]`. Type and range errors point at the value; duplicates at the second declaration.
 
 ## Ownership
 
@@ -61,4 +61,4 @@ A field is required unless it has `default` (or its struct does). A missing key 
 
 ## Configuration and dependencies
 
-`Toml_Options` (see [TOML](toml.md)) plus `deny_unknown_fields`. Needs only `Basic`, `String` and `Compiler`. Tests: `stdlib/Extensions/Toml/tests/typed.jai`, which also checks that decoding, success or failure, leaves no allocation behind.
+`Toml_Options` (see [TOML](toml.md)) plus `deny_unknown_fields`. Needs only `Basic`, `String` and `Compiler`. Tests: `stdlib/Extensions/Toml/tests/typed.jai` (also `error-paths.jai`, `unknown-wide.jai`), which also checks that decoding, success or failure, leaves no allocation behind.
