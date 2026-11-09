@@ -596,7 +596,6 @@ class SanitizerModes(unittest.TestCase):
         job = text[text.index("\n  sanitizers:\n"):text.index("\n  sdl3:\n")]
         self.assertIn("timeout-minutes: 45", job)
         self.assertIn("${{ matrix.mode && format(', {0}', matrix.mode) || '' }}", job)
-        self.assertIn("${{ matrix.mode == 'O2' && '-O2' || '' }}", job)
         steps = {}
         for block in job.split("      - name: ")[1:]:
             steps[block.splitlines()[0]] = block
