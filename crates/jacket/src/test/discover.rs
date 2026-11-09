@@ -148,7 +148,7 @@ impl Root {
         jaic: &Path,
         seen: &mut BTreeSet<PathBuf>,
         doc_tests: bool,
-    ) -> Root {
+    ) -> Result<Root, String> {
         let tests = dir.join("tests");
         let compile_dir = tests.join("compile_fail");
         let (mut unit, mut golden) = (Vec::new(), Vec::new());
@@ -173,14 +173,14 @@ impl Root {
         let library = dir.join("module.jai").is_file();
         let module = module_name(&dir, stdlib).unwrap_or_else(|| label.clone());
         let mut docs = if library && doc_tests && !is_private(&module) {
-            super::doctest::blocks(&dir, &module, (jaic, stdlib), seen)
+            super::doctest::blocks(&dir, &module, (jaic, stdlib), seen)?
         } else {
             Vec::new()
         };
         apply_module_notes(&dir, &mut docs);
         let mut bench = jai_files(&dir.join("benches"));
         bench.extend(unit.iter().filter(|file| holds_bench(file)).cloned());
-        Root {
+        Ok(Root {
             dir,
             label,
             library,
@@ -190,7 +190,7 @@ impl Root {
             bench,
             module,
             docs,
-        }
+        })
     }
 
     pub fn is_empty(&self) -> bool {
@@ -486,8 +486,9 @@ mod tests {
             Path::new("/nowhere"),
             Path::new("jaic"),
             &mut BTreeSet::new(),
-            true,
-        );
+            false,
+        )
+        .unwrap();
         assert_eq!(root.module, root.label);
         assert!(root.library);
         assert_eq!(root.unit, [tests.join("unit.jai")]);

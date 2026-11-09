@@ -102,12 +102,15 @@ fn parse_records(text: &str) -> Vec<DocComment> {
 
 /// Every doc block of the library `module` in `dir`, as `jaic -doc_comments` finds its docs. A
 /// file in `seen` was read for an earlier library and is not read again.
+///
+/// Fails when `jaic` cannot be started or cannot read the docs: a library whose examples were
+/// not read has not been tested.
 pub fn blocks(
     dir: &Path,
     module: &str,
     (jaic, stdlib): (&Path, &Path),
     seen: &mut BTreeSet<PathBuf>,
-) -> Vec<Block> {
+) -> Result<Vec<Block>, String> {
     let output = Command::new(jaic)
         .env(jacket_config::env::STDLIB.name, stdlib)
         .arg("-doc_comments")
@@ -118,20 +121,13 @@ pub fn blocks(
             parse_records(&String::from_utf8_lossy(&output.stdout))
         }
         Ok(output) => {
-            eprintln!(
-                "jacket: warning: could not read the doc comments of {}: {}",
+            return Err(format!(
+                "could not read the doc comments of {}: {}",
                 dir.display(),
                 String::from_utf8_lossy(&output.stderr).trim()
-            );
-            return Vec::new();
+            ));
         }
-        Err(error) => {
-            eprintln!(
-                "jacket: warning: could not start `{}`: {error}",
-                jaic.display()
-            );
-            return Vec::new();
-        }
+        Err(error) => return Err(format!("could not start `{}`: {error}", jaic.display())),
     };
     let mut claimed: BTreeSet<PathBuf> = BTreeSet::new();
     let mut counts: BTreeMap<String, u32> = BTreeMap::new();
@@ -158,7 +154,7 @@ pub fn blocks(
         }
     }
     seen.extend(claimed);
-    out
+    Ok(out)
 }
 
 /// The words of a fence's info string, split at commas and spaces outside parentheses:
@@ -663,6 +659,31 @@ fn check_program(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_compiler_that_cannot_start_is_an_error_not_zero_examples() {
+        let error = blocks(
+            Path::new("."),
+            "M",
+            (Path::new("/nowhere/jaic"), Path::new("/nowhere")),
+            &mut BTreeSet::new(),
+        )
+        .unwrap_err();
+        assert!(error.contains("could not start `/nowhere/jaic`"), "{error}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_doc_comment_read_is_an_error_not_zero_examples() {
+        let error = blocks(
+            Path::new("."),
+            "M",
+            (Path::new("false"), Path::new("/nowhere")),
+            &mut BTreeSet::new(),
+        )
+        .unwrap_err();
+        assert!(error.contains("could not read the doc comments"), "{error}");
+    }
 
     #[test]
     fn a_failed_assert_in_an_example_is_a_failure_with_its_place() {

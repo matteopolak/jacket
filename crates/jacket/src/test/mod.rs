@@ -510,11 +510,14 @@ fn run_once(
     let cross_skip = (cross && toolchain.runner.is_empty())
         .then(|| format!("built for {os} {cpu}; `--runner <command>` runs it"));
 
-    let roots: Vec<discover::Root> = discover::roots(&args.path, &configured, &project_dir, cwd)
-        .into_iter()
-        .map(|dir| discover::Root::read(dir, &stdlib, &jaic, &mut doc_files, !bench))
-        .filter(|r| !r.is_empty())
-        .collect();
+    let mut roots: Vec<discover::Root> = Vec::new();
+    for dir in discover::roots(&args.path, &configured, &project_dir, cwd) {
+        match discover::Root::read(dir, &stdlib, &jaic, &mut doc_files, !bench) {
+            Ok(root) if !root.is_empty() => roots.push(root),
+            Ok(_) => {}
+            Err(error) => return fail(error),
+        }
+    }
     if roots.is_empty() {
         return fail(format!(
             "no tests found in {}\nhelp: tests are `.jai` files in a `tests/` folder; `[test] paths` in jacket.toml names other folders or patterns such as `stdlib/**`",
