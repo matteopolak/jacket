@@ -351,7 +351,7 @@ find_header :: (headers: [] Header_Field, name: string) -> value: string, found:
 
     for headers {
         if id != .UNKNOWN {
-            if it.id == id return it.value, true;
+            if it.id == id || (it.id == .UNKNOWN && equal_nocase(it.name, name)) return it.value, true;
         } else if equal_nocase(it.name, name) {
             return it.value, true;
         }

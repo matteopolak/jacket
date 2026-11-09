@@ -43,3 +43,18 @@ created := post(*api, "/users", New_User.{ name = "Ada" });   // struct body is 
 Tests of a specific transport failure phase should inject a `Transport` whose writer accepts the request and whose reader returns the intended `Io_Error`. Keep wall-clock timeout tests separate: a deadline can expire during connecting, writing or reading.
 
 The HTTP TLS fixtures free their client configs with `release_tls_config`. Raw test servers join their serving fiber before releasing its configuration or reusing the server state. Keep these cleanup boundaries when adding TLS cases.
+
+### Protocol upgrades
+
+`client_upgrade(*client, absolute_http_url, headers)` performs one GET switch on the
+calling Io fiber, with HTTP/1.1-only ALPN, no redirect and no replay. Example:
+`reply, link, pending, error := client_upgrade(*api, url, headers);`
+The caller supplies Upgrade and Connection headers. A successful response must
+select an offered protocol and contain `Connection: upgrade`. The connection leaves
+HTTP ownership immediately, including bytes received with the head; it never enters
+the idle pool. Release the allocated `pending` bytes, close the returned link once,
+and close `reply` to release its headers. On failure no link is returned; close the
+reply and free the error as usual. Place the call inside `Io.with_deadline` to bound
+the handshake. Higher protocols validate their own response headers, as
+[WebSocket](websocket.md) does. Change the early handoff in `converse` and the detach
+logic in `client_upgrade` together when changing buffering or source ownership.

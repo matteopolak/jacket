@@ -182,3 +182,21 @@ The completion group includes accept, drain/watch fibers and each HTTP/2
 connection through its final reference. Changing this accounting requires lifetime
 tests where callbacks finish after shutdown begins, not simply waiting for the
 listener to close. The ordinary `serve` convenience owns and closes its handles.
+
+### Routed protocol upgrades
+
+`upgrade_response(protocol, handler, data)` returns a 101 response with Upgrade and
+Connection headers. Example: `return upgrade_response("example", run_protocol, state);`
+The `Upgrade_Handler` receives `(Link, pending_bytes, data)` on the connection fiber
+only after the complete response head has been written. Middleware still sees and
+may replace the response. The request must offer that protocol with HTTP/1.1 upgrade
+headers and no body; invalid handoffs return 400. HTTP/2 returns 400 for this response.
+Cleartext h2c remains unsupported.
+
+The server owns the link and closes it after the callback returns; do not close it
+again in the callback. Pending bytes are borrowed from the read buffer and must be
+consumed before reading the link. The active TLS link is handed out for HTTPS.
+Keep callback data alive until it returns, including across fiber waits. Shutdown
+accounts for this fiber as an active connection. Implement new protocols through
+this callback; `upgrade_connection` in `server.jai` is the shared ownership boundary,
+not a protocol dispatcher. See [WebSocket](websocket.md) for one implementation.

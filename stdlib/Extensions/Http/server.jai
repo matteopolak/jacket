@@ -360,10 +360,29 @@ now_ms :: () -> s64 {
     return to_milliseconds(current_time_monotonic());
 }
 
-// Where an HTTP/2 upgrade (`Upgrade: h2c`) would take over. Only HTTP/2 over TLS is served, so
-// nothing switches and the connection keeps speaking HTTP/1.
-upgrade_connection :: (connection: *Connection, head: *Head) -> bool {
-    return false;
+// Route-selected handoff: all upgraded protocols use the same ownership and buffering boundary.
+upgrade_connection :: (connection: *Connection, stream: Link, head: *Head, response: *Response, pending: [] u8, out: *[..] u8) -> bool {
+    if !response.upgrade return false;
+
+    protocol, found := find_header(response.headers, "Upgrade");
+    offered, _ := find_header(head.headers, "Upgrade");
+
+    if !found || !head.upgrade || head.version != .HTTP_1_1 || head.body != .NONE || response.status != 101 || response.source || response.body.count || !has_token(offered, protocol) {
+        response.* = text("invalid protocol upgrade", 400);
+        return false;
+    }
+
+    _, ok := write_response_head(out, 101, response.headers, 0);
+    if !ok return true;
+
+    error: Io.Io_Error;
+
+    Io.with_deadline(within(connection.server.app.config.write_timeout), #code {
+        _, error = Io.write(stream.writer, out.*);
+    });
+    if error == .NONE response.upgrade(stream, pending, response.upgrade_data);
+
+    return true;
 }
 
 // Runs the TLS handshake of a new connection, which has `header_timeout` to finish it, and returns
@@ -642,8 +661,6 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
 
         head := *parser.head;
 
-        if head.upgrade && upgrade_connection(connection, head) return;
-
         // ---- The request. The handler reads its body, if it wants it.
         started := now_ms();
 
@@ -682,6 +699,8 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
         split_target(request);
 
         response := handle_request(app, request);
+
+        if upgrade_connection(connection, stream, head, *response, pending, *out) return;
 
         // What the handler left of the body is read and dropped, or the connection closes.
         reusable := finish_body(body);

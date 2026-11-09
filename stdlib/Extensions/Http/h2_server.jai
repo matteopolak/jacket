@@ -364,6 +364,7 @@ h2_serve_request :: (ctx: *H2_Server_Stream) {
     split_target(request);
 
     response := handle_request(app, request);
+    if response.upgrade response = text("protocol upgrades require HTTP/1.1", 400);
 
     if response.source && !conn.dead {
         problem: Http_Error;

@@ -74,6 +74,21 @@ Response :: struct {
 
     // Set by `stream_response` and `file_response`: the body is produced while it is sent.
     source: *Response_Source;
+    upgrade: Upgrade_Handler;
+    upgrade_data: *void;
+}
+
+// Runs after a successful HTTP/1.1 switch. Pending bytes are borrowed until the callback returns.
+// The server owns and closes the link; the callback must finish before its route state is freed.
+Upgrade_Handler :: #type (link: Link, pending: [] u8, data: *void);
+
+// Builds a routed protocol switch. Example: return upgrade_response("example", run_protocol, state).
+// The callback runs on the connection fiber after the 101 head has been written.
+upgrade_response :: (protocol: string, handler: Upgrade_Handler, data: *void = null) -> Response {
+    response := with_header(with_header(status_only(101), "Connection", "Upgrade"), "Upgrade", protocol);
+    response.upgrade = handler;
+    response.upgrade_data = data;
+    return response;
 }
 
 // `response` with one more header: `with_header(json(user), "ETag", tag)`. The name and value

@@ -67,6 +67,57 @@ Client_Request :: struct {
     max_response_size := 64 * 1024 * 1024;
 }
 
+// Performs an HTTP/1.1 upgrade without redirects or replay, on the current Io fiber.
+// Example: reply, link, pending, error := client_upgrade(*api, url, headers).
+// On success the caller owns link and allocated pending bytes, and must close the reply too.
+// A rejected switch returns its response and a .STATUS error; no connection is handed out.
+client_upgrade :: (client: *Client, url_text: string, headers: [] Header_Field) -> Client_Response, Link, [] u8, Client_Error {
+    if !Io.in_scheduler() return .{}, .{}, .[], client_error(.BODY, .NONE, "upgrades require an Io fiber");
+
+    url, invalid := parse_url(url_text);
+    if invalid != .NONE return .{}, .{}, .[], client_error(.INVALID_URL, .NONE, "invalid upgrade URL");
+
+    http1 := client.*;
+
+    if url.secure {
+        if !client.tls {
+            failure := default_tls_ready();
+            if failure.kind != .NONE return .{}, .{}, .[], tls_failure(failure, url);
+        }
+
+        http1.tls = without_h2(tls_config_of(client, url));
+    }
+
+    response, error := exchange(*http1, .GET, url_text, headers, .[], 0, .{ method = .GET, url = url_text }, true);
+    if error.kind != .NONE return response, .{}, .[], error;
+    if response.status != 101 return response, .{}, .[], client_error(.STATUS, .NONE, "upgrade rejected");
+
+    source := response.source;
+    selected, _ := find_header(response.headers, "Upgrade");
+    offered, _ := find_header(headers, "Upgrade");
+    connection_upgrade := false;
+
+    for response.headers if equal_nocase(it.name, "Connection") && has_token(it.value, "upgrade") connection_upgrade = true;
+
+    if !connection_upgrade || selected.count == 0 || !has_token(offered, selected) {
+        drop_connection(source);
+        response.source = null;
+        discard_source(source);
+        return response, .{}, .[], client_error(.STATUS, .NONE, "invalid upgrade response");
+    }
+
+    stream := source.stream;
+    pending := NewArray(source.input.count, u8, false);
+
+    if pending.count memcpy(pending.data, source.input.data, pending.count);
+
+    source.held = false;
+    response.source = null;
+    discard_source(source);
+
+    return response, stream, pending, .{};
+}
+
 // A response: the status and headers, and the body still waiting on its connection. `close`
 // releases it.
 //
@@ -1266,7 +1317,7 @@ host_with_port :: (url: Url) -> string {
 }
 
 // One request on one connection (a pooled one when there is one), and its response head.
-exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header_Field, body: [] u8, max_response_size: int, note: Request_Note) -> Client_Response, Client_Error {
+exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header_Field, body: [] u8, max_response_size: int, note: Request_Note, upgrade := false) -> Client_Response, Client_Error {
     if method == .OTHER return .{}, client_error(.INVALID_METHOD, .NONE, "the method `.OTHER` cannot be sent: it stands for a method the client has no name for");
 
     url, problem := parse_url(url_text);
@@ -1318,7 +1369,7 @@ exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header
 
     method_text := method_name(method);
 
-    idempotent := method == .GET || method == .HEAD || method == .PUT || method == .DELETE || method == .OPTIONS;
+    idempotent := !upgrade && (method == .GET || method == .HEAD || method == .PUT || method == .DELETE || method == .OPTIONS);
 
     attempt := 0;
 
@@ -1347,7 +1398,7 @@ exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header
             return .{}, failure;
         }
 
-        response, reply_started, failure := converse(client, stream, method, method_text, url, headers, body, max_response_size, note);
+        response, reply_started, failure := converse(client, stream, method, method_text, url, headers, body, max_response_size, note, upgrade);
 
         if failure.kind == .NONE return response, .{};
 
@@ -1372,7 +1423,7 @@ exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header
 // Writes the request on `stream` and reads the response up to the end of its head. The body is
 // left on the stream, in the response's `source`. `reply_started` says whether any byte of an
 // answer arrived.
-converse :: (client: *Client, stream: Link, method: Method, method_text: string, url: Url, headers: [] Header_Field, body: [] u8, max_response_size: int, note: Request_Note) -> Client_Response, reply_started: bool, Client_Error {
+converse :: (client: *Client, stream: Link, method: Method, method_text: string, url: Url, headers: [] Header_Field, body: [] u8, max_response_size: int, note: Request_Note, upgrade := false) -> Client_Response, reply_started: bool, Client_Error {
     out: [..] u8;
 
     defer array_reset(*out);
@@ -1476,6 +1527,8 @@ converse :: (client: *Client, stream: Link, method: Method, method_text: string,
     response.source = source;
 
     success = true;
+
+    if upgrade && status == 101 return response, true, .{};
 
     // No body to wait for (HEAD, 204, 304, Content-Length: 0), or all of it came with the head
     // (a small answer): take it into memory, and the connection is free at once. A response
