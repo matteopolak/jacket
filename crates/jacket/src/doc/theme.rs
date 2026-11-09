@@ -252,11 +252,10 @@ impl Theme {
                     "{} cannot write native output, which the documentation theme needs: install a jaic with the native backend",
                     jaic.display()
                 ));
-            } else {
-                eprint!("{stderr}");
-                print!("{stdout}");
-                return Err("documentation theme did not compile".into());
             }
+            eprint!("{stderr}");
+            print!("{stdout}");
+            return Err("documentation theme did not compile".into());
         } else if let Err(e) = std::fs::rename(&temp, &binary) {
             if !binary.is_file() {
                 return Err(format!("cannot install theme binary: {e}"));
