@@ -652,6 +652,8 @@ def data_fixtures():
     gltf_suites()
     from csv_conformance.fetch import fetch as csv_suite
     csv_suite()
+    from time_conformance.fetch import fetch as time_suites
+    time_suites()
 
 
 def bench_data():
