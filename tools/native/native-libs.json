@@ -157,7 +157,7 @@
       }
     },
     "stb_image": {"source": "stb", "code": "#define STB_IMAGE_IMPLEMENTATION\n#include \"stb_image.h\"\n"},
-    "stb_image_write": {"source": "stb", "code": "#define STB_IMAGE_WRITE_IMPLEMENTATION\n#include \"stb_image_write.h\"\n"},
+    "stb_image_write": {"source": "stb", "code": "#define STB_IMAGE_WRITE_IMPLEMENTATION\n#include \"stb_image_write.h\"\nvoid jai_stbiw_free(void *memory) { STBIW_FREE(memory); }\n"},
     "stb_image_resize": {"source": "stb", "code": "#define STB_IMAGE_RESIZE_IMPLEMENTATION\n#include \"deprecated/stb_image_resize.h\"\n"},
     "stb_vorbis": {"source": "stb", "code": "#include \"stb_vorbis.c\"\n"},
     "xxhash070": {

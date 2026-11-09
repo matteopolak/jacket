@@ -9,8 +9,11 @@
 #import "stb_image_write";
 
 // Each stb library allocates from its own C runtime, which on Windows is a static one with its own
-// heap, so a buffer goes back to the library that made it: stbi_image_free for stb_image's.
-// stb_image_write exports no free, so its few compressed streams here are left allocated.
+// heap, so a buffer goes back to the library that made it: stbi_image_free for stb_image's, and for
+// stb_image_write's the jai_stbiw_free that tools/native/native-libs.json adds to the library.
+write_library :: #library,system "stb_image_write";
+jai_stbiw_free :: (memory: *void) #foreign write_library;
+
 stb_compress :: (data: [] u8, quality: s32) -> [] u8 {
     length: s32;
     packed := stbi_zlib_compress(data.data, cast(s32) data.count, *length, quality);
@@ -20,6 +23,8 @@ stb_compress :: (data: [] u8, quality: s32) -> [] u8 {
     result.data = alloc(max(length, 1));
 
     for 0..length - 1 result[it] = packed[it];
+
+    jai_stbiw_free(packed);
 
     return result;
 }
