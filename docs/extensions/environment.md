@@ -14,7 +14,7 @@ if has_environment_variable("NO_COLOR") colors = false;
 
 - `environment_variable(name)` returns a copy in temporary storage, or `""` when unset.
 - `has_environment_variable(name)` tells unset from set-but-empty.
-- `output_directory()` is `JACKET_OUTPUT_DIR` when set and not empty, else the `target` folder of the checkout the standard library is in; `output_path(relative)` joins a path below it. Tests and benches that read generated data (the fixture and conformance data `jacket test` builds) use these, so a relocated output directory works.
+- `output_directory()` is `JACKET_OUTPUT_DIR` when set and not empty (a relative one is below the checkout, as in `jacket test` and the Python tools; `resolve_output_directory(value)` does that for a given value), else the `target` folder of the checkout the standard library is in; `output_path(relative)` joins a path below it. Tests and benches that read generated data (the fixture and conformance data `jacket test` builds) use these, so a relocated output directory works.
 - Windows goes through `_wgetenv` with UTF-16 conversion, so non-ASCII values survive. Elsewhere it calls `getenv`.
 
 ## How to change it

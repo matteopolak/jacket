@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A relative `JACKET_OUTPUT_DIR` is below the checkout everywhere, not the working directory: `jacket test`, the Python and TypeScript tools, `jaic`'s `native-libs/` lookup and `Extensions/Environment` (`output_directory`; new `resolve_output_directory`) agree.
 - `jacket test` no longer builds the fixture data for a suite whose source only names a fixture path in a comment, such as the `Extensions/Environment` doc examples.
 
 ## [0.34.0] - 2026-11-09

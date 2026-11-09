@@ -1,7 +1,8 @@
 """Where the repo's tools write build products, caches and scratch output, and which platform they ran on.
 
 Everything lives under `<repo>/target/` (already ignored, shared with cargo). Set
-`JACKET_OUTPUT_DIR` to relocate it. Git worktrees reuse expensive downloads and native builds
+`JACKET_OUTPUT_DIR` to relocate it; a relative value is below this checkout (`ROOT`), not the
+working directory, as `jacket test` and `Extensions/Environment` read it. Git worktrees reuse expensive downloads and native builds
 through `shared_output_dir()`, which resolves to the main checkout's directory.
 """
 
@@ -36,7 +37,7 @@ def main_checkout() -> Path:
 
 def _override() -> Path | None:
     value = os.environ.get('JACKET_OUTPUT_DIR')
-    return Path(value).resolve() if value else None
+    return (ROOT / value).resolve() if value else None
 
 
 def output_dir(*parts: str) -> Path:

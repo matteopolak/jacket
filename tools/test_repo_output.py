@@ -26,5 +26,19 @@ class MainCheckoutTests(unittest.TestCase):
                 self.assertEqual(repo_output.main_checkout(), main)
 
 
+class OverrideTests(unittest.TestCase):
+    def test_a_relative_output_directory_is_below_the_checkout_not_the_cwd(self):
+        with tempfile.TemporaryDirectory() as folder, \
+                mock.patch.dict('os.environ', {'JACKET_OUTPUT_DIR': 'out/x'}), \
+                mock.patch.object(repo_output, 'ROOT', Path(folder)):
+            self.assertEqual(repo_output.output_dir('a'), Path(folder).resolve() / 'out' / 'x' / 'a')
+            self.assertEqual(repo_output.shared_output_dir(), Path(folder).resolve() / 'out' / 'x')
+
+    def test_an_absolute_output_directory_is_used_as_given(self):
+        with tempfile.TemporaryDirectory() as folder, \
+                mock.patch.dict('os.environ', {'JACKET_OUTPUT_DIR': folder}):
+            self.assertEqual(repo_output.output_dir('a'), Path(folder).resolve() / 'a')
+
+
 if __name__ == '__main__':
     unittest.main()

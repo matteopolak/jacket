@@ -37,6 +37,8 @@ has_environment_variable :: (name: string) -> bool {
 
 // The directory the repository's tools write generated test and benchmark data to, which tests and benches read it from:
 // `JACKET_OUTPUT_DIR` when that is set and not empty, else the `target` folder of the checkout the standard library is in.
+// A relative `JACKET_OUTPUT_DIR` is below that checkout, not the working directory, as the repository's tools and
+// `jacket test` read it.
 //
 // The string is in temporary storage. Use it to find data that a `jacket test` or `jacket bench` setup builds, instead of
 // spelling `target` in the path, which a relocated output directory breaks.
@@ -45,10 +47,21 @@ has_environment_variable :: (name: string) -> bool {
 // assert(output_directory().count > 0);
 // ```
 output_directory :: () -> string {
-    over := environment_variable("JACKET_OUTPUT_DIR");
-    if over.count return over;
+    return resolve_output_directory(environment_variable("JACKET_OUTPUT_DIR"));
+}
 
-    return tprint("%../../../target", #filepath);
+// The output directory for a `JACKET_OUTPUT_DIR` value of `over`: an absolute one as it is, a relative one below the
+// checkout the standard library is in, and the `target` folder of that checkout for "". In temporary storage.
+//
+// ```jai,skip_on(wasm)
+// assert(resolve_output_directory("out").count > "out".count);
+// assert(resolve_output_directory("").count > 0);
+// ```
+resolve_output_directory :: (over: string) -> string {
+    if !over.count return tprint("%../../../target", #filepath);
+    if is_absolute_path(over) return over;
+
+    return tprint("%../../../%", #filepath, over);
 }
 
 // `relative` below [output_directory], joined with `/`, in temporary storage.
@@ -63,6 +76,7 @@ output_path :: (relative: string) -> string {
 
 #scope_file
 
+#import "String";
 #import "Basic";
 
 #if OS == .WINDOWS {

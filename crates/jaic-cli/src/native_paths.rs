@@ -61,7 +61,14 @@ fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     // `target/`.
     let mut candidates = Vec::new();
     if let Some(output) = jacket_config::env::OUTPUT_DIR.os() {
-        candidates.push(PathBuf::from(output).join("native-libs").join(&platform));
+        // A relative one is below the checkout, as the repository's tools read it.
+        candidates.push(
+            stdlib
+                .join("..")
+                .join(output)
+                .join("native-libs")
+                .join(&platform),
+        );
     }
     candidates.push(stdlib.join("../native-libs").join(&platform));
     candidates.push(stdlib.join("../target/native-libs").join(&platform));
