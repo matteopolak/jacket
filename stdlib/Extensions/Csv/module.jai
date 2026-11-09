@@ -1,44 +1,60 @@
-// Bounded CSV records, borrowed until the reader advances; typed rows own their strings.
-// Example: r := csv_reader(cast([] u8) "a,b\n"); row, ok := csv_next(*r); csv_reader_free(*r).
+// Reads and writes CSV with explicit limits. A record read from a [Csv_Reader] is borrowed until
+// the next call; copy it to keep it. Typed rows own their strings.
+//
+// ```jai
+// #import "Extensions/Csv";
+//
+// r := csv_reader(cast([] u8) "name,age\nada,36\n", .{ header = true });
+// defer csv_reader_free(*r);
+// fields, present, error := csv_next(*r);
+// assert(present && error.kind == .NONE);
+// assert(fields[0] == "ada" && fields[1] == "36");
+// ```
+
+// How a CSV document is read and written.
 Csv_Options :: struct {
-    delimiter: u8 = #char ",";
+    delimiter: u8 = #char ","; // an ASCII byte other than the quote, NUL, CR or LF
     quote: u8 = #char "\"";
-    header: bool;
-    trim: bool;
-    lax_quotes: bool;
-    require_equal_width: bool;
+    header: bool; // treat the first record as column names; it is not returned
+    trim: bool; // drop spaces around unquoted fields
+    lax_quotes: bool; // allow a quote inside an unquoted field
+    require_equal_width: bool; // fail with `.WIDTH` when a record's field count differs from the first
     max_field_bytes: int = 1 << 20;
-    max_fields: int = 16384;
+    max_fields: int = 16384; // per record
     max_record_bytes: int = 16 << 20;
-    line_ending := Csv_Line_Ending.CRLF;
+    line_ending := Csv_Line_Ending.CRLF; // used when writing; reading accepts all three
 }
 
+// The record terminator written by [csv_write_record].
 Csv_Line_Ending :: enum {
     CRLF;
     LF;
     CR;
 }
 
+// Why reading, writing or decoding a CSV failed.
 Csv_Error_Kind :: enum {
     NONE;
-    OPTIONS;
-    QUOTE;
-    FIELD_LIMIT;
-    FIELD_COUNT;
-    RECORD_LIMIT;
-    WIDTH;
-    SOURCE;
-    TYPE;
-    HEADER;
+    OPTIONS; // invalid [Csv_Options] or a missing source callback
+    QUOTE; // malformed quoting
+    FIELD_LIMIT; // a field exceeds `max_field_bytes`
+    FIELD_COUNT; // a record has more than `max_fields` fields, or none when writing
+    RECORD_LIMIT; // a record exceeds `max_record_bytes`
+    WIDTH; // a ragged record with `require_equal_width`
+    SOURCE; // the chunk source failed
+    TYPE; // a typed column is empty or does not parse
+    HEADER; // a duplicate or missing header column
 }
 
+// The outcome of a CSV operation; `kind` is `.NONE` on success. Positions are 1-based, `offset` is
+// a byte offset.
 Csv_Error :: struct {
     kind: Csv_Error_Kind;
     message: string;
     line: int;
     column: int;
     offset: int;
-    column_name: string;
+    column_name: string; // the header column involved, for `.HEADER` and `.TYPE`
 }
 
 // A CSV document that arrives in pieces: `fill` puts the next piece in `buffer` and returns how
@@ -46,6 +62,8 @@ Csv_Error :: struct {
 // is the same type.
 Csv_Source :: Pieces.Byte_Source;
 
+// A reader over CSV bytes or a chunk source. Create it with [csv_reader], advance it with
+// [csv_next] and release it with [csv_reader_free]. The fields are internal state.
 Csv_Reader :: struct {
     source: Csv_Source;
     chunk: [8192] u8;
