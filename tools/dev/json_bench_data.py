@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
-"""Downloads the JSON files the Json benchmark is usually run on (simdjson's jsonexamples and
-the nativejson-benchmark data) into
-a directory, and prints the command to run:
+"""Fetch the real-world inputs for `jacket bench --path stdlib/Extensions/Json`.
 
-    python3 tools/dev/json_bench_data.py /tmp/json-data
-    jaic stdlib/Extensions/Json/bench/bench.jai -O2 -exe /tmp/json-bench
-    /tmp/json-bench /tmp/json-data/twitter.json /tmp/json-data/canada.json /tmp/json-data/citm_catalog.json
+    PYTHONPATH=tools python3 tools/dev/json_bench_data.py
 
-The files are not kept in the repository: they are several MB, and each has its own provenance
-(twitter.json is a sample of public tweets, canada.json is geographic data, citm_catalog.json
-comes from the nativejson-benchmark, MIT). simdjson itself is Apache-2.0 / MIT.
+Writes target/json-bench-data, or $JACKET_OUTPUT_DIR/json-bench-data. An explicit
+output directory may be passed as the first argument. Files retain their upstream
+provenance: simdjson examples and nativejson-benchmark (MIT).
 """
 
 import os
@@ -18,14 +14,15 @@ from pathlib import Path
 
 
 from toolkit.download import fetch
+from repo_output import output_dir
 
 SIMDJSON = "https://raw.githubusercontent.com/simdjson/simdjson/master/jsonexamples/"
 NATIVEJSON = "https://raw.githubusercontent.com/miloyip/nativejson-benchmark/master/data/"
 FILES = [("twitter.json", SIMDJSON), ("canada.json", NATIVEJSON), ("citm_catalog.json", SIMDJSON)]
 
 
-def main():
-    target = sys.argv[1] if len(sys.argv) > 1 else "json-data"
+def fetch_data(target=None):
+    target = target or output_dir("json-bench-data")
     os.makedirs(target, exist_ok=True)
 
     for name, base in FILES:
@@ -37,4 +34,5 @@ def main():
         print("%s: %d bytes" % (path, os.path.getsize(path)))
 
 
-main()
+if __name__ == "__main__":
+    fetch_data(sys.argv[1] if len(sys.argv) > 1 else None)

@@ -645,6 +645,8 @@ def data_fixtures():
     meow_fixtures(False)
     from archive_conformance.differential import bench_fixtures
     bench_fixtures()
+    from dev.json_bench_data import fetch_data
+    fetch_data()
     # The inputs taken from pinned downloads: Unicode's test files and Go's ZIP/TAR fixtures.
     from unicode_text_conformance.fetch import write_suites
     write_suites()

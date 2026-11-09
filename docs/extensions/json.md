@@ -78,7 +78,7 @@ page, error2 := from_param(int, "42");
 
 ### Speed
 
-The generated code is straight-line per struct and field, with no runtime type switch; keys match by length then word compares against constants. Float printing uses Schubfach, parsing uses Eisel-Lemire. Vector scans (`Extensions/SIMD`) speed escaping and string scanning; for texts of at least `json_index_min_size` (256 bytes) a simdjson-style stage 1 index finds string extents, with any anomaly falling back to the scalar reader so errors are identical on every path. Benchmarks: `stdlib/Extensions/Json/bench/bench.jai` (`-O2`).
+The generated code is straight-line per struct and field, with no runtime type switch; keys match by length then word compares against constants. Float printing uses Schubfach, parsing uses Eisel-Lemire. Vector scans (`Extensions/SIMD`) speed escaping and string scanning; for texts of at least `json_index_min_size` (256 bytes) a simdjson-style stage 1 index finds string extents, with any anomaly falling back to the scalar reader so errors are identical on every path. Benchmarks: `jacket bench --path stdlib/Extensions/Json`. Fetch real-world inputs first with `PYTHONPATH=tools python3 tools/dev/json_bench_data.py` (also part of `tools/portable/build_portable.py data`). Each generated/real document, decode/encode operation and scalar/vector/indexed mode has its own case.
 
 ## How to change it
 
@@ -105,3 +105,5 @@ Other knobs: `json_use_simd` (true), `json_index_min_size`, `json_index_stats`.
 jaison walks `Type_Info` on every call. Contiguous is close on typed decode because it doesn't unescape strings and checks input only with `assert`. `borrow` makes Jacket another 3-5% faster on typed decodes and 13-29% on untyped trees.
 
 Beyond speed: Jacket's parser follows RFC 8259 with positioned errors, handles surrogate pairs, tells absent from null, has tagged unions, maps, `flatten`, depth limits and query-string decoding. Neither community library has these.
+
+`json_benches` emits one selectable procedure for each input, type, scan mode and operation. Extend that matrix when adding a workload; keep input generation, file reads and pre-decoding before `reset_timer`.
