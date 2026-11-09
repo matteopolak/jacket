@@ -13,31 +13,28 @@ time_zone_fixed :: (value: Offset) -> Time_Zone {
 // Loads and caches a safe IANA name; directory overrides TZDIR for deterministic fixtures. Example: `zone, error := time_zone_get("America/New_York")`.
 time_zone_get :: (name: string, options: Time_Options = .{}, directory: string = "") -> Time_Zone, Time_Error {
     if !valid_options(options) || name.count == 0 || name.count > options.max_text return .{}, .{ .INVALID_VALUE, "invalid zone name", -1 };
-    for c: name if !((c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c == 47 || c == 95 || c == 45 || c == 43) return .{}, .{ .INVALID_VALUE, "unsafe zone name", -1 };
-    if name[0] == 47 || name[name.count - 1] == 47 return .{}, .{ .INVALID_VALUE, "absolute or empty zone component", -1 };
-    for i: 1..name.count - 1 if name[i] == 47 && name[i - 1] == 47 return .{}, .{ .INVALID_VALUE, "empty zone component", -1 };
 
     dir := directory;
     if dir.count == 0 dir = Env.environment_variable("TZDIR");
 
     if dir.count == 0 {
-        #if OS == .WINDOWS return .{}, .{ .UNSUPPORTED, "Windows named zones require TZDIR", -1 };
-        else dir = "/usr/share/zoneinfo";
+        #if OS != .WINDOWS dir = "/usr/share/zoneinfo";
     }
 
+    // Only names that passed the checks below are ever cached, so a hit needs no re-validation.
+    if dir.count != 0 && dir.count <= options.max_text {
+        cached, hit := cached_zone(dir, name, options);
+        if hit return cached, .{};
+    }
+
+    for c: name if !((c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c == 47 || c == 95 || c == 45 || c == 43) return .{}, .{ .INVALID_VALUE, "unsafe zone name", -1 };
+    if name[0] == 47 || name[name.count - 1] == 47 return .{}, .{ .INVALID_VALUE, "absolute or empty zone component", -1 };
+    for i: 1..name.count - 1 if name[i] == 47 && name[i - 1] == 47 return .{}, .{ .INVALID_VALUE, "empty zone component", -1 };
+
+    if dir.count == 0 return .{}, .{ .UNSUPPORTED, "Windows named zones require TZDIR", -1 };
     if dir.count > options.max_text return .{}, .{ .LIMIT, "zone directory limit", -1 };
 
     path := tprint("%/%", dir, name);
-
-    while !compare_and_swap(*zone_cache_lock, cast(s32) 0, cast(s32) 1) {}
-
-    defer Atomics.atomic_write(*zone_cache_lock, cast(s32) 0);
-
-    for entry: zone_cache {
-        if entry.rules == null continue;
-        r := cast(*Zone_Rules) entry.rules;
-        if r.path == path && zone_within_limits(r, options) return time_zone_retain(entry), .{};
-    }
 
     // Cache storage must outlive a caller's arena or counting allocator.
     push_allocator(context.default_allocator.proc, context.default_allocator.data);
@@ -59,9 +56,7 @@ time_zone_get :: (name: string, options: Time_Options = .{}, directory: string =
 
     r := cast(*Zone_Rules) z.rules;
     r.path = copy_string(path);
-    time_zone_free(*zone_cache[zone_cache_slot]);
-    zone_cache[zone_cache_slot] = time_zone_retain(z);
-    zone_cache_slot = (zone_cache_slot + 1) % zone_cache.count;
+    cache_zone(z);
 
     return z, .{};
 }
@@ -298,11 +293,70 @@ Zone_Rules :: struct {
     footer: Posix_Rules;
 }
 
+// Zones loaded by time_zone_get, each holding one reference, replaced in turn once full.
+// Only the first zone_cache_used entries can be set; zone_cache_lock guards all of these.
 zone_cache: [64] Time_Zone;
 
 zone_cache_slot: s64;
 
+zone_cache_used: s64;
+
 zone_cache_lock: s32;
+
+// Whether path is `dir/name`, without building the text.
+path_is :: (path: string, dir: string, name: string) -> bool {
+    if path.count != dir.count + 1 + name.count || path[dir.count] != #char "/" return false;
+    return begins_with(path, dir) && string.{ name.count, path.data + dir.count + 1 } == name;
+}
+
+// Retains the cached zone for `dir/name` when it was loaded within `options`' limits.
+cached_zone :: (dir: string, name: string, options: Time_Options) -> Time_Zone, bool {
+    while !compare_and_swap(*zone_cache_lock, cast(s32) 0, cast(s32) 1) {}
+
+    defer Atomics.atomic_write(*zone_cache_lock, cast(s32) 0);
+
+    for 0..zone_cache_used - 1 {
+        entry := zone_cache[it];
+        if entry.rules == null continue;
+
+        // The cache owns a reference, so the rules are live and need no registry check.
+        r := cast(*Zone_Rules) entry.rules;
+
+        if path_is(r.path, dir, name) && zone_within_limits(r, options) {
+            Atomics.atomic_increment(*r.refs);
+            return entry, true;
+        }
+    }
+
+    return .{}, false;
+}
+
+// Keeps a reference to a freshly loaded zone, reusing the slot of the same path or else the oldest.
+cache_zone :: (zone: Time_Zone) {
+    while !compare_and_swap(*zone_cache_lock, cast(s32) 0, cast(s32) 1) {}
+
+    defer Atomics.atomic_write(*zone_cache_lock, cast(s32) 0);
+
+    path := (cast(*Zone_Rules) zone.rules).path;
+    slot := zone_cache_slot;
+    found := false;
+
+    for 0..zone_cache_used - 1 {
+        entry := zone_cache[it];
+
+        if entry.rules != null && (cast(*Zone_Rules) entry.rules).path == path {
+            slot = it;
+            found = true;
+            break;
+        }
+    }
+
+    time_zone_free(*zone_cache[slot]);
+    zone_cache[slot] = time_zone_retain(zone);
+
+    if !found zone_cache_slot = (zone_cache_slot + 1) % zone_cache.count;
+    if slot >= zone_cache_used zone_cache_used = slot + 1;
+}
 
 new_rules :: (name: string, source: string) -> *Zone_Rules {
     r := New(Zone_Rules);
@@ -371,11 +425,23 @@ binary_fail :: (r: *Binary_Reader, message: string) {
     if r.error.kind == .NONE r.error = .{ .SYNTAX, message, r.at };
 }
 
+be_u32 :: (bytes: $T, at: s64) -> u32 {
+    a: u32 = bytes[at];
+    b: u32 = bytes[at + 1];
+    c: u32 = bytes[at + 2];
+    d: u32 = bytes[at + 3];
+
+    return (a << 24) | (b << 16) | (c << 8) | d;
+}
+
 be_signed :: (bytes: $T, at: s64, width: s64) -> s64 {
-    n: u64;
-    for i: 0..width - 1 n = (n << 8) | bytes[at + i];
-    if width == 4 return cast(s64) cast,no_check(s32) cast(u32) n;
-    return cast,no_check(s64) n;
+    high := be_u32(bytes, at);
+    if width == 4 return cast(s64) cast,no_check(s32) high;
+
+    wide: u64 = high;
+    wide = (wide << 32) | be_u32(bytes, at + 4);
+
+    return cast,no_check(s64) wide;
 }
 
 tzif_header :: (r: *Binary_Reader, o: Time_Options) -> TZif_Header {
@@ -535,17 +601,39 @@ registered_rules: Registry.Table(*void, *Zone_Rules);
 
 registry_lock: s32;
 
+// Handles lookup_rules found registered, indexed by a few address bits. A slot holds null or a
+// registered handle: unregister_rules clears it under registry_lock before the rules go, so a
+// matching slot proves the handle is live without taking the lock.
+validated_rules: [16] *void;
+
+validated_slot :: (handle: *void) -> s64 {
+    address := cast(u64) handle;
+    return cast(s64) ((address >> 4) & 15);
+}
+
 // Validate opaque handles before dereferencing: transparent literals may contain arbitrary bits.
 lookup_rules :: (handle: *void) -> *Zone_Rules {
+    slot := validated_slot(handle);
+    if Atomics.atomic_read(*validated_rules[slot]) == handle return cast(*Zone_Rules) handle;
+
     while !compare_and_swap(*registry_lock, cast(s32) 0, cast(s32) 1) {}
+
     _, r := Registry.table_find(*registered_rules, handle);
+    if r != null Atomics.atomic_write(*validated_rules[slot], handle);
+
     Atomics.atomic_write(*registry_lock, cast(s32) 0);
+
     return r;
 }
 
 unregister_rules :: (r: *Zone_Rules) {
     while !compare_and_swap(*registry_lock, cast(s32) 0, cast(s32) 1) {}
+
+    slot := validated_slot(cast(*void) r);
+    if validated_rules[slot] == cast(*void) r Atomics.atomic_write(*validated_rules[slot], cast(*void) null);
+
     Registry.table_remove(*registered_rules, cast(*void) r);
     if registered_rules.count == 0 Registry.deinit(*registered_rules);
+
     Atomics.atomic_write(*registry_lock, cast(s32) 0);
 }

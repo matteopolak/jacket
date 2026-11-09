@@ -49,6 +49,23 @@ forged_zone_handle :: () {
     Zone_Test.time_zone_free(*bad);
 } @test
 
+stale_zone_handle :: () {
+    zone, e := Zone_Test.time_zone_from_posix("AAA5");
+
+    assert(e.kind == .NONE);
+    assert(Zone_Test.offset_at(zone, .{}).seconds == -18000);
+    stale := zone;
+    other := Zone_Test.time_zone_retain(zone);
+
+    Zone_Test.time_zone_free(*zone);
+    assert(Zone_Test.offset_at(stale, .{}).seconds == -18000);
+    Zone_Test.time_zone_free(*other);
+
+    // The handle was valid and recently used, but its rules are gone: it must read as unknown.
+    assert(Zone_Test.offset_at(stale, .{}).seconds == 0);
+    assert(Zone_Test.abbreviation_at(stale, .{}) == "");
+} @test
+
 posix_julian_and_extended :: () {
     for rules, index: string.["AAA0BBB,J60/0,J300/0", "AAA0BBB,59/0,300/0"] {
         zone, e := Zone_Test.time_zone_from_posix(rules);
