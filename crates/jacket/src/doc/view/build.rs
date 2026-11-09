@@ -961,7 +961,8 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
             .map_or_else(Vec::new, |o| blocks(site, &o.docs, &from))
     };
     let summary_html = lead(&summary_segs).map_or_else(String::new, |(_, h)| h);
-    // A lone overload shows its whole description under its signature, so it has no lead.
+    // A lone overload's lead is the page's summary and its card shows the rest; with several, the
+    // summary is a copy of the first one's lead and no card loses text.
     let single = item.kind == Kind::Procedure && item.overloads.len() == 1 && !lead_owner;
     let skip = if lead_owner {
         lead(&own).map(|(i, _)| i)
@@ -979,14 +980,7 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
     if item.kind == Kind::Procedure {
         let labels = super::super::site::overload_labels(item);
         for (n, o) in item.overloads.iter().enumerate() {
-            overload_views.push(overload(
-                site,
-                mi,
-                item,
-                n,
-                o,
-                n == 0 && !lead_owner && !single,
-            ));
+            overload_views.push(overload(site, mi, item, n, o, n == 0 && single));
             if item.overloads.len() > 1 {
                 anchors.push(Link {
                     href: format!("#o{}", n + 1),
@@ -1089,11 +1083,7 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
                 source_url: site.source_url(file, line),
                 mono: true,
             },
-            summary_html: if single {
-                String::new()
-            } else {
-                summary_html
-            },
+            summary_html,
             docs: segments(site, m, file, line, &remaining),
             overloads: overload_views,
             private: false,

@@ -1,5 +1,5 @@
 use super::super::categories;
-use super::super::model::{Item, Kind, Member, Module, Parameter, TypeRef};
+use super::super::model::{Item, Kind, Member, Module, Overload, Parameter, TypeRef};
 use super::super::site::Site;
 use super::*;
 
@@ -573,4 +573,88 @@ fn documentation_sidebar_sections_precede_library_categories() {
     );
     assert!(nav[4].groups[0].open);
     assert_eq!(nav[4].groups[0].links[0].href, "/docs/api/Vendor/Nested");
+}
+
+fn procedure_site(overloads: &[&str]) -> Site {
+    Site::new(
+        vec![Module {
+            id: "Flow".into(),
+            items: vec![Item {
+                name: "go".into(),
+                kind: Kind::Procedure,
+                overloads: overloads
+                    .iter()
+                    .enumerate()
+                    .map(|(n, docs)| Overload {
+                        file: "Flow/module.jai".into(),
+                        line: n + 1,
+                        docs: (*docs).into(),
+                        ..Overload::default()
+                    })
+                    .collect(),
+                ..Item::default()
+            }],
+            ..Module::default()
+        }],
+        Vec::new(),
+        "/docs/".into(),
+        "0.31.0".into(),
+        String::new(),
+        String::new(),
+        false,
+    )
+}
+
+fn item_parts(site: &Site) -> (String, Vec<String>) {
+    let bundle = module(site, 0);
+    let Content::Item {
+        summary_html,
+        overloads,
+        ..
+    } = &bundle.items[0].content
+    else {
+        panic!()
+    };
+    let cards = overloads
+        .iter()
+        .map(|o| {
+            o.prose
+                .iter()
+                .map(|s| match s {
+                    DocSegment::Html {
+                        prose_html,
+                    } => prose_html.clone(),
+                    _ => String::new(),
+                })
+                .collect::<String>()
+        })
+        .collect();
+    (summary_html.clone(), cards)
+}
+
+#[test]
+fn overloads_with_different_docs_each_keep_their_whole_text() {
+    let (summary, cards) = item_parts(&procedure_site(&[
+        "Goes one way.\n\nAlso stops.",
+        "Goes the other way.\n\nAlso waits.",
+    ]));
+    assert!(summary.contains("Goes one way."), "{summary}");
+    for (card, words) in cards
+        .iter()
+        .zip([["one way", "stops"], ["other way", "waits"]])
+    {
+        for word in words {
+            assert!(card.contains(word), "{word} missing from {card}");
+        }
+    }
+}
+
+#[test]
+fn a_lone_overload_gives_the_page_its_lead_and_keeps_the_rest() {
+    let (summary, cards) = item_parts(&procedure_site(&["Goes one way.\n\nAlso stops."]));
+    assert!(summary.contains("Goes one way."), "{summary}");
+    assert!(
+        !cards[0].contains("Goes one way.") && cards[0].contains("Also stops."),
+        "{cards:?}"
+    );
 }
