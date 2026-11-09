@@ -31,14 +31,6 @@
   var root = document.documentElement;
   var base = document.body.getAttribute('data-base') || '/';
 
-  // The sidebar and the outline stick below the header, which is taller when it wraps.
-  var header = /** @type {Element} */ (document.querySelector('.top'));
-  if (header && window.ResizeObserver) {
-    new ResizeObserver(function () {
-      root.style.setProperty('--header-offset', header.getBoundingClientRect().height + 'px');
-    }).observe(header);
-  }
-
   // Pages have no trailing slash. An old link that has one lands on the 404 page, which sends it on.
   if (document.body.getAttribute('data-page') === '404.html') {
     var old = location.pathname;
