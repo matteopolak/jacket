@@ -18,7 +18,7 @@ deinit :: (map: SDL_Gamepad_Mapping) {
     free(map.name);
     free(map.platform);
     array_free(map.mappings);
-} @FreesArgument
+}
 
 // Builds the 32-character SDL GUID for a device from its bus type, vendor, product and version. The
 // string lives in temporary storage.
