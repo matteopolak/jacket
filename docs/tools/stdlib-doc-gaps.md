@@ -4,7 +4,7 @@
 
 ## How it works
 
-- **Public** means an importer can name it, found in the module folder's `.jai` files and every file they `#load`. Not public: `#scope_file`/`#scope_module` items, modules only `#import`ed (reached through aliases, and the alias is listed), variables, plain constants, fields, enum members, and files that declare foreign procedures (they mirror a native API; keep hand-written helpers in their own file).
+- **Public** means an importer can name it, found in the module folder's `.jai` files and every file they `#load`. Not public: `#scope_file`/`#scope_module` items, modules only `#import`ed (reached through aliases, and the alias is listed), variables, plain constants, fields, enum members, and files that export foreign procedures (they mirror a native API; keep hand-written helpers in their own file). A private foreign helper under `#scope_file` or `#scope_module` does not make its file a binding.
 - **Documented** means the comment run directly above the declaration, as the editor shows it. An alias with no comment is documented when its target is ([doc comments](../compiler/doc-comments.md)). A module is documented by the comment that opens `module.jai`. Examples are reported (`--examples`) but not enforced.
 - `tools/ci/undocumented_stdlib.txt` has one line per undocumented public declaration (`Module.symbol`, or `Module`). The list only shrinks, like [diagnostic coverage](diagnostic-coverage.md): a new undocumented declaration fails, and so does a listed one that is now documented or gone.
 

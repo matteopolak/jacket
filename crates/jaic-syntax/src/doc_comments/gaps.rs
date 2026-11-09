@@ -54,11 +54,13 @@ fn kind_of(decl: &crate::ast::Decl) -> Option<&'static str> {
     }
 }
 
-/// Whether the file declares a procedure with no body at the top level (`#foreign`,
-/// `#intrinsic`, `#compiler` and the like).
+/// Whether the file declares a public procedure with no body at the top level (`#foreign`,
+/// `#intrinsic`, `#compiler` and the like). Private ones are helpers and say nothing about
+/// the rest of the file.
 fn declares_bodiless_procs(file: &crate::ast::File) -> bool {
     ide_facts::top_level(file).iter().any(|item| {
-        matches!(item.kind, TopLevelKind::Decl(decl)
+        item.visibility == Visibility::Export
+            && matches!(item.kind, TopLevelKind::Decl(decl)
             if decl.kind == DeclKind::Const
                 && matches!(decl.value.as_ref().map(|v| &v.kind),
                     Some(crate::ast::ExprKind::Proc(lit)) if lit.body.is_none()))
@@ -220,6 +222,27 @@ mod tests {
             [
                 ("module", "", false, false),
                 ("procedure", "first", true, false)
+            ]
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn private_foreign_helpers_do_not_hide_public_declarations() {
+        let dir = library(
+            "private-foreign",
+            &[(
+                "module.jai",
+                "// Wraps a helper.\n\nwrapper :: () {}\n\nPoint :: struct { x: int; }\n\n#scope_file\n\nhelper :: (x: int) -> int #foreign lib;\n",
+            )],
+        );
+        let found = gaps(&dir, Path::new("/nowhere"));
+        assert_eq!(
+            rows(&found),
+            [
+                ("module", "", true, false),
+                ("procedure", "wrapper", false, false),
+                ("struct", "Point", false, false)
             ]
         );
         let _ = std::fs::remove_dir_all(dir);
