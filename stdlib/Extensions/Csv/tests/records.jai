@@ -54,6 +54,19 @@ roundtrip :: () {
     }
 } @test
 
+quote_runs :: () {
+    builder: String_Builder;
+
+    defer free_buffers(*builder);
+    error := csv_write_record(*builder, string.["\"", "a\"\"b", "\"x", "x\"", "p,q\"r\"s", "plain"], .{ line_ending = .LF });
+
+    require(error.kind == .NONE);
+    text := builder_to_string(*builder);
+
+    defer free(text);
+    expect_equal(text, "\"\"\"\",\"a\"\"\"\"b\",\"\"\"x\",\"x\"\"\",\"p,q\"\"r\"\"s\",plain\n");
+} @test
+
 reject :: (text: string, kind: Csv_Error_Kind, options := Csv_Options.{}) {
     reader := csv_reader(cast([] u8) text, options);
 

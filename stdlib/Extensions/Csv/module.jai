@@ -163,13 +163,18 @@ csv_write_record :: (out: *String_Builder, fields: [] string, options := Csv_Opt
     total := fields.count - 1;
     if total > options.max_record_bytes return .{ kind = .RECORD_LIMIT, message = "record exceeds limit" };
 
+    // Which of the first fields need quotes, so the writing pass does not scan them again.
+    stops := make_stops(options);
+    flags: [64] bool = ---;
+
     for fields {
         if it.count > options.max_field_bytes return .{ kind = .FIELD_LIMIT, message = "field exceeds limit" };
 
-        quoted := needs_quotes(it, options);
-        extra := it.count + ifx quoted then 2 else 0;
+        quoted, quotes := quote_need(it, stops.data, options);
+        if it_index < flags.count flags[it_index] = quoted;
 
-        if quoted for c: it if c == options.quote extra += 1;
+        extra := it.count + ifx quoted then 2 + quotes else 0;
+
         if extra > options.max_record_bytes - total return .{ kind = .RECORD_LIMIT, message = "record exceeds limit" };
 
         total += extra;
@@ -178,21 +183,31 @@ csv_write_record :: (out: *String_Builder, fields: [] string, options := Csv_Opt
     ending := ifx options.line_ending == .CRLF then "\r\n" else ifx options.line_ending == .LF then "\n" else "\r";
     if ending.count > options.max_record_bytes - total return .{ kind = .RECORD_LIMIT, message = "record exceeds limit" };
 
+    // The record's exact size is known, so it is built in place in one piece of the builder.
+    memory := cast(*u8) ensure_contiguous_space(out, total + ending.count);
+    if !memory return .{};
+
+    at := memory;
+
     for fields {
-        if it_index append(out, options.delimiter);
-
-        quoted := needs_quotes(it, options);
-        if quoted append(out, options.quote);
-
-        for c: it {
-            append(out, c);
-            if quoted && c == options.quote append(out, c);
+        if it_index {
+            at.* = options.delimiter;
+            at += 1;
         }
 
-        if quoted append(out, options.quote);
+        quoted: bool;
+        if it_index < flags.count quoted = flags[it_index];
+        else quoted = quote_need(it, stops.data, options);
+
+        if quoted at = copy_quoted(at, it, options.quote);
+        else {
+            memcpy(at, it.data, it.count);
+            at += it.count;
+        }
     }
 
-    append(out, ending);
+    memcpy(at, ending.data, ending.count);
+    advance_through_ensured_space(out, at + ending.count - memory);
 
     return .{};
 }
@@ -245,10 +260,47 @@ validate_options :: (o: Csv_Options) -> Csv_Error {
     return .{};
 }
 
-needs_quotes :: (field: string, o: Csv_Options) -> bool {
-    if o.trim && field.count && (space(field[0]) || space(field[field.count - 1])) return true;
-    for field if it == o.delimiter || it == o.quote || it == 10 || it == 13 return true;
-    return false;
+// Whether `field` must be quoted, and how many quote bytes it holds (each is doubled when quoted).
+// `stops` is `make_stops` for the options: any entry set marks a byte that forces quoting.
+quote_need :: (field: string, stops: *u8, o: Csv_Options) -> bool, int {
+    hit: u8;
+    quotes := 0;
+
+    for c: field {
+        hit |= stops[c];
+        quotes += cast(int) (c == o.quote);
+    }
+
+    quoted := hit != 0 || (o.trim && field.count && (space(field[0]) || space(field[field.count - 1])));
+
+    return quoted, quotes;
+}
+
+// Writes `field` in quotes at `at`, doubling each quote byte and copying the stretches between them
+// whole, and returns where the next byte goes.
+copy_quoted :: (at: *u8, field: string, quote: u8) -> *u8 {
+    at.* = quote;
+    at += 1;
+
+    from := 0;
+
+    for c, i: field {
+        if c != quote continue;
+
+        run := i + 1 - from;
+
+        memcpy(at, field.data + from, run);
+        at += run;
+        at.* = quote;
+        at += 1;
+        from = i + 1;
+    }
+
+    memcpy(at, field.data + from, field.count - from);
+    at += field.count - from;
+    at.* = quote;
+
+    return at + 1;
 }
 
 space :: (c: u8) -> bool {
