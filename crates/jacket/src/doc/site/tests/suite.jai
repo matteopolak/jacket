@@ -441,7 +441,18 @@ sidebar_initializers_precede_the_body_and_finish_after_navigation :: () {
     defer free(page);
     state := find_index_from_left(page, "/*sidebar-state*/");
     head := find_index_from_left(page, "</head>");
-    nav := find_index_from_left(page, "</nav></details>");
+    nav := find_index_from_left(page, "</nav></dialog>");
     ready := find_index_from_left(page, "<script>jacketSide()</script>");
     expect(state >= 0 && state < head && nav > head && ready > nav);
+} @test
+
+the_sidebar_is_one_dialog_that_the_header_button_opens :: () {
+    site := fixture(Site_View, "site");
+    defer free_json(*site);
+    page := render(*site, *site.index);
+    defer free(page);
+    expect(contains(page, "id=\"modules-btn\""));
+    expect(contains(page, "aria-controls=\"side\""));
+    expect(contains(page, "<dialog class=\"side\" id=\"side\""));
+    expect(!contains(page, "<details class=\"side\""));
 } @test

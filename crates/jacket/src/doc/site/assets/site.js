@@ -76,7 +76,7 @@
 
   // Markup sets the viewport state before parsing the navigation; the blocking script after
   // it restores groups and scroll. Keep later reader changes when this deferred script arrives.
-  var side = /** @type {HTMLDetailsElement} */ (document.querySelector('details.side'));
+  var side = /** @type {HTMLDialogElement} */ (document.querySelector('dialog.side'));
   if (side) {
     window.addEventListener('pagehide', function () {
       try {
@@ -94,16 +94,87 @@
         /* storage is blocked: the sidebar starts fresh */
       }
     });
-    // The menu is closed on a phone and always open beside the page, so a closed one must not
-    // survive a resize to the wide layout, where nothing could open it again. A phone remembers
-    // what the reader chose there.
+    setupDrawer(side);
+  }
+
+  // Beside the page the sidebar is a plain open dialog. On a phone it is a drawer: the header's
+  // button opens it as a modal dialog, which traps focus, makes the page inert and closes on
+  // Escape by itself. Choosing a link, a click outside it or the button again also close it.
+  /** @param {HTMLDialogElement} drawer */
+  function setupDrawer(drawer) {
+    var button = document.getElementById('modules-btn');
     var wideQuery = matchMedia('(min-width: 900px)');
-    var phoneOpen = side.open && !wideQuery.matches;
-    side.addEventListener('toggle', function () {
-      if (!wideQuery.matches) phoneOpen = side.open;
+    var header = document.querySelector('.top');
+    var modal = function () {
+      return drawer.matches(':modal');
+    };
+    /** @param {boolean} on */
+    var lock = function (on) {
+      root.classList.toggle('drawer-open', on);
+      if (button) button.setAttribute('aria-expanded', String(on));
+    };
+    var open = function () {
+      if (modal() || wideQuery.matches) return;
+      // The drawer starts under the header, which stays in view above the dimmed page.
+      var top = header ? Math.max(0, Math.round(header.getBoundingClientRect().bottom)) : 0;
+      drawer.style.setProperty('--drawer-top', top + 'px');
+      if (drawer.open) drawer.close();
+      drawer.showModal();
+      lock(true);
+      var here = /** @type {HTMLElement | null} */ (
+        drawer.querySelector('[aria-current="page"]') || drawer.querySelector('a')
+      );
+      if (!here) return;
+      var group = here.closest('details.nav-cat');
+      if (group) /** @type {HTMLDetailsElement} */ (group).open = true;
+      here.focus({ preventScroll: true });
+      here.scrollIntoView({ block: 'center', behavior: 'instant' });
+    };
+    var close = function () {
+      lock(false);
+      if (modal()) drawer.close();
+    };
+    if (button)
+      button.addEventListener('click', function () {
+        if (modal()) close();
+        else open();
+      });
+    // Escape and every other way the browser closes it.
+    drawer.addEventListener('close', function () {
+      lock(false);
+      if (button && !wideQuery.matches) button.focus();
     });
+    // The page behind a modal dialog is inert, so a click outside the drawer is reported on the
+    // document or, in some browsers, on the dialog itself when it lands on the backdrop.
+    document.addEventListener('click', function (e) {
+      if (!modal()) return;
+      var target = /** @type {Node | null} */ (e.target);
+      if (target === button || (button && target && button.contains(target))) return;
+      if (target === drawer) {
+        var r = drawer.getBoundingClientRect();
+        if (
+          e.clientX >= r.left &&
+          e.clientX <= r.right &&
+          e.clientY >= r.top &&
+          e.clientY <= r.bottom
+        )
+          return;
+        close();
+      } else if (!target || !drawer.contains(target)) {
+        close();
+      } else if (ancestor(e, 'a[href]')) {
+        // The link's own navigation follows; the page must already be free to scroll.
+        close();
+      }
+    });
+    // Beside the page the sidebar is always open, where nothing could open it again.
     wideQuery.addEventListener('change', function (e) {
-      side.open = e.matches || phoneOpen;
+      if (e.matches) {
+        close();
+        if (!drawer.open) drawer.show();
+      } else if (drawer.open) {
+        drawer.close();
+      }
     });
   }
 
@@ -1339,7 +1410,7 @@
         if (u.hash) return;
         e.preventDefault();
         // The sidebar's row for the open page leaves the reading position alone.
-        if (ancestor(e, 'details.side')) return;
+        if (ancestor(e, 'dialog.side')) return;
         if (u.href !== location.href) history.pushState({ y: 0 }, '', u.href);
         window.scrollTo(0, 0);
         return;
@@ -1401,9 +1472,9 @@
   // shrinks back to the rows around the current link.
   /** @param {Document} doc */
   function swapSide(doc) {
-    var rail = /** @type {HTMLDetailsElement | null} */ (document.querySelector('details.side')),
+    var rail = /** @type {HTMLDialogElement | null} */ (document.querySelector('dialog.side')),
       nav = rail && rail.querySelector('nav');
-    var next = doc.querySelector('details.side nav');
+    var next = doc.querySelector('dialog.side nav');
     if (!rail || !nav || !next) return;
     var loaded = nav;
     var open = /** @type {string[]} */ (
@@ -1424,9 +1495,13 @@
       });
       list.replaceWith(full);
     });
-    var label = doc.querySelector('details.side > summary');
-    if (label)
-      /** @type {HTMLElement} */ (rail.querySelector('summary')).textContent = label.textContent;
+    var label = doc.querySelector('dialog.side');
+    var words = label && label.getAttribute('aria-label');
+    if (words) {
+      rail.setAttribute('aria-label', words);
+      var opener = document.getElementById('modules-btn');
+      if (opener) opener.textContent = words;
+    }
     nav.replaceWith(next);
     if (window.jacketSide) window.jacketSide(state);
     sideGroups();

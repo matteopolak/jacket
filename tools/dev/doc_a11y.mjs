@@ -114,7 +114,20 @@ try {
         await delay(400); // colour transitions settle
         assert.equal(await evaluate(`document.querySelector('#search-q')?.labels?.[0]?.textContent.trim()`), 'Search the docs', 'Search input accessible name');
         await evaluate(axe);
-        const result = await evaluate(`axe.run(document, {runOnly:{type:'tag', values:${JSON.stringify(tags)}}}).then(r => ({violations:r.violations.map(v => ({id:v.id, nodes:v.nodes.map(n => ({target:n.target, summary:n.failureSummary}))})), incomplete:r.incomplete.length}))`);
+        const runAxe = () => evaluate(`axe.run(document, {runOnly:{type:'tag', values:${JSON.stringify(tags)}}}).then(r => ({violations:r.violations.map(v => ({id:v.id, nodes:v.nodes.map(n => ({target:n.target, summary:n.failureSummary}))})), incomplete:r.incomplete.length}))`);
+        const result = await runAxe();
+        // On a phone the sidebar is a drawer; check it open too, then close it with the button.
+        if (width < 900 && page !== '404.html') {
+          assert(await evaluate(`!!document.getElementById('modules-btn')`), 'The Modules button is missing');
+          await evaluate(`document.getElementById('modules-btn').click()`);
+          await delay(400);
+          assert(await evaluate(`document.querySelector('dialog.side').matches(':modal')`), 'The drawer did not open');
+          const open = await runAxe();
+          for (const v of open.violations) result.violations.push({ ...v, id: `drawer open: ${v.id}` });
+          result.incomplete += open.incomplete;
+          await evaluate(`document.getElementById('modules-btn').click()`);
+          await delay(300);
+        }
         const overflow = await evaluate('document.documentElement.scrollWidth > innerWidth');
         const h1 = await evaluate('document.querySelectorAll("h1").length');
         runs++;

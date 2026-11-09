@@ -600,30 +600,42 @@ body > .wrap {
   align-items: flex-start;
 }
 
+/* The sidebar is a dialog that is always open beside the page; on a phone it is a drawer (below). */
 .side {
   flex: 0 0 220px;
+  width: auto;
+  height: auto;
   max-width: 220px;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
   font-size: 14px;
   padding: 24px 0;
   position: sticky;
+  inset: auto;
   top: var(--header-offset);
   max-height: calc(100vh - var(--header-offset));
   overflow-y: auto;
 }
 
-.side > summary {
+/* The header's button that opens the drawer; only a phone has one. */
+.modules-btn {
   display: none;
-  list-style: none;
-  cursor: pointer;
+  align-items: center;
+  height: 36px;
+  padding: 0 12px;
+  font: inherit;
   font-weight: 600;
-  padding: 8px 12px;
+  color: var(--fg);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--surface);
+  cursor: pointer;
 }
 
-.side > summary::-webkit-details-marker {
-  display: none;
+.modules-btn[aria-expanded='true'] {
+  border-color: var(--link);
 }
 
 .nav-h {
@@ -1998,6 +2010,7 @@ a.btn:hover {
     padding-left: 0;
   }
 
+  /* Without scripts the sidebar stays open above the page. */
   .side {
     flex: 1 1 100%;
     max-width: none;
@@ -2007,17 +2020,63 @@ a.btn:hover {
     padding: 16px 0 0;
   }
 
-  .side > summary {
-    display: block;
-  }
-
-  .side[open] > summary {
-    margin-bottom: 12px;
-  }
-
   .side > nav {
     max-height: 50vh;
     overflow-y: auto;
+  }
+
+  .js .modules-btn {
+    display: inline-flex;
+  }
+
+  /* The drawer: a modal dialog from the left edge, under the header, over a dimmed page. */
+  .side:modal {
+    position: fixed;
+    inset: var(--drawer-top, 0) auto 0 0;
+    width: min(320px, 86vw);
+    max-width: none;
+    height: auto;
+    max-height: none;
+    padding: 12px 12px 24px 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+  }
+
+  .side:modal > nav {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .side::backdrop {
+    background: rgb(0 0 0 / 45%);
+  }
+
+  html.drawer-open {
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .side:modal {
+      animation: drawer-in 0.18s ease-out;
+    }
+
+    .side::backdrop {
+      animation: drawer-fade 0.18s ease-out;
+    }
+  }
+
+  @keyframes drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+
+  @keyframes drawer-fade {
+    from {
+      opacity: 0;
+    }
   }
 
   main {

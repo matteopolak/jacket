@@ -11,7 +11,7 @@ function page(wide, key = 'modules') {
   const groups = [];
   const side = {
     nodeType: 1, open: true, scrollTop: 0,
-    matches: selector => selector === 'details.side',
+    matches: selector => selector === 'dialog.side',
     querySelector: selector => selector === 'nav' ? nav : null,
     querySelectorAll: () => groups,
   };

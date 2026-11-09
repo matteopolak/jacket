@@ -31,7 +31,7 @@
    * @param {boolean} restoreGroups Whether to reopen the groups `st` lists.
    */
   function setup(st, restoreGroups) {
-    var found = /** @type {HTMLDetailsElement | null} */ (document.querySelector('details.side'));
+    var found = /** @type {HTMLDialogElement | null} */ (document.querySelector('dialog.side'));
     if (!found) return;
     var s = found;
     var n = s.querySelector('nav'),
@@ -215,7 +215,7 @@
     records.forEach(function (record) {
       Array.prototype.forEach.call(record.addedNodes, function (node) {
         if (node.nodeType !== 1) return;
-        if (node.matches('details.side') && !wide()) node.open = false;
+        if (node.matches('dialog.side') && !wide()) node.open = false;
         if (node.matches('details.nav-cat') && initialState) {
           var nav = node.closest('nav[data-nav]');
           if (

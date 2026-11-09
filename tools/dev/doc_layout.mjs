@@ -76,7 +76,7 @@ const RECORDER = String.raw`(() => {
   function snap() {
     const body = document.body;
     if (!body) return null;
-    const side = document.querySelector('details.side');
+    const side = document.querySelector('dialog.side');
     const current = side && side.querySelector('nav [aria-current="page"]');
     const toc = document.querySelector('.toc');
     const main = document.getElementById('main-content');
@@ -248,7 +248,7 @@ class Tab {
   // The page is quiet: the sidebar's long lists have arrived and nothing has changed for a while.
   async settle() {
     for (let i = 0; i < 160; i++) {
-      if (await this.evaluate(`document.readyState === 'complete' && !document.querySelector('details.side [data-source]')`)) break;
+      if (await this.evaluate(`document.readyState === 'complete' && !document.querySelector('dialog.side [data-source]')`)) break;
       await delay(25);
     }
     await delay(SETTLE_MS);
@@ -352,12 +352,12 @@ const click = (selectorExpression) => `(() => {
   return { href: a.getAttribute('href'), same: a.href.split('#')[0] === location.href.split('#')[0] };
 })()`;
 const SIDE_OTHER = `(() => {
-  const cur = document.querySelector('details.side nav [aria-current="page"]');
-  const links = Array.from(document.querySelectorAll('details.side nav a[href]')).filter(a => !a.href.includes('#'));
+  const cur = document.querySelector('dialog.side nav [aria-current="page"]');
+  const links = Array.from(document.querySelectorAll('dialog.side nav a[href]')).filter(a => !a.href.includes('#'));
   const i = links.indexOf(cur);
   return links.find((a, n) => n > i && a !== cur && a.getAttribute('aria-current') !== 'page') || links.find(a => a !== cur);
 })()`;
-const SIDE_SELF = `document.querySelector('details.side nav [aria-current="page"]')`;
+const SIDE_SELF = `document.querySelector('dialog.side nav [aria-current="page"]')`;
 const HEADER_API = `Array.from(document.querySelectorAll('.site-nav > a')).find(a => a.textContent.trim() === 'API')`;
 
 async function afterClick(tab, name, expression, options = {}) {
@@ -452,6 +452,85 @@ async function runCombo(tab, page, width, theme) {
   });
 
   // An overload's signature is a band across its card, edge to edge.
+  // On a phone the sidebar is a drawer the header's button opens; closed, it takes no room.
+  if (width < 900 && page !== '404.html') await guard('drawer', async () => {
+    await tab.goto('about:blank');
+    await tab.goto(url);
+    const problems = [];
+    const state = () => tab.evaluate(`(() => {
+      const d = document.querySelector('dialog.side'), b = document.getElementById('modules-btn');
+      const a = document.activeElement;
+      return { open: d.open, modal: d.matches(':modal'), expanded: b && b.getAttribute('aria-expanded'),
+        locked: getComputedStyle(document.documentElement).overflow === 'hidden',
+        onButton: a === b, inDrawer: d.contains(a), onCurrent: !!a && a.getAttribute('aria-current') === 'page',
+        width: Math.round(d.getBoundingClientRect().width), vw: innerWidth,
+        scrollWidth: document.documentElement.scrollWidth };
+    })()`);
+    const closed = await state();
+    if (closed.open) problems.push('the drawer is open on load');
+    if (closed.expanded !== 'false') problems.push(`the button says aria-expanded=${closed.expanded} on load`);
+    if (closed.scrollWidth > closed.vw) problems.push('the page scrolls sideways');
+    const opens = async (how) => {
+      await tab.evaluate(`document.getElementById('modules-btn').focus()`);
+      await tab.evaluate(`document.getElementById('modules-btn').click()`);
+      await delay(250);
+      const s = await state();
+      if (!s.open || !s.modal) problems.push(`${how}: the button did not open the drawer as a modal`);
+      if (s.expanded !== 'true') problems.push(`${how}: aria-expanded is ${s.expanded} while open`);
+      if (!s.locked) problems.push(`${how}: the page can still scroll while the drawer is open`);
+      if (!s.inDrawer) problems.push(`${how}: focus is outside the drawer`);
+      if (s.width > s.vw * 0.9) problems.push(`${how}: the drawer covers the whole screen (${s.width} of ${s.vw}px)`);
+      return s;
+    };
+    const shut = async (how, action) => {
+      await action();
+      await delay(250);
+      const s = await state();
+      if (s.open) problems.push(`${how}: the drawer stayed open`);
+      if (s.expanded !== 'false') problems.push(`${how}: aria-expanded is ${s.expanded} after closing`);
+      if (s.locked) problems.push(`${how}: the page is still locked after closing`);
+      return s;
+    };
+    const first = await opens('open');
+    const hasCurrent = await tab.evaluate(`!!document.querySelector('dialog.side [aria-current="page"]')`);
+    if (hasCurrent && !first.onCurrent) problems.push('open: focus did not go to the link of the open page');
+    const visible = hasCurrent && await tab.evaluate(`(() => {
+      const d = document.querySelector('dialog.side'), c = d.querySelector('[aria-current="page"]');
+      const r = c.getBoundingClientRect(), b = d.getBoundingClientRect();
+      return r.top >= b.top - 1 && r.bottom <= b.bottom + 1;
+    })()`);
+    if (hasCurrent && !visible) problems.push('open: the link of the open page is not scrolled into view');
+    // Real key and mouse input reaches only the tab in front.
+    await tab.cdp('Page.bringToFront');
+    const afterEscape = await shut('Escape', () => tab.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }).then(() => tab.cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })));
+    if (!afterEscape.onButton) problems.push('Escape: focus did not return to the button');
+    await opens('reopen');
+    const afterButton = await shut('the button', () => tab.evaluate(`document.getElementById('modules-btn').click()`));
+    if (!afterButton.onButton) problems.push('the button: focus did not return to the button');
+    await opens('reopen');
+    const afterBackdrop = await shut('the backdrop', () => tab.cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: closed.vw - 5, y: 500 }).then(() => tab.cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: closed.vw - 5, y: 500, button: 'left', buttons: 1, clickCount: 1 })).then(() => tab.cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: closed.vw - 5, y: 500, button: 'left', buttons: 0, clickCount: 1 })));
+    if (!afterBackdrop.onButton) problems.push('the backdrop: focus did not return to the button');
+    // A link to another page closes it and swaps the page in.
+    await opens('reopen');
+    const clicked = await tab.evaluate(`(() => {
+      window.__swapMarker = true;
+      const links = Array.from(document.querySelectorAll('dialog.side nav a[href]')).filter(a => !a.href.includes('#') && a.getAttribute('aria-current') !== 'page');
+      const a = links.find(x => x.offsetParent !== null) || links[0];
+      if (!a) return null;
+      a.click();
+      return a.getAttribute('href');
+    })()`);
+    if (clicked !== null) {
+      for (let i = 0; i < 160; i++) {
+        if (await tab.evaluate(`location.pathname.endsWith(${JSON.stringify(clicked.replace(/^\.?\/?/, ''))}) || location.href.endsWith(${JSON.stringify(clicked)})`).catch(() => false)) break;
+        await delay(25);
+      }
+      await tab.settle();
+      await shut('choosing a link', async () => {});
+    }
+    record('drawer', problems, { note: hasCurrent ? 'focus starts on the current page' : 'no current link here' });
+  });
+
   await guard('overload signatures span their cards', async () => {
     await tab.goto(url);
     const bad = await tab.evaluate(`Array.from(document.querySelectorAll('.overload')).flatMap((card, n) => {
