@@ -122,4 +122,44 @@ kept_heap_in_parameter :: (r: *Registry) {
     keep(r, n);
 }
 
+Labelled :: struct {
+    label: string;
+    other: string;
+}
+
+keep_label :: (l: *Labelled, text: string) {
+    l.label = text;
+}
+
+keep_label_twice :: (l: *Labelled, text: string) {
+    keep_label(l, text);
+}
+
+freed_label_after_keep :: () {
+    text := copy_string("label");
+    l: Labelled;
+
+    keep_label(*l, text);
+    free(text);
+    print("%\n", l.label);
+}
+
+freed_label_after_keep_twice :: () {
+    text := copy_string("label");
+    l: Labelled;
+
+    keep_label_twice(*l, text);
+    free(text);
+    print("%\n", l.label);
+}
+
+label_other_field_unaffected :: () {
+    text := copy_string("label");
+    l: Labelled;
+
+    keep_label(*l, "kept");
+    free(text);
+    print("%\n", l.label);
+}
+
 main :: () {}

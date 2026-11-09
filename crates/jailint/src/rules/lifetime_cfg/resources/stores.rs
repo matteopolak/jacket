@@ -77,28 +77,24 @@ impl Builder<'_> {
 
     /// The escape of `source` into `region`, a field a callee keeps its argument in, when that
     /// field outlives the frame: a stack address kept there dangles after the return.
+    ///
+    /// Temporary storage is left to the callee's own temporary-write effects: whether the
+    /// holder outlives a reset depends on how it was allocated, which this call doesn't say.
     pub(in crate::rules::lifetime_cfg) fn retention_escape(
         &self,
-        event: &Event,
         places: &Places,
         cells: &mut Cells,
-        resolver: &mut Resolver<'_>,
-        (region, source, span): (usize, usize, Span),
+        region: usize,
+        (source, span): (usize, Span),
     ) -> Option<Op> {
-        if !self.long_lived(places, region) {
-            return None;
-        }
-        let temporary_target = resolver
-            .value(places.paths[region].0.0, &self.summaries.procs)
-            .is_some_and(|p| p.root == Root::Temporary);
-        Some(Op::Escape {
+        self.long_lived(places, region).then(|| Op::Escape {
             cell: source,
             span,
             pointer: places.unresolved(region),
             target: cells.id(Cell::Place(region)),
             store: true,
-            parameter_target: self.defers_temporary(event, resolver),
-            temporary_target,
+            parameter_target: true,
+            temporary_target: false,
         })
     }
 

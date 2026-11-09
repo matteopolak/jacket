@@ -78,7 +78,9 @@ fn lifetime_stores_of_a_parameter_into_another_follow_the_body() {
         [
             "freed_after_keep",
             "freed_after_keep_twice",
-            "kept_in_other_field"
+            "kept_in_other_field",
+            "freed_label_after_keep",
+            "freed_label_after_keep_twice"
         ],
         "{}",
         rendered(&lints, &text, &path)

@@ -217,23 +217,23 @@ impl Builder<'_> {
         ops.extend(self.returns(event, at));
         // A field the callee always leaves holding an argument holds it here too, once the
         // results have read what the field held before the call.
+        // `@AddsToArray` already observes the stored value's escape; a second observation of the
+        // same place would end the first one's retention.
+        let observed = matches!(event, Event::Call { callee, .. }
+            if callee.0 != u32::MAX && self.cx.compiler.proc_has_note(*callee, "AddsToArray"));
         for (dest, arg) in self.resolver.retained(event, &self.summaries.procs) {
             if let Some(id) = self.resolver.materialize(&dest)
                 && let Some(source) = resources::operand_cell(self.cx, self.places, self.cells, arg)
             {
                 let region = self.places.import(&self.resolver.places, id);
                 // The escape observation precedes the copy it checks.
-                ops.extend(
-                    self.resources
-                        .retention_escape(
-                            event,
-                            self.places,
-                            self.cells,
-                            &mut self.resolver,
-                            (region, source, arg.span),
-                        )
-                        .map(Op::Resource),
-                );
+                if !observed {
+                    ops.extend(
+                        self.resources
+                            .retention_escape(self.places, self.cells, region, (source, arg.span))
+                            .map(Op::Resource),
+                    );
+                }
                 ops.push(Op::Copy(vec![(self.cells.id(Cell::Place(region)), source)]));
             }
         }

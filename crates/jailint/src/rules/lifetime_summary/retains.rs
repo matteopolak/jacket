@@ -88,7 +88,7 @@ impl Resolver<'_> {
                 value: stored,
                 ty,
                 ..
-            } if self.compiler.ty.types.is_pointer(*ty) => {
+            } if self.holds_storage(*ty) => {
                 let p = self.places.existing(*place, *ty);
                 let Some(p) = p.filter(|p| self.write_sources.contains_key(p)) else {
                     return Vec::new();
@@ -126,6 +126,21 @@ impl Resolver<'_> {
             }
             _ => Vec::new(),
         }
+    }
+
+    /// Whether a value of this type refers to storage it does not own: a pointer, or a string
+    /// or array descriptor pointing at its data.
+    fn holds_storage(&self, ty: jaic::types::TypeId) -> bool {
+        let types = &self.compiler.ty.types;
+        types.is_pointer(ty)
+            || matches!(
+                types.kind(ty),
+                jaic::types::TypeKind::String
+                    | jaic::types::TypeKind::Array {
+                        kind: jaic::types::ArrayKind::View | jaic::types::ArrayKind::Resizable,
+                        ..
+                    }
+            )
     }
 
     fn field_of_parameter(&self, dest: &Path) -> bool {
