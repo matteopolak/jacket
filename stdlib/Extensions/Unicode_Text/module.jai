@@ -1,6 +1,8 @@
 // Unicode normalization and default extended grapheme, word and sentence boundaries (UCD 17.0.0).
 // Offsets are bytes; input strings stay owned by the caller. Errors contain static messages.
 
+// A Unicode normalization form: canonical composition (`NFC`) or decomposition (`NFD`), or the
+// compatibility variants (`NFKC`, `NFKD`).
 Normalization_Form :: enum u8 {
     NFC;
     NFD;
@@ -8,6 +10,12 @@ Normalization_Form :: enum u8 {
     NFKD;
 }
 
+// Why a text operation failed.
+//
+// - `INVALID_UTF8`: the input is not valid UTF-8.
+// - `LIMIT`: an input or output limit from [Unicode_Text_Options] was exceeded.
+// - `INVALID_ARGUMENT`: a bad form, kind, offset or negative limit.
+// - `ALLOCATION`: the builder could not grow.
 Unicode_Text_Error_Kind :: enum u8 {
     NONE;
     INVALID_UTF8;
@@ -16,15 +24,19 @@ Unicode_Text_Error_Kind :: enum u8 {
     ALLOCATION;
 }
 
+// The outcome of a text operation; `kind` is `.NONE` on success. `message` is static and `offset` is
+// the byte offset of the problem.
 Unicode_Text_Error :: struct {
     kind: Unicode_Text_Error_Kind;
     message: string;
     offset: int;
 }
 
+// Limits for normalization and segmentation. Exceeding one fails with `.LIMIT`; a negative one with
+// `.INVALID_ARGUMENT`.
 Unicode_Text_Options :: struct {
-    max_size := 16 * 1024 * 1024;
-    max_output := 64 * 1024 * 1024;
+    max_size := 16 * 1024 * 1024; // input bytes
+    max_output := 64 * 1024 * 1024; // output bytes
     stream_safe := false; // Insert CGJ before an NFKD nonstarter sequence would exceed 30.
 }
 

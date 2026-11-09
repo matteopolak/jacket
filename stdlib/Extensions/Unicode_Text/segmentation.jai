@@ -1,3 +1,4 @@
+// Which Unicode boundaries [segments] finds: extended grapheme clusters, words or sentences.
 Segmentation :: enum u8 {
     GRAPHEME;
     WORD;
