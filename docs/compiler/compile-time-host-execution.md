@@ -30,7 +30,7 @@ target Compiler                          host twin Compiler (host OS/CPU)
 - **Results** (`host_import.rs`) are converted to the target:
   - Types match by declaration (file path, span, name). A type crosses by value only if its layout is identical on both sides; otherwise it is an error naming the type. Return its fields instead.
   - `long double` is converted from the host's format to the target's.
-  - Pointers into frozen data are copied as globals with the objects they reach. A pointer to a program global becomes the target's own global of that name. `*Type_Info` becomes the target's descriptor. A `*void` (or a pointer inside a union) into memory only the interpreter holds becomes null, because a host address would differ from build to build.
+  - Pointers into frozen data are copied as globals with the objects they reach. A pointer to a program global becomes the target's own global of that name. `*Type_Info` becomes the target's descriptor. A `*void` (or a pointer inside a union) into memory only the interpreter holds becomes null, because a host address would differ from build to build. On a 32-bit host (the browser engine) a union word cannot be told from an integer, so it stays as written.
   - Numbers, strings, arrays and user structs without OS-dependent members flow freely.
 - Executions, traps and placeholder misses the twin saw are added to the target's counters.
 

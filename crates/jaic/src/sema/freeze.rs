@@ -22,6 +22,15 @@ fn is_integer_handle(p: u64) -> bool {
     p < 0x10000 || (p as i64) < 0
 }
 
+/// Whether the union word `p`, which points into no global, is an address of memory only the
+/// interpreter holds, `readable` saying whether the interpreter can read it. A host with
+/// 64-bit addresses keeps them far from the numbers programs store, so a readable word is an
+/// address. On a 32-bit host (the browser engine) every integer below the memory size is
+/// readable, so a word cannot be told from data and stays as written.
+fn holds_host_address(p: u64, host_bits: u32, readable: impl FnOnce(u64) -> bool) -> bool {
+    host_bits >= 64 && readable(p)
+}
+
 impl Compiler {
     pub(super) fn type_at(&self, p: u64, span: Span) -> Result<TypeId> {
         if let Some((g, 0)) = self.ct.interp.global_at(p)
@@ -256,6 +265,7 @@ impl Compiler {
     /// A union has no single type for its bytes, so each aligned word that is an address into
     /// compile-time memory is handled as an opaque pointer is: relocated when it points into a
     /// global, null when it points at memory only the interpreter holds. Other words are data.
+    /// See `holds_host_address` for what counts as an address.
     fn freeze_union_words(&mut self, agg: &mut Aggregate, offset: u64, size: u64) -> Result<()> {
         for at in (offset..offset + size / 8 * 8).step_by(8) {
             let Some(word) = agg.bytes.get(at as usize..at as usize + 8) else {
@@ -274,7 +284,7 @@ impl Compiler {
                     target: ir::RelocTarget::Global(g),
                     addend: off as i64,
                 });
-            } else if self.ct.interp.read(p, 1).is_some() {
+            } else if holds_host_address(p, usize::BITS, |p| self.ct.interp.read(p, 1).is_some()) {
                 agg.bytes[at as usize..at as usize + 8].fill(0);
             }
         }
@@ -376,5 +386,17 @@ impl Compiler {
             addend: 0,
         });
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::holds_host_address;
+
+    #[test]
+    fn a_readable_word_is_an_address_only_on_a_64_bit_host() {
+        assert!(holds_host_address(0x1234_5678, 64, |_| true));
+        assert!(!holds_host_address(0x1234_5678, 64, |_| false));
+        assert!(!holds_host_address(0x1234_5678, 32, |_| true));
     }
 }

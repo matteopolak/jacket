@@ -54,6 +54,7 @@
 
 ### Fixed
 
+- In the browser engine, a union in a compile-time constant keeps its bytes as written; a number stored in a union was zeroed when it equalled an address inside the engine's memory.
 - The body of a `#modify` block shows in debug info and `jacket test --coverage` under the file it is written in, not under `prelude/module.jai`.
 - The `Autorun`, `BuildCpp`, `MacOS_Bundler`, `Rewrite` and `Bindings_Generator` tests write their scratch files to `JACKET_OUTPUT_DIR` when it is set, instead of always to `target/`.
 - `Default_Allocator` on arm64 macOS and Linux (and other targets without its heap backend) now reports a free or resize of a pointer that is not one of its live blocks, such as the address of a local or a block freed twice, instead of corrupting the heap or crashing later.
