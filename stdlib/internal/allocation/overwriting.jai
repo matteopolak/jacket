@@ -29,14 +29,14 @@ deinit_overwriting_allocator :: (a: Allocator) {
 
     deinit(wrapper);
     base.proc(.FREE, 0, size_of(Overwriting_Allocator), wrapper, base.data);
-} @FreesArgument
+}
 
 deinit :: (ua: *Overwriting_Allocator) {
     lock_acquire(*ua.mutex);
     H.deinit(*ua.table);
     lock_release(*ua.mutex);
     lock_destroy(*ua.mutex);
-} @FreesArgument
+}
 
 overwriting_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .CAPS {
