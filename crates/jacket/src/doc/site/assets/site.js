@@ -5,6 +5,14 @@
   var root = document.documentElement;
   var base = document.body.getAttribute('data-base') || '/';
 
+  // The sidebar and the outline stick below the header, which is taller when it wraps.
+  var header = document.querySelector('.top');
+  if (header && window.ResizeObserver) {
+    new ResizeObserver(function () {
+      root.style.setProperty('--header-offset', header.getBoundingClientRect().height + 'px');
+    }).observe(header);
+  }
+
   // Pages have no trailing slash. An old link that has one lands on the 404 page, which sends it on.
   if (document.body.getAttribute('data-page') === '404.html') {
     var old = location.pathname;
@@ -50,6 +58,13 @@
         sessionStorage.setItem('jacket-docs-side', JSON.stringify({ k: nav && nav.getAttribute('data-nav'), t: side.scrollTop, o: open }));
       } catch (e) { /* storage is blocked: the sidebar starts fresh */ }
     });
+    // The menu is closed on a phone and always open beside the page, so a closed one must not
+    // survive a resize to the wide layout, where nothing could open it again. A phone remembers
+    // what the reader chose there.
+    var wideQuery = matchMedia('(min-width: 900px)');
+    var phoneOpen = side.open && !wideQuery.matches;
+    side.addEventListener('toggle', function () { if (!wideQuery.matches) phoneOpen = side.open; });
+    wideQuery.addEventListener('change', function (e) { side.open = e.matches || phoneOpen; });
   }
 
   function sideGroups() {
@@ -190,6 +205,8 @@
   var loading = null;
   var hits = [];
   var picked = -1;
+  // Which search is current; a lookup that finishes after the box closed or the text changed is stale.
+  var current = 0;
   var BUILTIN = {};
   'int float float32 float64 bool string void Type Any s8 s16 s32 s64 u8 u16 u32 u64 s128 u128 code Code'.split(' ').forEach(function (n) { BUILTIN[n] = true; });
 
@@ -324,7 +341,7 @@
   function show() {
     box.textContent = '';
     if (!hits.length) {
-      var empty = el('div', 'empty', 'No matches.'); empty.setAttribute('role', 'option'); empty.setAttribute('aria-disabled', 'true'); box.appendChild(empty);
+      box.appendChild(el('div', 'empty', 'No matches.')).setAttribute('role', 'presentation');
     }
     hits.forEach(function (it, i) {
       var a = el('div', 'hit');
@@ -347,21 +364,23 @@
     });
     var tips = el('div', 'tips');
     ['↑↓ to move', '↵ to open', 'type -> bool to search by return type'].forEach(function (t) { tips.appendChild(el('span', '', t)); });
-    tips.setAttribute('role', 'option'); tips.setAttribute('aria-disabled', 'true'); box.appendChild(tips);
+    tips.setAttribute('role', 'presentation'); box.appendChild(tips);
     box.hidden = false;
     input.setAttribute('aria-expanded', 'true');
     if (picked >= 0) input.setAttribute('aria-activedescendant', 'hit-' + picked); else input.removeAttribute('aria-activedescendant');
   }
   function hide() {
+    current++;
     box.hidden = true;
     input.setAttribute('aria-expanded', 'false');
     input.removeAttribute('aria-activedescendant');
   }
   function update() {
     var q = input.value.trim();
+    var mine = ++current;
     if (!q) { hits = []; picked = -1; hide(); return; }
     load().then(function () {
-      if (input.value.trim() !== q) return;
+      if (mine !== current) return;
       hits = (q.indexOf('->') >= 0 ? bySignature(q) : byName(q)).slice(0, 12);
       picked = hits.length ? 0 : -1;
       show();
