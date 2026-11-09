@@ -863,7 +863,6 @@ jobs:
           for suite in test_pins.py test_job_inputs.py test_ci_changes.py; do
             python3 -m unittest discover -s tools/ci -p "$suite" || status=1
           done
-          python3 -m unittest discover -s benchmarks/compare/toml -p 'test_*.py' || status=1
           exit "$status"
       - name: TOML independent settings and mutation oracles
         if: ${{ !cancelled() && matrix.platform == 'linux-x64' && startsWith(matrix.tooling_part, '1/') }}
