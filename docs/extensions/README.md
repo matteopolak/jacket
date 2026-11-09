@@ -16,6 +16,7 @@
 | `Args` | typed, compile-time-generated command-line parser (clap-like); `jaifmt` uses it | [args](args.md) |
 | `Regex` | Rust-`regex` syntax and semantics, linear time; `Regex.Static` patterns give typed groups | [regex](regex.md) |
 | `Toml` | TOML 1.1 values, parsing and semantic writing; formatter configuration | [toml](toml.md), [typed](toml-typed.md), [performance](toml-performance.md) |
+| `Uuid` | RFC 9562 UUID parsing, formatting, v3/v4/v5/v7 generation and Json field handlers | [uuid](uuid.md) |
 | `Json` | `to_json`/`from_json` generated from your types and `@json` notes | [json](json.md) |
 | `Protobuf` | binary protobuf: types, encoders and decoders generated at compile time from a `.proto` schema | [protobuf](protobuf.md) |
 | `Variant` | tagged union with named cases and a `which` tag: `variant`, `set`, `get_pointer`, equality, printing; Json encodes it | [variant](variant.md) |

@@ -11,6 +11,7 @@ their path, so the import says the code is jaic-only:
 | `#import "Extensions/Long_Double";` | C's `long double` in the target's format, for C functions that take or return one |
 | `#import "Extensions/Args";` | A typed command-line parser generated at compile time (clap-style: notes, subcommands, help, completions) |
 | `#import "Extensions/Regex";` | Regular expressions like Rust's `regex` crate: Unicode, linear time, and patterns compiled at compile time with typed groups |
+| `#import "Extensions/Uuid";` | RFC 9562 UUIDs: strict text forms, v3/v4/v5/v7, hashing and Json field handlers ([docs](../../docs/extensions/uuid.md)) |
 | `#import "Extensions/Json";` | Typed JSON like Rust's serde_json: encoders and decoders generated from your types at compile time, `@json` attributes, strict parsing |
 | `#import "Extensions/Variant";` | A tagged union with named cases, like a Rust enum (`Variant(struct { email: string; phone: string; })`, `Variant(Leaf, *Branch)`, a `void` case for "nothing", `.which`, `set`, `get_pointer`); Json encodes and decodes it |
 | `#import "Extensions/Http";` | HTTP/1.1: a strict sans-IO codec (builds for wasm), plus on fibers a router-based server whose handlers declare typed extractors checked against the route at compile time, and a client with a connection pool, both over TLS for HTTPS |
