@@ -50,6 +50,27 @@ drop_sometimes :: (registry: *Registry, really: bool) {
     if really free(registry.label);
 }
 
+Tree :: struct {
+    child: *Tree;
+    routes: [..] int;
+}
+
+// Frees everything below the node, recursively, but not the node's own members.
+free_below :: (node: *Tree) {
+    if node.child {
+        free_below(node.child);
+        array_reset(*node.child.routes);
+        free(node.child);
+    }
+}
+
+tidy_child :: (node: *Tree) {
+    if node.child {
+        free_below(node.child);
+        array_reset(*node.child.routes);
+    }
+}
+
 other_field_after_drop :: () {
     registry := New(Registry);
     registry.label = copy_string("gone");

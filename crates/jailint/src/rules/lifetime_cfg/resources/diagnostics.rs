@@ -113,8 +113,12 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 }
                 // The other members of a value whose contents were released are still valid.
                 if let Some(freed) = released_members(model, &witnesses)
-                    && let Some(member) =
-                        used_member(&cx.compiler.src.sources.get(at.file).text[at.start as usize..])
+                    && let Some(member) = used_member(suffix, true).or_else(|| {
+                        used_member(
+                            &cx.compiler.src.sources.get(at.file).text[at.start as usize..],
+                            false,
+                        )
+                    })
                     && !freed.iter().any(|f| f.as_str() == member)
                 {
                     continue;
@@ -1062,14 +1066,19 @@ fn released_members(model: &Model, witnesses: &[(usize, Span)]) -> Option<Vec<ja
     (!all.is_empty()).then_some(all)
 }
 
-/// The member `text` reads from the variable it starts with: `names` for `*r.names`.
-fn used_member(text: &str) -> Option<&str> {
+/// The member read next in `text`: with `after`, `text` follows the used expression (`.names`);
+/// otherwise it starts with a variable (`*r.names`).
+fn used_member(text: &str, after: bool) -> Option<&str> {
     let ident = |t: &str| {
         t.find(|c: char| !(c.is_alphanumeric() || c == '_'))
             .unwrap_or(t.len())
     };
-    let text = text.trim_start_matches(['*', '&']);
-    let rest = text[ident(text)..].strip_prefix('.')?;
+    let rest = if after {
+        text.strip_prefix('.')?
+    } else {
+        let text = text.trim_start_matches(['*', '&']);
+        text[ident(text)..].strip_prefix('.')?
+    };
     let member = &rest[..ident(rest)];
     (!member.is_empty()).then_some(member)
 }
