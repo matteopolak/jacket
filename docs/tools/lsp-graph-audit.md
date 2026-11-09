@@ -11,6 +11,8 @@ PYTHONPATH=tools python3 tools/lsp/project_graph.py --upstream \
   --jaic target/release/jaic --out /tmp/corpus-graphs
 ```
 
+The nightly [LSP oracle](lsp-oracle.md) workflow runs it over the fixtures in `tools/lsp/fixtures/graph/`: `two-entry` (a `jacket.toml` with two entries, `first.jai` and `second.jai`, sharing one loaded file; audit each with `--entry`) and `metaprogram` (an entry that starts a second compilation in a workspace of its own and loads a helper file).
+
 ## How it works
 
 `jaic -deps` discovers the actual loaded source files while executing the entry in the repository sandbox. The audit includes every dependency inside the project root and lists dependencies outside it separately. A failed dependency check or empty graph fails that case; it is not treated as a successful LSP check.

@@ -45,3 +45,34 @@ jobs:
           name: lsp-oracle-${{ matrix.shard }}
           path: target/lsp-oracle
           if-no-files-found: ignore
+  graph-fixtures:
+    # The inclusion-graph audit over the repository's own two-entry project and metaprogram
+    # workspace, in shuffled open orders (docs/tools/lsp-graph-audit.md).
+    name: graph audit fixtures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-unix
+        with:
+          alsa: 'true'
+      - name: Build jaic and the audit
+        run: |
+          python3 tools/dev/dev.py build --release --no-native
+          cargo build --release --locked -p jai-language-server --example ide_coverage
+      - name: Audit the fixtures
+        run: |
+          fixtures=tools/lsp/fixtures/graph
+          python3 tools/lsp/project_graph.py --project $fixtures/two-entry --entry first.jai --jaic target/release/jaic --out target/graph-audit/first
+          python3 tools/lsp/project_graph.py --project $fixtures/two-entry --entry second.jai --jaic target/release/jaic --out target/graph-audit/second
+          python3 tools/lsp/project_graph.py --project $fixtures/metaprogram --entry main.jai --jaic target/release/jaic --out target/graph-audit/metaprogram
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: graph-audit-fixtures
+          path: target/graph-audit
+          if-no-files-found: ignore
