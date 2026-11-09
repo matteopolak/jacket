@@ -18,20 +18,15 @@ const SHAPES: &str =
 
 const DRAW: &str = "Shapes :: #import \"Shapes\";\n\n/// Moves `p` to the origin.\nreset :: (p: Shapes.Point) -> Shapes.Point {\n    return .{};\n}\n";
 
-#[test]
-fn a_type_of_another_module_of_the_library_links() {
-    let Some(jacket) = tools() else {
-        return;
-    };
-    let temp = TempDir::new("doc-import-dir-sibling");
-    temp.write("lib/Shapes/module.jai", SHAPES);
-    temp.write("lib/Draw/module.jai", DRAW);
+/// `jacket doc lib --check --emit-input input`, then every module page it wrote.
+fn pages(jacket: &Path, temp: &TempDir, extra: &[&str]) -> String {
     let output = Command::new(jacket)
         .args(["doc", "lib", "--check", "--emit-input"])
         .arg(temp.join("input"))
+        .args(extra)
         .env("JAIC_STDLIB", repo().join("stdlib"))
         .env("XDG_CACHE_HOME", temp.join("cache"))
-        .current_dir(&temp)
+        .current_dir(temp)
         .output()
         .unwrap();
     let said = format!(
@@ -44,8 +39,40 @@ fn a_type_of_another_module_of_the_library_links() {
     for entry in std::fs::read_dir(temp.join("input/modules")).unwrap() {
         pages += &std::fs::read_to_string(entry.unwrap().path()).unwrap();
     }
+    pages
+}
+
+#[test]
+fn a_type_of_another_module_of_the_library_links() {
+    let Some(jacket) = tools() else {
+        return;
+    };
+    let temp = TempDir::new("doc-import-dir-sibling");
+    temp.write("lib/Shapes/module.jai", SHAPES);
+    temp.write("lib/Draw/module.jai", DRAW);
+    let pages = pages(&jacket, &temp, &[]);
     assert!(
         pages.contains("/api/Shapes/Point"),
         "no link to Point in {pages}"
     );
+}
+
+#[test]
+fn flags_after_the_dashes_add_import_directories() {
+    let Some(jacket) = tools() else {
+        return;
+    };
+    let temp = TempDir::new("doc-import-dir-flag");
+    temp.write(
+        "vendor/Shapes/module.jai",
+        "/// Makes a point.\nmake :: () {}\n",
+    );
+    temp.write(
+        "lib/Draw/module.jai",
+        "Shapes :: #import \"Shapes\";\n\nmake :: Shapes.make;\n",
+    );
+    // `Draw.make` takes the docs of the `Shapes` module that only the flag lets it find.
+    assert!(!pages(&jacket, &temp, &[]).contains("Makes a point."));
+    let pages = pages(&jacket, &temp, &["--", "-import_dir", "vendor"]);
+    assert!(pages.contains("Makes a point."), "{pages}");
 }

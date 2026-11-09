@@ -361,6 +361,10 @@ pub struct DocArgs {
     /// Report broken intra-doc links as warnings instead of failing
     #[arg(long)]
     pub allow_broken_links: bool,
+    /// Flags for jaic, after `--`: every compiler run of the build takes them, after the
+    /// project's own (`-import_dir` is the useful one)
+    #[arg(last = true, value_name = "FLAGS")]
+    pub jaic_args: Vec<String>,
 }
 
 /// `jacket bench`: the selection and build options of `jacket test`, and how to measure.

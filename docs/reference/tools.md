@@ -104,8 +104,8 @@ By default jaic builds a native executable. Options may come before or after the
 | `-timings` | print the wall time of each phase on stderr |
 | `-h, -help, --help` | print this help |
 | `-print_stdlib` | print the standard library folder jaic uses and exit |
-| `-doc_comments <dir>` | print the doc comments of the library in &lt;dir&gt; as records, for `jacket test` |
-| `-doc_gaps <dir>` | print which public declarations of the library in &lt;dir&gt; have docs and an example |
+| `-doc_comments <dir>` | print the doc comments of the library in &lt;dir&gt; as records, for `jacket test`; -import_dir folders are searched for the modules it imports |
+| `-doc_gaps <dir>` | print which public declarations of the library in &lt;dir&gt; have docs and an example; -import_dir folders are searched for the modules it imports |
 | `-doc_model <dir>` | print the documentation of the library in &lt;dir&gt; (items, signatures, docs) as JSON, with what its public top-level `#insert`s declare (compiled once with default module parameters), for `jacket doc` |
 | `-procedures <dirs>` | print every procedure with a body below the folders &lt;dirs&gt; (a path list) as records, for `jacket test --coverage`; `-os` and `-cpu` pick the `#if` branches |
 | `-V, -version, --version` | print the version |
@@ -442,7 +442,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 Build the standard library's API documentation as a static website
 
 ```text
-jacket doc [OPTIONS] [PATH]
+jacket doc [OPTIONS] [PATH] [-- <FLAGS>...]
 ```
 
 #### Arguments
@@ -450,6 +450,7 @@ jacket doc [OPTIONS] [PATH]
 | Argument | Meaning |
 | --- | --- |
 | `[PATH]` | A library to document: a module (a folder with `module.jai`) or a folder of modules. Settings come from `[doc]` in its `jacket.toml` [default: `[doc] path` of the nearest `jacket.toml`, else the standard library] |
+| `[FLAGS]...` | Flags for jaic, after `--`: every compiler run of the build takes them, after the project's own (`-import_dir` is the useful one) |
 
 #### Options
 

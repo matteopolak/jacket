@@ -6,6 +6,7 @@
 
 - `Extensions/Gltf`: `gltf_remove_extension` removes an extension from an object and, once nothing uses it, from `extensionsUsed` and `extensionsRequired`.
 - `Extensions/Json`: `json_remove` takes the members of an object named by a key out of a `Json_Value`.
+- `jacket doc` takes compiler flags after `--`, as `jacket test` does: `jacket doc lib -- -import_dir vendor` lets the library import modules from `vendor`.
 - `Toml` typed decoding takes `Table(string, V)` fields (inline tables, dotted keys and `[a.key]` headers), `Toml_Value` fields (any value, or tables built from headers, as an untyped tree the target owns) and `[N] T` fields from `[[x]]` headers. The typed encoder writes them back.
 - `Extensions/Gltf` unpacks a whole accessor into floats (`gltf_unpack_floats`), gives local and world node matrices (`gltf_node_local`, `gltf_node_world`) and decodes KHR_materials_emissive_strength, ior, transmission, clearcoat, KHR_texture_transform and KHR_lights_punctual into typed structs (`gltf_extension`).
 - The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies and each of their statements, macro expansion, polymorphic instances, lexing and parsing of `#insert`ed text), not only compile-time code that is running.

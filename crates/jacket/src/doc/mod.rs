@@ -440,14 +440,19 @@ fn canonical(path: &Path) -> Result<PathBuf, String> {
 }
 
 /// The folder to document and the `[doc]` settings for it, with the folder of their
-/// `jacket.toml`, and the compiler flags the project adds (its import folders). Without a path, the `[doc]` of the nearest `jacket.toml` names the library,
-/// else it is the bundled standard library. With one, the nearest `jacket.toml` above it
+/// `jacket.toml`, and the compiler flags the project adds (its import folders) followed by the
+/// `flags` the user passed after `--`. Without a path, the `[doc]` of the nearest `jacket.toml`
+/// names the library, else it is the bundled standard library. With one, the nearest `jacket.toml` above it
 /// applies only when its `[doc]` is for that folder.
 fn target(
     path: Option<&Path>,
     stdlib: &Path,
     cwd: &Path,
+    flags: &[String],
 ) -> Result<(PathBuf, Doc, PathBuf, Vec<std::ffi::OsString>), String> {
+    let mut flags = flags.to_vec();
+    crate::compile::absolute_flag_paths(&mut flags, cwd);
+    let user: Vec<std::ffi::OsString> = flags.into_iter().map(Into::into).collect();
     let start = match path {
         Some(path) => canonical(&cwd.join(path))?,
         None => cwd.to_path_buf(),
@@ -463,7 +468,8 @@ fn target(
     for note in loaded.iter().flat_map(|l| &l.notes) {
         eprintln!("{note}");
     }
-    let project = crate::compile::project_flags(&[], loaded.as_ref());
+    let mut project = crate::compile::project_flags(&user, loaded.as_ref());
+    project.extend(user);
     let found = loaded.filter(|l| !l.config.doc.is_empty()).map(|l| {
         let dir = l.dir().to_path_buf();
         let lib = dir.join(l.config.doc.path.as_deref().unwrap_or("."));
@@ -613,7 +619,8 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         let base = base_path(&args.base_url)?;
         let jaic = tools::locate(tools::JAIC)?;
         let stdlib = stdlib_dir(&jaic, cwd)?;
-        let (lib, doc, config_dir, project) = target(args.path.as_deref(), &stdlib, cwd)?;
+        let (lib, doc, config_dir, project) =
+            target(args.path.as_deref(), &stdlib, cwd, &args.jaic_args)?;
         let Library {
             root,
             mut ids,
