@@ -1,4 +1,5 @@
 #import "Basic";
+#import "String";
 #import "Extensions/Jai_Format";
 
 main :: () {
@@ -28,6 +29,26 @@ main :: () {
     doc_ok, doc_error := format_apply_setting(*config, "doc.format.indent_width=3");
 
     assert(doc_ok && config.doc_format[2].value == "3", doc_error);
+
+    // A bad value is reported without the line prefix a file would give it, and nothing is stored.
+    bad_doc_ok, bad_doc_error := format_apply_setting(*config, "doc.format.indent_width=x");
+
+    assert(!bad_doc_ok && bad_doc_error.count && !begins_with(bad_doc_error, "line "), bad_doc_error);
+    assert(config.doc_format.count == 3);
+    bad_ok, bad_error := format_apply_setting(*config, "indent_width=x");
+
+    assert(!bad_ok && bad_error.count && !begins_with(bad_error, "line "), bad_error);
+    assert(config.indent_width == 8);
+    unknown_ok, unknown_error := format_apply_setting(*config, "doc.format.colour=1");
+
+    assert(!unknown_ok && unknown_error == "unknown setting `doc.format.colour`", unknown_error);
+
+    // Unknown keys name the nearest known one only when it is close; a key too long to compare names none.
+    assert(format_unknown_setting_note("format.indent_widht", "a.toml") == "unknown setting `format.indent_widht` in a.toml (ignored); did you mean `format.indent_width`?");
+    assert(format_unknown_setting_note("indent_widht", "a.toml") == "unknown setting `format.indent_widht` in a.toml (ignored); did you mean `format.indent_width`?");
+    long_key := "format.this_setting_name_is_far_longer_than_any_known_one_and_is_past_sixty_three_bytes";
+
+    assert(format_unknown_setting_note(long_key, "a.toml") == tprint("unknown setting `%` in a.toml (ignored)", long_key));
 
     // Intentional migration: malformed unrelated syntax and duplicate settings now fail.
     _, malformed_ok := parse_config("[unrelated]\nnot a TOML assignment\n[format]\nindent_width = 2\n");

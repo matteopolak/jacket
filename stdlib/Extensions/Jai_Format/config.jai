@@ -118,18 +118,14 @@ check_setting_text :: (key: string, text: string, line: int) -> bool, string {
     return ok, message;
 }
 
-// Sets one `[format]` setting from `key = text`, the value written as in the file.
+// Sets one `[format]` setting from `key = text`, the value written as in the file. `key` is one of
+// FORMAT_KEYS.
 apply_setting_text :: (config: *Format_Config, key: string, text: string, line: int) -> bool, string {
     section, ok, message := decode_setting(key, text, line);
 
     defer Toml.free_toml_value(*section);
 
     if !ok return false, message;
-
-    if section.unknown.count {
-        array_add(*config.unknown_keys, copy_string(key));
-        return true, "";
-    }
 
     move_setting(config, *section.settings, key);
 
@@ -157,12 +153,8 @@ move_setting :: (config: *Format_Config, from: *Format_Config, key: string) {
     memcpy(cast(*u8) config + offset, cast(*u8) from + offset, member.type.runtime_size);
 }
 
+// Records the `[doc.format]` setting `key` (one of DOC_FORMAT_KEYS) after checking its value.
 apply_doc_key :: (config: *Format_Config, key: string, value: string, line_number: int) -> bool, string {
-    if !is_doc_format_key(key) {
-        array_add(*config.unknown_keys, copy_string(tprint("doc.format.%", key)));
-        return true, "";
-    }
-
     ok, message := check_setting_text(key, value, line_number);
 
     if !ok return false, message;
