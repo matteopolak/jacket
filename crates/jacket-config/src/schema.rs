@@ -754,6 +754,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "path",
             "name",
             "breadcrumb",
+            "home",
             "description",
             "logo",
             "icon",
