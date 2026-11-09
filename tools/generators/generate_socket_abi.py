@@ -12,7 +12,7 @@ import re
 
 from generators.jai_codegen import emit_generated, generator_parser
 from native.provided_libs import EXTERNAL
-from native_bindings.spec import parse_spec
+from native_bindings.spec import parse_spec, split_notes
 from toolkit.repo import ROOT
 
 OSES = ["macos", "linux", "android", "windows"]
@@ -134,7 +134,9 @@ def main():
                 )
             emitted = "\n".join(bodies)
         else:
-            emitted = code + ";"
+            # Trailing declaration notes (`@FreesArgument`) follow the semicolon.
+            signature, notes = split_notes(code)
+            emitted = signature + ";" + notes
         target, residual = route(guard)
         files[target].append(guarded(emitted, residual))
     # Only the Windows names these declarations use are imported by name: a wildcard import would

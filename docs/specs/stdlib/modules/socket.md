@@ -857,7 +857,7 @@ On Windows, `FD_ISSET` is an alias of Winsock’s `__WSAFDIsSet`; its callable s
 - [OS == .WINDOWS] `WSAPOLLFD :: pollfd`
 - [OS == .WINDOWS] `accept :: (s: SOCKET, addr: *sockaddr, addrlen: *s32) -> SOCKET #foreign ws2_32`
 - [OS == .WINDOWS] `bind :: (s: SOCKET, name: *sockaddr, namelen: s32) -> s32 #foreign ws2_32`
-- [OS == .WINDOWS] `closesocket :: (s: SOCKET) -> s32 #foreign ws2_32`
+- [OS == .WINDOWS] `closesocket :: (s: SOCKET) -> s32 #foreign ws2_32 @FreesArgument`
 - [OS == .WINDOWS] `connect :: (s: SOCKET, name: *sockaddr, namelen: s32) -> s32 #foreign ws2_32`
 - [OS == .WINDOWS] `ioctlsocket :: (s: SOCKET, cmd: s32, argp: *u32) -> s32 #foreign ws2_32`
 - [OS == .WINDOWS] `getpeername :: (s: SOCKET, name: *sockaddr, namelen: *s32) -> s32 #foreign ws2_32`
@@ -1009,7 +1009,7 @@ On Windows, `FD_ISSET` is an alias of Winsock’s `__WSAFDIsSet`; its callable s
 - [OS == .WINDOWS] `GetAddrInfoExOverlappedResult :: (lpOverlapped: *OVERLAPPED) -> s32 #foreign ws2_32`
 - [OS == .WINDOWS] `SetAddrInfoExA :: (pName: *u8, pServiceName: *u8, pAddresses: *SOCKET_ADDRESS, dwAddressCount: u32, lpBlob: *BLOB, dwFlags: u32, dwNameSpace: u32, lpNspId: *GUID, timeout: *TIMEVAL, lpOverlapped: *OVERLAPPED, lpCompletionRoutine: LPLOOKUPSERVICE_COMPLETION_ROUTINE, lpNameHandle: *HANDLE) -> s32 #foreign ws2_32`
 - [OS == .WINDOWS] `SetAddrInfoExW :: (pName: *s16, pServiceName: *s16, pAddresses: *SOCKET_ADDRESS, dwAddressCount: u32, lpBlob: *BLOB, dwFlags: u32, dwNameSpace: u32, lpNspId: *GUID, timeout: *TIMEVAL, lpOverlapped: *OVERLAPPED, lpCompletionRoutine: LPLOOKUPSERVICE_COMPLETION_ROUTINE, lpNameHandle: *HANDLE) -> s32 #foreign ws2_32`
-- [OS == .WINDOWS] `freeaddrinfo :: (pAddrInfo: *addrinfo) -> void #foreign ws2_32`
+- [OS == .WINDOWS] `freeaddrinfo :: (pAddrInfo: *addrinfo) -> void #foreign ws2_32 @FreesArgument`
 - [OS == .WINDOWS] `FreeAddrInfoW :: (pAddrInfo: *ADDRINFOW) -> void #foreign ws2_32`
 - [OS == .WINDOWS] `FreeAddrInfoEx :: (pAddrInfoEx: *addrinfoexA) -> void #foreign ws2_32`
 - [OS == .WINDOWS] `FreeAddrInfoExW :: (pAddrInfoEx: *ADDRINFOEXW) -> void #foreign ws2_32`
@@ -1719,7 +1719,7 @@ On Windows, `FD_ISSET` is an alias of Winsock’s `__WSAFDIsSet`; its callable s
 - [OS == .LINUX] `addrinfo :: struct`
 - [OS == .LINUX] `gaicb :: struct`
 - [OS == .LINUX] `getaddrinfo :: (__name: *u8, __service: *u8, __req: *addrinfo, __pai: **addrinfo) -> s32 #foreign libc`
-- [OS == .LINUX] `freeaddrinfo :: (__ai: *addrinfo) -> void #foreign libc`
+- [OS == .LINUX] `freeaddrinfo :: (__ai: *addrinfo) -> void #foreign libc @FreesArgument`
 - [OS == .LINUX] `gai_strerror :: (__ecode: s32) -> *u8 #foreign libc`
 - [OS == .LINUX] `getnameinfo :: (__sa: *sockaddr, __salen: socklen_t, __host: *u8, __hostlen: socklen_t, __serv: *u8, __servlen: socklen_t, __flags: s32) -> s32 #foreign libc`
 - [OS == .LINUX] `inet_addr :: (__cp: *u8) -> in_addr_t #foreign libc`
@@ -2287,7 +2287,7 @@ On Windows, `FD_ISSET` is an alias of Winsock’s `__WSAFDIsSet`; its callable s
 - [OS == .ANDROID] `protoent :: struct`
 - [OS == .ANDROID] `addrinfo :: struct`
 - [OS == .ANDROID] `getaddrinfo :: (__node: *u8, __service: *u8, __hints: *addrinfo, __result: **addrinfo) -> s32 #foreign libc`
-- [OS == .ANDROID] `freeaddrinfo :: (__ptr: *addrinfo) -> void #foreign libc`
+- [OS == .ANDROID] `freeaddrinfo :: (__ptr: *addrinfo) -> void #foreign libc @FreesArgument`
 - [OS == .ANDROID] `getnameinfo :: (__sa: *sockaddr, __sa_length: socklen_t, __host: *u8, __host_length: u64, __service: *u8, __service_length: u64, __flags: s32) -> s32 #foreign libc`
 - [OS == .ANDROID] `gai_strerror :: (__error: s32) -> *u8 #foreign libc`
 - [OS == .ANDROID] `__get_h_errno :: () -> *s32 #foreign libc`
@@ -3017,7 +3017,7 @@ On Windows, `FD_ISSET` is an alias of Winsock’s `__WSAFDIsSet`; its callable s
 - [OS == .MACOS] `endnetent :: () -> void #foreign libc`
 - [OS == .MACOS] `endprotoent :: () -> void #foreign libc`
 - [OS == .MACOS] `endservent :: () -> void #foreign libc`
-- [OS == .MACOS] `freeaddrinfo :: (unknown0: *addrinfo) -> void #foreign libc`
+- [OS == .MACOS] `freeaddrinfo :: (unknown0: *addrinfo) -> void #foreign libc @FreesArgument`
 - [OS == .MACOS] `gai_strerror :: (unknown0: s32) -> *u8 #foreign libc`
 - [OS == .MACOS] `getaddrinfo :: (unknown0: *u8, unknown1: *u8, unknown2: *addrinfo, unknown3: **addrinfo) -> s32 #foreign libc`
 - [OS == .MACOS] `gethostbyaddr :: (unknown0: *void, unknown1: socklen_t, unknown2: s32) -> *hostent #foreign libc`

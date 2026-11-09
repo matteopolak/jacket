@@ -269,3 +269,9 @@ def parse_spec(text):
     supplement_field_fragments(result)
     associate_shared_cpu_variants(result)
     return result
+
+
+def split_notes(code):
+    """`proc :: () @A @B` -> (`proc :: ()`, ` @A @B`)."""
+    match = re.search(r'(?:\s+@\w+)+$', code)
+    return (code[:match.start()], match[0]) if match else (code, '')

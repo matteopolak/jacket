@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 
-from native_bindings.spec import parse_spec
+from native_bindings.spec import parse_spec, split_notes
 from native_bindings.config import REEXPORTED, IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS, NATIVE_SHAPE_DELEGATES, RPMALLOC_PUBLIC_CONSTRAINTS
 from wrappers import simple_body, forwarding_body
 from objc import materialize_methods
@@ -25,12 +25,6 @@ from toolkit.repo import ROOT
 MANUAL_FACADE_SOURCES = {
     'rpmalloc': ('wrappers.jai', 'allocator.jai', 'statistics.jai'),
 }
-
-
-def split_notes(code):
-    """`proc :: () @A @B` -> (`proc :: ()`, ` @A @B`)."""
-    match = re.search(r'(?:\s+@\w+)+$', code)
-    return (code[:match.start()], match[0]) if match else (code, '')
 
 
 def format_source(code, formatter):
