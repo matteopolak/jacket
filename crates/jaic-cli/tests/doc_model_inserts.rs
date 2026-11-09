@@ -83,3 +83,55 @@ fn an_insert_that_fails_to_expand_is_reported_with_the_reason() {
     let reason = failed[0]["reason"].as_str().unwrap();
     assert!(reason.contains("missing_name"), "{reason}");
 }
+
+#[test]
+fn a_long_expansion_is_not_cut() {
+    // About 100 KiB of generated procedures; the last must still be found.
+    let (_dir, json) = model(
+        "doc-model-long",
+        "#import \"Basic\";\n\nmake :: () -> string {\n    b: String_Builder;\n    for 0..2999 print(*b, \"/// Number %.\\nnumber_% :: () {}\\n\", it, it);\n    return builder_to_string(*b);\n}\n\n#insert #run make();\n",
+    );
+    let items = json["items"].as_array().unwrap();
+    assert!(
+        items.iter().any(|i| i["name"] == "number_2999"),
+        "{} items, {}",
+        items.len(),
+        json["unexpanded"]
+    );
+    assert_eq!(json["unexpanded"].as_array().unwrap().len(), 0, "{json}");
+}
+
+#[test]
+fn an_insert_in_generated_text_is_followed_with_the_outer_insert_as_origin() {
+    let (dir, json) = model(
+        "doc-model-nested",
+        "make :: () -> string {\n    return \"/// Outer.\\nOuter :: struct {}\\n\\n#insert \\\"/// Inner.\\\\nInner :: struct {}\\\\n\\\";\\n\";\n}\n\n#insert #run make();\n",
+    );
+    let items = json["items"].as_array().unwrap();
+    let inner = items.iter().find(|i| i["name"] == "Inner").unwrap();
+    assert_eq!(inner["generated"], true);
+    assert_eq!(inner["docs"], "Inner.");
+    let origin = dir.path().join("Gen/module.jai");
+    assert!(
+        inner["file"]
+            .as_str()
+            .unwrap()
+            .starts_with(&format!("{}#insert:", origin.to_str().unwrap())),
+        "{inner}"
+    );
+    assert!(items.iter().any(|i| i["name"] == "Outer"));
+}
+
+#[test]
+fn an_insert_that_inserts_itself_is_a_warning_not_a_silent_stop() {
+    let (_dir, json) = model(
+        "doc-model-cycle",
+        "make :: () -> string { return \"#insert #run make();\\n\"; }\n\n#insert #run make();\n",
+    );
+    let failed = json["unexpanded"].as_array().unwrap();
+    assert!(!failed.is_empty(), "{json}");
+    assert!(
+        failed[0]["reason"].as_str().unwrap().contains("nested"),
+        "{json}"
+    );
+}

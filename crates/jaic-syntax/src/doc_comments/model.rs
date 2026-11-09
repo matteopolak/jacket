@@ -325,14 +325,19 @@ impl Reader<'_> {
         out: &mut Module,
         queue: &mut Vec<PathBuf>,
     ) {
-        if generated_origin(&file.to_string_lossy()).is_some() {
-            return;
-        }
+        let nested = file.to_string_lossy().matches(GENERATED).count();
         for (span, visibility) in ide_facts::top_level_inserts(&parsed.parse.file) {
             if visibility != Visibility::Export {
                 continue;
             }
             let line = self.line_of(&parsed.text, span.start as usize);
+            if nested >= MAX_NESTED_INSERTS {
+                let reason = format!(
+                    "#insert is nested more than {MAX_NESTED_INSERTS} deep in generated text; it may insert itself"
+                );
+                out.unexpanded.push((file.to_path_buf(), line, reason));
+                continue;
+            }
             match expand(file, line) {
                 Ok(inserted) if inserted.trim().is_empty() => {}
                 Ok(inserted) => {
@@ -710,6 +715,10 @@ pub type Expander<'a> = &'a mut dyn FnMut(&Path, usize) -> Result<String, String
 /// The marker between a file and a line in the name of generated text.
 const GENERATED: &str = "#insert:";
 
+/// How deep the model follows an `#insert` made by an `#insert`, so one that inserts itself ends
+/// with a warning.
+const MAX_NESTED_INSERTS: usize = 32;
+
 /// The name the text of the `#insert` at `line` of `origin` has in the model: its own file, so
 /// the declarations in it keep identities of their own, whose source link leads to the
 /// `#insert` ([`generated_origin`]).
@@ -719,7 +728,8 @@ pub fn generated_path(origin: &Path, line: usize) -> PathBuf {
 
 /// The file and line of the `#insert` that `path` names the text of, or `None` for a real file.
 pub fn generated_origin(path: &str) -> Option<(&str, usize)> {
-    let (file, line) = path.rsplit_once(GENERATED)?;
+    let (file, rest) = path.split_once(GENERATED)?;
+    let line = rest.split(GENERATED).next()?;
     Some((file, line.parse().ok()?))
 }
 
