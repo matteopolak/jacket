@@ -2,7 +2,7 @@
 use super::asserts::{AssertFailure, failures_of};
 use super::claims::{Claims, Release};
 use super::compile::{Compiled, compile_root};
-use super::marked_target::marked_target;
+use super::marked_target::{Marked, marked_target};
 use super::plan::canonical;
 use super::{CheckedContext, Options};
 use crate::config::Configs;
@@ -41,13 +41,17 @@ pub(super) fn lint_root(
     let limits = options.limits;
     // A file that says it is for another system (`// test: only(.WINDOWS)`) is compiled for it,
     // as a program or, when it sits in an import folder, as the module it counts as.
-    let (os, cpu) = std::fs::read_to_string(root.path()).map_or((None, None), |source| {
+    let (os, cpu) = match std::fs::read_to_string(root.path()).map(|source| {
         marked_target(
             &source,
             options.compiler_options.os,
             options.compiler_options.cpu,
         )
-    });
+    }) {
+        Ok(Marked::Other(os, cpu)) => (Some(os), Some(cpu)),
+        // A file named on the command line that no target runs is still compiled on the host.
+        _ => (None, None),
+    };
     let Compiled {
         mut compiler,
         workspaces,

@@ -327,6 +327,46 @@ fn program_marked_for_another_system_is_compiled_for_it() {
 }
 
 #[test]
+fn directory_scan_skips_a_file_no_target_runs_but_a_named_file_is_linted() {
+    let root = fixture("marked-nowhere");
+    let android = root.join("app/android-only.jai");
+    std::fs::write(
+        &android,
+        "// test: only(.ANDROID)\nmain :: () { unavailable_call(); }\n",
+    )
+    .unwrap();
+    let result = run(&options(&root, root.join("app")));
+    assert_eq!(result.roots, 0);
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+    let result = run(&options(&root, android));
+    assert_eq!(result.incomplete.len(), 1, "{:?}", result.incomplete);
+}
+
+#[test]
+fn program_skipped_on_the_host_is_compiled_for_another_system() {
+    let root = fixture("skipped-host");
+    std::fs::write(
+        root.join("stdlib/prelude/module.jai"),
+        "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }",
+    )
+    .unwrap();
+    let name = match jaic::sema::Options::host().os {
+        jaic::target::TargetOs::Windows => "WINDOWS",
+        jaic::target::TargetOs::Linux => "LINUX",
+        jaic::target::TargetOs::MacOS => "MACOS",
+        jaic::target::TargetOs::Wasm => "WASM",
+    };
+    let file = root.join("app/not-here.jai");
+    std::fs::write(
+        &file,
+        format!("// test: skip_on(.{name})\n#assert OS != .{name};\nmain :: () {{}}\n"),
+    )
+    .unwrap();
+    let result = run(&options(&root, file));
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+}
+
+#[test]
 fn module_in_a_modules_folder_sees_its_sibling_modules() {
     let root = fixture("module-siblings");
     let modules = root.join("stdlib/Thing/tests/modules");
