@@ -6,19 +6,19 @@ freeing_a_local_is_reported :: () {
     local: [64] u8;
 
     D.allocator_proc(.FREE, 0, 64, local.data, null);
-} @test @should_fail("Default_Allocator received an invalid pointer")
+} @test @should_fail("Default_Allocator received an invalid pointer", "AddressSanitizer")
 
 resizing_a_local_is_reported :: () {
     local: [64] u8;
 
     D.allocator_proc(.RESIZE, 128, 64, local.data, null);
-} @test @should_fail("Default_Allocator received an invalid pointer")
+} @test @should_fail("Default_Allocator received an invalid pointer", "AddressSanitizer")
 
 freeing_a_local_in_a_callee_is_reported :: () {
     local: [32] u8;
 
     release_block(local.data);
-} @test @should_fail("Default_Allocator received an invalid pointer")
+} @test @should_fail("Default_Allocator received an invalid pointer", "AddressSanitizer")
 
 release_block :: (block: *void) {
     padding: [256] u8;
@@ -43,7 +43,7 @@ freeing_a_block_twice_is_reported :: () {
 
     D.allocator_proc(.FREE, 0, 24, block, null);
     D.allocator_proc(.FREE, 0, 24, block, null);
-} @test @should_fail("Default_Allocator received an invalid pointer")
+} @test @should_fail("Default_Allocator received an invalid pointer", "AddressSanitizer")
 
 // The Thread module has no wasm target.
 #if OS != .WASM {
