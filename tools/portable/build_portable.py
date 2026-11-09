@@ -648,6 +648,8 @@ def data_fixtures():
     write_suites()
     from archive_conformance.fetch import fetch as archive_suites
     archive_suites()
+    from gltf_conformance.fetch import fetch as gltf_suites
+    gltf_suites()
 
 
 def main(argv=None):

@@ -321,7 +321,7 @@ modules = [
     "stdlib/Window_Creation", "stdlib/Window_Type", "stdlib/Input", "stdlib/Keymap",
     "stdlib/Gamepad", "stdlib/Gamepad/SDL_Input_Map", "stdlib/Icon", "stdlib/Ico_File",
     "stdlib/ImGui", "stdlib/SDL", "stdlib/Extensions/SDL3", "stdlib/Extensions/UI", "stdlib/Extensions/Desktop",
-    "stdlib/Extensions/Image", "stdlib/Extensions/WebGPU",
+    "stdlib/Extensions/Image", "stdlib/Extensions/WebGPU", "stdlib/Extensions/Gltf",
 ]
 
 [[doc.group]]

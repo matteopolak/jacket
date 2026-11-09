@@ -161,6 +161,8 @@ def stdlib_matrix(full):
                 jacket_test="" if "tooling" in names else "all",
                 # The standard library's coverage is measured once, on the platform that has the most tests.
                 coverage=platform == "linux-x64",
+                # So is the glTF sample-model test, whose models are a 1.1 GB download.
+                gltf_samples=platform == "linux-x64",
             )
         ]
         for name in names:

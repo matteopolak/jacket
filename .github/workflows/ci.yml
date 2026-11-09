@@ -786,6 +786,13 @@ jobs:
           WASM: ${{ matrix.wasm }}
           JACKET_TEST_PARTITION: ${{ matrix.jacket_test }}
         run: bash tools/ci/stdlib_jacket_test.sh
+      - name: glTF sample models
+        # The 1.1 GB Khronos sample set is fetched here only, into a cache of its own so the shared
+        # pinned-downloads cache stays small; every other run skips the test (`needs(.GLTF_SAMPLES)`).
+        if: ${{ always() && !cancelled() && matrix.gltf_samples }}
+        run: |
+          XDG_CACHE_HOME="$RUNNER_TEMP/gltf-samples" PYTHONPATH=tools python3 -B tools/gltf_conformance/fetch.py --samples
+          target/release/jacket test -q --path stdlib/Extensions/Gltf --needs gltf_samples
       - name: Stdlib test coverage against the recorded baseline
         # `jacket test --coverage` over the whole standard library, natively: the per-module table goes to
         # the job summary and the step fails when a module covers over 0.5 points fewer lines than
