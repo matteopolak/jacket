@@ -66,3 +66,16 @@ pattern_conflicts_and_epoch :: () {
 
     assert(e.kind == .NONE && t.seconds == 0 && t.nanoseconds == -500000000);
 } @test
+
+space_is_not_a_directive :: () {
+    clock := PT.Time_Of_Day.{ 1, 2, 3, 0 };
+    b: String_Builder;
+
+    defer free_buffers(*b);
+    e := PT.format(*b, clock, "% ");
+
+    assert(e.kind == .SYNTAX && e.message == "unknown pattern directive");
+    _, pe := PT.parse_format(PT.Date, "% ", "2024-01-01");
+
+    assert(pe.kind == .SYNTAX && pe.message == "unknown pattern directive");
+} @test

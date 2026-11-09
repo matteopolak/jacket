@@ -248,7 +248,7 @@ format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timesta
             continue;
         }
 
-        if (contains("Ymd ejabBVGuA", d) && !f.has_date) || (contains("HIMSpfF", d) && !f.has_time) return .{ .INVALID_VALUE, "directive requires missing civil fields", p.at - 1 };
+        if (contains("YmdejabBVGuA", d) && !f.has_date) || (contains("HIMSpfF", d) && !f.has_time) return .{ .INVALID_VALUE, "directive requires missing civil fields", p.at - 1 };
 
         n: s64;
         word: string;

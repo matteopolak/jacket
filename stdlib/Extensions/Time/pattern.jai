@@ -64,7 +64,7 @@ parse_format :: ($T: Type, pattern: string, text: string, options: Time_Options 
             continue;
         }
 
-        if !contains("Ymd eHIMSfjGVusF", d) {
+        if !contains("YmdeHIMSfjGVusF", d) {
             text_fail(*r, .SYNTAX, "unknown pattern directive");
             break;
         }
