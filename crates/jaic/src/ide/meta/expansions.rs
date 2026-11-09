@@ -158,6 +158,13 @@ impl Compiler {
         let span = self
             .ide_widen(value.span, &["insert"])
             .unwrap_or(value.span);
+        if let Some(ide) = self.ed.facts_mut()
+            && ide.keep_insert_text
+        {
+            ide.insert_sources
+                .entry(value.span)
+                .or_insert_with(|| (span, text.clone()));
+        }
         self.ide_note_expansion(
             span,
             IdeExpansionKind::Insert,

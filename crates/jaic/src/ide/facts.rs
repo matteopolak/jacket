@@ -82,6 +82,12 @@ pub struct IdeFacts {
     pub scopes: Vec<(Span, ScopeId)>,
     /// What `#insert`, `#run`, `#if` and macro calls produced (see `ide::meta`).
     pub expansions: Vec<crate::ide::meta::IdeExpansion>,
+    /// Keep the whole text of each `#insert` in `insert_sources`: `expansions` cuts long texts
+    /// for display, which a reader that parses the text cannot accept.
+    pub keep_insert_text: bool,
+    /// Each `#insert`'s operand, with the span from the directive and the whole text it produced.
+    /// Only while `keep_insert_text` is set.
+    pub insert_sources: HashMap<Span, (Span, String)>,
     /// Position in `expansions` of each (span, kind), so recording one is not a scan.
     pub(crate) expansion_index: HashMap<(Span, crate::ide::meta::IdeExpansionKind), usize>,
     /// Calls and the procedure and parameters they resolved to.

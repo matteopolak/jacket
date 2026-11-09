@@ -4,11 +4,11 @@
 //! model as source it declares.
 use crate::fxhash::HashMap;
 use crate::ide::lint_compile::{CheckLimits, LintCompile, LintSetup};
-use crate::ide::meta::IdeExpansionKind;
 use crate::ide::{IdeFacts, IdeRoot};
 use crate::interp::SandboxHost;
 use crate::project::{ProgramInputs, module_import};
-use crate::sema::{FileSystem, NativeFs, Options, ProgramSource};
+use crate::sema::{Compiler, FileSystem, NativeFs, Options, ProgramSource};
+use crate::source::FileId;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -28,6 +28,27 @@ fn canonical(path: &Path) -> PathBuf {
 /// The line `at` is on in `text`, counting from 1.
 fn line_of(text: &str, at: usize) -> usize {
     text[..at.min(text.len())].matches('\n').count() + 1
+}
+
+/// The path the model gives the text of `file`: the real file itself, or for text an `#insert`
+/// made, the path of the `#insert` that made it (see `generated_path`).
+fn place_of(compiler: &Compiler, file: FileId) -> Option<PathBuf> {
+    let source = compiler.src.sources.try_get(file)?;
+    if let Some(real) = source.path.as_file() {
+        return Some(canonical(real));
+    }
+    let site = *compiler.src.insert_sites.get(&file)?;
+    let at = compiler
+        .ed
+        .facts()
+        .and_then(|f| f.insert_sources.get(&site))
+        .map_or(site, |(span, _)| *span);
+    let parent = place_of(compiler, at.file)?;
+    let text = &compiler.src.sources.try_get(at.file)?.text;
+    Some(crate::doc_comments::generated_path(
+        &parent,
+        line_of(text, at.start as usize),
+    ))
 }
 
 /// The text of every `#insert` the module in `dir` runs when a program imports it without
@@ -62,25 +83,25 @@ fn compile(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Expanded {
         limits: CheckLimits::new(CheckLimits::DEFAULT_EVAL_STEPS, 0.0),
     });
     let compiler = &mut started.compiler;
-    compiler
-        .ed
-        .record(IdeFacts::new(vec![IdeRoot::under(canonical(dir))]));
+    let mut facts = IdeFacts::new(vec![IdeRoot::under(canonical(dir)), IdeRoot::Virtual]);
+    // The model parses what an insert made in full; it is not the bounded text of a hover.
+    facts.keep_insert_text = true;
+    compiler.ed.record(facts);
     let program = format!("{import}\nmain :: () {{}}\n");
     let result = compiler.begin_sources(&[ProgramSource::String(program)]);
     let mut texts = HashMap::default();
-    for expansion in compiler.ed.facts().map_or(&[][..], |f| &f.expansions) {
-        if expansion.kind != IdeExpansionKind::Insert {
-            continue;
-        }
-        let Some(source) = compiler.src.sources.try_get(expansion.span.file) else {
-            continue;
-        };
-        let Some(file) = source.path.as_file() else {
-            continue;
-        };
-        if let Some(text) = expansion.texts.first() {
-            let line = line_of(&source.text, expansion.span.start as usize);
-            texts.insert((canonical(file), line), text.clone());
+    let inserted: Vec<_> = compiler
+        .ed
+        .facts()
+        .map_or_else(Vec::new, |f| f.insert_sources.values().cloned().collect());
+    for (span, text) in inserted {
+        if let Some(file) = place_of(compiler, span.file) {
+            let line = compiler
+                .src
+                .sources
+                .try_get(span.file)
+                .map_or(1, |s| line_of(&s.text, span.start as usize));
+            texts.insert((file, line), text);
         }
     }
     let error = result.err().map(|e| {
