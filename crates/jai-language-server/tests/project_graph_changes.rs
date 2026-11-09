@@ -37,7 +37,11 @@ fn a_load_added_on_disk_gives_the_fragment_its_new_siblings() {
         &[("main.jai", MAIN), ("a.jai", A), ("b.jai", B)],
     );
     let (mut s, a, _) = open_file(&dir, "a.jai");
-    assert_ne!(check_errors(&s, &a), Vec::<String>::new(), "helper is unknown");
+    assert_ne!(
+        check_errors(&s, &a),
+        Vec::<String>::new(),
+        "helper is unknown"
+    );
     rewrite(
         &mut s,
         &dir.join("main.jai"),
@@ -95,14 +99,19 @@ fn a_renamed_loaded_file_follows_the_load_line() {
     remove(&mut s, &dir.join("b.jai"));
     rewrite(&mut s, &dir.join("c.jai"), B);
     assert_ne!(check_errors(&s, &a), Vec::<String>::new(), "b.jai is gone");
-    rewrite(&mut s, &dir.join("main.jai"), &main.replace("b.jai", "c.jai"));
+    rewrite(
+        &mut s,
+        &dir.join("main.jai"),
+        &main.replace("b.jai", "c.jai"),
+    );
     assert_eq!(check_errors(&s, &a), Vec::<String>::new());
 }
 
 #[test]
 fn a_changed_entry_in_jacket_toml_moves_the_fragments_program() {
     let first = "#import \"Basic\";\n#load \"a.jai\";\nmain :: () { use_it(); }\n";
-    let second = "#import \"Basic\";\n#load \"a.jai\";\n#load \"b.jai\";\nmain :: () { use_it(); }\n";
+    let second =
+        "#import \"Basic\";\n#load \"a.jai\";\n#load \"b.jai\";\nmain :: () { use_it(); }\n";
     let dir = project(
         "toml-entry",
         &[
@@ -114,7 +123,11 @@ fn a_changed_entry_in_jacket_toml_moves_the_fragments_program() {
         ],
     );
     let (mut s, a, _) = open_file(&dir, "a.jai");
-    assert_ne!(check_errors(&s, &a), Vec::<String>::new(), "first.jai has no helper");
+    assert_ne!(
+        check_errors(&s, &a),
+        Vec::<String>::new(),
+        "first.jai has no helper"
+    );
     let toml = dir.join("jacket.toml");
     std::fs::write(&toml, "[project]\nentry = [\"second.jai\"]\n").unwrap();
     s.file_changed(&toml, false);
@@ -127,7 +140,8 @@ fn each_workspace_folder_keeps_its_own_entries() {
         "root-one",
         &[("main.jai", MAIN), ("a.jai", A), ("b.jai", B)],
     );
-    let other_main = "#import \"Basic\";\n#load \"a.jai\";\n#load \"b.jai\";\nmain :: () { use_it(); }\n";
+    let other_main =
+        "#import \"Basic\";\n#load \"a.jai\";\n#load \"b.jai\";\nmain :: () { use_it(); }\n";
     let two = project(
         "root-two",
         &[("main.jai", other_main), ("a.jai", A), ("b.jai", B)],

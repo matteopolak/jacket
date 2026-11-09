@@ -28,7 +28,11 @@ impl Session {
         let counts = self.index_counts.get();
         let (done, total) = counts.semantic;
         let (checked, roots) = counts.diagnostics;
-        let roots = if roots == 0 { total } else { roots };
+        let roots = if roots == 0 {
+            total
+        } else {
+            roots
+        };
         (done + checked, total + roots)
     }
 
