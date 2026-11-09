@@ -250,8 +250,9 @@ pub struct OverloadView {
     pub card: bool,
     pub signature_html: String,
     pub prose: Vec<DocSegment>,
-    pub parameters: Vec<Definition>,
-    pub returns: Vec<Definition>,
+    /// What the docs say about a parameter or result, as names and descriptions; the signature
+    /// shows the rest.
+    pub notes: Vec<Definition>,
     pub examples: Vec<DocSegment>,
 }
 

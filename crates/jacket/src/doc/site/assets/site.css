@@ -1423,6 +1423,8 @@ h3:hover .anchor,
 
 .overload > pre.sig,
 .overload > .defs {
+  /* Wider than the card's content by the negative margins; `max-width: 100%` would cap it there. */
+  max-width: none;
   margin-left: calc(-1 * var(--px));
   margin-right: calc(-1 * var(--px));
   border-radius: 0;
@@ -1448,7 +1450,7 @@ h3:hover .anchor,
   border-bottom-width: 0;
 }
 
-.overload > .defs + :not(h3) {
+.overload > .defs + * {
   margin-top: 20px;
 }
 
@@ -1527,25 +1529,6 @@ main h3:has(+ .defs) {
 main h3 + .defs {
   border-top-width: 0;
   border-radius: 0 0 10px 10px;
-}
-
-main .overload > h3 {
-  margin: 20px calc(-1 * var(--px)) 0;
-  padding: 7px var(--px);
-  border-width: 1px 0;
-  border-bottom-color: var(--hair);
-  border-radius: 0;
-}
-
-main .overload > .defs + h3 {
-  margin-top: 0;
-  border-top-width: 0;
-}
-
-main .overload > h3 + .defs {
-  margin-top: 0;
-  margin-bottom: 0;
-  border-radius: 0;
 }
 
 .def dt {

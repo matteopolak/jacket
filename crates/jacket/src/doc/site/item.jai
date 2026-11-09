@@ -24,9 +24,7 @@ Overload :: (out: *Out, o: *Overload_View) {
 <section id="{esc(o.id)}"{if o.card} class="overload"{end}>
 {if o.label}<h2 class="overload-head"><a href="#{esc(o.id)}">{esc(o.label.*)}</a></h2>
 {else}<h2 class="sr">Signature</h2>{end}<pre class="sig"><code>{cast(Html) o.signature_html}</code></pre>
-{Segments(o.prose)}{if o.parameters.count}<h3>Parameters</h3>
-{Definitions(o.parameters)}{end}{if o.returns.count}<h3>Returns</h3>
-{Definitions(o.returns)}{end}{Segments(o.examples)}</section>
+{Segments(o.prose)}{if o.notes.count}{Definitions(o.notes)}{end}{Segments(o.examples)}</section>
 HTML
     );
 }

@@ -852,43 +852,31 @@ fn overload(
         .filter(|s| matches!(s, Segment::Code { .. }))
         .cloned()
         .collect();
-    let parameters = definitions(
-        site,
-        mi,
-        &o.params
-            .iter()
-            .map(|p| {
-                (
-                    if p.default.is_empty() {
-                        p.name.clone()
-                    } else {
-                        format!("{} := {}", p.name, p.default)
-                    },
-                    p.ty.clone(),
-                    p.doc.clone(),
-                    p.refs.clone(),
-                )
-            })
-            .collect::<Vec<_>>(),
-        "",
-    );
-    let returns = definitions(
-        site,
-        mi,
-        &o.returns
-            .iter()
-            .map(|p| (p.name.clone(), p.ty.clone(), p.doc.clone(), p.refs.clone()))
-            .collect::<Vec<_>>(),
-        "",
-    );
+    // The signature already shows every parameter and result; only what the docs say about one
+    // is added, as a name and its description.
+    let rows: Vec<_> = o
+        .params
+        .iter()
+        .map(|p| (p, ""))
+        .chain(o.returns.iter().map(|p| (p, "returns")))
+        .filter(|(p, _)| !p.doc.trim().is_empty())
+        .map(|(p, unnamed)| {
+            let name = if p.name.is_empty() {
+                unnamed
+            } else {
+                &p.name
+            };
+            (name.to_owned(), String::new(), p.doc.clone(), Vec::new())
+        })
+        .collect();
+    let notes = definitions(site, mi, &rows, "");
     OverloadView {
         id: format!("o{}", n + 1),
         label: (item.overloads.len() > 1).then(|| format!("overload {}", n + 1)),
         card: item.overloads.len() > 1,
         signature_html: signature_html(site, &item.name, o, mi),
         prose: segments(site, m, &o.file, o.line, &prose),
-        parameters,
-        returns,
+        notes,
         examples: segments(site, m, &o.file, o.line, &examples),
     }
 }

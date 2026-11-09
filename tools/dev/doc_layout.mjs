@@ -451,6 +451,19 @@ async function runCombo(tab, page, width, theme) {
     record('old slash URL', analyse(rec), { frames: frames(rec) });
   });
 
+  // An overload's signature is a band across its card, edge to edge.
+  await guard('overload signatures span their cards', async () => {
+    await tab.goto(url);
+    const bad = await tab.evaluate(`Array.from(document.querySelectorAll('.overload')).flatMap((card, n) => {
+      const sig = card.querySelector(':scope > pre.sig');
+      if (!sig) return [];
+      const c = card.getBoundingClientRect(), r = sig.getBoundingClientRect();
+      const gap = [r.left - (c.left + 1), (c.right - 1) - r.right].map(x => Math.round(x));
+      return gap.some(x => Math.abs(x) > 1) ? ['overload ' + (n + 1) + ': the signature is inset by ' + gap.join(' and ') + 'px'] : [];
+    })`);
+    record('overload signatures span their cards', bad);
+  });
+
   // In-page swaps start from a fresh load of the page.
   const swaps = async (prefix, expression, selfExpression) => {
     await guard(prefix, async () => {
@@ -532,6 +545,7 @@ async function pagesToCheck() {
     ['big module (Basic)', 'api/Basic'],
     ['big module (Io)', 'api/Extensions/Io'],
     ['item', 'api/Basic/print'],
+    ['procedure with overloads', 'api/Basic/array_add'],
     ['private type', 'api/Extensions/Io/Waiter'],
     ['404', '404.html'],
   ];

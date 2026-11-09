@@ -225,8 +225,7 @@ Overload_View :: struct {
     card: bool;
     signature_html: string;
     prose: [] Doc_Segment; @json(tag=kind,tags=html,example,code,group,compare)
-    parameters: [] Definition;
-    returns: [] Definition;
+    notes: [] Definition;
     examples: [] Doc_Segment; @json(tag=kind,tags=html,example,code,group,compare)
 }
 
