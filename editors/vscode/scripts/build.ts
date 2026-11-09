@@ -1,9 +1,8 @@
 // The extension's generated files and packaging steps, one subcommand each:
 //
-//   node scripts/build.ts icon [--check]      images/icon.{svg,png} and the two file icons, from one glyph:
-//                                             the playground's Jai file icon, a rounded tile with a `J` cut
-//                                             out (16x16 units, even-odd fill); PNG rendered with resvg
-//   node scripts/build.ts doc-image [--check]  1200×630 documentation social image from images/icon.svg
+//   node scripts/build.ts icon [--check]      images/icon.png, rendered with resvg from the hand-drawn
+//                                             images/icon.svg
+//   node scripts/build.ts doc-image [--check]  1200×630 documentation social image from docs/images/logo.svg
 //   node scripts/build.ts schemas [--check]   schemas/jacket.schema.json from jailint's
 //                                             rules (crates/jailint/src/rules) and the keys the
 //                                             config parsers accept, so a new rule or key is completed and
@@ -21,21 +20,18 @@ const repository = join(root, "..", "..");
 
 // ---- icon ------------------------------------------------------------------------------------
 
-const GLYPH =
-  "M4 1.5h8A2.5 2.5 0 0 1 14.5 4v8a2.5 2.5 0 0 1-2.5 2.5H4A2.5 2.5 0 0 1 1.5 12V4A2.5 2.5 0 0 1 4 1.5z " +
-  "M8.9 4.25h1.85V9.4a2.75 2.75 0 0 1-5.5 0h1.85a.9.9 0 0 0 1.8 0z";
-
-// The playground's red, oklch(63.259% 0.24086 31.631), and its icon colour,
-// color-mix(in oklch, red 62%, white): white has no hue, so the mix keeps the red's.
-const RED = { l: 0.63259, c: 0.24086, h: 31.631 };
-const ICON = { l: 0.62 * RED.l + 0.38 * 1, c: 0.62 * RED.c, h: RED.h };
+// images/icon.svg and the two file icons are drawn by hand; the PNG the marketplace shows is
+// rendered from icon.svg.
+async function iconPng() {
+  const { Resvg } = await import("@resvg/resvg-js");
+  return new Resvg(renderable(readFileSync(join(root, "images/icon.svg"), "utf8")), { fitTo: { mode: "width", value: 256 }, background: "rgba(0,0,0,0)" }).render().asPng();
+}
 
 // Linear-light sRGB channel to an 8-bit gamma-encoded one.
 function encode(x: number) {
   const v = Math.min(1, Math.max(0, x));
   return Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055));
 }
-
 export function oklchToHex({ l, c, h }: { l: number; c: number; h: number }) {
   const a = c * Math.cos((h * Math.PI) / 180);
   const b = c * Math.sin((h * Math.PI) / 180);
@@ -50,45 +46,31 @@ export function oklchToHex({ l, c, h }: { l: number; c: number; h: number }) {
   return "#" + linear.map((x) => encode(x).toString(16).padStart(2, "0")).join("");
 }
 
-const svg = (fill: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">` +
-  `<path fill="${fill}" fill-rule="evenodd" d="${GLYPH}"/></svg>\n`;
-
-const iconFiles = {
-  "images/icon.svg": svg(oklchToHex(ICON)),
-  "images/jai-file-dark.svg": svg(oklchToHex(ICON)),
-  // The light-theme file icon uses the full red: the pale icon colour fades on white.
-  "images/jai-file-light.svg": svg(oklchToHex(RED)),
-};
+// resvg does not read `oklch()` colours, so they are written as hex first.
+function renderable(svg: string) {
+  return svg.replace(/oklch\(([\d.]+)% ([\d.]+) ([\d.]+)\)/g, (_, l, c, h) =>
+    oklchToHex({ l: Number(l) / 100, c: Number(c), h: Number(h) }),
+  );
+}
 
 async function icon(check: boolean) {
+  const png = await iconPng();
+  const file = join(root, "images/icon.png");
   if (check) {
-    const stale = Object.entries(iconFiles).filter(([path, text]) => {
-      try {
-        return readFileSync(join(root, path), "utf8") !== text;
-      } catch {
-        return true;
-      }
-    });
-    if (stale.length) {
-      console.error(`stale: ${stale.map(([p]) => p).join(", ")}; run \`node scripts/build.ts icon\``);
+    if (!readFileSync(file).equals(png)) {
+      console.error("stale: images/icon.png; run `node scripts/build.ts icon`");
       process.exitCode = 1;
     }
   } else {
-    for (const [path, text] of Object.entries(iconFiles)) writeFileSync(join(root, path), text);
-    const { Resvg } = await import("@resvg/resvg-js");
-    const png = new Resvg(iconFiles["images/icon.svg"], { fitTo: { mode: "width", value: 256 }, background: "rgba(0,0,0,0)" })
-      .render()
-      .asPng();
-    writeFileSync(join(root, "images/icon.png"), png);
-    console.log(`icon colour ${oklchToHex(ICON)}; wrote ${Object.keys(iconFiles).join(", ")}, images/icon.png`);
+    writeFileSync(file, png);
+    console.log("wrote images/icon.png");
   }
 }
 
 async function docImage(check: boolean) {
   const { Resvg } = await import("@resvg/resvg-js");
-  const logo = readFileSync(join(root, "images/icon.svg"), "utf8");
-  const centered = logo.replace('<svg ', '<svg x="440" y="155" ').replace('width="16" height="16"', 'width="320" height="320"');
+  const logo = renderable(readFileSync(join(repository, "docs/images/logo.svg"), "utf8"));
+  const centered = logo.replace(/<svg ([^>]*?)width="[^"]*" height="[^"]*"/, '<svg x="440" y="155" $1width="320" height="320"');
   const page = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="#1b1b1f"/>${centered}</svg>`;
   const png = new Resvg(page).render().asPng();
   const file = join(root, "images/doc-og.png");
