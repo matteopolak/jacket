@@ -35,6 +35,7 @@
 | `Byte_Search` | vectorized `memchr`/`memmem` | [byte-search](byte-search.md) |
 | `Jai_Format` | the formatter behind `jaifmt` and the playground's Format button | [jaifmt](../tools/jaifmt.md) |
 | `WebGPU` | the standard `webgpu.h` API: wgpu-native natively, the page's WebGPU in the playground | [webgpu](webgpu.md) |
+| `Unicode_Text` | UCD 17.0.0 normalization and extended grapheme, word and sentence boundaries | [unicode-text](unicode-text.md) |
 | `Text_Buffer` | piece-table text buffer with lines, undo and redo, grapheme and word movement | [text-buffer](text-buffer.md) |
 | `UI` | native windows with our own WebGPU rendering, FreeType text, layout and a retained widget tree declared with `for` containers; headless for tests | [ui](ui.md), [editor example](ui-editor.md) |
 | `Desktop` | native menus, file dialogs and IME composition for `Window_Creation` windows on macOS and Windows; `@experimental` | [desktop](desktop.md) |

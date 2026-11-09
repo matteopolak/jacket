@@ -20,6 +20,8 @@
 
 #import "Basic";
 
+using,only(next_grapheme, previous_grapheme, grapheme_count) #import "Extensions/Unicode_Text";
+
 #load "graphemes.jai";
 #load "history.jai";
 

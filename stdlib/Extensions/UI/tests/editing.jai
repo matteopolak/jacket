@@ -279,3 +279,11 @@
         return test_clipboard;
     }
 }
+
+#if OS != .WASM {
+    malformed_text_hit_testing_progresses :: () {
+        ui := headless();
+        defer free_ui(*ui);
+        assert(index_at_x(*ui.text, "a\xFFb", .{ size = 10 }, 1000) == 3);
+    } @test
+}

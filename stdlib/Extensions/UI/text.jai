@@ -423,7 +423,10 @@ index_at_x :: (text: *Text_System, string_to_measure: string, style: Text_Style,
     previous: u32;
 
     while i < string_to_measure.count {
-        next := next_grapheme(string_to_measure, i);
+        next, error := next_grapheme(string_to_measure, i);
+        // The renderer replaces malformed bytes, so hit testing must still advance over them.
+        if error.kind != .NONE next = max(i + 1, next);
+
         j := i;
 
         while j < next {

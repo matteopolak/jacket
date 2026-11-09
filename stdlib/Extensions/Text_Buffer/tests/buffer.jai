@@ -207,3 +207,29 @@ words_move_by_class :: () {
     expect_equal(previous_word(text, 12), 9);
     expect_equal(previous_word(text, 9), 0);
 } @test
+
+ucd_graphemes_and_unbounded_reverse_context :: () {
+    // A spacing mark joins its base; ZWJ alone does not join arbitrary pictographs.
+    expect_equal(next_grapheme("काx", 0), 6);
+    expect_equal(next_grapheme("a‍😀", 0), 4);
+    b: String_Builder;
+
+    defer free_buffers(*b);
+    append(*b, "x");
+    for 1..40 append(*b, "́");
+
+    text := builder_to_string(*b);
+
+    defer free(text);
+    expect_equal(previous_grapheme(text, text.count), 0);
+    // Starting a fixed distance back loses parity in a long regional-indicator run.
+    flags: String_Builder;
+
+    defer free_buffers(*flags);
+    for 1..21 append(*flags, "🇦");
+
+    run := builder_to_string(*flags);
+
+    defer free(run);
+    expect_equal(previous_grapheme(run, run.count), 80);
+} @test
