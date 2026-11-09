@@ -15,6 +15,12 @@ pub fn enable(compiler: &mut Compiler, roots: Vec<jaic::ide::IdeRoot>) {
 }
 
 
+/// Keep what the lowered code says about which procedures only compile-time code reaches, before
+/// `Compiler::release_lowered_code` drops that code; lints answer from it afterwards.
+pub fn retain_compile_time_reach(compiler: &mut Compiler) {
+    crate::rules::retain_compile_time_reach(compiler);
+}
+
 /// Destructive profiling after all users of a compiler's lint facts have finished.
 /// The example installs `CountingAllocator` and uses one worker.
 pub(crate) fn profile_retained(compiler: &mut Compiler, root: &std::path::Path, complete: bool) {

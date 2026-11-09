@@ -20,6 +20,7 @@ mod captures;
 mod contracts;
 mod elements;
 mod execution;
+pub(crate) use execution::retain as retain_compile_time_reach;
 mod flow;
 mod global_destinations;
 mod indirect;

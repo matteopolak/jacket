@@ -61,6 +61,14 @@ impl IdeRoot {
     }
 }
 
+/// Which procedures only the compiler's own runs (`#run`, constant initializers) reach, and the
+/// callee each single-block run ends with.
+#[derive(Clone, Debug, Default)]
+pub struct CompileTimeReach {
+    pub only: HashSet<ProcId>,
+    pub finals: HashSet<crate::ir::FuncId>,
+}
+
 #[derive(Default)]
 pub struct IdeFacts {
     /// Per-analysis missing filesystem discovery; never a placeholder or failed module body.
@@ -175,6 +183,9 @@ pub struct IdeFacts {
     pub lifetime_globals: HashMap<crate::ir::GlobalId, Vec<crate::ir::Reloc>>,
     /// Procedure-slot initializers retained before executable global data is released.
     pub lifetime_procedure_globals: HashMap<crate::ir::GlobalId, (bool, Vec<crate::ir::Reloc>)>,
+    /// What compile-time code reaches, kept before the lowered bodies it is read from are
+    /// released.
+    pub lifetime_reach: Option<CompileTimeReach>,
     pub(crate) lifetime_files: HashMap<FileId, Vec<ProcId>>,
     /// Workspace trust is withheld: no compile-time code runs (`call_thunk` refuses with
     /// `DiagnosticKind::Untrusted`), so `#run` results, computed `#insert`s and build
@@ -397,6 +408,7 @@ impl IdeFacts {
         self.lifetime_bodies = HashMap::default();
         self.lifetime_globals = HashMap::default();
         self.lifetime_procedure_globals = HashMap::default();
+        self.lifetime_reach = None;
         self.lifetime_files = HashMap::default();
     }
 

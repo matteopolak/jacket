@@ -20,6 +20,7 @@ mod lifetime_summary;
 mod lifetime_targets;
 mod local_scopes;
 
+pub(crate) use lifetime_summary::retain_compile_time_reach;
 pub(crate) use unused_parameter::RunState;
 
 pub struct RuleInfo {

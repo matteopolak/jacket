@@ -2,6 +2,7 @@
 //! Procedure values and global relocations participate, so freezing a callback does
 //! not make its later runtime calls inherit compile-time storage semantics.
 use super::{Compiler, HashSet, ProcId};
+use jaic::ide::CompileTimeReach;
 use jaic::ir::{self, Callee, FuncId, GlobalId, Inst};
 use jaic::sema::procs::ProcTarget;
 
@@ -55,11 +56,18 @@ fn reachable(program: &ir::Program, roots: impl IntoIterator<Item = Node>) -> Ha
     seen
 }
 
-pub(super) fn compile_time_only(
-    compiler: &Compiler,
-    targets: &crate::rules::lifetime_targets::Universe,
-    entry_module: Option<jaic::sema::ModuleId>,
-) -> (HashSet<ProcId>, HashSet<ProcId>) {
+/// Keeps what the lowered bodies say about compile-time code in the compiler's facts, for a
+/// compile that releases them before it is linted.
+pub(crate) fn retain(compiler: &mut Compiler) {
+    let kept = reach(compiler, None);
+    if let Some(facts) = compiler.ed.facts_mut() {
+        facts.lifetime_reach = Some(kept);
+    }
+}
+
+/// The procedures only compile-time code reaches, and the callee each single-block run ends
+/// with, from the lowered bodies.
+fn reach(compiler: &Compiler, entry_module: Option<jaic::sema::ModuleId>) -> CompileTimeReach {
     let program = &compiler.out.program;
     let host = reachable(
         program,
@@ -150,6 +158,25 @@ pub(super) fn compile_time_only(
                 .flatten()
         })
         .collect();
+    CompileTimeReach {
+        only,
+        finals: roots,
+    }
+}
+
+pub(super) fn compile_time_only(
+    compiler: &Compiler,
+    targets: &crate::rules::lifetime_targets::Universe,
+    entry_module: Option<jaic::sema::ModuleId>,
+) -> (HashSet<ProcId>, HashSet<ProcId>) {
+    let CompileTimeReach {
+        only,
+        finals: roots,
+    } = compiler
+        .ed
+        .facts()
+        .and_then(|facts| facts.lifetime_reach.clone())
+        .unwrap_or_else(|| reach(compiler, entry_module));
     let mut nested = HashSet::default();
     if let Some(facts) = compiler.ed.facts() {
         for body in facts.lifetime_bodies.values() {

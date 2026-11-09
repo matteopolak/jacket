@@ -28,8 +28,8 @@ mod values;
 pub use self::editor::Editor;
 pub(crate) use self::editor::StmtRecovery;
 pub use self::facts::{
-    IdeCall, IdeCast, IdeExprFact, IdeFacts, IdeFieldSite, IdeHover, IdeKind, IdeLayout, IdeName,
-    IdeReceiver, IdeRef, IdeRoot, IdeWhat, SketchMark,
+    CompileTimeReach, IdeCall, IdeCast, IdeExprFact, IdeFacts, IdeFieldSite, IdeHover, IdeKind,
+    IdeLayout, IdeName, IdeReceiver, IdeRef, IdeRoot, IdeWhat, SketchMark,
 };
 pub(crate) use self::member_notes::for_header_types;
 pub(crate) use self::recorder::Recorder;

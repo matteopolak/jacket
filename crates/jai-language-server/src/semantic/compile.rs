@@ -354,9 +354,12 @@ pub(super) fn compile(
     // Compile-time code is over once everything is checked. Each program holds the build
     // state, which would otherwise outlive the compile by hundreds of MB.
     // Nothing runs the lowered bodies either: hovers and lints answer from the facts.
+    // Lints still need which procedures only compile-time code reaches.
+    jailint::facts::retain_compile_time_reach(&mut compiler);
     compiler.release_build_state();
     compiler.release_lowered_code();
     for other in &mut others {
+        jailint::facts::retain_compile_time_reach(&mut other.compiler);
         other.compiler.release_build_state();
         other.compiler.release_lowered_code();
     }
