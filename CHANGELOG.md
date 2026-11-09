@@ -4,6 +4,7 @@
 
 ### New
 
+- `jacket doc` documents what a module's public top-level `#insert` declares, from the text it produces with the module's default parameters. Those items carry a "generated" tag on pages, module rows and in search, and `--check` fails when one has no docs.
 - `Extensions/Csv`: streaming CSV reader and writer with limits, error positions and typed rows from structs (`@csv(name=...)`).
 - `Extensions/Time`: dates, clock readings and exact instants, IANA zones from TZif and POSIX rules with DST gap and fold handling, calendar-aware spans with rounding, ISO and pattern text, and Json and `Basic` interop.
 - `Extensions/Toml` reads and writes TOML 1.1, including table and array-of-table headers, and decodes structs directly (fixed-size arrays and `[[x]]` tables into slices too); `jaifmt` uses it to parse configuration.
@@ -40,7 +41,7 @@
 - The language server merges diagnostics for a file shared by several programs, cancels unfinished pulls and notices files changed on disk.
 - `jacket doc` no longer links a name in `#run`, `#place` or another value directive's operand in a declaration to a same-named type.
 - `jacket doc` search results show every overload's signature, not only the first.
-- `jacket doc` warns, with file and line, about a public top-level `#insert`: what it declares is not documented, because the model reads source and never runs it.
+- `jacket doc` warns, with file, line and reason, about a public top-level `#insert` it could not expand. One that expands to nothing is silent.
 - `jacket doc` keeps comments in a struct, union or enum declaration that are not a field's docs, such as one on a nested type alias or a closing note.
 - `jacket doc` shows every `#if` variant of a declaration on module pages and in search, uses the right import path for a module documented by its folder, leaves `benches/` out of a module's docs, keeps the sidebar open when the window widens, and says when git is missing or the library isn't in a checkout.
 - `Hash_Map` rebuild threshold, glTF skin validation and `jaifmt` setting migration.
