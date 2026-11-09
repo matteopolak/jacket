@@ -19,11 +19,11 @@ Rect :: struct {
 
 Doc :: struct {
     internal: Variant(Circle, Rect); @json(tag=kind)
-    adjacent: Variant(Circle, Rect); @json(tag=t,content=c)
+    adjacent: Variant(Circle, Rect); @json(tag = t, content = c)
     untagged: Variant(Circle, Rect); @json(untagged)
     named: Variant(Circle, Rect); @json(tags=a,b)
     list: [..] Variant(Circle, Rect); @json(tag=kind)
-    by_name: Table(string, Variant(Circle, Rect)); @json(tags=c,r)
+    by_name: Table(string, Variant(Circle, Rect)); @json(tags = c, r)
 }
 
 main :: () {

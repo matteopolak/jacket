@@ -181,12 +181,15 @@ read_options :: (notes: [] string) -> [..] Option {
                 after = "";
             }
 
+            // Spaces after commas and around `=` are allowed: `@json(skip, rename = "id")`.
+            piece = trim(piece);
+
             option: Option;
             equals := find_index_from_left(piece, #char "=");
 
             if equals >= 0 {
-                option.name = slice(piece, 0, equals);
-                option.value = slice(piece, equals + 1, piece.count - equals - 1);
+                option.name = trim(slice(piece, 0, equals));
+                option.value = trim(slice(piece, equals + 1, piece.count - equals - 1));
                 option.has_value = true;
                 if begins_with(option.value, "\"") {
                     option.quoted = true;
@@ -202,8 +205,9 @@ read_options :: (notes: [] string) -> [..] Option {
 
             // `tags=circle,rect` is one option whose value has commas.
             if !option.has_value && options.count && options[options.count - 1].name == "tags" {
+                // Widen the value to the end of this name; the spaces between are trimmed per name.
                 names := *options[options.count - 1].value;
-                names.* = string.{ names.count + 1 + piece.count, names.data };
+                names.* = string.{ piece.data + piece.count - names.data, names.data };
             } else if option.name.count {
                 array_add(*options, option);
             }
@@ -398,6 +402,8 @@ read_leaf :: (plan: *Plan, leaf: *Leaf, member: *Type_Info_Struct_Member, struct
                     found, piece, after := split_from_left(rest, #char ",");
 
                     if !found piece = rest;
+
+                    piece = trim(piece);
 
                     if !piece.count {
                         complain(plan.type_name, member.name, "`tags=` has an empty tag name");

@@ -54,6 +54,12 @@ Holder :: struct {
     name: string;
 }
 
+// Notes may put spaces after commas and around `=`.
+Spaced :: struct {
+    secret := 7; @json(skip_serializing, default)
+    name: string; @json(rename = "n", alias = full_name)
+}
+
 within :: (inner: string, text: string) -> bool {
     return inner.data >= text.data && inner.data + inner.count <= text.data + text.count;
 }
@@ -356,6 +362,18 @@ paths :: () {
     check(json_path_text(error) == "$.\"q\\\"x\"[3].k_1", tprint("escaped quote: %", json_path_text(error)));
 }
 
+spaced_notes :: () {
+    value, error := from_json(Spaced, "{\"full_name\":\"x\"}");
+
+    check(error.kind == .NONE && value.name == "x" && value.secret == 7, tprint("spaced notes decode: %", error.message));
+
+    text := to_json(Spaced.{ secret = 1, name = "y" });
+
+    check(text == "{\"n\":\"y\"}", tprint("spaced notes encode: %", text));
+    free(text);
+    free_json(*value);
+}
+
 main :: () {
     for pass: 0..1 {
         json_use_simd = pass == 1;
@@ -367,6 +385,7 @@ main :: () {
         borrowing();
         maybe();
         paths();
+        spaced_notes();
     }
 
     assert(failures == 0);
