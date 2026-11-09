@@ -110,6 +110,34 @@ restart :: (holder: *Holder) {
     free(holder);
 }
 
+Inner :: struct {
+    data: *s32;
+    scroll: s32;
+}
+
+Outer :: struct {
+    id: s64;
+    inner: Inner;
+}
+
+drop_inner_data :: (inner: *Inner) {
+    free(inner.data);
+}
+
+// Frees the storage one level further down: the other members of `inner` stay usable.
+drop_outer_data :: (outer: *Outer) {
+    drop_inner_data(*outer.inner);
+}
+
+nested_member_after_drop :: () {
+    outer := New(Outer);
+    outer.inner.scroll = 3;
+
+    drop_outer_data(outer);
+    outer.inner.scroll = 4;
+    print("%\n", outer.inner.scroll);
+}
+
 main :: () {
     // A new value ends the freed one.
     node := New(Node);

@@ -59,45 +59,60 @@ error[use_after_free]: `holder` is used after the call above freed it
    = note: `use_after_free` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
+error[use_after_free]: `outer` is used after the call above freed it
+   --> tests/lint/use_after_free/bad.jai:100:18
+    |
+ 96 |     outer := New(Outer);
+    |              ---------- storage derived here
+    ...
+ 99 |     drop_outer_data(outer);
+    |     ---------------------- storage invalidated here
+100 |     print("%\n", outer.inner.data);
+    |                  ^^^^^
+    |
+    = help: free it after its last use, or give it a new value before using it again
+    = note: `use_after_free` is `deny` by default
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
+
 error[use_after_free]: `node` is used after the call above freed it
-  --> tests/lint/use_after_free/bad.jai:82:34
-   |
-78 |     node := New(Node);
-   |             --------- storage derived here
-   ...
-81 |     free(node);
-   |     ---------- storage invalidated here
-82 |     print("freed node held %\n", node.value);
-   |                                  ^^^^
-   |
-   = help: free it after its last use, or give it a new value before using it again
-   = note: `use_after_free` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
+   --> tests/lint/use_after_free/bad.jai:108:34
+    |
+104 |     node := New(Node);
+    |             --------- storage derived here
+    ...
+107 |     free(node);
+    |     ---------- storage invalidated here
+108 |     print("freed node held %\n", node.value);
+    |                                  ^^^^
+    |
+    = help: free it after its last use, or give it a new value before using it again
+    = note: `use_after_free` is `deny` by default
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 error[use_after_free]: `text` is used after the call above freed it
-  --> tests/lint/use_after_free/bad.jai:87:18
-   |
-84 |     text := copy_string("hello");
-   |             -------------------- storage derived here
-   ...
-86 |     free(text);
-   |     ---------- storage invalidated here
-87 |     print("%\n", text);
-   |                  ^^^^
-   |
-   = help: free it after its last use, or give it a new value before using it again
-   = note: `use_after_free` is `deny` by default
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
+   --> tests/lint/use_after_free/bad.jai:113:18
+    |
+110 |     text := copy_string("hello");
+    |             -------------------- storage derived here
+    ...
+112 |     free(text);
+    |     ---------- storage invalidated here
+113 |     print("%\n", text);
+    |                  ^^^^
+    |
+    = help: free it after its last use, or give it a new value before using it again
+    = note: `use_after_free` is `deny` by default
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 error[use_after_free]: `other` is used after the call above freed it
-   --> tests/lint/use_after_free/bad.jai:92:12
+   --> tests/lint/use_after_free/bad.jai:118:12
     |
- 89 |     other := New(Node);
+115 |     other := New(Node);
     |              --------- storage derived here
     ...
- 91 |     free(other);
+117 |     free(other);
     |     ----------- storage invalidated here
- 92 |     report(other);
+118 |     report(other);
     |            ^^^^^
     |
     = help: free it after its last use, or give it a new value before using it again

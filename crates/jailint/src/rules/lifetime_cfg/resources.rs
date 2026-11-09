@@ -54,8 +54,8 @@ pub(super) enum Op {
         callee: ProcId,
         /// Only what the value owns is released, so the value itself stays usable.
         contents: bool,
-        /// With `contents`, the members holding the released storage; `None` means unknown.
-        fields: Option<Vec<jaic::intern::Sym>>,
+        /// With `contents`, the member chains holding the released storage; `None` means unknown.
+        fields: Option<Vec<Vec<jaic::intern::Sym>>>,
     },
     FreeRegion {
         region: usize,

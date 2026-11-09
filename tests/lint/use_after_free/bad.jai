@@ -74,6 +74,32 @@ rename :: (holder: *Holder) {
     print("was %\n", holder.name);
 }
 
+Inner :: struct {
+    data: *s32;
+    scroll: s32;
+}
+
+Outer :: struct {
+    id: s64;
+    inner: Inner;
+}
+
+drop_inner_data :: (inner: *Inner) {
+    free(inner.data);
+}
+
+drop_outer_data :: (outer: *Outer) {
+    drop_inner_data(*outer.inner);
+}
+
+nested_member_after_drop :: () {
+    outer := New(Outer);
+    outer.inner.data = New(s32);
+
+    drop_outer_data(outer);
+    print("%\n", outer.inner.data);
+}
+
 main :: () {
     node := New(Node);
     node.value = 3;

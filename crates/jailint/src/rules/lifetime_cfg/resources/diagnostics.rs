@@ -175,7 +175,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                     ..
                 }) = &block.op
                     && let Some(before) = released_members(model, &witnesses)
-                    && !now.iter().any(|f| before.contains(f))
+                    && !now.iter().any(|f| before.iter().any(|b| overlaps(b, f)))
                 {
                     continue;
                 }
@@ -296,9 +296,16 @@ fn keeps_use(
     {
         return true;
     }
-    released_members(model, witnesses)
-        .zip(used_member(suffix, true).or_else(|| used_member(&text[at.start as usize..], false)))
-        .is_some_and(|(freed, member)| !freed.iter().any(|f| f.as_str() == member))
+    let mut used = used_members(suffix, true);
+    if used.is_empty() {
+        used = used_members(&text[at.start as usize..], false);
+    }
+    !used.is_empty()
+        && released_members(model, witnesses).is_some_and(|freed| {
+            !freed
+                .iter()
+                .any(|chain| overlaps(&chain.iter().map(|s| s.as_str()).collect::<Vec<_>>(), &used))
+        })
 }
 
 impl Proof<'_> {
@@ -1066,9 +1073,12 @@ fn entrypoint_activation(cx: &Cx, body: &LifetimeBody) -> bool {
     })
 }
 
-/// The members that every witness released, when each one released only named members of its
-/// argument.
-fn released_members(model: &Model, witnesses: &[(usize, Span)]) -> Option<Vec<jaic::intern::Sym>> {
+/// The member chains that every witness released, when each one released only named members of
+/// its argument.
+fn released_members(
+    model: &Model,
+    witnesses: &[(usize, Span)],
+) -> Option<Vec<Vec<jaic::intern::Sym>>> {
     let mut all = Vec::new();
     for (j, _) in witnesses {
         let CfgOp::Resource(Op::Free {
@@ -1079,24 +1089,38 @@ fn released_members(model: &Model, witnesses: &[(usize, Span)]) -> Option<Vec<ja
         else {
             return None;
         };
-        all.extend(fields.iter().copied());
+        all.extend(fields.iter().cloned());
     }
     (!all.is_empty()).then_some(all)
 }
 
-/// The member read next in `text`: with `after`, `text` follows the used expression (`.names`);
-/// otherwise it starts with a variable (`*r.names`).
-fn used_member(text: &str, after: bool) -> Option<&str> {
+/// Whether two member chains name storage that can overlap: one is the other or lies inside it.
+/// Chains that name different members at some level cannot (`bar.data` and `bar.scroll`).
+fn overlaps<S: PartialEq<T>, T>(freed: &[S], used: &[T]) -> bool {
+    freed.iter().zip(used).all(|(a, b)| a == b)
+}
+
+/// The members read next in `text`, outermost first: with `after`, `text` follows the used
+/// expression (`.bar.names`); otherwise it starts with a variable (`*r.bar.names`).
+fn used_members(text: &str, after: bool) -> Vec<&str> {
     let ident = |t: &str| {
         t.find(|c: char| !(c.is_alphanumeric() || c == '_'))
             .unwrap_or(t.len())
     };
-    let rest = if after {
-        text.strip_prefix('.')?
+    let mut rest = if after {
+        text
     } else {
         let text = text.trim_start_matches(['*', '&']);
-        text[ident(text)..].strip_prefix('.')?
+        &text[ident(text)..]
     };
-    let member = &rest[..ident(rest)];
-    (!member.is_empty()).then_some(member)
+    let mut chain = Vec::new();
+    while let Some(next) = rest.strip_prefix('.') {
+        let member = &next[..ident(next)];
+        if member.is_empty() {
+            break;
+        }
+        chain.push(member);
+        rest = &next[member.len()..];
+    }
+    chain
 }

@@ -10,9 +10,10 @@ use jaic::intern::Sym;
 /// Storage owned through one parameter that every normal return has freed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(in crate::rules) struct Contents {
-    /// The members of the argument that hold the freed storage, or `None` when the freed
-    /// storage is reached some other way (through a pointer argument, an element).
-    pub fields: Option<Vec<Sym>>,
+    /// The members of the argument that hold the freed storage, each as the chain of member
+    /// names down to the freed pointer (`[bar, data]` for `free(a.bar.data)`), or `None` when
+    /// the freed storage is reached some other way (through a pointer argument, an element).
+    pub fields: Option<Vec<Vec<Sym>>>,
     /// The call also writes over every place it freed, so the argument is usable again.
     pub reset: bool,
 }
@@ -45,10 +46,18 @@ impl Summary {
         }
         let mut fields = Some(Vec::new());
         for path in &freed {
-            match (path.steps.first(), &mut fields) {
-                (Some(Step::Field(name)), Some(names)) => {
-                    if !names.contains(name) {
-                        names.push(*name);
+            let chain: Vec<Sym> = path
+                .steps
+                .iter()
+                .map_while(|step| match step {
+                    Step::Field(name) => Some(*name),
+                    _ => None,
+                })
+                .collect();
+            match &mut fields {
+                Some(chains) if !chain.is_empty() => {
+                    if !chains.contains(&chain) {
+                        chains.push(chain);
                     }
                 }
                 _ => fields = None,
