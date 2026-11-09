@@ -85,6 +85,12 @@ Gltf_Resolver :: struct {
 // A loaded asset: the decoded `document` plus the bytes of each of its buffers, in the document's
 // order. Owned; release it with [gltf_free].
 //
+// An asset can also be built by hand, starting from `Gltf_Asset.{}`. [gltf_free] releases the
+// document's strings and arrays as `free_json` does, so a hand-built document must hold allocated
+// ones (use `copy_string`), with one exception: `extensions_used` and `extensions_required` may be
+// literals. They are borrowed until [gltf_use_extension] changes them, which copies them into storage
+// the asset owns.
+//
 // ```jai
 // asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":4,\"uri\":\"data:application/octet-stream;base64,AAAAAA==\"}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":4,\"target\":34962}]}");
 // assert(error.kind == .NONE);
@@ -96,6 +102,7 @@ Gltf_Asset :: struct {
     document: Gltf_Document;
     buffers: [..] string;
     parents: [..] s64; // each node's parent, or -1; built by validation for [gltf_node_world]
+    owns_extension_lists: bool; // `extensions_used` and `extensions_required` are the asset's to free, not borrowed
 }
 
 // A position in an accessor's elements, for [gltf_next_floats] and [gltf_next_index]. Start one
@@ -178,6 +185,7 @@ gltf_load :: (bytes: string, resolver := Gltf_Resolver.{}, options := Gltf_Optio
     }
 
     result.document = doc;
+    result.owns_extension_lists = true;
     shape, shape_error := from_json(Json_Value, text, opts);
     if shape_error.kind != .NONE {
         gltf_free(*result);
@@ -280,6 +288,12 @@ gltf_free :: (asset: *Gltf_Asset) {
 
     array_free(asset.buffers);
     array_free(asset.parents);
+
+    if !asset.owns_extension_lists {
+        asset.document.extensions_used = .{};
+        asset.document.extensions_required = .{};
+    }
+
     free_json(*asset.document);
     asset.* = .{};
 }

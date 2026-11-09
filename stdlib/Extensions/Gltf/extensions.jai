@@ -60,8 +60,9 @@ gltf_set_extension :: (extensions: *Json_Value, name: string, value: $T) -> Gltf
     return .{};
 }
 
-// Add `name` to the `extensionsUsed` of a loaded asset unless it is there. A written asset must
-// list every extension its objects use; do this before [gltf_set_extension] adds a new one.
+// Add `name` to the `extensionsUsed` of an asset unless it is there. A written asset must list every
+// extension its objects use; do this before [gltf_set_extension] adds a new one. Works on a loaded
+// asset and on one built by hand, whose literal lists are copied (see [Gltf_Asset]).
 //
 // ```jai
 // asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"materials\":[{}]}");
@@ -72,6 +73,8 @@ gltf_set_extension :: (extensions: *Json_Value, name: string, value: $T) -> Gltf
 // assert(asset.document.extensions_used.count == 1);
 // ```
 gltf_use_extension :: (asset: *Gltf_Asset, name: string) {
+    own_extension_lists(asset);
+
     used := *asset.document.extensions_used;
 
     for used.* if it == name return;
@@ -88,6 +91,31 @@ gltf_use_extension :: (asset: *Gltf_Asset, name: string) {
     used.data = list.data;
     used.count = list.count;
 }
+
+#scope_file
+
+// Makes the asset the owner of its extension lists: a borrowed list is replaced by a copy.
+own_extension_lists :: (asset: *Gltf_Asset) {
+    if asset.owns_extension_lists return;
+
+    asset.document.extensions_used = copy_names(asset.document.extensions_used);
+    asset.document.extensions_required = copy_names(asset.document.extensions_required);
+    asset.owns_extension_lists = true;
+}
+
+copy_names :: (names: [] string) -> [] string {
+    if !names.count return .{};
+
+    list: [..] string;
+
+    array_reserve(*list, names.count);
+
+    for names array_add(*list, copy_string(it));
+
+    return list;
+}
+
+#scope_export
 
 // KHR_materials_emissive_strength: scales `emissive_factor` beyond 1. Read it from `material.extensions`.
 //

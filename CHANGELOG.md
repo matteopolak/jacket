@@ -30,6 +30,7 @@
 
 ### Fixed
 
+- `Extensions/Gltf`: `gltf_use_extension` no longer frees a literal `extensions_used` list on an asset built by hand, and `gltf_free` frees such an asset. `Gltf_Asset` has an `owns_extension_lists` flag that says whether the lists are borrowed.
 - A body whose `#insert` or other compile-time code failed is no longer lowered again, re-running that code, on every later lenient lowering round (a metaprogram that keeps asking for more lowering); it is retried only once something it could be waiting for changed.
 - A constant read from `#run` memory no longer embeds host addresses: a `*void` or a union member pointing at compile-time heap memory is now null, so identical builds produce identical output.
 - A default value of the wrong type in a struct nothing uses is reported.

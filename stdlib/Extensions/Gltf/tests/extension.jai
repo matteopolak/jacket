@@ -1,4 +1,5 @@
 #scope_file
+#import "Basic";
 #import "Math";
 #import "Extensions/Json";
 #import "Extensions/Testing";
@@ -315,4 +316,43 @@ surface_extensions :: () {
     expect(read_volume.attenuation_distance.state == .MISSING && read_volume.thickness_factor == 0.5);
     expect(read_sheen.sheen_color_factor[1] == 0.5 && read_sheen.sheen_color_texture != null);
     expect(still_unlit);
+} @test
+
+// An asset assembled by hand, not loaded: its strings are copies, and `extensions_used` starts empty.
+hand_built_asset_uses_an_extension :: () {
+    asset: Gltf_Asset;
+
+    asset.document.asset.version = copy_string("2.0");
+    defer gltf_free(*asset);
+
+    gltf_use_extension(*asset, "KHR_materials_ior");
+    gltf_use_extension(*asset, "KHR_materials_unlit");
+    gltf_use_extension(*asset, "KHR_materials_ior");
+
+    require(asset.document.extensions_used.count == 2);
+    expect_equal(asset.document.extensions_used[0], "KHR_materials_ior");
+    expect_equal(asset.document.extensions_used[1], "KHR_materials_unlit");
+} @test
+
+// Lists a caller wrote as literals are borrowed: freeing the asset leaves them alone, and the first
+// change copies them.
+hand_built_asset_borrows_literal_lists :: () {
+    untouched: Gltf_Asset;
+
+    untouched.document.asset.version = copy_string("2.0");
+    untouched.document.extensions_used = .["KHR_materials_ior"];
+    untouched.document.extensions_required = .["KHR_materials_ior"];
+    gltf_free(*untouched);
+
+    asset: Gltf_Asset;
+
+    asset.document.asset.version = copy_string("2.0");
+    asset.document.extensions_used = .["KHR_materials_ior"];
+    defer gltf_free(*asset);
+
+    gltf_use_extension(*asset, "KHR_materials_unlit");
+
+    require(asset.document.extensions_used.count == 2);
+    expect_equal(asset.document.extensions_used[0], "KHR_materials_ior");
+    expect_equal(asset.document.extensions_used[1], "KHR_materials_unlit");
 } @test
