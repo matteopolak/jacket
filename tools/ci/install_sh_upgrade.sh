@@ -2,8 +2,10 @@
 # Installs the previous release with install.sh, then the latest through a pipe, and checks the layout.
 # Needs GH_TOKEN; run from the checkout.
 set -e
-previous="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --json tagName -q '.[1].tagName')"
 latest="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"
+# The stable release just before the latest; the list can briefly hold newer test releases.
+previous="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --json tagName \
+  -q "map(.tagName) | index(\"$latest\") as \$i | if \$i then .[\$i + 1] // empty else empty end")"
 echo "previous=$previous latest=$latest"
 # With a single release there is nothing to upgrade from; install the latest only.
 if [ -n "$previous" ]; then
