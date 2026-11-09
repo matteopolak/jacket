@@ -215,7 +215,8 @@ toml_count_node :: (w: *Toml_Writer, node: *Toml_Value, depth: int) -> bool {
     return true;
 }
 
-// Counts one scalar against the node limit; false once the writer has failed.
+// Counts one scalar against the node and depth limits, at the depth of the table or array it
+// sits in; false once the writer has failed.
 toml_count_leaf :: (w: *Toml_Writer) -> bool {
     if w.error.kind != .NONE return false;
 
@@ -223,6 +224,11 @@ toml_count_leaf :: (w: *Toml_Writer) -> bool {
 
     if w.nodes > w.options.max_nodes {
         toml_write_fail(w, .LIMIT, "writer node limit exceeded");
+        return false;
+    }
+
+    if w.depth > w.options.max_depth {
+        toml_write_fail(w, .LIMIT, "writer nesting limit exceeded");
         return false;
     }
 
@@ -799,7 +805,9 @@ toml_encode_text :: (value: *$T, options: Toml_Options) -> string, Toml_Error {
     return builder_to_string(*writer.builder), .{};
 }
 
-// Counts one table or array against the node and depth limits; pair with toml_end_value.
+// Counts one table or array against the node and depth limits; pair with toml_end_value. The
+// root table is at depth zero and what it holds one deeper, as in `write_toml`; `w.depth` is the
+// depth of the values inside the one just begun.
 toml_begin_value :: (w: *Toml_Writer) -> bool {
     if w.error.kind != .NONE return false;
 
@@ -810,12 +818,12 @@ toml_begin_value :: (w: *Toml_Writer) -> bool {
         return false;
     }
 
-    w.depth += 1;
-
     if w.depth > w.options.max_depth {
         toml_write_fail(w, .LIMIT, "writer nesting limit exceeded");
         return false;
     }
+
+    w.depth += 1;
 
     return true;
 }
@@ -865,7 +873,7 @@ toml_write_datetime :: (w: *Toml_Writer, value: *Toml_Datetime) {
 
     node.kind = value.kind;
     node.temporal = value.value;
-    toml_write_value(w, *node, 0);
+    toml_write_value(w, *node, w.depth);
 }
 
 toml_write_fail :: (w: *Toml_Writer, kind: Toml_Error_Kind, message: string) {
