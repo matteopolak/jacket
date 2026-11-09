@@ -1043,7 +1043,7 @@ fn solve(
         model,
         kind: origin_kind,
         seed,
-        origin,
+        origin: allocation_site(model, seed).unwrap_or(origin),
         region,
         relevant: &relevant,
         states: &states,
@@ -1051,6 +1051,39 @@ fn solve(
     emit(proof, out);
     retained::emit(proof, &tokens, out);
     true
+}
+
+/// Where the pointer a load reads came from: the one allocating call whose result is stored
+/// into the loaded place. Only labels use it; the proof is unchanged.
+fn allocation_site(model: &Model, seed: usize) -> Option<Span> {
+    let CfgOp::PointerLoad(_, source, ..) = model.blocks[seed].op else {
+        return None;
+    };
+    let mut stored = model
+        .blocks
+        .iter()
+        .filter_map(|b| match &b.op {
+            CfgOp::Copy(pairs) => Some(pairs),
+            _ => None,
+        })
+        .flatten()
+        .filter(|(target, _)| *target == source)
+        .map(|(_, from)| *from);
+    let from = stored.next()?;
+    if stored.next().is_some() {
+        return None;
+    }
+    let mut seeds = model.blocks.iter().filter_map(|b| match b.op {
+        CfgOp::Resource(Op::Seed {
+            cell,
+            origin: Origin::Heap,
+            span,
+            ..
+        }) if cell == from => Some(span),
+        _ => None,
+    });
+    let site = seeds.next()?;
+    seeds.next().is_none().then_some(site)
 }
 
 fn kills(

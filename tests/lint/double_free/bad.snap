@@ -58,8 +58,10 @@ help: remove the second call, or assign `items` a new value in between
 error[double_free]: `holder` is freed a second time
   --> tests/lint/double_free/bad.jai:45:5
    |
+41 |     holder := New(Holder);
+   |               ----------- storage derived here
+   ...
 44 |     release_name(holder);
-   |     -------------------- storage derived here
    |     -------------------- storage invalidated here
 45 |     release_name(holder);
    |     ^^^^^^^^^^^^^^^^^^^^
@@ -74,8 +76,10 @@ help: remove the second call, or assign `holder` a new value in between
 error[double_free]: `holder` is freed a second time
   --> tests/lint/double_free/bad.jai:53:5
    |
+49 |     holder := New(Holder);
+   |               ----------- storage derived here
+   ...
 52 |     release_all(holder);
-   |     ------------------- storage derived here
    |     ------------------- storage invalidated here
 53 |     release_all(holder);
    |     ^^^^^^^^^^^^^^^^^^^

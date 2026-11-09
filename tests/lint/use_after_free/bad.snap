@@ -4,8 +4,10 @@ source: crates/jailint/tests/rules.rs
 error[use_after_free]: `registry` is used after the call above freed it
   --> tests/lint/use_after_free/bad.jai:52:18
    |
+48 |     registry := New(Registry);
+   |                 ------------- storage derived here
+   ...
 51 |     drop_all(registry);
-   |     ------------------ storage derived here
    |     ------------------ storage invalidated here
 52 |     print("%\n", registry.label);
    |                  ^^^^^^^^
@@ -32,8 +34,10 @@ error[use_after_free]: `registry.label` is used after the call above freed it
 error[use_after_free]: `block` is used after the call above freed it
   --> tests/lint/use_after_free/bad.jai:69:18
    |
+64 |     block := New(Block);
+   |              ---------- storage derived here
+   ...
 68 |     drop_block(block);
-   |     ----------------- storage derived here
    |     ----------------- storage invalidated here
 69 |     print("%\n", block.storage);
    |                  ^^^^^
@@ -58,9 +62,11 @@ error[use_after_free]: `holder` is used after the call above freed it
 error[use_after_free]: `node` is used after the call above freed it
   --> tests/lint/use_after_free/bad.jai:82:34
    |
+78 |     node := New(Node);
+   |             --------- storage derived here
+   ...
 81 |     free(node);
    |     ---------- storage invalidated here
-   |          ---- storage derived here
 82 |     print("freed node held %\n", node.value);
    |                                  ^^^^
    |

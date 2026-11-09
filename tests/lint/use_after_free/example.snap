@@ -4,9 +4,11 @@ source: crates/jailint/tests/rules.rs
 error[use_after_free]: `node` is used after the call above freed it
   --> tests/lint/use_after_free/example.jai:12:18
    |
+ 8 |     node := New(Node);
+   |             --------- storage derived here
+   ...
 11 |     free(node);
    |     ---------- storage invalidated here
-   |          ---- storage derived here
 12 |     print("%\n", node.value);
    |                  ^^^^
    |
