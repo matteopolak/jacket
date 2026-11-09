@@ -1,0 +1,23 @@
+name: announce release on Zulip
+# One message per release: `released` fires once when a non-prerelease goes out,
+# unlike the repository webhook, which also sends created, published and edited.
+on:
+  release:
+    types: [released]
+
+permissions: {}
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Forward the release event to Zulip
+        env:
+          WEBHOOK: ${{ secrets.ZULIP_RELEASE_WEBHOOK }}
+          EVENT: ${{ toJSON(github.event) }}
+        run: |
+          printf '%s' "$EVENT" | curl --fail-with-body --silent --show-error \
+            --request POST "$WEBHOOK" \
+            --header 'Content-Type: application/json' \
+            --header 'X-GitHub-Event: release' \
+            --data-binary @-
