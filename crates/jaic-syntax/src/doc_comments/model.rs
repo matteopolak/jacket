@@ -504,21 +504,18 @@ fn members(decl: &Decl, text: &str) -> Vec<Member> {
                             walk(&branches.else_branch, text, out);
                         }
                         StmtKind::Decl(field) if field.kind == DeclKind::Var => {
+                            let ty = match (&field.ty, &field.value) {
+                                (Some(t), _) => slice(text, t.span.start, t.span.end),
+                                (None, Some(v)) => {
+                                    format!(":= {}", slice(text, v.span.start, v.span.end))
+                                }
+                                (None, None) => String::new(),
+                            };
                             for name in &field.names {
                                 out.push(Member {
                                     refs: Vec::new(),
                                     name: name.name.as_str().to_owned(),
-                                    ty: field.ty.as_ref().map_or_else(
-                                        || {
-                                            field.value.as_ref().map_or(String::new(), |v| {
-                                                format!(
-                                                    ":= {}",
-                                                    slice(text, v.span.start, v.span.end)
-                                                )
-                                            })
-                                        },
-                                        |t| slice(text, t.span.start, t.span.end),
-                                    ),
+                                    ty: ty.clone(),
                                     doc: docs::declaration(text, name.span.start as usize)
                                         .unwrap_or_default(),
                                     at: name.span.start as usize,
