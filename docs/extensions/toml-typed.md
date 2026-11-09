@@ -57,8 +57,8 @@ A field is required unless it has `default` (or its struct does). A missing key 
 - A new option: parse it in `read_leaf` (`generate.jai`), then use it in `emit_read`, `generate_descend`, or the encoders.
 - A new field type: add a `toml_read_*` helper in `decode.jai`, a case in `emit_read`/`emit_write`/`emit_free`.
 - The declaration rules live in `toml_enter`; the parser's `toml_parent`/`toml_header` in `reader.jai` states the same rules for the document, so change both together.
-- Limits count what is read: `max_nodes` counts values and tables, `max_depth` nested arrays and inline tables, `max_retained_bytes` the decoded strings. Writing counts tables and arrays against `max_nodes`.
+- Limits count what is read: `max_nodes` counts values and tables, `max_depth` nested arrays and inline tables, `max_retained_bytes` the decoded strings. Writing counts the root, every value and every array against `max_nodes`, as `write_toml` does. A `float32` is written with its own shortest digits (`0.1`, not `0.10000000149011612`).
 
 ## Configuration and dependencies
 
-`Toml_Options` (see [TOML](toml.md)) plus `deny_unknown_fields`. Needs only `Basic`, `String` and `Compiler`. Tests: `stdlib/Extensions/Toml/tests/typed.jai` (also `error-paths.jai`, `unknown-wide.jai`), which also checks that decoding, success or failure, leaves no allocation behind.
+`Toml_Options` (see [TOML](toml.md)) plus `deny_unknown_fields`. Needs only `Basic`, `String` and `Compiler`. Tests: `stdlib/Extensions/Toml/tests/typed.jai` (also `error-paths.jai`, `unknown-wide.jai`, `writer-limits.jai`), which also checks that decoding, success or failure, leaves no allocation behind.

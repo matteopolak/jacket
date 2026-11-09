@@ -885,6 +885,8 @@ emit_write :: (g: *Gen, value: string, info: *Type_Info, leaf: *Leaf) {
                 return;
             }
 
+            print(out, "if !toml_count_leaf(w) return;\n");
+
             if integer.signed print(out, "toml_write_integer(w, cast(s64) %);\n", value);
             else print(out, "toml_write_unsigned(w, cast(u64) %);\n", value);
         case .FLOAT;
@@ -894,12 +896,13 @@ emit_write :: (g: *Gen, value: string, info: *Type_Info, leaf: *Leaf) {
                 return;
             }
 
-            print(out, "toml_write_float(w, cast(float64) %);\n", value);
+            print(out, "if !toml_count_leaf(w) return;\ntoml_write_float(w, %);\n", value);
         case .BOOL;
-            print(out, "toml_emit(w, ifx % then \"true\" else \"false\");\n", value);
+            print(out, "if !toml_count_leaf(w) return;\ntoml_emit(w, ifx % then \"true\" else \"false\");\n", value);
         case .STRING;
-            print(out, "toml_write_string(w, %);\n", value);
+            print(out, "if !toml_count_leaf(w) return;\ntoml_write_string(w, %);\n", value);
         case .ENUM;
+            print(out, "if !toml_count_leaf(w) return;\n");
             emit_write_enum(g, value, cast(*Type_Info_Enum) info, leaf);
         case .POINTER;
             pointee := (cast(*Type_Info_Pointer) info).pointer_to;
@@ -1034,7 +1037,7 @@ generate_body_encoder :: (T: Type) -> string {
         if shape == .ARRAY || shape == .VIEW condition = tprint("(%) && %.count == 0", condition, value);
         else if shape != .NONE continue;
 
-        print(out, "if % {\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = % });\ntoml_write_key(w, %);\ntoml_emit(w, \" = \");\n", condition, jai_quote(leaf.key), jai_quote(leaf.key));
+        print(out, "if % {\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = % });\ntoml_write_key(w, %, \" = \");\n", condition, jai_quote(leaf.key), jai_quote(leaf.key));
         emit_write(*g, value, leaf.info, leaf);
         print(out, "toml_emit(w, \"\\n\");\nw.path.count = mark;\n}\n");
     }
@@ -1057,7 +1060,7 @@ generate_body_encoder :: (T: Type) -> string {
         } else if shape == .POINTER {
             print(out, "toml_write_header(w, false);\ntoml_encode_body(w, %);\n", value);
         } else {
-            print(out, "for *item: % {\nitem_mark := toml_path_index_for_write(w, it_index);\ntoml_write_header(w, true);\ntoml_encode_body(w, item);\nw.path.count = item_mark;\nif w.error.kind != .NONE break;\n}\n", value);
+            print(out, "if !toml_count_leaf(w) return;\nfor *item: % {\nitem_mark := toml_path_index_for_write(w, it_index);\ntoml_write_header(w, true);\ntoml_encode_body(w, item);\nw.path.count = item_mark;\nif w.error.kind != .NONE break;\n}\n", value);
         }
 
         print(out, "w.path.count = mark;\n}\n");
@@ -1089,7 +1092,7 @@ generate_inline_encoder :: (T: Type) -> string {
         g.field = leaf.member;
         value := tprint("value.%", leaf.path);
 
-        print(out, "if % {\nif !first toml_emit(w, \", \");\nfirst = false;\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = % });\ntoml_write_key(w, %);\ntoml_emit(w, \" = \");\n", write_condition(*g, leaf, value), jai_quote(leaf.key), jai_quote(leaf.key));
+        print(out, "if % {\nif !first toml_emit(w, \", \");\nfirst = false;\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = % });\ntoml_write_key(w, %, \" = \");\n", write_condition(*g, leaf, value), jai_quote(leaf.key), jai_quote(leaf.key));
         emit_write(*g, value, leaf.info, leaf);
         print(out, "w.path.count = mark;\n}\n");
     }

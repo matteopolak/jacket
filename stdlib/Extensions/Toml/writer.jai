@@ -51,16 +51,27 @@ Toml_Writer :: struct {
     seed: u64; // randomizes the key hash of duplicate checks
 }
 
-toml_emit :: (w: *Toml_Writer, text: string) {
-    if w.error.kind != .NONE return;
+// True when `count` more bytes fit the output limit and nothing has failed. A key or a value
+// asks once for everything it will write, then adds the pieces with `toml_put`.
+toml_room :: (w: *Toml_Writer, count: int) -> bool {
+    if w.error.kind != .NONE return false;
 
-    if text.count > w.options.max_output_bytes - w.bytes {
+    if count > w.options.max_output_bytes - w.bytes {
         toml_write_fail(w, .LIMIT, "output byte limit exceeded");
-        return;
+        return false;
     }
 
+    return true;
+}
+
+// Adds bytes that `toml_room` has already admitted.
+toml_put :: (w: *Toml_Writer, text: string) {
     append(*w.builder, text);
     w.bytes += text.count;
+}
+
+toml_emit :: (w: *Toml_Writer, text: string) {
+    if toml_room(w, text.count) toml_put(w, text);
 }
 
 toml_write_string :: (w: *Toml_Writer, text: string) {
@@ -69,37 +80,34 @@ toml_write_string :: (w: *Toml_Writer, text: string) {
         return;
     }
 
-    // Plain ASCII needs neither escapes nor a UTF-8 proof: one scan, one limit check.
-    plain := true;
+    // One scan sizes the output: each quote or backslash gains a byte, each control character
+    // five. Plain ASCII needs neither escapes nor a UTF-8 proof.
+    extra := 0;
+    ascii := true;
 
-    for text if it == 34 || it == 92 || it < 32 || it >= 127 {
-        plain = false;
-        break;
+    for text {
+        if it == 34 || it == 92 extra += 1;
+        else if it < 32 || it == 127 extra += 5;
+        else if it >= 128 ascii = false;
     }
 
-    if plain {
-        if w.error.kind != .NONE return;
-
-        if text.count + 2 > w.options.max_output_bytes - w.bytes {
-            toml_write_fail(w, .LIMIT, "output byte limit exceeded");
+    if !ascii {
+        invalid_at, _ := toml_utf8_error(text);
+        if invalid_at >= 0 {
+            toml_write_fail(w, .OUTPUT, "string is not valid UTF-8");
             return;
         }
-
-        append(*w.builder, "\"");
-        append(*w.builder, text);
-        append(*w.builder, "\"");
-        w.bytes += text.count + 2;
-
-        return;
     }
 
-    invalid_at, _ := toml_utf8_error(text);
-    if invalid_at >= 0 {
-        toml_write_fail(w, .OUTPUT, "string is not valid UTF-8");
+    if !toml_room(w, text.count + extra + 2) return;
+
+    toml_put(w, "\"");
+
+    if !extra {
+        toml_put(w, text);
+        toml_put(w, "\"");
         return;
     }
-
-    toml_emit(w, "\"");
 
     plain_start := 0;
 
@@ -107,12 +115,11 @@ toml_write_string :: (w: *Toml_Writer, text: string) {
         c := it;
         if c != 34 && c != 92 && c >= 32 && c != 127 continue;
 
-        toml_emit(w, slice(text, plain_start, it_index - plain_start));
-        if w.error.kind != .NONE return;
+        toml_put(w, slice(text, plain_start, it_index - plain_start));
 
-        if c == 34 toml_emit(w, "\\\"");
-        else if c == 92 toml_emit(w, "\\\\");
-        else if c < 32 || c == 127 {
+        if c == 34 toml_put(w, "\\\"");
+        else if c == 92 toml_put(w, "\\\\");
+        else {
             bytes: [6] u8;
             bytes[0] = 92;
             bytes[1] = 117;
@@ -122,19 +129,20 @@ toml_write_string :: (w: *Toml_Writer, text: string) {
 
             bytes[4] = hex[c >> 4];
             bytes[5] = hex[c & 15];
-            toml_emit(w, string.{ 6, bytes.data });
+            toml_put(w, string.{ 6, bytes.data });
         }
 
         plain_start = it_index + 1;
     }
 
-    toml_emit(w, slice(text, plain_start, text.count - plain_start));
-    toml_emit(w, "\"");
+    toml_put(w, slice(text, plain_start, text.count - plain_start));
+    toml_put(w, "\"");
 }
 
 // A bare key is nonempty ASCII only. This pass proves UTF-8 validity as well as syntax;
-// other keys retain the full checked quoted-string path. Values always stay quoted.
-toml_write_key :: (w: *Toml_Writer, text: string) {
+// other keys retain the full checked quoted-string path. Values always stay quoted. `suffix`
+// (` = `, or nothing for a header) is admitted together with a bare key.
+toml_write_key :: (w: *Toml_Writer, text: string, suffix := "") {
     if text.count > w.options.max_string_bytes {
         toml_write_fail(w, .LIMIT, "writer string byte limit exceeded");
         return;
@@ -149,8 +157,17 @@ toml_write_key :: (w: *Toml_Writer, text: string) {
         break;
     }
 
-    if bare toml_emit(w, text);
-    else toml_write_string(w, text);
+    if bare {
+        if !toml_room(w, text.count + suffix.count) return;
+
+        toml_put(w, text);
+        toml_put(w, suffix);
+
+        return;
+    }
+
+    toml_write_string(w, text);
+    toml_emit(w, suffix);
 }
 
 // TOML's canonical signed decimal is bounded to 20 bytes. A local buffer avoids general
@@ -192,6 +209,20 @@ toml_count_node :: (w: *Toml_Writer, node: *Toml_Value, depth: int) -> bool {
 
     if depth > w.options.max_depth {
         toml_write_fail(w, .LIMIT, "writer nesting limit exceeded");
+        return false;
+    }
+
+    return true;
+}
+
+// Counts one scalar against the node limit; false once the writer has failed.
+toml_count_leaf :: (w: *Toml_Writer) -> bool {
+    if w.error.kind != .NONE return false;
+
+    w.nodes += 1;
+
+    if w.nodes > w.options.max_nodes {
+        toml_write_fail(w, .LIMIT, "writer node limit exceeded");
         return false;
     }
 
@@ -251,6 +282,13 @@ toml_write_value :: (w: *Toml_Writer, node: *Toml_Value, depth: int) {
             return;
         }
 
+        // Date or time prefix, fraction and offset suffix are admitted together.
+        total := ifx node.kind == .LOCAL_DATE then 10 else ifx node.kind == .LOCAL_TIME then 8 else 19;
+
+        if node.kind != .LOCAL_DATE && t.fraction.count total += 1 + t.fraction.count;
+        if node.kind == .OFFSET_DATETIME total += 6;
+        if !toml_room(w, total) return;
+
         bytes: [20] u8 = ---;
         prefix := ([] u8).{ bytes.count, bytes.data };
         count := 0;
@@ -283,8 +321,8 @@ toml_write_value :: (w: *Toml_Writer, node: *Toml_Value, depth: int) {
             }
         }
 
-        toml_emit(w, string.{ count, bytes.data });
-        if node.kind != .LOCAL_DATE && t.fraction.count toml_emit(w, t.fraction);
+        toml_put(w, string.{ count, bytes.data });
+        if node.kind != .LOCAL_DATE && t.fraction.count toml_put(w, t.fraction);
 
         if node.kind == .OFFSET_DATETIME {
             offset := ifx t.offset_minutes < 0 then -t.offset_minutes else t.offset_minutes;
@@ -295,16 +333,17 @@ toml_write_value :: (w: *Toml_Writer, node: *Toml_Value, depth: int) {
             toml_put_decimal(offset_bytes, 1, offset / 60, 2);
             suffix[3] = 58;
             toml_put_decimal(offset_bytes, 4, offset % 60, 2);
-            toml_emit(w, string.{ suffix.count, suffix.data });
+            toml_put(w, string.{ suffix.count, suffix.data });
         }
     }
 }
 
-// The shortest digits that read back as the same binary64 (signed zeros and subnormals
-// included), laid out as a plain decimal when the exponent is small and kept scientific
+// The shortest digits that read back as the same binary64 or, for a float32, the same binary32
+// (signed zeros and subnormals included), laid out as a plain decimal when the exponent is small and kept scientific
 // otherwise. Every spelling has a fraction or an exponent, so it stays a float.
-toml_write_float :: (w: *Toml_Writer, value: float64) {
-    bits := cast,force(u64) value;
+toml_write_float :: (w: *Toml_Writer, value: $T) {
+    // Widening is exact, so the special values are told apart the same way for both widths.
+    bits := cast,force(u64) cast(float64) value;
 
     if (bits & 0x7fffffffffffffff) > 0x7ff0000000000000 {
         toml_emit(w, "nan");
@@ -692,8 +731,7 @@ toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_tabl
 
         if inline_table && it_index toml_emit(w, ", ");
 
-        toml_write_key(w, it.key);
-        toml_emit(w, " = ");
+        toml_write_key(w, it.key, " = ");
         toml_write_value(w, it.value, depth + 1);
         w.path.count = saved_path;
         if !inline_table toml_emit(w, "\n");
