@@ -1,5 +1,7 @@
 """Subprocess runs that assert on the outcome."""
 
+from __future__ import annotations
+
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence

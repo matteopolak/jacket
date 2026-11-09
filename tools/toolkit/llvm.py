@@ -13,6 +13,8 @@ The version comes from the environment CI exports (`LLVM_MAJOR`, `LLVM_SYS_PREFI
 `.github/pins.json`, its one home. Standard library only.
 """
 
+from __future__ import annotations
+
 import functools
 import json
 import os

@@ -11,6 +11,8 @@ Scripts never read `CARGO_TARGET_DIR` or build `ROOT / "target"` themselves (too
 a test that wants another directory sets `CARGO_TARGET_DIR`. Host facts (`host_os`, `exe_name`, ...) are in `toolkit.host`.
 """
 
+from __future__ import annotations
+
 import functools
 import json
 import os

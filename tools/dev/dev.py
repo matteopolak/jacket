@@ -14,7 +14,7 @@
     python3 tools/dev/dev.py test [--suite cargo|tools|all] [-p CRATE] [-j N] [filter...]
 
 The recipes in the Justfile are thin wrappers; this file holds the logic so that CI and a local
-shell run the same commands. Runs on Python 3.9 (macOS /usr/bin/python3): no tomllib here.
+shell run the same commands. Hooks run it on the system Python (3.9 on macOS), see docs/tools/tools-layout.md.
 """
 from __future__ import annotations
 

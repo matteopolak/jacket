@@ -4,6 +4,9 @@ Everything lives under `<repo>/target/` (already ignored, shared with cargo). Se
 `JACKET_OUTPUT_DIR` to relocate it. Git worktrees reuse expensive downloads and native builds
 through `shared_output_dir()`, which resolves to the main checkout's directory.
 """
+
+from __future__ import annotations
+
 import os
 from pathlib import Path
 from toolkit.host import host_cpu, host_os

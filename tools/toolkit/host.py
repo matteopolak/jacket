@@ -6,6 +6,8 @@
     brew_prefix()      Homebrew's prefix on macOS (`$HOMEBREW_PREFIX`, else `brew --prefix`), or None
 """
 
+from __future__ import annotations
+
 import functools
 import os
 import platform

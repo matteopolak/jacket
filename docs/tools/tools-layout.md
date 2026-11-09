@@ -88,4 +88,4 @@ Without it the first import fails with `No module named 'toolkit'`.
 
 ## Configuration
 
-`JACKET_OUTPUT_DIR` relocates `target/`. Python 3.11+ and Node 24 are the only requirements beyond each subsystem's toolchain. `toolkit.repo.stdlib_env()` keeps `JAIC_PRELUDE` from the caller ([prelude selection](../compiler/prelude-selection.md)).
+`JACKET_OUTPUT_DIR` relocates `target/`. Python 3.11+ and Node 24 are the only requirements beyond each subsystem's toolchain, except `dev.py` and the `toolkit` and `repo_output` modules it imports, which the git hooks run on the system Python (3.9 on macOS): keep `from __future__ import annotations` in them and avoid `tomllib` at import time. `toolkit.repo.stdlib_env()` keeps `JAIC_PRELUDE` from the caller ([prelude selection](../compiler/prelude-selection.md)).
