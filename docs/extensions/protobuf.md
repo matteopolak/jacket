@@ -178,7 +178,7 @@ proto2 and proto3 are fixed defaults for these. In editions, `option features.x 
 
 The runner is upstream code, so it runs only inside the `tools/bench` sandbox. It runs with `--maximum_edition 2024 --enforce_recommended --failure_list failure_list.txt`. Every binary test passes (2,864), proto2, proto3 and editions alike, and so does every JSON test in both directions (5,786 tests in all); the failure list is empty. Text-format tests are skipped.
 
-`stdlib/Extensions/Protobuf/bench/bench.jai`, built with `-O2`, covers four shapes: a mixed message, 1 MiB of packed numbers, 64 levels of nesting, and string-heavy logs. Running it with `-interp -- --generation-only` times generation instead. A 100-message, 1,000-line schema generates in about 190 ms in the interpreter and about 4 KB of Jai per 9-field message.
+`jacket bench --path stdlib/Extensions/Protobuf` covers mixed messages, packed numbers, deep nesting, logs, spans and schema generation. Each encode, size and owned/borrowed decode mode has its own case, including UTF-8 checking on/off and proto3/plain JSON. Use `jacket bench --path stdlib/Extensions/Protobuf --interp generation` for generation in the interpreter. A 100-message, 1,000-line schema generates in about 190 ms in the interpreter and about 4 KB of Jai per 9-field message.
 
 JSON is close to `Extensions/Json` reading the same data into a plain struct. On the string-heavy logs it decodes at about 770 MB/s (Extensions/Json: about 670 MB/s) with 7 allocations against 4,010, and encodes at about 1.6 GB/s, roughly 1.4 times slower than Extensions/Json.
 
