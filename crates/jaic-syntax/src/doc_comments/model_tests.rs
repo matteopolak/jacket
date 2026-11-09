@@ -845,3 +845,20 @@ fn a_type_defined_differently_in_each_branch_keeps_every_definition() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_modules_tests_and_benches_are_not_documented() {
+    let dir = library(
+        "test-folders",
+        &[
+            ("module.jai", "own :: () {}\n"),
+            ("helpers/extra.jai", "extra :: () {}\n"),
+            ("tests/check.jai", "check :: () {}\n"),
+            ("benches/bench.jai", "measure :: () {}\n"),
+        ],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let names: Vec<_> = model.items.iter().map(|i| &*i.name).collect();
+    assert_eq!(names, ["own", "extra"]);
+    let _ = std::fs::remove_dir_all(&dir);
+}

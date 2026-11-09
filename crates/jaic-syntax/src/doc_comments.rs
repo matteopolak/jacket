@@ -48,7 +48,7 @@ fn own_files(dir: &Path, top: bool, out: &mut Vec<PathBuf>) {
         if path.is_dir() {
             let name = path
                 .file_name()
-                .is_some_and(|n| n == "tests" || n == "bench");
+                .is_some_and(|n| n == "tests" || n == "benches");
             if (top && name) || crate::paths::module_entry(&path).is_file() {
                 continue;
             }
