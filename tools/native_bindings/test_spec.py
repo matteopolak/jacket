@@ -2,7 +2,7 @@
 
 import unittest
 
-from native_bindings.spec import parse_spec
+from native_bindings.spec import parse_spec, split_notes
 
 
 class SpecTests(unittest.TestCase):
@@ -206,6 +206,13 @@ Context :: struct { call: #type () #c_call; }
         spec = parse_spec(page)
         self.assertEqual(len(spec.declarations), 1)
         self.assertEqual(spec.parameters, ["FEATURE := false"])
+
+    def test_split_notes_keeps_note_arguments(self):
+        self.assertEqual(
+            split_notes("write :: (fd: s32) -> s64 #foreign libc @WritesOutput(0) @FreesArgument"),
+            ("write :: (fd: s32) -> s64 #foreign libc", " @WritesOutput(0) @FreesArgument"),
+        )
+        self.assertEqual(split_notes("f :: () -> s32"), ("f :: () -> s32", ""))
 
 
 if __name__ == "__main__":

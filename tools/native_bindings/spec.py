@@ -272,6 +272,6 @@ def parse_spec(text):
 
 
 def split_notes(code):
-    """`proc :: () @A @B` -> (`proc :: ()`, ` @A @B`)."""
-    match = re.search(r'(?:\s+@\w+)+$', code)
+    """`proc :: () @A @B(1)` -> (`proc :: ()`, ` @A @B(1)`)."""
+    match = re.search(r'(?:\s+@\w+(?:\([^()]*\))?)+$', code)
     return (code[:match.start()], match[0]) if match else (code, '')
