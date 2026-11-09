@@ -98,6 +98,9 @@ pub struct FileScan {
     pub local_decls: Vec<Decl>,
     pub imports: Vec<Directive>,
     pub loads: Vec<Directive>,
+    /// The paths of `#import,file` and `#import,dir` directives, which name the files and
+    /// folders of a program that `#load` and a module name do not.
+    pub path_imports: Vec<String>,
     /// Files a build metaprogram compiles: the string literal of each `add_build_file("x", w)`
     /// call, anywhere in the file. A static scan for a metaprogram that has not run: once it has,
     /// the files it really added (`semantic::BuildFacts`) are used instead.
@@ -133,14 +136,18 @@ pub fn scan(text: &str) -> FileScan {
     for item in ide_facts::top_level(&parsed.file) {
         match item.kind {
             TopLevelKind::Decl(decl) => out.declaration(text, &docs, tokens, decl, &item),
-            TopLevelKind::Import(import) => {
-                if let ImportSource::Module(path) = &import.source {
+            TopLevelKind::Import(import) => match &import.source {
+                ImportSource::Module(path) => {
                     let name = import.name.map(|n| n.name.as_str().to_owned());
                     let mut found = directive(tokens, path, name, &item);
                     found.reexport = import.using.as_ref().map(Reexport::of);
                     out.imports.push(found);
                 }
-            }
+                ImportSource::File(path) | ImportSource::Dir(path) => {
+                    out.path_imports.push(path.to_string());
+                }
+                ImportSource::String(_) => {}
+            },
             TopLevelKind::Load(path, _) => out.loads.push(directive(tokens, path, None, &item)),
             TopLevelKind::Assert(assert) => {
                 if let Some(targets) = ide_facts::asserted_targets(assert) {

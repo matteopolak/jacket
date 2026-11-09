@@ -41,6 +41,7 @@ pub(super) fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
     let severity = match diagnostic.severity {
         DiagnosticSeverity::Error => 1,
         DiagnosticSeverity::Warning => 2,
+        DiagnosticSeverity::Information => 3,
         DiagnosticSeverity::Hint => 4,
     };
     let (code, source) = diagnostic.code.wire();

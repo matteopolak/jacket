@@ -2,7 +2,9 @@
 use super::Session;
 use crate::analysis::{Analysis, Span};
 use crate::semantic::{Reads, text_hash};
-use crate::{Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, position::LineIndex};
+use crate::{
+    Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, position::LineIndex,
+};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -25,11 +27,31 @@ struct Snapshot {
 pub(super) struct WorkspaceDiagnostics {
     active: bool,
     roots: BTreeMap<PathBuf, Snapshot>,
+    /// The closed project files no entry reaches: their syntax and the note that says so.
+    unreached: BTreeMap<PathBuf, FileDiagnostics>,
+    /// Whether `unreached` is what the programs and files are now.
+    unreached_fresh: bool,
+}
+
+/// The note on a file that is part of no program, as an information on its first line.
+pub(super) fn not_in_program(text: &str) -> Diagnostic {
+    let end = text.find('\n').unwrap_or(text.len());
+    let lines = LineIndex::new(text);
+    Diagnostic {
+        range: lines.range(text, Span::new(0, end)).unwrap_or_default(),
+        severity: DiagnosticSeverity::Information,
+        code: DiagnosticCode::NotInProgram,
+        message: "No program entry loads or imports this file, so it is not checked as part \
+                  of one: names it takes from other files are unknown to it, and its types \
+                  and lints are not checked against the project."
+            .into(),
+        related: Vec::new(),
+    }
 }
 
 /// Add `more` to `all`, skipping what a program already reported: a file several programs
 /// include (`#load`ed by two entries) shows what any of them finds wrong with it.
-fn merge(all: &mut Vec<Diagnostic>, more: &[Diagnostic]) {
+pub(super) fn merge(all: &mut Vec<Diagnostic>, more: &[Diagnostic]) {
     for item in more {
         if !all.contains(item) {
             all.push(item.clone());
@@ -39,11 +61,21 @@ fn merge(all: &mut Vec<Diagnostic>, more: &[Diagnostic]) {
 
 impl WorkspaceDiagnostics {
     pub(super) fn invalidate(&mut self, path: &Path, topology: bool) {
+        let mut reach = false;
+        let mut in_program = false;
         for snapshot in self.roots.values_mut() {
-            snapshot.files.remove(path);
-            snapshot.stale |= topology
+            in_program |= snapshot.files.remove(path).is_some();
+            let hit = topology
                 || path.extension().is_some_and(|e| e == "toml")
                 || snapshot.dependencies.concerns(path);
+            snapshot.stale |= hit;
+            reach |= hit;
+        }
+        // A file no program holds can be one no program reaches: opening, closing or editing
+        // it changes what is said of it.
+        let loose = !in_program && path.extension().is_some_and(|e| e == "jai");
+        if reach || loose {
+            self.unreached_fresh = false;
         }
     }
 
@@ -51,14 +83,156 @@ impl WorkspaceDiagnostics {
         for snapshot in self.roots.values_mut() {
             snapshot.stale = true;
         }
+        self.unreached_fresh = false;
     }
 
     pub(super) fn clear(&mut self) {
         self.roots.clear();
+        self.unreached.clear();
+        self.unreached_fresh = false;
     }
 }
 
 impl Session {
+    /// What the compile in `analysis` finds in `path` (whose text is `text`): the type
+    /// checker's errors and warnings, the code that never runs and the lints, leaving out
+    /// the errors the `syntax` diagnostics already say. `None` when stopped.
+    pub(super) fn semantic_items(
+        &self,
+        analysis: &mut crate::semantic::Analysis,
+        path: &Path,
+        text: &str,
+        lines: &LineIndex,
+        syntax: &[Diagnostic],
+    ) -> Option<Vec<Diagnostic>> {
+        let mut items = Vec::new();
+        analysis.focus(path);
+        for finding in analysis.check_findings(path) {
+            let Ok(range) = lines.range(text, Span::new(finding.start, finding.end)) else {
+                continue;
+            };
+            if syntax.iter().any(|d| {
+                matches!(d.code, DiagnosticCode::Lexer | DiagnosticCode::Parser)
+                    && d.range.start == range.start
+                    && d.message == finding.message
+            }) {
+                continue;
+            }
+            items.push(self.check_finding_at(finding, range).diagnostic);
+        }
+        for (start, end) in analysis.unreachable(path) {
+            if let Ok(range) = lines.range(text, Span::new(start, end)) {
+                items.push(Diagnostic {
+                    range,
+                    severity: DiagnosticSeverity::Hint,
+                    code: DiagnosticCode::Unreachable,
+                    message: "unreachable code".into(),
+                    related: Vec::new(),
+                });
+            }
+        }
+        if let Some(config) = self.lint_config(path) {
+            for lint in analysis.lints(path, &config)? {
+                if let Ok(range) = lines.range(text, Span::new(lint.start, lint.end)) {
+                    items.push(self.lint_diagnostic_at(&lint, range));
+                }
+            }
+        }
+        Some(items)
+    }
+
+    /// What the programs of the open document `uri` other than the one requests use report
+    /// for it (`sibling_roots`), checked now: the open buffers are what they compile, and an
+    /// edit leaves no snapshot to take them from. `CheckUnavailable` when one is stopped.
+    pub(crate) fn sibling_program_diagnostics(
+        &self,
+        uri: &DocumentUri,
+    ) -> Result<Vec<Diagnostic>, Error> {
+        let (Ok(doc), Some(env)) = (self.document(uri), self.environment.as_ref()) else {
+            return Ok(Vec::new());
+        };
+        let roots = self.sibling_roots(uri);
+        if roots.is_empty() {
+            return Ok(Vec::new());
+        }
+        let (files, ..) = self
+            .compile_inputs(uri, &doc.text)
+            .ok_or(Error::CheckUnavailable)?;
+        let syntax = &self
+            .analysis_for(uri)
+            .expect("opened document has analysis")
+            .diagnostics;
+        let lines = LineIndex::new(&doc.text);
+        let path = Path::new(uri.path());
+        let mut found = Vec::new();
+        for root in roots {
+            // An untrusted workspace does not run the metaprogram that would build the file.
+            if !self.trusted() && self.is_build_metaprogram(&root) {
+                continue;
+            }
+            let dirs = self.import_dirs(&root);
+            let mut cache = self.semantic.borrow_mut();
+            let analysis = cache
+                .analyze(env, &root, &dirs, files.clone())
+                .ok_or(Error::CheckUnavailable)?;
+            let items = self
+                .semantic_items(analysis, path, &doc.text, &lines, syntax)
+                .ok_or(Error::CheckUnavailable)?;
+            self.sync_builds(&cache);
+            merge(&mut found, &items);
+        }
+        Ok(found)
+    }
+
+    /// Bring the closed files no program reaches up to date: their syntax diagnostics and the
+    /// note that says they are not checked as part of a program. `true` when that changed.
+    fn refresh_unreached(&self) -> bool {
+        let Some(env) = self.environment.as_ref() else {
+            return false;
+        };
+        let wanted: Vec<PathBuf> = self
+            .unreached_files()
+            .into_iter()
+            .filter(|path| {
+                DocumentUri::from_path(path).is_ok_and(|uri| self.document(&uri).is_err())
+            })
+            .collect();
+        let mut old = std::mem::take(&mut self.workspace_diagnostics.borrow_mut().unreached);
+        let mut now = BTreeMap::new();
+        let mut changed = false;
+        for path in wanted {
+            let Some(bytes) = env.fs.read(&path) else {
+                continue;
+            };
+            let text = String::from_utf8_lossy(&bytes).into_owned();
+            let stamp = text_hash(text.as_bytes());
+            let file = match old.remove(&path) {
+                Some(kept) if kept.stamp == stamp => kept,
+                _ => {
+                    changed = true;
+                    let Some(uri) = self.client_uri(&path) else {
+                        continue;
+                    };
+                    let lines = LineIndex::new(&text);
+                    let mut built = Analysis::build(&text, &uri, self.limits);
+                    self.warn_unreadable_loads(&mut built, &lines, &text);
+                    let mut items = built.diagnostics;
+                    items.push(not_in_program(&text));
+                    FileDiagnostics {
+                        stamp,
+                        items,
+                    }
+                }
+            };
+            now.insert(path, file);
+        }
+        changed |= !old.is_empty();
+        let mut state = self.workspace_diagnostics.borrow_mut();
+        state.unreached = now;
+        state.unreached_fresh = true;
+        changed
+    }
+
     /// Start closed-file diagnostics after the LSP client's initialized notification.
     pub(crate) fn enable_workspace_diagnostics(&self) {
         self.workspace_diagnostics.borrow_mut().active = true;
@@ -81,6 +255,7 @@ impl Session {
             || entries
                 .iter()
                 .any(|root| state.roots.get(root).is_none_or(|s| s.stale))
+            || !state.unreached_fresh
     }
 
     /// Check one program's diagnostics as a batch. Interrupted results never replace a
@@ -106,7 +281,8 @@ impl Session {
         let Some(root) = root else {
             let counts = (entries.len(), entries.len());
             self.record_diagnostic_counts(counts);
-            return removed.then_some(counts);
+            let unreached = self.refresh_unreached();
+            return (removed || unreached).then_some(counts);
         };
         let env = self.environment.as_ref()?;
         let buffers = Rc::new(
@@ -170,39 +346,13 @@ impl Session {
                     Rc::new(built)
                 });
                 let mut items = syntax.diagnostics.clone();
-                analysis.focus(&path);
-                for finding in analysis.check_findings(&path) {
-                    let Ok(range) = lines.range(&text, Span::new(finding.start, finding.end))
-                    else {
-                        continue;
-                    };
-                    if syntax.diagnostics.iter().any(|d| {
-                        matches!(d.code, DiagnosticCode::Lexer | DiagnosticCode::Parser)
-                            && d.range.start == range.start
-                            && d.message == finding.message
-                    }) {
-                        continue;
-                    }
-                    items.push(self.check_finding_at(finding, range).diagnostic);
-                }
-                for (start, end) in analysis.unreachable(&path) {
-                    if let Ok(range) = lines.range(&text, Span::new(start, end)) {
-                        items.push(Diagnostic {
-                            range,
-                            severity: DiagnosticSeverity::Hint,
-                            code: DiagnosticCode::Unreachable,
-                            message: "unreachable code".into(),
-                            related: Vec::new(),
-                        });
-                    }
-                }
-                if let Some(config) = self.lint_config(&path) {
-                    for lint in analysis.lints(&path, &config)? {
-                        if let Ok(range) = lines.range(&text, Span::new(lint.start, lint.end)) {
-                            items.push(self.lint_diagnostic_at(&lint, range));
-                        }
-                    }
-                }
+                items.extend(self.semantic_items(
+                    analysis,
+                    &path,
+                    &text,
+                    &lines,
+                    &syntax.diagnostics,
+                )?);
                 files.insert(
                     path,
                     FileDiagnostics {
@@ -221,10 +371,10 @@ impl Session {
         })();
         let interrupted = jaic::interrupt::disarm();
         if !interrupted && let Some(snapshot) = snapshot {
-            self.workspace_diagnostics
-                .borrow_mut()
-                .roots
-                .insert(root, snapshot);
+            let mut state = self.workspace_diagnostics.borrow_mut();
+            state.roots.insert(root, snapshot);
+            // What the programs record decides what none of them reaches.
+            state.unreached_fresh = false;
         }
         let done = self
             .workspace_diagnostics
@@ -273,7 +423,12 @@ impl Session {
         let path = jaic::paths::file_identity(&*env.fs, Path::new(uri.path()));
         let state = self.workspace_diagnostics.borrow();
         let mut found: Option<Vec<Diagnostic>> = None;
-        for file in state.roots.values().filter_map(|s| s.files.get(&path)) {
+        for file in state
+            .roots
+            .values()
+            .filter_map(|s| s.files.get(&path))
+            .chain(state.unreached.get(&path))
+        {
             merge(found.get_or_insert_with(Vec::new), &file.items);
         }
         found
@@ -290,6 +445,9 @@ impl Session {
             for (path, file) in &snapshot.files {
                 files.entry(path).or_default().push(file);
             }
+        }
+        for (path, file) in &state.unreached {
+            files.entry(path).or_default().push(file);
         }
         Some(
             files

@@ -124,6 +124,52 @@ impl Session {
         Some(program.root)
     }
 
+    /// The other entries whose programs reach `uri`: `project_root` answers for it (hover,
+    /// navigation), and its diagnostics are those of every program it is in.
+    pub(crate) fn sibling_roots(&self, uri: &DocumentUri) -> Vec<PathBuf> {
+        let Some(env) = self.environment.as_ref() else {
+            return Vec::new();
+        };
+        let sources = self.sources(env);
+        let mut index = self.index.borrow_mut();
+        let path = Path::new(uri.path());
+        let primary = sources
+            .program(&mut index, path, &self.workspace_folders)
+            .root;
+        let mut roots = sources.reaching_entries(&mut index, path, &self.workspace_folders);
+        roots.retain(|root| *root != primary);
+        roots
+    }
+
+    /// Whether `uri` is a project file that no entry of its project loads or imports.
+    pub(crate) fn is_unreached(&self, uri: &DocumentUri) -> bool {
+        let Some(env) = self.environment.as_ref().filter(|_| self.trusted()) else {
+            return false;
+        };
+        let entries = self.workspace_entry_set(env);
+        let sources = self.sources(env);
+        let mut index = self.index.borrow_mut();
+        sources.is_unreached(
+            &mut index,
+            Path::new(uri.path()),
+            &self.workspace_folders,
+            &entries,
+        )
+    }
+
+    /// The project files no entry reaches.
+    pub(crate) fn unreached_files(&self) -> BTreeSet<PathBuf> {
+        let Some(env) = self.environment.as_ref().filter(|_| self.trusted()) else {
+            return BTreeSet::new();
+        };
+        let entries = self.workspace_entry_set(env);
+        let sources = self.sources(env);
+        let mut index = self.index.borrow_mut();
+        sources
+            .unreached_files(&mut index, &self.workspace_folders, &entries)
+            .unwrap_or_default()
+    }
+
     /// `root` compiles other files by running a build metaprogram (`add_build_file("x", w)`),
     /// which an untrusted workspace does not: those files are compiled as their own programs.
     pub(crate) fn is_build_metaprogram(&self, root: &Path) -> bool {

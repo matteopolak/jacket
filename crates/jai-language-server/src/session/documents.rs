@@ -237,6 +237,8 @@ impl Session {
                 );
                 diagnostics.extend(self.unreachable_diagnostics(uri));
                 diagnostics.extend(self.lint_diagnostics(uri));
+                self.add_other_program_diagnostics(uri, &mut diagnostics)
+                    .ok()?;
                 Some((uri.as_str().into(), doc.version, diagnostics))
             })
             .collect()
@@ -376,7 +378,25 @@ impl Session {
         );
         diagnostics.extend(self.unreachable_diagnostics(uri));
         diagnostics.extend(self.lint_diagnostics(uri));
+        self.add_other_program_diagnostics(uri, &mut diagnostics)?;
         Ok(diagnostics)
+    }
+
+    /// Add to the diagnostics of the program that answers for `uri` what the other programs it
+    /// is in find (what it has already is not added twice), or the note that it is in none.
+    fn add_other_program_diagnostics(
+        &self,
+        uri: &DocumentUri,
+        all: &mut Vec<Diagnostic>,
+    ) -> Result<(), Error> {
+        let others = self.sibling_program_diagnostics(uri)?;
+        super::workspace_diagnostics::merge(all, &others);
+        if self.is_unreached(uri) {
+            all.push(super::workspace_diagnostics::not_in_program(
+                &self.document(uri)?.text,
+            ));
+        }
+        Ok(())
     }
 
     fn admit(&self, uri: &DocumentUri, bytes: usize, old: usize) -> Result<(), Error> {

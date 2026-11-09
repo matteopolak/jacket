@@ -29,6 +29,9 @@
 
 - A default value of the wrong type in a struct nothing uses is reported.
 
+- `jailsp` checks an open file that several program entries reach under each of them, so what only one program finds wrong still shows after an edit; hover and navigation keep answering from the first entry.
+- `jailsp` says a project file that no entry loads or imports is in no program (an information diagnostic, `not-in-program`) and reports only its syntax errors, instead of leaving it silently unchecked.
+
 ## [0.34.0] - 2026-11-09
 
 ### New

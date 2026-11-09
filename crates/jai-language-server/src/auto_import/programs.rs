@@ -201,12 +201,18 @@ impl Sources<'_> {
         entries
     }
 
-    pub(super) fn program(&self, index: &mut Index, file: &Path, folders: &[PathBuf]) -> Program {
-        self.refresh_source_graphs(index);
-        let key = self.key(file);
-        let file = key.as_path();
-        let folder_keys: Vec<_> = folders.iter().map(|p| self.key(p)).collect();
-        let folders = folder_keys.as_slice();
+    /// The project of `file`: its config, base folder and entry files (those that exist, or
+    /// all the declared ones).
+    fn project_entries(
+        &self,
+        index: &mut Index,
+        file: &Path,
+        folders: &[PathBuf],
+    ) -> (
+        Option<(PathBuf, ProjectConfig)>,
+        Option<PathBuf>,
+        BTreeSet<PathBuf>,
+    ) {
         let config = self.config(index, file);
         let base =
             project::project_base(config.as_ref().map(|(dir, _)| dir.as_path()), folders, file);
@@ -222,6 +228,160 @@ impl Sources<'_> {
             }
             None => BTreeSet::new(),
         };
+        (config, base, entries)
+    }
+
+    /// Every entry whose program reaches `file`, in entry order: its `#load`s, or what its
+    /// build recorded. `program` picks one of them to answer for the file; a file several
+    /// entries reach is checked under each (`Session::sibling_roots`).
+    pub(super) fn reaching_entries(
+        &self,
+        index: &mut Index,
+        file: &Path,
+        folders: &[PathBuf],
+    ) -> Vec<PathBuf> {
+        self.refresh_source_graphs(index);
+        let key = self.key(file);
+        let folder_keys: Vec<_> = folders.iter().map(|p| self.key(p)).collect();
+        let (_, _, entries) = self.project_entries(index, &key, &folder_keys);
+        entries
+            .into_iter()
+            .filter(|entry| {
+                self.closure(index, entry).contains(&key)
+                    || (!index.stale_source_graphs.contains_key(entry)
+                        && index
+                            .builds
+                            .get(entry)
+                            .is_some_and(|facts| facts.sources.contains_key(&key)))
+            })
+            .collect()
+    }
+
+    /// Every file the programs of `entries` reach: what they load, what they import from the
+    /// project's module folders, the files and folders `#import,file` and `#import,dir` name,
+    /// and what a build metaprogram recorded. `None` when that is not known: there are no
+    /// entries, or a metaprogram has not been run since it last changed (it could still add
+    /// the file).
+    fn reached_files(
+        &self,
+        index: &mut Index,
+        entries: &BTreeSet<PathBuf>,
+        folders: &[PathBuf],
+    ) -> Option<BTreeSet<PathBuf>> {
+        self.refresh_source_graphs(index);
+        if entries.is_empty() {
+            return None;
+        }
+        let mut reached = BTreeSet::new();
+        for entry in entries {
+            if index.stale_source_graphs.contains_key(entry) {
+                return None;
+            }
+            if let Some(facts) = index.builds.get(entry) {
+                reached.extend(facts.sources.keys().cloned());
+            } else if !self.scan(index, entry).builds.is_empty() {
+                // A metaprogram that has not run.
+                return None;
+            }
+            let (config, base, _) = self.project_entries(index, entry, folders);
+            let configured = match (&base, &config) {
+                (Some(base), Some((_, config))) => config.import_dirs(base),
+                _ => Vec::new(),
+            };
+            let mut dirs = vec![
+                entry
+                    .parent()
+                    .map_or_else(PathBuf::new, |p| p.join("modules")),
+            ];
+            if let Some(base) = &base {
+                dirs.extend(project::existing_dirs(
+                    &Listing(self),
+                    &project::import_paths(base, &configured, &[], Path::new("")),
+                ));
+            }
+            dirs.extend(self.import_dirs(index, entry, folders).0);
+            let mut pending: Vec<PathBuf> = self
+                .closure_with_modules(index, entry, &dirs)
+                .into_iter()
+                .collect();
+            while let Some(file) = pending.pop() {
+                if !reached.insert(file.clone()) {
+                    continue;
+                }
+                let here = file.parent().map_or_else(PathBuf::new, Path::to_path_buf);
+                for path in self.scan(index, &file).path_imports.clone() {
+                    let target = self.key(&project::normalize(&here.join(&path)));
+                    if self.is_dir(&target) {
+                        pending.extend(self.project_files(index, &target));
+                    } else if self.is_file(&target) {
+                        pending.extend(self.closure(index, &target));
+                    }
+                }
+            }
+        }
+        Some(reached)
+    }
+
+    /// The project files under `folders` that no entry reaches and that are not entries
+    /// themselves (`reached_files`); `None` when that is not known.
+    pub(super) fn unreached_files(
+        &self,
+        index: &mut Index,
+        folders: &[PathBuf],
+        entries: &BTreeSet<PathBuf>,
+    ) -> Option<BTreeSet<PathBuf>> {
+        let reached = self.reached_files(index, entries, folders)?;
+        let folders: Vec<_> = folders.iter().map(|p| self.key(p)).collect();
+        let project = |index: &mut Index, file: &Path| {
+            project::project_base(
+                self.config(index, file)
+                    .as_ref()
+                    .map(|(dir, _)| dir.as_path()),
+                &folders,
+                file,
+            )
+        };
+        let mut out = BTreeSet::new();
+        for folder in &folders {
+            let ours = project(index, &folder.join("main.jai"));
+            for file in self.project_files(index, folder) {
+                if !reached.contains(&file)
+                    && !entries.contains(&file)
+                    && project(index, &file) == ours
+                {
+                    out.insert(file);
+                }
+            }
+        }
+        Some(out)
+    }
+
+    /// Whether `file` is in a project (under its base folder) whose `entries` are all known
+    /// and none reaches it.
+    pub(super) fn is_unreached(
+        &self,
+        index: &mut Index,
+        file: &Path,
+        folders: &[PathBuf],
+        entries: &BTreeSet<PathBuf>,
+    ) -> bool {
+        let key = self.key(file);
+        let folder_keys: Vec<_> = folders.iter().map(|p| self.key(p)).collect();
+        let (_, base, _) = self.project_entries(index, &key, &folder_keys);
+        base.is_some_and(|base| key.starts_with(base))
+            && !entries.contains(&key)
+            && self
+                .reached_files(index, entries, &folder_keys)
+                .is_some_and(|reached| !reached.contains(&key))
+    }
+
+    pub(super) fn program(&self, index: &mut Index, file: &Path, folders: &[PathBuf]) -> Program {
+        self.refresh_source_graphs(index);
+        let key = self.key(file);
+        let file = key.as_path();
+        let folder_keys: Vec<_> = folders.iter().map(|p| self.key(p)).collect();
+        let folders = folder_keys.as_slice();
+        let (config, base, entries) = self.project_entries(index, file, folders);
         let mut found = None;
         for entry in &entries {
             let closure = self.closure(index, entry);

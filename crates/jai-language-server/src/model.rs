@@ -21,6 +21,8 @@ pub enum SymbolKind {
 pub enum DiagnosticSeverity {
     Error,
     Warning,
+    /// A fact about the file, not a defect in it.
+    Information,
     /// Shown without a squiggle (code faded as unreachable).
     Hint,
 }
@@ -34,6 +36,8 @@ pub enum DiagnosticCode {
     /// A format string disagrees with the arguments of its print-family call.
     /// The type checker's first error in the program.
     Check,
+    /// No program entry loads or imports the file, so it is not checked as part of one.
+    NotInProgram,
     /// Code no path reaches: the editor fades it (`DiagnosticTag::Unnecessary`).
     Unreachable,
     /// A jailint rule, by name.
@@ -49,6 +53,7 @@ impl DiagnosticCode {
             Self::Source => ("source", "jaic"),
             Self::Limit => ("limit", "jaic"),
             Self::Check => ("check", "jaic"),
+            Self::NotInProgram => ("not-in-program", "jaic"),
             Self::Unreachable => ("unreachable", "jaic"),
             Self::Lint(rule) => (rule, "jailint"),
         }

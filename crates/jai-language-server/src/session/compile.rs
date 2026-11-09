@@ -95,7 +95,7 @@ impl Session {
 
     /// What a compile of the program containing `uri` needs, with `uri`'s text replaced by
     /// `text`: the open files, the program's root file and the module folders searched.
-    fn compile_inputs(&self, uri: &DocumentUri, text: &str) -> Option<CompileInputs> {
+    pub(super) fn compile_inputs(&self, uri: &DocumentUri, text: &str) -> Option<CompileInputs> {
         let key = self.document_uri(uri)?;
         let uri = &key;
         // The document's own text (as most requests pass it) needs no comparing: any change to
