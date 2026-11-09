@@ -27,6 +27,16 @@ pub(super) struct WorkspaceDiagnostics {
     roots: BTreeMap<PathBuf, Snapshot>,
 }
 
+/// Add `more` to `all`, skipping what a program already reported: a file several programs
+/// include (`#load`ed by two entries) shows what any of them finds wrong with it.
+fn merge(all: &mut Vec<Diagnostic>, more: &[Diagnostic]) {
+    for item in more {
+        if !all.contains(item) {
+            all.push(item.clone());
+        }
+    }
+}
+
 impl WorkspaceDiagnostics {
     pub(super) fn invalidate(&mut self, path: &Path, topology: bool) {
         for snapshot in self.roots.values_mut() {
@@ -246,17 +256,19 @@ impl Session {
         let env = self.environment.as_ref()?;
         let path = jaic::paths::file_identity(&*env.fs, Path::new(uri.path()));
         let state = self.workspace_diagnostics.borrow();
+        let current = self
+            .document(uri)
+            .ok()
+            .map(|doc| text_hash(doc.text.as_bytes()));
+        let mut found: Option<Vec<Diagnostic>> = None;
         for snapshot in state.roots.values().filter(|s| !s.stale) {
-            if let Some(file) = snapshot.files.get(&path) {
-                if let Ok(doc) = self.document(uri)
-                    && text_hash(doc.text.as_bytes()) != file.stamp
-                {
-                    continue;
-                }
-                return Some(file.items.clone());
+            if let Some(file) = snapshot.files.get(&path)
+                && current.is_none_or(|stamp| stamp == file.stamp)
+            {
+                merge(found.get_or_insert_with(Vec::new), &file.items);
             }
         }
-        None
+        found
     }
 
     pub(crate) fn closed_workspace_diagnostics(
@@ -268,11 +280,12 @@ impl Session {
         }
         let env = self.environment.as_ref()?;
         let path = jaic::paths::file_identity(&*env.fs, Path::new(uri.path()));
-        self.workspace_diagnostics
-            .borrow()
-            .roots
-            .values()
-            .find_map(|snapshot| snapshot.files.get(&path).map(|file| file.items.clone()))
+        let state = self.workspace_diagnostics.borrow();
+        let mut found: Option<Vec<Diagnostic>> = None;
+        for file in state.roots.values().filter_map(|s| s.files.get(&path)) {
+            merge(found.get_or_insert_with(Vec::new), &file.items);
+        }
+        found
     }
 
     /// Cached reports for all included workspace files, without starting foreground lint work.
@@ -281,25 +294,30 @@ impl Session {
         if !state.active {
             return None;
         }
-        let mut files = BTreeMap::new();
+        let mut files: BTreeMap<&PathBuf, Vec<&FileDiagnostics>> = BTreeMap::new();
         for snapshot in state.roots.values() {
             for (path, file) in &snapshot.files {
-                files.entry(path).or_insert(file);
+                files.entry(path).or_default().push(file);
             }
         }
         Some(
             files
                 .into_iter()
-                .filter_map(|(path, file)| {
+                .filter_map(|(path, programs)| {
                     let uri = self.client_uri(path)?;
-                    let version = match self.document(&uri) {
-                        Ok(doc) if text_hash(doc.text.as_bytes()) == file.stamp => {
-                            Some(doc.version)
-                        }
-                        Ok(_) => return None,
-                        Err(_) => None,
+                    let (version, current) = match self.document(&uri) {
+                        Ok(doc) => (Some(doc.version), Some(text_hash(doc.text.as_bytes()))),
+                        Err(_) => (None, None),
                     };
-                    Some((uri.as_str().into(), version, file.items.clone()))
+                    let mut items = Vec::new();
+                    let mut any = false;
+                    for file in programs {
+                        if current.is_none_or(|stamp| stamp == file.stamp) {
+                            any = true;
+                            merge(&mut items, &file.items);
+                        }
+                    }
+                    any.then(|| (uri.as_str().into(), version, items))
                 })
                 .collect(),
         )
