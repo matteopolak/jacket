@@ -622,6 +622,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         let examples = site.examples();
         let mut files = auxiliary_files(&site, logo.into_iter().chain(icon), &version, &examples);
         files.extend(metadata.files(&urls, image_file));
+        let published = published_files(&config_dir, &doc.files, &files)?;
         shared.written_files = files.iter().map(|(path, _)| path.clone()).collect();
         if site.runtime {
             shared
@@ -685,6 +686,9 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         accounted += timing(args, "render and write", render_start);
         if rendered != ExitCode::SUCCESS {
             return Ok(rendered);
+        }
+        if !args.check {
+            write_published(&cwd.join(&args.out), &published)?;
         }
         eprintln!(
             "jacket doc: {} modules, {items} items ({procedures} procedures), {} example programs{}",
@@ -751,6 +755,54 @@ fn timing(args: &DocArgs, label: &str, start: std::time::Instant) -> std::time::
         eprintln!("jacket doc timings: {label}: {:.3}s", elapsed.as_secs_f64());
     }
     elapsed
+}
+
+/// `[doc] files`, read for the site root under their own names. A name the site already uses
+/// is an error rather than a silent replacement; pages are checked when these are written,
+/// after them.
+fn published_files(
+    config_dir: &Path,
+    listed: &[String],
+    site: &[(String, Vec<u8>)],
+) -> Result<Vec<(String, Vec<u8>)>, String> {
+    let mut out: Vec<(String, Vec<u8>)> = Vec::new();
+    for entry in listed {
+        let path = config_dir.join(entry);
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .ok_or_else(|| format!("[doc] files: `{entry}` has no file name"))?;
+        if site.iter().chain(&out).any(|(taken, _)| *taken == name) {
+            return Err(format!(
+                "[doc] files: `{entry}` would replace the site's own `{name}`"
+            ));
+        }
+        let bytes = std::fs::read(&path)
+            .map_err(|e| format!("[doc] files: cannot read {}: {e}", path.display()))?;
+        out.push((name, bytes));
+    }
+    Ok(out)
+}
+
+/// Writes `[doc] files` into the rendered site, refusing to replace a page.
+fn write_published(out: &Path, files: &[(String, Vec<u8>)]) -> Result<(), String> {
+    use std::io::Write;
+    for (name, bytes) in files {
+        let path = out.join(name);
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(|e| match e.kind() {
+                std::io::ErrorKind::AlreadyExists => {
+                    format!("[doc] files: `{name}` would replace the site's own `{name}`")
+                }
+                _ => format!("cannot write {}: {e}", path.display()),
+            })?;
+        file.write_all(bytes)
+            .map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    }
+    Ok(())
 }
 
 fn json_bytes(value: &impl serde::Serialize) -> Result<Vec<u8>, String> {

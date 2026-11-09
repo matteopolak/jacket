@@ -76,6 +76,7 @@ og_image = "assets/social.png"      # a file (copied to assets/) or a URL; 1200x
 site_name = "my_lib"                # og:site_name; default: name
 canonical_version = "1.4.0"         # other versions point their canonical here and get noindex
 theme = "doc-theme"                 # files that replace or extend the built-in theme
+files = ["install.sh"]              # published as they are at the site root (/install.sh); a name a page uses is an error
 
 # Sidebar and index headings, in order. A module goes under the last category that matches
 # its folder; with none, modules are listed with no heading.

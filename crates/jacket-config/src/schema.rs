@@ -512,6 +512,10 @@ pub struct Doc {
     /// Markdown files split into one page per `###` heading, each its own sidebar heading.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub section: Vec<DocSection>,
+    /// Files published as they are at the site root under their own names (`install.sh`),
+    /// relative to jacket.toml.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<String>,
     /// `[format]` settings that differ for the examples in doc comments; a key left out is the
     /// file's `[format]` value. `ignore` and `format_doc_examples` are not allowed here.
     #[serde(default, skip_serializing_if = "Format::is_empty")]
@@ -766,6 +770,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "pages_title",
             "page",
             "section",
+            "files",
             "format",
         ],
         "doc.format" => DOC_FORMAT_KEYS,
