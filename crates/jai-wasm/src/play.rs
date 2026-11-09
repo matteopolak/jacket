@@ -917,7 +917,8 @@ mod tests {
     }
 
     /// C stream input retains empty and unterminated lines. The test program
-    /// trims CRLF for display; it does not depend on a stdlib helper.
+    /// trims CRLF for display; it does not depend on a stdlib helper. The line
+    /// buffer comes from libc's `getline`, so libc's `free` releases it.
     #[test]
     fn c_stream_lines_include_empty_and_unterminated_lines() {
         let r = with_input(
@@ -926,9 +927,10 @@ mod tests {
                 "libc :: #system_library \"libc\";\n",
                 "stdin: *void #elsewhere libc;\n",
                 "getline :: (buffer: **u8, count: *u64, stream: *void) -> s64 #foreign libc;\n",
+                "c_free :: (block: *void) #foreign libc \"free\";\n",
                 "main :: () {\n",
                 "    line: *u8; capacity: u64;\n",
-                "    defer free(line);\n",
+                "    defer c_free(line);\n",
                 "    while true {\n",
                 "        count := getline(*line, *capacity, stdin);\n",
                 "        if count < 0 break;\n",
