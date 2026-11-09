@@ -1,4 +1,9 @@
 // Method descriptors preserve wire paths independently of generated identifiers.
+//
+// ```jai,skip_on(wasm)
+// echo := Method.{ path = "/echo.Echo/Chat", client_streaming = true, server_streaming = true };
+// assert(echo.path == "/echo.Echo/Chat");
+// ```
 Method :: struct {
     path: string;
     client_streaming: bool;
@@ -7,6 +12,22 @@ Method :: struct {
 
 // Scheduler-bound RPC scope. Keep its address and TLS configuration stable until
 // all calls and close_channel finish; active call and connection limits bound admission.
+//
+// ```jai,no_run,skip_on(wasm)
+// Tls :: #import "Extensions/Tls";
+//
+// main :: () {
+//     config: Tls.Tls_Config;
+//     config.alpn = string.["h2"];
+//     Tls.tls_config_init(*config);
+//     defer Tls.tls_config_free(*config);
+//
+//     channel: Channel;
+//     channel.transport.base_url = "https://localhost:50051";
+//     channel.transport.tls = *config;
+//     defer close_channel(*channel);
+// }
+// ```
 Channel :: struct {
     transport: Http.Http2_Channel;
     max_active_calls := 128;
@@ -15,6 +36,17 @@ Channel :: struct {
 
 // Per-call deadlines and message/metadata bounds. Client outgoing metadata is
 // borrowed through open_call; server initial metadata is borrowed through serve_call.
+//
+// ```jai,no_run,skip_on(wasm)
+// options := Call_Options.{
+//     deadline_ms = to_milliseconds(current_time_monotonic()) + 5000, // absolute, monotonic
+//     metadata = Metadata_Entry.[.{ "x-request-id", "42" }],
+//     compression = .GZIP,
+// };
+// channel: Channel;
+// call, status := open_call(*channel, Method.{ path = "/echo.Echo/Say" }, options);
+// defer close(*call);
+// ```
 Call_Options :: struct {
     // Absolute monotonic milliseconds; zero means no RPC deadline.
     deadline_ms: s64;
@@ -26,18 +58,52 @@ Call_Options :: struct {
 }
 
 // Per-message override: false uses an identity envelope on a negotiated gzip call.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// // The call negotiated gzip; send this one message uncompressed.
+// status = send_bytes(*call, u8.[1, 2, 3], .{ compress = false });
+// assert(status.code == .OK);
+// ```
 Send_Options :: struct {
     compress := true;
 }
 
 // Opaque RPC handle. Join its sender and receiver before close; returned messages
 // and statuses own independent storage.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// status = close_send(*call);
+// status = finish(*call);
+// defer free_status(*status);
+// ```
 Call :: struct {
     state: *void;
 }
 
 // MESSAGE carries one owned message. On clients, END and ERROR still require
 // finish to obtain the authoritative RPC status.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// message, kind := receive_bytes(*call);
+// if kind == .MESSAGE free(message.data);
+// final := finish(*call); // the authoritative result, also after .END or .ERROR
+// defer free_status(*final);
+// ```
 Receive_Kind :: enum u8 {
     MESSAGE;
     END;
@@ -46,7 +112,15 @@ Receive_Kind :: enum u8 {
 
 // Opens an RPC without retry or redirect. The channel and TLS configuration must
 // remain alive until every call and close_channel have completed.
-// Example: `call, status := open_call(*channel, method, options); defer close(*call);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// ```
 open_call :: (channel: *Channel, method: Method, options := Call_Options.{}) -> Call, Status {
     if channel.active_calls >= channel.max_active_calls return .{}, .{ code = .RESOURCE_EXHAUSTED, cause = .LIMIT };
     if options.max_message < 0 || options.max_wire_message < 0 || options.max_metadata < 0 return .{}, .{ code = .INVALID_ARGUMENT, cause = .LIMIT };
@@ -101,7 +175,17 @@ open_call :: (channel: *Channel, method: Method, options := Call_Options.{}) -> 
 
 // Sends an owned-by-caller encoded Protobuf message. Framing owns a temporary
 // copy only until this operation returns. One sender may coexist with one receiver.
-// Example: `status := send_bytes(*call, encoded); defer free_status(*status);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// status = send_bytes(*call, u8.[10, 3, 65, 100, 97]);
+// assert(status.code == .OK);
+// ```
 send_bytes :: (call: *Call, message: [] u8, options := Send_Options.{}) -> Status {
     state := cast(*Call_State) call.state;
     if !state return .{ code = .CANCELLED, cause = .CANCELLED };
@@ -139,7 +223,19 @@ send_bytes :: (call: *Call, message: [] u8, options := Send_Options.{}) -> Statu
 }
 
 // Encodes a generated Protobuf value and sends it through the shared framing path.
-// Example: `status := send(*call, request); defer free_status(*status);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// Api :: #import "Extensions/Protobuf/Schema"(GRPC = true, TEXT = "syntax='proto3'; package echo; message Say { string text = 1; }");
+//
+// main :: () {
+//     channel: Channel;
+//     call, status := open_call(*channel, Method.{ path = "/echo.Echo/Say" });
+//     defer close(*call);
+//     status = send(*call, Api.echo.Say.{ text = "hi" });
+//     assert(status.code == .OK);
+// }
+// ```
 send :: (call: *Call, message: $T, options := Send_Options.{}) -> Status {
     state := cast(*Call_State) call.state;
     if !state return .{ code = .CANCELLED, cause = .CANCELLED };
@@ -157,7 +253,17 @@ send :: (call: *Call, message: $T, options := Send_Options.{}) -> Status {
 }
 
 // Half-closes the client's sending direction. No automatic retry occurs.
-// Example: `status := close_send(*call); defer free_status(*status);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// status = close_send(*call); // no more requests
+// assert(status.code == .OK);
+// ```
 close_send :: (call: *Call) -> Status {
     state := cast(*Call_State) call.state;
     if !state return .{ code = .CANCELLED, cause = .CANCELLED };
@@ -191,7 +297,21 @@ close_send :: (call: *Call) -> Status {
 
 // Receives one framed message into caller-owned memory. END is a byte-stream
 // event, not application success; always inspect finish's authoritative Status.
-// Example: `bytes, kind := receive_bytes(*call); if bytes.data free(bytes.data);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// while true {
+//     message, kind := receive_bytes(*call);
+//     if kind != .MESSAGE break;
+//     defer free(message.data);
+//     print("% bytes\n", message.count);
+// }
+// ```
 receive_bytes :: (call: *Call) -> message: [] u8, kind: Receive_Kind {
     state := cast(*Call_State) call.state;
     if !state return .[], .ERROR;
@@ -302,7 +422,23 @@ receive_bytes :: (call: *Call) -> message: [] u8, kind: Receive_Kind {
 }
 
 // Decodes into owned Protobuf storage. Release a MESSAGE with Proto.free.
-// Example: `response, kind := receive(*call, Api.Response); defer Proto.free(*response);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// P :: #import "Extensions/Protobuf";
+// Api :: #import "Extensions/Protobuf/Schema"(GRPC = true, TEXT = "syntax='proto3'; package echo; message Say { string text = 1; }");
+//
+// main :: () {
+//     channel: Channel;
+//     call, status := open_call(*channel, Method.{ path = "/echo.Echo/Say" });
+//     defer close(*call);
+//     reply, kind := receive(*call, Api.echo.Say);
+//     if kind == .MESSAGE {
+//         print("%\n", reply.text);
+//         P.free(*reply);
+//     }
+// }
+// ```
 receive :: (call: *Call, $T: Type) -> value: T, kind: Receive_Kind {
     bytes, kind := receive_bytes(call);
     if kind != .MESSAGE return .{}, kind;
@@ -324,7 +460,20 @@ receive :: (call: *Call, $T: Type) -> value: T, kind: Receive_Kind {
 
 // Whether the last MESSAGE received used the negotiated compressed envelope.
 // This describes wire compression, independently of the decoded Protobuf value.
-// Example: `assert(received_compressed(*call));`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// message, kind := receive_bytes(*call);
+// if kind == .MESSAGE {
+//     defer free(message.data);
+//     print("gzip: %\n", received_compressed(*call));
+// }
+// ```
 received_compressed :: (call: *Call) -> bool {
     state := cast(*Call_State) call.state;
     return state && state.last_compressed;
@@ -332,7 +481,18 @@ received_compressed :: (call: *Call) -> bool {
 
 // Waits for final status, discarding unread messages one at a time. Returns an
 // independently owned Status, freed with free_status. Non-OK may follow messages.
-// Example: `status := finish(*call); defer free_status(*status);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// status = finish(*call);
+// defer free_status(*status);
+// print("%\n", status.code);
+// ```
 finish :: (call: *Call) -> Status {
     state := cast(*Call_State) call.state;
     if !state return .{ code = .CANCELLED, cause = .CANCELLED };
@@ -348,7 +508,16 @@ finish :: (call: *Call) -> Status {
 
 // Explicit cancellation wins if no terminal result has been observed locally.
 // Wakes blocked transport operations; join those fibers before close.
-// Example: `cancel(*call); // then join its sender and receiver`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// cancel(*call); // wakes a blocked sender or receiver; join them before close
+// ```
 cancel :: (call: *Call) {
     state := cast(*Call_State) call.state;
     if !state || state.terminal return;
@@ -361,7 +530,17 @@ cancel :: (call: *Call) {
 
 // Releases call storage after sender/receiver fibers return. Idempotent on a
 // cleared handle; received messages and returned statuses remain caller-owned.
-// Example: `close(*call); close(*call); // the second call is harmless`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// close(*call);
+// close(*call); // the second call is harmless
+// ```
 close :: (call: *Call) {
     state := cast(*Call_State) call.state;
     if !state return;
@@ -379,7 +558,13 @@ close :: (call: *Call) {
 }
 
 // Releases the channel after its calls have ended.
-// Example: `close_channel(*channel); // after closing every call`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel;
+// // ... open calls, use them and close each one ...
+// close_channel(*channel);
+// ```
 close_channel :: (channel: *Channel) {
     assert(channel.active_calls == 0, "close every call before its channel");
     Http.close_http2_channel(*channel.transport);
@@ -387,7 +572,18 @@ close_channel :: (channel: *Channel) {
 
 // Initial application metadata borrows call-owned storage until close. On clients
 // it becomes available after the first receive has obtained response headers.
-// Example: `for initial_metadata(*call) print("%\n", it.name);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// message, kind := receive_bytes(*call); // response headers arrive with the first receive
+// if kind == .MESSAGE free(message.data);
+// for initial_metadata(*call) print("%: %\n", it.name, it.value);
+// ```
 initial_metadata :: (call: *Call) -> [] Metadata_Entry {
     state := cast(*Call_State) call.state;
     if !state return .[];
@@ -395,7 +591,16 @@ initial_metadata :: (call: *Call) -> [] Metadata_Entry {
 }
 
 // The absolute monotonic deadline for explicit child-call budget inheritance.
-// Example: `child_options.deadline_ms = call_deadline(*parent);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// channel: Channel; // set transport.base_url and transport.tls before the first call
+// method := Method.{ path = "/echo.Echo/Say" };
+// call, status := open_call(*channel, method);
+// assert(status.code == .OK);
+// defer close(*call);
+// child := Call_Options.{ deadline_ms = call_deadline(*call) }; // the child call shares this budget
+// ```
 call_deadline :: (call: *Call) -> s64 {
     state := cast(*Call_State) call.state;
     if !state return 0;
@@ -404,7 +609,19 @@ call_deadline :: (call: *Call) -> s64 {
 
 // Cooperative cancellation/deadline observation. CPU work must yield to the
 // scheduler and poll; this does not preempt application code.
-// Example: `if cancelled(call) return .{ code = .CANCELLED };`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// handle :: (call: *Call, data: *void) -> Status {
+//     while !cancelled(call) {
+//         // ... a unit of work, then yield to the scheduler ...
+//         break;
+//     }
+//
+//     if cancelled(call) return .{ code = .CANCELLED };
+//     return .{};
+// }
+// ```
 cancelled :: (call: *Call) -> bool {
     state := cast(*Call_State) call.state;
     if !state return true;

@@ -1,5 +1,11 @@
 // Application metadata uses lowercase protocol names; grpc-* names are reserved.
-// Example: `assert(valid_metadata_name("trace-bin"));`.
+//.
+//
+// ```jai
+// assert(valid_metadata_name("trace-bin"));
+// assert(!valid_metadata_name("grpc-status")); // grpc-* is reserved
+// assert(!valid_metadata_name("Upper"));
+// ```
 valid_metadata_name :: (name: string) -> bool {
     if name.count == 0 || begins_with(name, "grpc-") return false;
     for reserved: string.["content-type", "content-length", "content-encoding", "te", "user-agent", "host", "connection", "keep-alive", "proxy-connection", "transfer-encoding", "upgrade"] if name == reserved return false;
@@ -14,7 +20,13 @@ valid_metadata_name :: (name: string) -> bool {
 
 // Encodes application metadata into temporary header storage. Binary values use
 // unpadded Base64; repeated keys retain their order. Fields need no explicit free.
-// Example: `fields, valid := encode_metadata(Metadata_Entry.[.{ "x-key", "value" }]);`.
+//.
+//
+// ```jai
+// fields, ok := encode_metadata(Metadata_Entry.[.{ "x-key", "value" }, .{ "x-blob-bin", "\x01\xff" }]);
+// assert(ok && fields.count == 2);
+// assert(fields[0].name == "x-key" && fields[1].value == "Af8"); // binary values are Base64
+// ```
 encode_metadata :: (metadata: [] Metadata_Entry, limit := 64 * 1024) -> fields: [] Http.Header_Field, ok: bool {
     fields, failure := metadata_encode(metadata, limit);
     return fields, failure == .NONE;
@@ -23,14 +35,39 @@ encode_metadata :: (metadata: [] Metadata_Entry, limit := 64 * 1024) -> fields: 
 // Copies application metadata into owned storage. Comma-joined binary values
 // are split before padded/unpadded Base64 decode. Reserved protocol fields are
 // excluded. Release the result with free_metadata, including on an empty result.
-// Example: `entries, valid := decode_metadata(fields); defer free_metadata(*entries);`.
+//.
+//
+// ```jai
+// Http :: #import "Extensions/Http";
+//
+// main :: () {
+//     fields := Http.Header_Field.[
+//         .{ name = "x-key", value = "value" },
+//         .{ name = "grpc-status", value = "0" },
+//     ];
+//     entries, ok := decode_metadata(fields);
+//     defer free_metadata(*entries);
+//     assert(ok && entries.count == 1 && entries[0].name == "x-key"); // grpc-* fields are left out
+// }
+// ```
 decode_metadata :: (fields: [] Http.Header_Field, limit := 64 * 1024) -> metadata: [..] Metadata_Entry, ok: bool {
     metadata, failure := metadata_decode(fields, limit);
     return metadata, failure == .NONE;
 }
 
 // Releases every entry's owned name/value, then the array; safe repeatedly.
-// Example: `free_metadata(*entries);`.
+//.
+//
+// ```jai
+// Http :: #import "Extensions/Http";
+//
+// main :: () {
+//     fields := Http.Header_Field.[.{ name = "x-key", value = "value" }];
+//     entries, _ := decode_metadata(fields);
+//     free_metadata(*entries);
+//     assert(entries.count == 0);
+// }
+// ```
 free_metadata :: (metadata: *[..] Metadata_Entry) {
     for metadata.* {
         if it.name.data free(it.name.data);

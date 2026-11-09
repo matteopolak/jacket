@@ -6,7 +6,27 @@ Call_Handler :: #type (call: *Call, data: *void) -> Status;
 // Adapts a typed/generated route to the common RPC lifecycle. Identity/gzip Protobuf
 // transport is accepted; malformed media types use HTTP 415, and unsupported
 // compression receives UNIMPLEMENTED. The handler's state belongs to its caller.
-// Example: `return serve_call(request, method, handler, *service_state);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// Http :: #import "Extensions/Http";
+//
+// echo :: (call: *Call, data: *void) -> Status {
+//     while true {
+//         message, kind := receive_bytes(call);
+//         if kind != .MESSAGE break;
+//         defer free(message.data);
+//         status := send_bytes(call, message);
+//         if status.code != .OK return status;
+//     }
+//
+//     return .{};
+// }
+//
+// handler :: (request: *Http.Request) -> Http.Response {
+//     return serve_call(request, Method.{ path = "/echo.Echo/Say" }, echo, null);
+// }
+// ```
 serve_call :: (request: *Http.Request, method: Method, handler: Call_Handler, data: *void, options := Call_Options.{}) -> Http.Response {
     content_type, _ := Http.header(request, "content-type");
     if request.method != .POST || !protobuf_content_type(content_type) return Http.status_only(415);
@@ -137,7 +157,16 @@ serve_call :: (request: *Http.Request, method: Method, handler: Call_Handler, da
 
 // The server's observed remote socket address, copied by value. A client call or
 // cleared handle returns an unspecified address; this does not identify a user.
-// Example: `text := Io.address_to_string(peer_address(call));`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// log_peer :: (call: *Call, data: *void) -> Status {
+//     print("call from %\n", Io.address_to_string(peer_address(call)));
+//     return .{};
+// }
+// ```
 peer_address :: (call: *Call) -> Io.Address {
     state := cast(*Call_State) call.state;
     if !state || state.client return .{};
@@ -148,7 +177,15 @@ peer_address :: (call: *Call) -> Io.Address {
 // Entries are copied by the exchange; the caller may immediately release them.
 // Invalid metadata leaves the previous block intact. Client calls and committed
 // response headers return FAILED_PRECONDITION without cancelling the RPC.
-// Example: `status := set_initial_metadata(call, Metadata_Entry.[.{"x-id", "123"}]);`.
+//.
+//
+// ```jai,no_run,skip_on(wasm)
+// reply :: (call: *Call, data: *void) -> Status {
+//     status := set_initial_metadata(call, Metadata_Entry.[.{ "x-id", "123" }]);
+//     if status.code != .OK return status;
+//     return send_bytes(call, u8.[1]);
+// }
+// ```
 set_initial_metadata :: (call: *Call, entries: [] Metadata_Entry) -> Status {
     state := cast(*Call_State) call.state;
     if !state || state.client || state.terminal || state.sending return .{ code = .FAILED_PRECONDITION };

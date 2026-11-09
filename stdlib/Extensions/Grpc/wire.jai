@@ -1,10 +1,22 @@
 // Per-message compression uses the algorithm negotiated by grpc-encoding.
+//
+// ```jai
+// bytes, failure := frame_message(u8.[1, 2, 3], compression = .GZIP);
+// assert(failure == .NONE);
+// defer free(bytes.data);
+// assert(bytes[0] == 1); // the compressed flag of the envelope
+// ```
 Compression :: enum u8 {
     IDENTITY;
     GZIP;
 }
 
 // Envelope validation failures. Declared-size rejection precedes payload allocation.
+//
+// ```jai
+// _, failure := frame_message(u8.[1, 2, 3], max_message = 2);
+// assert(failure == .TOO_LARGE);
+// ```
 Wire_Error :: enum u8 {
     NONE;
     TOO_LARGE;
@@ -16,6 +28,20 @@ Wire_Error :: enum u8 {
 
 // One in-progress message, with no background message queue. A ready payload is
 // transferred with `take_message`; release an abandoned decoder with `free_decoder`.
+//
+// ```jai
+// wire, _ := frame_message(u8.[7, 8, 9]);
+// defer free(wire.data);
+//
+// decoder: Envelope_Decoder;
+// defer free_decoder(*decoder);
+// used, failure := feed_envelope(*decoder, wire);
+// assert(failure == .NONE && used == wire.count && decoder.ready);
+//
+// message := take_message(*decoder);
+// defer free(message.data);
+// assert(message.count == 3 && message[0] == 7);
+// ```
 Envelope_Decoder :: struct {
     max_message := 4 * 1024 * 1024;
     max_wire_message := 4 * 1024 * 1024;

@@ -1,4 +1,9 @@
 // Canonical gRPC status numbers, including OK and explicit application errors.
+//
+// ```jai
+// assert(cast(int) Status_Code.NOT_FOUND == 5);
+// assert(http2_reset_status(8) == .CANCELLED);
+// ```
 Status_Code :: enum u8 {
     OK;
     CANCELLED;
@@ -21,6 +26,18 @@ Status_Code :: enum u8 {
 
 // Locally observed cancellation, deadline, transport/protocol failure or limit,
 // recorded separately from the RPC status code.
+//
+// ```jai
+// Http :: #import "Extensions/Http";
+//
+// main :: () {
+//     // An invalid grpc-status is a protocol failure, whatever HTTP said.
+//     fields := Http.Header_Field.[.{ name = "grpc-status", value = "00" }];
+//     status := parse_status(fields, 200);
+//     defer free_status(*status);
+//     assert(status.code == .UNKNOWN && status.cause == .PROTOCOL);
+// }
+// ```
 Local_Cause :: enum u8 {
     NONE;
     CANCELLED;
@@ -32,6 +49,12 @@ Local_Cause :: enum u8 {
 
 // Final application code and independently preserved local failure cause.
 // Returned messages and trailing metadata are owned; release with free_status.
+//
+// ```jai
+// status := Status.{ code = .NOT_FOUND, message = "no such user" };
+// assert(status.code == .NOT_FOUND && status.cause == .NONE);
+// assert(Status.{}.code == .OK);
+// ```
 Status :: struct {
     code: Status_Code = .OK;
     message: string;
@@ -44,6 +67,11 @@ Status :: struct {
 
 // One ordered application metadata entry. Names may repeat; values for names
 // ending in -bin contain raw bytes rather than Base64 text.
+//
+// ```jai
+// entry := Metadata_Entry.{ "trace-bin", "\x01\x02" }; // -bin values are raw bytes
+// assert(valid_metadata_name(entry.name));
+// ```
 Metadata_Entry :: struct {
     name: string;
     value: string; // raw bytes for names ending -bin
@@ -51,7 +79,25 @@ Metadata_Entry :: struct {
 
 // Parses authoritative final status; HTTP mapping applies only when grpc-status
 // is missing or invalid. Repeated status fields are a protocol failure.
-// Example: `status := parse_status(fields, 200); defer free_status(*status);`.
+//.
+//
+// ```jai
+// Http :: #import "Extensions/Http";
+//
+// main :: () {
+//     fields := Http.Header_Field.[
+//         .{ name = "grpc-status", value = "5" },
+//         .{ name = "grpc-message", value = "no%20such%20user" },
+//     ];
+//     status := parse_status(fields, 200);
+//     defer free_status(*status);
+//     assert(status.code == .NOT_FOUND && status.message == "no such user");
+//
+//     missing := parse_status(.[], 503); // no grpc-status: the HTTP status decides
+//     defer free_status(*missing);
+//     assert(missing.code == .UNAVAILABLE);
+// }
+// ```
 parse_status :: (fields: [] Http.Header_Field, http_status: int, limit := 64 * 1024) -> Status {
     if !metadata_headers_fit(fields, limit) return .{ code = .RESOURCE_EXHAUSTED, cause = .LIMIT };
 
@@ -116,7 +162,18 @@ parse_status :: (fields: [] Http.Header_Field, http_status: int, limit := 64 * 1
 }
 
 // Releases owned status text and metadata. Safe on a cleared status.
-// Example: `free_status(*status);`.
+//.
+//
+// ```jai
+// Http :: #import "Extensions/Http";
+//
+// main :: () {
+//     fields := Http.Header_Field.[.{ name = "grpc-status", value = "3" }];
+//     status := parse_status(fields, 200);
+//     free_status(*status);
+//     free_status(*status); // safe on a cleared status
+// }
+// ```
 free_status :: (status: *Status) {
     if status.message.data free(status.message.data);
     if status.status_details.data free(status.status_details.data);
@@ -127,7 +184,16 @@ free_status :: (status: *Status) {
 
 // Parses grpc-timeout into milliseconds, rounding fractional milliseconds up.
 // Wire values have at most eight digits, so every supported unit fits s64.
-// Example: `milliseconds, valid := parse_timeout("1S"); // 1000, true`.
+//.
+//
+// ```jai
+// milliseconds, ok := parse_timeout("1S");
+// assert(ok && milliseconds == 1000);
+// rounded, _ := parse_timeout("1500u"); // fractions of a millisecond round up
+// assert(rounded == 2);
+// _, invalid := parse_timeout("1x");
+// assert(!invalid);
+// ```
 parse_timeout :: (text: string) -> milliseconds: s64, ok: bool {
     if text.count < 2 || text.count > 9 return 0, false;
 
@@ -153,7 +219,12 @@ parse_timeout :: (text: string) -> milliseconds: s64, ok: bool {
 
 // Maps documented HTTP/2 reset codes. STREAM_CLOSED and unknown codes have no
 // open-call mapping and report UNKNOWN. No code authorizes automatic replay.
-// Example: `assert(http2_reset_status(8) == .CANCELLED);`.
+//.
+//
+// ```jai
+// assert(http2_reset_status(8) == .CANCELLED);
+// assert(http2_reset_status(0xffffffff) == .UNKNOWN);
+// ```
 http2_reset_status :: (code: u32) -> Status_Code {
     mapping :: Status_Code.[.INTERNAL, .INTERNAL, .INTERNAL, .INTERNAL, .INTERNAL, .UNKNOWN, .INTERNAL, .UNAVAILABLE, .CANCELLED, .INTERNAL, .INTERNAL, .RESOURCE_EXHAUSTED, .PERMISSION_DENIED];
     if code >= mapping.count return .UNKNOWN;
