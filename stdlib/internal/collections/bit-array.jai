@@ -28,7 +28,7 @@ deinit :: (using array: *Bit_Array) {
     slots.data = null;
     slots.count = 0;
     count = 0;
-} @FreesArgument
+}
 
 set_bit :: (using array: *Bit_Array, i: int) {
     assert(i >= 0 && i < count);
