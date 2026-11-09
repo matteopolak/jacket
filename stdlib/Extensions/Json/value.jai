@@ -226,6 +226,45 @@ json_set :: (object: *Json_Value, key: string, value: Json_Value) {
     array_add(*object.members, member);
 }
 
+// Removes the members of an object named `key` and frees them, keeping the order of the rest. A
+// key that a document repeated has every copy removed, so [json_get] finds nothing afterwards.
+// The result is whether there was anything to remove; anything but an object has nothing.
+//
+// - key: the member name.
+//
+// ```jai
+// object, _ := from_json(Json_Value, "{\"a\": 1, \"b\": 2}");
+// assert(json_remove(*object, "a"));
+// assert(!json_remove(*object, "a"));
+// assert(json_get(*object, "a") == null && json_count(*object) == 1);
+// free_json(*object);
+// ```
+json_remove :: (object: *Json_Value, key: string) -> bool {
+    if object.kind != .OBJECT return false;
+
+    kept := 0;
+
+    for *member: object.members {
+        if member.key == key {
+            if member.key.count free(member.key);
+
+            free_json(*member.value);
+
+            continue;
+        }
+
+        if kept != it_index object.members[kept] = member.*;
+
+        kept += 1;
+    }
+
+    removed := kept != object.members.count;
+
+    object.members.count = kept;
+
+    return removed;
+}
+
 // The member `key` of an object (the last one, if the key repeats), or null.
 //
 // ```jai
