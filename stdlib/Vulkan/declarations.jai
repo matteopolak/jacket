@@ -4,7 +4,7 @@
 #scope_file
 Binding_Arrays :: #import "internal/bindings/arrays";
 
-binding_abort :: () #foreign libc "abort";
+binding_abort :: () #foreign libc "abort"; @Exits
 
 #if OS == .WINDOWS {
     #import "Windows";

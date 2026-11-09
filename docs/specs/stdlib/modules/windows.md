@@ -965,17 +965,17 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `GlobalLock :: (hMem: HGLOBAL) -> *void #foreign kernel32`
 - [OS == .WINDOWS] `GlobalMemoryStatusEx :: (lpBuffer: *MEMORYSTATUSEX) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `GlobalUnlock :: (hMem: HGLOBAL) -> BOOL #foreign kernel32`
-- [OS == .WINDOWS] `LocalFree :: (hMem: HLOCAL) -> HLOCAL #foreign kernel32`
+- [OS == .WINDOWS] `LocalFree :: (hMem: HLOCAL) -> HLOCAL #foreign kernel32 @MaybeFreesArgument`
 - [OS == .WINDOWS] `MapViewOfFile :: (hFileMappingObject: HANDLE, dwDesiredAccess: DWORD, dwFileOffsetHigh: DWORD, dwFileOffsetLow: DWORD, dwNumberOfBytesToMap: SIZE_T) -> *void #foreign kernel32`
 - [OS == .WINDOWS] `OpenFileMappingA :: (dwDesiredAccess: DWORD, bInheritHandle: BOOL, lpName: LPCSTR) -> HANDLE #foreign kernel32`
 - [OS == .WINDOWS] `OpenFileMappingW :: (dwDesiredAccess: DWORD, bInheritHandle: BOOL, lpName: *u16) -> HANDLE #foreign kernel32`
 - [OS == .WINDOWS] `UnmapViewOfFile :: (address: *void) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `VirtualAlloc :: (lpAddress: *void, dwSize: u64, flAllocationType: u32, flProtect: u32) -> *void #foreign kernel32`
-- [OS == .WINDOWS] `VirtualFree :: (lpAddress: *void, dwSize: u64, dwFreeType: u32) -> BOOL #foreign kernel32`
+- [OS == .WINDOWS] `VirtualFree :: (lpAddress: *void, dwSize: u64, dwFreeType: u32) -> BOOL #foreign kernel32 @MaybeFreesArgument`
 - [OS == .WINDOWS] `VirtualLock :: (lpAddress: *void, dwSize: u64) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `VirtualProtect :: (lpAddress: *void, dwSize: u64, flNewProtect: u32, lpflOldProtect: *u32) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `VirtualQuery :: (lpAddress: *void, lpBuffer: *MEMORY_BASIC_INFORMATION, dwLength: SIZE_T) -> SIZE_T #foreign kernel32`
-- [OS == .WINDOWS] `CloseHandle :: (handle: HANDLE) -> s32 #foreign kernel32`
+- [OS == .WINDOWS] `CloseHandle :: (handle: HANDLE) -> s32 #foreign kernel32 @MaybeFreesArgument`
 - [OS == .WINDOWS] `SetHandleInformation :: (hObject: HANDLE, dwMask: DWORD, dwFlags: DWORD) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `FreeLibrary :: (module: HMODULE) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `GetModuleFileNameA :: (module: HANDLE, result: *u8, size: s32) -> s32 #foreign kernel32`
@@ -1097,7 +1097,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `CreateProcessW :: (lpApplicationName: *u16, lpCommandLine: *u16, lpSecurityAttributes: *SECURITY_ATTRIBUTES, lpThreadAttributes: *SECURITY_ATTRIBUTES, bInheritHandles: BOOL, dwCreationFlags: Creation_Flags, lpEnvironment: *void, lpCurrentDirectory: *u16, lpStartupInfo: *STARTUPINFOW, lpProcessInformation: *PROCESS_INFORMATION) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `GetExitCodeProcess :: (hProcess: HANDLE, lpExitCode: *u32) -> s32 #foreign kernel32`
 - [OS == .WINDOWS] `CreateThread :: (threadAttributes: *void, stackSize: s64, startAddress: *void, parameter: *void, creation_flags: Creation_Flags, threadIdReturn: *s32) -> HANDLE #foreign kernel32`
-- [OS == .WINDOWS] `ExitProcess :: (exit_code: u32) -> void #foreign kernel32`
+- [OS == .WINDOWS] `ExitProcess :: (exit_code: u32) -> void #foreign kernel32 @Exits`
 - [OS == .WINDOWS] `GetCurrentProcess :: () -> HANDLE #foreign kernel32`
 - [OS == .WINDOWS] `GetCurrentProcessId :: () -> u32 #foreign kernel32`
 - [OS == .WINDOWS] `GetCurrentThread :: () -> HANDLE #foreign kernel32`

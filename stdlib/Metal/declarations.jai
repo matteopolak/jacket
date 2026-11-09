@@ -24,7 +24,7 @@ CGColorSpaceRef :: *CGColorSpace;
 CFTimeInterval :: float64;
 __IOSurface :: struct {};
 IOSurfaceRef :: *__IOSurface;
-binding_abort :: () #foreign libc "abort";
+binding_abort :: () #foreign libc "abort"; @Exits
 Metal :: #library,system "Metal"; @native(external)
 libc :: #library,system "c"; @native(external)
 libobjc :: #library,system "objc"; @native(external)

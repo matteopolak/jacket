@@ -518,7 +518,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `ftok :: (__pathname: *u8, __proj_id: s32) -> key_t #foreign libc`
 - [OS == .LINUX] `mmap :: (__addr: *void, __len: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc`
 - [OS == .LINUX] `mmap64 :: (__addr: *void, __len: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc`
-- [OS == .LINUX] `munmap :: (__addr: *void, __len: u64) -> s32 #foreign libc`
+- [OS == .LINUX] `munmap :: (__addr: *void, __len: u64) -> s32 #foreign libc @MaybeFreesArgument`
 - [OS == .LINUX] `mprotect :: (__addr: *void, __len: u64, __prot: s32) -> s32 #foreign libc`
 - [OS == .LINUX] `msync :: (__addr: *void, __len: u64, __flags: s32) -> s32 #foreign libc`
 - [OS == .LINUX] `madvise :: (__addr: *void, __len: u64, __advice: s32) -> s32 #foreign libc`
@@ -632,7 +632,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `faccessat :: (__fd: s32, __file: *u8, __type: s32, __flag: s32) -> s32 #foreign libc`
 - [OS == .LINUX] `lseek :: (__fd: s32, __offset: s64, __whence: s32) -> s64 #foreign libc`
 - [OS == .LINUX] `lseek64 :: (__fd: s32, __offset: s64, __whence: s32) -> s64 #foreign libc`
-- [OS == .LINUX] `close :: (__fd: s32) -> s32 #foreign libc`
+- [OS == .LINUX] `close :: (__fd: s32) -> s32 #foreign libc @MaybeFreesArgument`
 - [OS == .LINUX] `read :: (__fd: s32, __buf: *void, __nbytes: u64) -> s64 #foreign libc`
 - [OS == .LINUX] `write :: (__fd: s32, __buf: *void, __n: u64) -> s64 #foreign libc`
 - [OS == .LINUX] `pread :: (__fd: s32, __buf: *void, __nbytes: u64, __offset: s64) -> s64 #foreign libc`
@@ -668,7 +668,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `execlp :: (__file: *u8, __arg: *u8, __args: ..Any) -> s32 #foreign libc`
 - [OS == .LINUX] `execvpe :: (__file: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc`
 - [OS == .LINUX] `nice :: (__inc: s32) -> s32 #foreign libc`
-- [OS == .LINUX] `_exit :: (__status: s32) -> void #foreign libc`
+- [OS == .LINUX] `_exit :: (__status: s32) -> void #foreign libc @Exits`
 - [OS == .LINUX] `PC :: enum u32`
 - [OS == .LINUX] `using _SC_definitions :: enum s32`
 - [OS == .LINUX] `CS :: enum u32`
@@ -1147,7 +1147,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `tmpnam :: (__s: *u8) -> *u8 #foreign libc`
 - [OS == .LINUX] `tmpnam_r :: (__s: *u8) -> *u8 #foreign libc`
 - [OS == .LINUX] `tempnam :: (__dir: *u8, __pfx: *u8) -> *u8 #foreign libc`
-- [OS == .LINUX] `fclose :: (__stream: *FILE) -> s32 #foreign libc`
+- [OS == .LINUX] `fclose :: (__stream: *FILE) -> s32 #foreign libc @FreesArgument`
 - [OS == .LINUX] `fflush :: (__stream: *FILE) -> s32 #foreign libc`
 - [OS == .LINUX] `fflush_unlocked :: (__stream: *FILE) -> s32 #foreign libc`
 - [OS == .LINUX] `fcloseall :: () -> s32 #foreign libc`
@@ -1164,7 +1164,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `setbuffer :: (__stream: *FILE, __buf: *u8, __size: u64) -> void #foreign libc`
 - [OS == .LINUX] `setlinebuf :: (__stream: *FILE) -> void #foreign libc`
 - [OS == .LINUX] `fprintf :: (__stream: *FILE, __format: *u8, __args: ..Any) -> s32 #foreign libc`
-- [OS == .LINUX] `printf :: (__format: *u8, __args: ..Any) -> s32 #foreign libc`
+- [OS == .LINUX] `printf :: (__format: *u8, __args: ..Any) -> s32 #foreign libc @WritesOutput`
 - [OS == .LINUX] `sprintf :: (__s: *u8, __format: *u8, __args: ..Any) -> s32 #foreign libc`
 - [OS == .LINUX] `snprintf :: (__s: *u8, __maxlen: u64, __format: *u8, __args: ..Any) -> s32 #foreign libc`
 - [OS == .LINUX] `__asprintf :: (__ptr: **u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc`
@@ -1181,7 +1181,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `fgetc_unlocked :: (__stream: *FILE) -> s32 #foreign libc`
 - [OS == .LINUX] `fputc :: (__c: s32, __stream: *FILE) -> s32 #foreign libc`
 - [OS == .LINUX] `putc :: (__c: s32, __stream: *FILE) -> s32 #foreign libc`
-- [OS == .LINUX] `putchar :: (__c: s32) -> s32 #foreign libc`
+- [OS == .LINUX] `putchar :: (__c: s32) -> s32 #foreign libc @WritesOutput`
 - [OS == .LINUX] `fputc_unlocked :: (__c: s32, __stream: *FILE) -> s32 #foreign libc`
 - [OS == .LINUX] `putc_unlocked :: (__c: s32, __stream: *FILE) -> s32 #foreign libc`
 - [OS == .LINUX] `putchar_unlocked :: (__c: s32) -> s32 #foreign libc`
@@ -1193,7 +1193,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `getdelim :: (__lineptr: **u8, __n: *u64, __delimiter: s32, __stream: *FILE) -> s64 #foreign libc`
 - [OS == .LINUX] `getline :: (__lineptr: **u8, __n: *u64, __stream: *FILE) -> s64 #foreign libc`
 - [OS == .LINUX] `fputs :: (__s: *u8, __stream: *FILE) -> s32 #foreign libc`
-- [OS == .LINUX] `puts :: (__s: *u8) -> s32 #foreign libc`
+- [OS == .LINUX] `puts :: (__s: *u8) -> s32 #foreign libc @WritesOutput`
 - [OS == .LINUX] `ungetc :: (__c: s32, __stream: *FILE) -> s32 #foreign libc`
 - [OS == .LINUX] `fread :: (__ptr: *void, __size: u64, __n: u64, __stream: *FILE) -> u64 #foreign libc`
 - [OS == .LINUX] `fwrite :: (__ptr: *void, __size: u64, __n: u64, __s: *FILE) -> u64 #foreign libc`
@@ -2623,7 +2623,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS && CPU == .ARM64] `mprotect :: (unknown0: *void, unknown1: u64, unknown2: s32) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `msync :: (unknown0: *void, unknown1: u64, unknown2: s32) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `munlock :: (unknown0: *void, unknown1: u64) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .ARM64] `munmap :: (unknown0: *void, unknown1: u64) -> s32 #foreign libc`
+- [OS == .MACOS && CPU == .ARM64] `munmap :: (unknown0: *void, unknown1: u64) -> s32 #foreign libc @MaybeFreesArgument`
 - [OS == .MACOS && CPU == .ARM64] `shm_open :: (unknown0: *u8, unknown1: s32, __args: ..Any) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `shm_unlink :: (unknown0: *u8) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `posix_madvise :: (unknown0: *void, unknown1: u64, unknown2: s32) -> s32 #foreign libc`
@@ -2728,12 +2728,12 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS && CPU == .ARM64] `readlinkat :: (unknown0: s32, unknown1: *u8, unknown2: *u8, unknown3: u64) -> s64 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `symlinkat :: (unknown0: *u8, unknown1: s32, unknown2: *u8) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `unlinkat :: (unknown0: s32, unknown1: *u8, unknown2: s32) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .ARM64] `_exit :: (unknown0: s32) -> void #foreign libc`
+- [OS == .MACOS && CPU == .ARM64] `_exit :: (unknown0: s32) -> void #foreign libc @Exits`
 - [OS == .MACOS && CPU == .ARM64] `access :: (unknown0: *u8, unknown1: s32) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `alarm :: (unknown0: u32) -> u32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `chdir :: (unknown0: *u8) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `chown :: (unknown0: *u8, unknown1: uid_t, unknown2: gid_t) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .ARM64] `close :: (unknown0: s32) -> s32 #foreign libc`
+- [OS == .MACOS && CPU == .ARM64] `close :: (unknown0: s32) -> s32 #foreign libc @MaybeFreesArgument`
 - [OS == .MACOS && CPU == .ARM64] `dup :: (unknown0: s32) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `dup2 :: (unknown0: s32, unknown1: s32) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `execl :: (__path: *u8, __arg0: *u8, __args: ..Any) -> s32 #foreign libc`
@@ -2816,7 +2816,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS && CPU == .ARM64] `setegid :: (unknown0: gid_t) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `seteuid :: (unknown0: uid_t) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `symlink :: (unknown0: *u8, unknown1: *u8) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .ARM64] `_Exit :: (unknown0: s32) -> void #foreign libc`
+- [OS == .MACOS && CPU == .ARM64] `_Exit :: (unknown0: s32) -> void #foreign libc @Exits`
 - [OS == .MACOS && CPU == .ARM64] `acct :: (unknown0: *u8) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `endusershell :: () -> void #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `execvP :: (__file: *u8, __searchpath: *u8, __argv: **u8) -> s32 #foreign libc`
@@ -3111,7 +3111,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS && CPU == .ARM64] `stdout: *FILE #elsewhere libc "__stdoutp"`
 - [OS == .MACOS && CPU == .ARM64] `stderr: *FILE #elsewhere libc "__stderrp"`
 - [OS == .MACOS && CPU == .ARM64] `clearerr :: (unknown0: *FILE) -> void #foreign libc`
-- [OS == .MACOS && CPU == .ARM64] `fclose :: (unknown0: *FILE) -> s32 #foreign libc`
+- [OS == .MACOS && CPU == .ARM64] `fclose :: (unknown0: *FILE) -> s32 #foreign libc @FreesArgument`
 - [OS == .MACOS && CPU == .ARM64] `feof :: (unknown0: *FILE) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `ferror :: (unknown0: *FILE) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `fflush :: (unknown0: *FILE) -> s32 #foreign libc`
@@ -3133,10 +3133,10 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS && CPU == .ARM64] `getchar :: () -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `gets :: (unknown0: *u8) -> *u8 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `perror :: (unknown0: *u8) -> void #foreign libc`
-- [OS == .MACOS && CPU == .ARM64] `printf :: (unknown0: *u8, __args: ..Any) -> s32 #foreign libc`
+- [OS == .MACOS && CPU == .ARM64] `printf :: (unknown0: *u8, __args: ..Any) -> s32 #foreign libc @WritesOutput`
 - [OS == .MACOS && CPU == .ARM64] `putc :: (unknown0: s32, unknown1: *FILE) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .ARM64] `putchar :: (unknown0: s32) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .ARM64] `puts :: (unknown0: *u8) -> s32 #foreign libc`
+- [OS == .MACOS && CPU == .ARM64] `putchar :: (unknown0: s32) -> s32 #foreign libc @WritesOutput`
+- [OS == .MACOS && CPU == .ARM64] `puts :: (unknown0: *u8) -> s32 #foreign libc @WritesOutput`
 - [OS == .MACOS && CPU == .ARM64] `_remove :: (unknown0: *u8) -> s32 #foreign libc "remove"`
 - [OS == .MACOS && CPU == .ARM64] `rename :: (__old: *u8, __new: *u8) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .ARM64] `rewind :: (unknown0: *FILE) -> void #foreign libc`
@@ -4891,7 +4891,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS && CPU == .X64] `mprotect :: (unknown0: *void, unknown1: u64, unknown2: s32) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `msync :: (unknown0: *void, unknown1: u64, unknown2: s32) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `munlock :: (unknown0: *void, unknown1: u64) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .X64] `munmap :: (unknown0: *void, unknown1: u64) -> s32 #foreign libc`
+- [OS == .MACOS && CPU == .X64] `munmap :: (unknown0: *void, unknown1: u64) -> s32 #foreign libc @MaybeFreesArgument`
 - [OS == .MACOS && CPU == .X64] `shm_open :: (unknown0: *u8, unknown1: s32, __args: ..Any) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `shm_unlink :: (unknown0: *u8) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `posix_madvise :: (unknown0: *void, unknown1: u64, unknown2: s32) -> s32 #foreign libc`
@@ -4995,12 +4995,12 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS && CPU == .X64] `readlinkat :: (unknown0: s32, unknown1: *u8, unknown2: *u8, unknown3: u64) -> s64 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `symlinkat :: (unknown0: *u8, unknown1: s32, unknown2: *u8) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `unlinkat :: (unknown0: s32, unknown1: *u8, unknown2: s32) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .X64] `_exit :: (unknown0: s32) -> void #foreign libc`
+- [OS == .MACOS && CPU == .X64] `_exit :: (unknown0: s32) -> void #foreign libc @Exits`
 - [OS == .MACOS && CPU == .X64] `access :: (unknown0: *u8, unknown1: s32) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `alarm :: (unknown0: u32) -> u32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `chdir :: (unknown0: *u8) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `chown :: (unknown0: *u8, unknown1: uid_t, unknown2: gid_t) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .X64] `close :: (unknown0: s32) -> s32 #foreign libc`
+- [OS == .MACOS && CPU == .X64] `close :: (unknown0: s32) -> s32 #foreign libc @MaybeFreesArgument`
 - [OS == .MACOS && CPU == .X64] `dup :: (unknown0: s32) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `dup2 :: (unknown0: s32, unknown1: s32) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `execl :: (__path: *u8, __arg0: *u8, __args: ..Any) -> s32 #foreign libc`
@@ -5082,7 +5082,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS && CPU == .X64] `setegid :: (unknown0: gid_t) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `seteuid :: (unknown0: uid_t) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `symlink :: (unknown0: *u8, unknown1: *u8) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .X64] `_Exit :: (unknown0: s32) -> void #foreign libc`
+- [OS == .MACOS && CPU == .X64] `_Exit :: (unknown0: s32) -> void #foreign libc @Exits`
 - [OS == .MACOS && CPU == .X64] `acct :: (unknown0: *u8) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `endusershell :: () -> void #foreign libc`
 - [OS == .MACOS && CPU == .X64] `execvP :: (__file: *u8, __searchpath: *u8, __argv: **u8) -> s32 #foreign libc`
@@ -5358,7 +5358,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS && CPU == .X64] `stdout: *FILE #elsewhere libc "__stdoutp"`
 - [OS == .MACOS && CPU == .X64] `stderr: *FILE #elsewhere libc "__stderrp"`
 - [OS == .MACOS && CPU == .X64] `clearerr :: (unknown0: *FILE) -> void #foreign libc`
-- [OS == .MACOS && CPU == .X64] `fclose :: (unknown0: *FILE) -> s32 #foreign libc`
+- [OS == .MACOS && CPU == .X64] `fclose :: (unknown0: *FILE) -> s32 #foreign libc @FreesArgument`
 - [OS == .MACOS && CPU == .X64] `feof :: (unknown0: *FILE) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `ferror :: (unknown0: *FILE) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `fflush :: (unknown0: *FILE) -> s32 #foreign libc`
@@ -5380,10 +5380,10 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS && CPU == .X64] `getchar :: () -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `gets :: (unknown0: *u8) -> *u8 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `perror :: (unknown0: *u8) -> void #foreign libc`
-- [OS == .MACOS && CPU == .X64] `printf :: (unknown0: *u8, __args: ..Any) -> s32 #foreign libc`
+- [OS == .MACOS && CPU == .X64] `printf :: (unknown0: *u8, __args: ..Any) -> s32 #foreign libc @WritesOutput`
 - [OS == .MACOS && CPU == .X64] `putc :: (unknown0: s32, unknown1: *FILE) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .X64] `putchar :: (unknown0: s32) -> s32 #foreign libc`
-- [OS == .MACOS && CPU == .X64] `puts :: (unknown0: *u8) -> s32 #foreign libc`
+- [OS == .MACOS && CPU == .X64] `putchar :: (unknown0: s32) -> s32 #foreign libc @WritesOutput`
+- [OS == .MACOS && CPU == .X64] `puts :: (unknown0: *u8) -> s32 #foreign libc @WritesOutput`
 - [OS == .MACOS && CPU == .X64] `_remove :: (unknown0: *u8) -> s32 #foreign libc "remove"`
 - [OS == .MACOS && CPU == .X64] `rename :: (__old: *u8, __new: *u8) -> s32 #foreign libc`
 - [OS == .MACOS && CPU == .X64] `rewind :: (unknown0: *FILE) -> void #foreign libc`
@@ -7011,7 +7011,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .ARM64] `iovec :: struct`
 - [OS == .ANDROID && CPU == .ARM64] `mmap :: (__addr: *void, __size: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `mmap64 :: (__addr: *void, __size: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc`
-- [OS == .ANDROID && CPU == .ARM64] `munmap :: (__addr: *void, __size: u64) -> s32 #foreign libc`
+- [OS == .ANDROID && CPU == .ARM64] `munmap :: (__addr: *void, __size: u64) -> s32 #foreign libc @MaybeFreesArgument`
 - [OS == .ANDROID && CPU == .ARM64] `msync :: (__addr: *void, __size: u64, __flags: s32) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `mprotect :: (__addr: *void, __size: u64, __prot: s32) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `mremap :: (__old_addr: *void, __old_size: u64, __new_size: u64, __flags: s32, __args: ..Any) -> *void #foreign libc`
@@ -7080,7 +7080,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .ARM64] `ppoll64 :: (__fds: *pollfd, __count: nfds_t, __timeout: *timespec, __mask: *sigset64_t) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `sysconf :: (name: _SC_definitions) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `environ: **u8 #elsewhere libc`
-- [OS == .ANDROID && CPU == .ARM64] `_exit :: (__status: s32) -> void #foreign libc`
+- [OS == .ANDROID && CPU == .ARM64] `_exit :: (__status: s32) -> void #foreign libc @Exits`
 - [OS == .ANDROID && CPU == .ARM64] `fork :: () -> pid_t #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `vfork :: () -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `getpid :: () -> pid_t #foreign libc`
@@ -7144,7 +7144,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .ARM64] `getcwd :: (__buf: *u8, __size: u64) -> *u8 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `sync :: () -> void #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `syncfs :: (__fd: s32) -> s32 #foreign libc`
-- [OS == .ANDROID && CPU == .ARM64] `close :: (__fd: s32) -> s32 #foreign libc`
+- [OS == .ANDROID && CPU == .ARM64] `close :: (__fd: s32) -> s32 #foreign libc @MaybeFreesArgument`
 - [OS == .ANDROID && CPU == .ARM64] `read :: (__fd: s32, __buf: *void, __count: u64) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `write :: (__fd: s32, __buf: *void, __count: u64) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `dup :: (__old_fd: s32) -> s32 #foreign libc`
@@ -7475,7 +7475,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .ARM64] `stdout: *FILE #elsewhere libc`
 - [OS == .ANDROID && CPU == .ARM64] `stderr: *FILE #elsewhere libc`
 - [OS == .ANDROID && CPU == .ARM64] `clearerr :: (__fp: *FILE) -> void #foreign libc`
-- [OS == .ANDROID && CPU == .ARM64] `fclose :: (__fp: *FILE) -> s32 #foreign libc`
+- [OS == .ANDROID && CPU == .ARM64] `fclose :: (__fp: *FILE) -> s32 #foreign libc @FreesArgument`
 - [OS == .ANDROID && CPU == .ARM64] `feof :: (__fp: *FILE) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `ferror :: (__fp: *FILE) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `fflush :: (__fp: *FILE) -> s32 #foreign libc`
@@ -7492,10 +7492,10 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .ARM64] `getdelim :: (__line_ptr: **u8, __line_length_ptr: *u64, __delimiter: s32, __fp: *FILE) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `getline :: (__line_ptr: **u8, __line_length_ptr: *u64, __fp: *FILE) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `perror :: (__msg: *u8) -> void #foreign libc`
-- [OS == .ANDROID && CPU == .ARM64] `printf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc`
+- [OS == .ANDROID && CPU == .ARM64] `printf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc @WritesOutput`
 - [OS == .ANDROID && CPU == .ARM64] `putc :: (__ch: s32, __fp: *FILE) -> s32 #foreign libc`
-- [OS == .ANDROID && CPU == .ARM64] `putchar :: (__ch: s32) -> s32 #foreign libc`
-- [OS == .ANDROID && CPU == .ARM64] `puts :: (__s: *u8) -> s32 #foreign libc`
+- [OS == .ANDROID && CPU == .ARM64] `putchar :: (__ch: s32) -> s32 #foreign libc @WritesOutput`
+- [OS == .ANDROID && CPU == .ARM64] `puts :: (__s: *u8) -> s32 #foreign libc @WritesOutput`
 - [OS == .ANDROID && CPU == .ARM64] `_remove :: (__path: *u8) -> s32 #foreign libc "remove"`
 - [OS == .ANDROID && CPU == .ARM64] `rewind :: (__fp: *FILE) -> void #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `scanf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc`
@@ -8785,7 +8785,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .X64] `iovec :: struct`
 - [OS == .ANDROID && CPU == .X64] `mmap :: (__addr: *void, __size: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `mmap64 :: (__addr: *void, __size: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc`
-- [OS == .ANDROID && CPU == .X64] `munmap :: (__addr: *void, __size: u64) -> s32 #foreign libc`
+- [OS == .ANDROID && CPU == .X64] `munmap :: (__addr: *void, __size: u64) -> s32 #foreign libc @MaybeFreesArgument`
 - [OS == .ANDROID && CPU == .X64] `msync :: (__addr: *void, __size: u64, __flags: s32) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `mprotect :: (__addr: *void, __size: u64, __prot: s32) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `mremap :: (__old_addr: *void, __old_size: u64, __new_size: u64, __flags: s32, __args: ..Any) -> *void #foreign libc`
@@ -8850,7 +8850,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .X64] `ppoll64 :: (__fds: *pollfd, __count: nfds_t, __timeout: *timespec, __mask: *sigset64_t) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `sysconf :: (name: _SC_definitions) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `environ: **u8 #elsewhere libc`
-- [OS == .ANDROID && CPU == .X64] `_exit :: (__status: s32) -> void #foreign libc`
+- [OS == .ANDROID && CPU == .X64] `_exit :: (__status: s32) -> void #foreign libc @Exits`
 - [OS == .ANDROID && CPU == .X64] `fork :: () -> pid_t #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `vfork :: () -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `getpid :: () -> pid_t #foreign libc`
@@ -8914,7 +8914,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .X64] `getcwd :: (__buf: *u8, __size: u64) -> *u8 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `sync :: () -> void #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `syncfs :: (__fd: s32) -> s32 #foreign libc`
-- [OS == .ANDROID && CPU == .X64] `close :: (__fd: s32) -> s32 #foreign libc`
+- [OS == .ANDROID && CPU == .X64] `close :: (__fd: s32) -> s32 #foreign libc @MaybeFreesArgument`
 - [OS == .ANDROID && CPU == .X64] `read :: (__fd: s32, __buf: *void, __count: u64) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `write :: (__fd: s32, __buf: *void, __count: u64) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `dup :: (__old_fd: s32) -> s32 #foreign libc`
@@ -9244,7 +9244,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .X64] `stdout: *FILE #elsewhere libc`
 - [OS == .ANDROID && CPU == .X64] `stderr: *FILE #elsewhere libc`
 - [OS == .ANDROID && CPU == .X64] `clearerr :: (__fp: *FILE) -> void #foreign libc`
-- [OS == .ANDROID && CPU == .X64] `fclose :: (__fp: *FILE) -> s32 #foreign libc`
+- [OS == .ANDROID && CPU == .X64] `fclose :: (__fp: *FILE) -> s32 #foreign libc @FreesArgument`
 - [OS == .ANDROID && CPU == .X64] `feof :: (__fp: *FILE) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `ferror :: (__fp: *FILE) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `fflush :: (__fp: *FILE) -> s32 #foreign libc`
@@ -9261,10 +9261,10 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .X64] `getdelim :: (__line_ptr: **u8, __line_length_ptr: *u64, __delimiter: s32, __fp: *FILE) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `getline :: (__line_ptr: **u8, __line_length_ptr: *u64, __fp: *FILE) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `perror :: (__msg: *u8) -> void #foreign libc`
-- [OS == .ANDROID && CPU == .X64] `printf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc`
+- [OS == .ANDROID && CPU == .X64] `printf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc @WritesOutput`
 - [OS == .ANDROID && CPU == .X64] `putc :: (__ch: s32, __fp: *FILE) -> s32 #foreign libc`
-- [OS == .ANDROID && CPU == .X64] `putchar :: (__ch: s32) -> s32 #foreign libc`
-- [OS == .ANDROID && CPU == .X64] `puts :: (__s: *u8) -> s32 #foreign libc`
+- [OS == .ANDROID && CPU == .X64] `putchar :: (__ch: s32) -> s32 #foreign libc @WritesOutput`
+- [OS == .ANDROID && CPU == .X64] `puts :: (__s: *u8) -> s32 #foreign libc @WritesOutput`
 - [OS == .ANDROID && CPU == .X64] `_remove :: (__path: *u8) -> s32 #foreign libc "remove"`
 - [OS == .ANDROID && CPU == .X64] `rewind :: (__fp: *FILE) -> void #foreign libc`
 - [OS == .ANDROID && CPU == .X64] `scanf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc`

@@ -35735,31 +35735,31 @@ ssize_t :: s64;
 }
 
 #if OS == .LINUX {
-    _exit :: (__status: s32) -> void #foreign libc;
+    _exit :: (__status: s32) -> void #foreign libc; @Exits
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
-    _exit :: (unknown0: s32) -> void #foreign libc;
+    _exit :: (unknown0: s32) -> void #foreign libc; @Exits
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
-    _Exit :: (unknown0: s32) -> void #foreign libc;
+    _Exit :: (unknown0: s32) -> void #foreign libc; @Exits
 }
 
 #if OS == .MACOS && CPU == .X64 {
-    _exit :: (unknown0: s32) -> void #foreign libc;
+    _exit :: (unknown0: s32) -> void #foreign libc; @Exits
 }
 
 #if OS == .MACOS && CPU == .X64 {
-    _Exit :: (unknown0: s32) -> void #foreign libc;
+    _Exit :: (unknown0: s32) -> void #foreign libc; @Exits
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
-    _exit :: (__status: s32) -> void #foreign libc;
+    _exit :: (__status: s32) -> void #foreign libc; @Exits
 }
 
 #if OS == .ANDROID && CPU == .X64 {
-    _exit :: (__status: s32) -> void #foreign libc;
+    _exit :: (__status: s32) -> void #foreign libc; @Exits
 }
 
 #if OS == .LINUX {
@@ -36463,23 +36463,23 @@ ssize_t :: s64;
 }
 
 #if OS == .LINUX {
-    close :: (__fd: s32) -> s32 #foreign libc;
+    close :: (__fd: s32) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
-    close :: (unknown0: s32) -> s32 #foreign libc;
+    close :: (unknown0: s32) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
 #if OS == .MACOS && CPU == .X64 {
-    close :: (unknown0: s32) -> s32 #foreign libc;
+    close :: (unknown0: s32) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
-    close :: (__fd: s32) -> s32 #foreign libc;
+    close :: (__fd: s32) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
 #if OS == .ANDROID && CPU == .X64 {
-    close :: (__fd: s32) -> s32 #foreign libc;
+    close :: (__fd: s32) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -37295,23 +37295,23 @@ ssize_t :: s64;
 }
 
 #if OS == .LINUX {
-    fclose :: (__stream: *FILE) -> s32 #foreign libc;
+    fclose :: (__stream: *FILE) -> s32 #foreign libc; @FreesArgument
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
-    fclose :: (unknown0: *FILE) -> s32 #foreign libc;
+    fclose :: (unknown0: *FILE) -> s32 #foreign libc; @FreesArgument
 }
 
 #if OS == .MACOS && CPU == .X64 {
-    fclose :: (unknown0: *FILE) -> s32 #foreign libc;
+    fclose :: (unknown0: *FILE) -> s32 #foreign libc; @FreesArgument
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
-    fclose :: (__fp: *FILE) -> s32 #foreign libc;
+    fclose :: (__fp: *FILE) -> s32 #foreign libc; @FreesArgument
 }
 
 #if OS == .ANDROID && CPU == .X64 {
-    fclose :: (__fp: *FILE) -> s32 #foreign libc;
+    fclose :: (__fp: *FILE) -> s32 #foreign libc; @FreesArgument
 }
 
 #if OS == .LINUX {
@@ -40403,23 +40403,23 @@ ssize_t :: s64;
 }
 
 #if OS == .LINUX {
-    munmap :: (__addr: *void, __len: u64) -> s32 #foreign libc;
+    munmap :: (__addr: *void, __len: u64) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
-    munmap :: (unknown0: *void, unknown1: u64) -> s32 #foreign libc;
+    munmap :: (unknown0: *void, unknown1: u64) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
 #if OS == .MACOS && CPU == .X64 {
-    munmap :: (unknown0: *void, unknown1: u64) -> s32 #foreign libc;
+    munmap :: (unknown0: *void, unknown1: u64) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
-    munmap :: (__addr: *void, __size: u64) -> s32 #foreign libc;
+    munmap :: (__addr: *void, __size: u64) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
 #if OS == .ANDROID && CPU == .X64 {
-    munmap :: (__addr: *void, __size: u64) -> s32 #foreign libc;
+    munmap :: (__addr: *void, __size: u64) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
 #if OS == .LINUX {
@@ -40887,23 +40887,23 @@ ssize_t :: s64;
 }
 
 #if OS == .LINUX {
-    printf :: (__format: *u8, __args: ..Any) -> s32 #foreign libc;
+    printf :: (__format: *u8, __args: ..Any) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
-    printf :: (unknown0: *u8, __args: ..Any) -> s32 #foreign libc;
+    printf :: (unknown0: *u8, __args: ..Any) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .MACOS && CPU == .X64 {
-    printf :: (unknown0: *u8, __args: ..Any) -> s32 #foreign libc;
+    printf :: (unknown0: *u8, __args: ..Any) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
-    printf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+    printf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .ANDROID && CPU == .X64 {
-    printf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+    printf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .LINUX {
@@ -43103,23 +43103,23 @@ ssize_t :: s64;
 }
 
 #if OS == .LINUX {
-    putchar :: (__c: s32) -> s32 #foreign libc;
+    putchar :: (__c: s32) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
-    putchar :: (unknown0: s32) -> s32 #foreign libc;
+    putchar :: (unknown0: s32) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .MACOS && CPU == .X64 {
-    putchar :: (unknown0: s32) -> s32 #foreign libc;
+    putchar :: (unknown0: s32) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
-    putchar :: (__ch: s32) -> s32 #foreign libc;
+    putchar :: (__ch: s32) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .ANDROID && CPU == .X64 {
-    putchar :: (__ch: s32) -> s32 #foreign libc;
+    putchar :: (__ch: s32) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .LINUX {
@@ -43147,23 +43147,23 @@ ssize_t :: s64;
 }
 
 #if OS == .LINUX {
-    puts :: (__s: *u8) -> s32 #foreign libc;
+    puts :: (__s: *u8) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
-    puts :: (unknown0: *u8) -> s32 #foreign libc;
+    puts :: (unknown0: *u8) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .MACOS && CPU == .X64 {
-    puts :: (unknown0: *u8) -> s32 #foreign libc;
+    puts :: (unknown0: *u8) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
-    puts :: (__s: *u8) -> s32 #foreign libc;
+    puts :: (__s: *u8) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .ANDROID && CPU == .X64 {
-    puts :: (__s: *u8) -> s32 #foreign libc;
+    puts :: (__s: *u8) -> s32 #foreign libc; @WritesOutput
 }
 
 #if OS == .LINUX {

@@ -9,7 +9,7 @@ Native :: #import "internal/bindings/native";
 binding_objc_class :: (name: *u8) -> *void #foreign libobjc "objc_getClass";
 binding_objc_selector :: (name: *u8) -> *void #foreign libobjc "sel_registerName";
 binding_objc_send :: () #foreign libobjc "objc_msgSend";
-binding_abort :: () #foreign libc "abort";
+binding_abort :: () #foreign libc "abort"; @Exits
 binding_strlen :: (text: *u8) -> u64 #foreign libc "strlen";
 
 #if CPU == .X64 {

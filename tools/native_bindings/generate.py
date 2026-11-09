@@ -527,7 +527,7 @@ def generate_facade(module, spec):
             code = '\n'.join(blocks)
             record['status'] = 'partially_declared' if partial else 'declared'
         elif '#foreign' in code or '#elsewhere' in code:
-            code += ';'
+            code += ';' + notes
             record['status'] = 'declared'
         elif procedure_parts(code):
             forwarded = com_forward(module, d, spec.declarations)

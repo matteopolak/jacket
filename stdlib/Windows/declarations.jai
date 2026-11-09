@@ -6404,7 +6404,7 @@ winmm :: #library,system "winmm"; @native(external)
 }
 
 #if OS == .WINDOWS {
-    CloseHandle :: (handle: HANDLE) -> s32 #foreign kernel32;
+    CloseHandle :: (handle: HANDLE) -> s32 #foreign kernel32; @MaybeFreesArgument
 }
 
 #if OS == .WINDOWS {
@@ -6616,7 +6616,7 @@ winmm :: #library,system "winmm"; @native(external)
 }
 
 #if OS == .WINDOWS {
-    ExitProcess :: (exit_code: u32) -> void #foreign kernel32;
+    ExitProcess :: (exit_code: u32) -> void #foreign kernel32; @Exits
 }
 
 #if OS == .WINDOWS {
@@ -7100,7 +7100,7 @@ winmm :: #library,system "winmm"; @native(external)
 }
 
 #if OS == .WINDOWS {
-    LocalFree :: (hMem: HLOCAL) -> HLOCAL #foreign kernel32;
+    LocalFree :: (hMem: HLOCAL) -> HLOCAL #foreign kernel32; @MaybeFreesArgument
 }
 
 #if OS == .WINDOWS {
@@ -7592,7 +7592,7 @@ winmm :: #library,system "winmm"; @native(external)
 }
 
 #if OS == .WINDOWS {
-    VirtualFree :: (lpAddress: *void, dwSize: u64, dwFreeType: u32) -> BOOL #foreign kernel32;
+    VirtualFree :: (lpAddress: *void, dwSize: u64, dwFreeType: u32) -> BOOL #foreign kernel32; @MaybeFreesArgument
 }
 
 #if OS == .WINDOWS {
