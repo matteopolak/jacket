@@ -75,10 +75,7 @@ inflate_complete :: (data: [] u8, container := Deflate_Container.ZLIB, max_outpu
             return .[], false, ifx failure.count then failure else "invalid container length";
         }
 
-        array_reserve(*result, result.count + member.count);
-        if member.count memcpy(result.data + result.count, member.data, member.count);
-
-        result.count += member.count;
+        array_add(*result, ..member);
         free(member.data);
         at += consumed;
         if at == data.count return .{ result.count, result.data }, true, "";

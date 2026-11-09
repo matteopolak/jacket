@@ -99,9 +99,7 @@ feed_envelope :: (decoder: *Envelope_Decoder, bytes: [] u8) -> used: int, failur
     decoder.length = length;
     count := min(length - decoder.payload.count, bytes.count - at);
     if count > 0 {
-        array_reserve(*decoder.payload, decoder.payload.count + count);
-        memcpy(decoder.payload.data + decoder.payload.count, bytes.data + at, count);
-        decoder.payload.count += count;
+        array_add(*decoder.payload, ..array_view(bytes, at, count));
         at += count;
     }
 

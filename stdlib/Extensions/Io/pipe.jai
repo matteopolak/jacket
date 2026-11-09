@@ -151,11 +151,7 @@ write_some :: (stream: *Pipe_Stream, data: [] u8) -> s64, Io_Error {
 
     half.data.allocator = stream.link.allocator;
 
-    array_reserve(*half.data, half.data.count + data.count);
-
-    memcpy(half.data.data + half.data.count, data.data, data.count);
-
-    half.data.count += data.count;
+    array_add(*half.data, ..data);
 
     pipe_wake(half, 0);
 
