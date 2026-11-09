@@ -286,7 +286,6 @@ impl native::Gate for Shared {
                     // A callback lease that never entered must also be released at shutdown.
                     let mut cancelled = self.lock();
                     cancelled.finish(me);
-                    cancelled.spare.push(me);
                     self.cv.notify_all();
                     return Err(GONE.into());
                 };
@@ -313,7 +312,6 @@ impl native::Gate for Shared {
             }
         } else {
             s.finish(me);
-            s.spare.push(me);
             s.release(None);
             self.cv.notify_all();
         }

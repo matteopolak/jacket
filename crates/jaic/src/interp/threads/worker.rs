@@ -1,5 +1,5 @@
 //! Worker thread entry points and deadlines.
-use super::sched::{CANCELLED_EXIT_CODE, Shared, WorkerCancelled};
+use super::sched::{CANCELLED_EXIT_CODE, Shared, Worker, WorkerCancelled};
 use super::win32;
 use crate::interp::{FuncId, Interp, Program, TrapKind};
 use std::time::{Duration, Instant, SystemTime};
@@ -11,6 +11,21 @@ pub(super) fn absolute_deadline(secs: u64, nanos: u64) -> Instant {
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default();
     Instant::now() + target.saturating_sub(now)
+}
+
+/// Wait for the OS thread of a Jai thread that has ended, once its slot is free. It is on
+/// its way out and takes no baton, so this does not block for long.
+pub(super) fn join_ended_worker(worker: Option<Worker>) {
+    let Some(worker) = worker else {
+        return;
+    };
+    #[cfg(windows)]
+    win32::join_worker(worker);
+    #[cfg(not(windows))]
+    if worker.join().is_err() {
+        eprintln!("error: interpreter worker panicked");
+        std::process::abort();
+    }
 }
 
 /// Body of the OS thread that runs Jai thread `id`.
@@ -66,10 +81,10 @@ pub(super) fn run_worker(
         Ok(value) => value,
         Err(cancelled) if cancelled.is::<WorkerCancelled>() => {
             let mut s = shared.lock();
-            s.finish(id);
             let thread = &mut s.threads[id];
             thread.start.take();
             thread.result = CANCELLED_EXIT_CODE as u64;
+            s.finish(id);
             shared.cv.notify_all();
             CANCELLED_EXIT_CODE as u64
         }

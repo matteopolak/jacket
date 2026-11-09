@@ -7,9 +7,9 @@ use super::sched::{
 };
 #[cfg(windows)]
 use super::win32;
-use super::worker::absolute_deadline;
 #[cfg(not(windows))]
 use super::worker::run_worker;
+use super::worker::{absolute_deadline, join_ended_worker};
 use crate::interp::threads_inline::ThreadFn;
 use crate::interp::word_or_zero;
 use crate::interp::{ExecState, Interp, Program, Res, Trap, Ty, ValueStack, ir};
@@ -75,8 +75,8 @@ impl Interp {
         let result: Res<u64> = match fun {
             ThreadFn::Create => self.thread_create(program, arg(0), arg(2), arg(3)),
             ThreadFn::Join => self.thread_join(arg(0), arg(1)),
-            ThreadFn::Detach => Ok(0),
-            ThreadFn::SelfId => Ok(self.me() as u64 + 1),
+            ThreadFn::Detach => Ok(self.thread_detach(arg(0))),
+            ThreadFn::SelfId => Ok(self.with_sched(|s| s.handle_of(s.current.unwrap_or(0)))),
             ThreadFn::SetName | ThreadFn::GetName => self.pthread_name(program, fun, args),
             ThreadFn::MutexInit => {
                 self.with_sched(|s| s.mutexes.init(arg(0)));
@@ -156,10 +156,7 @@ impl Interp {
         let id = if setting && set_arity == 1 {
             sched.current.unwrap_or(0)
         } else {
-            let Some(id) = args[0]
-                .checked_sub(1)
-                .and_then(|id| usize::try_from(id).ok())
-            else {
+            let Some(id) = sched.resolve(args[0]) else {
                 return self.trap("pthread naming requires a live scheduler thread identity");
             };
             id
@@ -263,8 +260,10 @@ impl Interp {
             Ok(worker) => worker,
             Err(error) => {
                 let mut s = shared.lock();
-                s.finish(id);
                 s.threads[id].start.take();
+                s.finish(id);
+                // Nobody was ever given a handle to it.
+                s.release_handle(id);
                 drop(s);
                 #[cfg(windows)]
                 {
@@ -313,26 +312,60 @@ impl Interp {
             return Ok(11); // EAGAIN
         };
         if out != 0 {
-            self.put(out, &(id as u64 + 1).to_le_bytes())?;
+            let handle = self.with_sched(|s| s.handle_of(id));
+            self.put(out, &handle.to_le_bytes())?;
         }
         Ok(0)
     }
 
+    /// `pthread_join`: wait for the thread, take its result and give its slot up. A handle
+    /// already joined or detached is invalid, even when another thread has the slot now.
     fn thread_join(&mut self, handle: u64, result_out: u64) -> Res<u64> {
-        let id = handle.wrapping_sub(1) as usize;
         let me = self.me();
-        let valid = self.with_sched(|s| id < s.threads.len() && !s.threads[id].adopted);
-        if !valid || id == me {
+        let id = self.with_sched(|s| s.resolve(handle).filter(|&id| !s.threads[id].adopted));
+        let Some(id) = id else {
+            return Ok(EINVAL);
+        };
+        if id == me {
             return Ok(EINVAL);
         }
-        while !self.with_sched(|s| s.threads[id].finished) {
-            self.block(Block::Join(id))?;
-        }
+        let (result, worker) = loop {
+            let step = self.with_sched(|s| {
+                if s.resolve(handle) != Some(id) {
+                    return Err(());
+                }
+                if !s.threads[id].finished {
+                    return Ok(None);
+                }
+                let result = s.threads[id].result;
+                Ok(Some((result, s.release_handle(id))))
+            });
+            match step {
+                Err(()) => return Ok(EINVAL),
+                Ok(Some(done)) => break done,
+                Ok(None) => self.block(Block::Join(id))?,
+            }
+        };
+        join_ended_worker(worker);
         if result_out != 0 {
-            let value = self.with_sched(|s| s.threads[id].result);
-            self.put(result_out, &value.to_le_bytes())?;
+            self.put(result_out, &result.to_le_bytes())?;
         }
         Ok(0)
+    }
+
+    /// `pthread_detach`: nobody will join the thread, so its slot is free once it ends.
+    fn thread_detach(&mut self, handle: u64) -> u64 {
+        let released = self.with_sched(|s| {
+            let id = s.resolve(handle).filter(|&id| !s.threads[id].adopted)?;
+            Some(s.release_handle(id))
+        });
+        match released {
+            Some(worker) => {
+                join_ended_worker(worker);
+                0
+            }
+            None => EINVAL,
+        }
     }
 
     pub(super) fn try_lock_mutex(&mut self, addr: u64) -> bool {
@@ -468,8 +501,8 @@ impl Interp {
         drop(self.take_exec_state());
         let shared = self.shared();
         let mut s = shared.lock();
-        s.finish(me);
         s.threads[me].result = result;
+        s.finish(me);
         s.wake(Block::Join(me));
         // Its Win32 handle is now signaled.
         s.wake_object_waiters();

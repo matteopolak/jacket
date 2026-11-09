@@ -15,6 +15,7 @@
 //!   `GetCurrentThreadId` and `TlsGetValue` already answer per thread.
 #[cfg(windows)]
 use super::sched::NATIVE_STACK;
+use super::worker::join_ended_worker;
 #[cfg(windows)]
 use super::worker::run_worker;
 use super::{Block, ETIMEDOUT, GThread, Interp, Program, Res, Trap, TrapKind, Ty};
@@ -707,11 +708,24 @@ impl Interp {
                         self.with_sched(|s| s.threads[id].native_handle = Some(owned));
                         set_last_error(error);
                     } else {
-                        self.with_sched(|s| s.objects.remove(&arg(0)));
+                        let worker = self.with_sched(|s| {
+                            s.objects.remove(&arg(0));
+                            s.release_handle(id)
+                        });
+                        join_ended_worker(worker);
                     }
                     return Some(Ok(vec![success as u64]));
                 }
-                let removed = self.with_sched(|s| s.objects.remove(&arg(0)));
+                let (removed, worker) = self.with_sched(|s| {
+                    let removed = s.objects.remove(&arg(0));
+                    // The last handle to a thread frees its slot once the thread has ended.
+                    let worker = match removed {
+                        Some(Object::Thread(id)) => s.release_handle(id),
+                        _ => None,
+                    };
+                    (removed, worker)
+                });
+                join_ended_worker(worker);
                 if let Some(Object::Event {
                     real, ..
                 }) = removed

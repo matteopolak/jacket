@@ -31,6 +31,12 @@
 
 - The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies, macro expansion, polymorphic instances), not only compile-time code that is running. This includes each statement of a body and the parsing of `#insert`ed strings.
 
+## [Unreleased]
+
+### Fixed
+
+- A long `#run` that starts many short threads no longer grows the interpreter's thread table: a thread's slot is reused once it has ended and its handle is joined, detached or closed, and a handle kept past that point is rejected instead of naming a later thread.
+
 ## [0.34.0] - 2026-11-09
 
 ### New

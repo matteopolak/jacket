@@ -31,6 +31,16 @@ impl Mutexes {
         self.held.remove(&addr);
     }
 
+    /// `thread` is gone: what it still holds stays held, but by nobody a later thread in its
+    /// slot could be.
+    pub(super) fn orphan(&mut self, thread: usize) {
+        for state in self.held.values_mut() {
+            if state.owner == Some(thread) {
+                state.owner = Some(usize::MAX);
+            }
+        }
+    }
+
     /// Whether `thread` could take the mutex now (it is free, or already its own).
     pub(super) fn available_to(&self, addr: u64, thread: usize) -> bool {
         self.held
