@@ -303,6 +303,7 @@ gltf_error_free :: (error: *Gltf_Error) {
 #load "validate.jai";
 #load "accessor.jai";
 #load "transform.jai";
+#load "extensions.jai";
 #load "write.jai";
 #load "local.jai";
 
