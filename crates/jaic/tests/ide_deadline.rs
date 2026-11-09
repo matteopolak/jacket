@@ -19,6 +19,22 @@ fn check(source: &str) -> (String, bool) {
 
 /// `check` with a wall-clock limit of `seconds`, counted from the start of the compile.
 fn check_within(source: &str, seconds: f64) -> (String, bool) {
+    let (error, stopped, _) = run(source, seconds, |_| {});
+    (error, stopped)
+}
+
+/// `check` that asks the host to stop after `polls` questions instead of by the clock, so where
+/// the compiler asks decides the result and the machine's speed does not. Also how many
+/// questions the compile asked.
+fn check_polls(source: &str, polls: u64) -> (String, bool, u64) {
+    run(source, 1e6, |host| host.stop_after_polls(polls))
+}
+
+fn run(
+    source: &str,
+    seconds: f64,
+    configure: impl FnOnce(&mut SandboxHost),
+) -> (String, bool, u64) {
     let mut fs = VirtualFs::default();
     fs.insert("/main.jai", source.as_bytes());
     fs.insert("/prelude/module.jai", PRELUDE.as_bytes());
@@ -26,17 +42,20 @@ fn check_within(source: &str, seconds: f64) -> (String, bool) {
     let mut options = Options::host();
     options.runtime_support = false;
     options.preload = Some("/prelude/module.jai".into());
+    let host = Rc::new(RefCell::new(SandboxHost::default()));
+    configure(&mut host.borrow_mut());
     let mut lint = LintCompile::start(LintSetup {
         fs,
         options,
-        host: Rc::new(RefCell::new(SandboxHost::default())),
+        host: host.clone(),
         observer: None,
         report: Box::new(|_, _| {}),
         limits: CheckLimits::new(CheckLimits::DEFAULT_EVAL_STEPS, seconds),
     });
     let result = lint.compile(LintRoot::Program(Path::new("/main.jai")), &[]);
     let error = result.err().map(|e| e.render(&lint.compiler.src.sources));
-    (error.unwrap_or_default(), lint.stopped())
+    let polls = host.borrow().polls();
+    (error.unwrap_or_default(), lint.stopped(), polls)
 }
 
 #[test]
@@ -94,15 +113,31 @@ fn many_inserted_strings_stop_at_the_limit() {
 
 #[test]
 fn a_long_inserted_string_stops_in_the_parser() {
-    let body = "x += 1;".repeat(100_000);
-    let source = format!("main :: () {{ x := 0; #insert \"{body}\"; }}\n");
-    // Without a limit the check runs to its end; a limit of half of that time stops it, whether
-    // the clock passes during the lexer, the parser or the statements that follow.
-    let start = Instant::now();
-    let (error, stopped) = check_within(&source, 1e6);
+    let program = |text: &str| format!("main :: () {{ x := 0; #insert \"{text}\"; }}\n");
+    // The questions a whole compile asks when there is nothing to parse.
+    let (error, stopped, base) = check_polls(&program(""), u64::MAX);
     assert!(!stopped, "{error}");
-    let whole = start.elapsed();
-    let (error, stopped) = check_within(&source, whole.as_secs_f64() / 2.0);
+    // A few more than that are all the answer there is room for before the end of the check,
+    // and only the parser, asking every 256 statements, gets to use them: it is told to stop
+    // before the inserted statements are checked. The stop is reported at the `#insert`, not at
+    // a statement of the inserted text.
+    let (error, stopped, _) = check_polls(&program(&"x += 1;".repeat(100_000)), base + 5);
+    assert!(error.contains("checking stopped"), "{error}");
+    assert!(error.contains("main.jai"), "{error}");
+    assert!(!error.contains("#insert at"), "{error}");
+    assert!(stopped);
+}
+
+#[test]
+fn a_very_wide_expression_stops_at_the_limit() {
+    let program = |elements: usize| {
+        let list = vec!["1"; elements].join(", ");
+        format!("main :: () {{ a := int.[{list}]; }}\n")
+    };
+    let (error, stopped, base) = check_polls(&program(1), u64::MAX);
+    assert!(!stopped, "{error}");
+    // Only the elements grow: the compile ends before them unless checking them asks too.
+    let (error, stopped, _) = check_polls(&program(5_000), base + 5);
     assert!(error.contains("checking stopped"), "{error}");
     assert!(stopped);
 }

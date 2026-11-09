@@ -290,6 +290,10 @@ pub struct SandboxHost {
     time_limit: Option<(crate::platform::Stopwatch, std::time::Duration)>,
     /// The limit passed: every interpreter on this host stops (`Host::stop_requested`).
     stopped: bool,
+    /// Times the host was asked whether to stop (`has_stopped`).
+    polls: u64,
+    /// Stop once asked this many times (`stop_after_polls`).
+    poll_limit: Option<u64>,
 }
 
 impl SandboxHost {
@@ -308,8 +312,24 @@ impl SandboxHost {
         }
     }
 
-    /// Whether the limit set by `stop_after` has passed.
+    /// Stop all code running on this host once it was asked `polls` times whether to stop.
+    /// Replaces the clock with a count, so a test of where the compiler asks can say exactly
+    /// when the answer turns to yes.
+    pub fn stop_after_polls(&mut self, polls: u64) {
+        self.poll_limit = Some(polls);
+    }
+
+    /// How many times the host was asked whether to stop.
+    pub fn polls(&self) -> u64 {
+        self.polls
+    }
+
+    /// Whether the limit set by `stop_after` or `stop_after_polls` has passed.
     pub fn has_stopped(&mut self) -> bool {
+        self.polls += 1;
+        if self.poll_limit.is_some_and(|limit| self.polls > limit) {
+            self.stopped = true;
+        }
         if !self.stopped
             && let Some((since, limit)) = self.time_limit
         {

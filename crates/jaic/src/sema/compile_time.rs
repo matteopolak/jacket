@@ -39,6 +39,9 @@ pub struct CompileTime {
     pub(crate) frozen: Probed<HashMap<(u64, u64), ir::GlobalId>, { W::CtFrozen as usize }>,
     /// The compiler plain `#run` executes in when this one cross-compiles (`sema::host_twin`).
     pub(crate) twin: Probed<super::host_twin::TwinSlot, { W::CtTwin as usize }>,
+    /// Expressions left to check until the check's time limit is asked again
+    /// (`Compiler::check_expr`).
+    pub(crate) expr_polls: u8,
 }
 
 impl Drop for Compiler {

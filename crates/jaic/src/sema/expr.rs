@@ -67,6 +67,9 @@ fn implicit_then_expr(cond: &ast::Expr) -> Option<&ast::Expr> {
     }
 }
 
+/// Expressions checked between two questions to the check's time limit.
+const EXPR_POLL_INTERVAL: u8 = 63;
+
 impl Compiler {
     pub fn check_expr(
         &mut self,
@@ -75,6 +78,14 @@ impl Compiler {
         expr: &ast::Expr,
         expected: Option<TypeId>,
     ) -> Result<Operand> {
+        // One expression can be as wide as a metaprogram made it (a million-element literal):
+        // ask the time limit now and then, not for each one.
+        if self.ct.expr_polls == 0 {
+            self.ct.expr_polls = EXPR_POLL_INTERVAL;
+            self.check_not_stopped(expr.span)?;
+        } else {
+            self.ct.expr_polls -= 1;
+        }
         let nonuses = f.lifetimes.as_ref().map(|_| f.lifetime_nonuses);
         let comparing = f.lifetime_comparing;
         let metadata_base = f.lifetime_metadata_base;
