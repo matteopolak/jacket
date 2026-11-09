@@ -106,7 +106,7 @@ file_close :: (file: *File) {
     }
 
     file.handle = null;
-} @FreesArgument @Closes
+} @Closes
 
 // Whether `file` is open: `false` for a zero `File`, for one `file_open` failed to open, and for one `file_close` closed.
 //
