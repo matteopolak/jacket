@@ -456,8 +456,7 @@ proto_tables :: #import "Hash_Table";
 
 entry_default :: ($T: Type) -> T {
     #if type_info(T).type == .ENUM {
-        info := cast(*Type_Info_Enum) type_info(T);
-        if info.values.count return cast(T) info.values[0];
+        #if (cast(*Type_Info_Enum) type_info(T)).values.count return cast(T) (cast(*Type_Info_Enum) type_info(T)).values[0];
     }
 
     value: T;
