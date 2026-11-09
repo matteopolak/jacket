@@ -14,26 +14,30 @@ type Row = [number, string, string, string, string, unknown[], number];
 /** Rows for `item`s: the index `jacket doc` writes, with the native flag set where asked. */
 function rows(entries: [string, string, string?, string?, boolean?][]) {
   const modules = [...new Set(entries.map((e) => e[0]))];
-  const items: Row[] = entries.map(([module, name, kind = 'type', summary = '', native = false]) => [
-    modules.indexOf(module),
-    name,
-    kind,
-    summary,
-    '',
-    [],
-    native ? 2 : 0,
-  ]);
+  const items: Row[] = entries.map(
+    ([module, name, kind = 'type', summary = '', native = false]) => [
+      modules.indexOf(module),
+      name,
+      kind,
+      summary,
+      '',
+      [],
+      native ? 2 : 0,
+    ],
+  );
   return { modules, items };
+}
+
+/** The text of site.js from `from` up to the next `to`. */
+function piece(from: string, to: string) {
+  const start = site.indexOf(from);
+  const end = site.indexOf(to, start + from.length);
+  assert(start >= 0 && end > start, `site.js has ${from.trim()}`);
+  return site.slice(start, end);
 }
 
 /** `load` then `byName` of site.js over `index`, as the paths `Module.name` found, in order. */
 async function search(index: ReturnType<typeof rows>, query: string): Promise<string[]> {
-  const piece = (from: string, to: string) => {
-    const start = site.indexOf(from);
-    const end = site.indexOf(to, start + from.length);
-    assert(start >= 0 && end > start, `site.js has ${from.trim()}`);
-    return site.slice(start, end);
-  };
   const context = {
     base: '',
     fetch: async () => ({ json: async () => index }),
@@ -53,7 +57,12 @@ const index = rows([
   ['Socket', 'timeval32'],
   ['Extensions/Time', 'time_of_day', 'proc'],
   ['Extensions/Time', 'Time_Of_Day'],
-  ['Extensions/Time', '', 'module', 'Exact instants, civil values, explicit zones and calendar-aware spans.'],
+  [
+    'Extensions/Time',
+    '',
+    'module',
+    'Exact instants, civil values, explicit zones and calendar-aware spans.',
+  ],
   ['Basic', 'current_time_monotonic', 'proc'],
   ['Socket', 'Timeval', 'type', '', true],
 ]);
@@ -73,7 +82,10 @@ test('an exact name still beats a word prefix', async () => {
 });
 
 test('a word inside a name beats letters inside a word', async () => {
-  const words = rows([['A', 'runtime'], ['B', 'current_time']]);
+  const words = rows([
+    ['A', 'runtime'],
+    ['B', 'current_time'],
+  ]);
   assert.deepEqual(await search(words, 'time'), ['B.current_time', 'A.runtime']);
 });
 
