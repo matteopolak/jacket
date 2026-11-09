@@ -175,6 +175,7 @@ get :: (using pool: *Pool, nbytes: s64) -> *void {
 // assert(bytes == 0 && oversized == 0);
 // ```
 reset :: (using pool: *Pool) {
+    release_all_allocations(Allocator.{ pool_allocator_proc, pool });
     block := out_of_band_allocations;
     while block {
         next := block.next;
