@@ -97,6 +97,27 @@ fn tokens(code: &str, link: &dyn Fn(&str) -> Option<(usize, String)>, names: Nam
             }
             span(&mut out, "c", &code[start..at(j)]);
             i = j;
+        } else if c == '/' && chars.get(i + 1).is_some_and(|&(_, d)| d == '*') {
+            // Block comments nest; one left open runs to the end.
+            let (mut j, mut depth) = (i, 0);
+            while j < chars.len() {
+                let pair = (chars[j].1, chars.get(j + 1).map(|&(_, d)| d));
+                if pair == ('/', Some('*')) {
+                    depth += 1;
+                    j += 2;
+                } else if pair == ('*', Some('/')) {
+                    depth -= 1;
+                    j += 2;
+                    if depth == 0 {
+                        break;
+                    }
+                } else {
+                    j += 1;
+                }
+            }
+            let j = j.min(chars.len());
+            span(&mut out, "c", &code[start..at(j)]);
+            i = j;
         } else if c == '"' {
             let mut j = i + 1;
             while j < chars.len() && chars[j].1 != '"' {
@@ -226,6 +247,16 @@ mod tests {
         assert!(html.contains("<span class=\"t\">int</span>"));
         assert!(html.contains("<span class=\"n\">0x1F</span>"));
         assert!(html.contains("<span class=\"d\">#char</span>"));
+    }
+
+    #[test]
+    fn a_block_comment_is_one_comment_even_when_nested() {
+        let html = jai("a /* int /* inner */ struct */ b", &|_| None);
+        assert!(
+            html.contains("<span class=\"c\">/* int /* inner */ struct */</span>"),
+            "{html}"
+        );
+        assert!(!html.contains("<span class=\"t\">int</span>"), "{html}");
     }
 }
 
