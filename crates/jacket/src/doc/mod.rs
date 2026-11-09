@@ -204,29 +204,46 @@ fn indented_code_warnings(modules: &[Module]) -> Vec<String> {
 }
 
 /// Where `dir` is in its git checkout, with a trailing slash (`stdlib/`), the checkout's commit,
-/// and the files below `dir` that differ from it. Nothing when `dir` is not in a checkout, or
-/// `git` is missing.
+/// and the files below `dir` that differ from it. `Ok(None)` when `dir` is not in a checkout;
+/// an error when `git` cannot run or fails inside one.
 struct GitState {
     prefix: String,
     commit: String,
     dirty: std::collections::BTreeSet<String>,
 }
 
-fn git_state(dir: &Path) -> Option<GitState> {
-    let git = |args: &[&str]| -> Option<String> {
-        let out = Command::new("git")
+fn git_state(dir: &Path) -> Result<Option<GitState>, String> {
+    git_state_with("git", dir)
+}
+
+fn git_state_with(program: &str, dir: &Path) -> Result<Option<GitState>, String> {
+    let run = |args: &[&str]| -> Result<std::process::Output, String> {
+        Command::new(program)
             .arg("-C")
             .arg(dir)
             .args(args)
             .output()
-            .ok()?;
-        out.status
-            .success()
-            .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+            .map_err(|e| format!("cannot run `{program}`: {e}"))
     };
-    let prefix = git(&["rev-parse", "--show-prefix"])?.trim().to_owned();
-    let commit = git(&["rev-parse", "HEAD"])?.trim().to_owned();
-    let status = git(&[
+    let ask = |args: &[&str]| -> Result<String, String> {
+        let out = run(args)?;
+        if out.status.success() {
+            Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+        } else {
+            Err(format!(
+                "`git {}` failed: {}",
+                args.join(" "),
+                String::from_utf8_lossy(&out.stderr).trim()
+            ))
+        }
+    };
+    let first = run(&["rev-parse", "--show-prefix"])?;
+    if !first.status.success() {
+        return Ok(None);
+    }
+    let prefix = String::from_utf8_lossy(&first.stdout).trim().to_owned();
+    let commit = ask(&["rev-parse", "HEAD"])?.trim().to_owned();
+    let status = ask(&[
         "status",
         "--porcelain",
         "-z",
@@ -237,7 +254,7 @@ fn git_state(dir: &Path) -> Option<GitState> {
     let mut dirty = std::collections::BTreeSet::new();
     let mut entries = status.split('\0').filter(|e| e.len() > 3);
     while let Some(entry) = entries.next() {
-        // Paths are relative to the checkout's top, whatever folder git ran in.
+        // Paths are relative to the checkout's top, whatever folder it ran in.
         let path = &entry[3..];
         dirty.insert(
             path.strip_prefix(prefix.as_str())
@@ -249,11 +266,63 @@ fn git_state(dir: &Path) -> Option<GitState> {
             entries.next();
         }
     }
-    Some(GitState {
+    Ok(Some(GitState {
         prefix,
         commit,
         dirty,
-    })
+    }))
+}
+
+/// `git_state` for something that needs it: when `dir` is not in a checkout or the call fails,
+/// says on stderr what `lost` without it and goes on.
+fn git_state_or_warn(dir: &Path, lost: &str) -> Option<GitState> {
+    match git_state(dir) {
+        Ok(Some(state)) => Some(state),
+        Ok(None) => {
+            eprintln!(
+                "jacket: warning: {} is not in a git checkout; {lost}",
+                dir.display()
+            );
+            None
+        }
+        Err(e) => {
+            eprintln!("jacket: warning: {e}; {lost}");
+            None
+        }
+    }
+}
+
+/// The config folder's path in its checkout, which the guides' links resolve from; empty when
+/// there are no guides or no checkout (said on stderr).
+fn guide_prefix(doc: &Doc, config_dir: &Path) -> String {
+    if doc.home.is_none() && doc.page.is_empty() && doc.section.is_empty() {
+        return String::new();
+    }
+    git_state_or_warn(
+        config_dir,
+        "links between guides that leave its folder may not resolve",
+    )
+    .map(|g| g.prefix)
+    .unwrap_or_default()
+}
+
+/// Gives `site` what its source links need from the checkout of `root`: the path in it and,
+/// unless `--source-ref` names one, the commit and the files that differ from it. Only a site
+/// with a repository has source links.
+fn link_sources(site: &mut Site, root: &Path, use_commit: bool) {
+    if site.repo.is_empty() {
+        return;
+    }
+    let Some(state) = git_state_or_warn(root, "source links will use `--source-ref` or be omitted")
+    else {
+        return;
+    };
+    site.source_prefix = state.prefix;
+    // A given ref wins; else the checkout's commit, for the files it matches.
+    if use_commit {
+        site.commit = Some(state.commit);
+        site.dirty = state.dirty;
+    }
 }
 
 fn base_path(text: &str) -> Result<String, String> {
@@ -572,18 +641,11 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         if !doc.page.is_empty() {
             site.pages_title = doc.pages_title.clone().unwrap_or_else(|| "Guides".into());
         }
-        let prefix = git_state(&config_dir).map(|g| g.prefix).unwrap_or_default();
+        let prefix = guide_prefix(&doc, &config_dir);
         let extra = view::guide::collect(&site, &config_dir, &prefix, &doc)?;
         site.pages_href = extra.first_href(&site);
         site.extra_nav.clone_from(&extra.nav);
-        if let Some(state) = git_state(&root) {
-            site.source_prefix = state.prefix;
-            // A given ref wins; else the checkout's commit, for the files it matches.
-            if args.source_ref.is_none() {
-                site.commit = Some(state.commit);
-                site.dirty = state.dirty;
-            }
-        }
+        link_sources(&mut site, &root, args.source_ref.is_none());
 
         let overrides = args
             .theme
@@ -865,6 +927,19 @@ fn use_home(guides: &mut Vec<view::PageView>, index: &mut view::PageView) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn git_state_says_when_git_cannot_run_or_there_is_no_checkout() {
+        let dir = std::env::temp_dir().join(format!("jacket-doc-git-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let missing = git_state_with("jacket-no-such-git", &dir).err().unwrap();
+        assert!(missing.contains("jacket-no-such-git"), "{missing}");
+        // A folder outside any checkout is not an error: there is nothing to link to.
+        if let Ok(state) = git_state_with("git", &dir) {
+            assert!(state.is_none());
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn the_base_path_needs_both_slashes() {
