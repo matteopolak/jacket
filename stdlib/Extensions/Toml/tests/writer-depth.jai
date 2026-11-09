@@ -98,7 +98,7 @@ main :: () {
     array_add(*root.mid.deep, inner);
 
     compare(*root);
-    array_free(inner);
+    // `root.mid.deep` holds `inner`, so this frees it too.
     free_toml_value(*root);
     print("ok\n");
 }
