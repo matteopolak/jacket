@@ -190,7 +190,15 @@ validate_hierarchy :: (asset: *Gltf_Asset, options: Gltf_Options) -> Gltf_Error 
         root := roots[first];
 
         for joint: skin.joints if roots[joint] != root return failure(.INVALID, "skin joints have no common root", tprint("/skins/%/joints", i));
-        if skin.skeleton.state == .SET && roots[skin.skeleton.value] != root return failure(.INVALID, "skeleton is outside joint hierarchy", tprint("/skins/%/skeleton", i));
+
+        if skin.skeleton.state == .SET {
+            // Every joint is the skeleton or one of its descendants; parents are acyclic here.
+            for joint: skin.joints {
+                node: s64 = joint;
+                while node >= 0 && node != skin.skeleton.value node = parents[node];
+                if node < 0 return failure(.INVALID, "skeleton is not an ancestor of every joint", tprint("/skins/%/skeleton", i));
+            }
+        }
     }
 
     return validate_scenes(asset, parents, roots);
