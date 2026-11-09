@@ -71,3 +71,18 @@ fn a_message_near_the_limit_followed_by_another_in_one_chunk() {
     messages.extend(decoder.push(&stream.as_bytes()[first_cut..]).unwrap());
     assert_eq!(messages, vec![big, small]);
 }
+
+/// A declared length no message could have is refused from its header alone: the body is
+/// skipped as it arrives, nothing is reserved for it, and the next message is read.
+#[test]
+fn an_absurd_content_length_is_skipped_without_buffering() {
+    let mut decoder = FrameDecoder::new(1 << 20);
+    let header = format!("Content-Length: {}\r\n\r\n", usize::MAX);
+    assert!(decoder.push(header.as_bytes()).unwrap().is_empty());
+    for _ in 0..64 {
+        assert!(decoder.push(&[b'x'; 64 * 1024]).unwrap().is_empty());
+    }
+    let skipped = decoder.take_oversized();
+    assert_eq!(skipped.len(), 1);
+    assert_eq!(skipped[0].length, usize::MAX);
+}
