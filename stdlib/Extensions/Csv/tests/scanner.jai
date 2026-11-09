@@ -410,3 +410,36 @@ spans_windows :: () {
     expect_same_everywhere(text, .{ max_field_bytes = 5000 });
     expect_same_everywhere(text, .{ max_record_bytes = 9000 });
 } @test
+
+Triple :: struct {
+    a: int;
+    b: string;
+    c: int;
+}
+
+// A typed error after a line break inside quotes is placed by line and column, for a slice and a
+// chunk source alike.
+typed_error_after_quoted_break :: () {
+    text := "1,\"q\r\nr\",x\n";
+    slice := csv_reader(Triple, cast([] u8) text);
+
+    defer csv_reader_free(*slice);
+    feed := Feed.{ text = text, size = 3 };
+    chunked := csv_reader(Triple, Csv_Source.{ *feed, feed_fill });
+
+    defer csv_reader_free(*chunked);
+
+    _, present, error := csv_next(*slice);
+
+    expect(!present && error.kind == .TYPE);
+    expect_equal(error.offset, 9);
+    expect_equal(error.line, 2);
+    expect_equal(error.column, 4);
+
+    _, present, error = csv_next(*chunked);
+
+    expect(!present && error.kind == .TYPE);
+    expect_equal(error.offset, 9);
+    expect_equal(error.line, 2);
+    expect_equal(error.column, 4);
+} @test
