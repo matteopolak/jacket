@@ -126,6 +126,7 @@ pub(super) fn exposed(
                         .procs
                         .get(p)
                         .is_some_and(|s| s.preserves_address(arg.formal))
+                        && !foreign_handle_slot(cx.compiler, *p, arg.formal)
                 });
             let mut origins = Vec::new();
             origins.extend(resolver.object(arg));
@@ -155,6 +156,35 @@ pub(super) fn exposed(
             _ => None,
         })
         .collect()
+}
+
+/// A bodiless foreign procedure's pointer parameter to a handle-sized slot (`*HKEY`, `*s32`): the callee may
+/// store a new handle through it, so a variable passed by address there takes a new value. The argument the
+/// procedure releases is not a slot.
+fn foreign_handle_slot(
+    compiler: &jaic::sema::Compiler,
+    proc: jaic::sema::ProcId,
+    formal: usize,
+) -> bool {
+    let p = &compiler.pr.procs[proc.0 as usize];
+    if p.lit.body.is_some() || !matches!(p.target, Some(jaic::sema::procs::ProcTarget::Foreign(_)))
+    {
+        return false;
+    }
+    let released = crate::rules::lifetime_movement::released_formal(compiler, proc)
+        .or_else(|| crate::rules::lifetime_movement::maybe_released_formal(compiler, proc));
+    let types = &compiler.ty.types;
+    Some(formal) != released
+        && p.sig
+            .as_ref()
+            .and_then(|sig| sig.params.get(formal))
+            .is_some_and(|param| {
+                !param.variadic
+                    && types.pointee(param.ty).is_some_and(|pointee| {
+                        types.is_pointer(pointee)
+                            || types.int_info(pointee).is_some_and(|(bits, _)| bits > 8)
+                    })
+            })
 }
 
 /// Only the expansion root shares its caller lifetime; explicit nested blocks do not.

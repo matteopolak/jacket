@@ -46,6 +46,19 @@ detach_link :: (engine: *Engine) {
     engine.pool = null;
 }
 
+open_key :: (key: *s64) -> s32 #foreign libc "open_key";
+close_key :: (key: s64) -> s32 #foreign libc "close_key"; @FreesArgument
+
+// A foreign call that receives the variable's address may store a new handle there.
+reopen_key :: () {
+    key: s64;
+
+    open_key(*key);
+    close_key(key);
+    open_key(*key);
+    close_key(key);
+}
+
 // Frees the name and gives the field a new value, so a second call frees nothing.
 reset_holder :: (holder: *Holder) {
     free(holder.name);
