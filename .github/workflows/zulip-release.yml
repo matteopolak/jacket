@@ -1,23 +1,36 @@
 name: announce release on Zulip
-# One message per release: `released` fires once when a non-prerelease goes out,
-# unlike the repository webhook, which also sends created, published and edited.
+# One message per stable release. `released` fires once when a non-prerelease goes out; the
+# repository webhook would also send created, published and edited. A manual run previews a
+# past release in another channel (default `test`).
 on:
   release:
     types: [released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to post
+        required: true
+      channel:
+        description: Zulip channel
+        default: test
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   announce:
     runs-on: ubuntu-latest
     steps:
-      - name: Forward the release event to Zulip
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: tools/ci
+      - name: Post the release to Zulip
         env:
-          WEBHOOK: ${{ secrets.ZULIP_RELEASE_WEBHOOK }}
-          EVENT: ${{ toJSON(github.event) }}
-        run: |
-          printf '%s' "$EVENT" | curl --fail-with-body --silent --show-error \
-            --request POST "$WEBHOOK" \
-            --header 'Content-Type: application/json' \
-            --header 'X-GitHub-Event: release' \
-            --data-binary @-
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ZULIP_SITE: https://jacket.zulipchat.com
+          ZULIP_BOT_EMAIL: ${{ secrets.ZULIP_BOT_EMAIL }}
+          ZULIP_BOT_KEY: ${{ secrets.ZULIP_BOT_KEY }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          CHANNEL: ${{ inputs.channel || 'announcements' }}
+        run: python3 tools/ci/announce_release.py --tag "$TAG" --channel "$CHANNEL"

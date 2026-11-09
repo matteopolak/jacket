@@ -12,8 +12,11 @@ The default code-block language is `jai`. Zulip's code playgrounds for `jai` and
 
 ## Release announcements
 
-`.github/workflows/zulip-release.yml` runs on `release: released`, so a stable release posts once to `announcements` (topic "Releases"), and prereleases and drafts post nothing. It forwards the event to Zulip's GitHub endpoint for a bot named "GitHub". The endpoint URL, which contains the bot's key, is the repository secret `ZULIP_RELEASE_WEBHOOK`.
+`.github/workflows/zulip-release.yml` runs on `release: released`, so a stable release posts once to `announcements` (topic "Releases") and prereleases and drafts post nothing. `tools/ci/announce_release.py` reads the release with `gh api` and posts its notes (repository links rewritten to the tagged tree) and a collapsed "Downloads" list of every asset with its size. A repository webhook is not used: it can only filter on the whole `release` event, which also sends created, published and edited actions.
 
-To rotate the key, regenerate the bot's key in Zulip (Settings, Bots) and update the secret with `gh secret set ZULIP_RELEASE_WEBHOOK`. The URL is `https://jacket.zulipchat.com/api/v1/external/github?api_key=<key>&stream=announcements&topic=Releases`.
+Preview a past release without publishing anything: run the workflow by hand (Actions, "announce release on Zulip") with a tag; it posts to `test` by default. Locally, `GITHUB_REPOSITORY=matteopolak/jacket tools/ci/announce_release.py --tag v0.33.0 --dry-run` prints the message.
 
-A repository webhook is not used: it can only filter on the whole `release` event, which also sends created, published and edited actions.
+## Configuration
+
+- Repository secrets `ZULIP_BOT_EMAIL` and `ZULIP_BOT_KEY`: the Zulip bot "Releases" (a generic bot). Rotate the key in Zulip (Settings, Bots) and update the secret with `gh secret set ZULIP_BOT_KEY`.
+- The bot is a member of `announcements`' "who can post" group, next to administrators. Without that it cannot post there.
