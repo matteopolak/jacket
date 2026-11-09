@@ -157,6 +157,9 @@ pub enum Content {
         value_html: String,
         members_label: String,
         members: Vec<Definition>,
+        /// The definitions of a name that is written once per system, each under its systems;
+        /// then the declaration, value and members above are empty.
+        variants: Vec<VariantView>,
         see_also: Vec<Link>,
     },
     Guide {
@@ -198,6 +201,19 @@ pub struct Title {
     pub since: String,
     pub source_url: Option<String>,
     pub mono: bool,
+}
+
+/// One of the definitions of an item that differs by system.
+#[derive(Serialize)]
+pub struct VariantView {
+    pub id: String,
+    /// The systems it is for, in words.
+    pub label: String,
+    pub declaration_html: String,
+    pub value_html: String,
+    pub docs: Vec<DocSegment>,
+    pub members_label: String,
+    pub members: Vec<Definition>,
 }
 
 #[derive(Serialize)]

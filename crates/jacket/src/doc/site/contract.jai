@@ -148,7 +148,18 @@ Content_Item :: struct {
     value_html: string;
     members_label: string;
     members: [] Definition;
+    variants: [] Variant_View;
     see_also: [] Link;
+}
+
+Variant_View :: struct {
+    id: string;
+    label: string;
+    declaration_html: string;
+    value_html: string;
+    docs: [] Doc_Segment; @json(tag=kind,tags=html,example,code,group,compare)
+    members_label: string;
+    members: [] Definition;
 }
 
 Content_Guide :: struct {

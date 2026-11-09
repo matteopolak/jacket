@@ -130,6 +130,10 @@ pub struct Item {
     pub declaration: String,
     /// The declarations the type names in `declaration` stand for.
     pub decl_refs: Vec<TypeRef>,
+    /// The definitions of the name that differ from this one, one per branch of an `#if`, each
+    /// with the systems it is for in `platforms`; `defined_on` says the same of this one.
+    pub variants: Vec<Item>,
+    pub defined_on: Vec<String>,
 }
 
 /// A parameter of a module (`#module_parameters`).
@@ -373,6 +377,77 @@ fn identity(id: &str, root: &Path, stdlib: &Path) -> (String, String) {
     }
 }
 
+/// An item from its JSON, and the other definitions of its name inside it.
+fn item_of(i: &Value, stdlib: &Path) -> Item {
+    let overloads: Vec<Overload> = list(i, "overloads")
+        .iter()
+        .map(|o| Overload {
+            file: below(stdlib, &text(o, "file")),
+            line: number(o, "line"),
+            params: params(o, "params", stdlib),
+            returns: params(o, "returns", stdlib),
+            docs: text(o, "docs"),
+            docs_line: number(o, "docs_line"),
+            flags: list(o, "flags")
+                .iter()
+                .filter_map(|f| f.as_str().map(str::to_owned))
+                .collect(),
+        })
+        .collect();
+    Item {
+        name: text(i, "name"),
+        kind: Kind::parse(&text(i, "kind")),
+        file: below(stdlib, &text(i, "file")),
+        line: number(i, "line"),
+        docs: text(i, "docs"),
+        value: text(i, "value"),
+        scope: list(i, "scope")
+            .iter()
+            .filter_map(|n| n.as_str().map(str::to_owned))
+            .collect(),
+        refs: type_refs(i, stdlib),
+        binding: i.get("binding").and_then(Value::as_bool).unwrap_or(false),
+        overloads,
+        members: list(i, "members")
+            .iter()
+            .map(|m| Member {
+                name: text(m, "name"),
+                ty: text(m, "type"),
+                doc: text(m, "doc"),
+                refs: type_refs(m, stdlib),
+                line: m.get("line").and_then(Value::as_u64).map(|l| l as usize),
+            })
+            .collect(),
+        also: list(i, "also")
+            .iter()
+            .filter_map(|a| {
+                let a = a.as_array()?;
+                Some((
+                    below(stdlib, a.first()?.as_str()?),
+                    a.get(1)?.as_u64()? as usize,
+                ))
+            })
+            .collect(),
+        declaration: text(i, "declaration"),
+        decl_refs: type_refs_of(i, "decl_refs", stdlib),
+        group: String::new(),
+        platforms: list(i, "platforms")
+            .iter()
+            .filter_map(|p| p.as_str().map(str::to_owned))
+            .collect(),
+        since: String::new(),
+        experimental: i.get("experimental").and_then(Value::as_bool) == Some(true),
+        defined_on: list(i, "defined_on")
+            .iter()
+            .filter_map(|p| p.as_str().map(str::to_owned))
+            .collect(),
+        variants: list(i, "variants")
+            .iter()
+            .map(|v| item_of(v, stdlib))
+            .collect(),
+    }
+}
+
 /// The module `id` (a folder below `root`) from what `jaic -doc_model` printed. `stdlib` is the
 /// standard library folder, which names a module for links and imports whatever `root` is.
 pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module, String> {
@@ -381,65 +456,7 @@ pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module,
     let (private, items): (Vec<Flagged>, Vec<Flagged>) = list(&v, "items")
         .iter()
         .map(|i| {
-            let overloads: Vec<Overload> = list(i, "overloads")
-                .iter()
-                .map(|o| Overload {
-                    file: below(stdlib, &text(o, "file")),
-                    line: number(o, "line"),
-                    params: params(o, "params", stdlib),
-                    returns: params(o, "returns", stdlib),
-                    docs: text(o, "docs"),
-                    docs_line: number(o, "docs_line"),
-                    flags: list(o, "flags")
-                        .iter()
-                        .filter_map(|f| f.as_str().map(str::to_owned))
-                        .collect(),
-                })
-                .collect();
-            let item = Item {
-                name: text(i, "name"),
-                kind: Kind::parse(&text(i, "kind")),
-                file: below(stdlib, &text(i, "file")),
-                line: number(i, "line"),
-                docs: text(i, "docs"),
-                value: text(i, "value"),
-                scope: list(i, "scope")
-                    .iter()
-                    .filter_map(|n| n.as_str().map(str::to_owned))
-                    .collect(),
-                refs: type_refs(i, stdlib),
-                binding: i.get("binding").and_then(Value::as_bool).unwrap_or(false),
-                overloads,
-                members: list(i, "members")
-                    .iter()
-                    .map(|m| Member {
-                        name: text(m, "name"),
-                        ty: text(m, "type"),
-                        doc: text(m, "doc"),
-                        refs: type_refs(m, stdlib),
-                        line: m.get("line").and_then(Value::as_u64).map(|l| l as usize),
-                    })
-                    .collect(),
-                also: list(i, "also")
-                    .iter()
-                    .filter_map(|a| {
-                        let a = a.as_array()?;
-                        Some((
-                            below(stdlib, a.first()?.as_str()?),
-                            a.get(1)?.as_u64()? as usize,
-                        ))
-                    })
-                    .collect(),
-                declaration: text(i, "declaration"),
-                decl_refs: type_refs_of(i, "decl_refs", stdlib),
-                group: String::new(),
-                platforms: list(i, "platforms")
-                    .iter()
-                    .filter_map(|p| p.as_str().map(str::to_owned))
-                    .collect(),
-                since: String::new(),
-                experimental: i.get("experimental").and_then(Value::as_bool) == Some(true),
-            };
+            let item = item_of(i, stdlib);
             (
                 i.get("private").and_then(Value::as_bool) == Some(true),
                 item,
@@ -511,7 +528,7 @@ pub enum Support {
 const SYSTEMS: [&str; 6] = ["macOS", "Linux", "Windows", "Android", "iOS", "Wasm"];
 
 /// The badge for the compiler's name of a system (`MACOS`).
-fn system_name(os: &str) -> Option<&'static str> {
+pub fn system_name(os: &str) -> Option<&'static str> {
     Some(match os {
         "MACOS" => "macOS",
         "LINUX" => "Linux",

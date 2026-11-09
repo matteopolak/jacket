@@ -663,6 +663,65 @@ fn overloads_that_share_a_lead_lift_it_to_the_page() {
 }
 
 #[test]
+fn a_type_defined_once_per_system_shows_each_definition_under_its_systems() {
+    let struct_for = |field: &str, platforms: &[&str], docs: &str| Item {
+        name: "Watcher".into(),
+        kind: Kind::Struct,
+        docs: docs.into(),
+        declaration: format!("Watcher :: struct {{\n    {field}: int;\n}}"),
+        members: vec![Member {
+            name: field.into(),
+            ty: "int".into(),
+            line: Some(1),
+            ..Member::default()
+        }],
+        platforms: platforms.iter().map(|p| (*p).to_owned()).collect(),
+        defined_on: platforms.iter().map(|p| (*p).to_owned()).collect(),
+        ..Item::default()
+    };
+    let mut watcher = struct_for("stream", &["MACOS"], "Watches.");
+    watcher.variants = vec![struct_for(
+        "handle",
+        &["LINUX", "WINDOWS"],
+        "Watches elsewhere.",
+    )];
+    watcher.platforms.clear();
+    let site = Site::new(
+        vec![Module {
+            id: "Files".into(),
+            items: vec![watcher],
+            ..Module::default()
+        }],
+        Vec::new(),
+        "/".into(),
+        String::new(),
+        String::new(),
+        String::new(),
+        false,
+    );
+    let page = &module(&site, 0).items[0];
+    let Content::Item {
+        declaration_html,
+        variants,
+        summary_html,
+        ..
+    } = &page.content
+    else {
+        panic!()
+    };
+    assert!(declaration_html.is_empty());
+    assert!(summary_html.contains("Watches."), "{summary_html}");
+    let labels: Vec<_> = variants.iter().map(|v| v.label.as_str()).collect();
+    assert_eq!(labels, ["macOS", "Linux and Windows"]);
+    assert!(variants[0].declaration_html.contains("stream"));
+    assert!(variants[1].declaration_html.contains("handle"));
+    assert!(variants[0].docs.is_empty() && variants[1].docs.len() == 1);
+    // Both define a field per line, so their anchors must not collide.
+    assert!(variants[0].declaration_html.contains("id=\"d1-m-stream\""));
+    assert!(variants[1].declaration_html.contains("id=\"d2-m-handle\""));
+}
+
+#[test]
 fn a_lone_overload_gives_the_page_its_lead_and_keeps_the_rest() {
     let (summary, cards) = item_parts(&procedure_site(&["Goes one way.\n\nAlso stops."]));
     assert!(summary.contains("Goes one way."), "{summary}");

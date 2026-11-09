@@ -6,7 +6,7 @@ use super::super::site::{Site, item_line, signature_html, signature_line_html};
 use super::{
     Badge, Category, Content, Crumb, Definition, DocSegment, Image, Link, ModuleView, NavCategory,
     NavGroup, NavLink, Outline, OutlineItem, OverloadView, PageHead, PageView, Platform, Row,
-    RowGroup, Section, Sidebar, SiteView, Title,
+    RowGroup, Section, Sidebar, SiteView, Title, VariantView,
 };
 
 pub(super) fn blocks(site: &Site, md: &str, from: &str) -> Vec<Segment> {
@@ -430,7 +430,7 @@ fn first_sentence(doc: &str) -> String {
 /// A struct, union or enum as written with each described field's doc as comment lines above
 /// it, and each field's line anchored as `m-<name>`; and which members still need a row of the
 /// table, because their description does not fit in a comment or their line was not found.
-fn commented_declaration(site: &Site, mi: usize, item: &Item) -> (String, Vec<bool>) {
+fn commented_declaration(site: &Site, mi: usize, item: &Item, anchor: &str) -> (String, Vec<bool>) {
     let html = declaration(site, mi, item);
     if html.is_empty() {
         return (html, vec![true; item.members.len()]);
@@ -484,10 +484,10 @@ fn commented_declaration(site: &Site, mi: usize, item: &Item) -> (String, Vec<bo
             .collect();
         let extra: String = names[1..]
             .iter()
-            .map(|n| format!("<span id=\"m-{n}\"></span>"))
+            .map(|n| format!("<span id=\"{anchor}{n}\"></span>"))
             .collect();
         out.push_str(&format!(
-            "<span class=\"fl\" style=\"--i:{indent}\" id=\"m-{}\">{extra}{row}</span>",
+            "<span class=\"fl\" style=\"--i:{indent}\" id=\"{anchor}{}\">{extra}{row}</span>",
             names[0]
         ));
     }
@@ -941,6 +941,92 @@ fn see_also(site: &Site, mi: usize, item: &Item, same: &[&Item], at: usize) -> V
         .collect()
 }
 
+/// The heading of the table of a type's members.
+fn members_label(item: &Item) -> String {
+    if matches!(item.kind, Kind::Enum | Kind::EnumFlags) {
+        "Members"
+    } else {
+        "Fields"
+    }
+    .to_owned()
+}
+
+/// A type's declaration with its fields' docs written into it, and the rows of the members the
+/// declaration does not describe; `anchor` starts the ids of both.
+fn written(site: &Site, mi: usize, item: &Item, anchor: &str) -> (String, Vec<Definition>) {
+    let (declaration_html, table) = commented_declaration(site, mi, item, anchor);
+    // With the declaration shown, the table is for the fields it could not describe.
+    let member_defs = if item.kind == Kind::Procedure {
+        Vec::new()
+    } else {
+        let lines = item.member_lines();
+        let mut defs = members(site, mi, item, anchor, &|k| table[k]);
+        let shown = (0..item.members.len()).filter(|&k| table[k]);
+        for (def, k) in defs.iter_mut().zip(shown) {
+            // Its anchor is on its line in the declaration.
+            if lines[k].is_some() && !declaration_html.is_empty() {
+                def.id = None;
+            }
+        }
+        defs
+    };
+    (declaration_html, member_defs)
+}
+
+/// The systems of `platforms` in words: `macOS`, `Linux and Windows`.
+fn system_list(platforms: &[String]) -> String {
+    if platforms.is_empty() {
+        return "Every system".into();
+    }
+    let names: Vec<&str> = platforms
+        .iter()
+        .map(|p| super::super::model::system_name(p).unwrap_or(p.as_str()))
+        .collect();
+    match names.split_last() {
+        Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+        _ => names.join(""),
+    }
+}
+
+/// Each definition of an item that differs by system, the item's own first, under the systems it
+/// is for; empty for an item with one definition. Anchors start with `d<n>-`.
+fn variant_views(site: &Site, mi: usize, item: &Item) -> Vec<VariantView> {
+    if item.variants.is_empty() {
+        return Vec::new();
+    }
+    let m = &site.modules[mi];
+    let from = format!("{}.{}", m.id, item.name);
+    let all: Vec<(&Item, &[String])> = std::iter::once((item, item.defined_on.as_slice()))
+        .chain(item.variants.iter().map(|v| (v, v.platforms.as_slice())))
+        .collect();
+    all.iter()
+        .enumerate()
+        .map(|(n, (d, platforms))| {
+            let (declaration_html, member_defs) = written(site, mi, d, &format!("d{}-m-", n + 1));
+            let (file, line) = docs_place(d);
+            // The first definition's docs are the page's own.
+            let docs = if n == 0 {
+                Vec::new()
+            } else {
+                segments(site, m, file, line, &blocks_at(site, &d.docs, &from, 1))
+            };
+            VariantView {
+                id: format!("d{}", n + 1),
+                label: system_list(platforms),
+                declaration_html,
+                value_html: if d.kind != Kind::Procedure && !d.value.is_empty() {
+                    site.type_html(&d.value, &d.refs, mi)
+                } else {
+                    String::new()
+                },
+                docs,
+                members_label: members_label(d),
+                members: member_defs,
+            }
+        })
+        .collect()
+}
+
 fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usize) -> PageView {
     let m = &site.modules[mi];
     let from = format!("{}.{}", m.id, item.name);
@@ -988,28 +1074,21 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
             }
         }
     }
-    let (declaration_html, table) = commented_declaration(site, mi, item);
-    // With the declaration shown, the table is for the fields it could not describe.
-    let member_defs = if item.kind == Kind::Procedure {
-        Vec::new()
-    } else {
-        let lines = item.member_lines();
-        let mut defs = members(site, mi, item, "m-", &|k| table[k]);
-        let shown = (0..item.members.len()).filter(|&k| table[k]);
-        for (def, k) in defs.iter_mut().zip(shown) {
-            // Its anchor is on its line in the declaration.
-            if lines[k].is_some() && !declaration_html.is_empty() {
-                def.id = None;
-            }
-        }
-        defs
-    };
-    let members_label = if matches!(item.kind, Kind::Enum | Kind::EnumFlags) {
-        "Members"
-    } else {
-        "Fields"
+    // A name defined once per system shows each definition under the systems it is for, and
+    // the page's own declaration and fields stay empty.
+    let variants = variant_views(site, mi, item);
+    for v in &variants {
+        anchors.push(Link {
+            href: format!("#{}", v.id),
+            label: v.label.clone(),
+        });
     }
-    .to_owned();
+    let (declaration_html, member_defs) = if variants.is_empty() {
+        written(site, mi, item, "m-")
+    } else {
+        (String::new(), Vec::new())
+    };
+    let members_label = members_label(item);
     if !declaration_html.is_empty() {
         anchors.push(Link {
             href: "#declaration".into(),
@@ -1091,13 +1170,17 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
             overloads: overload_views,
             private: false,
             declaration_html,
-            value_html: if item.kind != Kind::Procedure && !item.value.is_empty() {
+            value_html: if variants.is_empty()
+                && item.kind != Kind::Procedure
+                && !item.value.is_empty()
+            {
                 site.type_html(&item.value, &item.refs, mi)
             } else {
                 String::new()
             },
             members_label,
             members: member_defs,
+            variants,
             see_also: also,
         },
     }

@@ -125,6 +125,8 @@ mod tests {
                     refs: Vec::new(),
                     declaration: String::new(),
                     decl_refs: Vec::new(),
+                    defined_on: Vec::new(),
+                    variants: Vec::new(),
                 })
                 .collect(),
             category: None,

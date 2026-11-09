@@ -10,7 +10,7 @@ Main :: (out: *Out, page: *Page(Content_Item)) {
 {end}{Segments(c.docs)}{for o: c.overloads}{Overload(*o)}{end}{if c.members.count}<section id="members">
 <h2>{cast(Html) c.members_label}</h2>
 {Definitions(c.members)}</section>
-{end}{if c.see_also.count}<section id="see" class="see">
+{end}{for v: c.variants}{Variant_Section(*v)}{end}{if c.see_also.count}<section id="see" class="see">
 <h2>See also</h2>
 <div class="pills">{for p: c.see_also}<a class="pill link mono" href="{esc(p.href)}">{esc(p.label)}</a>{end}</div>
 </section>
@@ -25,6 +25,18 @@ Overload :: (out: *Out, o: *Overload_View) {
 {if o.label}<h2 class="overload-head"><a href="#{esc(o.id)}">{esc(o.label.*)}</a></h2>
 {else}<h2 class="sr">Signature</h2>{end}<pre class="sig"><code>{cast(Html) o.signature_html}</code></pre>
 {Segments(o.prose)}{if o.notes.count}{Definitions(o.notes)}{end}{Segments(o.examples)}</section>
+HTML
+    );
+}
+
+Variant_Section :: (out: *Out, v: *Variant_View) {
+    html(out, #string HTML
+<section id="{esc(v.id)}" class="overload">
+<h2 class="overload-head"><a href="#{esc(v.id)}">{esc(v.label)}</a></h2>
+{if v.declaration_html.count}<pre class="sig decl"><code>{cast(Html) v.declaration_html}</code></pre>
+{end}{if v.value_html.count}<pre class="sig"><code>{cast(Html) v.value_html}</code></pre>
+{end}{Segments(v.docs)}{if v.members.count}<h3>{cast(Html) v.members_label}</h3>
+{Definitions(v.members)}{end}</section>
 HTML
     );
 }

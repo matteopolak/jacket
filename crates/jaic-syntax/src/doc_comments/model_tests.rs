@@ -810,3 +810,38 @@ fn declarations_in_exclusive_branches_are_one_procedure() {
     assert_eq!(count("differs"), 2);
     assert_eq!(count("real"), 2);
 }
+
+#[test]
+fn a_type_defined_differently_in_each_branch_keeps_every_definition() {
+    let dir = library(
+        "branch-definitions",
+        &[(
+            "module.jai",
+            "#if OS == .MACOS {\n    // Mac watcher.\n    Watcher :: struct {\n        stream: *void;\n    }\n} else {\n    // Other watcher.\n    Watcher :: struct {\n        handle: s32;\n    }\n}\n#if OS == .WINDOWS {\n    Same :: struct { a: int; }\n} else {\n    Same :: struct { a: int; }\n}\n",
+        )],
+    );
+    let model = module(&dir, &dir);
+    let watcher = model.items.iter().find(|i| i.name == "Watcher").unwrap();
+    assert_eq!(watcher.members[0].name, "stream");
+    assert_eq!(watcher.defined_on, ["MACOS"]);
+    assert!(watcher.platforms.is_empty());
+    let [other] = &watcher.variants[..] else {
+        panic!("{:?}", watcher.variants)
+    };
+    assert_eq!(other.members[0].name, "handle");
+    assert_eq!(other.docs, "Other watcher.");
+    assert_eq!(
+        other.platforms,
+        ["LINUX", "WINDOWS", "ANDROID", "IOS", "WASM"]
+    );
+    assert!(other.declaration.contains("handle: s32"));
+    // Branches that say the same thing are one definition.
+    let same = model.items.iter().find(|i| i.name == "Same").unwrap();
+    assert!(same.variants.is_empty());
+    let json = to_json(&model, &|_| None);
+    assert!(
+        json.contains("\"variants\":[{\"name\":\"Watcher\""),
+        "{json}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
