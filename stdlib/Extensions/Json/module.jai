@@ -510,6 +510,7 @@ json_decode :: (r: *Json_Reader, out: *$T) -> bool {
 #load "writer.jai";
 #load "reader.jai";
 #load "index.jai";
+#load "../../internal/derive-notes/notes.jai";
 #load "generate.jai";
 #load "variant.jai";
 #load "query.jai";

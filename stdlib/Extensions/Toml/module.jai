@@ -398,6 +398,7 @@ toml_encode_inline :: (w: *Toml_Writer, value: *$T) {
 #import "String";
 #import "Compiler";
 #load "build.jai";
+#load "../../internal/derive-notes/notes.jai";
 #load "generate.jai";
 #load "decode.jai";
 #load "key-storage.jai";
