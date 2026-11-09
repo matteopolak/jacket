@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- A constant read from `#run` memory no longer embeds host addresses: a `*void` or a union member pointing at compile-time heap memory is now null, so identical builds produce identical output.
+
 ## [0.34.0] - 2026-11-09
 
 ### New

@@ -42,6 +42,7 @@ mod epochs;
 mod expr;
 mod flow;
 mod format_check;
+mod freeze;
 mod hidden_imports;
 mod host_import;
 mod host_run;
