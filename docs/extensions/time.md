@@ -111,6 +111,32 @@ conversion to Calendar_Time rejects submillisecond precision rather than silentl
 losing it. Calendar interop translates the zero-based month/day fields; a civil
 value carries no implicit local zone.
 
+## Compared with the community libraries
+
+[rluba/jai-date](https://github.com/rluba/jai-date) is one small file of civil dates: a `Date` of year, month and day, with add, compare, ISO and German text, and a leap-year test. It needs the `uniform` regex module for parsing.
+
+| Feature | Time | jai-date |
+| --- | --- | --- |
+| Value types | `Date`, `Time_Of_Day`, `Date_Time`, `Timestamp`, `Zoned`, `Span`, `Signed_Duration` | `Date` only |
+| Instants | `Timestamp`, nanoseconds, -9999 to 9999 | none; `date_from_unix_timestamp` keeps only the day |
+| Time zones | UTC, fixed offsets, TZif files, POSIX rules, never implicit (`time_zone_system` opts in to the machine zone) | UTC or the machine's zone, through libc `localtime_r` (POSIX only) |
+| DST gap and fold | `COMPATIBLE`, `EARLIER`, `LATER`, `REJECT` | no, no zoned times |
+| Add to a date | days, weeks, months, years, with checked range | days, months, years; month end clamps; `int` amount wraps silently into `s16` year |
+| Differences | `until`/`since` with largest and smallest unit | no, compare only (`compare` returns a subtraction, not -1/0/1) |
+| Spans | ten units, calendar-aware, relative conversions | none |
+| Rounding | `Rounding` modes and increments | none |
+| Parsing | ISO dates, times, RFC 3339, RFC 9557, ISO durations, patterns | `YYYY-MM-DD` prefix by regex, `DD.MM.YYYY`; trailing text is ignored |
+| Formatting | canonical ISO, 20 pattern directives, English names | ISO and German `DD.MM.YYYY` |
+| Weeks | ISO week number and year, weekday, nth weekday of month | none |
+| Leap years and range | `is_leap_year`, `days_in_month`; years -9999 to 9999, checked | `is_leap_year`; `s16` year, unchecked |
+| Errors | `Time_Error` with a message and byte offset | `bool`; invalid dates assert in some paths |
+| Json | `time_json` field handler | none |
+| Basic interop | `Apollo_Time`, `Calendar_Time` | `to_apollo_time`, current date from `Calendar_Time` |
+| Allocation | calculations allocate nothing | parsing builds a compiled regex once; `string_from_date` allocates |
+| End of month or year | no helper; use `days_in_month` | `end_of` |
+
+Time is a full time library; jai-date is a date adder. The differences that matter are explicit zones with DST handling, exact instants, spans, and parse errors that say where. jai-date's only extra is `end_of`, which Time doesn't offer as one call, and German dates, which a pattern covers (`%d.%m.%Y`).
+
 ## Configuration and dependencies
 
 `Time_Options` bounds text bytes, TZif bytes, transitions, local-time types and
