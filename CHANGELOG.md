@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.34.0] - 2026-11-09
+
 ### New
 
 - `Extensions/Environment`: `output_directory` and `output_path` give the directory the repository's tools write generated test data to (`JACKET_OUTPUT_DIR`, else `target/`). The `File_Watcher`, `pl_mpeg`, `Zip_File_Directory`, `executable_formats` and `Machine_X64` tests read it there instead of always in `target/`.
@@ -17,6 +19,20 @@
 - `Extensions/Json`: `from_json(T, *tree)` decodes a `Json_Value` directly, and `to_json_value(value)` encodes into one.
 - `Extensions/Gltf`: typed structs for KHR_materials_sheen, specular, volume, iridescence, anisotropy and unlit, and `gltf_set_extension` / `gltf_use_extension` to write an edited typed extension back with `gltf_write`.
 - `Extensions/Gltf`: `gltf_write` rejects extension objects that `extensionsUsed` does not list, since the output would not load.
+- `jacket doc` documents what a module's public top-level `#insert` declares, from the text it produces with the module's default parameters. Those items carry a "generated" tag on pages, module rows and in search, and `--check` fails when one has no docs. An `#insert` inside generated text is followed too, and a long expansion is read in full.
+- `Extensions/Csv`: streaming CSV reader and writer with limits, error positions and typed rows from structs (`@csv(name=...)`). The row type belongs to the reader (`csv_reader(User, input, options)`, `csv_next(*r)` returns `User, bool, Csv_Error`, `for row: r` iterates and leaves the outcome in `r.error`), and the header is matched to the struct once per reader. `borrow = true` makes typed rows' strings slices of the input when the field needed no unquoting.
+- `Extensions/Time`: dates, clock readings and exact instants, IANA zones from TZif and POSIX rules with DST gap and fold handling, calendar-aware spans with rounding, ISO and pattern text, and Json and `Basic` interop.
+- `Extensions/Toml` reads and writes TOML 1.1, including table and array-of-table headers, and decodes structs directly (fixed-size arrays and `[[x]]` tables into slices too); `jaifmt` uses it to parse configuration.
+- `Extensions/Grpc` adds clients and servers over HTTP/2, with generated Protobuf service types.
+- `Extensions/Gltf` loads, validates and writes glTF and GLB assets.
+- `Extensions/Archive` (ZIP and TAR), `Unicode_Text` (normalization and segmentation), `Uuid` (RFC 9562) and `Vt` (terminal sequence parsing) are new. `WebSocket` runs connections on fibers, `Deflate` handles sync-flushed messages and `Http` routes protocol upgrades.
+- `Image` reads a PNG or JPEG header's format, size and channels without decoding.
+- `jailint`'s lifetime checks infer more from bodies: a callee that releases an argument's contents, keeps one parameter in another's field, or stores a stack address, string or slice where it outlives the call. Findings point at the allocation behind the pointer.
+- Foreign procedures say they release, exit or write output with notes, which `jailint` reads instead of matching names. Generated bindings turn header documentation into Markdown doc comments.
+- A new hand-drawn logo and icon for the docs site, the VS Code extension and `.jai` files. The docs site takes its accent from the logo. `jacket doc` takes `[doc] icon` (or `--icon`) for a browser-tab icon that differs from the logo, and reads `oklch()` category colours.
+- `jacket doc` publishes the files in `[doc] files` at the site root. Search opens in a dialog with an icon for each kind of result, on phones the module list slides up from a header button, and lint rule pages show each example with its finding and fix.
+- The language server reports indexing progress and registers file watchers with clients that allow it.
+- The stdlib benchmarks run with `jacket bench`.
 
 ### Improved
 
@@ -27,6 +43,10 @@
 - `gltf_extension` decodes the Json tree directly instead of writing it out and parsing it again, about 2.5 times faster; its error offset is now 0.
 - `Extensions/Csv` reads chunked sources about 2.2 times faster and `trim` input about 1.7 times faster: both now go through the 64-byte block scanner that slices use, and a record that crosses a chunk boundary is scanned once it is whole. A reader no longer keeps a position per field; a typed error finds its line and column again from the start of the record, with the same results.
 - Decoding a parsed `Json_Value` with `from_json` keeps its nesting frames inline for the first 16 levels and allocates for them only in deeper documents.
+- Native builds on Linux give each `module.jai` its own debug line entry, so `jacket test --coverage` counts the lines of modules whose code is in `module.jai` (`Uuid` and `Vt` read 0%), and debuggers show the right file for them.
+- Fix previews show only the lines a fix changes.
+- Fewer false lifetime findings on members of freed structs, cast struct pointers and fields stored in other blocks.
+- `Postgres` `fetch_all` and `copy_in`, `Variant` `==` and `free_variant`, and enum names in `Protobuf` JSON run code written for each type when the program compiles, not a walk over type information per value. `Variant ==` is about 5 times faster on structs and `copy_in` allocates far less. A struct with an unnamed member that owns strings, arrays or pointers is now a compile error in `fetch_all`, `copy_in` and `Variant`'s `free_variant` and `==`.
 
 ### Changed
 
@@ -52,35 +72,6 @@
 - `jailint` lints a test file inside a library folder that imports a module with program parameters (`#import "Basic"()(MEMORY_DEBUGGER = true)`) as a program, like `jacket test`, instead of failing with "PROGRAM parameters may only be supplied by the main program".
 - `jailint` finds the modules beside a module that lives in a `modules` folder inside a library, as the compiler does for a program next to that folder, instead of reporting `module not found`.
 - `jailint` compiles a file whose `// test:` header says `only(.WINDOWS)`, `only(.X64)` or another system for that system, so a directory scan on another host no longer reports it as incomplete.
-
-## [0.34.0] - 2026-11-09
-
-### New
-
-- `jacket doc` documents what a module's public top-level `#insert` declares, from the text it produces with the module's default parameters. Those items carry a "generated" tag on pages, module rows and in search, and `--check` fails when one has no docs. An `#insert` inside generated text is followed too, and a long expansion is read in full.
-- `Extensions/Csv`: streaming CSV reader and writer with limits, error positions and typed rows from structs (`@csv(name=...)`). The row type belongs to the reader (`csv_reader(User, input, options)`, `csv_next(*r)` returns `User, bool, Csv_Error`, `for row: r` iterates and leaves the outcome in `r.error`), and the header is matched to the struct once per reader. `borrow = true` makes typed rows' strings slices of the input when the field needed no unquoting.
-- `Extensions/Time`: dates, clock readings and exact instants, IANA zones from TZif and POSIX rules with DST gap and fold handling, calendar-aware spans with rounding, ISO and pattern text, and Json and `Basic` interop.
-- `Extensions/Toml` reads and writes TOML 1.1, including table and array-of-table headers, and decodes structs directly (fixed-size arrays and `[[x]]` tables into slices too); `jaifmt` uses it to parse configuration.
-- `Extensions/Grpc` adds clients and servers over HTTP/2, with generated Protobuf service types.
-- `Extensions/Gltf` loads, validates and writes glTF and GLB assets.
-- `Extensions/Archive` (ZIP and TAR), `Unicode_Text` (normalization and segmentation), `Uuid` (RFC 9562) and `Vt` (terminal sequence parsing) are new. `WebSocket` runs connections on fibers, `Deflate` handles sync-flushed messages and `Http` routes protocol upgrades.
-- `Image` reads a PNG or JPEG header's format, size and channels without decoding.
-- `jailint`'s lifetime checks infer more from bodies: a callee that releases an argument's contents, keeps one parameter in another's field, or stores a stack address, string or slice where it outlives the call. Findings point at the allocation behind the pointer.
-- Foreign procedures say they release, exit or write output with notes, which `jailint` reads instead of matching names. Generated bindings turn header documentation into Markdown doc comments.
-- A new hand-drawn logo and icon for the docs site, the VS Code extension and `.jai` files. The docs site takes its accent from the logo. `jacket doc` takes `[doc] icon` (or `--icon`) for a browser-tab icon that differs from the logo, and reads `oklch()` category colours.
-- `jacket doc` publishes the files in `[doc] files` at the site root. Search opens in a dialog with an icon for each kind of result, on phones the module list slides up from a header button, and lint rule pages show each example with its finding and fix.
-- The language server reports indexing progress and registers file watchers with clients that allow it.
-- The stdlib benchmarks run with `jacket bench`.
-
-### Improved
-
-- Native builds on Linux give each `module.jai` its own debug line entry, so `jacket test --coverage` counts the lines of modules whose code is in `module.jai` (`Uuid` and `Vt` read 0%), and debuggers show the right file for them.
-- Fix previews show only the lines a fix changes.
-- Fewer false lifetime findings on members of freed structs, cast struct pointers and fields stored in other blocks.
-- `Postgres` `fetch_all` and `copy_in`, `Variant` `==` and `free_variant`, and enum names in `Protobuf` JSON run code written for each type when the program compiles, not a walk over type information per value. `Variant ==` is about 5 times faster on structs and `copy_in` allocates far less. A struct with an unnamed member that owns strings, arrays or pointers is now a compile error in `fetch_all`, `copy_in` and `Variant`'s `free_variant` and `==`.
-
-### Fixed
-
 - Doc site search lists a module first when the query is its name (`time` finds the Time module before `Postgres.Time`), and ranks a whole word of a name (`time_of_day`) above names that only share its letters (`timeval32`).
 - Doc site sidebar rows no longer jump when you move to another page with a long sidebar open. The outline on the right marks its guide line in the accent colour beside the items on screen, and the mark grows and shrinks as you scroll; the left sidebar marks the open page's row the same way.
 - The language server no longer reports an error on a macro whose `#insert #run` body is called with `#caller_code`, and no longer reports a returned local address in a procedure only `#run` calls.
