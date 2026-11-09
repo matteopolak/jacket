@@ -83,9 +83,8 @@ JSON and map integration. V1/v6/v8 generation is outside this module's scope.
 ```sh
 jacket test --path stdlib/Extensions/Uuid
 jacket test --path stdlib/Extensions/Uuid --interp
-jailint -D warnings stdlib/Extensions/Uuid/module.jai stdlib/Extensions/Uuid/tests/*.jai stdlib/Extensions/Uuid/bench/bench.jai
-jaic -O2 stdlib/Extensions/Uuid/bench/bench.jai -exe /tmp/uuid-bench
-/tmp/uuid-bench
+jailint -D warnings stdlib/Extensions/Uuid/module.jai stdlib/Extensions/Uuid/tests/*.jai stdlib/Extensions/Uuid/benches/bench.jai
+jacket bench --path stdlib/Extensions/Uuid
 python3 stdlib/Extensions/Uuid/bench/reference.py
 ```
 
